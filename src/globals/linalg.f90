@@ -13,8 +13,14 @@
 
 
 !===================================================================================================================================
-!> Linear Algebra wrapper routines for LAPACK. 
-!
+!>
+!!# Module **Linear Algebra**
+!!
+!! Provides the linear algebra wrapper routines using LAPACK.
+!!
+!!- matrix inverse
+!!- solve linear system 
+!!
 !===================================================================================================================================
 MODULE MOD_LinAlg
 
@@ -25,18 +31,19 @@ PUBLIC
 
 CONTAINS
 
-!==================================================================================================================================
+!===================================================================================================================================
 !> Computes matrix inverse using LAPACK
-!> Input matrix should be a square matrix
-!==================================================================================================================================
+!! Input matrix should be a square matrix
+!!
+!===================================================================================================================================
 FUNCTION getInv(A) RESULT(Ainv)
 ! MODULES
 IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-REAL(wp),INTENT(IN)  :: A(:,:)                      !< input matrix
-REAL(wp)             :: Ainv(SIZE(A,1),SIZE(A,2))   !< result: inverse of A
-!----------------------------------------------------------------------------------------------------------------------------------
+REAL(wp),INTENT(IN)  :: A(:,:)                      !! input matrix
+REAL(wp)             :: Ainv(SIZE(A,1),SIZE(A,2))   !! result: inverse of A
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! External procedures defined in LAPACK
 EXTERNAL DGETRF
 EXTERNAL DGETRI
@@ -44,7 +51,7 @@ EXTERNAL DGETRI
 REAL(wp):: work(SIZE(A,1))  ! work array for LAPACK
 INTEGER :: ipiv(SIZE(A,1))  ! pivot indices
 INTEGER :: n,info
-!==================================================================================================================================
+!===================================================================================================================================
 ! Store A in Ainv to prevent it from being overwritten by LAPACK
 Ainv = A
 n = size(A,1)
@@ -69,26 +76,26 @@ END FUNCTION getInv
 
 !===================================================================================================================================
 !> Solve  linear system of dimension dims and multiple RHS
+!!
 !===================================================================================================================================
 FUNCTION Solve(dimA,A,nRHS,RHS) RESULT(X)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER ,INTENT(IN) :: dimA           !< dimention of matrix A
-REAL(wp),INTENT(IN) :: A(dimA, dimA)  !< matrix
-INTEGER ,INTENT(IN) :: nRHS           !< number of RHS
-REAL(wp),INTENT(IN) :: RHS(dimA*nRHS) ! sorting: (dimA,nRHS)
+INTEGER ,INTENT(IN) :: dimA           !! dimention of matrix A
+REAL(wp),INTENT(IN) :: A(dimA, dimA)  !! matrix
+INTEGER ,INTENT(IN) :: nRHS           !! number of RHS
+REAL(wp),INTENT(IN) :: RHS(dimA*nRHS) !! RHS, sorting: (dimA,nRHS)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)           :: X(dimA*nRHS)
+REAL(wp)           :: X(dimA*nRHS)    !! result: solution of A X=RHS
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 ! External procedures defined in LAPACK
 EXTERNAL DGETRF
 EXTERNAL DGETRS
 ! LOCAL VARIABLES
-REAL(wp)    :: work(SIZE(A,1))  ! work array for LAPACK
 REAL(wp)    :: Atmp(dimA, dimA)
 INTEGER     :: ipiv(SIZE(A,1))  ! pivot indices
 INTEGER     :: n,info

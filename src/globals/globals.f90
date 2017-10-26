@@ -13,7 +13,11 @@
 
 
 !===================================================================================================================================
-!> Here globally used variables /functions are defined 
+!>
+!!# Module **Globals**
+!!
+!! Here globally used variables /functions are defined 
+!!
 !===================================================================================================================================
 MODULE MOD_Globals
 
@@ -23,13 +27,13 @@ PUBLIC
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Select here the working precision wp
-!INTEGER, PARAMETER :: wp = selected_real_kind(6,35)   !< single precision
-INTEGER, PARAMETER :: wp = selected_real_kind(15,307)  !< double precision
-!INTEGER, PARAMETER :: wp = selected_real_kind(33,307) !< quadruple precision
+!INTEGER, PARAMETER :: wp = selected_real_kind(6,35)   !! single precision
+INTEGER, PARAMETER :: wp = selected_real_kind(15,307)  !! double precision
+!INTEGER, PARAMETER :: wp = selected_real_kind(33,307) !! quadruple precision
 !-----------------------------------------------------------------------------------------------------------------------------------
-CHARACTER(LEN=20) :: fmt_sep ='(100("="))'              !< formatting of separator line: WRITE(*,fmt_sep)
-REAL(wp),PARAMETER  :: Pi   =ACOS(-1.0_wp) !< pi parameter
-REAL(wp),PARAMETER  :: TwoPi=2.0_wp*Pi
+CHARACTER(LEN=20) :: fmt_sep ='(100("="))'             !! formatting of separator line: WRITE(*,fmt_sep)
+REAL(wp),PARAMETER  :: Pi   =ACOS(-1.0_wp)             !! pi parameter
+REAL(wp),PARAMETER  :: TwoPi=2.0_wp*Pi                 !! 2*pi parameter
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -53,14 +57,15 @@ CONTAINS
 
 !===================================================================================================================================
 !> normalizes a nDim vector with respect to the eucledian norm
+!!
 !===================================================================================================================================
 PURE FUNCTION NORMALIZE(v1,nVal)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,INTENT(IN)  :: nVal     !< vector size
-REAL(wp),INTENT(IN)     :: v1(nVal) !< vector
+INTEGER,INTENT(IN)  :: nVal     !! vector size
+REAL(wp),INTENT(IN)     :: v1(nVal) !! vector
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp)            :: normalize(nVal) ! ? 
@@ -73,17 +78,18 @@ END FUNCTION NORMALIZE
 
 !===================================================================================================================================
 !> computes the cross product of to 3 dimensional vectors: cross=v1 x v2
+!!
 !===================================================================================================================================
 PURE FUNCTION CROSS(v1,v2)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL(wp),INTENT(IN) :: v1(3)    ! ? 
-REAL(wp),INTENT(IN) :: v2(3)    ! ?
+REAL(wp),INTENT(IN) :: v1(3) !! first input vector 
+REAL(wp),INTENT(IN) :: v2(3) !! second input vector  
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)            :: cross(3) ! ?
+REAL(wp)            :: cross(3)  !! result v1 x v2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 !===================================================================================================================================
@@ -93,16 +99,17 @@ END FUNCTION CROSS
 
 !===================================================================================================================================
 !> compute determinant of 3x3 matrix
+!!
 !===================================================================================================================================
 FUNCTION getDet3(Mat)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL(wp),INTENT(IN)  :: Mat(3,3) !< input matrix
+REAL(wp),INTENT(IN)  :: Mat(3,3) !! input matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)             :: getDet3 !< determinant of the input matrix
+REAL(wp)             :: getDet3 !! determinant of the input matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -114,17 +121,18 @@ END FUNCTION getDet3
 
 !===================================================================================================================================
 !> compute inverse of 3x3 matrix, needs sDet=1/det(Mat)
+!!
 !===================================================================================================================================
 FUNCTION getInv3(Mat,sDet_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL(wp),INTENT(IN)             :: Mat(3,3) ! input matrix
-REAL(wp),INTENT(IN),OPTIONAL    :: sDet_in  ! determinant of input matrix (otherwise computed here)
+REAL(wp),INTENT(IN)             :: Mat(3,3) !! input matrix
+REAL(wp),INTENT(IN),OPTIONAL    :: sDet_in  !! determinant of input matrix (otherwise computed here)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)             :: getInv3(3,3) !< inverse matrix
+REAL(wp)             :: getInv3(3,3) !! inverse matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL(wp)             :: sDet 
