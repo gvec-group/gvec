@@ -12,6 +12,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
+#include "defines.h"
 
 !===================================================================================================================================
 !>
@@ -27,12 +28,16 @@ USE MOD_Globals, ONLY:wp
 IMPLICIT NONE
 PUBLIC
 
-INTERFACE CCint_Init
-  MODULE PROCEDURE CCint_Init 
+INTERFACE InitCCint
+  MODULE PROCEDURE InitCCint
 END INTERFACE
 
 INTERFACE CCint 
   MODULE PROCEDURE CCint 
+END INTERFACE
+
+INTERFACE FinalizeCCint 
+  MODULE PROCEDURE FinalizeCCint  
 END INTERFACE
 
 ABSTRACT INTERFACE 
@@ -56,7 +61,7 @@ CONTAINS
 !! do a nested integration using clenshaw curtis recursive quadrature
 !!
 !===================================================================================================================================
-SUBROUTINE CCint_Init()
+SUBROUTINE InitCCint()
 ! MODULES
 USE MOD_Globals
 USE MOD_Basis,     ONLY: ClenshawCurtisNodesAndWeights
@@ -153,7 +158,7 @@ DEALLOCATE(CC)
 CALL CCintTest()
 
 WRITE(UNIT_stdOut,'(A)')'  DONE.'
-END SUBROUTINE CCInt_Init
+END SUBROUTINE InitCCInt
 
 
 FUNCTION CCint(tol,FINT,converged) RESULT(res)
@@ -246,5 +251,25 @@ CONTAINS
   END FUNCTION FI
 
 END SUBROUTINE CCIntTest
+
+
+!===================================================================================================================================
+!> Finalize Clenshaw-curtis module
+!!
+!===================================================================================================================================
+SUBROUTINE FinalizeCCint()
+! MODULES
+USE MOD_CCInt_vars
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+SDEALLOCATE(Rcc)
+
+END SUBROUTINE FinalizeCCInt
 
 END MODULE MOD_CCInt

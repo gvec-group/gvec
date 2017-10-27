@@ -1,5 +1,5 @@
 !===================================================================================================================================
-! Copyright (c) 2017-2018 Florian Hindenlang
+! Copyright (c) 2017-2018 Florian Hindenlang <hindenlang@gmail.com>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -21,3 +21,9 @@
 #  define IEEE_IS_NAN ISNAN
 #endif
 
+#if MPI
+#  define SWRITE IF(MPIRoot) WRITE
+#else
+#  define SWRITE WRITE
+#endif
+#define SDEALLOCATE(A) IF(ALLOCATED(A)) DEALLOCATE(A)

@@ -19,6 +19,8 @@
 !===================================================================================================================================
 PROGRAM GVEC
 USE MOD_Globals    ,ONLY: fmt_sep
+USE MOD_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
+USE MOD_ReadInTools,ONLY: IgnoredStrings 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
@@ -33,16 +35,38 @@ ELSE
 END IF
 
 
-WRITE(*,fmt_sep)
-WRITE(*,*)
-WRITE(*,'(26X,A30,26X)')'  * * * * * * * * * * * * *   '
-WRITE(*,'(26X,A30,26X)')' * * *                  * * * '
-WRITE(*,'(26X,A30,26X)')'* * *    G  V  E  C       * * *'
-WRITE(*,'(26X,A30,26X)')' * * *                  * * * '
-WRITE(*,'(26X,A30,26X)')'  * * * * * * * * * * * * *   '
+WRITE(*,'(132("*"))')
+WRITE(*,'(("*"),130X,("*"))')
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'         GGGGGGGGGGGGG    VVVVVVVV           VVVVVVVV    EEEEEEEEEEEEEEEEEEEEEE           CCCCCCCCCCCCC '  
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'      GGG::::::::::::G    V::::::V           V::::::V    E::::::::::::::::::::E        CCC::::::::::::C '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'    GG:::::::::::::::G    V::::::V           V::::::V    E::::::::::::::::::::E      CC:::::::::::::::C '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'   G:::::GGGGGGGG::::G    V::::::V           V::::::V    EE::::::EEEEEEEEE::::E     C:::::CCCCCCCC::::C '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'  G:::::G       GGGGGG     V:::::V           V:::::V       E:::::E       EEEEEE    C:::::C       CCCCCC '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G                    V:::::V         V:::::V        E:::::E                C:::::C               '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G                     V:::::V       V:::::V         E::::::EEEEEEEEEE      C:::::C               '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G    GGGGGGGGGG        V:::::V     V:::::V          E:::::::::::::::E      C:::::C               '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G    G::::::::G         V:::::V   V:::::V           E:::::::::::::::E      C:::::C               '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G    GGGGG::::G          V:::::V V:::::V            E::::::EEEEEEEEEE      C:::::C               '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G        G::::G           V:::::V:::::V             E:::::E                C:::::C               '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'  G:::::G       G::::G            V:::::::::V              E:::::E       EEEEEE    C:::::C       CCCCCC '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'   G:::::GGGGGGGG::::G             V:::::::V             EE::::::EEEEEEEE:::::E     C:::::CCCCCCCC::::C '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'    GG:::::::::::::::G              V:::::V              E::::::::::::::::::::E      CC:::::::::::::::C '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'      GGG::::::GGG:::G               V:::V               E::::::::::::::::::::E        CCC::::::::::::C '
+WRITE(*,'(("*"),13X,A104,13X,("*"))')'         GGGGGG   GGGG                VVV                EEEEEEEEEEEEEEEEEEEEEE           CCCCCCCCCCCCC '
+WRITE(*,'(("*"),130X,("*"))')
+WRITE(*,'(132("*"))')
 WRITE(*,*)
 
 
+!initialization phase
+CALL InitMHDEQ()
+
+CALL IgnoredStrings()
+! do something
+
+!finalization phase
+
+CALL FinalizeMHDEQ()
 
 WRITE(*,fmt_sep)
 WRITE(*,'(A)') ' GVEC SUCESSFULLY FINISHED'

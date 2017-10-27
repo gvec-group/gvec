@@ -38,8 +38,13 @@ END INTERFACE
 !  MODULE PROCEDURE MapToVMEC 
 !END INTERFACE
 
+INTERFACE FinalizeVMEC 
+  MODULE PROCEDURE FinalizeVMEC 
+END INTERFACE
+
 PUBLIC::InitVMEC
 PUBLIC::MapToVMEC
+PUBLIC::FinalizeVMEC
 !===================================================================================================================================
 
 CONTAINS
@@ -683,5 +688,41 @@ CONTAINS
 
 END SUBROUTINE MapToVmec 
 
+!===================================================================================================================================
+!> Finalize VMEC module
+!!
+!===================================================================================================================================
+SUBROUTINE FinalizeVMEC 
+! MODULES
+USE MOD_VMEC_Vars
+USE MOD_VMEC_Readin,ONLY:FinalizeReadVMEC
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+ 
+  CALL FinalizeReadVmec()
+
+
+  SDEALLOCATE(Phi_prof)
+  SDEALLOCATE(Phinorm_prof)
+  SDEALLOCATE(chi_prof)
+  SDEALLOCATE(xmabs)
+  SDEALLOCATE(rho)
+  SDEALLOCATE(Rmnc_Spl)
+  SDEALLOCATE(Zmns_Spl)
+  SDEALLOCATE(Rmns_Spl)
+  SDEALLOCATE(Zmnc_Spl)
+  SDEALLOCATE(lmns_Spl)
+  SDEALLOCATE(lmnc_Spl)
+  SDEALLOCATE(pres_spl)
+  SDEALLOCATE(Phi_spl)
+  SDEALLOCATE(chi_spl)
+
+END SUBROUTINE FinalizeVMEC
 
 END MODULE MOD_VMEC

@@ -12,6 +12,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
+#include "defines.h"
 
 !===================================================================================================================================
 !>
@@ -68,6 +69,10 @@ INTERFACE ReadVMEC
   MODULE PROCEDURE ReadVMEC
 END INTERFACE ReadVMEC
 
+INTERFACE FinalizeReadVMEC
+  MODULE PROCEDURE FinalizeReadVMEC
+END INTERFACE FinalizeReadVMEC
+
 CONTAINS
 
 
@@ -76,7 +81,6 @@ CONTAINS
 !! 
 !===================================================================================================================================
 SUBROUTINE ReadVMEC(fileName)
-!===================================================================================================================================
   USE MOD_VMEC_Vars
   IMPLICIT NONE
   INCLUDE "netcdf.inc"
@@ -298,6 +302,35 @@ SUBROUTINE ReadVMEC(fileName)
     ioError = NF_CLOSE(ncid)
     WRITE(*,'(4X,A)')'...DONE.'
 
-  END SUBROUTINE ReadVMEC
+END SUBROUTINE ReadVMEC
+
+!===================================================================================================================================
+!> Finalize: Deallocate module variables 
+!! 
+!===================================================================================================================================
+SUBROUTINE FinalizeReadVMEC()
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+SDEALLOCATE( xm       )
+SDEALLOCATE( xn       )
+!SDEALLOCATE( xm_nyq   )
+!SDEALLOCATE( xn_nyq   )
+SDEALLOCATE( iotaf    )    
+SDEALLOCATE( presf    )
+SDEALLOCATE( phi      )
+SDEALLOCATE( chi      )
+SDEALLOCATE( rmnc     )
+SDEALLOCATE( rmns     )
+SDEALLOCATE( zmnc     )
+SDEALLOCATE( zmns     )
+SDEALLOCATE( lmnc     )
+SDEALLOCATE( lmns     )
+
+!SDEALLOCATE(gmnc)
+END SUBROUTINE FinalizeReadVMEC
 
 END MODULE MOD_VMEC_Readin

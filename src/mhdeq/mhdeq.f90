@@ -37,8 +37,13 @@ END INTERFACE
 !  MODULE PROCEDURE MapToMHDEQ
 !END INTERFACE
 
+INTERFACE FinalizeMHDEQ 
+  MODULE PROCEDURE FinalizeMHDEQ
+END INTERFACE
+
 PUBLIC::InitMHDEQ
 PUBLIC::MapToMHDEQ
+PUBLIC::FinalizeMHDEQ
 !===================================================================================================================================
 
 CONTAINS
@@ -105,7 +110,7 @@ END SUBROUTINE InitMHDEQ
 !===================================================================================================================================
 SUBROUTINE MapToMHDEQ(nTotal,x_in,x_out,MHDEQdata)
 ! MODULES
-USE MOD_Globals
+USE MOD_Globals, ONLY:wp
 USE MOD_MHDEQ_Vars, ONLY: nVarMHDEQ,whichEquilibrium,InputCoordSys
 USE MOD_VMEC, ONLY:MapToVMEC
 USE MOD_Solov, ONLY:MapToSolov
@@ -128,5 +133,37 @@ CASE(2)
   CALL MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 END SELECT
 END SUBROUTINE MapToMHDEQ 
+
+!===================================================================================================================================
+!> Finalize Module
+!!
+!===================================================================================================================================
+SUBROUTINE FinalizeMHDEQ 
+! MODULES
+USE MOD_MHDEQ_Vars
+USE MOD_VMEC,  ONLY:FinalizeVMEC
+USE MOD_Solov, ONLY:FinalizeSolov
+
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+SELECT CASE(whichEquilibrium)
+CASE(1)
+  CALL FinalizeVMEC()
+CASE(2)
+  CALL FinalizeSolov()
+END SELECT
+
+SDEALLOCATE(MHDEQoutdataGL)
+SDEALLOCATE(MHDEQdataEq)
+SDEALLOCATE(RhoCoefs)
+
+
+END SUBROUTINE FinalizeMHDEQ
 
 END MODULE MOD_MHDEQ

@@ -36,8 +36,13 @@ END INTERFACE
 !  MODULE PROCEDURE MapToSolov 
 !END INTERFACE
 
+INTERFACE FinalizeSolov 
+  MODULE PROCEDURE FinalizeSolov 
+END INTERFACE
+
 PUBLIC::InitSolov
 PUBLIC::MapToSolov
+PUBLIC::FinalizeSolov
 !===================================================================================================================================
 
 CONTAINS
@@ -51,7 +56,7 @@ SUBROUTINE InitSolov
 USE MOD_Globals, ONLY:UNIT_StdOut
 USE MOD_ReadInTools
 USE MOD_Solov_Vars
-USE MOD_CCint,ONLY:CCint_Init
+USE MOD_CCint,ONLY:initCCint
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -107,7 +112,7 @@ IF(p_delta.GT.0.98_wp) WRITE(*,*) 'WARNING, DELTA >0.98, makes no sense!'
 asin_delta=ASIN(P_delta)
 
 !initialize clenshaw-curtis module for integration later in MapToSolov
-CALL CCint_init()
+CALL InitCCint()
 
 !initialize Soloviev parameters
 CALL InitSolovievEquilibrium()
@@ -715,6 +720,25 @@ CONTAINS
 
 END SUBROUTINE MapToSolov 
 
+!===================================================================================================================================
+!> Finalize Sololviev module
+!!
+!===================================================================================================================================
+SUBROUTINE FinalizeSolov
+! MODULES
+USE MOD_CCint,ONLY:FinalizeCCint
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+CALL FinalizeCCint()
+
+
+END SUBROUTINE FinalizeSolov
 
 
 END MODULE MOD_Solov
