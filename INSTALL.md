@@ -49,12 +49,11 @@ Finally compile GVEC in the build folder by typing `make`.
 
 Under ubuntu, the following packages should be installed:
 
-- gcc
-- g++
-- gfortran
-- liblapack-dev
-- lib1g-dev
-- libnetcdff-dev
+- "cmake" and "cmake-curses-gui"
+- "gcc","g++" and "gfortran"
+- "liblapack3" and "liblapack-dev"
+- "zlib1g-dev"
+- "libnetcdf-dev" and "libnetcdff-dev" (for VMEC netcdf datafile readin only)
 
 ### Visualization
 
