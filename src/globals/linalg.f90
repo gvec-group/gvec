@@ -1,5 +1,5 @@
 !===================================================================================================================================
-! Copyright (c) 2017-2018 Florian Hindenlang
+! Copyright (c) 2017 - 2018 Florian Hindenlang <hindenlang@gmail.com>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -36,7 +36,7 @@ CONTAINS
 !! Input matrix should be a square matrix
 !!
 !===================================================================================================================================
-FUNCTION getInv(A) RESULT(Ainv)
+FUNCTION INV(A) RESULT(Ainv)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -71,38 +71,37 @@ CALL DGETRI(n, Ainv, n, ipiv, work, n, info)
 IF(info.NE.0)THEN
    STOP 'Matrix inversion failed!'
 END IF
-END FUNCTION getInv
+END FUNCTION INV
 
 
 !===================================================================================================================================
 !> Solve  linear system of dimension dims and multiple RHS
 !!
 !===================================================================================================================================
-FUNCTION Solve(dimA,A,nRHS,RHS) RESULT(X)
+FUNCTION SOLVE(A,RHS) RESULT(X)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER ,INTENT(IN) :: dimA           !! dimention of matrix A
-REAL(wp),INTENT(IN) :: A(dimA, dimA)  !! matrix
-INTEGER ,INTENT(IN) :: nRHS           !! number of RHS
-REAL(wp),INTENT(IN) :: RHS(dimA*nRHS) !! RHS, sorting: (dimA,nRHS)
+REAL(wp),INTENT(IN) :: A(:,:) !! matrix
+REAL(wp),INTENT(IN) :: RHS(:) !! RHS, sorting: (dimA,nRHS), two dimensions can be used in input
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)           :: X(dimA*nRHS)    !! result: solution of A X=RHS
+REAL(wp)           :: X(SIZE(RHS,1))    !! result: solution of A X=RHS
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 ! External procedures defined in LAPACK
 EXTERNAL DGETRF
 EXTERNAL DGETRS
 ! LOCAL VARIABLES
-REAL(wp)    :: Atmp(dimA, dimA)
+REAL(wp)    :: Atmp(SIZE(A,1), SIZE(A,1))
 INTEGER     :: ipiv(SIZE(A,1))  ! pivot indices
-INTEGER     :: n,info
+INTEGER     :: nRHS,n,info
 !===================================================================================================================================
 Atmp=A
 X = RHS
-n = size(A,1)
+n = SIZE(A,1)
+nRHS=SIZE(RHS,1)/SIZE(A,1)
 
 CALL DGETRF(n, n, Atmp, n, ipiv, info)
 
@@ -114,7 +113,7 @@ CALL DGETRS('N',n, nRHS,Atmp, n, ipiv,X,n, info)
 IF(info.NE.0)THEN
    STOP 'Matrix solve does not work!'
 END IF
-END FUNCTION Solve
+END FUNCTION SOLVE
 
 
 END MODULE MOD_LinAlg

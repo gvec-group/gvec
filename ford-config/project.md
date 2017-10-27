@@ -6,7 +6,7 @@ website: https://gitlab.mpcdf.mpg.de/ipphinde/gvec
 bitbucket: https://gitlab.mpcdf.mpg.de/ipphinde/gvec  
 project_bitbucket: 
 license: by
-src_dir: ./../src
+src_dir: ./../src/
 output_dir: ./../doc
 exclude_dir: ./../doc
              ./../doc/src
@@ -16,8 +16,8 @@ display: public
          protected
          private
 source: false
-graph: true
-search: true
+graph: false
+search: false
 macro: TEST
        LOGIC=.true.
 

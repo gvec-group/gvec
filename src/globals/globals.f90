@@ -1,5 +1,8 @@
 !===================================================================================================================================
-! Copyright (c) 2017-2018 Florian Hindenlang
+! Copyright (c) 2017 - 2018 Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (c) 2010 - 2016 Claus-Dieter Munz (github.com/flexi-framework/hopr)
+!
+! This file is a modified version from HOPR (github.com/fhindenlang/hopr).
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -10,7 +13,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !===================================================================================================================================
-
+#include "defines.h"
 
 !===================================================================================================================================
 !>
@@ -21,6 +24,9 @@
 !===================================================================================================================================
 MODULE MOD_Globals
 
+#ifndef NOISOENV
+USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
+#endif
 IMPLICIT NONE
 
 PUBLIC 
@@ -35,7 +41,20 @@ CHARACTER(LEN=20) :: fmt_sep ='(100("="))'             !! formatting of separato
 REAL(wp),PARAMETER  :: Pi   =ACOS(-1.0_wp)             !! pi parameter
 REAL(wp),PARAMETER  :: TwoPi=2.0_wp*Pi                 !! 2*pi parameter
 !-----------------------------------------------------------------------------------------------------------------------------------
+#ifndef NOISOENV
+INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit   ! Terminal input
+INTEGER, PARAMETER          :: UNIT_stdOut = output_unit  ! Terminal output
+INTEGER, PARAMETER          :: UNIT_errOut = error_unit   ! For error output
+#else
+INTEGER, PARAMETER          :: UNIT_stdIn  = 5            ! Terminal input
+INTEGER, PARAMETER          :: UNIT_stdOut = 6            ! Terminal output
+INTEGER, PARAMETER          :: UNIT_errOut = 0            ! For error output
+#endif
 
+
+INTERFACE Abort
+   MODULE PROCEDURE Abort
+END INTERFACE
 
 INTERFACE CROSS
    MODULE PROCEDURE CROSS
@@ -55,6 +74,59 @@ END INTERFACE
 
 CONTAINS
 
+!==================================================================================================================================
+!> Terminate program correctly if an error has occurred (important in MPI mode!).
+!! Uses a MPI_ABORT which terminates FLUXO if a single proc calls this routine.
+!!
+!==================================================================================================================================
+SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode)
+! MODULES
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+CHARACTER(LEN=*)                  :: SourceFile      !! Source file where error has occurred
+INTEGER                           :: SourceLine      !! Line in source file
+CHARACTER(LEN=*)                  :: CompDate        !! Compilation date
+CHARACTER(LEN=*)                  :: CompTime        !! Compilation time
+CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
+INTEGER,OPTIONAL                  :: IntInfo         !! Error info (integer)
+REAL,OPTIONAL                     :: RealInfo        !! Error info (real)
+INTEGER,OPTIONAL                  :: ErrorCode       !! Error info (integer)
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+CHARACTER(LEN=50)                 :: IntString,RealString
+INTEGER                           :: errOut          ! Output of MPI_ABORT
+#if MPI
+INTEGER                           :: signalout       ! Output errorcode
+#endif
+!==================================================================================================================================
+IntString = ""
+RealString = ""
+
+IF (PRESENT(IntInfo))  WRITE(IntString,"(A,I0)")  "\nIntInfo:  ", IntInfo
+IF (PRESENT(RealInfo)) WRITE(RealString,"(A,F24.19)") "\nRealInfo: ", RealInfo
+
+WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
+#if MPI
+                     'Program abort caused on Proc ',myRank, '\n', &
+#else
+                     'Program abort caused on Proc ',0, '\n', &
+#endif  
+                     '  in File : ',TRIM(SourceFile),' Line ',SourceLine, '\n', &
+                     '  This file was compiled at ',TRIM(CompDate),'  ',TRIM(CompTime), '\n', &
+                     'Message: ',TRIM(ErrorMessage), &
+                     TRIM(IntString), TRIM(RealString)
+
+CALL FLUSH(UNIT_stdOut)
+#if MPI
+signalout=2 ! MPI_ABORT requires an output error-code /=0
+IF(PRESENT(ErrorCode)) signalout=ErrorCode
+CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
+#endif  
+ERROR STOP 2
+END SUBROUTINE Abort
+
+
 !===================================================================================================================================
 !> normalizes a nDim vector with respect to the eucledian norm
 !!
@@ -65,10 +137,10 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER,INTENT(IN)  :: nVal     !! vector size
-REAL(wp),INTENT(IN)     :: v1(nVal) !! vector
+REAL(wp),INTENT(IN) :: v1(nVal) !! vector
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)            :: normalize(nVal) ! ? 
+REAL(wp)            :: normalize(nVal) !! result, normalized vector
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 !===================================================================================================================================

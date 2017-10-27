@@ -1,5 +1,5 @@
 !===================================================================================================================================
-! Copyright (c) 2017-2018 Florian Hindenlang
+! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -22,7 +22,16 @@ USE MOD_Globals    ,ONLY: fmt_sep
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
+INTEGER                 :: nArgs
+CHARACTER(LEN=255)      :: Parameterfile
 !===================================================================================================================================
+nArgs=COMMAND_ARGUMENT_COUNT()
+IF(nArgs.EQ.1)THEN
+  CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
+ELSE
+  STOP 'parameterfile not given, usage: "executable parameter.ini"'
+END IF
+
 
 WRITE(*,fmt_sep)
 WRITE(*,*)
