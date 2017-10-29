@@ -56,6 +56,10 @@ INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE
 
+INTERFACE GETFREEUNIT
+   MODULE PROCEDURE GETFREEUNIT
+END INTERFACE
+
 INTERFACE CROSS
    MODULE PROCEDURE CROSS
 END INTERFACE
@@ -125,6 +129,31 @@ CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 #endif  
 ERROR STOP 2
 END SUBROUTINE Abort
+
+
+!==================================================================================================================================
+!> Get unused file unit number
+!==================================================================================================================================
+FUNCTION GETFREEUNIT()
+! MODULES
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER :: GetFreeUnit !! File unit number
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+LOGICAL :: connected
+!==================================================================================================================================
+GetFreeUnit=55
+INQUIRE(UNIT=GetFreeUnit, OPENED=connected)
+IF(connected)THEN
+  DO
+    GetFreeUnit=GetFreeUnit+1
+    INQUIRE(UNIT=GetFreeUnit, OPENED=connected)
+    IF(.NOT.connected)EXIT
+  END DO
+END IF
+END FUNCTION GETFREEUNIT
 
 
 !===================================================================================================================================

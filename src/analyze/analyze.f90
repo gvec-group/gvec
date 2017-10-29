@@ -64,6 +64,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
+visuVMEC1D    = GETLOGICAL('visuVMEC1D','T')   
 visuVMEC2D    = GETLOGICAL('visuVMEC2D','F')   
 
 WRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -78,6 +79,8 @@ SUBROUTINE Analyze()
 ! MODULES
 USE MOD_Globals, ONLY:wp
 USE MOD_Analyze_Vars
+USE MOD_Output_CSV, ONLY:WriteDataToCSV
+USE MOD_VMEC_Readin, ONLY:mn_mode,xm,xn,nFluxVMEC
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -85,7 +88,20 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER            :: iMode
+CHARACTER(LEN=120) :: modenames(2+mn_mode) 
+REAL(wp)           :: values(2+mn_mode,nFluxVMEC) 
 !===================================================================================================================================
+IF(visuVMEC1D)THEN
+  modenames(1)="Phi"
+  modenames(2)="chi"
+  DO iMode=1,mn_mode
+    WRITE(modenames(2+iMode),'(A,"_",I3.3,"_",I3.3)')'Rmnc',NINT(xm(iMode)),NINT(xn(iMode))
+  END DO
+  values=0.0_wp
+  CALL WriteDataToCSV(2+mn_mode, nFluxVMEC,modenames,Values,"Rmnc_modes")
+END IF !visuVMEC1D
+
 END SUBROUTINE Analyze 
 
 !===================================================================================================================================
