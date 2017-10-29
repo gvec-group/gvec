@@ -18,8 +18,9 @@
 !!
 !===================================================================================================================================
 PROGRAM GVEC
-USE MOD_Globals    ,ONLY: fmt_sep
+USE MOD_Globals    ,ONLY: Unit_stdout,fmt_sep
 USE MOD_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
+USE MOD_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
 USE MOD_ReadInTools,ONLY: IgnoredStrings 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -31,46 +32,49 @@ nArgs=COMMAND_ARGUMENT_COUNT()
 IF(nArgs.EQ.1)THEN
   CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
 ELSE
-  STOP 'parameterfile not given, usage: "executable parameter.ini"'
+  STOP 'parameterfile not given, usage: "./executable parameter.ini"'
 END IF
 
-
-WRITE(*,'(132("*"))')
-WRITE(*,'(("*"),130X,("*"))')
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'         GGGGGGGGGGGGG    VVVVVVVV           VVVVVVVV    EEEEEEEEEEEEEEEEEEEEEE           CCCCCCCCCCCCC '  
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'      GGG::::::::::::G    V::::::V           V::::::V    E::::::::::::::::::::E        CCC::::::::::::C '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'    GG:::::::::::::::G    V::::::V           V::::::V    E::::::::::::::::::::E      CC:::::::::::::::C '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'   G:::::GGGGGGGG::::G    V::::::V           V::::::V    EE::::::EEEEEEEEE::::E     C:::::CCCCCCCC::::C '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'  G:::::G       GGGGGG     V:::::V           V:::::V       E:::::E       EEEEEE    C:::::C       CCCCCC '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G                    V:::::V         V:::::V        E:::::E                C:::::C               '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G                     V:::::V       V:::::V         E::::::EEEEEEEEEE      C:::::C               '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G    GGGGGGGGGG        V:::::V     V:::::V          E:::::::::::::::E      C:::::C               '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G    G::::::::G         V:::::V   V:::::V           E:::::::::::::::E      C:::::C               '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G    GGGGG::::G          V:::::V V:::::V            E::::::EEEEEEEEEE      C:::::C               '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')' G:::::G        G::::G           V:::::V:::::V             E:::::E                C:::::C               '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'  G:::::G       G::::G            V:::::::::V              E:::::E       EEEEEE    C:::::C       CCCCCC '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'   G:::::GGGGGGGG::::G             V:::::::V             EE::::::EEEEEEEE:::::E     C:::::CCCCCCCC::::C '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'    GG:::::::::::::::G              V:::::V              E::::::::::::::::::::E      CC:::::::::::::::C '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'      GGG::::::GGG:::G               V:::V               E::::::::::::::::::::E        CCC::::::::::::C '
-WRITE(*,'(("*"),13X,A104,13X,("*"))')'         GGGGGG   GGGG                VVV                EEEEEEEEEEEEEEEEEEEEEE           CCCCCCCCCCCCC '
-WRITE(*,'(("*"),130X,("*"))')
-WRITE(*,'(132("*"))')
-WRITE(*,*)
-
+!header
+WRITE(Unit_stdOut,'(132("*"))')
+WRITE(Unit_stdOut,'(18(("*",A130,"*",:,"\n")))')&
+ ' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '&
+,'  - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - - - - '&
+,' - - - - - - - - - - - GGGG::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - - CCCC::::::::::::C - - - -  '&
+,'  - - - - - - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - - - - '&
+,' - - - - - - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - - -  '&
+,'  - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - - - - '&
+,' - - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - - -  '&
+,'  - - - - - - G:::::G - - - - - - - - -  V:::::V - - - V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - - '&
+,' - - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V  -  V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - -  '&
+,'  - - - - - G:::::G -  G::::::::G - - -  V:::::V - V:::::V  - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - - - '&
+,' - - - - - G:::::G -  GGGGG::::G - - - - V:::::V V:::::V - - - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - - -  '&
+,'  - - - - G:::::G - - -  G::::G - - - -  V:::::V:::::V  - - - - - E:::::E - - - - - - - - C:::::C - - - - - - - - - - - - - - - - '&
+,' - - - -  G:::::G  - -  G::::G - - - - - V:::::::::V - - - - - - E:::::E - - - EEEEEE  -  C:::::C  - -  CCCCCC - - - - - - - - -  '&
+,'  - - - - G::::::GGGGGGG::::G - - - - -  V:::::::V  - - - - - EEE:::::EEEEEEEEE::::E  - - C::::::CCCCCCC::::C - - - - - - - - - - '&
+,' - - - - - G:::::::::::::::G - - - - - - V:::::V - - - - - - E::::::::::::::::::::E  - - - C:::::::::::::::C - - - - - - - - - -  '&
+,'  - - - - - GG:::GGGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - - - - '&
+,' - - - - - -  GGGG - GGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - -  '&
+,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+WRITE(Unit_stdOut,'(132("*"))')
+WRITE(Unit_stdOut,*)
 
 !initialization phase
 CALL InitMHDEQ()
+CALL InitAnalyze()
 
 CALL IgnoredStrings()
 ! do something
 
 !finalization phase
+CALL Analyze()
 
+CALL FinalizeAnalyze()
 CALL FinalizeMHDEQ()
 
-WRITE(*,fmt_sep)
-WRITE(*,'(A)') ' GVEC SUCESSFULLY FINISHED'
-WRITE(*,fmt_sep)
+WRITE(Unit_stdOut,fmt_sep)
+WRITE(Unit_stdOut,'(A)') ' GVEC SUCESSFULLY FINISHED'
+WRITE(Unit_stdOut,fmt_sep)
 
 END PROGRAM GVEC
 
