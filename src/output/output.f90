@@ -1,8 +1,5 @@
 !===================================================================================================================================
 ! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
-! Copyright (C) 2015  Prof. Claus-Dieter Munz (github.com/flexi-framework/hopr)
-!
-! This file is a modified version from HOPR (github.com/fhindenlang/hopr).
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -17,48 +14,45 @@
 
 !===================================================================================================================================
 !>
-!!# Module **MHDEQ**
+!!# Module **Output**
 !!
-!! For initialization of an MHD equilibrium. 
+!!
 !!
 !===================================================================================================================================
-MODULE MOD_MHDEQ
+MODULE MOD_Output
 ! MODULES
 USE MOD_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
-INTERFACE InitMHDEQ 
-  MODULE PROCEDURE InitMHDEQ
+INTERFACE InitOutput
+  MODULE PROCEDURE InitOutput
 END INTERFACE
 
-! allow different dimensions of input/output arrays
-!INTERFACE MapToMHDEQ
-!  MODULE PROCEDURE MapToMHDEQ
-!END INTERFACE
-
-INTERFACE FinalizeMHDEQ 
-  MODULE PROCEDURE FinalizeMHDEQ
+INTERFACE Output
+  MODULE PROCEDURE Output
 END INTERFACE
 
-PUBLIC::InitMHDEQ
-PUBLIC::MapToMHDEQ
-PUBLIC::FinalizeMHDEQ
+INTERFACE FinalizeOutput
+  MODULE PROCEDURE FinalizeOutput
+END INTERFACE
+
+PUBLIC::InitOutput
+PUBLIC::Output
+PUBLIC::FinalizeOutput
 !===================================================================================================================================
 
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module
+!> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE InitMHDEQ 
+SUBROUTINE InitOutput 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep,abort
-USE MOD_ReadInTools,ONLY:GETINT,GETREALARRAY
-USE MOD_MHDEQ_Vars
-USE MOD_VMEC, ONLY:InitVMEC
-USE MOD_Solov, ONLY:InitSolov
+USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MOD_Output_Vars
+USE MOD_ReadInTools,ONLY:GETSTR
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -69,82 +63,39 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT MHD EQUILIBRIUM INPUT ...'
-whichEquilibrium    = GETINT('whichEquilibrium','0')   
-IF(WhichEquilibrium.EQ.0) THEN 
-  WRITE(UNIT_stdOut,'(A)')'... NOTHING TO BE DONE'
-  RETURN
-END IF
-SELECT CASE(whichEquilibrium)
-CASE(1)
-  useMHDEQ=.TRUE.
-  WRITE(*,*)'Using VMEC as equilibrium solution...'
-  CALL InitVMEC()
-CASE(2)
-  useMHDEQ=.TRUE.
-  WRITE(*,*)'Using Soloviev as equilibrium solution...'
-  CALL InitSolov()
-CASE DEFAULT
-  WRITE(*,*)'WARNING: No Equilibrium solution for which Equilibrium= ', whichEquilibrium
-  STOP
-END SELECT
-  !density coefficients of the polynomial coefficients: rho_1+rho_2*x + rho_3*x^2 ...
-  nRhoCoefs=GETINT("nRhoCoefs","0")
-  IF(nRhoCoefs.GT.0)THEN
-    RhoFluxVar=GETINT("RhoFluxVar") ! dependant variable: =0: psinorm (tor. flux), =1:chinorm (pol. flux)
-    ALLOCATE(RhoCoefs(nRhoCoefs))
-    RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
-  END IF
-  InputCoordSys=GETINT("MHDEQ_inputCoordSys","0")
-  ! =0: x_in(1:3) are (x,y,z) coordinates in a cylinder of size r=[0;1], z=[0;1]
-  ! =1: x_in(1:3) are (r,zeta,theta) coordinates r= [0;1], zeta= [0;1], theta=[0;1]
+WRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
+ProjectName = GETSTR('ProjectName','GVEC')   
 
 WRITE(UNIT_stdOut,'(A)')'... DONE'
 WRITE(UNIT_stdOut,fmt_sep)
-END SUBROUTINE InitMHDEQ
+END SUBROUTINE InitOutput
 
 
 !===================================================================================================================================
-!> Maps a cylinder (r,z,phi) to a toroidal closed flux surface configuration derived from VMEC data. 
-!! Surfaces with constant r become flux surfaces. z [0;1] is mapped to [0;2*pi] 
+!> 
 !!
 !===================================================================================================================================
-SUBROUTINE MapToMHDEQ(nTotal,x_in,x_out,MHDEQdata)
+SUBROUTINE Output()
 ! MODULES
 USE MOD_Globals, ONLY:wp
-USE MOD_MHDEQ_Vars, ONLY: nVarMHDEQ,whichEquilibrium,InputCoordSys
-USE MOD_VMEC, ONLY:MapToVMEC
-USE MOD_Solov, ONLY:MapToSolov
+USE MOD_Output_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,  INTENT(IN) :: nTotal         !! total number of points
-REAL(wp), INTENT(IN) :: x_in(3,nTotal) !! input coordinates represent a cylinder: 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp),INTENT(OUT) :: x_out(3,nTotal) !! mapped x,y,z coordinates with vmec data
-REAL(wp),INTENT(OUT) :: MHDEQdata(nVarMHDEQ,nTotal) !! output data  
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SELECT CASE(whichEquilibrium)
-CASE(1)
-  CALL MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
-CASE(2)
-  CALL MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
-END SELECT
-END SUBROUTINE MapToMHDEQ 
+END SUBROUTINE Output 
 
 !===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeMHDEQ 
+SUBROUTINE FinalizeOutput 
 ! MODULES
-USE MOD_MHDEQ_Vars
-USE MOD_VMEC,  ONLY:FinalizeVMEC
-USE MOD_Solov, ONLY:FinalizeSolov
-
+USE MOD_Output_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -153,18 +104,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SELECT CASE(whichEquilibrium)
-CASE(1)
-  CALL FinalizeVMEC()
-CASE(2)
-  CALL FinalizeSolov()
-END SELECT
 
-SDEALLOCATE(MHDEQoutdataGL)
-SDEALLOCATE(MHDEQdataEq)
-SDEALLOCATE(RhoCoefs)
+END SUBROUTINE FinalizeOutput
 
-
-END SUBROUTINE FinalizeMHDEQ
-
-END MODULE MOD_MHDEQ
+END MODULE MOD_Output

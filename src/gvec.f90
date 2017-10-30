@@ -21,6 +21,7 @@ PROGRAM GVEC
 USE MOD_Globals    ,ONLY: Unit_stdout,fmt_sep
 USE MOD_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
 USE MOD_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
+USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MOD_ReadInTools,ONLY: IgnoredStrings 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -36,7 +37,7 @@ ELSE
 END IF
 
 !header
-WRITE(Unit_stdOut,'(132("*"))')
+WRITE(Unit_stdOut,'(132("="))')
 WRITE(Unit_stdOut,'(18(("*",A130,"*",:,"\n")))')&
  ' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '&
 ,'  - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - - - - '&
@@ -45,23 +46,23 @@ WRITE(Unit_stdOut,'(18(("*",A130,"*",:,"\n")))')&
 ,' - - - - - - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - - -  '&
 ,'  - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - - - - '&
 ,' - - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - - -  '&
-,'  - - - - - - G:::::G - - - - - - - - -  V:::::V - - - V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - - '&
-,' - - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V  -  V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - -  '&
-,'  - - - - - G:::::G -  G::::::::G - - -  V:::::V - V:::::V  - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - - - '&
+,'  - - - - - - G:::::G - - - - - - - - -  V:::::V  - -  V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - - '&
+,' - - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V - - V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - -  '&
+,'  - - - - - G:::::G -  G::::::::G - - -  V:::::V   V:::::V  - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - - - '&
 ,' - - - - - G:::::G -  GGGGG::::G - - - - V:::::V V:::::V - - - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - - -  '&
 ,'  - - - - G:::::G - - -  G::::G - - - -  V:::::V:::::V  - - - - - E:::::E - - - - - - - - C:::::C - - - - - - - - - - - - - - - - '&
 ,' - - - -  G:::::G  - -  G::::G - - - - - V:::::::::V - - - - - - E:::::E - - - EEEEEE  -  C:::::C  - -  CCCCCC - - - - - - - - -  '&
 ,'  - - - - G::::::GGGGGGG::::G - - - - -  V:::::::V  - - - - - EEE:::::EEEEEEEEE::::E  - - C::::::CCCCCCC::::C - - - - - - - - - - '&
 ,' - - - - - G:::::::::::::::G - - - - - - V:::::V - - - - - - E::::::::::::::::::::E  - - - C:::::::::::::::C - - - - - - - - - -  '&
-,'  - - - - - GG:::GGGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - - - - '&
-,' - - - - - -  GGGG - GGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - -  '&
+,'  - - - - - GG::::GGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - - - - '&
+,' - - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - -  '&
 ,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
-WRITE(Unit_stdOut,'(132("*"))')
-WRITE(Unit_stdOut,*)
+WRITE(Unit_stdOut,'(132("="))')
 
 !initialization phase
-CALL InitMHDEQ()
+CALL InitOutput()
 CALL InitAnalyze()
+CALL InitMHDEQ()
 
 CALL IgnoredStrings()
 ! do something
@@ -69,8 +70,9 @@ CALL IgnoredStrings()
 !finalization phase
 CALL Analyze()
 
-CALL FinalizeAnalyze()
 CALL FinalizeMHDEQ()
+CALL FinalizeAnalyze()
+CALL FinalizeOutput()
 
 WRITE(Unit_stdOut,fmt_sep)
 WRITE(Unit_stdOut,'(A)') ' GVEC SUCESSFULLY FINISHED'

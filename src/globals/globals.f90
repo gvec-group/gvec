@@ -37,18 +37,18 @@ PUBLIC
 INTEGER, PARAMETER :: wp = selected_real_kind(15,307)  !! double precision
 !INTEGER, PARAMETER :: wp = selected_real_kind(33,307) !! quadruple precision
 !-----------------------------------------------------------------------------------------------------------------------------------
-CHARACTER(LEN=20) :: fmt_sep ='(132("="))'             !! formatting of separator line: WRITE(*,fmt_sep)
-REAL(wp),PARAMETER  :: Pi   =ACOS(-1.0_wp)             !! pi parameter
-REAL(wp),PARAMETER  :: TwoPi=2.0_wp*Pi                 !! 2*pi parameter
+CHARACTER(LEN=20)   :: fmt_sep ='(132("="))'             !! formatting of separator line: WRITE(*,fmt_sep)
+REAL(wp),PARAMETER  :: Pi   =ACOS(-1.0_wp)               !! pi parameter
+REAL(wp),PARAMETER  :: TwoPi=2.0_wp*Pi                   !! 2*pi parameter
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
-INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit   ! Terminal input
-INTEGER, PARAMETER          :: UNIT_stdOut = output_unit  ! Terminal output
-INTEGER, PARAMETER          :: UNIT_errOut = error_unit   ! For error output
-#else
-INTEGER, PARAMETER          :: UNIT_stdIn  = 5            ! Terminal input
-INTEGER, PARAMETER          :: UNIT_stdOut = 6            ! Terminal output
-INTEGER, PARAMETER          :: UNIT_errOut = 0            ! For error output
+INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
+INTEGER, PARAMETER          :: UNIT_stdOut = output_unit !! Terminal output
+INTEGER, PARAMETER          :: UNIT_errOut = error_unit  !! For error output
+#else                                                     
+INTEGER, PARAMETER          :: UNIT_stdIn  = 5           !! Terminal input
+INTEGER, PARAMETER          :: UNIT_stdOut = 6           !! Terminal output
+INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 #endif
 
 

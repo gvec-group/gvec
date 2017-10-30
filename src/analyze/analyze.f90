@@ -50,7 +50,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitAnalyze 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut
+USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_Analyze_Vars
 USE MOD_ReadInTools,ONLY:GETLOGICAL
 IMPLICIT NONE
@@ -68,6 +68,7 @@ visuVMEC1D    = GETLOGICAL('visuVMEC1D','T')
 visuVMEC2D    = GETLOGICAL('visuVMEC2D','F')   
 
 WRITE(UNIT_stdOut,'(A)')'... DONE'
+WRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
 
 
@@ -93,16 +94,96 @@ CHARACTER(LEN=120) :: modenames(2+mn_mode)
 REAL(wp)           :: values(2+mn_mode,nFluxVMEC) 
 !===================================================================================================================================
 IF(visuVMEC1D)THEN
-  modenames(1)="Phi"
-  modenames(2)="chi"
-  DO iMode=1,mn_mode
-    WRITE(modenames(2+iMode),'(A,"_",I3.3,"_",I3.3)')'Rmnc',NINT(xm(iMode)),NINT(xn(iMode))
-  END DO
-  values=0.0_wp
-  CALL WriteDataToCSV(2+mn_mode, nFluxVMEC,modenames,Values,"Rmnc_modes")
+  CALL VMEC1D_visu() 
 END IF !visuVMEC1D
 
 END SUBROUTINE Analyze 
+
+
+!===================================================================================================================================
+!> Visualize VMEC flux surface data for each mode, for Rmnc 
+!!
+!===================================================================================================================================
+SUBROUTINE VMEC1D_visu()
+! MODULES
+USE MOD_Globals, ONLY:wp
+USE MOD_Output_Vars, ONLY:ProjectName
+USE MOD_Output_CSV, ONLY:WriteDataToCSV
+USE MOD_VMEC_Readin
+USE MOD_VMEC_Vars
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER            :: nVal,iMode
+CHARACTER(LEN=120) :: varnames(7+mn_mode) 
+REAL(wp)           :: values(7+mn_mode,nFluxVMEC-1) 
+!===================================================================================================================================
+nVal=1
+Varnames(nVal)='Phi'
+values(  nVal,:)=Phi_prof(2:nFluxVMEC)
+
+nVal=nVal+1
+Varnames(nVal)='chi'
+values(  nVal,:)=Chi_prof(2:nFluxVMEC)
+
+nVal=nVal+1
+Varnames(nVal)='rho'
+values(  nVal,:)=rho(2:nFluxVMEC)
+
+nVal=nVal+1
+Varnames(nVal)='iota(Phi_norm)'
+values(  nVal,:)=iotaf(2:nFluxVMEC)
+
+nVal=nVal+1
+Varnames(nVal)='pres(Phi_norm)'
+values(  nVal,:)=presf(2:nFluxVMEC)
+
+nVal=nVal+2
+Varnames(nVal-1)='Rmnc_m_odd_n0'
+Varnames(nVal)='Rmnc_m_even_n0'
+values(nVal-1:nVal,:)=0.
+DO iMode=1,mn_mode
+  IF(NINT(xn(iMode)).EQ.0)THEN
+    IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
+      values(nVal-1,:)= values(nVal-1,:)+Rmnc(iMode,2:nFluxVMEC)
+    ELSE
+      values(nVal,:)= values(nVal,:)+Rmnc(iMode,2:nFluxVMEC)
+    END IF
+  END IF !n=0
+END DO
+
+DO iMode=1,mn_mode
+  nVal=nVal+1
+  WRITE(VarNames(nVal),'(A,"_m_",I3.3,"_n_",I3.3)')'Rmnc',NINT(xm(iMode)),NINT(xn(iMode))
+  values(nVal,:)=Rmnc(iMode,2:nFluxVMEC)
+END DO
+CALL WriteDataToCSV(nVal, nFluxVMEC-1,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_Rmnc_modes"))
+
+nval=7 !rewind
+Varnames(nVal-1)='Zmns_m_odd_n0'
+Varnames(nVal)='Zmns_m_even_n0'
+values(nVal-1:nVal,:)=0.
+DO iMode=1,mn_mode
+  IF(NINT(xn(iMode)).EQ.0)THEN
+    IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
+      values(nVal-1,:)= values(nVal-1,:)+Zmns(iMode,2:nFluxVMEC)
+    ELSE
+      values(nVal,:)= values(nVal,:)+Zmns(iMode,2:nFluxVMEC)
+    END IF
+  END IF !n=0
+END DO
+DO iMode=1,mn_mode
+  nVal=nVal+1
+  WRITE(VarNames(nVal),'(A,"_",I3.3,"_",I3.3)')'Zmns',NINT(xm(iMode)),NINT(xn(iMode))
+  values(nVal,:)=Zmns(iMode,2:nFluxVMEC)
+END DO
+CALL WriteDataToCSV(nVal, nFluxVMEC-1,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_Zmns_modes"))
+
+END SUBROUTINE VMEC1D_visu 
 
 !===================================================================================================================================
 !> Finalize Module
