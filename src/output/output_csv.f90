@@ -67,7 +67,7 @@ WRITE(ioUnit,'(A)')   '# TITLE="Analysis,'//TRIM(FileString)//'"'
 WRITE(ioUnit,'(A,I8)')'# nPlot=',nPlot
 
 DO iVal=1,nVal-1
-  WRITE(ioUnit,'(A,1X,(","),1X)',ADVANCE='NO' )  '"'//TRIM(varNames(iVal))//'"'
+  WRITE(ioUnit,'(A,1X,(","))',ADVANCE='NO' )  '"'//TRIM(varNames(iVal))//'"'
 END DO
 WRITE(ioUnit,'(A)')  '"'//TRIM(varNames(nVal))//'"'
 

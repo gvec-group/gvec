@@ -143,8 +143,8 @@ Varnames(nVal)='pres(Phi_norm)'
 values(  nVal,:)=presf(2:nFluxVMEC)
 
 nVal=nVal+2
-Varnames(nVal-1)='Rmnc_m_odd_n0'
-Varnames(nVal)='Rmnc_m_even_n0'
+Varnames(nVal-1)='Rmnc_m_odd_n000'
+Varnames(nVal)='Rmnc_m_even_n000'
 values(nVal-1:nVal,:)=0.
 DO iMode=1,mn_mode
   IF(NINT(xn(iMode)).EQ.0)THEN
@@ -158,14 +158,14 @@ END DO
 
 DO iMode=1,mn_mode
   nVal=nVal+1
-  WRITE(VarNames(nVal),'(A,"_m_",I3.3,"_n_",I3.3)')'Rmnc',NINT(xm(iMode)),NINT(xn(iMode))
+  WRITE(VarNames(nVal),'(A,"_m",I3.3,"_n",I3.3)')'Rmnc',NINT(xm(iMode)),NINT(xn(iMode))
   values(nVal,:)=Rmnc(iMode,2:nFluxVMEC)
 END DO
 CALL WriteDataToCSV(nVal, nFluxVMEC-1,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_Rmnc_modes"))
 
 nval=7 !rewind
-Varnames(nVal-1)='Zmns_m_odd_n0'
-Varnames(nVal)='Zmns_m_even_n0'
+Varnames(nVal-1)='Zmns_m_odd_n000'
+Varnames(nVal)='Zmns_m_even_n000'
 values(nVal-1:nVal,:)=0.
 DO iMode=1,mn_mode
   IF(NINT(xn(iMode)).EQ.0)THEN
@@ -178,7 +178,7 @@ DO iMode=1,mn_mode
 END DO
 DO iMode=1,mn_mode
   nVal=nVal+1
-  WRITE(VarNames(nVal),'(A,"_",I3.3,"_",I3.3)')'Zmns',NINT(xm(iMode)),NINT(xn(iMode))
+  WRITE(VarNames(nVal),'(A,"_m",I3.3,"_n",I3.3)')'Zmns',NINT(xm(iMode)),NINT(xn(iMode))
   values(nVal,:)=Zmns(iMode,2:nFluxVMEC)
 END DO
 CALL WriteDataToCSV(nVal, nFluxVMEC-1,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_Zmns_modes"))

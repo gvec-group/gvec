@@ -48,7 +48,7 @@ USE MOD_VMEC_vars,  ONLY: xmabs,rho,Rmnc_Spl,Rmns_Spl,Zmnc_Spl,Zmns_Spl
 USE MOD_VMEC_Readin,ONLY: Rmnc,Rmns,Zmnc,Zmns,lmnc,lmns,iotaf,lasym,xm,xn
 USE MOD_VMEC_Readin,ONLY: nfp,nFluxVMEC,mn_mode,twoPi
 USE SPLINE1_MOD,    ONLY: SPLINE1_EVAL
-  IMPLICIT NONE
+IMPLICIT NONE
 !---------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER          :: np_m !< number of points for integration in theta 
@@ -59,11 +59,15 @@ USE SPLINE1_MOD,    ONLY: SPLINE1_EVAL
   INTEGER                                   :: i_m,i_n,i_mn,np_mn,iGuess
   REAL(wp),DIMENSION(mn_mode,nFluxVMEC)     :: dRmnc_drho,dRmns_drho,dZmnc_drho,dZmns_drho
   REAL(wp),DIMENSION(1:np_m*np_n,mn_mode)   :: cosMN,sinMN
-  REAL(wp),DIMENSION(1:np_m*np_n)           :: R,dRdrho,dRdtheta,dRdzeta
-  REAL(wp),DIMENSION(1:np_m*np_n)           :: dZdrho,dZdtheta,dZdzeta
+  REAL(wp),DIMENSION(1:np_m*np_n,mn_mode)   :: dcosMN_dthet,dcosMN_dzeta
+  REAL(wp),DIMENSION(1:np_m*np_n,mn_mode)   :: dsinMN_dthet,dsinMN_dzeta
+  REAL(wp),DIMENSION(1:np_m*np_n)           :: R,dRdrho,dRdthet,dRdzeta
+  REAL(wp),DIMENSION(1:np_m*np_n)           :: dZdrho,dZdthet,dZdzeta
   REAL(wp),DIMENSION(1:np_m*np_n)           :: J,g_tt,g_tz,g_zz 
   REAL(wp),ALLOCATABLE                      :: Amat(:,:),RHS(:),lambda(:),sAdiag(:)
   REAL(wp)                                  :: rho_p,rhom,drhom,splOut(3) !for weighted spline interpolation
+  REAL(wp)                                  :: gta_dsinda,gza_dsinda
+  REAL(wp)                                  :: gta_dcosda,gza_dcosda
 !=====================================================================
   WRITE(*,'(4X,A)')'RECOMPUTE LAMBDA ON FULL GRID...'
   WRITE(*,'(4X,A,2I8)')' # int. points in m and n : ',np_m,np_n
@@ -91,6 +95,15 @@ USE SPLINE1_MOD,    ONLY: SPLINE1_EVAL
   END DO; END DO !i_m,i_n
   cosMN(:,mn0Mode)=1.0_wp
   sinMN(:,mn0Mode)=0.0_wp
+
+  DO iMode=1,mn_mode
+    DO i_mn=1,np_mn
+      dcosMN_dthet(i_mn,iMode) = -xm(iMode)*sinMN(i_mn,iMode)
+      dcosMN_dzeta(i_mn,iMode) =  xn(iMode)*sinMN(i_mn,iMode)
+      dsinMN_dthet(i_mn,iMode) =  xm(iMode)*cosMN(i_mn,iMode)
+      dsinMN_dzeta(i_mn,iMode) = -xn(iMode)*cosMN(i_mn,iMode)
+    END DO !i_mn
+  END DO !iMode
 
   !compute radial derivatives of each R,Z mode, using splines of R and Z in rho direction
   DO iFlux=2,nFluxVMEC
@@ -127,166 +140,106 @@ USE SPLINE1_MOD,    ONLY: SPLINE1_EVAL
   DO iFlux=2,nFluxVMEC
     WRITE(0,'(I6,A4,I6,A27,A1)',ADVANCE='NO')iFlux, ' of ',nFluxVMEC,' flux surfaces evaluated...',ACHAR(13)
     !sample derivatives on mesh
-    IF(.not.lasym)THEN
-      !$OMP PARALLEL 
-      DO i_mn=1,np_mn
-        R       (i_mn) = 0.0_wp
-        dRdrho  (i_mn) = 0.0_wp
-        dRdtheta(i_mn) = 0.0_wp
-        dRdzeta (i_mn) = 0.0_wp
-        dZdrho  (i_mn) = 0.0_wp
-        dZdtheta(i_mn) = 0.0_wp
-        dZdzeta (i_mn) = 0.0_wp
-        DO iMode=1,mn_mode
-          R       (i_mn) =       R(i_mn)           +Rmnc(iMode,iFlux) *cosMN(i_mn,iMode)
-          dRdrho  (i_mn) =  dRdrho(i_mn)+     dRmnc_drho(iMode,iFlux) *cosMN(i_mn,iMode)
-          dRdtheta(i_mn) =dRdtheta(i_mn)-(xm(iMode)*Rmnc(iMode,iFlux))*sinMN(i_mn,iMode)
-          dRdzeta (i_mn) = dRdzeta(i_mn)+(xn(iMode)*Rmnc(iMode,iFlux))*sinMN(i_mn,iMode)
-      
-          dZdrho  (i_mn) =  dZdrho(i_mn)+     dZmns_drho(iMode,iFlux) *sinMN(i_mn,iMode)
-          dZdtheta(i_mn) =dZdtheta(i_mn)+(xm(iMode)*Zmns(iMode,iFlux))*cosMN(i_mn,iMode)
-          dZdzeta (i_mn) = dZdzeta(i_mn)-(xn(iMode)*Zmns(iMode,iFlux))*cosMN(i_mn,iMode)
-        END DO!iMode
-      END DO !i_mn
-      !$OMP END PARALLEL
-    ELSE !lasym
-      !$OMP PARALLEL 
-      DO i_mn=1,np_mn
-        R       (i_mn) = 0.0_wp
-        dRdrho  (i_mn) = 0.0_wp
-        dRdtheta(i_mn) = 0.0_wp
-        dRdzeta (i_mn) = 0.0_wp
-        dZdrho  (i_mn) = 0.0_wp
-        dZdtheta(i_mn) = 0.0_wp
-        dZdzeta (i_mn) = 0.0_wp
-        DO iMode=1,mn_mode
-          R       (i_mn) =       R(i_mn)         +  Rmnc(iMode,iFlux) *cosMN(i_mn,iMode) &
-                                                 +  Rmns(iMode,iFlux) *sinMN(i_mn,iMode)
-          dRdrho  (i_mn) =  dRdrho(i_mn)    + dRmnc_drho(iMode,iFlux) *cosMN(i_mn,iMode) &
-                                            + dRmns_drho(iMode,iFlux) *sinMN(i_mn,iMode)
-          dRdtheta(i_mn) =dRdtheta(i_mn)-(xm(iMode)*Rmnc(iMode,iFlux))*sinMN(i_mn,iMode) &
-                                        +(xm(iMode)*Rmns(iMode,iFlux))*cosMN(i_mn,iMode)
-          dRdzeta (i_mn) = dRdzeta(i_mn)+(xn(iMode)*Rmnc(iMode,iFlux))*sinMN(i_mn,iMode) &
-                                        -(xn(iMode)*Rmns(iMode,iFlux))*cosMN(i_mn,iMode)
-      
-          dZdrho  (i_mn) =  dZdrho(i_mn)    + dZmns_drho(iMode,iFlux) *sinMN(i_mn,iMode) &
-                                            + dZmnc_drho(iMode,iFlux) *cosMN(i_mn,iMode) 
-          dZdtheta(i_mn) =dZdtheta(i_mn)+(xm(iMode)*Zmns(iMode,iFlux))*cosMN(i_mn,iMode) &
-                                        -(xm(iMode)*Zmnc(iMode,iFlux))*sinMN(i_mn,iMode)
-          dZdzeta (i_mn) = dZdzeta(i_mn)-(xn(iMode)*Zmns(iMode,iFlux))*cosMN(i_mn,iMode) &
-                                        +(xn(iMode)*Zmnc(iMode,iFlux))*sinMN(i_mn,iMode)
-        END DO!iMode
-      END DO !i_mn
-      !$OMP END PARALLEL 
-    END IF !lasym
-    !J=sqrtG=R*(dRdtheta*dZds-dRds*dZdtheta) =  1/(2*rho_p)*R*(dRdtheta*dZdrho-dRdrho*dZdtheta) 
-    !1/(2rho_p) is constant on flux, not needed
-    !$OMP PARALLEL
     DO i_mn=1,np_mn
-      J(i_mn)=R(i_mn)*(dRdtheta(i_mn)*dZdrho(i_mn)-dRdrho(i_mn)*dZdtheta(i_mn)) 
+      R      (i_mn) = 0.0_wp
+      dRdrho (i_mn) = 0.0_wp
+      dRdthet(i_mn) = 0.0_wp
+      dRdzeta(i_mn) = 0.0_wp
+      dZdrho (i_mn) = 0.0_wp
+      dZdthet(i_mn) = 0.0_wp
+      dZdzeta(i_mn) = 0.0_wp
+      DO iMode=1,mn_mode
+        R      (i_mn) =      R(i_mn)      +Rmnc(iMode,iFlux)* cosMN(      i_mn,iMode)
+        dRdrho (i_mn) = dRdrho(i_mn)+dRmnc_drho(iMode,iFlux)* cosMN(      i_mn,iMode)
+        dRdthet(i_mn) =dRdthet(i_mn)+      Rmnc(iMode,iFlux)*dcosMN_dthet(i_mn,iMode)
+        dRdzeta(i_mn) =dRdzeta(i_mn)+      Rmnc(iMode,iFlux)*dcosMN_dzeta(i_mn,iMode)
+    
+        dZdrho (i_mn) = dZdrho(i_mn)+ dZmns_drho(iMode,iFlux)*sinMN(       i_mn,iMode)
+        dZdthet(i_mn) =dZdthet(i_mn)+       Zmns(iMode,iFlux)*dsinMN_dthet(i_mn,iMode)
+        dZdzeta(i_mn) =dZdzeta(i_mn)+       Zmns(iMode,iFlux)*dsinMN_dzeta(i_mn,iMode)
+      END DO!iMode
     END DO !i_mn
-    !$OMP END PARALLEL
+    IF(lasym)THEN
+      DO i_mn=1,np_mn
+        DO iMode=1,mn_mode
+          R      (i_mn) =      R(i_mn) +       Rmns(iMode,iFlux)* sinMN(      i_mn,iMode)
+          dRdrho (i_mn) = dRdrho(i_mn) + dRmns_drho(iMode,iFlux)* sinMN(      i_mn,iMode)
+          dRdthet(i_mn) =dRdthet(i_mn) +       Rmns(iMode,iFlux)*dsinMN_dthet(i_mn,iMode)
+          dRdzeta(i_mn) =dRdzeta(i_mn) +       Rmns(iMode,iFlux)*dsinMN_dzeta(i_mn,iMode)
+      
+          dZdrho (i_mn) = dZdrho(i_mn) + dZmnc_drho(iMode,iFlux)* cosMN(      i_mn,iMode) 
+          dZdthet(i_mn) =dZdthet(i_mn) +       Zmnc(iMode,iFlux)*dcosMN_dthet(i_mn,iMode)
+          dZdzeta(i_mn) =dZdzeta(i_mn) +       Zmnc(iMode,iFlux)*dcosMN_dzeta(i_mn,iMode)
+        END DO!iMode
+      END DO !i_mn
+    END IF !lasym
+    !J=sqrtG=R*(dRdthet*dZds-dRds*dZdthet) =  1/(2*rho_p)*R*(dRdthet*dZdrho-dRdrho*dZdthet) 
+    !1/(2rho_p) is constant on flux, not needed
+    DO i_mn=1,np_mn
+      J(i_mn)=R(i_mn)*(dRdthet(i_mn)*dZdrho(i_mn)-dRdrho(i_mn)*dZdthet(i_mn)) 
+    END DO !i_mn
     IF(MINVAL(ABS(J)).LT.1.0e-12) STOP 'Jacobian near zero! J< 1.0e-12'
     !account for 1/J here
-    !$OMP PARALLEL
     DO i_mn=1,np_mn
-      g_tt(i_mn) =(dRdtheta(i_mn)*dRdtheta(i_mn) + dZdtheta(i_mn)*dZdtheta(i_mn) )/J(i_mn)
-      g_tz(i_mn) =(dRdtheta(i_mn)*dRdzeta (i_mn) + dZdtheta(i_mn)*dZdzeta (i_mn) )/J(i_mn) !=g_zt
-      g_zz(i_mn) =(dRdzeta (i_mn)*dRdzeta (i_mn) + dZdzeta (i_mn)*dZdzeta (i_mn) + R(i_mn)*R(i_mn))/J(i_mn)
+      g_tt(i_mn) =(dRdthet(i_mn)*dRdthet(i_mn) + dZdthet(i_mn)*dZdthet(i_mn) )/J(i_mn)
+      g_tz(i_mn) =(dRdthet(i_mn)*dRdzeta(i_mn) + dZdthet(i_mn)*dZdzeta(i_mn) )/J(i_mn) !=g_zt
+      g_zz(i_mn) =(dRdzeta(i_mn)*dRdzeta(i_mn) + dZdzeta(i_mn)*dZdzeta(i_mn) + R(i_mn)*R(i_mn))/J(i_mn)
     END DO !i_mn
-    !$OMP END PARALLEL
     
-    !$OMP PARALLEL
+    Amat(:,:)=0.0_wp
+    RHS(:)   =0.0_wp
     DO jMode=1,mn_mode
-      DO iMode=1,mn_mode
-        Amat(iMode,jMode)=0.0_wp
-        DO i_mn=1,np_mn
-          ! 1/J ( (g_thet,zeta  dlambdaSIN_dzeta -g_zeta,zeta  dlambdaSIN_dthet) dsigmaSIN_dthet
-          !      -(g_thet,thet  dlambdaSIN_dzeta -g_zeta,thet  dlambdaSIN_dthet) dsigmaSIN_dzeta)
-          Amat(iMode,jMode) = Amat(iMode,jMode) +&
-!                            ( ( g_tz(i_mn)*(-xn(iMode)) -g_zz(i_mn)*( xm(iMode)))*( xm(jMode))    &  
-!                             -( g_tt(i_mn)*(-xn(iMode)) -g_tz(i_mn)*( xm(iMode)))*(-xn(jMode)) )  &  
-!optimized
-                            (  g_tz(i_mn)*(((-xn(iMode))*( xm(jMode))) +            (( xm(iMode))*(-xn(jMode))))   &  
-                             - g_tt(i_mn)* ((-xn(iMode))*(-xn(jMode))) - g_zz(i_mn)*(( xm(iMode))*( xm(jMode))) )  &  
-                                     *cosMN(i_mn,iMode)*cosMN(i_mn,jMode)*sAdiag(iMode)
-        END DO !i_mn
-      END DO !iMode
-      RHS(jMode)=0.0_wp
       DO i_mn=1,np_mn
-        ! 1/J( (iota g_thet,zeta  + g_zeta,zeta )  dsigmaSIN_dthet
-        !     -(iota g_thet,thet  + g_zeta,thet )  dsigmaSIN_dzeta
-        RHS(jMode)      =   RHS(jMode)+&
-!                           ( ( g_tz(i_mn)*iotaf(iFlux) +g_zz(i_mn)  )*( xm(jMode))                &  
-!                            -( g_tt(i_mn)*iotaf(iFlux) +g_tz(i_mn)  )*(-xn(jMode)))               &  
-!optimized
-                            ( g_tz(i_mn)*(iotaf(iFlux)*( xm(jMode))  -            (-xn(jMode)))   &  
-                             -g_tt(i_mn)*(iotaf(iFlux)*(-xn(jMode))) + g_zz(i_mn)*( xm(jMode)) )  & 
-                                                *cosMN(i_mn,jMode) *sAdiag(jMode)
+        gta_dsinda=g_tz(i_mn)*dsinMN_dthet(i_mn,jMode) - g_tt(i_mn)*dsinMN_dzeta(i_mn,jMode)
+        gza_dsinda=g_zz(i_mn)*dsinMN_dthet(i_mn,jMode) - g_tz(i_mn)*dsinMN_dzeta(i_mn,jMode)
+        DO iMode=1,mn_mode
+          ! 1/J ( (g_thet,zeta dsigmaSIN_dthet -g_thet,thet dsigmaSIN_dzeta ) dlambdaSIN_dzeta
+          !      -(g_zeta,zeta dsigmaSIN_dthet -g_zeta,thet dsigmaSIN_dzeta ) dlambdaSIN_dthet)
+          Amat(iMode,jMode) = Amat(iMode,jMode) +&
+                              ( gta_dsinda*dsinMN_dzeta(i_mn,iMode) &
+                               -gza_dsinda*dsinMN_dthet(i_mn,iMode)) *sAdiag(iMode)
+        END DO !iMode
+        ! 1/J( iota (g_thet,zeta dsigmaSIN_dthet - g_thet,thet dsigmaSIN_dzeta )
+        !          +(g_zeta,zeta dsigmaSIN_dthet - g_zeta,thet dsigmaSIN_dzeta ) )
+        RHS(jMode)      =   RHS(jMode)+ (iotaf(iFlux)*gta_dsinda +gza_dsinda) *sAdiag(jMode)
       END DO !i_mn
     END DO!jMode
-    !$OMP END PARALLEL
+    !m,n=0 Mode !=0
     Amat(mn0mode,:)      =0.0_wp
     Amat(mn0mode,mn0mode)=1.0_wp
     RHS(         mn0mode)=0.0_wp
     IF(lasym)THEN
-      !lambda(1:mn_mode)=lmns(:,iFlux)
-      !lambda(mn_mode+1:2*mn_mode)=lmnc(:,iFlux)
-      !$OMP PARALLEL
       DO jMode=1,mn_mode
-        DO iMode=1,mn_mode
-          Amat(mn_mode+iMode,jMode)=0.0_wp 
-          Amat(iMode,mn_mode+jMode)=0.0_wp
-          Amat(mn_mode+iMode,mn_mode+jMode)=0.0_wp
-          DO i_mn=1,np_mn
-            ! 1/J ( (g_thet,thet dlambdaCOS_dzeta-g_thet,zeta  dlambdaCOS_dthet) dsigmaSIN_dthet
-            !      -(g_zeta,thet dlambdaCOS_dzeta-g_zeta,zeta  dlambdaCOS_dthet) dsigmaSIN_dzeta)
-            Amat(mn_mode+iMode,jMode)= Amat(mn_mode+iMode,jMode)+&
-!                            ( ( g_tz(i_mn)*( xn(iMode)) -g_zz(i_mn)*(-xm(iMode)))*( xm(jMode))    &  
-!                             -( g_tt(i_mn)*( xn(iMode)) -g_tz(i_mn)*(-xm(iMode)))*(-xn(jMode)) )  &  
-!optimized
-                            (  g_tz(i_mn)*(( xn(iMode))*( xm(jMode))  +            (-xm(iMode))*(-xn(jMode)))    &  
-                             - g_tt(i_mn)*(( xn(iMode))*(-xn(jMode))) -g_zz(i_mn)*((-xm(iMode))*( xm(jMode))) )  &  
-                                    *sinMN(i_mn,iMode)*cosMN(i_mn,jMode) *sAdiag(iMode)
-
-            ! 1/J ( (g_thet,thet dlambdaSIN_dzeta-g_thet,zeta  dlambdaSIN_dthet) dsigmaCOS_dthet
-            !      -(g_zeta,thet dlambdaSIN_dzeta-g_zeta,zeta  dlambdaSIN_dthet) dsigmaCOS_dzeta)
-            Amat(iMode,mn_mode+jMode)= Amat(iMode,mn_mode+jMode)+ &
-!                            ( ( g_tz(i_mn)*(-xn(iMode)) -g_zz(i_mn)*( xm(iMode)))*(-xm(jMode))    &  
-!                             -( g_tt(i_mn)*(-xn(iMode)) -g_tz(i_mn)*( xm(iMode)))*( xn(jMode)) )  &  
-!optimized
-                            (  g_tz(i_mn)*((-xn(iMode))*(-xm(jMode))  +            ( xm(iMode))*( xn(jMode)))    &  
-                             - g_tt(i_mn)*((-xn(iMode))*( xn(jMode))) -g_zz(i_mn)*(( xm(iMode))*(-xm(jMode))))  &  
-                                    *cosMN(i_mn,iMode)*sinMN(i_mn,jMode) *sAdiag(iMode)
-
-            ! 1/J ( (g_thet,thet dlambdaCOS_dzeta-g_thet,zeta  dlambdaCOS_dthet) dsigmaCOS_dthet
-            !      -(g_zeta,thet dlambdaCOS_dzeta-g_zeta,zeta  dlambdaCOS_dthet) dsigmaCOS_dzeta)
-            Amat(mn_mode+iMode,mn_mode+jMode)= Amat(mn_mode+iMode,mn_mode+jMode)+&
-!                            ( ( g_tz(i_mn)*( xn(iMode)) -g_zz(i_mn)*(-xm(iMode)))*(-xm(jMode))    &  
-!                             -( g_tt(i_mn)*( xn(iMode)) -g_tz(i_mn)*(-xm(iMode)))*( xn(jMode)) )  &  
-!optimized
-                            (  g_tz(i_mn)*(( xn(iMode))*(-xm(jMode))  +            (-xm(iMode))*( xn(jMode)))    &  
-                             - g_tt(i_mn)*(( xn(iMode))*( xn(jMode))) -g_zz(i_mn)*((-xm(iMode))*(-xm(jMode))) )  &  
-                                    *sinMN(i_mn,iMode)*sinMN(i_mn,jMode) *sAdiag(iMode)
-        
-        
-          END DO!i_mn
-        END DO !iMode
-        RHS(mn_mode+jMode) =0.0_wp 
         DO i_mn=1,np_mn
-          ! 1/J( (iota g_thet,thet+ g_thet,zeta)  dsigmaCOS_dthet
-          !     -(iota g_zeta,thet+ g_zeta,zeta)  dsigmaCOS_dzeta
-          RHS(mn_mode+jMode) = RHS(mn_mode+jMode) + &
-!                               ( ( g_tz(i_mn)*iotaf(iFlux) +g_zz(i_mn)  )*(-xm(jMode))               &  
-!                                -( g_tt(i_mn)*iotaf(iFlux) +g_tz(i_mn)  )*( xn(jMode)))              &  
-!optimized
-                                (   g_tz(i_mn)*((iotaf(iFlux)*(-xm(jMode))) -           ( xn(jMode)))     &  
-                                 -  g_tt(i_mn)* (iotaf(iFlux)*( xn(jMode))) +g_zz(i_mn)*(-xm(jMode))   )  &  
-                                                       *sinMN(i_mn,jMode) *sAdiag(jMode)
-       
+          gta_dsinda=g_tz(i_mn)*dsinMN_dthet(i_mn,jMode) - g_tt(i_mn)*dsinMN_dzeta(i_mn,jMode)
+          gza_dsinda=g_zz(i_mn)*dsinMN_dthet(i_mn,jMode) - g_tz(i_mn)*dsinMN_dzeta(i_mn,jMode)
+          gta_dcosda=g_tz(i_mn)*dcosMN_dthet(i_mn,jMode) - g_tt(i_mn)*dcosMN_dzeta(i_mn,jMode)
+          gza_dcosda=g_zz(i_mn)*dcosMN_dthet(i_mn,jMode) - g_tz(i_mn)*dcosMN_dzeta(i_mn,jMode)
+          DO iMode=1,mn_mode
+            ! 1/J ( (g_thet,thet dsigmaSIN_dthet -g_zeta,thet dsigmaSIN_dzeta ) dlambdaCOS_dzeta
+            !      -(g_thet,zeta dsigmaSIN_dthet -g_zeta,zeta dsigmaSIN_dzeta ) dlambdaCOS_dthet)
+            Amat(mn_mode+iMode,jMode)= Amat(mn_mode+iMode,jMode)+&
+                                      ( gta_dsinda*dcosMN_dzeta(i_mn,iMode)  & 
+                                       -gza_dsinda*dcosMN_dthet(i_mn,iMode)) *sAdiag(iMode)
+
+            ! 1/J ( (g_thet,thet dsigmaCOS_dthet-g_zeta,thet dsigmaCOS_dzeta) dlambdaSIN_dzeta
+            !      -(g_thet,zeta dsigmaCOS_dthet-g_zeta,zeta dsigmaCOS_dzeta) dlambdaSIN_dthet)
+            Amat(iMode,mn_mode+jMode)= Amat(iMode,mn_mode+jMode)+ &
+                                     ( gta_dcosda*dsinMN_dzeta(i_mn,iMode) &
+                                      -gza_dcosda*dsinMN_dthet(i_mn,iMode)) *sAdiag(iMode)
+
+            ! 1/J ( (g_thet,thet dsigmaCOS_dthet-g_zeta,thet dsigmaCOS_dzeta) dlambdaCOS_dzeta
+            !      -(g_thet,zeta dsigmaCOS_dthet-g_zeta,zeta dsigmaCOS_dzeta) dlambdaCOS_dthet)
+            Amat(mn_mode+iMode,mn_mode+jMode)= Amat(mn_mode+iMode,mn_mode+jMode)+&
+                                     ( gta_dcosda*dcosMN_dzeta(i_mn,iMode)       & 
+                                      -gza_dcosda*dcosMN_dthet(i_mn,iMode)) *sAdiag(iMode)
+          END DO !iMode
+          ! 1/J( iota (g_thet,thet dsigmaCOS_dthet - g_zeta,thet dsigmaCOS_dzeta)
+          !          + g_thet,zeta dsigmaCOS_dthet - g_zeta,zeta dsigmaCOS_dzeta)
+          RHS(mn_mode+jMode) = RHS(mn_mode+jMode) + (iotaf(iFlux)*gza_dcosda + gta_dcosda)*sAdiag(jMode)
         END DO !i_mn
       END DO!jMode
-      !$OMP END PARALLEL
+      !m,n=0 Mode !=0 
       Amat(mn_mode+mn0Mode,:              )=0.0_wp
       Amat(mn_mode+mn0Mode,mn_mode+mn0Mode)=1.0_wp
       RHS(                 mn_mode+mn0Mode)=0.0_wp
@@ -317,7 +270,7 @@ USE SPLINE1_MOD,    ONLY: SPLINE1_EVAL
   IF(lasym)THEN
     lmnc(:,1)=0.0_wp
   END IF
-!STOP
+
   DEALLOCATE(lambda,Amat,RHS,sAdiag)
   WRITE(*,'(A)')'                                                       '
   WRITE(*,'(4X,A)')'...DONE.'
