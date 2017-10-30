@@ -69,23 +69,23 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT MHD EQUILIBRIUM INPUT ...'
+SWRITE(UNIT_stdOut,'(A)')'INIT MHD EQUILIBRIUM INPUT ...'
 whichEquilibrium    = GETINT('whichEquilibrium','0')   
 IF(WhichEquilibrium.EQ.0) THEN 
-  WRITE(UNIT_stdOut,'(A)')'... NOTHING TO BE DONE'
+  SWRITE(UNIT_stdOut,'(A)')'... NOTHING TO BE DONE'
   RETURN
 END IF
 SELECT CASE(whichEquilibrium)
 CASE(1)
   useMHDEQ=.TRUE.
-  WRITE(*,*)'Using VMEC as equilibrium solution...'
+  SWRITE(*,*)'Using VMEC as equilibrium solution...'
   CALL InitVMEC()
 CASE(2)
   useMHDEQ=.TRUE.
-  WRITE(*,*)'Using Soloviev as equilibrium solution...'
+  SWRITE(*,*)'Using Soloviev as equilibrium solution...'
   CALL InitSolov()
 CASE DEFAULT
-  WRITE(*,*)'WARNING: No Equilibrium solution for which Equilibrium= ', whichEquilibrium
+  SWRITE(*,*)'WARNING: No Equilibrium solution for which Equilibrium= ', whichEquilibrium
   STOP
 END SELECT
   !density coefficients of the polynomial coefficients: rho_1+rho_2*x + rho_3*x^2 ...
@@ -99,8 +99,8 @@ END SELECT
   ! =0: x_in(1:3) are (x,y,z) coordinates in a cylinder of size r=[0;1], z=[0;1]
   ! =1: x_in(1:3) are (r,zeta,theta) coordinates r= [0;1], zeta= [0;1], theta=[0;1]
 
-WRITE(UNIT_stdOut,'(A)')'... DONE'
-WRITE(UNIT_stdOut,fmt_sep)
+SWRITE(UNIT_stdOut,'(A)')'... DONE'
+SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitMHDEQ
 
 

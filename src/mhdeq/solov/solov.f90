@@ -23,7 +23,7 @@
 !===================================================================================================================================
 MODULE MOD_Solov
 ! MODULES
-USE MOD_Globals,ONLY:wp
+USE MOD_Globals,ONLY:UNIT_StdOut,wp
 IMPLICIT NONE
 PRIVATE
 
@@ -53,7 +53,6 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitSolov 
 ! MODULES
-USE MOD_Globals, ONLY:UNIT_StdOut
 USE MOD_ReadInTools
 USE MOD_Solov_Vars
 USE MOD_CCint,ONLY:initCCint
@@ -65,7 +64,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'  INIT SOLOV INPUT ...'
+SWRITE(UNIT_stdOut,'(A)')'  INIT SOLOV INPUT ...'
 
 setup =GETINT("Solov_setup","0")
 IF(setup.EQ.0)THEN
@@ -81,7 +80,7 @@ ELSE
   !preselected setups (defaults are set, can still be modified in inifile)
   SELECT CASE(setup)
   CASE(1) !circular
-    WRITE(*,*)'circular equilibrium setup:'
+    SWRITE(UNIT_stdout,*)'circular equilibrium setup:'
     P_R0    =GETREAL("Solov_R0","10.")
     P_eps   =GETREAL("Solov_eps","0.4")
     P_kappa =GETREAL("Solov_kappa","1.")
@@ -91,7 +90,7 @@ ELSE
     P_qaxis =GETREAL("Solov_qaxis","1.89")
     P_paxis =GETREAL("Solov_paxis","2.0e-03")
   CASE(2) !parameter ITER-like
-    WRITE(*,*)'Iter-like equilibrium setup:'
+    SWRITE(UNIT_stdout,*)'Iter-like equilibrium setup:'
     P_R0    =GETREAL("Solov_R0","6.2")
     P_eps   =GETREAL("Solov_eps","0.32")
     P_kappa =GETREAL("Solov_kappa","1.7")
@@ -101,13 +100,13 @@ ELSE
     P_qaxis =GETREAL("Solov_qaxis","1.6")
     P_paxis =GETREAL("Solov_paxis","8.0e-02")
   CASE DEFAULT
-    WRITE(*,*) "WARNING: This soloviev setup does not exist" ,setup
+    SWRITE(UNIT_stdout,*) "WARNING: This soloviev setup does not exist" ,setup
     STOP
   END SELECT
 END IF !setup=0
-IF(p_A    .GT.1.0_wp) WRITE(*,*) 'WARNING, USING POSITIVE PRESSURE GRADIENT p_axis< PresEdge'
-IF(p_eps  .GT.0.98_wp) WRITE(*,*) 'WARNING, EPSILON >0.98, makes no sense!'
-IF(p_delta.GT.0.98_wp) WRITE(*,*) 'WARNING, DELTA >0.98, makes no sense!'
+IF(p_A    .GT.1.0_wp)  SWRITE(Unit_stdOut,*) 'WARNING, USING POSITIVE PRESSURE GRADIENT p_axis< PresEdge'
+IF(p_eps  .GT.0.98_wp) SWRITE(Unit_stdOut,*) 'WARNING, EPSILON >0.98, makes no sense!'
+IF(p_delta.GT.0.98_wp) SWRITE(Unit_stdOut,*) 'WARNING, DELTA >0.98, makes no sense!'
   
 asin_delta=ASIN(P_delta)
 
@@ -117,7 +116,7 @@ CALL InitCCint()
 !initialize Soloviev parameters
 CALL InitSolovievEquilibrium()
 
-WRITE(UNIT_stdOut,'(A)')'  ... DONE'
+SWRITE(UNIT_stdOut,'(A)')'  ... DONE'
 END SUBROUTINE InitSolov
 
 
@@ -147,8 +146,8 @@ REAL(wp)  :: d2Psi_dy2_axis  !d^2/dy^2 Psi
 !===================================================================================================================================
 
 CALL SolveForPsiCoefs()
-WRITE(*,'(A,4(E22.15,1X)))')'   PsiCoefs(1:4)        : ', PsiCoefs(1:4)
-WRITE(*,'(A,3(E22.15,1X)))')'   PsiCoefs(5:7)        : ', PsiCoefs(5:7)
+SWRITE(Unit_stdOut,'(A,4(E22.15,1X)))')'   PsiCoefs(1:4)        : ', PsiCoefs(1:4)
+SWRITE(Unit_stdOut,'(A,3(E22.15,1X)))')'   PsiCoefs(5:7)        : ', PsiCoefs(5:7)
 
 !                tolerance,
 tol=1.0e-15
@@ -162,7 +161,7 @@ b(2)=-a(2)              !bound y+
 xaxis(1)=1.0_wp
 xaxis(2)=0.0_wp
 psi_axis=NewtonMin1D(tol,a(1),b(1),xaxis(1),F1,dF1,ddF1 )
-WRITE(*,'(A,2E22.15)')'   magentic axis x,y    : ',xaxis(:)
+SWRITE(Unit_stdOut,'(A,2E22.15)')'   magentic axis x,y    : ',xaxis(:)
 
 !2D minimum search
 xaxis(1)=1.0_wp
@@ -170,9 +169,9 @@ xaxis(2)=0.0_wp
 psi_axis=NewtonMin2D(tol,a,b,xaxis,F2,dF2,ddF2 )
 
 psi_edge=EvalPsi(1.0_wp+p_eps,0.0_wp)
-WRITE(*,'(A,2E22.15)')'   magentic axis x,y    : ',xaxis(:)
-WRITE(*,'(A,E22.15)') '   psi at magentic axis : ',psi_axis
-WRITE(*,'(A,E22.15)') '   psi at domain edge   : ',psi_edge
+SWRITE(UNIT_stdOut,'(A,2E22.15)')'   magentic axis x,y    : ',xaxis(:)
+SWRITE(UNIT_stdOut,'(A,E22.15)') '   psi at magentic axis : ',psi_axis
+SWRITE(UNIT_StdOut,'(A,E22.15)') '   psi at domain edge   : ',psi_edge
 
 !find out scaling of psi function
 F_axis=p_B0*p_R0
@@ -188,28 +187,28 @@ qaxis_fact=p_R0/(xaxis(1)*SQRT(d2Psi_dx2_axis*d2Psi_dy2_axis) )
 
 psi_scale=qaxis_fact*F_axis/p_qaxis
 
-WRITE(*,'(A,E22.15)') '   psi_scale            : ',psi_scale
-WRITE(*,'(A,E22.15)') '   real psi on axis     : ',psi_scale*psi_axis
+SWRITE(UNIT_stdOut,'(A,E22.15)') '   psi_scale            : ',psi_scale
+SWRITE(UNIT_StdOut,'(A,E22.15)') '   real psi on axis     : ',psi_scale*psi_axis
 
 deltaF2 = 2*p_A*psi_scale**2*psi_axis/(p_R0**2)
 F_edge=SQRT(F_axis**2+deltaF2)
 
-WRITE(*,'(A,E22.15)') '   F on axis            : ',F_axis
-WRITE(*,'(A,E22.15)') '   F on edge            : ',F_edge
+SWRITE(UNIT_stdOut,'(A,E22.15)') '   F on axis            : ',F_axis
+SWRITE(UNIT_StdOut,'(A,E22.15)') '   F on edge            : ',F_edge
 
 !gradient of the pressure over normalized flux, p=p0+dpdpsin*psin 
 mu0=1.
 dp_dpsin=(1-p_A)*psi_scale**2*psi_axis/(mu0*p_R0**4)
 PresEdge=p_paxis+dp_dpsin
-WRITE(*,'(A,E22.15)') '   pressure on axis     : ',p_paxis
-WRITE(*,'(A,E22.15)') '   pressure on edge     : ',PresEdge
+SWRITE(UNIT_stdOut,'(A,E22.15)') '   pressure on axis     : ',p_paxis
+SWRITE(UNIT_StdOut,'(A,E22.15)') '   pressure on edge     : ',PresEdge
 
 IF(PresEdge.LT.0.0_wp) STOP 'Pressure negative in domain, increase paxis input'
 
 CALL Eval_qedge(F_edge,qedge)
 
-WRITE(*,'(A,E22.15)') '   q-factor on axis     : ',p_qaxis
-WRITE(*,'(A,E22.15)') '   q-factor on edge     : ',qedge
+SWRITE(UNIT_stdOut,'(A,E22.15)') '   q-factor on axis     : ',p_qaxis
+SWRITE(UNIT_StdOut,'(A,E22.15)') '   q-factor on edge     : ',qedge
 
 CONTAINS
   !for 1d NewtonMin
@@ -525,7 +524,7 @@ REAL(wp)  :: BR,BZ,Bphi,Bcart(3)
 REAL(wp)  :: AR,AZ,Aphi,Acart(3)
 LOGICAL   :: converged
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO SOLOVIEV EQUILIBRIUM'
+SWRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO SOLOVIEV EQUILIBRIUM'
 percent=0
 tol=1.0E-13_wp
 DO iNode=1,nTotal
@@ -656,7 +655,7 @@ DO iNode=1,nTotal
 END DO !iNode
 
 
-WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
+SWRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
 
 CONTAINS
 !for newton search

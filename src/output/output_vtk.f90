@@ -75,7 +75,7 @@ CHARACTER(LEN=1)   :: strvecdim
 CHARACTER(LEN=1)   :: lf
 REAL(KIND=4)       :: Float
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')"   WRITE DATA TO VTX XML BINARY (VTU) FILE... "//TRIM(FileString)
+WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO VTX XML BINARY (VTU) FILE "'//TRIM(FileString)//'" ...'
 NPlot_p1  =(Nplot+1)
 NPlot_p1_2=Nplot_p1*Nplot_p1
 NPlot_p1_3=NPlot_p1_2*Nplot_p1

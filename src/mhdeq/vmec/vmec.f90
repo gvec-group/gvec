@@ -72,113 +72,113 @@ IMPLICIT NONE
 INTEGER              :: iMode,nyq,np_m,np_n
 LOGICAL              :: useFilter,reLambda
 !===================================================================================================================================
-  WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
+SWRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 
-  !VMEC "wout*.nc"  file
-  VMECdataFile=GETSTR("VMECwoutfile")
+!VMEC "wout*.nc"  file
+VMECdataFile=GETSTR("VMECwoutfile")
 
-  !use StraightFieldline mapping 
-  useSFL=GETLOGICAL("VMEC_useSFL",".FALSE.")
- 
-  ! read VMEC 2000 output (netcdf)
-  CALL ReadVmec(VMECdataFile)
+!use StraightFieldline mapping 
+useSFL=GETLOGICAL("VMEC_useSFL",".FALSE.")
+
+! read VMEC 2000 output (netcdf)
+CALL ReadVmec(VMECdataFile)
 
 
-  !gmnc not needed anymore
-  !ALLOCATE(gmnc_half_nyq(1:nFluxVMEC,mn_mode_nyq))
-  !gmnc_half_nyq     = gmnc
-  ! half data is stored from 2:nFluxVMEC
+!gmnc not needed anymore
+!ALLOCATE(gmnc_half_nyq(1:nFluxVMEC,mn_mode_nyq))
+!gmnc_half_nyq     = gmnc
+! half data is stored from 2:nFluxVMEC
 
-  !toroidal flux from VMEC, now called PHI!
-  ALLOCATE(Phi_prof(nFluxVMEC))
-  Phi_prof = phi
+!toroidal flux from VMEC, now called PHI!
+ALLOCATE(Phi_prof(nFluxVMEC))
+Phi_prof = phi
 
-  !normalized toroidal flux (=flux variable s [0;1] in VMEC)
-  ALLOCATE(Phinorm_prof(nFluxVMEC))
-  Phinorm_prof=(Phi_prof-Phi_prof(1))/(Phi_prof(nFluxVMEC)-Phi_prof(1))
-  WRITE(UNIT_stdOut,'(4X,A,3F10.4)')'normalized toroidal flux of first three flux surfaces',Phinorm_prof(2:4)
-  !poloidal flux from VMEC
-  ALLOCATE(chi_prof(nFluxVMEC))
-  chi_prof=chi
-  WRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max toroidal flux',MINVAL(phi),MAXVAL(phi)
-  WRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi),MAXVAL(chi)
+!normalized toroidal flux (=flux variable s [0;1] in VMEC)
+ALLOCATE(Phinorm_prof(nFluxVMEC))
+Phinorm_prof=(Phi_prof-Phi_prof(1))/(Phi_prof(nFluxVMEC)-Phi_prof(1))
+SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'normalized toroidal flux of first three flux surfaces',Phinorm_prof(2:4)
+!poloidal flux from VMEC
+ALLOCATE(chi_prof(nFluxVMEC))
+chi_prof=chi
+SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max toroidal flux',MINVAL(phi),MAXVAL(phi)
+SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi),MAXVAL(chi)
 
-  WRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes:',mn_mode
-  WRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp: ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
-!  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
-!  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
+SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes:',mn_mode
+SWRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp: ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
+!SWRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
+!SWRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
 
-  useFilter=.TRUE. !GETLOGICAL('VMECuseFilter','.TRUE.') !SHOULD BE ALWAYS TRUE...
+useFilter=.TRUE. !GETLOGICAL('VMECuseFilter','.TRUE.') !SHOULD BE ALWAYS TRUE...
 
-  ALLOCATE(xmabs(mn_mode))
-  DO iMode=1,mn_mode
-    xmabs(iMode)=ABS(NINT(xm(iMode)))
-    IF(useFilter)THEN
-      IF(xmabs(iMode) > 3) THEN !Filtering for |m| > 3
-        IF(MOD(xmabs(iMode),2) == 0) THEN
-          xmabs(iMode)=2 !Even mode, remove rho**2
-        ELSE
-          xmabs(iMode)=3 !Odd mode, remove rho**3
-        END IF
+ALLOCATE(xmabs(mn_mode))
+DO iMode=1,mn_mode
+  xmabs(iMode)=ABS(NINT(xm(iMode)))
+  IF(useFilter)THEN
+    IF(xmabs(iMode) > 3) THEN !Filtering for |m| > 3
+      IF(MOD(xmabs(iMode),2) == 0) THEN
+        xmabs(iMode)=2 !Even mode, remove rho**2
+      ELSE
+        xmabs(iMode)=3 !Odd mode, remove rho**3
       END IF
-    END IF !usefilter
-  END DO !iMode=1,mn_mode
+    END IF
+  END IF !usefilter
+END DO !iMode=1,mn_mode
 
-  !prepare Spline interpolation
-  ALLOCATE(rho(1:nFluxVMEC))
-  rho(:)=SQRT(Phinorm_prof(:))
+!prepare Spline interpolation
+ALLOCATE(rho(1:nFluxVMEC))
+rho(:)=SQRT(Phinorm_prof(:))
+
+
+ALLOCATE(Rmnc_Spl(4,1:nFluxVMEC,mn_mode)) !first dim is for spline interpolation
+CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmnc,Rmnc_Spl)
+
+ALLOCATE(Zmns_Spl(4,1:nFluxVMEC,mn_mode))
+CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmns,Zmns_Spl)
+
+IF(lasym)THEN
+  SWRITE(Unit_stdOut,'(4X,A)')'LASYM=TRUE : R,Z,lambda in cos and sin!'
+  ALLOCATE(Rmns_Spl(4,1:nFluxVMEC,mn_mode)) 
+  CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmns,Rmns_Spl)
   
-
-  ALLOCATE(Rmnc_Spl(4,1:nFluxVMEC,mn_mode)) !first dim is for spline interpolation
-  CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmnc,Rmnc_Spl)
-
-  ALLOCATE(Zmns_Spl(4,1:nFluxVMEC,mn_mode))
-  CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmns,Zmns_Spl)
-
-  IF(lasym)THEN
-    WRITE(*,'(4X,A)')'LASYM=TRUE : R,Z,lambda in cos and sin!'
-    ALLOCATE(Rmns_Spl(4,1:nFluxVMEC,mn_mode)) 
-    CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmns,Rmns_Spl)
-    
-    ALLOCATE(Zmnc_Spl(4,1:nFluxVMEC,mn_mode))
-    CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmnc,Zmnc_Spl)
-    
-  END IF
-
-  relambda=GETLOGICAL("VMEC_relambda",".TRUE.")
-  IF(relambda) nyq=GETINT("VMEC_Lam_nyq","4")
-
-  ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
-  IF(lasym) ALLOCATE(lmnc_Spl(4,1:nFluxVMEC,mn_mode))
-  IF(reLambda)THEN
-    np_m=1+nyq*2*(NINT(MAXVAL(ABS(xm)))/2) !m_points [0,2pi]
-    np_n=1+nyq*2*(NINT(MAXVAL(ABS(xn)))/(2*nfp)) !n_points [0,2pi/nfs] ->  
-    !recompute lambda on FULL GRID
-    CALL RecomputeLambda(np_m,np_n) 
-    CALL           FitSpline(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
-    IF(lasym) CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
-  ELSE
-    !lambda given on half grid
-    CALL           FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
-    IF(lasym) CALL FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
-  END IF
-
-  ALLOCATE(pres_spl(4,1:nFluxVMEC))
-  pres_spl(1,:)=presf(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
-
-  ALLOCATE(Phi_spl(4,1:nFluxVMEC))
-  Phi_spl(1,:)=Phi_Prof(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,Phi_Spl(:,:), K_BC1=3, K_BCN=0)
-
-  ALLOCATE(chi_spl(4,1:nFluxVMEC))
-  chi_spl(1,:)=chi_Prof(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=3, K_BCN=0)
-
-  WRITE(*,'(4X,A,3F10.4)')'iota axis/middle/edge',iotaf(1),iotaf(nFluxVMEC/2),iotaf(nFluxVMEC)
+  ALLOCATE(Zmnc_Spl(4,1:nFluxVMEC,mn_mode))
+  CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmnc,Zmnc_Spl)
   
+END IF
 
-  WRITE(UNIT_stdOut,'(A)')'  ... DONE'
+relambda=GETLOGICAL("VMEC_relambda",".TRUE.")
+IF(relambda) nyq=GETINT("VMEC_Lam_nyq","4")
+
+ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
+IF(lasym) ALLOCATE(lmnc_Spl(4,1:nFluxVMEC,mn_mode))
+IF(reLambda)THEN
+  np_m=1+nyq*2*(NINT(MAXVAL(ABS(xm)))/2) !m_points [0,2pi]
+  np_n=1+nyq*2*(NINT(MAXVAL(ABS(xn)))/(2*nfp)) !n_points [0,2pi/nfs] ->  
+  !recompute lambda on FULL GRID
+  CALL RecomputeLambda(np_m,np_n) 
+  CALL           FitSpline(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
+  IF(lasym) CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
+ELSE
+  !lambda given on half grid
+  CALL           FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
+  IF(lasym) CALL FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
+END IF
+
+ALLOCATE(pres_spl(4,1:nFluxVMEC))
+pres_spl(1,:)=presf(:)
+CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
+
+ALLOCATE(Phi_spl(4,1:nFluxVMEC))
+Phi_spl(1,:)=Phi_Prof(:)
+CALL SPLINE1_FIT(nFluxVMEC,rho,Phi_Spl(:,:), K_BC1=3, K_BCN=0)
+
+ALLOCATE(chi_spl(4,1:nFluxVMEC))
+chi_spl(1,:)=chi_Prof(:)
+CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=3, K_BCN=0)
+
+SWRITE(Unit_stdOut,'(4X,A,3F10.4)')'iota axis/middle/edge',iotaf(1),iotaf(nFluxVMEC/2),iotaf(nFluxVMEC)
+
+
+SWRITE(UNIT_stdOut,'(A)')'  ... DONE'
 END SUBROUTINE InitVMEC
 
 
@@ -365,7 +365,7 @@ REAL(wp):: lam_rho(mn_mode,2)      ! for SFL
 REAL(wp):: dldtheta_rho(mn_mode,2) ! for SFL
 REAL(wp):: Rmin,Rmax,Zmin,Zmax 
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO VMEC DATA FROM ',TRIM(VMECdataFile),' ...'
+SWRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO VMEC DATA FROM ',TRIM(VMECdataFile),' ...'
 Rmin=1.0E+12; Rmax=-1.0E12
 Zmin=1.0E+12; Zmax=-1.0E12
 percent=0
@@ -657,9 +657,9 @@ DO iNode=1,nTotal
   MHDEQdata(8:10,iNode)=Acart(:)
 
 END DO !iNode=1,nTotal
-WRITE(UNIT_stdOut,'(A,4(1X,E12.5))')'  Rmin/Zmax, Zmin/Zmax ', Rmin,Rmax,Zmin,Zmax 
+SWRITE(UNIT_stdOut,'(A,4(1X,E12.5))')'  Rmin/Zmax, Zmin/Zmax ', Rmin,Rmax,Zmin,Zmax 
 
-WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
+SWRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
 
 !for iteration on theta^*
 CONTAINS 

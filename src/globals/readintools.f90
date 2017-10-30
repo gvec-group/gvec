@@ -462,14 +462,16 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 TYPE(tString),POINTER                  :: Str1  
 !===================================================================================================================================
-SWRITE(UNIT_stdOut,'(132("-"))')
-SWRITE(UNIT_stdOut,'(A)')" THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:"
 Str1=>FirstString
-DO WHILE(ASSOCIATED(Str1))
-  SWRITE(UNIT_stdOut,'(A4,A)')" |- ",TRIM(CHAR(Str1%Str))
-  Str1=>Str1%NextStr
-END DO
-SWRITE(UNIT_stdOut,'(132("-"))')
+IF(ASSOCIATED(str1))THEN
+  SWRITE(UNIT_stdOut,'(132("-"))')
+  SWRITE(UNIT_stdOut,'(A)')" THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:"
+  DO WHILE(ASSOCIATED(Str1))
+    SWRITE(UNIT_stdOut,'(A4,A)')" |- ",TRIM(CHAR(Str1%Str))
+    Str1=>Str1%NextStr
+  END DO
+  SWRITE(UNIT_stdOut,'(132("-"))')
+END IF
 
 END SUBROUTINE IgnoredStrings
 

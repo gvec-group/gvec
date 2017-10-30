@@ -63,11 +63,11 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
+SWRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
 ProjectName = GETSTR('ProjectName','GVEC')   
 
-WRITE(UNIT_stdOut,'(A)')'... DONE'
-WRITE(UNIT_stdOut,fmt_sep)
+SWRITE(UNIT_stdOut,'(A)')'... DONE'
+SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitOutput
 
 
@@ -77,7 +77,6 @@ END SUBROUTINE InitOutput
 !===================================================================================================================================
 SUBROUTINE Output()
 ! MODULES
-USE MOD_Globals, ONLY:wp
 USE MOD_Output_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------

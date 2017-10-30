@@ -56,7 +56,7 @@ CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 ! LOCAL VARIABLES
 INTEGER                        :: iVal,iPlot,ioUnit
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')"   WRITE DATA TO CSV FILE... "//TRIM(FileString)//'.csv'
+WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO CSV FILE "'//TRIM(FileString)//'.csv" ...'
 ioUnit=GETFREEUNIT()
 OPEN(UNIT   = ioUnit       ,&
      FILE   = TRIM(FileString)//'.csv'   ,&

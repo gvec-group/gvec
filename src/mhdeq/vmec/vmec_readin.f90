@@ -94,7 +94,7 @@ SUBROUTINE ReadVMEC(fileName)
   INTEGER :: aStat, aError, ioError, ncid, id
 !===================================================================================================================================
 
-    WRITE(*,'(4X,A)')'VMEC READ WOUT FILE...'
+    WRITE(*,'(4X,A)')'VMEC READ WOUT FILE "'//TRIM(fileName)//'" ...'
     !! open NetCDF input file
     ioError = NF_OPEN(TRIM(fileName), NF_NOWRITE, ncid)
     IF (ioError /= 0) THEN

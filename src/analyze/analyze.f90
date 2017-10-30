@@ -63,12 +63,12 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
+SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 visuVMEC1D    = GETLOGICAL('visuVMEC1D','T')   
 visuVMEC2D    = GETLOGICAL('visuVMEC2D','F')   
 
-WRITE(UNIT_stdOut,'(A)')'... DONE'
-WRITE(UNIT_stdOut,fmt_sep)
+SWRITE(UNIT_stdOut,'(A)')'... DONE'
+SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
 
 
