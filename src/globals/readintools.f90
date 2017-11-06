@@ -37,6 +37,8 @@ PUBLIC::GETREAL
 PUBLIC::GETLOGICAL
 PUBLIC::GETINTARRAY
 PUBLIC::GETREALARRAY
+PUBLIC::GETINTALLOCARRAY
+PUBLIC::GETREALALLOCARRAY
 
 PUBLIC::IgnoredStrings
 !===================================================================================================================================
@@ -276,7 +278,7 @@ CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in i
 CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal !! Default values as character string (as in ini file)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES                                 
-REAL                                 :: GetReal  !! Real read from setup file or initialized with default value
+REAL(wp)                             :: GetReal  !! Real read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 CHARACTER(LEN=500)                   :: HelpStr  
@@ -362,10 +364,11 @@ CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as ch
 INTEGER                   :: GetIntArray(nIntegers)      !! Integer array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255)        :: HelpStr  
+CHARACTER(LEN=255+nIntegers*50) :: HelpStr  
 CHARACTER(LEN=8)          :: DefMsg  
 INTEGER                   :: iInteger  
 INTEGER                   :: ioerr
+TYPE(varying_string)      :: separator,astr,bstr
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -375,10 +378,23 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
+!count number of components
+astr=var_str(TRIM(helpstr))
+iInteger=0
+Separator="X"
+DO WHILE(LEN(CHAR(separator)) .NE. 0)
+  iInteger=iInteger+1
+  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
+END DO
+IF(iInteger.NE.nIntegers)THEN
+  WRITE(*,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (integer Array), number of elements : ', iInteger, ' .NE. ',nIntegers
+  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  STOP     
+END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
   WRITE(*,*)'PROBLEM IN READIN OF LINE (integer array):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
+  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
   STOP     
 END IF
 SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
@@ -392,6 +408,69 @@ DO iInteger=0,nIntegers-1
 END DO
 SWRITE(UNIT_stdOut,*)
 END FUNCTION GETINTARRAY
+
+
+!===================================================================================================================================
+!> Allocate and read integer array of unknown length "nIntegers" integer values named "Key" from ini file. 
+!! If keyword "Key" is not found in setup file, the default
+!! values "Proposal" are used to create the array (error if "Proposal" not given). Setup file was read in before and is stored as
+!! list of character strings starting with "FirstString".
+!!
+!===================================================================================================================================
+SUBROUTINE GETINTALLOCARRAY(Key,GetIntArray,nIntegers,Proposal)
+! MODULES
+    IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+CHARACTER(LEN=*),INTENT(IN)          :: Key              !! Search for this keyword in ini file
+CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as character string (as in setup file)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+INTEGER,INTENT(OUT)       :: nIntegers        !! Number of values in array
+INTEGER,ALLOCATABLE       :: GetIntArray(:)      !! Integer array read from setup file or initialized with default values
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+CHARACTER(LEN=50*255)     :: HelpStr  
+CHARACTER(LEN=8)          :: DefMsg  
+INTEGER                   :: iInteger  
+INTEGER                   :: ioerr
+TYPE(varying_string)      :: separator,astr,bstr
+!===================================================================================================================================
+! Read-in ini file if not done already
+CALL FillStrings
+
+IF (PRESENT(Proposal)) THEN
+  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+ELSE
+  CALL FindStr(Key,HelpStr,DefMsg)
+END IF
+!count number of components
+astr=var_str(TRIM(helpstr))
+nIntegers=0
+Separator="X"
+DO WHILE(LEN(CHAR(separator)) .NE. 0)
+  nIntegers=nIntegers+1
+  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
+END DO
+IF(ALLOCATED(GetIntArray)) DEALLOCATE(GetIntArray)
+ALLOCATE(GetIntArray(nIntegers))
+READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
+IF(ioerr.NE.0)THEN
+  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer array):'
+  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  STOP     
+END IF
+SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
+                                                               'Integer array of size (',nIntegers,') | ',TRIM(DefMsg),' | '
+DO iInteger=0,nIntegers-1
+  IF ((iInteger.GT.0) .AND. (MOD(iInteger,8).EQ.0)) THEN
+    SWRITE(UNIT_stdOut,*)
+    SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+  END IF
+  SWRITE(UNIT_stdOut,'(i5)',ADVANCE='NO')GetIntArray(iInteger+1)
+END DO
+SWRITE(UNIT_stdOut,*)
+END SUBROUTINE GETINTALLOCARRAY
 
 
 !===================================================================================================================================
@@ -410,13 +489,14 @@ INTEGER,INTENT(IN)                   :: nReals           !! Number of values in 
 CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as character string (as in setup file)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL                      :: GetRealArray(nReals)        !! Real array read from setup file or initialized with default values
+REAL(wp)                  :: GetRealArray(nReals)        !! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 CHARACTER(LEN=255+nReals*50) :: HelpStr  
 CHARACTER(LEN=8)          :: DefMsg  
 INTEGER                   :: iReal  
 INTEGER                   :: ioerr  
+TYPE(varying_string)      :: separator,astr,bstr
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -427,10 +507,24 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 CALL getPImultiplies(helpstr)
+!count number of components
+astr=var_str(TRIM(helpstr))
+iReal=0
+Separator="X"
+DO WHILE(LEN(CHAR(separator)) .NE. 0)
+  iReal=iReal+1
+  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
+END DO
+IF(iReal.NE.nReals)THEN
+  WRITE(*,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (RealArray), number of elements : ', iReal, ' .NE. ',nReals
+  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  STOP     
+END IF
+
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
   WRITE(*,*)'PROBLEM IN READIN OF LINE (RealArray):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
+  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
   STOP     
 END IF
 SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
@@ -444,6 +538,71 @@ DO iReal=0,nReals-1
 END DO
 SWRITE(UNIT_stdOut,*)
 END FUNCTION GETREALARRAY
+
+
+!===================================================================================================================================
+!> Read array of "nReals" real values named "Key" from ini file. If keyword "Key" is not found in setup file, the default
+!! values "Proposal" are used to create the array (error if "Proposal" not given). Setup file was read in before and is stored as
+!! list of character strings starting with "FirstString".
+!!
+!===================================================================================================================================
+SUBROUTINE GETREALALLOCARRAY(Key,GetRealArray,nReals,Proposal)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+CHARACTER(LEN=*),INTENT(IN)          :: Key              !! Search for this keyword in ini file
+CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as character string (as in setup file)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+INTEGER,INTENT(OUT)       :: nReals           !! Number of values in array
+REAL(wp),ALLOCATABLE      :: GetRealArray(:)  !! Real array read from setup file or initialized with default values
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+CHARACTER(LEN=50*255)     :: HelpStr  
+CHARACTER(LEN=8)          :: DefMsg  
+INTEGER                   :: iReal  
+INTEGER                   :: ioerr  
+TYPE(varying_string)      :: separator,astr,bstr
+!===================================================================================================================================
+! Read-in ini file if not done already
+CALL FillStrings
+
+IF (PRESENT(Proposal)) THEN
+  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+ELSE
+  CALL FindStr(Key,HelpStr,DefMsg)
+END IF
+CALL getPImultiplies(helpstr)
+!count number of components
+astr=var_str(TRIM(helpstr))
+nReals=0
+Separator="X"
+DO WHILE(LEN(CHAR(separator)) .NE. 0)
+  nReals=nReals+1
+  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
+END DO
+WRITE(*,*)'dbg,nReals',nReals
+IF(ALLOCATED(GetRealarray)) DEALLOCATE(GetRealArray)
+ALLOCATE(GetRealArray(nReals))
+
+READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
+IF(ioerr.NE.0)THEN
+  WRITE(*,*)'PROBLEM IN READIN OF LINE (RealArray):'
+  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  STOP     
+END IF
+SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
+                                                               'Real array of size (',nReals,') | ',TRIM(DefMsg),' | '
+DO iReal=0,nReals-1
+  IF ((iReal.GT.0) .AND. (MOD(iReal,8).EQ.0)) THEN
+    SWRITE(UNIT_stdOut,*)
+    SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+  END IF
+  SWRITE(UNIT_stdOut,'(f5.2)',ADVANCE='NO')GetRealArray(iReal+1)
+END DO
+SWRITE(UNIT_stdOut,*)
+END SUBROUTINE GETREALALLOCARRAY
 
 
 !===================================================================================================================================
@@ -557,6 +716,21 @@ DO WHILE(EOF.NE.IOSTAT_END)
     END IF
 END DO
 CLOSE(103)
+
+!find line continuation "&" and merge strings (can be multiple lines)
+Str1=>FirstString
+DO WHILE (ASSOCIATED(Str1))
+  IF(INDEX(CHAR(Str1%str),'&').NE.0)THEN !found "&"
+    CALL Split(Str1%Str,aStr,"&") !take part in front of "&"
+    Str2=>Str1%nextStr
+    Str1%Str=Var_str(CHAR(aStr)//CHAR(Str2%Str))
+    CALL deleteString(Str2) 
+    !do not go to next  string as long as there are "&" in the string  
+  ELSE
+    Str1=>Str1%NextStr !nothing to be done
+  END IF
+END DO
+
 ReadInDone=.TRUE.
 
 CALL UserDefinedVars()
@@ -642,9 +816,9 @@ CHARACTER(LEN=255)  :: aStr
 CHARACTER(LEN=8)    :: DefMsg  
 TYPE(Varying_String):: vStr,vStr1,vStr2,vStrTmp,vStr_narr
 INTEGER             :: DefVarInt
-REAL                :: DefVarReal
+REAL(wp)            :: DefVarReal
 INTEGER,ALLOCATABLE :: DefVarIntArr(:)
-REAL,ALLOCATABLE    :: DefVarRealArr(:)
+REAL(wp),ALLOCATABLE:: DefVarRealArr(:)
 INTEGER             :: nArr
 LOGICAL             :: DefVarIsInt
 LOGICAL             :: DefVarIsIntarray
@@ -871,8 +1045,8 @@ CHARACTER(LEN=*),INTENT(INOUT) :: helpstr   ! Input character string
 TYPE(varying_string)      :: separator  
 TYPE(varying_string)      :: astr,bstr,cstr,dstr  
 CHARACTER(LEN=1000)       :: dummystr  
-REAL                      :: PI  
-REAL                      :: adummy  
+REAL(wp)                  :: PI  
+REAL(wp)                  :: adummy  
 LOGICAL                   :: finished  
 !===================================================================================================================================
 !Initialiazation
