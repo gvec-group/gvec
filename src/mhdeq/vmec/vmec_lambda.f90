@@ -65,6 +65,7 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(1:np_m*np_n)           :: dZdrho,dZdthet,dZdzeta
   REAL(wp),DIMENSION(1:np_m*np_n)           :: J,g_tt,g_tz,g_zz 
   REAL(wp),ALLOCATABLE                      :: Amat(:,:),RHS(:),lambda(:),sAdiag(:)
+  REAL(wp)                                  :: dthet,dzeta
   REAL(wp)                                  :: rho_p,rhom,drhom,splOut(3) !for weighted spline interpolation
   REAL(wp)                                  :: gta_dsinda,gza_dsinda
   REAL(wp)                                  :: gta_dcosda,gza_dcosda
@@ -86,12 +87,15 @@ IMPLICIT NONE
     IF((xm(iMode).EQ.0).AND.(xn(iMode).EQ.0)) mn0Mode=iMode
   END DO
   np_mn=np_m*np_n 
+  dthet=twoPi/REAL(np_m,wp)     ![0;2pi]
+  dzeta=twoPi/REAL(nfp*np_m,wp) ![0;2pi/nfp]
+
   DO i_n=1,np_n; DO i_m=1,np_m
     i_mn=1+(i_m-1) + (i_n-1)*np_m
-    cosMN(i_mn,:)=COS(twoPi*( xm(:)*(REAL(i_m-1,wp)/REAL(np_m,wp)) & 
-                             -xn(:)*(REAL(i_n-1,wp)/REAL(nfp*np_n,wp))))
-    sinMN(i_mn,:)=SIN(twoPi*( xm(:)*(REAL(i_m-1,wp)/REAL(np_m,wp)) &
-                             -xn(:)*(REAL(i_n-1,wp)/REAL(nfp*np_n,wp))))
+    cosMN(i_mn,:)=COS( xm(:)*(dthet*(REAL(i_m,wp)-0.5_wp)) & 
+                      -xn(:)*(dzeta*(REAL(i_n,wp)-0.5_wp)))
+    sinMN(i_mn,:)=SIN( xm(:)*(dthet*(REAL(i_m,wp)-0.5_wp)) &
+                      -xn(:)*(dzeta*(REAL(i_n,wp)-0.5_wp)))
   END DO; END DO !i_m,i_n
   cosMN(:,mn0Mode)=1.0_wp
   sinMN(:,mn0Mode)=0.0_wp
