@@ -65,6 +65,11 @@ OPEN(UNIT   = ioUnit       ,&
 
 WRITE(ioUnit,'(A)')   '# TITLE="Analysis,'//TRIM(FileString)//'"'
 WRITE(ioUnit,'(A,I8)')'# nPlot=',nPlot
+WRITE(ioUnit,'(A,I8)',ADVANCE='NO')'# MAXVAL(ABS(iVal) )) = '
+DO iVal=1,nVal-1
+  WRITE(ioUnit,'(E11.5,1X,(","))',ADVANCE='NO' ) MAXVAL(ABS(Values(iVal,:) ))
+END DO
+WRITE(ioUnit,'(E11.5)') MAXVAL(ABS(Values(nVal,:) ))
 
 DO iVal=1,nVal-1
   WRITE(ioUnit,'(A,1X,(","))',ADVANCE='NO' )  '"'//TRIM(varNames(iVal))//'"'

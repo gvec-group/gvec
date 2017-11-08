@@ -160,14 +160,18 @@ values_int(nVal,:)=EvalSpl(0,pres_Spl)
 
 nValRewind=nVal
 
-CALL writeDataMN("Rmnc","Rmnc",Rmnc)
+CALL writeDataMN("Rmnc","Rmnc",0,Rmnc)
 nval=nValRewind
-CALL writeDataMN("Zmns","Zmns",Zmns)
+CALL writeDataMN("Zmns","Zmns",0,Zmns)
+nval=nValRewind
+CALL writeDataMN("dRmnc","dRmnc",1,Rmnc)
+nval=nValRewind
+CALL writeDataMN("dZmns","dZmns",1,Zmns)
 nval=nValRewind
 IF(reLambda)THEN
-  CALL writeDataMN("Lmns","Lmns",Lmns)
+  CALL writeDataMN("Lmns","Lmns",0,Lmns)
 ELSE
-  CALL writeDataMN("Lmns_half","Lmns",Lmns)
+  CALL writeDataMN("Lmns_half","Lmns",0,Lmns)
 END IF
 
 !interpolated profiles
@@ -187,15 +191,29 @@ ELSE
 END IF
 
 CONTAINS
-  SUBROUTINE writeDataMN(fname,vname,xx)
+  SUBROUTINE writeDataMN(fname,vname,rderiv,xx)
+    INTEGER,INTENT(IN)         :: rderiv !0: point values, 1: 1/2 ( (R(i+1)-R(i))/rho(i+1)-rho(i) (R(i)-R(i-1))/rho(i)-rho(i-1)) 
     CHARACTER(LEN=*),INTENT(IN):: fname
     CHARACTER(LEN=*),INTENT(IN):: vname
     REAL(wp),INTENT(IN)        :: xx(:,:)
+    !local
+    REAL(wp)                  :: dxx(size(xx,1),size(xx,2)) !derivative in Rho
+    IF(rderiv.EQ.1) THEN
+      dxx(:,1)=(xx(:,2)-xx(:,1))/(rho(2)-rho(1))
+      DO i=2,nFluxVMEC-1
+        dxx(:,i)=0.5_wp*( (xx(:,i+1)-xx(:,i  ))/(rho(i+1)-rho(i  )) &
+                         +(xx(:,i  )-xx(:,i-1))/(rho(i  )-rho(i-1))) !mean slope
+      END DO
+      dxx(:,nFluxVMEC)=(xx(:,nFluxVMEC)-xx(:,nFluxVMEC-1))/(rho(nFluxVMEC)-rho(nFluxVMEC-1))
+    ELSE
+      dxx=xx
+    END IF
+    
     
     DO iMode=1,mn_mode
       nVal=nVal+1
       WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
-      values(nVal,:)=xx(iMode,:)
+      values(nVal,:)=dxx(iMode,:)
     END DO
     nVal=nVal+2
     Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
