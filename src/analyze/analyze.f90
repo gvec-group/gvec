@@ -127,12 +127,12 @@ END DO
 nVal=1
 Varnames(nVal)='Phi'
 values(  nVal,:)=Phi_prof(:)
-values_int(nVal,:)=EvalSpl(Phi_Spl)
+values_int(nVal,:)=EvalSpl(0,Phi_Spl)
 
 nVal=nVal+1
 Varnames(nVal)='chi'
 values(  nVal,:)=Chi_prof(:)
-values_int(nVal,:)=EvalSpl(chi_Spl)
+values_int(nVal,:)=EvalSpl(0,chi_Spl)
 
 nVal=nVal+1
 Varnames(nVal)='rho'
@@ -151,12 +151,12 @@ values_int(nVal,:)=0.
 nVal=nVal+1
 Varnames(nVal)='iota(Phi_norm)'
 values(  nVal,:)=iotaf(:)
-values_int(nVal,:)=EvalSplDeriv(chi_Spl) / ( EvalSplDeriv(Phi_Spl) )
+values_int(nVal,:)=EvalSpl(1,chi_Spl) / ( EvalSpl(1,Phi_Spl) )
 
 nVal=nVal+1
 Varnames(nVal)='pres(Phi_norm)'
 values(  nVal,:)=presf(:)
-values_int(nVal,:)=EvalSpl(pres_Spl)
+values_int(nVal,:)=EvalSpl(0,pres_Spl)
 
 nValRewind=nVal
 
@@ -172,14 +172,18 @@ END IF
 
 !interpolated profiles
 nval=nValRewind
-CALL writeDataMN_int("INT_Rmnc","Rmnc",Rmnc_Spl)
+CALL writeDataMN_int("INT_Rmnc","Rmnc",0,Rmnc_Spl)
 nval=nValRewind
-CALL writeDataMN_int("INT_Zmns","Zmns",Zmns_Spl)
+CALL writeDataMN_int("INT_Zmns","Zmns",0,Zmns_Spl)
+nval=nValRewind
+CALL writeDataMN_int("INT_dRmnc","dRmnc",1,Rmnc_Spl)
+nval=nValRewind
+CALL writeDataMN_int("INT_dZmns","dZmns",1,Zmns_Spl)
 nval=nValRewind
 IF(reLambda)THEN
-  CALL writeDataMN_int("INT_Lmns","Lmns",Lmns_Spl)
+  CALL writeDataMN_int("INT_Lmns","Lmns",0,Lmns_Spl)
 ELSE
-  CALL writeDataMN_int("INT_Lmns_half","Lmns",Lmns_spl)
+  CALL writeDataMN_int("INT_Lmns_half","Lmns",0,Lmns_spl)
 END IF
 
 CONTAINS
@@ -210,7 +214,8 @@ CONTAINS
 
   END SUBROUTINE writeDataMN
 
-  SUBROUTINE writeDataMN_int(fname,vname,xx_Spl)
+  SUBROUTINE writeDataMN_int(fname,vname,rderiv,xx_Spl)
+    INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
     CHARACTER(LEN=*),INTENT(IN):: fname
     CHARACTER(LEN=*),INTENT(IN):: vname
     REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
@@ -219,7 +224,7 @@ CONTAINS
       nVal=nVal+1
       WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
     END DO
-    values_int(nVal-mn_mode+1:nVal,:)=EvalSplMode(xx_Spl)
+    values_int(nVal-mn_mode+1:nVal,:)=EvalSplMode(rderiv,xx_Spl)
 
     nVal=nVal+2
     Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
@@ -237,29 +242,20 @@ CONTAINS
     CALL WriteDataToCSV(nVal, n_Int,VarNames(1:nVal),Values_int(1:nVal,:),(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
   END SUBROUTINE writeDataMN_int
 
-  FUNCTION EvalSpl(xx_spl)
+  FUNCTION EvalSpl(deriv,xx_spl)
+    INTEGER,INTENT(IN)         :: deriv !0: eval spl, 1: eval spl deriv
     REAL(wp),INTENT(IN)        :: xx_spl(:,:)
     REAL(wp)                   :: EvalSpl(n_int)
     !local
     REAL(wp)                   :: splOut(3)
     DO i=1,n_int
-      CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_int(i),rho,xx_Spl(:,:),iGuess,splout) 
-      EvalSpl(i)=splout(1)
+      CALL SPLINE1_EVAL((/1,deriv,0/), nFluxVMEC,rho_int(i),rho,xx_Spl(:,:),iGuess,splout) 
+      EvalSpl(i)=splout(1+deriv)
     END DO
   END FUNCTION EvalSpl
 
-  FUNCTION EvalSplDeriv(xx_spl)
-    REAL(wp),INTENT(IN)        :: xx_Spl(:,:)
-    REAL(wp)                   :: EvalSplDeriv(n_int)
-    !local
-    REAL(wp)                   :: splOut(3)
-    DO i=1,n_int
-      CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_int(i),rho,xx_Spl(:,:),iGuess,splout) 
-      EvalSplDeriv(i)=splout(2)
-    END DO
-  END FUNCTION EvalSplDeriv
-
-  FUNCTION EvalSplMode(xx_Spl)
+  FUNCTION EvalSplMode(rderiv,xx_Spl)
+    INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
     REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
     REAL(wp)                   :: EvalSplMode(mn_mode,n_int)
     !local
@@ -281,8 +277,8 @@ CONTAINS
           rhom=rho_p**xmabs(iMode)
           drhom=REAL(xmabs(iMode),wp)*rho_p**(xmabs(iMode)-1)
         END SELECT
-        CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,xx_Spl(:,:,iMode),iGuess,splout) 
-        EvalSplMode(iMode,i)=rhom*splout(1)
+        CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_p,rho,xx_Spl(:,:,iMode),iGuess,splout) 
+        EvalSplMode(iMode,i)=rhom*splout(1+rderiv)+REAL(rderiv,wp)*(drhom*splout(1))
       END DO !iMode
     END DO !rho_int(i)
   END FUNCTION EvalSplMode
