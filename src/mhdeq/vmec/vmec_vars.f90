@@ -31,6 +31,7 @@ PUBLIC
 ! GLOBAL VARIABLES 
 LOGICAL                 :: useVMEC                   !! main switch
 LOGICAL                 :: useSFL                    !! use straight-field line coordinates
+LOGICAL                 :: reLambda                  !! switch for recomputing lambda
 CHARACTER(LEN = 256)    :: VMECdataFile
 INTEGER,ALLOCATABLE     :: xmAbs(:)                  !! |xm(iMode)|, 1 for m=0, 2 for even, 3 for odd
 REAL(wp),ALLOCATABLE    :: Phi_prof(:)               !! TOROIDAL flux profile (called phi in VMEC)

@@ -52,11 +52,11 @@ IMPLICIT NONE
 INTEGER,INTENT(IN)            :: dim1                    !! dimension of the data (either 2=quads or 3=hexas)
 INTEGER,INTENT(IN)            :: vecdim                  !! dimension of coordinates 
 INTEGER,INTENT(IN)            :: nVal                    !! Number of nodal output variables
-INTEGER,INTENT(IN)            :: NPlot                   !! Number of output points per element : (nPlot+1)**dim1
+INTEGER,INTENT(IN)            :: NPlot(dim1)             !! Number of output points per element : (nPlot+1)**dim1
 INTEGER,INTENT(IN)            :: nElems                  !! Number of output elements
-REAL,INTENT(IN)               :: Coord(vecdim,1:(Nplot+1)**dim1,nElems)      ! CoordinatesVector 
+REAL,INTENT(IN)               :: Coord(vecdim,1:PRODUCT(Nplot+1),nElems)      ! CoordinatesVector 
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          !! Names of all variables that will be written out
-REAL,INTENT(IN)               :: Values(nVal,1:(Nplot+1)**dim1,nElems)   !! Statevector 
+REAL,INTENT(IN)               :: Values(nVal,1:PRODUCT(Nplot+1),nElems)   !! Statevector 
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -64,8 +64,8 @@ CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 ! LOCAL VARIABLES
 INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKElems,nVTKCells,ivtk=44
 INTEGER            :: INT
-INTEGER            :: Vertex(2**dim1,(NPlot+1)**dim1*nElems)  ! ?
-INTEGER            :: NPlot_p1_3,NPlot_p1_2,NPlot_p1,NodeID,NodeIDElem,ElemType  ! ?
+INTEGER            :: Vertex(2**dim1,PRODUCT(Nplot+1)*nElems)  ! ?
+INTEGER            :: ProdNplot,ProdNplot_p1,NPlot_p1(dim1),NodeID,NodeIDElem,ElemType  ! ?
 CHARACTER(LEN=35)  :: StrOffset,TempStr1,TempStr2  ! ?
 CHARACTER(LEN=300) :: Buffer
 CHARACTER(LEN=255) :: tmpVarName,tmpVarNameY,tmpVarNameZ
@@ -76,12 +76,12 @@ CHARACTER(LEN=1)   :: lf
 REAL(KIND=4)       :: Float
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO VTX XML BINARY (VTU) FILE "'//TRIM(FileString)//'" ...'
-NPlot_p1  =(Nplot+1)
-NPlot_p1_2=Nplot_p1*Nplot_p1
-NPlot_p1_3=NPlot_p1_2*Nplot_p1
+NPlot_p1  =(Nplot(:)+1)
+ProdNPlot  =PRODUCT(Nplot(:))
+ProdNPlot_p1  =PRODUCT(Nplot_p1(:))
 
 IF(vecdim.LT.dim1) THEN
-  WRITE(*,*)'WARNING:dim1 should be > vecdim! dim1= ',dim1,' vecdim= ',vecdim
+  WRITE(*,*)'WARNING:data dimension should be <= vecdim! dim1= ',dim1,' vecdim= ',vecdim
   STOP
 END IF
 ! Line feed character
@@ -94,8 +94,8 @@ OPEN(UNIT=ivtk,FILE=TRIM(FileString),ACCESS='STREAM')
 Buffer='<?xml version="1.0"?>'//lf;WRITE(ivtk) TRIM(Buffer)
 Buffer='<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify file type
-nVTKElems=NPlot_p1**dim1*nElems
-nVTKCells=NPlot**dim1*nElems
+nVTKElems=ProdNPlot_p1*nElems
+nVTKCells=ProdNPlot*nElems
 Buffer='  <UnstructuredGrid>'//lf;WRITE(ivtk) TRIM(Buffer)
 WRITE(TempStr1,'(I16)')nVTKElems
 WRITE(TempStr2,'(I16)')nVTKCells
@@ -203,42 +203,42 @@ CASE(2)
   NodeID = 0
   NodeIDElem = 0
   DO iElem=1,nElems
-    DO j=1,NPlot
-      DO i=1,NPlot
+    DO j=1,NPlot(2)
+      DO i=1,NPlot(1)
         NodeID = NodeID+1
         !visuQuadElem
         Vertex(:,NodeID) = (/                  &
-          NodeIDElem+i+   j   *(NPlot+1)-1,    & !P4
-          NodeIDElem+i+  (j-1)*(NPlot+1)-1,    & !P1(CGNS=tecplot standard)
-          NodeIDElem+i+1+(j-1)*(NPlot+1)-1,    & !P2
-          NodeIDElem+i+1+ j   *(NPlot+1)-1    /) !P3
+          NodeIDElem+(i-1)+  j   * NPlot_p1(1) ,    & !P4
+          NodeIDElem+(i-1)+ (j-1)* NPlot_p1(1) ,    & !P1(CGNS=tecplot standard)
+          NodeIDElem+ i   + (j-1)* NPlot_p1(1) ,    & !P2
+          NodeIDElem+ i   +  j   * NPlot_p1(1)     /) !P3
       END DO
     END DO
-    NodeIDElem=NodeIDElem+NPlot_p1_2
+    NodeIDElem=NodeIDElem+ProdNPlot_p1
   END DO
 CASE(3)
   NodeID=0
   NodeIDElem=0
   DO iElem=1,nElems
-    DO k=1,NPlot
-      DO j=1,NPlot
-        DO i=1,NPlot
+    DO k=1,NPlot(3)
+      DO j=1,NPlot(2)
+        DO i=1,NPlot(1)
           NodeID=NodeID+1
           !
           Vertex(:,NodeID)=(/                                       &
-            NodeIDElem+i+   j   *(NPlot+1)+(k-1)*NPlot_p1_2-1,      & !P4(CGNS=tecplot standard)
-            NodeIDElem+i+  (j-1)*(NPlot+1)+(k-1)*NPlot_p1_2-1,      & !P1
-            NodeIDElem+i+1+(j-1)*(NPlot+1)+(k-1)*NPlot_p1_2-1,      & !P2
-            NodeIDElem+i+1+ j   *(NPlot+1)+(k-1)*NPlot_p1_2-1,      & !P3
-            NodeIDElem+i+   j   *(NPlot+1)+ k   *NPlot_p1_2-1,      & !P8
-            NodeIDElem+i+  (j-1)*(NPlot+1)+ k   *NPlot_p1_2-1,      & !P5
-            NodeIDElem+i+1+(j-1)*(NPlot+1)+ k   *NPlot_p1_2-1,      & !P6
-            NodeIDElem+i+1+ j   *(NPlot+1)+ k   *NPlot_p1_2-1      /) !P7
+            NodeIDElem+(i-1)+( j   +(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P4(CGNS=tecplot standard)
+            NodeIDElem+(i-1)+((j-1)+(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P1
+            NodeIDElem+ i   +((j-1)+(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P2
+            NodeIDElem+ i   +( j   +(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P3
+            NodeIDElem+(i-1)+( j   + k   *NPlot_p1(2))*NPlot_p1(1),      & !P8
+            NodeIDElem+(i-1)+((j-1)+ k   *NPlot_p1(2))*NPlot_p1(1),      & !P5
+            NodeIDElem+ i   +((j-1)+ k   *NPlot_p1(2))*NPlot_p1(1),      & !P6
+            NodeIDElem+ i   +( j   + k   *NPlot_p1(2))*NPlot_p1(1)      /) !P7
         END DO
       END DO
     END DO
     !
-    NodeIDElem=NodeIDElem+NPlot_p1_3
+    NodeIDElem=NodeIDElem+ProdNPlot_p1
   END DO
 END SELECT
 nBytes = 2**dim1*nVTKElems*SIZEOF_F(INT)

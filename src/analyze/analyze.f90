@@ -78,10 +78,7 @@ END SUBROUTINE InitAnalyze
 !===================================================================================================================================
 SUBROUTINE Analyze()
 ! MODULES
-USE MOD_Globals, ONLY:wp
 USE MOD_Analyze_Vars
-USE MOD_Output_CSV, ONLY:WriteDataToCSV
-USE MOD_VMEC_Readin, ONLY:mn_mode,xm,xn,nFluxVMEC
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -89,9 +86,6 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER            :: iMode
-CHARACTER(LEN=120) :: modenames(2+mn_mode) 
-REAL(wp)           :: values(2+mn_mode,nFluxVMEC) 
 !===================================================================================================================================
 IF(visuVMEC1D)THEN
   CALL VMEC1D_visu() 
@@ -106,11 +100,11 @@ END SUBROUTINE Analyze
 !===================================================================================================================================
 SUBROUTINE VMEC1D_visu()
 ! MODULES
-USE MOD_Globals, ONLY:wp
 USE MOD_Output_Vars, ONLY:ProjectName
 USE MOD_Output_CSV, ONLY:WriteDataToCSV
 USE MOD_VMEC_Readin
 USE MOD_VMEC_Vars
+USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -118,70 +112,180 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER            :: nVal,iMode
-CHARACTER(LEN=120) :: varnames(7+mn_mode) 
-REAL(wp)           :: values(7+mn_mode,nFluxVMEC-1) 
+INTEGER            :: i,iGuess,nVal,nValRewind,iMode
+INTEGER,PARAMETER  :: n_Int=200
+CHARACTER(LEN=120) :: varnames(  8+mn_mode) 
+REAL(wp)           :: values(    8+mn_mode,nFluxVMEC) 
+REAL(wp)           :: values_int(8+mn_mode,n_int) 
+REAL(wp)           :: rho_int(n_int),rho_half(nFluxVMEC)
 !===================================================================================================================================
+!interpolation points
+DO i=0,n_int-1
+  rho_int(1+i)=REAL(i,wp)/REAL(n_int-1,wp)
+END DO
+
 nVal=1
 Varnames(nVal)='Phi'
-values(  nVal,:)=Phi_prof(2:nFluxVMEC)
+values(  nVal,:)=Phi_prof(:)
+values_int(nVal,:)=EvalSpl(Phi_Spl)
 
 nVal=nVal+1
 Varnames(nVal)='chi'
-values(  nVal,:)=Chi_prof(2:nFluxVMEC)
+values(  nVal,:)=Chi_prof(:)
+values_int(nVal,:)=EvalSpl(chi_Spl)
 
 nVal=nVal+1
 Varnames(nVal)='rho'
-values(  nVal,:)=rho(2:nFluxVMEC)
+values(  nVal,:)=rho(:)
+values_int(nVal,:)=rho_int(:)
+
+rho_half(1)=0.
+DO i=1,nFluxVMEC-1
+  rho_half(i+1)=SQRT(0.5_wp*(Phinorm_prof(i+1)+Phinorm_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
+END DO
+nVal=nVal+1
+Varnames(nVal)='rho_half'
+values(  nVal,:)= rho_half(:)
+values_int(nVal,:)=0.
 
 nVal=nVal+1
 Varnames(nVal)='iota(Phi_norm)'
-values(  nVal,:)=iotaf(2:nFluxVMEC)
+values(  nVal,:)=iotaf(:)
+values_int(nVal,:)=EvalSplDeriv(chi_Spl) / ( EvalSplDeriv(Phi_Spl) )
 
 nVal=nVal+1
 Varnames(nVal)='pres(Phi_norm)'
-values(  nVal,:)=presf(2:nFluxVMEC)
+values(  nVal,:)=presf(:)
+values_int(nVal,:)=EvalSpl(pres_Spl)
 
-nVal=nVal+2
-Varnames(nVal-1)='Rmnc_m_odd_n000'
-Varnames(nVal)='Rmnc_m_even_n000'
-values(nVal-1:nVal,:)=0.
-DO iMode=1,mn_mode
-  IF(NINT(xn(iMode)).EQ.0)THEN
-    IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
-      values(nVal-1,:)= values(nVal-1,:)+Rmnc(iMode,2:nFluxVMEC)
-    ELSE
-      values(nVal,:)= values(nVal,:)+Rmnc(iMode,2:nFluxVMEC)
-    END IF
-  END IF !n=0
-END DO
+nValRewind=nVal
 
-DO iMode=1,mn_mode
-  nVal=nVal+1
-  WRITE(VarNames(nVal),'(A,"_m",I3.3,"_n",I3.3)')'Rmnc',NINT(xm(iMode)),NINT(xn(iMode))
-  values(nVal,:)=Rmnc(iMode,2:nFluxVMEC)
-END DO
-CALL WriteDataToCSV(nVal, nFluxVMEC-1,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_Rmnc_modes"))
+CALL writeDataMN("Rmnc","Rmnc",Rmnc)
+nval=nValRewind
+CALL writeDataMN("Zmns","Zmns",Zmns)
+nval=nValRewind
+IF(reLambda)THEN
+  CALL writeDataMN("Lmns","Lmns",Lmns)
+ELSE
+  CALL writeDataMN("Lmns_half","Lmns",Lmns)
+END IF
 
-nval=7 !rewind
-Varnames(nVal-1)='Zmns_m_odd_n000'
-Varnames(nVal)='Zmns_m_even_n000'
-values(nVal-1:nVal,:)=0.
-DO iMode=1,mn_mode
-  IF(NINT(xn(iMode)).EQ.0)THEN
-    IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
-      values(nVal-1,:)= values(nVal-1,:)+Zmns(iMode,2:nFluxVMEC)
-    ELSE
-      values(nVal,:)= values(nVal,:)+Zmns(iMode,2:nFluxVMEC)
-    END IF
-  END IF !n=0
-END DO
-DO iMode=1,mn_mode
-  nVal=nVal+1
-  WRITE(VarNames(nVal),'(A,"_m",I3.3,"_n",I3.3)')'Zmns',NINT(xm(iMode)),NINT(xn(iMode))
-  values(nVal,:)=Zmns(iMode,2:nFluxVMEC)
-END DO
-CALL WriteDataToCSV(nVal, nFluxVMEC-1,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_Zmns_modes"))
+!interpolated profiles
+nval=nValRewind
+CALL writeDataMN_int("INT_Rmnc","Rmnc",Rmnc_Spl)
+nval=nValRewind
+CALL writeDataMN_int("INT_Zmns","Zmns",Zmns_Spl)
+nval=nValRewind
+IF(reLambda)THEN
+  CALL writeDataMN_int("INT_Lmns","Lmns",Lmns_Spl)
+ELSE
+  CALL writeDataMN_int("INT_Lmns_half","Lmns",Lmns_spl)
+END IF
+
+CONTAINS
+  SUBROUTINE writeDataMN(fname,vname,xx)
+    CHARACTER(LEN=*),INTENT(IN):: fname
+    CHARACTER(LEN=*),INTENT(IN):: vname
+    REAL(wp),INTENT(IN)        :: xx(:,:)
+    
+    DO iMode=1,mn_mode
+      nVal=nVal+1
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
+      values(nVal,:)=xx(iMode,:)
+    END DO
+    nVal=nVal+2
+    Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
+    Varnames(nVal)=  TRIM(vname)//', m=even, n= 000'
+    values(nVal-1:nVal,:)=0.
+    DO iMode=1,mn_mode
+      IF(NINT(xn(iMode)).EQ.0)THEN
+        IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
+          values(nVal-1,:)= values(nVal-1,:)+values(nVal-2-mn_mode+iMode,:)
+        ELSE
+          values(nVal,:)= values(nVal,:)+values(nVal-2-mn_mode+iMode,:)
+        END IF
+      END IF !n=0
+    END DO
+    CALL WriteDataToCSV(nVal, nFluxVMEC,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
+
+  END SUBROUTINE writeDataMN
+
+  SUBROUTINE writeDataMN_int(fname,vname,xx_Spl)
+    CHARACTER(LEN=*),INTENT(IN):: fname
+    CHARACTER(LEN=*),INTENT(IN):: vname
+    REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
+
+    DO iMode=1,mn_mode
+      nVal=nVal+1
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
+    END DO
+    values_int(nVal-mn_mode+1:nVal,:)=EvalSplMode(xx_Spl)
+
+    nVal=nVal+2
+    Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
+    Varnames(nVal)=  TRIM(vname)//', m=even, n= 000'
+    values_int(nVal-1:nVal,:)=0.
+    DO iMode=1,mn_mode
+      IF(NINT(xn(iMode)).EQ.0)THEN
+        IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
+          values_int(nVal-1,:)= values_int(nVal-1,:)+values_int(nVal-2-mn_mode+iMode,:)
+        ELSE
+          values_int(nVal,:)= values_int(nVal,:)+values_int(nVal-2-mn_mode+iMode,:)
+        END IF
+      END IF !n=0
+    END DO
+    CALL WriteDataToCSV(nVal, n_Int,VarNames(1:nVal),Values_int(1:nVal,:),(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
+  END SUBROUTINE writeDataMN_int
+
+  FUNCTION EvalSpl(xx_spl)
+    REAL(wp),INTENT(IN)        :: xx_spl(:,:)
+    REAL(wp)                   :: EvalSpl(n_int)
+    !local
+    REAL(wp)                   :: splOut(3)
+    DO i=1,n_int
+      CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_int(i),rho,xx_Spl(:,:),iGuess,splout) 
+      EvalSpl(i)=splout(1)
+    END DO
+  END FUNCTION EvalSpl
+
+  FUNCTION EvalSplDeriv(xx_spl)
+    REAL(wp),INTENT(IN)        :: xx_Spl(:,:)
+    REAL(wp)                   :: EvalSplDeriv(n_int)
+    !local
+    REAL(wp)                   :: splOut(3)
+    DO i=1,n_int
+      CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_int(i),rho,xx_Spl(:,:),iGuess,splout) 
+      EvalSplDeriv(i)=splout(2)
+    END DO
+  END FUNCTION EvalSplDeriv
+
+  FUNCTION EvalSplMode(xx_Spl)
+    REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
+    REAL(wp)                   :: EvalSplMode(mn_mode,n_int)
+    !local
+    REAL(wp)                   :: rho_p,rhom,drhom,splOut(3) !for weighted spline interpolation
+    DO i=1,n_int
+      rho_p=rho_int(i)
+      DO iMode=1,mn_mode
+        SELECT CASE(xmabs(iMode))
+        CASE(0)
+          rhom=1.0_wp
+          drhom=0.0_wp
+        CASE(1)
+          rhom=rho_p
+          drhom=1.0_wp
+        CASE(2)
+          rhom=rho_p*rho_p
+          drhom=2.0_wp*rho_p
+        CASE DEFAULT
+          rhom=rho_p**xmabs(iMode)
+          drhom=REAL(xmabs(iMode),wp)*rho_p**(xmabs(iMode)-1)
+        END SELECT
+        CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,xx_Spl(:,:,iMode),iGuess,splout) 
+        EvalSplMode(iMode,i)=rhom*splout(1)
+      END DO !iMode
+    END DO !rho_int(i)
+  END FUNCTION EvalSplMode
 
 END SUBROUTINE VMEC1D_visu 
 
