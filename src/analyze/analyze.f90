@@ -114,9 +114,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER            :: i,iGuess,nVal,nValRewind,iMode
 INTEGER,PARAMETER  :: n_Int=200
-CHARACTER(LEN=120) :: varnames(  8+mn_mode) 
-REAL(wp)           :: values(    8+mn_mode,nFluxVMEC) 
-REAL(wp)           :: values_int(8+mn_mode,n_int) 
+CHARACTER(LEN=120) :: varnames(  8+2*mn_mode) 
+REAL(wp)           :: values(    8+2*mn_mode,nFluxVMEC) 
+REAL(wp)           :: values_int(8+2*mn_mode,n_int) 
 REAL(wp)           :: rho_int(n_int),rho_half(nFluxVMEC)
 !===================================================================================================================================
 !interpolation points
@@ -151,7 +151,7 @@ values_int(nVal,:)=0.
 nVal=nVal+1
 Varnames(nVal)='iota(Phi_norm)'
 values(  nVal,:)=iotaf(:)
-values_int(nVal,:)=EvalSpl(1,chi_Spl) / ( EvalSpl(1,Phi_Spl) )
+values_int(nVal,:)=EvalSpl(0,iota_Spl) 
 
 nVal=nVal+1
 Varnames(nVal)='pres(Phi_norm)'
@@ -245,9 +245,15 @@ CONTAINS
     
     DO iMode=1,mn_mode
       nVal=nVal+1
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))
       values(nVal,:)=dxx(iMode,:)
     END DO
+    DO iMode=1,mn_mode
+      nVal=nVal+1
+      WRITE(VarNames(nVal),'(A)')TRIM(VarNames(nVal-mn_mode))//'_norm'
+      values(nVal,:)=values(nVal-mn_mode,:)/(MAXVAL(ABS(values(nVal-mn_mode,:)))+1.0E-12)
+    END DO
+
     nVal=nVal+2
     Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
     Varnames(nVal)=  TRIM(vname)//', m=even, n= 000'
@@ -255,9 +261,9 @@ CONTAINS
     DO iMode=1,mn_mode
       IF(NINT(xn(iMode)).EQ.0)THEN
         IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
-          values(nVal-1,:)= values(nVal-1,:)+values(nVal-2-mn_mode+iMode,:)
+          values(nVal-1,:)= values(nVal-1,:)+values(nVal-2-2*mn_mode+iMode,:)
         ELSE
-          values(nVal,:)= values(nVal,:)+values(nVal-2-mn_mode+iMode,:)
+          values(nVal,:)= values(nVal,:)+values(nVal-2-2*mn_mode+iMode,:)
         END IF
       END IF !n=0
     END DO
@@ -273,9 +279,15 @@ CONTAINS
 
     DO iMode=1,mn_mode
       nVal=nVal+1
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))
     END DO
     values_int(nVal-mn_mode+1:nVal,:)=EvalSplMode(rderiv,xx_Spl)
+
+    DO iMode=1,mn_mode
+      nVal=nVal+1
+      WRITE(VarNames(nVal),'(A)')TRIM(VarNames(nVal-mn_mode))//'_norm'
+      values_int(nVal,:)=values_int(nVal-mn_mode,:)/(MAXVAL(ABS(values_int(nVal-mn_mode,:)))+1.0E-12)
+    END DO
 
     nVal=nVal+2
     Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
@@ -284,9 +296,9 @@ CONTAINS
     DO iMode=1,mn_mode
       IF(NINT(xn(iMode)).EQ.0)THEN
         IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
-          values_int(nVal-1,:)= values_int(nVal-1,:)+values_int(nVal-2-mn_mode+iMode,:)
+          values_int(nVal-1,:)= values_int(nVal-1,:)+values_int(nVal-2-2*mn_mode+iMode,:)
         ELSE
-          values_int(nVal,:)= values_int(nVal,:)+values_int(nVal-2-mn_mode+iMode,:)
+          values_int(nVal,:)= values_int(nVal,:)+values_int(nVal-2-2*mn_mode+iMode,:)
         END IF
       END IF !n=0
     END DO

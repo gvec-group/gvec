@@ -175,6 +175,10 @@ ALLOCATE(chi_spl(4,1:nFluxVMEC))
 chi_spl(1,:)=chi_Prof(:)
 CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=3, K_BCN=0)
 
+ALLOCATE(iota_spl(4,1:nFluxVMEC))
+iota_spl(1,:)=iotaf(:)
+CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
+
 SWRITE(Unit_stdOut,'(4X,A,3F10.4)')'iota axis/middle/edge',iotaf(1),iotaf(nFluxVMEC/2),iotaf(nFluxVMEC)
 
 
