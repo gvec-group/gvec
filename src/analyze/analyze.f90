@@ -101,7 +101,6 @@ END SUBROUTINE Analyze
 SUBROUTINE VMEC1D_visu()
 ! MODULES
 USE MOD_Output_Vars, ONLY:ProjectName
-USE MOD_Output_CSV, ONLY:WriteDataToCSV
 USE MOD_VMEC_Readin
 USE MOD_VMEC_Vars
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
@@ -160,77 +159,77 @@ values_int(nVal,:)=EvalSpl(0,pres_Spl)
 
 nValRewind=nVal
 
-CALL writeDataMN("Rmnc","Rmnc",0,Rmnc)
+CALL writeDataMN("Rmnc","Rmnc",0,rho,Rmnc)
 nval=nValRewind
-CALL writeDataMN("Zmns","Zmns",0,Zmns)
+CALL writeDataMN("Zmns","Zmns",0,rho,Zmns)
 nval=nValRewind
-CALL writeDataMN("dRmnc","dRmnc",1,Rmnc)
+CALL writeDataMN("dRmnc","dRmnc",1,rho,Rmnc)
 nval=nValRewind
-CALL writeDataMN("dZmns","dZmns",1,Zmns)
+CALL writeDataMN("dZmns","dZmns",1,rho,Zmns)
 nval=nValRewind
 IF(reLambda)THEN
-  CALL writeDataMN("Lmns","Lmns",0,Lmns)
+  CALL writeDataMN("Lmns","Lmns",0,rho,Lmns)
 ELSE
-  CALL writeDataMN("Lmns_half","Lmns",0,Lmns)
+  CALL writeDataMN("Lmns_half","Lmns_h",0,rho_half,Lmns)
 END IF
-
 !interpolated profiles
 nval=nValRewind
-CALL writeDataMN_int("INT_Rmnc","Rmnc",0,Rmnc_Spl)
+CALL writeDataMN_int("INT_Rmnc","Rmnc",0,rho_int,Rmnc_Spl)
 nval=nValRewind
-CALL writeDataMN_int("INT_Zmns","Zmns",0,Zmns_Spl)
+CALL writeDataMN_int("INT_Zmns","Zmns",0,rho_int,Zmns_Spl)
 nval=nValRewind
-CALL writeDataMN_int("INT_dRmnc","dRmnc",1,Rmnc_Spl)
+CALL writeDataMN_int("INT_dRmnc","dRmnc",1,rho_int,Rmnc_Spl)
 nval=nValRewind
-CALL writeDataMN_int("INT_dZmns","dZmns",1,Zmns_Spl)
+CALL writeDataMN_int("INT_dZmns","dZmns",1,rho_int,Zmns_Spl)
 nval=nValRewind
 IF(reLambda)THEN
-  CALL writeDataMN_int("INT_Lmns","Lmns",0,Lmns_Spl)
+  CALL writeDataMN_int("INT_Lmns","Lmns",0,rho_int,Lmns_Spl)
 ELSE
-  CALL writeDataMN_int("INT_Lmns_half","Lmns",0,Lmns_spl)
+  CALL writeDataMN_int("INT_Lmns_half","Lmns_h",0,rho_int,Lmns_spl)
 END IF
 
 IF(lasym)THEN
   nval=nValRewind
-  CALL writeDataMN("Rmns","Rmns",0,Rmnc)
+  CALL writeDataMN("Rmns","Rmns",0,rho,Rmnc)
   nval=nValRewind
-  CALL writeDataMN("Zmnc","Zmnc",0,Zmns)
+  CALL writeDataMN("Zmnc","Zmnc",0,rho,Zmns)
   nval=nValRewind
-  CALL writeDataMN("dRmns","dRmns",1,Rmnc)
+  CALL writeDataMN("dRmns","dRmns",1,rho,Rmnc)
   nval=nValRewind
-  CALL writeDataMN("dZmnc","dZmnc",1,Zmns)
+  CALL writeDataMN("dZmnc","dZmnc",1,rho,Zmns)
   nval=nValRewind
   IF(reLambda)THEN
-    CALL writeDataMN("Lmnc","Lmnc",0,Lmns)
+    CALL writeDataMN("Lmnc","Lmnc",0,rho,Lmns)
   ELSE
-    CALL writeDataMN("Lmnc_half","Lmnc",0,Lmns)
+    CALL writeDataMN("Lmnc_half","Lmnc",0,rho_half,Lmns)
   END IF
   
   !interpolated profiles
   nval=nValRewind
-  CALL writeDataMN_int("INT_Rmns","Rmns",0,Rmnc_Spl)
+  CALL writeDataMN_int("INT_Rmns","Rmns",0,rho_int,Rmnc_Spl)
   nval=nValRewind
-  CALL writeDataMN_int("INT_Zmnc","Zmnc",0,Zmns_Spl)
+  CALL writeDataMN_int("INT_Zmnc","Zmnc",0,rho_int,Zmns_Spl)
   nval=nValRewind
-  CALL writeDataMN_int("INT_dRmns","dRmns",1,Rmnc_Spl)
+  CALL writeDataMN_int("INT_dRmns","dRmns",1,rho_int,Rmnc_Spl)
   nval=nValRewind
-  CALL writeDataMN_int("INT_dZmnc","dZmnc",1,Zmns_Spl)
+  CALL writeDataMN_int("INT_dZmnc","dZmnc",1,rho_int,Zmns_Spl)
   nval=nValRewind
   IF(reLambda)THEN
-    CALL writeDataMN_int("INT_Lmnc","Lmnc",0,Lmns_Spl)
+    CALL writeDataMN_int("INT_Lmnc","Lmnc",0,rho_int,Lmns_Spl)
   ELSE
-    CALL writeDataMN_int("INT_Lmnc_half","Lmnc",0,Lmns_spl)
+    CALL writeDataMN_int("INT_Lmnc_half","Lmnc",0,rho_int,Lmns_spl)
   END IF
 END IF
 
 CONTAINS
-  SUBROUTINE writeDataMN(fname,vname,rderiv,xx)
+  SUBROUTINE writeDataMN(fname,vname,rderiv,coord,xx)
     INTEGER,INTENT(IN)         :: rderiv !0: point values, 1: 1/2 ( (R(i+1)-R(i))/rho(i+1)-rho(i) (R(i)-R(i-1))/rho(i)-rho(i-1)) 
     CHARACTER(LEN=*),INTENT(IN):: fname
     CHARACTER(LEN=*),INTENT(IN):: vname
     REAL(wp),INTENT(IN)        :: xx(:,:)
+    REAL(wp),INTENT(IN)        :: coord(nFluxVMEC)
     !local
-    REAL(wp)                  :: dxx(size(xx,1),size(xx,2)) !derivative in Rho
+    REAL(wp)                   :: dxx(size(xx,1),size(xx,2)) !derivative in Rho
     IF(rderiv.EQ.1) THEN
       dxx(:,1)=(xx(:,2)-xx(:,1))/(rho(2)-rho(1))
       DO i=2,nFluxVMEC-1
@@ -241,41 +240,21 @@ CONTAINS
     ELSE
       dxx=xx
     END IF
-    
-    
     DO iMode=1,mn_mode
       nVal=nVal+1
       WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))
       values(nVal,:)=dxx(iMode,:)
     END DO
-    DO iMode=1,mn_mode
-      nVal=nVal+1
-      WRITE(VarNames(nVal),'(A)')TRIM(VarNames(nVal-mn_mode))//'_norm'
-      values(nVal,:)=values(nVal-mn_mode,:)/(MAXVAL(ABS(values(nVal-mn_mode,:)))+1.0E-12)
-    END DO
-
-    nVal=nVal+2
-    Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
-    Varnames(nVal)=  TRIM(vname)//', m=even, n= 000'
-    values(nVal-1:nVal,:)=0.
-    DO iMode=1,mn_mode
-      IF(NINT(xn(iMode)).EQ.0)THEN
-        IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
-          values(nVal-1,:)= values(nVal-1,:)+values(nVal-2-2*mn_mode+iMode,:)
-        ELSE
-          values(nVal,:)= values(nVal,:)+values(nVal-2-2*mn_mode+iMode,:)
-        END IF
-      END IF !n=0
-    END DO
-    CALL WriteDataToCSV(nVal, nFluxVMEC,VarNames(1:nVal),Values(1:nVal,:),(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
+    CALL writeNow(fname,vname,coord,values,VarNames) 
 
   END SUBROUTINE writeDataMN
 
-  SUBROUTINE writeDataMN_int(fname,vname,rderiv,xx_Spl)
+  SUBROUTINE writeDataMN_int(fname,vname,rderiv,coord,xx_Spl)
     INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
     CHARACTER(LEN=*),INTENT(IN):: fname
     CHARACTER(LEN=*),INTENT(IN):: vname
     REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
+    REAL(wp),INTENT(IN)        :: coord(n_int)
 
     DO iMode=1,mn_mode
       nVal=nVal+1
@@ -283,27 +262,73 @@ CONTAINS
     END DO
     values_int(nVal-mn_mode+1:nVal,:)=EvalSplMode(rderiv,xx_Spl)
 
+    CALL writeNow(fname,vname,coord,values_int,VarNames) 
+
+  END SUBROUTINE writeDataMN_int
+
+  SUBROUTINE writeNow(fname,vname,coord,values_in,VarNames_in)
+    USE MOD_Output_CSV, ONLY:WriteDataToCSV
+    CHARACTER(LEN=*),INTENT(IN):: fname
+    CHARACTER(LEN=*),INTENT(IN):: vname
+    REAL(wp),INTENT(IN)        :: coord(:)
+    REAL(wp),INTENT(INOUT)        :: values_in(:,:)
+    CHARACTER(LEN=*),INTENT(INOUT):: VarNames_in(:)
+    !local
+    REAL(wp)                   :: minmaxval(2)
+    REAL(wp) ,ALLOCATABLE      :: max_loc_val(:)
+    CHARACTER(LEN=100),ALLOCATABLE :: varnames_max(:)
+
+    minmaxval(1)=MINVAL(values_in(nVal-mn_mode:nVal,:))
+    minmaxval(2)=MAXVAL(values_in(nVal-mn_mode:nVal,:))
+
     DO iMode=1,mn_mode
       nVal=nVal+1
-      WRITE(VarNames(nVal),'(A)')TRIM(VarNames(nVal-mn_mode))//'_norm'
-      values_int(nVal,:)=values_int(nVal-mn_mode,:)/(MAXVAL(ABS(values_int(nVal-mn_mode,:)))+1.0E-12)
+      WRITE(VarNames_in(nVal),'(A)')TRIM(VarNames_in(nVal-mn_mode))//'_norm'
+      values_in(nVal,:)=values_in(nVal-mn_mode,:)/(MAXVAL(ABS(values_in(nVal-mn_mode,:)))+1.0E-12)
     END DO
 
     nVal=nVal+2
-    Varnames(nVal-1)=TRIM(vname)//', m= odd, n= 000'
-    Varnames(nVal)=  TRIM(vname)//', m=even, n= 000'
-    values_int(nVal-1:nVal,:)=0.
+    Varnames_in(nVal-1)=TRIM(vname)//', m= odd, n= 000'
+    Varnames_in(nVal)=  TRIM(vname)//', m=even, n= 000'
+    values_in(nVal-1:nVal,:)=0.
     DO iMode=1,mn_mode
       IF(NINT(xn(iMode)).EQ.0)THEN
         IF(MOD(NINT(xm(iMode)),2).NE.0)THEN
-          values_int(nVal-1,:)= values_int(nVal-1,:)+values_int(nVal-2-2*mn_mode+iMode,:)
+          values_in(nVal-1,:)= values_in(nVal-1,:)+values_in(nVal-2-2*mn_mode+iMode,:)
         ELSE
-          values_int(nVal,:)= values_int(nVal,:)+values_int(nVal-2-2*mn_mode+iMode,:)
+          values_in(nVal,:)= values_in(nVal,:)+values_in(nVal-2-2*mn_mode+iMode,:)
         END IF
       END IF !n=0
     END DO
-    CALL WriteDataToCSV(nVal, n_Int,VarNames(1:nVal),Values_int(1:nVal,:),(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
-  END SUBROUTINE writeDataMN_int
+
+    CALL WriteDataToCSV(VarNames_in(1:nVal),Values_in(1:nVal,:), (TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
+
+    ALLOCATE(max_loc_val(nVal),Varnames_max(nVal))
+    DO i=1,nVal
+      max_loc_val(i)=coord(MAXLOC(ABS(values_in(i,:)),1))
+      Varnames_max(i)=TRIM(VarNames_in(i))//'_maxloc'
+    END DO 
+    CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                               ,append_in=.TRUE.,vfmt_in='E10.2')
+    DO i=1,nVal
+      max_loc_val(i)=      MAXVAL(ABS(values_in(i,:)))+1.0E-12
+      Varnames_max(i)=TRIM(VarNames_in(i))//'_maxval'
+    END DO 
+    CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                               ,append_in=.TRUE.,vfmt_in='E10.2')
+    DEALLOCATE(max_loc_val,Varnames_max)
+    !write position of first flux surface
+    CALL WriteDataToCSV((/'rhoFirst'/) ,RESHAPE((/rho(2)/),(/1,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                               ,append_in=.TRUE.)
+    !write position of first flux surface
+    CALL WriteDataToCSV((/'minval_total','maxval_total'/) ,RESHAPE(minmaxval,(/2,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                               ,append_in=.TRUE.)
+
+  END SUBROUTINE writeNow
 
   FUNCTION EvalSpl(deriv,xx_spl)
     INTEGER,INTENT(IN)         :: deriv !0: eval spl, 1: eval spl deriv

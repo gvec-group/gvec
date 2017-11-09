@@ -38,47 +38,65 @@ CONTAINS
 !> Subroutine to write  
 !!
 !===================================================================================================================================
-SUBROUTINE WriteDataToCSV(nVal, nPlot,VarNames,Values,FileString)
+SUBROUTINE WriteDataToCSV(VarNames,Values,FileString,append_in,vfmt_in)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,INTENT(IN)            :: nVal                    !! Number of output Values 
-INTEGER,INTENT(IN)            :: nPlot                   !! number of 1D values 
-CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          !! Variable names, 
-REAL,INTENT(IN)               :: Values(nVal,nPlot)      !! variable data
+CHARACTER(LEN=*),INTENT(IN)   :: VarNames(:)          !! Variable names, 
+REAL,INTENT(IN)               :: Values(:,:)      !! variable data
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
+LOGICAL,INTENT(IN),OPTIONAL   :: append_in                  !! append data
+CHARACTER(LEN=*),INTENT(IN),OPTIONAL   :: vfmt_in           !! value format
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER                       :: nVal                    !! Number of output Values 
+INTEGER                       :: nPlot                   !! number of 1D values 
 INTEGER                        :: iVal,iPlot,ioUnit
+LOGICAL                        :: append
+CHARACTER(LEN=10)              :: vfmt
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO CSV FILE "'//TRIM(FileString)//'.csv" ...'
+nVal=SIZE(VarNames,1)
+IF(SIZE(Values,1).NE.nVal) STOP 'number of values /= nVariables in csv output'
+nPlot=SIZE(Values,2)
 ioUnit=GETFREEUNIT()
-OPEN(UNIT   = ioUnit       ,&
-     FILE   = TRIM(FileString)//'.csv'   ,&
-     STATUS = 'REPLACE'    ,&
-     ACCESS = 'SEQUENTIAL' ) 
+IF(PRESENT(append_in))THEN
+  append=append_in
+ELSE
+  append=.FALSE.
+END IF
+IF(PRESENT(vfmt_in))THEN
+  vfmt=vfmt_in
+ELSE
+  vfmt='e23.15'
+END IF
+IF(append)THEN
+  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   APPEND DATA TO CSV FILE "'//TRIM(FileString)//'.csv" ...'
+  OPEN(UNIT     = ioUnit       ,&
+       FILE     = TRIM(FileString)//'.csv'   ,&
+       STATUS   = 'OLD'   ,&
+       POSITION = 'APPEND'   ,&
+       ACCESS   = 'SEQUENTIAL' ) 
+ELSE
+  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO CSV FILE "'//TRIM(FileString)//'.csv" ...'
+  OPEN(UNIT     = ioUnit       ,&
+       FILE     = TRIM(FileString)//'.csv'   ,&
+       STATUS   = 'REPLACE'   ,&
+       ACCESS   = 'SEQUENTIAL' ) 
+END IF
 
-WRITE(ioUnit,'(A)')   '# TITLE="Analysis,'//TRIM(FileString)//'"'
-WRITE(ioUnit,'(A,I8)')'# nPlot=',nPlot
-WRITE(ioUnit,'(A,I8)',ADVANCE='NO')'# MAXVAL(ABS(iVal) )) = '
-DO iVal=1,nVal-1
-  WRITE(ioUnit,'(E11.5,1X,(","))',ADVANCE='NO' ) MAXVAL(ABS(Values(iVal,:) ))
-END DO
-WRITE(ioUnit,'(E11.5)') MAXVAL(ABS(Values(nVal,:) ))
 
 DO iVal=1,nVal-1
   WRITE(ioUnit,'(A,1X,(","))',ADVANCE='NO' )  '"'//TRIM(varNames(iVal))//'"'
 END DO
 WRITE(ioUnit,'(A)')  '"'//TRIM(varNames(nVal))//'"'
 
-
 DO iPlot=1,nPlot
-  WRITE(ioUnit,'(*(e23.15,:,","))') Values(:,iPlot) 
+  WRITE(ioUnit,'(*('//TRIM(vfmt)//',:,","))') Values(:,iPlot) 
 END DO
 
 CLOSE(ioUnit)
