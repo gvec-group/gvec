@@ -100,6 +100,7 @@ END SUBROUTINE Analyze
 !===================================================================================================================================
 SUBROUTINE VMEC1D_visu()
 ! MODULES
+USE MOD_Globals,ONLY:Pi
 USE MOD_Output_Vars, ONLY:ProjectName
 USE MOD_VMEC_Readin
 USE MOD_VMEC_Vars
@@ -122,6 +123,8 @@ REAL(wp)           :: rho_int(n_int),rho_half(nFluxVMEC)
 DO i=0,n_int-1
   rho_int(1+i)=REAL(i,wp)/REAL(n_int-1,wp)
 END DO
+!strech towards axis and edge
+rho_int=rho_int+0.05*SIN(Pi*(2*rho_int-1))
 
 nVal=1
 Varnames(nVal)='Phi'

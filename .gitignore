@@ -1,6 +1,7 @@
 doc
 build
 ctags.txt
+*.vsz
 *.csv
 *.mod
 *.o
