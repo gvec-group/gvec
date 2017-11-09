@@ -201,7 +201,7 @@ IF(lasym)THEN
   IF(reLambda)THEN
     CALL writeDataMN("Lmnc","Lmnc",0,rho,Lmns)
   ELSE
-    CALL writeDataMN("Lmnc_half","Lmnc",0,rho_half,Lmns)
+    CALL writeDataMN("Lmnc_half","Lmnc_h",0,rho_half,Lmns)
   END IF
   
   !interpolated profiles
@@ -217,7 +217,7 @@ IF(lasym)THEN
   IF(reLambda)THEN
     CALL writeDataMN_int("INT_Lmnc","Lmnc",0,rho_int,Lmns_Spl)
   ELSE
-    CALL writeDataMN_int("INT_Lmnc_half","Lmnc",0,rho_int,Lmns_spl)
+    CALL writeDataMN_int("INT_Lmnc_half","Lmnc_h",0,rho_int,Lmns_spl)
   END IF
 END IF
 
