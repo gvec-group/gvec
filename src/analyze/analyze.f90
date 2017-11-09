@@ -245,7 +245,7 @@ CONTAINS
     END IF
     DO iMode=1,mn_mode
       nVal=nVal+1
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
       values(nVal,:)=dxx(iMode,:)
     END DO
     CALL writeNow(fname,vname,coord,values,VarNames) 
@@ -261,7 +261,7 @@ CONTAINS
 
     DO iMode=1,mn_mode
       nVal=nVal+1
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
     END DO
     values_int(nVal-mn_mode+1:nVal,:)=EvalSplMode(rderiv,xx_Spl)
 
