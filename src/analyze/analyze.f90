@@ -190,6 +190,39 @@ ELSE
   CALL writeDataMN_int("INT_Lmns_half","Lmns",0,Lmns_spl)
 END IF
 
+IF(lasym)THEN
+  nval=nValRewind
+  CALL writeDataMN("Rmns","Rmns",0,Rmnc)
+  nval=nValRewind
+  CALL writeDataMN("Zmnc","Zmnc",0,Zmns)
+  nval=nValRewind
+  CALL writeDataMN("dRmns","dRmns",1,Rmnc)
+  nval=nValRewind
+  CALL writeDataMN("dZmnc","dZmnc",1,Zmns)
+  nval=nValRewind
+  IF(reLambda)THEN
+    CALL writeDataMN("Lmnc","Lmnc",0,Lmns)
+  ELSE
+    CALL writeDataMN("Lmnc_half","Lmnc",0,Lmns)
+  END IF
+  
+  !interpolated profiles
+  nval=nValRewind
+  CALL writeDataMN_int("INT_Rmns","Rmns",0,Rmnc_Spl)
+  nval=nValRewind
+  CALL writeDataMN_int("INT_Zmnc","Zmnc",0,Zmns_Spl)
+  nval=nValRewind
+  CALL writeDataMN_int("INT_dRmns","dRmns",1,Rmnc_Spl)
+  nval=nValRewind
+  CALL writeDataMN_int("INT_dZmnc","dZmnc",1,Zmns_Spl)
+  nval=nValRewind
+  IF(reLambda)THEN
+    CALL writeDataMN_int("INT_Lmnc","Lmnc",0,Lmns_Spl)
+  ELSE
+    CALL writeDataMN_int("INT_Lmnc_half","Lmnc",0,Lmns_spl)
+  END IF
+END IF
+
 CONTAINS
   SUBROUTINE writeDataMN(fname,vname,rderiv,xx)
     INTEGER,INTENT(IN)         :: rderiv !0: point values, 1: 1/2 ( (R(i+1)-R(i))/rho(i+1)-rho(i) (R(i)-R(i-1))/rho(i)-rho(i-1)) 
