@@ -25,8 +25,13 @@ IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
-LOGICAL              :: visuVMEC1D                 !! visualize 1D VMEC data 
-LOGICAL              :: visuVMEC2D                 !! visualize 2D VMEC data 
+INTEGER              :: visuVMEC1D                 !! visualize 1D VMEC data (each mode). 0: off, 
+                                                   !! 1: R,Z,lambda  pointwise, (default) 
+                                                   !! 2: R,Z,lambda  interpolation 
+                                                   !! 3: R,Z  pointwise derivative, 
+                                                   !! 4: R,Z  derivative of interpolation 
+                                                   !! 12 : case 1 & 2, 13,23,123: with radial derivatives, combine 1,2,3,4 ascending
+INTEGER              :: visuVMEC2D                 !! visualize 2D VMEC data 
 
 !===================================================================================================================================
 END MODULE MOD_Analyze_Vars
