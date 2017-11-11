@@ -41,10 +41,10 @@ TYPE, ABSTRACT :: c_sgrid
 END TYPE c_sgrid
 
 ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sgrid_init( self , nElems, grid_type)
+  SUBROUTINE i_sub_sgrid_init( self , nElems_in, grid_type_in)
     IMPORT c_sgrid
-    INTEGER       , INTENT(IN   ) :: nElems 
-    INTEGER       , INTENT(IN   ) :: grid_type 
+    INTEGER       , INTENT(IN   ) :: nElems_in 
+    INTEGER       , INTENT(IN   ) :: grid_type_in 
     CLASS(c_sgrid), INTENT(INOUT) :: self
   END SUBROUTINE i_sub_sgrid_init
 
@@ -87,14 +87,14 @@ CONTAINS
 !> initialize the type sgrid with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE sGrid_init( self, nElems,grid_type)
+SUBROUTINE sGrid_init( self, nElems_in,grid_type_in)
 ! MODULES
-USE MOD_GLobals, ONLY: Pi,Unit_stdOut,fmt_sep,abort
+USE MOD_GLobals, ONLY: PI,Unit_stdOut,fmt_sep,abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: nElems       !! total number of elements
-  INTEGER       , INTENT(IN   ) :: grid_type    !! GRID_TYPE_UNIFORM, GRID_TYPE_SQRT_S, GRID_TYPE_S2, GRID_TYPE_BUMP
+  INTEGER       , INTENT(IN   ) :: nElems_in       !! total number of elements
+  INTEGER       , INTENT(IN   ) :: grid_type_in    !! GRID_TYPE_UNIFORM, GRID_TYPE_SQRT_S, GRID_TYPE_S2, GRID_TYPE_BUMP
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sgrid), INTENT(INOUT) :: self
@@ -102,22 +102,27 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: iElem
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(A)')'INIT sGrid type nElems= ',nElems,' grid_type= ',grid_type, ' ...'
+  SWRITE(UNIT_stdOut,'(A)')'INIT sGrid type nElems= ',nElems_in,' grid_type= ',grid_type_in, ' ...'
 
   IF(self%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid type!'
     CALL self%free() 
   END IF
 
-  self%nElems   = nElems
-  self%grid_Type= grid_type
+  self%nElems   = nElems_in
+  self%grid_Type= grid_type_in
+  ASSOCIATE( &
+              nElems    => self%nElems    &
+            , grid_Type => self%grid_Type &
+            , sp        =>self%sp         &
+            , ds        =>self%ds          )
   
-  ALLOCATE(self%sp(0:self%nElems))
-  ALLOCATE(self%ds( 1:self%nElems))
-  ASSOCIATE(sp=>self%sp , ds=>self%ds)
+  
+  ALLOCATE(self%sp(0:nElems))
+  ALLOCATE(self%ds(1:nElems))
   !uniform
-  DO iElem=0,self%nElems
-    sp(iElem)=REAL(iElem,wp)/REAL(self%nElems)
+  DO iElem=0,nElems
+    sp(iElem)=REAL(iElem,wp)/REAL(nElems)
   END DO
   SELECT CASE(grid_type)
   CASE(GRID_TYPE_UNIFORM)
@@ -127,7 +132,7 @@ IMPLICIT NONE
   CASE(GRID_TYPE_S2)   !finer at the center
     sp(:)=sp(:)*sp(:)
   CASE(GRID_TYPE_BUMP) !strechted towards axis and edge
-    sp(:)=sp(:)-0.05_wp*SIN(Pi*(2.0_wp*sp(:)-1.0_wp))
+    sp(:)=sp(:)-0.05_wp*SIN(PI*(2.0_wp*sp(:)-1.0_wp))
 
   CASE DEFAULT
    CALL abort(__STAMP__, &
@@ -135,11 +140,11 @@ IMPLICIT NONE
   END SELECT
   
   !compute delta s
-  DO iElem=1,self%nElems
+  DO iElem=1,nElems
     ds(iElem)=sp(iElem)-sp(iElem-1)
   END DO
   
-  END ASSOCIATE !sp,ds
+  END ASSOCIATE !self
   
   self%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(A)')'... DONE'

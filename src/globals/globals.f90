@@ -38,8 +38,8 @@ INTEGER, PARAMETER :: wp = selected_real_kind(15,307)  !! double precision
 !INTEGER, PARAMETER :: wp = selected_real_kind(33,307) !! quadruple precision
 !-----------------------------------------------------------------------------------------------------------------------------------
 CHARACTER(LEN=20)   :: fmt_sep ='(132("="))'             !! formatting of separator line: WRITE(*,fmt_sep)
-REAL(wp),PARAMETER  :: Pi   =ACOS(-1.0_wp)               !! pi parameter
-REAL(wp),PARAMETER  :: TwoPi=2.0_wp*Pi                   !! 2*pi parameter
+REAL(wp),PARAMETER  :: PI   =ACOS(-1.0_wp)               !! pi parameter
+REAL(wp),PARAMETER  :: TWOPI=2.0_wp*PI                   !! 2*pi parameter
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input

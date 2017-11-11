@@ -16,12 +16,12 @@
 
 !==================================================================================================================================
 !>
-!!# Module ** Basis **
+!!# Module ** Basis 1D **
 !!
-!! Routines to provide and evaluate basis function coefficients, or provide fast interpolation coefficients
+!! Routines to provide and evaluate 1D polynomial Lagrange basis functions, interpolation and integration points
 !!
 !==================================================================================================================================
-MODULE MOD_Basis
+MODULE MOD_Basis1D
 ! MODULES
 USE MOD_Globals, ONLY: wp
 IMPLICIT NONE
@@ -748,4 +748,4 @@ END DO
 END SUBROUTINE LagrangeInterpolationPolys
 
 
-END MODULE MOD_Basis
+END MODULE MOD_Basis1D

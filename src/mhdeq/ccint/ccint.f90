@@ -64,7 +64,7 @@ CONTAINS
 SUBROUTINE InitCCint()
 ! MODULES
 USE MOD_Globals
-USE MOD_Basis,     ONLY: ClenshawCurtisNodesAndWeights
+USE MOD_Basis1D,   ONLY: ClenshawCurtisNodesAndWeights
 USE MOD_CCInt_vars,ONLY: Imax,Rcc
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
