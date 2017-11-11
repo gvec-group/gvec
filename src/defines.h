@@ -27,3 +27,17 @@
 #  define SWRITE WRITE
 #endif
 #define SDEALLOCATE(A) IF(ALLOCATED(A)) DEALLOCATE(A)
+
+!boundary condition for zero,odd and even m modes
+#define BC_MODES 3
+#define BC_MZERO 1
+#define BC_MODD  2
+#define BC_MEVEN 3
+
+!boundary types
+#define BC_OPEN      1 
+#define BC_NEUMANN   2
+#define BC_DIRICHLET 3
+#define BC_SYMM      4
+#define BC_SYMMZERO  5
+#define BC_ANTISYMM  6
