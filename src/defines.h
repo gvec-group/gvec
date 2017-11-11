@@ -29,15 +29,19 @@
 #define SDEALLOCATE(A) IF(ALLOCATED(A)) DEALLOCATE(A)
 
 !boundary condition for zero,odd and even m modes
-#define BC_MODES 3
-#define BC_MZERO 1
-#define BC_MODD  2
-#define BC_MEVEN 3
 
 !boundary types
-#define BC_OPEN      1 
-#define BC_NEUMANN   2
-#define BC_DIRICHLET 3
-#define BC_SYMM      4
-#define BC_SYMMZERO  5
-#define BC_ANTISYMM  6
+#define NBC_TYPES    6
+
+#define BC_TYPE_OPEN      1 
+#define BC_TYPE_NEUMANN   2
+#define BC_TYPE_DIRICHLET 3
+#define BC_TYPE_SYMM      4
+#define BC_TYPE_SYMMZERO  5
+#define BC_TYPE_ANTISYMM  6
+
+!grid types
+#define GRID_TYPE_UNIFORM 1 
+#define GRID_TYPE_SQRT_S  2 
+#define GRID_TYPE_S2      3 
+#define GRID_TYPE_BUMP    4 

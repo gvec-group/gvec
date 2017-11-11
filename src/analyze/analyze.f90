@@ -139,7 +139,7 @@ DO i=0,n_int-1
   rho_int(1+i)=REAL(i,wp)/REAL(n_int-1,wp)
 END DO
 !strech towards axis and edge
-rho_int=rho_int+0.05*SIN(Pi*(2*rho_int-1))
+rho_int=rho_int+0.05_wp*SIN(Pi*(2.0_wp*rho_int-1.0_wp))
 
 nVal=1
 Varnames(nVal)='Phi'

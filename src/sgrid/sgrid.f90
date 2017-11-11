@@ -14,33 +14,33 @@
 
 !===================================================================================================================================
 !>
-!!# Module **sBase**
+!!# Module **sGrid**
 !!
 !! basis functions for radial coordinate: 
 !! bsplines and Lagrange polynomials
 !!
 !===================================================================================================================================
-MODULE MOD_sBase
+MODULE MOD_sGrid
 ! MODULES
 USE MOD_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
-INTERFACE InitsBase
-  MODULE PROCEDURE InitsBase
+INTERFACE InitsGrid
+  MODULE PROCEDURE InitsGrid
 END INTERFACE
 
-INTERFACE sBase
-  MODULE PROCEDURE sBase
+INTERFACE sGrid
+  MODULE PROCEDURE sGrid
 END INTERFACE
 
-INTERFACE FinalizesBase
-  MODULE PROCEDURE FinalizesBase
+INTERFACE FinalizesGrid
+  MODULE PROCEDURE FinalizesGrid
 END INTERFACE
 
-PUBLIC::InitsBase
-PUBLIC::sBase
-PUBLIC::FinalizesBase
+PUBLIC::InitsGrid
+PUBLIC::sGrid
+PUBLIC::FinalizesGrid
 !===================================================================================================================================
 
 CONTAINS
@@ -49,10 +49,10 @@ CONTAINS
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE InitsBase 
+SUBROUTINE InitsGrid 
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut
-USE MOD_sBase_Vars
+USE MOD_sGrid_Vars
 USE MOD_ReadInTools,ONLY:GETLOGICAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -64,20 +64,20 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT sBase ...'
+WRITE(UNIT_stdOut,'(A)')'INIT sGrid MODULE ...'
 
 WRITE(UNIT_stdOut,'(A)')'... DONE'
-END SUBROUTINE InitsBase
+END SUBROUTINE InitsGrid
 
 
 !===================================================================================================================================
 !> 
 !!
 !===================================================================================================================================
-SUBROUTINE sBase()
+SUBROUTINE sGrid()
 ! MODULES
 USE MOD_Globals, ONLY:wp
-USE MOD_sBase_Vars
+USE MOD_sGrid_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -86,15 +86,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-END SUBROUTINE sBase 
+END SUBROUTINE sGrid 
 
 !===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizesBase 
+SUBROUTINE FinalizesGrid 
 ! MODULES
-USE MOD_sBase_Vars
+USE MOD_sGrid_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -104,6 +104,6 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 
-END SUBROUTINE FinalizesBase
+END SUBROUTINE FinalizesGrid
 
-END MODULE MOD_sBase
+END MODULE MOD_sGrid
