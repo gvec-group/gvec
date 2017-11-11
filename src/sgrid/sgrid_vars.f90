@@ -174,12 +174,7 @@ IMPLICIT NONE
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
     CALL self%free()
   END IF
-  self%nElems    =  tocopy%nElems
-  self%grid_type =  tocopy%grid_type
-  ALLOCATE(self%sp(0:tocopy%nElems))
-  ALLOCATE(self%ds( 1:tocopy%nElems))
-  self%sp       =  tocopy%sp
-  self%ds        =  tocopy%ds
+  CALL self%init(tocopy%nElems,tocopy%grid_type) 
 
   END SELECT !TYPE
 END SUBROUTINE sGrid_copy
