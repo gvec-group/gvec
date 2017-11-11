@@ -72,12 +72,12 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   !input parameters
   CLASS(t_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
   INTEGER              :: deg                      !! input parameter: degree of Spline/polynomial 
-  INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
   INTEGER              :: degGP                    !! number of Gauss-points (degGP+1) per element >= deg
+  INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER              :: nGP                      !! total number of gausspoints = degGP*nElems
   INTEGER              :: nbase                    !! total number of degree of freedom / global basis functions
-  REAL(wp),ALLOCATABLE :: xiGPloc(:)               !! element local gauss point positions for interval [0,1], size(0:deg)
+  REAL(wp),ALLOCATABLE :: xiGP(:)                  !! element local gauss point positions for interval [0,1], size(0:deg)
   REAL(wp),ALLOCATABLE :: wGPloc(:)                !! element local gauss weights for interval [0,1], size(0:deg)
   REAL(wp),ALLOCATABLE :: wGP(:,:)                 !! global radial integration weight size(0:deg,1:nElems)
   REAL(wp),ALLOCATABLE :: s_GP(:,:)                !! global position of gauss points  in s [0,1] , size(nGPloc,nElems) 
@@ -126,6 +126,8 @@ CONTAINS
 SUBROUTINE sBase_init( self, grid_in,deg_in,continuity_in,degGP_in)
 ! MODULES
 USE MOD_GLobals, ONLY: PI,Unit_stdOut,fmt_sep,abort
+USE MOD_Basis1D, ONLY:  LegendreGaussNodesAndWeights
+USE MOD_Basis1D, ONLY:  BarycentricWeights,InitializeVandermonde,PolynomialDerivativeMatrix
 USE sll_m_bsplines,ONLY: sll_s_bsplines_new
 USE sll_m_spline_1d                      ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d         ,ONLY: sll_t_spline_interpolator_1d
@@ -145,8 +147,12 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: i,iGP,iElem,imin,jmin
-  REAL(wp) :: xiIP(0:deg_in)
   REAL(wp) :: locbasis(0:deg_in,0:deg_in)
+  REAL(wp) :: xiIP(0:deg_in)
+  REAL(wp) :: wBaryIP(0:deg_in)
+  REAL(wp) :: Vdm(   0:degGP_in,0:deg_in)
+  REAL(wp) :: DmatGP(0:degGP_in,0:deg_in)
+  REAL(wp) :: Dmat(  0:deg_in  ,0:deg_in)
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT sBase type:', &
        ' degree= ',deg_in, &
@@ -156,7 +162,9 @@ IMPLICIT NONE
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
     CALL self%free()
   END IF
-  
+  IF(degGP_in.LT.deg_in) &
+    CALL abort(__STAMP__, &
+        "error in sbase: degGP must be > deg!") 
   self%grid       => grid_in
   self%deg        =  deg_in
   self%degGP      =  degGP_in
@@ -167,11 +175,11 @@ IMPLICIT NONE
             , sp          =>self%grid%sp       &
             , ds          =>self%grid%ds       &
             , deg         =>self%deg           &
-            , continuity  =>self%continuity    &
             , degGP       =>self%degGP         &
+            , continuity  =>self%continuity    &
             , nGP         =>self%nGP           &
             , nBase       =>self%nBase         &
-            , xiGPloc     =>self%xiGPloc       &
+            , xiGP        =>self%xiGP          &
             , wGPloc      =>self%wGPloc        &
             , wGP         =>self%wGP           &
             , s_GP        =>self%s_GP          &
@@ -199,36 +207,45 @@ IMPLICIT NONE
   CALL sbase_alloc(self)
 
              
-  CALL LegendreGaussNodesAndWeights(deg,xiGPloc,wGPloc)
+  CALL LegendreGaussNodesAndWeights(deg,xiGP,wGPloc)
   ![-1,1]->[0,1]
-  xiGPloc=0.5_wp*(xiGPloc+1.0_wp)
+  xiGP=0.5_wp*(xiGP+1.0_wp)
   wGPloc =0.5*wGPloc
 
   DO iElem=1,nElems
     wGP(:,iElem)=wGPloc(:)*ds(iElem)
   END DO 
  DO iElem=1,nElems
-   s_GP(:,iElem)=sp(iElem-1)+xiGPloc(:)*ds(iElem)
+   s_GP(:,iElem)=sp(iElem-1)+xiGP(:)*ds(iElem)
  END DO !iElem 
 
   IF(continuity.EQ.-1)THEN !discontinuous
    
-    !TODO eval basis basis deriv,  
-    DO iElem=1,nElems
-      base_offset(iElem)=1+(deg+1)*(iElem-1)
-!      baseGP   (:,:,iElem)=bse(:,:)
-!      base_dsGP(:,:,iElem)=bsederiv(:,:)*ds(iElem)
-    END DO !iElem 
-    !TODO eval basis deriv at boundaries  
-!    base_dsAxis(:,:)=bsederiv(:,:)*ds(1)
-!    base_dsEdge(:,:)=bsederiv(:,:)*ds(nElems)
-
-    !interpolation:
-    !  points are repeated at element interfaces (discontinuous)
     !  use chebychev-lobatto points for interpolation (closed form!), interval [0,1] 
     DO i=0,deg
       xiIP(i)=0.5_wp*(1.0_wp-COS(REAL(i,wp)/REAL(deg,wp)*PI))
     END DO
+    CALL BarycentricWeights(deg,xiIP,wBaryIP)
+    CALL InitializeVandermonde(deg,degGP,wBaryIP,xiIP,xiGP,Vdm)
+    CALL PolynomialDerivativeMatrix(deg,xiIP,Dmat)
+    DmatGP=MATMUL(Vdm,Dmat)
+    ! eval basis and  basis derivative  
+    DO iElem=1,nElems
+      base_offset(iElem)=1+(deg+1)*(iElem-1)
+      baseGP   (:,:,iElem)=TRANSPOSE(Vdm(:,:))
+      base_dsGP(:,:,iElem)=TRANSPOSE(DmatGP)*ds(iElem)
+    END DO !iElem 
+    ! eval basis deriv at boundaries  
+    base_dsAxis(1,:)=Dmat(  0,:)*ds(1)
+    base_dsEdge(1,:)=Dmat(deg,:)*ds(nElems)
+    ! TODO not sure if higher derivatives are correct...
+    DO i=2,deg
+      base_dsAxis(i,:)=MATMUL(Dmat,base_dsAxis(i-1,:))*ds(1)
+      base_dsEdge(i,:)=MATMUL(Dmat,base_dsEdge(i-1,:))*ds(nElems)
+    END DO
+
+    !interpolation:
+    !  points are repeated at element interfaces (discontinuous)
     ALLOCATE(self%s_IP(self%nBase)) !for spl, its allocated elsewhere...
     DO iElem=1,nElems
       s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=sp(iElem-1)+xiIP*ds(iElem)
@@ -295,7 +312,7 @@ IMPLICIT NONE
   INTEGER :: i
 !===================================================================================================================================
   ASSOCIATE(nElems=>self%grid%nElems, degGP=>self%degGP, deg=>self%deg)
-  ALLOCATE(self%xiGPloc(0:deg))
+  ALLOCATE(self%xiGP(   0:deg))
   ALLOCATE(self%wGPloc( 0:deg))
   ALLOCATE(self%wGP(    0:deg,1:nElems))
   ALLOCATE(self%base_offset(           1:nElems))
@@ -307,7 +324,7 @@ IMPLICIT NONE
   ALLOCATE(self%A_Edge(0:deg,0:deg,1:NBC_TYPES))
   ALLOCATE(self%R_Axis(0:deg,0:deg,1:NBC_TYPES))
   ALLOCATE(self%R_Edge(0:deg,0:deg,1:NBC_TYPES))
-  self%xiGPloc     =0.0_wp
+  self%xiGP        =0.0_wp
   self%wGPloc      =0.0_wp            
   self%wGP         =0.0_wp            
   self%s_GP        =0.0_wp            
@@ -387,7 +404,7 @@ IMPLICIT NONE
     CALL self%bspl%free() 
   END IF
   !allocatables  
-  SDEALLOCATE(self%xiGPloc)
+  SDEALLOCATE(self%xiGP)
   SDEALLOCATE(self%wGPloc)
   SDEALLOCATE(self%wGP)
   SDEALLOCATE(self%s_GP)
