@@ -50,7 +50,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitTEMPLATE 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut
+USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_TEMPLATE_Vars
 USE MOD_ReadInTools,ONLY:GETLOGICAL
 IMPLICIT NONE
@@ -63,10 +63,11 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT TEMPLATE ...'
+SWRITE(UNIT_stdOut,'(A)')'INIT TEMPLATE ...'
 useThis    = GETLOGICAL('useThis','F')   
 
-WRITE(UNIT_stdOut,'(A)')'... DONE'
+SWRITE(UNIT_stdOut,'(A)')'... DONE'
+SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitTEMPLATE
 
 

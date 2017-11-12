@@ -53,13 +53,12 @@ ENDMACRO()
 
 #generate lists of subfolders to be used as choices for the variables of the configuration
 
-#SUBDIRLIST(TESTCASES  ${CMAKE_CURRENT_SOURCE_DIR}/src/testcase/)
+SUBDIRLIST(FUNCTIONALS  ${CMAKE_CURRENT_SOURCE_DIR}/src/functionals/)
 
 
-#OPTION(MAIN_BUILD_MPI "Compile SINGLE or MPI version" ON)
-#SET(   MAIN_TESTCASE   "default"      CACHE STRING
-#                        "Name of testcase which is used. Must be identical to directory name in testcase folder.")
-#SET_PROPERTY(CACHE MAIN_TESTCASE PROPERTY STRINGS ${TESTCASES})
+SET(   FUNCTIONAL   "mhd3d"      CACHE STRING
+                        "Name of functional to be used, must be identical to subdirectory name in src/functionals folder.")
+SET_PROPERTY(CACHE FUNCTIONAL PROPERTY STRINGS ${FUNCTIONALS})
 
 OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 
@@ -186,9 +185,16 @@ function(add_exec target)
 endfunction()
 
 # include defines.h 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
 
-FILE(GLOB_RECURSE mainF90 ./src/*.f90  )
+FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90 
+                          ./src/functionals/${FUNCTIONAL}/*.f90
+                          ./src/base/bsplines/*.f90
+                          ./src/base/*.f90
+                          ./src/grid/*.f90
+                          ./src/mhdeq/*.f90
+                          ./src/output/*.f90
+                          ./src/analyze/*.f90            )
 
 
 # define libs

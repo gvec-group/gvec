@@ -695,8 +695,8 @@ DO WHILE(EOF.NE.IOSTAT_END)
       ! Remove blanks
       Str1%Str=Replace(Str1%Str," ","",Every=.true.)
       ! Replace brackets
-      Str1%Str=Replace(Str1%Str,"(/"," ",Every=.true.)
-      Str1%Str=Replace(Str1%Str,"/)"," ",Every=.true.)
+      Str1%Str=Replace(Str1%Str,"(/","",Every=.true.)
+      Str1%Str=Replace(Str1%Str,"/)","",Every=.true.)
       ! Replace commas
       Str1%Str=Replace(Str1%Str,","," ",Every=.true.)
       ! Lower case

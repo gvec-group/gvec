@@ -18,9 +18,11 @@
 !!
 !===================================================================================================================================
 PROGRAM GVEC
-USE MOD_Globals    ,ONLY: Unit_stdout,fmt_sep
+USE MOD_Globals
 USE MOD_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
 USE MOD_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
+USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
+USE MOD_Functional ,ONLY: InitFunctional,FinalizeFunctional
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MOD_ReadInTools,ONLY: IgnoredStrings 
 IMPLICIT NONE
@@ -59,16 +61,21 @@ WRITE(Unit_stdOut,'(18(("*",A130,"*",:,"\n")))')&
 ,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
 WRITE(Unit_stdOut,'(132("="))')
 
+
 !initialization phase
 CALL InitOutput()
 CALL InitAnalyze()
 CALL InitMHDEQ()
+
+CALL InitFunctional()
 
 CALL IgnoredStrings()
 ! do something
 
 !finalization phase
 CALL Analyze()
+
+CALL FinalizeFunctional()
 
 CALL FinalizeMHDEQ()
 CALL FinalizeAnalyze()

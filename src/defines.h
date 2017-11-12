@@ -41,7 +41,7 @@
 #define BC_TYPE_ANTISYMM  6
 
 !grid types
-#define GRID_TYPE_UNIFORM 1 
-#define GRID_TYPE_SQRT_S  2 
-#define GRID_TYPE_S2      3 
-#define GRID_TYPE_BUMP    4 
+#define GRID_TYPE_UNIFORM 0 
+#define GRID_TYPE_SQRT_S  1 
+#define GRID_TYPE_S2      2 
+#define GRID_TYPE_BUMP    3 

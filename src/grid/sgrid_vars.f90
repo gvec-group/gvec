@@ -24,13 +24,9 @@ MODULE MOD_sGrid_Vars
 USE MOD_Globals    ,ONLY:wp
 IMPLICIT NONE
 
-
-PUBLIC  :: t_sgrid
-
-PRIVATE
+PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
-! GLOBAL VARIABLES 
-
+! TYPES 
 TYPE, ABSTRACT :: c_sgrid
   LOGICAL :: initialized
   CONTAINS
@@ -62,7 +58,6 @@ ABSTRACT INTERFACE
 END INTERFACE
  
 
-
 TYPE,EXTENDS(c_sgrid) :: t_sGrid
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
@@ -79,6 +74,7 @@ TYPE,EXTENDS(c_sgrid) :: t_sGrid
 
 END TYPE t_sGrid
 
+
 !===================================================================================================================================
 
 CONTAINS
@@ -89,7 +85,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE sGrid_init( self, nElems_in,grid_type_in)
 ! MODULES
-USE MOD_GLobals, ONLY: PI,Unit_stdOut,fmt_sep,abort
+USE MOD_GLobals, ONLY: PI,Unit_stdOut,abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -102,7 +98,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: iElem
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(A)')'INIT sGrid type nElems= ',nElems_in,' grid_type= ',grid_type_in, ' ...'
+  SWRITE(UNIT_stdOut,'(4X,A,I6,A,I3,A)')'INIT sGrid type nElems= ',nElems_in,' grid_type= ',grid_type_in, ' ...'
 
   IF(self%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid type!'
@@ -111,28 +107,26 @@ IMPLICIT NONE
 
   self%nElems   = nElems_in
   self%grid_Type= grid_type_in
+  ALLOCATE(self%sp(0:nElems_in))
+  ALLOCATE(self%ds(1:nElems_in))
+
   ASSOCIATE( &
               nElems    => self%nElems    &
-            , grid_Type => self%grid_Type &
-            , sp        =>self%sp         &
-            , ds        =>self%ds          )
+            , grid_Type => self%grid_Type )
   
-  
-  ALLOCATE(self%sp(0:nElems))
-  ALLOCATE(self%ds(1:nElems))
   !uniform
   DO iElem=0,nElems
-    sp(iElem)=REAL(iElem,wp)/REAL(nElems)
+    self%sp(iElem)=REAL(iElem,wp)/REAL(nElems,wp)
   END DO
   SELECT CASE(grid_type)
   CASE(GRID_TYPE_UNIFORM)
     !do nothing
   CASE(GRID_TYPE_SQRT_S) !finer at the edge
-    sp(:)=SQRT(sp(:))
+    self%sp(:)=SQRT(self%sp(:))
   CASE(GRID_TYPE_S2)   !finer at the center
-    sp(:)=sp(:)*sp(:)
+    self%sp(:)=self%sp(:)*self%sp(:)
   CASE(GRID_TYPE_BUMP) !strechted towards axis and edge
-    sp(:)=sp(:)-0.05_wp*SIN(PI*(2.0_wp*sp(:)-1.0_wp))
+    self%sp(:)=self%sp(:)-0.05_wp*SIN(PI*(2.0_wp*self%sp(:)-1.0_wp))
 
   CASE DEFAULT
    CALL abort(__STAMP__, &
@@ -141,14 +135,13 @@ IMPLICIT NONE
   
   !compute delta s
   DO iElem=1,nElems
-    ds(iElem)=sp(iElem)-sp(iElem-1)
+    self%ds(iElem)=self%sp(iElem)-self%sp(iElem-1)
   END DO
   
   END ASSOCIATE !self
   
   self%initialized=.TRUE.
-  SWRITE(UNIT_stdOut,'(A)')'... DONE'
-  SWRITE(UNIT_stdOut,fmt_sep)
+  SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
 
 END SUBROUTINE sGrid_init
 

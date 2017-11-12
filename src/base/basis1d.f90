@@ -417,7 +417,7 @@ SUBROUTINE LegendreGaussNodesAndWeights(N_in,xGP,wGP)
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-INTEGER,INTENT(IN)        :: N_in              !! polynomial degree, (N_in+1) Gausspoints
+INTEGER,INTENT(IN)            :: N_in              !! polynomial degree, (N_in+1) Gausspoints
 REAL(wp),INTENT(OUT)          :: xGP(0:N_in)       !! Gauss point positions for the reference interval [-1,1]
 REAL(wp),INTENT(OUT),OPTIONAL :: wGP(0:N_in)       !! Gauss point weights
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -439,9 +439,9 @@ ELSEIF(N_in.EQ.1)THEN
   IF(PRESENT(wGP))wGP=1.0_wp
   RETURN
 ELSE ! N_in>1
-  cheb_tmp=2.0_wp*atan(1.0_wp)/REAL(N_in+1,wp) ! pi/(2N+2)
+  cheb_tmp=2.0_wp*ATAN(1.0_wp)/REAL(N_in+1,wp) ! pi/(2N+2)
   DO iGP=0,(N_in+1)/2-1 !since points are symmetric, only left side is computed
-    xGP(iGP)=-cos(cheb_tmp*REAL(2*iGP+1,wp)) !initial guess
+    xGP(iGP)=-COS(cheb_tmp*REAL(2*iGP+1,wp)) !initial guess
     ! Newton iteration
     DO iter=0,nIter
       CALL LegendrePolynomialAndDerivative(N_in+1,xGP(iGP),L_Np1,Lder_Np1)
