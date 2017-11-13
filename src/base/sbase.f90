@@ -314,8 +314,8 @@ IMPLICIT NONE
   CLASS(t_sBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: iTest,iElem
-  REAL(wp):: base_x(0:sf%deg) 
+  INTEGER :: iTest,iElem,jElem
+  REAL(wp):: x,base_x(0:sf%deg) 
 !===================================================================================================================================
   IF(testlevel.LE.0) RETURN
   nTestCalled=nTestCalled+1
@@ -347,27 +347,53 @@ IMPLICIT NONE
       '   continuity = ',sf%continuity,  ', nBase= ',sf%nBase, &
       '\n => should be 1.0 : SUM(wGP)= ',SUM(sf%wGP)
     END IF
-    iTest=4
+    iTest=4 
     CALL sf%eval(0.0_wp,0,iElem,base_x) 
     IF(testdbg.OR.(.NOT.((ABS(base_x(0)-1.).LT.1.0e-12).AND. &
-                         ( SUM(ABS(base_x(1:sf%deg))).LT. 1.0e-12_wp)))) THEN
+                         ( SUM(ABS(base_x(1:sf%deg))).LT. 1.0e-12_wp).AND. &
+                         (iElem.EQ.1) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SBASE FAILED !!'
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E11.3)))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,I6,*(E11.3)))') &
       '   degree = ',sf%deg, &
       '   continuity = ',sf%continuity,  ', nBase= ',sf%nBase, &
-      '\n => should be 1,0,0... : base_x(x=0)= ',base_x
+      '\n => should be 1 and (1,0,0...) : base_x(x=0)= ',iElem,base_x
     END IF
     iTest=5
     CALL sf%eval(1.0_wp,0,iElem,base_x) 
     IF(testdbg.OR.(.NOT.((ABS(base_x(sf%deg)-1.).LT.1.0e-12).AND. &
-                         ( SUM(ABS(base_x(0:sf%deg-1))).LT. 1.0e-12_wp)))) THEN
+                         ( SUM(ABS(base_x(0:sf%deg-1))).LT. 1.0e-12_wp).AND. &
+                         (iElem.EQ.sf%grid%nElems)))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SBASE FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E11.3)))') &
       '   degree = ',sf%deg, &
       '   continuity = ',sf%continuity,  ', nBase= ',sf%nBase, &
       '\n => should be ...,0,0,1 : base_x(x=0)= ',base_x
+    END IF
+    iTest=6
+    jElem=sf%grid%nElems/2
+    x=0.5_wp*(sf%grid%sp(jElem-1)+sf%grid%sp(jElem))
+    CALL sf%eval(x,0,iElem,base_x) 
+    IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SBASE FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6))') &
+      '   degree = ',sf%deg, &
+      '   continuity = ',sf%continuity,  ', nBase= ',sf%nBase, &
+      '\n => should be ',jElem,': iElem= ' , iElem
+    END IF
+    iTest=7
+    jElem=MIN(2,sf%grid%nElems)
+    x=sf%grid%sp(jElem-1)+0.01_wp*sf%grid%ds(jElem)
+    CALL sf%eval(x ,0,iElem,base_x) 
+    IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SBASE FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6))') &
+      '   degree = ',sf%deg, &
+      '   continuity = ',sf%continuity,  ', nBase= ',sf%nBase, &
+      '\n => should be ',jElem,': iElem= ' , iElem
     END IF
   ELSEIF(testlevel.GT.1)THEN
     

@@ -137,8 +137,7 @@ IMPLICIT NONE
   CASE(GRID_TYPE_S2)   !finer at the center
     sf%sp(:)=sf%sp(:)*sf%sp(:)
   CASE(GRID_TYPE_BUMP) !strechted towards axis and edge
-    sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*(2.0_wp*sf%sp(:)-1.0_wp))
-
+    sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*2.0_wp*sf%sp(:))
   CASE DEFAULT
    CALL abort(__STAMP__, &
           'given grid type does not exist') 
@@ -202,7 +201,8 @@ IMPLICIT NONE
   CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: iTest,iElem
+  INTEGER :: iTest,iElem,jElem
+  REAL(wp):: x
 !===================================================================================================================================
   IF(testlevel.LE.0) RETURN
   nTestCalled=nTestCalled+1
@@ -217,6 +217,14 @@ IMPLICIT NONE
       '\n =>  should be 0.0 : sp(0) = ', sf%sp(0)
     END IF
     iTest=2
+    IF(testdbg.OR.(.NOT.(MINVAL(sf%ds).GT.0.0_wp)))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n => should be >0', 'MINVAL(ds)',MINVAL(sf%ds)
+    END IF
+    iTest=3
     IF(testdbg.OR.(.NOT. ( ABS(sf%sp(sf%nElems)-1.0_wp).LT.1.0e-12_wp))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
@@ -224,7 +232,7 @@ IMPLICIT NONE
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n =>  should be 1.0 : sp(nElems) = ', sf%sp(sf%nElems)
     END IF
-    iTest=3
+    iTest=4
     IF(testdbg.OR.(.NOT. ( ABS(SUM(sf%ds(:))-1.0_wp).LT.1.0e-12_wp))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
@@ -232,7 +240,7 @@ IMPLICIT NONE
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n =>  should be 1.0 : SUM(ds) = ', SUM(sf%ds)
     END IF
-    iTest=4
+    iTest=5
     iElem=sf%find_elem(0.0_wp)
     IF(testdbg.OR.(.NOT.(iElem .EQ. 1 ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
@@ -241,7 +249,7 @@ IMPLICIT NONE
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n =>   should be 1 : findelem(0.0)= ', iElem
     END IF
-    iTest=5
+    iTest=6
     iElem=sf%find_elem(1.0_wp)
     IF(testdbg.OR.(.NOT.(iElem .EQ. sf%nElems ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
@@ -249,6 +257,28 @@ IMPLICIT NONE
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),2(A,I6))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n => should be', sf%nElems,'  :  findelem(1.0)= ', iElem
+    END IF
+    iTest=7
+    jElem=sf%nElems/2
+    x=0.5_wp*(sf%sp(jElem-1)+sf%sp(jElem))
+    iElem=sf%find_elem(x)
+    IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),2(A,I6))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n => should be ',jElem,': iElem= ' , iElem
+    END IF
+    iTest=8
+    jElem=MIN(3,sf%nElems)
+    x=sf%sp(jElem-1)+0.99_wp*sf%ds(jElem)
+    iElem=sf%find_elem(x)
+    IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),2(A,I6))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n => should be ',jElem,': iElem= ' , iElem
     END IF
   END IF !testlevel>0
 
@@ -307,31 +337,31 @@ IMPLICIT NONE
   REAL(wp) :: xloc
 !===================================================================================================================================
   iElem=1
-  xloc=x
+  xloc=MIN(1.0_wp,MAX(0.0_wp,x))
   IF(xloc.LT.(sf%sp(0)+sf%ds(1))) THEN
     iElem=1
     RETURN
   END IF
-  IF(xloc.GE.sf%sp(sf%nElems)-sf%ds(sf%nElems)) THEN
+  IF(xloc.GE.(sf%sp(sf%nElems)-sf%ds(sf%nElems))) THEN
     iElem=sf%nElems
     RETURN
   END IF
   
   SELECT CASE(sf%grid_type)
   CASE(GRID_TYPE_UNIFORM)
-    iElem=MIN(1,FLOOR(xloc*sf%nElems))
+    iElem=CEILING(xloc*sf%nElems)
     RETURN
   CASE(GRID_TYPE_S2)   !finer at the center
-    iElem=MIN(1,FLOOR(SQRT(xloc)*sf%nElems))
+    iElem=CEILING(SQRT(xloc)*sf%nElems)
     RETURN
   CASE(GRID_TYPE_SQRT_S) !finer at the edge
-    iElem=MIN(1,FLOOR((xloc**2)*sf%nElems))
+    iElem=CEILING((xloc**2)*sf%nElems)
     RETURN
   END SELECT
   
   !not efficient, bisection of sp  array would be better!!
   DO jElem=2,sf%nElems
-    IF(xloc.GT.sf%sp(jElem))THEN
+    IF((xloc.GE.sf%sp(iElem-1)).AND.(xloc.LT.sf%sp(jElem)))THEN
       iElem=jElem
       EXIT
     END IF
