@@ -87,7 +87,7 @@ CONTAINS
 SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
 ! MODULES
 USE MOD_GLobals, ONLY: PI,Unit_stdOut,abort
-USE MOD_GLobals, ONLY: testlevel,ntestfailed,testfailedMsg
+USE MOD_GLobals, ONLY: testlevel,nfailedMsg,testfailedMsg
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -155,7 +155,7 @@ END SUBROUTINE sGrid_init
 !===================================================================================================================================
 SUBROUTINE sGrid_test( sf )
 ! MODULES
-USE MOD_GLobals, ONLY: testlevel,ntestfailed,testfailedMsg
+USE MOD_GLobals, ONLY: UNIT_StdOut,testlevel,nfailedMsg,nTestCalled,testfailedMsg
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -164,22 +164,26 @@ IMPLICIT NONE
   CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: iTest
 !===================================================================================================================================
-  IF(testlevel.LE.0)THEN
-    RETURN
-  ELSE
-    SWRITE(*,*)'>>>>>>>>> RUN TEST  SGRID    >>>>>>>>>'
+  IF(testlevel.LE.0) RETURN
+  nTestCalled=nTestCalled+1
+  SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN TEST No.',nTestCalled,' SGRID    >>>>>>>>>'
+  IF(testlevel.GT.0)THEN
+    iTest=1
     IF( ABS(sf%sp(0)).GT. 1.0e-12_wp) THEN
-      nTestFailed=nTestFailed+1 ; WRITE(testfailedMsg(nTestFailed),*) &
-      '!! TESTLEVEL 1: TEST 1 IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
     END IF
+    iTest=2
     IF( ABS(sf%sp(sf%nElems)-1.0_wp).GT.1.0e-12_wp) THEN
-      nTestFailed=nTestFailed+1 ; WRITE(testfailedMsg(nTestFailed),*) &
-      '!! TESTLEVEL 1: TEST 2 IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
     END IF
+    iTest=3
     IF( ABS(SUM(sf%ds(:))-1.0_wp).GT.1.0e-12_wp) THEN
-      nTestFailed=nTestFailed+1 ; WRITE(testfailedMsg(nTestFailed),*) &
-      '!! TESTLEVEL 1: TEST 2 IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
     END IF
   END IF !testlevel>0
 

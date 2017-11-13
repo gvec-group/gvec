@@ -37,16 +37,14 @@ TYPE, ABSTRACT :: c_sbase
   LOGICAL :: initialized
   CONTAINS
     PROCEDURE(i_sub_sbase_init    ),DEFERRED :: init
-    PROCEDURE(i_sub_sbase_copy    ),DEFERRED :: copy
     PROCEDURE(i_sub_sbase_free    ),DEFERRED :: free
-!    PROCEDURE(i_sub_sbase_initDOF ),DEFERRED :: initDOF
-!    PROCEDURE(i_fun_sbase_eval    ),DEFERRED :: eval
+    PROCEDURE(i_sub_sbase_copy    ),DEFERRED :: copy
 
 END TYPE c_sbase
 
 ABSTRACT INTERFACE
   SUBROUTINE i_sub_sbase_init( sf ,grid_in,deg_in,continuity_in,degGP_in)
-    IMPORT wp, c_sbase,c_sgrid,t_sgrid
+    IMPORT wp, c_sbase,t_sgrid
     CLASS(c_sbase), INTENT(INOUT)        :: sf
     CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in
     INTEGER       , INTENT(IN   )        :: deg_in
@@ -69,7 +67,9 @@ END INTERFACE
  
 
 
-TYPE,EXTENDS(c_sbase) :: t_sBase
+!TYPE,EXTENDS(c_sbase) :: t_sBase
+TYPE :: t_sBase
+  LOGICAL :: initialized
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   CLASS(t_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
@@ -109,8 +109,8 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
 
   CONTAINS
   PROCEDURE :: init          => sBase_init
-  PROCEDURE :: copy          => sBase_copy
   PROCEDURE :: free          => sBase_free
+  PROCEDURE :: copy          => sBase_copy
 !  PROCEDURE :: eval          => sBase_eval
 !  PROCEDURE :: initDOF       => sBase_initDOF
 
@@ -177,6 +177,7 @@ IMPLICIT NONE
 
   ASSOCIATE(&
               nElems      => sf%grid%nElems         &
+            , grid        => sf%grid                &
             , deg         => sf%deg                 &
             , degGP       => sf%degGP               &
             , continuity  => sf%continuity          &
@@ -203,10 +204,10 @@ IMPLICIT NONE
   sf%wGPloc =0.5*sf%wGPloc
 
   DO iElem=1,nElems
-    sf%wGP(:,iElem)=sf%wGPloc(:)*sf%grid%ds(iElem)
+    sf%wGP(:,iElem)=sf%wGPloc(:)*grid%ds(iElem)
   END DO 
   DO iElem=1,nElems
-    sf%s_GP(:,iElem)=sf%grid%sp(iElem-1)+sf%xiGP(:)*sf%grid%ds(iElem)
+    sf%s_GP(:,iElem)=grid%sp(iElem-1)+sf%xiGP(:)*grid%ds(iElem)
   END DO !iElem 
 
   IF(continuity.EQ.-1)THEN !discontinuous
@@ -223,7 +224,7 @@ IMPLICIT NONE
     DO iElem=1,nElems
       sf%base_offset(iElem)=1+(deg+1)*(iElem-1)
       sf%baseGP   (:,:,iElem)=Vdm(:,:)
-      sf%base_dsGP(:,:,iElem)=DmatGP*(2.0_wp/sf%grid%ds(iElem))
+      sf%base_dsGP(:,:,iElem)=DmatGP*(2.0_wp/grid%ds(iElem))
     END DO !iElem 
     !zero deriv: evaluation of basis functions (lagrange property!)
     sf%base_dsAxis(1      ,0)=1.0_wp
@@ -231,21 +232,21 @@ IMPLICIT NONE
     sf%base_dsEdge(nBase-deg:nBase-1 ,0)=0.0_wp
     sf%base_dsEdge(          nBase   ,0)=1.0_wp
     ! eval basis deriv at boundaries d/ds = d/dxi dxi/ds = 1/(0.5ds) d/dxi  
-    sf%base_dsAxis(1:deg+1        ,1)=Dmat(  0,:)*(2.0_wp/sf%grid%ds(1))
-    sf%base_dsEdge(nBase-deg:nBase,1)=Dmat(deg,:)*(2.0_wp/sf%grid%ds(nElems))
+    sf%base_dsAxis(1:deg+1        ,1)=Dmat(  0,:)*(2.0_wp/grid%ds(1))
+    sf%base_dsEdge(nBase-deg:nBase,1)=Dmat(deg,:)*(2.0_wp/grid%ds(nElems))
     !  higher derivatives 
     DO i=2,deg
-      sf%base_dsAxis(1:deg+1        ,i)=MATMUL(TRANSPOSE(Dmat),sf%base_dsAxis(:,i-1))*(2.0_wp/sf%grid%ds(1))
-      sf%base_dsEdge(nBase-deg:nBase,i)=MATMUL(TRANSPOSE(Dmat),sf%base_dsEdge(:,i-1))*(2.0_wp/sf%grid%ds(nElems))
+      sf%base_dsAxis(1:deg+1        ,i)=MATMUL(TRANSPOSE(Dmat),sf%base_dsAxis(:,i-1))*(2.0_wp/grid%ds(1))
+      sf%base_dsEdge(nBase-deg:nBase,i)=MATMUL(TRANSPOSE(Dmat),sf%base_dsEdge(:,i-1))*(2.0_wp/grid%ds(nElems))
     END DO
     !interpolation:
     !  points are repeated at element interfaces (discontinuous)
     ALLOCATE(sf%s_IP(sf%nBase)) !for spl, its allocated elsewhere...
     DO iElem=1,nElems
-      sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=sf%grid%sp(iElem-1)+xiIP*sf%grid%ds(iElem)
+      sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(xiIP+1.0_wp)*grid%ds(iElem)
     END DO !iElem 
   ELSEIF(continuity .EQ. deg-1)THEN !bspline with full continuity 
-    CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=sf%grid%sp(:))
+    CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
     !basis evaluation
     IF(sf%bspl%nBasis.NE.nBase) STOP 'problem with bspl basis'
     DO iElem=1,nElems
@@ -262,11 +263,11 @@ IMPLICIT NONE
       sf%base_offset(iElem)=imin
     END DO !iElem=1,nElems
     !eval all basis derivatives at boundaries  
-    CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
+    CALL sf%bspl % eval_basis_and_n_derivs(grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
     IF(imin.NE.1) STOP'problem eval_deriv left'
     sf%base_dsAxis(1:deg+1,0:deg) =TRANSPOSE(locbasis(:,:)) ! basis functions 1 ...deg+1
 
-    CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(nElems),deg,locbasis,imin)
+    CALL sf%bspl % eval_basis_and_n_derivs(grid%sp(nElems),deg,locbasis,imin)
     IF(imin.NE.nBase-deg) STOP'problem eval_deriv right'
     sf%base_dsEdge(nBase-deg:nBase,0:deg)=TRANSPOSE(locbasis(:,:) ) ! basis functions nBase-deg ... nbase
 
@@ -284,8 +285,55 @@ IMPLICIT NONE
 
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
+  CALL sBase_test(sf)
 
 END SUBROUTINE sBase_init
+
+
+!===================================================================================================================================
+!> test sbase variable
+!!
+!===================================================================================================================================
+SUBROUTINE sBase_test( sf)
+! MODULES
+USE MOD_GLobals, ONLY: UNIT_stdOut,testlevel,nfailedMsg,nTestCalled,testfailedMsg
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_sBase), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: iTest
+!===================================================================================================================================
+  IF(testlevel.LE.0) RETURN
+  nTestCalled=nTestCalled+1
+  SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN TEST No.',nTestCalled,' SBASE    >>>>>>>>>'
+  IF(testlevel.GT.0)THEN
+    iTest=1
+    IF( ABS(sf%s_IP(1)).GT. 1.0e-12_wp) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
+      '   degree = ',sf%deg, &
+      '   continuity = ',sf%continuity, &
+        ', sIP(1)= ',sf%s_IP(1)
+    END IF
+    iTest=2
+    IF( ABS(sf%s_IP(sf%nBase)-1.0_wp).GT. 1.0e-12_wp) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A,E11.3))') &
+      '   degree = ',sf%deg, &
+      '   continuity = ',sf%continuity,  ', nBase= ',sf%nBase, &
+        ', sIP(nBase)= ',sf%s_IP(sf%nBase)
+    END IF
+  ELSEIF(testlevel.GT.1)THEN
+    
+  END IF !testlevel>0
+  
+END SUBROUTINE sbase_test
 
 
 !===================================================================================================================================
@@ -342,39 +390,6 @@ END SUBROUTINE sbase_alloc
 
 
 !===================================================================================================================================
-!> copy the type sbase
-!!
-!===================================================================================================================================
-SUBROUTINE sBase_copy( sf , tocopy)
-! MODULES
-USE MOD_GLobals, ONLY: Unit_stdOut,abort
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  CLASS(c_sBase), INTENT(IN   ) :: tocopy
-  CLASS(t_sBase), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  SELECT TYPE(tocopy); TYPEIS(t_sbase)
-  IF(.NOT.tocopy%initialized) THEN
-    CALL abort(__STAMP__, &
-        "sBase_copy: not initialized sBase from which to copy!")
-  END IF
-  IF(sf%initialized) THEN
-    SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
-    CALL sf%free()
-  END IF
-
-  CALL sf%init(tocopy%grid,tocopy%deg,tocopy%continuity,tocopy%degGP)
-
-  END SELECT !TYPE
-END SUBROUTINE sbase_copy
-
-
-!===================================================================================================================================
 !> finalize the type sBase
 !!
 !===================================================================================================================================
@@ -421,6 +436,40 @@ IMPLICIT NONE
   sf%initialized=.FALSE.
 
 END SUBROUTINE sBase_free
+
+
+!===================================================================================================================================
+!> copy the type sbase
+!!
+!===================================================================================================================================
+SUBROUTINE sBase_copy( sf , tocopy)
+! MODULES
+USE MOD_GLobals, ONLY: Unit_stdOut,abort
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_sBase), INTENT(IN   ) :: tocopy
+  CLASS(t_sBase), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  SELECT TYPE(tocopy); TYPEIS(t_sbase)
+  IF(.NOT.tocopy%initialized) THEN
+    CALL abort(__STAMP__, &
+        "sBase_copy: not initialized sBase from which to copy!")
+  END IF
+  IF(sf%initialized) THEN
+    SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
+    CALL sf%free()
+  END IF
+
+  CALL sf%init(tocopy%grid,tocopy%deg,tocopy%continuity,tocopy%degGP)
+
+  END SELECT !TYPE
+END SUBROUTINE sbase_copy
+
 
 END MODULE MOD_sBase
 

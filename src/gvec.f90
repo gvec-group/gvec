@@ -72,12 +72,16 @@ CALL InitFunctional()
 
 CALL IgnoredStrings()
 ! do something
-IF(nTestFailed.GT.0)THEN
+IF(nFailedMsg.GT.0)THEN
+  SWRITE(UNIT_stdout,*)
+  SWRITE(UNIT_stdOut,'(A)')"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
-  DO i=1,nTestFailed
+  DO i=1,nFailedMsg
     SWRITE(UNIT_stdOut,'(A)')TRIM(TestFailedMsg(i))
   END DO
   SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
+  SWRITE(UNIT_stdOut,'(A)')"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  SWRITE(UNIT_stdout,*)
 END IF
 
 !finalization phase
