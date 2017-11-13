@@ -41,6 +41,7 @@ CHARACTER(LEN=20)   :: fmt_sep ='(132("="))'             !! formatting of separa
 REAL(wp),PARAMETER  :: PI   =ACOS(-1.0_wp)               !! pi parameter
 REAL(wp),PARAMETER  :: TWOPI=2.0_wp*PI                   !! 2*pi parameter
 !-----------------------------------------------------------------------------------------------------------------------------------
+LOGICAL                     :: testdbg=.FALSE.           !! for debugging the tests, set true for implementing tests, false to run
 INTEGER                     :: testlevel =-1             !! flag for testing routines in code: -1: off
 INTEGER                     :: ntestCalled=0             !! counter for called tests
 INTEGER                     :: nfailedMsg=0              !! counter for messages on failed tests 

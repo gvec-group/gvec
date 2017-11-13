@@ -38,7 +38,6 @@ END TYPE t_base
 
 
 TYPE,ABSTRACT :: c_sol_var
-  LOGICAL               :: initialized
   CONTAINS
   PROCEDURE(i_sub_sol_var_init  ),DEFERRED :: init
   PROCEDURE(i_sub_sol_var_free  ),DEFERRED :: free
@@ -67,6 +66,7 @@ END INTERFACE
 
 
 TYPE,EXTENDS(c_sol_var) :: t_sol_var
+  LOGICAL               :: initialized=.FALSE.
   REAL(wp) ,ALLOCATABLE :: X1(:)    !! X1 variable, size (base_f%mn_mode*base_s%nBase)
   REAL(wp) ,ALLOCATABLE :: X2(:)    !! X2 variable 
   REAL(wp) ,ALLOCATABLE :: LA(:)    !! lambda variable
@@ -91,9 +91,8 @@ CLASS(t_sgrid),ALLOCATABLE    :: sgrid  !! only one grid up to now
 CLASS(t_sol_var),ALLOCATABLE  :: U(:)         !! solutions at levels (k-1),(k),(k+1)
 CLASS(t_sol_var),ALLOCATABLE  :: dUdt            !! solution update
 
-INTEGER          :: X1_BC(2)        !! BC axis (0) and edge (1)    
-INTEGER          :: X2_BC(2)        !! BC axis (0) and edge (1)    
-INTEGER          :: LA_BC(2)        !! BC axis (0) and edge (1)    
+INTEGER          :: X1X2_BC(2)      !! BC axis (0) and edge (1)   for variables X1 and X2
+INTEGER          :: LA_BC(2)        !! BC axis (0) and edge (1)   for variable lambda
 INTEGER          :: nDOF_X1         !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER          :: nDOF_X2         !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER          :: nDOF_LA         !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
@@ -144,6 +143,9 @@ IMPLICIT NONE
   ALLOCATE(sf%X1(size_sf(1)))
   ALLOCATE(sf%X2(size_sf(2)))
   ALLOCATE(sf%LA(size_sf(3)))
+  sf%X1=0.0_wp
+  sf%X2=0.0_wp
+  sf%LA=0.0_wp
   sf%initialized=.TRUE.
 
 END SUBROUTINE sol_var_init
@@ -174,6 +176,8 @@ END SUBROUTINE sol_var_free
 !!
 !===================================================================================================================================
 SUBROUTINE sol_var_copy( sf ,tocopy) 
+! MODULES
+USE MOD_GLobals, ONLY: Unit_stdOut,abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -185,8 +189,15 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   SELECT TYPE(tocopy); TYPEIS(t_sol_var)
-  IF(.NOT.sf%initialized)STOP 'copying to sol_var that is not initialized'
-  IF(.NOT.tocopy%initialized)STOP 'copying from sol_var that is not initialized'
+  IF(.NOT.tocopy%initialized)THEN
+    CALL abort(__STAMP__, &
+        "sol_var_copy: not initialized sol_var from which to copy!")
+  END IF
+  IF(sf%initialized) THEN
+    WRITE(*,*)'WARNING!! reinit of sol_var in copy'
+    CALL sf%free()
+  END IF
+  CALL sf%init((/size(tocopy%X1),size(tocopy%X2),size(tocopy%LA)/))
   sf%X1=tocopy%X1
   sf%X2=tocopy%X2
   sf%LA=tocopy%LA

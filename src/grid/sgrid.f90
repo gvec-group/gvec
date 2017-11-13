@@ -28,11 +28,11 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
 TYPE, ABSTRACT :: c_sgrid
-  LOGICAL :: initialized
   CONTAINS
-    PROCEDURE(i_sub_sgrid_init    ),DEFERRED :: init
-    PROCEDURE(i_sub_sgrid_copy    ),DEFERRED :: copy
-    PROCEDURE(i_sub_sgrid_free    ),DEFERRED :: free
+    PROCEDURE(i_sub_sgrid_init     ),DEFERRED :: init
+    PROCEDURE(i_sub_sgrid_free     ),DEFERRED :: free
+    PROCEDURE(i_sub_sgrid_copy     ),DEFERRED :: copy
+    PROCEDURE(i_fun_sgrid_find_elem),DEFERRED :: find_elem
 
 END TYPE c_sgrid
 
@@ -44,21 +44,29 @@ ABSTRACT INTERFACE
     CLASS(c_sgrid), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sgrid_init
 
+  SUBROUTINE i_sub_sgrid_free( sf ) 
+    IMPORT c_sgrid
+    CLASS(c_sgrid), INTENT(INOUT) :: sf
+  END SUBROUTINE i_sub_sgrid_free
+
   SUBROUTINE i_sub_sgrid_copy( sf, tocopy ) 
     IMPORT c_sgrid
     CLASS(c_sgrid), INTENT(INOUT) :: sf
     CLASS(c_sgrid), INTENT(IN   ) :: tocopy
   END SUBROUTINE i_sub_sgrid_copy
 
-  SUBROUTINE i_sub_sgrid_free( sf ) 
-    IMPORT c_sgrid
-    CLASS(c_sgrid), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sgrid_free
+  FUNCTION i_fun_sgrid_find_elem( sf ,x) RESULT(iElem) 
+    IMPORT wp,c_sgrid
+    CLASS(c_sgrid), INTENT(IN   ) :: sf
+    REAL(wp)      , INTENT(IN   ) :: x
+    INTEGER                       :: iElem
+  END FUNCTION i_fun_sgrid_find_elem
 
 END INTERFACE
  
 
 TYPE,EXTENDS(c_sgrid) :: t_sGrid
+  LOGICAL :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   INTEGER              :: nElems                   !! total number of radial elements
@@ -71,6 +79,7 @@ TYPE,EXTENDS(c_sgrid) :: t_sGrid
   PROCEDURE :: init          => sGrid_init
   PROCEDURE :: copy          => sGrid_copy
   PROCEDURE :: free          => sGrid_free
+  PROCEDURE :: find_elem     => sGrid_find_elem
 
 END TYPE t_sGrid
 
@@ -149,13 +158,13 @@ IMPLICIT NONE
 
 END SUBROUTINE sGrid_init
 
+
 !===================================================================================================================================
-!> test sgrid variable
+!> finalize the type sgrid
 !!
 !===================================================================================================================================
-SUBROUTINE sGrid_test( sf )
+SUBROUTINE sGrid_free( sf )
 ! MODULES
-USE MOD_GLobals, ONLY: UNIT_StdOut,testlevel,nfailedMsg,nTestCalled,testfailedMsg
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -164,26 +173,82 @@ IMPLICIT NONE
   CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: iTest
+!===================================================================================================================================
+  IF(.NOT.sf%initialized) RETURN
+
+  sf%nElems   = -1
+  sf%grid_Type= -1
+  
+  SDEALLOCATE(sf%sp)
+  SDEALLOCATE(sf%ds)
+  
+  sf%initialized=.FALSE.
+
+END SUBROUTINE sGrid_free
+
+
+!===================================================================================================================================
+!> test sgrid variable
+!!
+!===================================================================================================================================
+SUBROUTINE sGrid_test( sf )
+! MODULES
+USE MOD_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testfailedMsg
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: iTest,iElem
 !===================================================================================================================================
   IF(testlevel.LE.0) RETURN
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN TEST No.',nTestCalled,' SGRID    >>>>>>>>>'
   IF(testlevel.GT.0)THEN
     iTest=1
-    IF( ABS(sf%sp(0)).GT. 1.0e-12_wp) THEN
+    IF(testdbg.OR.(.NOT.( ABS(sf%sp(0)).LT. 1.0e-12_wp))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n =>  should be 0.0 : sp(0) = ', sf%sp(0)
     END IF
     iTest=2
-    IF( ABS(sf%sp(sf%nElems)-1.0_wp).GT.1.0e-12_wp) THEN
+    IF(testdbg.OR.(.NOT. ( ABS(sf%sp(sf%nElems)-1.0_wp).LT.1.0e-12_wp))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n =>  should be 1.0 : sp(nElems) = ', sf%sp(sf%nElems)
     END IF
     iTest=3
-    IF( ABS(SUM(sf%ds(:))-1.0_wp).GT.1.0e-12_wp) THEN
+    IF(testdbg.OR.(.NOT. ( ABS(SUM(sf%ds(:))-1.0_wp).LT.1.0e-12_wp))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n =>  should be 1.0 : SUM(ds) = ', SUM(sf%ds)
+    END IF
+    iTest=4
+    iElem=sf%find_elem(0.0_wp)
+    IF(testdbg.OR.(.NOT.(iElem .EQ. 1 ))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,I6))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n =>   should be 1 : findelem(0.0)= ', iElem
+    END IF
+    iTest=5
+    iElem=sf%find_elem(1.0_wp)
+    IF(testdbg.OR.(.NOT.(iElem .EQ. sf%nElems ))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '!! TEST No.',nTestCalled ,': TEST ',iTest,' IN SGRID FAILED !!'
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),2(A,I6))') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n => should be', sf%nElems,'  :  findelem(1.0)= ', iElem
     END IF
   END IF !testlevel>0
 
@@ -212,7 +277,7 @@ IMPLICIT NONE
         "sgrid_copy: not initialized sgrid from which to copy!")
   END IF
   IF(sf%initialized) THEN
-    SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
+    SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid copy!'
     CALL sf%free()
   END IF
   CALL sf%init(tocopy%nElems,tocopy%grid_type) 
@@ -222,30 +287,58 @@ END SUBROUTINE sGrid_copy
 
 
 !===================================================================================================================================
-!> finalize the type sgrid
+!> find grid cell for certain position
 !!
 !===================================================================================================================================
-SUBROUTINE sGrid_free( sf )
+FUNCTION sGrid_find_elem( sf , x) RESULT(iElem)
 ! MODULES
+USE MOD_GLobals, ONLY: Unit_stdOut,abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(t_sgrid), INTENT(IN   ) :: sf !! self
+  REAL(wp)      , INTENT(IN   ) :: x
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
+  INTEGER                       :: iElem
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER  :: jElem
+  REAL(wp) :: xloc
 !===================================================================================================================================
-
-  sf%nElems   = -1
-  sf%grid_Type= -1
+  iElem=1
+  xloc=x
+  IF(xloc.LT.(sf%sp(0)+sf%ds(1))) THEN
+    iElem=1
+    RETURN
+  END IF
+  IF(xloc.GE.sf%sp(sf%nElems)-sf%ds(sf%nElems)) THEN
+    iElem=sf%nElems
+    RETURN
+  END IF
   
-  SDEALLOCATE(sf%sp)
-  SDEALLOCATE(sf%ds)
+  SELECT CASE(sf%grid_type)
+  CASE(GRID_TYPE_UNIFORM)
+    iElem=MIN(1,FLOOR(xloc*sf%nElems))
+    RETURN
+  CASE(GRID_TYPE_S2)   !finer at the center
+    iElem=MIN(1,FLOOR(SQRT(xloc)*sf%nElems))
+    RETURN
+  CASE(GRID_TYPE_SQRT_S) !finer at the edge
+    iElem=MIN(1,FLOOR((xloc**2)*sf%nElems))
+    RETURN
+  END SELECT
   
-  sf%initialized=.FALSE.
+  !not efficient, bisection of sp  array would be better!!
+  DO jElem=2,sf%nElems
+    IF(xloc.GT.sf%sp(jElem))THEN
+      iElem=jElem
+      EXIT
+    END IF
+  END DO
 
-END SUBROUTINE sGrid_free
+END FUNCTION sGrid_find_elem
+
 
 END MODULE MOD_sGrid
 

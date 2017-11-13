@@ -61,11 +61,10 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER          :: i,nElems
 INTEGER          :: grid_type
-INTEGER          :: X1_deg,X1_cont,X1_mn_max(2)
-CHARACTER(LEN=8) :: X1_sincos
-INTEGER          :: X2_deg,X2_cont,X2_mn_max(2)
-CHARACTER(LEN=8) :: X2_sincos
+INTEGER          :: X1X2_deg,X1X2_cont,X1X2_mn_max(2)
 INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
+CHARACTER(LEN=8) :: X1_sincos
+CHARACTER(LEN=8) :: X2_sincos
 CHARACTER(LEN=8) :: LA_sincos
 INTEGER          :: degGP,mn_nyq(2),fac_nyq,nfp
 !===================================================================================================================================
@@ -79,18 +78,13 @@ degGP   = GETINT("degGP","4")
 fac_nyq  = GETINT("fac_nyq","4")
 nfp     = GETINT("nfp","1")
 
-X1_BC   = GETINTARRAY(   "X1_BC",2,"0 1")
-X1_deg     = GETINT(     "X1_deg","3")
-X1_cont    = GETINT(     "X1_continuity","2")
-X1_mn_max  = GETINTARRAY("X1_mn_max",2,"2 0")
-X1_sincos  = GETSTR(     "X1_sincos","_COS_")  !_SIN_,_COS_,_SINCOS_
+X1X2_BC   = GETINTARRAY(   "X1X2_BC",2,"0 1")
 
-
-X2_BC   = GETINTARRAY(   "X2_BC",2,"0 1")
-X2_deg     = GETINT(     "X2_deg","3")
-X2_cont    = GETINT(     "X2_continuity","2")
-X2_mn_max  = GETINTARRAY("X2_mn_max",2,"2 0")
-X2_sincos  = GETSTR(     "X2_sincos","_SIN_")
+X1X2_deg     = GETINT(     "X1X2_deg","3")
+X1X2_cont    = GETINT(     "X1X2_continuity","2")
+X1X2_mn_max  = GETINTARRAY("X1X2_mn_max",2,"2 0")
+X1_sincos    = GETSTR(     "X1_sincos","_COS_")  !_SIN_,_COS_,_SINCOS_
+X2_sincos    = GETSTR(     "X2_sincos","_SIN_")
 
 
 LA_BC   = GETINTARRAY(   "LA_BC",2,"0 0")
@@ -99,21 +93,19 @@ LA_cont    = GETINT(     "LA_continuity","-1")
 LA_mn_max  = GETINTARRAY("LA_mn_max",2,"2 0")
 LA_sincos  = GETSTR(     "LA_sincos","_SIN_")
 
-mn_nyq(1)=MAX(1,MAXVAL(fac_nyq*(/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
-mn_nyq(2)=MAX(1,MAXVAL(fac_nyq*(/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
+mn_nyq(1)=MAX(1,fac_nyq*MAX(X1X2_mn_max(1),LA_mn_max(1)))
+mn_nyq(2)=MAX(1,fac_nyq*MAX(X1X2_mn_max(2),LA_mn_max(2)))
 SWRITE(*,'(A,I4,A,I6," , ",I6)')'fac_nyq = ', fac_nyq,' ==> interpolation points mIP,nIP',mn_nyq(:)
 
 ALLOCATE(t_sgrid :: sgrid)
 CALL sgrid%init(nElems,grid_type)
 
-ALLOCATE(t_base :: X1base)
-ALLOCATE(t_base :: X2base)
-ALLOCATE(t_base :: LAbase)
-ALLOCATE(t_sbase :: X1base%s)
-ALLOCATE(t_sbase :: X2base%s)
-ALLOCATE(t_sbase :: LAbase%s)
-CALL X1base%s%init(sgrid,X1_deg,X1_cont,degGP)
-CALL X2base%s%init(sgrid,X2_deg,X2_cont,degGP)
+CALL base_new(X1base)
+CALL base_new(X2base)
+CALL base_new(LAbase)
+
+CALL X1base%s%init(sgrid,X1X2_deg,X1X2_cont,degGP)
+CALL X2base%s%copy(X1base%s)
 CALL LAbase%s%init(sgrid,LA_deg,LA_cont,degGP)
 
 !ALLOCATE(t_fbase :: X1base%f)
@@ -128,11 +120,12 @@ nDOF_X2 = X2base%s%nBase* 1 ! TODO X2base%f%mn_modes
 nDOF_LA = LAbase%s%nBase* 1 ! TODO LAbase%f%mn_modes
 
 ALLOCATE(t_sol_var :: U(-1:1))
-DO i=-1,1
-  CALL U(i)%init((/nDOF_X1,nDOF_X2,nDOF_LA/))
+CALL U(1)%init((/nDOF_X1,nDOF_X2,nDOF_LA/))
+DO i=-1,0
+  CALL U(i)%copy(U(1))
 END DO
 ALLOCATE(t_sol_var :: dUdt)
-CALL dudt%init((/nDOF_X1,nDOF_X2,nDOF_LA/))
+CALL dUdt%copy(U(1))
 
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
