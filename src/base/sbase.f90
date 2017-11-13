@@ -14,18 +14,18 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** sBase Variables **
+!!# Module ** sBase **
 !!
-!!
+!! 1D basis in radial coordinate "s". Contains sbase type definition and associated routines
 !!
 !===================================================================================================================================
-MODULE MOD_sBase_Vars
+MODULE MOD_sBase
 ! MODULES
 USE MOD_Globals                  ,ONLY: wp
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_1d              ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
-USE MOD_sGrid_Vars ,ONLY: t_sgrid
+USE MOD_sGrid_Vars ,ONLY: c_sgrid,t_sgrid
 IMPLICIT NONE
 PUBLIC
 
@@ -45,24 +45,24 @@ TYPE, ABSTRACT :: c_sbase
 END TYPE c_sbase
 
 ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sbase_init( self ,grid_in,deg_in,continuity_in,degGP_in)
-    IMPORT wp, c_sbase,t_sgrid
-    CLASS(c_sbase), INTENT(INOUT) :: self
-    CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in
+  SUBROUTINE i_sub_sbase_init( sf ,grid_in,deg_in,continuity_in,degGP_in)
+    IMPORT wp, c_sbase,c_sgrid,t_sgrid
+    CLASS(c_sbase), INTENT(INOUT) :: sf
+    CLASS(c_sgrid), INTENT(IN   ),TARGET :: grid_in
     INTEGER       , INTENT(IN   )        :: deg_in
     INTEGER       , INTENT(IN   )        :: continuity_in
     INTEGER       , INTENT(IN   )        :: degGP_in
   END SUBROUTINE i_sub_sbase_init
 
-  SUBROUTINE i_sub_sbase_copy( self, tocopy ) 
+  SUBROUTINE i_sub_sbase_copy( sf, tocopy ) 
     IMPORT c_sbase
     CLASS(c_sbase), INTENT(IN   ) :: tocopy
-    CLASS(c_sbase), INTENT(INOUT) :: self
+    CLASS(c_sbase), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sbase_copy
 
-  SUBROUTINE i_sub_sbase_free( self ) 
+  SUBROUTINE i_sub_sbase_free( sf ) 
     IMPORT c_sbase
-    CLASS(c_sbase), INTENT(INOUT) :: self
+    CLASS(c_sbase), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sbase_free
 
 END INTERFACE
@@ -72,7 +72,7 @@ END INTERFACE
 TYPE,EXTENDS(c_sbase) :: t_sBase
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
-  CLASS(t_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
+  CLASS(c_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
   INTEGER              :: deg                      !! input parameter: degree of Spline/polynomial 
   INTEGER              :: degGP                    !! number of Gauss-points (degGP+1) per element >= deg
   INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
@@ -123,11 +123,39 @@ END TYPE t_sBase
 CONTAINS
 
 !===================================================================================================================================
+!> allocate and call init 
+!!
+!===================================================================================================================================
+SUBROUTINE sBase_new( sbase , grid_in,deg_in,continuity_in,degGP_in)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(c_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
+  INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
+  INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
+                                                        !! 0: disc. polynomial
+                                                        !! deg-1: spline with cont. deg-1
+  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(c_sbase), ALLOCATABLE, INTENT(INOUT) :: sbase
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  ALLOCATE(t_sbase :: sbase )
+  SELECT TYPE(sbase) 
+  TYPEIS(t_sbase)
+    CALL sbase%init(grid_in,deg_in,continuity_in,degGP_in)
+  END SELECT !TYPE
+END SUBROUTINE sBase_new
+
+!===================================================================================================================================
 !> initialize the type sbase with polynomial degree, continuity ( -1: disc, 1: full)
 !! and number of gauss points per element
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_init( self, grid_in,deg_in,continuity_in,degGP_in)
+SUBROUTINE sBase_init( sf, grid_in,deg_in,continuity_in,degGP_in)
 ! MODULES
 USE MOD_GLobals, ONLY: PI,Unit_stdOut,abort
 USE MOD_Basis1D, ONLY:  LegendreGaussNodesAndWeights
@@ -139,15 +167,15 @@ USE sll_m_boundary_condition_descriptors ,ONLY: sll_p_greville
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
+  CLASS(c_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
   INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
   INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
                                                         !! 0: disc. polynomial
                                                         !! deg-1: spline with cont. deg-1
-  INTEGER       , INTENT(IN   )        :: degGP_in 
+  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sbase), INTENT(INOUT) :: self
+  CLASS(t_sbase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: i,iGP,iElem,imin,jmin
@@ -162,26 +190,25 @@ IMPLICIT NONE
        ' degree= ',deg_in, &
        ' gauss points per elem = ',degGP_in, &
        ' continuity= ',continuity_in, ' ...'
-  IF(self%initialized) THEN
+  IF(sf%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
-    CALL self%free()
+    CALL sf%free()
   END IF
   IF(degGP_in.LT.deg_in) &
     CALL abort(__STAMP__, &
         "error in sbase: degGP must be > deg!") 
-  self%grid       => grid_in
-  self%deg        =  deg_in
-  self%degGP      =  degGP_in
-  self%continuity =  continuity_in
+  sf%grid       => grid_in
+  sf%deg        =  deg_in
+  sf%degGP      =  degGP_in
+  sf%continuity =  continuity_in
 
   ASSOCIATE(&
-              nElems      =>self%grid%nElems         &
-            , grid        =>self%grid                &
-            , deg         =>self%deg                 &
-            , degGP       =>self%degGP               &
-            , continuity  =>self%continuity          &
-            , nGP         =>self%nGP                 &
-            , nBase       =>self%nBase               &
+              nElems      => sf%grid%nElems         &
+            , deg         => sf%deg                 &
+            , degGP       => sf%degGP               &
+            , continuity  => sf%continuity          &
+            , nGP         => sf%nGP                 &
+            , nBase       => sf%nBase               &
             )
  
   nGP  = (degGP+1)*nElems
@@ -194,19 +221,19 @@ IMPLICIT NONE
           'other spline continuities not yet implemented') 
   END IF !continuity
 
-  CALL sbase_alloc(self)
+  CALL sbase_alloc(sf)
 
              
-  CALL LegendreGaussNodesAndWeights(degGP,self%xiGP,self%wGPloc)
+  CALL LegendreGaussNodesAndWeights(degGP,sf%xiGP,sf%wGPloc)
   ![-1,1]->[0,1]
-  self%xiGP=0.5_wp*(self%xiGP+1.0_wp)
-  self%wGPloc =0.5*self%wGPloc
+  sf%xiGP=0.5_wp*(sf%xiGP+1.0_wp)
+  sf%wGPloc =0.5*sf%wGPloc
 
   DO iElem=1,nElems
-    self%wGP(:,iElem)=self%wGPloc(:)*grid%ds(iElem)
+    sf%wGP(:,iElem)=sf%wGPloc(:)*sf%grid%ds(iElem)
   END DO 
   DO iElem=1,nElems
-    self%s_GP(:,iElem)=grid%sp(iElem-1)+self%xiGP(:)*grid%ds(iElem)
+    sf%s_GP(:,iElem)=sf%grid%sp(iElem-1)+sf%xiGP(:)*sf%grid%ds(iElem)
   END DO !iElem 
 
   IF(continuity.EQ.-1)THEN !discontinuous
@@ -216,73 +243,73 @@ IMPLICIT NONE
       xiIP(i)=-COS(REAL(i,wp)/REAL(deg,wp)*PI)
     END DO
     CALL BarycentricWeights(deg,xiIP,wBaryIP)
-    CALL InitializeVandermonde(deg,degGP,wBaryIP,xiIP,self%xiGP,Vdm)
+    CALL InitializeVandermonde(deg,degGP,wBaryIP,xiIP,sf%xiGP,Vdm)
     CALL PolynomialDerivativeMatrix(deg,xiIP,Dmat)
     DmatGP=MATMUL(Vdm,Dmat)
     ! eval basis and  basis derivative  
     DO iElem=1,nElems
-      self%base_offset(iElem)=1+(deg+1)*(iElem-1)
-      self%baseGP   (:,:,iElem)=Vdm(:,:)
-      self%base_dsGP(:,:,iElem)=DmatGP*(2.0_wp/grid%ds(iElem))
+      sf%base_offset(iElem)=1+(deg+1)*(iElem-1)
+      sf%baseGP   (:,:,iElem)=Vdm(:,:)
+      sf%base_dsGP(:,:,iElem)=DmatGP*(2.0_wp/sf%grid%ds(iElem))
     END DO !iElem 
     !zero deriv: evaluation of basis functions (lagrange property!)
-    self%base_dsAxis(1      ,0)=1.0_wp
-    self%base_dsAxis(2:deg+1,0)=0.0_wp
-    self%base_dsEdge(nBase-deg:nBase-1 ,0)=0.0_wp
-    self%base_dsEdge(          nBase   ,0)=1.0_wp
+    sf%base_dsAxis(1      ,0)=1.0_wp
+    sf%base_dsAxis(2:deg+1,0)=0.0_wp
+    sf%base_dsEdge(nBase-deg:nBase-1 ,0)=0.0_wp
+    sf%base_dsEdge(          nBase   ,0)=1.0_wp
     ! eval basis deriv at boundaries d/ds = d/dxi dxi/ds = 1/(0.5ds) d/dxi  
-    self%base_dsAxis(1:deg+1        ,1)=Dmat(  0,:)*(2.0_wp/grid%ds(1))
-    self%base_dsEdge(nBase-deg:nBase,1)=Dmat(deg,:)*(2.0_wp/grid%ds(nElems))
+    sf%base_dsAxis(1:deg+1        ,1)=Dmat(  0,:)*(2.0_wp/sf%grid%ds(1))
+    sf%base_dsEdge(nBase-deg:nBase,1)=Dmat(deg,:)*(2.0_wp/sf%grid%ds(nElems))
     !  higher derivatives 
     DO i=2,deg
-      self%base_dsAxis(1:deg+1        ,i)=MATMUL(TRANSPOSE(Dmat),self%base_dsAxis(:,i-1))*(2.0_wp/grid%ds(1))
-      self%base_dsEdge(nBase-deg:nBase,i)=MATMUL(TRANSPOSE(Dmat),self%base_dsEdge(:,i-1))*(2.0_wp/grid%ds(nElems))
+      sf%base_dsAxis(1:deg+1        ,i)=MATMUL(TRANSPOSE(Dmat),sf%base_dsAxis(:,i-1))*(2.0_wp/sf%grid%ds(1))
+      sf%base_dsEdge(nBase-deg:nBase,i)=MATMUL(TRANSPOSE(Dmat),sf%base_dsEdge(:,i-1))*(2.0_wp/sf%grid%ds(nElems))
     END DO
     !interpolation:
     !  points are repeated at element interfaces (discontinuous)
-    ALLOCATE(self%s_IP(self%nBase)) !for spl, its allocated elsewhere...
+    ALLOCATE(sf%s_IP(sf%nBase)) !for spl, its allocated elsewhere...
     DO iElem=1,nElems
-      self%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+xiIP*grid%ds(iElem)
+      sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=sf%grid%sp(iElem-1)+xiIP*sf%grid%ds(iElem)
     END DO !iElem 
   ELSEIF(continuity .EQ. deg-1)THEN !bspline with full continuity 
-    CALL sll_s_bsplines_new(self%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
+    CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=sf%grid%sp(:))
     !basis evaluation
-    IF(self%bspl%nBasis.NE.nBase) STOP 'problem with bspl basis'
+    IF(sf%bspl%nBasis.NE.nBase) STOP 'problem with bspl basis'
     DO iElem=1,nElems
-      CALL self%bspl % eval_basis(self%s_GP(0,iElem),self%baseGP(0,0:deg,iElem),imin)
+      CALL sf%bspl % eval_basis(sf%s_GP(0,iElem),sf%baseGP(0,0:deg,iElem),imin)
       DO iGP=1,degGP
-         CALL self%bspl % eval_basis(self%s_GP(iGP,iElem),self%baseGP(iGP,0:deg,iElem),jmin)
+         CALL sf%bspl % eval_basis(sf%s_GP(iGP,iElem),sf%baseGP(iGP,0:deg,iElem),jmin)
          IF(jmin.NE.imin) STOP'problem, GP are not in one element!'
       END DO !iGP=0,degGP
-      CALL self%bspl % eval_deriv(self%s_GP(0,iElem),self%base_dsGP(0,0:deg,iElem),imin)
+      CALL sf%bspl % eval_deriv(sf%s_GP(0,iElem),sf%base_dsGP(0,0:deg,iElem),imin)
       DO iGP=1,degGP
-         CALL self%bspl % eval_deriv(self%s_GP(iGP,iElem),self%base_dsGP(iGP,0:deg,iElem),jmin)
+         CALL sf%bspl % eval_deriv(sf%s_GP(iGP,iElem),sf%base_dsGP(iGP,0:deg,iElem),jmin)
          IF(jmin.NE.imin) STOP'problem, GP are not in one element!'
       END DO !iGP=0,degGP
-      self%base_offset(iElem)=imin
+      sf%base_offset(iElem)=imin
     END DO !iElem=1,nElems
     !eval all basis derivatives at boundaries  
-    CALL self%bspl % eval_basis_and_n_derivs(grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
+    CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
     IF(imin.NE.1) STOP'problem eval_deriv left'
-    self%base_dsAxis(1:deg+1,0:deg) =TRANSPOSE(locbasis(:,:)) ! basis functions 1 ...deg+1
+    sf%base_dsAxis(1:deg+1,0:deg) =TRANSPOSE(locbasis(:,:)) ! basis functions 1 ...deg+1
 
-    CALL self%bspl % eval_basis_and_n_derivs(grid%sp(nElems),deg,locbasis,imin)
+    CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(nElems),deg,locbasis,imin)
     IF(imin.NE.nBase-deg) STOP'problem eval_deriv right'
-    self%base_dsEdge(nBase-deg:nBase,0:deg)=TRANSPOSE(locbasis(:,:) ) ! basis functions nBase-deg ... nbase
+    sf%base_dsEdge(nBase-deg:nBase,0:deg)=TRANSPOSE(locbasis(:,:) ) ! basis functions nBase-deg ... nbase
 
     !interpolation
-    CALL self%Interpol%init (self%bspl,sll_p_greville,sll_p_greville) 
-    CALL self%Interpol%get_interp_points ( self%s_IP ) 
-    CALL self%spline%init( self%bspl ) !needed for interpolation
+    CALL sf%Interpol%init (sf%bspl,sll_p_greville,sll_p_greville) 
+    CALL sf%Interpol%get_interp_points ( sf%s_IP ) 
+    CALL sf%spline%init( sf%bspl ) !needed for interpolation
 
   END IF !continuity
 
   !TODO STRONG BOUNDARY CONDITIONS: A and R matrices
   
-  END ASSOCIATE !self
+  END ASSOCIATE !sf
 
 
-  self%initialized=.TRUE.
+  sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
 
 END SUBROUTINE sBase_init
@@ -292,50 +319,50 @@ END SUBROUTINE sBase_init
 !> allocate all variables in  sbase
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_alloc( self)
+SUBROUTINE sBase_alloc( sf)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sBase), INTENT(INOUT) :: self
+  CLASS(t_sBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
-  ASSOCIATE(nElems=>self%grid%nElems, degGP=>self%degGP, deg=>self%deg, nBase =>self%nBase)
-  ALLOCATE(self%xiGP(     0:degGP))
-  ALLOCATE(self%wGPloc(   0:degGP))
-  ALLOCATE(self%wGP(      0:degGP      ,1:nElems))
-  ALLOCATE(self%s_GP(     0:degGP      ,1:nElems))
-  ALLOCATE(self%baseGP(   0:degGP,0:deg,1:nElems))
-  ALLOCATE(self%base_dsGP(0:degGP,0:deg,1:nElems))
-  ALLOCATE(self%base_offset(            1:nElems))
-  ALLOCATE(self%base_dsAxis(1:deg+1        ,0:deg))
-  ALLOCATE(self%base_dsEdge(nBase-deg:nBase,0:deg))
-  ALLOCATE(self%A_Axis(0:deg,0:deg,1:NBC_TYPES))
-  ALLOCATE(self%A_Edge(0:deg,0:deg,1:NBC_TYPES))
-  ALLOCATE(self%R_Axis(0:deg,0:deg,1:NBC_TYPES))
-  ALLOCATE(self%R_Edge(0:deg,0:deg,1:NBC_TYPES))
-  self%xiGP        =0.0_wp
-  self%wGPloc      =0.0_wp            
-  self%wGP         =0.0_wp            
-  self%s_GP        =0.0_wp            
-  self%base_offset =-1
-  self%baseGP      =0.0_wp           
-  self%base_dsGP   =0.0_wp        
-  self%base_dsAxis =0.0_wp    
-  self%base_dsEdge =0.0_wp    
-  self%A_Axis      =0.0_wp         
-  self%A_Edge      =0.0_wp         
-  self%R_Axis      =0.0_wp         
-  self%R_Edge      =0.0_wp         
+  ASSOCIATE(nElems=>sf%grid%nElems, degGP=>sf%degGP, deg=>sf%deg, nBase =>sf%nBase)
+  ALLOCATE(sf%xiGP(     0:degGP))
+  ALLOCATE(sf%wGPloc(   0:degGP))
+  ALLOCATE(sf%wGP(      0:degGP      ,1:nElems))
+  ALLOCATE(sf%s_GP(     0:degGP      ,1:nElems))
+  ALLOCATE(sf%baseGP(   0:degGP,0:deg,1:nElems))
+  ALLOCATE(sf%base_dsGP(0:degGP,0:deg,1:nElems))
+  ALLOCATE(sf%base_offset(            1:nElems))
+  ALLOCATE(sf%base_dsAxis(1:deg+1        ,0:deg))
+  ALLOCATE(sf%base_dsEdge(nBase-deg:nBase,0:deg))
+  ALLOCATE(sf%A_Axis(0:deg,0:deg,1:NBC_TYPES))
+  ALLOCATE(sf%A_Edge(0:deg,0:deg,1:NBC_TYPES))
+  ALLOCATE(sf%R_Axis(0:deg,0:deg,1:NBC_TYPES))
+  ALLOCATE(sf%R_Edge(0:deg,0:deg,1:NBC_TYPES))
+  sf%xiGP        =0.0_wp
+  sf%wGPloc      =0.0_wp            
+  sf%wGP         =0.0_wp            
+  sf%s_GP        =0.0_wp            
+  sf%base_offset =-1
+  sf%baseGP      =0.0_wp           
+  sf%base_dsGP   =0.0_wp        
+  sf%base_dsAxis =0.0_wp    
+  sf%base_dsEdge =0.0_wp    
+  sf%A_Axis      =0.0_wp         
+  sf%A_Edge      =0.0_wp         
+  sf%R_Axis      =0.0_wp         
+  sf%R_Edge      =0.0_wp         
   DO i=0,deg
-    self%A_Axis(i,i,:)=1.0_wp
-    self%A_Edge(i,i,:)=1.0_wp
-    self%R_Axis(i,i,:)=1.0_wp
-    self%R_Edge(i,i,:)=1.0_wp
+    sf%A_Axis(i,i,:)=1.0_wp
+    sf%A_Edge(i,i,:)=1.0_wp
+    sf%R_Axis(i,i,:)=1.0_wp
+    sf%R_Edge(i,i,:)=1.0_wp
   END DO
   END ASSOCIATE !nElems, degGP, deg
 END SUBROUTINE sbase_alloc
@@ -345,7 +372,7 @@ END SUBROUTINE sbase_alloc
 !> copy the type sbase
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_copy( self , tocopy)
+SUBROUTINE sBase_copy( sf , tocopy)
 ! MODULES
 USE MOD_GLobals, ONLY: Unit_stdOut,abort
 IMPLICIT NONE
@@ -354,7 +381,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_sBase), INTENT(IN   ) :: tocopy
-  CLASS(t_sBase), INTENT(INOUT) :: self
+  CLASS(t_sBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -363,12 +390,12 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "sBase_copy: not initialized sBase from which to copy!")
   END IF
-  IF(self%initialized) THEN
+  IF(sf%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
-    CALL self%free()
+    CALL sf%free()
   END IF
 
-  CALL self%init(tocopy%grid,tocopy%deg,tocopy%continuity,tocopy%degGP)
+  CALL sf%init(tocopy%grid,tocopy%deg,tocopy%continuity,tocopy%degGP)
 
   END SELECT !TYPE
 END SUBROUTINE sbase_copy
@@ -378,49 +405,49 @@ END SUBROUTINE sbase_copy
 !> finalize the type sBase
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_free( self )
+SUBROUTINE sBase_free( sf )
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sBase), INTENT(INOUT) :: self
+  CLASS(t_sBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
 
   !pointers, classes
-  NULLIFY(self%grid)
-  IF(self%continuity.EQ.self%deg-1)THEN
-    CALL self%interpol%free() 
-    CALL self%spline%free() 
-    CALL self%bspl%free() 
+  NULLIFY(sf%grid)
+  IF(sf%continuity.EQ.sf%deg-1)THEN
+    CALL sf%interpol%free() 
+    CALL sf%spline%free() 
+    CALL sf%bspl%free() 
   END IF
   !allocatables  
-  SDEALLOCATE(self%xiGP)
-  SDEALLOCATE(self%wGPloc)
-  SDEALLOCATE(self%wGP)
-  SDEALLOCATE(self%s_GP)
-  SDEALLOCATE(self%s_IP)
-  SDEALLOCATE(self%base_offset)
-  SDEALLOCATE(self%baseGP)   
-  SDEALLOCATE(self%base_dsGP)
-  SDEALLOCATE(self%base_dsAxis) 
-  SDEALLOCATE(self%base_dsEdge) 
-  SDEALLOCATE(self%A_Axis) 
-  SDEALLOCATE(self%R_Axis) 
-  SDEALLOCATE(self%A_Edge) 
-  SDEALLOCATE(self%R_Edge) 
+  SDEALLOCATE(sf%xiGP)
+  SDEALLOCATE(sf%wGPloc)
+  SDEALLOCATE(sf%wGP)
+  SDEALLOCATE(sf%s_GP)
+  SDEALLOCATE(sf%s_IP)
+  SDEALLOCATE(sf%base_offset)
+  SDEALLOCATE(sf%baseGP)   
+  SDEALLOCATE(sf%base_dsGP)
+  SDEALLOCATE(sf%base_dsAxis) 
+  SDEALLOCATE(sf%base_dsEdge) 
+  SDEALLOCATE(sf%A_Axis) 
+  SDEALLOCATE(sf%R_Axis) 
+  SDEALLOCATE(sf%A_Edge) 
+  SDEALLOCATE(sf%R_Edge) 
   
-  self%continuity =-99
-  self%deg        =-1 
-  self%degGP      =-1
-  self%nGP        =-1        
-  self%nbase      =-1
-  self%initialized=.FALSE.
+  sf%continuity =-99
+  sf%deg        =-1 
+  sf%degGP      =-1
+  sf%nGP        =-1        
+  sf%nbase      =-1
+  sf%initialized=.FALSE.
 
 END SUBROUTINE sBase_free
 
-END MODULE MOD_sBase_Vars
+END MODULE MOD_sBase
 

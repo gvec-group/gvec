@@ -41,6 +41,9 @@ CHARACTER(LEN=20)   :: fmt_sep ='(132("="))'             !! formatting of separa
 REAL(wp),PARAMETER  :: PI   =ACOS(-1.0_wp)               !! pi parameter
 REAL(wp),PARAMETER  :: TWOPI=2.0_wp*PI                   !! 2*pi parameter
 !-----------------------------------------------------------------------------------------------------------------------------------
+INTEGER                     :: testlevel =-1             !! flag for testing routines in code: -1: off
+INTEGER                     :: ntestfailed=0             !! will be set true if a test fails
+CHARACTER(LEN=255)          :: testfailedMsg(100)        !! will be set to an error message of a test that fails
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = output_unit !! Terminal output

@@ -24,7 +24,7 @@ USE MOD_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MOD_Functional ,ONLY: InitFunctional,FinalizeFunctional
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
-USE MOD_ReadInTools,ONLY: IgnoredStrings 
+USE MOD_ReadInTools,ONLY: GETINT,IgnoredStrings 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
@@ -60,7 +60,7 @@ WRITE(Unit_stdOut,'(18(("*",A130,"*",:,"\n")))')&
 ,' - - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - -  '&
 ,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
 WRITE(Unit_stdOut,'(132("="))')
-
+testlevel=GETINT('testlevel','10')
 
 !initialization phase
 CALL InitOutput()
@@ -71,6 +71,13 @@ CALL InitFunctional()
 
 CALL IgnoredStrings()
 ! do something
+IF(nTestFailed.GT.0)THEN
+  SWRITE(*,*)"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
+  DO i=1,nTestFailed
+    SWRITE(*,*)TestFailedMsg(i)
+  END DO
+  SWRITE(*,*)"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
+END IF
 
 !finalization phase
 CALL Analyze()

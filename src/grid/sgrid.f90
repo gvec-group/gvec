@@ -14,12 +14,12 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** sGrid Variables **
+!!# Module ** sGrid **
 !!
-!!
+!! 1D grid in radial coordinate "s": Contains sgrid type definition and associated routines
 !!
 !===================================================================================================================================
-MODULE MOD_sGrid_Vars
+MODULE MOD_sGrid
 ! MODULES
 USE MOD_Globals    ,ONLY:wp
 IMPLICIT NONE
@@ -37,22 +37,22 @@ TYPE, ABSTRACT :: c_sgrid
 END TYPE c_sgrid
 
 ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sgrid_init( self , nElems_in, grid_type_in)
+  SUBROUTINE i_sub_sgrid_init( sf , nElems_in, grid_type_in)
     IMPORT c_sgrid
     INTEGER       , INTENT(IN   ) :: nElems_in 
     INTEGER       , INTENT(IN   ) :: grid_type_in 
-    CLASS(c_sgrid), INTENT(INOUT) :: self
+    CLASS(c_sgrid), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sgrid_init
 
-  SUBROUTINE i_sub_sgrid_copy( self, tocopy ) 
+  SUBROUTINE i_sub_sgrid_copy( sf, tocopy ) 
     IMPORT c_sgrid
-    CLASS(c_sgrid), INTENT(INOUT) :: self
+    CLASS(c_sgrid), INTENT(INOUT) :: sf
     CLASS(c_sgrid), INTENT(IN   ) :: tocopy
   END SUBROUTINE i_sub_sgrid_copy
 
-  SUBROUTINE i_sub_sgrid_free( self ) 
+  SUBROUTINE i_sub_sgrid_free( sf ) 
     IMPORT c_sgrid
-    CLASS(c_sgrid), INTENT(INOUT) :: self
+    CLASS(c_sgrid), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sgrid_free
 
 END INTERFACE
@@ -80,12 +80,37 @@ END TYPE t_sGrid
 CONTAINS
 
 !===================================================================================================================================
+!> allocate and call init 
+!!
+!===================================================================================================================================
+SUBROUTINE sGrid_new(sgrid, nElems_in,grid_type_in )
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(c_sGrid), ALLOCATABLE, INTENT(INOUT) :: sgrid
+  INTEGER       , INTENT(IN   ) :: nElems_in       !! total number of elements
+  INTEGER       , INTENT(IN   ) :: grid_type_in    !! GRID_TYPE_UNIFORM, GRID_TYPE_SQRT_S, GRID_TYPE_S2, GRID_TYPE_BUMP
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  ALLOCATE(t_sgrid :: sgrid)
+  SELECT TYPE(sgrid)
+  TYPEIS(t_sGrid)
+   CALL sgrid%init(nElems_in,grid_type_in)
+  END SELECT !TYPE
+END SUBROUTINE sGrid_new
+
+!===================================================================================================================================
 !> initialize the type sgrid with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE sGrid_init( self, nElems_in,grid_type_in)
+SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
 ! MODULES
 USE MOD_GLobals, ONLY: PI,Unit_stdOut,abort
+USE MOD_GLobals, ONLY: testlevel,ntestfailed,testfailedMsg
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -93,40 +118,40 @@ IMPLICIT NONE
   INTEGER       , INTENT(IN   ) :: grid_type_in    !! GRID_TYPE_UNIFORM, GRID_TYPE_SQRT_S, GRID_TYPE_S2, GRID_TYPE_BUMP
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sgrid), INTENT(INOUT) :: self
+  CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: iElem
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A,I6,A,I3,A)')'INIT sGrid type nElems= ',nElems_in,' grid_type= ',grid_type_in, ' ...'
 
-  IF(self%initialized) THEN
+  IF(sf%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid type!'
-    CALL self%free() 
+    CALL sf%free() 
   END IF
 
-  self%nElems   = nElems_in
-  self%grid_Type= grid_type_in
-  ALLOCATE(self%sp(0:nElems_in))
-  ALLOCATE(self%ds(1:nElems_in))
+  sf%nElems   = nElems_in
+  sf%grid_Type= grid_type_in
+  ALLOCATE(sf%sp(0:nElems_in))
+  ALLOCATE(sf%ds(1:nElems_in))
 
   ASSOCIATE( &
-              nElems    => self%nElems    &
-            , grid_Type => self%grid_Type )
+              nElems    => sf%nElems    &
+            , grid_Type => sf%grid_Type )
   
   !uniform
   DO iElem=0,nElems
-    self%sp(iElem)=REAL(iElem,wp)/REAL(nElems,wp)
+    sf%sp(iElem)=REAL(iElem,wp)/REAL(nElems,wp)
   END DO
   SELECT CASE(grid_type)
   CASE(GRID_TYPE_UNIFORM)
     !do nothing
   CASE(GRID_TYPE_SQRT_S) !finer at the edge
-    self%sp(:)=SQRT(self%sp(:))
+    sf%sp(:)=SQRT(sf%sp(:))
   CASE(GRID_TYPE_S2)   !finer at the center
-    self%sp(:)=self%sp(:)*self%sp(:)
+    sf%sp(:)=sf%sp(:)*sf%sp(:)
   CASE(GRID_TYPE_BUMP) !strechted towards axis and edge
-    self%sp(:)=self%sp(:)-0.05_wp*SIN(PI*(2.0_wp*self%sp(:)-1.0_wp))
+    sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*(2.0_wp*sf%sp(:)-1.0_wp))
 
   CASE DEFAULT
    CALL abort(__STAMP__, &
@@ -135,22 +160,39 @@ IMPLICIT NONE
   
   !compute delta s
   DO iElem=1,nElems
-    self%ds(iElem)=self%sp(iElem)-self%sp(iElem-1)
+    sf%ds(iElem)=sf%sp(iElem)-sf%sp(iElem-1)
   END DO
   
-  END ASSOCIATE !self
+  END ASSOCIATE !sf
   
-  self%initialized=.TRUE.
+  sf%initialized=.TRUE.
+
+  IF(testlevel.GT.0)THEN
+    SWRITE(*,*)'>>>>>>>>> TEST  SGRID    >>>>>>>>>'
+    IF( ABS(sf%sp(0)).GT.1.0e-12_wp) THEN
+      nTestFailed=nTestFailed+1 ; WRITE(testfailedMsg(nTestFailed),*) &
+      '!! TESTLEVEL 1: TEST 1 IN SGRID FAILED !!'
+    END IF
+    IF( ABS(sf%sp(sf%nElems)-1.0_wp).GT.1.0e-12_wp) THEN
+      nTestFailed=nTestFailed+1 ; WRITE(testfailedMsg(nTestFailed),*) &
+      '!! TESTLEVEL 1: TEST 2 IN SGRID FAILED !!'
+    END IF
+    IF( ABS(SUM(sf%ds(:))-1.0_wp).GT.1.0e-12_wp) THEN
+      nTestFailed=nTestFailed+1 ; WRITE(testfailedMsg(nTestFailed),*) &
+      '!! TESTLEVEL 1: TEST 2 IN SGRID FAILED !!'
+    END IF
+  END IF !testlevel>0
+
   SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
 
 END SUBROUTINE sGrid_init
 
 
 !===================================================================================================================================
-!> copy the type sgrid, copies self <= tocopy ... call self%copy(tocopy)
+!> copy the type sgrid, copies sf <= tocopy ... call sf%copy(tocopy)
 !!
 !===================================================================================================================================
-SUBROUTINE sGrid_copy( self , tocopy)
+SUBROUTINE sGrid_copy( sf , tocopy)
 ! MODULES
 USE MOD_GLobals, ONLY: Unit_stdOut,abort
 IMPLICIT NONE
@@ -159,7 +201,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_sgrid), INTENT(IN) :: tocopy
-  CLASS(t_sgrid), INTENT(INOUT) :: self
+  CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -168,11 +210,11 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "sgrid_copy: not initialized sgrid from which to copy!")
   END IF
-  IF(self%initialized) THEN
+  IF(sf%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
-    CALL self%free()
+    CALL sf%free()
   END IF
-  CALL self%init(tocopy%nElems,tocopy%grid_type) 
+  CALL sf%init(tocopy%nElems,tocopy%grid_type) 
 
   END SELECT !TYPE
 END SUBROUTINE sGrid_copy
@@ -182,27 +224,27 @@ END SUBROUTINE sGrid_copy
 !> finalize the type sgrid
 !!
 !===================================================================================================================================
-SUBROUTINE sGrid_free( self )
+SUBROUTINE sGrid_free( sf )
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sgrid), INTENT(INOUT) :: self
+  CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
 
-  self%nElems   = -1
-  self%grid_Type= -1
+  sf%nElems   = -1
+  sf%grid_Type= -1
   
-  SDEALLOCATE(self%sp)
-  SDEALLOCATE(self%ds)
+  SDEALLOCATE(sf%sp)
+  SDEALLOCATE(sf%ds)
   
-  self%initialized=.FALSE.
+  sf%initialized=.FALSE.
 
 END SUBROUTINE sGrid_free
 
-END MODULE MOD_sGrid_Vars
+END MODULE MOD_sGrid
 

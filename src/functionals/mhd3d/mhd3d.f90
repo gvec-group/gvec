@@ -16,7 +16,7 @@
 !>
 !!# Module **MHD3D**
 !!
-!!
+!! CONTAINS INITIALIZATION OF MHD 3D Energy functional that will be minimized
 !!
 !===================================================================================================================================
 MODULE MOD_Functional
@@ -47,6 +47,7 @@ SUBROUTINE InitMHD3D
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_MHD3D_Vars
+USE MOD_sBase , ONLY:sBase_new
 USE MOD_ReadInTools,ONLY:GETSTR,GETINT,GETINTARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -59,48 +60,57 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER          :: i,nElems
 INTEGER          :: grid_type
-INTEGER          :: deg,cont,degGP
-INTEGER          :: mn_max(2),mn_nyq(2),nfp
-CHARACTER(LEN=8) :: sincos
+INTEGER          :: X1_deg,X1_cont,X1_mn_max(2)
+CHARACTER(LEN=8) :: X1_sincos
+INTEGER          :: X2_deg,X2_cont,X2_mn_max(2)
+CHARACTER(LEN=8) :: X2_sincos
+INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
+CHARACTER(LEN=8) :: LA_sincos
+INTEGER          :: degGP,mn_nyq(2),fac_nyq,nfp
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
 
 nElems   =GETINT("sgrid_nElems","10")
 grid_type=GETINT("sgrid_grid_type","0")
 
-CALL grid_s%init(nElems,grid_type)
-
 !mandatory global input parameters
 degGP   = GETINT("degGP","4")
-mn_nyq  = GETINTARRAY("mn_nyq",2,"4 1")
+fac_nyq  = GETINT("fac_nyq","4")
 nfp     = GETINT("nfp","1")
 
-X1_BC   = GETINTARRAY("X1_BC",2,"0 1")
-deg     = GETINT(     "X1_sbase_deg","3")
-cont    = GETINT(     "X1_sbase_continuity","2")
-mn_max  = GETINTARRAY("X1_fbase_mn_max",2,"2 0")
-sincos  = GETSTR(     "X1_fbase_sincos","_COS_")  !_SIN_,_COS_,_SINCOS_
+X1_BC   = GETINTARRAY(   "X1_BC",2,"0 1")
+X1_deg     = GETINT(     "X1_deg","3")
+X1_cont    = GETINT(     "X1_continuity","2")
+X1_mn_max  = GETINTARRAY("X1_mn_max",2,"2 0")
+X1_sincos  = GETSTR(     "X1_sincos","_COS_")  !_SIN_,_COS_,_SINCOS_
 
-CALL X1base%s%init(grid_s,deg,cont,degGP)
-!TODO CALL X1base%f%init(nfp,mn_max,nyq_fac,sincos)
 
-X2_BC   = GETINTARRAY("X2_BC",2,"0 1")
-deg     = GETINT(     "X2_sbase_deg","3")
-cont    = GETINT(     "X2_sbase_continuity","2")
-mn_max  = GETINTARRAY("X2_fbase_mn_max",2,"2 0")
-sincos  = GETSTR(     "X2_fbase_sincos","_SIN_")
+X2_BC   = GETINTARRAY(   "X2_BC",2,"0 1")
+X2_deg     = GETINT(     "X2_deg","3")
+X2_cont    = GETINT(     "X2_continuity","2")
+X2_mn_max  = GETINTARRAY("X2_mn_max",2,"2 0")
+X2_sincos  = GETSTR(     "X2_sincos","_SIN_")
 
-CALL X2base%s%init(grid_s,deg,cont,degGP)
-!TODO CALL X2base%f%init(nfp,mn_max,nyq_fac,sincos)
 
-X2_BC   = GETINTARRAY("LA_BC",2,"0 0")
-deg     = GETINT(     "LA_sbase_deg","3")
-cont    = GETINT(     "LA_sbase_continuity","-1")
-mn_max  = GETINTARRAY("LA_fbase_mn_max",2,"2 0")
-sincos  = GETSTR(     "LA_fbase_sincos","_SIN_")
+LA_BC   = GETINTARRAY(   "LA_BC",2,"0 0")
+LA_deg     = GETINT(     "LA_deg","3")
+LA_cont    = GETINT(     "LA_continuity","-1")
+LA_mn_max  = GETINTARRAY("LA_mn_max",2,"2 0")
+LA_sincos  = GETSTR(     "LA_sincos","_SIN_")
 
-CALL LAbase%s%init(grid_s,deg,cont,degGP)
-!TODO CALL LAbase%f%init(nfp,mn_max,nyq_fac,sincos)
+mn_nyq(1)=MAX(1,MAXVAL(fac_nyq*(/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
+mn_nyq(2)=MAX(1,MAXVAL(fac_nyq*(/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
+SWRITE(*,'(A,I4,A,I6," , ",I6)')'fac_nyq = ', fac_nyq,' ==> interpolation points mIP,nIP',mn_nyq(:)
+
+CALL sgrid_new(sgrid,nElems,grid_type)
+
+
+CALL sbase_new(X1base,grid_s,X1_deg,X1_cont,degGP)
+!TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
+CALL sbase_new(X2base,%s%init(grid_s,X2_deg,X2_cont,degGP)
+!TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
+CALL sbase_new(LAbase,grid_s,LA_deg,LA_cont,degGP)
+!TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
 
 nDOF_X1 = X1base%s%nBase* 1 ! TODO X1base%f%mn_modes
 nDOF_X2 = X2base%s%nBase* 1 ! TODO X2base%f%mn_modes
