@@ -79,29 +79,6 @@ END TYPE t_sGrid
 
 CONTAINS
 
-!===================================================================================================================================
-!> allocate and call init 
-!!
-!===================================================================================================================================
-SUBROUTINE sGrid_new(sgrid, nElems_in,grid_type_in )
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(c_sGrid), ALLOCATABLE, INTENT(INOUT) :: sgrid
-  INTEGER       , INTENT(IN   ) :: nElems_in       !! total number of elements
-  INTEGER       , INTENT(IN   ) :: grid_type_in    !! GRID_TYPE_UNIFORM, GRID_TYPE_SQRT_S, GRID_TYPE_S2, GRID_TYPE_BUMP
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  ALLOCATE(t_sgrid :: sgrid)
-  SELECT TYPE(sgrid)
-  TYPEIS(t_sGrid)
-   CALL sgrid%init(nElems_in,grid_type_in)
-  END SELECT !TYPE
-END SUBROUTINE sGrid_new
 
 !===================================================================================================================================
 !> initialize the type sgrid with number of elements
@@ -167,9 +144,32 @@ IMPLICIT NONE
   
   sf%initialized=.TRUE.
 
-  IF(testlevel.GT.0)THEN
-    SWRITE(*,*)'>>>>>>>>> TEST  SGRID    >>>>>>>>>'
-    IF( ABS(sf%sp(0)).GT.1.0e-12_wp) THEN
+  SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
+  CALL sGrid_test(sf)
+
+END SUBROUTINE sGrid_init
+
+!===================================================================================================================================
+!> test sgrid variable
+!!
+!===================================================================================================================================
+SUBROUTINE sGrid_test( sf )
+! MODULES
+USE MOD_GLobals, ONLY: testlevel,ntestfailed,testfailedMsg
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  IF(testlevel.LE.0)THEN
+    RETURN
+  ELSE
+    SWRITE(*,*)'>>>>>>>>> RUN TEST  SGRID    >>>>>>>>>'
+    IF( ABS(sf%sp(0)).GT. 1.0e-12_wp) THEN
       nTestFailed=nTestFailed+1 ; WRITE(testfailedMsg(nTestFailed),*) &
       '!! TESTLEVEL 1: TEST 1 IN SGRID FAILED !!'
     END IF
@@ -183,10 +183,7 @@ IMPLICIT NONE
     END IF
   END IF !testlevel>0
 
-  SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
-
-END SUBROUTINE sGrid_init
-
+END SUBROUTINE sGrid_test
 
 !===================================================================================================================================
 !> copy the type sgrid, copies sf <= tocopy ... call sf%copy(tocopy)

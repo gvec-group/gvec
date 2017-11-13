@@ -10,6 +10,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !===================================================================================================================================
+#include "defines.h"
 
 
 !===================================================================================================================================
@@ -28,7 +29,7 @@ USE MOD_ReadInTools,ONLY: GETINT,IgnoredStrings
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
-INTEGER                 :: nArgs
+INTEGER                 :: i,nArgs
 CHARACTER(LEN=255)      :: Parameterfile
 !===================================================================================================================================
 nArgs=COMMAND_ARGUMENT_COUNT()
@@ -72,11 +73,11 @@ CALL InitFunctional()
 CALL IgnoredStrings()
 ! do something
 IF(nTestFailed.GT.0)THEN
-  SWRITE(*,*)"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
+  SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
   DO i=1,nTestFailed
-    SWRITE(*,*)TestFailedMsg(i)
+    SWRITE(UNIT_stdOut,'(A)')TRIM(TestFailedMsg(i))
   END DO
-  SWRITE(*,*)"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
+  SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
 END IF
 
 !finalization phase

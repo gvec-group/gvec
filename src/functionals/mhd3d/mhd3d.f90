@@ -47,7 +47,8 @@ SUBROUTINE InitMHD3D
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_MHD3D_Vars
-USE MOD_sBase , ONLY:sBase_new
+USE MOD_sgrid, ONLY: t_sgrid
+USE MOD_sbase, ONLY: t_sbase
 USE MOD_ReadInTools,ONLY:GETSTR,GETINT,GETINTARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -102,29 +103,36 @@ mn_nyq(1)=MAX(1,MAXVAL(fac_nyq*(/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
 mn_nyq(2)=MAX(1,MAXVAL(fac_nyq*(/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
 SWRITE(*,'(A,I4,A,I6," , ",I6)')'fac_nyq = ', fac_nyq,' ==> interpolation points mIP,nIP',mn_nyq(:)
 
-CALL sgrid_new(sgrid,nElems,grid_type)
+ALLOCATE(t_sgrid :: sgrid)
+CALL sgrid%init(nElems,grid_type)
 
+ALLOCATE(t_base :: X1base)
+ALLOCATE(t_base :: X2base)
+ALLOCATE(t_base :: LAbase)
+ALLOCATE(t_sbase :: X1base%s)
+ALLOCATE(t_sbase :: X2base%s)
+ALLOCATE(t_sbase :: LAbase%s)
+CALL X1base%s%init(sgrid,X1_deg,X1_cont,degGP)
+CALL X2base%s%init(sgrid,X2_deg,X2_cont,degGP)
+CALL LAbase%s%init(sgrid,LA_deg,LA_cont,degGP)
 
-CALL sbase_new(X1base,grid_s,X1_deg,X1_cont,degGP)
+!ALLOCATE(t_fbase :: X1base%f)
+!ALLOCATE(t_fbase :: X2base%f)
+!ALLOCATE(t_fbase :: LAbase%f)
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
-CALL sbase_new(X2base,%s%init(grid_s,X2_deg,X2_cont,degGP)
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
-CALL sbase_new(LAbase,grid_s,LA_deg,LA_cont,degGP)
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
 
 nDOF_X1 = X1base%s%nBase* 1 ! TODO X1base%f%mn_modes
 nDOF_X2 = X2base%s%nBase* 1 ! TODO X2base%f%mn_modes
 nDOF_LA = LAbase%s%nBase* 1 ! TODO LAbase%f%mn_modes
 
+ALLOCATE(t_sol_var :: U(-1:1))
 DO i=-1,1
-  ALLOCATE(U(i)%X1(nDOF_X1))
-  ALLOCATE(U(i)%X2(nDOF_X2))
-  ALLOCATE(U(i)%LA(nDOF_LA))
+  CALL U(i)%init((/nDOF_X1,nDOF_X2,nDOF_LA/))
 END DO
-
-ALLOCATE(dUdt%X1(nDOF_X1))
-ALLOCATE(dUdt%X2(nDOF_X2))
-ALLOCATE(dUdt%LA(nDOF_LA))
+ALLOCATE(t_sol_var :: dUdt)
+CALL dudt%init((/nDOF_X1,nDOF_X2,nDOF_LA/))
 
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)

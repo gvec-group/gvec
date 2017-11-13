@@ -10,6 +10,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
+#include "defines.h"
 
 !===================================================================================================================================
 !>
@@ -21,8 +22,8 @@
 MODULE MOD_MHD3D_Vars
 ! MODULES
 USE MOD_Globals,ONLY:wp
-USE MOD_sgrid, ONLY: t_sgrid
-USE MOD_sbase, ONLY: t_sbase
+USE MOD_sgrid, ONLY: c_sgrid,t_sgrid
+USE MOD_sbase, ONLY: c_sbase,t_sbase
 IMPLICIT NONE
 PUBLIC
 
@@ -31,8 +32,8 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 TYPE :: t_base              
-  CLASS(c_sbase),ALLOCATABLE  :: s  !! container for radial basis
-  CLASS(c_fbase),ALLOCATABLE  :: f  !! container for angular basis
+  CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
+!  CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
 END TYPE t_base
 
 
@@ -81,14 +82,14 @@ END TYPE t_sol_var
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! SOLUTION VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-CLASS(c_base),ALLOCATABLE    :: X1base  
-CLASS(c_base),ALLOCATABLE    :: X2base  
-CLASS(c_base),ALLOCATABLE    :: LAbase  
+CLASS(t_base),ALLOCATABLE     :: X1base  
+CLASS(t_base),ALLOCATABLE     :: X2base  
+CLASS(t_base),ALLOCATABLE     :: LAbase  
+                             
+CLASS(t_sgrid),ALLOCATABLE    :: sgrid  !! only one grid up to now
 
-CLASS(c_sgrid),ALLOCATABLE   :: sgrid  !! only one grid up to now
-
-TYPE(t_sol_var)  :: U(-1:1)         !! solutions at levels (k-1),(k),(k+1)
-TYPE(t_sol_var)  :: dUdt            !! solution update
+CLASS(t_sol_var),ALLOCATABLE  :: U(:)         !! solutions at levels (k-1),(k),(k+1)
+CLASS(t_sol_var),ALLOCATABLE  :: dUdt            !! solution update
 
 INTEGER          :: X1_BC(2)        !! BC axis (0) and edge (1)    
 INTEGER          :: X2_BC(2)        !! BC axis (0) and edge (1)    
@@ -101,6 +102,25 @@ INTEGER          :: nDOF_LA         !! total number of degrees of freedom, sBase
 
 CONTAINS
 
+!===================================================================================================================================
+!> allocate t_base type 
+!!
+!===================================================================================================================================
+SUBROUTINE base_new( base)
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_base),ALLOCATABLE,INTENT(INOUT) :: base
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  ALLOCATE(t_base :: base)
+  ALLOCATE(t_sbase :: base%s)
+!  ALLOCATE(t_fbase :: base%f)
+
+END SUBROUTINE base_new
 
 !===================================================================================================================================
 !> initialize (=allocate) sf of type t_sol_var 
@@ -121,9 +141,9 @@ IMPLICIT NONE
     WRITE(*,*)'WARNING: REALLOCATION OF SOL_VAR!!'
     CALL sf%free()
   END IF
-  ALLOCATE(sf%X1(1))
-  ALLOCATE(sf%X2(2))
-  ALLOCATE(sf%LA(3))
+  ALLOCATE(sf%X1(size_sf(1)))
+  ALLOCATE(sf%X2(size_sf(2)))
+  ALLOCATE(sf%LA(size_sf(3)))
   sf%initialized=.TRUE.
 
 END SUBROUTINE sol_var_init

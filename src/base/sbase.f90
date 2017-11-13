@@ -25,7 +25,7 @@ USE MOD_Globals                  ,ONLY: wp
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_1d              ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
-USE MOD_sGrid_Vars ,ONLY: c_sgrid,t_sgrid
+USE MOD_sGrid ,ONLY: c_sgrid,t_sgrid
 IMPLICIT NONE
 PUBLIC
 
@@ -47,8 +47,8 @@ END TYPE c_sbase
 ABSTRACT INTERFACE
   SUBROUTINE i_sub_sbase_init( sf ,grid_in,deg_in,continuity_in,degGP_in)
     IMPORT wp, c_sbase,c_sgrid,t_sgrid
-    CLASS(c_sbase), INTENT(INOUT) :: sf
-    CLASS(c_sgrid), INTENT(IN   ),TARGET :: grid_in
+    CLASS(c_sbase), INTENT(INOUT)        :: sf
+    CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in
     INTEGER       , INTENT(IN   )        :: deg_in
     INTEGER       , INTENT(IN   )        :: continuity_in
     INTEGER       , INTENT(IN   )        :: degGP_in
@@ -72,7 +72,7 @@ END INTERFACE
 TYPE,EXTENDS(c_sbase) :: t_sBase
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
-  CLASS(c_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
+  CLASS(t_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
   INTEGER              :: deg                      !! input parameter: degree of Spline/polynomial 
   INTEGER              :: degGP                    !! number of Gauss-points (degGP+1) per element >= deg
   INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
@@ -122,33 +122,6 @@ END TYPE t_sBase
 
 CONTAINS
 
-!===================================================================================================================================
-!> allocate and call init 
-!!
-!===================================================================================================================================
-SUBROUTINE sBase_new( sbase , grid_in,deg_in,continuity_in,degGP_in)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(c_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
-  INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
-  INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
-                                                        !! 0: disc. polynomial
-                                                        !! deg-1: spline with cont. deg-1
-  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  CLASS(c_sbase), ALLOCATABLE, INTENT(INOUT) :: sbase
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  ALLOCATE(t_sbase :: sbase )
-  SELECT TYPE(sbase) 
-  TYPEIS(t_sbase)
-    CALL sbase%init(grid_in,deg_in,continuity_in,degGP_in)
-  END SELECT !TYPE
-END SUBROUTINE sBase_new
 
 !===================================================================================================================================
 !> initialize the type sbase with polynomial degree, continuity ( -1: disc, 1: full)
@@ -167,7 +140,7 @@ USE sll_m_boundary_condition_descriptors ,ONLY: sll_p_greville
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(c_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
+  CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
   INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
   INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
                                                         !! 0: disc. polynomial
@@ -175,7 +148,7 @@ IMPLICIT NONE
   INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sbase), INTENT(INOUT) :: sf !! self
+  CLASS(t_sbase), INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: i,iGP,iElem,imin,jmin
