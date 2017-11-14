@@ -41,20 +41,20 @@ END TYPE t_base
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! SOLUTION VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-TYPE(t_base)     :: X1base  
-TYPE(t_base)     :: X2base  
-TYPE(t_base)     :: LAbase  
+TYPE(t_base)     :: X1base            !! container for base of variable X1
+TYPE(t_base)     :: X2base            !! container for base of variable X2
+TYPE(t_base)     :: LAbase            !! container for base of variable lambda 
                              
-TYPE(t_sgrid)    :: sgrid  !! only one grid up to now
+TYPE(t_sgrid)    :: sgrid             !! only one grid up to now
 
-TYPE(t_sol_var),ALLOCATABLE  :: U(:)         !! solutions at levels (k-1),(k),(k+1)
-TYPE(t_sol_var)              :: dUdt            !! solution update
+TYPE(t_sol_var),ALLOCATABLE  :: U(:)  !! solutions at levels (k-1),(k),(k+1)
+TYPE(t_sol_var)              :: dUdt  !! solution update
 
-INTEGER          :: X1X2_BC(2)      !! BC axis (0) and edge (1)   for variables X1 and X2
-INTEGER          :: LA_BC(2)        !! BC axis (0) and edge (1)   for variable lambda
-INTEGER          :: nDOF_X1         !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
-INTEGER          :: nDOF_X2         !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
-INTEGER          :: nDOF_LA         !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
+INTEGER          :: X1X2_BC(2)        !! BC axis (0) and edge (1)   for variables X1 and X2
+INTEGER          :: LA_BC(2)          !! BC axis (0) and edge (1)   for variable lambda
+INTEGER          :: nDOF_X1           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
+INTEGER          :: nDOF_X2           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
+INTEGER          :: nDOF_LA           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 
 !===================================================================================================================================
 

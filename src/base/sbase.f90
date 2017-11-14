@@ -34,11 +34,20 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 TYPE, ABSTRACT :: c_sbase
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !input parameters
+  INTEGER              :: deg                      !! input parameter: degree of Spline/polynomial 
+  INTEGER              :: degGP                    !! number of Gauss-points (degGP+1) per element >= deg
+  INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
+  !---------------------------------------------------------------------------------------------------------------------------------
+  INTEGER              :: nGP                      !! total number of gausspoints = degGP*nElems
+  INTEGER              :: nbase                    !! total number of degree of freedom / global basis functions
   CONTAINS
     PROCEDURE(i_sub_sbase_init    ),DEFERRED :: init
     PROCEDURE(i_sub_sbase_free    ),DEFERRED :: free
     PROCEDURE(i_sub_sbase_copy    ),DEFERRED :: copy
     PROCEDURE(i_sub_sbase_eval    ),DEFERRED :: eval
+    PROCEDURE(i_fun_sbase_initDOF ),DEFERRED :: initDOF
 
 END TYPE c_sbase
 
@@ -69,6 +78,13 @@ ABSTRACT INTERFACE
     INTEGER       , INTENT(  OUT) :: iElem
     REAL(wp)      , INTENT(  OUT) :: base_x(:)
   END SUBROUTINE i_sub_sbase_eval
+
+  FUNCTION i_fun_sbase_initDOF( sf, g_IP ) RESULT(DOFs) 
+    IMPORT wp,c_sbase
+    CLASS(c_sbase), INTENT(IN   ) :: sf
+    REAL(wp)      , INTENT(IN   ) :: g_IP(1:sf%nBase)
+    REAL(wp)                      :: DOFs(1:sf%nBase)
+  END FUNCTION i_fun_sbase_initDOF
 END INTERFACE
  
 
@@ -78,12 +94,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   CLASS(t_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
-  INTEGER              :: deg                      !! input parameter: degree of Spline/polynomial 
-  INTEGER              :: degGP                    !! number of Gauss-points (degGP+1) per element >= deg
-  INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: nGP                      !! total number of gausspoints = degGP*nElems
-  INTEGER              :: nbase                    !! total number of degree of freedom / global basis functions
   REAL(wp),ALLOCATABLE :: xiGP(:)                  !! element local gauss point positions for interval [0,1], size(0:degGP)
   REAL(wp),ALLOCATABLE :: wGPloc(:)                !! element local gauss weights for interval [0,1], size(0:degGP)
   REAL(wp),ALLOCATABLE :: wGP(:,:)                 !! global radial integration weight size(0:degGP,1:nElems)
@@ -95,6 +106,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   REAL(wp),ALLOCATABLE :: base_dsGP(:,:,:)         !! s derivative of basis functions, (0:degGP,0:deg,1:nElems)
   REAL(wp),ALLOCATABLE :: base_dsAxis(:,:)         !! all derivatives 1..deg of all basis functions at axis (1:deg,0:deg)
   REAL(wp),ALLOCATABLE :: base_dsEdge(:,:)         !! all derivatives 1..deg of all basis functions at edge (1:deg,0:deg)
+  INTEGER ,ALLOCATABLE :: nDOF_BC(:)               !! number of boudnary dofs involved in bc of BC_TYPE, size(NBC_TYPES)
   REAL(wp),ALLOCATABLE :: A_Axis(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct)
   REAL(wp),ALLOCATABLE :: R_Axis(:,:,:)            !! matrix to apply boundary conditions for RHS
   REAL(wp),ALLOCATABLE :: A_Edge(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct)
@@ -108,13 +120,13 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
                                                    !! 5=BC_TYPE_SYMMZERO  : all even derivs & sol = 0
                                                    !! 6=BC_TYPE_ANTISYMM  : all odd derivs & sol = 0
   
-
   CONTAINS
+
   PROCEDURE :: init          => sBase_init
   PROCEDURE :: free          => sBase_free
   PROCEDURE :: copy          => sBase_copy
   PROCEDURE :: eval          => sBase_eval
-!  PROCEDURE :: initDOF       => sBase_initDOF
+  PROCEDURE :: initDOF       => sBase_initDOF
 
 END TYPE t_sBase
 
@@ -176,6 +188,7 @@ END SUBROUTINE sbase_new
 SUBROUTINE sBase_init( sf, grid_in,degGP_in)
 ! MODULES
 USE MOD_GLobals, ONLY: PI
+USE MOD_LinAlg , ONLY: INV
 USE MOD_Basis1D, ONLY:  LegendreGaussNodesAndWeights
 USE MOD_Basis1D, ONLY:  BarycentricWeights,InitializeVandermonde,PolynomialDerivativeMatrix
 USE sll_m_bsplines,ONLY: sll_s_bsplines_new
@@ -194,6 +207,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER  :: i,iGP,iElem,imin,jmin
   REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: locbasis,Vdm,DmatGP
+  INTEGER  :: iBC,j,diri,even 
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A,3(A,I3),A)')'INIT sBase type:', &
        ' degree= ',sf%deg, &
@@ -328,7 +342,39 @@ IMPLICIT NONE
   END SELECT !TYPE is t_sbase_disc/spl
 
   !TODO STRONG BOUNDARY CONDITIONS: A and R matrices
-  
+
+   
+  DO iBC=1,NBC_TYPES
+    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
+    SELECT CASE(iBC)
+    CASE(BC_TYPE_OPEN)     ; nD =0
+    CASE(BC_TYPE_NEUMANN)  ; nD =1          ;   diri=0 ;  even=0
+    CASE(BC_TYPE_DIRICHLET); nD =1          ;   diri=1 ;  even=0 !even not used
+    CASE(BC_TYPE_SYMM)     ; nD =(deg+1)/2  ;   diri=0 ;  even=0
+    CASE(BC_TYPE_SYMMZERO) ; nD =(deg+1)/2+1;   diri=1 ;  even=0
+    CASE(BC_TYPE_ANTISYMM) ; nD =deg/2+1    ;   diri=1 ;  even=1
+    END SELECT !iBC 
+    !A and R are already initialized unit matrices!!
+    IF(nD.GT.0)THEN
+      DO i=diri+1,nD
+        j=2*(i-diri)-(1-even) !even=0 odd derivs, even=1 even derivatives
+        sf%A_Axis(        i,:,iBC)=sf%base_dsAxis(:,j)/sf%base_dsAxis(i,j)
+        sf%A_Edge(nBase+1-i,:,iBC)=sf%base_dsEdge(:,j)/sf%base_dsEdge(nBase+1-i,j)
+      END DO
+      !invert BC part
+      sf%R_Axis(1:nD,1:nD,iBC)=INV(sf%A_Axis(1:nD,1:nD,iBC))
+      sf%R_Axis(:,:,iBC)=TRANSPOSE(MATMUL(sf%R_Axis(:,:,iBC),sf%A_Axis(:,:,iBC)))
+      DO i=1,deg+1; DO j=1,i-1
+        sf%R_Axis(i,j,iBC)=-sf%R_Axis(i,j,iBC)
+      END DO; END DO
+      sf%R_Edge(nBase-nD+1:nBase,nBase-nD+1:nBase,iBC)=INV(sf%A_Edge(nBase-nD+1:nBase,nBase-nD+1:nBase,iBC))
+      sf%R_Edge(:,:,iBC)=TRANSPOSE(MATMUL(sf%R_Edge(:,:,iBC),sf%A_Edge(:,:,iBC)))
+      DO i=nBase-deg,nBase; DO j=i+1,nBase
+        sf%R_Edge(i,j,iBC)=-sf%R_Edge(i,j,iBC)
+      END DO; END DO
+    END IF
+    END ASSOCIATE !nD=>nDOF_BC(iBC)
+  END DO!iBC=1,NBC_TYPES
   END ASSOCIATE !sf
 
 
@@ -365,19 +411,11 @@ IMPLICIT NONE
   ALLOCATE(sf%base_offset(            1:nElems))
   ALLOCATE(sf%base_dsAxis(1:deg+1        ,0:deg))
   ALLOCATE(sf%base_dsEdge(nBase-deg:nBase,0:deg))
-  SELECT TYPE(sf)
-  TYPEIS(t_sbase_disc)
-    ALLOCATE(sf%xiIP(   0:deg))
-    ALLOCATE(sf%wbaryIP(0:deg))
-    ALLOCATE(sf%DmatIP( 0:deg,0:deg))
-    sf%xiIP   =0.0_wp
-    sf%wbaryIP=0.0_wp
-    sf%DmatIP =0.0_wp
-  END SELECT !TYPE is t_sbase_disc
-  ALLOCATE(sf%A_Axis( 0:deg,0:deg,1:NBC_TYPES))
-  ALLOCATE(sf%A_Edge( 0:deg,0:deg,1:NBC_TYPES))
-  ALLOCATE(sf%R_Axis( 0:deg,0:deg,1:NBC_TYPES))
-  ALLOCATE(sf%R_Edge(0:deg,0:deg,1:NBC_TYPES))
+  ALLOCATE(sf%nDOF_BC(            1:NBC_TYPES))
+  ALLOCATE(sf%A_Axis(1:deg+1,1:deg+1,1:NBC_TYPES))
+  ALLOCATE(sf%R_Axis(1:deg+1,1:deg+1,1:NBC_TYPES))
+  ALLOCATE(sf%A_Edge(nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
+  ALLOCATE(sf%R_Edge(nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
   sf%xiGP        =0.0_wp
   sf%wGPloc      =0.0_wp            
   sf%wGP         =0.0_wp            
@@ -387,16 +425,26 @@ IMPLICIT NONE
   sf%base_dsGP   =0.0_wp        
   sf%base_dsAxis =0.0_wp    
   sf%base_dsEdge =0.0_wp    
+  sf%nDOF_BC     =0
   sf%A_Axis      =0.0_wp         
   sf%A_Edge      =0.0_wp         
   sf%R_Axis      =0.0_wp         
   sf%R_Edge      =0.0_wp         
   DO i=0,deg
-    sf%A_Axis(i,i,:)=1.0_wp
-    sf%A_Edge(i,i,:)=1.0_wp
-    sf%R_Axis(i,i,:)=1.0_wp
-    sf%R_Edge(i,i,:)=1.0_wp
+    sf%A_Axis(1+i,1+i,:)=1.0_wp
+    sf%R_Axis(1+i,1+i,:)=1.0_wp
+    sf%A_Edge(nBase-deg+i,nBase-deg+i,:)=1.0_wp
+    sf%R_Edge(nBase-deg+i,nBase-deg+i,:)=1.0_wp
   END DO
+  SELECT TYPE(sf)
+  TYPEIS(t_sbase_disc)
+    ALLOCATE(sf%xiIP(   0:deg))
+    ALLOCATE(sf%wbaryIP(0:deg))
+    ALLOCATE(sf%DmatIP( 0:deg,0:deg))
+    sf%xiIP   =0.0_wp
+    sf%wbaryIP=0.0_wp
+    sf%DmatIP =0.0_wp
+  END SELECT !TYPE is t_sbase_disc
   END ASSOCIATE !nElems, degGP, deg
 END SUBROUTINE sbase_alloc
 
@@ -430,6 +478,7 @@ IMPLICIT NONE
   SDEALLOCATE(sf%base_dsGP)
   SDEALLOCATE(sf%base_dsAxis) 
   SDEALLOCATE(sf%base_dsEdge) 
+  SDEALLOCATE(sf%nDOF_BC)
   SDEALLOCATE(sf%A_Axis) 
   SDEALLOCATE(sf%R_Axis) 
   SDEALLOCATE(sf%A_Edge) 
@@ -540,6 +589,77 @@ END SELECT !TYPE
 
 END SUBROUTINE sbase_eval
 
+
+!===================================================================================================================================
+!>  take values interpolated at sf%s_IP positions and give back the degrees of freedom 
+!!
+!===================================================================================================================================
+FUNCTION sBase_initDOF( sf , g_IP) RESULT(DOFs)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sbase), INTENT(IN   ) :: sf    !! self
+  REAL(wp)      , INTENT(IN   ) :: g_IP(sf%nBase)  !!  interpolation values at s_IP positions [0,1]
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: DOFs(sf%nBase)  !! result of interpolation 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+SELECT TYPE(sf)
+TYPEIS(t_sbase_disc)
+  DOFs(:)=g_IP
+TYPEIS(t_sbase_spl)
+  CALL sf%interpol%compute_interpolant( sf%spline, g_IP )
+  DOFs(:)=sf%spline%bcoef(:) !somewhat not perfect, since interpolant saves result to bcoef of spline 
+CLASS DEFAULT
+  CALL abort(__STAMP__, &
+    "this type of continuity not implemented!")
+END SELECT !TYPE
+
+END FUNCTION sbase_initDOF
+
+!===================================================================================================================================
+!> apply strong boundary conditions at axis and edge 
+!!
+!===================================================================================================================================
+SUBROUTINE sBase_applyBCtoDOF(sf ,DOFs,BC_Type,BC_val)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sbase), INTENT(IN   ) :: sf    !! self
+  INTEGER       , INTENT(IN   ) :: BC_Type(2)           !! bc type on axis (1) and edge (2)
+  REAL(wp)      , INTENT(IN   ) :: BC_Val(2)           !! for dirichlet BC : value
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)      , INTENT(INOUT) :: DOFs(sf%nBase)  !! DOFs with boundary conditions applied 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL(wp):: rhs(0:sf%deg)
+!===================================================================================================================================
+  SELECT CASE(BC_Type(1)) !AXIS
+  CASE(BC_TYPE_OPEN)
+    !do noting
+  CASE(BC_TYPE_DIRICHLET)
+    DOFs(1)=BC_Val(1)
+  CASE(BC_TYPE_NEUMANN,BC_TYPE_SYMM,BC_TYPE_SYMMZERO,BC_TYPE_ANTISYMM)
+    !DOFs(1:sf%deg+1)=
+    STOP' only open and dirichlet BC are yet implemented'
+  END SELECT !BCtype(1) !AXIS
+
+  SELECT CASE(BC_Type(2)) !Edge
+  CASE(BC_TYPE_OPEN)
+    !do noting
+  CASE(BC_TYPE_DIRICHLET)
+    DOFs(sf%nBase)=BC_Val(2)
+  CASE(BC_TYPE_NEUMANN,BC_TYPE_SYMM,BC_TYPE_SYMMZERO,BC_TYPE_ANTISYMM)
+    !DOFs(sf%nBase-deg:sf%nBase)=
+    STOP' only open and dirichlet BC are yet implemented'
+  END SELECT !BCtype(2) !Edge
+
+END SUBROUTINE sbase_applyBCtoDOF
 
 !===================================================================================================================================
 !> test sbase variable

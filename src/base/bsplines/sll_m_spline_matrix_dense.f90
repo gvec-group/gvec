@@ -29,14 +29,18 @@ module sll_m_spline_matrix_dense
   type, extends( sll_c_spline_matrix ) :: sll_t_spline_matrix_dense
 
     integer :: n
+    logical :: factorized
     real(wp), allocatable :: ipiv(:)
     real(wp), allocatable :: a(:,:)
 
   contains
 
     procedure :: init          => s_spline_matrix_dense__init
+    procedure :: mat_copy      => s_spline_matrix_dense__mat_copy
+    procedure :: mat_add       => s_spline_matrix_dense__mat_add
     procedure :: set_element   => s_spline_matrix_dense__set_element
     procedure :: add_element   => s_spline_matrix_dense__add_element
+    procedure :: get_element   => s_spline_matrix_dense__get_element
     procedure :: matvec_prod   => s_spline_matrix_dense__matvec_prod
     procedure :: factorize     => s_spline_matrix_dense__factorize
     procedure :: solve_inplace => s_spline_matrix_dense__solve_inplace
@@ -60,8 +64,46 @@ contains
     allocate( self%ipiv(n) )
     allocate( self%a(n,n) )
     self%a(:,:) = 0.0_wp
+    self%factorized=.FALSE.
 
   end subroutine s_spline_matrix_dense__init
+
+  !-----------------------------------------------------------------------------
+  subroutine s_spline_matrix_dense__mat_copy( self,tocopy)
+    class(sll_t_spline_matrix_dense), intent(inout) :: self
+    class(sll_c_spline_matrix      ), intent(in   ) :: tocopy
+     
+    select type(tocopy); typeis(sll_t_spline_matrix_dense)
+    SLL_ASSERT( tocopy%n  == self%n  )
+
+    self%n          = tocopy%n
+    self%a(:,:)     = tocopy%a(:,:)
+    self%ipiv(:)    = tocopy%ipiv(:)
+    self%factorized = tocopy%factorized
+    end select 
+  end subroutine s_spline_matrix_dense__mat_copy
+
+  !-----------------------------------------------------------------------------
+  subroutine s_spline_matrix_dense__mat_add( self,a,amat,b,bmat) !self=a*amat+b*bmat
+    class(sll_t_spline_matrix_dense), intent(inout) :: self
+    real(wp)                        , intent(in   ) :: a
+    class(sll_c_spline_matrix      ), intent(in   ) :: amat
+    real(wp)                        , intent(in   ) :: b
+    class(sll_c_spline_matrix      ), intent(in   ) :: bmat
+    
+    select type(amat); typeis(sll_t_spline_matrix_dense)
+    select type(bmat); typeis(sll_t_spline_matrix_dense)
+    SLL_ASSERT( amat%n == self%n )
+    SLL_ASSERT( bmat%n == self%n )
+    SLL_ASSERT( .NOT.amat%factorized )
+    SLL_ASSERT( .NOT.bmat%factorized )
+
+    self%a(:,:) = a*amat%a(:,:)+b*bmat%a(:,:) 
+    self%ipiv(:)=0.0_wp
+    self%factorized=.FALSE.
+    end select 
+    end select 
+  end subroutine s_spline_matrix_dense__mat_add
 
   !-----------------------------------------------------------------------------
   subroutine s_spline_matrix_dense__set_element( self, i, j, a_ij )
@@ -84,6 +126,17 @@ contains
     self%a(i,j) = self%a(i,j)+a_ij
 
   end subroutine s_spline_matrix_dense__add_element
+
+  !-----------------------------------------------------------------------------
+  function s_spline_matrix_dense__get_element( self, i, j ) result( a_ij )
+    class(sll_t_spline_matrix_dense), intent(inout) :: self
+    integer                         , intent(in   ) :: i
+    integer                         , intent(in   ) :: j
+    real(wp)                                        :: a_ij
+
+    a_ij=self%a(i,j)
+
+  end function s_spline_matrix_dense__get_element
 
   !-----------------------------------------------------------------------------
   function s_spline_matrix_dense__matvec_prod( self, v_in) result(v_out )
@@ -112,6 +165,7 @@ contains
 
     SLL_ASSERT( size(self%a,1) == self%n )
     SLL_ASSERT( size(self%a,2) == self%n )
+    SLL_ASSERT( .not.self%factorized )
 
     ! Perform LU decomposition using Lapack (A=PLU)
     call dgetrf( self%n, self%n, self%a, self%n, self%ipiv, info )
@@ -126,6 +180,7 @@ contains
            //" solve a system of equations."
       SLL_ERROR(this_sub_name,err_msg)
     end if
+    self%factorized=.TRUE.
 
   end subroutine s_spline_matrix_dense__factorize
 
@@ -143,6 +198,7 @@ contains
     SLL_ASSERT( size(self%a,1) == self%n )
     SLL_ASSERT( size(self%a,2) == self%n )
     SLL_ASSERT( size(bx)  == self%n )
+    SLL_ASSERT( self%factorized )
 
     ! Solve linear system PLU*x=b using Lapack
     call dgetrs( 'N', self%n, 1, self%a, self%n, self%ipiv, bx, self%n, info )
@@ -179,6 +235,7 @@ contains
     write(fmt_loc,'(a)') "('(',i0,'" // trim(fmt_loc) // ")')"
     write(fmt_loc,fmt_loc) size(self%a,2)
 
+    write(unit_loc,*) 'factorized?=',self%factorized
     do i = 1, size(self%a,1)
       write(unit_loc,fmt_loc) self%a(i,:)
     end do
@@ -190,6 +247,7 @@ contains
     class(sll_t_spline_matrix_dense), intent(inout) :: self
 
     self%n = -1
+    self%factorized = .FALSE.
     if ( allocated( self%ipiv ) ) deallocate( self%ipiv )
     if ( allocated( self%a    ) ) deallocate( self%a    )
 

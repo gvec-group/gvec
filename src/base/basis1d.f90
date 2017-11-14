@@ -76,8 +76,6 @@ INTERFACE EQUALTOTOLERANCE
    MODULE PROCEDURE EQUALTOTOLERANCE
 END INTERFACE
 
-PUBLIC::INV
-PUBLIC::INV33
 PUBLIC::BuildLegendreVdm
 PUBLIC::InitializeVandermonde
 PUBLIC::LegGaussLobNodesAndWeights
@@ -100,96 +98,11 @@ CONTAINS
 
 
 !==================================================================================================================================
-!> Computes matrix inverse using LAPACK
-!> Input matrix should be a square matrix
-!==================================================================================================================================
-FUNCTION INV(A) RESULT(AINV)
-! MODULES
-IMPLICIT NONE
-!----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-REAL(wp),INTENT(IN)  :: A(:,:)                      !! input matrix
-REAL(wp)             :: AINV(SIZE(A,1),SIZE(A,2))   !! result: inverse of A
-!----------------------------------------------------------------------------------------------------------------------------------
-! External procedures defined in LAPACK
-EXTERNAL DGETRF
-EXTERNAL DGETRI
-! LOCAL VARIABLES
-REAL(wp)    :: work(SIZE(A,1))  ! work array for LAPACK
-INTEGER :: ipiv(SIZE(A,1))  ! pivot indices
-INTEGER :: n,info
-!==================================================================================================================================
-! Store A in Ainv to prevent it from being overwritten by LAPACK
-Ainv = A
-n = size(A,1)
-
-! DGETRF computes an LU factorization of a general M-by-N matrix A
-! using partial pivoting with row interchanges.
-CALL DGETRF(n, n, Ainv, n, ipiv, info)
-
-IF(info.NE.0)THEN
-   STOP 'Matrix is numerically singular!'
-END IF
-
-! DGETRI computes the inverse of a matrix using the LU factorization
-! computed by DGETRF.
-CALL DGETRI(n, Ainv, n, ipiv, work, n, info)
-
-IF(info.NE.0)THEN
-   STOP 'Matrix inversion failed!'
-END IF
-END FUNCTION INV
-
-!===================================================================================================================================
-!> Computes the inverse of a 3x3 matrix
-!===================================================================================================================================
-SUBROUTINE INV33(M,MInv,detM_out)
-! MODULES
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN)     :: M(3,3)  !! input 3x3 matrix
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp),INTENT(OUT)    :: MInv(3,3) !!inverse 3x3
-REAL(wp),INTENT(OUT),OPTIONAL ::detM_out !!determinant of matrix
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-REAL(wp) ::detM !!determinant of matrix
-!===================================================================================================================================
-detM =   M(1,1)*M(2,2)*M(3,3)  &
-       - M(1,1)*M(2,3)*M(3,2)  &
-       - M(1,2)*M(2,1)*M(3,3)  &
-       + M(1,2)*M(2,3)*M(3,1)  &
-       + M(1,3)*M(2,1)*M(3,2)  &
-       - M(1,3)*M(2,2)*M(3,1)
-
-IF(PRESENT(detM_out)) detM_out=detM
-IF(ABS(detM).LE.1.0E-12_wp)THEN
-   MInv = 0.0_wp
-   RETURN
-END IF
-
-MInv(1,1) =  (M(2,2)*M(3,3)-M(2,3)*M(3,2))
-MInv(2,1) = -(M(2,1)*M(3,3)-M(2,3)*M(3,1))
-MInv(3,1) =  (M(2,1)*M(3,2)-M(2,2)*M(3,1))
-MInv(1,2) = -(M(1,2)*M(3,3)-M(1,3)*M(3,2))
-MInv(2,2) =  (M(1,1)*M(3,3)-M(1,3)*M(3,1))
-MInv(3,2) = -(M(1,1)*M(3,2)-M(1,2)*M(3,1))
-MInv(1,3) =  (M(1,2)*M(2,3)-M(1,3)*M(2,2))
-MInv(2,3) = -(M(1,1)*M(2,3)-M(1,3)*M(2,1))
-MInv(3,3) =  (M(1,1)*M(2,2)-M(1,2)*M(2,1))
-MInv=MInv/detM
-
-END SUBROUTINE INV33
-
-
-!==================================================================================================================================
 !> Build a 1D Vandermonde matrix from an orthonormal Legendre basis to a nodal basis and reverse
 !==================================================================================================================================
 SUBROUTINE buildLegendreVdm(N_In,xi_In,Vdm_Leg,sVdm_Leg)
 ! MODULES
+USE MOD_LinAlg, ONLY:INV
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES

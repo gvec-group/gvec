@@ -31,14 +31,18 @@ module sll_m_spline_matrix_banded
     integer :: n
     integer :: kl
     integer :: ku
+    logical :: factorized
     real(wp), allocatable :: ipiv(:)
     real(wp), allocatable :: q(:,:)
 
   contains
 
     procedure :: init          => s_spline_matrix_banded__init
+    procedure :: mat_copy      => s_spline_matrix_banded__mat_copy
+    procedure :: mat_add       => s_spline_matrix_banded__mat_add
     procedure :: set_element   => s_spline_matrix_banded__set_element
     procedure :: add_element   => s_spline_matrix_banded__add_element
+    procedure :: get_element   => s_spline_matrix_banded__get_element
     procedure :: matvec_prod   => s_spline_matrix_banded__matvec_prod
     procedure :: factorize     => s_spline_matrix_banded__factorize
     procedure :: solve_inplace => s_spline_matrix_banded__solve_inplace
@@ -79,8 +83,55 @@ contains
     allocate( self%ipiv(n) )
     allocate( self%q(2*kl+ku+1,n) )
     self%q(:,:) = 0.0_wp
+    self%factorized=.FALSE.
 
   end subroutine s_spline_matrix_banded__init
+
+  !-----------------------------------------------------------------------------
+  subroutine s_spline_matrix_banded__mat_copy( self,tocopy)
+    class(sll_t_spline_matrix_banded), intent(inout) :: self
+    class(sll_c_spline_matrix       ), intent(in   ) :: tocopy
+     
+    select type(tocopy); typeis(sll_t_spline_matrix_banded)
+    SLL_ASSERT( tocopy%n  == self%n  )
+    SLL_ASSERT( tocopy%kl == self%kl )
+    SLL_ASSERT( tocopy%ku == self%ku )
+
+    self%n         = tocopy%n
+    self%kl        = tocopy%kl
+    self%ku        = tocopy%ku
+    self%q(:,:)    = tocopy%q(:,:)
+    self%ipiv(:)   = tocopy%ipiv(:)
+    self%factorized= tocopy%factorized
+    end select 
+     
+  end subroutine s_spline_matrix_banded__mat_copy
+
+  !-----------------------------------------------------------------------------
+  subroutine s_spline_matrix_banded__mat_add( self,a,amat,b,bmat) !self=a*amat+b*bmat
+    class(sll_t_spline_matrix_banded), intent(inout) :: self
+    real(wp)                         , intent(in   ) :: a
+    class(sll_c_spline_matrix       ), intent(in   ) :: amat
+    real(wp)                         , intent(in   ) :: b
+    class(sll_c_spline_matrix       ), intent(in   ) :: bmat
+
+    select type(amat); typeis(sll_t_spline_matrix_banded)
+    select type(bmat); typeis(sll_t_spline_matrix_banded)
+    SLL_ASSERT( amat%n  == self%n  )
+    SLL_ASSERT( amat%kl == self%kl )
+    SLL_ASSERT( amat%ku == self%ku )
+    SLL_ASSERT( bmat%n  == self%n  )
+    SLL_ASSERT( bmat%kl == self%kl )
+    SLL_ASSERT( bmat%ku == self%ku )
+    SLL_ASSERT( .not.amat%factorized )
+    SLL_ASSERT( .not.bmat%factorized )
+
+    self%q(:,:) = a*amat%q(:,:)+b*bmat%q(:,:) 
+    self%ipiv(:)=0.0_wp
+    self%factorized=.FALSE.
+    end select 
+    end select 
+  end subroutine s_spline_matrix_banded__mat_add
 
   !-----------------------------------------------------------------------------
   subroutine s_spline_matrix_banded__set_element( self, i, j, a_ij )
@@ -111,6 +162,20 @@ contains
   end subroutine s_spline_matrix_banded__add_element
 
   !-----------------------------------------------------------------------------
+  function s_spline_matrix_banded__get_element( self, i, j ) result( a_ij )
+    class(sll_t_spline_matrix_banded), intent(inout) :: self
+    integer                          , intent(in   ) :: i
+    integer                          , intent(in   ) :: j
+    real(wp)                                         :: a_ij
+
+    SLL_ASSERT( max( 1, j-self%ku ) <= i )
+    SLL_ASSERT( i <= min( self%n, j+self%kl ) )
+
+    a_ij = self%q(self%kl+self%ku+1+i-j,j)
+
+  end function s_spline_matrix_banded__get_element
+
+  !-----------------------------------------------------------------------------
   function s_spline_matrix_banded__matvec_prod( self, v_in) result(v_out )
     class(sll_t_spline_matrix_banded), intent(in) :: self
     real(wp)                         , intent(in) :: v_in(:)
@@ -118,6 +183,7 @@ contains
     integer                                       :: j,imin,imax
 
     SLL_ASSERT( size(v_in,1) == self%n )
+    SLL_ASSERT( .not.self%factorized   )
 
     DO j=1,self%n
       imin=max(1,j-self%ku)
@@ -137,6 +203,7 @@ contains
          this_sub_name = "sll_t_spline_matrix_banded % factorize"
     character(len=256) :: err_msg
 
+    SLL_ASSERT( .not.self%factorized   )
     ! Perform LU decomposition of matrix q with Lapack
     call dgbtrf( self%n, self%n, self%kl, self%ku, self%q, 2*self%kl+self%ku+1, &
                  self%ipiv, info )
@@ -151,6 +218,7 @@ contains
            //" solve a system of equations."
       SLL_ERROR(this_sub_name,err_msg)
     end if
+    self%factorized=.TRUE.
 
   end subroutine s_spline_matrix_banded__factorize
 
@@ -166,6 +234,7 @@ contains
     character(len=256) :: err_msg
 
     SLL_ASSERT( size(bx)  == self%n )
+    SLL_ASSERT( self%factorized   )
 
     call dgbtrs( 'N', self%n, self%kl, self%ku, 1, self%q, 2*self%kl+self%ku+1, &
                  self%ipiv, bx, self%n, info )
@@ -203,6 +272,7 @@ contains
           "i","jmin","..","jmax","values..."
     write(fmt_loc,'(a)') "(" // trim(fmt_loc) // ")"
 
+    write(unit_loc,*) 'factorized?=',self%factorized
     do i = 1, self%n
       write(unit_loc,'(i6,i6,1X,A2,1X,i6,2X)',advance='no') &
            i,max( 1, i-self%ku ),'..',min( self%n, i+self%kl )
@@ -221,6 +291,7 @@ contains
     self%n  = -1
     self%kl = -1
     self%ku = -1
+    self%factorized = .FALSE.
     if ( allocated( self%ipiv ) ) deallocate( self%ipiv )
     if ( allocated( self%q    ) ) deallocate( self%q    )
 

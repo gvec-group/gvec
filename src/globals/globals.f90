@@ -73,12 +73,12 @@ INTERFACE NORMALIZE
    MODULE PROCEDURE NORMALIZE
 END INTERFACE
 
-INTERFACE GetDet3
-   MODULE PROCEDURE GetDet3
+INTERFACE DET33
+   MODULE PROCEDURE DET33
 END INTERFACE
 
-INTERFACE GetInv3
-   MODULE PROCEDURE GetInv3
+INTERFACE INV33
+   MODULE PROCEDURE INV33
 END INTERFACE
 
 CONTAINS
@@ -207,7 +207,7 @@ END FUNCTION CROSS
 !> compute determinant of 3x3 matrix
 !!
 !===================================================================================================================================
-FUNCTION getDet3(Mat)
+FUNCTION DET33(Mat)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -215,49 +215,50 @@ IMPLICIT NONE
 REAL(wp),INTENT(IN)  :: Mat(3,3) !! input matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)             :: getDet3 !! determinant of the input matrix
+REAL(wp)             :: DET33 !! determinant of the input matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-getDet3=   ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * Mat(3,3) &
+DET33=   ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * Mat(3,3) &
          + ( Mat(1,2) * Mat(2,3) - Mat(1,3) * Mat(2,2) ) * Mat(3,1) &
          + ( Mat(1,3) * Mat(2,1) - Mat(1,1) * Mat(2,3) ) * Mat(3,2)
-END FUNCTION getDet3
+END FUNCTION DET33
 
 
 !===================================================================================================================================
 !> compute inverse of 3x3 matrix, needs sDet=1/det(Mat)
 !!
 !===================================================================================================================================
-FUNCTION getInv3(Mat,sDet_in)
+FUNCTION INV33(Mat, Det_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 REAL(wp),INTENT(IN)             :: Mat(3,3) !! input matrix
-REAL(wp),INTENT(IN),OPTIONAL    :: sDet_in  !! determinant of input matrix (otherwise computed here)
+REAL(wp),INTENT(IN),OPTIONAL    ::  Det_in  !! determinant of input matrix (otherwise computed here)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)             :: getInv3(3,3) !! inverse matrix
+REAL(wp)             :: INV33(3,3) !! inverse matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL(wp)             :: sDet 
 !===================================================================================================================================
-IF(PRESENT(sDet_in))THEN
-  sDet=sDet_in
+IF(PRESENT(Det_in))THEN
+  sDet=1.0_wp/Det_in
 ELSE
-  sDet=1.0_wp/getDet3(Mat)
+  sDet=1.0_wp/DET33(Mat)
 END IF
-getInv3(1,1) = ( Mat(2,2) * Mat(3,3) - Mat(2,3) * Mat(3,2) ) * sDet
-getInv3(1,2) = ( Mat(1,3) * Mat(3,2) - Mat(1,2) * Mat(3,3) ) * sDet
-getInv3(1,3) = ( Mat(1,2) * Mat(2,3) - Mat(1,3) * Mat(2,2) ) * sDet
-getInv3(2,1) = ( Mat(2,3) * Mat(3,1) - Mat(2,1) * Mat(3,3) ) * sDet
-getInv3(2,2) = ( Mat(1,1) * Mat(3,3) - Mat(1,3) * Mat(3,1) ) * sDet
-getInv3(2,3) = ( Mat(1,3) * Mat(2,1) - Mat(1,1) * Mat(2,3) ) * sDet
-getInv3(3,1) = ( Mat(2,1) * Mat(3,2) - Mat(2,2) * Mat(3,1) ) * sDet
-getInv3(3,2) = ( Mat(1,2) * Mat(3,1) - Mat(1,1) * Mat(3,2) ) * sDet
-getInv3(3,3) = ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * sDet
-END FUNCTION getInv3
+INV33(1,1) = ( Mat(2,2) * Mat(3,3) - Mat(2,3) * Mat(3,2) ) * sDet
+INV33(1,2) = ( Mat(1,3) * Mat(3,2) - Mat(1,2) * Mat(3,3) ) * sDet
+INV33(1,3) = ( Mat(1,2) * Mat(2,3) - Mat(1,3) * Mat(2,2) ) * sDet
+INV33(2,1) = ( Mat(2,3) * Mat(3,1) - Mat(2,1) * Mat(3,3) ) * sDet
+INV33(2,2) = ( Mat(1,1) * Mat(3,3) - Mat(1,3) * Mat(3,1) ) * sDet
+INV33(2,3) = ( Mat(1,3) * Mat(2,1) - Mat(1,1) * Mat(2,3) ) * sDet
+INV33(3,1) = ( Mat(2,1) * Mat(3,2) - Mat(2,2) * Mat(3,1) ) * sDet
+INV33(3,2) = ( Mat(1,2) * Mat(3,1) - Mat(1,1) * Mat(3,2) ) * sDet
+INV33(3,3) = ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * sDet
+
+END FUNCTION INV33
 
 
 END MODULE MOD_Globals
