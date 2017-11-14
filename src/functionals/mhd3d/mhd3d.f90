@@ -97,20 +97,12 @@ mn_nyq(1)=MAX(1,fac_nyq*MAX(X1X2_mn_max(1),LA_mn_max(1)))
 mn_nyq(2)=MAX(1,fac_nyq*MAX(X1X2_mn_max(2),LA_mn_max(2)))
 SWRITE(*,'(A,I4,A,I6," , ",I6)')'fac_nyq = ', fac_nyq,' ==> interpolation points mIP,nIP',mn_nyq(:)
 
-ALLOCATE(t_sgrid :: sgrid)
 CALL sgrid%init(nElems,grid_type)
-
-CALL base_new(X1base)
-CALL base_new(X2base)
-CALL base_new(LAbase)
 
 CALL X1base%s%init(sgrid,X1X2_deg,X1X2_cont,degGP)
 CALL X2base%s%copy(X1base%s)
 CALL LAbase%s%init(sgrid,LA_deg,LA_cont,degGP)
 
-!ALLOCATE(t_fbase :: X1base%f)
-!ALLOCATE(t_fbase :: X2base%f)
-!ALLOCATE(t_fbase :: LAbase%f)
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
@@ -119,12 +111,12 @@ nDOF_X1 = X1base%s%nBase* 1 ! TODO X1base%f%mn_modes
 nDOF_X2 = X2base%s%nBase* 1 ! TODO X2base%f%mn_modes
 nDOF_LA = LAbase%s%nBase* 1 ! TODO LAbase%f%mn_modes
 
-ALLOCATE(t_sol_var :: U(-1:1))
+ALLOCATE(U(-1:1))
 CALL U(1)%init((/nDOF_X1,nDOF_X2,nDOF_LA/))
 DO i=-1,0
   CALL U(i)%copy(U(1))
 END DO
-ALLOCATE(t_sol_var :: dUdt)
+CALL U(1)%AXBY(0.4_wp ,U(-1),-0.25_wp,U(0))
 CALL dUdt%copy(U(1))
 
 SWRITE(UNIT_stdOut,'(A)')'... DONE'

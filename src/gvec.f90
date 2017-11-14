@@ -25,7 +25,7 @@ USE MOD_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MOD_Functional ,ONLY: InitFunctional,FinalizeFunctional
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
-USE MOD_ReadInTools,ONLY: GETINT,IgnoredStrings 
+USE MOD_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
@@ -61,7 +61,8 @@ CHARACTER(LEN=255)      :: Parameterfile
 ,'  - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - '&
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
   WRITE(Unit_stdOut,'(132("="))')
-  testlevel=GETINT('testlevel','10')
+  testdbg =GETLOGICAL('testdbg','F')
+  testlevel=GETINT('testlevel','-1')
   
   !initialization phase
   CALL InitOutput()
