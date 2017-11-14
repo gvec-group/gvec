@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MOD_sBase
 ! MODULES
-USE MOD_Globals                  ,ONLY: wp
+USE MOD_Globals                  ,ONLY: wp,Unit_stdOut,abort
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_1d              ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
@@ -43,12 +43,10 @@ TYPE, ABSTRACT :: c_sbase
 END TYPE c_sbase
 
 ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sbase_init( sf ,grid_in,deg_in,continuity_in,degGP_in)
+  SUBROUTINE i_sub_sbase_init( sf ,grid_in,degGP_in)
     IMPORT wp, c_sbase,t_sgrid
     CLASS(c_sbase), INTENT(INOUT)        :: sf
     CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in
-    INTEGER       , INTENT(IN   )        :: deg_in
-    INTEGER       , INTENT(IN   )        :: continuity_in
     INTEGER       , INTENT(IN   )        :: degGP_in
   END SUBROUTINE i_sub_sbase_init
 
@@ -75,8 +73,7 @@ END INTERFACE
  
 
 
-!TYPE,EXTENDS(c_sbase) :: t_sBase
-TYPE :: t_sBase
+TYPE,EXTENDS(c_sbase) :: t_sBase
   LOGICAL :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
@@ -91,9 +88,6 @@ TYPE :: t_sBase
   REAL(wp),ALLOCATABLE :: wGPloc(:)                !! element local gauss weights for interval [0,1], size(0:degGP)
   REAL(wp),ALLOCATABLE :: wGP(:,:)                 !! global radial integration weight size(0:degGP,1:nElems)
   REAL(wp),ALLOCATABLE :: s_GP(:,:)                !! global position of gauss points  in s [0,1] , size(0:degGP,nElems) 
-  REAL(wp),ALLOCATABLE :: xiIP(:)                  !! element local interpolation points (continuity =-1)
-  REAL(wp),ALLOCATABLE :: wbaryIP(:)               !! element local interpolation points (continuity =-1)
-  REAL(wp),ALLOCATABLE :: DmatIP(:,:)              !! element local interpolation points (continuity =-1)
   REAL(wp),ALLOCATABLE :: s_IP(:)                  !! position of interpolation points for initialization, size(nBase) 
   INTEGER ,ALLOCATABLE :: base_offset(:)           !! offset of 0:deg element local basis functions to global index of
                                                    !! degree of freedom, allocated (1:nElems). iBase = offset(iElem)+j, j=0...deg
@@ -113,9 +107,6 @@ TYPE :: t_sBase
                                                    !! 4=BC_TYPE_SYMM      : all odd derivs = 0
                                                    !! 5=BC_TYPE_SYMMZERO  : all even derivs & sol = 0
                                                    !! 6=BC_TYPE_ANTISYMM  : all odd derivs & sol = 0
-  CLASS(sll_c_bsplines),ALLOCATABLE :: bspl        !! contains bspline functions
-  TYPE(sll_t_spline_1d)             :: spline      !! contains 1d spline functions
-  TYPE(sll_t_spline_interpolator_1d):: Interpol    !! spline interpolator
   
 
   CONTAINS
@@ -127,6 +118,17 @@ TYPE :: t_sBase
 
 END TYPE t_sBase
 
+TYPE,EXTENDS(t_sbase) :: t_sBase_disc
+  REAL(wp),ALLOCATABLE :: xiIP(:)                  !! element local interpolation points (continuity =-1)
+  REAL(wp),ALLOCATABLE :: wbaryIP(:)               !! element local interpolation points (continuity =-1)
+  REAL(wp),ALLOCATABLE :: DmatIP(:,:)              !! element local interpolation points (continuity =-1)
+END TYPE t_sBase_disc
+
+TYPE,EXTENDS(t_sbase) :: t_sBase_spl
+  CLASS(sll_c_bsplines),ALLOCATABLE :: bspl        !! contains bspline functions
+  TYPE(sll_t_spline_1d)             :: spline      !! contains 1d spline functions
+  TYPE(sll_t_spline_interpolator_1d):: Interpol    !! spline interpolator
+END TYPE t_sBase_spl
 
 LOGICAL  :: test_called=.FALSE.
 
@@ -134,15 +136,46 @@ LOGICAL  :: test_called=.FALSE.
 
 CONTAINS
 
+!===================================================================================================================================
+!> initialize the type sbase with polynomial degree, continuity ( -1: disc, 1: full)
+!! and number of gauss points per element
+!!
+!===================================================================================================================================
+SUBROUTINE sBase_new( sf,deg_in,continuity_in)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
+  INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
+                                                        !! 0: disc. polynomial
+                                                        !! deg-1: spline with cont. deg-1
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_sbase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  IF(continuity_in.EQ.-1)THEN
+    ALLOCATE(t_sbase_disc :: sf)
+  ELSEIF(continuity_in.EQ.deg_in-1)THEN
+    ALLOCATE(t_sbase_spl :: sf)
+  ELSE
+    CALL abort(__STAMP__,&
+        " error in sbase new: continuity only full (deg-1) or discontinuous (-1) !") 
+  END IF
+  sf%deg        =deg_in
+  sf%continuity =continuity_in
+END SUBROUTINE sbase_new
 
 !===================================================================================================================================
 !> initialize the type sbase with polynomial degree, continuity ( -1: disc, 1: full)
 !! and number of gauss points per element
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_init( sf, grid_in,deg_in,continuity_in,degGP_in)
+SUBROUTINE sBase_init( sf, grid_in,degGP_in)
 ! MODULES
-USE MOD_GLobals, ONLY: PI,Unit_stdOut,abort
+USE MOD_GLobals, ONLY: PI
 USE MOD_Basis1D, ONLY:  LegendreGaussNodesAndWeights
 USE MOD_Basis1D, ONLY:  BarycentricWeights,InitializeVandermonde,PolynomialDerivativeMatrix
 USE sll_m_bsplines,ONLY: sll_s_bsplines_new
@@ -153,10 +186,6 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
-  INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
-  INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
-                                                        !! 0: disc. polynomial
-                                                        !! deg-1: spline with cont. deg-1
   INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -164,25 +193,31 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: i,iGP,iElem,imin,jmin
-  REAL(wp) :: locbasis(0:deg_in,0:deg_in)
-  REAL(wp) :: Vdm(   0:degGP_in,0:deg_in)
-  REAL(wp) :: DmatGP(0:degGP_in,0:deg_in)
+  REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: locbasis,Vdm,DmatGP
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A,3(A,I3),A)')'INIT sBase type:', &
-       ' degree= ',deg_in, &
+       ' degree= ',sf%deg, &
        ' gauss points per elem = ',degGP_in, &
-       ' continuity= ',continuity_in, ' ...'
+       ' continuity= ',sf%continuity, ' ...'
   IF(sf%initialized) THEN
-    SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase type!'
-    CALL sf%free()
+    CALL abort(__STAMP__, &
+        "Trying to reinit sbase!") 
   END IF
-  IF(degGP_in.LT.deg_in) &
+  IF(degGP_in.LT.sf%deg) &
     CALL abort(__STAMP__, &
         "error in sbase: degGP must be > deg!") 
+  SELECT TYPE(sf)
+  TYPEIS(t_sbase_disc)
+    IF(sf%continuity.NE.-1) &
+      CALL abort(__STAMP__, &
+          "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!") 
+  TYPEIS(t_sbase_spl)
+    IF(sf%continuity.NE.sf%deg-1) &
+      CALL abort(__STAMP__, &
+          "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!") 
+  END SELECT !Type
   sf%grid       => grid_in
-  sf%deg        =  deg_in
   sf%degGP      =  degGP_in
-  sf%continuity =  continuity_in
 
   ASSOCIATE(&
               nElems      => sf%grid%nElems         &
@@ -219,8 +254,10 @@ IMPLICIT NONE
     sf%s_GP(:,iElem)=grid%sp(iElem-1)+sf%xiGP(:)*grid%ds(iElem)
   END DO !iElem 
 
-  IF(continuity.EQ.-1)THEN !discontinuous
-   
+  SELECT TYPE(sf)
+  TYPEIS(t_sbase_disc)   
+    ALLOCATE(Vdm(   0:degGP,0:deg))
+    ALLOCATE(DmatGP(0:degGP,0:deg))
     !  use chebychev-lobatto points for interpolation (closed form!), interval [-1,1] 
     DO i=0,deg
       sf%xiIP(i)=-COS(REAL(i,wp)/REAL(deg,wp)*PI)
@@ -254,7 +291,9 @@ IMPLICIT NONE
     DO iElem=1,nElems
       sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(sf%xiIP+1.0_wp)*grid%ds(iElem)
     END DO !iElem 
-  ELSEIF(continuity .EQ. deg-1)THEN !bspline with full continuity 
+    DEALLOCATE(Vdm,DmatGP)
+  TYPEIS(t_sbase_spl)   
+    ALLOCATE(locbasis(0:deg,0:deg))
     CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
     !basis evaluation
     IF(sf%bspl%nBasis.NE.nBase) STOP 'problem with bspl basis'
@@ -285,7 +324,8 @@ IMPLICIT NONE
     CALL sf%Interpol%get_interp_points ( sf%s_IP ) 
     CALL sf%spline%init( sf%bspl ) !needed for interpolation
 
-  END IF !continuity
+    DEALLOCATE(locbasis)
+  END SELECT !TYPE is t_sbase_disc/spl
 
   !TODO STRONG BOUNDARY CONDITIONS: A and R matrices
   
@@ -325,9 +365,15 @@ IMPLICIT NONE
   ALLOCATE(sf%base_offset(            1:nElems))
   ALLOCATE(sf%base_dsAxis(1:deg+1        ,0:deg))
   ALLOCATE(sf%base_dsEdge(nBase-deg:nBase,0:deg))
-  ALLOCATE(sf%xiIP(   0:deg))
-  ALLOCATE(sf%wbaryIP(0:deg))
-  ALLOCATE(sf%DmatIP( 0:deg,0:deg))
+  SELECT TYPE(sf)
+  TYPEIS(t_sbase_disc)
+    ALLOCATE(sf%xiIP(   0:deg))
+    ALLOCATE(sf%wbaryIP(0:deg))
+    ALLOCATE(sf%DmatIP( 0:deg,0:deg))
+    sf%xiIP   =0.0_wp
+    sf%wbaryIP=0.0_wp
+    sf%DmatIP =0.0_wp
+  END SELECT !TYPE is t_sbase_disc
   ALLOCATE(sf%A_Axis( 0:deg,0:deg,1:NBC_TYPES))
   ALLOCATE(sf%A_Edge( 0:deg,0:deg,1:NBC_TYPES))
   ALLOCATE(sf%R_Axis( 0:deg,0:deg,1:NBC_TYPES))
@@ -373,19 +419,11 @@ IMPLICIT NONE
   IF(.NOT.sf%initialized) RETURN
   !pointers, classes
   NULLIFY(sf%grid)
-  IF(sf%continuity.EQ.sf%deg-1)THEN
-    CALL sf%interpol%free() 
-    CALL sf%spline%free() 
-    CALL sf%bspl%free() 
-  END IF
   !allocatables  
   SDEALLOCATE(sf%xiGP)
   SDEALLOCATE(sf%wGPloc)
   SDEALLOCATE(sf%wGP)
   SDEALLOCATE(sf%s_GP)
-  SDEALLOCATE(sf%xiIP)
-  SDEALLOCATE(sf%wbaryIP)
-  SDEALLOCATE(sf%DmatIP)
   SDEALLOCATE(sf%s_IP)
   SDEALLOCATE(sf%base_offset)
   SDEALLOCATE(sf%baseGP)   
@@ -396,6 +434,16 @@ IMPLICIT NONE
   SDEALLOCATE(sf%R_Axis) 
   SDEALLOCATE(sf%A_Edge) 
   SDEALLOCATE(sf%R_Edge) 
+  SELECT TYPE (sf) 
+  TYPEIS(t_sbase_spl)
+    CALL sf%interpol%free() 
+    CALL sf%spline%free() 
+    CALL sf%bspl%free() 
+  TYPEIS(t_sbase_disc)
+    SDEALLOCATE(sf%xiIP)
+    SDEALLOCATE(sf%wbaryIP)
+    SDEALLOCATE(sf%DmatIP)
+  END SELECT !TYPE
   
   sf%continuity =-99
   sf%deg        =-1 
@@ -413,13 +461,12 @@ END SUBROUTINE sBase_free
 !===================================================================================================================================
 SUBROUTINE sBase_copy( sf , tocopy)
 ! MODULES
-USE MOD_GLobals, ONLY: Unit_stdOut,abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sBase), INTENT(IN   ) :: tocopy
+  CLASS(c_sBase), INTENT(IN   ) :: tocopy
   CLASS(t_sBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -433,8 +480,9 @@ IMPLICIT NONE
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sBase in copy!'
     CALL sf%free()
   END IF
-
-  CALL sf%init(tocopy%grid,tocopy%deg,tocopy%continuity,tocopy%degGP)
+  sf%deg=tocopy%deg
+  sf%continuity=tocopy%continuity
+  CALL sf%init(tocopy%grid,tocopy%degGP)
 
   END SELECT !TYPE
 END SUBROUTINE sbase_copy
@@ -446,7 +494,6 @@ END SUBROUTINE sbase_copy
 !===================================================================================================================================
 SUBROUTINE sBase_eval( sf , x,deriv,iElem,base_x)
 ! MODULES
-USE MOD_GLobals, ONLY: Unit_stdOut,abort
 USE MOD_Basis1D, ONLY:LagrangeInterpolationPolys
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -464,7 +511,8 @@ IMPLICIT NONE
   REAL(wp):: xiloc,baseloc(0:sf%deg,0:sf%deg)
 !===================================================================================================================================
 
-IF(sf%continuity.EQ.-1)THEN
+SELECT TYPE(sf)
+TYPEIS(t_sbase_disc)
   iElem=sf%grid%find_elem(x)
   xiloc  =(x-sf%grid%sp(iElem-1))*2.0_wp/sf%grid%ds(iElem)-1.0_wp !in [-1,1]
 
@@ -477,8 +525,7 @@ IF(sf%continuity.EQ.-1)THEN
     END DO
     base_x=baseloc(:,deriv)
   END IF!deriv
-
-ELSEIF(sf%continuity.EQ.sf%deg-1)THEN
+TYPEIS(t_sbase_spl)
   IF(deriv.EQ.0)THEN
     CALL sf%bspl%eval_basis(x,base_x(:),iElem)
   ELSE
@@ -486,10 +533,11 @@ ELSEIF(sf%continuity.EQ.sf%deg-1)THEN
     base_x=baseloc(:,deriv)
   END IF
 
-ELSE
+CLASS DEFAULT
   CALL abort(__STAMP__, &
     "this type of continuity not implemented!")
-END IF
+END SELECT !TYPE
+
 END SUBROUTINE sbase_eval
 
 
@@ -499,7 +547,7 @@ END SUBROUTINE sbase_eval
 !===================================================================================================================================
 SUBROUTINE sBase_test( sf)
 ! MODULES
-USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testfailedMsg
+USE MOD_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testfailedMsg
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES

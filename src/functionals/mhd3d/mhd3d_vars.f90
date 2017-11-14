@@ -33,8 +33,8 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 TYPE :: t_base              
-  TYPE(t_sbase)  :: s  !! container for radial basis
-!  TYPE(t_fbase)  :: f  !! container for angular basis
+  CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
+!  CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
 END TYPE t_base
 
 

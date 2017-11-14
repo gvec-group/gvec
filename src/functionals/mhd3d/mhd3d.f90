@@ -48,7 +48,7 @@ SUBROUTINE InitMHD3D
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_MHD3D_Vars
 USE MOD_sgrid, ONLY: t_sgrid
-USE MOD_sbase, ONLY: t_sbase
+USE MOD_sbase, ONLY: t_sbase,sbase_new
 USE MOD_ReadInTools,ONLY:GETSTR,GETINT,GETINTARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -99,9 +99,14 @@ SWRITE(*,'(A,I4,A,I6," , ",I6)')'fac_nyq = ', fac_nyq,' ==> interpolation points
 
 CALL sgrid%init(nElems,grid_type)
 
-CALL X1base%s%init(sgrid,X1X2_deg,X1X2_cont,degGP)
+CALL sbase_new(X1base%s,X1X2_deg,X1X2_cont)
+CALL sbase_new(X2base%s,X1X2_deg,X1X2_cont)
+CALL sbase_new(LAbase%s,LA_deg,LA_cont)
+
+
+CALL X1base%s%init(sgrid,degGP)
 CALL X2base%s%copy(X1base%s)
-CALL LAbase%s%init(sgrid,LA_deg,LA_cont,degGP)
+CALL LAbase%s%init(sgrid,degGP)
 
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
 !TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
