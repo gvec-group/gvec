@@ -40,6 +40,10 @@
 #define BC_TYPE_SYMMZERO  5
 #define BC_TYPE_ANTISYMM  6
 
+! index in BC arrays
+#define BC_AXIS 1
+#define BC_EDGE 2
+
 !grid types
 #define GRID_TYPE_UNIFORM 0 
 #define GRID_TYPE_SQRT_S  1 

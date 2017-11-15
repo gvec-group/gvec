@@ -66,6 +66,7 @@ INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
 CHARACTER(LEN=8) :: X1_sincos
 CHARACTER(LEN=8) :: X2_sincos
 CHARACTER(LEN=8) :: LA_sincos
+CHARACTER(LEN=8) :: defstr
 INTEGER          :: degGP,mn_nyq(2),fac_nyq,nfp
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
@@ -81,7 +82,8 @@ nfp     = GETINT("nfp","1")
 X1X2_BC   = GETINTARRAY(   "X1X2_BC",2,"0 1")
 
 X1X2_deg     = GETINT(     "X1X2_deg","3")
-X1X2_cont    = GETINT(     "X1X2_continuity","2")
+WRITE(defStr,'(I4)') X1X2_deg-1
+X1X2_cont    = GETINT(     "X1X2_continuity",defStr)
 X1X2_mn_max  = GETINTARRAY("X1X2_mn_max",2,"2 0")
 X1_sincos    = GETSTR(     "X1_sincos","_COS_")  !_SIN_,_COS_,_SINCOS_
 X2_sincos    = GETSTR(     "X2_sincos","_SIN_")

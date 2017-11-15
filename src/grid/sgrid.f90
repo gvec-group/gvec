@@ -295,78 +295,94 @@ IMPLICIT NONE
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SGRID TEST ID',nTestCalled,' SGRID    >>>>>>>>>'
   IF(testlevel.LE.1)THEN
-    iTest=101
-    IF(testdbg.OR.(.NOT.( ABS(sf%sp(0)).LT. 1.0e-12_wp))) THEN
+
+    iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    IF(testdbg.OR.(.NOT.( (ABS(sf%sp(0)).LT. 1.0e-12_wp) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n =>  should be 0.0 : sp(0) = ', sf%sp(0)
-    END IF
-    iTest=102
-    IF(testdbg.OR.(.NOT.(MINVAL(sf%ds).GT.0.0_wp)))THEN
+    END IF !TEST
+
+    iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    IF(testdbg.OR.(.NOT.( (MINVAL(sf%ds).GT.0.0_wp) )))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n => should be >0 : MINVAL(ds)',MINVAL(sf%ds)
-    END IF
-    iTest=103
-    IF(testdbg.OR.(.NOT. ( ABS(sf%sp(sf%nElems)-1.0_wp).LT.1.0e-12_wp))) THEN
+    END IF !TEST
+
+    iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    IF(testdbg.OR.(.NOT. ( (ABS(sf%sp(sf%nElems)-1.0_wp).LT.1.0e-12_wp) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n =>  should be 1.0 : sp(nElems) = ', sf%sp(sf%nElems)
-    END IF
-    iTest=104
-    IF(testdbg.OR.(.NOT. ( ABS(SUM(sf%ds(:))-1.0_wp).LT.1.0e-12_wp))) THEN
+    END IF !TEST
+
+    iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    IF(testdbg.OR.(.NOT. ( (ABS(SUM(sf%ds(:))-1.0_wp).LT.1.0e-12_wp) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n =>  should be 1.0 : SUM(ds) = ', SUM(sf%ds)
-    END IF
-    iTest=105
+    END IF !TEST
+
+    iTest=105 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
     iElem=sf%find_elem(0.0_wp)
-    IF(testdbg.OR.(.NOT.(iElem .EQ. 1 ))) THEN
+    IF(testdbg.OR.(.NOT.( (iElem .EQ. 1 ) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,I6))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n =>   should be 1 : findelem(0.0)= ', iElem
-    END IF
-    iTest=106
+    END IF !TEST
+
+    iTest=106 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
     iElem=sf%find_elem(1.0_wp)
-    IF(testdbg.OR.(.NOT.(iElem .EQ. sf%nElems ))) THEN
+    IF(testdbg.OR.(.NOT.( (iElem .EQ. sf%nElems) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),2(A,I6))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n => should be', sf%nElems,'  :  findelem(1.0)= ', iElem
-    END IF
-    iTest=107
+    END IF !TEST
+
+    iTest=107 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
     jElem=sf%nElems/2
     x=0.5_wp*(sf%sp(jElem-1)+sf%sp(jElem))
     iElem=sf%find_elem(x)
-    IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
+    IF(testdbg.OR.(.NOT.( (iElem.EQ.jElem) )))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),2(A,I6))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n => should be ',jElem,': iElem= ' , iElem
-    END IF
-    iTest=108
+    END IF !TEST
+
+    iTest=108 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
     jElem=MIN(3,sf%nElems)
     x=sf%sp(jElem-1)+0.99_wp*sf%ds(jElem)
     iElem=sf%find_elem(x)
-    IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
+    IF(testdbg.OR.(.NOT.( (iElem.EQ.jElem) )))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,'  FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),2(A,I6))') &
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n => should be ',jElem,': iElem= ' , iElem
-    END IF
+    END IF !TEST
   END IF !testlevel<1
   test_called=.FALSE.
 

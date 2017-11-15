@@ -298,16 +298,18 @@ IMPLICIT NONE
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SOL_VAR TEST ID',nTestCalled,'    >>>>>>>>>'
   IF(testlevel.LE.1)THEN
     CALL Utest(1)%copy(sf)
-    iTest=101
+
+    iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
     CALL Utest(1)%set_to(0.435_wp)
     testvar = REAL(SUM(sf%varsize),wp)*(0.435_wp)**2
-    IF(testdbg.OR.(.NOT.( ABS(SUM(Utest(1)%norm_2())-testvar).LT. 1.0e-12_wp))) THEN
+    IF(testdbg.OR.(.NOT.( (ABS(SUM(Utest(1)%norm_2())-testvar).LT. 1.0e-12_wp) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,' FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'((A,3I4),2(A,E11.3))') &
       '   varsize = ',sf%varsize(:), &
       '\n =>  should be ', testvar, ' : norm_2(U=0)= ',SUM(Utest(1)%norm_2())
-    END IF
+    END IF !TEST
     CALL Utest(1)%free()
   END IF !testlevel <1
   IF(testlevel.LE.2)THEN
@@ -316,18 +318,19 @@ IMPLICIT NONE
     CALL Utest(2)%copy(Utest(1))
     CALL Utest(3)%copy(sf)
 
-    iTest=201 !test level 2
+    iTest=201 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
     CALL Utest(1)%set_to(0.8_wp)
     CALL Utest(2)%set_to(-0.53_wp)
     CALL Utest(3)%AXBY(1.1_wp,Utest(1),-5.5_wp,Utest(2))
     testvar = SUM(sf%varsize)*(1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2 
-    IF(testdbg.OR.(.NOT.( ABS(SUM(Utest(3)%norm_2())-testvar).LT. 1.0e-12_wp))) THEN
+    IF(testdbg.OR.(.NOT.( (ABS(SUM(Utest(3)%norm_2())-testvar).LT. 1.0e-12_wp) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,' FAILED !!'
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'((A,3I4),2(A,E11.3))') &
       '   varsize = ',sf%varsize(:), &
       '\n =>  should be ', testvar, ' : norm_2(U%AXBY)= ',SUM(Utest(3)%norm_2())
-    END IF
+    END IF !TEST
 
     CALL Utest(1)%free()
     CALL Utest(2)%free()
