@@ -35,7 +35,8 @@ TYPE,ABSTRACT :: c_sol_var
   CONTAINS
   PROCEDURE(i_sub_sol_var_init  ),DEFERRED :: init
   PROCEDURE(i_sub_sol_var       ),DEFERRED :: free
-  PROCEDURE(i_sub_sol_var_set_to),DEFERRED :: set_to
+  PROCEDURE(i_sub_sol_var_set_to_solvar),DEFERRED :: set_to_solvar
+  PROCEDURE(i_sub_sol_var_set_to_scalar),DEFERRED :: set_to_scalar
   PROCEDURE(i_sub_sol_var_copy  ),DEFERRED :: copy
   PROCEDURE(i_fun_sol_var_norm_2),DEFERRED :: norm_2
   PROCEDURE(i_sub_sol_var_AXBY  ),DEFERRED :: AXBY
@@ -65,11 +66,18 @@ ABSTRACT INTERFACE
     CLASS(c_sol_var), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sol_var_copy
 
-  SUBROUTINE i_sub_sol_var_set_to( sf, scalar ) 
+  SUBROUTINE i_sub_sol_var_set_to_solvar( sf, toset ,scal_in) 
+    IMPORT wp,c_sol_var
+    CLASS(c_sol_var), INTENT(IN   ) :: toset
+    CLASS(c_sol_var), INTENT(INOUT) :: sf
+    REAL(wp),INTENT(IN),OPTIONAL    :: scal_in
+  END SUBROUTINE i_sub_sol_var_set_to_solvar
+
+  SUBROUTINE i_sub_sol_var_set_to_scalar( sf, scalar ) 
     IMPORT wp,c_sol_var
     REAL(wp)        , INTENT(IN   ) :: scalar
     CLASS(c_sol_var), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sol_var_set_to
+  END SUBROUTINE i_sub_sol_var_set_to_scalar
 
   SUBROUTINE i_sub_sol_var_AXBY( sf, aa, X, bb, Y ) 
     IMPORT wp,c_sol_var
@@ -93,7 +101,9 @@ TYPE,EXTENDS(c_sol_var) :: t_sol_var
   PROCEDURE  :: init   => sol_var_init
   PROCEDURE  :: free   => sol_var_free
   PROCEDURE  :: copy   => sol_var_copy
-  PROCEDURE  :: set_to => sol_var_set_to
+  PROCEDURE  :: set_to_solvar => sol_var_set_to_solvar
+  PROCEDURE  :: set_to_scalar => sol_var_set_to_scalar
+  GENERIC    :: set_to => set_to_solvar,set_to_scalar  !chooses right routine depending on input type!
   PROCEDURE  :: norm_2 => sol_var_norm_2  
   PROCEDURE  :: AXBY   => sol_var_AXBY
 END TYPE t_sol_var
@@ -162,30 +172,6 @@ IMPLICIT NONE
 END SUBROUTINE sol_var_free
 
 !===================================================================================================================================
-!> set all variables to scalar 
-!!
-!===================================================================================================================================
-SUBROUTINE sol_var_set_to( sf, scalar)
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_sol_var), INTENT(INOUT) :: sf  !!sf
-  REAL(wp)        , INTENT(IN   ) :: scalar
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  IF(.NOT.sf%initialized)THEN
-    CALL abort(__STAMP__, &
-        "sol_var not initialized in set_to!")
-  END IF
-  sf%X1=scalar
-  sf%X2=scalar
-  sf%LA=scalar
-END SUBROUTINE sol_var_set_to
-
-!===================================================================================================================================
 !> copy tocopy  => sf
 !!
 !===================================================================================================================================
@@ -217,6 +203,65 @@ IMPLICIT NONE
 
   END SELECT !TYPE
 END SUBROUTINE sol_var_copy
+
+!===================================================================================================================================
+!> set all variables to scalar 
+!!
+!===================================================================================================================================
+SUBROUTINE sol_var_set_to_scalar( sf, scalar)
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var), INTENT(INOUT) :: sf  !!sf
+  REAL(wp)        , INTENT(IN   ) :: scalar
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  IF(.NOT.sf%initialized)THEN
+    CALL abort(__STAMP__, &
+        "sol_var not initialized in set_to!")
+  END IF
+  sf%X1=scalar
+  sf%X2=scalar
+  sf%LA=scalar
+END SUBROUTINE sol_var_set_to_Scalar
+
+!===================================================================================================================================
+!> set variabes X1,X2,LA of toset  => sf, optional argument to scale toset with a scalar (for example -1.0_wp)
+!!
+!===================================================================================================================================
+SUBROUTINE sol_var_set_to_solvar( sf ,toset,scal_in) 
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(c_sol_var), INTENT(IN   ) :: toset
+  REAL(wp),INTENT(IN),OPTIONAL    :: scal_in
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_sol_var), INTENT(INOUT) :: sf  !!sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  SELECT TYPE(toset); TYPEIS(t_sol_var)
+  IF(.NOT.toset%initialized)THEN
+    CALL abort(__STAMP__, &
+        "sol_var_set_to: not initialized sol_var from which to set!")
+  END IF
+  IF(PRESENT(scal_in))THEN
+    sf%X1=scal_in*toset%X1
+    sf%X2=scal_in*toset%X2
+    sf%LA=scal_in*toset%LA
+  ELSE
+    sf%X1=toset%X1
+    sf%X2=toset%X2
+    sf%LA=toset%LA
+  END IF
+
+  END SELECT !TYPE
+END SUBROUTINE sol_var_set_to_solvar
 
 !===================================================================================================================================
 !> |X|^2, where X is of type t_var_sol, so three values are returned: |X1|^2,|X2|^2,|LA|^2 
@@ -322,7 +367,8 @@ IMPLICIT NONE
   IF(testlevel.LE.2)THEN
     CALL Utest(1)%copy(sf)
     CALL Utest(1)%set_to(0.5_wp)
-    CALL Utest(2)%copy(Utest(1))
+    CALL Utest(2)%copy(sf)
+    CALL Utest(2)%set_to(Utest(1))
     CALL Utest(3)%copy(sf)
 
     iTest=201 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
