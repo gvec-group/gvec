@@ -64,6 +64,10 @@ INTERFACE PolynomialDerivativeMatrix
    MODULE PROCEDURE PolynomialDerivativeMatrix
 END INTERFACE
 
+INTERFACE MthPolynomialDerivativeMatrix
+   MODULE PROCEDURE MthPolynomialDerivativeMatrix
+END INTERFACE
+
 INTERFACE BarycentricWeights
    MODULE PROCEDURE BarycentricWeights
 END INTERFACE
@@ -85,6 +89,7 @@ PUBLIC::ChebyGaussLobNodesAndWeights
 PUBLIC::ClenshawCurtisNodesAndWeights
 PUBLIC::LegendrePolynomialAndDerivative
 PUBLIC::PolynomialDerivativeMatrix
+PUBLIC::MthPolynomialDerivativeMatrix
 PUBLIC::BarycentricWeights
 PUBLIC::LagrangeInterpolationPolys
 PUBLIC::EQUALTOTOLERANCE
@@ -529,7 +534,6 @@ wBary(:)=1./wBary(:)
 END SUBROUTINE BarycentricWeights
 
 
-
 !==================================================================================================================================
 !> Computes polynomial differentiation matrix for interpolation polynomial given by set of nodes. (Algorithm 37, Kopriva book)
 !==================================================================================================================================
@@ -557,6 +561,42 @@ DO iLagrange=0,N_in
 END DO ! iLagrange
 END SUBROUTINE PolynomialDerivativeMatrix
 
+
+!==================================================================================================================================
+!> Computes mth polynomial differentiation matrix for interpolation polynomial given by set of nodes. (Algorithm 38, Kopriva book)
+!==================================================================================================================================
+SUBROUTINE MthPolynomialDerivativeMatrix(N_in,xGP,deriv,D)
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN)     :: N_in              !! polynomial degree
+REAL(wp),INTENT(IN)    :: xGP(0:N_in)       !! Gauss point positions for the reference interval [-1,1]
+INTEGER,INTENT(IN)     :: deriv             !! derivative (starting at 1) 
+REAL(wp),INTENT(OUT)   :: D(0:N_in,0:N_in)  !! differentiation Matrix
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER            :: ideriv,iGP,iLagrange
+REAL(wp)           :: wBary(0:N_in),Dii_last
+!==================================================================================================================================
+D=0.0_wp
+IF(deriv.LT.1) STOP 'deriv in MthPolyDerivativeMatrix must be >=1!'
+IF(deriv.GT.N_in) RETURN
+CALL BarycentricWeights(N_in,xGP,wBary)
+CALL PolynomialDerivativeMatrix(N_in,xGP,D)
+IF(deriv.EQ.1) RETURN
+DO ideriv=2,deriv
+  DO iGP=0,N_in
+    Dii_last = D(iGP,iGP)
+    D(iGP,iGP)=0.0_wp
+    DO iLagrange=0,N_in
+      IF(iLagrange.NE.iGP)THEN
+        D(iGP,iLagrange)=REAL(ideriv,wp)/(xGP(iGP)-xGP(iLagrange))*(wBary(iLagrange)/wBary(iGP)*Dii_last-D(iGP,iLagrange))
+        D(iGP,iGP)=D(iGP,iGP)-D(iGP,iLagrange)
+      END IF ! (iLagrange.NE.iGP)
+    END DO ! iLagrange
+  END DO ! iGP
+END DO !iDeriv
+END SUBROUTINE MthPolynomialDerivativeMatrix
 
 
 !==================================================================================================================================

@@ -243,7 +243,7 @@ SUBROUTINE sBase_init( sf, grid_in,degGP_in)
 USE MOD_GLobals,   ONLY: PI
 USE MOD_LinAlg ,   ONLY: INV
 USE MOD_Basis1D,   ONLY:  LegendreGaussNodesAndWeights
-USE MOD_Basis1D,   ONLY:  BarycentricWeights,InitializeVandermonde,PolynomialDerivativeMatrix
+USE MOD_Basis1D,   ONLY:  BarycentricWeights,InitializeVandermonde,MthPolynomialDerivativeMatrix
 USE sll_m_bsplines,ONLY: sll_s_bsplines_new
 USE sll_m_spline_1d                      ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d         ,ONLY: sll_t_spline_interpolator_1d
@@ -260,7 +260,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER  :: i,iGP,iElem,imin,jmin
   INTEGER  :: iBC,j,diri,odd_even 
-  REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: locbasis,VdmGP,DmatGP
+  REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: locbasis,VdmGP
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A,3(A,I3),A)')'INIT sBase type:', &
        ' degree= ',sf%deg, &
@@ -319,20 +319,18 @@ IMPLICIT NONE
   SELECT TYPE(sf)
   TYPEIS(t_sbase_disc)   
     ALLOCATE(VdmGP( 0:degGP,0:deg))
-    ALLOCATE(DmatGP(0:degGP,0:deg))
     !  use chebychev-lobatto points for interpolation (closed form!), interval [-1,1] 
     DO i=0,deg
       sf%xiIP(i)=-COS(REAL(i,wp)/REAL(deg,wp)*PI)
     END DO
     CALL BarycentricWeights(deg,sf%xiIP,sf%wBaryIP)
     CALL InitializeVandermonde(deg,degGP,sf%wBaryIP,sf%xiIP,sf%xi_GP,VdmGP)
-    CALL PolynomialDerivativeMatrix(deg,sf%xiIP,sf%DmatIP)
-    DmatGP=MATMUL(VdmGP,sf%DmatIP)
+    CALL MthPolynomialDerivativeMatrix(deg,sf%xiIP,1,sf%DmatIP)
     ! eval basis and  basis derivative  
     DO iElem=1,nElems
       sf%base_offset(iElem)=1+(deg+1)*(iElem-1)
       sf%base_GP   (0:degGP,0:deg,iElem)=VdmGP(:,:)
-      sf%base_ds_GP(0:degGP,0:deg,iElem)=DmatGP*(2.0_wp/grid%ds(iElem))
+      sf%base_ds_GP(0:degGP,0:deg,iElem)=MATMUL(VdmGP,sf%DmatIP)*(2.0_wp/grid%ds(iElem))
     END DO !iElem 
     !zero deriv: evaluation of basis functions (lagrange property!)
     sf%base_dsAxis(0,1      )=1.0_wp
@@ -353,7 +351,7 @@ IMPLICIT NONE
     DO iElem=1,nElems
       sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(sf%xiIP+1.0_wp)*grid%ds(iElem)
     END DO !iElem 
-    DEALLOCATE(VdmGP,DmatGP)
+    DEALLOCATE(VdmGP)
   TYPEIS(t_sbase_spl)   
     ALLOCATE(locbasis(0:deg,0:deg))
     CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
@@ -421,7 +419,9 @@ IMPLICIT NONE
         sf%R_Edge(i,j,iBC)=-sf%R_Edge(i,j,iBC)
       END DO; END DO
       !prepare for applyBC
-      !  automatically set rows 1:nD to zero for R matrices (no contribution from these DOF)
+      sf%A_axis(:,:,iBC)=INV(sf%A_axis(:,:,iBC))
+      sf%A_edge(:,:,iBC)=INV(sf%A_edge(:,:,iBC))
+      !automatically set rows 1:nD to zero for R matrices (no contribution from these DOF)
       sf%R_axis(         1:nD   ,:,iBC)=0.0_wp
       sf%R_edge(nBase-nD+1:nBase,:,iBC)=0.0_wp
     END IF
@@ -773,7 +773,6 @@ END FUNCTION sbase_initDOF
 !===================================================================================================================================
 SUBROUTINE sBase_applyBCtoDOF(sf ,DOFs,BC_Type,BC_val)
 ! MODULES
-USE MOD_LinAlg, ONLY: SOLVE
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -799,9 +798,9 @@ REAL(wp):: raxis(1:sf%deg+1),redge(sf%nBase-sf%deg:sf%nbase)
   CASE(BC_TYPE_DIRICHLET)
     DOFs(1)=BC_Val(BC_AXIS)
   CASE DEFAULT !BC_TYPE_SYMM,BC_TYPE_SYMMZERO,BC_TYPE_ANTISYMM
-    raxis(1:nDaxis)      =0.
+    raxis(1:nDaxis)      =0.0_wp
     raxis(nDaxis+1:deg+1)= DOFs(nDaxis+1:deg+1)
-    DOFs(1:deg+1)= SOLVE(sf%A_axis(:,:,tBCaxis),raxis(:))
+    DOFs(1:deg+1)= MATMUL(sf%A_axis(:,:,tBCaxis),raxis(:))
   END SELECT !tBCaxis
 
   SELECT CASE(tBCedge)
@@ -811,8 +810,8 @@ REAL(wp):: raxis(1:sf%deg+1),redge(sf%nBase-sf%deg:sf%nbase)
     DOFs(nB)=BC_Val(BC_EDGE)
   CASE DEFAULT !BC_TYPE_SYMM,BC_TYPE_SYMMZERO,BC_TYPE_ANTISYMM
     redge(nB-deg:nB-nDedge) = DOFs(nB-deg:nB-nDedge)
-    redge(nB-nDedge+1:nB)   = 0.
-    DOFs(nB-deg:nB)=SOLVE(sf%A_edge(:,:,tBCedge),redge(:))
+    redge(nB-nDedge+1:nB)   = 0.0_wp
+    DOFs(nB-deg:nB)=MATMUL(sf%A_edge(:,:,tBCedge),redge(:))
   END SELECT !tBCedge
   END ASSOCIATE
 
@@ -1429,7 +1428,7 @@ IMPLICIT NONE
     
     y_BC=MATMUL(sf%base_dsAxis(:,:),g_IP(1:deg+1))
     DO i=1,deg
-      y_BC(i)=y_BC(i)*sf%grid%ds(1)**i/REAL(i*i,wp)
+      y_BC(i)=y_BC(i)*(sf%grid%ds(1)**i)/REAL(i*i,wp)
     END DO
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(2:deg:2))).LT.realtol ).AND. &
