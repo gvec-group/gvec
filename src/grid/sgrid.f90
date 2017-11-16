@@ -300,7 +300,7 @@ IMPLICIT NONE
      Fail=" FAILED !!"
   END IF
   nTestCalled=nTestCalled+1
-  SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SGRID TEST ID',nTestCalled,' SGRID    >>>>>>>>>'
+  SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SGRID TEST ID',nTestCalled,'    >>>>>>>>>'
   IF(testlevel.LE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest

@@ -141,7 +141,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
-  CLASS(t_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
+  CLASS(t_sgrid),POINTER :: grid                   !! pointer to grid 
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp),ALLOCATABLE :: xi_GP(:)                  !! element local gauss point positions for interval [-1,1], size(0:degGP)
   REAL(wp),ALLOCATABLE :: w_GPloc(:)                !! element local gauss weights for interval [-1,1], size(0:degGP)

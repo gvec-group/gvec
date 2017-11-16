@@ -48,8 +48,7 @@ SUBROUTINE InitMHD3D
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_MHD3D_Vars
 USE MOD_sgrid, ONLY: t_sgrid
-USE MOD_sbase, ONLY: t_sbase,sbase_new
-USE MOD_fbase, ONLY: t_fbase,fbase_new
+USE MOD_base,  ONLY: t_base,base_new
 USE MOD_ReadInTools,ONLY:GETSTR,GETINT,GETINTARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -104,22 +103,10 @@ SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> int
 SWRITE(UNIT_stdOut,*)
 
 CALL sgrid%init(nElems,grid_type)
-!sbase
-CALL sbase_new(X1base%s,X1X2_deg,X1X2_cont)
-CALL sbase_new(X2base%s,X1X2_deg,X1X2_cont)
-CALL sbase_new(LAbase%s,LA_deg,LA_cont)
-
-CALL X1base%s%init(sgrid,degGP)
-CALL X2base%s%copy(X1base%s)
-CALL LAbase%s%init(sgrid,degGP)
-!fbase
-CALL fbase_new(X1base%f)
-CALL fbase_new(X2base%f)
-CALL fbase_new(LAbase%f)
-                                                    !exclude_mn_zero
-CALL X1base%f%init(X1X2_mn_max,mn_nyq,nfp,X1_sin_cos,.FALSE.)
-CALL X2base%f%init(X1X2_mn_max,mn_nyq,nfp,X2_sin_cos,.FALSE.)
-CALL LAbase%f%init(  LA_mn_max,mn_nyq,nfp,LA_sin_cos,.TRUE. )
+!base                   !sbase parameter                 !fbase parameter               ...exclude_mn_zero
+CALL base_new(X1base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1X2_mn_max,mn_nyq,nfp,X1_sin_cos,.FALSE.)
+CALL base_new(X2base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1X2_mn_max,mn_nyq,nfp,X2_sin_cos,.FALSE.)
+CALL base_new(LAbase  ,   LA_deg,  LA_cont,sgrid,degGP ,   LA_mn_max,mn_nyq,nfp,LA_sin_cos,.TRUE. )
 
 nDOF_X1 = X1base%s%nBase* X1base%f%modes
 nDOF_X2 = X2base%s%nBase* X2base%f%modes

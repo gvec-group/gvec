@@ -21,11 +21,10 @@
 !===================================================================================================================================
 MODULE MOD_MHD3D_Vars
 ! MODULES
-USE MOD_Globals,ONLY:wp,Unit_stdOut,abort
-USE MOD_sgrid, ONLY: t_sgrid
-USE MOD_sbase, ONLY: t_sbase
-USE MOD_fbase, ONLY: t_fbase
-USE MOD_Sol_Var, ONLY: t_sol_var
+USE MOD_Globals,ONLY: wp,Unit_stdOut,abort
+USE MOD_sgrid,  ONLY: t_sgrid
+USE MOD_base,   ONLY: t_base
+USE MOD_Sol_Var,ONLY: t_sol_var
 IMPLICIT NONE
 PUBLIC
 
@@ -33,18 +32,13 @@ PUBLIC
 ! TYPES 
 !-----------------------------------------------------------------------------------------------------------------------------------
 
-TYPE :: t_base              
-  CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
-  CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
-END TYPE t_base
-
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! SOLUTION VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-TYPE(t_base)     :: X1base            !! container for base of variable X1
-TYPE(t_base)     :: X2base            !! container for base of variable X2
-TYPE(t_base)     :: LAbase            !! container for base of variable lambda 
+CLASS(t_base),ALLOCATABLE :: X1base            !! container for base of variable X1
+CLASS(t_base),ALLOCATABLE :: X2base            !! container for base of variable X2
+CLASS(t_base),ALLOCATABLE :: LAbase            !! container for base of variable lambda 
                              
 TYPE(t_sgrid)    :: sgrid             !! only one grid up to now
 
