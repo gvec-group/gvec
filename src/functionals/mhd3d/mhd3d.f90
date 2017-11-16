@@ -97,7 +97,10 @@ LA_sincos  = GETSTR(     "LA_sincos","_SIN_")
 
 mn_nyq(1)=MAX(1,fac_nyq*MAX(X1X2_mn_max(1),LA_mn_max(1)))
 mn_nyq(2)=MAX(1,fac_nyq*MAX(X1X2_mn_max(2),LA_mn_max(2)))
-SWRITE(*,'(A,I4,A,I6," , ",I6)')'fac_nyq = ', fac_nyq,' ==> interpolation points mIP,nIP',mn_nyq(:)
+
+SWRITE(UNIT_stdOut,*)
+SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
+SWRITE(UNIT_stdOut,*)
 
 CALL sgrid%init(nElems,grid_type)
 

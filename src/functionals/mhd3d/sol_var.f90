@@ -288,12 +288,19 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)       :: testvar
-  INTEGER        :: iTest
-  TYPE(t_sol_var):: Utest(3)
+  REAL(wp)           :: testvar
+  INTEGER            :: iTest
+  TYPE(t_sol_var)    :: Utest(3)
+  REAL(wp),PARAMETER :: realtol=1.0E-11_wp
+  CHARACTER(LEN=10)  :: fail
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
+  IF(testdbg) THEN
+     Fail=" DEBUG  !!"
+  ELSE
+     Fail=" FAILED !!"
+  END IF
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SOL_VAR TEST ID',nTestCalled,'    >>>>>>>>>'
   IF(testlevel.LE.1)THEN
@@ -302,10 +309,10 @@ IMPLICIT NONE
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     CALL Utest(1)%set_to(0.435_wp)
-    testvar = REAL(SUM(sf%varsize),wp)*(0.435_wp)**2
-    IF(testdbg.OR.(.NOT.( (ABS(SUM(Utest(1)%norm_2())-testvar).LT. 1.0e-12_wp) ))) THEN
+    testvar = (0.435_wp)**2
+    IF(testdbg.OR.(.NOT.( (SUM(Utest(1)%norm_2())/SUM(sf%varsize)-testvar).LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
-      '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,' FAILED !!'
+      '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'((A,3I4),2(A,E11.3))') &
       '   varsize = ',sf%varsize(:), &
       '\n =>  should be ', testvar, ' : norm_2(U=0)= ',SUM(Utest(1)%norm_2())
@@ -323,10 +330,10 @@ IMPLICIT NONE
     CALL Utest(1)%set_to(0.8_wp)
     CALL Utest(2)%set_to(-0.53_wp)
     CALL Utest(3)%AXBY(1.1_wp,Utest(1),-5.5_wp,Utest(2))
-    testvar = SUM(sf%varsize)*(1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2 
-    IF(testdbg.OR.(.NOT.( (ABS(SUM(Utest(3)%norm_2())-testvar).LT. 1.0e-12_wp) ))) THEN
+    testvar = (1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2 
+    IF(testdbg.OR.(.NOT.( (ABS(SUM(Utest(3)%norm_2())/SUM(sf%varsize)-testvar).LT. realtol) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
-      '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,' FAILED !!'
+      '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'((A,3I4),2(A,E11.3))') &
       '   varsize = ',sf%varsize(:), &
       '\n =>  should be ', testvar, ' : norm_2(U%AXBY)= ',SUM(Utest(3)%norm_2())
