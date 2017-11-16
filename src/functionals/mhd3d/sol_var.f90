@@ -333,7 +333,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)           :: testvar
+  REAL(wp)           :: refreal,checkreal
   INTEGER            :: iTest
   TYPE(t_sol_var)    :: Utest(3)
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
@@ -354,13 +354,14 @@ IMPLICIT NONE
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     CALL Utest(1)%set_to(0.435_wp)
-    testvar = (0.435_wp)**2
-    IF(testdbg.OR.(.NOT.( (SUM(Utest(1)%norm_2())/SUM(sf%varsize)-testvar).LT. realtol) )) THEN
+    refreal = (0.435_wp)**2
+    checkreal =SUM(Utest(1)%norm_2())/SUM(sf%varsize)
+    IF(testdbg.OR.(.NOT.( (checkreal-refreal).LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'((A,3I4),2(A,E11.3))') &
       '   varsize = ',sf%varsize(:), &
-      '\n =>  should be ', testvar, ' : norm_2(U=0)= ',SUM(Utest(1)%norm_2())
+      '\n =>  should be ', refreal, ' : norm_2(U=0)= ',checkreal
     END IF !TEST
     CALL Utest(1)%free()
   END IF !testlevel <1
@@ -376,13 +377,14 @@ IMPLICIT NONE
     CALL Utest(1)%set_to(0.8_wp)
     CALL Utest(2)%set_to(-0.53_wp)
     CALL Utest(3)%AXBY(1.1_wp,Utest(1),-5.5_wp,Utest(2))
-    testvar = (1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2 
-    IF(testdbg.OR.(.NOT.( (ABS(SUM(Utest(3)%norm_2())/SUM(sf%varsize)-testvar).LT. realtol) ))) THEN
+    refreal = (1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2 
+    checkreal=SUM(Utest(3)%norm_2())/SUM(sf%varsize)
+    IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SOL_VAR TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'((A,3I4),2(A,E11.3))') &
       '   varsize = ',sf%varsize(:), &
-      '\n =>  should be ', testvar, ' : norm_2(U%AXBY)= ',SUM(Utest(3)%norm_2())
+      '\n =>  should be ', refreal, ' : norm_2(U%AXBY)= ',checkreal
     END IF !TEST
 
     CALL Utest(1)%free()

@@ -24,6 +24,7 @@ MODULE MOD_MHD3D_Vars
 USE MOD_Globals,ONLY:wp,Unit_stdOut,abort
 USE MOD_sgrid, ONLY: t_sgrid
 USE MOD_sbase, ONLY: t_sbase
+USE MOD_fbase, ONLY: t_fbase
 USE MOD_Sol_Var, ONLY: t_sol_var
 IMPLICIT NONE
 PUBLIC
@@ -34,7 +35,7 @@ PUBLIC
 
 TYPE :: t_base              
   CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
-!  CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
+  CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
 END TYPE t_base
 
 
@@ -57,7 +58,6 @@ INTEGER          :: nDOF_X2           !! total number of degrees of freedom, sBa
 INTEGER          :: nDOF_LA           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 
 !===================================================================================================================================
-
 
 END MODULE MOD_MHD3D_Vars
 

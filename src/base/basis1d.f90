@@ -508,7 +508,6 @@ END IF ! (mod(N_in,2) .EQ. 0)
 END SUBROUTINE LegGaussLobNodesAndWeights
 
 
-
 !==================================================================================================================================
 !> Computes barycentric (interpolation) weights for interpolation polynomial given by set of nodes. (Algorithm 30, Kopriva book)
 !==================================================================================================================================

@@ -49,6 +49,7 @@ USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_MHD3D_Vars
 USE MOD_sgrid, ONLY: t_sgrid
 USE MOD_sbase, ONLY: t_sbase,sbase_new
+USE MOD_fbase, ONLY: t_fbase,fbase_new
 USE MOD_ReadInTools,ONLY:GETSTR,GETINT,GETINTARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -63,9 +64,9 @@ INTEGER          :: i,nElems
 INTEGER          :: grid_type
 INTEGER          :: X1X2_deg,X1X2_cont,X1X2_mn_max(2)
 INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
-CHARACTER(LEN=8) :: X1_sincos
-CHARACTER(LEN=8) :: X2_sincos
-CHARACTER(LEN=8) :: LA_sincos
+CHARACTER(LEN=8) :: X1_sin_cos
+CHARACTER(LEN=8) :: X2_sin_cos
+CHARACTER(LEN=8) :: LA_sin_cos
 CHARACTER(LEN=8) :: defstr
 INTEGER          :: degGP,mn_nyq(2),fac_nyq,nfp
 !===================================================================================================================================
@@ -85,15 +86,15 @@ X1X2_deg     = GETINT(     "X1X2_deg","3")
 WRITE(defStr,'(I4)') X1X2_deg-1
 X1X2_cont    = GETINT(     "X1X2_continuity",defStr)
 X1X2_mn_max  = GETINTARRAY("X1X2_mn_max",2,"2 0")
-X1_sincos    = GETSTR(     "X1_sincos","_COS_")  !_SIN_,_COS_,_SINCOS_
-X2_sincos    = GETSTR(     "X2_sincos","_SIN_")
+X1_sin_cos    = GETSTR(     "X1_sin_cos","_cos_")  !_SIN_,_COS_,_sin_cos_
+X2_sin_cos    = GETSTR(     "X2_sin_cos","_sin_")
 
 
 LA_BC   = GETINTARRAY(   "LA_BC",2,"0 0")
 LA_deg     = GETINT(     "LA_deg","3")
 LA_cont    = GETINT(     "LA_continuity","-1")
 LA_mn_max  = GETINTARRAY("LA_mn_max",2,"2 0")
-LA_sincos  = GETSTR(     "LA_sincos","_SIN_")
+LA_sin_cos  = GETSTR(     "LA_sin_cos","_sin_")
 
 mn_nyq(1)=MAX(1,fac_nyq*MAX(X1X2_mn_max(1),LA_mn_max(1)))
 mn_nyq(2)=MAX(1,fac_nyq*MAX(X1X2_mn_max(2),LA_mn_max(2)))
@@ -103,23 +104,26 @@ SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> int
 SWRITE(UNIT_stdOut,*)
 
 CALL sgrid%init(nElems,grid_type)
-
+!sbase
 CALL sbase_new(X1base%s,X1X2_deg,X1X2_cont)
 CALL sbase_new(X2base%s,X1X2_deg,X1X2_cont)
 CALL sbase_new(LAbase%s,LA_deg,LA_cont)
 
-
 CALL X1base%s%init(sgrid,degGP)
 CALL X2base%s%copy(X1base%s)
 CALL LAbase%s%init(sgrid,degGP)
+!fbase
+CALL fbase_new(X1base%f)
+CALL fbase_new(X2base%f)
+CALL fbase_new(LAbase%f)
+                                                    !exclude_mn_zero
+CALL X1base%f%init(X1X2_mn_max,mn_nyq,nfp,X1_sin_cos,.FALSE.)
+CALL X2base%f%init(X1X2_mn_max,mn_nyq,nfp,X2_sin_cos,.FALSE.)
+CALL LAbase%f%init(  LA_mn_max,mn_nyq,nfp,LA_sin_cos,.TRUE. )
 
-!TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
-!TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
-!TODO CALL X1base%f%init(nfp,X1_mn_max,mn_nyq,X1_sincos)
-
-nDOF_X1 = X1base%s%nBase* 1 ! TODO X1base%f%mn_modes
-nDOF_X2 = X2base%s%nBase* 1 ! TODO X2base%f%mn_modes
-nDOF_LA = LAbase%s%nBase* 1 ! TODO LAbase%f%mn_modes
+nDOF_X1 = X1base%s%nBase* X1base%f%modes
+nDOF_X2 = X2base%s%nBase* X2base%f%modes
+nDOF_LA = LAbase%s%nBase* LAbase%f%modes
 
 ALLOCATE(U(-1:1))
 CALL U(1)%init((/nDOF_X1,nDOF_X2,nDOF_LA/))

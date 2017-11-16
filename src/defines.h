@@ -49,3 +49,13 @@
 #define GRID_TYPE_SQRT_S  1 
 #define GRID_TYPE_S2      2 
 #define GRID_TYPE_BUMP    3 
+
+!fbase definitions
+#define _SIN_    1
+#define _COS_    2
+#define _SINCOS_ 3
+
+#define MN_ZERO  0
+#define M_ODD    1
+#define M_EVEN   2
+

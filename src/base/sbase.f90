@@ -137,7 +137,8 @@ END INTERFACE
 
 
 TYPE,EXTENDS(c_sbase) :: t_sBase
-  LOGICAL :: initialized=.FALSE.
+  !---------------------------------------------------------------------------------------------------------------------------------
+  LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   CLASS(t_sgrid),POINTER :: grid  => NULL()        !! pointer to grid 
