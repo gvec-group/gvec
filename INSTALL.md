@@ -3,7 +3,7 @@
 
 ## Prerequisites
 
-GVEC supports Linux-based systems only requires a x86_64
+GVEC supports Linux-based systems only requires a x86\_64
 compliant platform and has been tested on the following platforms:
 
 - Ubuntu 16.04 or newer
@@ -16,8 +16,7 @@ compilers tested with GVEC include
 
 - GNU Compiler Collection 4.6 or newer
 - Intel C/Fortran Compiler 12 or newer (recommended)
-
-GVEC furthermore requires CMake 3.0+ as a build system.
+- CMake 3.0+ as a build system
 
 ### Libraries
 
@@ -36,25 +35,39 @@ GVEC supports CMake as a build system, which should be
 available on most systems. The previously available
 custom Makefile suport has been removed.
 For compiling GVEC, create a new sub-directory,
-e.g. "build" . Inside that directory execute
- 
+e.g. `build` 
+``` 
+   mkdir build ; cd build
+```
+Inside that directory execute
+``` 
    CC=<C-Compiler> FC=<Fortran-Compiler>  ccmake ../
-
+``` 
 Here you can specify library paths and options. If no
 preinstallied libraries for netcdf are found, an error occurs
 Press <c> to configure and <g> to create the Makefiles.
-Finally compile GVEC in the build folder by typing `make`.
+
+Finally compile GVEC in the build folder by typing 
+```
+  make
+```
 
 ### Libraries
 
 Under ubuntu, the following packages should be installed:
 
-- "cmake" and "cmake-curses-gui"
-- "gcc","g++" and "gfortran"
-- "liblapack3" and "liblapack-dev"
-- "zlib1g-dev"
-- "libnetcdf-dev" and "libnetcdff-dev" (for VMEC netcdf datafile readin only)
+- `cmake` and `cmake-curses-gui`
+- `gcc`,`g++` and `gfortran`
+- `liblapack3` and `liblapack-dev`
+- `zlib1g-dev`
+- `libnetcdf-dev` and `libnetcdff-dev` (for VMEC netcdf datafile readin only)
 
 ### Visualization
 
 For line plots, csv datafiles are generated. For plotting 2D and 3D data, we use [paraview](https://www.paraview.org).
+   
+ 
+
+
+
+

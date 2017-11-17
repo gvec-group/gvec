@@ -194,7 +194,6 @@ IMPLICIT NONE
   sf%nfp          = nfp_in
   sf%exclude_mn_zero  = exclude_mn_zero_in
   IF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_SIN_))).NE.0) THEN
-    WRITE(*,*)'DEBUG found _sin_' 
     sf%sin_cos  = _SIN_
     
   ELSEIF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_COS_))).NE.0) THEN

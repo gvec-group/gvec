@@ -86,7 +86,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
       END DO
       SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
     ELSE
-      SWRITE(UNIT_stdOut,'(A)')"   ...   ALL TESTS SUCCESSFULL ..."
+      SWRITE(UNIT_stdOut,'(A)')"   ...   ALL IMPLEMENTED TESTS SUCCESSFULL ..."
     END IF !nFailedMsg
     SWRITE(UNIT_stdout,*)
     SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"

@@ -21,17 +21,17 @@
 !===================================================================================================================================
 MODULE MOD_MHD3D_Vars
 ! MODULES
-USE MOD_Globals,ONLY: wp,Unit_stdOut,abort
+USE MOD_Globals,ONLY: PI,wp,Unit_stdOut,abort
 USE MOD_sgrid,  ONLY: t_sgrid
 USE MOD_base,   ONLY: t_base
 USE MOD_Sol_Var,ONLY: t_sol_var
-USE MOD_hmap,   ONLY: t_hmap
+USE MOD_c_hmap, ONLY: c_hmap
 IMPLICIT NONE
 PUBLIC
 
 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! SOLUTION VARIABLES
+! Globally used variables
 !-----------------------------------------------------------------------------------------------------------------------------------
 CLASS(t_base),ALLOCATABLE :: X1base            !! container for base of variable X1
 CLASS(t_base),ALLOCATABLE :: X2base            !! container for base of variable X2
@@ -48,9 +48,23 @@ INTEGER          :: nDOF_X1           !! total number of degrees of freedom, sBa
 INTEGER          :: nDOF_X2           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER          :: nDOF_LA           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 
-!===================================================================================================================================
 
-CLASS(t_hmap),ALLOCATABLE :: hmap     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+!===================================================================================================================================
+! locally used in functional evaluation only
+
+! input parameters for functional
+INTEGER                 :: which_init        !! =1: use a vmec input for to initialize the variables and get pressure and iota profiles
+INTEGER                 :: NFP               !! number of field periods
+REAL(wp)                :: mu_0              !! permeability
+REAL(wp)                :: gamm              !! isentropic exponent
+REAL(wp)                :: Phi_edge          !! toroidal flux at the last flux surface of the domain
+INTEGER                 :: n_mass_coefs      !! number of polynomial coeffients for mass profile
+INTEGER                 :: n_iota_coefs      !! number of polynomial coeffients for iota profile
+REAL(wp),ALLOCATABLE    :: mass_coefs(:)     !! polynomial coefficients of the mass profile
+REAL(wp),ALLOCATABLE    :: iota_coefs(:)     !! polynomial coefficients of the iota profile
+
+! --- functional evaluation variables
+CLASS(c_hmap),ALLOCATABLE :: hmap     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
 
 
 !===================================================================================================================================
@@ -63,20 +77,20 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_new( sf, which_hmap)
 ! MODULES
-USE MOD_hmap_cylindrical , ONLY:t_hmap_cylindrical
+USE MOD_hmap_RZ , ONLY:t_hmap_RZ
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: which_hmap
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap), ALLOCATABLE,INTENT(INOUT) :: sf !! self
+  CLASS(c_hmap), ALLOCATABLE,INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
   SELECT CASE(which_hmap)
   CASE(1)
-    ALLOCATE(t_hmap_cylindrical :: sf)
+    ALLOCATE(t_hmap_RZ :: sf)
   CASE DEFAULT
     CALL abort(__STAMP__, &
          "this hmap choice does not exist  !")
