@@ -19,22 +19,26 @@
 !! CONTAINS INITIALIZATION OF MHD 3D Energy functional that will be minimized
 !!
 !===================================================================================================================================
-MODULE MOD_Functional
+MODULE MOD_MHD3D
 ! MODULES
 USE MOD_Globals, ONLY:wp
+USE MOD_c_functional,   ONLY: t_functional
 IMPLICIT NONE
-PRIVATE
+PUBLIC
 
-INTERFACE InitFunctional
-  MODULE PROCEDURE InitMHD3D
-END INTERFACE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! TYPES 
+!-----------------------------------------------------------------------------------------------------------------------------------
 
-INTERFACE FinalizeFunctional
-  MODULE PROCEDURE FinalizeMHD3D
-END INTERFACE
+TYPE,EXTENDS(t_functional) :: t_functional_mhd3d
+  !---------------------------------------------------------------------------------------------------------------------------------
+  LOGICAL :: initialized
+  !---------------------------------------------------------------------------------------------------------------------------------
+  CONTAINS
+    PROCEDURE :: init => InitMHD3D
+    PROCEDURE :: free => FinalizeMHD3D
+END TYPE t_functional_mhd3d
 
-PUBLIC::InitFunctional
-PUBLIC::FinalizeFunctional
 !===================================================================================================================================
 
 CONTAINS
@@ -43,7 +47,7 @@ CONTAINS
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE InitMHD3D 
+SUBROUTINE InitMHD3D(sf) 
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_MHD3D_Vars
@@ -53,8 +57,7 @@ USE MOD_ReadInTools,ONLY:GETSTR,GETINT,GETINTARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
+CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -68,6 +71,7 @@ CHARACTER(LEN=8) :: X2_sin_cos
 CHARACTER(LEN=8) :: LA_sin_cos
 CHARACTER(LEN=8) :: defstr
 INTEGER          :: degGP,mn_nyq(2),fac_nyq,nfp
+INTEGER          :: which_hmap 
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
 
@@ -120,6 +124,10 @@ END DO
 CALL U(1)%AXBY(0.4_wp ,U(-1),-0.25_wp,U(0))
 CALL dUdt%copy(U(1))
 
+!hmap
+which_hmap=GETINT("which_hmap","1")
+CALL hmap_new(hmap,which_hmap)
+
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitMHD3D
@@ -129,18 +137,27 @@ END SUBROUTINE InitMHD3D
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeMHD3D 
+SUBROUTINE FinalizeMHD3D(sf) 
 ! MODULES
 USE MOD_MHD3D_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER :: i
 !===================================================================================================================================
+CALL X1base%free()
+CALL X2base%free()
+CALL LAbase%free()
+
+DO i=-1,1
+  CALL U(i)%free()
+END DO
+CALL dUdt%free()
+CALL sgrid%free()
 
 END SUBROUTINE FinalizeMHD3D
 
-END MODULE MOD_Functional
+END MODULE MOD_MHD3D

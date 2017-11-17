@@ -725,7 +725,7 @@ CASE(0)
     y_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=MATMUL(sf%base_GP(   :,:,iElem),DOFs(j:j+deg))
     END ASSOCIATE
   END DO
-CASE(1)
+CASE(DERIV_S)
   DO iElem=1,nElems
     ASSOCIATE(j=>sf%base_offset(iElem))
     y_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=MATMUL(sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
@@ -1230,7 +1230,7 @@ IMPLICIT NONE
     iTest=224 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     y_GP = testf_dx(sf%s_GP) 
-    dof_GP = sf%evalDOF_GP(1,dofs)
+    dof_GP = sf%evalDOF_GP(DERIV_S,dofs)
 
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_GP-dof_GP)).LT.realtol/MINVAL(sf%grid%ds) ))))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &

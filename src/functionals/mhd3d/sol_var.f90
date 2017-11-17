@@ -22,6 +22,7 @@
 MODULE MOD_Sol_Var
 ! MODULES
 USE MOD_Globals,ONLY:wp,Unit_stdOut,abort
+USE MOD_c_sol_var
 IMPLICIT NONE
 PUBLIC
 
@@ -29,73 +30,15 @@ PUBLIC
 ! TYPES 
 !-----------------------------------------------------------------------------------------------------------------------------------
 
-
-TYPE,ABSTRACT :: c_sol_var
-  INTEGER :: nVars
-  CONTAINS
-  PROCEDURE(i_sub_sol_var_init  ),DEFERRED :: init
-  PROCEDURE(i_sub_sol_var       ),DEFERRED :: free
-  PROCEDURE(i_sub_sol_var_set_to_solvar),DEFERRED :: set_to_solvar
-  PROCEDURE(i_sub_sol_var_set_to_scalar),DEFERRED :: set_to_scalar
-  PROCEDURE(i_sub_sol_var_copy  ),DEFERRED :: copy
-  PROCEDURE(i_fun_sol_var_norm_2),DEFERRED :: norm_2
-  PROCEDURE(i_sub_sol_var_AXBY  ),DEFERRED :: AXBY
-END TYPE c_sol_var
-
-ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sol_var_init( sf ,varsize)
-    IMPORT c_sol_var
-    INTEGER         , INTENT(IN   ) :: varsize(:)
-    CLASS(c_sol_var), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sol_var_init
-
-  SUBROUTINE i_sub_sol_var( sf ) 
-    IMPORT c_sol_var
-    CLASS(c_sol_var), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sol_var
-
-  FUNCTION i_fun_sol_var_norm_2( sf ) RESULT(norm_2)
-    IMPORT wp,c_sol_var
-    CLASS(c_sol_var), INTENT(IN   ) :: sf
-    REAL(wp)                       :: norm_2(sf%nvars)
-  END FUNCTION i_fun_sol_var_norm_2
-
-  SUBROUTINE i_sub_sol_var_copy( sf, tocopy ) 
-    IMPORT c_sol_var
-    CLASS(c_sol_var), INTENT(IN   ) :: tocopy
-    CLASS(c_sol_var), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sol_var_copy
-
-  SUBROUTINE i_sub_sol_var_set_to_solvar( sf, toset ,scal_in) 
-    IMPORT wp,c_sol_var
-    CLASS(c_sol_var), INTENT(IN   ) :: toset
-    CLASS(c_sol_var), INTENT(INOUT) :: sf
-    REAL(wp),INTENT(IN),OPTIONAL    :: scal_in
-  END SUBROUTINE i_sub_sol_var_set_to_solvar
-
-  SUBROUTINE i_sub_sol_var_set_to_scalar( sf, scalar ) 
-    IMPORT wp,c_sol_var
-    REAL(wp)        , INTENT(IN   ) :: scalar
-    CLASS(c_sol_var), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sol_var_set_to_scalar
-
-  SUBROUTINE i_sub_sol_var_AXBY( sf, aa, X, bb, Y ) 
-    IMPORT wp,c_sol_var
-    REAL(wp)        , INTENT(IN   ) :: aa
-    CLASS(c_sol_var), INTENT(IN   ) :: X
-    REAL(wp)        , INTENT(IN   ) :: bb
-    CLASS(c_sol_var), INTENT(IN   ) :: Y
-    CLASS(c_sol_var), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_sol_var_AXBY
-END INTERFACE
-
-
 TYPE,EXTENDS(c_sol_var) :: t_sol_var
+  !---------------------------------------------------------------------------------------------------------------------------------
+  LOGICAL               :: initialized=.FALSE.
+  !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp) ,ALLOCATABLE :: X1(:)    !! X1 variable, size (base_f%mn_mode*base_s%nBase)
   REAL(wp) ,ALLOCATABLE :: X2(:)    !! X2 variable 
   REAL(wp) ,ALLOCATABLE :: LA(:)    !! lambda variable
-  LOGICAL               :: initialized=.FALSE.
   INTEGER, ALLOCATABLE  :: varsize(:)
+  !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
   PROCEDURE  :: init   => sol_var_init
@@ -106,6 +49,7 @@ TYPE,EXTENDS(c_sol_var) :: t_sol_var
   GENERIC    :: set_to => set_to_solvar,set_to_scalar  !chooses right routine depending on input type!
   PROCEDURE  :: norm_2 => sol_var_norm_2  
   PROCEDURE  :: AXBY   => sol_var_AXBY
+  !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_sol_var
 
 LOGICAL :: test_called=.FALSE.

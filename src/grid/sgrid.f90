@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MOD_sGrid
 ! MODULES
-USE MOD_Globals    ,ONLY:wp
+USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
 IMPLICIT NONE
 
 PUBLIC
@@ -96,8 +96,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
 ! MODULES
-USE MOD_GLobals, ONLY: PI,Unit_stdOut,abort
-USE MOD_GLobals, ONLY: testlevel,nfailedMsg,testfailedMsg
+USE MOD_GLobals, ONLY: PI
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -192,7 +191,6 @@ END SUBROUTINE sGrid_free
 !===================================================================================================================================
 SUBROUTINE sGrid_copy( sf , tocopy)
 ! MODULES
-USE MOD_GLobals, ONLY: Unit_stdOut,abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -224,7 +222,6 @@ END SUBROUTINE sGrid_copy
 !===================================================================================================================================
 FUNCTION sGrid_find_elem( sf , x) RESULT(iElem)
 ! MODULES
-USE MOD_GLobals, ONLY: Unit_stdOut,abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES

@@ -23,14 +23,16 @@ USE MOD_Globals
 USE MOD_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
 USE MOD_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
-USE MOD_Functional ,ONLY: InitFunctional,FinalizeFunctional
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MOD_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
+USE MOD_Functional
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
 INTEGER                 :: i,nArgs
 CHARACTER(LEN=255)      :: Parameterfile
+INTEGER                 :: which_functional
+CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
   nArgs=COMMAND_ARGUMENT_COUNT()
   IF(nArgs.EQ.1)THEN
@@ -69,7 +71,8 @@ CHARACTER(LEN=255)      :: Parameterfile
   CALL InitAnalyze()
   CALL InitMHDEQ()
   
-  CALL InitFunctional()
+  which_functional=GETINT('which_functional','1')
+  CALL InitFunctional(functional,which_functional)
   
   CALL IgnoredStrings()
   ! do something
@@ -93,7 +96,7 @@ CHARACTER(LEN=255)      :: Parameterfile
   !finalization phase
   CALL Analyze()
   
-  CALL FinalizeFunctional()
+  CALL FinalizeFunctional(functional)
   
   CALL FinalizeMHDEQ()
   CALL FinalizeAnalyze()

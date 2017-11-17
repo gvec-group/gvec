@@ -14,78 +14,73 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** MHD3D Variables **
+!!# Module ** functional **
 !!
-!!
+!! contains the routines to initialize and finalize the functional
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D_Vars
+MODULE MOD_functional
 ! MODULES
-USE MOD_Globals,ONLY: wp,Unit_stdOut,abort
-USE MOD_sgrid,  ONLY: t_sgrid
-USE MOD_base,   ONLY: t_base
-USE MOD_Sol_Var,ONLY: t_sol_var
-USE MOD_hmap,   ONLY: t_hmap
+USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MOD_c_functional
+USE MOD_MHD3D, ONLY :t_functional_mhd3d
 IMPLICIT NONE
+
 PUBLIC
-
-
-!-----------------------------------------------------------------------------------------------------------------------------------
-! SOLUTION VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-CLASS(t_base),ALLOCATABLE :: X1base            !! container for base of variable X1
-CLASS(t_base),ALLOCATABLE :: X2base            !! container for base of variable X2
-CLASS(t_base),ALLOCATABLE :: LAbase            !! container for base of variable lambda 
-                             
-TYPE(t_sgrid)    :: sgrid             !! only one grid up to now
-
-TYPE(t_sol_var),ALLOCATABLE  :: U(:)  !! solutions at levels (k-1),(k),(k+1)
-TYPE(t_sol_var)              :: dUdt  !! solution update
-
-INTEGER          :: X1X2_BC(2)        !! BC axis (0) and edge (1)   for variables X1 and X2
-INTEGER          :: LA_BC(2)          !! BC axis (0) and edge (1)   for variable lambda
-INTEGER          :: nDOF_X1           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
-INTEGER          :: nDOF_X2           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
-INTEGER          :: nDOF_LA           !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
-
-!===================================================================================================================================
-
-CLASS(t_hmap),ALLOCATABLE :: hmap     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
-
 
 !===================================================================================================================================
 
 CONTAINS
 
+
 !===================================================================================================================================
-!> initialize the type hmap with number of elements
+!> initialize the type functional with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_new( sf, which_hmap)
+SUBROUTINE InitFunctional(sf, which_functional)
 ! MODULES
-USE MOD_hmap_cylindrical , ONLY:t_hmap_cylindrical
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: which_hmap
+  INTEGER       , INTENT(IN   ) :: which_functional
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap), ALLOCATABLE,INTENT(INOUT) :: sf !! self
+  CLASS(t_functional), ALLOCATABLE,INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT CASE(which_hmap)
+  SELECT CASE(which_functional)
   CASE(1)
-    ALLOCATE(t_hmap_cylindrical :: sf)
+    ALLOCATE(t_functional_mhd3d :: sf)
   CASE DEFAULT
     CALL abort(__STAMP__, &
-         "this hmap choice does not exist  !")
+         "this functional choice does not exist (MHD3D=1) !")
   END SELECT 
-  sf%which_hmap=which_hmap
+
+  sf%which_functional=which_functional
   CALL sf%init()
 
-END SUBROUTINE hmap_new
+END SUBROUTINE InitFunctional
 
 
-END MODULE MOD_MHD3D_Vars
+!===================================================================================================================================
+!> finalize the type functional
+!!
+!===================================================================================================================================
+SUBROUTINE FinalizeFunctional(sf)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_functional), ALLOCATABLE,INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  CALL sf%free()
+
+END SUBROUTINE FinalizeFunctional
+
+END MODULE MOD_functional
 

@@ -123,6 +123,10 @@ END TYPE t_fBase
 
 LOGICAL  :: test_called=.FALSE.
 
+CHARACTER(LEN=8)   :: sin_cos_map(3)=(/"_sin_   ", &
+                                       "_cos_   ", &
+                                       "_sincos_" /)
+
 !===================================================================================================================================
 
 CONTAINS
@@ -189,13 +193,13 @@ IMPLICIT NONE
   sf%mn_IP        = sf%mn_nyq(1)*sf%mn_nyq(2)
   sf%nfp          = nfp_in
   sf%exclude_mn_zero  = exclude_mn_zero_in
-  IF(INDEX(TRIM(sin_cos_in),"_sin_").NE.0) THEN
+  IF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_SIN_))).NE.0) THEN
     WRITE(*,*)'DEBUG found _sin_' 
     sf%sin_cos  = _SIN_
     
-  ELSEIF(INDEX(TRIM(sin_cos_in),"_cos_").NE.0) THEN
+  ELSEIF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_COS_))).NE.0) THEN
     sf%sin_cos  = _COS_
-  ELSEIF(INDEX(TRIM(sin_cos_in),"_sincos_").NE.0) THEN
+  ELSEIF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_SINCOS_))).NE.0) THEN
     sf%sin_cos  = _SINCOS_
   ELSE 
     CALL abort(__STAMP__, &
@@ -221,10 +225,10 @@ IMPLICIT NONE
   CASE(_SIN_)
     modes        = modes_sin 
     sin_range(:) = (/0,modes_sin/)
-    cos_range(:) = (/0,-1/) !off
+    cos_range(:) = (/0,0/) !off
   CASE(_COS_)
     modes         = modes_cos 
-    sin_range(:) = (/0,-1/) !off
+    sin_range(:) = (/0,0/) !off
     cos_range(:) = (/0,modes_cos/)
   CASE(_SINCOS_)
     modes        = modes_sin+modes_cos 
@@ -444,9 +448,9 @@ IMPLICIT NONE
   SELECT CASE(deriv)
   CASE(0)
     y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
-  CASE(2)
+  CASE(DERIV_THET)
     y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
-  CASE(3)
+  CASE(DERIV_ZETA)
     y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
   END SELECT
 END FUNCTION fBase_evalDOF_IP
@@ -489,10 +493,12 @@ IMPLICIT NONE
   CLASS(t_fBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER            :: iTest,iMode,jMode
+  INTEGER            :: iTest,iMode,jMode,ncoszero,nsinzero
   REAL(wp)           :: checkreal,refreal
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
+  REAL(wp)           :: dofs(1:sf%modes)
+  REAL(wp)           :: g_IP(1:sf%mn_IP)
 !===================================================================================================================================
   test_called=.TRUE. !avoid infinite loop if init is called here
   IF(testlevel.LE.0) RETURN
@@ -507,9 +513,12 @@ IMPLICIT NONE
             , n_max      => sf%mn_max(2)  &
             , m_nyq      => sf%mn_nyq(1)  &
             , n_nyq      => sf%mn_nyq(2)  &
-            , nfp         => sf%nfp       &
-            , sin_cos     => sf%sin_cos   &
-            , modes       => sf%modes     &
+            , mn_IP      => sf%mn_IP      &
+            , nfp        => sf%nfp        &
+            , sin_cos    => sf%sin_cos    &
+            , sin_range  => sf%sin_range  &
+            , cos_range  => sf%cos_range  &
+            , modes      => sf%modes      &
             )
   IF(testlevel.LE.1)THEN
 
@@ -519,7 +528,7 @@ IMPLICIT NONE
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
-      '\n!! fBase TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,2(A,I4),2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
@@ -541,34 +550,141 @@ IMPLICIT NONE
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
-      '\n!! fBase TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,2(A,I4),2(A,E11.3))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
-       ' ,  sin/cos : ', sin_cos, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base(jmode), 0, 2pi),0,2pi/nfp)= ', checkreal
     END IF !TEST
 
     iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     checkreal=0.0_wp
-    DO iMode=1,modes
-      checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_IP(:,iMode))))
+    nsinzero=0
+    DO iMode=sin_range(1)+1,sin_range(2)
+      checkreal=checkreal+   ((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_IP(:,iMode)))
+      IF(sf%zero_odd_even(iMode).EQ.MN_ZERO) nsinzero=nsinzero+1
     END DO
-    refreal=(TWOPI)**2
+    ncoszero=0
+    DO iMode=cos_range(1)+1,cos_range(2)
+      checkreal=checkreal+   ((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_IP(:,iMode)))
+      IF(sf%zero_odd_even(iMode).EQ.MN_ZERO) ncoszero=ncoszero+1
+    END DO
+    checkreal=checkreal/REAL(modes,wp)
+    refreal=(TWOPI)**2 *( 0.5*(REAL(cos_range(2)-cos_range(1)-ncoszero,wp) + REAL(sin_range(2)-sin_range(1),wp))  &
+                         +REAL(ncoszero,wp) )/REAL(modes,wp)
+
+    IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol).AND. & 
+                          (nsinzero              .EQ. 0      )      ))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,(A,I4),2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+       '\n =>  should be  0 : nsinzero = ', nsinzero,  &
+       '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base(imode), 0, 2pi),0,2pi/nfp)= ', checkreal
+    END IF !TEST
+
+    iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    checkreal=0.0_wp
+    DO iMode=1,modes
+      DO jMode=1,modes
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dthet_IP(:,jMode))))
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dzeta_IP(:,jMode))))
+      END DO
+    END DO
+    refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
-      '\n!! fBase TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,2(A,I4),2(A,E11.3))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
-       ' ,  sin/cos : ', sin_cos, &
-      '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base(imode), 0, 2pi),0,2pi/nfp)= ', checkreal
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base_dthet/dzeta(jmode), 0, 2pi),0,2pi/nfp)= ', checkreal
     END IF !TEST
   END IF !testlevel <=1
+  IF (testlevel .LE.2)THEN
+
+    iTest=201 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    g_IP=0.
+    DO iMode=sin_range(1)+1,sin_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+    END DO !iMode 
+    DO iMode=cos_range(1)+1,cos_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+    END DO !iMode 
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(0,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF(dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=202 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    g_IP=0.
+    DO iMode=sin_range(1)+1,sin_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(sf%Xmn(1,iMode),wp)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+    END DO !iMode 
+    DO iMode=cos_range(1)+1,cos_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-sf%Xmn(1,iMode),wp)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+    END DO !iMode 
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_THET,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet(dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=203 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    g_IP=0.
+    DO iMode=sin_range(1)+1,sin_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-sf%Xmn(2,iMode),wp)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+    END DO !iMode 
+    DO iMode=cos_range(1)+1,cos_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL( sf%Xmn(2,iMode),wp)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+    END DO !iMode 
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_ZETA,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet(dofs)|) ', checkreal
+    END IF !TEST
+  END IF !testlevel <=2
   END ASSOCIATE !sf
-   
+  test_called=.FALSE.   
+
 END SUBROUTINE fBase_test
 
 

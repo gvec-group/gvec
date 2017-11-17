@@ -53,12 +53,11 @@ ENDMACRO()
 
 #generate lists of subfolders to be used as choices for the variables of the configuration
 
-SUBDIRLIST(FUNCTIONALS  ${CMAKE_CURRENT_SOURCE_DIR}/src/functionals/)
-
-
-SET(   FUNCTIONAL   "mhd3d"      CACHE STRING
-                        "Name of functional to be used, must be identical to subdirectory name in src/functionals folder.")
-SET_PROPERTY(CACHE FUNCTIONAL PROPERTY STRINGS ${FUNCTIONALS})
+#SUBDIRLIST(FUNCTIONALS  ${CMAKE_CURRENT_SOURCE_DIR}/src/functionals/)
+#
+#SET(   FUNCTIONAL   "mhd3d"      CACHE STRING
+#                        "Name of functional to be used, must be identical to subdirectory name in src/functionals folder.")
+#SET_PROPERTY(CACHE FUNCTIONAL PROPERTY STRINGS ${FUNCTIONALS})
 
 OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 
@@ -187,14 +186,7 @@ endfunction()
 # include defines.h 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
 
-FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90 
-                          ./src/functionals/${FUNCTIONAL}/*.f90
-                          ./src/base/bsplines/*.f90
-                          ./src/base/*.f90
-                          ./src/grid/*.f90
-                          ./src/mhdeq/*.f90
-                          ./src/output/*.f90
-                          ./src/analyze/*.f90            )
+FILE(GLOB_RECURSE mainF90 ./src/*.f90 )
 
 
 # define libs

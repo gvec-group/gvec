@@ -210,8 +210,8 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                      :: iGP,iMode
-  INTEGER,PARAMETER            :: deriv_map_GP(0:3)=(/0,1,0,0/) !map input deriv to ds deriv
-  INTEGER,PARAMETER            :: deriv_map_IP(0:3)=(/0,0,2,3/) !map input deriv to dtheta/dzeta deriv
+  INTEGER,PARAMETER            :: deriv_map_GP(0:3)=(/0,DERIV_S,         0,         0/) !map input deriv to ds deriv
+  INTEGER,PARAMETER            :: deriv_map_IP(0:3)=(/0,      0,DERIV_THET,DERIV_ZETA/) !map input deriv to dtheta/dzeta deriv
   REAL(wp)                     :: y_tmp(1:sf%f%modes,sf%s%nGP)
 !===================================================================================================================================
   DO iMode=1,sf%f%modes
@@ -261,21 +261,23 @@ IMPLICIT NONE
   IF(testlevel.LE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-
+    g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
       g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(iMode,:)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
-      g_IP_GP(:,iGP)=SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                     (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+        g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
+                       +SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
+                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
       g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(iMode,:)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
-        g_IP_GP(:,iGP)=COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                       (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+        g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
+                       +COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
+                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
 
