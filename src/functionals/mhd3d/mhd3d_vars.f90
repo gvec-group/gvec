@@ -77,7 +77,8 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_new( sf, which_hmap)
 ! MODULES
-USE MOD_hmap_RZ , ONLY:t_hmap_RZ
+USE MOD_hmap_RZ,   ONLY:t_hmap_RZ
+USE MOD_hmap_knot, ONLY:t_hmap_knot
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -91,6 +92,8 @@ IMPLICIT NONE
   SELECT CASE(which_hmap)
   CASE(1)
     ALLOCATE(t_hmap_RZ :: sf)
+  CASE(2)
+    ALLOCATE(t_hmap_knot :: sf)
   CASE DEFAULT
     CALL abort(__STAMP__, &
          "this hmap choice does not exist  !")

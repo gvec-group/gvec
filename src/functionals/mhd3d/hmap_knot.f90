@@ -1,0 +1,310 @@
+!===================================================================================================================================
+! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+!
+! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
+! of the License, or (at your option) any later version.
+!
+! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+! of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License v3.0 for more details.
+!
+! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
+!=================================================================================================================================
+#include "defines.h"
+
+!===================================================================================================================================
+!>
+!!# Module ** hmap_knot **
+!!
+!! contains the type that points to the routines of one chosen hmap_knot
+!!
+!===================================================================================================================================
+MODULE MOD_hmap_knot
+! MODULES
+USE MOD_Globals, ONLY:PI,wp,Unit_stdOut,abort
+USE MOD_c_hmap,    ONLY:c_hmap
+IMPLICIT NONE
+
+PUBLIC
+ 
+
+TYPE,EXTENDS(c_hmap) :: t_hmap_knot
+  !---------------------------------------------------------------------------------------------------------------------------------
+  LOGICAL :: initialized=.FALSE.
+  !---------------------------------------------------------------------------------------------------------------------------------
+  ! parameters for hmap_knot:
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  CONTAINS
+
+  PROCEDURE :: init          => hmap_knot_init
+  PROCEDURE :: free          => hmap_knot_free
+  PROCEDURE :: eval          => hmap_knot_eval          
+  PROCEDURE :: eval_Jh       => hmap_knot_eval_Jh       
+  PROCEDURE :: eval_Jh_dq1   => hmap_knot_eval_Jh_dq1    
+  PROCEDURE :: eval_Jh_dq2   => hmap_knot_eval_Jh_dq2    
+  PROCEDURE :: eval_gij      => hmap_knot_eval_gij      
+  PROCEDURE :: eval_gij_dq1  => hmap_knot_eval_gij_dq1  
+  PROCEDURE :: eval_gij_dq2  => hmap_knot_eval_gij_dq2  
+  !---------------------------------------------------------------------------------------------------------------------------------
+END TYPE t_hmap_knot
+
+LOGICAL :: test_called=.FALSE.
+
+!===================================================================================================================================
+
+CONTAINS
+
+!===================================================================================================================================
+!> initialize the type hmap_knot with number of elements
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_knot_init( sf)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ...'
+
+  sf%initialized=.TRUE.
+  SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
+  IF(.NOT.test_called) CALL hmap_knot_test(sf)
+
+END SUBROUTINE hmap_knot_init
+
+
+!===================================================================================================================================
+!> finalize the type hmap_knot
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_knot_free( sf )
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  IF(.NOT.sf%initialized) RETURN
+
+  sf%initialized=.FALSE.
+
+END SUBROUTINE hmap_knot_free
+
+!===================================================================================================================================
+!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) 
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval( sf ,q_in) RESULT(x_out)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: x_out(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+!  !  q= (R,Z,zeta)
+!  ! |x |  | R*sin(zeta) |
+!  ! |y |= |-R*cos(zeta) |
+!  ! |z |  | Z           |
+!
+!  ASSOCIATE(R=>q_in(1),Z=>q_in(2),zeta=>q_in(3))
+!  x_out(1:3)=(/ R*COS(zeta), &
+!               -R*SIN(zeta), &
+!                Z           /)
+!  END ASSOCIATE
+x_out(3)=0.0_wp !?????
+END FUNCTION hmap_knot_eval
+
+!===================================================================================================================================
+!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta) 
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval_Jh( sf ,q_in) RESULT(Jh)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: Jh
+!===================================================================================================================================
+  Jh=0.0_wp !?????
+END FUNCTION hmap_knot_eval_Jh
+
+
+!===================================================================================================================================
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta) 
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: Jh_dq1
+!===================================================================================================================================
+  Jh_dq1 = 0.0_wp !????
+END FUNCTION hmap_knot_eval_Jh_dq1
+
+!===================================================================================================================================
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta) 
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: Jh_dq2
+!===================================================================================================================================
+  Jh_dq2 = 0.0_wp !????
+END FUNCTION hmap_knot_eval_Jh_dq2
+
+
+!===================================================================================================================================
+!>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
+  REAL(wp)        , INTENT(IN   ) :: q_G(3)
+  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: g_ab
+!===================================================================================================================================
+  !                       |R   |   |1  0  0   |        |R   |  
+  !q_i G_ij q_j = (dalpha |Z   | ) |0  1  0   | (dbeta |Z   | )
+  !                       |zeta|   |0  0  R^2 |        |zeta|  
+  g_ab=0.0_wp !????
+END FUNCTION hmap_knot_eval_gij
+
+
+!===================================================================================================================================
+!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
+  REAL(wp)        , INTENT(IN   ) :: q_G(3)
+  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: g_ab_dq1
+!===================================================================================================================================
+  !                            |R   |   |0  0  0   |        |R   |  
+  !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0   | (dbeta |Z   | )
+  !                            |zeta|   |0  0  2*R |        |zeta|  
+  g_ab_dq1=0.0_wp !???
+END FUNCTION hmap_knot_eval_gij_dq1
+
+
+!===================================================================================================================================
+!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
+  REAL(wp)        , INTENT(IN   ) :: q_G(3)
+  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: g_ab_dq2
+!===================================================================================================================================
+  !                            |R   |   |0  0  0  |        |R   |  
+  !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0  | (dbeta |Z   | ) =0
+  !                            |zeta|   |0  0  0  |        |zeta|  
+  g_ab_dq2=0.0_wp !???
+END FUNCTION hmap_knot_eval_gij_dq2
+
+
+!===================================================================================================================================
+!> test hmap_knot 
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_knot_test( sf )
+USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testfailedMsg
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf  !!self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER            :: iTest
+  REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
+  REAL(wp),PARAMETER :: realtol=1.0E-11_wp
+  CHARACTER(LEN=10)  :: fail
+!===================================================================================================================================
+  test_called=.TRUE. ! to prevent infinite loop in this routine
+  IF(testlevel.LE.0) RETURN
+  IF(testdbg) THEN
+     Fail=" DEBUG  !!"
+  ELSE
+     Fail=" FAILED !!"
+  END IF
+  nTestCalled=nTestCalled+1
+  SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN hmap_knot TEST ID',nTestCalled,'    >>>>>>>>>'
+  IF(testlevel.LE.1)THEN
+
+    iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    q_in=(/0.1_wp,-0.2_wp,0.5_wp*Pi/)
+    x = sf%eval(q_in )
+!   checkreal=SUM((x-(/q_in(1)*COS(q_in(3)),-q_in(1)*SIN(q_in(3)),q_in(2)/))**2)
+!    refreal  =0.0_wp
+!
+!    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+!      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+!      '\n!! hmap_knot TEST ID',nTestCalled ,': TEST ',iTest,Fail
+!      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,E11.3))') &
+!      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
+!    END IF !TEST
+
+  END IF !testlevel <1
+
+  test_called=.FALSE. ! to prevent infinite loop in this routine
+
+
+END SUBROUTINE hmap_knot_test
+
+END MODULE MOD_hmap_knot
+
