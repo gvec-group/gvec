@@ -49,7 +49,7 @@ e.g. `build`
 ```
 Inside that directory execute
 ``` 
-   CC=<C-Compiler> FC=<Fortran-Compiler>  ccmake ../
+   ccmake ../
 ``` 
 Here you can specify library paths and options. If no
 preinstallied libraries for netcdf are found, an error occurs
