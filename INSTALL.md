@@ -29,6 +29,14 @@ otherwise, including their development headers:
 - Fortran netcdf library
 
 
+Under ubuntu, the following packages should be installed:
+
+- `cmake` and `cmake-curses-gui`
+- `gcc`,`g++` and `gfortran`
+- `liblapack3` and `liblapack-dev`
+- `zlib1g-dev`
+- `libnetcdf-dev` and `libnetcdff-dev` (for VMEC netcdf datafile readin only)
+
 ## Compiling GVEC
 
 GVEC supports CMake as a build system, which should be
@@ -51,16 +59,6 @@ Finally compile GVEC in the build folder by typing
 ```
   make
 ```
-
-### Libraries
-
-Under ubuntu, the following packages should be installed:
-
-- `cmake` and `cmake-curses-gui`
-- `gcc`,`g++` and `gfortran`
-- `liblapack3` and `liblapack-dev`
-- `zlib1g-dev`
-- `libnetcdf-dev` and `libnetcdff-dev` (for VMEC netcdf datafile readin only)
 
 ### Visualization
 
