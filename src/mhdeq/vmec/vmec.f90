@@ -145,7 +145,7 @@ IF(lasym)THEN
   
 END IF
 
-relambda=GETLOGICAL("VMEC_relambda",".TRUE.")
+relambda=GETLOGICAL("VMEC_relambda",".FALSE.")
 IF(relambda) nyq=GETINT("VMEC_Lam_nyq","4")
 
 ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))

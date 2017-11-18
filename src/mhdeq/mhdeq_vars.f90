@@ -27,7 +27,7 @@ IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
-INTEGER              :: WhichEquilibrium          !! 0: do nothing (default), 1: use VMEC data, 2: use Solov'ev equilibrium
+INTEGER              :: WhichInitEquilibrium      !! 0: no input read (default), 1: use VMEC data, 2: use Solov'ev equilibrium
 INTEGER              :: InputCoordSys             !! 0: x_in(1:3)=(x,y,z) with r^2=x^2+y^2,r=[0,1], z=[0,1]
                                                   !! 1: x_in(1:3)= (rho,zeta,theta) rho[0,1],zeta[0,1],theta[0,1] 
 LOGICAL              :: useMHDEQ                  !! =(whichEquilibrium>0)

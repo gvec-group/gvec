@@ -64,8 +64,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
-visuVMEC1D    = GETINT('visuVMEC1D','1')   
-visuVMEC2D    = GETINT('visuVMEC2D','0')   
+visu1D    = GETINT('visu1D','1')   
+visu2D    = GETINT('visu2D','0')   
+visu3D    = GETINT('visu3D','0')   
 
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
@@ -79,6 +80,7 @@ END SUBROUTINE InitAnalyze
 SUBROUTINE Analyze()
 ! MODULES
 USE MOD_Analyze_Vars
+USE MOD_mhdeq_vars, ONLY:whichInitEquilibrium
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -87,9 +89,14 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-IF(visuVMEC1D.NE.0)THEN
-  CALL VMEC1D_visu() 
-END IF !visuVMEC1D
+IF(visu1D.NE.0)THEN
+  SELECT CASE(whichInitEquilibrium)
+  CASE(0) !own input data
+    !
+  CASE(1)
+    CALL VMEC1D_visu() 
+  END SELECT
+END IF !visu1D
 
 END SUBROUTINE Analyze 
 
@@ -101,7 +108,7 @@ END SUBROUTINE Analyze
 SUBROUTINE VMEC1D_visu()
 ! MODULES
 USE MOD_Globals,ONLY:Pi
-USE MOD_Analyze_Vars, ONLY:visuVMEC1D
+USE MOD_Analyze_Vars, ONLY:visu1D
 USE MOD_Output_Vars, ONLY:ProjectName
 USE MOD_VMEC_Readin
 USE MOD_VMEC_Vars
@@ -122,15 +129,15 @@ REAL(wp)           :: rho_int(n_int),rho_half(nFluxVMEC)
 LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
 !===================================================================================================================================
-!visuVmec1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
-WRITE(vstr,'(I4)')visuVmec1D
+!visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
+WRITE(vstr,'(I4)')visu1D
 vcase=.FALSE.
 IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
 IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
 IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
 IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
 IF(.NOT.(ANY(vcase))) THEN
-  WRITE(*,*)'visuVmec1D case not found:',visuVmec1D,' nothing visualized...'
+  WRITE(*,*)'visu1D case not found:',visu1D,' nothing visualized...'
   RETURN
 END IF
 

@@ -70,12 +70,12 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT MHD EQUILIBRIUM INPUT ...'
-whichEquilibrium    = GETINT('whichEquilibrium','0')   
-IF(WhichEquilibrium.EQ.0) THEN 
-  SWRITE(UNIT_stdOut,'(A)')'... NOTHING TO BE DONE'
+whichInitEquilibrium    = GETINT('whichInitEquilibrium','0')   
+IF(WhichInitEquilibrium.EQ.0) THEN 
+  SWRITE(UNIT_stdOut,'(4X,A)')'... NOTHING TO BE DONE HERE ...'
   RETURN
 END IF
-SELECT CASE(whichEquilibrium)
+SELECT CASE(whichInitEquilibrium)
 CASE(1)
   useMHDEQ=.TRUE.
   SWRITE(*,*)'Using VMEC as equilibrium solution...'
@@ -85,7 +85,7 @@ CASE(2)
   SWRITE(*,*)'Using Soloviev as equilibrium solution...'
   CALL InitSolov()
 CASE DEFAULT
-  SWRITE(*,*)'WARNING: No Equilibrium solution for which Equilibrium= ', whichEquilibrium
+  SWRITE(*,*)'WARNING: No Equilibrium solution for which Equilibrium= ', whichInitEquilibrium
   STOP
 END SELECT
   !density coefficients of the polynomial coefficients: rho_1+rho_2*x + rho_3*x^2 ...
@@ -112,7 +112,7 @@ END SUBROUTINE InitMHDEQ
 SUBROUTINE MapToMHDEQ(nTotal,x_in,x_out,MHDEQdata)
 ! MODULES
 USE MOD_Globals, ONLY:wp
-USE MOD_MHDEQ_Vars, ONLY: nVarMHDEQ,whichEquilibrium,InputCoordSys
+USE MOD_MHDEQ_Vars, ONLY: nVarMHDEQ,whichInitEquilibrium,InputCoordSys
 USE MOD_VMEC, ONLY:MapToVMEC
 USE MOD_Solov, ONLY:MapToSolov
 IMPLICIT NONE
@@ -127,7 +127,7 @@ REAL(wp),INTENT(OUT) :: MHDEQdata(nVarMHDEQ,nTotal) !! output data
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SELECT CASE(whichEquilibrium)
+SELECT CASE(whichInitEquilibrium)
 CASE(1)
   CALL MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 CASE(2)
@@ -153,7 +153,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SELECT CASE(whichEquilibrium)
+SELECT CASE(whichInitEquilibrium)
 CASE(1)
   CALL FinalizeVMEC()
 CASE(2)

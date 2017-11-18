@@ -51,6 +51,7 @@ SUBROUTINE InitMHD3D(sf)
 ! MODULES
 USE MOD_Globals,ONLY:PI
 USE MOD_MHD3D_Vars
+USE MOD_mhdeq_Vars, ONLY: whichInitEquilibrium
 USE MOD_sgrid, ONLY: t_sgrid
 USE MOD_base,  ONLY: t_base,base_new
 USE MOD_ReadInTools,ONLY:GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
@@ -88,47 +89,49 @@ INTEGER          :: which_hmap
   
   mu_0    = 4.0e-07_wp*PI
   
-  which_init = GETINT("which_init","0")
+!  which_init = GETINT("which_init","0")
   
   !hmap
-  SELECT CASE(which_init)
+  which_hmap=GETINT("which_hmap","1")
+  CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.0 -0.5") !a+b*s+c*s^2...
+  CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.1 0.2 0.1") !a+b*s+c*s^2...
+  SELECT CASE(whichInitEquilibrium)
   CASE(0)
-    which_hmap=GETINT("which_hmap","1")
-    CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.0 -0.5") !a+b*s+c*s^2...
-    CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.1 0.2 0.1") !a+b*s+c*s^2...
-   
-!  CASE(1) !VMEC init
-!    which_hmap=1 !hmap_RZ
-  CASE DEFAULT
-    CALL abort(__STAMP__, &
-         "the choice for which_init input parameter does not exist!")
-  END SELECT
+    
+  CASE(1) !VMEC init
+    which_hmap=1 !hmap_RZ
+  END SELECT !whichInitEquilibrium
+
   CALL hmap_new(hmap,which_hmap)
   
-  X1X2_BC   = GETINTARRAY(   "X1X2_BC",2,"0 1")
   
-  X1X2_deg     = GETINT(     "X1X2_deg","3")
+  X1X2_deg     = GETINT(     "X1X2_deg")
   WRITE(defStr,'(I4)') X1X2_deg-1
   X1X2_cont    = GETINT(     "X1X2_continuity",defStr)
+  X1X2_BC      = GETINTARRAY("X1X2_BC",2,"0 1")
   X1X2_mn_max  = GETINTARRAY("X1X2_mn_max",2,"2 0")
-
-  SELECT CASE(which_init)
+  X1_sin_cos   = GETSTR(     "X1_sin_cos","_cos_")  !_sin_,_cos_,_sin_cos_
+  X2_sin_cos   = GETSTR(     "X2_sin_cos","_sin_")
+  SELECT CASE(whichInitEquilibrium)
   CASE(0)
-    X1_sin_cos    = GETSTR(     "X1_sin_cos","_cos_")  !_SIN_,_COS_,_sin_cos_
-    X2_sin_cos    = GETSTR(     "X2_sin_cos","_sin_")
-!  CASE(1) !VMEC
-  END SELECT !which_init
+  CASE(1) !VMEC
+!    X1X2_mn_max  = 
+!    X1_sin_cos   = ? 
+!    X2_sin_cos   = ?
+  END SELECT !whichInitEquilibrium
   
   
-  LA_BC   = GETINTARRAY(   "LA_BC",2,"0 0")
-  LA_deg     = GETINT(     "LA_deg","3")
+  LA_deg     = GETINT(     "LA_deg")
   LA_cont    = GETINT(     "LA_continuity","-1")
+  LA_BC      = GETINTARRAY("LA_BC",2,"0 0")
   LA_mn_max  = GETINTARRAY("LA_mn_max",2,"2 0")
-  SELECT CASE(which_init)
+  LA_sin_cos = GETSTR(     "LA_sin_cos","_sin_")
+  SELECT CASE(whichInitEquilibrium)
   CASE(0)
-    LA_sin_cos  = GETSTR(     "LA_sin_cos","_sin_")
-!  CASE(1) !VMEC
-  END SELECT !which_init
+  CASE(1) !VMEC
+!  LA_mn_max  = 
+!  LA_sin_cos = ? 
+  END SELECT !whichInitEquilibrium
   
   mn_nyq(1)=MAX(1,fac_nyq*MAX(X1X2_mn_max(1),LA_mn_max(1)))
   mn_nyq(2)=MAX(1,fac_nyq*MAX(X1X2_mn_max(2),LA_mn_max(2)))
@@ -156,6 +159,30 @@ INTEGER          :: which_hmap
   END DO
   CALL U(1)%AXBY(0.4_wp ,U(-1),-0.25_wp,U(0))
   CALL dUdt%copy(U(1))
+
+
+  !auxiliary variables
+  ASSOCIATE( nGP   => (degGP+1)*sgrid%nElems,&
+             mn_IP => mn_nyq(1)*mn_nyq(2)    ) !same for all variables
+
+  ALLOCATE(mass_GP(         nGP) )
+  ALLOCATE(iota_GP(         nGP) )
+  ALLOCATE(PhiPrime_GP(     nGP) )
+  ALLOCATE(Vprime_GP(       nGP) )
+  ALLOCATE(J_h(       mn_IP,nGP) )
+  ALLOCATE(J_p(       mn_IP,nGP) )
+  ALLOCATE(dX1_ds(    mn_IP,nGP) )
+  ALLOCATE(dX2_ds(    mn_IP,nGP) )
+  ALLOCATE(dX1_dthet( mn_IP,nGP) )
+  ALLOCATE(dX2_dthet( mn_IP,nGP) )
+  ALLOCATE(dLA_dthet( mn_IP,nGP) )
+  ALLOCATE(dX1_dzeta( mn_IP,nGP) )
+  ALLOCATE(dX2_dzeta( mn_IP,nGP) )
+  ALLOCATE(dLA_dzeta( mn_IP,nGP) )
+  ALLOCATE(b_a (    2,mn_IP,nGP) )
+  ALLOCATE(g_ab(  2,2,mn_IP,nGP) )
+ 
+  END ASSOCIATE !mn_IP,nGP
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -186,6 +213,23 @@ INTEGER :: i
   END DO
   CALL dUdt%free()
   CALL sgrid%free()
+
+  SDEALLOCATE(mass_GP     )
+  SDEALLOCATE(iota_GP     )
+  SDEALLOCATE(PhiPrime_GP )
+  SDEALLOCATE(Vprime_GP   )
+  SDEALLOCATE(J_h         )
+  SDEALLOCATE(J_p         )
+  SDEALLOCATE(dX1_ds      )
+  SDEALLOCATE(dX2_ds      )
+  SDEALLOCATE(dX1_dthet   )
+  SDEALLOCATE(dX2_dthet   )
+  SDEALLOCATE(dLA_dthet   )
+  SDEALLOCATE(dX1_dzeta   )
+  SDEALLOCATE(dX2_dzeta   )
+  SDEALLOCATE(dLA_dzeta   )
+  SDEALLOCATE(b_a         )
+  SDEALLOCATE(g_ab        )
 
 END SUBROUTINE FinalizeMHD3D
 

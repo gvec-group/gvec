@@ -53,19 +53,38 @@ INTEGER          :: nDOF_LA           !! total number of degrees of freedom, sBa
 ! locally used in functional evaluation only
 
 ! input parameters for functional
-INTEGER                 :: which_init        !! =1: use a vmec input for to initialize the variables and get pressure and iota profiles
-INTEGER                 :: NFP               !! number of field periods
-REAL(wp)                :: mu_0              !! permeability
-REAL(wp)                :: gamm              !! isentropic exponent
-REAL(wp)                :: Phi_edge          !! toroidal flux at the last flux surface of the domain
-INTEGER                 :: n_mass_coefs      !! number of polynomial coeffients for mass profile
-INTEGER                 :: n_iota_coefs      !! number of polynomial coeffients for iota profile
-REAL(wp),ALLOCATABLE    :: mass_coefs(:)     !! polynomial coefficients of the mass profile
-REAL(wp),ALLOCATABLE    :: iota_coefs(:)     !! polynomial coefficients of the iota profile
+INTEGER              :: NFP           !! number of field periods
+REAL(wp)             :: Phi_edge      !! toroidal flux at the last flux surface of the domain
+INTEGER              :: n_mass_coefs  !! number of polynomial coeffients for mass profile
+INTEGER              :: n_iota_coefs  !! number of polynomial coeffients for iota profile
+REAL(wp),ALLOCATABLE :: mass_coefs(:) !! polynomial coefficients of the mass profile
+REAL(wp),ALLOCATABLE :: iota_coefs(:) !! polynomial coefficients of the iota profile
+!constants
+REAL(wp)             :: mu_0          !! permeability
+REAL(wp)             :: gamm          !! isentropic exponent
 
-! --- functional evaluation variables
-CLASS(c_hmap),ALLOCATABLE :: hmap     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+! --- store some variables to help/speed up evaluation of the functional
+CLASS(c_hmap),ALLOCATABLE :: hmap    !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
 
+!evaluations at radial gauss points,  size(1:base%s%nGP)                                       
+REAL(wp),ALLOCATABLE :: mass_GP(:)    !! mass profile 
+REAL(wp),ALLOCATABLE :: iota_GP(:)    !! iota profile 
+REAL(wp),ALLOCATABLE :: PhiPrime_GP(:)!! s derivative of toroidal flux : Phi'(s)
+REAL(wp),ALLOCATABLE :: Vprime_GP(:)  !! s derivative of volume: V'(s)
+!evaluations at all integration points,  size(1:base%f%mn_IP,1:base%s%nGP)                                       
+REAL(wp),ALLOCATABLE :: J_h(:,:)      !! Jacobian of the mapping h (X1,X2,zeta) -->(x,y,z) (global Jacobian: J_h*J_p) 
+REAL(wp),ALLOCATABLE :: J_p(:,:)      !! Jacobian of poloidal mapping: dX1_ds*dX2_dtheta - dX2_ds*dX1_theta
+REAL(wp),ALLOCATABLE :: dX1_ds(:,:)   !! radial derivative of X1
+REAL(wp),ALLOCATABLE :: dX2_ds(:,:)   !! radial derivative of X2
+REAL(wp),ALLOCATABLE :: dX1_dthet(:,:)!! theta  derivative of X1
+REAL(wp),ALLOCATABLE :: dX2_dthet(:,:)!! theta  derivative of X2
+REAL(wp),ALLOCATABLE :: dLA_dthet(:,:)!! theta  derivative of lambda
+REAL(wp),ALLOCATABLE :: dX1_dzeta(:,:)!! zeta   derivative of X1
+REAL(wp),ALLOCATABLE :: dX2_dzeta(:,:)!! zeta   derivative of X2
+REAL(wp),ALLOCATABLE :: dLA_dzeta(:,:)!! zeta   derivative of lambda
+REAL(wp),ALLOCATABLE :: b_a (  :,:,:) !! b=(iota-dlamba_dzeta,1+dlambda_dtheta), normalized contravariant magnetic field components
+                                      !! at all points, size(1:2,1:mn_IP,1:nGP)
+REAL(wp),ALLOCATABLE :: g_ab(:,:,:,:) !! metric tensor g_(alpha,beta), alpha/beta=theta and zeta, size(1:2,1:2,1:mn_IP,1:nGP)
 
 !===================================================================================================================================
 

@@ -48,10 +48,11 @@ For installation instruction see [INSTALL.md](INSTALL.md).
 ### Run GVEC examples
 
 After [installation](INSTALL.md), the binary executable should be found in `build/bin/gvec`. 
-There are several example input files named `paramter.ini`, which are found the folders `ini , ini/w7x , ini/aug , ini/toksy` .
-For execution, go into the root folder  and execute for example the command :
+There are several example input files named `paramter.ini`, which are found the folders `ini/w7x` , `ini/aug` , `ini/toksy` .
+For execution, go into one of these folders and execute for example the following commands
 ``` 
-  ../build/bin/gvec ini/parameter.ini |tee log
+  cd ini/toksy
+  ../../build/bin/gvec parameter.ini |tee log
 ``` 
 which pipes the screen output also into the file `log`.
 
