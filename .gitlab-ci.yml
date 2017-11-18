@@ -35,7 +35,7 @@ build_intel:
   before_script:
     - . ~/environments/modules_for_gvec_intel
   script: 
-    - mkdir build_debug_intel
+    - rm -rf build_debug_intel ; mkdir build_debug_intel
     - cd build_debug_intel; pwd
     - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=debug -DBUILD_NETCDF=ON ../. 
     - make -j
