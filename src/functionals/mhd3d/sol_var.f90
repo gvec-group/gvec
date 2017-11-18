@@ -131,7 +131,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPEIS(t_sol_var)
+  SELECT TYPE(tocopy); TYPE IS(t_sol_var)
   IF(.NOT.tocopy%initialized)THEN
     CALL abort(__STAMP__, &
         "sol_var_copy: not initialized sol_var from which to copy!")
@@ -189,7 +189,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT TYPE(toset); TYPEIS(t_sol_var)
+  SELECT TYPE(toset); TYPE IS(t_sol_var)
   IF(.NOT.toset%initialized)THEN
     CALL abort(__STAMP__, &
         "sol_var_set_to: not initialized sol_var from which to set!")
@@ -248,11 +248,11 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT TYPE(X);  TYPEIS(t_sol_var)
+  SELECT TYPE(X);  TYPE IS(t_sol_var)
   IF(.NOT.X%initialized) CALL abort(__STAMP__,&
                                       'AXBY: X not initialized')
 
-  SELECT TYPE(Y);  TYPEIS(t_sol_var)
+  SELECT TYPE(Y);  TYPE IS(t_sol_var)
   IF(.NOT.Y%initialized) CALL abort(__STAMP__,&
                                        'AXBY: Y not initialized')
   sf%X1 = aa*X%X1 + bb*Y%X1

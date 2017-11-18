@@ -3,13 +3,13 @@
 # =================================================================================================================================
 
 stages:
-  - build
+  - build_debug
   - short_runs
 
 # global paths to be kept between jobs
 cache:
   paths:
-  - build__intel
+  - build_debug_intel
 
 # =================================================================================================================================
 # Stage "build"
@@ -27,7 +27,7 @@ cache:
 #                  "when:" can be either on_failure, on_success or always
 # =================================================================================================================================
 build_intel:
-  stage: build 
+  stage: build_debug 
   tags:
     - vm_linux
   only:
@@ -35,10 +35,10 @@ build_intel:
   before_script:
     - . ~/environments/modules_for_gvec_intel
   script: 
-    - mkdir -f build__intel
-    - cd build__intel; pwd
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_NETCDF=ON ../.
-    - make
+    - mkdir -f build_debug_intel
+    - cd build_debug_intel; pwd
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=debug -DBUILD_NETCDF=ON ../. 
+    - make -j
   after_script:
     - pwd 
   artifacts:
@@ -62,7 +62,7 @@ short_runs_toksy:
     - . ~/environments/modules_for_gvec_intel
   script: 
     - cd ini/toksy; pwd
-    - ../../build__intel/bin/gvec parameter.ini |tee log
+    - ../../build_debug_intel/bin/gvec parameter.ini |tee log
   after_script:
     - pwd 
   artifacts:

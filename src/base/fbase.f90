@@ -400,7 +400,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 CHARACTER(LEN=8) :: sin_cos
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPEIS(t_fBase)
+  SELECT TYPE(tocopy); TYPE IS(t_fBase)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_copy: not initialized fBase from which to copy!")

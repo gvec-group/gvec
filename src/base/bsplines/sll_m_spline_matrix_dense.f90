@@ -73,7 +73,7 @@ contains
     class(sll_t_spline_matrix_dense), intent(inout) :: self
     class(sll_c_spline_matrix      ), intent(in   ) :: tocopy
      
-    select type(tocopy); typeis(sll_t_spline_matrix_dense)
+    select type(tocopy); type is(sll_t_spline_matrix_dense)
     SLL_ASSERT( tocopy%n  == self%n  )
 
     self%n          = tocopy%n
@@ -91,8 +91,8 @@ contains
     real(wp)                        , intent(in   ) :: b
     class(sll_c_spline_matrix      ), intent(in   ) :: bmat
     
-    select type(amat); typeis(sll_t_spline_matrix_dense)
-    select type(bmat); typeis(sll_t_spline_matrix_dense)
+    select type(amat); type is(sll_t_spline_matrix_dense)
+    select type(bmat); type is(sll_t_spline_matrix_dense)
     SLL_ASSERT( amat%n == self%n )
     SLL_ASSERT( bmat%n == self%n )
     SLL_ASSERT( .NOT.amat%factorized )

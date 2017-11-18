@@ -201,7 +201,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPEIS(t_sgrid)
+  SELECT TYPE(tocopy); TYPE IS(t_sgrid)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "sgrid_copy: not initialized sgrid from which to copy!")

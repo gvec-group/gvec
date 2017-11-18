@@ -76,7 +76,7 @@ module sll_m_spline_matrix_base
    import sll_c_spline_matrix, wp
     class(sll_c_spline_matrix), intent(in) :: self
     real(wp)                  , intent(in) :: v_in(:)
-    real(wp)                               :: v_out(size(v_in(:)))
+    real(wp)                               :: v_out(size(v_in))
   end function i_sub_matvec_prod
 
   !-----------------------------------------------------------------------------

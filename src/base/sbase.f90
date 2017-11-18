@@ -86,7 +86,7 @@ ABSTRACT INTERFACE
 
   FUNCTION i_fun_sbase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_sbase
-    CLASS(c_sbase), INTENT(IN   ) :: sf
+    CLASS(c_sbase), INTENT(INOUT) :: sf
     REAL(wp)      , INTENT(IN   ) :: g_IP(1:sf%nBase)
     REAL(wp)                      :: DOFs(1:sf%nBase)
   END FUNCTION i_fun_sbase_initDOF
@@ -275,11 +275,11 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "error in sbase: degGP must be > deg!") 
   SELECT TYPE(sf)
-  TYPEIS(t_sbase_disc)
+  TYPE IS(t_sbase_disc)
     IF(sf%continuity.NE.-1) &
       CALL abort(__STAMP__, &
           "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!") 
-  TYPEIS(t_sbase_spl)
+  TYPE IS(t_sbase_spl)
     IF(sf%continuity.NE.sf%deg-1) &
       CALL abort(__STAMP__, &
           "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!") 
@@ -318,7 +318,7 @@ IMPLICIT NONE
   END DO !iElem 
 
   SELECT TYPE(sf)
-  TYPEIS(t_sbase_disc)   
+  TYPE IS(t_sbase_disc)   
     ALLOCATE(VdmGP( 0:degGP,0:deg))
     !  use chebychev-lobatto points for interpolation (closed form!), interval [-1,1] 
     DO i=0,deg
@@ -353,7 +353,7 @@ IMPLICIT NONE
       sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(sf%xiIP+1.0_wp)*grid%ds(iElem)
     END DO !iElem 
     DEALLOCATE(VdmGP)
-  TYPEIS(t_sbase_spl)   
+  TYPE IS(t_sbase_spl)   
     ALLOCATE(locbasis(0:deg,0:deg))
     CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
     !basis evaluation
@@ -490,7 +490,7 @@ IMPLICIT NONE
     sf%R_Edge(nBase-deg+i,nBase-deg+i,:)=1.0_wp
   END DO
   SELECT TYPE(sf)
-  TYPEIS(t_sbase_disc)
+  TYPE IS(t_sbase_disc)
     ALLOCATE(sf%xiIP(   0:deg))
     ALLOCATE(sf%wbaryIP(0:deg))
     ALLOCATE(sf%DmatIP( 0:deg,0:deg))
@@ -537,11 +537,11 @@ IMPLICIT NONE
   SDEALLOCATE(sf%A_Edge) 
   SDEALLOCATE(sf%R_Edge) 
   SELECT TYPE (sf) 
-  TYPEIS(t_sbase_spl)
+  TYPE IS(t_sbase_spl)
     CALL sf%interpol%free() 
     CALL sf%spline%free() 
     CALL sf%bspl%free() 
-  TYPEIS(t_sbase_disc)
+  TYPE IS(t_sbase_disc)
     SDEALLOCATE(sf%xiIP)
     SDEALLOCATE(sf%wbaryIP)
     SDEALLOCATE(sf%DmatIP)
@@ -573,7 +573,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPEIS(t_sbase)
+  SELECT TYPE(tocopy); TYPE IS(t_sbase)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "sBase_copy: not initialized sBase from which to copy!")
@@ -613,7 +613,7 @@ IMPLICIT NONE
   REAL(wp):: xiloc,baseloc(0:sf%deg,0:sf%deg)
 !===================================================================================================================================
 SELECT TYPE(sf)
-TYPEIS(t_sbase_disc)
+TYPE IS(t_sbase_disc)
   iElem=sf%grid%find_elem(x)
   xiloc  =(x-sf%grid%sp(iElem-1))*2.0_wp/sf%grid%ds(iElem)-1.0_wp !in [-1,1]
 
@@ -628,7 +628,7 @@ TYPEIS(t_sbase_disc)
     END DO
     base_x=baseloc(:,deriv)
   END IF!deriv
-TYPEIS(t_sbase_spl)
+TYPE IS(t_sbase_spl)
   IF(deriv.EQ.0)THEN
     CALL sf%bspl%eval_basis(x,base_x(:),iElem)
   ELSEIF(deriv.GT.sf%deg) THEN
@@ -747,7 +747,7 @@ FUNCTION sBase_initDOF( sf , g_IP) RESULT(DOFs)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sbase), INTENT(IN   ) :: sf    !! self
+  CLASS(t_sbase), INTENT(INOUT) :: sf    !! self
   REAL(wp)      , INTENT(IN   ) :: g_IP(sf%nBase)  !!  interpolation values at s_IP positions [0,1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -756,9 +756,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 SELECT TYPE(sf)
-TYPEIS(t_sbase_disc)
+TYPE IS(t_sbase_disc)
   DOFs(:)=g_IP
-TYPEIS(t_sbase_spl)
+TYPE IS(t_sbase_spl)
   CALL sf%interpol%compute_interpolant( sf%spline, g_IP )
   DOFs(:)=sf%spline%bcoef(:) !somewhat not perfect, since interpolant saves result to bcoef of spline 
 CLASS DEFAULT

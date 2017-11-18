@@ -18,11 +18,22 @@ INCLUDE(CMakeDependentOption)
 # =========================================================================
 # Detect machine environements
 # =========================================================================
+SITE_NAME(CMAKE_HOSTNAME)
+STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
+STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_HYDRA)
+STRING(FIND "${CMAKE_HOSTNAME}" "hydra"     ON_HYDRA)
+IF (ON_MARCONI GREATER -1)
+  MESSAGE(STATUS "Compiling on Marconi")
+ENDIF()
+IF (ON_HYDRA GREATER -1)
+  MESSAGE(STATUS "Compiling on hydra")
+ENDIF()
+
 
 # =========================================================================
 # Project definitions and output paths
 # =========================================================================
-PROJECT(wcool1D)
+PROJECT(GVEC)
 ENABLE_LANGUAGE(Fortran)
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -121,9 +132,7 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
    #environment specific variables
-   IF(ONHORNET GREATER -1)
-      SET(MAIN_INSTRUCTION "-xCORE-AVX2")
-   ELSEIF(ON_MARCONI GREATER -1)
+   IF(ON_MARCONI GREATER -1)
       SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
    ELSE()
       SET(MAIN_INSTRUCTION "-xHost")
@@ -154,6 +163,10 @@ ENDIF()
 # =========================================================================
 # use Lapack/Blas for GNU
 MESSAGE(STATUS "Using BLAS/Lapack library")
+IF(ON_HYDRA GREATER -1)
+  SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
+  LIST(APPEND linkedlibs -mkl -Xlinker -rpath=$(MKL_HOME)/lib/intel64 )
+ENDIF()
 FIND_PACKAGE(LAPACK QUIET)
 IF (LAPACK_FOUND)
   LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
@@ -163,9 +176,14 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(BUILD_NETCDF)
-  SET(NETCDF_DIR  /usr)
+  IF(ON_HYDRA GREATER -1)
+    SET(NETCDF_DIR  $ENV{NETCDF_HOME}) 
+    LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdff -lnetcdf )
+  ELSE()
+    SET(NETCDF_DIR  /usr)
+    LIST(APPEND linkedlibs -Wl,-rpath,${NETCDF_DIR}/lib -lnetcdff -lnetcdf )
+  ENDIF()
   INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
-  LIST(APPEND linkedlibs -Wl,-rpath,${NETCDF_DIR}/lib -lnetcdff -lnetcdf)
   MESSAGE(STATUS "Build with NetCDF")
 ENDIF()
 
