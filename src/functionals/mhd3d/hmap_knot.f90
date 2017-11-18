@@ -30,7 +30,10 @@ PUBLIC
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   !---------------------------------------------------------------------------------------------------------------------------------
-  LOGICAL :: initialized=.FALSE.
+  LOGICAL  :: initialized=.FALSE.
+  INTEGER  :: p,  q    ! this map is based on the (p,q)-torus
+  REAL(wp) :: R0       ! major radius
+  REAL(wp) :: delta    ! shift of the axis
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_knot:
 
@@ -46,6 +49,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   PROCEDURE :: eval_gij      => hmap_knot_eval_gij      
   PROCEDURE :: eval_gij_dq1  => hmap_knot_eval_gij_dq1  
   PROCEDURE :: eval_gij_dq2  => hmap_knot_eval_gij_dq2  
+  PROCEDURE :: Rq            => hmap_knot_eval_Rq
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_knot
 
@@ -59,7 +63,8 @@ CONTAINS
 !> initialize the type hmap_knot with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_knot_init( sf)
+!!!!SUBROUTINE hmap_knot_init( sf, R0, delta, p, q)
+SUBROUTINE hmap_knot_init( sf )
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -109,25 +114,32 @@ FUNCTION hmap_knot_eval( sf ,q_in) RESULT(x_out)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  REAL(wp)        , INTENT(IN   )   :: q_in(3)
   CLASS(t_hmap_knot), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: x_out(3)
+  REAL(wp)                          :: x_out(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  REAL(wp)                          :: Rq, Zq
 !===================================================================================================================================
-!  !  q= (R,Z,zeta)
-!  ! |x |  | R*sin(zeta) |
-!  ! |y |= |-R*cos(zeta) |
-!  ! |z |  | Z           |
-!
-!  ASSOCIATE(R=>q_in(1),Z=>q_in(2),zeta=>q_in(3))
-!  x_out(1:3)=(/ R*COS(zeta), &
-!               -R*SIN(zeta), &
-!                Z           /)
-!  END ASSOCIATE
-x_out(3)=0.0_wp !?????
+ ! (p,q) are the indides of the (p,q)-torus
+ ! q(:) = (X1,X2,zeta) are the variables in the domain of the map
+ ! X(:) = (x,y,z) are the variables in the range of the map
+ !
+ !   Rq = R0 + delta * cos(q*zeta) + X1
+ !   Zq = delta * sin(q*zeta) + X2
+ !  |x |  | Rq*sin(p*zeta) |
+ !  |y |= |-Rq*cos(p*zeta) |
+ !  |z |  | Zq             |
+
+ ASSOCIATE(X1=>q_in(1),X2=>q_in(2),zeta=>q_in(3))
+ Rq = sf%R0 + sf%delta*COS(sf%q*zeta) + X1
+ Zq = sf%delta*SIN(sf%q*zeta) + X2
+ x_out(1:3)=(/ Rq*COS(sf%p*zeta), &
+              -Rq*SIN(sf%p*zeta), &
+               Zq                 /)
+ END ASSOCIATE
 END FUNCTION hmap_knot_eval
 
 !===================================================================================================================================
@@ -140,12 +152,18 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_knot), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  REAL(wp)        , INTENT(IN   )   :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh
+  REAL(wp)                          :: Jh
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)                          :: Rq
 !===================================================================================================================================
-  Jh=0.0_wp !?????
+ ASSOCIATE(X1=>q_in(1),X2=>q_in(2),zeta=>q_in(3))
+   Rq = sf%R0 + sf%delta*COS(sf%q*zeta) + X1
+   Jh=sf%p*Rq
+ END ASSOCIATE
 END FUNCTION hmap_knot_eval_Jh
 
 
@@ -164,7 +182,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh_dq1
 !===================================================================================================================================
-  Jh_dq1 = 0.0_wp !????
+  Jh_dq1 = sf%p ! dJh/dX2 = d(pRq)/dX^1 = p, since dRq/dX^1 = 1.
 END FUNCTION hmap_knot_eval_Jh_dq1
 
 !===================================================================================================================================
@@ -182,7 +200,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh_dq2
 !===================================================================================================================================
-  Jh_dq2 = 0.0_wp !????
+  Jh_dq2 = 0.0_wp ! dJh/dX2 = d(pRq)/dX^2 = 0, Rq is independent of X^2
 END FUNCTION hmap_knot_eval_Jh_dq2
 
 
@@ -202,11 +220,23 @@ FUNCTION hmap_knot_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: g_ab
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)                        :: Rq, A, B, C
 !===================================================================================================================================
-  !                       |R   |   |1  0  0   |        |R   |  
-  !q_i G_ij q_j = (dalpha |Z   | ) |0  1  0   | (dbeta |Z   | )
-  !                       |zeta|   |0  0  R^2 |        |zeta|  
-  g_ab=0.0_wp !????
+  ! A = - q*delta*sin(q*zeta), 
+  ! B = q*delta*cos(q*zeta)
+  ! C = p**2 * Rq**2 + q**2 * delta**2
+  !                       |X1  |   |1  0  A|        |X1  |  
+  !q_i G_ij q_j = (dalpha |X2  | ) |0  1  B| (dbeta |X2  | )
+  !                       |zeta|   |A  B  C|        |zeta|  
+ ASSOCIATE(X1=>q_G(1),X2=>q_G(2),zeta=>q_G(3))
+   Rq = sf%R0 + sf%delta*COS(sf%q*zeta) + X1
+   A = - sf%q*sf%delta*SIN(sf%q*zeta)
+   B = sf%q*sf%delta*COS(sf%q*zeta)
+   C = sf%p**2 * Rq**2 + sf%q**2 * sf%delta**2
+   g_ab=SUM(qL_in(:)*(/qR_in(1) + A*qR_in(3), qR_in(2) + B*qR_in(3), A*qR_in(1) + B*qR_in(2) + C*qR_in(3)/))
+ END ASSOCIATE
 END FUNCTION hmap_knot_eval_gij
 
 
@@ -225,11 +255,17 @@ FUNCTION hmap_knot_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: g_ab_dq1
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)                        :: Rq
 !===================================================================================================================================
-  !                            |R   |   |0  0  0   |        |R   |  
-  !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0   | (dbeta |Z   | )
-  !                            |zeta|   |0  0  2*R |        |zeta|  
-  g_ab_dq1=0.0_wp !???
+  !                       |X1  |   |0  0  0        |        |X1  |  
+  !q_i G_ij q_j = (dalpha |X2  | ) |0  0  0        | (dbeta |X2  | )
+  !                       |zeta|   |0  B  2p**2 *Rq|        |zeta|  
+ ASSOCIATE(X1=>q_G(1),X2=>q_G(2),zeta=>q_G(3))
+   Rq = sf%R0 + sf%delta*COS(sf%q*zeta) + X1
+   g_ab_dq1=SUM(qL_in(:)*(/0.0_wp, 0.0_wp, 2.0_wp * sf%p**2 * Rq*qR_in(3)/))
+ END ASSOCIATE
 END FUNCTION hmap_knot_eval_gij_dq1
 
 
@@ -252,8 +288,33 @@ FUNCTION hmap_knot_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
   !                            |R   |   |0  0  0  |        |R   |  
   !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0  | (dbeta |Z   | ) =0
   !                            |zeta|   |0  0  0  |        |zeta|  
-  g_ab_dq2=0.0_wp !???
+  g_ab_dq2=0.0_wp 
 END FUNCTION hmap_knot_eval_gij_dq2
+
+
+!===================================================================================================================================
+!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) 
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_eval_Rq( sf ,q_in) RESULT(Rq_out)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp)        , INTENT(IN   )   :: q_in(3)
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                          :: Rq_out
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+ !   Rq = R0 + delta * cos(q*zeta) + X1
+
+ ASSOCIATE(X1=>q_in(1),X2=>q_in(2),zeta=>q_in(3))
+   Rq_out = sf%R0 + sf%delta*COS(sf%q*zeta) + X1
+ END ASSOCIATE
+END FUNCTION hmap_knot_eval_Rq
 
 
 !===================================================================================================================================
