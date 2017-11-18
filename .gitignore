@@ -6,3 +6,6 @@ ctags.txt
 *.mod
 *.o
 *~
+__*
+CMakeFiles
+CMakeCache.txt
