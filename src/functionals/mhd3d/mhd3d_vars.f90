@@ -25,7 +25,7 @@ USE MOD_Globals,ONLY: PI,wp,Unit_stdOut,abort
 USE MOD_sgrid,  ONLY: t_sgrid
 USE MOD_base,   ONLY: t_base
 USE MOD_fbase,  ONLY: t_fbase
-USE MOD_Sol_Var,ONLY: t_sol_var
+USE MOD_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
 USE MOD_c_hmap, ONLY: c_hmap
 IMPLICIT NONE
 PUBLIC
@@ -45,8 +45,8 @@ CLASS(t_fbase), ALLOCATABLE :: LA_b_base !! container for base of boundaries o L
                              
 TYPE(t_sgrid)               :: sgrid     !! only one grid up to now
                                          
-TYPE(t_sol_var),ALLOCATABLE :: U(:)      !! solutions at levels (k-1),(k),(k+1)
-TYPE(t_sol_var)             :: dUdt      !! solution update
+TYPE(t_sol_var_MHD3D),ALLOCATABLE :: U(:)      !! solutions at levels (k-1),(k),(k+1)
+TYPE(t_sol_var_MHD3D)             :: dUdt      !! solution update
 INTEGER                     :: nDOF_X1   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER                     :: nDOF_X2   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER                     :: nDOF_LA   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 

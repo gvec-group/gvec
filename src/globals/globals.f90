@@ -67,6 +67,10 @@ INTERFACE GETFREEUNIT
    MODULE PROCEDURE GETFREEUNIT
 END INTERFACE
 
+INTERFACE Eval1DPoly 
+  MODULE PROCEDURE Eval1DPoly
+END INTERFACE
+
 INTERFACE CROSS
    MODULE PROCEDURE CROSS
 END INTERFACE
@@ -161,6 +165,33 @@ IF(connected)THEN
   END DO
 END IF
 END FUNCTION GETFREEUNIT
+
+
+!===================================================================================================================================
+!> evalute monomial polynomial c_1+c_2*x+c_3*x^2 ...
+!!
+!===================================================================================================================================
+FUNCTION Eval1DPoly(nCoefs,Coefs,x)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients 
+REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
+REAL(wp), INTENT(IN)  :: x                        !! evaluation position
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL(wp)              :: Eval1DPoly
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER               :: i
+!===================================================================================================================================
+Eval1DPoly=0.
+DO i=nCoefs,1,-1
+  Eval1DPoly=Eval1DPoly*x+Coefs(i)
+END DO
+
+END FUNCTION Eval1DPoly
 
 
 !===================================================================================================================================

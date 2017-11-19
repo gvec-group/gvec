@@ -47,7 +47,7 @@ TYPE, ABSTRACT :: c_sbase
     PROCEDURE(i_sub_sbase_free          ),DEFERRED :: free
     PROCEDURE(i_sub_sbase_copy          ),DEFERRED :: copy
     PROCEDURE(i_sub_sbase_eval          ),DEFERRED :: eval
-    PROCEDURE(i_fun_sbase_evalDOF_x     ),DEFERRED :: evalDOF_x
+    PROCEDURE(i_fun_sbase_evalDOF_s     ),DEFERRED :: evalDOF_s
     PROCEDURE(i_fun_sbase_evalDOF_base  ),DEFERRED :: evalDOF_base
     PROCEDURE(i_fun_sbase_evalDOF_GP    ),DEFERRED :: evalDOF_GP
     PROCEDURE(i_fun_sbase_initDOF       ),DEFERRED :: initDOF
@@ -91,14 +91,14 @@ ABSTRACT INTERFACE
     REAL(wp)                      :: DOFs(1:sf%nBase)
   END FUNCTION i_fun_sbase_initDOF
 
-  FUNCTION i_fun_sbase_evalDOF_x( sf, x,deriv,DOFs ) RESULT(y) 
+  FUNCTION i_fun_sbase_evalDOF_s( sf, x,deriv,DOFs ) RESULT(y) 
     IMPORT wp,c_sbase
   CLASS(c_sbase), INTENT(IN   ) :: sf
   REAL(wp)      , INTENT(IN   ) :: x
   INTEGER       , INTENT(IN   ) :: deriv 
   REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)
   REAL(wp)                      :: y
-  END FUNCTION i_fun_sbase_evalDOF_x
+  END FUNCTION i_fun_sbase_evalDOF_s
 
   FUNCTION i_fun_sbase_evalDOF_base( sf, iElem,base_x,DOFs ) RESULT(y) 
     IMPORT wp,c_sbase
@@ -175,7 +175,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   PROCEDURE :: free          => sBase_free
   PROCEDURE :: copy          => sBase_copy
   PROCEDURE :: eval          => sBase_eval
-  PROCEDURE :: evalDOF_x     => sBase_evalDOF_x
+  PROCEDURE :: evalDOF_s     => sBase_evalDOF_s
   PROCEDURE :: evalDOF_base  => sBase_evalDOF_base
   PROCEDURE :: evalDOF_GP    => sBase_evalDOF_GP
   PROCEDURE :: initDOF       => sBase_initDOF
@@ -655,7 +655,7 @@ END SUBROUTINE sbase_eval
 !> simply evaluate function or derivative at point x
 !!
 !===================================================================================================================================
-FUNCTION sBase_evalDOF_x(sf,x,deriv,DOFs) RESULT(y)
+FUNCTION sBase_evalDOF_s(sf,x,deriv,DOFs) RESULT(y)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -675,7 +675,7 @@ IMPLICIT NONE
   CALL sf%eval(x,deriv,iElem,base_x) 
   y=sf%evalDOF_base(iElem,base_x,DOFs)
 
-END FUNCTION sbase_evalDOF_x
+END FUNCTION sbase_evalDOF_s
 
 !===================================================================================================================================
 !> simply evaluate function with a base or base derivative evaluated at a point and its corresponding iElem
@@ -738,7 +738,7 @@ CASE(DERIV_S)
   END DO
 CASE DEFAULT
   CALL abort(__STAMP__, &
-     'called evalDOF_GP with deriv >1, not implemented!' )
+     'called evalDOF_GP: deriv must be 0 or DERIV_S!' )
 END SELECT !deriv
 END ASSOCIATE
 END FUNCTION sbase_evalDOF_GP
@@ -1051,8 +1051,8 @@ IMPLICIT NONE
 
     dy =SUM(sf%base_dsAxis(1,:)*dofs(        1:deg+1))
     dy2=SUM(sf%base_dsEdge(1,:)*dofs(nbase-deg:nBase))
-    y =sf%evalDOF_x(0.0_wp,1,dofs)
-    y2=sf%evalDOF_x(1.0_wp,1,dofs)
+    y =sf%evalDOF_s(0.0_wp,1,dofs)
+    y2=sf%evalDOF_s(1.0_wp,1,dofs)
 
     IF(testdbg.OR.(.NOT.((ABS( dy  - testf_dx(0.0_wp) ).LT.realtol/sf%grid%ds(     1) ).AND.&
                          (ABS( dy2 - testf_dx(1.0_wp) ).LT.realtol/sf%grid%ds(nElems) ).AND.&
@@ -1071,8 +1071,8 @@ IMPLICIT NONE
 
     iTest=204 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
-    dy =sf%evalDOF_x(0.0_wp,2,dofs)
-    dy2=sf%evalDOF_x(1.0_wp,2,dofs)
+    dy =sf%evalDOF_s(0.0_wp,2,dofs)
+    dy2=sf%evalDOF_s(1.0_wp,2,dofs)
     IF(deg.GE.2)THEN
       y =SUM(sf%base_dsAxis(2,:)*dofs(1:deg+1))
       y2=SUM(sf%base_dsEdge(2,:)*dofs(nbase-deg:nBase))
@@ -1108,7 +1108,7 @@ IMPLICIT NONE
     x=sf%grid%sp(jElem)+0.9503_wp*sf%grid%ds(jElem+1) !element jElem+1
     CALL sf%eval(x ,0,iElem,base_x) 
     y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
-    y2=sf%evalDOF_x(x,0,dofs(:)) 
+    y2=sf%evalDOF_s(x,0,dofs(:)) 
     IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
                          (ABS( y-y2         ).LT.realtol ).AND.&
                          (iElem              .EQ.jElem+1 )     )))THEN
@@ -1129,7 +1129,7 @@ IMPLICIT NONE
       x=sf%grid%sp(jElem-1)+ 0.7353_wp*sf%grid%ds(jElem+1) !in element jElem
       CALL sf%eval(x ,0,iElem,base_x) 
       y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
-      y2=sf%evalDOF_x(x,0,dofs(:)) 
+      y2=sf%evalDOF_s(x,0,dofs(:)) 
       IF(cont.EQ.-1) THEN
         y=y+0.113_wp
         y2=y2+0.113_wp
@@ -1153,7 +1153,7 @@ IMPLICIT NONE
     x=sf%grid%sp(jElem)+0.64303_wp*sf%grid%ds(jElem+1) !in elem jElem+1
     CALL sf%eval(x ,1,iElem,base_x)  
     dy=sf%evalDOF_base(iElem,base_x,dofs(:))
-    dy2=sf%evalDOF_x(x,1,dofs(:))
+    dy2=sf%evalDOF_s(x,1,dofs(:))
     IF(testdbg.OR.(.NOT.((ABS(dy-testf_dx(x)).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
                          (ABS(dy-dy2        ).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
                          (iElem              .EQ.jElem+1 ))))THEN
@@ -1172,7 +1172,7 @@ IMPLICIT NONE
     x=sf%grid%sp(jElem)+0.17313_wp*sf%grid%ds(jElem+1) !in elem jElem+1
     CALL sf%eval(x ,2,iElem,base_x)  
     dy=sf%evalDOF_base(iElem,base_x,dofs(:)) !second derivative
-    dy2=sf%evalDOF_x(x,2,dofs(:))
+    dy2=sf%evalDOF_s(x,2,dofs(:))
     IF(testdbg.OR.(.NOT.((ABS(dy-testf_dxdx(x)).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
                          (ABS(dy-dy2          ).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
                          (iElem                .EQ.jElem+1 ))))THEN

@@ -154,7 +154,8 @@ INTEGER          :: which_hmap
   nDOF_LA = LA_base%s%nBase* LA_base%f%modes
   
   ALLOCATE(U(-1:1))
-  CALL U(1)%init((/nDOF_X1,nDOF_X2,nDOF_LA/))
+  CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,   &
+                   X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
   DO i=-1,0
     CALL U(i)%copy(U(1))
   END DO
@@ -214,7 +215,9 @@ INTEGER          :: which_hmap
 !  LA_mn_max  = 
 !  LA_sin_cos = ? 
   END SELECT !which_init
-  CALL InitializeSolution(U(-1))
+
+
+!  CALL InitializeSolution(U(-1)%X1, U(-1)%X2, U(-1)%LA )
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -252,23 +255,59 @@ INTEGER          :: which_hmap
 END SUBROUTINE InitMHD3D
 
 !===================================================================================================================================
-!> Finalize Module
+!> Initialize the solution with the given boundary condition 
 !!
 !===================================================================================================================================
-SUBROUTINE InitializeSolution(U0) 
+SUBROUTINE InitializeSolution(X1_in,X2_in,LA_in) 
 ! MODULES
+USE MOD_Globals, ONLY:EVAL1DPOLY
 USE MOD_MHD3D_Vars
+USE MOD_lambda_solve,  ONLY:lambda_solve
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-CLASS(t_sol_var), INTENT(INOUT) :: U0
+REAL(wp)     , INTENT(INOUT) :: X1_in(1:X1_base%f%mn_IP,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
+REAL(wp)     , INTENT(INOUT) :: X2_in(1:X2_base%f%mn_IP,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
+REAL(wp)     , INTENT(INOUT) :: LA_in(1:LA_base%f%mn_IP,1:LA_base%f%modes) !! U%LA variable, is reshaped to 2D at input 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER  :: is,iMode
+REAL(wp) :: spos,iota_s 
+REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
+REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
 !===================================================================================================================================
-SELECT CASE(which_init)
-CASE(0)
-CASE(1)
-END SELECT 
+  SELECT CASE(which_init)
+  CASE(0)
+    DO imode=1,X1_base%f%modes
+      SELECT CASE(X1_base%f%zero_odd_even(iMode))
+      CASE(MN_ZERO)
+        X1_gIP(:)=1.0_wp !zero mode constant over s
+      CASE(M_ODD)
+        X1_gIP(:)=(X1_base%s%s_IP(:)) ! odd mode ~s
+      CASE(M_EVEN)
+        X1_gIP(:)=(X1_base%s%s_IP(:))**2 !even mode ~s^2
+      END SELECT !X1(:,iMode) zero odd even
+      X1_in(:,iMode)=X1_base%s%initDOF( X1_gIP(:)*X1_b(iMode) )
+    END DO 
+    DO imode=1,X2_base%f%modes
+      SELECT CASE(X2_base%f%zero_odd_even(iMode))
+      CASE(MN_ZERO)
+        X2_gIP(:)=1.0_wp !zero mode constant over s
+      CASE(M_ODD)
+        X2_gIP(:)=(X2_base%s%s_IP(:)) ! odd mode ~s
+      CASE(M_EVEN)
+        X2_gIP(:)=(X2_base%s%s_IP(:))**2 !even mode ~s^2
+      END SELECT !X1(:,iMode) zero odd even
+      X2_in(:,iMode)=X2_base%s%initDOF( X1_gIP(:)*X1_b(iMode) )
+    END DO 
+  CASE(1) !VMEC
+  END SELECT 
+  LA_in(1,:)=0.0_wp !at axis
+  DO is=2,LA_base%s%nBase
+    spos=LA_base%s%s_IP(is)
+    iota_s=EVAL1DPOLY(n_iota_coefs,iota_coefs,spos)
+    CALL lambda_Solve(spos,iota_s,X1_in,X2_in,LA_in(is,:))
+  END DO !i !iss
 
 END SUBROUTINE InitializeSolution
 

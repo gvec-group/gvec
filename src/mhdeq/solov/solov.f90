@@ -491,7 +491,6 @@ SUBROUTINE MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 USE MOD_Globals
 USE MOD_MHDEQ_Vars,  ONLY:nVarMHDEQ
 USE MOD_MHDEQ_Vars,  ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
-USE MOD_MHDEQ_Tools, ONLY: Eval1DPoly
 USE MOD_Newton,      ONLY:NewtonRoot1D
 USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge
 USE MOD_Solov_Vars,  ONLY:F_axis,deltaF2,xaxis,psi_scale

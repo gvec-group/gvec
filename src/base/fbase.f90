@@ -459,6 +459,9 @@ IMPLICIT NONE
     y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
   CASE(DERIV_ZETA)
     y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
+  CASE DEFAULT 
+    CALL abort(__STAMP__, &
+         "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
   END SELECT
 END FUNCTION fBase_evalDOF_IP
 
