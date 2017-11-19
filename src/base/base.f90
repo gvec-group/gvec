@@ -35,47 +35,6 @@ PUBLIC
 ! TYPES 
 !-----------------------------------------------------------------------------------------------------------------------------------
 
-!TYPE, ABSTRACT :: c_base
-!  !---------------------------------------------------------------------------------------------------------------------------------
-!  CLASS(c_sbase),ALLOCATABLE  :: s  !! container for radial basis
-!  CLASS(c_fbase),ALLOCATABLE  :: f  !! container for angular basis
-!  CONTAINS
-!    PROCEDURE(i_sub_base_init       ),DEFERRED :: init
-!    PROCEDURE(i_sub_base_free       ),DEFERRED :: free
-!    PROCEDURE(i_sub_base_copy       ),DEFERRED :: copy
-!    PROCEDURE(i_fun_base_evalDOF    ),DEFERRED :: evalDOF
-!
-!END TYPE c_base
-!
-!ABSTRACT INTERFACE
-!  SUBROUTINE i_sub_base_init(sf)
-!    IMPORT c_base
-!    CLASS(c_base) , INTENT(INOUT) :: sf
-!  END SUBROUTINE i_sub_base_init
-!
-!  SUBROUTINE i_sub_base_free( sf ) 
-!    IMPORT c_base
-!    CLASS(c_base), INTENT(INOUT) :: sf
-!  END SUBROUTINE i_sub_base_free
-!
-!  SUBROUTINE i_sub_base_copy( sf, tocopy ) 
-!    IMPORT c_base
-!    CLASS(c_base), INTENT(IN   ) :: tocopy
-!    CLASS(c_base), INTENT(INOUT) :: sf
-!  END SUBROUTINE i_sub_base_copy
-!
-!  FUNCTION i_fun_base_evalDOF( sf,DOFs ) RESULT(y_IP_GP)
-!    IMPORT wp,c_base
-!  CLASS(c_base), INTENT(IN   ) :: sf
-!  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%f%modes,1:sf%s%nBase)
-!  REAL(wp)                      :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
-!  END FUNCTION i_fun_base_evalDOF
-!
-!END INTERFACE
- 
-
-
-!TYPE,EXTENDS(c_base) :: t_base
 TYPE                 :: t_base
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
@@ -138,10 +97,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   ALLOCATE(t_base :: sf)
-  CALL sbase_new(sf%s,deg_in,continuity_in)
-  CALL fbase_new(sf%f)
-  CALL sf%s%init(grid_in,degGP_in)
-  CALL sf%f%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+  CALL sbase_new(sf%s,deg_in,continuity_in,grid_in,degGP_in)
+  CALL fbase_new(sf%f,mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
   sf%initialized=.TRUE.
 
   IF(.NOT.test_called) CALL Base_test(sf)

@@ -61,8 +61,8 @@ short_runs_toksy:
   before_script:
     - . ~/environments/modules_for_gvec_intel
   script: 
-    - cd ini/toksy; pwd
-    - ../../build_debug_intel/bin/gvec parameter.ini |tee log
+    - cd ini; pwd
+    - ../build_debug_intel/bin/gvec parameter.ini |tee log
   after_script:
     - pwd 
   artifacts:
@@ -70,6 +70,6 @@ short_runs_toksy:
     expire_in: 1 hour
     when: always
     paths:
-    - ini/toksy/*
+    - ini/*
 
 

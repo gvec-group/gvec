@@ -207,7 +207,7 @@ CONTAINS
 !! and number of gauss points per element
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_new( sf,deg_in,continuity_in)
+SUBROUTINE sBase_new( sf,deg_in,continuity_in,grid_in,degGP_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -216,6 +216,8 @@ IMPLICIT NONE
   INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
                                                         !! 0: disc. polynomial
                                                         !! deg-1: spline with cont. deg-1
+  CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
+  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sbase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
@@ -232,6 +234,9 @@ IMPLICIT NONE
   END IF
   sf%deg        =deg_in
   sf%continuity =continuity_in
+
+  CALL sf%init(grid_in,degGP_in)
+
 END SUBROUTINE sbase_new
 
 !===================================================================================================================================

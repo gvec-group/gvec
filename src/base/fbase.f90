@@ -135,11 +135,16 @@ CONTAINS
 !> allocate the type fBase 
 !!
 !===================================================================================================================================
-SUBROUTINE fBase_new( sf)
+SUBROUTINE fBase_new( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  INTEGER        , INTENT(IN   ) :: mn_max_in(2)  !! maximum mode in m and n
+  INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)  !! number of integration points 
+  INTEGER        , INTENT(IN   ) :: nfp_in        !! number of field periods 
+  CHARACTER(LEN=8),INTENT(IN   ) :: sin_cos_in    !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
+  LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
@@ -147,6 +152,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   ALLOCATE(t_fBase :: sf)
+
+  CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+
 END SUBROUTINE fBase_new
 
 !===================================================================================================================================
