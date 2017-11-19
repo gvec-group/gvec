@@ -269,13 +269,14 @@ END FUNCTION GETINT
 !! Ini file was read in before and is stored as list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
-FUNCTION GETREAL(Key,Proposal)
+FUNCTION GETREAL(Key,Proposal,quiet_def_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in ini file
 CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal !! Default values as character string (as in ini file)
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES                                 
 REAL(wp)                             :: GetReal  !! Real read from setup file or initialized with default value
@@ -284,6 +285,7 @@ REAL(wp)                             :: GetReal  !! Real read from setup file or
 CHARACTER(LEN=500)                   :: HelpStr  
 CHARACTER(LEN=8)                     :: DefMsg  
 INTEGER                              :: ioerr
+LOGICAL                              :: quiet_def
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -293,6 +295,12 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
+  END IF
+END IF
 ! Find values of pi in the string
 CALL getPImultiplies(helpstr)
 READ(HelpStr,*,IOSTAT=ioerr)GetReal
@@ -301,7 +309,9 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
   STOP     
 END IF
-SWRITE(UNIT_StdOut,'(a3,a30,a3,e33.5,a3,a7,a3)')' | ',TRIM(Key),' | ', GetReal,' | ',TRIM(DefMsg),' | '
+IF(.NOT.quiet_def) THEN
+  SWRITE(UNIT_StdOut,'(a3,a30,a3,e33.5,a3,a7,a3)')' | ',TRIM(Key),' | ', GetReal,' | ',TRIM(DefMsg),' | '
+END IF
 END FUNCTION GETREAL
 
 

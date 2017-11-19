@@ -79,7 +79,7 @@ ABSTRACT INTERFACE
   FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_fBase
     CLASS(c_fBase), INTENT(IN   ) :: sf
-    REAL(wp)      , INTENT(IN   ) :: g_IP(sf%mn_IP)
+    REAL(wp)      , INTENT(IN   ) :: g_IP(:)
     REAL(wp)                      :: DOFs(1:sf%modes)
   END FUNCTION i_fun_fBase_initDOF
 
@@ -87,7 +87,7 @@ ABSTRACT INTERFACE
     IMPORT wp,c_fBase
   CLASS(c_fBase), INTENT(IN   ) :: sf
   INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%modes)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y_IP(sf%mn_IP)
   END FUNCTION i_fun_fBase_evalDOF_IP
 
@@ -135,11 +135,16 @@ CONTAINS
 !> allocate the type fBase 
 !!
 !===================================================================================================================================
-SUBROUTINE fBase_new( sf)
+SUBROUTINE fBase_new( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  INTEGER        , INTENT(IN   ) :: mn_max_in(2)  !! maximum mode in m and n
+  INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)  !! number of integration points 
+  INTEGER        , INTENT(IN   ) :: nfp_in        !! number of field periods 
+  CHARACTER(LEN=8),INTENT(IN   ) :: sin_cos_in    !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
+  LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
@@ -147,6 +152,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   ALLOCATE(t_fBase :: sf)
+
+  CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+
 END SUBROUTINE fBase_new
 
 !===================================================================================================================================
@@ -400,7 +408,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 CHARACTER(LEN=8) :: sin_cos
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPEIS(t_fBase)
+  SELECT TYPE(tocopy); TYPE IS(t_fBase)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_copy: not initialized fBase from which to copy!")
@@ -437,13 +445,15 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%modes)  !! array of all modes
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y_IP(sf%mn_IP) 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
+       'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
   CASE(0)
     y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
@@ -451,6 +461,9 @@ IMPLICIT NONE
     y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
   CASE(DERIV_ZETA)
     y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
+  CASE DEFAULT 
+    CALL abort(__STAMP__, &
+         "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
   END SELECT
 END FUNCTION fBase_evalDOF_IP
 
@@ -464,7 +477,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf    !! self
-  REAL(wp)      , INTENT(IN   ) :: g_IP(sf%mn_IP)  !!  interpolation values at theta_IP zeta_IP positions
+  REAL(wp)      , INTENT(IN   ) :: g_IP(:)  !!  interpolation values at theta_IP zeta_IP positions
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: DOFs(1:sf%modes)  !! projection to fourier base
@@ -472,6 +485,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: iMode
 !===================================================================================================================================
+IF(SIZE(g_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
+       'nDOF not correct when calling fBase_initDOF' )
   DO iMode=1,sf%modes
     DOFs(iMode)=(sf%d_thet*sf%d_zeta/((TWOPI)**2))*SUM(sf%base_IP(:,iMode)*g_IP(:))
   END DO

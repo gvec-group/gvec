@@ -24,14 +24,14 @@ in Garching, Germany.
 
 The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
-### Documentation
+### [Documentation](https://gitlab.mpcdf.mpg.de/ipphinde/GVEC_doc.git)
 
-A documentation of GVEC can be found in
- [https://gitlab.mpcdf.mpg.de/ipphinde/GVEC_doc.git](https://gitlab.mpcdf.mpg.de/ipphinde/GVEC_doc.git).
+A documentation of GVEC can be found **[here](https://gitlab.mpcdf.mpg.de/ipphinde/GVEC_doc.git)**.
 
-Code documentation can be found [here.](http://ipphinde.pages.mpcdf.de/ford-gvec-doc)
+### [Code Documentation](http://ipphinde.pages.mpcdf.de/ford-gvec-doc)
+Code documentation can be found **[here.](http://ipphinde.pages.mpcdf.de/ford-gvec-doc)**
 It is generated using [FORD](https://github.com/cmacmackin/ford) 
-and the input file for running ford is found in the `ford-config/project.md`.
+and the input file for running ford is in `ford-config/project.md`.
 
 ### License
 
@@ -40,7 +40,7 @@ GVEC is Copyright (C) 2017, F. Hindenlang, O. Maj, E. Sonnendruecker
 and is released under the terms of the GNU General Public License v3.0. 
 For the full license terms see the included license file [LICENSE.md](LICENSE.md).
 
-### Installation
+### [Installation](INSTALL.md)
 
 For installation instruction see [INSTALL.md](INSTALL.md).
 

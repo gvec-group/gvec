@@ -47,7 +47,7 @@ TYPE, ABSTRACT :: c_sbase
     PROCEDURE(i_sub_sbase_free          ),DEFERRED :: free
     PROCEDURE(i_sub_sbase_copy          ),DEFERRED :: copy
     PROCEDURE(i_sub_sbase_eval          ),DEFERRED :: eval
-    PROCEDURE(i_fun_sbase_evalDOF_x     ),DEFERRED :: evalDOF_x
+    PROCEDURE(i_fun_sbase_evalDOF_s     ),DEFERRED :: evalDOF_s
     PROCEDURE(i_fun_sbase_evalDOF_base  ),DEFERRED :: evalDOF_base
     PROCEDURE(i_fun_sbase_evalDOF_GP    ),DEFERRED :: evalDOF_GP
     PROCEDURE(i_fun_sbase_initDOF       ),DEFERRED :: initDOF
@@ -86,26 +86,26 @@ ABSTRACT INTERFACE
 
   FUNCTION i_fun_sbase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_sbase
-    CLASS(c_sbase), INTENT(IN   ) :: sf
-    REAL(wp)      , INTENT(IN   ) :: g_IP(1:sf%nBase)
+    CLASS(c_sbase), INTENT(INOUT) :: sf
+    REAL(wp)      , INTENT(IN   ) :: g_IP(:)
     REAL(wp)                      :: DOFs(1:sf%nBase)
   END FUNCTION i_fun_sbase_initDOF
 
-  FUNCTION i_fun_sbase_evalDOF_x( sf, x,deriv,DOFs ) RESULT(y) 
+  FUNCTION i_fun_sbase_evalDOF_s( sf, x,deriv,DOFs ) RESULT(y) 
     IMPORT wp,c_sbase
   CLASS(c_sbase), INTENT(IN   ) :: sf
   REAL(wp)      , INTENT(IN   ) :: x
   INTEGER       , INTENT(IN   ) :: deriv 
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y
-  END FUNCTION i_fun_sbase_evalDOF_x
+  END FUNCTION i_fun_sbase_evalDOF_s
 
   FUNCTION i_fun_sbase_evalDOF_base( sf, iElem,base_x,DOFs ) RESULT(y) 
     IMPORT wp,c_sbase
   CLASS(c_sbase), INTENT(IN   ) :: sf
   INTEGER       , INTENT(IN   ) :: iElem 
   REAL(wp)      , INTENT(IN   ) :: base_x(0:sf%deg)
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y  !out
   END FUNCTION i_fun_sbase_evalDOF_base
 
@@ -113,7 +113,7 @@ ABSTRACT INTERFACE
     IMPORT wp,c_sbase
   CLASS(c_sbase), INTENT(IN   ) :: sf
   INTEGER       , INTENT(IN   ) :: deriv 
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y_GP(sf%nGP)
   END FUNCTION i_fun_sbase_evalDOF_GP
 
@@ -175,7 +175,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   PROCEDURE :: free          => sBase_free
   PROCEDURE :: copy          => sBase_copy
   PROCEDURE :: eval          => sBase_eval
-  PROCEDURE :: evalDOF_x     => sBase_evalDOF_x
+  PROCEDURE :: evalDOF_s     => sBase_evalDOF_s
   PROCEDURE :: evalDOF_base  => sBase_evalDOF_base
   PROCEDURE :: evalDOF_GP    => sBase_evalDOF_GP
   PROCEDURE :: initDOF       => sBase_initDOF
@@ -207,7 +207,7 @@ CONTAINS
 !! and number of gauss points per element
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_new( sf,deg_in,continuity_in)
+SUBROUTINE sBase_new( sf,deg_in,continuity_in,grid_in,degGP_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -216,6 +216,8 @@ IMPLICIT NONE
   INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
                                                         !! 0: disc. polynomial
                                                         !! deg-1: spline with cont. deg-1
+  CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
+  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sbase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
@@ -232,6 +234,9 @@ IMPLICIT NONE
   END IF
   sf%deg        =deg_in
   sf%continuity =continuity_in
+
+  CALL sf%init(grid_in,degGP_in)
+
 END SUBROUTINE sbase_new
 
 !===================================================================================================================================
@@ -275,11 +280,11 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "error in sbase: degGP must be > deg!") 
   SELECT TYPE(sf)
-  TYPEIS(t_sbase_disc)
+  TYPE IS(t_sbase_disc)
     IF(sf%continuity.NE.-1) &
       CALL abort(__STAMP__, &
           "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!") 
-  TYPEIS(t_sbase_spl)
+  TYPE IS(t_sbase_spl)
     IF(sf%continuity.NE.sf%deg-1) &
       CALL abort(__STAMP__, &
           "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!") 
@@ -318,7 +323,7 @@ IMPLICIT NONE
   END DO !iElem 
 
   SELECT TYPE(sf)
-  TYPEIS(t_sbase_disc)   
+  TYPE IS(t_sbase_disc)   
     ALLOCATE(VdmGP( 0:degGP,0:deg))
     !  use chebychev-lobatto points for interpolation (closed form!), interval [-1,1] 
     DO i=0,deg
@@ -353,7 +358,7 @@ IMPLICIT NONE
       sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(sf%xiIP+1.0_wp)*grid%ds(iElem)
     END DO !iElem 
     DEALLOCATE(VdmGP)
-  TYPEIS(t_sbase_spl)   
+  TYPE IS(t_sbase_spl)   
     ALLOCATE(locbasis(0:deg,0:deg))
     CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
     !basis evaluation
@@ -490,7 +495,7 @@ IMPLICIT NONE
     sf%R_Edge(nBase-deg+i,nBase-deg+i,:)=1.0_wp
   END DO
   SELECT TYPE(sf)
-  TYPEIS(t_sbase_disc)
+  TYPE IS(t_sbase_disc)
     ALLOCATE(sf%xiIP(   0:deg))
     ALLOCATE(sf%wbaryIP(0:deg))
     ALLOCATE(sf%DmatIP( 0:deg,0:deg))
@@ -537,11 +542,11 @@ IMPLICIT NONE
   SDEALLOCATE(sf%A_Edge) 
   SDEALLOCATE(sf%R_Edge) 
   SELECT TYPE (sf) 
-  TYPEIS(t_sbase_spl)
+  TYPE IS(t_sbase_spl)
     CALL sf%interpol%free() 
     CALL sf%spline%free() 
     CALL sf%bspl%free() 
-  TYPEIS(t_sbase_disc)
+  TYPE IS(t_sbase_disc)
     SDEALLOCATE(sf%xiIP)
     SDEALLOCATE(sf%wbaryIP)
     SDEALLOCATE(sf%DmatIP)
@@ -573,7 +578,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPEIS(t_sbase)
+  SELECT TYPE(tocopy); TYPE IS(t_sbase)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "sBase_copy: not initialized sBase from which to copy!")
@@ -613,7 +618,7 @@ IMPLICIT NONE
   REAL(wp):: xiloc,baseloc(0:sf%deg,0:sf%deg)
 !===================================================================================================================================
 SELECT TYPE(sf)
-TYPEIS(t_sbase_disc)
+TYPE IS(t_sbase_disc)
   iElem=sf%grid%find_elem(x)
   xiloc  =(x-sf%grid%sp(iElem-1))*2.0_wp/sf%grid%ds(iElem)-1.0_wp !in [-1,1]
 
@@ -628,7 +633,7 @@ TYPEIS(t_sbase_disc)
     END DO
     base_x=baseloc(:,deriv)
   END IF!deriv
-TYPEIS(t_sbase_spl)
+TYPE IS(t_sbase_spl)
   IF(deriv.EQ.0)THEN
     CALL sf%bspl%eval_basis(x,base_x(:),iElem)
   ELSEIF(deriv.GT.sf%deg) THEN
@@ -650,7 +655,7 @@ END SUBROUTINE sbase_eval
 !> simply evaluate function or derivative at point x
 !!
 !===================================================================================================================================
-FUNCTION sBase_evalDOF_x(sf,x,deriv,DOFs) RESULT(y)
+FUNCTION sBase_evalDOF_s(sf,x,deriv,DOFs) RESULT(y)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -658,7 +663,7 @@ IMPLICIT NONE
   CLASS(t_sbase), INTENT(IN   ) :: sf     !! self
   REAL(wp)      , INTENT(IN   ) :: x      !! point positions in [0,1]
   INTEGER       , INTENT(IN   ) :: deriv  !! derivative (=0: solution)
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)  !! array of all degrees of freedom 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all degrees of freedom 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y
@@ -667,10 +672,12 @@ IMPLICIT NONE
   INTEGER                       :: iElem
   REAL(wp)                      :: base_x(0:sf%deg)
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_evalDOF_s')
   CALL sf%eval(x,deriv,iElem,base_x) 
   y=sf%evalDOF_base(iElem,base_x,DOFs)
 
-END FUNCTION sbase_evalDOF_x
+END FUNCTION sbase_evalDOF_s
 
 !===================================================================================================================================
 !> simply evaluate function with a base or base derivative evaluated at a point and its corresponding iElem
@@ -685,13 +692,15 @@ IMPLICIT NONE
   CLASS(t_sbase), INTENT(IN   ) :: sf    !! self
   INTEGER       , INTENT(IN   ) :: iElem  !! element where evaluation point 
   REAL(wp)      , INTENT(IN   ) :: base_x(0:sf%deg)  !! evaluation of base or its derivative in element  iElem at a point position
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)  !! degrees of freedom 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! degrees of freedom 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_evalDOF_base')
   ASSOCIATE(j=>sf%base_offset(iElem))
   y = SUM(DOFs(j:j+sf%deg)*base_x)
   END ASSOCIATE
@@ -709,7 +718,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_sbase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! only 0 or 1 
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)  !! array of all degrees of freedom 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all degrees of freedom 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y_GP(1:sf%nGP) ! will be be 1D array on input/output
@@ -717,6 +726,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER                       :: iElem
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_evalDOF_GP')
 ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
 SELECT CASE(deriv)
 CASE(0)
@@ -733,7 +744,7 @@ CASE(DERIV_S)
   END DO
 CASE DEFAULT
   CALL abort(__STAMP__, &
-     'called evalDOF_GP with deriv >1, not implemented!' )
+     'called evalDOF_GP: deriv must be 0 or DERIV_S!' )
 END SELECT !deriv
 END ASSOCIATE
 END FUNCTION sbase_evalDOF_GP
@@ -747,18 +758,20 @@ FUNCTION sBase_initDOF( sf , g_IP) RESULT(DOFs)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sbase), INTENT(IN   ) :: sf    !! self
-  REAL(wp)      , INTENT(IN   ) :: g_IP(sf%nBase)  !!  interpolation values at s_IP positions [0,1]
+  CLASS(t_sbase), INTENT(INOUT) :: sf    !! self
+  REAL(wp)      , INTENT(IN   ) :: g_IP(:)  !!  interpolation values at s_IP positions [0,1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: DOFs(1:sf%nBase)  !! result of interpolation 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+IF(SIZE(g_IP,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_initDOF')
 SELECT TYPE(sf)
-TYPEIS(t_sbase_disc)
+TYPE IS(t_sbase_disc)
   DOFs(:)=g_IP
-TYPEIS(t_sbase_spl)
+TYPE IS(t_sbase_spl)
   CALL sf%interpol%compute_interpolant( sf%spline, g_IP )
   DOFs(:)=sf%spline%bcoef(:) !somewhat not perfect, since interpolant saves result to bcoef of spline 
 CLASS DEFAULT
@@ -1046,8 +1059,8 @@ IMPLICIT NONE
 
     dy =SUM(sf%base_dsAxis(1,:)*dofs(        1:deg+1))
     dy2=SUM(sf%base_dsEdge(1,:)*dofs(nbase-deg:nBase))
-    y =sf%evalDOF_x(0.0_wp,1,dofs)
-    y2=sf%evalDOF_x(1.0_wp,1,dofs)
+    y =sf%evalDOF_s(0.0_wp,1,dofs)
+    y2=sf%evalDOF_s(1.0_wp,1,dofs)
 
     IF(testdbg.OR.(.NOT.((ABS( dy  - testf_dx(0.0_wp) ).LT.realtol/sf%grid%ds(     1) ).AND.&
                          (ABS( dy2 - testf_dx(1.0_wp) ).LT.realtol/sf%grid%ds(nElems) ).AND.&
@@ -1066,8 +1079,8 @@ IMPLICIT NONE
 
     iTest=204 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
-    dy =sf%evalDOF_x(0.0_wp,2,dofs)
-    dy2=sf%evalDOF_x(1.0_wp,2,dofs)
+    dy =sf%evalDOF_s(0.0_wp,2,dofs)
+    dy2=sf%evalDOF_s(1.0_wp,2,dofs)
     IF(deg.GE.2)THEN
       y =SUM(sf%base_dsAxis(2,:)*dofs(1:deg+1))
       y2=SUM(sf%base_dsEdge(2,:)*dofs(nbase-deg:nBase))
@@ -1103,7 +1116,7 @@ IMPLICIT NONE
     x=sf%grid%sp(jElem)+0.9503_wp*sf%grid%ds(jElem+1) !element jElem+1
     CALL sf%eval(x ,0,iElem,base_x) 
     y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
-    y2=sf%evalDOF_x(x,0,dofs(:)) 
+    y2=sf%evalDOF_s(x,0,dofs(:)) 
     IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
                          (ABS( y-y2         ).LT.realtol ).AND.&
                          (iElem              .EQ.jElem+1 )     )))THEN
@@ -1124,7 +1137,7 @@ IMPLICIT NONE
       x=sf%grid%sp(jElem-1)+ 0.7353_wp*sf%grid%ds(jElem+1) !in element jElem
       CALL sf%eval(x ,0,iElem,base_x) 
       y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
-      y2=sf%evalDOF_x(x,0,dofs(:)) 
+      y2=sf%evalDOF_s(x,0,dofs(:)) 
       IF(cont.EQ.-1) THEN
         y=y+0.113_wp
         y2=y2+0.113_wp
@@ -1148,7 +1161,7 @@ IMPLICIT NONE
     x=sf%grid%sp(jElem)+0.64303_wp*sf%grid%ds(jElem+1) !in elem jElem+1
     CALL sf%eval(x ,1,iElem,base_x)  
     dy=sf%evalDOF_base(iElem,base_x,dofs(:))
-    dy2=sf%evalDOF_x(x,1,dofs(:))
+    dy2=sf%evalDOF_s(x,1,dofs(:))
     IF(testdbg.OR.(.NOT.((ABS(dy-testf_dx(x)).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
                          (ABS(dy-dy2        ).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
                          (iElem              .EQ.jElem+1 ))))THEN
@@ -1167,7 +1180,7 @@ IMPLICIT NONE
     x=sf%grid%sp(jElem)+0.17313_wp*sf%grid%ds(jElem+1) !in elem jElem+1
     CALL sf%eval(x ,2,iElem,base_x)  
     dy=sf%evalDOF_base(iElem,base_x,dofs(:)) !second derivative
-    dy2=sf%evalDOF_x(x,2,dofs(:))
+    dy2=sf%evalDOF_s(x,2,dofs(:))
     IF(testdbg.OR.(.NOT.((ABS(dy-testf_dxdx(x)).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
                          (ABS(dy-dy2          ).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
                          (iElem                .EQ.jElem+1 ))))THEN

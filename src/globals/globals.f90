@@ -67,6 +67,10 @@ INTERFACE GETFREEUNIT
    MODULE PROCEDURE GETFREEUNIT
 END INTERFACE
 
+INTERFACE Eval1DPoly 
+  MODULE PROCEDURE Eval1DPoly
+END INTERFACE
+
 INTERFACE CROSS
    MODULE PROCEDURE CROSS
 END INTERFACE
@@ -110,6 +114,7 @@ INTEGER                           :: errOut          ! Output of MPI_ABORT
 #if MPI
 INTEGER                           :: signalout       ! Output errorcode
 #endif
+REAL                              :: sigsev(2)
 !==================================================================================================================================
 IntString = ""
 RealString = ""
@@ -134,6 +139,9 @@ signalout=2 ! MPI_ABORT requires an output error-code /=0
 IF(PRESENT(ErrorCode)) signalout=ErrorCode
 CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 #endif  
+#if GNU
+CALL BACKTRACE
+#endif
 ERROR STOP 2
 END SUBROUTINE Abort
 
@@ -161,6 +169,33 @@ IF(connected)THEN
   END DO
 END IF
 END FUNCTION GETFREEUNIT
+
+
+!===================================================================================================================================
+!> evalute monomial polynomial c_1+c_2*x+c_3*x^2 ...
+!!
+!===================================================================================================================================
+FUNCTION Eval1DPoly(nCoefs,Coefs,x)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients 
+REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
+REAL(wp), INTENT(IN)  :: x                        !! evaluation position
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL(wp)              :: Eval1DPoly
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER               :: i
+!===================================================================================================================================
+Eval1DPoly=0.
+DO i=nCoefs,1,-1
+  Eval1DPoly=Eval1DPoly*x+Coefs(i)
+END DO
+
+END FUNCTION Eval1DPoly
 
 
 !===================================================================================================================================

@@ -312,7 +312,6 @@ SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 USE MOD_Globals
 USE MOD_MHDEQ_Vars,    ONLY: nVarMHDEQ
 USE MOD_MHDEQ_Vars,    ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
-USE MOD_MHDEQ_Tools,   ONLY: Eval1DPoly
 USE MOD_VMEC_Vars
 USE MOD_VMEC_Readin,   ONLY: mu0,lasym,mn_mode,xm,xn,nFluxVMEC
 USE MOD_Newton,        ONLY: NewtonRoot1D_FdF
