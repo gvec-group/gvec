@@ -48,6 +48,8 @@ TYPE, ABSTRACT :: c_fBase
     PROCEDURE(i_sub_fBase_init          ),DEFERRED :: init
     PROCEDURE(i_sub_fBase_free          ),DEFERRED :: free
     PROCEDURE(i_sub_fBase_copy          ),DEFERRED :: copy
+    PROCEDURE(i_fun_fBase_eval          ),DEFERRED :: eval
+    PROCEDURE(i_fun_fBase_evalDOF_x     ),DEFERRED :: evalDOF_x
     PROCEDURE(i_fun_fBase_evalDOF_IP    ),DEFERRED :: evalDOF_IP
     PROCEDURE(i_fun_fBase_initDOF       ),DEFERRED :: initDOF
 
@@ -83,6 +85,23 @@ ABSTRACT INTERFACE
     REAL(wp)                      :: DOFs(1:sf%modes)
   END FUNCTION i_fun_fBase_initDOF
 
+  FUNCTION i_fun_fBase_eval( sf,deriv,x) RESULT(base_x)
+    IMPORT wp,c_fBase
+  CLASS(c_fBase), INTENT(IN   ) :: sf
+  INTEGER       , INTENT(IN   ) :: deriv
+  REAL(wp)      , INTENT(IN   ) :: x(2)
+  REAL(wp)                      :: base_x(sf%modes)
+  END FUNCTION i_fun_fBase_eval
+
+  FUNCTION i_fun_fBase_evalDOF_x( sf,x,deriv,DOFs ) RESULT(y)
+    IMPORT wp,c_fBase
+  CLASS(c_fBase), INTENT(IN   ) :: sf
+  REAL(wp)      , INTENT(IN   ) :: x(2)
+  INTEGER       , INTENT(IN   ) :: deriv
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
+  REAL(wp)                      :: y
+  END FUNCTION i_fun_fBase_evalDOF_x
+
   FUNCTION i_fun_fBase_evalDOF_IP( sf,deriv,DOFs ) RESULT(y_IP)
     IMPORT wp,c_fBase
   CLASS(c_fBase), INTENT(IN   ) :: sf
@@ -116,6 +135,8 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: init             => fBase_init
   PROCEDURE :: free             => fBase_free
   PROCEDURE :: copy             => fBase_copy
+  PROCEDURE :: eval             => fBase_eval
+  PROCEDURE :: evalDOF_x        => fBase_evalDOF_x
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP
   PROCEDURE :: initDOF          => fBase_initDOF
 
@@ -433,6 +454,82 @@ CHARACTER(LEN=8) :: sin_cos
 
   END SELECT !TYPE
 END SUBROUTINE fBase_copy
+
+!===================================================================================================================================
+!> evaluate  all modes at specific given point
+!!
+!===================================================================================================================================
+FUNCTION fBase_eval(sf,deriv,x) RESULT(base_x)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+  INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+  REAL(wp)      , INTENT(IN   ) :: x(2) 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: base_x(sf%modes) 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: iMode
+!===================================================================================================================================
+  ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range) 
+  SELECT CASE(deriv)
+  CASE(0)
+    DO iMode=sin_range(1)+1,sin_range(2)
+      base_x(iMode)=                          SIN(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      base_x(iMode)=                          COS(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
+    END DO !iMode
+  CASE(DERIV_THET)
+    DO iMode=sin_range(1)+1,sin_range(2)
+      base_x(iMode)= REAL(sf%Xmn(1,iMode),wp)*COS(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      base_x(iMode)=-REAL(sf%Xmn(1,iMode),wp)*SIN(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
+    END DO !iMode
+  CASE(DERIV_ZETA)
+    DO iMode=sin_range(1)+1,sin_range(2)
+      base_x(iMode)=-REAL(sf%Xmn(2,iMode),wp)*COS(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      base_x(iMode)= REAL(sf%Xmn(2,iMode),wp)*SIN(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
+    END DO !iMode
+  CASE DEFAULT 
+    CALL abort(__STAMP__, &
+         "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
+  END SELECT
+  END ASSOCIATE
+END FUNCTION fBase_eval
+
+!===================================================================================================================================
+!> evaluate  all modes at all interpolation points 
+!!
+!===================================================================================================================================
+FUNCTION fBase_evalDOF_x(sf,x,deriv,DOFs) RESULT(y)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+  REAL(wp)      , INTENT(IN   ) :: x(2)
+  INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: y
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)                      :: base_x(1:sf%modes)
+!===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
+       'nDOF not correct when calling fBase_evalDOF_IP' )
+  base_x=sf%eval(deriv,x)
+  y=DOT_PRODUCT(base_x,DOFs(:))
+
+END FUNCTION fBase_evalDOF_x
 
 !===================================================================================================================================
 !> evaluate  all modes at all interpolation points 

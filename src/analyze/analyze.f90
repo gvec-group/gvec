@@ -52,7 +52,7 @@ SUBROUTINE InitAnalyze
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_Analyze_Vars
-USE MOD_ReadInTools,ONLY:GETINT
+USE MOD_ReadInTools,ONLY:GETINT,GETINTARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -66,8 +66,8 @@ IMPLICIT NONE
 SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 visu1D    = GETINT('visu1D','1')   
 visu2D    = GETINT('visu2D','0')   
-visu3D    = GETINT('visu3D','0')   
 
+np_visu   = GETINTARRAY("np_visu",3,"5 12 10")
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
@@ -81,6 +81,7 @@ SUBROUTINE Analyze()
 ! MODULES
 USE MOD_Analyze_Vars
 USE MOD_mhdeq_vars, ONLY:whichInitEquilibrium
+USE MOD_mhd3d_visu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -88,6 +89,8 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+LOGICAL            :: vcase(4)
+CHARACTER(LEN=4)   :: vstr
 !===================================================================================================================================
 IF(visu1D.NE.0)THEN
   SELECT CASE(whichInitEquilibrium)
@@ -96,6 +99,20 @@ IF(visu1D.NE.0)THEN
   CASE(1)
     CALL VMEC1D_visu() 
   END SELECT
+END IF !visu1D
+IF(visu2D.NE.0)THEN
+  vcase=.FALSE.
+  WRITE(vstr,'(I4)')visu2D
+  IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+  IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+  IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+  IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+  IF(vcase(1))THEN
+    CALL visu_BC_face((/np_visu(2),np_visu(3)/))
+  END IF
+  IF(vcase(2))THEN
+    CALL visu_planes(np_visu(1),(/np_visu(2),np_visu(3)/))
+  END IF 
 END IF !visu1D
 
 END SUBROUTINE Analyze 

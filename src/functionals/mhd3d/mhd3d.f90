@@ -233,6 +233,7 @@ INTEGER          :: which_hmap
   END ASSOCIATE !mn_IP,nGP
 
   CALL InitializeSolution(U(-1) )
+  CALL U(0)%set_to(U(-1))
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -248,7 +249,7 @@ INTEGER          :: which_hmap
     !local variables
     CHARACTER(LEN=100) :: varstr
     !-------------------------------------------
-    WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(:)
+    WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(1),mn(2)/nfp
     varstr=delete_spaces(varstr)         !quiet on default=0.0
     get_iMode=GETREAL(TRIM(varstr),"0.0",.TRUE.)
    
@@ -306,9 +307,9 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
       CASE(M_ODD)
         X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
       CASE(M_EVEN)
-        X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
+        X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
       END SELECT !X1(:,iMode) zero odd even
-      U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:)*X1_b(iMode) )
+      U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
     END DO 
     END ASSOCIATE
 
