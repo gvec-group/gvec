@@ -79,7 +79,7 @@ ABSTRACT INTERFACE
   FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_fBase
     CLASS(c_fBase), INTENT(IN   ) :: sf
-    REAL(wp)      , INTENT(IN   ) :: g_IP(sf%mn_IP)
+    REAL(wp)      , INTENT(IN   ) :: g_IP(:)
     REAL(wp)                      :: DOFs(1:sf%modes)
   END FUNCTION i_fun_fBase_initDOF
 
@@ -87,7 +87,7 @@ ABSTRACT INTERFACE
     IMPORT wp,c_fBase
   CLASS(c_fBase), INTENT(IN   ) :: sf
   INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%modes)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y_IP(sf%mn_IP)
   END FUNCTION i_fun_fBase_evalDOF_IP
 
@@ -445,13 +445,15 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%modes)  !! array of all modes
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y_IP(sf%mn_IP) 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
+       'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
   CASE(0)
     y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
@@ -475,7 +477,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf    !! self
-  REAL(wp)      , INTENT(IN   ) :: g_IP(sf%mn_IP)  !!  interpolation values at theta_IP zeta_IP positions
+  REAL(wp)      , INTENT(IN   ) :: g_IP(:)  !!  interpolation values at theta_IP zeta_IP positions
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: DOFs(1:sf%modes)  !! projection to fourier base
@@ -483,6 +485,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: iMode
 !===================================================================================================================================
+IF(SIZE(g_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
+       'nDOF not correct when calling fBase_initDOF' )
   DO iMode=1,sf%modes
     DOFs(iMode)=(sf%d_thet*sf%d_zeta/((TWOPI)**2))*SUM(sf%base_IP(:,iMode)*g_IP(:))
   END DO

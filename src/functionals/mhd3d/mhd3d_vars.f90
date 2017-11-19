@@ -37,11 +37,6 @@ PUBLIC
 CLASS(t_base),  ALLOCATABLE :: X1_base   !! container for base of variable X1
 CLASS(t_base),  ALLOCATABLE :: X2_base   !! container for base of variable X2
 CLASS(t_base),  ALLOCATABLE :: LA_base   !! container for base of variable lambda 
-                            
-CLASS(t_fbase), ALLOCATABLE :: X1_b_base !! container for base of boundaries o X1
-CLASS(t_fbase), ALLOCATABLE :: X2_b_base !! container for base of boundaries o X1
-CLASS(t_fbase), ALLOCATABLE :: LA_b_base !! container for base of boundaries o LA
-                             
                              
 TYPE(t_sgrid)               :: sgrid     !! only one grid up to now
                                          
@@ -70,9 +65,11 @@ REAL(wp)             :: gamm            !! isentropic exponent
 INTEGER              :: X1X2_BC(2)      !! BC axis (0) and edge (1)   for variables X1 and X2 (default(0,1))
 INTEGER              :: LA_BC(2)        !! BC axis (0) and edge (1)   for variable lambda     (default(0,0))
                                         
-REAL(wp),ALLOCATABLE :: X1_b(:)         !! fourier modes of the boundary for X1
-REAL(wp),ALLOCATABLE :: X2_b(:)         !! fourier modes of the boundary for X2
-REAL(wp),ALLOCATABLE :: LA_b(:)         !! fourier modes of the boundary for LA
+REAL(wp),ALLOCATABLE :: X1_b(:)         !! fourier modes of the edge boundary for X1
+REAL(wp),ALLOCATABLE :: X2_b(:)         !! fourier modes of the edge boundary for X2
+REAL(wp),ALLOCATABLE :: LA_b(:)         !! fourier modes of the edge boundary for LA
+REAL(wp),ALLOCATABLE :: X1_a(:)         !! fourier modes of the axis boundary for X1
+REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary for X2
 
 !evaluations at radial gauss points, size(1:base%s%nGP)                                       
 REAL(wp),ALLOCATABLE :: mass_GP(:)      !! mass profile 

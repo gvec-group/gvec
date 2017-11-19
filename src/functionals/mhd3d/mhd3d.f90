@@ -68,6 +68,8 @@ INTEGER          :: i,iMode,nElems
 INTEGER          :: grid_type
 INTEGER          :: X1X2_deg,X1X2_cont
 INTEGER          :: X1_mn_max(2),X2_mn_max(2)
+INTEGER          :: X1_a_mn_max(2),X2_a_mn_max(2)
+INTEGER          :: X1_b_mn_max(2),X2_b_mn_max(2)
 INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
 CHARACTER(LEN=8) :: X1_sin_cos
 CHARACTER(LEN=8) :: X2_sin_cos
@@ -138,21 +140,65 @@ INTEGER          :: which_hmap
   CALL base_new(X2_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X2_mn_max,mn_nyq,nfp,X2_sin_cos,.FALSE.)
   CALL base_new(LA_base  ,   LA_deg,  LA_cont,sgrid,degGP , LA_mn_max,mn_nyq,nfp,LA_sin_cos,.TRUE. )
 
-  CALL fbase_new(X1_b_base , X1_mn_max,mn_nyq,nfp,X1_sin_cos,.FALSE.)
-  CALL fbase_new(X2_b_base , X2_mn_max,mn_nyq,nfp,X2_sin_cos,.FALSE.)
-  CALL fbase_new(LA_b_base , LA_mn_max,mn_nyq,nfp,LA_sin_cos,.TRUE. )
-
-  ALLOCATE(X1_b(1:X1_b_base%modes) )
-  ALLOCATE(X2_b(1:X2_b_base%modes) )
-  ALLOCATE(LA_b(1:LA_b_base%modes) )
-  X1_b=0.0_wp
-  X2_b=0.0_wp
-  LA_b=0.0_wp
-  
   nDOF_X1 = X1_base%s%nBase* X1_base%f%modes
   nDOF_X2 = X2_base%s%nBase* X2_base%f%modes
   nDOF_LA = LA_base%s%nBase* LA_base%f%modes
-  
+
+  ALLOCATE(X1_b(1:X1_base%f%modes) )
+  ALLOCATE(X2_b(1:X2_base%f%modes) )
+  ALLOCATE(LA_b(1:LA_base%f%modes) )
+  ALLOCATE(X1_a(1:X1_base%f%modes) )
+  ALLOCATE(X2_a(1:X2_base%f%modes) )
+  X1_b=0.0_wp
+  X2_b=0.0_wp
+  LA_b=0.0_wp
+  X1_a=0.0_wp
+  X2_a=0.0_wp
+
+  SELECT CASE(which_init)
+  CASE(0)
+    !READ boudnary values from input file
+    WRITE(UNIT_stdOut,'(4X,A)')'... read axis boundary data for X1:'
+    ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
+    DO iMode=sin_range(1)+1,sin_range(2)
+      X1_a(iMode)=get_iMode('X1_a_sin',X1_base%f%Xmn(:,iMode))
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      X1_a(iMode)=get_iMode('X1_a_cos',X1_base%f%Xmn(:,iMode))
+    END DO !iMode
+    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
+    DO iMode=sin_range(1)+1,sin_range(2)
+      X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode))
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode))
+    END DO !iMode
+    END ASSOCIATE
+    WRITE(UNIT_stdOut,'(4X,A)')'... read axis boundary data for X2:'
+    ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
+    DO iMode=sin_range(1)+1,sin_range(2)
+      X2_a(iMode)=get_iMode('X2_a_sin',X2_base%f%Xmn(:,iMode))
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      X2_a(iMode)=get_iMode('X2_a_cos',X2_base%f%Xmn(:,iMode))
+    END DO !iMode
+    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
+    DO iMode=sin_range(1)+1,sin_range(2)
+      X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode))
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode))
+    END DO !iMode
+    END ASSOCIATE
+  CASE(1) !VMEC
+!    X1_mn_max  = MAX( 
+!    X2_mn_max  = MAX( 
+!    X1_sin_cos   = ? 
+!    X2_sin_cos   = ?
+!  LA_mn_max  = 
+!  LA_sin_cos = ? 
+  END SELECT !which_init
+
   ALLOCATE(U(-1:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,   &
                    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
@@ -186,38 +232,7 @@ INTEGER          :: which_hmap
  
   END ASSOCIATE !mn_IP,nGP
 
-  SELECT CASE(which_init)
-  CASE(0)
-    WRITE(UNIT_stdOut,'(4X,A)')'... read boundary data for X1:'
-    !READ boudnary values from input file
-    ASSOCIATE(modes=>X1_b_base%modes,sin_range=>X1_b_base%sin_range,cos_range=>X1_b_base%cos_range)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X1_b(iMode)=get_iMode('X1_b_sin',X1_b_base%Xmn(:,iMode))
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X1_b(iMode)=get_iMode('X1_b_cos',X1_b_base%Xmn(:,iMode))
-    END DO !iMode
-    END ASSOCIATE
-    WRITE(UNIT_stdOut,'(4X,A)')'... read boundary data for X2:'
-    ASSOCIATE(modes=>X2_b_base%modes,sin_range=>X2_b_base%sin_range,cos_range=>X2_b_base%cos_range)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X2_b(iMode)=get_iMode('X2_b_sin',X2_b_base%Xmn(:,iMode))
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X2_b(iMode)=get_iMode('X2_b_cos',X2_b_base%Xmn(:,iMode))
-    END DO !iMode
-    END ASSOCIATE
-  CASE(1) !VMEC
-!    X1_mn_max  = MAX( 
-!    X2_mn_max  = MAX( 
-!    X1_sin_cos   = ? 
-!    X2_sin_cos   = ?
-!  LA_mn_max  = 
-!  LA_sin_cos = ? 
-  END SELECT !which_init
-
-
-!  CALL InitializeSolution(U(-1)%X1, U(-1)%X2, U(-1)%LA )
+  CALL InitializeSolution(U(-1) )
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -234,8 +249,8 @@ INTEGER          :: which_hmap
     CHARACTER(LEN=100) :: varstr
     !-------------------------------------------
     WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(:)
-    varstr=delete_spaces(varstr)
-    get_iMode=GETREAL(TRIM(varstr),"0.0")
+    varstr=delete_spaces(varstr)         !quiet on default=0.0
+    get_iMode=GETREAL(TRIM(varstr),"0.0",.TRUE.)
    
   END FUNCTION get_iMode
 
@@ -258,56 +273,76 @@ END SUBROUTINE InitMHD3D
 !> Initialize the solution with the given boundary condition 
 !!
 !===================================================================================================================================
-SUBROUTINE InitializeSolution(X1_in,X2_in,LA_in) 
+SUBROUTINE InitializeSolution(U0)! X1_in,X2_in,LA_in) 
 ! MODULES
 USE MOD_Globals, ONLY:EVAL1DPOLY
 USE MOD_MHD3D_Vars
+USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MOD_lambda_solve,  ONLY:lambda_solve
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp)     , INTENT(INOUT) :: X1_in(1:X1_base%f%mn_IP,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
-REAL(wp)     , INTENT(INOUT) :: X2_in(1:X2_base%f%mn_IP,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
-REAL(wp)     , INTENT(INOUT) :: LA_in(1:LA_base%f%mn_IP,1:LA_base%f%modes) !! U%LA variable, is reshaped to 2D at input 
+CLASS(t_sol_var_MHD3D),INTENT(INOUT) :: U0
+!REAL(wp)     , INTENT(INOUT) :: X1_in(1:X1_base%f%mn_IP,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
+!REAL(wp)     , INTENT(INOUT) :: X2_in(1:X2_base%f%mn_IP,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
+!REAL(wp)     , INTENT(INOUT) :: LA_in(1:LA_base%f%mn_IP,1:LA_base%f%modes) !! U%LA variable, is reshaped to 2D at input 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER  :: is,iMode
 REAL(wp) :: spos,iota_s 
 REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
 REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
+REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
   SELECT CASE(which_init)
   CASE(0)
-    DO imode=1,X1_base%f%modes
-      SELECT CASE(X1_base%f%zero_odd_even(iMode))
+    ASSOCIATE(s_IP        => X1_base%s%s_IP, &
+              modes        =>X1_base%f%modes, &
+              zero_odd_even=>X1_base%f%zero_odd_even)
+    DO imode=1,modes
+      SELECT CASE(zero_odd_even(iMode))
       CASE(MN_ZERO)
-        X1_gIP(:)=1.0_wp !zero mode constant over s
+        X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD)
-        X1_gIP(:)=(X1_base%s%s_IP(:)) ! odd mode ~s
+        X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
       CASE(M_EVEN)
-        X1_gIP(:)=(X1_base%s%s_IP(:))**2 !even mode ~s^2
+        X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
       END SELECT !X1(:,iMode) zero odd even
-      X1_in(:,iMode)=X1_base%s%initDOF( X1_gIP(:)*X1_b(iMode) )
+      U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:)*X1_b(iMode) )
     END DO 
-    DO imode=1,X2_base%f%modes
-      SELECT CASE(X2_base%f%zero_odd_even(iMode))
+    END ASSOCIATE
+
+    ASSOCIATE(s_IP        => X2_base%s%s_IP, &
+              modes        =>X2_base%f%modes, &
+              zero_odd_even=>X2_base%f%zero_odd_even)
+    DO imode=1,modes
+      SELECT CASE(zero_odd_even(iMode))
       CASE(MN_ZERO)
-        X2_gIP(:)=1.0_wp !zero mode constant over s
+        X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD)
-        X2_gIP(:)=(X2_base%s%s_IP(:)) ! odd mode ~s
+        X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
       CASE(M_EVEN)
-        X2_gIP(:)=(X2_base%s%s_IP(:))**2 !even mode ~s^2
+        X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
       END SELECT !X1(:,iMode) zero odd even
-      X2_in(:,iMode)=X2_base%s%initDOF( X1_gIP(:)*X1_b(iMode) )
+      U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
     END DO 
+    END ASSOCIATE
   CASE(1) !VMEC
   END SELECT 
-  LA_in(1,:)=0.0_wp !at axis
-  DO is=2,LA_base%s%nBase
-    spos=LA_base%s%s_IP(is)
-    iota_s=EVAL1DPOLY(n_iota_coefs,iota_coefs,spos)
-    CALL lambda_Solve(spos,iota_s,X1_in,X2_in,LA_in(is,:))
-  END DO !i !iss
+  U0%LA(:,:)=0. !TODO DEBUG lambda_solve 
+!  LA_gIP(1,:)=0.0_wp !at axis
+!  DO is=2,LA_base%s%nBase
+!    spos=LA_base%s%s_IP(is)
+!    iota_s=EVAL1DPOLY(n_iota_coefs,iota_coefs,spos)
+!    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
+!  END DO !is
+!  DO imode=1,LA_base%f%modes
+!    IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
+!      U0%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
+!    ELSE
+!      U0%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+!    END IF!iMode ~ MN_ZERO
+!  END DO !iMode 
 
 END SUBROUTINE InitializeSolution
 
@@ -329,10 +364,7 @@ INTEGER :: i
   CALL X1_base%free()
   CALL X2_base%free()
   CALL LA_base%free()
-  CALL X1_b_base%free()
-  CALL X2_b_base%free()
-  CALL LA_b_base%free()
-  
+
   DO i=-1,1
     CALL U(i)%free()
   END DO
@@ -355,6 +387,11 @@ INTEGER :: i
   SDEALLOCATE(dLA_dzeta   )
   SDEALLOCATE(b_a         )
   SDEALLOCATE(g_ab        )
+  SDEALLOCATE(X1_b)
+  SDEALLOCATE(X2_b)
+  SDEALLOCATE(LA_b)
+  SDEALLOCATE(X1_a)
+  SDEALLOCATE(X2_a)
 
 END SUBROUTINE FinalizeMHD3D
 

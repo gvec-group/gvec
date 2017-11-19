@@ -114,6 +114,7 @@ INTEGER                           :: errOut          ! Output of MPI_ABORT
 #if MPI
 INTEGER                           :: signalout       ! Output errorcode
 #endif
+REAL                              :: sigsev(2)
 !==================================================================================================================================
 IntString = ""
 RealString = ""
@@ -138,6 +139,9 @@ signalout=2 ! MPI_ABORT requires an output error-code /=0
 IF(PRESENT(ErrorCode)) signalout=ErrorCode
 CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 #endif  
+#if GNU
+CALL BACKTRACE
+#endif
 ERROR STOP 2
 END SUBROUTINE Abort
 

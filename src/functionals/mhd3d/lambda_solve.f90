@@ -45,8 +45,8 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 REAL(wp)     , INTENT(IN   ) :: spos                    !! s position to evaluate lambda
 REAL(wp)     , INTENT(IN   ) :: iota_s                  !! iota at s_pos
-REAL(wp)     , INTENT(IN   ) :: X1_in(1:X1_base%f%mn_IP,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
-REAL(wp)     , INTENT(IN   ) :: X2_in(1:X2_base%f%mn_IP,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
+REAL(wp)     , INTENT(IN   ) :: X1_in(1:X1_base%s%nBase,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
+REAL(wp)     , INTENT(IN   ) :: X2_in(1:X2_base%s%nBase,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos 
@@ -91,14 +91,18 @@ REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
     qloc(1:3) = (/X1_s_IP(i_mn) , X2_s_IP(i_mn) , zeta_IP(i_mn)/)
     Jh=hmap%eval_Jh( qloc ) !X1,X2,zeta
     detJ(i_mn)=(dX1ds(i_mn)*dX2dthet(i_mn)-dX1dthet(i_mn)*dX2ds(i_mn))*Jh !J_p*J_h
-    minJ=MIN(minJ,detJ(i_mn))
   END DO !i_mn
-  IF(minJ.LT.1.0e-12) THEN
+  IF(MINVAL(detJ) .LT.1.0e-12) THEN
     i_mn= MINLOC(detJ(:),1)
-    WRITE(UNIT_stdOut,'(4X,3(A,E11.3))')'WARNING !min(J)=',minJ,'at s= ',spos," theta= ",X1_base%f%x_IP(1,i_mn), &
-                                                                               " zeta= ",X1_base%f%x_IP(2,i_mn) 
-!    CALL abort(__STAMP__, &
-!        'Lambda_solve: Jacobian smaller that  1.0e-12!!!' )
+    WRITE(UNIT_stdOut,'(4X,4(A,E11.3))')'WARNING min(J)= ',MINVAL(detJ),' at s= ',spos, &
+                                                                       ' theta= ',X1_base%f%x_IP(1,i_mn), &
+                                                                        ' zeta= ',X1_base%f%x_IP(2,i_mn) 
+    i_mn= MAXLOC(detJ(:),1)
+    WRITE(UNIT_stdOut,'(4X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ),' at s= ',spos, &
+                                                                       ' theta= ',X1_base%f%x_IP(1,i_mn), &
+                                                                        ' zeta= ',X1_base%f%x_IP(2,i_mn) 
+    CALL abort(__STAMP__, &
+        'Lambda_solve: Jacobian smaller that  1.0e-12!!!' )
   END IF
   !account for 1/J here
   DO i_mn=1,mn_IP

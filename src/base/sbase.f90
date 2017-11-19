@@ -87,7 +87,7 @@ ABSTRACT INTERFACE
   FUNCTION i_fun_sbase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_sbase
     CLASS(c_sbase), INTENT(INOUT) :: sf
-    REAL(wp)      , INTENT(IN   ) :: g_IP(1:sf%nBase)
+    REAL(wp)      , INTENT(IN   ) :: g_IP(:)
     REAL(wp)                      :: DOFs(1:sf%nBase)
   END FUNCTION i_fun_sbase_initDOF
 
@@ -96,7 +96,7 @@ ABSTRACT INTERFACE
   CLASS(c_sbase), INTENT(IN   ) :: sf
   REAL(wp)      , INTENT(IN   ) :: x
   INTEGER       , INTENT(IN   ) :: deriv 
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y
   END FUNCTION i_fun_sbase_evalDOF_s
 
@@ -105,7 +105,7 @@ ABSTRACT INTERFACE
   CLASS(c_sbase), INTENT(IN   ) :: sf
   INTEGER       , INTENT(IN   ) :: iElem 
   REAL(wp)      , INTENT(IN   ) :: base_x(0:sf%deg)
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y  !out
   END FUNCTION i_fun_sbase_evalDOF_base
 
@@ -113,7 +113,7 @@ ABSTRACT INTERFACE
     IMPORT wp,c_sbase
   CLASS(c_sbase), INTENT(IN   ) :: sf
   INTEGER       , INTENT(IN   ) :: deriv 
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y_GP(sf%nGP)
   END FUNCTION i_fun_sbase_evalDOF_GP
 
@@ -663,7 +663,7 @@ IMPLICIT NONE
   CLASS(t_sbase), INTENT(IN   ) :: sf     !! self
   REAL(wp)      , INTENT(IN   ) :: x      !! point positions in [0,1]
   INTEGER       , INTENT(IN   ) :: deriv  !! derivative (=0: solution)
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)  !! array of all degrees of freedom 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all degrees of freedom 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y
@@ -672,6 +672,8 @@ IMPLICIT NONE
   INTEGER                       :: iElem
   REAL(wp)                      :: base_x(0:sf%deg)
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_evalDOF_s')
   CALL sf%eval(x,deriv,iElem,base_x) 
   y=sf%evalDOF_base(iElem,base_x,DOFs)
 
@@ -690,13 +692,15 @@ IMPLICIT NONE
   CLASS(t_sbase), INTENT(IN   ) :: sf    !! self
   INTEGER       , INTENT(IN   ) :: iElem  !! element where evaluation point 
   REAL(wp)      , INTENT(IN   ) :: base_x(0:sf%deg)  !! evaluation of base or its derivative in element  iElem at a point position
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)  !! degrees of freedom 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! degrees of freedom 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_evalDOF_base')
   ASSOCIATE(j=>sf%base_offset(iElem))
   y = SUM(DOFs(j:j+sf%deg)*base_x)
   END ASSOCIATE
@@ -714,7 +718,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_sbase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! only 0 or 1 
-  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase)  !! array of all degrees of freedom 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all degrees of freedom 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y_GP(1:sf%nGP) ! will be be 1D array on input/output
@@ -722,6 +726,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER                       :: iElem
 !===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_evalDOF_GP')
 ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
 SELECT CASE(deriv)
 CASE(0)
@@ -753,13 +759,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sbase), INTENT(INOUT) :: sf    !! self
-  REAL(wp)      , INTENT(IN   ) :: g_IP(sf%nBase)  !!  interpolation values at s_IP positions [0,1]
+  REAL(wp)      , INTENT(IN   ) :: g_IP(:)  !!  interpolation values at s_IP positions [0,1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: DOFs(1:sf%nBase)  !! result of interpolation 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+IF(SIZE(g_IP,1).NE.sf%nBase) CALL abort(__STAMP__, &
+             'nDOF not correct when calling sBase_initDOF')
 SELECT TYPE(sf)
 TYPE IS(t_sbase_disc)
   DOFs(:)=g_IP

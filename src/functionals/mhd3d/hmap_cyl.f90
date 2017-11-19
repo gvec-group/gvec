@@ -285,7 +285,7 @@ IMPLICIT NONE
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     q_in=(/0.1_wp,-0.2_wp,0.5_wp*Pi/)
     x = sf%eval(q_in )
-    checkreal=SUM((x-(/q_in(1)*COS(q_in(3)),-q_in(1)*SIN(q_in(3)),q_in(2)/))**2)
+    checkreal=SUM((x-(/q_in(1),-q_in(3)*sf%cyl_len,q_in(2)/))**2)
     refreal  =0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
