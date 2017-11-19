@@ -62,11 +62,11 @@ DO i_n=1,mn_IP(2)
     X1_visu=X1_base%f%evalDOF_x(x,0,X1_b)
     X2_visu=X2_base%f%evalDOF_x(x,0,X2_b)
     q=(/X1_visu,X2_visu,x(2)/)
-    x_visu(:,i_m,i_n,1)=hmap%eval(q)
+    x_visu(  :,i_m,i_n,1)=hmap%eval(q)
+    var_visu(1,i_m,i_n,1)=LA_base%f%evalDOF_x(x,0,LA_b)
   END DO !i_m
 END DO !i_n
-var_visu=0.0_wp
-VarNames(1)="dummy"
+VarNames(1)="lambda"
 nplot(:)=mn_IP-1
 CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,x_visu,var_visu,"visu_BC.vtu")
 

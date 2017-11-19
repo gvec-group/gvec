@@ -67,6 +67,7 @@ SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 visu1D    = GETINT('visu1D','1')   
 visu2D    = GETINT('visu2D','0')   
 
+np_visu_BC= GETINTARRAY("np_visu_BC",2,"20 30")
 np_visu   = GETINTARRAY("np_visu",3,"5 12 10")
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
@@ -108,7 +109,7 @@ IF(visu2D.NE.0)THEN
   IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
   IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
   IF(vcase(1))THEN
-    CALL visu_BC_face((/np_visu(2),np_visu(3)/))
+    CALL visu_BC_face(np_visu_BC(1:2))
   END IF
   IF(vcase(2))THEN
     CALL visu_planes(np_visu(1),(/np_visu(2),np_visu(3)/))
