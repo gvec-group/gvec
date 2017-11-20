@@ -437,8 +437,17 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
       END DO 
     END IF !lasym
     END ASSOCIATE !X2
-
-  END SELECT 
+    !get boundary conditions
+    DO imode=1,X1_base%f%modes
+      X1_a(iMode)=U0%X1(              1,iMode)
+      X1_b(iMode)=U0%X1(X1_base%s%nBase,iMode)
+    END DO !iMode
+    DO imode=1,X2_base%f%modes
+      X2_a(iMode)=U0%X2(              1,iMode)
+      X2_b(iMode)=U0%X2(X2_base%s%nBase,iMode)
+    END DO !iMode
+  END SELECT !which_init
+ 
   !apply strong boundary conditions
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
@@ -476,7 +485,6 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
   END DO 
   END ASSOCIATE !X2
 
-IF(which_init.EQ.0)THEN !DEBUG!!!
   !initialize Lambda
   LA_gIP(1,:)=0.0_wp !at axis
   DO is=2,LA_base%s%nBase
@@ -492,7 +500,7 @@ IF(which_init.EQ.0)THEN !DEBUG!!!
     END IF!iMode ~ MN_ZERO
   END DO !iMode 
   LA_b = U0%LA(LA_base%s%nbase,:)
-END IF
+
   SWRITE(UNIT_stdOut,'(4X,A)') "..DONE."
 
 END SUBROUTINE InitializeSolution

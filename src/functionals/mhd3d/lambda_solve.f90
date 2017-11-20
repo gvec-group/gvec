@@ -101,8 +101,8 @@ REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
     WRITE(UNIT_stdOut,'(4X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ),' at s= ',spos, &
                                                                        ' theta= ',X1_base%f%x_IP(1,i_mn), &
                                                                         ' zeta= ',X1_base%f%x_IP(2,i_mn) 
-    CALL abort(__STAMP__, &
-        'Lambda_solve: Jacobian smaller that  1.0e-12!!!' )
+!    CALL abort(__STAMP__, &
+!        'Lambda_solve: Jacobian smaller that  1.0e-12!!!' )
   END IF
   !account for 1/J here
   DO i_mn=1,mn_IP

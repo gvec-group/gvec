@@ -40,6 +40,7 @@ SUBROUTINE visu_BC_face(mn_IP )
 USE MOD_Globals, ONLY:TWOPI
 USE MOD_MHD3D_vars
 USE MOD_output_vtk, ONLY: WriteDataToVTK
+USE MOD_Output_vars,ONLY: Projectname
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -68,7 +69,7 @@ DO i_n=1,mn_IP(2)
 END DO !i_n
 VarNames(1)="lambda"
 nplot(:)=mn_IP-1
-CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,x_visu,var_visu,"visu_BC.vtu")
+CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,x_visu,var_visu,TRIM(Projectname)//"_visu_BC.vtu")
 
 END SUBROUTINE visu_BC_face
 !===================================================================================================================================
@@ -80,6 +81,7 @@ SUBROUTINE visu_planes(n_s,mn_IP )
 USE MOD_Globals, ONLY:TWOPI
 USE MOD_MHD3D_vars
 USE MOD_output_vtk, ONLY: WriteDataToVTK
+USE MOD_Output_vars,ONLY: Projectname
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -128,7 +130,7 @@ VarNames(1)="lambda"
 
 nplot(:)=(/n_s,mn_IP(1)/)-1
 
-CALL WriteDataToVTK(2,3,nVal,nplot,(mn_IP(2)*nElems),VarNames,x_visu,var_visu,"visu_planes.vtu")
+CALL WriteDataToVTK(2,3,nVal,nplot,(mn_IP(2)*nElems),VarNames,x_visu,var_visu,TRIM(Projectname)//"_visu_planes.vtu")
 
 WRITE(*,*)'    ... min x,y,z',MINVAL(x_visu(1,:,:,:)),MINVAL(x_visu(2,:,:,:)),MINVAL(x_visu(3,:,:,:))
 WRITE(*,*)'    ... max x,y,z',MAXVAL(x_visu(1,:,:,:)),MAXVAL(x_visu(2,:,:,:)),MAXVAL(x_visu(3,:,:,:))
@@ -161,7 +163,7 @@ REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
 REAL(wp)          ,ALLOCATABLE :: s_visu(:)
 LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
-CHARACTER(LEN=40)  :: fname
+CHARACTER(LEN=40)  :: vname
 !===================================================================================================================================
 !visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
 WRITE(vstr,'(I4)')visu1D
@@ -216,23 +218,23 @@ nValRewind=nVal
 IF(vcase(1))THEN
   WRITE(*,*)'1) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
   nval=nValRewind
-  fname="U0_X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-  CALL writeDataMN_visu(fname,"X1mn",0,s_visu,X1_base,U(0)%X1)
+  vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
+  CALL writeDataMN_visu("U0_"//vname,vname,0,s_visu,X1_base,U(0)%X1)
   nval=nValRewind
-  fname="U0_X2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-  CALL writeDataMN_visu(fname,"X2mn",0,s_visu,X2_base,U(0)%X2)
+  vname="X2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
+  CALL writeDataMN_visu("U0_"//vname,vname,0,s_visu,X2_base,U(0)%X2)
   nval=nValRewind
-  fname="U0_LA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
-  CALL writeDataMN_visu(fname,"LAmn",0,s_visu,LA_base,U(0)%LA)
+  vname="LA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
+  CALL writeDataMN_visu("U0_"//vname,vname,0,s_visu,LA_base,U(0)%LA)
 END IF
 IF(vcase(2))THEN
   WRITE(*,*)'2) Visualize gvec modes in 1D: dRrho,dZrho interpolated...'
   nval=nValRewind
-  fname="U0_dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-  CALL writeDataMN_visu(fname,"dX1mn",DERIV_S,s_visu,X1_base,U(0)%X1)
+  vname="dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
+  CALL writeDataMN_visu("U0_"//vname,vname,DERIV_S,s_visu,X1_base,U(0)%X1)
   nval=nValRewind
-  fname="U0_dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-  CALL writeDataMN_visu(fname,"dX2mn",DERIV_S,s_visu,X2_base,U(0)%X2)
+  vname="dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
+  CALL writeDataMN_visu("U0_"//vname,vname,DERIV_S,s_visu,X2_base,U(0)%X2)
 END IF
 
 !
