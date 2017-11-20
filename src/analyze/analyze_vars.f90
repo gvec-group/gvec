@@ -34,6 +34,7 @@ INTEGER              :: visu1D                 !! visualize 1D data (each mode).
 INTEGER              :: visu2D                 !! visualize 2D data ... 
 INTEGER              :: np_visu_bc(2)          !! number of points for visualization in theta,zeta
 INTEGER              :: np_visu(3)             !! number of points for visualization in s,theta,zeta
+INTEGER              :: np_1d                  !! number of points for visualization in s
 
 !===================================================================================================================================
 END MODULE MOD_Analyze_Vars

@@ -69,6 +69,7 @@ visu2D    = GETINT('visu2D','0')
 
 np_visu_BC= GETINTARRAY("np_visu_BC",2,"20 30")
 np_visu   = GETINTARRAY("np_visu",3,"5 12 10")
+np_1d     = GETINT("np_1d","2")
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
@@ -96,6 +97,7 @@ CHARACTER(LEN=4)   :: vstr
 IF(visu1D.NE.0)THEN
   SELECT CASE(whichInitEquilibrium)
   CASE(0) !own input data
+    CALL visu_1d_modes(np_1d) 
     !
   CASE(1)
     CALL VMEC1D_visu() 

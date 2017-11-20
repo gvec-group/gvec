@@ -135,6 +135,211 @@ WRITE(*,*)'    ... max x,y,z',MAXVAL(x_visu(1,:,:,:)),MAXVAL(x_visu(2,:,:,:)),MA
 
 END SUBROUTINE visu_planes
 
+!===================================================================================================================================
+!> Visualize 
+!!
+!===================================================================================================================================
+SUBROUTINE visu_1d_modes(n_s)
+! MODULES
+USE MOD_Globals,      ONLY:Eval1DPoly
+USE MOD_Analyze_Vars, ONLY:visu1D
+USE MOD_Output_Vars,  ONLY:ProjectName
+USE MOD_base,         ONLY: t_base
+USE MOD_fbase,        ONLY: sin_cos_map
+USE MOD_MHD3D_Vars
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,INTENT(IN)  :: n_s  !! number of visualization points per element
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER            :: i_s,iElem,i,j,iMode,nvisu,max_modes
+INTEGER            :: nVal,nValRewind,addval
+CHARACTER(LEN=120),ALLOCATABLE :: varnames(:) 
+REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
+REAL(wp)          ,ALLOCATABLE :: s_visu(:)
+LOGICAL            :: vcase(4)
+CHARACTER(LEN=4)   :: vstr
+CHARACTER(LEN=40)  :: fname
+!===================================================================================================================================
+!visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
+WRITE(vstr,'(I4)')visu1D
+vcase=.FALSE.
+IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+IF(.NOT.(ANY(vcase))) THEN
+  WRITE(*,*)'visu1D case not found:',visu1D,' nothing visualized...'
+  RETURN
+END IF
+
+max_modes=MAXVAL((/X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/))
+nvisu   =sgrid%nElems*n_s+1
+
+addval = 5
+ALLOCATE(varnames(   addval+2*max_modes+2))
+ALLOCATE(values_visu(addval+2*max_modes+2,nvisu))
+ALLOCATE(s_visu(nvisu))
+
+s_visu(1)=0.0_wp
+j=1
+DO iElem=1,sgrid%nElems
+  DO i_s=1,n_s
+    j=j+1
+    s_visu(j)=sgrid%sp(iElem-1)+REAL(i_s,wp)/REAL(n_s,wp)*sgrid%ds(iElem)
+  END DO
+END DO
+
+
+nVal=1
+Varnames(   nVal)='Phi'
+values_visu(nVal,:)=0.0_wp !TODO
+
+nVal=nVal+1
+Varnames(   nVal)='chi'
+values_visu(nVal,:)=0.0_wp !TODO
+
+nVal=nVal+1
+Varnames(   nVal)='rho'
+values_visu(nVal,:)=s_visu(:)
+
+nVal=nVal+1
+Varnames(nVal)='iota(Phi_norm)'
+DO j=1,nvisu
+  values_visu(  nVal,j)=Eval1DPoly(n_iota_coefs,iota_coefs,s_visu(j))
+END DO
+
+nVal=nVal+1
+Varnames(nVal)='mass(Phi_norm)'
+DO j=1,nvisu
+  values_visu(  nVal,j)=Eval1DPoly(n_mass_coefs,mass_coefs,s_visu(j))
+END DO
+
+nValRewind=nVal
+
+IF(vcase(2))THEN
+  WRITE(*,*)'2) Visualize R,Z,lambda interpolated...'
+  nval=nValRewind
+  fname="INT_X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
+  CALL writeDataMN_visu(fname,"X1mn",0,s_visu,X1_base,U(0)%X1)
+  nval=nValRewind
+  fname="INT_X2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
+  CALL writeDataMN_visu(fname,"X2mn",0,s_visu,X2_base,U(0)%X2)
+  nval=nValRewind
+  fname="INT_LA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
+  CALL writeDataMN_visu(fname,"LAmn",0,s_visu,LA_base,U(0)%LA)
+END IF
+IF(vcase(4))THEN
+  WRITE(*,*)'4) Visualize dRrho,dZrho interpolated...'
+  nval=nValRewind
+  fname="INT_dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
+  CALL writeDataMN_visu(fname,"dX1mn",DERIV_S,s_visu,X1_base,U(0)%X1)
+  nval=nValRewind
+  fname="INT_dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
+  CALL writeDataMN_visu(fname,"dX2mn",DERIV_S,s_visu,X2_base,U(0)%X2)
+  nval=nValRewind
+  fname="INT_dLA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
+  CALL writeDataMN_visu(fname,"dLAmn",DERIV_S,s_visu,LA_base,U(0)%LA)
+END IF
+
+!
+DEALLOCATE(varnames)
+DEALLOCATE(values_visu)
+DEALLOCATE(s_visu)
+
+CONTAINS
+
+  SUBROUTINE writeDataMN_visu(fname,vname,rderiv,coord,base_in,xx_in)
+    INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
+    CHARACTER(LEN=*),INTENT(IN):: fname
+    CHARACTER(LEN=*),INTENT(IN):: vname
+    REAL(wp),INTENT(INOUT)     :: xx_in(:,:)
+    TYPE(t_base),INTENT(IN)    :: base_in
+    REAL(wp),INTENT(IN)        :: coord(nvisu)
+
+    DO iMode=1,base_in%f%modes
+      nVal=nVal+1
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/nfp
+      DO j=1,nvisu
+        values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
+      END DO !j
+    END DO
+
+    CALL writeNow(fname,vname,base_in%f%modes,base_in%f%Xmn(1,:),base_in%f%Xmn(2,:),coord,values_visu,VarNames) 
+
+  END SUBROUTINE writeDataMN_visu
+
+  SUBROUTINE writeNow(fname,vname,modes,xm,xn,coord,values_in,VarNames_in)
+    USE MOD_Output_CSV, ONLY:WriteDataToCSV
+    CHARACTER(LEN=*),INTENT(IN):: fname
+    CHARACTER(LEN=*),INTENT(IN):: vname
+    INTEGER         ,INTENT(IN):: modes
+    INTEGER         ,INTENT(IN):: xm(1:modes)
+    INTEGER         ,INTENT(IN):: xn(1:modes)
+    REAL(wp),INTENT(IN)        :: coord(:)
+    REAL(wp),INTENT(INOUT)        :: values_in(:,:)
+    CHARACTER(LEN=*),INTENT(INOUT):: VarNames_in(:)
+    !local
+    REAL(wp)                   :: minmaxval(2)
+    REAL(wp) ,ALLOCATABLE      :: max_loc_val(:)
+    CHARACTER(LEN=100),ALLOCATABLE :: varnames_max(:)
+
+    minmaxval(1)=MINVAL(values_in(nVal-modes:nVal,:))
+    minmaxval(2)=MAXVAL(values_in(nVal-modes:nVal,:))
+
+    DO iMode=1,modes
+      nVal=nVal+1
+      WRITE(VarNames_in(nVal),'(A)')TRIM(VarNames_in(nVal-modes))//'_norm'
+      values_in(nVal,:)=values_in(nVal-modes,:)/(MAXVAL(ABS(values_in(nVal-modes,:)))+1.0E-12)
+    END DO
+
+    nVal=nVal+2
+    Varnames_in(nVal-1)=TRIM(vname)//', m= odd, n= 000'
+    Varnames_in(nVal)=  TRIM(vname)//', m=even, n= 000'
+    values_in(nVal-1:nVal,:)=0.
+    DO iMode=1,modes
+      IF(xn(iMode).EQ.0)THEN
+        IF(MOD(xm(iMode),2).NE.0)THEN
+          values_in(nVal-1,:)= values_in(nVal-1,:)+values_in(nVal-2-2*modes+iMode,:)
+        ELSE
+          values_in(nVal,:)= values_in(nVal,:)+values_in(nVal-2-2*modes+iMode,:)
+        END IF
+      END IF !n=0
+    END DO
+
+    CALL WriteDataToCSV(VarNames_in(1:nVal),Values_in(1:nVal,:), (TRIM(ProjectName)//"_"//TRIM(fname)//"modes"))
+
+    ALLOCATE(max_loc_val(nVal),Varnames_max(nVal))
+    DO i=1,nVal
+      max_loc_val(i)=coord(MAXLOC(ABS(values_in(i,:)),1))
+      Varnames_max(i)=TRIM(VarNames_in(i))//'_maxloc'
+    END DO 
+    CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"modes") &
+                               ,append_in=.TRUE.,vfmt_in='E10.2')
+    DO i=1,nVal
+      max_loc_val(i)=      MAXVAL(ABS(values_in(i,:)))+1.0E-12
+      Varnames_max(i)=TRIM(VarNames_in(i))//'_maxval'
+    END DO 
+    CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"modes") &
+                               ,append_in=.TRUE.,vfmt_in='E10.2')
+    DEALLOCATE(max_loc_val,Varnames_max)
+    !write position of first flux surface
+    CALL WriteDataToCSV((/'rhoFirst'/) ,RESHAPE((/sgrid%sp(1)/),(/1,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"modes") &
+                               ,append_in=.TRUE.)
+    !write position of first flux surface
+    CALL WriteDataToCSV((/'minval_total','maxval_total'/) ,RESHAPE(minmaxval,(/2,1/)) &
+                               ,(TRIM(ProjectName)//"_"//TRIM(fname)//"modes") &
+                               ,append_in=.TRUE.)
+
+  END SUBROUTINE writeNow
+
+END SUBROUTINE visu_1d_modes
 
 END MODULE MOD_MHD3D_visu
 
