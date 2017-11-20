@@ -31,12 +31,11 @@ PUBLIC
 TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL  :: initialized=.FALSE.
+  !---------------------------------------------------------------------------------------------------------------------------------
+  ! parameters for hmap_knot:
   INTEGER  :: k,  l    ! this map is based on the (k,l)-torus
   REAL(wp) :: R0       ! major radius
   REAL(wp) :: delta    ! shift of the axis
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! parameters for hmap_knot:
-
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
@@ -49,6 +48,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   PROCEDURE :: eval_gij      => hmap_knot_eval_gij      
   PROCEDURE :: eval_gij_dq1  => hmap_knot_eval_gij_dq1  
   PROCEDURE :: eval_gij_dq2  => hmap_knot_eval_gij_dq2  
+  !---------------------------------------------------------------------------------------------------------------------------------
+  ! procedures for hmap_knot:
   PROCEDURE :: Rl            => hmap_knot_eval_Rl
   PROCEDURE :: Zl            => hmap_knot_eval_Zl
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -66,6 +67,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_knot_init( sf )
 ! MODULES
+USE MOD_ReadInTools, ONLY: GETINT, GETREAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -74,8 +76,27 @@ IMPLICIT NONE
   CLASS(t_hmap_knot), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER                           :: knot_k, knot_l         !parameters of the (k,l)-torus
+  REAL(wp)                          :: knot_R0, knot_delta    !major radius and shift
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ...'
+  SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ON A (k,l)-TORUS ...'
+
+  knot_k=GETINT("hmap_knot_k","2")
+  sf%k=knot_k
+
+  knot_l=GETINT("hmap_knot_l","3")
+  sf%l=knot_l
+
+  knot_R0=GETREAL("hmap_knot_major_radius","1.0")
+  sf%R0=knot_R0
+
+  knot_delta=GETREAL("hmap_knot_delta_shift","0.4")
+  sf%delta=knot_delta
+
+  IF (.NOT.(sf%R0 - ABS(sf%delta) > 0.0_wp)) THEN
+     CALL abort(__STAMP__, &
+          "hmap_knot init: condition R0 - |delta| > 0 not fulfilled!")
+  END IF
 
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
@@ -334,7 +355,7 @@ END FUNCTION hmap_knot_eval_Zl
 
 
 !===================================================================================================================================
-!> test hmap_knot 
+!> test hmap_knot - evaluation of the map
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_knot_test( sf )
@@ -351,6 +372,7 @@ IMPLICIT NONE
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
+  REAL(wp)           :: a, Rl, Zl
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -364,22 +386,25 @@ IMPLICIT NONE
   IF(testlevel.LE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    q_in=(/0.1_wp,-0.2_wp,0.5_wp*Pi/)
+    a = sf%R0 - ABS(sf%delta)
+    q_in=(/0.5_wp*a, -0.2_wp*a, 0.5_wp*Pi/)
+    Rl = sf%R0 + sf%delta*COS(sf%l*q_in(3)) + q_in(1)
+    Zl = sf%delta*SIN(sf%l*q_in(3)) + q_in(2)
     x = sf%eval(q_in )
-!   checkreal=SUM((x-(/q_in(1)*COS(q_in(3)),-q_in(1)*SIN(q_in(3)),q_in(2)/))**2)
-!    refreal  =0.0_wp
-!
-!    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-!      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
-!      '\n!! hmap_knot TEST ID',nTestCalled ,': TEST ',iTest,Fail
-!      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,E11.3))') &
-!      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
-!    END IF !TEST
+    checkreal=SUM((x-(/Rl*COS(sf%k*q_in(3)),-Rl*SIN(q_in(3)),Zl/))**2)
+    refreal = 0.0_wp
 
-  END IF !testlevel <1
-
-  test_called=.FALSE. ! to prevent infinite loop in this routine
-
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+            '\n!! hmap_knot TEST ID',nTestCalled ,': TEST ',iTest,Fail
+       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,E11.3))') &
+     '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
+    END IF !TEST
+    
+ END IF !testlevel <1
+ 
+ test_called=.FALSE. ! to prevent infinite loop in this routine
+ 
 
 END SUBROUTINE hmap_knot_test
 
