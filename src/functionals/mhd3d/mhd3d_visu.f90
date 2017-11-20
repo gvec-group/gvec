@@ -145,7 +145,7 @@ USE MOD_Analyze_Vars, ONLY:visu1D
 USE MOD_base,         ONLY: t_base
 USE MOD_fbase,        ONLY: sin_cos_map
 USE MOD_MHD3D,        ONLY: Eval_iota,Eval_pres
-USE MOD_MHD3D_Vars,   ONLY: U,X1_base,X2_base,LA_base,sgrid,nfp
+USE MOD_MHD3D_Vars,   ONLY: U,X1_base,X2_base,LA_base,sgrid
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -255,7 +255,7 @@ CONTAINS
 
     DO iMode=1,base_in%f%modes
       nVal=nVal+1
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/nfp
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
       DO j=1,nvisu
         values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
       END DO !j

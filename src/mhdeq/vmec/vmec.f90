@@ -759,11 +759,13 @@ IMPLICIT NONE
     DO jMode=1,mn_mode
       IF((NINT(xm(jMode)).EQ.mn_in(1)).AND.(NINT(xn(jMode)).EQ.mn_in(2)))THEN
         modefound=jMode
+        EXIT
       END IF
     END DO
     IF(modefound.NE.0) THEN
       jMode=modefound
     ELSE
+      WRITE(*,*)'Remark: mode m= ',mn_in(1),' n= ',mn_in(2),'not found in VMEC solution, setting to zero!'
       VMEC_EvalSplMode=0.0_wp
       RETURN
     END IF

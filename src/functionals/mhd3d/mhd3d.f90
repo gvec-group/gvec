@@ -55,6 +55,7 @@ USE MOD_mhdeq_Vars, ONLY: whichInitEquilibrium
 USE MOD_sgrid,      ONLY: t_sgrid
 USE MOD_fbase,      ONLY: t_fbase,fbase_new
 USE MOD_base,       ONLY: t_base,base_new
+USE MOD_VMEC_Readin,ONLY: nfp
 USE MOD_ReadInTools,ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -76,7 +77,7 @@ CHARACTER(LEN=8) :: X2_sin_cos
 CHARACTER(LEN=8) :: LA_sin_cos
 CHARACTER(LEN=8) :: defstr
 INTEGER          :: degGP,mn_nyq(2),fac_nyq
-INTEGER          :: which_hmap 
+INTEGER          :: nfp_loc,which_hmap 
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
   
@@ -86,7 +87,6 @@ INTEGER          :: which_hmap
   !mandatory global input parameters
   degGP   = GETINT( "degGP","4")
   fac_nyq = GETINT( "fac_nyq","4")
-  nfp     = GETINT( "nfp","1")
   
   !constants
   gamm    = GETREAL("GAMMA","0.")
@@ -95,14 +95,16 @@ INTEGER          :: which_hmap
   
   which_init = whichInitEquilibrium ! GETINT("which_init","0")
   
-  !hmap
-  which_hmap=GETINT("which_hmap","1")
-  CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.1 0.1") !a+b*s+c*s^2...
-  CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.0 -0.9") !a+b*s+c*s^2...
   SELECT CASE(which_init)
   CASE(0)
-      
+    nfp_loc  = GETINT( "nfp","1")
+    !hmap
+    which_hmap=GETINT("which_hmap","1")
+    CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.1 0.1") !a+b*s+c*s^2...
+    CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.0 -0.9") !a+b*s+c*s^2...
   CASE(1) !VMEC init
+    nfp_loc = nfp
+    !hmap
     which_hmap=1 !hmap_RZ
   END SELECT !which_init
 
@@ -136,9 +138,9 @@ INTEGER          :: which_hmap
   CALL sgrid%init(nElems,grid_type)
 
   !INITIALIZE BASE        !sbase parameter                 !fbase parameter               ...exclude_mn_zero
-  CALL base_new(X1_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1_mn_max,mn_nyq,nfp,X1_sin_cos,.FALSE.)
-  CALL base_new(X2_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X2_mn_max,mn_nyq,nfp,X2_sin_cos,.FALSE.)
-  CALL base_new(LA_base  ,   LA_deg,  LA_cont,sgrid,degGP , LA_mn_max,mn_nyq,nfp,LA_sin_cos,.TRUE. )
+  CALL base_new(X1_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1_mn_max,mn_nyq,nfp_loc,X1_sin_cos,.FALSE.)
+  CALL base_new(X2_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X2_mn_max,mn_nyq,nfp_loc,X2_sin_cos,.FALSE.)
+  CALL base_new(LA_base  ,   LA_deg,  LA_cont,sgrid,degGP , LA_mn_max,mn_nyq,nfp_loc,LA_sin_cos,.TRUE. )
 
   nDOF_X1 = X1_base%s%nBase* X1_base%f%modes
   nDOF_X2 = X2_base%s%nBase* X2_base%f%modes
@@ -249,7 +251,7 @@ INTEGER          :: which_hmap
     !local variables
     CHARACTER(LEN=100) :: varstr
     !-------------------------------------------
-    WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(1),mn(2)/nfp
+    WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(1),mn(2)/nfp_loc
     varstr=delete_spaces(varstr)         !quiet on default=0.0
     get_iMode=GETREAL(TRIM(varstr),"0.0",.TRUE.)
    
@@ -280,7 +282,7 @@ FUNCTION Eval_iota(spos)
 USE MOD_Globals, ONLY:EVAL1DPOLY
 USE MOD_MHD3D_Vars,ONLY: which_init,n_iota_coefs,iota_coefs
 USE MOD_VMEC , ONLY:VMEC_EvalSpl
-USE MOD_VMEC_vars , ONLY:chi_spl,phi_spl
+USE MOD_VMEC_vars , ONLY:iota_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -298,7 +300,8 @@ CASE(0)
     eval_iota(i)=Eval1DPoly(n_iota_coefs,iota_coefs,spos(i))
   END DO
 CASE(1)
-  eval_iota=VMEC_EvalSpl(1,spos,chi_Spl)/VMEC_EvalSpl(1,spos,Phi_spl) 
+!  eval_iota=VMEC_EvalSpl(1,spos,chi_Spl)/VMEC_EvalSpl(1,spos,Phi_spl) 
+  eval_iota=VMEC_EvalSpl(1,spos,iota_Spl)
 END SELECT
 END FUNCTION Eval_iota
 
@@ -349,6 +352,9 @@ USE MOD_Globals, ONLY:EVAL1DPOLY
 USE MOD_MHD3D_Vars
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MOD_lambda_solve,  ONLY:lambda_solve
+USE MOD_VMEC_Vars,ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
+USE MOD_VMEC_Readin,ONLY:lasym
+USE MOD_VMEC     ,ONLY:VMEC_EvalSplMode
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -359,11 +365,14 @@ CLASS(t_sol_var_MHD3D),INTENT(INOUT) :: U0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER  :: is,iMode
+INTEGER  :: BC_type(2)
+REAL(wp) :: BC_val(2)
 REAL(wp) :: spos,iota_s 
 REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
 REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
 REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
+  SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   SELECT CASE(which_init)
   CASE(0)
     ASSOCIATE(s_IP        => X1_base%s%s_IP, &
@@ -397,6 +406,77 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
       U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
     END DO 
     END ASSOCIATE
+
+  CASE(1) !VMEC
+    ASSOCIATE(s_IP         => X1_base%s%s_IP, &
+              sin_range    => X1_base%f%sin_range,&
+              cos_range    => X1_base%f%cos_range )
+    DO imode=cos_range(1)+1,cos_range(2)
+      X1_gIP(:)       =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmnc_Spl)
+      U0%X1(:,iMode)  =X1_base%s%initDOF( X1_gIP(:) )
+    END DO 
+    IF(lasym)THEN
+      DO imode=sin_range(1)+1,sin_range(2)
+        X1_gIP(:)     =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmns_Spl)
+        U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
+      END DO 
+    END IF !lasym
+    END ASSOCIATE !X1
+
+    ASSOCIATE(s_IP        => X2_base%s%s_IP, &
+              sin_range    =>X2_base%f%sin_range,&
+              cos_range    =>X2_base%f%cos_range )
+    DO imode=sin_range(1)+1,sin_range(2)
+      X2_gIP(:)       =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmns_Spl)
+      U0%X2(:,iMode)  =X2_base%s%initDOF( X2_gIP(:) )
+    END DO 
+    IF(lasym)THEN
+      DO imode=cos_range(1)+1,cos_range(2)
+        X2_gIP(:)     =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmnc_Spl)
+        U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:) )
+      END DO 
+    END IF !lasym
+    END ASSOCIATE !X2
+
+  END SELECT 
+  !apply strong boundary conditions
+  ASSOCIATE(modes        =>X1_base%f%modes, &
+            zero_odd_even=>X1_base%f%zero_odd_even)
+  DO imode=1,modes
+    SELECT CASE(zero_odd_even(iMode))
+    CASE(MN_ZERO)
+      BC_type=(/BC_TYPE_SYMM    ,BC_TYPE_DIRICHLET/)
+      BC_val =(/ X1_a(iMode)    ,      X1_b(iMode)/)
+    CASE(M_ODD)
+      BC_type=(/BC_TYPE_ANTISYMM,BC_TYPE_DIRICHLET/)
+      BC_val =(/          0.0_wp,      X1_b(iMode)/)
+    CASE(M_EVEN)
+      BC_type=(/BC_TYPE_SYMMZERO,BC_TYPE_DIRICHLET/)
+      BC_val =(/          0.0_wp,      X1_b(iMode)/)
+    END SELECT !X1(:,iMode) zero odd even
+    CALL X1_base%s%applyBCtoDOF(U0%X1(:,iMode),BC_type,BC_val)
+  END DO 
+  END ASSOCIATE !X1
+
+  ASSOCIATE(modes        =>X2_base%f%modes, &
+            zero_odd_even=>X2_base%f%zero_odd_even)
+  DO imode=1,modes
+    SELECT CASE(zero_odd_even(iMode))
+    CASE(MN_ZERO)
+      BC_type=(/BC_TYPE_SYMM    ,BC_TYPE_DIRICHLET/)
+      BC_val =(/     X2_a(iMode),      X2_b(iMode)/)
+    CASE(M_ODD)
+      BC_type=(/BC_TYPE_ANTISYMM,BC_TYPE_DIRICHLET/)
+      BC_val =(/          0.0_wp,      X2_b(iMode)/)
+    CASE(M_EVEN)
+      BC_type=(/BC_TYPE_SYMMZERO,BC_TYPE_DIRICHLET/)
+      BC_val =(/          0.0_wp,      X2_b(iMode)/)
+    END SELECT !X1(:,iMode) zero odd even
+    CALL X2_base%s%applyBCtoDOF(U0%X2(:,iMode),BC_type,BC_val)
+  END DO 
+  END ASSOCIATE !X2
+
+IF(which_init.EQ.0)THEN !DEBUG!!!
   !initialize Lambda
   LA_gIP(1,:)=0.0_wp !at axis
   DO is=2,LA_base%s%nBase
@@ -412,9 +492,8 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
     END IF!iMode ~ MN_ZERO
   END DO !iMode 
   LA_b = U0%LA(LA_base%s%nbase,:)
-
-  CASE(1) !VMEC
-  END SELECT 
+END IF
+  SWRITE(UNIT_stdOut,'(4X,A)') "..DONE."
 
 END SUBROUTINE InitializeSolution
 

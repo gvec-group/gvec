@@ -203,7 +203,7 @@ values_int(nVal,:)=0.
 nVal=nVal+1
 Varnames(nVal)='iota(Phi_norm)'
 values(  nVal,:)=iotaf(:)
-values_int(nVal,:)=VMEC_EvalSpl(1,rho_int,chi_Spl)/VMEC_EvalSpl(1,rho_int,phi_Spl)
+values_int(nVal,:)=VMEC_EvalSpl(0,rho_int,iota_Spl)
 
 nVal=nVal+1
 Varnames(nVal)='pres(Phi_norm)'
