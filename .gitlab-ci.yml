@@ -26,7 +26,7 @@ cache:
 # "artifacts:"     keep data from the job which is uploaded to gitlab.com. You really should set a duration to expiration.
 #                  "when:" can be either on_failure, on_success or always
 # =================================================================================================================================
-build_intel:
+build_debug_intel:
   stage: build_debug 
   tags:
     - vm_linux

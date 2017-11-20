@@ -38,12 +38,22 @@ END INTERFACE
 !  MODULE PROCEDURE MapToVMEC 
 !END INTERFACE
 
+INTERFACE VMEC_EvalSpl
+  MODULE PROCEDURE VMEC_EvalSpl  
+END INTERFACE
+
+INTERFACE VMEC_EvalSplMode
+  MODULE PROCEDURE VMEC_EvalSplMode
+END INTERFACE
+
 INTERFACE FinalizeVMEC 
   MODULE PROCEDURE FinalizeVMEC 
 END INTERFACE
 
 PUBLIC::InitVMEC
 PUBLIC::MapToVMEC
+PUBLIC::VMEC_EvalSpl
+PUBLIC::VMEC_EvalSplMode
 PUBLIC::FinalizeVMEC
 !===================================================================================================================================
 
@@ -690,6 +700,99 @@ CONTAINS
   END FUNCTION FRdFR
 
 END SUBROUTINE MapToVmec 
+
+!===================================================================================================================================
+!> evaluate 1d spline at position s
+!!
+!===================================================================================================================================
+FUNCTION VMEC_EvalSpl(rderiv,rho_in,xx_spl)
+! MODULES
+USE MOD_VMEC_Readin
+USE MOD_VMEC_Vars
+USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER      , INTENT(IN   ) :: rderiv 
+  REAL(wp)     , INTENT(IN   ) :: rho_in(:) !! s position to evaluate s=[0,1] 
+  REAL(wp)     , INTENT(IN   ) :: xx_Spl(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)           :: VMEC_EvalSpl(size(rho_in,1))
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER            :: i,iGuess
+  REAL(wp)           :: splout(3)
+!===================================================================================================================================
+  DO i=1,size(rho_in)
+    CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in(i),rho,xx_Spl(:,:),iGuess,splout) 
+    VMEC_EvalSpl(i)=splout(1+rderiv)
+  END DO
+END FUNCTION VMEC_EvalSpl
+
+!===================================================================================================================================
+!> evaluate spline for specific mode at position s
+!!
+!===================================================================================================================================
+FUNCTION VMEC_EvalSplMode(mn_in,rderiv,rho_in,xx_Spl)
+! MODULES
+USE MOD_VMEC_Readin
+USE MOD_VMEC_Vars
+USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER,INTENT(IN)         :: mn_in(:) !of size 1: =jmode, of size 2: find jmode to mn
+  INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
+  REAL(wp)   , INTENT(IN   ) :: rho_in(:) !! s position to evaluate s=[0,1] 
+  REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                   :: VMEC_EvalSplMode(size(rho_in))
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                    :: i,iGuess,jMode,modefound
+  REAL(wp)                   :: rho_p,rhom,drhom,splOut(3) !for weighted spline interpolation
+!===================================================================================================================================
+  IF(size(mn_in,1).EQ.2)THEN
+    modefound=0
+    DO jMode=1,mn_mode
+      IF((NINT(xm(jMode)).EQ.mn_in(1)).AND.(NINT(xn(jMode)).EQ.mn_in(2)))THEN
+        modefound=jMode
+      END IF
+    END DO
+    IF(modefound.NE.0) THEN
+      jMode=modefound
+    ELSE
+      VMEC_EvalSplMode=0.0_wp
+      RETURN
+    END IF
+  ELSEIF(size(mn_in,1).EQ.1)THEN
+    jMode=mn_in(1)
+  ELSE
+    STOP 'mn_in should have size 1 or 2'
+  END IF 
+
+  DO i=1,size(rho_in,1)
+    rho_p=rho_in(i)
+    SELECT CASE(xmabs(jMode))
+    CASE(0)
+      rhom=1.0_wp
+      drhom=0.0_wp
+    CASE(1)
+      rhom=rho_p
+      drhom=1.0_wp
+    CASE(2)
+      rhom=rho_p*rho_p
+      drhom=2.0_wp*rho_p
+    CASE DEFAULT
+      rhom=rho_p**xmabs(jMode)
+      drhom=REAL(xmabs(jMode),wp)*rho_p**(xmabs(jMode)-1)
+    END SELECT
+    CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_p,rho,xx_Spl(:,:,jMode),iGuess,splout) 
+    VMEC_EvalSplMode(i)=rhom*splout(1+rderiv)+REAL(rderiv,wp)*(drhom*splout(1))
+  END DO !rho_int(i)
+END FUNCTION VMEC_EvalSplMode
 
 !===================================================================================================================================
 !> Finalize VMEC module

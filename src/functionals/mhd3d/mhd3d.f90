@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MOD_MHD3D
 ! MODULES
-USE MOD_Globals, ONLY:wp,UNIT_stdOut,fmt_sep
+USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
 USE MOD_c_functional,   ONLY: t_functional
 IMPLICIT NONE
 PUBLIC
@@ -101,7 +101,7 @@ INTEGER          :: which_hmap
   CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.0 -0.9") !a+b*s+c*s^2...
   SELECT CASE(which_init)
   CASE(0)
-    
+      
   CASE(1) !VMEC init
     which_hmap=1 !hmap_RZ
   END SELECT !which_init
@@ -270,6 +270,75 @@ INTEGER          :: which_hmap
 
 END SUBROUTINE InitMHD3D
 
+
+!===================================================================================================================================
+!> evaluate iota at position s
+!!
+!===================================================================================================================================
+FUNCTION Eval_iota(spos)
+! MODULES
+USE MOD_Globals, ONLY:EVAL1DPOLY
+USE MOD_MHD3D_Vars,ONLY: which_init,n_iota_coefs,iota_coefs
+USE MOD_VMEC , ONLY:VMEC_EvalSpl
+USE MOD_VMEC_vars , ONLY:chi_spl,phi_spl
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos(:) !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_iota(size(spos,1))
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: i
+!===================================================================================================================================
+SELECT CASE(which_init)
+CASE(0)
+  DO i=1,size(spos,1)
+    eval_iota(i)=Eval1DPoly(n_iota_coefs,iota_coefs,spos(i))
+  END DO
+CASE(1)
+  eval_iota=VMEC_EvalSpl(1,spos,chi_Spl)/VMEC_EvalSpl(1,spos,Phi_spl) 
+END SELECT
+END FUNCTION Eval_iota
+
+!===================================================================================================================================
+!> evaluate pressure profile at position s
+!!
+!===================================================================================================================================
+FUNCTION Eval_pres(spos)
+! MODULES
+USE MOD_Globals, ONLY:EVAL1DPOLY
+USE MOD_MHD3D_Vars,ONLY: which_init,gamm,n_mass_coefs,mass_coefs
+USE MOD_VMEC , ONLY:VMEC_EvalSpl
+USE MOD_VMEC_vars , ONLY:pres_spl
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos(:) !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_pres(size(spos,1))
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: i
+!===================================================================================================================================
+SELECT CASE(which_init)
+CASE(0)
+  IF(ABS(gamm).LT.1.0E-12)THEN
+    DO i=1,size(spos,1)
+      eval_pres(i)=Eval1DPoly(n_mass_coefs,mass_coefs,spos(i)) 
+    END DO
+  ELSE
+    !TODO still need to divide by V'^gamma
+    CALL abort(__STAMP__, &
+        ' gamma>0: pressure profile not yet implemented!')
+  END IF
+CASE(1)
+  eval_pres=VMEC_EvalSpl(0,spos,pres_Spl)
+END SELECT
+END FUNCTION Eval_pres
+
 !===================================================================================================================================
 !> Initialize the solution with the given boundary condition 
 !!
@@ -328,8 +397,6 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
       U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
     END DO 
     END ASSOCIATE
-  CASE(1) !VMEC
-  END SELECT 
   !initialize Lambda
   LA_gIP(1,:)=0.0_wp !at axis
   DO is=2,LA_base%s%nBase
@@ -345,6 +412,9 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
     END IF!iMode ~ MN_ZERO
   END DO !iMode 
   LA_b = U0%LA(LA_base%s%nbase,:)
+
+  CASE(1) !VMEC
+  END SELECT 
 
 END SUBROUTINE InitializeSolution
 
