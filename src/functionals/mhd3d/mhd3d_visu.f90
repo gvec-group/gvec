@@ -221,7 +221,7 @@ END DO
 nValRewind=nVal
 
 IF(vcase(2))THEN
-  WRITE(*,*)'2) Visualize R,Z,lambda interpolated...'
+  WRITE(*,*)'2) Visualize modes in 1D: R,Z,lambda interpolated...'
   nval=nValRewind
   fname="INT_X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
   CALL writeDataMN_visu(fname,"X1mn",0,s_visu,X1_base,U(0)%X1)
@@ -233,16 +233,13 @@ IF(vcase(2))THEN
   CALL writeDataMN_visu(fname,"LAmn",0,s_visu,LA_base,U(0)%LA)
 END IF
 IF(vcase(4))THEN
-  WRITE(*,*)'4) Visualize dRrho,dZrho interpolated...'
+  WRITE(*,*)'4) Visualize modes in 1D: dRrho,dZrho interpolated...'
   nval=nValRewind
   fname="INT_dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
   CALL writeDataMN_visu(fname,"dX1mn",DERIV_S,s_visu,X1_base,U(0)%X1)
   nval=nValRewind
   fname="INT_dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
   CALL writeDataMN_visu(fname,"dX2mn",DERIV_S,s_visu,X2_base,U(0)%X2)
-  nval=nValRewind
-  fname="INT_dLA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
-  CALL writeDataMN_visu(fname,"dLAmn",DERIV_S,s_visu,LA_base,U(0)%LA)
 END IF
 
 !

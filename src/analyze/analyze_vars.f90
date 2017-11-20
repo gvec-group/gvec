@@ -25,6 +25,7 @@ IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
+INTEGER              :: which_visu             !! which data to visualize: 0: gvec, 1: vmec 
 INTEGER              :: visu1D                 !! visualize 1D data (each mode). 0: off, 
                                                !! 1: R,Z,lambda  pointwise from VMEC input, (default) 
                                                !! 2: R,Z,lambda  interpolation 

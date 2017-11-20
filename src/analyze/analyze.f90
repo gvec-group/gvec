@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MOD_Analyze
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MOD_Globals, ONLY:wp,abort
 IMPLICIT NONE
 PRIVATE
 
@@ -64,6 +64,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
+which_visu= GETINT('which_visu','0') !0: gvec, 1: vmec data   
 visu1D    = GETINT('visu1D','1')   
 visu2D    = GETINT('visu2D','0')   
 
@@ -95,11 +96,15 @@ LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
 !===================================================================================================================================
 IF(visu1D.NE.0)THEN
-  SELECT CASE(whichInitEquilibrium)
+  SELECT CASE(which_visu)
   CASE(0) !own input data
     CALL visu_1d_modes(np_1d) 
     !
   CASE(1)
+    IF(whichInitEquilibrium.NE.1) THEN
+      CALL abort(__STAMP__,&
+           "currently, VMEC visualization in 1d only possible if whichInitEquilibrium =1")
+    END IF
     CALL VMEC1D_visu() 
   END SELECT
 END IF !visu1D
