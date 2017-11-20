@@ -243,7 +243,7 @@ DEALLOCATE(s_visu)
 CONTAINS
 
   SUBROUTINE writeDataMN_visu(fname,vname,rderiv,coord,base_in,xx_in)
-    USE MOD_Analyze, ONLY: write_modes
+    USE MOD_write_modes, ONLY: write_modes
     INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
     CHARACTER(LEN=*),INTENT(IN):: fname
     CHARACTER(LEN=*),INTENT(IN):: vname

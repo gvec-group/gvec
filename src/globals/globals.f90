@@ -114,7 +114,6 @@ INTEGER                           :: errOut          ! Output of MPI_ABORT
 #if MPI
 INTEGER                           :: signalout       ! Output errorcode
 #endif
-REAL                              :: sigsev(2)
 !==================================================================================================================================
 IntString = ""
 RealString = ""

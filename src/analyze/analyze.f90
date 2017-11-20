@@ -33,17 +33,12 @@ INTERFACE Analyze
   MODULE PROCEDURE Analyze
 END INTERFACE
 
-INTERFACE write_modes
-  MODULE PROCEDURE write_modes
-END INTERFACE
-
 INTERFACE FinalizeAnalyze
   MODULE PROCEDURE FinalizeAnalyze
 END INTERFACE
 
 PUBLIC::InitAnalyze
 PUBLIC::Analyze
-PUBLIC::write_modes
 PUBLIC::FinalizeAnalyze
 !===================================================================================================================================
 
@@ -141,6 +136,7 @@ SUBROUTINE VMEC1D_visu()
 ! MODULES
 USE MOD_Globals,ONLY:Pi
 USE MOD_Analyze_Vars, ONLY:visu1D
+USE MOD_write_modes
 USE MOD_VMEC_Readin
 USE MOD_VMEC_Vars
 USE MOD_VMEC, ONLY: VMEC_EvalSpl,VMEC_EvalSplMode
@@ -342,89 +338,6 @@ CONTAINS
 
 
 END SUBROUTINE VMEC1D_visu 
-
-!===================================================================================================================================
-!> write modes prepared above 
-!!
-!===================================================================================================================================
-SUBROUTINE write_modes(fname,vname,nval,modes,xm,xn,coord,rho_first,values_in,VarNames_in)
-! MODULES
-USE MOD_Output_CSV, ONLY:WriteDataToCSV
-USE MOD_Output_Vars, ONLY:ProjectName
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CHARACTER(LEN=*),INTENT(IN)   :: fname
-  CHARACTER(LEN=*),INTENT(IN)   :: vname
-  INTEGER         ,INTENT(IN)   :: modes
-  INTEGER         ,INTENT(IN)   :: xm(1:modes)
-  INTEGER         ,INTENT(IN)   :: xn(1:modes)
-  REAL(wp),INTENT(IN)           :: coord(:)
-  REAL(wp),INTENT(IN)           :: rho_first
-  REAL(wp),INTENT(INOUT)        :: values_in(:,:)
-  CHARACTER(LEN=*),INTENT(INOUT):: VarNames_in(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  INTEGER         ,INTENT(INOUT):: nval
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER                    :: i,iMode
-  REAL(wp)                   :: minmaxval(2)
-  REAL(wp) ,ALLOCATABLE      :: max_loc_val(:)
-  CHARACTER(LEN=100),ALLOCATABLE :: varnames_max(:)
-!===================================================================================================================================
-
-  minmaxval(1)=MINVAL(values_in(nVal-modes:nVal,:))
-  minmaxval(2)=MAXVAL(values_in(nVal-modes:nVal,:))
-
-  DO iMode=1,modes
-    nVal=nVal+1
-    WRITE(VarNames_in(nVal),'(A)')TRIM(VarNames_in(nVal-modes))//'_norm'
-    values_in(nVal,:)=values_in(nVal-modes,:)/(MAXVAL(ABS(values_in(nVal-modes,:)))+1.0E-12)
-  END DO
-
-  nVal=nVal+2
-  Varnames_in(nVal-1)=TRIM(vname)//', m= odd, n= 000'
-  Varnames_in(nVal)=  TRIM(vname)//', m=even, n= 000'
-  values_in(nVal-1:nVal,:)=0.
-  DO iMode=1,modes
-    IF((xn(iMode)).EQ.0)THEN
-      IF(MOD((xm(iMode)),2).NE.0)THEN
-        values_in(nVal-1,:)= values_in(nVal-1,:)+values_in(nVal-2-2*modes+iMode,:)
-      ELSE
-        values_in(nVal,:)= values_in(nVal,:)+values_in(nVal-2-2*modes+iMode,:)
-      END IF
-    END IF !n=0
-  END DO
-
-  CALL WriteDataToCSV(VarNames_in(1:nVal),Values_in(1:nVal,:), (TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
-
-  ALLOCATE(max_loc_val(nVal),Varnames_max(nVal))
-  DO i=1,nVal
-    max_loc_val(i)=coord(MAXLOC(ABS(values_in(i,:)),1))
-    Varnames_max(i)=TRIM(VarNames_in(i))//'_maxloc'
-  END DO 
-  CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
-                             ,append_in=.TRUE.,vfmt_in='E10.2')
-  DO i=1,nVal
-    max_loc_val(i)=      MAXVAL(ABS(values_in(i,:)))+1.0E-12
-    Varnames_max(i)=TRIM(VarNames_in(i))//'_maxval'
-  END DO 
-  CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
-                             ,append_in=.TRUE.,vfmt_in='E10.2')
-  DEALLOCATE(max_loc_val,Varnames_max)
-  !write position of first flux surface
-  CALL WriteDataToCSV((/'rhoFirst'/) ,RESHAPE((/rho_First/),(/1,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
-                             ,append_in=.TRUE.)
-  !write position of first flux surface
-  CALL WriteDataToCSV((/'minval_total','maxval_total'/) ,RESHAPE(minmaxval,(/2,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
-                             ,append_in=.TRUE.)
-
-END SUBROUTINE write_modes
 
 !===================================================================================================================================
 !> Finalize Module
