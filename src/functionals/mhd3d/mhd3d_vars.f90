@@ -55,7 +55,6 @@ CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for eval
 !===================================================================================================================================
 ! input parameters for functional
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
-INTEGER              :: NFP             !! number of field periods
 REAL(wp)             :: Phi_edge        !! toroidal flux at the last flux surface of the domain
 INTEGER              :: n_mass_coefs    !! number of polynomial coeffients for mass profile
 INTEGER              :: n_iota_coefs    !! number of polynomial coeffients for iota profile
