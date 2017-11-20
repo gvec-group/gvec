@@ -97,8 +97,8 @@ INTEGER          :: which_hmap
   
   !hmap
   which_hmap=GETINT("which_hmap","1")
-  CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.0 -0.5") !a+b*s+c*s^2...
-  CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.1 0.2 0.1") !a+b*s+c*s^2...
+  CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.1 0.1") !a+b*s+c*s^2...
+  CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.0 -0.9") !a+b*s+c*s^2...
   SELECT CASE(which_init)
   CASE(0)
     
@@ -233,6 +233,7 @@ INTEGER          :: which_hmap
   END ASSOCIATE !mn_IP,nGP
 
   CALL InitializeSolution(U(-1) )
+  CALL U(0)%set_to(U(-1))
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -248,7 +249,7 @@ INTEGER          :: which_hmap
     !local variables
     CHARACTER(LEN=100) :: varstr
     !-------------------------------------------
-    WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(:)
+    WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(1),mn(2)/nfp
     varstr=delete_spaces(varstr)         !quiet on default=0.0
     get_iMode=GETREAL(TRIM(varstr),"0.0",.TRUE.)
    
@@ -306,9 +307,9 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
       CASE(M_ODD)
         X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
       CASE(M_EVEN)
-        X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
+        X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
       END SELECT !X1(:,iMode) zero odd even
-      U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:)*X1_b(iMode) )
+      U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
     END DO 
     END ASSOCIATE
 
@@ -329,20 +330,21 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
     END ASSOCIATE
   CASE(1) !VMEC
   END SELECT 
-  U0%LA(:,:)=0. !TODO DEBUG lambda_solve 
-!  LA_gIP(1,:)=0.0_wp !at axis
-!  DO is=2,LA_base%s%nBase
-!    spos=LA_base%s%s_IP(is)
-!    iota_s=EVAL1DPOLY(n_iota_coefs,iota_coefs,spos)
-!    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
-!  END DO !is
-!  DO imode=1,LA_base%f%modes
-!    IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
-!      U0%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
-!    ELSE
-!      U0%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-!    END IF!iMode ~ MN_ZERO
-!  END DO !iMode 
+  !initialize Lambda
+  LA_gIP(1,:)=0.0_wp !at axis
+  DO is=2,LA_base%s%nBase
+    spos=LA_base%s%s_IP(is)
+    iota_s=EVAL1DPOLY(n_iota_coefs,iota_coefs,spos)
+    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
+  END DO !is
+  DO imode=1,LA_base%f%modes
+    IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
+      U0%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
+    ELSE
+      U0%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+    END IF!iMode ~ MN_ZERO
+  END DO !iMode 
+  LA_b = U0%LA(LA_base%s%nbase,:)
 
 END SUBROUTINE InitializeSolution
 

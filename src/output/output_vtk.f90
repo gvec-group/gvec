@@ -29,9 +29,9 @@ USE MOD_Globals, ONLY: wp
 IMPLICIT NONE
 PRIVATE
 
-INTERFACE WriteDataToVTK
-  MODULE PROCEDURE WriteDataToVTK
-END INTERFACE
+!INTERFACE WriteDataToVTK
+!  MODULE PROCEDURE WriteDataToVTK
+!END INTERFACE
 
 PUBLIC::WriteDataToVTK
 !===================================================================================================================================

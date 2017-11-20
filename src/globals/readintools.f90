@@ -592,7 +592,6 @@ DO WHILE(LEN(CHAR(separator)) .NE. 0)
   nReals=nReals+1
   CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
 END DO
-WRITE(*,*)'dbg,nReals',nReals
 IF(ALLOCATED(GetRealarray)) DEALLOCATE(GetRealArray)
 ALLOCATE(GetRealArray(nReals))
 

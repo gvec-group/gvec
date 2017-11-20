@@ -2,6 +2,7 @@ doc
 build
 ctags.txt
 *.vsz
+*.vtu
 *.csv
 *.mod
 *.o
