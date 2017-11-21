@@ -37,7 +37,7 @@ build_debug_intel:
   script: 
     - rm -rf build_debug_intel ; mkdir build_debug_intel
     - cd build_debug_intel; pwd
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=debug -DBUILD_NETCDF=ON ../. 
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=Debug -DBUILD_NETCDF=ON ../. 
     - make -j
   after_script:
     - pwd 
@@ -46,13 +46,35 @@ build_debug_intel:
     expire_in: 1 hour
     when: always
     paths:
-    - build__intel
+    - build_debug_intel
+
+build_debug_gnu:
+  stage: build_debug 
+  tags:
+    - vm_linux
+  only:
+    - master
+  before_script:
+    - . ~/environments/modules_for_gvec_gnu
+  script: 
+    - rm -rf build_debug_gnu ; mkdir build_debug_gnu
+    - cd build_debug_gnu; pwd
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=Debug -DBUILD_NETCDF=ON ../. 
+    - make -j
+  after_script:
+    - pwd 
+  artifacts:
+    name: "${CI_PIPELINE_ID}_${CI_BUILD_REF_NAME}_${CI_BUILD_NAME}"
+    expire_in: 1 hour
+    when: always
+    paths:
+    - build_debug_gnu
 
 
 # =================================================================================================================================
 # Stage "short_runs"
 # =================================================================================================================================
-short_runs_iniparam:
+short_runs_iniparam_intel:
   stage: short_runs
   tags:
     - vm_linux
@@ -63,6 +85,26 @@ short_runs_iniparam:
   script: 
     - cd ini; pwd
     - ../build_debug_intel/bin/gvec parameter.ini |tee log
+  after_script:
+    - pwd 
+  artifacts:
+    name: "${CI_PIPELINE_ID}_${CI_BUILD_REF_NAME}_${CI_BUILD_NAME}"
+    expire_in: 1 hour
+    when: always
+    paths:
+    - ini/*
+
+short_runs_iniparam_gnu:
+  stage: short_runs
+  tags:
+    - vm_linux
+  only:
+    - master
+  before_script:
+    - . ~/environments/modules_for_gvec_gnu
+  script: 
+    - cd ini; pwd
+    - ../build_debug_gnu/bin/gvec parameter.ini |tee log
   after_script:
     - pwd 
   artifacts:
