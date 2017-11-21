@@ -33,7 +33,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   LOGICAL  :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_knot:
-  INTEGER  :: k,  l    ! this map is based on the (k,l)-torus
+  REAL(wp) :: k,  l    ! this map is based on the (k,l)-torus
   REAL(wp) :: R0       ! major radius
   REAL(wp) :: delta    ! shift of the axis
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -82,10 +82,10 @@ IMPLICIT NONE
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ON A (k,l)-TORUS ...'
 
   knot_k=GETINT("hmap_knot_k","2")
-  sf%k=knot_k
+  sf%k=REAL(knot_k, wp)
 
   knot_l=GETINT("hmap_knot_l","3")
-  sf%l=knot_l
+  sf%l=REAL(knot_l, wp)
 
   knot_R0=GETREAL("hmap_knot_major_radius","1.0")
   sf%R0=knot_R0
@@ -93,7 +93,7 @@ IMPLICIT NONE
   knot_delta=GETREAL("hmap_knot_delta_shift","0.4")
   sf%delta=knot_delta
 
-  IF (.NOT.(sf%R0 - ABS(sf%delta) > 0.0_wp)) THEN
+  IF (.NOT.((sf%R0 - ABS(sf%delta)) > 0.0_wp)) THEN
      CALL abort(__STAMP__, &
           "hmap_knot init: condition R0 - |delta| > 0 not fulfilled!")
   END IF
@@ -123,6 +123,10 @@ IMPLICIT NONE
   IF(.NOT.sf%initialized) RETURN
 
   sf%initialized=.FALSE.
+  sf%R0 = 0.0_wp
+  sf%delta = -1.0_wp
+  sf%k = 0.0_wp
+  sf%l = 0.0_wp
 
 END SUBROUTINE hmap_knot_free
 
@@ -391,7 +395,7 @@ IMPLICIT NONE
     Rl = sf%R0 + sf%delta*COS(sf%l*q_in(3)) + q_in(1)
     Zl = sf%delta*SIN(sf%l*q_in(3)) + q_in(2)
     x = sf%eval(q_in )
-    checkreal=SUM((x-(/Rl*COS(sf%k*q_in(3)),-Rl*SIN(q_in(3)),Zl/))**2)
+    checkreal=SUM((x-(/Rl*COS(sf%k*q_in(3)),-Rl*SIN(sf%k*q_in(3)),Zl/))**2)
     refreal = 0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
