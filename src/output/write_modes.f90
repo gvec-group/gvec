@@ -97,14 +97,14 @@ IMPLICIT NONE
   END DO 
   CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
                              ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
-                             ,append_in=.TRUE.,vfmt_in='E10.2')
+                             ,append_in=.TRUE.,vfmt_in='E15.5')
   DO i=1,nVal
     max_loc_val(i)=      MAXVAL(ABS(values_in(i,:)))+1.0E-12
     Varnames_max(i)=TRIM(VarNames_in(i))//'_maxval'
   END DO 
   CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
                              ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
-                             ,append_in=.TRUE.,vfmt_in='E10.2')
+                             ,append_in=.TRUE.,vfmt_in='E15.5')
   DEALLOCATE(max_loc_val,Varnames_max)
   !write position of first flux surface
   CALL WriteDataToCSV((/'rhoFirst'/) ,RESHAPE((/rho_First/),(/1,1/)) &

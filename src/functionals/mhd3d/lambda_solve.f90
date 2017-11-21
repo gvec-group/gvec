@@ -37,9 +37,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE Lambda_solve(spos,iota_s,X1_in,X2_in,LA_s) 
 ! MODULES
+USE MOD_Globals,       ONLY:n_warnings_occured
 USE MOD_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
-USE MOD_LinAlg,     ONLY: SOLVE
-USE MOD_MHD3D_Vars, ONLY: hmap,X1_base,X2_base,LA_base
+USE MOD_LinAlg,        ONLY: SOLVE
+USE MOD_MHD3D_Vars,    ONLY: hmap,X1_base,X2_base,LA_base
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -93,12 +94,14 @@ REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
     detJ(i_mn)=(dX1ds(i_mn)*dX2dthet(i_mn)-dX1dthet(i_mn)*dX2ds(i_mn))*Jh !J_p*J_h
   END DO !i_mn
   IF(MINVAL(detJ) .LT.1.0e-12) THEN
+    n_warnings_occured=n_warnings_occured+1
     i_mn= MINLOC(detJ(:),1)
-    WRITE(UNIT_stdOut,'(4X,4(A,E11.3))')'WARNING min(J)= ',MINVAL(detJ),' at s= ',spos, &
+    WRITE(UNIT_stdOut,'(4X,A8,I8,4(A,E11.3))')'WARNING ',n_warnings_occured, &
+                                                 ' : min(J)= ',MINVAL(detJ),' at s= ',spos, &
                                                                        ' theta= ',X1_base%f%x_IP(1,i_mn), &
                                                                         ' zeta= ',X1_base%f%x_IP(2,i_mn) 
     i_mn= MAXLOC(detJ(:),1)
-    WRITE(UNIT_stdOut,'(4X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ),' at s= ',spos, &
+    WRITE(UNIT_stdOut,'(4X,16X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ),' at s= ',spos, &
                                                                        ' theta= ',X1_base%f%x_IP(1,i_mn), &
                                                                         ' zeta= ',X1_base%f%x_IP(2,i_mn) 
 !    CALL abort(__STAMP__, &

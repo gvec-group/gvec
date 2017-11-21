@@ -59,9 +59,8 @@ CONTAINS
 !> initialize the type hmap_cyl with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_cyl_init( sf)
+SUBROUTINE hmap_cyl_init( sf )
 ! MODULES
-USE MOD_Globals,     ONLY: TWOPI
 USE MOD_ReadInTools, ONLY: GETREAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -71,12 +70,10 @@ IMPLICIT NONE
   CLASS(t_hmap_cyl), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)                      :: cyl_len
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: CYLINDER WITH X1:=x, X2:=z, zeta := -2*pi*(y/cyl_len)  ...'
 
-  cyl_len=GETREAL("hmap_cyl_len","1.0")
-  sf%cyl_len=cyl_len/TWOPI 
+  sf%cyl_len=GETREAL("hmap_cyl_len","1.0")
 
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
@@ -101,7 +98,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
-
+  sf%cyl_len=-1.
   sf%initialized=.FALSE.
 
 END SUBROUTINE hmap_cyl_free
@@ -208,7 +205,7 @@ FUNCTION hmap_cyl_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 ! OUTPUT VARIABLES
   REAL(wp)                        :: g_ab
 !===================================================================================================================================
-  g_ab=0.0_wp
+  g_ab=SUM(qL_in(:)*(/qR_in(1),qR_in(2),(sf%cyl_len**2)*qR_in(3)/))
 END FUNCTION hmap_cyl_eval_gij
 
 

@@ -296,8 +296,12 @@ IMPLICIT NONE
   IF(iMode.NE.modes) STOP' Problem in Xmn '
 
   DO iMode=1,modes
-    IF((sf%Xmn(1,iMode).EQ.0).AND.(sf%Xmn(2,iMode).EQ.0))THEN
-      sf%zero_odd_even(iMode)=MN_ZERO
+    IF((sf%Xmn(1,iMode).EQ.0))THEN
+      IF((sf%Xmn(2,iMode).EQ.0))THEN
+        sf%zero_odd_even(iMode)=MN_ZERO
+      ELSE
+        sf%zero_odd_even(iMode)=M_ZERO
+      END IF
     ELSE
       IF(MOD(sf%Xmn(1,iMode),2).EQ.0)THEN
         sf%zero_odd_even(iMode)=M_EVEN

@@ -56,6 +56,15 @@ For execution, go into one of these folders and execute for example the followin
 ``` 
 which pipes the screen output also into the file `log`.
 
+
+### Visualization
+
+For line plots, csv datafiles are generated (we like to use [veusz](https://veusz.github.io/) for plotting). 
+
+For 3D data, we write `.vtu` files 
+that can be visualized in [paraview](https://www.paraview.org).
+
+
 ### Object-Oriented Programming in FORTRAN
 
 Here is a recommendation for a tutorial on how to program in an object-oriented way

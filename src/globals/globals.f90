@@ -40,6 +40,7 @@ INTEGER, PARAMETER :: wp = selected_real_kind(15,307)  !! double precision
 CHARACTER(LEN=20)   :: fmt_sep ='(132("="))'             !! formatting of separator line: WRITE(*,fmt_sep)
 REAL(wp),PARAMETER  :: PI   =ACOS(-1.0_wp)               !! pi parameter
 REAL(wp),PARAMETER  :: TWOPI=2.0_wp*PI                   !! 2*pi parameter
+INTEGER             :: n_warnings_occured=0              !! for final line in screen output: 0 no warnings occured
 !-----------------------------------------------------------------------------------------------------------------------------------
 !for testing
 LOGICAL                     :: testdbg=.FALSE.           !! for debugging the tests, set true for implementing tests, false to run
