@@ -75,6 +75,16 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   CALL InitFunctional(functional,which_functional)
   
   CALL IgnoredStrings()
+  
+  !finalization phase
+  CALL Analyze()
+  
+  CALL FinalizeFunctional(functional)
+  
+  CALL FinalizeMHDEQ()
+  CALL FinalizeAnalyze()
+  CALL FinalizeOutput()
+  
   ! do something
   IF(testlevel.GT.0)THEN
     SWRITE(UNIT_stdout,*)
@@ -92,18 +102,12 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"
     SWRITE(UNIT_stdout,*)
   END IF !testlevel
-  
-  !finalization phase
-  CALL Analyze()
-  
-  CALL FinalizeFunctional(functional)
-  
-  CALL FinalizeMHDEQ()
-  CALL FinalizeAnalyze()
-  CALL FinalizeOutput()
-  
   WRITE(Unit_stdOut,fmt_sep)
-  WRITE(Unit_stdOut,'(A)') ' GVEC SUCESSFULLY FINISHED'
+  IF(n_warnings_occured.EQ.0)THEN
+    WRITE(Unit_stdOut,'(A)') ' GVEC SUCESSFULLY FINISHED'
+  ELSE
+    WRITE(Unit_stdOut,'(A,I8,A)') ' GVEC FINISHED WITH ' , n_warnings_occured , ' WARNINGS!!!!'
+  END IF
   WRITE(Unit_stdOut,fmt_sep)
 
 END PROGRAM GVEC

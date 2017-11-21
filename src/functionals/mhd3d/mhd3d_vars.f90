@@ -99,11 +99,12 @@ REAL(wp),ALLOCATABLE :: g_ab(:,:,:,:)   !! metric tensor g_(alpha,beta), alpha/b
 CONTAINS
 
 !===================================================================================================================================
-!> initialize the type hmap with number of elements
+!> initialize the type hmap, also readin parameters here if necessary 
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_new( sf, which_hmap)
 ! MODULES
+USE MOD_Globals,     ONLY: TWOPI
 USE MOD_hmap_RZ,   ONLY:t_hmap_RZ
 USE MOD_hmap_knot, ONLY:t_hmap_knot
 USE MOD_hmap_cyl, ONLY:t_hmap_cyl

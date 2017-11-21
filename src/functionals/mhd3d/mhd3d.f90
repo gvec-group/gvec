@@ -69,8 +69,6 @@ INTEGER          :: i,iMode,nElems
 INTEGER          :: grid_type
 INTEGER          :: X1X2_deg,X1X2_cont
 INTEGER          :: X1_mn_max(2),X2_mn_max(2)
-INTEGER          :: X1_a_mn_max(2),X2_a_mn_max(2)
-INTEGER          :: X1_b_mn_max(2),X2_b_mn_max(2)
 INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
 CHARACTER(LEN=8) :: X1_sin_cos
 CHARACTER(LEN=8) :: X2_sin_cos
@@ -359,9 +357,6 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 CLASS(t_sol_var_MHD3D),INTENT(INOUT) :: U0
-!REAL(wp)     , INTENT(INOUT) :: X1_in(1:X1_base%f%mn_IP,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
-!REAL(wp)     , INTENT(INOUT) :: X2_in(1:X2_base%f%mn_IP,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
-!REAL(wp)     , INTENT(INOUT) :: LA_in(1:LA_base%f%mn_IP,1:LA_base%f%modes) !! U%LA variable, is reshaped to 2D at input 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER  :: is,iMode
@@ -380,7 +375,7 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
               zero_odd_even=>X1_base%f%zero_odd_even)
     DO imode=1,modes
       SELECT CASE(zero_odd_even(iMode))
-      CASE(MN_ZERO)
+      CASE(MN_ZERO,M_ZERO)
         X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD)
         X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
@@ -396,7 +391,7 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
               zero_odd_even=>X2_base%f%zero_odd_even)
     DO imode=1,modes
       SELECT CASE(zero_odd_even(iMode))
-      CASE(MN_ZERO)
+      CASE(MN_ZERO,M_ZERO)
         X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD)
         X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
@@ -453,7 +448,7 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
             zero_odd_even=>X1_base%f%zero_odd_even)
   DO imode=1,modes
     SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO)
+    CASE(MN_ZERO,M_ZERO)
       BC_type=(/BC_TYPE_SYMM    ,BC_TYPE_DIRICHLET/)
       BC_val =(/ X1_a(iMode)    ,      X1_b(iMode)/)
     CASE(M_ODD)
@@ -471,7 +466,7 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
             zero_odd_even=>X2_base%f%zero_odd_even)
   DO imode=1,modes
     SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO)
+    CASE(MN_ZERO,M_ZERO)
       BC_type=(/BC_TYPE_SYMM    ,BC_TYPE_DIRICHLET/)
       BC_val =(/     X2_a(iMode),      X2_b(iMode)/)
     CASE(M_ODD)
@@ -485,6 +480,7 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
   END DO 
   END ASSOCIATE !X2
 
+  SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda ..."
   !initialize Lambda
   LA_gIP(1,:)=0.0_wp !at axis
   DO is=2,LA_base%s%nBase

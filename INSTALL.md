@@ -59,10 +59,6 @@ Finally compile GVEC in the build folder by typing
 ```
   make
 ```
-
-### Visualization
-
-For line plots, csv datafiles are generated. For plotting 2D and 3D data, we use [paraview](https://www.paraview.org).
    
  
 

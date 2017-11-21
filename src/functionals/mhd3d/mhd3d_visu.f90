@@ -92,11 +92,11 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER  :: iMode,i_s,i_m,i_n,iElem,nElems,nplot(2)
   REAL(wp) :: s,x(2),q(3)
-  REAL(wp) :: X1_s(X1_base%f%modes)
-  REAL(wp) :: X2_s(X2_base%f%modes)
+  REAL(wp) :: X1_s(X1_base%f%modes),dX1ds(X1_base%f%modes)
+  REAL(wp) :: X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
   REAL(wp) :: LA_s(LA_base%f%modes)
-  REAL(wp) :: X1_visu,X2_visu
-  INTEGER,PARAMETER  :: nVal=1
+  REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX2_dthet_visu,Jh_visu
+  INTEGER,PARAMETER  :: nVal=2
   REAL(wp) :: x_visu(     3,n_s,mn_IP(1),mn_IP(2)*sgrid%nElems)
   REAL(wp) :: var_visu(nVal,n_s,mn_IP(1),mn_IP(2)*sgrid%nElems)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
@@ -107,9 +107,11 @@ DO iElem=1,nElems
     s=sgrid%sp(iElem-1)+REAL(i_s-1,wp)/REAL(n_s-1,wp)*sgrid%ds(iElem)
     DO iMode=1,X1_base%f%modes
       X1_s(iMode)=X1_base%s%evalDOF_s(s,0,U(0)%X1(:,iMode))
+      dX1ds(iMode)=X1_base%s%evalDOF_s(s,DERIV_S,U(0)%X1(:,iMode))
     END DO
     DO iMode=1,X2_base%f%modes
       X2_s(iMode)=X2_base%s%evalDOF_s(s,0,U(0)%X2(:,iMode))
+      dX2ds(iMode)=X2_base%s%evalDOF_s(s,DERIV_S,U(0)%X2(:,iMode))
     END DO
     DO iMode=1,LA_base%f%modes
       LA_s(iMode)=LA_base%s%evalDOF_s(s,0,U(0)%LA(:,iMode))
@@ -117,16 +119,29 @@ DO iElem=1,nElems
     DO i_n=1,mn_IP(2)
       DO i_m=1,mn_IP(1)
         x=TWOPI*(/REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp),REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp)/)
-        X1_visu=X1_base%f%evalDOF_x(x,0,X1_s)
-        X2_visu=X2_base%f%evalDOF_x(x,0,X2_s)
-        var_visu(1,i_s,i_m,1+(i_n-1)+(iElem-1)*mn_IP(2) )=LA_base%f%evalDOF_x(x,0,LA_s)
+        X1_visu         =X1_base%f%evalDOF_x(x,0,X1_s)
+        X2_visu         =X2_base%f%evalDOF_x(x,0,X2_s)
+        dX1_ds_visu     =X1_base%f%evalDOF_x(x,0,dX1ds)
+        dX2_ds_visu     =X2_base%f%evalDOF_x(x,0,dX2ds)
+        dX1_dthet_visu  =X1_base%f%evalDOF_x(x,DERIV_THET,X1_s)
+        dX2_dthet_visu  =X2_base%f%evalDOF_x(x,DERIV_THET,X2_s)
+
         q=(/X1_visu,X2_visu,x(2)/)
-        x_visu(:,i_s,i_m,1+(i_n-1)+(iElem-1)*mn_IP(2) )=hmap%eval(q)
+        !x,y,z
+        ASSOCIATE(jElem =>1+(i_n-1)+(iElem-1)*mn_IP(2))
+        x_visu(:,i_s,i_m,jElem )=hmap%eval(q)
+        Jh_visu=hmap%eval_Jh(q)
+        !lambda
+        var_visu(1,i_s,i_m,jElem) =LA_base%f%evalDOF_x(x,0,LA_s)
+        !sqrtG
+        var_visu(2,i_s,i_m,jElem) =Jh_visu*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
+        END ASSOCIATE !jElem
       END DO !i_m
     END DO !i_n
   END DO !i_s
 END DO !iElem
 VarNames(1)="lambda"
+VarNames(2)="sqrtG"
 
 nplot(:)=(/n_s,mn_IP(1)/)-1
 
@@ -264,7 +279,7 @@ CONTAINS
     END DO
 
     CALL write_modes(fname,vname,nVal,base_in%f%modes,base_in%f%Xmn(1,:), &
-                              base_in%f%Xmn(2,:),coord,sgrid%sp(1),values_visu,VarNames) 
+                              base_in%f%Xmn(2,:),coord,sgrid%sp(1),values_visu(:,:),VarNames) 
 
   END SUBROUTINE writeDataMN_visu
 
