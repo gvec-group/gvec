@@ -699,5 +699,96 @@ DO iGP=0,N_in
 END DO
 END SUBROUTINE LagrangeInterpolationPolys
 
+!============================================================================================================================
+!> This routine was taken fom QUADRULE (http://people.sc.fsu.edu/~jburkardt/f_src/quadrule/quadrule.html)
+!!
+!! RADAU_COMPUTE computes a Radau quadrature rule.
+!
+!  Discussion:
+!
+!    The Radau rule is distinguished by the fact that the left ENDpoint
+!    (-1) is always an abscissa.
+!
+!    The integral:
+!
+!      Integral ( -1 <= X <= 1 ) F(X) dx
+!
+!    The quadrature rule:
+!
+!      Sum ( 1 <= I <= N ) W(I) * F ( X(I) )
+!
+!    The quadrature rule will integrate exactly all polynomials up to
+!    X^(2*N-2).
+!
+!  Licensing:
+!
+!    This code is distributed under the GNU LGPL license.
+!
+!  Modified:
+!
+!    06 February 2007
+!
+!  Author:
+!
+!    Original MATLAB version by Greg von Winckel.
+!    FORTRAN90 version by John Burkardt.
+!
+!==================================================================================================================================
+SUBROUTINE GaussRadauNodesAndWeights(N_in,xGR,wGR)
+! MODULES
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN)            :: N_in             !! polynomial degree (N_in+1) Gausspoints
+REAL(wp),INTENT(OUT)          :: xGR(0:N_in)      !! Gauss point positions for the reference interval [-1,1]
+REAL(wp),INTENT(OUT),OPTIONAL :: wGR(0:N_in)      !! Gauss point weights
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL(wp)                      :: Tol   = 1.E-15_wp   ! tolerance for Newton iteration : TODO: use variable tolerance here!
+INTEGER                       :: i,j
+REAL (wp)                     :: p(1:N_in+1,1:N_in+2)
+REAL (wp)                     :: w(1:N_in+1)
+REAL (wp)                     :: x(1:N_in+1)
+REAL (wp)                     :: xold(1:N_in+1)
+!==================================================================================================================================
+!
+!  Initial estimate for the abscissas is the Chebyshev-Gauss-Radau nodes.
+!
+  DO i = 1, N_in+1
+    x(i) = - cos ( 2.0_wp * PP_Pi * REAL (      i - 1, wp ) &
+                               / REAL ( 2*N_in + 1, wp ) )
+  END DO
+
+  xold(1:N_in+1) = 2.0_wp
+
+  DO WHILE ( Tol < MAXVAL ( abs ( x(1:N_in+1) - xold(1:N_in+1) ) ) )
+
+    xold(1:N_in+1) = x(1:N_in+1)
+
+    DO j = 1, N_in+2
+      p(1,j) = ( -1.0_wp ) **( j - 1 )
+    END DO
+
+    p(2:N_in+1,1) = 1.0_wp
+    p(2:N_in+1,2) = x(2:N_in+1)
+
+    DO j = 2, N_in+1
+      p(2:N_in+1,j+1) = ( REAL ( 2 * j - 1, wp ) * x(2:N_in+1) * p(2:N_in+1,j)     &
+                        + REAL (   - j + 1, wp ) *          p(2:N_in+1,j-1) ) &
+                        / REAL (     j,     wp )
+    END DO
+
+    x(2:N_in+1) = xold(2:N_in+1) - ( ( 1.0_wp - xold(2:N_in+1) ) / REAL ( N_in+1, wp ) ) &
+      * ( p(2:N_in+1,N_in+1) + p(2:N_in+1,N_in+1+1) ) / ( p(2:N_in+1,N_in+1) - p(2:N_in+1,N_in+1+1) )
+
+  END DO
+
+  w(1) = 2.0_wp / REAL ( (N_in+1)**2, wp )
+  w(2:N_in+1) = ( 1.0_wp - x(2:N_in+1) ) / ( REAL ( N_in+1, wp ) * p(2:N_in+1,N_in+1) )**2
+
+  xGR(:)=x
+  wGR(:)=w
+
+END SUBROUTINE GaussRadauNodesAndWeights
 
 END MODULE MOD_Basis1D

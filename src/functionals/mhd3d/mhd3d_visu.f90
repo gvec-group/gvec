@@ -76,7 +76,7 @@ END SUBROUTINE visu_BC_face
 !> 
 !!
 !===================================================================================================================================
-SUBROUTINE visu_planes(n_s,mn_IP )
+SUBROUTINE visu_3D(np_in,only_planes )
 ! MODULES
 USE MOD_Globals, ONLY:TWOPI
 USE MOD_MHD3D_vars
@@ -85,22 +85,24 @@ USE MOD_Output_vars,ONLY: Projectname
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: n_s,mn_IP(2) !! muber of points in theta,zeta direction
+  INTEGER       , INTENT(IN   ) :: np_in(3)     !! number of points in s,theta,zeta direction
+  LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,i_s,i_m,i_n,iElem,nElems,nplot(2)
+  INTEGER  :: iMode,i_s,i_m,i_n,iElem,nElems,nplot(3)
   REAL(wp) :: s,x(2),q(3)
   REAL(wp) :: X1_s(X1_base%f%modes),dX1ds(X1_base%f%modes)
   REAL(wp) :: X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
   REAL(wp) :: LA_s(LA_base%f%modes)
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX2_dthet_visu,Jh_visu
   INTEGER,PARAMETER  :: nVal=2
-  REAL(wp) :: x_visu(     3,n_s,mn_IP(1),mn_IP(2)*sgrid%nElems)
-  REAL(wp) :: var_visu(nVal,n_s,mn_IP(1),mn_IP(2)*sgrid%nElems)
+  REAL(wp) :: x_visu(     3,np_in(1),np_in(2),np_in(3),sgrid%nElems)
+  REAL(wp) :: var_visu(nVal,np_in(1),np_in(2),np_in(3),sgrid%nElems)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
 !===================================================================================================================================
+ASSOCIATE(n_s=>np_in(1), mn_IP=>np_in(2:3) )
 nElems=sgrid%nElems
 DO iElem=1,nElems
   DO i_s=1,n_s
@@ -128,14 +130,13 @@ DO iElem=1,nElems
 
         q=(/X1_visu,X2_visu,x(2)/)
         !x,y,z
-        ASSOCIATE(jElem =>1+(i_n-1)+(iElem-1)*mn_IP(2))
-        x_visu(:,i_s,i_m,jElem )=hmap%eval(q)
+        x_visu(:,i_s,i_m,i_n,iElem )=hmap%eval(q)
         Jh_visu=hmap%eval_Jh(q)
         !lambda
-        var_visu(1,i_s,i_m,jElem) =LA_base%f%evalDOF_x(x,0,LA_s)
+        var_visu(1,i_s,i_m,i_n,iElem) =LA_base%f%evalDOF_x(x,0,LA_s)
         !sqrtG
-        var_visu(2,i_s,i_m,jElem) =Jh_visu*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
-        END ASSOCIATE !jElem
+        var_visu(2,i_s,i_m,i_n,iElem) =Jh_visu*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
+
       END DO !i_m
     END DO !i_n
   END DO !i_s
@@ -143,14 +144,19 @@ END DO !iElem
 VarNames(1)="lambda"
 VarNames(2)="sqrtG"
 
-nplot(:)=(/n_s,mn_IP(1)/)-1
+IF(only_planes)THEN
+ nplot(1:2)=(/n_s,mn_IP(1)/)-1
+  CALL WriteDataToVTK(2,3,nVal,nplot(1:2),(mn_IP(2)*nElems),VarNames,x_visu,var_visu,TRIM(Projectname)//"_visu_planes.vtu")
+ELSE
+  !3D
+  nplot(1:3)=(/n_s,mn_IP(1),mn_IP(2)/)-1
+  CALL WriteDataToVTK(3,3,nVal,nplot,nElems,VarNames,x_visu,var_visu,TRIM(Projectname)//"_visu_3D.vtu")
+END IF
 
-CALL WriteDataToVTK(2,3,nVal,nplot,(mn_IP(2)*nElems),VarNames,x_visu,var_visu,TRIM(Projectname)//"_visu_planes.vtu")
+END ASSOCIATE!n_s,mn_IP
 
-WRITE(*,*)'    ... min x,y,z',MINVAL(x_visu(1,:,:,:)),MINVAL(x_visu(2,:,:,:)),MINVAL(x_visu(3,:,:,:))
-WRITE(*,*)'    ... max x,y,z',MAXVAL(x_visu(1,:,:,:)),MAXVAL(x_visu(2,:,:,:)),MAXVAL(x_visu(3,:,:,:))
 
-END SUBROUTINE visu_planes
+END SUBROUTINE visu_3D
 
 !===================================================================================================================================
 !> Visualize 

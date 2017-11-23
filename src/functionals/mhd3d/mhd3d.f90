@@ -232,8 +232,7 @@ INTEGER          :: nfp_loc,which_hmap
  
   END ASSOCIATE !mn_IP,nGP
 
-  CALL InitializeSolution(U(-1) )
-  CALL U(0)%set_to(U(-1))
+  CALL InitSolution()
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -344,29 +343,28 @@ END FUNCTION Eval_pres
 !> Initialize the solution with the given boundary condition 
 !!
 !===================================================================================================================================
-SUBROUTINE InitializeSolution(U0)! X1_in,X2_in,LA_in) 
+SUBROUTINE InitSolution()
 ! MODULES
-USE MOD_Globals, ONLY:EVAL1DPOLY
 USE MOD_MHD3D_Vars
-USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
 USE MOD_lambda_solve,  ONLY:lambda_solve
-USE MOD_VMEC_Vars,ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
-USE MOD_VMEC_Readin,ONLY:lasym
-USE MOD_VMEC     ,ONLY:VMEC_EvalSplMode
+USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
+USE MOD_VMEC_Readin,   ONLY:lasym
+USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-CLASS(t_sol_var_MHD3D),INTENT(INOUT) :: U0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER  :: is,iMode
 INTEGER  :: BC_type(2)
 REAL(wp) :: BC_val(2)
-REAL(wp) :: spos,iota_s 
+REAL(wp) :: spos(1),iota_s(1) 
 REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
 REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
 REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
+  ASSOCIATE(U0=>U(0))
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   SELECT CASE(which_init)
   CASE(0)
@@ -484,9 +482,9 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
   !initialize Lambda
   LA_gIP(1,:)=0.0_wp !at axis
   DO is=2,LA_base%s%nBase
-    spos=LA_base%s%s_IP(is)
-    iota_s=EVAL1DPOLY(n_iota_coefs,iota_coefs,spos)
-    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
+    spos(1)=LA_base%s%s_IP(is)
+    iota_s=eval_iota(spos)
+    CALL lambda_Solve(spos(1),iota_s(1),U0%X1,U0%X2,LA_gIP(is,:))
   END DO !is
   DO imode=1,LA_base%f%modes
     IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
@@ -496,10 +494,11 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
     END IF!iMode ~ MN_ZERO
   END DO !iMode 
   LA_b = U0%LA(LA_base%s%nbase,:)
-
+  CALL U(-1)%set_to(U0)
+  END ASSOCIATE !U0
   SWRITE(UNIT_stdOut,'(4X,A)') "..DONE."
 
-END SUBROUTINE InitializeSolution
+END SUBROUTINE InitSolution
 
 !===================================================================================================================================
 !> Finalize Module

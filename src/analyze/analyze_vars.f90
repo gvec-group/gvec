@@ -33,9 +33,11 @@ INTEGER              :: visu1D                 !! visualize 1D data (each mode).
                                                !! 4: R,Z  radial derivative of interpolation 
                                                !! 12 : case 1 & 2, 13,23,123: with radial derivatives, combine 1,2,3,4 ascending
 INTEGER              :: visu2D                 !! visualize 2D data ... 
-INTEGER              :: np_visu_bc(2)          !! number of points for visualization in theta,zeta
-INTEGER              :: np_visu(3)             !! number of points for visualization in s,theta,zeta
+INTEGER              :: visu3D                 !! visualize 3D data ... 
 INTEGER              :: np_1d                  !! number of points for visualization in s
+INTEGER              :: np_visu_bc(2)          !! number of points for visualization in theta,zeta
+INTEGER              :: np_visu_planes(3)      !! number of points for visualization in s,theta,zeta
+INTEGER              :: np_visu_3D(3)          !! number of points for visualization in s,theta,zeta
 
 !===================================================================================================================================
 END MODULE MOD_Analyze_Vars

@@ -65,12 +65,22 @@ IMPLICIT NONE
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 which_visu= GETINT('which_visu','0') !0: gvec, 1: vmec data   
-visu1D    = GETINT('visu1D','1')   
+visu1D    = GETINT('visu1D','0')   
 visu2D    = GETINT('visu2D','0')   
+visu3D    = GETINT('visu3D','0')   
 
-np_visu_BC= GETINTARRAY("np_visu_BC",2,"20 30")
-np_visu   = GETINTARRAY("np_visu",3,"5 12 10")
-np_1d     = GETINT("np_1d","2")
+np_1d          = GETINT(     "np_1d","5")
+IF(np_1d.LE.1) CALL abort(__STAMP__,&
+   "np_1d must be >1")
+np_visu_BC     = GETINTARRAY("np_visu_BC",2,"20 30")
+IF(any(np_visu_BC.LE.1)) CALL abort(__STAMP__,&
+   "all point numbers in np_visu_BC must be >1")
+np_visu_planes = GETINTARRAY("np_visu_planes",3,"5 12 10")
+IF(any(np_visu_planes.LE.1)) CALL abort(__STAMP__,&
+   "all point numbers in np_visu_planes must be >1")
+np_visu_3D     = GETINTARRAY("np_visu_3D",3,"5 12 10")
+IF(any(np_visu_3D.LE.1)) CALL abort(__STAMP__,&
+   "all point numbers in np_visu_3D must be >1")
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
@@ -112,7 +122,18 @@ CASE(0) !own input data
       CALL visu_BC_face(np_visu_BC(1:2))
     END IF
     IF(vcase(2))THEN
-      CALL visu_planes(np_visu(1),(/np_visu(2),np_visu(3)/))
+      CALL visu_3D(np_visu_planes,.TRUE.) !only planes
+    END IF 
+  END IF !visu2d
+  IF(visu3D.NE.0)THEN
+    vcase=.FALSE.
+    WRITE(vstr,'(I4)')visu3D
+    IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+    IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+    IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+    IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+    IF(vcase(1))THEN
+      CALL visu_3D(np_visu_3D,.FALSE.) !full 3D
     END IF 
   END IF !visu2d
 CASE(1)
