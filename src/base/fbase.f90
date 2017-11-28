@@ -518,7 +518,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
-  REAL(wp)      , INTENT(IN   ) :: x(2)
+  REAL(wp)      , INTENT(IN   ) :: x(2)   !! input coordinate theta,zeta in [0,2pi]^2
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
 !-----------------------------------------------------------------------------------------------------------------------------------

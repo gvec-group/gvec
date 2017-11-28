@@ -139,34 +139,6 @@ IMPLICIT NONE
       END IF !lasym
     END DO!iMode
   END DO!iFlux
-    !not using splines...
-!  DO iFlux=2,nFluxVMEC-1
-!    DO iMode=1,mn_mode
-!      dRmnc_drho(iMode,iFlux)=0.5_wp*( (Rmnc(iMode,iFlux+1)-Rmnc(iMode,iFlux  ))*(rho(iFlux+1)-rho(iFlux  ))   &
-!                                      +(Rmnc(iMode,iFlux)  -Rmnc(iMode,iFlux-1))*(rho(iFlux  )-rho(iFlux-1)) ) 
-!      dZmns_drho(iMode,iFlux)=0.5_wp*( (Zmns(iMode,iFlux+1)-Zmns(iMode,iFlux  ))*(rho(iFlux+1)-rho(iFlux  ))   &
-!                                      +(Zmns(iMode,iFlux)  -Zmns(iMode,iFlux-1))*(rho(iFlux  )-rho(iFlux-1)) ) 
-!                                      
-!    END DO!iMode
-!    IF(lasym)THEN
-!      DO iMode=1,mn_mode
-!      dRmns_drho(iMode,iFlux)=0.5_wp*( (Rmns(iMode,iFlux+1)-Rmns(iMode,iFlux  ))*(rho(iFlux+1)-rho(iFlux  ))   &
-!                                      +(Rmns(iMode,iFlux)  -Rmns(iMode,iFlux-1))*(rho(iFlux  )-rho(iFlux-1)) ) 
-!      dZmnc_drho(iMode,iFlux)=0.5_wp*( (Zmnc(iMode,iFlux+1)-Zmnc(iMode,iFlux  ))*(rho(iFlux+1)-rho(iFlux  ))   &
-!                                      +(Zmnc(iMode,iFlux)  -Zmnc(iMode,iFlux-1))*(rho(iFlux  )-rho(iFlux-1)) ) 
-!      END DO!iMode
-!    END IF !lasym
-!  END DO!iFlux
-!  DO iMode=1,mn_mode
-!    dRmnc_drho(iMode,nFluxVMEC)=(Rmnc(iMode,nFluxVMEC)-Rmnc(iMode,nFluxVMEC-1))/(rho(nFluxVMEC)-rho(nFluxVMEC-1))
-!    dZmns_drho(iMode,nFluxVMEC)=(Zmns(iMode,nFluxVMEC)-Zmns(iMode,nFluxVMEC-1))/(rho(nFluxVMEC)-rho(nFluxVMEC-1))
-!  END DO!iMode
-!  IF(lasym)THEN
-!    DO iMode=1,mn_mode
-!      dRmns_drho(iMode,nFluxVMEC)=(Rmns(iMode,nFluxVMEC)-Rmns(iMode,nFluxVMEC-1))/(rho(nFluxVMEC)-rho(nFluxVMEC-1))
-!      dZmnc_drho(iMode,nFluxVMEC)=(Zmnc(iMode,nFluxVMEC)-Zmnc(iMode,nFluxVMEC-1))/(rho(nFluxVMEC)-rho(nFluxVMEC-1))
-!    END DO!iMode
-!  END IF !lasym
 
   !compute metrics on flux surface and Amat + RHS
   DO iFlux=2,nFluxVMEC

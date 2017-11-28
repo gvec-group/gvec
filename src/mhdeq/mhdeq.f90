@@ -1,6 +1,5 @@
 !===================================================================================================================================
 ! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
-! Copyright (C) 2015  Prof. Claus-Dieter Munz (github.com/flexi-framework/hopr)
 !
 ! This file is a modified version from HOPR (github.com/fhindenlang/hopr).
 !
