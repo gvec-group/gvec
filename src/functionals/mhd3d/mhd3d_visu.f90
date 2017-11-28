@@ -72,8 +72,10 @@ nplot(:)=mn_IP-1
 CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,x_visu,var_visu,TRIM(Projectname)//"_visu_BC.vtu")
 
 END SUBROUTINE visu_BC_face
+
+
 !===================================================================================================================================
-!> 
+!> visualize the mapping and additional variables in 3D, either on zeta=const planes or fully 3D 
 !!
 !===================================================================================================================================
 SUBROUTINE visu_3D(np_in,only_planes )
@@ -106,7 +108,7 @@ ASSOCIATE(n_s=>np_in(1), mn_IP=>np_in(2:3) )
 nElems=sgrid%nElems
 DO iElem=1,nElems
   DO i_s=1,n_s
-    s=sgrid%sp(iElem-1)+REAL(i_s-1,wp)/REAL(n_s-1,wp)*sgrid%ds(iElem)
+    s=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
     DO iMode=1,X1_base%f%modes
       X1_s(iMode)=X1_base%s%evalDOF_s(s,0,U(0)%X1(:,iMode))
       dX1ds(iMode)=X1_base%s%evalDOF_s(s,DERIV_S,U(0)%X1(:,iMode))
@@ -199,17 +201,16 @@ IF(.NOT.(ANY(vcase))) THEN
 END IF
 
 max_modes=MAXVAL((/X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/))
-nvisu   =sgrid%nElems*n_s+1
+nvisu   =sgrid%nElems*n_s
 
 addval = 5
 ALLOCATE(varnames(   addval+2*max_modes+2))
 ALLOCATE(values_visu(addval+2*max_modes+2,nvisu))
 ALLOCATE(s_visu(nvisu))
 
-s_visu(1)=0.0_wp
 DO iElem=1,sgrid%nElems
   DO i_s=1,n_s
-    s_visu(1+i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+REAL(i_s,wp)/REAL(n_s,wp)*sgrid%ds(iElem)
+    s_visu(i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
   END DO
 END DO
 

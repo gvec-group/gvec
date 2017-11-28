@@ -368,79 +368,83 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   SELECT CASE(which_init)
   CASE(0)
-    ASSOCIATE(s_IP        => X1_base%s%s_IP, &
-              modes        =>X1_base%f%modes, &
-              zero_odd_even=>X1_base%f%zero_odd_even)
-    DO imode=1,modes
-      SELECT CASE(zero_odd_even(iMode))
-      CASE(MN_ZERO,M_ZERO)
-        X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
-      CASE(M_ODD)
-        X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
-      CASE(M_EVEN)
-        X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
-      END SELECT !X1(:,iMode) zero odd even
-      U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
-    END DO 
-    END ASSOCIATE
-
-    ASSOCIATE(s_IP        => X2_base%s%s_IP, &
-              modes        =>X2_base%f%modes, &
-              zero_odd_even=>X2_base%f%zero_odd_even)
-    DO imode=1,modes
-      SELECT CASE(zero_odd_even(iMode))
-      CASE(MN_ZERO,M_ZERO)
-        X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
-      CASE(M_ODD)
-        X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
-      CASE(M_EVEN)
-        X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
-      END SELECT !X1(:,iMode) zero odd even
-      U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
-    END DO 
-    END ASSOCIATE
-
+    !X1_a,X2_a and X1_b,X2_b already filled from parameter file readin...
   CASE(1) !VMEC
-    ASSOCIATE(s_IP         => X1_base%s%s_IP, &
-              sin_range    => X1_base%f%sin_range,&
+    ASSOCIATE(sin_range    => X1_base%f%sin_range,&
               cos_range    => X1_base%f%cos_range )
     DO imode=cos_range(1)+1,cos_range(2)
-      X1_gIP(:)       =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmnc_Spl)
-      U0%X1(:,iMode)  =X1_base%s%initDOF( X1_gIP(:) )
+      spos(1)=0.0_wp
+      X1_a(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
+      spos(1)=1.0_wp
+      X1_b(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
     END DO 
     IF(lasym)THEN
       DO imode=sin_range(1)+1,sin_range(2)
-        X1_gIP(:)     =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmns_Spl)
-        U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
+        spos(1)=0.0_wp
+        X1_a(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
+        spos(1)=1.0_wp
+        X1_b(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
       END DO 
     END IF !lasym
     END ASSOCIATE !X1
-
-    ASSOCIATE(s_IP        => X2_base%s%s_IP, &
-              sin_range    =>X2_base%f%sin_range,&
-              cos_range    =>X2_base%f%cos_range )
+    ASSOCIATE(sin_range    => X2_base%f%sin_range,&
+              cos_range    => X2_base%f%cos_range )
     DO imode=sin_range(1)+1,sin_range(2)
-      X2_gIP(:)       =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmns_Spl)
-      U0%X2(:,iMode)  =X2_base%s%initDOF( X2_gIP(:) )
+      spos(1)=0.0_wp
+      X2_a(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
+      spos(1)=1.0_wp
+      X2_b(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
     END DO 
     IF(lasym)THEN
       DO imode=cos_range(1)+1,cos_range(2)
-        X2_gIP(:)     =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmnc_Spl)
-        U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:) )
+        spos(1)=0.0_wp
+        X2_a(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
+        spos(1)=1.0_wp
+        X2_b(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
       END DO 
     END IF !lasym
     END ASSOCIATE !X2
-    !get boundary conditions
-    DO imode=1,X1_base%f%modes
-      X1_a(iMode)=U0%X1(              1,iMode)
-      X1_b(iMode)=U0%X1(X1_base%s%nBase,iMode)
-    END DO !iMode
-    DO imode=1,X2_base%f%modes
-      X2_a(iMode)=U0%X2(              1,iMode)
-      X2_b(iMode)=U0%X2(X2_base%s%nBase,iMode)
-    END DO !iMode
   END SELECT !which_init
  
+  ASSOCIATE(s_IP        => X1_base%s%s_IP, &
+            modes        =>X1_base%f%modes, &
+            zero_odd_even=>X1_base%f%zero_odd_even)
+  DO imode=1,modes
+    SELECT CASE(zero_odd_even(iMode))
+    CASE(MN_ZERO,M_ZERO) !X1_a only used here!!
+      X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
+    CASE(M_ODD)
+      IF(X1_base%f%Xmn(1,iMode).EQ.1)THEN
+        X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
+      ELSE
+        X1_gIP(:)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
+      END IF
+    CASE(M_EVEN)
+      X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
+    END SELECT !X1(:,iMode) zero odd even
+    U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
+  END DO 
+  END ASSOCIATE
+
+  ASSOCIATE(s_IP        => X2_base%s%s_IP, &
+            modes        =>X2_base%f%modes, &
+            zero_odd_even=>X2_base%f%zero_odd_even)
+  DO imode=1,modes
+    SELECT CASE(zero_odd_even(iMode))
+    CASE(MN_ZERO,M_ZERO) !X2_a only used here!!!
+      X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
+    CASE(M_ODD)
+      IF(X2_base%f%Xmn(1,iMode).EQ.1)THEN
+        X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
+      ELSE
+        X2_gIP(:)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
+      END IF
+    CASE(M_EVEN)
+      X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
+    END SELECT !X1(:,iMode) zero odd even
+    U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
+  END DO 
+  END ASSOCIATE
   !apply strong boundary conditions
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
