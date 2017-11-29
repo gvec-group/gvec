@@ -37,6 +37,7 @@ TYPE, ABSTRACT :: c_hmap
     PROCEDURE(i_sub_hmap            ),DEFERRED :: init
     PROCEDURE(i_sub_hmap            ),DEFERRED :: free
     PROCEDURE(i_fun_hmap_eval       ),DEFERRED :: eval
+    PROCEDURE(i_fun_hmap_eval_dxdq  ),DEFERRED :: eval_dxdq
     PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh    
     PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq1 
     PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq2 
@@ -62,6 +63,19 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN   ) :: q_in(3)
     REAL(wp)                     :: x_out(3)
   END FUNCTION i_fun_hmap_eval
+  
+  !===============================================================================================================================
+  !> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
+  !! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
+  !!
+  !===============================================================================================================================
+  FUNCTION i_fun_hmap_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
+    IMPORT wp,c_hmap
+    CLASS(c_hmap), INTENT(INOUT) :: sf
+    REAL(wp)     , INTENT(IN   ) :: q_in(3)
+    REAL(wp)     , INTENT(IN   ) :: q_vec(3)
+    REAL(wp)                     :: dxdq_qvec(3)
+  END FUNCTION i_fun_hmap_eval_dxdq
   
   !===============================================================================================================================
   !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)

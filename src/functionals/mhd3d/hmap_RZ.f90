@@ -40,6 +40,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_RZ
   PROCEDURE :: init          => hmap_RZ_init
   PROCEDURE :: free          => hmap_RZ_free
   PROCEDURE :: eval          => hmap_RZ_eval          
+  PROCEDURE :: eval_dxdq     => hmap_RZ_eval_dxdq
   PROCEDURE :: eval_Jh       => hmap_RZ_eval_Jh       
   PROCEDURE :: eval_Jh_dq1   => hmap_RZ_eval_Jh_dq1    
   PROCEDURE :: eval_Jh_dq2   => hmap_RZ_eval_Jh_dq2    
@@ -128,6 +129,40 @@ IMPLICIT NONE
                 Z           /)
   END ASSOCIATE
 END FUNCTION hmap_RZ_eval
+
+!===================================================================================================================================
+!> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
+!! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
+!!
+!===================================================================================================================================
+FUNCTION hmap_RZ_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  REAL(wp)        , INTENT(IN   ) :: q_vec(3)
+  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                        :: dxdq_qvec(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  !  dxdq_qvec=
+  ! |  cos(zeta)  0  -q^1 sin(zeta) | |q_vec(1) |  
+  ! | -sin(zeta)  0  -q^1 cos(zeta) | |q_vec(2) | 
+  ! |     0       1        0        | |q_vec(3) |  
+
+!dxdq_qvec(1:3) = (/ q_vec(1)*cos(q_in(3))-q_vec(3)*q_in(1)*sin(q_in(3)), & 
+!                   -q_vec(1)*sin(q_in(3))-q_vec(3)*q_in(1)*cos(q_in(3)), &
+!                    q_vec(2) /) 
+
+dxdq_qvec(1:3) = (/ ( (/-q_vec(3)*q_in(1), -q_vec(1)        /)*SIN(q_in(3))   &
+                     +(/ q_vec(1)        , -q_vec(3)*q_in(1)/)*COS(q_in(3))), &
+                   q_vec(2)/)
+
+END FUNCTION hmap_RZ_eval_dxdq
 
 !===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta) 
@@ -292,6 +327,20 @@ IMPLICIT NONE
     q_in=(/0.1_wp,-0.2_wp,0.5_wp*Pi/)
     x = sf%eval(q_in )
     checkreal=SUM((x-(/q_in(1)*COS(q_in(3)),-q_in(1)*SIN(q_in(3)),q_in(2)/))**2)
+    refreal  =0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! hmap_RZ TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,E11.3))') &
+      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
+    END IF !TEST
+
+    iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    q_in=(/0.3_wp, 0.1_wp,0.4_wp*Pi/)
+    x = sf%eval_dxdq(q_in, (/1.1_wp,1.2_wp,1.3_wp/) )
+    checkreal=SUM((x-(/ 1.1_wp*COS(q_in(3))-1.3_wp*q_in(1)*SIN(q_in(3)), &
+                       -1.1_wp*SIN(q_in(3))-1.3_wp*q_in(1)*COS(q_in(3)),1.2_wp/))**2)
     refreal  =0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN

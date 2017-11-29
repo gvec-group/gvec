@@ -40,6 +40,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_cyl
   PROCEDURE :: init          => hmap_cyl_init
   PROCEDURE :: free          => hmap_cyl_free
   PROCEDURE :: eval          => hmap_cyl_eval          
+  PROCEDURE :: eval_dxdq     => hmap_cyl_eval_dxdq
   PROCEDURE :: eval_Jh       => hmap_cyl_eval_Jh       
   PROCEDURE :: eval_Jh_dq1   => hmap_cyl_eval_Jh_dq1    
   PROCEDURE :: eval_Jh_dq2   => hmap_cyl_eval_Jh_dq2    
@@ -112,11 +113,11 @@ FUNCTION hmap_cyl_eval( sf ,q_in) RESULT(x_out)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  REAL(wp)         , INTENT(IN   ) :: q_in(3)
   CLASS(t_hmap_cyl), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: x_out(3)
+  REAL(wp)                         :: x_out(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -133,6 +134,34 @@ IMPLICIT NONE
 END FUNCTION hmap_cyl_eval
 
 !===================================================================================================================================
+!> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
+!! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
+!!
+!===================================================================================================================================
+FUNCTION hmap_cyl_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp)         , INTENT(IN   ) :: q_in(3)
+  REAL(wp)         , INTENT(IN   ) :: q_vec(3)
+  CLASS(t_hmap_cyl), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: dxdq_qvec(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  !  dxdq_qvec=
+  ! | 1  0  0        | |q_vec(1) |  
+  ! | 0  0  -cyl_len | |q_vec(2) | 
+  ! | 0  1  0        | |q_vec(3) |  
+
+dxdq_qvec = (/q_vec(1),-sf%cyl_len*q_vec(3),q_vec(2)/)
+
+END FUNCTION hmap_cyl_eval_dxdq
+
+!===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta) 
 !!
 !===================================================================================================================================
@@ -142,10 +171,10 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_cyl), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  REAL(wp)         , INTENT(IN   ) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh
+  REAL(wp)                         :: Jh
 !===================================================================================================================================
   Jh=sf%cyl_len
 END FUNCTION hmap_cyl_eval_Jh
@@ -161,10 +190,10 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_cyl), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  REAL(wp)         , INTENT(IN   ) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq1
+  REAL(wp)                         :: Jh_dq1
 !===================================================================================================================================
   Jh_dq1 = 0.0_wp !dJ_h / dR
 END FUNCTION hmap_cyl_eval_Jh_dq1
@@ -179,10 +208,10 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_cyl), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
+  REAL(wp)         , INTENT(IN   ) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq2
+  REAL(wp)                         :: Jh_dq2
 !===================================================================================================================================
   Jh_dq2 = 0.0_wp !dJ_h / dZ
 END FUNCTION hmap_cyl_eval_Jh_dq2
@@ -198,12 +227,12 @@ FUNCTION hmap_cyl_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_cyl), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)        , INTENT(IN   ) :: q_G(3)
-  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
+  REAL(wp)         , INTENT(IN   ) :: qL_in(3)
+  REAL(wp)         , INTENT(IN   ) :: q_G(3)
+  REAL(wp)         , INTENT(IN   ) :: qR_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: g_ab
+  REAL(wp)                         :: g_ab
 !===================================================================================================================================
   g_ab=SUM(qL_in(:)*(/qR_in(1),qR_in(2),(sf%cyl_len**2)*qR_in(3)/))
 END FUNCTION hmap_cyl_eval_gij
@@ -238,12 +267,12 @@ END FUNCTION hmap_cyl_eval_gij_dq1
 !===================================================================================================================================
 FUNCTION hmap_cyl_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
   CLASS(t_hmap_cyl), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)        , INTENT(IN   ) :: q_G(3)
-  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
+  REAL(wp)         , INTENT(IN   ) :: qL_in(3)
+  REAL(wp)         , INTENT(IN   ) :: q_G(3)
+  REAL(wp)         , INTENT(IN   ) :: qR_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: g_ab_dq2
+  REAL(wp)                         :: g_ab_dq2
 !===================================================================================================================================
   g_ab_dq2=0.0_wp
 END FUNCTION hmap_cyl_eval_gij_dq2
@@ -283,6 +312,19 @@ IMPLICIT NONE
     q_in=(/0.1_wp,-0.2_wp,0.5_wp*Pi/)
     x = sf%eval(q_in )
     checkreal=SUM((x-(/q_in(1),-q_in(3)*sf%cyl_len,q_in(2)/))**2)
+    refreal  =0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! hmap_cyl TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,E11.3))') &
+      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
+    END IF !TEST
+
+    iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    q_in=(/0.3_wp, 0.1_wp,0.4_wp*Pi/)
+    x = sf%eval_dxdq(q_in, (/1.1_wp,1.2_wp,1.3_wp/) )
+    checkreal=SUM((x-(/1.1_wp,-sf%cyl_len*1.3_wp,1.2_wp/))**2)
     refreal  =0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
