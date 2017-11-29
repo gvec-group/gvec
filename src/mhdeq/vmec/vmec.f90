@@ -714,20 +714,18 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER      , INTENT(IN   ) :: rderiv 
-  REAL(wp)     , INTENT(IN   ) :: rho_in(:) !! s position to evaluate s=[0,1] 
+  REAL(wp)     , INTENT(IN   ) :: rho_in !! s position to evaluate s=[0,1] 
   REAL(wp)     , INTENT(IN   ) :: xx_Spl(:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)           :: VMEC_EvalSpl(size(rho_in,1))
+  REAL(wp)           :: VMEC_EvalSpl
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER            :: i,iGuess
   REAL(wp)           :: splout(3)
 !===================================================================================================================================
-  DO i=1,size(rho_in)
-    CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in(i),rho,xx_Spl(:,:),iGuess,splout) 
-    VMEC_EvalSpl(i)=splout(1+rderiv)
-  END DO
+  CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in,rho,xx_Spl(:,:),iGuess,splout) 
+  VMEC_EvalSpl=splout(1+rderiv)
 END FUNCTION VMEC_EvalSpl
 
 !===================================================================================================================================
@@ -744,15 +742,15 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   INTEGER,INTENT(IN)         :: mn_in(:) !of size 1: =jmode, of size 2: find jmode to mn
   INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
-  REAL(wp)   , INTENT(IN   ) :: rho_in(:) !! s position to evaluate s=[0,1] 
+  REAL(wp)   , INTENT(IN   ) :: rho_in !! s position to evaluate s=[0,1] 
   REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                   :: VMEC_EvalSplMode(size(rho_in))
+  REAL(wp)                   :: VMEC_EvalSplMode
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                    :: i,iGuess,jMode,modefound
-  REAL(wp)                   :: rho_p,rhom,drhom,splOut(3) !for weighted spline interpolation
+  REAL(wp)                   :: rhom,drhom,splOut(3) !for weighted spline interpolation
 !===================================================================================================================================
   IF(size(mn_in,1).EQ.2)THEN
     modefound=0
@@ -775,25 +773,22 @@ IMPLICIT NONE
     STOP 'mn_in should have size 1 or 2'
   END IF 
 
-  DO i=1,size(rho_in,1)
-    rho_p=rho_in(i)
-    SELECT CASE(xmabs(jMode))
-    CASE(0)
-      rhom=1.0_wp
-      drhom=0.0_wp
-    CASE(1)
-      rhom=rho_p
-      drhom=1.0_wp
-    CASE(2)
-      rhom=rho_p*rho_p
-      drhom=2.0_wp*rho_p
-    CASE DEFAULT
-      rhom=rho_p**xmabs(jMode)
-      drhom=REAL(xmabs(jMode),wp)*rho_p**(xmabs(jMode)-1)
-    END SELECT
-    CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_p,rho,xx_Spl(:,:,jMode),iGuess,splout) 
-    VMEC_EvalSplMode(i)=rhom*splout(1+rderiv)+REAL(rderiv,wp)*(drhom*splout(1))
-  END DO !rho_int(i)
+  SELECT CASE(xmabs(jMode))
+  CASE(0)
+    rhom=1.0_wp
+    drhom=0.0_wp
+  CASE(1)
+    rhom=rho_in
+    drhom=1.0_wp
+  CASE(2)
+    rhom=rho_in*rho_in
+    drhom=2.0_wp*rho_in
+  CASE DEFAULT
+    rhom=rho_in**xmabs(jMode)
+    drhom=REAL(xmabs(jMode),wp)*rho_in**(xmabs(jMode)-1)
+  END SELECT
+  CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in,rho,xx_Spl(:,:,jMode),iGuess,splout) 
+  VMEC_EvalSplMode=rhom*splout(1+rderiv)+REAL(rderiv,wp)*(drhom*splout(1))
 END FUNCTION VMEC_EvalSplMode
 
 !===================================================================================================================================

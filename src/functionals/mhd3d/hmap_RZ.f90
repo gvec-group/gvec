@@ -148,19 +148,19 @@ IMPLICIT NONE
   REAL(wp)                        :: dxdq_qvec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  REAL(wp) :: coszeta,sinzeta
 !===================================================================================================================================
   !  dxdq_qvec=
   ! |  cos(zeta)  0  -q^1 sin(zeta) | |q_vec(1) |  
   ! | -sin(zeta)  0  -q^1 cos(zeta) | |q_vec(2) | 
   ! |     0       1        0        | |q_vec(3) |  
 
-!dxdq_qvec(1:3) = (/ q_vec(1)*cos(q_in(3))-q_vec(3)*q_in(1)*sin(q_in(3)), & 
-!                   -q_vec(1)*sin(q_in(3))-q_vec(3)*q_in(1)*cos(q_in(3)), &
-!                    q_vec(2) /) 
+sinzeta=SIN(q_in(3))
+coszeta=COS(q_in(3))
+dxdq_qvec(1:3) = (/ q_vec(1)*coszeta-q_vec(3)*q_in(1)*sinzeta, &
+                   -q_vec(1)*sinzeta-q_vec(3)*q_in(1)*coszeta, &
+                    q_vec(2) /)
 
-dxdq_qvec(1:3) = (/ ( (/-q_vec(3)*q_in(1), -q_vec(1)        /)*SIN(q_in(3))   &
-                     +(/ q_vec(1)        , -q_vec(3)*q_in(1)/)*COS(q_in(3))), &
-                   q_vec(2)/)
 
 END FUNCTION hmap_RZ_eval_dxdq
 

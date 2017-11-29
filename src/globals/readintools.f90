@@ -41,6 +41,7 @@ PUBLIC::GETINTALLOCARRAY
 PUBLIC::GETREALALLOCARRAY
 
 PUBLIC::IgnoredStrings
+PUBLIC::PrepareProposalArray
 !===================================================================================================================================
 
 INTERFACE TRYREAD
@@ -77,6 +78,10 @@ END INTERFACE
 
 INTERFACE IgnoredStrings
   MODULE PROCEDURE IgnoredStrings
+END INTERFACE
+
+INTERFACE PrepareProposalArray
+  MODULE PROCEDURE PrepareProposalArray
 END INTERFACE
 
 INTERFACE FillStrings
@@ -620,7 +625,6 @@ END SUBROUTINE GETREALALLOCARRAY
 !===================================================================================================================================
 SUBROUTINE IgnoredStrings()
 ! MODULES
-USE ISO_VARYING_STRING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -650,7 +654,6 @@ END SUBROUTINE IgnoredStrings
 !===================================================================================================================================
 SUBROUTINE FillStrings(IniFile)
 ! MODULES
-USE ISO_VARYING_STRING
 USE,INTRINSIC :: ISO_FORTRAN_ENV,ONLY:IOSTAT_END
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -753,7 +756,6 @@ END SUBROUTINE FillStrings
 !===================================================================================================================================
 SUBROUTINE UserDefinedVars()
 ! MODULES
-USE iso_varying_string
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -811,7 +813,6 @@ END SUBROUTINE UserDefinedVars
 !===================================================================================================================================
 SUBROUTINE GetDefVar(DefVar)
 ! MODULES
-USE iso_varying_string
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -1042,7 +1043,6 @@ SUBROUTINE getPImultiplies(helpstr)
 ! it with the value of pi=3.1415... etc. and oes a multiplication.
 !===================================================================================================================================
 ! MODULES
-USE iso_varying_string
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -1096,5 +1096,29 @@ DO WHILE(.NOT. finished)
 END DO
 helpstr=trim(char(dstr))
 END SUBROUTINE getPImultiplies
+
+SUBROUTINE PrepareProposalArray(str_out,Intarr,realarr)
+  IMPLICIT NONE
+  !-------------------------------------------
+  !input/output
+  INTEGER,INTENT(IN),OPTIONAL :: intarr(:)
+  REAL(wp),INTENT(IN),OPTIONAL:: realarr(:)
+  CHARACTER(LEN=*),INTENT(INOUT) :: str_out
+  CHARACTER(LEN=LEN(str_out))    :: str_tmp
+  TYPE(VARYING_STRING) :: tmpstr
+  !-------------------------------------------
+  IF(PRESENT(intarr))THEN
+    WRITE(str_tmp,'(*(I8,:,","))')intarr(:)
+  ELSEIF(PRESENT(realarr))THEN
+    WRITE(str_tmp,'(*(E21.11,:,","))')realarr(:)
+  ELSE 
+    str_out=" "
+    RETURN
+  END IF
+  tmpstr=VAR_STR(str_tmp)
+  tmpstr=Replace(tmpstr," ","",Every=.true.)
+  tmpstr=Replace(tmpstr,","," ",Every=.true.)
+  str_out=CHAR(tmpstr)
+END SUBROUTINE PrepareProposalArray
 
 END MODULE MOD_ReadInTools

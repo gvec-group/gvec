@@ -55,7 +55,7 @@ USE MOD_mhdeq_Vars, ONLY: whichInitEquilibrium
 USE MOD_sgrid,      ONLY: t_sgrid
 USE MOD_fbase,      ONLY: t_fbase,fbase_new
 USE MOD_base,       ONLY: t_base,base_new
-USE MOD_VMEC_Readin,ONLY: nfp
+USE MOD_VMEC_Readin,ONLY: nfp,nFluxVMEC,Phi
 USE MOD_ReadInTools,ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -100,10 +100,12 @@ INTEGER          :: nfp_loc,which_hmap
     which_hmap=GETINT("which_hmap","1")
     CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.1 0.1") !a+b*s+c*s^2...
     CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.0 -0.9") !a+b*s+c*s^2...
+    Phi_edge   = GETREAL("PHIEDGE","1.")
   CASE(1) !VMEC init
     nfp_loc = nfp
     !hmap
     which_hmap=1 !hmap_RZ
+    Phi_edge = Phi(nFluxVMEC) 
   END SELECT !which_init
 
   CALL hmap_new(hmap,which_hmap)
@@ -283,23 +285,20 @@ USE MOD_VMEC_vars , ONLY:iota_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos(:) !! s position to evaluate s=[0,1] 
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_iota(size(spos,1))
+  REAL(wp)               :: Eval_iota
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i
 !===================================================================================================================================
-SELECT CASE(which_init)
-CASE(0)
-  DO i=1,size(spos,1)
-    eval_iota(i)=Eval1DPoly(n_iota_coefs,iota_coefs,spos(i))
-  END DO
-CASE(1)
-!  eval_iota=VMEC_EvalSpl(1,spos,chi_Spl)/VMEC_EvalSpl(1,spos,Phi_spl) 
-  eval_iota=VMEC_EvalSpl(1,spos,iota_Spl)
-END SELECT
+  SELECT CASE(which_init)
+  CASE(0)
+    eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,spos)
+  CASE(1)
+  !  eval_iota=VMEC_EvalSpl(1,spos,chi_Spl)/VMEC_EvalSpl(1,spos,Phi_spl) 
+    eval_iota=VMEC_EvalSpl(1,spos,iota_Spl)
+  END SELECT
 END FUNCTION Eval_iota
 
 !===================================================================================================================================
@@ -315,29 +314,68 @@ USE MOD_VMEC_vars , ONLY:pres_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos(:) !! s position to evaluate s=[0,1] 
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_pres(size(spos,1))
+  REAL(wp)               :: Eval_pres
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i
 !===================================================================================================================================
-SELECT CASE(which_init)
-CASE(0)
-  IF(ABS(gamm).LT.1.0E-12)THEN
-    DO i=1,size(spos,1)
-      eval_pres(i)=Eval1DPoly(n_mass_coefs,mass_coefs,spos(i)) 
-    END DO
-  ELSE
-    !TODO still need to divide by V'^gamma
-    CALL abort(__STAMP__, &
-        ' gamma>0: pressure profile not yet implemented!')
-  END IF
-CASE(1)
-  eval_pres=VMEC_EvalSpl(0,spos,pres_Spl)
-END SELECT
+  SELECT CASE(which_init)
+  CASE(0)
+    IF(ABS(gamm).LT.1.0E-12)THEN
+      eval_pres=Eval1DPoly(n_mass_coefs,mass_coefs,spos) 
+    ELSE
+      !TODO still need to divide by V'^gamma
+      CALL abort(__STAMP__, &
+          ' gamma>0: pressure profile not yet implemented!')
+    END IF
+  CASE(1)
+    eval_pres=VMEC_EvalSpl(0,spos,pres_Spl)
+  END SELECT
 END FUNCTION Eval_pres
+
+!===================================================================================================================================
+!> evaluate toroidal flux Phi: s=sqrt(Phi/Phi_edge), Phi=Phi_edge*s^2
+!!
+!===================================================================================================================================
+FUNCTION Eval_Phi(spos)
+! MODULES
+USE MOD_MHD3D_Vars,ONLY:Phi_edge
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_Phi
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  Eval_Phi=Phi_edge*(spos**2)
+
+END FUNCTION Eval_Phi
+
+!===================================================================================================================================
+!> evaluate s-derivative of toroidal flux Phi: s=sqrt(Phi/Phi_edge), Phi=Phi_edge*s^2, Phi'=Phi_edge*2*s
+!!
+!===================================================================================================================================
+FUNCTION Eval_PhiPrime(spos)
+! MODULES
+USE MOD_MHD3D_Vars,ONLY:Phi_edge
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_PhiPrime
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  Eval_PhiPrime=Phi_edge*2.0_wp*spos
+
+END FUNCTION Eval_PhiPrime
 
 !===================================================================================================================================
 !> Initialize the solution with the given boundary condition 
@@ -359,7 +397,7 @@ IMPLICIT NONE
 INTEGER  :: is,iMode
 INTEGER  :: BC_type(2)
 REAL(wp) :: BC_val(2)
-REAL(wp) :: spos(1),iota_s(1) 
+REAL(wp) :: spos,iota_s
 REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
 REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
 REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -373,34 +411,34 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
     ASSOCIATE(sin_range    => X1_base%f%sin_range,&
               cos_range    => X1_base%f%cos_range )
     DO imode=cos_range(1)+1,cos_range(2)
-      spos(1)=0.0_wp
-      X1_a(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
-      spos(1)=1.0_wp
+      spos=0.0_wp
+      X1_a(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
+      spos=1.0_wp
       X1_b(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
     END DO 
     IF(lasym)THEN
       DO imode=sin_range(1)+1,sin_range(2)
-        spos(1)=0.0_wp
-        X1_a(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
-        spos(1)=1.0_wp
-        X1_b(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
+        spos=0.0_wp
+        X1_a(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
+        spos=1.0_wp
+        X1_b(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
       END DO 
     END IF !lasym
     END ASSOCIATE !X1
     ASSOCIATE(sin_range    => X2_base%f%sin_range,&
               cos_range    => X2_base%f%cos_range )
     DO imode=sin_range(1)+1,sin_range(2)
-      spos(1)=0.0_wp
-      X2_a(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
-      spos(1)=1.0_wp
-      X2_b(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
+      spos=0.0_wp
+      X2_a(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
+      spos=1.0_wp
+      X2_b(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
     END DO 
     IF(lasym)THEN
       DO imode=cos_range(1)+1,cos_range(2)
-        spos(1)=0.0_wp
-        X2_a(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
-        spos(1)=1.0_wp
-        X2_b(iMode:iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
+        spos=0.0_wp
+        X2_a(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
+        spos=1.0_wp
+        X2_b(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
       END DO 
     END IF !lasym
     END ASSOCIATE !X2
@@ -486,9 +524,9 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
   !initialize Lambda
   LA_gIP(1,:)=0.0_wp !at axis
   DO is=2,LA_base%s%nBase
-    spos(1)=LA_base%s%s_IP(is)
+    spos=LA_base%s%s_IP(is)
     iota_s=eval_iota(spos)
-    CALL lambda_Solve(spos(1),iota_s(1),U0%X1,U0%X2,LA_gIP(is,:))
+    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
   END DO !is
   DO imode=1,LA_base%f%modes
     IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN

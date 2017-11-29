@@ -52,7 +52,7 @@ SUBROUTINE InitAnalyze
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_Analyze_Vars
-USE MOD_ReadInTools,ONLY:GETINT,GETINTARRAY
+USE MOD_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY,PrepareProposalArray
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -62,6 +62,8 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+REAL(wp):: visu_minmax(3,0:1)
+CHARACTER(LEN=255):: defStr(0:1)
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 which_visu= GETINT('which_visu','0') !0: gvec, 1: vmec data   
@@ -69,18 +71,41 @@ visu1D    = GETINT('visu1D','0')
 visu2D    = GETINT('visu2D','0')   
 visu3D    = GETINT('visu3D','0')   
 
-np_1d          = GETINT(     "np_1d","5")
-IF(np_1d.LE.1) CALL abort(__STAMP__,&
-   "np_1d must be >1")
-np_visu_BC     = GETINTARRAY("np_visu_BC",2,"20 30")
-IF(any(np_visu_BC.LE.1)) CALL abort(__STAMP__,&
-   "all point numbers in np_visu_BC must be >1")
-np_visu_planes = GETINTARRAY("np_visu_planes",3,"5 12 10")
-IF(any(np_visu_planes.LE.1)) CALL abort(__STAMP__,&
-   "all point numbers in np_visu_planes must be >1")
-np_visu_3D     = GETINTARRAY("np_visu_3D",3,"5 12 10")
-IF(any(np_visu_3D.LE.1)) CALL abort(__STAMP__,&
-   "all point numbers in np_visu_3D must be >1")
+
+visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,"0. 0. 0.")
+visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,"1. 1. 1.")
+
+
+IF(visu1D.GT.0)THEN
+  np_1d          = GETINT(     "np_1d","5")
+  IF(np_1d.LE.1) CALL abort(__STAMP__,&
+     "np_1d must be >1")
+END IF
+IF(visu2D.GT.0)THEN
+  np_visu_BC     = GETINTARRAY("np_visu_BC",2,"20 30")
+  IF(any(np_visu_BC.LE.1)) CALL abort(__STAMP__,&
+     "all point numbers in np_visu_BC must be >1")
+  CALL PrepareProposalArray(defStr(0),RealArr=visu_minmax(2:3,0))
+  CALL PrepareProposalArray(defStr(1),RealArr=visu_minmax(2:3,1))
+  visu_BC_minmax(2:3,0)=GETREALARRAY("visu_BC_min",2,TRIM(defStr(0)))
+  visu_BC_minmax(2:3,1)=GETREALARRAY("visu_BC_max",2,TRIM(defStr(1)))
+  np_visu_planes = GETINTARRAY("np_visu_planes",3,"5 12 10")
+  IF(any(np_visu_planes.LE.1)) CALL abort(__STAMP__,&
+     "all point numbers in np_visu_planes must be >1")
+  CALL PrepareProposalArray(defStr(0),RealArr=visu_minmax(1:3,0))
+  CALL PrepareProposalArray(defStr(1),RealArr=visu_minmax(1:3,1))
+  visu_planes_minmax(1:3,0)=GETREALARRAY("visu_planes_min",3,TRIM(defStr(0)))
+  visu_planes_minmax(1:3,1)=GETREALARRAY("visu_planes_max",3,TRIM(defStr(1)))
+END IF
+IF(visu3D.GT.0)THEN
+  np_visu_3D     = GETINTARRAY("np_visu_3D",3,"5 12 10")
+  IF(any(np_visu_3D.LE.1)) CALL abort(__STAMP__,&
+     "all point numbers in np_visu_3D must be >1")
+  CALL PrepareProposalArray(defStr(0),RealArr=visu_minmax(1:3,0))
+  CALL PrepareProposalArray(defStr(1),RealArr=visu_minmax(1:3,1))
+  visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,TRIM(defStr(0)))
+  visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,TRIM(defStr(1)))
+END IF
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
@@ -119,10 +144,10 @@ CASE(0) !own input data
     IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
     IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
     IF(vcase(1))THEN
-      CALL visu_BC_face(np_visu_BC(1:2))
+      CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:))
     END IF
     IF(vcase(2))THEN
-      CALL visu_3D(np_visu_planes,.TRUE.) !only planes
+      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.) !only planes
     END IF 
   END IF !visu2d
   IF(visu3D.NE.0)THEN
@@ -133,7 +158,7 @@ CASE(0) !own input data
     IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
     IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
     IF(vcase(1))THEN
-      CALL visu_3D(np_visu_3D,.FALSE.) !full 3D
+      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.) !full 3D
     END IF 
   END IF !visu2d
 CASE(1)
@@ -178,141 +203,149 @@ REAL(wp)           :: rho_int(n_int),rho_half(nFluxVMEC)
 LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
 !===================================================================================================================================
-!visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
-WRITE(vstr,'(I4)')visu1D
-vcase=.FALSE.
-IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
-IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
-IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
-IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
-IF(.NOT.(ANY(vcase))) THEN
-  WRITE(*,*)'visu1D case not found:',visu1D,' nothing visualized...'
-  RETURN
-END IF
-
-!interpolation points
-DO i=0,n_int-1
-  rho_int(1+i)=REAL(i,wp)/REAL(n_int-1,wp)
-END DO
-!strech towards axis and edge
-rho_int=rho_int+0.05_wp*SIN(Pi*(2.0_wp*rho_int-1.0_wp))
-
-nVal=1
-Varnames(nVal)='Phi'
-values(  nVal,:)=Phi_prof(:)
-values_int(nVal,:)=VMEC_EvalSpl(0,rho_int,Phi_Spl)
-
-nVal=nVal+1
-Varnames(nVal)='chi'
-values(  nVal,:)=Chi_prof(:)
-values_int(nVal,:)=VMEC_EvalSpl(0,rho_int,chi_Spl)
-
-nVal=nVal+1
-Varnames(nVal)='rho'
-values(  nVal,:)=rho(:)
-values_int(nVal,:)=rho_int(:)
-
-rho_half(1)=0.
-DO i=1,nFluxVMEC-1
-  rho_half(i+1)=SQRT(0.5_wp*(Phinorm_prof(i+1)+Phinorm_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
-END DO
-nVal=nVal+1
-Varnames(nVal)='rho_half'
-values(  nVal,:)= rho_half(:)
-values_int(nVal,:)=0.
-
-nVal=nVal+1
-Varnames(nVal)='iota(Phi_norm)'
-values(  nVal,:)=iotaf(:)
-values_int(nVal,:)=VMEC_EvalSpl(0,rho_int,iota_Spl)
-
-nVal=nVal+1
-Varnames(nVal)='pres(Phi_norm)'
-values(  nVal,:)=presf(:)
-values_int(nVal,:)=VMEC_EvalSpl(0,rho_int,pres_Spl)
-
-nValRewind=nVal
-
-
-IF(vcase(1))THEN
-  WRITE(*,*)'1) Visualize VMEC modes R,Z,lambda interpolated...'
-  nval=nValRewind
-  CALL writeDataMN_int("INT_Rmnc","Rmnc",0,rho_int,Rmnc_Spl)
-  nval=nValRewind
-  CALL writeDataMN_int("INT_Zmns","Zmns",0,rho_int,Zmns_Spl)
-  nval=nValRewind
-  IF(reLambda)THEN
-    CALL writeDataMN_int("INT_Lmns","Lmns",0,rho_int,Lmns_Spl)
-  ELSE
-    CALL writeDataMN_int("INT_Lmns_half","Lmns_h",0,rho_int,Lmns_spl)
+  !visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
+  WRITE(vstr,'(I4)')visu1D
+  vcase=.FALSE.
+  IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+  IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+  IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+  IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+  IF(.NOT.(ANY(vcase))) THEN
+    WRITE(*,*)'visu1D case not found:',visu1D,' nothing visualized...'
+    RETURN
   END IF
-  IF(lasym)THEN
+  
+  !interpolation points
+  DO i=0,n_int-1
+    rho_int(1+i)=REAL(i,wp)/REAL(n_int-1,wp)
+  END DO
+  !strech towards axis and edge
+  rho_int=rho_int+0.05_wp*SIN(Pi*(2.0_wp*rho_int-1.0_wp))
+  
+  nVal=1
+  Varnames(nVal)='Phi'
+  values(  nVal,:)=Phi_prof(:)
+  DO i=1,n_int
+    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),Phi_Spl)
+  END DO !i
+  
+  nVal=nVal+1
+  Varnames(nVal)='chi'
+  values(  nVal,:)=Chi_prof(:)
+  DO i=1,n_int
+    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),chi_Spl)
+  END DO !i
+  
+  nVal=nVal+1
+  Varnames(nVal)='rho'
+  values(  nVal,:)=rho(:)
+  values_int(nVal,:)=rho_int(:)
+  
+  rho_half(1)=0.
+  DO i=1,nFluxVMEC-1
+    rho_half(i+1)=SQRT(0.5_wp*(Phinorm_prof(i+1)+Phinorm_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
+  END DO
+  nVal=nVal+1
+  Varnames(nVal)='rho_half'
+  values(  nVal,:)= rho_half(:)
+  values_int(nVal,:)=0.
+  
+  nVal=nVal+1
+  Varnames(nVal)='iota(Phi_norm)'
+  values(  nVal,:)=iotaf(:)
+  DO i=1,n_int
+    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),iota_Spl)
+  END DO !i
+  
+  nVal=nVal+1
+  Varnames(nVal)='pres(Phi_norm)'
+  values(  nVal,:)=presf(:)
+  DO i=1,n_int
+    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),pres_Spl)
+  END DO !i
+  
+  nValRewind=nVal
+  
+  
+  IF(vcase(1))THEN
+    WRITE(*,*)'1) Visualize VMEC modes R,Z,lambda interpolated...'
     nval=nValRewind
-    CALL writeDataMN_int("INT_Rmns","Rmns",0,rho_int,Rmnc_Spl)
+    CALL writeDataMN_int("INT_Rmnc","Rmnc",0,rho_int,Rmnc_Spl)
     nval=nValRewind
-    CALL writeDataMN_int("INT_Zmnc","Zmnc",0,rho_int,Zmns_Spl)
-    IF(reLambda)THEN
-      CALL writeDataMN_int("INT_Lmnc","Lmnc",0,rho_int,Lmns_Spl)
-    ELSE
-      CALL writeDataMN_int("INT_Lmnc_half","Lmnc_h",0,rho_int,Lmns_spl)
-    END IF
-  END IF!lasym
-END IF !vcase(1)
-IF(vcase(2))THEN
-  WRITE(*,*)'2) Visualize VMEC modes dRrho,dZrho interpolated...'
-  nval=nValRewind
-  CALL writeDataMN_int("INT_dRmnc","dRmnc",1,rho_int,Rmnc_Spl)
-  nval=nValRewind
-  CALL writeDataMN_int("INT_dZmns","dZmns",1,rho_int,Zmns_Spl)
-  IF(lasym)THEN
-    !interpolated profiles
-    nval=nValRewind
-    CALL writeDataMN_int("INT_dRmns","dRmns",1,rho_int,Rmnc_Spl)
-    nval=nValRewind
-    CALL writeDataMN_int("INT_dZmnc","dZmnc",1,rho_int,Zmns_Spl)
-    nval=nValRewind
-  END IF!lasym
-END IF !vcase(2)
-IF(vcase(3))THEN
-  WRITE(*,*)'3) Visualize VMEC modes R,Z,lambda pointwise ...'
-  nval=nValRewind
-  CALL writeDataMN("Rmnc","Rmnc",0,rho,Rmnc)
-  nval=nValRewind
-  CALL writeDataMN("Zmns","Zmns",0,rho,Zmns)
-  nval=nValRewind
-  IF(reLambda)THEN
-    CALL writeDataMN("Lmns","Lmns",0,rho,Lmns)
-  ELSE
-    CALL writeDataMN("Lmns_half","Lmns_h",0,rho_half,Lmns)
-  END IF
-  IF(lasym)THEN
-    nval=nValRewind
-    CALL writeDataMN("Rmns","Rmns",0,rho,Rmnc)
-    nval=nValRewind
-    CALL writeDataMN("Zmnc","Zmnc",0,rho,Zmns)
+    CALL writeDataMN_int("INT_Zmns","Zmns",0,rho_int,Zmns_Spl)
     nval=nValRewind
     IF(reLambda)THEN
-      CALL writeDataMN("Lmnc","Lmnc",0,rho,Lmns)
+      CALL writeDataMN_int("INT_Lmns","Lmns",0,rho_int,Lmns_Spl)
     ELSE
-      CALL writeDataMN("Lmnc_half","Lmnc_h",0,rho_half,Lmns)
+      CALL writeDataMN_int("INT_Lmns_half","Lmns_h",0,rho_int,Lmns_spl)
     END IF
-  END IF!lasym
-END IF !vcase(3)
-IF(vcase(4))THEN
-  WRITE(*,*)'4) Visualize VMEC modes dRrho,dZrho pointwise (1st order finite difference)...'
-  nval=nValRewind
-  CALL writeDataMN("dRmnc","dRmnc",1,rho,Rmnc)
-  nval=nValRewind
-  CALL writeDataMN("dZmns","dZmns",1,rho,Zmns)
-  IF(lasym)THEN
+    IF(lasym)THEN
+      nval=nValRewind
+      CALL writeDataMN_int("INT_Rmns","Rmns",0,rho_int,Rmnc_Spl)
+      nval=nValRewind
+      CALL writeDataMN_int("INT_Zmnc","Zmnc",0,rho_int,Zmns_Spl)
+      IF(reLambda)THEN
+        CALL writeDataMN_int("INT_Lmnc","Lmnc",0,rho_int,Lmns_Spl)
+      ELSE
+        CALL writeDataMN_int("INT_Lmnc_half","Lmnc_h",0,rho_int,Lmns_spl)
+      END IF
+    END IF!lasym
+  END IF !vcase(1)
+  IF(vcase(2))THEN
+    WRITE(*,*)'2) Visualize VMEC modes dRrho,dZrho interpolated...'
     nval=nValRewind
-    CALL writeDataMN("dRmns","dRmns",1,rho,Rmnc)
+    CALL writeDataMN_int("INT_dRmnc","dRmnc",1,rho_int,Rmnc_Spl)
     nval=nValRewind
-    CALL writeDataMN("dZmnc","dZmnc",1,rho,Zmns)
-  END IF!lasym
-END IF !vcase(4)
-
-CONTAINS
+    CALL writeDataMN_int("INT_dZmns","dZmns",1,rho_int,Zmns_Spl)
+    IF(lasym)THEN
+      !interpolated profiles
+      nval=nValRewind
+      CALL writeDataMN_int("INT_dRmns","dRmns",1,rho_int,Rmnc_Spl)
+      nval=nValRewind
+      CALL writeDataMN_int("INT_dZmnc","dZmnc",1,rho_int,Zmns_Spl)
+      nval=nValRewind
+    END IF!lasym
+  END IF !vcase(2)
+  IF(vcase(3))THEN
+    WRITE(*,*)'3) Visualize VMEC modes R,Z,lambda pointwise ...'
+    nval=nValRewind
+    CALL writeDataMN("Rmnc","Rmnc",0,rho,Rmnc)
+    nval=nValRewind
+    CALL writeDataMN("Zmns","Zmns",0,rho,Zmns)
+    nval=nValRewind
+    IF(reLambda)THEN
+      CALL writeDataMN("Lmns","Lmns",0,rho,Lmns)
+    ELSE
+      CALL writeDataMN("Lmns_half","Lmns_h",0,rho_half,Lmns)
+    END IF
+    IF(lasym)THEN
+      nval=nValRewind
+      CALL writeDataMN("Rmns","Rmns",0,rho,Rmnc)
+      nval=nValRewind
+      CALL writeDataMN("Zmnc","Zmnc",0,rho,Zmns)
+      nval=nValRewind
+      IF(reLambda)THEN
+        CALL writeDataMN("Lmnc","Lmnc",0,rho,Lmns)
+      ELSE
+        CALL writeDataMN("Lmnc_half","Lmnc_h",0,rho_half,Lmns)
+      END IF
+    END IF!lasym
+  END IF !vcase(3)
+  IF(vcase(4))THEN
+    WRITE(*,*)'4) Visualize VMEC modes dRrho,dZrho pointwise (1st order finite difference)...'
+    nval=nValRewind
+    CALL writeDataMN("dRmnc","dRmnc",1,rho,Rmnc)
+    nval=nValRewind
+    CALL writeDataMN("dZmns","dZmns",1,rho,Zmns)
+    IF(lasym)THEN
+      nval=nValRewind
+      CALL writeDataMN("dRmns","dRmns",1,rho,Rmnc)
+      nval=nValRewind
+      CALL writeDataMN("dZmnc","dZmnc",1,rho,Zmns)
+    END IF!lasym
+  END IF !vcase(4)
+  
+  CONTAINS
   SUBROUTINE writeDataMN(fname,vname,rderiv,coord,xx)
     INTEGER,INTENT(IN)         :: rderiv !0: point values, 1: 1/2 ( (R(i+1)-R(i))/rho(i+1)-rho(i) (R(i)-R(i-1))/rho(i)-rho(i-1)) 
     CHARACTER(LEN=*),INTENT(IN):: fname
@@ -350,7 +383,9 @@ CONTAINS
     DO iMode=1,mn_mode
       nVal=nVal+1
       WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
-      values_int(    nVal,:)  =VMEC_EvalSplMode((/iMode/),rderiv,coord,xx_Spl)
+      DO i=1,n_int
+        values_int(    nVal,i)  =VMEC_EvalSplMode((/iMode/),rderiv,coord(i),xx_Spl)
+      END DO
     END DO
 
     CALL write_modes(fname,vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values_int,VarNames) 
