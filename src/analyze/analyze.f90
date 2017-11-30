@@ -52,7 +52,7 @@ SUBROUTINE InitAnalyze
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MOD_Analyze_Vars
-USE MOD_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY,PrepareProposalArray
+USE MOD_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -63,48 +63,41 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL(wp):: visu_minmax(3,0:1)
-CHARACTER(LEN=255):: defStr(0:1)
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
-which_visu= GETINT('which_visu','0') !0: gvec, 1: vmec data   
-visu1D    = GETINT('visu1D','0')   
-visu2D    = GETINT('visu2D','0')   
-visu3D    = GETINT('visu3D','0')   
+which_visu= GETINT('which_visu',Proposal=0) !0: gvec, 1: vmec data   
+visu1D    = GETINT('visu1D',Proposal=0)   
+visu2D    = GETINT('visu2D',Proposal=0)   
+visu3D    = GETINT('visu3D',Proposal=0)   
 
 
-visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,"0. 0. 0.")
-visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,"1. 1. 1.")
+visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
+visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))
 
 
 IF(visu1D.GT.0)THEN
-  np_1d          = GETINT(     "np_1d","5")
+  np_1d          = GETINT(     "np_1d",Proposal=5)
   IF(np_1d.LE.1) CALL abort(__STAMP__,&
      "np_1d must be >1")
 END IF
 IF(visu2D.GT.0)THEN
-  np_visu_BC     = GETINTARRAY("np_visu_BC",2,"20 30")
+  np_visu_BC     = GETINTARRAY("np_visu_BC",2,Proposal=(/20,30/))
   IF(any(np_visu_BC.LE.1)) CALL abort(__STAMP__,&
      "all point numbers in np_visu_BC must be >1")
-  CALL PrepareProposalArray(defStr(0),RealArr=visu_minmax(2:3,0))
-  CALL PrepareProposalArray(defStr(1),RealArr=visu_minmax(2:3,1))
-  visu_BC_minmax(2:3,0)=GETREALARRAY("visu_BC_min",2,TRIM(defStr(0)))
-  visu_BC_minmax(2:3,1)=GETREALARRAY("visu_BC_max",2,TRIM(defStr(1)))
-  np_visu_planes = GETINTARRAY("np_visu_planes",3,"5 12 10")
+  visu_BC_minmax(2:3,0)=GETREALARRAY("visu_BC_min",2,Proposal=visu_minmax(2:3,0),quiet_def_in=.TRUE.)
+  visu_BC_minmax(2:3,1)=GETREALARRAY("visu_BC_max",2,Proposal=visu_minmax(2:3,1),quiet_def_in=.TRUE.)
+  np_visu_planes = GETINTARRAY("np_visu_planes",3, (/5,12,10/))
   IF(any(np_visu_planes.LE.1)) CALL abort(__STAMP__,&
      "all point numbers in np_visu_planes must be >1")
-  CALL PrepareProposalArray(defStr(0),RealArr=visu_minmax(1:3,0))
-  CALL PrepareProposalArray(defStr(1),RealArr=visu_minmax(1:3,1))
-  visu_planes_minmax(1:3,0)=GETREALARRAY("visu_planes_min",3,TRIM(defStr(0)))
-  visu_planes_minmax(1:3,1)=GETREALARRAY("visu_planes_max",3,TRIM(defStr(1)))
+  visu_planes_minmax(1:3,0)=GETREALARRAY("visu_planes_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
+  visu_planes_minmax(1:3,1)=GETREALARRAY("visu_planes_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
 END IF
 IF(visu3D.GT.0)THEN
-  np_visu_3D     = GETINTARRAY("np_visu_3D",3,"5 12 10")
+  np_visu_3D     = GETINTARRAY("np_visu_3D",3,Proposal=(/5,12,10/))
   IF(any(np_visu_3D.LE.1)) CALL abort(__STAMP__,&
      "all point numbers in np_visu_3D must be >1")
-  CALL PrepareProposalArray(defStr(0),RealArr=visu_minmax(1:3,0))
-  CALL PrepareProposalArray(defStr(1),RealArr=visu_minmax(1:3,1))
-  visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,TRIM(defStr(0)))
-  visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,TRIM(defStr(1)))
+  visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
+  visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
 END IF
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)

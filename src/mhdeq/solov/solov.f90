@@ -66,7 +66,7 @@ IMPLICIT NONE
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'  INIT SOLOV INPUT ...'
 
-setup =GETINT("Solov_setup","0")
+setup =GETINT("Solov_setup",0)
 IF(setup.EQ.0)THEN
   P_R0    =GETREAL("Solov_R0")
   P_eps   =GETREAL("Solov_eps")
@@ -81,24 +81,24 @@ ELSE
   SELECT CASE(setup)
   CASE(1) !circular
     SWRITE(UNIT_stdout,*)'circular equilibrium setup:'
-    P_R0    =GETREAL("Solov_R0","10.")
-    P_eps   =GETREAL("Solov_eps","0.4")
-    P_kappa =GETREAL("Solov_kappa","1.")
-    P_delta =GETREAL("Solov_delta","0.")
-    P_A     =GETREAL("Solov_A","0.955")
-    P_B0    =GETREAL("Solov_B0","1.0")
-    P_qaxis =GETREAL("Solov_qaxis","1.89")
-    P_paxis =GETREAL("Solov_paxis","2.0e-03")
+    P_R0    =GETREAL("Solov_R0"   ,10.0_wp)
+    P_eps   =GETREAL("Solov_eps"  ,0.4_wp)
+    P_kappa =GETREAL("Solov_kappa",1.0_wp)
+    P_delta =GETREAL("Solov_delta",0.0_wp)
+    P_A     =GETREAL("Solov_A"    ,0.955_wp)
+    P_B0    =GETREAL("Solov_B0"   ,1.0_wp)
+    P_qaxis =GETREAL("Solov_qaxis",1.89_wp)
+    P_paxis =GETREAL("Solov_paxis",2.0e-03_wp)
   CASE(2) !parameter ITER-like
     SWRITE(UNIT_stdout,*)'Iter-like equilibrium setup:'
-    P_R0    =GETREAL("Solov_R0","6.2")
-    P_eps   =GETREAL("Solov_eps","0.32")
-    P_kappa =GETREAL("Solov_kappa","1.7")
-    P_delta =GETREAL("Solov_delta","0.33")
-    P_A     =GETREAL("Solov_A","-0.155")
-    P_B0    =GETREAL("Solov_B0","1.0")
-    P_qaxis =GETREAL("Solov_qaxis","1.6")
-    P_paxis =GETREAL("Solov_paxis","8.0e-02")
+    P_R0    =GETREAL("Solov_R0"   ,6.2_wp)
+    P_eps   =GETREAL("Solov_eps"  ,0.32_wp)
+    P_kappa =GETREAL("Solov_kappa",1.7_wp)
+    P_delta =GETREAL("Solov_delta",0.33_wp)
+    P_A     =GETREAL("Solov_A"    ,-0.155_wp)
+    P_B0    =GETREAL("Solov_B0"   ,1.0_wp)
+    P_qaxis =GETREAL("Solov_qaxis",1.6_wp)
+    P_paxis =GETREAL("Solov_paxis",8.0e-02_wp)
   CASE DEFAULT
     SWRITE(UNIT_stdout,*) "WARNING: This soloviev setup does not exist" ,setup
     STOP
@@ -146,8 +146,8 @@ REAL(wp)  :: d2Psi_dy2_axis  !d^2/dy^2 Psi
 !===================================================================================================================================
 
 CALL SolveForPsiCoefs()
-SWRITE(Unit_stdOut,'(A,4(E22.15,1X)))')'   PsiCoefs(1:4)        : ', PsiCoefs(1:4)
-SWRITE(Unit_stdOut,'(A,3(E22.15,1X)))')'   PsiCoefs(5:7)        : ', PsiCoefs(5:7)
+SWRITE(Unit_stdOut,'(4X,A,4(E22.15,1X))')"PsiCoefs(1:4)        : ", PsiCoefs(1:4)
+SWRITE(Unit_stdOut,'(4X,A,3(E22.15,1X))')"PsiCoefs(5:7)        : ", PsiCoefs(5:7)
 
 !                tolerance,
 tol=1.0e-15
@@ -518,7 +518,7 @@ REAL(wp)  :: coszeta,sinzeta
 REAL(wp)  :: psiVal,psiNorm 
 REAL(wp)  :: tol,rNewton,xPos(2)
 REAL(wp)  :: Density
-REAL(wp)  :: R,dPsi_dx,dPsi_dy,Fval,dPhiPol(2),alpha_sRho2
+REAL(wp)  :: R,dPsi_dx,dPsi_dy,Fval,alpha_sRho2
 REAL(wp)  :: BR,BZ,Bphi,Bcart(3) 
 REAL(wp)  :: AR,AZ,Aphi,Acart(3)
 LOGICAL   :: converged

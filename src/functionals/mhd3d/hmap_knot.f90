@@ -82,16 +82,16 @@ IMPLICIT NONE
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ON A (k,l)-TORUS ...'
 
-  knot_k=GETINT("hmap_knot_k","2")
+  knot_k=GETINT("hmap_knot_k",2)
   sf%k=REAL(knot_k, wp)
 
-  knot_l=GETINT("hmap_knot_l","3")
+  knot_l=GETINT("hmap_knot_l",3)
   sf%l=REAL(knot_l, wp)
 
-  knot_R0=GETREAL("hmap_knot_major_radius","1.0")
+  knot_R0=GETREAL("hmap_knot_major_radius",1.0_wp)
   sf%R0=knot_R0
 
-  knot_delta=GETREAL("hmap_knot_delta_shift","0.4")
+  knot_delta=GETREAL("hmap_knot_delta_shift",0.4_wp)
   sf%delta=knot_delta
 
   IF (.NOT.((sf%R0 - ABS(sf%delta)) > 0.0_wp)) THEN

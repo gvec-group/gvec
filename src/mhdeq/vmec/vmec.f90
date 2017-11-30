@@ -88,7 +88,7 @@ SWRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 VMECdataFile=GETSTR("VMECwoutfile")
 
 !use StraightFieldline mapping 
-useSFL=GETLOGICAL("VMEC_useSFL",".FALSE.")
+useSFL=GETLOGICAL("VMEC_useSFL",Proposal=.FALSE.)
 
 ! read VMEC 2000 output (netcdf)
 CALL ReadVmec(VMECdataFile)
@@ -118,7 +118,7 @@ SWRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp: ',NINT(MAXVAL(xm)),NINT(MAXVA
 !SWRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
 !SWRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
 
-useFilter=.TRUE. !GETLOGICAL('VMECuseFilter','.TRUE.') !SHOULD BE ALWAYS TRUE...
+useFilter=.TRUE. !GETLOGICAL('VMECuseFilter',Proposal=.TRUE.) !SHOULD BE ALWAYS TRUE...
 
 ALLOCATE(xmabs(mn_mode))
 DO iMode=1,mn_mode
@@ -155,8 +155,8 @@ IF(lasym)THEN
   
 END IF
 
-relambda=GETLOGICAL("VMEC_relambda",".FALSE.")
-IF(relambda) nyq=GETINT("VMEC_Lam_nyq","4")
+relambda=GETLOGICAL("VMEC_relambda",Proposal=.FALSE.)
+IF(relambda) nyq=GETINT("VMEC_Lam_nyq",Proposal=4)
 
 ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
 IF(lasym) ALLOCATE(lmnc_Spl(4,1:nFluxVMEC,mn_mode))
@@ -721,7 +721,7 @@ IMPLICIT NONE
   REAL(wp)           :: VMEC_EvalSpl
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER            :: i,iGuess
+  INTEGER            :: iGuess
   REAL(wp)           :: splout(3)
 !===================================================================================================================================
   CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in,rho,xx_Spl(:,:),iGuess,splout) 
@@ -749,7 +749,7 @@ IMPLICIT NONE
   REAL(wp)                   :: VMEC_EvalSplMode
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                    :: i,iGuess,jMode,modefound
+  INTEGER                    :: iGuess,jMode,modefound
   REAL(wp)                   :: rhom,drhom,splOut(3) !for weighted spline interpolation
 !===================================================================================================================================
   IF(size(mn_in,1).EQ.2)THEN

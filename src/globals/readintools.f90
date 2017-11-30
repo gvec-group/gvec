@@ -41,7 +41,6 @@ PUBLIC::GETINTALLOCARRAY
 PUBLIC::GETREALALLOCARRAY
 
 PUBLIC::IgnoredStrings
-PUBLIC::PrepareProposalArray
 !===================================================================================================================================
 
 INTERFACE TRYREAD
@@ -78,10 +77,6 @@ END INTERFACE
 
 INTERFACE IgnoredStrings
   MODULE PROCEDURE IgnoredStrings
-END INTERFACE
-
-INTERFACE PrepareProposalArray
-  MODULE PROCEDURE PrepareProposalArray
 END INTERFACE
 
 INTERFACE FillStrings
@@ -180,8 +175,8 @@ SWRITE(UNIT_StdOut,'(a3,a30,a3,a33,a3,a7,a3)')' | ',TRIM(Key),' | ', TRIM(GetStr
 END FUNCTION GETSTR
 
 !===================================================================================================================================
-!> Counts all occurances of string named "key" from inifile and store in "GETSTR". If keyword "Key" is not found in ini file,
-!! the default value "Proposal" is used for "GETINT" (error if "Proposal" not given).
+!> Counts all occurances of string named "key" from inifile and store in "CNTSTR". If keyword "Key" is not found in ini file,
+!! the default value "Proposal" is used for "CNTSTR" (error if "Proposal" not given).
 !! Inifile was read in before and is stored as list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
@@ -191,13 +186,12 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in ini file
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal !! Default values as character string (as in ini file)
+INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal !! Default values as integer 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER                              :: CntStr   !! Number of parameters named "Key" in inifile
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                              :: IntProposal  
 CHARACTER(LEN=LEN(Key))              :: TmpKey  
 TYPE(tString),POINTER                :: Str1  
 !===================================================================================================================================
@@ -218,8 +212,7 @@ DO WHILE (ASSOCIATED(Str1))
 END DO
 IF (CntStr.EQ.0) THEN
   IF (PRESENT(Proposal)) THEN
-    READ(Proposal,'(I3)')IntProposal
-    CntStr=IntProposal
+    CntStr=Proposal
   ELSE
     SWRITE(UNIT_StdOut,*) 'Inifile missing necessary keyword item : ',TRIM(TmpKey)
     CALL abort(__STAMP__, &
@@ -234,27 +227,30 @@ END FUNCTION CNTSTR
 !! Ini file was read in before and is stored as list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
-FUNCTION GETINT(Key,Proposal)
+FUNCTION GETINT(Key,Proposal,quiet_def_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in ini file
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal !! Default values as character string (as in ini file)
+CHARACTER(LEN=*),INTENT(IN) :: Key          !! Search for this keyword in ini file
+INTEGER,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as integer scalar 
+LOGICAL,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-INTEGER                              :: GetInt  !! Integer read from setup file or initialized with default value
+INTEGER                     :: GetInt  !! Integer read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255)                   :: HelpStr  
-CHARACTER(LEN=8)                     :: DefMsg  
-INTEGER                              :: ioerr
+CHARACTER(LEN=255)          :: HelpStr,ProposalStr
+CHARACTER(LEN=8)            :: DefMsg  
+INTEGER                     :: ioerr
+LOGICAL                     :: quiet_def
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
-  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+  CALL ConvertToProposalStr(ProposalStr,intScalar=Proposal)
+  CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
@@ -264,7 +260,15 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
   STOP     
 END IF
-SWRITE(UNIT_StdOut,'(a3,a30,a3,i33,a3,a7,a3)')' | ',TRIM(Key),' | ', GetInt,' | ',TRIM(DefMsg),' | '
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
+  END IF
+END IF
+IF(.NOT.quiet_def) THEN
+  SWRITE(UNIT_StdOut,'(a3,a30,a3,i33,a3,a7,a3)')' | ',TRIM(Key),' | ', GetInt,' | ',TRIM(DefMsg),' | '
+END IF
 END FUNCTION GETINT
 
 
@@ -279,15 +283,15 @@ FUNCTION GETREAL(Key,Proposal,quiet_def_in)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in ini file
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal !! Default values as character string (as in ini file)
+CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
+REAL(wp)        ,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as real scalar
 LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES                                 
 REAL(wp)                             :: GetReal  !! Real read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=500)                   :: HelpStr  
+CHARACTER(LEN=500)                   :: HelpStr,ProposalStr  
 CHARACTER(LEN=8)                     :: DefMsg  
 INTEGER                              :: ioerr
 LOGICAL                              :: quiet_def
@@ -296,15 +300,10 @@ LOGICAL                              :: quiet_def
 CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
-  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+  CALL ConvertToProposalStr(ProposalStr,realScalar=Proposal)
+  CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
-END IF
-quiet_def=.FALSE.
-IF(PRESENT(quiet_def_in))THEN
-  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
-    quiet_def=quiet_def_in
-  END IF
 END IF
 ! Find values of pi in the string
 CALL getPImultiplies(helpstr)
@@ -313,6 +312,12 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*)'PROBLEM IN READIN OF LINE (real):'
   WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
   STOP     
+END IF
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
+  END IF
 END IF
 IF(.NOT.quiet_def) THEN
   SWRITE(UNIT_StdOut,'(a3,a30,a3,e33.5,a3,a7,a3)')' | ',TRIM(Key),' | ', GetReal,' | ',TRIM(DefMsg),' | '
@@ -326,27 +331,30 @@ END FUNCTION GETREAL
 !! Ini file was read in before and is stored as list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
-FUNCTION GETLOGICAL(Key,Proposal)
+FUNCTION GETLOGICAL(Key,Proposal,quiet_def_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)          :: Key        !! Search for this keyword in ini file
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal   !! Default values as character string (as in ini file)
+CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
+LOGICAL         ,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as logical 
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES                                  
 LOGICAL                              :: GetLogical !! Logical read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255)                   :: HelpStr  
+CHARACTER(LEN=255)                   :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)                     :: DefMsg  
 INTEGER                              :: ioerr
+LOGICAL                              :: quiet_def
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
-  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+  CALL ConvertToProposalStr(ProposalStr,logScalar=Proposal)
+  CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
@@ -356,7 +364,15 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
   STOP     
 END IF
-SWRITE(UNIT_StdOut,'(a3,a30,a3,l33,a3,a7,a3)')' | ',TRIM(Key),' | ', GetLogical,' | ',TRIM(DefMsg),' | '
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
+  END IF
+END IF
+IF(.NOT.quiet_def) THEN
+  SWRITE(UNIT_StdOut,'(a3,a30,a3,l33,a3,a7,a3)')' | ',TRIM(Key),' | ', GetLogical,' | ',TRIM(DefMsg),' | '
+END IF
 END FUNCTION GETLOGICAL
 
 
@@ -366,30 +382,33 @@ END FUNCTION GETLOGICAL
 !! list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
-FUNCTION GETINTARRAY(Key,nIntegers,Proposal)
+FUNCTION GETINTARRAY(Key,nIntegers,Proposal,quiet_def_in)
 ! MODULES
     IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key              !! Search for this keyword in ini file
 INTEGER,INTENT(IN)                   :: nIntegers        !! Number of values in array
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as character string (as in setup file)
+INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal(:)      !! Default values as integer array 
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in     !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER                   :: GetIntArray(nIntegers)      !! Integer array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255+nIntegers*50) :: HelpStr  
-CHARACTER(LEN=8)          :: DefMsg  
-INTEGER                   :: iInteger  
-INTEGER                   :: ioerr
-TYPE(varying_string)      :: separator,astr,bstr
+CHARACTER(LEN=255+nIntegers*50) :: HelpStr,ProposalStr 
+CHARACTER(LEN=8)                :: DefMsg  
+INTEGER                         :: iInteger  
+INTEGER                         :: ioerr
+TYPE(varying_string)            :: separator,astr,bstr
+LOGICAL                         :: quiet_def
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
-  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+  CALL ConvertToProposalStr(ProposalStr,intarr=Proposal)
+  CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
@@ -412,16 +431,25 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
   STOP     
 END IF
-SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
-                                                               'Integer array of size (',nIntegers,') | ',TRIM(DefMsg),' | '
-DO iInteger=0,nIntegers-1
-  IF ((iInteger.GT.0) .AND. (MOD(iInteger,8).EQ.0)) THEN
-    SWRITE(UNIT_stdOut,*)
-    SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
   END IF
-  SWRITE(UNIT_stdOut,'(i5)',ADVANCE='NO')GetIntArray(iInteger+1)
-END DO
-SWRITE(UNIT_stdOut,*)
+END IF
+IF(.NOT.quiet_def) THEN
+  SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
+                                                                 'Integer array of size (',nIntegers,') | ',TRIM(DefMsg),' | '
+  DO iInteger=0,nIntegers-1
+    IF ((iInteger.GT.0) .AND. (MOD(iInteger,8).EQ.0)) THEN
+      SWRITE(UNIT_stdOut,*)
+      SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+    END IF
+    SWRITE(UNIT_stdOut,'(i5)',ADVANCE='NO')GetIntArray(iInteger+1)
+  END DO
+  SWRITE(UNIT_stdOut,*)
+END IF !quiet_def
+
 END FUNCTION GETINTARRAY
 
 
@@ -432,30 +460,33 @@ END FUNCTION GETINTARRAY
 !! list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
-SUBROUTINE GETINTALLOCARRAY(Key,GetIntArray,nIntegers,Proposal)
+SUBROUTINE GETINTALLOCARRAY(Key,GetIntArray,nIntegers,Proposal,quiet_def_in)
 ! MODULES
     IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)          :: Key              !! Search for this keyword in ini file
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as character string (as in setup file)
+CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
+INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal(:)  !! Default values as integer array 
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER,INTENT(OUT)       :: nIntegers        !! Number of values in array
-INTEGER,ALLOCATABLE       :: GetIntArray(:)      !! Integer array read from setup file or initialized with default values
+INTEGER,ALLOCATABLE       :: GetIntArray(:)   !! Integer array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=50*255)     :: HelpStr  
+CHARACTER(LEN=50*255)     :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)          :: DefMsg  
 INTEGER                   :: iInteger  
 INTEGER                   :: ioerr
 TYPE(varying_string)      :: separator,astr,bstr
+LOGICAL                   :: quiet_def
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
-  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+  CALL ConvertToProposalStr(ProposalStr,intarr=Proposal)
+  CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
@@ -475,16 +506,24 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
   STOP     
 END IF
-SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
-                                                               'Integer array of size (',nIntegers,') | ',TRIM(DefMsg),' | '
-DO iInteger=0,nIntegers-1
-  IF ((iInteger.GT.0) .AND. (MOD(iInteger,8).EQ.0)) THEN
-    SWRITE(UNIT_stdOut,*)
-    SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
   END IF
-  SWRITE(UNIT_stdOut,'(i5)',ADVANCE='NO')GetIntArray(iInteger+1)
-END DO
-SWRITE(UNIT_stdOut,*)
+END IF
+IF(.NOT.quiet_def) THEN
+  SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
+                                                                 'Integer array of size (',nIntegers,') | ',TRIM(DefMsg),' | '
+  DO iInteger=0,nIntegers-1
+    IF ((iInteger.GT.0) .AND. (MOD(iInteger,8).EQ.0)) THEN
+      SWRITE(UNIT_stdOut,*)
+      SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+    END IF
+    SWRITE(UNIT_stdOut,'(i5)',ADVANCE='NO')GetIntArray(iInteger+1)
+  END DO
+  SWRITE(UNIT_stdOut,*)
+END IF !quiet_def
 END SUBROUTINE GETINTALLOCARRAY
 
 
@@ -494,30 +533,34 @@ END SUBROUTINE GETINTALLOCARRAY
 !! list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
-FUNCTION GETREALARRAY(Key,nReals,Proposal)
+FUNCTION GETREALARRAY(Key,nReals,Proposal,quiet_def_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)          :: Key              !! Search for this keyword in ini file
-INTEGER,INTENT(IN)                   :: nReals           !! Number of values in array
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as character string (as in setup file)
+CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
+INTEGER,INTENT(IN)                   :: nReals       !! Number of values in array
+REAL(wp)        ,OPTIONAL,INTENT(IN) :: Proposal(:)  !! Default values as real array
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp)                  :: GetRealArray(nReals)        !! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255+nReals*50) :: HelpStr  
-CHARACTER(LEN=8)          :: DefMsg  
-INTEGER                   :: iReal  
-INTEGER                   :: ioerr  
-TYPE(varying_string)      :: separator,astr,bstr
+CHARACTER(LEN=255+nReals*50) :: HelpStr,ProposalStr 
+CHARACTER(LEN=8)             :: DefMsg  
+INTEGER                      :: iReal  
+INTEGER                      :: ioerr  
+TYPE(varying_string)         :: separator,astr,bstr
+LOGICAL                      :: quiet_def
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
 
+
 IF (PRESENT(Proposal)) THEN
-  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+  CALL ConvertToProposalStr(ProposalStr,realarr=Proposal)
+  CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
@@ -542,16 +585,25 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
   STOP     
 END IF
-SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
-                                                               'Real array of size (',nReals,') | ',TRIM(DefMsg),' | '
-DO iReal=0,nReals-1
-  IF ((iReal.GT.0) .AND. (MOD(iReal,8).EQ.0)) THEN
-    SWRITE(UNIT_stdOut,*)
-    SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
   END IF
-  SWRITE(UNIT_stdOut,'(f5.2)',ADVANCE='NO')GetRealArray(iReal+1)
-END DO
-SWRITE(UNIT_stdOut,*)
+END IF
+IF(.NOT.quiet_def) THEN
+  SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
+                                                                 'Real array of size (',nReals,') | ',TRIM(DefMsg),' | '
+  DO iReal=0,nReals-1
+    IF ((iReal.GT.0) .AND. (MOD(iReal,8).EQ.0)) THEN
+      SWRITE(UNIT_stdOut,*)
+      SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+    END IF
+    SWRITE(UNIT_stdOut,'(f5.2)',ADVANCE='NO')GetRealArray(iReal+1)
+  END DO
+  SWRITE(UNIT_stdOut,*)
+END IF !quiet_def
+
 END FUNCTION GETREALARRAY
 
 
@@ -561,30 +613,33 @@ END FUNCTION GETREALARRAY
 !! list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
-SUBROUTINE GETREALALLOCARRAY(Key,GetRealArray,nReals,Proposal)
+SUBROUTINE GETREALALLOCARRAY(Key,GetRealArray,nReals,Proposal,quiet_def_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)          :: Key              !! Search for this keyword in ini file
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         !! Default values as character string (as in setup file)
+CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
+REAL(wp)        ,OPTIONAL,INTENT(IN) :: Proposal(:)  !! Default values as real array
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER,INTENT(OUT)       :: nReals           !! Number of values in array
 REAL(wp),ALLOCATABLE      :: GetRealArray(:)  !! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=50*255)     :: HelpStr  
+CHARACTER(LEN=50*255)     :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)          :: DefMsg  
 INTEGER                   :: iReal  
 INTEGER                   :: ioerr  
 TYPE(varying_string)      :: separator,astr,bstr
+LOGICAL                   :: quiet_def
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
-  CALL FindStr(Key,HelpStr,DefMsg,Proposal)
+  CALL ConvertToProposalStr(ProposalStr,realarr=Proposal)
+  CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
@@ -606,16 +661,25 @@ IF(ioerr.NE.0)THEN
   WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
   STOP     
 END IF
-SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
-                                                               'Real array of size (',nReals,') | ',TRIM(DefMsg),' | '
-DO iReal=0,nReals-1
-  IF ((iReal.GT.0) .AND. (MOD(iReal,8).EQ.0)) THEN
-    SWRITE(UNIT_stdOut,*)
-    SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+quiet_def=.FALSE.
+IF(PRESENT(quiet_def_in))THEN
+  IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
+    quiet_def=quiet_def_in
   END IF
-  SWRITE(UNIT_stdOut,'(f5.2)',ADVANCE='NO')GetRealArray(iReal+1)
-END DO
-SWRITE(UNIT_stdOut,*)
+END IF
+IF(.NOT.quiet_def) THEN
+  SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
+                                                                 'Real array of size (',nReals,') | ',TRIM(DefMsg),' | '
+  DO iReal=0,nReals-1
+    IF ((iReal.GT.0) .AND. (MOD(iReal,8).EQ.0)) THEN
+      SWRITE(UNIT_stdOut,*)
+      SWRITE(UNIT_stdOut,'(a80,a3)',ADVANCE='NO')'',' | '
+    END IF
+    SWRITE(UNIT_stdOut,'(f5.2)',ADVANCE='NO')GetRealArray(iReal+1)
+  END DO
+  SWRITE(UNIT_stdOut,*)
+END IF !quiet_def
+
 END SUBROUTINE GETREALALLOCARRAY
 
 
@@ -769,7 +833,7 @@ TYPE(tString),POINTER            :: Str1
 TYPE(Varying_String)             :: vStr,vStr1,vStr2
 LOGICAL                          :: found
 !===================================================================================================================================
-nDefVars=CNTSTR('defvar','0')
+nDefVars=CNTSTR('defvar',0)
 IF(nDefVars.EQ.0) RETURN
 SWRITE(UNIT_StdOut,'(A,I4,A)')' | Found ',nDefVars,' UserDefined variables: '
 ALLOCATE(DefVar(2,nDefVars))
@@ -1037,16 +1101,16 @@ DO iLen=1,nLen
 END DO
 END SUBROUTINE LowCase
 
+!===================================================================================================================================
+!> Searches for the occurence of 'PI','Pi','pi' and 'pI' in a helpstr and replaces
+!! it with the value of pi=3.1415... etc. and oes a multiplication.
+!===================================================================================================================================
 SUBROUTINE getPImultiplies(helpstr)
-!===================================================================================================================================
-! Searches for the occurence of 'PI','Pi','pi' and 'pI' in a helpstr and replaces
-! it with the value of pi=3.1415... etc. and oes a multiplication.
-!===================================================================================================================================
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-CHARACTER(LEN=*),INTENT(INOUT) :: helpstr   ! Input character string
+CHARACTER(LEN=*),INTENT(INOUT) :: helpstr   !! Input character string
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1097,28 +1161,50 @@ END DO
 helpstr=trim(char(dstr))
 END SUBROUTINE getPImultiplies
 
-SUBROUTINE PrepareProposalArray(str_out,Intarr,realarr)
-  IMPLICIT NONE
-  !-------------------------------------------
-  !input/output
-  INTEGER,INTENT(IN),OPTIONAL :: intarr(:)
-  REAL(wp),INTENT(IN),OPTIONAL:: realarr(:)
-  CHARACTER(LEN=*),INTENT(INOUT) :: str_out
-  CHARACTER(LEN=LEN(str_out))    :: str_tmp
-  TYPE(VARYING_STRING) :: tmpstr
-  !-------------------------------------------
-  IF(PRESENT(intarr))THEN
+!===================================================================================================================================
+!> Get logical, integer, real, integer array or real array and transform it to string in the proposal format
+!!
+!===================================================================================================================================
+SUBROUTINE ConvertToProposalStr(ProposalStr,LogScalar,IntScalar,realScalar,Intarr,realarr)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT        VARIABLES
+LOGICAL ,INTENT(IN),OPTIONAL   :: LogScalar
+INTEGER ,INTENT(IN),OPTIONAL   :: intScalar
+REAL(wp),INTENT(IN),OPTIONAL   :: realScalar
+INTEGER ,INTENT(IN),OPTIONAL   :: intarr(:)
+REAL(wp),INTENT(IN),OPTIONAL   :: realarr(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+CHARACTER(LEN=*),INTENT(INOUT) :: ProposalStr
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+CHARACTER(LEN=LEN(ProposalStr)) :: str_tmp
+TYPE(VARYING_STRING) :: tmpstr
+!===================================================================================================================================
+  IF(PRESENT(logScalar))THEN
+    IF(logScalar)THEn
+      str_tmp='T'
+    ELSE
+      str_tmp='F'
+    END IF
+  ELSEIF(PRESENT(intscalar))THEN
+    WRITE(str_tmp,'(I10)')intScalar
+  ELSEIF(PRESENT(realScalar))THEN
+    WRITE(str_tmp,'(E23.15)')realScalar
+  ELSEIF(PRESENT(intarr))THEN
     WRITE(str_tmp,'(*(I8,:,","))')intarr(:)
   ELSEIF(PRESENT(realarr))THEN
     WRITE(str_tmp,'(*(E21.11,:,","))')realarr(:)
   ELSE 
-    str_out=" "
+    ProposalStr=" "
     RETURN
   END IF
   tmpstr=VAR_STR(str_tmp)
   tmpstr=Replace(tmpstr," ","",Every=.true.)
   tmpstr=Replace(tmpstr,","," ",Every=.true.)
-  str_out=CHAR(tmpstr)
-END SUBROUTINE PrepareProposalArray
+  ProposalStr=TRIM(CHAR(tmpstr))
+END SUBROUTINE ConvertToProposalStr
 
 END MODULE MOD_ReadInTools

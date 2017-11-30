@@ -63,15 +63,15 @@ CLASS(t_functional),ALLOCATABLE   :: functional
 ,'  - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - '&
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
   WRITE(Unit_stdOut,'(132("="))')
-  testdbg =GETLOGICAL('testdbg','F')
-  testlevel=GETINT('testlevel','-1')
+  testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
+  testlevel=GETINT('testlevel',Proposal=-1)
   
   !initialization phase
   CALL InitOutput()
   CALL InitAnalyze()
   CALL InitMHDEQ()
   
-  which_functional=GETINT('which_functional','1')
+  which_functional=GETINT('which_functional', Proposal=1 )
   CALL InitFunctional(functional,which_functional)
   
   CALL IgnoredStrings()

@@ -74,7 +74,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: CYLINDER WITH X1:=x, X2:=z, zeta := -2*pi*(y/cyl_len)  ...'
 
-  sf%cyl_len=GETREAL("hmap_cyl_len","1.0")
+  sf%cyl_len=GETREAL("hmap_cyl_len",1.0_wp)
 
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'

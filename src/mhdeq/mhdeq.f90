@@ -69,7 +69,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT MHD EQUILIBRIUM INPUT ...'
-whichInitEquilibrium    = GETINT('whichInitEquilibrium','0')   
+whichInitEquilibrium    = GETINT('whichInitEquilibrium',Proposal=0)   
 IF(WhichInitEquilibrium.EQ.0) THEN 
   SWRITE(UNIT_stdOut,'(4X,A)')'... NOTHING TO BE DONE HERE ...'
   RETURN
@@ -88,13 +88,13 @@ CASE DEFAULT
   STOP
 END SELECT
   !density coefficients of the polynomial coefficients: rho_1+rho_2*x + rho_3*x^2 ...
-  nRhoCoefs=GETINT("nRhoCoefs","0")
+  nRhoCoefs=GETINT("nRhoCoefs",Proposal=0)
   IF(nRhoCoefs.GT.0)THEN
     RhoFluxVar=GETINT("RhoFluxVar") ! dependant variable: =0: psinorm (tor. flux), =1:chinorm (pol. flux)
     ALLOCATE(RhoCoefs(nRhoCoefs))
     RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
   END IF
-  InputCoordSys=GETINT("MHDEQ_inputCoordSys","0")
+  InputCoordSys=GETINT("MHDEQ_inputCoordSys",Proposal=0)
   ! =0: x_in(1:3) are (x,y,z) coordinates in a cylinder of size r=[0;1], z=[0;1]
   ! =1: x_in(1:3) are (r,zeta,theta) coordinates r= [0;1], zeta= [0;1], theta=[0;1]
 

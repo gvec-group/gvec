@@ -73,21 +73,21 @@ INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
 CHARACTER(LEN=8) :: X1_sin_cos
 CHARACTER(LEN=8) :: X2_sin_cos
 CHARACTER(LEN=8) :: LA_sin_cos
-CHARACTER(LEN=8) :: defstr
 INTEGER          :: degGP,mn_nyq(2),fac_nyq
 INTEGER          :: nfp_loc,which_hmap 
+REAL(wp)         :: pres_scale
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
   
-  nElems   =GETINT("sgrid_nElems","10")
-  grid_type=GETINT("sgrid_grid_type","0")
+  nElems   =GETINT("sgrid_nElems",Proposal=10)
+  grid_type=GETINT("sgrid_grid_type",Proposal=0)
   
   !mandatory global input parameters
-  degGP   = GETINT( "degGP","4")
-  fac_nyq = GETINT( "fac_nyq","4")
+  degGP   = GETINT( "degGP",Proposal=4)
+  fac_nyq = GETINT( "fac_nyq",Proposal=4)
   
   !constants
-  gamm    = GETREAL("GAMMA","0.")
+  gamm    = GETREAL("GAMMA",Proposal=0.0_wp)
   
   mu_0    = 4.0e-07_wp*PI
   
@@ -95,12 +95,14 @@ INTEGER          :: nfp_loc,which_hmap
   
   SELECT CASE(which_init)
   CASE(0)
-    nfp_loc  = GETINT( "nfp","1")
+    nfp_loc  = GETINT( "nfp",Proposal=1)
     !hmap
-    which_hmap=GETINT("which_hmap","1")
-    CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,"1.1 0.1") !a+b*s+c*s^2...
-    CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,"1.0 -0.9") !a+b*s+c*s^2...
-    Phi_edge   = GETREAL("PHIEDGE","1.")
+    which_hmap=GETINT("which_hmap",Proposal=1)
+    CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+    CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+    pres_scale=GETREAL("PRES_SCALE",1.0_wp)
+    mass_coefs=mass_coefs*pres_scale
+    Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
   CASE(1) !VMEC init
     nfp_loc = nfp
     !hmap
@@ -112,20 +114,19 @@ INTEGER          :: nfp_loc,which_hmap
   
   
   X1X2_deg     = GETINT(     "X1X2_deg")
-  WRITE(defStr,'(I4)') X1X2_deg-1
-  X1X2_cont    = GETINT(     "X1X2_continuity",defStr)
-  X1X2_BC      = GETINTARRAY("X1X2_BC",2,"0 1")
-  X1_mn_max    = GETINTARRAY("X1_mn_max",2,"2 0")
-  X2_mn_max    = GETINTARRAY("X2_mn_max",2,"2 0")
-  X1_sin_cos   = GETSTR(     "X1_sin_cos","_cos_")  !_sin_,_cos_,_sin_cos_
-  X2_sin_cos   = GETSTR(     "X2_sin_cos","_sin_")
+  X1X2_cont    = GETINT(     "X1X2_continuity",Proposal=(X1X2_deg-1) )
+  X1X2_BC      = GETINTARRAY("X1X2_BC"     ,2 ,Proposal=(/0,1/))
+  X1_mn_max    = GETINTARRAY("X1_mn_max"   ,2 ,Proposal=(/2,0/))
+  X2_mn_max    = GETINTARRAY("X2_mn_max"   ,2 ,Proposal=(/2,0/))
+  X1_sin_cos   = GETSTR(     "X1_sin_cos"     ,Proposal="_cos_")  !_sin_,_cos_,_sin_cos_
+  X2_sin_cos   = GETSTR(     "X2_sin_cos"     ,Proposal="_sin_")
   
   
   LA_deg     = GETINT(     "LA_deg")
-  LA_cont    = GETINT(     "LA_continuity","-1")
-  LA_BC      = GETINTARRAY("LA_BC",2,"0 0")
-  LA_mn_max  = GETINTARRAY("LA_mn_max",2,"2 0")
-  LA_sin_cos = GETSTR(     "LA_sin_cos","_sin_")
+  LA_cont    = GETINT(     "LA_continuity",Proposal=-1)
+  LA_BC      = GETINTARRAY("LA_BC"    , 2 ,Proposal=(/0,0/))
+  LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=(/2,0/))
+  LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal="_sin_")
   
   mn_nyq(1)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
   mn_nyq(2)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
@@ -252,7 +253,7 @@ INTEGER          :: nfp_loc,which_hmap
     !-------------------------------------------
     WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(1),mn(2)/nfp_loc
     varstr=delete_spaces(varstr)         !quiet on default=0.0
-    get_iMode=GETREAL(TRIM(varstr),"0.0",.TRUE.)
+    get_iMode=GETREAL(TRIM(varstr),Proposal=0.0_wp,quiet_def_in=.TRUE.)
    
   END FUNCTION get_iMode
 
@@ -271,112 +272,6 @@ INTEGER          :: nfp_loc,which_hmap
 
 END SUBROUTINE InitMHD3D
 
-
-!===================================================================================================================================
-!> evaluate iota at position s
-!!
-!===================================================================================================================================
-FUNCTION Eval_iota(spos)
-! MODULES
-USE MOD_Globals, ONLY:EVAL1DPOLY
-USE MOD_MHD3D_Vars,ONLY: which_init,n_iota_coefs,iota_coefs
-USE MOD_VMEC , ONLY:VMEC_EvalSpl
-USE MOD_VMEC_vars , ONLY:iota_spl
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_iota
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  SELECT CASE(which_init)
-  CASE(0)
-    eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,spos)
-  CASE(1)
-  !  eval_iota=VMEC_EvalSpl(1,spos,chi_Spl)/VMEC_EvalSpl(1,spos,Phi_spl) 
-    eval_iota=VMEC_EvalSpl(1,spos,iota_Spl)
-  END SELECT
-END FUNCTION Eval_iota
-
-!===================================================================================================================================
-!> evaluate pressure profile at position s
-!!
-!===================================================================================================================================
-FUNCTION Eval_pres(spos)
-! MODULES
-USE MOD_Globals, ONLY:EVAL1DPOLY
-USE MOD_MHD3D_Vars,ONLY: which_init,gamm,n_mass_coefs,mass_coefs
-USE MOD_VMEC , ONLY:VMEC_EvalSpl
-USE MOD_VMEC_vars , ONLY:pres_spl
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_pres
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  SELECT CASE(which_init)
-  CASE(0)
-    IF(ABS(gamm).LT.1.0E-12)THEN
-      eval_pres=Eval1DPoly(n_mass_coefs,mass_coefs,spos) 
-    ELSE
-      !TODO still need to divide by V'^gamma
-      CALL abort(__STAMP__, &
-          ' gamma>0: pressure profile not yet implemented!')
-    END IF
-  CASE(1)
-    eval_pres=VMEC_EvalSpl(0,spos,pres_Spl)
-  END SELECT
-END FUNCTION Eval_pres
-
-!===================================================================================================================================
-!> evaluate toroidal flux Phi: s=sqrt(Phi/Phi_edge), Phi=Phi_edge*s^2
-!!
-!===================================================================================================================================
-FUNCTION Eval_Phi(spos)
-! MODULES
-USE MOD_MHD3D_Vars,ONLY:Phi_edge
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_Phi
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  Eval_Phi=Phi_edge*(spos**2)
-
-END FUNCTION Eval_Phi
-
-!===================================================================================================================================
-!> evaluate s-derivative of toroidal flux Phi: s=sqrt(Phi/Phi_edge), Phi=Phi_edge*s^2, Phi'=Phi_edge*2*s
-!!
-!===================================================================================================================================
-FUNCTION Eval_PhiPrime(spos)
-! MODULES
-USE MOD_MHD3D_Vars,ONLY:Phi_edge
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_PhiPrime
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  Eval_PhiPrime=Phi_edge*2.0_wp*spos
-
-END FUNCTION Eval_PhiPrime
-
 !===================================================================================================================================
 !> Initialize the solution with the given boundary condition 
 !!
@@ -389,6 +284,7 @@ USE MOD_lambda_solve,  ONLY:lambda_solve
 USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
 USE MOD_VMEC_Readin,   ONLY:lasym
 USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
+USE MOD_MHD3D_Profiles,ONLY: Eval_iota
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES

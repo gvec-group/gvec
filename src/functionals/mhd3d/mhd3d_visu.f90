@@ -37,7 +37,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE visu_BC_face(mn_IP ,minmax)
 ! MODULES
-USE MOD_Globals, ONLY:TWOPI
+USE MOD_Globals,    ONLY: TWOPI
 USE MOD_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,X1_b,X2_b,LA_b
 USE MOD_output_vtk, ONLY: WriteDataToVTK
 USE MOD_Output_vars,ONLY: Projectname
@@ -58,6 +58,15 @@ IMPLICIT NONE
   REAL(wp) :: var_visu(nVal,mn_IP(1),mn_IP(2),1)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
 !===================================================================================================================================
+  IF((minmax(2,1)-minmax(2,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+      'WARNING visuBC, nothing to visualize since theta-range is <=0, theta_min= ',minmax(2,0),', theta_max= ',minmax(2,1)
+    RETURN
+  ELSEIF((minmax(3,1)-minmax(3,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+      'WARNING visuBC, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
+    RETURN
+  END IF
   DO i_n=1,mn_IP(2)
     xIP(2)  = TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
     DO i_m=1,mn_IP(1)
@@ -82,11 +91,11 @@ END SUBROUTINE visu_BC_face
 !===================================================================================================================================
 SUBROUTINE visu_3D(np_in,minmax,only_planes )
 ! MODULES
-USE MOD_Globals, ONLY:TWOPI
-USE MOD_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U
-USE MOD_MHD3D,      ONLY: Eval_iota,Eval_pres,Eval_PhiPrime
-USE MOD_output_vtk, ONLY: WriteDataToVTK
-USE MOD_Output_vars,ONLY: Projectname
+USE MOD_Globals,        ONLY: TWOPI
+USE MOD_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U
+USE MOD_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime
+USE MOD_output_vtk,     ONLY: WriteDataToVTK
+USE MOD_Output_vars,    ONLY: Projectname
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -105,11 +114,33 @@ IMPLICIT NONE
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,dX2_dthet_visu,dX2_dzeta_visu
   REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,phiPrime_s,e_thet(3),e_zeta(3)
 
-  INTEGER,PARAMETER  :: nVal=7
+  INTEGER,PARAMETER  :: nVal=8
   REAL(wp) :: coord_visu(     3,np_in(1),np_in(2),np_in(3),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(2),np_in(3),sgrid%nElems)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
 !===================================================================================================================================
+  IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+     'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
+    RETURN
+  ELSEIF((minmax(2,1)-minmax(2,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+      'WARNING visu3D, nothing to visualize since theta-range is <=0, theta_min= ',minmax(2,0),', theta_max= ',minmax(2,1)
+    RETURN
+  ELSEIF((minmax(3,1)-minmax(3,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+      'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
+    RETURN
+  END IF
+  VarNames(1)="lambda"
+  VarNames(2)="sqrtG"
+  VarNames(3)="Phi"
+  VarNames(4)="iota"
+  VarNames(5)="pressure"
+  VarNames(6)="BvecX"
+  VarNames(7)="BvecY"
+  VarNames(8)="BvecZ"
+
   ASSOCIATE(n_s=>np_in(1), mn_IP=>np_in(2:3) )
   nElems=sgrid%nElems
   DO iElem=1,nElems
@@ -129,8 +160,9 @@ IMPLICIT NONE
       iota_s=Eval_iota(spos)
       pres_s=Eval_pres(spos)
       phiPrime_s=Eval_PhiPrime(spos)
-      var_visu(3,i_s,:,:,iElem) =iota_s
-      var_visu(4,i_s,:,:,iElem) =pres_s
+      var_visu(3,i_s,:,:,iElem) =Eval_Phi(spos)
+      var_visu(4,i_s,:,:,iElem) =iota_s
+      var_visu(5,i_s,:,:,iElem) =pres_s
       DO i_n=1,mn_IP(2)
         xIP(2)  = TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
         DO i_m=1,mn_IP(1)
@@ -138,7 +170,7 @@ IMPLICIT NONE
 
           ASSOCIATE(lambda_visu  => var_visu(  1,i_s,i_m,i_n,iElem), &
                     sqrtG_visu   => var_visu(  2,i_s,i_m,i_n,iElem), &
-                    Bvec_visu    => var_visu(5:7,i_s,i_m,i_n,iElem) )
+                    Bvec_visu    => var_visu(6:8,i_s,i_m,i_n,iElem) )
 
 
           X1_visu         =X1_base%f%evalDOF_x(xIP,         0,X1_s )
@@ -165,20 +197,15 @@ IMPLICIT NONE
 
           e_thet=hmap%eval_dxdq(q,(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/))
           e_zeta=hmap%eval_dxdq(q,(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/))
-          
-          Bvec_visu(:)=(e_thet(:)*(iota_s-dLA_dzeta_visu) + e_zeta(:)*(1+dLA_dthet_visu) )*(PhiPrime_s/MAX(1.0e-12_wp,sqrtG_visu))
+          var_visu(6:8,i_s,i_m,i_n,iElem)= &
+!          Bvec_visu(:)= & 
+                       (  e_thet(:)*(iota_s-dLA_dzeta_visu)  &
+                        + e_zeta(:)*(1.0_wp+dLA_dthet_visu) )*(PhiPrime_s/MAX(1.0e-12_wp,sqrtG_visu))
           END ASSOCIATE !lambda,sqrtG,Bvec 
         END DO !i_m
       END DO !i_n
     END DO !i_s
   END DO !iElem
-  VarNames(1)="lambda"
-  VarNames(2)="sqrtG"
-  VarNames(3)="iota"
-  VarNames(4)="pressure"
-  VarNames(5)="BvecX"
-  VarNames(6)="BvecY"
-  VarNames(7)="BvecZ"
   
   !range s: include all elements belonging to [smin,smax]
   minElem=MAX(     1,sgrid%find_elem(minmax(1,0))-1)
@@ -207,11 +234,11 @@ END SUBROUTINE visu_3D
 !===================================================================================================================================
 SUBROUTINE visu_1d_modes(n_s)
 ! MODULES
-USE MOD_Analyze_Vars, ONLY:visu1D
-USE MOD_base,         ONLY: t_base
-USE MOD_fbase,        ONLY: sin_cos_map
-USE MOD_MHD3D,        ONLY: Eval_iota,Eval_pres
-USE MOD_MHD3D_Vars,   ONLY: U,X1_base,X2_base,LA_base,sgrid
+USE MOD_Analyze_Vars,  ONLY: visu1D
+USE MOD_base,          ONLY: t_base
+USE MOD_fbase,         ONLY: sin_cos_map
+USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres
+USE MOD_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base,sgrid
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
