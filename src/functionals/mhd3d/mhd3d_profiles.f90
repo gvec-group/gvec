@@ -57,7 +57,7 @@ IMPLICIT NONE
   CASE(0)
     eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,phi_norm)
   CASE(1)
-    eval_iota=VMEC_EvalSpl(1,phi_norm,iota_Spl)
+    eval_iota=VMEC_EvalSpl(0,phi_norm,iota_Spl)
   END SELECT
 END FUNCTION Eval_iota
 
