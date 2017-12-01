@@ -63,7 +63,8 @@ CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKElems,nVTKCells,ivtk=44
-INTEGER            :: INT
+INTEGER            :: INTdummy
+REAL(KIND=8)       :: FLOAT64dummy
 INTEGER            :: Vertex(2**dim1,PRODUCT(Nplot+1)*nElems)  ! ?
 INTEGER            :: ProdNplot,ProdNplot_p1,NPlot_p1(dim1),NodeID,NodeIDElem,ElemType  ! ?
 CHARACTER(LEN=35)  :: StrOffset,TempStr1,TempStr2  ! ?
@@ -73,7 +74,6 @@ INTEGER            :: StrLen,iValVec,nValVec,VecOffset(0:nVal)
 LOGICAL            :: isVector,maybeVector
 CHARACTER(LEN=1)   :: strvecdim
 CHARACTER(LEN=1)   :: lf
-REAL(KIND=4)       :: Float
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO VTX XML BINARY (VTU) FILE "'//TRIM(FileString)//'" ...'
 NPlot_p1  =(Nplot(:)+1)
@@ -137,16 +137,16 @@ DO WHILE(iVal.LT.nVal)
 
   IF(isvector)THEN !variable is a vector!
     tmpVarName=tmpVarName(:StrLen-1)
-    Buffer='        <DataArray type="Float32" Name="'//TRIM(tmpVarName)//'" NumberOfComponents="'//strvecdim// &
+    Buffer='        <DataArray type="Float64" Name="'//TRIM(tmpVarName)//'" NumberOfComponents="'//strvecdim// &
            &'" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-    Offset=Offset+SIZEOF_F(INT)+vecdim*nVTKElems*SIZEOF_F(FLOAT)
+    Offset=Offset+SIZEOF_F(INTdummy)+vecdim*nVTKElems*SIZEOF_F(FLOAT64dummy)
     WRITE(StrOffset,'(I16)')Offset
     VecOffset(iValVec)=VecOffset(iValVec-1)+vecdim
     iVal=iVal+vecdim-1 !skip the Y (& Z) components
   ELSE
-    Buffer='        <DataArray type="Float32" Name="'//TRIM(tmpVarName)// &
+    Buffer='        <DataArray type="Float64" Name="'//TRIM(tmpVarName)// &
            &'" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-    Offset=Offset+SIZEOF_F(INT)+nVTKElems*SIZEOF_F(FLOAT)
+    Offset=Offset+SIZEOF_F(INTdummy)+nVTKElems*SIZEOF_F(FLOAT64dummy)
     WRITE(StrOffset,'(I16)')Offset
     VecOffset(iValVec)=VecOffset(iValVec-1)+1
   END IF !isvector
@@ -158,9 +158,9 @@ Buffer='      </PointData>'//lf;WRITE(ivtk) TRIM(Buffer)
 Buffer='      <CellData> </CellData>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify coordinate data
 Buffer='      <Points>'//lf;WRITE(ivtk) TRIM(Buffer)
-Buffer='        <DataArray type="Float32" Name="Coordinates" NumberOfComponents="'//strvecdim// &
+Buffer='        <DataArray type="Float64" Name="Coordinates" NumberOfComponents="'//strvecdim// &
 '" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-Offset=Offset+SIZEOF_F(INT)+vecdim*nVTKElems*SIZEOF_F(FLOAT)
+Offset=Offset+SIZEOF_F(INTdummy)+vecdim*nVTKElems*SIZEOF_F(FLOAT64dummy)
 WRITE(StrOffset,'(I16)')Offset
 Buffer='      </Points>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify necessary cell data
@@ -168,12 +168,12 @@ Buffer='      <Cells>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Connectivity
 Buffer='        <DataArray type="Int32" Name="connectivity" format="appended" &
          &offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-Offset=Offset+SIZEOF_F(INT)+2**dim1*nVTKElems*SIZEOF_F(INT)
+Offset=Offset+SIZEOF_F(INTdummy)+2**dim1*nVTKElems*SIZEOF_F(INTdummy)
 WRITE(StrOffset,'(I16)')Offset
 ! Offsets
 Buffer='        <DataArray type="Int32" Name="offsets" format="appended" &
          &offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-Offset=Offset+SIZEOF_F(INT)+nVTKElems*SIZEOF_F(INT)
+Offset=Offset+SIZEOF_F(INTdummy)+nVTKElems*SIZEOF_F(INTdummy)
 WRITE(StrOffset,'(I16)')Offset
 ! Elem types
 Buffer='        <DataArray type="Int32" Name="types" format="appended" &
@@ -188,15 +188,15 @@ Buffer='_';WRITE(ivtk) TRIM(Buffer)
 
 ! Write binary raw data into append section
 ! Point data
-nBytes = nVTKElems*SIZEOF_F(FLOAT)
+nBytes = nVTKElems*SIZEOF_F(FLOAT64dummy)
 DO iValVec=1,nValVec
   WRITE(ivtk) (vecOffset(iValVec)-vecOffset(iValVec-1))*nBytes, &
-              REAL(Values(VecOffSet(iValVec-1)+1:VecOffset(iValVec),:,:),4)
+              REAL(Values(VecOffSet(iValVec-1)+1:VecOffset(iValVec),:,:),8)
 END DO !iValVec
 ! Points
 nBytes = nBytes * vecdim
 WRITE(ivtk) nBytes
-WRITE(ivtk) REAL(Coord(:,:,:),4)
+WRITE(ivtk) REAL(Coord(:,:,:),8)
 ! Connectivity
 SELECT CASE(dim1)
 CASE(2)
@@ -241,11 +241,11 @@ CASE(3)
     NodeIDElem=NodeIDElem+ProdNPlot_p1
   END DO
 END SELECT
-nBytes = 2**dim1*nVTKElems*SIZEOF_F(INT)
+nBytes = 2**dim1*nVTKElems*SIZEOF_F(INTdummy)
 WRITE(ivtk) nBytes
 WRITE(ivtk) Vertex(:,:)
 ! Offset
-nBytes = nVTKElems*SIZEOF_F(INT)
+nBytes = nVTKElems*SIZEOF_F(INTdummy)
 WRITE(ivtk) nBytes
 WRITE(ivtk) (Offset,Offset=2**dim1,2**dim1*nVTKElems,2**dim1)
 ! Elem type
