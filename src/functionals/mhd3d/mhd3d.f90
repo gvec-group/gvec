@@ -51,12 +51,13 @@ SUBROUTINE InitMHD3D(sf)
 ! MODULES
 USE MOD_Globals,ONLY:PI
 USE MOD_MHD3D_Vars
-USE MOD_mhdeq_Vars, ONLY: whichInitEquilibrium
-USE MOD_sgrid,      ONLY: t_sgrid
-USE MOD_fbase,      ONLY: t_fbase,fbase_new
-USE MOD_base,       ONLY: t_base,base_new
-USE MOD_VMEC_Readin,ONLY: nfp,nFluxVMEC,Phi
-USE MOD_ReadInTools,ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+USE MOD_mhdeq_Vars     , ONLY: whichInitEquilibrium
+USE MOD_sgrid          , ONLY: t_sgrid
+USE MOD_fbase          , ONLY: t_fbase,fbase_new
+USE MOD_base           , ONLY: t_base,base_new
+USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
+USE MOD_ReadInTools    , ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalAux
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -87,7 +88,6 @@ REAL(wp)         :: pres_scale
   fac_nyq = GETINT( "fac_nyq",Proposal=4)
   
   !constants
-  gamm    = GETREAL("GAMMA",Proposal=0.0_wp)
   
   mu_0    = 4.0e-07_wp*PI
   
@@ -95,15 +95,17 @@ REAL(wp)         :: pres_scale
   
   SELECT CASE(which_init)
   CASE(0)
+    gamm    = GETREAL("GAMMA",Proposal=0.0_wp)
     nfp_loc  = GETINT( "nfp",Proposal=1)
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
     CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
-    CALL GETREALALLOCARRAY("mass_coefs",mass_coefs,n_mass_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+    CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
     pres_scale=GETREAL("PRES_SCALE",1.0_wp)
-    mass_coefs=mass_coefs*pres_scale
+    pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
   CASE(1) !VMEC init
+    gamm = 0.0_wp
     nfp_loc = nfp
     !hmap
     which_hmap=1 !hmap_RZ
@@ -212,30 +214,10 @@ REAL(wp)         :: pres_scale
   CALL dUdt%copy(U(1))
 
 
-  !auxiliary variables
-  ASSOCIATE( nGP   => (degGP+1)*sgrid%nElems,&
-             mn_IP => mn_nyq(1)*mn_nyq(2)    ) !same for all variables
-
-  ALLOCATE(mass_GP(         nGP) )
-  ALLOCATE(iota_GP(         nGP) )
-  ALLOCATE(PhiPrime_GP(     nGP) )
-  ALLOCATE(Vprime_GP(       nGP) )
-  ALLOCATE(J_h(       mn_IP,nGP) )
-  ALLOCATE(J_p(       mn_IP,nGP) )
-  ALLOCATE(dX1_ds(    mn_IP,nGP) )
-  ALLOCATE(dX2_ds(    mn_IP,nGP) )
-  ALLOCATE(dX1_dthet( mn_IP,nGP) )
-  ALLOCATE(dX2_dthet( mn_IP,nGP) )
-  ALLOCATE(dLA_dthet( mn_IP,nGP) )
-  ALLOCATE(dX1_dzeta( mn_IP,nGP) )
-  ALLOCATE(dX2_dzeta( mn_IP,nGP) )
-  ALLOCATE(dLA_dzeta( mn_IP,nGP) )
-  ALLOCATE(b_a (    2,mn_IP,nGP) )
-  ALLOCATE(g_ab(  2,2,mn_IP,nGP) )
- 
-  END ASSOCIATE !mn_IP,nGP
-
   CALL InitSolution()
+
+  CALL InitializeMHD3D_EvalFunc()
+  CALL EvalAux(U(0))
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -445,6 +427,7 @@ END SUBROUTINE InitSolution
 SUBROUTINE FinalizeMHD3D(sf) 
 ! MODULES
 USE MOD_MHD3D_Vars
+USE MOD_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -463,28 +446,13 @@ INTEGER :: i
   CALL dUdt%free()
   CALL sgrid%free()
 
-  SDEALLOCATE(mass_GP     )
-  SDEALLOCATE(iota_GP     )
-  SDEALLOCATE(PhiPrime_GP )
-  SDEALLOCATE(Vprime_GP   )
-  SDEALLOCATE(J_h         )
-  SDEALLOCATE(J_p         )
-  SDEALLOCATE(dX1_ds      )
-  SDEALLOCATE(dX2_ds      )
-  SDEALLOCATE(dX1_dthet   )
-  SDEALLOCATE(dX2_dthet   )
-  SDEALLOCATE(dLA_dthet   )
-  SDEALLOCATE(dX1_dzeta   )
-  SDEALLOCATE(dX2_dzeta   )
-  SDEALLOCATE(dLA_dzeta   )
-  SDEALLOCATE(b_a         )
-  SDEALLOCATE(g_ab        )
   SDEALLOCATE(X1_b)
   SDEALLOCATE(X2_b)
   SDEALLOCATE(LA_b)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
 
+  CALL FinalizeMHD3D_EvalFunc()
 END SUBROUTINE FinalizeMHD3D
 
 END MODULE MOD_MHD3D

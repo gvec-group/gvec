@@ -37,10 +37,10 @@ CONTAINS
 !===================================================================================================================================
 FUNCTION Eval_iota(spos)
 ! MODULES
-USE MOD_Globals, ONLY:EVAL1DPOLY
-USE MOD_MHD3D_Vars,ONLY: which_init,n_iota_coefs,iota_coefs
-USE MOD_VMEC , ONLY:VMEC_EvalSpl
-USE MOD_VMEC_vars , ONLY:iota_spl
+USE MOD_Globals    ,ONLY: EVAL1DPOLY
+USE MOD_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
+USE MOD_VMEC       ,ONLY: VMEC_EvalSpl
+USE MOD_VMEC_vars  ,ONLY: iota_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -67,10 +67,10 @@ END FUNCTION Eval_iota
 !===================================================================================================================================
 FUNCTION Eval_pres(spos)
 ! MODULES
-USE MOD_Globals, ONLY:EVAL1DPOLY
-USE MOD_MHD3D_Vars,ONLY: which_init,gamm,n_mass_coefs,mass_coefs
-USE MOD_VMEC , ONLY:VMEC_EvalSpl
-USE MOD_VMEC_vars , ONLY:pres_spl
+USE MOD_Globals    ,ONLY: EVAL1DPOLY
+USE MOD_MHD3D_Vars ,ONLY: which_init,n_pres_coefs,pres_coefs
+USE MOD_VMEC       ,ONLY: VMEC_EvalSpl
+USE MOD_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -85,17 +85,37 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    IF(ABS(gamm).LT.1.0E-12)THEN
-      eval_pres=Eval1DPoly(n_mass_coefs,mass_coefs,phi_norm) 
-    ELSE
-      !TODO still need to divide by V'^gamma
-      CALL abort(__STAMP__, &
-          ' gamma>0: pressure profile not yet implemented!')
-    END IF
+      eval_pres=Eval1DPoly(n_pres_coefs,pres_coefs,phi_norm) 
   CASE(1)
-    eval_pres=VMEC_EvalSpl(0,phi_norm,pres_Spl)
+     eval_pres=VMEC_EvalSpl(0,phi_norm,pres_Spl)
   END SELECT
 END FUNCTION Eval_pres
+
+!===================================================================================================================================
+!> evaluate mass profile mass(phi_norm(s))
+!!
+!===================================================================================================================================
+FUNCTION Eval_mass(spos)
+! MODULES
+USE MOD_MHD3D_vars, ONLY:gamm
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_mass
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+IF(ABS(gamm).LT.1.0E-12)THEN
+  eval_mass=eval_pres(spos)
+ELSE
+  !TODO would need to multiply by ( V'(s) ) ^gamma
+  CALL abort(__STAMP__, &
+      ' gamma>0: evaluation of mass profile not yet implemented!')
+END IF
+END FUNCTION Eval_mass
 
 !===================================================================================================================================
 !> evaluate toroidal flux Phi 
