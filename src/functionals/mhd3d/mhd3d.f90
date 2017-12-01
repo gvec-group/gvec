@@ -57,7 +57,7 @@ USE MOD_fbase          , ONLY: t_fbase,fbase_new
 USE MOD_base           , ONLY: t_base,base_new
 USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
 USE MOD_ReadInTools    , ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
-USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalAux
+USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -77,6 +77,7 @@ CHARACTER(LEN=8) :: LA_sin_cos
 INTEGER          :: degGP,mn_nyq(2),fac_nyq
 INTEGER          :: nfp_loc,which_hmap 
 REAL(wp)         :: pres_scale
+REAL(wp)         :: W_MHD3D
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
   
@@ -90,6 +91,7 @@ REAL(wp)         :: pres_scale
   !constants
   
   mu_0    = 4.0e-07_wp*PI
+  s2mu_0  = 0.5_wp/mu_0
   
   which_init = whichInitEquilibrium ! GETINT("which_init","0")
   
@@ -111,6 +113,8 @@ REAL(wp)         :: pres_scale
     which_hmap=1 !hmap_RZ
     Phi_edge = Phi(nFluxVMEC) 
   END SELECT !which_init
+
+  sgammM1=1.0_wp/(gamm-1.0_wp)
 
   CALL hmap_new(hmap,which_hmap)
   
@@ -205,7 +209,7 @@ REAL(wp)         :: pres_scale
   END SELECT !which_init
 
   ALLOCATE(U(-1:1))
-  CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,   &
+  CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
                    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
   DO i=-1,0
     CALL U(i)%copy(U(1))
@@ -214,10 +218,12 @@ REAL(wp)         :: pres_scale
   CALL dUdt%copy(U(1))
 
 
-  CALL InitSolution()
+  CALL InitSolution() !U(0)
 
   CALL InitializeMHD3D_EvalFunc()
-  CALL EvalAux(U(0))
+
+  W_MHD3D=EvalEnergy(U(0),.TRUE.)
+  SWRITE(UNIT_stdOut,'(A,E21.11)') 'inital total energy',W_MHD3D 
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)

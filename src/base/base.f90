@@ -160,7 +160,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_base), INTENT(IN   ) :: sf     !! self
   INTEGER      , INTENT(IN   ) :: deriv   !! =0: base, =1: ds, =2: dtheta, =3: dzeta
-  REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%f%modes,1:sf%s%nBase)  !! array of all modes and all radial dofs
+  REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%s%nBase,1:sf%f%modes)  !! array of all modes and all radial dofs
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                     :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
@@ -172,7 +172,7 @@ IMPLICIT NONE
   REAL(wp)                     :: y_tmp(1:sf%f%modes,sf%s%nGP)
 !===================================================================================================================================
   DO iMode=1,sf%f%modes
-    y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv_map_GP(deriv),DOFs(iMode,:))
+    y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv_map_GP(deriv),DOFs(:,iMode))
   END DO!iMode
   DO iGP=1,sf%s%nGP
     y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv_map_IP(deriv),y_tmp(:,iGP))
