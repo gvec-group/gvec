@@ -237,7 +237,7 @@ SUBROUTINE visu_1d_modes(n_s)
 USE MOD_Analyze_Vars,  ONLY: visu1D
 USE MOD_base,          ONLY: t_base
 USE MOD_fbase,         ONLY: sin_cos_map
-USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres
+USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
 USE MOD_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base,sgrid
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -285,7 +285,9 @@ CHARACTER(LEN=40)  :: vname
   
   nVal=1
   Varnames(   nVal)='Phi'
-  values_visu(nVal,:)=0.0_wp !TODO
+  DO i=1,nvisu
+    values_visu(  nVal,i)=Eval_Phi(s_visu(i))
+  END DO !i
   
   nVal=nVal+1
   Varnames(   nVal)='chi'
@@ -305,7 +307,7 @@ CHARACTER(LEN=40)  :: vname
   nVal=nVal+1
   Varnames(nVal)='pres(Phi_norm)'
   DO i=1,nvisu
-    values_visu(  nVal,:)=Eval_pres(s_visu(i))
+    values_visu(  nVal,i)=Eval_pres(s_visu(i))
   END DO !i
   
   nValRewind=nVal
