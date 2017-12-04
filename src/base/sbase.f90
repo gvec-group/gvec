@@ -724,29 +724,31 @@ IMPLICIT NONE
   REAL(wp)                      :: y_GP(1:sf%nGP) ! will be be 1D array on input/output
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                       :: iElem
+  INTEGER                       :: iElem,j,k
 !===================================================================================================================================
-IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
-             'nDOF not correct when calling sBase_evalDOF_GP')
-ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
-SELECT CASE(deriv)
-CASE(0)
-  DO iElem=1,nElems
-    ASSOCIATE(j=>sf%base_offset(iElem))
-    y_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=MATMUL(sf%base_GP(   :,:,iElem),DOFs(j:j+deg))
-    END ASSOCIATE
-  END DO
-CASE(DERIV_S)
-  DO iElem=1,nElems
-    ASSOCIATE(j=>sf%base_offset(iElem))
-    y_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=MATMUL(sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
-    END ASSOCIATE
-  END DO
-CASE DEFAULT
-  CALL abort(__STAMP__, &
-     'called evalDOF_GP: deriv must be 0 or DERIV_S!' )
-END SELECT !deriv
-END ASSOCIATE
+  IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
+               'nDOF not correct when calling sBase_evalDOF_GP')
+  ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
+  SELECT CASE(deriv)
+  CASE(0)
+    k=1
+    DO iElem=1,nElems
+      j=sf%base_offset(iElem)
+      y_GP(k:k+degGP)=MATMUL(sf%base_GP(   :,:,iElem),DOFs(j:j+deg))
+      k=k+(degGP+1)
+    END DO
+  CASE(DERIV_S)
+    k=1
+    DO iElem=1,nElems
+      j=sf%base_offset(iElem)
+      y_GP(k:k+degGP)=MATMUL(sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
+      k=k+(degGP+1)
+    END DO
+  CASE DEFAULT
+    CALL abort(__STAMP__, &
+       'called evalDOF_GP: deriv must be 0 or DERIV_S!' )
+  END SELECT !deriv
+  END ASSOCIATE
 END FUNCTION sbase_evalDOF_GP
 
 !===================================================================================================================================
@@ -766,18 +768,18 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-IF(SIZE(g_IP,1).NE.sf%nBase) CALL abort(__STAMP__, &
-             'nDOF not correct when calling sBase_initDOF')
-SELECT TYPE(sf)
-TYPE IS(t_sbase_disc)
-  DOFs(:)=g_IP
-TYPE IS(t_sbase_spl)
-  CALL sf%interpol%compute_interpolant( sf%spline, g_IP )
-  DOFs(:)=sf%spline%bcoef(:) !somewhat not perfect, since interpolant saves result to bcoef of spline 
-CLASS DEFAULT
-  CALL abort(__STAMP__, &
-    "this type of continuity not implemented!")
-END SELECT !TYPE
+  IF(SIZE(g_IP,1).NE.sf%nBase) CALL abort(__STAMP__, &
+               'nDOF not correct when calling sBase_initDOF')
+  SELECT TYPE(sf)
+  TYPE IS(t_sbase_disc)
+    DOFs(:)=g_IP
+  TYPE IS(t_sbase_spl)
+    CALL sf%interpol%compute_interpolant( sf%spline, g_IP )
+    DOFs(:)=sf%spline%bcoef(:) !somewhat not perfect, since interpolant saves result to bcoef of spline 
+  CLASS DEFAULT
+    CALL abort(__STAMP__, &
+      "this type of continuity not implemented!")
+  END SELECT !TYPE
 
 END FUNCTION sbase_initDOF
 

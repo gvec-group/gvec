@@ -166,17 +166,44 @@ IMPLICIT NONE
   REAL(wp)                     :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                      :: iGP,iMode
+  INTEGER                      :: iElem,j,k
   INTEGER,PARAMETER            :: deriv_map_GP(0:3)=(/0,DERIV_S,         0,         0/) !map input deriv to ds deriv
   INTEGER,PARAMETER            :: deriv_map_IP(0:3)=(/0,      0,DERIV_THET,DERIV_ZETA/) !map input deriv to dtheta/dzeta deriv
   REAL(wp)                     :: y_tmp(1:sf%f%modes,sf%s%nGP)
 !===================================================================================================================================
-  DO iMode=1,sf%f%modes
-    y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv_map_GP(deriv),DOFs(:,iMode))
-  END DO!iMode
-  DO iGP=1,sf%s%nGP
-    y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv_map_IP(deriv),y_tmp(:,iGP))
-  END DO !iGP
+!  DO iMode=1,sf%f%modes
+!    y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv_map_GP(deriv),DOFs(:,iMode))
+!  END DO!iMode
+!  DO iGP=1,sf%s%nGP
+!    y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv_map_IP(deriv),y_tmp(:,iGP))
+!  END DO !iGP
+
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  SELECT CASE(deriv_map_GP(deriv))
+  CASE(0)
+    k=1
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      y_tmp(:,k:k+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      k=k+(degGP+1)
+    END DO !iElem
+  CASE(DERIV_S)
+    k=1
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      y_tmp(:,k:k+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      k=k+(degGP+1)
+    END DO !iElem
+  END SELECT !deriv GP
+  END ASSOCIATE
+  SELECT CASE(deriv_map_IP(deriv))
+  CASE(0)
+    y_IP_GP=MATMUL(sf%f%base_IP(:,:)      ,y_tmp(:,:))
+  CASE(DERIV_THET)                                   
+    y_IP_GP=MATMUL(sf%f%base_dthet_IP(:,:),y_tmp(:,:))
+  CASE(DERIV_ZETA)                                   
+    y_IP_GP=MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp(:,:))
+  END SELECT !deriv IP
 
 END FUNCTION base_evalDOF
 
@@ -200,7 +227,7 @@ IMPLICIT NONE
   CHARACTER(LEN=10)  :: fail
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp)           :: checkreal 
-  REAL(wp)           :: dofs(1:sf%f%modes,1:sf%s%nBase)
+  REAL(wp)           :: dofs(1:sf%s%nBase,1:sf%f%modes)
   REAL(wp)           :: g_sIP(1:sf%s%nBase)
   REAL(wp)           :: g_IP_GP(1:sf%f%mn_IP,1:sf%s%nGP)
 !===================================================================================================================================
@@ -221,7 +248,7 @@ IMPLICIT NONE
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
       g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
-      dofs(iMode,:)=sf%s%initDOF(g_sIP)
+      dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
                        +SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
@@ -230,7 +257,7 @@ IMPLICIT NONE
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
       g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
-      dofs(iMode,:)=sf%s%initDOF(g_sIP)
+      dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
                        +COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
