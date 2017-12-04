@@ -77,7 +77,6 @@ CHARACTER(LEN=8) :: LA_sin_cos
 INTEGER          :: degGP,mn_nyq(2),fac_nyq
 INTEGER          :: nfp_loc,which_hmap 
 REAL(wp)         :: pres_scale
-REAL(wp)         :: W_MHD3D
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
   
@@ -214,7 +213,6 @@ REAL(wp)         :: W_MHD3D
   DO i=-1,0
     CALL U(i)%copy(U(1))
   END DO
-  CALL U(1)%AXBY(0.4_wp ,U(-1),-0.25_wp,U(0))
   CALL dUdt%copy(U(1))
 
 
@@ -222,8 +220,7 @@ REAL(wp)         :: W_MHD3D
 
   CALL InitializeMHD3D_EvalFunc()
 
-  W_MHD3D=EvalEnergy(U(0),.TRUE.)
-  SWRITE(UNIT_stdOut,'(A,E21.11)') 'inital total energy',W_MHD3D 
+  U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.)
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)

@@ -231,7 +231,7 @@ IMPLICIT NONE
   W_MHD3D= dthet_dzeta* (   s2mu_0 *SUM(PhiPrime_GP(:)**2*Wmag_GP(:)*w_GP(:)) &
                           + sgammM1*SUM(pres_GP(:)*v_prime_GP(:)    *w_GP(:)) )
   
-  SWRITE(UNIT_stdOut,'(A)')'... DONE'
+  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
   SWRITE(UNIT_stdOut,fmt_sep)
 END FUNCTION EvalEnergy
 

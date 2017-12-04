@@ -34,6 +34,7 @@ TYPE,EXTENDS(c_sol_var) :: t_sol_var_MHD3D
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL               :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
+  REAL(wp)              :: W_MHD3D
   REAL(wp) ,ALLOCATABLE :: X1(:,:)    !! X1 variable, size (base_f%mn_mode*base_s%nBase)
   REAL(wp) ,ALLOCATABLE :: X2(:,:)    !! X2 variable 
   REAL(wp) ,ALLOCATABLE :: LA(:,:)    !! lambda variable
@@ -88,6 +89,7 @@ IMPLICIT NONE
   ALLOCATE(sf%X1(1:sf%varSize(1,1),1:sf%varSize(2,1)))
   ALLOCATE(sf%X2(1:sf%varSize(1,2),1:sf%varSize(2,2)))
   ALLOCATE(sf%LA(1:sf%varSize(1,3),1:sf%varSize(2,3)))
+  sf%W_MHD3D=-1.0_wp
   sf%initialized=.TRUE.
   CALL sf%set_to(0.0_wp)
 
@@ -115,6 +117,7 @@ IMPLICIT NONE
   DEALLOCATE(sf%X1)
   DEALLOCATE(sf%X2)
   DEALLOCATE(sf%LA)
+  sf%W_MHD3D=-1.0_wp
   sf%initialized=.FALSE.
 END SUBROUTINE sol_var_MHD3D_free
 
@@ -148,6 +151,7 @@ IMPLICIT NONE
   sf%X1=tocopy%X1
   sf%X2=tocopy%X2
   sf%LA=tocopy%LA
+  sf%W_MHD3D=tocopy%W_MHD3D
 
   END SELECT !TYPE
 END SUBROUTINE sol_var_MHD3D_copy
@@ -202,10 +206,12 @@ IMPLICIT NONE
     sf%X1=scal_in*toset%X1
     sf%X2=scal_in*toset%X2
     sf%LA=scal_in*toset%LA
+    sf%W_MHD3D=-1.0_wp
   ELSE
     sf%X1=toset%X1
     sf%X2=toset%X2
     sf%LA=toset%LA
+    sf%W_MHD3D=toset%W_MHD3D
   END IF
 
   END SELECT !TYPE
