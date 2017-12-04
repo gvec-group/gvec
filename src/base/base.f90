@@ -166,7 +166,7 @@ IMPLICIT NONE
   REAL(wp)                     :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                      :: iElem,j,k
+  INTEGER                      :: iElem,j,iGP
   INTEGER,PARAMETER            :: deriv_map_GP(0:3)=(/0,DERIV_S,         0,         0/) !map input deriv to ds deriv
   INTEGER,PARAMETER            :: deriv_map_IP(0:3)=(/0,      0,DERIV_THET,DERIV_ZETA/) !map input deriv to dtheta/dzeta deriv
   REAL(wp)                     :: y_tmp(1:sf%f%modes,sf%s%nGP)
@@ -181,18 +181,18 @@ IMPLICIT NONE
   ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv_map_GP(deriv))
   CASE(0)
-    k=1
+    iGP=1
     DO iElem=1,nElems
       j=sf%s%base_offset(iElem)
-      y_tmp(:,k:k+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-      k=k+(degGP+1)
+      y_tmp(:,iGP:iGP+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      iGP=iGP+(degGP+1)
     END DO !iElem
   CASE(DERIV_S)
-    k=1
+    iGP=1
     DO iElem=1,nElems
       j=sf%s%base_offset(iElem)
-      y_tmp(:,k:k+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-      k=k+(degGP+1)
+      y_tmp(:,iGP:iGP+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      iGP=iGP+(degGP+1)
     END DO !iElem
   END SELECT !deriv GP
   END ASSOCIATE

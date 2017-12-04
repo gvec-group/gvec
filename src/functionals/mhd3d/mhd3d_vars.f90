@@ -37,9 +37,6 @@ PUBLIC
 CLASS(t_base),  ALLOCATABLE :: X1_base   !! container for base of variable X1
 CLASS(t_base),  ALLOCATABLE :: X2_base   !! container for base of variable X2
 CLASS(t_base),  ALLOCATABLE :: LA_base   !! container for base of variable lambda 
-
-CLASS(t_base),  ALLOCATABLE :: X1_base_visu   !! container for base of variable X1
-CLASS(t_base),  ALLOCATABLE :: X2_base_visu   !! container for base of variable X2
                              
 TYPE(t_sgrid)               :: sgrid     !! only one grid up to now
                                          
