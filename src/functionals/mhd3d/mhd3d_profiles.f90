@@ -57,7 +57,7 @@ IMPLICIT NONE
   CASE(0)
     eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,phi_norm)
   CASE(1)
-    eval_iota=VMEC_EvalSpl(0,phi_norm,iota_Spl)
+    eval_iota=VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
   END SELECT
 END FUNCTION Eval_iota
 
@@ -87,7 +87,7 @@ IMPLICIT NONE
   CASE(0)
       eval_pres=Eval1DPoly(n_pres_coefs,pres_coefs,phi_norm) 
   CASE(1)
-     eval_pres=VMEC_EvalSpl(0,phi_norm,pres_Spl)
+    eval_pres=VMEC_EvalSpl(0,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
   END SELECT
 END FUNCTION Eval_pres
 
