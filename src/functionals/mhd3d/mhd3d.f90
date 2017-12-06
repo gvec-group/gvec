@@ -74,7 +74,7 @@ INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
 CHARACTER(LEN=8) :: X1_sin_cos
 CHARACTER(LEN=8) :: X2_sin_cos
 CHARACTER(LEN=8) :: LA_sin_cos
-INTEGER          :: degGP,mn_nyq(2),fac_nyq
+INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
 INTEGER          :: nfp_loc,which_hmap 
 REAL(wp)         :: pres_scale
 !===================================================================================================================================
@@ -85,7 +85,7 @@ REAL(wp)         :: pres_scale
   
   !mandatory global input parameters
   degGP   = GETINT( "degGP",Proposal=4)
-  fac_nyq = GETINT( "fac_nyq",Proposal=4)
+  fac_nyq = GETINT( "fac_nyq")
   
   !constants
   
@@ -133,8 +133,23 @@ REAL(wp)         :: pres_scale
   LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=(/2,0/))
   LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal="_sin_")
   
-  mn_nyq(1)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
-  mn_nyq(2)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
+  IF(fac_nyq.EQ.-1)THEN
+    fac_nyq=4
+    mn_nyq_min(1)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
+    mn_nyq_min(2)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
+    mn_nyq  = GETINTARRAY("mn_nyq",2)
+    IF(mn_nyq(1).LT.mn_nyq_min(1))THEN
+       WRITE(*,*) 'mn_nyq(1) too small, should be >= ',mn_nyq_min(1)
+       STOP
+    END IF
+    IF(mn_nyq(2).LT.mn_nyq_min(2))THEN 
+       WRITE(*,*) 'mn_nyq(2) too small, should be >= ',mn_nyq_min(2)
+       STOP
+    END IF
+  ELSE
+    mn_nyq(1)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
+    mn_nyq(2)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
+  END IF
   
   SWRITE(UNIT_stdOut,*)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
@@ -221,7 +236,7 @@ REAL(wp)         :: pres_scale
  CALL InitializeMHD3D_EvalFunc()
 
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.)
-!  CALL EvalForce(U(0),.FALSE., dUdt)
+  CALL EvalForce(U(0),.FALSE., dUdt)
   CALL CheckEvalForce(U(0))
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -267,7 +282,7 @@ SUBROUTINE InitSolution()
 ! MODULES
 USE MOD_MHD3D_Vars
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-USE MOD_lambda_solve,  ONLY:lambda_solve
+!USE MOD_lambda_solve,  ONLY:lambda_solve
 USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
 USE MOD_VMEC_Readin,   ONLY:lasym
 USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
@@ -403,22 +418,26 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
   END DO 
   END ASSOCIATE !X2
 
-  SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda ..."
-  !initialize Lambda
-  LA_gIP(1,:)=0.0_wp !at axis
-  DO is=2,LA_base%s%nBase
-    spos=LA_base%s%s_IP(is)
-    iota_s=eval_iota(spos)
-    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
-  END DO !is
-  DO imode=1,LA_base%f%modes
-    IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
-      U0%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
-    ELSE
-      U0%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-    END IF!iMode ~ MN_ZERO
-  END DO !iMode 
-  LA_b = U0%LA(LA_base%s%nbase,:)
+!  SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda ..."
+!  !initialize Lambda
+!  LA_gIP(1,:)=0.0_wp !at axis
+!  DO is=2,LA_base%s%nBase
+!    spos=LA_base%s%s_IP(is)
+!    iota_s=eval_iota(spos)
+!    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
+!  END DO !is
+!  DO imode=1,LA_base%f%modes
+!    IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
+!      U0%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
+!    ELSE
+!      U0%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+!    END IF!iMode ~ MN_ZERO
+!  END DO !iMode 
+!  LA_b = U0%LA(LA_base%s%nbase,:)
+
+  !lambda init not needed since it has no boundary condition and changes anyway after the update of the mapping...
+  U0%LA=0.0_wp
+
   CALL U(-1)%set_to(U0)
   END ASSOCIATE !U0
   SWRITE(UNIT_stdOut,'(4X,A)') "..DONE."
