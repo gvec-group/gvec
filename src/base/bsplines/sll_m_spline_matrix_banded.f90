@@ -32,7 +32,7 @@ module sll_m_spline_matrix_banded
     integer :: kl
     integer :: ku
     logical :: factorized
-    real(wp), allocatable :: ipiv(:)
+    integer, allocatable :: ipiv(:)
     real(wp), allocatable :: q(:,:)
 
   contains
@@ -127,7 +127,7 @@ contains
     SLL_ASSERT( .not.bmat%factorized )
 
     self%q(:,:) = a*amat%q(:,:)+b*bmat%q(:,:) 
-    self%ipiv(:)=0.0_wp
+    self%ipiv(:)=0
     self%factorized=.FALSE.
     end select 
     end select 

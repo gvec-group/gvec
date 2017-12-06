@@ -435,7 +435,7 @@ DO iNode=1,nTotal
     END DO !iMode
 
     
-    theta=NewtonRoot1D_FdF(1.0e-12,theta_star-Pi,theta_star+Pi,theta_star,theta_star,FRdFR)
+    theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-Pi,theta_star+Pi,theta_star,theta_star,FRdFR)
 
   END IF
   CosMN(:)      = COS(    xm(:) * theta -     xn(:) * zeta)
@@ -679,8 +679,8 @@ CONTAINS
 
   FUNCTION FRdFR(theta_iter)
     IMPLICIT NONE
-    REAL:: theta_iter
-    REAL:: FRdFR(2)
+    REAL(wp):: theta_iter
+    REAL(wp):: FRdFR(2)
     CosMN(:)      = COS(    xm(:) * theta_iter -     xn(:) * zeta)
     SinMN(:)      = SIN(    xm(:) * theta_iter -     xn(:) * zeta) 
     lam        =0.0_wp

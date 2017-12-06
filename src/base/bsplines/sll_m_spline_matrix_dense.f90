@@ -30,7 +30,7 @@ module sll_m_spline_matrix_dense
 
     integer :: n
     logical :: factorized
-    real(wp), allocatable :: ipiv(:)
+    integer , allocatable :: ipiv(:)
     real(wp), allocatable :: a(:,:)
 
   contains
@@ -99,7 +99,7 @@ contains
     SLL_ASSERT( .NOT.bmat%factorized )
 
     self%a(:,:) = a*amat%a(:,:)+b*bmat%a(:,:) 
-    self%ipiv(:)=0.0_wp
+    self%ipiv(:)=0
     self%factorized=.FALSE.
     end select 
     end select 

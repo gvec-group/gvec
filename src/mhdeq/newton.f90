@@ -107,7 +107,7 @@ REAL(wp)               :: fmin !! on output =f(x)
 REAL(wp)                :: x0
 !===================================================================================================================================
 x0=x
-x=NewtonRoot1D(tol,a,b,x0,0.,dFF,ddFF)
+x=NewtonRoot1D(tol,a,b,x0,0.0_wp,dFF,ddFF)
 fmin=FF(x)
 
 END FUNCTION NewtonMin1D

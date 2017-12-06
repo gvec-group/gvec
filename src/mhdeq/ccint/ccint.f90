@@ -242,10 +242,10 @@ CONTAINS
   FUNCTION FI(np,x)
     IMPLICIT NONE
     INTEGER:: np
-    REAL   :: x(1:np) !always [0,1]
-    REAL   :: FI(1:np)
+    REAL(wp)   :: x(1:np) !always [0,1]
+    REAL(wp)   :: FI(1:np)
     !local
-    REAL   :: xloc(1:np)
+    REAL(wp)   :: xloc(1:np)
     xloc=a+(b-a)*x
     FI= (xloc*1.1_wp-0.48_wp)**13+(xloc*1.3_wp+0.33_wp)**14+(xloc-0.3_wp)**3 
   END FUNCTION FI

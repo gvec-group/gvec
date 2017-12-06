@@ -46,7 +46,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(:)          !! Variable names, 
-REAL,INTENT(IN)               :: Values(:,:)      !! variable data
+REAL(wp),INTENT(IN)           :: Values(:,:)      !! variable data
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 LOGICAL,INTENT(IN),OPTIONAL   :: append_in                  !! append data
 CHARACTER(LEN=*),INTENT(IN),OPTIONAL   :: vfmt_in           !! value format

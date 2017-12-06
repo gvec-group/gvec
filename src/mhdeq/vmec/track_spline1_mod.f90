@@ -50,6 +50,7 @@
 !    -dynamic and automatic alocation of variables
 !    -array syntax for vector operations
 !-------------------------------------------------------------------------------
+USE MOD_Globals,ONLY:wp
       IMPLICIT NONE
 !-------------------------------------------------------------------------------
 !For REAL variables:
@@ -61,7 +62,8 @@
 !  r                   -range of exponent from -r to r
 !-------------------------------------------------------------------------------
       INTEGER, PARAMETER ::                                                    &
-     & rspec = SELECTED_REAL_KIND(p=12,r=100),                                 &
+!     & rspec = SELECTED_REAL_KIND(p=12,r=100),                                 &
+     & rspec = wp,                                 &
      & ispec = SELECTED_INT_KIND(r=8)
 
 !-------------------------------------------------------------------------------

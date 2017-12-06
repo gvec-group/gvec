@@ -54,9 +54,9 @@ INTEGER,INTENT(IN)            :: vecdim                  !! dimension of coordin
 INTEGER,INTENT(IN)            :: nVal                    !! Number of nodal output variables
 INTEGER,INTENT(IN)            :: NPlot(dim1)             !! Number of output points per element : (nPlot+1)**dim1
 INTEGER,INTENT(IN)            :: nElems                  !! Number of output elements
-REAL,INTENT(IN)               :: Coord(vecdim,1:PRODUCT(Nplot+1),nElems)      ! CoordinatesVector 
+REAL(wp),INTENT(IN)           :: Coord(vecdim,1:PRODUCT(Nplot+1),nElems)      ! CoordinatesVector 
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          !! Names of all variables that will be written out
-REAL,INTENT(IN)               :: Values(nVal,1:PRODUCT(Nplot+1),nElems)   !! Statevector 
+REAL(wp),INTENT(IN)           :: Values(nVal,1:PRODUCT(Nplot+1),nElems)   !! Statevector 
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
