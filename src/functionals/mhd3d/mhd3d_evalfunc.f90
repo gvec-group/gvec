@@ -151,16 +151,16 @@ IMPLICIT NONE
   END DO !iGP
 
   !2D data: interpolation points x gauss-points
-  X1_IP_GP   = X1_base%evalDOF(     0   ,Uin%X1)
-  X2_IP_GP   = X2_base%evalDOF(     0   ,Uin%X2)
-  dX1_ds    = X1_base%evalDOF(DERIV_S   ,Uin%X1)
-  dX2_ds    = X2_base%evalDOF(DERIV_S   ,Uin%X2)
-  dX1_dthet = X1_base%evalDOF(DERIV_THET,Uin%X1)
-  dX2_dthet = X2_base%evalDOF(DERIV_THET,Uin%X2)
-  dLA_dthet = LA_base%evalDOF(DERIV_THET,Uin%LA)
-  dX1_dzeta = X1_base%evalDOF(DERIV_ZETA,Uin%X1)
-  dX2_dzeta = X2_base%evalDOF(DERIV_ZETA,Uin%X2)
-  dLA_dzeta = LA_base%evalDOF(DERIV_ZETA,Uin%LA)
+  X1_IP_GP  = X1_base%evalDOF((/0,0/)         ,Uin%X1)
+  X2_IP_GP  = X2_base%evalDOF((/0,0/)         ,Uin%X2)
+  dX1_ds    = X1_base%evalDOF((/DERIV_S,0/)   ,Uin%X1)
+  dX2_ds    = X2_base%evalDOF((/DERIV_S,0/)   ,Uin%X2)
+  dX1_dthet = X1_base%evalDOF((/0,DERIV_THET/),Uin%X1)
+  dX2_dthet = X2_base%evalDOF((/0,DERIV_THET/),Uin%X2)
+  dLA_dthet = LA_base%evalDOF((/0,DERIV_THET/),Uin%LA)
+  dX1_dzeta = X1_base%evalDOF((/0,DERIV_ZETA/),Uin%X1)
+  dX2_dzeta = X2_base%evalDOF((/0,DERIV_ZETA/),Uin%X2)
+  dLA_dzeta = LA_base%evalDOF((/0,DERIV_ZETA/),Uin%LA)
 
   q_thet(3)=0.0_wp !dq(3)/dtheta
   q_zeta(3)=1.0_wp !dq(3)/zeta
@@ -175,6 +175,7 @@ IMPLICIT NONE
       detJ(i_mn,iGP) = J_p(i_mn,iGP)*J_h(i_mn,iGP)
     END DO !i_mn
   END DO !iGP
+  !check Jacobian
   IF(MINVAL(detJ) .LT.1.0e-12) THEN
     n_warnings_occured=n_warnings_occured+1
     IP_GP= MINLOC(detJ(:,:))
@@ -189,6 +190,7 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         'EvalAux: Jacobian smaller that  1.0e-12!!!' )
   END IF
+
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
       b_thet(i_mn,iGP) = (iota_GP(iGP)- dLA_dzeta(i_mn,iGP))    !b_theta
@@ -233,7 +235,7 @@ IMPLICIT NONE
                                 !! = 1/(dtheta*dzeta) * ( int [1/detJ * b_alpha*g_{alpha,beta}*b_beta]_iGP dtheta dzeta )
   REAL(wp) :: Vprime_GP(1:nGP)  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(A)')'COMPUTE ENERGY...'
+!  SWRITE(UNIT_stdOut,'(A)')'COMPUTE ENERGY...'
   IF(callEvalAux) CALL EvalAux(Uin)
   DO iGP=1,nGP
     Wmag_GP(iGP)   = SUM( b_thet(:,iGP)*sJ_bcov_thet(:,iGP)  &
@@ -244,8 +246,8 @@ IMPLICIT NONE
   W_MHD3D= dthet_dzeta* (  s2mu_0 *SUM(PhiPrime_GP(:)**2*Wmag_GP(:)*w_GP(:)) &
                          + sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
   
-  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
-  SWRITE(UNIT_stdOut,fmt_sep)
+!  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
+!  SWRITE(UNIT_stdOut,fmt_sep)
 END FUNCTION EvalEnergy
 
 !===================================================================================================================================
@@ -267,11 +269,15 @@ IMPLICIT NONE
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D   !! variation of the energy projected onto the basis functions of Uin 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER   :: ibase,nBase,iMode,modes,iGP,i_mn,deg,iElem
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),y1,y1_thet(3),y1_zeta(3),y2,y2_thet(3),y2_zeta(3)
-  REAL(wp)  :: F_GP   (1:nGP)    
-  REAL(wp)  :: F_ds_GP(1:nGP)    
-  REAL(wp)  :: dW(1:mn_IP, 1:nGP)        != p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2mu_0 *detJ^2)
+  INTEGER   :: ibase,nBase,iMode,modes,iDeg,iGP,jGP,offsetGP,i_mn,Deg,iElem
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
+  REAL(wp)  :: Y1,Y1_s,Y1_thet(3),Y1_zeta(3)
+  REAL(wp)  :: Y2,Y2_s,Y2_thet(3),Y2_zeta(3)
+  REAL(wp)  :: bt_sJ,bz_sJ,PhiP2_s2mu_0
+  REAL(wp)  :: Fe_X1(0:X1_base%s%deg,0:degGP)    
+  REAL(wp)  :: Fe_X2(0:X2_base%s%deg,0:degGP)    
+  REAL(wp)  :: Fe_LA(0:LA_base%s%deg,0:degGP)    
+  REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2mu_0 *detJ^2)
   REAL(wp)  :: btt_sJ(1:mn_IP, 1:nGP)    != b^theta*b^theta/detJ 
   REAL(wp)  :: btz_sJ(1:mn_IP, 1:nGP)    != b^theta*b^zeta /detJ 
   REAL(wp)  :: bzz_sJ(1:mn_IP, 1:nGP)    != b^zeta *b^zeta /detJ 
@@ -281,69 +287,69 @@ IMPLICIT NONE
 
   !additional auxiliary variables for X1 and X2 force
   DO iGP=1,nGP
+    PhiP2_s2mu_0=s2mu_0*PhiPrime_GP(iGP)**2
     DO i_mn=1,mn_IP
-      btt_sJ(i_mn,iGP)= b_thet( i_mn,iGP)/detJ(i_mn,iGP) ! *b_thet(i_mn,iGP)
-      bzz_sJ(i_mn,iGP)= b_zeta( i_mn,iGP)/detJ(i_mn,iGP)  !*b_zeta(i_mn,iGP)
-      dW(    i_mn,iGP)=  btt_sJ(i_mn,iGP)*sJ_bcov_thet(i_mn,iGP) &
-                        +bzz_sJ(i_mn,iGP)*sJ_bcov_zeta(i_mn,iGP)
-      btz_sJ(i_mn,iGP)= bzz_sJ( i_mn,iGP)*b_thet(i_mn,iGP)
-      btt_sJ(i_mn,iGP)= btt_sJ( i_mn,iGP)*b_thet(i_mn,iGP)
-      bzz_sJ(i_mn,iGP)= bzz_sJ( i_mn,iGP)*b_zeta(i_mn,iGP)
+      bt_sJ           =  b_thet( i_mn,iGP)/detJ(i_mn,iGP)
+      bz_sJ           =  b_zeta( i_mn,iGP)/detJ(i_mn,iGP)
+      dW(    i_mn,iGP)=  bt_sJ*sJ_bcov_thet(i_mn,iGP) &
+                        +bz_sJ*sJ_bcov_zeta(i_mn,iGP)
+      btt_sJ(i_mn,iGP)=  bt_sJ*b_thet(i_mn,iGP)
+      btz_sJ(i_mn,iGP)=  bz_sJ*b_thet(i_mn,iGP)
+      bzz_sJ(i_mn,iGP)=  bz_sJ*b_zeta(i_mn,iGP)
     END DO
-    dW(:,iGP)=s2mu_0*(PhiPrime_GP(iGP)**2*dW(:,iGP))+pres_GP(iGP)
+    dW(    :,iGP)= PhiP2_s2mu_0*dW(    :,iGP) +pres_GP(iGP)
+    btz_sJ(:,iGP)= PhiP2_s2mu_0*bzz_sJ(:,iGP)
+    btt_sJ(:,iGP)= PhiP2_s2mu_0*btt_sJ(:,iGP)
+    bzz_sJ(:,iGP)= PhiP2_s2mu_0*bzz_sJ(:,iGP)
   END DO
-  q_thet(3)=0.0_wp
-  q_zeta(3)=1.0_wp
 
   ASSOCIATE(F_X1=>F_MHD3D%X1)
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
+
   F_X1(:,:)=0.0_wp
-  Y1_thet(1:3)=(/0.0_wp,0.0_wp,0.0_wp/) ! test (Y1_dthet,0,0)
-  Y1_zeta(1:3)=(/0.0_wp,0.0_wp,1.0_wp/) ! test (Y1_dzeta,0,1)
+  Y1_thet(1:3)=0.0_wp ! test (Y1_dthet,0,0)
+  Y1_zeta(1:3)=0.0_wp ! test (Y1_dzeta,0,0)
+  q_thet(3)=0.0_wp
+  q_zeta(3)=1.0_wp
+
   DO iMode=1,modes
-    DO iGP=1,nGP
-      F_GP(iGP)=0.0_wp
-      DO i_mn=1,mn_IP
-        qloc(1:3)   =(/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
-        q_thet(1:2) =(/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
-        q_zeta(1:2) =(/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
-        Y1           =X1_base%f%base_IP(i_mn,iMode)
-        Y1_thet(1)   =X1_base%f%base_dthet_IP(i_mn,iMode)
-        Y1_zeta(1)   =X1_base%f%base_dzeta_IP(i_mn,iMode)
-        F_GP(iGP) = F_GP(iGP) &
-          +dW(    i_mn,iGP)*(  J_p(i_mn,iGP)*hmap%eval_Jh_dq1(qloc(:))*Y1          &
-                             - J_h(i_mn,iGP)*dX2_ds(i_mn,iGP)         *Y1_thet(1) )&
-          -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_thet,qloc,Y1_thet)        &
-                                    +hmap%eval_gij_dq1(q_thet,qloc, q_thet)*Y1 )   &
-          -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_zeta,qloc,Y1_zeta)        & 
-                                    +hmap%eval_gij_dq1(q_zeta,qloc, q_zeta)*Y1 )   &
-          -btz_sJ(i_mn,iGP)*2.0_wp*( hmap%eval_gij(    q_thet,qloc,Y1_zeta)        &
-                                    +hmap%eval_gij(    q_zeta,qloc,Y1_thet)        &
-                                    +hmap%eval_gij_dq1(q_thet,qloc, q_zeta)*Y1 ) 
-      END DO !i_mn
-    END DO !iGP
-    F_GP(:)   = w_GP(:)*F_GP(:)    !*dthet_dzeta ... account below
-
-    DO iGP=1,nGP
-      F_ds_GP(iGP)=0.0_wp
-      DO i_mn=1,mn_IP
-        F_ds_GP(iGP) = F_ds_GP(iGP)    &
-                       + dW(i_mn,iGP)*J_h(i_mn,iGP)*dX2_dthet(i_mn,iGP)*X1_base%f%base_IP(i_mn,iMode) !Y1
-      END DO !i_mn
-    END DO !iGP
-    F_ds_GP(:)= w_GP(:)*F_ds_GP(:)
-
-    iGP=1
+    offsetGP=1
     DO iElem=1,nElems
+      DO jGP=0,degGP
+        iGP=offsetGP+jGP 
+        DO iDeg=0,Deg
+          Fe_X1(iDeg,jGP)=0.0_wp
+          DO i_mn=1,mn_IP
+            qloc(1:3)       = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+            q_thet(1:2)     = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
+            q_zeta(1:2)     = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
+            !evaluate testfunctions
+            Y1              = X1_base%s%base_GP(   jGP,iDeg,iElem)*X1_base%f%base_IP(      i_mn,iMode)
+            Y1_s            = X1_base%s%base_ds_GP(jGP,iDeg,iElem)*X1_base%f%base_IP(      i_mn,iMode)
+            Y1_thet(1)      = X1_base%s%base_GP(   jGP,iDeg,iElem)*X1_base%f%base_dthet_IP(i_mn,iMode)
+            Y1_zeta(1)      = X1_base%s%base_GP(   jGP,iDeg,iElem)*X1_base%f%base_dzeta_IP(i_mn,iMode)
+            Fe_X1(iDeg,jGP) = Fe_X1(iDeg,jGP) &
+                             +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*( dX2_dthet(i_mn,iGP)    *Y1_s          &
+                                                                 -dX2_ds(   i_mn,iGP)    *Y1_thet(1))   &
+                                                + J_p(i_mn,iGP)*hmap%eval_Jh_dq1(qloc(:))*Y1          ) & ![deltaJ]_Y1
+                             -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_thet,qloc,Y1_thet)          &
+                                                       +hmap%eval_gij_dq1(q_thet,qloc, q_thet)*Y1     ) & ![delta g_tt]_Y1
+                             -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_zeta,qloc,Y1_zeta)          & 
+                                                       +hmap%eval_gij_dq1(q_zeta,qloc, q_zeta)*Y1     ) & ![delta g_zz]_Y1
+                             -btz_sJ(i_mn,iGP)*2.0_wp*( hmap%eval_gij(    q_thet,qloc,Y1_zeta)          & 
+                                                       +hmap%eval_gij(   Y1_thet,qloc, q_zeta)          &
+                                                       +hmap%eval_gij_dq1(q_thet,qloc, q_zeta)*Y1     )   !2*[delta g_tz]_y1
+          END DO !i_mn=1,mn_IP
+        END DO !i=0,deg
+      END DO !jGP=0,degGP
       ibase=X1_base%s%base_offset(iElem)
-      F_X1(iBase:iBase+deg,iMode) = F_X1(iBase:iBase+deg,iMode) &
-                                    + MATMUL(F_GP(   iGP:iGP+degGP),X1_base%s%base_GP(   0:degGP,0:deg,iElem)) &
-                                    + MATMUL(F_ds_GP(iGP:iGP+degGP),X1_base%s%base_ds_GP(0:degGP,0:deg,iElem)) 
-      iGP=iGP+(degGP+1)
+      F_X1(iBase:iBase+deg,iMode) = F_X1(iBase:iBase+deg,iMode) + MATMUL(Fe_X1(0:deg,0:degGP),w_GP(offsetGP:offsetGP+degGP))
+      offsetGP=offsetGP+(degGP+1)
     END DO !iElem
   END DO !iMode
+
   F_X1(:,:)=F_X1(:,:)*dthet_dzeta !scale with constants
   END ASSOCIATE !F_X1
 
@@ -351,89 +357,357 @@ IMPLICIT NONE
   nBase = X2_base%s%nBase 
   modes = X2_base%f%modes
   deg   = X2_base%s%deg
+
   F_X2(:,:)=0.0_wp
-  Y2_thet(1:3)=(/0.0_wp,0.0_wp,0.0_wp/) ! test (0,Y2_dthet,0)
-  Y2_zeta(1:3)=(/0.0_wp,0.0_wp,1.0_wp/) ! test (0,Y2_dzeta,1)
+  Y2_thet(1:3)=0.0_wp ! test (0,Y2_dthet,0)
+  Y2_zeta(1:3)=0.0_wp ! test (0,Y2_dzeta,0)
+  q_thet(3)=0.0_wp
+  q_zeta(3)=1.0_wp
+
   DO iMode=1,modes
-    DO iGP=1,nGP
-      F_GP(iGP)=0.0_wp
-      DO i_mn=1,mn_IP
-        qloc(1:3)   =(/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
-        q_thet(1:2) =(/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
-        q_zeta(1:2) =(/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
-        Y2           =X2_base%f%base_IP(i_mn,iMode)
-        Y2_thet(2)   =X2_base%f%base_dthet_IP(i_mn,iMode)
-        Y2_zeta(2)   =X2_base%f%base_dzeta_IP(i_mn,iMode)
-        F_GP(iGP) = F_GP(iGP) &
-          +dW(    i_mn,iGP)*(  J_p(i_mn,iGP)*hmap%eval_Jh_dq2(qloc(:))*Y2          &
-                             + J_h(i_mn,iGP)*dX1_ds(i_mn,iGP)         *Y2_thet(2) )&
-          -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_thet,qloc,Y2_thet)        &
-                                    +hmap%eval_gij_dq2(q_thet,qloc, q_thet)*Y2 )   &
-          -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_zeta,qloc,Y2_zeta)        & 
-                                    +hmap%eval_gij_dq2(q_zeta,qloc, q_zeta)*Y2 )   &
-          -btz_sJ(i_mn,iGP)*2.0_wp*( hmap%eval_gij(    q_thet,qloc,Y2_zeta)        &
-                                    +hmap%eval_gij(    q_zeta,qloc,Y2_thet)        &
-                                    +hmap%eval_gij_dq2(q_thet,qloc, q_zeta)*Y2 ) 
-      END DO !i_mn
-    END DO !iGP
-    F_GP(:)   = w_GP(:)*F_GP(:)    !*dthet_dzeta ... account below
-
-    DO iGP=1,nGP
-      F_ds_GP(iGP)=0.0_wp
-      DO i_mn=1,mn_IP
-        F_ds_GP(iGP) = F_ds_GP(iGP)    &
-                       - dW(i_mn,iGP)*J_h(i_mn,iGP)*dX1_dthet(i_mn,iGP)*X2_base%f%base_IP(i_mn,iMode) !Y2
-      END DO !i_mn
-    END DO !iGP
-    F_ds_GP(:)= w_GP(:)*F_ds_GP(:)
-
-    iGP=1
+    offsetGP=1
     DO iElem=1,nElems
+      DO jGP=0,degGP
+        iGP=offsetGP+jGP 
+        DO iDeg=0,Deg
+          Fe_X2(iDeg,jGP)=0.0_wp
+          DO i_mn=1,mn_IP
+            qloc(1:3)       = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+            q_thet(1:2)     = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
+            q_zeta(1:2)     = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
+            !evaluate testfunctions
+            Y2              = X2_base%s%base_GP(   jGP,iDeg,iElem)*X2_base%f%base_IP(      i_mn,iMode)
+            Y2_s            = X2_base%s%base_ds_GP(jGP,iDeg,iElem)*X2_base%f%base_IP(      i_mn,iMode)
+            Y2_thet(2)      = X2_base%s%base_GP(   jGP,iDeg,iElem)*X2_base%f%base_dthet_IP(i_mn,iMode)
+            Y2_zeta(2)      = X2_base%s%base_GP(   jGP,iDeg,iElem)*X2_base%f%base_dzeta_IP(i_mn,iMode)
+            Fe_X2(iDeg,jGP) = Fe_X2(iDeg,jGP) &
+                             +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*(-dX1_dthet(i_mn,iGP)    *Y2_s          &
+                                                                 +dX1_ds(   i_mn,iGP)    *Y2_thet(2))   &
+                                                + J_p(i_mn,iGP)*hmap%eval_Jh_dq2(qloc(:))*Y2          ) & ![deltaJ]_Y2
+                             -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_thet,qloc,Y2_thet)          &
+                                                       +hmap%eval_gij_dq2(q_thet,qloc, q_thet)*Y2     ) & ![delta g_tt]_Y2
+                             -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_zeta,qloc,Y2_zeta)          & 
+                                                       +hmap%eval_gij_dq2(q_zeta,qloc, q_zeta)*Y2     ) & ![delta g_zz]_Y2
+                             -btz_sJ(i_mn,iGP)*2.0_wp*( hmap%eval_gij(    q_thet,qloc,Y2_zeta)          & 
+                                                       +hmap%eval_gij(   Y2_thet,qloc, q_zeta)          &
+                                                       +hmap%eval_gij_dq2(q_thet,qloc, q_zeta)*Y2     )   !2*[delta g_tz]_Y1
+          END DO !i_mn=1,mn_IP
+        END DO !i=0,deg
+      END DO !jGP=0,degGP
       ibase=X2_base%s%base_offset(iElem)
-      F_X2(iBase:iBase+deg,iMode) = F_X2(iBase:iBase+deg,iMode) &
-                                    + MATMUL(F_GP(   iGP:iGP+degGP),X2_base%s%base_GP(     0:degGP,0:deg,iElem))      &
-                                    + MATMUL(F_ds_GP(iGP:iGP+degGP),X2_base%s%base_ds_GP(  0:degGP,0:deg,iElem)) 
-      iGP=iGP+(degGP+1)
+      F_X2(iBase:iBase+deg,iMode) = F_X2(iBase:iBase+deg,iMode) + MATMUL(Fe_X2(0:deg,0:degGP),w_GP(offsetGP:offsetGP+degGP))
+      offsetGP=offsetGP+(degGP+1)
     END DO !iElem
   END DO !iMode
   F_X2(:,:)=F_X2(:,:)*dthet_dzeta !scale with constants
   END ASSOCIATE !F_X2
 
-
   ASSOCIATE(F_LA=>F_MHD3D%LA)
-
-  nBase = LA_base%s%nBase
-  modes = LA_base%f%modes 
+  nBase = LA_base%s%nBase 
+  modes = LA_base%f%modes
   deg   = LA_base%s%deg
- 
-  F_LA(:,:)=0.0_wp
-  DO iMode=1,modes
-    DO iGP=1,nGP
-      F_GP(iGP)=0.0_wp
-      DO i_mn=1,mn_IP
-        F_GP(iGP)=F_GP(iGP)+ sJ_bcov_thet(i_mn,iGP)*LA_base%f%base_dzeta_IP(i_mn,iMode) &
-                           - sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode)  
-      END DO !i_mn
-    END DO !iGP
-    F_GP(:)= (PhiPrime_GP(:)**2*w_GP(:)*F_GP(:))  !*2*dthet_dzeta ... account below
-    iGP=1
-    DO iElem=1,nElems
-      ibase=LA_base%s%base_offset(iElem)
-      F_LA(iBase:iBase+deg,iMode) = F_LA(iBase:iBase+deg,iMode) &
-                                    + MATMUL(F_GP(iGP:iGP+degGP),LA_base%s%base_GP(0:degGP,0:deg,iElem))
-      iGP=iGP+(degGP+1)
-    END DO !iElem
 
+  F_LA(:,:)=0.0_wp
+  Y2_thet(1:3)=0.0_wp ! test (0,Y2_dthet,0)
+  Y2_zeta(1:3)=0.0_wp ! test (0,Y2_dzeta,0)
+  q_thet(3)=0.0_wp
+  q_zeta(3)=1.0_wp
+
+  DO iMode=1,modes
+    offsetGP=1
+    DO iElem=1,nElems
+      DO jGP=0,degGP
+        iGP=offsetGP+jGP 
+        DO iDeg=0,Deg
+          Fe_LA(iDeg,jGP)=0.0_wp
+          DO i_mn=1,mn_IP
+            Fe_LA(iDeg,jGP) = Fe_LA(iDeg,jGP) &
+                              +(PhiPrime_GP(iGP)**2*LA_base%s%base_GP(jGP,iDeg,iElem))       &
+                              *( sJ_bcov_thet(i_mn,iGP)*LA_base%f%base_dzeta_IP(i_mn,iMode)  &
+                                -sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode))
+                             
+          END DO !i_mn=1,mn_IP
+        END DO !i=0,deg
+      END DO !jGP=0,degGP
+      ibase=LA_base%s%base_offset(iElem)
+      F_LA(iBase:iBase+deg,iMode) = F_LA(iBase:iBase+deg,iMode) + MATMUL(Fe_LA(0:deg,0:degGP),w_GP(offsetGP:offsetGP+degGP))
+      offsetGP=offsetGP+(degGP+1)
+    END DO !iElem
   END DO !iMode
   F_LA(:,:)=F_LA(:,:)*(2.0_wp*s2mu_0*dthet_dzeta) !scale with constants
-
-
   END ASSOCIATE !F_LA
 
-  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of force |X1|^2,|X2|^2,|LA|^2: ',F_MHD3D%norm_2()
+!  ASSOCIATE(F_X1=>F_MHD3D%X1)
+!  nBase = X1_base%s%nBase 
+!  modes = X1_base%f%modes
+!  deg   = X1_base%s%deg
+!
+!  F_X1(:,:)=0.0_wp
+!  Y2_thet(1:3)=0.0_wp ! test (0,Y2_dthet,0)
+!  Y2_zeta(1:3)=0.0_wp ! test (0,Y2_dzeta,0)
+!  q_thet(3)=0.0_wp
+!  q_zeta(3)=1.0_wp
+!  DO iMode=1,modes
+!    DO iGP=1,nGP
+!      F_GP(iGP)=0.0_wp
+!      DO i_mn=1,mn_IP
+!        qloc(1:3)   =(/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+!        q_thet(1:2) =(/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
+!        q_zeta(1:2) =(/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
+!        Y1          = X1_base%f%base_IP(i_mn,iMode)
+!        Y1_thet(1)  = X1_base%f%base_dthet_IP(i_mn,iMode)
+!        Y1_zeta(1)  = X1_base%f%base_dzeta_IP(i_mn,iMode)
+!        F_GP(iGP) = F_GP(iGP) &
+!          +dW(    i_mn,iGP)*(  J_p(i_mn,iGP)*hmap%eval_Jh_dq2(qloc(:))* Y1           &
+!                             - J_h(i_mn,iGP)*dX2_ds(i_mn,iGP)         * Y1_thet(1) ) &
+!          -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_thet,qloc,Y1_thet)          &
+!                                    +hmap%eval_gij_dq1(q_thet,qloc, q_thet)*Y1     ) &
+!          -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_zeta,qloc,Y1_zeta)          & 
+!                                    +hmap%eval_gij_dq1(q_zeta,qloc, q_zeta)*Y1     ) &
+!          -btz_sJ(i_mn,iGP)*2.0_wp*( hmap%eval_gij(    q_thet,qloc,Y1_zeta)          &
+!                                    +hmap%eval_gij(   Y1_thet,qloc, q_zeta)          &
+!                                    +hmap%eval_gij_dq1(q_thet,qloc, q_zeta)*Y1     ) 
+!      END DO !i_mn
+!    END DO !iGP
+!    F_GP(:)   = w_GP(:)*F_GP(:)    !*dthet_dzeta ... account below
+!
+!    DO iGP=1,nGP
+!      F_ds_GP(iGP)=0.0_wp
+!      DO i_mn=1,mn_IP
+!        F_ds_GP(iGP) = F_ds_GP(iGP)    &
+!                       + dW(i_mn,iGP)*J_h(i_mn,iGP)*dX2_dthet(i_mn,iGP)*X1_base%f%base_IP(i_mn,iMode) !Y1_s
+!      END DO !i_mn
+!    END DO !iGP
+!    F_ds_GP(:)= w_GP(:)*F_ds_GP(:)
+!
+!    iGP=1
+!    DO iElem=1,nElems
+!      ibase=X1_base%s%base_offset(iElem)
+!      F_X1(iBase:iBase+deg,iMode) = F_X1(iBase:iBase+deg,iMode) &
+!                                    + MATMUL(F_GP(   iGP:iGP+degGP),X1_base%s%base_GP(     0:degGP,0:deg,iElem))      &
+!                                    + MATMUL(F_ds_GP(iGP:iGP+degGP),X1_base%s%base_ds_GP(  0:degGP,0:deg,iElem)) 
+!      iGP=iGP+(degGP+1)
+!    END DO !iElem
+!  END DO !iMode
+!  F_X1(:,:)=F_X1(:,:)*dthet_dzeta !scale with constants
+!  END ASSOCIATE !F_X1
+
+!  ASSOCIATE(F_X2=>F_MHD3D%X2)
+!  nBase = X2_base%s%nBase 
+!  modes = X2_base%f%modes
+!  deg   = X2_base%s%deg
+!
+!  F_X2(:,:)=0.0_wp
+!  Y2_thet(1:3)=0.0_wp ! test (0,Y2_dthet,0)
+!  Y2_zeta(1:3)=0.0_wp ! test (0,Y2_dzeta,0)
+!  q_thet(3)=0.0_wp
+!  q_zeta(3)=1.0_wp
+!  DO iMode=1,modes
+!    DO iGP=1,nGP
+!      F_GP(iGP)=0.0_wp
+!      DO i_mn=1,mn_IP
+!        qloc(1:3)   =(/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+!        q_thet(1:2) =(/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
+!        q_zeta(1:2) =(/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
+!        Y2          = X2_base%f%base_IP(i_mn,iMode)
+!        Y2_thet(2)  = X2_base%f%base_dthet_IP(i_mn,iMode)
+!        Y2_zeta(2)  = X2_base%f%base_dzeta_IP(i_mn,iMode)
+!        F_GP(iGP) = F_GP(iGP) &
+!          +dW(    i_mn,iGP)*(  J_p(i_mn,iGP)*hmap%eval_Jh_dq2(qloc(:))* Y2           &
+!                             + J_h(i_mn,iGP)*dX1_ds(i_mn,iGP)         * Y2_thet(2) ) &
+!          -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_thet,qloc,Y2_thet)          &
+!                                    +hmap%eval_gij_dq2(q_thet,qloc, q_thet)*Y2     ) &
+!          -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap%eval_gij(    q_zeta,qloc,Y2_zeta)          & 
+!                                    +hmap%eval_gij_dq2(q_zeta,qloc, q_zeta)*Y2     ) &
+!          -btz_sJ(i_mn,iGP)*2.0_wp*( hmap%eval_gij(    q_thet,qloc,Y2_zeta)          &
+!                                    +hmap%eval_gij(   Y2_thet,qloc, q_zeta)          &
+!                                    +hmap%eval_gij_dq2(q_thet,qloc, q_zeta)*Y2     ) 
+!      END DO !i_mn
+!    END DO !iGP
+!    F_GP(:)   = w_GP(:)*F_GP(:)    !*dthet_dzeta ... account below
+!
+!    DO iGP=1,nGP
+!      F_ds_GP(iGP)=0.0_wp
+!      DO i_mn=1,mn_IP
+!        F_ds_GP(iGP) = F_ds_GP(iGP)    &
+!                       - dW(i_mn,iGP)*J_h(i_mn,iGP)*dX1_dthet(i_mn,iGP)*X2_base%f%base_IP(i_mn,iMode) !Y2_s
+!      END DO !i_mn
+!    END DO !iGP
+!    F_ds_GP(:)= w_GP(:)*F_ds_GP(:)
+!
+!    iGP=1
+!    DO iElem=1,nElems
+!      ibase=X2_base%s%base_offset(iElem)
+!      F_X2(iBase:iBase+deg,iMode) = F_X2(iBase:iBase+deg,iMode) &
+!                                    + MATMUL(F_GP(   iGP:iGP+degGP),X2_base%s%base_GP(     0:degGP,0:deg,iElem))      &
+!                                    + MATMUL(F_ds_GP(iGP:iGP+degGP),X2_base%s%base_ds_GP(  0:degGP,0:deg,iElem)) 
+!      iGP=iGP+(degGP+1)
+!    END DO !iElem
+!  END DO !iMode
+!  F_X2(:,:)=F_X2(:,:)*dthet_dzeta !scale with constants
+!  END ASSOCIATE !F_X2
+
+
+!  ASSOCIATE(F_LA=>F_MHD3D%LA)
+!
+!  nBase = LA_base%s%nBase
+!  modes = LA_base%f%modes 
+!  deg   = LA_base%s%deg
+! 
+!  F_LA(:,:)=0.0_wp
+!  DO iMode=1,modes
+!    DO iGP=1,nGP
+!      F_GP(iGP)=0.0_wp
+!      DO i_mn=1,mn_IP
+!        F_GP(iGP)=F_GP(iGP)+ sJ_bcov_thet(i_mn,iGP)*LA_base%f%base_dzeta_IP(i_mn,iMode) &
+!                           - sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode)  
+!      END DO !i_mn
+!    END DO !iGP
+!    F_GP(:)= (PhiPrime_GP(:)**2*w_GP(:)*F_GP(:))  !*2*dthet_dzeta ... account below
+!    iGP=1
+!    DO iElem=1,nElems
+!      ibase=LA_base%s%base_offset(iElem)
+!      F_LA(iBase:iBase+deg,iMode) = F_LA(iBase:iBase+deg,iMode) &
+!                                    + MATMUL(F_GP(iGP:iGP+degGP),LA_base%s%base_GP(0:degGP,0:deg,iElem))
+!      iGP=iGP+(degGP+1)
+!    END DO !iElem
+!
+!  END DO !iMode
+!  F_LA(:,:)=F_LA(:,:)*(2.0_wp*s2mu_0*dthet_dzeta) !scale with constants
+!
+!
+!  END ASSOCIATE !F_LA
+
+  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
   SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: '
   SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE EvalForce
+
+
+!===================================================================================================================================
+!> check force with finite difference 
+!!
+!===================================================================================================================================
+SUBROUTINE checkEvalForce(Uin)
+! MODULES
+USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base
+USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin   !! input solution 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                     :: iBase,nBase,iMode,modes
+  CLASS(t_sol_var_MHD3D),ALLOCATABLE      :: Ucopy
+  CLASS(t_sol_var_MHD3D),ALLOCATABLE      :: Utest
+  CLASS(t_sol_var_MHD3D),ALLOCATABLE      :: Ftest 
+  CLASS(t_sol_var_MHD3D),ALLOCATABLE      :: Feval 
+  REAL(wp)                           :: W_MHD3D_in,eps_glob,eps
+!===================================================================================================================================
+  ALLOCATE(t_sol_var_MHD3D :: Utest)
+  ALLOCATE(t_sol_var_MHD3D :: Ucopy)
+  ALLOCATE(t_sol_var_MHD3D :: Ftest)
+  ALLOCATE(t_sol_var_MHD3D :: Feval)
+
+  CALL Ucopy%copy(Uin)
+!HACK! 
+!  Ucopy%LA=0.0_wp
+  CALL Utest%copy(Ucopy)
+  CALL Ftest%copy(Ucopy)
+  CALL Ftest%set_to(0.0_wp)
+  CALL Feval%copy(Ftest)
+
+
+  W_MHD3D_in=EvalEnergy(Utest,.TRUE.)
+  eps_glob=1.0e-8_wp
+
+  nBase = X1_Base%s%nBase 
+  modes = X1_Base%f%modes
+  WRITE(*,*)'Test X1',nBase,modes
+  DO iBase=1,nBase
+    eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%X1(iBase,:)**2*(X1_base%f%Xmn(1,:)**2+X1_base%f%Xmn(2,:)**2)))
+    DO iMode=1,modes
+      Utest%X1(iBase,iMode)= Ucopy%X1(iBase,iMode)+eps
+      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.)
+      Utest%X1(iBase,iMode)= Ucopy%X1(iBase,iMode)
+
+      Ftest%X1(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
+    END DO
+  END DO 
+
+  nBase = X2_Base%s%nBase 
+  modes = X2_Base%f%modes
+  WRITE(*,*)'Test X2',nBase,modes
+  DO iBase=1,nBase
+    eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%X2(iBase,:)**2*(X2_base%f%Xmn(1,:)**2+X2_base%f%Xmn(2,:)**2)))
+    DO iMode=1,modes
+      Utest%X2(iBase,iMode)= Ucopy%X2(iBase,iMode)+eps
+      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.)
+      Utest%X2(iBase,iMode)= Ucopy%X2(iBase,iMode)
+
+      Ftest%X2(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
+    END DO
+  END DO 
+
+  nBase = LA_Base%s%nBase 
+  modes = LA_Base%f%modes
+  WRITE(*,*)'Test LA',nBase,modes
+  DO iBase=1,nBase
+    eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%LA(iBase,:)**2*(LA_base%f%Xmn(1,:)**2+LA_base%f%Xmn(2,:)**2)))
+    DO iMode=1,modes
+      Utest%LA(iBase,iMode)= Ucopy%LA(iBase,iMode)+eps
+      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.)
+      Utest%LA(iBase,iMode)= Ucopy%LA(iBase,iMode)
+
+      Ftest%LA(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
+    END DO
+  END DO 
+
+  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
+
+  CALL EvalForce(Ucopy,.TRUE.,Feval)
+
+  WRITE(*,*)'-----------------------'
+  modes = X1_Base%f%modes
+  DO iMode=1,modes
+    WRITE(*,'(A,2I4,A,E11.3)')'X1 mode',X1_base%f%Xmn(:,iMode),', maxUMode= ',&
+                                            MAXVAL(ABS(Ucopy%X1(:,iMode)))
+    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X1(:,iMode))), & 
+                                ', maxfeval= ',MAXVAL((Feval%X1(:,iMode)))
+    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X1(:,iMode))), & 
+                                ', maxftest= ',MAXVAL((Ftest%X1(:,iMode))), & 
+                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X1(:,iMode) &
+                                                      -Feval%X1(:,iMode)))
+  END DO
+  WRITE(*,*)'-----------------------'
+  modes = X2_Base%f%modes
+  DO iMode=1,modes
+    WRITE(*,'(A,2I4,A,E11.3)')'X2 mode',X2_base%f%Xmn(:,iMode),', maxUMode= ',&
+                                            MAXVAL(ABS(Ucopy%X2(:,iMode)))
+    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X2(:,iMode))), & 
+                                ', maxfeval= ',MAXVAL((Feval%X2(:,iMode)))
+    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X2(:,iMode))), & 
+                                ', maxftest= ',MAXVAL((Ftest%X2(:,iMode))), & 
+                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X2(:,iMode) &
+                                                      -Feval%X2(:,iMode)))
+  END DO
+  WRITE(*,*)'-----------------------'
+  modes = LA_Base%f%modes
+  DO iMode=1,modes
+    WRITE(*,'(A,2I4,A,E11.3)')'LA mode',LA_base%f%Xmn(:,iMode),', maxUMode= ',&
+                                            MAXVAL(ABS(Ucopy%LA(:,iMode)))
+    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%LA(:,iMode))), & 
+                                ', maxfeval= ',MAXVAL((Feval%LA(:,iMode)))
+    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%LA(:,iMode))), & 
+                                ', maxftest= ',MAXVAL((Ftest%LA(:,iMode))), & 
+                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%LA(:,iMode) &
+                                                      -Feval%LA(:,iMode)))
+  END DO
+  
+
+END SUBROUTINE checkEvalForce
+
 
 !===================================================================================================================================
 !> Finalize Module

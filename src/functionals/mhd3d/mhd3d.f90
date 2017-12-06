@@ -57,7 +57,7 @@ USE MOD_fbase          , ONLY: t_fbase,fbase_new
 USE MOD_base           , ONLY: t_base,base_new
 USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
 USE MOD_ReadInTools    , ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
-USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce
+USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -221,7 +221,8 @@ REAL(wp)         :: pres_scale
  CALL InitializeMHD3D_EvalFunc()
 
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.)
-  CALL EvalForce(U(0),.FALSE., dUdt)
+!  CALL EvalForce(U(0),.FALSE., dUdt)
+  CALL CheckEvalForce(U(0))
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
