@@ -76,6 +76,7 @@ CHARACTER(LEN=8) :: X2_sin_cos
 CHARACTER(LEN=8) :: LA_sin_cos
 INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
 INTEGER          :: nfp_loc,which_hmap 
+INTEGER          :: callEvalAux 
 REAL(wp)         :: pres_scale
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
@@ -234,9 +235,10 @@ REAL(wp)         :: pres_scale
   CALL InitSolution() !U(0)
 
  CALL InitializeMHD3D_EvalFunc()
-
-  U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.)
-  CALL EvalForce(U(0),.FALSE., dUdt)
+  callEvalAux=1
+  U(0)%W_MHD3D=EvalEnergy(U(0),callEvalAux)
+  callEvalAux=0
+  CALL EvalForce(U(0),callEvalAux, dUdt)
   CALL CheckEvalForce(U(0))
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
