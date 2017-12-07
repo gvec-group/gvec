@@ -76,11 +76,14 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL IgnoredStrings()
   
+  
+  CALL functional%minimize(Tol_in=1.0e-08_wp) 
+
   !finalization phase
   CALL Analyze()
-  
+
   CALL FinalizeFunctional(functional)
-  
+ 
   CALL FinalizeMHDEQ()
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()

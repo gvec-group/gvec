@@ -21,23 +21,24 @@
 !===================================================================================================================================
 MODULE MOD_MHD3D
 ! MODULES
-USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
-USE MOD_c_functional,   ONLY: t_functional
-IMPLICIT NONE
-PUBLIC
+  USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
+  USE MOD_c_functional,   ONLY: t_functional
+  IMPLICIT NONE
+  PUBLIC
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
 !-----------------------------------------------------------------------------------------------------------------------------------
 
-TYPE,EXTENDS(t_functional) :: t_functional_mhd3d
-  !---------------------------------------------------------------------------------------------------------------------------------
-  LOGICAL :: initialized
-  !---------------------------------------------------------------------------------------------------------------------------------
-  CONTAINS
-    PROCEDURE :: init => InitMHD3D
-    PROCEDURE :: free => FinalizeMHD3D
-END TYPE t_functional_mhd3d
+  TYPE,EXTENDS(t_functional) :: t_functional_mhd3d
+    !-------------------------------------------------------------------------------------------------------------------------------
+    LOGICAL :: initialized
+    !-------------------------------------------------------------------------------------------------------------------------------
+    CONTAINS
+      PROCEDURE :: init     => InitMHD3D
+      PROCEDURE :: minimize => MinimizeMHD3D
+      PROCEDURE :: free     => FinalizeMHD3D
+  END TYPE t_functional_mhd3d
 
 !===================================================================================================================================
 
@@ -48,39 +49,40 @@ CONTAINS
 !!
 !===================================================================================================================================
 SUBROUTINE InitMHD3D(sf) 
-! MODULES
-USE MOD_Globals,ONLY:PI
-USE MOD_MHD3D_Vars
-USE MOD_mhdeq_Vars     , ONLY: whichInitEquilibrium
-USE MOD_sgrid          , ONLY: t_sgrid
-USE MOD_fbase          , ONLY: t_fbase,fbase_new
-USE MOD_base           , ONLY: t_base,base_new
-USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
-USE MOD_ReadInTools    , ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
-USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
-IMPLICIT NONE
+  ! MODULES
+  USE MOD_Globals,ONLY:PI
+  USE MOD_MHD3D_Vars
+  USE MOD_mhdeq_Vars     , ONLY: whichInitEquilibrium
+  USE MOD_sgrid          , ONLY: t_sgrid
+  USE MOD_fbase          , ONLY: t_fbase,fbase_new
+  USE MOD_base           , ONLY: t_base,base_new
+  USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
+  USE MOD_ReadInTools    , ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+  USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER          :: i,iMode,nElems
-INTEGER          :: grid_type
-INTEGER          :: X1X2_deg,X1X2_cont
-INTEGER          :: X1_mn_max(2),X2_mn_max(2)
-INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
-CHARACTER(LEN=8) :: X1_sin_cos
-CHARACTER(LEN=8) :: X2_sin_cos
-CHARACTER(LEN=8) :: LA_sin_cos
-INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
-INTEGER          :: nfp_loc,which_hmap 
-INTEGER          :: callEvalAux 
-REAL(wp)         :: pres_scale
+  INTEGER          :: i,iMode,nElems
+  INTEGER          :: grid_type
+  INTEGER          :: X1X2_deg,X1X2_cont
+  INTEGER          :: X1_mn_max(2),X2_mn_max(2)
+  INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
+  CHARACTER(LEN=8) :: X1_sin_cos
+  CHARACTER(LEN=8) :: X2_sin_cos
+  CHARACTER(LEN=8) :: LA_sin_cos
+  INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
+  INTEGER          :: nfp_loc,which_hmap 
+  INTEGER          :: JacCheck
+  REAL(wp)         :: pres_scale
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
   
+  maxIter  =GETINT("maxIter",Proposal=5000)
   nElems   =GETINT("sgrid_nElems",Proposal=10)
   grid_type=GETINT("sgrid_grid_type",Proposal=0)
   
@@ -226,19 +228,23 @@ REAL(wp)         :: pres_scale
   ALLOCATE(U(-1:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
                    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
+  ALLOCATE(F(-1:0))
   DO i=-1,0
     CALL U(i)%copy(U(1))
+    CALL F(i)%copy(U(1))
   END DO
-  CALL dUdt%copy(U(1))
+  ALLOCATE(P(-1:1))
+  DO i=-1,1
+    CALL P(i)%copy(U(1))
+  END DO
 
 
   CALL InitSolution() !U(0)
 
  CALL InitializeMHD3D_EvalFunc()
-  callEvalAux=1
-  U(0)%W_MHD3D=EvalEnergy(U(0),callEvalAux)
-  callEvalAux=0
-  CALL EvalForce(U(0),callEvalAux, dUdt)
+  JacCheck=1
+  U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
+  CALL EvalForce(U(0),.TRUE.,JacCheck, F(0))
   CALL CheckEvalForce(U(0))
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -282,28 +288,28 @@ END SUBROUTINE InitMHD3D
 !===================================================================================================================================
 SUBROUTINE InitSolution()
 ! MODULES
-USE MOD_MHD3D_Vars
-USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-!USE MOD_lambda_solve,  ONLY:lambda_solve
-USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
-USE MOD_VMEC_Readin,   ONLY:lasym
-USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
-USE MOD_MHD3D_Profiles,ONLY: Eval_iota
-IMPLICIT NONE
+  USE MOD_MHD3D_Vars
+  USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
+!  USE MOD_lambda_solve,  ONLY:lambda_solve
+  USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
+  USE MOD_VMEC_Readin,   ONLY:lasym
+  USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
+  USE MOD_MHD3D_Profiles,ONLY: Eval_iota
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER  :: is,iMode
-INTEGER  :: BC_type(2)
-REAL(wp) :: BC_val(2)
-REAL(wp) :: spos,iota_s
-REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
-REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
-REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
+  INTEGER  :: is,iMode
+  INTEGER  :: BC_type(2)
+  REAL(wp) :: BC_val(2)
+  REAL(wp) :: spos,iota_s
+  REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
+  REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
+  REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
-  ASSOCIATE(U0=>U(0))
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
+  ASSOCIATE(U0=>U(0))
   SELECT CASE(which_init)
   CASE(0)
     !X1_a,X2_a and X1_b,X2_b already filled from parameter file readin...
@@ -442,9 +448,103 @@ REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 
   CALL U(-1)%set_to(U0)
   END ASSOCIATE !U0
-  SWRITE(UNIT_stdOut,'(4X,A)') "..DONE."
-
+  SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
+  SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitSolution
+
+
+!===================================================================================================================================
+!> Compute Equilibrium, iteratively
+!!
+!===================================================================================================================================
+SUBROUTINE MinimizeMHD3D(sf,Tol_in) 
+! MODULES
+  USE MOD_MHD3D_Vars
+  USE MOD_MHD3D_EvalFunc
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  REAL(wp)                 , INTENT(IN)    :: Tol_in
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER   :: i,iter,nStepDecreased
+  INTEGER   :: JacCheck
+  REAL(wp)  :: beta,minDt,dt,deltaW,relTol,abortTol
+!===================================================================================================================================
+  SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
+  JacCheck=1 !abort if detJ<0
+  CALL EvalAux(           U(0),JacCheck)
+  minDt= CalcMinDt(       U(0),.FALSE.,JacCheck)
+  U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
+
+  relTol=U(0)%W_MHD3D*Tol_in
+  aborttol=relTol
+
+  CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
+
+  CALL P( -1)%set_to(0.0_wp)
+  beta=1.0_wp
+  dt=minDt
+  nstepDecreased=0
+  iter=1
+  SWRITE(UNIT_stdOut,'(A,I8,A,E11.4,A)')'%%%%%%%%%%  ITERATION= ',iter,', dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
+  DO WHILE(iter.LE.maxIter)
+     
+    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
+    CALL P(1)%AXBY(1.0_wp,U(0),dt,P(0)) !overwrites P(1)
+    JacCheck=2 !no abort,if detJ<0, JacCheck=-1
+    P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck) 
+    IF(JacCheck.EQ.-1)THEN
+      dt=0.5_wp*dt
+      nstepDecreased=nStepDecreased+1
+      SWRITE(UNIT_stdOut,'(8X,A)')'...detJac<0, skip step and decrease stepsize!'
+      !do not use P(1), redo the iteration
+    ELSE 
+      !detJ>0
+      deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
+      
+      IF(deltaW.LE.aborttol)THEN !valid step 
+        iter=iter+1
+        nstepDecreased=0
+        SWRITE(UNIT_stdOut,'(A,I8,A,E11.4,A)')'%%%%%%%%%%  ITERATION= ',iter,', dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
+        CALL F(-1)%set_to(F(0))
+        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0))
+        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
+        CALL P(-1)%set_to(P(0))
+        CALL U(-1)%set_to(U(0))
+        CALL U(0)%set_to(P(1))
+        IF(ABS(deltaW).LE.aborttol)THEN
+          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
+                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
+          SWRITE(UNIT_stdOut,'(A)') "... DONE."
+          SWRITE(UNIT_stdOut,fmt_sep)
+          RETURN
+!        ELSE
+!          !increase time step
+!          dt=1.2_wp*dt
+!          SWRITE(UNIT_stdOut,'(8X,A)')'...deltaW<0, accepted step and increase stepsize!'
+        END IF
+      ELSE !not a valid step, decrease timestep and skip P(1)
+        dt=0.5*dt
+        nstepDecreased=nStepDecreased+1
+        SWRITE(UNIT_stdOut,'(8X,A)')'...deltaW>0, skip step and decrease stepsize!'
+      END IF
+    END IF !JacCheck
+   
+    IF(nStepDecreased.GE.8) THEN
+      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 2^8: ' 
+      SWRITE(UNIT_stdOut,fmt_sep)
+      RETURN
+    END IF
+  END DO !iter
+  SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded, not converged" 
+  SWRITE(UNIT_stdOut,fmt_sep)
+  
+
+
+END SUBROUTINE MinimizeMHD3D
+
 
 !===================================================================================================================================
 !> Finalize Module
@@ -452,15 +552,15 @@ END SUBROUTINE InitSolution
 !===================================================================================================================================
 SUBROUTINE FinalizeMHD3D(sf) 
 ! MODULES
-USE MOD_MHD3D_Vars
-USE MOD_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
-IMPLICIT NONE
+  USE MOD_MHD3D_Vars
+  USE MOD_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: i
+  INTEGER :: i
 !===================================================================================================================================
   CALL X1_base%free()
   CALL X2_base%free()
@@ -468,10 +568,16 @@ INTEGER :: i
 
   DO i=-1,1
     CALL U(i)%free()
+    CALL P(i)%free()
   END DO
-  CALL dUdt%free()
+  DO i=-1,0
+    CALL F(i)%free()
+  END DO
   CALL sgrid%free()
 
+  SDEALLOCATE(U)
+  SDEALLOCATE(F)
+  SDEALLOCATE(P)
   SDEALLOCATE(X1_b)
   SDEALLOCATE(X2_b)
   SDEALLOCATE(LA_b)

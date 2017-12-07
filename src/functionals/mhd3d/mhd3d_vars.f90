@@ -41,7 +41,8 @@ CLASS(t_base),  ALLOCATABLE :: LA_base   !! container for base of variable lambd
 TYPE(t_sgrid)               :: sgrid     !! only one grid up to now
                                          
 TYPE(t_sol_var_MHD3D),ALLOCATABLE :: U(:)      !! solutions at levels (k-1),(k),(k+1)
-TYPE(t_sol_var_MHD3D)             :: dUdt      !! solution update
+TYPE(t_sol_var_MHD3D),ALLOCATABLE :: F(:)      !! force
+TYPE(t_sol_var_MHD3D),ALLOCATABLE :: P(:)      !! temporary for update
 INTEGER                     :: nDOF_X1   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER                     :: nDOF_X2   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER                     :: nDOF_LA   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
@@ -52,6 +53,7 @@ CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for eval
 !===================================================================================================================================
 ! input parameters for functional
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
+INTEGER              :: maxIter         !! maximum iteration count for minimization 
 REAL(wp)             :: Phi_edge        !! toroidal flux at the last flux surface of the domain
 INTEGER              :: n_pres_coefs    !! number of polynomial coeffients for mass profile
 INTEGER              :: n_iota_coefs    !! number of polynomial coeffients for iota profile

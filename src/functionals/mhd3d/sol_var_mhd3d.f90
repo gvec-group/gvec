@@ -178,6 +178,7 @@ IMPLICIT NONE
   sf%X1=scalar
   sf%X2=scalar
   sf%LA=scalar
+  sf%W_MHD3D=0.0_wp
 END SUBROUTINE sol_var_MHD3D_set_to_Scalar
 
 !===================================================================================================================================
@@ -206,7 +207,7 @@ IMPLICIT NONE
     sf%X1=scal_in*toset%X1
     sf%X2=scal_in*toset%X2
     sf%LA=scal_in*toset%LA
-    sf%W_MHD3D=-1.0_wp
+    sf%W_MHD3D=0.0_wp
   ELSE
     sf%X1=toset%X1
     sf%X2=toset%X2

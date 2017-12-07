@@ -144,6 +144,10 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   INTEGER   :: iGP,i_mn,IP_GP(2)
   REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),g_tt_loc,g_tz_loc,g_zz_loc
 !===================================================================================================================================
+  IF(JacCheck.EQ.-1) THEN
+      CALL abort(__STAMP__, &
+          'You already called EvalAux, with a Jacobian smaller that  1.0e-12!!!' )
+  END IF
   !2D data: interpolation points x gauss-points
   X1_IP_GP  = X1_base%evalDOF((/0,0/)         ,Uin%X1)
   X2_IP_GP  = X2_base%evalDOF((/0,0/)         ,Uin%X2)
@@ -183,6 +187,8 @@ SUBROUTINE EvalAux(Uin,JacCheck)
       JacCheck=-1
       RETURN
     END SELECT
+  ELSE
+    JacCheck=1 !set to default for safety (abort if detJ<0)
   END IF
 
   !1D data at gauss-points
@@ -221,11 +227,44 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 END SUBROUTINE EvalAux
 
 !===================================================================================================================================
+!>  estimate for timestep
+!!
+!===================================================================================================================================
+FUNCTION calcMinDt(Uin,callEvalAux,JacCheck)
+! MODULES
+  USE MOD_MHD3D_vars      , ONLY: sgrid
+  USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution 
+  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin 
+  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0. 
+                                                    !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp) :: CalcMinDt
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER  :: iGP,i_mn
+  REAL(wp) :: maxLambda
+!===================================================================================================================================
+  IF(callEvalAux) THEN
+    CALL EvalAux(Uin,JacCheck)
+    IF(JacCheck.EQ.-1) RETURN
+  END IF
+  maxlambda=1.0e+8 !???
+  
+  calcMinDt=(2.0_wp*MINVAL(sgrid%ds(:)))**2/maxLambda
+
+END FUNCTION CalcMinDT
+
+!===================================================================================================================================
 !> Evaluate 3D MHD energy
 !! NOTE: set callEvalaux >0 if not called before for the same Uin !!
 !!
 !===================================================================================================================================
-FUNCTION EvalEnergy(Uin,callEvalAux) RESULT(W_MHD3D)
+FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 ! MODULES
   USE MOD_MHD3D_Vars, ONLY: s2mu_0,sgammM1
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
@@ -233,10 +272,9 @@ FUNCTION EvalEnergy(Uin,callEvalAux) RESULT(W_MHD3D)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin         !! input solution 
-  INTEGER               , INTENT(INOUT) :: callEvalAux !! if >0, call auxiliary variable computation on current Uin
-                                                       !! (=0 should be only used if EvalAux was already called for the same Uin)
-                                                       !! if 1 on input: abort if detJ<0. 
-                                                       !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
+  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin 
+  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0. 
+                                                    !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                              :: W_MHD3D     !! total integral of MHD3D energy 
@@ -248,9 +286,19 @@ FUNCTION EvalEnergy(Uin,callEvalAux) RESULT(W_MHD3D)
                                 !! = 1/(dtheta*dzeta) * ( int [1/detJ * b_alpha*g_{alpha,beta}*b_beta]_iGP dtheta dzeta )
   REAL(wp) :: Vprime_GP(1:nGP)  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
 !===================================================================================================================================
-!  SWRITE(UNIT_stdOut,'(A)')'COMPUTE ENERGY...'
-  IF(callEvalAux.NE.0) THEN
-    CALL EvalAux(Uin,callEvalAux)
+  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE ENERGY...'
+  IF(callEvalAux) THEN
+    CALL EvalAux(Uin,JacCheck)
+    IF(JacCheck.EQ.-1) THEN
+      W_MHD3D=1.0e30_wp
+      SWRITE(UNIT_stdOut,'(A,E21.11)')'... detJ<0'
+      RETURN !accept detJ<0
+    END IF
+  ELSE
+    IF(JacCheck.EQ.-1) THEN
+        CALL abort(__STAMP__, &
+            'You seem to have called EvalAux before, with a Jacobian smaller that  1.0e-12!!!' )
+    END IF
   END IF
   DO iGP=1,nGP
     Wmag_GP(iGP)   = SUM( b_thet(:,iGP)*sJ_bcov_thet(:,iGP)  &
@@ -261,8 +309,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux) RESULT(W_MHD3D)
   W_MHD3D= dthet_dzeta* (  s2mu_0 *SUM(PhiPrime_GP(:)**2*Wmag_GP(:)*w_GP(:)) &
                          + sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
   
-!  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
-!  SWRITE(UNIT_stdOut,fmt_sep)
+  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
 END FUNCTION EvalEnergy
 
 !===================================================================================================================================
@@ -270,7 +317,7 @@ END FUNCTION EvalEnergy
 !! NOTE: set callEvalaux TRUE if not called before for the same Uin !!
 !!
 !===================================================================================================================================
-SUBROUTINE EvalForce(Uin,callEvalAux,F_MHD3D)
+SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
 ! MODULES
   USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,s2mu_0
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
@@ -278,10 +325,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,F_MHD3D)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin         !! input solution 
-  INTEGER               , INTENT(INOUT) :: callEvalAux !! if >0, call auxiliary variable computation on current Uin
-                                                       !! (=0 should be only used if EvalAux was already called for the same Uin)
-                                                       !! if 1 on input: abort if detJ<0. 
-                                                       !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
+  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin 
+  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0. 
+                                                    !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin 
@@ -296,14 +342,18 @@ SUBROUTINE EvalForce(Uin,callEvalAux,F_MHD3D)
   REAL(wp)  :: Fe_X1(0:X1_base%s%deg,0:degGP)    
   REAL(wp)  :: Fe_X2(0:X2_base%s%deg,0:degGP)    
   REAL(wp)  :: Fe_LA(0:LA_base%s%deg,0:degGP)    
-  REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2mu_0 *detJ^2)
+  REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/(2mu_0)*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2mu_0 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ &  != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
                                        ,hmap_g_t1,hmap_g_z1,hmap_Jh_dq1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1 &
                                        ,hmap_g_t2,hmap_g_z2,hmap_Jh_dq2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(A)')'COMPUTE FORCE...'
-  IF(callEvalAux.NE.0) THEN
-    CALL EvalAux(Uin,callEvalAux)
+  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
+  IF(callEvalAux) THEN
+    CALL EvalAux(Uin,JacCheck)
+  END IF
+  IF(JacCheck.EQ.-1) THEN
+    CALL abort(__STAMP__, &
+        'negative Jacobian was found when you call EvalAux before!!!')
   END IF
 
   !additional auxiliary variables for X1 and X2 force
@@ -313,12 +363,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,F_MHD3D)
       bt_sJ           =  b_thet( i_mn,iGP)/detJ(i_mn,iGP)
       bz_sJ           =  b_zeta( i_mn,iGP)/detJ(i_mn,iGP)
       dW(    i_mn,iGP)=  bt_sJ*sJ_bcov_thet(i_mn,iGP) &
-                        +bz_sJ*sJ_bcov_zeta(i_mn,iGP)
+                        +bz_sJ*sJ_bcov_zeta(i_mn,iGP)    
       btt_sJ(i_mn,iGP)=  bt_sJ*b_thet(i_mn,iGP)
       btz_sJ(i_mn,iGP)=  bz_sJ*b_thet(i_mn,iGP)
       bzz_sJ(i_mn,iGP)=  bz_sJ*b_zeta(i_mn,iGP)
     END DO !i_mn
-    dW(    :,iGP)= PhiP2_s2mu_0*dW(    :,iGP) +pres_GP(iGP)
+    dW(    :,iGP)= PhiP2_s2mu_0*dW(    :,iGP) +pres_GP(iGP) !=1/(sm*mu_0)*B^2+p
     btz_sJ(:,iGP)= PhiP2_s2mu_0*bzz_sJ(:,iGP)
     btt_sJ(:,iGP)= PhiP2_s2mu_0*btt_sJ(:,iGP)
     bzz_sJ(:,iGP)= PhiP2_s2mu_0*bzz_sJ(:,iGP)
@@ -477,6 +527,13 @@ SUBROUTINE EvalForce(Uin,callEvalAux,F_MHD3D)
   F_LA(:,:)=F_LA(:,:)*(2.0_wp*s2mu_0*dthet_dzeta) !scale with constants
   END ASSOCIATE !F_LA
 
+! TODO
+!  CALL ApplyBoundaryConditions(F_MHD3D)
+  F_MHD3D%X1(:,X1_base%s%nBase)=0.0_wp
+  F_MHD3D%X2(:,X2_base%s%nBase)=0.0_wp
+  F_MHD3D%LA(:,1)    =0.0_wp
+
+
 !evaluation using full basis (s,theta,zeta) instead of tensor product, not optimized version...
 
 !  ASSOCIATE(F_X1=>F_MHD3D%X1)
@@ -592,9 +649,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,F_MHD3D)
 !  F_LA(:,:)=F_LA(:,:)*(2.0_wp*s2mu_0*dthet_dzeta) !scale with constants
 !  END ASSOCIATE !F_LA
 
-  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
-  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: '
-  SWRITE(UNIT_stdOut,fmt_sep)
+  SWRITE(UNIT_stdOut,'(A,3E21.11)')'... DONE: Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
 END SUBROUTINE EvalForce
 
 
@@ -613,7 +668,7 @@ SUBROUTINE checkEvalForce(Uin)
   CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin   !! input solution 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                               :: iBase,nBase,iMode,modes,callEvalAux
+  INTEGER                               :: iBase,nBase,iMode,modes,JacCheck
   REAL(wp)                              :: W_MHD3D_in,eps_glob,eps
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Ucopy
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Utest
@@ -635,8 +690,8 @@ SUBROUTINE checkEvalForce(Uin)
   CALL Feval%copy(Ftest)
 
    
-  callEvalAux=1 !abort if detJ<0 
-  W_MHD3D_in=EvalEnergy(Utest,callEvalAux)
+  JacCheck=1 !abort if detJ<0 
+  W_MHD3D_in=EvalEnergy(Utest,.TRUE.,JacCheck)
   eps_glob=1.0e-8_wp*SQRT(1.0_wp+SUM(Ucopy%norm_2()))
 
   nBase = X1_Base%s%nBase 
@@ -646,8 +701,7 @@ SUBROUTINE checkEvalForce(Uin)
     eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%X1(iBase,:)**2*(X1_base%f%Xmn(1,:)**2+X1_base%f%Xmn(2,:)**2)))
     DO iMode=1,modes
       Utest%X1(iBase,iMode)= Ucopy%X1(iBase,iMode)+eps
-      callEvalAux=1 !abort if detJ<0 
-      Utest%W_MHD3D        = EvalEnergy(Utest,callEvalAux)
+      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
       Utest%X1(iBase,iMode)= Ucopy%X1(iBase,iMode)
 
       Ftest%X1(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
@@ -661,8 +715,7 @@ SUBROUTINE checkEvalForce(Uin)
     eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%X2(iBase,:)**2*(X2_base%f%Xmn(1,:)**2+X2_base%f%Xmn(2,:)**2)))
     DO iMode=1,modes
       Utest%X2(iBase,iMode)= Ucopy%X2(iBase,iMode)+eps
-      callEvalAux=1 !abort if detJ<0 
-      Utest%W_MHD3D        = EvalEnergy(Utest,callEvalAux)
+      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
       Utest%X2(iBase,iMode)= Ucopy%X2(iBase,iMode)
 
       Ftest%X2(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
@@ -676,8 +729,7 @@ SUBROUTINE checkEvalForce(Uin)
     eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%LA(iBase,:)**2*(LA_base%f%Xmn(1,:)**2+LA_base%f%Xmn(2,:)**2)))
     DO iMode=1,modes
       Utest%LA(iBase,iMode)= Ucopy%LA(iBase,iMode)+eps
-      callEvalAux=1 !abort if detJ<0 
-      Utest%W_MHD3D        = EvalEnergy(Utest,callEvalAux)
+      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
       Utest%LA(iBase,iMode)= Ucopy%LA(iBase,iMode)
 
       Ftest%LA(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
@@ -686,8 +738,7 @@ SUBROUTINE checkEvalForce(Uin)
 
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
 
-  callEvalAux=1 !abort if detJ<0 
-  CALL EvalForce(Ucopy,callEvalAux,Feval)
+  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval)
 
   IF(testlevel.GE.2)THEN
   WRITE(*,*)'-----------------------'

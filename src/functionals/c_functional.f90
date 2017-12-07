@@ -30,6 +30,7 @@ PUBLIC
 TYPE, ABSTRACT :: c_functional
   CONTAINS
     PROCEDURE(i_sub_functional     ),DEFERRED :: init
+    PROCEDURE(i_sub_functional_min ),DEFERRED :: minimize
     PROCEDURE(i_sub_functional     ),DEFERRED :: free
 
 END TYPE c_functional
@@ -39,6 +40,12 @@ ABSTRACT INTERFACE
     IMPORT c_functional
     CLASS(c_functional), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_functional
+
+  SUBROUTINE i_sub_functional_min( sf,Tol_in)
+    IMPORT wp,c_functional
+    CLASS(c_functional), INTENT(INOUT) :: sf
+    REAL(wp)           , INTENT(IN   ) :: Tol_in
+  END SUBROUTINE i_sub_functional_min
 
 END INTERFACE
  
