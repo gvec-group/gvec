@@ -368,22 +368,22 @@ IMPLICIT NONE
        CALL sf%bspl % eval_basis(sf%s_GP(j),sf%base_GP(0,0:deg,iElem),imin)
       DO iGP=1,degGP
          CALL sf%bspl % eval_basis(sf%s_GP(j+iGP),sf%base_GP(iGP,0:deg,iElem),jmin)
-         IF(jmin.NE.imin) STOP'problem, GP are not in one element!'
+         IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
       END DO !iGP=0,degGP
       CALL sf%bspl % eval_deriv(sf%s_GP(j),sf%base_ds_GP(0,0:deg,iElem),imin)
       DO iGP=1,degGP
          CALL sf%bspl % eval_deriv(sf%s_GP(j+iGP),sf%base_ds_GP(iGP,0:deg,iElem),jmin)
-         IF(jmin.NE.imin) STOP'problem, GP are not in one element!'
+         IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
       END DO !iGP=0,degGP
       sf%base_offset(iElem)=imin
     END DO !iElem=1,nElems
     !eval all basis derivatives at boundaries  
     CALL sf%bspl % eval_basis_and_n_derivs(grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
-    IF(imin.NE.1) STOP'problem eval_deriv left'
+    IF(imin.NE.1) STOP 'problem eval_deriv left'
     sf%base_dsAxis(0:deg,1:deg+1) =locbasis(:,:) ! basis functions 1 ...deg+1
 
     CALL sf%bspl % eval_basis_and_n_derivs(grid%sp(nElems),deg,locbasis,imin)
-    IF(imin.NE.nBase-deg) STOP'problem eval_deriv right'
+    IF(imin.NE.nBase-deg) STOP 'problem eval_deriv right'
     sf%base_dsEdge(0:deg,nBase-deg:nBase)=locbasis(:,:) ! basis functions nBase-deg ... nbase
 
     !interpolation

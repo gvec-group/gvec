@@ -64,8 +64,8 @@ REAL(wp)                              :: Amat(1:LA_base%f%modes,1:LA_base%f%mode
 REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
 !===================================================================================================================================
   mn_IP = X1_base%f%mn_IP
-  IF(X2_base%f%mn_IP.NE.mn_IP) STOP'X2 mn_IP /= X1 mn_IP'
-  IF(LA_base%f%mn_IP.NE.mn_IP) STOP'LA mn_IP /= X1 mn_IP'
+  IF(X2_base%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
+  IF(LA_base%f%mn_IP.NE.mn_IP) STOP 'LA mn_IP /= X1 mn_IP'
   zeta_IP  = X1_base%f%x_IP(2,:) 
 
   DO iMode=1,X1_base%f%modes

@@ -293,7 +293,7 @@ IMPLICIT NONE
     END DO; END DO !m,n
   END IF !cos_range>0
 
-  IF(iMode.NE.modes) STOP' Problem in Xmn '
+  IF(iMode.NE.modes) STOP ' Problem in Xmn '
 
   DO iMode=1,modes
     IF((sf%Xmn(1,iMode).EQ.0))THEN
