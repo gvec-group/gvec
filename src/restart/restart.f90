@@ -157,7 +157,7 @@ SUBROUTINE ReadStateFromCSV()!Uin,fileString)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MOD_Output_Vars
-USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base
+USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,U
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -175,6 +175,7 @@ IMPLICIT NONE
   INTEGER              :: LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
   INTEGER,ALLOCATABLE  :: X1_mn_r(:,:),X2_mn_r(:,:),LA_mn_r(:,:)
   REAL(wp),ALLOCATABLE :: sp_r(:),X1_r(:,:),X2_r(:,:),LA_r(:,:)
+  LOGICAL              :: sameGrid,sameX1,sameX2,sameLA
 !===================================================================================================================================
   WRITE(FileString,'(A,A,I8.8,A)')TRIM(ProjectName),'_State_',99999999,'.csv'
 
@@ -192,6 +193,7 @@ IMPLICIT NONE
   READ(ioUnit,*) !## grid: nElems
   READ(ioUnit,'(I8)') nElems_r
   ALLOCATE(sp_r(0:nElems_r))
+
   READ(ioUnit,*) !## grid: sp(0:nElems)
   READ(ioUnit,*)sp_r(:)
   READ(ioUnit,*) !## X1_base: 
@@ -220,6 +222,55 @@ IMPLICIT NONE
   END DO
 
   CLOSE(ioUnit)
+  ! check if input has changed:
+  ASSOCIATE(sgrid=>X1_base%s%grid)
+  sameGrid=(nElems_r.EQ.sgrid%nElems)
+  IF(sameGrid) sameGrid=(SUM(ABS(sgrid%sp(:)-sp_r(:))).LT.(1.0e-12_wp*nElems_r))
+  END ASSOCIATE
+  IF(.NOT.sameGrid)THEN
+    sameX1=.FALSE.
+    sameX2=.FALSE.
+    sameLA=.FALSE.
+  ELSE
+    sameX1=( (X1_nBase_r       .EQ.          X1_base%s%nbase     ).AND. &
+             (X1_deg_r         .EQ.          X1_base%s%deg       ).AND. &
+             (X1_cont_r        .EQ.          X1_base%s%continuity).AND. &
+             (X1_modes_r       .EQ.          X1_base%f%modes     ).AND. &
+             (X1_sin_cos_r     .EQ.          X1_base%f%sin_cos   ).AND. &
+             (X1_excl_mn_zero_r.EQ.MERGE(1,0,X1_base%f%exclude_mn_zero)) ) 
+
+    sameX2=( (X2_nBase_r       .EQ.          X2_base%s%nbase     ).AND. &
+             (X2_deg_r         .EQ.          X2_base%s%deg       ).AND. &
+             (X2_cont_r        .EQ.          X2_base%s%continuity).AND. &
+             (X2_modes_r       .EQ.          X2_base%f%modes     ).AND. &
+             (X2_sin_cos_r     .EQ.          X2_base%f%sin_cos   ).AND. &
+             (X2_excl_mn_zero_r.EQ.MERGE(1,0,X2_base%f%exclude_mn_zero)) ) 
+
+    sameLA=( (LA_nBase_r       .EQ.          LA_base%s%nbase     ).AND. &
+             (LA_deg_r         .EQ.          LA_base%s%deg       ).AND. &
+             (LA_cont_r        .EQ.          LA_base%s%continuity).AND. &
+             (LA_modes_r       .EQ.          LA_base%f%modes     ).AND. &
+             (LA_sin_cos_r     .EQ.          LA_base%f%sin_cos   ).AND. &
+             (LA_excl_mn_zero_r.EQ.MERGE(1,0,LA_base%f%exclude_mn_zero)) ) 
+  END IF
+  IF(sameX1.AND.sameX2.AND.sameLA)THEN
+    U(-1)%X1(:,:)=X1_r
+    U(-1)%X2(:,:)=X2_r
+    U(-1)%LA(:,:)=LA_r
+  ELSE
+    WRITE(*,*)sameGrid,sameX1,sameX2,sameLA
+    STOP 'restart from other configuration not yet implemented'
+  END IF 
+  
+
+  DEALLOCATE(sp_r)
+  DEALLOCATE(X1_r)
+  DEALLOCATE(X2_r)
+  DEALLOCATE(LA_r)
+  DEALLOCATE(X1_mn_r)
+  DEALLOCATE(X2_mn_r)
+  DEALLOCATE(LA_mn_r)
+
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
 END SUBROUTINE ReadStateFromCSV 
 
