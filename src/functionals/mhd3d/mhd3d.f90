@@ -505,6 +505,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
 !    CALL P(1)%AXBY(1.0_wp,U(0),dt,P(0)) !overwrites P(1)
 
+!simple gradient
     CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
 
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
@@ -532,10 +533,6 @@ SUBROUTINE MinimizeMHD3D(sf)
              '\n     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
           EXIT !DO LOOP
-!        ELSE
-!          !increase time step
-!          dt=1.2_wp*dt
-!          SWRITE(UNIT_stdOut,'(8X,A)')'...deltaW<0, accepted step and increase stepsize!'
         END IF
         iter=iter+1
         nstepDecreased=0
@@ -559,11 +556,14 @@ SUBROUTINE MinimizeMHD3D(sf)
 !        CALL F(-1)%set_to(F(0))
 !        CALL P(-1)%set_to(P(0))
         t_pseudo=t_pseudo+dt
+!simple gradient
         CALL U(-1)%set_to(U(0))
         CALL U(0)%set_to(P(1))
-        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0))
+        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
         Fnorm=SQRT(SUM(F(0)%norm_2()))
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
+
+       !increase time step
         dt=1.02*dt
       ELSE !not a valid step, decrease timestep and skip P(1)
         dt=0.5*dt
