@@ -74,6 +74,7 @@ visu3D    = GETINT('visu3D',Proposal=0)
 visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
 visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))
 
+iAnalyze=-1
 
 IF(visu1D.GT.0)THEN
   np_1d          = GETINT(     "np_1d",Proposal=5)
@@ -108,7 +109,7 @@ END SUBROUTINE InitAnalyze
 !> 
 !!
 !===================================================================================================================================
-SUBROUTINE Analyze()
+SUBROUTINE Analyze(fileID_in)
 ! MODULES
 USE MOD_Analyze_Vars
 USE MOD_mhdeq_vars, ONLY:whichInitEquilibrium
@@ -116,17 +117,25 @@ USE MOD_mhd3d_visu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+INTEGER, INTENT(IN), OPTIONAL :: fileID_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
+INTEGER            :: FileID
 !===================================================================================================================================
+iAnalyze=iAnalyze+1
+IF(PRESENT(FileID_in))THEN
+  FileID=FileID_in
+ELSE
+  FileID=iAnalyze
+END IF
 SELECT CASE(which_visu)
 CASE(0) !own input data
   IF(visu1D.NE.0)THEN
-    CALL visu_1d_modes(np_1d) 
+    CALL visu_1d_modes(np_1d,FileID) 
     !
   END IF !visu1D
   IF(visu2D.NE.0)THEN
@@ -137,10 +146,10 @@ CASE(0) !own input data
     IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
     IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
     IF(vcase(1))THEN
-      CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:))
+      IF(iAnalyze.EQ.0) CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
     END IF
     IF(vcase(2))THEN
-      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.) !only planes
+      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
     END IF 
   END IF !visu2d
   IF(visu3D.NE.0)THEN
@@ -151,7 +160,7 @@ CASE(0) !own input data
     IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
     IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
     IF(vcase(1))THEN
-      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.) !full 3D
+      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
     END IF 
   END IF !visu2d
 CASE(1)
@@ -160,7 +169,7 @@ CASE(1)
       CALL abort(__STAMP__,&
            "currently, VMEC visualization in 1d only possible if whichInitEquilibrium =1")
     END IF
-    CALL VMEC1D_visu() 
+    IF(iAnalyze.EQ.0) CALL VMEC1D_visu() 
   END IF !visu1D
 END SELECT
 

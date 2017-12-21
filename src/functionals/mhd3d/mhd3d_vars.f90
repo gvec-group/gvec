@@ -51,9 +51,14 @@ INTEGER                     :: nDOF_LA   !! total number of degrees of freedom, 
 CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
 
 !===================================================================================================================================
-! input parameters for functional
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
+! input parameters for minimization
 INTEGER              :: maxIter         !! maximum iteration count for minimization 
+INTEGER              :: outputIter      !! number of iterations after which output files are written
+INTEGER              :: logIter         !! number of iterations after which a screen log is written
+REAL(wp)             :: minimize_reltol !! relative tolerance for minimization of functional
+REAL(wp)             :: start_dt        !! starting time step, is adapted during iteration
+! input parameters for functional
 REAL(wp)             :: Phi_edge        !! toroidal flux at the last flux surface of the domain
 INTEGER              :: n_pres_coefs    !! number of polynomial coeffients for mass profile
 INTEGER              :: n_iota_coefs    !! number of polynomial coeffients for iota profile

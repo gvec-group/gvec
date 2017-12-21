@@ -23,7 +23,7 @@ USE MOD_Globals
 USE MOD_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
 USE MOD_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
 USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
-USE MOD_Output     ,ONLY: InitOutput,FinalizeOutput
+USE MOD_Restart    ,ONLY: InitRestart,ReadState,FinalizeRestart
 USE MOD_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
 USE MOD_Functional
 IMPLICIT NONE
@@ -35,11 +35,12 @@ INTEGER                 :: which_functional
 CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
   nArgs=COMMAND_ARGUMENT_COUNT()
-  IF(nArgs.EQ.1)THEN
+  IF(nArgs.GE.1)THEN
     CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
   ELSE
     STOP 'parameterfile not given, usage: "./executable parameter.ini"'
   END IF
+    
   
   !header
   WRITE(Unit_stdOut,'(132("="))')
@@ -67,6 +68,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   testlevel=GETINT('testlevel',Proposal=-1)
   
   !initialization phase
+  CALL InitRestart()
   CALL InitOutput()
   CALL InitAnalyze()
   CALL InitMHDEQ()
@@ -76,17 +78,18 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL IgnoredStrings()
   
+  CALL Analyze(0)
   
-  CALL functional%minimize(Tol_in=1.0e-08_wp) 
+  CALL functional%minimize() 
 
-  !finalization phase
-  CALL Analyze()
+  CALL ReadState()
 
   CALL FinalizeFunctional(functional)
  
   CALL FinalizeMHDEQ()
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
+  CALL FinalizeRestart()
   
   ! do something
   IF(testlevel.GT.0)THEN

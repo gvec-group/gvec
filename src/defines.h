@@ -59,6 +59,7 @@
 #define M_ODD    1
 #define M_EVEN   2
 #define M_ZERO   3
+#define M_ODD_FIRST 4
 
 #define DERIV_S    1
 #define DERIV_THET 2

@@ -10,55 +10,24 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.h"
 
 !===================================================================================================================================
 !>
-!!# Module ** c_functional **
+!!# Module ** Restart Variables **
 !!
-!! contains the type that points to the routines of one chosen functional
+!!
 !!
 !===================================================================================================================================
-MODULE MOD_c_functional
+MODULE MOD_Restart_Vars
 ! MODULES
-USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MOD_Globals,ONLY:wp
 IMPLICIT NONE
-
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
-TYPE, ABSTRACT :: c_functional
-  CONTAINS
-    PROCEDURE(i_sub_functional     ),DEFERRED :: init
-    PROCEDURE(i_sub_functional_min ),DEFERRED :: minimize
-    PROCEDURE(i_sub_functional     ),DEFERRED :: free
-
-END TYPE c_functional
-
-ABSTRACT INTERFACE
-  SUBROUTINE i_sub_functional( sf)
-    IMPORT c_functional
-    CLASS(c_functional), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_functional
-
-  SUBROUTINE i_sub_functional_min( sf)
-    IMPORT wp,c_functional
-    CLASS(c_functional), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_functional_min
-
-END INTERFACE
- 
-
-TYPE,ABSTRACT,EXTENDS(c_functional) :: t_functional
-  !---------------------------------------------------------------------------------------------------------------------------------
-  !input parameters
-  INTEGER              :: which_functional         !! points to functional (1: MHD3D) 
-  !---------------------------------------------------------------------------------------------------------------------------------
-
-END TYPE t_functional
+! GLOBAL VARIABLES 
+LOGICAL             :: doRestart          !! true if second command line argument exists
+CHARACTER(LEN=255)  :: RestartFile        !! Name of Restart files (second command line argument)
 
 !===================================================================================================================================
-
-
-END MODULE MOD_c_functional
+END MODULE MOD_Restart_Vars
 

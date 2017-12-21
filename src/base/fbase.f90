@@ -306,7 +306,11 @@ IMPLICIT NONE
       IF(MOD(sf%Xmn(1,iMode),2).EQ.0)THEN
         sf%zero_odd_even(iMode)=M_EVEN
       ELSE
-        sf%zero_odd_even(iMode)=M_ODD
+        IF(sf%Xmn(1,iMode).EQ.1)THEN
+          sf%zero_odd_even(iMode)=M_ODD_FIRST
+        ELSE
+          sf%zero_odd_even(iMode)=M_ODD
+        END IF
       END IF
     END IF
   END DO !iMode=1,modes
