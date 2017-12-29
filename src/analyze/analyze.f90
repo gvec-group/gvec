@@ -65,7 +65,6 @@ IMPLICIT NONE
 REAL(wp):: visu_minmax(3,0:1)
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
-which_visu= GETINT('which_visu',Proposal=0) !0: gvec, 1: vmec data   
 visu1D    = GETINT('visu1D',Proposal=0)   
 visu2D    = GETINT('visu2D',Proposal=0)   
 visu3D    = GETINT('visu3D',Proposal=0)   
@@ -132,46 +131,42 @@ IF(PRESENT(FileID_in))THEN
 ELSE
   FileID=iAnalyze
 END IF
-SELECT CASE(which_visu)
-CASE(0) !own input data
-  IF(visu1D.NE.0)THEN
-    CALL visu_1d_modes(np_1d,FileID) 
-    !
-  END IF !visu1D
-  IF(visu2D.NE.0)THEN
-    vcase=.FALSE.
-    WRITE(vstr,'(I4)')visu2D
-    IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
-    IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
-    IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
-    IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
-    IF(vcase(1))THEN
-      IF(iAnalyze.EQ.0) CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
-    END IF
-    IF(vcase(2))THEN
-      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
-    END IF 
-  END IF !visu2d
-  IF(visu3D.NE.0)THEN
-    vcase=.FALSE.
-    WRITE(vstr,'(I4)')visu3D
-    IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
-    IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
-    IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
-    IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
-    IF(vcase(1))THEN
-      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
-    END IF 
-  END IF !visu2d
-CASE(1)
-  IF(visu1D.NE.0)THEN
-    IF(whichInitEquilibrium.NE.1) THEN
-      CALL abort(__STAMP__,&
-           "currently, VMEC visualization in 1d only possible if whichInitEquilibrium =1")
-    END IF
-    IF(iAnalyze.EQ.0) CALL VMEC1D_visu() 
-  END IF !visu1D
-END SELECT
+IF(iAnalyze.EQ.0) THEN
+  IF(whichInitEquilibrium.EQ.1) THEN
+    IF(visu1D.NE.0) CALL VMEC1D_visu() 
+    IF(visu2D.NE.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
+    IF(visu3D.NE.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 
+  END IF
+END IF !iAnalyze==0
+IF(visu1D.NE.0)THEN
+  CALL visu_1d_modes(np_1d,FileID) 
+  !
+END IF !visu1D
+IF(visu2D.NE.0)THEN
+  vcase=.FALSE.
+  WRITE(vstr,'(I4)')visu2D
+  IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+  IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+  IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+  IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+  IF(vcase(1))THEN
+    IF(iAnalyze.EQ.0) CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
+  END IF
+  IF(vcase(2))THEN
+    CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
+  END IF 
+END IF !visu2d
+IF(visu3D.NE.0)THEN
+  vcase=.FALSE.
+  WRITE(vstr,'(I4)')visu3D
+  IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+  IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+  IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+  IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+  IF(vcase(1))THEN
+    CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
+  END IF 
+END IF !visu2d
 
 END SUBROUTINE Analyze 
 
@@ -396,6 +391,112 @@ CHARACTER(LEN=4)   :: vstr
 
 
 END SUBROUTINE VMEC1D_visu 
+
+!===================================================================================================================================
+!> Visualize VMEC flux surface data  in planes or 3D, number of radial posisiotns fixed to nFluxVMEC+1, only R,Z,Lambda
+!!
+!===================================================================================================================================
+SUBROUTINE VMEC3D_visu(np_in,minmax,only_planes)
+! MODULES
+USE MOD_Globals,ONLY:TWOPI,UNIT_stdOut
+USE MOD_VMEC_Readin
+USE MOD_VMEC_Vars
+USE MOD_Output_Vars,ONLY:Projectname
+USE MOD_Output_vtk,     ONLY: WriteDataToVTK
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER       , INTENT(IN   ) :: np_in(3)     !! number of points in s,theta,zeta direction
+  REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1] 
+  LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER            :: i_s,i_m,i_n,iMode,nplot(3)
+  INTEGER,PARAMETER  :: nVal=4
+  REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(2),np_in(3))
+  REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(2),np_in(3))
+  REAL(wp)           :: thet(np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
+  CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
+  CHARACTER(LEN=255) :: filename
+!===================================================================================================================================
+  IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+     'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
+    RETURN
+  ELSEIF((minmax(2,1)-minmax(2,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+      'WARNING visu3D, nothing to visualize since theta-range is <=0, theta_min= ',minmax(2,0),', theta_max= ',minmax(2,1)
+    RETURN
+  ELSEIF((minmax(3,1)-minmax(3,0)).LE.1e-08)THEN
+    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+      'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
+    RETURN
+  END IF
+  VarNames(1)="lambda"
+  VarNames(2)="Phi"
+  VarNames(3)="iota"
+  VarNames(4)="pressure"
+  ASSOCIATE(n_s=>nFluxVMEC, mn_IP=>np_in(2:3) )
+  DO i_m=1,mn_IP(1)
+    thet(i_m)=TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp))
+  END DO
+  DO i_n=1,mn_IP(2)
+    zeta(i_n)=-TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+  END DO
+  DO i_s=1,n_s
+    var_visu(2,i_s,:,:)=Phi_Prof(i_s)
+    var_visu(3,i_s,:,:)=iotaf(i_s)
+    var_visu(4,i_s,:,:)=presf(i_s)
+  END DO !i_s
+  DO i_m=1,mn_IP(1)
+    DO i_n=1,mn_IP(2)
+      DO iMode=1,mn_mode
+        sinmn(iMode)=SIN(xm(iMode)*thet(i_m)-xn(iMode)*zeta(i_n))
+        cosmn(iMode)=COS(xm(iMode)*thet(i_m)-xn(iMode)*zeta(i_n))
+      END DO !iMode
+      DO i_s=1,n_s
+        R=0.0_wp
+        Z=0.0_wp
+        LA=0.0_wp
+        DO iMode=1,mn_mode
+          R =R +Rmnc(iMode,i_s)*cosmn(iMode)
+          Z =Z +Zmns(iMode,i_s)*sinmn(iMode)
+          LA=LA+Lmns(iMode,i_s)*sinmn(iMode)
+        END DO !iMode
+        IF(lasym)THEN
+          DO iMode=1,mn_mode
+            R =R +Rmns(iMode,i_s)*sinmn(iMode)
+            Z =Z +Zmnc(iMode,i_s)*cosmn(iMode)
+            LA=LA+Lmnc(iMode,i_s)*cosmn(iMode)
+          END DO !iMode
+        END IF !lasym
+        coord_visu(1,i_s,i_m,i_n) = R*COS(zeta(i_n))
+        coord_visu(2,i_s,i_m,i_n) = R*SIN(zeta(i_n))
+        coord_visu(3,i_s,i_m,i_n) = Z
+        var_visu(  1,i_s,i_m,i_n) = LA
+      END DO !i_s=1,n_s
+    END DO !i_n
+  END DO !i_m
+
+  IF(only_planes)THEN
+    nplot(1:2)=(/n_s,mn_IP(1)/)-1
+    WRITE(filename,'(A,A)')TRIM(Projectname),"_visu_planes_VMEC.vtu"
+    CALL WriteDataToVTK(2,3,nVal,nplot(1:2),mn_IP(2),VarNames, &
+                        coord_visu(:,:,:,:), &
+                          var_visu(:,:,:,:),TRIM(filename))
+  ELSE
+    !3D
+    nplot(1:3)=(/n_s,mn_IP(1),mn_IP(2)/)-1
+    WRITE(filename,'(A,A)')TRIM(Projectname),"_visu_3D_VMEC.vtu"
+    CALL WriteDataToVTK(3,3,nVal,nplot,1,VarNames, &
+                        coord_visu(:,:,:,:), &
+                          var_visu(:,:,:,:),TRIM(filename))
+  END IF
+
+  END ASSOCIATE
+END SUBROUTINE VMEC3D_visu 
 
 !===================================================================================================================================
 !> Finalize Module
