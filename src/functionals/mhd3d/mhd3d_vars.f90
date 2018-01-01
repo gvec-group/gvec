@@ -66,9 +66,8 @@ REAL(wp),ALLOCATABLE :: pres_coefs(:)   !! polynomial coefficients of the mass p
 REAL(wp),ALLOCATABLE :: iota_coefs(:)   !! polynomial coefficients of the iota profile
 !constants
 REAL(wp)             :: mu_0            !! permeability
-REAL(wp)             :: s2mu_0          !! =1/(2*mu_0)
 REAL(wp)             :: gamm            !! isentropic exponent, if gamma /= 0 pres ~ mass profile
-REAL(wp)             :: sgammM1          !! =1/(gamm-1)
+REAL(wp)             :: sgammM1         !! =1/(gamm-1)
 
 INTEGER              :: X1X2_BC(2)      !! BC axis (0) and edge (1)   for variables X1 and X2 (default(0,1))
 INTEGER              :: LA_BC(2)        !! BC axis (0) and edge (1)   for variable lambda     (default(0,0))

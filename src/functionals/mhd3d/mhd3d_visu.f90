@@ -255,27 +255,20 @@ END SUBROUTINE visu_3D
 SUBROUTINE visu_1d_modes(n_s,fileID)
 ! MODULES
 USE MOD_Analyze_Vars,  ONLY: visu1D
-USE MOD_base,          ONLY: t_base
 USE MOD_fbase,         ONLY: sin_cos_map
-USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
-USE MOD_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base,sgrid
+USE MOD_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER,INTENT(IN)  :: n_s  !! number of visualization points per element
-  INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
+  INTEGER, INTENT(IN   ) :: n_s    !! number of visualization points per element
+  INTEGER, INTENT(IN   ) :: fileID !! added to file name before the ending
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER            :: i,i_s,iElem,nvisu,max_modes
-  INTEGER            :: nVal,nValRewind,addval
-  CHARACTER(LEN=120),ALLOCATABLE :: varnames(:) 
-  REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
-  REAL(wp)          ,ALLOCATABLE :: s_visu(:)
   LOGICAL            :: vcase(4)
   CHARACTER(LEN=4)   :: vstr
-  CHARACTER(LEN=40)  :: vname
+  CHARACTER(LEN=40)  :: vname,fname
 !===================================================================================================================================
   !visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
   WRITE(vstr,'(I4)')visu1D
@@ -289,12 +282,68 @@ IMPLICIT NONE
     RETURN
   END IF
   
-  max_modes=MAXVAL((/X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/))
+  IF(vcase(1))THEN
+    WRITE(*,*)'1) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
+    vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
+    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
+    vname="X2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
+    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    CALL writeDataMN_visu(n_s,fname,vname,0,X2_base,U(0)%X2)
+    vname="LA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
+    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    CALL writeDataMN_visu(n_s,fname,vname,0,LA_base,U(0)%LA)
+  END IF
+  IF(vcase(2))THEN
+    WRITE(*,*)'2) Visualize gvec modes in 1D: dRrho,dZrho interpolated...'
+    vname="dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
+    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X1_base,U(0)%X1)
+    vname="dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
+    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X2_base,U(0)%X2)
+  END IF
+  
+  !
+  
+END SUBROUTINE visu_1d_modes
+
+
+!===================================================================================================================================
+!> Write all modes of one variable
+!!
+!===================================================================================================================================
+SUBROUTINE writeDataMN_visu(n_s,fname,vname,rderiv,base_in,xx_in)
+! MODULES
+  USE MOD_base,          ONLY: t_base
+  USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
+  USE MOD_MHD3D_Vars,    ONLY: sgrid
+  USE MOD_write_modes,   ONLY: write_modes
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER,         INTENT(IN   ) :: n_s    !! number of visualization points per element
+  INTEGER         ,INTENT(IN   ) :: rderiv !! 0: eval spl, 1: eval spl deriv
+  CHARACTER(LEN=*),INTENT(IN   ) :: fname
+  CHARACTER(LEN=*),INTENT(IN   ) :: vname
+  TYPE(t_base)    ,INTENT(IN   ) :: base_in
+  REAL(wp)        ,INTENT(INOUT) :: xx_in(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                        :: i,i_s,iElem,nvisu
+  INTEGER                        :: nVal,addval
+  INTEGER                        :: iMode,j
+  CHARACTER(LEN=120),ALLOCATABLE :: varnames(:) 
+  REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
+  REAL(wp)          ,ALLOCATABLE :: s_visu(:)
+!===================================================================================================================================
   nvisu   =sgrid%nElems*n_s
   
   addval = 5
-  ALLOCATE(varnames(   addval+2*max_modes+2))
-  ALLOCATE(values_visu(addval+2*max_modes+2,nvisu))
+  ALLOCATE(varnames(   addval+2*base_in%f%modes+2))
+  ALLOCATE(values_visu(addval+2*base_in%f%modes+2,nvisu))
   ALLOCATE(s_visu(nvisu))
   
   DO iElem=1,sgrid%nElems
@@ -302,7 +351,6 @@ IMPLICIT NONE
       s_visu(i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
     END DO
   END DO
-  
   
   nVal=1
   Varnames(   nVal)='Phi'
@@ -330,64 +378,22 @@ IMPLICIT NONE
   DO i=1,nvisu
     values_visu(  nVal,i)=Eval_pres(s_visu(i))
   END DO !i
-  
-  nValRewind=nVal
-  
-  IF(vcase(1))THEN
-    WRITE(*,*)'1) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
-    nval=nValRewind
-    vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-    CALL writeDataMN_visu("U0_"//vname,vname,0,s_visu,X1_base,U(0)%X1)
-    nval=nValRewind
-    vname="X2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-    CALL writeDataMN_visu("U0_"//vname,vname,0,s_visu,X2_base,U(0)%X2)
-    nval=nValRewind
-    vname="LA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
-    CALL writeDataMN_visu("U0_"//vname,vname,0,s_visu,LA_base,U(0)%LA)
-  END IF
-  IF(vcase(2))THEN
-    WRITE(*,*)'2) Visualize gvec modes in 1D: dRrho,dZrho interpolated...'
-    nval=nValRewind
-    vname="dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-    CALL writeDataMN_visu("U0_"//vname,vname,DERIV_S,s_visu,X1_base,U(0)%X1)
-    nval=nValRewind
-    vname="dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-    CALL writeDataMN_visu("U0_"//vname,vname,DERIV_S,s_visu,X2_base,U(0)%X2)
-  END IF
-  
-  !
+
+  DO iMode=1,base_in%f%modes
+    nVal=nVal+1
+    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    DO j=1,nvisu
+      values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
+    END DO !j
+  END DO
+
+  CALL write_modes(fname,vname,nVal,base_in%f%modes,base_in%f%Xmn(1,:), &
+                   base_in%f%Xmn(2,:),s_visu,sgrid%sp(1),values_visu(:,:),VarNames) 
+
   DEALLOCATE(varnames)
   DEALLOCATE(values_visu)
   DEALLOCATE(s_visu)
-  
-  CONTAINS
-
-  SUBROUTINE writeDataMN_visu(fname,vname,rderiv,coord,base_in,xx_in)
-    USE MOD_write_modes, ONLY: write_modes
-    INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
-    CHARACTER(LEN=*),INTENT(IN):: fname
-    CHARACTER(LEN=*),INTENT(IN):: vname
-    REAL(wp),INTENT(INOUT)     :: xx_in(:,:)
-    TYPE(t_base),INTENT(IN)    :: base_in
-    REAL(wp),INTENT(IN)        :: coord(nvisu)
-    !local
-    INTEGER                    :: iMode,j
-
-    DO iMode=1,base_in%f%modes
-      nVal=nVal+1
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
-      DO j=1,nvisu
-        values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
-      END DO !j
-    END DO
-
-    CALL write_modes(fname,vname,nVal,base_in%f%modes,base_in%f%Xmn(1,:), &
-                              base_in%f%Xmn(2,:),coord,sgrid%sp(1),values_visu(:,:),VarNames) 
-
-  END SUBROUTINE writeDataMN_visu
-
-END SUBROUTINE visu_1d_modes
-
+END SUBROUTINE writeDataMN_visu
 
 END MODULE MOD_MHD3D_visu
 

@@ -268,7 +268,7 @@ END FUNCTION CalcMinDT
 !===================================================================================================================================
 FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 ! MODULES
-  USE MOD_MHD3D_Vars, ONLY: s2mu_0,sgammM1
+  USE MOD_MHD3D_Vars, ONLY: mu_0,sgammM1
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -308,8 +308,8 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
     Vprime_GP(iGP) = SUM(detJ(:,iGP))
   END DO !iGP
 
-  W_MHD3D= dthet_dzeta* (  s2mu_0 *SUM(PhiPrime_GP(:)**2*Wmag_GP(:)*w_GP(:)) &
-                         + sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
+  W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(PhiPrime_GP(:)**2*Wmag_GP(:)*w_GP(:)) &
+                         + mu_0*sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
   
 !  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
 END FUNCTION EvalEnergy
@@ -319,9 +319,9 @@ END FUNCTION EvalEnergy
 !! NOTE: set callEvalaux TRUE if not called before for the same Uin !!
 !!
 !===================================================================================================================================
-SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
+SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
-  USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,s2mu_0
+  USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,mu_0
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -330,6 +330,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
   LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin 
   INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0. 
                                                     !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
+  LOGICAL, OPTIONAL     , INTENT(IN)    :: noBC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin 
@@ -341,12 +342,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
   REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp)  :: Y1tilde(3),Y1,Y1_s,Y1_thet,Y1_zeta
   REAL(wp)  :: Y2tilde(3),Y2,Y2_s,Y2_thet,Y2_zeta
-  REAL(wp)  :: bt_sJ,bz_sJ,PhiP2_s2mu_0
+  REAL(wp)  :: bt_sJ,bz_sJ,PhiP2_s2
   REAL(wp)  :: F_GP(1:nGP),F_s_GP(1:nGP)
   REAL(wp)  :: Fe_X1(0:X1_base%s%deg,0:degGP)    
   REAL(wp)  :: Fe_X2(0:X2_base%s%deg,0:degGP)    
   REAL(wp)  :: Fe_LA(0:LA_base%s%deg,0:degGP)    
-  REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/(2mu_0)*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2mu_0 *detJ^2)
+  REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ &  != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
                                        ,hmap_g_t1,hmap_g_z1,hmap_Jh_dq1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1 &
                                        ,hmap_g_t2,hmap_g_z2,hmap_Jh_dq2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2
@@ -362,7 +363,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
 
   !additional auxiliary variables for X1 and X2 force
   DO iGP=1,nGP
-    PhiP2_s2mu_0=s2mu_0*PhiPrime_GP(iGP)**2
+    PhiP2_s2=0.5_wp*PhiPrime_GP(iGP)**2
     DO i_mn=1,mn_IP
       bt_sJ           =  b_thet( i_mn,iGP)/detJ(i_mn,iGP)
       bz_sJ           =  b_zeta( i_mn,iGP)/detJ(i_mn,iGP)
@@ -372,10 +373,10 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
       btz_sJ(i_mn,iGP)=  bz_sJ*b_thet(i_mn,iGP)
       bzz_sJ(i_mn,iGP)=  bz_sJ*b_zeta(i_mn,iGP)
     END DO !i_mn
-    dW(    :,iGP)= PhiP2_s2mu_0*dW(    :,iGP) +pres_GP(iGP) !=1/(sm*mu_0)*B^2+p
-    btz_sJ(:,iGP)= PhiP2_s2mu_0*bzz_sJ(:,iGP)
-    btt_sJ(:,iGP)= PhiP2_s2mu_0*btt_sJ(:,iGP)
-    bzz_sJ(:,iGP)= PhiP2_s2mu_0*bzz_sJ(:,iGP)
+    dW(    :,iGP)= PhiP2_s2*dW(    :,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
+    btz_sJ(:,iGP)= PhiP2_s2*bzz_sJ(:,iGP)
+    btt_sJ(:,iGP)= PhiP2_s2*btt_sJ(:,iGP)
+    bzz_sJ(:,iGP)= PhiP2_s2*bzz_sJ(:,iGP)
   END DO !iGP
   Y1tilde=(/1.0_wp,0.0_wp,0.0_wp/)
   Y2tilde=(/0.0_wp,1.0_wp,0.0_wp/)
@@ -528,18 +529,18 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
       iGP=iGP+(degGP+1)
     END DO !iElem
   END DO !iMode
-  F_LA(:,:)=F_LA(:,:)*(2.0_wp*s2mu_0*dthet_dzeta) !scale with constants
+  F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) !*2 / 2 scale with constants
   END ASSOCIATE !F_LA
 
-! TODO
-!  CALL ApplyBoundaryConditions(F_MHD3D)
-!  F_MHD3D%X1(X1_base%s%nBase,:)=0.0_wp
-!  F_MHD3D%X2(X2_base%s%nBase,:)=0.0_wp
-!  F_MHD3D%LA(1,:)    =0.0_wp
+
+  IF(PRESENT(noBC))THEN
+    IF(noBC)THEN
+      RETURN !DEBUG
+    END IF
+  END IF
 
   !apply strong boundary conditions
-  BC_val =(/      0.0_wp,      0.0/)
-!  BC_type(1)=BC_TYPE_OPEN
+!  BC_val =(/      0.0_wp,      0.0_wp/)
   BC_type(2)=BC_TYPE_DIRICHLET
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
@@ -558,7 +559,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
 !      BC_type(1)=BC_TYPE_SYMMZERO
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X1(:,iMode) zero odd even
-    CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
+!    CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
+    CALL X1_base%s%applyBCtoRHS(F_MHD3D%X1(:,iMode),BC_type)
   END DO 
   END ASSOCIATE !X1
 
@@ -579,7 +581,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D)
 !      BC_type(1)=BC_TYPE_SYMMZERO
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X1(:,iMode) zero odd even
-    CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
+!    CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
+    CALL X2_base%s%applyBCtoRHS(F_MHD3D%X2(:,iMode),BC_type)
   END DO 
   END ASSOCIATE !X2
 
@@ -706,15 +709,17 @@ END SUBROUTINE EvalForce
 !> check force with finite difference 
 !!
 !===================================================================================================================================
-SUBROUTINE checkEvalForce(Uin)
+SUBROUTINE checkEvalForce(Uin,fileID)
 ! MODULES
   USE MOD_Globals       , ONLY: testlevel
   USE MOD_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base
+  USE MOD_MHD3D_visu    , ONLY: WriteDataMN_visu
   USE MOD_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin   !! input solution 
+  INTEGER               , INTENT(IN   ) :: FileID
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                               :: iBase,nBase,iMode,modes,JacCheck
@@ -723,6 +728,7 @@ SUBROUTINE checkEvalForce(Uin)
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Utest
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Ftest 
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Feval 
+  CHARACTER(LEN=60)                     :: fname
 !===================================================================================================================================
   IF(testLevel.LT.1) RETURN
   ALLOCATE(t_sol_var_MHD3D :: Utest)
@@ -787,9 +793,24 @@ SUBROUTINE checkEvalForce(Uin)
 
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
 
-  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval)
-
+  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
+  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
   IF(testlevel.GE.2)THEN
+    WRITE(fname,'(A,I8.8)')'checkForce_test_X1_cos_',fileID
+    CALL writeDataMN_visu(6,fname,'X1_cos_',0,X1_base,Ftest%X1)
+    WRITE(fname,'(A,I8.8)')'checkForce_test_X2_sin_',fileID
+    CALL writeDataMN_visu(6,fname,'X2_sin_',0,X2_base,Ftest%X2)
+    WRITE(fname,'(A,I8.8)')'checkForce_test_LA_sin_',fileID
+    CALL writeDataMN_visu(6,fname,'LA_sin_',0,LA_base,Ftest%LA)
+    WRITE(fname,'(A,I8.8)')'checkForce_eval_X1_cos_',fileID
+    CALL writeDataMN_visu(6,fname,'X1_cos_',0,X1_base,Feval%X1)
+    WRITE(fname,'(A,I8.8)')'checkForce_eval_X2_sin_',fileID
+    CALL writeDataMN_visu(6,fname,'X2_sin_',0,X2_base,Feval%X2)
+    WRITE(fname,'(A,I8.8)')'checkForce_eval_LA_sin_',fileID
+    CALL writeDataMN_visu(6,fname,'LA_sin_',0,LA_base,Feval%LA)
+  END IF
+
+  IF(testlevel.GE.3)THEN
   WRITE(*,*)'-----------------------'
   modes = X1_Base%f%modes
   DO iMode=1,modes

@@ -98,7 +98,6 @@ SUBROUTINE InitMHD3D(sf)
   !constants
   
   mu_0    = 4.0e-07_wp*PI
-  s2mu_0  = 0.5_wp/mu_0
   
   which_init = whichInitEquilibrium ! GETINT("which_init","0")
   
@@ -250,7 +249,7 @@ SUBROUTINE InitMHD3D(sf)
   JacCheck=1
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
   CALL EvalForce(U(0),.TRUE.,JacCheck, F(0))
-  CALL CheckEvalForce(U(0))
+  CALL CheckEvalForce(U(0),0)
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -582,6 +581,7 @@ SUBROUTINE MinimizeMHD3D(sf)
       SWRITE(UNIT_stdOut,'(A)')'#######################  VISUALIZATION ##############################'
       CALL Analyze(iter)
       CALL WriteState(U(0),iter)
+      CALL CheckEvalForce(U(0),iter)
     END IF
   END DO !iter
   IF(iter.GE.MaxIter)THEN

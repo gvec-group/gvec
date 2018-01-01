@@ -4,6 +4,7 @@ ctags.txt
 *.vsz
 *.vtu
 *.csv
+*.dat
 *.mod
 *.o
 *~

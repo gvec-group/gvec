@@ -30,11 +30,11 @@ INTERFACE InitRestart
 END INTERFACE
 
 INTERFACE WriteState
-  MODULE PROCEDURE WriteStateToCSV
+  MODULE PROCEDURE WriteStateToASCII
 END INTERFACE
 
 INTERFACE ReadState
-  MODULE PROCEDURE ReadStateFromCSV
+  MODULE PROCEDURE ReadStateFromASCII
 END INTERFACE
 
 INTERFACE FinalizeRestart
@@ -83,10 +83,10 @@ END SUBROUTINE InitRestart
 
 
 !===================================================================================================================================
-!> write an input solution (X1,X2,LA) to an ascii csv file 
+!> write an input solution (X1,X2,LA) to an ascii .dat file 
 !!
 !===================================================================================================================================
-SUBROUTINE WriteStateToCSV(Uin,fileID)
+SUBROUTINE WriteStateToASCII(Uin,fileID)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MOD_Output_Vars, ONLY:ProjectName
@@ -104,7 +104,7 @@ IMPLICIT NONE
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: ioUnit,iMode
 !===================================================================================================================================
-  WRITE(FileString,'(A,A,I8.8,A)')TRIM(ProjectName),'_State_',fileID,'.csv'
+  WRITE(FileString,'(A,A,I8.8,A)')TRIM(ProjectName),'_State_',fileID,'.dat'
 
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE SOLUTION VARIABLE TO FILE    "'//TRIM(FileString)//'" ...'
 
@@ -144,16 +144,16 @@ IMPLICIT NONE
   
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
-END SUBROUTINE WriteStateToCSV 
+END SUBROUTINE WriteStateToASCII 
 
 
 !===================================================================================================================================
-!> read an input solution and initialize Uin (X1,X2,LA) of size X1/X2/LA_base , from an ascii csv file 
+!> read an input solution and initialize Uin (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file 
 !! if size of grid/X1/X2/LA  not equal X1/X2/X3_base
 !! interpolate readin solution to the current base of Uin
 !!
 !===================================================================================================================================
-SUBROUTINE ReadStateFromCSV()!Uin,fileString)
+SUBROUTINE ReadStateFromASCII()!Uin,fileString)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MOD_Output_Vars
@@ -177,7 +177,7 @@ IMPLICIT NONE
   REAL(wp),ALLOCATABLE :: sp_r(:),X1_r(:,:),X2_r(:,:),LA_r(:,:)
   LOGICAL              :: sameGrid,sameX1,sameX2,sameLA
 !===================================================================================================================================
-  WRITE(FileString,'(A,A,I8.8,A)')TRIM(ProjectName),'_State_',99999999,'.csv'
+  WRITE(FileString,'(A,A,I8.8,A)')TRIM(ProjectName),'_State_',99999999,'.dat'
 
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   READ SOLUTION VARIABLE FROM FILE    "'//TRIM(FileString)//'" ...'
 
@@ -272,7 +272,7 @@ IMPLICIT NONE
   DEALLOCATE(LA_mn_r)
 
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
-END SUBROUTINE ReadStateFromCSV 
+END SUBROUTINE ReadStateFromASCII 
 
 !===================================================================================================================================
 !> Finalize Module

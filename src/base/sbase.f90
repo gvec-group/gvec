@@ -324,40 +324,56 @@ IMPLICIT NONE
 
   SELECT TYPE(sf)
   TYPE IS(t_sbase_disc)   
-    ALLOCATE(VdmGP( 0:degGP,0:deg))
-    !  use chebychev-lobatto points for interpolation (closed form!), interval [-1,1] 
-    DO i=0,deg
-      sf%xiIP(i)=-COS(REAL(i,wp)/REAL(deg,wp)*PI)
-    END DO
-    CALL BarycentricWeights(deg,sf%xiIP,sf%wBaryIP)
-    CALL InitializeVandermonde(deg,degGP,sf%wBaryIP,sf%xiIP,sf%xi_GP,VdmGP)
-    CALL MthPolynomialDerivativeMatrix(deg,sf%xiIP,1,sf%DmatIP)
-    ! eval basis and  basis derivative  
-    DO iElem=1,nElems
-      sf%base_offset(iElem)=1+(deg+1)*(iElem-1)
-      sf%base_GP   (0:degGP,0:deg,iElem)=VdmGP(:,:)
-      sf%base_ds_GP(0:degGP,0:deg,iElem)=MATMUL(VdmGP,sf%DmatIP)*(2.0_wp/grid%ds(iElem))
-    END DO !iElem 
-    !zero deriv: evaluation of basis functions (lagrange property!)
-    sf%base_dsAxis(0,1      )=1.0_wp
-    sf%base_dsAxis(0,2:deg+1)=0.0_wp
-    sf%base_dsEdge(0,nBase-deg:nBase-1)=0.0_wp
-    sf%base_dsEdge(0,          nBase  )=1.0_wp
-    ! eval basis deriv at boundaries d/ds = d/dxi dxi/ds = 1/(0.5ds) d/dxi  
-    sf%base_dsAxis(1,1:deg+1        )=sf%DmatIP(  0,:)*(2.0_wp/grid%ds(1))
-    sf%base_dsEdge(1,nBase-deg:nBase)=sf%DmatIP(deg,:)*(2.0_wp/grid%ds(nElems))
-    !  higher derivatives 
-    DO i=2,deg
-      sf%base_dsAxis(i,1:deg+1        )=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsAxis(i-1,:))*(2.0_wp/grid%ds(1))
-      sf%base_dsEdge(i,nBase-deg:nBase)=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsEdge(i-1,:))*(2.0_wp/grid%ds(nElems))
-    END DO
+    IF(deg.EQ.0)THEN
+      sf%xiIP(0)=0.0_wp
+      CALL BarycentricWeights(deg,sf%xiIP,sf%wBaryIP)
+      sf%DmatIP=0.0_wp
+      DO iElem=1,nElems
+        sf%base_offset(iElem)=1+(deg+1)*(iElem-1)
+        sf%base_GP   (0:degGP,0,iElem)=1.0_wp
+        sf%base_ds_GP(0:degGP,0,iElem)=0.0_wp
+      END DO !iElem 
+      !zero deriv: evaluation of basis functions (lagrange property!)
+      sf%base_dsAxis(0,1      )=1.0_wp
+      sf%base_dsEdge(0,nBase  )=1.0_wp
+    ELSE
+      ALLOCATE(VdmGP( 0:degGP,0:deg))
+      !  use chebychev-lobatto points for interpolation (closed form!), interval [-1,1] 
+      DO i=0,deg
+        sf%xiIP(i)=-COS(REAL(i,wp)/REAL(deg,wp)*PI)
+      END DO
+      CALL BarycentricWeights(deg,sf%xiIP,sf%wBaryIP)
+      CALL InitializeVandermonde(deg,degGP,sf%wBaryIP,sf%xiIP,sf%xi_GP,VdmGP)
+      CALL MthPolynomialDerivativeMatrix(deg,sf%xiIP,1,sf%DmatIP)
+      ! eval basis and  basis derivative  
+      DO iElem=1,nElems
+        sf%base_offset(iElem)=1+(deg+1)*(iElem-1)
+        sf%base_GP   (0:degGP,0:deg,iElem)=VdmGP(:,:)
+        sf%base_ds_GP(0:degGP,0:deg,iElem)=MATMUL(VdmGP,sf%DmatIP)*(2.0_wp/grid%ds(iElem))
+      END DO !iElem 
+      !zero deriv: evaluation of basis functions (lagrange property!)
+      sf%base_dsAxis(0,1      )=1.0_wp
+      sf%base_dsAxis(0,2:deg+1)=0.0_wp
+      sf%base_dsEdge(0,nBase-deg:nBase-1)=0.0_wp
+      sf%base_dsEdge(0,          nBase  )=1.0_wp
+      ! eval basis deriv at boundaries d/ds = d/dxi dxi/ds = 1/(0.5ds) d/dxi  
+      sf%base_dsAxis(1,1:deg+1        )=sf%DmatIP(  0,:)*(2.0_wp/grid%ds(1))
+      sf%base_dsEdge(1,nBase-deg:nBase)=sf%DmatIP(deg,:)*(2.0_wp/grid%ds(nElems))
+      !  higher derivatives 
+      DO i=2,deg
+        sf%base_dsAxis(i,1:deg+1        )=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsAxis(i-1,:))*(2.0_wp/grid%ds(1))
+        sf%base_dsEdge(i,nBase-deg:nBase)=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsEdge(i-1,:))*(2.0_wp/grid%ds(nElems))
+      END DO
+      DEALLOCATE(VdmGP)
+    END IF !deg=0
     !interpolation:
     !  points are repeated at element interfaces (discontinuous)
-    ALLOCATE(sf%s_IP(sf%nBase)) !for spl, its allocated elsewhere...
+    ALLOCATE(sf%s_IP(nBase)) !for spl, its allocated elsewhere...
     DO iElem=1,nElems
       sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(sf%xiIP+1.0_wp)*grid%ds(iElem)
     END DO !iElem 
-    DEALLOCATE(VdmGP)
+    sf%s_IP(1)=0.0_wp
+    sf%s_IP(nBase)=1.0_wp
   TYPE IS(t_sbase_spl)   
     ALLOCATE(locbasis(0:deg,0:deg))
     CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
@@ -960,7 +976,7 @@ IMPLICIT NONE
                          (iElem.EQ.1) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,I6,*(E11.3)))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,I6,*(E11.3))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be 1 and (1,0,0...) : base_x(x=0)= ',iElem,base_x
@@ -974,10 +990,10 @@ IMPLICIT NONE
                          (iElem                       .EQ. nElems     )      ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E11.3)))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E11.3))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
-      '\n => should be ...,0,0,1 : base_x(x=0)= ',base_x
+      '\n => should be ...,0,0,1 : base_x(x=1)= ',base_x
     END IF !TEST
 
     iTest=106 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
@@ -1059,25 +1075,38 @@ IMPLICIT NONE
 
     iTest=203 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
-    dy =SUM(sf%base_dsAxis(1,:)*dofs(        1:deg+1))
-    dy2=SUM(sf%base_dsEdge(1,:)*dofs(nbase-deg:nBase))
     y =sf%evalDOF_s(0.0_wp,1,dofs)
     y2=sf%evalDOF_s(1.0_wp,1,dofs)
-
-    IF(testdbg.OR.(.NOT.((ABS( dy  - testf_dx(0.0_wp) ).LT.realtol/sf%grid%ds(     1) ).AND.&
-                         (ABS( dy2 - testf_dx(1.0_wp) ).LT.realtol/sf%grid%ds(nElems) ).AND.&
-                         (ABS( y   - dy               ).LT.realtol/sf%grid%ds(     1) ).AND.&
-                         (ABS( y2  - dy2              ).LT.realtol/sf%grid%ds(nElems) ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
-      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),8(A,E11.3))') &
-       '   degree = ',deg &
-      ,'   continuity = ',cont,  ', nBase= ',nBase  &
-      ,'\n => should be ',testf_dx(0.0_wp) ,' : dofs_ds(y=0)     = ' , dy  &
-      ,'\n => should be ',testf_dx(1.0_wp) ,' : dofs_ds(y=1)     = ' , dy2 &
-      ,'\n => should be ',dy                ,' : dofs_ds(y=0)     = ' , y  &
-      ,'\n => should be ',dy2               ,' : dofs_ds(y=1)     = ' , y2
-    END IF !TEST
+    IF(deg.GE.1)THEN
+      dy =SUM(sf%base_dsAxis(1,:)*dofs(        1:deg+1))
+      dy2=SUM(sf%base_dsEdge(1,:)*dofs(nbase-deg:nBase))
+      
+      IF(testdbg.OR.(.NOT.((ABS( dy  - testf_dx(0.0_wp) ).LT.realtol/sf%grid%ds(     1) ).AND.&
+                           (ABS( dy2 - testf_dx(1.0_wp) ).LT.realtol/sf%grid%ds(nElems) ).AND.&
+                           (ABS( y   - dy               ).LT.realtol/sf%grid%ds(     1) ).AND.&
+                           (ABS( y2  - dy2              ).LT.realtol/sf%grid%ds(nElems) ))))THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),8(A,E11.3))') &
+         '   degree = ',deg &
+        ,'   continuity = ',cont,  ', nBase= ',nBase  &
+        ,'\n => should be ',testf_dx(0.0_wp) ,' : dofs_ds(y=0)     = ' , dy  &
+        ,'\n => should be ',testf_dx(1.0_wp) ,' : dofs_ds(y=1)     = ' , dy2 &
+        ,'\n => should be ',dy                ,' : dofs_ds(y=0)     = ' , y  &
+        ,'\n => should be ',dy2               ,' : dofs_ds(y=1)     = ' , y2
+      END IF !TEST
+    ELSE
+      IF(testdbg.OR.(.NOT.((ABS( y   ).LT.realtol ).AND.&
+                           (ABS( y2  ).LT.realtol ))))THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+         '   degree = ',deg &
+        ,'   continuity = ',cont,  ', nBase= ',nBase  &
+        ,'\n => should be ',0.0_wp ,' : dofs_ds^2(y=0)     = ' , dy  &
+        ,'\n => should be ',0.0_wp ,' : dofs_ds^2(y=1)     = ' , dy2
+      END IF !TEST
+    END IF
 
     iTest=204 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
@@ -1490,14 +1519,24 @@ IMPLICIT NONE
     ELEMENTAL FUNCTION testf(x)
       REAL(wp),INTENT(IN) :: x
       REAL(wp)          :: testf
-      testf=(1.13_wp-0.3_wp*x)**sf%deg &
-             + MAX(0.0_wp,0.21_wp*(x-sf%grid%sp(jElem)))**sf%deg
+      IF(sf%deg.EQ.0) THEN
+        IF(x.GT.sf%grid%sp(jElem))THEN
+          testf=0.21_wp
+        ELSE
+          testf=0.05_wp
+        END IF
+      ELSE
+        testf=(1.13_wp-0.3_wp*x)**sf%deg &
+               + MAX(0.0_wp,0.21_wp*(x-sf%grid%sp(jElem)))**sf%deg
+      END IF
     END FUNCTION testf
 
     ELEMENTAL FUNCTION testf_dx(x)
       REAL(wp),INTENT(IN) :: x
       REAL(wp)          :: testf_dx
-      IF(sf%deg.EQ.1)THEN
+      IF(sf%deg.EQ.0)THEN
+        testf_dx=0.0_wp
+      ELSEIF(sf%deg.EQ.1)THEN
         IF(x.GT.sf%grid%sp(jElem))THEN
           testf_dx=-0.3_wp*REAL(sf%deg,wp)+ 0.21_wp*REAL(sf%deg,wp)
         ELSE
@@ -1512,7 +1551,7 @@ IMPLICIT NONE
     ELEMENTAL FUNCTION testf_dxdx(x)
       REAL(wp),INTENT(IN) :: x
       REAL(wp)          :: testf_dxdx
-      IF(sf%deg.EQ.1)THEN
+      IF(sf%deg.LE.1)THEN
         testf_dxdx=0.0_wp
       ELSEIF(sf%deg.EQ.2)THEN
         IF(x.GT.sf%grid%sp(jElem))THEN
@@ -1531,17 +1570,29 @@ IMPLICIT NONE
       REAL(wp),INTENT(IN) :: a,b !!a<=b
       REAL(wp)          :: testf_int
       IF(a.GT.sf%grid%sp(jElem))THEN
-        testf_int=   1.0_wp/(-0.3_wp*REAL(sf%deg+1,wp))*( (1.13_wp-0.3_wp*b)**(sf%deg+1) &
-                                                         -(1.13_wp-0.3_wp*a)**(sf%deg+1)) &
-                   + 1.0_wp/(0.21_wp*REAL(sf%deg+1,wp))*( (0.21_wp*(b-sf%grid%sp(jElem)))**(sf%deg+1) &
-                                                         -(0.21_wp*(a-sf%grid%sp(jElem)))**(sf%deg+1) )
+        IF(sf%deg.EQ.0)THEN
+          testf_int=0.21_wp*(b-a)
+        ELSE
+          testf_int=   1.0_wp/(-0.3_wp*REAL(sf%deg+1,wp))*( (1.13_wp-0.3_wp*b)**(sf%deg+1) &
+                                                           -(1.13_wp-0.3_wp*a)**(sf%deg+1)) &
+                     + 1.0_wp/(0.21_wp*REAL(sf%deg+1,wp))*( (0.21_wp*(b-sf%grid%sp(jElem)))**(sf%deg+1) &
+                                                           -(0.21_wp*(a-sf%grid%sp(jElem)))**(sf%deg+1) )
+        END IF
       ELSEIF(b.GE.sf%grid%sp(jElem))THEN
-        testf_int=   1.0_wp/(-0.3_wp*REAL(sf%deg+1,wp))*( (1.13_wp-0.3_wp*b)**(sf%deg+1) &
-                                                         -(1.13_wp-0.3_wp*a)**(sf%deg+1)) &
-                   + 1.0_wp/(0.21_wp*REAL(sf%deg+1,wp))*( (0.21_wp*(b-sf%grid%sp(jElem)))**(sf%deg+1) )
+        IF(sf%deg.EQ.0)THEN
+          testf_int=0.21_wp*(b-sf%grid%sp(jElem))+0.05_wp*(sf%grid%sp(jElem)-a)
+        ELSE
+          testf_int=   1.0_wp/(-0.3_wp*REAL(sf%deg+1,wp))*( (1.13_wp-0.3_wp*b)**(sf%deg+1) &
+                                                           -(1.13_wp-0.3_wp*a)**(sf%deg+1)) &
+                     + 1.0_wp/(0.21_wp*REAL(sf%deg+1,wp))*( (0.21_wp*(b-sf%grid%sp(jElem)))**(sf%deg+1) )
+        END IF
       ELSE
-        testf_int=   1.0_wp/(-0.3_wp*REAL(sf%deg+1,wp))*( (1.13_wp-0.3_wp*b)**(sf%deg+1) &
-                                                         -(1.13_wp-0.3_wp*a)**(sf%deg+1)) 
+        IF(sf%deg.EQ.0)THEN
+          testf_int=0.05_wp*(b-a)
+        ELSE
+          testf_int=   1.0_wp/(-0.3_wp*REAL(sf%deg+1,wp))*( (1.13_wp-0.3_wp*b)**(sf%deg+1) &
+                                                           -(1.13_wp-0.3_wp*a)**(sf%deg+1)) 
+        END IF
       END IF                                                   
     END FUNCTION testf_int
    
