@@ -86,10 +86,11 @@ module sll_m_spline_matrix_base
   end subroutine i_sub_factorize
 
   !-----------------------------------------------------------------------------
-  subroutine i_sub_solve_inplace( self, bx )
+  subroutine i_sub_solve_inplace( self, nrhs, bx )
    import sll_c_spline_matrix, wp
     class(sll_c_spline_matrix), intent(in   ) :: self
-    real(wp)                  , intent(inout) :: bx(:)
+    integer                   , intent(in   ) :: nrhs
+    real(wp),dimension(*)     , intent(inout) :: bx
   end subroutine i_sub_solve_inplace
 
   !-----------------------------------------------------------------------------

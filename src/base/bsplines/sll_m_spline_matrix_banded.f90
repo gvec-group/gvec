@@ -223,9 +223,10 @@ contains
   end subroutine s_spline_matrix_banded__factorize
 
   !-----------------------------------------------------------------------------
-  subroutine s_spline_matrix_banded__solve_inplace( self, bx )
+  subroutine s_spline_matrix_banded__solve_inplace( self, nrhs, bx )
     class(sll_t_spline_matrix_banded), intent(in   ) :: self
-    real(wp)                         , intent(inout) :: bx(:)
+    integer                          , intent(in   ) :: nrhs
+    real(wp),dimension(*)            , intent(inout) :: bx
 
     integer :: info
 
@@ -233,10 +234,10 @@ contains
          this_sub_name = "sll_t_spline_matrix_banded % solve_inplace"
     character(len=256) :: err_msg
 
-    SLL_ASSERT( size(bx)  == self%n )
+!    SLL_ASSERT( size(bx)  == self%n*nrhs )
     SLL_ASSERT( self%factorized   )
 
-    call dgbtrs( 'N', self%n, self%kl, self%ku, 1, self%q, 2*self%kl+self%ku+1, &
+    call dgbtrs( 'N', self%n, self%kl, self%ku, nrhs, self%q, 2*self%kl+self%ku+1, &
                  self%ipiv, bx, self%n, info )
 
     if ( info < 0 ) then

@@ -297,7 +297,7 @@ contains
       end if
 
       ! Solve linear system and compute coefficients
-      call self % matrix % solve_inplace( bcoef(1:nbasis) )
+      call self % matrix % solve_inplace(1, bcoef(1:nbasis) )
 
       ! Periodic only: "wrap around" coefficients onto extended array
       if (self%bc_xmin == sll_p_periodic) then

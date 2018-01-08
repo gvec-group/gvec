@@ -185,9 +185,10 @@ contains
   end subroutine s_spline_matrix_dense__factorize
 
   !-----------------------------------------------------------------------------
-  subroutine s_spline_matrix_dense__solve_inplace( self, bx )
+  subroutine s_spline_matrix_dense__solve_inplace( self, nrhs,bx )
     class(sll_t_spline_matrix_dense), intent(in   ) :: self
-    real(wp)                        , intent(inout) :: bx(:)
+    integer                         , intent(in   ) :: nrhs
+    real(wp),dimension(*)           , intent(inout) :: bx
 
     integer :: info
 
@@ -197,11 +198,11 @@ contains
 
     SLL_ASSERT( size(self%a,1) == self%n )
     SLL_ASSERT( size(self%a,2) == self%n )
-    SLL_ASSERT( size(bx)  == self%n )
+!    SLL_ASSERT( size(bx)  == self%n*nrhs )
     SLL_ASSERT( self%factorized )
 
     ! Solve linear system PLU*x=b using Lapack
-    call dgetrs( 'N', self%n, 1, self%a, self%n, self%ipiv, bx, self%n, info )
+    call dgetrs( 'N', self%n, nrhs, self%a, self%n, self%ipiv, bx, self%n, info )
 
     if ( info < 0 ) then
       write( err_msg, '(i0,a)' ) abs(info), "-th argument had an illegal value"
