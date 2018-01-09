@@ -25,6 +25,7 @@ USE MOD_Globals                  ,ONLY: wp,Unit_stdOut,abort
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_1d              ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
+USE sll_m_spline_matrix          ,ONLY: sll_c_spline_matrix
 USE MOD_sGrid ,ONLY: c_sgrid,t_sgrid
 IMPLICIT NONE
 PUBLIC
@@ -42,6 +43,7 @@ TYPE, ABSTRACT :: c_sbase
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER              :: nGP                      !! total number of gausspoints = degGP*nElems
   INTEGER              :: nbase                    !! total number of degree of freedom / global basis functions
+  CLASS(sll_c_spline_matrix),ALLOCATABLE :: mass
   CONTAINS
     PROCEDURE(i_sub_sbase_init          ),DEFERRED :: init
     PROCEDURE(i_sub_sbase_free          ),DEFERRED :: free
@@ -254,6 +256,7 @@ USE sll_m_bsplines,ONLY: sll_s_bsplines_new
 USE sll_m_spline_1d                      ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d         ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_boundary_condition_descriptors ,ONLY: sll_p_greville
+USE sll_m_spline_matrix                  ,ONLY: sll_s_spline_matrix_new
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -333,7 +336,7 @@ IMPLICIT NONE
         sf%base_GP   (0:degGP,0,iElem)=1.0_wp
         sf%base_ds_GP(0:degGP,0,iElem)=0.0_wp
       END DO !iElem 
-      !zero deriv: evaluation of basis functions (lagrange property!)
+      !zero deriv: evaluation of basis functions
       sf%base_dsAxis(0,1      )=1.0_wp
       sf%base_dsEdge(0,nBase  )=1.0_wp
     ELSE
@@ -381,15 +384,19 @@ IMPLICIT NONE
     IF(sf%bspl%nBasis.NE.nBase) STOP 'problem with bspl basis'
     DO iElem=1,nElems
       j=1+(degGP+1)*(iElem-1)
-       CALL sf%bspl % eval_basis(sf%s_GP(j),sf%base_GP(0,0:deg,iElem),imin)
+      CALL sf%bspl % eval_basis(sf%s_GP(j),sf%base_GP(0,0:deg,iElem),imin)
+      IF(imin.EQ.-1) STOP 'problem, element in eval_basis not found!'
       DO iGP=1,degGP
-         CALL sf%bspl % eval_basis(sf%s_GP(j+iGP),sf%base_GP(iGP,0:deg,iElem),jmin)
-         IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
+        CALL sf%bspl % eval_basis(sf%s_GP(j+iGP),sf%base_GP(iGP,0:deg,iElem),jmin)
+        IF(jmin.EQ.-1) STOP 'problem, element in eval_basis not found!'
+        IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
       END DO !iGP=0,degGP
       CALL sf%bspl % eval_deriv(sf%s_GP(j),sf%base_ds_GP(0,0:deg,iElem),imin)
+      IF(imin.EQ.-1) STOP 'problem, element in eval_basis not found!'
       DO iGP=1,degGP
-         CALL sf%bspl % eval_deriv(sf%s_GP(j+iGP),sf%base_ds_GP(iGP,0:deg,iElem),jmin)
-         IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
+        CALL sf%bspl % eval_deriv(sf%s_GP(j+iGP),sf%base_ds_GP(iGP,0:deg,iElem),jmin)
+        IF(jmin.EQ.-1) STOP 'problem, element in eval_basis not found!'
+        IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
       END DO !iGP=0,degGP
       sf%base_offset(iElem)=imin
     END DO !iElem=1,nElems
@@ -410,6 +417,24 @@ IMPLICIT NONE
     DEALLOCATE(locbasis)
   END SELECT !TYPE is t_sbase_disc/spl
 
+
+  !mass matrix
+  CALL sll_s_spline_matrix_new(sf%mass , "banded",nBase,deg,deg)
+  DO iElem=1,nElems
+    jmin=sf%base_offset(iElem)
+    DO i=0,deg
+      DO j=0,deg
+        ASSOCIATE(sGP_loc=>sf%s_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem), &
+                  wGP_loc=>sf%w_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)  )
+        CALL sf%mass%add_element(jmin+i,jmin+j, &
+             (SUM(wGP_loc(:)*sf%base_GP(:,i,iElem)*sf%base_GP(:,j,iElem))))
+        END ASSOCIATE
+      END DO !j=0,deg
+    END DO !i=0,deg
+  END DO !iElem=1,nElems
+  CALL sf%mass % factorize()
+
+
   !STRONG BOUNDARY CONDITIONS: A and R matrices
    
   DO iBC=1,NBC_TYPES
@@ -423,7 +448,7 @@ IMPLICIT NONE
     CASE(BC_TYPE_ANTISYMM) ; nD =1+deg/2    ;   diri=1 ;  odd_even=1 ! dirichlet=0+ derivatives (2*k  )=0  k=1,... deg/2
     END SELECT !iBC 
     !A and R are already initialized as unit matrices!!
-    IF(nD.GT.0)THEN
+    IF((nD.GT.0).AND.(deg.GT.0))THEN
       DO i=diri+1,nD
         j=2*(i-diri)-(1-odd_even) !odd_even=0 odd derivs, odd_even=1 even derivatives
         sf%A_Axis(        i,:,iBC)=sf%base_dsAxis(j,:)/sf%base_dsAxis(j,i) !normalized with diagonal entry
@@ -1055,6 +1080,7 @@ IMPLICIT NONE
       ,'\n => should be ',y2 ,' : dofs(nBase) = ' , dofs(nBase)
     END IF !TEST
     
+    !check dsAxis and dsEdge, basis evaluation
     iTest=202 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     y=SUM(sf%base_dsAxis(0,:)*dofs(1:deg+1))
     IF(cont.EQ.-1) THEN
@@ -1073,6 +1099,7 @@ IMPLICIT NONE
       ,'\n => should be ',testf(1.0_wp) ,' : dofs(y=1)     = ' , y2
     END IF !TEST
 
+    !check dsAxis and dsEdge, first derivative
     iTest=203 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     y =sf%evalDOF_s(0.0_wp,1,dofs)
@@ -1108,6 +1135,7 @@ IMPLICIT NONE
       END IF !TEST
     END IF
 
+    !check dsAxis and dsEdge, second derivative
     iTest=204 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     dy =sf%evalDOF_s(0.0_wp,2,dofs)
@@ -1142,6 +1170,7 @@ IMPLICIT NONE
       END IF !TEST
     END IF
 
+    !check eval, evalDOF_base and evalDOF_s, function evaluation
     iTest=211 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     x=sf%grid%sp(jElem)+0.9503_wp*sf%grid%ds(jElem+1) !element jElem+1
@@ -1163,6 +1192,7 @@ IMPLICIT NONE
 
     IF(nElems.GE.2)THEN
 
+      !check eval, evalDOF_base and evalDOF_s, function evaluation, in jElem
       iTest=212 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
       x=sf%grid%sp(jElem-1)+ 0.7353_wp*sf%grid%ds(jElem+1) !in element jElem
@@ -1187,6 +1217,7 @@ IMPLICIT NONE
       END IF !test
     END IF ! nElems.GE.2
 
+    !test first derivative
     iTest=213 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     x=sf%grid%sp(jElem)+0.64303_wp*sf%grid%ds(jElem+1) !in elem jElem+1
@@ -1206,6 +1237,7 @@ IMPLICIT NONE
       ,'\n => should be ',y          ,': dy2= ' , dy
     END IF !test
 
+    !test second derivative
     iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     x=sf%grid%sp(jElem)+0.17313_wp*sf%grid%ds(jElem+1) !in elem jElem+1
@@ -1225,6 +1257,7 @@ IMPLICIT NONE
       ,'\n => should be ',y          ,': dy2= ' , dy2
     END IF !test
 
+    !check evalDOF_GP
     iTest=221 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     y_GP = testf(sf%s_GP) 
@@ -1241,6 +1274,7 @@ IMPLICIT NONE
       ,'\n => should be ',MAXVAL(ABS(y_GP)) ,': MAX(|dof_GP|) = ' , MAXVAL(ABS(dof_GP))
     END IF !test
 
+    !check integration, full domain
     iTest=222 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     y  = testf_int(0.0_wp,1.0_wp)
@@ -1256,6 +1290,7 @@ IMPLICIT NONE
       ,'\n => should be ',y   ,': SUM(dof_GP*wGP) = ' , y2 
     END IF !test
 
+    !check integration, last element
     iTest=223 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     y  = testf_int(sf%grid%sp(nElems-1),1.0_wp)
@@ -1271,6 +1306,7 @@ IMPLICIT NONE
       ,'\n => should be ',y   ,': SUM(dof_GP*wGP)|_lastElem = ' , y2 
     END IF !test
 
+    !check evalDOF_GP, first derivative
     iTest=224 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     y_GP = testf_dx(sf%s_GP) 

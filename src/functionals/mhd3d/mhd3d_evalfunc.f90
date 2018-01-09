@@ -28,7 +28,7 @@ MODULE MOD_MHD3D_evalFunc
   !evaluations at radial gauss points, size(1:base%s%nGP)                                       
   REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile 
   REAL(wp),ALLOCATABLE :: iota_GP(:)      !! iota profile 
-  REAL(wp),ALLOCATABLE :: PhiPrime_GP(:)  !! s derivative of toroidal flux : Phi'(s)
+  REAL(wp),ALLOCATABLE :: PhiPrime2_GP(:)  !! s derivative of toroidal flux : |Phi'(s)|^2
   
   !evaluations at all integration points, size(1:base%f%mn_IP,1:base%s%nGP)                                       
   REAL(wp),ALLOCATABLE :: X1_IP_GP(:,:)   !! evaluation of X1
@@ -92,7 +92,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
 
   ALLOCATE(pres_GP(           nGP) )
   ALLOCATE(iota_GP(           nGP) )
-  ALLOCATE(PhiPrime_GP(       nGP) )
+  ALLOCATE(PhiPrime2_GP(      nGP) )
   ALLOCATE(J_h(         mn_IP,nGP) )
   ALLOCATE(J_p(         mn_IP,nGP) )
   ALLOCATE(detJ(        mn_IP,nGP) )
@@ -195,7 +195,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   DO iGP=1,nGP
     iota_GP(    iGP) = Eval_iota(    s_GP(iGP))
     pres_GP(    iGP) = Eval_pres(    s_GP(iGP))
-    PhiPrime_GP(iGP) = Eval_PhiPrime(s_GP(iGP))
+    PhiPrime2_GP(iGP) = (Eval_PhiPrime(s_GP(iGP)))**2
   END DO !iGP
 
   !2D data: interpolation points x gauss-points
@@ -308,7 +308,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
     Vprime_GP(iGP) = SUM(detJ(:,iGP))
   END DO !iGP
 
-  W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(PhiPrime_GP(:)**2*Wmag_GP(:)*w_GP(:)) &
+  W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(PhiPrime2_GP(:)*Wmag_GP(:)*w_GP(:)) &
                          + mu_0*sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
   
 !  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
@@ -363,7 +363,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   !additional auxiliary variables for X1 and X2 force
   DO iGP=1,nGP
-    PhiP2_s2=0.5_wp*PhiPrime_GP(iGP)**2
+    PhiP2_s2=0.5_wp*PhiPrime2_GP(iGP)
     DO i_mn=1,mn_IP
       bt_sJ           =  b_thet( i_mn,iGP)/detJ(i_mn,iGP)
       bz_sJ           =  b_zeta( i_mn,iGP)/detJ(i_mn,iGP)
@@ -519,7 +519,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                     - sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode)
                          
       END DO !i_mn=1,mn_IP
-      F_GP(iGP)=F_GP(iGP)*(PhiPrime_GP(iGP)**2*w_GP(iGP))
+      F_GP(iGP)=F_GP(iGP)*(PhiPrime2_GP(iGP)*w_GP(iGP))
     END DO !iGP=1,nGP
     iGP=1
     DO iElem=1,nElems
@@ -530,6 +530,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
   F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) !*2 / 2 scale with constants
+  CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
   END ASSOCIATE !F_LA
 
 
@@ -540,7 +541,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END IF
 
   !apply strong boundary conditions
-!  BC_val =(/      0.0_wp,      0.0_wp/)
+  BC_val =(/      0.0_wp,      0.0_wp/)
   BC_type(2)=BC_TYPE_DIRICHLET
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
@@ -550,8 +551,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       BC_type(1)=BC_TYPE_SYMM     
 !      BC_type(1)=BC_TYPE_NEUMANN
     CASE(M_ODD_FIRST)
-      BC_type(1)=BC_TYPE_ANTISYMM
-!      BC_type(1)=BC_TYPE_DIRICHLET
+!      BC_type(1)=BC_TYPE_ANTISYMM
+      BC_type(1)=BC_TYPE_DIRICHLET
     CASE(M_ODD)
 !      BC_type(1)=BC_TYPE_ANTISYMM
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
@@ -559,8 +560,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !      BC_type(1)=BC_TYPE_SYMMZERO
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X1(:,iMode) zero odd even
-!    CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
-    CALL X1_base%s%applyBCtoRHS(F_MHD3D%X1(:,iMode),BC_type)
+    CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
+!    CALL X1_base%s%applyBCtoRHS(F_MHD3D%X1(:,iMode),BC_type)
   END DO 
   END ASSOCIATE !X1
 
@@ -581,8 +582,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !      BC_type(1)=BC_TYPE_SYMMZERO
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X1(:,iMode) zero odd even
-!    CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
-    CALL X2_base%s%applyBCtoRHS(F_MHD3D%X2(:,iMode),BC_type)
+    CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
+!    CALL X2_base%s%applyBCtoRHS(F_MHD3D%X2(:,iMode),BC_type)
   END DO 
   END ASSOCIATE !X2
 
@@ -686,7 +687,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !          Fe_LA(iDeg,jGP)=0.0_wp
 !          DO i_mn=1,mn_IP
 !            Fe_LA(iDeg,jGP) = Fe_LA(iDeg,jGP) &
-!                              +(PhiPrime_GP(iGP)**2*LA_base%s%base_GP(jGP,iDeg,iElem))       &
+!                              +(PhiPrime2_GP(iGP)*LA_base%s%base_GP(jGP,iDeg,iElem))       &
 !                              *( sJ_bcov_thet(i_mn,iGP)*LA_base%f%base_dzeta_IP(i_mn,iMode)  &
 !                                -sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode))
 !                             
@@ -794,21 +795,24 @@ SUBROUTINE checkEvalForce(Uin,fileID)
 
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
 
-  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
+!  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
+  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
   IF(testlevel.GE.2)THEN
+    ASSOCIATE(np1d=>2*(X1_base%s%deg+3) )
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X1_cos_',outputLevel,fileID
-    CALL writeDataMN_visu(6,fname,'X1_cos_',0,X1_base,Ftest%X1)
+    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Ftest%X1)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X2_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(6,fname,'X2_sin_',0,X2_base,Ftest%X2)
+    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Ftest%X2)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_LA_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(6,fname,'LA_sin_',0,LA_base,Ftest%LA)
+    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Ftest%LA)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X1_cos_',outputLevel,fileID
-    CALL writeDataMN_visu(6,fname,'X1_cos_',0,X1_base,Feval%X1)
+    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Feval%X1)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X2_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(6,fname,'X2_sin_',0,X2_base,Feval%X2)
+    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Feval%X2)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_LA_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(6,fname,'LA_sin_',0,LA_base,Feval%LA)
+    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Feval%LA)
+    END ASSOCIATE !np1d
   END IF
 
   IF(testlevel.GE.3)THEN
@@ -888,7 +892,7 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(zeta_IP      )
   SDEALLOCATE(pres_GP      )
   SDEALLOCATE(iota_GP      )
-  SDEALLOCATE(PhiPrime_GP  )
+  SDEALLOCATE(PhiPrime2_GP )
   SDEALLOCATE(J_h          )
   SDEALLOCATE(J_p          )
   SDEALLOCATE(detJ         )

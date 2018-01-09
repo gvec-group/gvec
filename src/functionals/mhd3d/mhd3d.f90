@@ -469,7 +469,7 @@ SUBROUTINE MinimizeMHD3D(sf)
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER   :: i,iter,nStepDecreased
+  INTEGER   :: i,iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck
   REAL(wp)  :: beta,dt,deltaW,relTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0
@@ -479,6 +479,8 @@ SUBROUTINE MinimizeMHD3D(sf)
   max_dt_out=0.0_wp
   min_dW_out=1.0e+30_wp
   max_dW_out=-1.0e+30_wp
+  nSkip_Jac=0
+  nSkip_dW =0
   CALL WriteState(U(0),0)
 
   JacCheck=1 !abort if detJ<0
@@ -498,7 +500,7 @@ SUBROUTINE MinimizeMHD3D(sf)
   nstepDecreased=0
   t_pseudo=0
   iter=1
-  SWRITE(UNIT_stdOut,'(A,I8,A,E11.4,A)')'%%%%%%%%%%  ITERATION= ',iter,', dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
+  SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
   DO WHILE(iter.LE.maxIter)
      
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
@@ -510,10 +512,11 @@ SUBROUTINE MinimizeMHD3D(sf)
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
     P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck) 
     IF(JacCheck.EQ.-1)THEN
-      dt=0.5_wp*dt
-!      dt=0.8_wp*dt
+!      dt=0.5_wp*dt
+      dt=0.8_wp*dt
       nstepDecreased=nStepDecreased+1
-      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, skip step and decrease stepsize!'
+      nSkip_Jac=nSkip_Jac+1
+!      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, skip step and decrease stepsize!'
       !do not use P(1), redo the iteration
     ELSE 
       !detJ>0
@@ -525,11 +528,12 @@ SUBROUTINE MinimizeMHD3D(sf)
 !          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
 !                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
         IF(Fnorm.LE.reltol*Fnorm0)THEN
-          SWRITE(UNIT_stdOut,'(A,I8,A,E11.4,A,2E11.4,A,E21.14,A,E11.4,A,3E11.4,A)') &
-           '%%%%%%%%%%  ITERATION= ',iter,', t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-            '  %%%%%%%%%%%%%%%%%%%%%%%%%%%\n    W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
-             '\n     |Force|= ',SQRT(F(0)%norm_2()), &
-             '\n     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,E11.4,A,3E11.4,A)') &
+                            '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
+                    '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
+                   '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
+          '               %%%\n%%%  |Force|= ',SQRT(F(0)%norm_2()), &
+   '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
           EXIT !DO LOOP
         END IF
@@ -539,16 +543,19 @@ SUBROUTINE MinimizeMHD3D(sf)
         max_dt_out=MAX(max_dt_out,dt)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
-        IF(MOD(iter,logIter).EQ.0)THEN
-          SWRITE(UNIT_stdOut,'(A,I8,A,E11.4,A,2E11.4,A,E21.14,A,2E11.4,A,3E11.4,A)') &
-           '%%%%%%%%%%  ITERATION= ',iter,', t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-            '  %%%%%%%%%%%%%%%%%%%%%%%%%%%\n    W_MHD3D= ',U(0)%W_MHD3D,', min/max dW= ' , min_dW_out,max_dW_out , &
-             '\n     |Force|= ',SQRT(F(0)%norm_2()), &
-             '\n     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+        IF(MOD(iter,logIter).EQ.0)THEN 
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,E11.4,A,3E11.4,A)') &
+                            '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
+                    '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
+                   '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
+          '               %%%\n%%%  |Force|= ',SQRT(F(0)%norm_2()), &
+   '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           min_dt_out=1.0e+30_wp
           max_dt_out=0.0_wp
           min_dW_out=1.0e+30_wp
           max_dW_out=-1.0e+30_wp
+          nSkip_Jac=0
+          nSkip_dW =0
         END IF
 
           
@@ -565,9 +572,11 @@ SUBROUTINE MinimizeMHD3D(sf)
        !increase time step
         dt=1.02*dt
       ELSE !not a valid step, decrease timestep and skip P(1)
-        dt=0.5*dt
+!        dt=0.5*dt
+        dt=0.8*dt
         nstepDecreased=nStepDecreased+1
-        !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>0, skip step and decrease stepsize!'
+        nSkip_dW=nSkip_dW+1
+!        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>0, skip step and decrease stepsize!'
       END IF
     END IF !JacCheck
    
