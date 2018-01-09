@@ -75,16 +75,16 @@ ELSE
   vfmt='e23.15'
 END IF
 IF(append)THEN
-  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'     APPEND DATA TO CSV FILE "'//TRIM(FileString)//'.csv" ...'
+  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'     APPEND DATA TO CSV FILE "'//TRIM(FileString)//'" ...'
   OPEN(UNIT     = ioUnit       ,&
-       FILE     = TRIM(FileString)//'.csv'   ,&
+       FILE     = TRIM(FileString)   ,&
        STATUS   = 'OLD'   ,&
        POSITION = 'APPEND'   ,&
        ACCESS   = 'SEQUENTIAL' ) 
 ELSE
-  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO CSV FILE    "'//TRIM(FileString)//'.csv" ...'
+  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO CSV FILE    "'//TRIM(FileString)//'" ...'
   OPEN(UNIT     = ioUnit       ,&
-       FILE     = TRIM(FileString)//'.csv'   ,&
+       FILE     = TRIM(FileString)   ,&
        STATUS   = 'REPLACE'   ,&
        ACCESS   = 'SEQUENTIAL' ) 
 END IF

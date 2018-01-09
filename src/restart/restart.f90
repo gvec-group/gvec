@@ -89,7 +89,7 @@ END SUBROUTINE InitRestart
 SUBROUTINE WriteStateToASCII(Uin,fileID)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
-USE MOD_Output_Vars, ONLY:ProjectName
+USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel
 USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 IMPLICIT NONE
@@ -104,7 +104,7 @@ IMPLICIT NONE
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: ioUnit,iMode
 !===================================================================================================================================
-  WRITE(FileString,'(A,A,I8.8,A)')TRIM(ProjectName),'_State_',fileID,'.dat'
+  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
 
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE SOLUTION VARIABLE TO FILE    "'//TRIM(FileString)//'" ...'
 
@@ -114,8 +114,8 @@ IMPLICIT NONE
      STATUS   = 'REPLACE'   ,&
      ACCESS   = 'SEQUENTIAL' ) 
 
-  WRITE(ioUnit,'(A)')'## MHD3D Solution fileID'
-  WRITE(ioUnit,'(I8.8)')fileID
+  WRITE(ioUnit,'(A)')'## MHD3D Solution... outputLevel and fileID:'
+  WRITE(ioUnit,'(I4.4,1X,I8.8)')outputLevel,fileID
   WRITE(ioUnit,'(A)')'## grid: nElems ###########################################################################################'
   WRITE(ioUnit,'(I8)')X1_base%s%grid%nElems
   WRITE(ioUnit,'(A)')'## grid: sp(0:nElems)' 
@@ -156,7 +156,7 @@ END SUBROUTINE WriteStateToASCII
 SUBROUTINE ReadStateFromASCII()!Uin,fileString)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
-USE MOD_Output_Vars
+USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel
 USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,U
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 IMPLICIT NONE
@@ -169,7 +169,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   CHARACTER(LEN=255)  :: fileString
-  INTEGER              :: ioUnit,iMode,nElems_r,fileID_r
+  INTEGER              :: ioUnit,iMode,nElems_r,fileID_r,OutputLevel_r
   INTEGER              :: X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
   INTEGER              :: X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
   INTEGER              :: LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
@@ -177,9 +177,10 @@ IMPLICIT NONE
   REAL(wp),ALLOCATABLE :: sp_r(:),X1_r(:,:),X2_r(:,:),LA_r(:,:)
   LOGICAL              :: sameGrid,sameX1,sameX2,sameLA
 !===================================================================================================================================
-  WRITE(FileString,'(A,A,I8.8,A)')TRIM(ProjectName),'_State_',99999999,'.dat'
+  !DEBUG!
+  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
 
-  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   READ SOLUTION VARIABLE FROM FILE    "'//TRIM(FileString)//'" ...'
+  WRITE(UNIT_stdOut,'(A)')'   READ SOLUTION VARIABLE FROM FILE    "'//TRIM(FileString)//'" ...'
 
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit         ,&
@@ -189,7 +190,7 @@ IMPLICIT NONE
      ACCESS   = 'SEQUENTIAL' ) 
 
   READ(ioUnit,*) !## MHD3D Solution file
-  READ(ioUnit,'(I8)') fileID_r
+  READ(ioUnit,*) outputLevel_r,fileID_r
   READ(ioUnit,*) !## grid: nElems
   READ(ioUnit,'(I8)') nElems_r
   ALLOCATE(sp_r(0:nElems_r))
@@ -222,6 +223,11 @@ IMPLICIT NONE
   END DO
 
   CLOSE(ioUnit)
+
+  !update outputlevel
+  WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r
+  outputLevel=outputLevel_r +1
+
   ! check if input has changed:
   ASSOCIATE(sgrid=>X1_base%s%grid)
   sameGrid=(nElems_r.EQ.sgrid%nElems)

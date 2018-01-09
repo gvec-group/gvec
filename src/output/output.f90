@@ -66,6 +66,7 @@ IMPLICIT NONE
 SWRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
 ProjectName = GETSTR('ProjectName','GVEC')   
 
+OutputLevel=0
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitOutput

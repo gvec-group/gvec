@@ -88,7 +88,7 @@ IMPLICIT NONE
     END IF !n=0
   END DO
 
-  CALL WriteDataToCSV(VarNames_in(1:nVal),Values_in(1:nVal,:), (TRIM(ProjectName)//"_"//TRIM(fname)//"_modes"))
+  CALL WriteDataToCSV(VarNames_in(1:nVal),Values_in(1:nVal,:), TRIM(fname))
 
   ALLOCATE(max_loc_val(nVal),Varnames_max(nVal))
   DO i=1,nVal
@@ -96,23 +96,23 @@ IMPLICIT NONE
     Varnames_max(i)=TRIM(VarNames_in(i))//'_maxloc'
   END DO 
   CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                             ,TRIM(fname) &
                              ,append_in=.TRUE.,vfmt_in='E15.5')
   DO i=1,nVal
     max_loc_val(i)=      MAXVAL(ABS(values_in(i,:)))+1.0E-12
     Varnames_max(i)=TRIM(VarNames_in(i))//'_maxval'
   END DO 
   CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                             ,TRIM(fname) &
                              ,append_in=.TRUE.,vfmt_in='E15.5')
   DEALLOCATE(max_loc_val,Varnames_max)
   !write position of first flux surface
   CALL WriteDataToCSV((/'rhoFirst'/) ,RESHAPE((/rho_First/),(/1,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                             ,TRIM(fname) &
                              ,append_in=.TRUE.)
   !write position of first flux surface
   CALL WriteDataToCSV((/'minval_total','maxval_total'/) ,RESHAPE(minmaxval,(/2,1/)) &
-                             ,(TRIM(ProjectName)//"_"//TRIM(fname)//"_modes") &
+                             ,TRIM(fname) &
                              ,append_in=.TRUE.)
 
 END SUBROUTINE write_modes

@@ -715,6 +715,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   USE MOD_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base
   USE MOD_MHD3D_visu    , ONLY: WriteDataMN_visu
   USE MOD_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
+  USE MOD_Output_Vars   , ONLY: outputLevel
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -796,17 +797,17 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
   IF(testlevel.GE.2)THEN
-    WRITE(fname,'(A,I8.8)')'checkForce_test_X1_cos_',fileID
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X1_cos_',outputLevel,fileID
     CALL writeDataMN_visu(6,fname,'X1_cos_',0,X1_base,Ftest%X1)
-    WRITE(fname,'(A,I8.8)')'checkForce_test_X2_sin_',fileID
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X2_sin_',outputLevel,fileID
     CALL writeDataMN_visu(6,fname,'X2_sin_',0,X2_base,Ftest%X2)
-    WRITE(fname,'(A,I8.8)')'checkForce_test_LA_sin_',fileID
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_LA_sin_',outputLevel,fileID
     CALL writeDataMN_visu(6,fname,'LA_sin_',0,LA_base,Ftest%LA)
-    WRITE(fname,'(A,I8.8)')'checkForce_eval_X1_cos_',fileID
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X1_cos_',outputLevel,fileID
     CALL writeDataMN_visu(6,fname,'X1_cos_',0,X1_base,Feval%X1)
-    WRITE(fname,'(A,I8.8)')'checkForce_eval_X2_sin_',fileID
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X2_sin_',outputLevel,fileID
     CALL writeDataMN_visu(6,fname,'X2_sin_',0,X2_base,Feval%X2)
-    WRITE(fname,'(A,I8.8)')'checkForce_eval_LA_sin_',fileID
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_LA_sin_',outputLevel,fileID
     CALL writeDataMN_visu(6,fname,'LA_sin_',0,LA_base,Feval%LA)
   END IF
 

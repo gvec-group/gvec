@@ -40,7 +40,7 @@ SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
 USE MOD_Globals,    ONLY: TWOPI
 USE MOD_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,X1_b,X2_b,LA_b
 USE MOD_output_vtk, ONLY: WriteDataToVTK
-USE MOD_Output_vars,ONLY: Projectname
+USE MOD_Output_vars,ONLY: Projectname,OutputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -82,7 +82,7 @@ IMPLICIT NONE
   END DO !i_n
   VarNames(1)="lambda"
   nplot(:)=mn_IP-1
-  WRITE(filename,'(A,A,I8.8,A)')TRIM(Projectname),"_visu_BC_",fileID,".vtu"
+  WRITE(filename,'(A,"_visu_BC_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
   CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,coord_visu,var_visu,TRIM(filename))
 
 END SUBROUTINE visu_BC_face
@@ -98,7 +98,7 @@ USE MOD_Globals,        ONLY: TWOPI
 USE MOD_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
 USE MOD_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime
 USE MOD_output_vtk,     ONLY: WriteDataToVTK
-USE MOD_Output_vars,    ONLY: Projectname
+USE MOD_Output_vars,    ONLY: Projectname,OutputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -230,14 +230,14 @@ IMPLICIT NONE
   maxElem=MIN(nElems,sgrid%find_elem(minmax(1,1))+1)
   IF(only_planes)THEN
     nplot(1:2)=(/n_s,mn_IP(1)/)-1
-    WRITE(filename,'(A,A,I8.8,A)')TRIM(Projectname),"_visu_planes_",fileID,".vtu"
+    WRITE(filename,'(A,"_visu_planes_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
     CALL WriteDataToVTK(2,3,nVal,nplot(1:2),(mn_IP(2)*(maxElem-minElem+1)),VarNames, &
                         coord_visu(:,:,:,:,minElem:maxElem), &
                           var_visu(:,:,:,:,minElem:maxElem),TRIM(filename))
   ELSE
     !3D
     nplot(1:3)=(/n_s,mn_IP(1),mn_IP(2)/)-1
-    WRITE(filename,'(A,A,I8.8,A)')TRIM(Projectname),"_visu_3D_",fileID,".vtu"
+    WRITE(filename,'(A,"_visu_3D_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
     CALL WriteDataToVTK(3,3,nVal,nplot,(maxElem-minElem+1),VarNames, &
                         coord_visu(:,:,:,:,minElem:maxElem), &
                           var_visu(:,:,:,:,minElem:maxElem),TRIM(filename))
@@ -257,6 +257,7 @@ SUBROUTINE visu_1d_modes(n_s,fileID)
 USE MOD_Analyze_Vars,  ONLY: visu1D
 USE MOD_fbase,         ONLY: sin_cos_map
 USE MOD_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
+USE MOD_Output_vars,   ONLY: outputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -268,7 +269,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   LOGICAL            :: vcase(4)
   CHARACTER(LEN=4)   :: vstr
-  CHARACTER(LEN=40)  :: vname,fname
+  CHARACTER(LEN=80)  :: vname,fname
 !===================================================================================================================================
   !visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
   WRITE(vstr,'(I4)')visu1D
@@ -285,22 +286,22 @@ IMPLICIT NONE
   IF(vcase(1))THEN
     WRITE(*,*)'1) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
     vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
     vname="X2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,X2_base,U(0)%X2)
     vname="LA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
-    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,LA_base,U(0)%LA)
   END IF
   IF(vcase(2))THEN
     WRITE(*,*)'2) Visualize gvec modes in 1D: dRrho,dZrho interpolated...'
     vname="dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X1_base,U(0)%X1)
     vname="dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-    WRITE(fname,'(A,I8.8)')'U0_'//TRIM(vname)//'_',FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X2_base,U(0)%X2)
   END IF
   
@@ -313,18 +314,19 @@ END SUBROUTINE visu_1d_modes
 !> Write all modes of one variable
 !!
 !===================================================================================================================================
-SUBROUTINE writeDataMN_visu(n_s,fname,vname,rderiv,base_in,xx_in)
+SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
 ! MODULES
   USE MOD_base,          ONLY: t_base
   USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
   USE MOD_MHD3D_Vars,    ONLY: sgrid
   USE MOD_write_modes,   ONLY: write_modes
+  USE MOD_output_vars,   ONLY: Projectname
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER,         INTENT(IN   ) :: n_s    !! number of visualization points per element
   INTEGER         ,INTENT(IN   ) :: rderiv !! 0: eval spl, 1: eval spl deriv
-  CHARACTER(LEN=*),INTENT(IN   ) :: fname
+  CHARACTER(LEN=*),INTENT(IN   ) :: fname_in
   CHARACTER(LEN=*),INTENT(IN   ) :: vname
   TYPE(t_base)    ,INTENT(IN   ) :: base_in
   REAL(wp)        ,INTENT(INOUT) :: xx_in(:,:)
@@ -335,10 +337,12 @@ SUBROUTINE writeDataMN_visu(n_s,fname,vname,rderiv,base_in,xx_in)
   INTEGER                        :: i,i_s,iElem,nvisu
   INTEGER                        :: nVal,addval
   INTEGER                        :: iMode,j
+  CHARACTER(LEN=80)              :: fname
   CHARACTER(LEN=120),ALLOCATABLE :: varnames(:) 
   REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
   REAL(wp)          ,ALLOCATABLE :: s_visu(:)
 !===================================================================================================================================
+  WRITE(fname,'(A,A,".csv")')TRIM(ProjectName)//'_modes_',TRIM(fname_in)
   nvisu   =sgrid%nElems*n_s
   
   addval = 5

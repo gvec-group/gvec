@@ -25,8 +25,11 @@ IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
-CHARACTER(LEN=100)  :: ProjectName                       !! Name used for output files
+CHARACTER(LEN=100)  :: ProjectName         !! Name used for output files
+INTEGER             :: outputLevel         !! on restart +1, used as file identifier            
 
 !===================================================================================================================================
+
+
 END MODULE MOD_Output_Vars
 
