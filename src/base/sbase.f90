@@ -60,9 +60,11 @@ TYPE, ABSTRACT :: c_sbase
 END TYPE c_sbase
 
 ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sbase_init( sf ,grid_in,degGP_in)
+  SUBROUTINE i_sub_sbase_init( sf ,deg_in,continuity_in,grid_in,degGP_in)
     IMPORT wp, c_sbase,t_sgrid
     CLASS(c_sbase), INTENT(INOUT)        :: sf
+    INTEGER       , INTENT(IN   )        :: deg_in
+    INTEGER       , INTENT(IN   )        :: continuity_in
     CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in
     INTEGER       , INTENT(IN   )        :: degGP_in
   END SUBROUTINE i_sub_sbase_init
@@ -78,11 +80,12 @@ ABSTRACT INTERFACE
     CLASS(c_sbase), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sbase_copy
 
-  SUBROUTINE i_sub_sbase_compare( sf, tocompare, is_same ) 
+  SUBROUTINE i_sub_sbase_compare( sf, tocompare, is_same, cond_out ) 
     IMPORT c_sbase
-    CLASS(c_sbase), INTENT(IN   ) :: sf
-    CLASS(c_sbase), INTENT(IN   ) :: tocompare
-    LOGICAL       , INTENT(  OUT) :: is_same
+    CLASS(c_sbase)  , INTENT(IN   ) :: sf
+    CLASS(c_sbase)  , INTENT(IN   ) :: tocompare
+    LOGICAL,OPTIONAL, INTENT(  OUT) :: is_same
+    LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
   END SUBROUTINE i_sub_sbase_compare
 
   SUBROUTINE i_sub_sBase_eval( sf , x, deriv,iElem,base_x)
@@ -218,7 +221,7 @@ CONTAINS
 !! and number of gauss points per element
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_new( sf,deg_in,continuity_in,grid_in,degGP_in)
+SUBROUTINE sBase_new(sbase_in,deg_in,continuity_in,grid_in,degGP_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -231,22 +234,20 @@ IMPLICIT NONE
   INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sbase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
+  CLASS(t_sbase), ALLOCATABLE,INTENT(INOUT)        :: sbase_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(continuity_in.EQ.-1)THEN
-    ALLOCATE(t_sbase_disc :: sf)
+    ALLOCATE(t_sbase_disc :: sbase_in)
   ELSEIF(continuity_in.EQ.deg_in-1)THEN
-    ALLOCATE(t_sbase_spl :: sf)
+    ALLOCATE(t_sbase_spl :: sbase_in)
   ELSE
     CALL abort(__STAMP__,&
         " error in sbase new: continuity only full (deg-1) or discontinuous (-1) !") 
   END IF
-  sf%deg        =deg_in
-  sf%continuity =continuity_in
 
-  CALL sf%init(grid_in,degGP_in)
+  CALL sbase_in%init(deg_in,continuity_in,grid_in,degGP_in)
 
 END SUBROUTINE sbase_new
 
@@ -255,7 +256,7 @@ END SUBROUTINE sbase_new
 !! and number of gauss points per element
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_init( sf, grid_in,degGP_in)
+SUBROUTINE sBase_init( sf,deg_in,continuity_in,grid_in,degGP_in)
 ! MODULES
 USE MOD_GLobals,   ONLY: PI
 USE MOD_LinAlg ,   ONLY: INV
@@ -269,6 +270,10 @@ USE sll_m_spline_matrix                  ,ONLY: sll_s_spline_matrix_new
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
+  INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
+                                                        !! 0: disc. polynomial
+                                                        !! deg-1: spline with cont. deg-1
   CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
   INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -282,27 +287,32 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.test_called) THEN
     SWRITE(UNIT_stdOut,'(4X,A,3(A,I3),A)')'INIT sBase type:', &
-         ' degree= ',sf%deg, &
+         ' degree= ',deg_in, &
          ' gauss points per elem = ',degGP_in, &
-         ' continuity= ',sf%continuity, ' ...'
+         ' continuity= ',continuity_in, ' ...'
   END IF
   IF(sf%initialized) THEN
     CALL abort(__STAMP__, &
         "Trying to reinit sbase!") 
   END IF
-  IF(degGP_in.LT.sf%deg) &
+  IF(degGP_in.LT.deg_in) &
     CALL abort(__STAMP__, &
         "error in sbase: degGP must be > deg!") 
   SELECT TYPE(sf)
   TYPE IS(t_sbase_disc)
-    IF(sf%continuity.NE.-1) &
+    IF(continuity_in.NE.-1) &
       CALL abort(__STAMP__, &
           "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!") 
   TYPE IS(t_sbase_spl)
-    IF(sf%continuity.NE.sf%deg-1) &
+    IF(continuity_in.NE.deg_in-1) &
       CALL abort(__STAMP__, &
           "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!") 
+  CLASS DEFAULT
+      CALL abort(__STAMP__, &
+          "error in sbase init: type is neither disc or spl!") 
   END SELECT !Type
+  sf%deg        =deg_in
+  sf%continuity =continuity_in
   sf%grid       => grid_in
   sf%degGP      =  degGP_in
 
@@ -485,7 +495,7 @@ IMPLICIT NONE
     END IF
     END ASSOCIATE !nD=>nDOF_BC(iBC)
   END DO!iBC=1,NBC_TYPES
-  END ASSOCIATE !sf
+  END ASSOCIATE !sf%...
 
 
   sf%initialized=.TRUE.
@@ -643,7 +653,7 @@ IMPLICIT NONE
   END IF
   sf%deg=tocopy%deg
   sf%continuity=tocopy%continuity
-  CALL sf%init(tocopy%grid,tocopy%degGP)
+  CALL sf%init(tocopy%deg,tocopy%continuity,tocopy%grid,tocopy%degGP)
 
   END SELECT !TYPE
 END SUBROUTINE sbase_copy
@@ -653,26 +663,27 @@ END SUBROUTINE sbase_copy
 !> compare sf with input sbase
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_compare( sf , tocompare,is_same)
+SUBROUTINE sBase_compare( sf , tocompare,is_same,cond_out)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sBase), INTENT(IN   ) :: sf !! self
-  CLASS(c_sBase), INTENT(IN   ) :: tocompare
+  CLASS(t_sBase),  INTENT(IN   ) :: sf !! self
+  CLASS(c_sBase),  INTENT(IN   ) :: tocompare
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  LOGICAL       , INTENT(  OUT) :: is_same
+  LOGICAL,OPTIONAL,INTENT(  OUT) :: is_same
+  LOGICAL,OPTIONAL,INTENT(  OUT) :: cond_out(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  LOGICAL  :: cond(4)
+  LOGICAL  :: cond(5)
 !===================================================================================================================================
-  SELECT TYPE(tocompare); TYPE IS(t_sbase)
+  SELECT TYPE(tocompare); CLASS IS(t_sbase)
   IF(.NOT.tocompare%initialized) THEN
     CALL abort(__STAMP__, &
         "sBase_compare: tried to compare to non-initialized sBase!")
   END IF
- 
+      
   CALL sf%grid%compare(tocompare%grid,cond(1))
   IF(cond(1)) THEN
     !same grid, compare basis
@@ -683,9 +694,27 @@ IMPLICIT NONE
     cond(2:4)=.FALSE.
   END IF
 
-  is_same=ALL(cond)
-  IF(.NOT.is_same) WRITE(*,*)'DEBUG,sbase is not same... grid ',cond(1),', nbase ',cond(2),', deg ',cond(3),', conti ', cond(4)
-  END SELECT !TYPE
+  cond(5)=.FALSE.
+  SELECT TYPE(tocompare)
+  TYPE IS(t_sbase_disc)
+    SELECT TYPE(sf)
+    TYPE IS(t_sbase_disc)
+      cond(5)=.TRUE.
+    END SELECT
+  TYPE IS(t_sbase_spl)
+    SELECT TYPE(sf)
+    TYPE IS(t_sbase_spl)
+     cond(5)=.TRUE.
+    END SELECT
+  END SELECT !TYPE(tocompare)
+
+  IF(PRESENT(is_same)) is_same=ALL(cond)
+  !IF(.NOT.ALL(cond)) WRITE(*,*)'DEBUG, not all cond in sbase for compare', cond
+
+  IF(PRESENT(cond_out)) cond_out(1:5)=cond
+
+  END SELECT !TYPE(tocompare)
+
 END SUBROUTINE sbase_compare
 
 
@@ -1001,6 +1030,8 @@ IMPLICIT NONE
   REAL(wp)           :: dof_GP(1:sf%nGP),BC_Val(2)
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
+  CLASS(t_sbase),ALLOCATABLE :: testsbase
+  LOGICAL            :: check(5)
 !===================================================================================================================================
   test_called=.TRUE.
   IF(testlevel.LE.0) RETURN
@@ -1101,6 +1132,50 @@ IMPLICIT NONE
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be ',jElem,': iElem= ' , iElem
     END IF !TEST
+
+    !check compare
+    iTest=111 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL sbase_new(testsbase,sf%deg,sf%continuity,sf%grid, sf%degGP)
+    CALL testsbase%compare(sf,is_same=check(1))
+
+    IF(.NOT.check(1))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A))') &
+      '   degree = ',deg, &
+      '   continuity = ',cont,  ', nBase= ',nBase, &
+      '\n => should be true'
+    END IF !TEST
+
+    !check compare
+    iTest=112 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testsbase%compare(sf, cond_out=check(1:5))
+
+    IF(.NOT.ALL(check(:)))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A,5L))') &
+      '   degree = ',deg, &
+      '   continuity = ',cont,  ', nBase= ',nBase, &
+      '\n => should be all true', check(:)
+    END IF !TEST
+    CALL testsbase%free()
+    DEALLOCATE(testsbase)
+
+    !check compare
+    iTest=113 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL sbase_new(testsbase,sf%deg+1,MERGE(-1,sf%deg,(sf%continuity.EQ.-1)),sf%grid, sf%degGP)
+    CALL testsbase%compare(sf,is_same=check(1))
+
+    IF(check(1))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A))') &
+      '   degree = ',deg, &
+      '   continuity = ',cont,  ', nBase= ',nBase, &
+      '\n => should be false'
+    END IF !TEST
+
   END IF !testlevel>=1
   IF(testlevel.GE.2)THEN
     jElem=nElems/2

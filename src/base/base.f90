@@ -59,6 +59,7 @@ TYPE                 :: t_base
 
   PROCEDURE :: free       => base_free
   PROCEDURE :: copy       => base_copy
+  PROCEDURE :: compare    => base_compare
   PROCEDURE :: evalDOF    => base_evalDOF
 
 END TYPE t_base
@@ -130,7 +131,7 @@ END SUBROUTINE base_free
 
 
 !===================================================================================================================================
-!> copy the type base
+!> copy from input  type base to self
 !!
 !===================================================================================================================================
 SUBROUTINE base_copy( sf , tocopy)
@@ -138,9 +139,9 @@ SUBROUTINE base_copy( sf , tocopy)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(t_base), INTENT(IN   ) :: tocopy
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_base), INTENT(IN   ) :: tocopy
   CLASS(t_base), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -148,6 +149,29 @@ IMPLICIT NONE
 CALL sf%s%copy(tocopy%s)
 CALL sf%f%copy(tocopy%f)
 END SUBROUTINE base_copy
+
+!===================================================================================================================================
+!> compare self and input type base
+!!
+!===================================================================================================================================
+SUBROUTINE base_compare( sf , tocompare, is_same)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_base), INTENT(IN   ) :: sf !! self
+  CLASS(t_base), INTENT(IN   ) :: tocompare
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  LOGICAL      , INTENT(  OUT) :: is_same
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+LOGICAL :: same_s, same_f
+!===================================================================================================================================
+CALL sf%s%compare(tocompare%s,is_same=same_s)
+CALL sf%f%compare(tocompare%f,is_same=same_f)
+is_same=same_s.AND.same_f
+END SUBROUTINE base_compare
 
 !===================================================================================================================================
 !> evaluate all degrees of freedom at all Gauss Points (deriv=0 solution, deriv=1 first derivative d/ds)

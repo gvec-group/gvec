@@ -183,9 +183,7 @@ IMPLICIT NONE
   INTEGER,ALLOCATABLE  :: X1_mn_r(:,:),X2_mn_r(:,:),LA_mn_r(:,:)
   REAL(wp),ALLOCATABLE :: sp_r(:),X1_r(:,:),X2_r(:,:),LA_r(:,:)
   LOGICAL              :: sameGrid
-  LOGICAL              :: sameX1  ,sameX2  ,sameLA  
-  LOGICAL              :: sameX1_s,sameX2_s,sameLA_s
-  LOGICAL              :: sameX1_f,sameX2_f,sameLA_f
+  LOGICAL              :: sameX1  ,sameX2  ,sameLA, changed 
   INTEGER              :: X1_mn_max_r(2),X2_mn_max_r(2),LA_mn_max_r(2)
   CLASS(t_base),ALLOCATABLE :: X1_base_r
   CLASS(t_base),ALLOCATABLE :: X2_base_r
@@ -245,12 +243,11 @@ IMPLICIT NONE
   WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r
   outputLevel=outputLevel_r +1
 
+  ! check if input has changed:
 
   CALL sgrid_r%init(nElems_r,grid_type_r)
 
   CALL sgrid_r%compare(sgrid,sameGrid)
-
-
 
   !needed to build base of restart file
   X1_mn_max_r = (/MAXVAL(X1_mn_r(1,:)),MAXVAL(X1_mn_r(2,:))/)
@@ -266,35 +263,21 @@ IMPLICIT NONE
                 sin_cos_map(LA_sin_cos_r),(LA_excl_mn_zero_r.EQ.1))
   END ASSOCIATE
 
-  CALL X1_base_r%s%compare(X1_base%s,sameX1_s)
-  CALL X1_base_r%f%compare(X1_base%f,sameX1_f)
-  CALL X2_base_r%s%compare(X2_base%s,sameX2_s)
-  CALL X2_base_r%f%compare(X2_base%f,sameX2_f)
-  CALL LA_base_r%s%compare(LA_base%s,sameLA_s)
-  CALL LA_base_r%f%compare(LA_base%f,sameLA_f)
+  CALL X1_base_r%compare(X1_base,sameX1)
+  CALL X2_base_r%compare(X2_base,sameX2)
+  CALL LA_base_r%compare(LA_base,sameLA)
 
-  !DEBUG, U(-1)-> Uin
-  !U(-1)%X1(:,:)=X1_base%changeBase(X1_base_r,sameX1_s,sameX1_f,X1_r)
+  changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
 
-  ! check if input has changed:
-  sameGrid=(nElems_r.EQ.sgrid%nElems).AND.(grid_type_r.EQ.sgrid%grid_type)
-  IF(sameGrid) sameGrid=(SUM(ABS(sgrid%sp(:)-sp_r(:))).LT.(1.0e-12_wp*nElems_r))
-
-  sameX1_s=( (X1_nBase_r       .EQ.          X1_base%s%nbase     ).AND. &
-             (X1_deg_r         .EQ.          X1_base%s%deg       ).AND. &
-             (X1_cont_r        .EQ.          X1_base%s%continuity)      )
-  sameX1_f=( (   nfp_r         .EQ.          X1_base%f%nfp       ).AND. &
-             (X1_modes_r       .EQ.          X1_base%f%modes     ).AND. &
-             (X1_sin_cos_r     .EQ.          X1_base%f%sin_cos   ).AND. &
-             (X1_excl_mn_zero_r.EQ.MERGE(1,0,X1_base%f%exclude_mn_zero)) ) 
-  sameX1  = sameX1_s.AND.sameX1_f
-
-  IF(.NOT.( sameGrid.AND. &
-            sameX1        ))THEN
-    WRITE(*,*)sameGrid,sameX1_s,sameX1_f
+  IF(changed)THEN
+    WRITE(*,*)sameGrid,sameX1,sameX2,sameLA
     STOP 'restart from other configuration not yet implemented'
     !DEBUG, U(-1)-> Uin
-    !U(-1)%X1(:,:)=X1_base%changeBase(X1_base_r,sameX1_s,sameX1_f,X1_r)
+    IF(sameX1)THEN
+      U(-1)%X1(:,:)=X1_r
+    ELSE
+      !U(-1)%X1(:,:)=X1_base%changeBase(X1_base_r,sameX1_s,sameX1_f,X1_r)
+    END IF
   ELSE
     !DEBUG, U(-1)-> Uin
     U(-1)%X1(:,:)=X1_r

@@ -79,11 +79,12 @@ ABSTRACT INTERFACE
     CLASS(c_fBase), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_fBase_copy
 
-  SUBROUTINE i_sub_fBase_compare( sf, tocompare, is_same ) 
+  SUBROUTINE i_sub_fBase_compare( sf, tocompare, is_same, cond_out ) 
     IMPORT c_fBase
-    CLASS(c_fBase), INTENT(IN   ) :: sf
-    CLASS(c_fBase), INTENT(IN   ) :: tocompare
-    LOGICAL       , INTENT(  OUT) :: is_same
+    CLASS(c_fBase)  , INTENT(IN   ) :: sf
+    CLASS(c_fBase)  , INTENT(IN   ) :: tocompare
+    LOGICAL,OPTIONAL, INTENT(  OUT) :: is_same
+    LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
   END SUBROUTINE i_sub_fBase_compare
 
   FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
@@ -481,19 +482,20 @@ END SUBROUTINE fBase_copy
 !> compare sf with the input type fBase
 !!
 !===================================================================================================================================
-SUBROUTINE fBase_compare( sf , tocompare,is_same)
+SUBROUTINE fBase_compare( sf , tocompare,is_same, cond_out)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_fBase), INTENT(IN   ) :: sf !! self
-  CLASS(c_fBase), INTENT(IN   ) :: tocompare
+  CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
+  CLASS(c_fBase),  INTENT(IN   ) :: tocompare
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  LOGICAL       , INTENT(  OUT) :: is_same
+  LOGICAL,OPTIONAL,INTENT(  OUT) :: is_same
+  LOGICAL,OPTIONAL,INTENT(  OUT) :: cond_out(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  LOGICAL  :: cond(4)
+  LOGICAL  :: cond(5)
 !===================================================================================================================================
   SELECT TYPE(tocompare); TYPE IS(t_fBase)
   IF(.NOT.tocompare%initialized) THEN
@@ -501,13 +503,14 @@ IMPLICIT NONE
         "fBase_compare: tried to compare with non-initialized fBase!")
   END IF
 
-  cond(1)= ( sf%nfp            .EQ.  tocompare%nfp             )
-  cond(2)= ( sf%modes          .EQ.  tocompare%modes           )
-  cond(3)= ( sf%sin_cos        .EQ.  tocompare%sin_cos         )
-  cond(4)= ( sf%exclude_mn_zero.EQV. tocompare%exclude_mn_zero ) 
-  is_same=ALL(cond)
-  IF(.NOT.is_same) WRITE(*,*)'DEBUG,fbase is not the same... nfp ', &
-            cond(1),', modes ',cond(2),', sin_cos',cond(3),', excl_zero ', cond(4)
+  cond(1)= ALL( sf%mn_max(:)      .EQ.  tocompare%mn_max(:)       )
+  cond(2)=    ( sf%nfp            .EQ.  tocompare%nfp             )
+  cond(3)=    ( sf%modes          .EQ.  tocompare%modes           )
+  cond(4)=    ( sf%sin_cos        .EQ.  tocompare%sin_cos         )
+  cond(5)=    ( sf%exclude_mn_zero.EQV. tocompare%exclude_mn_zero ) 
+
+  IF(PRESENT(is_same)) is_same=ALL(cond)
+  IF(PRESENT(cond_out)) cond_out(1:5)=cond
 
   END SELECT !TYPE
 END SUBROUTINE fBase_compare
@@ -668,7 +671,7 @@ IMPLICIT NONE
   REAL(wp)           :: dofs(1:sf%modes)
   REAL(wp)           :: g_IP(1:sf%mn_IP)
   TYPE(t_fbase)      :: testbase
-  LOGICAL            :: check
+  LOGICAL            :: check(5)
 !===================================================================================================================================
   test_called=.TRUE. !avoid infinite loop if init is called here
   IF(testlevel.LE.0) RETURN
@@ -781,9 +784,9 @@ IMPLICIT NONE
     !get new fbase and check compare
     iTest=111 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     CALL testbase%init(sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
-    CALL testbase%compare(sf,check)
+    CALL testbase%compare(sf,is_same=check(1))
     CALL testbase%free()
-    IF(.NOT.check)THEN
+    IF(.NOT.check(1))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &
@@ -796,9 +799,24 @@ IMPLICIT NONE
     !get new fbase and check compare
     iTest=112 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     CALL testbase%init(sf%mn_max,sf%mn_nyq,sf%nfp+1,sin_cos_map(sf%sin_cos),(.NOT.sf%exclude_mn_zero))
-    CALL testbase%compare(sf,check)
+    CALL testbase%compare(sf,cond_out=check(1:5))
     CALL testbase%free()
-    IF(check)THEN
+    IF(ALL(check))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be false' 
+    END IF !TEST
+
+    !get new fbase and check compare
+    iTest=112 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testbase%init(2*sf%mn_max,2*sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
+    CALL testbase%compare(sf,cond_out=check)
+    CALL testbase%free()
+    IF(ALL(check))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &

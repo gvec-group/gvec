@@ -258,7 +258,8 @@ IMPLICIT NONE
 
   is_same=ALL(cond)
 
-  IF(.NOT.is_same) WRITE(*,*)'DEBUG,grid is not same... nElems ',cond(1),', grid_type', cond(2)
+  !IF(.NOT.is_same) WRITE(*,*)'DEBUG,grid is not same... nElems ',cond(1),', grid_type', cond(2)
+
   END SELECT !TYPE
 END SUBROUTINE sGrid_compare
 

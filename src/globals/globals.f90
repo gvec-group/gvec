@@ -47,7 +47,7 @@ LOGICAL                     :: testdbg=.FALSE.           !! for debugging the te
 INTEGER                     :: testlevel =-1             !! flag for testing routines in code: -1: off
 INTEGER                     :: ntestCalled=0             !! counter for called tests
 INTEGER                     :: nfailedMsg=0              !! counter for messages on failed tests 
-CHARACTER(LEN=511)          :: testfailedMsg(400)        !! will be set to an error message of a test that fails
+CHARACTER(LEN=511)          :: testfailedMsg(4000)       !! will be set to an error message of a test that fails
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
