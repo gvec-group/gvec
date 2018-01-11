@@ -240,7 +240,7 @@ IMPLICIT NONE
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN BASE TEST ID',nTestCalled,'  >>>>>>>>>'
   ASSOCIATE(modes=>sf%f%modes,sin_range=>sf%f%sin_range,cos_range=>sf%f%cos_range, &
             deg=>sf%s%deg,nBase=>sf%s%nBase,sin_cos=>sf%f%sin_cos,nGP=>sf%s%nGP)
-  IF(testlevel.LE.1)THEN
+  IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
@@ -367,7 +367,7 @@ IMPLICIT NONE
     END IF !TEST
 
 
-  END IF !testlevel<1
+  END IF !testlevel>=1
   END ASSOCIATE !sf
 
   test_called=.FALSE.

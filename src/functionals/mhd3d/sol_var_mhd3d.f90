@@ -303,7 +303,7 @@ IMPLICIT NONE
   END IF
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SOL_VAR_MHD3D TEST ID',nTestCalled,'    >>>>>>>>>'
-  IF(testlevel.LE.1)THEN
+  IF(testlevel.GE.1)THEN
     CALL Utest(1)%copy(sf)
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
@@ -320,8 +320,8 @@ IMPLICIT NONE
       '\n =>  should be ', refreal, ' : norm_2(U=0)= ',checkreal
     END IF !TEST
     CALL Utest(1)%free()
-  END IF !testlevel <1
-  IF(testlevel.LE.2)THEN
+  END IF !testlevel >=1
+  IF(testlevel.GE.2)THEN
     CALL Utest(1)%copy(sf)
     CALL Utest(1)%set_to(0.5_wp)
     CALL Utest(2)%copy(sf)
@@ -347,7 +347,7 @@ IMPLICIT NONE
     CALL Utest(1)%free()
     CALL Utest(2)%free()
     CALL Utest(3)%free()
-  END IF !testlevel 
+  END IF !testlevel >=2
 
   test_called=.FALSE. ! to prevent infinite loop in this routine
 

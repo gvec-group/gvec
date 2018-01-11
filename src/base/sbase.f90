@@ -48,6 +48,7 @@ TYPE, ABSTRACT :: c_sbase
     PROCEDURE(i_sub_sbase_init          ),DEFERRED :: init
     PROCEDURE(i_sub_sbase_free          ),DEFERRED :: free
     PROCEDURE(i_sub_sbase_copy          ),DEFERRED :: copy
+    PROCEDURE(i_sub_sbase_compare       ),DEFERRED :: compare
     PROCEDURE(i_sub_sbase_eval          ),DEFERRED :: eval
     PROCEDURE(i_fun_sbase_evalDOF_s     ),DEFERRED :: evalDOF_s
     PROCEDURE(i_fun_sbase_evalDOF_base  ),DEFERRED :: evalDOF_base
@@ -76,6 +77,13 @@ ABSTRACT INTERFACE
     CLASS(c_sbase), INTENT(IN   ) :: tocopy
     CLASS(c_sbase), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sbase_copy
+
+  SUBROUTINE i_sub_sbase_compare( sf, tocompare, is_same ) 
+    IMPORT c_sbase
+    CLASS(c_sbase), INTENT(IN   ) :: sf
+    CLASS(c_sbase), INTENT(IN   ) :: tocompare
+    LOGICAL       , INTENT(  OUT) :: is_same
+  END SUBROUTINE i_sub_sbase_compare
 
   SUBROUTINE i_sub_sBase_eval( sf , x, deriv,iElem,base_x)
     IMPORT wp,c_sbase
@@ -176,6 +184,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   PROCEDURE :: init          => sBase_init
   PROCEDURE :: free          => sBase_free
   PROCEDURE :: copy          => sBase_copy
+  PROCEDURE :: compare       => sBase_compare
   PROCEDURE :: eval          => sBase_eval
   PROCEDURE :: evalDOF_s     => sBase_evalDOF_s
   PROCEDURE :: evalDOF_base  => sBase_evalDOF_base
@@ -198,7 +207,7 @@ TYPE,EXTENDS(t_sbase) :: t_sBase_spl
   TYPE(sll_t_spline_interpolator_1d):: Interpol    !! spline interpolator
 END TYPE t_sBase_spl
 
-LOGICAL  :: test_called=.FALSE.
+LOGICAL, PRIVATE  :: test_called=.FALSE.
 
 !===================================================================================================================================
 
@@ -271,10 +280,12 @@ IMPLICIT NONE
   INTEGER  :: iBC,j,diri,odd_even 
   REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: locbasis,VdmGP
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A,3(A,I3),A)')'INIT sBase type:', &
-       ' degree= ',sf%deg, &
-       ' gauss points per elem = ',degGP_in, &
-       ' continuity= ',sf%continuity, ' ...'
+  IF(.NOT.test_called) THEN
+    SWRITE(UNIT_stdOut,'(4X,A,3(A,I3),A)')'INIT sBase type:', &
+         ' degree= ',sf%deg, &
+         ' gauss points per elem = ',degGP_in, &
+         ' continuity= ',sf%continuity, ' ...'
+  END IF
   IF(sf%initialized) THEN
     CALL abort(__STAMP__, &
         "Trying to reinit sbase!") 
@@ -478,8 +489,10 @@ IMPLICIT NONE
 
 
   sf%initialized=.TRUE.
-  SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
-  IF(.NOT.test_called) CALL sBase_test(sf)
+  IF(.NOT.test_called) THEN
+    SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
+    CALL sBase_test(sf)
+  END IF
 
 END SUBROUTINE sBase_init
 
@@ -604,7 +617,7 @@ END SUBROUTINE sBase_free
 
 
 !===================================================================================================================================
-!> copy the type sbase
+!> copy  onto sf <-- tocopy
 !!
 !===================================================================================================================================
 SUBROUTINE sBase_copy( sf , tocopy)
@@ -612,9 +625,9 @@ SUBROUTINE sBase_copy( sf , tocopy)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(c_sBase), INTENT(IN   ) :: tocopy
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_sBase), INTENT(IN   ) :: tocopy
   CLASS(t_sBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -634,6 +647,46 @@ IMPLICIT NONE
 
   END SELECT !TYPE
 END SUBROUTINE sbase_copy
+
+
+!===================================================================================================================================
+!> compare sf with input sbase
+!!
+!===================================================================================================================================
+SUBROUTINE sBase_compare( sf , tocompare,is_same)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sBase), INTENT(IN   ) :: sf !! self
+  CLASS(c_sBase), INTENT(IN   ) :: tocompare
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  LOGICAL       , INTENT(  OUT) :: is_same
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  LOGICAL  :: cond(4)
+!===================================================================================================================================
+  SELECT TYPE(tocompare); TYPE IS(t_sbase)
+  IF(.NOT.tocompare%initialized) THEN
+    CALL abort(__STAMP__, &
+        "sBase_compare: tried to compare to non-initialized sBase!")
+  END IF
+ 
+  CALL sf%grid%compare(tocompare%grid,cond(1))
+  IF(cond(1)) THEN
+    !same grid, compare basis
+    cond(2)= (sf%nbase      .EQ. tocompare%nbase     )
+    cond(3)= (sf%deg        .EQ. tocompare%deg       )
+    cond(4)= (sf%continuity .EQ. tocompare%continuity)
+  ELSE
+    cond(2:4)=.FALSE.
+  END IF
+
+  is_same=ALL(cond)
+  IF(.NOT.is_same) WRITE(*,*)'DEBUG,sbase is not same... grid ',cond(1),', nbase ',cond(2),', deg ',cond(3),', conti ', cond(4)
+  END SELECT !TYPE
+END SUBROUTINE sbase_compare
 
 
 !===================================================================================================================================
@@ -959,7 +1012,7 @@ IMPLICIT NONE
   ASSOCIATE(deg=>sf%deg,degGP=>sf%degGP,cont => sf%continuity,nBase=>sf%nBase,nElems=>sf%grid%nElems)
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SBASE TEST ID',nTestCalled,'    >>>>>>>>>'
-  IF(testlevel.LE.1)THEN
+  IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
@@ -1048,8 +1101,8 @@ IMPLICIT NONE
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be ',jElem,': iElem= ' , iElem
     END IF !TEST
-  END IF !testlevel<1
-  IF(testlevel.LE.2)THEN
+  END IF !testlevel>=1
+  IF(testlevel.GE.2)THEN
     jElem=nElems/2
     x=sf%grid%sp(jElem-1)
     IF(cont.EQ.-1)THEN
@@ -1544,7 +1597,7 @@ IMPLICIT NONE
       ,"\n => should be y,y',y'',... : dy/ds BC_ANTISYMM edge = " ,  y_BC(:)
     END IF !test
     
-  END IF !testlevel<2
+  END IF !testlevel>=2
 
   END ASSOCIATE !deg,cont,nBase,nElems
   test_called=.FALSE.

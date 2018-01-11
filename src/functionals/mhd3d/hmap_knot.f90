@@ -419,7 +419,7 @@ IMPLICIT NONE
   END IF
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN hmap_knot TEST ID',nTestCalled,'    >>>>>>>>>'
-  IF(testlevel.LE.1)THEN
+  IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     a = sf%R0 - ABS(sf%delta)
@@ -455,7 +455,7 @@ IMPLICIT NONE
      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
     END IF !TEST
     
- END IF !testlevel <1
+ END IF !testlevel >=1
  
  test_called=.FALSE. ! to prevent infinite loop in this routine
  

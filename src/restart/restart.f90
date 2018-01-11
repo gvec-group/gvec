@@ -90,7 +90,7 @@ SUBROUTINE WriteStateToASCII(Uin,fileID)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel
-USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base
+USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -115,11 +115,13 @@ IMPLICIT NONE
      ACCESS   = 'SEQUENTIAL' ) 
 
   WRITE(ioUnit,'(A)')'## MHD3D Solution... outputLevel and fileID:'
-  WRITE(ioUnit,'(I4.4,1X,I8.8)')outputLevel,fileID
-  WRITE(ioUnit,'(A)')'## grid: nElems ###########################################################################################'
-  WRITE(ioUnit,'(I8)')X1_base%s%grid%nElems
+  WRITE(ioUnit,'(I4.4,",",I8.8)')outputLevel,fileID
+  WRITE(ioUnit,'(A)')'## grid: nElems, gridType #################################################################################'
+  WRITE(ioUnit,'(*(I8,:,","))')sgrid%nElems,sgrid%grid_type
   WRITE(ioUnit,'(A)')'## grid: sp(0:nElems)' 
   WRITE(ioUnit,'(*(E23.15,:,","))')X1_base%s%grid%sp(:)
+  WRITE(ioUnit,'(A)')'## global: nfp,degGP,mn_nyq(2) ############################################################################'
+  WRITE(ioUnit,'(*(I8,:,","))')X1_base%f%nfp,X1_base%s%degGP,X1_base%f%mn_nyq
   WRITE(ioUnit,'(A)')'## X1_base: s%nbase,s%deg,s%continuity,f%modes,f%sin_cos,f%excl_mn_zero ###################################'
   WRITE(ioUnit,'(*(I8,:,","))')X1_base%s%nbase,X1_base%s%deg,X1_base%s%continuity,X1_base%f%modes,X1_base%f%sin_cos &
                     ,MERGE(1,0,X1_base%f%exclude_mn_zero)
@@ -157,8 +159,12 @@ SUBROUTINE ReadStateFromASCII()!Uin,fileString)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel
-USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,U
+USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
+USE MOD_MHD3D_Vars, ONLY: U! DEBUG
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+USE MOD_sgrid,  ONLY: t_sgrid
+USE MOD_base,   ONLY: t_base, base_new
+USE MOD_fbase,  ONLY: sin_cos_map 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -168,14 +174,23 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  CHARACTER(LEN=255)  :: fileString
-  INTEGER              :: ioUnit,iMode,nElems_r,fileID_r,OutputLevel_r
+  CHARACTER(LEN=255)   :: fileString
+  INTEGER              :: fileID_r,OutputLevel_r
+  INTEGER              :: ioUnit,iMode,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2) 
   INTEGER              :: X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
   INTEGER              :: X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
   INTEGER              :: LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
   INTEGER,ALLOCATABLE  :: X1_mn_r(:,:),X2_mn_r(:,:),LA_mn_r(:,:)
   REAL(wp),ALLOCATABLE :: sp_r(:),X1_r(:,:),X2_r(:,:),LA_r(:,:)
-  LOGICAL              :: sameGrid,sameX1,sameX2,sameLA
+  LOGICAL              :: sameGrid
+  LOGICAL              :: sameX1  ,sameX2  ,sameLA  
+  LOGICAL              :: sameX1_s,sameX2_s,sameLA_s
+  LOGICAL              :: sameX1_f,sameX2_f,sameLA_f
+  INTEGER              :: X1_mn_max_r(2),X2_mn_max_r(2),LA_mn_max_r(2)
+  CLASS(t_base),ALLOCATABLE :: X1_base_r
+  CLASS(t_base),ALLOCATABLE :: X2_base_r
+  CLASS(t_base),ALLOCATABLE :: LA_base_r
+  TYPE(t_sgrid)             :: sgrid_r
 !===================================================================================================================================
   !DEBUG!
   WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
@@ -191,17 +206,19 @@ IMPLICIT NONE
 
   READ(ioUnit,*) !## MHD3D Solution file
   READ(ioUnit,*) outputLevel_r,fileID_r
-  READ(ioUnit,*) !## grid: nElems
-  READ(ioUnit,'(I8)') nElems_r
+  READ(ioUnit,*) !## grid: nElems, grid_type
+  READ(ioUnit,*) nElems_r,grid_type_r
   ALLOCATE(sp_r(0:nElems_r))
 
   READ(ioUnit,*) !## grid: sp(0:nElems)
   READ(ioUnit,*)sp_r(:)
+  READ(ioUnit,*) !## global: nfp, degGP, mn_nyq
+  READ(ioUnit,*) nfp_r, degGP_r,mn_nyq_r
   READ(ioUnit,*) !## X1_base: 
   READ(ioUnit,*) X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
-  READ(ioUnit,*) !## X2_base: 
+  READ(ioUnit,*) !## X2_base:                 
   READ(ioUnit,*) X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
-  READ(ioUnit,*) !## LA_base: 
+  READ(ioUnit,*) !## LA_base:                 
   READ(ioUnit,*) LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
   ALLOCATE(X1_r(1:X1_nbase_r,1:X1_modes_r))
   ALLOCATE(X2_r(1:X2_nbase_r,1:X2_modes_r))
@@ -228,46 +245,72 @@ IMPLICIT NONE
   WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r
   outputLevel=outputLevel_r +1
 
-  ! check if input has changed:
-  ASSOCIATE(sgrid=>X1_base%s%grid)
-  sameGrid=(nElems_r.EQ.sgrid%nElems)
-  IF(sameGrid) sameGrid=(SUM(ABS(sgrid%sp(:)-sp_r(:))).LT.(1.0e-12_wp*nElems_r))
+
+  CALL sgrid_r%init(nElems_r,grid_type_r)
+
+  CALL sgrid_r%compare(sgrid,sameGrid)
+
+
+
+  !needed to build base of restart file
+  X1_mn_max_r = (/MAXVAL(X1_mn_r(1,:)),MAXVAL(X1_mn_r(2,:))/)
+  X2_mn_max_r = (/MAXVAL(X2_mn_r(1,:)),MAXVAL(X2_mn_r(2,:))/)
+  LA_mn_max_r = (/MAXVAL(LA_mn_r(1,:)),MAXVAL(LA_mn_r(2,:))/)
+
+  ASSOCIATE(curr_degGP=>X1_base%s%degGP,curr_mn_nyq=>X1_base%f%mn_nyq) !use current setup for integration points
+  CALL base_new(X1_base_r,X1_deg_r,X1_cont_r,sgrid_r,curr_degGP,X1_mn_max_r,curr_mn_nyq,nfp_r, &
+                sin_cos_map(X1_sin_cos_r),(X1_excl_mn_zero_r.EQ.1))
+  CALL base_new(X2_base_r,X2_deg_r,X2_cont_r,sgrid_r,curr_degGP,X2_mn_max_r,curr_mn_nyq,nfp_r, &
+                sin_cos_map(X2_sin_cos_r),(X2_excl_mn_zero_r.EQ.1))
+  CALL base_new(LA_base_r,LA_deg_r,LA_cont_r,sgrid_r,curr_degGP,LA_mn_max_r,curr_mn_nyq,nfp_r, &
+                sin_cos_map(LA_sin_cos_r),(LA_excl_mn_zero_r.EQ.1))
   END ASSOCIATE
-  IF(.NOT.sameGrid)THEN
-    sameX1=.FALSE.
-    sameX2=.FALSE.
-    sameLA=.FALSE.
-  ELSE
-    sameX1=( (X1_nBase_r       .EQ.          X1_base%s%nbase     ).AND. &
+
+  CALL X1_base_r%s%compare(X1_base%s,sameX1_s)
+  CALL X1_base_r%f%compare(X1_base%f,sameX1_f)
+  CALL X2_base_r%s%compare(X2_base%s,sameX2_s)
+  CALL X2_base_r%f%compare(X2_base%f,sameX2_f)
+  CALL LA_base_r%s%compare(LA_base%s,sameLA_s)
+  CALL LA_base_r%f%compare(LA_base%f,sameLA_f)
+
+  !DEBUG, U(-1)-> Uin
+  !U(-1)%X1(:,:)=X1_base%changeBase(X1_base_r,sameX1_s,sameX1_f,X1_r)
+
+  ! check if input has changed:
+  sameGrid=(nElems_r.EQ.sgrid%nElems).AND.(grid_type_r.EQ.sgrid%grid_type)
+  IF(sameGrid) sameGrid=(SUM(ABS(sgrid%sp(:)-sp_r(:))).LT.(1.0e-12_wp*nElems_r))
+
+  sameX1_s=( (X1_nBase_r       .EQ.          X1_base%s%nbase     ).AND. &
              (X1_deg_r         .EQ.          X1_base%s%deg       ).AND. &
-             (X1_cont_r        .EQ.          X1_base%s%continuity).AND. &
+             (X1_cont_r        .EQ.          X1_base%s%continuity)      )
+  sameX1_f=( (   nfp_r         .EQ.          X1_base%f%nfp       ).AND. &
              (X1_modes_r       .EQ.          X1_base%f%modes     ).AND. &
              (X1_sin_cos_r     .EQ.          X1_base%f%sin_cos   ).AND. &
              (X1_excl_mn_zero_r.EQ.MERGE(1,0,X1_base%f%exclude_mn_zero)) ) 
+  sameX1  = sameX1_s.AND.sameX1_f
 
-    sameX2=( (X2_nBase_r       .EQ.          X2_base%s%nbase     ).AND. &
-             (X2_deg_r         .EQ.          X2_base%s%deg       ).AND. &
-             (X2_cont_r        .EQ.          X2_base%s%continuity).AND. &
-             (X2_modes_r       .EQ.          X2_base%f%modes     ).AND. &
-             (X2_sin_cos_r     .EQ.          X2_base%f%sin_cos   ).AND. &
-             (X2_excl_mn_zero_r.EQ.MERGE(1,0,X2_base%f%exclude_mn_zero)) ) 
-
-    sameLA=( (LA_nBase_r       .EQ.          LA_base%s%nbase     ).AND. &
-             (LA_deg_r         .EQ.          LA_base%s%deg       ).AND. &
-             (LA_cont_r        .EQ.          LA_base%s%continuity).AND. &
-             (LA_modes_r       .EQ.          LA_base%f%modes     ).AND. &
-             (LA_sin_cos_r     .EQ.          LA_base%f%sin_cos   ).AND. &
-             (LA_excl_mn_zero_r.EQ.MERGE(1,0,LA_base%f%exclude_mn_zero)) ) 
-  END IF
-  IF(sameX1.AND.sameX2.AND.sameLA)THEN
+  IF(.NOT.( sameGrid.AND. &
+            sameX1        ))THEN
+    WRITE(*,*)sameGrid,sameX1_s,sameX1_f
+    STOP 'restart from other configuration not yet implemented'
+    !DEBUG, U(-1)-> Uin
+    !U(-1)%X1(:,:)=X1_base%changeBase(X1_base_r,sameX1_s,sameX1_f,X1_r)
+  ELSE
+    !DEBUG, U(-1)-> Uin
     U(-1)%X1(:,:)=X1_r
     U(-1)%X2(:,:)=X2_r
     U(-1)%LA(:,:)=LA_r
-  ELSE
-    WRITE(*,*)sameGrid,sameX1,sameX2,sameLA
-    STOP 'restart from other configuration not yet implemented'
-  END IF 
-  
+  END IF
+
+
+        
+
+  CALL X1_base_r%free()
+  CALL X2_base_r%free()
+  CALL LA_base_r%free()
+  DEALLOCATE(X1_base_r)
+  DEALLOCATE(X2_base_r)
+  DEALLOCATE(LA_base_r)
 
   DEALLOCATE(sp_r)
   DEALLOCATE(X1_r)
@@ -276,6 +319,7 @@ IMPLICIT NONE
   DEALLOCATE(X1_mn_r)
   DEALLOCATE(X2_mn_r)
   DEALLOCATE(LA_mn_r)
+
 
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
 END SUBROUTINE ReadStateFromASCII 

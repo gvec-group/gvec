@@ -32,6 +32,7 @@ TYPE, ABSTRACT :: c_sgrid
     PROCEDURE(i_sub_sgrid_init     ),DEFERRED :: init
     PROCEDURE(i_sub_sgrid_free     ),DEFERRED :: free
     PROCEDURE(i_sub_sgrid_copy     ),DEFERRED :: copy
+    PROCEDURE(i_sub_sgrid_compare  ),DEFERRED :: compare
     PROCEDURE(i_fun_sgrid_find_elem),DEFERRED :: find_elem
 
 END TYPE c_sgrid
@@ -54,6 +55,13 @@ ABSTRACT INTERFACE
     CLASS(c_sgrid), INTENT(INOUT) :: sf
     CLASS(c_sgrid), INTENT(IN   ) :: tocopy
   END SUBROUTINE i_sub_sgrid_copy
+
+  SUBROUTINE i_sub_sgrid_compare( sf, tocompare, is_same ) 
+    IMPORT c_sgrid
+    CLASS(c_sgrid), INTENT(IN   ) :: sf
+    CLASS(c_sgrid), INTENT(IN   ) :: tocompare
+    LOGICAL       , INTENT(  OUT) :: is_same
+  END SUBROUTINE i_sub_sgrid_compare
 
   FUNCTION i_fun_sgrid_find_elem( sf ,x) RESULT(iElem) 
     IMPORT wp,c_sgrid
@@ -78,6 +86,7 @@ TYPE,EXTENDS(c_sgrid) :: t_sGrid
   CONTAINS
   PROCEDURE :: init          => sGrid_init
   PROCEDURE :: copy          => sGrid_copy
+  PROCEDURE :: compare       => sGrid_compare
   PROCEDURE :: free          => sGrid_free
   PROCEDURE :: find_elem     => sGrid_find_elem
 
@@ -109,7 +118,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: iElem
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A,I6,A,I3,A)')'INIT sGrid type nElems= ',nElems_in,' grid_type= ',grid_type_in, ' ...'
+  IF(.NOT.test_called)THEN
+    SWRITE(UNIT_stdOut,'(4X,A,I6,A,I3,A)')'INIT sGrid type nElems= ',nElems_in,' grid_type= ',grid_type_in, ' ...'
+  END IF
 
   IF(sf%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid type!'
@@ -152,8 +163,10 @@ IMPLICIT NONE
   
   sf%initialized=.TRUE.
 
-  SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
-  IF(.NOT.test_called)CALL sGrid_test(sf)
+  IF(.NOT.test_called)THEN
+    SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
+    CALL sGrid_test(sf)
+  END IF
 
 END SUBROUTINE sGrid_init
 
@@ -194,9 +207,9 @@ SUBROUTINE sGrid_copy( sf , tocopy)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(c_sgrid), INTENT(IN) :: tocopy
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_sgrid), INTENT(IN) :: tocopy
   CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -214,6 +227,40 @@ IMPLICIT NONE
 
   END SELECT !TYPE
 END SUBROUTINE sGrid_copy
+
+!===================================================================================================================================
+!> compare to sf grid with input grid to see if they are the same
+!!
+!===================================================================================================================================
+SUBROUTINE sGrid_compare( sf , tocompare,is_same)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sgrid), INTENT(IN   ) :: sf !! self
+  CLASS(c_sgrid), INTENT(IN   ) :: tocompare
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  LOGICAL       , INTENT(  OUT) :: is_same   !
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  LOGICAL :: cond(2)
+!===================================================================================================================================
+  SELECT TYPE(tocompare); TYPE IS(t_sgrid)
+  IF(.NOT.tocompare%initialized) THEN
+    CALL abort(__STAMP__, &
+        "sgrid_compare: tried to compare with a not initialized sgrid!")
+  END IF
+  ASSOCIATE(tc=>tocompare)
+  cond(1)=(sf%nElems.EQ.tc%nElems)
+  cond(2)=(sf%grid_type.EQ.tc%grid_type)
+  END ASSOCIATE
+
+  is_same=ALL(cond)
+
+  IF(.NOT.is_same) WRITE(*,*)'DEBUG,grid is not same... nElems ',cond(1),', grid_type', cond(2)
+  END SELECT !TYPE
+END SUBROUTINE sGrid_compare
 
 
 !===================================================================================================================================
@@ -288,6 +335,8 @@ IMPLICIT NONE
   REAL(wp)           :: x
   CHARACTER(LEN=10)  :: fail
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
+  TYPE(t_sgrid)      :: testgrid 
+  LOGICAL            :: check
 !===================================================================================================================================
   test_called=.TRUE.
   IF(testlevel.LE.0) RETURN
@@ -298,7 +347,7 @@ IMPLICIT NONE
   END IF
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SGRID TEST ID',nTestCalled,'    >>>>>>>>>'
-  IF(testlevel.LE.1)THEN
+  IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
@@ -387,7 +436,48 @@ IMPLICIT NONE
       '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
       '\n => should be ',jElem,': iElem= ' , iElem
     END IF !TEST
-  END IF !testlevel<1
+
+
+    !get new grid and check compare
+    iTest=121 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testgrid%init(sf%nElems+1,sf%grid_type)
+    CALL testgrid%compare(sf,check)
+    CALL testgrid%free()
+    IF(check)THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),A)') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n => should be false'
+    END IF !TEST
+
+    !get new grid and check compare
+    iTest=122 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testgrid%init(sf%nElems,MERGE(1,0,(sf%grid_type.EQ.0)))
+    CALL testgrid%compare(sf,check)
+    CALL testgrid%free()
+    IF(check)THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),A)') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n => should be false'
+    END IF !TEST
+
+    !get new grid and check compare
+    iTest=123 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testgrid%init(sf%nElems,sf%grid_type)
+    CALL testgrid%compare(sf,check)
+    CALL testgrid%free()
+    IF(.NOT.check)THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! SGRID TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),A)') &
+      '   nElems = ', sf%nElems , ' grid_type = ', sf%grid_type , &
+      '\n => should be true'
+    END IF !TEST
+
+  END IF !testlevel>=1
   test_called=.FALSE.
 
 END SUBROUTINE sGrid_test

@@ -48,6 +48,7 @@ TYPE, ABSTRACT :: c_fBase
     PROCEDURE(i_sub_fBase_init          ),DEFERRED :: init
     PROCEDURE(i_sub_fBase_free          ),DEFERRED :: free
     PROCEDURE(i_sub_fBase_copy          ),DEFERRED :: copy
+    PROCEDURE(i_sub_fBase_compare       ),DEFERRED :: compare
     PROCEDURE(i_fun_fBase_eval          ),DEFERRED :: eval
     PROCEDURE(i_fun_fBase_evalDOF_x     ),DEFERRED :: evalDOF_x
     PROCEDURE(i_fun_fBase_evalDOF_IP    ),DEFERRED :: evalDOF_IP
@@ -77,6 +78,13 @@ ABSTRACT INTERFACE
     CLASS(c_fBase), INTENT(IN   ) :: tocopy
     CLASS(c_fBase), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_fBase_copy
+
+  SUBROUTINE i_sub_fBase_compare( sf, tocompare, is_same ) 
+    IMPORT c_fBase
+    CLASS(c_fBase), INTENT(IN   ) :: sf
+    CLASS(c_fBase), INTENT(IN   ) :: tocompare
+    LOGICAL       , INTENT(  OUT) :: is_same
+  END SUBROUTINE i_sub_fBase_compare
 
   FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_fBase
@@ -135,6 +143,7 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: init             => fBase_init
   PROCEDURE :: free             => fBase_free
   PROCEDURE :: copy             => fBase_copy
+  PROCEDURE :: compare          => fBase_compare
   PROCEDURE :: eval             => fBase_eval
   PROCEDURE :: evalDOF_x        => fBase_evalDOF_x
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP
@@ -142,11 +151,11 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
 
 END TYPE t_fBase
 
-LOGICAL  :: test_called=.FALSE.
-
 CHARACTER(LEN=8)   :: sin_cos_map(3)=(/"_sin_   ", &
                                        "_cos_   ", &
                                        "_sincos_" /)
+
+LOGICAL, PRIVATE  :: test_called=.FALSE.
 
 !===================================================================================================================================
 
@@ -200,12 +209,14 @@ IMPLICIT NONE
   INTEGER :: i,iMode,m,n,mIP,nIP,mn_excl
   INTEGER :: modes_sin,modes_cos
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A,2(A,I6," , ",I6),A,I4,A,L2,A)')'INIT fBase type:', &
-       ' mn_max= (',mn_max_in, &
-       ' ), mn_nyq = ',mn_nyq_in, &
-       ' )\n      nfp    = ',nfp_in, &
-       ' exclude_mn_zero = ',exclude_mn_zero_in, &
-       ' ,  sin/cos : '//TRIM(sin_cos_in)//' ...'
+  IF(.NOT.test_called)THEN
+    SWRITE(UNIT_stdOut,'(4X,A,2(A,I6," , ",I6),A,I4,A,L2,A)')'INIT fBase type:', &
+         ' mn_max= (',mn_max_in, &
+         ' ), mn_nyq = ',mn_nyq_in, &
+         ' )\n      nfp    = ',nfp_in, &
+         ' exclude_mn_zero = ',exclude_mn_zero_in, &
+         ' ,  sin/cos : '//TRIM(sin_cos_in)//' ...'
+  END IF
   IF(sf%initialized) THEN
     CALL abort(__STAMP__, &
         "Trying to reinit fBase!") 
@@ -347,8 +358,10 @@ IMPLICIT NONE
 
 
   sf%initialized=.TRUE.
-  SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
-  IF(.NOT.test_called) CALL fBase_test(sf)
+  IF(.NOT.test_called) THEN
+    SWRITE(UNIT_stdOut,'(4X,A)')'... DONE'
+    CALL fBase_test(sf)
+  END IF
 
 END SUBROUTINE fBase_init
 
@@ -429,9 +442,9 @@ SUBROUTINE fBase_copy( sf , tocopy)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(c_fBase), INTENT(IN   ) :: tocopy
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_fBase), INTENT(IN   ) :: tocopy
   CLASS(t_fBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -462,6 +475,42 @@ CHARACTER(LEN=8) :: sin_cos
 
   END SELECT !TYPE
 END SUBROUTINE fBase_copy
+
+
+!===================================================================================================================================
+!> compare sf with the input type fBase
+!!
+!===================================================================================================================================
+SUBROUTINE fBase_compare( sf , tocompare,is_same)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf !! self
+  CLASS(c_fBase), INTENT(IN   ) :: tocompare
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  LOGICAL       , INTENT(  OUT) :: is_same
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  LOGICAL  :: cond(4)
+!===================================================================================================================================
+  SELECT TYPE(tocompare); TYPE IS(t_fBase)
+  IF(.NOT.tocompare%initialized) THEN
+    CALL abort(__STAMP__, &
+        "fBase_compare: tried to compare with non-initialized fBase!")
+  END IF
+
+  cond(1)= ( sf%nfp            .EQ.  tocompare%nfp             )
+  cond(2)= ( sf%modes          .EQ.  tocompare%modes           )
+  cond(3)= ( sf%sin_cos        .EQ.  tocompare%sin_cos         )
+  cond(4)= ( sf%exclude_mn_zero.EQV. tocompare%exclude_mn_zero ) 
+  is_same=ALL(cond)
+  IF(.NOT.is_same) WRITE(*,*)'DEBUG,fbase is not the same... nfp ', &
+            cond(1),', modes ',cond(2),', sin_cos',cond(3),', excl_zero ', cond(4)
+
+  END SELECT !TYPE
+END SUBROUTINE fBase_compare
 
 !===================================================================================================================================
 !> evaluate  all modes at specific given point
@@ -618,6 +667,8 @@ IMPLICIT NONE
   CHARACTER(LEN=10)  :: fail
   REAL(wp)           :: dofs(1:sf%modes)
   REAL(wp)           :: g_IP(1:sf%mn_IP)
+  TYPE(t_fbase)      :: testbase
+  LOGICAL            :: check
 !===================================================================================================================================
   test_called=.TRUE. !avoid infinite loop if init is called here
   IF(testlevel.LE.0) RETURN
@@ -639,7 +690,7 @@ IMPLICIT NONE
             , cos_range  => sf%cos_range  &
             , modes      => sf%modes      &
             )
-  IF(testlevel.LE.1)THEN
+  IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     checkreal =SUM(sf%x_IP(1,:)*sf%x_IP(2,:))*sf%d_thet*sf%d_zeta
@@ -726,8 +777,38 @@ IMPLICIT NONE
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base_dthet/dzeta(jmode), 0, 2pi),0,2pi/nfp)= ', checkreal
     END IF !TEST
+
+    !get new fbase and check compare
+    iTest=111 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testbase%init(sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
+    CALL testbase%compare(sf,check)
+    CALL testbase%free()
+    IF(.NOT.check)THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be true' 
+    END IF !TEST
+
+    !get new fbase and check compare
+    iTest=112 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testbase%init(sf%mn_max,sf%mn_nyq,sf%nfp+1,sin_cos_map(sf%sin_cos),(.NOT.sf%exclude_mn_zero))
+    CALL testbase%compare(sf,check)
+    CALL testbase%free()
+    IF(check)THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be false' 
+    END IF !TEST
   END IF !testlevel <=1
-  IF (testlevel .LE.2)THEN
+  IF (testlevel .GE.2)THEN
 
     iTest=201 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     

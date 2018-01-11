@@ -306,7 +306,7 @@ IMPLICIT NONE
   END IF
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN hmap_cyl TEST ID',nTestCalled,'    >>>>>>>>>'
-  IF(testlevel.LE.1)THEN
+  IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     q_in=(/0.1_wp,-0.2_wp,0.5_wp*Pi/)
@@ -333,7 +333,7 @@ IMPLICIT NONE
       nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,E11.3))') &
       '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
     END IF !TEST
-  END IF !testlevel <1
+  END IF !testlevel>=1
 
   test_called=.FALSE. ! to prevent infinite loop in this routine
 
