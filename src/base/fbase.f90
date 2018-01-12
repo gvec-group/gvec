@@ -88,13 +88,13 @@ ABSTRACT INTERFACE
     LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
   END SUBROUTINE i_sub_fBase_compare
 
-  SUBROUTINE i_sub_fBase_change_base( sf, oldfBase, iterDim,oldData,sfData ) 
+  SUBROUTINE i_sub_fBase_change_base( sf, old_fBase, iterDim,old_data,sf_data ) 
     IMPORT c_fBase,wp
     CLASS(c_fBase) , INTENT(IN   ) :: sf
-    CLASS(c_fBase) , INTENT(IN   ) :: oldfBase
+    CLASS(c_fBase) , INTENT(IN   ) :: old_fBase
     INTEGER         ,INTENT(IN   ) :: iterDim
-    REAL(wp)        ,INTENT(IN   ) :: oldData(:,:)
-    REAL(wp)        ,INTENT(  OUT) :: sfData(:,:)
+    REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
+    REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
   END SUBROUTINE i_sub_fBase_change_base
 
   FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
@@ -534,26 +534,26 @@ END SUBROUTINE fBase_compare
 !! Note that a change of nfp is not possible· as well as a change from sine to cosine
 !!
 !===================================================================================================================================
-SUBROUTINE fBase_change_base( sf,oldfBase,iterDim,oldData,sfData)
+SUBROUTINE fBase_change_base( sf,old_fBase,iterDim,old_data,sf_data)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
-  CLASS(c_fBase),  INTENT(IN   ) :: oldfBase       !! base of oldData
-  INTEGER         ,INTENT(IN   ) :: iterDim        !! iterate on first or second dimension or oldData/sfData
-  REAL(wp)        ,INTENT(IN   ) :: oldData(:,:)
+  CLASS(c_fBase),  INTENT(IN   ) :: old_fBase       !! base of old_data
+  INTEGER         ,INTENT(IN   ) :: iterDim        !! iterate on first or second dimension or old_data/sf_data
+  REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)        ,INTENT(  OUT) :: sfData(:,:)
+  REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   LOGICAL             :: cond(5)
   INTEGER             :: iMode 
   INTEGER,ALLOCATABLE :: modeMapSin(:,:),modeMapCos(:,:)
 !===================================================================================================================================
-  SELECT TYPE(oldfBase); TYPE IS(t_fBase)
-  IF(.NOT.oldfBase%initialized) THEN
+  SELECT TYPE(old_fBase); TYPE IS(t_fBase)
+  IF(.NOT.old_fBase%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_chamge_base: tried to change base with non-initialized fBase!")
   END IF
@@ -561,24 +561,24 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "fBase_chamge_base: iterDim can only be 1 or 2!")
   END IF
-  IF(SIZE(oldData,iterDim).NE.SIZE(sfData,iterDim)) THEN
+  IF(SIZE(old_data,iterDim).NE.SIZE(sf_data,iterDim)) THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: iteration dimenion of oldData and sfData have to be the same!")
+        "fBase_chamge_base: iteration dimenion of old_data and sf_data have to be the same!")
   END IF
-  IF(SIZE(oldData,3-iterDim).NE.oldfBase%modes) THEN
+  IF(SIZE(old_data,3-iterDim).NE.old_fBase%modes) THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: oldData size does not match oldfBase!")
+        "fBase_chamge_base: old_data size does not match old_fBase!")
   END IF
-  IF(SIZE( sfData,3-iterDim).NE.      sf%modes) THEN
+  IF(SIZE( sf_data,3-iterDim).NE.      sf%modes) THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: sfData size does not match sf fBase!")
+        "fBase_chamge_base: sf_data size does not match sf fBase!")
   END IF
 
-  CALL sf%compare(oldfBase,cond_out=cond(1:5))
+  CALL sf%compare(old_fBase,cond_out=cond(1:5))
 
   IF(ALL(cond))THEN
    !same base
-   sfData=oldData
+   sf_data=old_data
   ELSE 
     !actually change base
     IF(.NOT.cond(2)) THEN !nfp
@@ -590,16 +590,16 @@ IMPLICIT NONE
       ! cos <-> sin : not ok
       ! sin <-> sin_cos : ok
       ! cos <-> sin_cos : ok
-      IF(.NOT.(ANY((/sf%sin_cos,oldfBase%sin_cos/).EQ._SINCOS_)))THEN
+      IF(.NOT.(ANY((/sf%sin_cos,old_fBase%sin_cos/).EQ._SINCOS_)))THEN
       CALL abort(__STAMP__, &
           "fBase_chamge_base: cannot change base between sine and cosine!")
       END IF
     END IF
-    ASSOCIATE(mn_max    => oldfBase%mn_max   ,&
-              nfp       => oldfBase%nfp      ,&
-              Xmn       => oldfBase%Xmn      ,&
-              sin_range => oldfBase%sin_range,&
-              cos_range => oldfBase%cos_range ) 
+    ASSOCIATE(mn_max    => old_fBase%mn_max   ,&
+              nfp       => old_fBase%nfp      ,&
+              Xmn       => old_fBase%Xmn      ,&
+              sin_range => old_fBase%sin_range,&
+              cos_range => old_fBase%cos_range ) 
     ALLOCATE(modeMapSin( 0:mn_max(1),-mn_max(2)/nfp:mn_max(2)/nfp))
     ALLOCATE(modeMapCos( 0:mn_max(1),-mn_max(2)/nfp:mn_max(2)/nfp))
     modeMapSin=-1
@@ -610,33 +610,33 @@ IMPLICIT NONE
     DO iMode=cos_range(1)+1,cos_range(2)
       modeMapCos(Xmn(1,iMode),Xmn(2,iMode)/nfp)=iMode 
     END DO
-    END ASSOCIATE !oldfBase%...
+    END ASSOCIATE !old_fBase%...
 
-    sfData=0.0_wp
-    IF((oldfBase%sin_range(2)-oldfBase%sin_range(1)).GT.0)THEN !=_SIN_ / _SIN_COS_
+    sf_data=0.0_wp
+    IF((old_fBase%sin_range(2)-old_fBase%sin_range(1)).GT.0)THEN !=_SIN_ / _SIN_COS_
       DO iMode=sf%sin_range(1)+1,sf%sin_range(2)
-        IF(    sf%Xmn(1,iMode) .GT.oldfBase%mn_max(1))CYCLE !remains zero
-        IF(ABS(sf%Xmn(2,iMode)).GT.oldfBase%mn_max(2))CYCLE !remains zero
+        IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE !remains zero
+        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE !remains zero
         SELECT CASE(iterDim)
         CASE(1)
-          sfData(:,iMode)=oldData(:,modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
+          sf_data(:,iMode)=old_data(:,modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
         CASE(2)
-          sfData(iMode,:)=oldData(modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp),:)
+          sf_data(iMode,:)=old_data(modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp),:)
         END SELECT
       END DO 
-    END IF !oldfBase  no sine
-    IF((oldfBase%cos_range(2)-oldfBase%cos_range(1)).GT.0)THEN !=_COS_ / _SIN_COS_
+    END IF !old_fBase  no sine
+    IF((old_fBase%cos_range(2)-old_fBase%cos_range(1)).GT.0)THEN !=_COS_ / _SIN_COS_
       DO iMode=sf%cos_range(1)+1,sf%cos_range(2)
-        IF(    sf%Xmn(1,iMode) .GT.oldfBase%mn_max(1))CYCLE ! m  > m_max_old, remains zero
-        IF(ABS(sf%Xmn(2,iMode)).GT.oldfBase%mn_max(2))CYCLE !|n| > n_max_old, remains zero
+        IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE ! m  > m_max_old, remains zero
+        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE !|n| > n_max_old, remains zero
         SELECT CASE(iterDim)
         CASE(1)
-          sfData(:,iMode)=oldData(:,modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
+          sf_data(:,iMode)=old_data(:,modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
         CASE(2)
-          sfData(iMode,:)=oldData(modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp),:)
+          sf_data(iMode,:)=old_data(modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp),:)
         END SELECT
       END DO 
-    END IF !oldfBase  no sine
+    END IF !old_fBase  no sine
              
     DEALLOCATE(modeMapSin)
     DEALLOCATE(modeMapCos)
@@ -957,31 +957,50 @@ IMPLICIT NONE
       '\n =>  should be false' 
     END IF !TEST
 
-    !get new fbase and check change_base execution only (can only fail by abort)
+    !get new fbase and check change_base execution  (can fail by abort)
     iTest=121 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     CALL testfBase%init(2*sf%mn_max,2*sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
     ALLOCATE(oldDOF(1:sf%modes,2),newDOF(1:testfBase%modes,2))
+    oldDOF(:,1)=1.1_wp
+    oldDOF(:,2)=2.2_wp
     
     CALL testfBase%change_base(sf,2,oldDOF,newDOF)
+    checkreal=SUM(newDOF)
+    refreal  =SUM(oldDOF)
     CALL testfBase%free()
     DEALLOCATE(oldDOF,newDOF)
-    IF(testdbg)THEN
+    IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-    END IF
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+       '\n =>  should be ', refreal,' : ', checkreal
+    END IF !TEST
 
     !get new fbase and check change_base execution only (can only fail by abort)
     iTest=122 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testfBase%init((/sf%mn_max(1)/2,sf%mn_max(2)/),(/sf%mn_nyq(1)/2,sf%mn_nyq(2)/),sf%nfp,sin_cos_map(_SINCOS_),.TRUE.)
+    CALL testfBase%init((/sf%mn_max(1)/2,sf%mn_max(2)/),(/sf%mn_nyq(1)/2,sf%mn_nyq(2)/),sf%nfp,sin_cos_map(sf%sin_cos),.TRUE.)
     ALLOCATE(oldDOF(3,1:sf%modes),newDOF(3,1:testfBase%modes))
+    oldDOF(1,:)=-1.1_wp
+    oldDOF(2,:)=-2.2_wp
+    oldDOF(3,:)=-3.3_wp
     
     CALL testfBase%change_base(sf,1,oldDOF,newDOF)
+    checkreal=SUM(newDOF)
+    refreal  =-6.6_wp*REAL(testfBase%modes,wp)
     CALL testfBase%free()
     DEALLOCATE(oldDOF,newDOF)
-    IF(testdbg)THEN
+    IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-    END IF
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+       '\n =>  should be ', refreal,' : ', checkreal
+    END IF !TEST
 
   END IF !testlevel <=1
   IF (testlevel .GE.2)THEN

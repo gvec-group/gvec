@@ -49,6 +49,7 @@ TYPE, ABSTRACT :: c_sbase
     PROCEDURE(i_sub_sbase_free          ),DEFERRED :: free
     PROCEDURE(i_sub_sbase_copy          ),DEFERRED :: copy
     PROCEDURE(i_sub_sbase_compare       ),DEFERRED :: compare
+    PROCEDURE(i_sub_sbase_change_base   ),DEFERRED :: change_base
     PROCEDURE(i_sub_sbase_eval          ),DEFERRED :: eval
     PROCEDURE(i_fun_sbase_evalDOF_s     ),DEFERRED :: evalDOF_s
     PROCEDURE(i_fun_sbase_evalDOF_base  ),DEFERRED :: evalDOF_base
@@ -88,6 +89,15 @@ ABSTRACT INTERFACE
     LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
   END SUBROUTINE i_sub_sbase_compare
 
+  SUBROUTINE i_sub_sbase_change_base( sf, old_sBase, iterDim, old_data, sf_data ) 
+    IMPORT c_sbase,wp
+    CLASS(c_sbase) , INTENT(IN   ) :: sf
+    CLASS(c_sbase) , INTENT(IN   ) :: old_sBase
+    INTEGER        , INTENT(IN   ) :: iterDim
+    REAL(wp)       , INTENT(IN   ) :: old_data(:,:)
+    REAL(wp)       , INTENT(  OUT) :: sf_data(:,:)
+  END SUBROUTINE i_sub_sbase_change_base
+
   SUBROUTINE i_sub_sBase_eval( sf , x, deriv,iElem,base_x)
     IMPORT wp,c_sbase
     CLASS(c_sbase), INTENT(IN   ) :: sf !! self
@@ -99,7 +109,7 @@ ABSTRACT INTERFACE
 
   FUNCTION i_fun_sbase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_sbase
-    CLASS(c_sbase), INTENT(INOUT) :: sf
+    CLASS(c_sbase), INTENT(IN   ) :: sf
     REAL(wp)      , INTENT(IN   ) :: g_IP(:)
     REAL(wp)                      :: DOFs(1:sf%nBase)
   END FUNCTION i_fun_sbase_initDOF
@@ -188,6 +198,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   PROCEDURE :: free          => sBase_free
   PROCEDURE :: copy          => sBase_copy
   PROCEDURE :: compare       => sBase_compare
+  PROCEDURE :: change_base   => sBase_change_base
   PROCEDURE :: eval          => sBase_eval
   PROCEDURE :: evalDOF_s     => sBase_evalDOF_s
   PROCEDURE :: evalDOF_base  => sBase_evalDOF_base
@@ -642,7 +653,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPE IS(t_sbase)
+  SELECT TYPE(tocopy); CLASS IS(t_sbase)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "sBase_copy: not initialized sBase from which to copy!")
@@ -716,6 +727,93 @@ IMPLICIT NONE
   END SELECT !TYPE(tocompare)
 
 END SUBROUTINE sbase_compare
+
+
+!===================================================================================================================================
+!> change data from old_sBase to self. 
+!! using interpolations of the old data at the new interpolation points 
+!!
+!===================================================================================================================================
+SUBROUTINE sBase_change_base( sf,old_sBase,iterDim,old_data,sf_data)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sBase),  INTENT(IN   ) :: sf !! self
+  CLASS(c_sBase),  INTENT(IN   ) :: old_sBase       !! base of old_data
+  INTEGER         ,INTENT(IN   ) :: iterDim        !! iterate on first or second dimension or old_data/sf_data
+  REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  LOGICAL              :: sameBase 
+  INTEGER              :: iIP,iter,iterSize
+  REAL(wp),ALLOCATABLE :: eval_old_sbase(:,:),gIP(:,:)
+  INTEGER ,ALLOCATABLE :: Elem_old_sbase(:)
+!===================================================================================================================================
+  SELECT TYPE(old_sBase); CLASS IS(t_sBase)
+  IF(.NOT.old_sBase%initialized) THEN
+    CALL abort(__STAMP__, &
+        "sBase_chamge_base: tried to change base with non-initialized sBase!")
+  END IF
+  IF((iterDim.LT.1).OR.(iterDim.GT.2))THEN
+    CALL abort(__STAMP__, &
+        "sBase_chamge_base: iterDim can only be 1 or 2!")
+  END IF
+  iterSize=SIZE(old_data,iterDim)
+  IF(iterSize.NE.SIZE(sf_data,iterDim)) THEN
+    CALL abort(__STAMP__, &
+        "sBase_chamge_base: iteration dimenion of old_data and sf_data have to be the same!")
+  END IF
+  IF(SIZE(old_data,3-iterDim).NE.old_sBase%nbase) THEN
+    CALL abort(__STAMP__, &
+        "sBase_chamge_base: old_data size does not match old_sBase!")
+  END IF
+  IF(SIZE( sf_data,3-iterDim).NE.      sf%nbase) THEN
+    CALL abort(__STAMP__, &
+        "sBase_chamge_base: sf_data size does not match sf sBase!")
+  END IF
+
+  CALL sf%compare(old_sBase,is_same=sameBase)
+
+  IF(sameBase)THEN
+   !same base
+   sf_data=old_data
+  ELSE 
+    !actually change base
+    ALLOCATE(Elem_old_sbase(1:sf%nBase),eval_old_sbase(0:old_sbase%deg,1:sf%nBase))
+    ALLOCATE(gIP(1:sf%nBase,iterSize))
+    DO iIP=1,sf%nBase
+      CALL old_sbase%eval(sf%S_IP(iIP),0,Elem_old_sbase(iIP),eval_old_sbase(:,iIP))
+    END DO
+    SELECT CASE(iterDim)
+    CASE(1)
+      DO iIP=1,sf%nBase
+        DO iter=1,iterSize
+          gIP(iIP,iter)=old_sbase%evalDOF_base(Elem_old_sbase(iIP),eval_old_sbase(:,iIP),old_data(iter,:))
+        END DO
+      END DO
+      DO iter=1,iterSize
+        sf_data(iter,:)=sf%initDOF(gIP(:,iter))
+      END DO
+    CASE(2)
+      DO iIP=1,sf%nBase
+        DO iter=1,iterSize
+          gIP(iIP,iter)=old_sbase%evalDOF_base(Elem_old_sbase(iIP),eval_old_sbase(:,iIP),old_data(:,iter))
+        END DO
+      END DO
+      DO iter=1,iterSize
+        sf_data(:,iter)=sf%initDOF(gIP(:,iter))
+      END DO
+    END SELECT !iterDim
+    
+    DEALLOCATE(Elem_old_sBase,eval_old_sbase,gIP)
+  END IF !same base
+     
+  END SELECT !TYPE
+END SUBROUTINE sBase_change_base
 
 
 !===================================================================================================================================
@@ -883,7 +981,7 @@ FUNCTION sBase_initDOF( sf , g_IP) RESULT(DOFs)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sbase), INTENT(INOUT) :: sf    !! self
+  CLASS(t_sbase), INTENT(IN   ) :: sf    !! self
   REAL(wp)      , INTENT(IN   ) :: g_IP(:)  !!  interpolation values at s_IP positions [0,1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1032,6 +1130,7 @@ IMPLICIT NONE
   CHARACTER(LEN=10)  :: fail
   CLASS(t_sbase),ALLOCATABLE :: testsbase
   LOGICAL            :: check(5)
+  REAL(wp),ALLOCATABLE :: oldDOF(:,:),newDOF(:,:)
 !===================================================================================================================================
   test_called=.TRUE.
   IF(testlevel.LE.0) RETURN
@@ -1174,6 +1273,55 @@ IMPLICIT NONE
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be false'
+    END IF !TEST
+    CALL testsbase%free()
+    DEALLOCATE(testsbase)
+
+    !check change_base, execution (aborts if not correct)
+    iTest=121 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL sbase_new(testsbase,sf%deg,sf%continuity,sf%grid, sf%degGP)
+    ALLOCATE(oldDOF(1:sf%nBase,2),newDOF(1:testsBase%nBase,2))
+    oldDOF(:,1)=1.0_wp
+    oldDOF(:,2)=2.0_wp
+    CALL testsbase%change_base(sf, 2, oldDOF,newDOF)
+    y  =  MAXVAL(ABS(newDOF(:,1)-oldDOF(:,1)))
+    y2 =  MINVAL(ABS(newDOF(:,2)-oldDOF(:,2)))
+    
+    IF(testdbg.OR.(.NOT.((y  .LT.realtol ).AND. &
+                         (y2 .LT.realtol ))))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,E11.3))') &
+       '   degree = ',deg &
+      ,'   continuity = ',cont,  ', nBase= ',nBase  &
+      ,'\n => should be zero ...',y  & 
+      ,'\n => should be zero ...',y2 
+    END IF !TEST
+    DEALLOCATE(oldDOF,newDOF)
+    CALL testsbase%free()
+    DEALLOCATE(testsbase)
+
+    !check change_base,only execution (aborts if not correct)
+    iTest=122 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL sbase_new(testsbase,sf%deg+1,MERGE(-1,sf%deg,(sf%continuity.EQ.-1)),sf%grid, sf%degGP)
+    ALLOCATE(oldDOF(2,1:sf%nBase),newDOF(2,1:testsBase%nBase))
+    oldDOF(1,:)=-1.0_wp
+    oldDOF(2,:)=-2.0_wp
+    CALL testsbase%change_base(sf, 1, oldDOF,newDOF)
+    y =  MINVAL(ABS(newDOF(1,:)))-MINVAL(ABS(oldDOF(1,:)))
+    y2=  MINVAL(ABS(newDOF(2,:)))-MINVAL(ABS(oldDOF(2,:)))
+    DEALLOCATE(oldDOF,newDOF)
+    CALL testsbase%free()
+    DEALLOCATE(testsbase)
+    IF(testdbg.OR.(.NOT.((y  .LT.realtol ).AND. &
+                         (y2 .LT.realtol ))))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,E11.3))') &
+       '   degree = ',deg &
+      ,'   continuity = ',cont,  ', nBase= ',nBase  &
+      ,'\n => should be zero ...',y & 
+      ,'\n => should be zero ...',y2 
     END IF !TEST
 
   END IF !testlevel>=1
