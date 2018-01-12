@@ -29,7 +29,7 @@ USE MOD_Functional
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
-INTEGER                 :: i,nArgs
+INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: Parameterfile
 INTEGER                 :: which_functional
 CLASS(t_functional),ALLOCATABLE   :: functional
@@ -66,6 +66,13 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   WRITE(Unit_stdOut,'(132("="))')
   testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
   testlevel=GETINT('testlevel',Proposal=-1)
+  IF(testlevel.GT.0)THEN
+    testUnit=GETFREEUNIT()
+    OPEN(UNIT     = testUnit    ,&
+         FILE     = "out.tests"  ,&
+         STATUS   = 'REPLACE'   ,&
+         ACCESS   = 'SEQUENTIAL' ) 
+  END IF
   
   !initialization phase
   CALL InitRestart()
@@ -97,16 +104,14 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"
     SWRITE(UNIT_stdout,*)
     IF(nFailedMsg.GT.0)THEN
-      DO i=1,nFailedMsg
-        SWRITE(UNIT_stdOut,'(A)')TRIM(TestFailedMsg(i))
-      END DO
-      SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED !!!!!!!!!!!!!"
+      SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED, see out.tests !!!!!!!!!!!!!"
     ELSE
       SWRITE(UNIT_stdOut,'(A)')"   ...   ALL IMPLEMENTED TESTS SUCCESSFULL ..."
     END IF !nFailedMsg
     SWRITE(UNIT_stdout,*)
     SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"
     SWRITE(UNIT_stdout,*)
+    CLOSE(testUnit)
   END IF !testlevel
   WRITE(Unit_stdOut,fmt_sep)
   IF(n_warnings_occured.EQ.0)THEN

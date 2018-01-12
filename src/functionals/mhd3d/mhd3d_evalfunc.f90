@@ -246,7 +246,6 @@ FUNCTION calcMinDt(Uin,callEvalAux,JacCheck)
   REAL(wp) :: CalcMinDt
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iGP,i_mn
   REAL(wp) :: maxLambda
 !===================================================================================================================================
   IF(callEvalAux) THEN
@@ -336,17 +335,14 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER   :: ibase,nBase,iMode,modes,iDeg,iGP,jGP,offsetGP,i_mn,Deg,iElem
+  INTEGER   :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem
   INTEGER   :: BC_type(2)
   REAL(wp)  :: BC_val(2)
   REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
-  REAL(wp)  :: Y1tilde(3),Y1,Y1_s,Y1_thet,Y1_zeta
-  REAL(wp)  :: Y2tilde(3),Y2,Y2_s,Y2_thet,Y2_zeta
+  REAL(wp)  :: Y1tilde(3),Y1,Y1_thet,Y1_zeta
+  REAL(wp)  :: Y2tilde(3),Y2,Y2_thet,Y2_zeta
   REAL(wp)  :: bt_sJ,bz_sJ,PhiP2_s2
   REAL(wp)  :: F_GP(1:nGP),F_s_GP(1:nGP)
-  REAL(wp)  :: Fe_X1(0:X1_base%s%deg,0:degGP)    
-  REAL(wp)  :: Fe_X2(0:X2_base%s%deg,0:degGP)    
-  REAL(wp)  :: Fe_LA(0:LA_base%s%deg,0:degGP)    
   REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ &  != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
                                        ,hmap_g_t1,hmap_g_z1,hmap_Jh_dq1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1 &

@@ -279,7 +279,7 @@ END SUBROUTINE sol_var_MHD3D_AXBY
 !!
 !===================================================================================================================================
 SUBROUTINE sol_var_MHD3D_test( sf )
-USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testfailedMsg
+USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -312,9 +312,9 @@ IMPLICIT NONE
     refreal = (0.435_wp)**2
     checkreal =SUM(Utest(1)%norm_2())/SUM(sf%varsize(1,:)*sf%varsize(2,:))
     IF(testdbg.OR.(.NOT.( (checkreal-refreal).LT. realtol) )) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SOL_VAR_MHD3D TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,3I4),2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,3I4),2(A,E11.3))') &
       '   varsize_s= ',sf%varsize(1,:), &
       '   varsize_f= ',sf%varsize(2,:), &
       '\n =>  should be ', refreal, ' : norm_2(U=0)= ',checkreal
@@ -336,9 +336,9 @@ IMPLICIT NONE
     refreal = (1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2 
     checkreal=SUM(Utest(3)%norm_2())/SUM(sf%varsize(1,:)*sf%varsize(2,:))
     IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol) ))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SOL_VAR_MHD3D TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,3I4),2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,3I4),2(A,E11.3))') &
       '   varsize_s= ',sf%varsize(1,:), &
       '   varsize_f= ',sf%varsize(2,:), &
       '\n =>  should be ', refreal, ' : norm_2(U%AXBY)= ',checkreal

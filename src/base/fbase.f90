@@ -49,6 +49,7 @@ TYPE, ABSTRACT :: c_fBase
     PROCEDURE(i_sub_fBase_free          ),DEFERRED :: free
     PROCEDURE(i_sub_fBase_copy          ),DEFERRED :: copy
     PROCEDURE(i_sub_fBase_compare       ),DEFERRED :: compare
+    PROCEDURE(i_sub_fBase_change_base   ),DEFERRED :: change_base
     PROCEDURE(i_fun_fBase_eval          ),DEFERRED :: eval
     PROCEDURE(i_fun_fBase_evalDOF_x     ),DEFERRED :: evalDOF_x
     PROCEDURE(i_fun_fBase_evalDOF_IP    ),DEFERRED :: evalDOF_IP
@@ -86,6 +87,15 @@ ABSTRACT INTERFACE
     LOGICAL,OPTIONAL, INTENT(  OUT) :: is_same
     LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
   END SUBROUTINE i_sub_fBase_compare
+
+  SUBROUTINE i_sub_fBase_change_base( sf, oldfBase, iterDim,oldData,sfData ) 
+    IMPORT c_fBase,wp
+    CLASS(c_fBase) , INTENT(IN   ) :: sf
+    CLASS(c_fBase) , INTENT(IN   ) :: oldfBase
+    INTEGER         ,INTENT(IN   ) :: iterDim
+    REAL(wp)        ,INTENT(IN   ) :: oldData(:,:)
+    REAL(wp)        ,INTENT(  OUT) :: sfData(:,:)
+  END SUBROUTINE i_sub_fBase_change_base
 
   FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
     IMPORT wp,c_fBase
@@ -145,6 +155,7 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: free             => fBase_free
   PROCEDURE :: copy             => fBase_copy
   PROCEDURE :: compare          => fBase_compare
+  PROCEDURE :: change_base      => fBase_change_base
   PROCEDURE :: eval             => fBase_eval
   PROCEDURE :: evalDOF_x        => fBase_evalDOF_x
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP
@@ -515,6 +526,125 @@ IMPLICIT NONE
   END SELECT !TYPE
 END SUBROUTINE fBase_compare
 
+
+!===================================================================================================================================
+!> change data from oldBase to self. 
+!! Forier modes are directly copied so, if new mode space is smaller, its like a Fourier cut-off.
+!! if new modes do not match old ones, they are set to zero. 
+!! Note that a change of nfp is not possible· as well as a change from sine to cosine
+!!
+!===================================================================================================================================
+SUBROUTINE fBase_change_base( sf,oldfBase,iterDim,oldData,sfData)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
+  CLASS(c_fBase),  INTENT(IN   ) :: oldfBase       !! base of oldData
+  INTEGER         ,INTENT(IN   ) :: iterDim        !! iterate on first or second dimension or oldData/sfData
+  REAL(wp)        ,INTENT(IN   ) :: oldData(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)        ,INTENT(  OUT) :: sfData(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  LOGICAL             :: cond(5)
+  INTEGER             :: iMode 
+  INTEGER,ALLOCATABLE :: modeMapSin(:,:),modeMapCos(:,:)
+!===================================================================================================================================
+  SELECT TYPE(oldfBase); TYPE IS(t_fBase)
+  IF(.NOT.oldfBase%initialized) THEN
+    CALL abort(__STAMP__, &
+        "fBase_chamge_base: tried to change base with non-initialized fBase!")
+  END IF
+  IF((iterDim.LT.1).OR.(iterDim.GT.2))THEN
+    CALL abort(__STAMP__, &
+        "fBase_chamge_base: iterDim can only be 1 or 2!")
+  END IF
+  IF(SIZE(oldData,iterDim).NE.SIZE(sfData,iterDim)) THEN
+    CALL abort(__STAMP__, &
+        "fBase_chamge_base: iteration dimenion of oldData and sfData have to be the same!")
+  END IF
+  IF(SIZE(oldData,3-iterDim).NE.oldfBase%modes) THEN
+    CALL abort(__STAMP__, &
+        "fBase_chamge_base: oldData size does not match oldfBase!")
+  END IF
+  IF(SIZE( sfData,3-iterDim).NE.      sf%modes) THEN
+    CALL abort(__STAMP__, &
+        "fBase_chamge_base: sfData size does not match sf fBase!")
+  END IF
+
+  CALL sf%compare(oldfBase,cond_out=cond(1:5))
+
+  IF(ALL(cond))THEN
+   !same base
+   sfData=oldData
+  ELSE 
+    !actually change base
+    IF(.NOT.cond(2)) THEN !nfp
+      CALL abort(__STAMP__, &
+          "fBase_chamge_base: different nfp found, cannot change base!")
+    END IF
+    IF(.NOT.cond(4)) THEN !sin_cos /= sin_cos_old
+      ! sin <-> cos : not ok
+      ! cos <-> sin : not ok
+      ! sin <-> sin_cos : ok
+      ! cos <-> sin_cos : ok
+      IF(.NOT.(ANY((/sf%sin_cos,oldfBase%sin_cos/).EQ._SINCOS_)))THEN
+      CALL abort(__STAMP__, &
+          "fBase_chamge_base: cannot change base between sine and cosine!")
+      END IF
+    END IF
+    ASSOCIATE(mn_max    => oldfBase%mn_max   ,&
+              nfp       => oldfBase%nfp      ,&
+              Xmn       => oldfBase%Xmn      ,&
+              sin_range => oldfBase%sin_range,&
+              cos_range => oldfBase%cos_range ) 
+    ALLOCATE(modeMapSin( 0:mn_max(1),-mn_max(2)/nfp:mn_max(2)/nfp))
+    ALLOCATE(modeMapCos( 0:mn_max(1),-mn_max(2)/nfp:mn_max(2)/nfp))
+    modeMapSin=-1
+    DO iMode=sin_range(1)+1,sin_range(2)
+      modeMapSin(Xmn(1,iMode),Xmn(2,iMode)/nfp)=iMode
+    END DO
+    modeMapCos=-1
+    DO iMode=cos_range(1)+1,cos_range(2)
+      modeMapCos(Xmn(1,iMode),Xmn(2,iMode)/nfp)=iMode 
+    END DO
+    END ASSOCIATE !oldfBase%...
+
+    sfData=0.0_wp
+    IF((oldfBase%sin_range(2)-oldfBase%sin_range(1)).GT.0)THEN !=_SIN_ / _SIN_COS_
+      DO iMode=sf%sin_range(1)+1,sf%sin_range(2)
+        IF(    sf%Xmn(1,iMode) .GT.oldfBase%mn_max(1))CYCLE !remains zero
+        IF(ABS(sf%Xmn(2,iMode)).GT.oldfBase%mn_max(2))CYCLE !remains zero
+        SELECT CASE(iterDim)
+        CASE(1)
+          sfData(:,iMode)=oldData(:,modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
+        CASE(2)
+          sfData(iMode,:)=oldData(modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp),:)
+        END SELECT
+      END DO 
+    END IF !oldfBase  no sine
+    IF((oldfBase%cos_range(2)-oldfBase%cos_range(1)).GT.0)THEN !=_COS_ / _SIN_COS_
+      DO iMode=sf%cos_range(1)+1,sf%cos_range(2)
+        IF(    sf%Xmn(1,iMode) .GT.oldfBase%mn_max(1))CYCLE ! m  > m_max_old, remains zero
+        IF(ABS(sf%Xmn(2,iMode)).GT.oldfBase%mn_max(2))CYCLE !|n| > n_max_old, remains zero
+        SELECT CASE(iterDim)
+        CASE(1)
+          sfData(:,iMode)=oldData(:,modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
+        CASE(2)
+          sfData(iMode,:)=oldData(modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp),:)
+        END SELECT
+      END DO 
+    END IF !oldfBase  no sine
+             
+    DEALLOCATE(modeMapSin)
+    DEALLOCATE(modeMapCos)
+  END IF !same base
+     
+  END SELECT !TYPE
+END SUBROUTINE fBase_change_base
+
 !===================================================================================================================================
 !> evaluate  all modes at specific given point
 !!
@@ -655,7 +785,7 @@ END FUNCTION fBase_initDOF
 !===================================================================================================================================
 SUBROUTINE fBase_test( sf)
 ! MODULES
-USE MOD_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testfailedMsg
+USE MOD_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -670,8 +800,9 @@ IMPLICIT NONE
   CHARACTER(LEN=10)  :: fail
   REAL(wp)           :: dofs(1:sf%modes)
   REAL(wp)           :: g_IP(1:sf%mn_IP)
-  TYPE(t_fbase)      :: testbase
+  TYPE(t_fbase)      :: testfBase
   LOGICAL            :: check(5)
+  REAL(wp),ALLOCATABLE :: oldDOF(:,:),newDOF(:,:)
 !===================================================================================================================================
   test_called=.TRUE. !avoid infinite loop if init is called here
   IF(testlevel.LE.0) RETURN
@@ -700,9 +831,9 @@ IMPLICIT NONE
     refreal   =(0.5_wp*(TWOPI)**2)*REAL(nfp,wp)*(0.5_wp*(TWOPI/REAL(nfp,wp))**2)
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,2(A,I4),2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,2(A,I4),2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : ', sin_cos, &
@@ -722,9 +853,9 @@ IMPLICIT NONE
     refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
@@ -750,9 +881,9 @@ IMPLICIT NONE
 
     IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol).AND. & 
                           (nsinzero              .EQ. 0      )      ))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,(A,I4),2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,(A,I4),2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
@@ -772,9 +903,9 @@ IMPLICIT NONE
     refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
@@ -783,13 +914,13 @@ IMPLICIT NONE
 
     !get new fbase and check compare
     iTest=111 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testbase%init(sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
-    CALL testbase%compare(sf,is_same=check(1))
-    CALL testbase%free()
+    CALL testfBase%init(sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
+    CALL testfBase%compare(sf,is_same=check(1))
+    CALL testfBase%free()
     IF(.NOT.check(1))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,A)') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
@@ -798,13 +929,13 @@ IMPLICIT NONE
 
     !get new fbase and check compare
     iTest=112 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testbase%init(sf%mn_max,sf%mn_nyq,sf%nfp+1,sin_cos_map(sf%sin_cos),(.NOT.sf%exclude_mn_zero))
-    CALL testbase%compare(sf,cond_out=check(1:5))
-    CALL testbase%free()
+    CALL testfBase%init(sf%mn_max,sf%mn_nyq,sf%nfp+1,sin_cos_map(sf%sin_cos),(.NOT.sf%exclude_mn_zero))
+    CALL testfBase%compare(sf,cond_out=check(1:5))
+    CALL testfBase%free()
     IF(ALL(check))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,A)') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
@@ -812,19 +943,46 @@ IMPLICIT NONE
     END IF !TEST
 
     !get new fbase and check compare
-    iTest=112 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testbase%init(2*sf%mn_max,2*sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
-    CALL testbase%compare(sf,cond_out=check)
-    CALL testbase%free()
+    iTest=113 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testfBase%init(2*sf%mn_max,2*sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
+    CALL testfBase%compare(sf,cond_out=check)
+    CALL testfBase%free()
     IF(ALL(check))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,A)') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,A)') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be false' 
     END IF !TEST
+
+    !get new fbase and check change_base execution only (can only fail by abort)
+    iTest=121 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testfBase%init(2*sf%mn_max,2*sf%mn_nyq,sf%nfp,sin_cos_map(sf%sin_cos),sf%exclude_mn_zero)
+    ALLOCATE(oldDOF(1:sf%modes,2),newDOF(1:testfBase%modes,2))
+    
+    CALL testfBase%change_base(sf,2,oldDOF,newDOF)
+    CALL testfBase%free()
+    DEALLOCATE(oldDOF,newDOF)
+    IF(testdbg)THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+    END IF
+
+    !get new fbase and check change_base execution only (can only fail by abort)
+    iTest=122 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    CALL testfBase%init((/sf%mn_max(1)/2,sf%mn_max(2)/),(/sf%mn_nyq(1)/2,sf%mn_nyq(2)/),sf%nfp,sin_cos_map(_SINCOS_),.TRUE.)
+    ALLOCATE(oldDOF(3,1:sf%modes),newDOF(3,1:testfBase%modes))
+    
+    CALL testfBase%change_base(sf,1,oldDOF,newDOF)
+    CALL testfBase%free()
+    DEALLOCATE(oldDOF,newDOF)
+    IF(testdbg)THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+    END IF
+
   END IF !testlevel <=1
   IF (testlevel .GE.2)THEN
 
@@ -843,9 +1001,9 @@ IMPLICIT NONE
     refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
@@ -867,9 +1025,9 @@ IMPLICIT NONE
     refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
@@ -891,9 +1049,9 @@ IMPLICIT NONE
     refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &

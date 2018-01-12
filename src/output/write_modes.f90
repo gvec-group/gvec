@@ -41,7 +41,6 @@ CONTAINS
 SUBROUTINE write_modes(fname,vname,nval,modes,xm,xn,coord,rho_first,values_in,VarNames_in)
 ! MODULES
 USE MOD_Output_CSV, ONLY:WriteDataToCSV
-USE MOD_Output_Vars, ONLY:ProjectName
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES

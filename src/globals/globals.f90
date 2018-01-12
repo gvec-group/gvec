@@ -47,7 +47,7 @@ LOGICAL                     :: testdbg=.FALSE.           !! for debugging the te
 INTEGER                     :: testlevel =-1             !! flag for testing routines in code: -1: off
 INTEGER                     :: ntestCalled=0             !! counter for called tests
 INTEGER                     :: nfailedMsg=0              !! counter for messages on failed tests 
-CHARACTER(LEN=511)          :: testfailedMsg(4000)       !! will be set to an error message of a test that fails
+INTEGER                     :: testUnit                  !! unit for out.test file
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
@@ -111,8 +111,8 @@ INTEGER,OPTIONAL                  :: ErrorCode       !! Error info (integer)
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=50)                 :: IntString,RealString
-INTEGER                           :: errOut          ! Output of MPI_ABORT
 #if MPI
+INTEGER                           :: errOut          ! Output of MPI_ABORT
 INTEGER                           :: signalout       ! Output errorcode
 #endif
 !==================================================================================================================================

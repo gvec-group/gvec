@@ -1013,7 +1013,7 @@ END SUBROUTINE sbase_applyBCtoRHS
 !===================================================================================================================================
 SUBROUTINE sBase_test( sf)
 ! MODULES
-USE MOD_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testfailedMsg
+USE MOD_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1048,9 +1048,9 @@ IMPLICIT NONE
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     IF(testdbg.OR.(.NOT.( ABS(sf%s_IP(1)).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(2(A,I4),(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,I4),(A,E11.3))') &
       '   degree = ',deg, '   continuity = ',cont, &
       '\n =>  should be 0.0 : sIP(1)= ',sf%s_IP(1)
     END IF !TEST
@@ -1058,9 +1058,9 @@ IMPLICIT NONE
     iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     IF(testdbg.OR.(.NOT.( ABS(sf%s_IP(nBase)-1.0_wp).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),(A,E11.3))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n =>  should be 1.0 : sIP(nBase)= ',sf%s_IP(nBase)
@@ -1069,9 +1069,9 @@ IMPLICIT NONE
     iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     IF(testdbg.OR.(.NOT.( ABS(SUM(sf%w_GP)-1.0_wp).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),(A,E11.3))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be 1.0 : SUM(w_GP)= ',SUM(sf%w_GP)
@@ -1083,9 +1083,9 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.((ABS(base_x(0)-1.).LT.realtol).AND. &
                          ( SUM(ABS(base_x(1:deg))).LT. realtol).AND. &
                          (iElem.EQ.1) ))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,I6,*(E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,I6,*(E11.3))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be 1 and (1,0,0...) : base_x(x=0)= ',iElem,base_x
@@ -1097,9 +1097,9 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.((ABS(base_x(deg)-1.)         .LT. realtol ).AND. &
                          (MAXVAL(ABS(base_x(0:deg-1))).LT. realtol ).AND. &
                          (iElem                       .EQ. nElems     )      ))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E11.3))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be ...,0,0,1 : base_x(x=1)= ',base_x
@@ -1111,9 +1111,9 @@ IMPLICIT NONE
     x=0.5_wp*(sf%grid%sp(jElem-1)+sf%grid%sp(jElem))
     CALL sf%eval(x,0,iElem,base_x) 
     IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be ',jElem,': iElem= ' , iElem
@@ -1125,9 +1125,9 @@ IMPLICIT NONE
     x=sf%grid%sp(jElem-1)+0.01_wp*sf%grid%ds(jElem)
     CALL sf%eval(x ,0,iElem,base_x) 
     IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be ',jElem,': iElem= ' , iElem
@@ -1139,9 +1139,9 @@ IMPLICIT NONE
     CALL testsbase%compare(sf,is_same=check(1))
 
     IF(.NOT.check(1))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),(A))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be true'
@@ -1152,9 +1152,9 @@ IMPLICIT NONE
     CALL testsbase%compare(sf, cond_out=check(1:5))
 
     IF(.NOT.ALL(check(:)))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A,5L))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),(A,5L))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be all true', check(:)
@@ -1168,9 +1168,9 @@ IMPLICIT NONE
     CALL testsbase%compare(sf,is_same=check(1))
 
     IF(check(1))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),(A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),(A))') &
       '   degree = ',deg, &
       '   continuity = ',cont,  ', nBase= ',nBase, &
       '\n => should be false'
@@ -1199,9 +1199,9 @@ IMPLICIT NONE
     y2=testf(1.0_wp)
     IF(testdbg.OR.(.NOT.((ABS( dofs(1)-y      ).LT.realtol ).AND.&
                          (ABS( dofs(nBase)-y2 ).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',y  ,' : dofs(1)     = ' , dofs(1)     &
@@ -1218,9 +1218,9 @@ IMPLICIT NONE
 
     IF(testdbg.OR.(.NOT.((ABS( y  - testf(0.0_wp) ).LT.realtol ).AND.&
                          (ABS( y2 - testf(1.0_wp) ).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',testf(0.0_wp) ,' : dofs(y=0)     = ' , y  &
@@ -1240,9 +1240,9 @@ IMPLICIT NONE
                            (ABS( dy2 - testf_dx(1.0_wp) ).LT.realtol/sf%grid%ds(nElems) ).AND.&
                            (ABS( y   - dy               ).LT.realtol/sf%grid%ds(     1) ).AND.&
                            (ABS( y2  - dy2              ).LT.realtol/sf%grid%ds(nElems) ))))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
         '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),8(A,E11.3))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),8(A,E11.3))') &
          '   degree = ',deg &
         ,'   continuity = ',cont,  ', nBase= ',nBase  &
         ,'\n => should be ',testf_dx(0.0_wp) ,' : dofs_ds(y=0)     = ' , dy  &
@@ -1253,9 +1253,9 @@ IMPLICIT NONE
     ELSE
       IF(testdbg.OR.(.NOT.((ABS( y   ).LT.realtol ).AND.&
                            (ABS( y2  ).LT.realtol ))))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
         '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
          '   degree = ',deg &
         ,'   continuity = ',cont,  ', nBase= ',nBase  &
         ,'\n => should be ',0.0_wp ,' : dofs_ds^2(y=0)     = ' , dy  &
@@ -1275,9 +1275,9 @@ IMPLICIT NONE
                            (ABS( dy2 - testf_dxdx(1.0_wp) ).LT.realtol/(sf%grid%ds(nElems)**2) ).AND.&
                            (ABS( y   - dy                 ).LT.realtol/(sf%grid%ds(     1)**2) ).AND.&
                            (ABS( y2  - dy2                ).LT.realtol/(sf%grid%ds(nElems)**2) ))))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
         '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),8(A,E11.3))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),8(A,E11.3))') &
          '   degree = ',deg &
         ,'   continuity = ',cont,  ', nBase= ',nBase  &
         ,'\n => should be ',testf_dxdx(0.0_wp) ,' : dofs_ds^2(y=0)     = ' , dy  &
@@ -1288,9 +1288,9 @@ IMPLICIT NONE
     ELSE
       IF(testdbg.OR.(.NOT.((ABS( dy   ).LT.realtol ).AND.&
                            (ABS( dy2  ).LT.realtol ))))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
         '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
          '   degree = ',deg &
         ,'   continuity = ',cont,  ', nBase= ',nBase  &
         ,'\n => should be ',0.0_wp ,' : dofs_ds^2(y=0)     = ' , dy  &
@@ -1308,9 +1308,9 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
                          (ABS( y-y2         ).LT.realtol ).AND.&
                          (iElem              .EQ.jElem+1 )     )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',jElem,': iElem= ' , iElem &
@@ -1334,9 +1334,9 @@ IMPLICIT NONE
       IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
                            (ABS( y-y2         ).LT.realtol ).AND.&
                            (iElem              .EQ.jElem   )     )))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
         '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6),4(A,E11.3))') &
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
          '   degree = ',deg &
         ,'   continuity = ',cont,  ', nBase= ',nBase  &
         ,'\n => should be ',jElem,': iElem= ' , iElem &
@@ -1355,9 +1355,9 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.((ABS(dy-testf_dx(x)).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
                          (ABS(dy-dy2        ).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
                          (iElem              .EQ.jElem+1 ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',jElem,': iElem= ' , iElem &
@@ -1375,9 +1375,9 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.((ABS(dy-testf_dxdx(x)).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
                          (ABS(dy-dy2          ).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
                          (iElem                .EQ.jElem+1 ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,I6),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',jElem,': iElem= ' , iElem &
@@ -1393,9 +1393,9 @@ IMPLICIT NONE
     dof_GP = sf%evalDOF_GP(0,dofs)
 
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_GP-dof_GP)).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',y_GP(1)        ,':     dof_GP(1) = ' , dof_GP(1)  &
@@ -1410,9 +1410,9 @@ IMPLICIT NONE
     y2 = SUM(dof_GP*sf%w_GP)
 
     IF(testdbg.OR.(.NOT.( (ABS(y-y2).LT.realtol ) )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',y   ,': SUM(dof_GP*wGP) = ' , y2 
@@ -1426,9 +1426,9 @@ IMPLICIT NONE
              *sf%w_GP(1+(degGP+1)*(nElems-1):(degGP+1)*nElems))
 
     IF(testdbg.OR.(.NOT.( (ABS(y-y2).LT.realtol ) )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),2(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',y   ,': SUM(dof_GP*wGP)|_lastElem = ' , y2 
@@ -1441,9 +1441,9 @@ IMPLICIT NONE
     dof_GP = sf%evalDOF_GP(DERIV_S,dofs)
 
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_GP-dof_GP)).LT.realtol/MINVAL(sf%grid%ds) ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',y_GP(1)        ,':     dof_ds_GP(1) = ' , dof_GP(1)  &
@@ -1465,9 +1465,9 @@ IMPLICIT NONE
     y2_BC(1:deg)=dofs(2:deg+1)
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC-y2_BC)).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',y_BC(0)        ,':  y(BCaxis)        = ' , y2_BC(0)  &
@@ -1487,9 +1487,9 @@ IMPLICIT NONE
     y2_BC(    deg)=0.63_wp
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC-y2_BC)).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),4(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',y_BC(deg)      ,':  y(BCedge)       = ' , y2_BC(deg)  &
@@ -1510,9 +1510,9 @@ IMPLICIT NONE
     END DO
     
     IF(testdbg.OR.(.NOT.((ABS(y_BC(1)).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y''... : dy/ds BC_NEUMANN axis = " , y_BC(:) 
@@ -1531,9 +1531,9 @@ IMPLICIT NONE
     END DO
     
     IF(testdbg.OR.(.NOT.((ABS(y_BC(1)).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y'',... : dy/ds BC_NEUMANN edge = " ,  y_BC(:)
@@ -1553,9 +1553,9 @@ IMPLICIT NONE
     END DO
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(1:deg:2))).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y''... : dy/ds BC_SYMM axis = " , y_BC(:) 
@@ -1574,9 +1574,9 @@ IMPLICIT NONE
     END DO
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(1:deg:2))).LT.realtol ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y'',... : dy/ds BC_SYMM edge = " ,  y_BC(:)
@@ -1597,9 +1597,9 @@ IMPLICIT NONE
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(1:deg:2))).LT.realtol ).AND. &
                          (ABS(y_BC(0)              ).LT.realtol )     )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y''... : dy/ds BC_SYMMZERO axis = " , y_BC(:) 
@@ -1619,9 +1619,9 @@ IMPLICIT NONE
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(1:deg:2))).LT.realtol ).AND. &
                          (ABS(y_BC(0)              ).LT.realtol )     )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y'',... : dy/ds BC_SYMMZERO edge = " ,  y_BC(:)
@@ -1642,9 +1642,9 @@ IMPLICIT NONE
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(2:deg:2))).LT.realtol ).AND. &
                          (ABS(y_BC(0)              ).LT.realtol )     )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y''... : dy/ds BC_ANTISYMM axis = " , y_BC(:) 
@@ -1664,9 +1664,9 @@ IMPLICIT NONE
     
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(2:deg:2))).LT.realtol ).AND. &
                          (ABS(y_BC(0)              ).LT.realtol )     )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(A,2(I4,A))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testfailedMsg(nfailedMsg),'(3(A,I4),A,*(E13.5))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y'',... : dy/ds BC_ANTISYMM edge = " ,  y_BC(:)

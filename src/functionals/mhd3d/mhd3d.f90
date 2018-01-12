@@ -304,13 +304,13 @@ SUBROUTINE InitSolution()
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: is,iMode
+  INTEGER  :: iMode
   INTEGER  :: BC_type(2)
   REAL(wp) :: BC_val(2)
-  REAL(wp) :: spos,iota_s
+  REAL(wp) :: spos
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
-  REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
+  !REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   ASSOCIATE(U0=>U(0))
@@ -469,7 +469,7 @@ SUBROUTINE MinimizeMHD3D(sf)
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER   :: i,iter,nStepDecreased,nSkip_Jac,nSkip_dw
+  INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck
   REAL(wp)  :: beta,dt,deltaW,relTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0
