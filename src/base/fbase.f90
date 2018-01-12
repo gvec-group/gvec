@@ -555,23 +555,23 @@ IMPLICIT NONE
   SELECT TYPE(old_fBase); TYPE IS(t_fBase)
   IF(.NOT.old_fBase%initialized) THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: tried to change base with non-initialized fBase!")
+        "fBase_change_base: tried to change base with non-initialized fBase!")
   END IF
   IF((iterDim.LT.1).OR.(iterDim.GT.2))THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: iterDim can only be 1 or 2!")
+        "fBase_change_base: iterDim can only be 1 or 2!")
   END IF
   IF(SIZE(old_data,iterDim).NE.SIZE(sf_data,iterDim)) THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: iteration dimenion of old_data and sf_data have to be the same!")
+        "fBase_change_base: iteration dimenion of old_data and sf_data have to be the same!")
   END IF
   IF(SIZE(old_data,3-iterDim).NE.old_fBase%modes) THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: old_data size does not match old_fBase!")
+        "fBase_change_base: old_data size does not match old_fBase!")
   END IF
   IF(SIZE( sf_data,3-iterDim).NE.      sf%modes) THEN
     CALL abort(__STAMP__, &
-        "fBase_chamge_base: sf_data size does not match sf fBase!")
+        "fBase_change_base: sf_data size does not match sf fBase!")
   END IF
 
   CALL sf%compare(old_fBase,cond_out=cond(1:5))
@@ -583,7 +583,7 @@ IMPLICIT NONE
     !actually change base
     IF(.NOT.cond(2)) THEN !nfp
       CALL abort(__STAMP__, &
-          "fBase_chamge_base: different nfp found, cannot change base!")
+          "fBase_change_base: different nfp found, cannot change base!")
     END IF
     IF(.NOT.cond(4)) THEN !sin_cos /= sin_cos_old
       ! sin <-> cos : not ok
@@ -592,7 +592,7 @@ IMPLICIT NONE
       ! cos <-> sin_cos : ok
       IF(.NOT.(ANY((/sf%sin_cos,old_fBase%sin_cos/).EQ._SINCOS_)))THEN
       CALL abort(__STAMP__, &
-          "fBase_chamge_base: cannot change base between sine and cosine!")
+          "fBase_change_base: cannot change base between sine and cosine!")
       END IF
     END IF
     ASSOCIATE(mn_max    => old_fBase%mn_max   ,&

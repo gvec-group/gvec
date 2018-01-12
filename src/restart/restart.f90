@@ -270,23 +270,25 @@ IMPLICIT NONE
   changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
 
   IF(changed)THEN
-    WRITE(*,*)sameGrid,sameX1,sameX2,sameLA
-    STOP 'restart from other configuration not yet implemented'
-    !DEBUG, U(-1)-> Uin
-    IF(sameX1)THEN
-      U(-1)%X1(:,:)=X1_r
-    ELSE
-      !U(-1)%X1(:,:)=X1_base%changeBase(X1_base_r,sameX1_s,sameX1_f,X1_r)
-    END IF
-  ELSE
-    !DEBUG, U(-1)-> Uin
-    U(-1)%X1(:,:)=X1_r
-    U(-1)%X2(:,:)=X2_r
-    U(-1)%LA(:,:)=LA_r
+    SWRITE(*,*) 'restart from other configuration: ',sameGrid,sameX1,sameX2,sameLA
   END IF
+  !DEBUG, U(-1)-> Uin
+!  IF(sameX1)THEN
+!    U(-1)%X1(:,:)=X1_r
+!  ELSE
+   CALL X1_base%change_base(X1_base_r,X1_r,U(-1)%X1)
+!  END IF
+!  IF(sameX2)THEN
+!    U(-1)%X2(:,:)=X2_r
+!  ELSE
+   CALL X2_base%change_base(X2_base_r,X2_r,U(-1)%X2)
+!  END IF
+!  IF(sameLA)THEN
+!    U(-1)%LA(:,:)=LA_r
+!  ELSE
+   CALL LA_base%change_base(LA_base_r,LA_r,U(-1)%LA)
+!  END IF
 
-
-        
 
   CALL X1_base_r%free()
   CALL X2_base_r%free()

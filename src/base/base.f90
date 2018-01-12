@@ -57,10 +57,11 @@ TYPE                 :: t_base
   
   CONTAINS
 
-  PROCEDURE :: free       => base_free
-  PROCEDURE :: copy       => base_copy
-  PROCEDURE :: compare    => base_compare
-  PROCEDURE :: evalDOF    => base_evalDOF
+  PROCEDURE :: free        => base_free
+  PROCEDURE :: copy        => base_copy
+  PROCEDURE :: compare     => base_compare
+  PROCEDURE :: change_base => base_change_base
+  PROCEDURE :: evalDOF     => base_evalDOF
 
 END TYPE t_base
 
@@ -172,6 +173,29 @@ CALL sf%s%compare(tocompare%s,is_same=same_s)
 CALL sf%f%compare(tocompare%f,is_same=same_f)
 is_same=same_s.AND.same_f
 END SUBROUTINE base_compare
+
+!===================================================================================================================================
+!> change basis from old input base to new base, 
+!!
+!===================================================================================================================================
+SUBROUTINE base_change_base( sf , old_base, old_data, sf_data)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_base), INTENT(IN   ) :: sf !! self
+  CLASS(t_base), INTENT(IN   ) :: old_base
+  REAL(wp)     , INTENT(IN   ) :: old_data(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)     , INTENT(  OUT) :: sf_data(:,:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: tmp(old_base%s%nBase,sf%f%modes)
+!===================================================================================================================================
+CALL sf%f%change_base(old_base%f,1,old_data,tmp    )
+CALL sf%s%change_base(old_base%s,2,tmp     ,sf_data)
+END SUBROUTINE base_change_base
 
 !===================================================================================================================================
 !> evaluate all degrees of freedom at all Gauss Points (deriv=0 solution, deriv=1 first derivative d/ds)
