@@ -69,7 +69,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   IF(testlevel.GT.0)THEN
     testUnit=GETFREEUNIT()
     OPEN(UNIT     = testUnit    ,&
-         FILE     = "out.tests"  ,&
+         FILE     = "tests.out" ,&
          STATUS   = 'REPLACE'   ,&
          ACCESS   = 'SEQUENTIAL' ) 
   END IF
@@ -104,7 +104,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"
     SWRITE(UNIT_stdout,*)
     IF(nFailedMsg.GT.0)THEN
-      SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED, see out.tests !!!!!!!!!!!!!"
+      SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED, see tests.out !!!!!!!!!!!!!"
     ELSE
       SWRITE(UNIT_stdOut,'(A)')"   ...   ALL IMPLEMENTED TESTS SUCCESSFULL ..."
     END IF !nFailedMsg
