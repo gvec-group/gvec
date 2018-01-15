@@ -150,17 +150,15 @@ END SUBROUTINE WriteStateToASCII
 
 
 !===================================================================================================================================
-!> read an input solution and initialize Uin (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file 
+!> read an input solution and initialize U(0) (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file 
 !! if size of grid/X1/X2/LA  not equal X1/X2/X3_base
 !! interpolate readin solution to the current base of Uin
 !!
 !===================================================================================================================================
-SUBROUTINE ReadStateFromASCII()!Uin,fileString)
+SUBROUTINE ReadStateFromASCII(fileString,U_r)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
-USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel
 USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
-USE MOD_MHD3D_Vars, ONLY: U! DEBUG
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MOD_sgrid,  ONLY: t_sgrid
 USE MOD_base,   ONLY: t_base, base_new
@@ -168,13 +166,12 @@ USE MOD_fbase,  ONLY: sin_cos_map
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-!  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin 
-!  CHARACTER(LEN=255)    , INTENT(IN   ) :: fileString
+  CHARACTER(LEN=255)    , INTENT(IN   ) :: fileString
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_r 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  CHARACTER(LEN=255)   :: fileString
   INTEGER              :: fileID_r,OutputLevel_r
   INTEGER              :: ioUnit,iMode,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2) 
   INTEGER              :: X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
@@ -190,9 +187,6 @@ IMPLICIT NONE
   CLASS(t_base),ALLOCATABLE :: LA_base_r
   TYPE(t_sgrid)             :: sgrid_r
 !===================================================================================================================================
-  !DEBUG!
-  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
-
   WRITE(UNIT_stdOut,'(A)')'   READ SOLUTION VARIABLE FROM FILE    "'//TRIM(FileString)//'" ...'
 
   ioUnit=GETFREEUNIT()
@@ -272,21 +266,20 @@ IMPLICIT NONE
   IF(changed)THEN
     SWRITE(*,*) 'restart from other configuration: ',sameGrid,sameX1,sameX2,sameLA
   END IF
-  !DEBUG, U(-1)-> Uin
 !  IF(sameX1)THEN
-!    U(-1)%X1(:,:)=X1_r
+!    U_r%X1(:,:)=X1_r
 !  ELSE
-   CALL X1_base%change_base(X1_base_r,X1_r,U(-1)%X1)
+   CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
 !  END IF
 !  IF(sameX2)THEN
-!    U(-1)%X2(:,:)=X2_r
+!    U_r%X2(:,:)=X2_r
 !  ELSE
-   CALL X2_base%change_base(X2_base_r,X2_r,U(-1)%X2)
+   CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)
 !  END IF
 !  IF(sameLA)THEN
-!    U(-1)%LA(:,:)=LA_r
+!    U_r%LA(:,:)=LA_r
 !  ELSE
-   CALL LA_base%change_base(LA_base_r,LA_r,U(-1)%LA)
+   CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
 !  END IF
 
 

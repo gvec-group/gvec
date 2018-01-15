@@ -59,6 +59,8 @@ SUBROUTINE InitMHD3D(sf)
   USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
   USE MOD_ReadInTools    , ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
+  USE MOD_Restart_vars   , ONLY: doRestart,RestartFile
+  USE MOD_Restart        , ONLY: ReadState
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -243,7 +245,13 @@ SUBROUTINE InitMHD3D(sf)
   END DO
 
 
-  CALL InitSolution() !U(0)
+  IF(doRestart)THEN
+    SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
+    CALL ReadState(RestartFile,U(0))
+  ELSE 
+    CALL InitSolution(U(0))
+  END IF
+  CALL U(-1)%set_to(U(0))
 
  CALL InitializeMHD3D_EvalFunc()
   JacCheck=1
@@ -290,9 +298,9 @@ END SUBROUTINE InitMHD3D
 !> Initialize the solution with the given boundary condition 
 !!
 !===================================================================================================================================
-SUBROUTINE InitSolution()
+SUBROUTINE InitSolution(U_init)
 ! MODULES
-  USE MOD_MHD3D_Vars
+  USE MOD_MHD3D_Vars   , ONLY:which_init,X1_base,X2_base,X1_a,X1_b,X2_a,X2_b
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
 !  USE MOD_lambda_solve,  ONLY:lambda_solve
   USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
@@ -301,7 +309,10 @@ SUBROUTINE InitSolution()
   USE MOD_MHD3D_Profiles,ONLY: Eval_iota
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode
@@ -313,7 +324,6 @@ SUBROUTINE InitSolution()
   !REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
-  ASSOCIATE(U0=>U(0))
   SELECT CASE(which_init)
   CASE(0)
     !X1_a,X2_a and X1_b,X2_b already filled from parameter file readin...
@@ -368,7 +378,7 @@ SUBROUTINE InitSolution()
     CASE(M_EVEN)
       X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
     END SELECT !X1(:,iMode) zero odd even
-    U0%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
+    U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
   END DO 
   END ASSOCIATE
 
@@ -386,7 +396,7 @@ SUBROUTINE InitSolution()
     CASE(M_EVEN)
       X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
     END SELECT !X1(:,iMode) zero odd even
-    U0%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
+    U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
   END DO 
   END ASSOCIATE
   !apply strong boundary conditions
@@ -404,7 +414,7 @@ SUBROUTINE InitSolution()
       BC_type=(/BC_TYPE_SYMMZERO,BC_TYPE_DIRICHLET/)
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
-    CALL X1_base%s%applyBCtoDOF(U0%X1(:,iMode),BC_type,BC_val)
+    CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),BC_type,BC_val)
   END DO 
   END ASSOCIATE !X1
 
@@ -422,7 +432,7 @@ SUBROUTINE InitSolution()
       BC_type=(/BC_TYPE_SYMMZERO,BC_TYPE_DIRICHLET/)
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
-    CALL X2_base%s%applyBCtoDOF(U0%X2(:,iMode),BC_type,BC_val)
+    CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),BC_type,BC_val)
   END DO 
   END ASSOCIATE !X2
 
@@ -432,22 +442,20 @@ SUBROUTINE InitSolution()
 !  DO is=2,LA_base%s%nBase
 !    spos=LA_base%s%s_IP(is)
 !    iota_s=eval_iota(spos)
-!    CALL lambda_Solve(spos,iota_s,U0%X1,U0%X2,LA_gIP(is,:))
+!    CALL lambda_Solve(spos,iota_s,U_init%X1,U_init%X2,LA_gIP(is,:))
 !  END DO !is
 !  DO imode=1,LA_base%f%modes
 !    IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
-!      U0%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
+!      U_init%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
 !    ELSE
-!      U0%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+!      U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
 !    END IF!iMode ~ MN_ZERO
 !  END DO !iMode 
-!  LA_b = U0%LA(LA_base%s%nbase,:)
+!  LA_b = U_init%LA(LA_base%s%nbase,:)
 
   !lambda init not needed since it has no boundary condition and changes anyway after the update of the mapping...
-  U0%LA=0.0_wp
+  U_init%LA=0.0_wp
 
-  CALL U(-1)%set_to(U0)
-  END ASSOCIATE !U0
   SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitSolution
@@ -463,12 +471,15 @@ SUBROUTINE MinimizeMHD3D(sf)
   USE MOD_MHD3D_EvalFunc
   USE MOD_Analyze, ONLY:analyze
   USE MOD_Restart, ONLY:WriteState
+  USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel !debug ReadState
+  USE MOD_Restart, ONLY:ReadState
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  CHARACTER(LEN=255)  :: fileString !DEBUG ReadState
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck
   REAL(wp)  :: beta,dt,deltaW,relTol
@@ -600,6 +611,9 @@ SUBROUTINE MinimizeMHD3D(sf)
   SWRITE(UNIT_stdOut,fmt_sep)
   CALL Analyze(99999999)
   CALL WriteState(U(0),99999999)
+  !DEBUG
+  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
+  CALL ReadState(FileString,U(-1))
   
 
 END SUBROUTINE MinimizeMHD3D

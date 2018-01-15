@@ -83,8 +83,8 @@ short_runs_iniparam_intel:
   before_script:
     - . ~/environments/modules_for_gvec_intel
   script: 
-    - cd ini; pwd
-    - ../build_debug_intel/bin/gvec gitlab_shortruns.ini |tee log
+    - pwd
+    - python gitlab_shortruns.py |tee log
   after_script:
     - pwd 
   artifacts:
@@ -103,8 +103,8 @@ short_runs_iniparam_gnu:
   before_script:
     - . ~/environments/modules_for_gvec_gnu
   script: 
-    - cd ini; pwd
-    - ../build_debug_gnu/bin/gvec gitlab_shortruns.ini |tee log
+    - pwd
+    - python gitlab_shortruns.py |tee log
   after_script:
     - pwd 
   artifacts:

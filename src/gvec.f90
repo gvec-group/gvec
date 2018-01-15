@@ -89,8 +89,6 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL functional%minimize() 
 
-  CALL ReadState()
-
   CALL FinalizeFunctional(functional)
  
   CALL FinalizeMHDEQ()
