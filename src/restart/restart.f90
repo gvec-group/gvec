@@ -158,6 +158,7 @@ END SUBROUTINE WriteStateToASCII
 SUBROUTINE ReadStateFromASCII(fileString,U_r)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
+USE MOD_Output_Vars, ONLY:OutputLevel
 USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MOD_sgrid,  ONLY: t_sgrid
