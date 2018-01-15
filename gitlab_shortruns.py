@@ -22,7 +22,7 @@ args = parser.parse_args()
 
 builddir=args.builddir
 os.chdir("ini")
-cmd="../"+builddir+"build/bin/gvec gitlab_shortruns.ini"
+cmd="../"+builddir+"/bin/gvec gitlab_shortruns.ini"
 os.system(cmd) #+" 2>std_1st_sim.err 1>std_1st_sim.out")
 restartFile="GITLAB_RUN_State_0000_99999999.dat"
 if ( os.path.isfile(restartFile)):
