@@ -471,15 +471,12 @@ SUBROUTINE MinimizeMHD3D(sf)
   USE MOD_MHD3D_EvalFunc
   USE MOD_Analyze, ONLY:analyze
   USE MOD_Restart, ONLY:WriteState
-  USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel !debug ReadState
-  USE MOD_Restart, ONLY:ReadState
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  CHARACTER(LEN=255)  :: fileString !DEBUG ReadState
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck
   REAL(wp)  :: beta,dt,deltaW,relTol
@@ -611,9 +608,9 @@ SUBROUTINE MinimizeMHD3D(sf)
   SWRITE(UNIT_stdOut,fmt_sep)
   CALL Analyze(99999999)
   CALL WriteState(U(0),99999999)
-  !DEBUG
-  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
-  CALL ReadState(FileString,U(-1))
+!DEBUG
+!  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
+!  CALL ReadState(FileString,U(-1))
   
 
 END SUBROUTINE MinimizeMHD3D
