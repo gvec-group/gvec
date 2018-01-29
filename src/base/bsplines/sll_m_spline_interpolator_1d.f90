@@ -236,10 +236,11 @@ contains
   !> @param[in]    derivs_xmax (optional) array with boundary conditions at xmax
   !-----------------------------------------------------------------------------
   subroutine s_spline_interpolator_1d__compute_interpolant( self, &
-      spline, gtau, derivs_xmin, derivs_xmax )
-
+      bcoef, gtau, derivs_xmin, derivs_xmax )
     class(sll_t_spline_interpolator_1d), intent(in   ) :: self
-    type (sll_t_spline_1d)             , intent(inout) :: spline
+  !  type (sll_t_spline_1d)             , intent(inout) :: spline  
+    real(wp)                           , intent(  out) :: &  ! not using spline to separate data and basis
+    bcoef(1-MERGE(1+self%bspl%degree/2,0,self%bspl%periodic):self%bspl%nbasis+MERGE(1+self%bspl%degree/2,0,self%bspl%periodic)) 
     real(wp)                           , intent(in   ) :: gtau(:)
     real(wp),                  optional, intent(in   ) :: derivs_xmin(:)
     real(wp),                  optional, intent(in   ) :: derivs_xmax(:)
@@ -250,13 +251,13 @@ contains
     integer :: i
 
     SLL_ASSERT( size(gtau) == self%bspl%nbasis - self%nbc_xmin - self%nbc_xmax )
-    SLL_ASSERT( spline % belongs_to_space( self % bspl ) )
+!    SLL_ASSERT( spline % belongs_to_space( self % bspl ) )
 
     associate ( nbasis   =>   self % bspl % nbasis, &
                 degree   =>   self % bspl % degree, &
                 nbc_xmin =>   self % nbc_xmin     , &
-                nbc_xmax =>   self % nbc_xmax     , &
-                bcoef    => spline % bcoef )
+                nbc_xmax =>   self % nbc_xmax     )!, &
+!                bcoef    => spline % bcoef )
 
       ! Special case: linear spline
       if (degree == 1) then

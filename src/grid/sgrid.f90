@@ -251,10 +251,8 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "sgrid_compare: tried to compare with a not initialized sgrid!")
   END IF
-  ASSOCIATE(tc=>tocompare)
-  cond(1)=(sf%nElems.EQ.tc%nElems)
-  cond(2)=(sf%grid_type.EQ.tc%grid_type)
-  END ASSOCIATE
+  cond(1)=(sf%nElems.EQ.tocompare%nElems)
+  cond(2)=(sf%grid_type.EQ.tocompare%grid_type)
 
   is_same=ALL(cond)
 

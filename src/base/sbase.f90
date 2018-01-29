@@ -23,7 +23,6 @@ MODULE MOD_sBase
 ! MODULES
 USE MOD_Globals                  ,ONLY: wp,Unit_stdOut,abort
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
-USE sll_m_spline_1d              ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_spline_matrix          ,ONLY: sll_c_spline_matrix
 USE MOD_sGrid ,ONLY: c_sgrid,t_sgrid
@@ -217,7 +216,6 @@ END TYPE t_sBase_disc
 
 TYPE,EXTENDS(t_sbase) :: t_sBase_spl
   CLASS(sll_c_bsplines),ALLOCATABLE :: bspl        !! contains bspline functions
-  TYPE(sll_t_spline_1d)             :: spline      !! contains 1d spline functions
   TYPE(sll_t_spline_interpolator_1d):: Interpol    !! spline interpolator
 END TYPE t_sBase_spl
 
@@ -274,7 +272,6 @@ USE MOD_LinAlg ,   ONLY: INV
 USE MOD_Basis1D,   ONLY:  LegendreGaussNodesAndWeights
 USE MOD_Basis1D,   ONLY:  BarycentricWeights,InitializeVandermonde,MthPolynomialDerivativeMatrix
 USE sll_m_bsplines,ONLY: sll_s_bsplines_new
-USE sll_m_spline_1d                      ,ONLY: sll_t_spline_1d
 USE sll_m_spline_interpolator_1d         ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_boundary_condition_descriptors ,ONLY: sll_p_greville
 USE sll_m_spline_matrix                  ,ONLY: sll_s_spline_matrix_new
@@ -444,7 +441,6 @@ IMPLICIT NONE
     !interpolation
     CALL sf%Interpol%init (sf%bspl,sll_p_greville,sll_p_greville) 
     CALL sf%Interpol%get_interp_points ( sf%s_IP ) 
-    CALL sf%spline%init( sf%bspl ) !needed for interpolation
 
     DEALLOCATE(locbasis)
   END SELECT !TYPE is t_sbase_disc/spl
@@ -619,7 +615,6 @@ IMPLICIT NONE
   SELECT TYPE (sf) 
   TYPE IS(t_sbase_spl)
     CALL sf%interpol%free() 
-    CALL sf%spline%free() 
     CALL sf%bspl%free() 
   TYPE IS(t_sbase_disc)
     SDEALLOCATE(sf%xiIP)
@@ -995,8 +990,7 @@ IMPLICIT NONE
   TYPE IS(t_sbase_disc)
     DOFs(:)=g_IP
   TYPE IS(t_sbase_spl)
-    CALL sf%interpol%compute_interpolant( sf%spline, g_IP )
-    DOFs(:)=sf%spline%bcoef(:) !somewhat not perfect, since interpolant saves result to bcoef of spline 
+    CALL sf%interpol%compute_interpolant( DOFs(:), g_IP )
   CLASS DEFAULT
     CALL abort(__STAMP__, &
       "this type of continuity not implemented!")
