@@ -461,19 +461,19 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       F_GP(iGP)=0.0_wp
       DO i_mn=1,mn_IP
         !evaluate testfunctions
-        Y2              = X2_base%f%base_IP(      i_mn,iMode) !*X2_base%s%base_GP(jGP,iDeg,iElem), applied afterwards
-        Y2_thet         = X2_base%f%base_dthet_IP(i_mn,iMode) !*X2_base%s%base_GP(jGP,iDeg,iElem)
-        Y2_zeta         = X2_base%f%base_dzeta_IP(i_mn,iMode) !*X2_base%s%base_GP(jGP,iDeg,iElem)
+        Y2              = X2_base%f%base_IP(      i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem), applied afterwards
+        Y2_thet         = X2_base%f%base_dthet_IP(i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem)
+        Y2_zeta         = X2_base%f%base_dzeta_IP(i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem)
         F_GP(iGP)       = F_GP(iGP)    &
                          +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*( dX1_ds(    i_mn,iGP)*Y2_thet)   &
-                                            + J_p(i_mn,iGP)*hmap_Jh_dq2( i_mn,iGP)*Y2       ) & ![deltaJ]_Y2
+                                            + J_p(i_mn,iGP)*hmap_Jh_dq2( i_mn,iGP)*Y2       ) & ! [deltaJ]_Y2
                          -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_t2(           i_mn,iGP)*Y2_thet    &
-                                                   +hmap_g_tt_dq2(       i_mn,iGP)*Y2       ) & ![delta g_tt]_Y2
+                                                   +hmap_g_tt_dq2(       i_mn,iGP)*Y2       ) & ! [delta g_tt]_Y2
                          -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_z2(           i_mn,iGP)*Y2_zeta    & 
-                                                   +hmap_g_zz_dq2(       i_mn,iGP)*Y2       ) & ![delta g_zz]_Y2
+                                                   +hmap_g_zz_dq2(       i_mn,iGP)*Y2       ) & ! [delta g_zz]_Y2
                          -btz_sJ(i_mn,iGP)*2.0_wp*( hmap_g_t2(           i_mn,iGP)*Y2_zeta    & 
                                                    +hmap_g_z2(           i_mn,iGP)*Y2_thet    &
-                                                   +hmap_g_tz_dq2(       i_mn,iGP)*Y2       )   !2*[delta g_tz]_Y1
+                                                   +hmap_g_tz_dq2(       i_mn,iGP)*Y2       )   ! 2*[delta g_tz]_Y1
       END DO !i_mn=1,mn_IP
       F_GP(iGP)=F_GP(iGP)*w_GP(iGP)
     END DO !iGP=1,nGP
@@ -525,7 +525,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       iGP=iGP+(degGP+1)
     END DO !iElem
   END DO !iMode
-  F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) !*2 / 2 scale with constants
+  F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) ! *2 / 2 scale with constants
   CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
   END ASSOCIATE !F_LA
 

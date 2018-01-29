@@ -613,10 +613,10 @@ IMPLICIT NONE
     END ASSOCIATE !old_fBase%...
 
     sf_data=0.0_wp
-    IF((old_fBase%sin_range(2)-old_fBase%sin_range(1)).GT.0)THEN !=_SIN_ / _SIN_COS_
+    IF((old_fBase%sin_range(2)-old_fBase%sin_range(1)).GT.0)THEN ! =_SIN_ / _SIN_COS_
       DO iMode=sf%sin_range(1)+1,sf%sin_range(2)
-        IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE !remains zero
-        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE !remains zero
+        IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE ! remains zero
+        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE ! remains zero
         SELECT CASE(iterDim)
         CASE(1)
           sf_data(:,iMode)=old_data(:,modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
@@ -625,10 +625,10 @@ IMPLICIT NONE
         END SELECT
       END DO 
     END IF !old_fBase  no sine
-    IF((old_fBase%cos_range(2)-old_fBase%cos_range(1)).GT.0)THEN !=_COS_ / _SIN_COS_
+    IF((old_fBase%cos_range(2)-old_fBase%cos_range(1)).GT.0)THEN ! =_COS_ / _SIN_COS_
       DO iMode=sf%cos_range(1)+1,sf%cos_range(2)
-        IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE ! m  > m_max_old, remains zero
-        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE !|n| > n_max_old, remains zero
+        IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE !  m  > m_max_old, remains zero
+        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE ! |n| > n_max_old, remains zero
         SELECT CASE(iterDim)
         CASE(1)
           sf_data(:,iMode)=old_data(:,modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
