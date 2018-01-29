@@ -28,8 +28,8 @@ The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 A documentation of GVEC can be found **[here](https://gitlab.mpcdf.mpg.de/ipphinde/GVEC_doc.git)**.
 
-### [Code Documentation](http://ipphinde.pages.mpcdf.de/ford-gvec-doc)
-Code documentation can be found **[here.](http://ipphinde.pages.mpcdf.de/ford-gvec-doc)**
+### [Code Documentation](http://gvec-group.pages.mpcdf.de/ford-gvec-doc)
+Code documentation can be found **[here.](http://gvec-group.pages.mpcdf.de/ford-gvec-doc)**
 It is generated using [FORD](https://github.com/cmacmackin/ford) 
 and the input file for running ford is in `ford-config/project.md`.
 
