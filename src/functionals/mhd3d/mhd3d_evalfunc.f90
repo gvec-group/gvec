@@ -557,12 +557,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X1(:,iMode) zero odd even
     CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
-!    CALL X1_base%s%applyBCtoRHS(F_MHD3D%X1(:,iMode),BC_type)
   END DO 
   END ASSOCIATE !X1
 
   ASSOCIATE(modes        =>X2_base%f%modes, &
             zero_odd_even=>X2_base%f%zero_odd_even)
+  BC_type(2)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
@@ -579,7 +579,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X1(:,iMode) zero odd even
     CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
-!    CALL X2_base%s%applyBCtoRHS(F_MHD3D%X2(:,iMode),BC_type)
   END DO 
   END ASSOCIATE !X2
 

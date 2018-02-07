@@ -57,7 +57,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MOD_fbase          , ONLY: t_fbase,fbase_new
   USE MOD_base           , ONLY: t_base,base_new
   USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
-  USE MOD_ReadInTools    , ONLY: GETSTR,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+  USE MOD_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
   USE MOD_Restart_vars   , ONLY: doRestart,RestartFile
   USE MOD_Restart        , ONLY: ReadState
@@ -102,6 +102,7 @@ SUBROUTINE InitMHD3D(sf)
   mu_0    = 4.0e-07_wp*PI
   
   which_init = whichInitEquilibrium ! GETINT("which_init","0")
+  init_LA= GETLOGICAL("init_LA",Proposal=.FALSE.)
   
   SELECT CASE(which_init)
   CASE(0)
@@ -111,7 +112,7 @@ SUBROUTINE InitMHD3D(sf)
     which_hmap=GETINT("which_hmap",Proposal=1)
     CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
     CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
-    pres_scale=GETREAL("PRES_SCALE",1.0_wp)
+    pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
     pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
   CASE(1) !VMEC init
@@ -301,8 +302,9 @@ END SUBROUTINE InitMHD3D
 SUBROUTINE InitSolution(U_init)
 ! MODULES
   USE MOD_MHD3D_Vars   , ONLY:which_init,X1_base,X2_base,X1_a,X1_b,X2_a,X2_b
+  USE MOD_MHD3D_Vars   , ONLY:LA_base,init_LA
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-!  USE MOD_lambda_solve,  ONLY:lambda_solve
+  USE MOD_lambda_solve,  ONLY:lambda_solve
   USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
   USE MOD_VMEC_Readin,   ONLY:lasym
   USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
@@ -315,13 +317,13 @@ SUBROUTINE InitSolution(U_init)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode
+  INTEGER  :: iMode,is
   INTEGER  :: BC_type(2)
   REAL(wp) :: BC_val(2)
-  REAL(wp) :: spos
+  REAL(wp) :: spos,iota_s
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
-  !REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
+  REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   SELECT CASE(which_init)
@@ -436,25 +438,30 @@ SUBROUTINE InitSolution(U_init)
   END DO 
   END ASSOCIATE !X2
 
-!  SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda ..."
-!  !initialize Lambda
-!  LA_gIP(1,:)=0.0_wp !at axis
-!  DO is=2,LA_base%s%nBase
-!    spos=LA_base%s%s_IP(is)
-!    iota_s=eval_iota(spos)
-!    CALL lambda_Solve(spos,iota_s,U_init%X1,U_init%X2,LA_gIP(is,:))
-!  END DO !is
-!  DO imode=1,LA_base%f%modes
-!    IF(LA_base%f%zero_odd_even(iMode).EQ.MN_ZERO)THEN
-!      U_init%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
-!    ELSE
-!      U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-!    END IF!iMode ~ MN_ZERO
-!  END DO !iMode 
-!  LA_b = U_init%LA(LA_base%s%nbase,:)
-
-  !lambda init not needed since it has no boundary condition and changes anyway after the update of the mapping...
-  U_init%LA=0.0_wp
+  IF(init_LA)THEN
+    SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
+    !initialize Lambda
+    LA_gIP(1,:)=0.0_wp !at axis
+    DO is=2,LA_base%s%nBase
+      spos=LA_base%s%s_IP(is)
+      iota_s=eval_iota(spos)
+      CALL lambda_Solve(spos,iota_s,U_init%X1,U_init%X2,LA_gIP(is,:))
+    END DO !is
+    ASSOCIATE(modes        =>LA_base%f%modes, &
+              zero_odd_even=>LA_base%f%zero_odd_even)
+    DO imode=1,modes
+      IF((zero_odd_even(iMode).EQ.MN_ZERO).OR.(zero_odd_even(iMode).EQ.M_ZERO))THEN
+        U_init%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
+      ELSE
+        U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+      END IF!iMode ~ MN_ZERO
+    END DO !iMode 
+    END ASSOCIATE !LA
+  ELSE
+    SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
+    !lambda init not needed since it has no boundary condition and changes anyway after the update of the mapping...
+    U_init%LA=0.0_wp
+  END IF
 
   SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -503,7 +510,7 @@ SUBROUTINE MinimizeMHD3D(sf)
   Fnorm=Fnorm0
 
   CALL P( -1)%set_to(0.0_wp)
-  beta=1.0_wp
+  beta=0.05_wp  !for damping
   dt=start_dt
   nstepDecreased=0
   t_pseudo=0
@@ -511,11 +518,18 @@ SUBROUTINE MinimizeMHD3D(sf)
   SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
   DO WHILE(iter.LE.maxIter)
      
+! hirshman method
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
 !    CALL P(1)%AXBY(1.0_wp,U(0),dt,P(0)) !overwrites P(1)
 
 !simple gradient
     CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
+
+!drag (beta >0), U^(n+1)=U^(n)-beta(U^(n)-U^(n-1))+dt F = P0 + dt F
+!    CALL P(0)%AXBY((1.0_wp-beta),U(0),beta,U(-1)) !overwrites P(0)
+!    CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
+
+
 
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
     P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck) 
@@ -531,6 +545,7 @@ SUBROUTINE MinimizeMHD3D(sf)
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
       
       IF(deltaW.LE.1.0e-10*W_MHD3D_0)THEN !valid step 
+         !LINE SEARCH COULD BE USED HERE !!
 
 !        IF(ABS(deltaW).LE.aborttol)THEN
 !          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
@@ -567,14 +582,16 @@ SUBROUTINE MinimizeMHD3D(sf)
         END IF
 
           
+! for hirshman method
 !        CALL F(-1)%set_to(F(0))
 !        CALL P(-1)%set_to(P(0))
         t_pseudo=t_pseudo+dt
-!simple gradient
+! for simple gradient
         CALL U(-1)%set_to(U(0))
         CALL U(0)%set_to(P(1))
         CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
         Fnorm=SQRT(SUM(F(0)%norm_2()))
+! for hirshman method
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
 
        !increase time step
