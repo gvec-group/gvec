@@ -470,7 +470,7 @@ IMPLICIT NONE
     SELECT CASE(iBC)      !nDOF involved:    Dirichlet?  odd(0),even(1)
     CASE(BC_TYPE_OPEN)     ; nD =0                                   ! do nothing
     CASE(BC_TYPE_NEUMANN)  ; nD =1          ;   diri=0 ;  odd_even=0 ! first derivative=0
-    CASE(BC_TYPE_DIRICHLET); nD =1          ;   diri=1 ;  odd_even=0 ! even not used, first DOF=BC_val 
+    CASE(BC_TYPE_DIRICHLET); nD =1          ;   diri=1 ;  odd_even=0 ! odd_even not used, first DOF=BC_val 
     CASE(BC_TYPE_SYMM)     ; nD =(deg+1)/2  ;   diri=0 ;  odd_even=0 ! open,    all derivatives (2*k-1)=0, k=1,...(deg+1)/2
     CASE(BC_TYPE_SYMMZERO) ; nD =1+(deg+1)/2;   diri=1 ;  odd_even=0 ! dirichlet=0+ derivatives (2*k-1)=0, k=1,...(deg+1)/2
     CASE(BC_TYPE_ANTISYMM) ; nD =1+deg/2    ;   diri=1 ;  odd_even=1 ! dirichlet=0+ derivatives (2*k  )=0  k=1,... deg/2

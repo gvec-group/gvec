@@ -110,8 +110,8 @@ SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'normalized toroidal flux of first three flux
 !poloidal flux from VMEC
 ALLOCATE(chi_prof(nFluxVMEC))
 chi_prof=chi
-SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max toroidal flux',MINVAL(phi),MAXVAL(phi)
-SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi),MAXVAL(chi)
+SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max toroidal flux',MINVAL(phi)*TwoPi,MAXVAL(phi)*TwoPi
+SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi)*TwoPi,MAXVAL(chi)*TwoPi
 
 SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes:',mn_mode
 SWRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp: ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
@@ -189,7 +189,10 @@ ALLOCATE(iota_spl(4,1:nFluxVMEC))
 iota_spl(1,:)=iotaf(:)
 CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
 
-SWRITE(Unit_stdOut,'(4X,A,3F10.4)')'iota axis/middle/edge',iotaf(1),iotaf(nFluxVMEC/2),iotaf(nFluxVMEC)
+SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'tor. flux Phi  axis/middle/edge',Phi(1)*TwoPi,Phi(nFluxVMEC/2)*TwoPi,Phi(nFluxVMEC)*TwoPi
+SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'pol. flux chi  axis/middle/edge',chi(1)*TwoPi,chi(nFluxVMEC/2)*TwoPi,chi(nFluxVMEC)*TwoPi
+SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'   iota        axis/middle/edge',iotaf(1),iotaf(nFluxVMEC/2),iotaf(nFluxVMEC)
+SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'  pressure     axis/middle/edge',presf(1),presf(nFluxVMEC/2),presf(nFluxVMEC)
 
 
 SWRITE(UNIT_stdOut,'(A)')'  ... DONE'
@@ -714,7 +717,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER      , INTENT(IN   ) :: rderiv 
-  REAL(wp)     , INTENT(IN   ) :: rho_in !! s position to evaluate s=[0,1] 
+  REAL(wp)     , INTENT(IN   ) :: rho_in !! position to evaluate rho=[0,1], rho=sqrt(phi_norm)
   REAL(wp)     , INTENT(IN   ) :: xx_Spl(:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -742,7 +745,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   INTEGER,INTENT(IN)         :: mn_in(:) !of size 1: =jmode, of size 2: find jmode to mn
   INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
-  REAL(wp)   , INTENT(IN   ) :: rho_in !! s position to evaluate s=[0,1] 
+  REAL(wp),INTENT(IN)        :: rho_in !! position to evaluate rho=[0,1], rho=sqrt(phi_norm)
   REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES

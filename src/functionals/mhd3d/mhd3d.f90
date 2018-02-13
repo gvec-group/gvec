@@ -50,8 +50,8 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitMHD3D(sf) 
   ! MODULES
-  USE MOD_Globals,ONLY:PI
   USE MOD_MHD3D_Vars
+  USE MOD_Globals        , ONLY: TWOPI
   USE MOD_mhdeq_Vars     , ONLY: whichInitEquilibrium
   USE MOD_sgrid          , ONLY: t_sgrid
   USE MOD_fbase          , ONLY: t_fbase,fbase_new
@@ -99,13 +99,14 @@ SUBROUTINE InitMHD3D(sf)
   
   !constants
   
-  mu_0    = 4.0e-07_wp*PI
+  mu_0    = 2.0e-07_wp*TWOPI
   
   which_init = whichInitEquilibrium ! GETINT("which_init","0")
-  init_LA= GETLOGICAL("init_LA",Proposal=.FALSE.)
+  init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
   
   SELECT CASE(which_init)
   CASE(0)
+    init_fromBConly= .TRUE.
     gamm    = GETREAL("GAMMA",Proposal=0.0_wp)
     nfp_loc  = GETINT( "nfp",Proposal=1)
     !hmap
@@ -115,13 +116,16 @@ SUBROUTINE InitMHD3D(sf)
     pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
     pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
+    Phi_edge   =-Phi_edge/TWOPI !normalization like in VMEC!!!
   CASE(1) !VMEC init
+    init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     gamm = 0.0_wp
     nfp_loc = nfp
     !hmap
     which_hmap=1 !hmap_RZ
-    Phi_edge = Phi(nFluxVMEC) 
+    Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
+
 
   sgammM1=1.0_wp/(gamm-1.0_wp)
 
@@ -301,7 +305,7 @@ END SUBROUTINE InitMHD3D
 !===================================================================================================================================
 SUBROUTINE InitSolution(U_init)
 ! MODULES
-  USE MOD_MHD3D_Vars   , ONLY:which_init,X1_base,X2_base,X1_a,X1_b,X2_a,X2_b
+  USE MOD_MHD3D_Vars   , ONLY:which_init,init_fromBConly,X1_base,X2_base,X1_a,X1_b,X2_a,X2_b
   USE MOD_MHD3D_Vars   , ONLY:LA_base,init_LA
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MOD_lambda_solve,  ONLY:lambda_solve
@@ -364,43 +368,85 @@ SUBROUTINE InitSolution(U_init)
       END DO 
     END IF !lasym
     END ASSOCIATE !X2
+    IF(.NOT.init_fromBConly)THEN !only boundary and axis from VMEC
+      ASSOCIATE(s_IP         => X1_base%s%s_IP, &
+                nBase        => X1_base%s%nBase, &
+                sin_range    => X1_base%f%sin_range,&
+                cos_range    => X1_base%f%cos_range )
+      DO imode=cos_range(1)+1,cos_range(2)
+        DO is=1,nBase
+          X1_gIP(is)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmnc_Spl)
+        END DO !is
+        U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
+      END DO !imode=cos_range
+      IF(lasym)THEN
+        DO imode=sin_range(1)+1,sin_range(2)
+          DO is=1,nBase
+            X1_gIP(is)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmns_Spl)
+          END DO !is
+          U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
+        END DO !imode= sin_range
+      END IF !lasym
+      END ASSOCIATE !X1
+      ASSOCIATE(s_IP         => X2_base%s%s_IP, &
+                nBase        => X2_base%s%nBase, &
+                sin_range    => X2_base%f%sin_range,&
+                cos_range    => X2_base%f%cos_range )
+      DO imode=sin_range(1)+1,sin_range(2)
+        DO is=1,nBase
+          X2_gIP(is)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmns_Spl)
+        END DO !is
+        U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:) )
+      END DO !imode=sin_range
+      IF(lasym)THEN
+        DO imode=cos_range(1)+1,cos_range(2)
+          DO is=1,nBase
+            X2_gIP(is)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmnc_Spl)
+          END DO !is
+          U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:) )
+        END DO !imode= sin_range
+      END IF !lasym
+      END ASSOCIATE !X2
+    END IF !fullIntVmec
   END SELECT !which_init
  
-  ASSOCIATE(s_IP        => X1_base%s%s_IP, &
-            modes        =>X1_base%f%modes, &
-            zero_odd_even=>X1_base%f%zero_odd_even)
-  DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO) !X1_a only used here!!
-      X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
-    CASE(M_ODD_FIRST)
-      X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
-    CASE(M_ODD)
-      X1_gIP(:)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
-    CASE(M_EVEN)
-      X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
-    END SELECT !X1(:,iMode) zero odd even
-    U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
-  END DO 
-  END ASSOCIATE
-
-  ASSOCIATE(s_IP        => X2_base%s%s_IP, &
-            modes        =>X2_base%f%modes, &
-            zero_odd_even=>X2_base%f%zero_odd_even)
-  DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO) !X2_a only used here!!!
-      X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
-    CASE(M_ODD_FIRST)
-      X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
-    CASE(M_ODD)
-      X2_gIP(:)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
-    CASE(M_EVEN)
-      X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
-    END SELECT !X1(:,iMode) zero odd even
-    U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
-  END DO 
-  END ASSOCIATE
+  IF(init_fromBConly)THEN 
+    ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
+              modes        =>X1_base%f%modes, &
+              zero_odd_even=>X1_base%f%zero_odd_even)
+    DO imode=1,modes
+      SELECT CASE(zero_odd_even(iMode))
+      CASE(MN_ZERO,M_ZERO) !X1_a only used here!!
+        X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
+      CASE(M_ODD_FIRST)
+        X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
+      CASE(M_ODD)
+        X1_gIP(:)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
+      CASE(M_EVEN)
+        X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
+      END SELECT !X1(:,iMode) zero odd even
+      U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
+    END DO 
+    END ASSOCIATE
+    
+    ASSOCIATE(s_IP         =>X2_base%s%s_IP, &
+              modes        =>X2_base%f%modes, &
+              zero_odd_even=>X2_base%f%zero_odd_even)
+    DO imode=1,modes
+      SELECT CASE(zero_odd_even(iMode))
+      CASE(MN_ZERO,M_ZERO) !X2_a only used here!!!
+        X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
+      CASE(M_ODD_FIRST)
+        X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
+      CASE(M_ODD)
+        X2_gIP(:)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
+      CASE(M_EVEN)
+        X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
+      END SELECT !X2(:,iMode) zero odd even
+      U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
+    END DO 
+    END ASSOCIATE
+  END IF !init_fromBConly
   !apply strong boundary conditions
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
@@ -419,7 +465,7 @@ SUBROUTINE InitSolution(U_init)
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),BC_type,BC_val)
   END DO 
   END ASSOCIATE !X1
-
+  
   ASSOCIATE(modes        =>X2_base%f%modes, &
             zero_odd_even=>X2_base%f%zero_odd_even)
   DO imode=1,modes
@@ -450,16 +496,16 @@ SUBROUTINE InitSolution(U_init)
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
     DO imode=1,modes
-      IF((zero_odd_even(iMode).EQ.MN_ZERO).OR.(zero_odd_even(iMode).EQ.M_ZERO))THEN
-        U_init%LA(:,iMode)=0.0_wp !zero mode hsould not be here, but must be zero
+      IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+        U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
       ELSE
         U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
       END IF!iMode ~ MN_ZERO
     END DO !iMode 
     END ASSOCIATE !LA
   ELSE
+    !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
     SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
-    !lambda init not needed since it has no boundary condition and changes anyway after the update of the mapping...
     U_init%LA=0.0_wp
   END IF
 
@@ -485,7 +531,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
-  INTEGER   :: JacCheck
+  INTEGER   :: JacCheck,lastoutputIter
   REAL(wp)  :: beta,dt,deltaW,relTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0
 !===================================================================================================================================
@@ -510,32 +556,40 @@ SUBROUTINE MinimizeMHD3D(sf)
   Fnorm=Fnorm0
 
   CALL P( -1)%set_to(0.0_wp)
-  beta=0.05_wp  !for damping
+
+  CALL U( -1)%set_to(U(0))
+
+  beta=0.6_wp  !for damping
   dt=start_dt
   nstepDecreased=0
   t_pseudo=0
+  lastOutputIter=0
   iter=1
   SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
   DO WHILE(iter.LE.maxIter)
-     
 ! hirshman method
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
 !    CALL P(1)%AXBY(1.0_wp,U(0),dt,P(0)) !overwrites P(1)
 
 !simple gradient
-    CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
+!    CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
 
-!drag (beta >0), U^(n+1)=U^(n)-beta(U^(n)-U^(n-1))+dt F = P0 + dt F
-!    CALL P(0)%AXBY((1.0_wp-beta),U(0),beta,U(-1)) !overwrites P(0)
-!    CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
+!damping (beta >0), U^(n+1)=U^(n)+(1-beta*sqrt(dt))*(U^(n)-U^(n-1))+dt F , beta->(1-beta*sqrt(dt))
+               !        =U^(n)*(1+beta) - beta*U^(n-1) =P0 + dt F
+
+!    !for damping (1-beta*sqrt(dt)), beta=20.0_wp  
+!    CALL P(0)%AXBY((2.0_wp-beta*sqrt(dt)),U(0),(beta*sqrt(dt)-1.0_wp),U(-1)) !overwrites P(0)
+
+    !for damping   beta=0.6
+    CALL P(0)%AXBY((1.0_wp+beta),U(0),-beta,U(-1)) !overwrites P(0)
+    CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
 
 
 
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
     P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck) 
     IF(JacCheck.EQ.-1)THEN
-!      dt=0.5_wp*dt
-      dt=0.8_wp*dt
+      dt=0.5_wp*dt
       nstepDecreased=nStepDecreased+1
       nSkip_Jac=nSkip_Jac+1
 !      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, skip step and decrease stepsize!'
@@ -586,7 +640,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 !        CALL F(-1)%set_to(F(0))
 !        CALL P(-1)%set_to(P(0))
         t_pseudo=t_pseudo+dt
-! for simple gradient
+! for simple gradient & damping
         CALL U(-1)%set_to(U(0))
         CALL U(0)%set_to(P(1))
         CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
@@ -595,10 +649,9 @@ SUBROUTINE MinimizeMHD3D(sf)
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
 
        !increase time step
-        dt=1.02*dt
+!        dt=1.02_wp*dt
       ELSE !not a valid step, decrease timestep and skip P(1)
-!        dt=0.5*dt
-        dt=0.8*dt
+        dt=0.5_wp*dt
         nstepDecreased=nStepDecreased+1
         nSkip_dW=nSkip_dW+1
 !        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>0, skip step and decrease stepsize!'
@@ -611,11 +664,12 @@ SUBROUTINE MinimizeMHD3D(sf)
       SWRITE(UNIT_stdOut,fmt_sep)
       RETURN
     END IF
-    IF(MOD(iter,outputIter).EQ.0)THEN
+    IF((MOD(iter,outputIter).EQ.0).AND.(lastoutputIter.NE.iter))THEN
       SWRITE(UNIT_stdOut,'(A)')'#######################  VISUALIZATION ##############################'
       CALL Analyze(iter)
       CALL WriteState(U(0),iter)
       CALL CheckEvalForce(U(0),iter)
+      lastOutputIter=iter
     END IF
   END DO !iter
   IF(iter.GE.MaxIter)THEN

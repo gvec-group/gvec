@@ -141,7 +141,7 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   INTEGER              :: cos_range(2)       !! sin_range(1)+1:sin_range(2) is range with sine bases 
   REAL(wp)             :: d_thet              !! integration weight in theta direction: =2pi/mn_nyq(1)
   REAL(wp)             :: d_zeta              !! integration weight in zeta direction : =nfp*(2pi/nfp)/mn_nyq(2)=2*pi/mn_nyq(2)
-  INTEGER,ALLOCATABLE  :: Xmn(:,:)            !! mode number m,n for each iMode=1,modes, size(2,modes)
+  INTEGER,ALLOCATABLE  :: Xmn(:,:)            !! mode number (m,n*nfp) for each iMode=1,modes, size(2,modes)
   INTEGER,ALLOCATABLE  :: zero_odd_even(:)    !! =0 for m=n=0 mode, =1 for m= odd mode, =2 for m=even mode size(modes)
   REAL(wp),ALLOCATABLE :: x_IP(:,:)           !! (theta,zeta)position of interpolation points theta [0,2pi]x[0,2pi/nfp]size(2,mn_IP)
   REAL(wp),ALLOCATABLE :: base_IP(:,:)        !! basis functions,                 size(1:mn_IP,1:mn_modes)
@@ -600,8 +600,8 @@ IMPLICIT NONE
               Xmn       => old_fBase%Xmn      ,&
               sin_range => old_fBase%sin_range,&
               cos_range => old_fBase%cos_range ) 
-    ALLOCATE(modeMapSin( 0:mn_max(1),-mn_max(2)/nfp:mn_max(2)/nfp))
-    ALLOCATE(modeMapCos( 0:mn_max(1),-mn_max(2)/nfp:mn_max(2)/nfp))
+    ALLOCATE(modeMapSin( 0:mn_max(1),-mn_max(2):mn_max(2)))
+    ALLOCATE(modeMapCos( 0:mn_max(1),-mn_max(2):mn_max(2)))
     modeMapSin=-1
     DO iMode=sin_range(1)+1,sin_range(2)
       modeMapSin(Xmn(1,iMode),Xmn(2,iMode)/nfp)=iMode
@@ -616,7 +616,7 @@ IMPLICIT NONE
     IF((old_fBase%sin_range(2)-old_fBase%sin_range(1)).GT.0)THEN ! =_SIN_ / _SIN_COS_
       DO iMode=sf%sin_range(1)+1,sf%sin_range(2)
         IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE ! remains zero
-        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE ! remains zero
+        IF(ABS(sf%Xmn(2,iMode)/sf%nfp).GT.old_fBase%mn_max(2))CYCLE ! remains zero
         SELECT CASE(iterDim)
         CASE(1)
           sf_data(:,iMode)=old_data(:,modeMapSin(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))
@@ -628,7 +628,7 @@ IMPLICIT NONE
     IF((old_fBase%cos_range(2)-old_fBase%cos_range(1)).GT.0)THEN ! =_COS_ / _SIN_COS_
       DO iMode=sf%cos_range(1)+1,sf%cos_range(2)
         IF(    sf%Xmn(1,iMode) .GT.old_fBase%mn_max(1))CYCLE !  m  > m_max_old, remains zero
-        IF(ABS(sf%Xmn(2,iMode)).GT.old_fBase%mn_max(2))CYCLE ! |n| > n_max_old, remains zero
+        IF(ABS(sf%Xmn(2,iMode)/sf%nfp).GT.old_fBase%mn_max(2))CYCLE ! |n| > n_max_old, remains zero
         SELECT CASE(iterDim)
         CASE(1)
           sf_data(:,iMode)=old_data(:,modeMapCos(sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp))

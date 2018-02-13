@@ -227,40 +227,6 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 END SUBROUTINE EvalAux
 
 !===================================================================================================================================
-!>  estimate for timestep
-!!
-!===================================================================================================================================
-FUNCTION calcMinDt(Uin,callEvalAux,JacCheck)
-! MODULES
-  USE MOD_MHD3D_vars      , ONLY: sgrid
-  USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution 
-  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin 
-  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0. 
-                                                    !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp) :: CalcMinDt
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp) :: maxLambda
-!===================================================================================================================================
-  IF(callEvalAux) THEN
-    CALL EvalAux(Uin,JacCheck)
-    IF(JacCheck.EQ.-1) RETURN
-  END IF
-  maxlambda=1.0e+10 !???
-  
-!  calcMinDt=(2.0_wp*MINVAL(sgrid%ds(:)))**2/maxLambda
-
-  calcMinDt=(2.0_wp*MINVAL(sgrid%ds(:)))/sqrt(maxLambda)
-
-END FUNCTION CalcMinDT
-
-!===================================================================================================================================
 !> Evaluate 3D MHD energy
 !! NOTE: set callEvalaux >0 if not called before for the same Uin !!
 !!
@@ -529,7 +495,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
   END ASSOCIATE !F_LA
 
-
   IF(PRESENT(noBC))THEN
     IF(noBC)THEN
       RETURN !DEBUG
@@ -537,18 +502,22 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END IF
 
   !apply strong boundary conditions
+
   BC_val =(/      0.0_wp,      0.0_wp/)
-  BC_type(2)=BC_TYPE_DIRICHLET
+
+  !X1 BC
+
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
+  BC_type(2)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       BC_type(1)=BC_TYPE_SYMM     
 !      BC_type(1)=BC_TYPE_NEUMANN
     CASE(M_ODD_FIRST)
-!      BC_type(1)=BC_TYPE_ANTISYMM
-      BC_type(1)=BC_TYPE_DIRICHLET
+      BC_type(1)=BC_TYPE_ANTISYMM
+!      BC_type(1)=BC_TYPE_DIRICHLET
     CASE(M_ODD)
 !      BC_type(1)=BC_TYPE_ANTISYMM
       BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
@@ -560,6 +529,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END DO 
   END ASSOCIATE !X1
 
+  !X2 BC
+  
   ASSOCIATE(modes        =>X2_base%f%modes, &
             zero_odd_even=>X2_base%f%zero_odd_even)
   BC_type(2)=BC_TYPE_DIRICHLET
@@ -582,120 +553,17 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END DO 
   END ASSOCIATE !X2
 
-!evaluation using full basis (s,theta,zeta) instead of tensor product, not optimized version...
+  !LA BC
 
-!  ASSOCIATE(F_X1=>F_MHD3D%X1)
-!  nBase = X1_Base%s%nBase 
-!  modes = X1_Base%f%modes
-!  deg   = X1_base%s%deg
-!  F_X1(:,:)=0.0_wp
-!
-!  DO iMode=1,modes
-!    offsetGP=1
-!    DO iElem=1,nElems
-!      DO jGP=0,degGP
-!        iGP=offsetGP+jGP 
-!        DO iDeg=0,Deg
-!          Fe_X1(iDeg,jGP)=0.0_wp
-!          DO i_mn=1,mn_IP
-!            !evaluate testfunctions
-!            Y1              = X1_base%s%base_GP(   jGP,iDeg,iElem)*X1_base%f%base_IP(      i_mn,iMode)
-!            Y1_s            = X1_base%s%base_ds_GP(jGP,iDeg,iElem)*X1_base%f%base_IP(      i_mn,iMode)
-!            Y1_thet         = X1_base%s%base_GP(   jGP,iDeg,iElem)*X1_base%f%base_dthet_IP(i_mn,iMode)
-!            Y1_zeta         = X1_base%s%base_GP(   jGP,iDeg,iElem)*X1_base%f%base_dzeta_IP(i_mn,iMode)
-!            Fe_X1(iDeg,jGP) = Fe_X1(iDeg,jGP) &
-!                             +dW(    i_mn,iGP)*( J_h(i_mn,iGP)*( dX2_dthet( i_mn,iGP)*Y1_s        &
-!                                                                -dX2_ds(    i_mn,iGP)*Y1_thet)    &
-!                                                +J_p(i_mn,iGP)*hmap_Jh_dq1( i_mn,iGP)*Y1        ) & ![deltaJ]_Y1
-!                             -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_t1(          i_mn,iGP)*Y1_thet     &
-!                                                       +hmap_g_tt_dq1(      i_mn,iGP)*Y1        ) & ![delta g_tt]_Y1
-!                             -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_z1(          i_mn,iGP)*Y1_zeta     & 
-!                                                       +hmap_g_zz_dq1(      i_mn,iGP)*Y1        ) & ![delta g_zz]_Y1
-!                             -btz_sJ(i_mn,iGP)*2.0_wp*( hmap_g_t1(          i_mn,iGP)*Y1_zeta     & 
-!                                                       +hmap_g_z1(          i_mn,iGP)*Y1_thet     &
-!                                                       +hmap_g_tz_dq1(      i_mn,iGP)*Y1        )   !2*[delta g_tz]_y1
-!          END DO !i_mn=1,mn_IP
-!        END DO !i=0,deg
-!      END DO !jGP=0,degGP
-!      ibase=X1_base%s%base_offset(iElem)
-!      F_X1(iBase:iBase+deg,iMode) = F_X1(iBase:iBase+deg,iMode) + MATMUL(Fe_X1(0:deg,0:degGP),w_GP(offsetGP:offsetGP+degGP))
-!      offsetGP=offsetGP+(degGP+1)
-!    END DO !iElem
-!  END DO !iMode
-!  F_X1(:,:)=F_X1(:,:)*dthet_dzeta !scale with constants
-!  END ASSOCIATE !F_X1
+  ASSOCIATE(modes        =>LA_base%f%modes, &
+            zero_odd_even=>LA_base%f%zero_odd_even)
+  BC_type(1)=BC_TYPE_SYMMZERO !seems to be good for all modes of lambda at the axis
+  BC_type(2)=BC_TYPE_OPEN
+  DO imode=1,modes
+    CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),BC_type,BC_val)
+  END DO 
+  END ASSOCIATE !LA
 
-!  ASSOCIATE(F_X2=>F_MHD3D%X2)
-!  nBase = X2_base%s%nBase 
-!  modes = X2_base%f%modes
-!  deg   = X2_base%s%deg
-!
-!  F_X2(:,:)=0.0_wp
-!  DO iMode=1,modes
-!    offsetGP=1
-!    DO iElem=1,nElems
-!      DO jGP=0,degGP
-!        iGP=offsetGP+jGP 
-!        DO iDeg=0,Deg
-!          Fe_X2(iDeg,jGP)=0.0_wp
-!          DO i_mn=1,mn_IP
-!            !evaluate testfunctions
-!            Y2              = X2_base%s%base_GP(   jGP,iDeg,iElem)*X2_base%f%base_IP(      i_mn,iMode)
-!            Y2_s            = X2_base%s%base_ds_GP(jGP,iDeg,iElem)*X2_base%f%base_IP(      i_mn,iMode)
-!            Y2_thet         = X2_base%s%base_GP(   jGP,iDeg,iElem)*X2_base%f%base_dthet_IP(i_mn,iMode)
-!            Y2_zeta         = X2_base%s%base_GP(   jGP,iDeg,iElem)*X2_base%f%base_dzeta_IP(i_mn,iMode)
-!            Fe_X2(iDeg,jGP) = Fe_X2(iDeg,jGP) &
-!                             +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*(-dX1_dthet( i_mn,iGP)*Y2_s       &
-!                                                                 +dX1_ds(    i_mn,iGP)*Y2_thet)   &
-!                                                + J_p(i_mn,iGP)*hmap_Jh_dq2( i_mn,iGP)*Y2       ) & ![deltaJ]_Y2
-!                             -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_t2(           i_mn,iGP)*Y2_thet    &
-!                                                       +hmap_g_tt_dq2(       i_mn,iGP)*Y2       ) & ![delta g_tt]_Y2
-!                             -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_z2(           i_mn,iGP)*Y2_zeta    & 
-!                                                       +hmap_g_zz_dq2(       i_mn,iGP)*Y2       ) & ![delta g_zz]_Y2
-!                             -btz_sJ(i_mn,iGP)*2.0_wp*( hmap_g_t2(           i_mn,iGP)*Y2_zeta    & 
-!                                                       +hmap_g_z2(           i_mn,iGP)*Y2_thet    &
-!                                                       +hmap_g_tz_dq2(       i_mn,iGP)*Y2       )   !2*[delta g_tz]_Y1
-!          END DO !i_mn=1,mn_IP
-!        END DO !i=0,deg
-!      END DO !jGP=0,degGP
-!      ibase=X2_base%s%base_offset(iElem)
-!      F_X2(iBase:iBase+deg,iMode) = F_X2(iBase:iBase+deg,iMode) + MATMUL(Fe_X2(0:deg,0:degGP),w_GP(offsetGP:offsetGP+degGP))
-!      offsetGP=offsetGP+(degGP+1)
-!    END DO !iElem
-!  END DO !iMode
-!  F_X2(:,:)=F_X2(:,:)*dthet_dzeta !scale with constants
-!  END ASSOCIATE !F_X2
-!
-!  ASSOCIATE(F_LA=>F_MHD3D%LA)
-!  nBase = LA_base%s%nBase 
-!  modes = LA_base%f%modes
-!  deg   = LA_base%s%deg
-!
-!  F_LA(:,:)=0.0_wp
-!
-!  DO iMode=1,modes
-!    offsetGP=1
-!    DO iElem=1,nElems
-!      DO jGP=0,degGP
-!        iGP=offsetGP+jGP 
-!        DO iDeg=0,Deg
-!          Fe_LA(iDeg,jGP)=0.0_wp
-!          DO i_mn=1,mn_IP
-!            Fe_LA(iDeg,jGP) = Fe_LA(iDeg,jGP) &
-!                              +(PhiPrime2_GP(iGP)*LA_base%s%base_GP(jGP,iDeg,iElem))       &
-!                              *( sJ_bcov_thet(i_mn,iGP)*LA_base%f%base_dzeta_IP(i_mn,iMode)  &
-!                                -sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode))
-!                             
-!          END DO !i_mn=1,mn_IP
-!        END DO !i=0,deg
-!      END DO !jGP=0,degGP
-!      ibase=LA_base%s%base_offset(iElem)
-!      F_LA(iBase:iBase+deg,iMode) = F_LA(iBase:iBase+deg,iMode) + MATMUL(Fe_LA(0:deg,0:degGP),w_GP(offsetGP:offsetGP+degGP))
-!      offsetGP=offsetGP+(degGP+1)
-!    END DO !iElem
-!  END DO !iMode
-!  F_LA(:,:)=F_LA(:,:)*(2.0_wp*s2mu_0*dthet_dzeta) !scale with constants
-!  END ASSOCIATE !F_LA
 
 !  SWRITE(UNIT_stdOut,'(A,3E21.11)')'... DONE: Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
 END SUBROUTINE EvalForce
@@ -734,23 +602,21 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   ALLOCATE(t_sol_var_MHD3D :: Feval)
 
   CALL Ucopy%copy(Uin)
-!  !HACK, better for scale of the derivative in lambda, if lambda is initialized /=0! 
-!  Ucopy%LA=0.1_wp*Ucopy%LA
-  CALL Utest%copy(Ucopy)
-  CALL Ftest%copy(Ucopy)
+  CALL Utest%copy(Ucopy) !initialize
+  CALL Ftest%copy(Ucopy) !initialize
   CALL Ftest%set_to(0.0_wp)
   CALL Feval%copy(Ftest)
 
    
   JacCheck=1 !abort if detJ<0 
   W_MHD3D_in=EvalEnergy(Utest,.TRUE.,JacCheck)
-  eps_glob=1.0e-8_wp*SQRT(1.0_wp+SUM(Ucopy%norm_2()))
+  eps_glob=1.0e-10_wp*W_MHD3D_in
 
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
   WRITE(*,*)'Test X1',nBase,modes
   DO iBase=1,nBase
-    eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%X1(iBase,:)**2*(X1_base%f%Xmn(1,:)**2+X1_base%f%Xmn(2,:)**2)))
+    eps=eps_glob
     DO iMode=1,modes
       Utest%X1(iBase,iMode)= Ucopy%X1(iBase,iMode)+eps
       Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
@@ -764,7 +630,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   modes = X2_Base%f%modes
   WRITE(*,*)'Test X2',nBase,modes
   DO iBase=1,nBase
-    eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%X2(iBase,:)**2*(X2_base%f%Xmn(1,:)**2+X2_base%f%Xmn(2,:)**2)))
+    eps=eps_glob
     DO iMode=1,modes
       Utest%X2(iBase,iMode)= Ucopy%X2(iBase,iMode)+eps
       Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
@@ -778,7 +644,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   modes = LA_Base%f%modes
   WRITE(*,*)'Test LA',nBase,modes
   DO iBase=1,nBase
-    eps=eps_glob*SQRT(1.0_wp+SUM(Ucopy%LA(iBase,:)**2*(LA_base%f%Xmn(1,:)**2+LA_base%f%Xmn(2,:)**2)))
+    eps=eps_glob 
     DO iMode=1,modes
       Utest%LA(iBase,iMode)= Ucopy%LA(iBase,iMode)+eps
       Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
@@ -790,27 +656,11 @@ SUBROUTINE checkEvalForce(Uin,fileID)
 
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
 
-!  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
-  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)
+  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
+!  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
-  IF(testlevel.GE.2)THEN
-    ASSOCIATE(np1d=>2*(X1_base%s%deg+3) )
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X1_cos_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Ftest%X1)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X2_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Ftest%X2)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_LA_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Ftest%LA)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X1_cos_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Feval%X1)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X2_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Feval%X2)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_LA_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Feval%LA)
-    END ASSOCIATE !np1d
-  END IF
 
-  IF(testlevel.GE.3)THEN
+  IF(testlevel.GE.2)THEN
   WRITE(*,*)'-----------------------'
   modes = X1_Base%f%modes
   DO iMode=1,modes
@@ -849,6 +699,22 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   END DO
   END IF !testlevel >=2
   
+  IF(testlevel.GE.3)THEN
+    ASSOCIATE(np1d=>2*(X1_base%s%deg+3) )
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X1_cos_',outputLevel,fileID
+    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Ftest%X1)
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X2_sin_',outputLevel,fileID
+    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Ftest%X2)
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_LA_sin_',outputLevel,fileID
+    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Ftest%LA)
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X1_cos_',outputLevel,fileID
+    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Feval%X1)
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X2_sin_',outputLevel,fileID
+    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Feval%X2)
+    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_LA_sin_',outputLevel,fileID
+    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Feval%LA)
+    END ASSOCIATE !np1d
+  END IF !testlevel >=3
 
 
   CALL Utest%free()

@@ -473,7 +473,7 @@ IMPLICIT NONE
           END DO !iMode
         END IF !lasym
         coord_visu(1,i_s,i_m,i_n) = R*COS(zeta(i_n))
-        coord_visu(2,i_s,i_m,i_n) = R*SIN(zeta(i_n))
+        coord_visu(2,i_s,i_m,i_n) =-R*SIN(zeta(i_n))
         coord_visu(3,i_s,i_m,i_n) = Z
         var_visu(  1,i_s,i_m,i_n) = LA
       END DO !i_s=1,n_s

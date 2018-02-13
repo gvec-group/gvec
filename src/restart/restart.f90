@@ -265,9 +265,10 @@ IMPLICIT NONE
   changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
 
   IF(changed)THEN
-    SWRITE(*,*) 'restart from other configuration: ',sameGrid,sameX1,sameX2,sameLA
+    SWRITE(UNIT_stdOut,*) '     ... restart from other configuration: \n', &
+                          '         sameGrid= ',sameGrid, ', sameX1= ',sameX1, ', sameX2= ',sameX2,', sameLA= ',sameLA
   ELSE
-    SWRITE(*,*) 'restart from same configuration! '
+    SWRITE(UNIT_stdOut,*) '     ... restart from same configuration ... '
   END IF
 !  IF(sameX1)THEN
 !    U_r%X1(:,:)=X1_r
