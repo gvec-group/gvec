@@ -550,7 +550,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     IF(PrecondType.GT.0) CALL precond_LA(iMode)%solve_inplace(1,F_LA(:,iMode))
   END DO !iMode
   F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) ! *2 / 2 scale with constants
-  IF(PrecondType.GT.0)THEN
+  IF(PrecondType.GT.-1)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
       CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
@@ -565,68 +565,70 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END IF
   END IF
 
-  !apply strong boundary conditions
-
-  BC_val =(/      0.0_wp,      0.0_wp/)
-
-  !X1 BC
-
-  ASSOCIATE(modes        =>X1_base%f%modes, &
-            zero_odd_even=>X1_base%f%zero_odd_even)
-  BC_type(2)=BC_TYPE_DIRICHLET
-  DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO)
-      BC_type(1)=BC_TYPE_SYMM     
-!      BC_type(1)=BC_TYPE_NEUMANN
-    CASE(M_ODD_FIRST)
-      BC_type(1)=BC_TYPE_ANTISYMM
-!      BC_type(1)=BC_TYPE_DIRICHLET
-    CASE(M_ODD)
-!      BC_type(1)=BC_TYPE_ANTISYMM
-      BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    CASE(M_EVEN)
-!      BC_type(1)=BC_TYPE_SYMMZERO
-      BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    END SELECT !X1(:,iMode) zero odd even
-    CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
-  END DO 
-  END ASSOCIATE !X1
-
-  !X2 BC
-  
-  ASSOCIATE(modes        =>X2_base%f%modes, &
-            zero_odd_even=>X2_base%f%zero_odd_even)
-  BC_type(2)=BC_TYPE_DIRICHLET
-  DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO)
-      BC_type(1)=BC_TYPE_SYMM     
-!      BC_type(1)=BC_TYPE_NEUMANN
-    CASE(M_ODD_FIRST)
-      BC_type(1)=BC_TYPE_ANTISYMM
-!      BC_type(1)=BC_TYPE_DIRICHLET
-    CASE(M_ODD)
-!      BC_type(1)=BC_TYPE_ANTISYMM
-      BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    CASE(M_EVEN)
-!      BC_type(1)=BC_TYPE_SYMMZERO
-      BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    END SELECT !X1(:,iMode) zero odd even
-    CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
-  END DO 
-  END ASSOCIATE !X2
-
-  !LA BC
-
-  ASSOCIATE(modes        =>LA_base%f%modes, &
-            zero_odd_even=>LA_base%f%zero_odd_even)
-  BC_type(1)=BC_TYPE_SYMMZERO !seems to be good for all modes of lambda at the axis
-  BC_type(2)=BC_TYPE_OPEN
-  DO imode=1,modes
-    CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),BC_type,BC_val)
-  END DO 
-  END ASSOCIATE !LA
+  IF(PrecondType.LE.0)THEN
+    !apply strong boundary conditions
+    
+    BC_val =(/      0.0_wp,      0.0_wp/)
+    
+    !X1 BC
+    
+    ASSOCIATE(modes        =>X1_base%f%modes, &
+              zero_odd_even=>X1_base%f%zero_odd_even)
+    BC_type(2)=BC_TYPE_DIRICHLET
+    DO imode=1,modes
+      SELECT CASE(zero_odd_even(iMode))
+      CASE(MN_ZERO,M_ZERO)
+        BC_type(1)=BC_TYPE_SYMM     
+!        BC_type(1)=BC_TYPE_NEUMANN
+      CASE(M_ODD_FIRST)
+        BC_type(1)=BC_TYPE_ANTISYMM
+!        BC_type(1)=BC_TYPE_DIRICHLET
+      CASE(M_ODD)
+!        BC_type(1)=BC_TYPE_ANTISYMM
+        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
+      CASE(M_EVEN)
+!        BC_type(1)=BC_TYPE_SYMMZERO
+        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
+      END SELECT !X1(:,iMode) zero odd even
+      CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
+    END DO 
+    END ASSOCIATE !X1
+    
+    !X2 BC
+    
+    ASSOCIATE(modes        =>X2_base%f%modes, &
+              zero_odd_even=>X2_base%f%zero_odd_even)
+    BC_type(2)=BC_TYPE_DIRICHLET
+    DO imode=1,modes
+      SELECT CASE(zero_odd_even(iMode))
+      CASE(MN_ZERO,M_ZERO)
+        BC_type(1)=BC_TYPE_SYMM     
+!        BC_type(1)=BC_TYPE_NEUMANN
+      CASE(M_ODD_FIRST)
+        BC_type(1)=BC_TYPE_ANTISYMM
+!        BC_type(1)=BC_TYPE_DIRICHLET
+      CASE(M_ODD)
+!        BC_type(1)=BC_TYPE_ANTISYMM
+        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
+      CASE(M_EVEN)
+!        BC_type(1)=BC_TYPE_SYMMZERO
+        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
+      END SELECT !X1(:,iMode) zero odd even
+      CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
+    END DO 
+    END ASSOCIATE !X2
+    
+    !LA BC
+    
+    ASSOCIATE(modes        =>LA_base%f%modes, &
+              zero_odd_even=>LA_base%f%zero_odd_even)
+    BC_type(1)=BC_TYPE_SYMMZERO !seems to be good for all modes of lambda at the axis
+    BC_type(2)=BC_TYPE_OPEN
+    DO imode=1,modes
+      CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),BC_type,BC_val)
+    END DO 
+    END ASSOCIATE !LA
+  END IF !apply strong BC if no Precond
 
 
 !  SWRITE(UNIT_stdOut,'(A,3E21.11)')'... DONE: Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
@@ -710,7 +712,7 @@ SUBROUTINE BuildPrecond()
   DX2_zz(:) = smn_IP*DX2_zz(:)
   DLA_tt(:) = smn_IP*DLA_tt(:)
   DLA_zz(:) = smn_IP*DLA_zz(:)
-
+  
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
@@ -731,15 +733,16 @@ SUBROUTINE BuildPrecond()
         DO j=0,deg
           CALL precond_X1(iMode)%add_element(iBase+i,iBase+j,                    &
                                  (SUM( X1_base%s%base_ds_GP(0:degGP,i,iElem)     &
-                                       *DX1_ss(iGP:iGP+degGP)                    &
-                                       *X1_base%s%base_ds_GP(0:degGP,j,iElem)    &
-                                      +X1_base%s%base_GP(0:degGP,i,iElem)        &
-                                       *D_mn(iGP:iGP+degGP)                      &
-                                       *X1_base%s%base_GP(0:degGP,j,iElem)   ))  )
+                                      *DX1_ss(iGP:iGP+degGP)                    &
+                                      *X1_base%s%base_ds_GP(0:degGP,j,iElem)    &
+                                     + X1_base%s%base_GP(0:degGP,i,iElem)        &
+                                      *D_mn(iGP:iGP+degGP)                      &
+                                      *X1_base%s%base_GP(0:degGP,j,iElem)   ))  )
         END DO !j=0,deg
       END DO !i=0,deg
       iGP=iGP+(degGP+1)
     END DO !iElem=1,nElems
+    !TODO !!!ACCOUNT FOR BOUNDARY CONDITIONS!
   END DO !iMode
 
   END SELECT !TYPE X1
@@ -764,16 +767,19 @@ SUBROUTINE BuildPrecond()
         DO j=0,deg
           CALL precond_X2(iMode)%add_element(iBase+i,iBase+j,                    &
                                  (SUM( X2_base%s%base_ds_GP(0:degGP,i,iElem)     &
-                                       *DX2_ss(iGP:iGP+degGP)                    &
-                                       *X2_base%s%base_ds_GP(0:degGP,j,iElem)    &
-                                      +X2_base%s%base_GP(0:degGP,i,iElem)        &
-                                       *D_mn(iGP:iGP+degGP)                      &
-                                       *X2_base%s%base_GP(0:degGP,j,iElem)   ))  )
+                                      *DX2_ss(iGP:iGP+degGP)                    &
+                                      *X2_base%s%base_ds_GP(0:degGP,j,iElem)    &
+                                     + X2_base%s%base_GP(0:degGP,i,iElem)        &
+                                      *D_mn(iGP:iGP+degGP)                      &
+                                      *X2_base%s%base_GP(0:degGP,j,iElem)   ))  )
         END DO !j=0,deg
       END DO !i=0,deg
       iGP=iGP+(degGP+1)
     END DO !iElem=1,nElems
+    !TODO !!!ACCOUNT FOR BOUNDARY CONDITIONS!
   END DO !iMode
+
+
 
   END SELECT !TYPE X2
 
@@ -807,14 +813,13 @@ SUBROUTINE BuildPrecond()
       DO iBase=1,nBase
         CALL precond_LA(iMode)%set_element(iBase,iBase,1.0_wp)
       END DO
-    END IF !MN_ZERO exists
+    END IF !MN_ZERO does not exists
   END DO !iMode
 
   END SELECT !TYPE LA
 
 
-
-  WRITE(*,*)'    ---> FACTORIZE PRECONDITIONER MATRICES ...'
+!  WRITE(*,*)'    ---> FACTORIZE PRECONDITIONER MATRICES ...'
 
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
   ASSOCIATE(modes => X1_Base%f%modes)
