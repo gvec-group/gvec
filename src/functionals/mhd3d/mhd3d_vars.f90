@@ -54,6 +54,7 @@ CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for eval
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
 LOGICAL              :: init_fromBCOnly !! default=TRUE, for VMEC only, if set false: initial mapping is interpolated for s=0..1
 LOGICAL              :: init_LA         !! false: lambda=0 at initialization, true: lambda is computed from initial mapping
+INTEGER              :: PrecondType     !! -1: off: 1: .. 
 ! input parameters for minimization
 INTEGER              :: maxIter         !! maximum iteration count for minimization 
 INTEGER              :: outputIter      !! number of iterations after which output files are written

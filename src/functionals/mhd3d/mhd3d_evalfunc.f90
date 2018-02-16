@@ -21,7 +21,9 @@
 !===================================================================================================================================
 MODULE MOD_MHD3D_evalFunc
   ! MODULES
-  USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
+  USE MOD_Globals         ,ONLY: wp,abort,UNIT_stdOut,fmt_sep
+  USE sll_m_spline_matrix ,ONLY: sll_c_spline_matrix !for precond
+  USE sll_m_spline_matrix_banded ,ONLY: sll_t_spline_matrix_banded
   IMPLICIT NONE
   PUBLIC
   
@@ -35,7 +37,10 @@ MODULE MOD_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: X2_IP_GP(:,:)   !! evaluation of X2
   REAL(wp),ALLOCATABLE :: J_h(:,:)        !! Jacobian of the mapping h (X1,X2,zeta) -->(x,y,z) 
   REAL(wp),ALLOCATABLE :: J_p(:,:)        !! Jacobian of poloidal mapping: dX1_ds*dX2_dtheta - dX2_ds*dX1_theta
+  REAL(wp),ALLOCATABLE :: sJ_h(:,:)       !! 1/J_h
+  REAL(wp),ALLOCATABLE :: sJ_p(:,:)       !! 1/J_p
   REAL(wp),ALLOCATABLE :: detJ(:,:)       !! global Jacobian: detJ=sqrt(det g)=J_h*J_p ) 
+  REAL(wp),ALLOCATABLE :: sdetJ(:,:)      !! 1/detJ
   REAL(wp),ALLOCATABLE :: dX1_ds(:,:)     !! radial derivative of X1
   REAL(wp),ALLOCATABLE :: dX2_ds(:,:)     !! radial derivative of X2
   REAL(wp),ALLOCATABLE :: dX1_dthet(:,:)  !! theta  derivative of X1
@@ -48,9 +53,10 @@ MODULE MOD_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: b_zeta(   :,:)  !! b_zeta=1+dlambda_dtheta, normalized contravariant magnetic field 
   REAL(wp),ALLOCATABLE :: sJ_bcov_thet(:,:)  !! covariant normalized magnetic field, scaled with 1/J:  
   REAL(wp),ALLOCATABLE :: sJ_bcov_zeta(:,:)  !! sJ_bcov_alpha=1/detJ (g_{alpha,theta} b_theta + g_{alpha,zeta) b_zeta)
-  !REAL(wp),ALLOCATABLE :: g_tt(     :,:)  !! metric tensor g_(theta,theta)
-  !REAL(wp),ALLOCATABLE :: g_tz(     :,:)  !! metric tensor g_(theta,zeta )=g_(zeta,theta)
-  !REAL(wp),ALLOCATABLE :: g_zz(     :,:)  !! metric tensor g_(zeta ,zeta )
+  REAL(wp),ALLOCATABLE :: bbcov_sJ(:,:)      !! (b^alpha*g_{alpha,beta}*b^beta)/(detJ)
+  REAL(wp),ALLOCATABLE :: g_tt(     :,:)     !! metric tensor g_(theta,theta)
+  REAL(wp),ALLOCATABLE :: g_tz(     :,:)     !! metric tensor g_(theta,zeta )=g_(zeta,theta)
+  REAL(wp),ALLOCATABLE :: g_zz(     :,:)     !! metric tensor g_(zeta ,zeta )
   
   !private module variables, set in init
   INTEGER                ,PRIVATE :: nElems
@@ -59,6 +65,10 @@ MODULE MOD_MHD3D_evalFunc
   INTEGER                ,PRIVATE :: mn_IP
   REAL(wp)               ,PRIVATE :: dthet_dzeta
   REAL(wp),ALLOCATABLE   ,PRIVATE :: s_GP(:),w_GP(:),zeta_IP(:)
+
+  CLASS(sll_c_spline_matrix),PRIVATE,ALLOCATABLE :: precond_X1(:)  !! container for preconditioner matrices
+  CLASS(sll_c_spline_matrix),PRIVATE,ALLOCATABLE :: precond_X2(:)  !! container for preconditioner matrices
+  CLASS(sll_c_spline_matrix),PRIVATE,ALLOCATABLE :: precond_LA(:)  !! container for preconditioner matrices
 !===================================================================================================================================
 
 CONTAINS
@@ -69,7 +79,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitializeMHD3D_evalFunc() 
 ! MODULES
-  USE MOD_MHD3D_Vars,ONLY:X1_base
+  USE MOD_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -77,6 +87,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: iMode
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D_EVALFUNC...'
   !same for all basis
@@ -95,7 +106,10 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   ALLOCATE(PhiPrime2_GP(      nGP) )
   ALLOCATE(J_h(         mn_IP,nGP) )
   ALLOCATE(J_p(         mn_IP,nGP) )
+  ALLOCATE(sJ_h(        mn_IP,nGP) )
+  ALLOCATE(sJ_p(        mn_IP,nGP) )
   ALLOCATE(detJ(        mn_IP,nGP) )
+  ALLOCATE(sdetJ(       mn_IP,nGP) )
   ALLOCATE(X1_IP_GP(    mn_IP,nGP) )
   ALLOCATE(X2_IP_GP(    mn_IP,nGP) )
   ALLOCATE(dX1_ds(      mn_IP,nGP) )
@@ -110,10 +124,37 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   ALLOCATE(b_zeta(      mn_IP,nGP) )
   ALLOCATE(sJ_bcov_thet(mn_IP,nGP) )
   ALLOCATE(sJ_bcov_zeta(mn_IP,nGP) )
-!  ALLOCATE(g_tt(        mn_IP,nGP) )
-!  ALLOCATE(g_tz(        mn_IP,nGP) )
-!  ALLOCATE(g_zz(        mn_IP,nGP) )
+  ALLOCATE(bbcov_sJ    (mn_IP,nGP) )
+  ALLOCATE(g_tt(        mn_IP,nGP) )
+  ALLOCATE(g_tz(        mn_IP,nGP) )
+  ALLOCATE(g_zz(        mn_IP,nGP) )
  
+  IF(PrecondType.GT.0)THEN
+    ASSOCIATE(modes => X1_Base%f%modes, nBase => X1_Base%s%nBase, deg => X1_base%s%deg   )
+    ALLOCATE(sll_t_spline_matrix_banded :: precond_X1(modes))
+    SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,modes
+      CALL precond_X1(iMode)%init(nBase,deg,deg)
+    END DO !iMode
+    END SELECT !TYPE
+    END ASSOCIATE !X1
+    ASSOCIATE(modes => X2_Base%f%modes, nBase => X2_Base%s%nBase, deg => X2_base%s%deg   )
+    ALLOCATE(sll_t_spline_matrix_banded :: precond_X2(modes))
+    SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,modes
+      CALL precond_X2(iMode)%init(nBase,deg,deg)
+    END DO !iMode
+    END SELECT !TYPE
+    END ASSOCIATE !X2
+    ASSOCIATE(modes => LA_Base%f%modes, nBase => LA_Base%s%nBase, deg => LA_base%s%deg   )
+    ALLOCATE(sll_t_spline_matrix_banded :: precond_LA(modes))
+    SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,modes
+      CALL precond_LA(iMode)%init(nBase,deg,deg)
+    END DO !iMode
+    END SELECT !TYPE
+    END ASSOCIATE !LA
+  END IF !PrecondType>0
 
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -142,7 +183,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iGP,i_mn,IP_GP(2)
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),g_tt_loc,g_tz_loc,g_zz_loc
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
 !===================================================================================================================================
   IF(JacCheck.EQ.-1) THEN
       CALL abort(__STAMP__, &
@@ -216,11 +257,17 @@ SUBROUTINE EvalAux(Uin,JacCheck)
       q_thet(1:2) = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/) !dq(1:2)/dtheta
       q_zeta(1:2) = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/) !dq(1:2)/dzeta
 
-      g_tt_loc               = hmap%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
-      g_tz_loc               = hmap%eval_gij(q_thet,qloc,q_zeta)   !g_theta,zeta =g_zeta,theta
-      g_zz_loc               = hmap%eval_gij(q_zeta,qloc,q_zeta)   !g_zeta,zeta
-      sJ_bcov_thet(i_mn,iGP) = (g_tt_loc*b_thet(i_mn,iGP) + g_tz_loc*b_zeta(i_mn,iGP))/detJ(i_mn,iGP)
-      sJ_bcov_zeta(i_mn,iGP) = (g_tz_loc*b_thet(i_mn,iGP) + g_zz_loc*b_zeta(i_mn,iGP))/detJ(i_mn,iGP)
+      g_tt(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
+      g_tz(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_zeta)   !g_theta,zeta =g_zeta,theta
+      g_zz(i_mn,iGP)         = hmap%eval_gij(q_zeta,qloc,q_zeta)   !g_zeta,zeta
+      sJ_p(i_mn,iGP)         = 1.0_wp/J_p(i_mn,iGP)
+      sJ_h(i_mn,iGP)         = 1.0_wp/J_h(i_mn,iGP)
+      sdetJ(i_mn,iGP)        =  sJ_p(i_mn,iGP)*  sJ_h(i_mn,iGP)
+      sJ_bcov_thet(i_mn,iGP) = (g_tt(i_mn,iGP)*b_thet(i_mn,iGP) + g_tz(i_mn,iGP)*b_zeta(i_mn,iGP))*sdetJ(i_mn,iGP)
+      sJ_bcov_zeta(i_mn,iGP) = (g_tz(i_mn,iGP)*b_thet(i_mn,iGP) + g_zz(i_mn,iGP)*b_zeta(i_mn,iGP))*sdetJ(i_mn,iGP)
+      bbcov_sJ(    i_mn,iGP) =  b_thet( i_mn,iGP)*sJ_bcov_thet(i_mn,iGP) &
+                               +b_zeta( i_mn,iGP)*sJ_bcov_zeta(i_mn,iGP)    
+
     END DO !i_mn
   END DO !iGP
 
@@ -268,8 +315,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
     END IF
   END IF
   DO iGP=1,nGP
-    Wmag_GP(iGP)   = SUM( b_thet(:,iGP)*sJ_bcov_thet(:,iGP)  &
-                         +b_zeta(:,iGP)*sJ_bcov_zeta(:,iGP)  )
+    Wmag_GP(iGP)   = SUM(bbcov_sJ(:,iGP))
     Vprime_GP(iGP) = SUM(detJ(:,iGP))
   END DO !iGP
 
@@ -286,7 +332,7 @@ END FUNCTION EvalEnergy
 !===================================================================================================================================
 SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
-  USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,mu_0
+  USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -307,7 +353,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp)  :: Y1tilde(3),Y1,Y1_thet,Y1_zeta
   REAL(wp)  :: Y2tilde(3),Y2,Y2_thet,Y2_zeta
-  REAL(wp)  :: bt_sJ,bz_sJ,PhiP2_s2
   REAL(wp)  :: F_GP(1:nGP),F_s_GP(1:nGP)
   REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ &  != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
@@ -325,20 +370,16 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   !additional auxiliary variables for X1 and X2 force
   DO iGP=1,nGP
-    PhiP2_s2=0.5_wp*PhiPrime2_GP(iGP)
     DO i_mn=1,mn_IP
-      bt_sJ           =  b_thet( i_mn,iGP)/detJ(i_mn,iGP)
-      bz_sJ           =  b_zeta( i_mn,iGP)/detJ(i_mn,iGP)
-      dW(    i_mn,iGP)=  bt_sJ*sJ_bcov_thet(i_mn,iGP) &
-                        +bz_sJ*sJ_bcov_zeta(i_mn,iGP)    
-      btt_sJ(i_mn,iGP)=  bt_sJ*b_thet(i_mn,iGP)
-      btz_sJ(i_mn,iGP)=  bz_sJ*b_thet(i_mn,iGP)
-      bzz_sJ(i_mn,iGP)=  bz_sJ*b_zeta(i_mn,iGP)
+      dW(    i_mn,iGP)=  bbcov_sJ(i_mn,iGP)                 *sdetJ(i_mn,iGP) 
+      btt_sJ(i_mn,iGP)=  b_thet(  i_mn,iGP)*b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
+      btz_sJ(i_mn,iGP)=  b_thet(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
+      bzz_sJ(i_mn,iGP)=  b_zeta(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
     END DO !i_mn
-    dW(    :,iGP)= PhiP2_s2*dW(    :,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
-    btz_sJ(:,iGP)= PhiP2_s2*bzz_sJ(:,iGP)
-    btt_sJ(:,iGP)= PhiP2_s2*btt_sJ(:,iGP)
-    bzz_sJ(:,iGP)= PhiP2_s2*bzz_sJ(:,iGP)
+    dW(    :,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*dW(    :,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
+    btz_sJ(:,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*bzz_sJ(:,iGP)
+    btt_sJ(:,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*btt_sJ(:,iGP)
+    bzz_sJ(:,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*bzz_sJ(:,iGP)
   END DO !iGP
   Y1tilde=(/1.0_wp,0.0_wp,0.0_wp/)
   Y2tilde=(/0.0_wp,1.0_wp,0.0_wp/)
@@ -365,6 +406,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       hmap_g_zz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
     END DO !i_mn
   END DO !iGP
+
+  IF(PrecondType.GT.0) CALL BuildPrecond()
 
   ASSOCIATE(F_X1=>F_MHD3D%X1)
   nBase = X1_Base%s%nBase 
@@ -413,6 +456,13 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
   F_X1(:,:)=F_X1(:,:)*dthet_dzeta !scale with constants
+  IF(PrecondType.GT.0)THEN
+    SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,modes
+      CALL ApplyPrecond(nBase,precond_X1(iMode),F_X1(:,iMode))
+    END DO !iMode
+    END SELECT !TYPE(precond_X1)
+  END IF !PrecondType.GT.0
   END ASSOCIATE !F_X1
 
   ASSOCIATE(F_X2=>F_MHD3D%X2)
@@ -463,6 +513,13 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
   F_X2(:,:)=F_X2(:,:)*dthet_dzeta !scale with constants
+  IF(PrecondType.GT.0)THEN
+    SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,modes
+      CALL ApplyPrecond(nBase,precond_X2(iMode),F_X2(:,iMode))
+    END DO !iMode
+    END SELECT !TYPE(precond_X2)
+  END IF !PrecondType.GT.0
   END ASSOCIATE !F_X2
 
   ASSOCIATE(F_LA=>F_MHD3D%LA)
@@ -490,9 +547,16 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                     + MATMUL(F_GP(iGP:iGP+degGP),LA_base%s%base_GP(0:degGP,0:deg,iElem))
       iGP=iGP+(degGP+1)
     END DO !iElem
+    IF(PrecondType.GT.0) CALL precond_LA(iMode)%solve_inplace(1,F_LA(:,iMode))
   END DO !iMode
   F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) ! *2 / 2 scale with constants
-  CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
+  IF(PrecondType.GT.0)THEN
+    SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,modes
+      CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
+    END DO !iMode
+    END SELECT !TYPE(precond_LA)
+  END IF !PrecondType.GT.0
   END ASSOCIATE !F_LA
 
   IF(PRESENT(noBC))THEN
@@ -567,6 +631,238 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
 !  SWRITE(UNIT_stdOut,'(A,3E21.11)')'... DONE: Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
 END SUBROUTINE EvalForce
+
+!===================================================================================================================================
+!> Build preconditioner matrices for X1,X2,LA and factorize, for all modes
+!! the matrix is only radially dependent, and has the form
+!! K_ij = int(s,0,1) d/ds sbase_i(s) <D_ss>(s) d/ds sbase_j(s) 
+!!                   + sbase_i(s) (<S>(s) + |Phi'(s)|^2 (-m^2 <D_tt>(s) - n^2 <D_zz>(s) ) ) sbase_j(s)
+!! where < > denote an average over the angular coordinates
+!!
+!===================================================================================================================================
+SUBROUTINE BuildPrecond() 
+! MODULES
+  USE MOD_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,hmap
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                     :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem,i,j
+  REAL(wp)                    :: qloc(3),smn_IP
+  REAL(wp),DIMENSION(1:mn_IP) :: G11, G21, G31, G22, G32, dJh_dq1, dJh_dq2, bt_sJ, bzz_sJ
+  REAL(wp),DIMENSION(1:nGP)   :: DX1_tt, DX1_zz, DX1, DX1_ss,D_mn
+  REAL(wp),DIMENSION(1:nGP)   :: DX2_tt, DX2_zz, DX2, DX2_ss
+  REAL(wp),DIMENSION(1:nGP)   :: DLA_tt, DLA_zz
+!===================================================================================================================================
+  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
+  DO iGP=1,nGP
+    !additional variables
+    DO i_mn=1,mn_IP
+      qloc(1:3)     = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+      G11(    i_mn) = hmap%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
+      G21(    i_mn) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
+      G31(    i_mn) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
+     !G12=G21
+      G22(    i_mn) = hmap%eval_gij((/0.,1.,0./),qloc,(/0.,1.,0./)) !~Y1_thet 
+      G32(    i_mn) = hmap%eval_gij((/0.,0.,1./),qloc,(/0.,1.,0./)) !~Y1_thet 
+      dJh_dq1(i_mn) = hmap%eval_Jh_dq1(qloc)
+      dJh_dq2(i_mn) = hmap%eval_Jh_dq2(qloc)
+      bt_sJ(  i_mn) = b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
+      bzz_sJ( i_mn) = b_zeta(i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
+    END DO !i_mn
+    !averaged quantities
+    !X1
+    DX1(   iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_h(:,iGP)*  dJh_dq1(:)     )**2 ) 
+    DX1_ss(iGP) = w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 ) 
+    DX1_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
+                               +bt_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
+                                           *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G11(:)   &
+                                             +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G21(:)   &
+                                             +(                               b_zeta(:,iGP)                 )*G31(:))) &
+                                          +    b_thet(:,iGP)*G11(:))                                                   ) 
+    DX1_zz(iGP) =           SUM(bzz_sJ(:)*G11(:))
+    !X2
+    DX2(   iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_h(:,iGP)*  dJh_dq2(:)     )**2 ) 
+    DX2_ss(iGP) = w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 ) 
+    DX2_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
+                               +bt_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
+                                           *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G21(:)   & !G12=G21
+                                             +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G22(:)   &
+                                             +(                               b_zeta(:,iGP)                 )*G32(:))) &
+                                          +    b_thet(:,iGP)*G22(:))                                                   )
+    DX2_zz(iGP) =           SUM(bzz_sJ(:)*G22(:))
+    !LA 
+    DLA_tt(iGP) = SUM(g_zz(:,iGP)*sdetJ(:,iGP)) 
+    DLA_zz(iGP) = SUM(g_tt(:,iGP)*sdetJ(:,iGP)) 
+  END DO
+  !dont forget to average
+  smn_IP=1.0_wp/REAL(mn_IP,wp)
+  DX1(:)    = smn_IP*DX1(:)
+  DX1_ss(:) = smn_IP*DX1_ss(:)
+  DX1_tt(:) = smn_IP*DX1_tt(:)
+  DX1_zz(:) = smn_IP*DX1_zz(:)
+  DX2(:)    = smn_IP*DX2(:)
+  DX2_ss(:) = smn_IP*DX2_ss(:)
+  DX2_tt(:) = smn_IP*DX2_tt(:)
+  DX2_zz(:) = smn_IP*DX2_zz(:)
+  DLA_tt(:) = smn_IP*DLA_tt(:)
+  DLA_zz(:) = smn_IP*DLA_zz(:)
+
+  SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
+  nBase = X1_Base%s%nBase 
+  modes = X1_Base%f%modes
+  deg   = X1_base%s%deg
+
+  !CHECK =0
+  IF(SUM(ABS(DX1_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
+       WRITE(*,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(:)))
+
+  DO iMode=1,modes
+    CALL precond_X1(iMode)%reset() !set all values to zero
+    D_mn(:)=w_GP(:)*(DX1(:)+PhiPrime2_GP(:)*(-(X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
+                                             -(X1_Base%f%Xmn(2,iMode)**2)*DX1_zz(:) ) )
+    iGP=1
+    DO iElem=1,nElems
+      iBase=X1_base%s%base_offset(iElem)
+      DO i=0,deg
+        DO j=0,deg
+          CALL precond_X1(iMode)%add_element(iBase+i,iBase+j,                    &
+                                 (SUM( X1_base%s%base_ds_GP(0:degGP,i,iElem)     &
+                                       *DX1_ss(iGP:iGP+degGP)                    &
+                                       *X1_base%s%base_ds_GP(0:degGP,j,iElem)    &
+                                      +X1_base%s%base_GP(0:degGP,i,iElem)        &
+                                       *D_mn(iGP:iGP+degGP)                      &
+                                       *X1_base%s%base_GP(0:degGP,j,iElem)   ))  )
+        END DO !j=0,deg
+      END DO !i=0,deg
+      iGP=iGP+(degGP+1)
+    END DO !iElem=1,nElems
+  END DO !iMode
+
+  END SELECT !TYPE X1
+
+  SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
+  nBase = X2_Base%s%nBase 
+  modes = X2_Base%f%modes
+  deg   = X2_base%s%deg
+
+  !CHECK =0
+  IF(SUM(ABS(DX2_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
+       WRITE(*,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(:)))
+
+  DO iMode=1,modes
+    CALL precond_X2(iMode)%reset() !set all values to zero
+    D_mn(:)=w_GP(:)*(DX2(:)+PhiPrime2_GP(:)*(-(X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
+                                             -(X2_Base%f%Xmn(2,iMode)**2)*DX2_zz(:) ) )
+    iGP=1
+    DO iElem=1,nElems
+      iBase=X2_base%s%base_offset(iElem)
+      DO i=0,deg
+        DO j=0,deg
+          CALL precond_X2(iMode)%add_element(iBase+i,iBase+j,                    &
+                                 (SUM( X2_base%s%base_ds_GP(0:degGP,i,iElem)     &
+                                       *DX2_ss(iGP:iGP+degGP)                    &
+                                       *X2_base%s%base_ds_GP(0:degGP,j,iElem)    &
+                                      +X2_base%s%base_GP(0:degGP,i,iElem)        &
+                                       *D_mn(iGP:iGP+degGP)                      &
+                                       *X2_base%s%base_GP(0:degGP,j,iElem)   ))  )
+        END DO !j=0,deg
+      END DO !i=0,deg
+      iGP=iGP+(degGP+1)
+    END DO !iElem=1,nElems
+  END DO !iMode
+
+  END SELECT !TYPE X2
+
+  SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
+  nBase = LA_Base%s%nBase 
+  modes = LA_Base%f%modes
+  deg   = LA_base%s%deg
+
+  DO iMode=1,modes
+    CALL precond_LA(iMode)%reset() !set all values to zero
+    IF(LA_base%f%zero_odd_even(iMode) .NE. MN_ZERO) THEN !MN_ZERO should not exist
+      D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*(-(LA_Base%f%Xmn(1,iMode)**2)*DLA_tt(:) &
+                                       -(LA_Base%f%Xmn(2,iMode)**2)*DLA_zz(:) )
+      !CHECK =0
+      IF(SUM(ABS(D_mn(:))).LT.REAL(nGP,wp)*1.0E-10) WRITE(*,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
+           LA_Base%f%Xmn(1:2,iMode),SUM(D_mn(:))
+      iGP=1
+      DO iElem=1,nElems
+        iBase=LA_base%s%base_offset(iElem)
+        DO i=0,deg
+          DO j=0,deg
+            CALL precond_LA(iMode)%add_element(iBase+i,iBase+j,               &
+                                   (SUM( LA_base%s%base_GP(0:degGP,i,iElem)   &
+                                        *D_mn(iGP:iGP+degGP)                  &
+                                        *LA_base%s%base_GP(0:degGP,j,iElem))) )
+          END DO !j=0,deg
+        END DO !i=0,deg
+        iGP=iGP+(degGP+1)
+      END DO !iElem=1,nElems
+    ELSE !safety, unit matrix, if MN_ZERO exists
+      DO iBase=1,nBase
+        CALL precond_LA(iMode)%set_element(iBase,iBase,1.0_wp)
+      END DO
+    END IF !MN_ZERO exists
+  END DO !iMode
+
+  END SELECT !TYPE LA
+
+
+
+  WRITE(*,*)'    ---> FACTORIZE PRECONDITIONER MATRICES ...'
+
+  SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
+  ASSOCIATE(modes => X1_Base%f%modes)
+  DO iMode=1,modes
+    CALL precond_X1(iMode)%factorize()
+  END DO !iMode
+  END ASSOCIATE !X1
+  END SELECT !TYPE
+
+  SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
+  ASSOCIATE(modes => X2_Base%f%modes)
+  DO iMode=1,modes
+    CALL precond_X2(iMode)%factorize()
+  END DO !iMode
+  END ASSOCIATE !X2
+  END SELECT !TYPE
+
+  SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
+  ASSOCIATE(modes => LA_Base%f%modes)
+  DO iMode=1,modes
+    CALL precond_LA(iMode)%factorize()
+  END DO !iMode
+  END ASSOCIATE !LA
+  END SELECT !TYPE
+
+END SUBROUTINE BuildPrecond
+
+
+!===================================================================================================================================
+!> Apply preconditioner matrix for single mode of one variable
+!!
+!===================================================================================================================================
+SUBROUTINE ApplyPrecond(nBase,precond,F_inout) 
+! MODULES
+  USE MOD_base,   ONLY: t_base
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER                         ,INTENT(IN   ) ::  nBase   !! length of inout vector
+  TYPE(sll_t_spline_matrix_banded),INTENT(IN   ) ::  precond !! preconditioner matrix (factorized!)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),    INTENT(INOUT) :: F_inout(1:nBase)    !! apply preconditioner on this force vector
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  CALL precond%solve_inplace(1,F_inout(1:nBase))
+END SUBROUTINE ApplyPrecond
 
 
 !===================================================================================================================================
@@ -737,11 +1033,13 @@ END SUBROUTINE checkEvalForce
 !===================================================================================================================================
 SUBROUTINE FinalizeMHD3D_EvalFunc() 
 ! MODULES
+  USE MOD_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: iMode
 !===================================================================================================================================
   nElems=-1
   degGP =-1
@@ -756,7 +1054,10 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(PhiPrime2_GP )
   SDEALLOCATE(J_h          )
   SDEALLOCATE(J_p          )
+  SDEALLOCATE(sJ_h         )
+  SDEALLOCATE(sJ_p         )
   SDEALLOCATE(detJ         )
+  SDEALLOCATE(sdetJ        )
   SDEALLOCATE(X1_IP_GP     )
   SDEALLOCATE(X2_IP_GP     )
   SDEALLOCATE(dX1_ds       )
@@ -771,9 +1072,33 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(b_zeta       )
   SDEALLOCATE(sJ_bcov_thet )
   SDEALLOCATE(sJ_bcov_zeta )
-!  SDEALLOCATE(g_tt         )
-!  SDEALLOCATE(g_tz         )
-!  SDEALLOCATE(g_zz         )
+  SDEALLOCATE(bbcov_sJ     ) 
+  SDEALLOCATE(g_tt         )
+  SDEALLOCATE(g_tz         )
+  SDEALLOCATE(g_zz         )
+
+  IF(PrecondType.GT.0)THEN
+    SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,X1_Base%f%modes
+      CALL precond_X1(iMode)%free()
+    END DO !iMode
+    END SELECT !TYPE
+    DEALLOCATE(precond_X1)
+    
+    SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,X2_base%f%modes
+      CALL precond_X2(iMode)%free()
+    END DO !iMode
+    END SELECT !TYPE
+    DEALLOCATE(precond_X2)
+    
+    SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
+    DO iMode=1,LA_base%f%modes
+      CALL precond_LA(iMode)%free()
+    END DO !iMode
+    END SELECT !TYPE
+    DEALLOCATE(precond_LA)
+  END IF !PrecondType>0
 
 END SUBROUTINE FinalizeMHD3D_EvalFunc
 

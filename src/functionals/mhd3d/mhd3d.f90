@@ -103,6 +103,8 @@ SUBROUTINE InitMHD3D(sf)
   
   which_init = whichInitEquilibrium ! GETINT("which_init","0")
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
+
+  PrecondType=GETINT("PrecondType",Proposal=-1)
   
   SELECT CASE(which_init)
   CASE(0)

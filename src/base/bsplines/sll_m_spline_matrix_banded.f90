@@ -38,6 +38,7 @@ module sll_m_spline_matrix_banded
   contains
 
     procedure :: init          => s_spline_matrix_banded__init
+    procedure :: reset         => s_spline_matrix_banded__reset
     procedure :: mat_copy      => s_spline_matrix_banded__mat_copy
     procedure :: mat_add       => s_spline_matrix_banded__mat_add
     procedure :: set_element   => s_spline_matrix_banded__set_element
@@ -83,9 +84,20 @@ contains
     allocate( self%ipiv(n) )
     allocate( self%q(2*kl+ku+1,n) )
     self%q(:,:) = 0.0_wp
+    self%ipiv(:) = 0
     self%factorized=.FALSE.
 
   end subroutine s_spline_matrix_banded__init
+
+  !-----------------------------------------------------------------------------
+  subroutine s_spline_matrix_banded__reset( self)
+    class(sll_t_spline_matrix_banded), intent(inout) :: self
+
+    self%q(:,:) = 0.0_wp
+    self%ipiv(:) = 0
+    self%factorized=.FALSE.
+
+  end subroutine s_spline_matrix_banded__reset
 
   !-----------------------------------------------------------------------------
   subroutine s_spline_matrix_banded__mat_copy( self,tocopy)
