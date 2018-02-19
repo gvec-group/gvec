@@ -178,9 +178,11 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   REAL(wp),ALLOCATABLE :: base_dsEdge(:,:)         !! all derivatives 1..deg of all basis functions at edge size(nBase-deg:nBase,0:deg)
   INTEGER ,ALLOCATABLE :: nDOF_BC(:)               !! number of boudnary dofs involved in bc of BC_TYPE, size(NBC_TYPES)
   REAL(wp),ALLOCATABLE :: A_Axis(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct) 
+  REAL(wp),ALLOCATABLE :: invA_Axis(:,:,:)         !! inverse of A_Axis 
   REAL(wp),ALLOCATABLE :: R_Axis(:,:,:)            !! matrix to apply boundary conditions for RHS (testfunction)
                                                    !! size(1:deg+1,1:deg+1,NBC_TYPES)
   REAL(wp),ALLOCATABLE :: A_Edge(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct)
+  REAL(wp),ALLOCATABLE :: invA_Edge(:,:,:)         !! inverse of A_Edge 
   REAL(wp),ALLOCATABLE :: R_Edge(:,:,:)            !! matrix to apply boundary conditions for RHS
                                                    !! size(nBase-deg:nBase,nBase-deg:nBase,NBC_TYPES)
                                                    !! possible Boundary conditions
@@ -494,8 +496,8 @@ IMPLICIT NONE
         sf%R_Edge(i,j,iBC)=-sf%R_Edge(i,j,iBC)
       END DO; END DO
       !prepare for applyBC
-      sf%A_axis(:,:,iBC)=INV(sf%A_axis(:,:,iBC))
-      sf%A_edge(:,:,iBC)=INV(sf%A_edge(:,:,iBC))
+      sf%invA_axis(:,:,iBC)=INV(sf%A_axis(:,:,iBC))
+      sf%invA_edge(:,:,iBC)=INV(sf%A_edge(:,:,iBC))
       !automatically set rows 1:nD to zero for R matrices (no contribution from these DOF)
       sf%R_axis(         1:nD   ,:,iBC)=0.0_wp
       sf%R_edge(nBase-nD+1:nBase,:,iBC)=0.0_wp
@@ -541,10 +543,12 @@ IMPLICIT NONE
   ALLOCATE(sf%base_dsAxis(0:deg,1:deg+1        ))
   ALLOCATE(sf%base_dsEdge(0:deg,nBase-deg:nBase))
   ALLOCATE(sf%nDOF_BC(            1:NBC_TYPES))
-  ALLOCATE(sf%A_Axis(1:deg+1,1:deg+1,1:NBC_TYPES))
-  ALLOCATE(sf%R_Axis(1:deg+1,1:deg+1,1:NBC_TYPES))
-  ALLOCATE(sf%A_Edge(nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
-  ALLOCATE(sf%R_Edge(nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
+  ALLOCATE(sf%A_Axis(   1:deg+1,1:deg+1,1:NBC_TYPES))
+  ALLOCATE(sf%invA_Axis(1:deg+1,1:deg+1,1:NBC_TYPES))
+  ALLOCATE(sf%R_Axis(   1:deg+1,1:deg+1,1:NBC_TYPES))
+  ALLOCATE(sf%A_Edge(   nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
+  ALLOCATE(sf%invA_Edge(nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
+  ALLOCATE(sf%R_Edge(   nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
   sf%xi_GP        =0.0_wp
   sf%w_GPloc      =0.0_wp            
   sf%w_GP         =0.0_wp            
@@ -556,14 +560,18 @@ IMPLICIT NONE
   sf%base_dsEdge =0.0_wp    
   sf%nDOF_BC     =0
   sf%A_Axis      =0.0_wp         
+  sf%invA_Axis   =0.0_wp         
   sf%A_Edge      =0.0_wp         
+  sf%invA_Edge   =0.0_wp         
   sf%R_Axis      =0.0_wp         
   sf%R_Edge      =0.0_wp         
   DO i=0,deg
-    sf%A_Axis(1+i,1+i,:)=1.0_wp
-    sf%R_Axis(1+i,1+i,:)=1.0_wp
-    sf%A_Edge(nBase-deg+i,nBase-deg+i,:)=1.0_wp
-    sf%R_Edge(nBase-deg+i,nBase-deg+i,:)=1.0_wp
+    sf%A_Axis(   1+i,1+i,:)=1.0_wp
+    sf%invA_Axis(1+i,1+i,:)=1.0_wp
+    sf%R_Axis(   1+i,1+i,:)=1.0_wp
+    sf%A_Edge(   nBase-deg+i,nBase-deg+i,:)=1.0_wp
+    sf%invA_Edge(nBase-deg+i,nBase-deg+i,:)=1.0_wp
+    sf%R_Edge(   nBase-deg+i,nBase-deg+i,:)=1.0_wp
   END DO
   SELECT TYPE(sf)
   TYPE IS(t_sbase_disc)
@@ -609,8 +617,10 @@ IMPLICIT NONE
   SDEALLOCATE(sf%base_dsEdge) 
   SDEALLOCATE(sf%nDOF_BC)
   SDEALLOCATE(sf%A_Axis) 
+  SDEALLOCATE(sf%invA_Axis) 
   SDEALLOCATE(sf%R_Axis) 
   SDEALLOCATE(sf%A_Edge) 
+  SDEALLOCATE(sf%invA_Edge) 
   SDEALLOCATE(sf%R_Edge) 
   SELECT TYPE (sf) 
   TYPE IS(t_sbase_spl)
@@ -1031,7 +1041,7 @@ REAL(wp):: raxis(1:sf%deg+1),redge(sf%nBase-sf%deg:sf%nbase)
   CASE DEFAULT !BC_TYPE_SYMM,BC_TYPE_SYMMZERO,BC_TYPE_ANTISYMM
     raxis(1:nDaxis)      =0.0_wp
     raxis(nDaxis+1:deg+1)= DOFs(nDaxis+1:deg+1)
-    DOFs(1:deg+1)= MATMUL(sf%A_axis(:,:,tBCaxis),raxis(:))
+    DOFs(1:deg+1)= MATMUL(sf%invA_axis(:,:,tBCaxis),raxis(:))
   END SELECT !tBCaxis
 
   SELECT CASE(tBCedge)

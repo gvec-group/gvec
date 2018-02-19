@@ -136,7 +136,6 @@ SUBROUTINE InitMHD3D(sf)
   
   X1X2_deg     = GETINT(     "X1X2_deg")
   X1X2_cont    = GETINT(     "X1X2_continuity",Proposal=(X1X2_deg-1) )
-  X1X2_BC      = GETINTARRAY("X1X2_BC"     ,2 ,Proposal=(/0,1/))
   X1_mn_max    = GETINTARRAY("X1_mn_max"   ,2 ,Proposal=(/2,0/))
   X2_mn_max    = GETINTARRAY("X2_mn_max"   ,2 ,Proposal=(/2,0/))
   X1_sin_cos   = GETSTR(     "X1_sin_cos"     ,Proposal="_cos_")  !_sin_,_cos_,_sin_cos_
@@ -145,7 +144,6 @@ SUBROUTINE InitMHD3D(sf)
   
   LA_deg     = GETINT(     "LA_deg")
   LA_cont    = GETINT(     "LA_continuity",Proposal=-1)
-  LA_BC      = GETINTARRAY("LA_BC"    , 2 ,Proposal=(/0,0/))
   LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=(/2,0/))
   LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal="_sin_")
   
@@ -237,6 +235,73 @@ SUBROUTINE InitMHD3D(sf)
 !  LA_mn_max  = 
 !  LA_sin_cos = ? 
   END SELECT !which_init
+
+  !boundary conditions (used in force, in init slightly changed)
+  ASSOCIATE(modes        =>X1_base%f%modes, &
+            zero_odd_even=>X1_base%f%zero_odd_even)
+  ALLOCATE(X1_BC_type(1:2,modes))
+  X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  DO imode=1,modes
+    SELECT CASE(zero_odd_even(iMode))
+    CASE(MN_ZERO,M_ZERO)
+      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM     
+!      BC_type(1)=BC_TYPE_NEUMANN
+    CASE(M_ODD_FIRST)
+      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
+!      BC_type(1)=BC_TYPE_DIRICHLET
+    CASE(M_ODD)
+!      BC_type(1)=BC_TYPE_ANTISYMM
+      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
+    CASE(M_EVEN)
+!      BC_type(1)=BC_TYPE_SYMMZERO
+      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
+    END SELECT !X1(:,iMode) zero odd even
+  END DO 
+  END ASSOCIATE !X1
+  ASSOCIATE(modes        =>X2_base%f%modes, &
+            zero_odd_even=>X2_base%f%zero_odd_even)
+  ALLOCATE(X2_BC_type(1:2,modes))
+  X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  DO imode=1,modes
+    SELECT CASE(zero_odd_even(iMode))
+    CASE(MN_ZERO,M_ZERO)
+      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM     
+!      BC_type(1)=BC_TYPE_NEUMANN
+    CASE(M_ODD_FIRST)
+      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
+!      BC_type(1)=BC_TYPE_DIRICHLET
+    CASE(M_ODD)
+!      BC_type(1)=BC_TYPE_ANTISYMM
+      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
+    CASE(M_EVEN)
+!      BC_type(1)=BC_TYPE_SYMMZERO
+      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
+    END SELECT !X2(:,iMode) zero odd even
+  END DO 
+  END ASSOCIATE !X2
+  ASSOCIATE(modes        =>LA_base%f%modes, &
+            zero_odd_even=>LA_base%f%zero_odd_even)
+  ALLOCATE(LA_BC_type(1:2,modes))
+  LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN !no BC for lambda at the edge!
+  DO imode=1,modes
+    SELECT CASE(zero_odd_even(iMode))
+    CASE(MN_ZERO,M_ZERO)
+      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
+!      BC_type(1)=BC_TYPE_NEUMANN
+    CASE(M_ODD_FIRST)
+!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
+      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET 
+    CASE(M_ODD)
+!      BC_type(1)=BC_TYPE_ANTISYMM
+      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
+    CASE(M_EVEN)
+!      BC_type(1)=BC_TYPE_SYMMZERO
+      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
+    END SELECT !LA(:,iMode) zero odd even
+  END DO 
+  END ASSOCIATE !LA
+  
+
 
   ALLOCATE(U(-1:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
@@ -721,11 +786,16 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(U)
   SDEALLOCATE(F)
   SDEALLOCATE(P)
+  SDEALLOCATE(X1_BC_type)
+  SDEALLOCATE(X2_BC_type)
+  SDEALLOCATE(LA_BC_type)
   SDEALLOCATE(X1_b)
   SDEALLOCATE(X2_b)
   SDEALLOCATE(LA_b)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
+  SDEALLOCATE(pres_coefs)
+  SDEALLOCATE(iota_coefs)
 
   CALL FinalizeMHD3D_EvalFunc()
 END SUBROUTINE FinalizeMHD3D

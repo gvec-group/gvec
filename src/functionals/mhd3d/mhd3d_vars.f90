@@ -46,6 +46,9 @@ TYPE(t_sol_var_MHD3D),ALLOCATABLE :: P(:)      !! temporary for update
 INTEGER                     :: nDOF_X1   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER                     :: nDOF_X2   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
 INTEGER                     :: nDOF_LA   !! total number of degrees of freedom, sBase%nBase * fbase%mn_modes 
+INTEGER,ALLOCATABLE         :: X1_BC_type(:,:) !! X1 var: BC type for axis and edge for each mode (1:2,1:modes) (1=axis,2=edge) 
+INTEGER,ALLOCATABLE         :: X2_BC_type(:,:) !! X2 var: BC type for axis and edge for each mode (1:2,1:modes) (1=axis,2=edge) 
+INTEGER,ALLOCATABLE         :: LA_BC_type(:,:) !! LA var: BC type for axis and edge for each mode (1:2,1:modes) (1=axis,2=edge) 
                                          
                                          
 CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
@@ -72,8 +75,6 @@ REAL(wp)             :: mu_0            !! permeability
 REAL(wp)             :: gamm            !! isentropic exponent, if gamma /= 0 pres ~ mass profile
 REAL(wp)             :: sgammM1         !! =1/(gamm-1)
 
-INTEGER              :: X1X2_BC(2)      !! BC axis (0) and edge (1)   for variables X1 and X2 (default(0,1))
-INTEGER              :: LA_BC(2)        !! BC axis (0) and edge (1)   for variable lambda     (default(0,0))
                                         
 REAL(wp),ALLOCATABLE :: X1_b(:)         !! fourier modes of the edge boundary for X1
 REAL(wp),ALLOCATABLE :: X2_b(:)         !! fourier modes of the edge boundary for X2

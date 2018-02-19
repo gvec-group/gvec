@@ -333,6 +333,7 @@ END FUNCTION EvalEnergy
 SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
   USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
+  USE MOD_MHD3D_Vars, ONLY: X1_BC_type,X2_BC_type,LA_BC_type
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -348,7 +349,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem
-  INTEGER   :: BC_type(2)
   REAL(wp)  :: BC_val(2)
   REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp)  :: Y1tilde(3),Y1,Y1_thet,Y1_zeta
@@ -459,6 +459,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
+      CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_X1(iMode),F_X1(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_X1)
@@ -516,6 +517,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
+      CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_X2(iMode),F_X2(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_X2)
@@ -553,6 +555,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   IF(PrecondType.GT.-1)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
+      CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_LA)
@@ -571,63 +574,19 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     BC_val =(/      0.0_wp,      0.0_wp/)
     
     !X1 BC
-    
-    ASSOCIATE(modes        =>X1_base%f%modes, &
-              zero_odd_even=>X1_base%f%zero_odd_even)
-    BC_type(2)=BC_TYPE_DIRICHLET
-    DO imode=1,modes
-      SELECT CASE(zero_odd_even(iMode))
-      CASE(MN_ZERO,M_ZERO)
-        BC_type(1)=BC_TYPE_SYMM     
-!        BC_type(1)=BC_TYPE_NEUMANN
-      CASE(M_ODD_FIRST)
-        BC_type(1)=BC_TYPE_ANTISYMM
-!        BC_type(1)=BC_TYPE_DIRICHLET
-      CASE(M_ODD)
-!        BC_type(1)=BC_TYPE_ANTISYMM
-        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-      CASE(M_EVEN)
-!        BC_type(1)=BC_TYPE_SYMMZERO
-        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-      END SELECT !X1(:,iMode) zero odd even
-      CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),BC_type,BC_val)
+    DO imode=1,X1_base%f%modes
+      CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
     END DO 
-    END ASSOCIATE !X1
     
     !X2 BC
-    
-    ASSOCIATE(modes        =>X2_base%f%modes, &
-              zero_odd_even=>X2_base%f%zero_odd_even)
-    BC_type(2)=BC_TYPE_DIRICHLET
-    DO imode=1,modes
-      SELECT CASE(zero_odd_even(iMode))
-      CASE(MN_ZERO,M_ZERO)
-        BC_type(1)=BC_TYPE_SYMM     
-!        BC_type(1)=BC_TYPE_NEUMANN
-      CASE(M_ODD_FIRST)
-        BC_type(1)=BC_TYPE_ANTISYMM
-!        BC_type(1)=BC_TYPE_DIRICHLET
-      CASE(M_ODD)
-!        BC_type(1)=BC_TYPE_ANTISYMM
-        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-      CASE(M_EVEN)
-!        BC_type(1)=BC_TYPE_SYMMZERO
-        BC_type(1)=BC_TYPE_DIRICHLET !not too strong for high modes...
-      END SELECT !X1(:,iMode) zero odd even
-      CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),BC_type,BC_val)
+    DO imode=1,X2_base%f%modes
+      CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
     END DO 
-    END ASSOCIATE !X2
     
     !LA BC
-    
-    ASSOCIATE(modes        =>LA_base%f%modes, &
-              zero_odd_even=>LA_base%f%zero_odd_even)
-    BC_type(1)=BC_TYPE_SYMMZERO !seems to be good for all modes of lambda at the axis
-    BC_type(2)=BC_TYPE_OPEN
-    DO imode=1,modes
-      CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),BC_type,BC_val)
+    DO imode=1,LA_base%f%modes
+      CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
     END DO 
-    END ASSOCIATE !LA
   END IF !apply strong BC if no Precond
 
 
@@ -645,6 +604,7 @@ END SUBROUTINE EvalForce
 SUBROUTINE BuildPrecond() 
 ! MODULES
   USE MOD_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,hmap
+  USE MOD_MHD3D_Vars,ONLY:X1_BC_Type,X2_BC_Type,LA_BC_type
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -653,13 +613,15 @@ SUBROUTINE BuildPrecond()
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                     :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem,i,j
+  INTEGER                     :: nD,tBC 
   REAL(wp)                    :: qloc(3),smn_IP
   REAL(wp),DIMENSION(1:mn_IP) :: G11, G21, G31, G22, G32, dJh_dq1, dJh_dq2, bt_sJ, bzz_sJ
   REAL(wp),DIMENSION(1:nGP)   :: DX1_tt, DX1_zz, DX1, DX1_ss,D_mn
   REAL(wp),DIMENSION(1:nGP)   :: DX2_tt, DX2_zz, DX2, DX2_ss
   REAL(wp),DIMENSION(1:nGP)   :: DLA_tt, DLA_zz
+  REAL(wp),ALLOCATABLE        :: P_BCaxis(:,:), P_BCedge(:,:)
 !===================================================================================================================================
-  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
+!  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
   DO iGP=1,nGP
     !additional variables
     DO i_mn=1,mn_IP
@@ -717,6 +679,7 @@ SUBROUTINE BuildPrecond()
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
+  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-(2*deg+1):nBase))
 
   !CHECK =0
   IF(SUM(ABS(DX1_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
@@ -742,15 +705,43 @@ SUBROUTINE BuildPrecond()
       END DO !i=0,deg
       iGP=iGP+(degGP+1)
     END DO !iElem=1,nElems
-    !TODO !!!ACCOUNT FOR BOUNDARY CONDITIONS!
+    !ACCOUNT FOR BOUNDARY CONDITIONS!
+    tBC = X1_BC_Type(BC_AXIS,iMode)
+    nD  = X1_base%s%nDOF_BC(tBC) 
+    IF(nD.GT.0)THEN
+      !save 1:deg rows
+      DO i=1,deg+1; DO j=1,deg+i
+        P_BCaxis(i,j)=precond_X1(iMode)%get_element(i,j) 
+      END DO; END DO !j,i
+      P_BCaxis(:,:)          =MATMUL(X1_base%s%R_axis(:,:,tBC),P_BCaxis(:,:)) !also sets rows 1:nD =0
+      P_BCaxis(1:nD,1:deg+1) =X1_base%s%A_axis(1:nD,:,tBC)
+      DO i=1,deg+1; DO j=1,deg+i
+        CALL Precond_X1(iMode)%set_element( i,j,P_BCaxis(i,j))
+      END DO; END DO !j,i
+    END IF !nDOF_BCaxis>0
+    tBC = X1_BC_Type(BC_EDGE,iMode)
+    nD  = X1_base%s%nDOF_BC(tBC) 
+    IF(nD.GT.0)THEN
+      !save nBase-deg:nBase rows
+      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+        P_BCedge(i,j)=precond_X1(iMode)%get_element(i,j) 
+      END DO; END DO !j,i
+      P_BCedge(:,:)             =MATMUL(X1_base%s%R_edge(:,:,tBC),P_BCedge(:,:)) !also sets rows nBase-nD+1:nBase =0 
+      P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=X1_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
+      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+        CALL Precond_X1(iMode)%set_element( i,j,P_BCedge(i,j) )
+      END DO; END DO !j,i
+    END IF !nDOF_BCedge>0
   END DO !iMode
 
+  DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X1
 
   SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
   nBase = X2_Base%s%nBase 
   modes = X2_Base%f%modes
   deg   = X2_base%s%deg
+  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-(2*deg+1):nBase))
 
   !CHECK =0
   IF(SUM(ABS(DX2_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
@@ -776,17 +767,43 @@ SUBROUTINE BuildPrecond()
       END DO !i=0,deg
       iGP=iGP+(degGP+1)
     END DO !iElem=1,nElems
-    !TODO !!!ACCOUNT FOR BOUNDARY CONDITIONS!
+    !ACCOUNT FOR BOUNDARY CONDITIONS!
+    tBC = X2_BC_Type(BC_AXIS,iMode)
+    nD  = X2_base%s%nDOF_BC(tBC) 
+    IF(nD.GT.0)THEN
+      !save 1:deg rows
+      DO i=1,deg+1; DO j=1,deg+i
+        P_BCaxis(i,j)=precond_X2(iMode)%get_element(i,j) 
+      END DO; END DO !j,i
+      P_BCaxis(:,:)          =MATMUL(X2_base%s%R_axis(:,:,tBC),P_BCaxis(:,:)) !also sets rows 1:nD =0
+      P_BCaxis(1:nD,1:deg+1) =X2_base%s%A_axis(1:nD,:,tBC)
+      DO i=1,deg+1; DO j=1,deg+i
+        CALL Precond_X2(iMode)%set_element( i,j,P_BCaxis(i,j))
+      END DO; END DO !j,i
+    END IF !nDOF_BCaxis>0
+    tBC = X2_BC_Type(BC_EDGE,iMode)
+    nD  = X2_base%s%nDOF_BC(tBC) 
+    IF(nD.GT.0)THEN
+      !save nBase-deg:nBase rows
+      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+        P_BCedge(i,j)=precond_X2(iMode)%get_element(i,j) 
+      END DO; END DO !j,i
+      P_BCedge(:,:)             =MATMUL(X2_base%s%R_edge(:,:,tBC),P_BCedge(:,:)) !also sets rows nBase-nD+1:nBase =0 
+      P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=X2_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
+      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+        CALL Precond_X2(iMode)%set_element( i,j,P_BCedge(i,j) )
+      END DO; END DO !j,i
+    END IF !nDOF_BCedge>0
   END DO !iMode
 
-
-
+  DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X2
 
   SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
   nBase = LA_Base%s%nBase 
   modes = LA_Base%f%modes
   deg   = LA_base%s%deg
+  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-(2*deg+1):nBase))
 
   DO iMode=1,modes
     CALL precond_LA(iMode)%reset() !set all values to zero
@@ -814,8 +831,36 @@ SUBROUTINE BuildPrecond()
         CALL precond_LA(iMode)%set_element(iBase,iBase,1.0_wp)
       END DO
     END IF !MN_ZERO does not exists
+    !ACCOUNT FOR BOUNDARY CONDITIONS!
+    tBC = LA_BC_Type(BC_AXIS,iMode)
+    nD  = LA_base%s%nDOF_BC(tBC) 
+    IF(nD.GT.0)THEN
+      !save 1:deg rows
+      DO i=1,deg+1; DO j=1,deg+i
+        P_BCaxis(i,j)=precond_LA(iMode)%get_element(i,j) 
+      END DO; END DO !j,i
+      P_BCaxis(:,:)          =MATMUL(LA_base%s%R_axis(:,:,tBC),P_BCaxis(:,:)) !also sets rows 1:nD =0
+      P_BCaxis(1:nD,1:deg+1) =LA_base%s%A_axis(1:nD,:,tBC)
+      DO i=1,deg+1; DO j=1,deg+i
+        CALL Precond_LA(iMode)%set_element( i,j,P_BCaxis(i,j))
+      END DO; END DO !j,i
+    END IF !nDOF_BCaxis>0
+    tBC = LA_BC_Type(BC_EDGE,iMode)
+    nD  = LA_base%s%nDOF_BC(tBC) 
+    IF(nD.GT.0)THEN
+      !save nBase-deg:nBase rows
+      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+        P_BCedge(i,j)=precond_LA(iMode)%get_element(i,j) 
+      END DO; END DO !j,i
+      P_BCedge(:,:)             =MATMUL(LA_base%s%R_edge(:,:,tBC),P_BCedge(:,:)) !also sets rows nBase-nD+1:nBase =0 
+      P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=LA_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
+      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+        CALL Precond_LA(iMode)%set_element( i,j,P_BCedge(i,j) )
+      END DO; END DO !j,i
+    END IF !nDOF_BCedge>0
   END DO !iMode
 
+  DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE LA
 
 
