@@ -61,6 +61,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
   USE MOD_Restart_vars   , ONLY: doRestart,RestartFile
   USE MOD_Restart        , ONLY: ReadState
+  USE MOD_Analyze        , ONLY: Analyze
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -228,12 +229,6 @@ SUBROUTINE InitMHD3D(sf)
     END DO !iMode
     END ASSOCIATE
   CASE(1) !VMEC
-!    X1_mn_max  = MAX( 
-!    X2_mn_max  = MAX( 
-!    X1_sin_cos   = ? 
-!    X2_sin_cos   = ?
-!  LA_mn_max  = 
-!  LA_sin_cos = ? 
   END SELECT !which_init
 
   !boundary conditions (used in force, in init slightly changed)
@@ -245,15 +240,15 @@ SUBROUTINE InitMHD3D(sf)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       X1_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM     
-!      BC_type(1)=BC_TYPE_NEUMANN
+!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ODD_FIRST)
       X1_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-!      BC_type(1)=BC_TYPE_DIRICHLET
+!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET
     CASE(M_ODD)
-!      BC_type(1)=BC_TYPE_ANTISYMM
+!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
       X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
     CASE(M_EVEN)
-!      BC_type(1)=BC_TYPE_SYMMZERO
+!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO
       X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X1(:,iMode) zero odd even
   END DO 
@@ -266,15 +261,15 @@ SUBROUTINE InitMHD3D(sf)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       X2_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM     
-!      BC_type(1)=BC_TYPE_NEUMANN
+!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ODD_FIRST)
       X2_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-!      BC_type(1)=BC_TYPE_DIRICHLET
+!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET
     CASE(M_ODD)
-!      BC_type(1)=BC_TYPE_ANTISYMM
+!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
       X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
     CASE(M_EVEN)
-!      BC_type(1)=BC_TYPE_SYMMZERO
+!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO
       X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !X2(:,iMode) zero odd even
   END DO 
@@ -287,15 +282,15 @@ SUBROUTINE InitMHD3D(sf)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
-!      BC_type(1)=BC_TYPE_NEUMANN
+!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ODD_FIRST)
 !      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET 
     CASE(M_ODD)
-!      BC_type(1)=BC_TYPE_ANTISYMM
+!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
     CASE(M_EVEN)
-!      BC_type(1)=BC_TYPE_SYMMZERO
+!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
     END SELECT !LA(:,iMode) zero odd even
   END DO 
@@ -326,9 +321,13 @@ SUBROUTINE InitMHD3D(sf)
   CALL U(-1)%set_to(U(0))
 
  CALL InitializeMHD3D_EvalFunc()
-  JacCheck=1
+  JacCheck=2
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
-  CALL EvalForce(U(0),.TRUE.,JacCheck, F(0))
+  IF(JacCheck.EQ.-1)THEN
+    CALL Analyze(0)
+  END IF
+  CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
+  
   CALL CheckEvalForce(U(0),0)
   
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -626,7 +625,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 
   CALL U( -1)%set_to(U(0))
 
-  beta=0.6_wp  !for damping
+  beta=0.3_wp  !for damping
   dt=start_dt
   nstepDecreased=0
   t_pseudo=0
@@ -659,7 +658,7 @@ SUBROUTINE MinimizeMHD3D(sf)
       dt=0.5_wp*dt
       nstepDecreased=nStepDecreased+1
       nSkip_Jac=nSkip_Jac+1
-!      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, skip step and decrease stepsize!'
+      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, skip step and decrease stepsize!'
       !do not use P(1), redo the iteration
     ELSE 
       !detJ>0
@@ -716,18 +715,17 @@ SUBROUTINE MinimizeMHD3D(sf)
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
 
        !increase time step
-!        dt=1.02_wp*dt
+        dt=1.001_wp*dt
       ELSE !not a valid step, decrease timestep and skip P(1)
         dt=0.5_wp*dt
         nstepDecreased=nStepDecreased+1
         nSkip_dW=nSkip_dW+1
-!        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>0, skip step and decrease stepsize!'
+        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>0, skip step and decrease stepsize!'
       END IF
     END IF !JacCheck
    
-    IF(nStepDecreased.GE.20) THEN ! 2^20 ~10^6
-!    IF(nStepDecreased.GE.62) THEN  !1.25^62 ~10^6
-      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 2^10: ' 
+    IF(nStepDecreased.GT.20) THEN ! 2^20 ~10^6
+      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 2^20: ', dt 
       SWRITE(UNIT_stdOut,fmt_sep)
       RETURN
     END IF

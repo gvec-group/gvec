@@ -552,13 +552,15 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     IF(PrecondType.GT.0) CALL precond_LA(iMode)%solve_inplace(1,F_LA(:,iMode))
   END DO !iMode
   F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) ! *2 / 2 scale with constants
-  IF(PrecondType.GT.-1)THEN
+  IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
       CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_LA)
+  ELSE
+    CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
   END IF !PrecondType.GT.0
   END ASSOCIATE !F_LA
 
@@ -616,9 +618,9 @@ SUBROUTINE BuildPrecond()
   INTEGER                     :: nD,tBC 
   REAL(wp)                    :: qloc(3),smn_IP
   REAL(wp),DIMENSION(1:mn_IP) :: G11, G21, G31, G22, G32, dJh_dq1, dJh_dq2, bt_sJ, bzz_sJ
-  REAL(wp),DIMENSION(1:nGP)   :: DX1_tt, DX1_zz, DX1, DX1_ss,D_mn
-  REAL(wp),DIMENSION(1:nGP)   :: DX2_tt, DX2_zz, DX2, DX2_ss
-  REAL(wp),DIMENSION(1:nGP)   :: DLA_tt, DLA_zz
+  REAL(wp),DIMENSION(1:nGP)   :: DX1_tt, DX1_zz, DX1_ss
+  REAL(wp),DIMENSION(1:nGP)   :: DX2_tt, DX2_zz, DX2_ss
+  REAL(wp),DIMENSION(1:nGP)   :: DLA_tt, DLA_zz,D_mn
   REAL(wp),ALLOCATABLE        :: P_BCaxis(:,:), P_BCedge(:,:)
 !===================================================================================================================================
 !  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
@@ -630,8 +632,8 @@ SUBROUTINE BuildPrecond()
       G21(    i_mn) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
       G31(    i_mn) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
      !G12=G21
-      G22(    i_mn) = hmap%eval_gij((/0.,1.,0./),qloc,(/0.,1.,0./)) !~Y1_thet 
-      G32(    i_mn) = hmap%eval_gij((/0.,0.,1./),qloc,(/0.,1.,0./)) !~Y1_thet 
+      G22(    i_mn) = hmap%eval_gij((/0.,1.,0./),qloc,(/0.,1.,0./))
+      G32(    i_mn) = hmap%eval_gij((/0.,0.,1./),qloc,(/0.,1.,0./))
       dJh_dq1(i_mn) = hmap%eval_Jh_dq1(qloc)
       dJh_dq2(i_mn) = hmap%eval_Jh_dq2(qloc)
       bt_sJ(  i_mn) = b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
@@ -639,9 +641,9 @@ SUBROUTINE BuildPrecond()
     END DO !i_mn
     !averaged quantities
     !X1
-    DX1(   iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_h(:,iGP)*  dJh_dq1(:)     )**2 ) 
-    DX1_ss(iGP) = w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 ) 
-    DX1_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
+!    DX1(   iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_h(:,iGP)*  dJh_dq1(:)     )**2 ) 
+    DX1_ss(iGP) = w_GP(iGP)*PhiPrime2_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 ) 
+    DX1_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
                                +bt_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
                                            *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G11(:)   &
                                              +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G21(:)   &
@@ -649,9 +651,9 @@ SUBROUTINE BuildPrecond()
                                           +    b_thet(:,iGP)*G11(:))                                                   ) 
     DX1_zz(iGP) =           SUM(bzz_sJ(:)*G11(:))
     !X2
-    DX2(   iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_h(:,iGP)*  dJh_dq2(:)     )**2 ) 
-    DX2_ss(iGP) = w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 ) 
-    DX2_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
+!    DX2(   iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_h(:,iGP)*  dJh_dq2(:)     )**2 ) 
+    DX2_ss(iGP) = w_GP(iGP)*PhiPrime2_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 ) 
+    DX2_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
                                +bt_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
                                            *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G21(:)   & !G12=G21
                                              +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G22(:)   &
@@ -664,22 +666,22 @@ SUBROUTINE BuildPrecond()
   END DO
   !dont forget to average
   smn_IP=1.0_wp/REAL(mn_IP,wp)
-  DX1(:)    = smn_IP*DX1(:)
-  DX1_ss(:) = smn_IP*DX1_ss(:)
-  DX1_tt(:) = smn_IP*DX1_tt(:)
-  DX1_zz(:) = smn_IP*DX1_zz(:)
-  DX2(:)    = smn_IP*DX2(:)
-  DX2_ss(:) = smn_IP*DX2_ss(:)
-  DX2_tt(:) = smn_IP*DX2_tt(:)
-  DX2_zz(:) = smn_IP*DX2_zz(:)
-  DLA_tt(:) = smn_IP*DLA_tt(:)
-  DLA_zz(:) = smn_IP*DLA_zz(:)
+!  DX1(:)    = smn_IP*(DX1(:)    )  
+  DX1_ss(:) = smn_IP*(DX1_ss(:) )
+  DX1_tt(:) = smn_IP*(DX1_tt(:) )
+  DX1_zz(:) = smn_IP*(DX1_zz(:) )
+!  DX2(:)    = smn_IP*(DX2(:)    )
+  DX2_ss(:) = smn_IP*(DX2_ss(:) )
+  DX2_tt(:) = smn_IP*(DX2_tt(:) )
+  DX2_zz(:) = smn_IP*(DX2_zz(:) )
+  DLA_tt(:) = smn_IP*(DLA_tt(:) )
+  DLA_zz(:) = smn_IP*(DLA_zz(:) )
   
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
-  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-(2*deg+1):nBase))
+  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
 
   !CHECK =0
   IF(SUM(ABS(DX1_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
@@ -687,20 +689,21 @@ SUBROUTINE BuildPrecond()
 
   DO iMode=1,modes
     CALL precond_X1(iMode)%reset() !set all values to zero
-    D_mn(:)=w_GP(:)*(DX1(:)+PhiPrime2_GP(:)*(-(X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
-                                             -(X1_Base%f%Xmn(2,iMode)**2)*DX1_zz(:) ) )
+    D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*( (X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
+                                     +(X1_Base%f%Xmn(2,iMode)**2)*DX1_zz(:) ) 
     iGP=1
     DO iElem=1,nElems
       iBase=X1_base%s%base_offset(iElem)
       DO i=0,deg
         DO j=0,deg
-          CALL precond_X1(iMode)%add_element(iBase+i,iBase+j,                    &
-                                 (SUM( X1_base%s%base_ds_GP(0:degGP,i,iElem)     &
+          CALL precond_X1(iMode)%add_element(iBase+i,iBase+j,                   &
+                                 (SUM( X1_base%s%base_ds_GP(0:degGP,i,iElem)    &
                                       *DX1_ss(iGP:iGP+degGP)                    &
                                       *X1_base%s%base_ds_GP(0:degGP,j,iElem)    &
-                                     + X1_base%s%base_GP(0:degGP,i,iElem)        &
+                                     + X1_base%s%base_GP(0:degGP,i,iElem)       &
                                       *D_mn(iGP:iGP+degGP)                      &
-                                      *X1_base%s%base_GP(0:degGP,j,iElem)   ))  )
+                                      *X1_base%s%base_GP(0:degGP,j,iElem)       &
+                                 ))  )
         END DO !j=0,deg
       END DO !i=0,deg
       iGP=iGP+(degGP+1)
@@ -741,7 +744,7 @@ SUBROUTINE BuildPrecond()
   nBase = X2_Base%s%nBase 
   modes = X2_Base%f%modes
   deg   = X2_base%s%deg
-  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-(2*deg+1):nBase))
+  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
 
   !CHECK =0
   IF(SUM(ABS(DX2_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
@@ -749,20 +752,21 @@ SUBROUTINE BuildPrecond()
 
   DO iMode=1,modes
     CALL precond_X2(iMode)%reset() !set all values to zero
-    D_mn(:)=w_GP(:)*(DX2(:)+PhiPrime2_GP(:)*(-(X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
-                                             -(X2_Base%f%Xmn(2,iMode)**2)*DX2_zz(:) ) )
+    D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*( (X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
+                                     +(X2_Base%f%Xmn(2,iMode)**2)*DX2_zz(:) ) 
     iGP=1
     DO iElem=1,nElems
       iBase=X2_base%s%base_offset(iElem)
       DO i=0,deg
         DO j=0,deg
-          CALL precond_X2(iMode)%add_element(iBase+i,iBase+j,                    &
-                                 (SUM( X2_base%s%base_ds_GP(0:degGP,i,iElem)     &
+          CALL precond_X2(iMode)%add_element(iBase+i,iBase+j,                   &
+                                 (SUM( X2_base%s%base_ds_GP(0:degGP,i,iElem)    &
                                       *DX2_ss(iGP:iGP+degGP)                    &
                                       *X2_base%s%base_ds_GP(0:degGP,j,iElem)    &
-                                     + X2_base%s%base_GP(0:degGP,i,iElem)        &
+                                     + X2_base%s%base_GP(0:degGP,i,iElem)       &
                                       *D_mn(iGP:iGP+degGP)                      &
-                                      *X2_base%s%base_GP(0:degGP,j,iElem)   ))  )
+                                      *X2_base%s%base_GP(0:degGP,j,iElem)       &
+                                 ))  )
         END DO !j=0,deg
       END DO !i=0,deg
       iGP=iGP+(degGP+1)
@@ -803,13 +807,13 @@ SUBROUTINE BuildPrecond()
   nBase = LA_Base%s%nBase 
   modes = LA_Base%f%modes
   deg   = LA_base%s%deg
-  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-(2*deg+1):nBase))
+  ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
 
   DO iMode=1,modes
     CALL precond_LA(iMode)%reset() !set all values to zero
     IF(LA_base%f%zero_odd_even(iMode) .NE. MN_ZERO) THEN !MN_ZERO should not exist
-      D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*(-(LA_Base%f%Xmn(1,iMode)**2)*DLA_tt(:) &
-                                       -(LA_Base%f%Xmn(2,iMode)**2)*DLA_zz(:) )
+      D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*( (LA_Base%f%Xmn(1,iMode)**2)*DLA_tt(:) &
+                                       +(LA_Base%f%Xmn(2,iMode)**2)*DLA_zz(:) )
       !CHECK =0
       IF(SUM(ABS(D_mn(:))).LT.REAL(nGP,wp)*1.0E-10) WRITE(*,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
            LA_Base%f%Xmn(1:2,iMode),SUM(D_mn(:))
