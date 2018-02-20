@@ -90,8 +90,13 @@ VMECdataFile=GETSTR("VMECwoutfile")
 !use StraightFieldline mapping 
 useSFL=GETLOGICAL("VMEC_useSFL",Proposal=.FALSE.)
 
+#if NETCDF
 ! read VMEC 2000 output (netcdf)
 CALL ReadVmec(VMECdataFile)
+#else
+CALL abort(__STAMP__,&
+    "cannot read VMEC file, since code is compiled with BUILD_NETCDF=OFF")
+#endif
 
 
 !gmnc not needed anymore

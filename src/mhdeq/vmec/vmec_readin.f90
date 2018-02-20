@@ -64,10 +64,11 @@ MODULE MOD_VMEC_Readin
 
 ! REAL(wp), ALLOCATABLE :: gmnc(:, :) !< jacobian (cosine components (read on half mesh, interpolated on full
                                       !< mesh, mnMode_nyqist ))
-
+#if NETCDF
 INTERFACE ReadVMEC
   MODULE PROCEDURE ReadVMEC
 END INTERFACE ReadVMEC
+#endif /*NETCDF*/
 
 INTERFACE FinalizeReadVMEC
   MODULE PROCEDURE FinalizeReadVMEC
@@ -76,6 +77,7 @@ END INTERFACE FinalizeReadVMEC
 CONTAINS
 
 
+#if NETCDF
 !===================================================================================================================================
 !> READ VMEC "wout" datafile, needs netcdf library!
 !! 
@@ -303,6 +305,7 @@ SUBROUTINE ReadVMEC(fileName)
     WRITE(*,'(4X,A)')'...DONE.'
 
 END SUBROUTINE ReadVMEC
+#endif /*NETCDF*/
 
 !===================================================================================================================================
 !> Finalize: Deallocate module variables 

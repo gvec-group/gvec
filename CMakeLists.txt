@@ -200,6 +200,9 @@ IF(BUILD_NETCDF)
   INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
   LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib ) 
   MESSAGE(STATUS "Build with NetCDF")
+  ADD_DEFINITIONS(-DNETCDF=1)
+ELSE()
+  ADD_DEFINITIONS(-DNETCDF=0)
 ENDIF()
 
 # =========================================================================

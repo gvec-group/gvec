@@ -53,7 +53,7 @@ Inside that directory execute
 ``` 
 Here you can specify library paths and options. Press "enter" to change options.
 Press "c" to configure and "g" to create the Makefiles.
-If `BUILD_CDF=ON` and no preinstallied libraries for netcdf are found, an error occurs...
+If `BUILD_NETCDF=ON` and no preinstallied libraries for netcdf are found, an error occurs...
 
 Finally compile GVEC in the build folder by typing 
 ```
