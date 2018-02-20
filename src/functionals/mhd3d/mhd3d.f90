@@ -56,7 +56,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MOD_sgrid          , ONLY: t_sgrid
   USE MOD_fbase          , ONLY: t_fbase,fbase_new
   USE MOD_base           , ONLY: t_base,base_new
-  USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi
+  USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
   USE MOD_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
   USE MOD_Restart_vars   , ONLY: doRestart,RestartFile
@@ -88,7 +88,7 @@ SUBROUTINE InitMHD3D(sf)
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=500)
   logIter   = GETINT("logIter",Proposal=250)
-  minimize_reltol  =GETREAL("minimize_reltol",Proposal=0.01_wp)
+  minimize_tol  =GETREAL("minimize_tol",Proposal=1.0e-12_wp)
   start_dt  =GETREAL("start_dt",Proposal=1.0e-08_wp)
 
   nElems   = GETINT("sgrid_nElems",Proposal=10)
@@ -177,6 +177,25 @@ SUBROUTINE InitMHD3D(sf)
   CALL base_new(X1_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1_mn_max,mn_nyq,nfp_loc,X1_sin_cos,.FALSE.)
   CALL base_new(X2_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X2_mn_max,mn_nyq,nfp_loc,X2_sin_cos,.FALSE.)
   CALL base_new(LA_base  ,   LA_deg,  LA_cont,sgrid,degGP , LA_mn_max,mn_nyq,nfp_loc,LA_sin_cos,.TRUE. )
+
+  IF(which_init.EQ.1) THEN !VMEC
+    IF(lasym)THEN
+      IF((X1_base%f%sin_cos.NE._SINCOS_).OR. &
+         (X2_base%f%sin_cos.NE._SINCOS_).OR. &
+         (LA_base%f%sin_cos.NE._SINCOS_) ) THEN
+        SWRITE(UNIT_stdOut,'(A)')'!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
+        SWRITE(UNIT_stdOut,'(A)')'!!!!!!!!   ---->  VMEC was run asymmetric, you should use _sincos_ basis for all variables'
+        SWRITE(UNIT_stdOut,'(A)')'!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
+      END IF
+    END IF
+    IF((MAXVAL(INT(xm(:))).GT.MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))).OR. &
+       (MAXVAL(ABS(INT(xn(:))/nfp_loc)).GT.MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))))THEN
+      SWRITE(UNIT_stdOut,'(A)')    '!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
+      SWRITE(UNIT_stdOut,'(A,2I6)')'!!!!!!!!   ---->  VMEC was run with a higher mode number (m,n)_max,vmec= ', &
+                                    MAXVAL(INT(xm(:))),MAXVAL(ABS(INT(xn(:))/nfp_loc))
+      SWRITE(UNIT_stdOut,'(A)')    '!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
+    END IF
+  END IF
 
   nDOF_X1 = X1_base%s%nBase* X1_base%f%modes
   nDOF_X2 = X2_base%s%nBase* X2_base%f%modes
@@ -284,6 +303,7 @@ SUBROUTINE InitMHD3D(sf)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
 !      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ODD_FIRST)
+!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
 !      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET 
     CASE(M_ODD)
@@ -315,8 +335,9 @@ SUBROUTINE InitMHD3D(sf)
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
     CALL ReadState(RestartFile,U(0))
+    CALL InitSolution(U(0),-1) !only apply BC and recompute lambda
   ELSE 
-    CALL InitSolution(U(0))
+    CALL InitSolution(U(0),which_init)
   END IF
   CALL U(-1)%set_to(U(0))
 
@@ -369,10 +390,12 @@ END SUBROUTINE InitMHD3D
 !> Initialize the solution with the given boundary condition 
 !!
 !===================================================================================================================================
-SUBROUTINE InitSolution(U_init)
+SUBROUTINE InitSolution(U_init,which_init_in)
 ! MODULES
-  USE MOD_MHD3D_Vars   , ONLY:which_init,init_fromBConly,X1_base,X2_base,X1_a,X1_b,X2_a,X2_b
-  USE MOD_MHD3D_Vars   , ONLY:LA_base,init_LA
+  USE MOD_MHD3D_Vars   , ONLY:init_fromBConly
+  USE MOD_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
+  USE MOD_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
+  USE MOD_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
   USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MOD_lambda_solve,  ONLY:lambda_solve
   USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
@@ -382,6 +405,7 @@ SUBROUTINE InitSolution(U_init)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  INTEGER, INTENT(IN) :: which_init_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
@@ -396,7 +420,12 @@ SUBROUTINE InitSolution(U_init)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
-  SELECT CASE(which_init)
+  SELECT CASE(which_init_in)
+  CASE(-1) !restart
+    X1_a(:)=U_init%X1(1,:)
+    X2_a(:)=U_init%X2(1,:)
+    X1_b(:)=U_init%X1(X1_base%s%nBase,:)
+    X2_b(:)=U_init%X2(X2_base%s%nBase,:)
   CASE(0)
     !X1_a,X2_a and X1_b,X2_b already filled from parameter file readin...
   CASE(1) !VMEC
@@ -476,7 +505,9 @@ SUBROUTINE InitSolution(U_init)
     END IF !fullIntVmec
   END SELECT !which_init
  
-  IF(init_fromBConly)THEN 
+  IF((which_init_in.GE.0).AND.(init_fromBConly))THEN 
+    !no restart(=-1) and initialization only 
+    !smoothly interpolate between  edge and axis data
     ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
               modes        =>X1_base%f%modes, &
               zero_odd_even=>X1_base%f%zero_odd_even)
@@ -513,22 +544,18 @@ SUBROUTINE InitSolution(U_init)
     END DO 
     END ASSOCIATE
   END IF !init_fromBConly
+
   !apply strong boundary conditions
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
   DO imode=1,modes
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
-      BC_type=(/BC_TYPE_SYMM    ,BC_TYPE_DIRICHLET/)
       BC_val =(/ X1_a(iMode)    ,      X1_b(iMode)/)
-    CASE(M_ODD,M_ODD_FIRST)
-      BC_type=(/BC_TYPE_ANTISYMM,BC_TYPE_DIRICHLET/)
-      BC_val =(/          0.0_wp,      X1_b(iMode)/)
-    CASE(M_EVEN)
-      BC_type=(/BC_TYPE_SYMMZERO,BC_TYPE_DIRICHLET/)
+    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
-    CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),BC_type,BC_val)
+    CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
   END DO 
   END ASSOCIATE !X1
   
@@ -537,16 +564,11 @@ SUBROUTINE InitSolution(U_init)
   DO imode=1,modes
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
-      BC_type=(/BC_TYPE_SYMM    ,BC_TYPE_DIRICHLET/)
       BC_val =(/     X2_a(iMode),      X2_b(iMode)/)
-    CASE(M_ODD,M_ODD_FIRST)
-      BC_type=(/BC_TYPE_ANTISYMM,BC_TYPE_DIRICHLET/)
-      BC_val =(/          0.0_wp,      X2_b(iMode)/)
-    CASE(M_EVEN)
-      BC_type=(/BC_TYPE_SYMMZERO,BC_TYPE_DIRICHLET/)
+    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
-    CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),BC_type,BC_val)
+    CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
   END DO 
   END ASSOCIATE !X2
 
@@ -567,13 +589,15 @@ SUBROUTINE InitSolution(U_init)
       ELSE
         U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
       END IF!iMode ~ MN_ZERO
+      BC_val =(/ 0.0_wp, 0.0_wp/)
+      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
     END DO !iMode 
     END ASSOCIATE !LA
   ELSE
     !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
     SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
     U_init%LA=0.0_wp
-  END IF
+  END IF !init_LA
 
   SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -598,7 +622,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 ! LOCAL VARIABLES
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck,lastoutputIter
-  REAL(wp)  :: beta,dt,deltaW,relTol
+  REAL(wp)  :: beta,dt,deltaW,absTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
@@ -615,7 +639,7 @@ SUBROUTINE MinimizeMHD3D(sf)
   U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
   W_MHD3D_0 = U(0)%W_MHD3D
 
-  reltol=minimize_reltol
+  abstol=minimize_tol
 
   CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
   Fnorm0=SQRT(SUM(F(0)%norm_2()))
@@ -670,12 +694,13 @@ SUBROUTINE MinimizeMHD3D(sf)
 !        IF(ABS(deltaW).LE.aborttol)THEN
 !          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
 !                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
-        IF(Fnorm.LE.reltol*Fnorm0)THEN
+!        IF(Fnorm*dt.LE.reltol*Fnorm0)THEN
+        IF(ALL(SQRT(F(0)%norm_2())*dt.LE.abstol))THEN
           SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,E11.4,A,3E11.4,A)') &
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
                     '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
                    '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
-          '               %%%\n%%%  |Force|= ',SQRT(F(0)%norm_2()), &
+          '               %%%\n%%% dU = |Force|*dt= ',SQRT(F(0)%norm_2())*dt, &
    '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
           EXIT !DO LOOP
@@ -691,7 +716,7 @@ SUBROUTINE MinimizeMHD3D(sf)
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
                     '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
                    '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
-          '               %%%\n%%%  |Force|= ',SQRT(F(0)%norm_2()), &
+          '               %%%\n%%% dU = |Force|*dt= ',SQRT(F(0)%norm_2())*dt, &
    '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           min_dt_out=1.0e+30_wp
           max_dt_out=0.0_wp
@@ -710,7 +735,7 @@ SUBROUTINE MinimizeMHD3D(sf)
         CALL U(-1)%set_to(U(0))
         CALL U(0)%set_to(P(1))
         CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
-        Fnorm=SQRT(SUM(F(0)%norm_2()))
+        Fnorm=SUM(SQRT(F(0)%norm_2()))
 ! for hirshman method
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
 
