@@ -62,7 +62,7 @@ INTEGER              :: PrecondType     !! -1: off: 1: ..
 INTEGER              :: maxIter         !! maximum iteration count for minimization 
 INTEGER              :: outputIter      !! number of iterations after which output files are written
 INTEGER              :: logIter         !! number of iterations after which a screen log is written
-REAL(wp)             :: minimize_reltol !! relative tolerance for minimization of functional
+REAL(wp)             :: minimize_tol    !! absolute tolerance for minimization of functional
 REAL(wp)             :: start_dt        !! starting time step, is adapted during iteration
 ! input parameters for functional
 REAL(wp)             :: Phi_edge        !! toroidal flux at the last flux surface of the domain
