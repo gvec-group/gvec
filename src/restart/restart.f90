@@ -245,9 +245,9 @@ IMPLICIT NONE
   CALL sgrid_r%compare(sgrid,sameGrid)
 
   !needed to build base of restart file
-  X1_mn_max_r = (/MAXVAL(X1_mn_r(1,:)),MAXVAL(X1_mn_r(2,:))/)
-  X2_mn_max_r = (/MAXVAL(X2_mn_r(1,:)),MAXVAL(X2_mn_r(2,:))/)
-  LA_mn_max_r = (/MAXVAL(LA_mn_r(1,:)),MAXVAL(LA_mn_r(2,:))/)
+  X1_mn_max_r = (/MAXVAL(X1_mn_r(1,:)),MAXVAL(X1_mn_r(2,:))/nfp_r/)
+  X2_mn_max_r = (/MAXVAL(X2_mn_r(1,:)),MAXVAL(X2_mn_r(2,:))/nfp_r/)
+  LA_mn_max_r = (/MAXVAL(LA_mn_r(1,:)),MAXVAL(LA_mn_r(2,:))/nfp_r/)
 
   ASSOCIATE(curr_degGP=>X1_base%s%degGP,curr_mn_nyq=>X1_base%f%mn_nyq) !use current setup for integration points
   CALL base_new(X1_base_r,X1_deg_r,X1_cont_r,sgrid_r,curr_degGP,X1_mn_max_r,curr_mn_nyq,nfp_r, &

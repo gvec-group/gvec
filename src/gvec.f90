@@ -32,8 +32,10 @@ IMPLICIT NONE
 INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: Parameterfile
 INTEGER                 :: which_functional
+REAL(wp)                :: StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
+  CALL CPU_TIME(StartTime)
   nArgs=COMMAND_ARGUMENT_COUNT()
   IF(nArgs.GE.1)THEN
     CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
@@ -111,11 +113,12 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     SWRITE(UNIT_stdout,*)
     CLOSE(testUnit)
   END IF !testlevel
+  CALL CPU_TIME(EndTime)
   WRITE(Unit_stdOut,fmt_sep)
   IF(n_warnings_occured.EQ.0)THEN
-    WRITE(Unit_stdOut,'(A)') ' GVEC SUCESSFULLY FINISHED'
+    WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC SUCESSFULLY FINISHED! [',EndTime-StartTime,' sec ]'
   ELSE
-    WRITE(Unit_stdOut,'(A,I8,A)') ' GVEC FINISHED WITH ' , n_warnings_occured , ' WARNINGS!!!!'
+    WRITE(Unit_stdOut,'(A,F8.2,A,I8,A)') ' GVEC FINISHED! [',EndTime-StartTime,' sec ], WITH ' , n_warnings_occured , ' WARNINGS!!!!'
   END IF
   WRITE(Unit_stdOut,fmt_sep)
 

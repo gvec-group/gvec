@@ -1052,7 +1052,7 @@ REAL(wp):: raxis(1:sf%deg+1),redge(sf%nBase-sf%deg:sf%nbase)
   CASE DEFAULT !BC_TYPE_SYMM,BC_TYPE_SYMMZERO,BC_TYPE_ANTISYMM
     redge(nB-deg:nB-nDedge) = DOFs(nB-deg:nB-nDedge)
     redge(nB-nDedge+1:nB)   = 0.0_wp
-    DOFs(nB-deg:nB)=MATMUL(sf%A_edge(:,:,tBCedge),redge(:))
+    DOFs(nB-deg:nB)=MATMUL(sf%invA_edge(:,:,tBCedge),redge(:))
   END SELECT !tBCedge
   END ASSOCIATE
 

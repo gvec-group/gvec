@@ -186,14 +186,18 @@ SUBROUTINE InitMHD3D(sf)
         SWRITE(UNIT_stdOut,'(A)')'!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
         SWRITE(UNIT_stdOut,'(A)')'!!!!!!!!   ---->  VMEC was run asymmetric, you should use _sincos_ basis for all variables'
         SWRITE(UNIT_stdOut,'(A)')'!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
+        CALL abort(__STAMP__,&
+            '!!!!  VMEC was run asymmetric, you should use _sincos_ basis for all variables')
       END IF
     END IF
-    IF((MAXVAL(INT(xm(:))).GT.MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))).OR. &
-       (MAXVAL(ABS(INT(xn(:))/nfp_loc)).GT.MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))))THEN
+    IF((MAXVAL(INT(xm(:))).GT.MINVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))).OR. &
+       (MAXVAL(ABS(INT(xn(:))/nfp_loc)).GT.MINVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))))THEN
       SWRITE(UNIT_stdOut,'(A)')    '!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
-      SWRITE(UNIT_stdOut,'(A,2I6)')'!!!!!!!!   ---->  VMEC was run with a higher mode number (m,n)_max,vmec= ', &
+      SWRITE(UNIT_stdOut,'(A,2I6)')'!!!!!!!!   ---->  you use a lower mode number than the VMEC  run  ', &
                                     MAXVAL(INT(xm(:))),MAXVAL(ABS(INT(xn(:))/nfp_loc))
       SWRITE(UNIT_stdOut,'(A)')    '!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
+        CALL abort(__STAMP__,&
+      '!!!!!  you use a lower mode number than the VMEC  run  (m,n)_max')
     END IF
   END IF
 
@@ -299,9 +303,11 @@ SUBROUTINE InitMHD3D(sf)
   LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN !no BC for lambda at the edge!
   DO imode=1,modes
     SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO)
+    CASE(MN_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
 !      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
+    CASE(M_ZERO)
+      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM  !n/=0 modes should have lambda/=0 at the axis, but not clear why...
     CASE(M_ODD_FIRST)
 !      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
 !      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
@@ -700,7 +706,7 @@ SUBROUTINE MinimizeMHD3D(sf)
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
                     '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
                    '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
-          '               %%%\n%%% dU = |Force|*dt= ',SQRT(F(0)%norm_2())*dt, &
+          '               %%%\n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
    '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
           EXIT !DO LOOP
@@ -716,7 +722,7 @@ SUBROUTINE MinimizeMHD3D(sf)
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
                     '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
                    '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
-          '               %%%\n%%% dU = |Force|*dt= ',SQRT(F(0)%norm_2())*dt, &
+          '               %%%\n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
    '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           min_dt_out=1.0e+30_wp
           max_dt_out=0.0_wp

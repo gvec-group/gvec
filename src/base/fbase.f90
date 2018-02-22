@@ -238,7 +238,7 @@ IMPLICIT NONE
         "error in fBase: mn_nyq in theta should be > mn_max(1)!") 
   IF((mn_nyq_in(2)/(mn_max_in(2)+1)).LT.1) &
     CALL abort(__STAMP__, &
-         "error in fBase: mn_nyq in zeta should be > mn_max(2)!") 
+         "error in fBase: mn_nyq in zeta should be > mn_max(2)!",mn_nyq_in(2),REAL(mn_max_in(2))) 
 
   sf%mn_max(1:2)  = mn_max_in(1:2)
   sf%mn_nyq(1:2)  = mn_nyq_in(1:2)

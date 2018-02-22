@@ -549,7 +549,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                     + MATMUL(F_GP(iGP:iGP+degGP),LA_base%s%base_GP(0:degGP,0:deg,iElem))
       iGP=iGP+(degGP+1)
     END DO !iElem
-    IF(PrecondType.GT.0) CALL precond_LA(iMode)%solve_inplace(1,F_LA(:,iMode))
   END DO !iMode
   F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) ! *2 / 2 scale with constants
   IF(PrecondType.GT.0)THEN

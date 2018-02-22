@@ -406,18 +406,18 @@ USE MOD_Output_vtk,     ONLY: WriteDataToVTK
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: np_in(3)     !! number of points in s,theta,zeta direction
+  INTEGER       , INTENT(IN   ) :: np_in(3)     !! (1) #points in s & theta per element,(2:3) #elements in  theta,zeta
   REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1] 
   LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER            :: i_s,i_m,i_n,iMode,nplot(3)
+  INTEGER            :: i_s,j_s,i_m,i_n,iMode,nplot(3),mn_IP(2)
   INTEGER,PARAMETER  :: nVal=4
-  REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(2),np_in(3))
-  REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(2),np_in(3))
-  REAL(wp)           :: thet(np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
+  REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(1),np_in(2),np_in(3))
+  REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(2),np_in(3))
+  REAL(wp)           :: thet(np_in(1),np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
   CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
@@ -438,61 +438,67 @@ IMPLICIT NONE
   VarNames(2)="Phi"
   VarNames(3)="iota"
   VarNames(4)="pressure"
-  ASSOCIATE(n_s=>nFluxVMEC, mn_IP=>np_in(2:3) )
+  mn_IP(1:2)=np_in(2:3)
+  ASSOCIATE(n_s=>nFluxVMEC )
   DO i_m=1,mn_IP(1)
-    thet(i_m)=TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp))
+    DO j_s=1,np_in(1)
+      thet(j_s,i_m)=TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0)) &
+                            *REAL((j_s-1)+(i_m-1)*(np_in(1)-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
+    END DO !j_s
   END DO
   DO i_n=1,mn_IP(2)
-    zeta(i_n)=-TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+    zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
   DO i_s=1,n_s
-    var_visu(2,i_s,:,:)=Phi_Prof(i_s)
-    var_visu(3,i_s,:,:)=iotaf(i_s)
-    var_visu(4,i_s,:,:)=presf(i_s)
+    var_visu(2,i_s,:,:,:)=Phi_Prof(i_s)
+    var_visu(3,i_s,:,:,:)=iotaf(i_s)
+    var_visu(4,i_s,:,:,:)=presf(i_s)
   END DO !i_s
-  DO i_m=1,mn_IP(1)
-    DO i_n=1,mn_IP(2)
-      DO iMode=1,mn_mode
-        sinmn(iMode)=SIN(xm(iMode)*thet(i_m)-xn(iMode)*zeta(i_n))
-        cosmn(iMode)=COS(xm(iMode)*thet(i_m)-xn(iMode)*zeta(i_n))
-      END DO !iMode
-      DO i_s=1,n_s
-        R=0.0_wp
-        Z=0.0_wp
-        LA=0.0_wp
+  DO i_n=1,mn_IP(2)
+    DO i_m=1,mn_IP(1)
+      DO j_s=1,np_in(1)
         DO iMode=1,mn_mode
-          R =R +Rmnc(iMode,i_s)*cosmn(iMode)
-          Z =Z +Zmns(iMode,i_s)*sinmn(iMode)
-          LA=LA+Lmns(iMode,i_s)*sinmn(iMode)
+          sinmn(iMode)=SIN(xm(iMode)*thet(j_s,i_m)-xn(iMode)*zeta(i_n))
+          cosmn(iMode)=COS(xm(iMode)*thet(j_s,i_m)-xn(iMode)*zeta(i_n))
         END DO !iMode
-        IF(lasym)THEN
+        DO i_s=1,n_s
+          R=0.0_wp
+          Z=0.0_wp
+          LA=0.0_wp
           DO iMode=1,mn_mode
-            R =R +Rmns(iMode,i_s)*sinmn(iMode)
-            Z =Z +Zmnc(iMode,i_s)*cosmn(iMode)
-            LA=LA+Lmnc(iMode,i_s)*cosmn(iMode)
+            R =R +Rmnc(iMode,i_s)*cosmn(iMode)
+            Z =Z +Zmns(iMode,i_s)*sinmn(iMode)
+            LA=LA+Lmns(iMode,i_s)*sinmn(iMode)
           END DO !iMode
-        END IF !lasym
-        coord_visu(1,i_s,i_m,i_n) = R*COS(zeta(i_n))
-        coord_visu(2,i_s,i_m,i_n) =-R*SIN(zeta(i_n))
-        coord_visu(3,i_s,i_m,i_n) = Z
-        var_visu(  1,i_s,i_m,i_n) = LA
-      END DO !i_s=1,n_s
+          IF(lasym)THEN
+            DO iMode=1,mn_mode
+              R =R +Rmns(iMode,i_s)*sinmn(iMode)
+              Z =Z +Zmnc(iMode,i_s)*cosmn(iMode)
+              LA=LA+Lmnc(iMode,i_s)*cosmn(iMode)
+            END DO !iMode
+          END IF !lasym
+          coord_visu(1,i_s,j_s,i_m,i_n) = R*COS(zeta(i_n))
+          coord_visu(2,i_s,j_s,i_m,i_n) =-R*SIN(zeta(i_n))
+          coord_visu(3,i_s,j_s,i_m,i_n) = Z
+          var_visu(  1,i_s,j_s,i_m,i_n) = LA
+        END DO !i_s=1,n_s
+      END DO !j_s=1,np_in(1)
     END DO !i_n
   END DO !i_m
 
   IF(only_planes)THEN
-    nplot(1:2)=(/n_s,mn_IP(1)/)-1
+    nplot(1:2)=(/n_s,np_in(1) /)-1
     WRITE(filename,'(A,A)')TRIM(Projectname),"_visu_planes_VMEC.vtu"
-    CALL WriteDataToVTK(2,3,nVal,nplot(1:2),mn_IP(2),VarNames, &
-                        coord_visu(:,:,:,:), &
-                          var_visu(:,:,:,:),TRIM(filename))
+    CALL WriteDataToVTK(2,3,nVal,nplot(1:2),mn_IP(1)*mn_IP(2),VarNames, &
+                        coord_visu(:,:,:,:,:), &
+                          var_visu(:,:,:,:,:),TRIM(filename))
   ELSE
     !3D
-    nplot(1:3)=(/n_s,mn_IP(1),mn_IP(2)/)-1
+    nplot(1:3)=(/n_s,np_in(1),mn_IP(2)/)-1
     WRITE(filename,'(A,A)')TRIM(Projectname),"_visu_3D_VMEC.vtu"
-    CALL WriteDataToVTK(3,3,nVal,nplot,1,VarNames, &
-                        coord_visu(:,:,:,:), &
-                          var_visu(:,:,:,:),TRIM(filename))
+    CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1),VarNames, &
+                        coord_visu(:,:,:,:,:), &
+                          var_visu(:,:,:,:,:),TRIM(filename))
   END IF
 
   END ASSOCIATE

@@ -102,7 +102,7 @@ USE MOD_Output_vars,    ONLY: Projectname,OutputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: np_in(3)     !! number of points in s,theta,zeta direction
+  INTEGER       , INTENT(IN   ) :: np_in(3)     !! (1) #points in s & theta per element,(2:3) #elements in  theta,zeta
   REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1] 
   LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
   INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
@@ -110,7 +110,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,i_s,i_m,i_n,iElem,nElems,nplot(3),minElem,maxElem
+  INTEGER  :: iMode,i_s,j_s,i_m,i_n,iElem,nElems,nplot(3),minElem,maxElem
   REAL(wp) :: spos,xIP(2),q(3)
   REAL(wp) :: X1_s(X1_base%f%modes),F_X1_s(X1_base%f%modes),dX1ds(X1_base%f%modes)
   REAL(wp) :: X2_s(X2_base%f%modes),F_X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
@@ -119,8 +119,8 @@ IMPLICIT NONE
   REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,phiPrime_s,e_thet(3),e_zeta(3)
 
   INTEGER,PARAMETER  :: nVal=11
-  REAL(wp) :: coord_visu(     3,np_in(1),np_in(2),np_in(3),sgrid%nElems)
-  REAL(wp) :: var_visu(nVal,np_in(1),np_in(2),np_in(3),sgrid%nElems)
+  REAL(wp) :: coord_visu(     3,np_in(1),np_in(1),np_in(2),np_in(3),sgrid%nElems)
+  REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(2),np_in(3),sgrid%nElems)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
@@ -171,55 +171,58 @@ IMPLICIT NONE
       iota_s=Eval_iota(spos)
       pres_s=Eval_pres(spos)
       phiPrime_s=Eval_PhiPrime(spos)
-      var_visu(3,i_s,:,:,iElem) =Eval_Phi(spos)
-      var_visu(4,i_s,:,:,iElem) =iota_s
-      var_visu(5,i_s,:,:,iElem) =pres_s
+      var_visu(3,i_s,:,:,:,iElem) =Eval_Phi(spos)
+      var_visu(4,i_s,:,:,:,iElem) =iota_s
+      var_visu(5,i_s,:,:,:,iElem) =pres_s
       DO i_n=1,mn_IP(2)
         xIP(2)  = TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
         DO i_m=1,mn_IP(1)
-          xIP(1)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp))
-
-          ASSOCIATE(lambda_visu  => var_visu(  1,i_s,i_m,i_n,iElem), &
-                    sqrtG_visu   => var_visu(  2,i_s,i_m,i_n,iElem), &
-                    Bvec_visu    => var_visu(6:8,i_s,i_m,i_n,iElem), &
-                    F_X1_visu    => var_visu(  9,i_s,i_m,i_n,iElem), &
-                    F_X2_visu    => var_visu( 10,i_s,i_m,i_n,iElem), &
-                    F_LA_visu    => var_visu( 11,i_s,i_m,i_n,iElem)  )
-
-
-          X1_visu         =X1_base%f%evalDOF_x(xIP,         0,X1_s )
-          X2_visu         =X2_base%f%evalDOF_x(xIP,         0,X2_s )
-
-          F_X1_visu       =X1_base%f%evalDOF_x(xIP,         0,F_X1_s )
-          F_X2_visu       =X2_base%f%evalDOF_x(xIP,         0,F_X2_s )
-          F_LA_visu       =LA_base%f%evalDOF_x(xIP,         0,F_LA_s )
-
-          dX1_ds_visu     =X1_base%f%evalDOF_x(xIP,         0,dX1ds)
-          dX2_ds_visu     =X2_base%f%evalDOF_x(xIP,         0,dX2ds)
-
-          dX1_dthet_visu  =X1_base%f%evalDOF_x(xIP,DERIV_THET,X1_s )
-          dX2_dthet_visu  =X2_base%f%evalDOF_x(xIP,DERIV_THET,X2_s )
-          dLA_dthet_visu  =LA_base%f%evalDOF_x(xIP,DERIV_THET,LA_s )
-
-          dX1_dzeta_visu  =X1_base%f%evalDOF_x(xIP,DERIV_ZETA,X1_s )
-          dX2_dzeta_visu  =X2_base%f%evalDOF_x(xIP,DERIV_ZETA,X2_s )
-          dLA_dzeta_visu  =LA_base%f%evalDOF_x(xIP,DERIV_ZETA,LA_s )
-  
-          q=(/X1_visu,X2_visu,xIP(2)/)
-          !x,y,z
-          coord_visu(:,i_s,i_m,i_n,iElem )=hmap%eval(q)
-          !lambda
-          lambda_visu = LA_base%f%evalDOF_x(xIP,0,LA_s)
-          !sqrtG
-          sqrtG_visu  = hmap%eval_Jh(q)*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
-
-          e_thet=hmap%eval_dxdq(q,(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/))
-          e_zeta=hmap%eval_dxdq(q,(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/))
-          var_visu(6:8,i_s,i_m,i_n,iElem)= &
-!          Bvec_visu(:)= & 
-                       (  e_thet(:)*(iota_s-dLA_dzeta_visu)  &
-                        + e_zeta(:)*(1.0_wp+dLA_dthet_visu) )*(PhiPrime_s/MAX(1.0e-12_wp,sqrtG_visu))
-          END ASSOCIATE !lambda,sqrtG,Bvec,F_X1/X2/LA
+          DO j_s=1,n_s
+            xIP(1)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0)) &
+                            *REAL((j_s-1)+(i_m-1)*(n_s-1),wp)/REAL((n_s-1)*mn_IP(1),wp))
+            
+            ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_m,i_n,iElem), &
+                      sqrtG_visu   => var_visu(  2,i_s,j_s,i_m,i_n,iElem), &
+                      Bvec_visu    => var_visu(6:8,i_s,j_s,i_m,i_n,iElem), &
+                      F_X1_visu    => var_visu(  9,i_s,j_s,i_m,i_n,iElem), &
+                      F_X2_visu    => var_visu( 10,i_s,j_s,i_m,i_n,iElem), &
+                      F_LA_visu    => var_visu( 11,i_s,j_s,i_m,i_n,iElem)  )
+            
+            
+            X1_visu         =X1_base%f%evalDOF_x(xIP,         0,X1_s )
+            X2_visu         =X2_base%f%evalDOF_x(xIP,         0,X2_s )
+            
+            F_X1_visu       =X1_base%f%evalDOF_x(xIP,         0,F_X1_s )
+            F_X2_visu       =X2_base%f%evalDOF_x(xIP,         0,F_X2_s )
+            F_LA_visu       =LA_base%f%evalDOF_x(xIP,         0,F_LA_s )
+            
+            dX1_ds_visu     =X1_base%f%evalDOF_x(xIP,         0,dX1ds)
+            dX2_ds_visu     =X2_base%f%evalDOF_x(xIP,         0,dX2ds)
+            
+            dX1_dthet_visu  =X1_base%f%evalDOF_x(xIP,DERIV_THET,X1_s )
+            dX2_dthet_visu  =X2_base%f%evalDOF_x(xIP,DERIV_THET,X2_s )
+            dLA_dthet_visu  =LA_base%f%evalDOF_x(xIP,DERIV_THET,LA_s )
+            
+            dX1_dzeta_visu  =X1_base%f%evalDOF_x(xIP,DERIV_ZETA,X1_s )
+            dX2_dzeta_visu  =X2_base%f%evalDOF_x(xIP,DERIV_ZETA,X2_s )
+            dLA_dzeta_visu  =LA_base%f%evalDOF_x(xIP,DERIV_ZETA,LA_s )
+            
+            q=(/X1_visu,X2_visu,xIP(2)/)
+            !x,y,z
+            coord_visu(:,i_s,j_s,i_m,i_n,iElem )=hmap%eval(q)
+            !lambda
+            lambda_visu = LA_base%f%evalDOF_x(xIP,0,LA_s)
+            !sqrtG
+            sqrtG_visu  = hmap%eval_Jh(q)*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
+            
+            e_thet=hmap%eval_dxdq(q,(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/))
+            e_zeta=hmap%eval_dxdq(q,(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/))
+!            var_visu(6:8,i_s,i_m,i_n,iElem)= &
+            Bvec_visu(:)= & 
+                         (  e_thet(:)*(iota_s-dLA_dzeta_visu)  &
+                          + e_zeta(:)*(1.0_wp+dLA_dthet_visu) )*(PhiPrime_s/MAX(1.0e-12_wp,sqrtG_visu))
+            END ASSOCIATE !lambda,sqrtG,Bvec,F_X1/X2/LA
+          END DO !j_s
         END DO !i_m
       END DO !i_n
     END DO !i_s
@@ -229,18 +232,18 @@ IMPLICIT NONE
   minElem=MAX(     1,sgrid%find_elem(minmax(1,0))-1)
   maxElem=MIN(nElems,sgrid%find_elem(minmax(1,1))+1)
   IF(only_planes)THEN
-    nplot(1:2)=(/n_s,mn_IP(1)/)-1
+    nplot(1:2)=(/n_s,n_s/)-1
     WRITE(filename,'(A,"_visu_planes_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
-    CALL WriteDataToVTK(2,3,nVal,nplot(1:2),(mn_IP(2)*(maxElem-minElem+1)),VarNames, &
-                        coord_visu(:,:,:,:,minElem:maxElem), &
-                          var_visu(:,:,:,:,minElem:maxElem),TRIM(filename))
+    CALL WriteDataToVTK(2,3,nVal,nplot(1:2),(mn_IP(1)*mn_IP(2)*(maxElem-minElem+1)),VarNames, &
+                        coord_visu(:,:,:,:,:,minElem:maxElem), &
+                          var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   ELSE
     !3D
-    nplot(1:3)=(/n_s,mn_IP(1),mn_IP(2)/)-1
+    nplot(1:3)=(/n_s,n_s,mn_IP(2)/)-1
     WRITE(filename,'(A,"_visu_3D_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
-    CALL WriteDataToVTK(3,3,nVal,nplot,(maxElem-minElem+1),VarNames, &
-                        coord_visu(:,:,:,:,minElem:maxElem), &
-                          var_visu(:,:,:,:,minElem:maxElem),TRIM(filename))
+    CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
+                        coord_visu(:,:,:,:,:,minElem:maxElem), &
+                          var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   END IF
   
   END ASSOCIATE!n_s,mn_IP
