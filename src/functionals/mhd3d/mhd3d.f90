@@ -902,7 +902,7 @@ SUBROUTINE MinimizeMHD3D_LBFGS(sf)
     IF (task(1:2) .EQ. 'FG') then
       IF(JacCheck.EQ.-1)THEN
         SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, ....!'
-        W_MHD3D_1 = 1.01_wp*U(0)%W_MHD3D
+        W_MHD3D_1 = 1.05_wp*U(0)%W_MHD3D
         !do not use P(1), redo the iteration
       ELSE 
         !detJ>0

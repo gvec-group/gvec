@@ -787,8 +787,7 @@ c     Generate the search direction d:=z-x.
       call lnsrlb(n,l,u,nbd,x,f,fold,gd,gdold,g,d,r,t,z,stp,dnorm,
      +            dtd,xstep,stpmx,iter,ifun,iback,nfgv,info,task,
      +            boxed,cnstnd,csave,isave(22),dsave(17))
-c     if (info .ne. 0 .or. iback .ge. 20) then
-      if (info .ne. 0 .or. iback .ge. 10) then !F.HINDENLANG: iback max 10
+      if (info .ne. 0 .or. iback .ge. 20) then
 c          restore the previous iterate.
          call dcopy(n,t,1,x,1)
          call dcopy(n,r,1,g,1)
