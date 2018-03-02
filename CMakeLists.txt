@@ -222,7 +222,7 @@ endfunction()
 # include defines.h 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
 
-FILE(GLOB_RECURSE mainF90 ./src/*.f90 )
+FILE(GLOB_RECURSE mainF90 ./src/*.f90 ./src/*.f )
 
 
 # define libs

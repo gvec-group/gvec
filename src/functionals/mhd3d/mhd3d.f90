@@ -106,6 +106,7 @@ SUBROUTINE InitMHD3D(sf)
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
 
   PrecondType=GETINT("PrecondType",Proposal=-1)
+  MinimizerType=GETINT("MinimizerType",Proposal=0)
   
   SELECT CASE(which_init)
   CASE(0)
@@ -616,6 +617,31 @@ END SUBROUTINE InitSolution
 !===================================================================================================================================
 SUBROUTINE MinimizeMHD3D(sf) 
 ! MODULES
+  USE MOD_MHD3D_vars, ONLY: MinimizerType
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  SELECT CASE(MinimizerType)
+  CASE(0)
+    CALL MinimizeMHD3D_descent(sf)
+  CASE(1)
+    CALL MinimizeMHD3D_LBFGS(sf)
+  CASE DEFAULT
+    CALL abort(__STAMP__,&
+        "Minimizertype does not exist",MinimizerType,-1.0_wp)
+  END SELECT
+END SUBROUTINE MinimizeMHD3D
+
+!===================================================================================================================================
+!> Compute Equilibrium, iteratively
+!!
+!===================================================================================================================================
+SUBROUTINE MinimizeMHD3D_descent(sf) 
+! MODULES
   USE MOD_MHD3D_Vars
   USE MOD_MHD3D_EvalFunc
   USE MOD_Analyze, ONLY:analyze
@@ -701,13 +727,13 @@ SUBROUTINE MinimizeMHD3D(sf)
 !          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
 !                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
 !        IF(Fnorm*dt.LE.reltol*Fnorm0)THEN
-        IF(ALL(SQRT(F(0)%norm_2())*dt.LE.abstol))THEN
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,E11.4,A,3E11.4,A)') &
+        IF(ALL(SQRT(F(0)%norm_2()).LE.abstol))THEN
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
-                    '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-                   '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
-          '               %%%\n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
-   '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+                    '    \n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
+                   '        \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
+          '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
           EXIT !DO LOOP
         END IF
@@ -718,12 +744,12 @@ SUBROUTINE MinimizeMHD3D(sf)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
         IF(MOD(iter,logIter).EQ.0)THEN 
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,E11.4,A,3E11.4,A)') &
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
-                    '    %%%\n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-                   '         %%%\n%%%  W_MHD3D= ',U(0)%W_MHD3D,', deltaW= ' , deltaW , &
-          '               %%%\n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
-   '                        %%%\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+                    '    \n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
+                   '        \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
+          '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           min_dt_out=1.0e+30_wp
           max_dt_out=0.0_wp
           min_dW_out=1.0e+30_wp
@@ -751,7 +777,7 @@ SUBROUTINE MinimizeMHD3D(sf)
         dt=0.5_wp*dt
         nstepDecreased=nStepDecreased+1
         nSkip_dW=nSkip_dW+1
-        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>0, skip step and decrease stepsize!'
+        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>+1.0e-10*W_MHD3D_0, skip step and decrease stepsize!'
       END IF
     END IF !JacCheck
    
@@ -780,8 +806,165 @@ SUBROUTINE MinimizeMHD3D(sf)
 !  CALL ReadState(FileString,U(-1))
   
 
-END SUBROUTINE MinimizeMHD3D
+END SUBROUTINE MinimizeMHD3D_descent
 
+
+!===================================================================================================================================
+!> Compute Equilibrium, iteratively
+!!
+!===================================================================================================================================
+SUBROUTINE MinimizeMHD3D_LBFGS(sf) 
+! MODULES
+  USE MOD_MHD3D_Vars
+  USE MOD_MHD3D_EvalFunc
+  USE MOD_Analyze, ONLY:analyze
+  USE MOD_Restart, ONLY:WriteState
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
+  INTEGER   :: JacCheck,lastoutputIter,lastLogIter
+  REAL(wp)  :: beta,dt,deltaW,absTol
+  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0,W_MHD3D_1
+!variables for lbfgs
+  INTEGER,  PARAMETER    :: m = 5, iprint = 0
+  REAL(wp), PARAMETER    :: factr  =  1.0d+1, pgtol  = 1.0d-5
+!
+  CHARACTER(LEN=60)      :: task, csave
+  LOGICAL                :: lsave(4)
+  INTEGER                :: n,isave(44)
+  REAL(wp)               :: dsave(29)
+  INTEGER,  ALLOCATABLE  :: nbd(:), iwa(:)
+  REAL(wp), ALLOCATABLE  :: low(:), up(:),xx(:),gg(:), wa(:)
+!===================================================================================================================================
+  SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL WITH LBFGS METHOD ..."
+  min_dt_out=1.0e+30_wp
+  max_dt_out=0.0_wp
+  min_dW_out=1.0e+30_wp
+  max_dW_out=-1.0e+30_wp
+  nSkip_Jac=0
+  nSkip_dW =0
+  CALL WriteState(U(0),0)
+
+  JacCheck=1 !abort if detJ<0
+  CALL EvalAux(           U(0),JacCheck)
+  U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
+  W_MHD3D_0 = U(0)%W_MHD3D
+  W_MHD3D_1 = W_MHD3D_0
+
+
+  abstol=minimize_tol
+
+  CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
+  Fnorm0=SQRT(SUM(F(0)%norm_2()))
+  Fnorm=Fnorm0
+  
+ 
+  n=U(0)%offset(U(0)%nvars)
+  ALLOCATE(low(n),up(n),nbd(n),xx(n),gg(n))
+  nbd(:)=2  !0: no bound, 1:only lower, 2: lower & upper, 3: only upper bound
+  up(1+U(0)%offset(0):U(0)%offset(1))=1.5_wp*MAXVAL(ABS(U(0)%X1))
+  up(1+U(0)%offset(1):U(0)%offset(2))=1.5_wp*MAXVAL(ABS(U(0)%X2))
+  up(1+U(0)%offset(2):U(0)%offset(3))=PI
+!  nbd(:)=0  !0: no bound, 1:only lower, 2: lower & upper, 3: only upper bound
+!  up(:)=1.0E+10
+  low(:) = -up(:)
+
+  xx=U(0)%q
+
+  ALLOCATE(iwa(3*n))
+  ALLOCATE(wa(2*m*n+5*n+11*m*m+8*m))
+
+  dt=start_dt
+  t_pseudo=0
+  lastOutputIter=0
+  lastLogIter=0
+  iter=1
+  SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
+! We start the iteration by initializing task.
+ 
+  task = 'START'
+  DO WHILE(( (task(1:2).EQ.'FG') .OR.(task.EQ.'NEW_X').OR. (task.EQ.'START')) .AND. (iter.LE.maxIter))
+
+ 
+    CALL setulb ( n, m, xx, low, up, nbd, W_MHD3D_1,gg, factr, pgtol, &
+                  wa, iwa, task, iprint,&
+                  csave, lsave, isave, dsave )
+
+ ! WRITE(*,*)'DEBUG, task',task
+    P(1)%q=xx
+    JacCheck=2 !no abort,if detJ<0, JacCheck=-1
+    P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck) 
+    W_MHD3D_1=P(1)%W_MHD3D
+    IF (task(1:2) .EQ. 'FG') then
+      IF(JacCheck.EQ.-1)THEN
+        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, ....!'
+        W_MHD3D_1 = 1.01_wp*U(0)%W_MHD3D
+        !do not use P(1), redo the iteration
+      ELSE 
+        !detJ>0
+        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1) energy, so that its set false here.
+        gg=-F(0)%q
+      END IF !JacCheck
+    END IF !task =FG
+    IF(task.EQ.'NEW_X')THEN
+      IF(JacCheck.EQ.-1)THEN
+        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, in NEW_X , should not happen....!'
+        STOP
+      END IF
+      deltaW=W_MHD3D_1-U(0)%W_MHD3D
+      CALL U(0)%set_to(P(1))
+      CALL EvalForce(U(0),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
+      gg=-F(0)%q
+      iter=iter+1
+      min_dt_out=MIN(min_dt_out,dsave(14))
+      max_dt_out=MAX(max_dt_out,dsave(14))
+      min_dW_out=MIN(min_dW_out,deltaW)
+      max_dW_out=MAX(max_dW_out,deltaW)
+    END IF
+    IF(MOD(iter,logIter).EQ.0.AND.(lastlogIter.NE.iter))THEN 
+      SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,I12,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
+                        '%%%  #ITERATIONS= ',iter, ',  #grad. evals = ', isave(34),&
+                    '    \n%%%  min/max stp= ',min_dt_out,max_dt_out, &
+               '         \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
+         '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+   '                    \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+      min_dt_out=1.0e+30_wp
+      max_dt_out=0.0_wp
+      min_dW_out=1.0e+30_wp
+      max_dW_out=-1.0e+30_wp
+      lastLogIter=iter
+    END IF
+   
+    IF((MOD(iter,outputIter).EQ.0).AND.(lastoutputIter.NE.iter))THEN
+      SWRITE(UNIT_stdOut,'(A)')'#######################  VISUALIZATION ##############################'
+      CALL Analyze(iter)
+      CALL WriteState(U(0),iter)
+      CALL CheckEvalForce(U(0),iter)
+      lastOutputIter=iter
+    END IF
+  END DO !iter
+  IF(iter.GE.MaxIter)THEN
+    SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded, not converged!"
+  ELSE
+    SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,I12,A,E21.14,A,2E12.4,A,3E11.4,A)') &
+                        '%%%  #ITERATIONS= ',iter, ', #grad. evals = ', isave(34),&
+               '         \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
+         '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+   '                    \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+  END IF
+  SWRITE(UNIT_stdOut,'(A)') "... DONE."
+  SWRITE(UNIT_stdOut,fmt_sep)
+  CALL Analyze(99999999)
+  CALL WriteState(U(0),99999999)
+
+  DEALLOCATE(low,up,xx,gg,nbd,iwa,wa)
+  
+
+END SUBROUTINE MinimizeMHD3D_LBFGS
 
 !===================================================================================================================================
 !> Finalize Module

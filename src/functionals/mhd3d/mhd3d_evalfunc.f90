@@ -681,6 +681,7 @@ SUBROUTINE BuildPrecond()
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
   ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
+  P_BCaxis=0.0_wp; P_BCedge=0.0_wp
 
   !CHECK =0
   IF(SUM(ABS(DX1_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
@@ -744,6 +745,7 @@ SUBROUTINE BuildPrecond()
   modes = X2_Base%f%modes
   deg   = X2_base%s%deg
   ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
+  P_BCaxis=0.0_wp; P_BCedge=0.0_wp
 
   !CHECK =0
   IF(SUM(ABS(DX2_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
@@ -807,6 +809,7 @@ SUBROUTINE BuildPrecond()
   modes = LA_Base%f%modes
   deg   = LA_base%s%deg
   ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
+  P_BCaxis=0.0_wp; P_BCedge=0.0_wp
 
   DO iMode=1,modes
     CALL precond_LA(iMode)%reset() !set all values to zero
@@ -925,7 +928,7 @@ END SUBROUTINE ApplyPrecond
 SUBROUTINE checkEvalForce(Uin,fileID)
 ! MODULES
   USE MOD_Globals       , ONLY: testlevel
-  USE MOD_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base
+  USE MOD_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType
   USE MOD_MHD3D_visu    , ONLY: WriteDataMN_visu
   USE MOD_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
   USE MOD_Output_Vars   , ONLY: outputLevel
@@ -936,8 +939,8 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   INTEGER               , INTENT(IN   ) :: FileID
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                               :: iBase,nBase,iMode,modes,JacCheck
-  REAL(wp)                              :: W_MHD3D_in,eps_glob,eps
+  INTEGER                               :: iBase,nBase,iMode,modes,JacCheck,PrecondTypeTmp
+  REAL(wp)                              :: W_MHD3D_in,eps_glob,eps,pTg
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Ucopy
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Utest
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Ftest 
@@ -945,6 +948,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CHARACTER(LEN=60)                     :: fname
 !===================================================================================================================================
   IF(testLevel.LT.1) RETURN
+  PrecondTypeTmp=PrecondType
   ALLOCATE(t_sol_var_MHD3D :: Utest)
   ALLOCATE(t_sol_var_MHD3D :: Ucopy)
   ALLOCATE(t_sol_var_MHD3D :: Ftest)
@@ -1005,6 +1009,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
 
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
 
+  PrecondType=-1
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
 !  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
@@ -1065,6 +1070,19 @@ SUBROUTINE checkEvalForce(Uin,fileID)
     END ASSOCIATE !np1d
   END IF !testlevel >=3
 
+  !check preconditioner positivity: preconditioned force^T * force should be <0
+  PrecondType=-1
+  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval)
+  PrecondType= 1
+  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Ftest)
+  pTg= - SUM(Ftest%q*Feval%q)
+  IF (pTg.GT.0.0_wp) THEN
+    WRITE(*,'(A,E11.3)')'WARING: PRECONDITIONER is not positive symmetric',ptg
+  ELSE
+    WRITE(*,'(A,E11.3)')'OK: PRECONDITIONER is positive symmetric',ptg
+  END IF
+  
+  PrecondType=PrecondTypeTmp !save back 
 
   CALL Utest%free()
   CALL Ucopy%free()
