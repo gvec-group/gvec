@@ -35,10 +35,12 @@ TYPE,EXTENDS(c_sol_var) :: t_sol_var_MHD3D
   LOGICAL               :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp)              :: W_MHD3D
-  REAL(wp) ,ALLOCATABLE :: X1(:,:)    !! X1 variable, size (base_f%mn_mode*base_s%nBase)
-  REAL(wp) ,ALLOCATABLE :: X2(:,:)    !! X2 variable 
-  REAL(wp) ,ALLOCATABLE :: LA(:,:)    !! lambda variable
-  INTEGER, ALLOCATABLE  :: varsize(:,:)
+  REAL(wp),CONTIGUOUS,POINTER :: X1(:,:)    !! X1 variable, size (base_f%mn_mode*base_s%nBase)
+  REAL(wp),CONTIGUOUS,POINTER :: X2(:,:)    !! X2 variable 
+  REAL(wp),CONTIGUOUS,POINTER :: LA(:,:)    !! lambda variable
+  REAL(wp),CONTIGUOUS,POINTER :: q(:)       !! 1d array container for all variables (is the one allocated)
+  INTEGER, ALLOCATABLE  :: varsize(:,:)     !! varsize(a,b): size of rank a of variable b =1..nvars
+  INTEGER, ALLOCATABLE  :: offset(:)        !! offset(0:nvars): size of variable b =offset(b)-offset(b-1)
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
@@ -83,12 +85,18 @@ IMPLICIT NONE
         "sol_var_MHD3D init: varsize is a vector of 3 entries!")
   END IF
   sf%nvars=3
-  ALLOCATE(sf%varSize(2,3))
+  ALLOCATE(sf%varSize(2,sf%nvars),sf%offset(0:sf%nvars))
   sf%varSize(1,:)=varSize(1:3)
   sf%varSize(2,:)=varSize(4:6)
-  ALLOCATE(sf%X1(1:sf%varSize(1,1),1:sf%varSize(2,1)))
-  ALLOCATE(sf%X2(1:sf%varSize(1,2),1:sf%varSize(2,2)))
-  ALLOCATE(sf%LA(1:sf%varSize(1,3),1:sf%varSize(2,3)))
+  sf%offset(0)=0
+  sf%offset(1)=sf%offset(0)+PRODUCT(sf%varsize(:,1))
+  sf%offset(2)=sf%offset(1)+PRODUCT(sf%varsize(:,2))
+  sf%offset(3)=sf%offset(2)+PRODUCT(sf%varsize(:,3))
+  ALLOCATE(sf%q(1:sf%offset(sf%nvars)))
+ 
+  sf%X1(1:sf%varSize(1,1),1:sf%varSize(2,1))=>sf%q(1+sf%offset(0) : sf%offset(1))
+  sf%X2(1:sf%varSize(1,2),1:sf%varSize(2,2))=>sf%q(1+sf%offset(1) : sf%offset(2))
+  sf%LA(1:sf%varSize(1,3),1:sf%varSize(2,3))=>sf%q(1+sf%offset(2) : sf%offset(3))
   sf%W_MHD3D=-1.0_wp
   sf%initialized=.TRUE.
   CALL sf%set_to(0.0_wp)
@@ -113,10 +121,12 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.sf%initialized)RETURN
   sf%nvars=-1
+  DEALLOCATE(sf%offset)
   DEALLOCATE(sf%varsize)
-  DEALLOCATE(sf%X1)
-  DEALLOCATE(sf%X2)
-  DEALLOCATE(sf%LA)
+  NULLIFY(sf%X1)
+  NULLIFY(sf%X2)
+  NULLIFY(sf%LA)
+  DEALLOCATE(sf%q)
   sf%W_MHD3D=-1.0_wp
   sf%initialized=.FALSE.
 END SUBROUTINE sol_var_MHD3D_free
@@ -148,9 +158,7 @@ IMPLICIT NONE
   END IF
   CALL sf%init((/size(tocopy%X1,1),size(tocopy%X2,1),size(tocopy%LA,1),  &
                  size(tocopy%X1,2),size(tocopy%X2,2),size(tocopy%LA,2)/) )
-  sf%X1=tocopy%X1
-  sf%X2=tocopy%X2
-  sf%LA=tocopy%LA
+  sf%q=tocopy%q
   sf%W_MHD3D=tocopy%W_MHD3D
 
   END SELECT !TYPE
@@ -165,7 +173,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: sf  !!sf
-  REAL(wp)        , INTENT(IN   ) :: scalar
+  REAL(wp)              , INTENT(IN   ) :: scalar
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -175,9 +183,7 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "sol_var_MHD3D not initialized in set_to!")
   END IF
-  sf%X1=scalar
-  sf%X2=scalar
-  sf%LA=scalar
+  sf%q=scalar
   sf%W_MHD3D=0.0_wp
 END SUBROUTINE sol_var_MHD3D_set_to_Scalar
 
@@ -204,14 +210,10 @@ IMPLICIT NONE
         "sol_var_MHD3D_set_to: not initialized sol_var from which to set!")
   END IF
   IF(PRESENT(scal_in))THEN
-    sf%X1=scal_in*toset%X1
-    sf%X2=scal_in*toset%X2
-    sf%LA=scal_in*toset%LA
+    sf%q=scal_in*toset%q
     sf%W_MHD3D=0.0_wp
   ELSE
-    sf%X1=toset%X1
-    sf%X2=toset%X2
-    sf%LA=toset%LA
+    sf%q=toset%q
     sf%W_MHD3D=toset%W_MHD3D
   END IF
 
@@ -266,9 +268,7 @@ IMPLICIT NONE
   SELECT TYPE(Y);  TYPE IS(t_sol_var_MHD3D)
   IF(.NOT.Y%initialized) CALL abort(__STAMP__,&
                                        'AXBY: Y not initialized')
-  sf%X1 = aa*X%X1 + bb*Y%X1
-  sf%X2 = aa*X%X2 + bb*Y%X2
-  sf%LA = aa*X%LA + bb*Y%LA
+  sf%q = aa*X%q + bb*Y%q
   END SELECT !Type
   END SELECT !Type
 END SUBROUTINE sol_var_MHD3D_AXBY
