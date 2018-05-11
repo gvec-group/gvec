@@ -90,8 +90,9 @@ SUBROUTINE WriteStateToASCII(Uin,fileID)
 ! MODULES
 USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel
-USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
+USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap
 USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+USE MOD_MHD3D_profiles
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -102,7 +103,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   CHARACTER(LEN=255)  :: fileString
-  INTEGER             :: ioUnit,iMode
+  INTEGER             :: ioUnit,iMode,is
 !===================================================================================================================================
   WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
 
@@ -120,8 +121,8 @@ IMPLICIT NONE
   WRITE(ioUnit,'(*(I8,:,","))')sgrid%nElems,sgrid%grid_type
   WRITE(ioUnit,'(A)')'## grid: sp(0:nElems)' 
   WRITE(ioUnit,'(*(E23.15,:,","))')X1_base%s%grid%sp(:)
-  WRITE(ioUnit,'(A)')'## global: nfp,degGP,mn_nyq(2) ############################################################################'
-  WRITE(ioUnit,'(*(I8,:,","))')X1_base%f%nfp,X1_base%s%degGP,X1_base%f%mn_nyq
+  WRITE(ioUnit,'(A)')'## global: nfp,degGP,mn_nyq(2),hmap ############################################################################'
+  WRITE(ioUnit,'(*(I8,:,","))')X1_base%f%nfp,X1_base%s%degGP,X1_base%f%mn_nyq,which_hmap
   WRITE(ioUnit,'(A)')'## X1_base: s%nbase,s%deg,s%continuity,f%modes,f%sin_cos,f%excl_mn_zero ###################################'
   WRITE(ioUnit,'(*(I8,:,","))')X1_base%s%nbase,X1_base%s%deg,X1_base%s%continuity,X1_base%f%modes,X1_base%f%sin_cos &
                     ,MERGE(1,0,X1_base%f%exclude_mn_zero)
@@ -143,6 +144,13 @@ IMPLICIT NONE
   DO iMode=1,LA_base%f%modes
     WRITE(ioUnit,'(2(I8,","),*(E23.15,:,","))')LA_base%f%Xmn(:,iMode),Uin%LA(:,iMode)
   END DO
+  WRITE(ioUnit,'(A)')'## at X1_base IP point positions (size nBase): spos,phi,chi,iota,pressure  ################################'
+  ASSOCIATE(s_IP         => X1_base%s%s_IP, &
+            nBase        => X1_base%s%nBase )
+  DO is=1,nBase
+    WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),Eval_iota(s_IP(is)),Eval_pres(s_IP(is))
+  END DO 
+  END ASSOCIATE
   
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
@@ -174,7 +182,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER              :: fileID_r,OutputLevel_r
-  INTEGER              :: ioUnit,iMode,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2) 
+  INTEGER              :: ioUnit,iMode,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2),which_hmap_r 
   INTEGER              :: X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
   INTEGER              :: X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
   INTEGER              :: LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
@@ -205,8 +213,8 @@ IMPLICIT NONE
 
   READ(ioUnit,*) !## grid: sp(0:nElems)
   READ(ioUnit,*)sp_r(:)
-  READ(ioUnit,*) !## global: nfp, degGP, mn_nyq
-  READ(ioUnit,*) nfp_r, degGP_r,mn_nyq_r
+  READ(ioUnit,*) !## global: nfp, degGP, mn_nyq,hmap
+  READ(ioUnit,*) nfp_r, degGP_r,mn_nyq_r !,which_hmap_r !compatibility to old restart files
   READ(ioUnit,*) !## X1_base: 
   READ(ioUnit,*) X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
   READ(ioUnit,*) !## X2_base:                 

@@ -55,6 +55,7 @@ CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for eval
 
 !===================================================================================================================================
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
+INTEGER              :: which_hmap
 LOGICAL              :: init_fromBCOnly !! default=TRUE, for VMEC only, if set false: initial mapping is interpolated for s=0..1
 LOGICAL              :: init_LA         !! false: lambda=0 at initialization, true: lambda is computed from initial mapping
 INTEGER              :: PrecondType     !! -1: off: 1: .. 
@@ -85,44 +86,6 @@ REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary fo
 
 
 !===================================================================================================================================
-
-CONTAINS
-
-!===================================================================================================================================
-!> initialize the type hmap, also readin parameters here if necessary 
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_new( sf, which_hmap)
-! MODULES
-USE MOD_hmap_RZ   , ONLY: t_hmap_RZ
-USE MOD_hmap_knot , ONLY: t_hmap_knot
-USE MOD_hmap_cyl  , ONLY: t_hmap_cyl
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: which_hmap
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  CLASS(c_hmap), ALLOCATABLE,INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  SELECT CASE(which_hmap)
-  CASE(1)
-    ALLOCATE(t_hmap_RZ :: sf)
-  CASE(2)
-    ALLOCATE(t_hmap_cyl  :: sf)
-  CASE(10)
-    ALLOCATE(t_hmap_knot :: sf)
-  CASE DEFAULT
-    CALL abort(__STAMP__, &
-         "this hmap choice does not exist  !")
-  END SELECT 
-  sf%which_hmap=which_hmap
-  CALL sf%init()
-
-END SUBROUTINE hmap_new
-
 
 END MODULE MOD_MHD3D_Vars
 

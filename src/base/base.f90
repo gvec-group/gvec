@@ -62,6 +62,7 @@ TYPE                 :: t_base
   PROCEDURE :: compare     => base_compare
   PROCEDURE :: change_base => base_change_base
   PROCEDURE :: evalDOF     => base_evalDOF
+  PROCEDURE :: evalDOF_x   => base_evalDOF_x
 
 END TYPE t_base
 
@@ -253,6 +254,33 @@ IMPLICIT NONE
 
 END FUNCTION base_evalDOF
 
+!===================================================================================================================================
+!> evaluate all degrees of freedom at given s theta zeta position (deriv=0 solution, deriv=1 first derivative d/ds)
+!!
+!===================================================================================================================================
+FUNCTION base_evalDOF_x(sf,x,deriv,DOFs) RESULT(y_IP)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_base), INTENT(IN   ) :: sf     !! self
+  REAL(wp)     , INTENT(IN   ) :: x(3)   !! s,theta,zeta
+  INTEGER      , INTENT(IN   ) :: deriv(2)   !! =(0,0): base, =(DERIV_S,0): ds, =(0,DERIV_THET): dtheta, =(0,DERIV_ZETA): dzeta
+  REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%s%nBase,1:sf%f%modes)  !! array of all modes and all radial dofs
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                     :: y_IP
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                      :: iMode,iGP
+  REAL(wp)                     :: y_tmp(1:sf%f%modes)
+!===================================================================================================================================
+  DO iMode=1,sf%f%modes
+    y_tmp(iMode)=sf%s%evalDOF_s(x(1),deriv(1),DOFs(:,iMode))
+  END DO!iMode
+  y_IP=sf%f%evalDOF_x(x(2:3),deriv(2),y_tmp(:))
+
+END FUNCTION base_evalDOF_x
 
 !===================================================================================================================================
 !> test base variable

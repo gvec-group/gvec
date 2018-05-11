@@ -56,6 +56,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MOD_sgrid          , ONLY: t_sgrid
   USE MOD_fbase          , ONLY: t_fbase,fbase_new
   USE MOD_base           , ONLY: t_base,base_new
+  USE MOD_hmap           , ONLY: hmap_new
   USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
   USE MOD_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
@@ -79,7 +80,7 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: X2_sin_cos
   CHARACTER(LEN=8) :: LA_sin_cos
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
-  INTEGER          :: nfp_loc,which_hmap 
+  INTEGER          :: nfp_loc
   INTEGER          :: JacCheck
   REAL(wp)         :: pres_scale
 !===================================================================================================================================
