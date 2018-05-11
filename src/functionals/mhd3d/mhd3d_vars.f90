@@ -19,14 +19,14 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D_Vars
+MODULE MODgvec_MHD3D_Vars
 ! MODULES
-USE MOD_Globals,ONLY: PI,wp,Unit_stdOut,abort
-USE MOD_sgrid,  ONLY: t_sgrid
-USE MOD_base,   ONLY: t_base
-USE MOD_fbase,  ONLY: t_fbase
-USE MOD_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
-USE MOD_c_hmap, ONLY: c_hmap
+USE MODgvec_Globals,ONLY: PI,wp,Unit_stdOut,abort
+USE MODgvec_sgrid,  ONLY: t_sgrid
+USE MODgvec_base,   ONLY: t_base
+USE MODgvec_fbase,  ONLY: t_fbase
+USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
+USE MODgvec_c_hmap, ONLY: c_hmap
 IMPLICIT NONE
 PUBLIC
 
@@ -87,5 +87,5 @@ REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary fo
 
 !===================================================================================================================================
 
-END MODULE MOD_MHD3D_Vars
+END MODULE MODgvec_MHD3D_Vars
 

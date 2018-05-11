@@ -19,10 +19,10 @@
 !! contains the routines to initialize and finalize the functional
 !!
 !===================================================================================================================================
-MODULE MOD_functional
+MODULE MODgvec_functional
 ! MODULES
-USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
-USE MOD_c_functional
+USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_c_functional
 IMPLICIT NONE
 
 PUBLIC
@@ -38,7 +38,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitFunctional(sf, which_functional)
 ! MODULES
-USE MOD_MHD3D, ONLY :t_functional_mhd3d
+USE MODgvec_MHD3D, ONLY :t_functional_mhd3d
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -82,5 +82,5 @@ IMPLICIT NONE
 
 END SUBROUTINE FinalizeFunctional
 
-END MODULE MOD_functional
+END MODULE MODgvec_functional
 

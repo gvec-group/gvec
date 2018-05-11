@@ -19,10 +19,10 @@
 !! CONTAINS INITIALIZATION OF MHD 3D Energy functional that will be minimized
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D
+MODULE MODgvec_MHD3D
 ! MODULES
-  USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
-  USE MOD_c_functional,   ONLY: t_functional
+  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
+  USE MODgvec_c_functional,   ONLY: t_functional
   IMPLICIT NONE
   PUBLIC
 
@@ -50,19 +50,19 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitMHD3D(sf) 
   ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_Globals        , ONLY: TWOPI
-  USE MOD_mhdeq_Vars     , ONLY: whichInitEquilibrium
-  USE MOD_sgrid          , ONLY: t_sgrid
-  USE MOD_fbase          , ONLY: t_fbase,fbase_new
-  USE MOD_base           , ONLY: t_base,base_new
-  USE MOD_hmap           , ONLY: hmap_new
-  USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
-  USE MOD_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
-  USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
-  USE MOD_Restart_vars   , ONLY: doRestart,RestartFile
-  USE MOD_Restart        , ONLY: ReadState
-  USE MOD_Analyze        , ONLY: Analyze
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_Globals        , ONLY: TWOPI
+  USE MODgvec_mhdeq_Vars     , ONLY: whichInitEquilibrium
+  USE MODgvec_sgrid          , ONLY: t_sgrid
+  USE MODgvec_fbase          , ONLY: t_fbase,fbase_new
+  USE MODgvec_base           , ONLY: t_base,base_new
+  USE MODgvec_hmap           , ONLY: hmap_new
+  USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
+  USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+  USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
+  USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
+  USE MODgvec_Restart        , ONLY: ReadState
+  USE MODgvec_Analyze        , ONLY: Analyze
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -400,16 +400,16 @@ END SUBROUTINE InitMHD3D
 !===================================================================================================================================
 SUBROUTINE InitSolution(U_init,which_init_in)
 ! MODULES
-  USE MOD_MHD3D_Vars   , ONLY:init_fromBConly
-  USE MOD_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
-  USE MOD_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
-  USE MOD_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
-  USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-  USE MOD_lambda_solve,  ONLY:lambda_solve
-  USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
-  USE MOD_VMEC_Readin,   ONLY:lasym
-  USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
-  USE MOD_MHD3D_Profiles,ONLY: Eval_iota
+  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly
+  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
+  USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
+  USE MODgvec_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
+  USE MODgvec_lambda_solve,  ONLY:lambda_solve
+  USE MODgvec_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
+  USE MODgvec_VMEC_Readin,   ONLY:lasym
+  USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
+  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -618,7 +618,7 @@ END SUBROUTINE InitSolution
 !===================================================================================================================================
 SUBROUTINE MinimizeMHD3D(sf) 
 ! MODULES
-  USE MOD_MHD3D_vars, ONLY: MinimizerType
+  USE MODgvec_MHD3D_vars, ONLY: MinimizerType
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -643,10 +643,10 @@ END SUBROUTINE MinimizeMHD3D
 !===================================================================================================================================
 SUBROUTINE MinimizeMHD3D_descent(sf) 
 ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_MHD3D_EvalFunc
-  USE MOD_Analyze, ONLY:analyze
-  USE MOD_Restart, ONLY:WriteState
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_MHD3D_EvalFunc
+  USE MODgvec_Analyze, ONLY:analyze
+  USE MODgvec_Restart, ONLY:WriteState
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -816,10 +816,10 @@ END SUBROUTINE MinimizeMHD3D_descent
 !===================================================================================================================================
 SUBROUTINE MinimizeMHD3D_LBFGS(sf) 
 ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_MHD3D_EvalFunc
-  USE MOD_Analyze, ONLY:analyze
-  USE MOD_Restart, ONLY:WriteState
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_MHD3D_EvalFunc
+  USE MODgvec_Analyze, ONLY:analyze
+  USE MODgvec_Restart, ONLY:WriteState
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -973,8 +973,8 @@ END SUBROUTINE MinimizeMHD3D_LBFGS
 !===================================================================================================================================
 SUBROUTINE FinalizeMHD3D(sf) 
 ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1013,4 +1013,4 @@ SUBROUTINE FinalizeMHD3D(sf)
   CALL FinalizeMHD3D_EvalFunc()
 END SUBROUTINE FinalizeMHD3D
 
-END MODULE MOD_MHD3D
+END MODULE MODgvec_MHD3D

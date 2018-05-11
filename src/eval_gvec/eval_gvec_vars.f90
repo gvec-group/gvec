@@ -18,14 +18,14 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_Eval_GVEC_Vars
+MODULE MODgvec_Eval_GVEC_Vars
 ! MODULES
-USE MOD_Globals,ONLY:wp
-USE MOD_sgrid,  ONLY: t_sgrid
-USE MOD_base,   ONLY: t_base, base_new
-USE MOD_sBase  ,ONLY: t_sbase
-USE MOD_fbase,  ONLY: sin_cos_map 
-USE MOD_c_hmap, ONLY: c_hmap
+USE MODgvec_Globals,ONLY:wp
+USE MODgvec_sgrid,  ONLY: t_sgrid
+USE MODgvec_base,   ONLY: t_base, base_new
+USE MODgvec_sBase  ,ONLY: t_sbase
+USE MODgvec_fbase,  ONLY: sin_cos_map 
+USE MODgvec_c_hmap, ONLY: c_hmap
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -39,5 +39,5 @@ PUBLIC
   REAL,ALLOCATABLE                  :: profiles_1d(:,:)
                                          
 !===================================================================================================================================
-END MODULE MOD_Eval_GVEC_Vars
+END MODULE MODgvec_Eval_GVEC_Vars
 

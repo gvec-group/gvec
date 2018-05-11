@@ -20,9 +20,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_VMEC_Readin
+MODULE MODgvec_VMEC_Readin
 
-  USE MOD_Globals,ONLY:wp,twoPi
+  USE MODgvec_Globals,ONLY:wp,twoPi
   IMPLICIT NONE
   PUBLIC
 
@@ -83,7 +83,7 @@ CONTAINS
 !! 
 !===================================================================================================================================
 SUBROUTINE ReadVMEC(fileName)
-  USE MOD_VMEC_Vars
+  USE MODgvec_VMEC_Vars
   IMPLICIT NONE
   INCLUDE "netcdf.inc"
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -336,4 +336,4 @@ SDEALLOCATE( lmns     )
 !SDEALLOCATE(gmnc)
 END SUBROUTINE FinalizeReadVMEC
 
-END MODULE MOD_VMEC_Readin
+END MODULE MODgvec_VMEC_Readin

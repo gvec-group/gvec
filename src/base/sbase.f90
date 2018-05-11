@@ -19,13 +19,13 @@
 !! 1D basis in radial coordinate "s". Contains sbase type definition and associated routines
 !!
 !===================================================================================================================================
-MODULE MOD_sBase
+MODULE MODgvec_sBase
 ! MODULES
-USE MOD_Globals                  ,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_Globals                  ,ONLY: wp,Unit_stdOut,abort
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_spline_matrix          ,ONLY: sll_c_spline_matrix
-USE MOD_sGrid ,ONLY: c_sgrid,t_sgrid
+USE MODgvec_sGrid ,ONLY: c_sgrid,t_sgrid
 IMPLICIT NONE
 PUBLIC
 
@@ -269,10 +269,10 @@ END SUBROUTINE sbase_new
 !===================================================================================================================================
 SUBROUTINE sBase_init( sf,deg_in,continuity_in,grid_in,degGP_in)
 ! MODULES
-USE MOD_GLobals,   ONLY: PI
-USE MOD_LinAlg ,   ONLY: INV
-USE MOD_Basis1D,   ONLY:  LegendreGaussNodesAndWeights
-USE MOD_Basis1D,   ONLY:  BarycentricWeights,InitializeVandermonde,MthPolynomialDerivativeMatrix
+USE MODgvec_GLobals,   ONLY: PI
+USE MODgvec_LinAlg ,   ONLY: INV
+USE MODgvec_Basis1D,   ONLY:  LegendreGaussNodesAndWeights
+USE MODgvec_Basis1D,   ONLY:  BarycentricWeights,InitializeVandermonde,MthPolynomialDerivativeMatrix
 USE sll_m_bsplines,ONLY: sll_s_bsplines_new
 USE sll_m_spline_interpolator_1d         ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_boundary_condition_descriptors ,ONLY: sll_p_greville
@@ -827,7 +827,7 @@ END SUBROUTINE sBase_change_base
 !===================================================================================================================================
 SUBROUTINE sBase_eval( sf , x,deriv,iElem,base_x)
 ! MODULES
-USE MOD_Basis1D, ONLY:LagrangeInterpolationPolys
+USE MODgvec_Basis1D, ONLY:LagrangeInterpolationPolys
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1115,7 +1115,7 @@ END SUBROUTINE sbase_applyBCtoRHS
 !===================================================================================================================================
 SUBROUTINE sBase_test( sf)
 ! MODULES
-USE MOD_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1915,5 +1915,5 @@ IMPLICIT NONE
 END SUBROUTINE sbase_test
 
 
-END MODULE MOD_sBase
+END MODULE MODgvec_sBase
 

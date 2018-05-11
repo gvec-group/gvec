@@ -18,9 +18,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_Analyze_Vars
+MODULE MODgvec_Analyze_Vars
 ! MODULES
-USE MOD_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -43,5 +43,5 @@ REAL(wp)             :: visu_planes_minmax(1:3,0:1)!! minimum and maximum in s,t
 REAL(wp)             :: visu_3D_minmax(1:3,0:1)    !! minimum and maximum in s,theta,zeta [0,1]
 
 !===================================================================================================================================
-END MODULE MOD_Analyze_Vars
+END MODULE MODgvec_Analyze_Vars
 

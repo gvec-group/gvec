@@ -19,9 +19,9 @@
 !! 1D grid in radial coordinate "s": Contains sgrid type definition and associated routines
 !!
 !===================================================================================================================================
-MODULE MOD_sGrid
+MODULE MODgvec_sGrid
 ! MODULES
-USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
 IMPLICIT NONE
 
 PUBLIC
@@ -105,7 +105,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
 ! MODULES
-USE MOD_GLobals, ONLY: PI
+USE MODgvec_GLobals, ONLY: PI
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -321,7 +321,7 @@ END FUNCTION sGrid_find_elem
 !===================================================================================================================================
 SUBROUTINE sGrid_test( sf )
 ! MODULES
-USE MOD_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -482,5 +482,5 @@ IMPLICIT NONE
 END SUBROUTINE sGrid_test
 
 
-END MODULE MOD_sGrid
+END MODULE MODgvec_sGrid
 

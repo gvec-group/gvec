@@ -18,9 +18,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_Restart_Vars
+MODULE MODgvec_Restart_Vars
 ! MODULES
-USE MOD_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -29,5 +29,5 @@ LOGICAL             :: doRestart          !! true if second command line argumen
 CHARACTER(LEN=255)  :: RestartFile        !! Name of Restart files (second command line argument)
 
 !===================================================================================================================================
-END MODULE MOD_Restart_Vars
+END MODULE MODgvec_Restart_Vars
 

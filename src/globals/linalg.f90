@@ -22,9 +22,9 @@
 !!- solve linear system 
 !!
 !===================================================================================================================================
-MODULE MOD_LinAlg
+MODULE MODgvec_LinAlg
 
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 
 PUBLIC 
@@ -116,4 +116,4 @@ END IF
 END FUNCTION SOLVE
 
 
-END MODULE MOD_LinAlg
+END MODULE MODgvec_LinAlg

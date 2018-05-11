@@ -19,9 +19,9 @@
 !! contains the type that points to the routines of one chosen functional
 !!
 !===================================================================================================================================
-MODULE MOD_c_functional
+MODULE MODgvec_c_functional
 ! MODULES
-USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
 IMPLICIT NONE
 
 PUBLIC
@@ -60,5 +60,5 @@ END TYPE t_functional
 !===================================================================================================================================
 
 
-END MODULE MOD_c_functional
+END MODULE MODgvec_c_functional
 

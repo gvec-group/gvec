@@ -21,9 +21,9 @@
 !! Evaluate psi from a grad-shavranov solution
 !!
 !===================================================================================================================================
-MODULE MOD_PsiEval
+MODULE MODgvec_PsiEval
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !===================================================================================================================================
@@ -37,7 +37,7 @@ CONTAINS
 !===================================================================================================================================
 FUNCTION EvalPsi(x,y)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:psiCoefs
+USE MODgvec_Solov_Vars,ONLY:psiCoefs
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -60,7 +60,7 @@ END FUNCTION EvalPsi
 !===================================================================================================================================
 FUNCTION EvaldPsi(dir,nn,x,y)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:psiCoefs
+USE MODgvec_Solov_Vars,ONLY:psiCoefs
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -102,7 +102,7 @@ END FUNCTION EvaldPsi
 !===================================================================================================================================
 FUNCTION EvalPsiVec(x,y)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:p_A
+USE MODgvec_Solov_Vars,ONLY:p_A
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -136,7 +136,7 @@ END FUNCTION EvalPsiVec
 !===================================================================================================================================
 FUNCTION EvaldPsidxVec(x,y)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:p_A
+USE MODgvec_Solov_Vars,ONLY:p_A
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -170,7 +170,7 @@ END FUNCTION EvaldPsidxVec
 !===================================================================================================================================
 FUNCTION Evald2PsidxVec(x,y)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:p_A
+USE MODgvec_Solov_Vars,ONLY:p_A
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -295,4 +295,4 @@ Evald2PsidyVec(7) = x2*(x2*(360.0_wp*lgx + 150.0_wp)) + y2*(x2*(-1440.0_wp*lgx -
 
 END FUNCTION Evald2PsidyVec
 
-END MODULE MOD_PsiEval
+END MODULE MODgvec_PsiEval

@@ -19,10 +19,10 @@
 !! contains the type that points to the routines of one chosen hmap_RZ
 !!
 !===================================================================================================================================
-MODULE MOD_hmap_RZ
+MODULE MODgvec_hmap_RZ
 ! MODULES
-USE MOD_Globals, ONLY:PI,wp,Unit_stdOut,abort
-USE MOD_c_hmap,    ONLY:c_hmap
+USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort
+USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
@@ -298,7 +298,7 @@ END FUNCTION hmap_RZ_eval_gij_dq2
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_RZ_test( sf )
-USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -356,5 +356,5 @@ IMPLICIT NONE
 
 END SUBROUTINE hmap_RZ_test
 
-END MODULE MOD_hmap_RZ
+END MODULE MODgvec_hmap_RZ
 

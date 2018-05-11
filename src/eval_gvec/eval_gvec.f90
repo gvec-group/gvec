@@ -19,9 +19,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_Eval_GVEC
+MODULE MODgvec_Eval_GVEC
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
@@ -50,8 +50,8 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitEval_GVEC(fileName) 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_Eval_GVEC_Vars
+USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MODgvec_Eval_GVEC_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -80,12 +80,12 @@ END SUBROUTINE InitEval_GVEC
 !===================================================================================================================================
 SUBROUTINE ReadState(fileString)
 ! MODULES
-USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
-USE MOD_Eval_GVEC_Vars
-USE MOD_sgrid,  ONLY: t_sgrid
-USE MOD_base,   ONLY: t_base, base_new
-USE MOD_fbase,  ONLY: sin_cos_map 
-USE MOD_hmap,  ONLY: hmap_new
+USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
+USE MODgvec_Eval_GVEC_Vars
+USE MODgvec_sgrid,  ONLY: t_sgrid
+USE MODgvec_base,   ONLY: t_base, base_new
+USE MODgvec_fbase,  ONLY: sin_cos_map 
+USE MODgvec_hmap,  ONLY: hmap_new
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -194,9 +194,9 @@ END SUBROUTINE ReadState
 !> Evaluate gvec state at a list of s,theta,zeta positions
 !!
 !===================================================================================================================================
-SUBROUTINE Eval_GVEC(nNodes,xIn,xOut,data_out)
+SUBROUTINE Eval_GVEC(nNodes,xIn,xOut,data_out,phi_axis_edge,chi_axis_edge)
 ! MODULES
-USE MOD_Eval_GVEC_Vars
+USE MODgvec_Eval_GVEC_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -206,6 +206,8 @@ REAL,INTENT( IN) :: xIn(3,nNodes)  !!s,theta,zeta positions for evaluation
 ! OUTPUT VARIABLES
 REAL,INTENT(OUT) :: xOut(3,nNodes)  !! x,y,z coordinates
 REAL,INTENT(OUT) :: data_out(9,nNodes)  !! pressure,Bcart(3),chi,phi,Acart(3)
+REAL,INTENT(OUT) :: phi_axis_edge(2)
+REAL,INTENT(OUT) :: chi_axis_edge(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER :: iNode
@@ -218,8 +220,13 @@ REAL    :: phi_s,chi_s,phiPrime_s,ChiPrime_s,pres_s,iota_s
 REAL    :: sqrtG
 REAL    :: xp(3),Bcart(3),Acart(3),q(3),e_s(3),e_thet(3),e_zeta(3)
 !===================================================================================================================================
+phi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,1))
+chi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,2))
+phi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,1))
+chi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,2))
 DO iNode=1,nNodes
-  xp  =MAX(1.0e-08,xIn(1,iNode))
+  xp(1)  =MAX(1.0e-08,xIn(1,iNode))
+  xp(2:3) = xIn(2:3,iNode)
   spos=xp(1)
   thet=xp(2)
   zeta=xp(3)
@@ -270,7 +277,7 @@ END SUBROUTINE Eval_GVEC
 !===================================================================================================================================
 SUBROUTINE FinalizeEval_GVEC 
 ! MODULES
-USE MOD_Eval_GVEC_Vars
+USE MODgvec_Eval_GVEC_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -295,4 +302,4 @@ IMPLICIT NONE
 
 END SUBROUTINE FinalizeEval_GVEC
 
-END MODULE MOD_Eval_GVEC
+END MODULE MODgvec_Eval_GVEC

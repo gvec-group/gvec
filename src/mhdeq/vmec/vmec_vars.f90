@@ -20,9 +20,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_VMEC_Vars
+MODULE MODgvec_VMEC_Vars
 ! MODULES
-USE MOD_Globals, ONLY: wp
+USE MODgvec_Globals, ONLY: wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -51,5 +51,5 @@ REAL(wp),ALLOCATABLE    :: Zmnc_Spl(:,:,:)           !! modified spline coeffici
 REAL(wp),ALLOCATABLE    :: Zmns_Spl(:,:,:)           !! modified spline coefficients of Z sine,   (1:4,iFlux,iMode)
 
 !===================================================================================================================================
-END MODULE MOD_VMEC_Vars
+END MODULE MODgvec_VMEC_Vars
 

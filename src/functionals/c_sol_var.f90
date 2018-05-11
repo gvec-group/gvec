@@ -19,9 +19,9 @@
 !! contains only abstract type c_sol_var
 !!
 !===================================================================================================================================
-MODULE MOD_c_sol_var
+MODULE MODgvec_c_sol_var
 ! MODULES
-USE MOD_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 
@@ -86,5 +86,5 @@ ABSTRACT INTERFACE
 END INTERFACE
 !-----------------------------------------------------------------------------------------------------------------------------------
 
-END MODULE MOD_c_sol_var
+END MODULE MODgvec_c_sol_var
 

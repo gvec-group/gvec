@@ -19,9 +19,9 @@
 !! Evaluate the MHD3D functional and its derivative 
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D_evalFunc
+MODULE MODgvec_MHD3D_evalFunc
   ! MODULES
-  USE MOD_Globals         ,ONLY: wp,abort,UNIT_stdOut,fmt_sep
+  USE MODgvec_Globals         ,ONLY: wp,abort,UNIT_stdOut,fmt_sep
   USE sll_m_spline_matrix ,ONLY: sll_c_spline_matrix !for precond
   USE sll_m_spline_matrix_banded ,ONLY: sll_t_spline_matrix_banded
   IMPLICIT NONE
@@ -79,7 +79,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitializeMHD3D_evalFunc() 
 ! MODULES
-  USE MOD_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
+  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -168,10 +168,10 @@ END SUBROUTINE InitializeMHD3D_evalFunc
 !===================================================================================================================================
 SUBROUTINE EvalAux(Uin,JacCheck)
 ! MODULES
-  USE MOD_Globals         , ONLY: n_warnings_occured
-  USE MOD_MHD3D_Profiles  , ONLY: Eval_iota,Eval_pres,Eval_phiPrime
-  USE MOD_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
-  USE MOD_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
+  USE MODgvec_Globals         , ONLY: n_warnings_occured
+  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_iota,Eval_pres,Eval_phiPrime
+  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
+  USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -280,8 +280,8 @@ END SUBROUTINE EvalAux
 !===================================================================================================================================
 FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 ! MODULES
-  USE MOD_MHD3D_Vars, ONLY: mu_0,sgammM1
-  USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+  USE MODgvec_MHD3D_Vars, ONLY: mu_0,sgammM1
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -332,9 +332,9 @@ END FUNCTION EvalEnergy
 !===================================================================================================================================
 SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
-  USE MOD_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
-  USE MOD_MHD3D_Vars, ONLY: X1_BC_type,X2_BC_type,LA_BC_type
-  USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
+  USE MODgvec_MHD3D_Vars, ONLY: X1_BC_type,X2_BC_type,LA_BC_type
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -604,8 +604,8 @@ END SUBROUTINE EvalForce
 !===================================================================================================================================
 SUBROUTINE BuildPrecond() 
 ! MODULES
-  USE MOD_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,hmap
-  USE MOD_MHD3D_Vars,ONLY:X1_BC_Type,X2_BC_Type,LA_BC_type
+  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,hmap
+  USE MODgvec_MHD3D_Vars,ONLY:X1_BC_Type,X2_BC_Type,LA_BC_type
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -905,7 +905,7 @@ END SUBROUTINE BuildPrecond
 !===================================================================================================================================
 SUBROUTINE ApplyPrecond(nBase,precond,F_inout) 
 ! MODULES
-  USE MOD_base,   ONLY: t_base
+  USE MODgvec_base,   ONLY: t_base
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -927,11 +927,11 @@ END SUBROUTINE ApplyPrecond
 !===================================================================================================================================
 SUBROUTINE checkEvalForce(Uin,fileID)
 ! MODULES
-  USE MOD_Globals       , ONLY: testlevel
-  USE MOD_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType
-  USE MOD_MHD3D_visu    , ONLY: WriteDataMN_visu
-  USE MOD_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
-  USE MOD_Output_Vars   , ONLY: outputLevel
+  USE MODgvec_Globals       , ONLY: testlevel
+  USE MODgvec_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType
+  USE MODgvec_MHD3D_visu    , ONLY: WriteDataMN_visu
+  USE MODgvec_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
+  USE MODgvec_Output_Vars   , ONLY: outputLevel
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1104,7 +1104,7 @@ END SUBROUTINE checkEvalForce
 !===================================================================================================================================
 SUBROUTINE FinalizeMHD3D_EvalFunc() 
 ! MODULES
-  USE MOD_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
+  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1173,4 +1173,4 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
 
 END SUBROUTINE FinalizeMHD3D_EvalFunc
 
-END MODULE MOD_MHD3D_EvalFunc
+END MODULE MODgvec_MHD3D_EvalFunc

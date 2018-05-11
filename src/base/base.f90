@@ -22,12 +22,12 @@
 !! with mode numbers m and n 
 !!
 !===================================================================================================================================
-MODULE MOD_base
+MODULE MODgvec_base
 ! MODULES
-USE MOD_Globals ,ONLY: wp,Unit_stdOut,abort
-USE MOD_sBase   ,ONLY: t_sbase,sbase_new
-USE MOD_fBase   ,ONLY: t_fbase,fbase_new
-USE MOD_sGrid   ,ONLY: t_sgrid
+USE MODgvec_Globals ,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_sBase   ,ONLY: t_sbase,sbase_new
+USE MODgvec_fBase   ,ONLY: t_fbase,fbase_new
+USE MODgvec_sGrid   ,ONLY: t_sgrid
 IMPLICIT NONE
 PUBLIC
 
@@ -288,7 +288,7 @@ END FUNCTION base_evalDOF_x
 !===================================================================================================================================
 SUBROUTINE Base_test( sf )
 ! MODULES
-USE MOD_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -452,5 +452,5 @@ END SUBROUTINE Base_test
 
 
 
-END MODULE MOD_base
+END MODULE MODgvec_base
 

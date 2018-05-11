@@ -19,9 +19,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_hmap
+MODULE MODgvec_hmap
 ! MODULES
-USE MOD_c_hmap    , ONLY: c_hmap
+USE MODgvec_c_hmap    , ONLY: c_hmap
 IMPLICIT NONE
 PUBLIC
 
@@ -34,10 +34,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_new( sf, which_hmap)
 ! MODULES
-USE MOD_Globals   , ONLY: abort
-USE MOD_hmap_RZ   , ONLY: t_hmap_RZ
-USE MOD_hmap_knot , ONLY: t_hmap_knot
-USE MOD_hmap_cyl  , ONLY: t_hmap_cyl
+USE MODgvec_Globals   , ONLY: abort
+USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
+USE MODgvec_hmap_knot , ONLY: t_hmap_knot
+USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -65,5 +65,5 @@ IMPLICIT NONE
 END SUBROUTINE hmap_new
 
 
-END MODULE MOD_hmap
+END MODULE MODgvec_hmap
 

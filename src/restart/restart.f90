@@ -19,9 +19,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_Restart
+MODULE MODgvec_Restart
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
@@ -55,8 +55,8 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitRestart 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_Restart_Vars
+USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MODgvec_Restart_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -88,11 +88,11 @@ END SUBROUTINE InitRestart
 !===================================================================================================================================
 SUBROUTINE WriteStateToASCII(Uin,fileID)
 ! MODULES
-USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
-USE MOD_Output_Vars, ONLY:ProjectName,OutputLevel
-USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap
-USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
-USE MOD_MHD3D_profiles
+USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
+USE MODgvec_Output_Vars, ONLY:ProjectName,OutputLevel
+USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap
+USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+USE MODgvec_MHD3D_profiles
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -165,13 +165,13 @@ END SUBROUTINE WriteStateToASCII
 !===================================================================================================================================
 SUBROUTINE ReadStateFromASCII(fileString,U_r)
 ! MODULES
-USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
-USE MOD_Output_Vars, ONLY:OutputLevel
-USE MOD_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
-USE MOD_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
-USE MOD_sgrid,  ONLY: t_sgrid
-USE MOD_base,   ONLY: t_base, base_new
-USE MOD_fbase,  ONLY: sin_cos_map 
+USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
+USE MODgvec_Output_Vars, ONLY:OutputLevel
+USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
+USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+USE MODgvec_sgrid,  ONLY: t_sgrid
+USE MODgvec_base,   ONLY: t_base, base_new
+USE MODgvec_fbase,  ONLY: sin_cos_map 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -320,7 +320,7 @@ END SUBROUTINE ReadStateFromASCII
 !===================================================================================================================================
 SUBROUTINE FinalizeRestart 
 ! MODULES
-USE MOD_Restart_Vars
+USE MODgvec_Restart_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -332,4 +332,4 @@ IMPLICIT NONE
 
 END SUBROUTINE FinalizeRestart
 
-END MODULE MOD_Restart
+END MODULE MODgvec_Restart

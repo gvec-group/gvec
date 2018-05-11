@@ -19,9 +19,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_Output
+MODULE MODgvec_Output
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
@@ -50,9 +50,9 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitOutput 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_Output_Vars
-USE MOD_ReadInTools,ONLY:GETSTR
+USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MODgvec_Output_Vars
+USE MODgvec_ReadInTools,ONLY:GETSTR
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -94,7 +94,7 @@ END SUBROUTINE Output
 !===================================================================================================================================
 SUBROUTINE FinalizeOutput 
 ! MODULES
-USE MOD_Output_Vars
+USE MODgvec_Output_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -106,4 +106,4 @@ IMPLICIT NONE
 
 END SUBROUTINE FinalizeOutput
 
-END MODULE MOD_Output
+END MODULE MODgvec_Output

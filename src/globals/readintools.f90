@@ -22,9 +22,9 @@
 !! Readin routines for the input file 
 !!
 !===================================================================================================================================
-MODULE MOD_ReadInTools
+MODULE MODgvec_ReadInTools
 ! MODULES
-USE MOD_Globals
+USE MODgvec_Globals
 USE ISO_VARYING_STRING
 IMPLICIT NONE
 PRIVATE
@@ -115,7 +115,7 @@ CONTAINS
 !===================================================================================================================================
 FUNCTION TRYREAD(UnitLoc,Key,abortOpt)
 ! MODULES
-USE MOD_Globals,ONLY:abort
+USE MODgvec_Globals,ONLY:abort
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1207,4 +1207,4 @@ TYPE(VARYING_STRING) :: tmpstr
   ProposalStr=TRIM(CHAR(tmpstr))
 END SUBROUTINE ConvertToProposalStr
 
-END MODULE MOD_ReadInTools
+END MODULE MODgvec_ReadInTools

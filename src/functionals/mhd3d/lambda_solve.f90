@@ -19,9 +19,9 @@
 !! CONTAINS routine to solve for lambda at a specific flux surface (for example for the boudnary condition at the last flux surface)
 !!
 !===================================================================================================================================
-MODULE MOD_lambda_solve
+MODULE MODgvec_lambda_solve
 ! MODULES
-USE MOD_Globals, ONLY:wp,UNIT_StdOut,abort
+USE MODgvec_Globals, ONLY:wp,UNIT_StdOut,abort
 IMPLICIT NONE
 PUBLIC
 
@@ -37,10 +37,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE Lambda_solve(spos,iota_s,X1_in,X2_in,LA_s) 
 ! MODULES
-USE MOD_Globals,       ONLY:n_warnings_occured
-USE MOD_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
-USE MOD_LinAlg,        ONLY: SOLVE
-USE MOD_MHD3D_Vars,    ONLY: hmap,X1_base,X2_base,LA_base
+USE MODgvec_Globals,       ONLY:n_warnings_occured
+USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
+USE MODgvec_LinAlg,        ONLY: SOLVE
+USE MODgvec_MHD3D_Vars,    ONLY: hmap,X1_base,X2_base,LA_base
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -158,4 +158,4 @@ REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
 END SUBROUTINE Lambda_solve
 
 
-END MODULE MOD_lambda_solve
+END MODULE MODgvec_lambda_solve

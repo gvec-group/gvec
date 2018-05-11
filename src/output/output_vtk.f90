@@ -23,9 +23,9 @@
 !! Write to unstructured VTK file 
 !!
 !===================================================================================================================================
-MODULE MOD_Output_VTK
+MODULE MODgvec_Output_VTK
 ! MODULES
-USE MOD_Globals, ONLY: wp
+USE MODgvec_Globals, ONLY: wp
 IMPLICIT NONE
 PRIVATE
 
@@ -44,7 +44,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE WriteDataToVTK(dim1,vecDim,nVal,NPlot,nElems,VarNames,Coord,Values,FileString)
 ! MODULES
-USE MOD_Globals
+USE MODgvec_Globals
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -261,4 +261,4 @@ END SUBROUTINE WriteDataToVTK
  
  
 
-END MODULE MOD_Output_VTK
+END MODULE MODgvec_Output_VTK

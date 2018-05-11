@@ -50,7 +50,7 @@
 !    -dynamic and automatic alocation of variables
 !    -array syntax for vector operations
 !-------------------------------------------------------------------------------
-USE MOD_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp
       IMPLICIT NONE
 !-------------------------------------------------------------------------------
 !For REAL variables:

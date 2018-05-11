@@ -22,9 +22,9 @@
 !!
 !===================================================================================================================================
 !===================================================================================================================================
-MODULE MOD_CCInt
+MODULE MODgvec_CCInt
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PUBLIC
 
@@ -63,9 +63,9 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitCCint()
 ! MODULES
-USE MOD_Globals
-USE MOD_Basis1D,   ONLY: ClenshawCurtisNodesAndWeights
-USE MOD_CCInt_vars,ONLY: Imax,Rcc
+USE MODgvec_Globals
+USE MODgvec_Basis1D,   ONLY: ClenshawCurtisNodesAndWeights
+USE MODgvec_CCInt_vars,ONLY: Imax,Rcc
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -171,7 +171,7 @@ FUNCTION CCint(tol,FINT,converged) RESULT(res)
 ! points and weights are defined in [0,1]
 !===================================================================================================================================
 ! MODULES
-USE MOD_CCInt_vars,ONLY: Imax,Rcc
+USE MODgvec_CCInt_vars,ONLY: Imax,Rcc
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -259,7 +259,7 @@ END SUBROUTINE CCIntTest
 !===================================================================================================================================
 SUBROUTINE FinalizeCCint()
 ! MODULES
-USE MOD_CCInt_vars
+USE MODgvec_CCInt_vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -272,4 +272,4 @@ SDEALLOCATE(Rcc)
 
 END SUBROUTINE FinalizeCCInt
 
-END MODULE MOD_CCInt
+END MODULE MODgvec_CCInt

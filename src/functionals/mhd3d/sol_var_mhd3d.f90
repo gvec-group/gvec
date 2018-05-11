@@ -19,10 +19,10 @@
 !! Solution variable for MHD3D functional
 !!
 !===================================================================================================================================
-MODULE MOD_sol_var_MHD3D
+MODULE MODgvec_sol_var_MHD3D
 ! MODULES
-USE MOD_Globals,ONLY:wp,Unit_stdOut,abort
-USE MOD_c_sol_var
+USE MODgvec_Globals,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_c_sol_var
 IMPLICIT NONE
 PUBLIC
 
@@ -279,7 +279,7 @@ END SUBROUTINE sol_var_MHD3D_AXBY
 !!
 !===================================================================================================================================
 SUBROUTINE sol_var_MHD3D_test( sf )
-USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -354,5 +354,5 @@ IMPLICIT NONE
 
 END SUBROUTINE sol_var_MHD3D_test
 
-END MODULE MOD_Sol_var_MHD3D
+END MODULE MODgvec_Sol_var_MHD3D
 

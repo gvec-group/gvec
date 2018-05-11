@@ -19,9 +19,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D_visu
+MODULE MODgvec_MHD3D_visu
 ! MODULES
-USE MOD_Globals,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_Globals,ONLY: wp,Unit_stdOut,abort
 IMPLICIT NONE
 PUBLIC
 
@@ -37,10 +37,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
 ! MODULES
-USE MOD_Globals,    ONLY: TWOPI
-USE MOD_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,X1_b,X2_b,LA_b
-USE MOD_output_vtk, ONLY: WriteDataToVTK
-USE MOD_Output_vars,ONLY: Projectname,OutputLevel
+USE MODgvec_Globals,    ONLY: TWOPI
+USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,X1_b,X2_b,LA_b
+USE MODgvec_output_vtk, ONLY: WriteDataToVTK
+USE MODgvec_Output_vars,ONLY: Projectname,OutputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -94,11 +94,11 @@ END SUBROUTINE visu_BC_face
 !===================================================================================================================================
 SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
 ! MODULES
-USE MOD_Globals,        ONLY: TWOPI
-USE MOD_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
-USE MOD_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime
-USE MOD_output_vtk,     ONLY: WriteDataToVTK
-USE MOD_Output_vars,    ONLY: Projectname,OutputLevel
+USE MODgvec_Globals,        ONLY: TWOPI
+USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
+USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime
+USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -257,10 +257,10 @@ END SUBROUTINE visu_3D
 !===================================================================================================================================
 SUBROUTINE visu_1d_modes(n_s,fileID)
 ! MODULES
-USE MOD_Analyze_Vars,  ONLY: visu1D
-USE MOD_fbase,         ONLY: sin_cos_map
-USE MOD_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
-USE MOD_Output_vars,   ONLY: outputLevel
+USE MODgvec_Analyze_Vars,  ONLY: visu1D
+USE MODgvec_fbase,         ONLY: sin_cos_map
+USE MODgvec_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
+USE MODgvec_Output_vars,   ONLY: outputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -319,11 +319,11 @@ END SUBROUTINE visu_1d_modes
 !===================================================================================================================================
 SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
 ! MODULES
-  USE MOD_base,          ONLY: t_base
-  USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
-  USE MOD_MHD3D_Vars,    ONLY: sgrid
-  USE MOD_write_modes,   ONLY: write_modes
-  USE MOD_output_vars,   ONLY: Projectname
+  USE MODgvec_base,          ONLY: t_base
+  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
+  USE MODgvec_MHD3D_Vars,    ONLY: sgrid
+  USE MODgvec_write_modes,   ONLY: write_modes
+  USE MODgvec_output_vars,   ONLY: Projectname
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -402,5 +402,5 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   DEALLOCATE(s_visu)
 END SUBROUTINE writeDataMN_visu
 
-END MODULE MOD_MHD3D_visu
+END MODULE MODgvec_MHD3D_visu
 

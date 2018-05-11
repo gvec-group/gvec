@@ -19,8 +19,8 @@
 !!
 !===================================================================================================================================
 PROGRAM TEST_EVALGVEC
-USE MOD_Globals
-USE MOD_Eval_GVEC    ,ONLY: InitEval_GVEC,Eval_GVEC,FinalizeEval_GVEC
+USE MODgvec_Globals
+USE MODgvec_Eval_GVEC    ,ONLY: InitEval_GVEC,Eval_GVEC,FinalizeEval_GVEC
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
@@ -28,6 +28,8 @@ INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: filename 
 REAL(wp)                :: StartTime,EndTime
 REAL(wp)                :: xin(3,2),xout(3,2),data_out(9,2)
+REAL(wp)                :: phi_edge_axis(2) 
+REAL(wp)                :: chi_edge_axis(2) 
 !===================================================================================================================================
   CALL CPU_TIME(StartTime)
   nArgs=COMMAND_ARGUMENT_COUNT()
@@ -66,7 +68,7 @@ REAL(wp)                :: xin(3,2),xout(3,2),data_out(9,2)
  
   xin(:,1)=(/0.,0.5,0.3/)
   xin(:,2)=(/1.,-0.33,-0.45/)
-  CALL Eval_GVEC(2,xin,xout,data_out)
+  CALL Eval_GVEC(2,xin,xout,data_out,phi_edge_axis,chi_edge_axis)
   WRITE(*,*)'xin',xin(:,1)
   WRITE(*,*)'xout',xout(:,1)
   WRITE(*,*)'data_out',data_out(:,1)

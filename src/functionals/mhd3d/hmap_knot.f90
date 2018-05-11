@@ -19,10 +19,10 @@
 !! contains the type that points to the routines of one chosen hmap_knot
 !!
 !===================================================================================================================================
-MODULE MOD_hmap_knot
+MODULE MODgvec_hmap_knot
 ! MODULES
-USE MOD_Globals, ONLY:PI,wp,Unit_stdOut,abort
-USE MOD_c_hmap,    ONLY:c_hmap
+USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort
+USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
@@ -68,7 +68,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_knot_init( sf )
 ! MODULES
-USE MOD_ReadInTools, ONLY: GETINT, GETREAL
+USE MODgvec_ReadInTools, ONLY: GETINT, GETREAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -395,7 +395,7 @@ END FUNCTION hmap_knot_eval_Zl
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_knot_test( sf )
-USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -462,5 +462,5 @@ IMPLICIT NONE
 
 END SUBROUTINE hmap_knot_test
 
-END MODULE MOD_hmap_knot
+END MODULE MODgvec_hmap_knot
 

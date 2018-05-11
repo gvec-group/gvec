@@ -20,9 +20,9 @@
 !! Some simple Newton solvers
 !!
 !===================================================================================================================================
-MODULE MOD_Newton
+MODULE MODgvec_Newton
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PUBLIC
 
@@ -246,4 +246,4 @@ fmin=FF(x)
 
 END FUNCTION NewtonMin2D
 
-END MODULE MOD_Newton
+END MODULE MODgvec_Newton

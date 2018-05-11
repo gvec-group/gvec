@@ -19,9 +19,9 @@
 !! Analyze and output equilibrium data 
 !!
 !===================================================================================================================================
-MODULE MOD_Analyze
+MODULE MODgvec_Analyze
 ! MODULES
-USE MOD_Globals, ONLY:wp,abort
+USE MODgvec_Globals, ONLY:wp,abort
 IMPLICIT NONE
 PRIVATE
 
@@ -50,9 +50,9 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitAnalyze 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_Analyze_Vars
-USE MOD_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY
+USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MODgvec_Analyze_Vars
+USE MODgvec_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -110,9 +110,9 @@ END SUBROUTINE InitAnalyze
 !===================================================================================================================================
 SUBROUTINE Analyze(fileID_in)
 ! MODULES
-USE MOD_Analyze_Vars
-USE MOD_mhdeq_vars, ONLY:whichInitEquilibrium
-USE MOD_mhd3d_visu
+USE MODgvec_Analyze_Vars
+USE MODgvec_mhdeq_vars, ONLY:whichInitEquilibrium
+USE MODgvec_mhd3d_visu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -177,12 +177,12 @@ END SUBROUTINE Analyze
 !===================================================================================================================================
 SUBROUTINE VMEC1D_visu()
 ! MODULES
-USE MOD_Globals,ONLY:Pi
-USE MOD_Analyze_Vars, ONLY:visu1D
-USE MOD_write_modes
-USE MOD_VMEC_Readin
-USE MOD_VMEC_Vars
-USE MOD_VMEC, ONLY: VMEC_EvalSpl,VMEC_EvalSplMode
+USE MODgvec_Globals,ONLY:Pi
+USE MODgvec_Analyze_Vars, ONLY:visu1D
+USE MODgvec_write_modes
+USE MODgvec_VMEC_Readin
+USE MODgvec_VMEC_Vars
+USE MODgvec_VMEC, ONLY: VMEC_EvalSpl,VMEC_EvalSplMode
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -398,11 +398,11 @@ END SUBROUTINE VMEC1D_visu
 !===================================================================================================================================
 SUBROUTINE VMEC3D_visu(np_in,minmax,only_planes)
 ! MODULES
-USE MOD_Globals,ONLY:TWOPI,UNIT_stdOut
-USE MOD_VMEC_Readin
-USE MOD_VMEC_Vars
-USE MOD_Output_Vars,ONLY:Projectname
-USE MOD_Output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Globals,ONLY:TWOPI,UNIT_stdOut
+USE MODgvec_VMEC_Readin
+USE MODgvec_VMEC_Vars
+USE MODgvec_Output_Vars,ONLY:Projectname
+USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -510,7 +510,7 @@ END SUBROUTINE VMEC3D_visu
 !===================================================================================================================================
 SUBROUTINE FinalizeAnalyze 
 ! MODULES
-USE MOD_Analyze_Vars
+USE MODgvec_Analyze_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -522,4 +522,4 @@ IMPLICIT NONE
 
 END SUBROUTINE FinalizeAnalyze
 
-END MODULE MOD_Analyze
+END MODULE MODgvec_Analyze

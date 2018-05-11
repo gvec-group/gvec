@@ -21,9 +21,9 @@
 !! Evaluate Soloviev equilibrium
 !!
 !===================================================================================================================================
-MODULE MOD_Solov
+MODULE MODgvec_Solov
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_StdOut,wp
+USE MODgvec_Globals,ONLY:UNIT_StdOut,wp
 IMPLICIT NONE
 PRIVATE
 
@@ -53,9 +53,9 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitSolov 
 ! MODULES
-USE MOD_ReadInTools
-USE MOD_Solov_Vars
-USE MOD_CCint,ONLY:initCCint
+USE MODgvec_ReadInTools
+USE MODgvec_Solov_Vars
+USE MODgvec_CCint,ONLY:initCCint
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -126,11 +126,11 @@ END SUBROUTINE InitSolov
 !===================================================================================================================================
 SUBROUTINE InitSolovievEquilibrium 
 ! MODULES
-USE MOD_Solov_Vars
-USE MOD_PsiEval, ONLY:EvalPsi
-USE MOD_PsiEval, ONLY:EvaldPsi
-USE MOD_Newton, ONLY:NewtonMin1D
-USE MOD_Newton, ONLY:NewtonMin2D
+USE MODgvec_Solov_Vars
+USE MODgvec_PsiEval, ONLY:EvalPsi
+USE MODgvec_PsiEval, ONLY:EvaldPsi
+USE MODgvec_Newton, ONLY:NewtonMin1D
+USE MODgvec_Newton, ONLY:NewtonMin2D
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -269,9 +269,9 @@ END SUBROUTINE InitSolovievEquilibrium
 !===================================================================================================================================
 SUBROUTINE Eval_qedge(Fedge,qedge)
 ! MODULES
-USE MOD_globals   , ONLY:Pi
-USE MOD_Solov_Vars, ONLY:asin_delta,p_eps,p_kappa,xaxis,p_R0,psi_scale
-USE MOD_PsiEval   , ONLY:EvalPsi,EvaldPsi
+USE MODgvec_globals   , ONLY:Pi
+USE MODgvec_Solov_Vars, ONLY:asin_delta,p_eps,p_kappa,xaxis,p_R0,psi_scale
+USE MODgvec_PsiEval   , ONLY:EvalPsi,EvaldPsi
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -318,7 +318,7 @@ END SUBROUTINE Eval_qedge
 !===================================================================================================================================
 FUNCTION ApproxFluxMap(rr,beta) RESULT(xyCoords)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:asin_delta,p_eps,p_kappa,xaxis
+USE MODgvec_Solov_Vars,ONLY:asin_delta,p_eps,p_kappa,xaxis
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -344,7 +344,7 @@ END FUNCTION ApproxFluxMap
 !===================================================================================================================================
 FUNCTION ApproxFluxMap_dr(rr,beta) RESULT(xyCoords_dr)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:asin_delta,p_eps,p_kappa,xaxis
+USE MODgvec_Solov_Vars,ONLY:asin_delta,p_eps,p_kappa,xaxis
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -372,7 +372,7 @@ END FUNCTION ApproxFluxMap_dr
 !===================================================================================================================================
 FUNCTION PsiToPsiNorm(psi) RESULT(PsiNorm)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:psi_axis,psi_edge
+USE MODgvec_Solov_Vars,ONLY:psi_axis,psi_edge
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -393,7 +393,7 @@ END FUNCTION PsiToPsiNorm
 !===================================================================================================================================
 FUNCTION PsiNormToPsi(psiNorm) RESULT(Psi)
 ! MODULES
-USE MOD_Solov_Vars,ONLY:psi_axis,psi_edge
+USE MODgvec_Solov_Vars,ONLY:psi_axis,psi_edge
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -414,10 +414,10 @@ END FUNCTION PsiNormToPsi
 !===================================================================================================================================
 SUBROUTINE SolveForPsiCoefs()
 ! MODULES
-USE MOD_Solov_Vars
-USE MOD_LinAlg,  ONLY:SOLVE
-USE MOD_PsiEval, ONLY:EvalPsiVec,EvaldPsidxVec,Evald2PsidxVec
-USE MOD_PsiEval, ONLY:EvaldPsidyVec,Evald2PsidyVec
+USE MODgvec_Solov_Vars
+USE MODgvec_LinAlg,  ONLY:SOLVE
+USE MODgvec_PsiEval, ONLY:EvalPsiVec,EvaldPsidxVec,Evald2PsidxVec
+USE MODgvec_PsiEval, ONLY:EvaldPsidyVec,Evald2PsidyVec
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -488,14 +488,14 @@ END SUBROUTINE SolveForPsiCoefs
 !===================================================================================================================================
 SUBROUTINE MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 ! MODULES
-USE MOD_Globals
-USE MOD_MHDEQ_Vars,  ONLY:nVarMHDEQ
-USE MOD_MHDEQ_Vars,  ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
-USE MOD_Newton,      ONLY:NewtonRoot1D
-USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge
-USE MOD_Solov_Vars,  ONLY:F_axis,deltaF2,xaxis,psi_scale
-USE MOD_PsiEval,     ONLY:EvalPsi,EvaldPsi
-USE MOD_CCint,       ONLY:CCint
+USE MODgvec_Globals
+USE MODgvec_MHDEQ_Vars,  ONLY:nVarMHDEQ
+USE MODgvec_MHDEQ_Vars,  ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
+USE MODgvec_Newton,      ONLY:NewtonRoot1D
+USE MODgvec_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge
+USE MODgvec_Solov_Vars,  ONLY:F_axis,deltaF2,xaxis,psi_scale
+USE MODgvec_PsiEval,     ONLY:EvalPsi,EvaldPsi
+USE MODgvec_CCint,       ONLY:CCint
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -659,7 +659,7 @@ SWRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
 CONTAINS
 !for newton search
   FUNCTION FR1(r)
-    !USE MOD_PsiEval,ONLY:EvalPsi
+    !USE MODgvec_PsiEval,ONLY:EvalPsi
     !uses ApproxFluxMap function
     !uses current theta from subroutine
     IMPLICIT NONE
@@ -674,7 +674,7 @@ CONTAINS
   END FUNCTION FR1
 
   FUNCTION dFR1(r)
-    !USE MOD_PsiEval,ONLY:EvaldPsi
+    !USE MODgvec_PsiEval,ONLY:EvaldPsi
     !uses ApproxFluxMap function
     !uses ApproxFluxMap_dr function
     !uses current theta from subroutine
@@ -694,7 +694,7 @@ CONTAINS
 
   !Function for cc integration to compute poloidal vector potential
   FUNCTION FI1(nn,rhohat)
-    !USE MOD_PsiEval,     ONLY:EvalPsi
+    !USE MODgvec_PsiEval,     ONLY:EvalPsi
     !uses PsiToPsiNorm(psi) 
     !uses current point position xPos(1:2) from subroutine
     !uses xaxis,F_axis,deltaF2,p_R0 from subroutine
@@ -724,7 +724,7 @@ END SUBROUTINE MapToSolov
 !===================================================================================================================================
 SUBROUTINE FinalizeSolov
 ! MODULES
-USE MOD_CCint,ONLY:FinalizeCCint
+USE MODgvec_CCint,ONLY:FinalizeCCint
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -739,4 +739,4 @@ CALL FinalizeCCint()
 END SUBROUTINE FinalizeSolov
 
 
-END MODULE MOD_Solov
+END MODULE MODgvec_Solov

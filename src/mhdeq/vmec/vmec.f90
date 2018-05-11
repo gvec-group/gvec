@@ -23,9 +23,9 @@
 !! Calls readin of VMEC "wout" datafile (netcdf format). 
 !!
 !===================================================================================================================================
-MODULE MOD_VMEC
+MODULE MODgvec_VMEC
 ! MODULES
-USE MOD_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
@@ -66,12 +66,12 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitVMEC 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,abort
-USE MOD_ReadInTools
+USE MODgvec_Globals,ONLY:UNIT_stdOut,abort
+USE MODgvec_ReadInTools
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
-USE MOD_VMEC_Vars
-USE MOD_VMEC_lambda, ONLY:recomputeLambda
-USE MOD_VMEC_Readin
+USE MODgvec_VMEC_Vars
+USE MODgvec_VMEC_lambda, ONLY:recomputeLambda
+USE MODgvec_VMEC_Readin
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -210,8 +210,8 @@ END SUBROUTINE InitVMEC
 !===================================================================================================================================
 SUBROUTINE FitSpline(modes,nFlux,mAbs,Xmn,Xmn_Spl)
 ! MODULES
-USE MOD_Globals
-USE MOD_VMEC_Vars,     ONLY: rho
+USE MODgvec_Globals
+USE MODgvec_VMEC_Vars,     ONLY: rho
 USE SPLINE1_MOD,       ONLY: SPLINE1_FIT 
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -259,8 +259,8 @@ END SUBROUTINE FitSpline
 !===================================================================================================================================
 SUBROUTINE FitSplineHalf(modes,nFlux,mabs,Xmn_half,Xmn_Spl)
 ! MODULES
-USE MOD_Globals
-USE MOD_VMEC_Vars,     ONLY: rho,Phinorm_prof
+USE MODgvec_Globals
+USE MODgvec_VMEC_Vars,     ONLY: rho,Phinorm_prof
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 USE SPLINE1_MOD,       ONLY:SPLINE1_INTERP 
 ! IMPLICIT VARIABLE HANDLING
@@ -327,12 +327,12 @@ END SUBROUTINE FitSplineHalf
 !===================================================================================================================================
 SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 ! MODULES
-USE MOD_Globals
-USE MOD_MHDEQ_Vars,    ONLY: nVarMHDEQ
-USE MOD_MHDEQ_Vars,    ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
-USE MOD_VMEC_Vars
-USE MOD_VMEC_Readin,   ONLY: mu0,lasym,mn_mode,xm,xn,nFluxVMEC
-USE MOD_Newton,        ONLY: NewtonRoot1D_FdF
+USE MODgvec_Globals
+USE MODgvec_MHDEQ_Vars,    ONLY: nVarMHDEQ
+USE MODgvec_MHDEQ_Vars,    ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
+USE MODgvec_VMEC_Vars
+USE MODgvec_VMEC_Readin,   ONLY: mu0,lasym,mn_mode,xm,xn,nFluxVMEC
+USE MODgvec_Newton,        ONLY: NewtonRoot1D_FdF
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -715,8 +715,8 @@ END SUBROUTINE MapToVmec
 !===================================================================================================================================
 FUNCTION VMEC_EvalSpl(rderiv,rho_in,xx_spl)
 ! MODULES
-USE MOD_VMEC_Readin
-USE MOD_VMEC_Vars
+USE MODgvec_VMEC_Readin
+USE MODgvec_VMEC_Vars
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -742,8 +742,8 @@ END FUNCTION VMEC_EvalSpl
 !===================================================================================================================================
 FUNCTION VMEC_EvalSplMode(mn_in,rderiv,rho_in,xx_Spl)
 ! MODULES
-USE MOD_VMEC_Readin
-USE MOD_VMEC_Vars
+USE MODgvec_VMEC_Readin
+USE MODgvec_VMEC_Vars
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -805,8 +805,8 @@ END FUNCTION VMEC_EvalSplMode
 !===================================================================================================================================
 SUBROUTINE FinalizeVMEC 
 ! MODULES
-USE MOD_VMEC_Vars
-USE MOD_VMEC_Readin,ONLY:FinalizeReadVMEC
+USE MODgvec_VMEC_Vars
+USE MODgvec_VMEC_Readin,ONLY:FinalizeReadVMEC
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -836,4 +836,4 @@ IMPLICIT NONE
 
 END SUBROUTINE FinalizeVMEC
 
-END MODULE MOD_VMEC
+END MODULE MODgvec_VMEC

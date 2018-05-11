@@ -18,9 +18,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_Output_Vars
+MODULE MODgvec_Output_Vars
 ! MODULES
-USE MOD_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -31,5 +31,5 @@ INTEGER             :: outputLevel         !! on restart +1, used as file identi
 !===================================================================================================================================
 
 
-END MODULE MOD_Output_Vars
+END MODULE MODgvec_Output_Vars
 

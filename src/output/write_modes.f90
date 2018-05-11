@@ -19,9 +19,9 @@
 !! Analyze and output equilibrium data 
 !!
 !===================================================================================================================================
-MODULE MOD_write_modes
+MODULE MODgvec_write_modes
 ! MODULES
-USE MOD_Globals, ONLY:wp,abort
+USE MODgvec_Globals, ONLY:wp,abort
 IMPLICIT NONE
 PRIVATE
 
@@ -40,7 +40,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE write_modes(fname,vname,nval,modes,xm,xn,coord,rho_first,values_in,VarNames_in)
 ! MODULES
-USE MOD_Output_CSV, ONLY:WriteDataToCSV
+USE MODgvec_Output_CSV, ONLY:WriteDataToCSV
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -117,4 +117,4 @@ IMPLICIT NONE
 END SUBROUTINE write_modes
 
 
-END MODULE MOD_write_modes
+END MODULE MODgvec_write_modes

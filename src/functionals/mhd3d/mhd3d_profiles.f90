@@ -19,9 +19,9 @@
 !! CONTAINS  all functions to evaluate 1D profiles
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D_profiles
+MODULE MODgvec_MHD3D_profiles
 ! MODULES
-USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
+USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
 IMPLICIT NONE
 PUBLIC
 
@@ -37,10 +37,10 @@ CONTAINS
 !===================================================================================================================================
 FUNCTION Eval_iota(spos)
 ! MODULES
-USE MOD_Globals    ,ONLY: EVAL1DPOLY
-USE MOD_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
-USE MOD_VMEC       ,ONLY: VMEC_EvalSpl
-USE MOD_VMEC_vars  ,ONLY: iota_spl
+USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+USE MODgvec_VMEC_vars  ,ONLY: iota_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -67,10 +67,10 @@ END FUNCTION Eval_iota
 !===================================================================================================================================
 FUNCTION Eval_pres(spos)
 ! MODULES
-USE MOD_Globals    ,ONLY: EVAL1DPOLY
-USE MOD_MHD3D_Vars ,ONLY: which_init,n_pres_coefs,pres_coefs
-USE MOD_VMEC       ,ONLY: VMEC_EvalSpl
-USE MOD_VMEC_vars  ,ONLY: pres_spl
+USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_pres_coefs,pres_coefs
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -97,9 +97,9 @@ END FUNCTION Eval_pres
 !===================================================================================================================================
 FUNCTION Eval_chi(spos)
 ! MODULES
-USE MOD_MHD3D_Vars ,ONLY: which_init
-USE MOD_VMEC       ,ONLY: VMEC_EvalSpl
-USE MOD_VMEC_vars  ,ONLY: chi_spl
+USE MODgvec_MHD3D_Vars ,ONLY: which_init
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -126,7 +126,7 @@ END FUNCTION Eval_chi
 !===================================================================================================================================
 FUNCTION Eval_mass(spos)
 ! MODULES
-USE MOD_MHD3D_vars, ONLY:gamm
+USE MODgvec_MHD3D_vars, ONLY:gamm
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -152,7 +152,7 @@ END FUNCTION Eval_mass
 !===================================================================================================================================
 FUNCTION Eval_Phi(spos)
 ! MODULES
-USE MOD_MHD3D_Vars,ONLY:Phi_edge
+USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -173,7 +173,7 @@ END FUNCTION Eval_Phi
 !===================================================================================================================================
 FUNCTION Eval_PhiPrime(spos)
 ! MODULES
-USE MOD_MHD3D_Vars,ONLY:Phi_edge
+USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -228,4 +228,4 @@ IMPLICIT NONE
 
 END FUNCTION Eval_PhiNormPrime
 
-END MODULE MOD_MHD3D_profiles
+END MODULE MODgvec_MHD3D_profiles
