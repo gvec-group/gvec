@@ -209,9 +209,19 @@ ENDIF()
 # project sources & targets
 # =========================================================================
 
-function(add_exec target)
+function(add_exec_main target)
   ADD_EXECUTABLE(${target} ${ARGN})
   TARGET_LINK_LIBRARIES(${target} mainlib ${linkedlibs})
+  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+  SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
+  INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
+  STRING(TOUPPER ${target} TARGETUP)
+  ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: ${TARGETUP} BUILD COMPLETE!")
+endfunction()
+
+function(add_exec_eval target)
+  ADD_EXECUTABLE(${target} ${ARGN})
+  TARGET_LINK_LIBRARIES(${target} evallib ${linkedlibs})
   SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
   SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
   INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
@@ -224,19 +234,31 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 
 FILE(GLOB_RECURSE mainF90 ./src/*.f90 ./src/*.f )
 
+FILE(GLOB_RECURSE evalF90 ./src/globals/*.f90 
+                          ./src/base/*.f90 
+                          ./src/eval_gvec/*.f90
+                          ./src/functionals/mhd3d/*hmap*.f90
+                          ./src/grid/*.f90 ) 
+
 
 # define libs
 ADD_LIBRARY(mainlibF90 OBJECT ${mainF90} )
 
-
 SET_TARGET_PROPERTIES(mainlibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
 ADD_LIBRARY(mainlib STATIC $<TARGET_OBJECTS:mainlibF90> )
 
+ADD_LIBRARY(evallibF90 OBJECT ${evalF90} )
+
+SET_TARGET_PROPERTIES(evallibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+ADD_LIBRARY(evallib STATIC $<TARGET_OBJECTS:evallibF90> )
 # =========================================================================
 # Executable programs (simply use add_exec)
 # =========================================================================
-add_exec(gvec ./src/gvec.f90)
-ADD_DEPENDENCIES(gvec mainlib)
+add_exec_main(gvec ./src/gvec.f90)
+ADD_DEPENDENCIES(gvec mainlib )
+
+add_exec_eval(test_evalgvec ./src/test_evalgvec.f90 )
+ADD_DEPENDENCIES(test_evalgvec evallib )
 
 # =========================================================================
 # Install
