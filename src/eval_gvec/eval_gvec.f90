@@ -196,29 +196,33 @@ END SUBROUTINE ReadState
 !===================================================================================================================================
 SUBROUTINE Eval_GVEC(nNodes,xIn,xOut,data_out,phi_axis_edge,chi_axis_edge)
 ! MODULES
+USE MODgvec_Globals, ONLY: CROSS
 USE MODgvec_Eval_GVEC_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER          :: nNodes
-REAL,INTENT( IN) :: xIn(3,nNodes)  !!s,theta,zeta positions for evaluation
+REAL,INTENT( IN) :: xIn(3,nNodes)  !!s=sqrt(psi_norm),theta,zeta positions for evaluation, psi_norm is normalized toroidal flux
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT) :: xOut(3,nNodes)  !! x,y,z coordinates
+REAL,INTENT(OUT) :: xOut(3,nNodes)  !! x,y,z cartesian coordinates
 REAL,INTENT(OUT) :: data_out(9,nNodes)  !! pressure,Bcart(3),chi,phi,Acart(3)
 REAL,INTENT(OUT) :: phi_axis_edge(2)
 REAL,INTENT(OUT) :: chi_axis_edge(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER :: iNode
-REAL    :: spos,thet,zeta,R,Z,lam
-REAL    :: dRds,dZds
-REAL    :: dRdthet,dRdzeta
-REAL    :: dZdthet,dZdzeta
-REAL    :: dlamdthet,dlamdzeta
-REAL    :: phi_s,chi_s,phiPrime_s,ChiPrime_s,pres_s,iota_s
+REAL    :: spos,thet,zeta,X1_int,X2_int,LA_int
+REAL    :: dX1ds   ,dX2ds
+REAL    :: dX1dthet,dX2dthet
+REAL    :: dX1dzeta,dX2dzeta
+REAL    :: dLAdthet,dLAdzeta
+REAL    :: phi_int,chi_int,pres_int,iota_int
+REAL    :: phiPrime_int,ChiPrime_int         !prime refers to d/ds , where s=sqrt(phi_norm)
 REAL    :: sqrtG
-REAL    :: xp(3),Bcart(3),Acart(3),q(3),e_s(3),e_thet(3),e_zeta(3)
+REAL    :: xp(3),Bcart(3),Acart(3),q(3)
+REAL    :: e_s(3),e_thet(3),e_zeta(3)
+REAL    :: grad_s(3),grad_thet(3),grad_zeta(3)
 !===================================================================================================================================
 phi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,1))
 chi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,2))
@@ -230,41 +234,45 @@ DO iNode=1,nNodes
   spos=xp(1)
   thet=xp(2)
   zeta=xp(3)
-  phi_s  = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,1))
-  chi_s  = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,2))
-  iota_s = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
-  pres_s = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4))
-  PhiPrime_s = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
-  ChiPrime_s = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2))
+  phi_int  = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,1))
+  chi_int  = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,2))
+  iota_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+  pres_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4))
+  PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
+  ChiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2))
 
-  R          =X1_base_r%evalDOF_x(xp,(/      0,         0/),X1_r)
-  dRds       =X1_base_r%evalDOF_x(xp,(/DERIV_S,         0/),X1_r)
-  dRdthet    =X1_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),X1_r)
-  dRdzeta    =X1_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),X1_r)
-  Z          =X2_base_r%evalDOF_x(xp,(/      0,         0/),X2_r)
-  dZds       =X2_base_r%evalDOF_x(xp,(/DERIV_S,         0/),X2_r)
-  dZdthet    =X2_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),X2_r)
-  dZdzeta    =X2_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),X2_r)
-  lam        =LA_base_r%evalDOF_x(xp,(/      0,         0/),LA_r)
-  dlamdthet  =LA_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),LA_r)
-  dlamdzeta  =LA_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),LA_r)
+  X1_int      =X1_base_r%evalDOF_x(xp,(/      0,         0/),X1_r)
+  dX1ds       =X1_base_r%evalDOF_x(xp,(/DERIV_S,         0/),X1_r)
+  dX1dthet    =X1_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),X1_r)
+  dX1dzeta    =X1_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),X1_r)
+  X2_int      =X2_base_r%evalDOF_x(xp,(/      0,         0/),X2_r)
+  dX2ds       =X2_base_r%evalDOF_x(xp,(/DERIV_S,         0/),X2_r)
+  dX2dthet    =X2_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),X2_r)
+  dX2dzeta    =X2_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),X2_r)
+  LA_int      =LA_base_r%evalDOF_x(xp,(/      0,         0/),LA_r)
+  dLAdthet    =LA_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),LA_r)
+  dLAdzeta    =LA_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),LA_r)
 
-  q=(/R,Z,zeta/)
-  e_s    = hmap_r%eval_dxdq(q,(/dRds   ,dZds    ,0.0_wp/))
-  e_thet = hmap_r%eval_dxdq(q,(/dRdthet,dZdthet ,0.0_wp/))
-  e_zeta = hmap_r%eval_dxdq(q,(/dRdzeta ,dZdzeta,1.0_wp/))
-  sqrtG  = hmap_r%eval_Jh(q)*(dRds*dZdthet -dZds*dRdthet) 
+  q=(/X1_int,X2_int,zeta/)
+  e_s    = hmap_r%eval_dxdq(q,(/dX1ds   ,dX2ds   ,0.0_wp/))
+  e_thet = hmap_r%eval_dxdq(q,(/dX1dthet,dX2dthet,0.0_wp/))
+  e_zeta = hmap_r%eval_dxdq(q,(/dX1dzeta,dX2dzeta,1.0_wp/))
+  sqrtG  = hmap_r%eval_Jh(q)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
 
-  Bcart(:)=  (  e_thet(:)*(iota_s-dlamdzeta )  &
-              + e_zeta(:)*(1.0_wp+dlamdthet) )*(PhiPrime_s/sqrtG)
-  Acart(:)=  ( phi_s*e_thet(:)-e_s(:)*(lam*PhiPrime_s)  -chi_s*e_zeta)/sqrtG
+  Bcart(:)=  (  e_thet(:)*(iota_int-dLAdzeta )  &
+              + e_zeta(:)*(1.0_wp+dLAdthet) )*(PhiPrime_int/sqrtG)
+  grad_s    = CROSS(e_thet,e_zeta) !/sqrtG
+  grad_thet = CROSS(e_zeta,e_s   ) !/sqrtG
+  grad_zeta = CROSS(e_s   ,e_thet) !/sqrtG
+
+  Acart(:)=  ( phi_int*grad_thet(:)-(LA_int*PhiPrime_int)*grad_s(:)  -chi_int*grad_zeta)/sqrtG
 
   xOut(:,iNode)=hmap_r%eval(q)
 
-  data_out(  1,iNode)=pres_s
+  data_out(  1,iNode)=pres_int
   data_out(2:4,iNode)=Bcart(:)
-  data_out(  5,iNode)=chi_s
-  data_out(  6,iNode)=phi_s
+  data_out(  5,iNode)=chi_int
+  data_out(  6,iNode)=phi_int
   data_out(7:9,iNode)=Acart(:)
 END DO
 
