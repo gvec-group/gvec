@@ -345,7 +345,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
@@ -376,7 +376,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
@@ -407,7 +407,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
@@ -438,7 +438,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
