@@ -104,6 +104,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: ioUnit,iMode,is
+  REAL(wp)            :: s_0
 !===================================================================================================================================
   WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
 
@@ -121,7 +122,7 @@ IMPLICIT NONE
   WRITE(ioUnit,'(*(I8,:,","))')sgrid%nElems,sgrid%grid_type
   WRITE(ioUnit,'(A)')'## grid: sp(0:nElems)' 
   WRITE(ioUnit,'(*(E23.15,:,","))')X1_base%s%grid%sp(:)
-  WRITE(ioUnit,'(A)')'## global: nfp,degGP,mn_nyq(2),hmap ############################################################################'
+  WRITE(ioUnit,'(A)')'## global: nfp,degGP,mn_nyq(2),hmap #######################################################################'
   WRITE(ioUnit,'(*(I8,:,","))')X1_base%f%nfp,X1_base%s%degGP,X1_base%f%mn_nyq,which_hmap
   WRITE(ioUnit,'(A)')'## X1_base: s%nbase,s%deg,s%continuity,f%modes,f%sin_cos,f%excl_mn_zero ###################################'
   WRITE(ioUnit,'(*(I8,:,","))')X1_base%s%nbase,X1_base%s%deg,X1_base%s%continuity,X1_base%f%modes,X1_base%f%sin_cos &
@@ -147,7 +148,10 @@ IMPLICIT NONE
   WRITE(ioUnit,'(A)')'## at X1_base IP point positions (size nBase): spos,phi,chi,iota,pressure  ################################'
   ASSOCIATE(s_IP         => X1_base%s%s_IP, &
             nBase        => X1_base%s%nBase )
-  DO is=1,nBase
+  !avoid singularity s=0 for now...
+  s_0=1.0e-08
+  WRITE(ioUnit,'(*(E23.15,:,","))')s_0,Eval_Phi(s_0),Eval_chi(s_0),Eval_iota(s_0),Eval_pres(s_0)
+  DO is=2,nBase
     WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),Eval_iota(s_IP(is)),Eval_pres(s_IP(is))
   END DO 
   END ASSOCIATE
