@@ -271,13 +271,15 @@ END SUBROUTINE gvec_to_gene_profile
 SUBROUTINE gvec_to_gene_coords(nthet,nzeta,spos,theta_star_in,zeta_in,cart_coords)
 ! MODULES
 USE MODgvec_gvec_to_gene_Vars
+USE MODgvec_globals, ONLY: PI
+USE MODgvec_Newton,  ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER              :: nthet          !! number of points in theta_star
 INTEGER              :: nzeta          !! number of points in zeta
 REAL(wp),INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
-REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
+REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle (straight field line angle PEST)
 REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -293,8 +295,6 @@ REAL(wp)    :: LA_s(   1:LA_base_r%f%modes)
 REAL(wp)    :: X1_int,X2_int
 !===================================================================================================================================
 !interpolate first in s direction
-iota_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
-
 DO iMode=1,X1_base_r%f%modes
   X1_s(iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode)) !R
 END DO
@@ -308,8 +308,10 @@ END DO
 DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
   zeta       = zeta_in(      ithet,izeta)
-  !find angle theta from straight field line angle theta_star=theta+lambda(s,theta,zeta) 
-  theta = theta_star !TODO Newton !!!
+  !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta) 
+  ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
+  !                      tolerance , lower bound , upper bound , start value , F0
+  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
 
   xp=(/theta,zeta/)
 
@@ -321,6 +323,19 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
 END DO; END DO !ithet,izeta
 
+!for iteration on theta^*
+CONTAINS 
+
+  FUNCTION FRdFR(theta_iter)
+    !uses current zeta where newton is called, and LA_s from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: FRdFR(2) !output
+    !--------------------------------------------------- 
+    FRdFR(1)=theta_iter+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),0,LA_s)  !theta_iter+lambda
+    FRdFR(2)=1.0_wp+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_s) !1+dlambda/dtheta
+  END FUNCTION FRdFR
+
 END SUBROUTINE gvec_to_gene_coords
 
 !===================================================================================================================================
@@ -330,13 +345,15 @@ END SUBROUTINE gvec_to_gene_coords
 SUBROUTINE gvec_to_gene_metrics(nthet,nzeta,spos,theta_star_in,zeta_in,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
 ! MODULES
 USE MODgvec_gvec_to_gene_Vars
+USE MODgvec_globals, ONLY: PI
+USE MODgvec_Newton,  ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER              :: nthet          !! number of points in theta_star
 INTEGER              :: nzeta          !! number of points in zeta
 REAL(wp),INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
-REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
+REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle (straight field line angle PEST)
 REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -376,8 +393,10 @@ END DO
 DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
   zeta = zeta_in(ithet,izeta)
-  !find angle theta from straight field line angle theta_star=theta+lambda(s,theta,zeta) 
-  theta = theta_star !TODO!!!
+  !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta) 
+  ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
+  !                      tolerance , lower bound , upper bound , start value , F0
+  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
 
   xp=(/theta,zeta/)
 
@@ -389,6 +408,19 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   qvec=(/X1_int,X2_int,zeta/)
 
 END DO; END DO !ithet,izeta
+
+!for iteration on theta^*
+CONTAINS 
+
+  FUNCTION FRdFR(theta_iter)
+    !uses current zeta where newton is called, and LA_s from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: FRdFR(2) !output
+    !--------------------------------------------------- 
+    FRdFR(1)=theta_iter+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),0,LA_s)  !theta_iter+lambda
+    FRdFR(2)=1.0_wp+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_s) !1+dlambda/dtheta
+  END FUNCTION FRdFR
 
 END SUBROUTINE gvec_to_gene_metrics
 
