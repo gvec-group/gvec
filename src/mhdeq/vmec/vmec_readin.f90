@@ -43,6 +43,7 @@ MODULE MODgvec_VMEC_Readin
   INTEGER :: mnmax           !< maximum mode number over m,n
 ! INTEGER :: mnmax_nyq       !< maximum mode number over m_nyq,n_nyq
   REAL(wp) :: b0             !< magnetic field on axis B_0
+  REAL(wp) :: aMinor         !< aMinor
   REAL(wp) :: rMajor         !< major radius
   REAL(wp) :: volume         !< volume
 
@@ -156,6 +157,13 @@ SUBROUTINE ReadVMEC(fileName)
     ioError = ioError + NF_INQ_VARID(ncid, "signgs", id)
     ioError = ioError + NF_GET_VAR_INT(ncid, id, signgs)
     IF (ioError /= 0)  STOP 'VMEC READIN: problem reading signgs'
+    IF (signgs < 0) THEN
+      WRITE(*,'(4X,A)') "  VMEC data has sign gs < 0 !!!"
+    END IF
+    !! get Aminor_p
+    ioError = ioError + NF_INQ_VARID(ncid, "Aminor_p", id)
+    ioError = ioError + NF_GET_VAR_DOUBLE(ncid, id, aMinor)
+    IF (ioError /= 0)  STOP 'VMEC READIN: problem reading Aminor_p'
     !! get Rmajor_p
     ioError = ioError + NF_INQ_VARID(ncid, "Rmajor_p", id)
     ioError = ioError + NF_GET_VAR_DOUBLE(ncid, id, rMajor)

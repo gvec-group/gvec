@@ -40,6 +40,7 @@ FUNCTION Eval_iota(spos)
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
 USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+!USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 USE MODgvec_VMEC_vars  ,ONLY: iota_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -50,13 +51,16 @@ IMPLICIT NONE
   REAL(wp)               :: Eval_iota
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp) :: phi_norm
+  REAL(wp) :: phi_norm,chiPrime,phiPrime
 !===================================================================================================================================
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
     eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,phi_norm)
   CASE(1)
+!    chiPrime=VMEC_EvalSpl(1,SQRT(phi_norm),chi_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
+!    phiPrime= Eval_PhiPrime(spos)
+!    eval_iota=chiPrime/phiPrime
     eval_iota=VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
   END SELECT
 END FUNCTION Eval_iota

@@ -98,6 +98,23 @@ CALL abort(__STAMP__,&
     "cannot read VMEC file, since code is compiled with BUILD_NETCDF=OFF")
 #endif
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!make VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), switched sign of zeta!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+DO iMode=1,mn_mode
+  IF(xm(iMode).EQ.0)THEN
+    !keep xn positive, but change sign of sinus
+    zmns(iMode,:)=-zmns(iMode,:)
+    lmns(iMode,:)=-lmns(iMode,:)
+    IF(lasym) THEN
+      rmns(iMode,:)=-rmns(iMode,:)
+    END IF    
+  ELSE
+    !revert sign on n mode
+    xn(iMode)=-xn(iMode)
+  END IF
+END DO !iMode=1,mn_mode
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !gmnc not needed anymore
 !ALLOCATE(gmnc_half_nyq(1:nFluxVMEC,mn_mode_nyq))

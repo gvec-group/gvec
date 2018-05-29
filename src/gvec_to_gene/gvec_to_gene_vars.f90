@@ -1,5 +1,7 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2018  Maurice Maurer <maurice_maurer@gmx.de>
+! Copyright (C) 2018  Alejandro Banon Navarro <abanonna@ipp.mpg.de>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -13,12 +15,12 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** Eval_GVEC Variables **
+!!# Module ** gvec_to_gene Variables **
 !!
 !!
 !!
 !===================================================================================================================================
-MODULE MODgvec_Eval_GVEC_Vars
+MODULE MODgvec_gvec_to_gene_Vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
 USE MODgvec_sgrid,  ONLY: t_sgrid
@@ -37,7 +39,8 @@ PUBLIC
   TYPE(t_sgrid)                     :: sgrid_r
   REAL,ALLOCATABLE                  :: X1_r(:,:),X2_r(:,:),LA_r(:,:)
   REAL,ALLOCATABLE                  :: profiles_1d(:,:)
+  REAL                              :: a_minor,r_major,volume
                                          
 !===================================================================================================================================
-END MODULE MODgvec_Eval_GVEC_Vars
+END MODULE MODgvec_gvec_to_gene_Vars
 

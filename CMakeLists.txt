@@ -236,7 +236,7 @@ FILE(GLOB_RECURSE mainF90 ./src/*.f90 ./src/*.f )
 
 FILE(GLOB_RECURSE evalF90 ./src/globals/*.f90 
                           ./src/base/*.f90 
-                          ./src/eval_gvec/*.f90
+                          ./src/gvec_to_gene/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
                           ./src/grid/*.f90 ) 
 
@@ -257,8 +257,8 @@ ADD_LIBRARY(evallib STATIC $<TARGET_OBJECTS:evallibF90> )
 add_exec_main(gvec ./src/gvec.f90)
 ADD_DEPENDENCIES(gvec mainlib )
 
-add_exec_eval(test_evalgvec ./src/test_evalgvec.f90 )
-ADD_DEPENDENCIES(test_evalgvec evallib )
+add_exec_eval(test_gvec_to_gene ./src/test_gvec_to_gene.f90 )
+ADD_DEPENDENCIES(test_gvec_to_gene evallib )
 
 # =========================================================================
 # Install

@@ -93,6 +93,7 @@ USE MODgvec_Output_Vars, ONLY:ProjectName,OutputLevel
 USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MODgvec_MHD3D_profiles
+USE MODgvec_vmec_Readin, ONLY:aMinor,rMajor,volume !TODO FROM VMEC, BUT SHOULD BE COMPUTED 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -155,6 +156,8 @@ IMPLICIT NONE
     WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),Eval_iota(s_IP(is)),Eval_pres(s_IP(is))
   END DO 
   END ASSOCIATE
+  WRITE(ioUnit,'(A)')'## a_minor,r_major,volume  ################################################################################'
+  WRITE(ioUnit,'(*(E23.15,:,","))')aMinor,rMajor,volume
   
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
