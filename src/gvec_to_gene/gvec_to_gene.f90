@@ -226,12 +226,12 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 REAL(wp),INTENT(OUT) :: Fa                !! toroidal flux at the edge
 REAL(wp),INTENT(OUT) :: minor_r           !! length scale, minor radius
-INTEGER,INTENT(OUT) :: n0_global         !! number of field periods
+INTEGER, INTENT(OUT) :: n0_global         !! number of field periods
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
 Fa = TWOPI*X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,1)) !phi(s=1)
-minor_r=a_minor
+minor_r   = a_minor
 n0_global = X1_base_r%f%nfp
 
 END SUBROUTINE gvec_to_gene_scalars
@@ -244,7 +244,7 @@ END SUBROUTINE gvec_to_gene_scalars
 SUBROUTINE gvec_to_gene_profile(spos,q,q_prime,p_prime)
 ! MODULES
 USE MODgvec_globals,ONLY: TWOPI
-USE MODgvec_gvec_to_gene_Vars,ONLY: a_minor,profiles_1d,X1_base_r
+USE MODgvec_gvec_to_gene_Vars,ONLY: profiles_1d,X1_base_r
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -257,7 +257,7 @@ REAL(wp),OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressu
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-q       = 1./(  X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3)) ) !q=1/iota
+q       = 1./(  X1_base_r%s%evalDOF_s(spos,       0,profiles_1d(:,3)) ) !q=1/iota
 q_prime = -q*q*(X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,3)) ) !q'=-iota'/iota^2
 p_prime =      (X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,4)) ) !pressure'
 
@@ -281,7 +281,7 @@ REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
 REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinates
+REAL(wp),INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinates
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER     :: iMode,ithet,izeta
@@ -296,27 +296,27 @@ REAL(wp)    :: X1_int,X2_int
 iota_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
 
 DO iMode=1,X1_base_r%f%modes
-  X1_s(iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
+  X1_s(iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode)) !R
 END DO
 DO iMode=1,X2_base_r%f%modes
-  X2_s(iMode)      =X2_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
+  X2_s(iMode)      =X2_base_r%s%evalDOF_s(spos,      0,X2_r(:,iMode)) !Z
 END DO
 DO iMode=1,LA_base_r%f%modes
-  LA_s(iMode)      =LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode))
+  LA_s(iMode)      =LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode)) !lambda
 END DO
 
 DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
-  zeta = zeta_in(ithet,izeta)
+  zeta       = zeta_in(      ithet,izeta)
   !find angle theta from straight field line angle theta_star=theta+lambda(s,theta,zeta) 
-  theta = theta_star !TODO!!!
+  theta = theta_star !TODO Newton !!!
 
   xp=(/theta,zeta/)
 
-  X1_int      =X1_base_r%f%evalDOF_x(xp,0,X1_s)
-  X2_int      =X2_base_r%f%evalDOF_x(xp,0,X2_s)
+  X1_int      = X1_base_r%f%evalDOF_x(xp,0,X1_s)
+  X2_int      = X2_base_r%f%evalDOF_x(xp,0,X2_s)
 
-  qvec=(/X1_int,X2_int,zeta/)
+  qvec = (/X1_int,X2_int,zeta/)
   cart_coords(:,ithet,izeta)=hmap_r%eval(qvec)
 
 END DO; END DO !ithet,izeta
@@ -333,8 +333,8 @@ USE MODgvec_gvec_to_gene_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER          :: nthet          !! number of points in theta_star
-INTEGER          :: nzeta          !! number of points in zeta
+INTEGER              :: nthet          !! number of points in theta_star
+INTEGER              :: nzeta          !! number of points in zeta
 REAL(wp),INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
 REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
 REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
@@ -383,7 +383,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   X1_int      =X1_base_r%f%evalDOF_x(xp, 0, X1_s  )
   dX1ds_int   =X1_base_r%f%evalDOF_x(xp, 0,dX1ds_s)
-  X2_int      =X2_base_r%f%evalDOF_x(xp, 0, X2_s   )
+  X2_int      =X2_base_r%f%evalDOF_x(xp, 0, X2_s  )
   dX2ds_int   =X2_base_r%f%evalDOF_x(xp, 0,dX2ds_s)
 
   qvec=(/X1_int,X2_int,zeta/)
