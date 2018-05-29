@@ -224,8 +224,8 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT) :: Fa                !! toroidal flux at the edge
-REAL,INTENT(OUT) :: minor_r           !! length scale, minor radius
+REAL(wp),INTENT(OUT) :: Fa                !! toroidal flux at the edge
+REAL(wp),INTENT(OUT) :: minor_r           !! length scale, minor radius
 INTEGER,INTENT(OUT) :: n0_global         !! number of field periods
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -248,12 +248,12 @@ USE MODgvec_gvec_to_gene_Vars,ONLY: a_minor,profiles_1d,X1_base_r
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL,INTENT(IN) :: spos              !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
+REAL(wp),INTENT(IN) :: spos              !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,OPTIONAL,INTENT(OUT) :: q                !! q=1/iota profile
-REAL,OPTIONAL,INTENT(OUT) :: q_prime          !! dq/ds=-(d/ds iota)/iota^2=-(d/ds iota)*q^2
-REAL,OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressure profile 
+REAL(wp),OPTIONAL,INTENT(OUT) :: q                !! q=1/iota profile
+REAL(wp),OPTIONAL,INTENT(OUT) :: q_prime          !! dq/ds=-(d/ds iota)/iota^2=-(d/ds iota)*q^2
+REAL(wp),OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressure profile 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -274,23 +274,23 @@ USE MODgvec_gvec_to_gene_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER          :: nthet          !! number of points in theta_star
-INTEGER          :: nzeta          !! number of points in zeta
-REAL,INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
-REAL,INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
-REAL,INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
+INTEGER              :: nthet          !! number of points in theta_star
+INTEGER              :: nzeta          !! number of points in zeta
+REAL(wp),INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
+REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
+REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL,INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinates
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: iMode,ithet,izeta
-REAL    :: iota_int,theta_star,theta,zeta
-REAL    :: xp(2),qvec(3)
-REAL    :: X1_s(   1:X1_base_r%f%modes)
-REAL    :: X2_s(   1:X2_base_r%f%modes)
-REAL    :: LA_s(   1:LA_base_r%f%modes)
-REAL    :: X1_int,X2_int
+INTEGER     :: iMode,ithet,izeta
+REAL(wp)    :: iota_int,theta_star,theta,zeta
+REAL(wp)    :: xp(2),qvec(3)
+REAL(wp)    :: X1_s(   1:X1_base_r%f%modes)
+REAL(wp)    :: X2_s(   1:X2_base_r%f%modes)
+REAL(wp)    :: LA_s(   1:LA_base_r%f%modes)
+REAL(wp)    :: X1_int,X2_int
 !===================================================================================================================================
 !interpolate first in s direction
 iota_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
@@ -335,28 +335,28 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 INTEGER          :: nthet          !! number of points in theta_star
 INTEGER          :: nzeta          !! number of points in zeta
-REAL,INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
-REAL,INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
-REAL,INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
+REAL(wp),INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
+REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle
+REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT) :: grad_s(         3,nthet,nzeta)  !! gradient in cartesian space, of the radial coordinate
-REAL,INTENT(OUT) :: grad_theta_star(3,nthet,nzeta)  !! gradient in cartesian space, of the theta_star coordinate
-REAL,INTENT(OUT) :: grad_zeta(      3,nthet,nzeta)  !! gradient in cartesian space, of the zeta coordinate
-REAL,INTENT(OUT) :: Bfield(         3,nthet,nzeta)  !! magnetic field in cartesian space
-REAL,INTENT(OUT) :: grad_absB(      3,nthet,nzeta)  !! gradient in cartesian space, of the magnetic field magnitude |B|
+REAL(wp),INTENT(OUT) :: grad_s(         3,nthet,nzeta)  !! gradient in cartesian space, of the radial coordinate
+REAL(wp),INTENT(OUT) :: grad_theta_star(3,nthet,nzeta)  !! gradient in cartesian space, of the theta_star coordinate
+REAL(wp),INTENT(OUT) :: grad_zeta(      3,nthet,nzeta)  !! gradient in cartesian space, of the zeta coordinate
+REAL(wp),INTENT(OUT) :: Bfield(         3,nthet,nzeta)  !! magnetic field in cartesian space
+REAL(wp),INTENT(OUT) :: grad_absB(      3,nthet,nzeta)  !! gradient in cartesian space, of the magnetic field magnitude |B|
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: iMode,ithet,izeta
-REAL    :: iota_int,theta_star,theta,zeta
-REAL    :: xp(2),qvec(3)
-REAL    :: X1_s(   1:X1_base_r%f%modes)
-REAL    :: dX1ds_s(   1:X1_base_r%f%modes)
-REAL    :: X2_s(   1:X2_base_r%f%modes)
-REAL    :: dX2ds_s(   1:X2_base_r%f%modes)
-REAL    :: LA_s(   1:LA_base_r%f%modes)
-REAL    :: X1_int,X2_int
-REAL    :: dX1ds_int,dX2ds_int
+INTEGER  :: iMode,ithet,izeta
+REAL(wp) :: iota_int,theta_star,theta,zeta
+REAL(wp) :: xp(2),qvec(3)
+REAL(wp) :: X1_s(   1:X1_base_r%f%modes)
+REAL(wp) :: dX1ds_s(   1:X1_base_r%f%modes)
+REAL(wp) :: X2_s(   1:X2_base_r%f%modes)
+REAL(wp) :: dX2ds_s(   1:X2_base_r%f%modes)
+REAL(wp) :: LA_s(   1:LA_base_r%f%modes)
+REAL(wp) :: X1_int,X2_int
+REAL(wp) :: dX1ds_int,dX2ds_int
 !===================================================================================================================================
 !interpolate first in s direction
 iota_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
