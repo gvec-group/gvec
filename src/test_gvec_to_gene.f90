@@ -17,8 +17,12 @@
 
 !===================================================================================================================================
 !> 
-!!# **GVEC TO GENE** Driver program 
+!!# **TEST GVEC TO GENE** Driver program 
 !!
+!! to test, just execute in ini/toksy 
+!! ../../build/bin/test_gvec_to_gene TOKSY_State_0000_00000000.dat
+!! or ini/w7x
+!! ../../build/bin/test_gvec_to_gene W7X_State_0000_00000000.dat
 !===================================================================================================================================
 PROGRAM TEST_GVEC_TO_GENE
 USE MODgvec_Globals
@@ -29,8 +33,12 @@ IMPLICIT NONE
 INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: filename 
 REAL(wp)                :: StartTime,EndTime
-REAL(wp)                :: Fa,minor_r 
-INTEGER                 :: n0_global
+REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p_prime 
+INTEGER                 :: n0_global,is,i,j
+INTEGER,PARAMETER       :: nthet=11
+INTEGER,PARAMETER       :: nzeta=22
+REAL(wp),DIMENSION(nthet,nzeta)   :: theta_star,zeta
+REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB 
 !===================================================================================================================================
   CALL CPU_TIME(StartTime)
   nArgs=COMMAND_ARGUMENT_COUNT()
@@ -58,6 +66,31 @@ INTEGER                 :: n0_global
   WRITE(*,*)'Fa',Fa
   WRITE(*,*)'minor_r',minor_r
   WRITE(*,*)'n0_global',n0_global
+  WRITE(*,'(80("-"))')
+  DO is=0,8
+    spos=0.01+REAL(is)/REAL(8)*0.98
+    CALL gvec_to_gene_profile(spos,q,q_prime,p_prime)
+    WRITE(*,'(4(A,g15.7))') &
+               's= ',spos &
+              ,', q(s)= ', q &
+              ,', q_prime(s)= ',q_prime &
+              ,', p_prime(s)= ',p_prime 
+    DO i=1,nthet; DO j=1,nzeta
+      zeta(i,j)=-PI + REAL(j-1)/REAL(nthet)*2.*Pi
+      theta_star(i,j)=REAL(i-1)/REAL(nthet)*2.*Pi - 1.5*zeta(i,j)
+    END DO ; END DO
+    CALL gvec_to_gene_coords( nthet,nzeta,spos,theta_star,zeta,cart_coords)
+    WRITE(*,'(A,6g15.7)')'MIN x,y,z : ',MINVAL(cart_coords(1,:,:)) &
+                                       ,MINVAL(cart_coords(2,:,:)) &
+                                       ,MINVAL(cart_coords(3,:,:))
+    WRITE(*,'(A,6g15.7)')'MAX x,y,z : ',MAXVAL(cart_coords(1,:,:)) &
+                                       ,MAXVAL(cart_coords(2,:,:)) &
+                                       ,MAXVAL(cart_coords(3,:,:))
+    CALL gvec_to_gene_metrics(nthet,nzeta,spos,theta_star,zeta,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
+    WRITE(*,'(80("-"))')
+  END DO !spos
+
+  
 
   CALL Finalize_gvec_to_gene()
 
