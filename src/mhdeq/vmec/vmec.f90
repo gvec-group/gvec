@@ -98,11 +98,26 @@ CALL abort(__STAMP__,&
     "cannot read VMEC file, since code is compiled with BUILD_NETCDF=OFF")
 #endif
 
-
-!gmnc not needed anymore
-!ALLOCATE(gmnc_half_nyq(1:nFluxVMEC,mn_mode_nyq))
-!gmnc_half_nyq     = gmnc
-! half data is stored from 2:nFluxVMEC
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+DO iMode=1,mn_mode
+  IF(xm(iMode).EQ.0)THEN
+    !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients 
+    ! -coef_{0n} sin(-n*(-zeta))= coef_{0n} sin(-n*zeta)
+    !( cosine cos(-n*(-zeta))=cos(-n*zeta), symmetric in zeta for m=0)
+    zmns(iMode,:)=-zmns(iMode,:)
+    lmns(iMode,:)=-lmns(iMode,:)
+    IF(lasym) THEN
+      rmns(iMode,:)=-rmns(iMode,:)
+    END IF    
+  ELSE
+    !for m>0 , xn are always pairs of negative and positive modes, 
+    !so here we can simply swap the sign of the mode number
+    xn(iMode)=-xn(iMode)
+  END IF
+END DO !iMode=1,mn_mode
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !toroidal flux from VMEC, now called PHI!
 ALLOCATE(Phi_prof(nFluxVMEC))
@@ -120,8 +135,6 @@ SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi)*TwoPi,MAX
 
 SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes:',mn_mode
 SWRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp: ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
-!SWRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
-!SWRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
 
 useFilter=.TRUE. !GETLOGICAL('VMECuseFilter',Proposal=.TRUE.) !SHOULD BE ALWAYS TRUE...
 
