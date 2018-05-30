@@ -257,9 +257,9 @@ REAL(wp),OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressu
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-q       = 1./(  X1_base_r%s%evalDOF_s(spos,       0,profiles_1d(:,3)) ) !q=1/iota
-q_prime = -q*q*(X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,3)) ) !q'=-iota'/iota^2
-p_prime =      (X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,4)) ) !pressure'
+IF(PRESENT(q)) q       = 1./(  X1_base_r%s%evalDOF_s(spos,       0,profiles_1d(:,3)) ) !q=1/iota
+IF(PRESENT(q_prime)) q_prime = -q*q*(X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,3)) ) !q'=-iota'/iota^2
+IF(PRESENT(p_prime)) p_prime =      (X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,4)) ) !pressure'
 
 END SUBROUTINE gvec_to_gene_profile
 
@@ -407,6 +407,11 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   qvec=(/X1_int,X2_int,zeta/)
 
+  grad_s(         :,ithet,izeta)=(/1.1,0.,0./)
+  grad_theta_star(:,ithet,izeta)=(/0.,1.2,0./)
+  grad_zeta(      :,ithet,izeta)=(/0.,0.,1.3/)
+  Bfield(         :,ithet,izeta)=(/1.5,1.6,1.7/)
+  grad_absB(      :,ithet,izeta)=(/2.1,2.2,2.3/)
 END DO; END DO !ithet,izeta
 
 !for iteration on theta^*
