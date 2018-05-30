@@ -243,7 +243,6 @@ END SUBROUTINE gvec_to_gene_scalars
 !===================================================================================================================================
 SUBROUTINE gvec_to_gene_profile(spos,q,q_prime,p_prime)
 ! MODULES
-USE MODgvec_globals,ONLY: TWOPI
 USE MODgvec_gvec_to_gene_Vars,ONLY: profiles_1d,X1_base_r
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -287,7 +286,7 @@ REAL(wp),INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinat
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER     :: iMode,ithet,izeta
-REAL(wp)    :: iota_int,theta_star,theta,zeta
+REAL(wp)    :: theta_star,theta,zeta
 REAL(wp)    :: xp(2),qvec(3)
 REAL(wp)    :: X1_s(   1:X1_base_r%f%modes)
 REAL(wp)    :: X2_s(   1:X2_base_r%f%modes)
@@ -345,7 +344,7 @@ END SUBROUTINE gvec_to_gene_coords
 SUBROUTINE gvec_to_gene_metrics(nthet,nzeta,spos,theta_star_in,zeta_in,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
 ! MODULES
 USE MODgvec_gvec_to_gene_Vars
-USE MODgvec_globals, ONLY: PI
+USE MODgvec_globals, ONLY: PI,CROSS
 USE MODgvec_Newton,  ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -365,18 +364,23 @@ REAL(wp),INTENT(OUT) :: grad_absB(      3,nthet,nzeta)  !! gradient in cartesian
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER  :: iMode,ithet,izeta
-REAL(wp) :: iota_int,theta_star,theta,zeta
+REAL(wp) :: iota_int,PhiPrime_int,theta_star,theta,zeta
 REAL(wp) :: xp(2),qvec(3)
 REAL(wp) :: X1_s(   1:X1_base_r%f%modes)
 REAL(wp) :: dX1ds_s(   1:X1_base_r%f%modes)
 REAL(wp) :: X2_s(   1:X2_base_r%f%modes)
 REAL(wp) :: dX2ds_s(   1:X2_base_r%f%modes)
 REAL(wp) :: LA_s(   1:LA_base_r%f%modes)
-REAL(wp) :: X1_int,X2_int
-REAL(wp) :: dX1ds_int,dX2ds_int
+REAL(wp) :: dLAds_s(   1:LA_base_r%f%modes)
+REAL(wp) :: X1_int,dX1ds,dX1dthet,dX1dzeta
+REAL(wp) :: X2_int,dX2ds,dX2dthet,dX2dzeta
+REAL(wp) :: LA_int,dLAds,dLAdthet,dLAdzeta
+REAL(wp) :: e_s(3),e_thet(3),e_zeta(3),grad_thet(3)
+REAL(wp) :: sqrtG
 !===================================================================================================================================
 !interpolate first in s direction
-iota_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
 DO iMode=1,X1_base_r%f%modes
   X1_s(   iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
@@ -388,6 +392,7 @@ DO iMode=1,X2_base_r%f%modes
 END DO
 DO iMode=1,LA_base_r%f%modes
   LA_s(   iMode)      =LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode))
+  dLAds_s(iMode)      =LA_base_r%s%evalDOF_s(spos,DERIV_S,LA_r(:,iMode))
 END DO
 
 DO izeta=1,nzeta; DO ithet=1,nthet
@@ -400,17 +405,38 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   xp=(/theta,zeta/)
 
-  X1_int      =X1_base_r%f%evalDOF_x(xp, 0, X1_s  )
-  dX1ds_int   =X1_base_r%f%evalDOF_x(xp, 0,dX1ds_s)
-  X2_int      =X2_base_r%f%evalDOF_x(xp, 0, X2_s  )
-  dX2ds_int   =X2_base_r%f%evalDOF_x(xp, 0,dX2ds_s)
+  X1_int  =X1_base_r%f%evalDOF_x(xp,          0, X1_s  )
+  dX1ds   =X1_base_r%f%evalDOF_x(xp,          0,dX1ds_s)
+  dX1dthet=X1_base_r%f%evalDOF_x(xp, DERIV_THET, X1_s  )
+  dX1dzeta=X1_base_r%f%evalDOF_x(xp, DERIV_ZETA, X1_s  )
+
+  X2_int  =X2_base_r%f%evalDOF_x(xp,          0, X2_s  )
+  dX2ds   =X2_base_r%f%evalDOF_x(xp,          0,dX2ds_s)
+  dX2dthet=X2_base_r%f%evalDOF_x(xp, DERIV_THET, X2_s  )
+  dX2dzeta=X2_base_r%f%evalDOF_x(xp, DERIV_ZETA, X2_s  )
+
+  LA_int   =LA_base_r%f%evalDOF_x(xp,          0, LA_s)
+  dLAds    =LA_base_r%f%evalDOF_x(xp,          0,dLAds_s)
+  dLAdthet =LA_base_r%f%evalDOF_x(xp, DERIV_THET, LA_s)
+  dLAdzeta =LA_base_r%f%evalDOF_x(xp, DERIV_ZETA, LA_s)
 
   qvec=(/X1_int,X2_int,zeta/)
+  e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,0.0_wp/))
+  e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
+  e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
 
-  grad_s(         :,ithet,izeta)=(/1.1,0.,0./)
-  grad_theta_star(:,ithet,izeta)=(/0.,1.2,0./)
-  grad_zeta(      :,ithet,izeta)=(/0.,0.,1.3/)
-  Bfield(         :,ithet,izeta)=(/1.5,1.6,1.7/)
+  grad_s(:,ithet,izeta)   = CROSS(e_thet,e_zeta)/sqrtG
+  grad_thet(:)            = CROSS(e_zeta,e_s   )/sqrtG
+  grad_zeta(:,ithet,izeta)= CROSS(e_s   ,e_thet)/sqrtG
+  grad_theta_star(:,ithet,izeta)=  grad_s(   :,ithet,izeta)*dLAds         &
+                                  +grad_thet(:)            *(1.+dLAdthet) &
+                                  +grad_zeta(:,ithet,izeta)*dLAdzeta
+
+  Bfield(:,ithet,izeta)= (  e_thet(:)*(iota_int-dLAdzeta )  &
+                          + e_zeta(:)*(1.0_wp+dLAdthet) )*(PhiPrime_int/sqrtG)
+
+  !TODO
   grad_absB(      :,ithet,izeta)=(/2.1,2.2,2.3/)
 END DO; END DO !ithet,izeta
 
