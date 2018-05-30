@@ -380,8 +380,6 @@ REAL(wp) :: sqrtG
 REAL(wp) :: absB,absB_ds,absB_dthet,absB_dzeta
 !===================================================================================================================================
 !interpolate first in s direction
-iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
-PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
 DO iMode=1,X1_base_r%f%modes
   X1_s(   iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
@@ -460,6 +458,8 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
   sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
 
+  iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+  PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
   absB_dthet =SQRT(SUM(( (  e_thet(:)*(iota_int-dLAdzeta )  &
                      + e_zeta(:)*(1.0_wp+dLAdthet) ))**2))*(PhiPrime_int/sqrtG)
@@ -487,6 +487,8 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
   sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
 
+  iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+  PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
   absB_dzeta =SQRT(SUM(( (  e_thet(:)*(iota_int-dLAdzeta )  &
                      + e_zeta(:)*(1.0_wp+dLAdthet) ))**2))*(PhiPrime_int/sqrtG)
@@ -511,6 +513,8 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
   sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
 
+  iota_int     = X1_base_r%s%evalDOF_s(spos+1.0e-08, 0,profiles_1d(:,3))
+  PhiPrime_int = X1_base_r%s%evalDOF_s(spos+1.0e-08, DERIV_S ,profiles_1d(:,1))
 
   absB_ds =SQRT(SUM(( (  e_thet(:)*(iota_int-dLAdzeta )  &
                      + e_zeta(:)*(1.0_wp+dLAdthet) ))**2))*(PhiPrime_int/sqrtG)
@@ -544,6 +548,9 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   grad_theta_star(:,ithet,izeta)=  grad_s(   :,ithet,izeta)*dLAds         &
                                   +grad_thet(:)            *(1.+dLAdthet) &
                                   +grad_zeta(:,ithet,izeta)*dLAdzeta
+
+  iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+  PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
   Bfield(:,ithet,izeta)= (  e_thet(:)*(iota_int-dLAdzeta )  &
                           + e_zeta(:)*(1.0_wp+dLAdthet) )*(PhiPrime_int/sqrtG)
