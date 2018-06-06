@@ -241,7 +241,7 @@ END SUBROUTINE gvec_to_gene_scalars
 !> Evaluate only s dependend variables 
 !!
 !===================================================================================================================================
-SUBROUTINE gvec_to_gene_profile(spos,q,q_prime,p_prime)
+SUBROUTINE gvec_to_gene_profile(spos,q,q_prime,p,p_prime)
 ! MODULES
 USE MODgvec_gvec_to_gene_Vars,ONLY: profiles_1d,X1_base_r
 IMPLICIT NONE
@@ -252,12 +252,14 @@ REAL(wp),INTENT(IN) :: spos              !! radial position (sqrt(phi_norm)), ph
 ! OUTPUT VARIABLES
 REAL(wp),OPTIONAL,INTENT(OUT) :: q                !! q=1/iota profile
 REAL(wp),OPTIONAL,INTENT(OUT) :: q_prime          !! dq/ds=-(d/ds iota)/iota^2=-(d/ds iota)*q^2
+REAL(wp),OPTIONAL,INTENT(OUT) :: p                !! p, pressure profile
 REAL(wp),OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressure profile 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
 IF(PRESENT(q)) q       = 1./(  X1_base_r%s%evalDOF_s(spos,       0,profiles_1d(:,3)) ) !q=1/iota
 IF(PRESENT(q_prime)) q_prime = -q*q*(X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,3)) ) !q'=-iota'/iota^2
+IF(PRESENT(p)) p =      (X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4)) ) !pressure
 IF(PRESENT(p_prime)) p_prime =      (X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,4)) ) !pressure'
 
 END SUBROUTINE gvec_to_gene_profile

@@ -33,7 +33,7 @@ IMPLICIT NONE
 INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: filename 
 REAL(wp)                :: StartTime,EndTime
-REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p_prime 
+REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p,p_prime 
 INTEGER                 :: n0_global,is,i,j
 INTEGER,PARAMETER       :: nthet=11
 INTEGER,PARAMETER       :: nzeta=22
@@ -69,11 +69,12 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
   WRITE(*,'(80("-"))')
   DO is=0,8
     spos=0.01+REAL(is)/REAL(8)*0.98
-    CALL gvec_to_gene_profile(spos,q,q_prime,p_prime)
+    CALL gvec_to_gene_profile(spos,q,q_prime,p,p_prime)
     WRITE(*,'(4(A,g15.7))') &
                's= ',spos &
               ,', q(s)= ', q &
               ,', q_prime(s)= ',q_prime &
+              ,', p(s)= ',p &
               ,', p_prime(s)= ',p_prime 
     DO i=1,nthet; DO j=1,nzeta
       zeta(i,j)=-PI + REAL(j-1)/REAL(nthet)*2.*Pi
