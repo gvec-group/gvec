@@ -256,7 +256,11 @@ SUBROUTINE ReadVMEC(fileName)
     ioError = NF_INQ_VARID(ncid, "chi", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
          (/ nFluxVMEC /), chi(:))
-    IF (ioError /= 0)  STOP 'VMEC READIN: problem reading chi'
+    !IF (ioError /= 0)  STOP 'VMEC READIN: problem reading chi'
+    IF (ioError /= 0) THEN
+      WRITE(*,'(4X,A)') 'WARNING VMEC READIN: problem reading chi  (not used in GVEC up to now), is set to zero!!!'
+      chi=0. 
+    END IF
 
     !! scale poloidal flux to get internal VMEC chi, WITHOUT SIGNGS (so that iota=chi'/phi' >0 )
     chi(:nFluxVMEC) = chi(:nFluxVMEC) / TwoPi
