@@ -415,8 +415,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER            :: i_s,j_s,i_m,i_n,iMode,nplot(3),mn_IP(2)
   INTEGER,PARAMETER  :: nVal=4
-  REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(1),np_in(2),np_in(3))
-  REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(2),np_in(3))
+  REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(1),np_in(3),np_in(2))
+  REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(3),np_in(2))
   REAL(wp)           :: thet(np_in(1),np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
   CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
@@ -446,9 +446,16 @@ IMPLICIT NONE
                             *REAL((j_s-1)+(i_m-1)*(np_in(1)-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
     END DO !j_s
   END DO
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    thet(np_in(1),mn_IP(1))=thet(1,1)
+  END IF
   DO i_n=1,mn_IP(2)
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
+  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    zeta(mn_IP(2))=zeta(1)
+  END IF
+  
   DO i_s=1,n_s
     var_visu(2,i_s,:,:,:)=Phi_Prof(i_s)
     var_visu(3,i_s,:,:,:)=iotaf(i_s)
@@ -477,10 +484,10 @@ IMPLICIT NONE
               LA=LA+Lmnc(iMode,i_s)*cosmn(iMode)
             END DO !iMode
           END IF !lasym
-          coord_visu(1,i_s,j_s,i_m,i_n) = R*COS(zeta(i_n))
-          coord_visu(2,i_s,j_s,i_m,i_n) =-R*SIN(zeta(i_n))
-          coord_visu(3,i_s,j_s,i_m,i_n) = Z
-          var_visu(  1,i_s,j_s,i_m,i_n) = LA
+          coord_visu(1,i_s,j_s,i_n,i_m) = R*COS(zeta(i_n))
+          coord_visu(2,i_s,j_s,i_n,i_m) =-R*SIN(zeta(i_n))
+          coord_visu(3,i_s,j_s,i_n,i_m) = Z
+          var_visu(  1,i_s,j_s,i_n,i_m) = LA
         END DO !i_s=1,n_s
       END DO !j_s=1,np_in(1)
     END DO !i_n

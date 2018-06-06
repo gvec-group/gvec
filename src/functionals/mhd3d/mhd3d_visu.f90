@@ -57,6 +57,7 @@ IMPLICIT NONE
   REAL(wp) :: coord_visu(3,mn_IP(1),mn_IP(2),1)
   INTEGER,PARAMETER  :: nVal=1
   REAL(wp) :: var_visu(nVal,mn_IP(1),mn_IP(2),1)
+  REAL(wp) :: thet(mn_IP(1)),zeta(mn_IP(2))
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: FileName
 !===================================================================================================================================
@@ -69,10 +70,22 @@ IMPLICIT NONE
       'WARNING visuBC, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
+  DO i_m=1,mn_IP(1)
+    thet(i_m)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp)) !repeat point exactly
+  END DO
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    thet(mn_IP(1))=thet(1)
+  END IF
   DO i_n=1,mn_IP(2)
-    xIP(2)  = TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+    zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+  END DO
+  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    zeta(mn_IP(2))=zeta(1)
+  END IF
+  DO i_n=1,mn_IP(2)
+    xIP(2)  = zeta(i_n)
     DO i_m=1,mn_IP(1)
-      xIP(1)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp))
+      xIP(1)= thet(i_m)
       X1_visu=X1_base%f%evalDOF_x(xIP,0,X1_b)
       X2_visu=X2_base%f%evalDOF_x(xIP,0,X2_b)
       q=(/X1_visu,X2_visu,xIP(2)/)
@@ -119,8 +132,9 @@ IMPLICIT NONE
   REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,phiPrime_s,e_thet(3),e_zeta(3)
 
   INTEGER,PARAMETER  :: nVal=11
-  REAL(wp) :: coord_visu(     3,np_in(1),np_in(1),np_in(2),np_in(3),sgrid%nElems)
-  REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(2),np_in(3),sgrid%nElems)
+  REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
+  REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
+  REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
@@ -150,10 +164,27 @@ IMPLICIT NONE
   VarNames(11)="F_LA"
 
   ASSOCIATE(n_s=>np_in(1), mn_IP=>np_in(2:3) )
+  DO i_m=1,mn_IP(1)
+    DO j_s=1,n_s
+      thet(j_s,i_m)=TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0)) &
+                            *REAL((j_s-1)+(i_m-1)*(n_s-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
+    END DO !j_s
+  END DO
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    thet(n_s,mn_IP(1))=thet(1,1)
+  END IF
+  DO i_n=1,mn_IP(2)
+    zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+  END DO
+  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    zeta(mn_IP(2))=zeta(1)
+  END IF
+
   nElems=sgrid%nElems
   DO iElem=1,nElems
     DO i_s=1,n_s
-      spos=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
+!      spos=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
+      spos=MAX(1.0e-06,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*sgrid%ds(iElem))
       DO iMode=1,X1_base%f%modes
         X1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,U(0)%X1(:,iMode))
         F_X1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,F(0)%X1(:,iMode))
@@ -175,18 +206,16 @@ IMPLICIT NONE
       var_visu(4,i_s,:,:,:,iElem) =iota_s
       var_visu(5,i_s,:,:,:,iElem) =pres_s
       DO i_n=1,mn_IP(2)
-        xIP(2)  = TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+          xIP(2)  = zeta(i_n)
         DO i_m=1,mn_IP(1)
           DO j_s=1,n_s
-            xIP(1)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0)) &
-                            *REAL((j_s-1)+(i_m-1)*(n_s-1),wp)/REAL((n_s-1)*mn_IP(1),wp))
-            
-            ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_m,i_n,iElem), &
-                      sqrtG_visu   => var_visu(  2,i_s,j_s,i_m,i_n,iElem), &
-                      Bvec_visu    => var_visu(6:8,i_s,j_s,i_m,i_n,iElem), &
-                      F_X1_visu    => var_visu(  9,i_s,j_s,i_m,i_n,iElem), &
-                      F_X2_visu    => var_visu( 10,i_s,j_s,i_m,i_n,iElem), &
-                      F_LA_visu    => var_visu( 11,i_s,j_s,i_m,i_n,iElem)  )
+            xIP(1)= thet(j_s,i_m)
+            ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_n,i_m,iElem), &
+                      sqrtG_visu   => var_visu(  2,i_s,j_s,i_n,i_m,iElem), &
+                      Bvec_visu    => var_visu(6:8,i_s,j_s,i_n,i_m,iElem), &
+                      F_X1_visu    => var_visu(  9,i_s,j_s,i_n,i_m,iElem), &
+                      F_X2_visu    => var_visu( 10,i_s,j_s,i_n,i_m,iElem), &
+                      F_LA_visu    => var_visu( 11,i_s,j_s,i_n,i_m,iElem)  )
             
             
             X1_visu         =X1_base%f%evalDOF_x(xIP,         0,X1_s )
@@ -209,7 +238,7 @@ IMPLICIT NONE
             
             q=(/X1_visu,X2_visu,xIP(2)/)
             !x,y,z
-            coord_visu(:,i_s,j_s,i_m,i_n,iElem )=hmap%eval(q)
+            coord_visu(:,i_s,j_s,i_n,i_m,iElem )=hmap%eval(q)
             !lambda
             lambda_visu = LA_base%f%evalDOF_x(xIP,0,LA_s)
             !sqrtG
@@ -217,7 +246,7 @@ IMPLICIT NONE
             
             e_thet=hmap%eval_dxdq(q,(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/))
             e_zeta=hmap%eval_dxdq(q,(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/))
-!            var_visu(6:8,i_s,i_m,i_n,iElem)= &
+!            var_visu(6:8,i_s,i_n,i_m,iElem)= &
             Bvec_visu(:)= & 
                          (  e_thet(:)*(iota_s-dLA_dzeta_visu)  &
                           + e_zeta(:)*(1.0_wp+dLA_dthet_visu) )*(PhiPrime_s/MAX(1.0e-12_wp,sqrtG_visu))
