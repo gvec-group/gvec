@@ -197,7 +197,7 @@ IMPLICIT NONE
   ALLOCATE(profiles_1d(1:X1_nbase_r,4))
   !convert to spline DOF
   profiles_1d(:,1) =X1_base_r%s%initDOF( profiles_IP(:,1+1) ) !phi
-  profiles_1d(:,2) =X1_base_r%s%initDOF( profiles_IP(:,1+2) ) !chi
+  profiles_1d(:,2) =X1_base_r%s%initDOF( profiles_IP(:,1+2) ) !chi: WARNING: CANNOT YET BE USED...
   profiles_1d(:,3) =X1_base_r%s%initDOF( profiles_IP(:,1+3) ) !iota
   profiles_1d(:,4) =X1_base_r%s%initDOF( profiles_IP(:,1+4) ) !pressure
 
@@ -433,7 +433,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 !                                  +grad_thet(:)            *(1.+dLAdthet) &
 !                                  +grad_zeta(:,ithet,izeta)*dLAdzeta
 !
-!  Bfield(:,ithet,izeta)= (  e_thet(:)*(iota_int-dLAdzeta )  &
+!  Bfield(:,ithet,izeta)= (  e_thet(:)*(-iota_int-dLAdzeta )  &  !fix: iota=-chi'/phi', since chi not yet usable
 !                          + e_zeta(:)*(1.0_wp+dLAdthet) )*(PhiPrime_int/sqrtG)
 !  absB=SQRT(SUM((Bfield(:,ithet,izeta))**2))
 
@@ -463,7 +463,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
   PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
-  absB_dthet =SQRT(SUM(( (  e_thet(:)*(iota_int-dLAdzeta )  &
+  absB_dthet =SQRT(SUM(( (  e_thet(:)*(-iota_int-dLAdzeta )  & !fix: iota=-chi'/phi', since chi not yet usable
                      + e_zeta(:)*(1.0_wp+dLAdthet) ))**2))*(PhiPrime_int/sqrtG)
 
   !variation of |B| in zeta 
@@ -492,7 +492,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
   PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
-  absB_dzeta =SQRT(SUM(( (  e_thet(:)*(iota_int-dLAdzeta )  &
+  absB_dzeta =SQRT(SUM(( (  e_thet(:)*(-iota_int-dLAdzeta )  & !fix: iota=-chi'/phi', since chi not yet usable
                      + e_zeta(:)*(1.0_wp+dLAdthet) ))**2))*(PhiPrime_int/sqrtG)
   !variation of |B| in s coordinate
 
@@ -518,7 +518,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   iota_int     = X1_base_r%s%evalDOF_s(spos+1.0e-08, 0,profiles_1d(:,3))
   PhiPrime_int = X1_base_r%s%evalDOF_s(spos+1.0e-08, DERIV_S ,profiles_1d(:,1))
 
-  absB_ds =SQRT(SUM(( (  e_thet(:)*(iota_int-dLAdzeta )  &
+  absB_ds =SQRT(SUM(( (  e_thet(:)*(-iota_int-dLAdzeta )  & !fix: iota=-chi'/phi', since chi not yet usable
                      + e_zeta(:)*(1.0_wp+dLAdthet) ))**2))*(PhiPrime_int/sqrtG)
 
   !evaluate at s,theta,zeta
@@ -554,7 +554,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
   PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
 
-  Bfield(:,ithet,izeta)= (  e_thet(:)*(iota_int-dLAdzeta )  &
+  Bfield(:,ithet,izeta)= (  e_thet(:)*(-iota_int-dLAdzeta )  & !fix: iota=-chi'/phi', since chi not yet usable
                           + e_zeta(:)*(1.0_wp+dLAdthet) )*(PhiPrime_int/sqrtG)
 
   absB=SQRT(SUM((Bfield(:,ithet,izeta))**2))
