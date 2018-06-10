@@ -107,11 +107,12 @@ END SUBROUTINE visu_BC_face
 !===================================================================================================================================
 SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
 ! MODULES
-USE MODgvec_Globals,        ONLY: TWOPI
+USE MODgvec_Globals,        ONLY: TWOPI,PI,CROSS
 USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
-USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime
+USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime,Eval_chiPrime
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
 USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
+USE MODgvec_Newton,         ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -129,12 +130,13 @@ IMPLICIT NONE
   REAL(wp) :: X2_s(X2_base%f%modes),F_X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
   REAL(wp) :: LA_s(LA_base%f%modes),F_LA_s(LA_base%f%modes)
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,dX2_dthet_visu,dX2_dzeta_visu
-  REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,phiPrime_s,e_thet(3),e_zeta(3)
+  REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,chiPrime_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 
   INTEGER,PARAMETER  :: nVal=11
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
+  REAL(wp) :: theta_star
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
@@ -202,14 +204,20 @@ IMPLICIT NONE
       iota_s=Eval_iota(spos)
       pres_s=Eval_pres(spos)
       phiPrime_s=Eval_PhiPrime(spos)
+      chiPrime_s=Eval_chiPrime(spos)
       var_visu(3,i_s,:,:,:,iElem) =Eval_Phi(spos)
       var_visu(4,i_s,:,:,:,iElem) =iota_s
       var_visu(5,i_s,:,:,:,iElem) =pres_s
+      !define theta2, which corresponds to the theta angle of a given theta_star=theta
+
       DO i_n=1,mn_IP(2)
           xIP(2)  = zeta(i_n)
         DO i_m=1,mn_IP(1)
           DO j_s=1,n_s
-            xIP(1)= thet(j_s,i_m)
+            !xIP(1)= thet(j_s,i_m)
+            theta_star=thet(j_s,i_m)
+            XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+
             ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_n,i_m,iElem), &
                       sqrtG_visu   => var_visu(  2,i_s,j_s,i_n,i_m,iElem), &
                       Bvec_visu    => var_visu(6:8,i_s,j_s,i_n,i_m,iElem), &
@@ -241,15 +249,17 @@ IMPLICIT NONE
             coord_visu(:,i_s,j_s,i_n,i_m,iElem )=hmap%eval(q)
             !lambda
             lambda_visu = LA_base%f%evalDOF_x(xIP,0,LA_s)
-            !sqrtG
-            sqrtG_visu  = hmap%eval_Jh(q)*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
             
+            e_s   =hmap%eval_dxdq(q,(/dX1_ds_visu,dX2_ds_visu,0.0_wp/))
             e_thet=hmap%eval_dxdq(q,(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/))
             e_zeta=hmap%eval_dxdq(q,(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/))
+            !sqrtG
+            sqrtG_visu  = hmap%eval_Jh(q)*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
+            IF(ABS(sqrtG_visu- SUM(e_s*(CROSS(e_thet,e_zeta)))).GT.1.0e-04) STOP 'test sqrtg failed'
 !            var_visu(6:8,i_s,i_n,i_m,iElem)= &
             Bvec_visu(:)= & 
-                         (  e_thet(:)*(iota_s-dLA_dzeta_visu)  &
-                          + e_zeta(:)*(1.0_wp+dLA_dthet_visu) )*(PhiPrime_s/MAX(1.0e-12_wp,sqrtG_visu))
+                         (  e_thet(:)*(chiPrime_s-PhiPrime_s*dLA_dzeta_visu)  &
+                          + e_zeta(:)*PhiPrime_s*(1.0_wp+dLA_dthet_visu) )*(1.0_wp/MAX(1.0e-12_wp,sqrtG_visu))
             END ASSOCIATE !lambda,sqrtG,Bvec,F_X1/X2/LA
           END DO !j_s
         END DO !i_m
@@ -277,6 +287,19 @@ IMPLICIT NONE
   
   END ASSOCIATE!n_s,mn_IP
 
+
+!for iteration on theta^*
+CONTAINS 
+
+  FUNCTION FRdFR(theta_iter)
+    !uses current zeta=XIP(2) where newton is called, and LA_s from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: FRdFR(2) !output
+    !--------------------------------------------------- 
+    FRdFR(1)=theta_iter+LA_base%f%evalDOF_x((/theta_iter,xIP(2)/),0,LA_s)  !theta_iter+lambda
+    FRdFR(2)=1.0_wp+LA_base%f%evalDOF_x((/theta_iter,xIP(2)/),DERIV_THET,LA_s) !1+dlambda/dtheta
+  END FUNCTION FRdFR
 
 END SUBROUTINE visu_3D
 

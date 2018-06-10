@@ -33,7 +33,7 @@ MODULE MODgvec_VMEC_Readin
 
   INTEGER :: nFluxVMEC       !< number of flux surfaces in VMEC output
   INTEGER :: mn_mode         !< number of modes (theta,zeta)
-! INTEGER :: mn_mode_nyq     !< number of modes (Nyquist, 2D)
+  INTEGER :: mn_mode_nyq     !< number of modes (Nyquist, 2D)
   INTEGER :: nfp             !< number of field periods
   LOGICAL :: lasym=.FALSE.   !< if lasym=0, solution is (rmnc,zmns,lmns),
                              !< if lasym=1 solution is (rmnc,rmns,zmnc,zmns,lmnc,lmns)
@@ -41,7 +41,7 @@ MODULE MODgvec_VMEC_Readin
   INTEGER :: nTor            !< toroidal mode number
   INTEGER :: signgs          !< signum of sqrtG
   INTEGER :: mnmax           !< maximum mode number over m,n
-! INTEGER :: mnmax_nyq       !< maximum mode number over m_nyq,n_nyq
+  INTEGER :: mnmax_nyq       !< maximum mode number over m_nyq,n_nyq
   REAL(wp) :: b0             !< magnetic field on axis B_0
   REAL(wp) :: aMinor         !< aMinor
   REAL(wp) :: rMajor         !< major radius
@@ -50,8 +50,8 @@ MODULE MODgvec_VMEC_Readin
 !! vector parameters
   REAL(wp), ALLOCATABLE :: xm(:)      !< poloidal mode numbers 
   REAL(wp), ALLOCATABLE :: xn(:)      !< toroidal mode numbers
-! REAL(wp), ALLOCATABLE :: xm_nyq(:)  !< poloidal mode numbers (Nyquist)
-! REAL(wp), ALLOCATABLE :: xn_nyq(:)  !< toroidal mode numbers (Nyquist) 
+  REAL(wp), ALLOCATABLE :: xm_nyq(:)  !< poloidal mode numbers (Nyquist)
+  REAL(wp), ALLOCATABLE :: xn_nyq(:)  !< toroidal mode numbers (Nyquist) 
   REAL(wp), ALLOCATABLE :: iotaf(:)   !< iota on full mesh
   REAL(wp), ALLOCATABLE :: presf(:)   !< pressure on full mesh
   REAL(wp), ALLOCATABLE :: phi(:)     !< toroidal flux on full mesh
@@ -63,7 +63,9 @@ MODULE MODgvec_VMEC_Readin
   REAL(wp), ALLOCATABLE :: lmnc(:, :)
   REAL(wp), ALLOCATABLE :: lmns(:, :) !< lambda(iMode,iFlux) (sine components (read on half mesh, needs to be interpolated on full mesh))
 
-! REAL(wp), ALLOCATABLE :: gmnc(:, :) !< jacobian (cosine components (read on half mesh, interpolated on full
+  REAL(wp), ALLOCATABLE :: gmnc(:, :) !< jacobian (cosine components (read on half mesh, interpolated on full
+                                      !< mesh, mnMode_nyqist ))
+  REAL(wp), ALLOCATABLE :: bmnc(:, :) !< |B| (cosine components (read on half mesh, interpolated on full
                                       !< mesh, mnMode_nyqist ))
 #if NETCDF
 INTERFACE ReadVMEC
@@ -114,8 +116,8 @@ SUBROUTINE ReadVMEC(fileName)
     ioError = ioError + NF_INQ_DIMLEN(ncid, id, mn_mode)
     IF (ioError /= 0)  STOP 'VMEC READIN: problem reading mn_mode'
     !! number of fourier components of b_u, b_v, b_s
-!    ioError = ioError + NF_INQ_DIMID(ncid, "mn_mode_nyq", id)
-!    ioError = ioError + NF_INQ_DIMLEN(ncid, id, mn_mode_nyq)
+    ioError = ioError + NF_INQ_DIMID(ncid, "mn_mode_nyq", id)
+    ioError = ioError + NF_INQ_DIMLEN(ncid, id, mn_mode_nyq)
 
     !! get number of field periods
     ioError = ioError + NF_INQ_VARID(ncid, "nfp", id)
@@ -138,8 +140,8 @@ SUBROUTINE ReadVMEC(fileName)
     ioError = ioError + NF_GET_VAR_INT(ncid, id, mnmax)
     IF (ioError /= 0)  STOP 'VMEC READIN: problem reading mnmax'
     !! get mnmax_nyq
-!    ioError = ioError + NF_INQ_VARID(ncid, "mnmax_nyq", id)
-!    ioError = ioError + NF_GET_VAR_INT(ncid, id, mnmax_nyq)
+    ioError = ioError + NF_INQ_VARID(ncid, "mnmax_nyq", id)
+    ioError = ioError + NF_GET_VAR_INT(ncid, id, mnmax_nyq)
     !! get iasym
     ioError = ioError + NF_INQ_VARID(ncid, "lasym__logical__", id)
     ioError = ioError + NF_GET_VAR_INT(ncid, id, lasym)
@@ -183,8 +185,8 @@ SUBROUTINE ReadVMEC(fileName)
     aError = 0
     ALLOCATE(xm(mn_mode), xn(mn_mode), stat = aStat)
     aError = aError + aStat
-!    ALLOCATE(xm_nyq(mn_mode_nyq), xn_nyq(mn_mode_nyq), stat = aStat)
-!    aError = aError + aStat
+    ALLOCATE(xm_nyq(mn_mode_nyq), xn_nyq(mn_mode_nyq), stat = aStat)
+    aError = aError + aStat
     ALLOCATE(iotaf(nFluxVMEC), stat = aStat)
     aError = aError + aStat
     ALLOCATE(presf(nFluxVMEC), stat = aStat)
@@ -209,6 +211,10 @@ SUBROUTINE ReadVMEC(fileName)
       ALLOCATE(lmnc(mn_mode, nFluxVMEC), stat = aStat)
       aError = aError + aStat
     END IF
+    ALLOCATE(gmnc(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    aError = aError + aStat
+    ALLOCATE(bmnc(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    aError = aError + aStat
 
     IF (aError /= 0) THEN
       WRITE(*,*) "Allocation failure in subroutine ReadVmecOutput!"
@@ -226,13 +232,13 @@ SUBROUTINE ReadVMEC(fileName)
          xn(:))
     IF (ioError /= 0)  STOP 'VMEC READIN: problem reading xn'
     !! read x_m^nyq
-!    ioError = NF_INQ_VARID(ncid, "xm_nyq", id)
-!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
-!         (/ mn_mode_nyq /), xm_nyq(:))
+    ioError = NF_INQ_VARID(ncid, "xm_nyq", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
+         (/ mn_mode_nyq /), xm_nyq(:))
     !! read x_n^nyq
-!    ioError = NF_INQ_VARID(ncid, "xn_nyq", id)
-!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
-!         (/ mn_mode_nyq /), xn_nyq(:))
+    ioError = NF_INQ_VARID(ncid, "xn_nyq", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
+         (/ mn_mode_nyq /), xn_nyq(:))
     !! read iotaf
     ioError = NF_INQ_VARID(ncid, "iotaf", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
@@ -256,9 +262,13 @@ SUBROUTINE ReadVMEC(fileName)
     ioError = NF_INQ_VARID(ncid, "chi", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
          (/ nFluxVMEC /), chi(:))
-    IF (ioError /= 0)  STOP 'VMEC READIN: problem reading chi'
+    !IF (ioError /= 0)  STOP 'VMEC READIN: problem reading chi'
+    IF (ioError /= 0) THEN
+      WRITE(*,'(4X,A)') 'WARNING VMEC READIN: problem reading chi  (not used in GVEC up to now), is set to zero!!!'
+      chi=0. 
+    END IF
 
-    !! scale poloidal flux to get internal VMEC chi, WITHOUT SIGNGS (so that iota=chi'/phi' >0 )
+    !! scale poloidal flux to get internal VMEC chi (so that iota=chi'/phi' >0 )
     chi(:nFluxVMEC) = chi(:nFluxVMEC) / TwoPi
 
     !! read phipf
@@ -299,9 +309,13 @@ SUBROUTINE ReadVMEC(fileName)
       IF (ioError /= 0)  STOP 'VMEC READIN: problem reading lmnc'
     END IF
     !! read jacobian_mn on HALF MESH!!
-!    ioError = NF_INQ_VARID(ncid, "gmnc", id)
-!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-!         mn_mode_nyq, nFluxVMEC /), gmnc(:, 1:))
+    ioError = NF_INQ_VARID(ncid, "gmnc", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+         mn_mode_nyq, nFluxVMEC /), gmnc(:, 1:))
+    !! read |B| on HALF MESH!!
+    ioError = NF_INQ_VARID(ncid, "bmnc", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+         mn_mode_nyq, nFluxVMEC /), bmnc(:, 1:))
 
     IF (ioError /= 0) THEN
       WRITE(*,*) " Cannot read variables from ", TRIM(fileName), "!"
@@ -328,8 +342,8 @@ SUBROUTINE FinalizeReadVMEC()
 !===================================================================================================================================
 SDEALLOCATE( xm       )
 SDEALLOCATE( xn       )
-!SDEALLOCATE( xm_nyq   )
-!SDEALLOCATE( xn_nyq   )
+SDEALLOCATE( xm_nyq   )
+SDEALLOCATE( xn_nyq   )
 SDEALLOCATE( iotaf    )    
 SDEALLOCATE( presf    )
 SDEALLOCATE( phi      )
@@ -341,7 +355,8 @@ SDEALLOCATE( zmns     )
 SDEALLOCATE( lmnc     )
 SDEALLOCATE( lmns     )
 
-!SDEALLOCATE(gmnc)
+SDEALLOCATE(gmnc)
+SDEALLOCATE(bmnc)
 END SUBROUTINE FinalizeReadVMEC
 
 END MODULE MODgvec_VMEC_Readin

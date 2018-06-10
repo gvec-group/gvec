@@ -88,11 +88,12 @@ END SUBROUTINE InitRestart
 !===================================================================================================================================
 SUBROUTINE WriteStateToASCII(Uin,fileID)
 ! MODULES
-USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
+USE MODgvec_Globals,ONLY:Unit_stdOut,PI,TWOPI,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:ProjectName,OutputLevel
 USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MODgvec_MHD3D_profiles
+USE MODgvec_MHD3D_evalFunc, ONLY: nGP,mn_IP,Evalaux,w_GP,J_h,J_p,dthet_dzeta
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -104,7 +105,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: ioUnit,iMode,is
-  REAL(wp)            :: s_0
+  INTEGER             :: iGP,i_mn,JacCheck
+  REAL(wp)            :: s_0,vol,surfAvg,a_minor,r_major
 !===================================================================================================================================
   WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
 
@@ -155,6 +157,23 @@ IMPLICIT NONE
     WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),Eval_iota(s_IP(is)),Eval_pres(s_IP(is))
   END DO 
   END ASSOCIATE
+  !compute volume& poloidal surface average -> pi*aMinor^2=surfavg, surfavg*2*Pi*RMajor=volume
+  JacCheck=1
+  CALL EvalAux(Uin,JacCheck)
+  vol=0.
+  surfAvg=0.
+  DO iGP=1,nGP
+    DO i_mn=1,mn_IP
+      vol    =vol    +J_h(i_mn,iGP)*J_p(i_mn,iGP)*w_GP(iGP)
+      surfAvg=surfAvg+J_p(i_mn,iGP)*w_GP(iGP)
+    END DO
+  END DO 
+  vol     = dthet_dzeta *vol
+  surfAvg = dthet_dzeta *surfAvg /TWOPI
+  a_Minor = SQRT(surfAvg/PI)
+  r_Major = vol/(TWOPI*surfAvg)
+  WRITE(ioUnit,'(A)')'## a_minor,r_major,volume  ################################################################################'
+  WRITE(ioUnit,'(*(E23.15,:,","))')a_Minor,r_Major,vol
   
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'

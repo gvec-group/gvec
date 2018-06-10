@@ -35,38 +35,43 @@ CONTAINS
 !! Note that the mapping defined by  X1 and X2 must be fully initialized, since derivatives in s must be taken!
 !!
 !===================================================================================================================================
-SUBROUTINE Lambda_solve(spos,iota_s,X1_in,X2_in,LA_s) 
+SUBROUTINE Lambda_solve(spos,X1_in,X2_in,LA_s) 
 ! MODULES
-USE MODgvec_Globals,       ONLY:n_warnings_occured
-USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
-USE MODgvec_LinAlg,        ONLY: SOLVE
-USE MODgvec_MHD3D_Vars,    ONLY: hmap,X1_base,X2_base,LA_base
-IMPLICIT NONE
+  USE MODgvec_Globals,       ONLY:n_warnings_occured
+  USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
+  USE MODgvec_LinAlg,        ONLY: SOLVE
+  USE MODgvec_MHD3D_Vars,    ONLY: hmap,X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_Profiles,ONLY: Eval_phiPrime,Eval_chiPrime
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL(wp)     , INTENT(IN   ) :: spos                    !! s position to evaluate lambda
-REAL(wp)     , INTENT(IN   ) :: iota_s                  !! iota at s_pos
-REAL(wp)     , INTENT(IN   ) :: X1_in(1:X1_base%s%nBase,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
-REAL(wp)     , INTENT(IN   ) :: X2_in(1:X2_base%s%nBase,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
+  REAL(wp)     , INTENT(IN   ) :: spos                    !! s position to evaluate lambda
+  REAL(wp)     , INTENT(IN   ) :: X1_in(1:X1_base%s%nBase,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
+  REAL(wp)     , INTENT(IN   ) :: X2_in(1:X2_base%s%nBase,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                               :: iMode,jMode,i_mn,mn_IP,LA_modes
-REAL(wp)                              :: Jh,minJ,gta_da,gza_da,qloc(3),dqdthet(3),dqdzeta(3)
-REAL(wp),DIMENSION(1:X1_base%f%modes) :: X1_s,X1_ds !! X1 solution at spos 
-REAL(wp),DIMENSION(1:X2_base%f%modes) :: X2_s,X2_ds !! X1 solution at spos 
-REAL(wp),DIMENSION(1:X1_base%f%mn_IP) :: X1_s_IP,dX1ds,dX1dthet,dX1dzeta, & !mn_IP should be same for all!
-                                         X2_s_IP,dX2ds,dX2dthet,dX2dzeta, &
-                                         detJ,g_tt,g_tz,g_zz,zeta_IP
-REAL(wp)                              :: Amat(1:LA_base%f%modes,1:LA_base%f%modes)
-REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
+  INTEGER                               :: iMode,jMode,i_mn,mn_IP,LA_modes
+  REAL(wp)                              :: Jh,minJ,gta_da,gza_da,qloc(3),dqdthet(3),dqdzeta(3)
+  REAL(wp)                              :: phiPrime_s,ChiPrime_s   !! toroidal and poloidal flux s derivatives at s_pos
+  REAL(wp),DIMENSION(1:X1_base%f%modes) :: X1_s,X1_ds !! X1 solution at spos 
+  REAL(wp),DIMENSION(1:X2_base%f%modes) :: X2_s,X2_ds !! X1 solution at spos 
+  REAL(wp),DIMENSION(1:X1_base%f%mn_IP) :: X1_s_IP,dX1ds,dX1dthet,dX1dzeta, & !mn_IP should be same for all!
+                                           X2_s_IP,dX2ds,dX2dthet,dX2dzeta, &
+                                           detJ,g_tt,g_tz,g_zz,zeta_IP
+  REAL(wp)                              :: Amat(1:LA_base%f%modes,1:LA_base%f%modes)
+  REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
 !===================================================================================================================================
   mn_IP = X1_base%f%mn_IP
   IF(X2_base%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
   IF(LA_base%f%mn_IP.NE.mn_IP) STOP 'LA mn_IP /= X1 mn_IP'
   zeta_IP  = X1_base%f%x_IP(2,:) 
+ 
+  phiPrime_s=Eval_phiPrime(spos)
+  chiPrime_s=Eval_chiPrime(spos)
+
 
   DO iMode=1,X1_base%f%modes
     X1_s( iMode)  = X1_base%s%evalDOF_s(spos,      0,X1_in(:,iMode))
@@ -119,36 +124,37 @@ REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
   END DO !i_mn
   
   LA_modes=LA_base%f%modes
-  !estimate of 1/Adiag
+  !estimate of 1/Adiag for preconditioning
   DO iMode=1,LA_modes
     ASSOCIATE(nfp=> LA_base%f%nfp,m=>LA_base%f%Xmn(1,iMode),n=>LA_base%f%Xmn(2,iMode))
     sAdiag(iMode)=1.0_wp/(MAX(1.0_wp,REAL((nfp*m)**2+n**2 ,wp) )*REAL(mn_IP,wp))
+    !sAdiag(iMode)=1.0_wp 
     END ASSOCIATE
   END DO
   Amat(:,:)=0.0_wp
   RHS(:)   =0.0_wp
   ASSOCIATE(sigma_dthet => LA_base%f%base_dthet_IP, &
             sigma_dzeta => LA_base%f%base_dzeta_IP  )
-  DO jMode=1,LA_modes
+  DO iMode=1,LA_modes
     !m=n=0 should not be in lambda, but check
-    IF (LA_base%f%zero_odd_even(jMode).NE.MN_ZERO) THEN 
+    IF (LA_base%f%zero_odd_even(iMode).NE.MN_ZERO) THEN 
       DO i_mn=1,mn_IP
-        gta_da=g_tz(i_mn)*sigma_dthet(i_mn,jMode) - g_tt(i_mn)*sigma_dzeta(i_mn,jMode)
-        gza_da=g_zz(i_mn)*sigma_dthet(i_mn,jMode) - g_tz(i_mn)*sigma_dzeta(i_mn,jMode)
-        DO iMode=1,LA_modes
+        gta_da=g_tz(i_mn)*sigma_dthet(i_mn,iMode) - g_tt(i_mn)*sigma_dzeta(i_mn,iMode)
+        gza_da=g_zz(i_mn)*sigma_dthet(i_mn,iMode) - g_tz(i_mn)*sigma_dzeta(i_mn,iMode)
+        DO jMode=1,LA_modes
           ! 1/J ( (g_thet,zeta dsigma_dthet -g_thet,thet dsigma_dzeta ) dlambdaSIN_dzeta
           !      -(g_zeta,zeta dsigma_dthet -g_zeta,thet dsigma_dzeta ) dlambdaSIN_dthet)
-          Amat(iMode,jMode) = Amat(iMode,jMode) +&
-                              ( gta_da*sigma_dzeta(i_mn,iMode) &
-                               -gza_da*sigma_dthet(i_mn,iMode)) *sAdiag(iMode)
-        END DO !iMode
+          Amat(iMode,jMode) = Amat(iMode,jMode) +&                      
+                              ( gta_da*sigma_dzeta(i_mn,jMode) &
+                               -gza_da*sigma_dthet(i_mn,jMode))* PhiPrime_s *sAdiag(iMode)
+        END DO !jMode
         ! 1/J( iota (g_thet,zeta dsigma_dthet - g_thet,thet dsigma_dzeta )
         !          +(g_zeta,zeta dsigma_dthet - g_zeta,thet dsigma_dzeta ) )
-        RHS(jMode)      =   RHS(jMode)+ (iota_s*gta_da +gza_da) *sAdiag(jMode)
+        RHS(iMode)      =   RHS(iMode)+ (chiPrime_s*gta_da +phiPrime_s*gza_da) *sAdiag(iMode)
       END DO !i_mn
     ELSE
-      Amat(jMode,jMode)=1.0_wp
-      RHS(       jMode)=0.0_wp
+      Amat(iMode,iMode)=1.0_wp
+      RHS(       iMode)=0.0_wp
     END IF
   END DO!jMode
   END ASSOCIATE !sigma_dthet,sigma_dzeta

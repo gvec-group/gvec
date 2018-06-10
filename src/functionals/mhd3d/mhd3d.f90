@@ -407,9 +407,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
   USE MODgvec_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
+  USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -422,7 +422,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   INTEGER  :: iMode,is
   INTEGER  :: BC_type(2)
   REAL(wp) :: BC_val(2)
-  REAL(wp) :: spos,iota_s
+  REAL(wp) :: spos
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -510,8 +510,26 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X2
+      ASSOCIATE(s_IP         => LA_base%s%s_IP, &
+                nBase        => LA_base%s%nBase, &
+                sin_range    => LA_base%f%sin_range,&
+                cos_range    => LA_base%f%cos_range )
+      DO imode=sin_range(1)+1,sin_range(2)
+        DO is=1,nBase
+          LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),lmns_Spl)
+        END DO !is
+      END DO !imode= sin_range
+      IF(lasym)THEN
+        DO imode=cos_range(1)+1,cos_range(2)
+          DO is=1,nBase
+            LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),Lmnc_Spl)
+          END DO !is
+        END DO !imode=cos_range
+      END IF !lasym
+      END ASSOCIATE !X1
     END IF !fullIntVmec
   END SELECT !which_init
+  
  
   IF((which_init_in.GE.0).AND.(init_fromBConly))THEN 
     !no restart(=-1) and initialization only 
@@ -586,8 +604,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     LA_gIP(1,:)=0.0_wp !at axis
     DO is=2,LA_base%s%nBase
       spos=LA_base%s%s_IP(is)
-      iota_s=eval_iota(spos)
-      CALL lambda_Solve(spos,iota_s,U_init%X1,U_init%X2,LA_gIP(is,:))
+      CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
     END DO !is
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
@@ -603,8 +620,24 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END ASSOCIATE !LA
   ELSE
     !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
-    SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
-    U_init%LA=0.0_wp
+    IF(.NOT.init_fromBConly)THEN
+      SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
+      ASSOCIATE(modes        =>LA_base%f%modes, &
+                zero_odd_even=>LA_base%f%zero_odd_even)
+      DO imode=1,modes
+        IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+          U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+        ELSE
+          U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+        END IF!iMode ~ MN_ZERO
+        BC_val =(/ 0.0_wp, 0.0_wp/)
+        CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+      END DO !iMode 
+      END ASSOCIATE !LA
+    ELSE
+      SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
+      U_init%LA=0.0_wp
+    END IF
   END IF !init_LA
 
   SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
@@ -687,8 +720,11 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   nstepDecreased=0
   t_pseudo=0
   lastOutputIter=0
-  iter=1
+  iter=0
   SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,3E11.4,A)') &
+          '                 %%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   DO WHILE(iter.LE.maxIter)
 ! hirshman method
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
