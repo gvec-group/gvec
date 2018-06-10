@@ -410,7 +410,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -423,7 +422,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   INTEGER  :: iMode,is
   INTEGER  :: BC_type(2)
   REAL(wp) :: BC_val(2)
-  REAL(wp) :: spos,iota_s
+  REAL(wp) :: spos
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -530,6 +529,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       END ASSOCIATE !X1
     END IF !fullIntVmec
   END SELECT !which_init
+  
  
   IF((which_init_in.GE.0).AND.(init_fromBConly))THEN 
     !no restart(=-1) and initialization only 
@@ -604,8 +604,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     LA_gIP(1,:)=0.0_wp !at axis
     DO is=2,LA_base%s%nBase
       spos=LA_base%s%s_IP(is)
-      iota_s=eval_iota(spos)
-      CALL lambda_Solve(spos,iota_s,U_init%X1,U_init%X2,LA_gIP(is,:))
+      CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
     END DO !is
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
@@ -721,8 +720,11 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   nstepDecreased=0
   t_pseudo=0
   lastOutputIter=0
-  iter=1
+  iter=0
   SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,3E11.4,A)') &
+          '                 %%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   DO WHILE(iter.LE.maxIter)
 ! hirshman method
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))

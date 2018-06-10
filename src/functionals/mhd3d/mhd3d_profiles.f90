@@ -32,7 +32,7 @@ CONTAINS
 
 
 !===================================================================================================================================
-!> evaluate iota(phi_norm(s))
+!> evaluate rotational transform, iota(phi_norm(s)) =chi'/phi'
 !!
 !===================================================================================================================================
 FUNCTION Eval_iota(spos)
@@ -96,7 +96,34 @@ IMPLICIT NONE
 END FUNCTION Eval_pres
 
 !===================================================================================================================================
-!> evaluate pressure profile p(phi_norm(s))
+!> evaluate mass profile mass(phi_norm(s))
+!!
+!===================================================================================================================================
+FUNCTION Eval_mass(spos)
+! MODULES
+USE MODgvec_MHD3D_vars, ONLY:gamm
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_mass
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+IF(ABS(gamm).LT.1.0E-12)THEN
+  eval_mass=eval_pres(spos)
+ELSE
+  !TODO would need to multiply by ( V'(s) ) ^gamma
+  CALL abort(__STAMP__, &
+      ' gamma>0: evaluation of mass profile not yet implemented!')
+END IF
+END FUNCTION Eval_mass
+
+!===================================================================================================================================
+!> evaluate poloidal flux chi(phi_norm), currently only from interpolated VMEC data
+!> should be computed as an integral over chiPrime instead!! 
 !!
 !===================================================================================================================================
 FUNCTION Eval_chi(spos)
@@ -125,30 +152,24 @@ IMPLICIT NONE
 END FUNCTION Eval_chi
 
 !===================================================================================================================================
-!> evaluate mass profile mass(phi_norm(s))
+!> evaluate s derivative of poloidal flux via iota and phiPrime: chiPrime=-iota*PhiPrime
+!! negative sign because of coordinate system change between VMEC and GVEC...
 !!
 !===================================================================================================================================
-FUNCTION Eval_mass(spos)
+FUNCTION Eval_chiPrime(spos)
 ! MODULES
-USE MODgvec_MHD3D_vars, ONLY:gamm
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_mass
+  REAL(wp)               :: Eval_chiPrime
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-IF(ABS(gamm).LT.1.0E-12)THEN
-  eval_mass=eval_pres(spos)
-ELSE
-  !TODO would need to multiply by ( V'(s) ) ^gamma
-  CALL abort(__STAMP__, &
-      ' gamma>0: evaluation of mass profile not yet implemented!')
-END IF
-END FUNCTION Eval_mass
+  Eval_ChiPrime = -Eval_PhiPrime(spos)*Eval_iota(spos)
+END FUNCTION Eval_chiPrime
 
 !===================================================================================================================================
 !> evaluate toroidal flux Phi 

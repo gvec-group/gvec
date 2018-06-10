@@ -232,21 +232,21 @@ endfunction()
 # include defines.h 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
 
-FILE(GLOB_RECURSE mainF90 ./src/*.f
-                          ./src/globals/*.f90
-                          ./src/base/*.f90
-                          ./src/grid/*.f90
-                          ./src/functionals/*.f90
-                          ./src/analyze/*.f90
-                          ./src/lbfgsb/*.f90
-                          ./src/mhdeq/*.f90
-                          ./src/output/*.f90
+FILE(GLOB_RECURSE mainF90 ./src/*.f 
+                          ./src/globals/*.f90 
+                          ./src/base/*.f90 
+                          ./src/grid/*.f90 
+                          ./src/functionals/*.f90 
+                          ./src/analyze/*.f90 
+                          ./src/lbfgsb/*.f90 
+                          ./src/mhdeq/*.f90 
+                          ./src/output/*.f90 
                           ./src/restart/*.f90 )
 
 FILE(GLOB_RECURSE evalF90 ./src/globals/*.f90 
-                          ./src/base/*.f90
-                          ./src/grid/*.f90
-                          ./src/functionals/mhd3d/*hmap*.f90
+                          ./src/base/*.f90 
+                          ./src/grid/*.f90 
+                          ./src/functionals/mhd3d/*hmap*.f90 
                           ./src/gvec_to_gene/*.f90 )
 
 # define libs

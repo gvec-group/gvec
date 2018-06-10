@@ -117,6 +117,15 @@ DO iMode=1,mn_mode
     xn(iMode)=-xn(iMode)
   END IF
 END DO !iMode=1,mn_mode
+!additional nyq data (bmnc,gmnc
+DO iMode=1,mn_mode_nyq
+  ! nyq data is only cosine (bmnc,gmnc)
+  IF(xm_nyq(iMode).NE.0)THEN
+    xn_nyq(iMode)=-xn_nyq(iMode)
+  END If  
+END DO !iMode=1,mn_mode_nyq
+!since sign of zeta has changed, swap sign of Jacobian, too.
+gmnc=-gmnc
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !toroidal flux from VMEC, now called PHI!

@@ -29,8 +29,9 @@ MODULE MODgvec_MHD3D_evalFunc
   
   !evaluations at radial gauss points, size(1:base%s%nGP)                                       
   REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile 
-  REAL(wp),ALLOCATABLE :: iota_GP(:)      !! iota profile 
-  REAL(wp),ALLOCATABLE :: PhiPrime2_GP(:)  !! s derivative of toroidal flux : |Phi'(s)|^2
+  REAL(wp),ALLOCATABLE :: chiPrime_GP(:)  !! s derivative of poloidal flux 
+  REAL(wp),ALLOCATABLE :: phiPrime_GP(:)  !! s derivative of toroidal flux 
+  REAL(wp),ALLOCATABLE :: phiPrime2_GP(:) !! s derivative of toroidal flux : |Phi'(s)|^2
   
   !evaluations at all integration points, size(1:base%f%mn_IP,1:base%s%nGP)                                       
   REAL(wp),ALLOCATABLE :: X1_IP_GP(:,:)   !! evaluation of X1
@@ -58,13 +59,14 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: g_tz(     :,:)     !! metric tensor g_(theta,zeta )=g_(zeta,theta)
   REAL(wp),ALLOCATABLE :: g_zz(     :,:)     !! metric tensor g_(zeta ,zeta )
   
+  INTEGER                         :: nGP
+  INTEGER                         :: mn_IP
+  REAL(wp)                        :: dthet_dzeta
+  REAL(wp),ALLOCATABLE            :: w_GP(:)
   !private module variables, set in init
   INTEGER                ,PRIVATE :: nElems
-  INTEGER                ,PRIVATE :: nGP
   INTEGER                ,PRIVATE :: degGP
-  INTEGER                ,PRIVATE :: mn_IP
-  REAL(wp)               ,PRIVATE :: dthet_dzeta
-  REAL(wp),ALLOCATABLE   ,PRIVATE :: s_GP(:),w_GP(:),zeta_IP(:)
+  REAL(wp),ALLOCATABLE   ,PRIVATE :: s_GP(:),zeta_IP(:)
 
   CLASS(sll_c_spline_matrix),PRIVATE,ALLOCATABLE :: precond_X1(:)  !! container for preconditioner matrices
   CLASS(sll_c_spline_matrix),PRIVATE,ALLOCATABLE :: precond_X2(:)  !! container for preconditioner matrices
@@ -102,8 +104,9 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   zeta_IP = X1_base%f%x_IP(2,:)
 
   ALLOCATE(pres_GP(           nGP) )
-  ALLOCATE(iota_GP(           nGP) )
-  ALLOCATE(PhiPrime2_GP(      nGP) )
+  ALLOCATE(chiPrime_GP(       nGP) )
+  ALLOCATE(phiPrime_GP(       nGP) )
+  ALLOCATE(phiPrime2_GP(      nGP) )
   ALLOCATE(J_h(         mn_IP,nGP) )
   ALLOCATE(J_p(         mn_IP,nGP) )
   ALLOCATE(sJ_h(        mn_IP,nGP) )
@@ -169,7 +172,7 @@ END SUBROUTINE InitializeMHD3D_evalFunc
 SUBROUTINE EvalAux(Uin,JacCheck)
 ! MODULES
   USE MODgvec_Globals         , ONLY: n_warnings_occured
-  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_iota,Eval_pres,Eval_phiPrime
+  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_pres,Eval_chiPrime,Eval_phiPrime
   USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
@@ -234,9 +237,10 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 
   !1D data at gauss-points
   DO iGP=1,nGP
-    iota_GP(    iGP) = Eval_iota(    s_GP(iGP))
-    pres_GP(    iGP) = Eval_pres(    s_GP(iGP))
-    PhiPrime2_GP(iGP) = (Eval_PhiPrime(s_GP(iGP)))**2
+    chiPrime_GP(    iGP) = Eval_chiPrime(    s_GP(iGP))
+    pres_GP(    iGP)     = Eval_pres(    s_GP(iGP))
+    PhiPrime_GP(iGP)     = Eval_PhiPrime(s_GP(iGP))
+    PhiPrime2_GP(iGP)    = PhiPrime_GP(iGP)**2
   END DO !iGP
 
   !2D data: interpolation points x gauss-points
@@ -250,8 +254,8 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   q_zeta(3)=1.0_wp !dq(3)/zeta
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
-      b_thet(i_mn,iGP) = (iota_GP(iGP)- dLA_dzeta(i_mn,iGP))    !b_theta
-      b_zeta(i_mn,iGP) = (1.0_wp      + dLA_dthet(i_mn,iGP))    !b_zeta
+      b_thet(i_mn,iGP) = (chiPrime_GP(iGP)- phiPrime_GP(iGP)*dLA_dzeta(i_mn,iGP))    !b_theta
+      b_zeta(i_mn,iGP) = phiPrime_GP(iGP)*(1.0_wp          + dLA_dthet(i_mn,iGP))    !b_zeta
 
       qloc(  1:3) = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
       q_thet(1:2) = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/) !dq(1:2)/dtheta
@@ -319,7 +323,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
     Vprime_GP(iGP) = SUM(detJ(:,iGP))
   END DO !iGP
 
-  W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(PhiPrime2_GP(:)*Wmag_GP(:)*w_GP(:)) &
+  W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(Wmag_GP(:)*w_GP(:)) &
                          + mu_0*sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
   
 !  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
@@ -376,10 +380,10 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       btz_sJ(i_mn,iGP)=  b_thet(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
       bzz_sJ(i_mn,iGP)=  b_zeta(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
     END DO !i_mn
-    dW(    :,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*dW(    :,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
-    btz_sJ(:,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*bzz_sJ(:,iGP)
-    btt_sJ(:,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*btt_sJ(:,iGP)
-    bzz_sJ(:,iGP)= (0.5_wp*PhiPrime2_GP(iGP))*bzz_sJ(:,iGP)
+    dW(    :,iGP)= 0.5_wp*dW(    :,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
+    btz_sJ(:,iGP)= 0.5_wp*bzz_sJ(:,iGP)
+    btt_sJ(:,iGP)= 0.5_wp*btt_sJ(:,iGP)
+    bzz_sJ(:,iGP)= 0.5_wp*bzz_sJ(:,iGP)
   END DO !iGP
   Y1tilde=(/1.0_wp,0.0_wp,0.0_wp/)
   Y2tilde=(/0.0_wp,1.0_wp,0.0_wp/)
@@ -540,7 +544,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                     - sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode)
                          
       END DO !i_mn=1,mn_IP
-      F_GP(iGP)=F_GP(iGP)*(PhiPrime2_GP(iGP)*w_GP(iGP))
+      F_GP(iGP)=F_GP(iGP)*(PhiPrime_GP(iGP)*w_GP(iGP))
     END DO !iGP=1,nGP
     iGP=1
     DO iElem=1,nElems
@@ -641,7 +645,7 @@ SUBROUTINE BuildPrecond()
     !averaged quantities
     !X1
 !    DX1(   iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_h(:,iGP)*  dJh_dq1(:)     )**2 ) 
-    DX1_ss(iGP) = w_GP(iGP)*PhiPrime2_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 ) 
+    DX1_ss(iGP) = w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 ) 
     DX1_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
                                +bt_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
                                            *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G11(:)   &
@@ -651,7 +655,7 @@ SUBROUTINE BuildPrecond()
     DX1_zz(iGP) =           SUM(bzz_sJ(:)*G11(:))
     !X2
 !    DX2(   iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_h(:,iGP)*  dJh_dq2(:)     )**2 ) 
-    DX2_ss(iGP) = w_GP(iGP)*PhiPrime2_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 ) 
+    DX2_ss(iGP) = w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 ) 
     DX2_tt(iGP) =           SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
                                +bt_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
                                            *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G21(:)   & !G12=G21
@@ -660,8 +664,8 @@ SUBROUTINE BuildPrecond()
                                           +    b_thet(:,iGP)*G22(:))                                                   )
     DX2_zz(iGP) =           SUM(bzz_sJ(:)*G22(:))
     !LA 
-    DLA_tt(iGP) = SUM(g_zz(:,iGP)*sdetJ(:,iGP)) 
-    DLA_zz(iGP) = SUM(g_tt(:,iGP)*sdetJ(:,iGP)) 
+    DLA_tt(iGP) = phiPrime2_GP(iGP)*SUM(g_zz(:,iGP)*sdetJ(:,iGP)) 
+    DLA_zz(iGP) = phiPrime2_GP(iGP)*SUM(g_tt(:,iGP)*sdetJ(:,iGP)) 
   END DO
   !dont forget to average
   smn_IP=1.0_wp/REAL(mn_IP,wp)
@@ -689,8 +693,8 @@ SUBROUTINE BuildPrecond()
 
   DO iMode=1,modes
     CALL precond_X1(iMode)%reset() !set all values to zero
-    D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*( (X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
-                                     +(X1_Base%f%Xmn(2,iMode)**2)*DX1_zz(:) ) 
+    D_mn(:)=w_GP(:)*( (X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
+                     +(X1_Base%f%Xmn(2,iMode)**2)*DX1_zz(:) ) 
     iGP=1
     DO iElem=1,nElems
       iBase=X1_base%s%base_offset(iElem)
@@ -753,8 +757,8 @@ SUBROUTINE BuildPrecond()
 
   DO iMode=1,modes
     CALL precond_X2(iMode)%reset() !set all values to zero
-    D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*( (X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
-                                     +(X2_Base%f%Xmn(2,iMode)**2)*DX2_zz(:) ) 
+    D_mn(:)=w_GP(:)*( (X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
+                     +(X2_Base%f%Xmn(2,iMode)**2)*DX2_zz(:) ) 
     iGP=1
     DO iElem=1,nElems
       iBase=X2_base%s%base_offset(iElem)
@@ -814,8 +818,8 @@ SUBROUTINE BuildPrecond()
   DO iMode=1,modes
     CALL precond_LA(iMode)%reset() !set all values to zero
     IF(LA_base%f%zero_odd_even(iMode) .NE. MN_ZERO) THEN !MN_ZERO should not exist
-      D_mn(:)=w_GP(:)*PhiPrime2_GP(:)*( (LA_Base%f%Xmn(1,iMode)**2)*DLA_tt(:) &
-                                       +(LA_Base%f%Xmn(2,iMode)**2)*DLA_zz(:) )
+      D_mn(:)=w_GP(:)*( (LA_Base%f%Xmn(1,iMode)**2)*DLA_tt(:) &
+                       +(LA_Base%f%Xmn(2,iMode)**2)*DLA_zz(:) )
       !CHECK =0
       IF(SUM(ABS(D_mn(:))).LT.REAL(nGP,wp)*1.0E-10) WRITE(*,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
            LA_Base%f%Xmn(1:2,iMode),SUM(D_mn(:))
@@ -1121,8 +1125,9 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(w_GP         )
   SDEALLOCATE(zeta_IP      )
   SDEALLOCATE(pres_GP      )
-  SDEALLOCATE(iota_GP      )
-  SDEALLOCATE(PhiPrime2_GP )
+  SDEALLOCATE(chiPrime_GP  )
+  SDEALLOCATE(phiPrime_GP  )
+  SDEALLOCATE(phiPrime2_GP )
   SDEALLOCATE(J_h          )
   SDEALLOCATE(J_p          )
   SDEALLOCATE(sJ_h         )
