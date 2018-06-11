@@ -126,6 +126,8 @@ DO iMode=1,mn_mode_nyq
 END DO !iMode=1,mn_mode_nyq
 !since sign of zeta has changed, swap sign of Jacobian, too.
 gmnc=-gmnc
+! also iota must change sign, since its sign depend on the coordinate system
+iotaf=-iotaf
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !toroidal flux from VMEC, now called PHI!

@@ -33,6 +33,8 @@ CONTAINS
 
 !===================================================================================================================================
 !> evaluate rotational transform, iota(phi_norm(s)) =chi'/phi'
+!! NOTE that since VMEC has a definition of a positive iota with respect to R,phi,Z coordinate system, but GVEC is in (R,Z,phi)
+!! the sign of iota in GVEC is opposite to the sign in VMEC
 !!
 !===================================================================================================================================
 FUNCTION Eval_iota(spos)
@@ -51,17 +53,14 @@ IMPLICIT NONE
   REAL(wp)               :: Eval_iota
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp) :: phi_norm,chiPrime,phiPrime
+  REAL(wp) :: phi_norm
 !===================================================================================================================================
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
     eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,phi_norm)
   CASE(1)
-!    chiPrime=VMEC_EvalSpl(1,SQRT(phi_norm),chi_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
-!    phiPrime= Eval_PhiPrime(spos)
-!    eval_iota=chiPrime/phiPrime
-    eval_iota=VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
+    eval_iota= VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
   END SELECT
 END FUNCTION Eval_iota
 
@@ -153,7 +152,6 @@ END FUNCTION Eval_chi
 
 !===================================================================================================================================
 !> evaluate s derivative of poloidal flux via iota and phiPrime: chiPrime=-iota*PhiPrime
-!! negative sign because of coordinate system change between VMEC and GVEC...
 !!
 !===================================================================================================================================
 FUNCTION Eval_chiPrime(spos)
@@ -168,7 +166,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  Eval_ChiPrime = -Eval_PhiPrime(spos)*Eval_iota(spos)
+  Eval_ChiPrime = Eval_PhiPrime(spos)*Eval_iota(spos)
 END FUNCTION Eval_chiPrime
 
 !===================================================================================================================================
