@@ -575,28 +575,54 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   IF(PrecondType.LE.0)THEN
     !apply strong boundary conditions
-    
-    BC_val =(/      0.0_wp,      0.0_wp/)
-    
-    !X1 BC
-    DO imode=1,X1_base%f%modes
-      CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
-    END DO 
-    
-    !X2 BC
-    DO imode=1,X2_base%f%modes
-      CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
-    END DO 
-    
-    !LA BC
-    DO imode=1,LA_base%f%modes
-      CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
-    END DO 
+    CALL ApplyBC_Fstrong(F_MHD3D)  
   END IF !apply strong BC if no Precond
 
 
 !  SWRITE(UNIT_stdOut,'(A,3E21.11)')'... DONE: Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
 END SUBROUTINE EvalForce
+
+
+!===================================================================================================================================
+!> Applies strong boundary condition to force DOF
+!!
+!===================================================================================================================================
+SUBROUTINE ApplyBC_Fstrong(F_MHD3D) 
+! MODULES
+  USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_Vars,ONLY:X1_BC_Type,X2_BC_Type,LA_BC_type
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER   :: iMode
+  REAL(wp)  :: BC_val(2)
+!===================================================================================================================================
+  !apply strong boundary conditions
+  
+  BC_val =(/      0.0_wp,      0.0_wp/)
+  
+  !X1 BC
+  DO imode=1,X1_base%f%modes
+    CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
+  END DO 
+  
+  !X2 BC
+  DO imode=1,X2_base%f%modes
+    CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
+  END DO 
+  
+  !LA BC
+  DO imode=1,LA_base%f%modes
+    CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+  END DO 
+END SUBROUTINE ApplyBC_Fstrong
+
 
 !===================================================================================================================================
 !> Build preconditioner matrices for X1,X2,LA and factorize, for all modes
@@ -932,7 +958,7 @@ END SUBROUTINE ApplyPrecond
 SUBROUTINE checkEvalForce(Uin,fileID)
 ! MODULES
   USE MODgvec_Globals       , ONLY: testlevel
-  USE MODgvec_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType
+  USE MODgvec_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType,F
   USE MODgvec_MHD3D_visu    , ONLY: WriteDataMN_visu
   USE MODgvec_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
   USE MODgvec_Output_Vars   , ONLY: outputLevel
@@ -951,7 +977,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Feval 
   CHARACTER(LEN=60)                     :: fname
 !===================================================================================================================================
-  IF(testLevel.LT.1) RETURN
+  IF(testLevel.EQ.-1) RETURN
   PrecondTypeTmp=PrecondType
   ALLOCATE(t_sol_var_MHD3D :: Utest)
   ALLOCATE(t_sol_var_MHD3D :: Ucopy)
@@ -1011,12 +1037,16 @@ SUBROUTINE checkEvalForce(Uin,fileID)
     END DO
   END DO 
 
-  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
+  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force without BC |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
+  !for initial visualization, copy FD force with BC to F(0)
+  CALL F(0)%copy(Ftest)
+  CALL ApplyBC_Fstrong(F(0))
 
   PrecondType=-1
+  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)
+  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force with BC |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
-!  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)
-  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
+  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force without BC |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
 
   IF(testlevel.GE.2)THEN
   WRITE(*,*)'-----------------------'
