@@ -81,13 +81,43 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
       theta_star(i,j)=REAL(i-1)/REAL(nthet)*2.*Pi - 1.5*zeta(i,j)
     END DO ; END DO
     CALL gvec_to_gene_coords( nthet,nzeta,spos,theta_star,zeta,cart_coords)
-    WRITE(*,'(A,6g15.7)')'MIN x,y,z : ',MINVAL(cart_coords(1,:,:)) &
-                                       ,MINVAL(cart_coords(2,:,:)) &
-                                       ,MINVAL(cart_coords(3,:,:))
-    WRITE(*,'(A,6g15.7)')'MAX x,y,z : ',MAXVAL(cart_coords(1,:,:)) &
-                                       ,MAXVAL(cart_coords(2,:,:)) &
-                                       ,MAXVAL(cart_coords(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN x,y,z   : ',MINVAL(cart_coords(1,:,:)) &
+                                         ,MINVAL(cart_coords(2,:,:)) &
+                                         ,MINVAL(cart_coords(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX x,y,z   : ',MAXVAL(cart_coords(1,:,:)) &
+                                         ,MAXVAL(cart_coords(2,:,:)) &
+                                         ,MAXVAL(cart_coords(3,:,:))
     CALL gvec_to_gene_metrics(nthet,nzeta,spos,theta_star,zeta,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
+    WRITE(*,'(A,3g15.7)')'MIN grads   : ',MINVAL(grad_s(1,:,:)) &
+                                         ,MINVAL(grad_s(2,:,:)) &
+                                         ,MINVAL(grad_s(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX grads   : ',MAXVAL(grad_s(1,:,:)) &
+                                         ,MAXVAL(grad_s(2,:,:)) &
+                                         ,MAXVAL(grad_s(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN gradth* : ',MINVAL(grad_theta_star(1,:,:)) &
+                                         ,MINVAL(grad_theta_star(2,:,:)) &
+                                         ,MINVAL(grad_theta_star(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX gradth* : ',MAXVAL(grad_theta_star(1,:,:)) &
+                                         ,MAXVAL(grad_theta_star(2,:,:)) &
+                                         ,MAXVAL(grad_theta_star(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN grad_zet: ',MINVAL(grad_zeta(1,:,:)) &
+                                         ,MINVAL(grad_zeta(2,:,:)) &
+                                         ,MINVAL(grad_zeta(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX grad_zet: ',MAXVAL(grad_zeta(1,:,:)) &
+                                         ,MAXVAL(grad_zeta(2,:,:)) &
+                                         ,MAXVAL(grad_zeta(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN Bfield  : ',MINVAL(Bfield(1,:,:)) &
+                                         ,MINVAL(Bfield(2,:,:)) &
+                                         ,MINVAL(Bfield(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX Bfield  : ',MAXVAL(Bfield(1,:,:)) &
+                                         ,MAXVAL(Bfield(2,:,:)) &
+                                         ,MAXVAL(Bfield(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN grad|B| : ',MINVAL(grad_absB(1,:,:)) &
+                                         ,MINVAL(grad_absB(2,:,:)) &
+                                         ,MINVAL(grad_absB(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX grad|B| : ',MAXVAL(grad_absB(1,:,:)) &
+                                         ,MAXVAL(grad_absB(2,:,:)) &
+                                         ,MAXVAL(grad_absB(3,:,:))
     WRITE(*,'(80("-"))')
   END DO !spos
 
