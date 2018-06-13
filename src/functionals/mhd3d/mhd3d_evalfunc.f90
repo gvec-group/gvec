@@ -381,8 +381,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       bzz_sJ(i_mn,iGP)=  b_zeta(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
     END DO !i_mn
     dW(    :,iGP)= 0.5_wp*dW(    :,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
-    btz_sJ(:,iGP)= 0.5_wp*bzz_sJ(:,iGP)
     btt_sJ(:,iGP)= 0.5_wp*btt_sJ(:,iGP)
+    btz_sJ(:,iGP)= 0.5_wp*btz_sJ(:,iGP)
     bzz_sJ(:,iGP)= 0.5_wp*bzz_sJ(:,iGP)
   END DO !iGP
   Y1tilde=(/1.0_wp,0.0_wp,0.0_wp/)
