@@ -160,7 +160,7 @@ b(2)=-a(2)              !bound y+
 !1D minimum find, since we know here y=0
 xaxis(1)=1.0_wp
 xaxis(2)=0.0_wp
-psi_axis=NewtonMin1D(tol,a(1),b(1),xaxis(1),F1,dF1,ddF1 )
+psi_axis=NewtonMin1D(tol,a(1),b(1),0.1*(b(1)-a(1)),xaxis(1),F1,dF1,ddF1 )
 SWRITE(Unit_stdOut,'(A,2E22.15)')'   magentic axis x,y    : ',xaxis(:)
 
 !2D minimum search
@@ -551,7 +551,7 @@ DO iNode=1,nTotal
   IF(r_p.LT.tol) THEN
     rNewton=r_p
   ELSE
-    rNewton= NewtonRoot1D(tol,0.0_wp,1.1_wp,r_p,psiVal,FR1,dFR1)
+    rNewton= NewtonRoot1D(tol,0.0_wp,1.1_wp,0.1_wp,r_p,psiVal,FR1,dFR1)
   END IF
   xPos=ApproxFluxMap(rNewton,theta)
   IF(ABS(PsiVal-EvalPsi(xPos(1),xPos(2))).GT.10*tol) THEN

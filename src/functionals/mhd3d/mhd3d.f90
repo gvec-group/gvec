@@ -82,6 +82,7 @@ SUBROUTINE InitMHD3D(sf)
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
   INTEGER          :: nfp_loc
   INTEGER          :: JacCheck
+  INTEGER          :: sign_iota
   REAL(wp)         :: pres_scale
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
@@ -116,7 +117,9 @@ SUBROUTINE InitMHD3D(sf)
     nfp_loc  = GETINT( "nfp",Proposal=1)
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
+    sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
     CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+    iota_coefs=REAL(sign_iota)*iota_coefs
     CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
     pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
     pres_coefs=pres_coefs*pres_scale
@@ -307,7 +310,6 @@ SUBROUTINE InitMHD3D(sf)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM  !n/=0 modes should have lambda/=0 at the axis, but not clear why...
     CASE(M_ODD_FIRST)
@@ -343,7 +345,7 @@ SUBROUTINE InitMHD3D(sf)
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
     CALL ReadState(RestartFile,U(0))
-    CALL InitSolution(U(0),-1) !only apply BC and recompute lambda
+    !CALL InitSolution(U(0),-1) !only apply BC and recompute lambda
   ELSE 
     CALL InitSolution(U(0),which_init)
   END IF
@@ -578,7 +580,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       BC_val =(/ X1_a(iMode)    ,      X1_b(iMode)/)
-    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    CASE DEFAULT
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
@@ -591,7 +594,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       BC_val =(/     X2_a(iMode),      X2_b(iMode)/)
-    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    CASE DEFAULT
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)

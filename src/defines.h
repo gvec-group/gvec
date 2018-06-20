@@ -49,6 +49,7 @@
 #define GRID_TYPE_SQRT_S  1 
 #define GRID_TYPE_S2      2 
 #define GRID_TYPE_BUMP    3 
+#define GRID_TYPE_BUMP_EDGE 4 
 
 !fbase definitions
 #define _SIN_    1

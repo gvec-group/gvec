@@ -310,8 +310,8 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   zeta       = zeta_in(      ithet,izeta)
   !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta) 
   ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
-  !                      tolerance , lower bound , upper bound , start value , F0
-  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+  !                      tolerance , lower bound , upper bound , maxstep, start value , F0
+  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
 
   xp=(/theta,zeta/)
 
@@ -418,8 +418,8 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   zeta = zeta_in(ithet,izeta)
   !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta) 
   ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
-  !                      tolerance , lower bound , upper bound , start value , F0
-  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+  !                      tolerance , lower bound , upper bound , maxstep, start value , F0
+  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
 
   xp=(/theta,zeta/)
 
