@@ -143,7 +143,7 @@ LOGICAL             :: converged2
 
 converged=.FALSE.
 x=xin
-maxiter=10
+maxiter=20
 DO iter=1,maxiter
   dx=-(FR(x)-F0)/dFR(x)
   dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
@@ -155,7 +155,7 @@ END DO !iter
 IF(.NOT.converged) THEN
   !repeat with maxstep /10 and a little change in the initial condition 
   x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
-  maxiter=100
+  maxiter=200
   DO iter=1,maxiter
     dx=-(FR(x)-F0)/dFR(x)
     dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
@@ -207,7 +207,7 @@ LOGICAL             :: converged2
 !===================================================================================================================================
 converged=.FALSE.
 x=xin
-maxiter=10
+maxiter=20
 DO iter=1,maxiter
   FRdFRx=FRdFR(x)
   dx=-(FRdFRx(1)-F0)/FRdFRx(2)
@@ -221,7 +221,7 @@ IF(.NOT.converged) THEN
   !repeat with maxstep /10 and a little change in the initial condition 
   converged2=.FALSE.
   x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
-  maxiter=100
+  maxiter=200
   DO iter=1,maxiter
     FRdFRx=FRdFR(x)
     dx=-(FRdFRx(1)-F0)/FRdFRx(2)
