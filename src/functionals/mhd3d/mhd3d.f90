@@ -307,7 +307,6 @@ SUBROUTINE InitMHD3D(sf)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM  !n/=0 modes should have lambda/=0 at the axis, but not clear why...
     CASE(M_ODD_FIRST)
@@ -578,7 +577,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       BC_val =(/ X1_a(iMode)    ,      X1_b(iMode)/)
-    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    CASE DEFAULT
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
@@ -591,7 +591,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       BC_val =(/     X2_a(iMode),      X2_b(iMode)/)
-    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    CASE DEFAULT
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)

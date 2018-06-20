@@ -112,6 +112,7 @@ USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
 USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime,Eval_chiPrime
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
 USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
+USE MODgvec_Analyze_Vars,   ONLY: SFL_theta
 USE MODgvec_Newton,         ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -140,6 +141,7 @@ IMPLICIT NONE
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
+  SWRITE(UNIT_stdOut,'(A)') 'Start visu 3D...'
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
     SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
      'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
@@ -164,6 +166,8 @@ IMPLICIT NONE
   VarNames( 9)="F_X1"
   VarNames(10)="F_X2"
   VarNames(11)="F_LA"
+
+  var_visu=0.
 
   ASSOCIATE(n_s=>np_in(1), mn_IP=>np_in(2:3) )
   DO i_m=1,mn_IP(1)
@@ -214,9 +218,12 @@ IMPLICIT NONE
           xIP(2)  = zeta(i_n)
         DO i_m=1,mn_IP(1)
           DO j_s=1,n_s
-            !xIP(1)= thet(j_s,i_m)
-            theta_star=thet(j_s,i_m)
-            XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+            IF(SFL_theta)THEN
+              theta_star=thet(j_s,i_m)
+              XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+            ELSE
+              xIP(1)= thet(j_s,i_m)
+            END IF
 
             ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_n,i_m,iElem), &
                       sqrtG_visu   => var_visu(  2,i_s,j_s,i_n,i_m,iElem), &
@@ -286,6 +293,7 @@ IMPLICIT NONE
   END IF
   
   END ASSOCIATE!n_s,mn_IP
+  SWRITE(UNIT_stdOut,'(A)') '... visu 3D DONE.'
 
 
 !for iteration on theta^*

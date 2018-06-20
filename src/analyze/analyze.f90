@@ -52,7 +52,7 @@ SUBROUTINE InitAnalyze
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_Analyze_Vars
-USE MODgvec_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY
+USE MODgvec_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY,GETLOGICAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -68,6 +68,7 @@ SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 visu1D    = GETINT('visu1D',Proposal=0)   
 visu2D    = GETINT('visu2D',Proposal=0)   
 visu3D    = GETINT('visu3D',Proposal=0)   
+SFL_theta = GETLOGICAL('SFL_theta',Proposal=.TRUE.)   
 
 
 visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
@@ -398,6 +399,7 @@ END SUBROUTINE VMEC1D_visu
 !===================================================================================================================================
 SUBROUTINE VMEC3D_visu(np_in,minmax,only_planes)
 ! MODULES
+USE MODgvec_Analyze_Vars,ONLY:SFL_theta
 USE MODgvec_Globals,ONLY:TWOPI,PI,UNIT_stdOut
 USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
@@ -424,6 +426,7 @@ IMPLICIT NONE
   CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
+  SWRITE(UNIT_stdOut,'(A)') 'Start VMEC visu 3D...'
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
     SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
      'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
@@ -473,8 +476,12 @@ IMPLICIT NONE
         !xIP(1)=thet(j_s,i_m) 
         DO i_s=1,n_s
           !SFL
-          theta_star=thet(j_s,i_m)
-          XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+          IF(SFL_theta)THEN
+            theta_star=thet(j_s,i_m)
+            XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+          ELSE
+            XIP(1)=thet(j_s,i_m)
+          END IF
           
           DO iMode=1,mn_mode
             sinmn(iMode)=SIN(xm(iMode)*xIP(1)-xn(iMode)*xIP(2))
@@ -536,6 +543,7 @@ IMPLICIT NONE
 
   END ASSOCIATE
 
+  SWRITE(UNIT_stdOut,'(A)') '... VMEC visu 3D DONE.'
 
 !for iteration on theta^*
 CONTAINS 
