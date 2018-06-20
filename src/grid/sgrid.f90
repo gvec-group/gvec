@@ -149,6 +149,8 @@ IMPLICIT NONE
     sf%sp(:)=sf%sp(:)*sf%sp(:)
   CASE(GRID_TYPE_BUMP) !strechted towards axis and edge
     sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*2.0_wp*sf%sp(:))
+  CASE(GRID_TYPE_BUMP_EDGE) ! imore equidistnat at the axis and stretched towards edge
+    sf%sp(:)=(sf%sp(:)-0.75_wp*((sf%sp(:)-0.4_wp)**3 + 0.4_wp**3))/(1.0_wp-0.75_wp*((1.0_wp-0.4_wp)**3+0.4**3))
   CASE DEFAULT
    CALL abort(__STAMP__, &
           'given grid type does not exist') 
