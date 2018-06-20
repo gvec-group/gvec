@@ -82,6 +82,7 @@ SUBROUTINE InitMHD3D(sf)
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
   INTEGER          :: nfp_loc
   INTEGER          :: JacCheck
+  INTEGER          :: sign_iota
   REAL(wp)         :: pres_scale
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
@@ -116,7 +117,9 @@ SUBROUTINE InitMHD3D(sf)
     nfp_loc  = GETINT( "nfp",Proposal=1)
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
+    sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
     CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+    iota_coefs=REAL(sign_iota)*iota_coefs
     CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
     pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
     pres_coefs=pres_coefs*pres_scale
@@ -342,7 +345,7 @@ SUBROUTINE InitMHD3D(sf)
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
     CALL ReadState(RestartFile,U(0))
-    CALL InitSolution(U(0),-1) !only apply BC and recompute lambda
+    !CALL InitSolution(U(0),-1) !only apply BC and recompute lambda
   ELSE 
     CALL InitSolution(U(0),which_init)
   END IF

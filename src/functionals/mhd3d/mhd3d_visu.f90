@@ -141,7 +141,11 @@ IMPLICIT NONE
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(A)') 'Start visu 3D...'
+  IF(only_planes)THEN
+    SWRITE(UNIT_stdOut,'(A)') 'Start visu planes...'
+  ELSE
+    SWRITE(UNIT_stdOut,'(A)') 'Start visu 3D...'
+  END IF
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
     SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
      'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
@@ -220,7 +224,7 @@ IMPLICIT NONE
           DO j_s=1,n_s
             IF(SFL_theta)THEN
               theta_star=thet(j_s,i_m)
-              XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,theta_star   , theta_star,FRdFR)
+              XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR)
             ELSE
               xIP(1)= thet(j_s,i_m)
             END IF

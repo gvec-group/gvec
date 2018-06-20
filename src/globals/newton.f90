@@ -88,13 +88,14 @@ CONTAINS
 !> Newton's iterative algorithm to find the minimimum of function f(x) in the interval [a,b], using df(x)=0 and the derivative 
 !!
 !===================================================================================================================================
-FUNCTION NewtonMin1D(tol,a,b,x,FF,dFF,ddFF) RESULT (fmin)
+FUNCTION NewtonMin1D(tol,a,b,maxstep,x,FF,dFF,ddFF) RESULT (fmin)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 REAL(wp),INTENT(IN)    :: tol  !! abort tolerance
 REAL(wp),INTENT(IN)    :: a,b  !! search interval
+REAL(wp),INTENT(IN)    :: maxstep  !! max|dx| allowed
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp),INTENT(INOUT) :: x    !! initial guess on input, result on output
@@ -107,7 +108,7 @@ REAL(wp)               :: fmin !! on output =f(x)
 REAL(wp)                :: x0
 !===================================================================================================================================
 x0=x
-x=NewtonRoot1D(tol,a,b,x0,0.0_wp,dFF,ddFF)
+x=NewtonRoot1D(tol,a,b,maxstep,x0,0.0_wp,dFF,ddFF)
 fmin=FF(x)
 
 END FUNCTION NewtonMin1D
@@ -117,15 +118,16 @@ END FUNCTION NewtonMin1D
 !> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative 
 !!
 !===================================================================================================================================
-FUNCTION NewtonRoot1D(tol,a,b,xin,F0,FR,dFR) RESULT (xout)
+FUNCTION NewtonRoot1D(tol,a,b,maxstep,xin,F0,FR,dFR) RESULT (xout)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 REAL(wp),INTENT(IN) :: tol    !! abort tolerance
 REAL(wp),INTENT(IN) :: a,b    !! search interval
-REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0 
+REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
 REAL(wp),INTENT(IN) :: xin    !! initial guess 
+REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 PROCEDURE(i_f1x1)   :: FR      !! function to find root
@@ -136,19 +138,42 @@ REAL(wp)            :: xout    !! on output =f(x)
 INTEGER             :: iter,maxiter
 REAL(wp)            :: x,dx
 LOGICAL             :: converged
+LOGICAL             :: converged2
 !===================================================================================================================================
 
 converged=.FALSE.
 x=xin
-maxiter=50
+maxiter=10
 DO iter=1,maxiter
   dx=-(FR(x)-F0)/dFR(x)
   dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
   x = x+dx
+  IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
   converged=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
   IF(converged) EXIT
 END DO !iter
-IF(.NOT.converged) STOP 'NewtonRoot1D not converged'
+IF(.NOT.converged) THEN
+  !repeat with maxstep /10 and a little change in the initial condition 
+  x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
+  maxiter=100
+  DO iter=1,maxiter
+    dx=-(FR(x)-F0)/dFR(x)
+    dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
+    x = x+dx
+    converged2=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
+    IF(converged2) EXIT
+  END DO !iter
+  IF(converged2) THEN
+    xout=x
+    RETURN
+  END IF
+  WRITE(*,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+  WRITE(*,*)'Newton x>a',x,a,(x.GT.a)
+  WRITE(*,*)'Newton x<b',x,b,(x.LT.b)
+  WRITE(*,*)'after iter',iter-1
+  STOP 'NewtonRoot1D not converged'
+END IF
 xout=x
 
 END FUNCTION NewtonRoot1D
@@ -158,15 +183,16 @@ END FUNCTION NewtonRoot1D
 !> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative 
 !!
 !===================================================================================================================================
-FUNCTION NewtonRoot1D_FdF(tol,a,b,xin,F0,FRdFR) RESULT (xout)
+FUNCTION NewtonRoot1D_FdF(tol,a,b,maxstep,xin,F0,FRdFR) RESULT (xout)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL(wp),INTENT(IN) :: tol    !! abort tolerance
-REAL(wp),INTENT(IN) :: a,b    !! search interval
-REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0 
-REAL(wp),INTENT(IN) :: xin    !! initial guess on input
+REAL(wp),INTENT(IN) :: tol     !! abort tolerance
+REAL(wp),INTENT(IN) :: a,b     !! search interval
+REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
+REAL(wp),INTENT(IN) :: xin     !! initial guess on input
+REAL(wp),INTENT(IN) :: F0      !! function to find root is FR(x)-F0 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 PROCEDURE(i_f2x1)   :: FRdFR   !! function to find root f(x) & derivative d/dx f(x)
@@ -177,20 +203,44 @@ INTEGER             :: iter,maxiter
 REAL(wp)            :: x,dx
 REAL(wp)            :: FRdFRx(2) !1: FR(x), 2: dFR(x)
 LOGICAL             :: converged
+LOGICAL             :: converged2
 !===================================================================================================================================
-
 converged=.FALSE.
 x=xin
-maxiter=50
+maxiter=10
 DO iter=1,maxiter
   FRdFRx=FRdFR(x)
   dx=-(FRdFRx(1)-F0)/FRdFRx(2)
   dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+  IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
   x = x+dx
-  converged=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
+  converged=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
   IF(converged) EXIT
 END DO !iter
-IF(.NOT.converged) STOP 'NewtonRoot1D not converged'
+IF(.NOT.converged) THEN
+  !repeat with maxstep /10 and a little change in the initial condition 
+  converged2=.FALSE.
+  x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
+  maxiter=100
+  DO iter=1,maxiter
+    FRdFRx=FRdFR(x)
+    dx=-(FRdFRx(1)-F0)/FRdFRx(2)
+    dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
+    x = x+dx
+    converged2=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
+    IF(converged2) EXIT
+  END DO !iter
+  IF(converged2) THEN
+    xout=x
+    RETURN
+  END IF
+  WRITE(*,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+  WRITE(*,*)'Newton x>a',x,a,(x.GT.a)
+  WRITE(*,*)'Newton x<b',x,b,(x.LT.b)
+  WRITE(*,*)'after iter',iter-1
+  STOP 'NewtonRoot1D_FdF not converged'
+END IF
 xout=x
 
 END FUNCTION NewtonRoot1D_FdF
@@ -241,7 +291,7 @@ DO iter=1,maxiter
   converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
   IF(converged) EXIT
 END DO !iter
-IF(.NOT.converged) STOP 'NewtonMin not converged'
+IF(.NOT.converged) STOP 'NewtonMin2D not converged'
 fmin=FF(x)
 
 END FUNCTION NewtonMin2D
