@@ -547,7 +547,7 @@ IMPLICIT NONE
 
   END ASSOCIATE
 
-  SWRITE(UNIT_stdOut,'(A)') '... VMEC visu 3D DONE.'
+  SWRITE(UNIT_stdOut,'(A)') '... DONE.'
 
 !for iteration on theta^*
 CONTAINS 

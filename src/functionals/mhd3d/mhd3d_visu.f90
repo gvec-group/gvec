@@ -38,7 +38,7 @@ CONTAINS
 SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
 ! MODULES
 USE MODgvec_Globals,    ONLY: TWOPI
-USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,X1_b,X2_b,LA_b
+USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,U
 USE MODgvec_output_vtk, ONLY: WriteDataToVTK
 USE MODgvec_Output_vars,ONLY: Projectname,OutputLevel
 IMPLICIT NONE
@@ -51,13 +51,17 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: i_m,i_n,nplot(2)
+  INTEGER  :: i_m,i_n,nplot(2),iMode
   REAL(wp) :: xIP(2),q(3)
   REAL(wp) :: X1_visu,X2_visu
   REAL(wp) :: coord_visu(3,mn_IP(1),mn_IP(2),1)
   INTEGER,PARAMETER  :: nVal=1
   REAL(wp) :: var_visu(nVal,mn_IP(1),mn_IP(2),1)
   REAL(wp) :: thet(mn_IP(1)),zeta(mn_IP(2))
+  REAL(wp) :: spos
+  REAL(wp) :: X1_s(X1_base%f%modes)
+  REAL(wp) :: X2_s(X2_base%f%modes)
+  REAL(wp) :: LA_s(LA_base%f%modes)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: FileName
 !===================================================================================================================================
@@ -82,15 +86,25 @@ IMPLICIT NONE
   IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
     zeta(mn_IP(2))=zeta(1)
   END IF
+  spos=0.99999999_wp
+  DO iMode=1,X1_base%f%modes
+    X1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,U(0)%X1(:,iMode))
+  END DO
+  DO iMode=1,X2_base%f%modes
+    X2_s(iMode) = X2_base%s%evalDOF_s(spos,      0,U(0)%X2(:,iMode))
+  END DO
+  DO iMode=1,LA_base%f%modes
+    LA_s(iMode) = LA_base%s%evalDOF_s(spos,      0,U(0)%LA(:,iMode))
+  END DO
   DO i_n=1,mn_IP(2)
     xIP(2)  = zeta(i_n)
     DO i_m=1,mn_IP(1)
       xIP(1)= thet(i_m)
-      X1_visu=X1_base%f%evalDOF_x(xIP,0,X1_b)
-      X2_visu=X2_base%f%evalDOF_x(xIP,0,X2_b)
+      X1_visu=X1_base%f%evalDOF_x(xIP,0,X1_s)
+      X2_visu=X2_base%f%evalDOF_x(xIP,0,X2_s)
       q=(/X1_visu,X2_visu,xIP(2)/)
       coord_visu(  :,i_m,i_n,1)=hmap%eval(q)
-      var_visu(1,i_m,i_n,1)=LA_base%f%evalDOF_x(xIP,0,LA_b)
+      var_visu(1,i_m,i_n,1)=LA_base%f%evalDOF_x(xIP,0,LA_s)
     END DO !i_m
   END DO !i_n
   VarNames(1)="lambda"
@@ -297,7 +311,7 @@ IMPLICIT NONE
   END IF
   
   END ASSOCIATE!n_s,mn_IP
-  SWRITE(UNIT_stdOut,'(A)') '... visu 3D DONE.'
+  SWRITE(UNIT_stdOut,'(A)') '... DONE.'
 
 
 !for iteration on theta^*
