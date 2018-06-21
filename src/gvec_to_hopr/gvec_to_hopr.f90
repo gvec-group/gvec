@@ -14,32 +14,32 @@
 
 !===================================================================================================================================
 !>
-!!# Module **Eval_GVEC**
+!!# Module **gvec_to_hopr**
 !!
 !!
 !!
 !===================================================================================================================================
-MODULE MODgvec_Eval_GVEC
+MODULE MODgvec_gvec_to_hopr
 ! MODULES
 USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
-INTERFACE InitEval_GVEC
-  MODULE PROCEDURE InitEval_GVEC
+INTERFACE Init_gvec_to_hopr
+  MODULE PROCEDURE Init_gvec_to_hopr
 END INTERFACE
 !
-INTERFACE Eval_GVEC
-  MODULE PROCEDURE Eval_GVEC
+INTERFACE gvec_to_hopr
+  MODULE PROCEDURE gvec_to_hopr
 END INTERFACE
 
-INTERFACE FinalizeEval_GVEC
-  MODULE PROCEDURE FinalizeEval_GVEC
+INTERFACE Finalize_gvec_to_hopr
+  MODULE PROCEDURE Finalize_gvec_to_hopr
 END INTERFACE
 
-PUBLIC::InitEval_GVEC
-PUBLIC::Eval_GVEC
-PUBLIC::FinalizeEval_GVEC
+PUBLIC::Init_gvec_to_hopr
+PUBLIC::gvec_to_hopr
+PUBLIC::Finalize_gvec_to_hopr
 !===================================================================================================================================
 
 CONTAINS
@@ -48,10 +48,10 @@ CONTAINS
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE InitEval_GVEC(fileName) 
+SUBROUTINE Init_gvec_to_hopr(fileName) 
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MODgvec_Eval_GVEC_Vars
+USE MODgvec_gvec_to_hopr_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -63,13 +63,13 @@ CHARACTER(LEN=*), INTENT(IN) :: fileName !< name of GVEC file
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(A)')'INIT EVAL GVEC ...'
+  SWRITE(UNIT_stdOut,'(A)')'INIT GVEC TO HOPR ...'
 
   CALL ReadState(fileName)
 
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
-END SUBROUTINE InitEval_GVEC
+END SUBROUTINE Init_gvec_to_hopr
 
 
 !===================================================================================================================================
@@ -81,7 +81,7 @@ END SUBROUTINE InitEval_GVEC
 SUBROUTINE ReadState(fileString)
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
-USE MODgvec_Eval_GVEC_Vars
+USE MODgvec_gvec_to_hopr_Vars
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
 USE MODgvec_fbase,  ONLY: sin_cos_map 
@@ -194,10 +194,10 @@ END SUBROUTINE ReadState
 !> Evaluate gvec state at a list of s,theta,zeta positions
 !!
 !===================================================================================================================================
-SUBROUTINE Eval_GVEC(nNodes,xIn,xOut,data_out,phi_axis_edge,chi_axis_edge)
+SUBROUTINE gvec_to_hopr(nNodes,xIn,xOut,data_out,phi_axis_edge,chi_axis_edge)
 ! MODULES
 USE MODgvec_Globals, ONLY: CROSS
-USE MODgvec_Eval_GVEC_Vars
+USE MODgvec_gvec_to_hopr_vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -276,16 +276,16 @@ DO iNode=1,nNodes
   data_out(7:9,iNode)=Acart(:)
 END DO
 
-END SUBROUTINE Eval_GVEC
+END SUBROUTINE gvec_to_hopr
 
 
 !===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeEval_GVEC 
+SUBROUTINE Finalize_gvec_to_hopr 
 ! MODULES
-USE MODgvec_Eval_GVEC_Vars
+USE MODgvec_gvec_to_hopr_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -308,6 +308,6 @@ IMPLICIT NONE
   DEALLOCATE(X2_base_r)
   DEALLOCATE(LA_base_r)
 
-END SUBROUTINE FinalizeEval_GVEC
+END SUBROUTINE Finalize_gvec_to_hopr
 
-END MODULE MODgvec_Eval_GVEC
+END MODULE MODgvec_gvec_to_hopr

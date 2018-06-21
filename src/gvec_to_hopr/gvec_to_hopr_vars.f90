@@ -13,12 +13,12 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** Eval_GVEC Variables **
+!!# Module ** GVEC_TO_HOPR Variables **
 !!
 !!
 !!
 !===================================================================================================================================
-MODULE MODgvec_Eval_GVEC_Vars
+MODULE MODgvec_gvec_to_hopr_vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
 USE MODgvec_sgrid,  ONLY: t_sgrid
@@ -39,5 +39,5 @@ PUBLIC
   REAL,ALLOCATABLE                  :: profiles_1d(:,:)
                                          
 !===================================================================================================================================
-END MODULE MODgvec_Eval_GVEC_Vars
+END MODULE MODgvec_gvec_to_hopr_vars
 
