@@ -42,6 +42,7 @@ FUNCTION Eval_iota(spos)
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
 USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+!USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 USE MODgvec_VMEC_vars  ,ONLY: iota_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------

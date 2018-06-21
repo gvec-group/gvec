@@ -70,7 +70,6 @@ ENDMACRO()
 #                        "Name of functional to be used, must be identical to subdirectory name in src/functionals folder.")
 #SET_PROPERTY(CACHE FUNCTIONAL PROPERTY STRINGS ${FUNCTIONALS})
 
-OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 
 # =========================================================================
 # PREPROCESSOR FLAGS
@@ -80,6 +79,14 @@ OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 #SET_PROPERTY(CACHE MAIN_DISCTYPE  PROPERTY STRINGS "1" "2")
 #ADD_DEFINITIONS(-DPP_DiscType=${MAIN_DISCTYPE})
 
+OPTION(COMPILE_GVEC "compile gvec programme for equilibrium computations (libgvec and gvec executable)" ON)
+IF(COMPILE_GVEC)
+  OPTION(LINK_GVEC_TO_NETCDF "Link to local NetCDF library, needed for VMEC input" ON)
+ELSE()
+  UNSET(LINK_GVEC_TO_NETCDF CACHE ) # if not mhd
+ENDIF()
+OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" ON)
+OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" ON)
 
 
 # =========================================================================
@@ -87,7 +94,7 @@ OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 # =========================================================================
 # make sure that the default is a RELEASE
 IF (NOT CMAKE_BUILD_TYPE)
-  SET (CMAKE_BUILD_TYPE Debug CACHE STRING
+  SET (CMAKE_BUILD_TYPE Release CACHE STRING
       "Choose the type of build, options are: Debug / Release / Profile."
       FORCE)
   SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile)
@@ -191,7 +198,7 @@ ENDIF()
 # =========================================================================
 # NETCDF (locally installed only!)
 # =========================================================================
-IF(BUILD_NETCDF)
+IF(LINK_GVEC_TO_NETCDF)
   IF(ON_HYDRA GREATER -1)
     SET(NETCDF_DIR  $ENV{NETCDF_HOME}) 
   ELSE()
@@ -222,10 +229,32 @@ endfunction()
 # include defines.h 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
 
-FILE(GLOB_RECURSE mainF90 ./src/*.f90 ./src/*.f )
+FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90 
+                          ./src/base/*.f90 
+                          ./src/functionals/mhd3d/*hmap*.f90 
+                          ./src/grid/*.f90 )
 
 
 # define libs
+IF(COMPILE_GVEC)
+  FILE(GLOB_RECURSE gvecF90 ./src/*.f 
+                            ./src/functionals/*.f90 
+                            ./src/analyze/*.f90 
+                            ./src/lbfgsb/*.f90 
+                            ./src/mhdeq/*.f90 
+                            ./src/output/*.f90 
+                            ./src/restart/*.f90 )
+  LIST(APPEND mainF90 ${gvecF90})
+ENDIF()
+IF(COMPILE_GVEC_TO_HOPR)
+  FILE(GLOB tohoprF90 ./src/gvec_to_hopr/*.f90 )
+  LIST(APPEND mainF90 ${tohoprF90})
+ENDIF()
+IF(COMPILE_GVEC_TO_GENE)
+  FILE(GLOB togeneF90 ./src/gvec_to_gene/*.f90 )
+  LIST(APPEND mainF90 ${togeneF90})
+ENDIF()
+
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
 SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
@@ -234,11 +263,19 @@ ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
 # =========================================================================
 # Executable programs (simply use add_exec)
 # =========================================================================
-add_exec(gvec ./src/gvec.f90)
-ADD_DEPENDENCIES(gvec gveclib )
+IF(COMPILE_GVEC)
+  add_exec(gvec ./src/gvec.f90)
+  ADD_DEPENDENCIES(gvec gveclib )
+ENDIF()
+IF(COMPILE_GVEC_TO_HOPR)
+  add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
+  ADD_DEPENDENCIES(test_gvec_to_hopr gveclib )
+ENDIF()
+IF(COMPILE_GVEC_TO_GENE)
+  add_exec(test_gvec_to_gene ./src/test_gvec_to_gene.f90 )
+  ADD_DEPENDENCIES(test_gvec_to_gene gveclib )
+ENDIF()
 
-add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
-ADD_DEPENDENCIES(test_gvec_to_hopr gveclib )
 
 # =========================================================================
 # Install

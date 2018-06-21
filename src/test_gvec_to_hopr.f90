@@ -56,14 +56,16 @@ REAL(wp)                :: chi_edge_axis(2)
   xin(:,1)=(/0.,0.5,0.3/)
   xin(:,2)=(/0.3,0.13,0.65/)
   xin(:,3)=(/0.6,0.43,0.15/)
-  xin(:,4)=(/1.,-0.33,-0.45/)
-  CALL gvec_to_hopr(2,xin,xout,data_out,phi_edge_axis,chi_edge_axis)
+  xin(:,4)=(/1.0,-0.33,-0.45/)
+  CALL gvec_to_hopr(4,xin,xout,data_out,phi_edge_axis,chi_edge_axis)
+  WRITE(*,*)'phi_edge_axis: ',phi_edge_axis
+  WRITE(*,*)'chi_edge_axis: ',chi_edge_axis
   DO i=1,4
     WRITE(*,*)'s,thet,zeta: ',xin(:,i)
     WRITE(*,*)'x,y,z      : ',xout(:,i)
     WRITE(*,*)'pressure   : ',data_out(1,i)
     WRITE(*,*)'Bcart      : ',data_out(2:4,i)
-    WRITE(*,*)'phi,chi    : ',data_out(5:6,i)
+    WRITE(*,*)'chi,phi    : ',data_out(5:6,i)
     WRITE(*,*)'Acart      : ',data_out(7:9,i)
     WRITE(*,*)'-----------------------'
   END DO

@@ -1,0 +1,135 @@
+!===================================================================================================================================
+! Copyright (C) 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2018  Maurice Maurer <maurice_maurer@gmx.de>
+! Copyright (C) 2018  Alejandro Banon Navarro <abanonna@ipp.mpg.de>
+!
+! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
+! of the License, or (at your option) any later version.
+!
+! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+! of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License v3.0 for more details.
+!
+! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
+!===================================================================================================================================
+#include "defines.h"
+
+
+!===================================================================================================================================
+!> 
+!!# **TEST GVEC TO GENE** Driver program 
+!!
+!! to test, just execute in ini/toksy 
+!! ../../build/bin/test_gvec_to_gene TOKSY_State_0000_00000000.dat
+!! or ini/w7x
+!! ../../build/bin/test_gvec_to_gene W7X_State_0000_00000000.dat
+!===================================================================================================================================
+PROGRAM TEST_GVEC_TO_GENE
+USE MODgvec_Globals
+USE MODgvec_gvec_to_gene
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!local variables
+INTEGER                 :: nArgs
+CHARACTER(LEN=255)      :: filename 
+REAL(wp)                :: StartTime,EndTime
+REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p,p_prime 
+INTEGER                 :: n0_global,is,i,j
+INTEGER,PARAMETER       :: nthet=11
+INTEGER,PARAMETER       :: nzeta=22
+REAL(wp),DIMENSION(nthet,nzeta)   :: theta_star,zeta
+REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB 
+!===================================================================================================================================
+  CALL CPU_TIME(StartTime)
+  nArgs=COMMAND_ARGUMENT_COUNT()
+  IF(nArgs.GE.1)THEN
+    CALL GET_COMMAND_ARGUMENT(1,filename)
+  ELSE
+    STOP 'GVEC_TO_GENE: gvec filename not given, usage: "./executable gvec_file.dat"'
+  END IF
+    
+  
+  !header
+  WRITE(Unit_stdOut,'(132("="))')
+  WRITE(Unit_stdOut,'(5(("*",A128,2X,"*",:,"\n")))')&
+ '  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '&
+,' - - - - - - - - -  GVEC ==> GENE - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '&
+,' - - - - - - - - -  GVEC ==> GENE - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '&
+,' - - - - - - - - -  GVEC ==> GENE - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '&
+,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
+  WRITE(Unit_stdOut,'(132("="))')
+  
+  !initialization phase
+  CALL Init_gvec_to_gene(filename)
+ 
+  CALL gvec_to_gene_scalars(Fa,minor_r,n0_global)
+  WRITE(*,*)'Fa',Fa
+  WRITE(*,*)'minor_r',minor_r
+  WRITE(*,*)'n0_global',n0_global
+  WRITE(*,'(80("-"))')
+  DO is=0,8
+    spos=0.01+REAL(is)/REAL(8)*0.98
+    CALL gvec_to_gene_profile(spos,q,q_prime,p,p_prime)
+    WRITE(*,'(4(A,g15.7))') &
+               's= ',spos &
+              ,', q(s)= ', q &
+              ,', q_prime(s)= ',q_prime &
+              ,', p(s)= ',p &
+              ,', p_prime(s)= ',p_prime 
+    DO i=1,nthet; DO j=1,nzeta
+      zeta(i,j)=-PI + REAL(j-1)/REAL(nthet)*2.*Pi
+      theta_star(i,j)=REAL(i-1)/REAL(nthet)*2.*Pi - 1.5*zeta(i,j)
+    END DO ; END DO
+    CALL gvec_to_gene_coords( nthet,nzeta,spos,theta_star,zeta,cart_coords)
+    WRITE(*,'(A,3g15.7)')'MIN x,y,z   : ',MINVAL(cart_coords(1,:,:)) &
+                                         ,MINVAL(cart_coords(2,:,:)) &
+                                         ,MINVAL(cart_coords(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX x,y,z   : ',MAXVAL(cart_coords(1,:,:)) &
+                                         ,MAXVAL(cart_coords(2,:,:)) &
+                                         ,MAXVAL(cart_coords(3,:,:))
+    CALL gvec_to_gene_metrics(nthet,nzeta,spos,theta_star,zeta,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
+    WRITE(*,'(A,3g15.7)')'MIN grads   : ',MINVAL(grad_s(1,:,:)) &
+                                         ,MINVAL(grad_s(2,:,:)) &
+                                         ,MINVAL(grad_s(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX grads   : ',MAXVAL(grad_s(1,:,:)) &
+                                         ,MAXVAL(grad_s(2,:,:)) &
+                                         ,MAXVAL(grad_s(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN gradth* : ',MINVAL(grad_theta_star(1,:,:)) &
+                                         ,MINVAL(grad_theta_star(2,:,:)) &
+                                         ,MINVAL(grad_theta_star(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX gradth* : ',MAXVAL(grad_theta_star(1,:,:)) &
+                                         ,MAXVAL(grad_theta_star(2,:,:)) &
+                                         ,MAXVAL(grad_theta_star(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN grad_zet: ',MINVAL(grad_zeta(1,:,:)) &
+                                         ,MINVAL(grad_zeta(2,:,:)) &
+                                         ,MINVAL(grad_zeta(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX grad_zet: ',MAXVAL(grad_zeta(1,:,:)) &
+                                         ,MAXVAL(grad_zeta(2,:,:)) &
+                                         ,MAXVAL(grad_zeta(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN Bfield  : ',MINVAL(Bfield(1,:,:)) &
+                                         ,MINVAL(Bfield(2,:,:)) &
+                                         ,MINVAL(Bfield(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX Bfield  : ',MAXVAL(Bfield(1,:,:)) &
+                                         ,MAXVAL(Bfield(2,:,:)) &
+                                         ,MAXVAL(Bfield(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN grad|B| : ',MINVAL(grad_absB(1,:,:)) &
+                                         ,MINVAL(grad_absB(2,:,:)) &
+                                         ,MINVAL(grad_absB(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MAX grad|B| : ',MAXVAL(grad_absB(1,:,:)) &
+                                         ,MAXVAL(grad_absB(2,:,:)) &
+                                         ,MAXVAL(grad_absB(3,:,:))
+    WRITE(*,'(80("-"))')
+  END DO !spos
+
+  
+
+  CALL Finalize_gvec_to_gene()
+
+  CALL CPU_TIME(EndTime)
+  WRITE(Unit_stdOut,fmt_sep)
+  WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC_TO_GENE FINISHED! [',EndTime-StartTime,' sec ]'
+  WRITE(Unit_stdOut,fmt_sep)
+
+END PROGRAM TEST_GVEC_TO_GENE
+
+

@@ -153,8 +153,16 @@ IMPLICIT NONE
   DO is=1,X1_nbase_r
     READ(ioUnit,*)profiles_IP(is,:)
   END DO
+  READ(ioUnit,*) !## a_minor,r_major,volume 
+  READ(ioUnit,*) ! a_minor,r_major,volume
 
   CLOSE(ioUnit)
+
+  WRITE(*,*)'profiles, min/max phi ',MINVAL(profiles_IP(:,2)),MAXVAL(profiles_IP(:,2))
+  WRITE(*,*)'profiles, min/max chi ',MINVAL(profiles_IP(:,3)),MAXVAL(profiles_IP(:,3))
+  WRITE(*,*)'profiles, min/max iota',MINVAL(profiles_IP(:,4)),MAXVAL(profiles_IP(:,4))
+  WRITE(*,*)'profiles, min/max pres',MINVAL(profiles_IP(:,5)),MAXVAL(profiles_IP(:,5))
+
 
   CALL hmap_new(hmap_r,which_hmap_r)
   ! check if input has changed:
@@ -176,7 +184,7 @@ IMPLICIT NONE
   ALLOCATE(profiles_1d(1:X1_nbase_r,4))
   !convert to spline DOF
   profiles_1d(:,1) =X1_base_r%s%initDOF( profiles_IP(:,1+1) ) !phi
-  profiles_1d(:,2) =X1_base_r%s%initDOF( profiles_IP(:,1+2) ) !chi
+  profiles_1d(:,2) =X1_base_r%s%initDOF( profiles_IP(:,1+2) ) !chi: WARNING: CANNOT YET BE USED...
   profiles_1d(:,3) =X1_base_r%s%initDOF( profiles_IP(:,1+3) ) !iota
   profiles_1d(:,4) =X1_base_r%s%initDOF( profiles_IP(:,1+4) ) !pressure
 
@@ -211,8 +219,11 @@ REAL,INTENT(OUT) :: phi_axis_edge(2)
 REAL,INTENT(OUT) :: chi_axis_edge(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: iNode
+INTEGER :: iNode,iMode
 REAL    :: spos,thet,zeta,X1_int,X2_int,LA_int
+REAL(wp),DIMENSION(1:X1_base_r%f%modes) :: X1_s,dX1ds_s
+REAL(wp),DIMENSION(1:X2_base_r%f%modes) :: X2_s,dX2ds_s
+REAL(wp),DIMENSION(1:LA_base_r%f%modes) :: LA_s
 REAL    :: dX1ds   ,dX2ds
 REAL    :: dX1dthet,dX2dthet
 REAL    :: dX1dzeta,dX2dzeta
@@ -220,7 +231,7 @@ REAL    :: dLAdthet,dLAdzeta
 REAL    :: phi_int,chi_int,pres_int,iota_int
 REAL    :: phiPrime_int,ChiPrime_int         !prime refers to d/ds , where s=sqrt(phi_norm)
 REAL    :: sqrtG
-REAL    :: xp(3),Bcart(3),Acart(3),q(3)
+REAL    :: Bcart(3),Acart(3),qvec(3)
 REAL    :: e_s(3),e_thet(3),e_zeta(3)
 REAL    :: grad_s(3),grad_thet(3),grad_zeta(3)
 !===================================================================================================================================
@@ -229,35 +240,45 @@ chi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,2))
 phi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,1))
 chi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,2))
 DO iNode=1,nNodes
-  xp(1)  =MAX(1.0e-08,xIn(1,iNode))
-  xp(2:3) = xIn(2:3,iNode)
-  spos=xp(1)
-  thet=xp(2)
-  zeta=xp(3)
-  phi_int  = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,1))
-  chi_int  = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,2))
-  iota_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
-  pres_int = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4))
+  spos=xIn(1,iNode)
+  thet=xIn(2,iNode)
+  zeta=xIn(3,iNode)
+
+  phi_int      = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,1))
+  chi_int      = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,2))
+  iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+  pres_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4))
   PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
   ChiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2))
 
-  X1_int      =X1_base_r%evalDOF_x(xp,(/      0,         0/),X1_r)
-  dX1ds       =X1_base_r%evalDOF_x(xp,(/DERIV_S,         0/),X1_r)
-  dX1dthet    =X1_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),X1_r)
-  dX1dzeta    =X1_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),X1_r)
-  X2_int      =X2_base_r%evalDOF_x(xp,(/      0,         0/),X2_r)
-  dX2ds       =X2_base_r%evalDOF_x(xp,(/DERIV_S,         0/),X2_r)
-  dX2dthet    =X2_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),X2_r)
-  dX2dzeta    =X2_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),X2_r)
-  LA_int      =LA_base_r%evalDOF_x(xp,(/      0,         0/),LA_r)
-  dLAdthet    =LA_base_r%evalDOF_x(xp,(/      0,DERIV_THET/),LA_r)
-  dLAdzeta    =LA_base_r%evalDOF_x(xp,(/      0,DERIV_ZETA/),LA_r)
+  DO iMode=1,X1_base_r%f%modes
+    X1_s(   iMode) =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
+    dX1ds_s(iMode) =X1_base_r%s%evalDOF_s(spos,DERIV_S,X1_r(:,iMode))
+  END DO
+  DO iMode=1,X2_base_r%f%modes
+    X2_s(   iMode) =X2_base_r%s%evalDOF_s(spos,      0,X2_r(:,iMode))
+    dX2ds_s(iMode) =X2_base_r%s%evalDOF_s(spos,DERIV_S,X2_r(:,iMode))
+  END DO
+  DO iMode=1,LA_base_r%f%modes
+    LA_s(   iMode) =LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode))
+  END DO
+  X1_int     = X1_base_r%f%evalDOF_x((/thet,zeta/),         0,X1_s)
+  dX1ds      = X1_base_r%f%evalDOF_x((/thet,zeta/),         0,dX1ds_s)
+  dX1dthet   = X1_base_r%f%evalDOF_x((/thet,zeta/),DERIV_THET,X1_s)
+  dX1dzeta   = X1_base_r%f%evalDOF_x((/thet,zeta/),DERIV_ZETA,X1_s)
+  X2_int     = X2_base_r%f%evalDOF_x((/thet,zeta/),         0,X2_s)
+  dX2ds      = X2_base_r%f%evalDOF_x((/thet,zeta/),         0,dX2ds_s)
+  dX2dthet   = X2_base_r%f%evalDOF_x((/thet,zeta/),DERIV_THET,X2_s)
+  dX2dzeta   = X2_base_r%f%evalDOF_x((/thet,zeta/),DERIV_ZETA,X2_s)
+  LA_int     = LA_base_r%f%evalDOF_x((/thet,zeta/),         0,LA_s)
+  dLAdthet   = LA_base_r%f%evalDOF_x((/thet,zeta/),DERIV_THET,LA_s)
+  dLAdzeta   = LA_base_r%f%evalDOF_x((/thet,zeta/),DERIV_ZETA,LA_s)
 
-  q=(/X1_int,X2_int,zeta/)
-  e_s    = hmap_r%eval_dxdq(q,(/dX1ds   ,dX2ds   ,0.0_wp/))
-  e_thet = hmap_r%eval_dxdq(q,(/dX1dthet,dX2dthet,0.0_wp/))
-  e_zeta = hmap_r%eval_dxdq(q,(/dX1dzeta,dX2dzeta,1.0_wp/))
-  sqrtG  = hmap_r%eval_Jh(q)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  qvec=(/X1_int,X2_int,zeta/)
+  e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,0.0_wp/))
+  e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
+  e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
 
   Bcart(:)=  (  e_thet(:)*(iota_int-dLAdzeta )  &
               + e_zeta(:)*(1.0_wp+dLAdthet) )*(PhiPrime_int/sqrtG)
@@ -267,7 +288,7 @@ DO iNode=1,nNodes
 
   Acart(:)=  ( phi_int*grad_thet(:)-(LA_int*PhiPrime_int)*grad_s(:)  -chi_int*grad_zeta)/sqrtG
 
-  xOut(:,iNode)=hmap_r%eval(q)
+  xOut(:,iNode)=hmap_r%eval(qvec)
 
   data_out(  1,iNode)=pres_int
   data_out(2:4,iNode)=Bcart(:)
