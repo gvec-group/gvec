@@ -61,7 +61,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
-  USE MODgvec_Restart        , ONLY: ReadState
+  USE MODgvec_Restart        , ONLY: RestartFromState
   USE MODgvec_Analyze        , ONLY: Analyze
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -124,7 +124,7 @@ SUBROUTINE InitMHD3D(sf)
     pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
     pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
-    Phi_edge   =-Phi_edge/TWOPI !normalization like in VMEC!!!
+    Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     gamm = 0.0_wp
@@ -344,8 +344,8 @@ SUBROUTINE InitMHD3D(sf)
 
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
-    CALL ReadState(RestartFile,U(0))
-    !CALL InitSolution(U(0),-1) !only apply BC and recompute lambda
+    CALL RestartFromState(RestartFile,U(0))
+    !CALL InitSolution(U(0),-1) !would apply BC and recompute lambda
   ELSE 
     CALL InitSolution(U(0),which_init)
   END IF

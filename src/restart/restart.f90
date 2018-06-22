@@ -33,8 +33,8 @@ INTERFACE WriteState
   MODULE PROCEDURE WriteStateToASCII
 END INTERFACE
 
-INTERFACE ReadState
-  MODULE PROCEDURE ReadStateFromASCII
+INTERFACE RestartFromState
+  MODULE PROCEDURE RestartFromState
 END INTERFACE
 
 INTERFACE FinalizeRestart
@@ -43,7 +43,7 @@ END INTERFACE
 
 PUBLIC::InitRestart
 PUBLIC::WriteState
-PUBLIC::ReadState
+PUBLIC::RestartFromState
 PUBLIC::FinalizeRestart
 !===================================================================================================================================
 
@@ -186,15 +186,16 @@ END SUBROUTINE WriteStateToASCII
 !! interpolate readin solution to the current base of Uin
 !!
 !===================================================================================================================================
-SUBROUTINE ReadStateFromASCII(fileString,U_r)
+SUBROUTINE RestartFromState(fileString,U_r)
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:OutputLevel
-USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid
+USE MODgvec_MHD3D_Vars,  ONLY:X1_base,X2_base,LA_base,sgrid
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
-USE MODgvec_fbase,  ONLY: sin_cos_map 
+USE MODgvec_readState_Vars, ONLY:sgrid_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r,outputLevel_r
+USE MODgvec_readState, ONLY: ReadState,Finalize_ReadState
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -204,94 +205,19 @@ IMPLICIT NONE
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_r 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER              :: fileID_r,OutputLevel_r
-  INTEGER              :: ioUnit,iMode,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2),which_hmap_r 
-  INTEGER              :: X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
-  INTEGER              :: X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
-  INTEGER              :: LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
-  INTEGER,ALLOCATABLE  :: X1_mn_r(:,:),X2_mn_r(:,:),LA_mn_r(:,:)
-  REAL(wp),ALLOCATABLE :: sp_r(:),X1_r(:,:),X2_r(:,:),LA_r(:,:)
   LOGICAL              :: sameGrid
   LOGICAL              :: sameX1  ,sameX2  ,sameLA, changed 
-  INTEGER              :: X1_mn_max_r(2),X2_mn_max_r(2),LA_mn_max_r(2)
-  CLASS(t_base),ALLOCATABLE :: X1_base_r
-  CLASS(t_base),ALLOCATABLE :: X2_base_r
-  CLASS(t_base),ALLOCATABLE :: LA_base_r
-  TYPE(t_sgrid)             :: sgrid_r
 !===================================================================================================================================
-  WRITE(UNIT_stdOut,'(A)')'   READ SOLUTION VARIABLE FROM FILE    "'//TRIM(FileString)//'" ...'
-
-  ioUnit=GETFREEUNIT()
-  OPEN(UNIT     = ioUnit         ,&
-     FILE     = TRIM(FileString) ,&
-     STATUS   = 'OLD'            ,&
-     ACTION   = 'READ'           ,&
-     ACCESS   = 'SEQUENTIAL' ) 
-
-  READ(ioUnit,*) !## MHD3D Solution file
-  READ(ioUnit,*) outputLevel_r,fileID_r
-  READ(ioUnit,*) !## grid: nElems, grid_type
-  READ(ioUnit,*) nElems_r,grid_type_r
-  ALLOCATE(sp_r(0:nElems_r))
-
-  READ(ioUnit,*) !## grid: sp(0:nElems)
-  READ(ioUnit,*)sp_r(:)
-  READ(ioUnit,*) !## global: nfp, degGP, mn_nyq,hmap
-  READ(ioUnit,*) nfp_r, degGP_r,mn_nyq_r !,which_hmap_r !compatibility to old restart files
-  READ(ioUnit,*) !## X1_base: 
-  READ(ioUnit,*) X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
-  READ(ioUnit,*) !## X2_base:                 
-  READ(ioUnit,*) X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
-  READ(ioUnit,*) !## LA_base:                 
-  READ(ioUnit,*) LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
-  ALLOCATE(X1_r(1:X1_nbase_r,1:X1_modes_r))
-  ALLOCATE(X2_r(1:X2_nbase_r,1:X2_modes_r))
-  ALLOCATE(LA_r(1:LA_nbase_r,1:LA_modes_r))
-  ALLOCATE(X1_mn_r(2,1:X1_modes_r))
-  ALLOCATE(X2_mn_r(2,1:X2_modes_r))
-  ALLOCATE(LA_mn_r(2,1:LA_modes_r))
-  READ(ioUnit,*) !## X1: 
-  DO iMode=1,X1_modes_r
-    READ(ioUnit,*)X1_mn_r(:,iMode),X1_r(:,iMode)
-  END DO
-  READ(ioUnit,*) !## X2: 
-  DO iMode=1,X2_modes_r
-    READ(ioUnit,*)X2_mn_r(:,iMode),X2_r(:,iMode)
-  END DO
-  READ(ioUnit,*) !## LA: 
-  DO iMode=1,LA_modes_r
-    READ(ioUnit,*)LA_mn_r(:,iMode),LA_r(:,iMode)
-  END DO
-
-  CLOSE(ioUnit)
+  WRITE(UNIT_stdOut,'(A)')'RESTARTING FROM FILE ...'
+  CALL ReadState(FileString)
 
   !update outputlevel
   WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r
   outputLevel=outputLevel_r +1
-
-  ! check if input has changed:
-
-  CALL sgrid_r%init(nElems_r,grid_type_r)
-
-  CALL sgrid_r%compare(sgrid,sameGrid)
-
-  !needed to build base of restart file
-  X1_mn_max_r = (/MAXVAL(X1_mn_r(1,:)),MAXVAL(X1_mn_r(2,:))/nfp_r/)
-  X2_mn_max_r = (/MAXVAL(X2_mn_r(1,:)),MAXVAL(X2_mn_r(2,:))/nfp_r/)
-  LA_mn_max_r = (/MAXVAL(LA_mn_r(1,:)),MAXVAL(LA_mn_r(2,:))/nfp_r/)
-
-  ASSOCIATE(curr_degGP=>X1_base%s%degGP,curr_mn_nyq=>X1_base%f%mn_nyq) !use current setup for integration points
-  CALL base_new(X1_base_r,X1_deg_r,X1_cont_r,sgrid_r,curr_degGP,X1_mn_max_r,curr_mn_nyq,nfp_r, &
-                sin_cos_map(X1_sin_cos_r),(X1_excl_mn_zero_r.EQ.1))
-  CALL base_new(X2_base_r,X2_deg_r,X2_cont_r,sgrid_r,curr_degGP,X2_mn_max_r,curr_mn_nyq,nfp_r, &
-                sin_cos_map(X2_sin_cos_r),(X2_excl_mn_zero_r.EQ.1))
-  CALL base_new(LA_base_r,LA_deg_r,LA_cont_r,sgrid_r,curr_degGP,LA_mn_max_r,curr_mn_nyq,nfp_r, &
-                sin_cos_map(LA_sin_cos_r),(LA_excl_mn_zero_r.EQ.1))
-  END ASSOCIATE
-
-  CALL X1_base_r%compare(X1_base,sameX1)
-  CALL X2_base_r%compare(X2_base,sameX2)
-  CALL LA_base_r%compare(LA_base,sameLA)
+  CALL sgrid%compare(sgrid_r,sameGrid)
+  CALL X1_base%compare(X1_base_r,sameX1)
+  CALL X2_base%compare(X2_base_r,sameX2)
+  CALL LA_base%compare(LA_base_r,sameLA)
 
   changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
 
@@ -301,41 +227,15 @@ IMPLICIT NONE
   ELSE
     SWRITE(UNIT_stdOut,*) '     ... restart from same configuration ... '
   END IF
-!  IF(sameX1)THEN
-!    U_r%X1(:,:)=X1_r
-!  ELSE
-   CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
-!  END IF
-!  IF(sameX2)THEN
-!    U_r%X2(:,:)=X2_r
-!  ELSE
-   CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)
-!  END IF
-!  IF(sameLA)THEN
-!    U_r%LA(:,:)=LA_r
-!  ELSE
-   CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
-!  END IF
+  CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
+  CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)
+  CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
 
-
-  CALL X1_base_r%free()
-  CALL X2_base_r%free()
-  CALL LA_base_r%free()
-  DEALLOCATE(X1_base_r)
-  DEALLOCATE(X2_base_r)
-  DEALLOCATE(LA_base_r)
-
-  DEALLOCATE(sp_r)
-  DEALLOCATE(X1_r)
-  DEALLOCATE(X2_r)
-  DEALLOCATE(LA_r)
-  DEALLOCATE(X1_mn_r)
-  DEALLOCATE(X2_mn_r)
-  DEALLOCATE(LA_mn_r)
+  CALL Finalize_ReadState()
 
 
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
-END SUBROUTINE ReadStateFromASCII 
+END SUBROUTINE RestartFromState
 
 !===================================================================================================================================
 !> Finalize Module

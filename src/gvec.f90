@@ -23,7 +23,7 @@ USE MODgvec_Globals
 USE MODgvec_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
 USE MODgvec_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY: InitOutput,FinalizeOutput
-USE MODgvec_Restart    ,ONLY: InitRestart,ReadState,FinalizeRestart
+USE MODgvec_Restart    ,ONLY: InitRestart,FinalizeRestart
 USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
 USE MODgvec_Functional
 IMPLICIT NONE

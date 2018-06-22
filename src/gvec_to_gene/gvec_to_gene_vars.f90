@@ -23,23 +23,10 @@
 MODULE MODgvec_gvec_to_gene_Vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
-USE MODgvec_sgrid,  ONLY: t_sgrid
-USE MODgvec_base,   ONLY: t_base, base_new
-USE MODgvec_sBase  ,ONLY: t_sbase
-USE MODgvec_fbase,  ONLY: sin_cos_map 
-USE MODgvec_c_hmap, ONLY: c_hmap
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
-  CLASS(t_base),ALLOCATABLE         :: X1_base_r
-  CLASS(t_base),ALLOCATABLE         :: X2_base_r
-  CLASS(t_base),ALLOCATABLE         :: LA_base_r
-  CLASS(c_hmap),ALLOCATABLE         :: hmap_r
-  TYPE(t_sgrid)                     :: sgrid_r
-  REAL,ALLOCATABLE                  :: X1_r(:,:),X2_r(:,:),LA_r(:,:)
-  REAL,ALLOCATABLE                  :: profiles_1d(:,:)
-  REAL                              :: a_minor,r_major,volume
                                          
 !===================================================================================================================================
 END MODULE MODgvec_gvec_to_gene_Vars

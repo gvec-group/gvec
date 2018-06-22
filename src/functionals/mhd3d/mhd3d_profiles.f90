@@ -140,11 +140,22 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp) :: phi_norm
+  INTEGER  :: n_int,i
+  REAL(wp) :: ds
 !===================================================================================================================================
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    WRITE(*,*) 'WARNING: eval_chi not implemented yet for which_init=0'  
+    !WARNING: eval_chi not implemented yet for which_init=0'  
+    !trapezodial rule integration... not optimal!
+    n_int=1+CEILING(spos*1000)
+    ds=spos/REAL(n_int,wp)
+    eval_chi=0.5_wp*Eval_chiPrime(0.0_wp)
+    DO i=1,n_int-1
+      eval_chi=eval_chi+Eval_chiPrime(REAL(i,wp)*ds)
+    END DO
+    eval_chi=eval_chi+0.5_wp*Eval_chiPrime(spos)
+    eval_chi=eval_chi*ds
   CASE(1)
     eval_chi=VMEC_EvalSpl(0,SQRT(phi_norm),chi_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
   END SELECT
