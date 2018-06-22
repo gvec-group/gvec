@@ -53,7 +53,7 @@ REAL(wp)                :: chi_edge_axis(2)
   !initialization phase
   CALL Init_gvec_to_hopr(filename)
  
-  xin(:,1)=(/0.,0.5,0.3/)
+  xin(:,1)=(/0.0,0.5,0.3/)
   xin(:,2)=(/0.3,0.13,0.65/)
   xin(:,3)=(/0.6,0.43,0.15/)
   xin(:,4)=(/1.0,-0.33,-0.45/)
@@ -65,6 +65,7 @@ REAL(wp)                :: chi_edge_axis(2)
     WRITE(*,*)'x,y,z      : ',xout(:,i)
     WRITE(*,*)'pressure   : ',data_out(1,i)
     WRITE(*,*)'Bcart      : ',data_out(2:4,i)
+    WRITE(*,*)'|B|        : ',SQRT(SUM(data_out(2:4,i)**2))
     WRITE(*,*)'chi,phi    : ',data_out(5:6,i)
     WRITE(*,*)'Acart      : ',data_out(7:9,i)
     WRITE(*,*)'-----------------------'

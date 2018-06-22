@@ -126,7 +126,7 @@ USE MODgvec_ReadState_Vars,ONLY: profiles_1d,X1_base_r
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL(wp),INTENT(IN) :: spos              !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
+REAL(wp),INTENT(IN) :: spos            !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp),OPTIONAL,INTENT(OUT) :: q                !! q=1/iota profile
@@ -148,7 +148,7 @@ END SUBROUTINE gvec_to_gene_profile
 !> Evaluate gvec state at a list of theta,zeta positions and a fixed s position
 !!
 !===================================================================================================================================
-SUBROUTINE gvec_to_gene_coords(nthet,nzeta,spos,theta_star_in,zeta_in,cart_coords)
+SUBROUTINE gvec_to_gene_coords(nthet,nzeta,spos_in,theta_star_in,zeta_in,cart_coords)
 ! MODULES
 USE MODgvec_ReadState_Vars
 USE MODgvec_globals, ONLY: PI
@@ -158,7 +158,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 INTEGER              :: nthet          !! number of points in theta_star
 INTEGER              :: nzeta          !! number of points in zeta
-REAL(wp),INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
+REAL(wp),INTENT( IN) :: spos_in        !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
 REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle (straight field line angle PEST)
 REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -172,8 +172,9 @@ REAL(wp)    :: xp(2),qvec(3)
 REAL(wp)    :: X1_s(   1:X1_base_r%f%modes)
 REAL(wp)    :: X2_s(   1:X2_base_r%f%modes)
 REAL(wp)    :: LA_s(   1:LA_base_r%f%modes)
-REAL(wp)    :: X1_int,X2_int
+REAL(wp)    :: X1_int,X2_int,spos
 !===================================================================================================================================
+spos=MAX(1.0e-08_wp,MIN(1.0_wp,spos_in)) !for satefy reasons at the axis and edge
 !interpolate first in s direction
 DO iMode=1,X1_base_r%f%modes
   X1_s(iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode)) !R
@@ -222,7 +223,7 @@ END SUBROUTINE gvec_to_gene_coords
 !> Evaluate gvec state at a list of theta,zeta positions and a fixed s position
 !!
 !===================================================================================================================================
-SUBROUTINE gvec_to_gene_metrics(nthet,nzeta,spos,theta_star_in,zeta_in,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
+SUBROUTINE gvec_to_gene_metrics(nthet,nzeta,spos_in,theta_star_in,zeta_in,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
 ! MODULES
 USE MODgvec_ReadState_Vars
 USE MODgvec_globals, ONLY: PI,CROSS
@@ -232,7 +233,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 INTEGER              :: nthet          !! number of points in theta_star
 INTEGER              :: nzeta          !! number of points in zeta
-REAL(wp),INTENT( IN) :: spos           !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
+REAL(wp),INTENT( IN) :: spos_in        !! radial position (sqrt(phi_norm)), phi_norm: normalized toroidal flux [0,1]
 REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle (straight field line angle PEST)
 REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -255,10 +256,11 @@ REAL(wp) :: X1_int,dX1ds,dX1dthet,dX1dzeta
 REAL(wp) :: X2_int,dX2ds,dX2dthet,dX2dzeta
 REAL(wp) :: dLAds,dLAdthet,dLAdzeta
 REAL(wp) :: e_s(3),e_thet(3),e_zeta(3),grad_thet(3)
-REAL(wp) :: sqrtG
+REAL(wp) :: sqrtG,spos
 REAL(wp) :: absB,absB_ds,absB_dthet,absB_dzeta
 REAL(wp) :: eps=1.0e-08
 !===================================================================================================================================
+spos=MAX(1.0e-08_wp,MIN(1.0_wp,spos_in)) !for satefy reasons at the axis and edge
 !interpolate first in s direction
 
 DO iMode=1,X1_base_r%f%modes

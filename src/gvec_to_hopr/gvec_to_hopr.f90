@@ -116,7 +116,7 @@ chi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,2))
 phi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,1))
 chi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,2))
 DO iNode=1,nNodes
-  spos=xIn(1,iNode)
+  spos=MAX(1.0e-08,MIN(1.0,xIn(1,iNode)))
   thet=xIn(2,iNode)
   zeta=xIn(3,iNode)
 
@@ -154,7 +154,7 @@ DO iNode=1,nNodes
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,0.0_wp/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
   Bcart(:)=  (  e_thet(:)*(iota_int-dLAdzeta )  &
               + e_zeta(:)*(1.0_wp+dLAdthet) )*(PhiPrime_int/sqrtG)
