@@ -142,6 +142,8 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
    #environment specific variables
    IF(ON_MARCONI GREATER -1)
       SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
+   ELSEIF (ON_HYDRA GREATER -1 )
+      SET(MAIN_INSTRUCTION "-xCORE-AVX-I -parallel") #for hydra, using automatic parallelization (choose OMP_NUM_THREADS=16)
    ELSE()
       SET(MAIN_INSTRUCTION "-xHost")
    ENDIF()

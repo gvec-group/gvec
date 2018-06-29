@@ -762,7 +762,22 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
       
       IF(deltaW.LE.1.0e-10*W_MHD3D_0)THEN !valid step 
-         !LINE SEARCH COULD BE USED HERE !!
+         ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
+         CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
+         JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
+         U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
+         IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
+           CALL P(1)%set_to(U(1)) !accept smaller step
+           CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
+           JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
+           U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
+           IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
+             SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
+             CALL P(1)%set_to(U(1)) !accept smaller step
+           ELSE
+             SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
+           END IF
+         END IF
 
 !        IF(ABS(deltaW).LE.aborttol)THEN
 !          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
@@ -868,7 +883,7 @@ SUBROUTINE MinimizeMHD3D_LBFGS(sf)
 ! LOCAL VARIABLES
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck,lastoutputIter,lastLogIter
-  REAL(wp)  :: beta,dt,deltaW,absTol
+  REAL(wp)  :: dt,deltaW,absTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0,W_MHD3D_1
 !variables for lbfgs
   INTEGER,  PARAMETER    :: m = 5, iprint = 0

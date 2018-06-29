@@ -174,7 +174,7 @@ REAL(wp)    :: X2_s(   1:X2_base_r%f%modes)
 REAL(wp)    :: LA_s(   1:LA_base_r%f%modes)
 REAL(wp)    :: X1_int,X2_int,spos
 !===================================================================================================================================
-spos=MAX(1.0e-08_wp,MIN(1.0_wp,spos_in)) !for satefy reasons at the axis and edge
+spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 !interpolate first in s direction
 DO iMode=1,X1_base_r%f%modes
   X1_s(iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode)) !R
@@ -260,7 +260,7 @@ REAL(wp) :: sqrtG,spos
 REAL(wp) :: absB,absB_ds,absB_dthet,absB_dzeta
 REAL(wp) :: eps=1.0e-08
 !===================================================================================================================================
-spos=MAX(1.0e-08_wp,MIN(1.0_wp,spos_in)) !for satefy reasons at the axis and edge
+spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 !interpolate first in s direction
 
 DO iMode=1,X1_base_r%f%modes

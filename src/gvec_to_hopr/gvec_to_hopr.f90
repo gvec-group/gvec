@@ -86,13 +86,13 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER          :: nNodes
-REAL,INTENT( IN) :: xIn(3,nNodes)  !!s=sqrt(psi_norm),theta,zeta positions for evaluation, psi_norm is normalized toroidal flux
+REAL(wp),INTENT( IN) :: xIn(3,nNodes)  !!s=sqrt(psi_norm),theta,zeta positions for evaluation, psi_norm is normalized toroidal flux
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT) :: xOut(3,nNodes)  !! x,y,z cartesian coordinates
-REAL,INTENT(OUT) :: data_out(9,nNodes)  !! pressure,Bcart(3),chi,phi,Acart(3)
-REAL,INTENT(OUT) :: phi_axis_edge(2)
-REAL,INTENT(OUT) :: chi_axis_edge(2)
+REAL(wp),INTENT(OUT) :: xOut(3,nNodes)  !! x,y,z cartesian coordinates
+REAL(wp),INTENT(OUT) :: data_out(9,nNodes)  !! pressure,Bcart(3),chi,phi,Acart(3)
+REAL(wp),INTENT(OUT) :: phi_axis_edge(2)
+REAL(wp),INTENT(OUT) :: chi_axis_edge(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER :: iNode,iMode
@@ -100,23 +100,23 @@ REAL    :: spos,thet,zeta,X1_int,X2_int,LA_int
 REAL(wp),DIMENSION(1:X1_base_r%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_r%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LA_base_r%f%modes) :: LA_s
-REAL    :: dX1ds   ,dX2ds
-REAL    :: dX1dthet,dX2dthet
-REAL    :: dX1dzeta,dX2dzeta
-REAL    :: dLAdthet,dLAdzeta
-REAL    :: phi_int,chi_int,pres_int,iota_int
-REAL    :: phiPrime_int,ChiPrime_int         !prime refers to d/ds , where s=sqrt(phi_norm)
-REAL    :: sqrtG
-REAL    :: Bcart(3),Acart(3),qvec(3)
-REAL    :: e_s(3),e_thet(3),e_zeta(3)
-REAL    :: grad_s(3),grad_thet(3),grad_zeta(3)
+REAL(wp):: dX1ds   ,dX2ds
+REAL(wp):: dX1dthet,dX2dthet
+REAL(wp):: dX1dzeta,dX2dzeta
+REAL(wp):: dLAdthet,dLAdzeta
+REAL(wp):: phi_int,chi_int,pres_int,iota_int
+REAL(wp):: phiPrime_int,ChiPrime_int         !prime refers to d/ds , where s=sqrt(phi_norm)
+REAL(wp):: sqrtG
+REAL(wp):: Bcart(3),Acart(3),qvec(3)
+REAL(wp):: e_s(3),e_thet(3),e_zeta(3)
+REAL(wp):: grad_s(3),grad_thet(3),grad_zeta(3)
 !===================================================================================================================================
-phi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,1))
-chi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08, 0,profiles_1d(:,2))
-phi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,1))
-chi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,2))
+phi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,1))
+chi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,2))
+phi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0_wp, 0,profiles_1d(:,1))
+chi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0_wp, 0,profiles_1d(:,2))
 DO iNode=1,nNodes
-  spos=MAX(1.0e-08,MIN(1.0,xIn(1,iNode)))
+  spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,xIn(1,iNode)))
   thet=xIn(2,iNode)
   zeta=xIn(3,iNode)
 

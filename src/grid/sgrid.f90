@@ -280,7 +280,7 @@ IMPLICIT NONE
   INTEGER                       :: iElem
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: jElem
+  INTEGER  :: low,high
   REAL(wp) :: xloc
 !===================================================================================================================================
   iElem=1
@@ -306,13 +306,28 @@ IMPLICIT NONE
     RETURN
   END SELECT
   
-  !not efficient, bisection of sp  array would be better!!
-  DO jElem=2,sf%nElems
-    IF((xloc.GE.sf%sp(iElem-1)).AND.(xloc.LT.sf%sp(jElem)))THEN
-      iElem=jElem
-      EXIT
-    END IF
+  !not efficient, bisection of sp  array is better!!
+  !DO jElem=2,sf%nElems
+  !  IF((xloc.GE.sf%sp(iElem-1)).AND.(xloc.LT.sf%sp(jElem)))THEN
+  !    iElem=jElem
+  !    EXIT
+  !  END IF
+  !END DO
+
+  !bisection
+  low   = 1
+  high  = sf%nElems-1
+  iElem = (low + high) / 2 +1
+  DO WHILE ( (xloc .LT.  sf%sp(iElem-1)) .OR. (xloc .GE. sf%sp(iElem)) )
+     IF (xloc .LT. sf%sp(iElem-1)) THEN
+       high = iElem-1
+     ELSE
+       low  = iElem
+     END IF
+     iElem = (low + high) / 2+1
   END DO
+
+
 
 END FUNCTION sGrid_find_elem
 

@@ -870,6 +870,7 @@ TYPE IS(t_sbase_spl)
     base_x=baseloc(deriv,:)
   END IF
 
+  IF(iElem.EQ.-1)STOP 'PROBLEM, iElem not found in spline eval (sbase_eval)...'
 CLASS DEFAULT
   CALL abort(__STAMP__, &
     "this type of continuity not implemented!")
