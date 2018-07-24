@@ -148,7 +148,7 @@ END SUBROUTINE gvec_to_gene_profile
 !> Evaluate gvec state at a list of theta,zeta positions and a fixed s position
 !!
 !===================================================================================================================================
-SUBROUTINE gvec_to_gene_coords(nthet,nzeta,spos_in,theta_star_in,zeta_in,cart_coords)
+SUBROUTINE gvec_to_gene_coords(nthet,nzeta,spos_in,theta_star_in,zeta_in,theta_out,cart_coords)
 ! MODULES
 USE MODgvec_ReadState_Vars
 USE MODgvec_globals, ONLY: PI
@@ -163,11 +163,12 @@ REAL(wp),INTENT( IN) :: theta_star_in(nthet,nzeta)  !! thetaStar poloidal angle 
 REAL(wp),INTENT( IN) :: zeta_in(      nthet,nzeta)  !! zeta toroidal angle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+REAL(wp), INTENT(OUT) :: theta_out(nthet,nzeta)
 REAL(wp),INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinates
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER     :: iMode,ithet,izeta
-REAL(wp)    :: theta_star,theta,zeta
+REAL(wp)    :: theta_star,zeta
 REAL(wp)    :: xp(2),qvec(3)
 REAL(wp)    :: X1_s(   1:X1_base_r%f%modes)
 REAL(wp)    :: X2_s(   1:X2_base_r%f%modes)
@@ -192,9 +193,9 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta) 
   ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
   !                      tolerance , lower bound , upper bound , maxstep, start value , F0
-  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
+  theta_out(ithet,izeta)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
 
-  xp=(/theta,zeta/)
+  xp=(/theta_out(ithet,izeta),zeta/)
 
   X1_int      = X1_base_r%f%evalDOF_x(xp,0,X1_s)
   X2_int      = X2_base_r%f%evalDOF_x(xp,0,X2_s)

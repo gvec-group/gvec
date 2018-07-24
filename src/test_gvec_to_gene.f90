@@ -37,7 +37,7 @@ REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p,p_prime
 INTEGER                 :: n0_global,is,i,j
 INTEGER,PARAMETER       :: nthet=11
 INTEGER,PARAMETER       :: nzeta=22
-REAL(wp),DIMENSION(nthet,nzeta)   :: theta_star,zeta
+REAL(wp),DIMENSION(nthet,nzeta)   :: theta_star,theta,zeta
 REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB 
 !===================================================================================================================================
   CALL CPU_TIME(StartTime)
@@ -80,13 +80,18 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
       zeta(i,j)=-PI + REAL(j-1)/REAL(nthet)*2.*Pi
       theta_star(i,j)=REAL(i-1)/REAL(nthet)*2.*Pi - 1.5*zeta(i,j)
     END DO ; END DO
-    CALL gvec_to_gene_coords( nthet,nzeta,spos,theta_star,zeta,cart_coords)
+    CALL gvec_to_gene_coords( nthet,nzeta,spos,theta_star,zeta,theta,cart_coords)
     WRITE(*,'(A,3g15.7)')'MIN x,y,z   : ',MINVAL(cart_coords(1,:,:)) &
                                          ,MINVAL(cart_coords(2,:,:)) &
                                          ,MINVAL(cart_coords(3,:,:))
     WRITE(*,'(A,3g15.7)')'MAX x,y,z   : ',MAXVAL(cart_coords(1,:,:)) &
                                          ,MAXVAL(cart_coords(2,:,:)) &
                                          ,MAXVAL(cart_coords(3,:,:))
+    WRITE(*,'(A,3g15.7)')'MIN th*,th  : ',MINVAL(theta_star) &
+                                         ,MINVAL(theta)
+    WRITE(*,'(A,3g15.7)')'MAX th*,th  : ',MAXVAL(theta_star) &
+                                         ,MAXVAL(theta)
+
     CALL gvec_to_gene_metrics(nthet,nzeta,spos,theta_star,zeta,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
     WRITE(*,'(A,3g15.7)')'MIN grads   : ',MINVAL(grad_s(1,:,:)) &
                                          ,MINVAL(grad_s(2,:,:)) &
