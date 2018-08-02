@@ -36,6 +36,7 @@ SUBROUTINE hmap_new( sf, which_hmap)
 ! MODULES
 USE MODgvec_Globals   , ONLY: abort
 USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
+USE MODgvec_hmap_RphiZ, ONLY: t_hmap_RphiZ
 USE MODgvec_hmap_knot , ONLY: t_hmap_knot
 USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl
 IMPLICIT NONE
@@ -52,6 +53,8 @@ IMPLICIT NONE
   CASE(1)
     ALLOCATE(t_hmap_RZ :: sf)
   CASE(2)
+    ALLOCATE(t_hmap_RphiZ :: sf)
+  CASE(3)
     ALLOCATE(t_hmap_cyl  :: sf)
   CASE(10)
     ALLOCATE(t_hmap_knot :: sf)

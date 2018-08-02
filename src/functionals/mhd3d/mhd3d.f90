@@ -57,6 +57,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_fbase          , ONLY: t_fbase,fbase_new
   USE MODgvec_base           , ONLY: t_base,base_new
   USE MODgvec_hmap           , ONLY: hmap_new
+  USE MODgvec_VMEC_vars      , ONLY: switchZeta
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
@@ -129,8 +130,12 @@ SUBROUTINE InitMHD3D(sf)
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     gamm = 0.0_wp
     nfp_loc = nfp
-    !hmap
-    which_hmap=1 !hmap_RZ
+    !hmap: depends on how vmec data is read:
+    IF(switchZeta)THEN  
+      which_hmap=1 !hmap_RZ
+    ELSE
+      which_hmap=2 !hmap_RphiZ
+    END IF
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
 

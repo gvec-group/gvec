@@ -98,37 +98,41 @@ CALL abort(__STAMP__,&
     "cannot read VMEC file, since code is compiled with BUILD_NETCDF=OFF")
 #endif
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-DO iMode=1,mn_mode
-  IF(xm(iMode).EQ.0)THEN
-    !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients 
-    ! -coef_{0n} sin(-n*(-zeta))= coef_{0n} sin(-n*zeta)
-    !( cosine cos(-n*(-zeta))=cos(-n*zeta), symmetric in zeta for m=0)
-    zmns(iMode,:)=-zmns(iMode,:)
-    lmns(iMode,:)=-lmns(iMode,:)
-    IF(lasym) THEN
-      rmns(iMode,:)=-rmns(iMode,:)
-    END IF    
-  ELSE
-    !for m>0 , xn are always pairs of negative and positive modes, 
-    !so here we can simply swap the sign of the mode number
-    xn(iMode)=-xn(iMode)
-  END IF
-END DO !iMode=1,mn_mode
-!additional nyq data (bmnc,gmnc
-DO iMode=1,mn_mode_nyq
-  ! nyq data is only cosine (bmnc,gmnc)
-  IF(xm_nyq(iMode).NE.0)THEN
-    xn_nyq(iMode)=-xn_nyq(iMode)
-  END If  
-END DO !iMode=1,mn_mode_nyq
-!since sign of zeta has changed, swap sign of Jacobian, too.
-gmnc=-gmnc
-! also iota must change sign, since its sign depend on the coordinate system
-iotaf=-iotaf
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+switchZeta=GETLOGICAL("VMEC_switchZeta",Proposal=.TRUE.)
+IF(switchZeta)THEN
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  SWRITE(UNIT_stdOut,'(A)')'  ... switching from VMECs (R,phi,Z) to gvecs (R,Z,phi) coordinate system ...'
+  DO iMode=1,mn_mode
+    IF(xm(iMode).EQ.0)THEN
+      !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients 
+      ! -coef_{0n} sin(-n*(-zeta))= coef_{0n} sin(-n*zeta)
+      !( cosine cos(-n*(-zeta))=cos(-n*zeta), symmetric in zeta for m=0)
+      zmns(iMode,:)=-zmns(iMode,:)
+      lmns(iMode,:)=-lmns(iMode,:)
+      IF(lasym) THEN
+        rmns(iMode,:)=-rmns(iMode,:)
+      END IF    
+    ELSE
+      !for m>0 , xn are always pairs of negative and positive modes, 
+      !so here we can simply swap the sign of the mode number
+      xn(iMode)=-xn(iMode)
+    END IF
+  END DO !iMode=1,mn_mode
+  !additional nyq data (bmnc,gmnc
+  DO iMode=1,mn_mode_nyq
+    ! nyq data is only cosine (bmnc,gmnc)
+    IF(xm_nyq(iMode).NE.0)THEN
+      xn_nyq(iMode)=-xn_nyq(iMode)
+    END If  
+  END DO !iMode=1,mn_mode_nyq
+  !since sign of zeta has changed, swap sign of Jacobian, too.
+  gmnc=-gmnc
+  ! also iota must change sign, since its sign depend on the coordinate system
+  iotaf=-iotaf
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+END IF !switchZeta
 
 !toroidal flux from VMEC, now called PHI!
 ALLOCATE(Phi_prof(nFluxVMEC))
