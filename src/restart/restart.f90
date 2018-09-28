@@ -158,14 +158,14 @@ IMPLICIT NONE
   END DO 
   END ASSOCIATE
   !compute volume& poloidal surface average -> pi*aMinor^2=surfavg, surfavg*2*Pi*RMajor=volume
-  JacCheck=1
+  JacCheck=2
   CALL EvalAux(Uin,JacCheck)
   vol=0.
   surfAvg=0.
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
-      vol    =vol    +J_h(i_mn,iGP)*J_p(i_mn,iGP)*w_GP(iGP)
-      surfAvg=surfAvg+J_p(i_mn,iGP)*w_GP(iGP)
+      vol    =vol    +ABS(J_h(i_mn,iGP)*J_p(i_mn,iGP))*w_GP(iGP)
+      surfAvg=surfAvg+ABS(J_p(i_mn,iGP))*w_GP(iGP)
     END DO
   END DO 
   vol     = dthet_dzeta *vol

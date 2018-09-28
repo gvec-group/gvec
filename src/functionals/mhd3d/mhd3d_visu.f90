@@ -284,7 +284,7 @@ IMPLICIT NONE
 !            var_visu(6:8,i_s,i_n,i_m,iElem)= &
             Bvec_visu(:)= & 
                          (  e_thet(:)*(chiPrime_s-PhiPrime_s*dLA_dzeta_visu)  &
-                          + e_zeta(:)*PhiPrime_s*(1.0_wp+dLA_dthet_visu) )*(1.0_wp/MAX(1.0e-12_wp,sqrtG_visu))
+                          + e_zeta(:)*PhiPrime_s*(1.0_wp+dLA_dthet_visu) )*(1.0_wp/(sqrtG_visu+sign(sqrtG_visu,1.)*1.0e-12))
             END ASSOCIATE !lambda,sqrtG,Bvec,F_X1/X2/LA
           END DO !j_s
         END DO !i_m

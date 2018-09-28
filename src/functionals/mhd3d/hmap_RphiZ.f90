@@ -120,12 +120,12 @@ IMPLICIT NONE
 !===================================================================================================================================
   !  q= (R,Z,zeta)
   ! |x |  | R*cos(zeta) |
-  ! |y |= |-R*sin(zeta) |
+  ! |y |= | R*sin(zeta) |
   ! |z |  | Z           |
 
   ASSOCIATE(R=>q_in(1),Z=>q_in(2),zeta=>q_in(3))
-  x_out(1:3)=(/ R*COS(-zeta), &
-               -R*SIN(-zeta), &
+  x_out(1:3)=(/ R*COS(zeta), &
+                R*SIN(zeta), &
                 Z           /)
   END ASSOCIATE
 END FUNCTION hmap_RphiZ_eval
@@ -152,13 +152,13 @@ IMPLICIT NONE
 !===================================================================================================================================
   !  dxdq_qvec=
   ! |  cos(zeta)  0  -q^1 sin(zeta) | |q_vec(1) |  
-  ! | -sin(zeta)  0  -q^1 cos(zeta) | |q_vec(2) | 
+  ! |  sin(zeta)  0  +q^1 cos(zeta) | |q_vec(2) | 
   ! |     0       1        0        | |q_vec(3) |  
 
-sinzeta=SIN(-q_in(3))
-coszeta=COS(-q_in(3))
+sinzeta=SIN(q_in(3))
+coszeta=COS(q_in(3))
 dxdq_qvec(1:3) = (/ q_vec(1)*coszeta-q_vec(3)*q_in(1)*sinzeta, &
-                   -q_vec(1)*sinzeta-q_vec(3)*q_in(1)*coszeta, &
+                    q_vec(1)*sinzeta+q_vec(3)*q_in(1)*coszeta, &
                     q_vec(2) /)
 
 
@@ -180,7 +180,7 @@ IMPLICIT NONE
   REAL(wp)                        :: Jh
 !===================================================================================================================================
   !  q= (R,Z,zeta)
-  Jh=q_in(1)
+  Jh=-q_in(1)
 END FUNCTION hmap_RphiZ_eval_Jh
 
 
@@ -200,7 +200,7 @@ IMPLICIT NONE
   REAL(wp)                        :: Jh_dq1
 !===================================================================================================================================
   !  q= (R,Z,zeta)
-  Jh_dq1 = 1.0_wp !dJ_h / dR
+  Jh_dq1 =-1.0_wp !dJ_h / dR
 END FUNCTION hmap_RphiZ_eval_Jh_dq1
 
 !===================================================================================================================================

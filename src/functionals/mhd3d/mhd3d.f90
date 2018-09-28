@@ -63,6 +63,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
   USE MODgvec_Restart        , ONLY: RestartFromState
+  USE MODgvec_Restart        , ONLY:WriteState
   USE MODgvec_Analyze        , ONLY: Analyze
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -361,6 +362,7 @@ SUBROUTINE InitMHD3D(sf)
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
   IF(JacCheck.EQ.-1)THEN
     CALL Analyze(0)
+    CALL WriteState(U(0),0)
   END IF
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
   
