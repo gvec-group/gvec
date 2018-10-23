@@ -33,7 +33,7 @@ IMPLICIT NONE
 INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: filename 
 REAL(wp)                :: StartTime,EndTime
-REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p,p_prime 
+REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p,p_prime,phiPrime_edge,q_edge
 INTEGER                 :: n0_global,is,i,j
 INTEGER,PARAMETER       :: nthet=11
 INTEGER,PARAMETER       :: nzeta=22
@@ -62,9 +62,11 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
   !initialization phase
   CALL Init_gvec_to_gene(filename)
  
-  CALL gvec_to_gene_scalars(Fa,minor_r,n0_global)
+  CALL gvec_to_gene_scalars(Fa,minor_r,phiPrime_edge,q_edge,n0_global)
   WRITE(*,*)'Fa',Fa
   WRITE(*,*)'minor_r',minor_r
+  WRITE(*,*)"Phi'(s=1)",PhiPrime_edge
+  WRITE(*,*)"q(s=1)=Phi'(s=1)/chi'(s=1)",q_edge
   WRITE(*,*)'n0_global',n0_global
   WRITE(*,'(80("-"))')
   DO is=0,8
