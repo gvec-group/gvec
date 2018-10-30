@@ -98,7 +98,6 @@ SUBROUTINE gvec_to_gene_scalars(Fa,minor_r,PhiPrime_edge,q_edge,n0_global)
 ! MODULES
 USE MODgvec_globals,ONLY: TWOPI
 USE MODgvec_ReadState_Vars,ONLY: a_minor,X1_base_r,profiles_1d
-USE MODgvec_MHD3D_profiles,ONLY: Eval_PhiPrime,Eval_chiPrime
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
