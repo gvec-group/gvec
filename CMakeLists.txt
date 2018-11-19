@@ -140,7 +140,7 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
   # add flags only for compiling not linking!
-  SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input")
+  SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
    #environment specific variables
@@ -193,7 +193,7 @@ IF(ON_HYDRA GREATER -1)
   ELSE()
      MESSAGE(ERROR " Unknown compiler ...")
   ENDIF()
-ELSE()
+ELSEIF(ON_COBRA GREATER -1)
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -205,12 +205,13 @@ ELSE()
     		-lmkl_sequential -lmkl_core -lpthread -lm -ldl
  		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
-  #FIND_PACKAGE(LAPACK QUIET)
-  #IF (LAPACK_FOUND)
-  #  LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
-  #ELSE()
-  #  MESSAGE(WARNING " Lapack not found for GNU compiler!")
-  #ENDIF()
+ELSE()
+  FIND_PACKAGE(LAPACK QUIET)
+  IF (LAPACK_FOUND)
+    LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
+  ELSE()
+    MESSAGE(WARNING " Lapack not found for GNU compiler!")
+  ENDIF()
 ENDIF()
 
 # =========================================================================
@@ -219,8 +220,10 @@ ENDIF()
 IF(LINK_GVEC_TO_NETCDF)
   IF(ON_HYDRA GREATER -1)
     SET(NETCDF_DIR  $ENV{NETCDF_HOME}) 
-  ELSE()
+  ELSEIF(ON_COBRA GREATER -1)
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
+  ELSE()
+    SET(NETCDF_DIR  /usr)
   ENDIF()
   INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
   LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib ) 
@@ -277,7 +280,9 @@ ENDIF()
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
 SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+# generates shared lib libgveclib.so
 ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
+# generates static lib libgveclib.a
 #ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
  
 
