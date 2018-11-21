@@ -19,9 +19,9 @@
 !! CONTAINS  all functions to evaluate 1D profiles
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D_profiles
+MODULE MODgvec_MHD3D_profiles
 ! MODULES
-USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
+USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
 IMPLICIT NONE
 PUBLIC
 
@@ -32,15 +32,18 @@ CONTAINS
 
 
 !===================================================================================================================================
-!> evaluate iota(phi_norm(s))
+!> evaluate rotational transform, iota(phi_norm(s)) =chi'/phi'
+!! NOTE that since VMEC has a definition of a positive iota with respect to R,phi,Z coordinate system, but GVEC is in (R,Z,phi)
+!! the sign of iota in GVEC is opposite to the sign in VMEC
 !!
 !===================================================================================================================================
 FUNCTION Eval_iota(spos)
 ! MODULES
-USE MOD_Globals    ,ONLY: EVAL1DPOLY
-USE MOD_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
-USE MOD_VMEC       ,ONLY: VMEC_EvalSpl
-USE MOD_VMEC_vars  ,ONLY: iota_spl
+USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+!USE MODgvec_VMEC_vars  ,ONLY: chi_spl
+USE MODgvec_VMEC_vars  ,ONLY: iota_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -57,7 +60,7 @@ IMPLICIT NONE
   CASE(0)
     eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,phi_norm)
   CASE(1)
-    eval_iota=VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
+    eval_iota= VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
   END SELECT
 END FUNCTION Eval_iota
 
@@ -67,10 +70,10 @@ END FUNCTION Eval_iota
 !===================================================================================================================================
 FUNCTION Eval_pres(spos)
 ! MODULES
-USE MOD_Globals    ,ONLY: EVAL1DPOLY
-USE MOD_MHD3D_Vars ,ONLY: which_init,n_pres_coefs,pres_coefs
-USE MOD_VMEC       ,ONLY: VMEC_EvalSpl
-USE MOD_VMEC_vars  ,ONLY: pres_spl
+USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_pres_coefs,pres_coefs
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -97,7 +100,7 @@ END FUNCTION Eval_pres
 !===================================================================================================================================
 FUNCTION Eval_mass(spos)
 ! MODULES
-USE MOD_MHD3D_vars, ONLY:gamm
+USE MODgvec_MHD3D_vars, ONLY:gamm
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -118,12 +121,72 @@ END IF
 END FUNCTION Eval_mass
 
 !===================================================================================================================================
+!> evaluate poloidal flux chi(phi_norm), currently only from interpolated VMEC data
+!> should be computed as an integral over chiPrime instead!! 
+!!
+!===================================================================================================================================
+FUNCTION Eval_chi(spos)
+! MODULES
+USE MODgvec_MHD3D_Vars ,ONLY: which_init
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+USE MODgvec_VMEC_vars  ,ONLY: chi_spl
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_chi
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: phi_norm
+  INTEGER  :: n_int,i
+  REAL(wp) :: ds
+!===================================================================================================================================
+  phi_norm=Eval_PhiNorm(spos)
+  SELECT CASE(which_init)
+  CASE(0)
+    !WARNING: eval_chi not implemented yet for which_init=0'  
+    !trapezodial rule integration... not optimal!
+    n_int=1+CEILING(spos*1000)
+    ds=spos/REAL(n_int,wp)
+    eval_chi=0.5_wp*Eval_chiPrime(0.0_wp)
+    DO i=1,n_int-1
+      eval_chi=eval_chi+Eval_chiPrime(REAL(i,wp)*ds)
+    END DO
+    eval_chi=eval_chi+0.5_wp*Eval_chiPrime(spos)
+    eval_chi=eval_chi*ds
+  CASE(1)
+    eval_chi=VMEC_EvalSpl(0,SQRT(phi_norm),chi_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
+  END SELECT
+END FUNCTION Eval_chi
+
+!===================================================================================================================================
+!> evaluate s derivative of poloidal flux via iota and phiPrime: chiPrime=-iota*PhiPrime
+!!
+!===================================================================================================================================
+FUNCTION Eval_chiPrime(spos)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_chiPrime
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  Eval_ChiPrime = Eval_PhiPrime(spos)*Eval_iota(spos)
+END FUNCTION Eval_chiPrime
+
+!===================================================================================================================================
 !> evaluate toroidal flux Phi 
 !!
 !===================================================================================================================================
 FUNCTION Eval_Phi(spos)
 ! MODULES
-USE MOD_MHD3D_Vars,ONLY:Phi_edge
+USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -144,7 +207,7 @@ END FUNCTION Eval_Phi
 !===================================================================================================================================
 FUNCTION Eval_PhiPrime(spos)
 ! MODULES
-USE MOD_MHD3D_Vars,ONLY:Phi_edge
+USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -199,4 +262,4 @@ IMPLICIT NONE
 
 END FUNCTION Eval_PhiNormPrime
 
-END MODULE MOD_MHD3D_profiles
+END MODULE MODgvec_MHD3D_profiles

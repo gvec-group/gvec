@@ -18,9 +18,9 @@
 !!# Module **Clenshaw-Curtis variables**
 !!
 !===================================================================================================================================
-MODULE MOD_CCint_Vars
+MODULE MODgvec_CCint_Vars
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PUBLIC
 
@@ -34,5 +34,5 @@ TYPE tRcc
 END TYPE tRcc
 TYPE(trCC),ALLOCATABLE :: Rcc(:) !!container for Clenshaw-curtis integration points and weights, sorted by stages
 
-END MODULE MOD_CCint_Vars
+END MODULE MODgvec_CCint_Vars
 

@@ -13,23 +13,19 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** Output Variables **
+!!# Module ** GVEC_TO_HOPR Variables **
 !!
 !!
 !!
 !===================================================================================================================================
-MODULE MODgvec_Output_Vars
+MODULE MODgvec_gvec_to_hopr_vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
-CHARACTER(LEN=100)  :: ProjectName         !! Name used for output files
-INTEGER             :: outputLevel         !! on restart +1, used as file identifier            
-
+                                         
 !===================================================================================================================================
-
-
-END MODULE MODgvec_Output_Vars
+END MODULE MODgvec_gvec_to_hopr_vars
 

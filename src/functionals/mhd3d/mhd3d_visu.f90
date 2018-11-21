@@ -19,9 +19,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D_visu
+MODULE MODgvec_MHD3D_visu
 ! MODULES
-USE MOD_Globals,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_Globals,ONLY: wp,Unit_stdOut,abort
 IMPLICIT NONE
 PUBLIC
 
@@ -37,10 +37,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
 ! MODULES
-USE MOD_Globals,    ONLY: TWOPI
-USE MOD_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,X1_b,X2_b,LA_b
-USE MOD_output_vtk, ONLY: WriteDataToVTK
-USE MOD_Output_vars,ONLY: Projectname,OutputLevel
+USE MODgvec_Globals,    ONLY: TWOPI
+USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,U
+USE MODgvec_output_vtk, ONLY: WriteDataToVTK
+USE MODgvec_Output_vars,ONLY: Projectname,OutputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -51,12 +51,17 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: i_m,i_n,nplot(2)
+  INTEGER  :: i_m,i_n,nplot(2),iMode
   REAL(wp) :: xIP(2),q(3)
   REAL(wp) :: X1_visu,X2_visu
   REAL(wp) :: coord_visu(3,mn_IP(1),mn_IP(2),1)
   INTEGER,PARAMETER  :: nVal=1
   REAL(wp) :: var_visu(nVal,mn_IP(1),mn_IP(2),1)
+  REAL(wp) :: thet(mn_IP(1)),zeta(mn_IP(2))
+  REAL(wp) :: spos
+  REAL(wp) :: X1_s(X1_base%f%modes)
+  REAL(wp) :: X2_s(X2_base%f%modes)
+  REAL(wp) :: LA_s(LA_base%f%modes)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: FileName
 !===================================================================================================================================
@@ -69,15 +74,37 @@ IMPLICIT NONE
       'WARNING visuBC, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
+  DO i_m=1,mn_IP(1)
+    thet(i_m)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp)) !repeat point exactly
+  END DO
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    thet(mn_IP(1))=thet(1)
+  END IF
   DO i_n=1,mn_IP(2)
-    xIP(2)  = TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+    zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+  END DO
+  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    zeta(mn_IP(2))=zeta(1)
+  END IF
+  spos=0.99999999_wp
+  DO iMode=1,X1_base%f%modes
+    X1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,U(0)%X1(:,iMode))
+  END DO
+  DO iMode=1,X2_base%f%modes
+    X2_s(iMode) = X2_base%s%evalDOF_s(spos,      0,U(0)%X2(:,iMode))
+  END DO
+  DO iMode=1,LA_base%f%modes
+    LA_s(iMode) = LA_base%s%evalDOF_s(spos,      0,U(0)%LA(:,iMode))
+  END DO
+  DO i_n=1,mn_IP(2)
+    xIP(2)  = zeta(i_n)
     DO i_m=1,mn_IP(1)
-      xIP(1)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp))
-      X1_visu=X1_base%f%evalDOF_x(xIP,0,X1_b)
-      X2_visu=X2_base%f%evalDOF_x(xIP,0,X2_b)
+      xIP(1)= thet(i_m)
+      X1_visu=X1_base%f%evalDOF_x(xIP,0,X1_s)
+      X2_visu=X2_base%f%evalDOF_x(xIP,0,X2_s)
       q=(/X1_visu,X2_visu,xIP(2)/)
       coord_visu(  :,i_m,i_n,1)=hmap%eval(q)
-      var_visu(1,i_m,i_n,1)=LA_base%f%evalDOF_x(xIP,0,LA_b)
+      var_visu(1,i_m,i_n,1)=LA_base%f%evalDOF_x(xIP,0,LA_s)
     END DO !i_m
   END DO !i_n
   VarNames(1)="lambda"
@@ -94,11 +121,13 @@ END SUBROUTINE visu_BC_face
 !===================================================================================================================================
 SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
 ! MODULES
-USE MOD_Globals,        ONLY: TWOPI
-USE MOD_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
-USE MOD_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime
-USE MOD_output_vtk,     ONLY: WriteDataToVTK
-USE MOD_Output_vars,    ONLY: Projectname,OutputLevel
+USE MODgvec_Globals,        ONLY: TWOPI,PI,CROSS
+USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
+USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime,Eval_chiPrime
+USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
+USE MODgvec_Analyze_Vars,   ONLY: SFL_theta
+USE MODgvec_Newton,         ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -116,14 +145,21 @@ IMPLICIT NONE
   REAL(wp) :: X2_s(X2_base%f%modes),F_X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
   REAL(wp) :: LA_s(LA_base%f%modes),F_LA_s(LA_base%f%modes)
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,dX2_dthet_visu,dX2_dzeta_visu
-  REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,phiPrime_s,e_thet(3),e_zeta(3)
+  REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,chiPrime_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 
   INTEGER,PARAMETER  :: nVal=11
-  REAL(wp) :: coord_visu(     3,np_in(1),np_in(1),np_in(2),np_in(3),sgrid%nElems)
-  REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(2),np_in(3),sgrid%nElems)
+  REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
+  REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
+  REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
+  REAL(wp) :: theta_star
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
+  IF(only_planes)THEN
+    SWRITE(UNIT_stdOut,'(A)') 'Start visu planes...'
+  ELSE
+    SWRITE(UNIT_stdOut,'(A)') 'Start visu 3D...'
+  END IF
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
     SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
      'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
@@ -149,11 +185,30 @@ IMPLICIT NONE
   VarNames(10)="F_X2"
   VarNames(11)="F_LA"
 
+  var_visu=0.
+
   ASSOCIATE(n_s=>np_in(1), mn_IP=>np_in(2:3) )
+  DO i_m=1,mn_IP(1)
+    DO j_s=1,n_s
+      thet(j_s,i_m)=TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0)) &
+                            *REAL((j_s-1)+(i_m-1)*(n_s-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
+    END DO !j_s
+  END DO
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    thet(n_s,mn_IP(1))=thet(1,1)
+  END IF
+  DO i_n=1,mn_IP(2)
+    zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+  END DO
+  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    zeta(mn_IP(2))=zeta(1)
+  END IF
+
   nElems=sgrid%nElems
   DO iElem=1,nElems
     DO i_s=1,n_s
-      spos=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
+!      spos=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
+      spos=MAX(1.0e-06,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*sgrid%ds(iElem))
       DO iMode=1,X1_base%f%modes
         X1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,U(0)%X1(:,iMode))
         F_X1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,F(0)%X1(:,iMode))
@@ -171,22 +226,29 @@ IMPLICIT NONE
       iota_s=Eval_iota(spos)
       pres_s=Eval_pres(spos)
       phiPrime_s=Eval_PhiPrime(spos)
+      chiPrime_s=Eval_chiPrime(spos)
       var_visu(3,i_s,:,:,:,iElem) =Eval_Phi(spos)
       var_visu(4,i_s,:,:,:,iElem) =iota_s
       var_visu(5,i_s,:,:,:,iElem) =pres_s
+      !define theta2, which corresponds to the theta angle of a given theta_star=theta
+
       DO i_n=1,mn_IP(2)
-        xIP(2)  = TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+          xIP(2)  = zeta(i_n)
         DO i_m=1,mn_IP(1)
           DO j_s=1,n_s
-            xIP(1)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0)) &
-                            *REAL((j_s-1)+(i_m-1)*(n_s-1),wp)/REAL((n_s-1)*mn_IP(1),wp))
-            
-            ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_m,i_n,iElem), &
-                      sqrtG_visu   => var_visu(  2,i_s,j_s,i_m,i_n,iElem), &
-                      Bvec_visu    => var_visu(6:8,i_s,j_s,i_m,i_n,iElem), &
-                      F_X1_visu    => var_visu(  9,i_s,j_s,i_m,i_n,iElem), &
-                      F_X2_visu    => var_visu( 10,i_s,j_s,i_m,i_n,iElem), &
-                      F_LA_visu    => var_visu( 11,i_s,j_s,i_m,i_n,iElem)  )
+            IF(SFL_theta)THEN
+              theta_star=thet(j_s,i_m)
+              XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR)
+            ELSE
+              xIP(1)= thet(j_s,i_m)
+            END IF
+
+            ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_n,i_m,iElem), &
+                      sqrtG_visu   => var_visu(  2,i_s,j_s,i_n,i_m,iElem), &
+                      Bvec_visu    => var_visu(6:8,i_s,j_s,i_n,i_m,iElem), &
+                      F_X1_visu    => var_visu(  9,i_s,j_s,i_n,i_m,iElem), &
+                      F_X2_visu    => var_visu( 10,i_s,j_s,i_n,i_m,iElem), &
+                      F_LA_visu    => var_visu( 11,i_s,j_s,i_n,i_m,iElem)  )
             
             
             X1_visu         =X1_base%f%evalDOF_x(xIP,         0,X1_s )
@@ -209,18 +271,20 @@ IMPLICIT NONE
             
             q=(/X1_visu,X2_visu,xIP(2)/)
             !x,y,z
-            coord_visu(:,i_s,j_s,i_m,i_n,iElem )=hmap%eval(q)
+            coord_visu(:,i_s,j_s,i_n,i_m,iElem )=hmap%eval(q)
             !lambda
             lambda_visu = LA_base%f%evalDOF_x(xIP,0,LA_s)
-            !sqrtG
-            sqrtG_visu  = hmap%eval_Jh(q)*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
             
+            e_s   =hmap%eval_dxdq(q,(/dX1_ds_visu,dX2_ds_visu,0.0_wp/))
             e_thet=hmap%eval_dxdq(q,(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/))
             e_zeta=hmap%eval_dxdq(q,(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/))
-!            var_visu(6:8,i_s,i_m,i_n,iElem)= &
+            !sqrtG
+            sqrtG_visu  = hmap%eval_Jh(q)*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
+            IF(ABS(sqrtG_visu- SUM(e_s*(CROSS(e_thet,e_zeta)))).GT.1.0e-04) STOP 'test sqrtg failed'
+!            var_visu(6:8,i_s,i_n,i_m,iElem)= &
             Bvec_visu(:)= & 
-                         (  e_thet(:)*(iota_s-dLA_dzeta_visu)  &
-                          + e_zeta(:)*(1.0_wp+dLA_dthet_visu) )*(PhiPrime_s/MAX(1.0e-12_wp,sqrtG_visu))
+                         (  e_thet(:)*(chiPrime_s-PhiPrime_s*dLA_dzeta_visu)  &
+                          + e_zeta(:)*PhiPrime_s*(1.0_wp+dLA_dthet_visu) )*(1.0_wp/(sqrtG_visu+sign(sqrtG_visu,1.)*1.0e-12))
             END ASSOCIATE !lambda,sqrtG,Bvec,F_X1/X2/LA
           END DO !j_s
         END DO !i_m
@@ -247,7 +311,21 @@ IMPLICIT NONE
   END IF
   
   END ASSOCIATE!n_s,mn_IP
+  SWRITE(UNIT_stdOut,'(A)') '... DONE.'
 
+
+!for iteration on theta^*
+CONTAINS 
+
+  FUNCTION FRdFR(theta_iter)
+    !uses current zeta=XIP(2) where newton is called, and LA_s from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: FRdFR(2) !output
+    !--------------------------------------------------- 
+    FRdFR(1)=theta_iter+LA_base%f%evalDOF_x((/theta_iter,xIP(2)/),0,LA_s)  !theta_iter+lambda
+    FRdFR(2)=1.0_wp+LA_base%f%evalDOF_x((/theta_iter,xIP(2)/),DERIV_THET,LA_s) !1+dlambda/dtheta
+  END FUNCTION FRdFR
 
 END SUBROUTINE visu_3D
 
@@ -257,10 +335,10 @@ END SUBROUTINE visu_3D
 !===================================================================================================================================
 SUBROUTINE visu_1d_modes(n_s,fileID)
 ! MODULES
-USE MOD_Analyze_Vars,  ONLY: visu1D
-USE MOD_fbase,         ONLY: sin_cos_map
-USE MOD_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
-USE MOD_Output_vars,   ONLY: outputLevel
+USE MODgvec_Analyze_Vars,  ONLY: visu1D
+USE MODgvec_fbase,         ONLY: sin_cos_map
+USE MODgvec_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
+USE MODgvec_Output_vars,   ONLY: outputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -319,11 +397,11 @@ END SUBROUTINE visu_1d_modes
 !===================================================================================================================================
 SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
 ! MODULES
-  USE MOD_base,          ONLY: t_base
-  USE MOD_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
-  USE MOD_MHD3D_Vars,    ONLY: sgrid
-  USE MOD_write_modes,   ONLY: write_modes
-  USE MOD_output_vars,   ONLY: Projectname
+  USE MODgvec_base,          ONLY: t_base
+  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
+  USE MODgvec_MHD3D_Vars,    ONLY: sgrid
+  USE MODgvec_write_modes,   ONLY: write_modes
+  USE MODgvec_output_vars,   ONLY: Projectname
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -402,5 +480,5 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   DEALLOCATE(s_visu)
 END SUBROUTINE writeDataMN_visu
 
-END MODULE MOD_MHD3D_visu
+END MODULE MODgvec_MHD3D_visu
 

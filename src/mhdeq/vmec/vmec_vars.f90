@@ -20,9 +20,9 @@
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_VMEC_Vars
+MODULE MODgvec_VMEC_Vars
 ! MODULES
-USE MOD_Globals, ONLY: wp
+USE MODgvec_Globals, ONLY: wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -31,6 +31,7 @@ PUBLIC
 ! GLOBAL VARIABLES 
 LOGICAL                 :: useVMEC                   !! main switch
 LOGICAL                 :: useSFL                    !! use straight-field line coordinates
+LOGICAL                 :: switchZeta                !! True: change from R,phi,Z to R,Z,phi coordinate system
 LOGICAL                 :: reLambda                  !! switch for recomputing lambda
 CHARACTER(LEN = 256)    :: VMECdataFile
 INTEGER,ALLOCATABLE     :: xmAbs(:)                  !! |xm(iMode)|, 1 for m=0, 2 for even, 3 for odd
@@ -51,5 +52,5 @@ REAL(wp),ALLOCATABLE    :: Zmnc_Spl(:,:,:)           !! modified spline coeffici
 REAL(wp),ALLOCATABLE    :: Zmns_Spl(:,:,:)           !! modified spline coefficients of Z sine,   (1:4,iFlux,iMode)
 
 !===================================================================================================================================
-END MODULE MOD_VMEC_Vars
+END MODULE MODgvec_VMEC_Vars
 

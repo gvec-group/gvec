@@ -14,73 +14,59 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** functional **
+!!# Module ** HMAP new **
 !!
-!! contains the routines to initialize and finalize the functional
+!!
 !!
 !===================================================================================================================================
-MODULE MODgvec_functional
+MODULE MODgvec_hmap
 ! MODULES
-USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
-USE MODgvec_c_functional
+USE MODgvec_c_hmap    , ONLY: c_hmap
 IMPLICIT NONE
-
 PUBLIC
 
-!===================================================================================================================================
 
 CONTAINS
 
-
 !===================================================================================================================================
-!> initialize the type functional with number of elements
+!> initialize the type hmap, also readin parameters here if necessary 
 !!
 !===================================================================================================================================
-SUBROUTINE InitFunctional(sf, which_functional)
+SUBROUTINE hmap_new( sf, which_hmap)
 ! MODULES
-USE MODgvec_MHD3D, ONLY :t_functional_mhd3d
+USE MODgvec_Globals   , ONLY: abort
+USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
+USE MODgvec_hmap_RphiZ, ONLY: t_hmap_RphiZ
+USE MODgvec_hmap_knot , ONLY: t_hmap_knot
+USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: which_functional
+  INTEGER       , INTENT(IN   ) :: which_hmap
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_functional), ALLOCATABLE,INTENT(INOUT) :: sf !! self
+  CLASS(c_hmap), ALLOCATABLE,INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SELECT CASE(which_functional)
+  SELECT CASE(which_hmap)
   CASE(1)
-    ALLOCATE(t_functional_mhd3d :: sf)
+    ALLOCATE(t_hmap_RZ :: sf)
+  CASE(2)
+    ALLOCATE(t_hmap_RphiZ :: sf)
+  CASE(3)
+    ALLOCATE(t_hmap_cyl  :: sf)
+  CASE(10)
+    ALLOCATE(t_hmap_knot :: sf)
   CASE DEFAULT
     CALL abort(__STAMP__, &
-         "this functional choice does not exist (MHD3D=1) !")
+         "this hmap choice does not exist  !")
   END SELECT 
-
-  sf%which_functional=which_functional
+  sf%which_hmap=which_hmap
   CALL sf%init()
 
-END SUBROUTINE InitFunctional
+END SUBROUTINE hmap_new
 
 
-!===================================================================================================================================
-!> finalize the type functional
-!!
-!===================================================================================================================================
-SUBROUTINE FinalizeFunctional(sf)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  CLASS(t_functional), ALLOCATABLE,INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-  CALL sf%free()
-
-END SUBROUTINE FinalizeFunctional
-
-END MODULE MODgvec_functional
+END MODULE MODgvec_hmap
 

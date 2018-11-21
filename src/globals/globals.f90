@@ -22,7 +22,7 @@
 !! Here globally used variables /functions are defined 
 !!
 !===================================================================================================================================
-MODULE MOD_Globals
+MODULE MODgvec_Globals
 
 #ifndef NOISOENV
 USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
@@ -298,4 +298,4 @@ INV33(3,3) = ( Mat(1,1) * Mat(2,2) - Mat(1,2) * Mat(2,1) ) * sDet
 END FUNCTION INV33
 
 
-END MODULE MOD_Globals
+END MODULE MODgvec_Globals

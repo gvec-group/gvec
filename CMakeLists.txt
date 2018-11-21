@@ -22,11 +22,15 @@ SITE_NAME(CMAKE_HOSTNAME)
 STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
 STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_HYDRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "hydra"     ON_HYDRA)
+STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 IF (ON_MARCONI GREATER -1)
   MESSAGE(STATUS "Compiling on Marconi")
 ENDIF()
 IF (ON_HYDRA GREATER -1)
   MESSAGE(STATUS "Compiling on hydra")
+ENDIF()
+IF (ON_COBRA GREATER -1)
+  MESSAGE(STATUS "Compiling on cobra")
 ENDIF()
 
 
@@ -70,7 +74,6 @@ ENDMACRO()
 #                        "Name of functional to be used, must be identical to subdirectory name in src/functionals folder.")
 #SET_PROPERTY(CACHE FUNCTIONAL PROPERTY STRINGS ${FUNCTIONALS})
 
-OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 
 # =========================================================================
 # PREPROCESSOR FLAGS
@@ -80,6 +83,14 @@ OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 #SET_PROPERTY(CACHE MAIN_DISCTYPE  PROPERTY STRINGS "1" "2")
 #ADD_DEFINITIONS(-DPP_DiscType=${MAIN_DISCTYPE})
 
+OPTION(COMPILE_GVEC "compile gvec programme for equilibrium computations (libgvec and gvec executable)" ON)
+IF(COMPILE_GVEC)
+  OPTION(LINK_GVEC_TO_NETCDF "Link to local NetCDF library, needed for VMEC input" ON)
+ELSE()
+  UNSET(LINK_GVEC_TO_NETCDF CACHE ) # if not mhd
+ENDIF()
+OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" ON)
+OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" ON)
 
 
 # =========================================================================
@@ -87,7 +98,7 @@ OPTION(BUILD_NETCDF "Link to local NetCDF library" ON)
 # =========================================================================
 # make sure that the default is a RELEASE
 IF (NOT CMAKE_BUILD_TYPE)
-  SET (CMAKE_BUILD_TYPE Debug CACHE STRING
+  SET (CMAKE_BUILD_TYPE Release CACHE STRING
       "Choose the type of build, options are: Debug / Release / Profile."
       FORCE)
   SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile)
@@ -129,12 +140,15 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
   # add flags only for compiling not linking!
-  SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input")
+  SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
    #environment specific variables
    IF(ON_MARCONI GREATER -1)
       SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
+   ELSEIF (ON_HYDRA GREATER -1 )
+      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
+      # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
    ELSE()
       SET(MAIN_INSTRUCTION "-xHost")
    ENDIF()
@@ -144,7 +158,7 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
    # add flags only for compiling not linking!
-   SET (MAIN_COMPILE_FLAGS "-fpp -assume bscc")
+   SET (MAIN_COMPILE_FLAGS "-fpp -assume bscc -fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
   # set Flags
@@ -179,6 +193,18 @@ IF(ON_HYDRA GREATER -1)
   ELSE()
      MESSAGE(ERROR " Unknown compiler ...")
   ENDIF()
+ELSEIF(ON_COBRA GREATER -1)
+  IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
+    SET(MKL_DIR $ENV{MKL_HOME})
+    LIST(APPEND linkedlibs -mkl -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+  ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
+    SET(MKL_DIR $ENV{MKL_HOME})
+    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
+    		-lmkl_sequential -lmkl_core -lpthread -lm -ldl
+ 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
+  ENDIF()
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
   IF (LAPACK_FOUND)
@@ -191,9 +217,11 @@ ENDIF()
 # =========================================================================
 # NETCDF (locally installed only!)
 # =========================================================================
-IF(BUILD_NETCDF)
+IF(LINK_GVEC_TO_NETCDF)
   IF(ON_HYDRA GREATER -1)
     SET(NETCDF_DIR  $ENV{NETCDF_HOME}) 
+  ELSEIF(ON_COBRA GREATER -1)
+    SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSE()
     SET(NETCDF_DIR  /usr)
   ENDIF()
@@ -211,7 +239,7 @@ ENDIF()
 
 function(add_exec target)
   ADD_EXECUTABLE(${target} ${ARGN})
-  TARGET_LINK_LIBRARIES(${target} mainlib ${linkedlibs})
+  TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
   SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
   SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
   INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
@@ -222,21 +250,58 @@ endfunction()
 # include defines.h 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
 
-FILE(GLOB_RECURSE mainF90 ./src/*.f90 ./src/*.f )
+FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90 
+                          ./src/base/*.f90 
+                          ./src/functionals/mhd3d/*hmap*.f90 
+                          ./src/readstate*.f90 
+                          ./src/grid/*.f90 )
 
 
 # define libs
-ADD_LIBRARY(mainlibF90 OBJECT ${mainF90} )
+IF(COMPILE_GVEC)
+  FILE(GLOB_RECURSE gvecF90 ./src/*.f 
+                            ./src/functionals/*.f90 
+                            ./src/analyze/*.f90 
+                            ./src/lbfgsb/*.f90 
+                            ./src/mhdeq/*.f90 
+                            ./src/output/*.f90 
+                            ./src/restart/*.f90 )
+  LIST(APPEND mainF90 ${gvecF90})
+ENDIF()
+IF(COMPILE_GVEC_TO_HOPR)
+  FILE(GLOB tohoprF90 ./src/gvec_to_hopr/*.f90 )
+  LIST(APPEND mainF90 ${tohoprF90})
+ENDIF()
+IF(COMPILE_GVEC_TO_GENE)
+  FILE(GLOB togeneF90 ./src/gvec_to_gene/*.f90 )
+  LIST(APPEND mainF90 ${togeneF90})
+ENDIF()
 
+ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
-SET_TARGET_PROPERTIES(mainlibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
-ADD_LIBRARY(mainlib STATIC $<TARGET_OBJECTS:mainlibF90> )
+SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+# generates shared lib libgveclib.so
+ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
+# generates static lib libgveclib.a
+#ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
+ 
 
 # =========================================================================
 # Executable programs (simply use add_exec)
 # =========================================================================
-add_exec(gvec ./src/gvec.f90)
-ADD_DEPENDENCIES(gvec mainlib)
+IF(COMPILE_GVEC)
+  add_exec(gvec ./src/gvec.f90)
+  ADD_DEPENDENCIES(gvec gveclib )
+ENDIF()
+IF(COMPILE_GVEC_TO_HOPR)
+  add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
+  ADD_DEPENDENCIES(test_gvec_to_hopr gveclib )
+ENDIF()
+IF(COMPILE_GVEC_TO_GENE)
+  add_exec(test_gvec_to_gene ./src/test_gvec_to_gene.f90 )
+  ADD_DEPENDENCIES(test_gvec_to_gene gveclib )
+ENDIF()
+
 
 # =========================================================================
 # Install

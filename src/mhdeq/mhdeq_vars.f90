@@ -20,9 +20,9 @@
 !! Variables for the MHD equilibrium mapping / data
 !!
 !===================================================================================================================================
-MODULE MOD_MHDEQ_Vars
+MODULE MODgvec_MHDEQ_Vars
 ! MODULES
-USE MOD_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -56,5 +56,5 @@ CHARACTER(LEN=255),DIMENSION(10),PARAMETER :: MHDEQvarNames(10)=(/ CHARACTER(LEN
                                          /)
 
 !===================================================================================================================================
-END MODULE MOD_MHDEQ_Vars
+END MODULE MODgvec_MHDEQ_Vars
 

@@ -21,9 +21,9 @@
 !! Routines to provide and evaluate 1D polynomial Lagrange basis functions, interpolation and integration points
 !!
 !==================================================================================================================================
-MODULE MOD_Basis1D
+MODULE MODgvec_Basis1D
 ! MODULES
-USE MOD_Globals, ONLY: wp
+USE MODgvec_Globals, ONLY: wp
 IMPLICIT NONE
 PRIVATE
 SAVE
@@ -107,7 +107,7 @@ CONTAINS
 !==================================================================================================================================
 SUBROUTINE buildLegendreVdm(N_In,xi_In,Vdm_Leg,sVdm_Leg)
 ! MODULES
-USE MOD_LinAlg, ONLY:INV
+USE MODgvec_LinAlg, ONLY:INV
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -791,4 +791,4 @@ REAL (wp)                     :: xold(1:N_in+1)
 
 END SUBROUTINE GaussRadauNodesAndWeights
 
-END MODULE MOD_Basis1D
+END MODULE MODgvec_Basis1D

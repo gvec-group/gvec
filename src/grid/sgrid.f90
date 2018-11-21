@@ -19,9 +19,9 @@
 !! 1D grid in radial coordinate "s": Contains sgrid type definition and associated routines
 !!
 !===================================================================================================================================
-MODULE MOD_sGrid
+MODULE MODgvec_sGrid
 ! MODULES
-USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
 IMPLICIT NONE
 
 PUBLIC
@@ -105,7 +105,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
 ! MODULES
-USE MOD_GLobals, ONLY: PI
+USE MODgvec_GLobals, ONLY: PI
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -149,6 +149,8 @@ IMPLICIT NONE
     sf%sp(:)=sf%sp(:)*sf%sp(:)
   CASE(GRID_TYPE_BUMP) !strechted towards axis and edge
     sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*2.0_wp*sf%sp(:))
+  CASE(GRID_TYPE_BUMP_EDGE) ! imore equidistnat at the axis and stretched towards edge
+    sf%sp(:)=(sf%sp(:)-0.75_wp*((sf%sp(:)-0.4_wp)**3 + 0.4_wp**3))/(1.0_wp-0.75_wp*((1.0_wp-0.4_wp)**3+0.4**3))
   CASE DEFAULT
    CALL abort(__STAMP__, &
           'given grid type does not exist') 
@@ -278,7 +280,7 @@ IMPLICIT NONE
   INTEGER                       :: iElem
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: jElem
+  INTEGER  :: low,high
   REAL(wp) :: xloc
 !===================================================================================================================================
   iElem=1
@@ -304,13 +306,28 @@ IMPLICIT NONE
     RETURN
   END SELECT
   
-  !not efficient, bisection of sp  array would be better!!
-  DO jElem=2,sf%nElems
-    IF((xloc.GE.sf%sp(iElem-1)).AND.(xloc.LT.sf%sp(jElem)))THEN
-      iElem=jElem
-      EXIT
-    END IF
+  !not efficient, bisection of sp  array is better!!
+  !DO jElem=2,sf%nElems
+  !  IF((xloc.GE.sf%sp(iElem-1)).AND.(xloc.LT.sf%sp(jElem)))THEN
+  !    iElem=jElem
+  !    EXIT
+  !  END IF
+  !END DO
+
+  !bisection
+  low   = 1
+  high  = sf%nElems-1
+  iElem = (low + high) / 2 +1
+  DO WHILE ( (xloc .LT.  sf%sp(iElem-1)) .OR. (xloc .GE. sf%sp(iElem)) )
+     IF (xloc .LT. sf%sp(iElem-1)) THEN
+       high = iElem-1
+     ELSE
+       low  = iElem
+     END IF
+     iElem = (low + high) / 2+1
   END DO
+
+
 
 END FUNCTION sGrid_find_elem
 
@@ -321,7 +338,7 @@ END FUNCTION sGrid_find_elem
 !===================================================================================================================================
 SUBROUTINE sGrid_test( sf )
 ! MODULES
-USE MOD_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -482,5 +499,5 @@ IMPLICIT NONE
 END SUBROUTINE sGrid_test
 
 
-END MODULE MOD_sGrid
+END MODULE MODgvec_sGrid
 

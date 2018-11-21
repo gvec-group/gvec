@@ -22,12 +22,12 @@
 !! with mode numbers m and n 
 !!
 !===================================================================================================================================
-MODULE MOD_base
+MODULE MODgvec_base
 ! MODULES
-USE MOD_Globals ,ONLY: wp,Unit_stdOut,abort
-USE MOD_sBase   ,ONLY: t_sbase,sbase_new
-USE MOD_fBase   ,ONLY: t_fbase,fbase_new
-USE MOD_sGrid   ,ONLY: t_sgrid
+USE MODgvec_Globals ,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_sBase   ,ONLY: t_sbase,sbase_new
+USE MODgvec_fBase   ,ONLY: t_fbase,fbase_new
+USE MODgvec_sGrid   ,ONLY: t_sgrid
 IMPLICIT NONE
 PUBLIC
 
@@ -62,6 +62,7 @@ TYPE                 :: t_base
   PROCEDURE :: compare     => base_compare
   PROCEDURE :: change_base => base_change_base
   PROCEDURE :: evalDOF     => base_evalDOF
+  PROCEDURE :: evalDOF_x   => base_evalDOF_x
 
 END TYPE t_base
 
@@ -253,6 +254,33 @@ IMPLICIT NONE
 
 END FUNCTION base_evalDOF
 
+!===================================================================================================================================
+!> evaluate all degrees of freedom at given s theta zeta position (deriv=0 solution, deriv=1 first derivative d/ds)
+!!
+!===================================================================================================================================
+FUNCTION base_evalDOF_x(sf,x,deriv,DOFs) RESULT(y_IP)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_base), INTENT(IN   ) :: sf     !! self
+  REAL(wp)     , INTENT(IN   ) :: x(3)   !! s,theta,zeta
+  INTEGER      , INTENT(IN   ) :: deriv(2)   !! =(0,0): base, =(DERIV_S,0): ds, =(0,DERIV_THET): dtheta, =(0,DERIV_ZETA): dzeta
+  REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%s%nBase,1:sf%f%modes)  !! array of all modes and all radial dofs
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                     :: y_IP
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                      :: iMode
+  REAL(wp)                     :: y_tmp(1:sf%f%modes)
+!===================================================================================================================================
+  DO iMode=1,sf%f%modes
+    y_tmp(iMode)=sf%s%evalDOF_s(x(1),deriv(1),DOFs(:,iMode))
+  END DO!iMode
+  y_IP=sf%f%evalDOF_x(x(2:3),deriv(2),y_tmp(:))
+
+END FUNCTION base_evalDOF_x
 
 !===================================================================================================================================
 !> test base variable
@@ -260,7 +288,7 @@ END FUNCTION base_evalDOF
 !===================================================================================================================================
 SUBROUTINE Base_test( sf )
 ! MODULES
-USE MOD_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_StdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -317,7 +345,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
@@ -348,7 +376,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
@@ -379,7 +407,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
@@ -410,7 +438,7 @@ IMPLICIT NONE
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3))') &
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
       '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
     END IF !TEST
 
@@ -424,5 +452,5 @@ END SUBROUTINE Base_test
 
 
 
-END MODULE MOD_base
+END MODULE MODgvec_base
 

@@ -19,9 +19,9 @@
 !! Analyze and output equilibrium data 
 !!
 !===================================================================================================================================
-MODULE MOD_Analyze
+MODULE MODgvec_Analyze
 ! MODULES
-USE MOD_Globals, ONLY:wp,abort
+USE MODgvec_Globals, ONLY:wp,abort
 IMPLICIT NONE
 PRIVATE
 
@@ -50,9 +50,9 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitAnalyze 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_Analyze_Vars
-USE MOD_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY
+USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MODgvec_Analyze_Vars
+USE MODgvec_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY,GETLOGICAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -68,6 +68,7 @@ SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 visu1D    = GETINT('visu1D',Proposal=0)   
 visu2D    = GETINT('visu2D',Proposal=0)   
 visu3D    = GETINT('visu3D',Proposal=0)   
+SFL_theta = GETLOGICAL('SFL_theta',Proposal=.TRUE.)   
 
 
 visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
@@ -110,9 +111,9 @@ END SUBROUTINE InitAnalyze
 !===================================================================================================================================
 SUBROUTINE Analyze(fileID_in)
 ! MODULES
-USE MOD_Analyze_Vars
-USE MOD_mhdeq_vars, ONLY:whichInitEquilibrium
-USE MOD_mhd3d_visu
+USE MODgvec_Analyze_Vars
+USE MODgvec_mhdeq_vars, ONLY:whichInitEquilibrium
+USE MODgvec_mhd3d_visu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -177,12 +178,12 @@ END SUBROUTINE Analyze
 !===================================================================================================================================
 SUBROUTINE VMEC1D_visu()
 ! MODULES
-USE MOD_Globals,ONLY:Pi
-USE MOD_Analyze_Vars, ONLY:visu1D
-USE MOD_write_modes
-USE MOD_VMEC_Readin
-USE MOD_VMEC_Vars
-USE MOD_VMEC, ONLY: VMEC_EvalSpl,VMEC_EvalSplMode
+USE MODgvec_Globals,ONLY:Pi
+USE MODgvec_Analyze_Vars, ONLY:visu1D
+USE MODgvec_write_modes
+USE MODgvec_VMEC_Readin
+USE MODgvec_VMEC_Vars
+USE MODgvec_VMEC, ONLY: VMEC_EvalSpl,VMEC_EvalSplMode
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -398,11 +399,13 @@ END SUBROUTINE VMEC1D_visu
 !===================================================================================================================================
 SUBROUTINE VMEC3D_visu(np_in,minmax,only_planes)
 ! MODULES
-USE MOD_Globals,ONLY:TWOPI,UNIT_stdOut
-USE MOD_VMEC_Readin
-USE MOD_VMEC_Vars
-USE MOD_Output_Vars,ONLY:Projectname
-USE MOD_Output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Analyze_Vars,ONLY:SFL_theta
+USE MODgvec_Globals,ONLY:TWOPI,PI,UNIT_stdOut
+USE MODgvec_VMEC_Readin
+USE MODgvec_VMEC_Vars
+USE MODgvec_Output_Vars,ONLY:Projectname
+USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Newton,     ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -414,13 +417,20 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER            :: i_s,j_s,i_m,i_n,iMode,nplot(3),mn_IP(2)
-  INTEGER,PARAMETER  :: nVal=4
-  REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(1),np_in(2),np_in(3))
-  REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(2),np_in(3))
+  INTEGER,PARAMETER  :: nVal=6
+  REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(1),np_in(3),np_in(2))
+  REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(3),np_in(2))
   REAL(wp)           :: thet(np_in(1),np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
+  REAL(wp)           :: xIP(2),theta_star
+  REAL(wp)           :: cosmn_nyq,sqrtg,absB
   CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
+  IF(only_planes)THEN
+    SWRITE(UNIT_stdOut,'(A)') 'Start VMEC visu planes...'
+  ELSE
+    SWRITE(UNIT_stdOut,'(A)') 'Start VMEC visu 3D...'
+  END IF
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
     SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
      'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
@@ -434,10 +444,12 @@ IMPLICIT NONE
       'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
-  VarNames(1)="lambda"
-  VarNames(2)="Phi"
-  VarNames(3)="iota"
-  VarNames(4)="pressure"
+  VarNames(1)="Phi"
+  VarNames(2)="iota"
+  VarNames(3)="pressure"
+  VarNames(4)="lambda"
+  VarNames(5)="Jacobian"
+  VarNames(6)="|B|"
   mn_IP(1:2)=np_in(2:3)
   ASSOCIATE(n_s=>nFluxVMEC )
   DO i_m=1,mn_IP(1)
@@ -446,22 +458,39 @@ IMPLICIT NONE
                             *REAL((j_s-1)+(i_m-1)*(np_in(1)-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
     END DO !j_s
   END DO
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    thet(np_in(1),mn_IP(1))=thet(1,1)
+  END IF
   DO i_n=1,mn_IP(2)
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
+  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    zeta(mn_IP(2))=zeta(1)
+  END IF
+  
   DO i_s=1,n_s
-    var_visu(2,i_s,:,:,:)=Phi_Prof(i_s)
-    var_visu(3,i_s,:,:,:)=iotaf(i_s)
-    var_visu(4,i_s,:,:,:)=presf(i_s)
+    var_visu(1,i_s,:,:,:)=Phi_Prof(i_s)
+    var_visu(2,i_s,:,:,:)=iotaf(i_s)
+    var_visu(3,i_s,:,:,:)=presf(i_s)
   END DO !i_s
   DO i_n=1,mn_IP(2)
+    xIP(2)=zeta(i_n)
     DO i_m=1,mn_IP(1)
       DO j_s=1,np_in(1)
-        DO iMode=1,mn_mode
-          sinmn(iMode)=SIN(xm(iMode)*thet(j_s,i_m)-xn(iMode)*zeta(i_n))
-          cosmn(iMode)=COS(xm(iMode)*thet(j_s,i_m)-xn(iMode)*zeta(i_n))
-        END DO !iMode
+        !xIP(1)=thet(j_s,i_m) 
         DO i_s=1,n_s
+          !SFL
+          IF(SFL_theta)THEN
+            theta_star=thet(j_s,i_m)
+            XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR)
+          ELSE
+            XIP(1)=thet(j_s,i_m)
+          END IF
+          
+          DO iMode=1,mn_mode
+            sinmn(iMode)=SIN(xm(iMode)*xIP(1)-xn(iMode)*xIP(2))
+            cosmn(iMode)=COS(xm(iMode)*xIP(1)-xn(iMode)*xIP(2))
+          END DO !iMode
           R=0.0_wp
           Z=0.0_wp
           LA=0.0_wp
@@ -477,13 +506,28 @@ IMPLICIT NONE
               LA=LA+Lmnc(iMode,i_s)*cosmn(iMode)
             END DO !iMode
           END IF !lasym
-          coord_visu(1,i_s,j_s,i_m,i_n) = R*COS(zeta(i_n))
-          coord_visu(2,i_s,j_s,i_m,i_n) =-R*SIN(zeta(i_n))
-          coord_visu(3,i_s,j_s,i_m,i_n) = Z
-          var_visu(  1,i_s,j_s,i_m,i_n) = LA
+          coord_visu(1,i_s,j_s,i_n,i_m) = R*COS(xIP(2))
+          coord_visu(2,i_s,j_s,i_n,i_m) =-R*SIN(xIP(2)) !vmec data(R,phi,Z) was flipped in input to (R,Z,phi)!!
+          coord_visu(3,i_s,j_s,i_n,i_m) = Z
+          var_visu(  4,i_s,j_s,i_n,i_m) = LA
+          sqrtg=0.
+          absB =0.
+          DO iMode=1,mn_mode_nyq
+            cosmn_nyq=COS(xm_nyq(iMode)*xIP(1)-xn_nyq(iMode)*xIP(2))
+            sqrtg=sqrtg+gmnc(iMode,i_s)*cosmn_nyq
+            absB =absB +bmnc(iMode,i_s)*cosmn_nyq
+          END DO !iMode
+          var_visu(  5,i_s,j_s,i_n,i_m) = sqrtg*2.0*sqrt(phi_Prof(i_s)/phi_prof(n_s))  !VMEC: s=Phi_norm, but should match GVEC s~sqrt(phi_norm)
+          var_visu(  6,i_s,j_s,i_n,i_m) = absB
         END DO !i_s=1,n_s
       END DO !j_s=1,np_in(1)
     END DO !i_n
+  END DO !i_m
+  !overwrite data on axis with theta average of first flux surface (index 2)
+  DO i_n=1,mn_IP(2)
+    var_visu(4,1,:,i_n,:) =SUM(var_visu(4,2,:,i_n,:))/REAL(mn_IP(1)*np_in(1))
+    var_visu(5,1,:,i_n,:) =SUM(var_visu(5,2,:,i_n,:))/REAL(mn_IP(1)*np_in(1))
+    var_visu(6,1,:,i_n,:) =SUM(var_visu(6,2,:,i_n,:))/REAL(mn_IP(1)*np_in(1))
   END DO !i_m
 
   IF(only_planes)THEN
@@ -502,6 +546,38 @@ IMPLICIT NONE
   END IF
 
   END ASSOCIATE
+
+  SWRITE(UNIT_stdOut,'(A)') '... DONE.'
+
+!for iteration on theta^*
+CONTAINS 
+
+  FUNCTION FRdFR(theta_iter)
+    !uses current zeta=XIP(2),i_s where newton is called
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: FRdFR(2) !output
+    !--------------------------------------------------- 
+    DO iMode=1,mn_mode
+      sinmn(iMode)=SIN(xm(iMode)*theta_iter-xn(iMode)*xIP(2))
+      cosmn(iMode)=COS(xm(iMode)*theta_iter-xn(iMode)*xIP(2))
+    END DO !iMode
+    FRdFR(1)=0. !LA
+    FRdFR(2)=0. !dLA/dtheta
+    DO iMode=1,mn_mode
+      FRdFR(1)=FRdFR(1)          +Lmns(iMode,i_s)*sinmn(iMode)
+      FRdFR(2)=FRdFR(2)+xm(iMode)*Lmns(iMode,i_s)*cosmn(iMode)
+    END DO !iMode
+    IF(lasym)THEN
+      DO iMode=1,mn_mode
+        FRdFR(1)=FRdFR(1)          +Lmnc(iMode,i_s)*cosmn(iMode)
+        FRdFR(2)=FRdFR(2)-xm(iMode)*Lmnc(iMode,i_s)*sinmn(iMode)
+      END DO !iMode
+    END IF !lasym
+    FRdFR(1)=FRdFR(1)+theta_iter
+    FRdFR(2)=FRdFR(2)+1.0_wp
+  END FUNCTION FRdFR
+
 END SUBROUTINE VMEC3D_visu 
 
 !===================================================================================================================================
@@ -510,7 +586,7 @@ END SUBROUTINE VMEC3D_visu
 !===================================================================================================================================
 SUBROUTINE FinalizeAnalyze 
 ! MODULES
-USE MOD_Analyze_Vars
+USE MODgvec_Analyze_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -522,4 +598,4 @@ IMPLICIT NONE
 
 END SUBROUTINE FinalizeAnalyze
 
-END MODULE MOD_Analyze
+END MODULE MODgvec_Analyze

@@ -19,9 +19,9 @@
 !! 
 !!
 !===================================================================================================================================
-MODULE MOD_Output_CSV
+MODULE MODgvec_Output_CSV
 ! MODULES
-USE MOD_Globals, ONLY: wp
+USE MODgvec_Globals, ONLY: wp
 IMPLICIT NONE
 PRIVATE
 
@@ -40,7 +40,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE WriteDataToCSV(VarNames,Values,FileString,append_in,vfmt_in)
 ! MODULES
-USE MOD_Globals,ONLY:Unit_stdOut,GETFREEUNIT
+USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -106,4 +106,4 @@ END SUBROUTINE WriteDataToCSV
  
  
 
-END MODULE MOD_Output_CSV
+END MODULE MODgvec_Output_CSV

@@ -22,9 +22,9 @@
 !! with mode numbers m and n 
 !!
 !===================================================================================================================================
-MODULE MOD_fBase
+MODULE MODgvec_fBase
 ! MODULES
-USE MOD_Globals                  ,ONLY: TWOPI,wp,Unit_stdOut,abort
+USE MODgvec_Globals                  ,ONLY: TWOPI,wp,Unit_stdOut,abort
 IMPLICIT NONE
 PUBLIC
 
@@ -785,7 +785,7 @@ END FUNCTION fBase_initDOF
 !===================================================================================================================================
 SUBROUTINE fBase_test( sf)
 ! MODULES
-USE MOD_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1083,5 +1083,5 @@ IMPLICIT NONE
 END SUBROUTINE fBase_test
 
 
-END MODULE MOD_fBase
+END MODULE MODgvec_fBase
 

@@ -19,10 +19,10 @@
 !! CONTAINS INITIALIZATION OF MHD 3D Energy functional that will be minimized
 !!
 !===================================================================================================================================
-MODULE MOD_MHD3D
+MODULE MODgvec_MHD3D
 ! MODULES
-  USE MOD_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
-  USE MOD_c_functional,   ONLY: t_functional
+  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
+  USE MODgvec_c_functional,   ONLY: t_functional
   IMPLICIT NONE
   PUBLIC
 
@@ -50,18 +50,21 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitMHD3D(sf) 
   ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_Globals        , ONLY: TWOPI
-  USE MOD_mhdeq_Vars     , ONLY: whichInitEquilibrium
-  USE MOD_sgrid          , ONLY: t_sgrid
-  USE MOD_fbase          , ONLY: t_fbase,fbase_new
-  USE MOD_base           , ONLY: t_base,base_new
-  USE MOD_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
-  USE MOD_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
-  USE MOD_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
-  USE MOD_Restart_vars   , ONLY: doRestart,RestartFile
-  USE MOD_Restart        , ONLY: ReadState
-  USE MOD_Analyze        , ONLY: Analyze
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_Globals        , ONLY: TWOPI
+  USE MODgvec_mhdeq_Vars     , ONLY: whichInitEquilibrium
+  USE MODgvec_sgrid          , ONLY: t_sgrid
+  USE MODgvec_fbase          , ONLY: t_fbase,fbase_new
+  USE MODgvec_base           , ONLY: t_base,base_new
+  USE MODgvec_hmap           , ONLY: hmap_new
+  USE MODgvec_VMEC_vars      , ONLY: switchZeta
+  USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
+  USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+  USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
+  USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
+  USE MODgvec_Restart        , ONLY: RestartFromState
+  USE MODgvec_Restart        , ONLY:WriteState
+  USE MODgvec_Analyze        , ONLY: Analyze
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -79,8 +82,9 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: X2_sin_cos
   CHARACTER(LEN=8) :: LA_sin_cos
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
-  INTEGER          :: nfp_loc,which_hmap 
+  INTEGER          :: nfp_loc
   INTEGER          :: JacCheck
+  INTEGER          :: sign_iota
   REAL(wp)         :: pres_scale
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
@@ -115,18 +119,24 @@ SUBROUTINE InitMHD3D(sf)
     nfp_loc  = GETINT( "nfp",Proposal=1)
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
+    sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
     CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+    iota_coefs=REAL(sign_iota)*iota_coefs
     CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
     pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
     pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
-    Phi_edge   =-Phi_edge/TWOPI !normalization like in VMEC!!!
+    Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     gamm = 0.0_wp
     nfp_loc = nfp
-    !hmap
-    which_hmap=1 !hmap_RZ
+    !hmap: depends on how vmec data is read:
+    IF(switchZeta)THEN  
+      which_hmap=1 !hmap_RZ
+    ELSE
+      which_hmap=2 !hmap_RphiZ
+    END IF
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
 
@@ -306,7 +316,6 @@ SUBROUTINE InitMHD3D(sf)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM  !n/=0 modes should have lambda/=0 at the axis, but not clear why...
     CASE(M_ODD_FIRST)
@@ -341,8 +350,8 @@ SUBROUTINE InitMHD3D(sf)
 
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
-    CALL ReadState(RestartFile,U(0))
-    CALL InitSolution(U(0),-1) !only apply BC and recompute lambda
+    CALL RestartFromState(RestartFile,U(0))
+    !CALL InitSolution(U(0),-1) !would apply BC and recompute lambda
   ELSE 
     CALL InitSolution(U(0),which_init)
   END IF
@@ -353,6 +362,7 @@ SUBROUTINE InitMHD3D(sf)
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
   IF(JacCheck.EQ.-1)THEN
     CALL Analyze(0)
+    CALL WriteState(U(0),0)
   END IF
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
   
@@ -399,16 +409,16 @@ END SUBROUTINE InitMHD3D
 !===================================================================================================================================
 SUBROUTINE InitSolution(U_init,which_init_in)
 ! MODULES
-  USE MOD_MHD3D_Vars   , ONLY:init_fromBConly
-  USE MOD_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
-  USE MOD_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
-  USE MOD_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
-  USE MOD_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-  USE MOD_lambda_solve,  ONLY:lambda_solve
-  USE MOD_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
-  USE MOD_VMEC_Readin,   ONLY:lasym
-  USE MOD_VMEC,          ONLY:VMEC_EvalSplMode
-  USE MOD_MHD3D_Profiles,ONLY: Eval_iota
+  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly
+  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
+  USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
+  USE MODgvec_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
+  USE MODgvec_lambda_solve,  ONLY:lambda_solve
+  USE MODgvec_VMEC_Vars,     ONLY:Rmnc_spl,Rmns_spl,Zmnc_spl,Zmns_spl
+  USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
+  USE MODgvec_VMEC_Readin,   ONLY:lasym
+  USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -421,7 +431,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   INTEGER  :: iMode,is
   INTEGER  :: BC_type(2)
   REAL(wp) :: BC_val(2)
-  REAL(wp) :: spos,iota_s
+  REAL(wp) :: spos
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -509,8 +519,26 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X2
+      ASSOCIATE(s_IP         => LA_base%s%s_IP, &
+                nBase        => LA_base%s%nBase, &
+                sin_range    => LA_base%f%sin_range,&
+                cos_range    => LA_base%f%cos_range )
+      DO imode=sin_range(1)+1,sin_range(2)
+        DO is=1,nBase
+          LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),lmns_Spl)
+        END DO !is
+      END DO !imode= sin_range
+      IF(lasym)THEN
+        DO imode=cos_range(1)+1,cos_range(2)
+          DO is=1,nBase
+            LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),Lmnc_Spl)
+          END DO !is
+        END DO !imode=cos_range
+      END IF !lasym
+      END ASSOCIATE !X1
     END IF !fullIntVmec
   END SELECT !which_init
+  
  
   IF((which_init_in.GE.0).AND.(init_fromBConly))THEN 
     !no restart(=-1) and initialization only 
@@ -559,7 +587,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       BC_val =(/ X1_a(iMode)    ,      X1_b(iMode)/)
-    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    CASE DEFAULT
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
@@ -572,7 +601,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO,M_ZERO)
       BC_val =(/     X2_a(iMode),      X2_b(iMode)/)
-    CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
+    CASE DEFAULT
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
@@ -585,8 +615,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     LA_gIP(1,:)=0.0_wp !at axis
     DO is=2,LA_base%s%nBase
       spos=LA_base%s%s_IP(is)
-      iota_s=eval_iota(spos)
-      CALL lambda_Solve(spos,iota_s,U_init%X1,U_init%X2,LA_gIP(is,:))
+      CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
     END DO !is
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
@@ -602,8 +631,24 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END ASSOCIATE !LA
   ELSE
     !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
-    SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
-    U_init%LA=0.0_wp
+    IF(.NOT.init_fromBConly)THEN
+      SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
+      ASSOCIATE(modes        =>LA_base%f%modes, &
+                zero_odd_even=>LA_base%f%zero_odd_even)
+      DO imode=1,modes
+        IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+          U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+        ELSE
+          U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+        END IF!iMode ~ MN_ZERO
+        BC_val =(/ 0.0_wp, 0.0_wp/)
+        CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+      END DO !iMode 
+      END ASSOCIATE !LA
+    ELSE
+      SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
+      U_init%LA=0.0_wp
+    END IF
   END IF !init_LA
 
   SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
@@ -617,7 +662,7 @@ END SUBROUTINE InitSolution
 !===================================================================================================================================
 SUBROUTINE MinimizeMHD3D(sf) 
 ! MODULES
-  USE MOD_MHD3D_vars, ONLY: MinimizerType
+  USE MODgvec_MHD3D_vars, ONLY: MinimizerType
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -642,10 +687,10 @@ END SUBROUTINE MinimizeMHD3D
 !===================================================================================================================================
 SUBROUTINE MinimizeMHD3D_descent(sf) 
 ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_MHD3D_EvalFunc
-  USE MOD_Analyze, ONLY:analyze
-  USE MOD_Restart, ONLY:WriteState
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_MHD3D_EvalFunc
+  USE MODgvec_Analyze, ONLY:analyze
+  USE MODgvec_Restart, ONLY:WriteState
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -686,8 +731,11 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   nstepDecreased=0
   t_pseudo=0
   lastOutputIter=0
-  iter=1
+  iter=0
   SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,3E11.4,A)') &
+          '                 %%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   DO WHILE(iter.LE.maxIter)
 ! hirshman method
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
@@ -721,7 +769,22 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
       
       IF(deltaW.LE.1.0e-10*W_MHD3D_0)THEN !valid step 
-         !LINE SEARCH COULD BE USED HERE !!
+         ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
+         CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
+         JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
+         U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
+         IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
+           CALL P(1)%set_to(U(1)) !accept smaller step
+           CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
+           JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
+           U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
+           IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
+             SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
+             CALL P(1)%set_to(U(1)) !accept smaller step
+           ELSE
+             SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
+           END IF
+         END IF
 
 !        IF(ABS(deltaW).LE.aborttol)THEN
 !          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
@@ -815,10 +878,10 @@ END SUBROUTINE MinimizeMHD3D_descent
 !===================================================================================================================================
 SUBROUTINE MinimizeMHD3D_LBFGS(sf) 
 ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_MHD3D_EvalFunc
-  USE MOD_Analyze, ONLY:analyze
-  USE MOD_Restart, ONLY:WriteState
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_MHD3D_EvalFunc
+  USE MODgvec_Analyze, ONLY:analyze
+  USE MODgvec_Restart, ONLY:WriteState
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -827,7 +890,7 @@ SUBROUTINE MinimizeMHD3D_LBFGS(sf)
 ! LOCAL VARIABLES
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck,lastoutputIter,lastLogIter
-  REAL(wp)  :: beta,dt,deltaW,absTol
+  REAL(wp)  :: dt,deltaW,absTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0,W_MHD3D_1
 !variables for lbfgs
   INTEGER,  PARAMETER    :: m = 5, iprint = 0
@@ -972,8 +1035,8 @@ END SUBROUTINE MinimizeMHD3D_LBFGS
 !===================================================================================================================================
 SUBROUTINE FinalizeMHD3D(sf) 
 ! MODULES
-  USE MOD_MHD3D_Vars
-  USE MOD_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
+  USE MODgvec_MHD3D_Vars
+  USE MODgvec_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1012,4 +1075,4 @@ SUBROUTINE FinalizeMHD3D(sf)
   CALL FinalizeMHD3D_EvalFunc()
 END SUBROUTINE FinalizeMHD3D
 
-END MODULE MOD_MHD3D
+END MODULE MODgvec_MHD3D

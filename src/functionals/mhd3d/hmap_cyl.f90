@@ -19,10 +19,10 @@
 !! contains the type that points to the routines of one chosen hmap_cyl
 !!
 !===================================================================================================================================
-MODULE MOD_hmap_cyl
+MODULE MODgvec_hmap_cyl
 ! MODULES
-USE MOD_Globals, ONLY:PI,wp,Unit_stdOut,abort
-USE MOD_c_hmap,    ONLY:c_hmap
+USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort
+USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
@@ -62,7 +62,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_cyl_init( sf )
 ! MODULES
-USE MOD_ReadInTools, ONLY: GETREAL
+USE MODgvec_ReadInTools, ONLY: GETREAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -283,7 +283,7 @@ END FUNCTION hmap_cyl_eval_gij_dq2
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_cyl_test( sf )
-USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -340,5 +340,5 @@ IMPLICIT NONE
 
 END SUBROUTINE hmap_cyl_test
 
-END MODULE MOD_hmap_cyl
+END MODULE MODgvec_hmap_cyl
 

@@ -23,9 +23,9 @@
 !! Write to unstructured VTK file 
 !!
 !===================================================================================================================================
-MODULE MOD_Output_VTK
+MODULE MODgvec_Output_VTK
 ! MODULES
-USE MOD_Globals, ONLY: wp
+USE MODgvec_Globals, ONLY: wp
 IMPLICIT NONE
 PRIVATE
 
@@ -44,7 +44,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE WriteDataToVTK(dim1,vecDim,nVal,NPlot,nElems,VarNames,Coord,Values,FileString)
 ! MODULES
-USE MOD_Globals
+USE MODgvec_Globals
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -62,11 +62,14 @@ CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKElems,nVTKCells,ivtk=44
-INTEGER            :: INTdummy
-REAL(KIND=8)       :: FLOAT64dummy
-INTEGER            :: Vertex(2**dim1,PRODUCT(Nplot+1)*nElems)  ! ?
-INTEGER            :: ProdNplot,ProdNplot_p1,NPlot_p1(dim1),NodeID,NodeIDElem,ElemType  ! ?
+INTEGER,PARAMETER     :: kindFloat=8  !set floating point accuracy single (4) double (8), should be equal or lower than input data!
+REAL(KIND=kindFloat)  :: FLOATdummy
+CHARACTER(LEN=7)      :: strfloat
+INTEGER               :: INTdummy
+INTEGER               :: sizefloat,sizeInt
+INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKPoints,nVTKCells,ivtk=44
+INTEGER            :: Vertex(2**dim1,PRODUCT(Nplot)*nElems)  ! ?
+INTEGER            :: ProdNplot,ProdNplot_p1,NPlot_p1(dim1),CellID,PointID,ElemType  ! ?
 CHARACTER(LEN=35)  :: StrOffset,TempStr1,TempStr2  ! ?
 CHARACTER(LEN=300) :: Buffer
 CHARACTER(LEN=255) :: tmpVarName,tmpVarNameY,tmpVarNameZ
@@ -79,6 +82,17 @@ WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO VTX XML BINARY (VTU) FILE
 NPlot_p1  =(Nplot(:)+1)
 ProdNPlot  =PRODUCT(Nplot(:))
 ProdNPlot_p1  =PRODUCT(Nplot_p1(:))
+
+IF(kindFloat.EQ.4) THEN 
+  strfloat='Float32'
+ELSEIF(kindFloat.EQ.8)THEN
+  strfloat='Float64'
+ELSE 
+  STOP 'kindFloat not implemented in output vtk'
+END IF
+sizefloat=SIZEOF_F(FLOATdummy)
+sizeInt  =SIZEOF_F(INTdummy)
+
 
 IF(vecdim.LT.dim1) THEN
   WRITE(*,*)'WARNING:data dimension should be <= vecdim! dim1= ',dim1,' vecdim= ',vecdim
@@ -94,10 +108,10 @@ OPEN(UNIT=ivtk,FILE=TRIM(FileString),ACCESS='STREAM')
 Buffer='<?xml version="1.0"?>'//lf;WRITE(ivtk) TRIM(Buffer)
 Buffer='<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify file type
-nVTKElems=ProdNPlot_p1*nElems
-nVTKCells=ProdNPlot*nElems
+nVTKPoints= ProdNPlot_p1*nElems
+nVTKCells = ProdNPlot   *nElems
 Buffer='  <UnstructuredGrid>'//lf;WRITE(ivtk) TRIM(Buffer)
-WRITE(TempStr1,'(I16)')nVTKElems
+WRITE(TempStr1,'(I16)')nVTKPoints
 WRITE(TempStr2,'(I16)')nVTKCells
 Buffer='    <Piece NumberOfPoints="'//TRIM(ADJUSTL(TempStr1))//'" &
        &NumberOfCells="'//TRIM(ADJUSTL(TempStr2))//'">'//lf;WRITE(ivtk) TRIM(Buffer)
@@ -137,16 +151,16 @@ DO WHILE(iVal.LT.nVal)
 
   IF(isvector)THEN !variable is a vector!
     tmpVarName=tmpVarName(:StrLen-1)
-    Buffer='        <DataArray type="Float64" Name="'//TRIM(tmpVarName)//'" NumberOfComponents="'//strvecdim// &
+    Buffer='        <DataArray type="'//strfloat//'" Name="'//TRIM(tmpVarName)//'" NumberOfComponents="'//strvecdim// &
            &'" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-    Offset=Offset+SIZEOF_F(INTdummy)+vecdim*nVTKElems*SIZEOF_F(FLOAT64dummy)
+    Offset=Offset+sizeInt+vecdim*nVTKPoints*sizefloat
     WRITE(StrOffset,'(I16)')Offset
     VecOffset(iValVec)=VecOffset(iValVec-1)+vecdim
     iVal=iVal+vecdim-1 !skip the Y (& Z) components
   ELSE
-    Buffer='        <DataArray type="Float64" Name="'//TRIM(tmpVarName)// &
+    Buffer='        <DataArray type="'//strfloat//'" Name="'//TRIM(tmpVarName)// &
            &'" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-    Offset=Offset+SIZEOF_F(INTdummy)+nVTKElems*SIZEOF_F(FLOAT64dummy)
+    Offset=Offset+sizeInt+nVTKPoints*sizeFloat
     WRITE(StrOffset,'(I16)')Offset
     VecOffset(iValVec)=VecOffset(iValVec-1)+1
   END IF !isvector
@@ -158,9 +172,9 @@ Buffer='      </PointData>'//lf;WRITE(ivtk) TRIM(Buffer)
 Buffer='      <CellData> </CellData>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify coordinate data
 Buffer='      <Points>'//lf;WRITE(ivtk) TRIM(Buffer)
-Buffer='        <DataArray type="Float64" Name="Coordinates" NumberOfComponents="'//strvecdim// &
+Buffer='        <DataArray type="'//strfloat//'" Name="Coordinates" NumberOfComponents="'//strvecdim// &
 '" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-Offset=Offset+SIZEOF_F(INTdummy)+vecdim*nVTKElems*SIZEOF_F(FLOAT64dummy)
+Offset=Offset+sizeInt+vecdim*nVTKPoints*sizeFloat
 WRITE(StrOffset,'(I16)')Offset
 Buffer='      </Points>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify necessary cell data
@@ -168,12 +182,12 @@ Buffer='      <Cells>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Connectivity
 Buffer='        <DataArray type="Int32" Name="connectivity" format="appended" &
          &offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-Offset=Offset+SIZEOF_F(INTdummy)+2**dim1*nVTKElems*SIZEOF_F(INTdummy)
+Offset=Offset+sizeInt+2**dim1*nVTKCells*sizeInt
 WRITE(StrOffset,'(I16)')Offset
-! Offsets
+! Offset in connectivity data
 Buffer='        <DataArray type="Int32" Name="offsets" format="appended" &
          &offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-Offset=Offset+SIZEOF_F(INTdummy)+nVTKElems*SIZEOF_F(INTdummy)
+Offset=Offset+sizeInt+nVTKCells*sizeInt
 WRITE(StrOffset,'(I16)')Offset
 ! Elem types
 Buffer='        <DataArray type="Int32" Name="types" format="appended" &
@@ -188,70 +202,70 @@ Buffer='_';WRITE(ivtk) TRIM(Buffer)
 
 ! Write binary raw data into append section
 ! Point data
-nBytes = nVTKElems*SIZEOF_F(FLOAT64dummy)
+nBytes = nVTKPoints*sizeFloat
 DO iValVec=1,nValVec
-  WRITE(ivtk) (vecOffset(iValVec)-vecOffset(iValVec-1))*nBytes, &
-              REAL(Values(VecOffSet(iValVec-1)+1:VecOffset(iValVec),:,:),8)
+  WRITE(ivtk) (vecOffset(iValVec)-vecOffset(iValVec-1))*nBytes
+  WRITE(ivtk) REAL(Values(VecOffSet(iValVec-1)+1:VecOffset(iValVec),:,:),kindFloat)
 END DO !iValVec
-! Points
-nBytes = nBytes * vecdim
+! Point coordinates
+nBytes = nVTKPoints * vecdim*sizeFloat
 WRITE(ivtk) nBytes
-WRITE(ivtk) REAL(Coord(:,:,:),8)
+WRITE(ivtk) REAL(Coord(:,:,:),kindFloat)
 ! Connectivity
 SELECT CASE(dim1)
 CASE(2)
-  NodeID = 0
-  NodeIDElem = 0
+  CellID = 0
+  PointID= 0
   DO iElem=1,nElems
     DO j=1,NPlot(2)
       DO i=1,NPlot(1)
-        NodeID = NodeID+1
+        CellID = CellID+1
         !visuQuadElem
-        Vertex(:,NodeID) = (/                  &
-          NodeIDElem+(i-1)+  j   * NPlot_p1(1) ,    & !P4
-          NodeIDElem+(i-1)+ (j-1)* NPlot_p1(1) ,    & !P1(CGNS=tecplot standard)
-          NodeIDElem+ i   + (j-1)* NPlot_p1(1) ,    & !P2
-          NodeIDElem+ i   +  j   * NPlot_p1(1)     /) !P3
+        Vertex(:,CellID) = (/                  &
+          PointID+(i-1)+  j   * NPlot_p1(1) ,    & !P4
+          PointID+(i-1)+ (j-1)* NPlot_p1(1) ,    & !P1(CGNS=tecplot standard)
+          PointID+ i   + (j-1)* NPlot_p1(1) ,    & !P2
+          PointID+ i   +  j   * NPlot_p1(1)     /) !P3
       END DO
     END DO
-    NodeIDElem=NodeIDElem+ProdNPlot_p1
+    PointID=PointID+ProdNPlot_p1
   END DO
 CASE(3)
-  NodeID=0
-  NodeIDElem=0
+  CellID=0
+  PointID=0
   DO iElem=1,nElems
     DO k=1,NPlot(3)
       DO j=1,NPlot(2)
         DO i=1,NPlot(1)
-          NodeID=NodeID+1
+          CellID=CellID+1
           !
-          Vertex(:,NodeID)=(/                                       &
-            NodeIDElem+(i-1)+( j   +(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P4(CGNS=tecplot standard)
-            NodeIDElem+(i-1)+((j-1)+(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P1
-            NodeIDElem+ i   +((j-1)+(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P2
-            NodeIDElem+ i   +( j   +(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P3
-            NodeIDElem+(i-1)+( j   + k   *NPlot_p1(2))*NPlot_p1(1),      & !P8
-            NodeIDElem+(i-1)+((j-1)+ k   *NPlot_p1(2))*NPlot_p1(1),      & !P5
-            NodeIDElem+ i   +((j-1)+ k   *NPlot_p1(2))*NPlot_p1(1),      & !P6
-            NodeIDElem+ i   +( j   + k   *NPlot_p1(2))*NPlot_p1(1)      /) !P7
+          Vertex(:,CellID)=(/                                       &
+            PointID+(i-1)+( j   +(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P4(CGNS=tecplot standard)
+            PointID+(i-1)+((j-1)+(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P1
+            PointID+ i   +((j-1)+(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P2
+            PointID+ i   +( j   +(k-1)*NPlot_p1(2))*NPlot_p1(1),      & !P3
+            PointID+(i-1)+( j   + k   *NPlot_p1(2))*NPlot_p1(1),      & !P8
+            PointID+(i-1)+((j-1)+ k   *NPlot_p1(2))*NPlot_p1(1),      & !P5
+            PointID+ i   +((j-1)+ k   *NPlot_p1(2))*NPlot_p1(1),      & !P6
+            PointID+ i   +( j   + k   *NPlot_p1(2))*NPlot_p1(1)      /) !P7
         END DO
       END DO
     END DO
     !
-    NodeIDElem=NodeIDElem+ProdNPlot_p1
+    PointID=PointID+ProdNPlot_p1
   END DO
 END SELECT
-nBytes = 2**dim1*nVTKElems*SIZEOF_F(INTdummy)
+nBytes = 2**dim1*nVTKCells*sizeInt
 WRITE(ivtk) nBytes
 WRITE(ivtk) Vertex(:,:)
-! Offset
-nBytes = nVTKElems*SIZEOF_F(INTdummy)
+! Offset in connectivity
+nBytes = nVTKCells*sizeInt
 WRITE(ivtk) nBytes
-WRITE(ivtk) (Offset,Offset=2**dim1,2**dim1*nVTKElems,2**dim1)
+WRITE(ivtk) (Offset,Offset=2**dim1,2**dim1*nVTKCells,2**dim1)
 ! Elem type
 ElemType =3+3*dim1 !9 VTK_QUAD 12  VTK_HEXAHEDRON
 WRITE(ivtk) nBytes
-WRITE(ivtk) (ElemType,iElem=1,nVTKElems)
+WRITE(ivtk) (ElemType,iElem=1,nVTKCells)
 ! Write footer
 Buffer=lf//'  </AppendedData>'//lf;WRITE(ivtk) TRIM(Buffer)
 Buffer='</VTKFile>'//lf;WRITE(ivtk) TRIM(Buffer)
@@ -261,4 +275,4 @@ END SUBROUTINE WriteDataToVTK
  
  
 
-END MODULE MOD_Output_VTK
+END MODULE MODgvec_Output_VTK

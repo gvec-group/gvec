@@ -19,9 +19,9 @@
 !! contains only the abstract type to point to a specific map h (maps  omega_p x S^1 --> omega) 
 !!
 !===================================================================================================================================
-MODULE MOD_c_hmap
+MODULE MODgvec_c_hmap
 ! MODULES
-USE MOD_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
 IMPLICIT NONE
 
 PUBLIC
@@ -133,5 +133,5 @@ END INTERFACE
 
 !===================================================================================================================================
 
-END MODULE MOD_c_hmap
+END MODULE MODgvec_c_hmap
 

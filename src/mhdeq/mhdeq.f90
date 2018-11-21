@@ -21,9 +21,9 @@
 !! For initialization of an MHD equilibrium. 
 !!
 !===================================================================================================================================
-MODULE MOD_MHDEQ
+MODULE MODgvec_MHDEQ
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
@@ -53,11 +53,11 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitMHDEQ 
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep,abort
-USE MOD_ReadInTools,ONLY:GETINT,GETREALARRAY
-USE MOD_MHDEQ_Vars
-USE MOD_VMEC, ONLY:InitVMEC
-USE MOD_Solov, ONLY:InitSolov
+USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep,abort
+USE MODgvec_ReadInTools,ONLY:GETINT,GETREALARRAY
+USE MODgvec_MHDEQ_Vars
+USE MODgvec_VMEC, ONLY:InitVMEC
+USE MODgvec_Solov, ONLY:InitSolov
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -110,10 +110,10 @@ END SUBROUTINE InitMHDEQ
 !===================================================================================================================================
 SUBROUTINE MapToMHDEQ(nTotal,x_in,x_out,MHDEQdata)
 ! MODULES
-USE MOD_Globals, ONLY:wp
-USE MOD_MHDEQ_Vars, ONLY: nVarMHDEQ,whichInitEquilibrium,InputCoordSys
-USE MOD_VMEC, ONLY:MapToVMEC
-USE MOD_Solov, ONLY:MapToSolov
+USE MODgvec_Globals, ONLY:wp
+USE MODgvec_MHDEQ_Vars, ONLY: nVarMHDEQ,whichInitEquilibrium,InputCoordSys
+USE MODgvec_VMEC, ONLY:MapToVMEC
+USE MODgvec_Solov, ONLY:MapToSolov
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -140,9 +140,9 @@ END SUBROUTINE MapToMHDEQ
 !===================================================================================================================================
 SUBROUTINE FinalizeMHDEQ 
 ! MODULES
-USE MOD_MHDEQ_Vars
-USE MOD_VMEC,  ONLY:FinalizeVMEC
-USE MOD_Solov, ONLY:FinalizeSolov
+USE MODgvec_MHDEQ_Vars
+USE MODgvec_VMEC,  ONLY:FinalizeVMEC
+USE MODgvec_Solov, ONLY:FinalizeSolov
 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -166,4 +166,4 @@ SDEALLOCATE(RhoCoefs)
 
 END SUBROUTINE FinalizeMHDEQ
 
-END MODULE MOD_MHDEQ
+END MODULE MODgvec_MHDEQ

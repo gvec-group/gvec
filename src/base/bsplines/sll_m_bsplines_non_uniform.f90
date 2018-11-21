@@ -122,9 +122,9 @@ contains
 
     associate( npoints => self%ncells+1 )
 
-      ! check if point is outside of grid
-      if (x > self%knots(npoints)) then; icell = -1; return; end if
-      if (x < self%knots(1)      ) then; icell = -1; return; end if
+      ! check if point is outside of grid, set to outermost cell
+      if (x > self%knots(npoints)) then; icell = self%ncells; return; end if
+      if (x < self%knots(1)      ) then; icell = 1; return; end if
 
       ! check if point is exactly on left/right boundary
       if (x == self%knots(1)      ) then; icell = 1          ; return; end if

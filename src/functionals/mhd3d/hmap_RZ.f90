@@ -19,10 +19,10 @@
 !! contains the type that points to the routines of one chosen hmap_RZ
 !!
 !===================================================================================================================================
-MODULE MOD_hmap_RZ
+MODULE MODgvec_hmap_RZ
 ! MODULES
-USE MOD_Globals, ONLY:PI,wp,Unit_stdOut,abort
-USE MOD_c_hmap,    ONLY:c_hmap
+USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort
+USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
@@ -102,7 +102,7 @@ IMPLICIT NONE
 END SUBROUTINE hmap_RZ_free
 
 !===================================================================================================================================
-!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) 
+!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) cartesian 
 !!
 !===================================================================================================================================
 FUNCTION hmap_RZ_eval( sf ,q_in) RESULT(x_out)
@@ -119,8 +119,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   !  q= (R,Z,zeta)
-  ! |x |  | R*sin(zeta) |
-  ! |y |= |-R*cos(zeta) |
+  ! |x |  | R*cos(zeta) |
+  ! |y |= |-R*sin(zeta) |
   ! |z |  | Z           |
 
   ASSOCIATE(R=>q_in(1),Z=>q_in(2),zeta=>q_in(3))
@@ -298,7 +298,7 @@ END FUNCTION hmap_RZ_eval_gij_dq2
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_RZ_test( sf )
-USE MOD_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
+USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -356,5 +356,5 @@ IMPLICIT NONE
 
 END SUBROUTINE hmap_RZ_test
 
-END MODULE MOD_hmap_RZ
+END MODULE MODgvec_hmap_RZ
 

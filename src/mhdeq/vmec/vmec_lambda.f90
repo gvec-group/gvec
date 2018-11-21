@@ -23,8 +23,8 @@
 !! sampled at theta/zeta = [0,...,k/(2pi),...,(np-1)/(2pi)]
 !!
 !===================================================================================================================================
-MODULE MOD_VMEC_Lambda
-  USE MOD_Globals,ONLY:wp
+MODULE MODgvec_VMEC_Lambda
+  USE MODgvec_Globals,ONLY:wp
   IMPLICIT NONE
   PUBLIC
 
@@ -43,10 +43,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE RecomputeLambda(np_m,np_n)
 !=====================================================================
-USE MOD_LinAlg,     ONLY: SOLVE
-USE MOD_VMEC_vars,  ONLY: xmabs,rho,Rmnc_Spl,Rmns_Spl,Zmnc_Spl,Zmns_Spl
-USE MOD_VMEC_Readin,ONLY: Rmnc,Rmns,Zmnc,Zmns,lmnc,lmns,iotaf,lasym,xm,xn
-USE MOD_VMEC_Readin,ONLY: nfp,nFluxVMEC,mn_mode,twoPi
+USE MODgvec_LinAlg,     ONLY: SOLVE
+USE MODgvec_VMEC_vars,  ONLY: xmabs,rho,Rmnc_Spl,Rmns_Spl,Zmnc_Spl,Zmns_Spl
+USE MODgvec_VMEC_Readin,ONLY: Rmnc,Rmns,Zmnc,Zmns,lmnc,lmns,iotaf,lasym,xm,xn
+USE MODgvec_VMEC_Readin,ONLY: nfp,nFluxVMEC,mn_mode,twoPi
 USE SPLINE1_MOD,    ONLY: SPLINE1_EVAL
 IMPLICIT NONE
 !---------------------------------------------------------------------
@@ -280,4 +280,4 @@ IMPLICIT NONE
   WRITE(*,'(4X,A)')'...DONE.'
 END SUBROUTINE RecomputeLambda
 
-END MODULE MOD_VMEC_lambda 
+END MODULE MODgvec_VMEC_lambda 
