@@ -139,9 +139,9 @@ ALLOCATE(Phi_prof(nFluxVMEC))
 Phi_prof = phi
 
 !normalized toroidal flux (=flux variable s [0;1] in VMEC)
-ALLOCATE(Phinorm_prof(nFluxVMEC))
-Phinorm_prof=(Phi_prof-Phi_prof(1))/(Phi_prof(nFluxVMEC)-Phi_prof(1))
-SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'normalized toroidal flux of first three flux surfaces',Phinorm_prof(2:4)
+ALLOCATE(NormFlux_prof(nFluxVMEC))
+NormFlux_prof=(Phi_prof-Phi_prof(1))/(Phi_prof(nFluxVMEC)-Phi_prof(1))
+SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'normalized toroidal flux of first three flux surfaces',NormFlux_prof(2:4)
 !poloidal flux from VMEC
 ALLOCATE(chi_prof(nFluxVMEC))
 chi_prof=chi
@@ -169,7 +169,7 @@ END DO !iMode=1,mn_mode
 
 !prepare Spline interpolation
 ALLOCATE(rho(1:nFluxVMEC))
-rho(:)=SQRT(Phinorm_prof(:))
+rho(:)=SQRT(NormFlux_prof(:))
 
 
 ALLOCATE(Rmnc_Spl(4,1:nFluxVMEC,mn_mode)) !first dim is for spline interpolation
@@ -288,7 +288,7 @@ END SUBROUTINE FitSpline
 SUBROUTINE FitSplineHalf(modes,nFlux,mabs,Xmn_half,Xmn_Spl)
 ! MODULES
 USE MODgvec_Globals
-USE MODgvec_VMEC_Vars,     ONLY: rho,Phinorm_prof
+USE MODgvec_VMEC_Vars,     ONLY: rho,NormFlux_prof
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 USE SPLINE1_MOD,       ONLY:SPLINE1_INTERP 
 ! IMPLICIT VARIABLE HANDLING
@@ -311,7 +311,7 @@ INTEGER           :: iFlag
 CHARACTER(len=100):: message
 !===================================================================================================================================
 DO iFlux=1,nFlux-1
-  rho_half(iFlux+1)=SQRT(0.5_wp*(Phinorm_prof(iFlux+1)+Phinorm_prof(iFlux))) !0.5*(rho(iFlux)+rho(iFlux+1))
+  rho_half(iFlux+1)=SQRT(0.5_wp*(NormFlux_prof(iFlux+1)+NormFlux_prof(iFlux))) !0.5*(rho(iFlux)+rho(iFlux+1))
 END DO
 !add end points
 rho_half(1)=0.0_wp
@@ -382,8 +382,7 @@ INTEGER :: iGuess=1
 REAL(wp):: CosMN(mn_mode)          ! =cos(m*theta-n*zeta) for all modes
 REAL(wp):: SinMN(mn_mode)          ! =sin(m*theta-n*zeta) for all modes
 REAL(wp):: r_p                     ! radius in cylindrical coordinate system
-REAL(wp):: Phinorm                 ! normalized TOROIDAL flux (=flux coordinate s [0,1]), use map r_p ~ sqrt(Phinorm)
-                                   ! NOTE: Phi is called PHI in VMEC
+REAL(wp):: PhiNorm                 ! normalized TOROIDAL flux (=flux coordinate s [0,1]), use map r_p ~ sqrt(NormFlux)
 REAL(wp):: chinorm                 ! normalized POLOIDAL flux [0,1]
 REAL(wp):: theta                   ! poloidal angle [0,2pi]
 REAL(wp):: zeta                    ! toroidal angle [0,2pi]
@@ -396,7 +395,7 @@ REAL(wp):: sqrtGr                  ! (part of) mapping Jacobian between VMEC and
 REAL(wp):: Phi_int,dPhi_drho_int   ! toroidal flux and derivative from interpolation at rho_p 
                                    ! NOTE: Phi is called PHI in VMEC
 REAL(wp):: chi_int,dchi_drho_int   ! poloidal flux and derivative from interpolation at rho_p
-REAL(wp):: iota_int                ! rotational transform, >0, iota=-chi'/Phi'
+!REAL(wp):: iota_int                ! rotational transform, >0, iota=-chi'/Phi'
 REAL(wp):: Br,Bz,Btor              ! mangetic field components in (R,Z,phi) system (phi=R*zeta)
                                    ! Br=dRdtheta*Btheta+dRdzeta*Bszeta 
                                    ! Bz=dZdtheta*Btheta+dZdzeta*Bzeta
@@ -435,10 +434,10 @@ DO iNode=1,nTotal
     zeta  = twoPi*x_in(2,iNode) ! =2*pi*z
   END SELECT 
 
-  ! Phinorm ~ r_p**2 , use scaling of radius to Phi toroidal flux evaluation variable
-  ! rho_p = SQRT(Phinorm)=r_p
+  ! NormFlux ~ r_p**2 , use scaling of radius to Phi toroidal flux evaluation variable
+  ! rho_p = SQRT(NormFlux)=r_p
 
-  rho_p=MIN(1.0_wp,MAX(r_p,1.0E-4)) ! ~ Phinorm [1.0-e08,1.]
+  rho_p=MIN(1.0_wp,MAX(r_p,1.0E-4)) ! ~ NormFlux [1.0-e08,1.]
   
   IF(useSFL)THEN ! straight-field line coordinates: theta is actually theta^*, find corresponding theta from 
               ! -theta^*+theta+lambda(s,theta,zeta) != 0
@@ -572,7 +571,7 @@ DO iNode=1,nTotal
 
   CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,pres_Spl(:,:),iGuess,splout) 
   pressure=splout(1)
-  !save way to compute dPhi_ds=dPhi_drho*drho/ds, drho/ds=1/(2*rho), where s=Phinorm
+  !save way to compute dPhi_ds=dPhi_drho*drho/ds, drho/ds=1/(2*rho), where s=NormFlux
   CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,Phi_Spl(:,:),iGuess,splout) 
   Phi_int=splout(1)
   dPhi_drho_int=splout(2)
@@ -587,8 +586,7 @@ DO iNode=1,nTotal
 
 !  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iota_Spl(:,:),iGuess,splout) 
 !  iota_int=splout(1)
-!   iota should be >0, chi is growing radially, but Phi is decreasing radially 
-  iota_int = dchi_drho_int/dPhi_drho_int 
+!  iota_int = dchi_drho_int/dPhi_drho_int 
 
   ! compute magnetic field, following Michael Kraus formulas: 
   ! B^s     = 0 
@@ -604,7 +602,7 @@ DO iNode=1,nTotal
 
 ! !CHECK WITH INTERPOLATION
 ! IF(ABS(1-2*rho_p/R*sqrtG/sqrtGr).GT.1.0E-02)  &
-!    WRITE(*,'(A,E11.5,A,F11.5)')'rel.err. sqrtG: |1 - 2*rho_p/R*sqrtG/sqrtGr|>1.0E-02 ',1- 2*rho_p/R*sqrtG/sqrtGr, ' Phinorm= ' ,Phinorm_p
+!    WRITE(*,'(A,E11.5,A,F11.5)')'rel.err. sqrtG: |1 - 2*rho_p/R*sqrtG/sqrtGr|>1.0E-02 ',1- 2*rho_p/R*sqrtG/sqrtGr, ' NormFlux= ' ,NormFlux_p
 
   ! contravariant components of B  ! 
   ! B^s    = 0
@@ -848,7 +846,7 @@ IMPLICIT NONE
 
 
   SDEALLOCATE(Phi_prof)
-  SDEALLOCATE(Phinorm_prof)
+  SDEALLOCATE(NormFlux_prof)
   SDEALLOCATE(chi_prof)
   SDEALLOCATE(xmabs)
   SDEALLOCATE(rho)

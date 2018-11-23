@@ -241,7 +241,7 @@ CHARACTER(LEN=4)   :: vstr
   
   rho_half(1)=0.
   DO i=1,nFluxVMEC-1
-    rho_half(i+1)=SQRT(0.5_wp*(Phinorm_prof(i+1)+Phinorm_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
+    rho_half(i+1)=SQRT(0.5_wp*(NormFlux_prof(i+1)+NormFlux_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
   END DO
   nVal=nVal+1
   Varnames(nVal)='rho_half'
@@ -367,7 +367,7 @@ CHARACTER(LEN=4)   :: vstr
       WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
       values(nVal,:)=dxx(iMode,:)
     END DO
-    CALL write_modes(fname,vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values,VarNames) 
+    CALL write_modes(TRIM(fname)//'.csv',vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values,VarNames) 
 
   END SUBROUTINE writeDataMN
 
@@ -386,7 +386,7 @@ CHARACTER(LEN=4)   :: vstr
       END DO
     END DO
 
-    CALL write_modes(fname,vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values_int,VarNames) 
+    CALL write_modes(TRIM(fname)//'.csv',vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values_int,VarNames) 
 
   END SUBROUTINE writeDataMN_int
 

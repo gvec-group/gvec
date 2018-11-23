@@ -36,7 +36,7 @@ LOGICAL                 :: reLambda                  !! switch for recomputing l
 CHARACTER(LEN = 256)    :: VMECdataFile
 INTEGER,ALLOCATABLE     :: xmAbs(:)                  !! |xm(iMode)|, 1 for m=0, 2 for even, 3 for odd
 REAL(wp),ALLOCATABLE    :: Phi_prof(:)               !! TOROIDAL flux profile (called phi in VMEC)
-REAL(wp),ALLOCATABLE    :: Phinorm_prof(:)           !! normalized TOROIDAL flux profile 
+REAL(wp),ALLOCATABLE    :: normFlux_prof(:)          !! normalized flux profile, can be either toroidal of poloidal flux) 
 REAL(wp),ALLOCATABLE    :: chi_prof(:)               !! POLOIDAL flux profile (called chi in VMEC)
 
 REAL(wp),ALLOCATABLE    :: rho(:)                    !! := sqrt(phinorm) at all flux surface 

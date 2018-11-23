@@ -37,6 +37,8 @@ MODULE MODgvec_VMEC_Readin
   INTEGER :: nfp             !< number of field periods
   LOGICAL :: lasym=.FALSE.   !< if lasym=0, solution is (rmnc,zmns,lmns),
                              !< if lasym=1 solution is (rmnc,rmns,zmnc,zmns,lmnc,lmns)
+  LOGICAL :: lrfp=.FALSE.    !< if lrfp=0, profiles use normalized toroidal flux, iota is used to compute pol. flux
+                             !< if lrfp=1, profiles use normalized poloidal flux, q is used to compute tor. flux
   INTEGER :: mPol            !< poloidal mode number
   INTEGER :: nTor            !< toroidal mode number
   INTEGER :: signgs          !< signum of sqrtG
@@ -146,6 +148,13 @@ SUBROUTINE ReadVMEC(fileName)
     ioError = ioError + NF_INQ_VARID(ncid, "lasym__logical__", id)
     ioError = ioError + NF_GET_VAR_INT(ncid, id, lasym)
     IF (ioError /= 0)  STOP 'VMEC READIN: problem reading lasym'
+    !! get lrfp
+    ioError = ioError + NF_INQ_VARID(ncid, "lrfp__logical__", id)
+    ioError = ioError + NF_GET_VAR_INT(ncid, id, lrfp)
+    !IF (ioError /= 0)  STOP 'VMEC READIN: problem reading lrfp'
+    IF (lrfp) THEN
+      WRITE(*,'(4X,A)') "  VMEC run with lrfp=TRUE !!!"
+    END IF
     !! get B_0
     ioError = ioError + NF_INQ_VARID(ncid, "b0", id)
     ioError = ioError + NF_GET_VAR_DOUBLE(ncid, id, b0)
