@@ -77,15 +77,17 @@ IMPLICIT NONE
   DO i_m=1,mn_IP(1)
     thet(i_m)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp)) !repeat point exactly
   END DO
-  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    thet(mn_IP(1))=thet(1)
-  END IF
   DO i_n=1,mn_IP(2)
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
-  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    zeta(mn_IP(2))=zeta(1)
-  END IF
+  IF(hmap%which_hmap.NE.3)THEN !not for cylinder
+    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      thet(mn_IP(1))=thet(1)
+    END IF
+    IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      zeta(mn_IP(2))=zeta(1)
+    END IF
+  END IF!hmap not cylinder
   spos=0.99999999_wp
   DO iMode=1,X1_base%f%modes
     X1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,U(0)%X1(:,iMode))
@@ -194,15 +196,17 @@ IMPLICIT NONE
                             *REAL((j_s-1)+(i_m-1)*(n_s-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
     END DO !j_s
   END DO
-  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    thet(n_s,mn_IP(1))=thet(1,1)
-  END IF
   DO i_n=1,mn_IP(2)
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
-  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    zeta(mn_IP(2))=zeta(1)
-  END IF
+  IF(hmap%which_hmap.NE.3)THEN !not for cylinder
+    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      thet(n_s,mn_IP(1))=thet(1,1)
+    END IF
+    IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      zeta(mn_IP(2))=zeta(1)
+    END IF
+  END IF!hmap not cylinder
 
   nElems=sgrid%nElems
   DO iElem=1,nElems
@@ -365,7 +369,15 @@ IMPLICIT NONE
   END IF
   
   IF(vcase(1))THEN
-    WRITE(*,*)'1) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
+    WRITE(*,*)'1.1) Visualize 1d profiles of derived quantities...'
+    WRITE(fname,'(A,I4.4,"_",I8.8,A4)')'1Dprofiles_',outputLevel,FileID,'.csv'
+    CALL eval_1d_profiles(n_s,fname) 
+ 
+    vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
+
+    WRITE(*,*)'1.2) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
     vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
@@ -390,6 +402,66 @@ IMPLICIT NONE
   
 END SUBROUTINE visu_1d_modes
 
+!===================================================================================================================================
+!> 
+!!
+!===================================================================================================================================
+SUBROUTINE eval_1d_profiles(n_s,fname_in)
+! MODULES
+  USE MODgvec_fbase,         ONLY: sin_cos_map
+  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
+  USE MODgvec_MHD3D_Vars,    ONLY: sgrid
+  USE MODgvec_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
+  USE MODgvec_Output_CSV, ONLY:WriteDataToCSV
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER,         INTENT(IN   ) :: n_s    !! number of visualization points per element
+  CHARACTER(LEN=*),INTENT(IN   ) :: fname_in
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                        :: i,i_s,iElem,iVar,nVars,nvisu
+  CHARACTER(LEN=120),ALLOCATABLE :: VarNames(:) 
+  REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
+!===================================================================================================================================
+  nVars = 4
+  nvisu = sgrid%nElems*n_s
+  ALLOCATE(VarNames(nVars))
+  ALLOCATE(values_visu(nVars,nvisu))
+  iVar=1
+  VarNames(1)='rho'
+  DO iElem=1,sgrid%nElems
+    DO i_s=1,n_s
+      values_visu(1,i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
+    END DO
+  END DO
+  ASSOCIATE(s_visu=>values_visu(1,:))
+  iVar=iVar+1
+  VarNames(iVar)='Phi'
+  DO i=1,nvisu
+    values_visu( iVar,i)=Eval_Phi(s_visu(i))
+  END DO !i
+
+  iVar=iVar+1
+  Varnames(iVar)='iota(Phi_norm)'
+  
+  DO i=1,nvisu
+    values_visu(  iVar,i)=Eval_iota(s_visu(i))
+  END DO !i
+  
+  iVar=iVar+1
+  Varnames(iVar)='pres(Phi_norm)'
+  DO i=1,nvisu
+    values_visu(  iVar,i)=Eval_pres(s_visu(i))
+  END DO !i
+
+  END ASSOCIATE !s_visu
+  CALL WriteDataToCSV(VarNames(:) ,values_visu(:,:) ,TRIM(fname_in)  &
+                                  ,append_in=.FALSE.,vfmt_in='E15.5')
+
+END SUBROUTINE eval_1d_profiles
 
 !===================================================================================================================================
 !> Write all modes of one variable
