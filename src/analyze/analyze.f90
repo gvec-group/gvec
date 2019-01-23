@@ -112,7 +112,7 @@ END SUBROUTINE InitAnalyze
 SUBROUTINE Analyze(fileID_in)
 ! MODULES
 USE MODgvec_Analyze_Vars
-USE MODgvec_mhdeq_vars, ONLY:whichInitEquilibrium
+USE MODgvec_MHD3D_Vars, ONLY:which_init
 USE MODgvec_mhd3d_visu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ ELSE
   FileID=iAnalyze
 END IF
 IF(iAnalyze.EQ.0) THEN
-  IF(whichInitEquilibrium.EQ.1) THEN
+  IF(which_init.EQ.1) THEN
     IF(visu1D.NE.0) CALL VMEC1D_visu() 
     IF(visu2D.NE.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
     IF(visu3D.NE.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 

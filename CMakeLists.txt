@@ -263,7 +263,7 @@ IF(COMPILE_GVEC)
                             ./src/functionals/*.f90 
                             ./src/analyze/*.f90 
                             ./src/lbfgsb/*.f90 
-                            ./src/mhdeq/*.f90 
+                            ./src/vmec/*.f90 
                             ./src/output/*.f90 
                             ./src/restart/*.f90 )
   LIST(APPEND mainF90 ${gvecF90})

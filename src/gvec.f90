@@ -20,7 +20,6 @@
 !===================================================================================================================================
 PROGRAM GVEC
 USE MODgvec_Globals
-USE MODgvec_MHDEQ      ,ONLY: InitMHDEQ,FinalizeMHDEQ
 USE MODgvec_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY: InitRestart,FinalizeRestart
@@ -79,11 +78,11 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   !initialization phase
   CALL InitRestart()
   CALL InitOutput()
-  CALL InitAnalyze()
-  CALL InitMHDEQ()
   
   which_functional=GETINT('which_functional', Proposal=1 )
   CALL InitFunctional(functional,which_functional)
+
+  CALL InitAnalyze()
   
   CALL IgnoredStrings()
   
@@ -93,7 +92,6 @@ CLASS(t_functional),ALLOCATABLE   :: functional
 
   CALL FinalizeFunctional(functional)
  
-  CALL FinalizeMHDEQ()
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
