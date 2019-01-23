@@ -84,7 +84,7 @@ IMPLICIT NONE
   END DO
 
   DO iMode=1,mn_mode
-    IF((xm(iMode).EQ.0).AND.(xn(iMode).EQ.0)) mn0Mode=iMode
+    IF((NINT(xm(iMode)).EQ.0).AND.(NINT(xn(iMode)).EQ.0)) mn0Mode=iMode
   END DO
   np_mn=np_m*np_n 
   dthet=twoPi/REAL(np_m,wp)     ![0;2pi]
