@@ -272,20 +272,21 @@ CHARACTER(LEN=4)   :: vstr
     nval=nValRewind
     CALL writeDataMN_int("INT_Zmns","Zmns",0,rho_int,Zmns_Spl)
     nval=nValRewind
-    IF(reLambda)THEN
+    IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
       CALL writeDataMN_int("INT_Lmns","Lmns",0,rho_int,Lmns_Spl)
     ELSE
       CALL writeDataMN_int("INT_Lmns_half","Lmns_h",0,rho_int,Lmns_spl)
     END IF
     IF(lasym)THEN
       nval=nValRewind
-      CALL writeDataMN_int("INT_Rmns","Rmns",0,rho_int,Rmnc_Spl)
+      CALL writeDataMN_int("INT_Rmns","Rmns",0,rho_int,Rmns_Spl)
       nval=nValRewind
-      CALL writeDataMN_int("INT_Zmnc","Zmnc",0,rho_int,Zmns_Spl)
-      IF(reLambda)THEN
-        CALL writeDataMN_int("INT_Lmnc","Lmnc",0,rho_int,Lmns_Spl)
+      CALL writeDataMN_int("INT_Zmnc","Zmnc",0,rho_int,Zmnc_Spl)
+      nval=nValRewind
+      IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+        CALL writeDataMN_int("INT_Lmnc","Lmnc",0,rho_int,Lmnc_Spl)
       ELSE
-        CALL writeDataMN_int("INT_Lmnc_half","Lmnc_h",0,rho_int,Lmns_spl)
+        CALL writeDataMN_int("INT_Lmnc_half","Lmnc_h",0,rho_int,Lmnc_spl)
       END IF
     END IF!lasym
   END IF !vcase(1)
@@ -298,10 +299,9 @@ CHARACTER(LEN=4)   :: vstr
     IF(lasym)THEN
       !interpolated profiles
       nval=nValRewind
-      CALL writeDataMN_int("INT_dRmns","dRmns",1,rho_int,Rmnc_Spl)
+      CALL writeDataMN_int("INT_dRmns","dRmns",1,rho_int,Rmns_Spl)
       nval=nValRewind
-      CALL writeDataMN_int("INT_dZmnc","dZmnc",1,rho_int,Zmns_Spl)
-      nval=nValRewind
+      CALL writeDataMN_int("INT_dZmnc","dZmnc",1,rho_int,Zmnc_Spl)
     END IF!lasym
   END IF !vcase(2)
   IF(vcase(3))THEN
@@ -311,21 +311,21 @@ CHARACTER(LEN=4)   :: vstr
     nval=nValRewind
     CALL writeDataMN("Zmns","Zmns",0,rho,Zmns)
     nval=nValRewind
-    IF(reLambda)THEN
+    IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
       CALL writeDataMN("Lmns","Lmns",0,rho,Lmns)
     ELSE
       CALL writeDataMN("Lmns_half","Lmns_h",0,rho_half,Lmns)
     END IF
     IF(lasym)THEN
       nval=nValRewind
-      CALL writeDataMN("Rmns","Rmns",0,rho,Rmnc)
+      CALL writeDataMN("Rmns","Rmns",0,rho,Rmns)
       nval=nValRewind
-      CALL writeDataMN("Zmnc","Zmnc",0,rho,Zmns)
+      CALL writeDataMN("Zmnc","Zmnc",0,rho,Zmnc)
       nval=nValRewind
-      IF(reLambda)THEN
-        CALL writeDataMN("Lmnc","Lmnc",0,rho,Lmns)
+      IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+        CALL writeDataMN("Lmnc","Lmnc",0,rho,Lmnc)
       ELSE
-        CALL writeDataMN("Lmnc_half","Lmnc_h",0,rho_half,Lmns)
+        CALL writeDataMN("Lmnc_half","Lmnc_h",0,rho_half,Lmnc)
       END IF
     END IF!lasym
   END IF !vcase(3)
@@ -337,9 +337,9 @@ CHARACTER(LEN=4)   :: vstr
     CALL writeDataMN("dZmns","dZmns",1,rho,Zmns)
     IF(lasym)THEN
       nval=nValRewind
-      CALL writeDataMN("dRmns","dRmns",1,rho,Rmnc)
+      CALL writeDataMN("dRmns","dRmns",1,rho,Rmns)
       nval=nValRewind
-      CALL writeDataMN("dZmnc","dZmnc",1,rho,Zmns)
+      CALL writeDataMN("dZmnc","dZmnc",1,rho,Zmnc)
     END IF!lasym
   END IF !vcase(4)
   
