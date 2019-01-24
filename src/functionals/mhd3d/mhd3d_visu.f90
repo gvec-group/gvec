@@ -373,28 +373,24 @@ IMPLICIT NONE
     WRITE(fname,'(A,I4.4,"_",I8.8,A4)')'1Dprofiles_',outputLevel,FileID,'.csv'
     CALL eval_1d_profiles(n_s,fname) 
  
-    vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
-    CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
-
     WRITE(*,*)'1.2) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
-    vname="X1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    vname="X1"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
-    vname="X2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    vname="X2"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,X2_base,U(0)%X2)
-    vname="LA"//TRIM(sin_cos_map(LA_base%f%sin_cos))
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    vname="LA"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,LA_base,U(0)%LA)
   END IF
   IF(vcase(2))THEN
     WRITE(*,*)'2) Visualize gvec modes in 1D: dRrho,dZrho interpolated...'
-    vname="dX1"//TRIM(sin_cos_map(X1_base%f%sin_cos))
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    vname="dX1"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X1_base,U(0)%X1)
-    vname="dX2"//TRIM(sin_cos_map(X2_base%f%sin_cos))
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    vname="dX2"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X2_base,U(0)%X2)
   END IF
   
@@ -536,9 +532,18 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
     values_visu(  nVal,i)=Eval_pres(s_visu(i))
   END DO !i
 
-  DO iMode=1,base_in%f%modes
+  DO iMode=base_in%f%sin_range(1)+1,base_in%f%sin_range(2)
     nVal=nVal+1
-    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_sin", &
+      base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    DO j=1,nvisu
+      values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
+    END DO !j
+  END DO
+  DO iMode=base_in%f%cos_range(1)+1,base_in%f%cos_range(2)
+    nVal=nVal+1
+    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_cos", &
+      base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
     DO j=1,nvisu
       values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
     END DO !j

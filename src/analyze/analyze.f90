@@ -112,7 +112,7 @@ END SUBROUTINE InitAnalyze
 SUBROUTINE Analyze(fileID_in)
 ! MODULES
 USE MODgvec_Analyze_Vars
-USE MODgvec_mhdeq_vars, ONLY:whichInitEquilibrium
+USE MODgvec_MHD3D_Vars, ONLY:which_init
 USE MODgvec_mhd3d_visu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ ELSE
   FileID=iAnalyze
 END IF
 IF(iAnalyze.EQ.0) THEN
-  IF(whichInitEquilibrium.EQ.1) THEN
+  IF(which_init.EQ.1) THEN
     IF(visu1D.NE.0) CALL VMEC1D_visu() 
     IF(visu2D.NE.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
     IF(visu3D.NE.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 
@@ -180,6 +180,7 @@ SUBROUTINE VMEC1D_visu()
 ! MODULES
 USE MODgvec_Globals,ONLY:Pi
 USE MODgvec_Analyze_Vars, ONLY:visu1D
+USE MODgvec_Output_Vars, ONLY:ProjectName
 USE MODgvec_write_modes
 USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
@@ -268,78 +269,78 @@ CHARACTER(LEN=4)   :: vstr
   IF(vcase(1))THEN
     WRITE(*,*)'1) Visualize VMEC modes R,Z,lambda interpolated...'
     nval=nValRewind
-    CALL writeDataMN_int("INT_Rmnc","Rmnc",0,rho_int,Rmnc_Spl)
+    CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Rmnc","Rmnc",0,rho_int,Rmnc_Spl)
     nval=nValRewind
-    CALL writeDataMN_int("INT_Zmns","Zmns",0,rho_int,Zmns_Spl)
+    CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Zmns","Zmns",0,rho_int,Zmns_Spl)
     nval=nValRewind
-    IF(reLambda)THEN
-      CALL writeDataMN_int("INT_Lmns","Lmns",0,rho_int,Lmns_Spl)
+    IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+      CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmns","Lmns",0,rho_int,Lmns_Spl)
     ELSE
-      CALL writeDataMN_int("INT_Lmns_half","Lmns_h",0,rho_int,Lmns_spl)
+      CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmns_half","Lmns_h",0,rho_int,Lmns_spl)
     END IF
     IF(lasym)THEN
       nval=nValRewind
-      CALL writeDataMN_int("INT_Rmns","Rmns",0,rho_int,Rmnc_Spl)
+      CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Rmns","Rmns",0,rho_int,Rmns_Spl)
       nval=nValRewind
-      CALL writeDataMN_int("INT_Zmnc","Zmnc",0,rho_int,Zmns_Spl)
-      IF(reLambda)THEN
-        CALL writeDataMN_int("INT_Lmnc","Lmnc",0,rho_int,Lmns_Spl)
+      CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Zmnc","Zmnc",0,rho_int,Zmnc_Spl)
+      nval=nValRewind
+      IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+        CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmnc","Lmnc",0,rho_int,Lmnc_Spl)
       ELSE
-        CALL writeDataMN_int("INT_Lmnc_half","Lmnc_h",0,rho_int,Lmns_spl)
+        CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmnc_half","Lmnc_h",0,rho_int,Lmnc_spl)
       END IF
     END IF!lasym
   END IF !vcase(1)
   IF(vcase(2))THEN
     WRITE(*,*)'2) Visualize VMEC modes dRrho,dZrho interpolated...'
     nval=nValRewind
-    CALL writeDataMN_int("INT_dRmnc","dRmnc",1,rho_int,Rmnc_Spl)
+    CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_dRmnc","dRmnc",1,rho_int,Rmnc_Spl)
     nval=nValRewind
-    CALL writeDataMN_int("INT_dZmns","dZmns",1,rho_int,Zmns_Spl)
+    CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_dZmns","dZmns",1,rho_int,Zmns_Spl)
     IF(lasym)THEN
       !interpolated profiles
       nval=nValRewind
-      CALL writeDataMN_int("INT_dRmns","dRmns",1,rho_int,Rmnc_Spl)
+      CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_dRmns","dRmns",1,rho_int,Rmns_Spl)
       nval=nValRewind
-      CALL writeDataMN_int("INT_dZmnc","dZmnc",1,rho_int,Zmns_Spl)
-      nval=nValRewind
+      CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_dZmnc","dZmnc",1,rho_int,Zmnc_Spl)
     END IF!lasym
   END IF !vcase(2)
   IF(vcase(3))THEN
     WRITE(*,*)'3) Visualize VMEC modes R,Z,lambda pointwise ...'
     nval=nValRewind
-    CALL writeDataMN("Rmnc","Rmnc",0,rho,Rmnc)
+    CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Rmnc","Rmnc",0,rho,Rmnc)
     nval=nValRewind
-    CALL writeDataMN("Zmns","Zmns",0,rho,Zmns)
+    CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Zmns","Zmns",0,rho,Zmns)
     nval=nValRewind
-    IF(reLambda)THEN
-      CALL writeDataMN("Lmns","Lmns",0,rho,Lmns)
+    IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+      CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmns","Lmns",0,rho,Lmns)
     ELSE
-      CALL writeDataMN("Lmns_half","Lmns_h",0,rho_half,Lmns)
+      CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmns_half","Lmns_h",0,rho_half,Lmns)
     END IF
     IF(lasym)THEN
       nval=nValRewind
-      CALL writeDataMN("Rmns","Rmns",0,rho,Rmnc)
+      CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Rmns","Rmns",0,rho,Rmns)
       nval=nValRewind
-      CALL writeDataMN("Zmnc","Zmnc",0,rho,Zmns)
+      CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Zmnc","Zmnc",0,rho,Zmnc)
       nval=nValRewind
-      IF(reLambda)THEN
-        CALL writeDataMN("Lmnc","Lmnc",0,rho,Lmns)
+      IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+        CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmnc","Lmnc",0,rho,Lmnc)
       ELSE
-        CALL writeDataMN("Lmnc_half","Lmnc_h",0,rho_half,Lmns)
+        CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmnc_half","Lmnc_h",0,rho_half,Lmnc)
       END IF
     END IF!lasym
   END IF !vcase(3)
   IF(vcase(4))THEN
     WRITE(*,*)'4) Visualize VMEC modes dRrho,dZrho pointwise (1st order finite difference)...'
     nval=nValRewind
-    CALL writeDataMN("dRmnc","dRmnc",1,rho,Rmnc)
+    CALL writeDataMN(TRIM(ProjectName)//"_VMEC_dRmnc","dRmnc",1,rho,Rmnc)
     nval=nValRewind
-    CALL writeDataMN("dZmns","dZmns",1,rho,Zmns)
+    CALL writeDataMN(TRIM(ProjectName)//"_VMEC_dZmns","dZmns",1,rho,Zmns)
     IF(lasym)THEN
       nval=nValRewind
-      CALL writeDataMN("dRmns","dRmns",1,rho,Rmnc)
+      CALL writeDataMN(TRIM(ProjectName)//"_VMEC_dRmns","dRmns",1,rho,Rmns)
       nval=nValRewind
-      CALL writeDataMN("dZmnc","dZmnc",1,rho,Zmns)
+      CALL writeDataMN(TRIM(ProjectName)//"_VMEC_dZmnc","dZmnc",1,rho,Zmnc)
     END IF!lasym
   END IF !vcase(4)
   

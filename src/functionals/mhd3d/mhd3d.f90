@@ -52,13 +52,13 @@ SUBROUTINE InitMHD3D(sf)
   ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_Globals        , ONLY: TWOPI
-  USE MODgvec_mhdeq_Vars     , ONLY: whichInitEquilibrium
   USE MODgvec_sgrid          , ONLY: t_sgrid
   USE MODgvec_fbase          , ONLY: t_fbase,fbase_new
   USE MODgvec_base           , ONLY: t_base,base_new
   USE MODgvec_hmap           , ONLY: hmap_new
+  USE MODgvec_VMEC           , ONLY: InitVMEC
   USE MODgvec_VMEC_vars      , ONLY: switchZeta
-  USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym
+  USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
@@ -85,12 +85,19 @@ SUBROUTINE InitMHD3D(sf)
   INTEGER          :: nfp_loc
   INTEGER          :: JacCheck
   INTEGER          :: sign_iota
+  INTEGER          :: proposal_mn_max(1:2)=(/2,0/) !!default proposals, changed for VMEC input to automatically match input!
+  CHARACTER(LEN=8) :: proposal_X1_sin_cos="_cos_"  !!default proposals, changed for VMEC input to automatically match input!
+  CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
+  CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   REAL(wp)         :: pres_scale
   LOGICAL              :: boundary_perturb !! false: no boundary perturbation, true: add boundary perturbation X1pert_b,X2pert_b
   REAL(wp),ALLOCATABLE :: X1pert_b(:)      !! fourier modes of the boundary perturbation for X1
   REAL(wp),ALLOCATABLE :: X2pert_b(:)      !! fourier modes of the boundary perturbation for X2
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
+
+  which_init = GETINT("whichInitEquilibrium")
+  IF(which_init.EQ.1) CALL InitVMEC()
   
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=500)
@@ -109,7 +116,7 @@ SUBROUTINE InitMHD3D(sf)
   
   mu_0    = 2.0e-07_wp*TWOPI
   
-  which_init = whichInitEquilibrium ! GETINT("which_init","0")
+
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
 
   PrecondType=GETINT("PrecondType",Proposal=-1)
@@ -132,6 +139,12 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
+    proposal_mn_max(:)=(/mpol-1,ntor/)
+    IF(lasym)THEN !asymmetric
+      proposal_X1_sin_cos="_sincos_"
+      proposal_X2_sin_cos="_sincos_"
+      proposal_LA_sin_cos="_sincos_"
+    END IF
     gamm = 0.0_wp
     nfp_loc = nfp
     !hmap: depends on how vmec data is read:
@@ -151,16 +164,16 @@ SUBROUTINE InitMHD3D(sf)
   
   X1X2_deg     = GETINT(     "X1X2_deg")
   X1X2_cont    = GETINT(     "X1X2_continuity",Proposal=(X1X2_deg-1) )
-  X1_mn_max    = GETINTARRAY("X1_mn_max"   ,2 ,Proposal=(/2,0/))
-  X2_mn_max    = GETINTARRAY("X2_mn_max"   ,2 ,Proposal=(/2,0/))
-  X1_sin_cos   = GETSTR(     "X1_sin_cos"     ,Proposal="_cos_")  !_sin_,_cos_,_sin_cos_
-  X2_sin_cos   = GETSTR(     "X2_sin_cos"     ,Proposal="_sin_")
+  X1_mn_max    = GETINTARRAY("X1_mn_max"   ,2 ,Proposal=proposal_mn_max)
+  X2_mn_max    = GETINTARRAY("X2_mn_max"   ,2 ,Proposal=proposal_mn_max)
+  X1_sin_cos   = GETSTR(     "X1_sin_cos"     ,Proposal=proposal_X1_sin_cos)  !_sin_,_cos_,_sin_cos_
+  X2_sin_cos   = GETSTR(     "X2_sin_cos"     ,Proposal=proposal_X2_sin_cos)
   
   
   LA_deg     = GETINT(     "LA_deg")
   LA_cont    = GETINT(     "LA_continuity",Proposal=-1)
-  LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=(/2,0/))
-  LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal="_sin_")
+  LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=proposal_mn_max)
+  LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal=proposal_LA_sin_cos)
   
   IF(fac_nyq.EQ.-1)THEN
     fac_nyq=4
@@ -351,6 +364,7 @@ SUBROUTINE InitMHD3D(sf)
   END DO
 
 
+  SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
     CALL RestartFromState(RestartFile,U(0))
@@ -389,19 +403,22 @@ SUBROUTINE InitMHD3D(sf)
   END IF
 
   CALL U(-1)%set_to(U(0))
+  SWRITE(UNIT_stdOut,'(4X,A)') "... INITIALIZE SOLUTION DONE."
+  SWRITE(UNIT_stdOut,fmt_sep)
 
- CALL InitializeMHD3D_EvalFunc()
+  CALL InitializeMHD3D_EvalFunc()
   JacCheck=2
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
-  IF(JacCheck.EQ.-1)THEN
-    CALL Analyze(0)
-    CALL WriteState(U(0),0)
-  END IF
+
+  SWRITE(UNIT_stdOut,'(4X,A)') "... evaluate force...."
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
-  
   CALL CheckEvalForce(U(0),0)
+  SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
   
-  SWRITE(UNIT_stdOut,'(A)')'... DONE'
+  CALL WriteState(U(0),0)
+  CALL Analyze(0)
+  
+  SWRITE(UNIT_stdOut,'(A)')'... INIT MHD3D DONE.'
   SWRITE(UNIT_stdOut,fmt_sep)
   
   CONTAINS 
@@ -469,7 +486,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   SELECT CASE(which_init_in)
   CASE(-1) !restart
     X1_a(:)=U_init%X1(1,:)
@@ -684,8 +700,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END IF
   END IF !init_LA
 
-  SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
-  SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitSolution
 
 
@@ -860,7 +874,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   max_dW_out=-1.0e+30_wp
   nSkip_Jac=0
   nSkip_dW =0
-  CALL WriteState(U(0),0)
 
   JacCheck=1 !abort if detJ<0
   CALL EvalAux(           U(0),JacCheck)
@@ -1188,6 +1201,7 @@ SUBROUTINE FinalizeMHD3D(sf)
 ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
+  USE MODgvec_VMEC,ONLY: FinalizeVMEC
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1224,6 +1238,7 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(iota_coefs)
 
   CALL FinalizeMHD3D_EvalFunc()
+  IF(which_init.EQ.1) CALL FinalizeVMEC()
 END SUBROUTINE FinalizeMHD3D
 
 END MODULE MODgvec_MHD3D
