@@ -409,13 +409,14 @@ SUBROUTINE InitMHD3D(sf)
   CALL InitializeMHD3D_EvalFunc()
   JacCheck=2
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
-  IF(JacCheck.EQ.-1)THEN
-    CALL Analyze(0)
-    CALL WriteState(U(0),0)
-  END IF
+
+  SWRITE(UNIT_stdOut,'(4X,A)') "... evaluate force...."
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
-  
   CALL CheckEvalForce(U(0),0)
+  SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
+  
+  CALL WriteState(U(0),0)
+  CALL Analyze(0)
   
   SWRITE(UNIT_stdOut,'(A)')'... INIT MHD3D DONE.'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -873,7 +874,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   max_dW_out=-1.0e+30_wp
   nSkip_Jac=0
   nSkip_dW =0
-  CALL WriteState(U(0),0)
 
   JacCheck=1 !abort if detJ<0
   CALL EvalAux(           U(0),JacCheck)

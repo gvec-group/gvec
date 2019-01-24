@@ -20,7 +20,7 @@
 !===================================================================================================================================
 PROGRAM GVEC
 USE MODgvec_Globals
-USE MODgvec_Analyze    ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
+USE MODgvec_Analyze    ,ONLY: InitAnalyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY: InitRestart,FinalizeRestart
 USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
@@ -78,15 +78,13 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   !initialization phase
   CALL InitRestart()
   CALL InitOutput()
+  CALL InitAnalyze()
   
   which_functional=GETINT('which_functional', Proposal=1 )
   CALL InitFunctional(functional,which_functional)
 
-  CALL InitAnalyze()
   
   CALL IgnoredStrings()
-  
-  CALL Analyze(0)
   
   CALL functional%minimize() 
 
