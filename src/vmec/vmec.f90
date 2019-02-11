@@ -80,11 +80,12 @@ SWRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 
 !VMEC "wout*.nc"  file
 VMECdataFile=GETSTR("VMECwoutfile")
+VMECFile_Format=GETINT("VMECwoutfile_format",Proposal=0)
 
 !use StraightFieldline mapping 
 useSFL=GETLOGICAL("VMEC_useSFL",Proposal=.FALSE.)
 
-CALL ReadVmec(VMECdataFile)
+CALL ReadVmec(VMECdataFile,VMECfile_format)
 
 switchZeta=GETLOGICAL("VMEC_switchZeta",Proposal=.TRUE.)
 IF(switchZeta)THEN

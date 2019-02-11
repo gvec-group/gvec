@@ -34,6 +34,7 @@ LOGICAL                 :: useSFL                    !! use straight-field line 
 LOGICAL                 :: switchZeta                !! True: change from R,phi,Z to R,Z,phi coordinate system
 LOGICAL                 :: reLambda                  !! switch for recomputing lambda
 CHARACTER(LEN = 256)    :: VMECdataFile
+INTEGER                 :: VMECFile_Format           !! 0: netcdf format (default), 1: nemec ascii, 2: nemec binary
 INTEGER,ALLOCATABLE     :: xmAbs(:)                  !! |xm(iMode)|, 1 for m=0, 2 for even, 3 for odd
 REAL(wp),ALLOCATABLE    :: Phi_prof(:)               !! TOROIDAL flux profile (called phi in VMEC)
 REAL(wp),ALLOCATABLE    :: normFlux_prof(:)          !! normalized flux profile, can be either toroidal of poloidal flux) 
