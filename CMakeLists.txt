@@ -363,7 +363,7 @@ else()
   set_target_properties(gveclib
     PROPERTIES
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME "gveclib"
+    OUTPUT_NAME "GVEC"
     DEBUG_POSTFIX "_d"
     MACOSX_RPATH ON
     WINDOWS_EXPORT_ALL_SYMBOLS ON
@@ -397,7 +397,7 @@ else()
     test_gvec_to_gene
     gveclib
     EXPORT
-    gvecTargets
+    GVECTargets
     ARCHIVE
     DESTINATION ${INSTALL_LIBDIR}
     COMPONENT lib
@@ -413,5 +413,33 @@ else()
     )
 
   install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ DESTINATION ${INSTALL_MODDIR})
+
+  # Exporting targets for other CMake-projects
+
+  install(
+    EXPORT
+    GVECTargets
+    NAMESPACE
+    "GVEC::"
+    DESTINATION
+    ${INSTALL_CMAKEDIR}
+    COMPONENT
+    dev
+    )
+
+  include(CMakePackageConfigHelpers)
+
+  configure_package_config_file(
+    ${PROJECT_SOURCE_DIR}/cmake/GVECConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/GVECConfig.cmake
+    INSTALL_DESTINATION ${INSTALL_CMAKEDIR}
+    )
+
+  install(
+    FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/GVECConfig.cmake
+    DESTINATION
+    ${INSTALL_CMAKEDIR}
+    )
 
 endif()

@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/GVECTargets.cmake")
+
+check_required_components(
+  "test_gvec_to_gene"
+  "gveclib"
+  )
