@@ -220,14 +220,14 @@ ENDIF()
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
   IF(ON_HYDRA GREATER -1)
-    SET(NETCDF_DIR  $ENV{NETCDF_HOME}) 
+    SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSEIF(ON_COBRA GREATER -1)
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSE()
     SET(NETCDF_DIR  /usr)
   ENDIF()
   INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
-  LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib ) 
+  LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib )
   MESSAGE(STATUS "Build with NetCDF")
   ADD_DEFINITIONS(-DNETCDF=1)
 ELSE()
@@ -241,32 +241,31 @@ ENDIF()
 function(add_exec target)
   ADD_EXECUTABLE(${target} ${ARGN})
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
-  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
   SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
   INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
   STRING(TOUPPER ${target} TARGETUP)
   ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: ${TARGETUP} BUILD COMPLETE!")
 endfunction()
 
-# include defines.h 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
+# include defines.h
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY})
 
-FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90 
-                          ./src/base/*.f90 
-                          ./src/functionals/mhd3d/*hmap*.f90 
-                          ./src/readstate*.f90 
-                          ./src/output/*.f90 
+FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
+                          ./src/base/*.f90
+                          ./src/functionals/mhd3d/*hmap*.f90
+                          ./src/readstate*.f90
+                          ./src/output/*.f90
                           ./src/grid/*.f90 )
-
 
 # define libs
 IF(COMPILE_GVEC)
-  FILE(GLOB_RECURSE gvecF90 ./src/*.f 
-                            ./src/functionals/*.f90 
-                            ./src/analyze/*.f90 
-                            ./src/lbfgsb/*.f90 
-                            ./src/vmec/*.f90 
-                            ./src/output/*.f90 
+  FILE(GLOB_RECURSE gvecF90 ./src/*.f
+                            ./src/functionals/*.f90
+                            ./src/analyze/*.f90
+                            ./src/lbfgsb/*.f90
+                            ./src/vmec/*.f90
+                            ./src/output/*.f90
                             ./src/restart/*.f90 )
   LIST(APPEND mainF90 ${gvecF90})
 ENDIF()
@@ -285,12 +284,12 @@ ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
-SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 # generates shared lib libgveclib.so
 ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
 # generates static lib libgveclib.a
 #ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
- 
+
 
 # =========================================================================
 # Executable programs (simply use add_exec)
@@ -317,4 +316,102 @@ ENDIF()
 # Install
 # =========================================================================
 
-INSTALL(FILES    ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90 DESTINATION include )
+if(NOT COMPILE_GVEC_TO_GENE)
+
+  INSTALL(FILES
+    ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90
+    DESTINATION include )
+
+else()
+
+  # Preporations for installation
+
+  message(STATUS "${PROJECT_NAME} will be installed to ${CMAKE_INSTALL_PREFIX}")
+
+  # standartize install output directories
+  include(GNUInstallDirs)
+
+  # Offer the user the choice of overriding the installation directories
+  set(INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR} CACHE PATH
+    "Installation directory for libraries")
+  set(INSTALL_BINDIR ${CMAKE_INSTALL_BINDIR} CACHE PATH
+    "Installation directory for executables")
+  set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE PATH
+    "Installation directory for header files")
+  if(WIN32 AND NOT CYGWIN)
+    set(DEF_INSTALL_CMAKEDIR CMake)
+  else()
+    set(DEF_INSTALL_CMAKEDIR share/cmake/${PROJECT_NAME})
+  endif()
+  set(INSTALL_CMAKEDIR ${DEF_INSTALL_CMAKEDIR} CACHE PATH
+    "Installation directory for CMake files")
+  set(INSTALL_MODDIR "mod" CACHE PATH
+    "Installation directory for Fortran .mod files")
+
+  # report installation directories
+  foreach(p LIB BIN INCLUDE CMAKE MOD)
+    file(TO_NATIVE_PATH ${CMAKE_INSTALL_PREFIX}/${INSTALL_${p}DIR} _path )
+    message(STATUS "Installing ${p} components to ${_path}")
+    unset(_path)
+  endforeach()
+
+  target_include_directories(gveclib
+    INTERFACE
+    $<INSTALL_INTERFACE:${INSTALL_MODDIR}>
+    )
+
+  set_target_properties(gveclib
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    OUTPUT_NAME "gveclib"
+    DEBUG_POSTFIX "_d"
+    MACOSX_RPATH ON
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+
+  # Prepare RPATH
+  file(RELATIVE_PATH _rel
+    ${CMAKE_INSTALL_PREFIX}/${INSTALL_BINDIR}
+    ${CMAKE_INSTALL_PREFIX})
+  if(APPLE)
+    set(_rpath "@loader_path/${_rel}")
+  else()
+    set(_rpath "\$ORIGIN/${_rel}")
+  endif()
+  file(TO_NATIVE_PATH "${_rpath}/${INSTALL_LIBDIR}" test_gvec_to_gene_RPATH)
+
+  set_target_properties(test_gvec_to_gene
+    PROPERTIES
+    OUTPUT_NAME "test_gvec_to_gene"
+    MACOSX_RPATH ON
+    SKIP_BUILD_RPATH OFF
+    BUILD_WITH_INSTALL_RPATH OFF
+    INSTALL_RPATH "${test_gvec_to_gene_RPATH}"
+    INSTALL_RPATH_USE_LINK_PATH ON
+    )
+
+  # Installation
+
+  install(
+    TARGETS
+    test_gvec_to_gene
+    gveclib
+    EXPORT
+    gvecTargets
+    ARCHIVE
+    DESTINATION ${INSTALL_LIBDIR}
+    COMPONENT lib
+    RUNTIME
+    DESTINATION ${INSTALL_BINDIR}
+    COMPONENT bin
+    LIBRARY
+    DESTINATION ${INSTALL_LIBDIR}
+    COMPONENT lib
+    PUBLIC_HEADER
+    DESTINATION ${INSTALL_INCLUDEDIR}/gvec
+    COMPONENT dev
+    )
+
+  install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ DESTINATION ${INSTALL_MODDIR})
+
+endif()
