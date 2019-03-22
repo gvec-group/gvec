@@ -442,4 +442,28 @@ else()
     ${INSTALL_CMAKEDIR}
     )
 
+  # Preparation of gveclib for Python usage
+
+  # generate gvec_to_gene_export.h
+  include(GenerateExportHeader)
+  generate_export_header( gveclib
+    BASE_NAME gvec_to_gene)
+
+  # turn on testing
+  enable_testing()
+
+  # require python
+  find_package(PythonInterp REQUIRED)
+
+  # define test
+  add_test(
+    NAME
+    gvec_to_gene_python_test
+    COMMAND
+    ${CMAKE_COMMAND} -E env GVEC_TO_GENE_MODULE_PATH=${CMAKE_CURRENT_SOURCE_DIR}/src
+    GVEC_TO_GENE_HEADER_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/gvec_to_gene.h
+    GVEC_TO_GENE_LIBRARY_FILE=$<TARGET_FILE:gveclib>
+    ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/test.py
+    )
+
 endif()
