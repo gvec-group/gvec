@@ -390,6 +390,53 @@ else()
     INSTALL_RPATH_USE_LINK_PATH ON
     )
 
+
+  # generate gvec_to_gene_export.h
+  include(GenerateExportHeader)
+  generate_export_header( gveclib
+    BASE_NAME gvec_to_gene)
+
+
+  set(_GVEC_TO_GENE_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/gvec_to_gene.h
+    ${CMAKE_CURRENT_BINARY_DIR}/gvec_to_gene_export.h
+    )
+
+  set(_GVEC_TO_GENE_RESOURCE
+    "${CMAKE_CURRENT_BINARY_DIR}/interface_file_names.cfg"
+    )
+
+  set(_GVEC_TO_GENE_PYTHON_INSTALL
+    gvec_to_gene
+    )
+
+  file(RELATIVE_PATH _GVEC_TO_GENE_PYTHON_H_REL
+    ${CMAKE_INSTALL_PREFIX}/${_GVEC_TO_GENE_PYTHON_INSTALL}
+    ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDEDIR}
+    )
+
+  file(RELATIVE_PATH _GVEC_TO_GENE_PYTHON_L_REL
+    ${CMAKE_INSTALL_PREFIX}/${_GVEC_TO_GENE_PYTHON_INSTALL}
+    ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBDIR}
+    )
+
+  file(
+    GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/interface_file_names.cfg
+    #INPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/interface_file_names.cfg.in
+    CONTENT
+    "[configuration]
+    header_file_name = ${_GVEC_TO_GENE_PYTHON_H_REL}/gvec_to_gene.h
+    library_file_name = ${_GVEC_TO_GENE_PYTHON_L_REL}/$<TARGET_FILE_NAME:gveclib>"
+    )
+
+  set_target_properties( gveclib
+    PROPERTIES
+    PUBLIC_HEADER
+    "${_GVEC_TO_GENE_HEADERS}"
+    RESOURCE
+    "${_GVEC_TO_GENE_RESOURCE}"
+    )
+
   # Installation
 
   install(
@@ -408,11 +455,20 @@ else()
     DESTINATION ${INSTALL_LIBDIR}
     COMPONENT lib
     PUBLIC_HEADER
-    DESTINATION ${INSTALL_INCLUDEDIR}/gvec
+    DESTINATION ${INSTALL_INCLUDEDIR}
     COMPONENT dev
+    RESOURCE
+    DESTINATION ${_GVEC_TO_GENE_PYTHON_INSTALL}
     )
 
   install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ DESTINATION ${INSTALL_MODDIR})
+
+  install(
+    FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/__init__.py
+    DESTINATION
+    ${_GVEC_TO_GENE_PYTHON_INSTALL}
+    )
 
   # Exporting targets for other CMake-projects
 
@@ -442,12 +498,7 @@ else()
     ${INSTALL_CMAKEDIR}
     )
 
-  # Preparation of gveclib for Python usage
-
-  # generate gvec_to_gene_export.h
-  include(GenerateExportHeader)
-  generate_export_header( gveclib
-    BASE_NAME gvec_to_gene)
+  # Testing through Python
 
   # turn on testing
   enable_testing()

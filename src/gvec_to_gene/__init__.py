@@ -30,10 +30,10 @@ if _cfg_file.exists():
     config = ConfigParser()
     config.read(_cfg_file)
     header_file_name = config.get('configuration', 'header_file_name')
-    _header_file = _this_path / 'include' /  header_file_name
+    _header_file = _this_path / header_file_name
     _header_file = str(_header_file)
     library_file_name = config.get('configuration', 'library_file_name')
-    _library_file = _this_path / 'lib' / library_file_name
+    _library_file = _this_path / library_file_name
     _library_file = str(_library_file)
 else:
     _header_file = os.getenv('GVEC_TO_GENE_HEADER_FILE')
