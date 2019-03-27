@@ -24,6 +24,7 @@
 MODULE MODgvec_gvec_to_gene
 ! MODULES
 USE MODgvec_Globals, ONLY:wp
+USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
 IMPLICIT NONE
 PRIVATE
 
@@ -57,6 +58,7 @@ PUBLIC::gvec_to_gene_profile
 PUBLIC::gvec_to_gene_coords
 PUBLIC::gvec_to_gene_metrics
 PUBLIC::finalize_gvec_to_gene
+PUBLIC::WriteDataToVTK
 
 !===================================================================================================================================
 

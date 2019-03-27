@@ -254,6 +254,7 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90 
                           ./src/functionals/mhd3d/*hmap*.f90 
                           ./src/readstate*.f90 
+                          ./src/output/*.f90 
                           ./src/grid/*.f90 )
 
 
