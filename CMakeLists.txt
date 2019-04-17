@@ -324,7 +324,7 @@ if(NOT COMPILE_GVEC_TO_GENE)
 
 else()
 
-  # Preporations for installation
+  # Preparations to install GVEC for GENE
 
   message(STATUS "${PROJECT_NAME} will be installed to ${CMAKE_INSTALL_PREFIX}")
 
@@ -369,76 +369,87 @@ else()
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
 
-  # Prepare RPATH
-  file(RELATIVE_PATH _rel
-    ${CMAKE_INSTALL_PREFIX}/${INSTALL_BINDIR}
-    ${CMAKE_INSTALL_PREFIX})
-  if(APPLE)
-    set(_rpath "@loader_path/${_rel}")
-  else()
-    set(_rpath "\$ORIGIN/${_rel}")
+  get_property(ARE_SHARED_LIBS_SUPPORTED GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS)
+  if(ARE_SHARED_LIBS_SUPPORTED)
+    # Prepare RPATH
+    file(RELATIVE_PATH _rel
+      ${CMAKE_INSTALL_PREFIX}/${INSTALL_BINDIR}
+      ${CMAKE_INSTALL_PREFIX})
+    if(APPLE)
+      set(_rpath "@loader_path/${_rel}")
+    else()
+      set(_rpath "\$ORIGIN/${_rel}")
+    endif()
+    file(TO_NATIVE_PATH "${_rpath}/${INSTALL_LIBDIR}" test_gvec_to_gene_RPATH)
+
+    set_target_properties(test_gvec_to_gene
+      PROPERTIES
+      OUTPUT_NAME "test_gvec_to_gene"
+      MACOSX_RPATH ON
+      SKIP_BUILD_RPATH OFF
+      BUILD_WITH_INSTALL_RPATH OFF
+      INSTALL_RPATH "${test_gvec_to_gene_RPATH}"
+      INSTALL_RPATH_USE_LINK_PATH ON
+      )
   endif()
-  file(TO_NATIVE_PATH "${_rpath}/${INSTALL_LIBDIR}" test_gvec_to_gene_RPATH)
-
-  set_target_properties(test_gvec_to_gene
-    PROPERTIES
-    OUTPUT_NAME "test_gvec_to_gene"
-    MACOSX_RPATH ON
-    SKIP_BUILD_RPATH OFF
-    BUILD_WITH_INSTALL_RPATH OFF
-    INSTALL_RPATH "${test_gvec_to_gene_RPATH}"
-    INSTALL_RPATH_USE_LINK_PATH ON
-    )
-
 
   # generate gvec_to_gene_export.h
   include(GenerateExportHeader)
   generate_export_header( gveclib
     BASE_NAME gvec_to_gene)
 
+  if(ENABLE_PYTHON_BINDINGS)
+    set(_GVEC_TO_GENE_HEADERS
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/gvec_to_gene.h
+      ${CMAKE_CURRENT_BINARY_DIR}/gvec_to_gene_export.h
+      )
 
-  set(_GVEC_TO_GENE_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/gvec_to_gene.h
-    ${CMAKE_CURRENT_BINARY_DIR}/gvec_to_gene_export.h
-    )
+    set(_GVEC_TO_GENE_RESOURCE
+      "${CMAKE_CURRENT_BINARY_DIR}/interface_file_names.cfg"
+      )
 
-  set(_GVEC_TO_GENE_RESOURCE
-    "${CMAKE_CURRENT_BINARY_DIR}/interface_file_names.cfg"
-    )
+    set(_GVEC_TO_GENE_PYTHON_INSTALL
+      gvec_to_gene
+      )
 
-  set(_GVEC_TO_GENE_PYTHON_INSTALL
-    gvec_to_gene
-    )
+    file(RELATIVE_PATH _GVEC_TO_GENE_PYTHON_H_REL
+      ${CMAKE_INSTALL_PREFIX}/${_GVEC_TO_GENE_PYTHON_INSTALL}
+      ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDEDIR}
+      )
 
-  file(RELATIVE_PATH _GVEC_TO_GENE_PYTHON_H_REL
-    ${CMAKE_INSTALL_PREFIX}/${_GVEC_TO_GENE_PYTHON_INSTALL}
-    ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDEDIR}
-    )
+    file(RELATIVE_PATH _GVEC_TO_GENE_PYTHON_L_REL
+      ${CMAKE_INSTALL_PREFIX}/${_GVEC_TO_GENE_PYTHON_INSTALL}
+      ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBDIR}
+      )
 
-  file(RELATIVE_PATH _GVEC_TO_GENE_PYTHON_L_REL
-    ${CMAKE_INSTALL_PREFIX}/${_GVEC_TO_GENE_PYTHON_INSTALL}
-    ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBDIR}
-    )
-
-  file(
-    GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/interface_file_names.cfg
-    #INPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/interface_file_names.cfg.in
-    CONTENT
-    "[configuration]
+    file(
+      GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/interface_file_names.cfg
+      #INPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/interface_file_names.cfg.in
+      CONTENT
+      "[configuration]
     header_file_name = ${_GVEC_TO_GENE_PYTHON_H_REL}/gvec_to_gene.h
     library_file_name = ${_GVEC_TO_GENE_PYTHON_L_REL}/$<TARGET_FILE_NAME:gveclib>"
-    )
+      )
 
-  set_target_properties( gveclib
-    PROPERTIES
-    PUBLIC_HEADER
-    "${_GVEC_TO_GENE_HEADERS}"
-    RESOURCE
-    "${_GVEC_TO_GENE_RESOURCE}"
-    )
+    # Install python package
+    install(
+      FILES
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/__init__.py
+      DESTINATION
+      ${_GVEC_TO_GENE_PYTHON_INSTALL}
+      )
 
-  # Installation
+    # Add additional properties to gveclib to enable Python bindings
+    set_target_properties( gveclib
+      PROPERTIES
+      PUBLIC_HEADER
+      "${_GVEC_TO_GENE_HEADERS}"
+      RESOURCE
+      "${_GVEC_TO_GENE_RESOURCE}"
+      )
+  endif()
 
+  # install gveclib and test_gvec_to_gene
   install(
     TARGETS
     test_gvec_to_gene
@@ -462,13 +473,6 @@ else()
     )
 
   install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ DESTINATION ${INSTALL_MODDIR})
-
-  install(
-    FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/__init__.py
-    DESTINATION
-    ${_GVEC_TO_GENE_PYTHON_INSTALL}
-    )
 
   # Exporting targets for other CMake-projects
 
@@ -498,23 +502,25 @@ else()
     ${INSTALL_CMAKEDIR}
     )
 
-  # Testing through Python
-
   # turn on testing
   enable_testing()
 
-  # require python
-  find_package(PythonInterp REQUIRED)
+  if(ENABLE_PYTHON_BINDINGS)
+    # Testing through Python
 
-  # define test
-  add_test(
-    NAME
-    gvec_to_gene_python_test
-    COMMAND
-    ${CMAKE_COMMAND} -E env GVEC_TO_GENE_MODULE_PATH=${CMAKE_CURRENT_SOURCE_DIR}/src
-    GVEC_TO_GENE_HEADER_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/gvec_to_gene.h
-    GVEC_TO_GENE_LIBRARY_FILE=$<TARGET_FILE:gveclib>
-    ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/test.py
-    )
+    # require python
+    find_package(PythonInterp REQUIRED)
+
+    # define test
+    add_test(
+      NAME
+      gvec_to_gene_python_test
+      COMMAND
+      ${CMAKE_COMMAND} -E env GVEC_TO_GENE_MODULE_PATH=${CMAKE_CURRENT_SOURCE_DIR}/src
+      GVEC_TO_GENE_HEADER_FILE=${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/gvec_to_gene.h
+      GVEC_TO_GENE_LIBRARY_FILE=$<TARGET_FILE:gveclib>
+      ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/test.py
+      )
+  endif()
 
 endif()
