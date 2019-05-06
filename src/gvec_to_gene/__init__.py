@@ -50,14 +50,19 @@ _lib = get_lib_handle(definitions=['-DGVEC_TO_GENE_API=', '-DGVEC_TO_GENE_NOINCL
 init = _lib.init_gvec_to_gene
 coords = _lib.gvec_to_gene_coords
 finalize = _lib.finalize_gvec_to_gene
+write_data_to_vtk = _lib.write_data_to_vtk
+test_print_char_rank2_array = _lib.test_print_char_rank2_array
 test_print_file_name = _lib.test_print_file_name
 test_pass_arrays_shift = _lib.test_pass_arrays_shift
+
 
 __all__ = [
     '__version__',
     'init',
     'coords',
     'finalize',
+    'write_data_to_vtk',
+    'test_print_char_rank2_array',
     'test_print_file_name',
     'test_pass_arrays_shift',
 ]

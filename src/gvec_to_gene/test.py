@@ -16,6 +16,16 @@ gvec_to_gene.test_print_file_name(p)
 #---------------------------------------------------------------------
 # test 2
 
+strl = 16
+arrc_type = "S{}".format(strl)
+arrc_np = np.array(['arg-1\x00blaa', 'arg--2\x00blaa', 'arg---3\x00blaa'],
+                   dtype=np.dtype(arrc_type))
+arrc = ffi.cast("char(*)[]", arrc_np.ctypes.data)
+gvec_to_gene.test_print_char_rank2_array(strl,len(arrc_np),arrc)
+
+#---------------------------------------------------------------------
+# test 3
+
 nthet = 2
 nzeta = 5
 
