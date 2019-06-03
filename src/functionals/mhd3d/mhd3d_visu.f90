@@ -149,7 +149,7 @@ IMPLICIT NONE
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,dX2_dthet_visu,dX2_dzeta_visu
   REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,chiPrime_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 
-  INTEGER,PARAMETER  :: nVal=11
+  INTEGER,PARAMETER  :: nVal=14
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
@@ -175,17 +175,20 @@ IMPLICIT NONE
       'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
-  VarNames(1)="lambda"
-  VarNames(2)="sqrtG"
-  VarNames(3)="Phi"
-  VarNames(4)="iota"
-  VarNames(5)="pressure"
-  VarNames(6)="BvecX"
-  VarNames(7)="BvecY"
-  VarNames(8)="BvecZ"
+  VarNames( 1)="lambda"
+  VarNames( 2)="sqrtG"
+  VarNames( 3)="Phi"
+  VarNames( 4)="iota"
+  VarNames( 5)="pressure"
+  VarNames( 6)="BvecX"
+  VarNames( 7)="BvecY"
+  VarNames( 8)="BvecZ"
   VarNames( 9)="F_X1"
   VarNames(10)="F_X2"
   VarNames(11)="F_LA"
+  VarNames(12)="s"
+  VarNames(13)="theta"
+  VarNames(14)="zeta"
 
   var_visu=0.
 
@@ -231,9 +234,10 @@ IMPLICIT NONE
       pres_s=Eval_pres(spos)
       phiPrime_s=Eval_PhiPrime(spos)
       chiPrime_s=Eval_chiPrime(spos)
-      var_visu(3,i_s,:,:,:,iElem) =Eval_Phi(spos)
-      var_visu(4,i_s,:,:,:,iElem) =iota_s
-      var_visu(5,i_s,:,:,:,iElem) =pres_s
+      var_visu( 3,i_s,:,:,:,iElem) =Eval_Phi(spos)
+      var_visu( 4,i_s,:,:,:,iElem) =iota_s
+      var_visu( 5,i_s,:,:,:,iElem) =pres_s
+      var_visu(12,i_s,:,:,:,iElem) =spos
       !define theta2, which corresponds to the theta angle of a given theta_star=theta
 
       DO i_n=1,mn_IP(2)
@@ -246,6 +250,9 @@ IMPLICIT NONE
             ELSE
               xIP(1)= thet(j_s,i_m)
             END IF
+            var_visu(13,i_s,j_s,i_n,i_m,iElem)=thet(j_s,i_m)
+            var_visu(14,i_s,j_s,i_n,i_m,iElem)=zeta(i_n)
+
 
             ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_n,i_m,iElem), &
                       sqrtG_visu   => var_visu(  2,i_s,j_s,i_n,i_m,iElem), &
