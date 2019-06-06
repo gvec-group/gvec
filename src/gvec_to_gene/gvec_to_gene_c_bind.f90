@@ -67,7 +67,7 @@ contains
     ! save all var names into VarNames_f
     do val = 1, nVal
       call c_to_f_string(VarNames_c(:,val),VarName)
-      VarNames_f = trim(VarName)
+      VarNames_f(val) = trim(VarName)
     end do
 
     call WriteDataToVTK( &
@@ -110,12 +110,14 @@ contains
     character(kind=C_CHAR,len=1), intent(in) :: varnames_c(strlen,nval)
 
     character(len=:), allocatable :: varname
+    character(len=strlen) :: VarNames_f(nval)
     integer(kind=C_INT) :: val
 
     write(*,*) "test_print_char_rank2_array nval: ", nval
     do val = 1, nval
        call c_to_f_string(varnames_c(:,val),varname)
-       write(*,*) val, ": varname: ", trim(varname)
+       VarNames_f(val) = trim(varname)
+       write(*,*), val, ": VarNames_f: ", VarNames_f(val)
     end do
 
   end subroutine test_print_char_rank2_array_c
