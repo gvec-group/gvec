@@ -32,7 +32,7 @@ module modgvec_gvec_to_gene_c_bind
        WP .eq. selected_real_kind(33,307))
 
   public init_gvec_to_gene_c, gvec_to_gene_coords_c, finalize_gvec_to_gene_c, &
-       test_print_file_name_c, test_pass_arrays_shift_c
+       test_print_file_name_c, test_pass_arrays_shift_c, test_int_array_c
 
 contains
 
@@ -72,6 +72,7 @@ contains
 
     call WriteDataToVTK( &
          dim1,vecDim,nVal,NPlot,nElems,VarNames_f,Coord,Values,FileString_f)
+
   end subroutine write_data_to_vtk_c
 
   subroutine init_gvec_to_gene_c(fileName) bind(c,name='init_gvec_to_gene')
@@ -96,6 +97,7 @@ contains
          nthet, nzeta, &
          spos_in, theta_star_in, zeta_in, &
          theta_out, cart_coords)
+
   end subroutine gvec_to_gene_coords_c
 
   subroutine finalize_gvec_to_gene_c() bind(c,name='finalize_gvec_to_gene')
@@ -104,7 +106,18 @@ contains
 
   !===================================================================================
 
-  subroutine test_print_char_rank2_array_c(strlen,nval,varnames_c) &
+  subroutine test_int_array_c(dim1,Nplot) &
+       bind(c,name='test_int_array')
+
+    INTEGER(kind=C_INT), value :: dim1
+    INTEGER(kind=C_INT),INTENT(IN) :: NPlot(dim1)
+   
+    write(*,*) Nplot, "Nplot"
+    write(*,*) "product", PRODUCT(Nplot+1)
+ 
+  end subroutine test_int_array_c
+   
+subroutine test_print_char_rank2_array_c(strlen,nval,varnames_c) &
        bind(c,name='test_print_char_rank2_array')
     integer(kind=C_INT), value, intent(in) :: nval, strlen
     character(kind=C_CHAR,len=1), intent(in) :: varnames_c(strlen,nval)

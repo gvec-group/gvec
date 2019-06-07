@@ -54,7 +54,7 @@ write_data_to_vtk = _lib.write_data_to_vtk
 test_print_char_rank2_array = _lib.test_print_char_rank2_array
 test_print_file_name = _lib.test_print_file_name
 test_pass_arrays_shift = _lib.test_pass_arrays_shift
-
+test_int_array = _lib.test_int_array
 
 __all__ = [
     '__version__',
@@ -65,4 +65,5 @@ __all__ = [
     'test_print_char_rank2_array',
     'test_print_file_name',
     'test_pass_arrays_shift',
+    'test_int_array',
 ]

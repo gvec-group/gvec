@@ -14,9 +14,9 @@ void write_data_to_vtk(const int dim1,
 		       const int nVal,
 		       const int NPlot[], // [dim1]
 		       const int nElems,
-		       const double Coord[][], // [vecdim][1:PRODUCT(Nplot+1)][nElems]
 		       const int strlen,
 		       const char VarNames_c[][], // [strlen][nVal]
+		       const double Coord[][], // [vecdim][1:PRODUCT(Nplot+1)][nElems]
 		       const double Values[][], // [nVal][1:PRODUCT(Nplot+1)][nElems]
 		       char FileString_c[]);
 
@@ -48,5 +48,9 @@ GVEC_TO_GENE_API
 void test_pass_arrays_shift(const int nthet, const int nzeta,
 			    const double arr_in[][],
 			    double arr_out[][]);
+
+GVEC_TO_GENE_API
+void test_int_array(const int dim1,
+			    const int Nplot[]); //[dim1]);
 
 #endif /* GVEC_TO_GENE_H_INCLUDED */
