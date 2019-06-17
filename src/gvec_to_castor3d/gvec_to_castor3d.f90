@@ -23,7 +23,7 @@
 !===================================================================================================================================
 MODULE MODgvec_gvec_to_castor3d
 ! MODULES
-USE MODgvec_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp,UNIT_stdOut,fmt_sep
 IMPLICIT NONE
 PRIVATE
 
@@ -56,25 +56,25 @@ CONTAINS
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE init_gvec_to_castor3d(fileName,Nfactor) 
+SUBROUTINE init_gvec_to_castor3d(fileName,Ns_in,factorFourier) 
 ! MODULES
-USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_Globals,ONLY: TWOPI
 USE MODgvec_ReadState,ONLY: ReadState
-USE MODgvec_ReadState_vars,ONLY: sgrid_r,X1_base_r,X2_base_r,LA_base_r
+USE MODgvec_ReadState_vars,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_gvec_to_castor3d_vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*), INTENT(IN) :: fileName !< name of GVEC file
-INTEGER         , INTENT(IN) :: Nfactor(3) !< factor for s,theta,zeta resolution 
+INTEGER         , INTENT(IN) :: Ns_in !< number of equidistant points in radial s-direction (includes axis and edge!)
+INTEGER         , INTENT(IN) :: factorFourier !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER  :: iElem,i
+INTEGER  :: i
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
 
@@ -84,27 +84,31 @@ INTEGER  :: iElem,i
   mn_max_out(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
   nfp_out          = X1_base_r%f%nfp
 
-  Ns_out    = Nfactor(1)*sgrid_r%nElems +1
+  Ns_out    = Ns_in
+  IF((X1_base_r%f%sin_cos.EQ._COS_).AND.(X2_base_r%f%sin_cos.EQ._SIN_).AND.(LA_base_r%f%sin_cos.EQ._SIN_))THEN
+    asym_out = 0 !R~cos,Z~sin,lambda~sin
+  ELSE
+    asym_out = 1 !full fourier
+  END IF
   ALLOCATE(s_pos(Ns_out))
   ALLOCATE(data_1D(nVar1D,Ns_out))
 
   s_pos(1)=1.0e-08_wp !avoid axis
-  DO iElem=1,sgrid_r%nElems
-    DO i=1,Nfactor(1)
-      s_pos((iElem-1)*Nfactor(1)+1+i) = sgrid_r%sp(iElem-1)+REAL(i,wp)/REAL(Nfactor(1),wp)*sgrid_r%ds(iElem)
-    END DO !i=1,Nfactor(1)
-  END DO !iElem=1,sgrid_r%nElems
+  DO i=2,Ns_out-1
+      s_pos(i) = REAL(i-1,wp)/REAL(Ns_out-1,wp)
+  END DO !i
   s_pos(Ns_out)=1. - 1.0e-12_wp !aviod edge
-  Nthet_out = Nfactor(2)*mn_max_out(1)
-  Nzeta_out = MAX(1,Nfactor(3)*mn_max_out(2)) !if n=0, output 1 point
+  Nthet_out = factorFourier*mn_max_out(1)
+  Nzeta_out = MAX(1,factorFourier*mn_max_out(2)) !if n=0, output 1 point
 
   ALLOCATE(thet_pos(Nthet_out))
   ALLOCATE(zeta_pos(Nzeta_out))
   DO i=1,Nthet_out
     thet_pos(i)=(TWOPI*REAL((i-1),wp))/REAL(Nthet_out) 
   END DO
+  !zeta goes in opposite direction!!! -> iota and phi,phi' have opposite sign
   DO i=1,Nzeta_out
-    zeta_pos(i)=(TWOPI*REAL((i-1),wp))/REAL((Nzeta_out*nfp_out),wp)
+    zeta_pos(i)=-(TWOPI*REAL((i-1),wp))/REAL((Nzeta_out*nfp_out),wp)
   END DO
 
   ALLOCATE(data_scalar3D(  Nthet_out,Nzeta_out,Ns_out,nVarscalar3D))
@@ -124,7 +128,7 @@ END SUBROUTINE init_gvec_to_castor3d
 SUBROUTINE gvec_to_castor3d_prepare()
 ! MODULES
 USE MODgvec_gvec_to_castor3d_Vars 
-USE MODgvec_Globals,        ONLY: CROSS
+USE MODgvec_Globals,        ONLY: CROSS,TWOPI
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -134,29 +138,25 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER                                 :: i_s,iMode,ithet,izeta
-REAL(wp)                                :: spos,xp(2),F_loc,qvec(3),sqrtG
-REAL(wp)                                :: grad_zeta(3) 
+REAL(wp)                                :: spos,xp(2),sqrtG
 REAL(wp)                                :: dX1ds,dX1dthet,dX1dzeta
 REAL(wp)                                :: dX2ds,dX2dthet,dX2dzeta
 REAL(wp)                                :: dLAdthet,dLAdzeta
+REAL(wp)                                :: Phi_int,dPhids_int,Chi_int,dChids_int,iota_int
+REAL(wp)                                :: pressure_int,F_loc,Favg_int,Fmin_int,Fmax_int
+REAL(wp)                                :: X1_int,X2_int,LA_int
+REAL(wp),DIMENSION(3)                   :: qvec,e_s,e_thet,e_zeta,Bfield,grad_zeta
 REAL(wp),DIMENSION(1:X1_base_r%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_r%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LA_base_r%f%modes) :: LA_s
 !===================================================================================================================================
-
+SWRITE(UNIT_stdOut,'(A)')'PREPARE DATA FOR GVEC-TO-CASTOR3D ...'
 DO i_s=1,Ns_out
+  IF(MOD(i_s,MAX(1,Ns_out/100)).EQ.0) THEN
+    SWRITE(UNIT_stdOut,'(4X,I4,A4,I4,A13,A1)',ADVANCE='NO')i_s, ' of ',NS_out,' evaluated...',ACHAR(13)
+  END IF
   spos          = s_pos(i_s)
   data_1D(SPOS__,i_s)=s_pos(i_s)
-  ASSOCIATE( Phi_int     => data_1D( PHI__     ,i_s) &
-            ,dPhids_int  => data_1D( DPHIDS__  ,i_s) &
-            ,Chi_int     => data_1D( CHI__     ,i_s) &
-            ,dChids_int  => data_1D( DCHIDS__  ,i_s) &
-            ,iota_int    => data_1D( IOTA__    ,i_s) &
-            ,pressure_int=> data_1D( PRESSURE__,i_s) &
-            ,Favg_int    => data_1D( FAVG__    ,i_s) &
-            ,Fmin_int    => data_1D( FMIN__    ,i_s) &
-            ,Fmax_int    => data_1D( FMAX__    ,i_s) &
-           )
 
   Phi_int     = X1_base_r%s%evalDOF_s(spos,       0 ,profiles_1d(:,1))
   dPhids_int  = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
@@ -186,14 +186,6 @@ DO i_s=1,Ns_out
   DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
     xp=(/thet_pos(ithet),zeta_pos(izeta)/)
 
-    ASSOCIATE( X1_int => data_scalar3D(ithet,izeta,i_s, X1__) & 
-              ,X2_int => data_scalar3D(ithet,izeta,i_s, X2__) & 
-              ,LA_int => data_scalar3D(ithet,izeta,i_s, LA__) &
-              ,e_s    => data_vector3D(:,ithet,izeta,i_s,ECOV_S__     )  &
-              ,e_thet => data_vector3D(:,ithet,izeta,i_s,ECOV_THETA__ )  &
-              ,e_zeta => data_vector3D(:,ithet,izeta,i_s,ECOV_ZETA__  )  &
-              ,Bfield => data_vector3D(:,ithet,izeta,i_s,BFIELD__     )  &
-             )
 
     X1_int   = X1_base_r%f%evalDOF_x(xp,          0, X1_s  )
     dX1ds    = X1_base_r%f%evalDOF_x(xp,          0,dX1ds_s)
@@ -234,13 +226,40 @@ DO i_s=1,Ns_out
     Fmin_int = MIN(Fmin_int,F_loc)
     Fmax_int = MAX(Fmax_int,F_loc)
 
+    !========== 
+    ! save data
+    data_scalar3D(ithet,izeta,i_s, X1__)   = X1_int 
+    data_scalar3D(ithet,izeta,i_s, X2__)   = X2_int
+    data_scalar3D(ithet,izeta,i_s, LA__)   = LA_int
 
-    END ASSOCIATE !data_3D,ecov*
+    data_vector3D(:,ithet,izeta,i_s,BFIELD__    )  = Bfield
+    data_vector3D(:,ithet,izeta,i_s,ECOV_S__    )  = e_s   
+    data_vector3D(:,ithet,izeta,i_s,ECOV_THETA__)  = e_thet
+    data_vector3D(:,ithet,izeta,i_s,ECOV_ZETA__ )  = -e_zeta  !sign change of zeta coordinate! 
+    !========== 
+
   END DO ; END DO !izeta,ithet
   Favg_int = Favg_int/REAL((Nthet_out*Nzeta_out),wp)
-  END ASSOCIATE ! data_1D
-END DO !i_s=1,Ns_out 
 
+  !========== 
+  !save data
+  data_1D( PHI__     ,i_s) = -TWOPI*Phi_int      !sign change of zeta coordinate! 
+  data_1D( DPHIDS__  ,i_s) = -TWOPI*dPhids_int   !sign change of zeta coordinate!
+  data_1D( CHI__     ,i_s) = TWOPI*Chi_int     
+  data_1D( DCHIDS__  ,i_s) = TWOPI*dChids_int  
+  data_1D( IOTA__    ,i_s) = -iota_int           !sign change of zeta coordinate!
+  data_1D( PRESSURE__,i_s) = pressure_int
+  data_1D( FAVG__    ,i_s) = Favg_int    
+  data_1D( FMIN__    ,i_s) = Fmin_int    
+  data_1D( FMAX__    ,i_s) = Fmax_int    
+  !========== 
+  
+END DO !i_s=1,Ns_out 
+PhiEdge=data_1D(PHI__,Ns_out)
+ChiEdge=data_1D(CHI__,Ns_out)
+
+SWRITE(UNIT_stdOut,'(A)')'... DONE'
+SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE gvec_to_castor3d_prepare
 
 
@@ -269,28 +288,71 @@ INTEGER :: ioUnit,iVar,i_s
      STATUS   = 'REPLACE'   ,&
      ACCESS   = 'SEQUENTIAL' ) 
 
-  WRITE(ioUnit,'(A)')'## GVEC-TO-CASTOR3D file, VERSION: 1.0'
-  WRITE(ioUnit,'(A)')'##<< number of grid points: 1:Ns (radial), 1:Ntheta (poloidal),1:Nzeta (toroidal) ###########################'
+!HEADER
+  WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
+  WRITE(ioUnit,'(A100)')'## GVEC-TO-CASTOR3D file, VERSION: 1.0                                                              '
+  WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
+  WRITE(ioUnit,'(A100)')'## data is written on equidistant points in s,theta,zeta coordinates,                               '
+  WRITE(ioUnit,'(A100)')'## * radially outward coordinate s=sqrt(phi_tor/phi_tor_edge) in [0,1]                              '
+  WRITE(ioUnit,'(A100)')'##   s(1:Ns) , with  s(1)=0, s(Ns)=1                                                                '
+  WRITE(ioUnit,'(A100)')'## * poloidal angle theta in [0,2pi] , sign: theta ~ atan(z/sqrt(x^2+y^2))                          '
+  WRITE(ioUnit,'(A100)')'##   theta(1:Ntheta)  with theta(1)=0, theta(Ntheta)=2pi*(Ntheta-1)*/Ntheta                         '
+  WRITE(ioUnit,'(A100)')'## * toroidal angle zeta in [0,2pi/nfp], sign: zeta ~ atan(y/x)  (opposite to GVEC definition!)     '
+  WRITE(ioUnit,'(A100)')'##   zeta(1:Nzeta)  with zeta(1)=0, zeta(Nzeta)=2pi/nfp*(Nzeta-1)*/Nzeta                            '
+  WRITE(ioUnit,'(A100)')'##                                                                                                  '
+  WRITE(ioUnit,'(A100)')'## Global variables:                                                                                '
+  WRITE(ioUnit,'(A100)')'## * nfp         : number of toroidal field periods (toroidal angle [0,2pi/nfp])                    '
+  WRITE(ioUnit,'(A100)')'## * asym        :  =0: symmetric cofiguration (R~cos,Z~sin,lambda~sin), 1: asymmetric              '
+  WRITE(ioUnit,'(A100)')'## * m_max       : maximum number of poloidal modes in R,Z,lambda variables                         '
+  WRITE(ioUnit,'(A100)')'## * n_max       : maximum number of toroidal modes in R,Z,lambda variables                         '
+  WRITE(ioUnit,'(A100)')'## * PhiEdge     : Toroidal Flux at the last flux surface [T*m^2]                                   '
+  WRITE(ioUnit,'(A100)')'## * ChiEdge     : Poloidal Flux at the last flux surface [T*m^2]                                   '
+  WRITE(ioUnit,'(A100)')'##                                                                                                  '
+  WRITE(ioUnit,'(A100)')'## Variables of arrays of radial variables (1:Ns)                                                   '
+  WRITE(ioUnit,'(A100)')'## * Phi(s)      : toroidal magnetic flux [T*m^2]                                                   '
+  WRITE(ioUnit,'(A100)')'## * dPhi_ds(s)  : derivative of toroidal magnetic flux versus s coordinate                         '
+  WRITE(ioUnit,'(A100)')'## * Chi(s)      : poloidal magnetic flux [T*m^2]                                                   '
+  WRITE(ioUnit,'(A100)')'## * dChi_ds(s)  : derivative of poloidal magnetic flux versus s coordinate                         '
+  WRITE(ioUnit,'(A100)')'## * iota(s)     : rotational transform, dChi_ds/dPhi_ds [-]                                        '
+  WRITE(ioUnit,'(A100)')'## * pressure(s) : pressure profile [N/(m^2)]                                                       '
+  WRITE(ioUnit,'(A100)')'## * Favg(s)     : For tokamaks, poloidal current profile (input GS solver)                         '
+  WRITE(ioUnit,'(A100)')'## * Fmin/Fmax(s): minimum /maximum of F(s)                                                         ' 
+  WRITE(ioUnit,'(A100)')'##                                                                                                  '
+  WRITE(ioUnit,'(A100)')'## 3D arrays of scalars (1:Ntheta,1:Nzeta,1:Ns)                                                     '
+  WRITE(ioUnit,'(A100)')'## * X1 (R)      : coordinate R=sqrt(x^2+y^2) ( called X1 in GVEC, only=R for hmap=1)               '
+  WRITE(ioUnit,'(A100)')'## * X2 (Z)      : coordinate Z=z ( called X2 in GVEC, only=Z for hmap=1)                           '
+  WRITE(ioUnit,'(A100)')'## * LA          : lambda variable, straight-field line angle theta*=theta+lambda (PEST coordinates)'
+  WRITE(ioUnit,'(A100)')'##                                                                                                  '
+  WRITE(ioUnit,'(A100)')'## 3D arrays of vectors (1:3,1:Ntheta,1:Nzeta,1:Ns)                                                 '
+  WRITE(ioUnit,'(A100)')'## * Bfield      : vector of magneitc field, components in cartesian coordinates (x,y,z)            '
+  WRITE(ioUnit,'(A100)')'## * ecov_s      : covariant vector in s, components in cartesian coordinates (x,y,z)               '
+  WRITE(ioUnit,'(A100)')'## * ecov_theta  : covariant vector in theta, components in cartesian coordinates (x,y,z)           '
+  WRITE(ioUnit,'(A100)')'## * ecov_zeta   : covariant vector in zeta, components in cartesian coordinates (x,y,z)            '
+  WRITE(ioUnit,'(A100)')'##                                                                                                  '
+  WRITE(ioUnit,'(A100)')'####################################################################################################'
+  WRITE(ioUnit,*)
+  WRITE(ioUnit,'(A)')'##<< number of grid points: 1:Ns (radial), 1:Ntheta (poloidal),1:Nzeta (toroidal) '
   WRITE(ioUnit,'(*(I8,:,1X))')Ns_out,Nthet_out,Nzeta_out
-  WRITE(ioUnit,'(A)')'##<< global: nfp,m_max,n_max       ##########################################################################'
-  WRITE(ioUnit,'(*(I8,:,1X))')nfp_out,mn_max_out(1:2)
-  WRITE(ioUnit,'(A,I4,A)')'##<< 1D profiles (',nVar1D,',1:Ns), variable names :  ##############################################'
-  WRITE(ioUNIT,'(A)',ADVANCE='NO') '##  '
+  WRITE(ioUnit,'(A)')'##<< global: nfp, asym, m_max, n_max'
+  WRITE(ioUnit,'(*(I8,:,1X))')nfp_out,asym_out,mn_max_out(1:2)
+  WRITE(ioUnit,'(A)')'##<< global: PhiEdge, ChiEdge'
+  WRITE(ioUnit,'(*(E23.15,:,1X))')PhiEdge,ChiEdge
+  WRITE(ioUnit,'(A,I4,A)',ADVANCE='NO')'##<< 1D profiles (',nVar1D,',1:Ns), variable names : '
   DO iVar=1,nVar1D-1
-    WRITE(ioUnit,'(A,1X,(1X))',ADVANCE='NO' )  '"'//TRIM(StrVarNames1D(iVar))//'"'
+    WRITE(ioUnit,'(A,1X,(1X))',ADVANCE='NO' )  '"'//TRIM(StrVarNames1D(iVar))//'", '
   END DO
   WRITE(ioUnit,'(A)')  '"'//TRIM(StrVarNames1D(nVar1D))//'"'
   DO i_s=1,Ns_out
     WRITE(ioUnit,'(*(e23.15,:,1X))') data_1d(1:nVar1D,i_s) 
   END DO
   DO iVar=1,nVarScalar3D
-    WRITE(ioUnit,'(A)')'##<< 3D scalar variable (1:Ntheta,1:Nzeta,1:Ns), Variable name:  ##########################################'
-    WRITE(ioUNIT,'(A)')'##  "'//TRIM(StrVarNamesScalar3D(iVar))//'"'
+    WRITE(ioUnit,'(A)',ADVANCE='NO')'##<< 3D scalar variable (1:Ntheta,1:Nzeta,1:Ns), Variable name: '
+    WRITE(ioUNIT,'(A)')' "'//TRIM(StrVarNamesScalar3D(iVar))//'"'
     WRITE(ioUnit,'(*(6(e23.15,:,1X),/))') data_scalar3D(1:Nthet_out,1:Nzeta_out,1:Ns_out,iVar) 
   END DO !iVar=1,nVarScalar3D
   DO iVar=1,nVarVector3D
-    WRITE(ioUnit,'(A)')'##<< 3D vector variable, cartesian components (1:3,1:Ntheta,1:Nzeta,1:Ns),Variable name: ##################'
-    WRITE(ioUNIT,'(A)')'##  "'//TRIM(StrVarNamesVector3D(iVar))//'"'
+    WRITE(ioUnit,'(A)',ADVANCE='NO')'##<< 3D vector variable, cartesian components (1:3,1:Ntheta,1:Nzeta,1:Ns),Variable name: '
+    WRITE(ioUNIT,'(A)')' "'//TRIM(StrVarNamesVector3D(iVar))//'"'
     WRITE(ioUnit,'(*(6(e23.15,:,1X),/))') data_vector3d(1:3,1:Nthet_out,1:Nzeta_out,1:Ns_out,iVar) 
   END DO
 

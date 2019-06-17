@@ -28,12 +28,13 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 INTEGER               :: nfp_out            !< number of field periods
+INTEGER               :: asym_out           !< =0: symmetric configuration (R~cos,Z~sin,lambda~sin), =1 asymmetric 
 INTEGER               :: mn_max_out(2)      !< maximum number of modes in m,n
 INTEGER               :: Ns_out             !< total number of points in radial direction s [0,1]
 INTEGER               :: Nthet_out          !< total number of points in theta direction theta[0,2pi (
-INTEGER               :: Nzeta_out          !< total number of points in zeta direction zeta[0,2pi/NFP (
-REAL(wp)              :: PhiEdge            !< total toroidal flux at the last flux surface (0 at axis)
-REAL(wp)              :: ChiEdge            !< total poloidal flux at the last flux surface (0 at axis)
+INTEGER               :: Nzeta_out          !< total number of points in zeta direction zeta[0,-2pi/NFP( opposite sign compared to GVEC!!
+REAL(wp)              :: PhiEdge            !< total toroidal flux at the last flux surface (0 at axis), *2Pi and opposite compared GVEC!!
+REAL(wp)              :: ChiEdge            !< total poloidal flux at the last flux surface (0 at axis), *2pi compared to GVEC!!!
 REAL(wp),ALLOCATABLE  :: s_pos(:)           !< positions in s for evaluation s=sqrt(phi/phiEdge), size (Ns_out)
 REAL(wp),ALLOCATABLE  :: thet_pos(:)        !< positions in theta for evaluation, size (Nthet_out)
 REAL(wp),ALLOCATABLE  :: zeta_pos(:)        !< positions in zeta for evaluation , size (Nzeta_out)
@@ -78,15 +79,15 @@ REAL(wp),ALLOCATABLE  :: data_scalar3D(:,:,:,:)    !< Size (Nthet_out,Nzeta_out,
 
 !3D vector data 
 INTEGER,PARAMETER     :: nVarVector3D=4           !< number of variabels in 3D data
-INTEGER,PARAMETER     :: ECOV_S__     = 1
-INTEGER,PARAMETER     :: ECOV_THETA__ = 2
-INTEGER,PARAMETER     :: ECOV_ZETA__  = 3
-INTEGER,PARAMETER     :: BFIELD__     = 4
+INTEGER,PARAMETER     :: BFIELD__     = 1
+INTEGER,PARAMETER     :: ECOV_S__     = 2
+INTEGER,PARAMETER     :: ECOV_THETA__ = 3
+INTEGER,PARAMETER     :: ECOV_ZETA__  = 4
 CHARACTER(LEN=50),DIMENSION(nVarVector3D),PARAMETER :: StrVarNamesVector3D(nVarVector3D)=(/ CHARACTER(LEN=50) :: &
-                           'ecov_s'           & ! 1 : covariant vector in s    , (x,y,z) cartesian components
-                          ,'ecov_theta'       & ! 2 : covariant vector in theta, (x,y,z) cartesian components
-                          ,'ecov_zeta'        & ! 3 : covariant vector in zeta , (x,y,z) cartesian components
-                          ,'Bfield'           & ! 4 : magnetic field vector    , (x,y,z) cartesian components
+                           'Bfield'           & ! 1 : magnetic field vector    , (x,y,z) cartesian components
+                          ,'ecov_s'           & ! 2 : covariant vector in s    , (x,y,z) cartesian components
+                          ,'ecov_theta'       & ! 3 : covariant vector in theta, (x,y,z) cartesian components
+                          ,'ecov_zeta'        & ! 4 : covariant vector in zeta , (x,y,z) cartesian components
                                     /)
 REAL(wp),ALLOCATABLE  :: data_vector3D(:,:,:,:,:)    !< Size (3,Nthet_out,Nzeta_out,Ns_out,nVarVector3D)
                                          
