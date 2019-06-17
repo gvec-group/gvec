@@ -663,9 +663,13 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     !initialize Lambda
     LA_gIP(1,:)=0.0_wp !at axis
     DO is=2,LA_base%s%nBase
+      IF(MOD(is,MAX(1,LA_base%s%nBase/100)).EQ.0) THEN
+        SWRITE(UNIT_stdOut,'(4X,I4,A4,I4,A13,A1)',ADVANCE='NO')is, ' of ',LA_base%s%nBase,' evaluated...',ACHAR(13)
+      END IF
       spos=LA_base%s%s_IP(is)
       CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
     END DO !is
+    SWRITE(UNIT_stdOut,'(A)') "... done."
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
     DO imode=1,modes
