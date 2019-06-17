@@ -198,6 +198,9 @@ ELSE
   ELSEIF(lambda_grid.EQ."full")THEN
     CALL           FitSpline(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
     IF(lasym) CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
+  ELSE
+    CALL abort(__STAMP__, &
+               'no lambda_grid found!!!! lambda_grid='//TRIM(lambda_grid) )
   END IF
 END IF
 
