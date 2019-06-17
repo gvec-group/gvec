@@ -502,65 +502,71 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
 !  ioError = NF_INQ_DIMID(ncid, "radius", id)
 !  ioError = ioError + NF_INQ_DIMLEN(ncid, id, nFluxVMEC)
   !! number of fourier components of r, z, lambda
-  ioError = ioError + NF_INQ_DIMID(ncid, "mn_mode", id)
+  ioError =  NF_INQ_DIMID(ncid, "mn_mode", id)
   ioError = ioError + NF_INQ_DIMLEN(ncid, id, mn_mode)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                           'VMEC READIN: problem reading mn_mode' )
   !! number of fourier components of b_u, b_v, b_s
-  ioError = ioError + NF_INQ_DIMID(ncid, "mn_mode_nyq", id)
+  ioError = NF_INQ_DIMID(ncid, "mn_mode_nyq", id)
   ioError = ioError + NF_INQ_DIMLEN(ncid, id, mn_mode_nyq)
+  IF (ioError .NE. 0) WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading mn_mode_nyq' 
 
   !! get number of field periods
-  ioError = ioError + NF_INQ_VARID(ncid, "nfp", id)
+  ioError = NF_INQ_VARID(ncid, "nfp", id)
   ioError = ioError + NF_GET_VAR_INT(ncid, id, nfp)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                           'VMEC READIN: problem reading n-fp' )
   !! get dimension of s
-  ioError = ioError + NF_INQ_VARID(ncid, "ns", id)
+  ioError = NF_INQ_VARID(ncid, "ns", id)
   ioError = ioError + NF_GET_VAR_INT(ncid, id, nFluxVMEC)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                           'VMEC READIN: problem reading n-s' )
   !! get poloidal mode number
-  ioError = ioError + NF_INQ_VARID(ncid, "mpol", id)
+  ioError = NF_INQ_VARID(ncid, "mpol", id)
   ioError = ioError + NF_GET_VAR_INT(ncid, id, mPol)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                             'VMEC READIN: problem reading mpol' )
   !! get toroidal mode number
-  ioError = ioError + NF_INQ_VARID(ncid, "ntor", id)
+  ioError = NF_INQ_VARID(ncid, "ntor", id)
   ioError = ioError + NF_GET_VAR_INT(ncid, id, nTor)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                             'VMEC READIN: problem reading ntor' )
 !  !! get mnmax
-!  ioError = ioError + NF_INQ_VARID(ncid, "mnmax", id)
+!  ioError = NF_INQ_VARID(ncid, "mnmax", id)
 !  ioError = ioError + NF_GET_VAR_INT(ncid, id, mnmax)
 !  !! get mnmax_nyq
-!  ioError = ioError + NF_INQ_VARID(ncid, "mnmax_nyq", id)
+!  ioError = NF_INQ_VARID(ncid, "mnmax_nyq", id)
 !  ioError = ioError + NF_GET_VAR_INT(ncid, id, mnmax_nyq)
 
   !! get iasym
-  ioError = ioError + NF_INQ_VARID(ncid, "lasym__logical__", id)
+  ioError = NF_INQ_VARID(ncid, "lasym__logical__", id)
   ioError = ioError + NF_GET_VAR_INT(ncid, id, lasym)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                             'VMEC READIN: problem reading lasym' )
   !! get lrfp
-  ioError = ioError + NF_INQ_VARID(ncid, "lrfp__logical__", id)
+  ioError = NF_INQ_VARID(ncid, "lrfp__logical__", id)
   ioError = ioError + NF_GET_VAR_INT(ncid, id, lrfp)
-  !                          'VMEC READIN: problem reading lrfp'
-  IF (lrfp) THEN
-    SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with lrfp=TRUE !!!"
-    STOP
+  IF (ioError .NE. 0) THEN
+    WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading lrfp' 
+  ELSE
+    IF (lrfp) THEN
+      SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with lrfp=TRUE !!!"
+      STOP
+    END IF
   END IF
   !! get B_0
-  ioError = ioError + NF_INQ_VARID(ncid, "b0", id)
+  ioError = NF_INQ_VARID(ncid, "b0", id)
   ioError = ioError + NF_GET_VAR_DOUBLE(ncid, id, b0)
-  IF (ioError .NE. 0) CALL abort(__STAMP__,&
-                            'VMEC READIN: problem reading b0' )
-  !! check the sign of b0
-  IF (b0 < 0) THEN
-    SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with b0 < 0 !!!"
+  IF (ioError .NE. 0) THEN
+    WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading b0' 
+  ELSE
+    !! check the sign of b0
+    IF (b0 < 0) THEN
+      SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with b0 < 0 !!!"
+    END IF
   END IF
   !! get signgs
-  ioError = ioError + NF_INQ_VARID(ncid, "signgs", id)
+  ioError = NF_INQ_VARID(ncid, "signgs", id)
   ioError = ioError + NF_GET_VAR_INT(ncid, id, signgs)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                             'VMEC READIN: problem reading signgs' )
@@ -568,20 +574,17 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
     SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC data has sign gs < 0 !!!"
   END IF
   !! get Aminor_p
-  ioError = ioError + NF_INQ_VARID(ncid, "Aminor_p", id)
+  ioError = NF_INQ_VARID(ncid, "Aminor_p", id)
   ioError = ioError + NF_GET_VAR_DOUBLE(ncid, id, aMinor)
-  IF (ioError .NE. 0) CALL abort(__STAMP__,&
-                            'VMEC READIN: problem reading Aminor_p' )
+  IF (ioError .NE. 0) WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading Aminor_p' 
   !! get Rmajor_p
-  ioError = ioError + NF_INQ_VARID(ncid, "Rmajor_p", id)
+  ioError = NF_INQ_VARID(ncid, "Rmajor_p", id)
   ioError = ioError + NF_GET_VAR_DOUBLE(ncid, id, rMajor)
-  IF (ioError .NE. 0) CALL abort(__STAMP__,&
-                            'VMEC READIN: problem reading Rmajor_p' )
+  IF (ioError .NE. 0) WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading Rmajor_p' 
   !! get volume_p
-  ioError = ioError + NF_INQ_VARID(ncid, "volume_p", id)
+  ioError = NF_INQ_VARID(ncid, "volume_p", id)
   ioError = ioError + NF_GET_VAR_DOUBLE(ncid, id, volume)
-  IF (ioError .NE. 0) CALL abort(__STAMP__,&
-                            'VMEC READIN: problem reading volume_p' )
+  IF (ioError .NE. 0) WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading volume_p' 
 
   CALL alloc_all() !needs nFluxVMEC,mn_mode,mn_mode_nyq and lasym
 
@@ -663,6 +666,7 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                             'VMEC READIN: problem reading Zmns' )
   !! read lambda_mn on HALF MESH
+  lambda_grid="half"
   ioError = NF_INQ_VARID(ncid, "lmns", id)
   ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/ mn_mode,&
        nFluxVMEC /), lmns(:, 1:))
@@ -681,7 +685,6 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
     IF (ioError .NE. 0) CALL abort(__STAMP__,&
                               'VMEC READIN: problem reading Zmnc' )
     !! read lambda_mn on HALF MESH
-    lambda_grid="half"
     ioError = NF_INQ_VARID(ncid, "lmnc", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/ mn_mode,&
          nFluxVMEC /), lmnc(:, 1:))
