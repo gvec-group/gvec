@@ -79,12 +79,14 @@ LOGICAL              :: useFilter
 SWRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 
 !VMEC "wout*.nc"  file
-VMECdataFile=GETSTR("VMECwoutfile")
-VMECFile_Format=GETINT("VMECwoutfile_format",Proposal=0)
+VMECdataFile   = GETSTR("VMECwoutfile")
+VMECFile_Format= GETINT("VMECwoutfile_format",Proposal=0)
+switchZeta     = GETLOGICAL("VMEC_switchZeta",Proposal=.TRUE.)
+relambda       = GETLOGICAL("VMEC_relambda",Proposal=.FALSE.)
+IF(relambda) nyq=GETINT("VMEC_Lam_nyq",Proposal=4)
 
 CALL ReadVmec(VMECdataFile,VMECfile_format)
 
-switchZeta=GETLOGICAL("VMEC_switchZeta",Proposal=.TRUE.)
 IF(switchZeta)THEN
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
@@ -135,8 +137,14 @@ chi_prof=chi
 SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max toroidal flux',MINVAL(phi)*TwoPi,MAXVAL(phi)*TwoPi
 SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi)*TwoPi,MAXVAL(chi)*TwoPi
 
-SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes:',mn_mode
-SWRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp: ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
+SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of flux surfaces: ',nFluxVMEC
+SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes     : ',mn_mode
+SWRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp             : ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
+IF(lasym)THEN
+  SWRITE(UNIT_stdOut,'(6X,A,I6)')   '  lasym=T... ASYMMETRIC'
+ELSE
+  SWRITE(UNIT_stdOut,'(6X,A,I6)')   '  lasym=F... SYMMETRIC (half fourier modes)'
+END IF
 
 useFilter=.TRUE. !GETLOGICAL('VMECuseFilter',Proposal=.TRUE.) !SHOULD BE ALWAYS TRUE...
 
@@ -175,8 +183,6 @@ IF(lasym)THEN
   
 END IF
 
-relambda=GETLOGICAL("VMEC_relambda",Proposal=.FALSE.)
-IF(relambda) nyq=GETINT("VMEC_Lam_nyq",Proposal=4)
 
 ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
 IF(lasym) ALLOCATE(lmnc_Spl(4,1:nFluxVMEC,mn_mode))
