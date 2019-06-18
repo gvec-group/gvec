@@ -138,28 +138,28 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
   INTEGER, INTENT(OUT)           :: ok
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: nrho,mpnt,nsin !nfp
-  INTEGER :: mpol1,iasym
-  INTEGER :: inUnit,iMode
-  INTEGER :: ierr,j,m,n,nmin0
-  REAL    :: enfp,enrho,empol,entor,empnt,eiasym
-  REAL    :: ds
-  REAL    :: gam,phiedge
+  INTEGER              :: nrho,mpnt,nsin !nfp
+  INTEGER              :: mpol1,iasym
+  INTEGER              :: inUnit,iMode
+  INTEGER              :: ierr,j,m,n,nmin0
+  REAL(wp)             :: enfp,enrho,empol,entor,empnt,eiasym
+  REAL(wp)             :: ds
+  REAL(wp)             :: gam,phiedge
 
-  REAL, ALLOCATABLE :: hiota(:),hpres(:),hbuco(:),hbvco(:)      
-  REAL, ALLOCATABLE :: hmass(:),hphip(:),fphi(:),hvp(:)
-  REAL, ALLOCATABLE :: hoverr(:),fjcuru(:),fjcurv(:),hspecw(:)
+  REAL(wp),ALLOCATABLE :: hiota(:),hpres(:),hbuco(:),hbvco(:)      
+  REAL(wp),ALLOCATABLE :: hmass(:),hphip(:),fphi(:),hvp(:)
+  REAL(wp),ALLOCATABLE :: hoverr(:),fjcuru(:),fjcurv(:),hspecw(:)
 
-  REAL, ALLOCATABLE :: frmnc(:,:,:),frmns(:,:,:)
-  REAL, ALLOCATABLE :: fzmnc(:,:,:),fzmns(:,:,:)
-  REAL, ALLOCATABLE :: hbsmnc_dw(:,:,:),hbsmns_dw(:,:,:)
-  REAL, ALLOCATABLE :: hbumnc_dw(:,:,:),hbumns_dw(:,:,:)
-  REAL, ALLOCATABLE :: hbvmnc_dw(:,:,:),hbvmns_dw(:,:,:)
-  REAL, ALLOCATABLE :: hbumnc_up(:,:,:),hbumns_up(:,:,:)
-  REAL, ALLOCATABLE :: hbvmnc_up(:,:,:),hbvmns_up(:,:,:)
-  REAL, ALLOCATABLE :: flmnc(:,:,:),flmns(:,:,:)
+  REAL(wp),ALLOCATABLE :: frmnc(:,:,:),frmns(:,:,:)
+  REAL(wp),ALLOCATABLE :: fzmnc(:,:,:),fzmns(:,:,:)
+  REAL(wp),ALLOCATABLE :: hbsmnc_dw(:,:,:),hbsmns_dw(:,:,:)
+  REAL(wp),ALLOCATABLE :: hbumnc_dw(:,:,:),hbumns_dw(:,:,:)
+  REAL(wp),ALLOCATABLE :: hbvmnc_dw(:,:,:),hbvmns_dw(:,:,:)
+  REAL(wp),ALLOCATABLE :: hbumnc_up(:,:,:),hbumns_up(:,:,:)
+  REAL(wp),ALLOCATABLE :: hbvmnc_up(:,:,:),hbvmns_up(:,:,:)
+  REAL(wp),ALLOCATABLE :: flmnc(:,:,:),flmns(:,:,:)
   
-  REAL,ALLOCATABLE :: fsve(:),hsve(:)    ! radial mesh
+  REAL(wp),ALLOCATABLE :: fsve(:),hsve(:)    ! radial mesh
 !===================================================================================================================================
   inUnit=GETFREEUNIT()
   ok = 0

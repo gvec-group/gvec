@@ -91,6 +91,7 @@ ELSE()
 ENDIF()
 OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" ON)
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" ON)
+OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" ON)
 
 
 # =========================================================================
@@ -277,6 +278,10 @@ IF(COMPILE_GVEC_TO_GENE)
   FILE(GLOB togeneF90 ./src/gvec_to_gene/*.f90 )
   LIST(APPEND mainF90 ${togeneF90})
 ENDIF()
+IF(COMPILE_GVEC_TO_CASTOR3D)
+  FILE(GLOB tohoprF90 ./src/gvec_to_castor3d/*.f90 )
+  LIST(APPEND mainF90 ${tohoprF90})
+ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
@@ -301,6 +306,10 @@ ENDIF()
 IF(COMPILE_GVEC_TO_GENE)
   add_exec(test_gvec_to_gene ./src/test_gvec_to_gene.f90 )
   ADD_DEPENDENCIES(test_gvec_to_gene gveclib )
+ENDIF()
+IF(COMPILE_GVEC_TO_CASTOR3D)
+  add_exec(convert_gvec_to_castor3d ./src/convert_gvec_to_castor3d.f90 )
+  ADD_DEPENDENCIES(convert_gvec_to_castor3d gveclib )
 ENDIF()
 
 

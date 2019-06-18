@@ -106,7 +106,7 @@ CHARACTER(LEN=*)                  :: CompDate        !! Compilation date
 CHARACTER(LEN=*)                  :: CompTime        !! Compilation time
 CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
 INTEGER,OPTIONAL                  :: IntInfo         !! Error info (integer)
-REAL,OPTIONAL                     :: RealInfo        !! Error info (real)
+REAL(wp),OPTIONAL                 :: RealInfo        !! Error info (real)
 INTEGER,OPTIONAL                  :: ErrorCode       !! Error info (integer)
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
