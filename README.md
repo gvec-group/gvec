@@ -5,7 +5,7 @@
 GVEC (Galerkin Variational Equilibrium Code) is an open-source software for
 the generation of three-dimensional ideal MHD equilibria.
 The ideas are strongly based on on the VMEC code, 
-see [VMEC wiki pages](http://vmecwiki.pppl.wikispaces.net/VMEC).
+see [VMEC wiki pages](https://bitbucket.org/lazerson_princeton/stellopt/wiki/VMEC).
 
 The main features of GVEC are
 
@@ -24,9 +24,10 @@ in Garching, Germany.
 
 The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
-### [Documentation](https://gitlab.mpcdf.mpg.de/ipphinde/GVEC_doc.git)
+### [Documentation](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc.git)
 
-A documentation of GVEC can be found **[here](https://gitlab.mpcdf.mpg.de/ipphinde/GVEC_doc.git)**.
+A documentation of GVEC can be found [in this repository](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc.git). 
+The description of the main quantities and the theory behind GVEC are found **[here](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf)**.
 
 ### [Code Documentation](http://gvec-group.pages.mpcdf.de/ford-gvec-doc)
 Code documentation can be found **[here.](http://gvec-group.pages.mpcdf.de/ford-gvec-doc)**
@@ -56,6 +57,11 @@ For execution, go into one of these folders and execute for example the followin
 ``` 
 which pipes the screen output also into the file `log`.
 
+You can also restart a simulation by using on of the restart files (`*_State_*.dat`). Before the restart, resolution parameters in the ini file can be changed, so that the new iterations will be on a finer grid, for example, or with more modes. The restart is triggered by simply adding the restart filename as an argument to the execution command, for example:
+``` 
+  ../../build/bin/gvec parameter.ini TOKSY_State_0000_00000200.dat |tee log
+``` 
+Then the first integer (`_0000_`) will be incremented for the newly written restart files. 
 
 ### Visualization
 

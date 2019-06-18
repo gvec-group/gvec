@@ -10,6 +10,7 @@ src_dir: ./../src/
 output_dir: ./../../ford-gvec-doc
 exclude_dir: ./../../ford-gvec-doc
              ./../../ford-gvec-doc/src
+             ./../src/lbfgsb
 mathjax_config: ./../ford-config/MathJax-latex-macros.js
 predocmark: >
 display: public
@@ -22,10 +23,10 @@ macro: TEST
        LOGIC=.true.
 
 
-GVEC (Galerkin Variational Equilibrium Code) is an open-source software for
+[GVEC](https://gitlab.mpcdf.mpg.de/gvec-group/gvec) (Galerkin Variational Equilibrium Code) is an open-source software for
 the generation of three-dimensional ideal MHD equilibria.
 The ideas are strongly based on on the VMEC code, 
-see [VMEC wiki pages](http://vmecwiki.pppl.wikispaces.net/VMEC).
+see [VMEC wiki pages](https://bitbucket.org/lazerson_princeton/stellopt/wiki/VMEC).
 
 The main features of GVEC are
 
