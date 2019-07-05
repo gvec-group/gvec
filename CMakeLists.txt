@@ -93,7 +93,9 @@ OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to li
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" ON)
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" ON)
 
+OPTION(USE_OPENMP "enable OpenMP" ON)
 
+OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 # =========================================================================
 # Build type
 # =========================================================================
@@ -136,6 +138,12 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(MAIN_INSTRUCTION "-march=native")
   ENDIF()
   # set Flags
+
+  #OpenMP
+  IF(USE_OPENMP)
+   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fopenmp")
+  ENDIF()
+
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}  -g -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
@@ -156,7 +164,12 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
       SET(MAIN_INSTRUCTION "-xHost")
    ENDIF()
    # set Flags
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
+  #OpenMP
+  IF(USE_OPENMP)
+   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
+  ENDIF()
+
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -g  -O3 ${MAIN_INSTRUCTION} -qopt-report=5 -diag-disable=10397 -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
@@ -241,11 +254,9 @@ ENDIF()
 # =========================================================================
 # Ftimings
 # =========================================================================
-SET (PROFILING_FTIMINGS 1)
-IF(PROFILING_FTIMINGS)
+IF(USE_FTIMINGS)
   LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -lftimings-1-$ENV{RZG_CPL}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
   INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/ftimings-1-$ENV{RZG_CPL})
-  LIST(APPEND mainF90 mod_timings.f90 perf2ftimings.f90)
 ENDIF()
 
 
@@ -284,8 +295,10 @@ IF(COMPILE_GVEC)
                             ./src/output/*.f90 
                             ./src/restart/*.f90 )
 
-  IF(PROFILING_FTIMINGS)
+  IF(USE_FTIMINGS)
     LIST(APPEND mainF90 ./src/mod_timings.f90 ./src/perf2ftimings.f90)
+  ELSE()
+    LIST(APPEND mainF90 ./src/perfdummy.f90)
   ENDIF()
   LIST(APPEND mainF90 ${gvecF90})
 ENDIF()

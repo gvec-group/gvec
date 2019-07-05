@@ -305,6 +305,8 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
   REAL(wp) :: Vprime_GP(1:nGP)  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE ENERGY...'
+  call perfon('EvalEnergy')
+
   IF(callEvalAux) THEN
     CALL EvalAux(Uin,JacCheck)
     IF(JacCheck.EQ.-1) THEN
@@ -325,7 +327,9 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 
   W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(Wmag_GP(:)*w_GP(:)) &
                          + mu_0*sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
-  
+
+   call perfoff('EvalEnergy')
+
 !  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
 END FUNCTION EvalEnergy
 
@@ -364,6 +368,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                        ,hmap_g_t2,hmap_g_z2,hmap_Jh_dq2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
+  call perfon('EvalForce')
   IF(callEvalAux) THEN
     CALL EvalAux(Uin,JacCheck)
   END IF
@@ -418,9 +423,17 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
 
-  F_X1(:,:)=0.0_wp
 
+  call perfon('EvalForce_modes1')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode,iGP,i_mn,Y1,Y1_thet,Y1_zeta,iElem,ibase,F_GP,F_s_GP)               &
+!$OMP   SHARED(X1_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq1,hmap_g_t1,hmap_g_tt_dq1,hmap_g_z1,  &
+!$OMP          hmap_g_zz_dq1,hmap_g_tz_dq1,btt_sJ,bzz_sJ,btz_sJ,w_GP,dthet_dzeta,        &  
+!$OMP          dX2_dthet,F_X1,modes,nGP,mn_IP,nElems,deg,degGP)
   DO iMode=1,modes
+    F_X1(:,iMode)=0.0_wp
     DO iGP=1,nGP
       F_GP(iGP)=0.0_wp
       DO i_mn=1,mn_IP
@@ -458,8 +471,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                     + MATMUL(F_s_GP(iGP:iGP+degGP),X1_base%s%base_ds_GP(  0:degGP,0:deg,iElem)) 
       iGP=iGP+(degGP+1)
     END DO !iElem
-  END DO !iMode
-  F_X1(:,:)=F_X1(:,:)*dthet_dzeta !scale with constants
+    F_X1(:,iMode)=F_X1(:,iMode)*dthet_dzeta !scale with constants
+ END DO !iMode
+ !$OMP END PARALLEL DO 
+
+ call perfoff('EvalForce_modes1')
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
@@ -475,9 +491,17 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   modes = X2_base%f%modes
   deg   = X2_base%s%deg
 
-  F_X2(:,:)=0.0_wp
 
+  call perfon('EvalForce_modes2')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode,iGP,i_mn,Y2,Y2_thet,Y2_zeta,iElem,ibase,F_GP,F_s_GP)               &
+!$OMP   SHARED(X2_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq2,hmap_g_t2,hmap_g_tt_dq2,hmap_g_z2,  &
+!$OMP          hmap_g_zz_dq2,hmap_g_tz_dq2,btt_sJ,bzz_sJ,btz_sJ,w_GP,                    &  
+!$OMP          dX1_ds,dX1_dthet,F_X2,modes,nGP,mn_IP,nElems,deg,degGP,dthet_dzeta)
   DO iMode=1,modes
+    F_X2(:,iMode)=0.0_wp
     DO iGP=1,nGP
       F_GP(iGP)=0.0_wp
       DO i_mn=1,mn_IP
@@ -498,6 +522,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       END DO !i_mn=1,mn_IP
       F_GP(iGP)=F_GP(iGP)*w_GP(iGP)
     END DO !iGP=1,nGP
+
     DO iGP=1,nGP
       F_s_GP(iGP)=0.0_wp
       DO i_mn=1,mn_IP
@@ -516,8 +541,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                     + MATMUL(F_s_GP(iGP:iGP+degGP),X2_base%s%base_ds_GP(  0:degGP,0:deg,iElem)) 
       iGP=iGP+(degGP+1)
     END DO !iElem
+    F_X2(:,iMode)=F_X2(:,iMode)*dthet_dzeta !scale with constants
   END DO !iMode
-  F_X2(:,:)=F_X2(:,:)*dthet_dzeta !scale with constants
+  !$OMP END PARALLEL DO 
+  call perfoff('EvalForce_modes2')
+
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
@@ -533,9 +561,16 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   modes = LA_base%f%modes
   deg   = LA_base%s%deg
 
-  F_LA(:,:)=0.0_wp
 
+  call perfon('EvalForce_modes3')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode,iGP,i_mn,iElem,ibase,F_GP)                                 &
+!$OMP   SHARED(sJ_bcov_thet,LA_base,modes,nGP,mn_IP,nElems,F_LA,sJ_bcov_zeta,    &
+!$OMP          PhiPrime_GP,w_GP,deg,degGP,dthet_dzeta)
   DO iMode=1,modes
+    F_LA(:,iMode)=0.0_wp
     DO iGP=1,nGP
       F_GP(iGP)=0.0_wp
       DO i_mn=1,mn_IP
@@ -553,8 +588,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                     + MATMUL(F_GP(iGP:iGP+degGP),LA_base%s%base_GP(0:degGP,0:deg,iElem))
       iGP=iGP+(degGP+1)
     END DO !iElem
-  END DO !iMode
-  F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) ! *2 / 2 scale with constants
+    F_LA(:,iMode)=F_LA(:,iMode)*(dthet_dzeta) ! *2 / 2 scale with constants
+ END DO !iMode
+ !$OMP END PARALLEL DO 
+ call perfoff('EvalForce_modes3')
+
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
@@ -578,6 +616,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     CALL ApplyBC_Fstrong(F_MHD3D)  
   END IF !apply strong BC if no Precond
 
+  call perfoff('EvalForce')
 
 !  SWRITE(UNIT_stdOut,'(A,3E21.11)')'... DONE: Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
 END SUBROUTINE EvalForce
