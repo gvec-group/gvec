@@ -901,7 +901,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   lastOutputIter=0
   iter=0
   SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,3E11.4,A)') &
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,3E21.14,A)') &
           '                 %%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
    '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   DO WHILE(iter.LE.maxIter)
@@ -955,11 +955,11 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
          END IF
 
 !        IF(ABS(deltaW).LE.aborttol)THEN
-!          SWRITE(UNIT_stdOut,'(A,A,E11.4)')'Iteration finished, energy stagnates in relative tolerance, ', &
+!          SWRITE(UNIT_stdOut,'(A,A,E21.14)')'Iteration finished, energy stagnates in relative tolerance, ', &
 !                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
 !        IF(Fnorm*dt.LE.reltol*Fnorm0)THEN
         IF(ALL(SQRT(F(0)%norm_2()).LE.abstol))THEN
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E21.14,A,2E21.14,A,E21.14,A,2E12.4,A,3E21.14,A)') &
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
                     '    \n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
                    '        \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
@@ -975,7 +975,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
         IF(MOD(iter,logIter).EQ.0)THEN 
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E21.14,A,2E21.14,A,E21.14,A,2E12.4,A,3E21.14,A)') &
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
                     '    \n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
                    '        \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
