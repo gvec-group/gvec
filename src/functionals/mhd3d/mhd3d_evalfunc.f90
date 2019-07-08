@@ -389,7 +389,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp)  :: Y1tilde(3),Y1,Y1_thet,Y1_zeta
   REAL(wp)  :: Y2tilde(3),Y2,Y2_thet,Y2_zeta
-  REAL(wp)  :: F_GP(1:nGP),F_s_GP(1:nGP)
+  REAL(wp)  :: F_GP(1:nGP),F_s_GP(1:nGP),sum_gp
   REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ &  != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
                                        ,hmap_g_t1,hmap_g_z1,hmap_Jh_dq1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1 &
@@ -456,19 +456,20 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iMode,iGP,i_mn,Y1,Y1_thet,Y1_zeta,iElem,ibase,F_GP,F_s_GP)               &
+!$OMP   PRIVATE(iMode,iGP,i_mn,Y1,Y1_thet,Y1_zeta,iElem,ibase,F_GP,F_s_GP,sum_gp)        &
 !$OMP   SHARED(X1_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq1,hmap_g_t1,hmap_g_tt_dq1,hmap_g_z1,  &
 !$OMP          hmap_g_zz_dq1,hmap_g_tz_dq1,btt_sJ,bzz_sJ,btz_sJ,w_GP,dthet_dzeta,        &  
 !$OMP          dX2_dthet,F_X1,modes,nGP,mn_IP,nElems,deg,degGP)
   DO iMode=1,modes
     F_X1(:,iMode)=0.0_wp
     DO iGP=1,nGP
-      F_GP(iGP)=0.0_wp
+      sum_gp=0.0_wp
+!$OMP SIMD REDUCTION(+:sum_gp)
       DO i_mn=1,mn_IP
         Y1              = X1_base%f%base_IP(      i_mn,iMode)
         Y1_thet         = X1_base%f%base_dthet_IP(i_mn,iMode)
         Y1_zeta         = X1_base%f%base_dzeta_IP(i_mn,iMode)
-        F_GP(iGP)       = F_GP(iGP) &
+        sum_gp          = sum_gp &
                          +dW(    i_mn,iGP)*( J_h(i_mn,iGP)*(-dX2_ds(    i_mn,iGP)*Y1_thet)    &
                                             +J_p(i_mn,iGP)*hmap_Jh_dq1( i_mn,iGP)*Y1        ) & ![deltaJ]_Y1
                          -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_t1(          i_mn,iGP)*Y1_thet     &
@@ -479,17 +480,18 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                                    +hmap_g_z1(          i_mn,iGP)*Y1_thet     &
                                                    +hmap_g_tz_dq1(      i_mn,iGP)*Y1        )   !2*[delta g_tz]_y1
       END DO !i_mn
-      F_GP(iGP)=F_GP(iGP)*w_GP(iGP)
+      F_GP(iGP)=sum_gp*w_GP(iGP)
     END DO !iGP
 
     DO iGP=1,nGP
-      F_s_GP(iGP)=0.0_wp
+      sum_gp=0.0_wp
+!$OMP SIMD REDUCTION(+:sum_gp)
       DO i_mn=1,mn_IP
         !Y1_s        = X1_base%f%base_IP(      i_mn,iMode)
-        F_s_GP(iGP)  = F_s_GP(iGP) &
+        sum_gp       = sum_gp      &
                          +dW(    i_mn,iGP)*( J_h(i_mn,iGP)*( dX2_dthet( i_mn,iGP)*X1_base%f%base_IP(i_mn,iMode)))
       END DO !i_mn
-      F_s_GP(iGP)=F_s_GP(iGP)*w_GP(iGP)
+      F_s_GP(iGP)=sum_gp*w_GP(iGP)
     END DO !iGP
     iGP=1
     DO iElem=1,nElems
@@ -502,9 +504,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     F_X1(:,iMode)=F_X1(:,iMode)*dthet_dzeta !scale with constants
  END DO !iMode
  !$OMP END PARALLEL DO 
-
  call perfoff('EvalForce_modes1')
-  IF(PrecondType.GT.0)THEN
+
+ IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
       CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
@@ -524,20 +526,21 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iMode,iGP,i_mn,Y2,Y2_thet,Y2_zeta,iElem,ibase,F_GP,F_s_GP)               &
+!$OMP   PRIVATE(iMode,iGP,i_mn,Y2,Y2_thet,Y2_zeta,iElem,ibase,F_GP,F_s_GP,sum_gp)        &
 !$OMP   SHARED(X2_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq2,hmap_g_t2,hmap_g_tt_dq2,hmap_g_z2,  &
 !$OMP          hmap_g_zz_dq2,hmap_g_tz_dq2,btt_sJ,bzz_sJ,btz_sJ,w_GP,                    &  
 !$OMP          dX1_ds,dX1_dthet,F_X2,modes,nGP,mn_IP,nElems,deg,degGP,dthet_dzeta)
   DO iMode=1,modes
     F_X2(:,iMode)=0.0_wp
     DO iGP=1,nGP
-      F_GP(iGP)=0.0_wp
+      sum_gp=0.0_wp
+!$OMP SIMD REDUCTION(+:sum_gp)
       DO i_mn=1,mn_IP
         !evaluate testfunctions
         Y2              = X2_base%f%base_IP(      i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem), applied afterwards
         Y2_thet         = X2_base%f%base_dthet_IP(i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem)
         Y2_zeta         = X2_base%f%base_dzeta_IP(i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem)
-        F_GP(iGP)       = F_GP(iGP)    &
+        sum_gp        = sum_gp    &
                          +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*( dX1_ds(    i_mn,iGP)*Y2_thet)   &
                                             + J_p(i_mn,iGP)*hmap_Jh_dq2( i_mn,iGP)*Y2       ) & ! [deltaJ]_Y2
                          -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_t2(           i_mn,iGP)*Y2_thet    &
@@ -548,18 +551,19 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                                    +hmap_g_z2(           i_mn,iGP)*Y2_thet    &
                                                    +hmap_g_tz_dq2(       i_mn,iGP)*Y2       )   ! 2*[delta g_tz]_Y1
       END DO !i_mn=1,mn_IP
-      F_GP(iGP)=F_GP(iGP)*w_GP(iGP)
+      F_GP(iGP)=sum_gp*w_GP(iGP)
     END DO !iGP=1,nGP
 
     DO iGP=1,nGP
-      F_s_GP(iGP)=0.0_wp
+      sum_gp=0.0_wp
+!$OMP SIMD REDUCTION(+:sum_gp)
       DO i_mn=1,mn_IP
         !evaluate testfunctions
         !Y2_s            = X2_base%f%base_IP(      i_mn,iMode) !*X2_base%s%base_ds_GP(jGP,iDeg,iElem), applied afterwards
-        F_s_GP(iGP)     = F_s_GP(iGP)     &
+        sum_gp          = sum_gp          &
                          +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*(-dX1_dthet( i_mn,iGP)* X2_base%f%base_IP(i_mn,iMode)))
       END DO !i_mn=1,mn_IP
-      F_s_GP(iGP)=F_s_GP(iGP)*w_GP(iGP)
+      F_s_GP(iGP)=sum_gp*w_GP(iGP)
     END DO !iGP=1,nGP
     iGP=1
     DO iElem=1,nElems
@@ -594,20 +598,21 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iMode,iGP,i_mn,iElem,ibase,F_GP)                                 &
+!$OMP   PRIVATE(iMode,iGP,i_mn,iElem,ibase,F_GP,sum_gp)                          &
 !$OMP   SHARED(sJ_bcov_thet,LA_base,modes,nGP,mn_IP,nElems,F_LA,sJ_bcov_zeta,    &
 !$OMP          PhiPrime_GP,w_GP,deg,degGP,dthet_dzeta)
   DO iMode=1,modes
     F_LA(:,iMode)=0.0_wp
     DO iGP=1,nGP
-      F_GP(iGP)=0.0_wp
+      sum_gp=0.0_wp
+!$OMP SIMD REDUCTION(+:sum_gp)
       DO i_mn=1,mn_IP
-        F_GP(iGP) = F_GP(iGP) &
+        sum_gp    = sum_gp    &
                     + sJ_bcov_thet(i_mn,iGP)*LA_base%f%base_dzeta_IP(i_mn,iMode)  &
                     - sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode)
                          
       END DO !i_mn=1,mn_IP
-      F_GP(iGP)=F_GP(iGP)*(PhiPrime_GP(iGP)*w_GP(iGP))
+      F_GP(iGP)=sum_gp*(PhiPrime_GP(iGP)*w_GP(iGP))
     END DO !iGP=1,nGP
     iGP=1
     DO iElem=1,nElems
