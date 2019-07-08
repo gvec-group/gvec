@@ -192,6 +192,10 @@ SUBROUTINE EvalAux(Uin,JacCheck)
       CALL abort(__STAMP__, &
           'You already called EvalAux, with a Jacobian smaller that  1.0e-12!!!' )
   END IF
+
+  call perfon('EvalAux')
+
+  call perfon('EvalDOF_1')
   !2D data: interpolation points x gauss-points
   X1_IP_GP  = X1_base%evalDOF((/0,0/)         ,Uin%X1)
   X2_IP_GP  = X2_base%evalDOF((/0,0/)         ,Uin%X2)
@@ -199,6 +203,14 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   dX2_ds    = X2_base%evalDOF((/DERIV_S,0/)   ,Uin%X2)
   dX1_dthet = X1_base%evalDOF((/0,DERIV_THET/),Uin%X1)
   dX2_dthet = X2_base%evalDOF((/0,DERIV_THET/),Uin%X2)
+  call perfoff('EvalDOF_1')
+
+  call perfon('loop_1')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iGP,i_mn,qloc)  &
+!$OMP   SHARED(nGP,mn_IP,J_p,J_h,detJ,dX1_ds,dX2_dthet,dX2_ds,dX1_dthet,X1_IP_GP,X2_IP_GP,zeta_IP,hmap)
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
       J_p(  i_mn,iGP) = ( dX1_ds(i_mn,iGP)*dX2_dthet(i_mn,iGP) &
@@ -210,6 +222,8 @@ SUBROUTINE EvalAux(Uin,JacCheck)
       detJ(i_mn,iGP) = J_p(i_mn,iGP)*J_h(i_mn,iGP)
     END DO !i_mn
   END DO !iGP
+!$OMP END PARALLEL DO
+  call perfoff('loop_1')
 
   !check Jacobian
   IF(MINVAL(detJ) .LT.1.0e-12) THEN
@@ -243,15 +257,23 @@ SUBROUTINE EvalAux(Uin,JacCheck)
     PhiPrime2_GP(iGP)    = PhiPrime_GP(iGP)**2
   END DO !iGP
 
+  call perfon('EvalDOF_2')
   !2D data: interpolation points x gauss-points
   dLA_dthet = LA_base%evalDOF((/0,DERIV_THET/),Uin%LA)
   dX1_dzeta = X1_base%evalDOF((/0,DERIV_ZETA/),Uin%X1)
   dX2_dzeta = X2_base%evalDOF((/0,DERIV_ZETA/),Uin%X2)
   dLA_dzeta = LA_base%evalDOF((/0,DERIV_ZETA/),Uin%LA)
+  call perfoff('EvalDOF_2')
 
 
-  q_thet(3)=0.0_wp !dq(3)/dtheta
-  q_zeta(3)=1.0_wp !dq(3)/zeta
+  call perfon('loop_2')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta)  &
+!$OMP   SHARED(nGP,mn_IP,b_thet,b_zeta,g_tt,g_tz,g_zz,sJ_p,sJ_h,sdetJ,sJ_bcov_thet,sJ_bcov_zeta,bbcov_sJ, &
+!$OMP          J_p,J_h,hmap,dX1_dzeta,dX2_dzeta,dX1_dthet,dX2_dthet,chiPrime_GP,phiPrime_GP,dLA_dzeta,    &
+!$OMP          dLA_dthet,X1_IP_GP,X2_IP_GP,zeta_IP)
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
       b_thet(i_mn,iGP) = (chiPrime_GP(iGP)- phiPrime_GP(iGP)*dLA_dzeta(i_mn,iGP))    !b_theta
@@ -259,7 +281,9 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 
       qloc(  1:3) = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
       q_thet(1:2) = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/) !dq(1:2)/dtheta
+      q_thet(3)   = 0.0_wp                                      !dq(3)/dtheta
       q_zeta(1:2) = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/) !dq(1:2)/dzeta
+      q_zeta(3)   = 1.0_wp                                      !dq(3)/zeta
 
       g_tt(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
       g_tz(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_zeta)   !g_theta,zeta =g_zeta,theta
@@ -274,6 +298,10 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 
     END DO !i_mn
   END DO !iGP
+!$OMP END PARALLEL DO
+  call perfoff('loop_2')
+
+  call perfoff('EvalAux')
 
 END SUBROUTINE EvalAux
 

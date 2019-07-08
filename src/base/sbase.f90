@@ -951,25 +951,44 @@ IMPLICIT NONE
   REAL(wp)                      :: y_GP(1:sf%nGP) ! will be be 1D array on input/output
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                       :: iElem,j,k
+  INTEGER                       :: iElem,j,k,m,n
 !===================================================================================================================================
   IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
                'nDOF not correct when calling sBase_evalDOF_GP')
   ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
   SELECT CASE(deriv)
   CASE(0)
-    k=1
-    DO iElem=1,nElems
+!    k=1
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iElem,j,k)  &
+!$OMP   SHARED(nElems,sf,y_GP,DOFs)
+     DO iElem=1,nElems
       j=sf%base_offset(iElem)
+      k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_GP(   :,:,iElem),DOFs(j:j+deg))
-      k=k+(degGP+1)
+!!$      m=size(sf%base_GP(:,:,iElem),dim=1)
+!!$      n=size(sf%base_GP(:,:,iElem),dim=2)
+!!$      CALL DGEMV('N',m,n,1.0_wp,sf%base_GP(:,:,iElem),m,DOFs(j:j+deg),1,0.0_wp,y_GP(k:k+degGP),1)
+!      k=k+(degGP+1)
     END DO
+!$OMP END PARALLEL DO
   CASE(DERIV_S)
-    k=1
+!    k=1
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iElem,j,k)  &
+!$OMP   SHARED(nElems,sf,y_GP,DOFs)
     DO iElem=1,nElems
       j=sf%base_offset(iElem)
+      k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
-      k=k+(degGP+1)
+!!$      m=size(sf%base_ds_GP(:,:,iElem),dim=1)
+!!$      n=size(sf%base_ds_GP(:,:,iElem),dim=2)
+!!$      CALL DGEMV('N',m,n,1.0_wp,sf%base_ds_GP(:,:,iElem),m,DOFs(j:j+deg),1,0.0_wp,y_GP(k:k+degGP),1)
+!      k=k+(degGP+1)
     END DO
   CASE DEFAULT
     CALL abort(__STAMP__, &
