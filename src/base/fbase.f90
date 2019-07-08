@@ -733,9 +733,10 @@ IMPLICIT NONE
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
+  INTEGER                       :: m,n
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                      :: y_IP(sf%mn_IP) 
+  REAL(wp)                      :: y_IP(sf%mn_IP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -743,11 +744,20 @@ IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
   CASE(0)
-    y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
+!!$    y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
+    m=size(sf%base_IP(:,:),dim=1)
+    n=size(sf%base_IP(:,:),dim=2)
+    CALL DGEMV('N',m,n,1.0_wp,sf%base_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
   CASE(DERIV_THET)
-    y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
+!!$     y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
+    m=size(sf%base_dthet_IP(:,:),dim=1)
+    n=size(sf%base_dthet_IP(:,:),dim=2)
+    CALL DGEMV('N',m,n,1.0_wp,sf%base_dthet_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
   CASE(DERIV_ZETA)
-    y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
+!!$    y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
+    m=size(sf%base_dzeta_IP(:,:),dim=1)
+    n=size(sf%base_dzeta_IP(:,:),dim=2)
+    CALL DGEMV('N',m,n,1.0_wp,sf%base_dzeta_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
   CASE DEFAULT 
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
