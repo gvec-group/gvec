@@ -420,13 +420,22 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END DO !iGP
   Y1tilde=(/1.0_wp,0.0_wp,0.0_wp/)
   Y2tilde=(/0.0_wp,1.0_wp,0.0_wp/)
-  q_thet(3)=0.0_wp
-  q_zeta(3)=1.0_wp
+  call perfon('loop_2')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta)        &
+!$OMP   SHARED(nGP,mn_IP,X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta, &
+!$OMP          hmap_Jh_dq1,hmap_g_t1,hmap_g_z1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1,   &  
+!$OMP          hmap_Jh_dq2,hmap_g_t2,hmap_g_z2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2,   &
+!$OMP          hmap,Y1tilde,Y2tilde)
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
       qloc(1:3)      = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
       q_thet(1:2)    = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
+      q_thet(3)      = 0.0_wp
       q_zeta(1:2)    = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
+      q_zeta(3)      = 1.0_wp
       !Ytilde=(1,0,0)
       hmap_Jh_dq1(  i_mn,iGP) = hmap%eval_Jh_dq1(        qloc        ) !~Y1          
       hmap_g_t1(    i_mn,iGP) = hmap%eval_gij(    q_thet,qloc,Y1tilde) !~Y1_thet 
@@ -443,8 +452,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       hmap_g_zz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
     END DO !i_mn
   END DO !iGP
+  call perfoff('loop_2')
 
+  call perfon('buildPrecond')
   IF(PrecondType.GT.0) CALL BuildPrecond()
+  call perfoff('buildPrecond')
 
   ASSOCIATE(F_X1=>F_MHD3D%X1)
   nBase = X1_Base%s%nBase 
