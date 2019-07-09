@@ -737,6 +737,11 @@ SUBROUTINE BuildPrecond()
   REAL(wp),ALLOCATABLE        :: P_BCaxis(:,:), P_BCedge(:,:)
 !===================================================================================================================================
 !  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
+  call perfon('loop_1')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(SHARED)   &
+!$OMP   PRIVATE(iGP,i_mn,qloc,G11,G21,G31,G22,G32,dJh_dq1,dJh_dq2,bt_sJ,bzz_sJ) 
   DO iGP=1,nGP
     !additional variables
     DO i_mn=1,mn_IP
@@ -777,6 +782,8 @@ SUBROUTINE BuildPrecond()
     DLA_tt(iGP) = phiPrime2_GP(iGP)*SUM(g_zz(:,iGP)*sdetJ(:,iGP)) 
     DLA_zz(iGP) = phiPrime2_GP(iGP)*SUM(g_tt(:,iGP)*sdetJ(:,iGP)) 
   END DO
+!$OMP END PARALLEL DO
+  call perfoff('loop_1')
   !dont forget to average
   smn_IP=1.0_wp/REAL(mn_IP,wp)
 !  DX1(:)    = smn_IP*(DX1(:)    )  
@@ -801,6 +808,12 @@ SUBROUTINE BuildPrecond()
   IF(SUM(ABS(DX1_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
        WRITE(*,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(:)))
 
+  call perfon('modes_loop_1')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(SHARED)   &
+!$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD) &
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  
   DO iMode=1,modes
     CALL precond_X1(iMode)%reset() !set all values to zero
     D_mn(:)=w_GP(:)*( (X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
@@ -850,6 +863,8 @@ SUBROUTINE BuildPrecond()
       END DO; END DO !j,i
     END IF !nDOF_BCedge>0
   END DO !iMode
+!$OMP END PARALLEL DO
+  call perfoff('modes_loop_1')
 
   DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X1
@@ -865,6 +880,12 @@ SUBROUTINE BuildPrecond()
   IF(SUM(ABS(DX2_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
        WRITE(*,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(:)))
 
+  call perfon('modes_loop_2')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(SHARED)   &
+!$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD) &
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  
   DO iMode=1,modes
     CALL precond_X2(iMode)%reset() !set all values to zero
     D_mn(:)=w_GP(:)*( (X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
@@ -914,6 +935,8 @@ SUBROUTINE BuildPrecond()
       END DO; END DO !j,i
     END IF !nDOF_BCedge>0
   END DO !iMode
+!$OMP END PARALLEL DO
+  call perfoff('modes_loop_2')
 
   DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X2
@@ -925,6 +948,12 @@ SUBROUTINE BuildPrecond()
   ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
   P_BCaxis=0.0_wp; P_BCedge=0.0_wp
 
+  call perfon('modes_loop_3')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(SHARED)   &
+!$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD) &
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  
   DO iMode=1,modes
     CALL precond_LA(iMode)%reset() !set all values to zero
     IF(LA_base%f%zero_odd_even(iMode) .NE. MN_ZERO) THEN !MN_ZERO should not exist
@@ -979,6 +1008,8 @@ SUBROUTINE BuildPrecond()
       END DO; END DO !j,i
     END IF !nDOF_BCedge>0
   END DO !iMode
+!$OMP END PARALLEL DO
+  call perfoff('modes_loop_3')
 
   DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE LA
@@ -988,25 +1019,46 @@ SUBROUTINE BuildPrecond()
 
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
   ASSOCIATE(modes => X1_Base%f%modes)
+  call perfon('modes_loop_4')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(SHARED)  &
+!$OMP   PRIVATE(iMode)
   DO iMode=1,modes
     CALL precond_X1(iMode)%factorize()
   END DO !iMode
+!$OMP END PARALLEL DO 
+  call perfoff('modes_loop_4')
   END ASSOCIATE !X1
   END SELECT !TYPE
 
   SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
   ASSOCIATE(modes => X2_Base%f%modes)
+  call perfon('modes_loop_5')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(SHARED)  &
+!$OMP   PRIVATE(iMode)
   DO iMode=1,modes
     CALL precond_X2(iMode)%factorize()
   END DO !iMode
+!$OMP END PARALLEL DO 
+  call perfoff('modes_loop_5')
   END ASSOCIATE !X2
   END SELECT !TYPE
 
   SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
   ASSOCIATE(modes => LA_Base%f%modes)
+  call perfon('modes_loop_6')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(SHARED)  &
+!$OMP   PRIVATE(iMode)
   DO iMode=1,modes
     CALL precond_LA(iMode)%factorize()
   END DO !iMode
+!$OMP END PARALLEL DO 
+  call perfoff('modes_loop_6')
   END ASSOCIATE !LA
   END SELECT !TYPE
 
