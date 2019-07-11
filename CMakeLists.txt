@@ -197,8 +197,10 @@ MESSAGE(STATUS "Using BLAS/Lapack library")
 
 IF(USE_OPENMP)
   SET (MKLLIB "parallel")
+  SET (MKLLIBGNU "mkl_gnu_thread")
 ELSE()
   SET (MKLLIB "sequential")
+  SET (MKLLIBGNU "mkl_sequential")
 ENDIF()
 
 
@@ -226,7 +228,7 @@ ELSEIF(ON_COBRA GREATER -1)
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
     LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
-		-lmkl_sequential -lmkl_core -lpthread -lm -ldl
+		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
 ELSE()

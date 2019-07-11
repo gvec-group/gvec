@@ -951,7 +951,7 @@ IMPLICIT NONE
   REAL(wp)                      :: y_GP(1:sf%nGP) ! will be be 1D array on input/output
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                       :: iElem,j,k,m,n
+  INTEGER                       :: iElem,j,k
 !===================================================================================================================================
   IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
                'nDOF not correct when calling sBase_evalDOF_GP')
@@ -963,7 +963,7 @@ IMPLICIT NONE
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iElem,j,k)  &
-!$OMP   SHARED(nElems,sf,y_GP,DOFs)
+!$OMP   SHARED(sf,y_GP,DOFs)
      DO iElem=1,nElems
       j=sf%base_offset(iElem)
       k=(iElem-1)*(degGP+1)+1  
@@ -980,7 +980,7 @@ IMPLICIT NONE
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iElem,j,k)  &
-!$OMP   SHARED(nElems,sf,y_GP,DOFs)
+!$OMP   SHARED(sf,y_GP,DOFs)
     DO iElem=1,nElems
       j=sf%base_offset(iElem)
       k=(iElem-1)*(degGP+1)+1  

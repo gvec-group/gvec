@@ -471,7 +471,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   PRIVATE(iMode,iGP,i_mn,Y1,Y1_thet,Y1_zeta,iElem,ibase,F_GP,F_s_GP,sum_gp)        &
 !$OMP   SHARED(X1_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq1,hmap_g_t1,hmap_g_tt_dq1,hmap_g_z1,  &
 !$OMP          hmap_g_zz_dq1,hmap_g_tz_dq1,btt_sJ,bzz_sJ,btz_sJ,w_GP,dthet_dzeta,        &  
-!$OMP          dX2_dthet,F_X1,modes,nGP,mn_IP,nElems,deg,degGP)
+!$OMP          dX2_dthet,F_MHD3D,modes,nGP,mn_IP,nElems,deg,degGP)
   DO iMode=1,modes
     F_X1(:,iMode)=0.0_wp
     DO iGP=1,nGP
@@ -541,7 +541,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   PRIVATE(iMode,iGP,i_mn,Y2,Y2_thet,Y2_zeta,iElem,ibase,F_GP,F_s_GP,sum_gp)        &
 !$OMP   SHARED(X2_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq2,hmap_g_t2,hmap_g_tt_dq2,hmap_g_z2,  &
 !$OMP          hmap_g_zz_dq2,hmap_g_tz_dq2,btt_sJ,bzz_sJ,btz_sJ,w_GP,                    &  
-!$OMP          dX1_ds,dX1_dthet,F_X2,modes,nGP,mn_IP,nElems,deg,degGP,dthet_dzeta)
+!$OMP          dX1_ds,dX1_dthet,F_MHD3D,modes,nGP,mn_IP,nElems,deg,degGP,dthet_dzeta)
   DO iMode=1,modes
     F_X2(:,iMode)=0.0_wp
     DO iGP=1,nGP
@@ -611,7 +611,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iMode,iGP,i_mn,iElem,ibase,F_GP,sum_gp)                          &
-!$OMP   SHARED(sJ_bcov_thet,LA_base,modes,nGP,mn_IP,nElems,F_LA,sJ_bcov_zeta,    &
+!$OMP   SHARED(sJ_bcov_thet,LA_base,modes,nGP,mn_IP,nElems,F_MHD3D,sJ_bcov_zeta,    &
 !$OMP          PhiPrime_GP,w_GP,deg,degGP,dthet_dzeta)
   DO iMode=1,modes
     F_LA(:,iMode)=0.0_wp
