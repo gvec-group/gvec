@@ -140,6 +140,11 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   RHS(:)   =0.0_wp
   ASSOCIATE(sigma_dthet => LA_base%f%base_dthet_IP, &
             sigma_dzeta => LA_base%f%base_dzeta_IP  )
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode,jMode,i_mn,gta_da,gza_da)  &
+!$OMP   SHARED(mn_IP,LA_modes,LA_base,Amat,RHS,g_zz,g_tt,g_tz,chiPrime_s,phiPrime_s,sAdiag)
   DO iMode=1,LA_modes
     !m=n=0 should not be in lambda, but check
     IF (LA_base%f%zero_odd_even(iMode).NE.MN_ZERO) THEN 
