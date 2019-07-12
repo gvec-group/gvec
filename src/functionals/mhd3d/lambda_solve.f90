@@ -63,7 +63,9 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
                                            detJ,g_tt,g_tz,g_zz,zeta_IP
   REAL(wp)                              :: Amat(1:LA_base%f%modes,1:LA_base%f%modes)
   REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
-  REAL(wp),DIMENSION(1:X1_base%f%mn_IP) :: gta_da,gza_da
+!  REAL(wp)                              :: gta_da,gza_da
+  REAL(wp)                              :: sum_gta_da,sum_gza_da,sum_mn
+  REAL(wp),DIMENSION(1:X1_base%f%mn_IP,1:LA_base%f%modes) :: gta_da,gza_da
 !===================================================================================================================================
   call perfon('lambda_solve')
 
@@ -77,14 +79,28 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   chiPrime_s=Eval_chiPrime(spos)
 
 
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode)   &
+!$OMP   SHARED(spos,X1_s,X1_ds,X1_base,X1_in)
   DO iMode=1,X1_base%f%modes
     X1_s( iMode)  = X1_base%s%evalDOF_s(spos,      0,X1_in(:,iMode))
     X1_ds(iMode)  = X1_base%s%evalDOF_s(spos,DERIV_S,X1_in(:,iMode))
   END DO
+!$OMP END PARALLEL DO 
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode)   &
+!$OMP   SHARED(spos,X2_s,X2_ds,X2_base,X2_in)
   DO iMode=1,X2_base%f%modes
     X2_s( iMode)  = X2_base%s%evalDOF_s(spos,      0,X2_in(:,iMode))
     X2_ds(iMode)  = X2_base%s%evalDOF_s(spos,DERIV_S,X2_in(:,iMode))
   END DO
+!$OMP END PARALLEL DO 
+
   X1_s_IP  = X1_base%f%evalDOF_IP(         0,X1_s )
   dX1ds    = X1_base%f%evalDOF_IP(         0,X1_ds)
   dX1dthet = X1_base%f%evalDOF_IP(DERIV_THET,X1_s )
@@ -96,13 +112,20 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   dX2dzeta = X2_base%f%evalDOF_IP(DERIV_ZETA,X2_s )
 
 
-  minJ=1.0E+12_wp
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn,qloc,Jh)  &
+!$OMP   SHARED(mn_IP,X1_s_IP,X2_s_IP,zeta_IP,dX1ds,dX2ds,dX1dthet,dX2dthet,hmap,detJ)
   DO i_mn=1,mn_IP
     qloc(1:3) = (/X1_s_IP(i_mn) , X2_s_IP(i_mn) , zeta_IP(i_mn)/)
     Jh=hmap%eval_Jh( qloc ) !X1,X2,zeta
     detJ(i_mn)=(dX1ds(i_mn)*dX2dthet(i_mn)-dX1dthet(i_mn)*dX2ds(i_mn))*Jh !J_p*J_h
   END DO !i_mn
-  IF(MINVAL(detJ) .LT.1.0e-12) THEN
+!$OMP END PARALLEL DO 
+
+  minJ=MINVAL(detJ) 
+  IF(minJ.LT.1.0e-12) THEN
     n_warnings_occured=n_warnings_occured+1
     i_mn= MINLOC(detJ(:),1)
     WRITE(UNIT_stdOut,'(4X,A8,I8,4(A,E11.3))')'WARNING ',n_warnings_occured, &
@@ -116,6 +139,12 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
 !    CALL abort(__STAMP__, &
 !        'Lambda_solve: Jacobian smaller that  1.0e-12!!!' )
   END IF
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn,qloc,dqdthet,dqdzeta)  &
+!$OMP   SHARED(mn_IP,X1_s_IP,X2_s_IP,zeta_IP,dX1dthet,dX2dthet,dX1dzeta,dX2dzeta,hmap,g_tt,g_tz,g_zz,detJ)
   !account for 1/J here
   DO i_mn=1,mn_IP
     qloc   (1:3) =(/  X1_s_IP(i_mn), X2_s_IP(i_mn), zeta_IP(i_mn)/) 
@@ -126,55 +155,117 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
     g_tz(i_mn) = (hmap%eval_gij(dqdthet,qloc,dqdzeta))/detJ(i_mn)
     g_zz(i_mn) = (hmap%eval_gij(dqdzeta,qloc,dqdzeta))/detJ(i_mn)
   END DO !i_mn
-  
+!$OMP END PARALLEL DO 
+
   LA_modes=LA_base%f%modes
+  
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode)  &
+!$OMP   SHARED(mn_IP,LA_modes,LA_base,sAdiag)
   !estimate of 1/Adiag for preconditioning
   DO iMode=1,LA_modes
     ASSOCIATE(nfp=> LA_base%f%nfp,m=>LA_base%f%Xmn(1,iMode),n=>LA_base%f%Xmn(2,iMode))
     sAdiag(iMode)=1.0_wp/(MAX(1.0_wp,REAL((nfp*m)**2+n**2 ,wp) )*REAL(mn_IP,wp))
     !sAdiag(iMode)=1.0_wp 
     END ASSOCIATE
-  END DO
+  END DO !iMode
+!$OMP END PARALLEL DO 
+
   call perfon('setup')
-  Amat(:,:)=0.0_wp
-  RHS(:)   =0.0_wp
+
   ASSOCIATE(sigma_dthet => LA_base%f%base_dthet_IP, &
             sigma_dzeta => LA_base%f%base_dzeta_IP  )
+
+!  !old non-optimized version
+!  DO iMode=1,LA_modes
+!    Amat(iMode,:)=0.0_wp
+!    RHS(iMode)   =0.0_wp
+!    !m=n=0 should not be in lambda, but check
+!    IF (LA_base%f%zero_odd_even(iMode).NE.MN_ZERO) THEN 
+!      DO i_mn=1,mn_IP
+!        gta_da=g_tz(i_mn)*sigma_dthet(i_mn,iMode) - g_tt(i_mn)*sigma_dzeta(i_mn,iMode)
+!        gza_da=g_zz(i_mn)*sigma_dthet(i_mn,iMode) - g_tz(i_mn)*sigma_dzeta(i_mn,iMode)
+!        DO jMode=1,LA_modes
+!          ! 1/J ( (g_thet,zeta dsigma_dthet -g_thet,thet dsigma_dzeta ) dlambdaSIN_dzeta
+!          !      -(g_zeta,zeta dsigma_dthet -g_zeta,thet dsigma_dzeta ) dlambdaSIN_dthet)
+!          Amat(iMode,jMode) = Amat(iMode,jMode) +&                      
+!                              ( gta_da*sigma_dzeta(i_mn,jMode) &
+!                               -gza_da*sigma_dthet(i_mn,jMode))* PhiPrime_s *sAdiag(iMode)
+!        END DO !jMode
+!        ! 1/J( iota (g_thet,zeta dsigma_dthet - g_thet,thet dsigma_dzeta )
+!        !          +(g_zeta,zeta dsigma_dthet - g_zeta,thet dsigma_dzeta ) )
+!        RHS(iMode)      =   RHS(iMode)+ (chiPrime_s*gta_da +phiPrime_s*gza_da) *sAdiag(iMode)
+!      END DO !i_mn
+!    ELSE
+!      Amat(iMode,iMode)=1.0_wp
+!      RHS(       iMode)=0.0_wp
+!    END IF
+!  END DO!iMode
+
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iMode,jMode,i_mn,gta_da,gza_da)  &
-!$OMP   SHARED(mn_IP,LA_modes,LA_base,Amat,RHS,g_zz,g_tt,g_tz,chiPrime_s,phiPrime_s,sAdiag)
+!$OMP   PRIVATE(iMode,i_mn)        &
+!$OMP   SHARED(gta_da,gza_da,mn_IP,LA_modes,g_tt,g_zz,g_tz,LA_base)
+  DO iMode=1,LA_modes
+    DO i_mn=1,mn_IP
+      gta_da(i_mn,iMode)=g_tz(i_mn)*sigma_dthet(i_mn,iMode) - g_tt(i_mn)*sigma_dzeta(i_mn,iMode)
+      gza_da(i_mn,iMode)=g_zz(i_mn)*sigma_dthet(i_mn,iMode) - g_tz(i_mn)*sigma_dzeta(i_mn,iMode)
+    END DO !i_mn
+  END DO!iMode
+!$OMP END PARALLEL DO 
+
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode,jMode,i_mn,sum_mn)        &
+!$OMP   SHARED(Amat,gta_da,gza_da,LA_base,mn_IP,LA_modes,PhiPrime_s,sAdiag) 
+  DO jMode=1,LA_modes
+    !m=n=0 should not be in lambda, but check
+    IF (LA_base%f%zero_odd_even(jMode).NE.MN_ZERO) THEN 
+      DO iMode=1,LA_modes
+        sum_mn=0.
+!$OMP SIMD REDUCTION(+:sum_mn)
+        DO i_mn=1,mn_IP
+          sum_mn = sum_mn + ( gta_da(i_mn,jMode)*sigma_dzeta(i_mn,iMode) &
+                             -gza_da(i_mn,jMode)*sigma_dthet(i_mn,iMode))
+        END DO !i_mn
+        ! 1/J ( (g_thet,zeta dsigma_dthet -g_thet,thet dsigma_dzeta ) dlambdaSIN_dzeta
+        !      -(g_zeta,zeta dsigma_dthet -g_zeta,thet dsigma_dzeta ) dlambdaSIN_dthet)
+        Amat(iMode,jMode) = sum_mn *PhiPrime_s*sAdiag(iMode)
+      END DO !iMode
+    ELSE
+      Amat(:    ,jMode)=0.0_wp
+      Amat(jMode,jMode)=1.0_wp
+    END IF
+  END DO!jMode
+!$OMP END PARALLEL DO 
+
+  END ASSOCIATE !sigma_dthet,sigma_dzeta
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode,i_mn,sum_gta_da,sum_gza_da)        &
+!$OMP   SHARED(RHS,gta_da,gza_da,LA_base,mn_IP,LA_modes,chiPrime_s,PhiPrime_s,sAdiag) 
   DO iMode=1,LA_modes
     !m=n=0 should not be in lambda, but check
     IF (LA_base%f%zero_odd_even(iMode).NE.MN_ZERO) THEN 
-      DO i_mn=1,mn_IP
-         gta_da(i_mn)=g_tz(i_mn)*sigma_dthet(i_mn,iMode) - g_tt(i_mn)*sigma_dzeta(i_mn,iMode)
-         gza_da(i_mn)=g_zz(i_mn)*sigma_dthet(i_mn,iMode) - g_tz(i_mn)*sigma_dzeta(i_mn,iMode)
-      END DO
-      DO jMode=1,LA_modes
-        DO i_mn=1,mn_IP
-          ! 1/J ( (g_thet,zeta dsigma_dthet -g_thet,thet dsigma_dzeta ) dlambdaSIN_dzeta
-          !      -(g_zeta,zeta dsigma_dthet -g_zeta,thet dsigma_dzeta ) dlambdaSIN_dthet)
-          Amat(iMode,jMode) = Amat(iMode,jMode) +&                      
-                              ( gta_da(i_mn)*sigma_dzeta(i_mn,jMode) &
-                               -gza_da(i_mn)*sigma_dthet(i_mn,jMode))* PhiPrime_s *sAdiag(iMode)
-        END DO !i_mn
-        ! 1/J( iota (g_thet,zeta dsigma_dthet - g_thet,thet dsigma_dzeta )
-        !          +(g_zeta,zeta dsigma_dthet - g_zeta,thet dsigma_dzeta ) )
-      END DO !jMode
-      DO i_mn=1,mn_IP
-         RHS(iMode)      =   RHS(iMode)+ (chiPrime_s*gta_da(i_mn) +phiPrime_s*gza_da(i_mn)) *sAdiag(iMode)
-      END DO
+      sum_gta_da=SUM(gta_da(:,iMode))
+      sum_gza_da=SUM(gza_da(:,iMode))
+      ! 1/J( iota (g_thet,zeta dsigma_dthet - g_thet,thet dsigma_dzeta )
+      !          +(g_zeta,zeta dsigma_dthet - g_zeta,thet dsigma_dzeta ) )
+      RHS(iMode) = (chiPrime_s*sum_gta_da +phiPrime_s*sum_gza_da) *sAdiag(iMode)
     ELSE
-      Amat(iMode,iMode)=1.0_wp
-      RHS(       iMode)=0.0_wp
+      RHS(iMode) = 0.0_wp
     END IF
   END DO!iMode
-  END ASSOCIATE !sigma_dthet,sigma_dzeta
-  call perfoff('setup')
+!$OMP END PARALLEL DO 
 
-  
+  call perfoff('setup')
   call perfon('solve')
   LA_s=SOLVE(Amat,RHS)  
   call perfoff('solve')

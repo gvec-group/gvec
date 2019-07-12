@@ -469,6 +469,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
+!$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -482,6 +483,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   INTEGER  :: BC_type(2)
   REAL(wp) :: BC_val(2)
   REAL(wp) :: spos
+  REAL(wp) :: StartTime,EndTime
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -659,6 +661,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   END ASSOCIATE !X2
 
   IF(init_LA)THEN
+    CALL CPU_TIME(StartTime)
+!$ StartTime=OMP_GET_WTIME()
     SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
     !initialize Lambda
     LA_gIP(1,:)=0.0_wp !at axis
@@ -682,6 +686,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
     END DO !iMode 
     END ASSOCIATE !LA
+    CALL CPU_TIME(EndTime)
+!$ EndTime=OMP_GET_WTIME()
+    SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
   ELSE
     !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
     IF(.NOT.init_fromBConly)THEN
