@@ -54,7 +54,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                               :: iMode,jMode,i_mn,mn_IP,LA_modes
-  REAL(wp)                              :: spos,Jh,minJ,gta_da,gza_da,qloc(3),dqdthet(3),dqdzeta(3)
+  REAL(wp)                              :: spos,Jh,minJ,qloc(3),dqdthet(3),dqdzeta(3)
   REAL(wp)                              :: phiPrime_s,ChiPrime_s   !! toroidal and poloidal flux s derivatives at s_pos
   REAL(wp),DIMENSION(1:X1_base%f%modes) :: X1_s,X1_ds !! X1 solution at spos 
   REAL(wp),DIMENSION(1:X2_base%f%modes) :: X2_s,X2_ds !! X1 solution at spos 
@@ -63,7 +63,10 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
                                            detJ,g_tt,g_tz,g_zz,zeta_IP
   REAL(wp)                              :: Amat(1:LA_base%f%modes,1:LA_base%f%modes)
   REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
+  REAL(wp),DIMENSION(1:X1_base%f%mn_IP) :: gta_da,gza_da
 !===================================================================================================================================
+  call perfon('lambda_solve')
+
   spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-08,spos_in))
   mn_IP = X1_base%f%mn_IP
   IF(X2_base%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
@@ -132,6 +135,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
     !sAdiag(iMode)=1.0_wp 
     END ASSOCIATE
   END DO
+  call perfon('setup')
   Amat(:,:)=0.0_wp
   RHS(:)   =0.0_wp
   ASSOCIATE(sigma_dthet => LA_base%f%base_dthet_IP, &
@@ -140,27 +144,36 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
     !m=n=0 should not be in lambda, but check
     IF (LA_base%f%zero_odd_even(iMode).NE.MN_ZERO) THEN 
       DO i_mn=1,mn_IP
-        gta_da=g_tz(i_mn)*sigma_dthet(i_mn,iMode) - g_tt(i_mn)*sigma_dzeta(i_mn,iMode)
-        gza_da=g_zz(i_mn)*sigma_dthet(i_mn,iMode) - g_tz(i_mn)*sigma_dzeta(i_mn,iMode)
-        DO jMode=1,LA_modes
+         gta_da(i_mn)=g_tz(i_mn)*sigma_dthet(i_mn,iMode) - g_tt(i_mn)*sigma_dzeta(i_mn,iMode)
+         gza_da(i_mn)=g_zz(i_mn)*sigma_dthet(i_mn,iMode) - g_tz(i_mn)*sigma_dzeta(i_mn,iMode)
+      END DO
+      DO jMode=1,LA_modes
+        DO i_mn=1,mn_IP
           ! 1/J ( (g_thet,zeta dsigma_dthet -g_thet,thet dsigma_dzeta ) dlambdaSIN_dzeta
           !      -(g_zeta,zeta dsigma_dthet -g_zeta,thet dsigma_dzeta ) dlambdaSIN_dthet)
           Amat(iMode,jMode) = Amat(iMode,jMode) +&                      
-                              ( gta_da*sigma_dzeta(i_mn,jMode) &
-                               -gza_da*sigma_dthet(i_mn,jMode))* PhiPrime_s *sAdiag(iMode)
-        END DO !jMode
+                              ( gta_da(i_mn)*sigma_dzeta(i_mn,jMode) &
+                               -gza_da(i_mn)*sigma_dthet(i_mn,jMode))* PhiPrime_s *sAdiag(iMode)
+        END DO !i_mn
         ! 1/J( iota (g_thet,zeta dsigma_dthet - g_thet,thet dsigma_dzeta )
         !          +(g_zeta,zeta dsigma_dthet - g_zeta,thet dsigma_dzeta ) )
-        RHS(iMode)      =   RHS(iMode)+ (chiPrime_s*gta_da +phiPrime_s*gza_da) *sAdiag(iMode)
-      END DO !i_mn
+      END DO !jMode
+      DO i_mn=1,mn_IP
+         RHS(iMode)      =   RHS(iMode)+ (chiPrime_s*gta_da(i_mn) +phiPrime_s*gza_da(i_mn)) *sAdiag(iMode)
+      END DO
     ELSE
       Amat(iMode,iMode)=1.0_wp
       RHS(       iMode)=0.0_wp
     END IF
-  END DO!jMode
+  END DO!iMode
   END ASSOCIATE !sigma_dthet,sigma_dzeta
- 
+  call perfoff('setup')
+
+  
+  call perfon('solve')
   LA_s=SOLVE(Amat,RHS)  
+  call perfoff('solve')
+  call perfoff('lambda_solve')
 
 END SUBROUTINE Lambda_solve
 
