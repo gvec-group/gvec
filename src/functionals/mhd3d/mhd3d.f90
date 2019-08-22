@@ -1003,7 +1003,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
 
        !increase time step
-        dt=1.001_wp*dt
+       !dt=1.001_wp*dt
       ELSE !not a valid step, decrease timestep and skip P(1)
         dt=0.5_wp*dt
         nstepDecreased=nStepDecreased+1
