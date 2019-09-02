@@ -406,20 +406,24 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END IF
 
   !additional auxiliary variables for X1 and X2 force
+  call perfon('loop_1')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iGP,i_mn)        &
+!$OMP   SHARED(nGP,mn_IP,dW,btt_sJ,btz_sJ,bzz_sJ,bbcov_sJ,sdetJ,b_thet,b_zeta,mu_0,pres_GP)
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
-      dW(    i_mn,iGP)=  bbcov_sJ(i_mn,iGP)                 *sdetJ(i_mn,iGP) 
-      btt_sJ(i_mn,iGP)=  b_thet(  i_mn,iGP)*b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
-      btz_sJ(i_mn,iGP)=  b_thet(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
-      bzz_sJ(i_mn,iGP)=  b_zeta(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
+      dW(    i_mn,iGP)=  0.5_wp*bbcov_sJ(i_mn,iGP)                 *sdetJ(i_mn,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
+      btt_sJ(i_mn,iGP)=  0.5_wp*b_thet(  i_mn,iGP)*b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
+      btz_sJ(i_mn,iGP)=  0.5_wp*b_thet(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
+      bzz_sJ(i_mn,iGP)=  0.5_wp*b_zeta(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
     END DO !i_mn
-    dW(    :,iGP)= 0.5_wp*dW(    :,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
-    btt_sJ(:,iGP)= 0.5_wp*btt_sJ(:,iGP)
-    btz_sJ(:,iGP)= 0.5_wp*btz_sJ(:,iGP)
-    bzz_sJ(:,iGP)= 0.5_wp*bzz_sJ(:,iGP)
   END DO !iGP
+!$OMP END PARALLEL DO 
   Y1tilde=(/1.0_wp,0.0_wp,0.0_wp/)
   Y2tilde=(/0.0_wp,1.0_wp,0.0_wp/)
+  call perfoff('loop_1')
   call perfon('loop_2')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
@@ -452,6 +456,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       hmap_g_zz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
     END DO !i_mn
   END DO !iGP
+!$OMP END PARALLEL DO 
   call perfoff('loop_2')
 
   call perfon('buildPrecond')
@@ -514,14 +519,17 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       iGP=iGP+(degGP+1)
     END DO !iElem
     F_X1(:,iMode)=F_X1(:,iMode)*dthet_dzeta !scale with constants
- END DO !iMode
- !$OMP END PARALLEL DO 
+  END DO !iMode
+!$OMP END PARALLEL DO 
  call perfoff('EvalForce_modes1')
 
+ DO iMode=1,modes
+   CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
+ END DO !iMode
  IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
-      CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
+      !CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_X1(iMode),F_X1(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_X1)
@@ -587,13 +595,16 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
     F_X2(:,iMode)=F_X2(:,iMode)*dthet_dzeta !scale with constants
   END DO !iMode
-  !$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO 
   call perfoff('EvalForce_modes2')
 
+  DO iMode=1,modes
+    CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
+  END DO !iMode
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
-      CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
+      !CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_X2(iMode),F_X2(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_X2)
@@ -634,14 +645,17 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       iGP=iGP+(degGP+1)
     END DO !iElem
     F_LA(:,iMode)=F_LA(:,iMode)*(dthet_dzeta) ! *2 / 2 scale with constants
- END DO !iMode
- !$OMP END PARALLEL DO 
+  END DO !iMode
+!$OMP END PARALLEL DO 
  call perfoff('EvalForce_modes3')
 
+  DO iMode=1,modes
+    CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
+  END DO !iMode
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
-      CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
+      !CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_LA)

@@ -917,7 +917,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !    CALL P(1)%AXBY(1.0_wp,U(0),dt,P(0)) !overwrites P(1)
 
 !simple gradient
-!    CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
+    CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
 
 !damping (beta >0), U^(n+1)=U^(n)+(1-beta*sqrt(dt))*(U^(n)-U^(n-1))+dt F , beta->(1-beta*sqrt(dt))
                !        =U^(n)*(1+beta) - beta*U^(n-1) =P0 + dt F
@@ -926,8 +926,8 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !    CALL P(0)%AXBY((2.0_wp-beta*sqrt(dt)),U(0),(beta*sqrt(dt)-1.0_wp),U(-1)) !overwrites P(0)
 
     !for damping   beta=0.6
-    CALL P(0)%AXBY((1.0_wp+beta),U(0),-beta,U(-1)) !overwrites P(0)
-    CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
+!    CALL P(0)%AXBY((1.0_wp+beta),U(0),-beta,U(-1)) !overwrites P(0)
+!    CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
 
 
 
@@ -1010,7 +1010,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
 
        !increase time step
-        dt=1.001_wp*dt
+!        dt=1.001_wp*dt
       ELSE !not a valid step, decrease timestep and skip P(1)
         dt=0.5_wp*dt
         nstepDecreased=nStepDecreased+1
