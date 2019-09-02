@@ -990,6 +990,7 @@ IMPLICIT NONE
 !!$      CALL DGEMV('N',m,n,1.0_wp,sf%base_ds_GP(:,:,iElem),m,DOFs(j:j+deg),1,0.0_wp,y_GP(k:k+degGP),1)
 !      k=k+(degGP+1)
     END DO
+!$OMP END PARALLEL DO
   CASE DEFAULT
     CALL abort(__STAMP__, &
        'called evalDOF_GP: deriv must be 0 or DERIV_S!' )

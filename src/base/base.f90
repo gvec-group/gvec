@@ -215,42 +215,194 @@ IMPLICIT NONE
   REAL(wp)                     :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER                      :: modes,nGP,nBase,mn_IP
+#define PP_WHICHEVAL 12
+  ! experimental optimization results, with OMP, give the ranking from slowest to fastest: 2 < 1 << 11 ~= 12
+  ! could change with the number of DOF in s and theta/zeta...
+#if (PP_WHICHEVAL==1)
+  !OMP loop version: first s then f
   INTEGER                      :: iMode,iGP
   REAL(wp)                     :: y_tmp(1:sf%f%modes,sf%s%nGP)
+
+#elif (PP_WHICHEVAL==2)
+  !OMP loop version: first f then s
+  INTEGER                      :: i_mn,iBase
+  REAL(wp)                     :: y_tmp(sf%f%mn_IP,1:sf%s%nBase)
+
+#elif (PP_WHICHEVAL==11)
+  !matrix matrix version: first s then f
+  INTEGER                      :: i,j,k,m,n,iElem
+  REAL(wp)                     :: y_tmp(sf%f%modes,1:sf%s%nGP)
+
+#elif (PP_WHICHEVAL==12)
+  !matrix matrix version: first f then s
+  INTEGER                      :: i,j,k,m,n,iElem
+  REAL(wp)                     :: y_tmp(sf%f%mn_IP,1:sf%s%nBase)
+#endif /*PP_WHICHEVAL*/
 !===================================================================================================================================
-  DO iMode=1,sf%f%modes
+!WRITE(*,*)'-----------------------------'
+!WRITE(*,'(A,I12)')'CHECK: #operations first s then f:', (sf%s%nGP*(sf%s%deg+1))*sf%f%modes+(sf%f%mn_IP*sf%f%modes)*sf%s%nGP
+!WRITE(*,'(A,I12)')'CHECK: #operations first f then s:', (sf%f%mn_IP*sf%f%modes)*sf%s%nBase+ (sf%s%nGP*(sf%s%deg+1))*sf%f%mn_IP
+!WRITE(*,'(A,F8.2)')'ratio', REAL( (sf%s%nGP*(sf%s%deg+1))*sf%f%modes+(sf%f%mn_IP*sf%f%modes)*sf%s%nGP ,wp)/ & 
+!                            REAL( (sf%f%mn_IP*sf%f%modes)*sf%s%nBase+ (sf%s%nGP*(sf%s%deg+1))*sf%f%mn_IP,wp)
+!WRITE(*,*)'-----------------------------'
+
+  call perfon('BaseEval')
+
+  nGP     = sf%s%nGP  
+  modes   = sf%f%modes  
+  nBase   = sf%s%nBase
+  mn_IP   = sf%f%mn_IP
+
+#if (PP_WHICHEVAL==1)
+  !OMP loop version: first s then f
+  call perfon('eval_s')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iMode)  &
+!$OMP   SHARED(sf,deriv,modes,y_tmp,DOFs)
+  DO iMode=1,modes
     y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv(1),DOFs(:,iMode))
   END DO!iMode
-  DO iGP=1,sf%s%nGP
+!$OMP END PARALLEL DO
+  call perfoff('eval_s')
+  call perfon('eval_f')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iGP)  &
+!$OMP   SHARED(sf,deriv,nGP,y_IP_GP,y_tmp)
+  DO iGP=1,nGP
     y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv(2),y_tmp(:,iGP))
   END DO !iGP
+!$OMP END PARALLEL DO
+  call perfoff('eval_f')
 
-!  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
-!  SELECT CASE(deriv(1))
-!  CASE(0)
-!    iGP=1
-!    DO iElem=1,nElems
-!      j=sf%s%base_offset(iElem)
-!      y_tmp(:,iGP:iGP+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-!      iGP=iGP+(degGP+1)
-!    END DO !iElem
-!  CASE(DERIV_S)
-!    iGP=1
-!    DO iElem=1,nElems
-!      j=sf%s%base_offset(iElem)
-!      y_tmp(:,iGP:iGP+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-!      iGP=iGP+(degGP+1)
-!    END DO !iElem
-!  END SELECT !deriv GP
-!  END ASSOCIATE
-!  SELECT CASE(deriv(2))
-!  CASE(0)
-!    y_IP_GP=MATMUL(sf%f%base_IP(:,:)      ,y_tmp(:,:))
-!  CASE(DERIV_THET)                                   
-!    y_IP_GP=MATMUL(sf%f%base_dthet_IP(:,:),y_tmp(:,:))
-!  CASE(DERIV_ZETA)                                   
-!    y_IP_GP=MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp(:,:))
-!  END SELECT !deriv IP
+#elif (PP_WHICHEVAL==2)
+  !OMP loop version: first f then s
+  call perfon('eval_f')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iBase)  &
+!$OMP   SHARED(sf,nBase,deriv,y_tmp,DOFs)
+  DO iBase=1,nBase
+    y_tmp(:,iBase)=sf%f%evalDOF_IP(deriv(2),DOFs(iBase,:))
+  END DO !iBase
+!$OMP END PARALLEL DO
+  call perfoff('eval_f')
+  call perfon('eval_s')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn)  &
+!$OMP   SHARED(sf,mn_IP,deriv,y_IP_GP,y_tmp)
+  DO i_mn=1,mn_IP
+    y_IP_GP(i_mn,:)=sf%s%evalDOF_GP(deriv(1),y_tmp(i_mn,:))
+  END DO!iMode
+!$OMP END PARALLEL DO
+  call perfoff('eval_s')
+
+!!! use lapack matrix matrix multiply dgemm( TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+!!! does in general C = alpha A^?*B^? + beta C
+!!! structure: (m x n) = (m x k) (k x n)  
+!!! C=A  *B   : CALL DGEMM('N','N',m,n,k,1.0_wp,Amat ,m, Bmat,k, 0.0_wp,Cmat,m)
+!!! C=A^T*B   : CALL DGEMM('T','N',m,n,k,1.0_wp,Amat ,k, Bmat,k, 0.0_wp,Cmat,m)
+!!! C=A  *B^T : CALL DGEMM('N','T',m,n,k,1.0_wp,Amat ,m, Bmat,n, 0.0_wp,Cmat,m)
+!!! C=A^T*B^T : CALL DGEMM('T','T',m,n,k,1.0_wp,Amat ,k, Bmat,n, 0.0_wp,Cmat,m)
+
+#elif (PP_WHICHEVAL==11)
+  ! matrix-matrix version of first s then f
+
+  call perfon('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  m=sf%f%modes
+  k=deg+1
+  n=degGP+1
+  SELECT CASE(deriv(1))
+  CASE(0)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      CALL DGEMM('T','T',m,n,k,1.0_wp,DOFs(j:j+deg,:),k,sf%s%base_GP(0:degGP,0:deg,iElem)   ,n,0.0_wp,y_tmp(:,i:i+degGP),m)
+    END DO !iElem
+  CASE(DERIV_S)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      CALL DGEMM('T','T',m,n,k,1.0_wp,DOFs(j:j+deg,:),k,sf%s%base_ds_GP(0:degGP,0:deg,iElem),n,0.0_wp,y_tmp(:,i:i+degGP),m)
+    END DO !iElem
+  END SELECT !deriv GP
+  END ASSOCIATE
+  call perfoff('eval_s')
+
+  call perfon('eval_f')
+  m=sf%f%mn_IP
+  k=sf%f%modes
+  n=sf%s%nGP
+  SELECT CASE(deriv(2))
+  CASE(0)
+    !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
+    CALL DGEMM('N','N',m,n,k,1.0_wp,sf%f%base_IP(:,:)      ,m,y_tmp(:,:),k,0.0_wp,Y_IP_GP,m)
+  CASE(DERIV_THET)                        
+    !Y_IP_GP = MATMUL(sf%f%base_dthet_IP(:,:),y_tmp)
+    CALL DGEMM('N','N',m,n,k,1.0_wp,sf%f%base_dthet_IP(:,:),m,y_tmp(:,:),k,0.0_wp,Y_IP_GP,m)
+  CASE(DERIV_ZETA)                        
+    !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
+    CALL DGEMM('N','N',m,n,k,1.0_wp,sf%f%base_dzeta_IP(:,:),m,y_tmp(:,:),k,0.0_wp,Y_IP_GP,m)
+  END SELECT !deriv IP
+  call perfoff('eval_f')
+
+#elif (PP_WHICHEVAL==12)
+  ! matrix-matrix version of first f then s
+  call perfon('eval_f')
+  m=sf%f%mn_IP
+  k=sf%f%modes
+  n=sf%s%nBase
+  SELECT CASE(deriv(2))
+  CASE(0)
+    !y_tmp = MATMUL(sf%f%base_IP(:,:),TRANSPOSE(DOFs))
+    CALL DGEMM('N','T',m,n,k,1.0_wp,sf%f%base_IP(:,:)      ,m,DOFs,n,0.0_wp,y_tmp,m)
+  CASE(DERIV_THET)                        
+    !y_tmp = MATMUL(sf%f%base_dthet_IP(:,:),TRANSPOSE(DOFs))
+    CALL DGEMM('N','T',m,n,k,1.0_wp,sf%f%base_dthet_IP(:,:),m,DOFs,n,0.0_wp,y_tmp,m)
+  CASE(DERIV_ZETA)                        
+    !y_tmp = MATMUL(sf%f%base_dzeta_IP(:,:),TRANSPOSE(DOFs))
+    CALL DGEMM('N','T',m,n,k,1.0_wp,sf%f%base_dzeta_IP(:,:),m,DOFs,n,0.0_wp,y_tmp,m)
+  END SELECT !deriv IP
+  call perfoff('eval_f')
+
+  call perfon('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  m=sf%f%mn_IP
+  k=deg+1
+  n=degGP+1
+  SELECT CASE(deriv(1))
+  CASE(0)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_GP(0:degGP,0:deg,iElem)))
+      CALL DGEMM('N','T',m,n,k,1.0_wp,y_tmp(:,j:j+deg),m,sf%s%base_GP(0:degGP,0:deg,iElem)   ,n,0.0_wp,y_IP_GP(:,i:i+degGP),m)
+    END DO !iElem
+  CASE(DERIV_S)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_ds_GP(0:degGP,0:deg,iElem)))
+      CALL DGEMM('N','T',m,n,k,1.0_wp,y_tmp(:,j:j+deg),m,sf%s%base_ds_GP(0:degGP,0:deg,iElem),n,0.0_wp,y_IP_GP(:,i:i+degGP),m)
+    END DO !iElem
+  END SELECT !deriv GP
+  END ASSOCIATE
+  call perfoff('eval_s')
+#endif /*PP_WHICHEVAL*/
+
+#undef PP_WHICHEVAL
+
+  call perfoff('BaseEval')
 
 END FUNCTION base_evalDOF
 
