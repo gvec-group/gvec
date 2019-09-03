@@ -202,14 +202,6 @@ IMPLICIT NONE
   DO i_n=1,mn_IP(2)
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
-  IF(hmap%which_hmap.NE.3)THEN !not for cylinder
-    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-      thet(n_s,mn_IP(1))=thet(1,1)
-    END IF
-    IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-      zeta(mn_IP(2))=zeta(1)
-    END IF
-  END IF!hmap not cylinder
 
   nElems=sgrid%nElems
   DO iElem=1,nElems
@@ -250,8 +242,8 @@ IMPLICIT NONE
             ELSE
               xIP(1)= thet(j_s,i_m)
             END IF
-            var_visu(13,i_s,j_s,i_n,i_m,iElem)=thet(j_s,i_m)
-            var_visu(14,i_s,j_s,i_n,i_m,iElem)=zeta(i_n)
+            var_visu(13,i_s,j_s,i_n,i_m,iElem)=xIP(1) !theta for evaluation of X1,X2,LA
+            var_visu(14,i_s,j_s,i_n,i_m,iElem)=xIP(2) !zeta  for evaluation of X1,X2,LA
 
 
             ASSOCIATE(lambda_visu  => var_visu(  1,i_s,j_s,i_n,i_m,iElem), &
@@ -303,6 +295,19 @@ IMPLICIT NONE
     END DO !i_s
   END DO !iElem
   
+  !make grid exactly periodic
+  IF(hmap%which_hmap.NE.3)THEN !not for cylinder
+    !make theta direction exactly periodic
+    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      coord_visu( :,:,n_s,:,mn_IP(1),:)=coord_visu( :,:,1,:,1,:)
+    END IF
+    !make zeta direction exactly periodic, only for 3Dvisu
+    IF(.NOT.only_planes)THEN
+      IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+        coord_visu( :,:,:,mn_IP(2),:,:)=coord_visu( :,:,:,1,:,:)
+      END IF
+    END IF
+  END IF!hmap not cylinder
   !range s: include all elements belonging to [smin,smax]
   minElem=MAX(     1,sgrid%find_elem(minmax(1,0))-1)
   maxElem=MIN(nElems,sgrid%find_elem(minmax(1,1))+1)
