@@ -460,10 +460,13 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
   F_X1(:,:)=F_X1(:,:)*dthet_dzeta !scale with constants
+
+  DO iMode=1,modes
+    CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
+  END DO !iMode
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
-      CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_X1(iMode),F_X1(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_X1)
@@ -518,10 +521,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
   F_X2(:,:)=F_X2(:,:)*dthet_dzeta !scale with constants
+  DO iMode=1,modes
+    CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
+  END DO !iMode
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
-      CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_X2(iMode),F_X2(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_X2)
@@ -555,10 +560,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
   F_LA(:,:)=F_LA(:,:)*(dthet_dzeta) ! *2 / 2 scale with constants
+  DO iMode=1,modes
+    CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
+  END DO !iMode
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
-      CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
       CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_LA)

@@ -418,7 +418,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER            :: i_s,j_s,i_m,i_n,iMode,nplot(3),mn_IP(2)
-  INTEGER,PARAMETER  :: nVal=6
+  INTEGER,PARAMETER  :: nVal=9
   REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(1),np_in(3),np_in(2))
   REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(3),np_in(2))
   REAL(wp)           :: thet(np_in(1),np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
@@ -449,8 +449,11 @@ IMPLICIT NONE
   VarNames(2)="iota"
   VarNames(3)="pressure"
   VarNames(4)="lambda"
-  VarNames(5)="Jacobian"
+  VarNames(5)="sqrtG"
   VarNames(6)="|B|"
+  VarNames(7)="s"
+  VarNames(8)="theta"
+  VarNames(9)="zeta"
   mn_IP(1:2)=np_in(2:3)
   ASSOCIATE(n_s=>nFluxVMEC )
   DO i_m=1,mn_IP(1)
@@ -459,20 +462,12 @@ IMPLICIT NONE
                             *REAL((j_s-1)+(i_m-1)*(np_in(1)-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
     END DO !j_s
   END DO
-  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    thet(np_in(1),mn_IP(1))=thet(1,1)
-  END IF
-  DO i_n=1,mn_IP(2)
-    zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
-  END DO
-  IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    zeta(mn_IP(2))=zeta(1)
-  END IF
   
   DO i_s=1,n_s
     var_visu(1,i_s,:,:,:)=Phi_Prof(i_s)
     var_visu(2,i_s,:,:,:)=iotaf(i_s)
     var_visu(3,i_s,:,:,:)=presf(i_s)
+    var_visu(7,i_s,:,:,:)=SQRT(Phi_prof(i_s)/Phi_prof(n_s)) !=s
   END DO !i_s
   DO i_n=1,mn_IP(2)
     xIP(2)=zeta(i_n)
@@ -487,6 +482,8 @@ IMPLICIT NONE
           ELSE
             XIP(1)=thet(j_s,i_m)
           END IF
+          var_visu(  8,i_s,j_s,i_n,i_m) = xIP(1)
+          var_visu(  9,i_s,j_s,i_n,i_m) = xIP(2)
           
           DO iMode=1,mn_mode
             sinmn(iMode)=SIN(xm(iMode)*xIP(1)-xn(iMode)*xIP(2))
@@ -530,6 +527,18 @@ IMPLICIT NONE
     var_visu(5,1,:,i_n,:) =SUM(var_visu(5,2,:,i_n,:))/REAL(mn_IP(1)*np_in(1))
     var_visu(6,1,:,i_n,:) =SUM(var_visu(6,2,:,i_n,:))/REAL(mn_IP(1)*np_in(1))
   END DO !i_m
+
+  !make grid exactly periodic
+  !make theta direction exactly periodic
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    coord_visu( :,:,np_in(1),:,mn_IP(1))=coord_visu(:,:,1,:,1)
+  END IF
+  !make zeta direction exactly periodic, only for 3Dvisu
+  IF(.NOT.only_planes)THEN
+    IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      coord_visu( :,:,:,mn_IP(2),:)=coord_visu( :,:,:,1,:)
+    END IF
+  END IF
 
   IF(only_planes)THEN
     nplot(1:2)=(/n_s,np_in(1) /)-1

@@ -332,10 +332,11 @@ SUBROUTINE InitMHD3D(sf)
     SELECT CASE(zero_odd_even(iMode))
     CASE(MN_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
+!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET 
     CASE(M_ZERO)
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM  !n/=0 modes should have lambda/=0 at the axis, but not clear why...
+!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
     CASE(M_ODD_FIRST)
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
 !      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
       LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET 
     CASE(M_ODD)
@@ -350,12 +351,14 @@ SUBROUTINE InitMHD3D(sf)
   
 
 
-  ALLOCATE(U(-1:1))
+  ALLOCATE(U(-2:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
                    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
   ALLOCATE(F(-1:0))
-  DO i=-1,0
+  DO i=-2,0
     CALL U(i)%copy(U(1))
+  END DO
+  DO i=-1,0
     CALL F(i)%copy(U(1))
   END DO
   ALLOCATE(P(-1:1))
@@ -870,6 +873,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   INTEGER   :: JacCheck,lastoutputIter
   REAL(wp)  :: beta,dt,deltaW,absTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0
+  REAL(wp)  :: maxDist,avgDist 
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
   min_dt_out=1.0e+30_wp
@@ -893,6 +897,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   CALL P( -1)%set_to(0.0_wp)
 
   CALL U( -1)%set_to(U(0))
+  CALL U( -2)%set_to(U(0))
 
   beta=0.3_wp  !for damping
   dt=start_dt
@@ -910,7 +915,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !    CALL P(1)%AXBY(1.0_wp,U(0),dt,P(0)) !overwrites P(1)
 
 !simple gradient
-!    CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
+    CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
 
 !damping (beta >0), U^(n+1)=U^(n)+(1-beta*sqrt(dt))*(U^(n)-U^(n-1))+dt F , beta->(1-beta*sqrt(dt))
                !        =U^(n)*(1+beta) - beta*U^(n-1) =P0 + dt F
@@ -919,9 +924,8 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !    CALL P(0)%AXBY((2.0_wp-beta*sqrt(dt)),U(0),(beta*sqrt(dt)-1.0_wp),U(-1)) !overwrites P(0)
 
     !for damping   beta=0.6
-    CALL P(0)%AXBY((1.0_wp+beta),U(0),-beta,U(-1)) !overwrites P(0)
-    CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
-
+    !CALL P(0)%AXBY((1.0_wp+beta),U(0),-beta,U(-1)) !overwrites P(0)
+    !CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
 
 
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
@@ -975,11 +979,15 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
         IF(MOD(iter,logIter).EQ.0)THEN 
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
+          CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
+          CALL U(-2)%set_to(U(0))
+
+          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A,2E11.4,A)') &
                             '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
                     '    \n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
                    '        \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
           '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
+          '               \n%%% maxDist,avgDist to last log: ',maxDist,avgDist, &
    '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
           min_dt_out=1.0e+30_wp
           max_dt_out=0.0_wp
@@ -1196,6 +1204,133 @@ SUBROUTINE MinimizeMHD3D_LBFGS(sf)
   
 
 END SUBROUTINE MinimizeMHD3D_LBFGS
+
+
+!===================================================================================================================================
+!> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of 
+!> the sampled x,y,z coordinates 
+!!
+!===================================================================================================================================
+SUBROUTINE CheckDistance(U,V,maxDist,avgDist) 
+! MODULES
+  USE MODgvec_Globals,        ONLY: TWOPI,PI
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid
+  USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_mhd3d
+  USE MODgvec_Newton,         ONLY: NewtonRoot1D_FdF
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN) :: U !U and V must be have the same basis and grid!
+  CLASS(t_sol_var_MHD3D), INTENT(IN) :: V
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT)    :: maxDist,avgDist
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER  :: n_s,mn_IP(2),nElems
+  INTEGER  :: i_s,i_m,i_n,iMode,iElem
+  REAL(wp) :: spos,zeta,theta0,theta,theta_star
+  REAL(wp) :: UX1_s(X1_base%f%modes),VX1_s(X1_base%f%modes)
+  REAL(wp) :: UX2_s(X2_base%f%modes),VX2_s(X2_base%f%modes)
+  REAL(wp) :: ULA_s(LA_base%f%modes),VLA_s(LA_base%f%modes)
+  REAL(wp) :: X1_visu,X2_visu,LA_visu
+  REAL(wp) :: q(3),xU(3),xV(3),dist
+  LOGICAL  :: SFL_theta=.TRUE.
+!===================================================================================================================================
+  n_s=3 !number of points to check per element (1 at the left boundary, 2 inner, none at the right)
+  mn_IP(1)   = MAX(1,X1_base%f%mn_nyq(1)/2)
+  mn_IP(2)   = MAX(1,X1_base%f%mn_nyq(2)/2)
+  nElems=sgrid%nElems
+  
+  maxDist=0.  
+  avgDist=0.
+
+  DO iElem=1,nElems
+    DO i_s=1,n_s
+      spos=MAX(1.0e-06,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s,wp))*sgrid%ds(iElem)) !includes axis but not edge
+      DO iMode=1,X1_base%f%modes
+        UX1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,U%X1(:,iMode))
+        VX1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,V%X1(:,iMode))
+      END DO
+      DO iMode=1,X2_base%f%modes
+        UX2_s(iMode) = X2_base%s%evalDOF_s(spos,      0,U%X2(:,iMode))
+        VX2_s(iMode) = X2_base%s%evalDOF_s(spos,      0,V%X2(:,iMode))
+      END DO
+      DO iMode=1,LA_base%f%modes
+        ULA_s(iMode) = LA_base%s%evalDOF_s(spos,      0,U%LA(:,iMode))
+        VLA_s(iMode) = LA_base%s%evalDOF_s(spos,      0,V%LA(:,iMode))
+      END DO
+      DO i_n=1,mn_IP(2)
+          zeta  = TWOPI*REAL(i_n-1,wp)/REAL(mn_IP(2),wp) !do not include periodic point 
+        DO i_m=1,mn_IP(1)
+          theta0= TWOPI*REAL(i_m-1,wp)/REAL(mn_IP(1),wp)  !do not include periodic point
+          !for xU
+          IF(SFL_theta)THEN
+            theta_star=theta0
+            theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR_U)
+          ELSE
+            LA_visu    = LA_base%f%evalDOF_x((/theta0,zeta/),0,ULA_s )
+            theta = theta0 + LA_visu
+          END IF
+ 
+
+          X1_visu    = X1_base%f%evalDOF_x((/theta,zeta/),0,UX1_s )
+          X2_visu    = X2_base%f%evalDOF_x((/theta,zeta/),0,UX2_s )
+          
+          q=(/X1_visu,X2_visu,zeta/)
+          !x,y,z
+          xU(:)=hmap%eval(q)
+          
+          !for xV
+          IF(SFL_theta)THEN
+            theta_star=theta0
+            theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR_V)
+          ELSE
+            LA_visu    = LA_base%f%evalDOF_x((/theta0,zeta/),0,VLA_s )
+            theta      = theta0 + LA_visu
+          END IF
+
+
+          X1_visu    = X1_base%f%evalDOF_x((/theta,zeta/),0,VX1_s )
+          X2_visu    = X2_base%f%evalDOF_x((/theta,zeta/),0,VX2_s )
+          
+          q=(/X1_visu,X2_visu,zeta/)
+          !x,y,z
+          xV(:)=hmap%eval(q)
+          
+          dist=SQRT(SUM((xU(:)-xV(:))**2))
+          maxDist = MAX(maxDist,dist)
+          avgDist = avgDist+dist
+        END DO !i_m
+      END DO !i_n
+    END DO !i_s
+  END DO !iElem
+  avgDist=avgDist/REAL(nElems*n_s*mn_IP(1)*mn_IP(2),wp)
+
+!for iteration on theta^*
+CONTAINS 
+
+  FUNCTION FRdFR_U(theta_iter)
+    !uses current zeta where newton is called, and LA_s from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: FRdFR_U(2) !output
+    !--------------------------------------------------- 
+    FRdFR_U(1)=theta_iter+LA_base%f%evalDOF_x((/theta_iter,zeta/),         0,ULA_s)  !theta_iter+lambda
+    FRdFR_U(2)=1.0_wp    +LA_base%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,ULA_s) !1+dlambda/dtheta
+  END FUNCTION FRdFR_U
+
+  FUNCTION FRdFR_V(theta_iter)
+    !uses current zeta where newton is called, and LA_s from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: FRdFR_V(2) !output
+    !--------------------------------------------------- 
+    FRdFR_V(1)=theta_iter+LA_base%f%evalDOF_x((/theta_iter,zeta/),         0,VLA_s)  !theta_iter+lambda
+    FRdFR_V(2)=1.0_wp    +LA_base%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,VLA_s) !1+dlambda/dtheta
+  END FUNCTION FRdFR_V
+END SUBROUTINE CheckDistance
+
 
 !===================================================================================================================================
 !> Finalize Module
