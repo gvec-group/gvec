@@ -198,11 +198,12 @@ CALL sf%f%change_base(old_base%f,1,old_data,tmp    )
 CALL sf%s%change_base(old_base%s,2,tmp     ,sf_data)
 END SUBROUTINE base_change_base
 
+
 !===================================================================================================================================
 !> evaluate all degrees of freedom at all Gauss Points (deriv=0 solution, deriv=1 first derivative d/ds)
 !!
 !===================================================================================================================================
-FUNCTION base_evalDOF(sf,deriv,DOFs) RESULT(y_IP_GP)
+SUBROUTINE base_evalDOF(sf,deriv,DOFs,y_IP_GP)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -212,13 +213,14 @@ IMPLICIT NONE
   REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%s%nBase,1:sf%f%modes)  !! array of all modes and all radial dofs
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                     :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
+  REAL(wp)     ,INTENT(OUT   ) :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                      :: modes,nGP,nBase,mn_IP
-#define PP_WHICHEVAL 12
+#define PP_WHICHEVAL 11
   ! experimental optimization results, with OMP, give the ranking from slowest to fastest: 2 < 1 << 11 ~= 12
-  ! could change with the number of DOF in s and theta/zeta...
+  ! could change with the number of DOF in s and theta/zeta..., 
+  ! evaluation in s does not seem to scale at all with omp
 #if (PP_WHICHEVAL==1)
   !OMP loop version: first s then f
   INTEGER                      :: iMode,iGP
@@ -404,7 +406,8 @@ IMPLICIT NONE
 
   call perfoff('BaseEval')
 
-END FUNCTION base_evalDOF
+END SUBROUTINE base_evalDOF
+
 
 !===================================================================================================================================
 !> evaluate all degrees of freedom at given s theta zeta position (deriv=0 solution, deriv=1 first derivative d/ds)
@@ -456,6 +459,7 @@ IMPLICIT NONE
   REAL(wp)           :: dofs(1:sf%s%nBase,1:sf%f%modes)
   REAL(wp)           :: g_sIP(1:sf%s%nBase)
   REAL(wp)           :: g_IP_GP(1:sf%f%mn_IP,1:sf%s%nGP)
+  REAL(wp)           :: g_IP_GP_eval(1:sf%f%mn_IP,1:sf%s%nGP)
 !===================================================================================================================================
   test_called=.TRUE.
   IF(testlevel.LE.0) RETURN
@@ -491,7 +495,8 @@ IMPLICIT NONE
       END DO !iGP
     END DO !iMode
 
-    g_IP_GP=g_IP_GP - sf%evalDOF((/0,0/),dofs)
+    CALL sf%evalDOF((/0,0/),dofs,g_IP_GP_eval)
+    g_IP_GP=g_IP_GP - g_IP_GP_eval 
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
@@ -522,7 +527,8 @@ IMPLICIT NONE
       END DO !iGP
     END DO !iMode
 
-    g_IP_GP=g_IP_GP - sf%evalDOF((/DERIV_S,0/),dofs)
+    CALL sf%evalDOF((/DERIV_S,0/),dofs,g_IP_GP_eval)
+    g_IP_GP=g_IP_GP - g_IP_GP_eval 
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
@@ -552,8 +558,8 @@ IMPLICIT NONE
                         (0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
-
-    g_IP_GP=g_IP_GP - sf%evalDOF((/0,DERIV_THET/),dofs)
+    CALL sf%evalDOF((/0,DERIV_THET/),dofs,g_IP_GP_eval)
+    g_IP_GP=g_IP_GP - g_IP_GP_eval
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
@@ -584,7 +590,8 @@ IMPLICIT NONE
       END DO !iGP
     END DO !iMode
 
-    g_IP_GP=g_IP_GP - sf%evalDOF((/0,DERIV_ZETA/),dofs)
+    CALL sf%evalDOF((/0,DERIV_ZETA/),dofs,g_IP_GP_eval)
+    g_IP_GP=g_IP_GP - g_IP_GP_eval
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN

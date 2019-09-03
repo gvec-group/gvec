@@ -197,12 +197,12 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 
   call perfon('EvalDOF_1')
   !2D data: interpolation points x gauss-points
-  X1_IP_GP  = X1_base%evalDOF((/0,0/)         ,Uin%X1)
-  X2_IP_GP  = X2_base%evalDOF((/0,0/)         ,Uin%X2)
-  dX1_ds    = X1_base%evalDOF((/DERIV_S,0/)   ,Uin%X1)
-  dX2_ds    = X2_base%evalDOF((/DERIV_S,0/)   ,Uin%X2)
-  dX1_dthet = X1_base%evalDOF((/0,DERIV_THET/),Uin%X1)
-  dX2_dthet = X2_base%evalDOF((/0,DERIV_THET/),Uin%X2)
+  CALL X1_base%evalDOF((/0,0/)         ,Uin%X1,X1_IP_GP  )
+  CALL X1_base%evalDOF((/DERIV_S,0/)   ,Uin%X1,dX1_ds    )
+  CALL X1_base%evalDOF((/0,DERIV_THET/),Uin%X1,dX1_dthet )
+  CALL X2_base%evalDOF((/0,0/)         ,Uin%X2,X2_IP_GP  )
+  CALL X2_base%evalDOF((/DERIV_S,0/)   ,Uin%X2,dX2_ds    )
+  CALL X2_base%evalDOF((/0,DERIV_THET/),Uin%X2,dX2_dthet )
   call perfoff('EvalDOF_1')
 
   call perfon('loop_1')
@@ -259,10 +259,10 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 
   call perfon('EvalDOF_2')
   !2D data: interpolation points x gauss-points
-  dLA_dthet = LA_base%evalDOF((/0,DERIV_THET/),Uin%LA)
-  dX1_dzeta = X1_base%evalDOF((/0,DERIV_ZETA/),Uin%X1)
-  dX2_dzeta = X2_base%evalDOF((/0,DERIV_ZETA/),Uin%X2)
-  dLA_dzeta = LA_base%evalDOF((/0,DERIV_ZETA/),Uin%LA)
+  CALL X1_base%evalDOF((/0,DERIV_ZETA/),Uin%X1,dX1_dzeta)
+  CALL X2_base%evalDOF((/0,DERIV_ZETA/),Uin%X2,dX2_dzeta)
+  CALL LA_base%evalDOF((/0,DERIV_THET/),Uin%LA,dLA_dthet)
+  CALL LA_base%evalDOF((/0,DERIV_ZETA/),Uin%LA,dLA_dzeta)
   call perfoff('EvalDOF_2')
 
 
