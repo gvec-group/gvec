@@ -40,7 +40,7 @@ REAL(wp),ALLOCATABLE  :: thet_pos(:)        !< positions in theta for evaluation
 REAL(wp),ALLOCATABLE  :: zeta_pos(:)        !< positions in zeta for evaluation , size (Nzeta_out)
 
 !1D data
-INTEGER,PARAMETER     :: nVar1D = 10         !< number of variables in 1d profiles
+INTEGER,PARAMETER     :: nVar1D = 12         !< number of variables in 1d profiles
 INTEGER,PARAMETER     :: SPOS__    = 1
 INTEGER,PARAMETER     :: PHI__     = 2
 INTEGER,PARAMETER     :: DPHIDS__  = 3
@@ -51,6 +51,8 @@ INTEGER,PARAMETER     :: PRESSURE__= 7
 INTEGER,PARAMETER     :: FAVG__    = 8
 INTEGER,PARAMETER     :: FMIN__    = 9
 INTEGER,PARAMETER     :: FMAX__    =10
+INTEGER,PARAMETER     :: ITOR__    =11
+INTEGER,PARAMETER     :: IPOL__    =12
 CHARACTER(LEN=50),DIMENSION(nVar1D),PARAMETER :: StrVarNames1D(nVar1D)=(/ CHARACTER(LEN=50) :: &
                            's'            & ! 1 : position s =sqrt(phi/phiEdge) [0,1]
                           ,'Phi'          & ! 2 : toroidal flux 
@@ -62,6 +64,8 @@ CHARACTER(LEN=50),DIMENSION(nVar1D),PARAMETER :: StrVarNames1D(nVar1D)=(/ CHARAC
                           ,'Favg'         & ! 8 : Only tokamaks(n=0!), toroidal magnetic field strength is F/R (averaged over theta)
                           ,'Fmin'         & ! 9 : F(s) is averaged over theta, Fmin(s) = min(F(s,theta))
                           ,'Fmax'         & !10 : F(s) is averaged over theta, Fmax(s) = max(F(s,theta))
+                          ,'Itor'         & !11 : Toroidal current 
+                          ,'Ipol'         & !12 : Poloidal current 
                                     /)
 REAL(wp),ALLOCATABLE  :: data_1D(:,:)        !< 1D profiles size (nVar1D,Ns_out)
 

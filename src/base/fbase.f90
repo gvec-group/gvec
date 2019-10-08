@@ -137,8 +137,9 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: sin_range(2)       !! sin_range(1)+1:sin_range(2) is range with sine bases 
-  INTEGER              :: cos_range(2)       !! sin_range(1)+1:sin_range(2) is range with sine bases 
+  INTEGER              :: sin_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases 
+  INTEGER              :: cos_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases 
+  INTEGER              :: mn_zero_mode        !! points to m=0,n=0 mode in mode array (1:mn_modes) (only one can exist for cosine, else =-1)
   REAL(wp)             :: d_thet              !! integration weight in theta direction: =2pi/mn_nyq(1)
   REAL(wp)             :: d_zeta              !! integration weight in zeta direction : =nfp*(2pi/nfp)/mn_nyq(2)=2*pi/mn_nyq(2)
   INTEGER,ALLOCATABLE  :: Xmn(:,:)            !! mode number (m,n*nfp) for each iMode=1,modes, size(2,modes)
@@ -148,6 +149,7 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   REAL(wp),ALLOCATABLE :: base_dthet_IP(:,:)  !! dthet derivative of basis functions, (1:mn_IP,1:mn_modes)
   REAL(wp),ALLOCATABLE :: base_dzeta_IP(:,:)  !! dzeta derivative of basis functions, (1:mn_IP,1:mn_modes)
 
+  REAL(wp),ALLOCATABLE :: snorm_base(:)       !! 1/norm of each basis function, size(1:mn_modes), norm=int_0^2pi int_0^pi (base_mn(thet,zeta))^2 dthet dzeta 
   
   CONTAINS
 
@@ -303,9 +305,12 @@ IMPLICIT NONE
     END DO; END DO !m,n
   END IF !sin_range>0
 
+  sf%mn_zero_mode=-1 !default 
+
   !COSINE (for _SINCOS_, it comes after sine)
   IF((cos_range(2)-cos_range(1)).EQ.modes_cos)THEN
     m=0
+    IF(mn_excl.EQ.0) sf%mn_zero_mode=iMode+1
     DO n=mn_excl,n_max
       iMode=iMode+1
       sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here 
@@ -319,22 +324,31 @@ IMPLICIT NONE
   IF(iMode.NE.modes) STOP ' Problem in Xmn '
 
   DO iMode=1,modes
-    IF((sf%Xmn(1,iMode).EQ.0))THEN
-      IF((sf%Xmn(2,iMode).EQ.0))THEN
+    m=sf%Xmn(1,iMode)
+    n=sf%Xmn(2,iMode)
+    ! set odd/even/zero for m-modes
+    IF((m.EQ.0))THEN  !m=0
+      IF((n.EQ.0))THEN !n=0
         sf%zero_odd_even(iMode)=MN_ZERO
-      ELSE
+      ELSE !n /=0
         sf%zero_odd_even(iMode)=M_ZERO
       END IF
-    ELSE
-      IF(MOD(sf%Xmn(1,iMode),2).EQ.0)THEN
+    ELSE  !m /=0
+      IF(MOD(m,2).EQ.0)THEN
         sf%zero_odd_even(iMode)=M_EVEN
-      ELSE
-        IF(sf%Xmn(1,iMode).EQ.1)THEN
+      ELSE 
+        IF(m.EQ.1)THEN
           sf%zero_odd_even(iMode)=M_ODD_FIRST
         ELSE
           sf%zero_odd_even(iMode)=M_ODD
         END IF
       END IF
+    END IF
+    ! compute 1/norm, with norm=int_0^2pi int_0^2pi (base_mn(thet,zeta))^2 dthet dzeta
+    IF((m.EQ.0).AND.(n.EQ.0))THEN !m=n=0 (only needed for cos)
+      sf%snorm_base(iMode)=1.0_wp/(TWOPI*TWOPI) !norm=4pi^2 
+    ELSE  
+      sf%snorm_base(iMode)=2.0_wp/(TWOPI*TWOPI) !norm=2pi^2
     END IF
   END DO !iMode=1,modes
 
@@ -403,6 +417,7 @@ IMPLICIT NONE
   ALLOCATE(sf%base_IP(      1:mn_IP,1:modes) )
   ALLOCATE(sf%base_dthet_IP(1:mn_IP,1:modes) )
   ALLOCATE(sf%base_dzeta_IP(1:mn_IP,1:modes) )
+  ALLOCATE(sf%snorm_base(1:modes) )
   END ASSOCIATE !m_nyq,n_nyq,modes
 END SUBROUTINE fBase_alloc
 
@@ -430,6 +445,7 @@ IMPLICIT NONE
   SDEALLOCATE(sf%base_IP)
   SDEALLOCATE(sf%base_dthet_IP)
   SDEALLOCATE(sf%base_dzeta_IP)
+  SDEALLOCATE(sf%snorm_base)
   
   sf%mn_max     =-1
   sf%mn_nyq     =-1 

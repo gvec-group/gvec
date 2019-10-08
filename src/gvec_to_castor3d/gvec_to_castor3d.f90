@@ -130,6 +130,7 @@ SUBROUTINE gvec_to_castor3d_prepare()
 USE MODgvec_gvec_to_castor3d_Vars 
 USE MODgvec_Globals,        ONLY: CROSS,TWOPI
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r
+USE MODgvec_transform_sfl,ONLY:test_sfl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -145,11 +146,17 @@ REAL(wp)                                :: dLAdthet,dLAdzeta
 REAL(wp)                                :: Phi_int,dPhids_int,Chi_int,dChids_int,iota_int
 REAL(wp)                                :: pressure_int,F_loc,Favg_int,Fmin_int,Fmax_int
 REAL(wp)                                :: X1_int,X2_int,LA_int
+REAL(wp)                                :: Ipol_int,Itor_int
 REAL(wp),DIMENSION(3)                   :: qvec,e_s,e_thet,e_zeta,Bfield,grad_zeta
 REAL(wp),DIMENSION(1:X1_base_r%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_r%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LA_base_r%f%modes) :: LA_s
 !===================================================================================================================================
+
+  CALL test_sfl(LA_base_r,LA_r,X1_base_r,X1_r)
+  CALL test_sfl(LA_base_r,LA_r,LA_base_r,LA_r)
+
+
 SWRITE(UNIT_stdOut,'(A)')'PREPARE DATA FOR GVEC-TO-CASTOR3D ...'
 DO i_s=1,Ns_out
   IF(MOD(i_s,MAX(1,Ns_out/100)).EQ.0) THEN
@@ -169,6 +176,8 @@ DO i_s=1,Ns_out
   Fmin_int=+1.0e12
   Fmax_int=-1.0e12
   Favg_int = 0.
+  Itor_int = 0.
+  Ipol_int = 0.
 
   !interpolate radially
   DO iMode=1,X1_base_r%f%modes
@@ -226,6 +235,12 @@ DO i_s=1,Ns_out
     Fmin_int = MIN(Fmin_int,F_loc)
     Fmax_int = MAX(Fmax_int,F_loc)
 
+    !poloidal and toroidal current profiles, line integral: integration over one angle /average over other...
+    !Itor= int_0^2pi B_theta dtheta = (nfp/2pi) int_0^2pi int_0^(2pi/nfp) B_theta dtheta dzeta
+    !Ipol= int_0^2pi B_zeta  dzeta  = nfp* int_0^(2pi/nfp) B_zeta dzeta = (nfp/2pi) int_0^2pi int_0^(2pi/nfp) B_zeta  dtheta dzeta
+    Itor_int = Itor_int+ SUM(Bfield(:)*e_thet(:))   !B_theta=B.e_thet 
+    Ipol_int = Ipol_int+ SUM(Bfield(:)*e_zeta(:))   !B_zeta =B.e_zeta
+
     !========== 
     ! save data
     data_scalar3D(ithet,izeta,i_s, X1__)   = X1_int 
@@ -241,6 +256,10 @@ DO i_s=1,Ns_out
   END DO ; END DO !izeta,ithet
   Favg_int = Favg_int/REAL((Nthet_out*Nzeta_out),wp)
 
+  Itor_int = Itor_int*REAL(nfp_out)/(TWOPI*REAL((Nthet_out*Nzeta_out),wp))
+  Ipol_int = Ipol_int*REAL(nfp_out)/(TWOPI*REAL((Nthet_out*Nzeta_out),wp))
+
+
   !========== 
   !save data
   data_1D( PHI__     ,i_s) = -TWOPI*Phi_int      !sign change of zeta coordinate! 
@@ -252,6 +271,8 @@ DO i_s=1,Ns_out
   data_1D( FAVG__    ,i_s) = Favg_int    
   data_1D( FMIN__    ,i_s) = Fmin_int    
   data_1D( FMAX__    ,i_s) = Fmax_int    
+  data_1D( ITOR__    ,i_s) = Itor_int !/mu_0?   
+  data_1D( IPOL__    ,i_s) =-Ipol_int !/mu_0?    !sign change of zeta coordinate!  
   !========== 
   
 END DO !i_s=1,Ns_out 
@@ -290,7 +311,7 @@ INTEGER :: ioUnit,iVar,i_s
 
 !HEADER
   WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
-  WRITE(ioUnit,'(A100)')'## GVEC-TO-CASTOR3D file, VERSION: 1.0                                                              '
+  WRITE(ioUnit,'(A100)')'## GVEC-TO-CASTOR3D file, VERSION: 1.1                                                              '
   WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
   WRITE(ioUnit,'(A100)')'## data is written on equidistant points in s,theta,zeta coordinates,                               '
   WRITE(ioUnit,'(A100)')'## * radially outward coordinate s=sqrt(phi_tor/phi_tor_edge) in [0,1]                              '
@@ -317,6 +338,8 @@ INTEGER :: ioUnit,iVar,i_s
   WRITE(ioUnit,'(A100)')'## * pressure(s) : pressure profile [N/(m^2)]                                                       '
   WRITE(ioUnit,'(A100)')'## * Favg(s)     : For tokamaks, poloidal current profile (input GS solver)                         '
   WRITE(ioUnit,'(A100)')'## * Fmin/Fmax(s): minimum /maximum of F(s)                                                         ' 
+  WRITE(ioUnit,'(A100)')'## * Itor(s)     : toroidal current profile [??]   = int_0^2pi B_theta dtheta                       ' 
+  WRITE(ioUnit,'(A100)')'## * Ipol(s)     : poloidal current profile [??]   = int_0^2pi B_zeta dzeta                         ' 
   WRITE(ioUnit,'(A100)')'##                                                                                                  '
   WRITE(ioUnit,'(A100)')'## 3D arrays of scalars (1:Ntheta,1:Nzeta,1:Ns)                                                     '
   WRITE(ioUnit,'(A100)')'## * X1 (R)      : coordinate R=sqrt(x^2+y^2) ( called X1 in GVEC, only=R for hmap=1)               '
