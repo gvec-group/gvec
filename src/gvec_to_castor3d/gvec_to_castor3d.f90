@@ -62,6 +62,8 @@ USE MODgvec_Globals,ONLY: TWOPI
 USE MODgvec_ReadState,ONLY: ReadState
 USE MODgvec_ReadState_vars,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_gvec_to_castor3d_vars
+USE MODgvec_ReadState_vars,ONLY: LA_r,X1_r 
+USE MODgvec_transform_sfl,ONLY:test_sfl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -79,6 +81,8 @@ INTEGER  :: i
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
 
   CALL ReadState(fileName)
+
+  CALL test_sfl(LA_base_r,LA_r,X1_base_r,X1_r)
 
   mn_max_out(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
   mn_max_out(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
@@ -130,7 +134,6 @@ SUBROUTINE gvec_to_castor3d_prepare()
 USE MODgvec_gvec_to_castor3d_Vars 
 USE MODgvec_Globals,        ONLY: CROSS,TWOPI
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r
-USE MODgvec_transform_sfl,ONLY:test_sfl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -152,11 +155,6 @@ REAL(wp),DIMENSION(1:X1_base_r%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_r%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LA_base_r%f%modes) :: LA_s
 !===================================================================================================================================
-
-  CALL test_sfl(LA_base_r,LA_r,X1_base_r,X1_r)
-  CALL test_sfl(LA_base_r,LA_r,LA_base_r,LA_r)
-
-
 SWRITE(UNIT_stdOut,'(A)')'PREPARE DATA FOR GVEC-TO-CASTOR3D ...'
 DO i_s=1,Ns_out
   IF(MOD(i_s,MAX(1,Ns_out/100)).EQ.0) THEN
