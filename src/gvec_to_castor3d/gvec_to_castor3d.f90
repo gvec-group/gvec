@@ -27,6 +27,10 @@ USE MODgvec_Globals, ONLY:wp,UNIT_stdOut,fmt_sep
 IMPLICIT NONE
 PRIVATE
 
+INTERFACE get_cla_gvec_to_castor3d
+  MODULE PROCEDURE get_cla_gvec_to_castor3d
+END INTERFACE
+
 INTERFACE init_gvec_to_castor3d
   MODULE PROCEDURE init_gvec_to_castor3d
 END INTERFACE
@@ -43,6 +47,7 @@ INTERFACE finalize_gvec_to_castor3d
   MODULE PROCEDURE finalize_gvec_to_castor3d
 END INTERFACE
 
+PUBLIC::get_cla_gvec_to_castor3d
 PUBLIC::init_gvec_to_castor3d
 PUBLIC::gvec_to_castor3d_prepare
 PUBLIC::gvec_to_castor3d_writeToFile
@@ -53,10 +58,93 @@ PUBLIC::finalize_gvec_to_castor3d
 CONTAINS
 
 !===================================================================================================================================
+!> Get command line arguments 
+!!
+!===================================================================================================================================
+SUBROUTINE get_CLA_gvec_to_castor3d() 
+! MODULES
+USE MODgvec_cla
+USE MODgvec_gvec_to_castor3d_Vars, ONLY: fileName, Ns_out,factorFourier
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+CHARACTER(LEN=STRLEN)   :: f_str
+CHARACTER(LEN=24)       :: execname="convert_gvec_to_castor3d"
+LOGICAL                 :: commandFailed
+!===================================================================================================================================
+
+  !USING CLAF90 module to get command line arguments!
+  CALL cla_init()
+
+  CALL cla_register('-r',  '--rpoints', &
+       'Number of radial points in s=[0,1] for output [MANDATORY, >1]',     cla_int,'2') !must be provided
+  CALL cla_register('-f',  '--factor', &
+       'Number of angular points, computed from max. mode numbers (=factor*mn_max) [DEFAULT = 4, <16]',     cla_int,'4') 
+  !positional argument
+  CALL cla_posarg_register('gvecfile.dat', &
+       'Filename of GVEC restart file [MANDATORY]',  cla_char,'xxx') !    
+
+  CALL cla_validate(execname)
+  CALL cla_get('-r',NS_out)
+  CALL cla_get('-r',NS_out)
+  CALL cla_get('-f',FactorFourier)
+  CALL cla_get('gvecfile.dat',f_str)
+  filename=TRIM(f_str)
+
+  commandFailed=.FALSE.
+  IF(.NOT.((cla_key_present('-r')).AND.(Ns_out.GE.2))) THEN
+    IF(.NOT.commandFailed) CALL cla_help(execname)
+    commandFailed=.TRUE.
+    WRITE(UNIT_StdOut,*) " ==> [-r,--rpoints] argument is MANDATORY and must be >1 !!!"
+  END IF
+  IF(FactorFourier.GT.16)THEN
+    IF(.NOT.commandFailed) CALL cla_help(execname)
+    commandFailed=.TRUE.
+    WRITE(UNIT_StdOut,*) " ==> [-f,--factor] argument should be <16 !!!"
+  END IF
+  IF((INDEX(filename,'xxx').NE.0))THEN
+    IF(.NOT.commandFailed) CALL cla_help(execname)
+    commandFailed=.TRUE.
+    WRITE(UNIT_StdOut,*) " ==> filename gvecfile.dat is MANDATORY must be specified !!!"
+  END IF
+  IF(commandFailed) STOP
+
+!  nArgs=COMMAND_ARGUMENT_COUNT()
+!  
+!  commandFailed=.FALSE.
+!  IF(nArgs.EQ.3)THEN
+!    CALL GET_COMMAND_ARGUMENT(1,tmp)
+!    READ(tmp,*,IOSTAT=err)Ns_out
+!    IF(err.NE.0) commandFailed=.TRUE.
+!    CALL GET_COMMAND_ARGUMENT(2,tmp)
+!    READ(tmp,*,IOSTAT=err)FactorFourier
+!    IF(err.NE.0) commandFailed=.TRUE.
+!    CALL GET_COMMAND_ARGUMENT(3,FileName)
+!  ELSE
+!    commandFailed=.TRUE.
+!  END IF
+!  IF(commandfailed)  STOP ' GVEC TO CASTOR3D: command not correct: "./executable Ns FourierFactor gvec_file.dat"'
+!  IF(Ns_out.LT.2) STOP ' GVEC TO CASTOR3D: choose number in radial dierction Ns>=2' 
+!  IF(FactorFourier.GT.16) STOP ' GVEC TO CASTOR3D: choose fourierFactor  <=16' 
+
+!  ppos = INDEX(FileName,'.dat',back=.TRUE.)
+!  IF ( ppos  .GT. 0 )THEN
+!     FileNameOut = FileName(1:ppos-1)
+!  ELSE
+!    STOP ' did not find .dat extension in input file'
+!  END IF
+
+END SUBROUTINE get_cla_gvec_to_castor3d
+
+!===================================================================================================================================
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE init_gvec_to_castor3d(fileName,Ns_in,factorFourier) 
+SUBROUTINE init_gvec_to_castor3d() 
 ! MODULES
 USE MODgvec_Globals,ONLY: TWOPI
 USE MODgvec_ReadState,ONLY: ReadState
@@ -67,9 +155,6 @@ USE MODgvec_transform_sfl,ONLY:test_sfl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*), INTENT(IN) :: fileName !< name of GVEC file
-INTEGER         , INTENT(IN) :: Ns_in !< number of equidistant points in radial s-direction (includes axis and edge!)
-INTEGER         , INTENT(IN) :: factorFourier !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -80,7 +165,7 @@ INTEGER  :: i
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
 
-  CALL ReadState(fileName)
+  CALL ReadState(TRIM(fileName))
 
   CALL test_sfl(LA_base_r,LA_r,X1_base_r,X1_r)
 
@@ -88,7 +173,6 @@ INTEGER  :: i
   mn_max_out(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
   nfp_out          = X1_base_r%f%nfp
 
-  Ns_out    = Ns_in
   IF((X1_base_r%f%sin_cos.EQ._COS_).AND.(X2_base_r%f%sin_cos.EQ._SIN_).AND.(LA_base_r%f%sin_cos.EQ._SIN_))THEN
     asym_out = 0 !R~cos,Z~sin,lambda~sin
   ELSE
@@ -286,20 +370,21 @@ END SUBROUTINE gvec_to_castor3d_prepare
 !> write data to file
 !!
 !===================================================================================================================================
-SUBROUTINE gvec_to_castor3d_writeToFile_ASCII(fileNameOut)
+SUBROUTINE gvec_to_castor3d_writeToFile_ASCII()
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MODgvec_gvec_to_castor3d_Vars 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*), INTENT(IN) :: fileNameOut !< name of output file
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: ioUnit,iVar,i_s
+CHARACTER(LEN=255) :: fileNameOut !< name of output file
+INTEGER            :: ioUnit,iVar,i_s
 !===================================================================================================================================
+  FileNameOut='gvec2castor3d_'//TRIM(FileName)
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITING NEW CASTOR3D FILE    "'//TRIM(FileNameOut)//'" ...'
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit       ,&

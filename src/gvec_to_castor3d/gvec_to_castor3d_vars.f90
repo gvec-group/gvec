@@ -26,11 +26,15 @@ USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
+!INPUT VARIABLES
+CHARACTER(LEN=255) :: fileName      !< name of GVEC file
+INTEGER            :: Ns_out        !< number of equidistant points in radial s-direction (includes axis and edge!)
+INTEGER            :: factorFourier !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 INTEGER               :: nfp_out            !< number of field periods
 INTEGER               :: asym_out           !< =0: symmetric configuration (R~cos,Z~sin,lambda~sin), =1 asymmetric 
 INTEGER               :: mn_max_out(2)      !< maximum number of modes in m,n
-INTEGER               :: Ns_out             !< total number of points in radial direction s [0,1]
 INTEGER               :: Nthet_out          !< total number of points in theta direction theta[0,2pi (
 INTEGER               :: Nzeta_out          !< total number of points in zeta direction zeta[0,-2pi/NFP( opposite sign compared to GVEC!!
 REAL(wp)              :: PhiEdge            !< total toroidal flux at the last flux surface (0 at axis), *2Pi and opposite compared GVEC!!
