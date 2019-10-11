@@ -298,6 +298,13 @@ DO i_s=1,Ns_out
   Itor_int = 0.
   Ipol_int = 0.
 
+  dLAdthet= 0.0_wp !only changed for SFLcoord=0
+  dLAdzeta= 0.0_wp !only changed for SFLcoord=0
+  G_int   = 0.0_wp !only changed for SFLcoords=2
+  dGds    = 0.0_wp !only changed for SFLcoords=2
+  dGdthet = 0.0_wp !only changed for SFLcoords=2
+  dGdzeta = 0.0_wp !only changed for SFLcoords=2
+
   !interpolate radially
   DO iMode=1,X1_base_in%f%modes
     X1_s( iMode)  = X1_base_in%s%evalDOF_s(spos,      0,X1_in(:,iMode))
@@ -307,12 +314,14 @@ DO i_s=1,Ns_out
     X2_s(   iMode)= X1_base_in%s%evalDOF_s(spos,      0,X2_in(:,iMode))
     dX2ds_s(iMode)= X1_base_in%s%evalDOF_s(spos,DERIV_S,X2_in(:,iMode))
   END DO !iMode
-  DO iMode=1,LG_base_in%f%modes
-    LG_s(iMode)   = LG_base_in%s%evalDOF_s(spos,      0,LG_in(:,iMode))
-  END DO !iMode
-  IF(SFLcoord.EQ.2)THEN !BOOZER
+  IF(SFLcoord.EQ.0)THEN !GVEC coordinates
     DO iMode=1,LG_base_in%f%modes
-      dGds_s(iMode)   = LG_base_in%s%evalDOF_s(spos,DERIV_S,LG_in(:,iMode))
+      LG_s(iMode)   = LG_base_in%s%evalDOF_s(spos,      0,LG_in(:,iMode))
+    END DO !iMode
+  ELSEIF(SFLcoord.EQ.2)THEN !BOOZER
+    DO iMode=1,LG_base_in%f%modes
+      LG_s(iMode)   = LG_base_in%s%evalDOF_s(spos,      0,LG_in(:,iMode))
+      dGds_s(iMode) = LG_base_in%s%evalDOF_s(spos,DERIV_S,LG_in(:,iMode))
     END DO !iMode
   END IF
   !interpolate in the angles
@@ -330,24 +339,16 @@ DO i_s=1,Ns_out
     dX2dthet = X2_base_in%f%evalDOF_x(xp, DERIV_THET, X2_s  )
     dX2dzeta = X2_base_in%f%evalDOF_x(xp, DERIV_ZETA, X2_s  )
     
-    IF(SFLcoord.EQ.0)THEN !GVEC coordinates
+    IF(SFLcoord.EQ.0)THEN !GVEC coordinates (else=0)
       dLAdthet = LG_base_in%f%evalDOF_x(xp, DERIV_THET, LG_s)
       dLAdzeta = LG_base_in%f%evalDOF_x(xp, DERIV_ZETA, LG_s)
-    ELSE
-      dLAdthet=0.0_wp
-      dLAdzeta=0.0_wp
     END IF
     
-    IF(SFLcoord.EQ.2)THEN !BOOZER coordinates
+    IF(SFLcoord.EQ.2)THEN !BOOZER coordinates (else=0)
       G_int   = LG_base_in%f%evalDOF_x(xp,         0, LG_s)
       dGds    = LG_base_in%f%evalDOF_x(xp,         0, dGds_s)
       dGdthet = LG_base_in%f%evalDOF_x(xp, DERIV_THET, LG_s)
       dGdzeta = LG_base_in%f%evalDOF_x(xp, DERIV_ZETA, LG_s)
-    ELSE
-      G_int   = 0.0_wp
-      dGds    = 0.0_wp
-      dGdthet = 0.0_wp
-      dGdzeta = 0.0_wp
     END IF
     
     qvec=(/X1_int,X2_int,xp(2)/) !(X1,X2,zeta)
@@ -361,7 +362,7 @@ DO i_s=1,Ns_out
     !WRITE(*,*)'CHECK sqrtG',sqrtG,sqrtG_check,sqrtG-sqrtG_check
 
     Bfield(:) = (  e_thet(:)*(iota_int-dLAdzeta )  & 
-                 + e_zeta(:)*(1.0_wp+dLAdthet   ) )*(dPhids_int/sqrtG)
+                 + e_zeta(:)*(1.0_wp  +dLAdthet ) )*(dPhids_int/sqrtG)
 
     !grad_s(:)   = CROSS(e_thet,e_zeta)/sqrtG
     !grad_thet(:)= CROSS(e_zeta,e_s   )/sqrtG
