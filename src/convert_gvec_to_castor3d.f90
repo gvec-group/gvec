@@ -44,8 +44,6 @@ REAL(wp)                :: StartTime,EndTime
   !initialization phase
   CALL Init_gvec_to_castor3d()
  
-  CALL gvec_to_castor3d_prepare()
-
   CALL gvec_to_castor3d_writeToFile()
   CALL Finalize_gvec_to_castor3d()
 

@@ -157,7 +157,7 @@ USE MODgvec_Globals,ONLY: TWOPI
 USE MODgvec_ReadState,ONLY: ReadState
 USE MODgvec_ReadState_vars,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_gvec_to_castor3d_vars
-USE MODgvec_ReadState_vars,ONLY: LA_r,X1_r 
+USE MODgvec_ReadState_vars,ONLY: LA_r,X1_r,X2_r 
 USE MODgvec_transform_sfl,ONLY:test_sfl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -189,6 +189,13 @@ INTEGER  :: i
   ELSE
     asym_out = 1 !full fourier
   END IF
+
+  IF(SFLcoord.NE.0)THEN
+   mn_max_out=mn_max_out*3 !*SFLfactor on modes
+   !CALL build_SFLbase(X1_base_r,X2_base_r,LA_base_r,mn_max_out,3)
+  END IF
+  
+
   ALLOCATE(s_pos(Ns_out))
   ALLOCATE(data_1D(nVar1D,Ns_out))
 
@@ -217,6 +224,19 @@ INTEGER  :: i
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
 
+  SELECT CASE(SFLcoord)
+  CASE(0)
+    CALL gvec_to_castor3D_prepare(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r)
+  CASE(1)
+    !CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,LA_base_r,LA_r) !LA not needed, used as placeholder
+    STOP 'PEST not yet implemented'
+  CASE(2)
+    !CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,Gsfl_base,Gsfl)
+    STOP 'BOOZER not yet implemented'
+  CASE DEFAULT
+    SWRITE(UNIT_StdOut,*)'This SFLcoord is not valid',SFLcoord
+    STOP
+  END SELECT
 END SUBROUTINE init_gvec_to_castor3d
 
 
@@ -224,14 +244,19 @@ END SUBROUTINE init_gvec_to_castor3d
 !> prepare all data to be written
 !!
 !===================================================================================================================================
-SUBROUTINE gvec_to_castor3d_prepare()
+SUBROUTINE gvec_to_castor3d_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG_in)
 ! MODULES
 USE MODgvec_gvec_to_castor3d_Vars 
 USE MODgvec_Globals,        ONLY: CROSS,TWOPI
-USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r
+USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r
+USE MODgvec_Base,           ONLY: t_base
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+CLASS(t_base),INTENT(IN) :: X1_base_in,X2_base_in,LG_base_in
+REAL(wp)     ,INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes)
+REAL(wp)     ,INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes)
+REAL(wp)     ,INTENT(IN) :: LG_in(1:LG_base_in%s%nBase,1:LG_base_in%f%modes) ! is either LA if SFLcoord=0/1 or G if SFLcoord=2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -243,12 +268,12 @@ REAL(wp)                                :: dX2ds,dX2dthet,dX2dzeta
 REAL(wp)                                :: dLAdthet,dLAdzeta
 REAL(wp)                                :: Phi_int,dPhids_int,Chi_int,dChids_int,iota_int
 REAL(wp)                                :: pressure_int,F_loc,Favg_int,Fmin_int,Fmax_int
-REAL(wp)                                :: X1_int,X2_int,LA_int
+REAL(wp)                                :: X1_int,X2_int,G_int,dGds,dGdthet,dGdzeta
 REAL(wp)                                :: Ipol_int,Itor_int
 REAL(wp),DIMENSION(3)                   :: qvec,e_s,e_thet,e_zeta,Bfield,grad_zeta
-REAL(wp),DIMENSION(1:X1_base_r%f%modes) :: X1_s,dX1ds_s
-REAL(wp),DIMENSION(1:X2_base_r%f%modes) :: X2_s,dX2ds_s
-REAL(wp),DIMENSION(1:LA_base_r%f%modes) :: LA_s
+REAL(wp),DIMENSION(1:X1_base_in%f%modes) :: X1_s,dX1ds_s
+REAL(wp),DIMENSION(1:X2_base_in%f%modes) :: X2_s,dX2ds_s
+REAL(wp),DIMENSION(1:LG_base_in%f%modes) :: LG_s,dGds_s
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'PREPARE DATA FOR GVEC-TO-CASTOR3D ...'
 DO i_s=1,Ns_out
@@ -258,12 +283,13 @@ DO i_s=1,Ns_out
   spos          = s_pos(i_s)
   data_1D(SPOS__,i_s)=s_pos(i_s)
 
-  Phi_int     = X1_base_r%s%evalDOF_s(spos,       0 ,profiles_1d(:,1))
-  dPhids_int  = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
-  Chi_int     = X1_base_r%s%evalDOF_s(spos,       0 ,profiles_1d(:,2)) !Chi not yet working
-  dChids_int  = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2)) !Chi not yet working
-  iota_int    = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
-  pressure_int= X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4))
+  Phi_int     = X1_base_in%s%evalDOF_s(spos,       0 ,profiles_1d(:,1))
+  dPhids_int  = X1_base_in%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
+  Chi_int     = X1_base_in%s%evalDOF_s(spos,       0 ,profiles_1d(:,2)) !Chi not yet working
+  !dChids_int  = X1_base_in%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2)) !Chi not yet working
+  iota_int    = X1_base_in%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+  dChids_int  = dPhids_int*iota_int 
+  pressure_int= X1_base_in%s%evalDOF_s(spos, 0,profiles_1d(:,4))
 
   
   Fmin_int=+1.0e12
@@ -273,40 +299,61 @@ DO i_s=1,Ns_out
   Ipol_int = 0.
 
   !interpolate radially
-  DO iMode=1,X1_base_r%f%modes
-    X1_s( iMode)  = X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
-    dX1ds_s(iMode)= X1_base_r%s%evalDOF_s(spos,DERIV_S,X1_r(:,iMode))
+  DO iMode=1,X1_base_in%f%modes
+    X1_s( iMode)  = X1_base_in%s%evalDOF_s(spos,      0,X1_in(:,iMode))
+    dX1ds_s(iMode)= X1_base_in%s%evalDOF_s(spos,DERIV_S,X1_in(:,iMode))
   END DO !iMode
-  DO iMode=1,X2_base_r%f%modes
-    X2_s(   iMode)= X1_base_r%s%evalDOF_s(spos,      0,X2_r(:,iMode))
-    dX2ds_s(iMode)= X1_base_r%s%evalDOF_s(spos,DERIV_S,X2_r(:,iMode))
+  DO iMode=1,X2_base_in%f%modes
+    X2_s(   iMode)= X1_base_in%s%evalDOF_s(spos,      0,X2_in(:,iMode))
+    dX2ds_s(iMode)= X1_base_in%s%evalDOF_s(spos,DERIV_S,X2_in(:,iMode))
   END DO !iMode
-  DO iMode=1,LA_base_r%f%modes
-    LA_s(iMode)   = LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode))
+  DO iMode=1,LG_base_in%f%modes
+    LG_s(iMode)   = LG_base_in%s%evalDOF_s(spos,      0,LG_in(:,iMode))
   END DO !iMode
+  IF(SFLcoord.EQ.2)THEN !BOOZER
+    DO iMode=1,LG_base_in%f%modes
+      dGds_s(iMode)   = LG_base_in%s%evalDOF_s(spos,DERIV_S,LG_in(:,iMode))
+    END DO !iMode
+  END IF
   !interpolate in the angles
   DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
     xp=(/thet_pos(ithet),zeta_pos(izeta)/)
 
 
-    X1_int   = X1_base_r%f%evalDOF_x(xp,          0, X1_s  )
-    dX1ds    = X1_base_r%f%evalDOF_x(xp,          0,dX1ds_s)
-    dX1dthet = X1_base_r%f%evalDOF_x(xp, DERIV_THET, X1_s  )
-    dX1dzeta = X1_base_r%f%evalDOF_x(xp, DERIV_ZETA, X1_s  )
+    X1_int   = X1_base_in%f%evalDOF_x(xp,          0, X1_s  )
+    dX1ds    = X1_base_in%f%evalDOF_x(xp,          0,dX1ds_s)
+    dX1dthet = X1_base_in%f%evalDOF_x(xp, DERIV_THET, X1_s  )
+    dX1dzeta = X1_base_in%f%evalDOF_x(xp, DERIV_ZETA, X1_s  )
     
-    X2_int   = X2_base_r%f%evalDOF_x(xp,          0, X2_s  )
-    dX2ds    = X2_base_r%f%evalDOF_x(xp,          0,dX2ds_s)
-    dX2dthet = X2_base_r%f%evalDOF_x(xp, DERIV_THET, X2_s  )
-    dX2dzeta = X2_base_r%f%evalDOF_x(xp, DERIV_ZETA, X2_s  )
+    X2_int   = X2_base_in%f%evalDOF_x(xp,          0, X2_s  )
+    dX2ds    = X2_base_in%f%evalDOF_x(xp,          0,dX2ds_s)
+    dX2dthet = X2_base_in%f%evalDOF_x(xp, DERIV_THET, X2_s  )
+    dX2dzeta = X2_base_in%f%evalDOF_x(xp, DERIV_ZETA, X2_s  )
     
-    LA_int   = LA_base_r%f%evalDOF_x(xp,          0, LA_s)
-    dLAdthet = LA_base_r%f%evalDOF_x(xp, DERIV_THET, LA_s)
-    dLAdzeta = LA_base_r%f%evalDOF_x(xp, DERIV_ZETA, LA_s)
+    IF(SFLcoord.EQ.0)THEN !GVEC coordinates
+      dLAdthet = LG_base_in%f%evalDOF_x(xp, DERIV_THET, LG_s)
+      dLAdzeta = LG_base_in%f%evalDOF_x(xp, DERIV_ZETA, LG_s)
+    ELSE
+      dLAdthet=0.0_wp
+      dLAdzeta=0.0_wp
+    END IF
     
-    qvec=(/X1_int,X2_int,xp(2)/)
-    e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,0.0_wp/)) !dxvec/ds
-    e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/)) !dxvec/dthet
-    e_zeta   = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/)) !dxvec/dzeta
+    IF(SFLcoord.EQ.2)THEN !BOOZER coordinates
+      G_int   = LG_base_in%f%evalDOF_x(xp,         0, LG_s)
+      dGds    = LG_base_in%f%evalDOF_x(xp,         0, dGds_s)
+      dGdthet = LG_base_in%f%evalDOF_x(xp, DERIV_THET, LG_s)
+      dGdzeta = LG_base_in%f%evalDOF_x(xp, DERIV_ZETA, LG_s)
+    ELSE
+      G_int   = 0.0_wp
+      dGds    = 0.0_wp
+      dGdthet = 0.0_wp
+      dGdzeta = 0.0_wp
+    END IF
+    
+    qvec=(/X1_int,X2_int,xp(2)/) !(X1,X2,zeta)
+    e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,        dGds   /)) !dxvec/ds
+    e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,        dGdthet/)) !dxvec/dthet
+    e_zeta   = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp +dGdzeta/)) !dxvec/dzeta
     sqrtG    = SUM(e_s*(CROSS(e_thet,e_zeta)))
    
     !check: J = e_s*(e_thet x e_zeta) 
@@ -338,8 +385,8 @@ DO i_s=1,Ns_out
     ! save data
     data_scalar3D(ithet,izeta,i_s, X1__)   = X1_int 
     data_scalar3D(ithet,izeta,i_s, X2__)   = X2_int
-    data_scalar3D(ithet,izeta,i_s, GZETA__) = 0.
-    data_scalar3D(ithet,izeta,i_s, BSUPT__) = (-iota_int+dLAdzeta )*(-dPhids_int/sqrtG)   !iota,dzeta,dphids change sign  
+    data_scalar3D(ithet,izeta,i_s, GZETA__) =(-1.0_wp)*G_int                             !sign change of zeta coordinate! 
+    data_scalar3D(ithet,izeta,i_s, BSUPT__) = (-iota_int+dLAdzeta )*(-dPhids_int/sqrtG)  !iota,dzeta,dphids all change sign  
     data_scalar3D(ithet,izeta,i_s, BSUPZ__) =  (1.0_wp+dLAdthet )*(-dPhids_int/sqrtG)    !sign change of zeta coordinate! 
 
     data_vector3D(:,ithet,izeta,i_s,BFIELD__    )  = Bfield
