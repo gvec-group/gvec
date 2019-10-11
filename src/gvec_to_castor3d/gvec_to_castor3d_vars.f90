@@ -29,6 +29,7 @@ PUBLIC
 !INPUT VARIABLES
 CHARACTER(LEN=255) :: fileName      !< name of GVEC file
 INTEGER            :: Ns_out        !< number of equidistant points in radial s-direction (includes axis and edge!)
+INTEGER            :: SFLcoord      !< which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL
 INTEGER            :: factorFourier !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
@@ -52,11 +53,11 @@ INTEGER,PARAMETER     :: CHI__     = 4
 INTEGER,PARAMETER     :: DCHIDS__  = 5
 INTEGER,PARAMETER     :: IOTA__    = 6
 INTEGER,PARAMETER     :: PRESSURE__= 7
-INTEGER,PARAMETER     :: FAVG__    = 8
-INTEGER,PARAMETER     :: FMIN__    = 9
-INTEGER,PARAMETER     :: FMAX__    =10
-INTEGER,PARAMETER     :: ITOR__    =11
-INTEGER,PARAMETER     :: IPOL__    =12
+INTEGER,PARAMETER     :: ITOR__    = 8
+INTEGER,PARAMETER     :: IPOL__    = 9
+INTEGER,PARAMETER     :: FAVG__    =10
+INTEGER,PARAMETER     :: FMIN__    =11
+INTEGER,PARAMETER     :: FMAX__    =12
 CHARACTER(LEN=50),DIMENSION(nVar1D),PARAMETER :: StrVarNames1D(nVar1D)=(/ CHARACTER(LEN=50) :: &
                            's'            & ! 1 : position s =sqrt(phi/phiEdge) [0,1]
                           ,'Phi'          & ! 2 : toroidal flux 
@@ -65,23 +66,27 @@ CHARACTER(LEN=50),DIMENSION(nVar1D),PARAMETER :: StrVarNames1D(nVar1D)=(/ CHARAC
                           ,'dChi_ds'      & ! 5 : derivative of poloidal flux to s coordinate
                           ,'iota'         & ! 6 : iota profile
                           ,'Pressure'     & ! 7 : pressure 
-                          ,'Favg'         & ! 8 : Only tokamaks(n=0!), toroidal magnetic field strength is F/R (averaged over theta)
-                          ,'Fmin'         & ! 9 : F(s) is averaged over theta, Fmin(s) = min(F(s,theta))
-                          ,'Fmax'         & !10 : F(s) is averaged over theta, Fmax(s) = max(F(s,theta))
-                          ,'Itor'         & !11 : Toroidal current 
-                          ,'Ipol'         & !12 : Poloidal current 
+                          ,'Itor'         & ! 8 : Toroidal current 
+                          ,'Ipol'         & ! 9 : Poloidal current 
+                          ,'Favg'         & !10 : Only tokamaks(n=0!), toroidal magnetic field strength is F/R (averaged over theta)
+                          ,'Fmin'         & !11 : F(s) is averaged over theta, Fmin(s) = min(F(s,theta))
+                          ,'Fmax'         & !12 : F(s) is averaged over theta, Fmax(s) = max(F(s,theta))
                                     /)
 REAL(wp),ALLOCATABLE  :: data_1D(:,:)        !< 1D profiles size (nVar1D,Ns_out)
 
 !3D scalar data 
-INTEGER,PARAMETER     :: nVarScalar3D=3           !< number of variabels in 3D data
+INTEGER,PARAMETER     :: nVarScalar3D=5           !< number of variabels in 3D data
 INTEGER,PARAMETER     :: X1__     = 1
 INTEGER,PARAMETER     :: X2__     = 2
-INTEGER,PARAMETER     :: LA__     = 3
+INTEGER,PARAMETER     :: GZETA__  = 3
+INTEGER,PARAMETER     :: BSUPT__  = 4
+INTEGER,PARAMETER     :: BSUPZ__  = 5
 CHARACTER(LEN=50),DIMENSION(nVarScalar3D),PARAMETER :: StrVarNamesScalar3D(nVarScalar3D)=(/ CHARACTER(LEN=50) :: &
                            'X1(R)'       & ! 1 : for Torus map (hmap=1), R=X1
                           ,'X2(Z)'       & ! 2 : for Torus map (hmap=1), Z=X2
-                          ,'LA'          & ! 3 : potential lambda, for PEST straight-field line angle: theta*=theta+lambda
+                          ,'Gzeta'       & ! 3 : map to geometric toroidal angle, phi = zeta+Gzeta
+                          ,'B^theta'     & ! 4 : theta component of magnetic field B^theta = B.grad(theta) 
+                          ,'B^zeta'      & ! 5 : zeta component of magnetic field B^theta = B.grad(zeta) 
                                     /)
 REAL(wp),ALLOCATABLE  :: data_scalar3D(:,:,:,:)    !< Size (Nthet_out,Nzeta_out,Ns_out,nVar3D)
 

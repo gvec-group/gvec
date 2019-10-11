@@ -64,7 +64,7 @@ CONTAINS
 SUBROUTINE get_CLA_gvec_to_castor3d() 
 ! MODULES
 USE MODgvec_cla
-USE MODgvec_gvec_to_castor3d_Vars, ONLY: fileName, Ns_out,factorFourier
+USE MODgvec_gvec_to_castor3d_Vars, ONLY: fileName, Ns_out,factorFourier,SFLcoord
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -81,17 +81,19 @@ LOGICAL                 :: commandFailed
   CALL cla_init()
 
   CALL cla_register('-r',  '--rpoints', &
-       'Number of radial points in s=[0,1] for output [MANDATORY, >1]',     cla_int,'2') !must be provided
+       'Number of radial points in s=[0,1] for output [MANDATORY, >1]', cla_int,'2') !must be provided
   CALL cla_register('-f',  '--factor', &
-       'Number of angular points, computed from max. mode numbers (=factor*mn_max) [DEFAULT = 4, <16]',     cla_int,'4') 
+       'Number of angular points, computed from max. mode numbers (=factor*mn_max) [DEFAULT = 4, <16]',cla_int,'4') 
+  CALL cla_register('-s',  '--sflcoord', &
+       'which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL [DEFAULT = 0]', cla_int,'0')
   !positional argument
   CALL cla_posarg_register('gvecfile.dat', &
        'Filename of GVEC restart file [MANDATORY]',  cla_char,'xxx') !    
 
   CALL cla_validate(execname)
   CALL cla_get('-r',NS_out)
-  CALL cla_get('-r',NS_out)
   CALL cla_get('-f',FactorFourier)
+  CALL cla_get('-s',SFLcoord)
   CALL cla_get('gvecfile.dat',f_str)
   filename=TRIM(f_str)
 
@@ -99,17 +101,22 @@ LOGICAL                 :: commandFailed
   IF(.NOT.((cla_key_present('-r')).AND.(Ns_out.GE.2))) THEN
     IF(.NOT.commandFailed) CALL cla_help(execname)
     commandFailed=.TRUE.
-    WRITE(UNIT_StdOut,*) " ==> [-r,--rpoints] argument is MANDATORY and must be >1 !!!"
+    SWRITE(UNIT_StdOut,*) " ==> [-r,--rpoints] argument is MANDATORY and must be >1 !!!"
   END IF
+  IF((SFLcoord.LT.0).OR.(SFLcoord.GT.2)) THEN
+    IF(.NOT.commandFailed) CALL cla_help(execname)
+    commandFailed=.TRUE.
+    SWRITE(UNIT_StdOut,*) " ==> [-s,--sflcoord] argument  must be 0,1,2 !!!"
+  END IF 
   IF(FactorFourier.GT.16)THEN
     IF(.NOT.commandFailed) CALL cla_help(execname)
     commandFailed=.TRUE.
-    WRITE(UNIT_StdOut,*) " ==> [-f,--factor] argument should be <16 !!!"
+    SWRITE(UNIT_StdOut,*) " ==> [-f,--factor] argument should be <16 !!!"
   END IF
   IF((INDEX(filename,'xxx').NE.0))THEN
     IF(.NOT.commandFailed) CALL cla_help(execname)
     commandFailed=.TRUE.
-    WRITE(UNIT_StdOut,*) " ==> filename gvecfile.dat is MANDATORY must be specified !!!"
+    SWRITE(UNIT_StdOut,*) " ==> filename gvecfile.dat is MANDATORY must be specified !!!"
   END IF
   IF(commandFailed) STOP
 
@@ -164,10 +171,14 @@ IMPLICIT NONE
 INTEGER  :: i
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
+  SWRITE(UNIT_stdOut,'(A,I6)')'  * Number of radial points :',Ns_out
+  SWRITE(UNIT_stdOut,'(A,I4)')'  * Factor on Fourier modes :',FactorFourier
+  SWRITE(UNIT_stdOut,'(A,I4)')'  * SFL coordinates flag    :',SFLcoord
+  SWRITE(UNIT_stdOut,'(A,A)') '  * GVEC input file         :',TRIM(fileName)
 
   CALL ReadState(TRIM(fileName))
 
-  CALL test_sfl(LA_base_r,LA_r,X1_base_r,X1_r)
+!  CALL test_sfl(LA_base_r,LA_r,X1_base_r,X1_r)
 
   mn_max_out(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
   mn_max_out(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
@@ -327,7 +338,9 @@ DO i_s=1,Ns_out
     ! save data
     data_scalar3D(ithet,izeta,i_s, X1__)   = X1_int 
     data_scalar3D(ithet,izeta,i_s, X2__)   = X2_int
-    data_scalar3D(ithet,izeta,i_s, LA__)   = LA_int
+    data_scalar3D(ithet,izeta,i_s, GZETA__) = 0.
+    data_scalar3D(ithet,izeta,i_s, BSUPT__) = (-iota_int+dLAdzeta )*(-dPhids_int/sqrtG)   !iota,dzeta,dphids change sign  
+    data_scalar3D(ithet,izeta,i_s, BSUPZ__) =  (1.0_wp+dLAdthet )*(-dPhids_int/sqrtG)    !sign change of zeta coordinate! 
 
     data_vector3D(:,ithet,izeta,i_s,BFIELD__    )  = Bfield
     data_vector3D(:,ithet,izeta,i_s,ECOV_S__    )  = e_s   
@@ -350,11 +363,11 @@ DO i_s=1,Ns_out
   data_1D( DCHIDS__  ,i_s) = TWOPI*dChids_int  
   data_1D( IOTA__    ,i_s) = -iota_int           !sign change of zeta coordinate!
   data_1D( PRESSURE__,i_s) = pressure_int
+  data_1D( ITOR__    ,i_s) = Itor_int  !/mu_0?   
+  data_1D( IPOL__    ,i_s) = -Ipol_int !/mu_0?    !sign change of zeta coordinate!  
   data_1D( FAVG__    ,i_s) = Favg_int    
   data_1D( FMIN__    ,i_s) = Fmin_int    
   data_1D( FMAX__    ,i_s) = Fmax_int    
-  data_1D( ITOR__    ,i_s) = Itor_int !/mu_0?   
-  data_1D( IPOL__    ,i_s) =-Ipol_int !/mu_0?    !sign change of zeta coordinate!  
   !========== 
   
 END DO !i_s=1,Ns_out 
@@ -394,7 +407,7 @@ INTEGER            :: ioUnit,iVar,i_s
 
 !HEADER
   WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
-  WRITE(ioUnit,'(A100)')'## GVEC-TO-CASTOR3D file, VERSION: 1.1                                                              '
+  WRITE(ioUnit,'(A100)')'## GVEC-TO-CASTOR3D file, VERSION: 2.0                                                              '
   WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
   WRITE(ioUnit,'(A100)')'## data is written on equidistant points in s,theta,zeta coordinates,                               '
   WRITE(ioUnit,'(A100)')'## * radially outward coordinate s=sqrt(phi_tor/phi_tor_edge) in [0,1]                              '
@@ -403,8 +416,11 @@ INTEGER            :: ioUnit,iVar,i_s
   WRITE(ioUnit,'(A100)')'##   theta(1:Ntheta)  with theta(1)=0, theta(Ntheta)=2pi*(Ntheta-1)*/Ntheta                         '
   WRITE(ioUnit,'(A100)')'## * toroidal angle zeta in [0,2pi/nfp], sign: zeta ~ atan(y/x)  (opposite to GVEC definition!)     '
   WRITE(ioUnit,'(A100)')'##   zeta(1:Nzeta)  with zeta(1)=0, zeta(Nzeta)=2pi/nfp*(Nzeta-1)*/Nzeta                            '
+  WRITE(ioUnit,'(A100)')'## * Angular coordinates can represent GVEC coordinates, with are not SFL (straight-field line)     '
+  WRITE(ioUnit,'(A100)')'##   coordinates or can be SFL coordinates, either PEST or BOOZER. See global parameter "SFLcoord"  '
   WRITE(ioUnit,'(A100)')'##                                                                                                  '
   WRITE(ioUnit,'(A100)')'## Global variables:                                                                                '
+  WRITE(ioUnit,'(A100)')'## * SFLcoord    : =0: GVEC coords (not SFL), =1: PEST SFL coords. , =2: BOOZER SFL coords.         '
   WRITE(ioUnit,'(A100)')'## * nfp         : number of toroidal field periods (toroidal angle [0,2pi/nfp])                    '
   WRITE(ioUnit,'(A100)')'## * asym        :  =0: symmetric cofiguration (R~cos,Z~sin,lambda~sin), 1: asymmetric              '
   WRITE(ioUnit,'(A100)')'## * m_max       : maximum number of poloidal modes in R,Z,lambda variables                         '
@@ -419,18 +435,20 @@ INTEGER            :: ioUnit,iVar,i_s
   WRITE(ioUnit,'(A100)')'## * dChi_ds(s)  : derivative of poloidal magnetic flux versus s coordinate                         '
   WRITE(ioUnit,'(A100)')'## * iota(s)     : rotational transform, dChi_ds/dPhi_ds [-]                                        '
   WRITE(ioUnit,'(A100)')'## * pressure(s) : pressure profile [N/(m^2)]                                                       '
-  WRITE(ioUnit,'(A100)')'## * Favg(s)     : For tokamaks, poloidal current profile (input GS solver)                         '
-  WRITE(ioUnit,'(A100)')'## * Fmin/Fmax(s): minimum /maximum of F(s)                                                         ' 
   WRITE(ioUnit,'(A100)')'## * Itor(s)     : toroidal current profile [??]   = int_0^2pi B_theta dtheta                       ' 
   WRITE(ioUnit,'(A100)')'## * Ipol(s)     : poloidal current profile [??]   = int_0^2pi B_zeta dzeta                         ' 
+  WRITE(ioUnit,'(A100)')'## * Favg(s)     : For tokamaks, poloidal current profile (input GS solver)                         '
+  WRITE(ioUnit,'(A100)')'## * Fmin/Fmax(s): minimum /maximum of F(s)                                                         ' 
   WRITE(ioUnit,'(A100)')'##                                                                                                  '
   WRITE(ioUnit,'(A100)')'## 3D arrays of scalars (1:Ntheta,1:Nzeta,1:Ns)                                                     '
   WRITE(ioUnit,'(A100)')'## * X1 (R)      : coordinate R=sqrt(x^2+y^2) ( called X1 in GVEC, only=R for hmap=1)               '
   WRITE(ioUnit,'(A100)')'## * X2 (Z)      : coordinate Z=z ( called X2 in GVEC, only=Z for hmap=1)                           '
-  WRITE(ioUnit,'(A100)')'## * LA          : lambda variable, straight-field line angle theta*=theta+lambda (PEST coordinates)'
+  WRITE(ioUnit,'(A100)')'## * Gzeta       : map to geometric toroidal angle phi = zeta + Gzeta ( spans RHS coords {R,phi,Z} )'
+  WRITE(ioUnit,'(A100)')'## * B^theta     : theta component of magnetic field, B^theta = B. grad(theta)                      '
+  WRITE(ioUnit,'(A100)')'## * B^zeta      :  zeta component of magnetic field, B^zeta  = B. grad(zeta)                       '
   WRITE(ioUnit,'(A100)')'##                                                                                                  '
   WRITE(ioUnit,'(A100)')'## 3D arrays of vectors (1:3,1:Ntheta,1:Nzeta,1:Ns)                                                 '
-  WRITE(ioUnit,'(A100)')'## * Bfield      : vector of magneitc field, components in cartesian coordinates (x,y,z)            '
+  WRITE(ioUnit,'(A100)')'## * Bfield      : vector of magnetic field, components in cartesian coordinates (x,y,z)            '
   WRITE(ioUnit,'(A100)')'## * ecov_s      : covariant vector in s, components in cartesian coordinates (x,y,z)               '
   WRITE(ioUnit,'(A100)')'## * ecov_theta  : covariant vector in theta, components in cartesian coordinates (x,y,z)           '
   WRITE(ioUnit,'(A100)')'## * ecov_zeta   : covariant vector in zeta, components in cartesian coordinates (x,y,z)            '
@@ -439,8 +457,8 @@ INTEGER            :: ioUnit,iVar,i_s
   WRITE(ioUnit,*)
   WRITE(ioUnit,'(A)')'##<< number of grid points: 1:Ns (radial), 1:Ntheta (poloidal),1:Nzeta (toroidal) '
   WRITE(ioUnit,'(*(I8,:,1X))')Ns_out,Nthet_out,Nzeta_out
-  WRITE(ioUnit,'(A)')'##<< global: nfp, asym, m_max, n_max'
-  WRITE(ioUnit,'(*(I8,:,1X))')nfp_out,asym_out,mn_max_out(1:2)
+  WRITE(ioUnit,'(A)')'##<< global: SFLcoord, nfp, asym, m_max, n_max'
+  WRITE(ioUnit,'(*(I8,:,1X))')SFLcoord,nfp_out,asym_out,mn_max_out(1:2)
   WRITE(ioUnit,'(A)')'##<< global: PhiEdge, ChiEdge'
   WRITE(ioUnit,'(*(E23.15,:,1X))')PhiEdge,ChiEdge
   WRITE(ioUnit,'(A,I4,A)',ADVANCE='NO')'##<< 1D profiles (',nVar1D,',1:Ns), variable names : '
