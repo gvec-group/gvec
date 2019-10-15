@@ -134,7 +134,7 @@ module MODgvec_cla
          ! number of parameters minus 1:
          cla_command_argument_count = 0
          ! Now count arguments:
-!         print *,'Counting arguments in :',trim(cla_cla)
+!         write(*,*) 'Counting arguments in :',trim(cla_cla)
          cla_cla_len = len_trim(cla_cla)
          if (cla_cla_len == 0) then
             return
@@ -145,7 +145,7 @@ module MODgvec_cla
             end if
          end do
          cla_command_argument_count = cla_command_argument_count + 1
-!         print *,'cla_command_argument_count found ',cla_command_argument_count
+!         write(*,*) 'cla_command_argument_count found ',cla_command_argument_count
       end if
     end function cla_command_argument_count
 
@@ -164,8 +164,8 @@ module MODgvec_cla
          end do
          arg(1:nn) = cla_cla(nm1+1:nm1+nn-1)
          arg(nn:) = ' '
-!         print *,'trim(cla_cla)=',trim(cla_cla)
-!         print *,'get_command_argument got : arg=',i,' val=',trim(arg)
+!         write(*,*) 'trim(cla_cla)=',trim(cla_cla)
+!         write(*,*) 'get_command_argument got : arg=',i,' val=',trim(arg)
       end if
     end subroutine cla_get_command_argument
 
@@ -498,10 +498,10 @@ module MODgvec_cla
       character(len=STRLEN)  :: value, key
       integer(kind=int_kind) :: ncla, k, kk, iequal, kcla, kkv
 
-      print *,"Validating the command line arguments:"
+      !write(*,*) "Validating the command line arguments:"
       ncla = cla_command_argument_count()
       if (ncla == 0) then
-         print *,"    ... none found. Returning."
+         !write(*,*) "    ... none found. Returning."
          return
       end if
       
@@ -520,34 +520,34 @@ module MODgvec_cla
          stop
       endif
 
-      print *,"    cla_command_argument_count = ",ncla
+      !write(*,*) "    cla_command_argument_count = ",ncla
       do k=1,ncla
          call cla_get_command_argument(k,arg)
-         print *,"    cla_command_argument #",k,": ",arg
+         !write(*,*) "    cla_command_argument #",k,": ",arg
       end do
       ! Positional arguments must all occur either before or after all the key/value arguments.
       kcla = 0
       do while (kcla < ncla)
          call cla_get_command_argument(kcla+1,arg)
          if (index(arg,"-") /= 1) then
-            if (kcla == 0) print *,"    Positional arguments appear to occur prior to key/value arguments."
+            !if (kcla == 0) write(*,*) "    Positional arguments appear to occur prior to key/value arguments."
             kcla = kcla + 1
             if (kcla > cla_posarg_num) then
-               print *,"     ERROR: Too many positional arguments found!"
+               write(*,*) "     ERROR: Too many positional arguments found!"
                stop
             endif
          else
             exit
          end if
-         print *,"          positional arg #",kcla,"= ",trim(arg), &
-              " is expected to be of type ",trim(cla_kindstr(cla_posarg_registry(kcla)%kind))
+         !write(*,*) "          positional arg #",kcla,"= ",trim(arg), &
+         !     " is expected to be of type ",trim(cla_kindstr(cla_posarg_registry(kcla)%kind))
       end do
       ! Look for key value pairs:
       do while (kcla < ncla-1)
          call cla_get_command_argument(kcla+1,key)
-         if ( (index(key,"-") == 1) .and. (kcla == 0) ) then
-            print *,"    Positional arguments appear to occur after to key/value arguments."
-         endif
+         !if ( (index(key,"-") == 1) .and. (kcla == 0) ) then
+         !   write(*,*) "    Positional arguments appear to occur after to key/value arguments."
+         !endif
          kkv = kcla
          do kk=1,cla_num
             ! must test for exact match, not just substring
@@ -555,20 +555,20 @@ module MODgvec_cla
                  cla_registry(kk)%longkey, &
                  key))then
                if (cla_registry(kk)%kind == cla_flag) then
-                  print *,"          key = ",trim(key)," is a flag"
+                  !write(*,*) "          key = ",trim(key)," is a flag"
                   kcla = kcla + 1
                   exit
                else
                   call cla_get_command_argument(kcla+2,value)
                   kcla = kcla + 2
-                  print *,"          key, value ?= ",trim(key)," ",trim(value), &
-                       " is expected to be of type ",trim(cla_kindstr(cla_registry(kk)%kind))
+                  !write(*,*) "          key, value ?= ",trim(key)," ",trim(value), &
+                  !     " is expected to be of type ",trim(cla_kindstr(cla_registry(kk)%kind))
                end if
             end if           
          end do
          if (kcla == kkv) then
             if (index(key,"-") == 1) then
-               print *,"      Error: ",trim(key)," could not be matched to any known key!"
+               write(*,*) "      ERROR: ",trim(key)," could not be matched to any known key!"
                stop
             else
                exit
@@ -581,18 +581,18 @@ module MODgvec_cla
          if (index(arg,"-") /= 1) then
             kcla = kcla + 1
             if ((kcla - kkv) > cla_posarg_num) then
-               print *,"     ERROR: Too many positional arguments found!"
+               write(*,*) "     ERROR: Too many positional arguments found!"
                stop
             endif
          else
-            print *,"    ERROR: Positional arguments appear to be mixed in with -key value arguments."
-            print *,"    Move position arguments to the end of the list."
+            write(*,*) "    ERROR: Positional arguments appear to be mixed in with -key value arguments."
+            write(*,*) "    Move position arguments to the end of the list."
             stop
          end if
-         print *,"    positional arg ?= ",arg
+         !write(*,*) "    positional arg ?= ",arg
       end do
-      print *,"    No errors found in syntax validation, but type/kind-validity not checked!"
-      print *,"    If a -key value pair is repeated, the last one is used."
+      !write(*,*) "    No errors found in syntax validation, but type/kind-validity not checked!"
+      !write(*,*) "    If a -key value pair is repeated, the last one is used."
     end subroutine cla_validate
     
     logical function cla_key_present(key)
@@ -614,7 +614,7 @@ module MODgvec_cla
  
       cla_key_present = .false.
       
-!      print *,'Calling cla_key_present with key = ',trim(key)
+!      write(*,*) 'Calling cla_key_present with key = ',trim(key)
       value = trim(cla_empty)
       do kk=1,cla_num
          ! must test for exact match, not just substring
@@ -679,7 +679,7 @@ module MODgvec_cla
          ! It seems that value is not yet defined here:
          !         if (index(trim(value),trim(cla_empty)) /= 0) then
          if (ordinal == -1) then
-            print *,'Error: You tried to retrieve an unknown command line argument: ',trim(key)
+            write(*,*) 'Error: You tried to retrieve an unknown command line argument: ',trim(key)
             call cla_show
             stop 5
          endif
@@ -745,7 +745,7 @@ module MODgvec_cla
       end do
       
       if (index(trim(value),trim(cla_empty)) /= 0) then
-         print *,'Error: You tried to retrieve an unknown command line argument: ',trim(key)
+         write(*,*) 'Error: You tried to retrieve an unknown command line argument: ',trim(key)
          call cla_show
          stop 5
       endif
@@ -786,7 +786,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)float_value
       return
-100   call cla_fatal("Input value not correct type: "//key//": "//value)
+100   call cla_fatal("Input value not correct type: "//key//" "//value)
     end subroutine cla_get_float_r4
     
     subroutine cla_get_float_r8(key,float_value)
@@ -798,7 +798,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)float_value
       return
-100   call cla_fatal("Input value not correct type: "//key//": "//value)
+100   call cla_fatal("Input value not correct type: "//key//" "//value)
     end subroutine cla_get_float_r8
     
     
@@ -811,7 +811,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)int_value
       return
-100   call cla_fatal("Input value not correct type: "//value)
+100   call cla_fatal("Input value not correct type: "//key//" "//value)
     end subroutine cla_get_int_i4
     
     subroutine cla_get_int_i8(key,int_value)
@@ -823,7 +823,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)int_value
       return
-100   call cla_fatal("Input value not correct type: "//value)        
+100   call cla_fatal("Input value not correct type: "//key//" "//value)        
     end subroutine cla_get_int_i8
     
     subroutine cla_get_logical(key,logical_value)

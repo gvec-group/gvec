@@ -64,7 +64,7 @@ CONTAINS
 SUBROUTINE get_CLA_gvec_to_castor3d() 
 ! MODULES
 USE MODgvec_cla
-USE MODgvec_gvec_to_castor3d_Vars, ONLY: fileName, Ns_out,factorFourier,SFLcoord
+USE MODgvec_gvec_to_castor3d_Vars, ONLY: fileName, Ns_out,npfactor,factorSFL,Nthet_out,Nzeta_out,SFLcoord
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -82,18 +82,27 @@ LOGICAL                 :: commandFailed
 
   CALL cla_register('-r',  '--rpoints', &
        'Number of radial points in s=[0,1] for output [MANDATORY, >1]', cla_int,'2') !must be provided
-  CALL cla_register('-f',  '--factor', &
-       'Number of angular points, computed from max. mode numbers (=factor*mn_max) [DEFAULT = 4, <16]',cla_int,'4') 
+  CALL cla_register('-n',  '--npfactor', &
+       'Number of angular points, computed from max. mode numbers (=npfactor*mn_max) [DEFAULT = 4]',cla_int,'4') 
+  CALL cla_register('-p',  '--polpoints', &
+       'Number of poloidal points, if specified overwrites factor*m_max  [OPTIONAL]',cla_int,'-1') 
+  CALL cla_register('-t',  '--torpoints', &
+       'Number of toroidal points, if specified overwrites factor*n_max  [OPTIONAL]',cla_int,'-1') 
   CALL cla_register('-s',  '--sflcoord', &
        'which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL [DEFAULT = 0]', cla_int,'0')
+  CALL cla_register('-f',  '--factorsfl', &
+       'factor on maximum mode numbers (mn_max=factorsfl*mn_max_in) for SFL coords.  [DEFAULT = 4]', cla_int,'4')
   !positional argument
   CALL cla_posarg_register('gvecfile.dat', &
        'Filename of GVEC restart file [MANDATORY]',  cla_char,'xxx') !    
 
   CALL cla_validate(execname)
   CALL cla_get('-r',NS_out)
-  CALL cla_get('-f',FactorFourier)
+  CALL cla_get('-n',npfactor)
+  CALL cla_get('-p',Nthet_out)
+  CALL cla_get('-t',Nzeta_out)
   CALL cla_get('-s',SFLcoord)
+  CALL cla_get('-f',factorSFL)
   CALL cla_get('gvecfile.dat',f_str)
   filename=TRIM(f_str)
 
@@ -108,17 +117,20 @@ LOGICAL                 :: commandFailed
     commandFailed=.TRUE.
     SWRITE(UNIT_StdOut,*) " ==> [-s,--sflcoord] argument  must be 0,1,2 !!!"
   END IF 
-  IF(FactorFourier.GT.16)THEN
-    IF(.NOT.commandFailed) CALL cla_help(execname)
-    commandFailed=.TRUE.
-    SWRITE(UNIT_StdOut,*) " ==> [-f,--factor] argument should be <16 !!!"
-  END IF
   IF((INDEX(filename,'xxx').NE.0))THEN
     IF(.NOT.commandFailed) CALL cla_help(execname)
     commandFailed=.TRUE.
     SWRITE(UNIT_StdOut,*) " ==> filename gvecfile.dat is MANDATORY must be specified !!!"
   END IF
   IF(commandFailed) STOP
+
+  SWRITE(UNIT_stdOut,'(A)')   ' INPUT PARAMETERS:' 
+  SWRITE(UNIT_stdOut,'(A,I6)')'  * Number of radial points        : ',Ns_out
+  SWRITE(UNIT_stdOut,'(A,I4)')'  * npfactor points from modes     : ',npfactor
+  SWRITE(UNIT_stdOut,'(A,I4)')'  * SFL coordinates flag           : ',SFLcoord
+  SWRITE(UNIT_stdOut,'(A,I4)')'  * factor for modes of SFL coords : ',factorSFL
+  SWRITE(UNIT_stdOut,'(A,A)') '  * GVEC input file                : ',TRIM(fileName)
+  SWRITE(UNIT_stdOut,fmt_sep)
 
 !  nArgs=COMMAND_ARGUMENT_COUNT()
 !  
@@ -128,7 +140,7 @@ LOGICAL                 :: commandFailed
 !    READ(tmp,*,IOSTAT=err)Ns_out
 !    IF(err.NE.0) commandFailed=.TRUE.
 !    CALL GET_COMMAND_ARGUMENT(2,tmp)
-!    READ(tmp,*,IOSTAT=err)FactorFourier
+!    READ(tmp,*,IOSTAT=err)npfactor
 !    IF(err.NE.0) commandFailed=.TRUE.
 !    CALL GET_COMMAND_ARGUMENT(3,FileName)
 !  ELSE
@@ -136,7 +148,7 @@ LOGICAL                 :: commandFailed
 !  END IF
 !  IF(commandfailed)  STOP ' GVEC TO CASTOR3D: command not correct: "./executable Ns FourierFactor gvec_file.dat"'
 !  IF(Ns_out.LT.2) STOP ' GVEC TO CASTOR3D: choose number in radial dierction Ns>=2' 
-!  IF(FactorFourier.GT.16) STOP ' GVEC TO CASTOR3D: choose fourierFactor  <=16' 
+!  IF(npfactor.GT.16) STOP ' GVEC TO CASTOR3D: choose fourierFactor  <=16' 
 
 !  ppos = INDEX(FileName,'.dat',back=.TRUE.)
 !  IF ( ppos  .GT. 0 )THEN
@@ -154,11 +166,12 @@ END SUBROUTINE get_cla_gvec_to_castor3d
 SUBROUTINE init_gvec_to_castor3d() 
 ! MODULES
 USE MODgvec_Globals,ONLY: TWOPI
-USE MODgvec_ReadState,ONLY: ReadState
-USE MODgvec_ReadState_vars,ONLY: X1_base_r,X2_base_r,LA_base_r
+USE MODgvec_ReadState         ,ONLY: ReadState
+USE MODgvec_ReadState_vars    ,ONLY: X1_base_r,X2_base_r,LA_base_r
+USE MODgvec_ReadState_vars    ,ONLY: LA_r,X1_r,X2_r 
+USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl
+USE MODgvec_transform_sfl     ,ONLY: BuildTransform_SFL
 USE MODgvec_gvec_to_castor3d_vars
-USE MODgvec_ReadState_vars,ONLY: LA_r,X1_r,X2_r 
-USE MODgvec_transform_sfl,ONLY:test_sfl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -171,14 +184,9 @@ IMPLICIT NONE
 INTEGER  :: i
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
-  SWRITE(UNIT_stdOut,'(A,I6)')'  * Number of radial points :',Ns_out
-  SWRITE(UNIT_stdOut,'(A,I4)')'  * Factor on Fourier modes :',FactorFourier
-  SWRITE(UNIT_stdOut,'(A,I4)')'  * SFL coordinates flag    :',SFLcoord
-  SWRITE(UNIT_stdOut,'(A,A)') '  * GVEC input file         :',TRIM(fileName)
 
   CALL ReadState(TRIM(fileName))
 
-!  CALL test_sfl(LA_base_r,LA_r,X1_base_r,X1_r)
 
   mn_max_out(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
   mn_max_out(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
@@ -191,8 +199,8 @@ INTEGER  :: i
   END IF
 
   IF(SFLcoord.NE.0)THEN
-   mn_max_out=mn_max_out*3 !*SFLfactor on modes
-   !CALL build_SFLbase(X1_base_r,X2_base_r,LA_base_r,mn_max_out,3)
+   mn_max_out=mn_max_out*factorSFL !*SFLfactor on modes
+   CALL buildTransform_SFL(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r,mn_max_out,SFLcoord)
   END IF
   
 
@@ -203,9 +211,16 @@ INTEGER  :: i
   DO i=2,Ns_out-1
       s_pos(i) = REAL(i-1,wp)/REAL(Ns_out-1,wp)
   END DO !i
-  s_pos(Ns_out)=1. - 1.0e-12_wp !aviod edge
-  Nthet_out = factorFourier*mn_max_out(1)
-  Nzeta_out = MAX(1,factorFourier*mn_max_out(2)) !if n=0, output 1 point
+  s_pos(Ns_out)=1. - 1.0e-12_wp !avoid edge
+  IF(Nthet_out.EQ.-1) THEN !overwrite with default from factorFouier
+    Nthet_out = npfactor*mn_max_out(1)
+  END IF
+  IF(Nzeta_out.EQ.-1) THEN !overwrite with default from factorFourier
+    Nzeta_out = MAX(1,npfactor*mn_max_out(2)) !if n=0, output 1 point
+  END IF
+  !check
+  IF(Nthet_out .LE. mn_max_out(1)) STOP 'number of poloidal points for output should be >m_max!'
+  IF(Nzeta_out .LE. mn_max_out(2)) STOP 'number of torodial points for output must be >n_max!'
 
   ALLOCATE(thet_pos(Nthet_out))
   ALLOCATE(zeta_pos(Nzeta_out))
@@ -228,10 +243,9 @@ INTEGER  :: i
   CASE(0)
     CALL gvec_to_castor3D_prepare(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r)
   CASE(1)
-    !CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,LA_base_r,LA_r) !LA not needed, used as placeholder
-    STOP 'PEST not yet implemented'
+    CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,LA_base_r,LA_r) !LA not needed, used as placeholder
   CASE(2)
-    !CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,Gsfl_base,Gsfl)
+    !CALL gvec_to_castor3D_prepare(X1_base_r%s,X1sfl_base,X1sfl,X2sfl_base,X2sfl,Gsfl_base,Gsfl)
     STOP 'BOOZER not yet implemented'
   CASE DEFAULT
     SWRITE(UNIT_StdOut,*)'This SFLcoord is not valid',SFLcoord
@@ -247,16 +261,16 @@ END SUBROUTINE init_gvec_to_castor3d
 SUBROUTINE gvec_to_castor3d_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG_in)
 ! MODULES
 USE MODgvec_gvec_to_castor3d_Vars 
-USE MODgvec_Globals,        ONLY: CROSS,TWOPI
-USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r
+USE MODgvec_Globals,        ONLY: CROSS,TWOPI,PI
+USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
 USE MODgvec_Base,           ONLY: t_base
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CLASS(t_base),INTENT(IN) :: X1_base_in,X2_base_in,LG_base_in
-REAL(wp)     ,INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes)
-REAL(wp)     ,INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes)
-REAL(wp)     ,INTENT(IN) :: LG_in(1:LG_base_in%s%nBase,1:LG_base_in%f%modes) ! is either LA if SFLcoord=0/1 or G if SFLcoord=2
+CLASS(t_base) ,INTENT(IN) :: X1_base_in,X2_base_in,LG_base_in
+REAL(wp)      ,INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes)
+REAL(wp)      ,INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes)
+REAL(wp)      ,INTENT(IN) :: LG_in(1:LG_base_in%s%nBase,1:LG_base_in%f%modes) ! is either LA if SFLcoord=0/1 or G if SFLcoord=2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -283,13 +297,13 @@ DO i_s=1,Ns_out
   spos          = s_pos(i_s)
   data_1D(SPOS__,i_s)=s_pos(i_s)
 
-  Phi_int     = X1_base_in%s%evalDOF_s(spos,       0 ,profiles_1d(:,1))
-  dPhids_int  = X1_base_in%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
-  Chi_int     = X1_base_in%s%evalDOF_s(spos,       0 ,profiles_1d(:,2)) !Chi not yet working
-  !dChids_int  = X1_base_in%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2)) !Chi not yet working
-  iota_int    = X1_base_in%s%evalDOF_s(spos, 0,profiles_1d(:,3))
+  Phi_int     = sbase_prof%evalDOF_s(spos,       0 ,profiles_1d(:,1))
+  dPhids_int  = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
+  Chi_int     = sbase_prof%evalDOF_s(spos,       0 ,profiles_1d(:,2)) !Chi not yet working
+  !dChids_int  = sbase_profs%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2)) !Chi not yet working
+  iota_int    = sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,3))
   dChids_int  = dPhids_int*iota_int 
-  pressure_int= X1_base_in%s%evalDOF_s(spos, 0,profiles_1d(:,4))
+  pressure_int= sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,4))
 
   
   Fmin_int=+1.0e12
@@ -370,7 +384,7 @@ DO i_s=1,Ns_out
 
 
     !F-profile, only makes sense for tokamak configurations (n=0): F=-phi' R*(1+dlambda_dtheta)/(Jac*|\nabla\zeta|)
-    F_loc = -dPhids_int*X1_int*(1+dLAdthet)/(sqrtG*SQRT(SUM(grad_zeta(:)**2)))
+    F_loc = -dPhids_int*X1_int*(1.0_wp+dLAdthet)/(sqrtG*SQRT(SUM(grad_zeta(:)**2)))
 
     Favg_int = Favg_int + F_loc
     Fmin_int = MIN(Fmin_int,F_loc)
@@ -411,8 +425,8 @@ DO i_s=1,Ns_out
   data_1D( DCHIDS__  ,i_s) = TWOPI*dChids_int  
   data_1D( IOTA__    ,i_s) = -iota_int           !sign change of zeta coordinate!
   data_1D( PRESSURE__,i_s) = pressure_int
-  data_1D( ITOR__    ,i_s) = Itor_int  !/mu_0?   
-  data_1D( IPOL__    ,i_s) = -Ipol_int !/mu_0?    !sign change of zeta coordinate!  
+  data_1D( ITOR__    ,i_s) =  Itor_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0 = pi*10^7
+  data_1D( IPOL__    ,i_s) = -Ipol_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0  and sign change of zeta coordinate!  
   data_1D( FAVG__    ,i_s) = Favg_int    
   data_1D( FMIN__    ,i_s) = Fmin_int    
   data_1D( FMAX__    ,i_s) = Fmax_int    
@@ -470,7 +484,7 @@ INTEGER            :: ioUnit,iVar,i_s
   WRITE(ioUnit,'(A100)')'## Global variables:                                                                                '
   WRITE(ioUnit,'(A100)')'## * SFLcoord    : =0: GVEC coords (not SFL), =1: PEST SFL coords. , =2: BOOZER SFL coords.         '
   WRITE(ioUnit,'(A100)')'## * nfp         : number of toroidal field periods (toroidal angle [0,2pi/nfp])                    '
-  WRITE(ioUnit,'(A100)')'## * asym        :  =0: symmetric cofiguration (R~cos,Z~sin,lambda~sin), 1: asymmetric              '
+  WRITE(ioUnit,'(A100)')'## * asym        :  =0: symmetric cofiguration (R~cos,Z~sin), 1: asymmetric                         '
   WRITE(ioUnit,'(A100)')'## * m_max       : maximum number of poloidal modes in R,Z,lambda variables                         '
   WRITE(ioUnit,'(A100)')'## * n_max       : maximum number of toroidal modes in R,Z,lambda variables                         '
   WRITE(ioUnit,'(A100)')'## * PhiEdge     : Toroidal Flux at the last flux surface [T*m^2]                                   '
@@ -505,8 +519,8 @@ INTEGER            :: ioUnit,iVar,i_s
   WRITE(ioUnit,*)
   WRITE(ioUnit,'(A)')'##<< number of grid points: 1:Ns (radial), 1:Ntheta (poloidal),1:Nzeta (toroidal) '
   WRITE(ioUnit,'(*(I8,:,1X))')Ns_out,Nthet_out,Nzeta_out
-  WRITE(ioUnit,'(A)')'##<< global: SFLcoord, nfp, asym, m_max, n_max'
-  WRITE(ioUnit,'(*(I8,:,1X))')SFLcoord,nfp_out,asym_out,mn_max_out(1:2)
+  WRITE(ioUnit,'(A)')'##<< global: SFLcoord,nfp,  asym, m_max, n_max'
+  WRITE(ioUnit,'(12X,*(I6,:,1X))')SFLcoord,nfp_out,asym_out,mn_max_out(1:2)
   WRITE(ioUnit,'(A)')'##<< global: PhiEdge, ChiEdge'
   WRITE(ioUnit,'(*(E23.15,:,1X))')PhiEdge,ChiEdge
   WRITE(ioUnit,'(A,I4,A)',ADVANCE='NO')'##<< 1D profiles (',nVar1D,',1:Ns), variable names : '
@@ -530,6 +544,19 @@ INTEGER            :: ioUnit,iVar,i_s
 
   
 
+  CLOSE(ioUnit)
+  !write profiles again in csv
+  OPEN(UNIT     = ioUnit       ,&
+     FILE     = 'profiles.csv' ,&
+     STATUS   = 'REPLACE'   ,&
+     ACCESS   = 'SEQUENTIAL' ) 
+  DO iVar=1,nVar1D-1
+    WRITE(ioUnit,'(A,1X,(1X))',ADVANCE='NO' )  '"'//TRIM(StrVarNames1D(iVar))//'", '
+  END DO
+  WRITE(ioUnit,'(A)')  '"'//TRIM(StrVarNames1D(nVar1D))//'"'
+  DO i_s=1,Ns_out
+    WRITE(ioUnit,'(*(e23.15,:,","))') data_1d(1:nVar1D,i_s) 
+  END DO
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
 END SUBROUTINE gvec_to_castor3d_writeToFile_ASCII

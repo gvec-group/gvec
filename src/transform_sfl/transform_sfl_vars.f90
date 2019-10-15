@@ -21,10 +21,20 @@
 MODULE MODgvec_Transform_SFL_Vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
+USE MODgvec_base,   ONLY: t_base
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
+INTEGER                     :: whichSFLcoord !! 
+CLASS(t_base),  ALLOCATABLE :: X1sfl_base    !! container for base of variable X1 in SFL coordinates
+CLASS(t_base),  ALLOCATABLE :: X2sfl_base    !! container for base of variable X2 in SFL coordinates
+CLASS(t_base),  ALLOCATABLE :: GZ_base       !! container for base of variable Gzeta (transforms to BOOZER!)
+CLASS(t_base),  ALLOCATABLE :: GZsfl_base    !! container for base of variable Gzeta in SFL coordinates
+REAL(wp),       ALLOCATABLE :: X1sfl(:,:)    !! data (1:nBase,1:modes) of X1 in SFL coords.
+REAL(wp),       ALLOCATABLE :: X2sfl(:,:)    !! data (1:nBase,1:modes) of X2 in SFL coords.
+REAL(wp),       ALLOCATABLE :: GZ(:,:)       !! data (1:nBase,1:modes) of GZ in GVEC coords. (for BOOZER)
+REAL(wp),       ALLOCATABLE :: GZsfl(:,:)    !! data (1:nBase,1:modes) of GZ in SFL coords.  (for BOOZER)
 
 !===================================================================================================================================
 END MODULE MODgvec_Transform_SFL_Vars

@@ -28,9 +28,6 @@ REAL(wp)                :: StartTime,EndTime
 !===================================================================================================================================
   CALL CPU_TIME(StartTime)
     
-  CALL GET_CLA_gvec_to_castor3d()
-
-  
   !header
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(Unit_stdOut,'(5(("*",A128,2X,"*",:,"\n")))')&
@@ -40,6 +37,7 @@ REAL(wp)                :: StartTime,EndTime
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '&
 ,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   WRITE(Unit_stdOut,'(132("="))')
+  CALL GET_CLA_gvec_to_castor3d()
   
   !initialization phase
   CALL Init_gvec_to_castor3d()
