@@ -207,7 +207,7 @@ INTEGER  :: i
   ALLOCATE(s_pos(Ns_out))
   ALLOCATE(data_1D(nVar1D,Ns_out))
 
-  s_pos(1)=1.0e-08_wp !avoid axis
+  s_pos(1)=1.0e-06_wp !avoid axis
   DO i=2,Ns_out-1
       s_pos(i) = REAL(i-1,wp)/REAL(Ns_out-1,wp)
   END DO !i
