@@ -21,12 +21,14 @@
 MODULE MODgvec_Transform_SFL_Vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
-USE MODgvec_base,   ONLY: t_base
+USE MODgvec_base   ,ONLY: t_base
+USE MODgvec_sGrid  ,ONLY: t_sgrid
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 INTEGER                     :: whichSFLcoord !! 
+TYPE(t_sgrid)               :: sgrid_sfl     !! uniform grid for SFL coordinates
 CLASS(t_base),  ALLOCATABLE :: X1sfl_base    !! container for base of variable X1 in SFL coordinates
 CLASS(t_base),  ALLOCATABLE :: X2sfl_base    !! container for base of variable X2 in SFL coordinates
 CLASS(t_base),  ALLOCATABLE :: GZ_base       !! container for base of variable Gzeta (transforms to BOOZER!)

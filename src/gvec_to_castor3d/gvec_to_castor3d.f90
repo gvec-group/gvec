@@ -200,7 +200,7 @@ INTEGER  :: i
 
   IF(SFLcoord.NE.0)THEN
    mn_max_out=mn_max_out*factorSFL !*SFLfactor on modes
-   CALL buildTransform_SFL(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r,mn_max_out,SFLcoord)
+   CALL buildTransform_SFL(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r,Ns_out,mn_max_out,SFLcoord)
   END IF
   
 

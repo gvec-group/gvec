@@ -44,7 +44,7 @@ CONTAINS
 !> Builds X1 and X2 in SFL coordinates
 !!
 !===================================================================================================================================
-SUBROUTINE BuildTransform_SFL(X1_base_in,X1_in,X2_base_in,X2_in,LA_base_in,LA_in,mn_max,whichSFL)
+SUBROUTINE BuildTransform_SFL(X1_base_in,X1_in,X2_base_in,X2_in,LA_base_in,LA_in,Ns,mn_max,whichSFL)
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut
 USE MODgvec_base,ONLY:t_base
@@ -58,6 +58,7 @@ IMPLICIT NONE
   REAL(wp)    ,INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes) !< coefficients 
   REAL(wp)    ,INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes) !< coefficients 
   REAL(wp)    ,INTENT(IN) :: LA_in(1:LA_base_in%s%nBase,1:LA_base_in%f%modes) !< coefficients 
+  INTEGER     ,INTENT(IN) :: Ns                                               !< number of new radial points 
   INTEGER     ,INTENT(IN) :: mn_max(2)                                        !< maximum number for new variables in SFL coordinates
   INTEGER     ,INTENT(IN) :: whichSFL                                         !< either =1: PEST, =2:Boozer 
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -66,12 +67,17 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER                    :: fac_nyq              !< for number of integr. points  (=3...4 at least)
 !===================================================================================================================================
+
+!possibility to increase the resolution of the grid for SFL coordinates
+CALL sgrid_sfl%init(MAX(Ns-1,X1_base_in%s%grid%nElems),X1_base_in%s%grid%grid_type)
+!CALL sgrid_sfl%copy(X1_base_in%s%grid)
+
 whichSFLcoord=whichSFL
 SELECT CASE(whichSFLcoord)
 CASE(1) !PEST
   fac_nyq=4
-  CALL Transform_to_PEST(LA_base_in,LA_in,X1_base_in,X1_in,mn_max,fac_nyq,X1sfl_base,X1sfl)
-  CALL Transform_to_PEST(LA_base_in,LA_in,X2_base_in,X2_in,mn_max,fac_nyq,X2sfl_base,X2sfl)
+  CALL Transform_to_PEST(LA_base_in,LA_in,X1_base_in,X1_in,mn_max,fac_nyq,sgrid_sfl,X1sfl_base,X1sfl)
+  CALL Transform_to_PEST(LA_base_in,LA_in,X2_base_in,X2_in,mn_max,fac_nyq,sgrid_sfl,X2sfl_base,X2sfl)
 CASE(2) !BOOZER
   SWRITE(UNIT_stdOut,*)'BOOZER SFL coordinate input is not yet implemented'
   STOP
@@ -94,11 +100,12 @@ END SUBROUTINE BuildTransform_SFL
 !>       = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) (1+dlambda/dtheta) dtheta dzeta
 !!
 !===================================================================================================================================
-SUBROUTINE Transform_to_PEST(LA_base_in,LA,q_base_in,q_in,mn_max,fac_nyq,q_base_out,q_out)
+SUBROUTINE Transform_to_PEST(LA_base_in,LA,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_base_out,q_out)
 ! MODULES
-USE MODgvec_Globals,ONLY:UNIT_stdOut
-USE MODgvec_base,ONLY:t_base,base_new
-USE MODgvec_fbase,ONLY:t_fbase,fbase_new,sin_cos_map
+USE MODgvec_Globals,ONLY: UNIT_stdOut
+USE MODgvec_base   ,ONLY: t_base,base_new
+USE MODgvec_sGrid  ,ONLY: t_sgrid
+USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -109,6 +116,7 @@ IMPLICIT NONE
   INTEGER      ,INTENT(IN) :: mn_max(2)                                     !< maximum number for new variables in SFL coordinates
   INTEGER      ,INTENT(IN) :: fac_nyq                                       !< for number of integr. points  (=3...4 at least)
                                                                             !< n_IP=fac_nyq*max(mn_max_in)
+  CLASS(t_sgrid), INTENT(IN   ),TARGET :: sgrid_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_Base),ALLOCATABLE,INTENT(INOUT) :: q_base_out          !< new fourier basis of function q in PEST angles (same sbase)
@@ -128,10 +136,7 @@ IMPLICIT NONE
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
   REAL(wp), ALLOCATABLE :: LA_IP(:)      ! lambda evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
-  REAL(wp), ALLOCATABLE :: q_gIP(:,:)    ! interpolated values of q_out
 !===================================================================================================================================
-!keep the same base in radial direction
-  nBase=q_base_in%s%nBase
   ! use maximum number of integration points from maximum mode number in both directions
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
@@ -141,11 +146,10 @@ IMPLICIT NONE
                      
   !initialize
   
-  ! extended base for q in the new angles
-
+  ! extended base for q in the new angles, and on the new grid
   CALL base_new(q_base_out,  q_base_in%s%deg,        &
                              q_base_in%s%continuity, &
-                             q_base_in%s%grid,       &
+                             sgrid_in, & !q_base_in%s%grid,       &
                              q_base_in%s%degGP,      &
                              mn_max,mn_nyq,          & 
                              q_base_in%f%nfp,        &
@@ -174,10 +178,11 @@ IMPLICIT NONE
                                 LA_base_in%f%exclude_mn_zero)
   
   !WRITE(UNIT_StdOut,*)'        ...Init 3 Done'
+  nBase=q_base_out%s%nBase
 
-  ALLOCATE(q_gIP(1:q_base_out%f%modes,1:nBase))
   ALLOCATE(modes_IP(1:q_base_out%f%modes,1:mn_IP))
   ALLOCATE(f_IP(1:mn_IP),LA_IP(1:mn_IP),q_IP(1:mn_IP))
+  ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
 
   check(1)=HUGE(1.)
   check(2:3)=0.
@@ -188,7 +193,7 @@ IMPLICIT NONE
     IF(MOD(is,MAX(1,nBase/100)).EQ.0) THEN
       SWRITE(UNIT_stdOut,'(8X,I4,A4,I4,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
     END IF
-    spos=q_base_in%s%s_IP(is) !interpolation points for q_in
+    spos=q_base_out%s%s_IP(is) !interpolation points for q_in
     !evaluate lambda at spos
     DO iMode=1,LA_base_in%f%modes
       LA_s(  iMode)= LA_base_in%s%evalDOF_s(spos,      0,LA(:,iMode))
@@ -210,11 +215,11 @@ IMPLICIT NONE
       modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_fbase_nyq%x_IP(1,i_mn)+LA_IP(i_mn),q_fbase_nyq%x_IP(2,i_mn)/))
     END DO
     !projection: integrate (sum over mn_IP), includes normalization of base!
-    q_gIP(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
+    q_out(is,:)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
 
     !CHECK at all IP points:
     IF(doCheck)THEN
-      f_IP=MATMUL(q_gIP(:,is),modes_IP(:,:))
+      f_IP=MATMUL(q_out(is,:),modes_IP(:,:))
   
       f_IP = ABS(f_IP - q_IP)
       check(1)=MIN(check(1),MINVAL(f_IP))
@@ -233,11 +238,9 @@ IMPLICIT NONE
 
   IF(doCheck) WRITE(UNIT_StdOut,'(A,3E11.3)')'   check |q_in-q_out| (min/max/avg)',check(1:3)
   !transform back to corresponding representation of DOF in s
-  ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
   DO iMode=1,q_base_out%f%modes
-    q_out(:,iMode)=q_base_in%s%initDOF( q_gIP(iMode,:) )
+    q_out(:,iMode)=q_base_out%s%initDOF( q_out(:,iMode) )
   END DO
-  DEALLOCATE(q_gIP)
 
 END SUBROUTINE Transform_to_PEST
 
@@ -251,12 +254,13 @@ END SUBROUTINE Transform_to_PEST
 !> q*_mn = iint_0^2pi q(theta*,zeta*) sigma_mn(theta*,zeta*) dtheta* dzeta*
 !!
 !===================================================================================================================================
-SUBROUTINE Transform_to_PEST_2(LA_base_in,LA,q_base_in,q_in,mn_max,fac_nyq,q_base_out,q_out)
+SUBROUTINE Transform_to_PEST_2(LA_base_in,LA,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_base_out,q_out)
 ! MODULES
-USE MODgvec_Globals,ONLY:UNIT_stdOut,PI
-USE MODgvec_base,ONLY:t_base,base_new
-USE MODgvec_fbase,ONLY:t_fbase,fbase_new,sin_cos_map
-USE MODgvec_Newton,         ONLY: NewtonRoot1D_FdF
+USE MODgvec_Globals,ONLY: UNIT_stdOut,PI
+USE MODgvec_base   ,ONLY: t_base,base_new
+USE MODgvec_sGrid  ,ONLY: t_sgrid
+USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
+USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -267,6 +271,7 @@ IMPLICIT NONE
   INTEGER      ,INTENT(IN) :: mn_max(2)                                     !< maximum number for new variables in SFL coordinates
   INTEGER      ,INTENT(IN) :: fac_nyq                                       !< for number of integr. points  (=3...4 at least)
                                                                             !< n_IP=fac_nyq*max(mn_max_in)
+  CLASS(t_sgrid),INTENT(IN),TARGET :: sgrid_in                              !< grid for q_base_out
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_Base),ALLOCATABLE,INTENT(INOUT) :: q_base_out          !< new fourier basis of function q in PEST angles (same sbase)
@@ -284,10 +289,7 @@ IMPLICIT NONE
   CLASS(t_fBase),ALLOCATABLE :: q_fbase_nyq
   REAL(wp), ALLOCATABLE :: q_IP(:)       ! q evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
-  REAL(wp), ALLOCATABLE :: q_gIP(:,:)    ! interpolated values of q_out
 !===================================================================================================================================
-  !keep the same base in radial direction
-  nBase=q_base_in%s%nBase
   ! use maximum number of integration points from maximum mode number in both directions
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
@@ -297,10 +299,10 @@ IMPLICIT NONE
                      
   !initialize
   
-  ! extended base for q in the new angles
+  ! extended base for q in the new angles, and on the new grid
   CALL base_new(q_base_out,  q_base_in%s%deg,        &
                              q_base_in%s%continuity, &
-                             q_base_in%s%grid,       &
+                             sgrid_in, & !q_base_in%s%grid,       &
                              q_base_in%s%degGP,      &
                              mn_max,mn_nyq,          & 
                              q_base_in%f%nfp,        &
@@ -323,8 +325,10 @@ IMPLICIT NONE
 
   !WRITE(UNIT_StdOut,*)'        ...Init 2 Done'
 
-  ALLOCATE(q_gIP(1:q_base_out%f%modes,1:nBase))
+  nBase=q_base_out%s%nBase
+
   ALLOCATE(f_IP(1:mn_IP),q_IP(1:mn_IP))
+  ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
 
   check(1)=HUGE(1.)
   check(2:3)=0.
@@ -335,7 +339,7 @@ IMPLICIT NONE
     IF(MOD(is,MAX(1,nBase/100)).EQ.0) THEN
       SWRITE(UNIT_stdOut,'(8X,I4,A4,I4,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
     END IF
-    spos=q_base_in%s%s_IP(is) !interpolation points for q_in
+    spos=q_base_out%s%s_IP(is) !interpolation points for q_in
     !evaluate lambda at spos
     DO iMode=1,LA_base_in%f%modes
       LA_s(  iMode)= LA_base_in%s%evalDOF_s(spos,      0,LA(:,iMode))
@@ -353,13 +357,13 @@ IMPLICIT NONE
       q_IP(i_mn) =q_base_in%f%evalDOF_x(xIP, 0,q_in_s )
     END DO
     !projection: integrate (sum over mn_IP), includes normalization of base!
-    q_gIP(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(q_IP,q_base_out%f%base_IP(1:mn_IP,:)))  
+    q_out(is,:)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(q_IP,q_base_out%f%base_IP(1:mn_IP,:)))  
 
 
     !CHECK at all IP (theta,zeta) points:
 
     IF(doCheck)THEN
-      f_IP=MATMUL(q_base_out%f%base_IP,q_gIP(:,is))
+      f_IP=MATMUL(q_base_out%f%base_IP,q_out(is,:))
       
       f_IP = ABS(f_IP - q_IP)
       check(1)=MIN(check(1),MINVAL(f_IP))
@@ -377,11 +381,9 @@ IMPLICIT NONE
 
   IF(doCheck) WRITE(UNIT_StdOut,'(A,3E11.3)')'   check |q_in-q_out| (min/max/avg)',check(1:3)
   !transform back to corresponding representation of DOF in s
-  ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
   DO iMode=1,q_base_out%f%modes
-    q_out(:,iMode)=q_base_out%s%initDOF( q_gIP(iMode,:) )
+    q_out(:,iMode)=q_base_out%s%initDOF( q_out(:,iMode) )
   END DO
-  DEALLOCATE(q_gIP)
 
 !for iteration on theta^*
 CONTAINS 
