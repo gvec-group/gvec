@@ -195,15 +195,10 @@ IMPLICIT NONE
     END IF
     spos=q_base_out%s%s_IP(is) !interpolation points for q_in
     !evaluate lambda at spos
-    DO iMode=1,LA_base_in%f%modes
-      LA_s(  iMode)= LA_base_in%s%evalDOF_s(spos,      0,LA(:,iMode))
-    END DO
-    !IF(spos.LT.1.0e-8_wp) LA_s=0.
+    LA_s(:)= LA_base_in%s%evalDOF2D_s(spos,LA_base_in%f%modes,   0,LA(:,:))
     ! TEST EXACT CASE: LA_s=0.
     !evaluate q_in at spos
-    DO iMode=1,q_base_in%f%modes
-      q_in_s(iMode)= q_base_in%s%evalDOF_s(spos,      0,q_in(:,iMode))
-    END DO
+    q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
     !evaluate lambda at integration points
     LA_IP = LA_fbase_nyq%evalDOF_IP(0,LA_s(:))
     q_IP  = q_fbase_nyq%evalDOF_IP(0,q_in_s(:))
@@ -341,14 +336,10 @@ IMPLICIT NONE
     END IF
     spos=q_base_out%s%s_IP(is) !interpolation points for q_in
     !evaluate lambda at spos
-    DO iMode=1,LA_base_in%f%modes
-      LA_s(  iMode)= LA_base_in%s%evalDOF_s(spos,      0,LA(:,iMode))
-    END DO
+    LA_s(:)= LA_base_in%s%evalDOF2D_s(spos,LA_base_in%f%modes,     0,LA(:,:))
     ! TEST EXACT CASE: LA_s=0.
     !evaluate q_in at spos
-    DO iMode=1,q_base_in%f%modes
-      q_in_s(iMode)= q_base_in%s%evalDOF_s(spos,      0,q_in(:,iMode))
-    END DO
+    q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,     0,q_in(:,:))
     !find theta(theta*) which fulfills theta_star=theta+lambda(theta,zeta)
     DO i_mn=1,mn_IP
       xIP(2)     = q_base_out%f%x_IP(2,i_mn)

@@ -320,23 +320,16 @@ DO i_s=1,Ns_out
   dGdzeta = 0.0_wp !only changed for SFLcoords=2
 
   !interpolate radially
-  DO iMode=1,X1_base_in%f%modes
-    X1_s( iMode)  = X1_base_in%s%evalDOF_s(spos,      0,X1_in(:,iMode))
-    dX1ds_s(iMode)= X1_base_in%s%evalDOF_s(spos,DERIV_S,X1_in(:,iMode))
-  END DO !iMode
-  DO iMode=1,X2_base_in%f%modes
-    X2_s(   iMode)= X1_base_in%s%evalDOF_s(spos,      0,X2_in(:,iMode))
-    dX2ds_s(iMode)= X1_base_in%s%evalDOF_s(spos,DERIV_S,X2_in(:,iMode))
-  END DO !iMode
+  X1_s(   :) = X1_base_in%s%evalDOF2D_s(spos,X1_base_in%f%modes,       0,X1_in(:,:))
+  dX1ds_s(:) = X1_base_in%s%evalDOF2D_s(spos,X1_base_in%f%modes, DERIV_S,X1_in(:,:))
+
+  X2_s(   :) = X2_base_in%s%evalDOF2D_s(spos,X2_base_in%f%modes,       0,X2_in(:,:))
+  dX2ds_s(:) = X2_base_in%s%evalDOF2D_s(spos,X2_base_in%f%modes, DERIV_S,X2_in(:,:))
   IF(SFLcoord.EQ.0)THEN !GVEC coordinates
-    DO iMode=1,LG_base_in%f%modes
-      LG_s(iMode)   = LG_base_in%s%evalDOF_s(spos,      0,LG_in(:,iMode))
-    END DO !iMode
+    LG_s(  :) = LG_base_in%s%evalDOF2D_s(spos,LG_base_in%f%modes,       0,LG_in(:,:))
   ELSEIF(SFLcoord.EQ.2)THEN !BOOZER
-    DO iMode=1,LG_base_in%f%modes
-      LG_s(iMode)   = LG_base_in%s%evalDOF_s(spos,      0,LG_in(:,iMode))
-      dGds_s(iMode) = LG_base_in%s%evalDOF_s(spos,DERIV_S,LG_in(:,iMode))
-    END DO !iMode
+    LG_s(  :) = LG_base_in%s%evalDOF2D_s(spos,LG_base_in%f%modes,       0,LG_in(:,:))
+    dGds_s(:) = LG_base_in%s%evalDOF2D_s(spos,LG_base_in%f%modes, DERIV_S,LG_in(:,:))
   END IF
   !interpolate in the angles
   DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
@@ -433,10 +426,15 @@ DO i_s=1,Ns_out
   !========== 
   ! ** LHS coordinate system u=theta, v=-zeta. covariant field representation with the currents:
   ! B=I_tor(s,u,v) grad u + I_pol(s,u,v) grad v 
-  !  = I_tor(s,u,v) (-drvec/dv x drvec/ds)/Jac + Ipol(s,u,v) (-drvec/ds x drvec/du) /J
+  !  = I_tor(s,u,v) (-drvec/dv x drvec/ds)*sqrtg + Ipol(s,u,v) (-drvec/ds x drvec/du)*sqrtg
   !=> I_tor(s):  int_0^2pi B. drvec/du du = int_0^2pi Itor(s,u,0) (-1) du = - Itor(s) = - int_0^2pi B.drvec/dtheta dtheta
   !=> I_pol(s):  int_0^2pi B. drvec/dv dv = int_0^2pi Ipol(s,u,0) (-1) dv = - Ipol(s) = + int_0^2pi B.drvec/dzeta dzeta
-  
+  !   
+  !  magnetic field in contra-variant components: (Phi=toroidal flux, chi'=iota*phi')
+  ! B = Phi'/sqrtg drvec/dv + chi'/sqrtg drvec/du 
+  ! toroidal flux:  int_0^s int_0^pi B. grad v ds du  = int_0^s int_0^pi B. (-drvec/ds x drvec/du)*sqrtg ds du    
+  !                = -int_0^s Phi' ds  = -Phi(s)
+
 END DO !i_s=1,Ns_out 
 PhiEdge=data_1D(PHI__,Ns_out)
 ChiEdge=data_1D(CHI__,Ns_out)
@@ -502,8 +500,8 @@ INTEGER            :: ioUnit,iVar,i_s
   WRITE(ioUnit,'(A100)')'## * dChi_ds(s)  : derivative of poloidal magnetic flux versus s coordinate                         '
   WRITE(ioUnit,'(A100)')'## * iota(s)     : rotational transform, dChi_ds/dPhi_ds [-]                                        '
   WRITE(ioUnit,'(A100)')'## * pressure(s) : pressure profile [N/(m^2)]                                                       '
-  WRITE(ioUnit,'(A100)')'## * Itor(s)     : toroidal current profile [??]   = int_0^2pi B_theta dtheta                       ' 
-  WRITE(ioUnit,'(A100)')'## * Ipol(s)     : poloidal current profile [??]   = int_0^2pi B_zeta dzeta                         ' 
+  WRITE(ioUnit,'(A100)')'## * Itor(s)     : toroidal current profile [A]   = int_0^2pi B_theta dtheta                       ' 
+  WRITE(ioUnit,'(A100)')'## * Ipol(s)     : poloidal current profile [A]   = int_0^2pi B_zeta dzeta                         ' 
   WRITE(ioUnit,'(A100)')'## * Favg(s)     : For tokamaks, poloidal current profile (input GS solver)                         '
   WRITE(ioUnit,'(A100)')'## * Fmin/Fmax(s): minimum /maximum of F(s)                                                         ' 
   WRITE(ioUnit,'(A100)')'##                                                                                                  '

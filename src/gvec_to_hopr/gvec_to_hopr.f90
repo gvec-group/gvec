@@ -95,7 +95,7 @@ REAL(wp),INTENT(OUT) :: phi_axis_edge(2)
 REAL(wp),INTENT(OUT) :: chi_axis_edge(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: iNode,iMode
+INTEGER :: iNode
 REAL    :: spos,thet,zeta,X1_int,X2_int,LA_int
 REAL(wp),DIMENSION(1:X1_base_r%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_r%f%modes) :: X2_s,dX2ds_s
@@ -111,33 +111,28 @@ REAL(wp):: Bcart(3),Acart(3),qvec(3)
 REAL(wp):: e_s(3),e_thet(3),e_zeta(3)
 REAL(wp):: grad_s(3),grad_thet(3),grad_zeta(3)
 !===================================================================================================================================
-phi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,1))
-chi_axis_edge(1)= X1_base_r%s%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,2))
-phi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0_wp, 0,profiles_1d(:,1))
-chi_axis_edge(2)= X1_base_r%s%evalDOF_s(1.0_wp, 0,profiles_1d(:,2))
+phi_axis_edge(1)= sbase_prof%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,1))
+chi_axis_edge(1)= sbase_prof%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,2))
+phi_axis_edge(2)= sbase_prof%evalDOF_s(1.0_wp, 0,profiles_1d(:,1))
+chi_axis_edge(2)= sbase_prof%evalDOF_s(1.0_wp, 0,profiles_1d(:,2))
 DO iNode=1,nNodes
   spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,xIn(1,iNode)))
   thet=xIn(2,iNode)
   zeta=xIn(3,iNode)
 
-  phi_int      = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,1))
-  chi_int      = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,2))
-  iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
-  pres_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4))
-  PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
-  ChiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2))
+  phi_int      = sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,1))
+  chi_int      = sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,2))
+  iota_int     = sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,3))
+  pres_int     = sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,4))
+  PhiPrime_int = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
+  ChiPrime_int = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2))
 
-  DO iMode=1,X1_base_r%f%modes
-    X1_s(   iMode) =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
-    dX1ds_s(iMode) =X1_base_r%s%evalDOF_s(spos,DERIV_S,X1_r(:,iMode))
-  END DO
-  DO iMode=1,X2_base_r%f%modes
-    X2_s(   iMode) =X2_base_r%s%evalDOF_s(spos,      0,X2_r(:,iMode))
-    dX2ds_s(iMode) =X2_base_r%s%evalDOF_s(spos,DERIV_S,X2_r(:,iMode))
-  END DO
-  DO iMode=1,LA_base_r%f%modes
-    LA_s(   iMode) =LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode))
-  END DO
+  X1_s(   :) = X1_base_r%s%evalDOF2D_s(spos,X1_base_r%f%modes,      0,X1_r(:,:))
+  dX1ds_s(:) = X1_base_r%s%evalDOF2D_s(spos,X1_base_r%f%modes,DERIV_S,X1_r(:,:))
+  X2_s(   :) = X2_base_r%s%evalDOF2D_s(spos,X2_base_r%f%modes,      0,X2_r(:,:))
+  dX2ds_s(:) = X2_base_r%s%evalDOF2D_s(spos,X2_base_r%f%modes,DERIV_S,X2_r(:,:))
+  LA_s(   :) = LA_base_r%s%evalDOF2D_s(spos,LA_base_r%f%modes,      0,LA_r(:,:))
+
   X1_int     = X1_base_r%f%evalDOF_x((/thet,zeta/),         0,X1_s)
   dX1ds      = X1_base_r%f%evalDOF_x((/thet,zeta/),         0,dX1ds_s)
   dX1dthet   = X1_base_r%f%evalDOF_x((/thet,zeta/),DERIV_THET,X1_s)

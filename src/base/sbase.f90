@@ -51,6 +51,7 @@ TYPE, ABSTRACT :: c_sbase
     PROCEDURE(i_sub_sbase_change_base   ),DEFERRED :: change_base
     PROCEDURE(i_sub_sbase_eval          ),DEFERRED :: eval
     PROCEDURE(i_fun_sbase_evalDOF_s     ),DEFERRED :: evalDOF_s
+    PROCEDURE(i_fun_sbase_evalDOF2D_s   ),DEFERRED :: evalDOF2D_s
     PROCEDURE(i_fun_sbase_evalDOF_base  ),DEFERRED :: evalDOF_base
     PROCEDURE(i_fun_sbase_evalDOF_GP    ),DEFERRED :: evalDOF_GP
     PROCEDURE(i_fun_sbase_initDOF       ),DEFERRED :: initDOF
@@ -121,6 +122,16 @@ ABSTRACT INTERFACE
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y
   END FUNCTION i_fun_sbase_evalDOF_s
+
+  FUNCTION i_fun_sbase_evalDOF2D_s( sf, x,nd,deriv,DOFs ) RESULT(y) 
+    IMPORT wp,c_sbase
+  CLASS(c_sbase), INTENT(IN   ) :: sf
+  REAL(wp)      , INTENT(IN   ) :: x
+  INTEGER       , INTENT(IN   ) :: nd 
+  INTEGER       , INTENT(IN   ) :: deriv 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase,1:nd)
+  REAL(wp)                      :: y(1:nd)
+  END FUNCTION i_fun_sbase_evalDOF2D_s
 
   FUNCTION i_fun_sbase_evalDOF_base( sf, iElem,base_x,DOFs ) RESULT(y) 
     IMPORT wp,c_sbase
@@ -202,6 +213,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   PROCEDURE :: change_base   => sBase_change_base
   PROCEDURE :: eval          => sBase_eval
   PROCEDURE :: evalDOF_s     => sBase_evalDOF_s
+  PROCEDURE :: evalDOF2D_s   => sBase_evalDOF2D_s
   PROCEDURE :: evalDOF_base  => sBase_evalDOF_base
   PROCEDURE :: evalDOF_GP    => sBase_evalDOF_GP
   PROCEDURE :: initDOF       => sBase_initDOF
@@ -906,6 +918,7 @@ IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
 
 END FUNCTION sbase_evalDOF_s
 
+
 !===================================================================================================================================
 !> simply evaluate function with a base or base derivative evaluated at a point and its corresponding iElem
 !! use together with sBase_eval(x) => iElem,base
@@ -933,6 +946,38 @@ IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
   END ASSOCIATE
 
 END FUNCTION sbase_evalDOF_base
+
+!===================================================================================================================================
+!> simply evaluate function or derivative at point x, for multiple DOF vectors 
+!!
+!===================================================================================================================================
+FUNCTION sBase_evalDOF2D_s(sf,x,nd,deriv,DOFs) RESULT(y)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sbase), INTENT(IN   ) :: sf     !! self
+  REAL(wp)      , INTENT(IN   ) :: x      !! point positions in [0,1]
+  INTEGER       , INTENT(IN   ) :: nd     !! number of DOF vectors 
+  INTEGER       , INTENT(IN   ) :: deriv  !! derivative (=0: solution)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase,1:nd) 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: y(1:nd)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                       :: iElem,i
+  REAL(wp)                      :: base_x(0:sf%deg)
+!===================================================================================================================================
+  CALL sf%eval(x,deriv,iElem,base_x) 
+  ASSOCIATE(j=>sf%base_offset(iElem))
+  y(1:nd) = DOFs(j,1:nd)*base_x(0)
+  DO i=1,sf%deg
+    y(1:nd) =y(1:nd)+ DOFs(j+i,1:nd)*base_x(i)
+  END DO
+  END ASSOCIATE
+
+END FUNCTION sbase_evalDOF2D_s
 
 !===================================================================================================================================
 !> evaluate all degrees of freedom at all Gauss Points (deriv=0 solution, deriv=1 first derivative d/ds)
