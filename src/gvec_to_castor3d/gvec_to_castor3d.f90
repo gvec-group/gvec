@@ -425,12 +425,17 @@ DO i_s=1,Ns_out
   data_1D( DCHIDS__  ,i_s) = TWOPI*dChids_int  
   data_1D( IOTA__    ,i_s) = -iota_int           !sign change of zeta coordinate!
   data_1D( PRESSURE__,i_s) = pressure_int
-  data_1D( ITOR__    ,i_s) =  Itor_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0 = pi*10^7
-  data_1D( IPOL__    ,i_s) = -Ipol_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0  and sign change of zeta coordinate!  
+  data_1D( ITOR__    ,i_s) = -Itor_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0 = pi*10^7, sign change due to LHS output coordinate system**
+  data_1D( IPOL__    ,i_s) =  Ipol_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0 , two sign changes, one from zeta, one from LHS coords.**
   data_1D( FAVG__    ,i_s) = Favg_int    
   data_1D( FMIN__    ,i_s) = Fmin_int    
   data_1D( FMAX__    ,i_s) = Fmax_int    
   !========== 
+  ! ** LHS coordinate system u=theta, v=-zeta. covariant field representation with the currents:
+  ! B=I_tor(s,u,v) grad u + I_pol(s,u,v) grad v 
+  !  = I_tor(s,u,v) (-drvec/dv x drvec/ds)/Jac + Ipol(s,u,v) (-drvec/ds x drvec/du) /J
+  !=> I_tor(s):  int_0^2pi B. drvec/du du = int_0^2pi Itor(s,u,0) (-1) du = - Itor(s) = - int_0^2pi B.drvec/dtheta dtheta
+  !=> I_pol(s):  int_0^2pi B. drvec/dv dv = int_0^2pi Ipol(s,u,0) (-1) dv = - Ipol(s) = + int_0^2pi B.drvec/dzeta dzeta
   
 END DO !i_s=1,Ns_out 
 PhiEdge=data_1D(PHI__,Ns_out)
