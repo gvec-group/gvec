@@ -200,7 +200,7 @@ INTEGER  :: i
 
   IF(SFLcoord.NE.0)THEN
    mn_max_out=mn_max_out*factorSFL !*SFLfactor on modes
-   CALL buildTransform_SFL(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r,Ns_out,mn_max_out,SFLcoord)
+   CALL buildTransform_SFL(Ns_out,mn_max_out,SFLcoord)
   END IF
   
 
@@ -261,7 +261,7 @@ END SUBROUTINE init_gvec_to_castor3d
 SUBROUTINE gvec_to_castor3d_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG_in)
 ! MODULES
 USE MODgvec_gvec_to_castor3d_Vars 
-USE MODgvec_Globals,        ONLY: CROSS,TWOPI,PI
+USE MODgvec_Globals,        ONLY: CROSS,TWOPI
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
 USE MODgvec_Base,           ONLY: t_base
 IMPLICIT NONE
@@ -275,7 +275,7 @@ REAL(wp)      ,INTENT(IN) :: LG_in(1:LG_base_in%s%nBase,1:LG_base_in%f%modes) ! 
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                                 :: i_s,iMode,ithet,izeta
+INTEGER                                 :: i_s,ithet,izeta
 REAL(wp)                                :: spos,xp(2),sqrtG
 REAL(wp)                                :: dX1ds,dX1dthet,dX1dzeta
 REAL(wp)                                :: dX2ds,dX2dthet,dX2dzeta
@@ -406,8 +406,8 @@ DO i_s=1,Ns_out
   END DO ; END DO !izeta,ithet
   Favg_int = Favg_int/REAL((Nthet_out*Nzeta_out),wp)
 
-  Itor_int = Itor_int*REAL(nfp_out)/(TWOPI*REAL((Nthet_out*Nzeta_out),wp))
-  Ipol_int = Ipol_int*REAL(nfp_out)/(TWOPI*REAL((Nthet_out*Nzeta_out),wp))
+  Itor_int = Itor_int*REAL(nfp_out)*TWOPI/(REAL((Nthet_out*Nzeta_out),wp)) !(2pi)^2/(Nt*Nz) * nfp/(2pi)
+  Ipol_int = Ipol_int*REAL(nfp_out)*TWOPI/(REAL((Nthet_out*Nzeta_out),wp))
 
 
   !========== 
@@ -418,8 +418,8 @@ DO i_s=1,Ns_out
   data_1D( DCHIDS__  ,i_s) = TWOPI*dChids_int  
   data_1D( IOTA__    ,i_s) = -iota_int           !sign change of zeta coordinate!
   data_1D( PRESSURE__,i_s) = pressure_int
-  data_1D( ITOR__    ,i_s) = -Itor_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0 = pi*10^7, sign change due to LHS output coordinate system**
-  data_1D( IPOL__    ,i_s) =  Ipol_int*PI*1.0e+7_wp  !*(2pi)^2/mu_0 , two sign changes, one from zeta, one from LHS coords.**
+  data_1D( ITOR__    ,i_s) = -Itor_int/(2.0e-7_wp*TWOPI)  !*1/mu_0 , sign change due to LHS output coordinate system**
+  data_1D( IPOL__    ,i_s) =  Ipol_int/(2.0e-7_wp*TWOPI)  !*1/mu_0 , two sign changes, one from zeta, one from LHS coords.**
   data_1D( FAVG__    ,i_s) = Favg_int    
   data_1D( FMIN__    ,i_s) = Fmin_int    
   data_1D( FMAX__    ,i_s) = Fmax_int    
