@@ -96,7 +96,7 @@ IMPLICIT NONE
   nfp = X1_base_r%f%nfp
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
 
-  WRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'Get angle transform for BOOZER coordinates, nfp=',nfp, &
+  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
                               ', mn_max_in=',LA_base_r%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
                      
   !initialize
@@ -114,7 +114,7 @@ IMPLICIT NONE
   !total number of integration points
   mn_IP = G_base_out%f%mn_IP
 
-  !WRITE(UNIT_StdOut,*)'        ...Init 1 Done'
+  SWRITE(UNIT_StdOut,*)'        ...Init 1 Done'
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
                                 X1_base_r%f%nfp, &
@@ -126,14 +126,14 @@ IMPLICIT NONE
                     sin_cos_map(X2_base_r%f%sin_cos), &
                                 X2_base_r%f%exclude_mn_zero)
 
-  !WRITE(UNIT_StdOut,*)'        ...Init 2 Done'
+  SWRITE(UNIT_StdOut,*)'        ...Init 2 Done'
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new(LA_fbase_nyq,  LA_base_r%f%mn_max,  mn_nyq, &
                                 LA_base_r%f%nfp, &
                     sin_cos_map(LA_base_r%f%sin_cos), &
                                 LA_base_r%f%exclude_mn_zero)
   
-  !WRITE(UNIT_StdOut,*)'        ...Init 3 Done'
+  SWRITE(UNIT_StdOut,*)'        ...Init 3 Done'
   nBase=G_base_out%s%nBase
 
   ALLOCATE( X1_IP(1:mn_IP),dX1ds_IP(1:mn_IP), dX1dthet_IP(1:mn_IP),dX1dzeta_IP(1:mn_IP) &
@@ -147,7 +147,7 @@ IMPLICIT NONE
 
   dthet_dzeta  =G_base_out%f%d_thet*G_base_out%f%d_zeta !integration weights
 
-  DO is=nBase,1,-1
+  DO is=1,nBase
     IF(MOD(is,MAX(1,nBase/100)).EQ.0) THEN
       SWRITE(UNIT_stdOut,'(8X,I6,A4,I6,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
     END IF
@@ -206,10 +206,10 @@ IMPLICIT NONE
       Bcov_zeta_IP(i_mn) = (g_tz*b_thet + g_zz*b_zeta)*sdetJ  
     END DO !i_mn
 
-    !Itor =     1/(2pi) int_0^2pi       B_thet dthet =  nfp/(2pi)^2 int_0^2pi int_0^(2pi/nfp) B_thet dthet dzeta 
-    !Ipol = nfp 1/(2pi) int_0^(2pi/nfp) B_zeta dzeta =  nfp/(2pi)^2 int_0^2pi int_0^(2pi/nfp) B_zeta dthet dzeta 
-    Itor=(REAL(nfp,wp)/REAL(mn_IP,wp))*SUM(Bcov_thet_IP(:)) 
-    Ipol=(REAL(nfp,wp)/REAL(mn_IP,wp))*SUM(Bcov_zeta_IP(:))
+    !Itor ~ zero mode of B_thet
+    !Ipol ~ zero mode of B_zeta
+    Itor=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_thet_IP(:)) 
+    Ipol=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_zeta_IP(:))
     
     ASSOCIATE(fm_IP => X1_IP, fn_IP => X2_IP ,           & !save some memory,overwrite X1,X2
               snorm        =>G_base_out%f%snorm_base,    &
@@ -226,9 +226,9 @@ IMPLICIT NONE
       mm=G_base_out%f%Xmn(1,iMode)
       nn=G_base_out%f%Xmn(2,iMode)
       IF((mm.NE.0).AND.(nn.EQ.0))THEN 
-        GZ(is,iMode) = (dthet_dzeta/(TWOPI*PI*REAL(mm,wp)**2))*SUM(base_dthet_IP(:,iMode)*fm_IP(:))  
+        GZ(is,iMode) = (dthet_dzeta*snorm(iMode)/(REAL(mm,wp)**2))*SUM(base_dthet_IP(:,iMode)*fm_IP(:))  
       ELSEIF(nn.NE.0)THEN 
-        GZ(is,iMode) = (dthet_dzeta/(TWOPI*PI*REAL(nn,wp)**2))*SUM(base_dzeta_IP(:,iMode)*fn_IP(:))  
+        GZ(is,iMode) = (dthet_dzeta*snorm(iMode)/(REAL(nn,wp)**2))*SUM(base_dzeta_IP(:,iMode)*fn_IP(:))  
       ELSE
         STOP 'm=n=0 should not be here!'
       END IF
@@ -257,6 +257,7 @@ IMPLICIT NONE
     Gthet(:,iMode)= G_base_out%s%initDOF( Gthet(:,iMode) )
   END DO
 
+  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
 END SUBROUTINE Get_Boozer
 
 

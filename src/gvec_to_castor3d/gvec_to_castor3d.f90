@@ -75,6 +75,7 @@ IMPLICIT NONE
 CHARACTER(LEN=STRLEN)   :: f_str
 CHARACTER(LEN=24)       :: execname="convert_gvec_to_castor3d"
 LOGICAL                 :: commandFailed
+CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","BOOZER"/)
 !===================================================================================================================================
 
   !USING CLAF90 module to get command line arguments!
@@ -124,12 +125,12 @@ LOGICAL                 :: commandFailed
   END IF
   IF(commandFailed) STOP
 
-  SWRITE(UNIT_stdOut,'(A)')   ' INPUT PARAMETERS:' 
-  SWRITE(UNIT_stdOut,'(A,I6)')'  * Number of radial points        : ',Ns_out
-  SWRITE(UNIT_stdOut,'(A,I4)')'  * npfactor points from modes     : ',npfactor
-  SWRITE(UNIT_stdOut,'(A,I4)')'  * SFL coordinates flag           : ',SFLcoord
-  SWRITE(UNIT_stdOut,'(A,I4)')'  * factor for modes of SFL coords : ',factorSFL
-  SWRITE(UNIT_stdOut,'(A,A)') '  * GVEC input file                : ',TRIM(fileName)
+  SWRITE(UNIT_stdOut,'(A)')     ' INPUT PARAMETERS:' 
+  SWRITE(UNIT_stdOut,'(A,I6)')  '  * Number of radial points        : ',Ns_out
+  SWRITE(UNIT_stdOut,'(A,I4)')  '  * npfactor points from modes     : ',npfactor
+  SWRITE(UNIT_stdOut,'(A,I4,A)')'  * SFL coordinates flag           : ',SFLcoord,' ( '//SFLcoordName(SFLcoord)//' )'
+  SWRITE(UNIT_stdOut,'(A,I4)')  '  * factor for modes of SFL coords : ',factorSFL
+  SWRITE(UNIT_stdOut,'(A,A)')   '  * GVEC input file                : ',TRIM(fileName)
   SWRITE(UNIT_stdOut,fmt_sep)
 
 !  nArgs=COMMAND_ARGUMENT_COUNT()
@@ -169,7 +170,7 @@ USE MODgvec_Globals,ONLY: TWOPI
 USE MODgvec_ReadState         ,ONLY: ReadState
 USE MODgvec_ReadState_vars    ,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_ReadState_vars    ,ONLY: LA_r,X1_r,X2_r 
-USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl
+USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl ,GZsfl_base,GZsfl
 USE MODgvec_transform_sfl     ,ONLY: BuildTransform_SFL
 USE MODgvec_gvec_to_castor3d_vars
 IMPLICIT NONE
@@ -245,8 +246,7 @@ INTEGER  :: i
   CASE(1)
     CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,LA_base_r,LA_r) !LA not needed, used as placeholder
   CASE(2)
-    !CALL gvec_to_castor3D_prepare(X1_base_r%s,X1sfl_base,X1sfl,X2sfl_base,X2sfl,Gsfl_base,Gsfl)
-    STOP 'BOOZER not yet implemented'
+    CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl)
   CASE DEFAULT
     SWRITE(UNIT_StdOut,*)'This SFLcoord is not valid',SFLcoord
     STOP

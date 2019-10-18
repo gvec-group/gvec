@@ -73,16 +73,17 @@ whichSFLcoord=whichSFL
 SELECT CASE(whichSFLcoord)
 CASE(1) !PEST
   fac_nyq=4
-  CALL Transform_Angles(LA_base_r,LA_r,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,X1sfl_base,X1sfl)
-  CALL Transform_Angles(LA_base_r,LA_r,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,X2sfl_base,X2sfl)
+  CALL Transform_Angles(LA_base_r,LA_r,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,"X1",X1sfl_base,X1sfl)
+  CALL Transform_Angles(LA_base_r,LA_r,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,"X2",X2sfl_base,X2sfl)
 CASE(2) !BOOZER
   !uses restart data for X1,X2,LA and profiles!
   fac_nyq=4
   CALL Get_Boozer(mn_max,fac_nyq,sgrid_sfl,GZ_base,Gthet,GZ)
   
-  CALL Transform_Angles(GZ_base,Gthet,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,X1sfl_base,X1sfl,B_in=GZ)
-  CALL Transform_Angles(GZ_base,Gthet,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,X2sfl_base,X2sfl,B_in=GZ)
-  CALL Transform_Angles(GZ_base,Gthet,GZ_base  ,GZ  ,mn_max,fac_nyq,sgrid_sfl,GZsfl_base,GZsfl,B_in=GZ)
+  fac_nyq=4
+  CALL Transform_Angles(GZ_base,Gthet,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,"X1",X1sfl_base,X1sfl,B_in=GZ)
+  CALL Transform_Angles(GZ_base,Gthet,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,"X2",X2sfl_base,X2sfl,B_in=GZ)
+  CALL Transform_Angles(GZ_base,Gthet,GZ_base  ,GZ  ,mn_max,fac_nyq,sgrid_sfl,"GZ",GZsfl_base,GZsfl,B_in=GZ)
 
   DEALLOCATE(Gthet)
 
@@ -106,7 +107,7 @@ END SUBROUTINE BuildTransform_SFL
 !>       = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) [(1+dA/dtheta)*(1+dB/dzeta)-(dA/dzeta*dB/dzeta)] dtheta dzeta
 !!
 !===================================================================================================================================
-SUBROUTINE Transform_Angles(AB_base_in,A_in,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_base_out,q_out,B_in)
+SUBROUTINE Transform_Angles(AB_base_in,A_in,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_name,q_base_out,q_out,B_in)
 ! MODULES
 USE MODgvec_Globals,ONLY: UNIT_stdOut
 USE MODgvec_base   ,ONLY: t_base,base_new
@@ -116,14 +117,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_Base),INTENT(IN) :: AB_base_in                                    !< basis of A and B
-  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of A(s,theta,zeta) variable 
+  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of thet*=thet+A(s,theta,zeta)  
   CLASS(t_Base),INTENT(IN) :: q_base_in                                     !< basis of function f 
   REAL(wp)     ,INTENT(IN) :: q_in(1:q_base_in%s%nBase,1:q_base_in%f%modes) !< coefficients of f 
   INTEGER      ,INTENT(IN) :: mn_max(2)                                     !< maximum number for new variables in SFL coordinates
   INTEGER      ,INTENT(IN) :: fac_nyq                                       !< for number of integr. points  (=3...4 at least)
                                                                             !< n_IP=fac_nyq*max(mn_max_in)
-  CLASS(t_sgrid), INTENT(IN   ),TARGET :: sgrid_in                          !< change grid for q_base_out
-  REAL(wp)     ,INTENT(IN),OPTIONAL :: B_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of B(s,theta,zeta) variable 
+  CLASS(t_sgrid),INTENT(IN),TARGET :: sgrid_in                              !< change grid for q_base_out
+  REAL(wp)    ,INTENT(IN),OPTIONAL :: B_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of zeta*=zeta+B(s,theta,zeta)
+  CHARACTER(LEN=*),INTENT(IN):: q_name
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_Base),ALLOCATABLE,INTENT(INOUT) :: q_base_out          !< new fourier basis of function q in new angles
@@ -152,7 +154,7 @@ IMPLICIT NONE
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
 
-  WRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'Transform variable new coordinates, nfp=',q_base_in%f%nfp, &
+  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
                               ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
                      
   !initialize
@@ -165,26 +167,26 @@ IMPLICIT NONE
                              mn_max,mn_nyq,          & 
                              q_base_in%f%nfp,        &
                  sin_cos_map(q_base_in%f%sin_cos),   &
-                             q_base_in%f%exclude_mn_zero)
+                             .FALSE.)!m=n=0 should be always there, because of coordinate transform
 
   !total number of integration points
   mn_IP = q_base_out%f%mn_IP
 
-  !WRITE(UNIT_StdOut,*)'        ...Init 1 Done'
+  SWRITE(UNIT_StdOut,*)'        ...Init 1 Done'
   !same base for q, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new( q_fbase_nyq,  q_base_in%f%mn_max,  mn_nyq, &
                                 q_base_in%f%nfp, &
                     sin_cos_map(q_base_in%f%sin_cos), &
                                 q_base_in%f%exclude_mn_zero)
 
-  !WRITE(UNIT_StdOut,*)'        ...Init 2 Done'
+  SWRITE(UNIT_StdOut,*)'        ...Init 2 Done'
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
                                 AB_base_in%f%nfp, &
                     sin_cos_map(AB_base_in%f%sin_cos), &
                                 AB_base_in%f%exclude_mn_zero)
   
-  !WRITE(UNIT_StdOut,*)'        ...Init 3 Done'
+  SWRITE(UNIT_StdOut,*)'        ...Init 3 Done'
   nBase=q_base_out%s%nBase
 
   ALLOCATE(modes_IP(1:q_base_out%f%modes,1:mn_IP))
@@ -201,7 +203,7 @@ IMPLICIT NONE
 
   dthet_dzeta  =q_base_out%f%d_thet*q_base_out%f%d_zeta !integration weights
 
-  DO is=nBase,1,-1
+  DO is=1,nBase
     IF(MOD(is,MAX(1,nBase/100)).EQ.0) THEN
       SWRITE(UNIT_stdOut,'(8X,I6,A4,I6,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
     END IF
@@ -268,11 +270,13 @@ IMPLICIT NONE
   DEALLOCATE(A_IP,dAdthet_IP)
   IF(Bpresent) DEALLOCATE(dAdzeta_IP,B_IP,dBdthet_IP,dBdzeta_IP)
 
-  IF(doCheck) WRITE(UNIT_StdOut,'(A,3E11.3)')'   CHECK ERROR: |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',check(1:3)
+  IF(doCheck) WRITE(UNIT_StdOut,'(2A,3E11.3)')'   CHECK ERROR of '//TRIM(q_name)//':', &
+                                             ' |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',check(1:3)
   !transform back to corresponding representation of DOF in s
   DO iMode=1,q_base_out%f%modes
     q_out(:,iMode)=q_base_out%s%initDOF( q_out(:,iMode) )
   END DO
+  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
 
 END SUBROUTINE Transform_Angles
 
