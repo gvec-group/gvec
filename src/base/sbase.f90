@@ -1003,19 +1003,39 @@ IMPLICIT NONE
   ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
   SELECT CASE(deriv)
   CASE(0)
-    k=1
-    DO iElem=1,nElems
+!    k=1
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iElem,j,k)  &
+!$OMP   SHARED(sf,y_GP,DOFs)
+     DO iElem=1,nElems
       j=sf%base_offset(iElem)
+      k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_GP(   :,:,iElem),DOFs(j:j+deg))
-      k=k+(degGP+1)
+!!$      m=size(sf%base_GP(:,:,iElem),dim=1)
+!!$      n=size(sf%base_GP(:,:,iElem),dim=2)
+!!$      CALL DGEMV('N',m,n,1.0_wp,sf%base_GP(:,:,iElem),m,DOFs(j:j+deg),1,0.0_wp,y_GP(k:k+degGP),1)
+!      k=k+(degGP+1)
     END DO
+!$OMP END PARALLEL DO
   CASE(DERIV_S)
-    k=1
+!    k=1
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iElem,j,k)  &
+!$OMP   SHARED(sf,y_GP,DOFs)
     DO iElem=1,nElems
       j=sf%base_offset(iElem)
+      k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
-      k=k+(degGP+1)
+!!$      m=size(sf%base_ds_GP(:,:,iElem),dim=1)
+!!$      n=size(sf%base_ds_GP(:,:,iElem),dim=2)
+!!$      CALL DGEMV('N',m,n,1.0_wp,sf%base_ds_GP(:,:,iElem),m,DOFs(j:j+deg),1,0.0_wp,y_GP(k:k+degGP),1)
+!      k=k+(degGP+1)
     END DO
+!$OMP END PARALLEL DO
   CASE DEFAULT
     CALL abort(__STAMP__, &
        'called evalDOF_GP: deriv must be 0 or DERIV_S!' )

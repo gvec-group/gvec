@@ -145,9 +145,9 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   INTEGER,ALLOCATABLE  :: Xmn(:,:)            !! mode number (m,n*nfp) for each iMode=1,modes, size(2,modes)
   INTEGER,ALLOCATABLE  :: zero_odd_even(:)    !! =0 for m=n=0 mode, =1 for m= odd mode, =2 for m=even mode size(modes)
   REAL(wp),ALLOCATABLE :: x_IP(:,:)           !! (theta,zeta)position of interpolation points theta [0,2pi]x[0,2pi/nfp]size(2,mn_IP)
-  REAL(wp),ALLOCATABLE :: base_IP(:,:)        !! basis functions,                 size(1:mn_IP,1:mn_modes)
-  REAL(wp),ALLOCATABLE :: base_dthet_IP(:,:)  !! dthet derivative of basis functions, (1:mn_IP,1:mn_modes)
-  REAL(wp),ALLOCATABLE :: base_dzeta_IP(:,:)  !! dzeta derivative of basis functions, (1:mn_IP,1:mn_modes)
+  REAL(wp),ALLOCATABLE :: base_IP(:,:)        !! basis functions,                 size(1:mn_IP,1:modes)
+  REAL(wp),ALLOCATABLE :: base_dthet_IP(:,:)  !! dthet derivative of basis functions, (1:mn_IP,1:modes)
+  REAL(wp),ALLOCATABLE :: base_dzeta_IP(:,:)  !! dzeta derivative of basis functions, (1:mn_IP,1:modes)
 
   REAL(wp),ALLOCATABLE :: snorm_base(:)       !! 1/norm of each basis function, size(1:mn_modes), norm=int_0^2pi int_0^pi (base_mn(thet,zeta))^2 dthet dzeta 
   
@@ -751,19 +751,25 @@ IMPLICIT NONE
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                      :: y_IP(sf%mn_IP) 
+  REAL(wp)                      :: y_IP(sf%mn_IP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER                       :: m,n
 !===================================================================================================================================
+m=sf%mn_IP
+n=sf%modes
 IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
   CASE(0)
-    y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
+!!$    y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
+    CALL DGEMV('N',m,n,1.0_wp,sf%base_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
   CASE(DERIV_THET)
-    y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
+!!$     y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
+    CALL DGEMV('N',m,n,1.0_wp,sf%base_dthet_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
   CASE(DERIV_ZETA)
-    y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
+!!$    y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
+    CALL DGEMV('N',m,n,1.0_wp,sf%base_dzeta_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
   CASE DEFAULT 
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")

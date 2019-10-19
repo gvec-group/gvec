@@ -25,6 +25,7 @@ USE MODgvec_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY: InitRestart,FinalizeRestart
 USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
 USE MODgvec_Functional
+!$ USE omp_lib
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
@@ -34,7 +35,12 @@ INTEGER                 :: which_functional
 REAL(wp)                :: StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
+  call perfinit()
+  call perfon ('main')
+
+
   CALL CPU_TIME(StartTime)
+!$ StartTime=OMP_GET_WTIME()
   nArgs=COMMAND_ARGUMENT_COUNT()
   IF(nArgs.GE.1)THEN
     CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
@@ -86,14 +92,17 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL IgnoredStrings()
   
+  call perfon('minimizer')
   CALL functional%minimize() 
+  call perfoff('minimizer')
 
   CALL FinalizeFunctional(functional)
  
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
-  
+
+
   ! do something
   IF(testlevel.GT.0)THEN
     SWRITE(UNIT_stdout,*)
@@ -110,6 +119,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     CLOSE(testUnit)
   END IF !testlevel
   CALL CPU_TIME(EndTime)
+!$ EndTime=OMP_GET_WTIME()
   WRITE(Unit_stdOut,fmt_sep)
   IF(n_warnings_occured.EQ.0)THEN
     WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC SUCESSFULLY FINISHED! [',EndTime-StartTime,' sec ]'
@@ -117,6 +127,9 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     WRITE(Unit_stdOut,'(A,F8.2,A,I8,A)') ' GVEC FINISHED! [',EndTime-StartTime,' sec ], WITH ' , n_warnings_occured , ' WARNINGS!!!!'
   END IF
   WRITE(Unit_stdOut,fmt_sep)
+
+  call perfoff('main')
+  call perfout('main')
 
 END PROGRAM GVEC
 

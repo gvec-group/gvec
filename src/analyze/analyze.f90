@@ -462,6 +462,9 @@ IMPLICIT NONE
                             *REAL((j_s-1)+(i_m-1)*(np_in(1)-1),wp)/REAL((np_in(1)-1)*mn_IP(1),wp))
     END DO !j_s
   END DO
+  DO i_n=1,mn_IP(2)
+    zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
+  END DO
   
   DO i_s=1,n_s
     var_visu(1,i_s,:,:,:)=Phi_Prof(i_s)

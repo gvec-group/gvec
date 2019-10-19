@@ -93,7 +93,9 @@ OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to li
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" ON)
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" ON)
 
+OPTION(USE_OPENMP "enable OpenMP" ON)
 
+OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 # =========================================================================
 # Build type
 # =========================================================================
@@ -136,8 +138,14 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(MAIN_INSTRUCTION "-march=native")
   ENDIF()
   # set Flags
+
+  #OpenMP
+  IF(USE_OPENMP)
+   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fopenmp")
+  ENDIF()
+
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}  -g -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
   # add flags only for compiling not linking!
@@ -149,13 +157,20 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
       SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
    ELSEIF (ON_HYDRA GREATER -1 )
       SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
+   ELSEIF (ON_COBRA GREATER -1 )
+      SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
       # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
    ELSE()
       SET(MAIN_INSTRUCTION "-xHost")
    ENDIF()
    # set Flags
+  #OpenMP
+  IF(USE_OPENMP)
+   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
+  ENDIF()
+
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 ${MAIN_INSTRUCTION} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -g  -O3 ${MAIN_INSTRUCTION} -qopt-report=5 -diag-disable=10397 -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
    # add flags only for compiling not linking!
@@ -179,11 +194,21 @@ ENDIF()
 # =========================================================================
 # use Lapack/Blas for GNU
 MESSAGE(STATUS "Using BLAS/Lapack library")
+
+IF(USE_OPENMP)
+  SET (MKLLIB "parallel")
+  SET (MKLLIBGNU "mkl_gnu_thread")
+ELSE()
+  SET (MKLLIB "sequential")
+  SET (MKLLIBGNU "mkl_sequential")
+ENDIF()
+
+
 IF(ON_HYDRA GREATER -1)
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -mkl -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    LIST(APPEND linkedlibs -mkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     FIND_PACKAGE(LAPACK QUIET)
     IF (LAPACK_FOUND)
@@ -198,13 +223,13 @@ ELSEIF(ON_COBRA GREATER -1)
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -mkl -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    LIST(APPEND linkedlibs -mkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
     LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
-    		-lmkl_sequential -lmkl_core -lpthread -lm -ldl
- 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
+		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
+		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
@@ -233,6 +258,17 @@ IF(LINK_GVEC_TO_NETCDF)
 ELSE()
   ADD_DEFINITIONS(-DNETCDF=0)
 ENDIF()
+
+
+
+# =========================================================================
+# Ftimings
+# =========================================================================
+IF(USE_FTIMINGS)
+  LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -lftimings-1-$ENV{RZG_CPL}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
+  INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/ftimings-1-$ENV{RZG_CPL})
+ENDIF()
+
 
 # =========================================================================
 # project sources & targets
@@ -269,6 +305,12 @@ IF(COMPILE_GVEC)
                             ./src/vmec/*.f90 
                             ./src/output/*.f90 
                             ./src/restart/*.f90 )
+
+  IF(USE_FTIMINGS)
+    LIST(APPEND mainF90 ./src/mod_timings.f90 ./src/perf2ftimings.f90)
+  ELSE()
+    LIST(APPEND mainF90 ./src/perfdummy.f90)
+  ENDIF()
   LIST(APPEND mainF90 ${gvecF90})
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
