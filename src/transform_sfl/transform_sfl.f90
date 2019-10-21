@@ -109,7 +109,7 @@ END SUBROUTINE BuildTransform_SFL
 !===================================================================================================================================
 SUBROUTINE Transform_Angles(AB_base_in,A_in,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_name,q_base_out,q_out,B_in)
 ! MODULES
-USE MODgvec_Globals,ONLY: UNIT_stdOut
+USE MODgvec_Globals,ONLY: UNIT_stdOut,Progressbar
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_sGrid  ,ONLY: t_sgrid
 USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
@@ -203,13 +203,12 @@ IMPLICIT NONE
 
   dthet_dzeta  =q_base_out%f%d_thet*q_base_out%f%d_zeta !integration weights
 
+  CALL ProgressBar(0,nBase)!init
   DO is=1,nBase
-    IF(MOD(is,MAX(1,nBase/100)).EQ.0) THEN
-      SWRITE(UNIT_stdOut,'(8X,I6,A4,I6,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
-    END IF
     spos=q_base_out%s%s_IP(is) !interpolation points for q_in
     !evaluate lambda at spos
     A_s(:)= AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,A_in(:,:))
+    !evaluate lambda at spos
     ! TEST EXACT CASE: A_s=0.
     !evaluate lambda at integration points
     A_IP       = AB_fbase_nyq%evalDOF_IP(         0,A_s(:))
@@ -260,8 +259,8 @@ IMPLICIT NONE
 !      WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
     END IF !doCheck
 
+    CALL ProgressBar(is,nBase)
   END DO !is
-  SWRITE(UNIT_stdOut,'(8X,I6,A4,I6,A13)')nBase, ' of ',nBase,' evaluated...'
 
   !finalize
   CALL AB_fbase_nyq%free()

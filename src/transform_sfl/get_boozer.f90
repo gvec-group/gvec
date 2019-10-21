@@ -51,7 +51,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE Get_Boozer(mn_max,fac_nyq,sgrid_in,G_base_out,Gthet,GZ)
 ! MODULES
-USE MODgvec_Globals,ONLY: UNIT_stdOut,TWOPI,PI
+USE MODgvec_Globals,ONLY: UNIT_stdOut,TWOPI,PI,ProgressBar
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_sGrid  ,ONLY: t_sgrid
 USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
@@ -147,10 +147,8 @@ IMPLICIT NONE
 
   dthet_dzeta  =G_base_out%f%d_thet*G_base_out%f%d_zeta !integration weights
 
+  CALL ProgressBar(0,nBase) !INIT
   DO is=1,nBase
-    IF(MOD(is,MAX(1,nBase/100)).EQ.0) THEN
-      SWRITE(UNIT_stdOut,'(8X,I6,A4,I6,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
-    END IF
     spos=G_base_out%s%s_IP(is) !interpolation points for q_in
 
     dPhids_int  = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
@@ -238,8 +236,8 @@ IMPLICIT NONE
 
     END ASSOCIATE !bases, fm_IP=>X1_IP,fn_IP=>X2_IP
 
+    CALL ProgressBar(is,nBase)
   END DO !is
-  SWRITE(UNIT_stdOut,'(8X,I6,A4,I6,A13)')nBase, ' of ',nBase,' evaluated...'
 
   !finalize
   CALL X1_fbase_nyq%free()

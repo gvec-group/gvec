@@ -128,6 +128,12 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   SWRITE(UNIT_stdOut,'(A)')     ' INPUT PARAMETERS:' 
   SWRITE(UNIT_stdOut,'(A,I6)')  '  * Number of radial points        : ',Ns_out
   SWRITE(UNIT_stdOut,'(A,I4)')  '  * npfactor points from modes     : ',npfactor
+  IF(Nthet_out.NE.-1) THEN
+    SWRITE(UNIT_stdOut,'(A,I4)')'  * number of points in theta      : ',Nthet_out
+  END IF
+  IF(Nzeta_out.NE.-1) THEN
+    SWRITE(UNIT_stdOut,'(A,I4)')'  * number of points in zeta       : ',Nzeta_out
+  END IF
   SWRITE(UNIT_stdOut,'(A,I4,A)')'  * SFL coordinates flag           : ',SFLcoord,' ( '//SFLcoordName(SFLcoord)//' )'
   SWRITE(UNIT_stdOut,'(A,I4)')  '  * factor for modes of SFL coords : ',factorSFL
   SWRITE(UNIT_stdOut,'(A,A)')   '  * GVEC input file                : ',TRIM(fileName)
@@ -220,8 +226,8 @@ INTEGER  :: i
     Nzeta_out = MAX(1,npfactor*mn_max_out(2)) !if n=0, output 1 point
   END IF
   !check
-  IF(Nthet_out .LE. mn_max_out(1)) STOP 'number of poloidal points for output should be >m_max!'
-  IF(Nzeta_out .LE. mn_max_out(2)) STOP 'number of torodial points for output must be >n_max!'
+  IF(Nthet_out .LT. 4*mn_max_out(1)) WRITE(UNIT_StdOut,'(A)')'WARNING: number of poloidal points for output should be >=4*m_max!'
+  IF(Nzeta_out .LT. 4*mn_max_out(2)) WRITE(UNIT_StdOut,'(A)')'WARNING: number of toroidal points for output should be >=4*n_max!'
 
   ALLOCATE(thet_pos(Nthet_out))
   ALLOCATE(zeta_pos(Nzeta_out))
@@ -261,7 +267,7 @@ END SUBROUTINE init_gvec_to_castor3d
 SUBROUTINE gvec_to_castor3d_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG_in)
 ! MODULES
 USE MODgvec_gvec_to_castor3d_Vars 
-USE MODgvec_Globals,        ONLY: CROSS,TWOPI
+USE MODgvec_Globals,        ONLY: CROSS,TWOPI,ProgressBar
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
 USE MODgvec_Base,           ONLY: t_base
 IMPLICIT NONE
@@ -290,10 +296,8 @@ REAL(wp),DIMENSION(1:X2_base_in%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LG_base_in%f%modes) :: LG_s,dGds_s
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'PREPARE DATA FOR GVEC-TO-CASTOR3D ...'
+CALL ProgressBar(0,Ns_out) !init
 DO i_s=1,Ns_out
-  IF(MOD(i_s,MAX(1,Ns_out/100)).EQ.0) THEN
-    SWRITE(UNIT_stdOut,'(4X,I4,A4,I4,A13,A1)',ADVANCE='NO')i_s, ' of ',NS_out,' evaluated...',ACHAR(13)
-  END IF
   spos          = s_pos(i_s)
   data_1D(SPOS__,i_s)=s_pos(i_s)
 
@@ -434,7 +438,7 @@ DO i_s=1,Ns_out
   ! B = Phi'/sqrtg drvec/dv + chi'/sqrtg drvec/du 
   ! toroidal flux:  int_0^s int_0^pi B. grad v ds du  = int_0^s int_0^pi B. (-drvec/ds x drvec/du)*sqrtg ds du    
   !                = -int_0^s Phi' ds  = -Phi(s)
-
+  CALL ProgressBar(i_s,Ns_out)
 END DO !i_s=1,Ns_out 
 PhiEdge=data_1D(PHI__,Ns_out)
 ChiEdge=data_1D(CHI__,Ns_out)
@@ -463,7 +467,7 @@ CHARACTER(LEN=255) :: fileNameOut !< name of output file
 INTEGER            :: ioUnit,iVar,i_s
 !===================================================================================================================================
   FileNameOut='gvec2castor3d_'//TRIM(FileName)
-  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITING NEW CASTOR3D FILE    "'//TRIM(FileNameOut)//'" ...'
+  WRITE(UNIT_stdOut,'(A)')'WRITING NEW CASTOR3D FILE    "'//TRIM(FileNameOut)//'" ...'
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit       ,&
      FILE     = TRIM(FileNameOut) ,&

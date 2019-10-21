@@ -64,6 +64,10 @@ INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE
 
+INTERFACE ProgressBar
+   MODULE PROCEDURE ProgressBar
+END INTERFACE
+
 INTERFACE GETFREEUNIT
    MODULE PROCEDURE GETFREEUNIT
 END INTERFACE
@@ -145,6 +149,37 @@ CALL BACKTRACE
 ERROR STOP 2
 END SUBROUTINE Abort
 
+
+!==================================================================================================================================
+!> Print a progress bar to screen, call either with init=T or init=F
+!!
+!==================================================================================================================================
+SUBROUTINE ProgressBar(iter,n_iter)
+! MODULES
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN) :: iter,n_iter  !! iter ranges from 1...n_iter
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+CHARACTER(LEN=8)  :: fmtstr
+INTEGER :: newpercent
+!==================================================================================================================================
+IF(iter.LE.0)THEN !INIT
+  SWRITE(UNIT_StdOut,'(4X,A,I8)') &
+  '|       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of ',n_iter
+  SWRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
+  CALL FLUSH(UNIT_stdOut)
+ELSE
+  newpercent=FLOOR(REAL(iter,wp)/REAL(n_iter,wp)*(100.0_wp+1.0e-12_wp))
+  WRITE(fmtstr,'(I4)')newpercent
+  SWRITE(UNIT_StdOut,'(A1,4X,A1,'//TRIM(fmtstr)//'("."))',ADVANCE='NO')ACHAR(13),'|'
+  CALL FLUSH(UNIT_stdOut)
+  IF(newpercent.EQ.100)THEN
+    SWRITE(UNIT_StdOut,'(A1)')'|'
+  END IF
+END IF 
+END SUBROUTINE ProgressBar
 
 !==================================================================================================================================
 !> Get unused file unit number
