@@ -966,16 +966,13 @@ IMPLICIT NONE
   REAL(wp)                      :: y(1:nd)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                       :: iElem,i
+  INTEGER                       :: iElem,j
   REAL(wp)                      :: base_x(0:sf%deg)
 !===================================================================================================================================
   CALL sf%eval(x,deriv,iElem,base_x) 
-  ASSOCIATE(j=>sf%base_offset(iElem))
-  y(1:nd) = DOFs(j,1:nd)*base_x(0)
-  DO i=1,sf%deg
-    y(1:nd) =y(1:nd)+ DOFs(j+i,1:nd)*base_x(i)
-  END DO
-  END ASSOCIATE
+  j=sf%base_offset(iElem)
+  !y(1:nd) =MATMUL(base_x(0:sf%deg),DOFs(j:j+sf%deg,1:nd))
+  CALL DGEMV('T',sf%deg+1,nd,1.0_wp,DOFS(j:j+sf%deg,1:nd),sf%deg+1,base_x(0:sf%deg),1,0.0_wp,y(1:nd),1)
 
 END FUNCTION sbase_evalDOF2D_s
 
