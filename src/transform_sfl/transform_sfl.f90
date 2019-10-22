@@ -157,6 +157,8 @@ IMPLICIT NONE
   SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
                               ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
                      
+  call perfon('transform_angles')
+  call perfon('init')
   !initialize
   
   ! extended base for q in the new angles, and on the new grid
@@ -197,6 +199,7 @@ IMPLICIT NONE
   END IF
 
   ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
+  call perfoff('init')
 
   check(1)=HUGE(1.)
   check(2:3)=0.
@@ -205,48 +208,55 @@ IMPLICIT NONE
 
   CALL ProgressBar(0,nBase)!init
   DO is=1,nBase
+    call perfon('eval_data')
     spos=q_base_out%s%s_IP(is) !interpolation points for q_in
-    !evaluate lambda at spos
+    !evaluate q_in at spos
+    q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
+    q_IP     = q_fbase_nyq%evalDOF_IP(0,q_in_s(:))
+    !evaluate A at spos
     A_s(:)= AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,A_in(:,:))
     !evaluate lambda at spos
     ! TEST EXACT CASE: A_s=0.
     !evaluate lambda at integration points
     A_IP       = AB_fbase_nyq%evalDOF_IP(         0,A_s(:))
     dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET,A_s(:))
-    IF(Bpresent)THEN
+    IF(.NOT.Bpresent)THEN
+      f_IP  = q_IP(:)*(1.0_wp + dAdthet_IP(:))
+    ELSE !Bpresent
       B_s(:)     = AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,B_in(:,:))
       B_IP       = AB_fbase_nyq%evalDOF_IP(         0,B_s(:))
       dBdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET,B_s(:))
       dBdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA,B_s(:))
 
       dAdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA,A_s(:))
-    END IF !Bpresent
-    !evaluate q_in at spos
-    q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
-    q_IP     = q_fbase_nyq%evalDOF_IP(0,q_in_s(:))
-    ! f_IP=q*(1+dlambda/dtheta) 
-    IF(.NOT.Bpresent)THEN
-      f_IP  = q_IP(:)*(1.0_wp + dAdthet_IP(:))
-    ELSE
       f_IP  = q_IP(:)*((1.0_wp + dAdthet_IP(:))*(1.0_wp + dBdzeta_IP(:))-dAdzeta_IP(:)*dBdthet_IP(:))
-    END IF
-    
+    END IF !Bpresent
+    call perfoff('eval_data')
+    call perfon('eval_modes')
     !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
     IF(.NOT.Bpresent)THEN
       DO i_mn=1,mn_IP
         modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_fbase_nyq%x_IP(1,i_mn)+A_IP(i_mn),q_fbase_nyq%x_IP(2,i_mn)/))
       END DO
-    ELSE
+    ELSE !Bpresent
       DO i_mn=1,mn_IP
         modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_fbase_nyq%x_IP(1,i_mn)+A_IP(i_mn),q_fbase_nyq%x_IP(2,i_mn)+B_IP(i_mn)/))
       END DO
-    END IF
-    !projection: integrate (sum over mn_IP), includes normalization of base!
-    q_out(is,:)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
+    END IF !Bpresent
+    call perfoff('eval_modes')
+    call perfon('project')
 
+    !projection: integrate (sum over mn_IP), includes normalization of base!
+    !q_out(is,:)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
+    CALL DGEMV('N',q_base_out%f%modes,mn_IP,1.0_wp,modes_IP,q_base_out%f%modes,f_IP(:),1,0.0_wp,q_out(is,:),1)
+    q_out(is,:)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_out(is,:)
+
+    call perfoff('project')
+    call perfon('check')
     !CHECK at all IP points:
     IF(doCheck)THEN
-      f_IP=MATMUL(q_out(is,:),modes_IP(:,:))
+      !f_IP=MATMUL(q_out(is,:),modes_IP(:,:))
+      CALL DGEMV('T',q_base_out%f%modes,mn_IP,1.0_wp,modes_IP,q_base_out%f%modes,q_out(is,:),1,0.0_wp,f_IP(:),1)
   
       f_IP = ABS(f_IP - q_IP)/SUM(ABS(q_IP))*REAL(mn_IP,wp)
       check(1)=MIN(check(1),MINVAL(f_IP))
@@ -259,6 +269,7 @@ IMPLICIT NONE
 !      WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
     END IF !doCheck
 
+    call perfoff('check')
     CALL ProgressBar(is,nBase)
   END DO !is
 
@@ -277,6 +288,7 @@ IMPLICIT NONE
   END DO
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
 
+  call perfoff('transform_angles')
 END SUBROUTINE Transform_Angles
 
 !===================================================================================================================================

@@ -98,7 +98,8 @@ IMPLICIT NONE
 
   SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
                               ', mn_max_in=',LA_base_r%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
-                     
+  call perfon('get_boozer')
+  call perfon('init')
   !initialize
   
   ! extended base for q in the new angles, and on the new grid
@@ -144,11 +145,13 @@ IMPLICIT NONE
   ALLOCATE(Gthet(nBase,1:G_base_out%f%modes))
   ALLOCATE(GZ(   nBase,1:G_base_out%f%modes))
 
+  call perfoff('init')
 
   dthet_dzeta  =G_base_out%f%d_thet*G_base_out%f%d_zeta !integration weights
 
   CALL ProgressBar(0,nBase) !INIT
   DO is=1,nBase
+    call perfon('eval_data')
     spos=G_base_out%s%s_IP(is) !interpolation points for q_in
 
     dPhids_int  = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
@@ -179,6 +182,8 @@ IMPLICIT NONE
     dLAdthet_IP = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:))
     dLAdzeta_IP = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:))
 
+    call perfoff('eval_data')
+    call perfon('eval_bsub')
     
     q_thet(3)=0.0_wp !dq(3)/dtheta
     q_zeta(3)=1.0_wp !dq(3)/zeta
@@ -203,6 +208,8 @@ IMPLICIT NONE
       Bcov_thet_IP(i_mn) = (g_tt*b_thet + g_tz*b_zeta)*sdetJ  
       Bcov_zeta_IP(i_mn) = (g_tz*b_thet + g_zz*b_zeta)*sdetJ  
     END DO !i_mn
+    call perfoff('eval_bsub')
+    call perfon('project')
 
     !Itor ~ zero mode of B_thet
     !Ipol ~ zero mode of B_zeta
@@ -236,6 +243,7 @@ IMPLICIT NONE
 
     END ASSOCIATE !bases, fm_IP=>X1_IP,fn_IP=>X2_IP
 
+    call perfoff('project')
     CALL ProgressBar(is,nBase)
   END DO !is
 
@@ -256,6 +264,7 @@ IMPLICIT NONE
   END DO
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  call perfoff('get_boozer')
 END SUBROUTINE Get_Boozer
 
 

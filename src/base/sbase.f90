@@ -969,11 +969,13 @@ IMPLICIT NONE
   INTEGER                       :: iElem,j
   REAL(wp)                      :: base_x(0:sf%deg)
 !===================================================================================================================================
+  call perfon('eval_dof2d_s')
   CALL sf%eval(x,deriv,iElem,base_x) 
   j=sf%base_offset(iElem)
   !y(1:nd) =MATMUL(base_x(0:sf%deg),DOFs(j:j+sf%deg,1:nd))
   CALL DGEMV('T',sf%deg+1,nd,1.0_wp,DOFS(j:j+sf%deg,1:nd),sf%deg+1,base_x(0:sf%deg),1,0.0_wp,y(1:nd),1)
 
+  call perfoff('eval_dof2d_s')
 END FUNCTION sbase_evalDOF2D_s
 
 !===================================================================================================================================

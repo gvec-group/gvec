@@ -756,6 +756,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER                       :: m,n
 !===================================================================================================================================
+call perfon('evaldof_ip')
 m=sf%mn_IP
 n=sf%modes
 IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
@@ -774,6 +775,7 @@ IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
   END SELECT
+call perfoff('evaldof_ip')
 END FUNCTION fBase_evalDOF_IP
 
 !===================================================================================================================================
