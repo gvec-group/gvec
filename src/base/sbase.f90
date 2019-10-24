@@ -973,7 +973,7 @@ IMPLICIT NONE
   CALL sf%eval(x,deriv,iElem,base_x) 
   j=sf%base_offset(iElem)
   !y(1:nd) =MATMUL(base_x(0:sf%deg),DOFs(j:j+sf%deg,1:nd))
-  CALL DGEMV('T',sf%deg+1,nd,1.0_wp,DOFS(j:j+sf%deg,1:nd),sf%deg+1,base_x(0:sf%deg),1,0.0_wp,y(1:nd),1)
+  __MATVEC_T(y,DOFs(j:j+sf%deg,:),base_x(0:sf%deg))
 
   call perfoff('eval_dof2d_s')
 END FUNCTION sbase_evalDOF2D_s
@@ -1012,10 +1012,7 @@ IMPLICIT NONE
       j=sf%base_offset(iElem)
       k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_GP(   :,:,iElem),DOFs(j:j+deg))
-!!$      m=size(sf%base_GP(:,:,iElem),dim=1)
-!!$      n=size(sf%base_GP(:,:,iElem),dim=2)
-!!$      CALL DGEMV('N',m,n,1.0_wp,sf%base_GP(:,:,iElem),m,DOFs(j:j+deg),1,0.0_wp,y_GP(k:k+degGP),1)
-!      k=k+(degGP+1)
+      !!__MATVEC_N(y_GP(k:k+degGP),sf%base_GP(:,:,iElem),DOFs(j:j+deg))
     END DO
 !$OMP END PARALLEL DO
   CASE(DERIV_S)
@@ -1029,10 +1026,7 @@ IMPLICIT NONE
       j=sf%base_offset(iElem)
       k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
-!!$      m=size(sf%base_ds_GP(:,:,iElem),dim=1)
-!!$      n=size(sf%base_ds_GP(:,:,iElem),dim=2)
-!!$      CALL DGEMV('N',m,n,1.0_wp,sf%base_ds_GP(:,:,iElem),m,DOFs(j:j+deg),1,0.0_wp,y_GP(k:k+degGP),1)
-!      k=k+(degGP+1)
+      !!__MATVEC_N(y_GP(k:k+degGP),sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
     END DO
 !$OMP END PARALLEL DO
   CASE DEFAULT

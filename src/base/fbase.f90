@@ -366,19 +366,11 @@ IMPLICIT NONE
 
   sf%d_zeta = sf%d_zeta*REAL(nfp,wp) ! to get full integral [0,2pi)
  
-  !SIN(m*theta-(n*nfp)*zeta)
-  DO iMode=sin_range(1)+1,sin_range(2)
-    sf%base_IP(:,iMode)      =                          SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
-    sf%base_dthet_IP(:,iMode)= REAL(sf%Xmn(1,iMode),wp)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
-    sf%base_dzeta_IP(:,iMode)=-REAL(sf%Xmn(2,iMode),wp)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
-  END DO !iMode
-
-  !COS(m*theta-(n*nfp)*zeta)
-  DO iMode=cos_range(1)+1,cos_range(2)
-    sf%base_IP(:,iMode)      =                          COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
-    sf%base_dthet_IP(:,iMode)=-REAL(sf%Xmn(1,iMode),wp)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
-    sf%base_dzeta_IP(:,iMode)= REAL(sf%Xmn(2,iMode),wp)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
-  END DO !iMode
+  DO i=1,sf%mn_IP
+    sf%base_IP(      i,:)=sf%eval(         0,sf%x_IP(:,i))
+    sf%base_dthet_IP(i,:)=sf%eval(DERIV_THET,sf%x_IP(:,i))
+    sf%base_dzeta_IP(i,:)=sf%eval(DERIV_ZETA,sf%x_IP(:,i))
+  END DO
 
   END ASSOCIATE !sf
 
@@ -684,24 +676,24 @@ IMPLICIT NONE
   SELECT CASE(deriv)
   CASE(0)
     DO iMode=sin_range(1)+1,sin_range(2)
-      base_x(iMode)=                          SIN(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      base_x(iMode)=                          COS(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
-    END DO !iMode
-  CASE(DERIV_THET)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      base_x(iMode)= REAL(sf%Xmn(1,iMode),wp)*COS(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      base_x(iMode)=-REAL(sf%Xmn(1,iMode),wp)*SIN(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
-    END DO !iMode
-  CASE(DERIV_ZETA)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      base_x(iMode)=-REAL(sf%Xmn(2,iMode),wp)*COS(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      base_x(iMode)= REAL(sf%Xmn(2,iMode),wp)*SIN(sf%Xmn(1,iMode)*x(1)-sf%Xmn(2,iMode)*x(2))
+      base_x(iMode)=                          SIN(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                       
+    DO iMode=cos_range(1)+1,cos_range(2)                                                                
+      base_x(iMode)=                          COS(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                       
+  CASE(DERIV_THET)                                                                                      
+    DO iMode=sin_range(1)+1,sin_range(2)                                                                
+      base_x(iMode)= REAL(sf%Xmn(1,iMode),wp)*COS(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                       
+    DO iMode=cos_range(1)+1,cos_range(2)                                                                
+      base_x(iMode)=-REAL(sf%Xmn(1,iMode),wp)*SIN(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                       
+  CASE(DERIV_ZETA)                                                                                      
+    DO iMode=sin_range(1)+1,sin_range(2)                                                                
+      base_x(iMode)=-REAL(sf%Xmn(2,iMode),wp)*COS(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                       
+    DO iMode=cos_range(1)+1,cos_range(2)                                                                
+      base_x(iMode)= REAL(sf%Xmn(2,iMode),wp)*SIN(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
     END DO !iMode
   CASE DEFAULT 
     CALL abort(__STAMP__, &
@@ -763,14 +755,14 @@ IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
   CASE(0)
-!!$    y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
-    CALL DGEMV('N',m,n,1.0_wp,sf%base_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
+    !y_IP=MATMUL(sf%base_IP(:,:),DOFs(:))
+    __MATVEC_N(y_IP,sf%base_IP,DOFs)
   CASE(DERIV_THET)
-!!$     y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
-    CALL DGEMV('N',m,n,1.0_wp,sf%base_dthet_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
+    !y_IP=MATMUL(sf%base_dthet_IP(:,:),DOFs(:))
+    __MATVEC_N(y_IP,sf%base_dthet_IP,DOFs)
   CASE(DERIV_ZETA)
-!!$    y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
-    CALL DGEMV('N',m,n,1.0_wp,sf%base_dzeta_IP(:,:),m,DOFs(:),1,0.0_wp,y_IP(:),1)
+    !y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
+    __MATVEC_N(y_IP,sf%base_dzeta_IP,DOFs)
   CASE DEFAULT 
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")

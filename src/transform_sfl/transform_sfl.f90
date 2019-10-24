@@ -141,13 +141,10 @@ IMPLICIT NONE
   REAL(wp)              :: A_s(1:AB_base_in%f%modes) 
   REAL(wp)              :: B_s(1:AB_base_in%f%modes) 
   REAL(wp)              :: q_in_s(1:q_base_in%f%modes) 
-  CLASS(t_fBase),ALLOCATABLE :: AB_fbase_nyq
-  CLASS(t_fBase),ALLOCATABLE :: q_fbase_nyq
   REAL(wp), ALLOCATABLE :: q_IP(:)       ! q evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
-  REAL(wp), ALLOCATABLE :: A_IP(:),dAdthet_IP(:),dAdzeta_IP(:) 
-  REAL(wp), ALLOCATABLE :: B_IP(:),dBdthet_IP(:),dBdzeta_IP(:) 
   REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
+  REAL(wp)              :: x_IP(1:2),A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
 !===================================================================================================================================
   Bpresent=PRESENT(B_in)
   ! use maximum number of integration points from maximum mode number in both directions
@@ -174,29 +171,12 @@ IMPLICIT NONE
   !total number of integration points
   mn_IP = q_base_out%f%mn_IP
 
-  SWRITE(UNIT_StdOut,*)'        ...Init 1 Done'
-  !same base for q, but with new mn_nyq (for pre-evaluation of basis functions)
-  CALL fbase_new( q_fbase_nyq,  q_base_in%f%mn_max,  mn_nyq, &
-                                q_base_in%f%nfp, &
-                    sin_cos_map(q_base_in%f%sin_cos), &
-                                q_base_in%f%exclude_mn_zero)
+  SWRITE(UNIT_StdOut,*)'        ...InitBase Done'
 
-  SWRITE(UNIT_StdOut,*)'        ...Init 2 Done'
-  !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
-  CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
-                                AB_base_in%f%nfp, &
-                    sin_cos_map(AB_base_in%f%sin_cos), &
-                                AB_base_in%f%exclude_mn_zero)
-  
-  SWRITE(UNIT_StdOut,*)'        ...Init 3 Done'
   nBase=q_base_out%s%nBase
 
-  ALLOCATE(modes_IP(1:q_base_out%f%modes,1:mn_IP))
   ALLOCATE(f_IP(1:mn_IP),q_IP(1:mn_IP))
-  ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP))
-  IF(Bpresent)THEN
-    ALLOCATE(dAdzeta_IP(1:mn_IP),B_IP(1:mn_IP),dBdthet_IP(1:mn_IP),dBdzeta_IP(1:mn_IP))
-  END IF
+  ALLOCATE(modes_IP(1:q_base_out%f%modes,1:mn_IP))
 
   ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
   call perfoff('init')
@@ -208,55 +188,74 @@ IMPLICIT NONE
 
   CALL ProgressBar(0,nBase)!init
   DO is=1,nBase
-    call perfon('eval_data')
+    call perfon('eval_data_s')
     spos=q_base_out%s%s_IP(is) !interpolation points for q_in
     !evaluate q_in at spos
     q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
-    q_IP     = q_fbase_nyq%evalDOF_IP(0,q_in_s(:))
     !evaluate A at spos
     A_s(:)= AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,A_in(:,:))
+    IF(Bpresent)THEN
+      B_s(:)     = AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,B_in(:,:))
+    END IF
+    call perfoff('eval_data_s')
+    call perfon('eval_data_f')
     !evaluate lambda at spos
     ! TEST EXACT CASE: A_s=0.
-    !evaluate lambda at integration points
-    A_IP       = AB_fbase_nyq%evalDOF_IP(         0,A_s(:))
-    dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET,A_s(:))
     IF(.NOT.Bpresent)THEN
-      f_IP  = q_IP(:)*(1.0_wp + dAdthet_IP(:))
-    ELSE !Bpresent
-      B_s(:)     = AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,B_in(:,:))
-      B_IP       = AB_fbase_nyq%evalDOF_IP(         0,B_s(:))
-      dBdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET,B_s(:))
-      dBdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA,B_s(:))
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn,x_IP,A_IP,dAdthet_IP)        &
+!$OMP   SHARED(mn_IP,q_base_out,q_base_in,q_in_s,q_IP,AB_base_in,A_s,f_IP,modes_IP)
+      DO i_mn=1,mn_IP
+        x_IP(1:2)  = q_base_out%f%x_IP(1:2,i_mn)
+        q_IP(i_mn) =  q_base_in%f%evalDOF_x(x_IP,         0,q_in_s(:))
+        A_IP       = AB_base_in%f%evalDOF_x(x_IP,         0,A_s(:))
+        dAdthet_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_THET,A_s(:))
+        
+        f_IP(i_mn) = q_IP(i_mn)*(1.0_wp + dAdthet_IP)
+        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
+        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/x_IP(1)+A_IP,x_IP(2)/))
+      END DO !i_mn=1,mn_IP
+!$OMP END PARALLEL DO 
 
-      dAdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA,A_s(:))
-      f_IP  = q_IP(:)*((1.0_wp + dAdthet_IP(:))*(1.0_wp + dBdzeta_IP(:))-dAdzeta_IP(:)*dBdthet_IP(:))
-    END IF !Bpresent
-    call perfoff('eval_data')
-    call perfon('eval_modes')
-    !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
-    IF(.NOT.Bpresent)THEN
-      DO i_mn=1,mn_IP
-        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_fbase_nyq%x_IP(1,i_mn)+A_IP(i_mn),q_fbase_nyq%x_IP(2,i_mn)/))
-      END DO
     ELSE !Bpresent
+      
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn,x_IP,A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP)        &
+!$OMP   SHARED(mn_IP,q_base_out,q_base_in,q_in_s,q_IP,AB_base_in,A_s,B_s,f_IP,modes_IP)
       DO i_mn=1,mn_IP
-        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_fbase_nyq%x_IP(1,i_mn)+A_IP(i_mn),q_fbase_nyq%x_IP(2,i_mn)+B_IP(i_mn)/))
-      END DO
+        x_IP(1:2)  = q_base_out%f%x_IP(1:2,i_mn)
+        q_IP(i_mn) =  q_base_in%f%evalDOF_x(x_IP,         0,q_in_s(:))
+        A_IP       = AB_base_in%f%evalDOF_x(x_IP,         0,A_s(:))
+        dAdthet_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_THET,A_s(:))
+        dAdzeta_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_ZETA,A_s(:))
+        B_IP       = AB_base_in%f%evalDOF_x(x_IP,         0,B_s(:))
+        dBdthet_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_THET,B_s(:))
+        dBdzeta_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_ZETA,B_s(:))
+        
+        f_IP(i_mn) = q_IP(i_mn)*((1.0_wp + dAdthet_IP)*(1.0_wp + dBdzeta_IP)-dAdzeta_IP*dBdthet_IP)
+        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
+        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/x_IP(1)+A_IP,x_IP(2)+B_IP/))
+      END DO !i_mn=1,mn_IP
+!$OMP END PARALLEL DO 
     END IF !Bpresent
-    call perfoff('eval_modes')
     call perfon('project')
+    __MATVEC_N(q_out(is,:),modes_IP(:,:),f_IP(:)) 
+
+    call perfoff('project')
+    call perfoff('eval_data_f')
 
     !projection: integrate (sum over mn_IP), includes normalization of base!
     !q_out(is,:)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
-    CALL DGEMV('N',q_base_out%f%modes,mn_IP,1.0_wp,modes_IP,q_base_out%f%modes,f_IP(:),1,0.0_wp,q_out(is,:),1)
+
     q_out(is,:)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_out(is,:)
 
-    call perfoff('project')
     call perfon('check')
-    !CHECK at all IP points:
-    IF(doCheck)THEN
+    !CHECK at all IP points, only every 4th radial point:
+    IF(doCheck.AND.((is.EQ.nBase).OR.(MOD(is,4).EQ.0)))THEN
       !f_IP=MATMUL(q_out(is,:),modes_IP(:,:))
-      CALL DGEMV('T',q_base_out%f%modes,mn_IP,1.0_wp,modes_IP,q_base_out%f%modes,q_out(is,:),1,0.0_wp,f_IP(:),1)
+      __MATVEC_T(f_IP,modes_IP,q_out(is,:))
   
       f_IP = ABS(f_IP - q_IP)/SUM(ABS(q_IP))*REAL(mn_IP,wp)
       check(1)=MIN(check(1),MINVAL(f_IP))
@@ -273,21 +272,19 @@ IMPLICIT NONE
     CALL ProgressBar(is,nBase)
   END DO !is
 
-  !finalize
-  CALL AB_fbase_nyq%free()
-  CALL q_fbase_nyq%free()
-  DEALLOCATE(AB_fbase_nyq,q_fbase_nyq,modes_IP,f_IP)
-  DEALLOCATE(A_IP,dAdthet_IP)
-  IF(Bpresent) DEALLOCATE(dAdzeta_IP,B_IP,dBdthet_IP,dBdzeta_IP)
-
-  IF(doCheck) WRITE(UNIT_StdOut,'(2A,3E11.3)')'   CHECK ERROR of '//TRIM(q_name)//':', &
-                                             ' |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',check(1:3)
   !transform back to corresponding representation of DOF in s
   DO iMode=1,q_base_out%f%modes
     q_out(:,iMode)=q_base_out%s%initDOF( q_out(:,iMode) )
   END DO
-  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
 
+  !finalize
+  DEALLOCATE(modes_IP,q_IP,f_IP)
+
+  IF(doCheck) WRITE(UNIT_StdOut,'(2A,3E11.3)')'   CHECK ERROR of '//TRIM(q_name)//':', &
+                                             ' |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',check(1:2), &
+                                                                            check(3)/(0.25*REAL(nBase,wp))
+
+  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
   call perfoff('transform_angles')
 END SUBROUTINE Transform_Angles
 

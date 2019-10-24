@@ -306,14 +306,6 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO
   call perfoff('eval_s')
 
-!!! use lapack matrix matrix multiply dgemm( TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-!!! does in general C = alpha A^?*B^? + beta C
-!!! structure: (m x n) = (m x k) (k x n)  
-!!! C=A  *B   : CALL DGEMM('N','N',m,n,k,1.0_wp,Amat ,m, Bmat,k, 0.0_wp,Cmat,m)
-!!! C=A^T*B   : CALL DGEMM('T','N',m,n,k,1.0_wp,Amat ,k, Bmat,k, 0.0_wp,Cmat,m)
-!!! C=A  *B^T : CALL DGEMM('N','T',m,n,k,1.0_wp,Amat ,m, Bmat,n, 0.0_wp,Cmat,m)
-!!! C=A^T*B^T : CALL DGEMM('T','T',m,n,k,1.0_wp,Amat ,k, Bmat,n, 0.0_wp,Cmat,m)
-
 #elif (PP_WHICHEVAL==11)
   ! matrix-matrix version of first s then f
 
@@ -328,14 +320,14 @@ IMPLICIT NONE
       j=sf%s%base_offset(iElem)
       i=(iElem-1)*(degGP+1)+1  
       !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-      CALL DGEMM('T','T',m,n,k,1.0_wp,DOFs(j:j+deg,:),k,sf%s%base_GP(0:degGP,0:deg,iElem)   ,n,0.0_wp,y_tmp(:,i:i+degGP),m)
+      __MATMAT_TT(y_tmp(:,i:i+degGP),DOFs(j:j+deg,:),sf%s%base_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   CASE(DERIV_S)
     DO iElem=1,nElems
       j=sf%s%base_offset(iElem)
       i=(iElem-1)*(degGP+1)+1  
       !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-      CALL DGEMM('T','T',m,n,k,1.0_wp,DOFs(j:j+deg,:),k,sf%s%base_ds_GP(0:degGP,0:deg,iElem),n,0.0_wp,y_tmp(:,i:i+degGP),m)
+      __MATMAT_TT(y_tmp(:,i:i+degGP),DOFs(j:j+deg,:),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   END SELECT !deriv GP
   END ASSOCIATE
@@ -348,13 +340,13 @@ IMPLICIT NONE
   SELECT CASE(deriv(2))
   CASE(0)
     !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
-    CALL DGEMM('N','N',m,n,k,1.0_wp,sf%f%base_IP(:,:)      ,m,y_tmp(:,:),k,0.0_wp,Y_IP_GP,m)
+    __MATMAT_NN(Y_IP_GP ,sf%f%base_IP,y_tmp)
   CASE(DERIV_THET)                        
     !Y_IP_GP = MATMUL(sf%f%base_dthet_IP(:,:),y_tmp)
-    CALL DGEMM('N','N',m,n,k,1.0_wp,sf%f%base_dthet_IP(:,:),m,y_tmp(:,:),k,0.0_wp,Y_IP_GP,m)
+    __MATMAT_NN(Y_IP_GP ,sf%f%base_dthet_IP,y_tmp)
   CASE(DERIV_ZETA)                        
     !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
-    CALL DGEMM('N','N',m,n,k,1.0_wp,sf%f%base_dzeta_IP(:,:),m,y_tmp(:,:),k,0.0_wp,Y_IP_GP,m)
+    __MATMAT_NN(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
   END SELECT !deriv IP
   call perfoff('eval_f')
 
@@ -367,13 +359,13 @@ IMPLICIT NONE
   SELECT CASE(deriv(2))
   CASE(0)
     !y_tmp = MATMUL(sf%f%base_IP(:,:),TRANSPOSE(DOFs))
-    CALL DGEMM('N','T',m,n,k,1.0_wp,sf%f%base_IP(:,:)      ,m,DOFs,n,0.0_wp,y_tmp,m)
+    __MATMAT_NT(y_tmp ,sf%f%base_IP,DOFs)
   CASE(DERIV_THET)                        
     !y_tmp = MATMUL(sf%f%base_dthet_IP(:,:),TRANSPOSE(DOFs))
-    CALL DGEMM('N','T',m,n,k,1.0_wp,sf%f%base_dthet_IP(:,:),m,DOFs,n,0.0_wp,y_tmp,m)
+    __MATMAT_NT(y_tmp,sf%f%base_dthet_IP,DOFs)
   CASE(DERIV_ZETA)                        
     !y_tmp = MATMUL(sf%f%base_dzeta_IP(:,:),TRANSPOSE(DOFs))
-    CALL DGEMM('N','T',m,n,k,1.0_wp,sf%f%base_dzeta_IP(:,:),m,DOFs,n,0.0_wp,y_tmp,m)
+    __MATMAT_NT(y_tmp,sf%f%base_dzeta_IP,DOFs)
   END SELECT !deriv IP
   call perfoff('eval_f')
 
@@ -388,14 +380,14 @@ IMPLICIT NONE
       j=sf%s%base_offset(iElem)
       i=(iElem-1)*(degGP+1)+1  
       !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_GP(0:degGP,0:deg,iElem)))
-      CALL DGEMM('N','T',m,n,k,1.0_wp,y_tmp(:,j:j+deg),m,sf%s%base_GP(0:degGP,0:deg,iElem)   ,n,0.0_wp,y_IP_GP(:,i:i+degGP),m)
+      __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   CASE(DERIV_S)
     DO iElem=1,nElems
       j=sf%s%base_offset(iElem)
       i=(iElem-1)*(degGP+1)+1  
       !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_ds_GP(0:degGP,0:deg,iElem)))
-      CALL DGEMM('N','T',m,n,k,1.0_wp,y_tmp(:,j:j+deg),m,sf%s%base_ds_GP(0:degGP,0:deg,iElem),n,0.0_wp,y_IP_GP(:,i:i+degGP),m)
+      __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   END SELECT !deriv GP
   END ASSOCIATE
