@@ -81,9 +81,9 @@ CASE(2) !BOOZER
   CALL Get_Boozer(mn_max,fac_nyq,sgrid_sfl,GZ_base,Gthet,GZ)
   
   fac_nyq=4
+  CALL Transform_Angles(GZ_base,Gthet,GZ_base  ,GZ  ,mn_max,fac_nyq,sgrid_sfl,"GZ",GZsfl_base,GZsfl,B_in=GZ)
   CALL Transform_Angles(GZ_base,Gthet,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,"X1",X1sfl_base,X1sfl,B_in=GZ)
   CALL Transform_Angles(GZ_base,Gthet,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,"X2",X2sfl_base,X2sfl,B_in=GZ)
-  CALL Transform_Angles(GZ_base,Gthet,GZ_base  ,GZ  ,mn_max,fac_nyq,sgrid_sfl,"GZ",GZsfl_base,GZsfl,B_in=GZ)
 
   DEALLOCATE(Gthet)
 
@@ -135,13 +135,13 @@ IMPLICIT NONE
   INTEGER               :: nBase,is,iMode,i_mn,mn_IP
   INTEGER               :: mn_nyq(2)
   REAL(wp)              :: spos,dthet_dzeta 
-  REAL(wp)              :: check(1:3)
+  REAL(wp)              :: check(1:7)
   LOGICAL               :: docheck=.TRUE. 
   LOGICAL               :: Bpresent
   REAL(wp)              :: A_s(1:AB_base_in%f%modes) 
   REAL(wp)              :: B_s(1:AB_base_in%f%modes) 
   REAL(wp)              :: q_in_s(1:q_base_in%f%modes) 
-  REAL(wp), ALLOCATABLE :: q_IP(:)       ! q evaluated at spos and all integration points
+  REAL(wp), ALLOCATABLE :: q_IP(:),q_m(:,:)   ! q evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
   REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
   REAL(wp)              :: x_IP(1:2),A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
@@ -178,18 +178,18 @@ IMPLICIT NONE
   ALLOCATE(f_IP(1:mn_IP),q_IP(1:mn_IP))
   ALLOCATE(modes_IP(1:q_base_out%f%modes,1:mn_IP))
 
+  ALLOCATE(q_m(1:q_base_out%f%modes,nBase))
   ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
   call perfoff('init')
 
-  check(1)=HUGE(1.)
-  check(2:3)=0.
+  check(1:7)=(/HUGE(1.),0.,0.,HUGE(1.),-HUGE(1.),HUGE(1.),-HUGE(1.)/)
 
   dthet_dzeta  =q_base_out%f%d_thet*q_base_out%f%d_zeta !integration weights
 
   CALL ProgressBar(0,nBase)!init
   DO is=1,nBase
     call perfon('eval_data_s')
-    spos=q_base_out%s%s_IP(is) !interpolation points for q_in
+    spos=MIN(MAX(1.0e-8_wp,q_base_out%s%s_IP(is)),1.0_wp-1.0e-12_wp) !interpolation points for q_in
     !evaluate q_in at spos
     q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
     !evaluate A at spos
@@ -241,30 +241,36 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO 
     END IF !Bpresent
     call perfon('project')
-    __MATVEC_N(q_out(is,:),modes_IP(:,:),f_IP(:)) 
+    __MATVEC_N(q_m(:,is),modes_IP(:,:),f_IP(:)) 
 
     call perfoff('project')
     call perfoff('eval_data_f')
 
     !projection: integrate (sum over mn_IP), includes normalization of base!
-    !q_out(is,:)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
+    !q_m(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
 
-    q_out(is,:)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_out(is,:)
+    q_m(:,is)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_m(:,is)
 
     call perfon('check')
     !CHECK at all IP points, only every 4th radial point:
-    IF(doCheck.AND.((is.EQ.nBase).OR.(MOD(is,4).EQ.0)))THEN
-      !f_IP=MATMUL(q_out(is,:),modes_IP(:,:))
-      __MATVEC_T(f_IP,modes_IP,q_out(is,:))
+    IF(doCheck) THEN
+
+      __MATVEC_N(f_IP,q_base_out%f%base_IP,q_m(:,is)) !other points
+      check(6)=MIN(check(6),MINVAL(f_IP))
+      check(7)=MAX(check(7),MAXVAL(f_IP))
+      !f_IP=MATMUL(q_m(:,is),modes_IP(:,:))
+      __MATVEC_T(f_IP,modes_IP,q_m(:,is)) !same points
+      check(6)=MIN(check(6),MINVAL(f_IP))
+      check(7)=MAX(check(7),MAXVAL(f_IP))
   
       f_IP = ABS(f_IP - q_IP)/SUM(ABS(q_IP))*REAL(mn_IP,wp)
       check(1)=MIN(check(1),MINVAL(f_IP))
       check(2)=MAX(check(2),MAXVAL(f_IP))
       check(3)=check(3)+MAXVAL(f_IP)/REAL(nBase,wp)
-!      IF(spos.LT.0.9) CYCLE
+      check(4)=MIN(check(4),MINVAL(q_IP))
+      check(5)=MAX(check(5),MAXVAL(q_IP))
 !      WRITE(*,*)'     ------  spos= ',spos
 !      WRITE(*,*)'check |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',MINVAL(f_IP),MAXVAL(f_IP),SUM(f_IP)/REAL(mn_IP,wp)
-!      WRITE(*,*)'max,min q_in',MAXVAL(q_IP),MINVAL(q_IP) 
 !      WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
     END IF !doCheck
 
@@ -274,15 +280,19 @@ IMPLICIT NONE
 
   !transform back to corresponding representation of DOF in s
   DO iMode=1,q_base_out%f%modes
-    q_out(:,iMode)=q_base_out%s%initDOF( q_out(:,iMode) )
+    q_out(:,iMode)=q_base_out%s%initDOF( q_m(iMode,:) )
   END DO
 
   !finalize
-  DEALLOCATE(modes_IP,q_IP,f_IP)
+  DEALLOCATE(modes_IP,q_IP,f_IP,q_m)
 
-  IF(doCheck) WRITE(UNIT_StdOut,'(2A,3E11.3)')'   CHECK ERROR of '//TRIM(q_name)//':', &
+  IF(doCheck) THEN
+    WRITE(UNIT_StdOut,'(A,2E21.11)') '   MIN/MAX of input  '//TRIM(q_name)//':', check(4:5)
+    WRITE(UNIT_StdOut,'(A,2E21.11)') '   MIN/MAX of output '//TRIM(q_name)//':', check(6:7)
+    WRITE(UNIT_StdOut,'(2A,3E11.4)')'       CHECK ERROR of '//TRIM(q_name)//':', &
                                              ' |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',check(1:2), &
                                                                             check(3)/(0.25*REAL(nBase,wp))
+  END IF
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
   call perfoff('transform_angles')

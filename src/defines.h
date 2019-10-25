@@ -78,16 +78,17 @@
 !!!#define __PAMATVEC_T(fy,y,fMat,Mat,Vec) y=fy*y+fMat*MATMUL(Vec,Mat)
 
 ! matvec with blas
-#define __MATVEC_N(y,Mat,Vec)          __PAMATVEC('N',0.0_wp,y,1.0_wp,Mat,Vec) 
-#define __MATVEC_T(y,Mat,Vec)          __PAMATVEC('T',0.0_wp,y,1.0_wp,Mat,Vec) 
+#define __MATVEC_N(y,Mat,Vec)       __PAMATVEC('N',0.0_wp,y,1.0_wp,Mat,Vec) 
+#define __MATVEC_T(y,Mat,Vec)       __PAMATVEC('T',0.0_wp,y,1.0_wp,Mat,Vec) 
 
-#define __PMATVEC_N(fy,y,Mat,Vec)      __PAMATVEC('N',    fy,y,1.0_wp,Mat,Vec) 
-#define __PMATVEC_T(fy,y,Mat,Vec)      __PAMATVEC('T',    fy,y,1.0_wp,Mat,Vec) 
+#define __PMATVEC_N(fy,y,Mat,Vec)   __PAMATVEC('N',fy,y,1.0_wp,Mat,Vec) 
+#define __PMATVEC_T(fy,y,Mat,Vec)   __PAMATVEC('T',fy,y,1.0_wp,Mat,Vec) 
 
-#define __AMATVEC_N(y,fMat,Mat,Vec)    __PAMATVEC('N',0.0_wp,y,  fMat,Mat,Vec) 
-#define __AMATVEC_T(y,fMat,Mat,Vec)    __PAMATVEC('T',0.0_wp,y,  fMat,Mat,Vec) 
-!!!!
-#define __PAMATVEC(NT,fy,y,fMat,Mat,Vec) CALL DGEMV(NT,SIZE(Mat,1),SIZE(Mat,2),fMat  ,Mat,SIZE(Mat,1),Vec,1,fy    ,y,1)
+#define __AMATVEC_N(y,fMat,Mat,Vec) __PAMATVEC('N',0.0_wp,y,fMat,Mat,Vec) 
+#define __AMATVEC_T(y,fMat,Mat,Vec) __PAMATVEC('T',0.0_wp,y,fMat,Mat,Vec) 
+
+#define __PAMATVEC(NT,fy,y,fMat,Mat,Vec) CALL DGEMV(NT,SIZE(Mat,1),SIZE(Mat,2),fMat,Mat,SIZE(Mat,1),Vec,1,fy,y,1)
+
 
 
 !!!!matmat with matmul
@@ -118,15 +119,15 @@
 #define __MATMAT_NT(Y,A,B)     __PAMATMAT_NT(0.0_wp,Y,1.0_wp,A,B)
 #define __MATMAT_TT(Y,A,B)     __PAMATMAT_TT(0.0_wp,Y,1.0_wp,A,B)
 
-#define __PMATMAT_NN(fy,Y,A,B) __PAMATMAT_NN(    fy,Y,1.0_wp,A,B)
-#define __PMATMAT_TN(fy,Y,A,B) __PAMATMAT_TN(    fy,Y,1.0_wp,A,B)
-#define __PMATMAT_NT(fy,Y,A,B) __PAMATMAT_NT(    fy,Y,1.0_wp,A,B)
-#define __PMATMAT_TT(fy,Y,A,B) __PAMATMAT_TT(    fy,Y,1.0_wp,A,B)
+#define __PMATMAT_NN(fy,Y,A,B) __PAMATMAT_NN(fy,Y,1.0_wp,A,B)
+#define __PMATMAT_TN(fy,Y,A,B) __PAMATMAT_TN(fy,Y,1.0_wp,A,B)
+#define __PMATMAT_NT(fy,Y,A,B) __PAMATMAT_NT(fy,Y,1.0_wp,A,B)
+#define __PMATMAT_TT(fy,Y,A,B) __PAMATMAT_TT(fy,Y,1.0_wp,A,B)
 
-#define __AMATMAT_NN(Y,fa,A,B) __PAMATMAT_NN(0.0_wp,Y,    fa,A,B)
-#define __AMATMAT_TN(Y,fa,A,B) __PAMATMAT_TN(0.0_wp,Y,    fa,A,B)
-#define __AMATMAT_NT(Y,fa,A,B) __PAMATMAT_NT(0.0_wp,Y,    fa,A,B)
-#define __AMATMAT_TT(Y,fa,A,B) __PAMATMAT_TT(0.0_wp,Y,    fa,A,B)
+#define __AMATMAT_NN(Y,fa,A,B) __PAMATMAT_NN(0.0_wp,Y,fa,A,B)
+#define __AMATMAT_TN(Y,fa,A,B) __PAMATMAT_TN(0.0_wp,Y,fa,A,B)
+#define __AMATMAT_NT(Y,fa,A,B) __PAMATMAT_NT(0.0_wp,Y,fa,A,B)
+#define __AMATMAT_TT(Y,fa,A,B) __PAMATMAT_TT(0.0_wp,Y,fa,A,B)
 
 !!! GEMM does in general Y = fa A^?*B^? + fy Y
 !!! with structure: (m x n) = (m x k) (k x n)  

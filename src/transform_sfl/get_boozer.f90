@@ -52,6 +52,7 @@ CONTAINS
 SUBROUTINE Get_Boozer(mn_max,fac_nyq,sgrid_in,G_base_out,Gthet,GZ)
 ! MODULES
 USE MODgvec_Globals,ONLY: UNIT_stdOut,TWOPI,PI,ProgressBar
+USE MODgvec_LinAlg
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_sGrid  ,ONLY: t_sgrid
 USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
@@ -73,23 +74,35 @@ IMPLICIT NONE
   REAL(wp)     ,ALLOCATABLE,INTENT(INOUT) :: GZ(:,:)      !< coefficients of G (zeta^B=zeta+G
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER               :: nBase,is,iMode,i_mn,mn_IP
+  INTEGER               :: nBase,is,iMode,modes,i_mn,mn_IP
   INTEGER               :: mn_nyq(2),nfp,mm,nn
+  INTEGER               :: m_nnz,n_nnz
   REAL(wp)              :: spos,dthet_dzeta,dPhids_int,iota_int,dChids_int
   REAL(wp)              :: b_thet,b_zeta,qloc(3),q_thet(3),q_zeta(3) 
-  REAL(wp)              :: J_h,g_tt,g_tz,g_zz,sdetJ,Itor,Ipol 
+  REAL(wp)              :: J_h,g_tt,g_tz,g_zz,sdetJ,Itor,Ipol,stmp 
 
-  CLASS(t_fBase),ALLOCATABLE        :: X1_fbase_nyq
-  CLASS(t_fBase),ALLOCATABLE        :: X2_fbase_nyq
-  CLASS(t_fBase),ALLOCATABLE        :: LA_fbase_nyq
   REAL(wp)                          ::  X1_s(  1:X1_base_r%f%modes) 
   REAL(wp)                          :: dX1ds_s(1:X1_base_r%f%modes) 
   REAL(wp)                          ::  X2_s(  1:X2_base_r%f%modes) 
   REAL(wp)                          :: dX2ds_s(1:X2_base_r%f%modes) 
   REAL(wp)                          :: LA_s(   1:LA_base_r%f%modes) 
+  REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: Bcov_thet_IP,Bcov_zeta_IP
+  REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: LA_IP,dLAdthet_IP,dLAdzeta_IP,fm_IP,fn_IP 
+  REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: GZ_m(:),GZ_n(:) 
+  INTEGER ,DIMENSION(:)  ,ALLOCATABLE :: m_nz(:),n_nz(:)
+  REAL(wp),DIMENSION(:,:),ALLOCATABLE :: proj_base,proj_base_dthet,proj_base_dzeta
+!!!!!!#define OLDIMP 1
+#ifdef OLDIMP
+  CLASS(t_fBase),ALLOCATABLE        :: X1_fbase_nyq
+  CLASS(t_fBase),ALLOCATABLE        :: X2_fbase_nyq
+  CLASS(t_fBase),ALLOCATABLE        :: LA_fbase_nyq
   REAL(wp),DIMENSION(:),ALLOCATABLE :: X1_IP,dX1ds_IP,dX1dthet_IP,dX1dzeta_IP
   REAL(wp),DIMENSION(:),ALLOCATABLE :: X2_IP,dX2ds_IP,dX2dthet_IP,dX2dzeta_IP
-  REAL(wp),DIMENSION(:),ALLOCATABLE :: LA_IP,dLAdthet_IP,dLAdzeta_IP,Bcov_thet_IP,Bcov_zeta_IP
+#else
+  REAL(wp)              :: x_IP(1:2)
+  REAL(wp)              :: X1_IP,dX1ds_IP,dX1dthet_IP,dX1dzeta_IP 
+  REAL(wp)              :: X2_IP,dX2ds_IP,dX2dthet_IP,dX2dzeta_IP
+#endif
 !===================================================================================================================================
   ! use maximum number of integration points from maximum mode number in both directions
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
@@ -112,10 +125,48 @@ IMPLICIT NONE
 !'_sin_   ', &
                              LA_base_r%f%exclude_mn_zero) !exclude m=n=0
 
-  !total number of integration points
-  mn_IP = G_base_out%f%mn_IP
+  
+  mn_IP        = G_base_out%f%mn_IP  !total number of integration points
+  modes        = G_base_out%f%modes  !number of modes in output
+  nBase        = G_base_out%s%nBase  !number of radial points in output
+  dthet_dzeta  = G_base_out%f%d_thet*G_base_out%f%d_zeta !integration weights
 
-  SWRITE(UNIT_StdOut,*)'        ...Init 1 Done'
+  ASSOCIATE(snorm        =>G_base_out%f%snorm_base,    &
+            Xmn          =>G_base_out%f%Xmn,           &
+            base_IP      =>G_base_out%f%base_IP,       &
+            base_dthet_IP=>G_base_out%f%base_dthet_IP, &
+            base_dzeta_IP=>G_base_out%f%base_dzeta_IP  )
+  m_nnz=COUNT(((Xmn(1,:).NE.0).AND.(Xmn(2,:).EQ.0))) !m/=0 & n=0
+  n_nnz=COUNT((Xmn(2,:).NE.0)) !n /=0
+
+  !transpose basis functions and include norm for projection
+  ALLOCATE(proj_base(modes,mn_IP))
+  ALLOCATE(m_nz(m_nnz),proj_base_dthet(m_nnz,mn_IP),fm_IP(mn_IP),GZ_m(m_nnz))
+  IF(n_nnz.GT.0) ALLOCATE(n_nz(n_nnz),proj_base_dzeta(n_nnz,mn_IP),fn_IP(mn_IP),GZ_n(n_nnz))
+  mm=0
+  nn=0
+  DO iMode=1,modes
+    proj_base(iMode,:)=base_IP(:,iMode)*(dthet_dzeta*snorm(iMode)) 
+    IF((Xmn(1,iMode).NE.0).AND.(Xmn(2,iMode).EQ.0))THEN 
+      mm=mm+1
+      m_nz(mm)=iMode
+      proj_base_dthet(mm,:)=base_dthet_IP(:,iMode)*(dthet_dzeta*snorm(iMode)/(REAL(Xmn(1,iMode),wp)**2))
+    ELSEIF(Xmn(2,iMode).NE.0)THEN 
+      nn=nn+1
+      n_nz(nn)=iMode
+      proj_base_dzeta(nn,:)=base_dzeta_IP(:,iMode)*(dthet_dzeta*snorm(iMode)/(REAL(Xmn(2,iMode),wp)**2))
+    ELSE
+      STOP 'm=n=0 should not be here!'
+    END IF
+  END DO !iMode
+  IF(mm.NE.m_nnz) STOP'wrong implementation m_nnz'
+  IF(nn.NE.n_nnz) STOP'wrong implementation n_nnz'
+  IF(mm+nn.NE.modes) STOP'wrong implementation of m_nnz/n_nnz'
+
+  END ASSOCIATE !G_base_out ...
+
+  SWRITE(UNIT_StdOut,*)'        ...InitBase Done'
+#ifdef OLDIMP
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
                                 X1_base_r%f%nfp, &
@@ -135,24 +186,24 @@ IMPLICIT NONE
                                 LA_base_r%f%exclude_mn_zero)
   
   SWRITE(UNIT_StdOut,*)'        ...Init 3 Done'
-  nBase=G_base_out%s%nBase
 
   ALLOCATE( X1_IP(1:mn_IP),dX1ds_IP(1:mn_IP), dX1dthet_IP(1:mn_IP),dX1dzeta_IP(1:mn_IP) &
-           ,X2_IP(1:mn_IP),dX2ds_IP(1:mn_IP), dX2dthet_IP(1:mn_IP),dX2dzeta_IP(1:mn_IP) &
-                             ,LA_IP(1:mn_IP),dLAdthet_IP(1:mn_IP), dLAdzeta_IP(1:mn_IP) &
+           ,X2_IP(1:mn_IP),dX2ds_IP(1:mn_IP), dX2dthet_IP(1:mn_IP),dX2dzeta_IP(1:mn_IP) )
+#endif
+
+  ALLOCATE(                   LA_IP(1:mn_IP),dLAdthet_IP(1:mn_IP), dLAdzeta_IP(1:mn_IP) &
                       ,Bcov_thet_IP(1:mn_IP),Bcov_zeta_IP(1:mn_IP))
   
-  ALLOCATE(Gthet(nBase,1:G_base_out%f%modes))
-  ALLOCATE(GZ(   nBase,1:G_base_out%f%modes))
+  ALLOCATE(Gthet(nBase,1:modes))
+  ALLOCATE(GZ(   nBase,1:modes))
 
   call perfoff('init')
 
-  dthet_dzeta  =G_base_out%f%d_thet*G_base_out%f%d_zeta !integration weights
 
   CALL ProgressBar(0,nBase) !INIT
   DO is=1,nBase
     call perfon('eval_data')
-    spos=G_base_out%s%s_IP(is) !interpolation points for q_in
+    spos=MIN(MAX(1.0e-08_wp,G_base_out%s%s_IP(is)),1.0_wp-1.0e-12_wp) !interpolation points for q_in
 
     dPhids_int  = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
     iota_int    = sbase_prof%evalDOF_s(spos,        0,profiles_1d(:,3))
@@ -167,6 +218,7 @@ IMPLICIT NONE
 
     LA_s(:)    = LA_base_r%s%evalDOF2D_s(spos,LA_base_r%f%modes,      0,LA_r(:,:))
 
+#ifdef OLDIMP
     !evaluate at integration points
     X1_IP       = X1_fbase_nyq%evalDOF_IP(         0, X1_s(  :))
     dX1ds_IP    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s(:))
@@ -181,21 +233,28 @@ IMPLICIT NONE
     LA_IP       = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:))
     dLAdthet_IP = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:))
     dLAdzeta_IP = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:))
+#endif
 
     call perfoff('eval_data')
     call perfon('eval_bsub')
     
-    q_thet(3)=0.0_wp !dq(3)/dtheta
-    q_zeta(3)=1.0_wp !dq(3)/zeta
+    Itor=0.0_wp;Ipol=0.0_wp
+#ifdef OLDIMP
+!$OMP PARALLEL DO &
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)  &
+!$OMP   PRIVATE(i_mn,b_thet,b_zeta,qloc,q_thet,q_zeta,J_h,g_tt,g_tz,g_zz,sdetJ)  &
+!$OMP   REDUCTION(+:Itor,Ipol) &
+!$OMP   SHARED(mn_IP,hmap_r,dchids_int,dPhids_int,dLAdzeta_IP,dLAdthet_IP,X1_IP,X2_IP, &
+!$OMP          G_base_out,dX1dthet_IP,dX2dthet_IP,dX1dzeta_IP,dX2dzeta_IP,             &
+!$OMP          dX1ds_IP,dX2ds_IP,Bcov_thet_IP,Bcov_zeta_IP)
     !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
     DO i_mn=1,mn_IP
-      
       b_thet = dchids_int- dPhids_int*dLAdzeta_IP(i_mn)    !b_theta
       b_zeta = dPhids_int*(1.0_wp   + dLAdthet_IP(i_mn))    !b_zeta
 
       qloc(  1:3) = (/ X1_IP(     i_mn), X2_IP(     i_mn),G_base_out%f%x_IP(2,i_mn)/)
-      q_thet(1:2) = (/dX1dthet_IP(i_mn),dX2dthet_IP(i_mn)/) !dq(1:2)/dtheta
-      q_zeta(1:2) = (/dX1dzeta_IP(i_mn),dX2dzeta_IP(i_mn)/) !dq(1:2)/dzeta
+      q_thet(1:3) = (/dX1dthet_IP(i_mn),dX2dthet_IP(i_mn),0.0_wp/) !dq(1:2)/dtheta
+      q_zeta(1:3) = (/dX1dzeta_IP(i_mn),dX2dzeta_IP(i_mn),1.0_wp/) !dq(1:2)/dzeta
 
       J_h         = hmap_r%eval_Jh(qloc)
       g_tt        = hmap_r%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
@@ -207,61 +266,160 @@ IMPLICIT NONE
 
       Bcov_thet_IP(i_mn) = (g_tt*b_thet + g_tz*b_zeta)*sdetJ  
       Bcov_zeta_IP(i_mn) = (g_tz*b_thet + g_zz*b_zeta)*sdetJ  
+      Itor=Itor+Bcov_thet_IP(i_mn) 
+      Ipol=Ipol+Bcov_zeta_IP(i_mn) 
     END DO !i_mn
+!$OMP END PARALLEL DO 
+#else
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn,b_thet,b_zeta,x_IP,qloc,q_thet,q_zeta,J_h,g_tt,g_tz,g_zz,sdetJ,X1_IP,X2_IP,  &
+!$OMP           dX1dthet_IP,dX2dthet_IP,dX1dzeta_IP,dX2dzeta_IP,dX1ds_IP,dX2ds_IP) &
+!$OMP   REDUCTION(+:Itor,Ipol) &
+!$OMP   SHARED(mn_IP,hmap_r,dchids_int,dPhids_int,G_base_out,X1_base_r,X2_base_r,LA_base_r, &
+!$OMP          X1_s,dX1ds_s,X2_s,dX2ds_s,LA_s,LA_IP,dLAdthet_IP,dLAdzeta_IP,Bcov_thet_IP,Bcov_zeta_IP)
+    DO i_mn=1,mn_IP
+      x_IP(1:2)   = G_base_out%f%x_IP(1:2,i_mn)
+      dX1ds_IP    = X1_base_r%f%evalDOF_x(x_IP,         0,dX1ds_s(:))
+      X1_IP       = X1_base_r%f%evalDOF_x(x_IP,         0, X1_s(  :))
+      dX1dthet_IP = X1_base_r%f%evalDOF_x(x_IP,DERIV_THET, X1_s(  :))
+      dX1dzeta_IP = X1_base_r%f%evalDOF_x(x_IP,DERIV_ZETA, X1_s(  :))
+      
+      dX2ds_IP    = X2_base_r%f%evalDOF_x(x_IP,         0,dX2ds_s(:))
+      X2_IP       = X2_base_r%f%evalDOF_x(x_IP,         0, X2_s(  :))
+      dX2dthet_IP = X2_base_r%f%evalDOF_x(x_IP,DERIV_THET, X2_s(  :))
+      dX2dzeta_IP = X2_base_r%f%evalDOF_x(x_IP,DERIV_ZETA, X2_s(  :))
+      
+      LA_IP(i_mn)       = LA_base_r%f%evalDOF_x(x_IP,         0,LA_s(:))
+      dLAdthet_IP(i_mn) = LA_base_r%f%evalDOF_x(x_IP,DERIV_THET,LA_s(:))
+      dLAdzeta_IP(i_mn) = LA_base_r%f%evalDOF_x(x_IP,DERIV_ZETA,LA_s(:))
+
+      b_thet = dchids_int- dPhids_int*dLAdzeta_IP(i_mn)    !b_theta
+      b_zeta = dPhids_int*(1.0_wp   + dLAdthet_IP(i_mn))    !b_zeta
+
+      qloc(  1:3) = (/ X1_IP, X2_IP,x_IP(2)/) 
+      q_thet(1:3) = (/dX1dthet_IP,dX2dthet_IP,0.0_wp/) !dq(1:3)/dtheta
+      q_zeta(1:3) = (/dX1dzeta_IP,dX2dzeta_IP,1.0_wp/) !dq(1:3)/dzeta
+
+      J_h         = hmap_r%eval_Jh(qloc)
+      g_tt        = hmap_r%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
+      g_tz        = hmap_r%eval_gij(q_thet,qloc,q_zeta)   !g_theta,zeta =g_zeta,theta
+      g_zz        = hmap_r%eval_gij(q_zeta,qloc,q_zeta)   !g_zeta,zeta
+
+      sdetJ       = 1.0_wp/(J_h*( dX1ds_IP*dX2dthet_IP &
+                                 -dX2ds_IP*dX1dthet_IP ))
+
+      Bcov_thet_IP(i_mn) = (g_tt*b_thet + g_tz*b_zeta)*sdetJ  
+      Bcov_zeta_IP(i_mn) = (g_tz*b_thet + g_zz*b_zeta)*sdetJ  
+      Itor = Itor+Bcov_thet_IP(i_mn) 
+      Ipol = Ipol+Bcov_zeta_IP(i_mn) 
+    END DO !i_mn
+!$OMP END PARALLEL DO 
+#endif
+    Itor=(Itor/REAL(mn_IP,wp)) !Itor=zero mode of Bcov_thet
+    Ipol=(Ipol/REAL(mn_IP,wp)) !Ipol=zero mode of Bcov_thet
+
+!    Itor=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_thet_IP(:)) 
+!    Ipol=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_zeta_IP(:))
+
+
+
     call perfoff('eval_bsub')
     call perfon('project')
 
-    !Itor ~ zero mode of B_thet
-    !Ipol ~ zero mode of B_zeta
-    Itor=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_thet_IP(:)) 
-    Ipol=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_zeta_IP(:))
+
     
-    ASSOCIATE(fm_IP => X1_IP, fn_IP => X2_IP ,           & !save some memory,overwrite X1,X2
-              snorm        =>G_base_out%f%snorm_base,    &
+#ifdef OLDIMP
+    ASSOCIATE(snorm        =>G_base_out%f%snorm_base,    &
               base_IP      =>G_base_out%f%base_IP,       &
               base_dthet_IP=>G_base_out%f%base_dthet_IP, &
               base_dzeta_IP=>G_base_out%f%base_dzeta_IP  )
+#endif
 
-    fm_IP(:)  = (Bcov_thet_IP(:)-Itor-Itor*dLAdthet_IP)/(Itor*iota_int+Ipol)
-    IF(G_base_out%f%mn_max(2).NE.0)THEN !only needed for 3D, n/=0
-      fn_IP(:)= (Bcov_zeta_IP(:)-Ipol-Itor*dLAdzeta_IP)/(Itor*iota_int+Ipol)
-    END IF
+    call perfon('project_G')
+
+    stmp=1.0_wp/(Itor*iota_int+Ipol)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i_mn)        &
+!$OMP   SHARED(mn_IP,Itor,Ipol,stmp,dLAdthet_IP,Bcov_thet_IP,fm_IP)
+    DO i_mn=1,mn_IP
+      fm_IP(i_mn)  = (Bcov_thet_IP(i_mn)-Itor-Itor*dLAdthet_IP(i_mn))*stmp
+    END DO
+!$OMP END PARALLEL DO 
     !projection: integrate (sum over mn_IP), includes normalization of derivative of base: (2pi*m)^2!
-    DO iMode=1,G_base_out%f%modes
-      mm=G_base_out%f%Xmn(1,iMode)
-      nn=G_base_out%f%Xmn(2,iMode)
-      IF((mm.NE.0).AND.(nn.EQ.0))THEN 
-        GZ(is,iMode) = (dthet_dzeta*snorm(iMode)/(REAL(mm,wp)**2))*SUM(base_dthet_IP(:,iMode)*fm_IP(:))  
-      ELSEIF(nn.NE.0)THEN 
-        GZ(is,iMode) = (dthet_dzeta*snorm(iMode)/(REAL(nn,wp)**2))*SUM(base_dzeta_IP(:,iMode)*fn_IP(:))  
-      ELSE
-        STOP 'm=n=0 should not be here!'
-      END IF
-    END DO !iMode
-    !Gthet=iota*G + LA
-    Gthet(is,:)= iota_int*GZ(is,:) + (dthet_dzeta*snorm(:))*MATMUL(LA_IP(:),base_IP(:,:))  
+#ifdef OLDIMP
+    !GZ(is,m_nz(:))   = MATMUL(fm_IP(:),base_dthet_IP(:,m_nz(:)))
+    __MATVEC_T(GZ(is,m_nz(:)),base_dthet_IP(:,m_nz(:)),fm_IP)
 
+    DO iMode=1,m_nnz
+      GZ(is,m_nz(iMode))   = GZ(is,m_nz(iMode))*(dthet_dzeta*snorm(m_nz(iMode))/(REAL(G_base_out%f%Xmn(1,m_nz(iMode)),wp)**2))
+    END DO
+#else
+    !GZ(is,m_nz(:))=MATMUL(proj_base_dthet,fm_IP)
+    __MATVEC_N(GZ_m,proj_base_dthet,fm_IP)
+    GZ(is,m_nz(:))=GZ_m  !resize does not work directly in MATVEC!
+
+#endif
+    IF(n_nnz.NE.0)THEN !only needed for 3D, n/=0
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i_mn)        &
+!$OMP   SHARED(mn_IP,Itor,Ipol,stmp,dLAdzeta_IP,Bcov_zeta_IP,fn_IP)
+      DO i_mn=1,mn_IP
+        fn_IP(i_mn)= (Bcov_zeta_IP(i_mn)-Ipol-Itor*dLAdzeta_IP(i_mn))*stmp
+      END DO
+!$OMP END PARALLEL DO 
+#ifdef OLDIMP
+      !GZ(is,n_nz(:)) = MATMUL(fn_IP(:),base_dzeta_IP(:,n_nz(:)))
+      __MATVEC_T(GZ(is,n_nz(:)),base_dzeta_IP(:,n_nz(:)),fn_IP)
+      DO iMode=1,n_nnz
+        GZ(is,n_nz(iMode)) = GZ(is,n_nz(iMode))*(dthet_dzeta*snorm(n_nz(iMode))/(REAL(G_base_out%f%Xmn(2,n_nz(iMode)),wp)**2))
+      END DO
+#else
+      !GZ(is,n_nz(:)) = MATMUL(proj_base_dzeta,fn_IP(:))
+      __MATVEC_N(GZ_n,proj_base_dzeta,fn_IP)
+      GZ(is,n_nz(:))=GZ_n  !resize does not work directly in MATVEC!
+    
+#endif
+    END IF
+    call perfoff('project_G')
+    !Gthet=iota*GZ + LA
+#ifdef OLDIMP
+    !Gthet(is,:)= MATMUL(LA_IP(:),base_IP(:,:))  
+    __MATVEC_T(Gthet(is,:),base_IP,LA_IP)
+
+    Gthet(is,:)= (dthet_dzeta*snorm(:))*Gthet(is,:)+iota_int*GZ(is,:)  
+#else
+    Gthet(is,:)=GZ(is,:)  
+    __PMATVEC_N(iota_int,Gthet(is,:),proj_base,LA_IP) !Gthet(is,:)=iota*GZ(is,:)+MATMUL(proj_base,LA_IP)
+#endif
+
+#ifdef OLDIMP
     END ASSOCIATE !bases, fm_IP=>X1_IP,fn_IP=>X2_IP
+#endif
 
     call perfoff('project')
     CALL ProgressBar(is,nBase)
   END DO !is
 
+  !transform back to corresponding representation of DOF in s
+  DO iMode=1,modes
+    GZ(   :,iMode)= G_base_out%s%initDOF( GZ(   :,iMode) )
+    Gthet(:,iMode)= G_base_out%s%initDOF( Gthet(:,iMode) )
+  END DO
+
+#ifdef OLDIMP
   !finalize
   CALL X1_fbase_nyq%free()
   CALL X2_fbase_nyq%free()
   CALL LA_fbase_nyq%free()
   DEALLOCATE( X1_fbase_nyq,X2_fbase_nyq,LA_fbase_nyq &
              ,X1_IP,dX1ds_IP,dX1dthet_IP,dX1dzeta_IP &
-             ,X2_IP,dX2ds_IP,dX2dthet_IP,dX2dzeta_IP &
-                   ,LA_IP   ,dLAdthet_IP,dLAdzeta_IP &
-             ,Bcov_thet_IP,Bcov_zeta_IP)
-
-  !transform back to corresponding representation of DOF in s
-  DO iMode=1,G_base_out%f%modes
-    GZ(   :,iMode)= G_base_out%s%initDOF( GZ(   :,iMode) )
-    Gthet(:,iMode)= G_base_out%s%initDOF( Gthet(:,iMode) )
-  END DO
+             ,X2_IP,dX2ds_IP,dX2dthet_IP,dX2dzeta_IP )
+#endif
+  DEALLOCATE(m_nz,LA_IP,dLAdthet_IP,dLAdzeta_IP,&
+             proj_base,proj_base_dthet,fm_IP,GZ_m,   &
+             Bcov_thet_IP,Bcov_zeta_IP)
+  IF(n_nnz.GT.0) DEALLOCATE(n_nz,proj_base_dzeta,fn_IP,GZ_n)
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
   call perfoff('get_boozer')

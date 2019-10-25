@@ -222,6 +222,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: i,iMode,m,n,mIP,nIP,mn_excl
   INTEGER :: modes_sin,modes_cos
+  REAL(wp):: mm,nn
 !===================================================================================================================================
   IF(.NOT.test_called)THEN
     SWRITE(UNIT_stdOut,'(4X,A,2(A,I6," , ",I6),A,I4,A,L2,A)')'INIT fBase type:', &
@@ -366,11 +367,30 @@ IMPLICIT NONE
 
   sf%d_zeta = sf%d_zeta*REAL(nfp,wp) ! to get full integral [0,2pi)
  
-  DO i=1,sf%mn_IP
-    sf%base_IP(      i,:)=sf%eval(         0,sf%x_IP(:,i))
-    sf%base_dthet_IP(i,:)=sf%eval(DERIV_THET,sf%x_IP(:,i))
-    sf%base_dzeta_IP(i,:)=sf%eval(DERIV_ZETA,sf%x_IP(:,i))
-  END DO
+!  DO i=1,sf%mn_IP
+!    sf%base_IP(      i,:)=sf%eval(         0,sf%x_IP(:,i))
+!    sf%base_dthet_IP(i,:)=sf%eval(DERIV_THET,sf%x_IP(:,i))
+!    sf%base_dzeta_IP(i,:)=sf%eval(DERIV_ZETA,sf%x_IP(:,i))
+!  END DO
+
+  !SIN(m*theta-(n*nfp)*zeta)
+  DO iMode=sin_range(1)+1,sin_range(2)
+    mm=REAL(sf%Xmn(1,iMode),wp)
+    nn=REAL(sf%Xmn(2,iMode),wp)
+    sf%base_IP(:,iMode)      =    SIN(mm*sf%x_IP(1,:)-nn*sf%x_IP(2,:))
+    sf%base_dthet_IP(:,iMode)= mm*COS(mm*sf%x_IP(1,:)-nn*sf%x_IP(2,:))
+    sf%base_dzeta_IP(:,iMode)=-nn*COS(mm*sf%x_IP(1,:)-nn*sf%x_IP(2,:))
+  END DO !iMode
+
+  !COS(m*theta-(n*nfp)*zeta)
+  DO iMode=cos_range(1)+1,cos_range(2)
+    mm=REAL(sf%Xmn(1,iMode),wp)
+    nn=REAL(sf%Xmn(2,iMode),wp)
+    sf%base_IP(:,iMode)      =    COS(mm*sf%x_IP(1,:)-nn*sf%x_IP(2,:))
+    sf%base_dthet_IP(:,iMode)=-mm*SIN(mm*sf%x_IP(1,:)-nn*sf%x_IP(2,:))
+    sf%base_dzeta_IP(:,iMode)= nn*SIN(mm*sf%x_IP(1,:)-nn*sf%x_IP(2,:))
+  END DO !iMode
+
 
   END ASSOCIATE !sf
 

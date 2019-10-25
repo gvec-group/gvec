@@ -190,6 +190,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER  :: i
 !===================================================================================================================================
+call perfon("gvec2castor-init")
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
 
   CALL ReadState(TRIM(fileName))
@@ -257,6 +258,7 @@ INTEGER  :: i
     SWRITE(UNIT_StdOut,*)'This SFLcoord is not valid',SFLcoord
     STOP
   END SELECT
+call perfoff("gvec2castor-init")
 END SUBROUTINE init_gvec_to_castor3d
 
 
@@ -295,6 +297,7 @@ REAL(wp),DIMENSION(1:X1_base_in%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_in%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LG_base_in%f%modes) :: LG_s,dGds_s
 !===================================================================================================================================
+call perfon("gvec2castor-prep")
 SWRITE(UNIT_stdOut,'(A)')'PREPARE DATA FOR GVEC-TO-CASTOR3D ...'
 CALL ProgressBar(0,Ns_out) !init
 DO i_s=1,Ns_out
@@ -362,10 +365,10 @@ DO i_s=1,Ns_out
       dGdzeta = LG_base_in%f%evalDOF_x(xp, DERIV_ZETA, LG_s)
     END IF
     
-    qvec=(/X1_int,X2_int,xp(2)/) !(X1,X2,zeta)
-    e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,        dGds   /)) !dxvec/ds
-    e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,        dGdthet/)) !dxvec/dthet
-    e_zeta   = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp +dGdzeta/)) !dxvec/dzeta
+    qvec=(/X1_int,X2_int,xp(2)-G_int/) !(X1,X2,zeta)
+    e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,       -dGds   /)) !dxvec/ds
+    e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,       -dGdthet/)) !dxvec/dthet
+    e_zeta   = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp -dGdzeta/)) !dxvec/dzeta
     sqrtG    = SUM(e_s*(CROSS(e_thet,e_zeta)))
    
     !check: J = e_s*(e_thet x e_zeta) 
@@ -443,8 +446,18 @@ END DO !i_s=1,Ns_out
 PhiEdge=data_1D(PHI__,Ns_out)
 ChiEdge=data_1D(CHI__,Ns_out)
 
+SWRITE(UNIT_stdOut,'(A,2E21.11)')'MIN/MAX X1(R) :',MINVAL(data_scalar3D(:,:,:,X1__)),MAXVAL(data_scalar3D(:,:,:,X1__))
+SWRITE(UNIT_stdOut,'(A,2E21.11)')'MIN/MAX X2(Z) :',MINVAL(data_scalar3D(:,:,:,X2__)),MAXVAL(data_scalar3D(:,:,:,X2__))
+SWRITE(UNIT_stdOut,'(A,2E21.11)')'MIN/MAX Gzeta :',MINVAL(data_scalar3D(:,:,:,GZETA__)),MAXVAL(data_scalar3D(:,:,:,GZETA__))
+SWRITE(UNIT_stdOut,'(A,2E21.11)')'MIN/MAX |B|   :',SQRT(MINVAL(data_vector3D(1,:,:,:,BFIELD__)**2    &
+                                                              +data_vector3D(2,:,:,:,BFIELD__)**2    &
+                                                              +data_vector3D(3,:,:,:,BFIELD__)**2)), &
+                                                   SQRT(MAXVAL(data_vector3D(1,:,:,:,BFIELD__)**2    &
+                                                              +data_vector3D(2,:,:,:,BFIELD__)**2    &
+                                                              +data_vector3D(3,:,:,:,BFIELD__)**2))
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
+call perfoff("gvec2castor-prep")
 END SUBROUTINE gvec_to_castor3d_prepare
 
 
@@ -466,6 +479,7 @@ IMPLICIT NONE
 CHARACTER(LEN=255) :: fileNameOut !< name of output file
 INTEGER            :: ioUnit,iVar,i_s
 !===================================================================================================================================
+  call perfon("gvec2castor-write")
   FileNameOut='gvec2castor3d_'//TRIM(FileName)
   WRITE(UNIT_stdOut,'(A)')'WRITING NEW CASTOR3D FILE    "'//TRIM(FileNameOut)//'" ...'
   ioUnit=GETFREEUNIT()
@@ -566,6 +580,7 @@ INTEGER            :: ioUnit,iVar,i_s
   END DO
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
+  call perfoff("gvec2castor-write")
 END SUBROUTINE gvec_to_castor3d_writeToFile_ASCII
 
 
