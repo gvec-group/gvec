@@ -196,9 +196,10 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   ALLOCATE(t_fBase :: sf)
-
+  call perfon("fbase_new")
   CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 
+  call perfoff("fbase_new")
 END SUBROUTINE fBase_new
 
 !===================================================================================================================================
@@ -367,11 +368,13 @@ IMPLICIT NONE
 
   sf%d_zeta = sf%d_zeta*REAL(nfp,wp) ! to get full integral [0,2pi)
  
-!  DO i=1,sf%mn_IP
-!    sf%base_IP(      i,:)=sf%eval(         0,sf%x_IP(:,i))
-!    sf%base_dthet_IP(i,:)=sf%eval(DERIV_THET,sf%x_IP(:,i))
-!    sf%base_dzeta_IP(i,:)=sf%eval(DERIV_ZETA,sf%x_IP(:,i))
-!  END DO
+!! !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)  
+!!   DO i=1,sf%mn_IP
+!!     sf%base_IP(      i,:)=sf%eval(         0,sf%x_IP(:,i))
+!!     sf%base_dthet_IP(i,:)=sf%eval(DERIV_THET,sf%x_IP(:,i))
+!!     sf%base_dzeta_IP(i,:)=sf%eval(DERIV_ZETA,sf%x_IP(:,i))
+!!   END DO
+!! !$OMP END PARALLEL DO 
 
   !SIN(m*theta-(n*nfp)*zeta)
   DO iMode=sin_range(1)+1,sin_range(2)

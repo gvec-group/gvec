@@ -211,7 +211,6 @@ call perfon("gvec2castor-init")
    CALL buildTransform_SFL(Ns_out,mn_max_out,SFLcoord)
   END IF
   
-
   ALLOCATE(s_pos(Ns_out))
   ALLOCATE(data_1D(nVar1D,Ns_out))
 
@@ -291,8 +290,8 @@ REAL(wp)                                :: dLAdthet,dLAdzeta
 REAL(wp)                                :: Phi_int,dPhids_int,Chi_int,dChids_int,iota_int
 REAL(wp)                                :: pressure_int,F_loc,Favg_int,Fmin_int,Fmax_int
 REAL(wp)                                :: X1_int,X2_int,G_int,dGds,dGdthet,dGdzeta
-REAL(wp)                                :: Ipol_int,Itor_int
-REAL(wp),DIMENSION(3)                   :: qvec,e_s,e_thet,e_zeta,Bfield,grad_zeta
+REAL(wp)                                :: Ipol_int,Itor_int,Bthet,Bzeta
+REAL(wp),DIMENSION(3)                   :: qvec,e_s,e_thet,e_zeta,Bfield,grad_phitor
 REAL(wp),DIMENSION(1:X1_base_in%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_in%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LG_base_in%f%modes) :: LG_s,dGds_s
@@ -338,6 +337,14 @@ DO i_s=1,Ns_out
     LG_s(  :) = LG_base_in%s%evalDOF2D_s(spos,LG_base_in%f%modes,       0,LG_in(:,:))
     dGds_s(:) = LG_base_in%s%evalDOF2D_s(spos,LG_base_in%f%modes, DERIV_S,LG_in(:,:))
   END IF
+!$OMP PARALLEL DO  SCHEDULE(STATIC) DEFAULT(NONE) COLLAPSE(2)                                   &
+!$OMP   PRIVATE(izeta,ithet,X1_int,dX1ds,dX1dthet,dX1dzeta,X2_int,dX2ds,dX2dthet,dX2dzeta,      &
+!$OMP           xp,qvec,e_s,e_thet,e_zeta,sqrtG,Bthet,Bzeta,Bfield,grad_phitor,F_loc)           &
+!$OMP   FIRSTPRIVATE(dLAdthet,dLAdzeta,G_int,dGds,dGdthet,dGdzeta)                              &
+!$OMP   REDUCTION(+:Favg_int,Itor_int,Ipol_int) REDUCTION(min:Fmin_int) REDUCTION(max:Fmax_int) &
+!$OMP   SHARED(i_s,Nzeta_out,Nthet_out,thet_pos,zeta_pos,X1_base_in,X2_base_in,LG_base_in,      &
+!$OMP          hmap_r,X1_s,dX1ds_s,X2_s,dX2ds_s,LG_s,dGds_s,SFLcoord, dPhids_int,iota_int,      &
+!$OMP          data_scalar3D,data_vector3D)
   !interpolate in the angles
   DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
     xp=(/thet_pos(ithet),zeta_pos(izeta)/)
@@ -375,16 +382,20 @@ DO i_s=1,Ns_out
     !sqrtG_check = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
     !WRITE(*,*)'CHECK sqrtG',sqrtG,sqrtG_check,sqrtG-sqrtG_check
 
-    Bfield(:) = (  e_thet(:)*(iota_int-dLAdzeta )  & 
-                 + e_zeta(:)*(1.0_wp  +dLAdthet ) )*(dPhids_int/sqrtG)
+    Bthet = ((iota_int-dLAdzeta )*dPhids_int)/sqrtG
+    Bzeta = ((1.0_wp  +dLAdthet )*dPhids_int)/sqrtG
+    Bfield(:) =   e_thet(:)*Bthet+e_zeta(:)*Bzeta
 
-    !grad_s(:)   = CROSS(e_thet,e_zeta)/sqrtG
-    !grad_thet(:)= CROSS(e_zeta,e_s   )/sqrtG
-    grad_zeta(:)= CROSS(e_s   ,e_thet)/sqrtG
+    IF(SFLcoord.EQ.2)THEN !BOOZER coordinates
+      !grad_s(:)   = CROSS(e_thet,e_zeta)/sqrtG, grad_thet(:)= CROSS(e_zeta,e_s)/sqrtG,grad_zeta(:)= CROSS(e_s,e_thet)/sqrtG
+      grad_phitor(:)=(CROSS(e_s   ,e_thet)*(1.0_wp-dGdzeta)-dGds*CROSS(e_thet,e_zeta)-dGdthet*CROSS(e_zeta,e_s   ))/sqrtG
+    ELSE !for GVEC and PEST, zeta=phitor
+      grad_phitor(:)=CROSS(e_s   ,e_thet)/sqrtG
+    END IF
 
 
-    !F-profile, only makes sense for tokamak configurations (n=0): F=-phi' R*(1+dlambda_dtheta)/(Jac*|\nabla\zeta|)
-    F_loc = -dPhids_int*X1_int*(1.0_wp+dLAdthet)/(sqrtG*SQRT(SUM(grad_zeta(:)**2)))
+    !F-profile, only makes sense for tokamak configurations (n=0): F=-R* (B. (grad_phitor/|grad_phitor|))
+    F_loc = -X1_int*SUM(Bfield(:)*grad_phitor(:))/(SQRT(SUM(grad_phitor(:)**2)))
 
     Favg_int = Favg_int + F_loc
     Fmin_int = MIN(Fmin_int,F_loc)
@@ -400,9 +411,9 @@ DO i_s=1,Ns_out
     ! save data
     data_scalar3D(ithet,izeta,i_s, X1__)   = X1_int 
     data_scalar3D(ithet,izeta,i_s, X2__)   = X2_int
-    data_scalar3D(ithet,izeta,i_s, GZETA__) =(-1.0_wp)*G_int                             !sign change of zeta coordinate! 
-    data_scalar3D(ithet,izeta,i_s, BSUPT__) = (-iota_int+dLAdzeta )*(-dPhids_int/sqrtG)  !iota,dzeta,dphids all change sign  
-    data_scalar3D(ithet,izeta,i_s, BSUPZ__) =  (1.0_wp+dLAdthet )*(-dPhids_int/sqrtG)    !sign change of zeta coordinate! 
+    data_scalar3D(ithet,izeta,i_s, GZETA__) =-G_int                        !sign change of zeta coordinate! 
+    data_scalar3D(ithet,izeta,i_s, BSUPT__) =  Bthet !(-iota_int+dLAdzeta )*(-dPhids_int/sqrtG) ,iota,dzeta,dphids all change sign  
+    data_scalar3D(ithet,izeta,i_s, BSUPZ__) = -Bzeta !(1.0_wp+dLAdthet )*(-dPhids_int/sqrtG) , sign change of zeta coordinate! 
 
     data_vector3D(:,ithet,izeta,i_s,BFIELD__    )  = Bfield
     data_vector3D(:,ithet,izeta,i_s,ECOV_S__    )  = e_s   
@@ -411,6 +422,7 @@ DO i_s=1,Ns_out
     !========== 
 
   END DO ; END DO !izeta,ithet
+!$OMP END PARALLEL DO 
   Favg_int = Favg_int/REAL((Nthet_out*Nzeta_out),wp)
 
   Itor_int = Itor_int*REAL(nfp_out)*TWOPI/(REAL((Nthet_out*Nzeta_out),wp)) !(2pi)^2/(Nt*Nz) * nfp/(2pi)
