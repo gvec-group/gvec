@@ -137,7 +137,7 @@
 !!! Y=A^T*B^T : DGEMM('T','T',m,n,k,fa,Amat ,k, Bmat,n, fy,Y,m)
 
 #define __PAMATMAT_NN(fy,Y,fa,A,B) CALL DGEMM('N','N',SIZE(A,1),SIZE(B,2),SIZE(B,1),fa,A,SIZE(A,1),B,SIZE(B,1),fy,Y,SIZE(A,1))
-#define __PAMATMAT_TN(fy,Y,fa,A,B) CALL DGEMM('T','N',SIZE(A,2),SIZE(B,2),SIZE(B,1),fa,A,SIZE(B,1),B,SIZE(B,1),fy,Y,SIZE(A,1))
+#define __PAMATMAT_TN(fy,Y,fa,A,B) CALL DGEMM('T','N',SIZE(A,2),SIZE(B,2),SIZE(B,1),fa,A,SIZE(B,1),B,SIZE(B,1),fy,Y,SIZE(A,2))
 #define __PAMATMAT_NT(fy,Y,fa,A,B) CALL DGEMM('N','T',SIZE(A,1),SIZE(B,1),SIZE(B,2),fa,A,SIZE(A,1),B,SIZE(B,1),fy,Y,SIZE(A,1))
-#define __PAMATMAT_TT(fy,Y,fa,A,B) CALL DGEMM('T','T',SIZE(A,2),SIZE(B,1),SIZE(B,2),fa,A,SIZE(B,2),B,SIZE(B,1),fy,Y,SIZE(A,1))
+#define __PAMATMAT_TT(fy,Y,fa,A,B) CALL DGEMM('T','T',SIZE(A,2),SIZE(B,1),SIZE(B,2),fa,A,SIZE(B,2),B,SIZE(B,1),fy,Y,SIZE(A,2))
 
