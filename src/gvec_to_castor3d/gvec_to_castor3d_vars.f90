@@ -27,7 +27,8 @@ IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 !INPUT VARIABLES
-CHARACTER(LEN=255) :: fileName      !< name of GVEC file
+CHARACTER(LEN=255) :: gvecfileName      !< name of GVEC file
+CHARACTER(LEN=255) :: fileNameOut      !< name of output file
 INTEGER            :: Ns_out        !< number of equidistant points in radial s-direction (includes axis and edge!)
 INTEGER            :: npfactor      !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
 INTEGER            :: SFLcoord      !< which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL

@@ -64,7 +64,7 @@ CONTAINS
 SUBROUTINE get_CLA_gvec_to_castor3d() 
 ! MODULES
 USE MODgvec_cla
-USE MODgvec_gvec_to_castor3d_Vars, ONLY: fileName, Ns_out,npfactor,factorSFL,Nthet_out,Nzeta_out,SFLcoord
+USE MODgvec_gvec_to_castor3d_Vars, ONLY: gvecfileName,FileNameOut, Ns_out,npfactor,factorSFL,Nthet_out,Nzeta_out,SFLcoord
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -95,7 +95,9 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
        'factor on maximum mode numbers (mn_max=factorsfl*mn_max_in) for SFL coords.  [DEFAULT = 4]', cla_int,'4')
   !positional argument
   CALL cla_posarg_register('gvecfile.dat', &
-       'Filename of GVEC restart file [MANDATORY]',  cla_char,'xxx') !    
+       'Input filename of GVEC restart file [MANDATORY]',  cla_char,'xxx') !    
+  CALL cla_posarg_register('outfile.dat', &
+       'Output filename  [OPTIONAL, DEFAULT: gvec2castor3d_nameofgvecfile]',  cla_char,'yyy') !    
 
   CALL cla_validate(execname)
   CALL cla_get('-r',NS_out)
@@ -105,7 +107,9 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   CALL cla_get('-s',SFLcoord)
   CALL cla_get('-f',factorSFL)
   CALL cla_get('gvecfile.dat',f_str)
-  filename=TRIM(f_str)
+  gvecfilename=TRIM(f_str)
+  CALL cla_get('outfile.dat',f_str)
+  FileNameOut=TRIM(f_str)
 
   commandFailed=.FALSE.
   IF(.NOT.((cla_key_present('-r')).AND.(Ns_out.GE.2))) THEN
@@ -118,10 +122,13 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
     commandFailed=.TRUE.
     SWRITE(UNIT_StdOut,*) " ==> [-s,--sflcoord] argument  must be 0,1,2 !!!"
   END IF 
-  IF((INDEX(filename,'xxx').NE.0))THEN
+  IF((INDEX(gvecfilename,'xxx').NE.0))THEN
     IF(.NOT.commandFailed) CALL cla_help(execname)
     commandFailed=.TRUE.
-    SWRITE(UNIT_StdOut,*) " ==> filename gvecfile.dat is MANDATORY must be specified !!!"
+    SWRITE(UNIT_StdOut,*) " ==> input gvec filename is MANDATORY must be specified as first positional argument!!!"
+  END IF
+  IF((INDEX(FileNameOut,'yyy').NE.0))THEN
+    FileNameOut="gvec2castor3d_"//TRIM(gvecfilename)
   END IF
   IF(commandFailed) STOP
 
@@ -136,7 +143,8 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   END IF
   SWRITE(UNIT_stdOut,'(A,I4,A)')'  * SFL coordinates flag           : ',SFLcoord,' ( '//SFLcoordName(SFLcoord)//' )'
   SWRITE(UNIT_stdOut,'(A,I4)')  '  * factor for modes of SFL coords : ',factorSFL
-  SWRITE(UNIT_stdOut,'(A,A)')   '  * GVEC input file                : ',TRIM(fileName)
+  SWRITE(UNIT_stdOut,'(A,A)')   '  * GVEC input file                : ',TRIM(gvecfileName)
+  SWRITE(UNIT_stdOut,'(A,A)')   '  * output file name               : ',TRIM(FileNameOut)
   SWRITE(UNIT_stdOut,fmt_sep)
 
 !  nArgs=COMMAND_ARGUMENT_COUNT()
@@ -193,7 +201,7 @@ INTEGER  :: i
 call perfon("gvec2castor-init")
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
 
-  CALL ReadState(TRIM(fileName))
+  CALL ReadState(TRIM(gvecfileName))
 
 
   mn_max_out(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
@@ -488,11 +496,9 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-CHARACTER(LEN=255) :: fileNameOut !< name of output file
 INTEGER            :: ioUnit,iVar,i_s
 !===================================================================================================================================
   call perfon("gvec2castor-write")
-  FileNameOut='gvec2castor3d_'//TRIM(FileName)
   WRITE(UNIT_stdOut,'(A)')'WRITING NEW CASTOR3D FILE    "'//TRIM(FileNameOut)//'" ...'
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit       ,&
