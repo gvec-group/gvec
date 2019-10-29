@@ -555,7 +555,7 @@ INTEGER            :: ioUnit,iVar,i_s
   WRITE(ioUnit,'(A100)')'## * ecov_zeta   : covariant vector in zeta, components in cartesian coordinates (x,y,z)            '
   WRITE(ioUnit,'(A100)')'##                                                                                                  '
   WRITE(ioUnit,'(A100)')'####################################################################################################'
-  WRITE(ioUnit,*)
+  WRITE(ioUnit,'(A,A)') '## Name of GVEC input file : ',TRIM(gvecFileName)
   WRITE(ioUnit,'(A)')'##<< number of grid points: 1:Ns (radial), 1:Ntheta (poloidal),1:Nzeta (toroidal) '
   WRITE(ioUnit,'(*(I8,:,1X))')Ns_out,Nthet_out,Nzeta_out
   WRITE(ioUnit,'(A)')'##<< global: SFLcoord,nfp,  asym, m_max, n_max'
