@@ -206,21 +206,9 @@ IMPLICIT NONE
 
   ALLOCATE( X1_IP(1:mn_IP),dX1ds_IP(1:mn_IP), dX1dthet_IP(1:mn_IP),dX1dzeta_IP(1:mn_IP),&
             X2_IP(1:mn_IP),dX2ds_IP(1:mn_IP), dX2dthet_IP(1:mn_IP),dX2dzeta_IP(1:mn_IP) )
-!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn)
-  DO i_mn=1,mn_IP
-    X1_IP(i_mn)=0.0_wp; dX1ds_IP(i_mn)=0.0_wp; dX1dthet_IP(i_mn)=0.0_wp; dX1dzeta_IP(i_mn)=0.0_wp
-    X2_IP(i_mn)=0.0_wp; dX2ds_IP(i_mn)=0.0_wp; dX2dthet_IP(i_mn)=0.0_wp; dX2dzeta_IP(i_mn)=0.0_wp
-  END DO
-!$OMP END PARALLEL DO 
 #endif
 
   ALLOCATE(LA_IP(1:mn_IP),dLAdthet_IP(1:mn_IP), dLAdzeta_IP(1:mn_IP),Bcov_thet_IP(1:mn_IP),Bcov_zeta_IP(1:mn_IP))
-!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn)
-  DO i_mn=1,mn_IP
-    LA_IP(i_mn)=0.0_wp; dLAdthet_IP(i_mn)=0.0_wp; dLAdzeta_IP(i_mn)=0.0_wp
-    Bcov_thet_IP(i_mn)=0.0_wp; Bcov_zeta_IP(i_mn)=0.0_wp
-  END DO
-!$OMP END PARALLEL DO 
      
   
   ALLOCATE(Gthet(nBase,1:modes))

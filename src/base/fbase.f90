@@ -251,7 +251,6 @@ IMPLICIT NONE
   sf%exclude_mn_zero  = exclude_mn_zero_in
   IF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_SIN_))).NE.0) THEN
     sf%sin_cos  = _SIN_
-    
   ELSEIF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_COS_))).NE.0) THEN
     sf%sin_cos  = _COS_
   ELSEIF(INDEX(TRIM(sin_cos_in),TRIM(sin_cos_map(_SINCOS_))).NE.0) THEN
@@ -695,28 +694,28 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: iMode
 !===================================================================================================================================
-  ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range) 
+  ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range,Xmn=>sf%Xmn) 
   SELECT CASE(deriv)
   CASE(0)
     DO iMode=sin_range(1)+1,sin_range(2)
-      base_x(iMode)=                          SIN(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
-    END DO !iMode                                                                                       
-    DO iMode=cos_range(1)+1,cos_range(2)                                                                
-      base_x(iMode)=                          COS(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
-    END DO !iMode                                                                                       
-  CASE(DERIV_THET)                                                                                      
-    DO iMode=sin_range(1)+1,sin_range(2)                                                                
-      base_x(iMode)= REAL(sf%Xmn(1,iMode),wp)*COS(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
-    END DO !iMode                                                                                       
-    DO iMode=cos_range(1)+1,cos_range(2)                                                                
-      base_x(iMode)=-REAL(sf%Xmn(1,iMode),wp)*SIN(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
-    END DO !iMode                                                                                       
-  CASE(DERIV_ZETA)                                                                                      
-    DO iMode=sin_range(1)+1,sin_range(2)                                                                
-      base_x(iMode)=-REAL(sf%Xmn(2,iMode),wp)*COS(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
-    END DO !iMode                                                                                       
-    DO iMode=cos_range(1)+1,cos_range(2)                                                                
-      base_x(iMode)= REAL(sf%Xmn(2,iMode),wp)*SIN(REAL(sf%Xmn(1,iMode),wp)*x(1)-REAL(sf%Xmn(2,iMode),wp)*x(2))
+      base_x(iMode)=                       SIN(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                               
+    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+      base_x(iMode)=                       COS(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                 
+  CASE(DERIV_THET)                                                                                
+    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+      base_x(iMode)= REAL(Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                 
+    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+      base_x(iMode)=-REAL(Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                 
+  CASE(DERIV_ZETA)                                                                                
+    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+      base_x(iMode)=-REAL(Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+    END DO !iMode                                                                                 
+    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+      base_x(iMode)= REAL(Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
     END DO !iMode
   CASE DEFAULT 
     CALL abort(__STAMP__, &
@@ -769,12 +768,9 @@ IMPLICIT NONE
   REAL(wp)                      :: y_IP(sf%mn_IP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                       :: m,n
 !===================================================================================================================================
 call perfon('evaldof_ip')
-m=sf%mn_IP
-n=sf%modes
-IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
+  IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
   CASE(0)
@@ -862,6 +858,7 @@ IMPLICIT NONE
             , sin_range  => sf%sin_range  &
             , cos_range  => sf%cos_range  &
             , modes      => sf%modes      &
+            , Xmn        => sf%Xmn        &
             )
   IF(testlevel.GE.1)THEN
 
@@ -933,8 +930,14 @@ IMPLICIT NONE
     iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     checkreal=0.0_wp
-    DO iMode=1,modes
-      DO jMode=1,modes
+    DO iMode=sin_range(1)+1,sin_range(2)
+      DO jMode=sin_range(1)+1,sin_range(2)
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dthet_IP(:,jMode))))
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dzeta_IP(:,jMode))))
+      END DO
+    END DO
+    DO iMode=cos_range(1)+1,cos_range(2)
+      DO jMode=cos_range(1)+1,cos_range(2)
           checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dthet_IP(:,jMode))))
           checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dzeta_IP(:,jMode))))
       END DO
@@ -1027,8 +1030,8 @@ IMPLICIT NONE
     oldDOF(3,:)=-3.3_wp
     
     CALL testfBase%change_base(sf,1,oldDOF,newDOF)
-    checkreal=SUM(newDOF)
-    refreal  =-6.6_wp*REAL(testfBase%modes,wp)
+    checkreal=SUM(newDOF)/REAL(testfBase%modes,wp)
+    refreal  =-6.6_wp
     CALL testfBase%free()
     DEALLOCATE(oldDOF,newDOF)
     IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol) ))) THEN
@@ -1049,11 +1052,11 @@ IMPLICIT NONE
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
       dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
-      g_IP(:) =g_IP(:)+dofs(iMode)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+      g_IP(:) =g_IP(:)+dofs(iMode)*SIN(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     DO iMode=cos_range(1)+1,cos_range(2)
       dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
-      g_IP(:) =g_IP(:)+dofs(iMode)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+      g_IP(:) =g_IP(:)+dofs(iMode)*COS(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(0,dofs)))
     refreal=0.0_wp
@@ -1073,11 +1076,11 @@ IMPLICIT NONE
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
       dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
-      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(sf%Xmn(1,iMode),wp)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL( Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     DO iMode=cos_range(1)+1,cos_range(2)
       dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
-      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-sf%Xmn(1,iMode),wp)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_THET,dofs)))
     refreal=0.0_wp
@@ -1097,11 +1100,11 @@ IMPLICIT NONE
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
       dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
-      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-sf%Xmn(2,iMode),wp)*COS(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     DO iMode=cos_range(1)+1,cos_range(2)
       dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
-      g_IP(:) =g_IP(:)+dofs(iMode)*REAL( sf%Xmn(2,iMode),wp)*SIN(sf%Xmn(1,iMode)*sf%x_IP(1,:)-sf%Xmn(2,iMode)*sf%x_IP(2,:))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL( Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_ZETA,dofs)))
     refreal=0.0_wp

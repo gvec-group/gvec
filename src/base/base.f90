@@ -447,7 +447,7 @@ IMPLICIT NONE
   INTEGER            :: iTest,iMode,iGP
   CHARACTER(LEN=10)  :: fail
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
-  REAL(wp)           :: checkreal 
+  REAL(wp)           :: checkreal,tmp 
   REAL(wp)           :: dofs(1:sf%s%nBase,1:sf%f%modes)
   REAL(wp)           :: g_sIP(1:sf%s%nBase)
   REAL(wp)           :: g_IP_GP(1:sf%f%mn_IP,1:sf%s%nGP)
@@ -463,134 +463,150 @@ IMPLICIT NONE
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN BASE TEST ID',nTestCalled,'  >>>>>>>>>'
   ASSOCIATE(modes=>sf%f%modes,sin_range=>sf%f%sin_range,cos_range=>sf%f%cos_range, &
-            deg=>sf%s%deg,nBase=>sf%s%nBase,sin_cos=>sf%f%sin_cos,nGP=>sf%s%nGP)
+            deg=>sf%s%deg,nBase=>sf%s%nBase,sin_cos=>sf%f%sin_cos,nGP=>sf%s%nGP,Xmn=>sf%f%Xmn)
   IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
 
     CALL sf%evalDOF((/0,0/),dofs,g_IP_GP_eval)
-    g_IP_GP=g_IP_GP - g_IP_GP_eval 
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
     iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(1.0_wp+0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+0.3_wp*sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        REAL(deg,wp)*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**(deg-1)
+                       +SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*REAL(deg,wp)*0.3_wp*(1.0_wp+0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+0.3_wp*sf%s%s_GP(iGP))**(deg-1)
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(1.0_wp+0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+0.4_wp*sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        REAL(deg,wp)*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**(deg-1)
+                       +COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*REAL(deg,wp)*0.4_wp*(1.0_wp+0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+0.4_wp*sf%s%s_GP(iGP))**(deg-1)
       END DO !iGP
     END DO !iMode
 
     CALL sf%evalDOF((/DERIV_S,0/),dofs,g_IP_GP_eval)
-    g_IP_GP=g_IP_GP - g_IP_GP_eval 
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
     iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +REAL(sf%f%Xmn(1,iMode),wp)*COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +REAL(Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       -REAL(sf%f%Xmn(1,iMode),wp)*SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       -REAL(Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     CALL sf%evalDOF((/0,DERIV_THET/),dofs,g_IP_GP_eval)
-    g_IP_GP=g_IP_GP - g_IP_GP_eval
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
     iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       -REAL(sf%f%Xmn(2,iMode),wp)*COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       -REAL(Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +REAL(sf%f%Xmn(2,iMode),wp)*SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +REAL(Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
 
     CALL sf%evalDOF((/0,DERIV_ZETA/),dofs,g_IP_GP_eval)
-    g_IP_GP=g_IP_GP - g_IP_GP_eval
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
 

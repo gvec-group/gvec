@@ -199,28 +199,12 @@ IMPLICIT NONE
 
   IF(.NOT.Bpresent) THEN
     ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP))
-!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn)
-    DO i_mn=1,mn_IP
-      A_IP(i_mn)=0.0_wp; dAdthet_IP(i_mn)=0.0_wp
-    END DO
-!$OMP END PARALLEL DO 
   ELSE ! Bpresent
     ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP),dAdzeta_IP(1:mn_IP),B_IP(1:mn_IP),dBdthet_IP(1:mn_IP),dBdzeta_IP(1:mn_IP))
-!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn)
-    DO i_mn=1,mn_IP
-      A_IP(i_mn)=0.0_wp; dAdthet_IP(i_mn)=0.0_wp; dAdzeta_IP(i_mn)=0.0_wp
-      B_IP(i_mn)=0.0_wp; dBdthet_IP(i_mn)=0.0_wp; dBdzeta_IP(i_mn)=0.0_wp
-    END DO
-!$OMP END PARALLEL DO 
   END IF !.NOT.Bpresent
 #endif /*FULLBASEIMP*/
 
   ALLOCATE(f_IP(1:mn_IP),q_IP(1:mn_IP),modes_IP(1:q_base_out%f%modes,1:mn_IP))
-!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn)
-  DO i_mn=1,mn_IP
-    f_IP(i_mn)=0.0_wp; q_IP(i_mn)=0.0_wp; modes_IP(:,i_mn)=0.0_wp
-  END DO
-!$OMP END PARALLEL DO 
 
   ALLOCATE(q_m(1:q_base_out%f%modes,nBase))
   ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
