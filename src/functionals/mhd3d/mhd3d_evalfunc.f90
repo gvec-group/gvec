@@ -385,15 +385,17 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem
-  REAL(wp)  :: BC_val(2)
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
-  REAL(wp)  :: Y1tilde(3),Y1,Y1_thet,Y1_zeta
-  REAL(wp)  :: Y2tilde(3),Y2,Y2_thet,Y2_zeta
-  REAL(wp)  :: F_GP(1:nGP),F_s_GP(1:nGP),sum_gp
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),w_GP_IP
+  REAL(wp)  :: hmap_g_t1,hmap_g_z1,hmap_Jh_dq1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1
+  REAL(wp)  :: hmap_g_t2,hmap_g_z2,hmap_Jh_dq2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2
+  REAL(wp)  :: F_X1_GP_IP(1:nGP,1:X1_base%f%modes)
+  REAL(wp)  :: F_X1ds_GP_IP(1:nGP,1:X1_base%f%modes)
+  REAL(wp)  :: F_X2_GP_IP(1:nGP,1:X2_base%f%modes)
+  REAL(wp)  :: F_X2ds_GP_IP(1:nGP,1:X2_base%f%modes)
+  REAL(wp)  :: F_LA_GP_IP(1:nGP,1:LA_base%f%modes)
   REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
-  REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ &  != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
-                                       ,hmap_g_t1,hmap_g_z1,hmap_Jh_dq1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1 &
-                                       ,hmap_g_t2,hmap_g_z2,hmap_Jh_dq2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2
+  REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ  & != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
+                                       ,coefY,coefY_thet,coefY_zeta,coefY_s
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
   call perfon('EvalForce')
@@ -405,9 +407,13 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
         'negative Jacobian was found when you call EvalAux before!!!')
   END IF
 
+  call perfon('buildPrecond')
+  IF(PrecondType.GT.0) CALL BuildPrecond()
+  call perfoff('buildPrecond')
+
   !additional auxiliary variables for X1 and X2 force
-  call perfon('loop_1')
-!$OMP PARALLEL DO        &  
+  call perfon('loop_prepare')
+!$OMP PARALLEL DO    &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn)        &
@@ -421,119 +427,154 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO 
-  Y1tilde=(/1.0_wp,0.0_wp,0.0_wp/)
-  Y2tilde=(/0.0_wp,1.0_wp,0.0_wp/)
-  call perfoff('loop_1')
-  call perfon('loop_2')
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) & 
-!$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta)        &
-!$OMP   SHARED(nGP,mn_IP,X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta, &
-!$OMP          hmap_Jh_dq1,hmap_g_t1,hmap_g_z1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1,   &  
-!$OMP          hmap_Jh_dq2,hmap_g_t2,hmap_g_z2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2,   &
-!$OMP          hmap,Y1tilde,Y2tilde)
-  DO iGP=1,nGP
-    DO i_mn=1,mn_IP
-      qloc(1:3)      = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
-      q_thet(1:2)    = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/)
-      q_thet(3)      = 0.0_wp
-      q_zeta(1:2)    = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/)
-      q_zeta(3)      = 1.0_wp
-      !Ytilde=(1,0,0)
-      hmap_Jh_dq1(  i_mn,iGP) = hmap%eval_Jh_dq1(        qloc        ) !~Y1          
-      hmap_g_t1(    i_mn,iGP) = hmap%eval_gij(    q_thet,qloc,Y1tilde) !~Y1_thet 
-      hmap_g_z1(    i_mn,iGP) = hmap%eval_gij(    q_zeta,qloc,Y1tilde) !~Y1_zeta
-      hmap_g_tt_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_thet,qloc, q_thet) !~Y1
-      hmap_g_tz_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_thet,qloc, q_zeta) !~Y1
-      hmap_g_zz_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_zeta,qloc, q_zeta) !~Y1
-      !Ytilde=(0,1,0)
-      hmap_Jh_dq2(  i_mn,iGP) = hmap%eval_Jh_dq2(        qloc        ) !~Y2
-      hmap_g_t2(    i_mn,iGP) = hmap%eval_gij(    q_thet,qloc,Y2tilde) !~Y2_thet 
-      hmap_g_z2(    i_mn,iGP) = hmap%eval_gij(    q_zeta,qloc,Y2tilde) !~Y2_zeta
-      hmap_g_tt_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_thet,qloc, q_thet) !~Y2
-      hmap_g_tz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_thet,qloc, q_zeta) !~Y2
-      hmap_g_zz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
-    END DO !i_mn
-  END DO !iGP
-!$OMP END PARALLEL DO 
-  call perfoff('loop_2')
-
-  call perfon('buildPrecond')
-  IF(PrecondType.GT.0) CALL BuildPrecond()
-  call perfoff('buildPrecond')
+  call perfoff('loop_prepare')
 
   ASSOCIATE(F_X1=>F_MHD3D%X1)
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
 
-
   call perfon('EvalForce_modes1')
+  call perfon('loop_prep_coefs')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iMode,iGP,i_mn,Y1,Y1_thet,Y1_zeta,iElem,ibase,F_GP,F_s_GP,sum_gp)        &
-!$OMP   SHARED(X1_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq1,hmap_g_t1,hmap_g_tt_dq1,hmap_g_z1,  &
-!$OMP          hmap_g_zz_dq1,hmap_g_tz_dq1,btt_sJ,bzz_sJ,btz_sJ,w_GP,dthet_dzeta,        &  
-!$OMP          dX2_dthet,F_MHD3D,modes,nGP,mn_IP,nElems,deg,degGP)
-  DO iMode=1,modes
-    F_X1(:,iMode)=0.0_wp
-    DO iGP=1,nGP
-      sum_gp=0.0_wp
-!$OMP SIMD REDUCTION(+:sum_gp)
-      DO i_mn=1,mn_IP
-        Y1              = X1_base%f%base_IP(      i_mn,iMode)
-        Y1_thet         = X1_base%f%base_dthet_IP(i_mn,iMode)
-        Y1_zeta         = X1_base%f%base_dzeta_IP(i_mn,iMode)
-        sum_gp          = sum_gp &
-                         +dW(    i_mn,iGP)*( J_h(i_mn,iGP)*(-dX2_ds(    i_mn,iGP)*Y1_thet)    &
-                                            +J_p(i_mn,iGP)*hmap_Jh_dq1( i_mn,iGP)*Y1        ) & ![deltaJ]_Y1
-                         -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_t1(          i_mn,iGP)*Y1_thet     &
-                                                   +hmap_g_tt_dq1(      i_mn,iGP)*Y1        ) & ![delta g_tt]_Y1
-                         -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_z1(          i_mn,iGP)*Y1_zeta     & 
-                                                   +hmap_g_zz_dq1(      i_mn,iGP)*Y1        ) & ![delta g_zz]_Y1
-                         -btz_sJ(i_mn,iGP)*2.0_wp*( hmap_g_t1(          i_mn,iGP)*Y1_zeta     & 
-                                                   +hmap_g_z1(          i_mn,iGP)*Y1_thet     &
-                                                   +hmap_g_tz_dq1(      i_mn,iGP)*Y1        )   !2*[delta g_tz]_y1
-      END DO !i_mn
-      F_GP(iGP)=sum_gp*w_GP(iGP)
-    END DO !iGP
+!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,w_GP_IP, &
+!$OMP           hmap_Jh_dq1,hmap_g_t1,hmap_g_tt_dq1,hmap_g_z1,hmap_g_zz_dq1,hmap_g_tz_dq1)  &
+!$OMP   SHARED(nGP,mn_IP,X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta,w_GP,dthet_dzeta,&
+!$OMP          hmap,dW,J_h,J_p,dX2_ds,btt_sJ,bzz_sJ,btz_sJ, &
+!$OMP          coefY,coefY_thet,coefY_zeta,coefY_s)
+  DO iGP=1,nGP
+    w_GP_IP=w_GP(iGP)*dthet_dzeta
+    DO i_mn=1,mn_IP
+      qloc(1:3)      = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+      q_thet(1:3)    = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP),0.0_wp/)
+      q_zeta(1:3)    = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP),1.0_wp/)
+      !Y1tilde=(1,0,0)
+      hmap_Jh_dq1   = hmap%eval_Jh_dq1(        qloc        ) !~Y1          
+      hmap_g_t1     = hmap%eval_gij(    q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/)) !~Y1_thet 
+      hmap_g_z1     = hmap%eval_gij(    q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/)) !~Y1_zeta
+      hmap_g_tt_dq1 = hmap%eval_gij_dq1(q_thet,qloc, q_thet) !~Y1
+      hmap_g_tz_dq1 = hmap%eval_gij_dq1(q_thet,qloc, q_zeta) !~Y1
+      hmap_g_zz_dq1 = hmap%eval_gij_dq1(q_zeta,qloc, q_zeta) !~Y1
 
-    DO iGP=1,nGP
-      sum_gp=0.0_wp
-!$OMP SIMD REDUCTION(+:sum_gp)
-      DO i_mn=1,mn_IP
-        !Y1_s        = X1_base%f%base_IP(      i_mn,iMode)
-        sum_gp       = sum_gp      &
-                         +dW(    i_mn,iGP)*( J_h(i_mn,iGP)*( dX2_dthet( i_mn,iGP)*X1_base%f%base_IP(i_mn,iMode)))
-      END DO !i_mn
-      F_s_GP(iGP)=sum_gp*w_GP(iGP)
-    END DO !iGP
-    iGP=1
-    DO iElem=1,nElems
-      ibase=X1_base%s%base_offset(iElem)
-      F_X1(iBase:iBase+deg,iMode) = F_X1(iBase:iBase+deg,iMode) &
-                                    + MATMUL(F_GP(  iGP:iGP+degGP),X1_base%s%base_GP(     0:degGP,0:deg,iElem))      &
-                                    + MATMUL(F_s_GP(iGP:iGP+degGP),X1_base%s%base_ds_GP(  0:degGP,0:deg,iElem)) 
-      iGP=iGP+(degGP+1)
-    END DO !iElem
-    F_X1(:,iMode)=F_X1(:,iMode)*dthet_dzeta !scale with constants
-  END DO !iMode
+! ADDED TO F_X1_GP_IP(iGP,iMode):
+!                         -dW(    i_mn,iGP)*J_h(i_mn,iGP)*dX2_ds(     i_mn,iGP)*Y1_thet   & ![deltaJ]_Y1
+!                         +dW(    i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq1(i_mn,iGP)*Y1        & ![deltaJ]_Y1
+!                         -btt_sJ(i_mn,iGP)*2.0_wp*hmap_g_t1(         i_mn,iGP)*Y1_thet   & ![delta g_tt]_Y1
+!                         -btt_sJ(i_mn,iGP)*       hmap_g_tt_dq1(     i_mn,iGP)*Y1        & ![delta g_tt]_Y1
+!                         -bzz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z1(         i_mn,iGP)*Y1_zeta   & ![delta g_zz]_Y1
+!                         -bzz_sJ(i_mn,iGP)*       hmap_g_zz_dq1(     i_mn,iGP)*Y1        & ![delta g_zz]_Y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_t1(         i_mn,iGP)*Y1_zeta   & !2*[delta g_tz]_y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z1(         i_mn,iGP)*Y1_thet   & !2*[delta g_tz]_y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_tz_dq1(     i_mn,iGP)*Y1        & !2*[delta g_tz]_y1
+      
+      coefY     (i_mn,iGP)=w_GP_IP*( dW(    i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq1    & ![deltaJ]_Y1
+                                    -btt_sJ(i_mn,iGP)*       hmap_g_tt_dq1         & ![delta g_tt]_Y1
+                                    -bzz_sJ(i_mn,iGP)*       hmap_g_zz_dq1         & ![delta g_zz]_Y1
+                                    -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_tz_dq1      )  !2*[delta g_tz]_y1
+
+      coefY_thet(i_mn,iGP)=w_GP_IP*(-dW(i_mn,iGP)*J_h(i_mn,iGP)*dX2_ds(i_mn,iGP)   & ![deltaJ]_Y1
+                                    +2.0_wp*(-btt_sJ(i_mn,iGP)*hmap_g_t1           & ![delta g_tt]_Y1
+                                             -btz_sJ(i_mn,iGP)*hmap_g_z1  )      )   !2*[delta g_tz]_y1
+
+      coefY_zeta(i_mn,iGP)=w_GP_IP*( 2.0_wp*(-bzz_sJ(i_mn,iGP)*hmap_g_z1           & ![delta g_zz]_Y1
+                                             -btz_sJ(i_mn,iGP)*hmap_g_t1  )      )   !2*[delta g_tz]_y1
+
+      coefY_s   (i_mn,iGP)=w_GP_IP*(dW(i_mn,iGP)*J_h(i_mn,iGP)*dX2_dthet( i_mn,iGP))
+    END DO !i_mn
+  END DO !iGP
 !$OMP END PARALLEL DO 
- call perfoff('EvalForce_modes1')
+  call perfoff('loop_prep_coefs')
 
- DO iMode=1,modes
-   CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
- END DO !iMode
- IF(PrecondType.GT.0)THEN
+  call perfon('fbase')
+   __MATMAT_TN(       F_X1_GP_IP ,coefY     ,X1_base%f%base_IP)
+  __PMATMAT_TN(1.0_wp,F_X1_GP_IP ,coefY_thet,X1_base%f%base_dthet_IP)
+  __PMATMAT_TN(1.0_wp,F_X1_GP_IP ,coefY_zeta,X1_base%f%base_dzeta_IP)
+   __MATMAT_TN(       F_X1ds_GP_IP,coefY_s   ,X1_base%f%base_IP)
+  call perfoff('fbase')
+
+  call perfon('sbase')
+  F_X1=0.0_wp
+  DO iElem=1,nElems
+    iGP=(iElem-1)*(degGP+1)+1  
+    ibase=X1_base%s%base_offset(iElem)
+    F_X1(iBase:iBase+deg,:) = F_X1(iBase:iBase+deg,:) &
+                              + MATMUL(TRANSPOSE(X1_base%s%base_GP(   0:degGP,0:deg,iElem)),F_X1_GP_IP(  iGP:iGP+degGP,:)) & 
+                              + MATMUL(TRANSPOSE(X1_base%s%base_ds_GP(0:degGP,0:deg,iElem)),F_X1ds_GP_IP(iGP:iGP+degGP,:)) 
+  END DO !iElem
+  call perfoff('sbase')
+
+  call perfon('apply_precond')
+  DO iMode=1,modes
+    CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
+  END DO !iMode
+  IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     DO iMode=1,modes
       CALL ApplyPrecond(nBase,precond_X1(iMode),F_X1(:,iMode))
     END DO !iMode
     END SELECT !TYPE(precond_X1)
   END IF !PrecondType.GT.0
+  call perfoff('apply_precond')
+
   END ASSOCIATE !F_X1
+
+  call perfoff('EvalForce_modes1')
+
+  call perfon('EvalForce_modes2')
+  call perfon('loop_prep_coefs')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,w_GP_IP, &
+!$OMP           hmap_Jh_dq2,hmap_g_t2,hmap_g_tt_dq2,hmap_g_z2,hmap_g_zz_dq2,hmap_g_tz_dq2) &
+!$OMP   SHARED(nGP,mn_IP,X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX1_dzeta,dX2_dthet,dX2_dzeta,w_GP,dthet_dzeta,&
+!$OMP          hmap,dW,J_h,J_p,dX2_ds,btt_sJ,bzz_sJ,btz_sJ,dX1_ds,  &
+!$OMP          coefY,coefY_thet,coefY_zeta,coefY_s)
+  DO iGP=1,nGP
+    w_GP_IP = w_GP(iGP)*dthet_dzeta
+    DO i_mn=1,mn_IP
+
+      qloc(1:3)      = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+      q_thet(1:3)    = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP),0.0_wp/)
+      q_zeta(1:3)    = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP),1.0_wp/)
+      !Y2tilde=(0,1,0)
+      hmap_Jh_dq2    = hmap%eval_Jh_dq2(        qloc        ) !~Y2
+      hmap_g_t2      = hmap%eval_gij(    q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/)) !~Y2_thet 
+      hmap_g_z2      = hmap%eval_gij(    q_zeta,qloc,(/0.0_wp,1.0_wp,0.0_wp/)) !~Y2_zeta
+      hmap_g_tt_dq2  = hmap%eval_gij_dq2(q_thet,qloc, q_thet) !~Y2
+      hmap_g_tz_dq2  = hmap%eval_gij_dq2(q_thet,qloc, q_zeta) !~Y2
+      hmap_g_zz_dq2  = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
+
+! ADDED TO F_X2_GP_IP(iGP,iMode):
+!                         +dW(    i_mn,iGP)*J_h(i_mn,iGP)*dX1_ds(i_mn,iGP)*Y2_thet  & ! [deltaJ]_Y2
+!                         +dW(    i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq2     *Y2       & ! [deltaJ]_Y2
+!                         -btt_sJ(i_mn,iGP)*2.0_wp*hmap_g_t2              *Y2_thet  & ! [delta g_tt]_Y2
+!                         -btt_sJ(i_mn,iGP)*       hmap_g_tt_dq2          *Y2       & ! [delta g_tt]_Y2
+!                         -bzz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z2              *Y2_zeta  & ! [delta g_zz]_Y2
+!                         -bzz_sJ(i_mn,iGP)*       hmap_g_zz_dq2          *Y2       & ! [delta g_zz]_Y2
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_t2              *Y2_zeta  & ! 2*[delta g_tz]_Y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z2              *Y2_thet  & ! 2*[delta g_tz]_Y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_tz_dq2          *Y2       & ! 2*[delta g_tz]_Y1
+
+      coefY     (i_mn,iGP)=w_GP_IP*( dW(i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq2       & ! [deltaJ]_Y2
+                                    -btt_sJ(i_mn,iGP)*       hmap_g_tt_dq2        & ! [delta g_tt]_Y2
+                                    -bzz_sJ(i_mn,iGP)*       hmap_g_zz_dq2        & ! [delta g_zz]_Y2
+                                    -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_tz_dq2      )   ! 2*[delta g_tz]_Y1
+
+      coefY_thet(i_mn,iGP)=w_GP_IP*( dW(i_mn,iGP)*J_h(i_mn,iGP)*dX1_ds(i_mn,iGP)  & ! [deltaJ]_Y2
+                                    +2.0_wp*(-btt_sJ(i_mn,iGP)*hmap_g_t2          & ! [delta g_tt]_Y2
+                                             -btz_sJ(i_mn,iGP)*hmap_g_z2 )      )   ! 2*[delta g_tz]_Y1
+
+      coefY_zeta(i_mn,iGP)=w_GP_IP*( 2.0_wp*(-bzz_sJ(i_mn,iGP)*hmap_g_z2          & ! [delta g_zz]_Y2
+                                             -btz_sJ(i_mn,iGP)*hmap_g_t2 )      )   ! 2*[delta g_tz]_Y1
+
+      coefY_s   (i_mn,iGP)=w_GP_IP*(-dW(i_mn,iGP)*J_h(i_mn,iGP)*dX1_dthet( i_mn,iGP))
+    END DO !i_mn
+  END DO !iGP
+!$OMP END PARALLEL DO 
+  call perfoff('loop_prep_coefs')
 
   ASSOCIATE(F_X2=>F_MHD3D%X2)
   nBase = X2_base%s%nBase 
@@ -541,62 +582,24 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   deg   = X2_base%s%deg
 
 
-  call perfon('EvalForce_modes2')
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) & 
-!$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iMode,iGP,i_mn,Y2,Y2_thet,Y2_zeta,iElem,ibase,F_GP,F_s_GP,sum_gp)        &
-!$OMP   SHARED(X2_base,dW,J_h,J_p,dX2_ds,hmap_Jh_dq2,hmap_g_t2,hmap_g_tt_dq2,hmap_g_z2,  &
-!$OMP          hmap_g_zz_dq2,hmap_g_tz_dq2,btt_sJ,bzz_sJ,btz_sJ,w_GP,                    &  
-!$OMP          dX1_ds,dX1_dthet,F_MHD3D,modes,nGP,mn_IP,nElems,deg,degGP,dthet_dzeta)
-  DO iMode=1,modes
-    F_X2(:,iMode)=0.0_wp
-    DO iGP=1,nGP
-      sum_gp=0.0_wp
-!$OMP SIMD REDUCTION(+:sum_gp)
-      DO i_mn=1,mn_IP
-        !evaluate testfunctions
-        Y2              = X2_base%f%base_IP(      i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem), applied afterwards
-        Y2_thet         = X2_base%f%base_dthet_IP(i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem)
-        Y2_zeta         = X2_base%f%base_dzeta_IP(i_mn,iMode) ! *X2_base%s%base_GP(jGP,iDeg,iElem)
-        sum_gp        = sum_gp    &
-                         +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*( dX1_ds(    i_mn,iGP)*Y2_thet)   &
-                                            + J_p(i_mn,iGP)*hmap_Jh_dq2( i_mn,iGP)*Y2       ) & ! [deltaJ]_Y2
-                         -btt_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_t2(           i_mn,iGP)*Y2_thet    &
-                                                   +hmap_g_tt_dq2(       i_mn,iGP)*Y2       ) & ! [delta g_tt]_Y2
-                         -bzz_sJ(i_mn,iGP)*( 2.0_wp*hmap_g_z2(           i_mn,iGP)*Y2_zeta    & 
-                                                   +hmap_g_zz_dq2(       i_mn,iGP)*Y2       ) & ! [delta g_zz]_Y2
-                         -btz_sJ(i_mn,iGP)*2.0_wp*( hmap_g_t2(           i_mn,iGP)*Y2_zeta    & 
-                                                   +hmap_g_z2(           i_mn,iGP)*Y2_thet    &
-                                                   +hmap_g_tz_dq2(       i_mn,iGP)*Y2       )   ! 2*[delta g_tz]_Y1
-      END DO !i_mn=1,mn_IP
-      F_GP(iGP)=sum_gp*w_GP(iGP)
-    END DO !iGP=1,nGP
+  call perfon('fbase')
+   __MATMAT_TN(       F_X2_GP_IP ,coefY     ,X2_base%f%base_IP)
+  __PMATMAT_TN(1.0_wp,F_X2_GP_IP ,coefY_thet,X2_base%f%base_dthet_IP)
+  __PMATMAT_TN(1.0_wp,F_X2_GP_IP ,coefY_zeta,X2_base%f%base_dzeta_IP)
+   __MATMAT_TN(       F_X2ds_GP_IP,coefY_s   ,X2_base%f%base_IP)
+  call perfoff('fbase')
+  call perfon('sbase')
+  F_X2=0.0_wp
+  DO iElem=1,nElems
+    iGP=(iElem-1)*(degGP+1)+1  
+    ibase=X2_base%s%base_offset(iElem)
+    F_X2(iBase:iBase+deg,:) = F_X2(iBase:iBase+deg,:) &
+                              + MATMUL(TRANSPOSE(X2_base%s%base_GP(   0:degGP,0:deg,iElem)),F_X2_GP_IP(  iGP:iGP+degGP,:)) & 
+                              + MATMUL(TRANSPOSE(X2_base%s%base_ds_GP(0:degGP,0:deg,iElem)),F_X2ds_GP_IP(iGP:iGP+degGP,:)) 
+  END DO !iElem
+  call perfoff('sbase')
 
-    DO iGP=1,nGP
-      sum_gp=0.0_wp
-!$OMP SIMD REDUCTION(+:sum_gp)
-      DO i_mn=1,mn_IP
-        !evaluate testfunctions
-        !Y2_s            = X2_base%f%base_IP(      i_mn,iMode) !*X2_base%s%base_ds_GP(jGP,iDeg,iElem), applied afterwards
-        sum_gp          = sum_gp          &
-                         +dW(    i_mn,iGP)*(  J_h(i_mn,iGP)*(-dX1_dthet( i_mn,iGP)* X2_base%f%base_IP(i_mn,iMode)))
-      END DO !i_mn=1,mn_IP
-      F_s_GP(iGP)=sum_gp*w_GP(iGP)
-    END DO !iGP=1,nGP
-    iGP=1
-    DO iElem=1,nElems
-      ibase=X2_base%s%base_offset(iElem)
-      F_X2(iBase:iBase+deg,iMode) = F_X2(iBase:iBase+deg,iMode) &
-                                    + MATMUL(F_GP(  iGP:iGP+degGP),X2_base%s%base_GP(     0:degGP,0:deg,iElem))      &
-                                    + MATMUL(F_s_GP(iGP:iGP+degGP),X2_base%s%base_ds_GP(  0:degGP,0:deg,iElem)) 
-      iGP=iGP+(degGP+1)
-    END DO !iElem
-    F_X2(:,iMode)=F_X2(:,iMode)*dthet_dzeta !scale with constants
-  END DO !iMode
-!$OMP END PARALLEL DO 
-  call perfoff('EvalForce_modes2')
-
+  call perfon('apply_precond')
   DO iMode=1,modes
     CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
   END DO !iMode
@@ -607,46 +610,51 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iMode
     END SELECT !TYPE(precond_X2)
   END IF !PrecondType.GT.0
-  END ASSOCIATE !F_X2
+  call perfoff('apply_precond')
 
+
+  END ASSOCIATE !F_X2
+  call perfoff('EvalForce_modes2')
+
+  call perfon('EvalForce_modes3')
   ASSOCIATE(F_LA=>F_MHD3D%LA)
   nBase = LA_base%s%nBase 
   modes = LA_base%f%modes
   deg   = LA_base%s%deg
 
-
-  call perfon('EvalForce_modes3')
+  call perfon('loop_prep_coefs')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iMode,iGP,i_mn,iElem,ibase,F_GP,sum_gp)                          &
-!$OMP   SHARED(sJ_bcov_thet,LA_base,modes,nGP,mn_IP,nElems,F_MHD3D,sJ_bcov_zeta,    &
-!$OMP          PhiPrime_GP,w_GP,deg,degGP,dthet_dzeta)
-  DO iMode=1,modes
-    F_LA(:,iMode)=0.0_wp
-    DO iGP=1,nGP
-      sum_gp=0.0_wp
-!$OMP SIMD REDUCTION(+:sum_gp)
-      DO i_mn=1,mn_IP
-        sum_gp    = sum_gp    &
-                    + sJ_bcov_thet(i_mn,iGP)*LA_base%f%base_dzeta_IP(i_mn,iMode)  &
-                    - sJ_bcov_zeta(i_mn,iGP)*LA_base%f%base_dthet_IP(i_mn,iMode)
-                         
-      END DO !i_mn=1,mn_IP
-      F_GP(iGP)=sum_gp*(PhiPrime_GP(iGP)*w_GP(iGP))
-    END DO !iGP=1,nGP
-    iGP=1
-    DO iElem=1,nElems
-      ibase=LA_base%s%base_offset(iElem)
-      F_LA(iBase:iBase+deg,iMode) = F_LA(iBase:iBase+deg,iMode) &
-                                    + MATMUL(F_GP(iGP:iGP+degGP),LA_base%s%base_GP(0:degGP,0:deg,iElem))
-      iGP=iGP+(degGP+1)
-    END DO !iElem
-    F_LA(:,iMode)=F_LA(:,iMode)*(dthet_dzeta) ! *2 / 2 scale with constants
-  END DO !iMode
+!$OMP   PRIVATE(iGP,i_mn,w_GP_IP) &
+!$OMP   SHARED(nGP,mn_IP,sJ_bcov_thet,sJ_bcov_zeta,PhiPrime_GP,w_GP,dthet_dzeta, &
+!$OMP          coefY_thet,coefY_zeta)
+  DO iGP=1,nGP
+    w_GP_IP=PhiPrime_GP(iGP)*w_GP(iGP)*dthet_dzeta
+    DO i_mn=1,mn_IP
+! ADDED TO F_LA_GP_IP(iGP,iMode):
+      coefY_thet(i_mn,iGP)= w_GP_IP*sJ_bcov_thet(i_mn,iGP)
+      coefY_zeta(i_mn,iGP)=-w_GP_IP*sJ_bcov_zeta(i_mn,iGP)
+    END DO !i_mn
+  END DO !iGP
 !$OMP END PARALLEL DO 
- call perfoff('EvalForce_modes3')
+  call perfoff('loop_prep_coefs')
 
+  call perfon('fbase')
+   __MATMAT_TN(       F_LA_GP_IP,coefY_thet,LA_base%f%base_dzeta_IP)
+  __PMATMAT_TN(1.0_wp,F_LA_GP_IP,coefY_zeta,LA_base%f%base_dthet_IP)
+  call perfoff('fbase')
+  call perfon('sbase')
+  F_LA=0.0_wp
+  DO iElem=1,nElems
+    iGP=(iElem-1)*(degGP+1)+1  
+    ibase=LA_base%s%base_offset(iElem)
+    F_LA(iBase:iBase+deg,:) = F_LA(iBase:iBase+deg,:) &
+                              + MATMUL(TRANSPOSE(LA_base%s%base_GP(0:degGP,0:deg,iElem)),F_LA_GP_IP(iGP:iGP+degGP,:))
+  END DO !iElem
+  call perfoff('sbase')
+
+  call perfon('apply_precond')
   DO iMode=1,modes
     CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
   END DO !iMode
@@ -659,7 +667,10 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   ELSE
     CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
   END IF !PrecondType.GT.0
+  call perfoff('apply_precond')
   END ASSOCIATE !F_LA
+
+  call perfoff('EvalForce_modes3')
 
   IF(PRESENT(noBC))THEN
     IF(noBC)THEN
@@ -1137,7 +1148,6 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CALL Ftest%set_to(0.0_wp)
   CALL Feval%copy(Ftest)
 
-   
   JacCheck=1 !abort if detJ<0 
   W_MHD3D_in=EvalEnergy(Utest,.TRUE.,JacCheck)
   eps_glob=1.0e-10_wp*W_MHD3D_in
