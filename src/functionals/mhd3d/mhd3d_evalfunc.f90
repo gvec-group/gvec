@@ -186,7 +186,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iGP,i_mn,IP_GP(2)
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),min_detJ
 !===================================================================================================================================
   IF(JacCheck.EQ.-1) THEN
       CALL abort(__STAMP__, &
@@ -206,10 +206,12 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   call perfoff('EvalDOF_1')
 
   call perfon('loop_1')
+  min_detJ =HUGE(1.0_wp)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn,qloc)  &
+!$OMP   REDUCTION(min:min_detJ) &
 !$OMP   SHARED(nGP,mn_IP,J_p,J_h,detJ,dX1_ds,dX2_dthet,dX2_ds,dX1_dthet,X1_IP_GP,X2_IP_GP,zeta_IP,hmap)
   DO iGP=1,nGP
     DO i_mn=1,mn_IP
@@ -220,13 +222,14 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 
       J_h( i_mn,iGP) = hmap%eval_Jh(qloc)
       detJ(i_mn,iGP) = J_p(i_mn,iGP)*J_h(i_mn,iGP)
+      min_detJ = MIN(min_detJ,detJ(i_mn,iGP))
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO
   call perfoff('loop_1')
 
   !check Jacobian
-  IF(MINVAL(detJ) .LT.1.0e-12) THEN
+  IF(min_detJ .LT.1.0e-12) THEN
     SELECT CASE(JacCheck)
     CASE(1)
       n_warnings_occured=n_warnings_occured+1
@@ -250,12 +253,15 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   END IF
 
   !1D data at gauss-points
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
   DO iGP=1,nGP
-    chiPrime_GP(    iGP) = Eval_chiPrime(    s_GP(iGP))
-    pres_GP(    iGP)     = Eval_pres(    s_GP(iGP))
-    PhiPrime_GP(iGP)     = Eval_PhiPrime(s_GP(iGP))
-    PhiPrime2_GP(iGP)    = PhiPrime_GP(iGP)**2
+    chiPrime_GP( iGP) = Eval_chiPrime(s_GP(iGP))
+    pres_GP(     iGP) = Eval_pres(    s_GP(iGP))
+    PhiPrime_GP( iGP) = Eval_PhiPrime(s_GP(iGP))
+    PhiPrime2_GP(iGP) = PhiPrime_GP(       iGP)**2
   END DO !iGP
+!$OMP END PARALLEL DO
 
   call perfon('EvalDOF_2')
   !2D data: interpolation points x gauss-points
@@ -327,10 +333,14 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
                                                        !! W_MHD3D= int ( p/(gamma-1) + 1/(2mu_0) |B|^2) detJ ds dtheta dzeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iGP
-  REAL(wp) :: Wmag_GP(1:nGP)    !! magnetic energy at gauss points 
-                                !! = 1/(dtheta*dzeta) * ( int [1/detJ * b_alpha*g_{alpha,beta}*b_beta]_iGP dtheta dzeta )
-  REAL(wp) :: Vprime_GP(1:nGP)  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
+  INTEGER  :: iGP,i_mn
+!  REAL(wp) :: Wmag_GP(nGP)     !! magnetic energy at gauss points 
+!                               !! = 1/(dtheta*dzeta) * ( int [1/detJ * b_alpha*g_{alpha,beta}*b_beta]_iGP dtheta dzeta )
+!  REAL(wp) :: Vprime_GP(nGP)   !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
+  REAL(wp) :: Wmag_GP    !! magnetic energy at gauss points 
+                         !! = 1/(dtheta*dzeta) * ( int [1/detJ * b_alpha*g_{alpha,beta}*b_beta]_iGP dtheta dzeta )
+  REAL(wp) :: Vprime_GP  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
+  REAL(wp) :: Wmag,Wpres
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE ENERGY...'
   call perfon('EvalEnergy')
@@ -348,13 +358,38 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
             'You seem to have called EvalAux before, with a Jacobian smaller that  1.0e-12!!!' )
     END IF
   END IF
-  DO iGP=1,nGP
-    Wmag_GP(iGP)   = SUM(bbcov_sJ(:,iGP))
-    Vprime_GP(iGP) = SUM(detJ(:,iGP))
-  END DO !iGP
+!  DO iGP=1,nGP
+!    Wmag_GP(iGP)   = SUM(bbcov_sJ(:,iGP))
+!    Vprime_GP(iGP) = SUM(detJ(:,iGP))
+!  END DO !iGP
+!
+!  W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(Wmag_GP(:)*w_GP(:)) &
+!                         + mu_0*sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
 
-  W_MHD3D= dthet_dzeta* (  0.5_wp      *SUM(Wmag_GP(:)*w_GP(:)) &
-                         + mu_0*sgammM1*SUM(    pres_GP(:) *Vprime_GP(:)*w_GP(:)) )
+  Wmag = 0.0_wp
+  Wpres= 0.0_wp
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC)  DEFAULT(NONE)  &
+!$OMP   PRIVATE(iGP,i_mn,Wmag_GP,Vprime_GP)   &
+!$OMP   REDUCTION(+:Wmag,Wpres)          &
+!$OMP   SHARED(nGP,mn_IP,bbcov_sJ,detJ,pres_GP,w_GP)
+  DO iGP=1,nGP
+    Wmag_GP=0.0_wp
+!$OMP SIMD REDUCTION(+:Wmag_GP)
+    DO i_mn=1,mn_IP
+      Wmag_GP   = Wmag_GP+ bbcov_sJ(i_mn,iGP)
+    END DO
+    Vprime_GP = 0.0_wp
+!$OMP SIMD REDUCTION(+:Vprime_GP)
+    DO i_mn=1,mn_IP
+      Vprime_GP = Vprime_GP+ detJ(i_mn,iGP)
+    END DO
+    Wmag  = Wmag  + Wmag_GP*w_GP(iGP)
+    Wpres = Wpres + Vprime_GP*pres_GP(iGP)*w_GP(iGP)
+  END DO !iGP
+!$OMP END PARALLEL DO 
+
+  W_MHD3D= dthet_dzeta* (  0.5_wp      *Wmag + mu_0*sgammM1*Wpres)
 
    call perfoff('EvalEnergy')
 
@@ -385,7 +420,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),w_GP_IP
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),w_GP_IP,p_mu_0
   REAL(wp)  :: hmap_g_t1,hmap_g_z1,hmap_Jh_dq1,hmap_g_tt_dq1,hmap_g_tz_dq1,hmap_g_zz_dq1
   REAL(wp)  :: hmap_g_t2,hmap_g_z2,hmap_Jh_dq2,hmap_g_tt_dq2,hmap_g_tz_dq2,hmap_g_zz_dq2
   REAL(wp)  :: F_X1_GP_IP(1:nGP,1:X1_base%f%modes)
@@ -416,11 +451,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO    &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
-!$OMP   PRIVATE(iGP,i_mn)        &
+!$OMP   PRIVATE(iGP,i_mn,p_mu_0)        &
 !$OMP   SHARED(nGP,mn_IP,dW,btt_sJ,btz_sJ,bzz_sJ,bbcov_sJ,sdetJ,b_thet,b_zeta,mu_0,pres_GP)
   DO iGP=1,nGP
+    p_mu_0=mu_0*pres_GP(iGP)
     DO i_mn=1,mn_IP
-      dW(    i_mn,iGP)=  0.5_wp*bbcov_sJ(i_mn,iGP)                 *sdetJ(i_mn,iGP) +mu_0*pres_GP(iGP) !=1/(2)*B^2+p
+      dW(    i_mn,iGP)=  0.5_wp*bbcov_sJ(i_mn,iGP)                 *sdetJ(i_mn,iGP) + p_mu_0 !=1/(2)*B^2+p
       btt_sJ(i_mn,iGP)=  0.5_wp*b_thet(  i_mn,iGP)*b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
       btz_sJ(i_mn,iGP)=  0.5_wp*b_thet(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
       bzz_sJ(i_mn,iGP)=  0.5_wp*b_zeta(  i_mn,iGP)*b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
@@ -495,25 +531,38 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   call perfoff('fbase')
 
   call perfon('sbase')
-  F_X1=0.0_wp
-  DO iElem=1,nElems
-    iGP=(iElem-1)*(degGP+1)+1  
-    ibase=X1_base%s%base_offset(iElem)
-    F_X1(iBase:iBase+deg,:) = F_X1(iBase:iBase+deg,:) &
-                              + MATMUL(TRANSPOSE(X1_base%s%base_GP(   0:degGP,0:deg,iElem)),F_X1_GP_IP(  iGP:iGP+degGP,:)) & 
-                              + MATMUL(TRANSPOSE(X1_base%s%base_ds_GP(0:degGP,0:deg,iElem)),F_X1ds_GP_IP(iGP:iGP+degGP,:)) 
-  END DO !iElem
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
+!$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
+!$OMP   SHARED(X1_base,modes,deg,degGP,nElems,F_X1,F_X1_GP_IP,F_X1ds_GP_IP)
+  DO iMode=1,modes
+    F_X1(:,iMode)=0.0_wp
+    DO iElem=1,nElems
+      iGP=(iElem-1)*(degGP+1)+1  
+      ibase=X1_base%s%base_offset(iElem)
+      F_X1(iBase:iBase+deg,iMode) = F_X1(iBase:iBase+deg,iMode) &
+                                    + MATMUL(F_X1_GP_IP(  iGP:iGP+degGP,iMode),X1_base%s%base_GP(   0:degGP,0:deg,iElem)) & 
+                                    + MATMUL(F_X1ds_GP_IP(iGP:iGP+degGP,iMode),X1_base%s%base_ds_GP(0:degGP,0:deg,iElem)) 
+    END DO !iElem
+  END DO !iMode
+!$OMP END PARALLEL DO 
   call perfoff('sbase')
 
   call perfon('apply_precond')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,modes
     CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
   END DO !iMode
+!$OMP END PARALLEL DO 
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
     DO iMode=1,modes
       CALL ApplyPrecond(nBase,precond_X1(iMode),F_X1(:,iMode))
     END DO !iMode
+!$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_X1)
   END IF !PrecondType.GT.0
   call perfoff('apply_precond')
@@ -589,25 +638,38 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
    __MATMAT_TN(       F_X2ds_GP_IP,coefY_s   ,X2_base%f%base_IP)
   call perfoff('fbase')
   call perfon('sbase')
-  F_X2=0.0_wp
-  DO iElem=1,nElems
-    iGP=(iElem-1)*(degGP+1)+1  
-    ibase=X2_base%s%base_offset(iElem)
-    F_X2(iBase:iBase+deg,:) = F_X2(iBase:iBase+deg,:) &
-                              + MATMUL(TRANSPOSE(X2_base%s%base_GP(   0:degGP,0:deg,iElem)),F_X2_GP_IP(  iGP:iGP+degGP,:)) & 
-                              + MATMUL(TRANSPOSE(X2_base%s%base_ds_GP(0:degGP,0:deg,iElem)),F_X2ds_GP_IP(iGP:iGP+degGP,:)) 
-  END DO !iElem
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
+!$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
+!$OMP   SHARED(X2_base,modes,deg,degGP,nElems,F_X2,F_X2_GP_IP,F_X2ds_GP_IP)
+  DO iMode=1,modes
+    F_X2(:,iMode)=0.0_wp
+    DO iElem=1,nElems
+      iGP=(iElem-1)*(degGP+1)+1  
+      ibase=X2_base%s%base_offset(iElem)
+      F_X2(iBase:iBase+deg,iMode) = F_X2(iBase:iBase+deg,iMode) &
+                                    + MATMUL(F_X2_GP_IP(  iGP:iGP+degGP,iMode),X2_base%s%base_GP(   0:degGP,0:deg,iElem)) & 
+                                    + MATMUL(F_X2ds_GP_IP(iGP:iGP+degGP,iMode),X2_base%s%base_ds_GP(0:degGP,0:deg,iElem)) 
+    END DO !iElem
+  END DO !iMode
+!$OMP END PARALLEL DO 
   call perfoff('sbase')
 
   call perfon('apply_precond')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,modes
     CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
   END DO !iMode
+!$OMP END PARALLEL DO 
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
     DO iMode=1,modes
       CALL ApplyPrecond(nBase,precond_X2(iMode),F_X2(:,iMode))
     END DO !iMode
+!$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_X2)
   END IF !PrecondType.GT.0
   call perfoff('apply_precond')
@@ -645,24 +707,37 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PMATMAT_TN(1.0_wp,F_LA_GP_IP,coefY_zeta,LA_base%f%base_dthet_IP)
   call perfoff('fbase')
   call perfon('sbase')
-  F_LA=0.0_wp
-  DO iElem=1,nElems
-    iGP=(iElem-1)*(degGP+1)+1  
-    ibase=LA_base%s%base_offset(iElem)
-    F_LA(iBase:iBase+deg,:) = F_LA(iBase:iBase+deg,:) &
-                              + MATMUL(TRANSPOSE(LA_base%s%base_GP(0:degGP,0:deg,iElem)),F_LA_GP_IP(iGP:iGP+degGP,:))
-  END DO !iElem
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
+!$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
+!$OMP   SHARED(LA_base,modes,deg,degGP,nElems,F_LA,F_LA_GP_IP)
+  DO iMode=1,modes
+    F_LA(:,iMode)=0.0_wp
+    DO iElem=1,nElems
+      iGP=(iElem-1)*(degGP+1)+1  
+      ibase=LA_base%s%base_offset(iElem)
+      F_LA(iBase:iBase+deg,iMode) = F_LA(iBase:iBase+deg,iMode) &
+                                    + MATMUL(F_LA_GP_IP(iGP:iGP+degGP,iMode),LA_base%s%base_GP(0:degGP,0:deg,iElem))
+    END DO !iElem
+  END DO !iMode
+!$OMP END PARALLEL DO 
   call perfoff('sbase')
 
   call perfon('apply_precond')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,modes
     CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
   END DO !iMode
+!$OMP END PARALLEL DO 
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
     DO iMode=1,modes
       CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
     END DO !iMode
+!$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_LA)
   ELSE
     CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))

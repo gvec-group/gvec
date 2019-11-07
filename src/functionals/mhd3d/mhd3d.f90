@@ -849,6 +849,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+  call perfon('minimizer')
   SELECT CASE(MinimizerType)
   CASE(0)
     CALL MinimizeMHD3D_descent(sf)
@@ -858,6 +859,7 @@ SUBROUTINE MinimizeMHD3D(sf)
     CALL abort(__STAMP__,&
         "Minimizertype does not exist",MinimizerType,-1.0_wp)
   END SELECT
+  call perfoff('minimizer')
 END SUBROUTINE MinimizeMHD3D
 
 !===================================================================================================================================
@@ -868,6 +870,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_MHD3D_EvalFunc
+  USE MODgvec_MHD3D_visu, ONLY: checkDistance
   USE MODgvec_Analyze, ONLY:analyze
   USE MODgvec_Restart, ONLY:WriteState
   IMPLICIT NONE
@@ -986,6 +989,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
         IF(MOD(iter,logIter).EQ.0)THEN 
+          call perfon('log_output')
           CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
           CALL U(-2)%set_to(U(0))
 
@@ -1002,6 +1006,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
           max_dW_out=-1.0e+30_wp
           nSkip_Jac=0
           nSkip_dW =0
+          call perfoff('log_output')
         END IF
 
           
@@ -1033,11 +1038,14 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       RETURN
     END IF
     IF((MOD(iter,outputIter).EQ.0).AND.(lastoutputIter.NE.iter))THEN
-      SWRITE(UNIT_stdOut,'(A)')'#######################  VISUALIZATION ##############################'
+      call perfon('output')
+      SWRITE(UNIT_stdOut,'(A)')'##########################  OUTPUT ##################################'
       CALL Analyze(iter)
       CALL WriteState(U(0),iter)
       CALL CheckEvalForce(U(0),iter)
+      SWRITE(UNIT_stdOut,'(A)')'#####################################################################'
       lastOutputIter=iter
+      call perfoff('output')
     END IF
   END DO !iter
   IF(iter.GE.MaxIter)THEN
@@ -1211,132 +1219,6 @@ SUBROUTINE MinimizeMHD3D_LBFGS(sf)
   
 
 END SUBROUTINE MinimizeMHD3D_LBFGS
-
-
-!===================================================================================================================================
-!> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of 
-!> the sampled x,y,z coordinates 
-!!
-!===================================================================================================================================
-SUBROUTINE CheckDistance(U,V,maxDist,avgDist) 
-! MODULES
-  USE MODgvec_Globals,        ONLY: TWOPI,PI
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid
-  USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_mhd3d
-  USE MODgvec_Newton,         ONLY: NewtonRoot1D_FdF
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN) :: U !U and V must be have the same basis and grid!
-  CLASS(t_sol_var_MHD3D), INTENT(IN) :: V
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp),INTENT(OUT)    :: maxDist,avgDist
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER  :: n_s,mn_IP(2),nElems
-  INTEGER  :: i_s,i_m,i_n,iMode,iElem
-  REAL(wp) :: spos,zeta,theta0,theta,theta_star
-  REAL(wp) :: UX1_s(X1_base%f%modes),VX1_s(X1_base%f%modes)
-  REAL(wp) :: UX2_s(X2_base%f%modes),VX2_s(X2_base%f%modes)
-  REAL(wp) :: ULA_s(LA_base%f%modes),VLA_s(LA_base%f%modes)
-  REAL(wp) :: X1_visu,X2_visu,LA_visu
-  REAL(wp) :: q(3),xU(3),xV(3),dist
-  LOGICAL  :: SFL_theta=.TRUE.
-!===================================================================================================================================
-  n_s=3 !number of points to check per element (1 at the left boundary, 2 inner, none at the right)
-  mn_IP(1)   = MAX(1,X1_base%f%mn_nyq(1)/2)
-  mn_IP(2)   = MAX(1,X1_base%f%mn_nyq(2)/2)
-  nElems=sgrid%nElems
-  
-  maxDist=0.  
-  avgDist=0.
-
-  DO iElem=1,nElems
-    DO i_s=1,n_s
-      spos=MAX(1.0e-06,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s,wp))*sgrid%ds(iElem)) !includes axis but not edge
-      DO iMode=1,X1_base%f%modes
-        UX1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,U%X1(:,iMode))
-        VX1_s( iMode)= X1_base%s%evalDOF_s(spos,      0,V%X1(:,iMode))
-      END DO
-      DO iMode=1,X2_base%f%modes
-        UX2_s(iMode) = X2_base%s%evalDOF_s(spos,      0,U%X2(:,iMode))
-        VX2_s(iMode) = X2_base%s%evalDOF_s(spos,      0,V%X2(:,iMode))
-      END DO
-      DO iMode=1,LA_base%f%modes
-        ULA_s(iMode) = LA_base%s%evalDOF_s(spos,      0,U%LA(:,iMode))
-        VLA_s(iMode) = LA_base%s%evalDOF_s(spos,      0,V%LA(:,iMode))
-      END DO
-      DO i_n=1,mn_IP(2)
-          zeta  = TWOPI*REAL(i_n-1,wp)/REAL(mn_IP(2),wp) !do not include periodic point 
-        DO i_m=1,mn_IP(1)
-          theta0= TWOPI*REAL(i_m-1,wp)/REAL(mn_IP(1),wp)  !do not include periodic point
-          !for xU
-          IF(SFL_theta)THEN
-            theta_star=theta0
-            theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR_U)
-          ELSE
-            LA_visu    = LA_base%f%evalDOF_x((/theta0,zeta/),0,ULA_s )
-            theta = theta0 + LA_visu
-          END IF
- 
-
-          X1_visu    = X1_base%f%evalDOF_x((/theta,zeta/),0,UX1_s )
-          X2_visu    = X2_base%f%evalDOF_x((/theta,zeta/),0,UX2_s )
-          
-          q=(/X1_visu,X2_visu,zeta/)
-          !x,y,z
-          xU(:)=hmap%eval(q)
-          
-          !for xV
-          IF(SFL_theta)THEN
-            theta_star=theta0
-            theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR_V)
-          ELSE
-            LA_visu    = LA_base%f%evalDOF_x((/theta0,zeta/),0,VLA_s )
-            theta      = theta0 + LA_visu
-          END IF
-
-
-          X1_visu    = X1_base%f%evalDOF_x((/theta,zeta/),0,VX1_s )
-          X2_visu    = X2_base%f%evalDOF_x((/theta,zeta/),0,VX2_s )
-          
-          q=(/X1_visu,X2_visu,zeta/)
-          !x,y,z
-          xV(:)=hmap%eval(q)
-          
-          dist=SQRT(SUM((xU(:)-xV(:))**2))
-          maxDist = MAX(maxDist,dist)
-          avgDist = avgDist+dist
-        END DO !i_m
-      END DO !i_n
-    END DO !i_s
-  END DO !iElem
-  avgDist=avgDist/REAL(nElems*n_s*mn_IP(1)*mn_IP(2),wp)
-
-!for iteration on theta^*
-CONTAINS 
-
-  FUNCTION FRdFR_U(theta_iter)
-    !uses current zeta where newton is called, and LA_s from subroutine above
-    IMPLICIT NONE
-    REAL(wp) :: theta_iter
-    REAL(wp) :: FRdFR_U(2) !output
-    !--------------------------------------------------- 
-    FRdFR_U(1)=theta_iter+LA_base%f%evalDOF_x((/theta_iter,zeta/),         0,ULA_s)  !theta_iter+lambda
-    FRdFR_U(2)=1.0_wp    +LA_base%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,ULA_s) !1+dlambda/dtheta
-  END FUNCTION FRdFR_U
-
-  FUNCTION FRdFR_V(theta_iter)
-    !uses current zeta where newton is called, and LA_s from subroutine above
-    IMPLICIT NONE
-    REAL(wp) :: theta_iter
-    REAL(wp) :: FRdFR_V(2) !output
-    !--------------------------------------------------- 
-    FRdFR_V(1)=theta_iter+LA_base%f%evalDOF_x((/theta_iter,zeta/),         0,VLA_s)  !theta_iter+lambda
-    FRdFR_V(2)=1.0_wp    +LA_base%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,VLA_s) !1+dlambda/dtheta
-  END FUNCTION FRdFR_V
-END SUBROUTINE CheckDistance
 
 
 !===================================================================================================================================

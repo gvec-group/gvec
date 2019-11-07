@@ -146,6 +146,7 @@ IMPLICIT NONE
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: sf  !!sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: i
 !===================================================================================================================================
   SELECT TYPE(tocopy); TYPE IS(t_sol_var_MHD3D)
   IF(.NOT.tocopy%initialized)THEN
@@ -158,7 +159,12 @@ IMPLICIT NONE
   END IF
   CALL sf%init((/size(tocopy%X1,1),size(tocopy%X2,1),size(tocopy%LA,1),  &
                  size(tocopy%X1,2),size(tocopy%X2,2),size(tocopy%LA,2)/) )
-  sf%q=tocopy%q
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,tocopy)
+  DO i=1,sf%offset(3)
+    sf%q(i)=tocopy%q(i)
+  END DO
+!$OMP END PARALLEL DO 
   sf%W_MHD3D=tocopy%W_MHD3D
 
   END SELECT !TYPE
@@ -178,12 +184,18 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: i
 !===================================================================================================================================
   IF(.NOT.sf%initialized)THEN
     CALL abort(__STAMP__, &
         "sol_var_MHD3D not initialized in set_to!")
   END IF
-  sf%q=scalar
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,scalar)
+  DO i=1,sf%offset(3)
+    sf%q=scalar
+  END DO
+!$OMP END PARALLEL DO 
   sf%W_MHD3D=0.0_wp
 END SUBROUTINE sol_var_MHD3D_set_to_Scalar
 
@@ -203,6 +215,7 @@ IMPLICIT NONE
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: sf  !!sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: i
 !===================================================================================================================================
   SELECT TYPE(toset); TYPE IS(t_sol_var_MHD3D)
   IF(.NOT.toset%initialized)THEN
@@ -210,10 +223,20 @@ IMPLICIT NONE
         "sol_var_MHD3D_set_to: not initialized sol_var from which to set!")
   END IF
   IF(PRESENT(scal_in))THEN
-    sf%q=scal_in*toset%q
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,toset,scal_in)
+    DO i=1,sf%offset(3)
+      sf%q(i)=scal_in*toset%q(i)
+    END DO
+!$OMP END PARALLEL DO 
     sf%W_MHD3D=0.0_wp
   ELSE
-    sf%q=toset%q
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,toset)
+    DO i=1,sf%offset(3)
+      sf%q(i)=toset%q(i)
+    END DO
+!$OMP END PARALLEL DO 
     sf%W_MHD3D=toset%W_MHD3D
   END IF
 
@@ -237,7 +260,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.sf%initialized) CALL abort(__STAMP__,&
                               'taking the norm of a sol_var that is not initialized' )
-  
+
   norm_2(1)=SUM(sf%X1*sf%X1)
   norm_2(2)=SUM(sf%X2*sf%X2)
   norm_2(3)=SUM(sf%LA*sf%LA)
@@ -260,6 +283,7 @@ IMPLICIT NONE
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER :: i
 !===================================================================================================================================
   SELECT TYPE(X);  TYPE IS(t_sol_var_MHD3D)
   IF(.NOT.X%initialized) CALL abort(__STAMP__,&
@@ -268,7 +292,13 @@ IMPLICIT NONE
   SELECT TYPE(Y);  TYPE IS(t_sol_var_MHD3D)
   IF(.NOT.Y%initialized) CALL abort(__STAMP__,&
                                        'AXBY: Y not initialized')
-  sf%q = aa*X%q + bb*Y%q
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,X,Y,aa,bb)
+  DO i=1,sf%offset(3)
+    sf%q(i) = aa*X%q(i) + bb*Y%q(i)
+  END DO
+!$OMP END PARALLEL DO 
   END SELECT !Type
   END SELECT !Type
 END SUBROUTINE sol_var_MHD3D_AXBY

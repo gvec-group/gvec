@@ -92,9 +92,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL IgnoredStrings()
   
-  call perfon('minimizer')
   CALL functional%minimize() 
-  call perfoff('minimizer')
 
   CALL FinalizeFunctional(functional)
  

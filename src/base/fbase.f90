@@ -803,7 +803,7 @@ IMPLICIT NONE
   REAL(wp)                      :: base_x(1:sf%modes)
 !===================================================================================================================================
 IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
-       'nDOF not correct when calling fBase_evalDOF_IP' )
+       'nDOF not correct when calling fBase_evalDOF_x' )
   base_x=sf%eval(deriv,x)
   y=DOT_PRODUCT(base_x,DOFs(:))
 
@@ -879,7 +879,7 @@ IMPLICIT NONE
 !===================================================================================================================================
 call perfon('evaldof_ip_tens')
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
-         'nDOF not correct when calling fBase_evalDOF_IP' )
+         'nDOF not correct when calling fBase_evalDOF_IP_tens' )
 
   offset=sf%mTotal1D-(sf%mn_max(1)+1) !=0 if sin or cos, =sf%mn_max(1)+1 if sin+cos
   !initialize non existing modes to zero

@@ -217,8 +217,8 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                      :: modes,nGP,nBase,mn_IP
-#define PP_WHICHEVAL 11
-  ! experimental optimization results, with OMP, give the ranking from slowest to fastest: 2 < 1 << 11 ~= 12
+#define PP_WHICHEVAL 110
+  ! experimental optimization results, with OMP, give the ranking from slowest to fastest: 2 < 1 << 11 ~= 12 < 110  
   ! could change with the number of DOF in s and theta/zeta..., 
   ! evaluation in s does not seem to scale at all with omp
 #if (PP_WHICHEVAL==1)
@@ -233,13 +233,22 @@ IMPLICIT NONE
 
 #elif (PP_WHICHEVAL==11)
   !matrix matrix version: first s then f
-  INTEGER                      :: i,j,k,m,n,iElem
+  INTEGER                      :: i,j,iElem
   REAL(wp)                     :: y_tmp(sf%f%modes,1:sf%s%nGP)
+
+#elif (PP_WHICHEVAL==110)
+  !matrix matrix version: first s then f
+  INTEGER                      :: i,j,iElem,iMode
+  REAL(wp)                     :: y_tmp(1:sf%s%nGP,sf%f%modes)
 
 #elif (PP_WHICHEVAL==12)
   !matrix matrix version: first f then s
-  INTEGER                      :: i,j,k,m,n,iElem
+  INTEGER                      :: i,j,iElem
   REAL(wp)                     :: y_tmp(sf%f%mn_IP,1:sf%s%nBase)
+#elif (PP_WHICHEVAL==120)
+  !matrix matrix version: first f then s
+  INTEGER                      :: i,j,iElem,i_mn
+  REAL(wp)                     :: y_tmp(1:sf%s%nBase,sf%f%mn_IP)
 #endif /*PP_WHICHEVAL*/
 !===================================================================================================================================
 !WRITE(*,*)'-----------------------------'
@@ -311,9 +320,6 @@ IMPLICIT NONE
 
   call perfon('eval_s')
   ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
-  m=sf%f%modes
-  k=deg+1
-  n=degGP+1
   SELECT CASE(deriv(1))
   CASE(0)
     DO iElem=1,nElems
@@ -334,9 +340,6 @@ IMPLICIT NONE
   call perfoff('eval_s')
 
   call perfon('eval_f')
-  m=sf%f%mn_IP
-  k=sf%f%modes
-  n=sf%s%nGP
   SELECT CASE(deriv(2))
   CASE(0)
     !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
@@ -350,12 +353,55 @@ IMPLICIT NONE
   END SELECT !deriv IP
   call perfoff('eval_f')
 
+#elif (PP_WHICHEVAL==110)
+  ! matrix-matrix version of first s then f
+
+  call perfon('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  SELECT CASE(deriv(1))
+  CASE(0)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) 
+    DO iMode=1,modes
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
+      END DO !iElem
+    END DO!iMode
+!$OMP END PARALLEL DO
+  CASE(DERIV_S)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) 
+    DO iMode=1,modes
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
+      END DO !iElem
+    END DO!iMode
+!$OMP END PARALLEL DO
+  END SELECT !deriv GP
+  END ASSOCIATE
+  call perfoff('eval_s')
+
+  call perfon('eval_f')
+  SELECT CASE(deriv(2))
+  CASE(0)
+    !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
+    __MATMAT_NT(Y_IP_GP ,sf%f%base_IP,y_tmp)
+  CASE(DERIV_THET)                        
+    !Y_IP_GP = MATMUL(sf%f%base_dthet_IP(:,:),y_tmp)
+    __MATMAT_NT(Y_IP_GP ,sf%f%base_dthet_IP,y_tmp)
+  CASE(DERIV_ZETA)                        
+    !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
+    __MATMAT_NT(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
+  END SELECT !deriv IP
+  call perfoff('eval_f')
+
 #elif (PP_WHICHEVAL==12)
   ! matrix-matrix version of first f then s
   call perfon('eval_f')
-  m=sf%f%mn_IP
-  k=sf%f%modes
-  n=sf%s%nBase
   SELECT CASE(deriv(2))
   CASE(0)
     !y_tmp = MATMUL(sf%f%base_IP(:,:),TRANSPOSE(DOFs))
@@ -371,9 +417,6 @@ IMPLICIT NONE
 
   call perfon('eval_s')
   ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
-  m=sf%f%mn_IP
-  k=deg+1
-  n=degGP+1
   SELECT CASE(deriv(1))
   CASE(0)
     DO iElem=1,nElems
@@ -389,6 +432,48 @@ IMPLICIT NONE
       !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_ds_GP(0:degGP,0:deg,iElem)))
       __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
     END DO !iElem
+  END SELECT !deriv GP
+  END ASSOCIATE
+  call perfoff('eval_s')
+
+#elif (PP_WHICHEVAL==120)
+  ! matrix-matrix version of first f then s
+  call perfon('eval_f')
+  SELECT CASE(deriv(2))
+  CASE(0)
+    __MATMAT_NT(y_tmp,DOFs,sf%f%base_IP)
+  CASE(DERIV_THET)                        
+    __MATMAT_NT(y_tmp,DOFs,sf%f%base_dthet_IP)
+  CASE(DERIV_ZETA)                        
+    __MATMAT_NT(y_tmp,DOFs,sf%f%base_dzeta_IP)
+  END SELECT !deriv IP
+  call perfoff('eval_f')
+
+  call perfon('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  SELECT CASE(deriv(1))
+  CASE(0)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn,iElem,j,i) 
+    DO i_mn=1,mn_IP
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_IP_GP(i_mn,i:i+degGP)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),y_tmp(j:j+deg,i_mn))
+      END DO !iElem
+    END DO!i_mn
+!$OMP END PARALLEL DO
+  CASE(DERIV_S)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn,iElem,j,i) 
+    DO i_mn=1,mn_IP
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_IP_GP(i_mn,i:i+degGP)=MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),y_tmp(j:j+deg,i_mn))
+      END DO !iElem
+    END DO!i_mn
+!$OMP END PARALLEL DO
   END SELECT !deriv GP
   END ASSOCIATE
   call perfoff('eval_s')
