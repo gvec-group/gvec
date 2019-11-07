@@ -234,7 +234,7 @@ IMPLICIT NONE
 !$OMP   PRIVATE(i_m,i_n,j_s,xIP,q,sqrtG,e_s,e_thet,e_zeta,theta_star, &
 !$OMP           X1_visu,dX1_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,    &
 !$OMP           X2_visu,dX2_ds_visu,dX2_dthet_visu,dX2_dzeta_visu,dLA_dthet_visu,dLA_dzeta_visu )  &
-!$OMP   SHARED(mn_IP,n_s,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
+!$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
 !$OMP          F_X1_s,F_X2_s,F_LA_s,hmap,coord_visu,var_visu,chiPrime_s,phiPrime_s)
       DO i_m=1,mn_IP(1)
         DO i_n=1,mn_IP(2)
@@ -298,7 +298,7 @@ IMPLICIT NONE
     !make theta direction exactly periodic
     IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
 !$OMP PARALLEL DO  COLLAPSE(3)     &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iElem,i_n,i_s) SHARED(nElems,mn_IP,n_s,coord_visu)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
       DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
         coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
       END DO; END DO; END DO
@@ -308,7 +308,7 @@ IMPLICIT NONE
     IF(.NOT.only_planes)THEN
       IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
 !$OMP PARALLEL DO  COLLAPSE(4)     &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iElem,i_n,i_s,j_s) SHARED(nElems,mn_IP,n_s,coord_visu)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s,j_s)
       DO iElem=1,nElems; DO i_m=1,mn_IP(1); DO j_s=1,n_s; DO i_s=1,n_s
         coord_visu( :,i_s,j_s,mn_IP(2),i_m,iElem)=coord_visu( :,i_s,j_s,1,i_m,iElem)
       END DO; END DO; END DO; END DO

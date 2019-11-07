@@ -175,9 +175,9 @@ IMPLICIT NONE
       STOP 'm=n=0 should not be here!'
     END IF
   END DO !iMode
-  IF(mm.NE.m_nnz) STOP'wrong implementation m_nnz'
-  IF(nn.NE.n_nnz) STOP'wrong implementation n_nnz'
-  IF(mm+nn.NE.modes) STOP'wrong implementation of m_nnz/n_nnz'
+  IF(mm.NE.m_nnz) STOP 'wrong implementation m_nnz'
+  IF(nn.NE.n_nnz) STOP 'wrong implementation n_nnz'
+  IF(mm+nn.NE.modes) STOP 'wrong implementation of m_nnz/n_nnz'
   __PERFOFF('build_proj_base')
 
   END ASSOCIATE !G_base_out ...

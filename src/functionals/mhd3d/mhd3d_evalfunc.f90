@@ -534,7 +534,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
 !$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
-!$OMP   SHARED(X1_base,modes,deg,degGP,nElems,F_X1,F_X1_GP_IP,F_X1ds_GP_IP)
+!$OMP   SHARED(X1_base,modes,deg,degGP,nElems,F_MHD3D,F_X1_GP_IP,F_X1ds_GP_IP)
   DO iMode=1,modes
     F_X1(:,iMode)=0.0_wp
     DO iElem=1,nElems
@@ -641,7 +641,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
 !$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
-!$OMP   SHARED(X2_base,modes,deg,degGP,nElems,F_X2,F_X2_GP_IP,F_X2ds_GP_IP)
+!$OMP   SHARED(X2_base,modes,deg,degGP,nElems,F_MHD3D,F_X2_GP_IP,F_X2ds_GP_IP)
   DO iMode=1,modes
     F_X2(:,iMode)=0.0_wp
     DO iElem=1,nElems
@@ -710,7 +710,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
 !$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
-!$OMP   SHARED(LA_base,modes,deg,degGP,nElems,F_LA,F_LA_GP_IP)
+!$OMP   SHARED(LA_base,modes,deg,degGP,nElems,F_MHD3D,F_LA_GP_IP)
   DO iMode=1,modes
     F_LA(:,iMode)=0.0_wp
     DO iElem=1,nElems

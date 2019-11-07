@@ -160,7 +160,7 @@ IMPLICIT NONE
   CALL sf%init((/size(tocopy%X1,1),size(tocopy%X2,1),size(tocopy%LA,1),  &
                  size(tocopy%X1,2),size(tocopy%X2,2),size(tocopy%LA,2)/) )
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,tocopy)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,sf%offset(3)
     sf%q(i)=tocopy%q(i)
   END DO
@@ -191,9 +191,9 @@ IMPLICIT NONE
         "sol_var_MHD3D not initialized in set_to!")
   END IF
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,scalar)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,sf%offset(3)
-    sf%q=scalar
+    sf%q(i)=scalar
   END DO
 !$OMP END PARALLEL DO 
   sf%W_MHD3D=0.0_wp
@@ -224,7 +224,7 @@ IMPLICIT NONE
   END IF
   IF(PRESENT(scal_in))THEN
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,toset,scal_in)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
     DO i=1,sf%offset(3)
       sf%q(i)=scal_in*toset%q(i)
     END DO
@@ -232,7 +232,7 @@ IMPLICIT NONE
     sf%W_MHD3D=0.0_wp
   ELSE
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,toset)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
     DO i=1,sf%offset(3)
       sf%q(i)=toset%q(i)
     END DO
@@ -294,7 +294,7 @@ IMPLICIT NONE
                                        'AXBY: Y not initialized')
 
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i) SHARED(sf,X,Y,aa,bb)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,sf%offset(3)
     sf%q(i) = aa*X%q(i) + bb*Y%q(i)
   END DO
