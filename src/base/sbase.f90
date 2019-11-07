@@ -969,13 +969,13 @@ IMPLICIT NONE
   INTEGER                       :: iElem,j
   REAL(wp)                      :: base_x(0:sf%deg)
 !===================================================================================================================================
-  call perfon('eval_dof2d_s')
+  __PERFON('eval_dof2d_s')
   CALL sf%eval(x,deriv,iElem,base_x) 
   j=sf%base_offset(iElem)
   !y(1:nd) =MATMUL(base_x(0:sf%deg),DOFs(j:j+sf%deg,1:nd))
   __MATVEC_T(y,DOFs(j:j+sf%deg,:),base_x(0:sf%deg))
 
-  call perfoff('eval_dof2d_s')
+  __PERFOFF('eval_dof2d_s')
 END FUNCTION sbase_evalDOF2D_s
 
 !===================================================================================================================================

@@ -161,8 +161,8 @@ IMPLICIT NONE
   SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
                               ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
                      
-  call perfon('transform_angles')
-  call perfon('init')
+  __PERFON('transform_angles')
+  __PERFON('init')
   !initialize
   
   ! extended base for q in the new angles, and on the new grid
@@ -208,7 +208,7 @@ IMPLICIT NONE
 
   ALLOCATE(q_m(1:q_base_out%f%modes,nBase))
   ALLOCATE(q_out(nBase,1:q_base_out%f%modes))
-  call perfoff('init')
+  __PERFOFF('init')
 
   check(1:7)=(/HUGE(1.),0.,0.,HUGE(1.),-HUGE(1.),HUGE(1.),-HUGE(1.)/)
 
@@ -216,7 +216,7 @@ IMPLICIT NONE
 
   CALL ProgressBar(0,nBase)!init
   DO is=1,nBase
-    call perfon('eval_data_s')
+    __PERFON('eval_data_s')
     spos=MIN(MAX(1.0e-8_wp,q_base_out%s%s_IP(is)),1.0_wp-1.0e-12_wp) !interpolation points for q_in
     !evaluate q_in at spos
     q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
@@ -225,8 +225,8 @@ IMPLICIT NONE
     IF(Bpresent)THEN
       B_s(:)     = AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,B_in(:,:))
     END IF
-    call perfoff('eval_data_s')
-    call perfon('eval_data_f')
+    __PERFOFF('eval_data_s')
+    __PERFON('eval_data_f')
     !evaluate lambda at spos
     ! TEST EXACT CASE: A_s=0.
     IF(.NOT.Bpresent)THEN
@@ -304,18 +304,18 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO 
 #endif 
     END IF !Bpresent
-    call perfon('project')
+    __PERFON('project')
     __MATVEC_N(q_m(:,is),modes_IP(:,:),f_IP(:)) 
 
-    call perfoff('project')
-    call perfoff('eval_data_f')
+    __PERFOFF('project')
+    __PERFOFF('eval_data_f')
 
     !projection: integrate (sum over mn_IP), includes normalization of base!
     !q_m(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
 
     q_m(:,is)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_m(:,is)
 
-    call perfon('check')
+    __PERFON('check')
     !CHECK at all IP points, only every 4th radial point:
     IF(doCheck) THEN
 
@@ -339,7 +339,7 @@ IMPLICIT NONE
 !      WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
     END IF !doCheck
 
-    call perfoff('check')
+    __PERFOFF('check')
     CALL ProgressBar(is,nBase)
   END DO !is
 
@@ -369,7 +369,7 @@ IMPLICIT NONE
   END IF
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
-  call perfoff('transform_angles')
+  __PERFOFF('transform_angles')
 END SUBROUTINE Transform_Angles
 
 !===================================================================================================================================

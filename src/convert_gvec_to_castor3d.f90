@@ -27,8 +27,8 @@ IMPLICIT NONE
 !local variables
 REAL(wp)                :: StartTime,EndTime
 !===================================================================================================================================
-  call perfinit()
-  call perfon ('main')
+  __PERFINIT
+  __PERFON('main')
 
   CALL CPU_TIME(StartTime)
 !$ StartTime=OMP_GET_WTIME()
@@ -56,8 +56,8 @@ REAL(wp)                :: StartTime,EndTime
   WRITE(Unit_stdOut,'(A,F8.2,A)') ' CONVERT GVEC TO CASTOR3D FINISHED! [',EndTime-StartTime,' sec ]'
   WRITE(Unit_stdOut,fmt_sep)
 
-  call perfoff('main')
-  call perfout('main')
+  __PERFOFF('main')
+  __PERFOUT('main')
 END PROGRAM CONVERT_GVEC_TO_CASTOR3D
 
 

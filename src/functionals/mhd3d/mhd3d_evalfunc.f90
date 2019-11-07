@@ -193,9 +193,9 @@ SUBROUTINE EvalAux(Uin,JacCheck)
           'You already called EvalAux, with a Jacobian smaller that  1.0e-12!!!' )
   END IF
 
-  call perfon('EvalAux')
+  __PERFON('EvalAux')
 
-  call perfon('EvalDOF_1')
+  __PERFON('EvalDOF_1')
   !2D data: interpolation points x gauss-points
   CALL X1_base%evalDOF((/0,0/)         ,Uin%X1,X1_IP_GP  )
   CALL X1_base%evalDOF((/DERIV_S,0/)   ,Uin%X1,dX1_ds    )
@@ -203,9 +203,9 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   CALL X2_base%evalDOF((/0,0/)         ,Uin%X2,X2_IP_GP  )
   CALL X2_base%evalDOF((/DERIV_S,0/)   ,Uin%X2,dX2_ds    )
   CALL X2_base%evalDOF((/0,DERIV_THET/),Uin%X2,dX2_dthet )
-  call perfoff('EvalDOF_1')
+  __PERFOFF('EvalDOF_1')
 
-  call perfon('loop_1')
+  __PERFON('loop_1')
   min_detJ =HUGE(1.0_wp)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
@@ -226,7 +226,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO
-  call perfoff('loop_1')
+  __PERFOFF('loop_1')
 
   !check Jacobian
   IF(min_detJ .LT.1.0e-12) THEN
@@ -263,16 +263,16 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   END DO !iGP
 !$OMP END PARALLEL DO
 
-  call perfon('EvalDOF_2')
+  __PERFON('EvalDOF_2')
   !2D data: interpolation points x gauss-points
   CALL X1_base%evalDOF((/0,DERIV_ZETA/),Uin%X1,dX1_dzeta)
   CALL X2_base%evalDOF((/0,DERIV_ZETA/),Uin%X2,dX2_dzeta)
   CALL LA_base%evalDOF((/0,DERIV_THET/),Uin%LA,dLA_dthet)
   CALL LA_base%evalDOF((/0,DERIV_ZETA/),Uin%LA,dLA_dzeta)
-  call perfoff('EvalDOF_2')
+  __PERFOFF('EvalDOF_2')
 
 
-  call perfon('loop_2')
+  __PERFON('loop_2')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -305,9 +305,9 @@ SUBROUTINE EvalAux(Uin,JacCheck)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO
-  call perfoff('loop_2')
+  __PERFOFF('loop_2')
 
-  call perfoff('EvalAux')
+  __PERFOFF('EvalAux')
 
 END SUBROUTINE EvalAux
 
@@ -343,7 +343,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
   REAL(wp) :: Wmag,Wpres
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE ENERGY...'
-  call perfon('EvalEnergy')
+  __PERFON('EvalEnergy')
 
   IF(callEvalAux) THEN
     CALL EvalAux(Uin,JacCheck)
@@ -391,7 +391,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 
   W_MHD3D= dthet_dzeta* (  0.5_wp      *Wmag + mu_0*sgammM1*Wpres)
 
-   call perfoff('EvalEnergy')
+   __PERFOFF('EvalEnergy')
 
 !  SWRITE(UNIT_stdOut,'(A,E21.11)')'... DONE: ',W_MHD3D
 END FUNCTION EvalEnergy
@@ -433,7 +433,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                        ,coefY,coefY_thet,coefY_zeta,coefY_s
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
-  call perfon('EvalForce')
+  __PERFON('EvalForce')
   IF(callEvalAux) THEN
     CALL EvalAux(Uin,JacCheck)
   END IF
@@ -442,12 +442,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
         'negative Jacobian was found when you call EvalAux before!!!')
   END IF
 
-  call perfon('buildPrecond')
+  __PERFON('buildPrecond')
   IF(PrecondType.GT.0) CALL BuildPrecond()
-  call perfoff('buildPrecond')
+  __PERFOFF('buildPrecond')
 
   !additional auxiliary variables for X1 and X2 force
-  call perfon('loop_prepare')
+  __PERFON('loop_prepare')
 !$OMP PARALLEL DO    &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -463,15 +463,15 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO 
-  call perfoff('loop_prepare')
+  __PERFOFF('loop_prepare')
 
   ASSOCIATE(F_X1=>F_MHD3D%X1)
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
 
-  call perfon('EvalForce_modes1')
-  call perfon('loop_prep_coefs')
+  __PERFON('EvalForce_modes1')
+  __PERFON('loop_prep_coefs')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -521,16 +521,16 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO 
-  call perfoff('loop_prep_coefs')
+  __PERFOFF('loop_prep_coefs')
 
-  call perfon('fbase')
+  __PERFON('fbase')
    __MATMAT_TN(       F_X1_GP_IP ,coefY     ,X1_base%f%base_IP)
   __PMATMAT_TN(1.0_wp,F_X1_GP_IP ,coefY_thet,X1_base%f%base_dthet_IP)
   __PMATMAT_TN(1.0_wp,F_X1_GP_IP ,coefY_zeta,X1_base%f%base_dzeta_IP)
    __MATMAT_TN(       F_X1ds_GP_IP,coefY_s   ,X1_base%f%base_IP)
-  call perfoff('fbase')
+  __PERFOFF('fbase')
 
-  call perfon('sbase')
+  __PERFON('sbase')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
 !$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
@@ -546,9 +546,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
 !$OMP END PARALLEL DO 
-  call perfoff('sbase')
+  __PERFOFF('sbase')
 
-  call perfon('apply_precond')
+  __PERFON('apply_precond')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,modes
@@ -565,14 +565,14 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_X1)
   END IF !PrecondType.GT.0
-  call perfoff('apply_precond')
+  __PERFOFF('apply_precond')
 
   END ASSOCIATE !F_X1
 
-  call perfoff('EvalForce_modes1')
+  __PERFOFF('EvalForce_modes1')
 
-  call perfon('EvalForce_modes2')
-  call perfon('loop_prep_coefs')
+  __PERFON('EvalForce_modes2')
+  __PERFON('loop_prep_coefs')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -623,7 +623,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO 
-  call perfoff('loop_prep_coefs')
+  __PERFOFF('loop_prep_coefs')
 
   ASSOCIATE(F_X2=>F_MHD3D%X2)
   nBase = X2_base%s%nBase 
@@ -631,13 +631,13 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   deg   = X2_base%s%deg
 
 
-  call perfon('fbase')
+  __PERFON('fbase')
    __MATMAT_TN(       F_X2_GP_IP ,coefY     ,X2_base%f%base_IP)
   __PMATMAT_TN(1.0_wp,F_X2_GP_IP ,coefY_thet,X2_base%f%base_dthet_IP)
   __PMATMAT_TN(1.0_wp,F_X2_GP_IP ,coefY_zeta,X2_base%f%base_dzeta_IP)
    __MATMAT_TN(       F_X2ds_GP_IP,coefY_s   ,X2_base%f%base_IP)
-  call perfoff('fbase')
-  call perfon('sbase')
+  __PERFOFF('fbase')
+  __PERFON('sbase')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
 !$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
@@ -653,9 +653,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
 !$OMP END PARALLEL DO 
-  call perfoff('sbase')
+  __PERFOFF('sbase')
 
-  call perfon('apply_precond')
+  __PERFON('apply_precond')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,modes
@@ -672,19 +672,19 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_X2)
   END IF !PrecondType.GT.0
-  call perfoff('apply_precond')
+  __PERFOFF('apply_precond')
 
 
   END ASSOCIATE !F_X2
-  call perfoff('EvalForce_modes2')
+  __PERFOFF('EvalForce_modes2')
 
-  call perfon('EvalForce_modes3')
+  __PERFON('EvalForce_modes3')
   ASSOCIATE(F_LA=>F_MHD3D%LA)
   nBase = LA_base%s%nBase 
   modes = LA_base%f%modes
   deg   = LA_base%s%deg
 
-  call perfon('loop_prep_coefs')
+  __PERFON('loop_prep_coefs')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -700,13 +700,13 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO 
-  call perfoff('loop_prep_coefs')
+  __PERFOFF('loop_prep_coefs')
 
-  call perfon('fbase')
+  __PERFON('fbase')
    __MATMAT_TN(       F_LA_GP_IP,coefY_thet,LA_base%f%base_dzeta_IP)
   __PMATMAT_TN(1.0_wp,F_LA_GP_IP,coefY_zeta,LA_base%f%base_dthet_IP)
-  call perfoff('fbase')
-  call perfon('sbase')
+  __PERFOFF('fbase')
+  __PERFON('sbase')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) &
 !$OMP   PRIVATE(iMode,iElem,iGP,iBase) &
@@ -721,9 +721,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iElem
   END DO !iMode
 !$OMP END PARALLEL DO 
-  call perfoff('sbase')
+  __PERFOFF('sbase')
 
-  call perfon('apply_precond')
+  __PERFON('apply_precond')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,modes
@@ -742,10 +742,10 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   ELSE
     CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
   END IF !PrecondType.GT.0
-  call perfoff('apply_precond')
+  __PERFOFF('apply_precond')
   END ASSOCIATE !F_LA
 
-  call perfoff('EvalForce_modes3')
+  __PERFOFF('EvalForce_modes3')
 
   IF(PRESENT(noBC))THEN
     IF(noBC)THEN
@@ -758,7 +758,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     CALL ApplyBC_Fstrong(F_MHD3D)  
   END IF !apply strong BC if no Precond
 
-  call perfoff('EvalForce')
+  __PERFOFF('EvalForce')
 
 !  SWRITE(UNIT_stdOut,'(A,3E21.11)')'... DONE: Norm of force |X1|,|X2|,|LA|: ',SQRT(F_MHD3D%norm_2())
 END SUBROUTINE EvalForce
@@ -834,7 +834,7 @@ SUBROUTINE BuildPrecond()
   REAL(wp),ALLOCATABLE        :: P_BCaxis(:,:), P_BCedge(:,:)
 !===================================================================================================================================
 !  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
-  call perfon('loop_1')
+  __PERFON('loop_1')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(SHARED)   &
@@ -880,7 +880,7 @@ SUBROUTINE BuildPrecond()
     DLA_zz(iGP) = phiPrime2_GP(iGP)*SUM(g_tt(:,iGP)*sdetJ(:,iGP)) 
   END DO
 !$OMP END PARALLEL DO
-  call perfoff('loop_1')
+  __PERFOFF('loop_1')
   !dont forget to average
   smn_IP=1.0_wp/REAL(mn_IP,wp)
 !  DX1(:)    = smn_IP*(DX1(:)    )  
@@ -905,7 +905,7 @@ SUBROUTINE BuildPrecond()
   IF(SUM(ABS(DX1_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
        WRITE(*,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(:)))
 
-  call perfon('modes_loop_1')
+  __PERFON('modes_loop_1')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(SHARED)   &
@@ -961,7 +961,7 @@ SUBROUTINE BuildPrecond()
     END IF !nDOF_BCedge>0
   END DO !iMode
 !$OMP END PARALLEL DO
-  call perfoff('modes_loop_1')
+  __PERFOFF('modes_loop_1')
 
   DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X1
@@ -977,7 +977,7 @@ SUBROUTINE BuildPrecond()
   IF(SUM(ABS(DX2_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
        WRITE(*,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(:)))
 
-  call perfon('modes_loop_2')
+  __PERFON('modes_loop_2')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(SHARED)   &
@@ -1033,7 +1033,7 @@ SUBROUTINE BuildPrecond()
     END IF !nDOF_BCedge>0
   END DO !iMode
 !$OMP END PARALLEL DO
-  call perfoff('modes_loop_2')
+  __PERFOFF('modes_loop_2')
 
   DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X2
@@ -1045,7 +1045,7 @@ SUBROUTINE BuildPrecond()
   ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
   P_BCaxis=0.0_wp; P_BCedge=0.0_wp
 
-  call perfon('modes_loop_3')
+  __PERFON('modes_loop_3')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(SHARED)   &
@@ -1106,7 +1106,7 @@ SUBROUTINE BuildPrecond()
     END IF !nDOF_BCedge>0
   END DO !iMode
 !$OMP END PARALLEL DO
-  call perfoff('modes_loop_3')
+  __PERFOFF('modes_loop_3')
 
   DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE LA
@@ -1116,7 +1116,7 @@ SUBROUTINE BuildPrecond()
 
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
   ASSOCIATE(modes => X1_Base%f%modes)
-  call perfon('modes_loop_4')
+  __PERFON('modes_loop_4')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(SHARED)  &
@@ -1125,13 +1125,13 @@ SUBROUTINE BuildPrecond()
     CALL precond_X1(iMode)%factorize()
   END DO !iMode
 !$OMP END PARALLEL DO 
-  call perfoff('modes_loop_4')
+  __PERFOFF('modes_loop_4')
   END ASSOCIATE !X1
   END SELECT !TYPE
 
   SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
   ASSOCIATE(modes => X2_Base%f%modes)
-  call perfon('modes_loop_5')
+  __PERFON('modes_loop_5')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(SHARED)  &
@@ -1140,13 +1140,13 @@ SUBROUTINE BuildPrecond()
     CALL precond_X2(iMode)%factorize()
   END DO !iMode
 !$OMP END PARALLEL DO 
-  call perfoff('modes_loop_5')
+  __PERFOFF('modes_loop_5')
   END ASSOCIATE !X2
   END SELECT !TYPE
 
   SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
   ASSOCIATE(modes => LA_Base%f%modes)
-  call perfon('modes_loop_6')
+  __PERFON('modes_loop_6')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(SHARED)  &
@@ -1155,7 +1155,7 @@ SUBROUTINE BuildPrecond()
     CALL precond_LA(iMode)%factorize()
   END DO !iMode
 !$OMP END PARALLEL DO 
-  call perfoff('modes_loop_6')
+  __PERFOFF('modes_loop_6')
   END ASSOCIATE !LA
   END SELECT !TYPE
 

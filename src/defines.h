@@ -28,6 +28,19 @@
 #endif
 #define SDEALLOCATE(A) IF(ALLOCATED(A)) DEALLOCATE(A)
 
+#ifdef PP_FTIMINGS
+#  define __PERFINIT   call perfinit()
+#  define __PERFON(a)  call perfon(a)
+#  define __PERFOFF(a) call perfoff(a)
+#  define __PERFOUT(a) call perfout(a)
+#else
+#  define __PERFINIT  
+#  define __PERFON(a) 
+#  define __PERFOFF(a) 
+#  define __PERFOUT(a)
+#endif
+
+
 !boundary condition for zero,odd and even m modes
 
 !boundary types

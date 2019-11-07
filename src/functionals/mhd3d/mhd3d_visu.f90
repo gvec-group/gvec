@@ -156,7 +156,7 @@ IMPLICIT NONE
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
-  call perfon("write_visu")
+  __PERFON("output_visu")
   IF(only_planes)THEN
     SWRITE(UNIT_stdOut,'(A)') 'Start visu planes...'
   ELSE
@@ -175,7 +175,7 @@ IMPLICIT NONE
       'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
-  call perfon("prepare_visu")
+  __PERFON("prepare_visu")
   VarNames( 1)="lambda"
   VarNames( 2)="sqrtG"
   VarNames( 3)="Phi"
@@ -316,7 +316,8 @@ IMPLICIT NONE
       END IF
     END IF
   END IF!hmap not cylinder
-  call perfoff("prepare_visu")
+  __PERFOFF("prepare_visu")
+  __PERFON("write_visu")
   !range s: include all elements belonging to [smin,smax]
   minElem=MAX(     1,sgrid%find_elem(minmax(1,0))-1)
   maxElem=MIN(nElems,sgrid%find_elem(minmax(1,1))+1)
@@ -334,10 +335,11 @@ IMPLICIT NONE
                         coord_visu(:,:,:,:,:,minElem:maxElem), &
                           var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   END IF
+  __PERFOFF("write_visu")
   
   END ASSOCIATE!n_s,mn_IP
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
-  call perfoff("write_visu")
+  __PERFOFF("output_visu")
 END SUBROUTINE visu_3D
 
 
@@ -414,6 +416,7 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
   REAL(wp),ALLOCATABLE :: theta1D(:),zeta1D(:)
   LOGICAL  :: SFL_theta=.TRUE.
 !===================================================================================================================================
+  __PERFON("checkDistance")
   n_s=3 !number of points to check per element (1 at the left boundary, 2 inner, none at the right)
   mn_IP(1)   = MAX(1,X1_base%f%mn_nyq(1)/2)
   mn_IP(2)   = MAX(1,X1_base%f%mn_nyq(2)/2)
@@ -496,6 +499,7 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
 
   DEALLOCATE(theta1D,zeta1D)
 
+  __PERFOFF("checkDistance")
 END SUBROUTINE CheckDistance
 
 

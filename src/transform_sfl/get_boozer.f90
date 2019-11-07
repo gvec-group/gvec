@@ -111,8 +111,8 @@ IMPLICIT NONE
 
   SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
                               ', mn_max_in=',LA_base_r%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
-  call perfon('get_boozer')
-  call perfon('init')
+  __PERFON('get_boozer')
+  __PERFON('init')
   !initialize
   
   ! extended base for q in the new angles, and on the new grid
@@ -140,7 +140,7 @@ IMPLICIT NONE
   n_nnz=COUNT((Xmn(2,:).NE.0)) !n /=0
 
   !transpose basis functions and include norm for projection
-  call perfon('build_proj_base')
+  __PERFON('build_proj_base')
   ALLOCATE(proj_base(modes,mn_IP))
   ALLOCATE(m_nz(m_nnz),proj_base_dthet(m_nnz,mn_IP),fm_IP(mn_IP),GZ_m(m_nnz))
   IF(n_nnz.GT.0) ALLOCATE(n_nz(n_nnz),proj_base_dzeta(n_nnz,mn_IP),fn_IP(mn_IP),GZ_n(n_nnz))
@@ -178,7 +178,7 @@ IMPLICIT NONE
   IF(mm.NE.m_nnz) STOP'wrong implementation m_nnz'
   IF(nn.NE.n_nnz) STOP'wrong implementation n_nnz'
   IF(mm+nn.NE.modes) STOP'wrong implementation of m_nnz/n_nnz'
-  call perfoff('build_proj_base')
+  __PERFOFF('build_proj_base')
 
   END ASSOCIATE !G_base_out ...
 
@@ -214,12 +214,12 @@ IMPLICIT NONE
   ALLOCATE(Gthet(nBase,1:modes))
   ALLOCATE(GZ(   nBase,1:modes))
 
-  call perfoff('init')
+  __PERFOFF('init')
 
 
   CALL ProgressBar(0,nBase) !INIT
   DO is=1,nBase
-    call perfon('eval_data')
+    __PERFON('eval_data')
     spos=MIN(MAX(1.0e-08_wp,G_base_out%s%s_IP(is)),1.0_wp-1.0e-12_wp) !interpolation points for q_in
 
     dPhids_int  = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
@@ -252,8 +252,8 @@ IMPLICIT NONE
     dLAdzeta_IP = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:))
 #endif
 
-    call perfoff('eval_data')
-    call perfon('eval_bsub')
+    __PERFOFF('eval_data')
+    __PERFON('eval_bsub')
     
     Itor=0.0_wp;Ipol=0.0_wp
 #ifdef FULLBASEIMP
@@ -341,10 +341,10 @@ IMPLICIT NONE
 
 
 
-    call perfoff('eval_bsub')
-    call perfon('project')
+    __PERFOFF('eval_bsub')
+    __PERFON('project')
 
-    call perfon('project_G')
+    __PERFON('project_G')
 
     stmp=1.0_wp/(Itor*iota_int+Ipol)
 !$OMP PARALLEL DO        &  
@@ -372,12 +372,12 @@ IMPLICIT NONE
       GZ(is,n_nz(:))=GZ_n  !resize does not work directly in MATVEC!
     
     END IF
-    call perfoff('project_G')
+    __PERFOFF('project_G')
     !Gthet=iota*GZ + LA
     Gthet(is,:)=GZ(is,:)  
     __PMATVEC_N(iota_int,Gthet(is,:),proj_base,LA_IP) !Gthet(is,:)=iota*GZ(is,:)+MATMUL(proj_base,LA_IP)
 
-    call perfoff('project')
+    __PERFOFF('project')
     CALL ProgressBar(is,nBase)
   END DO !is
 
@@ -404,7 +404,7 @@ IMPLICIT NONE
   IF(n_nnz.GT.0) DEALLOCATE(n_nz,proj_base_dzeta,fn_IP,GZ_n)
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
-  call perfoff('get_boozer')
+  __PERFOFF('get_boozer')
 END SUBROUTINE Get_Boozer
 
 

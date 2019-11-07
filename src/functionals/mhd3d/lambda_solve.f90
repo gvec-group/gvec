@@ -67,7 +67,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   REAL(wp)                              :: sum_gta_da,sum_gza_da,sum_mn
   REAL(wp),DIMENSION(1:X1_base%f%mn_IP,1:LA_base%f%modes) :: gta_da,gza_da
 !===================================================================================================================================
-  call perfon('lambda_solve')
+  __PERFON('lambda_solve')
 
   spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-08,spos_in))
   mn_IP = X1_base%f%mn_IP
@@ -173,7 +173,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   END DO !iMode
 !$OMP END PARALLEL DO 
 
-  call perfon('setup')
+  __PERFON('setup')
 
   ASSOCIATE(sigma_dthet => LA_base%f%base_dthet_IP, &
             sigma_dzeta => LA_base%f%base_dzeta_IP  )
@@ -265,11 +265,11 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   END DO!iMode
 !$OMP END PARALLEL DO 
 
-  call perfoff('setup')
-  call perfon('solve')
+  __PERFOFF('setup')
+  __PERFON('solve')
   LA_s=SOLVE(Amat,RHS)  
-  call perfoff('solve')
-  call perfoff('lambda_solve')
+  __PERFOFF('solve')
+  __PERFOFF('lambda_solve')
 
 END SUBROUTINE Lambda_solve
 

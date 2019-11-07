@@ -35,8 +35,8 @@ INTEGER                 :: which_functional
 REAL(wp)                :: StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
-  call perfinit()
-  call perfon ('main')
+  __PERFINIT
+  __PERFON('main')
 
 
   CALL CPU_TIME(StartTime)
@@ -126,8 +126,8 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   END IF
   WRITE(Unit_stdOut,fmt_sep)
 
-  call perfoff('main')
-  call perfout('main')
+  __PERFOFF('main')
+  __PERFOUT('main')
 
 END PROGRAM GVEC
 

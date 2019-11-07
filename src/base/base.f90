@@ -258,7 +258,7 @@ IMPLICIT NONE
 !                            REAL( (sf%f%mn_IP*sf%f%modes)*sf%s%nBase+ (sf%s%nGP*(sf%s%deg+1))*sf%f%mn_IP,wp)
 !WRITE(*,*)'-----------------------------'
 
-  call perfon('BaseEval')
+  __PERFON('BaseEval')
 
   nGP     = sf%s%nGP  
   modes   = sf%f%modes  
@@ -267,7 +267,7 @@ IMPLICIT NONE
 
 #if (PP_WHICHEVAL==1)
   !OMP loop version: first s then f
-  call perfon('eval_s')
+  __PERFON('eval_s')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -277,8 +277,8 @@ IMPLICIT NONE
     y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv(1),DOFs(:,iMode))
   END DO!iMode
 !$OMP END PARALLEL DO
-  call perfoff('eval_s')
-  call perfon('eval_f')
+  __PERFOFF('eval_s')
+  __PERFON('eval_f')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -288,11 +288,11 @@ IMPLICIT NONE
     y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv(2),y_tmp(:,iGP))
   END DO !iGP
 !$OMP END PARALLEL DO
-  call perfoff('eval_f')
+  __PERFOFF('eval_f')
 
 #elif (PP_WHICHEVAL==2)
   !OMP loop version: first f then s
-  call perfon('eval_f')
+  __PERFON('eval_f')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -302,8 +302,8 @@ IMPLICIT NONE
     y_tmp(:,iBase)=sf%f%evalDOF_IP(deriv(2),DOFs(iBase,:))
   END DO !iBase
 !$OMP END PARALLEL DO
-  call perfoff('eval_f')
-  call perfon('eval_s')
+  __PERFOFF('eval_f')
+  __PERFON('eval_s')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
@@ -313,12 +313,12 @@ IMPLICIT NONE
     y_IP_GP(i_mn,:)=sf%s%evalDOF_GP(deriv(1),y_tmp(i_mn,:))
   END DO!iMode
 !$OMP END PARALLEL DO
-  call perfoff('eval_s')
+  __PERFOFF('eval_s')
 
 #elif (PP_WHICHEVAL==11)
   ! matrix-matrix version of first s then f
 
-  call perfon('eval_s')
+  __PERFON('eval_s')
   ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
@@ -337,9 +337,9 @@ IMPLICIT NONE
     END DO !iElem
   END SELECT !deriv GP
   END ASSOCIATE
-  call perfoff('eval_s')
+  __PERFOFF('eval_s')
 
-  call perfon('eval_f')
+  __PERFON('eval_f')
   SELECT CASE(deriv(2))
   CASE(0)
     !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
@@ -351,12 +351,12 @@ IMPLICIT NONE
     !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
     __MATMAT_NN(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
   END SELECT !deriv IP
-  call perfoff('eval_f')
+  __PERFOFF('eval_f')
 
 #elif (PP_WHICHEVAL==110)
   ! matrix-matrix version of first s then f
 
-  call perfon('eval_s')
+  __PERFON('eval_s')
   ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
@@ -383,9 +383,9 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO
   END SELECT !deriv GP
   END ASSOCIATE
-  call perfoff('eval_s')
+  __PERFOFF('eval_s')
 
-  call perfon('eval_f')
+  __PERFON('eval_f')
   SELECT CASE(deriv(2))
   CASE(0)
     !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
@@ -397,11 +397,11 @@ IMPLICIT NONE
     !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
     __MATMAT_NT(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
   END SELECT !deriv IP
-  call perfoff('eval_f')
+  __PERFOFF('eval_f')
 
 #elif (PP_WHICHEVAL==12)
   ! matrix-matrix version of first f then s
-  call perfon('eval_f')
+  __PERFON('eval_f')
   SELECT CASE(deriv(2))
   CASE(0)
     !y_tmp = MATMUL(sf%f%base_IP(:,:),TRANSPOSE(DOFs))
@@ -413,9 +413,9 @@ IMPLICIT NONE
     !y_tmp = MATMUL(sf%f%base_dzeta_IP(:,:),TRANSPOSE(DOFs))
     __MATMAT_NT(y_tmp,sf%f%base_dzeta_IP,DOFs)
   END SELECT !deriv IP
-  call perfoff('eval_f')
+  __PERFOFF('eval_f')
 
-  call perfon('eval_s')
+  __PERFON('eval_s')
   ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
@@ -434,11 +434,11 @@ IMPLICIT NONE
     END DO !iElem
   END SELECT !deriv GP
   END ASSOCIATE
-  call perfoff('eval_s')
+  __PERFOFF('eval_s')
 
 #elif (PP_WHICHEVAL==120)
   ! matrix-matrix version of first f then s
-  call perfon('eval_f')
+  __PERFON('eval_f')
   SELECT CASE(deriv(2))
   CASE(0)
     __MATMAT_NT(y_tmp,DOFs,sf%f%base_IP)
@@ -447,9 +447,9 @@ IMPLICIT NONE
   CASE(DERIV_ZETA)                        
     __MATMAT_NT(y_tmp,DOFs,sf%f%base_dzeta_IP)
   END SELECT !deriv IP
-  call perfoff('eval_f')
+  __PERFOFF('eval_f')
 
-  call perfon('eval_s')
+  __PERFON('eval_s')
   ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
@@ -476,12 +476,12 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO
   END SELECT !deriv GP
   END ASSOCIATE
-  call perfoff('eval_s')
+  __PERFOFF('eval_s')
 #endif /*PP_WHICHEVAL*/
 
 #undef PP_WHICHEVAL
 
-  call perfoff('BaseEval')
+  __PERFOFF('BaseEval')
 
 END SUBROUTINE base_evalDOF
 

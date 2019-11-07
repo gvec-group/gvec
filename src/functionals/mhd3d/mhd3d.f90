@@ -849,7 +849,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  call perfon('minimizer')
+  __PERFON('minimizer')
   SELECT CASE(MinimizerType)
   CASE(0)
     CALL MinimizeMHD3D_descent(sf)
@@ -859,7 +859,7 @@ SUBROUTINE MinimizeMHD3D(sf)
     CALL abort(__STAMP__,&
         "Minimizertype does not exist",MinimizerType,-1.0_wp)
   END SELECT
-  call perfoff('minimizer')
+  __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D
 
 !===================================================================================================================================
@@ -989,7 +989,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
         IF(MOD(iter,logIter).EQ.0)THEN 
-          call perfon('log_output')
+          __PERFON('log_output')
           CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
           CALL U(-2)%set_to(U(0))
 
@@ -1006,7 +1006,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
           max_dW_out=-1.0e+30_wp
           nSkip_Jac=0
           nSkip_dW =0
-          call perfoff('log_output')
+          __PERFOFF('log_output')
         END IF
 
           
@@ -1038,14 +1038,14 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       RETURN
     END IF
     IF((MOD(iter,outputIter).EQ.0).AND.(lastoutputIter.NE.iter))THEN
-      call perfon('output')
+      __PERFON('output')
       SWRITE(UNIT_stdOut,'(A)')'##########################  OUTPUT ##################################'
       CALL Analyze(iter)
       CALL WriteState(U(0),iter)
       CALL CheckEvalForce(U(0),iter)
       SWRITE(UNIT_stdOut,'(A)')'#####################################################################'
       lastOutputIter=iter
-      call perfoff('output')
+      __PERFOFF('output')
     END IF
   END DO !iter
   IF(iter.GE.MaxIter)THEN

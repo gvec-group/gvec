@@ -108,10 +108,10 @@ IMPLICIT NONE
   INTEGER             :: iGP,i_mn,JacCheck
   REAL(wp)            :: s_0,vol,surfAvg,a_minor,r_major
 !===================================================================================================================================
-  call perfon("write_state")
+  __PERFON("output_state")
   WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE SOLUTION VARIABLE TO FILE    "'//TRIM(FileString)//'" ...'
-  call perfon("prepare_state")
+  __PERFON("prepare_state")
   !compute volume& poloidal surface average -> pi*aMinor^2=surfavg, surfavg*2*Pi*RMajor=volume
   JacCheck=2
   CALL EvalAux(Uin,JacCheck)
@@ -133,7 +133,8 @@ IMPLICIT NONE
   a_Minor = SQRT(surfAvg/PI)
   r_Major = vol/(TWOPI*surfAvg)
 
-  call perfoff("prepare_state")
+  __PERFOFF("prepare_state")
+  __PERFON("write_state")
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO') ' ...'
 
   ioUnit=GETFREEUNIT()
@@ -186,7 +187,8 @@ IMPLICIT NONE
   
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
-  call perfoff("write_state")
+  __PERFOFF("write_state")
+  __PERFOFF("output_state")
 END SUBROUTINE WriteStateToASCII 
 
 

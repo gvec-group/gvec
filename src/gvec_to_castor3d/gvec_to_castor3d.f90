@@ -198,7 +198,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER  :: i
 !===================================================================================================================================
-call perfon("gvec2castor-init")
+__PERFON("gvec2castor-init")
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
 
   CALL ReadState(TRIM(gvecfileName))
@@ -265,7 +265,7 @@ call perfon("gvec2castor-init")
     SWRITE(UNIT_StdOut,*)'This SFLcoord is not valid',SFLcoord
     STOP
   END SELECT
-call perfoff("gvec2castor-init")
+__PERFOFF("gvec2castor-init")
 END SUBROUTINE init_gvec_to_castor3d
 
 
@@ -304,7 +304,7 @@ REAL(wp),DIMENSION(1:X1_base_in%f%modes) :: X1_s,dX1ds_s
 REAL(wp),DIMENSION(1:X2_base_in%f%modes) :: X2_s,dX2ds_s
 REAL(wp),DIMENSION(1:LG_base_in%f%modes) :: LG_s,dGds_s
 !===================================================================================================================================
-call perfon("gvec2castor-prep")
+__PERFON("gvec2castor-prep")
 SWRITE(UNIT_stdOut,'(A)')'PREPARE DATA FOR GVEC-TO-CASTOR3D ...'
 CALL ProgressBar(0,Ns_out) !init
 DO i_s=1,Ns_out
@@ -477,7 +477,7 @@ SWRITE(UNIT_stdOut,'(A,2E21.11)')'MIN/MAX |B|   :',SQRT(MINVAL(data_vector3D(1,:
                                                               +data_vector3D(3,:,:,:,BFIELD__)**2))
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
-call perfoff("gvec2castor-prep")
+__PERFOFF("gvec2castor-prep")
 END SUBROUTINE gvec_to_castor3d_prepare
 
 
@@ -498,7 +498,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER            :: ioUnit,iVar,i_s
 !===================================================================================================================================
-  call perfon("gvec2castor-write")
+  __PERFON("gvec2castor-write")
   WRITE(UNIT_stdOut,'(A)')'WRITING NEW CASTOR3D FILE    "'//TRIM(FileNameOut)//'" ...'
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit       ,&
@@ -598,7 +598,7 @@ INTEGER            :: ioUnit,iVar,i_s
   END DO
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
-  call perfoff("gvec2castor-write")
+  __PERFOFF("gvec2castor-write")
 END SUBROUTINE gvec_to_castor3d_writeToFile_ASCII
 
 

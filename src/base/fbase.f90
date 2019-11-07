@@ -206,10 +206,10 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   ALLOCATE(t_fBase :: sf)
-  call perfon("fbase_new")
+  __PERFON("fbase_new")
   CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 
-  call perfoff("fbase_new")
+  __PERFOFF("fbase_new")
 END SUBROUTINE fBase_new
 
 !===================================================================================================================================
@@ -827,7 +827,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-call perfon('evaldof_ip')
+__PERFON('evaldof_ip')
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
@@ -844,7 +844,7 @@ call perfon('evaldof_ip')
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
   END SELECT
-call perfoff('evaldof_ip')
+__PERFOFF('evaldof_ip')
 END FUNCTION fBase_evalDOF_IP
 
 !===================================================================================================================================
@@ -877,7 +877,7 @@ IMPLICIT NONE
   REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
   REAL(wp)                      :: Ctmp(1:sf%mn_nyq(1),1:2,-sf%mn_max(2):sf%mn_max(2))
 !===================================================================================================================================
-call perfon('evaldof_ip_tens')
+__PERFON('evaldof_ip_tens')
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
          'nDOF not correct when calling fBase_evalDOF_IP_tens' )
 
@@ -924,7 +924,7 @@ call perfon('evaldof_ip_tens')
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP_tens: derivative must be 0,DERIV_THET,DERIV_ZETA!")
   END SELECT
-call perfoff('evaldof_ip_tens')
+__PERFOFF('evaldof_ip_tens')
 END FUNCTION fBase_evalDOF_IP_tens
 
 
