@@ -129,6 +129,16 @@ ABSTRACT INTERFACE
   REAL(wp)                      :: y_IP(sf%mn_IP)
   END FUNCTION i_fun_fBase_evalDOF_IP
 
+  SUBROUTINE i_sub_fBase_projectIPtoDOF( sf,add,factor,deriv,y_IP,DOFs )
+    IMPORT wp,c_fBase
+  CLASS(c_fBase), INTENT(IN   ) :: sf
+  LOGICAL       , INTENT(IN   ) :: add   
+  REAL(wp)      , INTENT(IN   ) :: factor
+  INTEGER       , INTENT(IN   ) :: deriv
+  REAL(wp)      , INTENT(IN   ) :: y_IP(:)
+  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)
+  END SUBROUTINE i_sub_fBase_projectIPtoDOF
+
 END INTERFACE
  
 
@@ -171,6 +181,8 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: evalDOF_x        => fBase_evalDOF_x
 ! PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP !use _tens instead!
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP_tens
+!  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
+  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF_tens
   PROCEDURE :: initDOF          => fBase_initDOF
 
 END TYPE t_fBase
@@ -827,7 +839,6 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-__PERFON('evaldof_ip')
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_evalDOF_IP' )
   SELECT CASE(deriv)
@@ -844,8 +855,44 @@ __PERFON('evaldof_ip')
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
   END SELECT
-__PERFOFF('evaldof_ip')
 END FUNCTION fBase_evalDOF_IP
+
+!===================================================================================================================================
+!> project from interpolation points to all modes
+!!  DOFs = add*DOFs+ fac *MATMUL(base_IP_DOF,y_IP)
+!===================================================================================================================================
+SUBROUTINE fBase_projectIPtoDOF(sf,add,factor,deriv,y_IP,DOFs)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+  LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
+  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
+  INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+  REAL(wp)      , INTENT(IN   ) :: y_IP(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)                      :: radd
+!===================================================================================================================================
+  IF(SIZE(y_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
+       'y_IP not correct when calling fBase_projectIPtoDOF' )
+  radd=MERGE(1.0_wp,0.0_wp,add)
+  SELECT CASE(deriv)
+  CASE(0)
+    __PAMATVEC_T(radd,DOFs,factor,sf%base_IP,y_IP)
+  CASE(DERIV_THET)
+    __PAMATVEC_T(radd,DOFs,factor,sf%base_dthet_IP,y_IP)
+  CASE(DERIV_ZETA)
+    __PAMATVEC_T(radd,DOFs,factor,sf%base_dzeta_IP,y_IP)
+  CASE DEFAULT 
+    CALL abort(__STAMP__, &
+         "fbase_projectIPtoDOF: derivative must be 0,DERIV_THET,DERIV_ZETA!")
+  END SELECT
+END SUBROUTINE fBase_projectIPtoDOF
 
 !===================================================================================================================================
 !> evaluate  all modes at all interpolation points, making use of the tensor product:
@@ -877,7 +924,6 @@ IMPLICIT NONE
   REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
   REAL(wp)                      :: Ctmp(1:sf%mn_nyq(1),1:2,-sf%mn_max(2):sf%mn_max(2))
 !===================================================================================================================================
-__PERFON('evaldof_ip_tens')
   IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
          'nDOF not correct when calling fBase_evalDOF_IP_tens' )
 
@@ -924,9 +970,86 @@ __PERFON('evaldof_ip_tens')
     CALL abort(__STAMP__, &
          "fbase_evalDOF_IP_tens: derivative must be 0,DERIV_THET,DERIV_ZETA!")
   END SELECT
-__PERFOFF('evaldof_ip_tens')
 END FUNCTION fBase_evalDOF_IP_tens
 
+
+!===================================================================================================================================
+!> inverse of fBase_evalDOF_IP_tens 
+!!
+!===================================================================================================================================
+SUBROUTINE fBase_projectIPtoDOF_tens(sf,add,factor,deriv,y_IP,DOFs)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+  LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
+  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
+  INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+  REAL(wp)      , INTENT(IN   ) :: y_IP(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                       :: iMode,offset,mTotal,nTotal
+  REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
+  REAL(wp)                      :: Ctmp(1:sf%mn_nyq(1),1:2,-sf%mn_max(2):sf%mn_max(2))
+!===================================================================================================================================
+  IF(SIZE(y_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
+       'y_IP not correct when calling fBase_projectIPtoDOF_tens' )
+
+  mTotal=  sf%mTotal1D
+  nTotal=2*sf%mn_max(2)+1 !-n_max:n_nax
+
+  SELECT CASE(deriv)
+  CASE(0)
+!    DO n=-sf%mn_max(2),sf%mn_max(2)
+!      DO i=1,sf%mn_nyq(1)
+!        Ctmp(i,1,n)=SUM(sf%base1D_IPthet(i,1,:)*Amn(:,n))
+!        Ctmp(i,2,n)=SUM(sf%base1D_IPthet(i,2,:)*Amn(:,n))
+!      END DO !i
+!    END DO !n
+!    k=0
+!    DO j=1,sf%mn_nyq(2)
+!      DO i=1,sf%mn_nyq(1)
+!        k=k+1
+!        y_IP(k)=SUM(Ctmp(i,1:2,:)*sf%base1D_IPzeta(1:2,:,j))
+!      END DO !i
+!    END DO !j
+
+    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
+
+  CASE(DERIV_THET)
+    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_dthet_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
+  CASE(DERIV_ZETA)
+    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta) 
+    __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
+  CASE DEFAULT 
+    CALL abort(__STAMP__, &
+         "fbase_evalDOF_IP_tens: derivative must be 0,DERIV_THET,DERIV_ZETA!")
+  END SELECT
+
+  offset=sf%mTotal1D-(sf%mn_max(1)+1) !=0 if sin or cos, =sf%mn_max(1)+1 if sin+cos
+  !copy modes back
+  IF(add)THEN
+    DO iMode=sf%sin_range(1)+1,sf%sin_range(2)
+      DOFs(iMode)=DOFs(iMode)+Amn(1+sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp)
+    END DO
+    DO iMode=sf%cos_range(1)+1,sf%cos_range(2)
+      DOFs(iMode)=DOFs(iMode)+Amn(offset+1+sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp)
+    END DO
+  ELSE
+    DO iMode=sf%sin_range(1)+1,sf%sin_range(2)
+      DOFs(iMode)=Amn(1+sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp)
+    END DO
+    DO iMode=sf%cos_range(1)+1,sf%cos_range(2)
+      DOFs(iMode)=Amn(offset+1+sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp)
+    END DO
+  END IF !add
+END SUBROUTINE fBase_projectIPtoDOF_tens
 
 !===================================================================================================================================
 !>  take values interpolated at sf%s_IP positions and project onto fourier basis by integration 
@@ -947,7 +1070,7 @@ IMPLICIT NONE
 !===================================================================================================================================
 IF(SIZE(g_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_initDOF' )
-  __AMATVEC_T(DOFs,(sf%d_thet*sf%d_zeta),sf%base_IP,g_IP)
+  CALL sf%projectIPtoDOF(.FALSE.,(sf%d_thet*sf%d_zeta),0,g_IP,DOFs)
   DOFs(:)=sf%snorm_base(:)*DOFs(:)
 END FUNCTION fBase_initDOF
 

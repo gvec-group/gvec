@@ -91,18 +91,21 @@
 !!!#define __PAMATVEC_T(fy,y,fMat,Mat,Vec) y=fy*y+fMat*MATMUL(Vec,Mat)
 
 ! matvec with blas
-#define __MATVEC_N(y,Mat,Vec)       __PAMATVEC('N',0.0_wp,y,1.0_wp,Mat,Vec) 
-#define __MATVEC_T(y,Mat,Vec)       __PAMATVEC('T',0.0_wp,y,1.0_wp,Mat,Vec) 
+#define __MATVEC_N(y,Mat,Vec)           __GENERICMATVEC('N',0.0_wp,y,1.0_wp,Mat,Vec) 
+#define __MATVEC_T(y,Mat,Vec)           __GENERICMATVEC('T',0.0_wp,y,1.0_wp,Mat,Vec) 
+                                     
+#define __PMATVEC_N(fy,y,Mat,Vec)       __GENERICMATVEC('N',fy,y,1.0_wp,Mat,Vec) 
+#define __PMATVEC_T(fy,y,Mat,Vec)       __GENERICMATVEC('T',fy,y,1.0_wp,Mat,Vec) 
+                                     
+#define __AMATVEC_N(y,fMat,Mat,Vec)     __GENERICMATVEC('N',0.0_wp,y,fMat,Mat,Vec) 
+#define __AMATVEC_T(y,fMat,Mat,Vec)     __GENERICMATVEC('T',0.0_wp,y,fMat,Mat,Vec) 
 
-#define __PMATVEC_N(fy,y,Mat,Vec)   __PAMATVEC('N',fy,y,1.0_wp,Mat,Vec) 
-#define __PMATVEC_T(fy,y,Mat,Vec)   __PAMATVEC('T',fy,y,1.0_wp,Mat,Vec) 
+#define __PAMATVEC_N(fy,y,fMat,Mat,Vec) __GENERICMATVEC('N',fy,y,fMat,Mat,Vec) 
+#define __PAMATVEC_T(fy,y,fMat,Mat,Vec) __GENERICMATVEC('T',fy,y,fMat,Mat,Vec) 
 
-#define __AMATVEC_N(y,fMat,Mat,Vec) __PAMATVEC('N',0.0_wp,y,fMat,Mat,Vec) 
-#define __AMATVEC_T(y,fMat,Mat,Vec) __PAMATVEC('T',0.0_wp,y,fMat,Mat,Vec) 
+!!!!#define __GENERICMATVEC(NT,fy,y,fMat,Mat,Vec) CALL DGEMV(NT,SIZE(Mat,1),SIZE(Mat,2),fMat,Mat,SIZE(Mat,1),Vec,1,fy,y,1)
 
-!!!!#define __PAMATVEC(NT,fy,y,fMat,Mat,Vec) CALL DGEMV(NT,SIZE(Mat,1),SIZE(Mat,2),fMat,Mat,SIZE(Mat,1),Vec,1,fy,y,1)
-
-#define __PAMATVEC(NT,fy,y,fMat,Mat,Vec) __PADGEMV(NT,fy,y,fMat,SIZE(Mat,1),SIZE(Mat,2),Mat,Vec)
+#define __GENERICMATVEC(NT,fy,y,fMat,Mat,Vec) __PADGEMV(NT,fy,y,fMat,SIZE(Mat,1),SIZE(Mat,2),Mat,Vec)
 
 #define __PADGEMV(NT,fy,y,fMat,sz1,sz2,Mat,Vec) CALL DGEMV(NT,sz1,sz2,fMat,Mat,sz1,Vec,1,fy,y,1)
 
@@ -129,20 +132,20 @@
 
 
 ! matmat with blas
-#define __MATMAT_NN(Y,A,B)     __PAMATMAT_NN(0.0_wp,Y,1.0_wp,A,B)
-#define __MATMAT_TN(Y,A,B)     __PAMATMAT_TN(0.0_wp,Y,1.0_wp,A,B)
-#define __MATMAT_NT(Y,A,B)     __PAMATMAT_NT(0.0_wp,Y,1.0_wp,A,B)
-#define __MATMAT_TT(Y,A,B)     __PAMATMAT_TT(0.0_wp,Y,1.0_wp,A,B)
+#define __MATMAT_NN(Y,A,B)     __GENERICMATMAT_NN(0.0_wp,Y,1.0_wp,A,B)
+#define __MATMAT_TN(Y,A,B)     __GENERICMATMAT_TN(0.0_wp,Y,1.0_wp,A,B)
+#define __MATMAT_NT(Y,A,B)     __GENERICMATMAT_NT(0.0_wp,Y,1.0_wp,A,B)
+#define __MATMAT_TT(Y,A,B)     __GENERICMATMAT_TT(0.0_wp,Y,1.0_wp,A,B)
 
-#define __PMATMAT_NN(fy,Y,A,B) __PAMATMAT_NN(fy,Y,1.0_wp,A,B)
-#define __PMATMAT_TN(fy,Y,A,B) __PAMATMAT_TN(fy,Y,1.0_wp,A,B)
-#define __PMATMAT_NT(fy,Y,A,B) __PAMATMAT_NT(fy,Y,1.0_wp,A,B)
-#define __PMATMAT_TT(fy,Y,A,B) __PAMATMAT_TT(fy,Y,1.0_wp,A,B)
+#define __PMATMAT_NN(fy,Y,A,B) __GENERICMATMAT_NN(fy,Y,1.0_wp,A,B)
+#define __PMATMAT_TN(fy,Y,A,B) __GENERICMATMAT_TN(fy,Y,1.0_wp,A,B)
+#define __PMATMAT_NT(fy,Y,A,B) __GENERICMATMAT_NT(fy,Y,1.0_wp,A,B)
+#define __PMATMAT_TT(fy,Y,A,B) __GENERICMATMAT_TT(fy,Y,1.0_wp,A,B)
 
-#define __AMATMAT_NN(Y,fa,A,B) __PAMATMAT_NN(0.0_wp,Y,fa,A,B)
-#define __AMATMAT_TN(Y,fa,A,B) __PAMATMAT_TN(0.0_wp,Y,fa,A,B)
-#define __AMATMAT_NT(Y,fa,A,B) __PAMATMAT_NT(0.0_wp,Y,fa,A,B)
-#define __AMATMAT_TT(Y,fa,A,B) __PAMATMAT_TT(0.0_wp,Y,fa,A,B)
+#define __AMATMAT_NN(Y,fa,A,B) __GENERICMATMAT_NN(0.0_wp,Y,fa,A,B)
+#define __AMATMAT_TN(Y,fa,A,B) __GENERICMATMAT_TN(0.0_wp,Y,fa,A,B)
+#define __AMATMAT_NT(Y,fa,A,B) __GENERICMATMAT_NT(0.0_wp,Y,fa,A,B)
+#define __AMATMAT_TT(Y,fa,A,B) __GENERICMATMAT_TT(0.0_wp,Y,fa,A,B)
 
 !!! GEMM does in general Y = fa A^?*B^? + fy Y
 !!! with structure: (m x n) = (m x k) (k x n)  
@@ -151,15 +154,15 @@
 !!! Y=A  *B^T : DGEMM('N','T',m,n,k,fa,Amat ,m, Bmat,n, fy,Y,m)
 !!! Y=A^T*B^T : DGEMM('T','T',m,n,k,fa,Amat ,k, Bmat,n, fy,Y,m)
 
-!!!#define __PAMATMAT_NN(fy,Y,fa,A,B) CALL DGEMM('N','N',SIZE(A,1),SIZE(B,2),SIZE(B,1),fa,A,SIZE(A,1),B,SIZE(B,1),fy,Y,SIZE(A,1))
-!!!#define __PAMATMAT_TN(fy,Y,fa,A,B) CALL DGEMM('T','N',SIZE(A,2),SIZE(B,2),SIZE(B,1),fa,A,SIZE(B,1),B,SIZE(B,1),fy,Y,SIZE(A,2))
-!!!#define __PAMATMAT_NT(fy,Y,fa,A,B) CALL DGEMM('N','T',SIZE(A,1),SIZE(B,1),SIZE(B,2),fa,A,SIZE(A,1),B,SIZE(B,1),fy,Y,SIZE(A,1))
-!!!#define __PAMATMAT_TT(fy,Y,fa,A,B) CALL DGEMM('T','T',SIZE(A,2),SIZE(B,1),SIZE(B,2),fa,A,SIZE(B,2),B,SIZE(B,1),fy,Y,SIZE(A,2))
+!!!#define __GENERICMATMAT_NN(fy,Y,fa,A,B) CALL DGEMM('N','N',SIZE(A,1),SIZE(B,2),SIZE(B,1),fa,A,SIZE(A,1),B,SIZE(B,1),fy,Y,SIZE(A,1))
+!!!#define __GENERICMATMAT_TN(fy,Y,fa,A,B) CALL DGEMM('T','N',SIZE(A,2),SIZE(B,2),SIZE(B,1),fa,A,SIZE(B,1),B,SIZE(B,1),fy,Y,SIZE(A,2))
+!!!#define __GENERICMATMAT_NT(fy,Y,fa,A,B) CALL DGEMM('N','T',SIZE(A,1),SIZE(B,1),SIZE(B,2),fa,A,SIZE(A,1),B,SIZE(B,1),fy,Y,SIZE(A,1))
+!!!#define __GENERICMATMAT_TT(fy,Y,fa,A,B) CALL DGEMM('T','T',SIZE(A,2),SIZE(B,1),SIZE(B,2),fa,A,SIZE(B,2),B,SIZE(B,1),fy,Y,SIZE(A,2))
 
-#define __PAMATMAT_NN(fy,Y,fa,A,B) __PADGEMM_NN(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
-#define __PAMATMAT_TN(fy,Y,fa,A,B) __PADGEMM_TN(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
-#define __PAMATMAT_NT(fy,Y,fa,A,B) __PADGEMM_NT(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
-#define __PAMATMAT_TT(fy,Y,fa,A,B) __PADGEMM_TT(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
+#define __GENERICMATMAT_NN(fy,Y,fa,A,B) __PADGEMM_NN(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
+#define __GENERICMATMAT_TN(fy,Y,fa,A,B) __PADGEMM_TN(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
+#define __GENERICMATMAT_NT(fy,Y,fa,A,B) __PADGEMM_NT(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
+#define __GENERICMATMAT_TT(fy,Y,fa,A,B) __PADGEMM_TT(fy,Y,fa,SIZE(A,1),SIZE(A,2),A,SIZE(B,1),SIZE(B,2),B)
 
 !!! SIMPLE INTERFACE FOR DGEMM, specifying nrows/ncols of mat A and nrows/ncols of mat B (for any transpose!)
 
