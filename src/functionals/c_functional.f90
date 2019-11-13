@@ -30,6 +30,7 @@ PUBLIC
 TYPE, ABSTRACT :: c_functional
   CONTAINS
     PROCEDURE(i_sub_functional     ),DEFERRED :: init
+    PROCEDURE(i_sub_functional     ),DEFERRED :: initSolution
     PROCEDURE(i_sub_functional_min ),DEFERRED :: minimize
     PROCEDURE(i_sub_functional     ),DEFERRED :: free
 

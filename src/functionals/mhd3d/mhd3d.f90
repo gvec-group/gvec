@@ -36,6 +36,7 @@ MODULE MODgvec_MHD3D
     !-------------------------------------------------------------------------------------------------------------------------------
     CONTAINS
       PROCEDURE :: init     => InitMHD3D
+      PROCEDURE :: initSolution => InitSolutionMHD3D
       PROCEDURE :: minimize => MinimizeMHD3D
       PROCEDURE :: free     => FinalizeMHD3D
   END TYPE t_functional_mhd3d
@@ -59,12 +60,8 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_VMEC           , ONLY: InitVMEC
   USE MODgvec_VMEC_vars      , ONLY: switchZeta
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor
+  USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
-  USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc,EvalEnergy,EvalForce,CheckEvalForce
-  USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
-  USE MODgvec_Restart        , ONLY: RestartFromState
-  USE MODgvec_Restart        , ONLY:WriteState
-  USE MODgvec_Analyze        , ONLY: Analyze
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -83,16 +80,12 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: LA_sin_cos
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
   INTEGER          :: nfp_loc
-  INTEGER          :: JacCheck
   INTEGER          :: sign_iota
   INTEGER          :: proposal_mn_max(1:2)=(/2,0/) !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X1_sin_cos="_cos_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   REAL(wp)         :: pres_scale
-  LOGICAL              :: boundary_perturb !! false: no boundary perturbation, true: add boundary perturbation X1pert_b,X2pert_b
-  REAL(wp),ALLOCATABLE :: X1pert_b(:)      !! fourier modes of the boundary perturbation for X1
-  REAL(wp),ALLOCATABLE :: X2pert_b(:)      !! fourier modes of the boundary perturbation for X2
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
 
@@ -249,33 +242,33 @@ SUBROUTINE InitMHD3D(sf)
     WRITE(UNIT_stdOut,'(4X,A)')'... read axis boundary data for X1:'
     ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
-      X1_a(iMode)=get_iMode('X1_a_sin',X1_base%f%Xmn(:,iMode))
+      X1_a(iMode)=get_iMode('X1_a_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      X1_a(iMode)=get_iMode('X1_a_cos',X1_base%f%Xmn(:,iMode))
+      X1_a(iMode)=get_iMode('X1_a_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
     DO iMode=sin_range(1)+1,sin_range(2)
-      X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode))
+      X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode))
+      X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     END ASSOCIATE
     WRITE(UNIT_stdOut,'(4X,A)')'... read axis boundary data for X2:'
     ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
-      X2_a(iMode)=get_iMode('X2_a_sin',X2_base%f%Xmn(:,iMode))
+      X2_a(iMode)=get_iMode('X2_a_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      X2_a(iMode)=get_iMode('X2_a_cos',X2_base%f%Xmn(:,iMode))
+      X2_a(iMode)=get_iMode('X2_a_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
     END DO !iMode
     WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
     DO iMode=sin_range(1)+1,sin_range(2)
-      X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode))
+      X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode))
+      X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
     END DO !iMode
     END ASSOCIATE
   CASE(1) !VMEC
@@ -349,15 +342,13 @@ SUBROUTINE InitMHD3D(sf)
   END DO 
   END ASSOCIATE !LA
   
-
-
   ALLOCATE(U(-2:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
-                   X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
-  ALLOCATE(F(-1:0))
+                     X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
   DO i=-2,0
     CALL U(i)%copy(U(1))
   END DO
+  ALLOCATE(F(-1:0))
   DO i=-1,0
     CALL F(i)%copy(U(1))
   END DO
@@ -366,7 +357,42 @@ SUBROUTINE InitMHD3D(sf)
     CALL P(i)%copy(U(1))
   END DO
 
+  CALL InitializeMHD3D_EvalFunc()
 
+  SWRITE(UNIT_stdOut,'(A)')'... DONE'
+  SWRITE(UNIT_stdOut,fmt_sep)
+  
+
+END SUBROUTINE InitMHD3D
+
+
+
+!===================================================================================================================================
+!> Initialize Module 
+!!
+!===================================================================================================================================
+SUBROUTINE InitSolutionMHD3D(sf) 
+! MODULES
+  USE MODgvec_MHD3D_Vars     , ONLY: which_init,U,F,X1_base,X2_base,LA_base
+  USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
+  USE MODgvec_Restart        , ONLY: RestartFromState
+  USE MODgvec_Restart        , ONLY: WriteState
+  USE MODgvec_MHD3D_EvalFunc , ONLY: EvalEnergy,EvalForce,CheckEvalForce
+  USE MODgvec_Analyze        , ONLY: Analyze
+  USE MODgvec_ReadInTools    , ONLY: GETLOGICAL
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER              :: JacCheck,iMode
+  LOGICAL              :: boundary_perturb !! false: no boundary perturbation, true: add boundary perturbation X1pert_b,X2pert_b
+  REAL(wp),ALLOCATABLE :: X1pert_b(:)      !! fourier modes of the boundary perturbation for X1
+  REAL(wp),ALLOCATABLE :: X2pert_b(:)      !! fourier modes of the boundary perturbation for X2
+!===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
@@ -386,19 +412,19 @@ SUBROUTINE InitMHD3D(sf)
     ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
     WRITE(UNIT_stdOut,'(4X,A)')'... read data for X1pert:'
     DO iMode=sin_range(1)+1,sin_range(2)
-      X1pert_b(iMode)=get_iMode('X1pert_b_sin',X1_base%f%Xmn(:,iMode))
+      X1pert_b(iMode)=get_iMode('X1pert_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      X1pert_b(iMode)=get_iMode('X1pert_b_cos',X1_base%f%Xmn(:,iMode))
+      X1pert_b(iMode)=get_iMode('X1pert_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     END ASSOCIATE
     ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
     WRITE(UNIT_stdOut,'(4X,A)')'... read data for X2pert:'
     DO iMode=sin_range(1)+1,sin_range(2)
-      X2pert_b(iMode)=get_iMode('X2pert_b_sin',X2_base%f%Xmn(:,iMode))
+      X2pert_b(iMode)=get_iMode('X2pert_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      X2pert_b(iMode)=get_iMode('X2pert_b_cos',X2_base%f%Xmn(:,iMode))
+      X2pert_b(iMode)=get_iMode('X2pert_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
     END DO !iMode
     END ASSOCIATE
     CALL AddBoundaryPerturbation(U(0),0.3,X1pert_b,X2pert_b)
@@ -406,40 +432,46 @@ SUBROUTINE InitMHD3D(sf)
   END IF
 
   CALL U(-1)%set_to(U(0))
-  SWRITE(UNIT_stdOut,'(4X,A)') "... INITIALIZE SOLUTION DONE."
-  SWRITE(UNIT_stdOut,fmt_sep)
 
-  CALL InitializeMHD3D_EvalFunc()
   JacCheck=2
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
-
-  SWRITE(UNIT_stdOut,'(4X,A)') "... evaluate force...."
-  CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
-  CALL CheckEvalForce(U(0),0)
-  SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
-  
   CALL WriteState(U(0),0)
   CALL Analyze(0)
-  
-  SWRITE(UNIT_stdOut,'(A)')'... INIT MHD3D DONE.'
+  CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
+  SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
+  CALL CheckEvalForce(U(0),0)
+
+  SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
   
-  CONTAINS 
-  FUNCTION get_iMode(varname_in,mn)
-    IMPLICIT NONE
-    !-------------------------------------------
-    !input/output
+END SUBROUTINE InitSolutionMHD3D
+
+
+!===================================================================================================================================
+!> automatically build the string to be read from parameterfile, varname + m,n mode number, and then read it from parameterfile
+!!
+!===================================================================================================================================
+FUNCTION get_iMode(varname_in,mn_in,nfp_in)
+! MODULES
+  USE MODgvec_ReadInTools    , ONLY: GETREAL
+!$ USE omp_lib
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
     CHARACTER(LEN=*),INTENT(IN) :: varname_in
-    INTEGER         ,INTENT(IN) :: mn(2)
+    INTEGER         ,INTENT(IN) :: mn_in(2),nfp_in
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
     REAL(wp)                    :: get_iMode
-    !local variables
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
     CHARACTER(LEN=100) :: varstr
-    !-------------------------------------------
-    WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn(1),mn(2)/nfp_loc
-    varstr=delete_spaces(varstr)         !quiet on default=0.0
-    get_iMode=GETREAL(TRIM(varstr),Proposal=0.0_wp,quiet_def_in=.TRUE.)
-   
-  END FUNCTION get_iMode
+!===================================================================================================================================
+  WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn_in(1),mn_in(2)/nfp_in
+  varstr=delete_spaces(varstr)         !quiet on default=0.0
+  get_iMode=GETREAL(TRIM(varstr),Proposal=0.0_wp,quiet_def_in=.TRUE.)
+
+  CONTAINS 
 
   FUNCTION delete_spaces(str_in)
     USE ISO_VARYING_STRING,ONLY:VARYING_STRING,VAR_STR,CHAR,replace
@@ -453,8 +485,8 @@ SUBROUTINE InitMHD3D(sf)
     tmpstr=VAR_STR(str_in);delete_spaces=CHAR(Replace(tmpstr," ","",Every=.true.))
    
   END FUNCTION delete_spaces
+END FUNCTION get_iMode
 
-END SUBROUTINE InitMHD3D
 
 !===================================================================================================================================
 !> Initialize the solution with the given boundary condition 
@@ -484,7 +516,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode,is
-  INTEGER  :: BC_type(2)
   REAL(wp) :: BC_val(2)
   REAL(wp) :: spos
   REAL(wp) :: StartTime,EndTime

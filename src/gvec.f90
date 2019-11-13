@@ -92,6 +92,8 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL IgnoredStrings()
   
+  CALL functional%InitSolution() 
+  
   CALL functional%minimize() 
 
   CALL FinalizeFunctional(functional)
