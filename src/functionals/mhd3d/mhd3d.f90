@@ -880,7 +880,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
-  INTEGER   :: JacCheck,lastoutputIter
+  INTEGER   :: JacCheck,lastoutputIter,TimeArray(8)
   REAL(wp)  :: beta,dt,deltaW,absTol
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0
   REAL(wp)  :: maxDist,avgDist 
@@ -915,10 +915,13 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   t_pseudo=0
   lastOutputIter=0
   iter=0
-  SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%'
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,3E21.14,A)') &
-          '                 %%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
-   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+  SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
+          CALL DATE_AND_TIME(values=TimeArray) ! get System time
+          SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
+                 '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
+          SWRITE(UNIT_stdOut,'(A,3E21.14)') &
+          '%%% dU = |Force|= ',SQRT(F(0)%norm_2())
+          SWRITE(UNIT_stdOut,'(40(" -"))')
   DO WHILE(iter.LE.maxIter)
 ! hirshman method
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
@@ -973,12 +976,15 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
 !        IF(Fnorm*dt.LE.reltol*Fnorm0)THEN
         IF(ALL(SQRT(F(0)%norm_2()).LE.abstol))THEN
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E21.14,A,2E21.14,A,E21.14,A,2E12.4,A,3E21.14,A)') &
-                            '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
-                    '    \n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-                   '        \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
-          '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
-   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+          SWRITE(UNIT_stdOut,'(80("%"))')
+          CALL DATE_AND_TIME(values=TimeArray) ! get System time
+          SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
+                            '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
+          SWRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4)') &
+                            '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
+                    '    \n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
+                   '        \n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
+          '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2())
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
           EXIT !DO LOOP
         END IF
@@ -992,14 +998,17 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
           __PERFON('log_output')
           CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
           CALL U(-2)%set_to(U(0))
-
-          SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A,2E11.4,A)') &
-                            '%%%  #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
-                    '    \n%%%  t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-                   '        \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
+          SWRITE(UNIT_stdOut,'(80("%"))')
+          CALL DATE_AND_TIME(values=TimeArray) ! get System time
+          SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
+                            '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
+          SWRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A,2E11.4)') &
+                            '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
+                    '    \n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
+                   '        \n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
           '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
-          '               \n%%% maxDist,avgDist to last log: ',maxDist,avgDist, &
-   '                        \n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+          '               \n%%% Dist to last log (max/avg) : ',maxDist,avgDist
+          SWRITE(UNIT_stdOut,'(40(" -"))')
           min_dt_out=1.0e+30_wp
           max_dt_out=0.0_wp
           min_dW_out=1.0e+30_wp
@@ -1180,7 +1189,7 @@ SUBROUTINE MinimizeMHD3D_LBFGS(sf)
       max_dW_out=MAX(max_dW_out,deltaW)
     END IF
     IF(MOD(iter,logIter).EQ.0.AND.(lastlogIter.NE.iter))THEN 
-      SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,I12,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
+      SWRITE(UNIT_stdOut,'(80("%")"\n",A,I8,A,I12,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A)') &
                         '%%%  #ITERATIONS= ',iter, ',  #grad. evals = ', isave(34),&
                     '    \n%%%  min/max stp= ',min_dt_out,max_dt_out, &
                '         \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
@@ -1204,7 +1213,7 @@ SUBROUTINE MinimizeMHD3D_LBFGS(sf)
   IF(iter.GE.MaxIter)THEN
     SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded, not converged!"
   ELSE
-    SWRITE(UNIT_stdOut,'(74("%")"\n",A,I8,A,I12,A,E21.14,A,2E12.4,A,3E11.4,A)') &
+    SWRITE(UNIT_stdOut,'(80("%")"\n",A,I8,A,I12,A,E21.14,A,2E12.4,A,3E11.4,A)') &
                         '%%%  #ITERATIONS= ',iter, ', #grad. evals = ', isave(34),&
                '         \n%%%  W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
          '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
