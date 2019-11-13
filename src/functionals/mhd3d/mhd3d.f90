@@ -81,6 +81,7 @@ SUBROUTINE InitMHD3D(sf)
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
   INTEGER          :: nfp_loc
   INTEGER          :: sign_iota
+  INTEGER          :: X1X2_BCtype_axis(0:4),LA_BCtype_axis(0:4)
   INTEGER          :: proposal_mn_max(1:2)=(/2,0/) !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X1_sin_cos="_cos_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
@@ -274,77 +275,47 @@ SUBROUTINE InitMHD3D(sf)
   CASE(1) !VMEC
   END SELECT !which_init
 
+  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMM     ) ! weaker  : BC_TYPE_NEUMANN
+  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     ) ! weaker  : BC_TYPE_NEUMANN
+  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=BC_TYPE_ANTISYMM ) ! weaker  : BC_TYPE_DIRICHLET
+  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM 
+  X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_SYMMZERO
+
+                                    
   !boundary conditions (used in force, in init slightly changed)
-  ASSOCIATE(modes        =>X1_base%f%modes, &
-            zero_odd_even=>X1_base%f%zero_odd_even)
+  ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
   ALLOCATE(X1_BC_type(1:2,modes))
   X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO)
-      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM     
-!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
-    CASE(M_ODD_FIRST)
-      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET
-    CASE(M_ODD)
-!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    CASE(M_EVEN)
-!      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO
-      X1_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    END SELECT !X1(:,iMode) zero odd even
+    X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
   END DO 
   END ASSOCIATE !X1
-  ASSOCIATE(modes        =>X2_base%f%modes, &
-            zero_odd_even=>X2_base%f%zero_odd_even)
+
+  ASSOCIATE(modes        =>X2_base%f%modes, zero_odd_even=>X2_base%f%zero_odd_even)
   ALLOCATE(X2_BC_type(1:2,modes))
   X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO)
-      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM     
-!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
-    CASE(M_ODD_FIRST)
-      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET
-    CASE(M_ODD)
-!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    CASE(M_EVEN)
-!      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO
-      X2_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    END SELECT !X2(:,iMode) zero odd even
+    X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
   END DO 
   END ASSOCIATE !X2
-  ASSOCIATE(modes        =>LA_base%f%modes, &
-            zero_odd_even=>LA_base%f%zero_odd_even)
+
+  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO ) ! weaker  : BC_TYPE_DIRICHLET
+  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     ) ! weaker  : BC_TYPE_NEUMANN
+  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=BC_TYPE_ANTISYMM ) ! weaker  : BC_TYPE_DIRICHLET
+  LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
+  LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger:BC_TYPE_SYMMZERO
+
+  ASSOCIATE(modes        =>LA_base%f%modes, zero_odd_even=>LA_base%f%zero_odd_even)
   ALLOCATE(LA_BC_type(1:2,modes))
-  LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN !no BC for lambda at the edge!
+  LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
   DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO)
-      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO     
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET 
-    CASE(M_ZERO)
-      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMM  !n/=0 modes should have lambda/=0 at the axis, but not clear why...
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_NEUMANN
-    CASE(M_ODD_FIRST)
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET 
-    CASE(M_ODD)
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_ANTISYMM
-      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    CASE(M_EVEN)
-!      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_SYMMZERO
-      LA_BC_type(BC_AXIS,iMode)=BC_TYPE_DIRICHLET !not too strong for high modes...
-    END SELECT !LA(:,iMode) zero odd even
+    LA_BC_type(BC_AXIS,iMode)=LA_BCtype_axis(zero_odd_even(iMode))
   END DO 
   END ASSOCIATE !LA
   
   ALLOCATE(U(-2:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
-                     X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
+                   X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
   DO i=-2,0
     CALL U(i)%copy(U(1))
   END DO
