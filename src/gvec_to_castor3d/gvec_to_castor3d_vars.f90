@@ -33,6 +33,7 @@ INTEGER            :: Ns_out        !< number of equidistant points in radial s-
 INTEGER            :: npfactor      !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
 INTEGER            :: SFLcoord      !< which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL
 INTEGER            :: factorSFL     !< factor for SFL coordinates, mn_max_sfl=mn_max*factorSFL, default=3
+CHARACTER(LEN=700) :: cmdline       !< full command line stored
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 INTEGER               :: nfp_out            !< number of field periods
@@ -77,18 +78,20 @@ CHARACTER(LEN=50),DIMENSION(nVar1D),PARAMETER :: StrVarNames1D(nVar1D)=(/ CHARAC
 REAL(wp),ALLOCATABLE  :: data_1D(:,:)        !< 1D profiles size (nVar1D,Ns_out)
 
 !3D scalar data 
-INTEGER,PARAMETER     :: nVarScalar3D=5           !< number of variabels in 3D data
+INTEGER,PARAMETER     :: nVarScalar3D=6           !< number of variabels in 3D data
 INTEGER,PARAMETER     :: X1__     = 1
 INTEGER,PARAMETER     :: X2__     = 2
 INTEGER,PARAMETER     :: GZETA__  = 3
 INTEGER,PARAMETER     :: BSUPT__  = 4
 INTEGER,PARAMETER     :: BSUPZ__  = 5
+INTEGER,PARAMETER     :: SQRTG__  = 6
 CHARACTER(LEN=50),DIMENSION(nVarScalar3D),PARAMETER :: StrVarNamesScalar3D(nVarScalar3D)=(/ CHARACTER(LEN=50) :: &
                            'X1(R)'       & ! 1 : for Torus map (hmap=1), R=X1
                           ,'X2(Z)'       & ! 2 : for Torus map (hmap=1), Z=X2
                           ,'Gzeta'       & ! 3 : map to geometric toroidal angle, phi = zeta+Gzeta
-                          ,'B^theta'     & ! 4 : theta component of magnetic field B^theta = B.grad(theta) 
-                          ,'B^zeta'      & ! 5 : zeta component of magnetic field B^theta = B.grad(zeta) 
+                          ,'sqrtG*B^thet'& ! 4 : theta component of magnetic field B^theta = B.grad(theta), scaled with sqrtG
+                          ,'sqrtG*B^zeta'& ! 5 : zeta component of magnetic field B^theta =  B.grad(zeta) , scaled with sqrtG
+                          ,'sqrtG'       & ! 6 : Jacobian  
                                     /)
 REAL(wp),ALLOCATABLE  :: data_scalar3D(:,:,:,:)    !< Size (Nthet_out,Nzeta_out,Ns_out,nVar3D)
 
