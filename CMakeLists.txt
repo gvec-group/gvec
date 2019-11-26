@@ -89,9 +89,9 @@ IF(COMPILE_GVEC)
 ELSE()
   UNSET(LINK_GVEC_TO_NETCDF CACHE ) # if not mhd
 ENDIF()
-OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" ON)
-OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" ON)
-OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" ON)
+OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" OFF)
+OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" OFF)
+OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" OFF)
 
 
 # =========================================================================
@@ -220,14 +220,14 @@ ENDIF()
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
   IF(ON_HYDRA GREATER -1)
-    SET(NETCDF_DIR  $ENV{NETCDF_HOME}) 
+    SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSEIF(ON_COBRA GREATER -1)
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSE()
     SET(NETCDF_DIR  /usr)
   ENDIF()
   INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
-  LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib ) 
+  LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib )
   MESSAGE(STATUS "Build with NetCDF")
   ADD_DEFINITIONS(-DNETCDF=1)
 ELSE()
@@ -241,32 +241,31 @@ ENDIF()
 function(add_exec target)
   ADD_EXECUTABLE(${target} ${ARGN})
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
-  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
   SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
   INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
   STRING(TOUPPER ${target} TARGETUP)
   ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: ${TARGETUP} BUILD COMPLETE!")
 endfunction()
 
-# include defines.h 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY}) 
+# include defines.h
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY})
 
-FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90 
-                          ./src/base/*.f90 
-                          ./src/functionals/mhd3d/*hmap*.f90 
-                          ./src/readstate*.f90 
-                          ./src/output/*.f90 
+FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
+                          ./src/base/*.f90
+                          ./src/functionals/mhd3d/*hmap*.f90
+                          ./src/readstate*.f90
+                          ./src/output/*.f90
                           ./src/grid/*.f90 )
-
 
 # define libs
 IF(COMPILE_GVEC)
-  FILE(GLOB_RECURSE gvecF90 ./src/*.f 
-                            ./src/functionals/*.f90 
-                            ./src/analyze/*.f90 
-                            ./src/lbfgsb/*.f90 
-                            ./src/vmec/*.f90 
-                            ./src/output/*.f90 
+  FILE(GLOB_RECURSE gvecF90 ./src/*.f
+                            ./src/functionals/*.f90
+                            ./src/analyze/*.f90
+                            ./src/lbfgsb/*.f90
+                            ./src/vmec/*.f90
+                            ./src/output/*.f90
                             ./src/restart/*.f90 )
   LIST(APPEND mainF90 ${gvecF90})
 ENDIF()
@@ -285,12 +284,12 @@ ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
-SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS}) 
+SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 # generates shared lib libgveclib.so
 ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
 # generates static lib libgveclib.a
 #ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
- 
+
 
 # =========================================================================
 # Executable programs (simply use add_exec)
@@ -317,4 +316,10 @@ ENDIF()
 # Install
 # =========================================================================
 
-INSTALL(FILES    ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90 DESTINATION include )
+IF(NOT COMPILE_GVEC_TO_GENE)
+  INSTALL(FILES
+    ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90
+    DESTINATION include )
+ELSE()
+  INCLUDE(cmake/install_gene.cmake)
+ENDIF()
