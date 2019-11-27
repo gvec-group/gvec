@@ -66,24 +66,24 @@ IMPLICIT NONE
 !===================================================================================================================================
 
 !possibility to increase the resolution of the grid for SFL coordinates
-CALL sgrid_sfl%init(MAX(Ns-1,X1_base_r%s%grid%nElems),X1_base_r%s%grid%grid_type)
-!CALL sgrid_sfl%copy(X1_base_r%s%grid)
+!CALL sgrid_sfl%init(MAX(Ns-1,X1_base_r%s%grid%nElems),X1_base_r%s%grid%grid_type)
+CALL sgrid_sfl%copy(X1_base_r%s%grid)
 
 whichSFLcoord=whichSFL
 SELECT CASE(whichSFLcoord)
 CASE(1) !PEST
   fac_nyq=4
-  CALL Transform_Angles(LA_base_r,LA_r,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,"X1",X1sfl_base,X1sfl)
-  CALL Transform_Angles(LA_base_r,LA_r,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,"X2",X2sfl_base,X2sfl)
+  CALL Transform_Angles_sinterp(LA_base_r,LA_r,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,"X1",X1sfl_base,X1sfl)
+  CALL Transform_Angles_sinterp(LA_base_r,LA_r,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,"X2",X2sfl_base,X2sfl)
 CASE(2) !BOOZER
   !uses restart data for X1,X2,LA and profiles!
   fac_nyq=4
-  CALL Get_Boozer(mn_max,fac_nyq,sgrid_sfl,GZ_base,Gthet,GZ)
+  CALL Get_Boozer_sinterp(mn_max,fac_nyq,sgrid_sfl,GZ_base,Gthet,GZ)
   
   fac_nyq=4
-  CALL Transform_Angles(GZ_base,Gthet,GZ_base  ,GZ  ,mn_max,fac_nyq,sgrid_sfl,"GZ",GZsfl_base,GZsfl,B_in=GZ)
-  CALL Transform_Angles(GZ_base,Gthet,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,"X1",X1sfl_base,X1sfl,B_in=GZ)
-  CALL Transform_Angles(GZ_base,Gthet,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,"X2",X2sfl_base,X2sfl,B_in=GZ)
+  CALL Transform_Angles_sinterp(GZ_base,Gthet,GZ_base  ,GZ  ,mn_max,fac_nyq,sgrid_sfl,"GZ",GZsfl_base,GZsfl,B_in=GZ)
+  CALL Transform_Angles_sinterp(GZ_base,Gthet,X1_base_r,X1_r,mn_max,fac_nyq,sgrid_sfl,"X1",X1sfl_base,X1sfl,B_in=GZ)
+  CALL Transform_Angles_sinterp(GZ_base,Gthet,X2_base_r,X2_r,mn_max,fac_nyq,sgrid_sfl,"X2",X2sfl_base,X2sfl,B_in=GZ)
 
   DEALLOCATE(Gthet)
 
@@ -107,7 +107,7 @@ END SUBROUTINE BuildTransform_SFL
 !>       = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) [(1+dA/dtheta)*(1+dB/dzeta)-(dA/dzeta*dB/dzeta)] dtheta dzeta
 !!
 !===================================================================================================================================
-SUBROUTINE Transform_Angles(AB_base_in,A_in,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_name,q_base_out,q_out,B_in)
+SUBROUTINE Transform_Angles_sinterp(AB_base_in,A_in,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_name,q_base_out,q_out,B_in)
 ! MODULES
 USE MODgvec_Globals,ONLY: UNIT_stdOut,Progressbar
 USE MODgvec_base   ,ONLY: t_base,base_new
@@ -133,7 +133,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: nBase,is,iMode,i_mn,mn_IP
-  INTEGER               :: mn_nyq(2)
+  INTEGER               :: mn_nyq(2),BCtype_axis(0:4)
   REAL(wp)              :: spos,dthet_dzeta 
   REAL(wp)              :: check(1:7)
   LOGICAL               :: docheck=.TRUE. 
@@ -210,7 +210,7 @@ IMPLICIT NONE
   CALL ProgressBar(0,nBase)!init
   DO is=1,nBase
     __PERFON('eval_data_s')
-    spos=MIN(MAX(1.0e-8_wp,q_base_out%s%s_IP(is)),1.0_wp-1.0e-12_wp) !interpolation points for q_in
+    spos=MIN(MAX(1.0e-12_wp,q_base_out%s%s_IP(is)),1.0_wp-1.0e-12_wp) !interpolation points for q_in
     !evaluate q_in at spos
     q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
     !evaluate A at spos
@@ -297,10 +297,20 @@ IMPLICIT NONE
     CALL ProgressBar(is,nBase)
   END DO !is
 
+  BCtype_axis(MN_ZERO    )= BC_TYPE_OPEN   !do nothing
+  BCtype_axis(M_ZERO     )= BC_TYPE_OPEN   !do nothing
+  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
+  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
+  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
   !transform back to corresponding representation of DOF in s
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,q_base_out%f%modes
     q_out(:,iMode)=q_base_out%s%initDOF( q_m(iMode,:) )
+    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis(q_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
+                                              ,(/0.,0./))
   END DO
+!$OMP END PARALLEL DO 
 
   !finalize
   CALL q_fbase_nyq%free()
@@ -320,7 +330,254 @@ IMPLICIT NONE
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
   __PERFOFF('transform_angles')
-END SUBROUTINE Transform_Angles
+END SUBROUTINE Transform_Angles_sinterp
+
+!> Transform a function from VMEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*) 
+!> by projection onto the modes of the new angles: sigma_mn(theta*,zeta*)
+!> using the same representation in s (for now!)
+!> Here, new angles are theta*=theta+A(theta,zeta), zeta*=zeta+B(theta,zeta), 
+!> with A,B periodic functions and zero average and same base 
+!> Note that in this routine, the integral is transformed back to (theta,zeta)
+!> q*_mn = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) dtheta* dzeta*
+!>       = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) [(1+dA/dtheta)*(1+dB/dzeta)-(dA/dzeta*dB/dzeta)] dtheta dzeta
+!!
+!===================================================================================================================================
+SUBROUTINE Transform_Angles_sproject(AB_base_in,A_in,q_base_in,q_in,mn_max,fac_nyq,sgrid_in,q_name,q_base_out,q_out,B_in)
+! MODULES
+USE MODgvec_Globals,ONLY: UNIT_stdOut,Progressbar
+USE MODgvec_base   ,ONLY: t_base,base_new
+USE MODgvec_sGrid  ,ONLY: t_sgrid
+USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_Base),INTENT(IN) :: AB_base_in                                    !< basis of A and B
+  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of thet*=thet+A(s,theta,zeta)  
+  CLASS(t_Base),INTENT(IN) :: q_base_in                                     !< basis of function f 
+  REAL(wp)     ,INTENT(IN) :: q_in(1:q_base_in%s%nBase,1:q_base_in%f%modes) !< coefficients of f 
+  INTEGER      ,INTENT(IN) :: mn_max(2)                                     !< maximum number for new variables in SFL coordinates
+  INTEGER      ,INTENT(IN) :: fac_nyq                                       !< for number of integr. points  (=3...4 at least)
+                                                                            !< n_IP=fac_nyq*max(mn_max_in)
+  CLASS(t_sgrid),INTENT(IN),TARGET :: sgrid_in                              !< change grid for q_base_out
+  REAL(wp)    ,INTENT(IN),OPTIONAL :: B_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of zeta*=zeta+B(s,theta,zeta)
+  CHARACTER(LEN=*),INTENT(IN):: q_name
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_Base),ALLOCATABLE,INTENT(INOUT) :: q_base_out          !< new fourier basis of function q in new angles
+  REAL(wp)     ,ALLOCATABLE,INTENT(INOUT) :: q_out(:,:)          !< coefficients of q in new angles 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER               :: iBase,nBase,iGP,nGP,iElem,nElems,degGP,deg,iMode,i_mn,mn_IP,modes
+  INTEGER               :: mn_nyq(2),BCtype_axis(0:4)
+  REAL(wp)              :: spos,dthet_dzeta 
+  REAL(wp)              :: check(1:7)
+  LOGICAL               :: docheck=.TRUE. 
+  LOGICAL               :: Bpresent
+  REAL(wp)              :: A_s(1:AB_base_in%f%modes) 
+  REAL(wp)              :: B_s(1:AB_base_in%f%modes) 
+  REAL(wp)              :: q_in_s(1:q_base_in%f%modes) 
+  REAL(wp), ALLOCATABLE :: q_IP(:),q_m(:,:)   ! q evaluated at spos and all integration points
+  REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
+  REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
+  CLASS(t_fBase),ALLOCATABLE        :: q_fbase_nyq
+  CLASS(t_fBase),ALLOCATABLE        :: AB_fbase_nyq
+  REAL(wp),DIMENSION(:),ALLOCATABLE :: A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
+!===================================================================================================================================
+  Bpresent=PRESENT(B_in)
+  ! use maximum number of integration points from maximum mode number in both directions
+  mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
+  IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
+
+  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
+                              ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
+                     
+  __PERFON('transform_angles')
+  __PERFON('init')
+  !initialize
+  
+  ! extended base for q in the new angles, and on the new grid
+  CALL base_new(q_base_out,  q_base_in%s%deg,        &
+                             q_base_in%s%continuity, &
+                             sgrid_in, & !q_base_in%s%grid,       &
+                             q_base_in%s%deg,      &
+                             mn_max,mn_nyq,          & 
+                             q_base_in%f%nfp,        &
+                 sin_cos_map(q_base_in%f%sin_cos),   &
+                             .FALSE.)!m=n=0 should be always there, because of coordinate transform
+
+  !total number of integration points
+  mn_IP = q_base_out%f%mn_IP
+  modes = q_base_out%f%modes
+  nBase = q_base_out%s%nBase
+  nGP   = q_base_out%s%nGP
+  nElems= q_base_out%s%grid%nElems
+  degGP = q_base_out%s%degGP
+  deg   = q_base_out%s%deg
+
+  SWRITE(UNIT_StdOut,*)'        ...Init q_out Base Done'
+
+
+  !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
+  CALL fbase_new( q_fbase_nyq,  q_base_in%f%mn_max,  mn_nyq, &
+                                q_base_in%f%nfp, &
+                    sin_cos_map(q_base_in%f%sin_cos), &
+                                q_base_in%f%exclude_mn_zero)
+  SWRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
+  !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
+  CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
+                                AB_base_in%f%nfp, &
+                    sin_cos_map(AB_base_in%f%sin_cos), &
+                                AB_base_in%f%exclude_mn_zero)
+  
+  SWRITE(UNIT_StdOut,*)'        ...Init AB_nyq Base Done'
+
+  IF(.NOT.Bpresent) THEN
+    ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP))
+  ELSE ! Bpresent
+    ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP),dAdzeta_IP(1:mn_IP),B_IP(1:mn_IP),dBdthet_IP(1:mn_IP),dBdzeta_IP(1:mn_IP))
+  END IF !.NOT.Bpresent
+
+  ALLOCATE(f_IP(1:mn_IP),q_IP(1:mn_IP),modes_IP(1:modes,1:mn_IP))
+
+  ALLOCATE(q_m(1:modes,1:nGP))
+  ALLOCATE(q_out(nBase,1:modes))
+  __PERFOFF('init')
+
+  check(1:7)=(/HUGE(1.),0.,0.,HUGE(1.),-HUGE(1.),HUGE(1.),-HUGE(1.)/)
+
+  dthet_dzeta  =q_base_out%f%d_thet*q_base_out%f%d_zeta !integration weights
+
+  CALL ProgressBar(0,nGP)!init
+  DO iGP=1,nGP
+    __PERFON('eval_data_s')
+    spos=q_base_out%s%s_GP(iGP)
+    !evaluate q_in at spos
+    q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
+    !evaluate A at spos
+    A_s(:)= AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,A_in(:,:))
+    IF(Bpresent)THEN
+      B_s(:)     = AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,B_in(:,:))
+    END IF
+    __PERFOFF('eval_data_s')
+    __PERFON('eval_data_f')
+    !evaluate lambda at spos
+    ! TEST EXACT CASE: A_s=0.
+    
+    IF(.NOT.Bpresent)THEN
+      q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
+      A_IP       = AB_fbase_nyq%evalDOF_IP(         0, A_s(  :))
+      dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, A_s(  :))
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn)        &
+!$OMP   SHARED(mn_IP,q_base_out,q_IP,A_IP,dAdthet_IP,f_IP,modes_IP)
+      DO i_mn=1,mn_IP
+        f_IP(i_mn) = q_IP(i_mn)*(1.0_wp + dAdthet_IP(i_mn))
+        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
+        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)/))
+      END DO !i_mn=1,mn_IP
+!$OMP END PARALLEL DO 
+
+    ELSE !Bpresent
+      q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
+      A_IP       = AB_fbase_nyq%evalDOF_IP(         0, A_s(  :))
+      dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, A_s(  :))
+      dAdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA, A_s(  :))
+      B_IP       = AB_fbase_nyq%evalDOF_IP(         0, B_s(  :))
+      dBdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, B_s(  :))
+      dBdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA, B_s(  :))
+      
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn)        &
+!$OMP   SHARED(mn_IP,q_base_out,q_IP,A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP,f_IP,modes_IP)
+      DO i_mn=1,mn_IP
+        f_IP(i_mn) = q_IP(i_mn)*((1.0_wp + dAdthet_IP(i_mn))*(1.0_wp + dBdzeta_IP(i_mn))-dAdzeta_IP(i_mn)*dBdthet_IP(i_mn))
+        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
+        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)+B_IP(i_mn)/))
+      END DO !i_mn=1,mn_IP
+!$OMP END PARALLEL DO 
+    END IF !Bpresent
+    __PERFON('project')
+    __MATVEC_N(q_m(:,iGP),modes_IP(:,:),f_IP(:)) 
+
+    __PERFOFF('project')
+    __PERFOFF('eval_data_f')
+
+    !projection: integrate (sum over mn_IP), includes normalization of base!
+    !q_m(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
+
+    q_m(:,iGP)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_m(:,iGP)
+
+    __PERFON('check')
+    !CHECK at all IP points, only every 4th radial point:
+    IF(doCheck) THEN
+
+!      __MATVEC_N(f_IP,q_base_out%f%base_IP,q_m(:,is)) !other points
+!      check(6)=MIN(check(6),MINVAL(f_IP))
+!      check(7)=MAX(check(7),MAXVAL(f_IP))
+
+      !f_IP=MATMUL(q_m(:,is),modes_IP(:,:))
+      __MATVEC_T(f_IP,modes_IP,q_m(:,iGP)) !same points
+      check(6)=MIN(check(6),MINVAL(f_IP))
+      check(7)=MAX(check(7),MAXVAL(f_IP))
+  
+      f_IP = ABS(f_IP - q_IP)/SUM(ABS(q_IP))*REAL(mn_IP,wp)
+      check(1)=MIN(check(1),MINVAL(f_IP))
+      check(2)=MAX(check(2),MAXVAL(f_IP))
+      check(3)=check(3)+MAXVAL(f_IP)/REAL(nBase,wp)
+      check(4)=MIN(check(4),MINVAL(q_IP))
+      check(5)=MAX(check(5),MAXVAL(q_IP))
+!      WRITE(*,*)'     ------  spos= ',spos
+!      WRITE(*,*)'check |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',MINVAL(f_IP),MAXVAL(f_IP),SUM(f_IP)/REAL(mn_IP,wp)
+!      WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
+    END IF !doCheck
+    q_m(:,iGP)=q_m(:,iGP)*q_base_out%s%w_GP(iGP)
+    __PERFOFF('check')
+    CALL ProgressBar(iGP,nGP)
+  END DO !iGP
+
+  BCtype_axis(MN_ZERO    )= BC_TYPE_OPEN   !do nothing
+  BCtype_axis(M_ZERO     )= BC_TYPE_OPEN   !do nothing
+  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
+  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
+  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+  !transform back to corresponding representation of DOF in s
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
+  DO iMode=1,modes
+    q_out(:,iMode)=0.0_wp
+    DO iElem=1,nElems
+      iGP=(iElem-1)*(degGP+1)+1
+      ibase=q_base_out%s%base_offset(iElem)
+      q_out(iBase:iBase+deg,iMode) = q_out(iBase:iBase+deg,iMode) & 
+                                    + MATMUL(q_m(iMode,iGP:iGP+degGP),q_base_out%s%base_GP(0:degGP,0:deg,iElem))
+    END DO !iElem
+    CALL q_base_out%s%mass%solve_inplace(1,q_out(:,iMode))
+    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis(q_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
+                                              ,(/0.,0./))
+  END DO !iMode
+!$OMP END PARALLEL DO 
+
+  !finalize
+  CALL q_fbase_nyq%free()
+  CALL AB_fbase_nyq%free()
+  DEALLOCATE( q_fbase_nyq, AB_fbase_nyq, A_IP, dAdthet_IP)
+  IF(Bpresent) DEALLOCATE(dAdzeta_IP, B_IP,dBdthet_IP, dBdzeta_IP )
+
+  DEALLOCATE(modes_IP,q_IP,f_IP,q_m)
+
+  IF(doCheck) THEN
+    WRITE(UNIT_StdOut,'(A,2E21.11)') '   MIN/MAX of input  '//TRIM(q_name)//':', check(4:5)
+    WRITE(UNIT_StdOut,'(A,2E21.11)') '   MIN/MAX of output '//TRIM(q_name)//':', check(6:7)
+    WRITE(UNIT_StdOut,'(2A,3E11.4)')'       CHECK ERROR of '//TRIM(q_name)//':', &
+                                             ' |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',check(1:2), &
+                                                                            check(3)/(0.25*REAL(nBase,wp))
+  END IF
+
+  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  __PERFOFF('transform_angles')
+END SUBROUTINE Transform_Angles_sproject
 
 !===================================================================================================================================
 !> Transform a function from VMEC angles q(s,theta,zeta) to q*(s,theta*,zeta*) 
