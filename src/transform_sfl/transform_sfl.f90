@@ -144,14 +144,9 @@ IMPLICIT NONE
   REAL(wp), ALLOCATABLE :: q_IP(:),q_m(:,:)   ! q evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
   REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
-#define FULLBASEIMP 1
-#ifdef FULLBASEIMP
   CLASS(t_fBase),ALLOCATABLE        :: q_fbase_nyq
   CLASS(t_fBase),ALLOCATABLE        :: AB_fbase_nyq
   REAL(wp),DIMENSION(:),ALLOCATABLE :: A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
-#else
-  REAL(wp)              :: x_IP(1:2),A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
-#endif
 !===================================================================================================================================
   Bpresent=PRESENT(B_in)
   ! use maximum number of integration points from maximum mode number in both directions
@@ -182,7 +177,6 @@ IMPLICIT NONE
   SWRITE(UNIT_StdOut,*)'        ...Init q_out Base Done'
 
 
-#ifdef FULLBASEIMP
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new( q_fbase_nyq,  q_base_in%f%mn_max,  mn_nyq, &
                                 q_base_in%f%nfp, &
@@ -202,7 +196,6 @@ IMPLICIT NONE
   ELSE ! Bpresent
     ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP),dAdzeta_IP(1:mn_IP),B_IP(1:mn_IP),dBdthet_IP(1:mn_IP),dBdzeta_IP(1:mn_IP))
   END IF !.NOT.Bpresent
-#endif /*FULLBASEIMP*/
 
   ALLOCATE(f_IP(1:mn_IP),q_IP(1:mn_IP),modes_IP(1:q_base_out%f%modes,1:mn_IP))
 
@@ -229,8 +222,8 @@ IMPLICIT NONE
     __PERFON('eval_data_f')
     !evaluate lambda at spos
     ! TEST EXACT CASE: A_s=0.
+    
     IF(.NOT.Bpresent)THEN
-#ifdef FULLBASEIMP
       q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
       A_IP       = AB_fbase_nyq%evalDOF_IP(         0, A_s(  :))
       dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, A_s(  :))
@@ -244,26 +237,8 @@ IMPLICIT NONE
         modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)/))
       END DO !i_mn=1,mn_IP
 !$OMP END PARALLEL DO 
-#else
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!$OMP   PRIVATE(i_mn,x_IP,A_IP,dAdthet_IP)        &
-!$OMP   SHARED(mn_IP,q_base_out,q_base_in,q_in_s,q_IP,AB_base_in,A_s,f_IP,modes_IP)
-      DO i_mn=1,mn_IP
-        x_IP(1:2)  = q_base_out%f%x_IP(1:2,i_mn)
-        q_IP(i_mn) =  q_base_in%f%evalDOF_x(x_IP,         0,q_in_s(:))
-        A_IP       = AB_base_in%f%evalDOF_x(x_IP,         0,A_s(:))
-        dAdthet_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_THET,A_s(:))
-        
-        f_IP(i_mn) = q_IP(i_mn)*(1.0_wp + dAdthet_IP)
-        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
-        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/x_IP(1)+A_IP,x_IP(2)/))
-      END DO !i_mn=1,mn_IP
-!$OMP END PARALLEL DO 
-#endif /*FULLBASEIMP*/
 
     ELSE !Bpresent
-#ifdef FULLBASEIMP
       q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
       A_IP       = AB_fbase_nyq%evalDOF_IP(         0, A_s(  :))
       dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, A_s(  :))
@@ -282,27 +257,6 @@ IMPLICIT NONE
         modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)+B_IP(i_mn)/))
       END DO !i_mn=1,mn_IP
 !$OMP END PARALLEL DO 
-#else
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!$OMP   PRIVATE(i_mn,x_IP,A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP)        &
-!$OMP   SHARED(mn_IP,q_base_out,q_base_in,q_in_s,q_IP,AB_base_in,A_s,B_s,f_IP,modes_IP)
-      DO i_mn=1,mn_IP
-        x_IP(1:2)  = q_base_out%f%x_IP(1:2,i_mn)
-        q_IP(i_mn) =  q_base_in%f%evalDOF_x(x_IP,         0,q_in_s(:))
-        A_IP       = AB_base_in%f%evalDOF_x(x_IP,         0,A_s(:))
-        dAdthet_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_THET,A_s(:))
-        dAdzeta_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_ZETA,A_s(:))
-        B_IP       = AB_base_in%f%evalDOF_x(x_IP,         0,B_s(:))
-        dBdthet_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_THET,B_s(:))
-        dBdzeta_IP = AB_base_in%f%evalDOF_x(x_IP,DERIV_ZETA,B_s(:))
-        
-        f_IP(i_mn) = q_IP(i_mn)*((1.0_wp + dAdthet_IP)*(1.0_wp + dBdzeta_IP)-dAdzeta_IP*dBdthet_IP)
-        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
-        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/x_IP(1)+A_IP,x_IP(2)+B_IP/))
-      END DO !i_mn=1,mn_IP
-!$OMP END PARALLEL DO 
-#endif 
     END IF !Bpresent
     __PERFON('project')
     __MATVEC_N(q_m(:,is),modes_IP(:,:),f_IP(:)) 
@@ -349,14 +303,10 @@ IMPLICIT NONE
   END DO
 
   !finalize
-#ifdef FULLBASEIMP
-  !finalize
   CALL q_fbase_nyq%free()
   CALL AB_fbase_nyq%free()
   DEALLOCATE( q_fbase_nyq, AB_fbase_nyq, A_IP, dAdthet_IP)
   IF(Bpresent) DEALLOCATE(dAdzeta_IP, B_IP,dBdthet_IP, dBdzeta_IP )
-#endif
-#undef FULLBASEIMP
 
   DEALLOCATE(modes_IP,q_IP,f_IP,q_m)
 
