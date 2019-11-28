@@ -87,7 +87,7 @@ IMPLICIT NONE
   REAL(wp)                          ::  X2_s(  1:X2_base_r%f%modes) 
   REAL(wp)                          :: dX2ds_s(1:X2_base_r%f%modes) 
   REAL(wp)                          :: LA_s(   1:LA_base_r%f%modes) 
-  REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: Bcov_thet_IP,Bcov_zeta_IP
+  REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: Bcov_thet_IP,Bcov_zeta_IP,GZ_m,GZ_n
   REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: dLAdthet_IP,dLAdzeta_IP
   REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: LA_IP,fm_IP,fn_IP,ft_IP 
   CLASS(t_fBase),ALLOCATABLE        :: X1_fbase_nyq
@@ -155,7 +155,8 @@ IMPLICIT NONE
   ALLOCATE(LA_IP(1:mn_IP),fm_IP(mn_IP),fn_IP(mn_IP),ft_IP(mn_IP))
   
   ALLOCATE(Gthet(nBase,1:modes))
-  ALLOCATE(GZ(   nBase,1:modes))
+  ALLOCATE(GZ(   nBase,1:modes),GZ_m(1:modes),GZ_n(1:modes))
+  GZ_m=0.0_wp; GZ_n=0.0_wp
 
   __PERFOFF('init')
 
@@ -250,28 +251,28 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO 
 
     !projection: only onto base_dthet
-    CALL G_base_out%f%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_THET,fm_IP(:),GZ(is,:))
+    CALL G_base_out%f%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_THET,fm_IP(:),GZ_m(:))
 
+    IF(G_base_out%f%mn_max(2).GT.0) THEN !3D case
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i_mn)        &
 !$OMP   SHARED(mn_IP,Itor,Ipol,stmp,dLAdzeta_IP,Bcov_zeta_IP,fn_IP)
-    DO i_mn=1,mn_IP
-      fn_IP(i_mn)= (Bcov_zeta_IP(i_mn)-Ipol-Itor*dLAdzeta_IP(i_mn))*stmp
-    END DO
+      DO i_mn=1,mn_IP
+        fn_IP(i_mn)= (Bcov_zeta_IP(i_mn)-Ipol-Itor*dLAdzeta_IP(i_mn))*stmp
+      END DO
 !$OMP END PARALLEL DO 
 
-    !linearly superimpose: G_mn = alpha* 1/(4pi^2 m^2) Gthet_mn + (1-alpha) 1/(4pi^2 n^2) Gzeta_mn
-    !              alpha = m^2/(m^2+n^2) => =0 for m=0 =1 for n=0
-    !       =>  (1-alpha)= n^2/(m^2+n^2) => =1 for m=0 =0 for n=0
-    !       =>    G_mn = 1/(4pi^2(m^2+n^2)) (Gthet_mn+Gzeta_mn)
-    !GZ(is,:)=GZ(is,:)+MATMUL(TRANSPOSE(G_base_out%f%base_dzeta_IP),fn_IP)
+      !projection onto base_dzeta
+      CALL G_base_out%f%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_ZETA,fn_IP(:),GZ_n(:))
+    END IF !3D case (n_max >0)
 
-    !add projection onto base_dzeta
-    CALL G_base_out%f%projectIPtoDOF(.TRUE.,1.0_wp,DERIV_ZETA,fn_IP(:),GZ(is,:))
-
-    ! include norm and weighting 1/(m^2+n^2)
+    ! only if n=0, use formula from base_dthet projected G, else use base_dzeta projected G
     DO iMode=1,modes
-      GZ(is,iMode)=GZ(is,iMode)*(dthet_dzeta*G_base_out%f%snorm_base(iMode))/REAL(SUM(G_base_out%f%Xmn(1:2,iMode)**2),wp)
+      IF(G_base_out%f%Xmn(2,iMode).EQ.0)THEN !n=0
+        GZ(is,iMode)=GZ_m(iMode)*(dthet_dzeta*G_base_out%f%snorm_base(iMode))/REAL(G_base_out%f%Xmn(1,iMode)**2,wp)
+      ELSE 
+        GZ(is,iMode)=GZ_n(iMode)*(dthet_dzeta*G_base_out%f%snorm_base(iMode))/REAL(G_base_out%f%Xmn(2,iMode)**2,wp)
+      END IF
     END DO
 
     __PERFOFF('project_G')
@@ -307,7 +308,7 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO 
 
   DEALLOCATE(LA_IP,dLAdthet_IP,dLAdzeta_IP,&
-             fm_IP,fn_IP,ft_IP,   &
+             fm_IP,fn_IP,ft_IP,GZ_m,GZ_n,  &
              Bcov_thet_IP,Bcov_zeta_IP)
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
@@ -362,7 +363,7 @@ IMPLICIT NONE
   REAL(wp)                          ::  X2_s(  1:X2_base_r%f%modes) 
   REAL(wp)                          :: dX2ds_s(1:X2_base_r%f%modes) 
   REAL(wp)                          :: LA_s(   1:LA_base_r%f%modes) 
-  REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: Bcov_thet_IP,Bcov_zeta_IP
+  REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: Bcov_thet_IP,Bcov_zeta_IP,GZ_m,GZ_n
   REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: dLAdthet_IP,dLAdzeta_IP
   REAL(wp),DIMENSION(:)  ,ALLOCATABLE :: LA_IP,fm_IP,fn_IP,ft_IP 
   REAL(wp),DIMENSION(:,:),ALLOCATABLE :: GZ_GP,Gthet_GP
@@ -438,6 +439,8 @@ IMPLICIT NONE
   ALLOCATE(GZ(   nBase,1:modes))
   ALLOCATE(Gthet_GP(nGP,1:modes))
   ALLOCATE(GZ_GP(   nGP,1:modes))
+  ALLOCATE(GZ_m(1:modes),GZ_n(1:modes))
+  GZ_m=0.0_wp;GZ_n=0.0_wp
 
   __PERFOFF('init')
 
@@ -532,28 +535,28 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO 
 
     !projection: only onto base_dthet
-    CALL G_base_out%f%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_THET,fm_IP(:),GZ_GP(iGP,:))
+    CALL G_base_out%f%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_THET,fm_IP(:),GZ_m(:))
 
+    IF(G_base_out%f%mn_max(2).GT.0) THEN !3D case
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i_mn)        &
 !$OMP   SHARED(mn_IP,Itor,Ipol,stmp,dLAdzeta_IP,Bcov_zeta_IP,fn_IP)
-    DO i_mn=1,mn_IP
-      fn_IP(i_mn)= (Bcov_zeta_IP(i_mn)-Ipol-Itor*dLAdzeta_IP(i_mn))*stmp
-    END DO
+      DO i_mn=1,mn_IP
+        fn_IP(i_mn)= (Bcov_zeta_IP(i_mn)-Ipol-Itor*dLAdzeta_IP(i_mn))*stmp
+      END DO
 !$OMP END PARALLEL DO 
 
-    !linearly superimpose: G_mn = alpha* 1/(4pi^2 m^2) Gthet_mn + (1-alpha) 1/(4pi^2 n^2) Gzeta_mn
-    !              alpha = m^2/(m^2+n^2) => =0 for m=0 =1 for n=0
-    !       =>  (1-alpha)= n^2/(m^2+n^2) => =1 for m=0 =0 for n=0
-    !       =>    G_mn = 1/(4pi^2(m^2+n^2)) (Gthet_mn+Gzeta_mn)
-    !GZ(iGP,:)=GZ(iGP,:)+MATMUL(TRANSPOSE(G_base_out%f%base_dzeta_IP),fn_IP)
+      !add projection onto base_dzeta
+      CALL G_base_out%f%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_ZETA,fn_IP(:),GZ_n(:))
+    END IF !3D case (n_max >0)
 
-    !add projection onto base_dzeta
-    CALL G_base_out%f%projectIPtoDOF(.TRUE.,1.0_wp,DERIV_ZETA,fn_IP(:),GZ_GP(iGP,:))
-
-    ! include norm and weighting 1/(m^2+n^2)
+    ! only if n=0, use formula from base_dthet projected G, else use base_dzeta projected G
     DO iMode=1,modes
-      GZ_GP(iGP,iMode)=GZ_GP(iGP,iMode)*(dthet_dzeta*G_base_out%f%snorm_base(iMode))/REAL(SUM(G_base_out%f%Xmn(1:2,iMode)**2),wp)
+      IF(G_base_out%f%Xmn(2,iMode).EQ.0)THEN !n=0
+        GZ_GP(iGP,iMode)=GZ_m(iMode)*(dthet_dzeta*G_base_out%f%snorm_base(iMode))/REAL(G_base_out%f%Xmn(1,iMode)**2,wp)
+      ELSE
+        GZ_GP(iGP,iMode)=GZ_n(iMode)*(dthet_dzeta*G_base_out%f%snorm_base(iMode))/REAL(G_base_out%f%Xmn(2,iMode)**2,wp)
+      END IF
     END DO
 
     __PERFOFF('project_G')
@@ -600,7 +603,7 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO 
 
   DEALLOCATE(LA_IP,dLAdthet_IP,dLAdzeta_IP,&
-             GZ_GP,Gthet_GP, &
+             GZ_GP,Gthet_GP,GZ_m,GZ_n, &
              fm_IP,fn_IP,ft_IP,   &
              Bcov_thet_IP,Bcov_zeta_IP)
 
