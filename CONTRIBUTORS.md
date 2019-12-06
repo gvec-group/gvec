@@ -2,9 +2,13 @@
 
 This is a (possibly incomplete) list of the people who contributed to GVEC
 
-* Florian Hindenlang 
-* Omar Maj
-* Alejandro Banon
-* Maurice Maurer
+
+* Florian Hindenlang (2017.. ) 
+* Omar Maj (2017.. )
+* Maurice Maurer (2019)
+* Alejandro Banon-Navarro (2019)
+* Erika Strumberger (2019..)
+* Joachim Geiger (2019..)
+* Matthias Borchardt (2019)
 
 

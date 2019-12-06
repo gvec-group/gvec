@@ -2,9 +2,8 @@ project: GVEC &mdash; 3D MHD equilibrium code
 summary: Galerkin Variational Equilibrium Code
 author: Omar Maj, Florian Hindenlang
 email: hindenlang@gmail.com
-website: https://gitlab.mpcdf.mpg.de/ipphinde/gvec 
-bitbucket: https://gitlab.mpcdf.mpg.de/ipphinde/gvec  
-project_bitbucket: 
+website: https://gitlab.mpcdf.mpg.de/gvec-group/gvec 
+git: https://gitlab.mpcdf.mpg.de/gvec-group/gvec  
 license: by
 src_dir: ./../src/
 output_dir: ./../../ford-gvec-doc
