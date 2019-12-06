@@ -71,6 +71,10 @@ CLASS(t_functional),ALLOCATABLE   :: functional
 ,'  - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - '&
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
   WRITE(Unit_stdOut,'(132("="))')
+!$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
+!$ WRITE(Unit_stdOut,'(132("="))')
+
+
   testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
   testlevel=GETINT('testlevel',Proposal=-1)
   IF(testlevel.GT.0)THEN

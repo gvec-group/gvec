@@ -1,13 +1,7 @@
 # =========================================================================
 # GVEC CMake configuration
 # =========================================================================
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
-# TODO: eventually require CMake 3.0 in future releases
-# Advantages: Possible to split string
-#IF ("${CMAKE_VERSION}" VERSION_GREATER 3.0.0)
-#  cmake_policy (SET CMP0045 OLD)
-#  cmake_policy (SET CMP0046 OLD)
-#ENDIF()
+CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 INCLUDE(ExternalProject)
@@ -25,12 +19,12 @@ STRING(FIND "${CMAKE_HOSTNAME}" "hydra"     ON_HYDRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 IF (ON_MARCONI GREATER -1)
   MESSAGE(STATUS "Compiling on Marconi")
-ENDIF()
-IF (ON_HYDRA GREATER -1)
+ELSEIF (ON_HYDRA GREATER -1)
   MESSAGE(STATUS "Compiling on hydra")
-ENDIF()
-IF (ON_COBRA GREATER -1)
+ELSEIF (ON_COBRA GREATER -1)
   MESSAGE(STATUS "Compiling on cobra")
+ELSE()
+  MESSAGE(STATUS "Compiling on unknown hostname")
 ENDIF()
 
 
@@ -79,13 +73,9 @@ ENDMACRO()
 # PREPROCESSOR FLAGS
 # =========================================================================
 
-#SET(MAIN_DISCTYPE "1" CACHE STRING "discretization type")
-#SET_PROPERTY(CACHE MAIN_DISCTYPE  PROPERTY STRINGS "1" "2")
-#ADD_DEFINITIONS(-DPP_DiscType=${MAIN_DISCTYPE})
-
 OPTION(COMPILE_GVEC "compile gvec programme for equilibrium computations (libgvec and gvec executable)" ON)
 IF(COMPILE_GVEC)
-  OPTION(LINK_GVEC_TO_NETCDF "Link to local NetCDF library, needed for VMEC input" ON)
+  OPTION(LINK_GVEC_TO_NETCDF "Link to local serial NetCDF library, needed for VMEC input/output" ON)
 ELSE()
   UNSET(LINK_GVEC_TO_NETCDF CACHE ) # if not mhd
 ENDIF()
@@ -96,6 +86,7 @@ OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executab
 OPTION(USE_OPENMP "enable OpenMP" ON)
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
+MARK_AS_ADVANCED(USE_FTIMINGS)
 # =========================================================================
 # Build type
 # =========================================================================
@@ -186,14 +177,13 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
   SET (MAIN_COMPILE_FLAGS "-F")
 
 ELSE()
-   MESSAGE(ERROR " Unknown compiler")
+   MESSAGE(SEND_ERROR " Unknown compiler")
 ENDIF()
 
 # =========================================================================
 # LAPACK/MKL library
 # =========================================================================
 # use Lapack/Blas for GNU
-MESSAGE(STATUS "Using BLAS/Lapack library")
 
 IF(USE_OPENMP)
   SET (MKLLIB "parallel")
@@ -209,15 +199,17 @@ IF(ON_HYDRA GREATER -1)
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
     LIST(APPEND linkedlibs -mkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     FIND_PACKAGE(LAPACK QUIET)
     IF (LAPACK_FOUND)
       LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
+      MESSAGE(STATUS "Using BLAS/Lapack library")
     ELSE()
       MESSAGE(WARNING " Lapack not found for GNU compiler!")
     ENDIF()
   ELSE()
-     MESSAGE(ERROR " Unknown compiler ...")
+     MESSAGE(SEND_ERROR " Unknown compiler ...")
   ENDIF()
 ELSEIF(ON_COBRA GREATER -1)
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
@@ -231,10 +223,12 @@ ELSEIF(ON_COBRA GREATER -1)
 		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
+  MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
   IF (LAPACK_FOUND)
     LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
+    MESSAGE(STATUS "Using BLAS/Lapack library")
   ELSE()
     MESSAGE(WARNING " Lapack not found for GNU compiler!")
   ENDIF()
@@ -266,8 +260,10 @@ ENDIF()
 # =========================================================================
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -lftimings-1-$ENV{RZG_CPL}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
-  INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/ftimings-1-$ENV{RZG_CPL})
+  IF(ON_COBRA GREATER -1)
+    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -lftimings-1-$ENV{RZG_CPL}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
+    INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/ftimings-1-$ENV{RZG_CPL})
+  ENDIF()
 ENDIF()
 
 
