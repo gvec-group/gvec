@@ -108,9 +108,34 @@ IMPLICIT NONE
   INTEGER             :: iGP,i_mn,JacCheck
   REAL(wp)            :: s_0,vol,surfAvg,a_minor,r_major
 !===================================================================================================================================
+  __PERFON("output_state")
   WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
-
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE SOLUTION VARIABLE TO FILE    "'//TRIM(FileString)//'" ...'
+  __PERFON("prepare_state")
+  !compute volume& poloidal surface average -> pi*aMinor^2=surfavg, surfavg*2*Pi*RMajor=volume
+  JacCheck=2
+  CALL EvalAux(Uin,JacCheck)
+  vol=0.0_wp
+  surfAvg=0.0_wp
+!$OMP PARALLEL DO       &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   REDUCTION(+:vol,surfAvg) PRIVATE(iGP,i_mn) &
+!$OMP   SHARED(nGP,mn_IP,J_h,J_p,w_GP)
+  DO iGP=1,nGP
+    DO i_mn=1,mn_IP
+      vol    =vol    +ABS(J_h(i_mn,iGP)*J_p(i_mn,iGP))*w_GP(iGP)
+      surfAvg=surfAvg+ABS(J_p(i_mn,iGP))*w_GP(iGP)
+    END DO
+  END DO 
+!$OMP END PARALLEL DO
+  vol     = dthet_dzeta *vol
+  surfAvg = dthet_dzeta *surfAvg /TWOPI
+  a_Minor = SQRT(surfAvg/PI)
+  r_Major = vol/(TWOPI*surfAvg)
+
+  __PERFOFF("prepare_state")
+  __PERFON("write_state")
+  WRITE(UNIT_stdOut,'(A)',ADVANCE='NO') ' ...'
 
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit       ,&
@@ -157,26 +182,13 @@ IMPLICIT NONE
     WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),Eval_iota(s_IP(is)),Eval_pres(s_IP(is))
   END DO 
   END ASSOCIATE
-  !compute volume& poloidal surface average -> pi*aMinor^2=surfavg, surfavg*2*Pi*RMajor=volume
-  JacCheck=2
-  CALL EvalAux(Uin,JacCheck)
-  vol=0.
-  surfAvg=0.
-  DO iGP=1,nGP
-    DO i_mn=1,mn_IP
-      vol    =vol    +ABS(J_h(i_mn,iGP)*J_p(i_mn,iGP))*w_GP(iGP)
-      surfAvg=surfAvg+ABS(J_p(i_mn,iGP))*w_GP(iGP)
-    END DO
-  END DO 
-  vol     = dthet_dzeta *vol
-  surfAvg = dthet_dzeta *surfAvg /TWOPI
-  a_Minor = SQRT(surfAvg/PI)
-  r_Major = vol/(TWOPI*surfAvg)
   WRITE(ioUnit,'(A)')'## a_minor,r_major,volume  ################################################################################'
   WRITE(ioUnit,'(*(E23.15,:,","))')a_Minor,r_Major,vol
   
   CLOSE(ioUnit)
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
+  __PERFOFF("write_state")
+  __PERFOFF("output_state")
 END SUBROUTINE WriteStateToASCII 
 
 

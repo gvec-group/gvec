@@ -198,11 +198,12 @@ CALL sf%f%change_base(old_base%f,1,old_data,tmp    )
 CALL sf%s%change_base(old_base%s,2,tmp     ,sf_data)
 END SUBROUTINE base_change_base
 
+
 !===================================================================================================================================
 !> evaluate all degrees of freedom at all Gauss Points (deriv=0 solution, deriv=1 first derivative d/ds)
 !!
 !===================================================================================================================================
-FUNCTION base_evalDOF(sf,deriv,DOFs) RESULT(y_IP_GP)
+SUBROUTINE base_evalDOF(sf,deriv,DOFs,y_IP_GP)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -212,47 +213,273 @@ IMPLICIT NONE
   REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%s%nBase,1:sf%f%modes)  !! array of all modes and all radial dofs
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                     :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
+  REAL(wp)     ,INTENT(OUT   ) :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  INTEGER                      :: modes,nGP,nBase,mn_IP
+#define PP_WHICHEVAL 110
+  ! experimental optimization results, with OMP, give the ranking from slowest to fastest: 2 < 1 << 11 ~= 12 < 110  
+  ! could change with the number of DOF in s and theta/zeta..., 
+  ! evaluation in s does not seem to scale at all with omp
+#if (PP_WHICHEVAL==1)
+  !OMP loop version: first s then f
   INTEGER                      :: iMode,iGP
   REAL(wp)                     :: y_tmp(1:sf%f%modes,sf%s%nGP)
+
+#elif (PP_WHICHEVAL==2)
+  !OMP loop version: first f then s
+  INTEGER                      :: i_mn,iBase
+  REAL(wp)                     :: y_tmp(sf%f%mn_IP,1:sf%s%nBase)
+
+#elif (PP_WHICHEVAL==11)
+  !matrix matrix version: first s then f
+  INTEGER                      :: i,j,iElem
+  REAL(wp)                     :: y_tmp(sf%f%modes,1:sf%s%nGP)
+
+#elif (PP_WHICHEVAL==110)
+  !matrix matrix version: first s then f
+  INTEGER                      :: i,j,iElem,iMode,iGP
+  REAL(wp)                     :: y_tmp(1:sf%s%nGP,sf%f%modes)
+
+#elif (PP_WHICHEVAL==12)
+  !matrix matrix version: first f then s
+  INTEGER                      :: i,j,iElem
+  REAL(wp)                     :: y_tmp(sf%f%mn_IP,1:sf%s%nBase)
+#elif (PP_WHICHEVAL==120)
+  !matrix matrix version: first f then s
+  INTEGER                      :: i,j,iElem,i_mn
+  REAL(wp)                     :: y_tmp(1:sf%s%nBase,sf%f%mn_IP)
+#endif /*PP_WHICHEVAL*/
 !===================================================================================================================================
-  DO iMode=1,sf%f%modes
+!WRITE(*,*)'-----------------------------'
+!WRITE(*,'(A,I12)')'CHECK: #operations first s then f:', (sf%s%nGP*(sf%s%deg+1))*sf%f%modes+(sf%f%mn_IP*sf%f%modes)*sf%s%nGP
+!WRITE(*,'(A,I12)')'CHECK: #operations first f then s:', (sf%f%mn_IP*sf%f%modes)*sf%s%nBase+ (sf%s%nGP*(sf%s%deg+1))*sf%f%mn_IP
+!WRITE(*,'(A,F8.2)')'ratio', REAL( (sf%s%nGP*(sf%s%deg+1))*sf%f%modes+(sf%f%mn_IP*sf%f%modes)*sf%s%nGP ,wp)/ & 
+!                            REAL( (sf%f%mn_IP*sf%f%modes)*sf%s%nBase+ (sf%s%nGP*(sf%s%deg+1))*sf%f%mn_IP,wp)
+!WRITE(*,*)'-----------------------------'
+
+  __PERFON('BaseEval')
+
+  nGP     = sf%s%nGP  
+  modes   = sf%f%modes  
+  nBase   = sf%s%nBase
+  mn_IP   = sf%f%mn_IP
+
+#if (PP_WHICHEVAL==1)
+  !OMP loop version: first s then f
+  __PERFON('eval_s')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC)   DEFAULT(SHARED)  PRIVATE(iMode)
+  DO iMode=1,modes
     y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv(1),DOFs(:,iMode))
   END DO!iMode
-  DO iGP=1,sf%s%nGP
+!$OMP END PARALLEL DO
+  __PERFOFF('eval_s')
+  __PERFON('eval_f')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) 
+  DO iGP=1,nGP
     y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv(2),y_tmp(:,iGP))
   END DO !iGP
+!$OMP END PARALLEL DO
+  __PERFOFF('eval_f')
 
-!  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
-!  SELECT CASE(deriv(1))
-!  CASE(0)
-!    iGP=1
-!    DO iElem=1,nElems
-!      j=sf%s%base_offset(iElem)
-!      y_tmp(:,iGP:iGP+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-!      iGP=iGP+(degGP+1)
-!    END DO !iElem
-!  CASE(DERIV_S)
-!    iGP=1
-!    DO iElem=1,nElems
-!      j=sf%s%base_offset(iElem)
-!      y_tmp(:,iGP:iGP+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-!      iGP=iGP+(degGP+1)
-!    END DO !iElem
-!  END SELECT !deriv GP
-!  END ASSOCIATE
+#elif (PP_WHICHEVAL==2)
+  !OMP loop version: first f then s
+  __PERFON('eval_f')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC)DEFAULT(SHARED) PRIVATE(iBase)
+  DO iBase=1,nBase
+    y_tmp(:,iBase)=sf%f%evalDOF_IP(deriv(2),DOFs(iBase,:))
+  END DO !iBase
+!$OMP END PARALLEL DO
+  __PERFOFF('eval_f')
+  __PERFON('eval_s')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn)
+  DO i_mn=1,mn_IP
+    y_IP_GP(i_mn,:)=sf%s%evalDOF_GP(deriv(1),y_tmp(i_mn,:))
+  END DO!iMode
+!$OMP END PARALLEL DO
+  __PERFOFF('eval_s')
+
+#elif (PP_WHICHEVAL==11)
+  ! matrix-matrix version of first s then f
+
+  __PERFON('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  SELECT CASE(deriv(1))
+  CASE(0)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      __MATMAT_TT(y_tmp(:,i:i+degGP),DOFs(j:j+deg,:),sf%s%base_GP(0:degGP,0:deg,iElem))
+    END DO !iElem
+  CASE(DERIV_S)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
+      __MATMAT_TT(y_tmp(:,i:i+degGP),DOFs(j:j+deg,:),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
+    END DO !iElem
+  END SELECT !deriv GP
+  END ASSOCIATE
+  __PERFOFF('eval_s')
+
+  __PERFON('eval_f')
+  SELECT CASE(deriv(2))
+  CASE(0)
+    !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
+    __MATMAT_NN(Y_IP_GP ,sf%f%base_IP,y_tmp)
+  CASE(DERIV_THET)                        
+    !Y_IP_GP = MATMUL(sf%f%base_dthet_IP(:,:),y_tmp)
+    __MATMAT_NN(Y_IP_GP ,sf%f%base_dthet_IP,y_tmp)
+  CASE(DERIV_ZETA)                        
+    !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
+    __MATMAT_NN(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
+  END SELECT !deriv IP
+  __PERFOFF('eval_f')
+
+#elif (PP_WHICHEVAL==110)
+  ! matrix-matrix version of first s then f
+
+  __PERFON('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  SELECT CASE(deriv(1))
+  CASE(0)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) 
+    DO iMode=1,modes
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
+      END DO !iElem
+    END DO!iMode
+!$OMP END PARALLEL DO
+  CASE(DERIV_S)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) 
+    DO iMode=1,modes
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
+      END DO !iElem
+    END DO!iMode
+!$OMP END PARALLEL DO
+  END SELECT !deriv GP
+  END ASSOCIATE
+  __PERFOFF('eval_s')
+
+  __PERFON('eval_f')
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) 
+  DO iGP=1,nGP
+    y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv(2),y_tmp(iGP,:))
+  END DO !iGP
+!$OMP END PARALLEL DO
 !  SELECT CASE(deriv(2))
 !  CASE(0)
-!    y_IP_GP=MATMUL(sf%f%base_IP(:,:)      ,y_tmp(:,:))
-!  CASE(DERIV_THET)                                   
-!    y_IP_GP=MATMUL(sf%f%base_dthet_IP(:,:),y_tmp(:,:))
-!  CASE(DERIV_ZETA)                                   
-!    y_IP_GP=MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp(:,:))
+!    !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
+!    __MATMAT_NT(Y_IP_GP ,sf%f%base_IP,y_tmp)
+!  CASE(DERIV_THET)                        
+!    !Y_IP_GP = MATMUL(sf%f%base_dthet_IP(:,:),y_tmp)
+!    __MATMAT_NT(Y_IP_GP ,sf%f%base_dthet_IP,y_tmp)
+!  CASE(DERIV_ZETA)                        
+!    !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
+!    __MATMAT_NT(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
 !  END SELECT !deriv IP
+  __PERFOFF('eval_f')
 
-END FUNCTION base_evalDOF
+#elif (PP_WHICHEVAL==12)
+  ! matrix-matrix version of first f then s
+  __PERFON('eval_f')
+  SELECT CASE(deriv(2))
+  CASE(0)
+    !y_tmp = MATMUL(sf%f%base_IP(:,:),TRANSPOSE(DOFs))
+    __MATMAT_NT(y_tmp ,sf%f%base_IP,DOFs)
+  CASE(DERIV_THET)                        
+    !y_tmp = MATMUL(sf%f%base_dthet_IP(:,:),TRANSPOSE(DOFs))
+    __MATMAT_NT(y_tmp,sf%f%base_dthet_IP,DOFs)
+  CASE(DERIV_ZETA)                        
+    !y_tmp = MATMUL(sf%f%base_dzeta_IP(:,:),TRANSPOSE(DOFs))
+    __MATMAT_NT(y_tmp,sf%f%base_dzeta_IP,DOFs)
+  END SELECT !deriv IP
+  __PERFOFF('eval_f')
+
+  __PERFON('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  SELECT CASE(deriv(1))
+  CASE(0)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_GP(0:degGP,0:deg,iElem)))
+      __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_GP(0:degGP,0:deg,iElem))
+    END DO !iElem
+  CASE(DERIV_S)
+    DO iElem=1,nElems
+      j=sf%s%base_offset(iElem)
+      i=(iElem-1)*(degGP+1)+1  
+      !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_ds_GP(0:degGP,0:deg,iElem)))
+      __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
+    END DO !iElem
+  END SELECT !deriv GP
+  END ASSOCIATE
+  __PERFOFF('eval_s')
+
+#elif (PP_WHICHEVAL==120)
+  ! matrix-matrix version of first f then s
+  __PERFON('eval_f')
+  SELECT CASE(deriv(2))
+  CASE(0)
+    __MATMAT_NT(y_tmp,DOFs,sf%f%base_IP)
+  CASE(DERIV_THET)                        
+    __MATMAT_NT(y_tmp,DOFs,sf%f%base_dthet_IP)
+  CASE(DERIV_ZETA)                        
+    __MATMAT_NT(y_tmp,DOFs,sf%f%base_dzeta_IP)
+  END SELECT !deriv IP
+  __PERFOFF('eval_f')
+
+  __PERFON('eval_s')
+  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
+  SELECT CASE(deriv(1))
+  CASE(0)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn,iElem,j,i) 
+    DO i_mn=1,mn_IP
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_IP_GP(i_mn,i:i+degGP)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),y_tmp(j:j+deg,i_mn))
+      END DO !iElem
+    END DO!i_mn
+!$OMP END PARALLEL DO
+  CASE(DERIV_S)
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn,iElem,j,i) 
+    DO i_mn=1,mn_IP
+      DO iElem=1,nElems
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1  
+        y_IP_GP(i_mn,i:i+degGP)=MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),y_tmp(j:j+deg,i_mn))
+      END DO !iElem
+    END DO!i_mn
+!$OMP END PARALLEL DO
+  END SELECT !deriv GP
+  END ASSOCIATE
+  __PERFOFF('eval_s')
+#endif /*PP_WHICHEVAL*/
+
+#undef PP_WHICHEVAL
+
+  __PERFOFF('BaseEval')
+
+END SUBROUTINE base_evalDOF
+
 
 !===================================================================================================================================
 !> evaluate all degrees of freedom at given s theta zeta position (deriv=0 solution, deriv=1 first derivative d/ds)
@@ -300,10 +527,11 @@ IMPLICIT NONE
   INTEGER            :: iTest,iMode,iGP
   CHARACTER(LEN=10)  :: fail
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
-  REAL(wp)           :: checkreal 
+  REAL(wp)           :: checkreal,tmp 
   REAL(wp)           :: dofs(1:sf%s%nBase,1:sf%f%modes)
   REAL(wp)           :: g_sIP(1:sf%s%nBase)
   REAL(wp)           :: g_IP_GP(1:sf%f%mn_IP,1:sf%s%nGP)
+  REAL(wp)           :: g_IP_GP_eval(1:sf%f%mn_IP,1:sf%s%nGP)
 !===================================================================================================================================
   test_called=.TRUE.
   IF(testlevel.LE.0) RETURN
@@ -315,131 +543,150 @@ IMPLICIT NONE
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN BASE TEST ID',nTestCalled,'  >>>>>>>>>'
   ASSOCIATE(modes=>sf%f%modes,sin_range=>sf%f%sin_range,cos_range=>sf%f%cos_range, &
-            deg=>sf%s%deg,nBase=>sf%s%nBase,sin_cos=>sf%f%sin_cos,nGP=>sf%s%nGP)
+            deg=>sf%s%deg,nBase=>sf%s%nBase,sin_cos=>sf%f%sin_cos,nGP=>sf%s%nGP,Xmn=>sf%f%Xmn)
   IF(testlevel.GE.1)THEN
 
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
 
-    g_IP_GP=g_IP_GP - sf%evalDOF((/0,0/),dofs)
+    CALL sf%evalDOF((/0,0/),dofs,g_IP_GP_eval)
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
     iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(1.0_wp+0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+0.3_wp*sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        REAL(deg,wp)*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**(deg-1)
+                       +SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*REAL(deg,wp)*0.3_wp*(1.0_wp+0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+0.3_wp*sf%s%s_GP(iGP))**(deg-1)
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(1.0_wp+0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+0.4_wp*sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        REAL(deg,wp)*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**(deg-1)
+                       +COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*REAL(deg,wp)*0.4_wp*(1.0_wp+0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+0.4_wp*sf%s%s_GP(iGP))**(deg-1)
       END DO !iGP
     END DO !iMode
 
-    g_IP_GP=g_IP_GP - sf%evalDOF((/DERIV_S,0/),dofs)
+    CALL sf%evalDOF((/DERIV_S,0/),dofs,g_IP_GP_eval)
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
     iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +REAL(sf%f%Xmn(1,iMode),wp)*COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +REAL(Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       -REAL(sf%f%Xmn(1,iMode),wp)*SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       -REAL(Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.2_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
-
-    g_IP_GP=g_IP_GP - sf%evalDOF((/0,DERIV_THET/),dofs)
+    CALL sf%evalDOF((/0,DERIV_THET/),dofs,g_IP_GP_eval)
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
     iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     g_IP_GP(:,:)=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       -REAL(sf%f%Xmn(2,iMode),wp)*COS(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       -REAL(Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
     DO iMode=cos_range(1)+1,cos_range(2)
-      g_sIP(:)=(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
+      tmp  = 1.0_wp/(REAL(1+Xmn(1,iMode)**2+Xmn(2,imode)**2))
+      g_sIP(:)=tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_IP)**deg
       dofs(:,iMode)=sf%s%initDOF(g_sIP)
       DO iGP=1,nGP
         g_IP_GP(:,iGP)=g_IP_GP(:,iGP) &
-                       +REAL(sf%f%Xmn(2,iMode),wp)*SIN(sf%f%Xmn(1,iMode)*sf%f%x_IP(1,:)-sf%f%Xmn(2,iMode)*sf%f%x_IP(2,:))* &
-                        (0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
+                       +REAL(Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%f%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%f%x_IP(2,:))* &
+                        tmp*(0.1_wp*REAL(iMode,wp)/REAL(modes,wp)+sf%s%s_GP(iGP))**deg
       END DO !iGP
     END DO !iMode
 
-    g_IP_GP=g_IP_GP - sf%evalDOF((/0,DERIV_ZETA/),dofs)
+    CALL sf%evalDOF((/0,DERIV_ZETA/),dofs,g_IP_GP_eval)
+    g_IP_GP=(g_IP_GP - g_IP_GP_eval)
 
     checkreal=MAXVAL(ABS(g_IP_GP))
     IF(testdbg.OR.(.NOT.(checkreal .LT. realtol) )) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! BASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,E11.3)') &
-      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(4(A,E11.3))') &
+      '\n =>  should be 0.0 : MAX(|g_IP_exact-g_IP(dofs)|) = ', checkreal, &
+      '\n     maxval(|g_IP|)= ',MAXVAL(ABS(g_IP_GP_eval)),', minval(|g_IP|)= ',MINVAL(ABS(g_IP_GP_eval)), &
+      ', avg(|g_IP|)= ',SUM(ABS(g_IP_GP_eval))/REAL(modes*nGP,wp)
     END IF !TEST
 
 

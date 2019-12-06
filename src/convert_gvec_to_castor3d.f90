@@ -21,46 +21,18 @@
 PROGRAM CONVERT_GVEC_TO_CASTOR3D
 USE MODgvec_Globals
 USE MODgvec_gvec_to_castor3d
+!$ USE omp_lib
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
-INTEGER                 :: err,nArgs,Ns,FourierFactor
-CHARACTER(LEN=255)      :: tmp 
-LOGICAL                 :: commandFailed
-CHARACTER(LEN=255)      :: FileName 
-CHARACTER(LEN=255)      :: FileNameOut
 REAL(wp)                :: StartTime,EndTime
 !===================================================================================================================================
+  __PERFINIT
+  __PERFON('main')
+
   CALL CPU_TIME(StartTime)
-  nArgs=COMMAND_ARGUMENT_COUNT()
-  
-  
-  commandFailed=.FALSE.
-  IF(nArgs.EQ.3)THEN
-    CALL GET_COMMAND_ARGUMENT(1,tmp)
-    READ(tmp,*,IOSTAT=err)Ns
-    IF(err.NE.0) commandFailed=.TRUE.
-    CALL GET_COMMAND_ARGUMENT(2,tmp)
-    READ(tmp,*,IOSTAT=err)FourierFactor
-    IF(err.NE.0) commandFailed=.TRUE.
-    CALL GET_COMMAND_ARGUMENT(3,FileName)
-  ELSE
-    commandFailed=.TRUE.
-  END IF
-  IF(commandfailed)  STOP ' GVEC TO CASTOR3D: command not correct: "./executable Ns FourierFactor gvec_file.dat"'
-  IF(Ns.LT.2) STOP ' GVEC TO CASTOR3D: choose number in radial dierction Ns>=2' 
-  IF(FourierFactor.GT.16) STOP ' GVEC TO CASTOR3D: choose fourierFactor  <=16' 
+!$ StartTime=OMP_GET_WTIME()
     
-!  ppos = INDEX(FileName,'.dat',back=.TRUE.)
-!  IF ( ppos  .GT. 0 )THEN
-!     FileNameOut = FileName(1:ppos-1)
-!  ELSE
-!    STOP ' did not find .dat extension in input file'
-!  END IF
-  FileNameOut='gvec2castor3d_'//TRIM(FileName)
-    
-  
-  
   !header
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(Unit_stdOut,'(5(("*",A128,2X,"*",:,"\n")))')&
@@ -70,20 +42,22 @@ REAL(wp)                :: StartTime,EndTime
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '&
 ,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   WRITE(Unit_stdOut,'(132("="))')
+  CALL GET_CLA_gvec_to_castor3d()
   
   !initialization phase
-  CALL Init_gvec_to_castor3d(FileName,Ns,FourierFactor)
+  CALL Init_gvec_to_castor3d()
  
-  CALL gvec_to_castor3d_prepare()
-
-  CALL gvec_to_castor3d_writeToFile(FileNameOut)
+  CALL gvec_to_castor3d_writeToFile()
   CALL Finalize_gvec_to_castor3d()
 
   CALL CPU_TIME(EndTime)
+!$ EndTime=OMP_GET_WTIME()
   WRITE(Unit_stdOut,fmt_sep)
   WRITE(Unit_stdOut,'(A,F8.2,A)') ' CONVERT GVEC TO CASTOR3D FINISHED! [',EndTime-StartTime,' sec ]'
   WRITE(Unit_stdOut,fmt_sep)
 
+  __PERFOFF('main')
+  __PERFOUT('main')
 END PROGRAM CONVERT_GVEC_TO_CASTOR3D
 
 

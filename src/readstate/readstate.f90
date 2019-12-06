@@ -53,6 +53,7 @@ USE MODgvec_ReadState_Vars
 USE MODgvec_Globals,ONLY: Unit_stdOut,GETFREEUNIT
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
+USE MODgvec_sbase,  ONLY: sbase_new
 USE MODgvec_fbase,  ONLY: sin_cos_map 
 USE MODgvec_hmap,  ONLY: hmap_new
 IMPLICIT NONE
@@ -136,6 +137,7 @@ IMPLICIT NONE
   X2_mn_max_r = (/MAXVAL(X2_mn_r(1,:)),MAXVAL(X2_mn_r(2,:))/nfp_r/)
   LA_mn_max_r = (/MAXVAL(LA_mn_r(1,:)),MAXVAL(LA_mn_r(2,:))/nfp_r/)
 
+  CALL sbase_new(sbase_prof,X1_deg_r,X1_cont_r,sgrid_r,degGP_r) !up to now, same base as X1 is used for profiles!
   CALL base_new(X1_base_r,X1_deg_r,X1_cont_r,sgrid_r,degGP_r,X1_mn_max_r,mn_nyq_r,nfp_r, &
                 sin_cos_map(X1_sin_cos_r),(X1_excl_mn_zero_r.EQ.1))
   CALL base_new(X2_base_r,X2_deg_r,X2_cont_r,sgrid_r,degGP_r,X2_mn_max_r,mn_nyq_r,nfp_r, &
@@ -180,10 +182,12 @@ IMPLICIT NONE
   DEALLOCATE(profiles_1d)
   CALL sgrid_r%free()
   CALL hmap_r%free()
+  CALL sbase_prof%free()
   CALL X1_base_r%free()
   CALL X2_base_r%free()
   CALL LA_base_r%free()
   DEALLOCATE(hmap_r)
+  DEALLOCATE(sbase_prof)
   DEALLOCATE(X1_base_r)
   DEALLOCATE(X2_base_r)
   DEALLOCATE(LA_base_r)

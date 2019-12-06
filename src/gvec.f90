@@ -25,6 +25,7 @@ USE MODgvec_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY: InitRestart,FinalizeRestart
 USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
 USE MODgvec_Functional
+!$ USE omp_lib
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
@@ -34,7 +35,12 @@ INTEGER                 :: which_functional
 REAL(wp)                :: StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
+  __PERFINIT
+  __PERFON('main')
+
+
   CALL CPU_TIME(StartTime)
+!$ StartTime=OMP_GET_WTIME()
   nArgs=COMMAND_ARGUMENT_COUNT()
   IF(nArgs.GE.1)THEN
     CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
@@ -65,6 +71,10 @@ CLASS(t_functional),ALLOCATABLE   :: functional
 ,'  - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - '&
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
   WRITE(Unit_stdOut,'(132("="))')
+!$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
+!$ WRITE(Unit_stdOut,'(132("="))')
+
+
   testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
   testlevel=GETINT('testlevel',Proposal=-1)
   IF(testlevel.GT.0)THEN
@@ -86,6 +96,8 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL IgnoredStrings()
   
+  CALL functional%InitSolution() 
+  
   CALL functional%minimize() 
 
   CALL FinalizeFunctional(functional)
@@ -93,7 +105,8 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
-  
+
+
   ! do something
   IF(testlevel.GT.0)THEN
     SWRITE(UNIT_stdout,*)
@@ -110,6 +123,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     CLOSE(testUnit)
   END IF !testlevel
   CALL CPU_TIME(EndTime)
+!$ EndTime=OMP_GET_WTIME()
   WRITE(Unit_stdOut,fmt_sep)
   IF(n_warnings_occured.EQ.0)THEN
     WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC SUCESSFULLY FINISHED! [',EndTime-StartTime,' sec ]'
@@ -117,6 +131,9 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     WRITE(Unit_stdOut,'(A,F8.2,A,I8,A)') ' GVEC FINISHED! [',EndTime-StartTime,' sec ], WITH ' , n_warnings_occured , ' WARNINGS!!!!'
   END IF
   WRITE(Unit_stdOut,fmt_sep)
+
+  __PERFOFF('main')
+  __PERFOUT('main')
 
 END PROGRAM GVEC
 

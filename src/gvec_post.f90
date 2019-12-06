@@ -1,0 +1,98 @@
+!===================================================================================================================================
+! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+!
+! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
+! of the License, or (at your option) any later version.
+!
+! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+! of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License v3.0 for more details.
+!
+! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
+!===================================================================================================================================
+#include "defines.h"
+
+
+!===================================================================================================================================
+!> 
+!!# **GVEC** Driver program 
+!!
+!===================================================================================================================================
+PROGRAM GVEC_POST
+  USE MODgvec_Globals
+  USE MODgvec_Analyze      ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
+  USE MODgvec_Output       ,ONLY: InitOutput,FinalizeOutput
+  USE MODgvec_Output_vars  ,ONLY: OutputLevel
+  USE MODgvec_Restart      ,ONLY: InitRestart,FinalizeRestart
+  USE MODgvec_Restart      ,ONLY: RestartFromState
+  USE MODgvec_Restart_vars ,ONLY: doRestart
+  USE MODgvec_Output_Vars  ,ONLY: OutputLevel,ProjectName
+  USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
+  USE MODgvec_MHD3D_Vars   ,ONLY: U,F
+  USE MODgvec_MHD3D_EvalFunc,ONLY: EvalForce
+  USE MODgvec_ReadInTools  ,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
+  USE MODgvec_Functional
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!local variables
+  INTEGER                 :: iArg,nArgs
+  CHARACTER(LEN=255)      :: Parameterfile
+  CHARACTER(LEN=255)      :: Statefile
+  INTEGER                 :: which_functional
+  INTEGER                 :: JacCheck 
+  CLASS(t_functional),ALLOCATABLE   :: functional
+!===================================================================================================================================
+  __PERFINIT
+  __PERFON('main')
+  nArgs=COMMAND_ARGUMENT_COUNT()
+  IF ((nArgs.LT.2))THEN
+    ! Print out error message containing valid syntax
+    STOP 'ERROR - Invalid syntax. Please use: gvec_post parameter.ini [Statefiles*] '
+  END IF
+  CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
+    
+  
+  !header
+  WRITE(Unit_stdOut,'(132("="))')
+  WRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
+  WRITE(Unit_stdOut,'(132("="))')
+  testdbg =.FALSE.
+  testlevel=-1
+  
+  !initialization phase
+  CALL InitRestart()
+  CALL InitOutput()
+  CALL InitAnalyze()
+  
+  which_functional=GETINT('which_functional', Proposal=1 )
+  CALL InitFunctional(functional,which_functional)
+  
+  CALL IgnoredStrings()
+  DO iArg=2,nArgs
+    CALL GET_COMMAND_ARGUMENT(iArg,StateFile)
+    WRITE(Unit_stdOut,'(132("-"))')
+    WRITE(UNIT_stdOut,'(A,I4,A4,I4,A3,A)') 'Post-Analyze StateFile ',iArg-1,' of ',nArgs-1,' : ',TRIM(StateFile)
+    WRITE(Unit_stdOut,'(132("-"))')
+    ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
+    CALL RestartFromState(StateFile,U(0))
+    outputLevel=outputLevel_r
+    JacCheck=2
+    CALL EvalForce(U(0),.TRUE.,JacCheck, F(0))
+    CALL Analyze(FileID_r)
+  END DO !iArg
+  
+  CALL FinalizeFunctional(functional)
+ 
+  CALL FinalizeAnalyze()
+  CALL FinalizeOutput()
+  CALL FinalizeRestart()
+  
+  WRITE(Unit_stdOut,'(132("="))')
+  WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
+  WRITE(Unit_stdOut,'(132("="))')
+
+  __PERFOFF('main')
+  __PERFOUT('main')
+END PROGRAM GVEC_POST
+
+

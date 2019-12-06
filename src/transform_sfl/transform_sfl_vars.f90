@@ -1,5 +1,5 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2019  Florian Hindenlang <hindenlang@gmail.com>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -13,34 +13,31 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** Read State Variables **
+!!# Module ** Transform SFL Variables **
 !!
 !!
 !!
 !===================================================================================================================================
-MODULE MODgvec_ReadState_Vars
+MODULE MODgvec_Transform_SFL_Vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
-USE MODgvec_sgrid,  ONLY: t_sgrid
-USE MODgvec_base,   ONLY: t_base
-USE MODgvec_sbase,  ONLY: t_sbase
-USE MODgvec_c_hmap, ONLY: c_hmap
+USE MODgvec_base   ,ONLY: t_base
+USE MODgvec_sGrid  ,ONLY: t_sgrid
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
-  INTEGER                   :: fileID_r,OutputLevel_r
-  CLASS(c_hmap),ALLOCATABLE :: hmap_r                 !! container for global coordinate system
-  TYPE(t_sgrid)             :: sgrid_r                !! container for the grid of X1,X2,LA
-  CLASS(t_sbase),ALLOCATABLE:: sbase_prof             !! container for base for profiles
-  CLASS(t_base),ALLOCATABLE :: X1_base_r              !! container for base of X1
-  CLASS(t_base),ALLOCATABLE :: X2_base_r              !! container for base of X2
-  CLASS(t_base),ALLOCATABLE :: LA_base_r              !! container for base of LA
-  REAL(wp),ALLOCATABLE      :: X1_r(:,:)              !! spline x fourier coefs of solution X1
-  REAL(wp),ALLOCATABLE      :: X2_r(:,:)              !! spline x fourier coefs of solution X2
-  REAL(wp),ALLOCATABLE      :: LA_r(:,:)              !! spline x fourier coefs of solution LA 
-  REAL(wp),ALLOCATABLE      :: profiles_1d(:,:)       !! spline coefficients for 1d profiles (using X1_base...needs to be improved!)
-  REAL(wp)                  :: a_minor,r_major,volume !! scalars: average minor and major radius, total volume
+INTEGER                     :: whichSFLcoord !! 
+TYPE(t_sgrid)               :: sgrid_sfl     !! uniform grid for SFL coordinates
+CLASS(t_base),  ALLOCATABLE :: X1sfl_base    !! container for base of variable X1 in SFL coordinates
+CLASS(t_base),  ALLOCATABLE :: X2sfl_base    !! container for base of variable X2 in SFL coordinates
+CLASS(t_base),  ALLOCATABLE :: GZ_base       !! container for base of variable Gzeta (transforms to BOOZER!)
+CLASS(t_base),  ALLOCATABLE :: GZsfl_base    !! container for base of variable Gzeta in SFL coordinates
+REAL(wp),       ALLOCATABLE :: X1sfl(:,:)    !! data (1:nBase,1:modes) of X1 in SFL coords.
+REAL(wp),       ALLOCATABLE :: X2sfl(:,:)    !! data (1:nBase,1:modes) of X2 in SFL coords.
+REAL(wp),       ALLOCATABLE :: GZ(:,:)       !! data (1:nBase,1:modes) of GZ in GVEC coords. (for BOOZER)
+REAL(wp),       ALLOCATABLE :: GZsfl(:,:)    !! data (1:nBase,1:modes) of GZ in SFL coords.  (for BOOZER)
+
 !===================================================================================================================================
-END MODULE MODgvec_ReadState_Vars
+END MODULE MODgvec_Transform_SFL_Vars
 

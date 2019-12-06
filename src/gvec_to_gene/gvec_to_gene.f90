@@ -99,7 +99,7 @@ END SUBROUTINE init_gvec_to_gene
 SUBROUTINE gvec_to_gene_scalars(Fa,minor_r,PhiPrime_edge,q_edge,n0_global)
 ! MODULES
 USE MODgvec_globals,ONLY: TWOPI
-USE MODgvec_ReadState_Vars,ONLY: a_minor,X1_base_r,profiles_1d
+USE MODgvec_ReadState_Vars,ONLY: a_minor,X1_base_r,sbase_prof,profiles_1d
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -113,11 +113,11 @@ INTEGER, INTENT(OUT) :: n0_global         !! number of field periods
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-Fa = TWOPI*X1_base_r%s%evalDOF_s(1.0, 0,profiles_1d(:,1)) !phi(s=1)
+Fa = TWOPI*sbase_prof%evalDOF_s(1.0, 0,profiles_1d(:,1)) !phi(s=1)
 minor_r   = a_minor
 n0_global = X1_base_r%f%nfp
-PhiPrime_edge = X1_base_r%s%evalDOF_s(1.0, DERIV_S,profiles_1d(:,1))
-q_edge    = 1./(X1_base_r%s%evalDOF_s(1.0,       0,profiles_1d(:,3)) ) !q=1/iota
+PhiPrime_edge = sbase_prof%evalDOF_s(1.0, DERIV_S,profiles_1d(:,1))
+q_edge    = 1./(sbase_prof%evalDOF_s(1.0,       0,profiles_1d(:,3)) ) !q=1/iota
 
 END SUBROUTINE gvec_to_gene_scalars
 
@@ -128,7 +128,7 @@ END SUBROUTINE gvec_to_gene_scalars
 !===================================================================================================================================
 SUBROUTINE gvec_to_gene_profile(spos,q,q_prime,p,p_prime)
 ! MODULES
-USE MODgvec_ReadState_Vars,ONLY: profiles_1d,X1_base_r
+USE MODgvec_ReadState_Vars,ONLY: profiles_1d,sbase_prof
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -142,10 +142,10 @@ REAL(wp),OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressu
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-IF(PRESENT(q)) q       = 1./(  X1_base_r%s%evalDOF_s(spos,       0,profiles_1d(:,3)) ) !q=1/iota
-IF(PRESENT(q_prime)) q_prime = -q*q*(X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,3)) ) !q'=-iota'/iota^2
-IF(PRESENT(p)) p =      (X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,4)) ) !pressure
-IF(PRESENT(p_prime)) p_prime =      (X1_base_r%s%evalDOF_s(spos, DERIV_S,profiles_1d(:,4)) ) !pressure'
+IF(PRESENT(q))       q       = 1./(  sbase_prof%evalDOF_s(spos,       0,profiles_1d(:,3)) ) !q=1/iota
+IF(PRESENT(q_prime)) q_prime = -q*q*(sbase_prof%evalDOF_s(spos, DERIV_S,profiles_1d(:,3)) ) !q'=-iota'/iota^2
+IF(PRESENT(p))             p =      (sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,4)) ) !pressure
+IF(PRESENT(p_prime)) p_prime =      (sbase_prof%evalDOF_s(spos, DERIV_S,profiles_1d(:,4)) ) !pressure'
 
 END SUBROUTINE gvec_to_gene_profile
 
@@ -173,7 +173,7 @@ REAL(wp), INTENT(OUT) :: theta_out(nthet,nzeta)
 REAL(wp),INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinates
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER     :: iMode,ithet,izeta
+INTEGER     :: ithet,izeta
 REAL(wp)    :: theta_star,zeta
 REAL(wp)    :: xp(2),qvec(3)
 REAL(wp)    :: X1_s(   1:X1_base_r%f%modes)
@@ -183,15 +183,9 @@ REAL(wp)    :: X1_int,X2_int,spos
 !===================================================================================================================================
 spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 !interpolate first in s direction
-DO iMode=1,X1_base_r%f%modes
-  X1_s(iMode)      =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode)) !R
-END DO
-DO iMode=1,X2_base_r%f%modes
-  X2_s(iMode)      =X2_base_r%s%evalDOF_s(spos,      0,X2_r(:,iMode)) !Z
-END DO
-DO iMode=1,LA_base_r%f%modes
-  LA_s(iMode)      =LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode)) !lambda
-END DO
+X1_s(:)      =X1_base_r%s%evalDOF2D_s(spos,X1_base_r%f%modes,      0,X1_r(:,:)) !R
+X2_s(:)      =X2_base_r%s%evalDOF2D_s(spos,X2_base_r%f%modes,      0,X2_r(:,:)) !Z
+LA_s(:)      =LA_base_r%s%evalDOF2D_s(spos, LA_base_r%f%modes,     0,LA_r(:,:)) !lambda
 
 DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
@@ -252,7 +246,7 @@ REAL(wp),INTENT(OUT) :: Bfield(         3,nthet,nzeta)  !! magnetic field in car
 REAL(wp),INTENT(OUT) :: grad_absB(      3,nthet,nzeta)  !! gradient in cartesian space, of the magnetic field magnitude |B|
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER  :: iMode,ithet,izeta
+INTEGER  :: ithet,izeta
 REAL(wp) :: iota_int,PhiPrime_int,theta_star,theta,zeta
 REAL(wp) :: iota_int_eps,PhiPrime_int_eps
 REAL(wp) :: xp(2),qvec(3)
@@ -270,37 +264,25 @@ REAL(wp) :: eps=1.0e-08
 spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 !interpolate first in s direction
 
-DO iMode=1,X1_base_r%f%modes
-  X1_s(   iMode) =X1_base_r%s%evalDOF_s(spos,      0,X1_r(:,iMode))
-  dX1ds_s(iMode) =X1_base_r%s%evalDOF_s(spos,DERIV_S,X1_r(:,iMode))
-END DO
-DO iMode=1,X2_base_r%f%modes
-  X2_s(   iMode) =X2_base_r%s%evalDOF_s(spos,      0,X2_r(:,iMode))
-  dX2ds_s(iMode) =X2_base_r%s%evalDOF_s(spos,DERIV_S,X2_r(:,iMode))
-END DO
-DO iMode=1,LA_base_r%f%modes
-  LA_s(   iMode) =LA_base_r%s%evalDOF_s(spos,      0,LA_r(:,iMode))
-  dLAds_s(iMode) =LA_base_r%s%evalDOF_s(spos,DERIV_S,LA_r(:,iMode))
-END DO
+X1_s(   :)      = X1_base_r%s%evalDOF2D_s(spos    ,X1_base_r%f%modes,       0,X1_r(:,:))
+dX1ds_s(:)      = X1_base_r%s%evalDOF2D_s(spos    ,X1_base_r%f%modes, DERIV_S,X1_r(:,:))
+X1_s_eps(   :)  = X1_base_r%s%evalDOF2D_s(spos+eps,X1_base_r%f%modes,       0,X1_r(:,:))
+dX1ds_s_eps(:)  = X1_base_r%s%evalDOF2D_s(spos+eps,X1_base_r%f%modes, DERIV_S,X1_r(:,:))
 
-iota_int     = X1_base_r%s%evalDOF_s(spos, 0,profiles_1d(:,3))
-PhiPrime_int = X1_base_r%s%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
+X2_s(   :)      = X2_base_r%s%evalDOF2D_s(spos    ,X2_base_r%f%modes,       0,X2_r(:,:))
+dX2ds_s(:)      = X2_base_r%s%evalDOF2D_s(spos    ,X2_base_r%f%modes, DERIV_S,X2_r(:,:))
+X2_s_eps(   :)  = X2_base_r%s%evalDOF2D_s(spos+eps,X2_base_r%f%modes,       0,X2_r(:,:))
+dX2ds_s_eps(:)  = X2_base_r%s%evalDOF2D_s(spos+eps,X2_base_r%f%modes, DERIV_S,X2_r(:,:))
 
-!for FD in s-direction
-DO iMode=1,X1_base_r%f%modes
-  X1_s_eps(   iMode)  =X1_base_r%s%evalDOF_s(spos+eps,      0,X1_r(:,iMode))
-  dX1ds_s_eps(iMode)  =X1_base_r%s%evalDOF_s(spos+eps,DERIV_S,X1_r(:,iMode))
-END DO
-DO iMode=1,X2_base_r%f%modes
-  X2_s_eps(   iMode)  =X2_base_r%s%evalDOF_s(spos+eps,      0,X2_r(:,iMode))
-  dX2ds_s_eps(iMode)  =X2_base_r%s%evalDOF_s(spos+eps,DERIV_S,X2_r(:,iMode))
-END DO
-DO iMode=1,LA_base_r%f%modes
-  LA_s_eps(   iMode)  =LA_base_r%s%evalDOF_s(spos+eps,      0,LA_r(:,iMode))
-END DO
+LA_s(   :)      = LA_base_r%s%evalDOF2D_s(spos    ,LA_base_r%f%modes,       0,LA_r(:,:))
+dLAds_s(:)      = LA_base_r%s%evalDOF2D_s(spos    ,LA_base_r%f%modes, DERIV_S,LA_r(:,:))
+LA_s_eps(   :)  = LA_base_r%s%evalDOF2D_s(spos+eps,LA_base_r%f%modes,       0,LA_r(:,:))
 
-iota_int_eps     = X1_base_r%s%evalDOF_s(spos+eps, 0,profiles_1d(:,3))
-PhiPrime_int_eps = X1_base_r%s%evalDOF_s(spos+eps, DERIV_S ,profiles_1d(:,1))
+iota_int     = sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,3))
+PhiPrime_int = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
+
+iota_int_eps     = sbase_prof%evalDOF_s(spos+eps, 0,profiles_1d(:,3))
+PhiPrime_int_eps = sbase_prof%evalDOF_s(spos+eps, DERIV_S ,profiles_1d(:,1))
 
 DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!

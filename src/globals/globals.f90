@@ -48,6 +48,8 @@ INTEGER                     :: testlevel =-1             !! flag for testing rou
 INTEGER                     :: ntestCalled=0             !! counter for called tests
 INTEGER                     :: nfailedMsg=0              !! counter for messages on failed tests 
 INTEGER                     :: testUnit                  !! unit for out.test file
+INTEGER                     :: ProgressBar_oldpercent    !! for progressBar
+REAL(wp)                    :: ProgressBar_starttime     !! for progressBar
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
@@ -62,6 +64,10 @@ INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 
 INTERFACE Abort
    MODULE PROCEDURE Abort
+END INTERFACE
+
+INTERFACE ProgressBar
+   MODULE PROCEDURE ProgressBar
 END INTERFACE
 
 INTERFACE GETFREEUNIT
@@ -145,6 +151,47 @@ CALL BACKTRACE
 ERROR STOP 2
 END SUBROUTINE Abort
 
+
+!==================================================================================================================================
+!> Print a progress bar to screen, call either with init=T or init=F
+!!
+!==================================================================================================================================
+SUBROUTINE ProgressBar(iter,n_iter)
+! MODULES
+!$ USE omp_lib
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN) :: iter,n_iter  !! iter ranges from 1...n_iter
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+CHARACTER(LEN=8)  :: fmtstr
+INTEGER           :: newpercent
+REAL(wp)          :: endTime
+!==================================================================================================================================
+  IF(iter.LE.0)THEN !INIT
+    ProgressBar_oldpercent=0
+    CALL CPU_Time(Progressbar_StartTime)
+!$ Progressbar_StartTime=OMP_GET_WTIME()
+    SWRITE(UNIT_StdOut,'(4X,A,I8)') &
+    '|       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of ',n_iter
+    SWRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
+    CALL FLUSH(UNIT_stdOut)
+  ELSE
+    newpercent=FLOOR(REAL(iter,wp)/REAL(n_iter,wp)*(100.0_wp+1.0e-12_wp))
+    WRITE(fmtstr,'(I4)')newpercent-ProgressBar_oldpercent
+    IF(newpercent-ProgressBar_oldpercent.GT.0)THEN
+      SWRITE(UNIT_StdOut,'('//TRIM(fmtstr)//'("."))',ADVANCE='NO')
+      CALL FLUSH(UNIT_stdOut)
+    END IF
+    ProgressBar_oldPercent=newPercent
+    IF(newpercent.EQ.100)THEN
+      CALL CPU_Time(endTime)
+!$  endTime=OMP_GET_WTIME()
+      SWRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
+    END IF
+  END IF 
+END SUBROUTINE ProgressBar
 
 !==================================================================================================================================
 !> Get unused file unit number

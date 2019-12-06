@@ -51,6 +51,7 @@ TYPE, ABSTRACT :: c_sbase
     PROCEDURE(i_sub_sbase_change_base   ),DEFERRED :: change_base
     PROCEDURE(i_sub_sbase_eval          ),DEFERRED :: eval
     PROCEDURE(i_fun_sbase_evalDOF_s     ),DEFERRED :: evalDOF_s
+    PROCEDURE(i_fun_sbase_evalDOF2D_s   ),DEFERRED :: evalDOF2D_s
     PROCEDURE(i_fun_sbase_evalDOF_base  ),DEFERRED :: evalDOF_base
     PROCEDURE(i_fun_sbase_evalDOF_GP    ),DEFERRED :: evalDOF_GP
     PROCEDURE(i_fun_sbase_initDOF       ),DEFERRED :: initDOF
@@ -121,6 +122,16 @@ ABSTRACT INTERFACE
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y
   END FUNCTION i_fun_sbase_evalDOF_s
+
+  FUNCTION i_fun_sbase_evalDOF2D_s( sf, x,nd,deriv,DOFs ) RESULT(y) 
+    IMPORT wp,c_sbase
+  CLASS(c_sbase), INTENT(IN   ) :: sf
+  REAL(wp)      , INTENT(IN   ) :: x
+  INTEGER       , INTENT(IN   ) :: nd 
+  INTEGER       , INTENT(IN   ) :: deriv 
+  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase,1:nd)
+  REAL(wp)                      :: y(1:nd)
+  END FUNCTION i_fun_sbase_evalDOF2D_s
 
   FUNCTION i_fun_sbase_evalDOF_base( sf, iElem,base_x,DOFs ) RESULT(y) 
     IMPORT wp,c_sbase
@@ -202,6 +213,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   PROCEDURE :: change_base   => sBase_change_base
   PROCEDURE :: eval          => sBase_eval
   PROCEDURE :: evalDOF_s     => sBase_evalDOF_s
+  PROCEDURE :: evalDOF2D_s   => sBase_evalDOF2D_s
   PROCEDURE :: evalDOF_base  => sBase_evalDOF_base
   PROCEDURE :: evalDOF_GP    => sBase_evalDOF_GP
   PROCEDURE :: initDOF       => sBase_initDOF
@@ -906,6 +918,7 @@ IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
 
 END FUNCTION sbase_evalDOF_s
 
+
 !===================================================================================================================================
 !> simply evaluate function with a base or base derivative evaluated at a point and its corresponding iElem
 !! use together with sBase_eval(x) => iElem,base
@@ -935,6 +948,37 @@ IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
 END FUNCTION sbase_evalDOF_base
 
 !===================================================================================================================================
+!> simply evaluate function or derivative at point x, for multiple DOF vectors 
+!!
+!===================================================================================================================================
+FUNCTION sBase_evalDOF2D_s(sf,x,nd,deriv,DOFs) RESULT(y)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sbase), INTENT(IN   ) :: sf     !! self
+  REAL(wp)      , INTENT(IN   ) :: x      !! point positions in [0,1]
+  INTEGER       , INTENT(IN   ) :: nd     !! number of DOF vectors 
+  INTEGER       , INTENT(IN   ) :: deriv  !! derivative (=0: solution)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(1:sf%nBase,1:nd) 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: y(1:nd)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                       :: iElem,j
+  REAL(wp)                      :: base_x(0:sf%deg)
+!===================================================================================================================================
+  __PERFON('eval_dof2d_s')
+  CALL sf%eval(x,deriv,iElem,base_x) 
+  j=sf%base_offset(iElem)
+  !y(1:nd) =MATMUL(base_x(0:sf%deg),DOFs(j:j+sf%deg,1:nd))
+  __MATVEC_T(y,DOFs(j:j+sf%deg,:),base_x(0:sf%deg))
+
+  __PERFOFF('eval_dof2d_s')
+END FUNCTION sbase_evalDOF2D_s
+
+!===================================================================================================================================
 !> evaluate all degrees of freedom at all Gauss Points (deriv=0 solution, deriv=1 first derivative d/ds)
 !!
 !===================================================================================================================================
@@ -958,19 +1002,33 @@ IMPLICIT NONE
   ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
   SELECT CASE(deriv)
   CASE(0)
-    k=1
-    DO iElem=1,nElems
+!    k=1
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iElem,j,k)  &
+!$OMP   SHARED(sf,y_GP,DOFs)
+     DO iElem=1,nElems
       j=sf%base_offset(iElem)
+      k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_GP(   :,:,iElem),DOFs(j:j+deg))
-      k=k+(degGP+1)
+      !!__MATVEC_N(y_GP(k:k+degGP),sf%base_GP(:,:,iElem),DOFs(j:j+deg))
     END DO
+!$OMP END PARALLEL DO
   CASE(DERIV_S)
-    k=1
+!    k=1
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) & 
+!$OMP   DEFAULT(NONE)    &
+!$OMP   PRIVATE(iElem,j,k)  &
+!$OMP   SHARED(sf,y_GP,DOFs)
     DO iElem=1,nElems
       j=sf%base_offset(iElem)
+      k=(iElem-1)*(degGP+1)+1  
       y_GP(k:k+degGP)=MATMUL(sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
-      k=k+(degGP+1)
+      !!__MATVEC_N(y_GP(k:k+degGP),sf%base_ds_GP(:,:,iElem),DOFs(j:j+deg))
     END DO
+!$OMP END PARALLEL DO
   CASE DEFAULT
     CALL abort(__STAMP__, &
        'called evalDOF_GP: deriv must be 0 or DERIV_S!' )
