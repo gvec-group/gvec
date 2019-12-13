@@ -57,6 +57,8 @@ CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for eval
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
 INTEGER              :: which_hmap
 LOGICAL              :: init_fromBCOnly !! default=TRUE, for VMEC only, if set false: initial mapping is interpolated for s=0..1
+LOGICAL              :: init_average_axis !! default=FALSE, if true, use outer boundary to estimate axis position (center of closed line)
+REAL(wp)             :: average_axis_move(2) !! used if init_average_axis=True to additionally move axis in X1,X2   
 LOGICAL              :: init_LA         !! false: lambda=0 at initialization, true: lambda is computed from initial mapping
 INTEGER              :: PrecondType     !! -1: off: 1: .. 
 ! input parameters for minimization

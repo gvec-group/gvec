@@ -133,6 +133,7 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
+        
     proposal_mn_max(:)=(/mpol-1,ntor/)
     IF(lasym)THEN !asymmetric
       proposal_X1_sin_cos="_sincos_"
@@ -150,6 +151,11 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
 
+  init_average_axis= GETLOGICAL("init_average_axis",Proposal=.FALSE.)
+  IF(init_average_axis)THEN
+    average_axis_move(1) = GETREAL("average_axis_move_X1",Proposal=0.0_wp)
+    average_axis_move(2) = GETREAL("average_axis_move_X2",Proposal=0.0_wp)
+  END IF
 
   sgammM1=1.0_wp/(gamm-1.0_wp)
 
@@ -466,7 +472,7 @@ END FUNCTION get_iMode
 SUBROUTINE InitSolution(U_init,which_init_in)
 ! MODULES
   USE MODgvec_Globals,       ONLY:ProgressBar
-  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly
+  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly,init_average_axis,average_axis_move
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
   USE MODgvec_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
@@ -486,10 +492,13 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,is
+  INTEGER  :: iMode,is,i_m,i_n
   REAL(wp) :: BC_val(2)
   REAL(wp) :: spos
   REAL(wp) :: StartTime,EndTime
+  REAL(wp) :: dl,lint,x1int,x2int 
+  REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
+  REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -537,6 +546,29 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       END DO 
     END IF !lasym
     END ASSOCIATE !X2
+    !average axis by center of closed line of the boundary in each poloidal plane:
+    IF(init_average_axis)THEN
+      ASSOCIATE(m_nyq=>X1_base%f%mn_nyq(1),n_nyq=>X1_base%f%mn_nyq(2))
+      X1_b_IP(:,:) = RESHAPE(X1_base%f%evalDOF_IP(0,X1_b),(/m_nyq,n_nyq/))
+      X2_b_IP(:,:) = RESHAPE(X2_base%f%evalDOF_IP(0,X2_b),(/m_nyq,n_nyq/))
+      DO i_n=1,n_nyq
+        dl=SQRT((X1_b_IP(1,i_n)-X1_b_IP(m_nyq,i_n))**2+(X2_b_IP(1,i_n)-X2_b_IP(m_nyq,i_n))**2)
+        lint=dl
+        x1int=X1_b_IP(1,i_n)*dl
+        x2int=X2_b_IP(1,i_n)*dl
+        DO i_m=2,m_nyq
+          dl=SQRT((X1_b_IP(i_m,i_n)-X1_b_IP(i_m-1,i_n))**2+(X2_b_IP(i_m,i_n)-X2_b_IP(i_m-1,i_n))**2)
+          lint=lint+dl
+          x1int=x1int+X1_b_IP(i_m,i_n)*dl
+          x2int=x2int+X2_b_IP(i_m,i_n)*dl
+        END DO
+        X1_b_IP(:,i_n) = x1int/lint + average_axis_move(1)
+        X2_b_IP(:,i_n) = x2int/lint + average_axis_move(2)
+      END DO
+      X1_a = X1_base%f%initDOF(RESHAPE(X1_b_IP,(/X1_base%f%mn_IP/)))
+      X2_a = X2_base%f%initDOF(RESHAPE(X2_b_IP,(/X2_base%f%mn_IP/)))
+      END ASSOCIATE
+    END IF !init_average_axis
     IF(.NOT.init_fromBConly)THEN !only boundary and axis from VMEC
       ASSOCIATE(s_IP         => X1_base%s%s_IP, &
                 nBase        => X1_base%s%nBase, &
@@ -636,6 +668,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END DO 
     END ASSOCIATE
   END IF !init_fromBConly
+
 
   !apply strong boundary conditions
   ASSOCIATE(modes        =>X1_base%f%modes, &
