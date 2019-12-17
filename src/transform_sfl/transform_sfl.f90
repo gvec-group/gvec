@@ -747,19 +747,26 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   CALL sgrid_sfl%free()
-  CALL X1sfl_base%free()
-  CALL X2sfl_base%free()
-  CALL GZsfl_base%free()
-  CALL GZ_base%free()
-  SDEALLOCATE(X1sfl_base)
-  SDEALLOCATE(X2sfl_base)
-  SDEALLOCATE(GZsfl_base)
-  SDEALLOCATE(GZ_base)
+  IF(ALLOCATED(X1sfl_base))THEN
+    CALL X1sfl_base%free()
+    DEALLOCATE(X1sfl_base)
+  END IF
+  IF(ALLOCATED(X2sfl_base))THEN
+    CALL X2sfl_base%free()
+    DEALLOCATE(X2sfl_base)
+  END IF
+  IF(ALLOCATED(GZsfl_base))THEN
+    CALL GZsfl_base%free()
+    DEALLOCATE(GZsfl_base)
+  END IF
+  IF(ALLOCATED(GZ_base))THEN
+    CALL GZ_base%free()
+    DEALLOCATE(GZ_base)
+  END IF
   SDEALLOCATE(X1sfl)
   SDEALLOCATE(X2sfl)
   SDEALLOCATE(GZsfl)
   SDEALLOCATE(GZ)
-
 
 END SUBROUTINE FinalizeTransform_SFL
 
