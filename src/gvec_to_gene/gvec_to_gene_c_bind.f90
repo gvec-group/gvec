@@ -57,30 +57,43 @@ contains
     character(kind=C_CHAR, len=1), dimension(*), intent(in) :: FileString_c
 
     character(len=strlen) :: VarNames_f(nVal)
-    character(len=:), allocatable :: VarName
-    character(len=:), allocatable :: FileString_f
-    integer :: val
+    character(len=strlen) :: VarName
+    character(len=256) :: FileString_f
+    integer :: val, nchar1, nchar2
+
+    nchar1 = get_c_string_length(FileString_c)
+
+    if(nchar1.gt.256) stop "c string length is restricted to 256"
 
     ! retrieve file name into Fortran string
-    call c_to_f_string(FileString_c, FileString_f)
+    FileString_f = get_fortran_string(FileString_f,nchar1)
 
     ! save all var names into VarNames_f
     do val = 1, nVal
-      call c_to_f_string(VarNames_c(:,val),VarName)
-      VarNames_f(val) = trim(VarName)
+      nchar2 = get_c_string_length(VarNames_c(:,val))
+      if(nchar2.gt.strlen) stop "c string length is restricted to strlen"
+      VarName = get_fortran_string(VarNames_c(:,val),nchar2)
+      VarNames_f(val) = trim(VarName(1:nchar2))
     end do
 
     call WriteDataToVTK( &
-         dim1,vecDim,nVal,NPlot,nElems,VarNames_f,Coord,Values,FileString_f)
+         dim1,vecDim,nVal,NPlot,nElems,VarNames_f,Coord,Values,FileString_f(1:nchar1))
 
   end subroutine write_data_to_vtk_c
 
   subroutine init_gvec_to_gene_c(fileName) bind(c,name='init_gvec_to_gene')
     character(kind=C_CHAR, len=1), dimension(*) :: fileName
-    character(len=:), allocatable :: fileName_f
 
-    call c_to_f_string(fileName, fileName_f)
-    call init_gvec_to_gene(fileName_f)
+    character(len=256) :: fileName_f
+    integer :: nchar
+
+    nchar = get_c_string_length(fileName)
+
+    if(nchar.gt.256) stop "c string length is restricted to 256"
+
+    fileName_f = get_fortran_string(fileName,nchar)
+
+    call init_gvec_to_gene(fileName_f(1:nchar))
   end subroutine init_gvec_to_gene_c
 
   subroutine gvec_to_gene_coords_c( &
@@ -111,26 +124,29 @@ contains
 
     INTEGER(kind=C_INT), value :: dim1
     INTEGER(kind=C_INT),INTENT(IN) :: NPlot(dim1)
-   
+
     write(*,*) Nplot, "Nplot"
     write(*,*) "product", PRODUCT(Nplot+1)
- 
+
   end subroutine test_int_array_c
-   
+
 subroutine test_print_char_rank2_array_c(strlen,nval,varnames_c) &
        bind(c,name='test_print_char_rank2_array')
     integer(kind=C_INT), value, intent(in) :: nval, strlen
     character(kind=C_CHAR,len=1), intent(in) :: varnames_c(strlen,nval)
 
-    character(len=:), allocatable :: varname
     character(len=strlen) :: VarNames_f(nval)
+    character(len=strlen) :: varname
     integer(kind=C_INT) :: val
+    integer :: nchar
 
     write(*,*) "test_print_char_rank2_array nval: ", nval
     do val = 1, nval
-       call c_to_f_string(varnames_c(:,val),varname)
-       VarNames_f(val) = trim(varname)
-       write(*,*), val, ": VarNames_f: ", VarNames_f(val)
+      nchar = get_c_string_length(varnames_c(:,val))
+      if(nchar.gt.strlen) stop "c string length is restricted to strlen"
+      varname = get_fortran_string(varnames_c(:,val),nchar)
+      VarNames_f(val) = trim(varname(1:nchar))
+      write(*,*), val, ": VarNames_f: ", VarNames_f(val)
     end do
 
   end subroutine test_print_char_rank2_array_c
@@ -138,10 +154,16 @@ subroutine test_print_char_rank2_array_c(strlen,nval,varnames_c) &
   subroutine test_print_file_name_c(fileName) bind(c,name='test_print_file_name')
     character(kind=C_CHAR, len=1), dimension(*) :: fileName
 
-    character(len=:), allocatable :: fileName_f
+    character(len=256) :: fileName_f
+    integer :: nchar
 
-    call c_to_f_string(fileName, fileName_f)
-    write(*,*) "Tests: ", fileName_f
+    nchar = get_c_string_length(fileName)
+
+    if(nchar.gt.256) stop "c string length is restricted to 256"
+
+    fileName_f = get_fortran_string(fileName,nchar)
+
+    write(*,*) "Tests: ", fileName_f(1:nchar)
   end subroutine test_print_file_name_c
 
   subroutine test_pass_arrays_shift_c( &
@@ -165,22 +187,26 @@ subroutine test_print_char_rank2_array_c(strlen,nval,varnames_c) &
 
   !===================================================================================
 
-  subroutine c_to_f_string(s,f)
+  function get_c_string_length(s) result(nchars)
     character(kind=C_CHAR, len=1), intent(in) :: s(*)
-    character(len=:), allocatable, intent(out) :: f
     integer :: nchars
 
     nchars = 0
     do while( s(nchars+1).ne.C_NULL_CHAR )
-       nchars = nchars + 1
+      nchars = nchars + 1
     end do
+  end function get_c_string_length
 
-    allocate(character(len=nchars) :: f)
+  function get_fortran_string(s,nchars) result(f)
+    character(kind=C_CHAR, len=1), intent(in) :: s(*)
+    integer, intent(in) :: nchars
+    character(len=nchars) :: f
+
     if( storage_size(f).eq.storage_size(s)*nchars) then
-       f = transfer(s(1:nchars), f)
+      f = transfer(s(1:nchars), f)
     else
-       stop "can't transfer C_CHAR array to fortran character, do explicit copy!"
+      stop "can't transfer C_CHAR array to fortran character, do explicit copy!"
     end if
-  end subroutine c_to_f_string
+  end function get_fortran_string
 
 end module modgvec_gvec_to_gene_c_bind
