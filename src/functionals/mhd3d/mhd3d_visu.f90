@@ -433,6 +433,13 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
     theta1D(i_m)= TWOPI*REAL(i_m-1,wp)/REAL(mn_IP(1),wp)  !do not include periodic point
   END DO
 
+
+!$OMP PARALLEL DO &
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   REDUCTION(+:avgDist) REDUCTION(max:maxDist) &
+!$OMP   PRIVATE(i_m,i_n,xIP,q,theta,zeta,theta0,X1_visu,X2_visu,LA_visu,xU,xV,dist, &
+!$OMP           UX1_s,UX2_s,ULA_s,VX1_s,VX2_s,VLA_s,spos,iElem,i_s) &
+!$OMP   SHARED(nElems,n_s,mn_IP,theta1D,zeta1D,SFL_theta,X1_base,X2_base,LA_base,hmap,U,V,sgrid)
   DO iElem=1,nElems
     DO i_s=1,n_s
       spos=MAX(1.0e-06,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s,wp))*sgrid%ds(iElem)) !includes axis but not edge
@@ -444,11 +451,6 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
       ULA_s(:) = LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,0,U%LA(:,:))
       VLA_s(:) = LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,0,V%LA(:,:))
 
-!$OMP PARALLEL DO  COLLAPSE(2)     &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!$OMP   REDUCTION(+:avgDist) REDUCTION(max:maxDist) &
-!$OMP   PRIVATE(i_m,i_n,xIP,q,theta,zeta,theta0,X1_visu,X2_visu,LA_visu,xU,xV,dist ) &
-!$OMP   SHARED(mn_IP,theta1D,zeta1D,SFL_theta,X1_base,X2_base,LA_base,UX1_s,UX2_s,ULA_s,VX1_s,VX2_s,VLA_s,hmap)
       DO i_n=1,mn_IP(2)
           DO i_m=1,mn_IP(1)
             zeta  = zeta1D(i_n)
@@ -492,9 +494,9 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
             avgDist = avgDist+dist
           END DO !i_m
       END DO !i_n
-!OMP END PARALLEL DO
     END DO !i_s
   END DO !iElem
+!OMP$ END PARALLEL DO
   avgDist=avgDist/REAL(nElems*n_s*mn_IP(1)*mn_IP(2),wp)
 
   DEALLOCATE(theta1D,zeta1D)
