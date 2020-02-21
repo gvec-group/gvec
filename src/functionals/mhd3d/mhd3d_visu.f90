@@ -140,7 +140,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: i_s,j_s,i_m,i_n,iElem,nElems,nplot(3),minElem,maxElem
+  INTEGER  :: i_s,j_s,i_m,i_n,iElem,nElems,nplot(3),minElem,maxElem,n_s,mn_IP(2)
   REAL(wp) :: spos,xIP(2),q(3)
   REAL(wp) :: X1_s(X1_base%f%modes),F_X1_s(X1_base%f%modes),dX1ds(X1_base%f%modes)
   REAL(wp) :: X2_s(X2_base%f%modes),F_X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
@@ -193,7 +193,9 @@ IMPLICIT NONE
 
   var_visu=0.
 
-  ASSOCIATE(n_s=>np_in(1), mn_IP=>np_in(2:3) )
+  n_s=np_in(1)
+  mn_IP=np_in(2:3)
+
   DO i_m=1,mn_IP(1)
     DO j_s=1,n_s
       thet(j_s,i_m)=TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0)) &
@@ -235,7 +237,7 @@ IMPLICIT NONE
 !$OMP           X1_visu,dX1_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,    &
 !$OMP           X2_visu,dX2_ds_visu,dX2_dthet_visu,dX2_dzeta_visu,dLA_dthet_visu,dLA_dzeta_visu )  &
 !$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
-!$OMP          F_X1_s,F_X2_s,F_LA_s,hmap,coord_visu,var_visu,chiPrime_s,phiPrime_s)
+!$OMP          F_X1_s,F_X2_s,F_LA_s,hmap,coord_visu,var_visu,chiPrime_s,phiPrime_s,mn_IP,n_s)
       DO i_m=1,mn_IP(1)
         DO i_n=1,mn_IP(2)
           DO j_s=1,n_s
@@ -337,7 +339,6 @@ IMPLICIT NONE
   END IF
   __PERFOFF("write_visu")
   
-  END ASSOCIATE!n_s,mn_IP
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
   __PERFOFF("output_visu")
 END SUBROUTINE visu_3D

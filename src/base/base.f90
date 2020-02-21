@@ -216,7 +216,7 @@ IMPLICIT NONE
   REAL(wp)     ,INTENT(OUT   ) :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                      :: modes,nGP,nBase,mn_IP
+  INTEGER                      :: modes,nGP,nBase,mn_IP,deg,degGP,nElems
 #define PP_WHICHEVAL 110
   ! experimental optimization results, with OMP, give the ranking from slowest to fastest: 2 < 1 << 11 ~= 12 < 110  
   ! could change with the number of DOF in s and theta/zeta..., 
@@ -264,7 +264,10 @@ IMPLICIT NONE
   modes   = sf%f%modes  
   nBase   = sf%s%nBase
   mn_IP   = sf%f%mn_IP
-
+  deg     = sf%s%deg
+  degGP   = sf%s%degGP
+  nElems  = sf%s%grid%nElems
+  
 #if (PP_WHICHEVAL==1)
   !OMP loop version: first s then f
   __PERFON('eval_s')
@@ -307,7 +310,6 @@ IMPLICIT NONE
   ! matrix-matrix version of first s then f
 
   __PERFON('eval_s')
-  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
     DO iElem=1,nElems
@@ -324,7 +326,6 @@ IMPLICIT NONE
       __MATMAT_TT(y_tmp(:,i:i+degGP),DOFs(j:j+deg,:),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   END SELECT !deriv GP
-  END ASSOCIATE
   __PERFOFF('eval_s')
 
   __PERFON('eval_f')
@@ -345,7 +346,6 @@ IMPLICIT NONE
   ! matrix-matrix version of first s then f
 
   __PERFON('eval_s')
-  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
 !$OMP PARALLEL DO        &  
@@ -370,7 +370,6 @@ IMPLICIT NONE
     END DO!iMode
 !$OMP END PARALLEL DO
   END SELECT !deriv GP
-  END ASSOCIATE
   __PERFOFF('eval_s')
 
   __PERFON('eval_f')
@@ -411,7 +410,6 @@ IMPLICIT NONE
   __PERFOFF('eval_f')
 
   __PERFON('eval_s')
-  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
     DO iElem=1,nElems
@@ -428,7 +426,6 @@ IMPLICIT NONE
       __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   END SELECT !deriv GP
-  END ASSOCIATE
   __PERFOFF('eval_s')
 
 #elif (PP_WHICHEVAL==120)
@@ -445,7 +442,6 @@ IMPLICIT NONE
   __PERFOFF('eval_f')
 
   __PERFON('eval_s')
-  ASSOCIATE(deg=>sf%s%deg, degGP=>sf%s%degGP, nElems=>sf%s%grid%nElems)
   SELECT CASE(deriv(1))
   CASE(0)
 !$OMP PARALLEL DO        &  
@@ -470,7 +466,6 @@ IMPLICIT NONE
     END DO!i_mn
 !$OMP END PARALLEL DO
   END SELECT !deriv GP
-  END ASSOCIATE
   __PERFOFF('eval_s')
 #endif /*PP_WHICHEVAL*/
 
