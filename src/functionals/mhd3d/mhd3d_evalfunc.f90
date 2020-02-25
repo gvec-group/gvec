@@ -133,30 +133,24 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   ALLOCATE(g_zz(        mn_IP,nGP) )
  
   IF(PrecondType.GT.0)THEN
-    ASSOCIATE(modes => X1_Base%f%modes, nBase => X1_Base%s%nBase, deg => X1_base%s%deg   )
-    ALLOCATE(sll_t_spline_matrix_banded :: precond_X1(modes))
+    ALLOCATE(sll_t_spline_matrix_banded :: precond_X1( X1_Base%f%modes))
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
-    DO iMode=1,modes
-      CALL precond_X1(iMode)%init(nBase,deg,deg)
+    DO iMode=1, X1_Base%f%modes
+      CALL precond_X1(iMode)%init(X1_Base%s%nBase,X1_Base%s%deg,X1_Base%s%deg)
     END DO !iMode
     END SELECT !TYPE
-    END ASSOCIATE !X1
-    ASSOCIATE(modes => X2_Base%f%modes, nBase => X2_Base%s%nBase, deg => X2_base%s%deg   )
-    ALLOCATE(sll_t_spline_matrix_banded :: precond_X2(modes))
+    ALLOCATE(sll_t_spline_matrix_banded :: precond_X2(X2_Base%f%modes))
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
-    DO iMode=1,modes
-      CALL precond_X2(iMode)%init(nBase,deg,deg)
+    DO iMode=1,X2_Base%f%modes
+      CALL precond_X2(iMode)%init(X2_Base%s%nBase,X2_Base%s%deg,X2_Base%s%deg)
     END DO !iMode
     END SELECT !TYPE
-    END ASSOCIATE !X2
-    ASSOCIATE(modes => LA_Base%f%modes, nBase => LA_Base%s%nBase, deg => LA_base%s%deg   )
-    ALLOCATE(sll_t_spline_matrix_banded :: precond_LA(modes))
+    ALLOCATE(sll_t_spline_matrix_banded :: precond_LA(LA_Base%f%modes))
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
-    DO iMode=1,modes
-      CALL precond_LA(iMode)%init(nBase,deg,deg)
+    DO iMode=1,LA_Base%f%modes
+      CALL precond_LA(iMode)%init(LA_Base%s%nBase,LA_Base%s%deg,LA_Base%s%deg)
     END DO !iMode
     END SELECT !TYPE
-    END ASSOCIATE !LA
   END IF !PrecondType>0
 
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -460,7 +454,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO 
   __PERFOFF('loop_prepare')
 
-  ASSOCIATE(F_X1=>F_MHD3D%X1)
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
   deg   = X1_base%s%deg
@@ -533,11 +526,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
   DO iMode=1,modes
-    F_X1(:,iMode)=0.0_wp
+    F_MHD3D%X1(:,iMode)=0.0_wp
     DO iElem=1,nElems
       iGP=(iElem-1)*(degGP+1)+1  
       ibase=X1_base%s%base_offset(iElem)
-      F_X1(iBase:iBase+deg,iMode) = F_X1(iBase:iBase+deg,iMode) &
+      F_MHD3D%X1(iBase:iBase+deg,iMode) = F_MHD3D%X1(iBase:iBase+deg,iMode) &
                                     + MATMUL(F_X1_GP_IP(  iGP:iGP+degGP,iMode),X1_base%s%base_GP(   0:degGP,0:deg,iElem)) & 
                                     + MATMUL(F_X1ds_GP_IP(iGP:iGP+degGP,iMode),X1_base%s%base_ds_GP(0:degGP,0:deg,iElem)) 
     END DO !iElem
@@ -547,24 +540,29 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('apply_precond')
 !$OMP PARALLEL DO & 
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(modes,F_MHD3D,X1_BC_type,X1_base) PRIVATE(iMode)
   DO iMode=1,modes
-    CALL X1_base%s%applyBCtoRHS(F_X1(:,iMode),X1_BC_type(:,iMode))
+    CALL X1_base%s%applyBCtoRHS(F_MHD3D%X1(:,iMode),X1_BC_type(:,iMode))
   END DO !iMode
 !$OMP END PARALLEL DO 
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
 !$OMP PARALLEL DO &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &      
+!$OMP   SHARED(modes,nBase,F_MHD3D,precond_X1)
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
     DO iMode=1,modes
-      CALL ApplyPrecond(nBase,precond_X1(iMode),F_X1(:,iMode))
+      CALL ApplyPrecond(nBase,precond_X1(iMode),F_MHD3D%X1(:,iMode))
     END DO !iMode
 !$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_X1)
   END IF !PrecondType.GT.0
   __PERFOFF('apply_precond')
 
-  END ASSOCIATE !F_X1
 
   __PERFOFF('EvalForce_modes1')
 
@@ -620,7 +618,6 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO 
   __PERFOFF('loop_prep_coefs')
 
-  ASSOCIATE(F_X2=>F_MHD3D%X2)
   nBase = X2_base%s%nBase 
   modes = X2_base%f%modes
   deg   = X2_base%s%deg
@@ -642,11 +639,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
   DO iMode=1,modes
-    F_X2(:,iMode)=0.0_wp
+    F_MHD3D%X2(:,iMode)=0.0_wp
     DO iElem=1,nElems
       iGP=(iElem-1)*(degGP+1)+1  
       ibase=X2_base%s%base_offset(iElem)
-      F_X2(iBase:iBase+deg,iMode) = F_X2(iBase:iBase+deg,iMode) &
+      F_MHD3D%X2(iBase:iBase+deg,iMode) = F_MHD3D%X2(iBase:iBase+deg,iMode) &
                                     + MATMUL(F_X2_GP_IP(  iGP:iGP+degGP,iMode),X2_base%s%base_GP(   0:degGP,0:deg,iElem)) & 
                                     + MATMUL(F_X2ds_GP_IP(iGP:iGP+degGP,iMode),X2_base%s%base_ds_GP(0:degGP,0:deg,iElem)) 
     END DO !iElem
@@ -656,17 +653,23 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('apply_precond')
 !$OMP PARALLEL DO &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(modes,X2_base,F_MHD3D,X2_BC_type) PRIVATE(iMode)
   DO iMode=1,modes
-    CALL X2_base%s%applyBCtoRHS(F_X2(:,iMode),X2_BC_type(:,iMode))
+    CALL X2_base%s%applyBCtoRHS(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode))
   END DO !iMode
 !$OMP END PARALLEL DO 
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
 !$OMP PARALLEL DO &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &      
+!$OMP   SHARED(modes,nBase,precond_X2,F_MHD3D) 
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
     DO iMode=1,modes
-      CALL ApplyPrecond(nBase,precond_X2(iMode),F_X2(:,iMode))
+      CALL ApplyPrecond(nBase,precond_X2(iMode),F_MHD3D%X2(:,iMode))
     END DO !iMode
 !$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_X2)
@@ -674,11 +677,10 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFOFF('apply_precond')
 
 
-  END ASSOCIATE !F_X2
   __PERFOFF('EvalForce_modes2')
 
   __PERFON('EvalForce_modes3')
-  ASSOCIATE(F_LA=>F_MHD3D%LA)
+
   nBase = LA_base%s%nBase 
   modes = LA_base%f%modes
   deg   = LA_base%s%deg
@@ -698,11 +700,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
   DO iMode=1,modes
-    F_LA(:,iMode)=0.0_wp
+    F_MHD3D%LA(:,iMode)=0.0_wp
     DO iElem=1,nElems
       iGP=(iElem-1)*(degGP+1)+1  
       ibase=LA_base%s%base_offset(iElem)
-      F_LA(iBase:iBase+deg,iMode) = F_LA(iBase:iBase+deg,iMode) &
+      F_MHD3D%LA(iBase:iBase+deg,iMode) = F_MHD3D%LA(iBase:iBase+deg,iMode) &
                                     + MATMUL(F_LA_GP_IP(iGP:iGP+degGP,iMode),LA_base%s%base_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   END DO !iMode
@@ -711,25 +713,30 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('apply_precond')
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(modes,LA_base,F_MHD3D,LA_BC_type) PRIVATE(iMode)
   DO iMode=1,modes
-    CALL LA_base%s%applyBCtoRHS(F_LA(:,iMode),LA_BC_type(:,iMode))
+    CALL LA_base%s%applyBCtoRHS(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode))
   END DO !iMode
 !$OMP END PARALLEL DO 
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &      
+!$OMP   SHARED(modes,nBase,precond_LA,F_MHD3D)
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
     DO iMode=1,modes
-      CALL ApplyPrecond(nBase,precond_LA(iMode),F_LA(:,iMode))
+      CALL ApplyPrecond(nBase,precond_LA(iMode),F_MHD3D%LA(:,iMode))
     END DO !iMode
 !$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_LA)
   ELSE
-    CALL LA_base%s%mass%solve_inplace(modes,F_LA(:,:))
+    CALL LA_base%s%mass%solve_inplace(modes,F_MHD3D%LA(:,:))
   END IF !PrecondType.GT.0
   __PERFOFF('apply_precond')
-  END ASSOCIATE !F_LA
 
   __PERFOFF('EvalForce_modes3')
 
@@ -776,7 +783,7 @@ SUBROUTINE ApplyBC_Fstrong(F_MHD3D)
   
   !X1 BC
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(X1_base,F_MHD3D,X1_BC_type,BC_val) PRIVATE(iMode)
   DO imode=1,X1_base%f%modes
     CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
   END DO 
@@ -784,7 +791,7 @@ SUBROUTINE ApplyBC_Fstrong(F_MHD3D)
   
   !X2 BC
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(X2_base,F_MHD3D,X2_BC_type,BC_val) PRIVATE(iMode)
   DO imode=1,X2_base%f%modes
     CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
   END DO 
@@ -792,7 +799,7 @@ SUBROUTINE ApplyBC_Fstrong(F_MHD3D)
   
   !LA BC
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(LA_base,F_MHD3D,LA_BC_type,BC_val) PRIVATE(iMode)
   DO imode=1,LA_base%f%modes
     CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
   END DO 
@@ -902,9 +909,16 @@ SUBROUTINE BuildPrecond()
 
   __PERFON('modes_loop_1')
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
+!$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &
+!$OMP   SHARED(X1_base,precond_X1,w_GP,DX1,DX1_tt,DX1_tz,DX1_zz,DX1_ss,X1_BC_Type, &
+!$OMP          modes,nElems,deg,degGP,nBase) 
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
   DO iMode=1,modes
     norm_mn=1.0_wp/X1_base%f%snorm_base(iMode)
     CALL precond_X1(iMode)%reset() !set all values to zero
@@ -975,9 +989,16 @@ SUBROUTINE BuildPrecond()
 
   __PERFON('modes_loop_2')
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
+!$OMP   SCHEDULE(STATIC)  &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &
+!$OMP   SHARED(X2_base,precond_X2,w_GP,DX2,DX2_tt,DX2_tz,DX2_zz,DX2_ss,X2_BC_Type, &
+!$OMP          modes,nElems,deg,degGP,nBase) 
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
   DO iMode=1,modes
     norm_mn=1.0_wp/X2_base%f%snorm_base(iMode)
     CALL precond_X2(iMode)%reset() !set all values to zero
@@ -1044,9 +1065,16 @@ SUBROUTINE BuildPrecond()
 
   __PERFON('modes_loop_3')
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
+!$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &
+!$OMP   SHARED(LA_base,precond_LA,w_GP,DLA_tt,DLA_tz,DLA_zz,LA_BC_Type, &
+!$OMP          modes,nElems,deg,degGP,nBase,nGP) 
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
   DO iMode=1,modes
     norm_mn=1.0_wp/LA_base%f%snorm_base(iMode)
     CALL precond_LA(iMode)%reset() !set all values to zero
@@ -1113,42 +1141,54 @@ SUBROUTINE BuildPrecond()
 !  WRITE(*,*)'    ---> FACTORIZE PRECONDITIONER MATRICES ...'
 
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
-  ASSOCIATE(modes => X1_Base%f%modes)
   __PERFON('modes_loop_4')
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
-  DO iMode=1,modes
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &
+!$OMP   SHARED(precond_X1,X1_Base)
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
+  DO iMode=1,X1_Base%f%modes
     CALL precond_X1(iMode)%factorize()
   END DO !iMode
 !$OMP END PARALLEL DO 
   __PERFOFF('modes_loop_4')
-  END ASSOCIATE !X1
   END SELECT !TYPE
 
   SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
-  ASSOCIATE(modes => X2_Base%f%modes)
   __PERFON('modes_loop_5')
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
-  DO iMode=1,modes
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &
+!$OMP   SHARED(precond_X2,X2_Base)
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
+  DO iMode=1,X2_Base%f%modes
     CALL precond_X2(iMode)%factorize()
   END DO !iMode
 !$OMP END PARALLEL DO 
   __PERFOFF('modes_loop_5')
-  END ASSOCIATE !X2
   END SELECT !TYPE
 
   SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
-  ASSOCIATE(modes => LA_Base%f%modes)
   __PERFON('modes_loop_6')
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
-  DO iMode=1,modes
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) &
+!$OMP   SHARED(precond_LA,LA_Base)
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif       
+  DO iMode=1,LA_Base%f%modes
     CALL precond_LA(iMode)%factorize()
   END DO !iMode
 !$OMP END PARALLEL DO 
   __PERFOFF('modes_loop_6')
-  END ASSOCIATE !LA
   END SELECT !TYPE
 
 END SUBROUTINE BuildPrecond
