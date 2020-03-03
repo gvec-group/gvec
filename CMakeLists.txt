@@ -176,6 +176,16 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
   # add flags only for compiling not linking!
   SET (MAIN_COMPILE_FLAGS "-F")
 
+ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
+  # set Flags
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
+  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O3")
+  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
+  # add flags only for compiling not linking!
+  SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
+
+
 ELSE()
    MESSAGE(SEND_ERROR " Unknown compiler")
 ENDIF()
