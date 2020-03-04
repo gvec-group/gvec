@@ -158,7 +158,7 @@ variables:
     - rm -rf build_${CURR_CMP}_${CMP_MODE}; mv ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/build_${CURR_CMP}_${CMP_MODE} .
     - rm -rf shortruns_${CURR_CMP}_${CMP_MODE} ; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}
     - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE} build_${CURR_CMP}_${CMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}
-   after_script:
+  after_script:
     - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}
     - mv shortruns_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/.
   artifacts:
