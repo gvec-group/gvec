@@ -156,15 +156,15 @@ variables:
   stage: short_runs
   script:
     - rm -rf build_${CURR_CMP}_${CMP_MODE}; mv ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/build_${CURR_CMP}_${CMP_MODE} .
-    - rm -rf shortruns_${CURR_CMP}_${CMP_MODE} ; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}
+    - rm -rf shortruns_${CURR_CMP}_${CMP_MODE} ; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE} ; pwd
     - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE} build_${CURR_CMP}_${CMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}
   after_script:
     - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}
-    - mv shortruns_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/.
+    - cp shortruns_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/.
   artifacts:
     <<: *common_arts
     paths:
-    - ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/shortruns_${CURR_CMP}_${CMP_MODE} 
+    - shortruns_${CURR_CMP}_${CMP_MODE} 
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "cleanup"
