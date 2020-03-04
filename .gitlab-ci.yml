@@ -120,7 +120,7 @@ variables:
   script:
     - echo ${RUNNERNAME} "RUNNER WARM-UP"
     - echo "create" ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}
-    - mkdir -p ${GLOBAL_CACHE_PATH}_${CURR_CMP}_{CMP_MODE}
+    - mkdir -p ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build"
@@ -136,15 +136,15 @@ variables:
 .tmpl_script_build: &script_build
   stage: build
   script:
-    - rm -rf build_${CURR_CMP}_{CMP_MODE} ; mkdir -p build_${CURR_CMP}_{CMP_MODE}
-    - cd build_${CURR_CMP}_{CMP_MODE}; pwd
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=ON  ../. |tee ../log_build_${CURR_CMP}_{CMP_MODE}.cmake 
-    - make -j |tee ../log_build_${CURR_CMP}_{CMP_MODE}.make
-    - cd .. ; mv build_${CURR_CMP}_{CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_{CMP_MODE}/. 
+    - rm -rf build_${CURR_CMP}_${CMP_MODE} ; mkdir -p build_${CURR_CMP}_${CMP_MODE}
+    - cd build_${CURR_CMP}_${CMP_MODE}; pwd
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=ON  ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}.cmake 
+    - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}.make
+    - cd .. ; mv build_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/. 
   artifacts:
     <<: *common_arts
     paths:
-    - log_build_${CURR_CMP}_{CMP_MODE}.* 
+    - log_build_${CURR_CMP}_${CMP_MODE}.* 
 
 
 # =================================================================================================================================
@@ -163,7 +163,7 @@ variables:
   artifacts:
     <<: *common_arts
     paths:
-    - log_shortruns_${CURR_CMP}_{CMP_MODE}
+    - log_shortruns_${CURR_CMP}_${CMP_MODE}
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "cleanup"
