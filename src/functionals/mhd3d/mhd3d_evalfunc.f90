@@ -239,6 +239,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
           'EvalAux: Jacobian smaller that  1.0e-12!!!' )
     CASE(2) !quiet check, give back 
       JacCheck=-1
+      __PERFOFF('EvalAux')
       RETURN
     END SELECT
   ELSE
@@ -342,6 +343,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
     IF(JacCheck.EQ.-1) THEN
       W_MHD3D=1.0e30_wp
       SWRITE(UNIT_stdOut,'(A,E21.11)')'... detJ<0'
+      __PERFOFF('EvalEnergy')
       RETURN !accept detJ<0
     END IF
   ELSE
@@ -742,6 +744,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   IF(PRESENT(noBC))THEN
     IF(noBC)THEN
+      __PERFOFF('EvalForce')
       RETURN !DEBUG
     END IF
   END IF

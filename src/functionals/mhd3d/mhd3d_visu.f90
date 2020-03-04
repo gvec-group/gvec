@@ -156,7 +156,6 @@ IMPLICIT NONE
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
-  __PERFON("output_visu")
   IF(only_planes)THEN
     SWRITE(UNIT_stdOut,'(A)') 'Start visu planes...'
   ELSE
@@ -175,6 +174,7 @@ IMPLICIT NONE
       'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
+  __PERFON("output_visu")
   __PERFON("prepare_visu")
   VarNames( 1)="lambda"
   VarNames( 2)="sqrtG"
