@@ -160,7 +160,7 @@ variables:
     - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE} build_${CURR_CMP}_${CMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}
   after_script:
     - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}
-    - cp shortruns_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/.
+    - cp -r shortruns_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/.
   artifacts:
     <<: *common_arts
     paths:
@@ -259,6 +259,7 @@ IPP_gnu_release_short_runs:
 # =================================================================================================================================
 # Stage "cleanup"
 # =================================================================================================================================
+
 IPP_intel_debug_cleanup_cache:
   needs: ["IPP_intel_debug_short_runs"]
   <<: *IPP_setup_intel_debug
