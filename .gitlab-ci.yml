@@ -146,9 +146,7 @@ variables:
   script:
     - rm -rf build_${CURR_CMP}_${CMP_MODE} ; mkdir -p build_${CURR_CMP}_${CMP_MODE}
     - cd build_${CURR_CMP}_${CMP_MODE}; pwd
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} 
-      -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON 
-      -DUSE_OPENMP=${OMP_BUILD}  ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}.cmake 
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_BUILD}  ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}.cmake 
     - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}.make
     - cd .. ; mv build_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/. 
   artifacts:
