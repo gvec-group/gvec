@@ -98,6 +98,7 @@ else:
     casename="restart_simulation"
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/gvec "+ restartparam + " " + restartFile
+    print(cmd)
     os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
     checkerr = check_stderr("std_"+casename+".err")
     checkout = check_stdout("std_"+casename+".out","GVEC SUCESSFULLY FINISHED!")
@@ -117,6 +118,7 @@ else:
     casename="gvec_to_hopr"
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/test_gvec_to_hopr " + restartFile
+    print(cmd)
     os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
     checkerr = check_stderr("std_"+casename+".err")
     checkout = check_stdout("std_"+casename+".out","TEST GVEC TO HOPR FINISHED!")
@@ -135,6 +137,7 @@ else:
     casename="gvec_to_gene"
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/test_gvec_to_gene " + restartFile
+    print(cmd)
     os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
     checkerr = check_stderr("std_"+casename+".err")
     checkout = check_stdout("std_"+casename+".out","GVEC_TO_GENE FINISHED!")
@@ -153,6 +156,7 @@ else:
     casename="convert_gvec_to_castor3d"
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/convert_gvec_to_castor3d -r 100 -s 2 " + restartFile + " gvec2castor3d_boozer_output.dat"
+    print(cmd)
     os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
     checkerr = check_stderr("std_"+casename+".err")
     checkout = check_stdout("std_"+casename+".out","CONVERT GVEC TO CASTOR3D FINISHED!")
