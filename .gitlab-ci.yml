@@ -49,7 +49,7 @@ variables:
     RUNNERNAME: IPP
     CURR_CMP: intel
     CMP_MODE: Debug
-    OMP_MODE: what
+    OMP_MODE: On
   <<: *IPP_setup_intel
 
 .tmpl_IPP_setup_intel_build_debug_omp: &IPP_setup_intel_build_debug_omp
