@@ -201,13 +201,13 @@ variables:
 # Stage "startup"
 # =================================================================================================================================
 
-#IPP_intel_debug_omp_startup:
-#  <<: *IPP_setup_intel_debug_omp
-#  <<: *script_startup
-#
-#IPP_intel_release_omp_startup:
-#  <<: *IPP_setup_intel_release_omp
-#  <<: *script_startup
+IPP_intel_debug_omp_startup:
+  <<: *IPP_setup_intel_debug_omp
+  <<: *script_startup
+
+IPP_intel_release_omp_startup:
+  <<: *IPP_setup_intel_release_omp
+  <<: *script_startup
 
 IPP_gnu_debug_omp_startup:
   <<: *IPP_setup_gnu_debug_omp
@@ -221,15 +221,15 @@ IPP_gnu_release_omp_startup:
 # Stage "build"
 # =================================================================================================================================
 
-#IPP_build_intel_debug_omp:
-#  needs: ["IPP_intel_debug_omp_startup"]
-#  <<: *IPP_setup_build_intel_debug_omp
-#  <<: *script_build
-#
-#IPP_build_intel_release_omp:
-#  needs: ["IPP_intel_release_omp_startup"]
-#  <<: *IPP_setup_build_intel_release_omp
-#  <<: *script_build
+IPP_build_intel_debug_omp:
+  needs: ["IPP_intel_debug_omp_startup"]
+  <<: *IPP_setup_build_intel_debug_omp
+  <<: *script_build
+
+IPP_build_intel_release_omp:
+  needs: ["IPP_intel_release_omp_startup"]
+  <<: *IPP_setup_build_intel_release_omp
+  <<: *script_build
 
 IPP_build_gnu_debug_omp:
   needs: ["IPP_gnu_debug_omp_startup"]
@@ -246,15 +246,15 @@ IPP_build_gnu_release_omp:
 # Stage "short_runs"
 # =================================================================================================================================
 
-#IPP_intel_debug_omp_short_runs:
-#  needs: ["IPP_build_intel_debug_omp"]
-#  <<: *IPP_setup_intel_debug_omp
-#  <<: *script_short_runs
-#
-#IPP_intel_release_omp_short_runs:
-#  needs: ["IPP_build_intel_release_omp"]
-#  <<: *IPP_setup_intel_release_omp
-#  <<: *script_short_runs
+IPP_intel_debug_omp_short_runs:
+  needs: ["IPP_build_intel_debug_omp"]
+  <<: *IPP_setup_intel_debug_omp
+  <<: *script_short_runs
+
+IPP_intel_release_omp_short_runs:
+  needs: ["IPP_build_intel_release_omp"]
+  <<: *IPP_setup_intel_release_omp
+  <<: *script_short_runs
 
 IPP_gnu_debug_omp_short_runs:
   needs: ["IPP_build_gnu_debug_omp"]
@@ -270,15 +270,15 @@ IPP_gnu_release_omp_short_runs:
 # Stage "cleanup"
 # =================================================================================================================================
 
-#IPP_intel_debug_omp_cleanup_cache:
-#  needs: ["IPP_intel_debug_omp_short_runs"]
-#  <<: *IPP_setup_intel_debug_omp
-#  <<: *script_cleanup
-#
-#IPP_intel_release_omp_cleanup_cache:
-#  needs: ["IPP_intel_release_omp_short_runs"]
-#  <<: *IPP_setup_intel_release_omp
-#  <<: *script_cleanup
+IPP_intel_debug_omp_cleanup_cache:
+  needs: ["IPP_intel_debug_omp_short_runs"]
+  <<: *IPP_setup_intel_debug_omp
+  <<: *script_cleanup
+
+IPP_intel_release_omp_cleanup_cache:
+  needs: ["IPP_intel_release_omp_short_runs"]
+  <<: *IPP_setup_intel_release_omp
+  <<: *script_cleanup
 
 IPP_gnu_debug_omp_cleanup_cache:
   needs: ["IPP_gnu_debug_omp_short_runs"]
