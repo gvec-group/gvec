@@ -117,6 +117,7 @@ IF(switchZeta)THEN
   END DO !iMode=1,mn_mode_nyq
   !since sign of zeta has changed, swap sign of Jacobian, too.
   gmnc=-gmnc
+  IF(lasym) gmns=-gmns
 
   ! also iota must change sign, since its sign depend on the coordinate system
   iotaf=-iotaf
@@ -191,6 +192,7 @@ IF(reLambda)THEN
   np_n=1+nyq*2*(NINT(MAXVAL(ABS(xn)))/(2*nfp)) !n_points [0,2pi/nfs] ->  
   !recompute lambda on FULL GRID
   CALL RecomputeLambda(np_m,np_n) 
+  lambda_grid="full"
   CALL           FitSpline(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
   IF(lasym) CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
 ELSE
@@ -214,11 +216,11 @@ CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
 
 ALLOCATE(Phi_spl(4,1:nFluxVMEC))
 Phi_spl(1,:)=Phi_Prof(:)
-CALL SPLINE1_FIT(nFluxVMEC,rho,Phi_Spl(:,:), K_BC1=3, K_BCN=0)
+CALL SPLINE1_FIT(nFluxVMEC,rho,Phi_Spl(:,:), K_BC1=0, K_BCN=0)
 
 ALLOCATE(chi_spl(4,1:nFluxVMEC))
 chi_spl(1,:)=chi_Prof(:)
-CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=3, K_BCN=0)
+CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=0, K_BCN=0)
 
 ALLOCATE(iota_spl(4,1:nFluxVMEC))
 iota_spl(1,:)=iotaf(:)
