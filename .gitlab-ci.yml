@@ -52,7 +52,7 @@ variables:
     OMP_MODE: "ON"
   <<: *IPP_setup_intel
 
-.tmpl_IPP_setup_intel_build_debug_omp: &IPP_setup_intel_build_debug_omp
+.tmpl_IPP_setup_build_intel_debug_omp: &IPP_setup_build_intel_debug_omp
   variables:
     RUNNERNAME: "IPP"
     CURR_CMP: "intel"
@@ -69,7 +69,7 @@ variables:
     OMP_MODE: "ON"
   <<: *IPP_setup_intel
 
-.tmpl_IPP_setup_intel_build_release_omp: &IPP_setup_intel_build_release_omp
+.tmpl_IPP_setup_build_intel_release_omp: &IPP_setup_build_intel_release_omp
   variables:
     RUNNERNAME: "IPP"
     CURR_CMP: "intel"
@@ -92,7 +92,7 @@ variables:
     OMP_MODE: "ON"
   <<: *IPP_setup_gnu
 
-.tmpl_IPP_setup_gnu_build_debug_omp: &IPP_setup_gnu_build_debug_omp
+.tmpl_IPP_setup_build_gnu_debug_omp: &IPP_setup_build_gnu_debug_omp
   variables:
     RUNNERNAME: "IPP"
     CURR_CMP: "gnu"
@@ -109,7 +109,7 @@ variables:
     OMP_MODE: "ON"
   <<: *IPP_setup_gnu
 
-.tmpl_IPP_setup_gnu_build_release_omp: &IPP_setup_gnu_build_release_omp
+.tmpl_IPP_setup_build_gnu_release_omp: &IPP_setup_build_gnu_release_omp
   variables:
     RUNNERNAME: "IPP"
     CURR_CMP: "gnu"
@@ -148,7 +148,7 @@ variables:
     - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
     - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.cmake 
     - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.make
-    - cd .. ; mv build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/. 
+    - cd .. ; cp build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/. 
   artifacts:
     <<: *common_arts
     paths:
@@ -164,7 +164,7 @@ variables:
   stage: short_runs
   script:
     - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-    - mv ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} .
+    - cp ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} .
     - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
     - mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ; pwd
     - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
@@ -201,13 +201,13 @@ variables:
 # Stage "startup"
 # =================================================================================================================================
 
-IPP_intel_debug_omp_startup:
-  <<: *IPP_setup_intel_debug_omp
-  <<: *script_startup
-
-IPP_intel_release_omp_startup:
-  <<: *IPP_setup_intel_release_omp
-  <<: *script_startup
+#IPP_intel_debug_omp_startup:
+#  <<: *IPP_setup_intel_debug_omp
+#  <<: *script_startup
+#
+#IPP_intel_release_omp_startup:
+#  <<: *IPP_setup_intel_release_omp
+#  <<: *script_startup
 
 IPP_gnu_debug_omp_startup:
   <<: *IPP_setup_gnu_debug_omp
@@ -221,24 +221,24 @@ IPP_gnu_release_omp_startup:
 # Stage "build"
 # =================================================================================================================================
 
-IPP_intel_build_debug_omp:
-  needs: ["IPP_intel_debug_omp_startup"]
-  <<: *IPP_setup_intel_build_debug_omp
-  <<: *script_build
+#IPP_build_intel_debug_omp:
+#  needs: ["IPP_intel_debug_omp_startup"]
+#  <<: *IPP_setup_build_intel_debug_omp
+#  <<: *script_build
+#
+#IPP_build_intel_release_omp:
+#  needs: ["IPP_intel_release_omp_startup"]
+#  <<: *IPP_setup_build_intel_release_omp
+#  <<: *script_build
 
-IPP_intel_build_release_omp:
-  needs: ["IPP_intel_release_omp_startup"]
-  <<: *IPP_setup_intel_build_release_omp
-  <<: *script_build
-
-IPP_gnu_build_debug_omp:
+IPP_build_gnu_debug_omp:
   needs: ["IPP_gnu_debug_omp_startup"]
-  <<: *IPP_setup_gnu_build_debug_omp
+  <<: *IPP_setup_build_gnu_debug_omp
   <<: *script_build
 
-IPP_gnu_build_release_omp:
+IPP_build_gnu_release_omp:
   needs: ["IPP_gnu_release_omp_startup"]
-  <<: *IPP_setup_gnu_build_release_omp
+  <<: *IPP_setup_build_gnu_release_omp
   <<: *script_build
 
 
@@ -246,23 +246,23 @@ IPP_gnu_build_release_omp:
 # Stage "short_runs"
 # =================================================================================================================================
 
-IPP_intel_debug_omp_short_runs:
-  needs: ["IPP_intel_build_debug_omp"]
-  <<: *IPP_setup_intel_debug_omp
-  <<: *script_short_runs
-
-IPP_intel_release_omp_short_runs:
-  needs: ["IPP_intel_build_release_omp"]
-  <<: *IPP_setup_intel_release_omp
-  <<: *script_short_runs
+#IPP_intel_debug_omp_short_runs:
+#  needs: ["IPP_build_intel_debug_omp"]
+#  <<: *IPP_setup_intel_debug_omp
+#  <<: *script_short_runs
+#
+#IPP_intel_release_omp_short_runs:
+#  needs: ["IPP_build_intel_release_omp"]
+#  <<: *IPP_setup_intel_release_omp
+#  <<: *script_short_runs
 
 IPP_gnu_debug_omp_short_runs:
-  needs: ["IPP_gnu_build_debug_omp"]
+  needs: ["IPP_build_gnu_debug_omp"]
   <<: *IPP_setup_gnu_debug_omp
   <<: *script_short_runs
 
 IPP_gnu_release_omp_short_runs:
-  needs: ["IPP_gnu_build_release_omp"]
+  needs: ["IPP_build_gnu_release_omp"]
   <<: *IPP_setup_gnu_release_omp
   <<: *script_short_runs
 
@@ -270,15 +270,15 @@ IPP_gnu_release_omp_short_runs:
 # Stage "cleanup"
 # =================================================================================================================================
 
-IPP_intel_debug_omp_cleanup_cache:
-  needs: ["IPP_intel_debug_omp_short_runs"]
-  <<: *IPP_setup_intel_debug_omp
-  <<: *script_cleanup
-
-IPP_intel_release_omp_cleanup_cache:
-  needs: ["IPP_intel_release_omp_short_runs"]
-  <<: *IPP_setup_intel_release_omp
-  <<: *script_cleanup
+#IPP_intel_debug_omp_cleanup_cache:
+#  needs: ["IPP_intel_debug_omp_short_runs"]
+#  <<: *IPP_setup_intel_debug_omp
+#  <<: *script_cleanup
+#
+#IPP_intel_release_omp_cleanup_cache:
+#  needs: ["IPP_intel_release_omp_short_runs"]
+#  <<: *IPP_setup_intel_release_omp
+#  <<: *script_cleanup
 
 IPP_gnu_debug_omp_cleanup_cache:
   needs: ["IPP_gnu_debug_omp_short_runs"]
