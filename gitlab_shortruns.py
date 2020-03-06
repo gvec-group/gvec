@@ -155,7 +155,7 @@ else:
   if(cases[0]==0 or (caseID in cases)) :
     casename="convert_gvec_to_castor3d"
     print("running caseID %d ,%s ... " % (caseID,casename))
-    cmd="../"+builddir+"/bin/convert_gvec_to_castor3d -r 100 -s 2 " + restartFile + " gvec2castor3d_boozer_output.dat"
+    cmd="../"+builddir+"/bin/convert_gvec_to_castor3d -r 15 -s 2 " + restartFile + " gvec2castor3d_boozer_output.dat"
     print(cmd)
     os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
     checkerr = check_stderr("std_"+casename+"_err.txt")

@@ -44,6 +44,23 @@ variables:
     - . ~/environments/modules_for_gvec_intel ; pwd
     - export OMP_NUM_THREADS=2
 
+.tmpl_IPP_setup_intel_debug_noomp: &IPP_setup_intel_debug_noomp
+  variables:
+    RUNNERNAME: "IPP"
+    CURR_CMP: "intel"
+    CMP_MODE: "Debug"
+    OMP_MODE: "OFF"
+  <<: *IPP_setup_intel
+
+.tmpl_IPP_setup_build_intel_debug_noomp: &IPP_setup_build_intel_debug_noomp
+  variables:
+    RUNNERNAME: "IPP"
+    CURR_CMP: "intel"
+    CMP_MODE: "Debug"
+    OMP_MODE: "OFF"
+    GIT_STRATEGY: clone
+  <<: *IPP_setup_intel
+
 .tmpl_IPP_setup_intel_debug_omp: &IPP_setup_intel_debug_omp
   variables:
     RUNNERNAME: "IPP"
@@ -83,6 +100,23 @@ variables:
   before_script:
     - . ~/environments/modules_for_gvec_gnu ; pwd
     - export OMP_NUM_THREADS=2
+
+.tmpl_IPP_setup_gnu_debug_noomp: &IPP_setup_gnu_debug_noomp
+  variables:
+    RUNNERNAME: "IPP"
+    CURR_CMP: "gnu"
+    CMP_MODE: "Debug"
+    OMP_MODE: "OFF"
+  <<: *IPP_setup_gnu
+
+.tmpl_IPP_setup_build_gnu_debug_noomp: &IPP_setup_build_gnu_debug_noomp
+  variables:
+    RUNNERNAME: "IPP"
+    CURR_CMP: "gnu"
+    CMP_MODE: "Debug"
+    OMP_MODE: "OFF"
+    GIT_STRATEGY: clone
+  <<: *IPP_setup_gnu
 
 .tmpl_IPP_setup_gnu_debug_omp: &IPP_setup_gnu_debug_omp
   variables:
@@ -148,7 +182,8 @@ variables:
     - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
     - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.cmake 
     - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.make
-    - cd .. ; cp -r build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/. 
+    - cd .. 
+#    - cp -r build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/. 
   artifacts:
     <<: *common_arts
     paths:
@@ -163,14 +198,14 @@ variables:
 .tmpl_script_short_runs: &script_short_runs
   stage: short_runs
   script:
-    - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-    - cp -r ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} .
+#    - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
+#    - cp -r ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} .
     - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-    - mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ; pwd
+    - mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ; pwd; ls 
     - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-  after_script:
-    - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-    - cp -r shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/.
+#  after_script:
+#    - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
+#    - cp -r shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/.
   artifacts:
     <<: *common_arts
     paths:
@@ -201,6 +236,10 @@ variables:
 # Stage "startup"
 # =================================================================================================================================
 
+#IPP_intel_debug_noomp_startup:
+#  <<: *IPP_setup_intel_debug_noomp
+#  <<: *script_startup
+
 IPP_intel_debug_omp_startup:
   <<: *IPP_setup_intel_debug_omp
   <<: *script_startup
@@ -208,6 +247,10 @@ IPP_intel_debug_omp_startup:
 IPP_intel_release_omp_startup:
   <<: *IPP_setup_intel_release_omp
   <<: *script_startup
+
+#IPP_gnu_debug_noomp_startup:
+#  <<: *IPP_setup_gnu_debug_noomp
+#  <<: *script_startup
 
 IPP_gnu_debug_omp_startup:
   <<: *IPP_setup_gnu_debug_omp
@@ -221,6 +264,11 @@ IPP_gnu_release_omp_startup:
 # Stage "build"
 # =================================================================================================================================
 
+#IPP_build_intel_debug_noomp:
+#  needs: ["IPP_intel_debug_noomp_startup"]
+#  <<: *IPP_setup_build_intel_debug_noomp
+#  <<: *script_build
+
 IPP_build_intel_debug_omp:
   needs: ["IPP_intel_debug_omp_startup"]
   <<: *IPP_setup_build_intel_debug_omp
@@ -230,6 +278,11 @@ IPP_build_intel_release_omp:
   needs: ["IPP_intel_release_omp_startup"]
   <<: *IPP_setup_build_intel_release_omp
   <<: *script_build
+
+#IPP_build_gnu_debug_noomp:
+#  needs: ["IPP_gnu_debug_noomp_startup"]
+#  <<: *IPP_setup_build_gnu_debug_noomp
+#  <<: *script_build
 
 IPP_build_gnu_debug_omp:
   needs: ["IPP_gnu_debug_omp_startup"]
@@ -246,6 +299,11 @@ IPP_build_gnu_release_omp:
 # Stage "short_runs"
 # =================================================================================================================================
 
+#IPP_intel_debug_noomp_short_runs:
+#  needs: ["IPP_build_intel_debug_noomp"]
+#  <<: *IPP_setup_intel_debug_noomp
+#  <<: *script_short_runs
+
 IPP_intel_debug_omp_short_runs:
   needs: ["IPP_build_intel_debug_omp"]
   <<: *IPP_setup_intel_debug_omp
@@ -255,6 +313,11 @@ IPP_intel_release_omp_short_runs:
   needs: ["IPP_build_intel_release_omp"]
   <<: *IPP_setup_intel_release_omp
   <<: *script_short_runs
+
+#IPP_gnu_debug_noomp_short_runs:
+#  needs: ["IPP_build_gnu_debug_noomp"]
+#  <<: *IPP_setup_gnu_debug_noomp
+#  <<: *script_short_runs
 
 IPP_gnu_debug_omp_short_runs:
   needs: ["IPP_build_gnu_debug_omp"]
@@ -270,6 +333,11 @@ IPP_gnu_release_omp_short_runs:
 # Stage "cleanup"
 # =================================================================================================================================
 
+#IPP_intel_debug_noomp_cleanup_cache:
+#  needs: ["IPP_intel_debug_noomp_short_runs"]
+#  <<: *IPP_setup_intel_debug_noomp
+#  <<: *script_cleanup
+
 IPP_intel_debug_omp_cleanup_cache:
   needs: ["IPP_intel_debug_omp_short_runs"]
   <<: *IPP_setup_intel_debug_omp
@@ -279,6 +347,11 @@ IPP_intel_release_omp_cleanup_cache:
   needs: ["IPP_intel_release_omp_short_runs"]
   <<: *IPP_setup_intel_release_omp
   <<: *script_cleanup
+
+#IPP_gnu_debug_noomp_cleanup_cache:
+#  needs: ["IPP_gnu_debug_noomp_short_runs"]
+#  <<: *IPP_setup_gnu_debug_noomp
+#  <<: *script_cleanup
 
 IPP_gnu_debug_omp_cleanup_cache:
   needs: ["IPP_gnu_debug_omp_short_runs"]
