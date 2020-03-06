@@ -893,10 +893,10 @@ SUBROUTINE BuildPrecond()
        WRITE(*,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(:)))
 
   __PERFON('modes_loop_1')
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO  &  
 !$OMP   SCHEDULE(STATIC)  DEFAULT(NONE)  &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) 
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
 !$OMP   SHARED(X1_base,precond_X1,w_GP,DX1,DX1_tt,DX1_tz,DX1_zz,DX1_ss,X1_BC_Type, &
 !$OMP          modes,nElems,deg,degGP,nBase) 
   DO iMode=1,modes

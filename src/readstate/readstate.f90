@@ -72,12 +72,17 @@ IMPLICIT NONE
   INTEGER,ALLOCATABLE  :: X1_mn_r(:,:),X2_mn_r(:,:),LA_mn_r(:,:)
   REAL(wp),ALLOCATABLE :: sp_r(:),profiles_IP(:,:)
   INTEGER              :: X1_mn_max_r(2),X2_mn_max_r(2),LA_mn_max_r(2)
+  CHARACTER(LEN=300)   :: msg
 !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'   READ STATEFILE    "'//TRIM(FileString)//'" ...'
 
   INQUIRE(FILE=TRIM(FileString), EXIST=file_exists)
-  IF(.NOT.file_exists) CALL abort(__STAMP__, &
-        "STATEFILE: "//TRIM(FileString)//" DOS NOT EXIST!!")
+  
+  IF(.NOT.file_exists) THEN
+    msg="STATEFILE: "//TRIM(FileString)//" DOES NOT EXIST!!"
+    CALL abort(__STAMP__, &
+        TRIM(msg))
+  END IF
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit         ,&
      FILE     = TRIM(FileString) ,&
