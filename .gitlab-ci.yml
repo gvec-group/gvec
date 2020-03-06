@@ -148,7 +148,7 @@ variables:
     - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
     - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.cmake 
     - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.make
-    - cd .. ; cp build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/. 
+    - cd .. ; cp -r build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/. 
   artifacts:
     <<: *common_arts
     paths:
@@ -164,7 +164,7 @@ variables:
   stage: short_runs
   script:
     - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-    - cp ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} .
+    - cp -r ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} .
     - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
     - mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ; pwd
     - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
