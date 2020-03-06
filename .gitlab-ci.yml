@@ -54,24 +54,27 @@ variables:
 
 .tmpl_IPP_setup_intel_build_debug_omp: &IPP_setup_intel_build_debug_omp
   variables:
-    RUNNERNAME: IPP
-    CURR_CMP: intel
-    CMP_MODE: Debug
+    RUNNERNAME: "IPP"
+    CURR_CMP: "intel"
+    CMP_MODE: "Debug"
+    OMP_MODE: "ON"
     GIT_STRATEGY: clone
   <<: *IPP_setup_intel
 
 .tmpl_IPP_setup_intel_release_omp: &IPP_setup_intel_release_omp
   variables:
-    RUNNERNAME: IPP
-    CURR_CMP: intel
-    CMP_MODE: Release
+    RUNNERNAME: "IPP"
+    CURR_CMP: "intel"
+    CMP_MODE: "Release"
+    OMP_MODE: "ON"
   <<: *IPP_setup_intel
 
 .tmpl_IPP_setup_intel_build_release_omp: &IPP_setup_intel_build_release_omp
   variables:
-    RUNNERNAME: IPP
-    CURR_CMP: intel
-    CMP_MODE: Release
+    RUNNERNAME: "IPP"
+    CURR_CMP: "intel"
+    CMP_MODE: "Release"
+    OMP_MODE: "ON"
     GIT_STRATEGY: clone
   <<: *IPP_setup_intel
 
@@ -83,31 +86,35 @@ variables:
 
 .tmpl_IPP_setup_gnu_debug_omp: &IPP_setup_gnu_debug_omp
   variables:
-    RUNNERNAME: IPP
-    CURR_CMP: gnu
-    CMP_MODE: Debug
+    RUNNERNAME: "IPP"
+    CURR_CMP: "gnu"
+    CMP_MODE: "Debug"
+    OMP_MODE: "ON"
   <<: *IPP_setup_gnu
 
 .tmpl_IPP_setup_gnu_build_debug_omp: &IPP_setup_gnu_build_debug_omp
   variables:
-    RUNNERNAME: IPP
-    CURR_CMP: gnu
-    CMP_MODE: Debug
+    RUNNERNAME: "IPP"
+    CURR_CMP: "gnu"
+    CMP_MODE: "Debug"
+    OMP_MODE: "ON"
     GIT_STRATEGY: clone
   <<: *IPP_setup_gnu
 
 .tmpl_IPP_setup_gnu_release_omp: &IPP_setup_gnu_release_omp
   variables:
-    RUNNERNAME: IPP
-    CURR_CMP: gnu
-    CMP_MODE: Release
+    RUNNERNAME: "IPP"
+    CURR_CMP: "gnu"
+    CMP_MODE: "Release"
+    OMP_MODE: "ON"
   <<: *IPP_setup_gnu
 
 .tmpl_IPP_setup_gnu_build_release_omp: &IPP_setup_gnu_build_release_omp
   variables:
-    RUNNERNAME: IPP
-    CURR_CMP: gnu
-    CMP_MODE: Release
+    RUNNERNAME: "IPP"
+    CURR_CMP: "gnu"
+    CMP_MODE: "Release"
+    OMP_MODE: "ON"
     GIT_STRATEGY: clone
   <<: *IPP_setup_gnu
 
@@ -120,8 +127,8 @@ variables:
   stage: startup
   script:
     - echo ${RUNNERNAME} "RUNNER WARM-UP"
-    - echo "create" ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}
-    - mkdir -p ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}
+    - echo "create" ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}
+    - mkdir -p ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build"
@@ -137,15 +144,15 @@ variables:
 .tmpl_script_build: &script_build
   stage: build
   script:
-    - rm -rf build_${CURR_CMP}_${CMP_MODE} ; mkdir -p build_${CURR_CMP}_${CMP_MODE}
-    - cd build_${CURR_CMP}_${CMP_MODE}; pwd
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=ON  ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}.cmake 
-    - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}.make
-    - cd .. ; mv build_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/. 
+    - rm -rf build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} ; mkdir -p build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}
+    - cd build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}; pwd
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}.cmake 
+    - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}.make
+    - cd .. ; mv build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}/. 
   artifacts:
     <<: *common_arts
     paths:
-    - log_build_${CURR_CMP}_${CMP_MODE}.* 
+    - log_build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}.* 
 
 
 # =================================================================================================================================
@@ -156,16 +163,16 @@ variables:
 .tmpl_script_short_runs: &script_short_runs
   stage: short_runs
   script:
-    - rm -rf build_${CURR_CMP}_${CMP_MODE}; mv ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/build_${CURR_CMP}_${CMP_MODE} .
-    - rm -rf shortruns_${CURR_CMP}_${CMP_MODE} ; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE} ; pwd
-    - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE} build_${CURR_CMP}_${CMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}
+    - rm -rf build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}; mv ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} .
+    - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} ; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} ; pwd
+    - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}
   after_script:
-    - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}
-    - cp -r shortruns_${CURR_CMP}_${CMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}/.
+    - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}
+    - cp -r shortruns_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}/.
   artifacts:
     <<: *common_arts
     paths:
-    - shortruns_${CURR_CMP}_${CMP_MODE} 
+    - shortruns_${CURR_CMP}_${CMP_MODE}_${OMP_MODE} 
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "cleanup"
@@ -177,8 +184,8 @@ variables:
   script:
     - pwd
     - echo "on" ${RUNNERNAME} "RUNNER"
-    - echo "remove:" ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}
-    - rm -rf ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}
+    - echo "remove:" ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}
+    - rm -rf ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}
 
 # #################################################################################################################################
 # JOB DEFINITIONS
