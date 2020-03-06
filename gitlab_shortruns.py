@@ -77,9 +77,9 @@ casename="1st_simulation"
 print("running caseID %d ,%s ... " % (caseID,casename))
 cmd="../"+builddir+"/bin/gvec "+param
 print(cmd)
-os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
-checkerr = check_stderr("std_"+casename+".err")
-checkout = check_stdout("std_"+casename+".out","GVEC SUCESSFULLY FINISHED!")
+os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
+checkerr = check_stderr("std_"+casename+"_err.txt")
+checkout = check_stdout("std_"+casename+"_out.txt","GVEC SUCESSFULLY FINISHED!")
 
 
 restartFile="GITLAB_RUN_State_0000_99999999.dat"
@@ -99,9 +99,9 @@ else:
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/gvec "+ restartparam + " " + restartFile
     print(cmd)
-    os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
-    checkerr = check_stderr("std_"+casename+".err")
-    checkout = check_stdout("std_"+casename+".out","GVEC SUCESSFULLY FINISHED!")
+    os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
+    checkerr = check_stderr("std_"+casename+"_err.txt")
+    checkout = check_stdout("std_"+casename+"_out.txt","GVEC SUCESSFULLY FINISHED!")
     
     if ((not os.path.isfile("GITLAB_RESTART_State_0001_99999999.dat")) or (not checkerr) or (not checkout)) :
       msg=("caseID: %d, %s test did not work!!!" % (caseID,casename))
@@ -119,9 +119,9 @@ else:
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/test_gvec_to_hopr " + restartFile
     print(cmd)
-    os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
-    checkerr = check_stderr("std_"+casename+".err")
-    checkout = check_stdout("std_"+casename+".out","TEST GVEC TO HOPR FINISHED!")
+    os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
+    checkerr = check_stderr("std_"+casename+"_err.txt")
+    checkout = check_stdout("std_"+casename+"_out.txt","TEST GVEC TO HOPR FINISHED!")
     if((not checkerr) or (not checkout)) :
       msg=("caseID: %d, %s simulation test did not work!!!" %(caseID,casename))
       print(msg)
@@ -138,9 +138,9 @@ else:
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/test_gvec_to_gene " + restartFile
     print(cmd)
-    os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
-    checkerr = check_stderr("std_"+casename+".err")
-    checkout = check_stdout("std_"+casename+".out","GVEC_TO_GENE FINISHED!")
+    os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
+    checkerr = check_stderr("std_"+casename+"_err.txt")
+    checkout = check_stdout("std_"+casename+"_out.txt","GVEC_TO_GENE FINISHED!")
     if((not checkerr) or (not checkout)) :
       msg=("caseID: %d, %s simulation test did not work!!!" %(caseID,casename))
       print(msg)
@@ -157,9 +157,9 @@ else:
     print("running caseID %d ,%s ... " % (caseID,casename))
     cmd="../"+builddir+"/bin/convert_gvec_to_castor3d -r 100 -s 2 " + restartFile + " gvec2castor3d_boozer_output.dat"
     print(cmd)
-    os.system(cmd+" 2>std_"+casename+".err 1>std_"+casename+".out")
-    checkerr = check_stderr("std_"+casename+".err")
-    checkout = check_stdout("std_"+casename+".out","CONVERT GVEC TO CASTOR3D FINISHED!")
+    os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
+    checkerr = check_stderr("std_"+casename+"_err.txt")
+    checkout = check_stdout("std_"+casename+"_out.txt","CONVERT GVEC TO CASTOR3D FINISHED!")
     if ((not os.path.isfile("gvec2castor3d_boozer_output.dat")) or (not checkerr) or (not checkout)) :
       msg=("caseID: %d, %s simulation test did not work!!!" %(caseID,casename))
       print(msg)
