@@ -277,7 +277,7 @@ END SUBROUTINE init_gvec_to_castor3d
 SUBROUTINE gvec_to_castor3d_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG_in)
 ! MODULES
 USE MODgvec_gvec_to_castor3d_Vars 
-USE MODgvec_Globals,        ONLY: CROSS,TWOPI,ProgressBar
+USE MODgvec_Globals,        ONLY: CROSS,TWOPI,ProgressBar,GETFREEUNIT
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
 USE MODgvec_Base,           ONLY: t_base
 IMPLICIT NONE
@@ -438,8 +438,8 @@ DO i_s=1,Ns_out
 !$OMP END PARALLEL DO 
   Favg_int = Favg_int/REAL((Nthet_out*Nzeta_out),wp)
 
-  Itor_int = Itor_int*REAL(nfp_out)*TWOPI/(REAL((Nthet_out*Nzeta_out),wp)) !(2pi)^2/(Nt*Nz) * nfp/(2pi)
-  Ipol_int = Ipol_int*REAL(nfp_out)*TWOPI/(REAL((Nthet_out*Nzeta_out),wp))
+  Itor_int = Itor_int*TWOPI/(REAL((Nthet_out*Nzeta_out),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+  Ipol_int = Ipol_int*TWOPI/(REAL((Nthet_out*Nzeta_out),wp))
 
 
   !========== 
@@ -487,12 +487,13 @@ __PERFOFF("gvec2castor-prep")
 
   !DEBUGGING
   debugfile='DEBUG_'//TRIM(FileNameOut)
+  ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit       ,&
      FILE     = debugfile ,&
      STATUS   = 'REPLACE'   ,&
      ACCESS   = 'SEQUENTIAL' ) 
   iz=0
-  WRITE(ioUnit,'(A,1X,(1X))',ADVANCE='NO' )  '"s","dPhids","iota"'
+  WRITE(ioUnit,'(A,1X,(1X))',ADVANCE='NO' )  '"s","Phi","dPhids","iota","Itor",Ipol","pres"'
   DO izeta=1,Nzeta_out,Nzeta_out/6+1
     it=0 
     DO ithet=1,Nthet_out,Nthet_out/6+1
@@ -507,7 +508,7 @@ __PERFOFF("gvec2castor-prep")
   END DO !izeta
   WRITE(ioUNIT,*)
   DO i_s=1,Ns_out
-    WRITE(ioUnit,'(*(e23.15,:,","))',ADVANCE='NO') data_1d(SPOS__,i_s), data_1D( DPHIDS__,i_s),data_1D( IOTA__ ,i_s)
+    WRITE(ioUnit,'(*(e23.15,:,","))',ADVANCE='NO') data_1d((/SPOS__,PHI__,DPHIDS__,IOTA__,ITOR__,IPOL__,PRESSURE__/) ,i_s)
     DO izeta=1,Nzeta_out,Nzeta_out/6+1
       DO ithet=1,Nthet_out,Nthet_out/6+1
         WRITE(ioUnit,'(",")',ADVANCE='NO')

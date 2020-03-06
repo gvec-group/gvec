@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MODgvec_ReadState
 ! MODULES
-USE MODgvec_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp,GETFREEUNIT,abort
 IMPLICIT NONE
 PRIVATE
 
@@ -50,7 +50,7 @@ CONTAINS
 SUBROUTINE ReadStateFileFromASCII(fileString)
 ! MODULES
 USE MODgvec_ReadState_Vars
-USE MODgvec_Globals,ONLY: Unit_stdOut,GETFREEUNIT
+USE MODgvec_Globals,ONLY: Unit_stdOut
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
 USE MODgvec_sbase,  ONLY: sbase_new
@@ -64,6 +64,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  LOGICAL              :: file_exists
   INTEGER              :: ioUnit,iMode,is,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2),which_hmap_r 
   INTEGER              :: X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
   INTEGER              :: X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
@@ -74,6 +75,10 @@ IMPLICIT NONE
 !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'   READ STATEFILE    "'//TRIM(FileString)//'" ...'
 
+  INQUIRE(FILE=TRIM(FileString), EXIST=file_exists)
+  
+  IF(.NOT.file_exists) CALL abort(__STAMP__, &
+        TRIM("STATEFILE: "//TRIM(FileString)//" DOES NOT EXIST!!"))
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit         ,&
      FILE     = TRIM(FileString) ,&

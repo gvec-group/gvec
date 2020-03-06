@@ -71,6 +71,10 @@ MODULE MODgvec_VMEC_Readin
                                       !< mesh, mnMode_nyqist ))
   REAL(wp), ALLOCATABLE :: bmnc(:, :) !< |B| (cosine components (read on half mesh, interpolated on full
                                       !< mesh, mnMode_nyqist ))
+  REAL(wp), ALLOCATABLE :: gmns(:, :) !< jacobian (sine components (read on half mesh, interpolated on full
+                                      !< mesh, mnMode_nyqist ))
+  REAL(wp), ALLOCATABLE :: bmns(:, :) !< |B| (sine components (read on half mesh, interpolated on full
+                                      !< mesh, mnMode_nyqist ))
 #if NETCDF
 INTERFACE ReadVMEC
   MODULE PROCEDURE ReadVMEC
@@ -387,6 +391,8 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
       zmnc(iMode,1:nFluxVMEC)=fzmnc(NINT(xm(iMode)),NINT(xn(iMode)),0:nsin)
       lmnc(iMode,1:nFluxVMEC)=flmnc(NINT(xm(iMode)),NINT(xn(iMode)),0:nsin)
     END DO !iMode
+    gmns=0.
+    bmns=0.
   END IF
 
   !dont forget nfp on toroidal modes
@@ -699,6 +705,15 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
   ioError = NF_INQ_VARID(ncid, "bmnc", id)
   ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
        mn_mode_nyq, nFluxVMEC /), bmnc(:, 1:))
+  IF(lasym)THEN
+    ioError = NF_INQ_VARID(ncid, "gmns", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+         mn_mode_nyq, nFluxVMEC /), gmns(:, 1:))
+    !! read |B| on HALF MESH!!
+    ioError = NF_INQ_VARID(ncid, "bmns", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+         mn_mode_nyq, nFluxVMEC /), bmns(:, 1:))
+  END IF
 
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                " Cannot read variables from "//TRIM(fileName)//" ! " )
@@ -750,6 +765,10 @@ SUBROUTINE alloc_all()
     aError = aError + aStat
     ALLOCATE(lmnc(mn_mode, nFluxVMEC), stat = aStat)
     aError = aError + aStat
+    ALLOCATE(gmns(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    aError = aError + aStat
+    ALLOCATE(bmns(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    aError = aError + aStat
   END IF
   ALLOCATE(gmnc(mn_mode_nyq, nFluxVMEC), stat = aStat)
   aError = aError + aStat
@@ -790,6 +809,8 @@ SDEALLOCATE( lmns    )
 
 SDEALLOCATE(gmnc)
 SDEALLOCATE(bmnc)
+SDEALLOCATE(gmns)
+SDEALLOCATE(bmns)
 END SUBROUTINE FinalizeReadVMEC
 
 END MODULE MODgvec_VMEC_Readin

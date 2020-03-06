@@ -423,7 +423,7 @@ IMPLICIT NONE
   REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(3),np_in(2))
   REAL(wp)           :: thet(np_in(1),np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
   REAL(wp)           :: xIP(2),theta_star
-  REAL(wp)           :: cosmn_nyq,sqrtg,absB
+  REAL(wp)           :: cosmn_nyq,sinmn_nyq,sqrtg,absB
   CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
@@ -518,6 +518,13 @@ IMPLICIT NONE
             sqrtg=sqrtg+gmnc(iMode,i_s)*cosmn_nyq
             absB =absB +bmnc(iMode,i_s)*cosmn_nyq
           END DO !iMode
+          IF(lasym)THEN
+            DO iMode=1,mn_mode_nyq
+              sinmn_nyq=SIN(xm_nyq(iMode)*xIP(1)-xn_nyq(iMode)*xIP(2))
+              sqrtg=sqrtg+gmns(iMode,i_s)*sinmn_nyq
+              absB =absB +bmns(iMode,i_s)*sinmn_nyq
+            END DO !iMode
+          END IF !lasym
           var_visu(  5,i_s,j_s,i_n,i_m) = sqrtg*2.0*sqrt(phi_Prof(i_s)/phi_prof(n_s))  !VMEC: s=Phi_norm, but should match GVEC s~sqrt(phi_norm)
           var_visu(  6,i_s,j_s,i_n,i_m) = absB
         END DO !i_s=1,n_s

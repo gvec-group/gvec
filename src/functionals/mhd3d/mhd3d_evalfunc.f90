@@ -552,8 +552,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO &  
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &      
-!$OMP   SHARED(modes,nBase,F_MHD3D,precond_X1)
+!$OMP   DEFAULT(NONE) SHARED(modes,nBase,F_MHD3D,precond_X1)
 #else
 !$OMP   DEFAULT(SHARED)       
 #endif       
@@ -665,8 +664,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO &  
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &      
-!$OMP   SHARED(modes,nBase,precond_X2,F_MHD3D) 
+!$OMP   DEFAULT(NONE) SHARED(modes,nBase,precond_X2,F_MHD3D) 
 #else
 !$OMP   DEFAULT(SHARED)       
 #endif       
@@ -725,8 +723,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &      
-!$OMP   SHARED(modes,nBase,precond_LA,F_MHD3D)
+!$OMP   DEFAULT(NONE) SHARED(modes,nBase,precond_LA,F_MHD3D)
 #else
 !$OMP   DEFAULT(SHARED)       
 #endif       
@@ -916,8 +913,7 @@ SUBROUTINE BuildPrecond()
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
 !$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &
-!$OMP   SHARED(X1_base,precond_X1,w_GP,DX1,DX1_tt,DX1_tz,DX1_zz,DX1_ss,X1_BC_Type, &
+!$OMP   DEFAULT(NONE) SHARED(X1_base,precond_X1,w_GP,DX1,DX1_tt,DX1_tz,DX1_zz,DX1_ss,X1_BC_Type, &
 !$OMP          modes,nElems,deg,degGP,nBase) 
 #else
 !$OMP   DEFAULT(SHARED)       
@@ -996,8 +992,7 @@ SUBROUTINE BuildPrecond()
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
 !$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &
-!$OMP   SHARED(X2_base,precond_X2,w_GP,DX2,DX2_tt,DX2_tz,DX2_zz,DX2_ss,X2_BC_Type, &
+!$OMP   DEFAULT(NONE) SHARED(X2_base,precond_X2,w_GP,DX2,DX2_tt,DX2_tz,DX2_zz,DX2_ss,X2_BC_Type, &
 !$OMP          modes,nElems,deg,degGP,nBase) 
 #else
 !$OMP   DEFAULT(SHARED)       
@@ -1072,8 +1067,7 @@ SUBROUTINE BuildPrecond()
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
 !$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &
-!$OMP   SHARED(LA_base,precond_LA,w_GP,DLA_tt,DLA_tz,DLA_zz,LA_BC_Type, &
+!$OMP   DEFAULT(NONE) SHARED(LA_base,precond_LA,w_GP,DLA_tt,DLA_tz,DLA_zz,LA_BC_Type, &
 !$OMP          modes,nElems,deg,degGP,nBase,nGP) 
 #else
 !$OMP   DEFAULT(SHARED)       
@@ -1148,8 +1142,7 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &
-!$OMP   SHARED(precond_X1,X1_Base)
+!$OMP   DEFAULT(NONE) SHARED(precond_X1,X1_Base)
 #else
 !$OMP   DEFAULT(SHARED)       
 #endif       
@@ -1165,8 +1158,7 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &
-!$OMP   SHARED(precond_X2,X2_Base)
+!$OMP   DEFAULT(NONE) SHARED(precond_X2,X2_Base)
 #else
 !$OMP   DEFAULT(SHARED)       
 #endif       
@@ -1182,8 +1174,7 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) &
-!$OMP   SHARED(precond_LA,LA_Base)
+!$OMP   DEFAULT(NONE) SHARED(precond_LA,LA_Base)
 #else
 !$OMP   DEFAULT(SHARED)       
 #endif       
