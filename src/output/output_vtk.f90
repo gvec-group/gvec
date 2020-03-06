@@ -67,7 +67,7 @@ REAL(KIND=kindFloat)  :: FLOATdummy
 CHARACTER(LEN=7)      :: strfloat
 INTEGER               :: INTdummy
 INTEGER               :: sizefloat,sizeInt
-INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKPoints,nVTKCells,ivtk=44
+INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKPoints,nVTKCells,ivtk
 INTEGER            :: Vertex(2**dim1,PRODUCT(Nplot)*nElems)  ! ?
 INTEGER            :: ProdNplot,ProdNplot_p1,NPlot_p1(dim1),CellID,PointID,ElemType  ! ?
 CHARACTER(LEN=35)  :: StrOffset,TempStr1,TempStr2  ! ?
@@ -79,6 +79,7 @@ CHARACTER(LEN=1)   :: strvecdim
 CHARACTER(LEN=1)   :: lf
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO VTX XML BINARY (VTU) FILE "'//TRIM(FileString)//'" ...'
+ivtk=GETFREEUNIT()
 NPlot_p1  =(Nplot(:)+1)
 ProdNPlot  =PRODUCT(Nplot(:))
 ProdNPlot_p1  =PRODUCT(Nplot_p1(:))
