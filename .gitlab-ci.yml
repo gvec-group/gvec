@@ -3,11 +3,7 @@
 # =================================================================================================================================
 
 stages:
-  - startup
-#  - build
-#  - short_runs
   - build_and_run
-#  - cleanup
 
 # =================================================================================================================================
 # GLOBALS
@@ -15,7 +11,7 @@ stages:
 
 variables:
   GIT_STRATEGY: none
-  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
+#  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
 # SHORT SYNTAX EXPLANATIONS FOR THE JOB, FOR DETAILS VISIT:    ===> https://docs.gitlab.com/ce/ci/yaml/   <===
@@ -28,6 +24,9 @@ variables:
 # "after_script:"  shell commands after passed OR failed script. Careful, the current directory is always the root of the repo!
 # "artifacts:"     keep data from the job which is uploaded to gitlab.com. You really should set a duration to expiration.
 #                  "when:" can be either on_failure, on_success or always
+#
+# => SCIPT SYNTAX CAN BE CHECKED ON GITLAB with the "CI LINT" tool
+#
 # =================================================================================================================================
 
 # =================================================================================================================================
@@ -45,14 +44,6 @@ variables:
     - . ~/environments/modules_for_gvec_intel ; pwd
     - export OMP_NUM_THREADS=2
 
-.tmpl_IPP_setup_intel_debug_noomp: &IPP_setup_intel_debug_noomp
-  variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "intel"
-    CMP_MODE: "Debug"
-    OMP_MODE: "OFF"
-  <<: *IPP_setup_intel
-
 .tmpl_IPP_setup_build_intel_debug_noomp: &IPP_setup_build_intel_debug_noomp
   variables:
     RUNNERNAME: "IPP"
@@ -62,14 +53,6 @@ variables:
     GIT_STRATEGY: clone
   <<: *IPP_setup_intel
 
-.tmpl_IPP_setup_intel_debug_omp: &IPP_setup_intel_debug_omp
-  variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "intel"
-    CMP_MODE: "Debug"
-    OMP_MODE: "ON"
-  <<: *IPP_setup_intel
-
 .tmpl_IPP_setup_build_intel_debug_omp: &IPP_setup_build_intel_debug_omp
   variables:
     RUNNERNAME: "IPP"
@@ -77,14 +60,6 @@ variables:
     CMP_MODE: "Debug"
     OMP_MODE: "ON"
     GIT_STRATEGY: clone
-  <<: *IPP_setup_intel
-
-.tmpl_IPP_setup_intel_release_omp: &IPP_setup_intel_release_omp
-  variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "intel"
-    CMP_MODE: "Release"
-    OMP_MODE: "ON"
   <<: *IPP_setup_intel
 
 .tmpl_IPP_setup_build_intel_release_omp: &IPP_setup_build_intel_release_omp
@@ -102,14 +77,6 @@ variables:
     - . ~/environments/modules_for_gvec_gnu ; pwd
     - export OMP_NUM_THREADS=2
 
-.tmpl_IPP_setup_gnu_debug_noomp: &IPP_setup_gnu_debug_noomp
-  variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "gnu"
-    CMP_MODE: "Debug"
-    OMP_MODE: "OFF"
-  <<: *IPP_setup_gnu
-
 .tmpl_IPP_setup_build_gnu_debug_noomp: &IPP_setup_build_gnu_debug_noomp
   variables:
     RUNNERNAME: "IPP"
@@ -119,14 +86,6 @@ variables:
     GIT_STRATEGY: clone
   <<: *IPP_setup_gnu
 
-.tmpl_IPP_setup_gnu_debug_omp: &IPP_setup_gnu_debug_omp
-  variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "gnu"
-    CMP_MODE: "Debug"
-    OMP_MODE: "ON"
-  <<: *IPP_setup_gnu
-
 .tmpl_IPP_setup_build_gnu_debug_omp: &IPP_setup_build_gnu_debug_omp
   variables:
     RUNNERNAME: "IPP"
@@ -134,14 +93,6 @@ variables:
     CMP_MODE: "Debug"
     OMP_MODE: "ON"
     GIT_STRATEGY: clone
-  <<: *IPP_setup_gnu
-
-.tmpl_IPP_setup_gnu_release_omp: &IPP_setup_gnu_release_omp
-  variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "gnu"
-    CMP_MODE: "Release"
-    OMP_MODE: "ON"
   <<: *IPP_setup_gnu
 
 .tmpl_IPP_setup_build_gnu_release_omp: &IPP_setup_build_gnu_release_omp
@@ -154,16 +105,6 @@ variables:
   <<: *IPP_setup_gnu
 
 
-# =================================================================================================================================
-# TEMPLATES FOR STAGE "startup"
-# =================================================================================================================================
-
-.tmpl_script_startup: &script_startup
-  stage: startup
-  script:
-    - echo ${RUNNERNAME} "RUNNER WARM-UP"
-#    - echo "create" ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-#    - mkdir -p ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
 
 .tmpl_common_arts:
   artifacts: &common_arts
@@ -181,240 +122,42 @@ variables:
     - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}    ; mkdir -p build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
     - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
     - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.cmake 
-    - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.make
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_cmake.txt
+    - make -j |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
   after_script:
-    - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
+    - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_shortruns.txt
   artifacts:
     <<: *common_arts
     paths:
-    - log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.* 
+    - log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_*.txt 
     - shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} 
-
-# =================================================================================================================================
-# TEMPLATES FOR STAGE "build"
-# =================================================================================================================================
-
-#.tmpl_script_build: &script_build
-#  stage: build
-#  script:
-#    - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ; mkdir -p build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-#    - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
-#    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.cmake 
-#    - make -j |tee ../log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.make
-#    - cd .. 
-##    - cp -r build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/. 
-#  artifacts:
-#    <<: *common_arts
-#    paths:
-#    - log_build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}.* 
-
-# =================================================================================================================================
-# TEMPLATES FOR STAGE "short_runs"
-# =================================================================================================================================
-
-#.tmpl_script_short_runs: &script_short_runs
-#  stage: short_runs
-#  script:
-##    - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-##    - cp -r ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} .
-#    - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-#    - mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ; pwd; ls 
-#    - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-##  after_script:
-##    - pwd; rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-##    - cp -r shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}/.
-#  artifacts:
-#    <<: *common_arts
-#    paths:
-#    - shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} 
-
-# =================================================================================================================================
-# TEMPLATES FOR STAGE "cleanup"
-# =================================================================================================================================
-
-#.tmpl_script_cleanup: &script_cleanup
-#  stage: cleanup
-#  when: always
-#  script:
-#    - pwd
-#    - echo "on" ${RUNNERNAME} "RUNNER"
-#    - echo "remove:" ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-#    - rm -rf ${GLOBAL_CACHE_PATH}_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-
-# #################################################################################################################################
-# JOB DEFINITIONS
-# HERE, the "needs:" command is used to generate a dependency for each job.
-#                    - the startup job does nothing except checking if the gitlab runner is listening.
-#                    - this way, all the remainingjobs can be executed only in their dependency order,
-#                      and thus before the whole stage is ready (even jump over stages)
-# #################################################################################################################################
-
-# =================================================================================================================================
-# Stage "startup"
-# =================================================================================================================================
-
-IPP_intel_debug_noomp_startup:
-  <<: *IPP_setup_intel_debug_noomp
-  <<: *script_startup
-
-IPP_intel_debug_omp_startup:
-  <<: *IPP_setup_intel_debug_omp
-  <<: *script_startup
-
-IPP_intel_release_omp_startup:
-  <<: *IPP_setup_intel_release_omp
-  <<: *script_startup
-
-IPP_gnu_debug_noomp_startup:
-  <<: *IPP_setup_gnu_debug_noomp
-  <<: *script_startup
-
-IPP_gnu_debug_omp_startup:
-  <<: *IPP_setup_gnu_debug_omp
-  <<: *script_startup
-
-IPP_gnu_release_omp_startup:
-  <<: *IPP_setup_gnu_release_omp
-  <<: *script_startup
 
 # =================================================================================================================================
 # Stage "build_and_run"
 # =================================================================================================================================
  
 IPP_build_and_run_intel_debug_noomp:
-  needs: ["IPP_intel_debug_noomp_startup"]
   <<: *IPP_setup_build_intel_debug_noomp
   <<: *script_build_and_run
 
 IPP_build_and_run_intel_debug_omp:
-  needs: ["IPP_intel_debug_omp_startup"]
   <<: *IPP_setup_build_intel_debug_omp
   <<: *script_build_and_run
 
 IPP_build_and_run_intel_release_omp:
-  needs: ["IPP_intel_release_omp_startup"]
   <<: *IPP_setup_build_intel_release_omp
   <<: *script_build_and_run
 
 IPP_build_and_run_gnu_debug_noomp:
-  needs: ["IPP_gnu_debug_noomp_startup"]
   <<: *IPP_setup_build_gnu_debug_noomp
   <<: *script_build_and_run
 
 IPP_build_and_run_gnu_debug_omp:
-  needs: ["IPP_gnu_debug_omp_startup"]
   <<: *IPP_setup_build_gnu_debug_omp
   <<: *script_build_and_run
 
 IPP_build_and_run_gnu_release_omp:
-  needs: ["IPP_gnu_release_omp_startup"]
   <<: *IPP_setup_build_gnu_release_omp
   <<: *script_build_and_run
-
-# =================================================================================================================================
-# Stage "build"
-# =================================================================================================================================
- 
-#IPP_build_intel_debug_noomp:
-#  needs: ["IPP_intel_debug_noomp_startup"]
-#  <<: *IPP_setup_build_intel_debug_noomp
-#  <<: *script_build
-#
-#IPP_build_intel_debug_omp:
-#  needs: ["IPP_intel_debug_omp_startup"]
-#  <<: *IPP_setup_build_intel_debug_omp
-#  <<: *script_build
-#
-#IPP_build_intel_release_omp:
-#  needs: ["IPP_intel_release_omp_startup"]
-#  <<: *IPP_setup_build_intel_release_omp
-#  <<: *script_build
-
-#IPP_build_gnu_debug_noomp:
-#  needs: ["IPP_gnu_debug_noomp_startup"]
-#  <<: *IPP_setup_build_gnu_debug_noomp
-#  <<: *script_build
-#
-#IPP_build_gnu_debug_omp:
-#  needs: ["IPP_gnu_debug_omp_startup"]
-#  <<: *IPP_setup_build_gnu_debug_omp
-#  <<: *script_build
-#
-#IPP_build_gnu_release_omp:
-#  needs: ["IPP_gnu_release_omp_startup"]
-#  <<: *IPP_setup_build_gnu_release_omp
-#  <<: *script_build
-
-
-# =================================================================================================================================
-# Stage "short_runs"
-# =================================================================================================================================
-
-#IPP_intel_debug_noomp_short_runs:
-#  needs: ["IPP_build_intel_debug_noomp"]
-#  <<: *IPP_setup_intel_debug_noomp
-#  <<: *script_short_runs
-#
-#IPP_intel_debug_omp_short_runs:
-#  needs: ["IPP_build_intel_debug_omp"]
-#  <<: *IPP_setup_intel_debug_omp
-#  <<: *script_short_runs
-#
-#IPP_intel_release_omp_short_runs:
-#  needs: ["IPP_build_intel_release_omp"]
-#  <<: *IPP_setup_intel_release_omp
-#  <<: *script_short_runs
-#
-#IPP_gnu_debug_noomp_short_runs:
-#  needs: ["IPP_build_gnu_debug_noomp"]
-#  <<: *IPP_setup_gnu_debug_noomp
-#  <<: *script_short_runs
-#
-#IPP_gnu_debug_omp_short_runs:
-#  needs: ["IPP_build_gnu_debug_omp"]
-#  <<: *IPP_setup_gnu_debug_omp
-#  <<: *script_short_runs
-#
-#IPP_gnu_release_omp_short_runs:
-#  needs: ["IPP_build_gnu_release_omp"]
-#  <<: *IPP_setup_gnu_release_omp
-#  <<: *script_short_runs
-
-# =================================================================================================================================
-# Stage "cleanup"
-# =================================================================================================================================
-
-#IPP_intel_debug_noomp_cleanup_cache:
-#  needs: ["IPP_intel_debug_noomp_short_runs"]
-#  <<: *IPP_setup_intel_debug_noomp
-#  <<: *script_cleanup
-#
-#IPP_intel_debug_omp_cleanup_cache:
-#  needs: ["IPP_intel_debug_omp_short_runs"]
-#  <<: *IPP_setup_intel_debug_omp
-#  <<: *script_cleanup
-#
-#IPP_intel_release_omp_cleanup_cache:
-#  needs: ["IPP_intel_release_omp_short_runs"]
-#  <<: *IPP_setup_intel_release_omp
-#  <<: *script_cleanup
-#
-#IPP_gnu_debug_noomp_cleanup_cache:
-#  needs: ["IPP_gnu_debug_noomp_short_runs"]
-#  <<: *IPP_setup_gnu_debug_noomp
-#  <<: *script_cleanup
-#
-#IPP_gnu_debug_omp_cleanup_cache:
-#  needs: ["IPP_gnu_debug_omp_short_runs"]
-#  <<: *IPP_setup_gnu_debug_omp
-#  <<: *script_cleanup
-#
-#IPP_gnu_release_omp_cleanup_cache:
-#  needs: ["IPP_gnu_release_omp_short_runs"]
-#  <<: *IPP_setup_gnu_release_omp
-#  <<: *script_cleanup
-
-
 
