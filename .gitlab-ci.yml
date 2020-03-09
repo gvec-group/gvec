@@ -405,16 +405,16 @@ IPP_build_and_run_gnu_release_omp:
 #  needs: ["IPP_gnu_debug_noomp_short_runs"]
 #  <<: *IPP_setup_gnu_debug_noomp
 #  <<: *script_cleanup
-
-IPP_gnu_debug_omp_cleanup_cache:
-  needs: ["IPP_gnu_debug_omp_short_runs"]
-  <<: *IPP_setup_gnu_debug_omp
-  <<: *script_cleanup
-
-IPP_gnu_release_omp_cleanup_cache:
-  needs: ["IPP_gnu_release_omp_short_runs"]
-  <<: *IPP_setup_gnu_release_omp
-  <<: *script_cleanup
+#
+#IPP_gnu_debug_omp_cleanup_cache:
+#  needs: ["IPP_gnu_debug_omp_short_runs"]
+#  <<: *IPP_setup_gnu_debug_omp
+#  <<: *script_cleanup
+#
+#IPP_gnu_release_omp_cleanup_cache:
+#  needs: ["IPP_gnu_release_omp_short_runs"]
+#  <<: *IPP_setup_gnu_release_omp
+#  <<: *script_cleanup
 
 
 
