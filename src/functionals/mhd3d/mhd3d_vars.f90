@@ -59,7 +59,7 @@ INTEGER              :: which_hmap
 LOGICAL              :: init_fromBCOnly !! default=TRUE, for VMEC only, if set false: initial mapping is interpolated for s=0..1
 LOGICAL              :: init_average_axis !! default=FALSE, if true, use outer boundary to estimate axis position (center of closed line)
 REAL(wp)             :: average_axis_move(2) !! used if init_average_axis=True to additionally move axis in X1,X2   
-INTEGER              :: init_BC         !! active if init_fromBC_only=T: =0: keep vmec axis and boundary, =1: overwrite axis, =2: overwrite boundary, =3: overwrite  axis and boundary 
+INTEGER              :: init_BC         !! active if init_fromBC_only=T: -1: keep vmec axis and boundary (default), 0: keep vmec boundary, overwrite axis, 1: keep vmec axis, overwrite boundary, 2: overwrite axis and boundary
 LOGICAL              :: init_LA         !! false: lambda=0 at initialization, true: lambda is computed from initial mapping
 INTEGER              :: PrecondType     !! -1: off: 1: .. 
 ! input parameters for minimization
@@ -69,6 +69,8 @@ INTEGER              :: outputIter      !! number of iterations after which outp
 INTEGER              :: logIter         !! number of iterations after which a screen log is written
 REAL(wp)             :: minimize_tol    !! absolute tolerance for minimization of functional
 REAL(wp)             :: start_dt        !! starting time step, is adapted during iteration
+LOGICAL              :: DoCheckDistance !! TRUE: check distance between solutions of two log output states (default: false)
+LOGICAL              :: DoCheckAxis     !! TRUE: check axis position (default: true)
 ! input parameters for functional
 REAL(wp)             :: Phi_edge        !! toroidal flux at the last flux surface of the domain
 INTEGER              :: n_pres_coefs    !! number of polynomial coeffients for mass profile

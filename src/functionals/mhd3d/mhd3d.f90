@@ -98,6 +98,8 @@ SUBROUTINE InitMHD3D(sf)
   logIter   = GETINT("logIter",Proposal=250)
   minimize_tol  =GETREAL("minimize_tol",Proposal=1.0e-12_wp)
   start_dt  =GETREAL("start_dt",Proposal=1.0e-08_wp)
+  doCheckDistance=GETLOGICAL("doCheckDistance",Proposal=.FALSE.)
+  doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
 
   nElems   = GETINT("sgrid_nElems",Proposal=10)
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
@@ -251,9 +253,8 @@ SUBROUTINE InitMHD3D(sf)
   X1_a=0.0_wp
   X2_a=0.0_wp
 
-  IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN
-    !READ boudnary values from input file
-    WRITE(UNIT_stdOut,'(4X,A)')'... read axis boundary data for X1:'
+  IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
+    WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
     ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
       X1_a(iMode)=get_iMode('X1_a_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
@@ -262,7 +263,7 @@ SUBROUTINE InitMHD3D(sf)
       X1_a(iMode)=get_iMode('X1_a_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     END ASSOCIATE
-    WRITE(UNIT_stdOut,'(4X,A)')'... read axis boundary data for X2:'
+    WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X2:'
     ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
       X2_a(iMode)=get_iMode('X2_a_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
@@ -272,7 +273,7 @@ SUBROUTINE InitMHD3D(sf)
     END DO !iMode
     END ASSOCIATE
   END IF
-  IF((init_BC.EQ.1).OR.(init_BC.EQ.2))THEN
+  IF((init_BC.EQ.1).OR.(init_BC.EQ.2))THEN !READ edge values from input file
     WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
     ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
@@ -293,9 +294,9 @@ SUBROUTINE InitMHD3D(sf)
     END ASSOCIATE
   END IF !init_BC
 
-  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMM     ) ! weaker  : BC_TYPE_NEUMANN
-  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     ) ! weaker  : BC_TYPE_NEUMANN
-  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=BC_TYPE_ANTISYMM ) ! weaker  : BC_TYPE_DIRICHLET
+  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
+  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
+  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM 
   X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM 
   X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_SYMMZERO
 
@@ -317,9 +318,9 @@ SUBROUTINE InitMHD3D(sf)
   END DO 
   END ASSOCIATE !X2
 
-  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO ) ! weaker  : BC_TYPE_DIRICHLET
-  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     ) ! weaker  : BC_TYPE_NEUMANN
-  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=BC_TYPE_ANTISYMM ) ! weaker  : BC_TYPE_DIRICHLET
+  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_SYMMZERO
+  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM    
+  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
   LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
   LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger:BC_TYPE_SYMMZERO
 
@@ -331,10 +332,10 @@ SUBROUTINE InitMHD3D(sf)
   END DO 
   END ASSOCIATE !LA
   
-  ALLOCATE(U(-2:1))
+  ALLOCATE(U(-3:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
                    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
-  DO i=-2,0
+  DO i=-3,0
     CALL U(i)%copy(U(1))
   END DO
   ALLOCATE(F(-1:0))
@@ -425,10 +426,10 @@ SUBROUTINE InitSolutionMHD3D(sf)
   JacCheck=2
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
   CALL WriteState(U(0),0)
-  CALL Analyze(0)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
   SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
   CALL CheckEvalForce(U(0),0)
+  CALL Analyze(0)
 
   SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -570,24 +571,37 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       END IF !lasym
       END ASSOCIATE !X2
     END IF
-    !overwrite axis with average axis by center of closed line of the boundary in each poloidal plane:
     IF(init_average_axis)THEN
       ASSOCIATE(m_nyq=>X1_base%f%mn_nyq(1),n_nyq=>X1_base%f%mn_nyq(2))
       X1_b_IP(:,:) = RESHAPE(X1_base%f%evalDOF_IP(0,X1_b),(/m_nyq,n_nyq/))
       X2_b_IP(:,:) = RESHAPE(X2_base%f%evalDOF_IP(0,X2_b),(/m_nyq,n_nyq/))
       DO i_n=1,n_nyq
-        dl=SQRT((X1_b_IP(1,i_n)-X1_b_IP(m_nyq,i_n))**2+(X2_b_IP(1,i_n)-X2_b_IP(m_nyq,i_n))**2)
+        !overwrite axis with average axis by center of closed line of the boundary in each poloidal plane:
+        !dl=SQRT((X1_b_IP(1,i_n)-X1_b_IP(m_nyq,i_n))**2+(X2_b_IP(1,i_n)-X2_b_IP(m_nyq,i_n))**2)
+        !lint=dl
+        !x1int=X1_b_IP(1,i_n)*dl
+        !x2int=X2_b_IP(1,i_n)*dl
+        !DO i_m=2,m_nyq
+        !  dl=SQRT((X1_b_IP(i_m,i_n)-X1_b_IP(i_m-1,i_n))**2+(X2_b_IP(i_m,i_n)-X2_b_IP(i_m-1,i_n))**2)
+        !  lint=lint+dl
+        !  x1int=x1int+X1_b_IP(i_m,i_n)*dl
+        !  x2int=x2int+X2_b_IP(i_m,i_n)*dl
+        !END DO
+        !overwrite axis with centroid  of surface enclosed  by the line of the boundary in each poloidal plane:
+        ! c_x= 1/(6A) sum_i (x_i-1+x_i)*(x_i-1*y_i - x_i*y_i-1), A=1/2 sum_i  (x_i-1*y_i - x_i*y_i-1)
+        dl=X1_b_IP(m_nyq,i_n)*X2_b_IP(1,i_n)-X1_b_IP(1,i_n)*X2_b_IP(m_nyq,i_n)
         lint=dl
-        x1int=X1_b_IP(1,i_n)*dl
-        x2int=X2_b_IP(1,i_n)*dl
+        x1int=(X1_b_IP(m_nyq,i_n)+X1_b_IP(1,i_n))*dl
+        x2int=(X2_b_IP(m_nyq,i_n)+X2_b_IP(1,i_n))*dl
         DO i_m=2,m_nyq
           dl=SQRT((X1_b_IP(i_m,i_n)-X1_b_IP(i_m-1,i_n))**2+(X2_b_IP(i_m,i_n)-X2_b_IP(i_m-1,i_n))**2)
+          dl=X1_b_IP(i_m-1,i_n)*X2_b_IP(i_m,i_n)-X1_b_IP(i_m,i_n)*X2_b_IP(i_m-1,i_n)
           lint=lint+dl
-          x1int=x1int+X1_b_IP(i_m,i_n)*dl
-          x2int=x2int+X2_b_IP(i_m,i_n)*dl
+          x1int=x1int+(X1_b_IP(i_m-1,i_n)+X1_b_IP(i_m,i_n))*dl
+          x2int=x2int+(X2_b_IP(i_m-1,i_n)+X2_b_IP(i_m,i_n))*dl
         END DO
-        X1_b_IP(:,i_n) = x1int/lint + average_axis_move(1)
-        X2_b_IP(:,i_n) = x2int/lint + average_axis_move(2)
+        X1_b_IP(:,i_n) = x1int/(3.0_wp*lint) + average_axis_move(1)
+        X2_b_IP(:,i_n) = x2int/(3.0_wp*lint) + average_axis_move(2)
       END DO
       X1_a = X1_base%f%initDOF(RESHAPE(X1_b_IP,(/X1_base%f%mn_IP/)))
       X2_a = X2_base%f%initDOF(RESHAPE(X2_b_IP,(/X2_base%f%mn_IP/)))
@@ -693,7 +707,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END ASSOCIATE
   END IF !init_fromBConly
 
-
   !apply strong boundary conditions
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
@@ -728,9 +741,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
 !$ StartTime=OMP_GET_WTIME()
     SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
     !initialize Lambda
-    LA_gIP(1,:)=0.0_wp !at axis
     CALL ProgressBar(0,LA_base%s%nBase) !init
-    DO is=2,LA_base%s%nBase
+    DO is=1,LA_base%s%nBase
       spos=LA_base%s%s_IP(is)
       CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
       CALL ProgressBar(is,LA_base%s%nBase)
@@ -857,8 +869,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
   IF(init_LA)THEN
     SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
     !initialize Lambda
-    LA_gIP(1,:)=0.0_wp !at axis
-    DO is=2,LA_base%s%nBase
+    DO is=1,LA_base%s%nBase
       spos=LA_base%s%s_IP(is)
       CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
     END DO !is
@@ -929,7 +940,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_MHD3D_EvalFunc
-  USE MODgvec_MHD3D_visu, ONLY: checkDistance
   USE MODgvec_Analyze, ONLY:analyze
   USE MODgvec_Restart, ONLY:WriteState
   IMPLICIT NONE
@@ -939,10 +949,11 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
-  INTEGER   :: JacCheck,lastoutputIter,TimeArray(8)
+  INTEGER   :: JacCheck,lastoutputIter,StartTimeArray(8)
   REAL(wp)  :: beta,dt,deltaW,absTol
-  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm,Fnorm0,W_MHD3D_0
-  REAL(wp)  :: maxDist,avgDist 
+  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm(3),Fnorm0(3),W_MHD3D_0
+  INTEGER   :: logUnit !globally needed for logging
+  INTEGER   :: logiter_ramp
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
   min_dt_out=1.0e+30_wp
@@ -952,6 +963,8 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   nSkip_Jac=0
   nSkip_dW =0
 
+  logiter_ramp=1
+
   JacCheck=1 !abort if detJ<0
   CALL EvalAux(           U(0),JacCheck)
   U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
@@ -960,13 +973,14 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   abstol=minimize_tol
 
   CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
-  Fnorm0=SQRT(SUM(F(0)%norm_2()))
+  Fnorm0=SQRT(F(0)%norm_2())
   Fnorm=Fnorm0
 
   CALL P( -1)%set_to(0.0_wp)
 
   CALL U( -1)%set_to(U(0))
   CALL U( -2)%set_to(U(0))
+  CALL U( -3)%set_to(U(0)) !initial state, should remain unchanged
 
   beta=0.3_wp  !for damping
   dt=start_dt
@@ -974,13 +988,9 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   t_pseudo=0
   lastOutputIter=0
   iter=0
-  SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
-          CALL DATE_AND_TIME(values=TimeArray) ! get System time
-          SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
-                 '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
-          SWRITE(UNIT_stdOut,'(A,3E21.14)') &
-          '%%% dU = |Force|= ',SQRT(F(0)%norm_2())
-          SWRITE(UNIT_stdOut,'(40(" -"))')
+
+  CALL StartLogging()
+
   DO WHILE(iter.LE.maxIter)
 ! hirshman method
 !    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
@@ -1003,47 +1013,40 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
     P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck) 
     IF(JacCheck.EQ.-1)THEN
-      dt=0.5_wp*dt
+      dt=0.9_wp*dt
       nstepDecreased=nStepDecreased+1
       nSkip_Jac=nSkip_Jac+1
-      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, skip step and decrease stepsize!'
-      !do not use P(1), redo the iteration
+      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, decrease stepsize by 0.9 and RESTART simulation!!!'
+      CALL U(0)%set_to(U(-3))
     ELSE 
       !detJ>0
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
       
       IF(deltaW.LE.1.0e-10*W_MHD3D_0)THEN !valid step 
-         ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
-         CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
-         JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
-         U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
-         IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-           CALL P(1)%set_to(U(1)) !accept smaller step
-           CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
-           JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
-           U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
-           IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-             !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
-             CALL P(1)%set_to(U(1)) !accept smaller step
-           ELSE
-             !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
-           END IF
-         END IF
+        ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
+        CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
+        JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
+        U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
+        IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
+          CALL P(1)%set_to(U(1)) !accept smaller step
+          CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
+          JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
+          U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
+          IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
+            !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
+            CALL P(1)%set_to(U(1)) !accept smaller step
+          ELSE
+            !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
+          END IF
+        END IF
 
 !        IF(ABS(deltaW).LE.aborttol)THEN
 !          SWRITE(UNIT_stdOut,'(A,A,E21.14)')'Iteration finished, energy stagnates in relative tolerance, ', &
 !                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
-!        IF(Fnorm*dt.LE.reltol*Fnorm0)THEN
-        IF(ALL(SQRT(F(0)%norm_2()).LE.abstol))THEN
-          SWRITE(UNIT_stdOut,'(80("%"))')
-          CALL DATE_AND_TIME(values=TimeArray) ! get System time
-          SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
-                            '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
-          SWRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4)') &
-                            '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
-                    '    \n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-                   '        \n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
-          '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2())
+!        IF(ALL(Fnorm*dt.LE.reltol*Fnorm0))THEN
+        Fnorm=SQRT(F(0)%norm_2())
+        IF(ALL(Fnorm.LE.abstol))THEN
+          CALL Logging(.FALSE.)
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
           EXIT !DO LOOP
         END IF
@@ -1053,28 +1056,17 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         max_dt_out=MAX(max_dt_out,dt)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
-        IF(MOD(iter,logIter).EQ.0)THEN 
-          __PERFON('log_output')
-          CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
-          CALL U(-2)%set_to(U(0))
-          SWRITE(UNIT_stdOut,'(80("%"))')
-          CALL DATE_AND_TIME(values=TimeArray) ! get System time
-          SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
-                            '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
-          SWRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4,A,3E11.4,A,2E11.4)') &
-                            '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
-                    '    \n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-                   '        \n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out , &
-          '               \n%%% dU = |Force|= ',SQRT(F(0)%norm_2()), &
-          '               \n%%% Dist to last log (max/avg) : ',maxDist,avgDist
-          SWRITE(UNIT_stdOut,'(40(" -"))')
+        IF(MOD(iter,logIter_ramp).EQ.0)THEN 
+
+          CALL Logging(logIter_ramp.LT.logIter)
+
+          logIter_ramp=MIN(logIter,logIter_ramp*2)
           min_dt_out=1.0e+30_wp
           max_dt_out=0.0_wp
           min_dW_out=1.0e+30_wp
           max_dW_out=-1.0e+30_wp
           nSkip_Jac=0
           nSkip_dW =0
-          __PERFOFF('log_output')
         END IF
 
           
@@ -1086,12 +1078,12 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         CALL U(-1)%set_to(U(0))
         CALL U(0)%set_to(P(1))
         CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
-        Fnorm=SUM(SQRT(F(0)%norm_2()))
+        Fnorm=SQRT(F(0)%norm_2())
 ! for hirshman method
 !        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
 
-       !increase time step
-       !dt=1.001_wp*dt
+        !increase time step
+        !dt=1.001_wp*dt
       ELSE !not a valid step, decrease timestep and skip P(1)
         dt=0.5_wp*dt
         nstepDecreased=nStepDecreased+1
@@ -1123,10 +1115,149 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   SWRITE(UNIT_stdOut,fmt_sep)
   CALL Analyze(99999999)
   CALL WriteState(U(0),99999999)
+  CALL FinishLogging()
 !DEBUG
 !  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
 !  CALL ReadState(FileString,U(-1))
   
+
+CONTAINS
+
+  !=================================================================================================================================
+  !> all screen and logfile tasks, can use all variables from subroutine above
+  !!
+  !=================================================================================================================================
+  SUBROUTINE StartLogging()
+  USE MODgvec_Globals,     ONLY: GETFREEUNIT
+  USE MODgvec_Output_Vars, ONLY: ProjectName,outputLevel
+  USE MODgvec_MHD3D_visu,  ONLY: checkAxis
+  IMPLICIT NONE
+  !---------------------------------------------------------------------------------------------------------------------------------
+  CHARACTER(LEN=255)  :: fileString
+  INTEGER             :: TimeArray(8),iLogDat
+  REAL(wp)            :: AxisPos(2,2),F0(3)
+  INTEGER,PARAMETER   :: nLogDat=19
+  REAL(wp)            :: LogDat(1:nLogDat)
+  !=================================================================================================================================
+  __PERFON('log_output')
+  CALL DATE_AND_TIME(values=TimeArray) ! get System time
+  F0=SQRT(F(-1)%norm_2())
+  SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
+  SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
+                 '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
+  SWRITE(UNIT_stdOut,'(A,3E21.14)') &
+          '%%% dU = |Force|= ',Fnorm(1:3)
+  SWRITE(UNIT_stdOut,'(A,3E21.14)') &
+          '%%% |grad_noprec|= ',F0(1:3)
+  SWRITE(UNIT_stdOut,'(40(" -"))')
+  !------------------------------------
+  StartTimeArray=TimeArray !save first time stamp
+
+  logUnit=GETFREEUNIT()
+  WRITE(FileString,'("logMinimizer_",A,"_",I4.4,".csv")')TRIM(ProjectName),outputLevel
+  OPEN(UNIT     = logUnit       ,&
+     FILE     = TRIM(FileString) ,&
+     STATUS   = 'REPLACE'   ,&
+     ACCESS   = 'SEQUENTIAL' ) 
+  !header
+  iLogDat=0
+  WRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
+  WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW"'
+  WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
+  WRITE(logUnit,'(A)',ADVANCE="NO")',"normF0_X1","normF0_X2","normF0_LA"'
+  LogDat(ilogDat+1:iLogDat+13)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,Fnorm(1:3),F0(1:3)/)
+  iLogDat=13 
+  IF(doCheckDistance) THEN
+    WRITE(logUnit,'(A)',ADVANCE="NO")',"max_Dist","avg_Dist"'
+    LogDat(iLogDat+1:iLogDat+2)=(/0.0_wp,0.0_wp/)
+    iLogDat=iLogDat+2
+  END IF!doCheckDistance
+  IF(doCheckAxis) THEN
+    WRITE(logUnit,'(A)',ADVANCE="NO")',"X1_axis_0","X2_axis_0","X1_axis_1","X2_axis_1"'
+    CALL CheckAxis(U(0),2,AxisPos)
+    LogDat(iLogDat+1:iLogDat+4)=RESHAPE(AxisPos,(/4/))
+    iLogDat=iLogDat+4
+  END IF!doCheckAxis
+  WRITE(logUnit,'(A)')' '
+  !first data line
+  WRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
+  __PERFOFF('log_output')
+  END SUBROUTINE StartLogging
+
+  !=================================================================================================================================
+  !> all screen and logfile tasks, can use all variables from subroutine above
+  !!
+  !=================================================================================================================================
+  SUBROUTINE Logging(quiet)
+  USE MODgvec_MHD3D_visu, ONLY: checkDistance
+  USE MODgvec_MHD3D_visu, ONLY: checkAxis
+  IMPLICIT NONE
+  LOGICAL, INTENT(IN) :: quiet !! True: no screen output
+  !---------------------------------------------------------------------------------------------------------------------------------
+  INTEGER             :: TimeArray(8),runtime_ms,iLogDat
+  REAL(wp)            :: AxisPos(2,2),maxDist,avgDist,F0(3) 
+  INTEGER,PARAMETER   :: nLogDat=19
+  REAL(wp)            :: LogDat(1:nLogDat)
+  !=================================================================================================================================
+  __PERFON('log_output')
+  CALL DATE_AND_TIME(values=TimeArray) ! get System time
+  F0=SQRT(F(-1)%norm_2())
+  IF(.NOT.quiet)THEN
+    SWRITE(UNIT_stdOut,'(80("%"))')
+    SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
+                      '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
+    SWRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4)') &
+                      '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
+              '\n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
+              '\n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out 
+    SWRITE(UNIT_stdOut,'(A,3E21.14)') &
+                '%%% dU = |Force|= ',Fnorm(1:3)
+    SWRITE(UNIT_stdOut,'(A,3E21.14)') &
+                '%%% |grad_noprec|=',F0(1:3)
+    !------------------------------------
+  END IF!.NOT.quiet
+  iLogDat=0
+  runtime_ms=MAX(0,SUM((timeArray(5:8)-StartTimearray(5:8))*(/360000,6000,100,1/)))
+  LogDat(ilogDat+1:iLogDat+13)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
+                                min_dt_out,max_dt_out,U(0)%W_MHD3D,min_dW_out,max_dW_out, &
+                                Fnorm(1:3),F0/)
+  iLogDat=13 
+  IF(doCheckDistance) THEN
+    CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
+    CALL U(-2)%set_to(U(0))
+    IF(.NOT.quiet)THEN
+      SWRITE(UNIT_stdOut,'(A,2E11.4)') &
+      '               %%% Dist to last log (max/avg) : ',maxDist,avgDist
+    END IF!.NOT.quiet
+    LogDat(iLogDat+1:iLogDat+2)=(/maxDist,avgDist/)
+    iLogDat=iLogDat+2
+  END IF!doCheckDistance
+  IF(doCheckAxis) THEN
+    CALL CheckAxis(U(0),2,AxisPos)
+    IF(.NOT.quiet)THEN
+      SWRITE(UNIT_stdOut,'(2(A,2E22.14))') &
+        '%%% axis position (X1,X2,zeta=0     ): ',AxisPos(1:2,1), &
+      '\n%%% axis position (X1,X2,zeta=pi/nfp): ',AxisPos(1:2,2)
+    END IF!.NOT.quiet
+    LogDat(iLogDat+1:iLogDat+4)=RESHAPE(AxisPos,(/4/))
+    iLogDat=iLogDat+4
+  END IF !doCheckAxis
+  IF(.NOT.quiet)THEN
+    SWRITE(UNIT_stdOut,'(40(" -"))')
+  END IF!.NOT.quiet
+  WRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
+  __PERFOFF('log_output')
+  END SUBROUTINE Logging
+
+  !=================================================================================================================================
+  !> 
+  !!
+  !=================================================================================================================================
+  SUBROUTINE FinishLogging()
+  IMPLICIT NONE
+  !---------------------------------------------------------------------------------------------------------------------------------
+  CLOSE(logUnit)
+  END SUBROUTINE FinishLogging
 
 END SUBROUTINE MinimizeMHD3D_descent
 

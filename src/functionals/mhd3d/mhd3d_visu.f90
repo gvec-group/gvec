@@ -141,14 +141,14 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: i_s,j_s,i_m,i_n,iElem,nElems,nplot(3),minElem,maxElem,n_s,mn_IP(2)
-  REAL(wp) :: spos,xIP(2),q(3)
+  REAL(wp) :: spos,xIP(2),q(3),q_thet(3),q_zeta(3)
   REAL(wp) :: X1_s(X1_base%f%modes),F_X1_s(X1_base%f%modes),dX1ds(X1_base%f%modes)
   REAL(wp) :: X2_s(X2_base%f%modes),F_X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
   REAL(wp) :: LA_s(LA_base%f%modes),F_LA_s(LA_base%f%modes)
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,dX2_dthet_visu,dX2_dzeta_visu
   REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,chiPrime_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 
-  INTEGER,PARAMETER  :: nVal=14
+  INTEGER,PARAMETER  :: nVal=17
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
@@ -190,6 +190,9 @@ IMPLICIT NONE
   VarNames(12)="s"
   VarNames(13)="theta"
   VarNames(14)="zeta"
+  VarNames(15)="g_tt"
+  VarNames(16)="g_tz"
+  VarNames(17)="g_zz"
 
   var_visu=0.
 
@@ -210,7 +213,7 @@ IMPLICIT NONE
   DO iElem=1,nElems
     DO i_s=1,n_s
 !      spos=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
-      spos=MAX(1.0e-06,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*sgrid%ds(iElem))
+      spos=MAX(1.0e-04,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*sgrid%ds(iElem))
  
       X1_s(:)   = X1_base%s%evalDOF2D_s(spos,X1_base%f%modes,      0,U(0)%X1(:,:))
       dX1ds(:)  = X1_base%s%evalDOF2D_s(spos,X1_base%f%modes,DERIV_S,U(0)%X1(:,:))
@@ -233,7 +236,7 @@ IMPLICIT NONE
 
 !$OMP PARALLEL DO  COLLAPSE(3)     &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!$OMP   PRIVATE(i_m,i_n,j_s,xIP,q,sqrtG,e_s,e_thet,e_zeta,theta_star, &
+!$OMP   PRIVATE(i_m,i_n,j_s,xIP,q,q_thet,q_zeta,sqrtG,e_s,e_thet,e_zeta,theta_star, &
 !$OMP           X1_visu,dX1_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,    &
 !$OMP           X2_visu,dX2_ds_visu,dX2_dthet_visu,dX2_dzeta_visu,dLA_dthet_visu,dLA_dzeta_visu )  &
 !$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
@@ -266,15 +269,23 @@ IMPLICIT NONE
             dLA_dzeta_visu  =LA_base%f%evalDOF_x(xIP,DERIV_ZETA,LA_s )
             
             q=(/X1_visu,X2_visu,xIP(2)/)
-            !x,y,z
+            q_thet=(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/)
+            q_zeta=(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/)
             coord_visu(:,i_s,j_s,i_n,i_m,iElem )=hmap%eval(q)
 
             e_s   =hmap%eval_dxdq(q,(/dX1_ds_visu,dX2_ds_visu,0.0_wp/))
-            e_thet=hmap%eval_dxdq(q,(/dX1_dthet_visu,dX2_dthet_visu,0.0_wp/))
-            e_zeta=hmap%eval_dxdq(q,(/dX1_dzeta_visu,dX2_dzeta_visu,1.0_wp/))
+            e_thet=hmap%eval_dxdq(q,q_thet)
+            e_zeta=hmap%eval_dxdq(q,q_zeta)
 
             sqrtG = hmap%eval_Jh(q)*(dX1_ds_visu*dX2_dthet_visu -dX2_ds_visu*dX1_dthet_visu) 
             !IF(ABS(sqrtG- SUM(e_s*(CROSS(e_thet,e_zeta)))).GT.1.0e-04) STOP 'test sqrtg failed'
+
+            var_visu( 15,i_s,j_s,i_n,i_m,iElem) = hmap%eval_gij(q_thet,q,q_thet)   !g_theta,theta
+            var_visu( 16,i_s,j_s,i_n,i_m,iElem) = hmap%eval_gij(q_thet,q,q_zeta)   !g_theta,zeta =g_zeta,theta
+            var_visu( 17,i_s,j_s,i_n,i_m,iElem) = hmap%eval_gij(q_zeta,q,q_zeta)   !g_zeta,zeta
+      
+      
+      
             
             !lambda
             var_visu(  1,i_s,j_s,i_n,i_m,iElem) = LA_base%f%evalDOF_x(xIP,0,LA_s)
@@ -288,6 +299,7 @@ IMPLICIT NONE
             var_visu(6:8,i_s,j_s,i_n,i_m,iElem)= & 
                           (  e_thet(:)*(chiPrime_s-PhiPrime_s*dLA_dzeta_visu)  &
                            + e_zeta(:)*PhiPrime_s*(1.0_wp+dLA_dthet_visu) )*(1.0_wp/(sqrtG+sign(sqrtG,1.)*1.0e-12))
+   
           END DO !j_s
         END DO !i_n
       END DO !i_m
@@ -428,7 +440,7 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
 
   ALLOCATE(theta1D(1:mn_IP(1)),zeta1D(1:mn_IP(2)))
   DO i_n=1,mn_IP(2)
-    zeta1D(i_n)  = TWOPI*REAL(i_n-1,wp)/REAL(mn_IP(2),wp) !do not include periodic point 
+    zeta1D(i_n)  = TWOPI*REAL(i_n-1,wp)/REAL(mn_IP(2)*X1_base%f%nfp,wp) !do not include periodic point 
   END DO
   DO i_m=1,mn_IP(1)
     theta1D(i_m)= TWOPI*REAL(i_m-1,wp)/REAL(mn_IP(1),wp)  !do not include periodic point
@@ -507,6 +519,39 @@ END SUBROUTINE CheckDistance
 
 
 !===================================================================================================================================
+!> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of 
+!> the sampled x,y,z coordinates 
+!!
+!===================================================================================================================================
+SUBROUTINE CheckAxis(U,n_zeta,AxisPos) 
+! MODULES
+  USE MODgvec_Globals,        ONLY: TWOPI
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base
+  USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_mhd3d
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN) :: U !U 
+  INTEGER               , INTENT(IN) :: n_zeta  !! number of points checked along axis
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT)    :: AxisPos(1:2,n_zeta)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER  :: i_n
+  REAL(wp) :: zeta,UX1_s(1:X1_base%f%modes),UX2_s(1:X2_base%f%modes)
+!===================================================================================================================================
+  UX1_s(:) = X1_base%s%evalDOF2D_s(0.0_wp,X1_base%f%modes,0,U%X1(:,:))
+  UX2_s(:) = X2_base%s%evalDOF2D_s(0.0_wp,X2_base%f%modes,0,U%X2(:,:))
+
+  DO i_n=1,n_zeta
+    zeta = TWOPI*REAL(i_n-1,wp)/REAL(n_zeta*X1_base%f%nfp,wp) !do not include periodic point 
+    AxisPos(1,i_n) = X1_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX1_s(:) )
+    AxisPos(2,i_n) = X2_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX2_s(:) )
+  END DO !i_n
+END SUBROUTINE CheckAxis
+
+!===================================================================================================================================
 !> Visualize 
 !!
 !===================================================================================================================================
@@ -558,22 +603,28 @@ IMPLICIT NONE
     CALL writeDataMN_visu(n_s,fname,vname,0,LA_base,U(0)%LA)
   END IF
   IF(vcase(2))THEN
-    WRITE(*,*)'2) Visualize gvec modes in 1D: dRrho,dZrho interpolated...'
+    WRITE(*,*)'2) Visualize gvec modes in 1D: dX1rho,dX2rho,dLAdrho interpolated...'
     vname="dX1ds"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X1_base,U(0)%X1)
     vname="dX2ds"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X2_base,U(0)%X2)
+    vname="dLAds"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,LA_base,U(0)%LA)
   END IF
   IF(vcase(3))THEN
-    WRITE(*,*)'2) Visualize gvec modes in 1D: (d/drho)^2 R/Z interpolated...'
+    WRITE(*,*)'3) Visualize gvec modes in 1D: (d/drho)^2 X1/X2/LA interpolated...'
     vname="dX1dss"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,2,X1_base,U(0)%X1)
     vname="dX2dss"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,2,X2_base,U(0)%X2)
+    vname="dLAdss"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,2,LA_base,U(0)%LA)
   END IF
   
   !
@@ -666,7 +717,7 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   INTEGER                        :: i,i_s,iElem,nvisu
   INTEGER                        :: nVal,addval
   INTEGER                        :: iMode,j
-  CHARACTER(LEN=80)              :: fname
+  CHARACTER(LEN=255)             :: fname
   CHARACTER(LEN=120),ALLOCATABLE :: varnames(:) 
   REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
   REAL(wp)          ,ALLOCATABLE :: s_visu(:)

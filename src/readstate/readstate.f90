@@ -50,7 +50,7 @@ CONTAINS
 SUBROUTINE ReadStateFileFromASCII(fileString)
 ! MODULES
 USE MODgvec_ReadState_Vars
-USE MODgvec_Globals,ONLY: Unit_stdOut
+USE MODgvec_Globals,ONLY: Unit_stdOut,GETFREEUNIT,abort
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
 USE MODgvec_sbase,  ONLY: sbase_new

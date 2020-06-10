@@ -69,7 +69,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
 !===================================================================================================================================
   __PERFON('lambda_solve')
 
-  spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-08,spos_in))
+  spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos_in))
   mn_IP = X1_base%f%mn_IP
   IF(X2_base%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
   IF(LA_base%f%mn_IP.NE.mn_IP) STOP 'LA mn_IP /= X1 mn_IP'
