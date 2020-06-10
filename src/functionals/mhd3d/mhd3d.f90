@@ -1135,20 +1135,17 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: TimeArray(8),iLogDat
-  REAL(wp)            :: AxisPos(2,2),F0(3)
-  INTEGER,PARAMETER   :: nLogDat=19
+  REAL(wp)            :: AxisPos(2,2)
+  INTEGER,PARAMETER   :: nLogDat=16
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   __PERFON('log_output')
   CALL DATE_AND_TIME(values=TimeArray) ! get System time
-  F0=SQRT(F(-1)%norm_2())
   SWRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
   SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
                  '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
   SWRITE(UNIT_stdOut,'(A,3E21.14)') &
           '%%% dU = |Force|= ',Fnorm(1:3)
-  SWRITE(UNIT_stdOut,'(A,3E21.14)') &
-          '%%% |grad_noprec|= ',F0(1:3)
   SWRITE(UNIT_stdOut,'(40(" -"))')
   !------------------------------------
   StartTimeArray=TimeArray !save first time stamp
@@ -1164,9 +1161,8 @@ CONTAINS
   WRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
   WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW"'
   WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
-  WRITE(logUnit,'(A)',ADVANCE="NO")',"normF0_X1","normF0_X2","normF0_LA"'
-  LogDat(ilogDat+1:iLogDat+13)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,Fnorm(1:3),F0(1:3)/)
-  iLogDat=13 
+  LogDat(ilogDat+1:iLogDat+10)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,Fnorm(1:3)/)
+  iLogDat=10 
   IF(doCheckDistance) THEN
     WRITE(logUnit,'(A)',ADVANCE="NO")',"max_Dist","avg_Dist"'
     LogDat(iLogDat+1:iLogDat+2)=(/0.0_wp,0.0_wp/)
@@ -1195,13 +1191,12 @@ CONTAINS
   LOGICAL, INTENT(IN) :: quiet !! True: no screen output
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER             :: TimeArray(8),runtime_ms,iLogDat
-  REAL(wp)            :: AxisPos(2,2),maxDist,avgDist,F0(3) 
-  INTEGER,PARAMETER   :: nLogDat=19
+  REAL(wp)            :: AxisPos(2,2),maxDist,avgDist
+  INTEGER,PARAMETER   :: nLogDat=16
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   __PERFON('log_output')
   CALL DATE_AND_TIME(values=TimeArray) ! get System time
-  F0=SQRT(F(-1)%norm_2())
   IF(.NOT.quiet)THEN
     SWRITE(UNIT_stdOut,'(80("%"))')
     SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
@@ -1212,16 +1207,14 @@ CONTAINS
               '\n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out 
     SWRITE(UNIT_stdOut,'(A,3E21.14)') &
                 '%%% dU = |Force|= ',Fnorm(1:3)
-    SWRITE(UNIT_stdOut,'(A,3E21.14)') &
-                '%%% |grad_noprec|=',F0(1:3)
     !------------------------------------
   END IF!.NOT.quiet
   iLogDat=0
   runtime_ms=MAX(0,SUM((timeArray(5:8)-StartTimearray(5:8))*(/360000,6000,100,1/)))
-  LogDat(ilogDat+1:iLogDat+13)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
+  LogDat(ilogDat+1:iLogDat+10)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
                                 min_dt_out,max_dt_out,U(0)%W_MHD3D,min_dW_out,max_dW_out, &
-                                Fnorm(1:3),F0/)
-  iLogDat=13 
+                                Fnorm(1:3)/)
+  iLogDat=10 
   IF(doCheckDistance) THEN
     CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
     CALL U(-2)%set_to(U(0))
