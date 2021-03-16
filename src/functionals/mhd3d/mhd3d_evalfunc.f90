@@ -828,8 +828,9 @@ SUBROUTINE BuildPrecond()
 ! LOCAL VARIABLES
   INTEGER                     :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem,i,j
   INTEGER                     :: nD,tBC 
-  REAL(wp)                    :: qloc(3),smn_IP,norm_mn
-  REAL(wp),DIMENSION(1:mn_IP) :: G11, G21, G31, G22, G32, dJh_dq1, dJh_dq2, bt_sJ, bz_sJ
+  REAL(wp)                    :: qloc(3),q_thet(3),q_zeta(3),smn_IP,norm_mn
+  REAL(wp),DIMENSION(1:mn_IP) :: G11, G21, G31, G22, G32, dJh_dq1, dJh_dq2, bt_sJ, bz_sJ, &
+                                 b_dX1_tz,b_dX2_tz,gtt_dq1,gtz_dq1,gzz_dq1,gtt_dq2,gtz_dq2,gzz_dq2
   REAL(wp),DIMENSION(1:nGP)   :: DX1_tt, DX1_tz, DX1_zz, DX1, DX1_ss
   REAL(wp),DIMENSION(1:nGP)   :: DX2_tt, DX2_tz, DX2_zz, DX2, DX2_ss
   REAL(wp),DIMENSION(1:nGP)   :: DLA_tt, DLA_tz, DLA_zz,D_mn
@@ -839,13 +840,22 @@ SUBROUTINE BuildPrecond()
   __PERFON('loop_1')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
-!$OMP   PRIVATE(iGP,i_mn,smn_IP,qloc,G11,G21,G31,G22,G32,dJh_dq1,dJh_dq2,bt_sJ,bz_sJ) 
+!$OMP   PRIVATE(iGP,i_mn,smn_IP,qloc,q_thet,q_zeta,G11,G21,G31,G22,G32,dJh_dq1,dJh_dq2,bt_sJ,bz_sJ,&
+!$OMP           b_dX1_tz,b_dX2_tz,gtt_dq1,gtz_dq1,gzz_dq1,gtt_dq2,gtz_dq2,gzz_dq2) 
   DO iGP=1,nGP
     !dont forget to average
     smn_IP=1.0_wp/REAL(mn_IP,wp)
     !additional variables
     DO i_mn=1,mn_IP
       qloc(1:3)     = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
+      q_thet(1:3)   = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP),0.0_wp/)
+      q_zeta(1:3)   = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP),1.0_wp/)
+      gtt_dq1(i_mn) = hmap%eval_gij_dq1(q_thet,qloc, q_thet)
+      gtz_dq1(i_mn) = hmap%eval_gij_dq1(q_thet,qloc, q_zeta)
+      gzz_dq1(i_mn) = hmap%eval_gij_dq1(q_zeta,qloc, q_zeta)
+      gtt_dq2(i_mn) = hmap%eval_gij_dq2(q_thet,qloc, q_thet)
+      gtz_dq2(i_mn) = hmap%eval_gij_dq2(q_thet,qloc, q_zeta)
+      gzz_dq2(i_mn) = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta)
       G11(    i_mn) = hmap%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
       G21(    i_mn) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
       G31(    i_mn) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/)) 
@@ -856,37 +866,43 @@ SUBROUTINE BuildPrecond()
       dJh_dq2(i_mn) = hmap%eval_Jh_dq2(qloc)
       bt_sJ(  i_mn) = b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
       bz_sJ(  i_mn) = b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
+      b_dX1_tz(i_mn)= b_thet(i_mn,iGP)*dX1_dthet(i_mn,iGP)+b_zeta(i_mn,iGP)*dX1_dzeta(i_mn,iGP)
+      b_dX2_tz(i_mn)= b_thet(i_mn,iGP)*dX2_dthet(i_mn,iGP)+b_zeta(i_mn,iGP)*dX2_dzeta(i_mn,iGP)
     END DO !i_mn
     !averaged quantities
     !X1
     DX1_ss(iGP) =smn_IP*w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 ) 
-    DX1(   iGP) =smn_IP*SUM(bbcov_sJ(:,iGP)*(   sJ_h(:,iGP)*  dJh_dq1(:)     )**2 ) 
+    DX1(   iGP) =smn_IP*SUM((sJ_h(:,iGP)*dJh_dq1(:))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*dJh_dq1(:)) & 
+                             -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq1(:)+2.0*b_zeta(:,iGP)*gtz_dq1(:))    &
+                               +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq1(:))  ) )
     DX1_tt(iGP) =smn_IP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
                            +bt_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
-                                       *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G11(:)   &
-                                         +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G21(:)   &
-                                         +(                               b_zeta(:,iGP)                 )*G31(:))) &
-                                      +    b_thet(:,iGP)*G11(:))                                                   ) 
+                                       *( b_dX1_tz(:    )*G11(:)   &
+                                         +b_dX2_tz(:    )*G21(:)   &
+                                         +b_zeta(  :,iGP)*G31(:))) &
+                                      +b_thet(:,iGP)*G11(:))                                                   ) 
     DX1_tz(iGP) =smn_IP*SUM(bz_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
-                                       *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G11(:)   &
-                                         +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G21(:)   &
-                                         +(                               b_zeta(:,iGP)                 )*G31(:))) &
-                                      +    b_thet(:,iGP)*G11(:))                                                   ) 
+                                       *( b_dX1_tz(:    )*G11(:)   &
+                                         +b_dX2_tz(:    )*G21(:)   &
+                                         +b_zeta(  :,iGP)*G31(:))) &
+                                      +b_thet(:,iGP)*2.0*G11(:))                                               ) 
     DX1_zz(iGP) =smn_IP*SUM(b_zeta(:,iGP)*bz_sJ(:)*G11(:))
     !X2
     DX2_ss(iGP) =smn_IP*w_GP(iGP)*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 ) 
-    DX2(   iGP) =smn_IP*SUM(bbcov_sJ(:,iGP)*(   sJ_h(:,iGP)*  dJh_dq2(:)     )**2 ) 
+    DX2(   iGP) =smn_IP*SUM((sJ_h(:,iGP)*dJh_dq2(:))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*dJh_dq2(:)) & 
+                             -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq2(:)+2.0*b_zeta(:,iGP)*gtz_dq2(:))    &
+                               +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq2(:))  ) )
     DX2_tt(iGP) =smn_IP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
                            +bt_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
-                                       *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G21(:)   &
-                                         +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G22(:)   &
-                                         +(                               b_zeta(:,iGP)                 )*G32(:))) &
-                                      +    b_thet(:,iGP)*G22(:))                                                   )
+                                       *( b_dX1_tz(:    )*G21(:)   &
+                                         +b_dX2_tz(:    )*G22(:)   &
+                                         +b_zeta(  :,iGP)*G32(:))) &
+                                      +b_thet(:,iGP)*G22(:))                                                   )
     DX2_tz(iGP) =smn_IP*SUM(bz_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
-                                       *( (b_thet(:,iGP)*dX1_dthet(:,iGP)+b_zeta(:,iGP)*dX1_dzeta(:,iGP))*G21(:)   &
-                                         +(b_thet(:,iGP)*dX2_dthet(:,iGP)+b_zeta(:,iGP)*dX2_dzeta(:,iGP))*G22(:)   &
-                                         +(                               b_zeta(:,iGP)                 )*G32(:))) &
-                                      +    b_thet(:,iGP)*G22(:))                                                   )
+                                       *( b_dX1_tz(:    )*G21(:)   &
+                                         +b_dX2_tz(:    )*G22(:)   &
+                                         +b_zeta(  :,iGP)*G32(:))) &
+                                      +b_thet(:,iGP)*2.0*G22(:))                  )
     DX2_zz(iGP) =smn_IP*SUM(b_zeta(:,iGP)*bz_sJ(:)*G22(:))
     !LA 
     DLA_tt(iGP) =         smn_IP*phiPrime2_GP(iGP)*SUM(g_zz(:,iGP)*sdetJ(:,iGP)) 
@@ -922,7 +938,7 @@ SUBROUTINE BuildPrecond()
     norm_mn=1.0_wp/X1_base%f%snorm_base(iMode)
     CALL precond_X1(iMode)%reset() !set all values to zero
     D_mn(:)=w_GP(:)*(DX1+       (X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
-                        +PRODUCT(X1_Base%f%Xmn(:,iMode))   *DX1_tz(:)   & 
+                        -PRODUCT(X1_Base%f%Xmn(:,iMode))   *DX1_tz(:)   &  !correct sign of theta,zeta derivative!
                         +       (X1_Base%f%Xmn(2,iMode)**2)*DX1_zz(:) ) 
     iGP=1
     DO iElem=1,nElems
@@ -1001,7 +1017,7 @@ SUBROUTINE BuildPrecond()
     norm_mn=1.0_wp/X2_base%f%snorm_base(iMode)
     CALL precond_X2(iMode)%reset() !set all values to zero
     D_mn(:)=w_GP(:)*(DX2+       (X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
-                        +PRODUCT(X2_Base%f%Xmn(:,iMode))   *DX2_tz(:)   & 
+                        -PRODUCT(X2_Base%f%Xmn(:,iMode))   *DX2_tz(:)   & !correct sign of theta,zeta derivative!
                         +       (X2_Base%f%Xmn(2,iMode)**2)*DX2_zz(:) ) 
     iGP=1
     DO iElem=1,nElems
@@ -1077,7 +1093,7 @@ SUBROUTINE BuildPrecond()
     CALL precond_LA(iMode)%reset() !set all values to zero
     IF(LA_base%f%zero_odd_even(iMode) .NE. MN_ZERO) THEN !MN_ZERO should not exist
       D_mn(:)=(w_GP(:)*(        (LA_Base%f%Xmn(1,iMode)**2)*DLA_tt(:) &
-                        +PRODUCT(LA_Base%f%Xmn(:,iMode))   *DLA_tz(:) &
+                        -PRODUCT(LA_Base%f%Xmn(:,iMode))   *DLA_tz(:) & !correct sign of theta,zeta derivative!
                         +       (LA_Base%f%Xmn(2,iMode)**2)*DLA_zz(:) ))*norm_mn
       !CHECK =0
       IF(SUM(ABS(D_mn(:))).LT.REAL(nGP,wp)*1.0E-10) WRITE(*,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
