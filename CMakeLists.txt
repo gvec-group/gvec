@@ -90,6 +90,10 @@ OPTION(USE_OPENMP "enable OpenMP" ON)
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 MARK_AS_ADVANCED(USE_FTIMINGS)
+OPTION(USE_VISU_J_FD "enable visualization of current with Finite difference (slow)" OFF)
+IF(USE_VISU_J_FD)
+  ADD_DEFINITIONS("-DVISU_J_FD")
+ENDIF()
 # =========================================================================
 # Build type
 # =========================================================================
