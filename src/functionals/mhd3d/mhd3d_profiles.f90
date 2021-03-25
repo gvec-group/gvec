@@ -95,6 +95,36 @@ IMPLICIT NONE
 END FUNCTION Eval_pres
 
 !===================================================================================================================================
+!> evaluate d/ds derivative pressure profile p(phi_norm(s)) => dp/dphinorm*dphinorm/ds
+!!
+!===================================================================================================================================
+FUNCTION Eval_p_prime(spos)
+! MODULES
+USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_deriv
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_pres_coefs,pres_coefs
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+USE MODgvec_VMEC_vars  ,ONLY: pres_spl
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_p_prime
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: phi_norm
+!===================================================================================================================================
+  phi_norm=Eval_PhiNorm(spos)
+  SELECT CASE(which_init)
+  CASE(0)
+    eval_p_prime=Eval1DPoly_deriv(n_pres_coefs,pres_coefs,phi_norm)*Eval_PhiNormPrime(spos)
+  CASE(1)
+    eval_p_prime=VMEC_EvalSpl(1,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is spos=sqrt(phi/phi_edge)
+  END SELECT
+END FUNCTION Eval_p_prime
+
+!===================================================================================================================================
 !> evaluate mass profile mass(phi_norm(s))
 !!
 !===================================================================================================================================
