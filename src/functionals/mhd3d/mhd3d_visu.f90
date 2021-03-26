@@ -152,7 +152,7 @@ IMPLICIT NONE
   REAL(wp) :: X2_s(X2_base%f%modes),F_X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
   REAL(wp) :: LA_s(LA_base%f%modes),F_LA_s(LA_base%f%modes)
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,dX2_dthet_visu,dX2_dzeta_visu
-  REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,chiPrime_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
+  REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 #ifdef VISU_J_FD
   INTEGER,PARAMETER  :: nVal=30
   INTEGER            :: VP_J
@@ -175,10 +175,12 @@ IMPLICIT NONE
   REAL(wp) :: X2_s_eps(X2_base%f%modes),dX2ds_eps(X2_base%f%modes)
   REAL(wp) :: LA_s_eps(LA_base%f%modes)
   REAL(wp) :: X1_eps,X2_eps,dX1_ds_eps,dX2_ds_eps,dX1_dthet_eps,dX1_dzeta_eps,dX2_dthet_eps,dX2_dzeta_eps
-  REAL(wp) :: dLA_dthet_eps,dLA_dzeta_eps,iota_s_eps,pres_s_eps,chiPrime_s_eps,phiPrime_s_eps
+  REAL(wp) :: dLA_dthet_eps,dLA_dzeta_eps,iota_s_eps,pres_s_eps,phiPrime_s_eps
   REAL(wp) :: Jcart(3),  B_ds(3), B_dthet(3), B_dzeta(3), grad_Bcart(3, 3)          !< cartesion current density and gradient of magnetic field components
   INTEGER  :: sgn
-  REAL(wp) :: eps = 1.0e-8
+  REAL(wp) :: delta_s,delta_thet,delta_zeta 
+  REAL(wp),PARAMETER :: eps   = 1.0e-8 !theta,zeta
+  REAL(wp),PARAMETER :: eps_s   = 1.0e-4 !
 #endif
 !===================================================================================================================================
   IF(only_planes)THEN
@@ -254,7 +256,7 @@ IMPLICIT NONE
   DO iElem=1,nElems
     DO i_s=1,n_s
 !      spos=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
-!      spos=MAX(1.0e-04,sgrid%sp(iElem-1)+eps+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*(sgrid%ds(iElem)-2*eps)) !for discont. data
+!      spos=MAX(1.0e-04,sgrid%sp(iElem-1)+1e-08+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*(sgrid%ds(iElem)-2*1e-8)) !for discont. data
       spos=MAX(1.0e-04,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*(sgrid%ds(iElem)))
  
       X1_s(:)   = X1_base%s%evalDOF2D_s(spos,X1_base%f%modes,      0,U(0)%X1(:,:))
@@ -265,6 +267,15 @@ IMPLICIT NONE
       F_X2_s(:) = X2_base%s%evalDOF2D_s(spos,X2_base%f%modes,      0,F(0)%X2(:,:))
       LA_s(:)   = LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,      0,U(0)%LA(:,:))
       F_LA_s(:) = LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,      0,F(0)%LA(:,:))
+
+      iota_s=Eval_iota(spos)
+      pres_s=Eval_pres(spos)
+      phiPrime_s=Eval_PhiPrime(spos)
+      var_visu(VP_S    ,i_s,:,:,:,iElem) =spos
+      var_visu(VP_PHI  ,i_s,:,:,:,iElem) =Eval_Phi(spos)
+      var_visu(VP_IOTA ,i_s,:,:,:,iElem) =iota_s
+      var_visu(VP_PRES ,i_s,:,:,:,iElem) =pres_s
+      var_visu(VP_DP_DS,i_s,:,:,:,iElem) =Eval_p_prime(spos)
 #ifdef VISU_J_FD
       ! for Finite  Difference in s
       if (i_s .ne. n_s) then !switch sign of finite difference at last point
@@ -272,39 +283,36 @@ IMPLICIT NONE
       else
         sgn = -1
       endif
-      X1_s_eps(:)   = X1_base%s%evalDOF2D_s(spos+sgn*eps,X1_base%f%modes,      0,U(0)%X1(:,:))
-      dX1ds_eps(:)  = X1_base%s%evalDOF2D_s(spos+sgn*eps,X1_base%f%modes,DERIV_S,U(0)%X1(:,:))
-      X2_s_eps(:)   = X2_base%s%evalDOF2D_s(spos+sgn*eps,X2_base%f%modes,      0,U(0)%X2(:,:))
-      dX2ds_eps(:)  = X2_base%s%evalDOF2D_s(spos+sgn*eps,X2_base%f%modes,DERIV_S,U(0)%X2(:,:))
-      LA_s_eps(:)   = LA_base%s%evalDOF2D_s(spos+sgn*eps,LA_base%f%modes,      0,U(0)%LA(:,:))
-      iota_s_eps=Eval_iota(spos+sgn*eps)
-      pres_s_eps=Eval_pres(spos+sgn*eps)
-      phiPrime_s_eps=Eval_PhiPrime(spos+sgn*eps)
-      chiPrime_s_eps=Eval_chiPrime(spos+sgn*eps)
+      delta_s=sgn*eps_s*sgrid%ds(iElem)
+      X1_s_eps(:)   = X1_base%s%evalDOF2D_s(spos+delta_s,X1_base%f%modes,      0,U(0)%X1(:,:))
+      dX1ds_eps(:)  = X1_base%s%evalDOF2D_s(spos+delta_s,X1_base%f%modes,DERIV_S,U(0)%X1(:,:))
+      X2_s_eps(:)   = X2_base%s%evalDOF2D_s(spos+delta_s,X2_base%f%modes,      0,U(0)%X2(:,:))
+      dX2ds_eps(:)  = X2_base%s%evalDOF2D_s(spos+delta_s,X2_base%f%modes,DERIV_S,U(0)%X2(:,:))
+      LA_s_eps(:)   = LA_base%s%evalDOF2D_s(spos+delta_s,LA_base%f%modes,      0,U(0)%LA(:,:))
+      iota_s_eps=Eval_iota(spos+delta_s)
+      pres_s_eps=Eval_pres(spos+delta_s)
+      phiPrime_s_eps=Eval_PhiPrime(spos+delta_s)
 #endif
-
-      iota_s=Eval_iota(spos)
-      pres_s=Eval_pres(spos)
-      phiPrime_s=Eval_PhiPrime(spos)
-      chiPrime_s=Eval_chiPrime(spos)
-      var_visu(VP_S    ,i_s,:,:,:,iElem)  =spos
-      var_visu(VP_PHI  ,i_s,:,:,:,iElem) =Eval_Phi(spos)
-      var_visu(VP_IOTA ,i_s,:,:,:,iElem) =iota_s
-      var_visu(VP_PRES ,i_s,:,:,:,iElem) =pres_s
-      var_visu(VP_DP_DS,i_s,:,:,:,iElem) =Eval_p_prime(spos)
       !define theta2, which corresponds to the theta angle of a given theta_star=theta
 
-!$OMP PARALLEL DO  COLLAPSE(3)     &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)    &
+!$OMP PARALLEL DO COLLAPSE(3)     &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(i_m,i_n,j_s,xIP,q,q_thet,q_zeta,sqrtG,e_s,e_thet,e_zeta,theta_star, &
 !$OMP           X1_visu,dX1_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,    &
 !$OMP           X2_visu,dX2_ds_visu,dX2_dthet_visu,dX2_dzeta_visu,dLA_dthet_visu,dLA_dzeta_visu, &
 #ifdef VISU_J_FD
 !$OMP           X1_eps,dX1_ds_eps,dX1_dthet_eps,dX1_dzeta_eps,    &
 !$OMP           X2_eps,dX2_ds_eps,dX2_dthet_eps,dX2_dzeta_eps,dLA_dthet_eps,dLA_dzeta_eps, &
-!$OMP           JCart, B_ds, B_dthet, B_dzeta, grad_Bcart, xIP_eps, &
+!$OMP           JCart, B_ds, B_dthet, B_dzeta, grad_Bcart, xIP_eps, delta_thet, delta_zeta,&
 #endif
-!$OMP           Bcart, Bthet, Bzeta, grad_s, grad_thet, grad_zeta)
+!$OMP           Bcart, Bthet, Bzeta, grad_s, grad_thet, grad_zeta) &
+!$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
+!$OMP          VP_LAMBDA,VP_SQRTG,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, &
+!$OMP          VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,iota_s, &
+#ifdef VISU_J_FD
+!$OMP          X1_s_eps,X2_s_eps,LA_s_eps,dX1ds_eps,dX2ds_eps,VP_J,iota_s_eps,PhiPrime_s_eps,delta_s,&
+#endif
+!$OMP          F_X1_s,F_X2_s,F_LA_s,hmap,coord_visu,var_visu,phiPrime_s,mn_IP,n_s)
       DO i_m=1,mn_IP(1)
         DO i_n=1,mn_IP(2)
           DO j_s=1,n_s
@@ -398,10 +406,11 @@ IMPLICIT NONE
 
             Bthet   = (iota_s_eps - dLA_dzeta_eps ) * phiPrime_s_eps   !/sqrtG
             Bzeta   = (1.0_wp  + dLA_dthet_eps ) * phiPrime_s_eps       !/sqrtG
-            B_ds(:) =  (( e_thet(:) * Bthet + e_zeta(:) * Bzeta) /sqrtG - Bcart(:)) / (sgn*eps)      ! calculating dBx_ds, dBy_ds, dBz_ds
+            B_ds(:) =  (( e_thet(:) * Bthet + e_zeta(:) * Bzeta) /sqrtG - Bcart(:)) / (delta_s)      ! calculating dBx_ds, dBy_ds, dBz_ds
             
             ! Calculate dtheta derivative of B
-            xIP_eps        = (/xIP(1)+eps, xIP(2)/)
+            delta_thet = eps*SQRT(SUM(grad_thet*grad_thet))
+            xIP_eps        = (/xIP(1)+delta_thet, xIP(2)/)
             X1_eps         = X1_base%f%evalDOF_x(xIP_eps, 0, X1_s )
             X2_eps         = X2_base%f%evalDOF_x(xIP_eps, 0, X2_s )
             dX1_ds_eps     = X1_base%f%evalDOF_x(xIP_eps, 0, dX1ds)
@@ -423,10 +432,11 @@ IMPLICIT NONE
 
             Bthet   = (iota_s - dLA_dzeta_eps ) * phiPrime_s   !/sqrtG
             Bzeta   = (1.0_wp  + dLA_dthet_eps ) * phiPrime_s       !/sqrtG
-            B_dthet(:) =  (( e_thet(:)*Bthet+e_zeta(:)*Bzeta) /sqrtG - Bcart(:)) / eps      ! calculating dBx_dtheta, dBy_dtheta, dBz_dtheta
+            B_dthet(:) =  (( e_thet(:)*Bthet+e_zeta(:)*Bzeta) /sqrtG - Bcart(:)) / (delta_thet)      ! calculating dBx_dtheta, dBy_dtheta, dBz_dtheta
 !
 !           ! Calculate dzeta derivative of B
-            xIP_eps = (/xIP(1), xIP(2)+eps/)
+            delta_zeta = eps*SQRT(SUM(grad_zeta*grad_zeta))
+            xIP_eps = (/xIP(1), xIP(2)+delta_zeta/)
             X1_eps         = X1_base%f%evalDOF_x(xIP_eps, 0, X1_s )
             X2_eps         = X2_base%f%evalDOF_x(xIP_eps, 0, X2_s )
             dX1_ds_eps     = X1_base%f%evalDOF_x(xIP_eps, 0, dX1ds)
@@ -448,7 +458,7 @@ IMPLICIT NONE
 
             Bthet   = (iota_s - dLA_dzeta_eps ) * phiPrime_s   !/sqrtG
             Bzeta   = (1.0_wp  + dLA_dthet_eps ) * phiPrime_s       !/sqrtG
-            B_dzeta(:) =  (( e_thet(:)*Bthet+e_zeta(:)*Bzeta) /sqrtG - Bcart(:)) / eps      ! calculating dBx_dzeta, dBy_dzeta, dBz_dzeta
+            B_dzeta(:) =  (( e_thet(:)*Bthet+e_zeta(:)*Bzeta) /sqrtG - Bcart(:)) / (delta_zeta)    ! calculating dBx_dzeta, dBy_dzeta, dBz_dzeta
 
             ! Calculate B derivatives by finite difference
             grad_Bcart(1, :) = B_ds(1) * grad_s(:) + B_dthet(1) * grad_thet(:) + B_dzeta(1) * grad_zeta(:)   ! grad_BX
@@ -469,11 +479,13 @@ IMPLICIT NONE
   END DO !iElem
 
   ! average data in theta at the axis:
-  DO i_n=1,mn_IP(2)
-    DO iVal=1,nVal
-      var_visu(iVal,1,:,i_n,:,1)=SUM(var_visu(iVal,1,:,i_n,:,1))/REAL(mn_IP(1)*n_s,wp)
-    END DO !iVal
-  END DO !i_n
+  !IF(minMax(1,0).LE.1e-4)THEN
+  !  DO i_n=1,mn_IP(2)
+  !    DO iVal=1,nVal
+  !      var_visu(iVal,1,:,i_n,:,1)=SUM(var_visu(iVal,1,:,i_n,:,1))/REAL(mn_IP(1)*n_s,wp)
+  !    END DO !iVal
+  !  END DO !i_n
+  !END IF
 
   !make grid exactly periodic
   IF(hmap%which_hmap.NE.3)THEN !not for cylinder
