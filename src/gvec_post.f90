@@ -32,6 +32,7 @@ PROGRAM GVEC_POST
   USE MODgvec_MHD3D_EvalFunc,ONLY: EvalForce
   USE MODgvec_ReadInTools  ,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
   USE MODgvec_Functional
+!$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
@@ -56,6 +57,8 @@ PROGRAM GVEC_POST
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
   WRITE(Unit_stdOut,'(132("="))')
+!$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
+!$ WRITE(Unit_stdOut,'(132("="))')
   testdbg =.FALSE.
   testlevel=-1
   
