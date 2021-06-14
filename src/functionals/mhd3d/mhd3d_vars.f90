@@ -68,8 +68,11 @@ INTEGER              :: MinimizerType   !! which mimimizer to use: 0: steepest d
 INTEGER              :: maxIter         !! maximum iteration count for minimization 
 INTEGER              :: outputIter      !! number of iterations after which output files are written
 INTEGER              :: logIter         !! number of iterations after which a screen log is written
+INTEGER              :: nlogScreen      !! number of log outputs after a screen output is written
 REAL(wp)             :: minimize_tol    !! absolute tolerance for minimization of functional
 REAL(wp)             :: start_dt        !! starting time step, is adapted during iteration
+REAL(wp)             :: dW_allowed      !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
+LOGICAL              :: doLineSearch    !! for minimizer, add a line search (only gradient descent)
 LOGICAL              :: DoCheckDistance !! TRUE: check distance between solutions of two log output states (default: false)
 LOGICAL              :: DoCheckAxis     !! TRUE: check axis position (default: true)
 ! input parameters for functional

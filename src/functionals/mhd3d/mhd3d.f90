@@ -93,13 +93,26 @@ SUBROUTINE InitMHD3D(sf)
   which_init = GETINT("whichInitEquilibrium")
   IF(which_init.EQ.1) CALL InitVMEC()
   
+  !-----------MINIMIZER
+  MinimizerType= GETINT("MinimizerType",Proposal=0)
+  PrecondType  = GETINT("PrecondType",Proposal=-1)
+
+  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
+  IF(MinimizerType.EQ.10)THEN !for hirshman method
+    doLineSearch=.FALSE.  !does not work
+  ELSE
+    doLineSearch=GETLOGICAL("doLineSearch",Proposal=.FALSE.) ! does not improve convergence
+  END IF
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=500)
   logIter   = GETINT("logIter",Proposal=250)
+  nlogScreen= GETINT("nLogScreen",Proposal=1)
   minimize_tol  =GETREAL("minimize_tol",Proposal=1.0e-12_wp)
   start_dt  =GETREAL("start_dt",Proposal=1.0e-08_wp)
   doCheckDistance=GETLOGICAL("doCheckDistance",Proposal=.FALSE.)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
+  !-----------
+
 
   nElems   = GETINT("sgrid_nElems",Proposal=10)
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
@@ -109,14 +122,10 @@ SUBROUTINE InitMHD3D(sf)
   fac_nyq = GETINT( "fac_nyq")
   
   !constants
-  
   mu_0    = 2.0e-07_wp*TWOPI
   
 
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
-
-  PrecondType=GETINT("PrecondType",Proposal=-1)
-  MinimizerType=GETINT("MinimizerType",Proposal=0)
   
   SELECT CASE(which_init)
   CASE(0)
@@ -233,8 +242,8 @@ SUBROUTINE InitMHD3D(sf)
       SWRITE(UNIT_stdOut,'(A,2I6)')'!!!!!!!!   ---->  you use a lower mode number than the VMEC  run  ', &
                                     MAXVAL(INT(xm(:))),MAXVAL(ABS(INT(xn(:))/nfp_loc))
       SWRITE(UNIT_stdOut,'(A)')    '!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
-        CALL abort(__STAMP__,&
-      '!!!!!  you use a lower mode number than the VMEC  run  (m,n)_max')
+      !  CALL abort(__STAMP__,&
+      !'!!!!!  you use a lower mode number than the VMEC  run  (m,n)_max')
     END IF
   END IF
 
@@ -332,6 +341,7 @@ SUBROUTINE InitMHD3D(sf)
   END DO 
   END ASSOCIATE !LA
   
+  ! ALLOCATE DATA
   ALLOCATE(U(-3:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
                    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
@@ -959,8 +969,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   REAL(wp)  :: tau(1:ndamp), tau_bar
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out,t_pseudo,Fnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
   INTEGER   :: logUnit !globally needed for logging
-  INTEGER   :: logiter_ramp
-  LOGICAL   :: allow_dW_positive,doLineSearch
+  INTEGER   :: logiter_ramp,logscreen
   LOGICAL   :: doRestart
   LOGICAL   :: first_iter 
 !===================================================================================================================================
@@ -969,13 +978,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 
   abstol=minimize_tol
 
-  IF(MinimizerType.EQ.10)THEN !for hirshman method
-    allow_dW_positive=.TRUE.
-    doLineSearch=.FALSE.
-  ELSE
-    allow_dW_positive=.FALSE.
-    doLineSearch=.TRUE.
-  END IF
 
   dt=start_dt
   nstepDecreased=0
@@ -984,6 +986,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   lastOutputIter=0
   iter=0
   logiter_ramp=1
+  logscreen=1
 
   first_iter=.TRUE.
 
@@ -1047,7 +1050,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
     ELSE 
       !detJ>0
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
-      IF((deltaW.LE.1.0e-10*W_MHD3D_0).OR.(allow_dW_positive))THEN !valid step /hirshman method accept W increase!
+      IF(deltaW.LE.dW_allowed*W_MHD3D_0)THEN !valid step /hirshman method accept W increase!
         IF(doLineSearch)THEN
           ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
           CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
@@ -1065,7 +1068,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
               !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
             END IF
           END IF
-        END IF !MinimizerType=0
+        END IF !dolinesearch
 
         IF(ALL(Fnorm.LE.abstol))THEN
           CALL Logging(.FALSE.)
@@ -1081,8 +1084,9 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         sum_dW_out=sum_dW_out+deltaW
         IF(MOD(iter,logIter_ramp).EQ.0)THEN 
 
-          CALL Logging(logIter_ramp.LT.logIter)
+          CALL Logging(.NOT.((logIter_ramp.GE.logIter).AND.(MOD(logscreen,nLogScreen).EQ.0)))
           IF(.NOT.(logIter_ramp.LT.logIter))THEN !only reset for logIter
+            logscreen=logscreen+1
             min_dt_out=1.0e+30_wp
             max_dt_out=0.0_wp
             min_dW_out=1.0e+30_wp
@@ -1111,9 +1115,9 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         dt=0.9_wp*dt
         nstepDecreased=nStepDecreased+1
         nSkip_dW=nSkip_dW+1
-        CALL U(0)%set_to(U(-2))
+        !CALL U(0)%set_to(U(-2)) 
         doRestart=.TRUE.
-        SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4)')iter,'...deltaW>+1.0e-10*W_MHD3D_0, skip step and decrease stepsize to dt=',dt
+        SWRITE(UNIT_stdOut,'(8X,I8,A,E8.1,A,E11.4)')iter,'...deltaW>',dW_allowed,'*W_MHD3D_0, skip step and decrease stepsize to dt=',dt
       END IF
     END IF !JacCheck
    
