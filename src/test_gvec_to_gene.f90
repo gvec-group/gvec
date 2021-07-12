@@ -37,6 +37,7 @@ REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p,p_prime,phiPrime_edge,q_e
 INTEGER                 :: n0_global,is,i,j
 INTEGER,PARAMETER       :: nthet=11
 INTEGER,PARAMETER       :: nzeta=22
+INTEGER                 :: SFLcoord_test
 REAL(wp),DIMENSION(nthet,nzeta)   :: theta_star,theta,zeta
 REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB 
 !===================================================================================================================================
@@ -59,8 +60,11 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
   WRITE(Unit_stdOut,'(132("="))')
   
+  DO SFLcoord_test=0,2
+  WRITE(Unit_stdOut,'(A,I4)')'TESTING SFLCOORD= ',SFLcoord_test
+  WRITE(Unit_stdOut,'(132("="))')
   !initialization phase
-  CALL Init_gvec_to_gene(filename)
+  CALL Init_gvec_to_gene(filename,SFLcoord_test)
  
   CALL gvec_to_gene_scalars(Fa,minor_r,phiPrime_edge,q_edge,n0_global)
   WRITE(*,*)'Fa',Fa
@@ -82,6 +86,7 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
       zeta(i,j)=-PI + REAL(j-1)/REAL(nthet)*2.*Pi
       theta_star(i,j)=REAL(i-1)/REAL(nthet)*2.*Pi - 1.5*zeta(i,j)
     END DO ; END DO
+    WRITE(*,*)'TESTING gvec_to_gene_coords...'
     CALL gvec_to_gene_coords( nthet,nzeta,spos,theta_star,zeta,theta,cart_coords)
     WRITE(*,'(A,3g15.7)')'MIN x,y,z   : ',MINVAL(cart_coords(1,:,:)) &
                                          ,MINVAL(cart_coords(2,:,:)) &
@@ -94,6 +99,7 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
     WRITE(*,'(A,3g15.7)')'MAX th*,th  : ',MAXVAL(theta_star) &
                                          ,MAXVAL(theta)
 
+    WRITE(*,*)'TESTING gvec_to_gene_metrics...'
     CALL gvec_to_gene_metrics(nthet,nzeta,spos,theta_star,zeta,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB)
     WRITE(*,'(A,3g15.7)')'MIN grads   : ',MINVAL(grad_s(1,:,:)) &
                                          ,MINVAL(grad_s(2,:,:)) &
@@ -136,6 +142,7 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
   WRITE(Unit_stdOut,fmt_sep)
   WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC_TO_GENE FINISHED! [',EndTime-StartTime,' sec ]'
   WRITE(Unit_stdOut,fmt_sep)
+  END DO !SFLcoord_test
 
 END PROGRAM TEST_GVEC_TO_GENE
 
