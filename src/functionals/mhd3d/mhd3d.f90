@@ -93,13 +93,26 @@ SUBROUTINE InitMHD3D(sf)
   which_init = GETINT("whichInitEquilibrium")
   IF(which_init.EQ.1) CALL InitVMEC()
   
+  !-----------MINIMIZER
+  MinimizerType= GETINT("MinimizerType",Proposal=0)
+  PrecondType  = GETINT("PrecondType",Proposal=-1)
+
+  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
+  IF(MinimizerType.EQ.10)THEN !for hirshman method
+    doLineSearch=.FALSE.  !does not work
+  ELSE
+    doLineSearch=GETLOGICAL("doLineSearch",Proposal=.FALSE.) ! does not improve convergence
+  END IF
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=500)
   logIter   = GETINT("logIter",Proposal=250)
+  nlogScreen= GETINT("nLogScreen",Proposal=1)
   minimize_tol  =GETREAL("minimize_tol",Proposal=1.0e-12_wp)
   start_dt  =GETREAL("start_dt",Proposal=1.0e-08_wp)
   doCheckDistance=GETLOGICAL("doCheckDistance",Proposal=.FALSE.)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
+  !-----------
+
 
   nElems   = GETINT("sgrid_nElems",Proposal=10)
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
@@ -109,14 +122,10 @@ SUBROUTINE InitMHD3D(sf)
   fac_nyq = GETINT( "fac_nyq")
   
   !constants
-  
   mu_0    = 2.0e-07_wp*TWOPI
   
 
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
-
-  PrecondType=GETINT("PrecondType",Proposal=-1)
-  MinimizerType=GETINT("MinimizerType",Proposal=0)
   
   SELECT CASE(which_init)
   CASE(0)
@@ -233,8 +242,8 @@ SUBROUTINE InitMHD3D(sf)
       SWRITE(UNIT_stdOut,'(A,2I6)')'!!!!!!!!   ---->  you use a lower mode number than the VMEC  run  ', &
                                     MAXVAL(INT(xm(:))),MAXVAL(ABS(INT(xn(:))/nfp_loc))
       SWRITE(UNIT_stdOut,'(A)')    '!!!!!!!! WARNING: !!!!!!!!!!!!!!!'
-        CALL abort(__STAMP__,&
-      '!!!!!  you use a lower mode number than the VMEC  run  (m,n)_max')
+      !  CALL abort(__STAMP__,&
+      !'!!!!!  you use a lower mode number than the VMEC  run  (m,n)_max')
     END IF
   END IF
 
@@ -332,6 +341,7 @@ SUBROUTINE InitMHD3D(sf)
   END DO 
   END ASSOCIATE !LA
   
+  ! ALLOCATE DATA
   ALLOCATE(U(-3:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
                    X1_base%f%modes,X2_base%f%modes,LA_base%f%modes/)  )
@@ -341,6 +351,10 @@ SUBROUTINE InitMHD3D(sf)
   ALLOCATE(F(-1:0))
   DO i=-1,0
     CALL F(i)%copy(U(1))
+  END DO
+  ALLOCATE(V(-1:1))
+  DO i=-1,1
+    CALL V(i)%copy(U(1))
   END DO
   ALLOCATE(P(-1:1))
   DO i=-1,1
@@ -921,7 +935,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 !===================================================================================================================================
   __PERFON('minimizer')
   SELECT CASE(MinimizerType)
-  CASE(0)
+  CASE(0,10)
     CALL MinimizeMHD3D_descent(sf)
   CASE(1)
     CALL MinimizeMHD3D_LBFGS(sf)
@@ -950,64 +964,78 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 ! LOCAL VARIABLES
   INTEGER   :: iter,nStepDecreased,nSkip_Jac,nSkip_dw
   INTEGER   :: JacCheck,lastoutputIter,StartTimeArray(8)
-  REAL(wp)  :: beta,dt,deltaW,absTol
-  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,t_pseudo,Fnorm(3),Fnorm0(3),W_MHD3D_0
+  REAL(wp)  :: dt,deltaW,absTol
+  INTEGER,PARAMETER   :: ndamp=10
+  REAL(wp)  :: tau(1:ndamp), tau_bar
+  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out,t_pseudo,Fnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
   INTEGER   :: logUnit !globally needed for logging
-  INTEGER   :: logiter_ramp
+  INTEGER   :: logiter_ramp,logscreen
+  LOGICAL   :: doRestart
+  LOGICAL   :: first_iter 
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
-  min_dt_out=1.0e+30_wp
-  max_dt_out=0.0_wp
-  min_dW_out=1.0e+30_wp
-  max_dW_out=-1.0e+30_wp
-  nSkip_Jac=0
-  nSkip_dW =0
 
-  logiter_ramp=1
-
-  JacCheck=1 !abort if detJ<0
-  CALL EvalAux(           U(0),JacCheck)
-  U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
-  W_MHD3D_0 = U(0)%W_MHD3D
 
   abstol=minimize_tol
 
-  CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
-  Fnorm0=SQRT(F(0)%norm_2())
-  Fnorm=Fnorm0
 
-  CALL P( -1)%set_to(0.0_wp)
-
-  CALL U( -1)%set_to(U(0))
-  CALL U( -2)%set_to(U(0))
-  CALL U( -3)%set_to(U(0)) !initial state, should remain unchanged
-
-  beta=0.3_wp  !for damping
   dt=start_dt
   nstepDecreased=0
+  nSkip_Jac=0
   t_pseudo=0
   lastOutputIter=0
   iter=0
+  logiter_ramp=1
+  logscreen=1
 
-  CALL StartLogging()
+  first_iter=.TRUE.
+
+  CALL U(-3)%set_to(U(0)) !initial state, should remain unchanged
 
   DO WHILE(iter.LE.maxIter)
-! hirshman method
-!    CALL P(0)%AXBY(beta,P(-1),1.0_wp,F(0))
-!    CALL P(1)%AXBY(1.0_wp,U(0),dt,P(0)) !overwrites P(1)
+    IF((first_iter).OR.(DoRestart))THEN
+      JacCheck=1 !abort if detJ<0
+      CALL EvalAux(           U(0),JacCheck)
+      U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
+      W_MHD3D_0 = U(0)%W_MHD3D
+      CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
+      Fnorm0=SQRT(F(0)%norm_2())
+      Fnorm=Fnorm0
+      Fnorm_old=1.1*Fnorm0
+      CALL U(-1)%set_to(U(0)) !last state
+      CALL U(-2)%set_to(U(0)) !state at last logging interval
+      !for hirshman method
+      IF(MinimizerType.EQ.10)THEN
+        CALL V(-1)%set_to(0.0_wp)
+        CALL V( 0)%set_to(0.0_wp)
+        tau(1:ndamp)=0.15_wp/dt
+      END IF
+      min_dt_out=1.0e+30_wp
+      max_dt_out=0.0_wp
+      min_dW_out=1.0e+30_wp
+      max_dW_out=-1.0e+30_wp
+      sum_dW_out=0.0_wp
+      nSkip_dW =0
+      IF(DoRestart) DoRestart=.FALSE.
+      IF(first_iter)THEN
+        CALL StartLogging()
+        first_iter=.FALSE.
+      END IF
+    END IF !before first iteration or after restart Jac<0
 
-!simple gradient
-    CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1)
+    !COMPUTE NEW SOLUTION P(1) as a prediction
 
-!damping (beta >0), U^(n+1)=U^(n)+(1-beta*sqrt(dt))*(U^(n)-U^(n-1))+dt F , beta->(1-beta*sqrt(dt))
-               !        =U^(n)*(1+beta) - beta*U^(n-1) =P0 + dt F
-
-!    !for damping (1-beta*sqrt(dt)), beta=20.0_wp  
-!    CALL P(0)%AXBY((2.0_wp-beta*sqrt(dt)),U(0),(beta*sqrt(dt)-1.0_wp),U(-1)) !overwrites P(0)
-
-    !for damping   beta=0.6
-    !CALL P(0)%AXBY((1.0_wp+beta),U(0),-beta,U(-1)) !overwrites P(0)
-    !CALL P(1)%AXBY(1.0_wp,P(0),dt,F(0)) !overwrites P(1)
+    SELECT CASE(MinimizerType)
+    CASE(0) !gradient descent, previously used for minimizerType=0
+      CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1), predicts solution U(1)
+    CASE(10) !hirshman method 
+      !tau is damping parameter
+      tau(1:ndamp-1) = tau(2:ndamp) !save old
+      tau(ndamp)  = MIN(0.15_wp,ABS(LOG(SUM(Fnorm**2)/SUM(Fnorm_old**2))))/dt  !ln(|F_n|^2/|F_{n-1}|^2), Fnorm=|F_X1|,|F_X2|,|F_LA|
+      tau_bar = 0.5*dt*SUM(tau)/REAL(ndamp,wp)   !=1/2 * tauavg
+      CALL V(1)%AXBY(((1.0_wp-tau_bar)/(1.0_wp+tau_bar)),V(0),(dt/(1.0_wp+tau_bar)),F(0)) !velocity V(1)
+      CALL P(1)%AXBY(1.0_wp,U(0),dt,V(1)) !overwrites P(1), predicst solution U(1)
+    END SELECT
 
 
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
@@ -1016,35 +1044,32 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       dt=0.9_wp*dt
       nstepDecreased=nStepDecreased+1
       nSkip_Jac=nSkip_Jac+1
-      SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...detJac<0, decrease stepsize by 0.9 and RESTART simulation!!!'
-      CALL U(0)%set_to(U(-3))
+      DoRestart=.TRUE.
+      CALL U(0)%set_to(U(-3)) !reset to initial state 
+      SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')iter,'...detJac<0, decrease stepsize to dt=',dt,  ' and RESTART simulation!!!!!!!'
     ELSE 
       !detJ>0
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
-      
-      IF(deltaW.LE.1.0e-10*W_MHD3D_0)THEN !valid step 
-        ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
-        CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
-        JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
-        U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
-        IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-          CALL P(1)%set_to(U(1)) !accept smaller step
+      IF(deltaW.LE.dW_allowed*W_MHD3D_0)THEN !valid step /hirshman method accept W increase!
+        IF(doLineSearch)THEN
+          ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
           CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
           JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
           U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
           IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-            !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
             CALL P(1)%set_to(U(1)) !accept smaller step
-          ELSE
-            !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
+            CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
+            JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
+            U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
+            IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
+              !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
+              CALL P(1)%set_to(U(1)) !accept smaller step
+            ELSE
+              !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
+            END IF
           END IF
-        END IF
+        END IF !dolinesearch
 
-!        IF(ABS(deltaW).LE.aborttol)THEN
-!          SWRITE(UNIT_stdOut,'(A,A,E21.14)')'Iteration finished, energy stagnates in relative tolerance, ', &
-!                                           ' deltaW= ' ,U(0)%W_MHD3D-U(-1)%W_MHD3D
-!        IF(ALL(Fnorm*dt.LE.reltol*Fnorm0))THEN
-        Fnorm=SQRT(F(0)%norm_2())
         IF(ALL(Fnorm.LE.abstol))THEN
           CALL Logging(.FALSE.)
           SWRITE(UNIT_stdOut,'(4x,A)')'==>Iteration finished, |force| in relative tolerance'
@@ -1056,39 +1081,43 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         max_dt_out=MAX(max_dt_out,dt)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
+        sum_dW_out=sum_dW_out+deltaW
         IF(MOD(iter,logIter_ramp).EQ.0)THEN 
 
-          CALL Logging(logIter_ramp.LT.logIter)
-
+          CALL Logging(.NOT.((logIter_ramp.GE.logIter).AND.(MOD(logscreen,nLogScreen).EQ.0)))
+          IF(.NOT.(logIter_ramp.LT.logIter))THEN !only reset for logIter
+            logscreen=logscreen+1
+            min_dt_out=1.0e+30_wp
+            max_dt_out=0.0_wp
+            min_dW_out=1.0e+30_wp
+            max_dW_out=-1.0e+30_wp
+            sum_dW_out=0.0_wp
+            nSkip_dW =0
+          END IF
           logIter_ramp=MIN(logIter,logIter_ramp*2)
-          min_dt_out=1.0e+30_wp
-          max_dt_out=0.0_wp
-          min_dW_out=1.0e+30_wp
-          max_dW_out=-1.0e+30_wp
-          nSkip_Jac=0
-          nSkip_dW =0
         END IF
 
-          
-! for hirshman method
-!        CALL F(-1)%set_to(F(0))
-!        CALL P(-1)%set_to(P(0))
         t_pseudo=t_pseudo+dt
-! for simple gradient & damping
+        ! for simple gradient & hirshman
         CALL U(-1)%set_to(U(0))
         CALL U(0)%set_to(P(1))
-        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
-        Fnorm=SQRT(F(0)%norm_2())
-! for hirshman method
-!        beta=SUM(F(0)%norm_2())/SUM(F(-1)%norm_2())
+        ! for hirshman method
+        IF(MinimizerType.EQ.10)THEN
+          CALL V(-1)%set_to(V(0))
+          CALL V(0)%set_to(V(1))
+        END IF
 
-        !increase time step
-        !dt=1.001_wp*dt
+        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
+        Fnorm_old=Fnorm
+        Fnorm=SQRT(F(0)%norm_2())
+
       ELSE !not a valid step, decrease timestep and skip P(1)
-        dt=0.5_wp*dt
+        dt=0.9_wp*dt
         nstepDecreased=nStepDecreased+1
         nSkip_dW=nSkip_dW+1
-        SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,'...deltaW>+1.0e-10*W_MHD3D_0, skip step and decrease stepsize!'
+        !CALL U(0)%set_to(U(-2)) 
+        doRestart=.TRUE.
+        SWRITE(UNIT_stdOut,'(8X,I8,A,E8.1,A,E11.4)')iter,'...deltaW>',dW_allowed,'*W_MHD3D_0, skip step and decrease stepsize to dt=',dt
       END IF
     END IF !JacCheck
    
@@ -1113,8 +1142,8 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   END IF
   SWRITE(UNIT_stdOut,'(A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
-  CALL Analyze(99999999)
-  CALL WriteState(U(0),99999999)
+  CALL Analyze(MIN(iter,MaxIter))
+  CALL WriteState(U(0),MIN(iter,MaxIter))
   CALL FinishLogging()
 !DEBUG
 !  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
@@ -1159,10 +1188,10 @@ CONTAINS
   !header
   iLogDat=0
   WRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
-  WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW"'
+  WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW","sum_dW"'
   WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
-  LogDat(ilogDat+1:iLogDat+10)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,Fnorm(1:3)/)
-  iLogDat=10 
+  LogDat(ilogDat+1:iLogDat+11)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,0.0_wp,Fnorm(1:3)/)
+  iLogDat=11 
   IF(doCheckDistance) THEN
     WRITE(logUnit,'(A)',ADVANCE="NO")',"max_Dist","avg_Dist"'
     LogDat(iLogDat+1:iLogDat+2)=(/0.0_wp,0.0_wp/)
@@ -1201,20 +1230,20 @@ CONTAINS
     SWRITE(UNIT_stdOut,'(80("%"))')
     SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
                       '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
-    SWRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,2E12.4)') &
+    SWRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,3E12.4)') &
                       '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
               '\n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-              '\n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max deltaW= ' , min_dW_out,max_dW_out 
+              '\n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max/sum deltaW= ' , min_dW_out,max_dW_out,sum_dW_out 
     SWRITE(UNIT_stdOut,'(A,3E21.14)') &
                 '%%% dU = |Force|= ',Fnorm(1:3)
     !------------------------------------
   END IF!.NOT.quiet
   iLogDat=0
   runtime_ms=MAX(0,SUM((timeArray(5:8)-StartTimearray(5:8))*(/360000,6000,100,1/)))
-  LogDat(ilogDat+1:iLogDat+10)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
-                                min_dt_out,max_dt_out,U(0)%W_MHD3D,min_dW_out,max_dW_out, &
+  LogDat(ilogDat+1:iLogDat+11)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
+                                min_dt_out,max_dt_out,U(0)%W_MHD3D,min_dW_out,max_dW_out,sum_dW_out, &
                                 Fnorm(1:3)/)
-  iLogDat=10 
+  iLogDat=11 
   IF(doCheckDistance) THEN
     CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
     CALL U(-2)%set_to(U(0))
