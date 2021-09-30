@@ -970,7 +970,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out,t_pseudo,Fnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
   INTEGER   :: logUnit !globally needed for logging
   INTEGER   :: logiter_ramp,logscreen
-  LOGICAL   :: doRestart
+  LOGICAL   :: restart_iter
   LOGICAL   :: first_iter 
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
@@ -989,11 +989,12 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   logscreen=1
 
   first_iter=.TRUE.
+  restart_iter=.FALSE.
 
   CALL U(-3)%set_to(U(0)) !initial state, should remain unchanged
 
   DO WHILE(iter.LE.maxIter)
-    IF((first_iter).OR.(DoRestart))THEN
+    IF((first_iter).OR.(restart_iter))THEN
       JacCheck=1 !abort if detJ<0
       CALL EvalAux(           U(0),JacCheck)
       U(0)%W_MHD3D=EvalEnergy(U(0),.FALSE.,JacCheck)
@@ -1016,7 +1017,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       max_dW_out=-1.0e+30_wp
       sum_dW_out=0.0_wp
       nSkip_dW =0
-      IF(DoRestart) DoRestart=.FALSE.
+      IF(restart_iter) restart_iter=.FALSE.
       IF(first_iter)THEN
         CALL StartLogging()
         first_iter=.FALSE.
@@ -1044,7 +1045,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       dt=0.9_wp*dt
       nstepDecreased=nStepDecreased+1
       nSkip_Jac=nSkip_Jac+1
-      DoRestart=.TRUE.
+      restart_iter=.TRUE.
       CALL U(0)%set_to(U(-3)) !reset to initial state 
       SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')iter,'...detJac<0, decrease stepsize to dt=',dt,  ' and RESTART simulation!!!!!!!'
     ELSE 
@@ -1116,7 +1117,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         nstepDecreased=nStepDecreased+1
         nSkip_dW=nSkip_dW+1
         !CALL U(0)%set_to(U(-2)) 
-        doRestart=.TRUE.
+        restart_iter=.TRUE.
         SWRITE(UNIT_stdOut,'(8X,I8,A,E8.1,A,E11.4)')iter,'...deltaW>',dW_allowed,'*W_MHD3D_0, skip step and decrease stepsize to dt=',dt
       END IF
     END IF !JacCheck

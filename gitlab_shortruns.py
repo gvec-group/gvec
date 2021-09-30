@@ -83,14 +83,20 @@ checkout = check_stdout("std_"+casename+"_out.txt","GVEC SUCESSFULLY FINISHED!")
 
 
 restartFile="GITLAB_RUN_State_0000_00000100.dat"
-if ( (not os.path.isfile(restartFile)) or (not checkerr) or (not checkout) ):
-  msg=("caseID: %d, %s test did not work!!!" % (caseID,casename))
-  print(msg)
+finalStateFile=restartFile
+if(not os.path.isfile(finalStateFile)):
+  msg=("caseID: %d, %s test failed, did not write the expected statefile!!!" % (caseID,casename))
+  failed.extend([msg])
+elif(not checkerr):
+  msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+  failed.extend([msg])
+elif(not checkout):
+  msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
   failed.extend([msg])
 else:
   msg=("caseID: %d, %s test did execute successfully!" % (caseID,casename))
-  print(msg)
   success.extend([msg])
+  print(msg)
 
   ######### RESTART ############
   caseID=caseID+1
@@ -103,14 +109,20 @@ else:
     checkerr = check_stderr("std_"+casename+"_err.txt")
     checkout = check_stdout("std_"+casename+"_out.txt","GVEC SUCESSFULLY FINISHED!")
     
-    if ((not os.path.isfile("GITLAB_RESTART_State_0001_00000010.dat")) or (not checkerr) or (not checkout)) :
-      msg=("caseID: %d, %s test did not work!!!" % (caseID,casename))
-      print(msg)
+    finalStateFile="GITLAB_RESTART_State_0001_00000010.dat"
+    if(not os.path.isfile(finalStateFile)):
+      msg=("caseID: %d, %s test failed, did not write the expected statefile!!!" % (caseID,casename))
+      failed.extend([msg])
+    elif(not checkerr):
+      msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+      failed.extend([msg])
+    elif(not checkout):
+      msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
       failed.extend([msg])
     else :
       msg=("caseID: %d, %s test did execute successfully!" % (caseID,casename) )
-      print(msg)
       success.extend([msg])
+    print(msg)
 
   ######### GVEC TO HOPR ############
   caseID=caseID+1
@@ -122,14 +134,16 @@ else:
     os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
     checkerr = check_stderr("std_"+casename+"_err.txt")
     checkout = check_stdout("std_"+casename+"_out.txt","TEST GVEC TO HOPR FINISHED!")
-    if((not checkerr) or (not checkout)) :
-      msg=("caseID: %d, %s simulation test did not work!!!" %(caseID,casename))
-      print(msg)
+    if(not checkerr):
+      msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+      failed.extend([msg])
+    elif(not checkout):
+      msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
       failed.extend([msg])
     else :
       msg=("caseID: %d, %s did execute successfully!"  %(caseID,casename))
-      print(msg)
       success.extend([msg])
+    print(msg)
   
   ######### GVEC TO GENE ############
   caseID=caseID+1
@@ -141,14 +155,16 @@ else:
     os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
     checkerr = check_stderr("std_"+casename+"_err.txt")
     checkout = check_stdout("std_"+casename+"_out.txt","GVEC_TO_GENE FINISHED!")
-    if((not checkerr) or (not checkout)) :
-      msg=("caseID: %d, %s simulation test did not work!!!" %(caseID,casename))
-      print(msg)
+    if(not checkerr):
+      msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+      failed.extend([msg])
+    elif(not checkout):
+      msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
       failed.extend([msg])
     else :
       msg=("caseID: %d, %s did execute successfully!"  %(caseID,casename))
-      print(msg)
       success.extend([msg])
+    print(msg)
 
   ######### GVEC TO CASTOR3D ############
   caseID=caseID+1
@@ -160,14 +176,19 @@ else:
     os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
     checkerr = check_stderr("std_"+casename+"_err.txt")
     checkout = check_stdout("std_"+casename+"_out.txt","CONVERT GVEC TO CASTOR3D FINISHED!")
-    if ((not os.path.isfile("gvec2castor3d_boozer_output.dat")) or (not checkerr) or (not checkout)) :
-      msg=("caseID: %d, %s simulation test did not work!!!" %(caseID,casename))
-      print(msg)
+    if (not os.path.isfile("gvec2castor3d_boozer_output.dat")):
+      msg=("caseID: %d, %s test failed, output file not found!!!" %(caseID,casename))
+      failed.extend([msg])
+    elif(not checkerr):
+      msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+      failed.extend([msg])
+    elif(not checkout):
+      msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
       failed.extend([msg])
     else :
       msg=("caseID: %d, %s did execute successfully!"  %(caseID,casename))
-      print(msg)
       success.extend([msg])
+    print(msg)
 
 print( "successful tests:")
 for line in success :
