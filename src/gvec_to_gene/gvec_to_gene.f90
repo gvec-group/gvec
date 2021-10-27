@@ -531,7 +531,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   dLAdthet =LA_base_r%f%evalDOF_x(xp, DERIV_THET, LA_s)
   dLAdzeta =LA_base_r%f%evalDOF_x(xp, DERIV_ZETA, LA_s)
 
-  qvec=(/X1_int,X2_int,zeta/)
+  qvec=(/X1_int,X2_int,xp(2)/) ! USE THE CORRECT PERTURBED ZETA POSITION!  xp(2)=zeta+eps !!
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
   sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
@@ -763,7 +763,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
     dGZdzeta =GZsfl_base%f%evalDOF_x(xp, DERIV_ZETA, GZ_s)
   END IF
 
-  qvec=(/X1_int,X2_int,zeta-GZ_int/)
+  qvec=(/X1_int,X2_int,xp(2)-GZ_int/) ! USE THE CORRECT PERTURBED ZETA POSITION!  xp(2)=zeta+eps !!
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
