@@ -773,37 +773,37 @@ IMPLICIT NONE
  
     WRITE(*,*)'1.2) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
     vname="X1"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,X1_base,U(0)%X1)
     vname="X2"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,X2_base,U(0)%X2)
     vname="LA"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,0,LA_base,U(0)%LA)
   END IF
   IF(vcase(2))THEN
     WRITE(*,*)'2) Visualize gvec modes in 1D: dX1rho,dX2rho,dLAdrho interpolated...'
     vname="dX1ds"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X1_base,U(0)%X1)
     vname="dX2ds"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,X2_base,U(0)%X2)
     vname="dLAds"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,DERIV_S,LA_base,U(0)%LA)
   END IF
   IF(vcase(3))THEN
     WRITE(*,*)'3) Visualize gvec modes in 1D: (d/drho)^2 X1/X2/LA interpolated...'
     vname="dX1dss"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,2,X1_base,U(0)%X1)
     vname="dX2dss"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,2,X2_base,U(0)%X2)
     vname="dLAdss"
-    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//TRIM(sin_cos_map(X1_base%f%sin_cos))//'_',outputLevel,FileID
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,2,LA_base,U(0)%LA)
   END IF
   

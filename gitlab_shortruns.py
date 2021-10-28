@@ -17,11 +17,11 @@ def check_stderr( stderr_file=""):
 ########################################################################################################
 
 ########################################################################################################
-def check_stdout( stderr_file="",finishmsg=""): 
-  stderr=open(stderr_file,'r').readlines()
+def check_stdout( stdout_file="",finishmsg=""): 
+  stdout=open(stdout_file,'r').readlines()
   finished = False
   no_error= True
-  for line in stderr :
+  for line in stdout :
      if finishmsg in line :
         finished= True
   return finished
@@ -82,7 +82,7 @@ checkerr = check_stderr("std_"+casename+"_err.txt")
 checkout = check_stdout("std_"+casename+"_out.txt","GVEC SUCESSFULLY FINISHED!")
 
 
-restartFile="GITLAB_RUN_State_0000_99999999.dat"
+restartFile="GITLAB_RUN_State_0000_X0000100.dat"
 if ( (not os.path.isfile(restartFile)) or (not checkerr) or (not checkout) ):
   msg=("caseID: %d, %s test did not work!!!" % (caseID,casename))
   print(msg)
@@ -103,7 +103,7 @@ else:
     checkerr = check_stderr("std_"+casename+"_err.txt")
     checkout = check_stdout("std_"+casename+"_out.txt","GVEC SUCESSFULLY FINISHED!")
     
-    if ((not os.path.isfile("GITLAB_RESTART_State_0001_99999999.dat")) or (not checkerr) or (not checkout)) :
+    if ((not os.path.isfile("GITLAB_RESTART_State_0001_00000010.dat")) or (not checkerr) or (not checkout)) :
       msg=("caseID: %d, %s test did not work!!!" % (caseID,casename))
       print(msg)
       failed.extend([msg])
@@ -181,7 +181,7 @@ if(len(failed) > 0 ) :
       print( "!!!! ---> "+line )
    print( " " )
    print( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" )
-   sys.exit(1)
+   sys.exit(100)
 else :
    print( "/////////////////////////////////////////////////////////" )
    print( " " )
