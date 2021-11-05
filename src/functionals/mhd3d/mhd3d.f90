@@ -136,11 +136,20 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
+    init_with_profiles = GETLOGICAL("init_with_profiles", Proposal=.FALSE.)
     IF(init_fromBConly)THEN
       !=-1, keep vmec axis and boundary, =0: keep vmec boundary, overwrite axis, =1: keep vmec axis, overwrite boundary, =2: overwrite axis and boundary
       init_BC= GETINT("reinit_BC",Proposal=-1) 
     ELSE
       init_BC=-1
+    END IF
+    IF(init_with_profiles)THEN
+      sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
+      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+      iota_coefs=REAL(sign_iota)*iota_coefs
+      CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+      pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
+      pres_coefs=pres_coefs*pres_scale
     END IF
 
         
