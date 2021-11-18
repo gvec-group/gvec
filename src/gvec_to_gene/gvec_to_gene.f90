@@ -106,8 +106,10 @@ INTEGER :: mn_max(2)
 
     !mn_max       = mn_max*factorSFL !*SFLfactor on modes of GVEC solution
 
-    !IMPORTANT FIX: same maximal number of modes in both directions, since SFL coordinates are coupled!
-    mn_max       = MAXVAL(mn_max)*factorSFL !*SFLfactor on modes of GVEC solution
+    IF(mn_max(2).GT.0)THEN
+      !IMPORTANT FIX: same maximal number of modes in both directions, since SFL coordinates are coupled (if not a tokamak)!
+      mn_max       = MAXVAL(mn_max)*factorSFL !*SFLfactor on modes of GVEC solution
+    END IF
    CALL buildTransform_SFL(0,mn_max,SFLcoord)
   END IF
   
