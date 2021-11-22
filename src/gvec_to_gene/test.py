@@ -10,7 +10,12 @@ ffi = FFI()
 
 #---------------------------------------------------------------------
 # test 1
-p = ffi.new("char[]", b"here should be a file name :)")
+
+name_val = 'esta_caso.vtu'
+p = ffi.new("char[]", name_val.encode())
+
+
+#p = ffi.new("char[]", b"here should be a file name :)")
 gvec_to_gene.test_print_file_name(p)
 
 #---------------------------------------------------------------------
