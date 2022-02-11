@@ -1349,7 +1349,6 @@ IMPLICIT NONE
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(x,(:),dofs)|) ', checkreal
-STOP
     END IF !TEST
 
     iTest=203 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
@@ -1410,7 +1409,6 @@ STOP
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet,x(:),dofs)|) ', checkreal
-STOP
     END IF !TEST
 
     iTest=206 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
@@ -1454,7 +1452,6 @@ STOP
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet,x(:),dofs)|) ', checkreal
-STOP
     END IF !TEST
   END IF !testlevel <=2
   END ASSOCIATE !sf
