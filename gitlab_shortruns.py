@@ -82,7 +82,7 @@ checkerr = check_stderr("std_"+casename+"_err.txt")
 checkout = check_stdout("std_"+casename+"_out.txt","GVEC SUCESSFULLY FINISHED!")
 
 
-restartFile="GITLAB_RUN_State_0000_00000100.dat"
+restartFile="GITLAB_RUN_State_0000_X0000100.dat"
 finalStateFile=restartFile
 if(not os.path.isfile(finalStateFile)):
   msg=("caseID: %d, %s test failed, did not write the expected statefile!!!" % (caseID,casename))
