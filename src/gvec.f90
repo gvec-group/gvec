@@ -112,6 +112,7 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     SWRITE(UNIT_stdout,*)
     SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"
     SWRITE(UNIT_stdout,*)
+    n_warnings_occured=n_warnings_occured +nFailedMsg
     IF(nFailedMsg.GT.0)THEN
       SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED, see tests.out !!!!!!!!!!!!!"
     ELSE

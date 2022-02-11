@@ -119,13 +119,13 @@ variables:
 .tmpl_script_build_and_run: &script_build_and_run
   stage: build_and_run
   script:
+    - pwd 
     - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}    ; mkdir -p build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
     - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
     - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
     - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_cmake.txt
     - make -j |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
-  after_script:
     - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_shortruns.txt
   artifacts:
     <<: *common_arts
