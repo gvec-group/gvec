@@ -16,7 +16,8 @@
 !>
 !!# Module **GET Field Basis**
 !!
-!! compute the component of the vector potential or magnetic field in contravariant coordinate directions:
+!! compute the 2D Fourier representation of the vector potential, magnetic field, or current density in contravariant coordinate 
+!! directions.
 !!
 !===================================================================================================================================
 MODULE MODgvec_get_field
@@ -169,19 +170,19 @@ IMPLICIT NONE
     LA_s_eps(:)    = LA_base_r%s%evalDOF2D_s(spos+sgn*eps,LA_base_r%f%modes,      0,LA_r(:,:))
 
     ! evaluate at integration points and finite difference eps from points
-    X1_IP       = X1_fbase_nyq%evalDOF_IP(         0, X1_s(  :)); X1_IP_eps       = X1_fbase_nyq%evalDOF_IP(         0, X1_s_eps(  :))
-    dX1ds_IP    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s(:)); dX1ds_IP_eps    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s_eps(:))
-    dX1dthet_IP = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s(  :)); dX1dthet_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s_eps(  :))
-    dX1dzeta_IP = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s(  :)); dX1dzeta_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s_eps(  :))
-
-    X2_IP       = X2_fbase_nyq%evalDOF_IP(         0, X2_s(  :)); X2_IP_eps       = X2_fbase_nyq%evalDOF_IP(         0, X2_s_eps(  :))
-    dX2ds_IP    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s(:)); dX2ds_IP_eps    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s_eps(:))
-    dX2dthet_IP = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s(  :)); dX2dthet_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s_eps(  :))
-    dX2dzeta_IP = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s(  :)); dX2dzeta_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s_eps(  :))
-
-    LA_IP(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:)); LA_IP_eps(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s_eps(:))
-    dLAdthet_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:)); dLAdthet_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s_eps(:))
-    dLAdzeta_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:)); dLAdzeta_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s_eps(:))
+    X1_IP       = X1_fbase_nyq%evalDOF_IP(         0, X1_s(  :));     X1_IP_eps       = X1_fbase_nyq%evalDOF_IP(         0, X1_s_eps(  :))
+    dX1ds_IP    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s(:));     dX1ds_IP_eps    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s_eps(:))
+    dX1dthet_IP = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s(  :));     dX1dthet_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s_eps(  :))
+    dX1dzeta_IP = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s(  :));     dX1dzeta_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s_eps(  :))
+                                                                      
+    X2_IP       = X2_fbase_nyq%evalDOF_IP(         0, X2_s(  :));     X2_IP_eps       = X2_fbase_nyq%evalDOF_IP(         0, X2_s_eps(  :))
+    dX2ds_IP    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s(:));     dX2ds_IP_eps    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s_eps(:))
+    dX2dthet_IP = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s(  :));     dX2dthet_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s_eps(  :))
+    dX2dzeta_IP = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s(  :));     dX2dzeta_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s_eps(  :))
+                                                                      
+    LA_IP(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:));     LA_IP_eps(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s_eps(:))
+    dLAdthet_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:));     dLAdthet_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s_eps(:))
+    dLAdzeta_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:));     dLAdzeta_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s_eps(:))
     
     ! Loop over surface points and evaluate field_representation
     DO i_mn=1,mn_IP

@@ -352,8 +352,8 @@ CLASS(t_base),  ALLOCATABLE :: J_R_base, J_Z_base, J_phi_base            !< cont
 REAL(wp),       ALLOCATABLE :: J_R(:,:), J_Z(:,:), J_phi(:,:)            !< data (1:nBase,1:modes) of J_* in GVEC coords
 
 !===================================================================================================================================
-! -----------------------------------------------------------------------------------------------------------
-! -------- CALCULATE REPRESENTATION OF Vector Potential, Magnetic Field, and Current Density ----------------
+! ------------------------------------------------------------------------------------------------------------
+! ------- CALCULATE 2D FOURIER REPRESENTATION OF Vector Potential, Magnetic Field, and Current Density -------
 ! ------------------------------------------------------------------------------------------------------------
 SWRITE(UNIT_stdOut,'(A)')'PREPARE FIELD BASES ...'
 mn_max_fields = X1_base_in%f%mn_max
@@ -619,10 +619,10 @@ DO i_s=1,Ns_out
 END DO !i_s=1,Ns_out 
 BR_diff = BR_diff / REAL(Ns_out*Nthet_out*Nzeta_out);BZ_diff = BZ_diff / REAL(Ns_out*Nthet_out*Nzeta_out);Bphi_diff = Bphi_diff / REAL(Ns_out*Nthet_out*Nzeta_out)
 AR_diff = AR_diff / REAL(Ns_out*Nthet_out*Nzeta_out);AZ_diff = AZ_diff / REAL(Ns_out*Nthet_out*Nzeta_out);Aphi_diff = Aphi_diff / REAL(Ns_out*Nthet_out*Nzeta_out)
-SWRITE(UNIT_stdOut,'(A,6E14.7)')'AVE/MAX diff in B    :', BR_diff, BR_diff_max, BZ_diff, BZ_diff_max, Bphi_diff, Bphi_diff_max 
-SWRITE(UNIT_stdOut,'(A,6E14.7)')'MIN/MAX B(R, Z, phi) :',MINVAL(data_scalar3D(:,:,:,B_R__)),MAXVAL(data_scalar3D(:,:,:,B_R__)),MINVAL(data_scalar3D(:,:,:,B_Z__)),MAXVAL(data_scalar3D(:,:,:,B_Z__)),MINVAL(data_scalar3D(:,:,:,B_phi__)),MAXVAL(data_scalar3D(:,:,:,B_phi__))
-SWRITE(UNIT_stdOut,'(A,6E14.7)')'AVE/MAX diff in A    :', AR_diff,AR_diff_max,AZ_diff,AZ_diff_max,Aphi_diff,Aphi_diff_max
-SWRITE(UNIT_stdOut,'(A,6E14.7)')'MIN/MAX A(R, Z, phi) :',MINVAL(data_scalar3D(:,:,:,A_R__)),MAXVAL(data_scalar3D(:,:,:,A_R__)),MINVAL(data_scalar3D(:,:,:,A_Z__)),MAXVAL(data_scalar3D(:,:,:,A_Z__)),MINVAL(data_scalar3D(:,:,:,A_phi__)),MAXVAL(data_scalar3D(:,:,:,A_phi__))
+SWRITE(UNIT_stdOut,'(A,6E16.7)')'AVE/MAX diff in B(R, Z, phi) :', BR_diff, BR_diff_max, BZ_diff, BZ_diff_max, Bphi_diff, Bphi_diff_max 
+SWRITE(UNIT_stdOut,'(A,6E16.7)')'MIN/MAX B(R, Z, phi)         :',MINVAL(data_scalar3D(:,:,:,B_R__)),MAXVAL(data_scalar3D(:,:,:,B_R__)),MINVAL(data_scalar3D(:,:,:,B_Z__)),MAXVAL(data_scalar3D(:,:,:,B_Z__)),MINVAL(data_scalar3D(:,:,:,B_phi__)),MAXVAL(data_scalar3D(:,:,:,B_phi__))
+SWRITE(UNIT_stdOut,'(A,6E16.7)')'AVE/MAX diff in A(R, Z, phi) :', AR_diff,AR_diff_max,AZ_diff,AZ_diff_max,Aphi_diff,Aphi_diff_max
+SWRITE(UNIT_stdOut,'(A,6E16.7)')'MIN/MAX A(R, Z, phi)         :',MINVAL(data_scalar3D(:,:,:,A_R__)),MAXVAL(data_scalar3D(:,:,:,A_R__)),MINVAL(data_scalar3D(:,:,:,A_Z__)),MAXVAL(data_scalar3D(:,:,:,A_Z__)),MINVAL(data_scalar3D(:,:,:,A_phi__)),MAXVAL(data_scalar3D(:,:,:,A_phi__))
 
 ! -----------------------------------------------------------------------------
 ! ---------------- CONVERT TO 1D TOROIDAL REPRESENTATION ----------------------
@@ -863,8 +863,11 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'##   theta(1:Ntheta)  with theta(1)=0, theta(Ntheta)=2pi*(Ntheta-1)*/Ntheta                         '
   WRITE(ioUnit,'(A100)')'## * toroidal angle zeta in [0,2pi/nfp], sign: zeta ~ atan(y/x)  (opposite to GVEC definition!)     '
   WRITE(ioUnit,'(A100)')'##   zeta(1:Nzeta)  with zeta(1)=0, zeta(Nzeta)=2pi/nfp*(Nzeta-1)*/Nzeta                            '
-  WRITE(ioUnit,'(A100)')'## * Angular coordinates can represent GVEC coordinates, whichare not SFL (straight-field line)     '
+  WRITE(ioUnit,'(A100)')'## * Angular coordinates can represent GVEC coordinates, which are not SFL (straight-field line)    '
   WRITE(ioUnit,'(A100)')'##   coordinates or can be SFL coordinates, either PEST or BOOZER. See global parameter "SFLcoord"  '
+  WRITE(ioUnit,'(A100)')'##                                                                                                  '
+  WRITE(ioUnit,'(A100)')'## 2D arrays containing toroidal Fourier coefficients for GVEC fields are used for the import       '
+  WRITE(ioUnit,'(A100)')'## 3D test data can be generated instead if the -g option has been used                                                                                                 '
   WRITE(ioUnit,'(A100)')'##                                                                                                  '
   WRITE(ioUnit,'(A100)')'##   WARNING: Note that the change in the coordinate system is important!                           '
   WRITE(ioUnit,'(A100)')'##            GVEC and JOREK both use left handed coodinate systems so:                             '
@@ -887,6 +890,10 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * Z_s            : radial derivative of vertical position                                        '
   WRITE(ioUnit,'(A100)')'## * Z_t            : poloidal derivative of vertical position                                      '
   WRITE(ioUnit,'(A100)')'## * Z_st           : cross derivative of vertical position                                         '
+  WRITE(ioUnit,'(A100)')'## * P              : pressure                                                                      '
+  WRITE(ioUnit,'(A100)')'## * P_s            : radial derivative of pressure                                                 '
+  WRITE(ioUnit,'(A100)')'## * P_t            : poloidal derivative of pressure                                               '
+  WRITE(ioUnit,'(A100)')'## * P_st           : cross derivative of pressure                                                  '
   WRITE(ioUnit,'(A100)')'## * A_R            : X component of  vector potential                                              '
   WRITE(ioUnit,'(A100)')'## * A_R_s          : radial derivative of X component of  vector potential                         '
   WRITE(ioUnit,'(A100)')'## * A_R_t          : poloidal derivative of X component of  vector potential                       '
@@ -895,10 +902,10 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * A_Z_s          : radial derivative of Y component of  vector potential                         '
   WRITE(ioUnit,'(A100)')'## * A_Z_t          : poloidal derivative of Y component of  vector potential                       '
   WRITE(ioUnit,'(A100)')'## * A_Z_st         : cross derivative of Y component of  vector potential                          '
-  WRITE(ioUnit,'(A100)')'## * A_phi          : Vertical vector potential                                                   '
-  WRITE(ioUnit,'(A100)')'## * A_phi_s        : radial derivative of Vertical vector potential                              '
-  WRITE(ioUnit,'(A100)')'## * A_phi_t        : poloidal derivative of Vertical vector potential                            '
-  WRITE(ioUnit,'(A100)')'## * A_phi_st       : cross derivative of Vertical vector potential                               '
+  WRITE(ioUnit,'(A100)')'## * A_phi          : Vertical vector potential                                                     '
+  WRITE(ioUnit,'(A100)')'## * A_phi_s        : radial derivative of Vertical vector potential                                '
+  WRITE(ioUnit,'(A100)')'## * A_phi_t        : poloidal derivative of Vertical vector potential                              '
+  WRITE(ioUnit,'(A100)')'## * A_phi_st       : cross derivative of Vertical vector potential                                 '
   WRITE(ioUnit,'(A100)')'## * B_R            : X component of  magnetic field                                                '
   WRITE(ioUnit,'(A100)')'## * B_R_s          : radial derivative of X component of  magnetic field                           '
   WRITE(ioUnit,'(A100)')'## * B_R_t          : poloidal derivative of X component of  magnetic field                         '
@@ -907,10 +914,10 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * B_Z_s          : radial derivative of Y component of  magnetic field                           '
   WRITE(ioUnit,'(A100)')'## * B_Z_t          : poloidal derivative of Y component of  magnetic field                         '
   WRITE(ioUnit,'(A100)')'## * B_Z_st         : cross derivative of Y component of  magnetic field                            '
-  WRITE(ioUnit,'(A100)')'## * B_phi          : Vertical magnetic field                                                     '
-  WRITE(ioUnit,'(A100)')'## * B_phi_s        : radial derivative of Vertical magnetic field                                '
-  WRITE(ioUnit,'(A100)')'## * B_phi_t        : poloidal derivative of Vertical magnetic field                              '
-  WRITE(ioUnit,'(A100)')'## * B_phi_st       : cross derivative of Vertical magnetic field                                 '
+  WRITE(ioUnit,'(A100)')'## * B_phi          : Vertical magnetic field                                                       '
+  WRITE(ioUnit,'(A100)')'## * B_phi_s        : radial derivative of Vertical magnetic field                                  '
+  WRITE(ioUnit,'(A100)')'## * B_phi_t        : poloidal derivative of Vertical magnetic field                                '
+  WRITE(ioUnit,'(A100)')'## * B_phi_st       : cross derivative of Vertical magnetic field                                   '
   WRITE(ioUnit,'(A100)')'## * J_R            : X component of  current density                                               '
   WRITE(ioUnit,'(A100)')'## * J_R_s          : radial derivative of X component of  current density                          '
   WRITE(ioUnit,'(A100)')'## * J_R_t          : poloidal derivative of X component of  current density                        '
@@ -919,10 +926,10 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * J_Z_s          : radial derivative of Y component of  current density                          '
   WRITE(ioUnit,'(A100)')'## * J_Z_t          : poloidal derivative of Y component of  current density                        '
   WRITE(ioUnit,'(A100)')'## * J_Z_st         : cross derivative of Y component of  current density                           '
-  WRITE(ioUnit,'(A100)')'## * J_phi          : Vertical current density                                                    '
-  WRITE(ioUnit,'(A100)')'## * J_phi_s        : radial derivative of Vertical current density                               '
-  WRITE(ioUnit,'(A100)')'## * J_phi_t        : poloidal derivative of Vertical current density                             '
-  WRITE(ioUnit,'(A100)')'## * J_phi_st       : cross derivative of Vertical current density                                '
+  WRITE(ioUnit,'(A100)')'## * J_phi          : Vertical current density                                                      '
+  WRITE(ioUnit,'(A100)')'## * J_phi_s        : radial derivative of Vertical current density                                 '
+  WRITE(ioUnit,'(A100)')'## * J_phi_t        : poloidal derivative of Vertical current density                               '
+  WRITE(ioUnit,'(A100)')'## * J_phi_st       : cross derivative of Vertical current density                                  '
   WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
   WRITE(ioUnit,'(A100)')'## 3D arrays of scalars (1:Ntheta,1:Nzeta,1:Ns)                                                     '
   WRITE(ioUnit,'(A100)')'## * s              : radial coordinate                                                             '
@@ -936,6 +943,8 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * X2_s (Z)       : radial derivative of X2                                                       '
   WRITE(ioUnit,'(A100)')'## * X2_t (Z)       : poloidal derivative of X2                                                     '
   WRITE(ioUnit,'(A100)')'## * X2_st (Z)      : cross derivative of X2                                                        '
+  WRITE(ioUnit,'(A100)')'## * P              : pressure                                                                      '
+  WRITE(ioUnit,'(A100)')'## * P_s            : radial derivative of pressure                                                 '
   WRITE(ioUnit,'(A100)')'## * A_R            : X component of  vector potential                                              '
   WRITE(ioUnit,'(A100)')'## * A_R_s          : radial derivative of X component of  vector potential                         '
   WRITE(ioUnit,'(A100)')'## * A_R_t          : poloidal derivative of X component of  vector potential                       '
@@ -944,10 +953,10 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * A_Z_s          : radial derivative of Y component of  vector potential                         '
   WRITE(ioUnit,'(A100)')'## * A_Z_t          : poloidal derivative of Y component of  vector potential                       '
   WRITE(ioUnit,'(A100)')'## * A_Z_st         : cross derivative of Y component of  vector potential                          '
-  WRITE(ioUnit,'(A100)')'## * A_phi          : Vertical vector potential                                                   '
-  WRITE(ioUnit,'(A100)')'## * A_phi_s        : radial derivative of Vertical vector potential                              '
-  WRITE(ioUnit,'(A100)')'## * A_phi_t        : poloidal derivative of Vertical vector potential                            '
-  WRITE(ioUnit,'(A100)')'## * A_phi_st       : cross derivative of Vertical vector potential                               '
+  WRITE(ioUnit,'(A100)')'## * A_phi          : Vertical vector potential                                                     '
+  WRITE(ioUnit,'(A100)')'## * A_phi_s        : radial derivative of Vertical vector potential                                '
+  WRITE(ioUnit,'(A100)')'## * A_phi_t        : poloidal derivative of Vertical vector potential                              '
+  WRITE(ioUnit,'(A100)')'## * A_phi_st       : cross derivative of Vertical vector potential                                 '
   WRITE(ioUnit,'(A100)')'## * B_R            : X component of  magnetic field                                                '
   WRITE(ioUnit,'(A100)')'## * B_R_s          : radial derivative of X component of  magnetic field                           '
   WRITE(ioUnit,'(A100)')'## * B_R_t          : poloidal derivative of X component of  magnetic field                         '
@@ -956,10 +965,10 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * B_Z_s          : radial derivative of Y component of  magnetic field                           '
   WRITE(ioUnit,'(A100)')'## * B_Z_t          : poloidal derivative of Y component of  magnetic field                         '
   WRITE(ioUnit,'(A100)')'## * B_Z_st         : cross derivative of Y component of  magnetic field                            '
-  WRITE(ioUnit,'(A100)')'## * B_phi          : Vertical magnetic field                                                     '
-  WRITE(ioUnit,'(A100)')'## * B_phi_s        : radial derivative of Vertical magnetic field                                '
-  WRITE(ioUnit,'(A100)')'## * B_phi_t        : poloidal derivative of Vertical magnetic field                              '
-  WRITE(ioUnit,'(A100)')'## * B_phi_st       : cross derivative of Vertical magnetic field                                 '
+  WRITE(ioUnit,'(A100)')'## * B_phi          : Vertical magnetic field                                                       '
+  WRITE(ioUnit,'(A100)')'## * B_phi_s        : radial derivative of Vertical magnetic field                                  '
+  WRITE(ioUnit,'(A100)')'## * B_phi_t        : poloidal derivative of Vertical magnetic field                                '
+  WRITE(ioUnit,'(A100)')'## * B_phi_st       : cross derivative of Vertical magnetic field                                   '
   WRITE(ioUnit,'(A100)')'## * J_R            : X component of  current density                                               '
   WRITE(ioUnit,'(A100)')'## * J_R_s          : radial derivative of X component of  current density                          '
   WRITE(ioUnit,'(A100)')'## * J_R_t          : poloidal derivative of X component of  current density                        '
@@ -968,10 +977,10 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(A100)')'## * J_Z_s          : radial derivative of Y component of  current density                          '
   WRITE(ioUnit,'(A100)')'## * J_Z_t          : poloidal derivative of Y component of  current density                        '
   WRITE(ioUnit,'(A100)')'## * J_Z_st         : cross derivative of Y component of  current density                           '
-  WRITE(ioUnit,'(A100)')'## * J_phi          : Vertical current density                                                    '
-  WRITE(ioUnit,'(A100)')'## * J_phi_s        : radial derivative of Vertical current density                               '
-  WRITE(ioUnit,'(A100)')'## * J_phi_t        : poloidal derivative of Vertical current density                             '
-  WRITE(ioUnit,'(A100)')'## * J_phi_st       : cross derivative of Vertical current density                                '
+  WRITE(ioUnit,'(A100)')'## * J_phi          : Vertical current density                                                      '
+  WRITE(ioUnit,'(A100)')'## * J_phi_s        : radial derivative of Vertical current density                                 '
+  WRITE(ioUnit,'(A100)')'## * J_phi_t        : poloidal derivative of Vertical current density                               '
+  WRITE(ioUnit,'(A100)')'## * J_phi_st       : cross derivative of Vertical current density                                  '
   WRITE(ioUnit,'(A100)')'## -------------------------------------------------------------------------------------------------'
   WRITE(ioUnit,'(2A)')  '## CALLED AS: ',TRIM(cmdline) 
   WRITE(ioUnit,'(2A)')  '## CALLED ON: ',TRIM(curr_date_time)
