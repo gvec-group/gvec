@@ -49,7 +49,7 @@ INTEGER               :: n_modes
 INTEGER               :: sin_range(2), cos_range(2)     !< maximum number of modes in m,n
 
 !1D data - Unnecessary for initial JOREK import
-INTEGER,PARAMETER     :: nVar1D = 0          !< number of variables in 1d profiles
+!INTEGER,PARAMETER     :: nVar1D = 0          !< number of variables in 1d profiles
 !INTEGER,PARAMETER     :: SPOS__    = 1
 !INTEGER,PARAMETER     :: PHI__     = 2
 !INTEGER,PARAMETER     :: DPHIDS__  = 3
@@ -76,7 +76,7 @@ INTEGER,PARAMETER     :: nVar1D = 0          !< number of variables in 1d profil
 !                          ,'Fmin'         & !11 : F(s) is averaged over theta, Fmin(s) = min(F(s,theta))
 !                          ,'Fmax'         & !12 : F(s) is averaged over theta, Fmax(s) = max(F(s,theta))
 !                                    /)
-REAL(wp),ALLOCATABLE  :: data_1D(:,:)        !< 1D profiles size (nVar1D,Ns_out)
+!REAL(wp),ALLOCATABLE  :: data_1D(:,:)        !< 1D profiles size (nVar1D,Ns_out)
 
 ! 2D scalar data
 INTEGER,PARAMETER     :: nVarScalar2D   = 48         !< number of variables in 2D data
@@ -286,7 +286,7 @@ CHARACTER(LEN=50),DIMENSION(nVarScalar3D),PARAMETER :: StrVarNamesScalar3D(nVarS
 REAL(wp),ALLOCATABLE  :: data_scalar3D(:,:,:,:)    !< Size (Nthet_out,Nzeta_out,Ns_out,nVar3D)
 
 !!3D vector data - Unnecessary for initial JOREK import
-INTEGER,PARAMETER     :: nVarVector3D=0           !< number of variables in 3D data
+!INTEGER,PARAMETER     :: nVarVector3D=0           !< number of variables in 3D data
 !INTEGER,PARAMETER     :: BFIELD__     = 1
 !INTEGER,PARAMETER     :: ECOV_S__     = 2
 !INTEGER,PARAMETER     :: ECOV_THETA__ = 3
@@ -297,7 +297,7 @@ INTEGER,PARAMETER     :: nVarVector3D=0           !< number of variables in 3D d
 !                          ,'ecov_theta'       & ! 3 : covariant vector in theta, (x,y,z) cartesian components
 !                          ,'ecov_zeta'        & ! 4 : covariant vector in zeta , (x,y,z) cartesian components
 !                                    /)
-REAL(wp),ALLOCATABLE  :: data_vector3D(:,:,:,:,:)    !< Size (3,Nthet_out,Nzeta_out,Ns_out,nVarVector3D)
+!REAL(wp),ALLOCATABLE  :: data_vector3D(:,:,:,:,:)    !< Size (3,Nthet_out,Nzeta_out,Ns_out,nVarVector3D)
                                          
 !===================================================================================================================================
 

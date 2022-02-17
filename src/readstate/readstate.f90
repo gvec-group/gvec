@@ -73,9 +73,9 @@ IMPLICIT NONE
   REAL(wp),ALLOCATABLE :: sp_r(:),profiles_IP(:,:)
   INTEGER              :: X1_mn_max_r(2),X2_mn_max_r(2),LA_mn_max_r(2)
 
-  INTEGER                         :: nGP, iGP
-  REAL                            :: chi_int, iota_int, phi_edgE, s_min, ds
-  REAL(wp),ALLOCATABLE            :: w_GP(:),s_GP(:), chi_IP(:)
+  INTEGER              :: iGP
+  REAL                 :: chi_int, iota_int, phi_edge, s_min, ds
+  REAL(wp),ALLOCATABLE :: w_GP(:),s_GP(:), chi_IP(:)
   
 !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'   READ STATEFILE    "'//TRIM(FileString)//'" ...'
@@ -158,34 +158,28 @@ IMPLICIT NONE
   ALLOCATE(profiles_1d(1:X1_nbase_r,4))
   !convert to spline DOF
   profiles_1d(:,1) =X1_base_r%s%initDOF( profiles_IP(:,1+1) ) !phi
+  !profiles_1d(:,2) =X1_base_r%s%initDOF( profiles_IP(:,1+2) ) !chi, NOT SAVE TO BE USED
   profiles_1d(:,3) =X1_base_r%s%initDOF( profiles_IP(:,1+3) ) !iota
   profiles_1d(:,4) =X1_base_r%s%initDOF( profiles_IP(:,1+4) ) !pressure
 
-  ! Calculate Chi profile by quadrature Chi(s) = \int{x=0}^s Phi' iota dx
-  nGP = sbase_prof%nGP
+  ! Calculate Chi profile by quadrature Chi(s) = \int{x=0}^s Phi' iota dx , Phi'(s)=Phi_edge*s^2
   ALLOCATE(s_GP(1:degGP_r+1),w_GP(1:degGP_r+1))
   ALLOCATE(chi_IP(1:X1_nbase_r))
-  s_GP    = X1_base_r%s%s_GP(:)
-  w_GP    = X1_base_r%s%w_GP(:)
-  chi_int = 0.0
-  phi_edge = sbase_prof%evalDOF_s(1.0, 0 ,profiles_1d(:,1))
-  DO is=1, X1_nbase_r
-    if (is .eq. 1) then
-      s_min = 0.0
-    else
-      s_min = profiles_IP(is-1, 1)
-    endif
-    ds = profiles_IP(is, 1) - s_min
+  phi_edge = sbase_prof%evalDOF_s(1.0_wp, 0 ,profiles_1d(:,1))
+  chi_IP(1)=0.0_wp
+  chi_int = 0.0_wp
+  DO is=2, X1_nbase_r
+    ds = profiles_IP(is, 1) - profiles_IP(is-1,1)
 
     w_GP(1:(degGP_r+1))=                       0.5_wp * sbase_prof%w_GPloc(:)        * ds
     s_GP(1:(degGP_r+1))= profiles_IP(is-1,1) + 0.5_wp * (sbase_prof%xi_GP(:)+1.0_wp) * ds
 
     DO iGP=1, degGP_r+1
       iota_int  = sbase_prof%evalDOF_s(s_GP(iGP), 0 ,profiles_1d(:,3))
-      chi_int = chi_int + iota_int * 2 * s_GP(iGP) * phi_edge * w_GP(iGP)
-    ENDDO
+      chi_int = chi_int + iota_int * 2.0_wp * s_GP(iGP) * phi_edge * w_GP(iGP)
+    END DO
     chi_IP(is) = chi_int
-  ENDDO
+  END DO
   profiles_1d(:, 2) = X1_base_r%s%initDOF(chi_IP)
 
   DEALLOCATE(s_GP, w_GP, chi_IP)

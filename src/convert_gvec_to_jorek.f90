@@ -42,6 +42,8 @@ REAL(wp)                :: StartTime,EndTime
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '&
 ,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   WRITE(Unit_stdOut,'(132("="))')
+!$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
+!$ WRITE(Unit_stdOut,'(132("="))')
   CALL GET_CLA_gvec_to_jorek()
   
   !initialization phase

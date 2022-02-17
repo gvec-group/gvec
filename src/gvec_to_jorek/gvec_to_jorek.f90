@@ -148,7 +148,7 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   END IF
   SWRITE(UNIT_stdOut,'(A,I4,A)')'  * SFL coordinates flag           : ',SFLcoord,' ( '//SFLcoordName(SFLcoord)//' )'
   SWRITE(UNIT_stdOut,'(A,I4)')  '  * factor for modes of SFL coords : ',factorSFL
-  SWRITE(UNIT_stdOut,'(A,I4)')  '  * generate test data for JOREK   : ',generate_test_data
+  SWRITE(UNIT_stdOut,'(A,A)')   '  * generate test data for JOREK   : ',MERGE(".false.",".true. ",generate_test_data)
   SWRITE(UNIT_stdOut,'(A,A)')   '  * GVEC input file                : ',TRIM(gvecfileName)
   SWRITE(UNIT_stdOut,'(A,A)')   '  * output file name               : ',TRIM(FileNameOut)
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -205,23 +205,23 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
   
   ! Initialise sample points in s, theta, zeta. s and theta can be randomly sampled for testing purposes.
   ALLOCATE(s_pos(Ns_out))
-  ALLOCATE(data_1D(nVar1D,Ns_out))
-  if (generate_test_data) then
+  !ALLOCATE(data_1D(nVar1D,Ns_out))
+  IF (generate_test_data) THEN
     call RANDOM_SEED(seed)
     DO i=1,Ns_out
       call RANDOM_NUMBER(r)
-      write(*,*) "Random number: ", r
+      WRITE(*,*) "Random number: ", r
       s_pos(i) = (1.0 - 1.0e-12_wp - 1.0e-08_wp) * r + 1.0e-08_wp
       !s_pos(i) = r
-    ENDDO
-    if (Ns_out .eq. 1) s_pos(1) = 1.0
-  else
+    END DO
+    IF (Ns_out .eq. 1) s_pos(1) = 1.0
+  ELSE
     s_pos(1)=1.0e-08_wp !avoid axis
     DO i=2,Ns_out-1
         s_pos(i) = REAL(i-1,wp)/REAL(Ns_out-1,wp)
     END DO !i
     s_pos(Ns_out)=1. - 1.0e-12_wp !avoid edge
-  endif
+  END IF
 
   IF(Nthet_out.EQ.-1) THEN !overwrite with default from factorFourier
     Nthet_out = npfactor*mn_max_out(1)
@@ -235,17 +235,17 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
 
   ALLOCATE(thet_pos(Nthet_out))
   ALLOCATE(zeta_pos(Nzeta_out))
-  if (generate_test_data) then
+  IF (generate_test_data) THEN
    DO i=1,Nthet_out
      call RANDOM_NUMBER(r)
      thet_pos(i)=r 
    END DO
-   if (Nthet_out .eq. 1) thet_pos(1) =0.0
-  else
+   IF (Nthet_out .eq. 1) thet_pos(1) =0.0
+  ELSE
     DO i=1,Nthet_out
-      thet_pos(i)=(REAL((i-1),wp))/REAL(Nthet_out) 
+      thet_pos(i)=(REAL((i-1),wp))/REAL(Nthet_out,wp) 
     END DO
-  endif
+  END IF
   DO i=1,Nzeta_out
     zeta_pos(i)=phi_direction * (TWOPI*REAL((i-0.5),wp))/REAL((Nzeta_out*nfp_out),wp)
   END DO
@@ -253,7 +253,7 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
   n_modes = X1_base_r%f%modes
   ALLOCATE(data_scalar2D(Nthet_out, Ns_out, n_modes*nVarScalar2D))
   ALLOCATE(data_scalar3D(  Nthet_out,Nzeta_out,Ns_out,nVarscalar3D))
-  ALLOCATE(data_vector3D(3,Nthet_out,Nzeta_out,Ns_out,nVarvector3D))
+  !ALLOCATE(data_vector3D(3,Nthet_out,Nzeta_out,Ns_out,nVarvector3D))
 
   SWRITE(UNIT_stdOut,'(A,3I6)')'  Number OF N_s,N_theta,N_zeta evaluation points:',Ns_out,Nthet_out,Nzeta_out
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -276,7 +276,7 @@ END SUBROUTINE init_gvec_to_jorek
 SUBROUTINE gvec_to_jorek_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG_in)
 ! MODULES
 USE MODgvec_gvec_to_jorek_Vars 
-USE MODgvec_Globals,        ONLY: CROSS,TWOPI,PI,ProgressBar
+USE MODgvec_Globals,        ONLY: CROSS,TWOPI,ProgressBar
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
 USE MODgvec_Base,           ONLY: t_base, t_fbase, fbase_new
 USE MODgvec_get_field
@@ -434,9 +434,11 @@ DO i_s=1,Ns_out
   J_phi_s(:)     =   J_phi_base%s%evalDOF2D_s(spos, J_phi_base%f%modes,         0, J_phi(:,:))
   J_phids_int(:) =   J_phi_base%s%evalDOF2D_s(spos, J_phi_base%f%modes,   DERIV_S, J_phi(:,:))
   
+  BR_diff=0.0_wp; BZ_diff=0.0_wp; Bphi_diff=0.0_wp; AR_diff=0.0_wp; AZ_diff=0.0_wp; Aphi_diff=0.0_wp
+  BR_diff_max=0.0_wp; BZ_diff_max=0.0_wp; Bphi_diff_max=0.0_wp; AR_diff_max=0.0_wp; AZ_diff_max=0.0_wp; Aphi_diff_max=0.0_wp
 !$OMP PARALLEL DO  SCHEDULE(STATIC) DEFAULT(NONE) COLLAPSE(2)                                                                  &
-!$OMP   REDUCTION(+:BR_diff, BZ_diff, Bphi_diff, AR_diff, AZ_diff, Aphi_diff) REDUCTION(max: BR_diff_max, BZ_diff_max,         & 
-!$OMP               Bphi_diff_max, AR_diff_max,AZ_diff_max,Aphi_diff_max)                                                      &
+!$OMP   REDUCTION(+:BR_diff, BZ_diff, Bphi_diff, AR_diff, AZ_diff, Aphi_diff)                                                  & 
+!$OMP   REDUCTION(max: BR_diff_max, BZ_diff_max, Bphi_diff_max, AR_diff_max,AZ_diff_max,Aphi_diff_max)                         &
 !$OMP   PRIVATE(izeta,ithet,X1_int,dX1ds,dX1dthet,dX1dzeta,d2X1dsdthet, X2_int,dX2ds,dX2dthet,dX2dzeta, d2X2dsdthet,           &
 !$OMP           xp,qvec,e_s,e_thet,e_zeta,sqrtG,                                                                               &
 !$OMP           A_R_int,dA_Rds_int,dA_Rdthet_int,d2A_Rdsdthet_int,                                                             &
@@ -456,7 +458,7 @@ DO i_s=1,Ns_out
 !$OMP          hmap_r,X1_s,dX1ds_s,X2_s,dX2ds_s,LG_s,dGds_s,SFLcoord, Phi_int, dPhids_int, iota_int, Chi_int, dChids_int, P_int, dPds_int,      &
 !$OMP          A_R_s, A_Rds_int,A_Z_s, A_Zds_int,A_phi_s, A_phids_int, B_R_s, B_Rds_int,B_Z_s, B_Zds_int,B_phi_s, B_phids_int,                  &
 !$OMP          J_R_s, J_Rds_int,J_Z_s, J_Zds_int,J_phi_s, J_phids_int,                                                                          &
-!$OMP          data_scalar3D,data_vector3D)
+!$OMP          data_scalar3D)
   !interpolate in the angles
   DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
     xp=(/TWOPI * thet_pos(ithet),zeta_pos(izeta)/)
@@ -617,12 +619,16 @@ DO i_s=1,Ns_out
 !$OMP END PARALLEL DO 
   CALL ProgressBar(i_s,Ns_out)
 END DO !i_s=1,Ns_out 
-BR_diff = BR_diff / REAL(Ns_out*Nthet_out*Nzeta_out);BZ_diff = BZ_diff / REAL(Ns_out*Nthet_out*Nzeta_out);Bphi_diff = Bphi_diff / REAL(Ns_out*Nthet_out*Nzeta_out)
-AR_diff = AR_diff / REAL(Ns_out*Nthet_out*Nzeta_out);AZ_diff = AZ_diff / REAL(Ns_out*Nthet_out*Nzeta_out);Aphi_diff = Aphi_diff / REAL(Ns_out*Nthet_out*Nzeta_out)
+BR_diff = BR_diff / REAL(Ns_out*Nthet_out*Nzeta_out,wp);BZ_diff = BZ_diff / REAL(Ns_out*Nthet_out*Nzeta_out,wp);Bphi_diff = Bphi_diff / REAL(Ns_out*Nthet_out*Nzeta_out,wp)
+AR_diff = AR_diff / REAL(Ns_out*Nthet_out*Nzeta_out,wp);AZ_diff = AZ_diff / REAL(Ns_out*Nthet_out*Nzeta_out,wp);Aphi_diff = Aphi_diff / REAL(Ns_out*Nthet_out*Nzeta_out,wp)
 SWRITE(UNIT_stdOut,'(A,6E16.7)')'AVE/MAX diff in B(R, Z, phi) :', BR_diff, BR_diff_max, BZ_diff, BZ_diff_max, Bphi_diff, Bphi_diff_max 
-SWRITE(UNIT_stdOut,'(A,6E16.7)')'MIN/MAX B(R, Z, phi)         :',MINVAL(data_scalar3D(:,:,:,B_R__)),MAXVAL(data_scalar3D(:,:,:,B_R__)),MINVAL(data_scalar3D(:,:,:,B_Z__)),MAXVAL(data_scalar3D(:,:,:,B_Z__)),MINVAL(data_scalar3D(:,:,:,B_phi__)),MAXVAL(data_scalar3D(:,:,:,B_phi__))
+SWRITE(UNIT_stdOut,'(A,6E16.7)')'MIN/MAX B(R, Z, phi)         :',MINVAL(data_scalar3D(:,:,:,B_R__)),MAXVAL(data_scalar3D(:,:,:,B_R__)),&
+                                                                 MINVAL(data_scalar3D(:,:,:,B_Z__)),MAXVAL(data_scalar3D(:,:,:,B_Z__)),&
+                                                                 MINVAL(data_scalar3D(:,:,:,B_phi__)),MAXVAL(data_scalar3D(:,:,:,B_phi__))
 SWRITE(UNIT_stdOut,'(A,6E16.7)')'AVE/MAX diff in A(R, Z, phi) :', AR_diff,AR_diff_max,AZ_diff,AZ_diff_max,Aphi_diff,Aphi_diff_max
-SWRITE(UNIT_stdOut,'(A,6E16.7)')'MIN/MAX A(R, Z, phi)         :',MINVAL(data_scalar3D(:,:,:,A_R__)),MAXVAL(data_scalar3D(:,:,:,A_R__)),MINVAL(data_scalar3D(:,:,:,A_Z__)),MAXVAL(data_scalar3D(:,:,:,A_Z__)),MINVAL(data_scalar3D(:,:,:,A_phi__)),MAXVAL(data_scalar3D(:,:,:,A_phi__))
+SWRITE(UNIT_stdOut,'(A,6E16.7)')'MIN/MAX A(R, Z, phi)         :',MINVAL(data_scalar3D(:,:,:,A_R__)),MAXVAL(data_scalar3D(:,:,:,A_R__)),&
+                                                                 MINVAL(data_scalar3D(:,:,:,A_Z__)),MAXVAL(data_scalar3D(:,:,:,A_Z__)),&
+                                                                 MINVAL(data_scalar3D(:,:,:,A_phi__)),MAXVAL(data_scalar3D(:,:,:,A_phi__))
 
 ! -----------------------------------------------------------------------------
 ! ---------------- CONVERT TO 1D TOROIDAL REPRESENTATION ----------------------
@@ -1035,9 +1041,10 @@ IMPLICIT NONE
   SDEALLOCATE(s_pos) 
   SDEALLOCATE(thet_pos) 
   SDEALLOCATE(zeta_pos) 
-  SDEALLOCATE(data_1D) 
+  !SDEALLOCATE(data_1D) 
   SDEALLOCATE(data_scalar3D) 
-  SDEALLOCATE(data_vector3D) 
+  SDEALLOCATE(data_scalar2D) 
+  !SDEALLOCATE(data_vector3D) 
 
 END SUBROUTINE finalize_gvec_to_jorek
 
