@@ -210,6 +210,35 @@ else:
           success.extend([msg])
       print(msg)
 
+    ######### GVEC TO JOREK ############
+    caseID=caseID+1
+    if(cases[0]==0 or (caseID in cases)) :
+      casename="convert_gvec_to_jorek"
+      print("running caseID %d ,%s ... " % (caseID,casename))
+      execbin="../"+builddir+"/bin/convert_gvec_to_jorek"
+      cmd=execbin+" -r 15 -s 0 " + restartFile + " gvec2jorek_output.dat"
+      print(cmd)
+      if(not os.path.isfile(execbin)):
+        msg=("caseID: %d, %s test failed, executable does not exist" % (caseID,casename))
+        failed.extend([msg])
+      else:
+        os.system(cmd+" 2>std_"+casename+"_err.txt 1>std_"+casename+"_out.txt")
+        checkerr = check_stderr("std_"+casename+"_err.txt")
+        checkout = check_stdout("std_"+casename+"_out.txt","CONVERT GVEC TO JOREK FINISHED!")
+        if (not os.path.isfile("gvec2jorek_output.dat")):
+          msg=("caseID: %d, %s test failed, output file not found!!!" %(caseID,casename))
+          failed.extend([msg])
+        elif(not checkerr):
+          msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+          failed.extend([msg])
+        elif(not checkout):
+          msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
+          failed.extend([msg])
+        else :
+          msg=("caseID: %d, %s did execute successfully!"  %(caseID,casename))
+          success.extend([msg])
+      print(msg)
+
 print( "successful tests:")
 for line in success :
    print( "---> "+line )

@@ -88,7 +88,7 @@ ENDIF()
 OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" OFF)
-OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" ON)
+OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
 
