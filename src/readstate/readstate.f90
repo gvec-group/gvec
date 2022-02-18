@@ -74,7 +74,7 @@ IMPLICIT NONE
   INTEGER              :: X1_mn_max_r(2),X2_mn_max_r(2),LA_mn_max_r(2)
 
   INTEGER              :: iGP
-  REAL                 :: chi_int, iota_int, phi_edge, s_min, ds
+  REAL                 :: chi_int, iota_int, phi_edge,  ds
   REAL(wp),ALLOCATABLE :: w_GP(:),s_GP(:), chi_IP(:)
   
 !===================================================================================================================================

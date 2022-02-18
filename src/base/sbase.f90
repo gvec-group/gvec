@@ -352,6 +352,9 @@ IMPLICIT NONE
   IF(continuity.EQ.-1)THEN !discontinuous
     nBase  = (deg+1)*nElems
   ELSEIF(continuity.EQ.deg-1)THEN !bspline with full continuity and interpolation base at boundaries 
+    IF((.NOT.test_called).AND.(nElems.LE.deg+1)) & ! only check for user input, not for the init calls from  tests
+      CALL abort(__STAMP__, &
+          "error in sbase init: spline with nElems<=deg+1 not allowed!") 
     nBase  = nElems + deg
   ELSE
    CALL abort(__STAMP__, &
