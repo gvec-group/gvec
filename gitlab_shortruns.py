@@ -216,7 +216,7 @@ else:
       casename="convert_gvec_to_jorek"
       print("running caseID %d ,%s ... " % (caseID,casename))
       execbin="../"+builddir+"/bin/convert_gvec_to_jorek"
-      cmd=execbin+" -r 15 -s 0 " + restartFile + " gvec2jorek_output.dat"
+      cmd=execbin+" -r 12 -p 16 " + restartFile + " gvec2jorek_output.dat"
       print(cmd)
       if(not os.path.isfile(execbin)):
         msg=("caseID: %d, %s test failed, executable does not exist" % (caseID,casename))

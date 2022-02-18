@@ -32,7 +32,8 @@ CHARACTER(LEN=255) :: fileNameOut            !< name of output file
 INTEGER            :: Ns_out                 !< number of equidistant points in radial s-direction (includes axis and edge!)
 INTEGER            :: npfactor               !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
 INTEGER            :: SFLcoord               !< which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL
-INTEGER            :: factorSFL              !< factor for SFL coordinates, mn_max_sfl=mn_max*factorSFL, default=3
+!INTEGER            :: factorSFL              !< factor for SFL coordinates, mn_max_sfl=mn_max*factorSFL, default=3
+REAL(wp)            :: factorField            !< factor for output field representation, mn_max_out=mn_max*factorField, default=1
 CHARACTER(LEN=700) :: cmdline                !< full command line stored
 LOGICAL            :: generate_test_data     !< Determine whether to generate fourier representation, or test data for JOREK
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -40,8 +41,9 @@ LOGICAL            :: generate_test_data     !< Determine whether to generate fo
 INTEGER               :: nfp_out            !< number of field periods
 INTEGER               :: asym_out           !< =0: symmetric configuration (R~cos,Z~sin,lambda~sin), =1 asymmetric 
 INTEGER               :: mn_max_out(2)      !< maximum number of modes in m,n
+INTEGER               :: fac_nyq_fields     !< nyquist factor for field fourier representations constructed for JOREK
 INTEGER               :: Nthet_out          !< total number of points in theta direction theta[0,2pi (
-INTEGER               :: Nzeta_out          !< total number of points in zeta direction zeta[0,-2pi/NFP( opposite sign compared to GVEC!!
+INTEGER               :: Nzeta_out          !< total number of points in zeta direction zeta[0,-2pi/NFP( opposite sign compared to GVEC!! SET INTERNALLY
 REAL(wp),ALLOCATABLE  :: s_pos(:)           !< positions in s for evaluation s=sqrt(phi/phiEdge), size (Ns_out)
 REAL(wp),ALLOCATABLE  :: thet_pos(:)        !< positions in theta for evaluation, size (Nthet_out)
 REAL(wp),ALLOCATABLE  :: zeta_pos(:)        !< positions in zeta for evaluation , size (Nzeta_out)

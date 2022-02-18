@@ -64,7 +64,8 @@ CONTAINS
 SUBROUTINE get_CLA_gvec_to_jorek() 
 ! MODULES
 USE MODgvec_cla
-USE MODgvec_gvec_to_jorek_Vars, ONLY: gvecfileName,FileNameOut, Ns_out,npfactor,factorSFL,Nthet_out,Nzeta_out,SFLcoord,cmdline, generate_test_data
+USE MODgvec_gvec_to_jorek_Vars, ONLY: gvecfileName,FileNameOut
+USE MODgvec_gvec_to_jorek_Vars, ONLY: Ns_out,npfactor,factorField,Nthet_out,SFLcoord,cmdline, generate_test_data
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -84,15 +85,17 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   CALL cla_register('-r',  '--rpoints', &
        'Number of radial points in s=[0,1] for output [MANDATORY, >1]', cla_int,'2') !must be provided
   CALL cla_register('-n',  '--npfactor', &
-       'Number of angular points, computed from max. mode numbers (=npfactor*mn_max) [DEFAULT = 4]',cla_int,'4') 
+       'Number of angular points, computed from max. mode numbers (=npfactor*mn_max_in) [DEFAULT = 4]',cla_int,'4') 
   CALL cla_register('-p',  '--polpoints', &
        'Number of poloidal points, if specified overwrites factor*m_max  [OPTIONAL]',cla_int,'-1') 
-  CALL cla_register('-t',  '--torpoints', &
-       'Number of toroidal points, if specified overwrites factor*n_max  [OPTIONAL]',cla_int,'-1') 
+!  CALL cla_register('-t',  '--torpoints', &
+!       'Number of toroidal points, if specified overwrites factor*n_max  [OPTIONAL]',cla_int,'-1') 
   CALL cla_register('-s',  '--sflcoord', &
-       'which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL [DEFAULT = 0]', cla_int,'0')
-  CALL cla_register('-f',  '--factorsfl', &
-       'factor on maximum mode numbers (mn_max=factorsfl*mn_max_in) for SFL coords.  [DEFAULT = 4]', cla_int,'4')
+       'which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL [DEFAULT = 0]', &
+       cla_int,'0')
+  CALL cla_register('-f',  '--factorfield', &
+       'factor(real number) on max. mode numbers (mn_max_out=factorfield*mn_max_in) in output representation. [DEFAULT = 1.0]',&
+             cla_float,'1.0')
   CALL cla_register('-g',  '--generate_test_data', &
        'determine whether test data is generated  [DEFAULT = FALSE]', cla_int,'.false.')
   !positional argument
@@ -105,9 +108,9 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   CALL cla_get('-r',NS_out)
   CALL cla_get('-n',npfactor)
   CALL cla_get('-p',Nthet_out)
-  CALL cla_get('-t',Nzeta_out)
+!!!!!  CALL cla_get('-t',Nzeta_out)
   CALL cla_get('-s',SFLcoord)
-  CALL cla_get('-f',factorSFL)
+  CALL cla_get('-f',factorField)
   CALL cla_get('-g',generate_test_data)
   CALL cla_get('gvecfile.dat',f_str)
   gvecfilename=TRIM(f_str)
@@ -143,15 +146,19 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   IF(Nthet_out.NE.-1) THEN
     SWRITE(UNIT_stdOut,'(A,I4)')'  * number of points in theta      : ',Nthet_out
   END IF
-  IF(Nzeta_out.NE.-1) THEN
-    SWRITE(UNIT_stdOut,'(A,I4)')'  * number of points in zeta       : ',Nzeta_out
-  END IF
+!  IF(Nzeta_out.NE.-1) THEN
+!    SWRITE(UNIT_stdOut,'(A,I4)')'  * number of points in zeta       : ',Nzeta_out
+!  END IF
+  SWRITE(UNIT_stdOut,'(A,E11.4)')'  * factor for output modes        : ',factorField
   SWRITE(UNIT_stdOut,'(A,I4,A)')'  * SFL coordinates flag           : ',SFLcoord,' ( '//SFLcoordName(SFLcoord)//' )'
-  SWRITE(UNIT_stdOut,'(A,I4)')  '  * factor for modes of SFL coords : ',factorSFL
   SWRITE(UNIT_stdOut,'(A,A)')   '  * generate test data for JOREK   : ',MERGE(".false.",".true. ",generate_test_data)
   SWRITE(UNIT_stdOut,'(A,A)')   '  * GVEC input file                : ',TRIM(gvecfileName)
   SWRITE(UNIT_stdOut,'(A,A)')   '  * output file name               : ',TRIM(FileNameOut)
   SWRITE(UNIT_stdOut,fmt_sep)
+  IF(SFLcoord.NE.0)THEN
+    SWRITE(UNIT_StdOut,*) "SFLcoord=",SFLcoord,", but only GVEC coordinates (=0) is currently implemented!"
+    STOP
+  END IF
 
   CALL GET_COMMAND(cmdline)
 
@@ -168,7 +175,7 @@ USE MODgvec_ReadState         ,ONLY: ReadState
 USE MODgvec_ReadState_vars    ,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_ReadState_vars    ,ONLY: LA_r,X1_r,X2_r 
 !USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl ,GZsfl_base,GZsfl
-USE MODgvec_transform_sfl     ,ONLY: BuildTransform_SFL
+!USE MODgvec_transform_sfl     ,ONLY: BuildTransform_SFL
 USE MODgvec_gvec_to_jorek_vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -192,6 +199,10 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
   mn_max_out(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
   mn_max_out(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
   nfp_out          = X1_base_r%f%nfp
+  ! increase modal respresentation of the computed fields
+  mn_max_out(1) = NINT(mn_max_out(1)*factorField)
+  mn_max_out(2) = NINT(mn_max_out(2)*factorField)
+  fac_nyq_fields=4 !hard coded for now
 
   IF((X1_base_r%f%sin_cos.EQ._COS_).AND.(X2_base_r%f%sin_cos.EQ._SIN_).AND.(LA_base_r%f%sin_cos.EQ._SIN_))THEN
     asym_out = 0 !R~cos,Z~sin,lambda~sin
@@ -199,10 +210,6 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
     asym_out = 1 !full fourier
   END IF
 
-  IF(SFLcoord.NE.0)THEN
-   SWRITE(UNIT_StdOut,*) "Only GVEC coordinates are currently handled!"
-  END IF
-  
   ! Initialise sample points in s, theta, zeta. s and theta can be randomly sampled for testing purposes.
   ALLOCATE(s_pos(Ns_out))
   !ALLOCATE(data_1D(nVar1D,Ns_out))
@@ -226,12 +233,8 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
   IF(Nthet_out.EQ.-1) THEN !overwrite with default from factorFourier
     Nthet_out = npfactor*mn_max_out(1)
   END IF
-  IF(Nzeta_out.EQ.-1) THEN !overwrite with default from factorFourier
-    Nzeta_out = MAX(1,npfactor*mn_max_out(2)) !if n=0, output 1 point
-  END IF
-  !check
   IF(Nthet_out .LT. 4*mn_max_out(1)) WRITE(UNIT_StdOut,'(A)')'WARNING: number of poloidal points for output should be >=4*m_max!'
-  IF(Nzeta_out .LT. 4*mn_max_out(2)) WRITE(UNIT_StdOut,'(A)')'WARNING: number of toroidal points for output should be >=4*n_max!'
+  Nzeta_out = MAX(1,fac_nyq_fields*mn_max_out(2)) !if n=0, output 1 point
 
   ALLOCATE(thet_pos(Nthet_out))
   ALLOCATE(zeta_pos(Nzeta_out))
@@ -260,10 +263,10 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
   SWRITE(UNIT_stdOut,fmt_sep)
 
   SELECT CASE(SFLcoord)
-  CASE(0) ! PEST - toroidal coordinate is the cylindrical toroidal direction
+  CASE(0) ! GVEC coordinates - toroidal coordinate is the cylindrical toroidal direction
     CALL gvec_to_jorek_prepare(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r)
   CASE DEFAULT
-    SWRITE(UNIT_StdOut,*)'This SFLcoord is not valid',SFLcoord
+    SWRITE(UNIT_StdOut,*)'This SFLcoord is not yet implemented',SFLcoord
     STOP
   END SELECT
 END SUBROUTINE init_gvec_to_jorek
@@ -341,8 +344,6 @@ REAL(wp), DIMENSION(:), ALLOCATABLE     :: J_phi_DOFs, J_phi_S_DOFs, J_phi_T_DOF
 CLASS(t_fBase),ALLOCATABLE              :: fbase_zeta                                                                           ! Basis for 1D toroidal representation
 
 ! Variables for new GVEC fourier representations needed for JOREK inputs
-INTEGER                     :: fac_nyq_fields                            !< nyquist factor for field fourier representations constructed for JOREK
-INTEGER                     :: mn_max_fields(2)                          !< maximum number for new variables in SFL coordinates
 TYPE(t_sgrid)               :: sgrid_fields                              !< uniform grid for generating new fourier representations
 CLASS(t_base),  ALLOCATABLE :: A_R_base, A_Z_base, A_phi_base            !< container for base of variable A_*
 REAL(wp),       ALLOCATABLE :: A_R(:,:), A_Z(:,:), A_phi(:,:)            !< data (1:nBase,1:modes) of A_* in GVEC coords
@@ -356,26 +357,24 @@ REAL(wp),       ALLOCATABLE :: J_R(:,:), J_Z(:,:), J_phi(:,:)            !< data
 ! ------- CALCULATE 2D FOURIER REPRESENTATION OF Vector Potential, Magnetic Field, and Current Density -------
 ! ------------------------------------------------------------------------------------------------------------
 SWRITE(UNIT_stdOut,'(A)')'PREPARE FIELD BASES ...'
-mn_max_fields = X1_base_in%f%mn_max
 CALL sgrid_fields%copy(X1_base_in%s%grid)
-fac_nyq_fields=4
-CALL get_field_base(mn_max_fields,fac_nyq_fields,2,4,sgrid_fields,A_R_base,A_R)
+CALL get_field_base(mn_max_out,fac_nyq_fields,2,4,sgrid_fields,A_R_base,A_R)
 ALLOCATE(A_R_s(1:A_R_base%f%modes), A_Rds_int(1:A_R_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,2,3,sgrid_fields,A_Z_base,A_Z)
+CALL get_field_base(mn_max_out,fac_nyq_fields,2,3,sgrid_fields,A_Z_base,A_Z)
 ALLOCATE(A_Z_s(1:A_Z_base%f%modes), A_Zds_int(1:A_Z_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,2,5,sgrid_fields,A_phi_base,A_phi)
+CALL get_field_base(mn_max_out,fac_nyq_fields,2,5,sgrid_fields,A_phi_base,A_phi)
 ALLOCATE(A_phi_s(1:A_phi_base%f%modes), A_phids_int(1:A_phi_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,1,4,sgrid_fields,B_R_base,B_R)
+CALL get_field_base(mn_max_out,fac_nyq_fields,1,4,sgrid_fields,B_R_base,B_R)
 ALLOCATE(B_R_s(1:B_R_base%f%modes), B_Rds_int(1:B_R_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,1,3,sgrid_fields,B_Z_base,B_Z)
+CALL get_field_base(mn_max_out,fac_nyq_fields,1,3,sgrid_fields,B_Z_base,B_Z)
 ALLOCATE(B_Z_s(1:B_Z_base%f%modes), B_Zds_int(1:B_Z_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,1,5,sgrid_fields,B_phi_base,B_phi)
+CALL get_field_base(mn_max_out,fac_nyq_fields,1,5,sgrid_fields,B_phi_base,B_phi)
 ALLOCATE(B_phi_s(1:B_phi_base%f%modes), B_phids_int(1:B_phi_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,3,4,sgrid_fields,J_R_base,J_R)
+CALL get_field_base(mn_max_out,fac_nyq_fields,3,4,sgrid_fields,J_R_base,J_R)
 ALLOCATE(J_R_s(1:J_R_base%f%modes), J_Rds_int(1:J_R_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,3,3,sgrid_fields,J_Z_base,J_Z)
+CALL get_field_base(mn_max_out,fac_nyq_fields,3,3,sgrid_fields,J_Z_base,J_Z)
 ALLOCATE(J_Z_s(1:J_Z_base%f%modes), J_Zds_int(1:J_Z_base%f%modes))
-CALL get_field_base(mn_max_fields,fac_nyq_fields,3,5,sgrid_fields,J_phi_base,J_phi)
+CALL get_field_base(mn_max_out,fac_nyq_fields,3,5,sgrid_fields,J_phi_base,J_phi)
 ALLOCATE(J_phi_s(1:J_phi_base%f%modes), J_phids_int(1:J_phi_base%f%modes))
 
 ! -----------------------------------------------------------------------------
