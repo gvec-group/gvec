@@ -254,7 +254,7 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
   END DO
 
   n_modes = X1_base_r%f%modes
-  ALLOCATE(data_scalar2D(Nthet_out, Ns_out, n_modes*nVarScalar2D))
+  ALLOCATE(data_scalar2D(Nthet_out, Ns_out, n_modes,nVarScalar2D))
   ALLOCATE(data_scalar3D(  Nthet_out,Nzeta_out,Ns_out,nVarscalar3D))
   !ALLOCATE(data_vector3D(3,Nthet_out,Nzeta_out,Ns_out,nVarvector3D))
 
@@ -297,7 +297,7 @@ REAL(wp)      ,INTENT(IN) :: LG_in(1:LG_base_in%s%nBase,1:LG_base_in%f%modes) ! 
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                                  :: i_s,ithet,izeta                                                  ! Indices for enumeration
+INTEGER                                  :: i_s,ithet,izeta,iVar,jVar                                        ! Indices for enumeration
 REAL(wp)                                 :: spos,xp(2),sqrtG                                                 ! Current s, theta, zeta, position and metric tensor
 REAL(wp)                                 :: dX1ds,dX1dthet,dX1dzeta,d2X1dsdthet                              ! X coordinate and derivatives
 REAL(wp)                                 :: dX2ds,dX2dthet,dX2dzeta,d2X2dsdthet                              ! Z coordinate and derivatives
@@ -329,18 +329,6 @@ REAL(wp),DIMENSION(:), ALLOCATABLE       :: B_R_s, B_Rds_int, B_Z_s, B_Zds_int, 
 REAL(wp),DIMENSION(:), ALLOCATABLE       :: J_R_s, J_Rds_int, J_Z_s, J_Zds_int, J_phi_s, J_phids_int
 REAL(wp),DIMENSION(1:LG_base_in%f%modes) :: LG_s,dGds_s
 
-! 1D zeta fourier representation of variables in JOREK
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: X1_DOFs, X1_S_DOFs, X1_T_DOFs, X1_ST_DOFs, X2_DOFs, X2_S_DOFs, X2_T_DOFs, X2_ST_DOFs 
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: P_DOFs, P_S_DOFs, P_T_DOFs, P_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: A_R_DOFs, A_R_S_DOFs, A_R_T_DOFs, A_R_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: A_Z_DOFs, A_Z_S_DOFs, A_Z_T_DOFs, A_Z_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: A_phi_DOFs, A_phi_S_DOFs, A_phi_T_DOFs, A_phi_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: B_R_DOFs, B_R_S_DOFs, B_R_T_DOFs, B_R_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: B_Z_DOFs, B_Z_S_DOFs, B_Z_T_DOFs, B_Z_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: B_phi_DOFs, B_phi_S_DOFs, B_phi_T_DOFs, B_phi_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: J_R_DOFs, J_R_S_DOFs, J_R_T_DOFs, J_R_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: J_Z_DOFs, J_Z_S_DOFs, J_Z_T_DOFs, J_Z_ST_DOFs
-REAL(wp), DIMENSION(:), ALLOCATABLE     :: J_phi_DOFs, J_phi_S_DOFs, J_phi_T_DOFs, J_phi_ST_DOFs
 CLASS(t_fBase),ALLOCATABLE              :: fbase_zeta                                                                           ! Basis for 1D toroidal representation
 
 ! Variables for new GVEC fourier representations needed for JOREK inputs
@@ -633,199 +621,75 @@ SWRITE(UNIT_stdOut,'(A,6E16.7)')'MIN/MAX A(R, Z, phi)         :',MINVAL(data_sca
 ! ---------------- CONVERT TO 1D TOROIDAL REPRESENTATION ----------------------
 ! -----------------------------------------------------------------------------
 SWRITE(Unit_stdOut, *)  "Writing 3D variables to toroidal fourier representation..."
+map_vars_3D_2D(R__     )      = X1__
+map_vars_3D_2D(R_S__   )      = X1_S__
+map_vars_3D_2D(R_T__   )      = X1_T__
+map_vars_3D_2D(R_ST__  )      = X1_ST__
+map_vars_3D_2D(Z__     )      = X2__
+map_vars_3D_2D(Z_S__   )      = X2_S__
+map_vars_3D_2D(Z_T__   )      = X2_T__
+map_vars_3D_2D(Z_ST__  )      = X2_ST__
+map_vars_3D_2D(P2D__   )      = P__   
+map_vars_3D_2D(P2D_S__ )      = P_S__
+map_vars_3D_2D(P2D_T__ )      = -1 !leave zero
+map_vars_3D_2D(P2D_ST__)      = -1 !leave zero 
+map_vars_3D_2D(A_R2D__ )      =A_R__
+map_vars_3D_2D(A_R2D_S__)     =A_R_S__
+map_vars_3D_2D(A_R2D_T__)     =A_R_T__
+map_vars_3D_2D(A_R2D_ST__)    =A_R_ST__
+map_vars_3D_2D(A_Z2D__)       =A_Z__
+map_vars_3D_2D(A_Z2D_S__)     =A_Z_S__
+map_vars_3D_2D(A_Z2D_T__)     =A_Z_T__
+map_vars_3D_2D(A_Z2D_ST__)    =A_Z_ST__
+map_vars_3D_2D(A_phi2D__)     =A_phi__
+map_vars_3D_2D(A_phi2D_S__)   =A_phi_S__
+map_vars_3D_2D(A_phi2D_T__)   =A_phi_T__
+map_vars_3D_2D(A_phi2D_ST__)  =A_phi_ST__
+map_vars_3D_2D(B_R2D__)       =B_R__
+map_vars_3D_2D(B_R2D_S__)     =B_R_S__
+map_vars_3D_2D(B_R2D_T__)     =B_R_T__
+map_vars_3D_2D(B_R2D_ST__)    =B_R_ST__
+map_vars_3D_2D(B_Z2D__)       =B_Z__
+map_vars_3D_2D(B_Z2D_S__)     =B_Z_S__
+map_vars_3D_2D(B_Z2D_T__)     =B_Z_T__
+map_vars_3D_2D(B_Z2D_ST__)    =B_Z_ST__
+map_vars_3D_2D(B_phi2D__)     =B_phi__
+map_vars_3D_2D(B_phi2D_S__)   =B_phi_S__
+map_vars_3D_2D(B_phi2D_T__)   =B_phi_T__
+map_vars_3D_2D(B_phi2D_ST__)  =B_phi_ST__
+map_vars_3D_2D(J_R2D__)       =J_R__
+map_vars_3D_2D(J_R2D_S__)     =J_R_S__
+map_vars_3D_2D(J_R2D_T__)     =J_R_T__
+map_vars_3D_2D(J_R2D_ST__)    =J_R_ST__
+map_vars_3D_2D(J_Z2D__)       =J_Z__
+map_vars_3D_2D(J_Z2D_S__)     =J_Z_S__
+map_vars_3D_2D(J_Z2D_T__)     =J_Z_T__
+map_vars_3D_2D(J_Z2D_ST__)    =J_Z_ST__
+map_vars_3D_2D(J_phi2D__)     =J_phi__
+map_vars_3D_2D(J_phi2D_S__)   =J_phi_S__
+map_vars_3D_2D(J_phi2D_T__)   =J_phi_T__
+map_vars_3D_2D(J_phi2D_ST__)  =J_phi_ST__
+
 CALL fbase_new(fbase_zeta, (/0, X1_base_in%f%mn_max(2)/), (/1, Nzeta_out/), X1_base_in%f%nfp, "_sincos_", .false.)
-ALLOCATE(X1_DOFs(fbase_zeta%modes),       X1_S_DOFs(fbase_zeta%modes),   X1_T_DOFs(fbase_zeta%modes), X1_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(X2_DOFs(fbase_zeta%modes),       X2_S_DOFs(fbase_zeta%modes),   X2_T_DOFs(fbase_zeta%modes), X2_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(P_DOFs(fbase_zeta%modes),        P_S_DOFs(fbase_zeta%modes),   P_T_DOFs(fbase_zeta%modes), P_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(A_R_DOFs(fbase_zeta%modes),     A_R_S_DOFs(fbase_zeta%modes),   A_R_T_DOFs(fbase_zeta%modes), A_R_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(A_Z_DOFs(fbase_zeta%modes),     A_Z_S_DOFs(fbase_zeta%modes),   A_Z_T_DOFs(fbase_zeta%modes), A_Z_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(A_phi_DOFs(fbase_zeta%modes),     A_phi_S_DOFs(fbase_zeta%modes),   A_phi_T_DOFs(fbase_zeta%modes), A_phi_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(B_R_DOFs(fbase_zeta%modes),     B_R_S_DOFs(fbase_zeta%modes),   B_R_T_DOFs(fbase_zeta%modes), B_R_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(B_Z_DOFs(fbase_zeta%modes),     B_Z_S_DOFs(fbase_zeta%modes),   B_Z_T_DOFs(fbase_zeta%modes), B_Z_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(B_phi_DOFs(fbase_zeta%modes),     B_phi_S_DOFs(fbase_zeta%modes),   B_phi_T_DOFs(fbase_zeta%modes), B_phi_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(J_R_DOFs(fbase_zeta%modes),     J_R_S_DOFs(fbase_zeta%modes),   J_R_T_DOFs(fbase_zeta%modes), J_R_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(J_Z_DOFs(fbase_zeta%modes),     J_Z_S_DOFs(fbase_zeta%modes),   J_Z_T_DOFs(fbase_zeta%modes), J_Z_ST_DOFs(fbase_zeta%modes))
-ALLOCATE(J_phi_DOFs(fbase_zeta%modes),     J_phi_S_DOFs(fbase_zeta%modes),   J_phi_T_DOFs(fbase_zeta%modes), J_phi_ST_DOFs(fbase_zeta%modes))
 n_modes = fbase_zeta%modes
 sin_range(:) = fbase_zeta%sin_range(:)
 cos_range(:) = fbase_zeta%cos_range(:)
-DO ithet=1, Nthet_out
-  DO i_s=1, Ns_out
-    ! Zero all DOFs
-    X1_DOFS(:)       = 0    
-    X1_S_DOFS(:)     = 0    
-    X1_T_DOFS(:)     = 0    
-    X1_ST_DOFS(:)    = 0    
-    X2_DOFS(:)       = 0    
-    X2_S_DOFS(:)     = 0    
-    X2_T_DOFS(:)     = 0    
-    X2_ST_DOFS(:)    = 0
-    P_DOFS(:)        = 0    
-    P_S_DOFS(:)      = 0    
-    P_T_DOFS(:)      = 0    
-    P_ST_DOFS(:)     = 0
-    A_R_DOFS(:)      = 0    
-    A_R_S_DOFS(:)    = 0    
-    A_R_T_DOFS(:)    = 0    
-    A_R_ST_DOFS(:)   = 0
-    A_Z_DOFS(:)      = 0    
-    A_Z_S_DOFS(:)    = 0    
-    A_Z_T_DOFS(:)    = 0    
-    A_Z_ST_DOFS(:)   = 0
-    A_phi_DOFS(:)    = 0    
-    A_phi_S_DOFS(:)  = 0    
-    A_phi_T_DOFS(:)  = 0    
-    A_phi_ST_DOFS(:) = 0
-    B_R_DOFS(:)      = 0    
-    B_R_S_DOFS(:)    = 0    
-    B_R_T_DOFS(:)    = 0    
-    B_R_ST_DOFS(:)   = 0
-    B_Z_DOFS(:)      = 0    
-    B_Z_S_DOFS(:)    = 0    
-    B_Z_T_DOFS(:)    = 0    
-    B_Z_ST_DOFS(:)   = 0
-    B_phi_DOFS(:)    = 0    
-    B_phi_S_DOFS(:)  = 0    
-    B_phi_T_DOFS(:)  = 0    
-    B_phi_ST_DOFS(:) = 0
-    J_R_DOFS(:)      = 0    
-    J_R_S_DOFS(:)    = 0    
-    J_R_T_DOFS(:)    = 0    
-    J_R_ST_DOFS(:)   = 0
-    J_Z_DOFS(:)      = 0    
-    J_Z_S_DOFS(:)    = 0    
-    J_Z_T_DOFS(:)    = 0    
-    J_Z_ST_DOFS(:)   = 0
-    J_phi_DOFS(:)    = 0    
-    J_phi_S_DOFS(:)  = 0    
-    J_phi_T_DOFS(:)  = 0    
-    J_phi_ST_DOFS(:) = 0
-    
-    ! Calculate toroidal fourier representation of DOFs on node
-    X1_DOFS(:)       = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X1__))
-    X1_S_DOFS(:)     = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X1_S__))
-    X1_T_DOFS(:)     = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X1_T__))
-    X1_ST_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X1_ST__))
-    X2_DOFS(:)       = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X2__))
-    X2_S_DOFS(:)     = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X2_S__))
-    X2_T_DOFS(:)     = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X2_T__))
-    X2_ST_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,X2_ST__))
-    P_DOFS(:)        = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,P__))         ! Leave poloidal derivative terms at 0 for radial profiles
-    P_S_DOFS(:)      = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,P_S__))
-    A_R_DOFS(:)      = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_R__))
-    A_R_S_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_R_S__))
-    A_R_T_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_R_T__))
-    A_R_ST_DOFS(:)   = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_R_ST__))
-    A_Z_DOFS(:)      = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_Z__))
-    A_Z_S_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_Z_S__))
-    A_Z_T_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_Z_T__))
-    A_Z_ST_DOFS(:)   = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_Z_ST__))
-    A_phi_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_phi__))
-    A_phi_S_DOFS(:)  = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_phi_S__))
-    A_phi_T_DOFS(:)  = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_phi_T__))
-    A_phi_ST_DOFS(:) = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,A_phi_ST__))
-    B_R_DOFS(:)      = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_R__))
-    B_R_S_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_R_S__))
-    B_R_T_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_R_T__))
-    B_R_ST_DOFS(:)   = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_R_ST__))
-    B_Z_DOFS(:)      = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_Z__))
-    B_Z_S_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_Z_S__))
-    B_Z_T_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_Z_T__))
-    B_Z_ST_DOFS(:)   = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_Z_ST__))
-    B_phi_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_phi__))
-    B_phi_S_DOFS(:)  = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_phi_S__))
-    B_phi_T_DOFS(:)  = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_phi_T__))
-    B_phi_ST_DOFS(:) = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,B_phi_ST__))
-    J_R_DOFS(:)      = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_R__))
-    J_R_S_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_R_S__))
-    J_R_T_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_R_T__))
-    J_R_ST_DOFS(:)   = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_R_ST__))
-    J_Z_DOFS(:)      = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_Z__))
-    J_Z_S_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_Z_S__))
-    J_Z_T_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_Z_T__))
-    J_Z_ST_DOFS(:)   = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_Z_ST__))
-    J_phi_DOFS(:)    = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_phi__))
-    J_phi_S_DOFS(:)  = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_phi_S__))
-    J_phi_T_DOFS(:)  = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_phi_T__))
-    J_phi_ST_DOFS(:) = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,J_phi_ST__))
-
-    ! Store DOFs for writing to file
-    data_scalar2D(ithet, i_s, 1:R__*n_modes)                                    = X1_DOFS(:)
-    data_scalar2D(ithet, i_s, (R_S__-1)*n_modes+1:R_S__*n_modes)                = X1_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (R_T__-1)*n_modes+1:R_T__*n_modes)                = X1_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (R_ST__-1)*n_modes+1:R_ST__*n_modes)              = X1_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (Z__-1)*n_modes+1:Z__*n_modes)                    = X2_DOFS(:)
-    data_scalar2D(ithet, i_s, (Z_S__-1)*n_modes+1:Z_S__*n_modes)                = X2_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (Z_T__-1)*n_modes+1:Z_T__*n_modes)                = X2_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (Z_ST__-1)*n_modes+1:Z_ST__*n_modes)              = X2_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (P2D__-1)*n_modes+1:P2D__*n_modes)                = P_DOFS(:)
-    data_scalar2D(ithet, i_s, (P2D_S__-1)*n_modes+1:P2D_S__*n_modes)            = P_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (P2D_T__-1)*n_modes+1:P2D_T__*n_modes)            = P_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (P2D_ST__-1)*n_modes+1:P2D_ST__*n_modes)          = P_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_R2D__-1)*n_modes+1:A_R2D__*n_modes)            = A_R_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_R2D_S__-1)*n_modes+1:A_R2D_S__*n_modes)        = A_R_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_R2D_T__-1)*n_modes+1:A_R2D_T__*n_modes)        = A_R_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_R2D_ST__-1)*n_modes+1:A_R2D_ST__*n_modes)      = A_R_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_Z2D__-1)*n_modes+1:A_Z2D__*n_modes)            = A_Z_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_Z2D_S__-1)*n_modes+1:A_Z2D_S__*n_modes)        = A_Z_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_Z2D_T__-1)*n_modes+1:A_Z2D_T__*n_modes)        = A_Z_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_Z2D_ST__-1)*n_modes+1:A_Z2D_ST__*n_modes)      = A_Z_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_phi2D__-1)*n_modes+1:A_phi2D__*n_modes)        = A_phi_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_phi2D_S__-1)*n_modes+1:A_phi2D_S__*n_modes)    = A_phi_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_phi2D_T__-1)*n_modes+1:A_phi2D_T__*n_modes)    = A_phi_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (A_phi2D_ST__-1)*n_modes+1:A_phi2D_ST__*n_modes)  = A_phi_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_R2D__-1)*n_modes+1:B_R2D__*n_modes)            = B_R_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_R2D_S__-1)*n_modes+1:B_R2D_S__*n_modes)        = B_R_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_R2D_T__-1)*n_modes+1:B_R2D_T__*n_modes)        = B_R_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_R2D_ST__-1)*n_modes+1:B_R2D_ST__*n_modes)      = B_R_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_Z2D__-1)*n_modes+1:B_Z2D__*n_modes)            = B_Z_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_Z2D_S__-1)*n_modes+1:B_Z2D_S__*n_modes)        = B_Z_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_Z2D_T__-1)*n_modes+1:B_Z2D_T__*n_modes)        = B_Z_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_Z2D_ST__-1)*n_modes+1:B_Z2D_ST__*n_modes)      = B_Z_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_phi2D__-1)*n_modes+1:B_phi2D__*n_modes)        = B_phi_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_phi2D_S__-1)*n_modes+1:B_phi2D_S__*n_modes)    = B_phi_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_phi2D_T__-1)*n_modes+1:B_phi2D_T__*n_modes)    = B_phi_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (B_phi2D_ST__-1)*n_modes+1:B_phi2D_ST__*n_modes)  = B_phi_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_R2D__-1)*n_modes+1:J_R2D__*n_modes)            = J_R_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_R2D_S__-1)*n_modes+1:J_R2D_S__*n_modes)        = J_R_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_R2D_T__-1)*n_modes+1:J_R2D_T__*n_modes)        = J_R_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_R2D_ST__-1)*n_modes+1:J_R2D_ST__*n_modes)      = J_R_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_Z2D__-1)*n_modes+1:J_Z2D__*n_modes)            = J_Z_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_Z2D_S__-1)*n_modes+1:J_Z2D_S__*n_modes)        = J_Z_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_Z2D_T__-1)*n_modes+1:J_Z2D_T__*n_modes)        = J_Z_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_Z2D_ST__-1)*n_modes+1:J_Z2D_ST__*n_modes)      = J_Z_ST_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_phi2D__-1)*n_modes+1:J_phi2D__*n_modes)        = J_phi_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_phi2D_S__-1)*n_modes+1:J_phi2D_S__*n_modes)    = J_phi_S_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_phi2D_T__-1)*n_modes+1:J_phi2D_T__*n_modes)    = J_phi_T_DOFS(:)
-    data_scalar2D(ithet, i_s, (J_phi2D_ST__-1)*n_modes+1:J_phi2D_ST__*n_modes)  = J_phi_ST_DOFS(:)
-  END DO ! ithet=1, Nthet_out
-END DO ! i_s=1, Ns_out
+data_scalar2D=0.0_wp
+DO iVar=1,nVarScalar2D
+  jVar=map_vars_3D_2D(iVar) 
+  IF(jVar.LE.0)CYCLE !do not set these
+  DO ithet=1, Nthet_out
+    DO i_s=1, Ns_out
+      ! Store DOFs for writing to file
+      data_scalar2D(ithet, i_s, 1:n_modes,iVar) = fbase_zeta%initDOF(data_scalar3D(ithet,:,i_s,jVar))
+    END DO ! ithet=1, Nthet_out
+  END DO ! i_s=1, Ns_out
+END DO !iVar=1,nVarScalar2D
 
 
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
 
-DEALLOCATE(X1_DOFs,  X1_S_DOFs,   X1_T_DOFs, X1_ST_DOFs)
-DEALLOCATE(X2_DOFs,  X2_S_DOFs,   X2_T_DOFs, X2_ST_DOFs)
-DEALLOCATE(P_DOFs,   P_S_DOFs,   P_T_DOFs,   P_ST_DOFs)
-DEALLOCATE(A_R_DOFs, A_R_S_DOFs,  A_R_T_DOFs, A_R_ST_DOFs)
-DEALLOCATE(A_Z_DOFs, A_Z_S_DOFs,  A_Z_T_DOFs, A_Z_ST_DOFs)
-DEALLOCATE(A_phi_DOFs, A_phi_S_DOFs,  A_phi_T_DOFs, A_phi_ST_DOFs)
-DEALLOCATE(B_R_DOFs, B_R_S_DOFs,  B_R_T_DOFs, B_R_ST_DOFs)
-DEALLOCATE(B_Z_DOFs, B_Z_S_DOFs,  B_Z_T_DOFs, B_Z_ST_DOFs)
-DEALLOCATE(B_phi_DOFs, B_phi_S_DOFs,  B_phi_T_DOFs, B_phi_ST_DOFs)
-DEALLOCATE(J_R_DOFs, J_R_S_DOFs,  J_R_T_DOFs, J_R_ST_DOFs)
-DEALLOCATE(J_Z_DOFs, J_Z_S_DOFs,  J_Z_T_DOFs, J_Z_ST_DOFs)
-DEALLOCATE(J_phi_DOFs, J_phi_S_DOFs,  J_phi_T_DOFs, J_phi_ST_DOFs)
-DEALLOCATE(A_R_s, A_Rds_int)
-DEALLOCATE(A_Z_s, A_Zds_int)
-DEALLOCATE(A_phi_s, A_phids_int)
-DEALLOCATE(B_R_s, B_Rds_int)
-DEALLOCATE(B_Z_s, B_Zds_int)
-DEALLOCATE(B_phi_s, B_phids_int)
-DEALLOCATE(J_R_s, J_Rds_int)
-DEALLOCATE(J_Z_s, J_Zds_int)
-DEALLOCATE(J_phi_s, J_phids_int)
 END SUBROUTINE gvec_to_jorek_prepare
 
 !===================================================================================================================================
@@ -994,25 +858,21 @@ CHARACTER(LEN=30) :: curr_date_time
   WRITE(ioUnit,'(*(I8,:,1X))')Ns_out,Nthet_out,Nzeta_out
   WRITE(ioUnit,'(A)')'##<< global: SFLcoord,nfp,  asym, m_max, n_max, n_modes, sin_min, sin_max, cos_min, cos_max'
   WRITE(ioUnit,'(12X,*(I6,:,1X))')SFLcoord,nfp_out,asym_out,mn_max_out(1:2), n_modes,sin_range(1:2),cos_range(1:2)
-  if (generate_test_data) then
+  IF (generate_test_data) THEN
     ! Write 3D data only
     DO iVar=1,nVarScalar3D
       WRITE(ioUnit,'(A)',ADVANCE='NO')'##<< 3D scalar variable (1:Ntheta,1:Nzeta,1:Ns), Variable name: '
       WRITE(ioUNIT,'(A)')' "'//TRIM(StrVarNamesScalar3D(iVar))//'"'
       WRITE(ioUnit,'(*(6(e23.15,:,1X),/))') data_scalar3D(1:Nthet_out,1:Nzeta_out,1:Ns_out,iVar) 
     END DO !iVar=1,nVarScalar3D
-  else
+  ELSE
     ! Write 2D data only
     DO iVar=1,nVarScalar2D
       WRITE(ioUnit,'(A)',ADVANCE='NO')'##<< 2D scalar variable fourier modes (1:Ntheta,1:Ns), Variable name: '
       WRITE(ioUNIT,'(A)')' "'//TRIM(StrVarNamesScalar2D(iVar))//'"'
-      if (iVar .eq. 1) then
-        WRITE(ioUnit,'(*(6(e23.15,:,1X),/))') data_scalar2D(1:Nthet_out,1:Ns_out,1:n_modes) 
-      else
-        WRITE(ioUnit,'(*(6(e23.15,:,1X),/))') data_scalar2D(1:Nthet_out,1:Ns_out,(iVar-1)*n_modes+1:iVar*n_modes) 
-      endif
+      WRITE(ioUnit,'(*(6(e23.15,:,1X),/))') data_scalar2D(1:Nthet_out,1:Ns_out,1:n_modes,iVar) 
     END DO !iVar=1,nVarScalar2D
-  endif
+  END IF
 
   CLOSE(ioUnit)
 

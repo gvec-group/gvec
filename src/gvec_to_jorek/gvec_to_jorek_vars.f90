@@ -181,7 +181,9 @@ CHARACTER(LEN=50),DIMENSION(nVarScalar2D),PARAMETER :: StrVarNamesScalar2D(nVarS
                         ,'J_phi_t'      & ! 47 : poloidal derivative of vertical current density
                         ,'J_phi_st'     & ! 48 : cross derivative of vertical current density
                             /)
-REAL(wp),ALLOCATABLE  :: data_scalar2D(:,:,:)    !< Size (Nthet_out,Ns_out,nVar2D)
+REAL(wp),ALLOCATABLE  :: data_scalar2D(:,:,:,:)    !< Size (Nthet_out,Ns_out,1:n_modes,nVarScalar2D)
+
+INTEGER,DIMENSION(nVarScalar2D)  :: map_vars_3D_2D  !< map variables from 3D data container to 2D+fourier data container
 
 !3D scalar data 
 INTEGER,PARAMETER     :: nVarScalar3D = 49           !< number of variables in 3D data
