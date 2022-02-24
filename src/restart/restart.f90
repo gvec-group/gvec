@@ -106,7 +106,7 @@ IMPLICIT NONE
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: ioUnit,iMode,is
   INTEGER             :: iGP,i_mn,JacCheck
-  REAL(wp)            :: s_0,vol,surfAvg,a_minor,r_major
+  REAL(wp)            :: vol,surfAvg,a_minor,r_major
 !===================================================================================================================================
   __PERFON("output_state")
   WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),outputLevel,fileID
@@ -175,10 +175,8 @@ IMPLICIT NONE
   WRITE(ioUnit,'(A)')'## at X1_base IP point positions (size nBase): spos,phi,chi,iota,pressure  ################################'
   ASSOCIATE(s_IP         => X1_base%s%s_IP, &
             nBase        => X1_base%s%nBase )
-  !avoid singularity s=0 for now...
-  s_0=1.0e-08
-  WRITE(ioUnit,'(*(E23.15,:,","))')s_0,Eval_Phi(s_0),Eval_chi(s_0),Eval_iota(s_0),Eval_pres(s_0)
-  DO is=2,nBase
+  !write Profiles at Greville interpolation points s_IP(1:nBase) 
+  DO is=1,nBase
     WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),Eval_iota(s_IP(is)),Eval_pres(s_IP(is))
   END DO 
   END ASSOCIATE
