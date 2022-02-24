@@ -239,45 +239,46 @@ if(cases[0]==0 or (caseID in cases)) :
 #########################################################################
 ### GVEC TO CASTOR3D 
 #########################################################################
-caseID=caseID+1
-if(cases[0]==0 or (caseID in cases)) :
-  casename="convert_gvec_to_castor3d"
-  print("running caseID %d ,%s ... " % (caseID,casename))
-  execbin="../"+builddir+"/bin/convert_gvec_to_castor3d"
-  outfile="gvec2castor3d_boozer_output.dat"
-  if(not os.path.isfile(execbin)):
-    msg=("caseID: %d, %s test failed, executable does not exist" % (caseID,casename))
-    failed.extend([msg])
-  else:
-    runfailed=[]
-    cmd=execbin+" -r 5 -p 8 -t 4 -s 2 " + restartFile + " " + outfile
-    print(cmd)
-    stdout="std_out_"+casename+".txt"
-    stderr="std_err_"+casename+".txt"
-    os.system(cmd+" 2>"+stderr+" 1>"+stdout)
-    checkerr = check_stderr(stderr)
-    if(not checkerr):
-      msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
-      runfailed.extend([msg])
-    checkout = check_stdout(stdout,"CONVERT GVEC TO CASTOR3D FINISHED!")
-    if(not checkout):
-      msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
-      runfailed.extend([msg])
-    nodiff,msg = compare_by_numdiff(refdir,'REF_'+outfile,'',outfile,ignore_strings=['#'])
-    msg=("caseID: %d, %s , %s" %(caseID,casename,msg))
-    if (nodiff):
-      success.extend([msg])
+for sflcoord in ["0","1","2"]:
+  caseID=caseID+1
+  if(cases[0]==0 or (caseID in cases)) :
+    casename="convert_gvec_to_castor3d_sflcoord_"+sflcoord
+    print("running caseID %d ,%s ... " % (caseID,casename))
+    execbin="../"+builddir+"/bin/convert_gvec_to_castor3d"
+    outfile="gvec2castor3d_sfl_"+sflcoord+"_output.dat"
+    if(not os.path.isfile(execbin)):
+      msg=("caseID: %d, %s test failed, executable does not exist" % (caseID,casename))
+      failed.extend([msg])
     else:
-      runfailed.extend([msg])
-    if(len(runfailed) > 0) :
-      for line in runfailed :
-         print( "!!!! ---> "+line )
-      msg=("caseID: %d, %s test failed!"  %(caseID,casename))
-      failed.extend(runfailed)
-    else:
-      msg=("caseID: %d, %s did execute successfully!"  %(caseID,casename))
-      success.extend([msg])
-  print(msg)
+      runfailed=[]
+      cmd=execbin+" -r 5 -p 8 -t 4 -s "+sflcoord+" " + restartFile + " " + outfile
+      print(cmd)
+      stdout="std_out_"+casename+".txt"
+      stderr="std_err_"+casename+".txt"
+      os.system(cmd+" 2>"+stderr+" 1>"+stdout)
+      checkerr = check_stderr(stderr)
+      if(not checkerr):
+        msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+        runfailed.extend([msg])
+      checkout = check_stdout(stdout,"CONVERT GVEC TO CASTOR3D FINISHED!")
+      if(not checkout):
+        msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
+        runfailed.extend([msg])
+      nodiff,msg = compare_by_numdiff(refdir,'REF_'+outfile,'',outfile,ignore_strings=['#'],reltol="5e-8")
+      msg=("caseID: %d, %s , %s" %(caseID,casename,msg))
+      if (nodiff):
+        success.extend([msg])
+      else:
+        runfailed.extend([msg])
+      if(len(runfailed) > 0) :
+        for line in runfailed :
+           print( "!!!! ---> "+line )
+        msg=("caseID: %d, %s test failed!"  %(caseID,casename))
+        failed.extend(runfailed)
+      else:
+        msg=("caseID: %d, %s did execute successfully!"  %(caseID,casename))
+        success.extend([msg])
+    print(msg)
 
 #########################################################################
 # SUMMARY
