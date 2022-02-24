@@ -54,23 +54,23 @@ REAL(wp)                :: chi_edge_axis(2)
     !initialization phase
     CALL Init_gvec_to_hopr(filename,SFLcoord_in=SFL,factorSFL_in=2)
    
-    WRITE(*,*)'===> SFLcoord: ',SFL
+    WRITE(UNIT_stdOut,'(A,I4)')'===> SFLcoord: ',SFL
     xin(:,1)=(/0.0,0.5,0.3/)
     xin(:,2)=(/0.3,0.13,0.65/)
     xin(:,3)=(/0.6,0.43,0.15/)
     xin(:,4)=(/1.0,-0.33,-0.45/)
     CALL gvec_to_hopr(4,xin,xout,data_out,phi_edge_axis,chi_edge_axis)
-    WRITE(*,*)'phi_edge_axis: ',phi_edge_axis
-    WRITE(*,*)'chi_edge_axis: ',chi_edge_axis
+    WRITE(UNIT_stdOut,'(A,2E21.13)')'phi_edge_axis: ',phi_edge_axis
+    WRITE(UNIT_stdOut,'(A,2E21.13)')'chi_edge_axis: ',chi_edge_axis
     DO i=1,4
-      WRITE(*,*)'s,thet,zeta: ',xin(:,i)
-      WRITE(*,*)'x,y,z      : ',xout(:,i)
-      WRITE(*,*)'pressure   : ',data_out(1,i)
-      WRITE(*,*)'Bcart      : ',data_out(2:4,i)
-      WRITE(*,*)'|B|        : ',SQRT(SUM(data_out(2:4,i)**2))
-      WRITE(*,*)'chi,phi    : ',data_out(5:6,i)
-      WRITE(*,*)'Acart      : ',data_out(7:9,i)
-      WRITE(*,*)'-----------------------'
+      WRITE(UNIT_stdOut,'(A,3E21.13)')'s,thet,zeta: ',xin(:,i)
+      WRITE(UNIT_stdOut,'(A,3E21.13)')'x,y,z      : ',xout(:,i)
+      WRITE(UNIT_stdOut,'(A, E21.13)')'pressure   : ',data_out(1,i)
+      WRITE(UNIT_stdOut,'(A,3E21.13)')'Bcart      : ',data_out(2:4,i)
+      WRITE(UNIT_stdOut,'(A, E21.13)')'|B|        : ',SQRT(SUM(data_out(2:4,i)**2))
+      WRITE(UNIT_stdOut,'(A,2E21.13)')'chi,phi    : ',data_out(5:6,i)
+      WRITE(UNIT_stdOut,'(A,3E21.13)')'Acart      : ',data_out(7:9,i)
+      WRITE(UNIT_stdOut,*)'-----------------------'
     END DO
     
     CALL Finalize_gvec_to_hopr()
