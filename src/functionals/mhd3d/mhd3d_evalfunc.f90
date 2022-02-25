@@ -1233,7 +1233,7 @@ END SUBROUTINE ApplyPrecond
 SUBROUTINE checkEvalForce(Uin,fileID)
 ! MODULES
   USE MODgvec_Globals       , ONLY: testlevel
-  USE MODgvec_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType,F
+  USE MODgvec_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType
   USE MODgvec_MHD3D_visu    , ONLY: WriteDataMN_visu
   USE MODgvec_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
   USE MODgvec_Output_Vars   , ONLY: outputLevel
@@ -1312,9 +1312,6 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   END DO 
 
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force without BC |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
-  !for initial visualization, copy FD force with BC to F(0)
-  CALL F(0)%copy(Ftest)
-  CALL ApplyBC_Fstrong(F(0))
 
   PrecondType=-1
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)

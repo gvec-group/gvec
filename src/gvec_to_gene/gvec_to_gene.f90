@@ -68,7 +68,7 @@ CONTAINS
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE init_gvec_to_gene(fileName,SFLcoord_in) 
+SUBROUTINE init_gvec_to_gene(fileName,SFLcoord_in,factorSFL_in) 
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_ReadState,ONLY: ReadState
@@ -80,6 +80,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 CHARACTER(LEN=*), INTENT(IN) :: fileName !< name of GVEC file
 INTEGER,INTENT(IN),OPTIONAL :: SFLcoord_in !< type of straight field line coordinate (0: 'old way' PEST, 1: PEST, 2: BOOZER)
+INTEGER,INTENT(IN),OPTIONAL :: factorSFL_in !< factor on fourier modes for SFL>0 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -99,7 +100,11 @@ INTEGER :: mn_max(2)
   CALL ReadState(fileName)
 
   IF(SFLcoord.NE.0)THEN
-    factorSFL = 8  !!HARD CODED, could be added as input argument!  
+    IF(PRESENT(factorSFL_in))THEN
+      factorSFL=factorSFL_in
+    ELSE
+      factorSFL = 4  !!DEFAULT, added as optional input argument!  
+    END IF
 
     mn_max(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
     mn_max(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
