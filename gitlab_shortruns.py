@@ -307,7 +307,8 @@ if(cases[0]==0 or (caseID in cases)) :
     if(not checkout):
       msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
       runfailed.extend([msg])
-    nodiff,msg = compare_by_numdiff(refdir,'REF_'+outfile,'',outfile,ignore_strings=['#'])
+    nodiff,msg = compare_by_numdiff(refdir,'REF_'+outfile,'',outfile,ignore_strings=['#'],
+                                    abstol="1e-8", reltol="1e-8", ignore_line_ranges=["1145,$"])
     msg=("caseID: %d, %s , %s" %(caseID,casename,msg))
     if (nodiff):
       success.extend([msg])

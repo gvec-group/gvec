@@ -26,12 +26,13 @@ def check_stdout( stdout_file="",finishmsg=""):
 ########################################################################################################
 
 ########################################################################################################
-# use the numdiff tool to compare two files, also providing strings that mark lines to be ignored 
-# this is  using commandline tools "sed" and "numdiff"
-# to use parameter 'colcsv', files must be comma-seperated csv files(!) commandline tool "cut" is used
-#   one must provide the 'fields' for the cut command. for example, to skip column 2: colcsv='1,3-'
+# use the numdiff tool to compare two files,   using commandline tools "sed" and "numdiff"
+#  - ignore_line_ranges: first line ranges can be ignored, in the format "start,end" (end=$ is EOF)
+#  - ignore_strings: then lines containing strings can be ignored
+#  - parameter 'colcsv': files must be comma-seperated csv files(!) commandline tool "cut" is used
+#    one must provide the 'fields' for the cut command. for example, to skip column 2: colcsv='1,3-'
 ########################################################################################################
-def compare_by_numdiff(refpath,reffilename,filepath,filename,reltol="1e-8",abstol="1e-12",ignore_strings=[],colcsv=''):
+def compare_by_numdiff(refpath,reffilename,filepath,filename,reltol="1e-8",abstol="1e-12",ignore_line_ranges=[],ignore_strings=[],colcsv=''):
     msg=[]
     comp=filename.strip()
     p_comp=os.path.join(filepath,comp)
@@ -55,16 +56,27 @@ def compare_by_numdiff(refpath,reffilename,filepath,filename,reltol="1e-8",absto
       tmpcomp='tmpcomp.'+comp
       cmd='cp '+p_comp+' '+tmpcomp
       os.system(cmd)
+
+    #delete lines  in ranges of ingore_line_ranges (using sed command, format "start,end")
+    for ign_lr in ignore_line_ranges:
+      cmd='cp '+tmpcomp+' tmp'
+      os.system(cmd)
+      cmd="sed -e '"+ign_lr+"d' tmp > "+tmpcomp  
+      os.system(cmd)
+      cmd='cp '+tmpref+' tmp'
+      os.system(cmd)
+      cmd="sed -e '"+ign_lr+"d' tmp > "+tmpref
+      os.system(cmd)
     
     #delete lines where ingore_strings are found (using sed command)
     for ign_str in ignore_strings:
       cmd='cp '+tmpcomp+' tmp'
       os.system(cmd)
-      cmd='sed "/'+ign_str+'/d" tmp > '+tmpcomp  
+      cmd="sed '/"+ign_str+"/d' tmp > "+tmpcomp  
       os.system(cmd)
       cmd='cp '+tmpref+' tmp'
       os.system(cmd)
-      cmd='sed "/'+ign_str+'/d" tmp > '+tmpref 
+      cmd="sed '/"+ign_str+"/d' tmp > "+tmpref  
       os.system(cmd)
 
     #only compare given columns (works for csv files only, using cut command!)
@@ -91,6 +103,14 @@ def compare_by_numdiff(refpath,reffilename,filepath,filename,reltol="1e-8",absto
     stdout=open('std.out','r').readlines()
     stderr=open('std.err','r').readlines()
     with open('log_compare_'+ref+'_to_'+comp+'.txt', 'w') as logf:
+      logf.write("FILE COMPARISON, INPUT PARAMETERS:\n - abstol=%s \n - reltol=%s\n"%(abstol,reltol))
+      for ign_lr in ignore_line_ranges:
+        logf.write(' - ignore_line_range="%s"\n' %(ign_lr))
+      for ign_str in ignore_strings:
+        logf.write(' - ignore_string="%s"\n' %(ign_str))
+      if(len(colcsv)>0):
+        logf.write(' - colcsv="%s"' %(colcsv))
+
       logf.write("FILE COMPARISON, EXECUTE COMMAND:\n")
       logf.write(cmd+"\n")
       logf.write("FILE COMPARISON, STDERR FILE:\n")
@@ -112,6 +132,6 @@ def compare_by_numdiff(refpath,reffilename,filepath,filename,reltol="1e-8",absto
         nodiff=False 
         msg = ('file comparison failed for "%s", check log_compare_* file' %(comp)) 
     if(nodiff):
-      msg=('file comparison for "%s" successful!' % (comp))
+      msg=('file comparison for "%s" successful! (abstol=%s, reltol=%s)' % (comp,abstol,reltol))
      
     return nodiff, msg
