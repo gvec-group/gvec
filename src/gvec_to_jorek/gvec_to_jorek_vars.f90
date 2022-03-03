@@ -23,6 +23,8 @@
 MODULE MODgvec_gvec_to_jorek_Vars
 ! MODULES
 USE MODgvec_Globals,ONLY:wp
+USE MODgvec_base   ,ONLY: t_base
+USE MODgvec_fbase  ,ONLY: t_fbase
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -49,6 +51,12 @@ REAL(wp),ALLOCATABLE  :: thet_pos(:)        !< positions in theta for evaluation
 REAL(wp),ALLOCATABLE  :: zeta_pos(:)        !< positions in zeta for evaluation , size (Nzeta_out)
 INTEGER               :: n_modes
 INTEGER               :: sin_range(2), cos_range(2)     !< maximum number of modes in m,n
+
+!base needed for evaluation on increased mode numbers / integration points
+CLASS(t_Base),ALLOCATABLE           :: out_base        !< same full base for  all output fields 
+CLASS(t_fBase),ALLOCATABLE          :: X1_fbase_nyq    !< same as X1_base_r%f exept integration points
+CLASS(t_fBase),ALLOCATABLE          :: X2_fbase_nyq    !< same as X2_base_r%f exept integration points
+CLASS(t_fBase),ALLOCATABLE          :: LA_fbase_nyq    !< same as LA_base_r%f exept integration points
 
 !1D data - Unnecessary for initial JOREK import
 !INTEGER,PARAMETER     :: nVar1D = 0          !< number of variables in 1d profiles
@@ -91,7 +99,7 @@ INTEGER, PARAMETER    :: Z_S__          = 6
 INTEGER, PARAMETER    :: Z_T__          = 7
 INTEGER, PARAMETER    :: Z_ST__         = 8
 INTEGER, PARAMETER    :: P2D__          = 9
-INTEGER, PARAMETER    :: P2D_S__        = 10
+INTEGER, PARAMETER    :: P2D_S__        = 10  !<
 INTEGER, PARAMETER    :: P2D_T__        = 11
 INTEGER, PARAMETER    :: P2D_ST__       = 12
 INTEGER, PARAMETER    :: A_R2D__        = 13
@@ -106,30 +114,30 @@ INTEGER, PARAMETER    :: A_phi2D__      = 21
 INTEGER, PARAMETER    :: A_phi2D_S__    = 22
 INTEGER, PARAMETER    :: A_phi2D_T__    = 23
 INTEGER, PARAMETER    :: A_phi2D_ST__   = 24
-INTEGER, PARAMETER    :: B_R2D__        = 25
-INTEGER, PARAMETER    :: B_R2D_S__      = 26
+INTEGER, PARAMETER    :: B_R2D__        = 25 
+INTEGER, PARAMETER    :: B_R2D_S__      = 26 !<
 INTEGER, PARAMETER    :: B_R2D_T__      = 27
-INTEGER, PARAMETER    :: B_R2D_ST__     = 28
+INTEGER, PARAMETER    :: B_R2D_ST__     = 28 !<
 INTEGER, PARAMETER    :: B_Z2D__        = 29
 INTEGER, PARAMETER    :: B_Z2D_S__      = 30
 INTEGER, PARAMETER    :: B_Z2D_T__      = 31
 INTEGER, PARAMETER    :: B_Z2D_ST__     = 32
-INTEGER, PARAMETER    :: B_phi2D__      = 33
-INTEGER, PARAMETER    :: B_phi2D_S__    = 34
-INTEGER, PARAMETER    :: B_phi2D_T__    = 35
-INTEGER, PARAMETER    :: B_phi2D_ST__   = 36
-INTEGER, PARAMETER    :: J_R2D__        = 37
-INTEGER, PARAMETER    :: J_R2D_S__      = 38
-INTEGER, PARAMETER    :: J_R2D_T__      = 39
-INTEGER, PARAMETER    :: J_R2D_ST__     = 40
-INTEGER, PARAMETER    :: J_Z2D__        = 41
-INTEGER, PARAMETER    :: J_Z2D_S__      = 42
-INTEGER, PARAMETER    :: J_Z2D_T__      = 43
-INTEGER, PARAMETER    :: J_Z2D_ST__     = 44
-INTEGER, PARAMETER    :: J_phi2D__      = 45
-INTEGER, PARAMETER    :: J_phi2D_S__    = 46
-INTEGER, PARAMETER    :: J_phi2D_T__    = 47
-INTEGER, PARAMETER    :: J_phi2D_ST__   = 48
+INTEGER, PARAMETER    :: B_phi2D__      = 33  !<
+INTEGER, PARAMETER    :: B_phi2D_S__    = 34  !<
+INTEGER, PARAMETER    :: B_phi2D_T__    = 35  !<
+INTEGER, PARAMETER    :: B_phi2D_ST__   = 36  !<
+INTEGER, PARAMETER    :: J_R2D__        = 37  !<<<
+INTEGER, PARAMETER    :: J_R2D_S__      = 38  !<<<
+INTEGER, PARAMETER    :: J_R2D_T__      = 39  !<<< 
+INTEGER, PARAMETER    :: J_R2D_ST__     = 40  !<<<
+INTEGER, PARAMETER    :: J_Z2D__        = 41  !<<<  
+INTEGER, PARAMETER    :: J_Z2D_S__      = 42  !<<<
+INTEGER, PARAMETER    :: J_Z2D_T__      = 43  !<<<
+INTEGER, PARAMETER    :: J_Z2D_ST__     = 44  !<<<
+INTEGER, PARAMETER    :: J_phi2D__      = 45  !<<<
+INTEGER, PARAMETER    :: J_phi2D_S__    = 46  !<<<
+INTEGER, PARAMETER    :: J_phi2D_T__    = 47  !<<<
+INTEGER, PARAMETER    :: J_phi2D_ST__   = 48  !<<<
 
 CHARACTER(LEN=50),DIMENSION(nVarScalar2D),PARAMETER :: StrVarNamesScalar2D(nVarScalar2D)=(/ CHARACTER(LEN=50) :: &
                         'R'             & ! 1  : Major radius
@@ -304,6 +312,12 @@ REAL(wp),ALLOCATABLE  :: data_scalar3D(:,:,:,:)    !< Size (Nthet_out,Nzeta_out,
 !REAL(wp),ALLOCATABLE  :: data_vector3D(:,:,:,:,:)    !< Size (3,Nthet_out,Nzeta_out,Ns_out,nVarVector3D)
                                          
 !===================================================================================================================================
+
+CONTAINS
+
+
+
+
 
 END MODULE MODgvec_gvec_to_jorek_Vars
 
