@@ -308,7 +308,7 @@ if(cases[0]==0 or (caseID in cases)) :
       msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
       runfailed.extend([msg])
     nodiff,msg = compare_by_numdiff(refdir,'REF_'+outfile,'',outfile,ignore_strings=['#']
-                                    ,abstol="1e-8")  # for large numbers,  difference debug/release
+                                    ,abstol="1e-8"  # for large numbers,  difference debug/release
                                     ,ignore_line_ranges=["1145,$"]) # ignore the current, computed with FD 
     msg=("caseID: %d, %s , %s" %(caseID,casename,msg))
     if (nodiff):
