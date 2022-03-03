@@ -32,6 +32,11 @@ END INTERFACE
 
 CONTAINS
 
+!===================================================================================================================================
+!> compute different fields depending on the input parameters field_type and vector_component,
+!> TODO: since this is called for each component, initialization of basis is repeated every time. should be done only once!
+!!
+!===================================================================================================================================
 SUBROUTINE Get_Field_Base(mn_max,fac_nyq,field_type,vector_component,sgrid_in,field_base_out, field_representation)
 ! MODULES
 USE MODgvec_Globals,ONLY: UNIT_stdOut,CROSS,TWOPI,PI,ProgressBar
@@ -61,7 +66,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER               :: nBase,is,iMode,modes,i_mn,mn_IP                  !< enumerators 
   INTEGER               :: mn_nyq(2),nfp,BCtype_axis(0:4)
-  REAL(wp)              :: spos,dthet_dzeta
+  REAL(wp)              :: spos
   REAL(wp)              :: Phi_int,dPhids_int,iota_int,Chi_int
   REAL(wp)              :: dPhids_int_eps,iota_int_eps
   REAL(wp)              :: theta, zeta, sqrtG
@@ -91,7 +96,7 @@ IMPLICIT NONE
   
   REAL(wp) :: eps=1.0e-08                                   !< Small displacement for finite difference operations, 
                                                             !  local variables appended with _eps are used in finite different operations
-  INTEGER  :: sgn
+  REAL(wp) :: sgn
 !===================================================================================================================================
   ! use maximum number of integration points from maximum mode number in both directions
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
@@ -111,7 +116,6 @@ IMPLICIT NONE
   mn_IP        = field_base_out%f%mn_IP  !total number of integration points
   modes        = field_base_out%f%modes  !number of modes in output
   nBase        = field_base_out%s%nBase  !number of radial points in output
-  dthet_dzeta  = field_base_out%f%d_thet*field_base_out%f%d_zeta !integration weights
 
   ! Initialise bases for existing grid at higher number of integration points, based on nyquist condition
   CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
@@ -157,8 +161,8 @@ IMPLICIT NONE
     dX2ds_s(:)     = X2_base_r%s%evalDOF2D_s(spos    ,X2_base_r%f%modes,DERIV_S,X2_r(:,:))
     
     ! Interpolate finite difference point in radial direction - direction of finite step is changed for last element to stay inside the domain
-    sgn = 1
-    if (is .eq. nBase) sgn=-1
+    sgn = 1.0_wp
+    if (is .eq. nBase) sgn=-1.0_wp
     dPhids_int_eps = sbase_prof%evalDOF_s(spos+sgn*eps, DERIV_S ,profiles_1d(:,1))
     iota_int_eps   = sbase_prof%evalDOF_s(spos+sgn*eps,        0,profiles_1d(:,3))
     X1_s_eps(:)    = X1_base_r%s%evalDOF2D_s(spos+sgn*eps,X1_base_r%f%modes,      0,X1_r(:,:))
@@ -166,28 +170,28 @@ IMPLICIT NONE
     X2_s_eps(:)    = X2_base_r%s%evalDOF2D_s(spos+sgn*eps,X2_base_r%f%modes,      0,X2_r(:,:))
     dX2ds_s_eps(:) = X2_base_r%s%evalDOF2D_s(spos+sgn*eps,X2_base_r%f%modes,DERIV_S,X2_r(:,:))
 
-    LA_s(:)        = LA_base_r%s%evalDOF2D_s(spos     ,LA_base_r%f%modes,      0,LA_r(:,:))
+    LA_s(:)        = LA_base_r%s%evalDOF2D_s(spos     ,LA_base_r%f%modes,         0,LA_r(:,:))
     LA_s_eps(:)    = LA_base_r%s%evalDOF2D_s(spos+sgn*eps,LA_base_r%f%modes,      0,LA_r(:,:))
 
     ! evaluate at integration points and finite difference eps from points
-    X1_IP       = X1_fbase_nyq%evalDOF_IP(         0, X1_s(  :));     X1_IP_eps       = X1_fbase_nyq%evalDOF_IP(         0, X1_s_eps(  :))
-    dX1ds_IP    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s(:));     dX1ds_IP_eps    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s_eps(:))
-    dX1dthet_IP = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s(  :));     dX1dthet_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s_eps(  :))
-    dX1dzeta_IP = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s(  :));     dX1dzeta_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s_eps(  :))
-                                                                      
-    X2_IP       = X2_fbase_nyq%evalDOF_IP(         0, X2_s(  :));     X2_IP_eps       = X2_fbase_nyq%evalDOF_IP(         0, X2_s_eps(  :))
-    dX2ds_IP    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s(:));     dX2ds_IP_eps    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s_eps(:))
-    dX2dthet_IP = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s(  :));     dX2dthet_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s_eps(  :))
-    dX2dzeta_IP = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s(  :));     dX2dzeta_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s_eps(  :))
-                                                                      
-    LA_IP(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:));     LA_IP_eps(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s_eps(:))
-    dLAdthet_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:));     dLAdthet_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s_eps(:))
-    dLAdzeta_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:));     dLAdzeta_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s_eps(:))
+    X1_IP       = X1_fbase_nyq%evalDOF_IP(         0, X1_s(  :)); X1_IP_eps       = X1_fbase_nyq%evalDOF_IP(         0, X1_s_eps(  :))
+    dX1ds_IP    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s(:)); dX1ds_IP_eps    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s_eps(:))
+    dX1dthet_IP = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s(  :)); dX1dthet_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s_eps(  :))
+    dX1dzeta_IP = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s(  :)); dX1dzeta_IP_eps = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s_eps(  :))
+                                                                  
+    X2_IP       = X2_fbase_nyq%evalDOF_IP(         0, X2_s(  :)); X2_IP_eps       = X2_fbase_nyq%evalDOF_IP(         0, X2_s_eps(  :))
+    dX2ds_IP    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s(:)); dX2ds_IP_eps    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s_eps(:))
+    dX2dthet_IP = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s(  :)); dX2dthet_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s_eps(  :))
+    dX2dzeta_IP = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s(  :)); dX2dzeta_IP_eps = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s_eps(  :))
+                                                                  
+    LA_IP(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:)); LA_IP_eps(:)       = LA_fbase_nyq%evalDOF_IP(         0,LA_s_eps(:))
+    dLAdthet_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:)); dLAdthet_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s_eps(:))
+    dLAdzeta_IP(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:)); dLAdzeta_IP_eps(:) = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s_eps(:))
     
     ! Loop over surface points and evaluate field_representation
     DO i_mn=1,mn_IP
       theta = X1_fbase_nyq%x_IP(1, i_mn)
-      zeta = X1_fbase_nyq%x_IP(2, i_mn)
+      zeta  = X1_fbase_nyq%x_IP(2, i_mn)
 
       ! Get the covariant basis vectors
       qvec     = (/ X1_IP(i_mn), X2_IP(i_mn), zeta /) !(X1,X2,zeta)
@@ -227,10 +231,10 @@ IMPLICIT NONE
           field_representation_IP(i_mn) = Bcart(3)
         CASE(4)
           ! Get Radial Magnetic Field - B_R
-          field_representation_IP(i_mn) = Bcart(1) * grad_R(1) + Bcart(2) * grad_R(2) + Bcart(3) * grad_R(3)
+          field_representation_IP(i_mn) = SUM(Bcart(1:3) * grad_R(1:3))
         CASE(5)
           ! Get Toroidal Magnetic Field - B_phi = R * (B.grad(zeta))
-          field_representation_IP(i_mn) = X1_IP(i_mn) * (Bcart(1) * grad_zeta(1) + Bcart(2) * grad_zeta(2) + Bcart(3) * grad_zeta(3))
+          field_representation_IP(i_mn) = X1_IP(i_mn)*SUM(Bcart(1:3) * grad_zeta(1:3))
         CASE DEFAULT
           SWRITE(UNIT_StdOut,*) "Invalid vector component selected: ", vector_component
         END SELECT
@@ -247,18 +251,18 @@ IMPLICIT NONE
           field_representation_IP(i_mn) = Acart(3)
         CASE(4)
           ! Get Radial Flux - A_R
-          field_representation_IP(i_mn) = Acart(1) * grad_R(1) + Acart(2) * grad_R(2) + Acart(3) * grad_R(3)
+          field_representation_IP(i_mn) = SUM(Acart(1:3) * grad_R(1:3))
         CASE(5)
           ! Get Poloidal Flux - A_phi = R * (A.grad(zeta))
-          field_representation_IP(i_mn) = X1_IP(i_mn) * (Acart(1) * grad_zeta(1) + Acart(2) * grad_zeta(2) + Acart(3) * grad_zeta(3))
+          field_representation_IP(i_mn) = X1_IP(i_mn)*SUM(Acart(1:3) * grad_zeta(1:3))
         CASE DEFAULT
           SWRITE(UNIT_StdOut,*) "Invalid vector component selected: ", vector_component
         END SELECT
       CASE(3)  ! Current density
         ! Calculate ds derivative of B
         qvec     = (/ X1_IP_eps(i_mn), X2_IP_eps(i_mn), zeta /) !(X1,X2,zeta)
-        e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds_IP_eps(i_mn)   ,dX2ds_IP_eps(i_mn)   , 0.0    /)) !dxvec/ds
-        e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet_IP_eps(i_mn),dX2dthet_IP_eps(i_mn), 0.0    /)) !dxvec/dthet
+        e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds_IP_eps(i_mn)   ,dX2ds_IP_eps(i_mn)   , 0.0_wp /)) !dxvec/ds
+        e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet_IP_eps(i_mn),dX2dthet_IP_eps(i_mn), 0.0_wp /)) !dxvec/dthet
         e_zeta   = hmap_r%eval_dxdq(qvec,(/dX1dzeta_IP_eps(i_mn),dX2dzeta_IP_eps(i_mn), 1.0_wp /)) !dxvec/dzeta
         sqrtG    = SUM(e_s*(CROSS(e_thet,e_zeta)))
 
@@ -282,8 +286,8 @@ IMPLICIT NONE
         dLAdzeta =LA_base_r%f%evalDOF_x(xp, DERIV_ZETA, LA_s)
 
         qvec   = (/X1_int,X2_int,zeta/)
-        e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   , 0.0    /)) !dxvec/ds
-        e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet, 0.0    /)) !dxvec/dthet
+        e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   , 0.0_wp /)) !dxvec/ds
+        e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet, 0.0_wp /)) !dxvec/dthet
         e_zeta   = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta, 1.0_wp /)) !dxvec/dzeta
         sqrtG    = SUM(e_s*(CROSS(e_thet,e_zeta)))
 
@@ -306,9 +310,9 @@ IMPLICIT NONE
         dLAdthet =LA_base_r%f%evalDOF_x(xp, DERIV_THET, LA_s)
         dLAdzeta =LA_base_r%f%evalDOF_x(xp, DERIV_ZETA, LA_s)
 
-        qvec   = (/X1_int,X2_int,zeta/)
-        e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   , dX2ds   , 0.0    /)) !dxvec/ds
-        e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet, dX2dthet, 0.0    /)) !dxvec/dthet
+        qvec   = (/X1_int,X2_int,xp(2)/) !xp(2)=zeta +eps  here!
+        e_s      = hmap_r%eval_dxdq(qvec,(/dX1ds   , dX2ds   , 0.0_wp /)) !dxvec/ds
+        e_thet   = hmap_r%eval_dxdq(qvec,(/dX1dthet, dX2dthet, 0.0_wp /)) !dxvec/dthet
         e_zeta   = hmap_r%eval_dxdq(qvec,(/dX1dzeta, dX2dzeta, 1.0_wp /)) !dxvec/dzeta
         sqrtG    = SUM(e_s*(CROSS(e_thet,e_zeta)))
 
@@ -338,10 +342,10 @@ IMPLICIT NONE
           field_representation_IP(i_mn) = Jcart(3)
         CASE(4)
           ! Get Radial Current Density - J_R
-          field_representation_IP(i_mn) = Jcart(1) * grad_R(1) + Jcart(2) * grad_R(2) + Jcart(3) * grad_R(3)
+          field_representation_IP(i_mn) = SUM(Jcart(1:3) * grad_R(1:3))
         CASE(5)
           ! Get Toroidal Current Density - J_phi = R * (J.grad(zeta))
-          field_representation_IP(i_mn) = X1_IP(i_mn) * (Jcart(1) * grad_zeta(1) + Jcart(2) * grad_zeta(2) + Jcart(3) * grad_zeta(3))
+          field_representation_IP(i_mn) = X1_IP(i_mn)*SUM(Jcart(1:3) * grad_zeta(1:3))
         CASE DEFAULT
           SWRITE(UNIT_StdOut,*) "Invalid vector component selected: ", vector_component
         END SELECT
@@ -353,10 +357,7 @@ IMPLICIT NONE
     ENDDO ! i_mn
     
     ! Convert interation points into fourier mode representation 
-    CALL field_base_out%f%projectIPtoDOF(.FALSE., 1.0_wp, 0, field_representation_IP(:), field_representation(is, :))
-    DO iMode=1,modes
-      field_representation(is,iMode)=field_representation(is,iMode)*dthet_dzeta*field_base_out%f%snorm_base(iMode)
-    END DO
+    field_representation(is,:) = field_base_out%f%initDOF(field_representation_IP(:))
   ENDDO ! is
 
   ! Convert radial fourier representation into radial spline
@@ -375,7 +376,8 @@ IMPLICIT NONE
   endif
   DO iMode=1, modes
     field_representation(:, iMode) = field_base_out%s%initDOF(field_representation(:, iMode))
-    CALL field_base_out%s%applyBCtoDOF(field_representation(:,iMode),(/BCtype_axis(field_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/),(/0.,0./))
+    CALL field_base_out%s%applyBCtoDOF(field_representation(:,iMode), &
+                                       (/BCtype_axis(field_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/),(/0.0_wp,0.0_wp/))
   ENDDO
   
   DEALLOCATE(X1_IP, dX1ds_IP, dX1dthet_IP, dX1dzeta_IP, X1_IP_eps, dX1ds_IP_eps, dX1dthet_IP_eps, dX1dzeta_IP_eps)
