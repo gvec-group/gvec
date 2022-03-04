@@ -51,7 +51,9 @@ TYPE, ABSTRACT :: c_fBase
     PROCEDURE(i_sub_fBase_compare       ),DEFERRED :: compare
     PROCEDURE(i_sub_fBase_change_base   ),DEFERRED :: change_base
     PROCEDURE(i_fun_fBase_eval          ),DEFERRED :: eval
+    PROCEDURE(i_fun_fBase_eval_xn       ),DEFERRED :: eval_xn
     PROCEDURE(i_fun_fBase_evalDOF_x     ),DEFERRED :: evalDOF_x
+    PROCEDURE(i_fun_fBase_evalDOF_xn    ),DEFERRED :: evalDOF_xn
     PROCEDURE(i_fun_fBase_evalDOF_IP    ),DEFERRED :: evalDOF_IP
     PROCEDURE(i_fun_fBase_initDOF       ),DEFERRED :: initDOF
 
@@ -112,6 +114,15 @@ ABSTRACT INTERFACE
   REAL(wp)                      :: base_x(sf%modes)
   END FUNCTION i_fun_fBase_eval
 
+  FUNCTION i_fun_fBase_eval_xn( sf,deriv,np,xn) RESULT(base_xn)
+    IMPORT wp,c_fBase
+  CLASS(c_fBase), INTENT(IN   ) :: sf
+  INTEGER       , INTENT(IN   ) :: deriv
+  INTEGER       , INTENT(IN   ) :: np
+  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)
+  REAL(wp)                      :: base_xn(1:np,sf%modes)
+  END FUNCTION i_fun_fBase_eval_xn
+
   FUNCTION i_fun_fBase_evalDOF_x( sf,x,deriv,DOFs ) RESULT(y)
     IMPORT wp,c_fBase
   CLASS(c_fBase), INTENT(IN   ) :: sf
@@ -120,6 +131,16 @@ ABSTRACT INTERFACE
   REAL(wp)      , INTENT(IN   ) :: DOFs(:)
   REAL(wp)                      :: y
   END FUNCTION i_fun_fBase_evalDOF_x
+
+  FUNCTION i_fun_fBase_evalDOF_xn( sf,np,xn,deriv,DOFs ) RESULT(y)
+    IMPORT wp,c_fBase
+  CLASS(c_fBase), INTENT(IN   ) :: sf
+  INTEGER       , INTENT(IN   ) :: np
+  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)
+  INTEGER       , INTENT(IN   ) :: deriv
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
+  REAL(wp)                      :: y(1:np)
+  END FUNCTION i_fun_fBase_evalDOF_xn
 
   FUNCTION i_fun_fBase_evalDOF_IP( sf,deriv,DOFs ) RESULT(y_IP)
     IMPORT wp,c_fBase
@@ -178,7 +199,9 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: compare          => fBase_compare
   PROCEDURE :: change_base      => fBase_change_base
   PROCEDURE :: eval             => fBase_eval
+  PROCEDURE :: eval_xn          => fBase_eval_xn
   PROCEDURE :: evalDOF_x        => fBase_evalDOF_x
+  PROCEDURE :: evalDOF_xn       => fBase_evalDOF_xn
 ! PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP !use _tens instead!
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP_tens
 !  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
@@ -744,9 +767,8 @@ IMPLICIT NONE
      
   END SELECT !TYPE
 END SUBROUTINE fBase_change_base
-
 !===================================================================================================================================
-!> evaluate  all modes at specific given point
+!> evaluate  all modes at specific given point in theta and zeta
 !!
 !===================================================================================================================================
 FUNCTION fBase_eval(sf,deriv,x) RESULT(base_x)
@@ -756,10 +778,32 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: x(2) 
+  REAL(wp)      , INTENT(IN   ) :: x(2)   !! theta,zeta point position 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: base_x(sf%modes) 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+base_x =  RESHAPE(sf%eval_xn(deriv,1,x),(/sf%modes/))
+END FUNCTION fbase_eval
+
+!===================================================================================================================================
+!> evaluate  all modes at a list of given points in theta and zeta
+!!
+!===================================================================================================================================
+FUNCTION fBase_eval_xn(sf,deriv,np,xn) RESULT(base_xn)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
+  INTEGER       , INTENT(IN   ) :: deriv      !! =0: base, =2: dthet , =3: dzeta
+  INTEGER       , INTENT(IN   ) :: np         !! number of points in xn 
+  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np) !! theta,zeta point positions 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: base_xn(1:np,sf%modes) 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: iMode
@@ -768,34 +812,55 @@ IMPLICIT NONE
   SELECT CASE(deriv)
   CASE(0)
     DO iMode=sin_range(1)+1,sin_range(2)
-      base_x(iMode)=                       SIN(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+      base_xn(:,iMode)=                       SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode                                                                               
     DO iMode=cos_range(1)+1,cos_range(2)                                                          
-      base_x(iMode)=                       COS(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+      base_xn(:,iMode)=                       COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode                                                                                 
   CASE(DERIV_THET)                                                                                
     DO iMode=sin_range(1)+1,sin_range(2)                                                          
-      base_x(iMode)= REAL(Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+      base_xn(:,iMode)= REAL(Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode                                                                                 
     DO iMode=cos_range(1)+1,cos_range(2)                                                          
-      base_x(iMode)=-REAL(Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+      base_xn(:,iMode)=-REAL(Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode                                                                                 
   CASE(DERIV_ZETA)                                                                                
     DO iMode=sin_range(1)+1,sin_range(2)                                                          
-      base_x(iMode)=-REAL(Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+      base_xn(:,iMode)=-REAL(Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode                                                                                 
     DO iMode=cos_range(1)+1,cos_range(2)                                                          
-      base_x(iMode)= REAL(Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*x(1)-REAL(Xmn(2,iMode),wp)*x(2))
+      base_xn(:,iMode)= REAL(Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
+    END DO !iMode
+  CASE(DERIV_THET_THET)                                                                                
+    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+      base_xn(:,iMode)=-REAL(Xmn(1,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
+    END DO !iMode                                                                                 
+    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+      base_xn(:,iMode)=-REAL(Xmn(1,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
+    END DO !iMode                                                                                 
+  CASE(DERIV_THET_ZETA)                                                                                
+    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+      base_xn(:,iMode)= REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
+    END DO !iMode                                                                                 
+    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+      base_xn(:,iMode)= REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
+    END DO !iMode                                                                                 
+  CASE(DERIV_ZETA_ZETA)                                                                                
+    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+      base_xn(:,iMode)=-REAL(Xmn(2,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
+    END DO !iMode                                                                                 
+    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+      base_xn(:,iMode)=-REAL(Xmn(2,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode
   CASE DEFAULT 
     CALL abort(__STAMP__, &
-         "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
+         "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,_ZETA,_THET_THET,_THET_ZETA,_ZETA_ZETA!")
   END SELECT
   END ASSOCIATE
-END FUNCTION fBase_eval
+END FUNCTION fbase_eval_xn
 
 !===================================================================================================================================
-!> evaluate  all modes at all interpolation points 
+!> evaluate  all modes at a given interpolation point
 !!
 !===================================================================================================================================
 FUNCTION fBase_evalDOF_x(sf,x,deriv,DOFs) RESULT(y)
@@ -820,6 +885,34 @@ IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
   y=DOT_PRODUCT(base_x,DOFs(:))
 
 END FUNCTION fBase_evalDOF_x
+
+!===================================================================================================================================
+!> evaluate  all modes at a list of interpolation points 
+!!
+!===================================================================================================================================
+FUNCTION fBase_evalDOF_xn(sf,np,xn,deriv,DOFs) RESULT(y)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+  INTEGER       , INTENT(IN   ) :: np     !! number of points to be evaluated
+  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)   !! input coordinate theta,zeta in [0,2pi]^2
+  INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: y(1:np)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)                      :: base_xn(1:np,1:sf%modes)
+!===================================================================================================================================
+IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
+       'nDOF not correct when calling fBase_evalDOF_x' )
+  base_xn=sf%eval_xn(deriv,np,xn)
+  __MATVEC_N(y,base_xn,DOFs)
+
+END FUNCTION fBase_evalDOF_xn
 
 !===================================================================================================================================
 !> evaluate  all modes at all interpolation points 
@@ -851,9 +944,8 @@ IMPLICIT NONE
   CASE(DERIV_ZETA)
     !y_IP=MATMUL(sf%base_dzeta_IP(:,:),DOFs(:))
     __MATVEC_N(y_IP,sf%base_dzeta_IP,DOFs)
-  CASE DEFAULT 
-    CALL abort(__STAMP__, &
-         "fbase_evalDOF_IP: derivative must be 0,DERIV_THET,DERIV_ZETA!")
+  CASE DEFAULT  !for other derivatives, resort to not precomputed/ explicit computation:
+     y_IP = sf%evalDOF_xn(sf%mn_IP,sf%x_IP,deriv,DOFs)
   END SELECT
 END FUNCTION fBase_evalDOF_IP
 
@@ -966,9 +1058,8 @@ IMPLICIT NONE
   CASE(DERIV_ZETA)
     __DGEMM_NN(Ctmp,2*sf%mn_nyq(1),  mTotal,sf%base1D_IPthet,  mTotal,      nTotal,Amn)
     __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta) 
-  CASE DEFAULT 
-    CALL abort(__STAMP__, &
-         "fbase_evalDOF_IP_tens: derivative must be 0,DERIV_THET,DERIV_ZETA!")
+  CASE DEFAULT  !for other derivatives, resort to not precomputed/ explicit computation:
+     y_IP = sf%evalDOF_xn(sf%mn_IP,sf%x_IP,deriv,DOFs)
   END SELECT
 END FUNCTION fBase_evalDOF_IP_tens
 
@@ -1432,7 +1523,7 @@ IMPLICIT NONE
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
-      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet(dofs)|) ', checkreal
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dzeta(dofs)|) ', checkreal
     END IF !TEST
 
     iTest=207 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
@@ -1451,8 +1542,154 @@ IMPLICIT NONE
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
-      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet,x(:),dofs)|) ', checkreal
+      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dzeta,x(:),dofs)|) ', checkreal
     END IF !TEST
+
+    iTest=208 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    g_IP=0.
+    DO iMode=sin_range(1)+1,sin_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(1,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
+    END DO !iMode 
+    DO iMode=cos_range(1)+1,cos_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(1,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
+    END DO !iMode 
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_THET_THET,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet_dthet(dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=209 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    !use g_IP / dofs from test 208
+    checkreal=0.0_wp
+    DO i_mn=1,sf%mn_IP
+      checkreal=MAX(checkreal,ABS(g_IP(i_mn)-sf%evalDOF_x(sf%x_IP(:,i_mn),DERIV_THET_THET,dofs)))
+    END DO
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet_dthet,x(:),dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=210 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    g_IP=0.
+    DO iMode=sin_range(1)+1,sin_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
+    END DO !iMode 
+    DO iMode=cos_range(1)+1,cos_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
+    END DO !iMode 
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_THET_ZETA,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet_dzeta(dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=211 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    !use g_IP / dofs from test 210
+    checkreal=0.0_wp
+    DO i_mn=1,sf%mn_IP
+      checkreal=MAX(checkreal,ABS(g_IP(i_mn)-sf%evalDOF_x(sf%x_IP(:,i_mn),DERIV_THET_ZETA,dofs)))
+    END DO
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet_dzeta,x(:),dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=212 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    g_IP=0.
+    DO iMode=sin_range(1)+1,sin_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(2,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
+    END DO !iMode 
+    DO iMode=cos_range(1)+1,cos_range(2)
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(2,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
+    END DO !iMode 
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_ZETA_ZETA,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dzeta_dzeta(dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=213 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    !use g_IP / dofs from test 212
+    checkreal=0.0_wp
+    DO i_mn=1,sf%mn_IP
+      checkreal=MAX(checkreal,ABS(g_IP(i_mn)-sf%evalDOF_x(sf%x_IP(:,i_mn),DERIV_ZETA_ZETA,dofs)))
+    END DO
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dzeta_dzeta,x(:),dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    !use g_IP / dofs from test 212, test evalDOF_xn
+    checkreal=SUM(ABS(g_IP(1:sf%mn_IP/2)-sf%evalDOF_xn(sf%mn_IP/2,sf%x_IP(1:2,1:sf%mn_IP/2),DERIV_ZETA_ZETA,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dzeta_dzeta,x(:),dofs)|) ', checkreal
+    END IF !TEST
+
   END IF !testlevel <=2
   END ASSOCIATE !sf
   test_called=.FALSE.   

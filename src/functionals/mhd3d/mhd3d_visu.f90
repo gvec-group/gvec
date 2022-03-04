@@ -380,6 +380,80 @@ IMPLICIT NONE
 
             var_visu(VP_B:VP_B+2,i_s,j_s,i_n,i_m,iElem)= Bcart(:)
 
+           ! Get J components:
+            
+#ifdef VISU_J_EXACT
+            dBthet_ds    =
+            dBthet_dthet =
+            dBthet_dzeta =
+            dBzeta_ds    =
+            dBzeta_dthet =
+            dBzeta_dzeta =
+
+
+            
+            q_s          = (/dX1_ds,dX2_ds,0.0_wp/)
+            q_s_thet     = (/dX1_ds_dthet,dX2_ds_dthet,0.0_wp/)
+            q_s_zeta     = (/dX1_ds_dzeta,dX2_ds_dzeta,0.0_wp/)
+            q_thet_thet  = (/dX1_dthet_dthet,dX2_dthet_dthet,0.0_wp/)
+            q_thet_zeta  = (/dX1_dthet_dzeta,dX2_dthet_dzeta,0.0_wp/)
+            q_zeta_zeta  = (/dX1_dzeta_dzeta,dX2_dzeta_dzeta,0.0_wp/)
+
+            Jh           = hmap%eval_Jh(q)
+            Jh_dq1       = hmap%eval_Jh_dq1(q)
+            Jh_dq2       = hmap%eval_Jh_dq2(q)
+            dJh_ds       = hmap%eval_Jh(q_s   ) + q_s(   1)*Jh_dq1 + q_s(   2)*Jh_dq2
+            dJh_dthet    = hmap%eval_Jh(q_thet) + q_thet(1)*Jh_dq1 + q_thet(2)*Jh_dq2
+            dJh_dzeta    = hmap%eval_Jh(q_zeta) + q_zeta(1)*Jh_dq1 + q_zeta(2)*Jh_dq2
+            Jp           = q_s(     1)*q_thet(2)-q_s(     2)*q_thet(1)
+            Jp_ds        = q_s_s(   1)*q_thet(2)-q_s_s(   2)*q_thet(1) + q_s(1)*q_s_thet(   2)-q_s(2)*q_s_thet(   1)
+            Jp_dthet     = q_s_thet(1)*q_thet(2)-q_s_thet(2)*q_thet(1) + q_s(1)*q_thet_thet(2)-q_s(2)*q_thet_thet(1)
+            Jp_dzeta     = q_s_zeta(1)*q_thet(2)-q_s_zeta(2)*q_thet(1) + q_s(1)*q_thet_zeta(2)-q_s(2)*q_thet_zeta(1)
+            
+            dsqrtg_ds    = Jh*Jp_ds    + Jh_ds   *Jp 
+            dsqrtg_dthet = Jh*Jp_dthet + Jh_dthet*Jp
+            dsqrtg_dzeta = Jh*Jp_dzeta + Jh_dzeta*Jp
+
+            g_st         = hmap%eval_gij(     q_s,q,q_thet)
+            g_st_dq1     = hmap%eval_gij_dq1( q_s,q,q_thet)
+            g_st_dq2     = hmap%eval_gij_dq2( q_s,q,q_thet)
+            dg_st_dthet  = hmap%eval_gij(q_s_thet,q,q_thet) + hmap%eval_gij(q_s,q,q_s_thet) + q_thet(1)*g_st_dq1 + q_thet(2)*g_st_dq2 
+            dg_st_dzeta  = hmap%eval_gij(q_s_zeta,q,q_thet) + hmap%eval_gij(q_s,q,q_s_zeta) + q_zeta(1)*g_st_dq1 + q_zeta(2)*g_st_dq2 
+
+            g_tt         = hmap%eval_gij(            q_thet,q,q_thet)
+            g_tt_dq1     = hmap%eval_gij_dq1(        q_thet,q,q_thet)
+            g_tt_dq2     = hmap%eval_gij_dq2(        q_thet,q,q_thet)
+            dg_tt_ds     = 2.0_wp*hmap%eval_gij(q_s_thet   ,q,q_thet) + q_s(   1)*g_tt_dq1 + q_s(   2)*g_tt_dq2
+            dg_tt_dzeta  = 2.0_wp*hmap%eval_gij(q_thet_zeta,q,q_thet) + q_zeta(1)*g_tt_dq1 + q_zeta(2)*g_tt_dq2
+
+            g_tz         = hmap%eval_gij(     q_thet,q,q_zeta)
+            g_tz_dq1     = hmap%eval_gij_dq1( q_thet,q,q_zeta)
+            g_tz_dq2     = hmap%eval_gij_dq2( q_thet,q,q_zeta)
+            dg_tz_ds     = hmap%eval_gij(q_s_thet   ,q,q_zeta) + hmap%eval_gij(q_thet,q,q_s_zeta   ) + q_s(   1) * g_tz_dq1 + q_s(   2) * g_tz_dq2 
+            dg_tz_dthet  = hmap%eval_gij(q_thet_thet,q,q_zeta) + hmap%eval_gij(q_thet,q,q_thet_zeta) + q_thet(1) * g_tz_dq1 + q_thet(2) * g_tz_dq2 
+            dg_tz_dzeta  = hmap%eval_gij(q_thet_zeta,q,q_zeta) + hmap%eval_gij(q_thet,q,q_zeta_zeta) + q_zeta(1) * g_tz_dq1 + q_zeta(2) * g_tz_dq2 
+
+            g_zz         = hmap%eval_gij(            q_zeta,q,q_zeta)
+            g_zz_dq1     = hmap%eval_gij_dq1(        q_zeta,q,q_zeta)
+            g_zz_dq2     = hmap%eval_gij_dq2(        q_zeta,q,q_zeta)
+            dg_zz_ds     = 2.0_wp*hmap%eval_gij(q_s_zeta   ,q,q_zeta) + q_s(   1)*g_zz_dq1 + q_s(   2)*g_zz_dq2
+            dg_zz_dzeta  = 2.0_wp*hmap%eval_gij(q_zeta_zeta,q,q_zeta) + q_zeta(1)*g_zz_dq1 + q_zeta(2)*g_zz_dq2
+
+            dBsubs_dthet     = (-(Bthet*g_st+Bzeta*g_sz)/sqrtg*dsqrtg_dthet +Bthet*dg_st_dthet + dBthet_dthet*g_st + Bzeta*dg_sz_dthet + dBzeta_dthet*g_sz)/sqrtg
+            dBsubs_dzeta     = (-(Bthet*g_st+Bzeta*g_sz)/sqrtg*dsqrtg_dzeta +Bthet*dg_st_dzeta + dBthet_dzeta*g_st + Bzeta*dg_sz_dzeta + dBzeta_dzeta*g_sz)/sqrtg
+            dBsubthet_ds     = (-(Bthet*g_tt+Bzeta*g_tz)/sqrtg*dsqrtg_ds    +Bthet*dg_tt_ds    + dBthet_ds   *g_tt + Bzeta*dg_tz_ds    + dBzeta_ds   *g_tz)/sqrtg
+            dBsubthet_dzeta  = (-(Bthet*g_tt+Bzeta*g_tz)/sqrtg*dsqrtg_dzeta +Bthet*dg_tt_dzeta + dBthet_dzeta*g_tt + Bzeta*dg_tz_dzeta + dBzeta_dzeta*g_tz)/sqrtg
+            dBsubzeta_ds     = (-(Bthet*g_tz+Bzeta*g_zz)/sqrtg*dsqrtg_ds    +Bthet*dg_tz_ds    + dBthet_ds   *g_tz + Bzeta*dg_zz_ds    + dBzeta_ds   *g_zz)/sqrtg
+            dBsubzeta_dthet  = (-(Bthet*g_tz+Bzeta*g_zz)/sqrtg*dsqrtg_dthet +Bthet*dg_tz_dthet + dBthet_dthet*g_tz + Bzeta*dg_zz_dthet + dBzeta_dthet*g_zz)/sqrtg 
+           
+            Js     = dBsubzeta_dthet - dBsubthet_dzeta
+            Jthet  = dBsubs_dzeta    - dBsubzeta_ds
+            Jzeta  = dBsubthet_ds    - dBsubs_dthet
+
+            Jcart(:) =  (e_s(:)*Js+ e_thet(:) * Jthet + e_zeta(:) * Jzeta)
+#endif /*VISU_J_EXACT*/
+
+
 #ifdef VISU_J_FD
             ! Get J components - finite difference bases
   
