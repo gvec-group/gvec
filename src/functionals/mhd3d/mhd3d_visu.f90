@@ -926,7 +926,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  LOGICAL            :: vcase(4)
+  LOGICAL            :: vcase(5)
   CHARACTER(LEN=4)   :: vstr
   CHARACTER(LEN=80)  :: vname,fname
 !===================================================================================================================================
@@ -937,6 +937,7 @@ IMPLICIT NONE
   IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
   IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
   IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+  IF(INDEX(vstr,'5').NE.0) vcase(5)=.TRUE.
   IF(.NOT.(ANY(vcase))) THEN
     WRITE(*,*)'visu1D case not found:',visu1D,' nothing visualized...'
     RETURN
@@ -981,6 +982,30 @@ IMPLICIT NONE
     vname="dLAdss"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,2,LA_base,U(0)%LA)
+  END IF
+  IF(vcase(4))THEN
+    WRITE(*,*)'4) Visualize gvec modes in 1D:  |X1|/|X2|/|LA| interpolated...'
+    vname="absX1"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,-4,X1_base,U(0)%X1)
+    vname="absX2"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,-4,X2_base,U(0)%X2)
+    vname="absLA"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,-4,LA_base,U(0)%LA)
+  END IF
+  IF(vcase(5))THEN
+    WRITE(*,*)'5) Visualize gvec modes in 1D:  |X1|/|X2|/|LA| / rho^m interpolated...'
+    vname="absX1orhom"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,-5,X1_base,U(0)%X1)
+    vname="absX2orhom"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,-5,X2_base,U(0)%X2)
+    vname="absLAorhom"
+    WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
+    CALL writeDataMN_visu(n_s,fname,vname,-5,LA_base,U(0)%LA)
   END IF
   
   !
@@ -1061,7 +1086,7 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER,         INTENT(IN   ) :: n_s    !! number of visualization points per element
-  INTEGER         ,INTENT(IN   ) :: rderiv !! 0: eval spl, 1: eval spl deriv
+  INTEGER         ,INTENT(IN   ) :: rderiv !! 0: eval spl, 1: eval spl deriv, (negative used as flag)
   CHARACTER(LEN=*),INTENT(IN   ) :: fname_in
   CHARACTER(LEN=*),INTENT(IN   ) :: vname
   TYPE(t_base)    ,INTENT(IN   ) :: base_in
@@ -1072,11 +1097,12 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
 ! LOCAL VARIABLES
   INTEGER                        :: i,i_s,iElem,nvisu
   INTEGER                        :: nVal,addval
-  INTEGER                        :: iMode,j
+  INTEGER                        :: iMode,j,m
   CHARACTER(LEN=255)             :: fname
   CHARACTER(LEN=120),ALLOCATABLE :: varnames(:) 
   REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
   REAL(wp)          ,ALLOCATABLE :: s_visu(:)
+  REAL(wp)                       :: rhom,val
 !===================================================================================================================================
   WRITE(fname,'(A,A,".csv")')TRIM(ProjectName)//'_modes_',TRIM(fname_in)
   nvisu   =sgrid%nElems*n_s
@@ -1091,20 +1117,25 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
       s_visu(i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
     END DO
   END DO
+  !first element logarithmic
+  DO i_s=1,n_s
+    s_visu(i_s) =sgrid%sp(0)+ (10**(10.0_wp*(-1.0_wp+REAL(i_s-1,wp)/REAL(n_s-1,wp)))) &
+                                                 *(1.0e-06_wp+REAL(n_s+1,wp))/(2.0e-06_wp+REAL(n_s+1,wp))*sgrid%ds(1)
+  END DO
   
   nVal=1
+  Varnames(   nVal)='rho'
+  values_visu(nVal,:)=s_visu(:)
+  
+  nVal=nVal+1
   Varnames(   nVal)='Phi'
   DO i=1,nvisu
     values_visu(  nVal,i)=Eval_Phi(s_visu(i))
   END DO !i
   
-  nVal=nVal+1
-  Varnames(   nVal)='chi'
-  values_visu(nVal,:)=0.0_wp !TODO
-  
-  nVal=nVal+1
-  Varnames(   nVal)='rho'
-  values_visu(nVal,:)=s_visu(:)
+  !nVal=nVal+1
+  !Varnames(   nVal)='chi'
+  !values_visu(nVal,:)=0.0_wp !TODO
   
   nVal=nVal+1
   Varnames(nVal)='iota(Phi_norm)'
@@ -1119,20 +1150,40 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
     values_visu(  nVal,i)=Eval_pres(s_visu(i))
   END DO !i
 
-  DO iMode=base_in%f%sin_range(1)+1,base_in%f%sin_range(2)
+  DO iMode=1,base_in%f%modes
     nVal=nVal+1
-    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_sin", &
-      base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    IF((iMode.GE.base_in%f%sin_range(1)+1).AND.(iMode.LE.base_in%f%sin_range(2)))THEN
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_sin", &
+        base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    ELSE
+      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_cos", &
+        base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    END IF
     DO j=1,nvisu
-      values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
-    END DO !j
-  END DO
-  DO iMode=base_in%f%cos_range(1)+1,base_in%f%cos_range(2)
-    nVal=nVal+1
-    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_cos", &
-      base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
-    DO j=1,nvisu
-      values_visu(nVal,j)=base_in%s%evalDOF_s(s_visu(j),rderiv,xx_in(:,iMode))
+      val=base_in%s%evalDOF_s(s_visu(j),MAX(0,rderiv),xx_in(:,iMode))
+      IF(rderiv.EQ.-5)THEN !visualize with 1/rho^m factor
+        rhom=1.0_wp
+        DO m=1,base_in%f%Xmn(1,iMode)
+          rhom=rhom*s_visu(j)
+        END DO
+        !values_visu(nVal,j)=ABS(val)/rhom+1.0e-16
+        IF(ABS(val).GE.1e-18)THEN
+          values_visu(nVal,j)=ABS(val)/rhom
+        ELSE
+          values_visu(nVal,j)=0.0_wp
+        END IF
+        !values_visu(nVal,j)=ABS(val)/(rhom+1.0e-16) + 1.0e-16
+        !values_visu(nVal,j)=ABS(val)/(s_visu(j)**REAL(base_in%f%Xmn(1,iMode),wp))+1.0e-15
+        !rhom=val
+        !DO m=1,base_in%f%Xmn(1,iMode)
+        !  rhom=rhom/s_visu(j)
+        !END DO
+        !values_visu(nVal,j)=rhom+1.0e-15
+      ELSEIF(rderiv.EQ.-4)THEN !visualize with ABS
+        values_visu(nVal,j)=ABS(val)
+      ELSE
+        values_visu(nVal,j)=val
+      END IF
     END DO !j
   END DO
 
