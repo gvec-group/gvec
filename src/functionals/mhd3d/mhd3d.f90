@@ -316,6 +316,9 @@ SUBROUTINE InitMHD3D(sf)
   X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
+    IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !m-dependent BC
+      X1_BC_type(BC_AXIS,iMode)=-1*MIN(X1_base%s%deg,X1_base%f%Xmn(1,iMode))
+    END IF
   END DO 
   END ASSOCIATE !X1
 
@@ -324,6 +327,9 @@ SUBROUTINE InitMHD3D(sf)
   X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
+    IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC
+      X2_BC_type(BC_AXIS,iMode)=-1*MIN(X2_base%s%deg,X2_base%f%Xmn(1,iMode))
+    END IF
   END DO 
   END ASSOCIATE !X2
 
@@ -338,6 +344,9 @@ SUBROUTINE InitMHD3D(sf)
   LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
   DO imode=1,modes
     LA_BC_type(BC_AXIS,iMode)=LA_BCtype_axis(zero_odd_even(iMode))
+    IF(LA_BC_type(BC_AXIS,iMode).EQ.0)THEN !m-dependent BC
+      LA_BC_type(BC_AXIS,iMode)=-1*MIN(LA_base%s%deg,LA_base%f%Xmn(1,iMode))
+    END IF
   END DO 
   END ASSOCIATE !LA
   
@@ -693,10 +702,15 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD_FIRST)
         X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
-      CASE(M_ODD)
-        X1_gIP(:)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
-      CASE(M_EVEN)
-        X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
+!      CASE(M_ODD)
+!        X1_gIP(:)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
+!      CASE(M_EVEN)
+!        X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
+      CASE DEFAULT ! ~s^m
+        X1_gIP(:)=s_IP(:)*X1_b(iMode)      
+        DO i_m=2,X1_base%f%Xmn(1,iMode)
+          X1_gIP(:)=X1_gIP(:)*s_IP(:)
+        END DO
       END SELECT !X1(:,iMode) zero odd even
       U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
     END DO 
@@ -711,10 +725,15 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD_FIRST)
         X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
-      CASE(M_ODD)
-        X2_gIP(:)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
-      CASE(M_EVEN)
-        X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
+!      CASE(M_ODD)
+!        X2_gIP(:)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
+!      CASE(M_EVEN)
+!        X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
+      CASE DEFAULT ! ~s^m
+        X2_gIP(:)=s_IP(:)*X2_b(iMode)      
+        DO i_m=2,X2_base%f%Xmn(1,iMode)
+          X2_gIP(:)=X2_gIP(:)*s_IP(:)
+        END DO
       END SELECT !X2(:,iMode) zero odd even
       U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
     END DO 

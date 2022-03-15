@@ -303,7 +303,7 @@ IMPLICIT NONE
   CLASS(t_sbase), INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: i,iGP,iElem,imin,jmin
+  INTEGER  :: m,i,iGP,iElem,imin,jmin
   INTEGER  :: iBC,j,diri,odd_even 
   REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: locbasis,VdmGP
 !===================================================================================================================================
@@ -519,6 +519,62 @@ IMPLICIT NONE
     END IF
     END ASSOCIATE !nD=>nDOF_BC(iBC)
   END DO!iBC=1,NBC_TYPES
+
+  ! mode number dependent boundary condition at axis, m  <=> -iBC
+  ! iBC= 0, m=0:  BC_TYPE_SYMM 
+  ! iBC=-1, m=1:  BC_TYPE_ANTISYMM
+  ! iBC=-2, m=2:  BC_TYPE_SYMMZERO
+  ! ... odd m<=deg: ANTISYMM + all derivatives 1,...,m-1 =0 
+  ! ...even m<=deg: SYMMZERO + all derivatives 1,...,m-1 =0
+  !m=0
+  sf%nDOF_BC(   0) = sf%nDOF_BC(   BC_TYPE_SYMM)
+  sf%A_Axis(:,:,0) = sf%A_Axis(:,:,BC_TYPE_SYMM)
+  !  odd m <=deg 
+  DO m=1,deg,2
+    iBC=-m
+    !BC_TYPE_ANTISYMM: nD =1+deg/2    ;   diri=1 ;  odd_even=1 ! dirichlet=0+ derivatives (2*k  )=0  k=1,... deg/2
+    sf%nDOF_BC(   iBC) = sf%nDOF_BC(   BC_TYPE_ANTISYMM)
+    sf%A_Axis(:,:,iBC) = sf%A_Axis(:,:,BC_TYPE_ANTISYMM)
+    !and also derivatives (2*k-1)=0, k=1,...,(m-1)/2  (2*k-1 < m-1)
+    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
+    DO i=1,(m-1)/2
+      j=2*i-1
+      sf%A_Axis(nD+i,:,iBC)=sf%base_dsAxis(j,:)/sf%base_dsAxis(j,i) !normalized with diagonal entry
+    END DO
+    nD = nD + (m-1)/2    
+    END ASSOCIATE !nD
+  END DO
+  !  even m <=deg 
+  DO m=2,deg,2
+    iBC=-m
+    !BC_TYPE_SYMMZERO: nD =1+(deg+1)/2;   diri=1 ;  odd_even=0 ! dirichlet=0+ derivatives (2*k-1)=0, k=1,...(deg+1)/2
+    sf%nDOF_BC(   iBC) = sf%nDOF_BC(   BC_TYPE_SYMMZERO)
+    sf%A_Axis(:,:,iBC) = sf%A_Axis(:,:,BC_TYPE_SYMMZERO)
+    !and also derivatives (2*k)=0, k=1,...,(m-2)/2  (2*k < m-1) 
+    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
+    DO i=1,(m-2)/2
+      j=2*i
+      sf%A_Axis(nD+i,:,iBC)=sf%base_dsAxis(j,:)/sf%base_dsAxis(j,i) !normalized with diagonal entry
+    END DO
+    nD = nD + (m-2)/2   
+    END ASSOCIATE !nD
+  END DO
+
+  DO m=0,deg
+    iBC=-m
+    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
+    !invert BC part
+    sf%R_Axis(1:nD,1:nD,iBC)=INV(sf%A_Axis(1:nD,1:nD,iBC))
+    sf%R_Axis( :  , :  ,iBC)=TRANSPOSE(MATMUL(sf%R_Axis(:,:,iBC),sf%A_Axis(:,:,iBC)))
+    DO i=1,deg+1; DO j=1,i-1
+      sf%R_Axis(i,j,iBC)=-sf%R_Axis(i,j,iBC)
+    END DO; END DO
+    !prepare for applyBC
+    sf%invA_axis(:,:,iBC)=INV(sf%A_axis(:,:,iBC))
+    !automatically set rows 1:nD to zero for R matrices (no contribution from these DOF)
+    sf%R_axis(1:nD,:,iBC)=0.0_wp
+    END ASSOCIATE !nD=>nDOF_BC(iBC)
+  END DO!m=0,deg
   END ASSOCIATE !sf%...
 
 
@@ -557,10 +613,10 @@ IMPLICIT NONE
   ALLOCATE(sf%base_offset(            1:nElems))
   ALLOCATE(sf%base_dsAxis(0:deg,1:deg+1        ))
   ALLOCATE(sf%base_dsEdge(0:deg,nBase-deg:nBase))
-  ALLOCATE(sf%nDOF_BC(            1:NBC_TYPES))
-  ALLOCATE(sf%A_Axis(   1:deg+1,1:deg+1,1:NBC_TYPES))
-  ALLOCATE(sf%invA_Axis(1:deg+1,1:deg+1,1:NBC_TYPES))
-  ALLOCATE(sf%R_Axis(   1:deg+1,1:deg+1,1:NBC_TYPES))
+  ALLOCATE(sf%nDOF_BC(                  -deg:NBC_TYPES))
+  ALLOCATE(sf%A_Axis(   1:deg+1,1:deg+1,-deg:NBC_TYPES))
+  ALLOCATE(sf%invA_Axis(1:deg+1,1:deg+1,-deg:NBC_TYPES))
+  ALLOCATE(sf%R_Axis(   1:deg+1,1:deg+1,-deg:NBC_TYPES))
   ALLOCATE(sf%A_Edge(   nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
   ALLOCATE(sf%invA_Edge(nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
   ALLOCATE(sf%R_Edge(   nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
@@ -1076,6 +1132,7 @@ END FUNCTION sbase_initDOF
 !===================================================================================================================================
 SUBROUTINE sBase_applyBCtoDOF(sf ,DOFs,BC_Type,BC_val)
 ! MODULES
+USE MODgvec_linalg, ONLY: SOLVE
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1104,6 +1161,7 @@ REAL(wp):: raxis(1:sf%deg+1),redge(sf%nBase-sf%deg:sf%nbase)
     raxis(1:nDaxis)      =0.0_wp
     raxis(nDaxis+1:deg+1)= DOFs(nDaxis+1:deg+1)
     DOFs(1:deg+1)= MATMUL(sf%invA_axis(:,:,tBCaxis),raxis(:))
+    !DOFs(1:deg+1)= SOLVE(sf%A_axis(:,:,tBCaxis),raxis(:))
   END SELECT !tBCaxis
 
   SELECT CASE(tBCedge)
@@ -1272,7 +1330,7 @@ IMPLICIT NONE
 
     iTest=106 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
-    jElem=nElems/2
+    jElem=(nElems+1)/2
     x=0.5_wp*(sf%grid%sp(jElem-1)+sf%grid%sp(jElem))
     CALL sf%eval(x,0,iElem,base_x) 
     IF(testdbg.OR.(.NOT.(iElem.EQ.jElem)))THEN

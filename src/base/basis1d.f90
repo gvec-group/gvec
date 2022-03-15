@@ -522,14 +522,14 @@ REAL(wp),INTENT(OUT)   :: wBary(0:N_in)      !! barycentric weights
 ! LOCAL VARIABLES
 INTEGER            :: iGP,jGP
 !==================================================================================================================================
-wBary(:)=1.
+wBary(:)=1.0_wp
 DO iGP=1,N_in
   DO jGP=0,iGP-1
     wBary(jGP)=wBary(jGP)*(xGP(jGP)-xGP(iGP))
     wBary(iGP)=wBary(iGP)*(xGP(iGP)-xGP(jGP))
   END DO ! jGP
 END DO ! iGP
-wBary(:)=1./wBary(:)
+wBary(:)=1.0_wp/wBary(:)
 END SUBROUTINE BarycentricWeights
 
 
