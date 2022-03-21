@@ -732,7 +732,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END DO !iMode
 !$OMP END PARALLEL DO 
     END SELECT !TYPE(precond_LA)
-  ELSE
+  ELSEIF(PrecondType.NE.-2)THEN
     CALL LA_base%s%mass%solve_inplace(modes,F_MHD3D%LA(:,:))
   END IF !PrecondType.GT.0
   __PERFOFF('apply_precond')

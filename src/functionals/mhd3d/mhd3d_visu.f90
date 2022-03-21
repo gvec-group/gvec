@@ -1166,12 +1166,12 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
         DO m=1,base_in%f%Xmn(1,iMode)
           rhom=rhom*s_visu(j)
         END DO
-        !values_visu(nVal,j)=ABS(val)/rhom+1.0e-16
-        IF(ABS(val).GE.1e-18)THEN
-          values_visu(nVal,j)=ABS(val)/rhom
-        ELSE
-          values_visu(nVal,j)=0.0_wp
-        END IF
+        values_visu(nVal,j)=ABS(val)/rhom
+        !IF(ABS(val).GE.1e-18)THEN
+        !  values_visu(nVal,j)=ABS(val)/rhom
+        !ELSE
+        !  values_visu(nVal,j)=0.0_wp
+        !END IF
         !values_visu(nVal,j)=ABS(val)/(rhom+1.0e-16) + 1.0e-16
         !values_visu(nVal,j)=ABS(val)/(s_visu(j)**REAL(base_in%f%Xmn(1,iMode),wp))+1.0e-15
         !rhom=val
