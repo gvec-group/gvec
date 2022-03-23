@@ -962,12 +962,12 @@ SUBROUTINE BuildPrecond()
     nD  = X1_base%s%nDOF_BC(tBC) 
     IF(nD.GT.0)THEN
       !save 1:deg rows
-      DO i=1,deg+1; DO j=1,deg+i
+      DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
         P_BCaxis(i,j)=precond_X1(iMode)%get_element(i,j) 
       END DO; END DO !j,i
-      P_BCaxis(:,:)          =MATMUL(X1_base%s%R_axis(:,:,tBC),P_BCaxis(:,:)) !also sets rows 1:nD =0
+      P_BCaxis(:,1:MIN(2*deg+1,nBase))     =MATMUL(X1_base%s%R_axis(:,:,tBC),P_BCaxis(:,1:MIN(2*deg+1,nBase))) !also sets rows 1:nD =0
       P_BCaxis(1:nD,1:deg+1) =X1_base%s%A_axis(1:nD,:,tBC)
-      DO i=1,deg+1; DO j=1,deg+i
+      DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
         CALL Precond_X1(iMode)%set_element( i,j,P_BCaxis(i,j))
       END DO; END DO !j,i
     END IF !nDOF_BCaxis>0
@@ -975,12 +975,12 @@ SUBROUTINE BuildPrecond()
     nD  = X1_base%s%nDOF_BC(tBC) 
     IF(nD.GT.0)THEN
       !save nBase-deg:nBase rows
-      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+      DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
         P_BCedge(i,j)=precond_X1(iMode)%get_element(i,j) 
       END DO; END DO !j,i
-      P_BCedge(:,:)             =MATMUL(X1_base%s%R_edge(:,:,tBC),P_BCedge(:,:)) !also sets rows nBase-nD+1:nBase =0 
+      P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(X1_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0 
       P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=X1_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
-      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+      DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
         CALL Precond_X1(iMode)%set_element( i,j,P_BCedge(i,j) )
       END DO; END DO !j,i
     END IF !nDOF_BCedge>0
@@ -1041,12 +1041,12 @@ SUBROUTINE BuildPrecond()
     nD  = X2_base%s%nDOF_BC(tBC) 
     IF(nD.GT.0)THEN
       !save 1:deg rows
-      DO i=1,deg+1; DO j=1,deg+i
+      DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
         P_BCaxis(i,j)=precond_X2(iMode)%get_element(i,j) 
       END DO; END DO !j,i
-      P_BCaxis(:,:)          =MATMUL(X2_base%s%R_axis(:,:,tBC),P_BCaxis(:,:)) !also sets rows 1:nD =0
+      P_BCaxis(:,1:MIN(2*deg+1,nBase))=MATMUL(X2_base%s%R_axis(:,:,tBC),P_BCaxis(:,1:MIN(2*deg+1,nBase))) !also sets rows 1:nD =0
       P_BCaxis(1:nD,1:deg+1) =X2_base%s%A_axis(1:nD,:,tBC)
-      DO i=1,deg+1; DO j=1,deg+i
+      DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
         CALL Precond_X2(iMode)%set_element( i,j,P_BCaxis(i,j))
       END DO; END DO !j,i
     END IF !nDOF_BCaxis>0
@@ -1054,12 +1054,12 @@ SUBROUTINE BuildPrecond()
     nD  = X2_base%s%nDOF_BC(tBC) 
     IF(nD.GT.0)THEN
       !save nBase-deg:nBase rows
-      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+      DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
         P_BCedge(i,j)=precond_X2(iMode)%get_element(i,j) 
       END DO; END DO !j,i
-      P_BCedge(:,:)             =MATMUL(X2_base%s%R_edge(:,:,tBC),P_BCedge(:,:)) !also sets rows nBase-nD+1:nBase =0 
+      P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(X2_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0 
       P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=X2_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
-      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+      DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
         CALL Precond_X2(iMode)%set_element( i,j,P_BCedge(i,j) )
       END DO; END DO !j,i
     END IF !nDOF_BCedge>0
@@ -1121,12 +1121,12 @@ SUBROUTINE BuildPrecond()
     nD  = LA_base%s%nDOF_BC(tBC) 
     IF(nD.GT.0)THEN
       !save 1:deg rows
-      DO i=1,deg+1; DO j=1,deg+i
+      DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
         P_BCaxis(i,j)=precond_LA(iMode)%get_element(i,j) 
       END DO; END DO !j,i
-      P_BCaxis(:,:)          =MATMUL(LA_base%s%R_axis(:,:,tBC),P_BCaxis(:,:)) !also sets rows 1:nD =0
+      P_BCaxis(:,1:MIN(2*deg+1,nBase)) =MATMUL(LA_base%s%R_axis(:,:,tBC),P_BCaxis(:,1:MIN(2*deg+1,nBase))) !also sets rows 1:nD =0
       P_BCaxis(1:nD,1:deg+1) =LA_base%s%A_axis(1:nD,:,tBC)
-      DO i=1,deg+1; DO j=1,deg+i
+      DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
         CALL Precond_LA(iMode)%set_element( i,j,P_BCaxis(i,j))
       END DO; END DO !j,i
     END IF !nDOF_BCaxis>0
@@ -1134,12 +1134,12 @@ SUBROUTINE BuildPrecond()
     nD  = LA_base%s%nDOF_BC(tBC) 
     IF(nD.GT.0)THEN
       !save nBase-deg:nBase rows
-      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+      DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
         P_BCedge(i,j)=precond_LA(iMode)%get_element(i,j) 
       END DO; END DO !j,i
-      P_BCedge(:,:)             =MATMUL(LA_base%s%R_edge(:,:,tBC),P_BCedge(:,:)) !also sets rows nBase-nD+1:nBase =0 
+      P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(LA_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0 
       P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=LA_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
-      DO i=nBase-deg,nBase; DO j=i-deg,nBase
+      DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
         CALL Precond_LA(iMode)%set_element( i,j,P_BCedge(i,j) )
       END DO; END DO !j,i
     END IF !nDOF_BCedge>0

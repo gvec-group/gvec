@@ -190,7 +190,7 @@ SUBROUTINE InitMHD3D(sf)
   
   
   LA_deg     = GETINT(     "LA_deg")
-  LA_cont    = GETINT(     "LA_continuity",Proposal=-1)
+  LA_cont    = GETINT(     "LA_continuity",Proposal=(LA_deg-1))
   LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=proposal_mn_max)
   LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal=proposal_LA_sin_cos)
   
@@ -303,11 +303,11 @@ SUBROUTINE InitMHD3D(sf)
     END ASSOCIATE
   END IF !init_BC
 
-  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
-  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
-  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM 
-  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM 
-  X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_SYMMZERO
+  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent  
+  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent 
 
                                     
   !boundary conditions (used in force, in init slightly changed)
@@ -316,8 +316,8 @@ SUBROUTINE InitMHD3D(sf)
   X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
-    IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !m-dependent BC
-      X1_BC_type(BC_AXIS,iMode)=-1*MIN(X1_base%s%deg,X1_base%f%Xmn(1,iMode))
+    IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+      X1_BC_type(BC_AXIS,iMode)=-1*MIN(X1_base%s%deg+1,X1_base%f%Xmn(1,iMode))
     END IF
   END DO 
   END ASSOCIATE !X1
@@ -327,25 +327,25 @@ SUBROUTINE InitMHD3D(sf)
   X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
-    IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC
-      X2_BC_type(BC_AXIS,iMode)=-1*MIN(X2_base%s%deg,X2_base%f%Xmn(1,iMode))
+    IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+      X2_BC_type(BC_AXIS,iMode)=-1*MIN(X2_base%s%deg+1,X2_base%f%Xmn(1,iMode))
     END IF
   END DO 
   END ASSOCIATE !X2
 
-  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_SYMMZERO
-  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM    
-  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
-  LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
-  LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger:BC_TYPE_SYMMZERO
+  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
+  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
+  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
+  LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
+  LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
 
   ASSOCIATE(modes        =>LA_base%f%modes, zero_odd_even=>LA_base%f%zero_odd_even)
   ALLOCATE(LA_BC_type(1:2,modes))
   LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
   DO imode=1,modes
     LA_BC_type(BC_AXIS,iMode)=LA_BCtype_axis(zero_odd_even(iMode))
-    IF(LA_BC_type(BC_AXIS,iMode).EQ.0)THEN !m-dependent BC
-      LA_BC_type(BC_AXIS,iMode)=-1*MIN(LA_base%s%deg,LA_base%f%Xmn(1,iMode))
+    IF(LA_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+      LA_BC_type(BC_AXIS,iMode)=-1*MIN(LA_base%s%deg+1,LA_base%f%Xmn(1,iMode))
     END IF
   END DO 
   END ASSOCIATE !LA
@@ -410,7 +410,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
     CALL RestartFromState(RestartFile,U(0))
-    !CALL InitSolution(U(0),-1) !would apply BC and recompute lambda
+    CALL InitSolution(U(0),-1) !re-applies BC
   ELSE 
     CALL InitSolution(U(0),which_init)
   END IF
@@ -769,55 +769,55 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   END DO 
   END ASSOCIATE !X2
 
-  IF(init_LA)THEN
-    CALL CPU_TIME(StartTime)
+  ASSOCIATE(modes        =>LA_base%f%modes, &
+            zero_odd_even=>LA_base%f%zero_odd_even)
+  IF(which_init_in.GE.0)THEN !not restart
+    IF(init_LA)THEN
+      CALL CPU_TIME(StartTime)
 !$ StartTime=OMP_GET_WTIME()
-    SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
-    !initialize Lambda
-    CALL ProgressBar(0,LA_base%s%nBase) !init
-    DO is=1,LA_base%s%nBase
-      spos=LA_base%s%s_IP(is)
-      CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
-      CALL ProgressBar(is,LA_base%s%nBase)
-    END DO !is
-    SWRITE(UNIT_stdOut,'(A)') "... done."
-    ASSOCIATE(modes        =>LA_base%f%modes, &
-              zero_odd_even=>LA_base%f%zero_odd_even)
-    DO imode=1,modes
-      IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-        U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
-      ELSE
-        U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-      END IF!iMode ~ MN_ZERO
-      BC_val =(/ 0.0_wp, 0.0_wp/)
-      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
-    END DO !iMode 
-    END ASSOCIATE !LA
-    CALL CPU_TIME(EndTime)
-!$ EndTime=OMP_GET_WTIME()
-    SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
-  ELSE
-    !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
-    IF(.NOT.init_fromBConly)THEN
-      SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
-      ASSOCIATE(modes        =>LA_base%f%modes, &
-                zero_odd_even=>LA_base%f%zero_odd_even)
+      SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
+      !initialize Lambda
+      CALL ProgressBar(0,LA_base%s%nBase) !init
+      DO is=1,LA_base%s%nBase
+        spos=LA_base%s%s_IP(is)
+        CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
+        CALL ProgressBar(is,LA_base%s%nBase)
+      END DO !is
+      SWRITE(UNIT_stdOut,'(A)') "... done."
       DO imode=1,modes
         IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
           U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
         ELSE
           U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
         END IF!iMode ~ MN_ZERO
-        BC_val =(/ 0.0_wp, 0.0_wp/)
-        CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
       END DO !iMode 
-      END ASSOCIATE !LA
+      CALL CPU_TIME(EndTime)
+!$ EndTime=OMP_GET_WTIME()
+      SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
     ELSE
-      SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
-      U_init%LA=0.0_wp
-    END IF
-  END IF !init_LA
+      !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
+      IF(.NOT.init_fromBConly)THEN
+        SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
+        DO imode=1,modes
+          IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+            U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+          ELSE
+            U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+          END IF!iMode ~ MN_ZERO
+        END DO !iMode 
+      ELSE
+        SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
+        U_init%LA=0.0_wp
+      END IF
+    END IF !init_LA
+  END IF !which_init_in
 
+  !apply strong BC
+  DO imode=1,modes
+    BC_val =(/ 0.0_wp, 0.0_wp/)
+    CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+  END DO !iMode 
+  END ASSOCIATE !LA
 END SUBROUTINE InitSolution
 
 

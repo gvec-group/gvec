@@ -531,7 +531,7 @@ IMPLICIT NONE
   sf%nDOF_BC(   0) = sf%nDOF_BC(   BC_TYPE_SYMM)
   sf%A_Axis(:,:,0) = sf%A_Axis(:,:,BC_TYPE_SYMM)
   !  odd m <=deg 
-  DO m=1,deg,2
+  DO m=1,deg+1,2
     iBC=-m
     !BC_TYPE_ANTISYMM: nD =1+deg/2    ;   diri=1 ;  odd_even=1 ! dirichlet=0+ derivatives (2*k  )=0  k=1,... deg/2
     sf%nDOF_BC(   iBC) = sf%nDOF_BC(   BC_TYPE_ANTISYMM)
@@ -540,13 +540,13 @@ IMPLICIT NONE
     ASSOCIATE(nD=>sf%nDOF_BC(iBC))
     DO i=1,(m-1)/2
       j=2*i-1
-      sf%A_Axis(nD+i,:,iBC)=sf%base_dsAxis(j,:)/sf%base_dsAxis(j,i) !normalized with diagonal entry
+      sf%A_Axis(nD+i,:,iBC)=sf%base_dsAxis(j,:)/sf%base_dsAxis(j,j) !normalized with diagonal entry
     END DO
     nD = nD + (m-1)/2    
     END ASSOCIATE !nD
   END DO
   !  even m <=deg 
-  DO m=2,deg,2
+  DO m=2,deg+1,2
     iBC=-m
     !BC_TYPE_SYMMZERO: nD =1+(deg+1)/2;   diri=1 ;  odd_even=0 ! dirichlet=0+ derivatives (2*k-1)=0, k=1,...(deg+1)/2
     sf%nDOF_BC(   iBC) = sf%nDOF_BC(   BC_TYPE_SYMMZERO)
@@ -555,13 +555,13 @@ IMPLICIT NONE
     ASSOCIATE(nD=>sf%nDOF_BC(iBC))
     DO i=1,(m-2)/2
       j=2*i
-      sf%A_Axis(nD+i,:,iBC)=sf%base_dsAxis(j,:)/sf%base_dsAxis(j,i) !normalized with diagonal entry
+      sf%A_Axis(nD+i,:,iBC)=sf%base_dsAxis(j,:)/sf%base_dsAxis(j,j) !normalized with diagonal entry
     END DO
     nD = nD + (m-2)/2   
     END ASSOCIATE !nD
   END DO
 
-  DO m=0,deg
+  DO m=0,deg+1
     iBC=-m
     ASSOCIATE(nD=>sf%nDOF_BC(iBC))
     !invert BC part
@@ -614,10 +614,10 @@ IMPLICIT NONE
   ALLOCATE(sf%base_offset(            1:nElems))
   ALLOCATE(sf%base_dsAxis(0:deg,1:deg+1        ))
   ALLOCATE(sf%base_dsEdge(0:deg,nBase-deg:nBase))
-  ALLOCATE(sf%nDOF_BC(                  -deg:NBC_TYPES))
-  ALLOCATE(sf%A_Axis(   1:deg+1,1:deg+1,-deg:NBC_TYPES))
-  ALLOCATE(sf%invA_Axis(1:deg+1,1:deg+1,-deg:NBC_TYPES))
-  ALLOCATE(sf%R_Axis(   1:deg+1,1:deg+1,-deg:NBC_TYPES))
+  ALLOCATE(sf%nDOF_BC(                  -(deg+1):NBC_TYPES))
+  ALLOCATE(sf%A_Axis(   1:deg+1,1:deg+1,-(deg+1):NBC_TYPES))
+  ALLOCATE(sf%invA_Axis(1:deg+1,1:deg+1,-(deg+1):NBC_TYPES))
+  ALLOCATE(sf%R_Axis(   1:deg+1,1:deg+1,-(deg+1):NBC_TYPES))
   ALLOCATE(sf%A_Edge(   nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
   ALLOCATE(sf%invA_Edge(nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))
   ALLOCATE(sf%R_Edge(   nBase-deg:nBase,nBase-deg:nBase,1:NBC_TYPES))

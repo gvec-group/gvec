@@ -309,10 +309,10 @@ IMPLICIT NONE
       var_visu(VP_IOTA ,i_s,:,:,:,iElem) =iota_s
       var_visu(VP_PRES ,i_s,:,:,:,iElem) =pres_s
       var_visu(VP_DP_DS,i_s,:,:,:,iElem) =Eval_p_prime(spos)
-      var_visu(VP_Mscale,i_s,:,:,:,iElem) = SUM(X1_base%f%Xmn(1,:)**(4+1)*X1_s(:)**2+X2_base%f%Xmn(1,:)**(4+1)*X2_s(:)**2)/&  !pexp=4, qexp=1
-                                            SUM(X1_base%f%Xmn(1,:)**(4  )*X1_s(:)**2+X2_base%f%Xmn(1,:)**(4  )*X2_s(:)**2)
-      var_visu(VP_MscaleF,i_s,:,:,:,iElem)= SUM(X1_base%f%Xmn(1,:)**(4+1)*F_X1_s(:)**2+X2_base%f%Xmn(1,:)**(4+1)*F_X2_s(:)**2)/&  !pexp=4, qexp=1
-                                            SUM(X1_base%f%Xmn(1,:)**(4  )*F_X1_s(:)**2+X2_base%f%Xmn(1,:)**(4  )*F_X2_s(:)**2)
+      var_visu(VP_Mscale,i_s,:,:,:,iElem) = (SUM(X1_base%f%Xmn(1,:)**(4+1)*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*X2_s(:)**2))/&  !pexp=4, qexp=1
+                                            (SUM(X1_base%f%Xmn(1,:)**(4  )*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*X2_s(:)**2))
+      var_visu(VP_MscaleF,i_s,:,:,:,iElem)= (SUM(X1_base%f%Xmn(1,:)**(4+1)*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*F_X2_s(:)**2))/&  !pexp=4, qexp=1
+                                            (SUM(X1_base%f%Xmn(1,:)**(4  )*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*F_X2_s(:)**2)+1e-14)
 #ifdef VISU_J_FD
       ! for Finite  Difference in s
       if (i_s .ne. n_s) then !switch sign of finite difference at last point
