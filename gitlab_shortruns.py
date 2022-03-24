@@ -85,7 +85,8 @@ if(cases[0]==0 or (caseID in cases)) :
     if(not checkout):
       msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
       runfailed.extend([msg])
-    nodiff,msg = compare_by_numdiff(refdir,referenceStateFile,'',finalStateFile,ignore_strings=['#'])
+    nodiff,msg = compare_by_numdiff(refdir,referenceStateFile,'',finalStateFile,ignore_strings=['#']
+                                    ,abstol="1e-6") # since simulation runs for 5000 iterations...
     msg=("caseID: %d, %s , %s" %(caseID,casename,msg))
     if (nodiff):
       success.extend([msg])
