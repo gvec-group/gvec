@@ -318,6 +318,11 @@ SUBROUTINE InitMHD3D(sf)
     X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
       X1_BC_type(BC_AXIS,iMode)=-1*MIN(X1_base%s%deg+1,X1_base%f%Xmn(1,iMode))
+      IF((nElems.EQ.1).AND.(X1_base%f%Xmn(1,iMode).GT.X1_base%s%deg)) THEN
+        IF(X1_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
+          WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X1_b(m=',&
+                                         X1_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
+      END IF
     END IF
   END DO 
   END ASSOCIATE !X1
@@ -329,6 +334,11 @@ SUBROUTINE InitMHD3D(sf)
     X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
       X2_BC_type(BC_AXIS,iMode)=-1*MIN(X2_base%s%deg+1,X2_base%f%Xmn(1,iMode))
+      IF((nElems.EQ.1).AND.(X2_base%f%Xmn(1,iMode).GT.X2_base%s%deg)) THEN
+        IF(X2_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
+          WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X2_b(m=',&
+                                         X2_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
+      END IF
     END IF
   END DO 
   END ASSOCIATE !X2

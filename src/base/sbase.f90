@@ -352,10 +352,6 @@ IMPLICIT NONE
   IF(continuity.EQ.-1)THEN !discontinuous
     nBase  = (deg+1)*nElems
   ELSEIF(continuity.EQ.deg-1)THEN !bspline with full continuity and interpolation base at boundaries 
-    IF((.NOT.test_called).AND.(nElems.LE.deg+1)) & ! only check for user input, not for the init calls from  tests
-          WRITE(*,*)'WARNNG in sbase init: spline with nElems<=deg+1 not allowed!'
-!      CALL abort(__STAMP__, &
-!          "error in sbase init: spline with nElems<=deg+1 not allowed!") 
     nBase  = nElems + deg
   ELSE
    CALL abort(__STAMP__, &
@@ -1451,9 +1447,9 @@ IMPLICIT NONE
 
   END IF !testlevel>=1
   IF(testlevel.GE.2)THEN
-    jElem=nElems/2
+    jElem=MAX(1,nElems/2)
     x=sf%grid%sp(jElem-1)
-    IF(cont.EQ.-1)THEN
+    IF((cont.EQ.-1).AND.(nElems.GT.1))THEN
       g_IP = testf(sf%s_IP(:))
       g_IP(1:(deg+1)*jElem) =g_IP(1:(deg+1)*jElem)-0.113_wp !discontinuous between jElem and jElem+1
     ELSE
@@ -1466,7 +1462,7 @@ IMPLICIT NONE
 
     !CHECK boundary values
     y=testf(0.0_wp)
-    IF(cont.EQ.-1) THEN
+    IF((cont.EQ.-1).AND.(nElems.GT.1))THEN
       y=y-0.113_wp
     END IF
     y2=testf(1.0_wp)
@@ -1484,7 +1480,7 @@ IMPLICIT NONE
     !check dsAxis and dsEdge, basis evaluation
     iTest=202 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     y=SUM(sf%base_dsAxis(0,:)*dofs(1:deg+1))
-    IF(cont.EQ.-1) THEN
+    IF((cont.EQ.-1).AND.(nElems.GT.1))THEN
       y=y+0.113_wp
     END IF
     y2=SUM(sf%base_dsEdge(0,:)*dofs(nbase-deg:nBase))
@@ -1571,42 +1567,18 @@ IMPLICIT NONE
       END IF !TEST
     END IF
 
-    !check eval, evalDOF_base and evalDOF_s, function evaluation
-    iTest=211 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-
-    x=sf%grid%sp(jElem)+0.9503_wp*sf%grid%ds(jElem+1) !element jElem+1
-    CALL sf%eval(x ,0,iElem,base_x) 
-    y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
-    y2=sf%evalDOF_s(x,0,dofs(:)) 
-    IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
-                         (ABS( y-y2         ).LT.realtol ).AND.&
-                         (iElem              .EQ.jElem+1 )     )))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
-       '   degree = ',deg &
-      ,'   continuity = ',cont,  ', nBase= ',nBase  &
-      ,'\n => should be ',jElem,': iElem= ' , iElem &
-      ,'\n => should be ',testf(x),' : y = ' , y     &
-      ,'\n => should be ',y       ,' : y2= ' , y2
-    END IF !TEST
-
     IF(nElems.GE.2)THEN
 
-      !check eval, evalDOF_base and evalDOF_s, function evaluation, in jElem
-      iTest=212 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-
-      x=sf%grid%sp(jElem-1)+ 0.7353_wp*sf%grid%ds(jElem+1) !in element jElem
+      !check eval, evalDOF_base and evalDOF_s, function evaluation
+      iTest=211 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+     
+      x=sf%grid%sp(jElem)+0.9503_wp*sf%grid%ds(jElem+1) !element jElem+1
       CALL sf%eval(x ,0,iElem,base_x) 
       y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
       y2=sf%evalDOF_s(x,0,dofs(:)) 
-      IF(cont.EQ.-1) THEN
-        y=y+0.113_wp
-        y2=y2+0.113_wp
-      END IF
       IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
                            (ABS( y-y2         ).LT.realtol ).AND.&
-                           (iElem              .EQ.jElem   )     )))THEN
+                           (iElem              .EQ.jElem+1 )     )))THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
         '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
@@ -1615,54 +1587,81 @@ IMPLICIT NONE
         ,'\n => should be ',jElem,': iElem= ' , iElem &
         ,'\n => should be ',testf(x),' : y = ' , y     &
         ,'\n => should be ',y       ,' : y2= ' , y2
-      END IF !test
+      END IF !TEST
     END IF ! nElems.GE.2
 
-    !test first derivative
-    iTest=213 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
-    x=sf%grid%sp(jElem)+0.64303_wp*sf%grid%ds(jElem+1) !in elem jElem+1
-    CALL sf%eval(x ,1,iElem,base_x)  
-    dy=sf%evalDOF_base(iElem,base_x,dofs(:))
-    dy2=sf%evalDOF_s(x,1,dofs(:))
-    IF(testdbg.OR.(.NOT.((ABS(dy-testf_dx(x)).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
-                         (ABS(dy-dy2        ).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
-                         (iElem              .EQ.jElem+1 ))))THEN
+    !check eval, evalDOF_base and evalDOF_s, function evaluation, in jElem
+    iTest=212 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    x=sf%grid%sp(jElem-1)+ 0.7353_wp*sf%grid%ds(jElem) !in element jElem
+    CALL sf%eval(x ,0,iElem,base_x) 
+    y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
+    y2=sf%evalDOF_s(x,0,dofs(:)) 
+    IF((cont.EQ.-1).AND.(nElems.GT.1))THEN
+      y=y+0.113_wp
+      y2=y2+0.113_wp
+    END IF
+    IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
+                         (ABS( y-y2         ).LT.realtol ).AND.&
+                         (iElem              .EQ.jElem   )     )))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,'\n => should be ',jElem,': iElem= ' , iElem &
-      ,'\n => should be ',testf_dx(x),': dy = ' , dy  &
-      ,'\n => should be ',y          ,': dy2= ' , dy
+      ,'\n => should be ',testf(x),' : y = ' , y     &
+      ,'\n => should be ',y       ,' : y2= ' , y2
     END IF !test
 
-    !test second derivative
-    iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-
-    x=sf%grid%sp(jElem)+0.17313_wp*sf%grid%ds(jElem+1) !in elem jElem+1
-    CALL sf%eval(x ,2,iElem,base_x)  
-    dy=sf%evalDOF_base(iElem,base_x,dofs(:)) !second derivative
-    dy2=sf%evalDOF_s(x,2,dofs(:))
-    IF(testdbg.OR.(.NOT.((ABS(dy-testf_dxdx(x)).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
-                         (ABS(dy-dy2          ).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
-                         (iElem                .EQ.jElem+1 ))))THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
-       '   degree = ',deg &
-      ,'   continuity = ',cont,  ', nBase= ',nBase  &
-      ,'\n => should be ',jElem,': iElem= ' , iElem &
-      ,'\n => should be ',testf_dxdx(x),': dy = ' , dy  &
-      ,'\n => should be ',y          ,': dy2= ' , dy2
-    END IF !test
+    IF(nElems.GE.2)THEN
+      !test first derivative
+      iTest=213 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      
+      x=sf%grid%sp(jElem)+0.64303_wp*sf%grid%ds(jElem+1) !in elem jElem+1
+      CALL sf%eval(x ,1,iElem,base_x)  
+      dy=sf%evalDOF_base(iElem,base_x,dofs(:))
+      dy2=sf%evalDOF_s(x,1,dofs(:))
+      IF(testdbg.OR.(.NOT.((ABS(dy-testf_dx(x)).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
+                           (ABS(dy-dy2        ).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
+                           (iElem              .EQ.jElem+1 ))))THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
+         '   degree = ',deg &
+        ,'   continuity = ',cont,  ', nBase= ',nBase  &
+        ,'\n => should be ',jElem,': iElem= ' , iElem &
+        ,'\n => should be ',testf_dx(x),': dy = ' , dy  &
+        ,'\n => should be ',y          ,': dy2= ' , dy
+      END IF !test
+      
+      !test second derivative
+      iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      
+      x=sf%grid%sp(jElem)+0.17313_wp*sf%grid%ds(jElem+1) !in elem jElem+1
+      CALL sf%eval(x ,2,iElem,base_x)  
+      dy=sf%evalDOF_base(iElem,base_x,dofs(:)) !second derivative
+      dy2=sf%evalDOF_s(x,2,dofs(:))
+      IF(testdbg.OR.(.NOT.((ABS(dy-testf_dxdx(x)).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
+                           (ABS(dy-dy2          ).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
+                           (iElem                .EQ.jElem+1 ))))THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
+         '   degree = ',deg &
+        ,'   continuity = ',cont,  ', nBase= ',nBase  &
+        ,'\n => should be ',jElem,': iElem= ' , iElem &
+        ,'\n => should be ',testf_dxdx(x),': dy = ' , dy  &
+        ,'\n => should be ',y          ,': dy2= ' , dy2
+      END IF !test
+    END IF ! nElems.GE.2
 
     !check evalDOF_GP
     iTest=221 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     y_GP = testf(sf%s_GP) 
-    IF(cont.EQ.-1) y_GP(1:(degGP+1)*jElem)=y_GP(1:(degGP+1)*jElem)-0.113_wp
+    IF((cont.EQ.-1).AND.(nElems.GT.1)) y_GP(1:(degGP+1)*jElem)=y_GP(1:(degGP+1)*jElem)-0.113_wp
     dof_GP = sf%evalDOF_GP(0,dofs)
 
     IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_GP-dof_GP)).LT.realtol ))))THEN
@@ -1679,7 +1678,7 @@ IMPLICIT NONE
     iTest=222 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     y  = testf_int(0.0_wp,1.0_wp)
-    IF(cont.EQ.-1) y=y-0.113_wp*(sf%grid%sp(jElem)-sf%grid%sp(0))
+    IF((cont.EQ.-1).AND.(nElems.GT.1)) y=y-0.113_wp*(sf%grid%sp(jElem)-sf%grid%sp(0))
     y2 = SUM(dof_GP*sf%w_GP)
 
     IF(testdbg.OR.(.NOT.( (ABS(y-y2).LT.realtol ) )))THEN
@@ -1943,6 +1942,28 @@ IMPLICIT NONE
        '   degree = ',deg &
       ,'   continuity = ',cont,  ', nBase= ',nBase  &
       ,"\n => should be y,y',y'',... : dy/ds BC_ANTISYMM edge = " ,  y_BC(:)
+    END IF !test
+    
+    iTest=241 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    g_IP = dofs !
+    BC_Type(1)=-deg  ! TEST  m-dependent BC_AXIS...iBC=-m,  m=deg <=> function and all derivatives up to deg-1 are zero
+    BC_Type(2)=BC_TYPE_OPEN
+    CALL sf%applyBCtoDOF(g_IP,BC_type,BC_Val)
+    
+    y_BC=MATMUL(sf%base_dsAxis(:,:),g_IP(1:deg+1))
+    DO i=1,deg
+      y_BC(i)=y_BC(i)*(sf%grid%ds(1)**i)/REAL(i*i,wp)
+    END DO
+    
+    IF(testdbg.OR.(.NOT.((MAXVAL(ABS(y_BC(1:deg-1))).LT.realtol ).AND. &
+                         (ABS(y_BC(0)              ).LT.realtol )     )))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),A,*(E13.5))') &
+       '   degree = ',deg &
+      ,'   continuity = ',cont,  ', nBase= ',nBase  &
+      ,"\n => should be y, dy^k/ds, k=1,deg-1 at axis = " , y_BC(:) 
     END IF !test
     
   END IF !testlevel>=2
