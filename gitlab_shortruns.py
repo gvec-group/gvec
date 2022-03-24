@@ -52,7 +52,7 @@ print( '='*132 )
 os.chdir(execdir)
 
 refdir="../test-CI"
-referenceStateFile="REF_GITLAB_RUN_State_0000_00001000.dat"
+referenceStateFile="REF_GITLAB_RUN_State_0000_00005000.dat"
 restartFile=os.path.join(refdir,referenceStateFile)
 
 #########################################################################
@@ -64,7 +64,7 @@ if(cases[0]==0 or (caseID in cases)) :
   print("running caseID %d ,%s ... " % (caseID,casename))
   execbin="../"+builddir+"/bin/gvec"
   param="../test-CI/gvec_shortrun.ini"
-  finalStateFile="GITLAB_RUN_State_0000_00001000.dat"
+  finalStateFile="GITLAB_RUN_State_0000_00005000.dat"
   logFile='logMinimizer_GITLAB_RUN_0000.csv'
 
   if(not os.path.isfile(execbin)):
@@ -116,7 +116,7 @@ if(cases[0]==0 or (caseID in cases)) :
   print("running caseID %d ,%s ... " % (caseID,casename))
   execbin="../"+builddir+"/bin/gvec"
   param="../test-CI/gvec_shortrun_restart.ini"
-  finalStateFile="GITLAB_RESTART_State_0001_00000010.dat"
+  finalStateFile="GITLAB_RESTART_State_0001_00000100.dat"
   logFile='logMinimizer_GITLAB_RESTART_0001.csv'
   if(not os.path.isfile(execbin)):
     msg=("caseID: %d, %s test failed, executable does not exist" % (caseID,casename))
