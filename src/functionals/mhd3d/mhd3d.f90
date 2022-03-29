@@ -113,13 +113,7 @@ SUBROUTINE InitMHD3D(sf)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
   !-----------
 
-
-  nElems   = GETINT("sgrid_nElems",Proposal=10)
-  grid_type= GETINT("sgrid_grid_type",Proposal=0)
-  
-  !mandatory global input parameters
-  degGP   = GETINT( "degGP",Proposal=4)
-  fac_nyq = GETINT( "fac_nyq")
+  fac_nyq = GETINT( "fac_nyq",Proposal=4)
   
   !constants
   mu_0    = 2.0e-07_wp*TWOPI
@@ -215,6 +209,12 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,*)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
+
+  nElems   = GETINT("sgrid_nElems",Proposal=2)
+  grid_type= GETINT("sgrid_grid_type",Proposal=0)
+  
+  !mandatory global input parameters
+  degGP   = GETINT( "degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
   !INITIALIZE GRID  
   CALL sgrid%init(nElems,grid_type)
