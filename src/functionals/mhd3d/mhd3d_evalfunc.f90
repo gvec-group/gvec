@@ -425,6 +425,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   REAL(wp)  :: dW(1:mn_IP,1:nGP)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
   REAL(wp),DIMENSION(1:mn_IP,1:nGP)  :: btt_sJ,btz_sJ,bzz_sJ  & != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
                                        ,coefY,coefY_thet,coefY_zeta,coefY_s
+  !!! REAL(wp)  :: F_b_X1(1:X1_base%f%modes),F_b_X1_IP_weak(1:mn_IP),F_b_X1_IP(1:mn_IP)
+  !!! REAL(wp)  :: F_b_X2(1:X2_base%f%modes),F_b_X2_IP_weak(1:mn_IP),F_b_X2_IP(1:mn_IP)
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
   __PERFON('EvalForce')
@@ -540,6 +542,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO 
   __PERFOFF('sbase')
 
+  !!!!! TEST !!!!!
+  !!! CALL EvalBoundaryForce(Uin,F_b_X1,F_b_X2)
+  !!! F_b_X1_IP         = X1_base%f%evalDOF_IP(         0,F_b_X1)
+  !!! F_b_X1_IP_weak    = X1_base%f%evalDOF_IP(         0,F_MHD3D%X1(nBase,:))
+  !!!!! TEST !!!!!
+
   __PERFON('apply_precond')
 !$OMP PARALLEL DO & 
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(modes,F_MHD3D,X1_BC_type,X1_base) PRIVATE(iMode)
@@ -651,6 +659,14 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END DO !iMode
 !$OMP END PARALLEL DO 
   __PERFOFF('sbase')
+  !!!!! TEST !!!!!
+  !!! WRITE(*,*)'========== TESTING BOUNDARY FORCES ============='
+  !!! F_b_X2_IP         = X2_base%f%evalDOF_IP(         0,F_b_X2)
+  !!! F_b_X2_IP_weak    = X2_base%f%evalDOF_IP(         0,F_MHD3D%X2(nBase,:))
+  !!! WRITE(*,'(A,3(A,E13.5))') 'F_b_X1 sampled:', ' maxabs ',MAXVAL(ABS(F_b_X1_IP_weak)), ' maxabsdiff ',MAXVAL(ABS(F_b_X1_IP+F_b_X1_IP_weak)),' L2diff ', SQRT(SUM((F_b_X1_IP+F_b_X1_IP_weak)**2))/mn_IP
+  !!! WRITE(*,'(A,3(A,E13.5))') 'F_b_X2 sampled:', ' maxabs ',MAXVAL(ABS(F_b_X2_IP_weak)), ' maxabsdiff ',MAXVAL(ABS(F_b_X2_IP+F_b_X2_IP_weak)),' L2diff ', SQRT(SUM((F_b_X2_IP+F_b_X2_IP_weak)**2))/mn_IP
+  !!! !STOP
+  !!!!! TEST !!!!!
 
   __PERFON('apply_precond')
 !$OMP PARALLEL DO &  
@@ -1401,6 +1417,88 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   DEALLOCATE(Feval)
 
 END SUBROUTINE checkEvalForce
+
+!===================================================================================================================================
+!>  TEST: COMPARISON OF BOUNDARY TERM TO weak free-boundary term at s=1. TEST is using Bvac=Binternal(s=1) 
+!!     int_thet int_zeta 1/2|Bvac|^2 (Y^2 X^1_thet -Y^1 X^2_thet) J_h dthet dzeta
+!!
+!!  Makes use of the fact that spline coefficient at position nBase (s=1)  is interpolatory!
+!===================================================================================================================================
+SUBROUTINE EvalBoundaryForce(Uin,F_b_X1,F_b_X2)
+! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: X1_base,X2_base,LA_base,hmap,mu_0
+  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_pres,Eval_chiPrime,Eval_phiPrime
+  USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin         !! input solution 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT)  :: F_b_X1(1:X1_base%f%modes)
+  REAL(wp),INTENT(OUT)  :: F_b_X2(1:X2_base%f%modes)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER   :: i_mn
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3)
+  REAL(wp)  :: S1_pres, S1_chiPrime,S1_PhiPrime,J_p_loc,b_thet_loc,b_zeta_loc,g_tt_loc,g_tz_loc,g_zz_loc 
+  REAL(wp)  :: S1_dX1_ds_f(1:X1_base%f%modes)
+  REAL(wp)  :: S1_dX2_ds_f(1:X2_base%f%modes)
+  REAL(wp),DIMENSION(1:mn_IP)  :: S1_X1_IP,S1_dX1_ds,S1_dX1_dthet,S1_dX1_dzeta & 
+                                 ,S1_X2_IP,S1_dX2_ds,S1_dX2_dthet,S1_dX2_dzeta & 
+                                                    ,S1_dLA_dthet,S1_dLA_dzeta & 
+                                 ,S1_B2,S1_J_h,coefY
+!===================================================================================================================================
+  S1_dX1_ds_f  = X1_base%s%evalDOF2D_s(     1.,X1_Base%f%modes,1,Uin%X1)
+  S1_dX1_ds    = X1_base%f%evalDOF_IP(         0,S1_dX1_ds_f(:))
+  S1_X1_IP     = X1_base%f%evalDOF_IP(         0,Uin%X1(X1_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  S1_dX1_dthet = X1_base%f%evalDOF_IP(DERIV_THET,Uin%X1(X1_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  S1_dX1_dzeta = X1_base%f%evalDOF_IP(DERIV_ZETA,Uin%X1(X1_Base%s%nBase,:))
+
+  S1_dX2_ds_f  = X2_base%s%evalDOF2D_s(     1.,X2_Base%f%modes,1,Uin%X2)
+  S1_dX2_ds    = X2_base%f%evalDOF_IP(         0,S1_dX2_ds_f(:))
+  S1_X2_IP     = X2_base%f%evalDOF_IP(         0,Uin%X2(X2_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  S1_dX2_dthet = X2_base%f%evalDOF_IP(DERIV_THET,Uin%X2(X2_Base%s%nBase,:))  !NEEDED FOR FREE-BOUND
+  S1_dX2_dzeta = X2_base%f%evalDOF_IP(DERIV_ZETA,Uin%X2(X2_Base%s%nBase,:))
+
+  S1_dLA_dthet = LA_base%f%evalDOF_IP(DERIV_THET,Uin%LA(LA_Base%s%nBase,:))
+  S1_dLA_dzeta = LA_base%f%evalDOF_IP(DERIV_ZETA,Uin%LA(LA_Base%s%nBase,:))
+
+  S1_pres     = Eval_pres(1.0)
+  S1_chiPrime = Eval_chiPrime(1.0)
+  S1_PhiPrime = Eval_PhiPrime(1.0)
+  DO i_mn=1,mn_IP
+
+    qloc(  1:3) = (/ S1_X1_IP(i_mn), S1_X2_IP(i_mn),zeta_IP(i_mn)/) !NEEDED FOR FREE-BOUND
+
+    S1_J_h( i_mn) = hmap%eval_Jh(qloc)                              !NEEDED FOR FREE-BOUND
+
+    J_p_loc = ( S1_dX1_ds(i_mn)*S1_dX2_dthet(i_mn) &
+               -S1_dX2_ds(i_mn)*S1_dX1_dthet(i_mn) )
+
+    b_thet_loc = (S1_chiPrime-  S1_phiPrime*S1_dLA_dzeta(i_mn))    !b_theta
+    b_zeta_loc =  S1_phiPrime*(1.0_wp     + S1_dLA_dthet(i_mn))    !b_zeta
+
+    q_thet(1:2) = (/S1_dX1_dthet(i_mn),S1_dX2_dthet(i_mn)/) !dq(1:2)/dtheta
+    q_thet(3)   = 0.0_wp                                      !dq(3)/dtheta
+    q_zeta(1:2) = (/S1_dX1_dzeta(i_mn),S1_dX2_dzeta(i_mn)/) !dq(1:2)/dzeta
+    q_zeta(3)   = 1.0_wp                                      !dq(3)/zeta
+
+    g_tt_loc    = hmap%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
+    g_tz_loc    = hmap%eval_gij(q_thet,qloc,q_zeta)   !g_theta,zeta =g_zeta,theta
+    g_zz_loc    = hmap%eval_gij(q_zeta,qloc,q_zeta)   !g_zeta,zeta
+
+    S1_B2(i_mn) = (   b_thet_loc*g_tt_loc*b_thet_loc  &
+                   +2*b_thet_loc*g_tz_loc*b_zeta_loc  &
+                   +  b_zeta_loc*g_zz_loc*b_zeta_loc)/((J_p_loc*S1_J_h(i_mn))**2) !=|B|^2 = (b^k * g_kl *b^l)/(detJ^2)
+    
+  END DO !i_mn
+  coefY(:) = -(0.5*S1_B2(:)+mu_0*S1_pres)*S1_J_h(:)*S1_dX2_dthet(:)
+  CALL X1_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X1(:))
+  coefY(:) =  (0.5*S1_B2(:)+mu_0*S1_pres)*S1_J_h(:)*S1_dX1_dthet(:)
+  CALL X2_base%f%projectIPtoDOF(.FALSE.,dthet_dzeta,   0,coefY(     :),F_b_X2(:))
+
+END SUBROUTINE EvalBoundaryForce
 
 
 !===================================================================================================================================
