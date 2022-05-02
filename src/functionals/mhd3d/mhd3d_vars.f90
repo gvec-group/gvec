@@ -58,6 +58,8 @@ CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for eval
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
 INTEGER              :: which_hmap
 LOGICAL              :: init_fromBCOnly !! default=TRUE, for VMEC only, if set false: initial mapping is interpolated for s=0..1
+LOGICAL              :: init_with_profile_pressure !! default=FALSE, if True, overwrite profile from VMEC ini using  profile from parameterfile
+LOGICAL              :: init_with_profile_iota     !! default=FALSE, if True, overwrite profile from VMEC ini using  profile from parameterfile
 LOGICAL              :: init_average_axis !! default=FALSE, if true, use outer boundary to estimate axis position (center of closed line)
 REAL(wp)             :: average_axis_move(2) !! used if init_average_axis=True to additionally move axis in X1,X2   
 INTEGER              :: init_BC         !! active if init_fromBC_only=T: -1: keep vmec axis and boundary (default), 0: keep vmec boundary, overwrite axis, 1: keep vmec axis, overwrite boundary, 2: overwrite axis and boundary
