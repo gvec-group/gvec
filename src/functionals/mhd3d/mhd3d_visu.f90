@@ -133,6 +133,7 @@ USE MODgvec_Globals,        ONLY: TWOPI,PI,CROSS
 USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
 USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime,Eval_chiPrime,Eval_p_prime
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
 USE MODgvec_Analyze_Vars,   ONLY: SFL_theta
 IMPLICIT NONE
@@ -154,13 +155,13 @@ IMPLICIT NONE
   REAL(wp) :: X1_visu,X2_visu,dX1_ds_visu,dX2_ds_visu,dX1_dthet_visu,dX1_dzeta_visu,dX2_dthet_visu,dX2_dzeta_visu
   REAL(wp) :: dLA_dthet_visu,dLA_dzeta_visu,iota_s,pres_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 #ifdef VISU_J_FD
-  INTEGER,PARAMETER  :: nVal=30
+  INTEGER,PARAMETER  :: nVal=32
   INTEGER            :: VP_J
 #else
-  INTEGER,PARAMETER  :: nVal=27
+  INTEGER,PARAMETER  :: nVal=29
 #endif
   INTEGER  ::VP_LAMBDA,VP_SQRTG,VP_PHI,VP_IOTA,VP_PRES,VP_dp_ds,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, &
-             VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z
+             VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,VP_MscaleF
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
@@ -178,7 +179,7 @@ IMPLICIT NONE
   REAL(wp) :: dLA_dthet_eps,dLA_dzeta_eps,iota_s_eps,pres_s_eps,phiPrime_s_eps
   REAL(wp) :: Jcart(3),  B_ds(3), B_dthet(3), B_dzeta(3), grad_Bcart(3, 3)          !< cartesion current density and gradient of magnetic field components
   INTEGER  :: sgn
-  REAL(wp) :: delta_s,delta_thet,delta_zeta 
+  REAL(wp) :: delta_s,delta_thet,delta_zeta
   REAL(wp),PARAMETER :: eps   = 1.0e-8 !theta,zeta
   REAL(wp),PARAMETER :: eps_s   = 1.0e-4 !
 #endif
@@ -211,6 +212,8 @@ IMPLICIT NONE
   VP_IOTA   =iVal;iVal=iVal+1; VarNames(VP_IOTA  )="iota"
   VP_PRES   =iVal;iVal=iVal+1; VarNames(VP_PRES  )="pressure"
   VP_DP_DS  =iVal;iVal=iVal+1; VarNames(VP_DP_DS )="dp_ds"
+  VP_Mscale =iVal;iVal=iVal+1; VarNames(VP_Mscale)="Mscale"
+  VP_MscaleF=iVal;iVal=iVal+1; VarNames(VP_MscaleF)="MscaleForce"
   VP_LAMBDA =iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="lambda" 
   VP_SQRTG  =iVal;iVal=iVal+1; VarNames(VP_SQRTG )="sqrtG"
   VP_g_tt   =iVal;iVal=iVal+1; VarNames(VP_g_tt  )="g_tt"
@@ -276,6 +279,10 @@ IMPLICIT NONE
       var_visu(VP_IOTA ,i_s,:,:,:,iElem) =iota_s
       var_visu(VP_PRES ,i_s,:,:,:,iElem) =pres_s
       var_visu(VP_DP_DS,i_s,:,:,:,iElem) =Eval_p_prime(spos)
+      var_visu(VP_Mscale,i_s,:,:,:,iElem) = (SUM(X1_base%f%Xmn(1,:)**(4+1)*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*X2_s(:)**2))/&  !pexp=4, qexp=1
+                                            (SUM(X1_base%f%Xmn(1,:)**(4  )*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*X2_s(:)**2))
+      var_visu(VP_MscaleF,i_s,:,:,:,iElem)= (SUM(X1_base%f%Xmn(1,:)**(4+1)*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*F_X2_s(:)**2))/&  !pexp=4, qexp=1
+                                            (SUM(X1_base%f%Xmn(1,:)**(4  )*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*F_X2_s(:)**2)+1.0e-14)
 #ifdef VISU_J_FD
       ! for Finite  Difference in s
       if (i_s .ne. n_s) then !switch sign of finite difference at last point
@@ -510,6 +517,7 @@ IMPLICIT NONE
       END IF
     END IF
   END IF!hmap not cylinder
+  var_visu(VP_MscaleF,n_s,:,:,:,nElems)= var_visu(VP_MscaleF,n_s-1,:,:,:,nElems) !boundary force=0
   __PERFOFF("prepare_visu")
   __PERFON("write_visu")
   !range s: include all elements belonging to [smin,smax]
@@ -530,6 +538,10 @@ IMPLICIT NONE
                           var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   END IF
   __PERFOFF("write_visu")
+  WRITE(filename,'(A,"_visu_1D_",I4.4,"_",I8.8,".csv")')TRIM(Projectname),outputLevel,fileID
+  CALL WriteDataToCSV(VarNames(:) ,RESHAPE(var_visu(:,:,1,1,1,:),(/nVal,n_s*nElems/)) ,TRIM(filename)  &
+                                  ,append_in=.FALSE.)
+
   
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
   __PERFOFF("output_visu")
@@ -866,7 +878,7 @@ IMPLICIT NONE
 
   END ASSOCIATE !s_visu
   CALL WriteDataToCSV(VarNames(:) ,values_visu(:,:) ,TRIM(fname_in)  &
-                                  ,append_in=.FALSE.,vfmt_in='E15.5')
+                                  ,append_in=.FALSE.)
 
 END SUBROUTINE eval_1d_profiles
 

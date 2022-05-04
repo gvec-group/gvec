@@ -113,13 +113,7 @@ SUBROUTINE InitMHD3D(sf)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
   !-----------
 
-
-  nElems   = GETINT("sgrid_nElems",Proposal=10)
-  grid_type= GETINT("sgrid_grid_type",Proposal=0)
-  
-  !mandatory global input parameters
-  degGP   = GETINT( "degGP",Proposal=4)
-  fac_nyq = GETINT( "fac_nyq")
+  fac_nyq = GETINT( "fac_nyq",Proposal=4)
   
   !constants
   mu_0    = 2.0e-07_wp*TWOPI
@@ -190,7 +184,7 @@ SUBROUTINE InitMHD3D(sf)
   
   
   LA_deg     = GETINT(     "LA_deg")
-  LA_cont    = GETINT(     "LA_continuity",Proposal=-1)
+  LA_cont    = GETINT(     "LA_continuity",Proposal=(LA_deg-1))
   LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=proposal_mn_max)
   LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal=proposal_LA_sin_cos)
   
@@ -215,6 +209,12 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,*)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
+
+  nElems   = GETINT("sgrid_nElems",Proposal=10)
+  grid_type= GETINT("sgrid_grid_type",Proposal=0)
+  
+  !mandatory global input parameters
+  degGP   = GETINT( "degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
   !INITIALIZE GRID  
   CALL sgrid%init(nElems,grid_type)
@@ -967,7 +967,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   REAL(wp)  :: dt,deltaW,absTol
   INTEGER,PARAMETER   :: ndamp=10
   REAL(wp)  :: tau(1:ndamp), tau_bar
-  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out,t_pseudo,Fnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
+  REAL(wp)  :: min_dt_out,max_dt_out,min_dw_out,max_dw_out,sum_dW_out,t_pseudo,Fnorm(3),Vnorm(3),Fnorm0(3),Fnorm_old(3),W_MHD3D_0
   INTEGER   :: logUnit !globally needed for logging
   INTEGER   :: logiter_ramp,logscreen
   LOGICAL   :: restart_iter
@@ -985,6 +985,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   t_pseudo=0
   lastOutputIter=0
   iter=0
+  Vnorm=0.
   logiter_ramp=1
   logscreen=1
 
@@ -1010,6 +1011,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         CALL V(-1)%set_to(0.0_wp)
         CALL V( 0)%set_to(0.0_wp)
         tau(1:ndamp)=0.15_wp/dt
+        tau_bar = 0.075_wp 
       END IF
       min_dt_out=1.0e+30_wp
       max_dt_out=0.0_wp
@@ -1036,6 +1038,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       tau_bar = 0.5*dt*SUM(tau)/REAL(ndamp,wp)   !=1/2 * tauavg
       CALL V(1)%AXBY(((1.0_wp-tau_bar)/(1.0_wp+tau_bar)),V(0),(dt/(1.0_wp+tau_bar)),F(0)) !velocity V(1)
       CALL P(1)%AXBY(1.0_wp,U(0),dt,V(1)) !overwrites P(1), predicst solution U(1)
+      Vnorm=SQRT(V(1)%norm_2())
     END SELECT
 
 
@@ -1166,7 +1169,7 @@ CONTAINS
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: TimeArray(8),iLogDat
   REAL(wp)            :: AxisPos(2,2)
-  INTEGER,PARAMETER   :: nLogDat=16
+  INTEGER,PARAMETER   :: nLogDat=20
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   __PERFON('log_output')
@@ -1176,6 +1179,11 @@ CONTAINS
                  '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
   SWRITE(UNIT_stdOut,'(A,3E21.14)') &
           '%%% dU = |Force|= ',Fnorm(1:3)
+  IF(MinimizerType.EQ.10) THEN
+    SWRITE(UNIT_stdOut,'(A,E11.4,A,3E11.4)') &
+          '%%% accel.GD: tau= ',tau_bar,' |vel|= ',Vnorm(1:3)
+  END IF
+  
   SWRITE(UNIT_stdOut,'(40(" -"))')
   !------------------------------------
   StartTimeArray=TimeArray !save first time stamp
@@ -1193,6 +1201,11 @@ CONTAINS
   WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
   LogDat(ilogDat+1:iLogDat+11)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,0.0_wp,Fnorm(1:3)/)
   iLogDat=11 
+  IF(MinimizerType.EQ.10) THEN
+    WRITE(logUnit,'(A)',ADVANCE="NO")',"tau","normV_X1","normV_X2","normV_LA"'
+    LogDat(ilogDat+1:iLogDat+4)=(/tau_bar,Vnorm(1:3)/)
+    iLogDat=iLogDat+4
+  END IF
   IF(doCheckDistance) THEN
     WRITE(logUnit,'(A)',ADVANCE="NO")',"max_Dist","avg_Dist"'
     LogDat(iLogDat+1:iLogDat+2)=(/0.0_wp,0.0_wp/)
@@ -1222,7 +1235,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER             :: TimeArray(8),runtime_ms,iLogDat
   REAL(wp)            :: AxisPos(2,2),maxDist,avgDist
-  INTEGER,PARAMETER   :: nLogDat=16
+  INTEGER,PARAMETER   :: nLogDat=20
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   __PERFON('log_output')
@@ -1245,6 +1258,14 @@ CONTAINS
                                 min_dt_out,max_dt_out,U(0)%W_MHD3D,min_dW_out,max_dW_out,sum_dW_out, &
                                 Fnorm(1:3)/)
   iLogDat=11 
+  IF(MinimizerType.EQ.10) THEN
+    IF(.NOT.quiet)THEN
+      SWRITE(UNIT_stdOut,'(A,E11.4,A,3E11.4)') &
+            '%%% accel.GD: tau= ',tau_bar,' |vel|= ',Vnorm(1:3)
+    END IF!.NOT.quiet
+    LogDat(ilogDat+1:iLogDat+4)=(/tau_bar,Vnorm(1:3)/)
+    iLogDat=iLogDat+4
+  END IF
   IF(doCheckDistance) THEN
     CALL CheckDistance(U(0),U(-2),maxDist,avgDist)
     CALL U(-2)%set_to(U(0))
