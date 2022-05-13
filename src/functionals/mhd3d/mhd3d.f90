@@ -190,8 +190,8 @@ SUBROUTINE InitMHD3D(sf)
   
   IF(fac_nyq.EQ.-1)THEN
     fac_nyq=4
-    mn_nyq_min(1)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
-    mn_nyq_min(2)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
+    mn_nyq_min(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
+    mn_nyq_min(2)=1+fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))
     mn_nyq  = GETINTARRAY("mn_nyq",2)
     IF(mn_nyq(1).LT.mn_nyq_min(1))THEN
        WRITE(*,*) 'mn_nyq(1) too small, should be >= ',mn_nyq_min(1)
@@ -202,8 +202,8 @@ SUBROUTINE InitMHD3D(sf)
        STOP
     END IF
   ELSE
-    mn_nyq(1)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/)))
-    mn_nyq(2)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
+    mn_nyq(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
+    mn_nyq(2)=1+fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))
   END IF
   
   SWRITE(UNIT_stdOut,*)
@@ -545,10 +545,12 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   REAL(wp) :: dl,lint,x1int,x2int 
   REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
   REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
-  REAL(wp) :: X1_gIP(1:X1_base%s%nBase)
-  REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
+  REAL(wp) :: X1_gIP(1:X1_base%s%nBase,1:X1_base%f%modes)
+  REAL(wp) :: X2_gIP(1:X2_base%s%nBase,1:X2_base%f%modes)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
+  X1_gIP=0.; X2_gIP=0.; LA_gIP=0.
+
   SELECT CASE(which_init_in)
   CASE(-1) !restart
     X1_a(:)=U_init%X1(1,:)
@@ -647,16 +649,14 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
         DO is=1,nBase
-          X1_gIP(is)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmnc_Spl)
+          X1_gIP(is,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmnc_Spl)
         END DO !is
-        U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
       END DO !imode=cos_range
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
           DO is=1,nBase
-            X1_gIP(is)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmns_Spl)
+            X1_gIP(is,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmns_Spl)
           END DO !is
-          U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X1
@@ -666,16 +666,14 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
         DO is=1,nBase
-          X2_gIP(is)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmns_Spl)
+          X2_gIP(is,iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmns_Spl)
         END DO !is
-        U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:) )
       END DO !imode=sin_range
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
           DO is=1,nBase
-            X2_gIP(is)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmnc_Spl)
+            X2_gIP(is,iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmnc_Spl)
           END DO !is
-          U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:) )
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X2
@@ -709,20 +707,19 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     DO imode=1,modes
       SELECT CASE(zero_odd_even(iMode))
       CASE(MN_ZERO,M_ZERO) !X1_a only used here!!
-        X1_gIP(:)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
+        X1_gIP(:,iMode)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD_FIRST)
-        X1_gIP(:)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
+        X1_gIP(:,iMode)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
 !      CASE(M_ODD)
-!        X1_gIP(:)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
+!        X1_gIP(:,iMode)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
 !      CASE(M_EVEN)
-!        X1_gIP(:)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
+!        X1_gIP(:,iMode)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
       CASE DEFAULT ! ~s^m
-        X1_gIP(:)=s_IP(:)*X1_b(iMode)      
+        X1_gIP(:,iMode)=s_IP(:)*X1_b(iMode)      
         DO i_m=2,X1_base%f%Xmn(1,iMode)
-          X1_gIP(:)=X1_gIP(:)*s_IP(:)
+          X1_gIP(:,iMode)=X1_gIP(:,iMode)*s_IP(:)
         END DO
       END SELECT !X1(:,iMode) zero odd even
-      U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:) )
     END DO 
     END ASSOCIATE
     
@@ -732,20 +729,19 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     DO imode=1,modes
       SELECT CASE(zero_odd_even(iMode))
       CASE(MN_ZERO,M_ZERO) !X2_a only used here!!!
-        X2_gIP(:)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
+        X2_gIP(:,iMode)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD_FIRST)
-        X2_gIP(:)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
+        X2_gIP(:,iMode)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
 !      CASE(M_ODD)
-!        X2_gIP(:)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
+!        X2_gIP(:,iMode)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
 !      CASE(M_EVEN)
-!        X2_gIP(:)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
+!        X2_gIP(:,iMode)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
       CASE DEFAULT ! ~s^m
-        X2_gIP(:)=s_IP(:)*X2_b(iMode)      
+        X2_gIP(:,iMode)=s_IP(:)*X2_b(iMode)      
         DO i_m=2,X2_base%f%Xmn(1,iMode)
-          X2_gIP(:)=X2_gIP(:)*s_IP(:)
+          X2_gIP(:,iMode)=X2_gIP(:,iMode)*s_IP(:)
         END DO
       END SELECT !X2(:,iMode) zero odd even
-      U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:))
     END DO 
     END ASSOCIATE
   END IF !init_fromBConly
@@ -761,6 +757,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     CASE DEFAULT
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
+    U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:,iMode) )
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
   END DO 
   END ASSOCIATE !X1
@@ -775,6 +772,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     CASE DEFAULT
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
+    U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:,iMode) )
     CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
   END DO 
   END ASSOCIATE !X2
@@ -794,13 +792,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         CALL ProgressBar(is,LA_base%s%nBase)
       END DO !is
       SWRITE(UNIT_stdOut,'(A)') "... done."
-      DO imode=1,modes
-        IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-          U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
-        ELSE
-          U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-        END IF!iMode ~ MN_ZERO
-      END DO !iMode 
       CALL CPU_TIME(EndTime)
 !$ EndTime=OMP_GET_WTIME()
       SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
@@ -808,25 +799,23 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
       IF(.NOT.init_fromBConly)THEN
         SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
-        DO imode=1,modes
-          IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-            U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
-          ELSE
-            U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-          END IF!iMode ~ MN_ZERO
-        END DO !iMode 
       ELSE
         SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
-        U_init%LA=0.0_wp
+        LA_gIP=0.0_wp
       END IF
     END IF !init_LA
   END IF !which_init_in
-
   !apply strong BC
   DO imode=1,modes
-    BC_val =(/ 0.0_wp, 0.0_wp/)
-    CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+    IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+      U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+    ELSE
+      BC_val =(/ 0.0_wp, 0.0_wp/)
+      U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+    END IF!iMode ~ MN_ZERO
   END DO !iMode 
+
   END ASSOCIATE !LA
 END SUBROUTINE InitSolution
 
