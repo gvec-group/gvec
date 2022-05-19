@@ -1057,6 +1057,12 @@ IMPLICIT NONE
       values_visu(1,i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
     END DO
   END DO
+  !first element blending of  logarithmic*(1-xi^2) / linear *xi^2
+  DO i_s=1,n_s
+    values_visu(1,i_s) =values_visu(1,i_s)*(REAL(i_s-1,wp)/REAL(n_s-1,wp))**2 + (1.-(REAL(i_s-1,wp)/REAL(n_s-1,wp))**2) * &
+                        (sgrid%sp(0)+ (10**(8.0_wp*(-1.0_wp+REAL(i_s-1,wp)/REAL(n_s-1,wp)))) &
+                                                 *(1.0e-06_wp+REAL(n_s+1,wp))/(2.0e-06_wp+REAL(n_s+1,wp))*sgrid%ds(1))
+  END DO
   ASSOCIATE(s_visu=>values_visu(1,:))
   iVar=iVar+1
   VarNames(iVar)='Phi'
@@ -1129,10 +1135,11 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
       s_visu(i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
     END DO
   END DO
-  !first element logarithmic
+  !first element blending of  logarithmic*(1-xi^2) / linear *xi^2
   DO i_s=1,n_s
-    s_visu(i_s) =sgrid%sp(0)+ (10**(10.0_wp*(-1.0_wp+REAL(i_s-1,wp)/REAL(n_s-1,wp)))) &
-                                                 *(1.0e-06_wp+REAL(n_s+1,wp))/(2.0e-06_wp+REAL(n_s+1,wp))*sgrid%ds(1)
+    s_visu(i_s) =s_visu(i_s)*(REAL(i_s-1,wp)/REAL(n_s-1,wp))**2 + (1.-(REAL(i_s-1,wp)/REAL(n_s-1,wp))**2) * &
+                        (sgrid%sp(0)+ (10**(10.0_wp*(-1.0_wp+REAL(i_s-1,wp)/REAL(n_s-1,wp)))) &
+                                                   *(1.0e-06_wp+REAL(n_s+1,wp))/(2.0e-06_wp+REAL(n_s+1,wp))*sgrid%ds(1))
   END DO
   
   nVal=1

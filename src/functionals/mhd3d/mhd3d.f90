@@ -420,7 +420,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   IF(doRestart)THEN
     SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
     CALL RestartFromState(RestartFile,U(0))
-    CALL InitSolution(U(0),-1) !re-applies BC
+    !CALL InitSolution(U(0),-1) !re-applies BC
   ELSE 
     CALL InitSolution(U(0),which_init)
   END IF
@@ -458,6 +458,12 @@ SUBROUTINE InitSolutionMHD3D(sf)
 
   JacCheck=2
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
+  IF(JacCheck.EQ.-1)THEN
+    CALL Analyze(0)
+    CALL abort(__STAMP__,&
+        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!")
+  END IF
+    
   CALL WriteState(U(0),0)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
   SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
@@ -698,7 +704,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   END SELECT !which_init
   
  
-  IF((which_init_in.GE.0).AND.(init_fromBConly))THEN 
+  IF((which_init_in.NE.-1).AND.(init_fromBConly))THEN 
     !no restart(=-1) and initialization only 
     !smoothly interpolate between  edge and axis data
     ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
@@ -757,7 +763,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     CASE DEFAULT
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
-    U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:,iMode) )
+    IF(which_init_in.NE.-1) U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:,iMode) )
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
   END DO 
   END ASSOCIATE !X1
@@ -772,14 +778,14 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     CASE DEFAULT
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
-    U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:,iMode) )
+    IF(which_init_in.NE.-1) U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:,iMode) )
     CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
   END DO 
   END ASSOCIATE !X2
 
   ASSOCIATE(modes        =>LA_base%f%modes, &
             zero_odd_even=>LA_base%f%zero_odd_even)
-  IF(which_init_in.GE.0)THEN !not restart
+  IF(which_init_in.NE.-1)THEN !not restart
     IF(init_LA)THEN
       CALL CPU_TIME(StartTime)
 !$ StartTime=OMP_GET_WTIME()
@@ -811,7 +817,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
     ELSE
       BC_val =(/ 0.0_wp, 0.0_wp/)
-      U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+      IF(which_init_in.NE.-1) U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
       CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
     END IF!iMode ~ MN_ZERO
   END DO !iMode 

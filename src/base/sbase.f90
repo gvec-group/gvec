@@ -1236,9 +1236,11 @@ END FUNCTION sbase_initDOF
 
 !===================================================================================================================================
 !> apply strong boundary conditions at axis and edge 
+!! Not used anymore, WAS FOUND TO BE NOT STABLE (OSCILLATORY) IN GENERAL, especially for BCs with only derivatives prescribed...
+!! new LGM method below is used now!
 !!
 !===================================================================================================================================
-SUBROUTINE sBase_applyBCtoDOF(sf ,DOFs,BC_Type,BC_val)
+SUBROUTINE sBase_applyBCtoDOF_STRONG(sf ,DOFs,BC_Type,BC_val)
 ! MODULES
 USE MODgvec_linalg, ONLY: SOLVE
 IMPLICIT NONE
@@ -1284,7 +1286,7 @@ REAL(wp):: raxis(1:sf%deg+1),redge(sf%nBase-sf%deg:sf%nbase)
   END SELECT !tBCedge
   END ASSOCIATE
 
-END SUBROUTINE sbase_applyBCtoDOF
+END SUBROUTINE sbase_applyBCtoDOF_STRONG
 
 !===================================================================================================================================
 !> apply boundary conditions at axis and edge, via solving the Lagrange multiplier problem: 
