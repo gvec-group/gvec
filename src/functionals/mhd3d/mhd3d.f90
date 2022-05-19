@@ -146,6 +146,20 @@ SUBROUTINE InitMHD3D(sf)
       init_BC=-1
     END IF
 
+    init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)      
+    IF(init_with_profile_iota)THEN
+      sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
+      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+      iota_coefs=REAL(sign_iota)*iota_coefs
+    END IF ! iota from parameterfile
+
+    init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
+    IF(init_with_profile_pressure)THEN
+      CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+      pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
+      pres_coefs=pres_coefs*pres_scale
+    END IF ! pressure from parameterfile
+
         
     proposal_mn_max(:)=(/mpol-1,ntor/)
     IF(lasym)THEN !asymmetric
@@ -210,10 +224,9 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
 
-  nElems   = GETINT("sgrid_nElems",Proposal=2)
+  nElems   = GETINT("sgrid_nElems",Proposal=10)
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
-  
-  !mandatory global input parameters
+
   degGP   = GETINT( "degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
   !INITIALIZE GRID  
