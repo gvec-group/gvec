@@ -604,6 +604,7 @@ IMPLICIT NONE
     !and also derivatives (2*k-1)=0, k=1,...,(m-1)/2  (2*k-1 < m-1)
     ASSOCIATE(nD=>sf%nDOF_BC(iBC))
     nD=1+deg/2 +(m-1)/2
+    IF(nD.EQ.deg+1) CYCLE ! All deg+1 DOFs at the boundary just set to zero (A_axis is already identity matrix), if deg even and m=deg+1
     i=1
     BC_derivs(1)=0 !diri
     DO drv=1,(m-1)
@@ -625,11 +626,10 @@ IMPLICIT NONE
   DO m=2,deg+1,2
     iBC=-m
     !BC_TYPE_SYMMZERO: nD =1+(deg+1)/2;   diri=1 ;  odd_even=0 ! dirichlet=0+ derivatives (2*k-1)=0, k=1,...(deg+1)/2
-    sf%nDOF_BC(   iBC) = sf%nDOF_BC(   BC_TYPE_SYMMZERO)
-    sf%A_Axis(:,:,iBC) = sf%A_Axis(:,:,BC_TYPE_SYMMZERO)
     !and also derivatives (2*k)=0, k=1,...,(m-2)/2  (2*k < m-1) 
     ASSOCIATE(nD=>sf%nDOF_BC(iBC))
     nD=1+(deg+1)/2 +(m-2)/2
+    IF(nD.EQ.deg+1) CYCLE ! All deg+1 DOFs at the boundary just set to zero (A_axis is already identity matrix), if deg odd and m=deg+1
     i=1
     BC_derivs(1)=0 !diri
     DO drv=1,(m-1)
@@ -651,34 +651,41 @@ IMPLICIT NONE
   DO m=0,deg+1
     iBC=-m
     ASSOCIATE(nD=>sf%nDOF_BC(iBC))
-    !precondition A via LU decomp. of A_s^T
-    ! A*x=0 , [A_s A_r]*[x1 x2] = 0  A_s*x1=-A_r*x2, U^T (PL)^T x1 = -A_r*x2 -> NEW A_s= (PL)^T, A_r = U^{-T} A_r
-    CALL getLU(nD,TRANSPOSE(sf%A_axis(1:nD,1:nD,iBC)),PLmat(1:nD,1:nD),Umat(1:nD,1:nD))
-    sf%A_axis(1:nD,1:nD      ,iBC)=TRANSPOSE(PLmat(1:nD,1:nD))
-    sf%A_axis(1:nD,nD+1:deg+1,iBC)=SOLVEMAT(TRANSPOSE(Umat(1:nD,1:nD)),sf%A_axis(1:nD,nD+1:deg+1,iBC))
-
-    !invert BC part (A_s is ( nD x nD ) and invertible):
-    !     |  A_s   A_r |        |  0                    0 |        
-    !  A= |            |  , R=  |                         |  
-    !     |   0     I  |        | -(A_s^{-1}A_r)^T     I  |
-    !
-    sf%R_axis(   1:nD   ,:   ,iBC)=0.0_wp
-    sf%R_axis(nD+1:deg+1,1:nD,iBC)=-TRANSPOSE(SOLVEMAT(sf%A_axis(1:nD,1:nD,iBC),sf%A_axis(1:nD,nD+1:deg+1,iBC)))
-
-    sf%AR_axis(      1:nD,:,iBC)=sf%A_axis(      1:nD,:,iBC)
-    sf%AR_axis(nD+1:deg+1,:,iBC)=sf%R_axis(nD+1:deg+1,:,iBC)
-    !invert BC part
-    !!sf%R_Axis(1:nD,1:nD,iBC)=INV(sf%A_Axis(1:nD,1:nD,iBC))
-    !!sf%R_Axis( :  , :  ,iBC)=TRANSPOSE(MATMUL(sf%R_Axis(:,:,iBC),sf%A_Axis(:,:,iBC)))
-    !!DO i=1,deg+1; DO j=1,i-1
-    !!  sf%R_Axis(i,j,iBC)=-sf%R_Axis(i,j,iBC)
-    !!END DO; END DO
-    !prepare for applyBC
-    sf%invA_axis(:,:,iBC)=INV(sf%A_axis(:,:,iBC))
-    !automatically set rows 1:nD to zero for R matrices (no contribution from these DOF)
-    !!sf%R_axis(1:nD,:,iBC)=0.0_wp
+    IF(nD.LT.deg+1)THEN 
+      !precondition A via LU decomp. of A_s^T
+      ! A*x=0 , [A_s A_r]*[x1 x2] = 0  A_s*x1=-A_r*x2, U^T (PL)^T x1 = -A_r*x2 -> NEW A_s= (PL)^T, A_r = U^{-T} A_r
+      CALL getLU(nD,TRANSPOSE(sf%A_axis(1:nD,1:nD,iBC)),PLmat(1:nD,1:nD),Umat(1:nD,1:nD))
+      sf%A_axis(1:nD,1:nD      ,iBC)=TRANSPOSE(PLmat(1:nD,1:nD))
+      sf%A_axis(1:nD,nD+1:deg+1,iBC)=SOLVEMAT(TRANSPOSE(Umat(1:nD,1:nD)),sf%A_axis(1:nD,nD+1:deg+1,iBC))
+      
+      !invert BC part (A_s is ( nD x nD ) and invertible):
+      !     |  A_s   A_r |        |  0                    0 |        
+      !  A= |            |  , R=  |                         |  
+      !     |   0     I  |        | -(A_s^{-1}A_r)^T     I  |
+      !
+      sf%R_axis(   1:nD   ,:   ,iBC)=0.0_wp
+      sf%R_axis(nD+1:deg+1,1:nD,iBC)=-TRANSPOSE(SOLVEMAT(sf%A_axis(1:nD,1:nD,iBC),sf%A_axis(1:nD,nD+1:deg+1,iBC)))
+      
+      sf%AR_axis(      1:nD,:,iBC)=sf%A_axis(      1:nD,:,iBC)
+      sf%AR_axis(nD+1:deg+1,:,iBC)=sf%R_axis(nD+1:deg+1,:,iBC)
+      !invert BC part
+      !!sf%R_Axis(1:nD,1:nD,iBC)=INV(sf%A_Axis(1:nD,1:nD,iBC))
+      !!sf%R_Axis( :  , :  ,iBC)=TRANSPOSE(MATMUL(sf%R_Axis(:,:,iBC),sf%A_Axis(:,:,iBC)))
+      !!DO i=1,deg+1; DO j=1,i-1
+      !!  sf%R_Axis(i,j,iBC)=-sf%R_Axis(i,j,iBC)
+      !!END DO; END DO
+      !prepare for applyBC
+      sf%invA_axis(:,:,iBC)=INV(sf%A_axis(:,:,iBC))
+      !automatically set rows 1:nD to zero for R matrices (no contribution from these DOF)
+      !!sf%R_axis(1:nD,:,iBC)=0.0_wp
+    ELSE
+      !nD=deg+1, A_axis is simply the identity!
+      sf%R_axis(   :,:,iBC)=0.0_wp
+      sf%AR_axis(  :,:,iBC)=sf%A_axis(:,:,iBC)
+      sf%invA_axis(:,:,iBC)=sf%A_axis(:,:,iBC)
+    END IF
     END ASSOCIATE !nD=>nDOF_BC(iBC)
-  END DO!m=0,deg
+  END DO!m=0,deg+1
   END ASSOCIATE !sf%...
 
 
