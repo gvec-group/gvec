@@ -65,7 +65,7 @@ SUBROUTINE get_CLA_gvec_to_jorek()
 ! MODULES
 USE MODgvec_cla
 USE MODgvec_gvec_to_jorek_Vars, ONLY: gvecfileName,FileNameOut
-USE MODgvec_gvec_to_jorek_Vars, ONLY: Ns_out,npfactor,factorField,Nthet_out,SFLcoord,cmdline, generate_test_data
+USE MODgvec_gvec_to_jorek_Vars, ONLY: Ns_out,npfactor,s_max,factorField,Nthet_out,SFLcoord,cmdline, generate_test_data
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -96,6 +96,9 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   CALL cla_register('-f',  '--factorfield', &
        'factor(real number) on max. mode numbers (mn_max_out=factorfield*mn_max_in) in output representation. [DEFAULT = 1.0]',&
              cla_float,'1.0')
+  CALL cla_register('-x',  '--smax', &
+       'radial range goes from [0,1]*smax, thats THE RADIAL LIKE COORDINATE.0 < smax<=1.0 [DEFAULT = 1.0]',&
+             cla_float,'1.0')
   CALL cla_register('-g',  '--generate_test_data', &
        'determine whether test data is generated  [DEFAULT = FALSE]', cla_int,'.false.')
   !positional argument
@@ -111,6 +114,7 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
 !!!!!  CALL cla_get('-t',Nzeta_out)
   CALL cla_get('-s',SFLcoord)
   CALL cla_get('-f',factorField)
+  CALL cla_get('-x',s_max)
   CALL cla_get('-g',generate_test_data)
   CALL cla_get('gvecfile.dat',f_str)
   gvecfilename=TRIM(f_str)
@@ -137,6 +141,10 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   END IF
   IF((INDEX(FileNameOut,'yyy').NE.0))THEN
     FileNameOut="gvec2jorek_"//TRIM(gvecfilename)
+  END IF
+  IF((s_max.GT.1.0_wp).OR.(s_max.LE.0.0_wp)) THEN
+    commandFailed=.TRUE.
+    SWRITE(UNIT_StdOut,*) " ==> input parameter smax must be 0.0<smax <=1.0!!!"
   END IF
   IF(commandFailed) STOP
 
@@ -407,7 +415,9 @@ CALL get_field(3,5,J_phi)
 SWRITE(UNIT_stdOut,'(A)')'PREPARE 3D DATA FOR GVEC-TO-JOREK ...'
 CALL ProgressBar(0,Ns_out) !init
 DO i_s=1,Ns_out
-  spos          = s_pos(i_s)
+  !!spos  = s_pos(i_s)
+  !! SCALE DOMAIN TO s=s_logical*s_max
+  spos = s_pos(i_s)*s_max
 
   Phi_int     = sbase_prof%evalDOF_s(spos,       0 ,profiles_1d(:,1))
   dPhids_int  = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
@@ -476,7 +486,7 @@ DO i_s=1,Ns_out
 !$OMP           Acart,A_orig,grad_s,grad_thet,grad_zeta,grad_R,grad_Z,                                                   &
 !$OMP           Bthet,Bzeta,Bcart,B_orig)                                                                                      &
 !$OMP   FIRSTPRIVATE(dLAdthet,dLAdzeta,G_int,dGds,dGdthet,dGdzeta)                                                             &
-!$OMP   SHARED(i_s,Nzeta_out,Nthet_out,spos, thet_pos,zeta_pos,X1_base_in,X2_base_in,LG_base_in,out_base,                      &
+!$OMP   SHARED(i_s,Nzeta_out,Nthet_out,spos,s_pos,s_max, thet_pos,zeta_pos,X1_base_in,X2_base_in,LG_base_in,out_base,               &
 !$OMP          hmap_r,X1_s,dX1ds_s,X2_s,dX2ds_s,LG_s,SFLcoord, Phi_int, dPhids_int, iota_int, Chi_int, dChids_int, P_int, dPds_int, &
 !$OMP          A_R_s, A_Rds_int,A_Z_s, A_Zds_int,A_phi_s, A_phids_int, B_R_s, B_Rds_int,B_Z_s, B_Zds_int,B_phi_s, B_phids_int,      & 
 !$OMP          J_R_s, J_Rds_int,J_Z_s, J_Zds_int,J_phi_s, J_phids_int,                                                              &
@@ -586,55 +596,60 @@ DO i_s=1,Ns_out
 
     !========== 
     ! save data
-    data_scalar3D(ithet,izeta,i_s, S__)          = spos 
+
+    !!! SCALED DOMAIN: NEW LOGICAL DOMAIN REMAINS s_logical=[0,1],
+    !!!                -->  position to evaluated was s = s_logical*s_max ,  d/ds_logical = ds/ds_logical * d/ds = s_max *d/ds
+
+    !!! data_scalar3D(ithet,izeta,i_s, S__)          = spos 
+    data_scalar3D(ithet,izeta,i_s, S__)          = s_pos(i_s) !! =s_new, 
     data_scalar3D(ithet,izeta,i_s, THET__)       = thet_pos(ithet) 
     data_scalar3D(ithet,izeta,i_s, ZETA__)       = zeta_pos(izeta)
     data_scalar3D(ithet,izeta,i_s, X1__)         = X1_int 
-    data_scalar3D(ithet,izeta,i_s, X1_S__)       = dX1ds 
+    data_scalar3D(ithet,izeta,i_s, X1_S__)       = dX1ds *s_max !! scale s-derivative with new domain size d/ds_new=d/ds*ds/ds_new
     data_scalar3D(ithet,izeta,i_s, X1_T__)       = dX1dthet 
-    data_scalar3D(ithet,izeta,i_s, X1_ST__)      = d2X1dsdthet 
+    data_scalar3D(ithet,izeta,i_s, X1_ST__)      = d2X1dsdthet *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, X2__)         = X2_int
-    data_scalar3D(ithet,izeta,i_s, X2_S__)       = dX2ds
+    data_scalar3D(ithet,izeta,i_s, X2_S__)       = dX2ds *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, X2_T__)       = dX2dthet
-    data_scalar3D(ithet,izeta,i_s, X2_ST__)      = d2X2dsdthet
+    data_scalar3D(ithet,izeta,i_s, X2_ST__)      = d2X2dsdthet *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, P__)          = P_int
-    data_scalar3D(ithet,izeta,i_s, P_S__)        = dPds_int
+    data_scalar3D(ithet,izeta,i_s, P_S__)        = dPds_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, A_R__)        = A_R_int
-    data_scalar3D(ithet,izeta,i_s, A_R_S__)      = dA_Rds_int
+    data_scalar3D(ithet,izeta,i_s, A_R_S__)      = dA_Rds_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, A_R_T__)      = dA_Rdthet_int
-    data_scalar3D(ithet,izeta,i_s, A_R_ST__)     = d2A_Rdsdthet_int
+    data_scalar3D(ithet,izeta,i_s, A_R_ST__)     = d2A_Rdsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, A_Z__)        = A_Z_int
-    data_scalar3D(ithet,izeta,i_s, A_Z_S__)      = dA_Zds_int
+    data_scalar3D(ithet,izeta,i_s, A_Z_S__)      = dA_Zds_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, A_Z_T__)      = dA_Zdthet_int
-    data_scalar3D(ithet,izeta,i_s, A_Z_ST__)     = d2A_Zdsdthet_int
+    data_scalar3D(ithet,izeta,i_s, A_Z_ST__)     = d2A_Zdsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, A_phi__)      = A_phi_int
-    data_scalar3D(ithet,izeta,i_s, A_phi_S__)    = dA_phids_int
+    data_scalar3D(ithet,izeta,i_s, A_phi_S__)    = dA_phids_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, A_phi_T__)    = dA_phidthet_int
-    data_scalar3D(ithet,izeta,i_s, A_phi_ST__)   = d2A_phidsdthet_int
+    data_scalar3D(ithet,izeta,i_s, A_phi_ST__)   = d2A_phidsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, B_R__)        = B_R_int
-    data_scalar3D(ithet,izeta,i_s, B_R_S__)      = dB_Rds_int
+    data_scalar3D(ithet,izeta,i_s, B_R_S__)      = dB_Rds_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, B_R_T__)      = dB_Rdthet_int
-    data_scalar3D(ithet,izeta,i_s, B_R_ST__)     = d2B_Rdsdthet_int
+    data_scalar3D(ithet,izeta,i_s, B_R_ST__)     = d2B_Rdsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, B_Z__)        = B_Z_int
-    data_scalar3D(ithet,izeta,i_s, B_Z_S__)      = dB_Zds_int
+    data_scalar3D(ithet,izeta,i_s, B_Z_S__)      = dB_Zds_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, B_Z_T__)      = dB_Zdthet_int
-    data_scalar3D(ithet,izeta,i_s, B_Z_ST__)     = d2B_Zdsdthet_int
+    data_scalar3D(ithet,izeta,i_s, B_Z_ST__)     = d2B_Zdsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, B_phi__)      = B_phi_int
-    data_scalar3D(ithet,izeta,i_s, B_phi_S__)    = dB_phids_int
+    data_scalar3D(ithet,izeta,i_s, B_phi_S__)    = dB_phids_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, B_phi_T__)    = dB_phidthet_int
-    data_scalar3D(ithet,izeta,i_s, B_phi_ST__)   = d2B_phidsdthet_int
+    data_scalar3D(ithet,izeta,i_s, B_phi_ST__)   = d2B_phidsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, J_R__)        = J_R_int
-    data_scalar3D(ithet,izeta,i_s, J_R_S__)      = dJ_Rds_int
+    data_scalar3D(ithet,izeta,i_s, J_R_S__)      = dJ_Rds_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, J_R_T__)      = dJ_Rdthet_int
-    data_scalar3D(ithet,izeta,i_s, J_R_ST__)     = d2J_Rdsdthet_int
+    data_scalar3D(ithet,izeta,i_s, J_R_ST__)     = d2J_Rdsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, J_Z__)        = J_Z_int
-    data_scalar3D(ithet,izeta,i_s, J_Z_S__)      = dJ_Zds_int
+    data_scalar3D(ithet,izeta,i_s, J_Z_S__)      = dJ_Zds_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, J_Z_T__)      = dJ_Zdthet_int
-    data_scalar3D(ithet,izeta,i_s, J_Z_ST__)     = d2J_Zdsdthet_int
+    data_scalar3D(ithet,izeta,i_s, J_Z_ST__)     = d2J_Zdsdthet_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, J_phi__)      = J_phi_int
-    data_scalar3D(ithet,izeta,i_s, J_phi_S__)    = dJ_phids_int
+    data_scalar3D(ithet,izeta,i_s, J_phi_S__)    = dJ_phids_int *s_max !! scale s-derivative with new domain size
     data_scalar3D(ithet,izeta,i_s, J_phi_T__)    = dJ_phidthet_int
-    data_scalar3D(ithet,izeta,i_s, J_phi_ST__)   = d2J_phidsdthet_int
+    data_scalar3D(ithet,izeta,i_s, J_phi_ST__)   = d2J_phidsdthet_int *s_max !! scale s-derivative with new domain size
     !========== 
 
   END DO ; END DO !izeta,ithet

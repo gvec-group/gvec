@@ -36,6 +36,7 @@ INTEGER            :: npfactor               !< factor theta,zeta resolution Nth
 INTEGER            :: SFLcoord               !< which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL
 !INTEGER            :: factorSFL              !< factor for SFL coordinates, mn_max_sfl=mn_max*factorSFL, default=3
 REAL(wp)            :: factorField            !< factor for output field representation, mn_max_out=mn_max*factorField, default=1
+REAL(wp)            :: s_max                 !< radial range goes from [0,1]*smax, thats THE RADIAL LIKE COORDINATE. 0 < smax<=1.0 , default=1
 CHARACTER(LEN=700) :: cmdline                !< full command line stored
 LOGICAL            :: generate_test_data     !< Determine whether to generate fourier representation, or test data for JOREK
 !-----------------------------------------------------------------------------------------------------------------------------------
