@@ -50,15 +50,16 @@ INTEGER               :: Nzeta_out          !< total number of points in zeta di
 REAL(wp),ALLOCATABLE  :: s_pos(:)           !< positions in s for evaluation s=sqrt(phi/phiEdge), size (Ns_out)
 REAL(wp),ALLOCATABLE  :: thet_pos(:)        !< positions in theta for evaluation, size (Nthet_out)
 REAL(wp),ALLOCATABLE  :: zeta_pos(:)        !< positions in zeta for evaluation , size (Nzeta_out)
-INTEGER               :: n_modes
-INTEGER               :: sin_range(2), cos_range(2)     !< maximum number of modes in m,n
+INTEGER               :: n_modes            !< total number of toroidal modes in output (from fbase_zeta)
+INTEGER               :: sin_range(2)       !< start/end position of sin of toroidal modes in output (from fbase_zeta)
+INTEGER               :: cos_range(2)       !< start/end position of cos of toroidal modes in output (from fbase_zeta)
 
 !base needed for evaluation on increased mode numbers / integration points
 CLASS(t_Base),ALLOCATABLE           :: out_base        !< same full base for  all output fields 
 CLASS(t_fBase),ALLOCATABLE          :: X1_fbase_nyq    !< same as X1_base_r%f exept integration points
 CLASS(t_fBase),ALLOCATABLE          :: X2_fbase_nyq    !< same as X2_base_r%f exept integration points
 CLASS(t_fBase),ALLOCATABLE          :: LA_fbase_nyq    !< same as LA_base_r%f exept integration points
-
+CLASS(t_fBase),ALLOCATABLE          :: fbase_zeta      !< base for doing a fourier transform in zeta only, for 1D toroidal representation
 !1D data - Unnecessary for initial JOREK import
 !INTEGER,PARAMETER     :: nVar1D = 0          !< number of variables in 1d profiles
 !INTEGER,PARAMETER     :: SPOS__    = 1

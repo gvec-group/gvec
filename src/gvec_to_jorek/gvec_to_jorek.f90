@@ -261,16 +261,19 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
     zeta_pos(i)=phi_direction * (TWOPI*REAL((i-0.5),wp))/REAL((Nzeta_out*nfp_out),wp)
   END DO
 
-  n_modes = X1_base_r%f%modes
-  ALLOCATE(data_scalar2D(Nthet_out, Ns_out, n_modes,nVarScalar2D))
-  ALLOCATE(data_scalar3D(  Nthet_out,Nzeta_out,Ns_out,nVarscalar3D))
+  CALL Init_Base(mn_max_out,fac_nyq_fields)
+
+  n_modes      = fbase_zeta%modes
+  sin_range(:) = fbase_zeta%sin_range(:)
+  cos_range(:) = fbase_zeta%cos_range(:)
+  ALLOCATE(data_scalar2D(Nthet_out,  Ns_out,n_modes,nVarScalar2D))
+  ALLOCATE(data_scalar3D(Nthet_out,Nzeta_out,Ns_out,nVarscalar3D))
   !ALLOCATE(data_vector3D(3,Nthet_out,Nzeta_out,Ns_out,nVarvector3D))
 
   SWRITE(UNIT_stdOut,'(A,3I6)')'  Number OF N_s,N_theta,N_zeta evaluation points:',Ns_out,Nthet_out,Nzeta_out
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
  
-  CALL Init_Base(mn_max_out,fac_nyq_fields)
 
   SELECT CASE(SFLcoord)
   CASE(0) ! GVEC coordinates - toroidal coordinate is the cylindrical toroidal direction
@@ -291,7 +294,7 @@ USE MODgvec_Globals,ONLY: UNIT_stdOut
 USE MODgvec_base   ,ONLY: base_new
 USE MODgvec_fbase  ,ONLY: fbase_new,sin_cos_map
 USE MODgvec_ReadState_vars  ,ONLY: X1_base_r,X2_base_r,LA_base_r
-USE MODgvec_gvec_to_jorek_vars, ONLY: X1_fbase_nyq,X2_fbase_nyq,LA_fbase_nyq,out_base
+USE MODgvec_gvec_to_jorek_vars, ONLY: X1_fbase_nyq,X2_fbase_nyq,LA_fbase_nyq,out_base,fbase_zeta,Nzeta_out
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -314,6 +317,7 @@ IMPLICIT NONE
                            '_sincos_   ', &  !full basis
                            .False.) !do not exclude m=n=0
 
+  CALL fbase_new(fbase_zeta, (/0, mn_max(2)/), (/1, Nzeta_out/), X1_base_r%f%nfp, "_sincos_", .false.)
   ! Initialise bases for existing grid at higher number of integration points, based on nyquist condition
   CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
                                 X1_base_r%f%nfp, &
@@ -387,7 +391,6 @@ REAL(wp),DIMENSION(1:out_base%f%modes)   :: B_R_s, B_Rds_int, B_Z_s, B_Zds_int, 
 REAL(wp),DIMENSION(1:out_base%f%modes)   :: J_R_s, J_Rds_int, J_Z_s, J_Zds_int, J_phi_s, J_phids_int
 REAL(wp),DIMENSION(1:LG_base_in%f%modes) :: LG_s
 
-CLASS(t_fBase),ALLOCATABLE              :: fbase_zeta                                                                           ! Basis for 1D toroidal representation
 
 ! Variables for new GVEC fourier representations needed for JOREK inputs
 REAL(wp),DIMENSION(out_base%s%nBase,out_base%f%modes):: A_R, A_Z, A_phi !< data (1:nBase,1:modes) of A_* in GVEC coords
@@ -720,10 +723,6 @@ map_vars_3D_2D(J_phi2D_S__)   =J_phi_S__
 map_vars_3D_2D(J_phi2D_T__)   =J_phi_T__
 map_vars_3D_2D(J_phi2D_ST__)  =J_phi_ST__
 
-CALL fbase_new(fbase_zeta, (/0, X1_base_in%f%mn_max(2)/), (/1, Nzeta_out/), X1_base_in%f%nfp, "_sincos_", .false.)
-n_modes = fbase_zeta%modes
-sin_range(:) = fbase_zeta%sin_range(:)
-cos_range(:) = fbase_zeta%cos_range(:)
 data_scalar2D=0.0_wp
 DO iVar=1,nVarScalar2D
   jVar=map_vars_3D_2D(iVar) 
@@ -1273,9 +1272,11 @@ IMPLICIT NONE
   CALL X1_fbase_nyq%free()
   CALL X2_fbase_nyq%free()
   CALL LA_fbase_nyq%free()
+  CALL fbase_zeta%free()
   DEALLOCATE(X1_fbase_nyq)
   DEALLOCATE(X2_fbase_nyq)
   DEALLOCATE(LA_fbase_nyq)
+  DEALLOCATE(fbase_zeta)
 
 
 END SUBROUTINE finalize_gvec_to_jorek
