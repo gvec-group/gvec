@@ -128,10 +128,10 @@ END SUBROUTINE init_gvec_to_gene
 !> Scalar variables of the equilibrium
 !!
 !===================================================================================================================================
-SUBROUTINE gvec_to_gene_scalars(Fa,minor_r,PhiPrime_edge,q_edge,n0_global)
+SUBROUTINE gvec_to_gene_scalars(Fa,minor_r,PhiPrime_edge,q_edge,n0_global,major_R)
 ! MODULES
 USE MODgvec_globals,ONLY: TWOPI
-USE MODgvec_ReadState_Vars,ONLY: a_minor,X1_base_r,sbase_prof,profiles_1d
+USE MODgvec_ReadState_Vars,ONLY: a_minor,X1_base_r,sbase_prof,profiles_1d,r_major
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -142,6 +142,7 @@ REAL(wp),INTENT(OUT) :: minor_r           !! length scale, minor radius
 REAL(wp),INTENT(OUT) :: phiPrime_edge     !! toroidal flux derivative dPhi/ds at the edge. phi'=chi'*q
 REAL(wp),INTENT(OUT) :: q_edge            !! q-profile evaluated at the edge. q=phi'/chi'
 INTEGER, INTENT(OUT) :: n0_global         !! number of field periods
+REAL(wp),INTENT(OUT),OPTIONAL :: major_R  !! major radius
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -150,6 +151,7 @@ minor_r   = a_minor
 n0_global = X1_base_r%f%nfp
 PhiPrime_edge = sbase_prof%evalDOF_s(1.0, DERIV_S,profiles_1d(:,1))
 q_edge    = 1./(sbase_prof%evalDOF_s(1.0,       0,profiles_1d(:,3)) ) !q=1/iota
+IF(PRESENT(major_R)) major_R=r_major
 
 END SUBROUTINE gvec_to_gene_scalars
 
