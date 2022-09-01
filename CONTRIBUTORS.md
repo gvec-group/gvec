@@ -10,5 +10,5 @@ This is a (possibly incomplete) list of the people who contributed to GVEC
 * Erika Strumberger (2019..)
 * Joachim Geiger (2019..)
 * Matthias Borchardt (2019)
-
+* Rohan Ramasamy (2021)
 
