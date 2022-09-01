@@ -282,8 +282,54 @@ for sflcoord in ["0","1","2"]:
     print(msg)
 
 #########################################################################
+### GVEC TO CASTOR3D 
+#########################################################################
+caseID=caseID+1
+if(cases[0]==0 or (caseID in cases)) :
+  casename="convert_gvec_to_jorek"
+  print("running caseID %d ,%s ... " % (caseID,casename))
+  execbin="../"+builddir+"/bin/convert_gvec_to_jorek"
+  outfile="gvec2jorek_output.dat"
+  if(not os.path.isfile(execbin)):
+    msg=("caseID: %d, %s test failed, executable does not exist" % (caseID,casename))
+    failed.extend([msg])
+  else:
+    runfailed=[]
+    cmd=execbin+" -r 4 -p 8 " + restartFile + " "+outfile
+    print(cmd)
+    stdout="std_out_"+casename+".txt"
+    stderr="std_err_"+casename+".txt"
+    os.system(cmd+" 2>"+stderr+" 1>"+stdout)
+    checkerr = check_stderr(stderr)
+    if(not checkerr):
+      msg=("caseID: %d, %s test failed, problem in stderr !!!" % (caseID,casename))
+      runfailed.extend([msg])
+    checkout = check_stdout(stdout,"CONVERT GVEC TO JOREK FINISHED!")
+    if(not checkout):
+      msg=("caseID: %d, %s test failed, problem in stdout !!!" % (caseID,casename))
+      runfailed.extend([msg])
+    nodiff,msg = compare_by_numdiff(refdir,'REF_'+outfile,'',outfile,ignore_strings=['#']
+                                    ,abstol="1e-8"  # for large numbers,  difference debug/release
+                                    ,ignore_line_ranges=["1145,$"]) # ignore the current, computed with FD 
+    msg=("caseID: %d, %s , %s" %(caseID,casename,msg))
+    if (nodiff):
+      success.extend([msg])
+    else:
+      runfailed.extend([msg])
+    if(len(runfailed) > 0) :
+      for line in runfailed :
+         print( "!!!! ---> "+line )
+      msg=("caseID: %d, %s test failed!"  %(caseID,casename))
+      failed.extend(runfailed)
+    else:
+      msg=("caseID: %d, %s did execute successfully!"  %(caseID,casename))
+      success.extend([msg])
+  print(msg)
+
+#########################################################################
 # SUMMARY
 #########################################################################
+
 
 print( "successful tests:")
 for line in success :

@@ -475,10 +475,10 @@ IMPLICIT NONE
     var_visu(7,i_s,:,:,:)=SQRT(Phi_prof(i_s)/Phi_prof(n_s)) !=s
     IF(lasym)THEN
       var_visu(10,i_s,:,:,:) = SUM(xm(:)**(4+1)*(Rmnc(:,i_s)**2+Rmns(:,i_s)**2+Zmnc(:,i_s)**2+Zmns(:,i_s)**2))/&  !pexp=4, qexp=1
-                               SUM(xm(:)**(4  )*(Rmnc(:,i_s)**2+Rmns(:,i_s)**2+Zmnc(:,i_s)**2+Zmns(:,i_s)**2))
+                               (SUM(xm(:)**(4  )*(Rmnc(:,i_s)**2+Rmns(:,i_s)**2+Zmnc(:,i_s)**2+Zmns(:,i_s)**2))+1.0e-14)
     ELSE
       var_visu(10,i_s,:,:,:) = SUM(xm(:)**(4+1)*(Rmnc(:,i_s)**2+Zmns(:,i_s)**2))/&  !pexp=4, qexp=1
-                               SUM(xm(:)**(4  )*(Rmnc(:,i_s)**2+Zmns(:,i_s)**2))
+                               (SUM(xm(:)**(4  )*(Rmnc(:,i_s)**2+Zmns(:,i_s)**2))+1.0e-14)
     END IF
   END DO !i_s
   DO i_n=1,mn_IP(2)
@@ -576,7 +576,7 @@ IMPLICIT NONE
   END IF
   WRITE(filename,'(A,A)')TRIM(Projectname),"_profile_1D_VMEC.csv"
   CALL WriteDataToCSV(VarNames(:) ,var_visu(:,:,1,1,1) ,TRIM(filename)  &
-                                  ,append_in=.FALSE.,vfmt_in='E15.5')
+                                  ,append_in=.FALSE.)
 
   END ASSOCIATE
 

@@ -155,7 +155,6 @@ IMPLICIT NONE
   REAL(wp) :: LA_s(LA_base%f%modes),F_LA_s(LA_base%f%modes)
   REAL(wp) :: X1_visu,X2_visu,dX1_ds,dX2_ds,dX1_dthet,dX1_dzeta,dX2_dthet,dX2_dzeta
   REAL(wp) :: dLA_dthet,dLA_dzeta,iota_s,pres_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
-#define VISU_J_EXACT = 1
 #if (defined(VISU_J_FD) || defined(VISU_J_EXACT))
   INTEGER,PARAMETER  :: nVal=32
   INTEGER            :: VP_J
@@ -312,7 +311,7 @@ IMPLICIT NONE
       var_visu(VP_Mscale,i_s,:,:,:,iElem) = (SUM(X1_base%f%Xmn(1,:)**(4+1)*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*X2_s(:)**2))/&  !pexp=4, qexp=1
                                             (SUM(X1_base%f%Xmn(1,:)**(4  )*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*X2_s(:)**2))
       var_visu(VP_MscaleF,i_s,:,:,:,iElem)= (SUM(X1_base%f%Xmn(1,:)**(4+1)*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*F_X2_s(:)**2))/&  !pexp=4, qexp=1
-                                            (SUM(X1_base%f%Xmn(1,:)**(4  )*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*F_X2_s(:)**2)+1e-14)
+                                            (SUM(X1_base%f%Xmn(1,:)**(4  )*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*F_X2_s(:)**2)+1.0e-14)
 #ifdef VISU_J_FD
       ! for Finite  Difference in s
       if (i_s .ne. n_s) then !switch sign of finite difference at last point
@@ -714,9 +713,9 @@ IMPLICIT NONE
                           var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   END IF
   __PERFOFF("write_visu")
-  WRITE(filename,'(A,"_profile_1D_",I4.4,"_",I8.8,".csv")')TRIM(Projectname),outputLevel,fileID
+  WRITE(filename,'(A,"_visu_1D_",I4.4,"_",I8.8,".csv")')TRIM(Projectname),outputLevel,fileID
   CALL WriteDataToCSV(VarNames(:) ,RESHAPE(var_visu(:,:,1,1,1,:),(/nVal,n_s*nElems/)) ,TRIM(filename)  &
-                                  ,append_in=.FALSE.,vfmt_in='E15.5')
+                                  ,append_in=.FALSE.)
 
   
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
@@ -1085,7 +1084,7 @@ IMPLICIT NONE
 
   END ASSOCIATE !s_visu
   CALL WriteDataToCSV(VarNames(:) ,values_visu(:,:) ,TRIM(fname_in)  &
-                                  ,append_in=.FALSE.,vfmt_in='E15.5')
+                                  ,append_in=.FALSE.)
 
 END SUBROUTINE eval_1d_profiles
 
