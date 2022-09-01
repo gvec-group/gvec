@@ -306,7 +306,7 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 ! Find values of pi in the string
-CALL getPImultiplies(helpstr)
+!CALL getPImultiplies(helpstr)
 READ(HelpStr,*,IOSTAT=ioerr)GetReal
 IF(ioerr.NE.0)THEN
   WRITE(*,*)'PROBLEM IN READIN OF LINE (real):'
@@ -564,7 +564,7 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-CALL getPImultiplies(helpstr)
+!CALL getPImultiplies(helpstr)
 !count number of components
 astr=var_str(TRIM(helpstr))
 iReal=0
@@ -643,7 +643,7 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-CALL getPImultiplies(helpstr)
+!CALL getPImultiplies(helpstr)
 !count number of components
 astr=var_str(TRIM(helpstr))
 nReals=0
