@@ -23,9 +23,29 @@
 
 #if MPI
 #  define SWRITE IF(MPIRoot) WRITE
+#  ifdef NO_MPI_F08
+#    define USE_MPI USE mpi
+#    define MPI_comm_TYPE INTEGER
+#    define MPI_datatype_TYPE INTEGER
+#    define MPI_request_TYPE INTEGER
+#    define MPI_status_TYPE INTEGER, DIMENSION(MPI_STATUS_SIZE)
+#    define MPI_op_TYPE INTEGER
+#  else
+#    define USE_MPI USE mpi_f08
+#    define MPI_comm_TYPE TYPE(MPI_COMM)
+#    define MPI_datatype_TYPE TYPE(MPI_DATATYPE)
+#    define MPI_request_TYPE TYPE(MPI_REQUEST)
+#    define MPI_status_TYPE TYPE(MPI_STATUS)
+#    define MPI_op_TYPE TYPE(MPI_OP)
+#  endif
 #else
+#  define USE_MPI
 #  define SWRITE WRITE
+#  define MPI_comm_TYPE INTEGER
+#  define MPI_datatype_TYPE INTEGER
+#  define MPI_request_TYPE INTEGER
 #endif
+
 #define SDEALLOCATE(A) IF(ALLOCATED(A)) DEALLOCATE(A)
 
 #ifdef PP_FTIMINGS

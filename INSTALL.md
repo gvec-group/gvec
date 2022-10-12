@@ -96,3 +96,19 @@ If you want to run gvec with the OpenMP parallelization, be sure to set the desi
    export OMP_NUM_THREADS=??
 ```
 
+#### Compiling on Cobra cluster with MPI (Oct 2022)
+
+Load the modules and export the fortran compiler : 
+
+```
+    module purge
+    module load git cmake 
+    module load intel/19.1.3 mkl hdf5-serial
+    module load impi/2019.9
+    export FC=`which mpiifort`
+```
+Example for an interactive run:
+```
+    srun  --nodes=1 --ntasks-per-node=#MPItasks --cpus-per-task=$OMP_NUM_THREADS #cores -p interactive --time=TIME_LESS_THAN_2HOURS --mem=MEMORY_LESS_THAN_32G build/bin/gvec ini/performance/parameter_tiagoMPI.ini
+```
+

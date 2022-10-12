@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -24,7 +25,6 @@ MODULE MODgvec_MHD3D_Vars
 USE MODgvec_Globals,ONLY: PI,wp,Unit_stdOut,abort
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base
-USE MODgvec_fbase,  ONLY: t_fbase
 USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
 USE MODgvec_c_hmap, ONLY: c_hmap
 IMPLICIT NONE

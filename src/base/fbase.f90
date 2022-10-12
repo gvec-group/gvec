@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -24,9 +25,11 @@
 !===================================================================================================================================
 MODULE MODgvec_fBase
 ! MODULES
-USE MODgvec_Globals                  ,ONLY: TWOPI,wp,Unit_stdOut,abort
+USE MODgvec_Globals                  ,ONLY: TWOPI,wp,Unit_stdOut,abort,MPIRoot
 IMPLICIT NONE
-PUBLIC
+
+PRIVATE
+PUBLIC t_fbase,fbase_new
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
@@ -43,7 +46,11 @@ TYPE, ABSTRACT :: c_fBase
   !input parameters
   LOGICAL              :: exclude_mn_zero  !!  =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: modes       !! total number of modes in basis (depends if only sin/cos or sin & cos are used)
+  INTEGER              :: modes       !! total(global) number of modes in basis (depends if only sin/cos or sin & cos are used)
+  INTEGER              :: modes_str, modes_end   !! local range of modes, when distributed over MPI subdomains 
+  INTEGER,ALLOCATABLE  :: offset_modes(:)        !! allocated (0:nRanks), gives range on each rank: 
+                                                 !!   modes_str:modes_end=offset_modes(myRank)+1:offset_modes(myRank+1)
+  INTEGER,ALLOCATABLE  :: whichRank(:)           !! know the MPI rank for each mode
   CONTAINS
     PROCEDURE(i_sub_fBase_init          ),DEFERRED :: init
     PROCEDURE(i_sub_fBase_free          ),DEFERRED :: free
@@ -54,7 +61,7 @@ TYPE, ABSTRACT :: c_fBase
     PROCEDURE(i_fun_fBase_evalDOF_x     ),DEFERRED :: evalDOF_x
     PROCEDURE(i_fun_fBase_evalDOF_IP    ),DEFERRED :: evalDOF_IP
     PROCEDURE(i_fun_fBase_initDOF       ),DEFERRED :: initDOF
-
+    PROCEDURE(i_sub_fBase_projectIPtoDOF),DEFERRED :: projectIPtoDOF
 END TYPE c_fBase
 
 ABSTRACT INTERFACE
@@ -147,8 +154,8 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: sin_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases 
-  INTEGER              :: cos_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases 
+  INTEGER              :: sin_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases
+  INTEGER              :: cos_range(2)        !! sin_range(1)+1:sin_range(2) is range with cosine bases
   INTEGER              :: mn_zero_mode        !! points to m=0,n=0 mode in mode array (1:mn_modes) (only one can exist for cosine, else =-1)
   REAL(wp)             :: d_thet              !! integration weight in theta direction: =2pi/mn_nyq(1)
   REAL(wp)             :: d_zeta              !! integration weight in zeta direction : =nfp*(2pi/nfp)/mn_nyq(2)=2*pi/mn_nyq(2)
@@ -159,7 +166,7 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   REAL(wp),ALLOCATABLE :: base_dthet_IP(:,:)  !! dthet derivative of basis functions, (1:mn_IP,1:modes)
   REAL(wp),ALLOCATABLE :: base_dzeta_IP(:,:)  !! dzeta derivative of basis functions, (1:mn_IP,1:modes)
 
-  REAL(wp),ALLOCATABLE :: snorm_base(:)       !! 1/norm of each basis function, size(1:mn_modes), norm=int_0^2pi int_0^pi (base_mn(thet,zeta))^2 dthet dzeta 
+  REAL(wp),ALLOCATABLE :: snorm_base(:)       !! 1/norm of each basis function, size(1:modes), norm=int_0^2pi int_0^pi (base_mn(thet,zeta))^2 dthet dzeta
   INTEGER              :: mTotal1D            !! mTotal1D =mn_max(1)+1  for sin or cos base, and mTotal=2*(mn_max(1)+1) for sin&cos base
   REAL(wp),ALLOCATABLE :: base1D_IPthet(:,:,:) !! 1D basis,  size(1:mn_nyq(1),1:2,1:mTotal1D), 
                                                !! if sin(m t-n z):   sin(m t), -cos(m t) and if cos(m t-n z): cos(m t),sin(m t)
@@ -201,7 +208,7 @@ CONTAINS
 !> allocate the type fBase 
 !!
 !===================================================================================================================================
-SUBROUTINE fBase_new( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+SUBROUTINE fBase_new( fbase_in, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -213,13 +220,13 @@ IMPLICIT NONE
   LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
+  CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: fbase_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  ALLOCATE(t_fBase :: sf)
+  ALLOCATE(t_fBase :: fbase_in)
   __PERFON("fbase_new")
-  CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+  CALL fbase_in%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 
   __PERFOFF("fbase_new")
 END SUBROUTINE fBase_new
@@ -230,6 +237,7 @@ END SUBROUTINE fBase_new
 !===================================================================================================================================
 SUBROUTINE fBase_init( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
+USE MODgvec_MPI,     ONLY: myRank, nRanks
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -243,7 +251,7 @@ IMPLICIT NONE
   CLASS(t_fBase), INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,iMode,m,n,mIP,nIP,mn_excl
+  INTEGER :: i,iMode,m,n,mIP,nIP,mn_excl,iRank
   INTEGER :: modes_sin,modes_cos
   REAL(wp):: mm,nn
 !===================================================================================================================================
@@ -293,8 +301,8 @@ IMPLICIT NONE
             , cos_range  => sf%cos_range &
             )
   mn_excl=MERGE(1,0,sf%exclude_mn_zero) !=1 if exclude=TRUE, =0 if exclude=FALSE
-  ! modes_sin :: m=0: n=1...nMax , m=1...m_max: n=-n_max...n_max. REMARK: for sine, m=0,n=0 is automatically excluded
-  ! mode_ cos :: m=0: n=0...nMax , m=1...m_max: n=-n_max...n_max. mn_excl=True will exclude m=n=0 
+  ! modes_sin :: m=0: n=1...n_max , m=1...m_max: n=-n_max...n_max. REMARK: for sine, m=0,n=0 is automatically excluded
+  ! modes_cos :: m=0: n=0...n_max , m=1...m_max: n=-n_max...n_max. mn_excl=True will exclude m=n=0 
   modes_sin= (n_max  )         + m_max*(2*n_max+1) 
   modes_cos= (n_max+1)-mn_excl + m_max*(2*n_max+1) 
   SELECT CASE(sin_cos)
@@ -314,6 +322,23 @@ IMPLICIT NONE
     cos_range(:) = (/modes_sin,modes/) 
     sf%mTotal1D=2*(m_max+1)
   END SELECT
+
+  !MPI DECOMPOSITION OF MODES INTO EQUAL MODE GROUPS, FOR PARALLELIZING COMPUTATIONS DONE SEPARATELY ON EACH MODE
+  ALLOCATE(sf%offset_modes(0:nRanks))
+  sf%offset_modes(0)=0 
+  DO iRank=0,nRanks-1
+    sf%offset_modes(iRank+1)=(modes*(iRank+1))/nRanks
+  END DO
+  sf%modes_str = sf%offset_modes(myRank  )+1
+  sf%modes_end = sf%offset_modes(myRank+1)
+  IF(MPIroot)THEN
+    iRank=COUNT((sf%offset_modes(1:nRanks)-sf%offset_modes(0:nRanks-1)) .EQ. 0)
+    IF (iRank.GT.0) THEN
+      WRITE(*,'(5X,A,I4,A,I4,A)') &
+      'WARNING: more MPI ranks than number of modes! ', iRank , ' ranks of ' ,nRanks, &
+              ' have no modes associated. This only affects MPI scaling.'
+    END IF
+  END IF
 
   CALL fbase_alloc(sf)
   
@@ -530,6 +555,7 @@ IMPLICIT NONE
   SDEALLOCATE(sf%base1D_dthet_IPthet)
   SDEALLOCATE(sf%base1D_IPzeta)
   SDEALLOCATE(sf%base1D_dzeta_IPzeta)
+  SDEALLOCATE(sf%offset_modes)
   
   sf%mn_max     =-1
   sf%mn_nyq     =-1 
@@ -914,7 +940,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes (sf%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y_IP(sf%mn_IP)

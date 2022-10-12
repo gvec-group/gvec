@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -19,12 +20,16 @@
 !!
 !===================================================================================================================================
 PROGRAM GVEC
-USE MODgvec_Globals
+USE_MPI
+USE MODgvec_MPI,        ONLY : par_Init, par_Finalize, nRanks
+USE MODgvec_Globals,    ONLY : wp,fmt_sep,n_warnings_occured,testdbg,testlevel,testUnit,nfailedMsg,UNIT_stdOut,GETFREEUNIT
+USE MODgvec_Globals,    ONLY : GetTime,MPIRoot
 USE MODgvec_Analyze    ,ONLY: InitAnalyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY: InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY: InitRestart,FinalizeRestart
-USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
-USE MODgvec_Functional
+USE MODgvec_ReadInTools,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
+USE MODgvec_Functional ,ONLY : t_functional, InitFunctional,FinalizeFunctional
+USE MODgvec_MHD3D_Vars, ONLY : maxIter
 !$ USE omp_lib
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -32,15 +37,15 @@ IMPLICIT NONE
 INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: Parameterfile
 INTEGER                 :: which_functional
-REAL(wp)                :: StartTime,EndTime
+REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
+  CALL par_Init()
   __PERFINIT
   __PERFON('main')
 
 
-  CALL CPU_TIME(StartTime)
-!$ StartTime=OMP_GET_WTIME()
+  StartTimeTotal=GetTime()
   nArgs=COMMAND_ARGUMENT_COUNT()
   IF(nArgs.GE.1)THEN
     CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
@@ -50,13 +55,13 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     
   
   !header
-  WRITE(Unit_stdOut,'(132("="))')
-  WRITE(Unit_stdOut,'(18(("*",A128,2X,"*",:,"\n")))')&
+  SWRITE(Unit_stdOut,fmt_sep)
+  SWRITE(Unit_stdOut,'(18(("*",A128,2X,"*",:,"\n")))')&
  '  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '&
 ,' - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - -  '&
 ,'  - - - - - - - - - - GGGG::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - - CCCC::::::::::::C - - - '&
-,' - - - - - - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - -  '&
-,'  - - - - - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - - '&
+,' - - - OMP - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - -  '&
+,'  - - MPI - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - - '&
 ,' - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - -  '&
 ,'  - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - - '&
 ,' - - - - - - G:::::G - - - - - - - - -  V:::::V  - -  V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - -  '&
@@ -70,10 +75,16 @@ CLASS(t_functional),ALLOCATABLE   :: functional
 ,' - - - - - GG::::GGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - -  '&
 ,'  - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - '&
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
-  WRITE(Unit_stdOut,'(132("="))')
-!$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
-!$ WRITE(Unit_stdOut,'(132("="))')
-
+  SWRITE(Unit_stdOut,fmt_sep)
+  !.only executes if compiled with OpenMP
+!$ SWRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
+!$ SWRITE(Unit_stdOut,'(132("="))')
+  !.only executes if compiled with MPI
+# if MPI
+  SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
+  SWRITE(Unit_stdOut,'(132("="))')
+# endif
+  CALL FillStrings(ParameterFile) !<<<<
 
   testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
   testlevel=GETINT('testlevel',Proposal=-1)
@@ -98,7 +109,11 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   
   CALL functional%InitSolution() 
   
-  CALL functional%minimize() 
+  StartTime=GetTime()
+  CALL functional%minimize()
+  EndTime=GetTime()
+  SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
+       (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
 
   CALL FinalizeFunctional(functional)
  
@@ -123,18 +138,20 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     SWRITE(UNIT_stdout,*)
     CLOSE(testUnit)
   END IF !testlevel
-  CALL CPU_TIME(EndTime)
-!$ EndTime=OMP_GET_WTIME()
-  WRITE(Unit_stdOut,fmt_sep)
+  EndTimeTotal=GetTime()
+  SWRITE(Unit_stdOut,fmt_sep)
   IF(n_warnings_occured.EQ.0)THEN
-    WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC SUCESSFULLY FINISHED! [',EndTime-StartTime,' sec ]'
+    SWRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC SUCESSFULLY FINISHED! [',EndTimeTotal-StartTimeTotal,' sec ]'
   ELSE
-    WRITE(Unit_stdOut,'(A,F8.2,A,I8,A)') ' GVEC FINISHED! [',EndTime-StartTime,' sec ], WITH ' , n_warnings_occured , ' WARNINGS!!!!'
+    SWRITE(Unit_stdOut,'(A,F8.2,A,I8,A)') ' GVEC FINISHED! [',EndTimeTotal-StartTimeTotal,' sec ], WITH ' , n_warnings_occured , ' WARNINGS!!!!'
   END IF
-  WRITE(Unit_stdOut,fmt_sep)
+  SWRITE(Unit_stdOut,fmt_sep)
 
   __PERFOFF('main')
+  IF(MPIRoot) THEN
   __PERFOUT('main')
+  END IF
+  CALL par_Finalize()
 
 END PROGRAM GVEC
 

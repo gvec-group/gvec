@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -21,13 +22,15 @@
 !===================================================================================================================================
 MODULE MODgvec_sBase
 ! MODULES
-USE MODgvec_Globals                  ,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_Globals                  ,ONLY: wp,Unit_stdOut,abort,MPIRoot
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_spline_matrix          ,ONLY: sll_c_spline_matrix
 USE MODgvec_sGrid ,ONLY: c_sgrid,t_sgrid
 IMPLICIT NONE
-PUBLIC
+
+PRIVATE
+PUBLIC t_sbase,sbase_new
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
@@ -40,7 +43,8 @@ TYPE, ABSTRACT :: c_sbase
   INTEGER              :: degGP                    !! number of Gauss-points (degGP+1) per element >= deg
   INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: nGP                      !! total number of gausspoints = degGP*nElems
+  INTEGER              :: nGP                      !! global number of gausspoints = (degGP+1)*nElems
+  INTEGER              :: nGP_str, nGP_end         !! local number of gausspoints = (degGP+1)*nElems per MPI subdomain 
   INTEGER              :: nbase                    !! total number of degree of freedom / global basis functions
   CLASS(sll_c_spline_matrix),ALLOCATABLE :: mass
   CONTAINS
@@ -187,7 +191,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   REAL(wp),ALLOCATABLE :: base_ds_GP(:,:,:)         !! s derivative of basis functions, (0:degGP,0:deg,1:nElems)
   REAL(wp),ALLOCATABLE :: base_dsAxis(:,:)         !! all derivatives 1..deg of all basis functions at axis size(1:deg+1,0:deg)
   REAL(wp),ALLOCATABLE :: base_dsEdge(:,:)         !! all derivatives 1..deg of all basis functions at edge size(nBase-deg:nBase,0:deg)
-  INTEGER ,ALLOCATABLE :: nDOF_BC(:)               !! number of boudnary dofs involved in bc of BC_TYPE, size(NBC_TYPES)
+  INTEGER ,ALLOCATABLE :: nDOF_BC(:)               !! number of boundary dofs involved in bc of BC_TYPE, size(NBC_TYPES)
   REAL(wp),ALLOCATABLE :: A_Axis(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct) 
   REAL(wp),ALLOCATABLE :: invA_Axis(:,:,:)         !! inverse of A_Axis 
   REAL(wp),ALLOCATABLE :: R_Axis(:,:,:)            !! matrix to apply boundary conditions for RHS (testfunction)
@@ -297,7 +301,7 @@ IMPLICIT NONE
                                                         !! 0: disc. polynomial
                                                         !! deg-1: spline with cont. deg-1
   CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
-  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
+  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 per elements
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sbase), INTENT(INOUT)        :: sf !! self
@@ -340,15 +344,22 @@ IMPLICIT NONE
 
   ASSOCIATE(&
               nElems      => sf%grid%nElems         &
+            , nElems_str  => sf%grid%nElems_str     &  !< for MPI
+            , nElems_end  => sf%grid%nElems_end     &  !< for MPI
             , grid        => sf%grid                &
             , deg         => sf%deg                 &
             , degGP       => sf%degGP               &
             , continuity  => sf%continuity          &
             , nGP         => sf%nGP                 &
+            , nGP_str     => sf%nGP_str             &  !< for MPI
+            , nGP_end     => sf%nGP_end             &  !< for MPI
             , nBase       => sf%nBase               &
             )
  
   nGP  = (degGP+1)*nElems
+  nGP_str = (degGP+1)*(nElems_str-1)+1
+  nGP_end = (degGP+1)*nElems_end
+
   IF(continuity.EQ.-1)THEN !discontinuous
     nBase  = (deg+1)*nElems
   ELSEIF(continuity.EQ.deg-1)THEN !bspline with full continuity and interpolation base at boundaries 
@@ -547,11 +558,11 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
-  ASSOCIATE(nElems=>sf%grid%nElems, degGP=>sf%degGP, deg=>sf%deg, nBase =>sf%nBase)
+  ASSOCIATE(nElems=>sf%grid%nElems, degGP=>sf%degGP, deg=>sf%deg, nBase =>sf%nBase, nGP=>sf%nGP)
   ALLOCATE(sf%xi_GP(     0:degGP))
   ALLOCATE(sf%w_GPloc(   0:degGP))
-  ALLOCATE(sf%w_GP((degGP+1)*nElems))
-  ALLOCATE(sf%s_GP((degGP+1)*nElems))
+  ALLOCATE(sf%w_GP(nGP))
+  ALLOCATE(sf%s_GP(nGP))
   ALLOCATE(sf%base_GP(   0:degGP,0:deg,1:nElems))
   ALLOCATE(sf%base_ds_GP(0:degGP,0:deg,1:nElems))
   ALLOCATE(sf%base_offset(            1:nElems))

@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -21,13 +22,15 @@
 !===================================================================================================================================
 MODULE MODgvec_MHD3D
 ! MODULES
-  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep
+  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep,MPIRoot
   USE MODgvec_c_functional,   ONLY: t_functional
   IMPLICIT NONE
-  PUBLIC
+
+  PRIVATE
+  PUBLIC t_functional_mhd3d
 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
+! TYPES
 !-----------------------------------------------------------------------------------------------------------------------------------
 
   TYPE,EXTENDS(t_functional) :: t_functional_mhd3d
@@ -35,10 +38,10 @@ MODULE MODgvec_MHD3D
     LOGICAL :: initialized
     !-------------------------------------------------------------------------------------------------------------------------------
     CONTAINS
-      PROCEDURE :: init     => InitMHD3D
+      PROCEDURE :: init         => InitMHD3D
       PROCEDURE :: initSolution => InitSolutionMHD3D
-      PROCEDURE :: minimize => MinimizeMHD3D
-      PROCEDURE :: free     => FinalizeMHD3D
+      PROCEDURE :: minimize     => MinimizeMHD3D
+      PROCEDURE :: free         => FinalizeMHD3D
   END TYPE t_functional_mhd3d
 
 !===================================================================================================================================
@@ -46,7 +49,7 @@ MODULE MODgvec_MHD3D
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
 SUBROUTINE InitMHD3D(sf) 
@@ -54,8 +57,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_MHD3D_Vars
   USE MODgvec_Globals        , ONLY: TWOPI
   USE MODgvec_sgrid          , ONLY: t_sgrid
-  USE MODgvec_fbase          , ONLY: t_fbase,fbase_new
-  USE MODgvec_base           , ONLY: t_base,base_new
+  USE MODgvec_base           , ONLY: base_new
   USE MODgvec_hmap           , ONLY: hmap_new
   USE MODgvec_VMEC           , ONLY: InitVMEC
   USE MODgvec_VMEC_vars      , ONLY: switchZeta
@@ -200,11 +202,11 @@ SUBROUTINE InitMHD3D(sf)
     mn_nyq_min(2)=MAX(1,fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/)))
     mn_nyq  = GETINTARRAY("mn_nyq",2)
     IF(mn_nyq(1).LT.mn_nyq_min(1))THEN
-       WRITE(*,*) 'mn_nyq(1) too small, should be >= ',mn_nyq_min(1)
+       SWRITE(*,*) 'mn_nyq(1) too small, should be >= ',mn_nyq_min(1)
        STOP
     END IF
     IF(mn_nyq(2).LT.mn_nyq_min(2))THEN 
-       WRITE(*,*) 'mn_nyq(2) too small, should be >= ',mn_nyq_min(2)
+       SWRITE(*,*) 'mn_nyq(2) too small, should be >= ',mn_nyq_min(2)
        STOP
     END IF
   ELSE
@@ -263,7 +265,7 @@ SUBROUTINE InitMHD3D(sf)
   X2_a=0.0_wp
 
   IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
-    WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
+    SWRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
     ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
       X1_a(iMode)=get_iMode('X1_a_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
@@ -272,7 +274,7 @@ SUBROUTINE InitMHD3D(sf)
       X1_a(iMode)=get_iMode('X1_a_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     END ASSOCIATE
-    WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X2:'
+    SWRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X2:'
     ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
       X2_a(iMode)=get_iMode('X2_a_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
@@ -283,7 +285,7 @@ SUBROUTINE InitMHD3D(sf)
     END ASSOCIATE
   END IF
   IF((init_BC.EQ.1).OR.(init_BC.EQ.2))THEN !READ edge values from input file
-    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
+    SWRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
     ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
       X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
@@ -292,7 +294,7 @@ SUBROUTINE InitMHD3D(sf)
       X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
     END ASSOCIATE
-    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
+    SWRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
     ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
     DO iMode=sin_range(1)+1,sin_range(2)
       X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
@@ -303,10 +305,10 @@ SUBROUTINE InitMHD3D(sf)
     END ASSOCIATE
   END IF !init_BC
 
-  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
-  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
-  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM 
-  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM 
+  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM
+  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM
+  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
+  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
   X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_SYMMZERO
 
                                     
@@ -316,7 +318,7 @@ SUBROUTINE InitMHD3D(sf)
   X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
-  END DO 
+  END DO
   END ASSOCIATE !X1
 
   ASSOCIATE(modes        =>X2_base%f%modes, zero_odd_even=>X2_base%f%zero_odd_even)
@@ -324,11 +326,11 @@ SUBROUTINE InitMHD3D(sf)
   X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
   DO imode=1,modes
     X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
-  END DO 
+  END DO
   END ASSOCIATE !X2
 
   LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_SYMMZERO
-  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM    
+  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM
   LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
   LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=BC_TYPE_DIRICHLET) ! stronger: BC_TYPE_ANTISYMM
   LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=BC_TYPE_DIRICHLET) ! stronger:BC_TYPE_SYMMZERO
@@ -338,7 +340,7 @@ SUBROUTINE InitMHD3D(sf)
   LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
   DO imode=1,modes
     LA_BC_type(BC_AXIS,iMode)=LA_BCtype_axis(zero_odd_even(iMode))
-  END DO 
+  END DO
   END ASSOCIATE !LA
   
   ! ALLOCATE DATA
@@ -366,7 +368,6 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
   
-
 END SUBROUTINE InitMHD3D
 
 
@@ -414,7 +415,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
     X2pert_b=0.0_wp
     !READ boudnary values from input file
     ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
-    WRITE(UNIT_stdOut,'(4X,A)')'... read data for X1pert:'
+    SWRITE(UNIT_stdOut,'(4X,A)')'... read data for X1pert:'
     DO iMode=sin_range(1)+1,sin_range(2)
       X1pert_b(iMode)=get_iMode('X1pert_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
     END DO !iMode
@@ -423,7 +424,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
     END DO !iMode
     END ASSOCIATE
     ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
-    WRITE(UNIT_stdOut,'(4X,A)')'... read data for X2pert:'
+    SWRITE(UNIT_stdOut,'(4X,A)')'... read data for X2pert:'
     DO iMode=sin_range(1)+1,sin_range(2)
       X2pert_b(iMode)=get_iMode('X2pert_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
     END DO !iMode
@@ -471,11 +472,11 @@ FUNCTION get_iMode(varname_in,mn_in,nfp_in)
 ! LOCAL VARIABLES
     CHARACTER(LEN=100) :: varstr
 !===================================================================================================================================
-  WRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn_in(1),mn_in(2)/nfp_in
+  SWRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn_in(1),mn_in(2)/nfp_in
   varstr=delete_spaces(varstr)         !quiet on default=0.0
   get_iMode=GETREAL(TRIM(varstr),Proposal=0.0_wp,quiet_def_in=.TRUE.)
 
-  CONTAINS 
+  CONTAINS
 
   FUNCTION delete_spaces(str_in)
     USE ISO_VARYING_STRING,ONLY:VARYING_STRING,VAR_STR,CHAR,replace
@@ -937,8 +938,8 @@ SUBROUTINE MinimizeMHD3D(sf)
   SELECT CASE(MinimizerType)
   CASE(0,10)
     CALL MinimizeMHD3D_descent(sf)
-  CASE(1)
-    CALL MinimizeMHD3D_LBFGS(sf)
+!!!  CASE(1)
+!!!    CALL MinimizeMHD3D_LBFGS(sf)
   CASE DEFAULT
     CALL abort(__STAMP__,&
         "Minimizertype does not exist",MinimizerType,-1.0_wp)
@@ -1147,7 +1148,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   CALL WriteState(U(0),MIN(iter,MaxIter))
   CALL FinishLogging()
 !DEBUG
-!  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
+!  SWRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
 !  CALL ReadState(FileString,U(-1))
   
 
@@ -1181,32 +1182,32 @@ CONTAINS
   StartTimeArray=TimeArray !save first time stamp
 
   logUnit=GETFREEUNIT()
-  WRITE(FileString,'("logMinimizer_",A,"_",I4.4,".csv")')TRIM(ProjectName),outputLevel
+  SWRITE(FileString,'("logMinimizer_",A,"_",I4.4,".csv")')TRIM(ProjectName),outputLevel
   OPEN(UNIT     = logUnit       ,&
      FILE     = TRIM(FileString) ,&
      STATUS   = 'REPLACE'   ,&
      ACCESS   = 'SEQUENTIAL' ) 
   !header
   iLogDat=0
-  WRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
-  WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW","sum_dW"'
-  WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
+  SWRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
+  SWRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW","sum_dW"'
+  SWRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
   LogDat(ilogDat+1:iLogDat+11)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,0.0_wp,Fnorm(1:3)/)
   iLogDat=11 
   IF(doCheckDistance) THEN
-    WRITE(logUnit,'(A)',ADVANCE="NO")',"max_Dist","avg_Dist"'
+    SWRITE(logUnit,'(A)',ADVANCE="NO")',"max_Dist","avg_Dist"'
     LogDat(iLogDat+1:iLogDat+2)=(/0.0_wp,0.0_wp/)
     iLogDat=iLogDat+2
   END IF!doCheckDistance
   IF(doCheckAxis) THEN
-    WRITE(logUnit,'(A)',ADVANCE="NO")',"X1_axis_0","X2_axis_0","X1_axis_1","X2_axis_1"'
+    SWRITE(logUnit,'(A)',ADVANCE="NO")',"X1_axis_0","X2_axis_0","X1_axis_1","X2_axis_1"'
     CALL CheckAxis(U(0),2,AxisPos)
     LogDat(iLogDat+1:iLogDat+4)=RESHAPE(AxisPos,(/4/))
     iLogDat=iLogDat+4
   END IF!doCheckAxis
-  WRITE(logUnit,'(A)')' '
+  SWRITE(logUnit,'(A)')' '
   !first data line
-  WRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
+  SWRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
   __PERFOFF('log_output')
   END SUBROUTINE StartLogging
 
@@ -1268,7 +1269,7 @@ CONTAINS
   IF(.NOT.quiet)THEN
     SWRITE(UNIT_stdOut,'(40(" -"))')
   END IF!.NOT.quiet
-  WRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
+  SWRITE(logUnit,'(*(e23.15,:,","))') logDat(1:iLogDat)
   __PERFOFF('log_output')
   END SUBROUTINE Logging
 

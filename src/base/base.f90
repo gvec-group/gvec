@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -24,12 +25,14 @@
 !===================================================================================================================================
 MODULE MODgvec_base
 ! MODULES
-USE MODgvec_Globals ,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_Globals ,ONLY: wp,Unit_stdOut,abort,MPIRoot
 USE MODgvec_sBase   ,ONLY: t_sbase,sbase_new
 USE MODgvec_fBase   ,ONLY: t_fbase,fbase_new
 USE MODgvec_sGrid   ,ONLY: t_sgrid
 IMPLICIT NONE
-PUBLIC
+
+PRIVATE
+PUBLIC t_base, base_new
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
@@ -39,18 +42,18 @@ TYPE                 :: t_base
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
-  !input parameters sbase
-  INTEGER              :: s_deg                      !! input parameter: degree of Spline/polynomial 
-  INTEGER              :: s_degGP                    !! number of Gauss-points (degGP+1) per element >= deg
-  INTEGER              :: s_continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
-  CLASS(t_sgrid),POINTER :: s_grid                   !! pointer to grid 
-  !input parameters fbase
-  INTEGER              :: f_mn_max(2)   !! input parameter: maximum number of fourier modes: m_max=mn_max(1),n_max=mn_max(2)
-  INTEGER              :: f_mn_nyq(2)   !! number of equidistant integration points (trapezoidal rule) in m and n
-  INTEGER              :: f_nfp         !! number of field periods (toroidal repetition after 2pi/nfp)
-  INTEGER              :: f_sin_cos     !! can be either only sine: _SIN_  or only cosine _COS_ or full: _SINCOS_
-  !input parameters
-  LOGICAL              :: f_exclude_mn_zero  !!  =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
+!!!TTR  !input parameters sbase
+!!!TTR  INTEGER              :: s_deg                      !! input parameter: degree of Spline/polynomial
+!!!TTR  INTEGER              :: s_degGP                    !! number of Gauss-points (degGP+1) per element >= deg
+!!!TTR  INTEGER              :: s_continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
+!!!TTR  CLASS(t_sgrid),POINTER :: s_grid    !TTR: NEEDED?  !! pointer to grid
+!!!TTR  !input parameters fbase
+!!!TTR  INTEGER              :: f_mn_max(2)   !! input parameter: maximum number of fourier modes: m_max=mn_max(1),n_max=mn_max(2)
+!!!TTR  INTEGER              :: f_mn_nyq(2)   !! number of equidistant integration points (trapezoidal rule) in m and n
+!!!TTR  INTEGER              :: f_nfp         !! number of field periods (toroidal repetition after 2pi/nfp)
+!!!TTR  INTEGER              :: f_sin_cos     !! can be either only sine: _SIN_  or only cosine _COS_ or full: _SINCOS_
+!!!TTR  !input parameters
+!!!TTR  LOGICAL              :: f_exclude_mn_zero  !!  =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 
   CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
   CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
@@ -76,8 +79,8 @@ CONTAINS
 !> allocate and initialize the type base 
 !!
 !===================================================================================================================================
-SUBROUTINE Base_new( sf,deg_in,continuity_in,grid_in,degGP_in, &
-                     mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+SUBROUTINE Base_new( sf, deg_in, continuity_in, grid_in, degGP_in, &
+                     mn_max_in, mn_nyq_in, nfp_in, sin_cos_in, exclude_mn_zero_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -213,158 +216,53 @@ IMPLICIT NONE
   REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%s%nBase,1:sf%f%modes)  !! array of all modes and all radial dofs
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)     ,INTENT(OUT   ) :: y_IP_GP(sf%f%mn_IP,sf%s%nGP)
+  REAL(wp)     , INTENT(OUT  ) :: y_IP_GP(sf%f%mn_IP,sf%s%nGP_str:sf%s%nGP_end)  !! OUTPUT ARRAY OF MPI SUBDOMAIN (GP points)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                      :: modes,nGP,nBase,mn_IP,deg,degGP,nElems
-#define PP_WHICHEVAL 110
-  ! experimental optimization results, with OMP, give the ranking from slowest to fastest: 2 < 1 << 11 ~= 12 < 110  
-  ! could change with the number of DOF in s and theta/zeta..., 
-  ! evaluation in s does not seem to scale at all with omp
-#if (PP_WHICHEVAL==1)
-  !OMP loop version: first s then f
-  INTEGER                      :: iMode,iGP
-  REAL(wp)                     :: y_tmp(1:sf%f%modes,sf%s%nGP)
+  INTEGER                      :: nGP_str, nGP_end, nElems_str, nElems_end
 
-#elif (PP_WHICHEVAL==2)
-  !OMP loop version: first f then s
-  INTEGER                      :: i_mn,iBase
-  REAL(wp)                     :: y_tmp(sf%f%mn_IP,1:sf%s%nBase)
-
-#elif (PP_WHICHEVAL==11)
-  !matrix matrix version: first s then f
-  INTEGER                      :: i,j,iElem
-  REAL(wp)                     :: y_tmp(sf%f%modes,1:sf%s%nGP)
-
-#elif (PP_WHICHEVAL==110)
   !matrix matrix version: first s then f
   INTEGER                      :: i,j,iElem,iMode,iGP
-  REAL(wp)                     :: y_tmp(1:sf%s%nGP,sf%f%modes)
-
-#elif (PP_WHICHEVAL==12)
-  !matrix matrix version: first f then s
-  INTEGER                      :: i,j,iElem
-  REAL(wp)                     :: y_tmp(sf%f%mn_IP,1:sf%s%nBase)
-#elif (PP_WHICHEVAL==120)
-  !matrix matrix version: first f then s
-  INTEGER                      :: i,j,iElem,i_mn
-  REAL(wp)                     :: y_tmp(1:sf%s%nBase,sf%f%mn_IP)
-#endif /*PP_WHICHEVAL*/
+  REAL(wp)                     :: y_tmp(sf%s%nGP_str:sf%s%nGP_end,sf%f%modes) 
 !===================================================================================================================================
-!WRITE(*,*)'-----------------------------'
-!WRITE(*,'(A,I12)')'CHECK: #operations first s then f:', (sf%s%nGP*(sf%s%deg+1))*sf%f%modes+(sf%f%mn_IP*sf%f%modes)*sf%s%nGP
-!WRITE(*,'(A,I12)')'CHECK: #operations first f then s:', (sf%f%mn_IP*sf%f%modes)*sf%s%nBase+ (sf%s%nGP*(sf%s%deg+1))*sf%f%mn_IP
-!WRITE(*,'(A,F8.2)')'ratio', REAL( (sf%s%nGP*(sf%s%deg+1))*sf%f%modes+(sf%f%mn_IP*sf%f%modes)*sf%s%nGP ,wp)/ & 
-!                            REAL( (sf%f%mn_IP*sf%f%modes)*sf%s%nBase+ (sf%s%nGP*(sf%s%deg+1))*sf%f%mn_IP,wp)
-!WRITE(*,*)'-----------------------------'
 
   __PERFON('BaseEval')
 
-  nGP     = sf%s%nGP  
-  modes   = sf%f%modes  
+  nGP     = sf%s%nGP
+  nGP_str=  sf%s%nGP_str !< for MPI
+  nGP_end=  sf%s%nGP_end !< for MPI
+  modes   = sf%f%modes
   nBase   = sf%s%nBase
   mn_IP   = sf%f%mn_IP
   deg     = sf%s%deg
   degGP   = sf%s%degGP
   nElems  = sf%s%grid%nElems
+  nElems_str=sf%s%grid%nElems_str !< for MPI
+  nElems_end=sf%s%grid%nElems_end !< for MPI
   
-#if (PP_WHICHEVAL==1)
-  !OMP loop version: first s then f
-  __PERFON('eval_s')
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC)   DEFAULT(SHARED)  PRIVATE(iMode)
-  DO iMode=1,modes
-    y_tmp(iMode,:)=sf%s%evalDOF_GP(deriv(1),DOFs(:,iMode))
-  END DO!iMode
-!$OMP END PARALLEL DO
-  __PERFOFF('eval_s')
-  __PERFON('eval_f')
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) 
-  DO iGP=1,nGP
-    y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv(2),y_tmp(:,iGP))
-  END DO !iGP
-!$OMP END PARALLEL DO
-  __PERFOFF('eval_f')
-
-#elif (PP_WHICHEVAL==2)
-  !OMP loop version: first f then s
-  __PERFON('eval_f')
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC)DEFAULT(SHARED) PRIVATE(iBase)
-  DO iBase=1,nBase
-    y_tmp(:,iBase)=sf%f%evalDOF_IP(deriv(2),DOFs(iBase,:))
-  END DO !iBase
-!$OMP END PARALLEL DO
-  __PERFOFF('eval_f')
-  __PERFON('eval_s')
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn)
-  DO i_mn=1,mn_IP
-    y_IP_GP(i_mn,:)=sf%s%evalDOF_GP(deriv(1),y_tmp(i_mn,:))
-  END DO!iMode
-!$OMP END PARALLEL DO
-  __PERFOFF('eval_s')
-
-#elif (PP_WHICHEVAL==11)
   ! matrix-matrix version of first s then f
 
   __PERFON('eval_s')
   SELECT CASE(deriv(1))
   CASE(0)
-    DO iElem=1,nElems
-      j=sf%s%base_offset(iElem)
-      i=(iElem-1)*(degGP+1)+1  
-      !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-      __MATMAT_TT(y_tmp(:,i:i+degGP),DOFs(j:j+deg,:),sf%s%base_GP(0:degGP,0:deg,iElem))
-    END DO !iElem
-  CASE(DERIV_S)
-    DO iElem=1,nElems
-      j=sf%s%base_offset(iElem)
-      i=(iElem-1)*(degGP+1)+1  
-      !y_tmp(:,i:i+degGP)=TRANSPOSE(MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,:)))
-      __MATMAT_TT(y_tmp(:,i:i+degGP),DOFs(j:j+deg,:),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
-    END DO !iElem
-  END SELECT !deriv GP
-  __PERFOFF('eval_s')
-
-  __PERFON('eval_f')
-  SELECT CASE(deriv(2))
-  CASE(0)
-    !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
-    __MATMAT_NN(Y_IP_GP ,sf%f%base_IP,y_tmp)
-  CASE(DERIV_THET)                        
-    !Y_IP_GP = MATMUL(sf%f%base_dthet_IP(:,:),y_tmp)
-    __MATMAT_NN(Y_IP_GP ,sf%f%base_dthet_IP,y_tmp)
-  CASE(DERIV_ZETA)                        
-    !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
-    __MATMAT_NN(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
-  END SELECT !deriv IP
-  __PERFOFF('eval_f')
-
-#elif (PP_WHICHEVAL==110)
-  ! matrix-matrix version of first s then f
-
-  __PERFON('eval_s')
-  SELECT CASE(deriv(1))
-  CASE(0)
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) 
+!$OMP PARALLEL DO        &
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i)
     DO iMode=1,modes
-      DO iElem=1,nElems
+      DO iElem=nElems_str,nElems_end 
         j=sf%s%base_offset(iElem)
-        i=(iElem-1)*(degGP+1)+1  
+        i=(iElem-1)*(degGP+1)+1
         y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
       END DO !iElem
     END DO!iMode
 !$OMP END PARALLEL DO
   CASE(DERIV_S)
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) 
+!$OMP PARALLEL DO        &
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) FIRSTPRIVATE(nElems_str,nElems_end)
     DO iMode=1,modes
-      DO iElem=1,nElems
+      DO iElem=nElems_str,nElems_end 
         j=sf%s%base_offset(iElem)
-        i=(iElem-1)*(degGP+1)+1  
+        i=(iElem-1)*(degGP+1)+1
         y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
       END DO !iElem
     END DO!iMode
@@ -374,102 +272,15 @@ IMPLICIT NONE
 
   __PERFON('eval_f')
 
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) 
-  DO iGP=1,nGP
+!$OMP PARALLEL DO        &
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) FIRSTPRIVATE(nGP_str,nGP_end)
+  DO iGP=nGP_str,nGP_end
     y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv(2),y_tmp(iGP,:))
   END DO !iGP
 !$OMP END PARALLEL DO
-!  SELECT CASE(deriv(2))
-!  CASE(0)
-!    !Y_IP_GP = MATMUL(sf%f%base_IP(:,:),y_tmp)
-!    __MATMAT_NT(Y_IP_GP ,sf%f%base_IP,y_tmp)
-!  CASE(DERIV_THET)                        
-!    !Y_IP_GP = MATMUL(sf%f%base_dthet_IP(:,:),y_tmp)
-!    __MATMAT_NT(Y_IP_GP ,sf%f%base_dthet_IP,y_tmp)
-!  CASE(DERIV_ZETA)                        
-!    !Y_IP_GP = MATMUL(sf%f%base_dzeta_IP(:,:),y_tmp)
-!    __MATMAT_NT(Y_IP_GP ,sf%f%base_dzeta_IP,y_tmp)
-!  END SELECT !deriv IP
   __PERFOFF('eval_f')
 
-#elif (PP_WHICHEVAL==12)
-  ! matrix-matrix version of first f then s
-  __PERFON('eval_f')
-  SELECT CASE(deriv(2))
-  CASE(0)
-    !y_tmp = MATMUL(sf%f%base_IP(:,:),TRANSPOSE(DOFs))
-    __MATMAT_NT(y_tmp ,sf%f%base_IP,DOFs)
-  CASE(DERIV_THET)                        
-    !y_tmp = MATMUL(sf%f%base_dthet_IP(:,:),TRANSPOSE(DOFs))
-    __MATMAT_NT(y_tmp,sf%f%base_dthet_IP,DOFs)
-  CASE(DERIV_ZETA)                        
-    !y_tmp = MATMUL(sf%f%base_dzeta_IP(:,:),TRANSPOSE(DOFs))
-    __MATMAT_NT(y_tmp,sf%f%base_dzeta_IP,DOFs)
-  END SELECT !deriv IP
-  __PERFOFF('eval_f')
 
-  __PERFON('eval_s')
-  SELECT CASE(deriv(1))
-  CASE(0)
-    DO iElem=1,nElems
-      j=sf%s%base_offset(iElem)
-      i=(iElem-1)*(degGP+1)+1  
-      !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_GP(0:degGP,0:deg,iElem)))
-      __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_GP(0:degGP,0:deg,iElem))
-    END DO !iElem
-  CASE(DERIV_S)
-    DO iElem=1,nElems
-      j=sf%s%base_offset(iElem)
-      i=(iElem-1)*(degGP+1)+1  
-      !y_IP_GP(:,i:i+degGP)=MATMUL(y_tmp(:,j:j+deg),TRANSPOSE(sf%s%base_ds_GP(0:degGP,0:deg,iElem)))
-      __MATMAT_NT(y_IP_GP(:,i:i+degGP),y_tmp(:,j:j+deg),sf%s%base_ds_GP(0:degGP,0:deg,iElem))
-    END DO !iElem
-  END SELECT !deriv GP
-  __PERFOFF('eval_s')
-
-#elif (PP_WHICHEVAL==120)
-  ! matrix-matrix version of first f then s
-  __PERFON('eval_f')
-  SELECT CASE(deriv(2))
-  CASE(0)
-    __MATMAT_NT(y_tmp,DOFs,sf%f%base_IP)
-  CASE(DERIV_THET)                        
-    __MATMAT_NT(y_tmp,DOFs,sf%f%base_dthet_IP)
-  CASE(DERIV_ZETA)                        
-    __MATMAT_NT(y_tmp,DOFs,sf%f%base_dzeta_IP)
-  END SELECT !deriv IP
-  __PERFOFF('eval_f')
-
-  __PERFON('eval_s')
-  SELECT CASE(deriv(1))
-  CASE(0)
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn,iElem,j,i) 
-    DO i_mn=1,mn_IP
-      DO iElem=1,nElems
-        j=sf%s%base_offset(iElem)
-        i=(iElem-1)*(degGP+1)+1  
-        y_IP_GP(i_mn,i:i+degGP)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),y_tmp(j:j+deg,i_mn))
-      END DO !iElem
-    END DO!i_mn
-!$OMP END PARALLEL DO
-  CASE(DERIV_S)
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i_mn,iElem,j,i) 
-    DO i_mn=1,mn_IP
-      DO iElem=1,nElems
-        j=sf%s%base_offset(iElem)
-        i=(iElem-1)*(degGP+1)+1  
-        y_IP_GP(i_mn,i:i+degGP)=MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),y_tmp(j:j+deg,i_mn))
-      END DO !iElem
-    END DO!i_mn
-!$OMP END PARALLEL DO
-  END SELECT !deriv GP
-  __PERFOFF('eval_s')
-#endif /*PP_WHICHEVAL*/
-
-#undef PP_WHICHEVAL
 
   __PERFOFF('BaseEval')
 

@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MODgvec_hmap_knot
 ! MODULES
-USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort
+USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort,MPIRoot
 USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 

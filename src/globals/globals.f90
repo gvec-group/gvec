@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (c) 2017 - 2018 Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (c) 2017 - 2022 Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (c) 2021 - 2022 Tiago Ribeiro 
 ! Copyright (c) 2010 - 2016 Claus-Dieter Munz (github.com/flexi-framework/hopr)
 !
 ! This file is a modified version from HOPR (github.com/fhindenlang/hopr).
@@ -27,6 +28,7 @@ MODULE MODgvec_Globals
 #ifndef NOISOENV
 USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
 #endif
+USE_MPI
 IMPLICIT NONE
 
 PUBLIC 
@@ -50,6 +52,7 @@ INTEGER                     :: nfailedMsg=0              !! counter for messages
 INTEGER                     :: testUnit                  !! unit for out.test file
 INTEGER                     :: ProgressBar_oldpercent    !! for progressBar
 REAL(wp)                    :: ProgressBar_starttime     !! for progressBar
+LOGICAL                     :: MPIRoot=.TRUE.            !! flag whether process is MPI root process
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
@@ -65,6 +68,10 @@ INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE
+
+INTERFACE GetTime
+  MODULE PROCEDURE GetTime
+END INTERFACE GetTime
 
 INTERFACE ProgressBar
    MODULE PROCEDURE ProgressBar
@@ -101,7 +108,7 @@ CONTAINS
 !! Uses a MPI_ABORT which terminates FLUXO if a single proc calls this routine.
 !!
 !==================================================================================================================================
-SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode)
+SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode,myRank)
 ! MODULES
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -114,9 +121,11 @@ CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
 INTEGER,OPTIONAL                  :: IntInfo         !! Error info (integer)
 REAL(wp),OPTIONAL                 :: RealInfo        !! Error info (real)
 INTEGER,OPTIONAL                  :: ErrorCode       !! Error info (integer)
+INTEGER,OPTIONAL                  :: myRank          !! MPI task rank (integer)
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=50)                 :: IntString,RealString
+INTEGER                           :: mrnk=0          ! Local myRank, which set to 0 witout MPI
 #if MPI
 INTEGER                           :: errOut          ! Output of MPI_ABORT
 INTEGER                           :: signalout       ! Output errorcode
@@ -127,13 +136,10 @@ RealString = ""
 
 IF (PRESENT(IntInfo))  WRITE(IntString,"(A,I0)")  "\nIntInfo:  ", IntInfo
 IF (PRESENT(RealInfo)) WRITE(RealString,"(A,F24.19)") "\nRealInfo: ", RealInfo
+IF (PRESENT(myRank))   mrnk=myRank
 
-WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
-#if MPI
-                     'Program abort caused on Proc ',myRank, '\n', &
-#else
-                     'Program abort caused on Proc ',0, '\n', &
-#endif  
+SWRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
+                     'Program abort caused on Proc ',mrnk, '\n', &
                      '  in File : ',TRIM(SourceFile),' Line ',SourceLine, '\n', &
                      '  This file was compiled at ',TRIM(CompDate),'  ',TRIM(CompTime), '\n', &
                      'Message: ',TRIM(ErrorMessage), &
@@ -151,6 +157,29 @@ CALL BACKTRACE
 ERROR STOP 2
 END SUBROUTINE Abort
 
+!==================================================================================================================================
+!> Calculates current time (serial / OpenMP /MPI)
+!!
+!==================================================================================================================================
+FUNCTION GetTime() RESULT(t)
+! MODULES
+!$ USE omp_lib
+  IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  REAL(wp) :: t   !< output time
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: ierr
+!==================================================================================================================================
+#if MPI
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)  ! not possible to 'CALL parBarrier()' because MODgvec_MPI uses MODgvec_Globals!
+  t = MPI_WTIME()
+#else
+  CALL CPU_TIME(t)
+!$ t=OMP_GET_WTIME()
+#endif
+END FUNCTION GetTime
 
 !==================================================================================================================================
 !> Print a progress bar to screen, call either with init=T or init=F

@@ -22,7 +22,7 @@
 MODULE MODgvec_functional
 ! MODULES
 USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
-USE MODgvec_c_functional
+USE MODgvec_c_functional, ONLY: t_functional
 IMPLICIT NONE
 
 PUBLIC

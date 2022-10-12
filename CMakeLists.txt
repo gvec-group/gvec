@@ -19,6 +19,7 @@ STRING(FIND "${CMAKE_HOSTNAME}" "hydra"     ON_HYDRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
+STRING(FIND "${CMAKE_HOSTNAME}" "mac"       ON_MAC)
 IF (ON_MARCONI GREATER -1)
   MESSAGE(STATUS "Compiling on Marconi")
 ELSEIF (ON_HYDRA GREATER -1)
@@ -29,6 +30,8 @@ ELSEIF (ON_DRACO GREATER -1)
   MESSAGE(STATUS "Compiling on draco")
 ELSEIF (ON_RAVEN GREATER -1)
   MESSAGE(STATUS "Compiling on raven")
+ELSEIF (ON_MAC GREATER -1) 
+  MESSAGE(STATUS "Compiling on MacOS")
 ELSE()
   MESSAGE(STATUS "Compiling on unknown hostname")
 ENDIF()
@@ -91,6 +94,7 @@ OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executab
 OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
+OPTION(USE_MPI "enable MPI" ON)
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 MARK_AS_ADVANCED(USE_FTIMINGS)
@@ -112,6 +116,36 @@ ENDIF (NOT CMAKE_BUILD_TYPE)
 IF (CMAKE_BUILD_TYPE MATCHES "Debug")
   ADD_DEFINITIONS("-DDEBUG")
 ENDIF()
+
+
+# =========================================================================
+# MPI
+# =========================================================================
+IF(USE_MPI)
+  FIND_PACKAGE(MPI REQUIRED)
+  IF (NOT MPI_Fortran_NO_INTERROGATE)
+    FOREACH(DIR ${MPI_INCLUDE_PATH})
+      INCLUDE_DIRECTORIES(${DIR})
+    ENDFOREACH()
+    FOREACH(DIR ${MPI_Fortran_INCLUDE_PATH})
+      INCLUDE_DIRECTORIES(${DIR})
+    ENDFOREACH()
+    LIST(APPEND linkedlibs ${MPI_Fortran_LIBRARIES})
+  ENDIF()
+  MARK_AS_ADVANCED(MPI_LIBRARY MPI_EXTRA_LIBRARY) # don't show these ones
+  MESSAGE(STATUS "Building GVEC with MPI")
+  MESSAGE(STATUS "MPI Compiler: " ${MPI_Fortran_COMPILER})
+  ADD_DEFINITIONS(-DMPI=1)
+  OPTION(NO_MPI_F08 "disabe MPI F2008" OFF)
+  MARK_AS_ADVANCED(NO_MPI_F08)
+  IF(NO_MPI_F08)
+    ADD_DEFINITIONS(-DNO_MPI_F08)
+  ENDIF()
+ELSE()
+  ADD_DEFINITIONS(-DMPI=0)
+  UNSET(NO_MPI_F08 CACHE ) # if not MPI
+ENDIF()
+
 
 # =========================================================================
 # Location of binary and filenames
@@ -247,6 +281,13 @@ ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1))
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
+ELSEIF(ON_MAC GREATER -1)
+  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
+    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
+    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L/opt/local/lib -lopenblas")
+    MESSAGE(STATUS "Using GNU BLAS/Lapack library")
+  ENDIF()
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
   IF (LAPACK_FOUND)
@@ -279,9 +320,13 @@ ENDIF()
 # =========================================================================
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  IF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
+  IF((ON_RAVEN GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_MAC GREATER -1))
     LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
+  ENDIF()
+  #TTR: don't know why above list append fails for MacOS... needs line below to work
+  IF((ON_MAC GREATER -1))
+    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib")
   ENDIF()
 ENDIF()
 
