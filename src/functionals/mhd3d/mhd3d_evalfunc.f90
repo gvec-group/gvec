@@ -26,10 +26,10 @@ MODULE MODgvec_MHD3D_evalFunc
   USE sll_m_spline_matrix,        ONLY : sll_c_spline_matrix !for precond
   USE sll_m_spline_matrix_banded, ONLY : sll_t_spline_matrix_banded
   IMPLICIT NONE
-  PUBLIC
   
   PRIVATE
-  PUBLIC InitializeMHD3D_EvalFunc, EvalEnergy, EvalForce, EvalAux, FinalizeMHD3D_EvalFunc
+  PUBLIC InitializeMHD3D_EvalFunc, EvalEnergy, EvalForce,CheckEvalForce, EvalAux, FinalizeMHD3D_EvalFunc
+  PUBLIC nGP,mn_IP,w_GP,J_h,J_p,dthet_dzeta  !!! needed by WriteRestart...
   
   !evaluations at radial gauss points, size(base%s%nGP_str:base%s%nGP_end)
   REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile 

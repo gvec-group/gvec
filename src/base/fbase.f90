@@ -29,7 +29,7 @@ USE MODgvec_Globals                  ,ONLY: TWOPI,wp,Unit_stdOut,abort,MPIRoot
 IMPLICIT NONE
 
 PRIVATE
-PUBLIC t_fbase,fbase_new
+PUBLIC t_fbase,fbase_new,sin_cos_map
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
