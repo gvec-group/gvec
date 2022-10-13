@@ -88,7 +88,7 @@ CASE(2) !BOOZER
   DEALLOCATE(Gthet)
 
 CASE DEFAULT
-  SWRITE(UNIT_stdOut,*)'This input for SFL coordinate transform is not valid: whichSFL=',whichSFL
+  WRITE(UNIT_stdOut,*)'This input for SFL coordinate transform is not valid: whichSFL=',whichSFL
   STOP
 END SELECT
 
@@ -153,7 +153,7 @@ IMPLICIT NONE
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
 
-  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
+  WRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
                               ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
                      
   __PERFON('transform_angles')
@@ -174,7 +174,7 @@ IMPLICIT NONE
   mn_IP = q_base_out%f%mn_IP
   nBase = q_base_out%s%nBase
 
-  SWRITE(UNIT_StdOut,*)'        ...Init q_out Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init q_out Base Done'
 
 
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
@@ -182,14 +182,14 @@ IMPLICIT NONE
                                 q_base_in%f%nfp, &
                     sin_cos_map(q_base_in%f%sin_cos), &
                                 q_base_in%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
                                 AB_base_in%f%nfp, &
                     sin_cos_map(AB_base_in%f%sin_cos), &
                                 AB_base_in%f%exclude_mn_zero)
   
-  SWRITE(UNIT_StdOut,*)'        ...Init AB_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init AB_nyq Base Done'
 
   IF(.NOT.Bpresent) THEN
     ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP))
@@ -328,7 +328,7 @@ IMPLICIT NONE
                                                                             check(3)/(0.25*REAL(nBase,wp))
   END IF
 
-  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  WRITE(UNIT_StdOut,'(A)') '...DONE.'
   __PERFOFF('transform_angles')
 END SUBROUTINE Transform_Angles_sinterp
 
@@ -388,7 +388,7 @@ IMPLICIT NONE
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max) 
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
 
-  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
+  WRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
                               ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
                      
   __PERFON('transform_angles')
@@ -414,7 +414,7 @@ IMPLICIT NONE
   degGP = q_base_out%s%degGP
   deg   = q_base_out%s%deg
 
-  SWRITE(UNIT_StdOut,*)'        ...Init q_out Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init q_out Base Done'
 
 
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
@@ -422,14 +422,14 @@ IMPLICIT NONE
                                 q_base_in%f%nfp, &
                     sin_cos_map(q_base_in%f%sin_cos), &
                                 q_base_in%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
                                 AB_base_in%f%nfp, &
                     sin_cos_map(AB_base_in%f%sin_cos), &
                                 AB_base_in%f%exclude_mn_zero)
   
-  SWRITE(UNIT_StdOut,*)'        ...Init AB_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init AB_nyq Base Done'
 
   IF(.NOT.Bpresent) THEN
     ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP))
@@ -575,7 +575,7 @@ IMPLICIT NONE
                                                                             check(3)/(0.25*REAL(nBase,wp))
   END IF
 
-  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  WRITE(UNIT_StdOut,'(A)') '...DONE.'
   __PERFOFF('transform_angles')
 END SUBROUTINE Transform_Angles_sproject
 
@@ -672,7 +672,7 @@ IMPLICIT NONE
 
   DO is=1,nBase
     IF(MOD(is,MAX(1,nBase/100)).EQ.0) THEN
-      SWRITE(UNIT_stdOut,'(8X,I4,A4,I4,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
+      WRITE(UNIT_stdOut,'(8X,I4,A4,I4,A13,A1)',ADVANCE='NO')is, ' of ',nBase,' evaluated...',ACHAR(13)
     END IF
     spos=q_base_out%s%s_IP(is) !interpolation points for q_in
     !evaluate lambda at spos

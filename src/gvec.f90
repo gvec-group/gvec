@@ -21,15 +21,15 @@
 !===================================================================================================================================
 PROGRAM GVEC
 USE_MPI
-USE MODgvec_MPI,        ONLY : par_Init, par_Finalize, nRanks
-USE MODgvec_Globals,    ONLY : wp,fmt_sep,n_warnings_occured,testdbg,testlevel,testUnit,nfailedMsg,UNIT_stdOut,GETFREEUNIT
-USE MODgvec_Globals,    ONLY : GetTime,MPIRoot
-USE MODgvec_Analyze    ,ONLY: InitAnalyze,FinalizeAnalyze
-USE MODgvec_Output     ,ONLY: InitOutput,FinalizeOutput
-USE MODgvec_Restart    ,ONLY: InitRestart,FinalizeRestart
-USE MODgvec_ReadInTools,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
+USE MODgvec_MPI        ,ONLY : par_Init, par_Finalize, nRanks
+USE MODgvec_Globals    ,ONLY : wp,fmt_sep,n_warnings_occured,testdbg,testlevel,testUnit,nfailedMsg,UNIT_stdOut,GETFREEUNIT
+USE MODgvec_Globals    ,ONLY : GetTime,MPIRoot
+USE MODgvec_Analyze    ,ONLY : InitAnalyze,FinalizeAnalyze
+USE MODgvec_Output     ,ONLY : InitOutput,FinalizeOutput
+USE MODgvec_Restart    ,ONLY : InitRestart,FinalizeRestart
+USE MODgvec_ReadInTools,ONLY : FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
 USE MODgvec_Functional ,ONLY : t_functional, InitFunctional,FinalizeFunctional
-USE MODgvec_MHD3D_Vars, ONLY : maxIter
+USE MODgvec_MHD3D_Vars ,ONLY : maxIter
 !$ USE omp_lib
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -61,8 +61,8 @@ CLASS(t_functional),ALLOCATABLE   :: functional
 ,' - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - -  '&
 ,'  - - - - - - - - - - GGGG::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - - CCCC::::::::::::C - - - '&
 ,' - - - OMP - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - -  '&
-,'  - - MPI - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - - '&
-,' - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - -  '&
+,'  - -  +  - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - - '&
+,' - - MPI - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - -  '&
 ,'  - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - - '&
 ,' - - - - - - G:::::G - - - - - - - - -  V:::::V  - -  V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - -  '&
 ,'  - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V - - V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - '&
@@ -82,9 +82,9 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   !.only executes if compiled with MPI
 # if MPI
   SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
-  SWRITE(Unit_stdOut,'(132("="))')
+  SWRITE(Unit_stdOut,fmt_sep)
 # endif
-  CALL FillStrings(ParameterFile) !<<<<
+  CALL FillStrings(ParameterFile) !< readin parameterfile, done on MPI root + Bcast
 
   testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
   testlevel=GETINT('testlevel',Proposal=-1)

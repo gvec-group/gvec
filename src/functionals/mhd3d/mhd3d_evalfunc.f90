@@ -28,8 +28,8 @@ MODULE MODgvec_MHD3D_evalFunc
   IMPLICIT NONE
   
   PRIVATE
-  PUBLIC InitializeMHD3D_EvalFunc, EvalEnergy, EvalForce,CheckEvalForce, EvalAux, FinalizeMHD3D_EvalFunc
-  PUBLIC nGP,mn_IP,w_GP,J_h,J_p,dthet_dzeta  !!! needed by WriteRestart...
+  PUBLIC::InitializeMHD3D_EvalFunc, InitProfilesGP, & 
+          EvalEnergy, EvalForce,CheckEvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc
   
   !evaluations at radial gauss points, size(base%s%nGP_str:base%s%nGP_end)
   REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile 
@@ -114,15 +114,15 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   degGP   = X1_base%s%degGP
   mn_IP   = X1_base%f%mn_IP
   dthet_dzeta  =X1_base%f%d_thet*X1_base%f%d_zeta
-  ALLOCATE(s_GP(nGP_str:nGP_end),w_GP(nGP_str:nGP_end),zeta_IP(1:mn_IP)) 
-  s_GP    = X1_base%s%s_GP(nGP_str:nGP_end)
-  w_GP    = X1_base%s%w_GP(nGP_str:nGP_end)
+  ALLOCATE(s_GP(1:nGP),w_GP(1:nGP),zeta_IP(1:mn_IP)) 
+  s_GP    = X1_base%s%s_GP(1:nGP)
+  w_GP    = X1_base%s%w_GP(1:nGP)
   zeta_IP = X1_base%f%x_IP(2,:)
 
-  ALLOCATE(pres_GP(           nGP_str:nGP_end) )
-  ALLOCATE(chiPrime_GP(       nGP_str:nGP_end) )
-  ALLOCATE(phiPrime_GP(       nGP_str:nGP_end) )
-  ALLOCATE(phiPrime2_GP(      nGP_str:nGP_end) )
+  ALLOCATE(pres_GP(     1:nGP) )
+  ALLOCATE(chiPrime_GP( 1:nGP) )
+  ALLOCATE(phiPrime_GP( 1:nGP) )
+  ALLOCATE(phiPrime2_GP(1:nGP) )
   ALLOCATE(J_h(         mn_IP,nGP_str:nGP_end) )
   ALLOCATE(J_p(         mn_IP,nGP_str:nGP_end) )
   ALLOCATE(sJ_h(        mn_IP,nGP_str:nGP_end) )
@@ -197,14 +197,48 @@ SUBROUTINE InitializeMHD3D_evalFunc()
 END SUBROUTINE InitializeMHD3D_evalFunc
 
 !===================================================================================================================================
+!> Initialise Profiles at GP!!!
+!!
+!===================================================================================================================================
+SUBROUTINE InitProfilesGP()
+! MODULES
+  USE MODgvec_MPI             , ONLY: par_Bcast
+  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_pres,Eval_chiPrime,Eval_phiPrime
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                     :: iGP
+!===================================================================================================================================
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) FIRSTPRIVATE(nGP)
+  DO iGP=1,nGP
+    chiPrime_GP( iGP) = Eval_chiPrime(s_GP(iGP))
+    pres_GP(     iGP) = Eval_pres(    s_GP(iGP))
+    PhiPrime_GP( iGP) = Eval_PhiPrime(s_GP(iGP))
+    PhiPrime2_GP(iGP) = PhiPrime_GP(       iGP)**2
+  END DO !iGP
+!$OMP END PARALLEL DO
+
+CALL par_Bcast(chiPrime_GP,0)
+CALL par_Bcast(pres_GP,0)
+CALL par_Bcast(PhiPrime_GP,0)
+CALL par_Bcast(PhiPrime2_GP,0)
+
+END SUBROUTINE InitProfilesGP
+
+
+!===================================================================================================================================
 !> Evaluate auxiliary variables at input state, writes onto module variables!!!
 !!
 !===================================================================================================================================
 SUBROUTINE EvalAux(Uin,JacCheck)
 ! MODULES
-  USE MODgvec_MPI             , ONLY: par_Reduce
+  USE MODgvec_MPI             , ONLY: par_AllReduce,myRank
   USE MODgvec_Globals         , ONLY: n_warnings_occured
-  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_pres,Eval_chiPrime,Eval_phiPrime
   USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
@@ -259,48 +293,36 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   END DO !iGP
 !$OMP END PARALLEL DO
 
-  __PERFON('reduce_min_detJ')
-  CALL par_Reduce(min_detJ,'MIN',0)
-  __PERFOFF('reduce_min_detJ')
+
   __PERFOFF('loop_1')
 
   !check Jacobian
-  IF (MPIRoot) THEN
-    IF(min_detJ .LT.1.0e-12) THEN
-      SELECT CASE(JacCheck)
-      CASE(1)
-        n_warnings_occured=n_warnings_occured+1
-        IP_GP= MINLOC(detJ(:,:))
-        WRITE(UNIT_stdOut,'(4X,A8,I8,4(A,E11.3))')'WARNING ',n_warnings_occured, &
-             &                                       ' : min(J)= ',MINVAL(detJ),' at s= ',s_GP(IP_GP(2)), &
-             &                                                             ' theta= ',X1_base%f%x_IP(1,IP_GP(1)), &
-             &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1)) 
-        IP_GP= MAXLOC(detJ(:,:))
-        WRITE(UNIT_stdOut,'(4X,16X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ),' at s= ',s_GP(IP_GP(2)), &
-             &                                                             ' theta= ',X1_base%f%x_IP(1,IP_GP(1)), &
-             &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1)) 
-        CALL abort(__STAMP__, &
-             'EvalAux: Jacobian smaller that  1.0e-12!!!' )
-      CASE(2) !quiet check, give back
-        JacCheck=-1
-        __PERFOFF('EvalAux')
-        RETURN
-      END SELECT
-    ELSE
-      JacCheck=1 !set to default for safety (abort if detJ<0)
-    END IF
-  END IF !MPIroot
-
-  !1D data at gauss-points
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) FIRSTPRIVATE(nGP_str,nGP_end)
-  DO iGP=nGP_str,nGP_end
-    chiPrime_GP( iGP) = Eval_chiPrime(s_GP(iGP))
-    pres_GP(     iGP) = Eval_pres(    s_GP(iGP))
-    PhiPrime_GP( iGP) = Eval_PhiPrime(s_GP(iGP))
-    PhiPrime2_GP(iGP) = PhiPrime_GP(       iGP)**2
-  END DO !iGP
-!$OMP END PARALLEL DO
+  IF(min_detJ .LT.1.0e-12) THEN
+    SELECT CASE(JacCheck)
+    CASE(1)
+      n_warnings_occured=n_warnings_occured+1
+      IP_GP= MINLOC(detJ(:,nGP_str:nGP_end))
+      WRITE(UNIT_stdOut,'(4X,A8,I8,4(A,E11.3))')'WARNING ',n_warnings_occured, &
+           &                                       ' : min(J)= ',MINVAL(detJ(:,nGP_str:nGP_end)),' at s= ',s_GP(IP_GP(2)), &
+           &                                                             ' theta= ',X1_base%f%x_IP(1,IP_GP(1)), &
+           &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1)) 
+      IP_GP= MAXLOC(detJ(:,:))
+      WRITE(UNIT_stdOut,'(4X,16X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ(:,nGP_str:nGP_end)),' at s= ',s_GP(IP_GP(2)), &
+           &                                                             ' theta= ',X1_base%f%x_IP(1,IP_GP(1)), &
+           &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1)) 
+      CALL abort(__STAMP__, &
+           'EvalAux: Jacobian smaller that  1.0e-12 !!!', IntInfo=myRank )
+    CASE(2) !quiet check, give back
+      JacCheck=-1
+    END SELECT
+  ELSE
+    JacCheck=1 !set to default for safety (abort if detJ<0)
+  END IF
+  CALL par_AllReduce(JacCheck,'MIN')
+  IF(JacCheck.EQ.-1) THEN
+    __PERFOFF('EvalAux')
+    RETURN
+  END IF
 
   __PERFON('EvalDOF_2')
   !2D data: interpolation points x gauss-points
@@ -350,13 +372,60 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 END SUBROUTINE EvalAux
 
 !===================================================================================================================================
+!> Evaluate total volume and average surface
+!!
+!===================================================================================================================================
+SUBROUTINE EvalTotals(Uin,vol,surfAvg)
+! MODULES
+  USE MODgvec_globals      , ONLY: TWOPI
+  USE MODgvec_MPI          , ONLY: par_Reduce
+  USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN ) :: Uin  !! input solution 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)              , INTENT(OUT) :: vol      !! total integral of the volume
+  REAL(wp)              , INTENT(OUT) :: surfAvg  !! average polodial surface 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER             :: iGP,i_mn,JacCheck
+!===================================================================================================================================
+  JacCheck=2
+  CALL EvalAux(Uin,JacCheck)
+  IF(JacCheck.EQ.-1) THEN
+      CALL abort(__STAMP__, &
+          ' detJ<0 in EvalAux, called from EvalTotals!!!' )
+  END IF
+  vol=0.0_wp
+  surfAvg=0.0_wp
+!$OMP PARALLEL DO       &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   REDUCTION(+:vol,surfAvg) PRIVATE(iGP,i_mn) FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)&
+!$OMP   SHARED(J_h,J_p,w_GP)
+  DO iGP=nGP_str,nGP_end
+    DO i_mn=1,mn_IP
+      vol    =vol    +ABS(J_h(i_mn,iGP)*J_p(i_mn,iGP))*w_GP(iGP)
+      surfAvg=surfAvg+ABS(J_p(i_mn,iGP))*w_GP(iGP)
+    END DO
+  END DO 
+!$OMP END PARALLEL DO
+  CALL par_Reduce(vol,'SUM',0)
+  CALL par_Reduce(surfAvg,'SUM',0)
+  vol     = dthet_dzeta *vol
+  surfAvg = dthet_dzeta *surfAvg /TWOPI
+
+END SUBROUTINE EvalTotals
+
+!===================================================================================================================================
 !> Evaluate 3D MHD energy
 !! NOTE: set callEvalaux >0 if not called before for the same Uin !!
 !!
 !===================================================================================================================================
 FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 ! MODULES
-  USE MODgvec_MPI          , ONLY: par_AllReduce
+  USE MODgvec_MPI          , ONLY: par_AllReduce,myRank
   USE MODgvec_MHD3D_Vars   , ONLY: mu_0,sgammM1
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
@@ -378,14 +447,14 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
   REAL(wp) :: Vprime_GP  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
   REAL(wp) :: Wmag,Wpres
 !===================================================================================================================================
-!  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE ENERGY...'
+  WRITE(UNIT_stdOut,'(4X,A)')'COMPUTE ENERGY...'
   __PERFON('EvalEnergy')
 
   IF(callEvalAux) THEN
     CALL EvalAux(Uin,JacCheck)
     IF(JacCheck.EQ.-1) THEN
       W_MHD3D=1.0e30_wp
-      SWRITE(UNIT_stdOut,'(A,E21.11)')'... detJ<0'
+      WRITE(UNIT_stdOut,'(A,I4)')'... detJ<0 in EvalAux on MPI rank=',myRank
       __PERFOFF('EvalEnergy')
       RETURN !accept detJ<0
     END IF
@@ -1463,7 +1532,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
 
   nBase = X1_Base%s%nBase 
   modes = X1_Base%f%modes
-  WRITE(*,*)'Test X1',nBase,modes
+  SWRITE(*,*)'Test X1',nBase,modes
   DO iBase=1,nBase
     eps=eps_glob
     DO iMode=1,modes
@@ -1477,7 +1546,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
 
   nBase = X2_Base%s%nBase 
   modes = X2_Base%f%modes
-  WRITE(*,*)'Test X2',nBase,modes
+  SWRITE(*,*)'Test X2',nBase,modes
   DO iBase=1,nBase
     eps=eps_glob
     DO iMode=1,modes
@@ -1491,7 +1560,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
 
   nBase = LA_Base%s%nBase 
   modes = LA_Base%f%modes
-  WRITE(*,*)'Test LA',nBase,modes
+  SWRITE(*,*)'Test LA',nBase,modes
   DO iBase=1,nBase
     eps=eps_glob 
     DO iMode=1,modes
@@ -1511,7 +1580,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force without BC |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
 
-  IF(testlevel.GE.2)THEN
+  IF((testlevel.GE.2).AND.MPIroot)THEN
   WRITE(*,*)'-----------------------'
   modes = X1_Base%f%modes
   DO iMode=1,modes
@@ -1550,7 +1619,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   END DO
   END IF !testlevel >=2
   
-  IF(testlevel.GE.3)THEN
+  IF(testlevel.GE.3.AND.MPIroot)THEN
     ASSOCIATE(np1d=>2*(X1_base%s%deg+3) )
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X1_cos_',outputLevel,fileID
     CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Ftest%X1)
@@ -1572,11 +1641,13 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval)
   PrecondType= 1
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Ftest)
-  pTg= - SUM(Ftest%q*Feval%q)
-  IF (pTg.GT.0.0_wp) THEN
-    WRITE(*,'(A,E11.3)')'WARING: PRECONDITIONER is not positive symmetric',ptg
-  ELSE
-    WRITE(*,'(A,E11.3)')'OK: PRECONDITIONER is positive symmetric',ptg
+  IF(MPIroot)THEN
+    pTg= - SUM(Ftest%q*Feval%q)
+    IF (pTg.GT.0.0_wp) THEN
+      WRITE(*,'(A,E11.3)')'WARING: PRECONDITIONER is not positive symmetric',ptg
+    ELSE
+      WRITE(*,'(A,E11.3)')'OK: PRECONDITIONER is positive symmetric',ptg
+    END IF
   END IF
   
   PrecondType=PrecondTypeTmp !save back 

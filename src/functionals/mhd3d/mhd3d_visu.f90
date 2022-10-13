@@ -21,9 +21,11 @@
 !===================================================================================================================================
 MODULE MODgvec_MHD3D_visu
 ! MODULES
-USE MODgvec_Globals,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_Globals,ONLY: wp,Unit_stdOut,abort,MPIroot
 IMPLICIT NONE
-PUBLIC
+
+PRIVATE
+PUBLIC visu_BC_face,visu_3D,CheckDistance,CheckAxis,visu_1d_modes,writeDataMN_visu 
 
 
 
@@ -66,12 +68,14 @@ IMPLICIT NONE
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: FileName
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        "visu_BC_face should only be called by MPIroot")
   IF((minmax(2,1)-minmax(2,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
       'WARNING visuBC, nothing to visualize since theta-range is <=0, theta_min= ',minmax(2,0),', theta_max= ',minmax(2,1)
     RETURN
   ELSEIF((minmax(3,1)-minmax(3,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
       'WARNING visuBC, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
@@ -183,21 +187,23 @@ IMPLICIT NONE
   REAL(wp),PARAMETER :: eps_s   = 1.0e-4 !
 #endif
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        "visu_3D should only be called by MPIroot")
   IF(only_planes)THEN
-    SWRITE(UNIT_stdOut,'(A)') 'Start visu planes...'
+    WRITE(UNIT_stdOut,'(A)') 'Start visu planes...'
   ELSE
-    SWRITE(UNIT_stdOut,'(A)') 'Start visu 3D...'
+    WRITE(UNIT_stdOut,'(A)') 'Start visu 3D...'
   END IF
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
      'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
     RETURN
   ELSEIF((minmax(2,1)-minmax(2,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
       'WARNING visu3D, nothing to visualize since theta-range is <=0, theta_min= ',minmax(2,0),', theta_max= ',minmax(2,1)
     RETURN
   ELSEIF((minmax(3,1)-minmax(3,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
       'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
@@ -531,7 +537,7 @@ IMPLICIT NONE
   END IF
   __PERFOFF("write_visu")
   
-  SWRITE(UNIT_stdOut,'(A)') '... DONE.'
+  WRITE(UNIT_stdOut,'(A)') '... DONE.'
   __PERFOFF("output_visu")
 END SUBROUTINE visu_3D
 
@@ -609,6 +615,8 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
   REAL(wp),ALLOCATABLE :: theta1D(:),zeta1D(:)
   LOGICAL  :: SFL_theta=.TRUE.
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        "checkDistance should only be called by MPIroot")
   __PERFON("checkDistance")
   n_s=3 !number of points to check per element (1 at the left boundary, 2 inner, none at the right)
   mn_IP(1)   = MAX(1,X1_base%f%mn_nyq(1)/2)
@@ -721,6 +729,8 @@ SUBROUTINE CheckAxis(U,n_zeta,AxisPos)
   INTEGER  :: i_n
   REAL(wp) :: zeta,UX1_s(1:X1_base%f%modes),UX2_s(1:X2_base%f%modes)
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        "checkAxis should only be called by MPIroot")
   UX1_s(:) = X1_base%s%evalDOF2D_s(0.0_wp,X1_base%f%modes,0,U%X1(:,:))
   UX2_s(:) = X2_base%s%evalDOF2D_s(0.0_wp,X2_base%f%modes,0,U%X2(:,:))
 
@@ -737,11 +747,11 @@ END SUBROUTINE CheckAxis
 !===================================================================================================================================
 SUBROUTINE visu_1d_modes(n_s,fileID)
 ! MODULES
-USE MODgvec_Analyze_Vars,  ONLY: visu1D
-USE MODgvec_fbase,         ONLY: sin_cos_map
-USE MODgvec_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
-USE MODgvec_Output_vars,   ONLY: outputLevel
-IMPLICIT NONE
+  USE MODgvec_Analyze_Vars,  ONLY: visu1D
+  USE MODgvec_fbase,         ONLY: sin_cos_map
+  USE MODgvec_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
+  USE MODgvec_Output_vars,   ONLY: outputLevel
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER, INTENT(IN   ) :: n_s    !! number of visualization points per element
@@ -754,6 +764,8 @@ IMPLICIT NONE
   CHARACTER(LEN=4)   :: vstr
   CHARACTER(LEN=80)  :: vname,fname
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        "visu_1d_modes should only be called by MPIroot")
   !visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
   WRITE(vstr,'(I4)')visu1D
   vcase=.FALSE.
@@ -902,6 +914,8 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
   REAL(wp)          ,ALLOCATABLE :: s_visu(:)
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        "writeData_MN_visu should only be called by MPIroot")
   WRITE(fname,'(A,A,".csv")')TRIM(ProjectName)//'_modes_',TRIM(fname_in)
   nvisu   =sgrid%nElems*n_s
   

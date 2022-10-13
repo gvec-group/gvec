@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MODgvec_Analyze
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,abort
+USE MODgvec_Globals, ONLY:wp,abort,MPIroot
 IMPLICIT NONE
 PRIVATE
 
@@ -64,44 +64,45 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 REAL(wp):: visu_minmax(3,0:1)
 !===================================================================================================================================
-SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
-visu1D    = GETINT('visu1D',Proposal=0)   
-visu2D    = GETINT('visu2D',Proposal=0)   
-visu3D    = GETINT('visu3D',Proposal=0)   
-SFL_theta = GETLOGICAL('SFL_theta',Proposal=.TRUE.)   
-
-
-visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
-visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))
-
-iAnalyze=-1
-
-IF(visu1D.GT.0)THEN
-  np_1d          = GETINT(     "np_1d",Proposal=5)
-  IF(np_1d.LE.1) CALL abort(__STAMP__,&
-     "np_1d must be >1")
-END IF
-IF(visu2D.GT.0)THEN
-  np_visu_BC     = GETINTARRAY("np_visu_BC",2,Proposal=(/20,30/))
-  IF(any(np_visu_BC.LE.1)) CALL abort(__STAMP__,&
-     "all point numbers in np_visu_BC must be >1")
-  visu_BC_minmax(2:3,0)=GETREALARRAY("visu_BC_min",2,Proposal=visu_minmax(2:3,0),quiet_def_in=.TRUE.)
-  visu_BC_minmax(2:3,1)=GETREALARRAY("visu_BC_max",2,Proposal=visu_minmax(2:3,1),quiet_def_in=.TRUE.)
-  np_visu_planes = GETINTARRAY("np_visu_planes",3, (/5,12,10/))
-  IF(any(np_visu_planes.LE.1)) CALL abort(__STAMP__,&
-     "all point numbers in np_visu_planes must be >1")
-  visu_planes_minmax(1:3,0)=GETREALARRAY("visu_planes_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
-  visu_planes_minmax(1:3,1)=GETREALARRAY("visu_planes_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
-END IF
-IF(visu3D.GT.0)THEN
-  np_visu_3D     = GETINTARRAY("np_visu_3D",3,Proposal=(/5,12,10/))
-  IF(any(np_visu_3D.LE.1)) CALL abort(__STAMP__,&
-     "all point numbers in np_visu_3D must be >1")
-  visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
-  visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
-END IF
-SWRITE(UNIT_stdOut,'(A)')'... DONE'
-SWRITE(UNIT_stdOut,fmt_sep)
+  IF(.NOT.MPIroot) RETURN
+  WRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
+  visu1D    = GETINT('visu1D',Proposal=0)   
+  visu2D    = GETINT('visu2D',Proposal=0)   
+  visu3D    = GETINT('visu3D',Proposal=0)   
+  SFL_theta = GETLOGICAL('SFL_theta',Proposal=.TRUE.)   
+  
+  
+  visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
+  visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))
+  
+  iAnalyze=-1
+  
+  IF(visu1D.GT.0)THEN
+    np_1d          = GETINT(     "np_1d",Proposal=5)
+    IF(np_1d.LE.1) CALL abort(__STAMP__,&
+       "np_1d must be >1")
+  END IF
+  IF(visu2D.GT.0)THEN
+    np_visu_BC     = GETINTARRAY("np_visu_BC",2,Proposal=(/20,30/))
+    IF(any(np_visu_BC.LE.1)) CALL abort(__STAMP__,&
+       "all point numbers in np_visu_BC must be >1")
+    visu_BC_minmax(2:3,0)=GETREALARRAY("visu_BC_min",2,Proposal=visu_minmax(2:3,0),quiet_def_in=.TRUE.)
+    visu_BC_minmax(2:3,1)=GETREALARRAY("visu_BC_max",2,Proposal=visu_minmax(2:3,1),quiet_def_in=.TRUE.)
+    np_visu_planes = GETINTARRAY("np_visu_planes",3, (/5,12,10/))
+    IF(any(np_visu_planes.LE.1)) CALL abort(__STAMP__,&
+       "all point numbers in np_visu_planes must be >1")
+    visu_planes_minmax(1:3,0)=GETREALARRAY("visu_planes_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
+    visu_planes_minmax(1:3,1)=GETREALARRAY("visu_planes_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
+  END IF
+  IF(visu3D.GT.0)THEN
+    np_visu_3D     = GETINTARRAY("np_visu_3D",3,Proposal=(/5,12,10/))
+    IF(any(np_visu_3D.LE.1)) CALL abort(__STAMP__,&
+       "all point numbers in np_visu_3D must be >1")
+    visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
+    visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
+  END IF
+  WRITE(UNIT_stdOut,'(A)')'... DONE'
+  WRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
 
 
@@ -126,48 +127,49 @@ LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
 INTEGER            :: FileID
 !===================================================================================================================================
-iAnalyze=iAnalyze+1
-IF(PRESENT(FileID_in))THEN
-  FileID=FileID_in
-ELSE
-  FileID=iAnalyze
-END IF
-IF(iAnalyze.EQ.0) THEN
-  IF(which_init.EQ.1) THEN
-    IF(visu1D.NE.0) CALL VMEC1D_visu() 
-    IF(visu2D.NE.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
-    IF(visu3D.NE.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 
+  IF(.NOT.MPIroot) RETURN
+  iAnalyze=iAnalyze+1
+  IF(PRESENT(FileID_in))THEN
+    FileID=FileID_in
+  ELSE
+    FileID=iAnalyze
   END IF
-END IF !iAnalyze==0
-IF(visu1D.NE.0)THEN
-  CALL visu_1d_modes(np_1d,FileID) 
-  !
-END IF !visu1D
-IF(visu2D.NE.0)THEN
-  vcase=.FALSE.
-  WRITE(vstr,'(I4)')visu2D
-  IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
-  IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
-  IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
-  IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
-  IF(vcase(1))THEN
-    IF(iAnalyze.EQ.0) CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
-  END IF
-  IF(vcase(2))THEN
-    CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
-  END IF 
-END IF !visu2d
-IF(visu3D.NE.0)THEN
-  vcase=.FALSE.
-  WRITE(vstr,'(I4)')visu3D
-  IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
-  IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
-  IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
-  IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
-  IF(vcase(1))THEN
-    CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
-  END IF 
-END IF !visu2d
+  IF(iAnalyze.EQ.0) THEN
+    IF(which_init.EQ.1) THEN
+      IF(visu1D.NE.0) CALL VMEC1D_visu() 
+      IF(visu2D.NE.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
+      IF(visu3D.NE.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 
+    END IF
+  END IF !iAnalyze==0
+  IF(visu1D.NE.0)THEN
+    CALL visu_1d_modes(np_1d,FileID) 
+    !
+  END IF !visu1D
+  IF(visu2D.NE.0)THEN
+    vcase=.FALSE.
+    WRITE(vstr,'(I4)')visu2D
+    IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+    IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+    IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+    IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+    IF(vcase(1))THEN
+      IF(iAnalyze.EQ.0) CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
+    END IF
+    IF(vcase(2))THEN
+      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
+    END IF 
+  END IF !visu2d
+  IF(visu3D.NE.0)THEN
+    vcase=.FALSE.
+    WRITE(vstr,'(I4)')visu3D
+    IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
+    IF(INDEX(vstr,'2').NE.0) vcase(2)=.TRUE.
+    IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
+    IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
+    IF(vcase(1))THEN
+      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
+    END IF 
+  END IF !visu2d
 
 END SUBROUTINE Analyze 
 
@@ -202,6 +204,7 @@ REAL(wp)           :: rho_int(n_int),rho_half(nFluxVMEC)
 LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
 !===================================================================================================================================
+  IF(.NOT.MPIroot) RETURN
   !visu1D: all possible combinations: 1,2,3,4,12,13,14,23,24,34,123,124,234,1234
   WRITE(vstr,'(I4)')visu1D
   vcase=.FALSE.
@@ -427,21 +430,22 @@ IMPLICIT NONE
   CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
 !===================================================================================================================================
+  IF(.NOT.MPIroot) RETURN
   IF(only_planes)THEN
-    SWRITE(UNIT_stdOut,'(A)') 'Start VMEC visu planes...'
+    WRITE(UNIT_stdOut,'(A)') 'Start VMEC visu planes...'
   ELSE
-    SWRITE(UNIT_stdOut,'(A)') 'Start VMEC visu 3D...'
+    WRITE(UNIT_stdOut,'(A)') 'Start VMEC visu 3D...'
   END IF
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
      'WARNING visu3D, nothing to visualize since s-range is <=0, s_min= ',minmax(1,0),', s_max= ',minmax(1,1)
     RETURN
   ELSEIF((minmax(2,1)-minmax(2,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
       'WARNING visu3D, nothing to visualize since theta-range is <=0, theta_min= ',minmax(2,0),', theta_max= ',minmax(2,1)
     RETURN
   ELSEIF((minmax(3,1)-minmax(3,0)).LE.1e-08)THEN
-    SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
+    WRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
       'WARNING visu3D, nothing to visualize since zeta-range is <=0, zeta_min= ',minmax(3,0),', zeta_max= ',minmax(3,1)
     RETURN
   END IF
@@ -567,7 +571,7 @@ IMPLICIT NONE
 
   END ASSOCIATE
 
-  SWRITE(UNIT_stdOut,'(A)') '... DONE.'
+  WRITE(UNIT_stdOut,'(A)') '... DONE.'
 
 !for iteration on theta^*
 CONTAINS 

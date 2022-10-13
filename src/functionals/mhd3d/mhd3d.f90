@@ -147,11 +147,20 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
+    init_with_profiles = GETLOGICAL("init_with_profiles", Proposal=.FALSE.)
     IF(init_fromBConly)THEN
       !=-1, keep vmec axis and boundary, =0: keep vmec boundary, overwrite axis, =1: keep vmec axis, overwrite boundary, =2: overwrite axis and boundary
       init_BC= GETINT("reinit_BC",Proposal=-1) 
     ELSE
       init_BC=-1
+    END IF
+    IF(init_with_profiles)THEN
+      sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
+      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+      iota_coefs=REAL(sign_iota)*iota_coefs
+      CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+      pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
+      pres_coefs=pres_coefs*pres_scale
     END IF
 
         
@@ -382,9 +391,10 @@ SUBROUTINE InitSolutionMHD3D(sf)
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
   USE MODgvec_Restart        , ONLY: RestartFromState
   USE MODgvec_Restart        , ONLY: WriteState
-  USE MODgvec_MHD3D_EvalFunc , ONLY: EvalEnergy,EvalForce,CheckEvalForce
+  USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce,CheckEvalForce
   USE MODgvec_Analyze        , ONLY: Analyze
   USE MODgvec_ReadInTools    , ONLY: GETLOGICAL
+  USE MODgvec_MPI            , ONLY: par_Bcast
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -398,47 +408,51 @@ SUBROUTINE InitSolutionMHD3D(sf)
   REAL(wp),ALLOCATABLE :: X1pert_b(:)      !! fourier modes of the boundary perturbation for X1
   REAL(wp),ALLOCATABLE :: X2pert_b(:)      !! fourier modes of the boundary perturbation for X2
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
-  IF(doRestart)THEN
-    SWRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
-    CALL RestartFromState(RestartFile,U(0))
-    !CALL InitSolution(U(0),-1) !would apply BC and recompute lambda
-  ELSE 
-    CALL InitSolution(U(0),which_init)
-  END IF
-
-  boundary_perturb=GETLOGICAL('boundary_perturb',Proposal=.FALSE.)
-  IF(boundary_perturb)THEN
-    ALLOCATE(X1pert_b(1:X1_base%f%modes) )
-    ALLOCATE(X2pert_b(1:X2_base%f%modes) )
-    X1pert_b=0.0_wp
-    X2pert_b=0.0_wp
-    !READ boudnary values from input file
-    ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
-    SWRITE(UNIT_stdOut,'(4X,A)')'... read data for X1pert:'
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X1pert_b(iMode)=get_iMode('X1pert_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X1pert_b(iMode)=get_iMode('X1pert_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-    ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
-    SWRITE(UNIT_stdOut,'(4X,A)')'... read data for X2pert:'
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X2pert_b(iMode)=get_iMode('X2pert_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X2pert_b(iMode)=get_iMode('X2pert_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-    CALL AddBoundaryPerturbation(U(0),0.3,X1pert_b,X2pert_b)
-    DEALLOCATE(X1pert_b,X2pert_b)
-  END IF
+  IF(MPIroot) THEN
+    WRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
+    IF(doRestart)THEN
+      WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
+      CALL RestartFromState(RestartFile,U(0))
+      !CALL InitSolution(U(0),-1) !would apply BC and recompute lambda
+    ELSE 
+      CALL InitSolution(U(0),which_init)
+    END IF
+ 
+    boundary_perturb=GETLOGICAL('boundary_perturb',Proposal=.FALSE.)
+    IF(boundary_perturb)THEN
+      ALLOCATE(X1pert_b(1:X1_base%f%modes) )
+      ALLOCATE(X2pert_b(1:X2_base%f%modes) )
+      X1pert_b=0.0_wp
+      X2pert_b=0.0_wp
+      !READ boudnary values from input file
+      ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
+      SWRITE(UNIT_stdOut,'(4X,A)')'... read data for X1pert:'
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X1pert_b(iMode)=get_iMode('X1pert_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X1pert_b(iMode)=get_iMode('X1pert_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+      ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
+      SWRITE(UNIT_stdOut,'(4X,A)')'... read data for X2pert:'
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X2pert_b(iMode)=get_iMode('X2pert_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X2pert_b(iMode)=get_iMode('X2pert_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+      CALL AddBoundaryPerturbation(U(0),0.3,X1pert_b,X2pert_b)
+      DEALLOCATE(X1pert_b,X2pert_b)
+    END IF
+  END IF !MPIroot
+  CALL par_Bcast(U(0)%q,0)
 
   CALL U(-1)%set_to(U(0))
 
   JacCheck=2
+  CALL InitProfilesGP() !evaluate profiles once at Gauss Points
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
   CALL WriteState(U(0),0)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
@@ -531,6 +545,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                       "InitSolution should only be called by MPIroot!")
   SELECT CASE(which_init_in)
   CASE(-1) !restart
     X1_a(:)=U_init%X1(1,:)

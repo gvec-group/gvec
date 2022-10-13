@@ -101,7 +101,7 @@ IMPLICIT NONE
   nfp = X1_base_r%f%nfp
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
 
-  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
+  WRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
                               ', mn_max_in=',LA_base_r%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
   __PERFON('get_boozer')
   __PERFON('init')
@@ -126,26 +126,26 @@ IMPLICIT NONE
 
   !transpose basis functions and include norm for projection
 
-  SWRITE(UNIT_StdOut,*)'        ...Init G_out Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init G_out Base Done'
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
                                 X1_base_r%f%nfp, &
                     sin_cos_map(X1_base_r%f%sin_cos), &
                                 X1_base_r%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init X1_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init X1_nyq Base Done'
 
   CALL fbase_new( X2_fbase_nyq, X2_base_r%f%mn_max,  mn_nyq, &
                                 X2_base_r%f%nfp, &
                     sin_cos_map(X2_base_r%f%sin_cos), &
                                 X2_base_r%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init X2_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init X2_nyq Base Done'
 
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new(LA_fbase_nyq,  LA_base_r%f%mn_max,  mn_nyq, &
                                 LA_base_r%f%nfp, &
                     sin_cos_map(LA_base_r%f%sin_cos), &
                                 LA_base_r%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init LA_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init LA_nyq Base Done'
 
   ALLOCATE( X1_IP(1:mn_IP),dX1ds_IP(1:mn_IP), dX1dthet_IP(1:mn_IP),dX1dzeta_IP(1:mn_IP),&
             X2_IP(1:mn_IP),dX2ds_IP(1:mn_IP), dX2dthet_IP(1:mn_IP),dX2dzeta_IP(1:mn_IP) )
@@ -311,7 +311,7 @@ IMPLICIT NONE
              fm_IP,fn_IP,ft_IP,GZ_m,GZ_n,  &
              Bcov_thet_IP,Bcov_zeta_IP)
 
-  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  WRITE(UNIT_StdOut,'(A)') '...DONE.'
   __PERFOFF('get_boozer')
 END SUBROUTINE Get_Boozer_sinterp
 
@@ -378,7 +378,7 @@ IMPLICIT NONE
   nfp = X1_base_r%f%nfp
   IF(mn_max(2).EQ.0) mn_nyq(2)=1 !exception: 2D configuration
 
-  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
+  WRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
                               ', mn_max_in=',LA_base_r%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
   __PERFON('get_boozer')
   __PERFON('init')
@@ -407,26 +407,26 @@ IMPLICIT NONE
 
   !transpose basis functions and include norm for projection
 
-  SWRITE(UNIT_StdOut,*)'        ...Init G_out Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init G_out Base Done'
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
                                 X1_base_r%f%nfp, &
                     sin_cos_map(X1_base_r%f%sin_cos), &
                                 X1_base_r%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init X1_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init X1_nyq Base Done'
 
   CALL fbase_new( X2_fbase_nyq, X2_base_r%f%mn_max,  mn_nyq, &
                                 X2_base_r%f%nfp, &
                     sin_cos_map(X2_base_r%f%sin_cos), &
                                 X2_base_r%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init X2_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init X2_nyq Base Done'
 
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
   CALL fbase_new(LA_fbase_nyq,  LA_base_r%f%mn_max,  mn_nyq, &
                                 LA_base_r%f%nfp, &
                     sin_cos_map(LA_base_r%f%sin_cos), &
                                 LA_base_r%f%exclude_mn_zero)
-  SWRITE(UNIT_StdOut,*)'        ...Init LA_nyq Base Done'
+  WRITE(UNIT_StdOut,*)'        ...Init LA_nyq Base Done'
 
   ALLOCATE( X1_IP(1:mn_IP),dX1ds_IP(1:mn_IP), dX1dthet_IP(1:mn_IP),dX1dzeta_IP(1:mn_IP),&
             X2_IP(1:mn_IP),dX2ds_IP(1:mn_IP), dX2dthet_IP(1:mn_IP),dX2dzeta_IP(1:mn_IP) )
@@ -607,7 +607,7 @@ IMPLICIT NONE
              fm_IP,fn_IP,ft_IP,   &
              Bcov_thet_IP,Bcov_zeta_IP)
 
-  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  WRITE(UNIT_StdOut,'(A)') '...DONE.'
   __PERFOFF('get_boozer')
 END SUBROUTINE Get_Boozer_sproject
 

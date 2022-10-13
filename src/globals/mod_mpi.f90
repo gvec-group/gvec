@@ -36,7 +36,7 @@ MODULE MODgvec_MPI
 
   ! allows same call for both scalar and different array ranks
   INTERFACE par_AllReduce
-    MODULE PROCEDURE par_AllReduce_scalar, par_AllReduce_array1D, par_AllReduce_array2D
+    MODULE PROCEDURE par_AllReduce_scalar,par_AllReduce_scalar_int, par_AllReduce_array1D, par_AllReduce_array2D
   END INTERFACE par_AllReduce
 
   ! allows same call for both scalar and different array ranks
@@ -93,12 +93,12 @@ CONTAINS
     CALL MPI_COMM_RANK(MPI_COMM_WORLD, myRank, ierr)
     worldComm = MPI_COMM_WORLD
     dType=MPI_DOUBLE_PRECISION
-    ALLOCATE(req  (0:nRanks-1))
+#   endif
+    MPIRoot=(myRank.EQ.0)
+    ALLOCATE(req (0:nRanks-1))
     ALLOCATE(req1(0:nRanks-1))
     ALLOCATE(req2(0:nRanks-1))
     ALLOCATE(req3(0:nRanks-1))
-#   endif
-    MPIRoot=(myRank.EQ.0)
   END SUBROUTINE par_Init
 
   !================================================================================================================================
@@ -111,6 +111,10 @@ CONTAINS
     INTEGER :: ierr
   !================================================================================================================================
   ! BODY
+    DEALLOCATE(req )
+    DEALLOCATE(req1)
+    DEALLOCATE(req2)
+    DEALLOCATE(req3)
 #   if MPI
     CALL MPI_FINALIZE(ierr)
 #   endif
@@ -170,6 +174,36 @@ CONTAINS
     CALL MPI_AllReduce(MPI_IN_PLACE, scalar, 1, dType, mpiOP, worldComm, ierr)
 #   endif
   END SUBROUTINE par_AllReduce_scalar
+
+  !================================================================================================================================
+  !> Find MAX/MIN/SUM scalar value across MPI ranks and bradcast result back to all MPI ranks.
+  !================================================================================================================================
+  SUBROUTINE par_AllReduce_scalar_int(scalar_int,parOP)
+  ! MODULES
+    USE MODgvec_Globals, ONLY : wp
+    IMPLICIT NONE
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    INTEGER, INTENT(INOUT)       :: scalar_int
+    CHARACTER(LEN=3), INTENT(IN) :: parOP
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER     :: ierr
+#   if MPI
+    MPI_op_TYPE :: mpiOP
+  !================================================================================================================================
+  ! BODY
+    SELECT CASE(parOP)
+      CASE('MAX')
+        mpiOP=MPI_MAX
+      CASE('MIN')
+        mpiOP=MPI_MIN
+      CASE('SUM')
+        mpiOP=MPI_SUM
+    END SELECT
+    CALL MPI_AllReduce(MPI_IN_PLACE, scalar_int, 1, MPI_INTEGER, mpiOP, worldComm, ierr)
+#   endif
+  END SUBROUTINE par_AllReduce_scalar_int
 
   !================================================================================================================================
   !> Find MAX/MIN/SUM of 1D array (assumed-shape) across all MPI ranks and bradcast result back to all MPI ranks.
