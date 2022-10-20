@@ -26,7 +26,6 @@ MODULE MODgvec_MPI
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: nRanks, myRank
   PUBLIC :: par_Init, par_Finalize, par_Barrier
   PUBLIC :: par_Bcast, par_Reduce, par_AllReduce
   PUBLIC :: par_IReduce, par_IBcast, par_Wait
@@ -41,7 +40,7 @@ MODULE MODgvec_MPI
 
   ! allows same call for both scalar and different array ranks
   INTERFACE par_Reduce
-    MODULE PROCEDURE par_Reduce_scalar, par_Reduce_array1D, par_Reduce_array2D
+    MODULE PROCEDURE par_Reduce_scalar, par_Reduce_scalar_int, par_Reduce_array1D, par_Reduce_array2D
   END INTERFACE par_Reduce
 
   ! allows same call for both scalar and different array ranks (nonblocking)
@@ -51,7 +50,8 @@ MODULE MODgvec_MPI
 
   ! allows same call for both scalar and different array ranks
   INTERFACE par_Bcast
-    MODULE PROCEDURE par_BCast_scalar, par_BCast_array1D, par_BCast_array2D
+    MODULE PROCEDURE par_BCast_scalar, par_BCast_scalar_int, par_BCast_scalar_str, &
+                     par_BCast_array1D, par_BCast_array1D_int, par_BCast_array1D_str, par_BCast_array2D
   END INTERFACE par_Bcast
 
   ! allows same call for both scalar and different array ranks (nonblocking)
@@ -65,8 +65,6 @@ MODULE MODgvec_MPI
   END INTERFACE par_Wait
 
   ! Variables: whole module scope
-  INTEGER :: nRanks=1
-  INTEGER :: myRank=0
   MPI_comm_TYPE :: worldComm
   MPI_datatype_TYPE :: dType
   MPI_request_TYPE, ALLOCATABLE :: req(:), req1(:), req2(:), req3(:)
@@ -78,7 +76,7 @@ CONTAINS
   !================================================================================================================================
   SUBROUTINE par_Init()
   ! MODULES
-    USE MODgvec_Globals, ONLY : MPIRoot
+    USE MODgvec_Globals, ONLY : MPIRoot,myRank,nRanks
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
@@ -124,11 +122,14 @@ CONTAINS
   !================================================================================================================================
   !> Barrier for specified communicator, or world-communicator otherwise.
   !================================================================================================================================
-  SUBROUTINE par_Barrier(Comm)
+  SUBROUTINE par_Barrier(Comm,beforeScreenOut,afterScreenOut)
+  ! MODULES
+    USE MODgvec_Globals, ONLY : MPIRoot,UNIT_Stdout
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
     MPI_comm_TYPE, INTENT(IN), OPTIONAL :: Comm
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: beforeScreenOut,afterScreenOut
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
     INTEGER :: ierr
@@ -141,7 +142,9 @@ CONTAINS
     ELSE
       Communicator=worldComm
     END IF
+    IF(PRESENT(beforeScreenOut).AND.MPIroot) WRITE(UNIT_StdOut,'(A)') beforeScreenOut
     CALL MPI_BARRIER(Communicator, ierr)
+    IF(PRESENT(afterScreenOut) .AND.MPIroot) WRITE(UNIT_StdOut,'(A)') afterScreenOut
 #   endif
   END SUBROUTINE par_Barrier
 
@@ -272,9 +275,44 @@ CONTAINS
   !================================================================================================================================
   !> Find on MPI rank 'toRank' MAX/MIN/SUM scalar value across MPI ranks.
   !================================================================================================================================
+  SUBROUTINE par_Reduce_scalar_int(scalar_int,parOP,toRank)
+  ! MODULES
+    USE MODgvec_Globals, ONLY : wp,myRank
+    IMPLICIT NONE
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    INTEGER, INTENT(INOUT)       :: scalar_int
+    CHARACTER(LEN=3), INTENT(IN) :: parOP
+    INTEGER, INTENT(IN)          :: toRank  ! =0 by default
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER     :: ierr
+#   if MPI
+    MPI_op_TYPE :: mpiOP
+  !================================================================================================================================
+  ! BODY
+    SELECT CASE(parOP)
+      CASE('MAX')
+        mpiOP=MPI_MAX
+      CASE('MIN')
+        mpiOP=MPI_MIN
+      CASE('SUM')
+        mpiOP=MPI_SUM
+    END SELECT
+    IF (myRank.EQ.toRank) THEN
+      CALL MPI_Reduce(MPI_IN_PLACE, scalar_int, 1, dType, mpiOP, toRank, worldComm, ierr)
+    ELSE
+      CALL MPI_Reduce(scalar_int, scalar_int, 1, dType, mpiOP, toRank, worldComm, ierr)
+    END IF
+#   endif
+  END SUBROUTINE par_Reduce_scalar_int
+
+  !================================================================================================================================
+  !> Find on MPI rank 'toRank' MAX/MIN/SUM scalar value across MPI ranks.
+  !================================================================================================================================
   SUBROUTINE par_Reduce_scalar(scalar,parOP,toRank)
   ! MODULES
-    USE MODgvec_Globals, ONLY : wp
+    USE MODgvec_Globals, ONLY : wp,myRank
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -309,7 +347,7 @@ CONTAINS
   !================================================================================================================================
   SUBROUTINE par_Reduce_array1D(arr,parOP,toRank)
   ! MODULES
-    USE MODgvec_Globals, ONLY : wp
+    USE MODgvec_Globals, ONLY : wp,myRank
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -346,7 +384,7 @@ CONTAINS
   !================================================================================================================================
   SUBROUTINE par_Reduce_array2D(arr,parOP,toRank)
   ! MODULES
-    USE MODgvec_Globals, ONLY : wp
+    USE MODgvec_Globals, ONLY : wp,myRank
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -383,7 +421,7 @@ CONTAINS
   !================================================================================================================================
   SUBROUTINE par_IReduce_array1D(arr,parOP,toRank,req)
   ! MODULES
-    USE MODgvec_Globals, ONLY : wp
+    USE MODgvec_Globals, ONLY : wp,myRank
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -421,7 +459,7 @@ CONTAINS
   !================================================================================================================================
   SUBROUTINE par_IReduce_array2D(arr,parOP,toRank,req)
   ! MODULES
-    USE MODgvec_Globals, ONLY : wp
+    USE MODgvec_Globals, ONLY : wp,myRank
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -453,6 +491,48 @@ CONTAINS
     END IF
 #   endif
   END SUBROUTINE par_IReduce_array2D
+
+  !================================================================================================================================
+  !> Broadcast a scalar from MPI rank 'fromRank' to all MPI ranks.
+  !================================================================================================================================
+  SUBROUTINE par_Bcast_scalar_int(scalar_int,fromRank)
+  ! MODULES
+    USE MODgvec_Globals, ONLY : wp,myRank
+    IMPLICIT NONE
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    INTEGER, INTENT(INOUT)       :: scalar_int
+    INTEGER                      :: fromRank
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+#   if MPI
+    INTEGER     :: ierr
+  !================================================================================================================================
+  ! BODY
+    CALL MPI_Bcast(scalar_int, 1, MPI_INTEGER, fromRank, worldComm, ierr)
+#   endif
+  END SUBROUTINE par_Bcast_scalar_int
+
+  !================================================================================================================================
+  !> Broadcast a scalar from MPI rank 'fromRank' to all MPI ranks.
+  !================================================================================================================================
+  SUBROUTINE par_Bcast_scalar_str(scalar_str,fromRank)
+  ! MODULES
+    USE MODgvec_Globals, ONLY : wp,myRank
+    IMPLICIT NONE
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CHARACTER(LEN=*), INTENT(INOUT) :: scalar_str
+    INTEGER                         :: fromRank
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+#   if MPI
+    INTEGER     :: ierr
+  !================================================================================================================================
+  ! BODY
+    CALL MPI_Bcast(scalar_str, LEN(scalar_str), MPI_CHARACTER, fromRank, worldComm, ierr)
+#   endif
+  END SUBROUTINE par_Bcast_scalar_str
 
   !================================================================================================================================
   !> Broadcast a scalar from MPI rank 'fromRank' to all MPI ranks.
@@ -497,6 +577,52 @@ CONTAINS
     CALL MPI_Bcast(arr, sz, dType, fromRank, worldComm, ierr)
 #   endif
   END SUBROUTINE par_Bcast_array1D
+
+  !================================================================================================================================
+  !> Broadcast a 1D array (assumed-shape) from MPI rank 'fromRank' to all MPI ranks.
+  !================================================================================================================================
+  SUBROUTINE par_Bcast_array1D_int(arr_int,fromRank)
+  ! MODULES
+    USE MODgvec_Globals, ONLY : wp
+    IMPLICIT NONE
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    INTEGER, INTENT(INOUT)       :: arr_int(:)
+    INTEGER                      :: fromRank
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+#   if MPI
+    INTEGER     :: ierr
+    INTEGER     :: sz
+  !================================================================================================================================
+  ! BODY
+    sz=SIZE(arr_int)
+    CALL MPI_Bcast(arr_int, sz, MPI_INTEGER, fromRank, worldComm, ierr)
+#   endif
+  END SUBROUTINE par_Bcast_array1D_int
+
+  !================================================================================================================================
+  !> Broadcast a 1D array (assumed-shape) from MPI rank 'fromRank' to all MPI ranks.
+  !================================================================================================================================
+  SUBROUTINE par_Bcast_array1D_str(arr_str,fromRank)
+  ! MODULES
+    USE MODgvec_Globals, ONLY : wp
+    IMPLICIT NONE
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CHARACTER(LEN=*), INTENT(INOUT) :: arr_str(:)
+    INTEGER                         :: fromRank
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+#   if MPI
+    INTEGER     :: ierr
+    INTEGER     :: sz
+  !================================================================================================================================
+  ! BODY
+    sz=SIZE(arr_str)*LEN(arr_str(1))
+    CALL MPI_Bcast(arr_str, sz, MPI_CHARACTER, fromRank, worldComm, ierr)
+#   endif
+  END SUBROUTINE par_Bcast_array1D_str
 
   !================================================================================================================================
   !> Broadcast a 2D array (assumed-shape) from MPI rank 'fromRank' to all MPI ranks.

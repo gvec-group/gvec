@@ -110,8 +110,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
 ! MODULES
-USE MODgvec_GLobals, ONLY: PI
-USE MODgvec_MPI,     ONLY: myRank, nRanks
+USE MODgvec_GLobals, ONLY: PI,myRank, nRanks
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES

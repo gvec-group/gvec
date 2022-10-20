@@ -53,6 +53,8 @@ INTEGER                     :: testUnit                  !! unit for out.test fi
 INTEGER                     :: ProgressBar_oldpercent    !! for progressBar
 REAL(wp)                    :: ProgressBar_starttime     !! for progressBar
 LOGICAL                     :: MPIRoot=.TRUE.            !! flag whether process is MPI root process
+INTEGER                     :: myRank=0                  !! rank of the MPI task
+INTEGER                     :: nRanks=1                  !! total number of MPI tasks
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
@@ -108,7 +110,7 @@ CONTAINS
 !! Uses a MPI_ABORT which terminates FLUXO if a single proc calls this routine.
 !!
 !==================================================================================================================================
-SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode,myRank)
+SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode)
 ! MODULES
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -121,11 +123,9 @@ CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
 INTEGER,OPTIONAL                  :: IntInfo         !! Error info (integer)
 REAL(wp),OPTIONAL                 :: RealInfo        !! Error info (real)
 INTEGER,OPTIONAL                  :: ErrorCode       !! Error info (integer)
-INTEGER,OPTIONAL                  :: myRank          !! MPI task rank (integer)
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=50)                 :: IntString,RealString
-INTEGER                           :: mrnk=0          ! Local myRank, which set to 0 witout MPI
 #if MPI
 INTEGER                           :: errOut          ! Output of MPI_ABORT
 INTEGER                           :: signalout       ! Output errorcode
@@ -136,10 +136,9 @@ RealString = ""
 
 IF (PRESENT(IntInfo))  WRITE(IntString,"(A,I0)")  "\nIntInfo:  ", IntInfo
 IF (PRESENT(RealInfo)) WRITE(RealString,"(A,F24.19)") "\nRealInfo: ", RealInfo
-IF (PRESENT(myRank))   mrnk=myRank
 
-SWRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
-                     'Program abort caused on Proc ',mrnk, '\n', &
+WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
+                     'Program abort caused on Proc ',myRank, '\n', &
                      '  in File : ',TRIM(SourceFile),' Line ',SourceLine, '\n', &
                      '  This file was compiled at ',TRIM(CompDate),'  ',TRIM(CompTime), '\n', &
                      'Message: ',TRIM(ErrorMessage), &
@@ -200,8 +199,7 @@ REAL(wp)          :: endTime
 !==================================================================================================================================
   IF(iter.LE.0)THEN !INIT
     ProgressBar_oldpercent=0
-    CALL CPU_Time(Progressbar_StartTime)
-!$ Progressbar_StartTime=OMP_GET_WTIME()
+    ProgressBar_StartTime=GetTime()
     SWRITE(UNIT_StdOut,'(4X,A,I8)') &
     '|       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of ',n_iter
     SWRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
@@ -215,8 +213,7 @@ REAL(wp)          :: endTime
     END IF
     ProgressBar_oldPercent=newPercent
     IF(newpercent.EQ.100)THEN
-      CALL CPU_Time(endTime)
-!$  endTime=OMP_GET_WTIME()
+      EndTime=GetTime()
       SWRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
     END IF
   END IF 

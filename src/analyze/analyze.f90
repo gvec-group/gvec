@@ -51,6 +51,7 @@ CONTAINS
 SUBROUTINE InitAnalyze 
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MODgvec_MPI,ONLY:par_Barrier
 USE MODgvec_Analyze_Vars
 USE MODgvec_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY,GETLOGICAL
 IMPLICIT NONE
@@ -64,8 +65,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 REAL(wp):: visu_minmax(3,0:1)
 !===================================================================================================================================
-  IF(.NOT.MPIroot) RETURN
-  WRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
+  CALL par_Barrier(beforeScreenOut='INIT ANALYZE ...')
   visu1D    = GETINT('visu1D',Proposal=0)   
   visu2D    = GETINT('visu2D',Proposal=0)   
   visu3D    = GETINT('visu3D',Proposal=0)   
@@ -101,8 +101,8 @@ REAL(wp):: visu_minmax(3,0:1)
     visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
     visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
   END IF
-  WRITE(UNIT_stdOut,'(A)')'... DONE'
-  WRITE(UNIT_stdOut,fmt_sep)
+  CALL par_Barrier(afterScreenOut='... DONE')
+  SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze
 
 

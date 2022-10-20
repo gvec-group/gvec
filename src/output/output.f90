@@ -62,13 +62,12 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-IF(.NOT.MPIroot) RETURN
-WRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
+SWRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
 ProjectName = GETSTR('ProjectName','GVEC')   
 
 OutputLevel=0
-WRITE(UNIT_stdOut,'(A)')'... DONE'
-WRITE(UNIT_stdOut,fmt_sep)
+SWRITE(UNIT_stdOut,'(A)')'... DONE'
+SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitOutput
 
 

@@ -202,36 +202,33 @@ IMPLICIT NONE
   LOGICAL              :: sameGrid
   LOGICAL              :: sameX1  ,sameX2  ,sameLA, changed 
 !===================================================================================================================================
-  IF(MPIroot)THEN
-    WRITE(UNIT_stdOut,'(A)')'RESTARTING FROM FILE ...'
-    CALL ReadState(FileString)
+  IF(.NOT.MPIroot) RETURN
+  WRITE(UNIT_stdOut,'(A)')'RESTARTING FROM FILE ...'
+  CALL ReadState(FileString)
 
-    !update outputlevel
-    WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r
-    outputLevel=outputLevel_r +1
-    CALL sgrid%compare(sgrid_r,sameGrid)
-    CALL X1_base%compare(X1_base_r,sameX1)
-    CALL X2_base%compare(X2_base_r,sameX2)
-    CALL LA_base%compare(LA_base_r,sameLA)
-    
-    changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
-    
-    IF(changed)THEN
-      WRITE(UNIT_stdOut,*) '     ... restart from other configuration: \n', &
-                            '         sameGrid= ',sameGrid, ', sameX1= ',sameX1, ', sameX2= ',sameX2,', sameLA= ',sameLA
-    ELSE
-      WRITE(UNIT_stdOut,*) '     ... restart from same configuration ... '
-    END IF
-    CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
-    CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)
-    CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
-    
-    CALL Finalize_ReadState()
+  !update outputlevel
+  WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r
+  outputLevel=outputLevel_r +1
+  CALL sgrid%compare(sgrid_r,sameGrid)
+  CALL X1_base%compare(X1_base_r,sameX1)
+  CALL X2_base%compare(X2_base_r,sameX2)
+  CALL LA_base%compare(LA_base_r,sameLA)
+  
+  changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
+  
+  IF(changed)THEN
+    WRITE(UNIT_stdOut,*) '     ... restart from other configuration: \n', &
+                          '         sameGrid= ',sameGrid, ', sameX1= ',sameX1, ', sameX2= ',sameX2,', sameLA= ',sameLA
+  ELSE
+    WRITE(UNIT_stdOut,*) '     ... restart from same configuration ... '
+  END IF
+  CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
+  CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)
+  CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
+  
+  CALL Finalize_ReadState()
 
-  ENDIF !MPIroot
-
-
-  SWRITE(UNIT_stdOut,'(A)')'...DONE.'
+  WRITE(UNIT_stdOut,'(A)')'...DONE.'
 END SUBROUTINE RestartFromState
 
 !===================================================================================================================================

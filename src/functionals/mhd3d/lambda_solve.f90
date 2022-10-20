@@ -35,17 +35,18 @@ CONTAINS
 !! Note that the mapping defined by  X1 and X2 must be fully initialized, since derivatives in s must be taken!
 !!
 !===================================================================================================================================
-SUBROUTINE Lambda_solve(spos_in,X1_in,X2_in,LA_s) 
+SUBROUTINE Lambda_solve(spos_in,phiPrime_s,chiPrime_s,X1_in,X2_in,LA_s) 
 ! MODULES
   USE MODgvec_Globals,       ONLY:n_warnings_occured
   USE MODgvec_sol_var_MHD3D, ONLY: t_sol_var_MHD3D
   USE MODgvec_LinAlg,        ONLY: SOLVE
   USE MODgvec_MHD3D_Vars,    ONLY: hmap,X1_base,X2_base,LA_base
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_phiPrime,Eval_chiPrime
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   REAL(wp)     , INTENT(IN   ) :: spos_in                  !! s position to evaluate lambda
+  REAL(wp)     , INTENT(IN   ) :: phiPrime_s               !! phiPrime(spos_in)  toroidal flux s derivatives at s_pos
+  REAL(wp)     , INTENT(IN   ) :: chiPrime_s               !! chiPrime(spos_in)  poloidal flux s derivatives at s_pos
   REAL(wp)     , INTENT(IN   ) :: X1_in(1:X1_base%s%nBase,1:X1_base%f%modes) !! U%X1 variable, is reshaped to 2D at input
   REAL(wp)     , INTENT(IN   ) :: X2_in(1:X2_base%s%nBase,1:X2_base%f%modes) !! U%X2 variable, is reshaped to 2D at input 
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -55,7 +56,6 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
 ! LOCAL VARIABLES
   INTEGER                               :: iMode,jMode,i_mn,mn_IP,LA_modes
   REAL(wp)                              :: spos,Jh,minJ,qloc(3),dqdthet(3),dqdzeta(3)
-  REAL(wp)                              :: phiPrime_s,ChiPrime_s   !! toroidal and poloidal flux s derivatives at s_pos
   REAL(wp),DIMENSION(1:X1_base%f%modes) :: X1_s,X1_ds !! X1 solution at spos 
   REAL(wp),DIMENSION(1:X2_base%f%modes) :: X2_s,X2_ds !! X1 solution at spos 
   REAL(wp),DIMENSION(1:X1_base%f%mn_IP) :: X1_s_IP,dX1ds,dX1dthet,dX1dzeta, & !mn_IP should be same for all!
@@ -74,9 +74,6 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   IF(X2_base%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
   IF(LA_base%f%mn_IP.NE.mn_IP) STOP 'LA mn_IP /= X1 mn_IP'
   zeta_IP  = X1_base%f%x_IP(2,:) 
- 
-  phiPrime_s=Eval_phiPrime(spos)
-  chiPrime_s=Eval_chiPrime(spos)
 
 
 !$OMP PARALLEL DO        &  

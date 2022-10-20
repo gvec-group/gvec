@@ -21,9 +21,9 @@
 !===================================================================================================================================
 PROGRAM GVEC
 USE_MPI
-USE MODgvec_MPI        ,ONLY : par_Init, par_Finalize, nRanks
+USE MODgvec_MPI        ,ONLY : par_Init, par_Finalize,par_bcast
 USE MODgvec_Globals    ,ONLY : wp,fmt_sep,n_warnings_occured,testdbg,testlevel,testUnit,nfailedMsg,UNIT_stdOut,GETFREEUNIT
-USE MODgvec_Globals    ,ONLY : GetTime,MPIRoot
+USE MODgvec_Globals    ,ONLY : GetTime,MPIRoot,nRanks,myRank
 USE MODgvec_Analyze    ,ONLY : InitAnalyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY : InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY : InitRestart,FinalizeRestart
@@ -35,7 +35,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
 INTEGER                 :: nArgs
-CHARACTER(LEN=255)      :: Parameterfile
+CHARACTER(LEN=255)      :: Parameterfile,testfile
 INTEGER                 :: which_functional
 REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
@@ -90,8 +90,9 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   testlevel=GETINT('testlevel',Proposal=-1)
   IF(testlevel.GT.0)THEN
     testUnit=GETFREEUNIT()
+    WRITE(testFile,'(A,I4.4,A)')"tests_",myRank,".out"
     OPEN(UNIT     = testUnit    ,&
-         FILE     = "tests.out" ,&
+         FILE     = testfile    ,&
          STATUS   = 'REPLACE'   ,&
          ACCESS   = 'SEQUENTIAL' ) 
   END IF

@@ -698,7 +698,7 @@ END SUBROUTINE IgnoredStrings
 !===================================================================================================================================
 SUBROUTINE FillStrings(IniFile)
 ! MODULES
-USE_MPI !<<<<
+USE MODgvec_MPI, ONLY: par_BCast
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -749,9 +749,7 @@ IF(MPIroot)THEN !<<<<
 END IF !MPIroot !<<<<
 
 !broadcast number of lines, read and broadcast file content
-#if MPI
-CALL MPI_BCAST(nLines,1,MPI_INTEGER,0,MPI_COMM_WORLD,iError) !<<<<
-#endif
+CALL par_BCast(nLines,0)
 ALLOCATE(FileContent(nLines))
 
 IF(MPIroot)THEN !<<<<
@@ -761,9 +759,10 @@ IF(MPIroot)THEN !<<<<
   CLOSE(iniUnit)
 END IF !MPIroot !<<<<
 !BROADCAST FileContent
-#if MPI
-CALL MPI_BCAST(FileContent,LEN(FileContent)*nLines,MPI_CHARACTER,0,MPI_COMM_WORLD,iError) !<<<<
-#endif
+CALL par_BCast(FileContent,0)
+!#if MPI
+!CALL MPI_BCAST(FileContent,LEN(FileContent)*nLines,MPI_CHARACTER,0,worldComm,iError) !<<<<
+!#endif
 
 NULLIFY(Str1,Str2)
 DO i=1,nLines !<<<<

@@ -77,7 +77,7 @@ INTEGER              :: iMode,nyq,np_m,np_n
 LOGICAL              :: useFilter
 !===================================================================================================================================
 IF(.NOT.MPIroot) RETURN
-WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT (ONLY MPIroot) ...'
+WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 
 !VMEC "wout*.nc"  file
 VMECdataFile   = GETSTR("VMECwoutfile")
@@ -360,7 +360,6 @@ FUNCTION VMEC_EvalSpl(rderiv,rho_in,xx_spl)
 USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
-USE MODgvec_MPI, ONLY: myRank
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES

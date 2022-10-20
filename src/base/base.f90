@@ -341,6 +341,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   test_called=.TRUE.
   IF(testlevel.LE.0) RETURN
+  IF(.NOT.MPIroot) RETURN
   IF(testdbg) THEN
      Fail=" DEBUG  !!"
   ELSE

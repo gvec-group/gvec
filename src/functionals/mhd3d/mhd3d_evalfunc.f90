@@ -237,8 +237,8 @@ END SUBROUTINE InitProfilesGP
 !===================================================================================================================================
 SUBROUTINE EvalAux(Uin,JacCheck)
 ! MODULES
-  USE MODgvec_MPI             , ONLY: par_AllReduce,myRank
-  USE MODgvec_Globals         , ONLY: n_warnings_occured
+  USE MODgvec_MPI             , ONLY: par_AllReduce
+  USE MODgvec_Globals         , ONLY: n_warnings_occured,myRank
   USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
@@ -425,7 +425,7 @@ END SUBROUTINE EvalTotals
 !===================================================================================================================================
 FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 ! MODULES
-  USE MODgvec_MPI          , ONLY: par_AllReduce,myRank
+  USE MODgvec_MPI          , ONLY: par_AllReduce
   USE MODgvec_MHD3D_Vars   , ONLY: mu_0,sgammM1
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
   IMPLICIT NONE
@@ -447,14 +447,14 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
   REAL(wp) :: Vprime_GP  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
   REAL(wp) :: Wmag,Wpres
 !===================================================================================================================================
-  WRITE(UNIT_stdOut,'(4X,A)')'COMPUTE ENERGY...'
+  !WRITE(UNIT_stdOut,'(4X,A,I4)')'COMPUTE ENERGY... on rank:',myRank
   __PERFON('EvalEnergy')
 
   IF(callEvalAux) THEN
     CALL EvalAux(Uin,JacCheck)
     IF(JacCheck.EQ.-1) THEN
       W_MHD3D=1.0e30_wp
-      WRITE(UNIT_stdOut,'(A,I4)')'... detJ<0 in EvalAux on MPI rank=',myRank
+      WRITE(UNIT_stdOut,'(A)')'... detJ<0 in EvalAux '
       __PERFOFF('EvalEnergy')
       RETURN !accept detJ<0
     END IF
@@ -506,7 +506,8 @@ END FUNCTION EvalEnergy
 !===================================================================================================================================
 SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
-  USE MODgvec_MPI,           ONLY : nRanks,par_IReduce,par_IBcast,par_Wait,req1,req2,req3
+  USE MODgvec_Globals,       ONLY : nRanks
+  USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3
   USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
   USE MODgvec_MHD3D_Vars,    ONLY : X1_BC_type,X2_BC_type,LA_BC_type
   USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D

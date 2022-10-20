@@ -237,7 +237,7 @@ END SUBROUTINE fBase_new
 !===================================================================================================================================
 SUBROUTINE fBase_init( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
-USE MODgvec_MPI,     ONLY: myRank, nRanks
+USE MODgvec_Globals, ONLY: myRank, nRanks
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1127,6 +1127,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   test_called=.TRUE. !avoid infinite loop if init is called here
   IF(testlevel.LE.0) RETURN
+  IF(.NOT.MPIroot) RETURN
   IF(testdbg) THEN
      Fail=" DEBUG  !!"
   ELSE
