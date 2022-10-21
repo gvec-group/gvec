@@ -160,20 +160,32 @@ END SUBROUTINE Abort
 !> Calculates current time (serial / OpenMP /MPI)
 !!
 !==================================================================================================================================
-FUNCTION GetTime() RESULT(t)
+FUNCTION GetTime(barrier) RESULT(t)
 ! MODULES
 !$ USE omp_lib
   IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
+  LOGICAL,OPTIONAL:: barrier
   REAL(wp) :: t   !< output time
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+#if MPI
+  LOGICAL :: barr
   INTEGER :: ierr
 !==================================================================================================================================
-#if MPI
-  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)  ! not possible to 'CALL parBarrier()' because MODgvec_MPI uses MODgvec_Globals!
-  t = MPI_WTIME()
+  IF(PRESENT(barrier))THEN
+    barr=barrier
+  ELSE
+    barr=.TRUE.
+  END IF
+  IF(barr)THEN  
+    CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)  ! not possible to 'CALL parBarrier()' because MODgvec_MPI uses MODgvec_Globals!
+    t = MPI_WTIME()
+  ELSE
+    CALL CPU_TIME(t)
+!$ t=OMP_GET_WTIME()
+  END IF
 #else
   CALL CPU_TIME(t)
 !$ t=OMP_GET_WTIME()
@@ -199,7 +211,7 @@ REAL(wp)          :: endTime
 !==================================================================================================================================
   IF(iter.LE.0)THEN !INIT
     ProgressBar_oldpercent=0
-    ProgressBar_StartTime=GetTime()
+    ProgressBar_StartTime=GetTime(barrier=.FALSE.)
     SWRITE(UNIT_StdOut,'(4X,A,I8)') &
     '|       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of ',n_iter
     SWRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
@@ -213,7 +225,7 @@ REAL(wp)          :: endTime
     END IF
     ProgressBar_oldPercent=newPercent
     IF(newpercent.EQ.100)THEN
-      EndTime=GetTime()
+      EndTime=GetTime(barrier=.FALSE.)
       SWRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
     END IF
   END IF 

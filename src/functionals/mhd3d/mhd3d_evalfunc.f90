@@ -213,6 +213,7 @@ SUBROUTINE InitProfilesGP()
 ! LOCAL VARIABLES
   INTEGER                     :: iGP
 !===================================================================================================================================
+IF(MPIroot)THEN
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) FIRSTPRIVATE(nGP)
   DO iGP=1,nGP
@@ -222,6 +223,7 @@ SUBROUTINE InitProfilesGP()
     PhiPrime2_GP(iGP) = PhiPrime_GP(       iGP)**2
   END DO !iGP
 !$OMP END PARALLEL DO
+END  IF !MPIroot
 
 CALL par_Bcast(chiPrime_GP,0)
 CALL par_Bcast(pres_GP,0)
