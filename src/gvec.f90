@@ -109,8 +109,10 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   CALL IgnoredStrings()
   
   CALL functional%InitSolution() 
-  
   StartTime=GetTime()
+  SWRITE(Unit_stdOut,'(A,F8.2,A)') ' INITIALIZATION FINISHED! [',StartTime-StartTimeTotal,' sec ]'
+  SWRITE(Unit_stdOut,fmt_sep)
+  
   CALL functional%minimize()
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
