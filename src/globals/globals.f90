@@ -75,6 +75,10 @@ INTERFACE GetTime
   MODULE PROCEDURE GetTime
 END INTERFACE GetTime
 
+INTERFACE GetTimeSerial
+  MODULE PROCEDURE GetTimeSerial
+END INTERFACE GetTimeSerial
+
 INTERFACE ProgressBar
    MODULE PROCEDURE ProgressBar
 END INTERFACE
@@ -160,13 +164,12 @@ END SUBROUTINE Abort
 !> Calculates current time (serial / OpenMP /MPI)
 !!
 !==================================================================================================================================
-FUNCTION GetTime(barrier) RESULT(t)
+FUNCTION GetTime() RESULT(t)
 ! MODULES
 !$ USE omp_lib
   IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-  LOGICAL,OPTIONAL:: barrier
   REAL(wp) :: t   !< output time
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -174,23 +177,31 @@ FUNCTION GetTime(barrier) RESULT(t)
   LOGICAL :: barr
   INTEGER :: ierr
 !==================================================================================================================================
-  IF(PRESENT(barrier))THEN
-    barr=barrier
-  ELSE
-    barr=.TRUE.
-  END IF
-  IF(barr)THEN  
-    CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)  ! not possible to 'CALL parBarrier()' because MODgvec_MPI uses MODgvec_Globals!
-    t = MPI_WTIME()
-  ELSE
-    CALL CPU_TIME(t)
-!$ t=OMP_GET_WTIME()
-  END IF
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)  ! not possible to 'CALL parBarrier()' because MODgvec_MPI uses MODgvec_Globals!
+  t = MPI_WTIME()
 #else
   CALL CPU_TIME(t)
 !$ t=OMP_GET_WTIME()
 #endif
 END FUNCTION GetTime
+
+!==================================================================================================================================
+!> Calculates current time locally on a MPIrank (no MPI Barrier)
+!!
+!==================================================================================================================================
+FUNCTION GetTimeSerial() RESULT(t)
+! MODULES
+!$ USE omp_lib
+  IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  REAL(wp) :: t   !< output time
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!==================================================================================================================================
+  CALL CPU_TIME(t)
+!$ t=OMP_GET_WTIME()
+END FUNCTION GetTimeSerial
 
 !==================================================================================================================================
 !> Print a progress bar to screen, call either with init=T or init=F
@@ -209,24 +220,25 @@ CHARACTER(LEN=8)  :: fmtstr
 INTEGER           :: newpercent
 REAL(wp)          :: endTime
 !==================================================================================================================================
+  IF(.NOT.MPIroot)RETURN
   IF(iter.LE.0)THEN !INIT
     ProgressBar_oldpercent=0
-    ProgressBar_StartTime=GetTime(barrier=.FALSE.)
-    SWRITE(UNIT_StdOut,'(4X,A,I8)') &
+    ProgressBar_StartTime=GetTimeSerial()
+    WRITE(UNIT_StdOut,'(4X,A,I8)') &
     '|       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of ',n_iter
-    SWRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
+    WRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
     CALL FLUSH(UNIT_stdOut)
   ELSE
     newpercent=FLOOR(REAL(iter,wp)/REAL(n_iter,wp)*(100.0_wp+1.0e-12_wp))
     WRITE(fmtstr,'(I4)')newpercent-ProgressBar_oldpercent
     IF(newpercent-ProgressBar_oldpercent.GT.0)THEN
-      SWRITE(UNIT_StdOut,'('//TRIM(fmtstr)//'("."))',ADVANCE='NO')
+      WRITE(UNIT_StdOut,'('//TRIM(fmtstr)//'("."))',ADVANCE='NO')
       CALL FLUSH(UNIT_stdOut)
     END IF
     ProgressBar_oldPercent=newPercent
     IF(newpercent.EQ.100)THEN
-      EndTime=GetTime(barrier=.FALSE.)
-      SWRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
+      EndTime=GetTimeSerial()
+      WRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
     END IF
   END IF 
 END SUBROUTINE ProgressBar

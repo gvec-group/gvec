@@ -459,9 +459,14 @@ SUBROUTINE InitSolutionMHD3D(sf)
       DEALLOCATE(X1pert_b,X2pert_b)
     END IF !boundary_perturb
   END IF !MPIroot
-  CALL par_Bcast(U(0)%q,0)
+  CALL par_Bcast(U(0)%X1,0)
+  CALL par_Bcast(U(0)%X2,0)
 
-  !IF(init_LA) CALL Init_LA_From_Solution(U(0))
+  IF(init_LA) THEN
+    CALL Init_LA_From_Solution(U(0))  !BCast inside
+  ELSE
+    CALL par_Bcast(U(0)%LA,0)
+  END IF
 
   CALL U(-1)%set_to(U(0))
 
@@ -653,7 +658,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       X2_a = X2_base%f%initDOF(RESHAPE(X2_b_IP,(/X2_base%f%mn_IP/)))
       END ASSOCIATE
     END IF !init_average_axis
-    IF(.NOT.init_fromBConly)THEN !only boundary and axis from VMEC
+    IF(.NOT.init_fromBConly)THEN !whole solution from VMEC
       ASSOCIATE(s_IP         => X1_base%s%s_IP, &
                 nBase        => X1_base%s%nBase, &
                 sin_range    => X1_base%f%sin_range,&
@@ -692,24 +697,26 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X2
-      ASSOCIATE(s_IP         => LA_base%s%s_IP, &
-                nBase        => LA_base%s%nBase, &
-                sin_range    => LA_base%f%sin_range,&
-                cos_range    => LA_base%f%cos_range )
-      DO imode=sin_range(1)+1,sin_range(2)
-        DO is=1,nBase
-          LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),lmns_Spl)
-        END DO !is
-      END DO !imode= sin_range
-      IF(lasym)THEN
-        DO imode=cos_range(1)+1,cos_range(2)
+      IF(.NOT.init_LA)THEN
+        ASSOCIATE(s_IP         => LA_base%s%s_IP, &
+                  nBase        => LA_base%s%nBase, &
+                  sin_range    => LA_base%f%sin_range,&
+                  cos_range    => LA_base%f%cos_range )
+        DO imode=sin_range(1)+1,sin_range(2)
           DO is=1,nBase
-            LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),Lmnc_Spl)
+            LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),lmns_Spl)
           END DO !is
-        END DO !imode=cos_range
-      END IF !lasym
-      END ASSOCIATE !X1
-    END IF !fullIntVmec
+        END DO !imode= sin_range
+        IF(lasym)THEN
+          DO imode=cos_range(1)+1,cos_range(2)
+            DO is=1,nBase
+              LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),Lmnc_Spl)
+            END DO !is
+          END DO !imode=cos_range
+        END IF !lasym
+        END ASSOCIATE !LA
+      END IF !.not.init_LA
+    END IF !.not.init_fromBConly (fullInitVmec)
   END SELECT !which_init
   
  
@@ -782,32 +789,34 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   END DO 
   END ASSOCIATE !X2
 
-  IF(init_LA)THEN
-    StartTime=GetTime(barrier=.FALSE.)
-    WRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
-    !initialize Lambda
-    CALL ProgressBar(0,LA_base%s%nBase) !init
-    DO is=1,LA_base%s%nBase
-      spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,LA_base%s%s_IP(is))) !exclude axis
-      CALL lambda_Solve(spos,Eval_phiPrime(spos),Eval_chiPrime(spos),U_init%X1,U_init%X2,LA_gIP(is,:))
-      CALL ProgressBar(is,LA_base%s%nBase)
-    END DO !is
-    WRITE(UNIT_stdOut,'(A)') "... done."
-    ASSOCIATE(modes        =>LA_base%f%modes, &
-              zero_odd_even=>LA_base%f%zero_odd_even)
-    DO imode=1,modes
-      IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-        U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
-      ELSE
-        U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-      END IF!iMode ~ MN_ZERO
-      BC_val =(/ 0.0_wp, 0.0_wp/)
-      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
-    END DO !iMode 
-    END ASSOCIATE !LA
-    EndTime=GetTime(barrier=.FALSE.)
-    WRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
-  END IF
+!!!  IF(init_LA)THEN
+!!!    StartTime=GetTimeSerial()
+!!!    WRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
+!!!    !initialize Lambda
+!!!    CALL ProgressBar(0,LA_base%s%nBase) !init
+!!!    DO is=1,LA_base%s%nBase
+!!!      spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,LA_base%s%s_IP(is))) !exclude axis
+!!!      CALL lambda_Solve(spos,Eval_phiPrime(spos),Eval_chiPrime(spos),U_init%X1,U_init%X2,LA_gIP(is,:))
+!!!      CALL ProgressBar(is,LA_base%s%nBase)
+!!!    END DO !is
+!!!    WRITE(UNIT_stdOut,'(A)') "... done."
+!!!    ASSOCIATE(modes        =>LA_base%f%modes, &
+!!!              zero_odd_even=>LA_base%f%zero_odd_even)
+!!!    DO imode=1,modes
+!!!      IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+!!!        U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+!!!      ELSE
+!!!        U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+!!!      END IF!iMode ~ MN_ZERO
+!!!      BC_val =(/ 0.0_wp, 0.0_wp/)
+!!!      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+!!!    END DO !iMode 
+!!!    END ASSOCIATE !LA
+!!!    EndTime=GetTimeSerial()
+!!!    WRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
+!!!  END IF
+!!! --> THIS IS NOW DONE SEPARATELY
+
   IF(.NOT.init_LA)THEN
     !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
     IF(.NOT.init_fromBConly)THEN
@@ -834,7 +843,7 @@ END SUBROUTINE InitSolution
 
 
 !===================================================================================================================================
-!> Initialize LAMBDA FROM U_init%X1,%X2 and iota profile
+!> Initialize LAMBDA FROM U_init%X1,%X2 and iota profile, this computation is distributed over MPIranks
 !!
 !===================================================================================================================================
 SUBROUTINE Init_LA_from_Solution(U_init)
@@ -855,9 +864,9 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode,is,ns_str,ns_end,iRank
-  REAL(wp) :: BC_val(2)
+  REAL(wp) :: BC_val(2),spos
   REAL(wp) :: StartTime,EndTime
-  REAL(wp),DIMENSION(1:LA_base%s%nBase):: s_pos,PhiPrime,chiPrime
+  REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
   StartTime=GetTime()
@@ -872,9 +881,9 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   !evaluate profiles only in MPIroot!
   IF(MPIroot)THEN
     DO is=1,nBase
-      s_pos(is)=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-      phiPrime(is)=Eval_phiPrime(s_pos(is))
-      chiPrime(is)=Eval_chiPrime(s_pos(is))
+      spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+      phiPrime(is)=Eval_phiPrime(spos)
+      chiPrime(is)=Eval_chiPrime(spos)
     END DO
   END IF !MPIroot
   CALL par_BCast(phiPrime,0)
@@ -883,12 +892,25 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   ns_str = (nBase*(myRank  ))/nRanks+1
   ns_end = (nBase*(myRank+1))/nRanks
   LA_gIP=0.0_wp
-  IF(MPIroot) CALL ProgressBar(0,ns_end) !init
+  CALL ProgressBar(0,ns_end) !init
   DO is=ns_str,ns_end
-    CALL lambda_Solve(s_pos(is),phiPrime(is),chiPrime(is),U_init%X1,U_init%X2,LA_gIP(is,:))
-    IF(MPIroot) CALL ProgressBar(is,ns_end)
+    spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+    CALL lambda_Solve(spos,phiPrime(is),chiPrime(is),U_init%X1,U_init%X2,LA_gIP(is,:))
+    CALL ProgressBar(is,ns_end)
   END DO !is
-  SWRITE(UNIT_stdOut,'(A)') "... done."
+!!!  CALL par_reduce(LA_gIP,'SUM',0)
+!!!  IF(MPIroot)THEN
+!!!    DO iMode=1,modes
+!!!      IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+!!!        U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+!!!      ELSE
+!!!        U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+!!!      END IF!iMode ~ MN_ZERO
+!!!      BC_val =(/ 0.0_wp, 0.0_wp/)
+!!!      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+!!!    END DO !iMode=1,modes
+!!!  END IF
+!!!  CALL par_BCast(U_init%LA,0) 
   !reduce radially, different mode sets to different MPIranks (should be a gatherv)
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
