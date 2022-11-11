@@ -165,8 +165,10 @@ IMPLICIT NONE
              VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,VP_MscaleF
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
+  REAL(wp) :: var_visu_1d(nVal+3,np_in(1)*sgrid%nElems)
   REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
   REAL(wp) :: theta_star,sqrtG
+  CHARACTER(LEN=40) :: CoordNames(3)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
   REAL(wp) :: Bthet, Bzeta,Bcart(3)
@@ -714,8 +716,13 @@ IMPLICIT NONE
   END IF
   __PERFOFF("write_visu")
   WRITE(filename,'(A,"_visu_1D_",I4.4,"_",I8.8,".csv")')TRIM(Projectname),outputLevel,fileID
-  CALL WriteDataToCSV(VarNames(:) ,RESHAPE(var_visu(:,:,1,1,1,:),(/nVal,n_s*nElems/)) ,TRIM(filename)  &
-                                  ,append_in=.FALSE.)
+  CoordNames(1)="X"
+  CoordNames(2)="Y"
+  CoordNames(3)="Z"
+  var_visu_1d(1:3,:)   =RESHAPE(coord_visu(:,:,1,1,1,:),(/   3,n_s*nElems/)) 
+  var_visu_1d(4:3+nval,:)=RESHAPE(var_visu(:,:,1,1,1,:),(/nVal,n_s*nElems/)) 
+  CALL WriteDataToCSV((/CoordNames,VarNames(:)/) ,var_visu_1d,TRIM(filename)  &
+                                  ,append_in=.FALSE.,vfmt_in='E15.5')
 
   
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
