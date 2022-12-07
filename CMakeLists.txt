@@ -348,12 +348,25 @@ ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
+OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC libraray as static (OFF: compiled as shared)" ON)
+MARK_AS_ADVANCED(COMPILE_GVEC_AS_STATIC_LIB)
 SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
-# generates shared lib libgveclib.so
-ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
-# generates static lib libgveclib.a
-#ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
+IF(COMPILE_GVEC_AS_STATIC_LIB)
+  # generates static lib libgveclib.a
+  ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
+ELSE()
+  # generates shared lib libgveclib.so
+  ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
+ENDIF()
 
+  SET_TARGET_PROPERTIES(gveclib
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    OUTPUT_NAME "GVEC"
+    DEBUG_POSTFIX "_d"
+    MACOSX_RPATH ON
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
 
 # =========================================================================
 # Executable programs (simply use add_exec)
