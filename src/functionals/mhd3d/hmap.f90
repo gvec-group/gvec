@@ -39,6 +39,7 @@ USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
 USE MODgvec_hmap_RphiZ, ONLY: t_hmap_RphiZ
 USE MODgvec_hmap_knot , ONLY: t_hmap_knot
 USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl
+USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -58,6 +59,8 @@ IMPLICIT NONE
     ALLOCATE(t_hmap_cyl  :: sf)
   CASE(10)
     ALLOCATE(t_hmap_knot :: sf)
+  CASE(20)
+    ALLOCATE(t_hmap_frenet :: sf)
   CASE DEFAULT
     CALL abort(__STAMP__, &
          "this hmap choice does not exist  !")
