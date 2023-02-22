@@ -36,7 +36,7 @@
 !!  X0(zeta)=( R0(zeta)*sin(zeta)  )
 !!             Z0(zeta)
 !! and both R0,Z0 are represented as a real Fourier series with modes 0... n_max and number of Field periods Nfp
-!! R0(zeta) = sum_{n=0}^{n_{max}} R0c(n)*cos(n*Nfp*zeta) + R0s(n)*sin(n*Nfp*zeta)
+!! R0(zeta) = sum_{n=0}^{n_{max}} rc(n)*cos(n*Nfp*zeta) + rs(n)*sin(n*Nfp*zeta)
 !===================================================================================================================================
 MODULE MODgvec_hmap_frenet
 ! MODULES
@@ -55,11 +55,12 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   INTEGER              :: nfp     !! input number of field periods
   !curve description
   INTEGER              :: n_max   !! input maximum mode number (without nfp), 0...n_max, 
-  REAL(wp),ALLOCATABLE :: R0c(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  REAL(wp),ALLOCATABLE :: R0s(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp  
-  REAL(wp),ALLOCATABLE :: Z0c(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  REAL(wp),ALLOCATABLE :: Z0s(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
+  REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
+  REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp  
+  REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
+  REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
+  LOGICAL              :: omnig   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
@@ -76,6 +77,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_frenet:
   PROCEDURE :: eval_X0       => hmap_frenet_eval_X0_fromRZ
+  PROCEDURE :: sigma         => hmap_frenet_sigma
 END TYPE t_hmap_frenet
 
 LOGICAL :: test_called=.FALSE.
@@ -90,7 +92,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_frenet_init( sf )
 ! MODULES
-USE MODgvec_ReadInTools, ONLY: GETINT, GETREALARRAY
+USE MODgvec_ReadInTools, ONLY: GETLOGICAL,GETINT, GETREALARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -109,21 +111,22 @@ IMPLICIT NONE
   DO n=0,sf%n_max
     sf%Xn(n)=n*sf%nfp
   END DO
-  ALLOCATE(sf%R0c(0:sf%n_max));sf%R0c=0.
-  ALLOCATE(sf%R0s(0:sf%n_max));sf%R0s=0.
-  ALLOCATE(sf%Z0c(0:sf%n_max));sf%Z0c=0.
-  ALLOCATE(sf%Z0s(0:sf%n_max));sf%Z0s=0.
+  ALLOCATE(sf%rc(0:sf%n_max));sf%rc=0.
+  ALLOCATE(sf%rs(0:sf%n_max));sf%rs=0.
+  ALLOCATE(sf%zc(0:sf%n_max));sf%zc=0.
+  ALLOCATE(sf%zs(0:sf%n_max));sf%zs=0.
 
 
-  sf%R0c=GETREALARRAY("hmap_R0c",sf%n_max+1,sf%R0c)
-  sf%R0s=GETREALARRAY("hmap_R0s",sf%n_max+1,sf%R0s)
-  sf%Z0c=GETREALARRAY("hmap_Z0c",sf%n_max+1,sf%Z0c)
-  sf%Z0s=GETREALARRAY("hmap_Z0s",sf%n_max+1,sf%Z0s)
+  sf%rc=GETREALARRAY("hmap_rc",sf%n_max+1,sf%rc)
+  sf%rs=GETREALARRAY("hmap_rs",sf%n_max+1,sf%rs)
+  sf%zc=GETREALARRAY("hmap_zc",sf%n_max+1,sf%zc)
+  sf%zs=GETREALARRAY("hmap_zs",sf%n_max+1,sf%zs)
+  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity 
 
 
-  IF (.NOT.(sf%R0c(0) > 0.0_wp)) THEN
+  IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
      CALL abort(__STAMP__, &
-          "hmap_frenet init: condition R0c(n=0) > 0 not fulfilled!")
+          "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!")
   END IF
 
   sf%initialized=.TRUE.
@@ -149,14 +152,31 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
-  DEALLOCATE(sf%R0c)
-  DEALLOCATE(sf%R0s)
-  DEALLOCATE(sf%Z0c)
-  DEALLOCATE(sf%Z0s)
+  DEALLOCATE(sf%rc)
+  DEALLOCATE(sf%rs)
+  DEALLOCATE(sf%zc)
+  DEALLOCATE(sf%zs)
 
   sf%initialized=.FALSE.
 
 END SUBROUTINE hmap_frenet_free
+
+!===================================================================================================================================
+!> sign function depending on zeta 
+!!
+!===================================================================================================================================
+FUNCTION hmap_frenet_sigma(sf,zeta) RESULT(sigma)
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   )   :: zeta
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                          :: sigma
+!===================================================================================================================================
+  sigma=MERGE(SIGN(1.0,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
+END FUNCTION hmap_frenet_sigma
 
 
 !===================================================================================================================================
@@ -176,8 +196,8 @@ IMPLICIT NONE
   REAL(wp)                          :: x_out(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),PARAMETER:: sigma=1.0_wp  !! placeholder, no sign change for now
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
+  REAL(wp)          :: lp,absB,kappa
 !===================================================================================================================================
  ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
  ! X(:) = (x,y,z) are the variables in the range of the map
@@ -189,11 +209,17 @@ IMPLICIT NONE
  ASSOCIATE(zeta=>q_in(3))
  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
  T=X0p
- T=T/SQRT(SUM(T*T))
+ lp=SQRT(SUM(T*T))
+ T=T/lp
  B=CROSS(X0p,X0pp)
- B=B/SQRT(SUM(B*B))
+ absB=SQRT(SUM(B*B))
+ kappa=absB/(lp*lp*lp)
+ IF(kappa.LT.1e-12) &
+     CALL abort(__STAMP__, &
+          "hmap_frenet cannot evaluate frame at curvature< 1e-12 !")
+ B=B/absB
  N=CROSS(B,T)
- x_out=X0 +sigma*(q_in(1)*N + q_in(2)*B)
+ x_out=X0 +sf%sigma(zeta)*(q_in(1)*N + q_in(2)*B)
  END ASSOCIATE
 END FUNCTION hmap_frenet_eval
 
@@ -243,7 +269,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  Jh = 0.
+  Jh = 1.
 END FUNCTION hmap_frenet_eval_Jh
 
 
@@ -390,8 +416,8 @@ IMPLICIT NONE
   REAL(wp) :: R0,R0p,R0pp,R0ppp
   REAL(wp) :: coszeta,sinzeta
 !===================================================================================================================================
-  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%R0c,sf%R0s,zeta,R0,R0p,R0pp,R0ppp)
-  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%Z0c,sf%Z0s,zeta,X0(3),X0p(3),X0pp(3),X0ppp(3)) !=Z0,Z0p,Z0pp,Z0ppp
+  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%rc,sf%rs,zeta,R0,R0p,R0pp,R0ppp)
+  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%zc,sf%zs,zeta,X0(3),X0p(3),X0pp(3),X0ppp(3)) !=Z0,Z0p,Z0pp,Z0ppp
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
   ASSOCIATE(x   =>X0(1)   ,y   =>X0(2)   , &
@@ -400,22 +426,22 @@ IMPLICIT NONE
             xppp=>X0ppp(1),yppp=>X0ppp(2))
     !! angle zeta=geometric toroidal angle phi=atan(y/x)
     x=R0*coszeta
-    x=R0*sinzeta
+    y=R0*sinzeta
     
-    !xp = R0p*coszeta  - R0*sinzeta
-    !yp = R0p*sinzeta  + R0*coszeta
-    xp  = R0p*coszeta  -y
-    yp  = R0p*sinzeta  +x
+    xp = R0p*coszeta  - R0*sinzeta
+    yp = R0p*sinzeta  + R0*coszeta
+    !xp  = R0p*coszeta  -y
+    !yp  = R0p*sinzeta  +x
     
-    !xpp = R0pp*coszeta - 2*R0p*sinzeta - R0*coszeta  =  ... -2*yp + x
-    !ypp = R0pp*sinzeta + 2*R0p*coszeta - R0*sinzeta  = ...  +2*xp + y
-    xpp  = R0pp*coszeta -2.0_wp*yp + x
-    ypp  = R0pp*sinzeta +2.0_wp*xp + y
+    xpp = R0pp*coszeta - 2*R0p*sinzeta - R0*coszeta 
+    ypp = R0pp*sinzeta + 2*R0p*coszeta - R0*sinzeta
+    !xpp  = R0pp*coszeta -2.0_wp*yp + x
+    !ypp  = R0pp*sinzeta +2.0_wp*xp + y
     
-    !xppp = R0ppp*coszeta - 3*R0pp*sinzeta - 3*R0p*coszeta + R0*sinzeta  = ... -3*ypp +3*xp +y 
-    !yppp = R0ppp*sinzeta + 3*R0pp*coszeta - 3*R0p*sinzeta - R0*coszeta  = ... +3*xpp +3*yp -x 
-    xppp  = R0ppp*coszeta +3.0_wp*(xp-ypp) + y
-    yppp  = R0ppp*sinzeta +3.0_wp*(yp+xpp) + x 
+    xppp = R0ppp*coszeta - 3*R0pp*sinzeta - 3*R0p*coszeta + R0*sinzeta
+    yppp = R0ppp*sinzeta + 3*R0pp*coszeta - 3*R0p*sinzeta - R0*coszeta
+    !xppp  = R0ppp*coszeta +3.0_wp*(xp-ypp) + y
+    !yppp  = R0ppp*sinzeta +3.0_wp*(yp+xpp) + x 
 
   END ASSOCIATE !x,y,xp,yp,...
 
@@ -494,8 +520,8 @@ IMPLICIT NONE
     !evaluate on the axis q1=q2=0
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     q_in=(/0.0_wp, 0.0_wp, 0.335_wp*PI/)
-    R0 = SUM(sf%R0c(:)*COS(sf%Xn(:)*q_in(3)) + sf%R0s(:)*SIN(sf%Xn(:)*q_in(3)))
-    Z0 = SUM(sf%Z0c(:)*COS(sf%Xn(:)*q_in(3)) + sf%Z0s(:)*SIN(sf%Xn(:)*q_in(3)))
+    R0 = SUM(sf%rc(:)*COS(sf%Xn(:)*q_in(3)) + sf%rs(:)*SIN(sf%Xn(:)*q_in(3)))
+    Z0 = SUM(sf%zc(:)*COS(sf%Xn(:)*q_in(3)) + sf%zs(:)*SIN(sf%Xn(:)*q_in(3)))
     x = sf%eval(q_in )
     checkreal=SUM((x-(/R0*COS(q_in(3)),R0*SIN(q_in(3)),Z0/))**2)
     refreal = 0.0_wp
