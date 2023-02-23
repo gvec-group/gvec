@@ -1372,6 +1372,7 @@ IMPLICIT NONE
        '\n =>  should be ', refreal,' : ', checkreal
     END IF !TEST
 
+    IF(sf%mn_max(1).GT.1)THEN
     !get new fbase and check change_base execution only (can only fail by abort)
     iTest=122 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     CALL testfBase%init((/sf%mn_max(1)/2,sf%mn_max(2)/),(/sf%mn_nyq(1)/2,sf%mn_nyq(2)/),sf%nfp,sin_cos_map(sf%sin_cos),.TRUE.)
@@ -1394,6 +1395,7 @@ IMPLICIT NONE
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
        '\n =>  should be ', refreal,' : ', checkreal
     END IF !TEST
+    END IF !sf%mn_max>1
 
   END IF !testlevel <=1
   IF (testlevel .GE.2)THEN

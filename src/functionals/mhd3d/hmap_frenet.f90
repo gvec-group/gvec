@@ -40,7 +40,7 @@
 !===================================================================================================================================
 MODULE MODgvec_hmap_frenet
 ! MODULES
-USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort
+USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort
 USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
@@ -173,7 +173,6 @@ END SUBROUTINE hmap_frenet_free
 !===================================================================================================================================
 SUBROUTINE checkZeroCurvature( sf)
 ! MODULES
-USE MODgvec_Globals, ONLY:CROSS,TWOPI
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -195,7 +194,7 @@ IMPLICIT NONE
     lp=SQRT(SUM(X0p*X0p))
     B=CROSS(X0p,X0pp)
     absB=SQRT(SUM(B*B))
-    kappa(iz)=absB/(lp*lp*lp)
+    kappa(iz)=absB/(lp**3)
   END DO !iz
   checkzero=(kappa.LT.1.0e-12)
   IF(ANY(checkzero))THEN
@@ -224,7 +223,6 @@ END SUBROUTINE CheckZeroCurvature
 !===================================================================================================================================
 SUBROUTINE VisuFrenet( sf ,nvisu)
 ! MODULES
-USE MODgvec_Globals, ONLY:CROSS,TWOPI
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
 IMPLICIT NONE
@@ -259,18 +257,17 @@ IMPLICIT NONE
   DO ivisu=1,nvisu*sf%nfp+1
     zeta=REAL(ivisu-1,wp)/REAL(nvisu*sf%nfp,wp)*TWOPI
     CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-    T=X0p
-    lp=SQRT(SUM(T*T))
-    T=T/lp
+    lp=SQRT(SUM(X0p*X0p))
+    T=X0p/lp
     B=CROSS(X0p,X0pp)
     absB=SQRT(SUM(B*B))
-    kappa=absB/(lp*lp*lp)
+    kappa=absB/(lp**3)
     IF(kappa.GT.1.0e-12) THEN
-      tau=SUM(X0ppp*B)/absB**2
+      tau=SUM(X0ppp*B)/(absB**2)
       B=B/absB
-    ELSE
-      tau=SUM(X0ppp*B) 
-      !B=B
+    ELSE  
+      tau=0.
+      B=0.
     END IF
     N=CROSS(B,T)
     sigma=sf%sigma(zeta)
@@ -295,7 +292,6 @@ END SUBROUTINE VisuFrenet
 !===================================================================================================================================
 FUNCTION hmap_frenet_eval( sf ,q_in) RESULT(x_out)
 ! MODULES
-USE MODgvec_Globals, ONLY:CROSS
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -307,30 +303,34 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
-  REAL(wp)          :: lp,absB,kappa
+  REAL(wp)          :: lp,absB,kappa,sigma,Jh
 !===================================================================================================================================
- ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
- ! X(:) = (x,y,z) are the variables in the range of the map
- !
- !  |x |  
- !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
- !  |z |  
-
- ASSOCIATE(zeta=>q_in(3))
- CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
- T=X0p
- lp=SQRT(SUM(T*T))
- T=T/lp
- B=CROSS(X0p,X0pp)
- absB=SQRT(SUM(B*B))
- kappa=absB/(lp*lp*lp)
- IF(kappa.LT.1.0e-12) &
-     CALL abort(__STAMP__, &
-          "hmap_frenet cannot evaluate frame at curvature< 1e-12 !")
- B=B/absB
- N=CROSS(B,T)
- x_out=X0 +sf%sigma(zeta)*(q_in(1)*N + q_in(2)*B)
- END ASSOCIATE
+  ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
+  ! X(:) = (x,y,z) are the variables in the range of the map
+  !
+  !  |x |  
+  !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
+  !  |z |  
+ 
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  T=X0p/lp
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  kappa=absB/(lp**3)
+  IF(kappa.LT.1.0e-12) &
+      CALL abort(__STAMP__, &
+           "hmap_frenet cannot evaluate frame at curvature < 1e-12 !",RealInfo=zeta*sf%nfp/TWOPI)
+  sigma=sf%sigma(zeta)
+  Jh=lp*(1.0_wp-sigma*kappa*q1)
+  IF(Jh.LT.1.0e-12) &
+      CALL abort(__STAMP__, &
+           "hmap_frenet, evaluation outside curvature radius (sigma*q1 >= 1./(kappa))",RealInfo=zeta*sf%nfp/TWOPI)
+  B=B/absB
+  N=CROSS(B,T)
+  x_out=X0 +sigma*(q1*N + q2*B)
+  END ASSOCIATE
 END FUNCTION hmap_frenet_eval
 
 !===================================================================================================================================
@@ -349,7 +349,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
   REAL(wp)                          :: sigma
 !===================================================================================================================================
-  sigma=MERGE(SIGN(1.0,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
+  sigma=MERGE(SIGN(1.0_wp,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
 END FUNCTION hmap_frenet_sigma
 
 !===================================================================================================================================
@@ -370,15 +370,37 @@ IMPLICIT NONE
   REAL(wp)                        :: dxdq_qvec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
+  REAL(wp)          :: lp,absB,kappa,tau,sigma,Jh
 !===================================================================================================================================
- ASSOCIATE(zeta=>q_in(3))
- CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
- dxdq_qvec(1:3)= X0p !placeholder
-                                                 
- END ASSOCIATE
- 
+  !  |x |  
+  !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
+  !  |z |  
+  !  dh/dq1 =sigma*N , dh/dq2=sigma*B 
+  !  dh/dq3 = l' [(1-sigma*kappa*q1)T + sigma*tau*(B*q1-N*q2) ]
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  T=X0p/lp
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  kappa=absB/(lp**3)
+  IF(kappa.LT.1.0e-12) &
+      CALL abort(__STAMP__, &
+           "hmap_frenet cannot evaluate frame at curvature < 1e-12 !",RealInfo=zeta*sf%nfp/TWOPI)
 
+  sigma=sf%sigma(zeta)
+  Jh=lp*(1.0_wp-sigma*kappa*q1)
+  IF(Jh.LT.1.0e-12) &
+      CALL abort(__STAMP__, &
+           "hmap_frenet, evaluation outside curvature radius (sigma*q1 >= 1/(kappa))",RealInfo=zeta*sf%nfp/TWOPI)
+
+  tau=SUM(X0ppp*B)/(absB**2)
+  B=B/absB
+  N=CROSS(B,T)
+  dxdq_qvec(1:3)= sigma*(N*q_vec(1)+B*q_vec(2))+(Jh*T +sigma*lp*tau*(B*q1-N*q2))*q_vec(3)
+                                                  
+  END ASSOCIATE !zeta
 END FUNCTION hmap_frenet_eval_dxdq
 
 !===================================================================================================================================
@@ -397,8 +419,26 @@ IMPLICIT NONE
   REAL(wp)                          :: Jh
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp)          :: lp,absB,kappa,sigma
 !===================================================================================================================================
-  Jh = 1.
+  ASSOCIATE(q1=>q_in(1),zeta=>q_in(3))
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  kappa=absB/(lp**3)
+  IF(kappa.LT.1.0e-12) &
+      CALL abort(__STAMP__, &
+           "hmap_frenet cannot evaluate frame at curvature < 1e-12 !",RealInfo=zeta*sf%nfp/TWOPI)
+  sigma=sf%sigma(zeta)
+
+  Jh=lp*(1.0_wp-sigma*kappa*q1)
+  IF(Jh .LT. 1.0e-12) &
+      CALL abort(__STAMP__, &
+           "hmap_frenet, evaluation outside curvature radius, Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
+
+  END ASSOCIATE !zeta
 END FUNCTION hmap_frenet_eval_Jh
 
 
@@ -416,8 +456,24 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: Jh_dq1
+!-----------------------------------------------------------------------------------------------------------------------------------
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp)          :: lp,absB,kappa,sigma
 !===================================================================================================================================
-  Jh_dq1 = 0. 
+  !  |x |  
+  !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
+  !  |z |  
+  ASSOCIATE(zeta=>q_in(3))
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  kappa=absB/(lp**3)
+  sigma=sf%sigma(zeta)
+
+  Jh_dq1=-lp*sigma*kappa
+
+  END ASSOCIATE !zeta
 END FUNCTION hmap_frenet_eval_Jh_dq1
 
 
@@ -458,20 +514,34 @@ FUNCTION hmap_frenet_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
   REAL(wp)                          :: g_ab
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)                          :: A, B, C
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp)              :: lp,absB,kappa,tau,sigma
+  REAL(wp)              :: Ga, Gb, Gc
 !===================================================================================================================================
-  ! A = 
-  ! B = 
-  ! C = 
-  !                       |q1  |   |1  0  A|        |q1  |  
-  !q_i G_ij q_j = (dalpha |q2  | ) |0  1  B| (dbeta |q2  | )
-  !                       |q3  |   |A  B  C|        |q3  |  
- ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-   A = 0. 
-   B = 0.
-   C = 1.
-   g_ab=SUM(qL_in(:)*(/qR_in(1) + A*qR_in(3), qR_in(2) + B*qR_in(3), A*qR_in(1) + B*qR_in(2) + C*qR_in(3)/))
- END ASSOCIATE
+  ! A = -q2*l' * tau 
+  ! B =  q1*l' * tau
+  ! C = Jh^2 + (l'*tau)^2(q1^2+q2^2) 
+  !                       |q1  |   |1   0   Ga|        |q1  |  
+  !q_i G_ij q_j = (dalpha |q2  | ) |0   1   Gb| (dbeta |q2  | )
+  !                       |q3  |   |Ga  Gb  Gc|        |q3  |  
+  ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  kappa=absB/(lp**3)
+  sigma=sf%sigma(zeta)
+  tau=SUM(X0ppp*B)/(absB**2)
+ 
+  Ga = -lp*tau*q2 
+  Gb =  lp*tau*q1
+  Gc = (lp**2)*((1.0_wp-sigma*kappa*q1)**2+tau**2*(q1**2+q2**2))
+  g_ab=      qL_in(1)*qR_in(1) &
+            +qL_in(2)*qR_in(2) &
+       + Gc* qL_in(3)*qR_in(3) &
+       + Ga*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) &
+       + Gb*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))  
+  END ASSOCIATE
 END FUNCTION hmap_frenet_eval_gij
 
 
@@ -492,11 +562,25 @@ FUNCTION hmap_frenet_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
   REAL(wp)                           :: g_ab_dq1
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp)              :: lp,absB,kappa,tau,sigma
 !===================================================================================================================================
-  !                       |q1  |   |0  0  0        |        |q1  |  
-  !q_i G_ij q_j = (dalpha |q2  | ) |0  0  0        | (dbeta |q2  | )
-  !                       |q3  |   |0  0           |        |q3  |  
-  g_ab_dq1 = 2.0_wp
+  !                       |q1  |   |0  0        0           |        |q1  |  
+  !q_i G_ij q_j = (dalpha |q2  | ) |0  0      l'*tau        | (dbeta |q2  | )
+  !                       |q3  |   |0  l'*tau  dG33/dq1     |        |q3  |  
+  ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  kappa=absB/(lp**3)
+  sigma=sf%sigma(zeta)
+  tau=SUM(X0ppp*B)/(absB**2)
+
+  g_ab_dq1 = lp*tau*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
+            +2.0_wp*(lp**2)*((tau**2+kappa**2)*q1-sigma*kappa)*(qL_in(3)*qR_in(3))
+
+  END ASSOCIATE
 END FUNCTION hmap_frenet_eval_gij_dq1
 
 
@@ -515,11 +599,22 @@ FUNCTION hmap_frenet_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: g_ab_dq2
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp)              :: lp,absB,tau
 !===================================================================================================================================
-  !                            |q1  |   |0  0  0  |        |q1   |  
-  !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0  0  0  | (dbeta |q1   | ) =0
-  !                            |q3  |   |0  0  0  |        |q3   |  
-  g_ab_dq2=0.0_wp 
+  !                            |q1  |   |0       0  -l'*tau  |        |q1   |  
+  !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0       0        0  | (dbeta |q1   | ) =0
+  !                            |q3  |   |-l'*tau 0   dG33/dq2|        |q3   |  
+  ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  tau=SUM(X0ppp*B)/(absB**2)
+
+  g_ab_dq2=lp*tau*((qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) + lp*tau*q2*(qL_in(3)*qR_in(3))) 
+
+  END ASSOCIATE
 END FUNCTION hmap_frenet_eval_gij_dq2
 
 
@@ -633,7 +728,7 @@ IMPLICIT NONE
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
-  REAL(wp)           :: a, R0, Z0
+  REAL(wp)           :: R0, Z0
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
