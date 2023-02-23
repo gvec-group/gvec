@@ -102,6 +102,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: n
+  INTEGER :: nvisu
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: FRENET FRAME OF A CLOSED CURVE ...'
 
@@ -129,12 +130,17 @@ IMPLICIT NONE
           "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!")
   END IF
 
+  nvisu=GETINT("hmap_nvisu",0) 
+
+  IF(nvisu.GT.0) CALL VisuFrenet(sf,nvisu)
+  
+  CALL CheckZeroCurvature(sf)
+
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
   IF(.NOT.test_called) CALL hmap_frenet_test(sf)
 
 END SUBROUTINE hmap_frenet_init
-
 
 !===================================================================================================================================
 !> finalize the type hmap_frenet
@@ -162,22 +168,126 @@ IMPLICIT NONE
 END SUBROUTINE hmap_frenet_free
 
 !===================================================================================================================================
-!> sign function depending on zeta 
+!> Sample axis and check for zero (<1.e-12) curvature 
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_sigma(sf,zeta) RESULT(sigma)
+SUBROUTINE checkZeroCurvature( sf)
+! MODULES
+USE MODgvec_Globals, ONLY:CROSS,TWOPI
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   )   :: zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                          :: sigma
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER               :: iz,nz
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp)              :: lp,absB
+  REAL(wp),DIMENSION((sf%n_max+1)*8) :: zeta,kappa
+  LOGICAL ,DIMENSION((sf%n_max+1)*8) :: checkzero
 !===================================================================================================================================
-  sigma=MERGE(SIGN(1.0,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
-END FUNCTION hmap_frenet_sigma
+  nz=(sf%n_max+1)*8
+  DO iz=1,nz
+    zeta(iz)=REAL(iz-1,wp)/REAL(nz,wp)*TWOPI/sf%nfp  !0...2pi/nfp without endpoint
+    CALL sf%eval_X0(zeta(iz),X0,X0p,X0pp,X0ppp) 
+    lp=SQRT(SUM(X0p*X0p))
+    B=CROSS(X0p,X0pp)
+    absB=SQRT(SUM(B*B))
+    kappa(iz)=absB/(lp*lp*lp)
+  END DO !iz
+  checkzero=(kappa.LT.1.0e-12)
+  IF(ANY(checkzero))THEN
+    IF(sf%omnig)THEN
+      !omnig=True: kappa can only be zero once, at 0,pi/nfp,[2pi/nfp...]
+      IF(.NOT.(checkzero(1).AND.checkzero(nz/2+1).AND.(COUNT(checkzero).EQ.2)))THEN
+        DO iz=1,nz  
+          IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-12 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
+        END DO
+        CALL abort(__STAMP__, &
+             "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature")
+      END IF
+    ELSE
+      DO iz=1,nz  
+        IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-12 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
+      END DO
+      CALL abort(__STAMP__, &
+           "hmap_frenet checkZeroCurvature with omnig=False: found points with zero curvature")
+    END IF
+  END IF
+END SUBROUTINE CheckZeroCurvature
 
+!===================================================================================================================================
+!> Write evaluation of the axis and signed frenet frame to file
+!!
+!===================================================================================================================================
+SUBROUTINE VisuFrenet( sf ,nvisu)
+! MODULES
+USE MODgvec_Globals, ONLY:CROSS,TWOPI
+USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
+USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  INTEGER             , INTENT(IN   ) :: nvisu     !!
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
+  REAL(wp)              :: zeta,sigma,lp,absB,kappa,tau
+  INTEGER               :: iVar,ivisu
+  INTEGER,PARAMETER     :: nVars=17
+  CHARACTER(LEN=20)     :: VarNames(1:nVars)
+  REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1) 
+!===================================================================================================================================
+  IF(nvisu.LE.0) RETURN
+  iVar=0
+  VarNames(ivar+1:iVar+3)=(/ "x", "y", "z"/);iVar=iVar+3
+  VarNames(ivar+1:iVar+3)=(/"TX","TY","TZ"/);iVar=iVar+3
+  VarNames(ivar+1:iVar+3)=(/"NX","NY","NZ"/);iVar=iVar+3
+  VarNames(ivar+1:iVar+3)=(/"BX","BY","BZ"/);iVar=iVar+3
+  VarNames(iVar+1       )="zeta/(2pi/nfp)"  ;iVar=iVar+1
+  VarNames(iVar+1       )="sigma"           ;iVar=iVar+1
+  VarNames(iVar+1       )="lprime"          ;iVar=iVar+1
+  VarNames(iVar+1       )="kappa"           ;iVar=iVar+1
+  VarNames(iVar+1       )="tau"             ;iVar=iVar+1
+  
+!  values=0.
+  DO ivisu=1,nvisu*sf%nfp+1
+    zeta=REAL(ivisu-1,wp)/REAL(nvisu*sf%nfp,wp)*TWOPI
+    CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+    T=X0p
+    lp=SQRT(SUM(T*T))
+    T=T/lp
+    B=CROSS(X0p,X0pp)
+    absB=SQRT(SUM(B*B))
+    kappa=absB/(lp*lp*lp)
+    IF(kappa.GT.1.0e-12) THEN
+      tau=SUM(X0ppp*B)/absB**2
+      B=B/absB
+    ELSE
+      tau=SUM(X0ppp*B) 
+      !B=B
+    END IF
+    N=CROSS(B,T)
+    sigma=sf%sigma(zeta)
+    iVar=0
+    values(ivar+1:iVar+3,ivisu)=X0                ;iVar=iVar+3
+    values(ivar+1:iVar+3,ivisu)=T                 ;iVar=iVar+3
+    values(ivar+1:iVar+3,ivisu)=N*sigma           ;iVar=iVar+3
+    values(ivar+1:iVar+3,ivisu)=B*sigma           ;iVar=iVar+3
+    values(iVar+1       ,ivisu)=zeta*sf%nfp/TWOPI ;iVar=iVar+1
+    values(iVar+1       ,ivisu)=sigma             ;iVar=iVar+1
+    values(iVar+1       ,ivisu)=lp                ;iVar=iVar+1
+    values(iVar+1       ,ivisu)=kappa             ;iVar=iVar+1
+    values(iVar+1       ,ivisu)=tau               ;iVar=iVar+1
+  END DO !ivisu
+  CALL WriteDataToCSV(VarNames(:) ,values, TRIM("out_visu_hmap_frenet.csv") ,append_in=.FALSE.)
+  CALL WriteDataToVTK(1,3,nVars-3,(/nvisu*sf%nfp/),1,VarNames(4:nVars),values(1:3,:),values(4:nVars,:),"visu_hmap_frenet.vtu")
+END SUBROUTINE VisuFrenet
 
 !===================================================================================================================================
 !> evaluate the mapping h (q1,q2,zeta) -> (x,y,z) 
@@ -214,7 +324,7 @@ IMPLICIT NONE
  B=CROSS(X0p,X0pp)
  absB=SQRT(SUM(B*B))
  kappa=absB/(lp*lp*lp)
- IF(kappa.LT.1e-12) &
+ IF(kappa.LT.1.0e-12) &
      CALL abort(__STAMP__, &
           "hmap_frenet cannot evaluate frame at curvature< 1e-12 !")
  B=B/absB
@@ -222,6 +332,25 @@ IMPLICIT NONE
  x_out=X0 +sf%sigma(zeta)*(q_in(1)*N + q_in(2)*B)
  END ASSOCIATE
 END FUNCTION hmap_frenet_eval
+
+!===================================================================================================================================
+!> sign function depending on zeta, 
+!! if omnig=False, sigma=1
+!! if omnig=True, sigma=+1 for 0<=zeta<=pi/nfp, and -1 for pi/nfp<zeta<2pi
+!!
+!===================================================================================================================================
+FUNCTION hmap_frenet_sigma(sf,zeta) RESULT(sigma)
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN   )   :: zeta
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                          :: sigma
+!===================================================================================================================================
+  sigma=MERGE(SIGN(1.0,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
+END FUNCTION hmap_frenet_sigma
 
 !===================================================================================================================================
 !> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
