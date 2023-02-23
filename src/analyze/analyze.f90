@@ -68,7 +68,7 @@ SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
 visu1D    = GETINT('visu1D',Proposal=0)   
 visu2D    = GETINT('visu2D',Proposal=0)   
 visu3D    = GETINT('visu3D',Proposal=0)   
-SFL_theta = GETLOGICAL('SFL_theta',Proposal=.TRUE.)   
+SFL_theta = GETLOGICAL('SFL_theta',Proposal=.FALSE.)   
 
 
 visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))

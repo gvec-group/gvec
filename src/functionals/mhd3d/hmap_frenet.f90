@@ -196,20 +196,20 @@ IMPLICIT NONE
     absB=SQRT(SUM(B*B))
     kappa(iz)=absB/(lp**3)
   END DO !iz
-  checkzero=(kappa.LT.1.0e-12)
+  checkzero=(kappa.LT.1.0e-8)
   IF(ANY(checkzero))THEN
     IF(sf%omnig)THEN
       !omnig=True: kappa can only be zero once, at 0,pi/nfp,[2pi/nfp...]
       IF(.NOT.(checkzero(1).AND.checkzero(nz/2+1).AND.(COUNT(checkzero).EQ.2)))THEN
         DO iz=1,nz  
-          IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-12 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
+          IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
         END DO
         CALL abort(__STAMP__, &
              "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature")
       END IF
     ELSE
       DO iz=1,nz  
-        IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-12 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
+        IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
       END DO
       CALL abort(__STAMP__, &
            "hmap_frenet checkZeroCurvature with omnig=False: found points with zero curvature")
@@ -235,8 +235,8 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
-  REAL(wp)              :: zeta,sigma,lp,absB,kappa,tau
-  INTEGER               :: iVar,ivisu
+  REAL(wp)              :: zeta,sigma,lp,absB,kappa,tau,eps
+  INTEGER               :: iVar,ivisu,itest
   INTEGER,PARAMETER     :: nVars=17
   CHARACTER(LEN=20)     :: VarNames(1:nVars)
   REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1) 
@@ -255,20 +255,27 @@ IMPLICIT NONE
   
 !  values=0.
   DO ivisu=1,nvisu*sf%nfp+1
-    zeta=REAL(ivisu-1,wp)/REAL(nvisu*sf%nfp,wp)*TWOPI
-    CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-    lp=SQRT(SUM(X0p*X0p))
-    T=X0p/lp
-    B=CROSS(X0p,X0pp)
-    absB=SQRT(SUM(B*B))
-    kappa=absB/(lp**3)
-    IF(kappa.GT.1.0e-12) THEN
-      tau=SUM(X0ppp*B)/(absB**2)
-      B=B/absB
-    ELSE  
-      tau=0.
-      B=0.
-    END IF
+    eps=0.
+    kappa=0.
+    itest=0
+    DO WHILE(kappa.LT.1.0e-6)! for tau being meaningful
+      zeta=(REAL(ivisu-1,wp)+eps)/REAL(nvisu*sf%nfp,wp)*TWOPI
+      CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+      lp=SQRT(SUM(X0p*X0p))
+      T=X0p/lp
+      B=CROSS(X0p,X0pp)
+      absB=SQRT(SUM(B*B))
+      kappa=absB/(lp**3)
+      itest=itest+1
+      eps=10**REAL(-16+itest,wp)
+      IF(itest.EQ.15)THEN !meaningful kappa not found
+        B=0.
+        kappa=1.0e-6 !-12
+        absB=1.
+      END IF   
+    END DO
+    tau=SUM(X0ppp*B)/(absB**2)
+    B=B/absB
     N=CROSS(B,T)
     sigma=sf%sigma(zeta)
     iVar=0
@@ -319,9 +326,9 @@ IMPLICIT NONE
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
   kappa=absB/(lp**3)
-  IF(kappa.LT.1.0e-12) &
+  IF(kappa.LT.1.0e-8) &
       CALL abort(__STAMP__, &
-           "hmap_frenet cannot evaluate frame at curvature < 1e-12 !",RealInfo=zeta*sf%nfp/TWOPI)
+           "hmap_frenet cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
   sigma=sf%sigma(zeta)
   Jh=lp*(1.0_wp-sigma*kappa*q1)
   IF(Jh.LT.1.0e-12) &
@@ -385,9 +392,9 @@ IMPLICIT NONE
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
   kappa=absB/(lp**3)
-  IF(kappa.LT.1.0e-12) &
+  IF(kappa.LT.1.0e-8) &
       CALL abort(__STAMP__, &
-           "hmap_frenet cannot evaluate frame at curvature < 1e-12 !",RealInfo=zeta*sf%nfp/TWOPI)
+           "hmap_frenet cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
 
   sigma=sf%sigma(zeta)
   Jh=lp*(1.0_wp-sigma*kappa*q1)
@@ -428,13 +435,13 @@ IMPLICIT NONE
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
   kappa=absB/(lp**3)
-  IF(kappa.LT.1.0e-12) &
+  IF(kappa.LT.1.0e-8) &
       CALL abort(__STAMP__, &
-           "hmap_frenet cannot evaluate frame at curvature < 1e-12 !",RealInfo=zeta*sf%nfp/TWOPI)
+           "hmap_frenet cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
   sigma=sf%sigma(zeta)
 
   Jh=lp*(1.0_wp-sigma*kappa*q1)
-  IF(Jh .LT. 1.0e-12) &
+  IF(Jh .LT. 1.0e-8) &
       CALL abort(__STAMP__, &
            "hmap_frenet, evaluation outside curvature radius, Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
 
