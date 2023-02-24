@@ -248,7 +248,7 @@ IMPLICIT NONE
   VarNames(ivar+1:iVar+3)=(/"NX","NY","NZ"/);iVar=iVar+3
   VarNames(ivar+1:iVar+3)=(/"BX","BY","BZ"/);iVar=iVar+3
   VarNames(iVar+1       )="zeta/(2pi/nfp)"  ;iVar=iVar+1
-  VarNames(iVar+1       )="sigma"           ;iVar=iVar+1
+  VarNames(iVar+1       )="sigma_sign"      ;iVar=iVar+1
   VarNames(iVar+1       )="lprime"          ;iVar=iVar+1
   VarNames(iVar+1       )="kappa"           ;iVar=iVar+1
   VarNames(iVar+1       )="tau"             ;iVar=iVar+1
@@ -619,7 +619,7 @@ FUNCTION hmap_frenet_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
   absB=SQRT(SUM(B*B))
   tau=SUM(X0ppp*B)/(absB**2)
 
-  g_ab_dq2=lp*tau*((qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) + lp*tau*q2*(qL_in(3)*qR_in(3))) 
+  g_ab_dq2=-lp*tau*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) + 2.0_wp*(lp*tau)**2*q2*(qL_in(3)*qR_in(3))
 
   END ASSOCIATE
 END FUNCTION hmap_frenet_eval_gij_dq2
@@ -731,9 +731,10 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER            :: iTest
-  REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
+  INTEGER            :: iTest,idir,jdir,qdir
+  REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
+  REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
   REAL(wp)           :: R0, Z0
 !===================================================================================================================================
@@ -764,6 +765,60 @@ IMPLICIT NONE
      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
     END IF !TEST
 
+    q_test(1,:)=(/1.0_wp, 0.0_wp, 0.0_wp/)
+    q_test(2,:)=(/0.0_wp, 1.0_wp, 0.0_wp/)
+    q_test(3,:)=(/0.0_wp, 0.0_wp, 1.0_wp/)
+    DO qdir=1,3
+      !check dx/dq^i with FD
+      iTest=101+qdir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      q_in=(/0.0_wp, 0.0_wp, 0.335_wp*PI/)
+      x = sf%eval(q_in )
+      x_eps = sf%eval(q_in+epsFD*q_test(qdir,:))
+      dxdq = sf%eval_dxdq(q_in,q_test(qdir,:))
+      checkreal=SQRT(SUM((dxdq - (x_eps-x)/epsFD)**2)/SUM(x*x))
+      refreal = 0.0_wp
+      
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
+       '\n =>  should be <',100*epsFD,' : |dxdqFD-eval_dxdq|= ', checkreal,", dq=",qdir
+      END IF !TEST
+    END DO
+
+    !! TEST G_ij
+    DO idir=1,3; DO jdir=idir,3
+      iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal= SUM(sf%eval_dxdq(q_in,q_test(idir,:))*sf%eval_dxdq(q_in,q_test(jdir,:))) 
+      refreal  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),2(A,I3))') &
+       '\n =>  should be ', refreal,' : sum|Gij-eval_gij|= ', checkreal,', i=',idir,', j=',jdir
+      END IF !TEST
+    END DO; END DO
+    !! TEST dG_ij_dq1 with FD 
+    DO qdir=1,2
+    DO idir=1,3; DO jdir=idir,3
+      iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      gij  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
+      gij_eps = sf%eval_gij(q_test(idir,:),q_in+epsFD*q_test(qdir,:),q_test(jdir,:))
+      IF(qdir.EQ.1) refreal = sf%eval_gij_dq1(q_test(idir,:),q_in,q_test(jdir,:))
+      IF(qdir.EQ.2) refreal = sf%eval_gij_dq2(q_test(idir,:),q_in,q_test(jdir,:))
+      checkreal=(gij_eps-gij)/epsFD-refreal
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),3(A,I3))') &
+       '\n =>  should be ', 100*epsFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
+      END IF !TEST
+    END DO; END DO
+    END DO
+
+    
+      
     
  END IF !testlevel >=1
  
