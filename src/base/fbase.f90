@@ -176,6 +176,8 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   INTEGER,ALLOCATABLE  :: Xmn(:,:)            !! mode number (m,n*nfp) for each iMode=1,modes, size(2,modes)
   INTEGER,ALLOCATABLE  :: zero_odd_even(:)    !! =0 for m=n=0 mode, =1 for m= odd mode, =2 for m=even mode size(modes)
   REAL(wp),ALLOCATABLE :: x_IP(:,:)           !! (theta,zeta)position of interpolation points theta [0,2pi]x[0,2pi/nfp]size(2,mn_IP)
+  REAL(wp),ALLOCATABLE :: thet_IP(:)           !! 1d theta position of interpolation points theta [0,2pi] size(mn_nyq(1))
+  REAL(wp),ALLOCATABLE :: zeta_IP(:)           !! 1d zeta position of interpolation points theta [0,2pi/nfp] size(mn_nyq(2))
   REAL(wp),ALLOCATABLE :: base_IP(:,:)        !! basis functions,                 size(1:mn_IP,1:modes)
   REAL(wp),ALLOCATABLE :: base_dthet_IP(:,:)  !! dthet derivative of basis functions, (1:mn_IP,1:modes)
   REAL(wp),ALLOCATABLE :: base_dzeta_IP(:,:)  !! dzeta derivative of basis functions, (1:mn_IP,1:modes)
@@ -404,12 +406,19 @@ IMPLICIT NONE
   sf%d_thet = TWOPI/REAL(m_nyq,wp)
   sf%d_zeta = TWOPI/REAL(n_nyq*nfp,wp)
 
+  DO mIP=1,m_nyq
+    sf%thet_IP(mIP)=(REAL(mIP,wp)-0.5_wp)*sf%d_thet
+  END DO
+  DO nIP=1,n_nyq
+    sf%zeta_IP(nIP)=(REAL(nIP,wp)-0.5_wp)*sf%d_zeta
+  END DO 
+  
   i=0
   DO nIP=1,n_nyq
     DO mIP=1,m_nyq
       i=i+1
-      sf%x_IP(1,i)=(REAL(mIP,wp)-0.5_wp)*sf%d_thet
-      sf%x_IP(2,i)=(REAL(nIP,wp)-0.5_wp)*sf%d_zeta
+      sf%x_IP(1,i)=sf%thet_IP(mIP)
+      sf%x_IP(2,i)=sf%zeta_IP(nIP)
     END DO !m
   END DO !n
 
@@ -449,7 +458,7 @@ IMPLICIT NONE
     DO m=0,m_max
       mm=REAL(m,wp)
       DO mIP=1,m_nyq
-        ASSOCIATE(xm=>sf%X_IP(1,mIP))
+        ASSOCIATE(xm=>sf%thet_IP(mIP))
         sf%base1D_IPthet(      mIP,1:2,1+m)  =(/    SIN(mm*xm),   -COS(mm*xm)/)
         sf%base1D_dthet_IPthet(mIP,1:2,1+m)  =(/ mm*COS(mm*xm), mm*SIN(mm*xm)/)
         END ASSOCIATE
@@ -461,7 +470,7 @@ IMPLICIT NONE
     DO m=0,m_max
       mm=REAL(m,wp)
       DO mIP=1,m_nyq
-        ASSOCIATE(xm=>sf%X_IP(1,mIP))
+        ASSOCIATE(xm=>sf%thet_IP(mIP))
         sf%base1D_IPthet(      mIP,1:2,i+1+m)  =(/    COS(mm*xm),    SIN(mm*xm)/)
         sf%base1D_dthet_IPthet(mIP,1:2,i+1+m)  =(/-mm*SIN(mm*xm), mm*COS(mm*xm)/)
         END ASSOCIATE
@@ -472,7 +481,7 @@ IMPLICIT NONE
   DO n=-n_max,n_max  
     nn=REAL(n*nfp,wp)
     DO nIP=1,n_nyq
-      ASSOCIATE(xn=>sf%X_IP(2,1+m_nyq*(nIP-1)))
+      ASSOCIATE(xn=>sf%zeta_IP(nIP))
       sf%base1D_IPzeta(      1:2,n,nIP)  =(/    COS(nn*xn),    SIN(nn*xn)/)
       sf%base1D_dzeta_IPzeta(1:2,n,nIP)  =(/-nn*SIN(nn*xn), nn*COS(nn*xn)/)
       END ASSOCIATE
@@ -513,6 +522,8 @@ IMPLICIT NONE
   ALLOCATE(sf%Xmn(        2,1:modes))
   ALLOCATE(sf%zero_odd_even(1:modes))
   ALLOCATE(sf%x_IP(       2,1:mn_IP) )
+  ALLOCATE(sf%thet_IP(1:sf%mn_nyq(1)))
+  ALLOCATE(sf%zeta_IP(1:sf%mn_nyq(2)))
   ALLOCATE(sf%base_IP(      1:mn_IP,1:modes) )
   ALLOCATE(sf%base_dthet_IP(1:mn_IP,1:modes) )
   ALLOCATE(sf%base_dzeta_IP(1:mn_IP,1:modes) )
@@ -545,6 +556,8 @@ IMPLICIT NONE
   SDEALLOCATE(sf%Xmn)
   SDEALLOCATE(sf%zero_odd_even)
   SDEALLOCATE(sf%x_IP)
+  SDEALLOCATE(sf%thet_IP)
+  SDEALLOCATE(sf%zeta_IP)
   SDEALLOCATE(sf%base_IP)
   SDEALLOCATE(sf%base_dthet_IP)
   SDEALLOCATE(sf%base_dzeta_IP)
