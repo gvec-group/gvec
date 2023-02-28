@@ -32,9 +32,9 @@ CONTAINS
 !> initialize the type hmap, also readin parameters here if necessary 
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_new( sf, which_hmap)
+SUBROUTINE hmap_new( sf, which_hmap,nfp)
 ! MODULES
-USE MODgvec_Globals   , ONLY: abort
+USE MODgvec_Globals   , ONLY: abort,wp
 USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
 USE MODgvec_hmap_RphiZ, ONLY: t_hmap_RphiZ
 USE MODgvec_hmap_knot , ONLY: t_hmap_knot
@@ -43,7 +43,8 @@ USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: which_hmap
+  INTEGER       , INTENT(IN   ) :: which_hmap         !! input number of field periods
+  INTEGER       , INTENT(IN   ) :: nfp
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_hmap), ALLOCATABLE,INTENT(INOUT) :: sf !! self
@@ -52,21 +53,25 @@ IMPLICIT NONE
 !===================================================================================================================================
   SELECT CASE(which_hmap)
   CASE(1)
-    ALLOCATE(t_hmap_RZ :: sf)
-  CASE(2)
-    ALLOCATE(t_hmap_RphiZ :: sf)
+    ALLOCATE(t_hmap_RZ :: sf) 
+    sf%which_hmap=which_hmap
+  !CASE(2)
+  !  ALLOCATE(t_hmap_RphiZ :: sf) 
+  !  sf%which_hmap=which_hmap
   CASE(3)
-    ALLOCATE(t_hmap_cyl  :: sf)
+    ALLOCATE(t_hmap_cyl :: sf) 
+    sf%which_hmap=which_hmap
   CASE(10)
-    ALLOCATE(t_hmap_knot :: sf)
+    ALLOCATE(t_hmap_knot :: sf) 
+    sf%which_hmap=which_hmap
   CASE(20)
-    ALLOCATE(t_hmap_frenet :: sf)
+    ALLOCATE(sf,source=t_hmap_frenet(which_hmap=which_hmap,nfp=nfp)) 
   CASE DEFAULT
     CALL abort(__STAMP__, &
          "this hmap choice does not exist  !")
   END SELECT 
-  sf%which_hmap=which_hmap
   CALL sf%init()
+  
 
 END SUBROUTINE hmap_new
 

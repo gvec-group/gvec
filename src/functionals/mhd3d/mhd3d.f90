@@ -126,7 +126,7 @@ SUBROUTINE InitMHD3D(sf)
     init_fromBConly= .TRUE.
     init_BC        = 2
     gamm    = GETREAL("GAMMA",Proposal=0.0_wp)
-    nfp_loc  = GETINT( "nfp",Proposal=1)
+    nfp_loc  = GETINT( "nfp")
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
     sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
@@ -186,7 +186,7 @@ SUBROUTINE InitMHD3D(sf)
 
   sgammM1=1.0_wp/(gamm-1.0_wp)
 
-  CALL hmap_new(hmap,which_hmap)
+  CALL hmap_new(hmap,which_hmap,nfp)
   
   
   X1X2_deg     = GETINT(     "X1X2_deg")

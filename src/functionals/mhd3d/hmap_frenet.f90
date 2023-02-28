@@ -54,13 +54,13 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   ! parameters for hmap_frenet:
   INTEGER              :: nfp     !! input number of field periods
   !curve description
-  INTEGER              :: n_max   !! input maximum mode number (without nfp), 0...n_max, 
+  INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
   REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp  
   REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
-  LOGICAL              :: omnig   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
+  LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
@@ -86,6 +86,13 @@ LOGICAL :: test_called=.FALSE.
 
 CONTAINS
 
+SUBROUTINE init_dummy( sf )
+IMPLICIT NONE
+  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
+  CALL abort(__STAMP__, &
+             "dummy init in hmap_frenet should not be used")
+END SUBROUTINE init_dummy
+
 !===================================================================================================================================
 !> initialize the type hmap_frenet with number of elements
 !!
@@ -106,7 +113,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: FRENET FRAME OF A CLOSED CURVE ...'
 
-  sf%nfp=GETINT("hmap_nfp")
+  !sf%nfp=GETINT("hmap_nfp") !<= already set in hmap_new, before init!
   sf%n_max=GETINT("hmap_n_max")
   ALLOCATE(sf%Xn(0:sf%n_max))
   DO n=0,sf%n_max

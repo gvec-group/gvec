@@ -137,7 +137,7 @@ IMPLICIT NONE
 
   CLOSE(ioUnit)
 
-  CALL hmap_new(hmap_r,which_hmap_r)
+  CALL hmap_new(hmap_r,which_hmap_r,nfp_r)
   ! check if input has changed:
 
   CALL sgrid_r%init(nElems_r,grid_type_r)
