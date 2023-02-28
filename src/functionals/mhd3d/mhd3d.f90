@@ -186,7 +186,7 @@ SUBROUTINE InitMHD3D(sf)
 
   sgammM1=1.0_wp/(gamm-1.0_wp)
 
-  CALL hmap_new(hmap,which_hmap,nfp)
+  CALL hmap_new(hmap,which_hmap,nfp_loc)
   
   
   X1X2_deg     = GETINT(     "X1X2_deg")

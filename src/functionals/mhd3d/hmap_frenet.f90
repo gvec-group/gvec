@@ -114,6 +114,11 @@ IMPLICIT NONE
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: FRENET FRAME OF A CLOSED CURVE ...'
 
   !sf%nfp=GETINT("hmap_nfp") !<= already set in hmap_new, before init!
+  WRITE(UNIT_stdOut,*)'nfp in hmap is ', sf%nfp
+  IF(sf%nfp.LE.0) &
+     CALL abort(__STAMP__, &
+          "hmap_frenet init: nfp > 0 not fulfilled!")
+
   sf%n_max=GETINT("hmap_n_max")
   ALLOCATE(sf%Xn(0:sf%n_max))
   DO n=0,sf%n_max
