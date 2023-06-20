@@ -40,6 +40,7 @@ USE MODgvec_hmap_RphiZ, ONLY: t_hmap_RphiZ
 USE MODgvec_hmap_knot , ONLY: t_hmap_knot
 USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl
 USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet
+USE MODgvec_hmap_axisNB,ONLY: t_hmap_axisNB
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -66,6 +67,8 @@ IMPLICIT NONE
     sf%which_hmap=which_hmap
   CASE(20)
     ALLOCATE(sf,source=t_hmap_frenet(which_hmap=which_hmap,nfp=nfp_in)) 
+  CASE(21)
+    ALLOCATE(sf,source=t_hmap_axisNB(which_hmap=which_hmap,nfp=nfp_in)) 
   CASE DEFAULT
     CALL abort(__STAMP__, &
          "this hmap choice does not exist  !")

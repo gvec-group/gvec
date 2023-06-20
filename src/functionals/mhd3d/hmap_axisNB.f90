@@ -14,31 +14,21 @@
 
 !===================================================================================================================================
 !>
-!!# Module ** hmap_frenet **
+!!# Module ** hmap_axisNB **
 !!
-!! This map uses the Frenet frame of a given periodic input curve X0(zeta) along the curve parameter zeta in [0,2pi]. 
-!! It uses the signed orthonormal Frenet-Serret frame (TNB frame) that can be computed from derivatives of X0  in zeta. 
-!! h:  X_0(\zeta) + q_1 \sigma N(\zeta) + q_2 \sigma B(\zeta)
-!! with a sign switching function \sigma(\zeta), that accounts for points of zero curvature.
-!! the tangent is T=X_0' / |X_0'|, the bi-normal is B= (X_0' x X_0'') / |X_0' x X_0''|, and the normal N= B X T
-!! Derivatives use the Frenet-Serret formulas:
+!! This map uses a given periodic input curve X0(zeta) along the curve parameter zeta in [0,2pi]. 
+!! It is very similar to a Frenet-Serret frame (TNB frame), but with normal N and binormal B vectors as input functions as well.
+!! h:  X_0(\zeta) + q_1 N(\zeta) + q_2 B(\zeta)
+!! the tangent is T=X_0', and N and B are assumed to be continous along zeta, so no switches.
+!! Note that since N, B are input functions, they are not assumed to be unit length nor
+!! orthogonal, but together with the tangent of the curve T = X_0'  , (T, N, B) should form a
+!! linearly independent set of basis vectors, with T.(B x N) > 0.
 !!
-!! dT/dl = k N
-!! dN/dl = -kappa T + tau B
-!! dB/dl = -tau N
-!!
-!! With  l(\zeta) being the arc-length, and l' = |X_0'|. 
-!! the curvature is kappa=  |X_0' x  X_0''| / (l')^3, 
-!! and the torsion tau= (X_0' x X_0'').X_0''' /  |X_0' x X_0''|^2
-!!
-!! As a first representation of the curve X0(\zeta), we choose zeta to be the geometric toroidal angle zeta=phi, such that
-!!             R0(zeta)*cos(zeta)
-!!  X0(zeta)=( R0(zeta)*sin(zeta)  )
-!!             Z0(zeta)
-!! and both R0,Z0 are represented as a real Fourier series with modes 0... n_max and number of Field periods Nfp
-!! R0(zeta) = sum_{n=0}^{n_{max}} rc(n)*cos(n*Nfp*zeta) + rs(n)*sin(n*Nfp*zeta)
+!! As a representation of the curve X0(\zeta), zeta is the curve parametrization in [0,2pi]
+!! and the 3 cartesian coordinates of X0,N,B are given at a set of zeta points over one full turn, with nzeta*Nfp number of points.
+!! these will then be fourier transformed to compute derivatives
 !===================================================================================================================================
-MODULE MODgvec_hmap_frenet
+MODULE MODgvec_hmap_axisNB
 ! MODULES
 USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort
 USE MODgvec_c_hmap,    ONLY:c_hmap
@@ -47,11 +37,11 @@ IMPLICIT NONE
 PUBLIC
  
 
-TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
+TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL  :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
-  ! parameters for hmap_frenet:
+  ! parameters for hmap_axisNB:
   INTEGER              :: nfp     !! input number of field periods
   !curve description
   INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
@@ -60,25 +50,24 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
-  LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
-  PROCEDURE :: init          => hmap_frenet_init
-  PROCEDURE :: free          => hmap_frenet_free
-  PROCEDURE :: eval          => hmap_frenet_eval          
-  PROCEDURE :: eval_dxdq     => hmap_frenet_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_frenet_eval_Jh       
-  PROCEDURE :: eval_Jh_dq1   => hmap_frenet_eval_Jh_dq1    
-  PROCEDURE :: eval_Jh_dq2   => hmap_frenet_eval_Jh_dq2    
-  PROCEDURE :: eval_gij      => hmap_frenet_eval_gij      
-  PROCEDURE :: eval_gij_dq1  => hmap_frenet_eval_gij_dq1  
-  PROCEDURE :: eval_gij_dq2  => hmap_frenet_eval_gij_dq2  
+  PROCEDURE :: init          => hmap_axisNB_init
+  PROCEDURE :: free          => hmap_axisNB_free
+  PROCEDURE :: eval          => hmap_axisNB_eval          
+  PROCEDURE :: eval_dxdq     => hmap_axisNB_eval_dxdq
+  PROCEDURE :: eval_Jh       => hmap_axisNB_eval_Jh       
+  PROCEDURE :: eval_Jh_dq1   => hmap_axisNB_eval_Jh_dq1    
+  PROCEDURE :: eval_Jh_dq2   => hmap_axisNB_eval_Jh_dq2    
+  PROCEDURE :: eval_gij      => hmap_axisNB_eval_gij      
+  PROCEDURE :: eval_gij_dq1  => hmap_axisNB_eval_gij_dq1  
+  PROCEDURE :: eval_gij_dq2  => hmap_axisNB_eval_gij_dq2  
   !---------------------------------------------------------------------------------------------------------------------------------
-  ! procedures for hmap_frenet:
-  PROCEDURE :: eval_X0       => hmap_frenet_eval_X0_fromRZ
-  PROCEDURE :: sigma         => hmap_frenet_sigma
-END TYPE t_hmap_frenet
+  ! procedures for hmap_axisNB:
+  PROCEDURE :: eval_X0      => hmap_axisNB_eval_X0_fromRZ
+  PROCEDURE :: eval_TNB     => hmap_axisNB_eval_TNB_from_frenet
+END TYPE t_hmap_axisNB
 
 LOGICAL :: test_called=.FALSE.
 
@@ -88,16 +77,16 @@ CONTAINS
 
 SUBROUTINE init_dummy( sf )
 IMPLICIT NONE
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
   CALL abort(__STAMP__, &
-             "dummy init in hmap_frenet should not be used")
+             "dummy init in hmap_axisNB should not be used")
 END SUBROUTINE init_dummy
 
 !===================================================================================================================================
-!> initialize the type hmap_frenet with number of elements
+!> initialize the type hmap_axisNB with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_frenet_init( sf )
+SUBROUTINE hmap_axisNB_init( sf )
 ! MODULES
 USE MODgvec_ReadInTools, ONLY: GETLOGICAL,GETINT, GETREALARRAY
 IMPLICIT NONE
@@ -105,19 +94,19 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: n
   INTEGER :: nvisu
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: FRENET FRAME OF A CLOSED CURVE ...'
+  SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
 
   !sf%nfp=GETINT("hmap_nfp") !<= already set in hmap_new, before init!
   WRITE(UNIT_stdOut,*)'nfp in hmap is ', sf%nfp
   IF(sf%nfp.LE.0) &
      CALL abort(__STAMP__, &
-          "hmap_frenet init: nfp > 0 not fulfilled!")
+          "hmap_axisNB init: nfp > 0 not fulfilled!")
 
   sf%n_max=GETINT("hmap_n_max")
   ALLOCATE(sf%Xn(0:sf%n_max))
@@ -134,38 +123,35 @@ IMPLICIT NONE
   sf%rs=GETREALARRAY("hmap_rs",sf%n_max+1,sf%rs)
   sf%zc=GETREALARRAY("hmap_zc",sf%n_max+1,sf%zc)
   sf%zs=GETREALARRAY("hmap_zs",sf%n_max+1,sf%zs)
-  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity 
 
 
   IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
      CALL abort(__STAMP__, &
-          "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!")
+          "hmap_axisNB init: condition rc(n=0) > 0 not fulfilled!")
   END IF
 
   nvisu=GETINT("hmap_nvisu",0) 
 
-  IF(nvisu.GT.0) CALL VisuFrenet(sf,nvisu)
+  IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
-  CALL CheckZeroCurvature(sf)
-
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
-  IF(.NOT.test_called) CALL hmap_frenet_test(sf)
+  IF(.NOT.test_called) CALL hmap_axisNB_test(sf)
 
-END SUBROUTINE hmap_frenet_init
+END SUBROUTINE hmap_axisNB_init
 
 !===================================================================================================================================
-!> finalize the type hmap_frenet
+!> finalize the type hmap_axisNB
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_frenet_free( sf )
+SUBROUTINE hmap_axisNB_free( sf )
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -177,79 +163,30 @@ IMPLICIT NONE
 
   sf%initialized=.FALSE.
 
-END SUBROUTINE hmap_frenet_free
+END SUBROUTINE hmap_axisNB_free
+
 
 !===================================================================================================================================
-!> Sample axis and check for zero (<1.e-12) curvature 
+!> Write evaluation of the axis and signed axisNB frame to file
 !!
 !===================================================================================================================================
-SUBROUTINE checkZeroCurvature( sf)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER               :: iz,nz
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
-  REAL(wp)              :: lp,absB
-  REAL(wp),DIMENSION((sf%n_max+1)*8) :: zeta,kappa
-  LOGICAL ,DIMENSION((sf%n_max+1)*8) :: checkzero
-!===================================================================================================================================
-  nz=(sf%n_max+1)*8
-  DO iz=1,nz
-    zeta(iz)=REAL(iz-1,wp)/REAL(nz,wp)*TWOPI/sf%nfp  !0...2pi/nfp without endpoint
-    CALL sf%eval_X0(zeta(iz),X0,X0p,X0pp,X0ppp) 
-    lp=SQRT(SUM(X0p*X0p))
-    B=CROSS(X0p,X0pp)
-    absB=SQRT(SUM(B*B))
-    kappa(iz)=absB/(lp**3)
-  END DO !iz
-  checkzero=(kappa.LT.1.0e-8)
-  IF(ANY(checkzero))THEN
-    IF(sf%omnig)THEN
-      !omnig=True: kappa can only be zero once, at 0,pi/nfp,[2pi/nfp...]
-      IF(.NOT.(checkzero(1).AND.checkzero(nz/2+1).AND.(COUNT(checkzero).EQ.2)))THEN
-        DO iz=1,nz  
-          IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
-        END DO
-        CALL abort(__STAMP__, &
-             "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature")
-      END IF
-    ELSE
-      DO iz=1,nz  
-        IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
-      END DO
-      CALL abort(__STAMP__, &
-           "hmap_frenet checkZeroCurvature with omnig=False: found points with zero curvature")
-    END IF
-  END IF
-END SUBROUTINE CheckZeroCurvature
-
-!===================================================================================================================================
-!> Write evaluation of the axis and signed frenet frame to file
-!!
-!===================================================================================================================================
-SUBROUTINE VisuFrenet( sf ,nvisu)
+SUBROUTINE Visu_axisNB( sf ,nvisu)
 ! MODULES
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   INTEGER             , INTENT(IN   ) :: nvisu     !!
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
-  REAL(wp)              :: zeta,sigma,lp,absB,kappa,tau,eps
-  INTEGER               :: iVar,ivisu,itest
-  INTEGER,PARAMETER     :: nVars=17
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
+  REAL(wp)              :: zeta,lp
+  INTEGER               :: iVar,ivisu
+  INTEGER,PARAMETER     :: nVars=14
   CHARACTER(LEN=20)     :: VarNames(1:nVars)
   REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1) 
 !===================================================================================================================================
@@ -260,259 +197,199 @@ IMPLICIT NONE
   VarNames(ivar+1:iVar+3)=(/"NX","NY","NZ"/);iVar=iVar+3
   VarNames(ivar+1:iVar+3)=(/"BX","BY","BZ"/);iVar=iVar+3
   VarNames(iVar+1       )="zeta/(2pi/nfp)"  ;iVar=iVar+1
-  VarNames(iVar+1       )="sigma_sign"      ;iVar=iVar+1
   VarNames(iVar+1       )="lprime"          ;iVar=iVar+1
-  VarNames(iVar+1       )="kappa"           ;iVar=iVar+1
-  VarNames(iVar+1       )="tau"             ;iVar=iVar+1
   
 !  values=0.
   DO ivisu=1,nvisu*sf%nfp+1
-    eps=0.
-    kappa=0.
-    itest=0
-    DO WHILE(kappa.LT.1.0e-6)! for tau being meaningful
-      zeta=(REAL(ivisu-1,wp)+eps)/REAL(nvisu*sf%nfp,wp)*TWOPI
-      CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-      lp=SQRT(SUM(X0p*X0p))
-      T=X0p/lp
-      B=CROSS(X0p,X0pp)
-      absB=SQRT(SUM(B*B))
-      kappa=absB/(lp**3)
-      itest=itest+1
-      eps=10**REAL(-16+itest,wp)
-      IF(itest.EQ.15)THEN !meaningful kappa not found
-        B=0.
-        kappa=1.0e-6 !-12
-        absB=1.
-      END IF   
-    END DO
-    tau=SUM(X0ppp*B)/(absB**2)
-    B=B/absB
-    N=CROSS(B,T)
-    sigma=sf%sigma(zeta)
+    zeta=(REAL(ivisu-1,wp))/REAL(nvisu*sf%nfp,wp)*TWOPI
+    CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+    lp=SQRT(SUM(T*T))
     iVar=0
     values(ivar+1:iVar+3,ivisu)=X0                ;iVar=iVar+3
     values(ivar+1:iVar+3,ivisu)=T                 ;iVar=iVar+3
-    values(ivar+1:iVar+3,ivisu)=N*sigma           ;iVar=iVar+3
-    values(ivar+1:iVar+3,ivisu)=B*sigma           ;iVar=iVar+3
+    values(ivar+1:iVar+3,ivisu)=N                 ;iVar=iVar+3
+    values(ivar+1:iVar+3,ivisu)=B                 ;iVar=iVar+3
     values(iVar+1       ,ivisu)=zeta*sf%nfp/TWOPI ;iVar=iVar+1
-    values(iVar+1       ,ivisu)=sigma             ;iVar=iVar+1
     values(iVar+1       ,ivisu)=lp                ;iVar=iVar+1
-    values(iVar+1       ,ivisu)=kappa             ;iVar=iVar+1
-    values(iVar+1       ,ivisu)=tau               ;iVar=iVar+1
   END DO !ivisu
-  CALL WriteDataToCSV(VarNames(:) ,values, TRIM("out_visu_hmap_frenet.csv") ,append_in=.FALSE.)
-  CALL WriteDataToVTK(1,3,nVars-3,(/nvisu*sf%nfp/),1,VarNames(4:nVars),values(1:3,:),values(4:nVars,:),"visu_hmap_frenet.vtu")
-END SUBROUTINE VisuFrenet
+  CALL WriteDataToCSV(VarNames(:) ,values, TRIM("out_visu_hmap_axisNB.csv") ,append_in=.FALSE.)
+  CALL WriteDataToVTK(1,3,nVars-3,(/nvisu*sf%nfp/),1,VarNames(4:nVars),values(1:3,:),values(4:nVars,:),"visu_hmap_axisNB.vtu")
+END SUBROUTINE Visu_axisNB
 
 !===================================================================================================================================
 !> evaluate the mapping h (q1,q2,zeta) -> (x,y,z) 
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval( sf ,q_in) RESULT(x_out)
+FUNCTION hmap_axisNB_eval( sf ,q_in) RESULT(x_out)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   REAL(wp)        , INTENT(IN   )   :: q_in(3)
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: x_out(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
-  REAL(wp)          :: lp,absB,kappa,sigma,Jh
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
   ! X(:) = (x,y,z) are the variables in the range of the map
   !
   !  |x |  
-  !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
+  !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
   !  |z |  
  
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  T=X0p/lp
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  kappa=absB/(lp**3)
-  IF(kappa.LT.1.0e-8) &
-      CALL abort(__STAMP__, &
-           "hmap_frenet cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
-  sigma=sf%sigma(zeta)
-  Jh=lp*(1.0_wp-sigma*kappa*q1)
-  IF(Jh.LT.1.0e-12) &
-      CALL abort(__STAMP__, &
-           "hmap_frenet, evaluation outside curvature radius (sigma*q1 >= 1./(kappa))",RealInfo=zeta*sf%nfp/TWOPI)
-  B=B/absB
-  N=CROSS(B,T)
-  x_out=X0 +sigma*(q1*N + q2*B)
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  x_out=X0 +(q1*N + q2*B)
   END ASSOCIATE
-END FUNCTION hmap_frenet_eval
+END FUNCTION hmap_axisNB_eval
 
-!===================================================================================================================================
-!> sign function depending on zeta, 
-!! if omnig=False, sigma=1
-!! if omnig=True, sigma=+1 for 0<=zeta<=pi/nfp, and -1 for pi/nfp<zeta<2pi
-!!
-!===================================================================================================================================
-FUNCTION hmap_frenet_sigma(sf,zeta) RESULT(sigma)
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   )   :: zeta
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                          :: sigma
-!===================================================================================================================================
-  sigma=MERGE(SIGN(1.0_wp,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
-END FUNCTION hmap_frenet_sigma
 
 !===================================================================================================================================
 !> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
 !! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
+FUNCTION hmap_axisNB_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   REAL(wp)          , INTENT(IN   ) :: q_in(3)
   REAL(wp)          , INTENT(IN   ) :: q_vec(3)
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: dxdq_qvec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
-  REAL(wp)          :: lp,absB,kappa,tau,sigma,Jh
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   !  |x |  
-  !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
+  !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
   !  |z |  
-  !  dh/dq1 =sigma*N , dh/dq2=sigma*B 
-  !  dh/dq3 = l' [(1-sigma*kappa*q1)T + sigma*tau*(B*q1-N*q2) ]
+  !  dh/dq1 =N , dh/dq2=B 
+  !  dh/dq3 = t + q1 N' + q2 * B'
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  T=X0p/lp
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  kappa=absB/(lp**3)
-  IF(kappa.LT.1.0e-8) &
-      CALL abort(__STAMP__, &
-           "hmap_frenet cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
-
-  sigma=sf%sigma(zeta)
-  Jh=lp*(1.0_wp-sigma*kappa*q1)
-  IF(Jh.LT.1.0e-12) &
-      CALL abort(__STAMP__, &
-           "hmap_frenet, evaluation outside curvature radius (sigma*q1 >= 1/(kappa))",RealInfo=zeta*sf%nfp/TWOPI)
-
-  tau=SUM(X0ppp*B)/(absB**2)
-  B=B/absB
-  N=CROSS(B,T)
-  dxdq_qvec(1:3)= sigma*(N*q_vec(1)+B*q_vec(2))+(Jh*T +sigma*lp*tau*(B*q1-N*q2))*q_vec(3)
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  dxdq_qvec(1:3)= N(:)*q_vec(1)+B(:)*q_vec(2)+(T(:)+q1*Np(:)+q2*Bp(:))*q_vec(3)
                                                   
   END ASSOCIATE !zeta
-END FUNCTION hmap_frenet_eval_dxdq
+END FUNCTION hmap_axisNB_eval_dxdq
 
 !===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta) 
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_Jh( sf ,q_in) RESULT(Jh)
+FUNCTION hmap_axisNB_eval_Jh( sf ,q_in) RESULT(Jh)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   REAL(wp)        , INTENT(IN   )   :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: Jh
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
-  REAL(wp)          :: lp,absB,kappa,sigma
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
+  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
 !===================================================================================================================================
-  ASSOCIATE(q1=>q_in(1),zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  kappa=absB/(lp**3)
-  IF(kappa.LT.1.0e-8) &
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  Tq=(T+q1*Np+q2*Bp)
+  TqTq=SUM(Tq(:)*Tq(:))
+  NTq =SUM(N(:)*Tq(:))
+  BTq =SUM(B(:)*Tq(:))
+  NN  =SUM(N(:)*N(:))
+  BB  =SUM(B(:)*B(:))
+  NB  =SUM(N(:)*B(:))
+  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN   
+  IF(Jh2 .LT. 1.0e-4) &
       CALL abort(__STAMP__, &
-           "hmap_frenet cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
-  sigma=sf%sigma(zeta)
-
-  Jh=lp*(1.0_wp-sigma*kappa*q1)
-  IF(Jh .LT. 1.0e-8) &
-      CALL abort(__STAMP__, &
-           "hmap_frenet, evaluation outside curvature radius, Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
-
+           "hmap_axisNB,  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
+  Jh=SQRT(Jh2)
   END ASSOCIATE !zeta
-END FUNCTION hmap_frenet_eval_Jh
+END FUNCTION hmap_axisNB_eval_Jh
 
 
 !===================================================================================================================================
 !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
+FUNCTION hmap_axisNB_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   REAL(wp)          , INTENT(IN   ) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: Jh_dq1
 !-----------------------------------------------------------------------------------------------------------------------------------
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
-  REAL(wp)          :: lp,absB,kappa,sigma
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
+  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
 !===================================================================================================================================
-  !  |x |  
-  !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
-  !  |z |  
-  ASSOCIATE(zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  kappa=absB/(lp**3)
-  sigma=sf%sigma(zeta)
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  Tq=(T+q1*Np+q2*Bp)
+  TqTq=SUM(Tq(:)*Tq(:))
+  NTq =SUM(N(:)*Tq(:))
+  BTq =SUM(B(:)*Tq(:))
+  NN  =SUM(N(:)*N(:))
+  BB  =SUM(B(:)*B(:))
+  NB  =SUM(N(:)*B(:))
+  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN
+  IF(Jh2 .LT. 1.0e-4) &
+      CALL abort(__STAMP__, &
+           "hmap_axisNB,  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
 
-  Jh_dq1=-lp*sigma*kappa
+  Jh_dq1=(SUM(Tq*Np)*(NN*BB-NB*NB) + SUM(B*Np)*(NB*NTq-NN*BTq) + SUM(N*Np)*(NB*BTq-BB*Ntq)  )/SQRT(Jh2) 
 
   END ASSOCIATE !zeta
-END FUNCTION hmap_frenet_eval_Jh_dq1
+END FUNCTION hmap_axisNB_eval_Jh_dq1
 
 
 !===================================================================================================================================
 !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
+FUNCTION hmap_axisNB_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   REAL(wp)          , INTENT(IN   ) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: Jh_dq2
+!-----------------------------------------------------------------------------------------------------------------------------------
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
+  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
 !===================================================================================================================================
-  Jh_dq2 = 0.0_wp 
-END FUNCTION hmap_frenet_eval_Jh_dq2
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  Tq=(T+q1*Np+q2*Bp)
+  TqTq=SUM(Tq(:)*Tq(:))
+  NTq =SUM(N(:)*Tq(:))
+  BTq =SUM(B(:)*Tq(:))
+  NN  =SUM(N(:)*N(:))
+  BB  =SUM(B(:)*B(:))
+  NB  =SUM(N(:)*B(:))
+  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN
+  IF(Jh2 .LT. 1.0e-4) &
+      CALL abort(__STAMP__, &
+           "hmap_axisNB,  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
+
+  Jh_dq2=(SUM(Tq*Bp)*(NN*BB-NB*NB) + SUM(B*Bp)*(NB*NTq-NN*BTq) + SUM(N*Bp)*(NB*BTq-BB*Ntq)  )/SQRT(Jh2) 
+  END ASSOCIATE !zeta
+END FUNCTION hmap_axisNB_eval_Jh_dq2
 
 
 !===================================================================================================================================
@@ -521,10 +398,10 @@ END FUNCTION hmap_frenet_eval_Jh_dq2
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
+FUNCTION hmap_axisNB_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   REAL(wp)          , INTENT(IN   ) :: qL_in(3)
   REAL(wp)          , INTENT(IN   ) :: q_G(3)
   REAL(wp)          , INTENT(IN   ) :: qR_in(3)
@@ -533,35 +410,29 @@ FUNCTION hmap_frenet_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
   REAL(wp)                          :: g_ab
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
-  REAL(wp)              :: lp,absB,kappa,tau,sigma
-  REAL(wp)              :: Ga, Gb, Gc
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
+  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
 !===================================================================================================================================
-  ! A = -q2*l' * tau 
-  ! B =  q1*l' * tau
-  ! C = Jh^2 + (l'*tau)^2(q1^2+q2^2) 
-  !                       |q1  |   |1   0   Ga|        |q1  |  
-  !q_i G_ij q_j = (dalpha |q2  | ) |0   1   Gb| (dbeta |q2  | )
-  !                       |q3  |   |Ga  Gb  Gc|        |q3  |  
+  !                       |q1  |   |N.N   B.N   Tq.N |        |q1  |  
+  !q_i G_ij q_j = (dalpha |q2  | ) |N.B   B.B   Tq.B | (dbeta |q2  | )
+  !                       |q3  |   |N.Tq  B.Tq  Tq.Tq|        |q3  |  
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  kappa=absB/(lp**3)
-  sigma=sf%sigma(zeta)
-  tau=SUM(X0ppp*B)/(absB**2)
- 
-  Ga = -lp*tau*q2 
-  Gb =  lp*tau*q1
-  Gc = (lp**2)*((1.0_wp-sigma*kappa*q1)**2+tau**2*(q1**2+q2**2))
-  g_ab=      qL_in(1)*qR_in(1) &
-            +qL_in(2)*qR_in(2) &
-       + Gc* qL_in(3)*qR_in(3) &
-       + Ga*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) &
-       + Gb*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))  
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  Tq=(T+q1*Np+q2*Bp)
+  TqTq=SUM(Tq(:)*Tq(:))
+  NTq =SUM(N(:)*Tq(:))
+  BTq =SUM(B(:)*Tq(:))
+  NN  =SUM(N(:)*N(:))
+  BB  =SUM(B(:)*B(:))
+  NB  =SUM(N(:)*B(:))
+  g_ab=    NN  *qL_in(1)*qR_in(1) &
+         + BB  *qL_in(2)*qR_in(2) &
+         + TqTq*qL_in(3)*qR_in(3) &
+         + NTq*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) &
+         + BTq*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))  
+
   END ASSOCIATE
-END FUNCTION hmap_frenet_eval_gij
+END FUNCTION hmap_axisNB_eval_gij
 
 
 !===================================================================================================================================
@@ -571,8 +442,8 @@ END FUNCTION hmap_frenet_eval_gij
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+FUNCTION hmap_axisNB_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   REAL(wp)           , INTENT(IN   ) :: qL_in(3)
   REAL(wp)           , INTENT(IN   ) :: q_G(3)
   REAL(wp)           , INTENT(IN   ) :: qR_in(3)
@@ -581,26 +452,21 @@ FUNCTION hmap_frenet_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
   REAL(wp)                           :: g_ab_dq1
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
-  REAL(wp)              :: lp,absB,kappa,tau,sigma
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
 !===================================================================================================================================
-  !                       |q1  |   |0  0        0           |        |q1  |  
-  !q_i G_ij q_j = (dalpha |q2  | ) |0  0      l'*tau        | (dbeta |q2  | )
-  !                       |q3  |   |0  l'*tau  dG33/dq1     |        |q3  |  
+  !                            |q1  |   |0     0      N'.N  |        |q1  |  
+  !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0     0      N'.B  | (dbeta |q2  | )
+  !                            |q3  |   |N.N'  B.N'  2N'.Tq |        |q3  |  
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  kappa=absB/(lp**3)
-  sigma=sf%sigma(zeta)
-  tau=SUM(X0ppp*B)/(absB**2)
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  Tq=(T+q1*Np+q2*Bp)
 
-  g_ab_dq1 = lp*tau*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
-            +2.0_wp*(lp**2)*((tau**2+kappa**2)*q1-sigma*kappa)*(qL_in(3)*qR_in(3))
+  g_ab_dq1 =         SUM(N *Np)*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
+             +       SUM(B *Np)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) & 
+             +2.0_wp*SUM(Tq*Np)*(qL_in(3)*qR_in(3))
 
   END ASSOCIATE
-END FUNCTION hmap_frenet_eval_gij_dq1
+END FUNCTION hmap_axisNB_eval_gij_dq1
 
 
 !===================================================================================================================================
@@ -610,43 +476,88 @@ END FUNCTION hmap_frenet_eval_gij_dq1
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+FUNCTION hmap_axisNB_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
   REAL(wp)          , INTENT(IN   ) :: qL_in(3)
   REAL(wp)          , INTENT(IN   ) :: q_G(3)
   REAL(wp)          , INTENT(IN   ) :: qR_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: g_ab_dq2
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
-  REAL(wp)              :: lp,absB,tau
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
 !===================================================================================================================================
-  !                            |q1  |   |0       0  -l'*tau  |        |q1   |  
-  !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0       0        0  | (dbeta |q1   | ) =0
-  !                            |q3  |   |-l'*tau 0   dG33/dq2|        |q3   |  
+  !                            |q1  |   |0     0      B'.N  |        |q1  |  
+  !q_i dG_ij/dq2 q_j = (dalpha |q2  | ) |0     0      B'.B  | (dbeta |q2  | )
+  !                            |q3  |   |N.B'  B.B'  2B'.Tq |        |q3  |  
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  tau=SUM(X0ppp*B)/(absB**2)
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  Tq=(T+q1*Np+q2*Bp)
 
-  g_ab_dq2=-lp*tau*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) + 2.0_wp*(lp*tau)**2*q2*(qL_in(3)*qR_in(3))
+  g_ab_dq2 =         SUM(N *Bp)*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
+             +       SUM(B *Bp)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) & 
+             +2.0_wp*SUM(Tq*Bp)*(qL_in(3)*qR_in(3))
 
   END ASSOCIATE
-END FUNCTION hmap_frenet_eval_gij_dq2
+END FUNCTION hmap_axisNB_eval_gij_dq2
 
+
+!===================================================================================================================================
+!> evaluate curve X0(zeta), and T,N,B,N',B'. Here still using the frenet formulas 
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_axisNB_eval_TNB_from_frenet( sf,zeta,X0,T,N,B,Np,Bp)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN ) :: sf
+  REAL(wp)            , INTENT(IN ) :: zeta       !! position along closed curve parametrized in [0,2pi]
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)            , INTENT(OUT) :: X0(1:3)      !! curve position in cartesian coordinates
+  REAL(wp)            , INTENT(OUT) :: T(1:3)       !! tangent X0'
+  REAL(wp)            , INTENT(OUT) :: N(1:3)       !! Normal
+  REAL(wp)            , INTENT(OUT) :: B(1:3)       !! bi-Normal
+  REAL(wp)            , INTENT(OUT) :: Np(1:3)      !! derivative of Normal in zeta (N')
+  REAL(wp)            , INTENT(OUT) :: Bp(1:3)      !! derivative of bi-Normal in zeta  (B')
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp
+  REAL(wp)          :: lp,absB,kappa,tau
+!===================================================================================================================================
+  !USING FRENET FRAME HERE, FOR DEBUGGING THE REST...
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  lp=SQRT(SUM(X0p*X0p))
+  T=X0p/lp
+  B=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(B*B))
+  kappa=absB/(lp**3)
+  IF(kappa.LT.1.0e-8) &
+      CALL abort(__STAMP__, &
+           "hmap_axisNB cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
+
+  tau=SUM(X0ppp*B)/(absB**2)
+  B=B/absB
+  N=CROSS(B,T)
+  ! END FRENET FRAME
+  !scaling with lprime, so changing to the derivative in zeta
+  Np=lp*(-kappa*T+tau*B)
+  Bp=lp*(-tau*N)
+  T =T*lp
+END SUBROUTINE hmap_axisNB_eval_TNB_from_frenet
 
 !===================================================================================================================================
 !> evaluate curve X0(zeta), position and first three derivatives, from given R0,Z0 Fourier 
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_frenet_eval_X0_fromRZ( sf,zeta,X0,X0p,X0pp,X0ppp)
+SUBROUTINE hmap_axisNB_eval_X0_fromRZ( sf,zeta,X0,X0p,X0pp,X0ppp)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(IN ) :: sf
+  CLASS(t_hmap_axisNB), INTENT(IN ) :: sf
   REAL(wp)            , INTENT(IN ) :: zeta       !! position along closed curve parametrized in [0,2pi]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -688,7 +599,7 @@ IMPLICIT NONE
 
   END ASSOCIATE !x,y,xp,yp,...
 
-END SUBROUTINE hmap_frenet_eval_X0_fromRZ
+END SUBROUTINE hmap_axisNB_eval_X0_fromRZ
 
 
 !===================================================================================================================================
@@ -730,15 +641,15 @@ END SUBROUTINE eval_fourier1d
 
 
 !===================================================================================================================================
-!> test hmap_frenet - evaluation of the map
+!> test hmap_axisNB - evaluation of the map
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_frenet_test( sf )
+SUBROUTINE hmap_axisNB_test( sf )
 USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,testUnit
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf  !!self
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf  !!self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -758,7 +669,7 @@ IMPLICIT NONE
      Fail=" FAILED !!"
   END IF
   nTestCalled=nTestCalled+1
-  SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN hmap_frenet TEST ID',nTestCalled,'    >>>>>>>>>'
+  SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN hmap_axisNB TEST ID',nTestCalled,'    >>>>>>>>>'
   IF(testlevel.GE.1)THEN
 
     !evaluate on the axis q1=q2=0
@@ -772,7 +683,7 @@ IMPLICIT NONE
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-            '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+            '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3))') &
      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
     END IF !TEST
@@ -792,7 +703,7 @@ IMPLICIT NONE
       
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+              '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
        '\n =>  should be <',100*epsFD,' : |dxdqFD-eval_dxdq|= ', checkreal,", dq=",qdir
       END IF !TEST
@@ -805,7 +716,7 @@ IMPLICIT NONE
       refreal  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+              '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),2(A,I3))') &
        '\n =>  should be ', refreal,' : sum|Gij-eval_gij|= ', checkreal,', i=',idir,', j=',jdir
       END IF !TEST
@@ -822,9 +733,9 @@ IMPLICIT NONE
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+              '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),3(A,I3))') &
-       '\n =>  should be < ', 100*epsFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
+       '\n =>  should be <', 100*epsFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
       END IF !TEST
     END DO; END DO
     END DO
@@ -837,7 +748,7 @@ IMPLICIT NONE
  test_called=.FALSE. ! to prevent infinite loop in this routine
  
 
-END SUBROUTINE hmap_frenet_test
+END SUBROUTINE hmap_axisNB_test
 
-END MODULE MODgvec_hmap_frenet
+END MODULE MODgvec_hmap_axisNB
 
