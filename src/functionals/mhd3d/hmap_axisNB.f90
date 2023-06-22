@@ -50,6 +50,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
+  LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
@@ -117,6 +118,7 @@ IMPLICIT NONE
   ALLOCATE(sf%rs(0:sf%n_max));sf%rs=0.
   ALLOCATE(sf%zc(0:sf%n_max));sf%zc=0.
   ALLOCATE(sf%zs(0:sf%n_max));sf%zs=0.
+  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity 
 
 
   sf%rc=GETREALARRAY("hmap_rc",sf%n_max+1,sf%rc)
@@ -201,7 +203,7 @@ IMPLICIT NONE
   
 !  values=0.
   DO ivisu=1,nvisu*sf%nfp+1
-    zeta=(REAL(ivisu-1,wp))/REAL(nvisu*sf%nfp,wp)*TWOPI
+    zeta=(REAL(ivisu-0.5,wp))/REAL(nvisu*sf%nfp,wp)*TWOPI
     CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
     lp=SQRT(SUM(T*T))
     iVar=0
@@ -411,7 +413,6 @@ FUNCTION hmap_axisNB_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
-  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
 !===================================================================================================================================
   !                       |q1  |   |N.N   B.N   Tq.N |        |q1  |  
   !q_i G_ij q_j = (dalpha |q2  | ) |N.B   B.B   Tq.B | (dbeta |q2  | )
@@ -419,17 +420,12 @@ FUNCTION hmap_axisNB_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
   CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
   Tq=(T+q1*Np+q2*Bp)
-  TqTq=SUM(Tq(:)*Tq(:))
-  NTq =SUM(N(:)*Tq(:))
-  BTq =SUM(B(:)*Tq(:))
-  NN  =SUM(N(:)*N(:))
-  BB  =SUM(B(:)*B(:))
-  NB  =SUM(N(:)*B(:))
-  g_ab=    NN  *qL_in(1)*qR_in(1) &
-         + BB  *qL_in(2)*qR_in(2) &
-         + TqTq*qL_in(3)*qR_in(3) &
-         + NTq*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) &
-         + BTq*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))  
+  g_ab=    SUM( N* N)*qL_in(1)*qR_in(1) &
+         + SUM( B* B)*qL_in(2)*qR_in(2) &
+         + SUM(Tq*Tq)*qL_in(3)*qR_in(3) &
+         + SUM( N* B)*(qL_in(1)*qR_in(2)+qL_in(2)*qR_in(1)) &
+         + SUM( N*Tq)*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) &
+         + SUM( B*Tq)*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))  
 
   END ASSOCIATE
 END FUNCTION hmap_axisNB_eval_gij
@@ -524,8 +520,8 @@ IMPLICIT NONE
   REAL(wp)            , INTENT(OUT) :: Bp(1:3)      !! derivative of bi-Normal in zeta  (B')
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp
-  REAL(wp)          :: lp,absB,kappa,tau
+  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp,Tp,N_add,Np_add,B_add,Bp_add
+  REAL(wp)          :: lp,absB,kappa,tau,sigma
 !===================================================================================================================================
   !USING FRENET FRAME HERE, FOR DEBUGGING THE REST...
   CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
@@ -542,10 +538,28 @@ IMPLICIT NONE
   B=B/absB
   N=CROSS(B,T)
   ! END FRENET FRAME
+
   !scaling with lprime, so changing to the derivative in zeta
   Np=lp*(-kappa*T+tau*B)
   Bp=lp*(-tau*N)
+
+  sigma=MERGE(SIGN(1.0_wp,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
+  !add NFP periodic perturbation to make T,N,B non-orthogonal (T'=lp*kappa*N), for DEBUGGING
+  Tp    = lp*kappa*N
+  N_add =  0.05*sigma*(SIN(zeta*sf%nfp-0.5)*T)+0.0333*(COS(zeta*sf%nfp+0.2)*B)
+  Np_add=  0.05  *sigma*( sf%nfp*COS(zeta*sf%nfp-0.5)*T+SIN(zeta*sf%nfp-0.5)*Tp) &
+          +0.0333*(-sf%nfp*SIN(zeta*sf%nfp+0.2)*T+COS(zeta*sf%nfp+0.2)*Bp)
+  B_add =  0.044*sigma*(COS(zeta*sf%nfp+0.1)*T)+0.023*(SIN(zeta*sf%nfp-0.1)*N)
+  Bp_add=  0.044*sigma*(-sf%nfp*SIN(zeta*sf%nfp+0.1)*T+COS(zeta*sf%nfp+0.1)*Tp) &
+          +0.023*( sf%nfp*SIN(zeta*sf%nfp-0.1)*N+SIN(zeta*sf%nfp-0.1)*Np)
+
+  N=sigma*(N+N_add)
+  B=sigma*(B+B_add)
+  Np=sigma*(Np+Np_add)
+  Bp=sigma*(Bp+Bp_add)
+  !scaling with lprime, so changing to the derivative in zeta
   T =T*lp
+
 END SUBROUTINE hmap_axisNB_eval_TNB_from_frenet
 
 !===================================================================================================================================
@@ -710,7 +724,7 @@ IMPLICIT NONE
     END DO
 
     !! TEST G_ij
-    DO idir=1,3; DO jdir=idir,3
+    DO idir=1,3; DO jdir=1,3
       iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
       checkreal= SUM(sf%eval_dxdq(q_in,q_test(idir,:))*sf%eval_dxdq(q_in,q_test(jdir,:))) 
       refreal  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
@@ -723,7 +737,7 @@ IMPLICIT NONE
     END DO; END DO
     !! TEST dG_ij_dq1 with FD 
     DO qdir=1,2
-    DO idir=1,3; DO jdir=idir,3
+    DO idir=1,3; DO jdir=1,3
       iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
       gij  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
       gij_eps = sf%eval_gij(q_test(idir,:),q_in+epsFD*q_test(qdir,:),q_test(jdir,:))
