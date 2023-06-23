@@ -52,6 +52,9 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
   LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
   !---------------------------------------------------------------------------------------------------------------------------------
+  REAL(wp)             :: rot_origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
+  REAL(wp)             :: rot_axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
+  !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
   PROCEDURE :: init          => hmap_axisNB_init
@@ -99,7 +102,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: n
-  INTEGER :: nvisu
+  INTEGER :: nvisu,error_nfp
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
 
@@ -136,6 +139,10 @@ IMPLICIT NONE
 
   IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
+  CALL CheckFieldPeriodicity(sf,2*(sf%n_max)+1,error_nfp)
+  IF(error_nfp.LT.0) &
+     CALL abort(__STAMP__, &
+          "hmap_axisNB check Field Periodicity failed!")
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
   IF(.NOT.test_called) CALL hmap_axisNB_test(sf)
@@ -167,6 +174,95 @@ IMPLICIT NONE
 
 END SUBROUTINE hmap_axisNB_free
 
+!===================================================================================================================================
+!> Check that the TNB frame  really has the field periodicity of NFP: 
+!> assumption for now is that the origin is fixed at rot_origin=(/0.,0.,0./)
+!> and the rotation axis is fixed at rot_axis=(/0.,0.,1./)
+!> the sign of rotation is being checked as well
+!!
+!===================================================================================================================================
+SUBROUTINE CheckFieldPeriodicity( sf ,nzeta,error_nfp)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
+  INTEGER, INTENT(IN)  :: nzeta
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  INTEGER, INTENT(out)  :: error_nfp
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)              :: zeta(nzeta),dzeta_fp
+  REAL(wp),DIMENSION(3) :: X0_a,T,N_a,B_a,Np,Bp
+  REAL(wp),DIMENSION(3) :: X0_b,N_b,B_b,P_a,P_b
+  INTEGER               :: ifp,iz,error_x,error_n,error_b
+!===================================================================================================================================
+  error_nfp=0
+  DO iz=1,nzeta
+    zeta(iz)=(REAL(iz-0.5,wp))/REAL(nzeta*sf%nfp,wp)*TWOPI
+  END DO
+
+  dzeta_fp=TWOPI/REAL(sf%nfp,wp)
+  CALL sf%eval_TNB(zeta(1),X0_a,T,N_a,B_a,Np,Bp) 
+  P_a=X0_a-sf%rot_origin
+  CALL sf%eval_TNB(zeta(1)+dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
+  P_b=X0_b-sf%rot_origin
+  !account for possible sign change
+  IF(SUM((P_b -  rodrigues(P_a,sf%rot_axis,dzeta_fp))**2).LT.1.0e-12)THEN
+    dzeta_fp=dzeta_fp
+  ELSEIF(SUM((P_b -  rodrigues(P_a,sf%rot_axis,-dzeta_fp))**2).LT.1.0e-12)THEN
+    dzeta_fp=-dzeta_fp
+  ELSE
+    WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: axis point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.'
+    error_nfp=-1
+    RETURN
+  END IF
+  DO ifp=0,sf%nfp
+    error_x=0
+    error_n=0
+    error_b=0
+    DO iz=1,nzeta
+      CALL sf%eval_TNB(zeta(iz)+ ifp*dzeta_fp   ,X0_a,T,N_a,B_a,Np,Bp) 
+      CALL sf%eval_TNB(zeta(iz)+(ifp+1)*dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
+      P_a=X0_a-sf%rot_origin
+      P_b=X0_b-sf%rot_origin
+      IF(.NOT.(SUM((P_b -  rodrigues(P_a,sf%rot_axis,dzeta_fp))**2).LT.1.0e-12))THEN
+        error_x=error_x+1
+      END IF
+      P_a=X0_a-sf%rot_origin+N_a
+      P_b=X0_b-sf%rot_origin+N_b
+      IF(.NOT.(SUM((P_b -  rodrigues(P_a,sf%rot_axis,dzeta_fp))**2).LT.1.0e-12))THEN
+        error_n=error_n+1
+      END IF
+      P_a=X0_a-sf%rot_origin+B_a
+      P_b=X0_b-sf%rot_origin+B_b
+      IF(.NOT.(SUM((P_b -  rodrigues(P_a,sf%rot_axis,dzeta_fp))**2).LT.1.0e-12))THEN
+        error_b=error_b+1
+      END IF
+    END DO !iz
+    IF(error_x.NE.0)THEN
+      WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two axis points do not match at NFP' 
+      error_nfp=-10
+      IF(error_n.NE.0)THEN
+        WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two normal vectors do not match at NFP' 
+        error_nfp=-20
+      ELSEIF(error_b.NE.0)THEN
+        WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two bi-normal vectors do not match at NFP' 
+        error_nfp=-30
+      END IF
+    END IF
+  END DO !ifp
+        
+  CONTAINS 
+  ! Rodrigues' rotation formula
+  FUNCTION rodrigues(vec,axis,angle) RESULT(vec_rot)
+     REAL(wp) :: vec(3),axis(3),angle
+     REAL(wp) :: vec_rot(3)
+     vec_rot = vec*COS(angle)+CROSS(axis,vec)*SIN(angle)+axis*SUM(axis*vec)*(1.0_wp-COS(angle)) 
+  END FUNCTION rodrigues
+END SUBROUTINE CheckFieldPeriodicity
+  
 
 !===================================================================================================================================
 !> Write evaluation of the axis and signed axisNB frame to file
