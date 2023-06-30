@@ -42,15 +42,22 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   LOGICAL  :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_axisNB:
-  INTEGER              :: nfp     !! input number of field periods
+  INTEGER              :: nfp   !! input number of field periods
   !curve description
-  INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
+  !INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
   REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp  
   REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
   LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
+  !curve description
+  INTEGER              :: nzeta=0       !! number of points in zeta direction of the input axis 
+  INTEGER              :: n_max=0       !! maximum number of fourier coefficients
+  REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:3,1:NFP*nzeta), zeta is on 'half' grid: zeta(i)=(i-0.5)*(2pi)/(NFP*nzeta)
+  REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:3,1:NFP*nzeta). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
+  REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:3,1:NFP*nzeta). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
+  CHARACTER(LEN=100)   :: axis_ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp)             :: rot_origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
   REAL(wp)             :: rot_axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
@@ -92,7 +99,7 @@ END SUBROUTINE init_dummy
 !===================================================================================================================================
 SUBROUTINE hmap_axisNB_init( sf )
 ! MODULES
-USE MODgvec_ReadInTools, ONLY: GETLOGICAL,GETINT, GETREALARRAY
+USE MODgvec_ReadInTools, ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -108,9 +115,6 @@ IMPLICIT NONE
 
   !sf%nfp=GETINT("hmap_nfp") !<= already set in hmap_new, before init!
   WRITE(UNIT_stdOut,*)'nfp in hmap is ', sf%nfp
-  IF(sf%nfp.LE.0) &
-     CALL abort(__STAMP__, &
-          "hmap_axisNB init: nfp > 0 not fulfilled!")
 
   sf%n_max=GETINT("hmap_n_max")
   ALLOCATE(sf%Xn(0:sf%n_max))
@@ -128,6 +132,16 @@ IMPLICIT NONE
   sf%rs=GETREALARRAY("hmap_rs",sf%n_max+1,sf%rs)
   sf%zc=GETREALARRAY("hmap_zc",sf%n_max+1,sf%zc)
   sf%zs=GETREALARRAY("hmap_zs",sf%n_max+1,sf%zs)
+
+#if NETCDF
+    ! read axis from netcdf
+    sf%axis_ncfile=GETSTR("hmap_ncfile")
+    CALL ReadAxis_NETCDF(sf,sf%axis_ncfile)
+#else
+    CALL abort(__STAMP__,&
+        "cannot read axis netcdf file, since code is compiled with BUILD_NETCDF=OFF")
+#endif
+  
 
 
   IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
@@ -173,6 +187,79 @@ IMPLICIT NONE
   sf%initialized=.FALSE.
 
 END SUBROUTINE hmap_axisNB_free
+
+#if NETCDF
+!===================================================================================================================================
+!> READ axis from netcdf file, needs netcdf library!
+!! 
+!===================================================================================================================================
+SUBROUTINE ReadAxis_NETCDF(sf,fileName)
+  IMPLICIT NONE
+  INCLUDE "netcdf.inc"
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  CHARACTER(LEN = *), INTENT(IN) :: fileName
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: ioError, ncid, id
+!===================================================================================================================================
+!======= HEADER ===================================================================================
+!--------- GENERAL -------------
+!* NFP: number of field periods
+!* m_max: maximum mode number in theta
+!* n_max: maximum mode number in zeta (in one field period)
+!* lasym: asymmetry, logical. 
+!          if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
+!            X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
+!            Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
+!          if lasym=1, full fourier series is taken for X,Y
+
+! ntheta: number of points in theta (>=2*m_max+1)
+! nzeta: number of points along the axis, in one field period (>=2*n_max+1)
+!
+!---------- GEOMETRY ---------------
+!* theta(:): theta positions, 1D array of size ntheta, must exclude the end point (last point <  (first point + 2pi), preferred on "half grid" points
+!* zeta(:) :  zeta positions, 1D array of size nzeta,  must exclude the end point (last point < (first point + 2pi/NFP)), preferred on "half grid" points
+!
+!definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
+!
+!    {x,y,z}(rho,theta,zeta)=axis_{x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
+!
+!* axis_xyz(::) : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP*nzeta), sampled at zeta positions, must exclude the endpoint
+!                 axis_xyz[i,j]=axis_i(zeta[j]),        
+!* axis_Nxyz(::): cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
+!* axis_Bxyz(::): cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
+
+!* X(::),Y(::): boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
+!                  X[i, j]=X(theta[i],zeta[j])
+!                  Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
+!---- PLASMA PARAMETERS:
+! ....
+!======= END HEADER,START DATA ===================================================================================
+
+
+  SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%axis_ncfile)//'" in NETCDF format ...'
+
+
+
+  !! open NetCDF input file
+  ioError = NF_OPEN(TRIM(fileName), NF_NOWRITE, ncid)
+  IF (ioError .NE. 0) CALL abort(__STAMP__,&
+        " Cannot open "//TRIM(fileName)//" in ReadAxis_NETCDF!")
+
+  !ioError = NF_INQ_VARID(ncid, "nfp", sf%nfp)  !OVERWRITE!
+  ioError = NF_INQ_VARID(ncid, "nzeta", sf%nzeta)
+  IF (ioError .NE. 0) CALL abort(__STAMP__,&
+                          'NETCDF READIN: problem reading nzeta' )
+
+WRITE(*,*)'DEBUG, nzeta=',sf%nzeta
+  ioError = NF_CLOSE(ncid)
+  SWRITE(*,'(4X,A)')'...DONE.'
+END SUBROUTINE ReadAxis_NETCDF
+#endif /*NETCDF*/
 
 !===================================================================================================================================
 !> Check that the TNB frame  really has the field periodicity of NFP: 
