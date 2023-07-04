@@ -116,22 +116,22 @@ IMPLICIT NONE
   !sf%nfp=GETINT("hmap_nfp") !<= already set in hmap_new, before init!
   WRITE(UNIT_stdOut,*)'nfp in hmap is ', sf%nfp
 
-  sf%n_max=GETINT("hmap_n_max")
-  ALLOCATE(sf%Xn(0:sf%n_max))
-  DO n=0,sf%n_max
-    sf%Xn(n)=n*sf%nfp
-  END DO
-  ALLOCATE(sf%rc(0:sf%n_max));sf%rc=0.
-  ALLOCATE(sf%rs(0:sf%n_max));sf%rs=0.
-  ALLOCATE(sf%zc(0:sf%n_max));sf%zc=0.
-  ALLOCATE(sf%zs(0:sf%n_max));sf%zs=0.
-  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity 
+!  sf%n_max=GETINT("hmap_n_max")
+!  ALLOCATE(sf%Xn(0:sf%n_max))
+!  DO n=0,sf%n_max
+!    sf%Xn(n)=n*sf%nfp
+!  END DO
+!  ALLOCATE(sf%rc(0:sf%n_max));sf%rc=0.
+!  ALLOCATE(sf%rs(0:sf%n_max));sf%rs=0.
+!  ALLOCATE(sf%zc(0:sf%n_max));sf%zc=0.
+!  ALLOCATE(sf%zs(0:sf%n_max));sf%zs=0.
+!  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity 
 
 
-  sf%rc=GETREALARRAY("hmap_rc",sf%n_max+1,sf%rc)
-  sf%rs=GETREALARRAY("hmap_rs",sf%n_max+1,sf%rs)
-  sf%zc=GETREALARRAY("hmap_zc",sf%n_max+1,sf%zc)
-  sf%zs=GETREALARRAY("hmap_zs",sf%n_max+1,sf%zs)
+!  sf%rc=GETREALARRAY("hmap_rc",sf%n_max+1,sf%rc)
+!  sf%rs=GETREALARRAY("hmap_rs",sf%n_max+1,sf%rs)
+!  sf%zc=GETREALARRAY("hmap_zc",sf%n_max+1,sf%zc)
+!  sf%zs=GETREALARRAY("hmap_zs",sf%n_max+1,sf%zs)
 
 #if NETCDF
     ! read axis from netcdf
@@ -183,6 +183,9 @@ IMPLICIT NONE
   DEALLOCATE(sf%rs)
   DEALLOCATE(sf%zc)
   DEALLOCATE(sf%zs)
+  DEALLOCATE(sf%xyz)
+  DEALLOCATE(sf%Nxyz)
+  DEALLOCATE(sf%Bxyz)
 
   sf%initialized=.FALSE.
 
@@ -191,7 +194,41 @@ END SUBROUTINE hmap_axisNB_free
 #if NETCDF
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
+!> ======= HEADER OF THE NETCDF FILE ===================================================================================
+!> --------- GENERAL -------------
+!> * NFP: number of field periods
+!> * m_max: maximum mode number in theta
+!> * n_max: maximum mode number in zeta (in one field period)
+!> * lasym: asymmetry, logical. 
+!>           if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
+!>             X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
+!>             Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
+!>           if lasym=1, full fourier series is taken for X,Y
+
+!>  ntheta: number of points in theta (>=2*m_max+1)
+!>  nzeta: number of points along the axis, in one field period (>=2*n_max+1)
+!> 
+!> ---------- GEOMETRY ---------------
+!> * theta(:): theta positions, 1D array of size ntheta, must exclude the end point (last point <  (first point + 2pi), preferred on "half grid" points
+!> * zeta(:) :  zeta positions, 1D array of size nzeta,  must exclude the end point (last point < (first point + 2pi/NFP)), preferred on "half grid" points
+!> 
+!> definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
+!> 
+!>     {x,y,z}(rho,theta,zeta)=axis_{x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
+!> 
+!> * axis_xyz(::) : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP*nzeta), sampled at zeta positions, must exclude the endpoint
+!>                  axis_xyz[i,j]=axis_i(zeta[j]),        
+!> * axis_Nxyz(::): cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
+!> * axis_Bxyz(::): cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
+
+!> * X(::),Y(::): boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
+!>                   X[i, j]=X(theta[i],zeta[j])
+!>                   Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
+!> ---- PLASMA PARAMETERS:
+!>  ....
+!> ======= END HEADER,START DATA ===================================================================================
 !! 
+!> NOTE THAT THE BOUNDARY DATA X,Y and m_max and ntheta are NOT NEEDED FOR THE AXIS DEFINITION 
 !===================================================================================================================================
 SUBROUTINE ReadAxis_NETCDF(sf,fileName)
   IMPLICIT NONE
@@ -204,60 +241,92 @@ SUBROUTINE ReadAxis_NETCDF(sf,fileName)
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: ioError, ncid, id
+  INTEGER :: ncid,ioError
+  INTEGER :: tmp_int
 !===================================================================================================================================
-!======= HEADER ===================================================================================
-!--------- GENERAL -------------
-!* NFP: number of field periods
-!* m_max: maximum mode number in theta
-!* n_max: maximum mode number in zeta (in one field period)
-!* lasym: asymmetry, logical. 
-!          if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
-!            X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
-!            Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
-!          if lasym=1, full fourier series is taken for X,Y
-
-! ntheta: number of points in theta (>=2*m_max+1)
-! nzeta: number of points along the axis, in one field period (>=2*n_max+1)
-!
-!---------- GEOMETRY ---------------
-!* theta(:): theta positions, 1D array of size ntheta, must exclude the end point (last point <  (first point + 2pi), preferred on "half grid" points
-!* zeta(:) :  zeta positions, 1D array of size nzeta,  must exclude the end point (last point < (first point + 2pi/NFP)), preferred on "half grid" points
-!
-!definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
-!
-!    {x,y,z}(rho,theta,zeta)=axis_{x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
-!
-!* axis_xyz(::) : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP*nzeta), sampled at zeta positions, must exclude the endpoint
-!                 axis_xyz[i,j]=axis_i(zeta[j]),        
-!* axis_Nxyz(::): cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
-!* axis_Bxyz(::): cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
-
-!* X(::),Y(::): boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
-!                  X[i, j]=X(theta[i],zeta[j])
-!                  Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
-!---- PLASMA PARAMETERS:
-! ....
-!======= END HEADER,START DATA ===================================================================================
 
 
   SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%axis_ncfile)//'" in NETCDF format ...'
 
-
-
   !! open NetCDF input file
   ioError = NF_OPEN(TRIM(fileName), NF_NOWRITE, ncid)
-  IF (ioError .NE. 0) CALL abort(__STAMP__,&
-        " Cannot open "//TRIM(fileName)//" in ReadAxis_NETCDF!")
+  IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"opening file",filename)
 
-  !ioError = NF_INQ_VARID(ncid, "nfp", sf%nfp)  !OVERWRITE!
-  ioError = NF_INQ_VARID(ncid, "nzeta", sf%nzeta)
-  IF (ioError .NE. 0) CALL abort(__STAMP__,&
-                          'NETCDF READIN: problem reading nzeta' )
+  tmp_int=GETINT_NC("NFP")
+  IF(sf%nfp.NE. tmp_int) CALL abort(__STAMP__,&
+                          'NETCDF READIN: nfp from axis file must match with nfp parameter from GVEC inputfile',IntInfo=tmp_int )
+  sf%nzeta=GETINT_NC("nzeta")
+  sf%n_max=GETINT_NC("n_max")
+  sf%nzeta=2*sf%n_max !!!!HACK: OLD nzeta, FIX THIS IN NC FILE
+  tmp_int =GETINT_NC("lasym")
 
-WRITE(*,*)'DEBUG, nzeta=',sf%nzeta
+  ALLOCATE(sf%xyz(3,sf%nfp*sf%nzeta))
+  sf%xyz=TRANSPOSE(GETREALARR2D_NC("axis_xyz(::)",sf%nfp*sf%nzeta,3))
+
+  ALLOCATE(sf%Nxyz(3,sf%nfp*sf%nzeta))
+  sf%Nxyz=TRANSPOSE(GETREALARR2D_NC("axis_Nxyz(::)",sf%nfp*sf%nzeta,3))
+
+  ALLOCATE(sf%Bxyz(3,sf%nfp*sf%nzeta))
+  sf%Bxyz=TRANSPOSE(GETREALARR2D_NC("axis_Bxyz(::)",sf%nfp*sf%nzeta,3))
+  
+  WRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
+  WRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
+  WRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
   ioError = NF_CLOSE(ncid)
   SWRITE(*,'(4X,A)')'...DONE.'
+
+  CONTAINS
+  !using ncid,iError
+
+  FUNCTION GETINT_NC(varname) 
+    CHARACTER(LEN=*) :: varname
+    INTEGER          :: GETINT_NC
+    INTEGER          :: id
+    ioError = NF_INQ_VARID(ncid, TRIM(varname), id) 
+    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
+    ioError = NF_GET_VAR_INT(ncid, id, GETINT_NC)
+    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+    SWRITE(UNIT_stdOut,'(6X,A,A20,A,I6)')'read ',TRIM(varname),' :: ',GETINT_NC
+    
+  END FUNCTION GETINT_NC
+
+  FUNCTION GETREALARR1D_NC(varname,dim_1) 
+    CHARACTER(LEN=*) :: varname
+    INTEGER          :: dim_1
+    REAL(wp):: GETREALARR1D_NC(dim_1)
+    INTEGER          :: id
+    ioError = NF_INQ_VARID(ncid, TRIM(varname), id) 
+    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
+    ioError = NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /), (/ dim_1/), GETREALARR1D_NC )
+    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+    SWRITE(UNIT_stdOut,'(6X,A,A20)')'read ',TRIM(varname)
+    
+  END FUNCTION GETREALARR1D_NC 
+
+  FUNCTION GETREALARR2D_NC(varname,dim_1,dim_2) 
+    CHARACTER(LEN=*) :: varname
+    INTEGER          :: dim_1,dim_2
+    REAL(wp):: GETREALARR2D_NC(dim_1,dim_2)
+    INTEGER          :: id
+    ioError = NF_INQ_VARID(ncid, TRIM(varname), id) 
+    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
+    ioError = NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/ dim_1,dim_2/), GETREALARR2D_NC(:,:) )
+    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+    SWRITE(UNIT_stdOut,'(6X,A,A20)')'read ',TRIM(varname)
+    
+  END FUNCTION GETREALARR2D_NC 
+
+  SUBROUTINE handle_error(ioerr,act,varname)
+    INTEGER, intent(in) :: ioerr
+    CHARACTER(LEN=*) :: act,varname
+    IF (ioerr .ne. nf_noerr) THEN
+       WRITE(*,'(6X,A)')"A netCDF error has occurred when "//TRIM(act)//" variable "//TRIM(varname)
+       CALL abort(__STAMP__,&
+                 NF_STRERROR(ioerr))
+    END IF
+  END SUBROUTINE handle_error
+
+
 END SUBROUTINE ReadAxis_NETCDF
 #endif /*NETCDF*/
 
