@@ -32,7 +32,7 @@ CONTAINS
 !> initialize the type hmap, also readin parameters here if necessary 
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_new( sf, which_hmap,nfp_in)
+SUBROUTINE hmap_new( sf, which_hmap)
 ! MODULES
 USE MODgvec_Globals   , ONLY: abort,wp
 USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
@@ -45,7 +45,6 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: which_hmap         !! input number of field periods
-  INTEGER       , INTENT(IN   ) :: nfp_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_hmap), ALLOCATABLE,INTENT(INOUT) :: sf !! self
@@ -66,9 +65,11 @@ IMPLICIT NONE
     ALLOCATE(t_hmap_knot :: sf) 
     sf%which_hmap=which_hmap
   CASE(20)
-    ALLOCATE(sf,source=t_hmap_frenet(which_hmap=which_hmap,nfp=nfp_in)) 
+    ALLOCATE(t_hmap_frenet :: sf)
+    sf%which_hmap=which_hmap
   CASE(21)
-    ALLOCATE(sf,source=t_hmap_axisNB(which_hmap=which_hmap,nfp=nfp_in)) 
+    ALLOCATE(t_hmap_axisNB :: sf)
+    sf%which_hmap=which_hmap
   CASE DEFAULT
     CALL abort(__STAMP__, &
          "this hmap choice does not exist  !")

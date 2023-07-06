@@ -52,8 +52,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   LOGICAL  :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_frenet:
-  INTEGER              :: nfp     !! input number of field periods
   !curve description
+  !INTEGER             :: nfp  !already part of c_hmap. Is overwritten in init
   INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
   REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
   REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp  
@@ -113,8 +113,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: FRENET FRAME OF A CLOSED CURVE ...'
 
-  !sf%nfp=GETINT("hmap_nfp") !<= already set in hmap_new, before init!
-  WRITE(UNIT_stdOut,*)'nfp in hmap is ', sf%nfp
+  sf%nfp=GETINT("hmap_nfp")
   IF(sf%nfp.LE.0) &
      CALL abort(__STAMP__, &
           "hmap_frenet init: nfp > 0 not fulfilled!")

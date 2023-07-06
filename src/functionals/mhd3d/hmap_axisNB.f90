@@ -32,6 +32,7 @@ MODULE MODgvec_hmap_axisNB
 ! MODULES
 USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort
 USE MODgvec_c_hmap,    ONLY:c_hmap
+USE MODgvec_fBase   ,ONLY: t_fbase
 IMPLICIT NONE
 
 PUBLIC
@@ -42,7 +43,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   LOGICAL  :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_axisNB:
-  INTEGER              :: nfp   !! input number of field periods
+  !INTEGER              :: nfp   !! already part of c_hmap. Is overwritten in init!
   !curve description
   !INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
   REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
@@ -54,14 +55,20 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !curve description
   INTEGER              :: nzeta=0       !! number of points in zeta direction of the input axis 
   INTEGER              :: n_max=0       !! maximum number of fourier coefficients
-  REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:3,1:NFP*nzeta), zeta is on 'half' grid: zeta(i)=(i-0.5)*(2pi)/(NFP*nzeta)
-  REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:3,1:NFP*nzeta). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
-  REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:3,1:NFP*nzeta). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
+  REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:NFP*nzeta,1:3), zeta is on 'half' grid: zeta(i)=(i-0.5)*(2pi)/(NFP*nzeta)
+  REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
+  REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
+  REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions in one field period
+  REAL(wp),ALLOCATABLE :: xyz_modes(:,:)   !! fourier modes of xyz
+  REAL(wp),ALLOCATABLE :: Nxyz_modes(:,:)   !! 1d fourier modes of Nxyz
+  REAL(wp),ALLOCATABLE :: Bxyz_modes(:,:)   !! 1d fourier modes of Bxyz
   CHARACTER(LEN=100)   :: axis_ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp)             :: rot_origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
   REAL(wp)             :: rot_axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
   !---------------------------------------------------------------------------------------------------------------------------------
+  CLASS(t_fbase),ALLOCATABLE  :: fb  !! container for 1d fourier base on full turn
+
   CONTAINS
 
   PROCEDURE :: init          => hmap_axisNB_init
@@ -100,6 +107,8 @@ END SUBROUTINE init_dummy
 SUBROUTINE hmap_axisNB_init( sf )
 ! MODULES
 USE MODgvec_ReadInTools, ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
+USE MODgvec_fbase,ONLY:fbase_new
+
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -113,37 +122,36 @@ IMPLICIT NONE
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
 
-  !sf%nfp=GETINT("hmap_nfp") !<= already set in hmap_new, before init!
-  WRITE(UNIT_stdOut,*)'nfp in hmap is ', sf%nfp
-
-!  sf%n_max=GETINT("hmap_n_max")
-!  ALLOCATE(sf%Xn(0:sf%n_max))
-!  DO n=0,sf%n_max
-!    sf%Xn(n)=n*sf%nfp
-!  END DO
-!  ALLOCATE(sf%rc(0:sf%n_max));sf%rc=0.
-!  ALLOCATE(sf%rs(0:sf%n_max));sf%rs=0.
-!  ALLOCATE(sf%zc(0:sf%n_max));sf%zc=0.
-!  ALLOCATE(sf%zs(0:sf%n_max));sf%zs=0.
-!  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity 
-
-
-!  sf%rc=GETREALARRAY("hmap_rc",sf%n_max+1,sf%rc)
-!  sf%rs=GETREALARRAY("hmap_rs",sf%n_max+1,sf%rs)
-!  sf%zc=GETREALARRAY("hmap_zc",sf%n_max+1,sf%zc)
-!  sf%zs=GETREALARRAY("hmap_zs",sf%n_max+1,sf%zs)
 
 #if NETCDF
-    ! read axis from netcdf
-    sf%axis_ncfile=GETSTR("hmap_ncfile")
-    CALL ReadAxis_NETCDF(sf,sf%axis_ncfile)
+  ! read axis from netcdf
+  sf%axis_ncfile=GETSTR("hmap_ncfile")
+  CALL ReadAxis_NETCDF(sf,sf%axis_ncfile)
 #else
-    CALL abort(__STAMP__,&
-        "cannot read axis netcdf file, since code is compiled with BUILD_NETCDF=OFF")
+  CALL abort(__STAMP__,&
+      "cannot read axis netcdf file, since code is compiled with BUILD_NETCDF=OFF")
 #endif
   
+  !initialize DOFS by projection.  nzeta*nfp >= 2*n_max*nfp+1  
+  sf%n_max=MIN(sf%n_max,(sf%nzeta*sf%nfp-1)/(2*sf%nfp))
+
+  CALL fbase_new(sf%fb,(/0,sf%n_max*sf%nfp/),(/1,sf%nzeta*sf%nfp/),1,"_sincos_",.TRUE.)
+
+  IF(MAXVAL(ABS(sf%fb%X_IP(2,1:sf%nzeta)-sf%zeta)).GT.1.0e-14*sf%nzeta) &
+     CALL abort(__STAMP__,&
+          "zeta positions from axis file do not coincide with zeta positions in fbase.")
+
+  ALLOCATE(sf%xyz_modes(sf%fb%modes,3))
+  ALLOCATE(sf%Nxyz_modes(sf%fb%modes,3))
+  ALLOCATE(sf%Bxyz_modes(sf%fb%modes,3))
+  DO n=1,3
+     sf%xyz_modes(:,n)=sf%fb%initDOF(sf%xyz(:,n))
+     sf%Nxyz_modes(:,n)=sf%fb%initDOF(sf%Nxyz(:,n))
+     sf%Bxyz_modes(:,n)=sf%fb%initDOF(sf%Bxyz(:,n))
+  END DO
 
 
+  STOP "ok until here"
   IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
      CALL abort(__STAMP__, &
           "hmap_axisNB init: condition rc(n=0) > 0 not fulfilled!")
@@ -153,7 +161,7 @@ IMPLICIT NONE
 
   IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
-  CALL CheckFieldPeriodicity(sf,2*(sf%n_max)+1,error_nfp)
+  CALL CheckFieldPeriodicity(sf,error_nfp)
   IF(error_nfp.LT.0) &
      CALL abort(__STAMP__, &
           "hmap_axisNB check Field Periodicity failed!")
@@ -241,50 +249,51 @@ SUBROUTINE ReadAxis_NETCDF(sf,fileName)
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: ncid,ioError
+  INTEGER :: nc_id,ioError
   INTEGER :: tmp_int
 !===================================================================================================================================
 
 
-  SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%axis_ncfile)//'" in NETCDF format ...'
+  SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(fileName)//'" in NETCDF format ...'
 
   !! open NetCDF input file
-  ioError = NF_OPEN(TRIM(fileName), NF_NOWRITE, ncid)
+  ioError = NF_OPEN(TRIM(fileName), NF_NOWRITE, nc_id)
   IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"opening file",filename)
 
-  tmp_int=GETINT_NC("NFP")
-  IF(sf%nfp.NE. tmp_int) CALL abort(__STAMP__,&
-                          'NETCDF READIN: nfp from axis file must match with nfp parameter from GVEC inputfile',IntInfo=tmp_int )
+  sf%nfp  =GETINT_NC("NFP")
   sf%nzeta=GETINT_NC("nzeta")
   sf%n_max=GETINT_NC("n_max")
   sf%nzeta=2*sf%n_max !!!!HACK: OLD nzeta, FIX THIS IN NC FILE
   tmp_int =GETINT_NC("lasym")
 
-  ALLOCATE(sf%xyz(3,sf%nfp*sf%nzeta))
-  sf%xyz=TRANSPOSE(GETREALARR2D_NC("axis_xyz(::)",sf%nfp*sf%nzeta,3))
+  ALLOCATE(sf%zeta(sf%nzeta))
+  sf%zeta=GETREALARR1D_NC("zeta(:)",sf%nzeta)
 
-  ALLOCATE(sf%Nxyz(3,sf%nfp*sf%nzeta))
-  sf%Nxyz=TRANSPOSE(GETREALARR2D_NC("axis_Nxyz(::)",sf%nfp*sf%nzeta,3))
+  ALLOCATE(sf%xyz(sf%nfp*sf%nzeta,3))
+  sf%xyz=GETREALARR2D_NC("axis_xyz(::)",sf%nfp*sf%nzeta,3)
 
-  ALLOCATE(sf%Bxyz(3,sf%nfp*sf%nzeta))
-  sf%Bxyz=TRANSPOSE(GETREALARR2D_NC("axis_Bxyz(::)",sf%nfp*sf%nzeta,3))
+  ALLOCATE(sf%Nxyz(sf%nfp*sf%nzeta,3))
+  sf%Nxyz=GETREALARR2D_NC("axis_Nxyz(::)",sf%nfp*sf%nzeta,3)
+
+  ALLOCATE(sf%Bxyz(sf%nfp*sf%nzeta,3))
+  sf%Bxyz=GETREALARR2D_NC("axis_Bxyz(::)",sf%nfp*sf%nzeta,3)
   
-  WRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
-  WRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
-  WRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
-  ioError = NF_CLOSE(ncid)
+  WRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1,1:3)
+  WRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1,1:3)
+  WRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1,1:3)
+  ioError = NF_CLOSE(nc_id)
   SWRITE(*,'(4X,A)')'...DONE.'
 
   CONTAINS
-  !using ncid,iError
+  !using nc_id,iError
 
   FUNCTION GETINT_NC(varname) 
     CHARACTER(LEN=*) :: varname
     INTEGER          :: GETINT_NC
     INTEGER          :: id
-    ioError = NF_INQ_VARID(ncid, TRIM(varname), id) 
+    ioError = NF_INQ_VARID(nc_id, TRIM(varname), id) 
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    ioError = NF_GET_VAR_INT(ncid, id, GETINT_NC)
+    ioError = NF_GET_VAR_INT(nc_id, id, GETINT_NC)
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
     SWRITE(UNIT_stdOut,'(6X,A,A20,A,I6)')'read ',TRIM(varname),' :: ',GETINT_NC
     
@@ -295,9 +304,9 @@ SUBROUTINE ReadAxis_NETCDF(sf,fileName)
     INTEGER          :: dim_1
     REAL(wp):: GETREALARR1D_NC(dim_1)
     INTEGER          :: id
-    ioError = NF_INQ_VARID(ncid, TRIM(varname), id) 
+    ioError = NF_INQ_VARID(nc_id, TRIM(varname), id) 
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    ioError = NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /), (/ dim_1/), GETREALARR1D_NC )
+    ioError = NF_GET_VARA_DOUBLE(nc_id, id, (/ 1 /), (/ dim_1/), GETREALARR1D_NC )
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
     SWRITE(UNIT_stdOut,'(6X,A,A20)')'read ',TRIM(varname)
     
@@ -308,9 +317,9 @@ SUBROUTINE ReadAxis_NETCDF(sf,fileName)
     INTEGER          :: dim_1,dim_2
     REAL(wp):: GETREALARR2D_NC(dim_1,dim_2)
     INTEGER          :: id
-    ioError = NF_INQ_VARID(ncid, TRIM(varname), id) 
+    ioError = NF_INQ_VARID(nc_id, TRIM(varname), id) 
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    ioError = NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/ dim_1,dim_2/), GETREALARR2D_NC(:,:) )
+    ioError = NF_GET_VARA_DOUBLE(nc_id, id, (/ 1, 1 /), (/ dim_1,dim_2/), GETREALARR2D_NC(:,:) )
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
     SWRITE(UNIT_stdOut,'(6X,A,A20)')'read ',TRIM(varname)
     
@@ -337,32 +346,28 @@ END SUBROUTINE ReadAxis_NETCDF
 !> the sign of rotation is being checked as well
 !!
 !===================================================================================================================================
-SUBROUTINE CheckFieldPeriodicity( sf ,nzeta,error_nfp)
+SUBROUTINE CheckFieldPeriodicity( sf ,error_nfp)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
-  INTEGER, INTENT(IN)  :: nzeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   INTEGER, INTENT(out)  :: error_nfp
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)              :: zeta(nzeta),dzeta_fp
+  REAL(wp)              :: dzeta_fp
   REAL(wp),DIMENSION(3) :: X0_a,T,N_a,B_a,Np,Bp
   REAL(wp),DIMENSION(3) :: X0_b,N_b,B_b,P_a,P_b
   INTEGER               :: ifp,iz,error_x,error_n,error_b
 !===================================================================================================================================
   error_nfp=0
-  DO iz=1,nzeta
-    zeta(iz)=(REAL(iz-0.5,wp))/REAL(nzeta*sf%nfp,wp)*TWOPI
-  END DO
 
   dzeta_fp=TWOPI/REAL(sf%nfp,wp)
-  CALL sf%eval_TNB(zeta(1),X0_a,T,N_a,B_a,Np,Bp) 
+  CALL sf%eval_TNB(sf%zeta(1),X0_a,T,N_a,B_a,Np,Bp) 
   P_a=X0_a-sf%rot_origin
-  CALL sf%eval_TNB(zeta(1)+dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
+  CALL sf%eval_TNB(sf%zeta(1)+dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
   P_b=X0_b-sf%rot_origin
   !account for possible sign change
   IF(SUM((P_b -  rodrigues(P_a,sf%rot_axis,dzeta_fp))**2).LT.1.0e-12)THEN
@@ -378,9 +383,9 @@ IMPLICIT NONE
     error_x=0
     error_n=0
     error_b=0
-    DO iz=1,nzeta
-      CALL sf%eval_TNB(zeta(iz)+ ifp*dzeta_fp   ,X0_a,T,N_a,B_a,Np,Bp) 
-      CALL sf%eval_TNB(zeta(iz)+(ifp+1)*dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
+    DO iz=1,sf%nzeta
+      CALL sf%eval_TNB(sf%zeta(iz)+ ifp*dzeta_fp   ,X0_a,T,N_a,B_a,Np,Bp) 
+      CALL sf%eval_TNB(sf%zeta(iz)+(ifp+1)*dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
       P_a=X0_a-sf%rot_origin
       P_b=X0_b-sf%rot_origin
       IF(.NOT.(SUM((P_b -  rodrigues(P_a,sf%rot_axis,dzeta_fp))**2).LT.1.0e-12))THEN

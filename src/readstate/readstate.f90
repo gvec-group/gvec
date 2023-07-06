@@ -65,7 +65,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   LOGICAL              :: file_exists
-  INTEGER              :: ioUnit,iMode,is,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2),which_hmap_r 
+  INTEGER              :: ioUnit,iMode,is,nElems_r,grid_type_r,nfp_r,degGP_r,mn_nyq_r(2),which_hmap_r
   INTEGER              :: X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
   INTEGER              :: X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
   INTEGER              :: LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
@@ -137,7 +137,9 @@ IMPLICIT NONE
 
   CLOSE(ioUnit)
 
-  CALL hmap_new(hmap_r,which_hmap_r,nfp_r)
+  CALL hmap_new(hmap_r,which_hmap_r)
+  IF((hmap_r%nfp.NE.-1).AND.(hmap_r%nfp.NE.nfp_r)) CALL abort(__STAMP__,&
+                        "nfp from restart file does not match to nfp used in hmap.")
   ! check if input has changed:
 
   CALL sgrid_r%init(nElems_r,grid_type_r)

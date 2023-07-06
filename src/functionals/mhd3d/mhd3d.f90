@@ -186,7 +186,9 @@ SUBROUTINE InitMHD3D(sf)
 
   sgammM1=1.0_wp/(gamm-1.0_wp)
 
-  CALL hmap_new(hmap,which_hmap,nfp_loc)
+  CALL hmap_new(hmap,which_hmap)
+  IF((hmap%nfp.NE.-1).AND.(hmap%nfp.NE.nfp_loc)) CALL abort(__STAMP__,&
+                        "nfp from GVEC parameterfile does not match to nfp used in hmap.")
   
   
   X1X2_deg     = GETINT(     "X1X2_deg")

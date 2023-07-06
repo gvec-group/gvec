@@ -32,6 +32,7 @@ TYPE, ABSTRACT :: c_hmap
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   INTEGER              :: which_hmap         !! points to hmap (1: MHD3D) 
+  INTEGER              :: nfp=-1             !! number of field periods used in hmap. If =-1, its not used
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
     PROCEDURE(i_sub_hmap            ),DEFERRED :: init
