@@ -45,20 +45,12 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   ! parameters for hmap_axisNB:
   !INTEGER              :: nfp   !! already part of c_hmap. Is overwritten in init!
   !curve description
-  !INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
-  REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp  
-  REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
-  LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
-  !curve description
   INTEGER              :: nzeta=0       !! number of points in zeta direction of the input axis 
+  REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions in one field period (1:nzeta),  on 'half' grid: zeta(i)=(i-0.5)/nzeta*(2pi/nfp)
   INTEGER              :: n_max=0       !! maximum number of fourier coefficients
-  REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:NFP*nzeta,1:3), zeta is on 'half' grid: zeta(i)=(i-0.5)*(2pi)/(NFP*nzeta)
+  REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:NFP*nzeta,1:3), zeta is on 'half' grid: zeta(i)=(i-0.5)/(NFP*nzeta)*(2pi)
   REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
   REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
-  REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions in one field period
   REAL(wp),ALLOCATABLE :: xyz_modes(:,:)   !! fourier modes of xyz
   REAL(wp),ALLOCATABLE :: Nxyz_modes(:,:)   !! 1d fourier modes of Nxyz
   REAL(wp),ALLOCATABLE :: Bxyz_modes(:,:)   !! 1d fourier modes of Bxyz
@@ -83,8 +75,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   PROCEDURE :: eval_gij_dq2  => hmap_axisNB_eval_gij_dq2  
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_axisNB:
-  PROCEDURE :: eval_X0      => hmap_axisNB_eval_X0_fromRZ
-  PROCEDURE :: eval_TNB     => hmap_axisNB_eval_TNB_from_frenet
+  PROCEDURE :: eval_TNB     => hmap_axisNB_eval_TNB
 END TYPE t_hmap_axisNB
 
 LOGICAL :: test_called=.FALSE.
@@ -117,7 +108,7 @@ IMPLICIT NONE
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: n
+  INTEGER :: n,i
   INTEGER :: nvisu,error_nfp
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
@@ -135,29 +126,25 @@ IMPLICIT NONE
   !initialize DOFS by projection.  nzeta*nfp >= 2*n_max*nfp+1  
   sf%n_max=MIN(sf%n_max,(sf%nzeta*sf%nfp-1)/(2*sf%nfp))
 
-  CALL fbase_new(sf%fb,(/0,sf%n_max*sf%nfp/),(/1,sf%nzeta*sf%nfp/),1,"_sincos_",.TRUE.)
+  CALL fbase_new(sf%fb,(/0,sf%n_max*sf%nfp/),(/1,sf%nzeta*sf%nfp/),1,"_sincos_",.FALSE.)
 
   IF(MAXVAL(ABS(sf%fb%X_IP(2,1:sf%nzeta)-sf%zeta)).GT.1.0e-14*sf%nzeta) &
      CALL abort(__STAMP__,&
           "zeta positions from axis file do not coincide with zeta positions in fbase.")
 
+  WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(:,1)*sf%Bxyz(:,1)+sf%Nxyz(:,2)*sf%Bxyz(:,2)+sf%Nxyz(:,3)*sf%Bxyz(:,3)))
+
   ALLOCATE(sf%xyz_modes(sf%fb%modes,3))
   ALLOCATE(sf%Nxyz_modes(sf%fb%modes,3))
   ALLOCATE(sf%Bxyz_modes(sf%fb%modes,3))
-  DO n=1,3
-     sf%xyz_modes(:,n)=sf%fb%initDOF(sf%xyz(:,n))
-     sf%Nxyz_modes(:,n)=sf%fb%initDOF(sf%Nxyz(:,n))
-     sf%Bxyz_modes(:,n)=sf%fb%initDOF(sf%Bxyz(:,n))
+  DO i=1,3
+     sf%xyz_modes(:,i) =sf%fb%initDOF(sf%xyz(:,i))
+     sf%Nxyz_modes(:,i)=sf%fb%initDOF(sf%Nxyz(:,i))
+     sf%Bxyz_modes(:,i)=sf%fb%initDOF(sf%Bxyz(:,i))
   END DO
 
 
-  STOP "ok until here"
-  IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
-     CALL abort(__STAMP__, &
-          "hmap_axisNB init: condition rc(n=0) > 0 not fulfilled!")
-  END IF
-
-  nvisu=GETINT("hmap_nvisu",0) 
+  nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
 
   IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
@@ -187,13 +174,15 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
-  DEALLOCATE(sf%rc)
-  DEALLOCATE(sf%rs)
-  DEALLOCATE(sf%zc)
-  DEALLOCATE(sf%zs)
+  DEALLOCATE(sf%zeta)
   DEALLOCATE(sf%xyz)
   DEALLOCATE(sf%Nxyz)
   DEALLOCATE(sf%Bxyz)
+  DEALLOCATE(sf%xyz_modes)
+  DEALLOCATE(sf%Nxyz_modes)
+  DEALLOCATE(sf%Bxyz_modes)
+  CALL sf%fb%free()
+  DEALLOCATE(sf%fb)
 
   sf%initialized=.FALSE.
 
@@ -263,7 +252,7 @@ SUBROUTINE ReadAxis_NETCDF(sf,fileName)
   sf%nfp  =GETINT_NC("NFP")
   sf%nzeta=GETINT_NC("nzeta")
   sf%n_max=GETINT_NC("n_max")
-  sf%nzeta=2*sf%n_max !!!!HACK: OLD nzeta, FIX THIS IN NC FILE
+  !sf%nzeta=2*sf%n_max !!!!HACK: OLD nzeta, FIX THIS IN NC FILE
   tmp_int =GETINT_NC("lasym")
 
   ALLOCATE(sf%zeta(sf%nzeta))
@@ -460,7 +449,7 @@ IMPLICIT NONE
   
 !  values=0.
   DO ivisu=1,nvisu*sf%nfp+1
-    zeta=(REAL(ivisu-0.5,wp))/REAL(nvisu*sf%nfp,wp)*TWOPI
+    zeta=(REAL(ivisu-1,wp))/REAL(nvisu*sf%nfp,wp)*TWOPI
     CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
     lp=SQRT(SUM(T*T))
     iVar=0
@@ -757,10 +746,10 @@ END FUNCTION hmap_axisNB_eval_gij_dq2
 
 
 !===================================================================================================================================
-!> evaluate curve X0(zeta), and T,N,B,N',B'. Here still using the frenet formulas 
+!> evaluate curve X0(zeta), and T=X0',N,B,N',B', using the fourier series of X0,N and B in cartesian coordinates
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_TNB_from_frenet( sf,zeta,X0,T,N,B,Np,Bp)
+SUBROUTINE hmap_axisNB_eval_TNB( sf,zeta,X0,T,N,B,Np,Bp)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -777,138 +766,23 @@ IMPLICIT NONE
   REAL(wp)            , INTENT(OUT) :: Bp(1:3)      !! derivative of bi-Normal in zeta  (B')
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp,Tp,N_add,Np_add,B_add,Bp_add
-  REAL(wp)          :: lp,absB,kappa,tau,sigma
+  INTEGER :: i
+  REAL(wp)                      :: base_x(sf%fb%modes) 
+  REAL(wp)                      :: base_dxdz(sf%fb%modes) 
 !===================================================================================================================================
-  !USING FRENET FRAME HERE, FOR DEBUGGING THE REST...
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
-  lp=SQRT(SUM(X0p*X0p))
-  T=X0p/lp
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  kappa=absB/(lp**3)
-  IF(kappa.LT.1.0e-8) &
-      CALL abort(__STAMP__, &
-           "hmap_axisNB cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta*sf%nfp/TWOPI)
+  base_x =sf%fb%eval(         0,(/0.,zeta/))
+  base_dxdz=sf%fb%eval(DERIV_ZETA,(/0.,zeta/))
 
-  tau=SUM(X0ppp*B)/(absB**2)
-  B=B/absB
-  N=CROSS(B,T)
-  ! END FRENET FRAME
+  X0(:)=MATMUL(base_x   ,sf%xyz_modes( :,:))
+  T( :)=MATMUL(base_dxdz,sf%xyz_modes( :,:))
 
-  !scaling with lprime, so changing to the derivative in zeta
-  Np=lp*(-kappa*T+tau*B)
-  Bp=lp*(-tau*N)
+  N( :)=MATMUL(base_x   ,sf%Nxyz_modes(:,:))
+  Np(:)=MATMUL(base_dxdz,sf%Nxyz_modes(:,:))
 
-  sigma=MERGE(SIGN(1.0_wp,SIN(sf%nfp*zeta)),1.0_wp,sf%omnig)
-  !add NFP periodic perturbation to make T,N,B non-orthogonal (T'=lp*kappa*N), for DEBUGGING
-  Tp    = lp*kappa*N
-  N_add =  0.05*sigma*(SIN(zeta*sf%nfp-0.5)*T)+0.0333*(COS(zeta*sf%nfp+0.2)*B)
-  Np_add=  0.05  *sigma*( sf%nfp*COS(zeta*sf%nfp-0.5)*T+SIN(zeta*sf%nfp-0.5)*Tp) &
-          +0.0333*(-sf%nfp*SIN(zeta*sf%nfp+0.2)*T+COS(zeta*sf%nfp+0.2)*Bp)
-  B_add =  0.044*sigma*(COS(zeta*sf%nfp+0.1)*T)+0.023*(SIN(zeta*sf%nfp-0.1)*N)
-  Bp_add=  0.044*sigma*(-sf%nfp*SIN(zeta*sf%nfp+0.1)*T+COS(zeta*sf%nfp+0.1)*Tp) &
-          +0.023*( sf%nfp*SIN(zeta*sf%nfp-0.1)*N+SIN(zeta*sf%nfp-0.1)*Np)
+  B( :)=MATMUL(base_x   ,sf%Bxyz_modes(:,:))
+  Bp(:)=MATMUL(base_dxdz,sf%Bxyz_modes(:,:))
 
-  N=sigma*(N+N_add)
-  B=sigma*(B+B_add)
-  Np=sigma*(Np+Np_add)
-  Bp=sigma*(Bp+Bp_add)
-  !scaling with lprime, so changing to the derivative in zeta
-  T =T*lp
-
-END SUBROUTINE hmap_axisNB_eval_TNB_from_frenet
-
-!===================================================================================================================================
-!> evaluate curve X0(zeta), position and first three derivatives, from given R0,Z0 Fourier 
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_X0_fromRZ( sf,zeta,X0,X0p,X0pp,X0ppp)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(IN ) :: sf
-  REAL(wp)            , INTENT(IN ) :: zeta       !! position along closed curve parametrized in [0,2pi]
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)            , INTENT(OUT) :: X0(1:3)      !! curve position in cartesian coordinates
-  REAL(wp)            , INTENT(OUT) :: X0p(1:3)     !! 1st derivative in zeta
-  REAL(wp)            , INTENT(OUT) :: X0pp(1:3)    !! 2nd derivative in zeta
-  REAL(wp)            , INTENT(OUT) :: X0ppp(1:3)   !! 3rd derivative in zeta
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp) :: R0,R0p,R0pp,R0ppp
-  REAL(wp) :: coszeta,sinzeta
-!===================================================================================================================================
-  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%rc,sf%rs,zeta,R0,R0p,R0pp,R0ppp)
-  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%zc,sf%zs,zeta,X0(3),X0p(3),X0pp(3),X0ppp(3)) !=Z0,Z0p,Z0pp,Z0ppp
-  coszeta=COS(zeta)
-  sinzeta=SIN(zeta)
-  ASSOCIATE(x   =>X0(1)   ,y   =>X0(2)   , &
-            xp  =>X0p(1)  ,yp  =>X0p(2)  , &
-            xpp =>X0pp(1) ,ypp =>X0pp(2) , &
-            xppp=>X0ppp(1),yppp=>X0ppp(2))
-    !! angle zeta=geometric toroidal angle phi=atan(y/x)
-    x=R0*coszeta
-    y=R0*sinzeta
-    
-    xp = R0p*coszeta  - R0*sinzeta
-    yp = R0p*sinzeta  + R0*coszeta
-    !xp  = R0p*coszeta  -y
-    !yp  = R0p*sinzeta  +x
-    
-    xpp = R0pp*coszeta - 2*R0p*sinzeta - R0*coszeta 
-    ypp = R0pp*sinzeta + 2*R0p*coszeta - R0*sinzeta
-    !xpp  = R0pp*coszeta -2.0_wp*yp + x
-    !ypp  = R0pp*sinzeta +2.0_wp*xp + y
-    
-    xppp = R0ppp*coszeta - 3*R0pp*sinzeta - 3*R0p*coszeta + R0*sinzeta
-    yppp = R0ppp*sinzeta + 3*R0pp*coszeta - 3*R0p*sinzeta - R0*coszeta
-    !xppp  = R0ppp*coszeta +3.0_wp*(xp-ypp) + y
-    !yppp  = R0ppp*sinzeta +3.0_wp*(yp+xpp) + x 
-
-  END ASSOCIATE !x,y,xp,yp,...
-
-END SUBROUTINE hmap_axisNB_eval_X0_fromRZ
-
-
-!===================================================================================================================================
-!> evaluate 1d fourier series from given cos/sin coefficients and mode numbers xn
-!! SUM(xc(0:n_max)*COS(xn(0:n_max)*zeta)+xs(0:n_max)*SIN(xn(0:n_max)*zeta)
-!! evaluate all derivatives 1,2,3 alongside
-!!
-!===================================================================================================================================
-SUBROUTINE eval_fourier1d(n_max,xn,xc,xs,zeta,x,xp,xpp,xppp)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  INTEGER  , INTENT(IN ) :: n_max        !! number of modes is n_max+1  (0...n_max)
-  INTEGER  , INTENT(IN ) :: xn(0:n_max)  !! array of mode numbers  
-  REAL(wp) , INTENT(IN ) :: xc(0:n_max)  !! cosine coefficients
-  REAL(wp) , INTENT(IN ) :: xs(0:n_max)  !!   sine coefficients
-  REAL(wp) , INTENT(IN ) :: zeta         !! angular position [0,2pi] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp) , INTENT(OUT) :: x      !! value at zeta 
-  REAL(wp) , INTENT(OUT) :: xp     !! 1st derivative in zeta
-  REAL(wp) , INTENT(OUT) :: xpp    !! 2nd derivative in zeta
-  REAL(wp) , INTENT(OUT) :: xppp   !! 3rd derivative in zeta
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp),DIMENSION(0:n_max) :: cos_nzeta,sin_nzeta,xtmp,xptmp
-!===================================================================================================================================
-  cos_nzeta=COS(REAL(xn,wp)*zeta)
-  sin_nzeta=SIN(REAL(xn,wp)*zeta)
-  xtmp = xc*cos_nzeta+xs*sin_nzeta
-  xptmp= REAL(xn,wp)*(-xc*sin_nzeta+xs*cos_nzeta)
-  x    = SUM(xtmp)
-  xp   = SUM(xptmp)
-  xpp  = SUM(REAL(-xn*xn,wp)*xtmp)
-  xppp = SUM(REAL(-xn*xn,wp)*xptmp)
-
-END SUBROUTINE eval_fourier1d
+END SUBROUTINE hmap_axisNB_eval_TNB
 
 
 !===================================================================================================================================
@@ -945,11 +819,23 @@ IMPLICIT NONE
 
     !evaluate on the axis q1=q2=0
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    q_in=(/0.0_wp, 0.0_wp, 0.335_wp*PI/)
-    R0 = SUM(sf%rc(:)*COS(sf%Xn(:)*q_in(3)) + sf%rs(:)*SIN(sf%Xn(:)*q_in(3)))
-    Z0 = SUM(sf%zc(:)*COS(sf%Xn(:)*q_in(3)) + sf%zs(:)*SIN(sf%Xn(:)*q_in(3)))
+    q_in=(/0.0_wp, 0.0_wp, sf%zeta(sf%nzeta/2+1)/)
     x = sf%eval(q_in )
-    checkreal=SUM((x-(/R0*COS(q_in(3)),R0*SIN(q_in(3)),Z0/))**2)
+    checkreal=SUM((x-sf%xyz(sf%nzeta/2+1,:))**2)
+    refreal = 0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+            '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3))') &
+     '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
+    END IF !TEST
+
+    !evaluate at q1=0.44,q2=-0.33 (= x+0.44*N-0.33*B)
+    iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    q_in=(/0.44_wp,-0.33_wp, sf%zeta(sf%nzeta/2+1)/)
+    x = sf%eval(q_in )
+    checkreal=SUM((x-(sf%xyz(sf%nzeta/2+1,:)+0.44_wp*sf%Nxyz(sf%nzeta/2+1,:)-0.33_wp*sf%Bxyz(sf%nzeta/2+1,:)))**2)
     refreal = 0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
@@ -964,7 +850,7 @@ IMPLICIT NONE
     q_test(3,:)=(/0.0_wp, 0.0_wp, 1.0_wp/)
     DO qdir=1,3
       !check dx/dq^i with FD
-      iTest=101+qdir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
       q_in=(/0.0_wp, 0.0_wp, 0.335_wp*PI/)
       x = sf%eval(q_in )
       x_eps = sf%eval(q_in+epsFD*q_test(qdir,:))
