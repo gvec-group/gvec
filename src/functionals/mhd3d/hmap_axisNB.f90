@@ -116,6 +116,7 @@ IMPLICIT NONE
 
 #if NETCDF
   ! read axis from netcdf
+  nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
   sf%axis_ncfile=GETSTR("hmap_ncfile")
   CALL ReadAxis_NETCDF(sf,sf%axis_ncfile)
 #else
@@ -144,7 +145,6 @@ IMPLICIT NONE
   END DO
 
 
-  nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
 
   IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
@@ -191,41 +191,51 @@ END SUBROUTINE hmap_axisNB_free
 #if NETCDF
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
-!> ======= HEADER OF THE NETCDF FILE ===================================================================================
-!> --------- GENERAL -------------
-!> * NFP: number of field periods
-!> * m_max: maximum mode number in theta
-!> * n_max: maximum mode number in zeta (in one field period)
-!> * lasym: asymmetry, logical. 
-!>           if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
-!>             X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
-!>             Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
-!>           if lasym=1, full fourier series is taken for X,Y
-
-!>  ntheta: number of points in theta (>=2*m_max+1)
-!>  nzeta: number of points along the axis, in one field period (>=2*n_max+1)
+!> ======= HEADER OF THE NETCDF FILE VERSION 3.0 ===================================================================================
+!> === FILE DESCRIPTION:
+!>   * axis, normal and binormal of the frame are given in cartesian coordinates along the curve parameter zeta [0,2pi].
+!>   * The curve is allowed to have a field periodicity NFP, but the curve must be provided on a full turn.
+!>   * The adata is given in real space, sampled along equidistant zeta point positions:
+!>       zeta(i)=(i+0.5)/nzeta * (2pi/NFP), i=0,...,nzeta-1
+!>     always shifted by (2pi/NFP) for the next field period.
+!>     Thus the number of points along the axis for a full turn is NFP*nzeta
+!>   * definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
+!>
+!>      {x,y,z}(rho,theta,zeta)=axis_{x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
+!>
+!> === DATA DESCRIPTION
+!> - general data
+!>   * NFP: number of field periods
+!>   * VERSION: version number as integer: V3.0 => 300
+!> - axis data group:
+!>   * 'axis_nzeta'   : number of points along the axis, in one field period (>=2*n_max+1)
+!>   * 'axis_zeta(:)' : zeta positions, 1D array of size 'axis_nzeta',  must exclude the end point, on half grid! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
+!>   * 'axis_xyz(::)' : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP* axis_nzeta ), sampled at zeta positions, must exclude the endpoint
+!>                      xyz[i,j]=axis_i(zeta[j]),        
+!>   * 'axis_Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* axis_nzeta), evaluated analogously to the axis
+!>   * 'axis_Bxyz(::)': cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*axis_nzeta), evaluated analogously to the axis
+!> - boundary data group:
+!>   * 'boundary_m_max'    : maximum mode number in theta 
+!>   * 'boundary_n_max'    : maximum mode number in zeta (in one field period)
+!>   * 'boundary_lasym'    : asymmetry, logical. 
+!>                            if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
+!>                              X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
+!>                              Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
+!>                            if lasym=1, full fourier series is taken for X,Y
+!>   * 'boundary_ntheta'    : number of points in theta (>=2*m_max+1)
+!>   * 'boundary_nzeta'     : number of points in zeta  (>=2*n_max+1)
+!>   * 'boundary_theta(:)'  : theta positions, 1D array of size 'boundary_ntheta', on half grid! theta(i)=(i+0.5)/ntheta*(2pi), i=0,...ntheta-1
+!>   * 'boundary_zeta(:)'   : zeta positions, 1D array of size 'boundary_nzeta', on half grid for one field period! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
+!>   * 'boundary_X(::)',
+!>     'boundary_Y(::)'     : boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
+!>                               X[i, j]=X(theta[i],zeta[j])
+!>                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1                                         
 !> 
-!> ---------- GEOMETRY ---------------
-!> * theta(:): theta positions, 1D array of size ntheta, must exclude the end point (last point <  (first point + 2pi), preferred on "half grid" points
-!> * zeta(:) :  zeta positions, 1D array of size nzeta,  must exclude the end point (last point < (first point + 2pi/NFP)), preferred on "half grid" points
-!> 
-!> definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
-!> 
-!>     {x,y,z}(rho,theta,zeta)=axis_{x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
-!> 
-!> * axis_xyz(::) : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP*nzeta), sampled at zeta positions, must exclude the endpoint
-!>                  axis_xyz[i,j]=axis_i(zeta[j]),        
-!> * axis_Nxyz(::): cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
-!> * axis_Bxyz(::): cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
-
-!> * X(::),Y(::): boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
-!>                   X[i, j]=X(theta[i],zeta[j])
-!>                   Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
 !> ---- PLASMA PARAMETERS:
 !>  ....
 !> ======= END HEADER,START DATA ===================================================================================
 !! 
-!> NOTE THAT THE BOUNDARY DATA X,Y and m_max and ntheta are NOT NEEDED FOR THE AXIS DEFINITION 
+!> NOTE THAT ONLY THE AXIS DATA IS NEEDED FOR THE AXIS DEFINITION 
 !===================================================================================================================================
 SUBROUTINE ReadAxis_NETCDF(sf,fileName)
   IMPLICIT NONE
@@ -249,81 +259,130 @@ SUBROUTINE ReadAxis_NETCDF(sf,fileName)
   ioError = NF_OPEN(TRIM(fileName), NF_NOWRITE, nc_id)
   IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"opening file",filename)
 
-  sf%nfp  =GETINT_NC("NFP")
-  sf%nzeta=GETINT_NC("nzeta")
-  sf%n_max=GETINT_NC("n_max")
-  !sf%nzeta=2*sf%n_max !!!!HACK: OLD nzeta, FIX THIS IN NC FILE
-  tmp_int =GETINT_NC("lasym")
+  CALL GETSCALAR_NC(nc_id,"NFP",intout=sf%nfp)
+  CALL GETSCALAR_NC(nc_id,"axis_nzeta",intout=sf%nzeta)
+  sf%n_max= (sf%nzeta-1)/2
 
   ALLOCATE(sf%zeta(sf%nzeta))
-  sf%zeta=GETREALARR1D_NC("zeta(:)",sf%nzeta)
+  CALL GETARR1D_NC(nc_id,"axis_zeta(:)",sf%nzeta,realout=sf%zeta)
 
   ALLOCATE(sf%xyz(sf%nfp*sf%nzeta,3))
-  sf%xyz=GETREALARR2D_NC("axis_xyz(::)",sf%nfp*sf%nzeta,3)
+  CALL GETARR2D_NC(nc_id,"axis_xyz(::)",sf%nfp*sf%nzeta,3,realout=sf%xyz)
+  WRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1,1:3)
 
   ALLOCATE(sf%Nxyz(sf%nfp*sf%nzeta,3))
-  sf%Nxyz=GETREALARR2D_NC("axis_Nxyz(::)",sf%nfp*sf%nzeta,3)
+  CALL GETARR2D_NC(nc_id,"axis_Nxyz(::)",sf%nfp*sf%nzeta,3,realout=sf%Nxyz)
+  WRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1,1:3)
 
   ALLOCATE(sf%Bxyz(sf%nfp*sf%nzeta,3))
-  sf%Bxyz=GETREALARR2D_NC("axis_Bxyz(::)",sf%nfp*sf%nzeta,3)
-  
-  WRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1,1:3)
-  WRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1,1:3)
+  CALL GETARR2D_NC(nc_id,"axis_Bxyz(::)",sf%nfp*sf%nzeta,3,realout=sf%Bxyz)
   WRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1,1:3)
+
   ioError = NF_CLOSE(nc_id)
   SWRITE(*,'(4X,A)')'...DONE.'
 
   CONTAINS
+
+
   !using nc_id,iError
+  SUBROUTINE enter_groups(grpid_in,varname_in,grpid,varname) 
+    INTEGER,INTENT(IN)          :: grpid_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in
+    CHARACTER(LEN=255),INTENT(OUT) :: varname
+    INTEGER,INTENT(OUT)          :: grpid
+    CHARACTER(LEN=255) :: grpname
+    INTEGER          :: grpid_old,id
+    !split the varname at first occurence of "/" to get the group name. Then get the group id. 
+    ! repeat until no "/" is found anymore.
+    ! output the final groupid and the variable name without the group names.
+    grpid=grpid_in 
+    varname=varname_in
+    id=INDEX(varname,"/")
+    DO WHILE (id.NE.0)
+      grpname=varname(1:id-1)
+      varname=varname(id+1:)
+      grpid_old=grpid
+      ioError = NF_INQ_NCID(grpid_old, TRIM(grpname), grpid) 
+      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding group",grpname)
+      id=INDEX(varname,"/")
+    END DO
+  END SUBROUTINE Enter_groups
 
-  FUNCTION GETINT_NC(varname) 
-    CHARACTER(LEN=*) :: varname
-    INTEGER          :: GETINT_NC
-    INTEGER          :: id
-    ioError = NF_INQ_VARID(nc_id, TRIM(varname), id) 
+
+  SUBROUTINE GETSCALAR_NC(grpid_in,varname,intout,realout) 
+    INTEGER,INTENT(IN)          :: grpid_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname
+    INTEGER,INTENT(OUT),OPTIONAL:: intout
+    REAL(wp),INTENT(OUT),OPTIONAL:: realout
+    CHARACTER(LEN=255) :: tmpname
+    INTEGER          :: grpid,id
+    CALL enter_groups(grpid_in,varname,grpid,tmpname)
+    ioError = NF_INQ_VARID(grpid, TRIM(tmpname), id) 
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    ioError = NF_GET_VAR_INT(nc_id, id, GETINT_NC)
-    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-    SWRITE(UNIT_stdOut,'(6X,A,A20,A,I6)')'read ',TRIM(varname),' :: ',GETINT_NC
-    
-  END FUNCTION GETINT_NC
+    IF(PRESENT(intout))THEN
+      ioError = NF_GET_VAR(grpid, id, intout)
+      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read integer ',TRIM(varname),' :: ',intout
+    ELSEIF(PRESENT(realout))THEN
+      ioError = NF_GET_VAR(grpid, id, realout)
+      SWRITE(UNIT_stdOut,'(6X,A,A50,A,E21.11)')'read double  ',TRIM(varname),' :: ',realout
+    END IF
+  END SUBROUTINE GETSCALAR_NC
 
-  FUNCTION GETREALARR1D_NC(varname,dim_1) 
-    CHARACTER(LEN=*) :: varname
+
+  SUBROUTINE GETARR1D_NC(grpid_in,varname,dim_1,intout,realout) 
+    INTEGER,INTENT(IN)          :: grpid_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname
     INTEGER          :: dim_1
-    REAL(wp):: GETREALARR1D_NC(dim_1)
-    INTEGER          :: id
-    ioError = NF_INQ_VARID(nc_id, TRIM(varname), id) 
+    INTEGER,INTENT(OUT),OPTIONAL:: intout(1:dim_1)
+    REAL(wp),INTENT(OUT),OPTIONAL:: realout(1:dim_1)
+    CHARACTER(LEN=255) :: tmpname
+    INTEGER          :: grpid,id
+    CALL enter_groups(grpid_in,varname,grpid,tmpname)
+    ioError = NF_INQ_VARID(grpid, TRIM(tmpname), id) 
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    ioError = NF_GET_VARA_DOUBLE(nc_id, id, (/ 1 /), (/ dim_1/), GETREALARR1D_NC )
-    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-    SWRITE(UNIT_stdOut,'(6X,A,A20)')'read ',TRIM(varname)
-    
-  END FUNCTION GETREALARR1D_NC 
+    IF(PRESENT(intout))THEN
+      ioError = NF_GET_VAR(grpid, id, intout )
+      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 1d integer array ',TRIM(varname)
+    ELSEIF(PRESENT(realout))THEN
+      ioError = NF_GET_VAR(grpid, id, realout )
+      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 1d double array ',TRIM(varname)
+    END IF
+  END SUBROUTINE GETARR1D_NC
 
-  FUNCTION GETREALARR2D_NC(varname,dim_1,dim_2) 
-    CHARACTER(LEN=*) :: varname
+  SUBROUTINE GETARR2D_NC(grpid_in,varname,dim_1,dim_2,intout,realout) 
+    INTEGER,INTENT(IN)          :: grpid_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname
     INTEGER          :: dim_1,dim_2
-    REAL(wp):: GETREALARR2D_NC(dim_1,dim_2)
-    INTEGER          :: id
-    ioError = NF_INQ_VARID(nc_id, TRIM(varname), id) 
+    INTEGER,INTENT(OUT),OPTIONAL:: intout(1:dim_1,1:dim_2)
+    REAL(wp),INTENT(OUT),OPTIONAL:: realout(1:dim_1,1:dim_2)
+    CHARACTER(LEN=255) :: tmpname
+    INTEGER          :: grpid,id
+    CALL enter_groups(grpid_in,varname,grpid,tmpname)
+    ioError = NF_INQ_VARID(grpid, TRIM(tmpname), id) 
     IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    ioError = NF_GET_VARA_DOUBLE(nc_id, id, (/ 1, 1 /), (/ dim_1,dim_2/), GETREALARR2D_NC(:,:) )
-    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-    SWRITE(UNIT_stdOut,'(6X,A,A20)')'read ',TRIM(varname)
-    
-  END FUNCTION GETREALARR2D_NC 
+    IF(PRESENT(intout))THEN
+      ioError = NF_GET_VAR(grpid, id, intout )
+      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 2d integer array ',TRIM(varname)
+    ELSEIF(PRESENT(realout))THEN
+      ioError = NF_GET_VAR(grpid, id, realout )
+      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
+      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 2d double array ',TRIM(varname)
+    END IF
+  END SUBROUTINE GETARR2D_NC
 
   SUBROUTINE handle_error(ioerr,act,varname)
     INTEGER, intent(in) :: ioerr
     CHARACTER(LEN=*) :: act,varname
-    IF (ioerr .ne. nf_noerr) THEN
-       WRITE(*,'(6X,A)')"A netCDF error has occurred when "//TRIM(act)//" variable "//TRIM(varname)
+    IF (ioerr .ne. NF_NOERR) THEN
+       WRITE(*,'(6X,A)')"A netCDF error has occurred when "//TRIM(act)//" variable '"//TRIM(varname)//"'"
        CALL abort(__STAMP__,&
                  NF_STRERROR(ioerr))
     END IF
   END SUBROUTINE handle_error
-
 
 END SUBROUTINE ReadAxis_NETCDF
 #endif /*NETCDF*/
