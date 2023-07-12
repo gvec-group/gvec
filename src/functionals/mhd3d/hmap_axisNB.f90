@@ -33,6 +33,7 @@ MODULE MODgvec_hmap_axisNB
 USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort
 USE MODgvec_c_hmap,    ONLY:c_hmap
 USE MODgvec_fBase   ,ONLY: t_fbase
+USE MODgvec_io_netcdf   ,ONLY: t_ncfile
 IMPLICIT NONE
 
 PUBLIC
@@ -60,6 +61,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp)             :: rot_axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
   !---------------------------------------------------------------------------------------------------------------------------------
   CLASS(t_fbase),ALLOCATABLE  :: fb  !! container for 1d fourier base on full turn
+  CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
 
   CONTAINS
 
@@ -99,6 +101,7 @@ SUBROUTINE hmap_axisNB_init( sf )
 ! MODULES
 USE MODgvec_ReadInTools, ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
 USE MODgvec_fbase,ONLY:fbase_new
+USE MODgvec_io_netcdf,ONLY:ncfile_init
 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -114,15 +117,11 @@ IMPLICIT NONE
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
 
 
-#if NETCDF
   ! read axis from netcdf
   nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
   sf%axis_ncfile=GETSTR("hmap_ncfile")
-  CALL ReadAxis_NETCDF(sf,sf%axis_ncfile)
-#else
-  CALL abort(__STAMP__,&
-      "cannot read axis netcdf file, since code is compiled with BUILD_NETCDF=OFF")
-#endif
+  CALL ncfile_init(sf%nc,sf%axis_ncfile,"r") 
+  CALL ReadAxis_NETCDF(sf)
   
   !initialize DOFS by projection.  nzeta*nfp >= 2*n_max*nfp+1  
   sf%n_max=MIN(sf%n_max,(sf%nzeta*sf%nfp-1)/(2*sf%nfp))
@@ -183,12 +182,13 @@ IMPLICIT NONE
   DEALLOCATE(sf%Bxyz_modes)
   CALL sf%fb%free()
   DEALLOCATE(sf%fb)
+  CALL sf%nc%free()
+  DEALLOCATE(sf%nc)
 
   sf%initialized=.FALSE.
 
 END SUBROUTINE hmap_axisNB_free
 
-#if NETCDF
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
 !> ======= HEADER OF THE NETCDF FILE VERSION 3.0 ===================================================================================
@@ -237,12 +237,11 @@ END SUBROUTINE hmap_axisNB_free
 !! 
 !> NOTE THAT ONLY THE AXIS DATA IS NEEDED FOR THE AXIS DEFINITION 
 !===================================================================================================================================
-SUBROUTINE ReadAxis_NETCDF(sf,fileName)
+SUBROUTINE ReadAxis_NETCDF(sf)
+  USE MODgvec_io_netcdf
   IMPLICIT NONE
-  INCLUDE "netcdf.inc"
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-  CHARACTER(LEN = *), INTENT(IN) :: fileName
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
@@ -253,139 +252,30 @@ SUBROUTINE ReadAxis_NETCDF(sf,fileName)
 !===================================================================================================================================
 
 
-  SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(fileName)//'" in NETCDF format ...'
+  SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%nc%fileName)//'" in NETCDF format ...'
 
-  !! open NetCDF input file
-  ioError = NF_OPEN(TRIM(fileName), NF_NOWRITE, nc_id)
-  IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"opening file",filename)
-
-  CALL GETSCALAR_NC(nc_id,"NFP",intout=sf%nfp)
-  CALL GETSCALAR_NC(nc_id,"axis_nzeta",intout=sf%nzeta)
+  CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
+  CALL sf%nc%get_scalar("axis_nzeta",intout=sf%nzeta)
   sf%n_max= (sf%nzeta-1)/2
 
   ALLOCATE(sf%zeta(sf%nzeta))
-  CALL GETARR1D_NC(nc_id,"axis_zeta(:)",sf%nzeta,realout=sf%zeta)
+  CALL sf%nc%get_array("axis_zeta(:)",realout_1d=sf%zeta)
 
   ALLOCATE(sf%xyz(sf%nfp*sf%nzeta,3))
-  CALL GETARR2D_NC(nc_id,"axis_xyz(::)",sf%nfp*sf%nzeta,3,realout=sf%xyz)
+  CALL sf%nc%get_array("axis_xyz(::)",realout_2d=sf%xyz)
   WRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1,1:3)
 
   ALLOCATE(sf%Nxyz(sf%nfp*sf%nzeta,3))
-  CALL GETARR2D_NC(nc_id,"axis_Nxyz(::)",sf%nfp*sf%nzeta,3,realout=sf%Nxyz)
+  CALL sf%nc%get_array("axis_Nxyz(::)",realout_2d=sf%Nxyz)
   WRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1,1:3)
 
   ALLOCATE(sf%Bxyz(sf%nfp*sf%nzeta,3))
-  CALL GETARR2D_NC(nc_id,"axis_Bxyz(::)",sf%nfp*sf%nzeta,3,realout=sf%Bxyz)
+  CALL sf%nc%get_array("axis_Bxyz(::)",realout_2d=sf%Bxyz)
   WRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1,1:3)
 
-  ioError = NF_CLOSE(nc_id)
   SWRITE(*,'(4X,A)')'...DONE.'
 
-  CONTAINS
-
-
-  !using nc_id,iError
-  SUBROUTINE enter_groups(grpid_in,varname_in,grpid,varname) 
-    INTEGER,INTENT(IN)          :: grpid_in
-    CHARACTER(LEN=*),INTENT(IN) :: varname_in
-    CHARACTER(LEN=255),INTENT(OUT) :: varname
-    INTEGER,INTENT(OUT)          :: grpid
-    CHARACTER(LEN=255) :: grpname
-    INTEGER          :: grpid_old,id
-    !split the varname at first occurence of "/" to get the group name. Then get the group id. 
-    ! repeat until no "/" is found anymore.
-    ! output the final groupid and the variable name without the group names.
-    grpid=grpid_in 
-    varname=varname_in
-    id=INDEX(varname,"/")
-    DO WHILE (id.NE.0)
-      grpname=varname(1:id-1)
-      varname=varname(id+1:)
-      grpid_old=grpid
-      ioError = NF_INQ_NCID(grpid_old, TRIM(grpname), grpid) 
-      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding group",grpname)
-      id=INDEX(varname,"/")
-    END DO
-  END SUBROUTINE Enter_groups
-
-
-  SUBROUTINE GETSCALAR_NC(grpid_in,varname,intout,realout) 
-    INTEGER,INTENT(IN)          :: grpid_in
-    CHARACTER(LEN=*),INTENT(IN) :: varname
-    INTEGER,INTENT(OUT),OPTIONAL:: intout
-    REAL(wp),INTENT(OUT),OPTIONAL:: realout
-    CHARACTER(LEN=255) :: tmpname
-    INTEGER          :: grpid,id
-    CALL enter_groups(grpid_in,varname,grpid,tmpname)
-    ioError = NF_INQ_VARID(grpid, TRIM(tmpname), id) 
-    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    IF(PRESENT(intout))THEN
-      ioError = NF_GET_VAR(grpid, id, intout)
-      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read integer ',TRIM(varname),' :: ',intout
-    ELSEIF(PRESENT(realout))THEN
-      ioError = NF_GET_VAR(grpid, id, realout)
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,E21.11)')'read double  ',TRIM(varname),' :: ',realout
-    END IF
-  END SUBROUTINE GETSCALAR_NC
-
-
-  SUBROUTINE GETARR1D_NC(grpid_in,varname,dim_1,intout,realout) 
-    INTEGER,INTENT(IN)          :: grpid_in
-    CHARACTER(LEN=*),INTENT(IN) :: varname
-    INTEGER          :: dim_1
-    INTEGER,INTENT(OUT),OPTIONAL:: intout(1:dim_1)
-    REAL(wp),INTENT(OUT),OPTIONAL:: realout(1:dim_1)
-    CHARACTER(LEN=255) :: tmpname
-    INTEGER          :: grpid,id
-    CALL enter_groups(grpid_in,varname,grpid,tmpname)
-    ioError = NF_INQ_VARID(grpid, TRIM(tmpname), id) 
-    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    IF(PRESENT(intout))THEN
-      ioError = NF_GET_VAR(grpid, id, intout )
-      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 1d integer array ',TRIM(varname)
-    ELSEIF(PRESENT(realout))THEN
-      ioError = NF_GET_VAR(grpid, id, realout )
-      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 1d double array ',TRIM(varname)
-    END IF
-  END SUBROUTINE GETARR1D_NC
-
-  SUBROUTINE GETARR2D_NC(grpid_in,varname,dim_1,dim_2,intout,realout) 
-    INTEGER,INTENT(IN)          :: grpid_in
-    CHARACTER(LEN=*),INTENT(IN) :: varname
-    INTEGER          :: dim_1,dim_2
-    INTEGER,INTENT(OUT),OPTIONAL:: intout(1:dim_1,1:dim_2)
-    REAL(wp),INTENT(OUT),OPTIONAL:: realout(1:dim_1,1:dim_2)
-    CHARACTER(LEN=255) :: tmpname
-    INTEGER          :: grpid,id
-    CALL enter_groups(grpid_in,varname,grpid,tmpname)
-    ioError = NF_INQ_VARID(grpid, TRIM(tmpname), id) 
-    IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"finding",varname)
-    IF(PRESENT(intout))THEN
-      ioError = NF_GET_VAR(grpid, id, intout )
-      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 2d integer array ',TRIM(varname)
-    ELSEIF(PRESENT(realout))THEN
-      ioError = NF_GET_VAR(grpid, id, realout )
-      IF (ioError .NE. NF_NOERR) CALL handle_error(ioError,"reading",varname)
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I6)')'read 2d double array ',TRIM(varname)
-    END IF
-  END SUBROUTINE GETARR2D_NC
-
-  SUBROUTINE handle_error(ioerr,act,varname)
-    INTEGER, intent(in) :: ioerr
-    CHARACTER(LEN=*) :: act,varname
-    IF (ioerr .ne. NF_NOERR) THEN
-       WRITE(*,'(6X,A)')"A netCDF error has occurred when "//TRIM(act)//" variable '"//TRIM(varname)//"'"
-       CALL abort(__STAMP__,&
-                 NF_STRERROR(ioerr))
-    END IF
-  END SUBROUTINE handle_error
-
 END SUBROUTINE ReadAxis_NETCDF
-#endif /*NETCDF*/
 
 !===================================================================================================================================
 !> Check that the TNB frame  really has the field periodicity of NFP: 

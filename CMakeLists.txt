@@ -321,6 +321,7 @@ IF(COMPILE_GVEC)
                             ./src/analyze/*.f90
                             ./src/lbfgsb/*.f90
                             ./src/vmec/*.f90
+                            ./src/io_netcdf.f90
                             ./src/output/*.f90
                             ./src/restart/*.f90 )
 
