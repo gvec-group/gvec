@@ -55,7 +55,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp),ALLOCATABLE :: xyz_modes(:,:)   !! fourier modes of xyz
   REAL(wp),ALLOCATABLE :: Nxyz_modes(:,:)   !! 1d fourier modes of Nxyz
   REAL(wp),ALLOCATABLE :: Bxyz_modes(:,:)   !! 1d fourier modes of Bxyz
-  CHARACTER(LEN=100)   :: axis_ncfile=" " !! name of netcdf file with axis information
+  CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp)             :: rot_origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
   REAL(wp)             :: rot_axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
@@ -119,9 +119,9 @@ IMPLICIT NONE
 
   ! read axis from netcdf
   nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
-  sf%axis_ncfile=GETSTR("hmap_ncfile")
-  CALL ncfile_init(sf%nc,sf%axis_ncfile,"r") 
-  CALL ReadAxis_NETCDF(sf)
+  sf%ncfile=GETSTR("hmap_ncfile")
+  CALL ncfile_init(sf%nc,sf%ncfile,"r") 
+  CALL ReadNETCDF(sf)
   
   !initialize DOFS by projection.  nzeta*nfp >= 2*n_max*nfp+1  
   sf%n_max=MIN(sf%n_max,(sf%nzeta*sf%nfp-1)/(2*sf%nfp))
@@ -191,53 +191,54 @@ END SUBROUTINE hmap_axisNB_free
 
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
-!> ======= HEADER OF THE NETCDF FILE VERSION 3.0 ===================================================================================
-!> === FILE DESCRIPTION:
-!>   * axis, normal and binormal of the frame are given in cartesian coordinates along the curve parameter zeta [0,2pi].
-!>   * The curve is allowed to have a field periodicity NFP, but the curve must be provided on a full turn.
-!>   * The adata is given in real space, sampled along equidistant zeta point positions:
-!>       zeta(i)=(i+0.5)/nzeta * (2pi/NFP), i=0,...,nzeta-1
-!>     always shifted by (2pi/NFP) for the next field period.
-!>     Thus the number of points along the axis for a full turn is NFP*nzeta
-!>   * definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
-!>
-!>      {x,y,z}(rho,theta,zeta)=axis_{x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
-!>
-!> === DATA DESCRIPTION
-!> - general data
-!>   * NFP: number of field periods
-!>   * VERSION: version number as integer: V3.0 => 300
-!> - axis data group:
-!>   * 'axis_nzeta'   : number of points along the axis, in one field period (>=2*n_max+1)
-!>   * 'axis_zeta(:)' : zeta positions, 1D array of size 'axis_nzeta',  must exclude the end point, on half grid! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
-!>   * 'axis_xyz(::)' : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP* axis_nzeta ), sampled at zeta positions, must exclude the endpoint
-!>                      xyz[i,j]=axis_i(zeta[j]),        
-!>   * 'axis_Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* axis_nzeta), evaluated analogously to the axis
-!>   * 'axis_Bxyz(::)': cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*axis_nzeta), evaluated analogously to the axis
-!> - boundary data group:
-!>   * 'boundary_m_max'    : maximum mode number in theta 
-!>   * 'boundary_n_max'    : maximum mode number in zeta (in one field period)
-!>   * 'boundary_lasym'    : asymmetry, logical. 
-!>                            if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
-!>                              X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
-!>                              Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
-!>                            if lasym=1, full fourier series is taken for X,Y
-!>   * 'boundary_ntheta'    : number of points in theta (>=2*m_max+1)
-!>   * 'boundary_nzeta'     : number of points in zeta  (>=2*n_max+1)
-!>   * 'boundary_theta(:)'  : theta positions, 1D array of size 'boundary_ntheta', on half grid! theta(i)=(i+0.5)/ntheta*(2pi), i=0,...ntheta-1
-!>   * 'boundary_zeta(:)'   : zeta positions, 1D array of size 'boundary_nzeta', on half grid for one field period! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
-!>   * 'boundary_X(::)',
-!>     'boundary_Y(::)'     : boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
-!>                               X[i, j]=X(theta[i],zeta[j])
-!>                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1                                         
-!> 
-!> ---- PLASMA PARAMETERS:
-!>  ....
-!> ======= END HEADER,START DATA ===================================================================================
+!! ======= HEADER OF THE NETCDF FILE VERSION 3.0 ===================================================================================
+!! === FILE DESCRIPTION:
+!!   * axis, normal and binormal of the frame are given in cartesian coordinates along the curve parameter zeta [0,2pi].
+!!   * The curve is allowed to have a field periodicity NFP, but the curve must be provided on a full turn.
+!!   * The adata is given in real space, sampled along equidistant zeta point positions:
+!!       zeta(i)=(i+0.5)/nzeta * (2pi/NFP), i=0,...,nzeta-1
+!!     always shifted by (2pi/NFP) for the next field period.
+!!     Thus the number of points along the axis for a full turn is NFP*nzeta
+!!   * definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
+!!
+!!      {x,y,z}(rho,theta,zeta)={x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
+!!
+!! === DATA DESCRIPTION
+!! - general data
+!!   * NFP: number of field periods
+!!   * VERSION: version number as integer: V3.0 => 300
+!! - axis/ data group:
+!!   * 'axis/n_max'   : maximum mode number in zeta (in one field period)
+!!   * 'axis/nzeta'   : number of points along the axis, in one field period (>=2*n_max+1)
+!!   * 'axis/zeta(:)' : zeta positions, 1D array of size 'nzeta',  must exclude the end point, on half grid in one field period! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
+!!   * 'axis/xyz(::)' : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP* nzeta ), sampled at zeta positions, must exclude the endpoint
+!!                      xyz[:,j+fp*nzeta]=axis(zeta[j]+fp*2pi/NFP), for j=0,..nzeta-1 and  fp=0,...,NFP-1
+!!   * 'axis/Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* nzeta), evaluated analogously to the axis
+!!   * 'axis/Bxyz(::)': cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
+!! - boundary data group:
+!!   * 'boundary/m_max'    : maximum mode number in theta 
+!!   * 'boundary/n_max'    : maximum mode number in zeta (in one field period)
+!!   * 'boundary/lasym'    : asymmetry, logical. 
+!!                            if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
+!!                              X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
+!!                              Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
+!!                            if lasym=1, full fourier series is taken for X,Y
+!!   * 'boundary/ntheta'    : number of points in theta (>=2*m_max+1)
+!!   * 'boundary/nzeta'     : number of points in zeta  (>=2*n_max+1), can be different to 'axis/nzeta'
+!!   * 'boundary/theta(:)'  : theta positions, 1D array of size 'boundary_ntheta', on half grid! theta(i)=(i+0.5)/ntheta*(2pi), i=0,...ntheta-1
+!!   * 'boundary/zeta(:)'   : zeta positions, 1D array of size 'boundary_nzeta', on half grid for one field period! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
+!!   * 'boundary/X(::)',
+!!     'boundary/Y(::)'     : boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
+!!                               X[i, j]=X(theta[i],zeta[j])
+!!                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1                                         
 !! 
-!> NOTE THAT ONLY THE AXIS DATA IS NEEDED FOR THE AXIS DEFINITION 
+!! ---- PLASMA PARAMETERS:
+!!  ....
+!! ======= END HEADER,START DATA ===================================================================================
+!! 
+!! NOTE THAT ONLY THE AXIS DATA IS NEEDED FOR THE AXIS DEFINITION 
 !===================================================================================================================================
-SUBROUTINE ReadAxis_NETCDF(sf)
+SUBROUTINE ReadNETCDF(sf)
   USE MODgvec_io_netcdf
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -248,34 +249,35 @@ SUBROUTINE ReadAxis_NETCDF(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: nc_id,ioError
-  INTEGER :: tmp_int
+  INTEGER :: i,tmp_int
 !===================================================================================================================================
 
 
   SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%nc%fileName)//'" in NETCDF format ...'
 
   CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
-  CALL sf%nc%get_scalar("axis_nzeta",intout=sf%nzeta)
-  sf%n_max= (sf%nzeta-1)/2
+  CALL sf%nc%get_scalar("axis/nzeta",intout=sf%nzeta)
+  CALL sf%nc%get_scalar("axis/n_max",intout=sf%n_max)
+  sf%n_max=MIN(sf%n_max,(sf%nzeta-1)/2)
 
   ALLOCATE(sf%zeta(sf%nzeta))
-  CALL sf%nc%get_array("axis_zeta(:)",realout_1d=sf%zeta)
+  CALL sf%nc%get_array("axis/zeta(:)",realout_1d=sf%zeta)
 
   ALLOCATE(sf%xyz(sf%nfp*sf%nzeta,3))
-  CALL sf%nc%get_array("axis_xyz(::)",realout_2d=sf%xyz)
-  WRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1,1:3)
+  CALL sf%nc%get_array("axis/xyz(::)",realout_2d=sf%xyz)
+  WRITE(*,*)'DEBUG,xyz(1,1:3)',sf%xyz(1,1:3)
 
   ALLOCATE(sf%Nxyz(sf%nfp*sf%nzeta,3))
-  CALL sf%nc%get_array("axis_Nxyz(::)",realout_2d=sf%Nxyz)
-  WRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1,1:3)
+  CALL sf%nc%get_array("axis/Nxyz(::)",realout_2d=sf%Nxyz)
+  WRITE(*,*)'DEBUG,Nxyz(1,1:3)',sf%Nxyz(1,1:3)
 
   ALLOCATE(sf%Bxyz(sf%nfp*sf%nzeta,3))
-  CALL sf%nc%get_array("axis_Bxyz(::)",realout_2d=sf%Bxyz)
-  WRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1,1:3)
+  CALL sf%nc%get_array("axis/Bxyz(::)",realout_2d=sf%Bxyz)
+  WRITE(*,*)'DEBUG,Bxyz(1,1:3)',sf%Bxyz(1,1:3)
 
   SWRITE(*,'(4X,A)')'...DONE.'
 
-END SUBROUTINE ReadAxis_NETCDF
+END SUBROUTINE ReadNETCDF
 
 !===================================================================================================================================
 !> Check that the TNB frame  really has the field periodicity of NFP: 

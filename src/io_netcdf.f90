@@ -43,6 +43,7 @@ TYPE :: t_ncfile
   CONTAINS
   PROCEDURE :: openfile       => ncfile_openfile
   PROCEDURE :: closefile      => ncfile_closefile
+  PROCEDURE :: var_exists     => ncfile_var_exists
   PROCEDURE :: get_scalar     => ncfile_get_scalar
   PROCEDURE :: get_array      => ncfile_get_array
   PROCEDURE :: enter_groups   => ncfile_enter_groups
@@ -141,7 +142,7 @@ CONTAINS
   !>   repeat until no "/" is found anymore.
   !>   output the final groupid and the variable name without the group names.
   !=================================================================================================================================
-  SUBROUTINE ncfile_enter_groups(sf,varname_in,grpid,varname) 
+  SUBROUTINE ncfile_enter_groups(sf,varname_in,grpid,varname,exists) 
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -152,6 +153,7 @@ CONTAINS
     CLASS(t_ncfile),INTENT(INOUT)  :: sf !! self
     CHARACTER(LEN=255),INTENT(OUT) :: varname
     INTEGER,INTENT(OUT)            :: grpid
+    LOGICAL,INTENT(OUT)            :: exists
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: grpname
@@ -167,15 +169,44 @@ CONTAINS
       varname=varname(id+1:)
       grpid_old=grpid
       sf%ioError = nf90_INQ_NCID(grpid_old, TRIM(grpname), grpid) 
-      CALL sf%handle_error("finding group or subgroup '"//TRIM(grpname)//"'")
+      exists=(sf%ioError .NE. nf90_NOERR)
+      IF(.NOT.exists) RETURN
       id=INDEX(varname,"/")
     END DO
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_enter_groups
 
+  !=================================================================================================================================
+  !> check if variable name exists (also including groups separated with "/")
+  !!
+  !=================================================================================================================================
+  FUNCTION ncfile_var_exists(sf,varname_in) RESULT(exists)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
+    LOGICAL                              :: exists
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! LOCAL VARIABLES
+    CHARACTER(LEN=255) :: varname
+    INTEGER :: grpid,varid
+    !===============================================================================================================================
+    CALL sf%enter_groups(varname_in,grpid,varname,exists)
+#if NETCDF
+    IF(exists)THEN
+      sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
+    END IF 
+    exists=(sf%ioError.NE.nf90_NOERR)
+#endif /*NETCDF*/
+  END FUNCTION ncfile_var_exists
 
   !=================================================================================================================================
   !> get integer or real scalar (depends on optional argument)
+  !! abort if variable does not exist. USE var_exists for checking
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_get_scalar( sf,varname_in,intout,realout) 
@@ -193,9 +224,11 @@ CONTAINS
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: varname
     INTEGER :: grpid,varid
+    LOGICAL :: exists
     !===============================================================================================================================
-    CALL sf%enter_groups(varname_in,grpid,varname)
+    CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
+    IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
     sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
     CALL sf%handle_error("finding scalar variable '"//TRIM(varname_in)//"'")
     IF(PRESENT(intout))THEN
@@ -213,6 +246,7 @@ CONTAINS
   !=================================================================================================================================
   !> get integer or real array of dimension 1d,2d,3d,4d (depends on optional argument)
   !> netcdf call get_var knows type and dimensions directly from argument
+  !! abort if variable does not exist. USE var_exists for checking
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_get_array( sf,varname_in,intout_1d,realout_1d, &
@@ -239,9 +273,11 @@ CONTAINS
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: varname
     INTEGER :: grpid,varid
+    LOGICAL :: exists
     !===============================================================================================================================
-    CALL sf%enter_groups(varname_in,grpid,varname)
+    CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
+    IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
     sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
     CALL sf%handle_error("finding array '"//TRIM(varname_in)//"'")
     IF(PRESENT(intout_1d))THEN
