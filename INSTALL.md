@@ -77,7 +77,7 @@ Finally compile GVEC in the build folder by typing (`-j` compiles in parallel)
 ```
   make -j
 ```
-   
+
 #### Compiling on Cobra cluster (Dec. 2019)
 
 Load the modules and export the fortran compiler : 
@@ -95,4 +95,53 @@ If you want to run gvec with the OpenMP parallelization, be sure to set the desi
 ```
    export OMP_NUM_THREADS=??
 ```
+
+
+#### Configure and build with CMakePresets
+
+With Cmake version > 3.22, the CMakePresets feature can be used to configure and then build the code. 
+
+Start from the GVEC directory with
+```
+  cmake --list-presets
+```
+to show a list of presets (defined `CMakePresets.json`). 
+Then a preset can be chosen and configured for a specified build directory:
+```
+  cmake --preset gvec_config_release -B build_dir
+```
+and then is compiled with
+```
+  cmake --build build_dir
+```
+
+Further, the user can also create own presets by creating his own preset file `CMakeUserPresets.json` in the GVEC directory. For example:
+```
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+      "major": 3,
+      "minor": 22,
+      "patch": 0
+    },
+    "configurePresets": [
+      {
+        "name": "my_gvec_config_release",
+        "displayName": "MY GVEC configure: default release build",
+        "hidden": false,
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release",
+          "COMPILE_GVEC": "On",
+          "LINK_GVEC_TO_NETCDF": "Off",
+          "USE_OPENMP": "On"
+        }
+      }
+    ]
+  }
+}
+```
+The user presets then appear also on the list of presets. 
+
+**Note:** The preset files allow building the code in **VScode** with "CMake" and "CMake Tools" extensions.
+   
 
