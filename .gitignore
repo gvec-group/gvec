@@ -12,3 +12,4 @@ ctags.txt
 __*
 CMakeFiles
 CMakeCache.txt
+CMakeUserPresets.json
