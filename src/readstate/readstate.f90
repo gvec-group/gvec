@@ -201,6 +201,7 @@ END SUBROUTINE ReadStateFileFromASCII
 !===================================================================================================================================
 SUBROUTINE Finalize_ReadState 
 ! MODULES
+USE MODgvec_Globals,ONLY: abort
 USE MODgvec_ReadState_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
