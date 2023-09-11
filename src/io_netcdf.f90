@@ -17,7 +17,7 @@
 !>
 !!# Module **IO_NETCDF: SIMPLE NETCDF INTERFACE**
 !!
-!! Provides simplified read routines for netcdf files, via a the class "t_ncfile"
+!! Provides simplified read routines for netcdf files, via a class "t_ncfile"
 !! start with defining a variable as 
 !!  CLASS(t_ncfile),ALLOCATABLE  :: nc
 !! and to allocate and initialize  
@@ -44,6 +44,8 @@ TYPE :: t_ncfile
   PROCEDURE :: openfile       => ncfile_openfile
   PROCEDURE :: closefile      => ncfile_closefile
   PROCEDURE :: var_exists     => ncfile_var_exists
+  PROCEDURE :: get_var_ndims  => ncfile_get_var_ndims
+  PROCEDURE :: get_var_dims   => ncfile_get_var_dims
   PROCEDURE :: get_scalar     => ncfile_get_scalar
   PROCEDURE :: get_array      => ncfile_get_array
   PROCEDURE :: enter_groups   => ncfile_enter_groups
@@ -104,7 +106,7 @@ CONTAINS
     CASE("w")
       sf%ioError = nf90_OPEN(TRIM(sf%fileName), nf90_WRITE, sf%nc_id)
     END SELECT
-    CALL sf%handle_error("opening file '"//TRIM(sf%filename)//"' in '"//TRIM(sf%rw_mode)//"' mode")
+      CALL sf%handle_error("opening file '"//TRIM(sf%filename)//"' in '"//TRIM(sf%rw_mode)//"' mode")
     sf%isopen=.TRUE.
 #else
   CALL abort(__STAMP__,&
@@ -147,13 +149,13 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
-    CHARACTER(LEN=*),INTENT(IN) :: varname_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable (can include "/" for groups)
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)  :: sf !! self
-    CHARACTER(LEN=255),INTENT(OUT) :: varname
-    INTEGER,INTENT(OUT)            :: grpid
-    LOGICAL,INTENT(OUT)            :: exists
+    CHARACTER(LEN=255),INTENT(OUT) :: varname  !! name of the variable without groups
+    INTEGER,INTENT(OUT)            :: grpid    !! id of the last group found
+    LOGICAL,INTENT(OUT)            :: exists 
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: grpname
@@ -185,11 +187,11 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
-    CHARACTER(LEN=*),INTENT(IN) :: varname_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable (can include "/" for groups)
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
-    LOGICAL                              :: exists
+    LOGICAL                              :: exists  
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: varname
@@ -205,6 +207,76 @@ CONTAINS
   END FUNCTION ncfile_var_exists
 
   !=================================================================================================================================
+  !> get the number of dimensions of a variable
+  !!
+  !=================================================================================================================================
+  FUNCTION ncfile_get_var_ndims(sf,varname_in) RESULT(ndims_out)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in !! name of the variable (can include "/" for groups)
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
+    INTEGER                              :: ndims_out !0: scalar, 1: vector, 2: matrix...
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! LOCAL VARIABLES
+    CHARACTER(LEN=255) :: varname
+    INTEGER :: grpid,varid
+    LOGICAL :: exists
+    !===============================================================================================================================
+    CALL sf%enter_groups(varname_in,grpid,varname,exists)
+#if NETCDF
+    IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
+    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
+    CALL sf%handle_error("finding of variable '"//TRIM(varname_in)//"'")
+    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_out) 
+    CALL sf%handle_error("finding ndims of variable '"//TRIM(varname_in)//"'")
+#endif /*NETCDF*/
+  END FUNCTION ncfile_get_var_ndims
+
+
+  !=================================================================================================================================
+  !> get the size of a ulti-dimensional  array for all dimensions ndims
+  !!
+  !=================================================================================================================================
+  FUNCTION ncfile_get_var_dims(sf,varname_in,ndims_in) RESULT(dims_out)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the multi-dimensional array (can include "/" for groups)
+    INTEGER,INTENT(IN)          :: ndims_in    !! number of dimensions in the array
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
+    INTEGER                              :: dims_out(ndims_in)  !! size of each dimension of the array
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! LOCAL VARIABLES
+    CHARACTER(LEN=255) :: varname,dimname
+    INTEGER :: grpid,varid,ndims_var,dim_ids(1:ndims_in),i
+    LOGICAL :: exists
+    !===============================================================================================================================
+    CALL sf%enter_groups(varname_in,grpid,varname,exists)
+#if NETCDF
+    IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
+    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
+    CALL sf%handle_error("finding of variable '"//TRIM(varname_in)//"'")
+    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_var) 
+    CALL sf%handle_error("finding ndims & dimids of variable '"//TRIM(varname_in)//"'")
+    IF(ndims_var.NE.ndims_in) & 
+      CALL sf%handle_error("ndims_in not correct for variable '"//TRIM(varname_in)//"'")
+    sf%ioError = nf90_inquire_variable(grpid,  varid, dimids=dim_ids) 
+    DO i=1,ndims_var
+      sf%ioError = nf90_inquire_dimension(grpid, dim_ids(i),name=dimname, len=dims_out(i))
+      CALL sf%handle_error("finding size of dimension  '"//TRIM(dimname)//"'")
+    END DO
+#endif /*NETCDF*/
+  END FUNCTION ncfile_get_var_dims
+
+
+  !=================================================================================================================================
   !> get integer or real scalar (depends on optional argument)
   !! abort if variable does not exist. USE var_exists for checking
   !!
@@ -214,7 +286,7 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
-    CHARACTER(LEN=*),INTENT(IN) :: varname_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in !! name of the variable (can include "/" for groups)
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
@@ -257,7 +329,7 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
-    CHARACTER(LEN=*),INTENT(IN) :: varname_in
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable (can include "/" for groups)
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self

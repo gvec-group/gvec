@@ -48,7 +48,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !curve description
   INTEGER              :: nzeta=0       !! number of points in zeta direction of the input axis 
   REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions in one field period (1:nzeta),  on 'half' grid: zeta(i)=(i-0.5)/nzeta*(2pi/nfp)
-  INTEGER              :: n_max=0       !! maximum number of fourier coefficients
+  INTEGER              :: n_max=0       !! maximum number of fourier coefficients for a full turn
   REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:NFP*nzeta,1:3), zeta is on 'half' grid: zeta(i)=(i-0.5)/(NFP*nzeta)*(2pi)
   REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
   REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
@@ -86,12 +86,12 @@ LOGICAL :: test_called=.FALSE.
 
 CONTAINS
 
-SUBROUTINE init_dummy( sf )
-IMPLICIT NONE
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
-  CALL abort(__STAMP__, &
-             "dummy init in hmap_axisNB should not be used")
-END SUBROUTINE init_dummy
+! SUBROUTINE init_dummy( sf )
+! IMPLICIT NONE
+!   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
+!   CALL abort(__STAMP__, &
+!              "dummy init in hmap_axisNB should not be used")
+! END SUBROUTINE init_dummy
 
 !===================================================================================================================================
 !> initialize the type hmap_axisNB with number of elements
@@ -111,22 +111,21 @@ IMPLICIT NONE
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: n,i
+  INTEGER :: i
   INTEGER :: nvisu,error_nfp
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
 
 
   ! read axis from netcdf
-  nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
   sf%ncfile=GETSTR("hmap_ncfile")
   CALL ncfile_init(sf%nc,sf%ncfile,"r") 
   CALL ReadNETCDF(sf)
   
-  !initialize DOFS by projection.  nzeta*nfp >= 2*n_max*nfp+1  
-  sf%n_max=MIN(sf%n_max,(sf%nzeta*sf%nfp-1)/(2*sf%nfp))
+  !initialize DOFS by projection.  check that nzeta*nfp >= 2*n_max+1  
+  sf%n_max=MIN(sf%n_max,(sf%nzeta*sf%nfp-1)/2)
 
-  CALL fbase_new(sf%fb,(/0,sf%n_max*sf%nfp/),(/1,sf%nzeta*sf%nfp/),1,"_sincos_",.FALSE.)
+  CALL fbase_new(sf%fb,(/0,sf%n_max/),(/1,sf%nzeta*sf%nfp/),1,"_sincos_",.FALSE.)
 
   IF(MAXVAL(ABS(sf%fb%X_IP(2,1:sf%nzeta)-sf%zeta)).GT.1.0e-14*sf%nzeta) &
      CALL abort(__STAMP__,&
@@ -144,6 +143,7 @@ IMPLICIT NONE
   END DO
 
 
+  nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
 
   IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
@@ -248,32 +248,52 @@ SUBROUTINE ReadNETCDF(sf)
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: nc_id,ioError
-  INTEGER :: i,tmp_int
+  INTEGER :: tmp_int(2)
 !===================================================================================================================================
 
 
   SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%nc%fileName)//'" in NETCDF format ...'
 
   CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
+  !sf%nzeta=sf%nc%get_dimension("axis/nzeta")
   CALL sf%nc%get_scalar("axis/nzeta",intout=sf%nzeta)
-  CALL sf%nc%get_scalar("axis/n_max",intout=sf%n_max)
-  sf%n_max=MIN(sf%n_max,(sf%nzeta-1)/2)
+  IF(sf%nc%var_exists("axis/n_max"))THEN
+    CALL sf%nc%get_scalar("axis/n_max",intout=sf%n_max)
+    sf%n_max = MIN((sf%n_max+1)*sf%nfp,(sf%nzeta*sf%nfp-1)/2) ! full turn
+  ELSE
+    sf%n_max=(sf%nzeta*sf%nfp-1)/2  !maximum 
+  END IF
 
+  tmp_int(1:1)=sf%nc%get_var_dims("axis/zeta(:)",1)
+  IF(tmp_int(1).NE.sf%nzeta) &
+    CALL abort(__STAMP__, &
+                "array 'axis/zeta(:)' does not have the size 'axis/nzeta'")
   ALLOCATE(sf%zeta(sf%nzeta))
   CALL sf%nc%get_array("axis/zeta(:)",realout_1d=sf%zeta)
 
+  tmp_int(1:2)=sf%nc%get_var_dims("axis/xyz(::)",2)
+  IF(ANY(tmp_int.NE.(/sf%nfp*sf%nzeta,3/))) &
+    CALL abort(__STAMP__, &
+                "array 'axis/xyz(::)' does not have expected size ('nfp'*'axis/nzeta',3)")
   ALLOCATE(sf%xyz(sf%nfp*sf%nzeta,3))
   CALL sf%nc%get_array("axis/xyz(::)",realout_2d=sf%xyz)
-  WRITE(*,*)'DEBUG,xyz(1,1:3)',sf%xyz(1,1:3)
+  SWRITE(*,*)'DEBUG,xyz(1,1:3)',sf%xyz(1,1:3)
 
+  tmp_int(1:2)=sf%nc%get_var_dims("axis/Nxyz(::)",2)
+  IF(ANY(tmp_int.NE.(/sf%nfp*sf%nzeta,3/))) &
+    CALL abort(__STAMP__, &
+                "array 'axis/Nxyz(::)' does not have expected size ('nfp'*'axis/nzeta',3)")
   ALLOCATE(sf%Nxyz(sf%nfp*sf%nzeta,3))
   CALL sf%nc%get_array("axis/Nxyz(::)",realout_2d=sf%Nxyz)
-  WRITE(*,*)'DEBUG,Nxyz(1,1:3)',sf%Nxyz(1,1:3)
+  SWRITE(*,*)'DEBUG,Nxyz(1,1:3)',sf%Nxyz(1,1:3)
 
+  tmp_int(1:2)=sf%nc%get_var_dims("axis/Bxyz(::)",2)
+  IF(ANY(tmp_int.NE.(/sf%nfp*sf%nzeta,3/))) &
+    CALL abort(__STAMP__, &
+                "array 'axis/Bxyz(::)' does not have expected size ('nfp'*'axis/nzeta',3)")
   ALLOCATE(sf%Bxyz(sf%nfp*sf%nzeta,3))
   CALL sf%nc%get_array("axis/Bxyz(::)",realout_2d=sf%Bxyz)
-  WRITE(*,*)'DEBUG,Bxyz(1,1:3)',sf%Bxyz(1,1:3)
+  SWRITE(*,*)'DEBUG,Bxyz(1,1:3)',sf%Bxyz(1,1:3)
 
   SWRITE(*,'(4X,A)')'...DONE.'
 
@@ -478,6 +498,73 @@ IMPLICIT NONE
                                                   
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_dxdq
+
+#ifdef TEST_DONOTCOMPILE
+!===================================================================================================================================
+!> evaluate all metrics necesseray for optimizer
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_axisNB_eval_all(sf,dim_2,q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta, &
+                                Jh    ,g_tt    ,g_tz    ,g_zz    ,           &
+                                Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,g_t1,g_z1, &
+                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t2,g_z2  ) 
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(INOUT)                  :: sf
+  INTEGER                                ,INTENT(IN)   ::dim_2
+  REAL(wp),DIMENSION(sf%nzeta_eval,dim_2),INTENT(IN)   :: q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),DIMENSION(sf%nzeta_eval,dim_2),INTENT(OUT)   :: Jh    ,g_tt    ,g_tz    ,g_zz    ,           &
+                                                           Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,g_t1,g_z1, &
+                                                           Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t2,g_z2
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  NN  =SUM(N(:)*N(:))
+  BB  =SUM(B(:)*B(:))
+  NB  =SUM(N(:)*B(:))
+
+  Tq=(T+q1*Np+q2*Bp)
+  TqTq=SUM(Tq(:)*Tq(:))
+  NTq =SUM(N(:)*Tq(:))
+  BTq =SUM(B(:)*Tq(:))
+  NpTq=SUM(Tq(:)*Np(:))
+  NpB =SUM( B(:)*Np(:))
+  NpN =SUM( N(:)*Np(:))
+  BpTq=SUM(Tq(:)*Bp(:))
+  BpB =SUM( B(:)*Bp(:))
+  BpN =SUM( N(:)*Bp(:))
+
+  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN   
+  Jh=SQRT(Jh2)
+  Jh_dq1=(NpTq*(NN*BB-NB*NB) + NpB*(NB*NTq-NN*BTq) + NpN*(NB*BTq-BB*Ntq)  )/Jh
+  Jh_dq2=(BpTq*(NN*BB-NB*NB) + BpB*(NB*NTq-NN*BTq) + BpN*(NB*BTq-BB*Ntq)  )/Jh
+
+  qLqR_11=qL_in(1)*qR_in(1)
+  qLqR_22=qL_in(2)*qR_in(2)
+  qLqR_33=qL_in(3)*qR_in(3)
+  qLqR_12=qL_in(1)*qR_in(2)+qL_in(2)*qR_in(1)
+  qLqR_13=qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)
+  qLqR_23=qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2)
+  g_ab=      NN*qLqR_11 &
+         +   BB*qLqR_22 &
+         + TqTq*qLqR_33 &
+         +  NB *qLqR_12 &
+         +  NTq*qLqR_13 &
+         +  BTq*qLqR_23  
+  g_ab_dq1 =         NpN *qLqR_13 &
+             +       NpB *qLqR_23 & 
+             +2.0_wp*NpTq*qLqR_33
+  g_ab_dq2 =         BpN *qLqR_13 &
+             +       BpB *qLqR_23 & 
+             +2.0_wp*BpTq*qLqR_33
+END SUBROUTINE hmap_axisNB_eval_all
+#endif /*TEST_DONOTCOMPILE*/
 
 !===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta) 
@@ -717,7 +804,6 @@ IMPLICIT NONE
   REAL(wp)            , INTENT(OUT) :: Bp(1:3)      !! derivative of bi-Normal in zeta  (B')
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i
   REAL(wp)                      :: base_x(sf%fb%modes) 
   REAL(wp)                      :: base_dxdz(sf%fb%modes) 
 !===================================================================================================================================
@@ -755,7 +841,6 @@ IMPLICIT NONE
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
-  REAL(wp)           :: R0, Z0
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
