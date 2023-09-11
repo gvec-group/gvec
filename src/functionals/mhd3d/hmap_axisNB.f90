@@ -259,9 +259,9 @@ SUBROUTINE ReadNETCDF(sf)
   CALL sf%nc%get_scalar("axis/nzeta",intout=sf%nzeta)
   IF(sf%nc%var_exists("axis/n_max"))THEN
     CALL sf%nc%get_scalar("axis/n_max",intout=sf%n_max)
-    sf%n_max = MIN((sf%n_max+1)*sf%nfp,(sf%nzeta*sf%nfp-1)/2) ! full turn
+    sf%n_max = MIN((sf%n_max+1)*sf%nfp-1,(sf%nzeta*sf%nfp-1)/2) ! convert to full turn
   ELSE
-    sf%n_max=(sf%nzeta*sf%nfp-1)/2  !maximum 
+    sf%n_max=(sf%nzeta*sf%nfp-1)/2  !maximum mode number for a full turn
   END IF
 
   tmp_int(1:1)=sf%nc%get_var_dims("axis/zeta(:)",1)
