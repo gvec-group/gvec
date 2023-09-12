@@ -3,7 +3,12 @@
 # =================================================================================================================================
 
 stages:
+  - build
+  - run
   - build_and_run
+
+workflow:
+  name: 'Pipeline for branch: $CI_COMMIT_BRANCH'
 
 # =================================================================================================================================
 # GLOBALS
@@ -32,7 +37,8 @@ variables:
 # =================================================================================================================================
 # TEMPLATE DEFINITIONS
 # =================================================================================================================================
-# NOTE: _ipp is the runner testimony_fluxo , with tag: vm_linux
+# NOTE: _ipp is the runner testimony_fluxo, with tag: vm_linux
+#.      _MPCDF is the GitLab shared runner, with tag: modules
 
 .tmpl_IPP_global: &IPP_global
   tags:
@@ -44,6 +50,7 @@ variables:
     - . ~/environments/modules_for_gvec_intel ; pwd
     - export OMP_NUM_THREADS=2
 
+
 .tmpl_IPP_setup_build_intel_debug_noomp: &IPP_setup_build_intel_debug_noomp
   variables:
     RUNNERNAME: "IPP"
@@ -52,6 +59,15 @@ variables:
     OMP_MODE: "OFF"
     GIT_STRATEGY: clone
   <<: *IPP_setup_intel
+
+#.tmpl_MPCDF_setup_build_intel_debug_noomp:
+#  extends: .tmpl_MPCDF_setup_intel
+#  variables:
+#    RUNNERNAME: "IPP"
+#    CURR_CMP: "intel"
+#    CMP_MODE: "Debug"
+#    OMP_MODE: "OFF"
+#    GIT_STRATEGY: clone
 
 .tmpl_IPP_setup_build_intel_debug_omp: &IPP_setup_build_intel_debug_omp
   variables:
@@ -105,7 +121,6 @@ variables:
   <<: *IPP_setup_gnu
 
 
-
 .tmpl_common_arts:
   artifacts: &common_arts
     name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
@@ -136,28 +151,203 @@ variables:
 # =================================================================================================================================
 # Stage "build_and_run"
 # =================================================================================================================================
- 
-IPP_build_and_run_intel_debug_noomp:
-  <<: *IPP_setup_build_intel_debug_noomp
-  <<: *script_build_and_run
 
-IPP_build_and_run_intel_debug_omp:
-  <<: *IPP_setup_build_intel_debug_omp
-  <<: *script_build_and_run
+## build with Intel on testimonytwo
+#IPP_build_intel:
+#  extends:
+#    - .tmpl_IPP_setup_intel
+#    - .tmpl_IPP_setup_build_debug
+#    - .tmpl_script_build
 
-IPP_build_and_run_intel_release_omp:
-  <<: *IPP_setup_build_intel_release_omp
-  <<: *script_build_and_run
 
-IPP_build_and_run_gnu_debug_noomp:
-  <<: *IPP_setup_build_gnu_debug_noomp
-  <<: *script_build_and_run
+#IPP_build_and_run_intel:
+#  extends: .tmpl_IPP_setup_build_intel
+#  <<: *script_build_and_run
 
-IPP_build_and_run_gnu_debug_omp:
-  <<: *IPP_setup_build_gnu_debug_omp
-  <<: *script_build_and_run
+#oIPP_build_and_run_intel_debug_noomp:
+#o  needs: [] # set the job to start as soon as the pipeline is created
+#o  <<: *IPP_setup_build_intel_debug_noomp
+#o  <<: *script_build_and_run
 
-IPP_build_and_run_gnu_release_omp:
-  <<: *IPP_setup_build_gnu_release_omp
-  <<: *script_build_and_run
+#MPCDF_build_and_run_intel_debug_noomp:
+#  extends: .tmpl_MPCDF_setup_build_intel_debug_noomp
+#  <<: *script_build_and_run
+#  tags:
+#    - modules
 
+#oIPP_build_and_run_intel_debug_omp:
+#o  <<: *IPP_setup_build_intel_debug_omp
+#o  <<: *script_build_and_run
+
+#oIPP_build_and_run_intel_release_omp:
+#o  <<: *IPP_setup_build_intel_release_omp
+#o  <<: *script_build_and_run
+
+#oIPP_build_and_run_gnu_debug_noomp:
+#o  <<: *IPP_setup_build_gnu_debug_noomp
+#o  <<: *script_build_and_run
+
+#oIPP_build_and_run_gnu_debug_omp:
+#o  <<: *IPP_setup_build_gnu_debug_omp
+#o  <<: *script_build_and_run
+
+#oIPP_build_and_run_gnu_release_omp:
+#o  <<: *IPP_setup_build_gnu_release_omp
+#o  <<: *script_build_and_run
+
+
+# =================================================================================================================================
+# NEW STUFF MADE FOR THE MPCDF GITLAB SHARED RUNNERS
+# =================================================================================================================================
+
+
+# =================================================================================================================================
+# Templates
+# =================================================================================================================================
+
+
+.tmpl_MPCDF_global:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+  tags:
+    - shared
+
+.tmpl_MPCDF_setup:
+  extends: .tmpl_MPCDF_global
+  before_script:
+    - . ./CI_setup/MPCDF_setup_${CURR_CMP}
+    - export OMP_NUM_THREADS=2
+
+.tmpl_MPCDF_setup_intel:
+  extends: .tmpl_MPCDF_global
+  before_script:
+    - pwd
+    - module purge
+    - module load cmake
+    - module load intel/19.1.3
+    - module load mkl/2020.4
+    - module load hdf5-serial/1.10.7
+    - module load netcdf-serial/4.7.0
+    - module load ftimings
+    - module load numdiff
+    - module list
+    - export FC=`which ifort`
+    - export OMP_NUM_THREADS=2
+
+.tmpl_MPCDF_setup_gnu:
+  extends: .tmpl_MPCDF_global
+  before_script:
+    - pwd
+    - module purge
+    - module load cmake
+    - module load gcc/9
+    - module load mkl
+    - module load hdf5-serial
+    - module load netcdf-serial
+    - module load ftimings
+    - module load numdiff
+    - module list
+    - export FC=`which gfortran`
+    - export OMP_NUM_THREADS=2
+
+.tmpl_setup_build_and_run_intel:
+  extends:
+    - .tmpl_MPCDF_setup
+    - .cmp_vars_matrix
+  variables:
+    CURR_CMP: "intel"
+    GIT_STRATEGY: clone
+#  parallel: !reference [.cmp_vars_matrix,parallel]
+
+.tmpl_setup_build_and_run_gnu:
+  extends:
+    - .tmpl_MPCDF_setup
+    - .cmp_vars_matrix
+  variables:
+    CURR_CMP: "gnu"
+    GIT_STRATEGY: clone
+#  parallel: !reference [.cmp_vars_matrix,parallel]
+
+.cmp_vars_matrix:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug", "Release"]
+        OMP_MODE: ["OFF", "ON"]
+
+.tmpl_script_build:
+  script:
+    - pwd
+    - echo "Building with $CURR_CMP in $CMP_MODE mode and OMP=$OMP_MODE"
+    - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}    ; mkdir -p build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
+    - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_cmake.txt
+    - make -j |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_make.txt
+    - cd ..; echo "... BUILD PHASE FINISHED!"
+  artifacts:
+    name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
+    paths:
+      - build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
+      - log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_*.txt 
+
+.tmpl_script_run:
+  script:
+    - pwd
+    - ls -las
+    - ls -las build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
+    - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
+    - echo "Running with $CURR_CMP in $CMP_MODE mode and OMP=$OMP_MODE"
+    - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_shortruns.txt
+  artifacts:
+    name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
+    paths:
+      - shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} 
+
+
+# =================================================================================================================================
+# Stage "build"
+# =================================================================================================================================
+
+# build with Intel on MPCDF shared runner
+MPCDF_build_intel:
+  stage: build
+  extends:
+#    - .tmpl_MPCDF_setup_intel
+    - .tmpl_MPCDF_setup
+    - .tmpl_setup_build_and_run_intel
+    - .tmpl_script_build
+
+# build with GNU on MPCDF shared runner
+MPCDF_build_gnu:
+  stage: build
+  extends:
+#    - .tmpl_MPCDF_setup_gnu
+    - .tmpl_MPCDF_setup
+    - .tmpl_setup_build_and_run_gnu
+    - .tmpl_script_build
+
+# =================================================================================================================================
+# Stage "run"
+# =================================================================================================================================
+
+# run with Intel on MPCDF shared runner
+MPCDF_run_intel:
+  stage: run
+  needs:
+    - job: MPCDF_build_intel
+      artifacts: true
+  extends:
+#    - .tmpl_MPCDF_setup_intel
+    - .tmpl_MPCDF_setup
+    - .tmpl_setup_build_and_run_intel
+    - .tmpl_script_run
+
+# run with GNU on MPCDF shared runner
+MPCDF_run_gnu:
+  stage: run
+  needs:
+    - job: MPCDF_build_gnu
+      artifacts: true
+  extends:
+#    - .tmpl_MPCDF_setup_gnu
+    - .tmpl_MPCDF_setup
+    - .tmpl_setup_build_and_run_gnu
+    - .tmpl_script_run
