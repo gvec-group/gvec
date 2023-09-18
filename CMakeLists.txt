@@ -291,6 +291,11 @@ IF(USE_FTIMINGS)
 ENDIF()
 
 # =========================================================================
+# python 
+# =========================================================================
+find_package(Python COMPONENTS Interpreter REQUIRED)
+
+# =========================================================================
 # project sources & targets
 # =========================================================================
 
@@ -368,6 +373,9 @@ ENDIF()
     MACOSX_RPATH ON
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
+# Enable testing in general
+include(CTest) 
+#ENABLE_TESTING()
 
 # =========================================================================
 # Executable programs (simply use add_exec)
@@ -377,6 +385,11 @@ IF(COMPILE_GVEC)
   ADD_DEPENDENCIES(gvec gveclib )
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
+  add_test(
+    NAME gvec_pytest
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -s --builddir ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
+  )
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
   add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )

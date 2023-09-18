@@ -3,6 +3,7 @@
 
 import os
 import sys
+import subprocess
 import math
 
 ########################################################################################################
@@ -46,49 +47,38 @@ def compare_by_numdiff(refpath,reffilename,filepath,filename,reltol="1e-8",absto
       #with open(ref,'r') as fp:
       #  reflines = fp.readlines()
       tmpref='tmpref.'+ref
-      cmd='cp '+p_ref+' '+ tmpref
-      os.system(cmd)
+      sbp=subprocess.run(['cp ',p_ref, tmpref],capture_output=True)
+
         
     if(not os.path.isfile(p_comp)):
       msg = ('nothing to compare, file: "%s" does not exist' % (comp))
       return  False , msg
     else:
       tmpcomp='tmpcomp.'+comp
-      cmd='cp '+p_comp+' '+tmpcomp
-      os.system(cmd)
+      sbp=subprocess.run(['cp ',p_comp,tmpcomp],capture_output=True)
 
     #delete lines  in ranges of ingore_line_ranges (using sed command, format "start,end")
     for ign_lr in ignore_line_ranges:
-      cmd='cp '+tmpcomp+' tmp'
-      os.system(cmd)
-      cmd="sed -e '"+ign_lr+"d' tmp > "+tmpcomp  
-      os.system(cmd)
-      cmd='cp '+tmpref+' tmp'
-      os.system(cmd)
-      cmd="sed -e '"+ign_lr+"d' tmp > "+tmpref
-      os.system(cmd)
+      sbp=subprocess.run(['cp ',tmpcomp,' tmp'],capture_output=True)
+      sbp=subprocess.run(["sed -e '",ign_lr,"d' tmp > ",tmpcomp],capture_output=True) 
+      sbp=subprocess.run(['cp ',tmpref,' tmp'],capture_output=True)
+      sbp=subprocess.run(["sed -e '",ign_lr,"d' tmp > ",tmpref],capture_output=True)
+
     
     #delete lines where ingore_strings are found (using sed command)
     for ign_str in ignore_strings:
-      cmd='cp '+tmpcomp+' tmp'
-      os.system(cmd)
-      cmd="sed '/"+ign_str+"/d' tmp > "+tmpcomp  
-      os.system(cmd)
-      cmd='cp '+tmpref+' tmp'
-      os.system(cmd)
-      cmd="sed '/"+ign_str+"/d' tmp > "+tmpref  
-      os.system(cmd)
+      sbp=subprocess.run(['cp ',tmpcomp,' tmp'],capture_output=True)
+      sbp=subprocess.run(["sed -e '",ign_str,"d' tmp > ",tmpcomp],capture_output=True) 
+      sbp=subprocess.run(['cp ',tmpref,' tmp'],capture_output=True)
+      sbp=subprocess.run(["sed -e '",ign_str,"d' tmp > ",tmpref],capture_output=True)
+
 
     #only compare given columns (works for csv files only, using cut command!)
     if(len(colcsv)>0):
-      cmd='cp '+tmpcomp+' tmp'
-      os.system(cmd)
-      cmd='cut -d "," -f'+colcsv+' tmp > '+tmpcomp  
-      os.system(cmd)
-      cmd='cp '+tmpref+' tmp'
-      os.system(cmd)
-      cmd='cut -d "," -f'+colcsv+' tmp > '+tmpref 
-      os.system(cmd)
+      sbp=subprocess.run(['cp ',tmpcomp,' tmp'],capture_output=True)
+      sbp=subprocess.run(['cut -d "," -f',colcsv,' tmp > ',tmpcomp ],capture_output=True)
+      sbp=subprocess.run(['cp ',tmpref,' tmp'],capture_output=True)
+      sbp=subprocess.run(['cut -d "," -f',colcsv,' tmp > ',tmpref],capture_output=True)
 
     #compare numerical values with numdiff 
     # first absolute error is checked, 
@@ -96,12 +86,11 @@ def compare_by_numdiff(refpath,reffilename,filepath,filename,reltol="1e-8",absto
     #    else, relative error is checked (is Inf if one of the values is zero). 
     #        if  relerr < reltol then nodiff
     #        else diff
-    cmd='numdiff -S --separator=" \t\n,;" --relative-tolerance='+reltol+' --absolute-tolerance='+abstol+' '+tmpref+' '+tmpcomp
-    os.system(cmd+ ' 2>std.err 1>std.out')
-    os.system('rm -f tmp ') #+tmpcomp+' '+tmpref )
+    sbp_numdiff=subprocess.run(['numdiff -S --separator=" \t\n,;" --relative-tolerance=',reltol,' --absolute-tolerance=',abstol,tmpref,tmpcomp],capture_output=True,text=True)
+    sbp= subprocess.run(['rm -f tmp '],capture_output=True)
     
-    stdout=open('std.out','r').readlines()
-    stderr=open('std.err','r').readlines()
+    stdout=sbp_numdiff.stdout
+    stderr=sbp_numdiff.stderr
     with open('log_compare_'+ref+'_to_'+comp+'.txt', 'w') as logf:
       logf.write("FILE COMPARISON, INPUT PARAMETERS:\n - abstol=%s \n - reltol=%s\n"%(abstol,reltol))
       for ign_lr in ignore_line_ranges:
