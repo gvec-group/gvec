@@ -81,7 +81,7 @@ variables:
         MPI_MODE: "mpi:OFF"
 #        MPI_MODE: ["OFF", "ON"]
   variables:
-      - CASENAME: ${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE:4}_mpi${MPI_MODE:4}
+      CASENAME: ${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE:4}_mpi${MPI_MODE:4}
 
 .tmpl_setup_build_and_run_intel:
   extends:
