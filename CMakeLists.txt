@@ -20,6 +20,7 @@ STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac"       ON_MAC)
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
 IF (ON_MARCONI GREATER -1)
   MESSAGE(STATUS "Compiling on Marconi")
 ELSEIF (ON_HYDRA GREATER -1)
@@ -32,6 +33,8 @@ ELSEIF (ON_RAVEN GREATER -1)
   MESSAGE(STATUS "Compiling on raven")
 ELSEIF (ON_MAC GREATER -1) 
   MESSAGE(STATUS "Compiling on MacOS")
+ELSEIF (ON_TOKP GREATER -1)
+  MESSAGE(STATUS "Compiling on tokp")
 ELSE()
   MESSAGE(STATUS "Compiling on unknown hostname")
 ENDIF()
@@ -205,6 +208,8 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
       SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
    ELSEIF (ON_HYDRA GREATER -1 )
       SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
+   ELSEIF (ON_TOKP GREATER -1 )
+      SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
    ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
       SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
       # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
@@ -280,7 +285,7 @@ IF(ON_HYDRA GREATER -1)
   ELSE()
      MESSAGE(SEND_ERROR " Unknown compiler ...")
   ENDIF()
-ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1))
+ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -314,7 +319,7 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_HYDRA GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1))
+  IF((ON_HYDRA GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSE()
     SET(NETCDF_DIR  /usr)
@@ -401,12 +406,25 @@ ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
+OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC libraray as static (OFF: compiled as shared)" OFF)
+MARK_AS_ADVANCED(COMPILE_GVEC_AS_STATIC_LIB)
 SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
-# generates shared lib libgveclib.so
-ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
-# generates static lib libgveclib.a
-#ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
+IF(COMPILE_GVEC_AS_STATIC_LIB)
+  # generates static lib libgveclib.a
+  ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
+ELSE()
+  # generates shared lib libgveclib.so
+  ADD_LIBRARY(gveclib SHARED $<TARGET_OBJECTS:gveclibF90> )
+ENDIF()
 
+  SET_TARGET_PROPERTIES(gveclib
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    OUTPUT_NAME "GVEC"
+    DEBUG_POSTFIX "_d"
+    MACOSX_RPATH ON
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
 
 # =========================================================================
 # Executable programs (simply use add_exec)

@@ -486,7 +486,7 @@ END SUBROUTINE HalfToFull
 #if NETCDF
 !===================================================================================================================================
 !> READ VMEC "wout" datafile in netcdf format, needs netcdf library!
-!! 
+!! lrfp
 !===================================================================================================================================
 SUBROUTINE ReadVMEC_NETCDF(fileName)
   IMPLICIT NONE
@@ -498,7 +498,7 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: ioError, ncid, id
+  INTEGER :: ioError, ncid, id,int_logical
 !===================================================================================================================================
 
   !! open NetCDF input file
@@ -549,12 +549,12 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
 
   !! get iasym
   ioError = NF_INQ_VARID(ncid, "lasym__logical__", id)
-  ioError = ioError + NF_GET_VAR_INT(ncid, id, lasym)
+  ioError = ioError + NF_GET_VAR_INT(ncid, id, int_logical) ; lasym=(int_logical.EQ.1)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                             'VMEC READIN: problem reading lasym' )
   !! get lrfp
   ioError = NF_INQ_VARID(ncid, "lrfp__logical__", id)
-  ioError = ioError + NF_GET_VAR_INT(ncid, id, lrfp)
+  ioError = ioError + NF_GET_VAR_INT(ncid, id, int_logical); lrfp=(int_logical.EQ.1)
   IF (ioError .NE. 0) THEN
     WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading lrfp' 
   ELSE

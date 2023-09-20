@@ -24,8 +24,7 @@ macro: TEST
 
 [GVEC](https://gitlab.mpcdf.mpg.de/gvec-group/gvec) (Galerkin Variational Equilibrium Code) is an open-source software for
 the generation of three-dimensional ideal MHD equilibria.
-The ideas are strongly based on on the VMEC code, 
-see [VMEC wiki pages](https://bitbucket.org/lazerson_princeton/stellopt/wiki/VMEC).
+The ideas are strongly based on on the VMEC code.
 
 The main features of GVEC are
 
@@ -36,7 +35,6 @@ The main features of GVEC are
   to find equilibria in complex-shaped domains (magnetic islands, knotted domain...)
 * Also a VMEC generated netcdf outputfile can be used for initialization of GVEC.
 
-Some parts of GVEC are reused from the open-source code [HOPR](https://github.com/fhindenlang/hopr).
 
 GVEC has been developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
 lead by Prof. Eric Sonnendruecker at the Max-Planck Institute for Plasma Physics 
