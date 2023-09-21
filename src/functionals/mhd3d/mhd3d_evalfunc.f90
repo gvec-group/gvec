@@ -508,8 +508,8 @@ END FUNCTION EvalEnergy
 !===================================================================================================================================
 SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
-  USE MODgvec_Globals,       ONLY : nRanks
-  USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3
+  USE MODgvec_Globals,       ONLY : nRanks,myRank
+  USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3,par_Barrier,par_BCast
   USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
   USE MODgvec_MHD3D_Vars,    ONLY : X1_BC_type,X2_BC_type,LA_BC_type
   USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D
@@ -540,6 +540,10 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                                   coefY,coefY_thet,coefY_zeta,coefY_s
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
+#if MPIDEBUG==1                                               
+  WRITE(UNIT_stdOut,'(4X,A,I4)')'COMPUTE FORCE...',myRank
+  CALL par_Barrier(beforeScreenOut="DEBUG ENTER FORCE")
+#endif
   __PERFON('EvalForce')
   IF(callEvalAux) THEN
     CALL EvalAux(Uin,JacCheck)
@@ -657,6 +661,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO
   __PERFOFF('sbase')
 
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG BEFORE FIRST REDUCE")
+#endif
   !. add up all the pieces of X1 calculated by the different MPI tasks
   __PERFON('reduce_solution_X1')
   !!!CALL par_AllReduce(F_MHD3D%X1,'SUM') !<< possible alternative
@@ -757,6 +764,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO 
   __PERFOFF('sbase')
 
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG BEFORE X2 REDUCE")
+#endif
   __PERFON('reduce_solution_X2')
   !. add up all the pieces of X2 calculated by the different MPI tasks
   !!!CALL par_AllReduce(F_MHD3D%X2,'SUM') !<< possible alternative
@@ -805,6 +815,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP END PARALLEL DO
   __PERFOFF('sbase')
 
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG BEFORE LA REDUCE")
+#endif
   __PERFON('reduce_solution_LA')
   !. Add up all the pieces of LA calculated by the different MPI tasks
   !!!CALL par_AllReduce(F_MHD3D%LA,'SUM') !<< possible alternative
@@ -825,6 +838,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('reduce_solution_X1')
   CALL par_Wait(req1(0:nRanks-1))
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG AFTER FINISH REDUCE")
+#endif
   __PERFOFF('reduce_solution_X1')
 
   __PERFON('apply_precond')
@@ -859,8 +875,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFON('Bcast_solution_X1')
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      !CALL par_Bcast(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< broadcast different mode ranges to different ranks
-      CALL par_IBcast(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req1(iRank)) !<<<< broadcast different mode ranges to different ranks
+      CALL par_Bcast(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< broadcast different mode ranges to different ranks
+      !CALL par_IBcast(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req1(iRank)) !<<<< broadcast different mode ranges to different ranks
   END DO
   __PERFOFF('Bcast_solution_X1')
 
@@ -874,6 +890,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('reduce_solution_X2')
   CALL par_Wait(req2(0:nRanks-1))
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG AFTER FINISH REDUCE X2")
+#endif
   __PERFOFF('reduce_solution_X2')
 
   __PERFON('apply_precond')
@@ -908,8 +927,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFON('Bcast_solution_X2')
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      !CALL par_Bcast(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< reduce different mode ranges to different ranks
-      CALL par_IBcast(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req2(iRank)) !<<<< reduce different mode ranges to different ranks
+      CALL par_Bcast(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< reduce different mode ranges to different ranks
+      !CALL par_IBcast(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req2(iRank)) !<<<< reduce different mode ranges to different ranks
   END DO
   __PERFOFF('Bcast_solution_X2')
 
@@ -924,6 +943,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('reduce_solution_LA')
   CALL par_Wait(req3(0:nRanks-1))
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG AFTER FINISH REDUCE LA")
+#endif
   __PERFOFF('reduce_solution_LA')
 
   __PERFON('apply_precond')
@@ -967,15 +989,25 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     CALL ApplyBC_Fstrong(3,F_MHD3D)  
   END IF 
 
+#if MPIDEBUG==1
+  WRITE(*,*)'DEBUG',myRank, offset_modes(myRank),offset_modes(myRank+1)
+#endif
   __PERFON('Bcast_solution_LA')
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      !!!CALL par_Bcast(F_MHD3D%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<< possible alternative
+!      CALL par_Bcast(F_MHD3D%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<< possible alternative
       CALL par_IBcast(F_MHD3D%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req3(iRank)) !<<<< reduce different mode ranges to different ranks
   END DO
-  CALL par_Wait(req1(0:nRanks-1))
-  CALL par_Wait(req2(0:nRanks-1))
+
+!  CALL par_Wait(req1(0:nRanks-1))
+!  CALL par_Wait(req2(0:nRanks-1))
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG BEFORE FINISH LA BCAST")
+#endif
   CALL par_Wait(req3(0:nRanks-1))
+#if MPIDEBUG==1
+  CALL par_Barrier(beforeScreenOut="DEBUG AFTER FINISH BCASTS")
+#endif
   __PERFOFF('Bcast_solution_LA')
 
   __PERFOFF('EvalForce_modes3')
