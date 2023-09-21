@@ -419,7 +419,7 @@ CONTAINS
   !================================================================================================================================
   !> Find on MPI rank 'toRank' MAX/MIN/SUM of 1D array (assumed-shape) across all MPI ranks (nonblocking).
   !================================================================================================================================
-  SUBROUTINE par_IReduce_array1D(arr,parOP,toRank,req)
+  SUBROUTINE par_IReduce_array1D(arr,parOP,toRank,req_out)
   ! MODULES
     USE MODgvec_Globals, ONLY : wp,myRank
     IMPLICIT NONE
@@ -428,7 +428,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT)        :: arr(:)
     CHARACTER(LEN=3), INTENT(IN)   :: parOP
     INTEGER, INTENT(IN)            :: toRank  ! =0 by default
-    MPI_request_TYPE, INTENT(OUT) :: req
+    MPI_request_TYPE, INTENT(OUT) :: req_out
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
 #   if MPI
@@ -447,9 +447,9 @@ CONTAINS
         mpiOP=MPI_SUM
     END SELECT
     IF (myRank.EQ.toRank) THEN
-      CALL MPI_IReduce(MPI_IN_PLACE, arr, sz, dType, mpiOP, toRank, worldComm, req, ierr)
+      CALL MPI_IReduce(MPI_IN_PLACE, arr, sz, dType, mpiOP, toRank, worldComm, req_out, ierr)
     ELSE
-      CALL MPI_IReduce(arr, arr, sz, dType, mpiOP, toRank, worldComm, req, ierr)
+      CALL MPI_IReduce(arr, arr, sz, dType, mpiOP, toRank, worldComm, req_out, ierr)
     END IF
 #   endif
   END SUBROUTINE par_IReduce_array1D
@@ -457,7 +457,7 @@ CONTAINS
   !================================================================================================================================
   !> Find on MPI rank 'toRank' MAX/MIN/SUM of 2D array (assumed-shape) across all MPI ranks.
   !================================================================================================================================
-  SUBROUTINE par_IReduce_array2D(arr,parOP,toRank,req)
+  SUBROUTINE par_IReduce_array2D(arr,parOP,toRank,req_out)
   ! MODULES
     USE MODgvec_Globals, ONLY : wp,myRank
     IMPLICIT NONE
@@ -466,7 +466,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT)       :: arr(:,:)
     CHARACTER(LEN=3), INTENT(IN)  :: parOP
     INTEGER, INTENT(IN)           :: toRank  ! =0 by default
-    MPI_request_TYPE, INTENT(OUT) :: req
+    MPI_request_TYPE, INTENT(OUT) :: req_out
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
 #   if MPI
@@ -485,9 +485,9 @@ CONTAINS
         mpiOP=MPI_SUM
     END SELECT
     IF (myRank.EQ.toRank) THEN
-      CALL MPI_IReduce(MPI_IN_PLACE, arr, sz, dType, mpiOP, toRank, worldComm, req, ierr)
+      CALL MPI_IReduce(MPI_IN_PLACE, arr, sz, dType, mpiOP, toRank, worldComm, req_out, ierr)
     ELSE
-      CALL MPI_IReduce(arr, arr, sz, dType, mpiOP, toRank, worldComm, req, ierr)
+      CALL MPI_IReduce(arr, arr, sz, dType, mpiOP, toRank, worldComm, req_out, ierr)
     END IF
 #   endif
   END SUBROUTINE par_IReduce_array2D
@@ -650,7 +650,7 @@ CONTAINS
   !================================================================================================================================
   !> Broadcast a 1D array (assumed-shape) from MPI rank 'fromRank' to all MPI ranks (nonblocking)
   !================================================================================================================================
-  SUBROUTINE par_IBcast_array1D(arr,fromRank,req)
+  SUBROUTINE par_IBcast_array1D(arr,fromRank,req_out)
   ! MODULES
     USE MODgvec_Globals, ONLY : wp
     IMPLICIT NONE
@@ -658,7 +658,7 @@ CONTAINS
   ! INPUT VARIABLES
     REAL(wp), INTENT(INOUT)      :: arr(:)
     INTEGER                      :: fromRank
-    MPI_request_TYPE, INTENT(OUT) :: req
+    MPI_request_TYPE, INTENT(OUT) :: req_out
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
 #   if MPI
@@ -667,14 +667,14 @@ CONTAINS
   !================================================================================================================================
   ! BODY
     sz=SIZE(arr)
-    CALL MPI_IBcast(arr, sz, dType, fromRank, worldComm, req, ierr)
+    CALL MPI_IBcast(arr, sz, dType, fromRank, worldComm, req_out, ierr)
 #   endif
   END SUBROUTINE par_IBcast_array1D
 
   !================================================================================================================================
   !> Broadcast a 2D array (assumed-shape) from MPI rank 'fromRank' to all MPI ranks (nonblocking)
   !================================================================================================================================
-  SUBROUTINE par_IBcast_array2D(arr,fromRank,req)
+  SUBROUTINE par_IBcast_array2D(arr,fromRank,req_out)
   ! MODULES
     USE MODgvec_Globals, ONLY : wp
     IMPLICIT NONE
@@ -682,7 +682,7 @@ CONTAINS
   ! INPUT VARIABLES
     REAL(wp), INTENT(INOUT)      :: arr(:,:)
     INTEGER                      :: fromRank
-    MPI_request_TYPE, INTENT(OUT) :: req
+    MPI_request_TYPE, INTENT(OUT) :: req_out
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
 #   if MPI
@@ -691,42 +691,42 @@ CONTAINS
   !================================================================================================================================
   ! BODY
     sz=SIZE(arr)
-    CALL MPI_IBcast(arr, sz, dType, fromRank, worldComm, req, ierr)
+    CALL MPI_IBcast(arr, sz, dType, fromRank, worldComm, req_out, ierr)
 #   endif
   END SUBROUTINE par_IBcast_array2D
 
   !================================================================================================================================
   !> Wait for completion of a single nonblocking communication
   !================================================================================================================================
-  SUBROUTINE par_Wait(req)
+  SUBROUTINE par_Wait(req_in)
   ! MODULES
     USE MODgvec_Globals, ONLY : wp
     IMPLICIT NONE
   ! INPUT VARIABLES
-    MPI_request_TYPE, INTENT(OUT) :: req
+    MPI_request_TYPE, INTENT(INOUT) :: req_in
 #   if MPI
-    CALL MPI_Wait(req, MPI_STATUS_IGNORE)
+    CALL MPI_Wait(req_in, MPI_STATUS_IGNORE)
 #   endif
   END SUBROUTINE par_Wait
 
   !================================================================================================================================
   !> Wait for completion of all nonblocking communications for req(:)
   !================================================================================================================================
-  SUBROUTINE par_WaitAll(req)
+  SUBROUTINE par_WaitAll(req_in)
   ! MODULES
     USE MODgvec_Globals, ONLY : wp
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-    MPI_request_TYPE, INTENT(OUT) :: req(:)
+    MPI_request_TYPE, INTENT(INOUT) :: req_in(:)
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
 #   if MPI
     INTEGER     :: sz
   !================================================================================================================================
   ! BODY
-    sz=SIZE(req)
-    CALL MPI_WaitAll(sz, req(:), MPI_STATUSES_IGNORE)
+    sz=SIZE(req_in)
+    CALL MPI_WaitAll(sz, req_in(:), MPI_STATUSES_IGNORE)
 #   endif
   END SUBROUTINE par_WaitAll
 
