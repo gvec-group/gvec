@@ -31,6 +31,8 @@ parser.add_argument('builddir',type=str,
                                  help='Name of builddir from .gitlab.yml folder, mandatory last argument')
 parser.add_argument('-execdir',type=str, default='test-CI',
                                  help='Name of execdir from .gitlab.yml folder, default is test-CI')
+parser.add_argument('-execpre',type=str, default='',
+                                 help='command prefix to execute (like "mpirun -np 2", or "export OMP_NUM_THREADS=10;")')
 parser.add_argument('-case', type=str, default='0',    help="0 : DEFAULT, run all cases,\n" 
                                                             "1,2-4 : list of specific cases to run (without spaces!) ")
 
@@ -38,6 +40,7 @@ args = parser.parse_args()
 
 builddir=args.builddir
 execdir=args.execdir
+execpre=args.execpre
 
 cases = parse_range(args.case)
 
@@ -72,7 +75,7 @@ if(cases[0]==0 or (caseID in cases)) :
     failed.extend([msg])
   else:
     runfailed=[]
-    cmd=execbin+" "+param
+    cmd=execpre+" "+execbin+" "+param
     print(cmd)
     stdout="std_out_"+casename+".txt"
     stderr="std_err_"+casename+".txt"
@@ -123,7 +126,7 @@ if(cases[0]==0 or (caseID in cases)) :
     failed.extend([msg])
   else:
     runfailed=[]
-    cmd="../"+builddir+"/bin/gvec "+ param + " " + restartFile
+    cmd=execpre+" ""../"+builddir+"/bin/gvec "+ param + " " + restartFile
     print(cmd)
     stdout="std_out_"+casename+".txt"
     stderr="std_err_"+casename+".txt"
@@ -171,7 +174,7 @@ if(cases[0]==0 or (caseID in cases)) :
     failed.extend([msg])
   else:
     runfailed=[]
-    cmd=execbin+" " + restartFile
+    cmd=execpre+" "+execbin+" " + restartFile
     print(cmd)
     stdout="std_out_"+casename+".txt"
     stderr="std_err_"+casename+".txt"
@@ -213,7 +216,7 @@ if(cases[0]==0 or (caseID in cases)) :
     failed.extend([msg])
   else:
     runfailed=[]
-    cmd=execbin+" " + restartFile
+    cmd=execpre+" "+execbin+" " + restartFile
     print(cmd)
     stdout="std_out_"+casename+".txt"
     stderr="std_err_"+casename+".txt"
@@ -251,7 +254,7 @@ for sflcoord in ["0","1","2"]:
       failed.extend([msg])
     else:
       runfailed=[]
-      cmd=execbin+" -r 5 -p 8 -t 4 -s "+sflcoord+" " + restartFile + " " + outfile
+      cmd=execpre+" "+execbin+" -r 5 -p 8 -t 4 -s "+sflcoord+" " + restartFile + " " + outfile
       print(cmd)
       stdout="std_out_"+casename+".txt"
       stderr="std_err_"+casename+".txt"
@@ -294,7 +297,7 @@ if(cases[0]==0 or (caseID in cases)) :
     failed.extend([msg])
   else:
     runfailed=[]
-    cmd=execbin+" -r 4 -p 8 " + restartFile + " "+outfile
+    cmd=execpre+" "+execbin+" -r 4 -p 8 " + restartFile + " "+outfile
     print(cmd)
     stdout="std_out_"+casename+".txt"
     stderr="std_err_"+casename+".txt"
