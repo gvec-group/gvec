@@ -77,11 +77,34 @@ variables:
   parallel:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
-        OMP_MODE: ["omp:OFF", "omp:ON"]
-        MPI_MODE: "mpi:OFF"
-#        MPI_MODE: ["OFF", "ON"]
+        OMP_MODE: ["ompOFF", "ompON"]
+        MPI_MODE: ["mpiOFF", "mpiON"]
+#        MPI_MODE: "mpiOFF"
+#        MPI_RNKS: "0"
+#      - CMP_MODE: ["Debug"]
+#        OMP_MODE: ["ompOFF"]
+#        MPI_MODE: "mpiON"
+#        MPI_RNKS: ["1","2","4"]
   variables:
-    CASENAME: ${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE:4}_mpi${MPI_MODE:4}
+#    BUILDNAME:
+#      value: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+#      expand: true
+    BUILDNAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+#    CASENAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}_nranks${MPI_RNKS}
+
+.run_vars_matrix:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF"]
+        MPI_MODE: "mpiON"
+        MPI_RNKS: ["1","2","4"]
+  variables:
+#    BUILDNAME:
+#      value: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+#      expand: true
+    BUILDNAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}_nranks${MPI_RNKS}
 
 
 .tmpl_setup_build_and_run_intel:
@@ -100,27 +123,35 @@ variables:
     GIT_STRATEGY: clone
 #  parallel: !reference [.cmp_vars_matrix,parallel]
 
+.tmpl_setup_run_gnu:
+  extends:
+    - .run_vars_matrix
+  variables:
+    CURR_CMP: "gnu"
+    GIT_STRATEGY: clone
+#  parallel: !reference [.cmp_vars_matrix,parallel]
+
 # =================================================================================================================================
 # TEMPLATE FOR STAGE "build"
 # =================================================================================================================================
 
 .tmpl_script_build:
   script:
-    - export OMP_MODE=${OMP_MODE:4}; export MPI_MODE=${MPI_MODE:4}
     - pwd
-    - echo "Building with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE} and MPI=${MPI_MODE}"
-    - rm -rf build_${CASENAME}; mkdir -p build_${CASENAME}
-    - cd build_${CASENAME}; pwd
-    #- cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${CASENAME}_cmake.txt
+    - echo "Building with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - echo "BUILDNAME is ${BUILDNAME}"
+    - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
+    - cd build_${BUILDNAME}; pwd
+    #- cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
     # only compile gvec
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${CASENAME}_cmake.txt
-    - make -j |tee ../log_${CASENAME}_make.txt
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - make -j |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
   artifacts:
     name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
     paths:
-      - build_${CASENAME}
-      - log_${CASENAME}_*.txt 
+      - build_${BUILDNAME}
+      - log_${BUILDNAME}_*.txt 
     expire_in: 1 week
     when: always
 #    when: on_failure
@@ -131,14 +162,14 @@ variables:
 
 .tmpl_script_run:
   script:
-    - export OMP_MODE=${OMP_MODE:4}; export MPI_MODE=${MPI_MODE:4}
     - pwd
     - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
-    - echo "shortruns_${CASENAME}/"
-    - echo "Running with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE} and MPI=${MPI_MODE}"
+    - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
+    - echo "CASENAME is ${CASENAME} >> shortruns_${CASENAME}/"
+    - echo "Running with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     #- python gitlab_shortruns.py -execdir shortruns_${CASENAME} build_${CASENAME} |tee log_${CASENAME}_shortruns.txt
     # only execute case 1 for now...
-    - python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} build_${CASENAME} |tee log_${CASENAME}_shortruns.txt
+    - python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} build_${BUILDNAME} |tee log_${CASENAME}_shortruns.txt
   artifacts:
     name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
     paths:
@@ -161,24 +192,24 @@ MPCDF_shared_env:
     - .tmpl_printout_env
 #  needs: [] # set the job to start as soon as the pipeline is created
 
-# printout MPCDF testimonytwo runner environment
-MPCDF_testimony_env:
-  stage: env
-  extends:
-    - .tmpl_MPCDF_testimony
-    - .tmpl_printout_env
+## printout MPCDF testimonytwo runner environment
+#MPCDF_testimony_env:
+#  stage: env
+#  extends:
+#    - .tmpl_MPCDF_testimony
+#    - .tmpl_printout_env
 
 # =================================================================================================================================
 # Stage "build"
 # =================================================================================================================================
 
-# build with Intel on MPCDF shared runner
-MPCDF_shared_build_intel:
-  stage: build
-  extends:
-    - .tmpl_MPCDF_shared_setup
-    - .tmpl_setup_build_and_run_intel
-    - .tmpl_script_build
+## build with Intel on MPCDF shared runner
+#MPCDF_shared_build_intel:
+#  stage: build
+#  extends:
+#    - .tmpl_MPCDF_shared_setup
+#    - .tmpl_setup_build_and_run_intel
+#    - .tmpl_script_build
 
 # build with GNU on MPCDF shared runner
 MPCDF_shared_build_gnu:
@@ -188,36 +219,36 @@ MPCDF_shared_build_gnu:
     - .tmpl_setup_build_and_run_gnu
     - .tmpl_script_build
 
-# build with Intel on MPCDF testimonytwo runner
-MPCDF_testimony_build_intel:
-  stage: build
-  extends:
-    - .tmpl_MPCDF_testimony_setup
-    - .tmpl_setup_build_and_run_intel
-    - .tmpl_script_build
+## build with Intel on MPCDF testimonytwo runner
+#MPCDF_testimony_build_intel:
+#  stage: build
+#  extends:
+#    - .tmpl_MPCDF_testimony_setup
+#    - .tmpl_setup_build_and_run_intel
+#    - .tmpl_script_build
 
-# build with GNU on MPCDF testimonytwo runner
-MPCDF_testimony_build_gnu:
-  stage: build
-  extends:
-    - .tmpl_MPCDF_testimony_setup
-    - .tmpl_setup_build_and_run_gnu
-    - .tmpl_script_build
+## build with GNU on MPCDF testimonytwo runner
+#MPCDF_testimony_build_gnu:
+#  stage: build
+#  extends:
+#    - .tmpl_MPCDF_testimony_setup
+#    - .tmpl_setup_build_and_run_gnu
+#    - .tmpl_script_build
 
 # =================================================================================================================================
 # Stage "run"
 # =================================================================================================================================
 
-# run with Intel on MPCDF shared runner
-MPCDF_shared_run_intel:
-  stage: run
-  needs:
-    - job: MPCDF_shared_build_intel
-      artifacts: true
-  extends:
-    - .tmpl_MPCDF_shared_setup
-    - .tmpl_setup_build_and_run_intel
-    - .tmpl_script_run
+## run with Intel on MPCDF shared runner
+#MPCDF_shared_run_intel:
+#  stage: run
+#  needs:
+#    - job: MPCDF_shared_build_intel
+#      artifacts: true
+#  extends:
+#    - .tmpl_MPCDF_shared_setup
+#    - .tmpl_setup_build_and_run_intel
+#    - .tmpl_script_run
 
 # run with GNU on MPCDF shared runner
 MPCDF_shared_run_gnu:
@@ -227,27 +258,28 @@ MPCDF_shared_run_gnu:
       artifacts: true
   extends:
     - .tmpl_MPCDF_shared_setup
-    - .tmpl_setup_build_and_run_gnu
+#    - .tmpl_setup_build_and_run_gnu
+    - .tmpl_setup_run_gnu
     - .tmpl_script_run
 
-# run with Intel on MPCDF testimonytwo runner
-MPCDF_testimony_run_intel:
-  stage: run
-  needs:
-    - job: MPCDF_testimony_build_intel
-      artifacts: true
-  extends:
-    - .tmpl_MPCDF_testimony_setup
-    - .tmpl_setup_build_and_run_intel
-    - .tmpl_script_run
+## run with Intel on MPCDF testimonytwo runner
+#MPCDF_testimony_run_intel:
+#  stage: run
+#  needs:
+#    - job: MPCDF_testimony_build_intel
+#      artifacts: true
+#  extends:
+#    - .tmpl_MPCDF_testimony_setup
+#    - .tmpl_setup_build_and_run_intel
+#    - .tmpl_script_run
 
-# run with GNU on MPCDF testimonytwo runner
-MPCDF_testimony_run_gnu:
-  stage: run
-  needs:
-    - job: MPCDF_testimony_build_gnu
-      artifacts: true
-  extends:
-    - .tmpl_MPCDF_testimony_setup
-    - .tmpl_setup_build_and_run_gnu
-    - .tmpl_script_run
+## run with GNU on MPCDF testimonytwo runner
+#MPCDF_testimony_run_gnu:
+#  stage: run
+#  needs:
+#    - job: MPCDF_testimony_build_gnu
+#      artifacts: true
+#  extends:
+#    - .tmpl_MPCDF_testimony_setup
+#    - .tmpl_setup_build_and_run_gnu
+#    - .tmpl_script_run
