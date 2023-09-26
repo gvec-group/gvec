@@ -73,7 +73,7 @@ variables:
     - . ./CI_setup/MPCDF_setup_${CURR_CMP}
     - export OMP_NUM_THREADS=2
 
-.cmp_vars_matrix:
+.build_vars_matrix:
   parallel:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
@@ -95,10 +95,16 @@ variables:
 .run_vars_matrix:
   parallel:
     matrix:
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
+        MPI_MODE: ["mpiOFF"]
+        MPI_RNKS: [""]
+        MPI_PRFX: [""]
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF"]
         MPI_MODE: "mpiON"
         MPI_RNKS: ["1","2","4"]
+        MPI_PRFX: "mpirun -np"
   variables:
 #    BUILDNAME:
 #      value: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
@@ -109,17 +115,25 @@ variables:
 
 .tmpl_setup_build_and_run_intel:
   extends:
-    - .cmp_vars_matrix
+    - .build_vars_matrix
   variables:
     CURR_CMP: "intel"
     GIT_STRATEGY: clone
-#  parallel: !reference [.cmp_vars_matrix,parallel]
+#  parallel: !reference [.build_vars_matrix,parallel]
 
-.tmpl_setup_build_and_run_gnu:
+.tmpl_setup_build_gnu:
   extends:
-    - .cmp_vars_matrix
+    - .build_vars_matrix
   variables:
     CURR_CMP: "gnu"
+    GIT_STRATEGY: clone
+#  parallel: !reference [.cmp_vars_matrix,parallel]
+
+.tmpl_setup_build_gnu_mpi:
+  extends:
+    - .build_vars_matrix
+  variables:
+    CURR_CMP: "gnu_mpi"
     GIT_STRATEGY: clone
 #  parallel: !reference [.cmp_vars_matrix,parallel]
 
@@ -130,6 +144,15 @@ variables:
     CURR_CMP: "gnu"
     GIT_STRATEGY: clone
 #  parallel: !reference [.cmp_vars_matrix,parallel]
+
+.tmpl_setup_run_gnu_mpi:
+  extends:
+    - .run_vars_matrix
+  variables:
+    CURR_CMP: "gnu_mpi"
+    GIT_STRATEGY: clone
+#  parallel: !reference [.cmp_vars_matrix,parallel]
+
 
 # =================================================================================================================================
 # TEMPLATE FOR STAGE "build"
@@ -144,7 +167,7 @@ variables:
     - cd build_${BUILDNAME}; pwd
     #- cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
     # only compile gvec
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} -DUSE_MPI=${MPI_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
     - make -j |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
   artifacts:
@@ -163,13 +186,15 @@ variables:
 .tmpl_script_run:
   script:
     - pwd
+    - export EXECPRE="${MPI_PRFX} ${MPI_RNKS}"
+    - echo ${EXECPRE}
     - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
     - echo "CASENAME is ${CASENAME} >> shortruns_${CASENAME}/"
     - echo "Running with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     #- python gitlab_shortruns.py -execdir shortruns_${CASENAME} build_${CASENAME} |tee log_${CASENAME}_shortruns.txt
     # only execute case 1 for now...
-    - python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} build_${BUILDNAME} |tee log_${CASENAME}_shortruns.txt
+    - python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} -execpre ${EXECPRE} build_${BUILDNAME} |tee log_${CASENAME}_shortruns.txt
   artifacts:
     name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
     paths:
@@ -216,7 +241,7 @@ MPCDF_shared_build_gnu:
   stage: build
   extends:
     - .tmpl_MPCDF_shared_setup
-    - .tmpl_setup_build_and_run_gnu
+    - .tmpl_setup_build_gnu
     - .tmpl_script_build
 
 ## build with Intel on MPCDF testimonytwo runner
@@ -232,7 +257,7 @@ MPCDF_shared_build_gnu:
 #  stage: build
 #  extends:
 #    - .tmpl_MPCDF_testimony_setup
-#    - .tmpl_setup_build_and_run_gnu
+#    - .tmpl_setup_build_gnu
 #    - .tmpl_script_build
 
 # =================================================================================================================================
@@ -258,7 +283,7 @@ MPCDF_shared_run_gnu:
       artifacts: true
   extends:
     - .tmpl_MPCDF_shared_setup
-#    - .tmpl_setup_build_and_run_gnu
+#    - .tmpl_setup_build_gnu
     - .tmpl_setup_run_gnu
     - .tmpl_script_run
 
