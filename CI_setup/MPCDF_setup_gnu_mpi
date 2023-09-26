@@ -10,4 +10,4 @@ module load netcdf-serial
 module load ftimings
 module load numdiff
 module list
-export FC=`which gfortran`
+export FC=`which mpif90`
