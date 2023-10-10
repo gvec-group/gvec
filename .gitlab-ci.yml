@@ -57,6 +57,7 @@ variables:
     - printenv
     - module avail
     - module list
+    - find-module openmpi
     - echo $OMP_NUM_THREADS
 
 # MPCDF shared runner
@@ -143,7 +144,7 @@ variables:
 .run_vars_matrix_mpi:
   parallel:
     matrix:
-      - MPI_RNKS: ["1","2"]
+      - MPI_RNKS: ["1","2","4"]
 
 .tmpl_setup_run_mpi:
   extends:
