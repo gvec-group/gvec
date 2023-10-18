@@ -38,13 +38,6 @@ variables:
 # TEMPLATES FOR STAGE "env" (printout the enviroment for future reference)
 # =================================================================================================================================
 
-# MPCDF testimonytwo runner
-.tmpl_testimony:
-  tags:
-    - vm_linux
-  variables:
-    CMAKE_HOSTNAME: "testimony"
-
 # MPCDF shared runner
 .tmpl_sharedrunner:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
@@ -52,6 +45,13 @@ variables:
     - shared
   variables:
     CMAKE_HOSTNAME: "sharedrunner"
+
+# MPCDF testimonytwo runner
+.tmpl_testimony:
+  tags:
+    - vm_linux
+  variables:
+    CMAKE_HOSTNAME: "testimony"
 
 .tmpl_printout_env:
   script:
@@ -63,20 +63,14 @@ variables:
     - module list
     - echo $OMP_NUM_THREADS
 
-# MPCDF shared runner
-.tmpl_sharedrunner_setup:
-  extends: .tmpl_sharedrunner
+.tmpl_before_script_sharedrunner:
   before_script:
-    - find-module openmpi
+#    - find-module openmpi
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
-    - export OMP_NUM_THREADS=2
 
-# MPCDF testimonytwo runner
-.tmpl_testimony_setup:
-  extends: .tmpl_testimony
+.tmpl_before_script_testimony:
   before_script:
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
-    - export OMP_NUM_THREADS=2
 
 
 # =================================================================================================================================
@@ -99,18 +93,20 @@ variables:
     BUILDNAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
 #  parallel: !reference [.cmp_vars_matrix,parallel]
 
-
-.tmpl_script_build:
-  script:
+.tmpl_before_script_build:
+  before_script:
     - pwd
     - echo "Building with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
+    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ../."
+
+.tmpl_script_build:
+  script:
     #- cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
     # only compile gvec
-    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ../."
     - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ../. |tee ../log_${BUILDNAME}_cmake.txt
     - make -j |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
@@ -137,7 +133,7 @@ variables:
     matrix:
       - OMP_MODE: ["ompOFF","ompON"]
   variables:
-#    GIT_STRATEGY: clone
+    GIT_STRATEGY: clone #fetch
     CMP_MODE: "Release"
     MPI_MODE: "mpiOFF"
 #a    MPI_RNKS: ""
@@ -146,41 +142,42 @@ variables:
     CASENAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
 
 # number of MPI tasks to use at run stage
+# there are different issues with MPI_RNKS>4 in both runners
 .run_vars_matrix_mpi:
   parallel:
     matrix:
-#a      - MPI_RNKS: ["1","2","4","6","7"]
-      - MPI_RNKS: ["6","7"]
+#      - MPI_RNKS: ["1","2","4","6","7"]
+#      - MPI_RNKS: ["6","7"]
+#      - MPI_RNKS: ["1","2","3","5"]
+      - MPI_RNKS: ["1","2","3"]
+        OMP_MODE: ["ompOFF","ompON"]
+
+#.tmpl_before_script_setup_run_mpi:
+#  before_script:
+#    - export MPI_PRFX='"mpirun --host ${HOSTNAME}:${MPI_RNKS} -np ${MPI_RNKS}"'
 
 .tmpl_setup_run_mpi:
   extends:
     - .run_vars_matrix_mpi
   variables:
-#    GIT_STRATEGY: clone
+    GIT_STRATEGY: clone #fetch
     CMP_MODE: "Debug"
-    OMP_MODE: "ompON"
+#    OMP_MODE: "ompOFF"
     MPI_MODE: "mpiON"
-#a    MPI_HOST: "${HOSTNAME}"
-#a    MPI_PRFX: "mpirun --host ${HOSTNAME}:8 -np "
-#a    MPI_PRFX: "mpirun --host $HOSTNAME:8 -np ${MPI_RNKS}"
-#a    MPI_PRFX: "mpirun --host ${MPI_HOST}:${MPI_RNKS} -np ${MPI_RNKS}"
-#a    MPI_PRFX: "mpirun -np ${MPI_RNKS}"
     BUILDNAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}_nranks${MPI_RNKS}
 #  parallel: !reference [.cmp_vars_matrix,parallel]
+
+.tmpl_before_script_run:
   before_script:
-    - export MPI_PRFX='"mpirun --host ${HOSTNAME}:${MPI_RNKS} -np ${MPI_RNKS}"'
-
-
-.tmpl_script_run:
-  script:
     - pwd
-    - echo $HOSTNAME
+#      line below is needed if MPI_RANKS>6 cores are requested
+#    - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun --host ${HOSTNAME}:${MPI_RNKS} -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
+    - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
+#    - if [ ${MPI_RNKS} -gt '4' ]; then export MPI_PRFX="mpirun --host ${HOSTNAME}:8 -np ${MPI_RNKS}"; fi
+#    - if [ ${CURR_CMP} = 'gnu_mpi' ]; if [ ${MPI_RNKS} -gt '4' ]; then export MPI_PRFX="mpirun --host ${HOSTNAME}:${MPI_RNKS} -np ${MPI_RNKS}"; fi; fi
+    - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=2; fi
     - echo ${HOSTNAME}
-    - echo ${MPI_PRFX}
-    - echo "mpirun --host ${HOSTNAME}:8 -np ${MPI_RNKS}"
-#a    - export EXECPRE="${MPI_PRFX}${MPI_RNKS}"
-#a    - export EXECPRE="${MPI_PRFX} --host ${HOSTNAME}:8"
     - export EXECPRE="${MPI_PRFX}"
     - echo "${EXECPRE}"
     - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
@@ -189,6 +186,9 @@ variables:
     - echo "Running with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - python --version
     - echo "python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} -execpre "${EXECPRE}" build_${BUILDNAME}"
+
+.tmpl_script_run:
+  script:
     #- time python gitlab_shortruns.py -execdir shortruns_${CASENAME} build_${CASENAME} |tee log_${CASENAME}_shortruns.txt
     # only execute case 1 for now...
     - time python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} -execpre "${EXECPRE}" build_${BUILDNAME} |tee log_${CASENAME}_shortruns.txt
@@ -230,8 +230,11 @@ testimony_env:
 # build with Intel on MPCDF shared runner
 sharedrunner_build_intel:
   stage: build
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_build
     - .tmpl_script_build
   variables:
@@ -242,8 +245,11 @@ sharedrunner_build_intel:
 # build with GNU on MPCDF shared runner
 sharedrunner_build_gnu:
   stage: build
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_build
     - .tmpl_script_build
   variables:
@@ -254,21 +260,27 @@ sharedrunner_build_gnu:
 # build with Intel and MPI on MPCDF shared runner
 sharedrunner_build_intel_mpi:
   stage: build
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_build
     - .tmpl_script_build
   variables:
     CURR_CMP: "intel_mpi"
     MPI_MODE: "mpiON"
   needs: [] # set the job to start as soon as the pipeline is created
-###  needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
+###  needs: [sharedrunner_env]
 
 # build with GNU and MPI on MPCDF shared runner
 sharedrunner_build_gnu_mpi:
   stage: build
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_build
     - .tmpl_script_build
   variables:
@@ -282,47 +294,59 @@ sharedrunner_build_gnu_mpi:
 #----------------------------------------------------------------------------------------------------------------------------------
 
 # build with Intel on MPCDF testimonytwo runner
-#testimony_build_intel:
-#  stage: build
-#  extends:
-#    - .tmpl_testimony_setup
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#  variables:
-#    CURR_CMP: "intel"
-#    MPI_MODE: "mpiOFF"
-#  needs: [] # set the job to start as soon as the pipeline is created
+testimony_build_intel:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_testimony
+    - .tmpl_setup_build
+    - .tmpl_script_build
+  variables:
+    CURR_CMP: "intel"
+    MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
 
-## build with GNU on MPCDF testimonytwo runner
-#testimony_build_gnu:
-#  stage: build
-#  extends:
-#    - .tmpl_testimony_setup
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#  variables:
-#    CURR_CMP: "gnu"
-#    MPI_MODE: "mpiOFF"
-#  needs: [] # set the job to start as soon as the pipeline is created
+# build with GNU on MPCDF testimonytwo runner
+testimony_build_gnu:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_testimony
+    - .tmpl_setup_build
+    - .tmpl_script_build
+  variables:
+    CURR_CMP: "gnu"
+    MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
 
 # build with Intel and MPI on MPCDF testimonytwo runner
 testimony_build_intel_mpi:
   stage: build
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
   extends:
-    - .tmpl_testimony_setup
+    - .tmpl_testimony
     - .tmpl_setup_build
     - .tmpl_script_build
   variables:
     CURR_CMP: "intel_mpi"
     MPI_MODE: "mpiON"
   needs: [] # set the job to start as soon as the pipeline is created
-###  needs: [testimony_env] # set the job to start as soon as the pipeline is created
+###  needs: [testimony_env]
 
 # build with GNU and MPI on MPCDF testimonytwo runner
 testimony_build_gnu_mpi:
   stage: build
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
   extends:
-    - .tmpl_testimony_setup
+    - .tmpl_testimony
     - .tmpl_setup_build
     - .tmpl_script_build
   variables:
@@ -344,8 +368,11 @@ sharedrunner_run_intel:
   needs:
     - job: sharedrunner_build_intel
       artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_run
     - .tmpl_script_run
   variables:
@@ -357,8 +384,11 @@ sharedrunner_run_gnu:
   needs:
     - job: sharedrunner_build_gnu
       artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_run
     - .tmpl_script_run
   variables:
@@ -370,8 +400,11 @@ sharedrunner_run_intel_mpi:
   needs:
     - job: sharedrunner_build_intel_mpi
       artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_run_mpi
     - .tmpl_script_run
   variables:
@@ -383,8 +416,12 @@ sharedrunner_run_gnu_mpi:
   needs:
     - job: sharedrunner_build_gnu_mpi
       artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_sharedrunner", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+#    - module list
   extends:
-    - .tmpl_sharedrunner_setup
+    - .tmpl_sharedrunner
     - .tmpl_setup_run_mpi
     - .tmpl_script_run
   variables:
@@ -394,31 +431,37 @@ sharedrunner_run_gnu_mpi:
 # GitLab Testimonytwo Runner
 #----------------------------------------------------------------------------------------------------------------------------------
 
-## run with Intel on MPCDF testimonytwo runner
-#testimony_run_intel:
-#  stage: run
-#  needs:
-#    - job: testimony_build_intel
-#      artifacts: true
-#  extends:
-#    - .tmpl_testimony_setup
-#    - .tmpl_setup_run
-#    - .tmpl_script_run
-#  variables:
-#    CURR_CMP: "intel"
+# run with Intel on MPCDF testimonytwo runner
+testimony_run_intel:
+  stage: run
+  needs:
+    - job: testimony_build_intel
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_testimony
+    - .tmpl_setup_run
+    - .tmpl_script_run
+  variables:
+    CURR_CMP: "intel"
 
-## run with GNU on MPCDF testimonytwo runner
-#testimony_run_gnu:
-#  stage: run
-#  needs:
-#    - job: testimony_build_gnu
-#      artifacts: true
-#  extends:
-#    - .tmpl_testimony_setup
-#    - .tmpl_setup_run
-#    - .tmpl_script_run
-#  variables:
-#    CURR_CMP: "gnu"
+# run with GNU on MPCDF testimonytwo runner
+testimony_run_gnu:
+  stage: run
+  needs:
+    - job: testimony_build_gnu
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_testimony
+    - .tmpl_setup_run
+    - .tmpl_script_run
+  variables:
+    CURR_CMP: "gnu"
 
 # run with Intel on MPCDF testimonytwo runner
 testimony_run_intel_mpi:
@@ -426,12 +469,16 @@ testimony_run_intel_mpi:
   needs:
     - job: testimony_build_intel_mpi
       artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
-    - .tmpl_testimony_setup
+    - .tmpl_testimony
     - .tmpl_setup_run_mpi
     - .tmpl_script_run
   variables:
     CURR_CMP: "intel_mpi"
+
 
 # run with GNU on MPCDF testimonytwo runner
 testimony_run_gnu_mpi:
@@ -439,8 +486,12 @@ testimony_run_gnu_mpi:
   needs:
     - job: testimony_build_gnu_mpi
       artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_testimony", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+    - module list
   extends:
-    - .tmpl_testimony_setup
+    - .tmpl_testimony
     - .tmpl_setup_run_mpi
     - .tmpl_script_run
   variables:
