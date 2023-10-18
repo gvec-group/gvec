@@ -137,10 +137,10 @@ variables:
     matrix:
       - OMP_MODE: ["ompOFF","ompON"]
   variables:
-    GIT_STRATEGY: clone
+#    GIT_STRATEGY: clone
     CMP_MODE: "Release"
     MPI_MODE: "mpiOFF"
-    MPI_RNKS: ""
+#a    MPI_RNKS: ""
     MPI_PRFX: ""
     BUILDNAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
@@ -149,26 +149,39 @@ variables:
 .run_vars_matrix_mpi:
   parallel:
     matrix:
-      - MPI_RNKS: ["1","2","4","6","7"]
+#a      - MPI_RNKS: ["1","2","4","6","7"]
+      - MPI_RNKS: ["6","7"]
 
 .tmpl_setup_run_mpi:
   extends:
     - .run_vars_matrix_mpi
   variables:
-    GIT_STRATEGY: clone
+#    GIT_STRATEGY: clone
     CMP_MODE: "Debug"
     OMP_MODE: "ompON"
     MPI_MODE: "mpiON"
-    MPI_PRFX: "mpirun -np "
+#a    MPI_HOST: "${HOSTNAME}"
+#a    MPI_PRFX: "mpirun --host ${HOSTNAME}:8 -np "
+#a    MPI_PRFX: "mpirun --host $HOSTNAME:8 -np ${MPI_RNKS}"
+#a    MPI_PRFX: "mpirun --host ${MPI_HOST}:${MPI_RNKS} -np ${MPI_RNKS}"
+#a    MPI_PRFX: "mpirun -np ${MPI_RNKS}"
     BUILDNAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}_nranks${MPI_RNKS}
 #  parallel: !reference [.cmp_vars_matrix,parallel]
+  before_script:
+    - export MPI_PRFX='"mpirun --host ${HOSTNAME}:${MPI_RNKS} -np ${MPI_RNKS}"'
 
 
 .tmpl_script_run:
   script:
     - pwd
-    - export EXECPRE="${MPI_PRFX}${MPI_RNKS}"
+    - echo $HOSTNAME
+    - echo ${HOSTNAME}
+    - echo ${MPI_PRFX}
+    - echo "mpirun --host ${HOSTNAME}:8 -np ${MPI_RNKS}"
+#a    - export EXECPRE="${MPI_PRFX}${MPI_RNKS}"
+#a    - export EXECPRE="${MPI_PRFX} --host ${HOSTNAME}:8"
+    - export EXECPRE="${MPI_PRFX}"
     - echo "${EXECPRE}"
     - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
@@ -249,6 +262,7 @@ sharedrunner_build_intel_mpi:
     CURR_CMP: "intel_mpi"
     MPI_MODE: "mpiON"
   needs: [] # set the job to start as soon as the pipeline is created
+###  needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
 
 # build with GNU and MPI on MPCDF shared runner
 sharedrunner_build_gnu_mpi:
@@ -261,6 +275,7 @@ sharedrunner_build_gnu_mpi:
     CURR_CMP: "gnu_mpi"
     MPI_MODE: "mpiON"
   needs: [] # set the job to start as soon as the pipeline is created
+###  needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
 
 
 # GitLab Testimonytwo Runner
@@ -301,6 +316,7 @@ testimony_build_intel_mpi:
     CURR_CMP: "intel_mpi"
     MPI_MODE: "mpiON"
   needs: [] # set the job to start as soon as the pipeline is created
+###  needs: [testimony_env] # set the job to start as soon as the pipeline is created
 
 # build with GNU and MPI on MPCDF testimonytwo runner
 testimony_build_gnu_mpi:
@@ -313,6 +329,7 @@ testimony_build_gnu_mpi:
     CURR_CMP: "gnu_mpi"
     MPI_MODE: "mpiON"
   needs: [] # set the job to start as soon as the pipeline is created
+###  needs: [testimony_env] # set the job to start as soon as the pipeline is created
 
 # =================================================================================================================================
 # Stage "run"
