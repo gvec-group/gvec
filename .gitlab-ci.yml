@@ -107,7 +107,7 @@ variables:
   script:
     #- cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
     # only compile gvec
-    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} -DCOMPILE_GVEC_AS_STATIC_LIB=ON ../. |tee ../log_${BUILDNAME}_cmake.txt
     - make -j |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
   artifacts:
@@ -132,9 +132,10 @@ variables:
   parallel:
     matrix:
       - OMP_MODE: ["ompOFF","ompON"]
+        CMP_MODE: ["Debug"]
   variables:
     GIT_STRATEGY: clone #fetch
-    CMP_MODE: "Release"
+#    CMP_MODE: "Debug"
     MPI_MODE: "mpiOFF"
 #a    MPI_RNKS: ""
     MPI_PRFX: ""
@@ -151,6 +152,7 @@ variables:
 #      - MPI_RNKS: ["1","2","3","5"]
       - MPI_RNKS: ["1","2","3"]
         OMP_MODE: ["ompOFF","ompON"]
+        CMP_MODE: ["Debug"]
 
 #.tmpl_before_script_setup_run_mpi:
 #  before_script:
@@ -161,7 +163,7 @@ variables:
     - .run_vars_matrix_mpi
   variables:
     GIT_STRATEGY: clone #fetch
-    CMP_MODE: "Debug"
+#    CMP_MODE: "Debug"
 #    OMP_MODE: "ompOFF"
     MPI_MODE: "mpiON"
     BUILDNAME: ${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
