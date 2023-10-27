@@ -8,5 +8,6 @@ module load hdf5-serial/1.10.7
 module load netcdf-serial/4.7.0
 module load ftimings
 module load numdiff
+module load git
 module list
 export FC=`which ifort`
