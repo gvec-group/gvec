@@ -63,6 +63,7 @@ LOGICAL              :: init_with_profile_iota     !! default=FALSE, if True, ov
 LOGICAL              :: init_average_axis !! default=FALSE, if true, use outer boundary to estimate axis position (center of closed line)
 REAL(wp)             :: average_axis_move(2) !! used if init_average_axis=True to additionally move axis in X1,X2   
 INTEGER              :: init_BC         !! active if init_fromBC_only=T: -1: keep vmec axis and boundary (default), 0: keep vmec boundary, overwrite axis, 1: keep vmec axis, overwrite boundary, 2: overwrite axis and boundary
+INTEGER              :: getBoundaryFromFile !! -1: off, 1: read from specific netcdf file
 LOGICAL              :: init_LA         !! false: lambda=0 at initialization, true: lambda is computed from initial mapping
 INTEGER              :: PrecondType     !! -1: off: 1: .. 
 ! input parameters for minimization

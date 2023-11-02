@@ -56,6 +56,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_sgrid          , ONLY: t_sgrid
   USE MODgvec_fbase          , ONLY: t_fbase,fbase_new
   USE MODgvec_base           , ONLY: t_base,base_new
+  USE MODgvec_boundaryFromFile, ONLY: t_boundaryFromFile,boundaryFromFile_new
   USE MODgvec_hmap           , ONLY: hmap_new
   USE MODgvec_VMEC           , ONLY: InitVMEC
   USE MODgvec_VMEC_vars      , ONLY: switchZeta
@@ -87,6 +88,8 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   REAL(wp)         :: pres_scale
+  CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
+  CHARACTER(LEN=255) ::boundary_filename
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D ...'
 
@@ -137,6 +140,7 @@ SUBROUTINE InitMHD3D(sf)
     pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
+    getBoundaryFromFile=GETINT("getBoundaryFromFile",Proposal=-1)  ! =-1: OFF, get X1b and X2b from parameterfile. 1: get boundary from specific netcdf file
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     IF(init_fromBConly)THEN
@@ -159,7 +163,6 @@ SUBROUTINE InitMHD3D(sf)
       pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
       pres_coefs=pres_coefs*pres_scale
     END IF ! pressure from parameterfile
-
         
     proposal_mn_max(:)=(/mpol-1,ntor/)
     IF(lasym)THEN !asymmetric
@@ -177,6 +180,21 @@ SUBROUTINE InitMHD3D(sf)
     END IF
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
+
+  SELECT CASE(getBoundaryFromFile)
+  CASE(-1)
+    !do nothing
+  CASE(1)
+    boundary_filename=GETSTR("boundary_filename")
+    CALL boundaryFromFile_new(BFF,boundary_filename)
+    nfp_loc=BFF%nfp
+    proposal_mn_max(:)=(/BFF%m_max,BFF%n_max/)
+    IF(BFF%lasym.EQ.1)THEN !asymmetric
+      proposal_X1_sin_cos="_sincos_"
+      proposal_X2_sin_cos="_sincos_"
+      proposal_LA_sin_cos="_sincos_"
+    END IF
+  END SELECT
 
   init_average_axis= GETLOGICAL("init_average_axis",Proposal=.FALSE.)
   IF(init_average_axis)THEN
@@ -296,26 +314,32 @@ SUBROUTINE InitMHD3D(sf)
     END DO !iMode
     END ASSOCIATE
   END IF
-  IF((init_BC.EQ.1).OR.(init_BC.EQ.2))THEN !READ edge values from input file
-    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
-    ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
-    ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-  END IF !init_BC
+  IF(getBoundaryFromFile.EQ.-1)THEN
+    IF(((init_BC.EQ.1).OR.(init_BC.EQ.2)))THEN !READ edge values from input file
+      WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
+      ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+      WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
+      ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+    END IF !init_BC
+  ELSE !getBoundaryFromFile
+    CALL BFF%convert_to_modes(X1_base%f,X2_base%f,X1_b,X2_b)
+    CALL BFF%free()
+  END IF
+  
 
   X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
   X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
