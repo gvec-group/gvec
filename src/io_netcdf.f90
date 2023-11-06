@@ -241,13 +241,14 @@ CONTAINS
   !> get the size of a ulti-dimensional  array for all dimensions ndims
   !!
   !=================================================================================================================================
-  FUNCTION ncfile_get_var_dims(sf,varname_in,ndims_in) RESULT(dims_out)
+  FUNCTION ncfile_get_var_dims(sf,varname_in,ndims_in,transpose_in) RESULT(dims_out)
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
     CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the multi-dimensional array (can include "/" for groups)
     INTEGER,INTENT(IN)          :: ndims_in    !! number of dimensions in the array
+    LOGICAL,INTENT(IN),OPTIONAL :: transpose_in !! transpose the data array, default is true, because of fortran ordering
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
@@ -256,8 +257,13 @@ CONTAINS
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: varname,dimname
     INTEGER :: grpid,varid,ndims_var,dim_ids(1:ndims_in),i
-    LOGICAL :: exists
+    LOGICAL :: exists,transpose
     !===============================================================================================================================
+    IF(PRESENT(transpose_in))THEN
+      transpose=transpose_in
+    ELSE
+      transpose=.TRUE.
+    END IF 
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
@@ -272,6 +278,7 @@ CONTAINS
       sf%ioError = nf90_inquire_dimension(grpid, dim_ids(i),name=dimname, len=dims_out(i))
       CALL sf%handle_error("finding size of dimension  '"//TRIM(dimname)//"'")
     END DO
+    IF(transpose) dims_out=dims_out(ndims_var:1:-1)
 #endif /*NETCDF*/
   END FUNCTION ncfile_get_var_dims
 
@@ -321,7 +328,8 @@ CONTAINS
   !! abort if variable does not exist. USE var_exists for checking
   !!
   !=================================================================================================================================
-  SUBROUTINE ncfile_get_array( sf,varname_in,intout_1d,realout_1d, &
+  SUBROUTINE ncfile_get_array( sf,varname_in,transpose_in, &
+                                             intout_1d,realout_1d, &
                                              intout_2d,realout_2d, &
                                              intout_3d,realout_3d, &
                                              intout_4d,realout_4d) 
@@ -330,6 +338,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
     CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable (can include "/" for groups)
+    LOGICAL,INTENT(IN),OPTIONAL :: transpose_in !! transpose the data array, default is true, because of fortran ordering
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
@@ -343,34 +352,91 @@ CONTAINS
     REAL(wp),INTENT(OUT),OPTIONAL        :: realout_4d(:,:,:,:)  !! choose for real(wp) out (double) 4darray
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
-    CHARACTER(LEN=255) :: varname
-    INTEGER :: grpid,varid
-    LOGICAL :: exists
+    CHARACTER(LEN=255) :: varname,dimname
+    INTEGER :: grpid,varid,i,ndims_var,dim_ids(1:4),dims(1:4)
+    INTEGER,ALLOCATABLE :: tmpint2d(:,:),tmpint3d(:,:,:),tmpint4d(:,:,:,:)
+    REAL(wp),ALLOCATABLE :: tmpreal2d(:,:),tmpreal3d(:,:,:),tmpreal4d(:,:,:,:)
+    LOGICAL :: exists,transpose
     !===============================================================================================================================
+    IF(PRESENT(transpose_in))THEN
+      transpose=transpose_in
+    ELSE
+      transpose=.TRUE.
+    END IF 
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
     sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
     CALL sf%handle_error("finding array '"//TRIM(varname_in)//"'")
+    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_var) 
+    CALL sf%handle_error("finding ndims & dimids of variable '"//TRIM(varname_in)//"'")
+    sf%ioError = nf90_inquire_variable(grpid,  varid, dimids=dim_ids(1:ndims_var)) 
+    DO i=1,ndims_var
+      sf%ioError = nf90_inquire_dimension(grpid, dim_ids(i),name=dimname, len=dims(i))
+      CALL sf%handle_error("finding size of dimension  '"//TRIM(dimname)//"'")
+    END DO
+    IF(transpose) dims(1:ndims_var)=dims(ndims_var:1:-1)
     IF(PRESENT(intout_1d))THEN
       sf%ioError = nf90_GET_VAR(grpid, varid, intout_1d)
     ELSEIF(PRESENT(realout_1d))THEN
       sf%ioError = nf90_GET_VAR(grpid, varid, realout_1d)
     ELSEIF(PRESENT(intout_2d))THEN
-      sf%ioError = nf90_GET_VAR(grpid, varid, intout_2d)
+      IF(transpose)THEN
+        ALLOCATE(tmpint2d(dims(2),dims(1)))
+        sf%ioError = nf90_GET_VAR(grpid, varid, tmpint2d)
+        intout_2d=RESHAPE(tmpint2d,shape(intout_2d),order=[2,1])
+        DEALLOCATE(tmpint2d)
+      ELSE
+        sf%ioError = nf90_GET_VAR(grpid, varid, intout_2d)
+      END IF
     ELSEIF(PRESENT(realout_2d))THEN
-      sf%ioError = nf90_GET_VAR(grpid, varid, realout_2d)
+      IF(transpose)THEN
+        ALLOCATE(tmpreal2d(dims(2),dims(1)))
+        sf%ioError = nf90_GET_VAR(grpid, varid, tmpreal2d)
+        realout_2d=RESHAPE(tmpreal2d,shape(realout_2d),order=[2,1])
+        DEALLOCATE(tmpreal2d)
+      ELSE
+        sf%ioError = nf90_GET_VAR(grpid, varid, realout_2d)
+      END IF
     ELSEIF(PRESENT(intout_3d))THEN
-      sf%ioError = nf90_GET_VAR(grpid, varid, intout_3d)
+      IF(transpose)THEN
+        ALLOCATE(tmpint3d(dims(3),dims(2),dims(1)))
+        sf%ioError = nf90_GET_VAR(grpid, varid, tmpint3d)
+        intout_3d=RESHAPE(tmpint3d,shape(intout_3d),order=[3,2,1])
+        DEALLOCATE(tmpint3d)
+      ELSE
+        sf%ioError = nf90_GET_VAR(grpid, varid, intout_3d)
+      END IF
     ELSEIF(PRESENT(realout_3d))THEN
-      sf%ioError = nf90_GET_VAR(grpid, varid, realout_3d)
+      IF(transpose)THEN
+        ALLOCATE(tmpreal3d(dims(3),dims(2),dims(1)))
+        sf%ioError = nf90_GET_VAR(grpid, varid, tmpreal3d)
+        realout_3d=RESHAPE(tmpreal3d,shape(realout_3d),order=[3,2,1])
+        DEALLOCATE(tmpreal3d)
+      ELSE
+        sf%ioError = nf90_GET_VAR(grpid, varid, realout_3d)
+      END IF
     ELSEIF(PRESENT(intout_4d))THEN
-      sf%ioError = nf90_GET_VAR(grpid, varid, intout_4d)
+      IF(transpose)THEN
+        ALLOCATE(tmpint4d(dims(4),dims(3),dims(2),dims(1)))
+        sf%ioError = nf90_GET_VAR(grpid, varid, tmpint4d)
+        intout_4d=RESHAPE(tmpint4d,shape(intout_4d),order=[4,3,2,1])
+        DEALLOCATE(tmpint4d)
+      ELSE
+        sf%ioError = nf90_GET_VAR(grpid, varid, intout_4d)
+      END IF
     ELSEIF(PRESENT(realout_4d))THEN
-      sf%ioError = nf90_GET_VAR(grpid, varid, realout_4d)
+      IF(transpose)THEN
+        ALLOCATE(tmpreal4d(dims(4),dims(3),dims(2),dims(1)))
+        sf%ioError = nf90_GET_VAR(grpid, varid, tmpreal4d)
+        realout_4d=RESHAPE(tmpreal4d,shape(realout_4d),order=[4,3,2,1])
+        DEALLOCATE(tmpreal4d)
+      ELSE
+        sf%ioError = nf90_GET_VAR(grpid, varid, realout_4d)
+      END IF
     END IF
     CALL sf%handle_error("reading array '"//TRIM(varname_in)//"'")
-    SWRITE(UNIT_stdOut,'(6X,A,A50,A)')'read array  ',TRIM(varname_in)
+    SWRITE(UNIT_stdOut,'(6X,A,A50,A,*(I4,:,","))')'read array  ',TRIM(varname_in),dims(ndims_var)
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_get_array
 

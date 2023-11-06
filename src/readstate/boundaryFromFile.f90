@@ -155,7 +155,6 @@ END SUBROUTINE bff_init
     CLASS(t_boundaryFromFile), INTENT(INOUT) :: sf !! self
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
-    INTEGER :: tmp_int(2)
   !===================================================================================================================================
   
   CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
@@ -174,27 +173,13 @@ END SUBROUTINE bff_init
   ELSE
     sf%m_max=(sf%ntheta-1)/2  !maximum mode number based on number of interpolation points ntheta>=2*m_max+1
   END IF
-  tmp_int(1:1)=sf%nc%get_var_dims("boundary/zeta(:)",1)
-  IF(tmp_int(1).NE.sf%nzeta) &
-    CALL abort(__STAMP__, &
-                "array 'boundary/zeta(:)' does not have the size 'boundary/nzeta'")
   ALLOCATE(sf%zeta(sf%nzeta))
   CALL sf%nc%get_array("boundary/zeta(:)",realout_1d=sf%zeta)
-  tmp_int(1:1)=sf%nc%get_var_dims("boundary/theta(:)",1)
-  IF(tmp_int(1).NE.sf%ntheta) &
-    CALL abort(__STAMP__, &
-                "array 'boundary/theta(:)' does not have the size 'boundary/ntheta'")
   ALLOCATE(sf%theta(sf%ntheta))
   CALL sf%nc%get_array("boundary/theta(:)",realout_1d=sf%theta)
-  tmp_int(1:2)=sf%nc%get_var_dims("boundary/X(::)",2)
-  IF(ANY(tmp_int.NE.(/sf%ntheta,sf%nzeta/))) &
-  CALL abort(__STAMP__, &
-              "array 'boundary/X(::)' does not have expected size (boundary/ntheta,boundary/nzeta)")
+  ALLOCATE(sf%X(sf%ntheta,sf%nzeta))
   CALL sf%nc%get_array("boundary/X(::)",realout_2d=sf%X)
-  tmp_int(1:2)=sf%nc%get_var_dims("boundary/Y(::)",2)
-  IF(ANY(tmp_int.NE.(/sf%ntheta,sf%nzeta/))) &
-  CALL abort(__STAMP__, &
-              "array 'boundary/Y(::)' does not have expected size (boundary/ntheta,boundary/nzeta)")
+  ALLOCATE(sf%Y(sf%ntheta,sf%nzeta))
   CALL sf%nc%get_array("boundary/Y(::)",realout_2d=sf%Y)
 
 END SUBROUTINE READNETCDF

@@ -131,15 +131,15 @@ IMPLICIT NONE
      CALL abort(__STAMP__,&
           "zeta positions from axis file do not coincide with zeta positions in fbase.")
 
-  WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(:,1)*sf%Bxyz(:,1)+sf%Nxyz(:,2)*sf%Bxyz(:,2)+sf%Nxyz(:,3)*sf%Bxyz(:,3)))
+  WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(1,:)*sf%Bxyz(1,:)+sf%Nxyz(2,:)*sf%Bxyz(2,:)+sf%Nxyz(3,:)*sf%Bxyz(3,:)))
 
-  ALLOCATE(sf%xyz_modes(sf%fb%modes,3))
-  ALLOCATE(sf%Nxyz_modes(sf%fb%modes,3))
-  ALLOCATE(sf%Bxyz_modes(sf%fb%modes,3))
+  ALLOCATE( sf%xyz_modes(3,sf%fb%modes))
+  ALLOCATE(sf%Nxyz_modes(3,sf%fb%modes))
+  ALLOCATE(sf%Bxyz_modes(3,sf%fb%modes))
   DO i=1,3
-     sf%xyz_modes(:,i) =sf%fb%initDOF(sf%xyz(:,i))
-     sf%Nxyz_modes(:,i)=sf%fb%initDOF(sf%Nxyz(:,i))
-     sf%Bxyz_modes(:,i)=sf%fb%initDOF(sf%Bxyz(:,i))
+     sf%xyz_modes( i,:) =sf%fb%initDOF(sf%xyz(i,:))
+     sf%Nxyz_modes(i,:)=sf%fb%initDOF(sf%Nxyz(i,:))
+     sf%Bxyz_modes(i,:)=sf%fb%initDOF(sf%Bxyz(i,:))
   END DO
 
 
@@ -248,7 +248,6 @@ SUBROUTINE ReadNETCDF(sf)
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: tmp_int(2)
 !===================================================================================================================================
 
 
@@ -264,36 +263,20 @@ SUBROUTINE ReadNETCDF(sf)
     sf%n_max=(sf%nzeta*sf%nfp-1)/2  !maximum mode number for a full turn
   END IF
 
-  tmp_int(1:1)=sf%nc%get_var_dims("axis/zeta(:)",1)
-  IF(tmp_int(1).NE.sf%nzeta) &
-    CALL abort(__STAMP__, &
-                "array 'axis/zeta(:)' does not have the size 'axis/nzeta'")
   ALLOCATE(sf%zeta(sf%nzeta))
   CALL sf%nc%get_array("axis/zeta(:)",realout_1d=sf%zeta)
 
-  tmp_int(1:2)=sf%nc%get_var_dims("axis/xyz(::)",2)
-  IF(ANY(tmp_int.NE.(/sf%nfp*sf%nzeta,3/))) &
-    CALL abort(__STAMP__, &
-                "array 'axis/xyz(::)' does not have expected size ('nfp'*'axis/nzeta',3)")
-  ALLOCATE(sf%xyz(sf%nfp*sf%nzeta,3))
+  ALLOCATE(sf%xyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/xyz(::)",realout_2d=sf%xyz)
-  SWRITE(*,*)'DEBUG,xyz(1,1:3)',sf%xyz(1,1:3)
+  SWRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
 
-  tmp_int(1:2)=sf%nc%get_var_dims("axis/Nxyz(::)",2)
-  IF(ANY(tmp_int.NE.(/sf%nfp*sf%nzeta,3/))) &
-    CALL abort(__STAMP__, &
-                "array 'axis/Nxyz(::)' does not have expected size ('nfp'*'axis/nzeta',3)")
-  ALLOCATE(sf%Nxyz(sf%nfp*sf%nzeta,3))
+  ALLOCATE(sf%Nxyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/Nxyz(::)",realout_2d=sf%Nxyz)
-  SWRITE(*,*)'DEBUG,Nxyz(1,1:3)',sf%Nxyz(1,1:3)
+  SWRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
 
-  tmp_int(1:2)=sf%nc%get_var_dims("axis/Bxyz(::)",2)
-  IF(ANY(tmp_int.NE.(/sf%nfp*sf%nzeta,3/))) &
-    CALL abort(__STAMP__, &
-                "array 'axis/Bxyz(::)' does not have expected size ('nfp'*'axis/nzeta',3)")
-  ALLOCATE(sf%Bxyz(sf%nfp*sf%nzeta,3))
+  ALLOCATE(sf%Bxyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/Bxyz(::)",realout_2d=sf%Bxyz)
-  SWRITE(*,*)'DEBUG,Bxyz(1,1:3)',sf%Bxyz(1,1:3)
+  SWRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
 
   SWRITE(*,'(4X,A)')'...DONE.'
 
@@ -810,14 +793,14 @@ IMPLICIT NONE
   base_x =sf%fb%eval(         0,(/0.,zeta/))
   base_dxdz=sf%fb%eval(DERIV_ZETA,(/0.,zeta/))
 
-  X0(:)=MATMUL(base_x   ,sf%xyz_modes( :,:))
-  T( :)=MATMUL(base_dxdz,sf%xyz_modes( :,:))
+  __MATVEC_N(X0,sf%xyz_modes( :,:),base_x   )
+  __MATVEC_N(T ,sf%xyz_modes( :,:),base_dxdz)
 
-  N( :)=MATMUL(base_x   ,sf%Nxyz_modes(:,:))
-  Np(:)=MATMUL(base_dxdz,sf%Nxyz_modes(:,:))
+  __MATVEC_N(N ,sf%Nxyz_modes(:,:),base_x   )
+  __MATVEC_N(Np,sf%Nxyz_modes(:,:),base_dxdz)
 
-  B( :)=MATMUL(base_x   ,sf%Bxyz_modes(:,:))
-  Bp(:)=MATMUL(base_dxdz,sf%Bxyz_modes(:,:))
+  __MATVEC_N(B ,sf%Bxyz_modes(:,:),base_x   )
+  __MATVEC_N(Bp,sf%Bxyz_modes(:,:),base_dxdz)
 
 END SUBROUTINE hmap_axisNB_eval_TNB
 
@@ -857,7 +840,7 @@ IMPLICIT NONE
     iTest=101 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     q_in=(/0.0_wp, 0.0_wp, sf%zeta(sf%nzeta/2+1)/)
     x = sf%eval(q_in )
-    checkreal=SUM((x-sf%xyz(sf%nzeta/2+1,:))**2)
+    checkreal=SUM((x-sf%xyz(:,sf%nzeta/2+1))**2)
     refreal = 0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
@@ -871,7 +854,7 @@ IMPLICIT NONE
     iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     q_in=(/0.44_wp,-0.33_wp, sf%zeta(sf%nzeta/2+1)/)
     x = sf%eval(q_in )
-    checkreal=SUM((x-(sf%xyz(sf%nzeta/2+1,:)+0.44_wp*sf%Nxyz(sf%nzeta/2+1,:)-0.33_wp*sf%Bxyz(sf%nzeta/2+1,:)))**2)
+    checkreal=SUM((x-(sf%xyz(:,sf%nzeta/2+1)+0.44_wp*sf%Nxyz(:,sf%nzeta/2+1)-0.33_wp*sf%Bxyz(:,sf%nzeta/2+1)))**2)
     refreal = 0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
