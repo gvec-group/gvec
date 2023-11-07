@@ -313,11 +313,11 @@ CONTAINS
     IF(PRESENT(intout))THEN
       sf%ioError = nf90_GET_VAR(grpid, varid, intout)
       CALL sf%handle_error("reading scalar variable '"//TRIM(varname_in)//"'")
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,I8)')"read scalar  ",TRIM(varname_in),' :: ',intout
+      SWRITE(UNIT_stdOut,'(6X,A,A30,A,I8)')'read netCDF scalar ','"'//TRIM(varname_in)//'"',' :: ',intout
     ELSEIF(PRESENT(realout))THEN
       sf%ioError = nf90_GET_VAR(grpid, varid, realout)
       CALL sf%handle_error("reading scalar variable '"//TRIM(varname_in)//"'")
-      SWRITE(UNIT_stdOut,'(6X,A,A50,A,E21.11)')'read scalar  ',TRIM(varname_in),' :: ',realout
+      SWRITE(UNIT_stdOut,'(6X,A,A30,A,E21.11)')'read netCDF scalar ','"'//TRIM(varname_in)//'"',' :: ',realout
     END IF
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_get_scalar
@@ -353,6 +353,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: varname,dimname
+    CHARACTER(LEN=100) :: fmtstr
     INTEGER :: grpid,varid,i,ndims_var,dim_ids(1:4),dims(1:4)
     INTEGER,ALLOCATABLE :: tmpint2d(:,:),tmpint3d(:,:,:),tmpint4d(:,:,:,:)
     REAL(wp),ALLOCATABLE :: tmpreal2d(:,:),tmpreal3d(:,:,:),tmpreal4d(:,:,:,:)
@@ -436,7 +437,8 @@ CONTAINS
       END IF
     END IF
     CALL sf%handle_error("reading array '"//TRIM(varname_in)//"'")
-    SWRITE(UNIT_stdOut,'(6X,A,A50,A,*(I4,:,","))')'read array  ',TRIM(varname_in),dims(ndims_var)
+    WRITE(fmtstr,'(A,I4,A)')'(6X,A,A30,A,"["',ndims_var,'(I4),"]")'
+    SWRITE(UNIT_stdOut,fmtstr)'read netCDF array ','"'//TRIM(varname_in)//'"',', shape: ',dims(1:ndims_var)
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_get_array
 

@@ -850,8 +850,37 @@ IMPLICIT NONE
      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
     END IF !TEST
 
-    !evaluate at q1=0.44,q2=-0.33 (= x+0.44*N-0.33*B)
+
+    !evaluate at q1=-0.33,q2=0. (= x-0.33*N+0.1*B)
     iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    q_in=(/-0.33_wp,0.0_wp, sf%zeta(sf%nzeta/2+1)/)
+    x = sf%eval(q_in )
+    checkreal=SUM((x-(sf%xyz(:,sf%nzeta/2+1)-0.33_wp*sf%Nxyz(:,sf%nzeta/2+1)))**2)
+    refreal = 0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+            '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3))') &
+     '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
+    END IF !TEST
+    
+    !evaluate at q1=0.,q2=0.1 (= x+0.*N+0.1*B)
+    iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    q_in=(/0.0_wp,0.1_wp, sf%zeta(sf%nzeta/2+1)/)
+    x = sf%eval(q_in )
+    checkreal=SUM((x-(sf%xyz(:,sf%nzeta/2+1)+0.1*sf%Bxyz(:,sf%nzeta/2+1)))**2)
+    refreal = 0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+            '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3))') &
+     '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
+    END IF !TEST
+
+    !evaluate at q1=0.44,q2=-0.33 (= x+0.44*N-0.33*B)
+    iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     q_in=(/0.44_wp,-0.33_wp, sf%zeta(sf%nzeta/2+1)/)
     x = sf%eval(q_in )
     checkreal=SUM((x-(sf%xyz(:,sf%nzeta/2+1)+0.44_wp*sf%Nxyz(:,sf%nzeta/2+1)-0.33_wp*sf%Bxyz(:,sf%nzeta/2+1)))**2)

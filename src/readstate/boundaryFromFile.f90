@@ -20,7 +20,7 @@
 !===================================================================================================================================
 MODULE MODgvec_boundaryFromFile
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,abort
+USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut
 USE MODgvec_io_netcdf, ONLY:t_ncfile
 IMPLICIT NONE
 PRIVATE
@@ -94,7 +94,7 @@ SUBROUTINE bff_init(sf,fileString)
   ! OUTPUT VARIABLES
     CLASS(t_boundaryFromFile), INTENT(INOUT) :: sf !! self
   !===================================================================================================================================
-  !WRITE(UNIT_stdOut,'(A)')'   READ BOUNDARY NETCDF FILE    "'//TRIM(FileString)//'" ...'
+  WRITE(UNIT_stdOut,'(A)')'   READ BOUNDARY FROM NETCDF FILE "'//TRIM(FileString)//'" ...'
   sf%ncfile=TRIM(FileString)
   CALL ncfile_init(sf%nc,sf%ncfile,"r") 
   CALL READNETCDF(sf)
@@ -205,12 +205,15 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
   ! LOCAL VARIABLES
   CLASS(t_fBase),ALLOCATABLE        :: X_fbase,Y_fbase
   !===================================================================================================================================
+  WRITE(UNIT_stdOut,'(A,2(I4,A),5A,2(I4,A))') '   CONVERT BOUNDARY: X,Y(ntheta= ',sf%ntheta,', nzeta= ',sf%nzeta, ')', &
+                          ' => X1 ',sin_cos_map(x1_fbase_in%sin_cos),', X2 ',sin_cos_map(x2_fbase_in%sin_cos), &
+                          '  (m_max= ',sf%m_max,', n_max= ',sf%n_max,')'
   IF(sf%nfp.NE.x1_fbase_in%nfp) CALL abort(__STAMP__, &
                                  "NFP from boundary file not the same as for x1_base")
   CALL fbase_new( X_fbase,  x1_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
                   sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), .FALSE.)
   CALL fbase_new( Y_fbase,  x2_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
-                  sf%nfp,  sin_cos_map(x1_fbase_in%sin_cos),  .FALSE.)
+                  sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  .FALSE.)
   X1_b = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)))
   X2_b = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)))
   CALL X_fbase%free()
