@@ -206,6 +206,8 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
   CLASS(t_fBase),ALLOCATABLE        :: X_fbase,Y_fbase
+  INTEGER                           :: i,nIP,mIP
+  REAL(wp)                          :: xn(2,sf%ntheta*sf%nzeta)
   !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'  CONVERT BOUNDARY FROM POINTS TO MODES:'
   WRITE(UNIT_stdOut,'(6X,2(A,I4),2A)')' from X,Y(ntheta= ',sf%ntheta,', nzeta= ', &
@@ -220,6 +222,24 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
                   sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  .FALSE.)
   X1_b = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
   X2_b = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+
+  !evaluate at interpolation points and check the error
+  i=0
+  DO nIP=1,sf%nzeta
+    DO mIP=1,sf%ntheta
+      i=i+1
+      xn(1,i)=sf%theta(mIP)
+      xn(2,i)=sf%zeta(nIP)
+    END DO !m
+  END DO !n
+
+  WRITE(UNIT_stdOut,'(6X,A)')      ' => APPROXIMATION ERROR COMPARED TO INPUT POINTS:'
+  WRITE(UNIT_stdOut,'(6X,A,E11.3)')'     max(|X1_fourier-X_input|)=',&
+                      MAXVAL(ABS(X_fbase%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X1_b)-RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/))))
+  WRITE(UNIT_stdOut,'(6X,A,E11.3)')'     max(|X2_fourier-Y_input|)', &
+                      MAXVAL(ABS(Y_fbase%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X2_b)-RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/))))
+
+  
   CALL X_fbase%free()
   CALL Y_fbase%free()
   DEALLOCATE(X_fbase,Y_fbase)
