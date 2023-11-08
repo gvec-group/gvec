@@ -159,24 +159,26 @@ END SUBROUTINE bff_init
   
   CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
   CALL sf%nc%get_scalar("boundary/lasym",intout=sf%lasym)
+  CALL sf%nc%get_scalar("boundary/ntheta",intout=sf%ntheta)
   CALL sf%nc%get_scalar("boundary/nzeta",intout=sf%nzeta)
+   IF(sf%nc%var_exists("boundary/m_max"))THEN
+    CALL sf%nc%get_scalar("boundary/m_max",intout=sf%m_max)
+    sf%m_max=MIN(sf%m_max,(sf%ntheta-1)/2)  !maximum mode number based on number of interpolation points ntheta>=2*m_max+1
+  ELSE
+    sf%m_max=(sf%ntheta-1)/2  !maximum mode number based on number of interpolation points ntheta>=2*m_max+1
+    WRITE(UNIT_stdOut,'(6X,A,I8)')'"boundary/m_max" not found, set to: ',sf%m_max
+  END IF
   IF(sf%nc%var_exists("boundary/n_max"))THEN 
     CALL sf%nc%get_scalar("boundary/n_max",intout=sf%n_max)
     sf%n_max = MIN(sf%n_max,(sf%nzeta-1)/2)  !maximum mode number based on number of interpolation points nzeta>=2*n_max+1
   ELSE
     sf%n_max=(sf%nzeta-1)/2   !maximum mode number based on number of interpolation points nzeta>=2*n_max+1
   END IF
-  CALL sf%nc%get_scalar("boundary/ntheta",intout=sf%ntheta)
-  IF(sf%nc%var_exists("boundary/m_max"))THEN
-    CALL sf%nc%get_scalar("boundary/m_max",intout=sf%m_max)
-    sf%m_max=MIN(sf%m_max,(sf%ntheta-1)/2)  !maximum mode number based on number of interpolation points ntheta>=2*m_max+1
-  ELSE
-    sf%m_max=(sf%ntheta-1)/2  !maximum mode number based on number of interpolation points ntheta>=2*m_max+1
-  END IF
-  ALLOCATE(sf%zeta(sf%nzeta))
-  CALL sf%nc%get_array("boundary/zeta(:)",realout_1d=sf%zeta)
+  WRITE(UNIT_stdOut,'(6X,A,2I4)')'" boundary (m_max,n_max)" is set to: ',sf%m_max,sf%n_max
   ALLOCATE(sf%theta(sf%ntheta))
   CALL sf%nc%get_array("boundary/theta(:)",realout_1d=sf%theta)
+  ALLOCATE(sf%zeta(sf%nzeta))
+  CALL sf%nc%get_array("boundary/zeta(:)",realout_1d=sf%zeta)
   ALLOCATE(sf%X(sf%ntheta,sf%nzeta))
   CALL sf%nc%get_array("boundary/X(::)",realout_2d=sf%X)
   ALLOCATE(sf%Y(sf%ntheta,sf%nzeta))
@@ -205,20 +207,23 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
   ! LOCAL VARIABLES
   CLASS(t_fBase),ALLOCATABLE        :: X_fbase,Y_fbase
   !===================================================================================================================================
-  WRITE(UNIT_stdOut,'(A,2(I4,A),5A,2(I4,A))') '   CONVERT BOUNDARY: X,Y(ntheta= ',sf%ntheta,', nzeta= ',sf%nzeta, ')', &
-                          ' => X1 ',sin_cos_map(x1_fbase_in%sin_cos),', X2 ',sin_cos_map(x2_fbase_in%sin_cos), &
-                          '  (m_max= ',sf%m_max,', n_max= ',sf%n_max,')'
+  WRITE(UNIT_stdOut,'(A)')'  CONVERT BOUNDARY FROM POINTS TO MODES:'
+  WRITE(UNIT_stdOut,'(6X,2(A,I4),2A)')' from X,Y(ntheta= ',sf%ntheta,', nzeta= ', &
+                                               sf%nzeta, '), lasym=',MERGE("symmetric","asymetric",(sf%lasym.EQ.0))
+  WRITE(UNIT_stdOut,'(6x,2(3A,2I4,A))') ' => X1 ',sin_cos_map(x1_fbase_in%sin_cos), ', (m_max,n_max)= (',x1_fbase_in%mn_max,')', &
+                                         ' , X2 ',sin_cos_map(x2_fbase_in%sin_cos), ', (m_max,n_max)= (',x2_fbase_in%mn_max,')'
   IF(sf%nfp.NE.x1_fbase_in%nfp) CALL abort(__STAMP__, &
                                  "NFP from boundary file not the same as for x1_base")
   CALL fbase_new( X_fbase,  x1_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
                   sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), .FALSE.)
   CALL fbase_new( Y_fbase,  x2_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
                   sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  .FALSE.)
-  X1_b = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)))
-  X2_b = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)))
+  X1_b = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+  X2_b = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
   CALL X_fbase%free()
   CALL Y_fbase%free()
   DEALLOCATE(X_fbase,Y_fbase)
+  WRITE(UNIT_stdOut,'(A)')'  ... CONVERT BOUNDARY DONE.'
 END SUBROUTINE bff_convert_to_modes
 
 !===================================================================================================================================

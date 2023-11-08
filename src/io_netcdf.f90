@@ -171,7 +171,7 @@ CONTAINS
       varname=varname(id+1:)
       grpid_old=grpid
       sf%ioError = nf90_INQ_NCID(grpid_old, TRIM(grpname), grpid) 
-      exists=(sf%ioError .NE. nf90_NOERR)
+      exists=(sf%ioError .EQ. nf90_NOERR)
       IF(.NOT.exists) RETURN
       id=INDEX(varname,"/")
     END DO
@@ -202,7 +202,7 @@ CONTAINS
     IF(exists)THEN
       sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
     END IF 
-    exists=(sf%ioError.NE.nf90_NOERR)
+    exists=(sf%ioError.EQ.nf90_NOERR)
 #endif /*NETCDF*/
   END FUNCTION ncfile_var_exists
 
@@ -457,7 +457,7 @@ CONTAINS
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
     !===============================================================================================================================
 #if NETCDF
-    IF (sf%ioError .ne. nf90_NOERR) THEN
+    IF (sf%ioError .NE. nf90_NOERR) THEN
        SWRITE(UNIT_stdOut,'(6X,A)')"A netCDF error has occurred:  "//TRIM(errmsg)
        CALL abort(__STAMP__,&
                  nf90_STRERROR(sf%ioError))

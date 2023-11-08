@@ -99,10 +99,11 @@ ABSTRACT INTERFACE
     REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
   END SUBROUTINE i_sub_fBase_change_base
 
-  FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
+  FUNCTION i_fun_fBase_initDOF( sf, g_IP,thet_zeta_start ) RESULT(DOFs) 
     IMPORT wp,c_fBase
     CLASS(c_fBase), INTENT(IN   ) :: sf
     REAL(wp)      , INTENT(IN   ) :: g_IP(:)
+    REAL(wp)      , INTENT(IN   ),OPTIONAL :: thet_zeta_start(2)
     REAL(wp)                      :: DOFs(1:sf%modes)
   END FUNCTION i_fun_fBase_initDOF
 
@@ -160,6 +161,17 @@ ABSTRACT INTERFACE
   REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)
   END SUBROUTINE i_sub_fBase_projectIPtoDOF
 
+  SUBROUTINE i_sub_fBase_projectxntoDOF( sf,add,factor,deriv,np,xn,yn,DOFs )
+    IMPORT wp,c_fBase
+  CLASS(c_fBase), INTENT(IN   ) :: sf
+  LOGICAL       , INTENT(IN   ) :: add   
+  REAL(wp)      , INTENT(IN   ) :: factor
+  INTEGER       , INTENT(IN   ) :: deriv
+  INTEGER       , INTENT(IN   ) :: np
+  REAL(wp)      , INTENT(IN   ) :: xn(1:np)
+  REAL(wp)      , INTENT(IN   ) :: yn(1:np)
+  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)
+  END SUBROUTINE i_sub_fBase_projectxntoDOF
 END INTERFACE
  
 
@@ -208,6 +220,7 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP_tens
 !  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
   PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF_tens
+  PROCEDURE :: projectxntoDOF   => fBase_projectxntoDOF
   PROCEDURE :: initDOF          => fBase_initDOF
 
 END TYPE t_fBase
@@ -1000,6 +1013,35 @@ IMPLICIT NONE
 END SUBROUTINE fBase_projectIPtoDOF
 
 !===================================================================================================================================
+!> project from any 2D set of interpolation points, at tensor-product of (theta,zeta) positions given by "xn", to all modes
+!!  DOFs = add*DOFs+ fac *MATMUL(base_xn,yn)
+!===================================================================================================================================
+SUBROUTINE fBase_projectxntoDOF(sf,add,factor,deriv,np,xn,yn,DOFs)
+  ! MODULES
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+    LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
+    REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
+    INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+    INTEGER       , INTENT(IN   ) :: np     !! total number of 2D interpolation points
+    REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)  !!  (theta=1,zeta=2) position of tensor-product interpolation points, [0,2pi]x[0,2pi/nfp],size(2,mn_IP)
+    REAL(wp)      , INTENT(IN   ) :: yn(1:np)  !! value at interpolation points
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    REAL(wp)                      :: radd
+    REAL(wp)                      :: base_xn(1:np,1:sf%modes)
+  !===================================================================================================================================
+    base_xn=sf%eval_xn(deriv,np,xn)
+    radd=MERGE(1.0_wp,0.0_wp,add)
+    __PAMATVEC_T(radd,DOFs,factor,base_xn,yn)
+  END SUBROUTINE fBase_projectxntoDOF
+
+!===================================================================================================================================
 !> evaluate  all modes at all interpolation points, making use of the tensor product:
 !> y_ij = DOFs_mn * SIN(m*t_i - n*z_j ) => SIN(m*t_i) DOFs_mn COS(n*z_j) -COS(m*t_i) DOFs_mn SIN(n*z_j)
 !> y_ij = DOFs_mn * COS(m*t_i - n*z_j ) => COS(m*t_i) DOFs_mn COS(n*z_j) +SIN(m*t_i) DOFs_mn SIN(n*z_j)
@@ -1090,7 +1132,7 @@ IMPLICIT NONE
   LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
   REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: y_IP(:)
+  REAL(wp)      , INTENT(IN   ) :: y_IP(:) !! point values (at sf%x_IP if x_IP_in not given)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
@@ -1101,8 +1143,7 @@ IMPLICIT NONE
   REAL(wp)                      :: Ctmp(1:sf%mn_nyq(1),1:2,-sf%mn_max(2):sf%mn_max(2))
 !===================================================================================================================================
   IF(SIZE(y_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
-       'y_IP not correct when calling fBase_projectIPtoDOF_tens' )
-
+         'y_IP not correct when calling fBase_projectIPtoDOF_tens' )
   mTotal=  sf%mTotal1D
   nTotal=2*sf%mn_max(2)+1 !-n_max:n_nax
 
@@ -1159,23 +1200,32 @@ END SUBROUTINE fBase_projectIPtoDOF_tens
 !>  take values interpolated at sf%s_IP positions and project onto fourier basis by integration 
 !!
 !===================================================================================================================================
-FUNCTION fBase_initDOF( sf , g_IP) RESULT(DOFs)
+FUNCTION fBase_initDOF( sf , g_IP,thet_zeta_start) RESULT(DOFs)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf    !! self
   REAL(wp)      , INTENT(IN   ) :: g_IP(:)  !!  interpolation values at theta_IP zeta_IP positions
+  REAL(wp),INTENT(IN),OPTIONAL :: thet_zeta_start(2) !theta,zeta value of first point (points must remain equidistant and of size mn_nyq(1),mn_nyq(2))
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: DOFs(1:sf%modes)  !! projection to fourier base
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  REAL(wp)                      :: x_IP_shift(2,sf%mn_IP)
 !===================================================================================================================================
-IF(SIZE(g_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
+  IF(SIZE(g_IP,1).NE.sf%mn_IP) CALL abort(__STAMP__, &
        'nDOF not correct when calling fBase_initDOF' )
-  CALL sf%projectIPtoDOF(.FALSE.,(sf%d_thet*sf%d_zeta),0,g_IP,DOFs)
-  DOFs(:)=sf%snorm_base(:)*DOFs(:)
+  IF(.NOT.(PRESENT(thet_zeta_start)))THEN
+    CALL sf%projectIPtoDOF(.FALSE.,(sf%d_thet*sf%d_zeta),0,g_IP,DOFs)
+  ELSE
+
+    x_IP_shift(1,:)=sf%x_IP(1,:)-sf%x_IP(1,1)+thet_zeta_start(1)
+    x_IP_shift(2,:)=sf%x_IP(2,:)-sf%x_IP(2,1)+thet_zeta_start(2)
+    CALL sf%projectxntoDOF(.FALSE.,(sf%d_thet*sf%d_zeta),0,sf%mn_IP,x_IP_shift,g_IP,DOFs)
+  END IF
+  DOFs(:)=sf%snorm_base(:)*DOFs(:)  !normalize with inverse mass matrix diagonal
 END FUNCTION fBase_initDOF
 
 !===================================================================================================================================
@@ -1197,7 +1247,7 @@ IMPLICIT NONE
   REAL(wp)           :: checkreal,refreal
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
-  REAL(wp)           :: dofs(1:sf%modes)
+  REAL(wp)           :: dofs(1:sf%modes),tmpdofs(1:sf%modes),dangle(2)
   REAL(wp)           :: g_IP(1:sf%mn_IP)
   TYPE(t_fbase)      :: testfBase
   LOGICAL            :: check(5)
@@ -1410,8 +1460,8 @@ IMPLICIT NONE
     END IF !TEST
     END IF !sf%mn_max>1
 
-  END IF !testlevel <=1
-  IF (testlevel .GE.2)THEN
+
+  
 
     iTest=201 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
@@ -1440,7 +1490,7 @@ IMPLICIT NONE
     iTest=202 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP /dofs from test 201
-
+    
     checkreal=0.0_wp
     DO i_mn=1,sf%mn_IP
       checkreal=MAX(checkreal, ABS(g_IP(i_mn)-sf%evalDOF_x(sf%X_IP(:,i_mn),0,dofs))) 
@@ -1460,8 +1510,8 @@ IMPLICIT NONE
     iTest=203 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP /dofs from test 201
-
-    checkreal=MAXVAL(ABS(sf%initDOF(g_IP)-dofs))
+    tmpdofs=sf%initDOF(g_IP)
+    checkreal=MAXVAL(ABS(tmpdofs-dofs))
     refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
@@ -1473,6 +1523,51 @@ IMPLICIT NONE
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : MAX(|initDOF(g_IP)-dofs|) ', checkreal
     END IF !TEST
+
+    iTest=2031 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    !use g_IP /dofs from test 201
+    tmpdofs=sf%initDOF(g_IP,thet_zeta_start=(/sf%thet_IP(1),sf%zeta_IP(1)/))
+    checkreal=MAXVAL(ABS(tmpdofs-dofs))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|initDOF(g_IP)-initDOF(g_IP,x_IP)|) ', checkreal
+    END IF !TEST
+
+    iTest=2032 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    !use g_IP  from test 201
+    IF(sin_cos.EQ.3)THEN
+      dangle=(/0.333_wp,-0.222_wp/)
+    ELSE 
+      dangle=(/TWOPI,-2*TWOPI/)
+    END IF 
+    tmpdofs=sf%initDOF(g_IP,thet_zeta_start=(/sf%x_IP(1,1),sf%x_IP(2,1)/)+dangle)
+    checkreal=0.0_wp
+    DO i_mn=1,sf%mn_IP
+      checkreal=MAX(checkreal, ABS(g_IP(i_mn)-sf%evalDOF_x((sf%X_IP(:,i_mn)+dangle),0,tmpdofs))) 
+    END DO
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(x+delta,initdof(g_IP,xIP+delta)|)', checkreal
+    END IF !TEST
+
+  END IF !testlevel <=1
+  IF (testlevel .GE.2)THEN
 
     iTest=204 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
@@ -1516,6 +1611,7 @@ IMPLICIT NONE
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet,x(:),dofs)|) ', checkreal
     END IF !TEST
+
 
     iTest=206 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     

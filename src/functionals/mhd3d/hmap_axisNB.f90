@@ -127,9 +127,9 @@ IMPLICIT NONE
 
   CALL fbase_new(sf%fb,(/0,sf%n_max/),(/1,sf%nzeta*sf%nfp/),1,"_sincos_",.FALSE.)
 
-  IF(MAXVAL(ABS(sf%fb%X_IP(2,1:sf%nzeta)-sf%zeta)).GT.1.0e-14*sf%nzeta) &
-     CALL abort(__STAMP__,&
-          "zeta positions from axis file do not coincide with zeta positions in fbase.")
+  !IF(MAXVAL(ABS(sf%fb%X_IP(2,1:sf%nzeta)-sf%zeta)).GT.1.0e-14*sf%nzeta) &
+  !   CALL abort(__STAMP__,&
+  !        "zeta positions from axis file do not coincide with zeta positions in fbase.")
 
   WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(1,:)*sf%Bxyz(1,:)+sf%Nxyz(2,:)*sf%Bxyz(2,:)+sf%Nxyz(3,:)*sf%Bxyz(3,:)))
 
@@ -137,9 +137,9 @@ IMPLICIT NONE
   ALLOCATE(sf%Nxyz_modes(3,sf%fb%modes))
   ALLOCATE(sf%Bxyz_modes(3,sf%fb%modes))
   DO i=1,3
-     sf%xyz_modes( i,:) =sf%fb%initDOF(sf%xyz(i,:))
-     sf%Nxyz_modes(i,:)=sf%fb%initDOF(sf%Nxyz(i,:))
-     sf%Bxyz_modes(i,:)=sf%fb%initDOF(sf%Bxyz(i,:))
+     sf%xyz_modes( i,:) =sf%fb%initDOF(sf%xyz(i,:),thet_zeta_start=(/0.,sf%zeta(1)/))
+     sf%Nxyz_modes(i,:)=sf%fb%initDOF(sf%Nxyz(i,:),thet_zeta_start=(/0.,sf%zeta(1)/))
+     sf%Bxyz_modes(i,:)=sf%fb%initDOF(sf%Bxyz(i,:),thet_zeta_start=(/0.,sf%zeta(1)/))
   END DO
 
 
@@ -210,7 +210,7 @@ END SUBROUTINE hmap_axisNB_free
 !! - axis/ data group:
 !!   * 'axis/n_max'   : maximum mode number in zeta (in one field period)
 !!   * 'axis/nzeta'   : number of points along the axis, in one field period (>=2*n_max+1)
-!!   * 'axis/zeta(:)' : zeta positions, 1D array of size 'nzeta',  must exclude the end point, on half grid in one field period! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
+!!   * 'axis/zeta(:)' : zeta positions, 1D array of size 'axis/nzeta', for one field period. zeta[i]=zeta[1] + (i-1)/nzeta*(2pi/nfp). starting value arbitrary
 !!   * 'axis/xyz(::)' : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP* nzeta ), sampled at zeta positions, must exclude the endpoint
 !!                      xyz[:,j+fp*nzeta]=axis(zeta[j]+fp*2pi/NFP), for j=0,..nzeta-1 and  fp=0,...,NFP-1
 !!   * 'axis/Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* nzeta), evaluated analogously to the axis
@@ -225,8 +225,8 @@ END SUBROUTINE hmap_axisNB_free
 !!                            if lasym=1, full fourier series is taken for X,Y
 !!   * 'boundary/ntheta'    : number of points in theta (>=2*m_max+1)
 !!   * 'boundary/nzeta'     : number of points in zeta  (>=2*n_max+1), can be different to 'axis/nzeta'
-!!   * 'boundary/theta(:)'  : theta positions, 1D array of size 'boundary_ntheta', on half grid! theta(i)=(i+0.5)/ntheta*(2pi), i=0,...ntheta-1
-!!   * 'boundary/zeta(:)'   : zeta positions, 1D array of size 'boundary_nzeta', on half grid for one field period! zeta(i)=(i+0.5)/nzeta*(2pi/nfp), i=0,...nzeta-1
+!!   * 'boundary/theta(:)'  : theta positions, 1D array of size 'boundary/ntheta',  theta[i]=theta[1] + (i-1)/ntheta*(2pi), starting value arbitrary
+!!   * 'boundary/zeta(:)'   : zeta positions, 1D array of size 'boundary/nzeta', for one field period! zeta[i]=zeta[1] + (i-1)/nzeta*(2pi/nfp). starting value arbitrary
 !!   * 'boundary/X(::)',
 !!     'boundary/Y(::)'     : boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
 !!                               X[i, j]=X(theta[i],zeta[j])
@@ -261,22 +261,24 @@ SUBROUTINE ReadNETCDF(sf)
     sf%n_max = MIN((sf%n_max+1)*sf%nfp-1,(sf%nzeta*sf%nfp-1)/2) ! convert to full turn
   ELSE
     sf%n_max=(sf%nzeta*sf%nfp-1)/2  !maximum mode number for a full turn
+    WRITE(UNIT_stdOut,'(6X,A,I8)')'hmap "axis/n_max" not found, set to: ',sf%n_max
   END IF
-
+  
   ALLOCATE(sf%zeta(sf%nzeta))
   CALL sf%nc%get_array("axis/zeta(:)",realout_1d=sf%zeta)
 
   ALLOCATE(sf%xyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/xyz(::)",realout_2d=sf%xyz)
-  SWRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
-
+  
   ALLOCATE(sf%Nxyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/Nxyz(::)",realout_2d=sf%Nxyz)
-  SWRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
-
+  
   ALLOCATE(sf%Bxyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/Bxyz(::)",realout_2d=sf%Bxyz)
-  SWRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
+  !SWRITE(*,*)'DEBUG,zeta(1)',sf%zeta(1)
+  !SWRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
+  !SWRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
+  !SWRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
 
   SWRITE(*,'(4X,A)')'...DONE.'
 
@@ -790,7 +792,7 @@ IMPLICIT NONE
   REAL(wp)                      :: base_x(sf%fb%modes) 
   REAL(wp)                      :: base_dxdz(sf%fb%modes) 
 !===================================================================================================================================
-  base_x =sf%fb%eval(         0,(/0.,zeta/))
+  base_x =sf%fb%eval(           0,(/0.,zeta/))
   base_dxdz=sf%fb%eval(DERIV_ZETA,(/0.,zeta/))
 
   __MATVEC_N(X0,sf%xyz_modes( :,:),base_x   )
@@ -851,11 +853,11 @@ IMPLICIT NONE
     END IF !TEST
 
 
-    !evaluate at q1=1.,q2=0. (= x-0.33*N+0.1*B)
+    !evaluate at q1=0.01,q2=0. (= x+0.01*N)
     iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    q_in=(/1.0_wp,0.0_wp, sf%zeta(sf%nzeta/2+1)/)
+    q_in=(/0.01_wp,0.0_wp, sf%zeta(sf%nzeta/2+1)/)
     x = sf%eval(q_in )
-    checkreal=SQRT(SUM((x-(sf%xyz(:,sf%nzeta/2+1)+sf%Nxyz(:,sf%nzeta/2+1)))**2))
+    checkreal=SQRT(SUM((x-(sf%xyz(:,sf%nzeta/2+1)+0.01_wp*sf%Nxyz(:,sf%nzeta/2+1)))**2))
     refreal = 0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
@@ -865,11 +867,11 @@ IMPLICIT NONE
      '\n =>  should be ', refreal,' : |y-eval_map(x)|= ', checkreal
     END IF !TEST
     
-    !evaluate at q1=0.,q2=0.1 (= x+0.*N+0.1*B)
+    !evaluate at q1=0.,q2=0.2 (= x+0.*N+0.2*B)
     iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    q_in=(/0.0_wp,0.1_wp, sf%zeta(sf%nzeta/2+1)/)
+    q_in=(/0.0_wp,0.2_wp, sf%zeta(sf%nzeta/2+1)/)
     x = sf%eval(q_in )
-    checkreal=SQRT(SUM((x-(sf%xyz(:,sf%nzeta/2+1)+0.1*sf%Bxyz(:,sf%nzeta/2+1)))**2))
+    checkreal=SQRT(SUM((x-(sf%xyz(:,sf%nzeta/2+1)+0.2_wp*sf%Bxyz(:,sf%nzeta/2+1)))**2))
     refreal = 0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
@@ -879,11 +881,11 @@ IMPLICIT NONE
      '\n =>  should be ', refreal,' : |y-eval_map(x)|= ', checkreal
     END IF !TEST
 
-    !evaluate at q1=0.44,q2=-0.33 (= x+0.44*N-0.33*B)
+    !evaluate at q1=-0.44,q2=0.33 (= x-0.44*N+0.33*B)
     iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    q_in=(/0.44_wp,-0.33_wp, sf%zeta(sf%nzeta/2+1)/)
+    q_in=(/-0.44_wp,0.33_wp, sf%zeta(sf%nzeta/2+1)/)
     x = sf%eval(q_in )
-    checkreal=SQRT(SUM((x-(sf%xyz(:,sf%nzeta/2+1)+0.44_wp*sf%Nxyz(:,sf%nzeta/2+1)-0.33_wp*sf%Bxyz(:,sf%nzeta/2+1)))**2))
+    checkreal=SQRT(SUM((x-(sf%xyz(:,sf%nzeta/2+1)-0.44_wp*sf%Nxyz(:,sf%nzeta/2+1)+0.33_wp*sf%Bxyz(:,sf%nzeta/2+1)))**2))
     refreal = 0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
