@@ -140,7 +140,6 @@ SUBROUTINE InitMHD3D(sf)
     pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
-    getBoundaryFromFile=GETINT("getBoundaryFromFile",Proposal=-1)  ! =-1: OFF, get X1b and X2b from parameterfile. 1: get boundary from specific netcdf file
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     IF(init_fromBConly)THEN
@@ -181,6 +180,7 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
 
+  getBoundaryFromFile=GETINT("getBoundaryFromFile",Proposal=-1)  ! =-1: OFF, get X1b and X2b from parameterfile. 1: get boundary from specific netcdf file
   SELECT CASE(getBoundaryFromFile)
   CASE(-1)
     !do nothing
