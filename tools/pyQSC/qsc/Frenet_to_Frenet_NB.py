@@ -148,7 +148,7 @@ def Frenet_to_xyz_1_point(phi0,qsc):
 
     return total_x, total_y, total_z
 
-def Frenet_to_Frenet_NB(self, r, ntheta=20):
+def Frenet_to_Frenet_NB(self, r, ntheta=None, theta_in = np.linspace(0,2*np.pi,20,endpoint=False)):
     r"""
     For a given minor radius coordinate :math:`r`, compute the
     shape of the flux surface in standard cylindrical coordinates
@@ -169,7 +169,11 @@ def Frenet_to_Frenet_NB(self, r, ntheta=20):
 
     """
     nphi_conversion = self.nphi
-    theta = np.linspace(0,2*np.pi,ntheta,endpoint=False)
+    if(ntheta):
+        theta = np.linspace(0,2*np.pi,ntheta,endpoint=False)
+    else:  
+        ntheta = theta_in.size
+        theta  = theta_in
     phi_conversion = np.linspace(0,2*np.pi/self.nfp,nphi_conversion,endpoint=False)
     Xhat_2D = np.zeros((ntheta,nphi_conversion))
     Yhat_2D = np.zeros((ntheta,nphi_conversion))

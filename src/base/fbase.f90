@@ -297,12 +297,12 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "Trying to reinit fBase!") 
   END IF
-  IF((mn_nyq_in(1)/(mn_max_in(1)+1)).LT.1) &
+  IF(mn_nyq_in(1).LT.(2*mn_max_in(1)+1)) &
     CALL abort(__STAMP__, &
-        "error in fBase: mn_nyq in theta should be > mn_max(1)!") 
-  IF((mn_nyq_in(2)/(mn_max_in(2)+1)).LT.1) &
+        "error in fBase: mn_nyq in theta should be >= 2*mn_max(1)+1!",mn_nyq_in(1),REAL(mn_max_in(1))) 
+  IF(mn_nyq_in(2).LT.(2*mn_max_in(2)+1)) &
     CALL abort(__STAMP__, &
-         "error in fBase: mn_nyq in zeta should be > mn_max(2)!",mn_nyq_in(2),REAL(mn_max_in(2))) 
+         "error in fBase: mn_nyq in zeta should be >= 2*mn_max(2)+1!",mn_nyq_in(2),REAL(mn_max_in(2))) 
 
   sf%mn_max(1:2)  = mn_max_in(1:2)
   sf%mn_nyq(1:2)  = mn_nyq_in(1:2)
@@ -1438,7 +1438,7 @@ IMPLICIT NONE
     IF(sf%mn_max(1).GT.1)THEN
     !get new fbase and check change_base execution only (can only fail by abort)
     iTest=122 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testfBase%init((/sf%mn_max(1)/2,sf%mn_max(2)/),(/sf%mn_nyq(1)/2,sf%mn_nyq(2)/),sf%nfp,sin_cos_map(sf%sin_cos),.TRUE.)
+    CALL testfBase%init((/sf%mn_max(1)/2,sf%mn_max(2)/),(/sf%mn_nyq(1)/2+1,sf%mn_nyq(2)/),sf%nfp,sin_cos_map(sf%sin_cos),.TRUE.)
     ALLOCATE(oldDOF(3,1:sf%modes),newDOF(3,1:testfBase%modes))
     oldDOF(1,:)=-1.1_wp
     oldDOF(2,:)=-2.2_wp

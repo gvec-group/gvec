@@ -187,6 +187,7 @@ SUBROUTINE InitMHD3D(sf)
   CASE(1)
     boundary_filename=GETSTR("boundary_filename")
     CALL boundaryFromFile_new(BFF,boundary_filename)
+    IF(nfp_loc.NE.BFF%nfp) WRITE(UNIT_stdOut,'(6X,A,I4)')'INFO: changed to boundary file NFP= ',BFF%nfp
     nfp_loc=BFF%nfp
     proposal_mn_max(:)=(/BFF%m_max,BFF%n_max/)
     IF(BFF%lasym.EQ.1)THEN !asymmetric

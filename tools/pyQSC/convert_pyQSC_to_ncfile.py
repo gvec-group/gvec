@@ -1,6 +1,6 @@
 
 #execute this script within the pyQSC root folder
-def convert_pyQSC_to_GVEC_ncfile(qsc_stel_command='Qsc.from_paper("r1 section 5.1")',ncout_file ="axisNB_r1_section_5p1",boundary_m_max=10,r_bound=0.1):
+def convert_pyQSC_to_GVEC_ncfile(pyQSC_stel_command='Qsc.from_paper("r1 section 5.1")',ncout_file ="axisNB_r1_section_5p1",boundary_m_max=10,r_bound=0.1):
     '''
         export axis and boundary data to netcdf format, that can then be read by GVEC
     '''
@@ -16,8 +16,8 @@ def convert_pyQSC_to_GVEC_ncfile(qsc_stel_command='Qsc.from_paper("r1 section 5.
     #ncout_file ="axisNB_2022_QH_nfp7"
     ############################
     
-    print(('QSC CASE: %s\n - netCDF output file: "%s" \n - boundary_m_max=%d \n - r_bound=%f'%(qsc_stel_command,ncout_file,boundary_m_max,r_bound)))
-    stel=eval(qsc_stel_command)
+    print(('QSC CASE: %s\n - netCDF output file: "%s" \n - boundary_m_max=%d \n - r_bound=%f'%(pyQSC_stel_command,ncout_file,boundary_m_max,r_bound)))
+    stel=eval(pyQSC_stel_command)
 
 
 
@@ -100,7 +100,7 @@ def convert_pyQSC_to_GVEC_ncfile(qsc_stel_command='Qsc.from_paper("r1 section 5.
 
 
 
-    boundary_ntheta=2*(boundary_m_max+1)
+    boundary_ntheta=2*boundary_m_max+1
 
     boundary_nzeta=(stel.nphi)   # must be the same resolution (for now)
     boundary_n_max=(boundary_nzeta-1)//2
@@ -130,7 +130,7 @@ def convert_pyQSC_to_GVEC_ncfile(qsc_stel_command='Qsc.from_paper("r1 section 5.
 
     from qsc.Frenet_to_Frenet_NB import Frenet_to_Frenet_NB
 
-    boundX,boundY,phi2d = Frenet_to_Frenet_NB(stel,r_bound, boundary_ntheta)
+    boundX,boundY,phi2d = Frenet_to_Frenet_NB(stel,r_bound, theta_in=theta)
 
     for vecvar,vecval in zip(["boundary/X","boundary/Y"],["boundX","boundY"]):
         exec(vecval+'_var = ncfile.createVariable("'+vecvar+'(::)","f8",("ntheta_boundary","nzeta_boundary"))')
@@ -183,7 +183,30 @@ def convert_pyQSC_to_GVEC_ncfile(qsc_stel_command='Qsc.from_paper("r1 section 5.
     ncfile.header = hdr
     ncfile.close()
 
-    print(('NETCDF FILE "%s" WRITTEN! '%(ncout_file)))
+    print(('NETCDF FILE "%s" WRITTEN! '%(ncout_file+".nc")))
 
+
+
+########################################################################################################
+
+# MAIN PROGRAM
+
+########################################################################################################
 if __name__ == "__main__":
-    convert_pyQSC_to_GVEC_ncfile(r_bound=0.2)
+    import argparse
+    parser = argparse.ArgumentParser(description='Converter pyQSC to GVEC axisNB netcdf format',\
+                                    formatter_class=argparse.RawTextHelpFormatter)
+
+
+    parser.add_argument('-pyQSC_stel_command', type=str, default='Qsc.from_paper("r1 section 5.1")', help=' command used to initialize "stel="' )
+
+    parser.add_argument('-ncout_file', type=str, default='axisNB_r1_section_5p1',     help='netCDF output filename (without .nc)')
+
+    parser.add_argument('-boundary_m_max', type=int, default=10,     help='number of modes in theta direction')
+    parser.add_argument('-r_bound', type=float, default=0.1,     help='evaluate boundary at r=r_bound')
+    args = parser.parse_args()
+    
+    convert_pyQSC_to_GVEC_ncfile(pyQSC_stel_command=args.pyQSC_stel_command,
+                                 ncout_file=args.ncout_file, 
+                                 boundary_m_max=args.boundary_m_max, 
+                                 r_bound=args.r_bound)

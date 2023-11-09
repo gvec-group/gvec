@@ -124,7 +124,8 @@ IMPLICIT NONE
   
   !initialize DOFS by projection.  check that nzeta*nfp >= 2*n_max+1  
   sf%n_max=MIN(sf%n_max,(sf%nzeta*sf%nfp-1)/2)
-
+  
+  
   CALL fbase_new(sf%fb,(/0,sf%n_max/),(/1,sf%nzeta*sf%nfp/),1,"_sincos_",.FALSE.)
 
   !IF(MAXVAL(ABS(sf%fb%X_IP(2,1:sf%nzeta)-sf%zeta)).GT.1.0e-14*sf%nzeta) &

@@ -145,7 +145,6 @@ END SUBROUTINE bff_init
 !!                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1         
 !===================================================================================================================================
   SUBROUTINE ReadNETCDF(sf)
-    USE MODgvec_Globals,ONLY: abort
     USE MODgvec_io_netcdf
     IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
@@ -189,6 +188,8 @@ END SUBROUTINE READNETCDF
 
 !===================================================================================================================================
 !> convert from interpolation points X=> X1_b, Y=> X2_b to fourier modes, given from the input fbase 
+!! convert to maximum allowable number of modes (ntheta>=2*m_max+1, nzeta>=2*n_max+1) 
+!! the final m_max/n_max can be smaller or larger. If larger, a change of base is necessary
 !!
 !===================================================================================================================================
 
@@ -206,23 +207,46 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
   CLASS(t_fBase),ALLOCATABLE        :: X_fbase,Y_fbase
-  INTEGER                           :: i,nIP,mIP
+  INTEGER                           :: i,nIP,mIP,mn_max_pts(2)
   REAL(wp)                          :: xn(2,sf%ntheta*sf%nzeta)
+  REAL(wp),ALLOCATABLE              :: xydofs(:,:),X12dofs(:,:)
   !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'  CONVERT BOUNDARY FROM POINTS TO MODES:'
+
+  IF(sf%nfp.NE.x1_fbase_in%nfp)CALL abort(__STAMP__,&
+                 " error in convert boundary to modes, nfp from GVEC parameterfile does not match to nfp of boundary file")
+  mn_max_pts(1:2)=(/(sf%ntheta-1)/2,(sf%nzeta-1)/2/)
   WRITE(UNIT_stdOut,'(6X,2(A,I4),2A)')' from X,Y(ntheta= ',sf%ntheta,', nzeta= ', &
                                                sf%nzeta, '), lasym=',MERGE("symmetric","asymetric",(sf%lasym.EQ.0))
-  WRITE(UNIT_stdOut,'(6x,2(3A,2I4,A))') ' => X1 ',sin_cos_map(x1_fbase_in%sin_cos), ', (m_max,n_max)= (',x1_fbase_in%mn_max,')', &
-                                         ' , X2 ',sin_cos_map(x2_fbase_in%sin_cos), ', (m_max,n_max)= (',x2_fbase_in%mn_max,')'
-  IF(sf%nfp.NE.x1_fbase_in%nfp) CALL abort(__STAMP__, &
-                                 "NFP from boundary file not the same as for x1_base")
-  CALL fbase_new( X_fbase,  x1_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
-                  sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), .FALSE.)
-  CALL fbase_new( Y_fbase,  x2_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
-                  sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  .FALSE.)
-  X1_b = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
-  X2_b = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
-
+  WRITE(UNIT_stdOut,'(6x,2(3A,2(2I4,A)))') ' => X1 ',sin_cos_map(x1_fbase_in%sin_cos), &
+                                                   ', (m_max,n_max)= (',mn_max_pts,')=>(',x1_fbase_in%mn_max,')', &
+                                            ' , X2 ',sin_cos_map(x2_fbase_in%sin_cos), &
+                                                  ', (m_max,n_max)= (',mn_max_pts,')=>(',x2_fbase_in%mn_max,')'
+  IF(ALL(x1_fbase_in%mn_max.LE.mn_max_pts))THEN  !X1_base is smaller/equal
+    CALL fbase_new( X_fbase, x1_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
+                    sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), x1_fbase_in%exclude_mn_zero)
+    X1_b = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+  ELSE 
+    CALL fbase_new( X_fbase, mn_max_pts,  (/sf%ntheta,sf%nzeta/), &
+                    sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), x1_fbase_in%exclude_mn_zero)
+    ALLOCATE(xydofs(1,1:X_fbase%modes),X12dofs(1,1:x1_fbase_in%modes))
+    xydofs(1,:) = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+    CALL x1_fbase_in%change_base(X_fbase,1,xydofs,X12dofs)
+    X1_b=X12dofs(1,:)
+    DEALLOCATE(xydofs,X12dofs)
+  END IF
+  IF(ALL(x2_fbase_in%mn_max.LE.mn_max_pts))THEN  !X2_base is smaller/equal
+    CALL fbase_new( Y_fbase, x2_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
+                    sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  x2_fbase_in%exclude_mn_zero)
+    X2_b = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+  ELSE 
+    CALL fbase_new( Y_fbase, mn_max_pts,  (/sf%ntheta,sf%nzeta/), &
+                    sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  x2_fbase_in%exclude_mn_zero)
+    ALLOCATE(xydofs(1,1:Y_fbase%modes),X12dofs(1,1:x2_fbase_in%modes))
+    xydofs(1,:) = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+    CALL x2_fbase_in%change_base(Y_fbase,1,xydofs,X12dofs)
+    X2_b=X12dofs(1,:)
+  END IF
   !evaluate at interpolation points and check the error
   i=0
   DO nIP=1,sf%nzeta
@@ -235,9 +259,9 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
 
   WRITE(UNIT_stdOut,'(6X,A)')      ' => APPROXIMATION ERROR COMPARED TO INPUT POINTS:'
   WRITE(UNIT_stdOut,'(6X,A,E11.3)')'     max(|X1_fourier-X_input|)=',&
-                      MAXVAL(ABS(X_fbase%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X1_b)-RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/))))
+                      MAXVAL(ABS(x1_fbase_in%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X1_b)-RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/))))
   WRITE(UNIT_stdOut,'(6X,A,E11.3)')'     max(|X2_fourier-Y_input|)', &
-                      MAXVAL(ABS(Y_fbase%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X2_b)-RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/))))
+                      MAXVAL(ABS(x2_fbase_in%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X2_b)-RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/))))
 
   
   CALL X_fbase%free()
