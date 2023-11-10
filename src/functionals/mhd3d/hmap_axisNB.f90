@@ -192,7 +192,7 @@ END SUBROUTINE hmap_axisNB_free
 
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
-!! ======= HEADER OF THE NETCDF FILE VERSION 3.0 ===================================================================================
+!! ======= HEADER OF THE NETCDF FILE VERSION 3.1 ===================================================================================
 !! === FILE DESCRIPTION:
 !!   * axis, normal and binormal of the frame are given in cartesian coordinates along the curve parameter zeta [0,2pi].
 !!   * The curve is allowed to have a field periodicity NFP, but the curve must be provided on a full turn.
@@ -211,7 +211,7 @@ END SUBROUTINE hmap_axisNB_free
 !! - axis/ data group:
 !!   * 'axis/n_max'   : maximum mode number in zeta (in one field period)
 !!   * 'axis/nzeta'   : number of points along the axis, in one field period (>=2*n_max+1)
-!!   * 'axis/zeta(:)' : zeta positions, 1D array of size 'axis/nzeta', for one field period. zeta[i]=zeta[1] + (i-1)/nzeta*(2pi/nfp). starting value arbitrary
+!!   * 'axis/zeta(:)' : zeta positions, 1D array of size 'axis/nzeta', for one field period. zeta[i]=zeta[1] + (i-1)/nzeta*(2pi/nfp), i=1,..nzeta, zeta[1] is arbitrary
 !!   * 'axis/xyz(::)' : cartesian positions along the axis for ONE FULL TURN, 2D array of size (3,NFP* nzeta ), sampled at zeta positions, must exclude the endpoint
 !!                      xyz[:,j+fp*nzeta]=axis(zeta[j]+fp*2pi/NFP), for j=0,..nzeta-1 and  fp=0,...,NFP-1
 !!   * 'axis/Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* nzeta), evaluated analogously to the axis
@@ -227,7 +227,7 @@ END SUBROUTINE hmap_axisNB_free
 !!   * 'boundary/ntheta'    : number of points in theta (>=2*m_max+1)
 !!   * 'boundary/nzeta'     : number of points in zeta  (>=2*n_max+1), can be different to 'axis/nzeta'
 !!   * 'boundary/theta(:)'  : theta positions, 1D array of size 'boundary/ntheta',  theta[i]=theta[1] + (i-1)/ntheta*(2pi), starting value arbitrary
-!!   * 'boundary/zeta(:)'   : zeta positions, 1D array of size 'boundary/nzeta', for one field period! zeta[i]=zeta[1] + (i-1)/nzeta*(2pi/nfp). starting value arbitrary
+!!   * 'boundary/zeta(:)'   : zeta positions, 1D array of size 'boundary/nzeta', for one field period! zeta[i]=zeta[1] + (i-1)/nzeta*(2pi/nfp), i=1,..nzeta, zeta[1] is arbitrary
 !!   * 'boundary/X(::)',
 !!     'boundary/Y(::)'     : boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
 !!                               X[i, j]=X(theta[i],zeta[j])
