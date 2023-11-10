@@ -98,8 +98,6 @@ def convert_pyQSC_to_GVEC_ncfile(pyQSC_stel_command='Qsc.from_paper("r1 section 
         exec(vecval+'_var[:,:] = '+vecval)
 
 
-
-
     boundary_ntheta=2*boundary_m_max+1
 
     boundary_nzeta=(stel.nphi)   # must be the same resolution (for now)

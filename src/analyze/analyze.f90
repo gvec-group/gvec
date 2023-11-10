@@ -69,7 +69,7 @@ visu1D    = GETINT('visu1D',Proposal=0)
 visu2D    = GETINT('visu2D',Proposal=0)   
 visu3D    = GETINT('visu3D',Proposal=0)   
 SFL_theta = GETLOGICAL('SFL_theta',Proposal=.FALSE.)   
-
+visuQ     = GETINT('visuQ',Proposal=0)   
 
 visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
 visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))
@@ -151,10 +151,22 @@ IF(visu2D.NE.0)THEN
   IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
   IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
   IF(vcase(1))THEN
-    IF(iAnalyze.EQ.0) CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID)
+    IF(iAnalyze.EQ.0) THEN
+      IF((visuQ.EQ.0).OR.(visuQ.EQ.2))THEN
+        CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID,.FALSE.)!,visu_q_as_xyz=F
+      END IF
+      IF((visuQ.EQ.1).OR.(visuQ.EQ.2))THEN
+        CALL visu_BC_face(np_visu_BC(1:2),visu_BC_minmax(:,:),FileID,.TRUE.)!,visu_q_as_xyz=T
+      END IF
+    END IF
   END IF
   IF(vcase(2))THEN
-    CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
+    IF((visuQ.EQ.0).OR.(visuQ.EQ.2))THEN
+      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID,.FALSE.) !only planes,visu_q_as_xyz=F
+    END IF
+    IF((visuQ.EQ.1).OR.(visuQ.EQ.2))THEN
+      CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID,.TRUE.) !only planes,visu_q_as_xyz=T
+    END IF
   END IF 
 END IF !visu2d
 IF(visu3D.NE.0)THEN
@@ -165,7 +177,12 @@ IF(visu3D.NE.0)THEN
   IF(INDEX(vstr,'3').NE.0) vcase(3)=.TRUE.
   IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
   IF(vcase(1))THEN
-    CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
+    IF((visuQ.EQ.0).OR.(visuQ.EQ.2))THEN
+      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID,.FALSE.) !full 3D,visu_q_as_xyz=F
+    END IF
+    IF((visuQ.EQ.1).OR.(visuQ.EQ.2))THEN
+      CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID,.TRUE.) !full 3D,visu_q_as_xyz=T
+    END IF
   END IF 
 END IF !visu2d
 

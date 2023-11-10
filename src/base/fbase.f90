@@ -1290,13 +1290,15 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : nfp*int(int(theta*zeta, 0, 2pi),0,2pi/nfp)= ', checkreal
     END IF !TEST
 
+
+    ! check off-diagonals of mass matrix =0
     iTest=102 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     checkreal=0.0_wp
     DO iMode=1,modes
       DO jMode=1,modes
         IF(iMode.NE.jMode)THEN
-          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_IP(:,jMode))))
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_IP(:,jMode))))    
         END IF !iMode /=jMode
       END DO
     END DO
@@ -1309,8 +1311,29 @@ IMPLICIT NONE
        ' mn_max= (',m_max,n_max, &
        ' )  nfp    = ',nfp, &
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
-      '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base(jmode), 0, 2pi),0,2pi/nfp)= ', checkreal
+      '\n =>  should be ', refreal,' : OFF-DIAGONALS of mass matrix 0=:int(int(base(imode)*base(jmode), 0, 2pi),0,2pi/nfp)= ', checkreal
     END IF !TEST
+
+    ! check off-diagonals of mass matrix =0
+    iTest=1021 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    
+    checkreal=0.0_wp
+    DO iMode=1,modes
+      !DIAGONAL
+      checkreal=MAX(checkreal,ABS(1.0_wp-sf%snorm_base(iMode)*(sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_IP(:,iMode))))
+    END DO
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : DIAGONAL OF MASS MATRIX 0=:1-snorm(iMode)*int(int(base(imode)*base(imode), 0, 2pi),0,2pi/nfp)= ', checkreal
+    END IF !TEST
+
 
     iTest=103 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
@@ -1340,7 +1363,8 @@ IMPLICIT NONE
        '\n =>  should be  0 : nsinzero = ', nsinzero,  &
        '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base(imode), 0, 2pi),0,2pi/nfp)= ', checkreal
     END IF !TEST
-
+    
+    !test mass matrix of base
     iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     checkreal=0.0_wp
@@ -1459,6 +1483,7 @@ IMPLICIT NONE
        '\n =>  should be ', refreal,' : ', checkreal
     END IF !TEST
     END IF !sf%mn_max>1
+
 
 
   

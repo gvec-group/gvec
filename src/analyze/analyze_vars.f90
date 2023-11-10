@@ -41,8 +41,8 @@ INTEGER              :: np_visu_3D(3)          !! number of points for visualiza
 REAL(wp)             :: visu_BC_minmax(2:3,0:1)    !! minimum and maximum in s,theta,zeta [0,1]
 REAL(wp)             :: visu_planes_minmax(1:3,0:1)!! minimum and maximum in s,theta,zeta [0,1]
 REAL(wp)             :: visu_3D_minmax(1:3,0:1)    !! minimum and maximum in s,theta,zeta [0,1]
-LOGICAL              :: SFL_theta              !! =T: visualize a mesh with a sstraight-field line (PEST) theta angle
-
+LOGICAL              :: SFL_theta                  !! =T: visualize a mesh with a sstraight-field line (PEST) theta angle
+INTEGER              :: visuQ                      !! =0: default, only visualize xyz(hmap(q)), =1: only visualize xyz=q, =2: visualize both
 !===================================================================================================================================
 END MODULE MODgvec_Analyze_Vars
 

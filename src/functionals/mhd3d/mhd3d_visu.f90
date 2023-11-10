@@ -35,7 +35,7 @@ CONTAINS
 !> 
 !!
 !===================================================================================================================================
-SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
+SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID,visu_q_as_xyz)
 ! MODULES
 USE MODgvec_Globals,    ONLY: TWOPI
 USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,U
@@ -44,10 +44,11 @@ USE MODgvec_Output_vars,ONLY: Projectname,OutputLevel
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: mn_IP(2) !! muber of points in theta,zeta direction
-  REAL(wp)      , INTENT(IN   ) :: minmax(2:3,0:1) !! min/max of theta,zeta [0,1] 
-  INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
-!-----------------------------------------------------------------------------------------------------------------------------------
+  INTEGER , INTENT(IN   ) :: mn_IP(2) !! muber of points in theta,zeta direction
+  REAL(wp), INTENT(IN   ) :: minmax(2:3,0:1) !! min/max of theta,zeta [0,1] 
+  INTEGER , INTENT(IN   ) :: fileID          !! added to file name before the ending
+  LOGICAL , INTENT(IN   ) :: visu_q_as_xyz     !! =F: default, visualize with xyz=hmap(q=[X1,X2,zeta]). =T: visualize x=X1,y=X2,z=zeta
+  !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -85,10 +86,12 @@ IMPLICIT NONE
   DO i_n=1,mn_IP(2)
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
-  IF(hmap%which_hmap.NE.3)THEN !not for cylinder
-    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-      thet(mn_IP(1))=thet(1)
-    END IF
+  !make theta direction fully periodic
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    thet(mn_IP(1))=thet(1)
+  END IF
+  !make zeta direction fully periodic
+  IF(.NOT.((hmap%which_hmap.EQ.3).OR.(visu_q_as_xyz)))THEN !not for cylinder / visuQ
     IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
       zeta(mn_IP(2))=zeta(1)
     END IF
@@ -110,14 +113,14 @@ IMPLICIT NONE
       X1_visu=X1_base%f%evalDOF_x(xIP,0,X1_s)
       X2_visu=X2_base%f%evalDOF_x(xIP,0,X2_s)
       q=(/X1_visu,X2_visu,xIP(2)/)
-      coord_visu(  :,i_m,i_n,1)=hmap%eval(q)
+      coord_visu(  :,i_m,i_n,1)=MERGE((/X1_visu,X2_visu,xIP(2)*X1_base%f%nfp/TWOPI/),hmap%eval(q),visu_q_as_xyz)
       var_visu(VP_LAMBDA,i_m,i_n,1)=LA_base%f%evalDOF_x(xIP,0,LA_s)
       var_visu(VP_theta ,i_m,i_n,1)=xIP(1)
       var_visu(VP_zeta  ,i_m,i_n,1)=xIP(2)
     END DO !i_m
   END DO !i_n
   nplot(:)=mn_IP-1
-  WRITE(filename,'(A,"_visu_BC_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
+  WRITE(filename,'(A,"_BC_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)), outputLevel,fileID
   CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,coord_visu,var_visu,TRIM(filename))
 
 END SUBROUTINE visu_BC_face
@@ -127,7 +130,7 @@ END SUBROUTINE visu_BC_face
 !> visualize the mapping and additional variables in 3D, either on zeta=const planes or fully 3D 
 !!
 !===================================================================================================================================
-SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
+SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID,visu_q_as_xyz )
 ! MODULES
 USE MODgvec_Globals,        ONLY: TWOPI,PI,CROSS
 USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
@@ -140,10 +143,11 @@ USE MODgvec_Analyze_Vars,   ONLY: SFL_theta
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: np_in(3)     !! (1) #points in s & theta per element,(2:3) #elements in  theta,zeta
-  REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1] 
-  LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
-  INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
+  INTEGER , INTENT(IN   ) :: np_in(3)     !! (1) #points in s & theta per element,(2:3) #elements in  theta,zeta
+  REAL(wp), INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1] 
+  LOGICAL , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
+  INTEGER , INTENT(IN   ) :: fileID          !! added to file name before the ending
+  LOGICAL , INTENT(IN   ) :: visu_q_as_xyz     !! =F: default, visualize with xyz=hmap(q=[X1,X2,zeta]). =T: visualize x=X1,y=X2,z=zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -363,7 +367,7 @@ IMPLICIT NONE
 !$OMP           Bcart, Bthet, Bzeta, grad_s, grad_thet, grad_zeta) &
 !$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
 !$OMP          VP_LAMBDA,VP_SQRTG,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, &
-!$OMP          VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,iota_s, &
+!$OMP          VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,iota_s,visu_q_as_xyz, &
 #ifdef VISU_J_FD
 !$OMP          X1_s_eps,X2_s_eps,LA_s_eps,dX1ds_eps,dX2ds_eps,VP_J,iota_s_eps,PhiPrime_s_eps,delta_s,&
 #endif
@@ -401,7 +405,7 @@ IMPLICIT NONE
             q=(/X1_visu,X2_visu,xIP(2)/)
             q_thet=(/dX1_dthet,dX2_dthet,0.0_wp/)
             q_zeta=(/dX1_dzeta,dX2_dzeta,1.0_wp/)
-            coord_visu(:,i_s,j_s,i_n,i_m,iElem )=hmap%eval(q)
+            coord_visu(:,i_s,j_s,i_n,i_m,iElem )=MERGE((/X1_visu,X2_visu,xIP(2)*X1_base%f%nfp/TWOPI/),hmap%eval(q),visu_q_as_xyz)
 
             e_s   =hmap%eval_dxdq(q,(/dX1_ds,dX2_ds,0.0_wp/))
             e_thet=hmap%eval_dxdq(q,q_thet)
@@ -672,18 +676,18 @@ IMPLICIT NONE
   !END IF
 
   !make grid exactly periodic
-  IF(hmap%which_hmap.NE.3)THEN !not for cylinder
-    !make theta direction exactly periodic
-    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-!$OMP PARALLEL DO  COLLAPSE(3)     &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
-      DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
-        coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
-      END DO; END DO; END DO
-!$OMP END PARALLEL DO
-    END IF
+  !make theta direction exactly periodic
+  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+  !$OMP PARALLEL DO  COLLAPSE(3)     &  
+  !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
+          DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
+            coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
+          END DO; END DO; END DO
+  !$OMP END PARALLEL DO
+  END IF
+  IF(.NOT.((hmap%which_hmap.EQ.3).OR.(visu_q_as_xyz)))THEN !not for cylinder / visuQ
     !make zeta direction exactly periodic, only for 3Dvisu
-    IF(.NOT.only_planes)THEN
+    IF((.NOT.only_planes))THEN
       IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
 !$OMP PARALLEL DO  COLLAPSE(4)     &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s,j_s)
@@ -702,20 +706,23 @@ IMPLICIT NONE
   maxElem=MIN(nElems,sgrid%find_elem(minmax(1,1))+1)
   IF(only_planes)THEN
     nplot(1:2)=(/n_s,n_s/)-1
-    WRITE(filename,'(A,"_visu_planes_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
+    WRITE(filename,'(A,"_planes_",I4.4,"_",I8.8,".vtu")') &
+      TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)),outputLevel,fileID
     CALL WriteDataToVTK(2,3,nVal,nplot(1:2),(mn_IP(1)*mn_IP(2)*(maxElem-minElem+1)),VarNames, &
                         coord_visu(:,:,:,:,:,minElem:maxElem), &
                           var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   ELSE
     !3D
     nplot(1:3)=(/n_s,n_s,mn_IP(2)/)-1
-    WRITE(filename,'(A,"_visu_3D_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
+    WRITE(filename,'(A,"_3D_",I4.4,"_",I8.8,".vtu")') &
+      TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)),outputLevel,fileID
     CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
                         coord_visu(:,:,:,:,:,minElem:maxElem), &
                           var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   END IF
   __PERFOFF("write_visu")
-  WRITE(filename,'(A,"_visu_1D_",I4.4,"_",I8.8,".csv")')TRIM(Projectname),outputLevel,fileID
+  WRITE(filename,'(A,"_1D_",I4.4,"_",I8.8,".csv")') &
+    TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)),outputLevel,fileID
   CoordNames(1)="X"
   CoordNames(2)="Y"
   CoordNames(3)="Z"
