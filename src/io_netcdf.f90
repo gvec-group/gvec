@@ -21,7 +21,7 @@
 !! start with defining a variable as 
 !!  CLASS(t_ncfile),ALLOCATABLE  :: nc
 !! and to allocate and initialize  
-!!   CALL ncfile_init(nc,Filename,rw_mode)
+!!   CALL ncfile_init(nc,Filename,rwo_mode)
 !!
 !!
 !===================================================================================================================================
@@ -38,7 +38,7 @@ TYPE :: t_ncfile
   INTEGER  :: nc_id
   INTEGER  :: ioError
   LOGICAL  :: isopen
-  CHARACTER(LEN=1)  :: rw_mode
+  CHARACTER(LEN=1)  :: rwo_mode
   CHARACTER(LEN=255) :: Filename 
   CONTAINS
   PROCEDURE :: openfile       => ncfile_openfile
@@ -48,6 +48,10 @@ TYPE :: t_ncfile
   PROCEDURE :: get_var_dims   => ncfile_get_var_dims
   PROCEDURE :: get_scalar     => ncfile_get_scalar
   PROCEDURE :: get_array      => ncfile_get_array
+  PROCEDURE :: def_dim        => ncfile_def_dim
+  PROCEDURE :: end_def_mode   => ncfile_end_def_mode
+  PROCEDURE :: put_scalar     => ncfile_put_scalar
+  PROCEDURE :: put_array      => ncfile_put_array
   PROCEDURE :: enter_groups   => ncfile_enter_groups
   PROCEDURE :: handle_error   => ncfile_handle_error
   PROCEDURE :: free   => ncfile_free
@@ -60,13 +64,13 @@ CONTAINS
   !> allocate and initialize class and open/close the netcdf file and define  read ("r") or write ("w" includes read) mode
   !!
   !=================================================================================================================================
-  SUBROUTINE ncfile_init(sf,FileName,rw_mode) 
+  SUBROUTINE ncfile_init(sf,FileName,rwo_mode) 
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
     CHARACTER(LEN=*),INTENT(IN) :: Filename
-    CHARACTER(LEN=1),INTENT(IN) :: rw_mode        !either read "r" or write "w"
+    CHARACTER(LEN=1),INTENT(IN) :: rwo_mode        !either read "r" or write "w" (existing file) or "o" createnew or overwrite
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
@@ -77,9 +81,8 @@ CONTAINS
     sf%isopen=.FALSE.
     sf%nc_id=0
     sf%filename=TRIM(FileName)
-    sf%rw_mode=rw_mode
+    sf%rwo_mode=rwo_mode
     CALL sf%openfile() 
-    CALL sf%closefile()
 
   END SUBROUTINE ncfile_init
 
@@ -100,13 +103,17 @@ CONTAINS
     !===============================================================================================================================
     IF(sf%isopen) RETURN
 #if NETCDF
-    SELECT CASE(sf%rw_mode)
+    SELECT CASE(sf%rwo_mode)
     CASE("r")
       sf%ioError = nf90_OPEN(TRIM(sf%fileName), nf90_NOWRITE, sf%nc_id)
+      CALL sf%handle_error("opening existing file '"//TRIM(sf%filename)//"' in read  mode")
     CASE("w")
       sf%ioError = nf90_OPEN(TRIM(sf%fileName), nf90_WRITE, sf%nc_id)
+      CALL sf%handle_error("opening existing file '"//TRIM(sf%filename)//"' in write mode")
+    CASE("o")
+      sf%ioError = nf90_CREATE(TRIM(sf%fileName), NF90_64BIT_OFFSET, sf%nc_id)
+      CALL sf%handle_error("creating or overwriting existing file '"//TRIM(sf%filename))
     END SELECT
-      CALL sf%handle_error("opening file '"//TRIM(sf%filename)//"' in '"//TRIM(sf%rw_mode)//"' mode")
     sf%isopen=.TRUE.
 #else
   CALL abort(__STAMP__,&
@@ -442,6 +449,212 @@ CONTAINS
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_get_array
 
+  
+  !=================================================================================================================================
+  !> define a dimension to the netCDF file 
+  !!
+  !=================================================================================================================================
+  SUBROUTINE ncfile_def_dim(sf,dimname_in,dimlen,dimid)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: dimname_in  !! name of the dimension 
+    INTEGER,INTENT(IN)          :: dimlen      !! length of the dimension 
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
+    INTEGER,INTENT(OUT)          :: dimid !! id of the dimension
+    !===============================================================================================================================
+#if NETCDF
+    sf%ioError = nf90_def_dim(sf%nc_id, dimname_in, dimlen, dimid)
+    CALL sf%handle_error("define dimension '"//TRIM(dimname_in)//"'")
+#endif /*NETCDF*/
+  END SUBROUTINE ncfile_def_dim
+
+  
+  !=================================================================================================================================
+  !> after creating a new file and making all definitions, one has to call end_def_mode 
+  !!
+  !=================================================================================================================================
+  SUBROUTINE ncfile_end_def_mode(sf)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
+    !===============================================================================================================================
+#if NETCDF
+    sf%ioError = nf90_enddef(sf%nc_id)
+    CALL sf%handle_error("finalize definition mode")
+#endif /*NETCDF*/
+  END SUBROUTINE ncfile_end_def_mode
+ 
+  !=================================================================================================================================
+  !> define and put a scalar value to the netCDF file 
+  !!
+  !=================================================================================================================================
+  SUBROUTINE ncfile_put_scalar(sf,varname_in,def_put_mode,int_in,real_in)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable 
+    INTEGER,INTENT(IN) :: def_put_mode  !! 1:"def" or 2:"put" mode
+    INTEGER,INTENT(IN),OPTIONAL :: int_in      !! scalar integer input
+    REAL(wp),INTENT(IN),OPTIONAL :: real_in      !! scalar double input
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
+    ! LOCAL VARIABLES
+    INTEGER    :: varid
+    !===============================================================================================================================
+#if NETCDF
+    IF(PRESENT(int_in))THEN
+      SELECT CASE(def_put_mode)
+      CASE(1) !def
+        sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_INT,varid)
+        CALL sf%handle_error("define scalar integer '"//TRIM(varname_in)//"'")
+      CASE(2) !put
+        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+        CALL sf%handle_error("find varid of real array'"//TRIM(varname_in)//"'")
+        sf%ioError = nf90_put_var(sf%nc_id, varid,int_in)
+        CALL sf%handle_error("write scalar integer '"//TRIM(varname_in)//"'")
+      END SELECT
+    END IF
+    IF(PRESENT(real_in))THEN
+      SELECT CASE(def_put_mode)
+      CASE(1) !def
+        sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_DOUBLE,varid)
+        CALL sf%handle_error("define scalar real '"//TRIM(varname_in)//"'")
+      CASE(2) !put
+        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+        CALL sf%handle_error("find varid of real array'"//TRIM(varname_in)//"'")
+        sf%ioError = nf90_put_var(sf%nc_id, varid,real_in)
+        CALL sf%handle_error("write scalar real '"//TRIM(varname_in)//"'")
+      END SELECT
+    END IF
+#else
+  CALL abort(__STAMP__,&
+      "cannot write scalar, BUILD_NETCDF=OFF")
+#endif /*NETCDF*/
+  END SUBROUTINE ncfile_put_scalar
+
+  !=================================================================================================================================
+  !> define and put an array value to the netCDF file 
+  !!
+  !=================================================================================================================================
+  SUBROUTINE ncfile_put_array(sf,varname_in,ndims_var,dims,dimids,def_put_mode,transpose_in, int_in,real_in)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable 
+    INTEGER,INTENT(IN)          :: ndims_var       !! number of dimensions 
+    INTEGER,INTENT(IN)          :: dims(1:ndims_var)   !! number of dimensions 
+    INTEGER,INTENT(IN)          :: dimids(1:ndims_var) !! ids of dimensions, must be created before by put_dim
+    INTEGER,INTENT(IN) :: def_put_mode  !! 1:"def" or 2:"put" mode
+    LOGICAL,INTENT(IN),OPTIONAL :: transpose_in !! transpose the data array, default is true, because of fortran ordering
+    INTEGER,INTENT(IN),OPTIONAL  :: int_in(PRODUCT(dims))     !! integer input
+    REAL(wp),INTENT(IN),OPTIONAL :: real_in(PRODUCT(dims))   !!  double input
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
+    ! LOCAL VARIABLES
+    INTEGER    :: varid
+    LOGICAL ::transpose
+    !===============================================================================================================================
+#if NETCDF
+    IF(PRESENT(transpose_in))THEN
+      transpose=transpose_in
+    ELSE
+      transpose=.TRUE.
+    END IF 
+    IF(.NOT.sf%isopen) CALL sf%openfile()
+    IF(PRESENT(int_in))THEN
+      SELECT CASE(def_put_mode)
+      CASE(1) !def
+        IF(transpose)THEN
+          sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_INT,dimids(ndims_var:1:-1),varid)
+        ELSE
+          sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_INT,dimids(1:ndims_var),varid)
+        END IF
+        CALL sf%handle_error("define integer array'"//TRIM(varname_in)//"'")
+      CASE(2) !put
+        SELECT CASE(ndims_var)
+        CASE(1)
+          sf%ioError = nf90_put_var(sf%nc_id, varid,int_in)
+        CASE(2)
+          IF(transpose)THEN
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(int_in,dims(2:1:-1),order=[2,1]))
+          ELSE
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(int_in,dims(1:2)))
+          END IF
+        CASE(3)
+          IF(transpose)THEN
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(int_in,dims(3:1:-1),order=[3,2,1]))
+          ELSE
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(int_in,dims(1:3)))
+          END IF
+        CASE(4)
+          IF(transpose)THEN
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(int_in,dims(4:1:-1),order=[4,3,2,1]))
+          ELSE
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(int_in,dims(1:4)))
+          END IF
+        CASE DEFAULT
+          STOP "ndims_var>4 not implemented yet in io_netcdf"
+        END SELECT
+        CALL sf%handle_error("write integer array '"//TRIM(varname_in)//"'")
+      END SELECT !CASE(def_put_mode)
+    END IF
+    IF(PRESENT(real_in))THEN
+      SELECT CASE(def_put_mode)
+      CASE(1) !def
+        IF(transpose)THEN
+          sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_DOUBLE,dimids(ndims_var:1:-1),varid)
+        ELSE
+          sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_DOUBLE,dimids(1:ndims_var),varid)
+        END IF
+        CALL sf%handle_error("define real array'"//TRIM(varname_in)//"'")
+      CASE(2) !put
+        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+        CALL sf%handle_error("find varid of real array'"//TRIM(varname_in)//"'")
+        SELECT CASE(ndims_var)
+        CASE(1)
+          sf%ioError = nf90_put_var(sf%nc_id, varid,real_in)
+        CASE(2)
+          IF(transpose)THEN
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(real_in,dims(2:1:-1),order=[2,1]))
+          ELSE
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(real_in,dims(1:2)))
+          END IF
+        CASE(3)
+          IF(transpose)THEN
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(real_in,dims(3:1:-1),order=[3,2,1]))
+          ELSE
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(real_in,dims(1:3)))
+          END IF
+        CASE(4)
+          IF(transpose)THEN
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(real_in,dims(4:1:-1),order=[4,3,2,1]))
+          ELSE
+            sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(real_in,dims(1:4)))
+          END IF
+        CASE DEFAULT
+          STOP "ndims_var>4 not implemented yet in io_netcdf"
+        END SELECT
+        CALL sf%handle_error("write real array '"//TRIM(varname_in)//"'")
+      END SELECT !CASE(def_put_mode)
+    END IF
+#else
+  CALL abort(__STAMP__,&
+      "cannot write array, BUILD_NETCDF=OFF")
+#endif /*NETCDF*/
+  END SUBROUTINE ncfile_put_array
+
   !=================================================================================================================================
   !> netcdf error handling via sf%ioError variable
   !!
@@ -483,7 +696,7 @@ CONTAINS
     IF(sf%isopen) CALL sf%closefile()
     sf%nc_id=0
     sf%filename=""
-    sf%rw_mode=""
+    sf%rwo_mode=""
   END SUBROUTINE ncfile_free
 
 END MODULE MODgvec_IO_NETCDF

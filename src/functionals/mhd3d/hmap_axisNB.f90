@@ -379,6 +379,8 @@ SUBROUTINE Visu_axisNB( sf ,nvisu)
 ! MODULES
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Output_netcdf,     ONLY: WriteDataToNETCDF
+USE MODgvec_Analyze_vars,     ONLY: outfileType
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -417,8 +419,17 @@ IMPLICIT NONE
     values(iVar+1       ,ivisu)=zeta*sf%nfp/TWOPI ;iVar=iVar+1
     values(iVar+1       ,ivisu)=lp                ;iVar=iVar+1
   END DO !ivisu
-  CALL WriteDataToCSV(VarNames(:) ,values, TRIM("out_visu_hmap_axisNB.csv") ,append_in=.FALSE.)
-  CALL WriteDataToVTK(1,3,nVars-3,(/nvisu*sf%nfp/),1,VarNames(4:nVars),values(1:3,:),values(4:nVars,:),"visu_hmap_axisNB.vtu")
+  IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
+    CALL WriteDataToVTK(1,3,nVars-3,(/nvisu*sf%nfp/),1,VarNames(4:nVars),values(1:3,:),values(4:nVars,:),"visu_hmap_axisNB.vtu")
+  END IF
+  IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
+#if NETCDF
+    CALL WriteDataToNETCDF(1,3,nVars-3,(/nvisu*sf%nfp/),(/"dim_zeta"/),VarNames(4:nVars),values(1:3,:),values(4:nVars,:), &
+        "visu_hmap_axisNB")
+#else
+    CALL WriteDataToCSV(VarNames(:) ,values, TRIM("out_visu_hmap_axisNB.csv") ,append_in=.FALSE.)
+#endif
+  END IF
 END SUBROUTINE Visu_axisNB
 
 !===================================================================================================================================

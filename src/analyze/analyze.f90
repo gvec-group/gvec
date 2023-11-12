@@ -70,6 +70,7 @@ visu2D    = GETINT('visu2D',Proposal=0)
 visu3D    = GETINT('visu3D',Proposal=0)   
 SFL_theta = GETLOGICAL('SFL_theta',Proposal=.FALSE.)   
 visuQ     = GETINT('visuQ',Proposal=0)   
+outFileType  = GETINT('outfileType',Proposal=1)   
 
 visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
 visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))

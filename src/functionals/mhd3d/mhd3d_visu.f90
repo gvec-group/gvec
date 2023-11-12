@@ -137,9 +137,10 @@ USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
 USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime,Eval_chiPrime,Eval_p_prime
 USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota_Prime,Eval_Phi_TwoPrime
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
-USE MODgvec_Analyze_Vars,   ONLY: SFL_theta
+USE MODgvec_Analyze_Vars,   ONLY: SFL_theta,outfileType
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -152,7 +153,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: i_s,j_s,i_m,i_n,iElem,nElems,nplot(3),minElem,maxElem,n_s,mn_IP(2),ival
+  INTEGER  :: i_s,j_s,i_m,i_n,iElem,nElems,nplot(3),minElem,maxElem,n_s,mn_IP(2),ival,i,j
   REAL(wp) :: spos,xIP(2),q(3),q_thet(3),q_zeta(3)
   REAL(wp) :: X1_s(X1_base%f%modes),F_X1_s(X1_base%f%modes),dX1ds(X1_base%f%modes)
   REAL(wp) :: X2_s(X2_base%f%modes),F_X2_s(X2_base%f%modes),dX2ds(X2_base%f%modes)
@@ -169,7 +170,7 @@ IMPLICIT NONE
              VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,VP_MscaleF
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
-  REAL(wp) :: var_visu_1d(nVal+3,np_in(1)*sgrid%nElems)
+  REAL(wp) :: var_visu_1d(nVal+3,(np_in(1)-1)*sgrid%nElems+1)
   REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
   REAL(wp) :: theta_star,sqrtG
   CHARACTER(LEN=40) :: CoordNames(3)
@@ -211,11 +212,12 @@ IMPLICIT NONE
   REAL(wp) :: Js,Jthet,Jzeta
 #endif
   REAL(wp) :: Jcart(3)
+  REAL(wp),ALLOCATABLE :: tmpcoord(:,:,:,:),tmpvar(:,:,:,:) 
 !===================================================================================================================================
   IF(only_planes)THEN
-    SWRITE(UNIT_stdOut,'(A)') 'Start visu planes...'
+    SWRITE(UNIT_stdOut,'(A)') "Start "//MERGE("visuQ","visu ",visu_q_as_xyz)//" planes..."
   ELSE
-    SWRITE(UNIT_stdOut,'(A)') 'Start visu 3D...'
+    SWRITE(UNIT_stdOut,'(A)') "Start "//MERGE("visuQ","visu ",visu_q_as_xyz)//" 3D ..."
   END IF
   IF((minmax(1,1)-minmax(1,0)).LE.1e-08)THEN
     SWRITE(UNIT_stdOut,'(A,F6.3,A,F6.3)') &
@@ -713,24 +715,54 @@ IMPLICIT NONE
                           var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
   ELSE
     !3D
-    nplot(1:3)=(/n_s,n_s,mn_IP(2)/)-1
-    WRITE(filename,'(A,"_3D_",I4.4,"_",I8.8,".vtu")') &
-      TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)),outputLevel,fileID
-    CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
-                        coord_visu(:,:,:,:,:,minElem:maxElem), &
-                          var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename))
+    WRITE(filename,'(A,"_3D_",I4.4,"_",I8.8,"")') & 
+        TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)),outputLevel,fileID
+    IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
+      nplot(1:3)=(/n_s,n_s,mn_IP(2)/)-1
+      CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
+                          coord_visu(:,:,:,:,:,minElem:maxElem), &
+                            var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename)//".vtu")
+    END IF
+    IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
+      ALLOCATE(tmpcoord(1:3,1:(n_s-1)*(maxElem-minElem+1)+1,1:(n_s-1)*mn_IP(1)+1,mn_IP(2)))
+      ALLOCATE(tmpvar(1:nVal,1:(n_s-1)*(maxElem-minElem+1)+1,1:(n_s-1)*mn_IP(1)+1,mn_IP(2)))
+      DO i_n=1,mn_IP(2)
+        j=1
+        DO i_m=1,mn_IP(1); DO j_s=1,MERGE(n_s-1,n_s,i_m.LT.mn_IP(1))
+           i=1
+           DO iElem=minElem,maxElem;   DO i_s=1,MERGE(n_s-1,n_s,iElem.LT.maxElem)
+             tmpcoord(:,i,j,i_n)=coord_visu( :,i_s,j_s,i_n,i_m,iElem)
+             tmpvar(  :,i,j,i_n)=var_visu(   :,i_s,j_s,i_n,i_m,iElem)
+             i=i+1
+           END DO; END DO
+           j=j+1
+        END DO; END DO
+      END DO
+      CALL WriteDataToNETCDF(3,3,nVal,(/(maxElem-minElem+1)*(n_s-1)+1,mn_IP(1)*(n_s-1)+1,mn_IP(2)/),&
+                          (/"dim_rho  ","dim_theta","dim_zeta "/),VarNames, &
+                          tmpcoord,tmpvar, TRIM(filename))
+      DEALLOCATE(tmpcoord,tmpvar)
+    END IF !outfileType
   END IF
   __PERFOFF("write_visu")
-  WRITE(filename,'(A,"_1D_",I4.4,"_",I8.8,".csv")') &
+  WRITE(filename,'(A,"_1D_",I4.4,"_",I8.8)') &
     TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)),outputLevel,fileID
   CoordNames(1)="X"
   CoordNames(2)="Y"
   CoordNames(3)="Z"
-  var_visu_1d(1:3,:)   =RESHAPE(coord_visu(:,:,1,1,1,:),(/   3,n_s*nElems/)) 
-  var_visu_1d(4:3+nval,:)=RESHAPE(var_visu(:,:,1,1,1,:),(/nVal,n_s*nElems/)) 
-  CALL WriteDataToCSV((/CoordNames,VarNames(:)/) ,var_visu_1d,TRIM(filename)  &
+  i=0 
+  DO iElem=1,nElems;   DO i_s=1,MERGE(n_s-1,n_s,iElem.LT.nElems)
+    var_visu_1d(1:3,i)     =coord_visu(:,i,1,1,1,iElem)
+    var_visu_1d(4:3+nval,i)=var_visu(  :,i,1,1,1,iElem)
+    i=i+1
+  END DO; END DO
+#if NETCDF
+  CALL WriteDataToNETCDF(1,3,nVal-3,(/(n_s-1)*nElems+1/),(/"dim_rho"/), &
+       VarNames(4:nVal),var_visu_1d(1:3,:),var_visu_1d(4:3+nVal,:), TRIM(filename))
+#else
+  CALL WriteDataToCSV((/CoordNames,VarNames(:)/) ,var_visu_1d,TRIM(filename)//".csv"  &
                                   ,append_in=.FALSE.,vfmt_in='E15.5')
-
+#endif
   
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
   __PERFOFF("output_visu")
