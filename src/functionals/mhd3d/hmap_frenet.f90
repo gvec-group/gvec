@@ -250,7 +250,7 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
   REAL(wp)              :: zeta,sigma,lp,absB,kappa,tau,eps
   INTEGER               :: iVar,ivisu,itest
-  INTEGER,PARAMETER     :: nVars=17
+  INTEGER,PARAMETER     :: nVars=26
   CHARACTER(LEN=20)     :: VarNames(1:nVars)
   REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1) 
 !===================================================================================================================================
@@ -265,6 +265,9 @@ IMPLICIT NONE
   VarNames(iVar+1       )="lprime"          ;iVar=iVar+1
   VarNames(iVar+1       )="kappa"           ;iVar=iVar+1
   VarNames(iVar+1       )="tau"             ;iVar=iVar+1
+  VarNames(ivar+1:iVar+3)=(/ "X0pX", "X0pY", "X0pZ"/);iVar=iVar+3
+  VarNames(ivar+1:iVar+3)=(/ "X0ppX", "X0ppY", "X0ppZ"/);iVar=iVar+3
+  VarNames(ivar+1:iVar+3)=(/ "X0pppX", "X0pppY", "X0pppZ"/);iVar=iVar+3
   
 !  values=0.
   DO ivisu=1,nvisu*sf%nfp+1
@@ -301,6 +304,9 @@ IMPLICIT NONE
     values(iVar+1       ,ivisu)=lp                ;iVar=iVar+1
     values(iVar+1       ,ivisu)=kappa             ;iVar=iVar+1
     values(iVar+1       ,ivisu)=tau               ;iVar=iVar+1
+    values(ivar+1:iVar+3,ivisu)=X0p               ;iVar=iVar+3
+    values(ivar+1:iVar+3,ivisu)=X0pp              ;iVar=iVar+3
+    values(ivar+1:iVar+3,ivisu)=X0ppp             ;iVar=iVar+3
   END DO !ivisu
   IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
     CALL WriteDataToVTK(1,3,nVars-3,(/nvisu*sf%nfp/),1,VarNames(4:nVars),values(1:3,:),values(4:nVars,:),"visu_hmap_frenet.vtu")

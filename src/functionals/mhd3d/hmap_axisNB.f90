@@ -403,7 +403,7 @@ IMPLICIT NONE
   VarNames(ivar+1:iVar+3)=(/"TX","TY","TZ"/);iVar=iVar+3
   VarNames(ivar+1:iVar+3)=(/"NX","NY","NZ"/);iVar=iVar+3
   VarNames(ivar+1:iVar+3)=(/"BX","BY","BZ"/);iVar=iVar+3
-  VarNames(iVar+1       )="zeta/(2pi/nfp)"  ;iVar=iVar+1
+  VarNames(iVar+1       )="zeta_norm"       ;iVar=iVar+1
   VarNames(iVar+1       )="lprime"          ;iVar=iVar+1
   
 !  values=0.

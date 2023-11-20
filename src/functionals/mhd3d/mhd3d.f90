@@ -87,7 +87,7 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: proposal_X1_sin_cos="_cos_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
-  REAL(wp)         :: pres_scale
+  REAL(wp)         :: pres_scale,scale_minor_radius
   CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
 !===================================================================================================================================
@@ -171,12 +171,13 @@ SUBROUTINE InitMHD3D(sf)
     END IF
     gamm = 0.0_wp
     nfp_loc = nfp
-    !hmap: depends on how vmec data is read:
-    IF(switchZeta)THEN  
-      which_hmap=1 !hmap_RZ
-    ELSE
-      which_hmap=2 !hmap_RphiZ
-    END IF
+    which_hmap=1 !hmap_RZ
+!    !hmap: depends on how vmec data is read:
+!    IF(switchZeta)THEN  
+!      which_hmap=1 !hmap_RZ
+!    ELSE
+!      which_hmap=2 !hmap_RphiZ
+!    END IF
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
 
@@ -337,9 +338,11 @@ SUBROUTINE InitMHD3D(sf)
       END ASSOCIATE
     END IF !init_BC
   ELSE !getBoundaryFromFile
-    CALL BFF%convert_to_modes(X1_base%f,X2_base%f,X1_b,X2_b)
+    scale_minor_radius=GETREAL("scale_minor_radius",Proposal=1.0_wp)
+    CALL BFF%convert_to_modes(X1_base%f,X2_base%f,X1_b,X2_b,scale_minor_radius)
     CALL BFF%free()
   END IF
+
   
 
   X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  

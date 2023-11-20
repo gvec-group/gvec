@@ -193,13 +193,14 @@ END SUBROUTINE READNETCDF
 !!
 !===================================================================================================================================
 
-SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
+SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor_radius)
 ! MODULES
   USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
   CLASS(t_fbase), INTENT(IN):: x1_fbase_in,x2_fbase_in
+  REAL(wp), INTENT(IN)  :: scale_minor_radius 
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
   REAL(wp), INTENT(INOUT)  :: X1_b(x1_fbase_in%modes),X2_b(x2_fbase_in%modes)
@@ -225,12 +226,12 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
   IF(ALL(x1_fbase_in%mn_max.LE.mn_max_pts))THEN  !X1_base is smaller/equal
     CALL fbase_new( X_fbase, x1_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), x1_fbase_in%exclude_mn_zero)
-    X1_b = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+    X1_b = X_fbase%initDOF(RESHAPE(sf%X*scale_minor_radius,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
   ELSE 
     CALL fbase_new( X_fbase, mn_max_pts,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), x1_fbase_in%exclude_mn_zero)
     ALLOCATE(xydofs(1,1:X_fbase%modes),X12dofs(1,1:x1_fbase_in%modes))
-    xydofs(1,:) = X_fbase%initDOF(RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+    xydofs(1,:) = X_fbase%initDOF(RESHAPE(sf%X*scale_minor_radius,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
     CALL x1_fbase_in%change_base(X_fbase,1,xydofs,X12dofs)
     X1_b=X12dofs(1,:)
     DEALLOCATE(xydofs,X12dofs)
@@ -238,12 +239,12 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
   IF(ALL(x2_fbase_in%mn_max.LE.mn_max_pts))THEN  !X2_base is smaller/equal
     CALL fbase_new( Y_fbase, x2_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  x2_fbase_in%exclude_mn_zero)
-    X2_b = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+    X2_b = Y_fbase%initDOF(RESHAPE(sf%Y*scale_minor_radius,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
   ELSE 
     CALL fbase_new( Y_fbase, mn_max_pts,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  x2_fbase_in%exclude_mn_zero)
     ALLOCATE(xydofs(1,1:Y_fbase%modes),X12dofs(1,1:x2_fbase_in%modes))
-    xydofs(1,:) = Y_fbase%initDOF(RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
+    xydofs(1,:) = Y_fbase%initDOF(RESHAPE(sf%Y*scale_minor_radius,(/sf%ntheta*sf%nzeta/)),thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
     CALL x2_fbase_in%change_base(Y_fbase,1,xydofs,X12dofs)
     X2_b=X12dofs(1,:)
   END IF
@@ -259,9 +260,11 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b)
 
   WRITE(UNIT_stdOut,'(6X,A)')      ' => APPROXIMATION ERROR COMPARED TO INPUT POINTS:'
   WRITE(UNIT_stdOut,'(6X,A,E11.3)')'     max(|X1_fourier-X_input|)=',&
-                      MAXVAL(ABS(x1_fbase_in%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X1_b)-RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/))))
+                      MAXVAL(ABS(x1_fbase_in%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X1_b)/scale_minor_radius &
+                             -RESHAPE(sf%X,(/sf%ntheta*sf%nzeta/))))
   WRITE(UNIT_stdOut,'(6X,A,E11.3)')'     max(|X2_fourier-Y_input|)', &
-                      MAXVAL(ABS(x2_fbase_in%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X2_b)-RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/))))
+                      MAXVAL(ABS(x2_fbase_in%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X2_b)/scale_minor_radius &
+                             -RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/))))
 
   
   CALL X_fbase%free()

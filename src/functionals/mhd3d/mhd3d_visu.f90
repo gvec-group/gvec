@@ -161,13 +161,14 @@ IMPLICIT NONE
   REAL(wp) :: X1_visu,X2_visu,dX1_ds,dX2_ds,dX1_dthet,dX1_dzeta,dX2_dthet,dX2_dzeta
   REAL(wp) :: dLA_dthet,dLA_dzeta,iota_s,pres_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 #if (defined(VISU_J_FD) || defined(VISU_J_EXACT))
-  INTEGER,PARAMETER  :: nVal=32
+  INTEGER,PARAMETER  :: nVal=34
   INTEGER            :: VP_J
 #else
-  INTEGER,PARAMETER  :: nVal=29
+  INTEGER,PARAMETER  :: nVal=31
 #endif
   INTEGER  ::VP_LAMBDA,VP_SQRTG,VP_PHI,VP_IOTA,VP_PRES,VP_dp_ds,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, &
-             VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,VP_MscaleF
+             VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,VP_MscaleF,&
+             VP_Ipol,VP_Itor
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu_1d(nVal+3,(np_in(1)-1)*sgrid%nElems+1)
@@ -176,7 +177,7 @@ IMPLICIT NONE
   CHARACTER(LEN=40) :: CoordNames(3)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
-  REAL(wp) :: Bthet, Bzeta,Bcart(3)
+  REAL(wp) :: Bthet, Bzeta,Bcart(3),Ipol_int,Itor_int
   REAL(wp) :: grad_s(3), grad_thet(3),grad_zeta(3)
 #ifdef VISU_J_FD
   REAL(wp) :: xIP_eps(2)
@@ -264,6 +265,8 @@ IMPLICIT NONE
   VP_gr_z   =iVal;iVal=iVal+3; VarNames(VP_gr_z  )="grad_zX"
                                VarNames(VP_gr_z+1)="grad_zY"
                                VarNames(VP_gr_z+2)="grad_zZ"
+  VP_Ipol   =iVal;iVal=iVal+1; VarNames(VP_Ipol  )="Ipol"
+  VP_Itor   =iVal;iVal=iVal+1; VarNames(VP_Itor  )="Itor"
 #if (defined(VISU_J_FD) || defined(VISU_J_EXACT))
   VP_J      =iVal;iVal=iVal+3; VarNames(VP_J   )="JvecX"
                                VarNames(VP_J+1 )="JvecY"
@@ -338,6 +341,8 @@ IMPLICIT NONE
       phiPrime_s_eps=Eval_PhiPrime(spos+delta_s)
 #endif
       !define theta2, which corresponds to the theta angle of a given theta_star=theta
+      Itor_int = 0.
+      Ipol_int = 0.
 
 !$OMP PARALLEL DO COLLAPSE(3)     &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
@@ -367,8 +372,9 @@ IMPLICIT NONE
 !$OMP           Js,Jthet,Jzeta,Jcart, &
 #endif
 !$OMP           Bcart, Bthet, Bzeta, grad_s, grad_thet, grad_zeta) &
+!$OMP   REDUCTION(+:Itor_int,Ipol_int) &
 !$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
-!$OMP          VP_LAMBDA,VP_SQRTG,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, &
+!$OMP          VP_LAMBDA,VP_SQRTG,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, VP_Ipol,VP_Itor,&
 !$OMP          VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,iota_s,visu_q_as_xyz, &
 #ifdef VISU_J_FD
 !$OMP          X1_s_eps,X2_s_eps,LA_s_eps,dX1ds_eps,dX2ds_eps,VP_J,iota_s_eps,PhiPrime_s_eps,delta_s,&
@@ -443,6 +449,11 @@ IMPLICIT NONE
             Bcart(:) =  ( e_thet(:) * Bthet + e_zeta(:) * Bzeta) /sqrtG
 
             var_visu(VP_B:VP_B+2,i_s,j_s,i_n,i_m,iElem)= Bcart(:)
+            !poloidal and toroidal current profiles, line integral: integration over one angle /average over other...
+            !Itor= int_0^2pi B_theta dtheta = (nfp/2pi) int_0^2pi int_0^(2pi/nfp) B_theta dtheta dzeta
+            !Ipol= int_0^2pi B_zeta  dzeta  = nfp* int_0^(2pi/nfp) B_zeta dzeta = (nfp/2pi) int_0^2pi int_0^(2pi/nfp) B_zeta  dtheta dzeta
+            Itor_int = Itor_int+ SUM(Bcart(:)*e_thet(:))   !B_theta=B.e_thet 
+            Ipol_int = Ipol_int+ SUM(Bcart(:)*e_zeta(:))   !B_zeta =B.e_zeta
 
            ! Get J components:
             
@@ -665,6 +676,10 @@ IMPLICIT NONE
         END DO !i_n
       END DO !i_m
 !OMP END PARALLEL DO
+      Itor_int = Itor_int*TWOPI/(REAL((mn_IP(1)*mn_IP(2)*n_s),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+      Ipol_int = Ipol_int*TWOPI/(REAL((mn_IP(1)*mn_IP(2)*n_s),wp))
+      var_visu(VP_Itor,i_s,:,:,:,iElem) = Itor_int/(2.0e-7_wp*TWOPI) !*1/mu_0
+      var_visu(VP_Ipol,i_s,:,:,:,iElem) = Ipol_int/(2.0e-7_wp*TWOPI) !*1/mu_0
     END DO !i_s
   END DO !iElem
 
@@ -750,10 +765,10 @@ IMPLICIT NONE
   CoordNames(1)="X"
   CoordNames(2)="Y"
   CoordNames(3)="Z"
-  i=0 
+  i=1 
   DO iElem=1,nElems;   DO i_s=1,MERGE(n_s-1,n_s,iElem.LT.nElems)
-    var_visu_1d(1:3,i)     =coord_visu(:,i,1,1,1,iElem)
-    var_visu_1d(4:3+nval,i)=var_visu(  :,i,1,1,1,iElem)
+    var_visu_1d(1:3,i)     =coord_visu(:,i_s,1,1,1,iElem)
+    var_visu_1d(4:3+nval,i)=var_visu(  :,i_s,1,1,1,iElem)
     i=i+1
   END DO; END DO
 #if NETCDF
