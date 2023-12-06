@@ -97,9 +97,13 @@ OPTION(USE_OPENMP "enable OpenMP" ON)
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 MARK_AS_ADVANCED(USE_FTIMINGS)
-OPTION(USE_VISU_J_FD "enable visualization of current with Finite difference (slow)" OFF)
-IF(USE_VISU_J_FD)
+SET (USE_VISU_J "off" CACHE STRING "enable visualization of current: off/ with Finite Difference / analytical")
+SET_PROPERTY(CACHE USE_VISU_J PROPERTY STRINGS off FD ANA )
+
+IF(USE_VISU_J STREQUAL "FD")
   ADD_DEFINITIONS("-DVISU_J_FD")
+ELSEIF(USE_VISU_J STREQUAL "ANA")
+  ADD_DEFINITIONS("-DVISU_J_EXACT")
 ENDIF()
 # =========================================================================
 # Build type
@@ -322,6 +326,7 @@ IF(COMPILE_GVEC)
                             ./src/analyze/*.f90
                             ./src/lbfgsb/*.f90
                             ./src/vmec/*.f90
+                            ./src/io_netcdf.f90
                             ./src/output/*.f90
                             ./src/restart/*.f90 )
 
