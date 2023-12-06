@@ -65,6 +65,39 @@ IMPLICIT NONE
 END FUNCTION Eval_iota
 
 !===================================================================================================================================
+!> evaluate derivative in s of rotational transform, iota(phi_norm(s)) =chi'/phi'
+!! NOTE that since VMEC has a definition of a positive iota with respect to R,phi,Z coordinate system, but GVEC is in (R,Z,phi)
+!! the sign of iota in GVEC is opposite to the sign in VMEC
+!!
+!===================================================================================================================================
+FUNCTION Eval_iota_Prime(spos)
+! MODULES
+USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_DERIV
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs
+USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
+!USE MODgvec_VMEC_vars  ,ONLY: chi_spl
+USE MODgvec_VMEC_vars  ,ONLY: iota_spl
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_iota_Prime
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: phi_norm
+!===================================================================================================================================
+  phi_norm=Eval_PhiNorm(spos)
+  SELECT CASE(which_init)
+  CASE(0)
+    eval_iota_prime=Eval1DPoly_deriv(n_iota_coefs,iota_coefs,phi_norm)*Eval_PhiNormPrime(spos)
+  CASE(1)
+    eval_iota_prime=VMEC_EvalSpl(1,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
+  END SELECT
+END FUNCTION Eval_iota_Prime
+
+!===================================================================================================================================
 !> evaluate pressure profile p(phi_norm(s))
 !!
 !===================================================================================================================================
@@ -251,6 +284,27 @@ IMPLICIT NONE
   Eval_PhiPrime=Phi_edge*Eval_PhiNormPrime(spos)
 
 END FUNCTION Eval_PhiPrime
+
+!===================================================================================================================================
+!> evaluate s-derivative of toroidal flux Phi
+!!
+!===================================================================================================================================
+FUNCTION Eval_Phi_TwoPrime(spos)
+! MODULES
+USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)               :: Eval_Phi_TwoPrime
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+  Eval_Phi_TwoPrime=Phi_edge*2.0_wp !Eval_PhiNorm_TwoPrime(spos)
+
+END FUNCTION Eval_Phi_TwoPrime
 
 !===================================================================================================================================
 !> evaluate normalized toroidal flux Phi/Phi_edge=s^2, this variable is used for the input profiles of iota and pressure!!!
