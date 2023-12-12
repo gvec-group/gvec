@@ -73,6 +73,8 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   WRITE(Unit_stdOut,'(132("="))')
 !$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
 !$ WRITE(Unit_stdOut,'(132("="))')
+#include  "configuration-cmake.f90"
+  WRITE(Unit_stdOut,'(132("="))')
 
 
   testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
