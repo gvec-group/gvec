@@ -411,3 +411,61 @@ IF(NOT COMPILE_GVEC_TO_GENE)
 ELSE()
   INCLUDE(cmake/install_gene.cmake)
 ENDIF()
+
+
+# =========================================================================
+# USERBLOCK + Preproc_flags
+# =========================================================================
+# A function to get all user defined variables with a specified prefix
+function (getListOfVarsStartingWith _prefix _varResult)
+    GET_CMAKE_PROPERTY(_vars CACHE_VARIABLES)
+    STRING(REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
+    SET(${_varResult} ${_matchedVars} PARENT_SCOPE)
+endfunction()
+
+# A function to get all user[A-Za-z0-9_]* defined variables with a specified string
+function (getListOfVarsWith _str _varResult)
+    GET_CMAKE_PROPERTY(_vars CACHE_VARIABLES)
+    STRING(REGEX MATCHALL ";([A-Za-z0-9_]*${_str}[A-Za-z0-9_]*)" _matchedVars "${_vars}")
+    SET(${_varResult} ${_matchedVars} PARENT_SCOPE)
+endfunction()
+
+# Get the latest abbreviated commit hash of the working branch
+ execute_process(
+     COMMAND git log -n 1 --format=%H
+     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+     OUTPUT_VARIABLE GIT_HASH
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+     )
+# Get the latest abbreviated branch name
+ execute_process(
+     COMMAND git rev-parse --abbrev-ref HEAD
+     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+     OUTPUT_VARIABLE GIT_BRANCH
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+     )
+
+# A function to get all user defined variables with a specified prefix
+SET(configuration ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90)
+FILE(WRITE ${configuration} "!This file is included during compilation in gvec.f90 to show the configuration on the screen output. \n")
+FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A,3(1X,A))')  \"GIT_BRANCH:\",\"'${GIT_BRANCH}'\",\",GIT_HASH:\",\"'${GIT_HASH}'\"\n")
+FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A)') \" THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:\" \n")
+GETLISTOFVARSWITH("GVEC" gvecVars)
+GETLISTOFVARSSTARTINGWITH("USE_" useVars)
+GETLISTOFVARSSTARTINGWITH("CMAKE_BUILD_TYPE" cbVars)
+GETLISTOFVARSSTARTINGWITH("CMAKE_HOSTNAME" hnVars)
+FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
+  GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
+#  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+#  IF(${boolian})
+#    #FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
+#    FILE(APPEND ${configuration} "  WRITE(UNIT_stdOut,*)  \"   CMAKE,OPTION: ${_var} ${${_var}} \" \n")
+#  ELSE()
+    IF(${_var})
+      STRING(REPLACE "\\" "\\\\" ${_var} ${${_var}})
+    ENDIF()
+    #FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
+    FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A18,A30,A3,A40)')  \"   CMAKE-OPTION : \",\" ${_var} \",\" : \",\"${${_var}}\"\n")
+#  ENDIF()
+ENDFOREACH()
+
