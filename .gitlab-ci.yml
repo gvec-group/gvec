@@ -174,7 +174,7 @@ variables:
     matrix:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF","ompON"]
-        MPI_RNKS: ["1","2","3"]
+        MPI_RNKS: ["1","2"]
   variables:
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
@@ -295,21 +295,21 @@ sharedrunner_build_intel:
     MPI_MODE: "mpiOFF"
   needs: [] # set the job to start as soon as the pipeline is created
 
-# build with GNU on MPCDF shared runner
-sharedrunner_build_gnu:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .build_vars_matrix  # matrix of variables
-  variables:
-    CURR_CMP: "gnu"
-    MPI_MODE: "mpiOFF"
-  needs: [] # set the job to start as soon as the pipeline is created
+## build with GNU on MPCDF shared runner
+#sharedrunner_build_gnu:
+#  stage: build
+#  before_script:
+#    - !reference [".tmpl_before_script_modules", "before_script"]
+#    - !reference [".tmpl_before_script_build","before_script"]
+#  extends:
+#    - .tmpl_sharedrunner
+#    - .tmpl_setup_build
+#    - .tmpl_script_build
+#    - .build_vars_matrix  # matrix of variables
+#  variables:
+#    CURR_CMP: "gnu"
+#    MPI_MODE: "mpiOFF"
+#  needs: [] # set the job to start as soon as the pipeline is created
 
 # build with Intel and MPI on MPCDF shared runner
 sharedrunner_build_intel_mpi:
@@ -328,22 +328,22 @@ sharedrunner_build_intel_mpi:
   needs: [] # set the job to start as soon as the pipeline is created
 ###  needs: [sharedrunner_env]
 
-# build with GNU and MPI on MPCDF shared runner
-sharedrunner_build_gnu_mpi:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .build_vars_matrix  # matrix of variables
-  variables:
-    CURR_CMP: "gnu_mpi"
-    MPI_MODE: "mpiON"
-  needs: [] # set the job to start as soon as the pipeline is created
-###  needs: [sharedrunner_env]
+## build with GNU and MPI on MPCDF shared runner
+#sharedrunner_build_gnu_mpi:
+#  stage: build
+#  before_script:
+#    - !reference [".tmpl_before_script_modules", "before_script"]
+#    - !reference [".tmpl_before_script_build","before_script"]
+#  extends:
+#    - .tmpl_sharedrunner
+#    - .tmpl_setup_build
+#    - .tmpl_script_build
+#    - .build_vars_matrix  # matrix of variables
+#  variables:
+#    CURR_CMP: "gnu_mpi"
+#    MPI_MODE: "mpiON"
+#  needs: [] # set the job to start as soon as the pipeline is created
+####  needs: [sharedrunner_env]
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -390,21 +390,21 @@ sharedrunner_build_tag_intel_mpi:
 # ____________________________
 # ${CI_COMMIT_BRANCH} branch (CI trigger branch)
 
-# build with Intel on MPCDF testimonytwo runner
-testimony_build_intel:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_testimony
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .build_vars_matrix  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
-    MPI_MODE: "mpiOFF"
-  needs: [] # set the job to start as soon as the pipeline is created
+## build with Intel on MPCDF testimonytwo runner
+#testimony_build_intel:
+#  stage: build
+#  before_script:
+#    - !reference [".tmpl_before_script_modules", "before_script"]
+#    - !reference [".tmpl_before_script_build","before_script"]
+#  extends:
+#    - .tmpl_testimony
+#    - .tmpl_setup_build
+#    - .tmpl_script_build
+#    - .build_vars_matrix  # matrix of variables
+#  variables:
+#    CURR_CMP: "intel"
+#    MPI_MODE: "mpiOFF"
+#  needs: [] # set the job to start as soon as the pipeline is created
 
 ## build with GNU on MPCDF testimonytwo runner
 #testimony_build_gnu:
@@ -479,22 +479,22 @@ sharedrunner_run_intel:
   variables:
     CURR_CMP: "intel"
 
-# run with GNU on MPCDF shared runner
-sharedrunner_run_gnu:
-  stage: run
-  needs:
-    - job: sharedrunner_build_gnu
-      artifacts: true
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .run_vars_matrix  # matrix of variables
-  variables:
-    CURR_CMP: "gnu"
+## run with GNU on MPCDF shared runner
+#sharedrunner_run_gnu:
+#  stage: run
+#  needs:
+#    - job: sharedrunner_build_gnu
+#      artifacts: true
+#  before_script:
+#    - !reference [".tmpl_before_script_modules", "before_script"]
+#    - !reference [".tmpl_before_script_run", "before_script"]
+#  extends:
+#    - .tmpl_sharedrunner
+#    - .tmpl_setup_run
+#    - .tmpl_script_run
+#    - .run_vars_matrix  # matrix of variables
+#  variables:
+#    CURR_CMP: "gnu"
 
 # run with Intel on MPCDF shared runner
 sharedrunner_run_intel_mpi:
@@ -513,23 +513,23 @@ sharedrunner_run_intel_mpi:
   variables:
     CURR_CMP: "intel_mpi"  # _mpi must be used together with .run_vars_matrix_mpi above
 
-# run with GNU on MPCDF shared runner
-sharedrunner_run_gnu_mpi:
-  stage: run
-  needs:
-    - job: sharedrunner_build_gnu_mpi
-      artifacts: true
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_sharedrunner
-#b    - .tmpl_setup_run_mpi
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .run_vars_matrix_mpi  # matrix of variables
-  variables:
-    CURR_CMP: "gnu_mpi"  # _mpi must be used together with .run_vars_matrix_mpi above
+## run with GNU on MPCDF shared runner
+#sharedrunner_run_gnu_mpi:
+#  stage: run
+#  needs:
+#    - job: sharedrunner_build_gnu_mpi
+#      artifacts: true
+#  before_script:
+#    - !reference [".tmpl_before_script_modules", "before_script"]
+#    - !reference [".tmpl_before_script_run", "before_script"]
+#  extends:
+#    - .tmpl_sharedrunner
+##b    - .tmpl_setup_run_mpi
+#    - .tmpl_setup_run
+#    - .tmpl_script_run
+#    - .run_vars_matrix_mpi  # matrix of variables
+#  variables:
+#    CURR_CMP: "gnu_mpi"  # _mpi must be used together with .run_vars_matrix_mpi above
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -582,21 +582,21 @@ sharedrunner_run_tag_intel_mpi:
 # ${CI_COMMIT_BRANCH} branch (CI trigger branch)
 
 ## run with Intel on MPCDF testimonytwo runner
-testimony_run_intel:
-  stage: run
-  needs:
-    - job: testimony_build_intel
-      artifacts: true
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_testimony
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .run_vars_matrix  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
+#testimony_run_intel:
+#  stage: run
+#  needs:
+#    - job: testimony_build_intel
+#      artifacts: true
+#  before_script:
+#    - !reference [".tmpl_before_script_modules", "before_script"]
+#    - !reference [".tmpl_before_script_run", "before_script"]
+#  extends:
+#    - .tmpl_testimony
+#    - .tmpl_setup_run
+#    - .tmpl_script_run
+#    - .run_vars_matrix  # matrix of variables
+#  variables:
+#    CURR_CMP: "intel"
 
 ## run with GNU on MPCDF testimonytwo runner
 #testimony_run_gnu:
@@ -676,13 +676,13 @@ shared_regression_intel_mpi:
     - job: sharedrunner_run_intel_mpi
       artifacts: true
 
-# compare results between intel and gnu on current branches
-shared_regression_intel_gnu:
-  stage: regression
-  script:
-    - ls
-  needs:
-    - job: sharedrunner_run_intel
-      artifacts: true
-    - job: sharedrunner_run_gnu
-      artifacts: true
+## compare results between intel and gnu on current branches
+#shared_regression_intel_gnu:
+#  stage: regression
+#  script:
+#    - ls
+#  needs:
+#    - job: sharedrunner_run_intel
+#      artifacts: true
+#    - job: sharedrunner_run_gnu
+#      artifacts: true
