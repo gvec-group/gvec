@@ -19,6 +19,7 @@ workflow:
 variables:
   GIT_STRATEGY: none #clone
   HASH_TAG: $CI_COMMIT_BRANCH
+  HASH_TAG_RELEASE: develop_mpi_par
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
@@ -102,7 +103,7 @@ variables:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF", "ompON"]
   variables:
-    HASH_TAG: develop_mpi_par
+    HASH_TAG: ${HASH_TAG_RELEASE}
 #c  variables:
 #c    CMP_LABL: ${CURR_CMP}
 #c    CMP_LABL: ${CURR_CMP}"_mpi"
@@ -192,7 +193,7 @@ variables:
 #                             check issue report: https://gitlab.com/gitlab-org/gitlab/-/issues/428679
 #                             workaround is to use the keyword "variables:" instead (like below) 
   variables:
-    HASH_TAG: develop_mpi_par
+    HASH_TAG: ${HASH_TAG_RELEASE}
     CMP_MODE: "Debug"
     OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
@@ -206,7 +207,7 @@ variables:
         OMP_MODE: ["ompOFF","ompON"]
         MPI_RNKS: ["1","2"]
   variables:
-    HASH_TAG: develop_mpi_par
+    HASH_TAG: ${HASH_TAG_RELEASE}
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
@@ -243,8 +244,10 @@ variables:
     # only execute case 1 for now...
     - time python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} -execpre "${EXECPRE}" build_${BUILDNAME} |tee log_${CASENAME}_shortruns.txt
   artifacts:
-    name: "${HASH_TAG}_${CI_PIPELINE_ID}_${CASENAME}"
+#    name: "${HASH_TAG}_${CI_PIPELINE_ID}_${CASENAME}"
+    name: "${HASH_TAG}_${CASENAME}"
     paths:
+      - log_${CASENAME}_shortruns.txt
       - shortruns_${CASENAME}
     expire_in: 1 week
     when: always
@@ -658,23 +661,42 @@ sharedrunner_run_tag_intel_mpi:
 shared_regression_tag_intel:
   stage: regression
   script:
+    - pwd
     - ls
+    - echo ${CASENAME}
   needs:
     - job: sharedrunner_run_intel
       artifacts: true
     - job: sharedrunner_run_tag_intel
       artifacts: true
+  variables:
+    GIT_STRATEGY: fetch
 
 # compare results between intel and gnu on current branches
 shared_regression_intel_mpi:
   stage: regression
   script:
     - ls
+    - echo ${CASENAME_1}
+    - echo ${CASENAME_2}
   needs:
     - job: sharedrunner_run_intel
       artifacts: true
     - job: sharedrunner_run_intel_mpi
       artifacts: true
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF","ompON"]
+  variables:
+#    GIT_STRATEGY: fetch
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: intel
+    CURR_CMP_2: intel_mpi
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON_nranks2
+
 
 ## compare results between intel and gnu on current branches
 #shared_regression_intel_gnu:
