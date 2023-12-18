@@ -68,6 +68,12 @@
         "inherits": ["gvec_config_release","gvec_cache_vars_to_x"]
       },
       {
+        "name": "gvec_config_debug_all",
+        "displayName": "GVEC configure: debug build including all converters",
+        "hidden": false,
+        "inherits": ["gvec_config_debug","gvec_cache_vars_to_x"]
+      },
+      {
         "name": "gvec_cache_vars_to_x",
         "displayName": "GVEC compile all interfaces",
         "hidden": true,
