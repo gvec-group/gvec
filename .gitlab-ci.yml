@@ -38,6 +38,21 @@ variables:
 #
 # =================================================================================================================================
 
+# =================================================================================================================================
+# ISSUE FOUND WITH PARALLEL MATRICES
+# =================================================================================================================================
+
+#  parallel:
+#    matrix:
+#      - CMP_MODE: ["Debug"]
+#        OMP_MODE: ["ompON"] #only one element/variable in matrix: causes CI dependency line to break
+#                             check issue report: https://gitlab.com/gitlab-org/gitlab/-/issues/428679
+#                             workaround is to use the keyword "variables:" instead (like below) 
+#  variables:
+#    HASH_TAG: ${HASH_TAG_RELEASE}
+#    CMP_MODE: "Debug"
+#    OMP_MODE: "ompON"
+
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -46,7 +61,6 @@ variables:
 .tmpl_before_script_modules:
   before_script:
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
-#c    - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CMP_LABL}
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "env" (printout the enviroment for future reference)
@@ -90,9 +104,6 @@ variables:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
-#c  variables:
-#c    CMP_LABL: ${CURR_CMP}
-#c    CMP_LABL: ${CURR_CMP}"_mpi"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -104,9 +115,6 @@ variables:
         OMP_MODE: ["ompOFF", "ompON"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
-#c  variables:
-#c    CMP_LABL: ${CURR_CMP}
-#c    CMP_LABL: ${CURR_CMP}"_mpi"
 
 
 # ____________________________
@@ -141,7 +149,8 @@ variables:
     - make -j |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
   artifacts:
-    name: "${HASH_TAG}_${CI_PIPELINE_ID}_${BUILDNAME}"
+    name: "${CI_PIPELINE_ID}_${BUILDNAME}"
+#    name: "${HASH_TAG}_${CI_PIPELINE_ID}_${BUILDNAME}"
     paths:
       - build_${BUILDNAME}
       - log_${BUILDNAME}_*.txt
@@ -167,7 +176,6 @@ variables:
   variables:
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
-#c    CMP_LABL: ${CURR_CMP}
 
 # there are different issues with MPI_RNKS>4 in both runners
 .run_vars_matrix_mpi:
@@ -179,23 +187,18 @@ variables:
   variables:
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
-#c    CMP_LABL: ${CURR_CMP}"_mpi"
 
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
 .run_tag_vars_matrix:
-#  parallel:
-#    matrix:
-#      - CMP_MODE: ["Debug"]
-#        OMP_MODE: ["ompON"] #only one element/variable in matrix: causes CI dependency line to break
-#                             check issue report: https://gitlab.com/gitlab-org/gitlab/-/issues/428679
-#                             workaround is to use the keyword "variables:" instead (like below) 
+  parallel:
+    matrix:
+      - OMP_MODE: ["ompOFF","ompON"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
     CMP_MODE: "Debug"
-    OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
 
@@ -245,13 +248,35 @@ variables:
     - time python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} -execpre "${EXECPRE}" build_${BUILDNAME} |tee log_${CASENAME}_shortruns.txt
   artifacts:
 #    name: "${HASH_TAG}_${CI_PIPELINE_ID}_${CASENAME}"
-    name: "${HASH_TAG}_${CASENAME}"
+    name: "${CASENAME}"
     paths:
       - log_${CASENAME}_shortruns.txt
       - shortruns_${CASENAME}
     expire_in: 1 week
     when: always
 #    when: on_failure
+
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "regression"
+# =================================================================================================================================
+
+.tmpl_script_regression:
+  variables:
+    GIT_STRATEGY: fetch
+  script:
+    - numdiff --version
+    - echo shortruns_${CASENAME_1}
+    - echo shortruns_${CASENAME_2}
+    - python gitlab_regressions.py shortruns_${CASENAME_1} shortruns_${CASENAME_2}
+  artifacts:
+    name: "${CASENAME_1}_vs_${CASENAME_2}"
+    paths:
+      - log_compare_*.txt
+      - tmp*
+      - std*
+    expire_in: 1 week
+    when: on_failure
 
 
 # =================================================================================================================================
@@ -298,21 +323,21 @@ sharedrunner_build_intel:
     MPI_MODE: "mpiOFF"
   needs: [] # set the job to start as soon as the pipeline is created
 
-## build with GNU on MPCDF shared runner
-#sharedrunner_build_gnu:
-#  stage: build
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_build","before_script"]
-#  extends:
-#    - .tmpl_sharedrunner
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#    - .build_vars_matrix  # matrix of variables
-#  variables:
-#    CURR_CMP: "gnu"
-#    MPI_MODE: "mpiOFF"
-#  needs: [] # set the job to start as soon as the pipeline is created
+# build with GNU on MPCDF shared runner
+sharedrunner_build_gnu:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_sharedrunner
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "gnu"
+    MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
 
 # build with Intel and MPI on MPCDF shared runner
 sharedrunner_build_intel_mpi:
@@ -482,22 +507,22 @@ sharedrunner_run_intel:
   variables:
     CURR_CMP: "intel"
 
-## run with GNU on MPCDF shared runner
-#sharedrunner_run_gnu:
-#  stage: run
-#  needs:
-#    - job: sharedrunner_build_gnu
-#      artifacts: true
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_run", "before_script"]
-#  extends:
-#    - .tmpl_sharedrunner
-#    - .tmpl_setup_run
-#    - .tmpl_script_run
-#    - .run_vars_matrix  # matrix of variables
-#  variables:
-#    CURR_CMP: "gnu"
+# run with GNU on MPCDF shared runner
+sharedrunner_run_gnu:
+  stage: run
+  needs:
+    - job: sharedrunner_build_gnu
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_sharedrunner
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "gnu"
 
 # run with Intel on MPCDF shared runner
 sharedrunner_run_intel_mpi:
@@ -657,28 +682,40 @@ sharedrunner_run_tag_intel_mpi:
 # ---------------------------------------------------------------------------------------------------------------------------------
 # GitLab Shared Runners
 
-# compare results between current and tag branches
+# compare results between current and tag branches (no MPI)
 shared_regression_tag_intel:
   stage: regression
-  script:
-    - pwd
-    - ls
-    - echo ${CASENAME}
   needs:
     - job: sharedrunner_run_intel
       artifacts: true
     - job: sharedrunner_run_tag_intel
       artifacts: true
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF","ompON"]
   variables:
-    GIT_STRATEGY: fetch
+#    GIT_STRATEGY: fetch
+    CURR_CMP: intel # needed to load modules (numdiff cmd!)
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG_RELEASE}
+    CURR_CMP_1: ${CURR_CMP}
+    CURR_CMP_2: ${CURR_CMP}
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  extends:
+    - .tmpl_sharedrunner          # needed to load modules (numdiff cmd!)
+    - .tmpl_before_script_modules # needed to load modules (numdiff cmd!)
+    - .tmpl_script_regression
 
 # compare results between intel and gnu on current branches
 shared_regression_intel_mpi:
   stage: regression
   script:
-    - ls
-    - echo ${CASENAME_1}
-    - echo ${CASENAME_2}
+    - numdiff --version
+    - echo shortruns_${CASENAME_1}
+    - echo shortruns_${CASENAME_2}
+    - python gitlab_regressions.py shortruns_${CASENAME_1} shortruns_${CASENAME_2}
   needs:
     - job: sharedrunner_run_intel
       artifacts: true
@@ -689,22 +726,41 @@ shared_regression_intel_mpi:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF","ompON"]
   variables:
-#    GIT_STRATEGY: fetch
+    GIT_STRATEGY: fetch
+    CURR_CMP: intel # needed to load modules (numdiff cmd!)
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG}
-    CURR_CMP_1: intel
-    CURR_CMP_2: intel_mpi
+    CURR_CMP_1: ${CURR_CMP}
+    CURR_CMP_2: ${CURR_CMP}_mpi
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
     CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON_nranks2
+  extends:
+    - .tmpl_sharedrunner          # needed to load modules (numdiff cmd!)
+    - .tmpl_before_script_modules # needed to load modules (numdiff cmd!)
+    - .tmpl_script_regression
 
 
-## compare results between intel and gnu on current branches
-#shared_regression_intel_gnu:
-#  stage: regression
-#  script:
-#    - ls
-#  needs:
-#    - job: sharedrunner_run_intel
-#      artifacts: true
-#    - job: sharedrunner_run_gnu
-#      artifacts: true
+# compare results between intel and gnu on current branches (no MPI)
+shared_regression_intel_gnu:
+  stage: regression
+  needs:
+    - job: sharedrunner_run_intel
+      artifacts: true
+    - job: sharedrunner_run_gnu
+      artifacts: true
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF","ompON"]
+  variables:
+    CURR_CMP: intel # needed to load modules (numdiff cmd!)
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: ${CURR_CMP}
+    CURR_CMP_2: gnu
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  extends:
+    - .tmpl_sharedrunner          # needed to load modules (numdiff cmd!)
+    - .tmpl_before_script_modules # needed to load modules (numdiff cmd!)
+    - .tmpl_script_regression
