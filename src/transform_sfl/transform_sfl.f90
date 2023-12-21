@@ -127,7 +127,6 @@ SUBROUTINE transform_SFL_init(sf)
 USE MODgvec_Globals,ONLY:UNIT_stdOut
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_fbase  ,ONLY: sin_cos_map
-USE MODgvec_get_boozer
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -180,7 +179,6 @@ SUBROUTINE BuildTransform_SFL(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
 USE MODgvec_Globals,ONLY:UNIT_stdOut
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_fbase  ,ONLY: sin_cos_map
-USE MODgvec_get_boozer
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 
