@@ -71,9 +71,9 @@ CONTAINS
 SUBROUTINE init_gvec_to_gene(fileName,SFLcoord_in,factorSFL_in) 
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MODgvec_ReadState,ONLY: ReadState
-USE MODgvec_ReadState_Vars,ONLY: X1_base_r,X2_base_r,LA_base_r 
-USE MODgvec_transform_sfl     ,ONLY: BuildTransform_SFL
+USE MODgvec_ReadState,ONLY: ReadState,eval_phiPrime_r,eval_iota_r
+USE MODgvec_ReadState_Vars,ONLY: hmap_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r
+USE MODgvec_transform_sfl     ,ONLY: transform_sfl_new
 USE MODgvec_gvec_to_gene_vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -115,7 +115,9 @@ INTEGER :: mn_max(2)
       !IMPORTANT FIX: same maximal number of modes in both directions, since SFL coordinates are coupled (if not a tokamak)!
       mn_max       = MAXVAL(mn_max)*factorSFL !*SFLfactor on modes of GVEC solution
     END IF
-   CALL buildTransform_SFL(0,mn_max,SFLcoord)
+    CALL transform_sfl_new(trafoSFL,mn_max,SFLcoord,X1_base_r%s%deg,X1_base_r%s%continuity, &
+                           X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
+    CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF
   
 
@@ -294,7 +296,7 @@ END SUBROUTINE gvec_to_gene_coords_old
 SUBROUTINE gvec_to_gene_coords_sfl(nthet,nzeta,spos_in,theta_star_in,zeta_in,cart_coords)
 ! MODULES
 USE MODgvec_ReadState_Vars,ONLY: hmap_r
-USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl
+USE MODgvec_gvec_to_gene_vars,ONLY:trafoSFL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -311,10 +313,12 @@ REAL(wp),INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinat
 INTEGER     :: ithet,izeta
 REAL(wp)    :: zeta
 REAL(wp)    :: xp(2),qvec(3)
-REAL(wp)    :: X1sfl_s(   1:X1sfl_base%f%modes)
-REAL(wp)    :: X2sfl_s(   1:X2sfl_base%f%modes)
+REAL(wp)    :: X1sfl_s(   1:trafoSFL%X1sfl_base%f%modes)
+REAL(wp)    :: X2sfl_s(   1:trafoSFL%X2sfl_base%f%modes)
 REAL(wp)    :: X1_int,X2_int,spos
 !===================================================================================================================================
+ASSOCIATE(X1sfl_base=>trafoSFL%X1sfl_base,X1sfl=>trafoSFL%X1sfl,&
+          X2sfl_base=>trafoSFL%X2sfl_base,X2sfl=>trafoSFL%X2sfl)
 spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 X1sfl_s(:)      =X1sfl_base%s%evalDOF2D_s(spos,X1sfl_base%f%modes,      0,X1sfl(:,:)) !R
 X2sfl_s(:)      =X2sfl_base%s%evalDOF2D_s(spos,X2sfl_base%f%modes,      0,X2sfl(:,:)) !Z
@@ -330,6 +334,8 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   cart_coords(:,ithet,izeta)=hmap_r%eval(qvec)
 
 END DO; END DO !ithet,izeta
+
+END ASSOCIATE !X1sfl,X2sfl
 
 END SUBROUTINE gvec_to_gene_coords_sfl
 
@@ -665,8 +671,8 @@ SUBROUTINE gvec_to_gene_metrics_sfl(nthet,nzeta,spos_in,theta_star_in,zeta_in,gr
 ! MODULES
 USE MODgvec_globals, ONLY: CROSS
 USE MODgvec_ReadState_Vars,ONLY: hmap_r,sbase_prof,profiles_1d
-USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl,sgrid_sfl
 USE MODgvec_gvec_to_gene_vars,ONLY:SFLcoord
+USE MODgvec_gvec_to_gene_vars,ONLY:trafoSFL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -688,8 +694,8 @@ INTEGER  :: ithet,izeta
 REAL(wp) :: iota_int,PhiPrime_int,theta,zeta
 REAL(wp) :: iota_int_eps,PhiPrime_int_eps
 REAL(wp) :: xp(2),qvec(3)
-REAL(wp),DIMENSION(1:X1sfl_base%f%modes) :: X1_s,dX1ds_s,X1_s_eps,dX1ds_s_eps
-REAL(wp),DIMENSION(1:X2sfl_base%f%modes) :: X2_s,dX2ds_s,X2_s_eps,dX2ds_s_eps
+REAL(wp),DIMENSION(1:trafoSFL%X1sfl_base%f%modes) :: X1_s,dX1ds_s,X1_s_eps,dX1ds_s_eps
+REAL(wp),DIMENSION(1:trafoSFL%X2sfl_base%f%modes) :: X2_s,dX2ds_s,X2_s_eps,dX2ds_s_eps
 !REAL(wp),DIMENSION(1:GZsfl_base%f%modes) :: GZ_s,dGZds_s,GZ_s_eps,dGZds_s_eps
 REAL(wp),ALLOCATABLE :: GZ_s(:),dGZds_s(:),GZ_s_eps(:),dGZds_s_eps(:)
 REAL(wp) :: X1_int,dX1ds,dX1dthet,dX1dzeta
@@ -722,6 +728,9 @@ delta_s=eps
 #endif
 
 !interpolate first in s direction
+ASSOCIATE(X1sfl_base=>trafoSFL%X1sfl_base,X1sfl=>trafoSFL%X1sfl,&
+          X2sfl_base=>trafoSFL%X2sfl_base,X2sfl=>trafoSFL%X2sfl,&
+          GZsfl_base=>trafoSFL%GZsfl_base,GZsfl=>trafoSFL%GZsfl )
 
 X1_s(   :)      = X1sfl_base%s%evalDOF2D_s(spos        ,X1sfl_base%f%modes,       0,X1sfl(:,:))
 dX1ds_s(:)      = X1sfl_base%s%evalDOF2D_s(spos        ,X1sfl_base%f%modes, DERIV_S,X1sfl(:,:))
@@ -957,6 +966,7 @@ END DO; END DO !ithet,izeta
 IF(SFLcoord.EQ.2)THEN !BOOZER
   DEALLOCATE(GZ_s,dGZds_s,GZ_s_eps,dGZds_s_eps)
 END IF
+END ASSOCIATE !X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl 
 
 END SUBROUTINE gvec_to_gene_metrics_sfl
 
@@ -967,8 +977,7 @@ END SUBROUTINE gvec_to_gene_metrics_sfl
 SUBROUTINE finalize_gvec_to_gene 
 ! MODULES
 USE MODgvec_readState, ONLY: finalize_readState
-USE MODgvec_gvec_to_gene_vars, ONLY: SFLcoord
-USE MODgvec_Transform_SFL, ONLY:FinalizeTransform_SFL
+USE MODgvec_gvec_to_gene_vars, ONLY: SFLcoord,trafoSFL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -978,7 +987,10 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   CALL Finalize_ReadState()
-  IF(SFLcoord.NE.0) CALL FinalizeTransform_SFL()
+  IF(SFLcoord.NE.0) THEN
+    CALL trafoSFL%free()
+    DEALLOCATE(trafoSFL)
+  END IF
 
 END SUBROUTINE finalize_gvec_to_gene
 
