@@ -34,14 +34,20 @@ INTEGER              :: visu1D                 !! visualize 1D data (each mode).
                                                !! 12 : case 1 & 2, 13,23,123: with radial derivatives, combine 1,2,3,4 ascending
 INTEGER              :: visu2D                 !! visualize 2D data ... 
 INTEGER              :: visu3D                 !! visualize 3D data ... 
+INTEGER              :: SFLout            !! input parameter: convert final state to straight-field line coordinates. =0: off, =1: PEST, =2: Boozer
+INTEGER              :: SFLout_mn_max(2)   !! maximum mode number in theta and zeta. Defaults to 4*mn_max of X1_base, if set to (-1,-1)
+INTEGER              :: SFLout_nrp,SFLout_mn_pts(2 )  !! number of points for SFLOut file in theta,zeta
+REAL(wp),ALLOCATABLE :: SFLout_radialpos(:)     !! radial positions for output
 INTEGER              :: outfileType            !! =1: default, vtk paraview file. =2: structured netcdf array., 12: both
 INTEGER              :: np_1d                  !! number of points for visualization in s
 INTEGER              :: np_visu_bc(2)          !! number of points for visualization in theta,zeta
 INTEGER              :: np_visu_planes(3)      !! number of points for visualization in s,theta,zeta
 INTEGER              :: np_visu_3D(3)          !! number of points for visualization in s,theta,zeta
+
 REAL(wp)             :: visu_BC_minmax(2:3,0:1)    !! minimum and maximum in s,theta,zeta [0,1]
 REAL(wp)             :: visu_planes_minmax(1:3,0:1)!! minimum and maximum in s,theta,zeta [0,1]
 REAL(wp)             :: visu_3D_minmax(1:3,0:1)    !! minimum and maximum in s,theta,zeta [0,1]
+
 LOGICAL              :: SFL_theta                  !! =T: visualize a mesh with a sstraight-field line (PEST) theta angle
 INTEGER              :: visuQ                      !! =0: default, only visualize xyz(hmap(q)), =1: only visualize xyz=q, =2: visualize both
 !===================================================================================================================================

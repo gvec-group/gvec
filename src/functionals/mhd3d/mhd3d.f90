@@ -424,6 +424,7 @@ SUBROUTINE InitMHD3D(sf)
 
   CALL InitializeMHD3D_EvalFunc()
 
+
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
   
@@ -438,7 +439,7 @@ END SUBROUTINE InitMHD3D
 !===================================================================================================================================
 SUBROUTINE InitSolutionMHD3D(sf) 
 ! MODULES
-  USE MODgvec_MHD3D_Vars     , ONLY: which_init,U,F,X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_Vars     , ONLY: which_init,U,F,X1_base,X2_base
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
   USE MODgvec_Restart        , ONLY: RestartFromState
   USE MODgvec_Restart        , ONLY: WriteState
@@ -1022,6 +1023,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   USE MODgvec_MHD3D_EvalFunc
   USE MODgvec_Analyze, ONLY:analyze
   USE MODgvec_Restart, ONLY:WriteState
+  USE MODgvec_MHD3D_visu, ONLY:WriteSFLoutfile
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1215,6 +1217,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   CALL Analyze(MIN(iter,MaxIter))
   CALL WriteState(U(0),MIN(iter,MaxIter))
   CALL FinishLogging()
+   CALL writeSFLoutfile(U(0),MIN(iter,MaxIter))
 !DEBUG
 !  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
 !  CALL ReadState(FileString,U(-1))

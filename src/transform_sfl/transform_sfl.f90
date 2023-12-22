@@ -242,7 +242,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: nBase,is,iMode,i_mn,mn_IP,mn_max(2),mn_nyq(2)
-  INTEGER               :: BCtype_axis(0:4)
+  INTEGER               :: BCtype_axis(0:4),BC_type_axis_imode
   REAL(wp)              :: spos,dthet_dzeta 
   REAL(wp)              :: check(1:7)
   LOGICAL               :: docheck=.TRUE. 
@@ -386,27 +386,31 @@ IMPLICIT NONE
       check(3)=check(3)+MAXVAL(f_IP)/REAL(nBase,wp)
       check(4)=MIN(check(4),MINVAL(q_IP))
       check(5)=MAX(check(5),MAXVAL(q_IP))
-!      WRITE(*,*)'     ------  spos= ',spos
-!      WRITE(*,*)'check |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',MINVAL(f_IP),MAXVAL(f_IP),SUM(f_IP)/REAL(mn_IP,wp)
-!      WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
+      !WRITE(*,*)'     ------  spos= ',spos
+      !WRITE(*,*)'check |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',MINVAL(f_IP),MAXVAL(f_IP),SUM(f_IP)/REAL(mn_IP,wp)
+      !WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
     END IF !doCheck
 
     __PERFOFF('check')
     CALL ProgressBar(is,nBase)
   END DO !is
 
-  BCtype_axis(MN_ZERO    )= BC_TYPE_OPEN   !do nothing
-  BCtype_axis(M_ZERO     )= BC_TYPE_OPEN   !do nothing
-  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+  !BCtype_axis(MN_ZERO    )= BC_TYPE_OPEN   !do nothing
+  !BCtype_axis(M_ZERO     )= BC_TYPE_OPEN   !do nothing
+  !BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
+  !BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
+  !BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+  !Apply automatic, smooth axis BC:
+  BCtype_axis=0
   !transform back to corresponding representation of DOF in s
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
   DO iMode=1,q_base_out%f%modes
     q_out(:,iMode)=q_base_out%s%initDOF( q_m(iMode,:) )
-    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis(q_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
-                                              ,(/0.,0./))
+    BC_type_axis_imode=BCtype_axis(q_base_out%f%zero_odd_even(iMode))
+    IF(BC_type_axis_imode.EQ.0) & !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+        BC_type_axis_imode=-1*MIN(q_base_out%s%deg+1,q_base_out%f%Xmn(1,iMode))
+    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BC_type_axis_imode,BC_TYPE_OPEN/),(/0.,0./))
   END DO
 !$OMP END PARALLEL DO 
 
@@ -465,7 +469,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: iBase,nBase,iGP,nGP,iElem,nElems,degGP,deg,iMode,i_mn,mn_IP,modes,mn_max(2),mn_nyq(2)
-  INTEGER               :: BCtype_axis(0:4)
+  INTEGER               :: BCtype_axis(0:4),BC_type_axis_imode
   REAL(wp)              :: spos,dthet_dzeta 
   REAL(wp)              :: check(1:7)
   LOGICAL               :: docheck=.TRUE. 
@@ -623,11 +627,13 @@ IMPLICIT NONE
     CALL ProgressBar(iGP,nGP)
   END DO !iGP
 
-  BCtype_axis(MN_ZERO    )= BC_TYPE_OPEN   !do nothing
-  BCtype_axis(M_ZERO     )= BC_TYPE_OPEN   !do nothing
-  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+  !BCtype_axis(MN_ZERO    )= BC_TYPE_OPEN   !do nothing
+  !BCtype_axis(M_ZERO     )= BC_TYPE_OPEN   !do nothing
+  !BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
+  !BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
+  !BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+  !Apply automatic, smooth axis BC:
+  BCtype_axis=0
   !transform back to corresponding representation of DOF in s
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
@@ -640,8 +646,10 @@ IMPLICIT NONE
                                     + MATMUL(q_m(iMode,iGP:iGP+degGP),q_base_out%s%base_GP(0:degGP,0:deg,iElem))
     END DO !iElem
     CALL q_base_out%s%mass%solve_inplace(1,q_out(:,iMode))
-    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis(q_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
-                                              ,(/0.,0./))
+    BC_type_axis_imode=BCtype_axis(q_base_out%f%zero_odd_even(iMode))
+    IF(BC_type_axis_imode.EQ.0) & !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+        BC_type_axis_imode=-1*MIN(q_base_out%s%deg+1,q_base_out%f%Xmn(1,iMode))
+    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BC_type_axis_imode,BC_TYPE_OPEN/),(/0.,0./))
   END DO !iMode
 !$OMP END PARALLEL DO 
 
@@ -828,7 +836,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     CLASS(t_transform_sfl), INTENT(INOUT) :: sf !! self !hmap, profiles, G_base_out,Gthet,GZ !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
     INTEGER               :: mn_max(2),mn_nyq(2),nBase,is,iMode,modes,i_mn,mn_IP
-    INTEGER               :: nfp,BCtype_axis(0:4)
+    INTEGER               :: nfp,BCtype_axis(0:4),BC_type_axis_imode
     REAL(wp)              :: spos,dthet_dzeta,dPhids_int,iota_int,dChids_int
     REAL(wp)              :: b_thet,b_zeta,qloc(3),q_thet(3),q_zeta(3) 
     REAL(wp)              :: J_h,g_tt,g_tz,g_zz,sdetJ,Itor,Ipol,stmp
@@ -1025,20 +1033,24 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     END DO !is
     !transform back to corresponding representation of DOF in s
     
-    BCtype_axis(MN_ZERO    )= BC_TYPE_DIRICHLET !=0 (should not be here!)
-    BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN  ! derivative zero
-    BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
-    BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
-    BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+    !BCtype_axis(MN_ZERO    )= BC_TYPE_DIRICHLET !=0 (should not be here!)
+    !BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN  ! derivative zero
+    !BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
+    !BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
+    !BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+
+    !Apply automatic, smooth axis BC:
+    BCtype_axis=0
   !$OMP PARALLEL DO        &  
   !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
     DO iMode=1,modes
       sf%GZ(   :,iMode)= sf%GZ_base%s%initDOF( sf%GZ(   :,iMode) )
       sf%Gthet(:,iMode)= sf%GZ_base%s%initDOF( sf%Gthet(:,iMode) )
-      CALL sf%GZ_base%s%applyBCtoDOF(sf%GZ(:,iMode),(/BCtype_axis(sf%GZ_base%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
-                                                ,(/0.,0./))
-      CALL sf%GZ_base%s%applyBCtoDOF(sf%Gthet(:,iMode),(/BCtype_axis(sf%GZ_base%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
-                                                ,(/0.,0./))
+      BC_type_axis_imode=BCtype_axis(sf%GZ_base%f%zero_odd_even(iMode))
+      IF(BC_type_axis_imode.EQ.0) & !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+        BC_type_axis_imode=-1*MIN(sf%GZ_base%s%deg+1,sf%GZ_base%f%Xmn(1,iMode))
+      CALL sf%GZ_base%s%applyBCtoDOF(sf%GZ(   :,iMode),(/BC_Type_axis_imode,BC_TYPE_OPEN/),(/0.,0./))
+      CALL sf%GZ_base%s%applyBCtoDOF(sf%Gthet(:,iMode),(/BC_Type_axis_imode,BC_TYPE_OPEN/),(/0.,0./))
     END DO
   !$OMP END PARALLEL DO 
   
