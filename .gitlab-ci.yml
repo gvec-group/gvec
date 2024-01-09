@@ -66,7 +66,25 @@ variables:
 # TEMPLATES FOR STAGE "env" (printout the enviroment for future reference)
 # =================================================================================================================================
 
-# MPCDF shared runner
+# MPCDF new Docker images (each of which provides a toolchain based on a single combination of compiler and MPI variant)
+
+# MPCDF Docker image intel_2023_1_0_x:latest
+.tmpl_docker_intel2023:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:latest
+#  tags:
+#    - '2024'
+#    - 'latest'
+  variables:
+    CMAKE_HOSTNAME: "sharedrunner"
+
+# MPCDF Docker image gcc_13:latest
+.tmpl_docker_gcc13:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_13:latest
+  variables:
+    CMAKE_HOSTNAME: "sharedrunner"
+
+
+# MPCDF shared runner (module-image, soon legacy, then deprecated)
 .tmpl_sharedrunner:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
   tags:
@@ -89,6 +107,7 @@ variables:
     - printenv
     - module avail
     - module list
+    - cmake --version
     - echo $OMP_NUM_THREADS
 
 
@@ -131,6 +150,8 @@ variables:
 #    - git checkout -- . && git branch --all
 #    - git checkout develop_mpi_par
 #    - cd ..
+    - module list
+    - cmake --version
     - pwd
     - echo "Building on branch ${HASH_TAG} with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
@@ -283,6 +304,20 @@ variables:
 # Stage "env"
 # =================================================================================================================================
 
+# printout MPCDF Docker (Intel 2023) shared runner environment
+docker_intel2023_env:
+  stage: env
+  extends:
+    - .tmpl_docker_intel2023
+    - .tmpl_script_env
+
+# printout MPCDF Docker (Intel 2023) shared runner environment
+docker_gcc13_env:
+  stage: env
+  extends:
+    - .tmpl_docker_gcc13
+    - .tmpl_script_env
+
 # printout MPCDF shared runner environment
 sharedrunner_env:
   stage: env
@@ -306,6 +341,21 @@ testimony_env:
 
 # ____________________________
 # ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+
+docker_intel2023_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_docker_intel2023
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel"
+    MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
+
 
 # build with Intel on MPCDF shared runner
 sharedrunner_build_intel:
