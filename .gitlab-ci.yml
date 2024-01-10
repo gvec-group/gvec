@@ -75,14 +75,25 @@ variables:
 #    - '2024'
 #    - 'latest'
   variables:
-    CMAKE_HOSTNAME: "sharedrunner"
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+
+# MPCDF Docker image intel-impi:latest
+.tmpl_docker_intel_impi_latest:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel-impi:latest
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
 
 # MPCDF Docker image gcc_13:latest
 .tmpl_docker_gcc13:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_13:latest
   variables:
-    CMAKE_HOSTNAME: "sharedrunner"
+    CMAKE_HOSTNAME: "mpcdfcirunner"
 
+# MPCDF Docker image gcc-openmpi:latest
+.tmpl_docker_gcc_openmpi_latest:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc-openmpi:latest
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
 
 # MPCDF shared runner (module-image, soon legacy, then deprecated)
 .tmpl_sharedrunner:
@@ -106,8 +117,6 @@ variables:
     - echo $CI_RUNNER_TAGS
     - printenv
     - module avail
-    - module list
-    - cmake --version
     - echo $OMP_NUM_THREADS
 
 
@@ -150,8 +159,6 @@ variables:
 #    - git checkout -- . && git branch --all
 #    - git checkout develop_mpi_par
 #    - cd ..
-    - module list
-    - cmake --version
     - pwd
     - echo "Building on branch ${HASH_TAG} with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
@@ -311,7 +318,7 @@ docker_intel2023_env:
     - .tmpl_docker_intel2023
     - .tmpl_script_env
 
-# printout MPCDF Docker (Intel 2023) shared runner environment
+# printout MPCDF Docker (GCC 13) shared runner environment
 docker_gcc13_env:
   stage: env
   extends:
@@ -342,9 +349,11 @@ testimony_env:
 # ____________________________
 # ${CI_COMMIT_BRANCH} branch (CI trigger branch)
 
+# build with MPCDF Docker (Intel 2023) shared runner environment
 docker_intel2023_build:
   stage: build
   before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_build","before_script"]
   extends:
     - .tmpl_docker_intel2023
@@ -354,6 +363,54 @@ docker_intel2023_build:
   variables:
     CURR_CMP: "intel"
     MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
+
+# build with MPCDF Docker (GCC 13) shared runner environment
+docker_gcc13_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_docker_gcc13
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "gnu"
+    MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
+
+# build with MPCDF Docker (intel-impi:latest) shared runner environment
+docker_intel_impi_latest_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_docker_intel_impi_latest
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel_mpi"
+    MPI_MODE: "mpiON"
+  needs: [] # set the job to start as soon as the pipeline is created
+
+# build with MPCDF Docker (gcc-openmpi:latest) shared runner environment
+docker_gcc_openmpi_latest_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_docker_gcc_openmpi_latest
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "gnu_mpi"
+    MPI_MODE: "mpiON"
   needs: [] # set the job to start as soon as the pipeline is created
 
 
@@ -539,6 +596,74 @@ sharedrunner_build_tag_intel_mpi:
 
 # ____________________________
 # ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+
+# run with MPCDF Docker (intel2023) shared runner environment
+docker_intel2023_run:
+  stage: run
+  needs:
+    - job: docker_intel2023_build
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_docker_intel2023
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel"
+
+# run with MPCDF Docker (gcc13) shared runner environment
+docker_gcc13_run:
+  stage: run
+  needs:
+    - job: docker_gcc13_build
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_docker_gcc13
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "gnu"
+
+# run with MPCDF Docker (intel-impi:latest) shared runner environment
+docker_intel_impi_latest_run:
+  stage: run
+  needs:
+    - job: docker_intel_impi_latest_build
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_docker_intel_impi_latest
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_vars_matrix_mpi  # matrix of variables
+  variables:
+    CURR_CMP: "intel_mpi"  # _mpi must be used together with .run_vars_matrix_mpi above
+
+# run with MPCDF Docker (gcc-openmpi:latest) shared runner environment
+docker_gcc_openmpi_latest_run:
+  stage: run
+  needs:
+    - job: docker_gcc_openmpi_latest_build
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_docker_gcc_openmpi_latest
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_vars_matrix_mpi  # matrix of variables
+  variables:
+    CURR_CMP: "gnu_mpi"  # _mpi must be used together with .run_vars_matrix_mpi above
 
 # run with Intel on MPCDF shared runner
 sharedrunner_run_intel:
@@ -731,6 +856,32 @@ sharedrunner_run_tag_intel_mpi:
 
 # ---------------------------------------------------------------------------------------------------------------------------------
 # GitLab Shared Runners
+
+# compare results between intel and gnu on current branches (no MPI)
+docker_regression_intel_gnu:
+  stage: regression
+  needs:
+    - job: docker_intel2023_run
+      artifacts: true
+    - job: docker_gcc13_run
+      artifacts: true
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF","ompON"]
+  variables:
+    CURR_CMP: intel # needed to load modules (numdiff cmd!)
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: ${CURR_CMP}
+    CURR_CMP_2: gnu
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  extends:
+    - .tmpl_docker_intel2023      # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # need to load modules (numdiff cmd!)
+    - .tmpl_script_regression
+
 
 # compare results between current and tag branches (no MPI)
 shared_regression_tag_intel:
