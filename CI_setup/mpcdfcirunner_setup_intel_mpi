@@ -13,3 +13,5 @@ module load anaconda
 module load numdiff
 module list
 export FC=`which mpiifort`
+export CC=`which mpiicc`
+export CXX=`which mpiicx`

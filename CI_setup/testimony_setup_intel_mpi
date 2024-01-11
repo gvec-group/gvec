@@ -12,3 +12,5 @@ module load ftimings
 module load numdiff
 module list
 export FC=`which mpiifort`
+export CC=`which mpiicc`
+export CXX=`which mpiicx`

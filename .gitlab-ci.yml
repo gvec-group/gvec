@@ -483,6 +483,38 @@ sharedrunner_build_intel_mpi:
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
+# build (TAG) with MPCDF Docker (Intel 2023) shared runner environment
+docker_intel2023_build_tag:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_docker_intel2023
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_tag_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel"
+    MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
+
+# build (TAG) with MPCDF Docker (intel-impi:latest) shared runner environment
+docker_intel_impi_latest_build_tag:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_docker_intel_impi_latest
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_tag_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel_mpi"
+    MPI_MODE: "mpiON"
+  needs: [] # set the job to start as soon as the pipeline is created
+
 # build with Intel on MPCDF shared runner
 sharedrunner_build_tag_intel:
   stage: build
@@ -525,21 +557,21 @@ sharedrunner_build_tag_intel_mpi:
 # ____________________________
 # ${CI_COMMIT_BRANCH} branch (CI trigger branch)
 
-## build with Intel on MPCDF testimonytwo runner
-#testimony_build_intel:
-#  stage: build
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_build","before_script"]
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#    - .build_vars_matrix  # matrix of variables
-#  variables:
-#    CURR_CMP: "intel"
-#    MPI_MODE: "mpiOFF"
-#  needs: [] # set the job to start as soon as the pipeline is created
+# build with Intel on MPCDF testimonytwo runner
+testimony_build_intel:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_testimony
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .build_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel"
+    MPI_MODE: "mpiOFF"
+  needs: [] # set the job to start as soon as the pipeline is created
 
 ## build with GNU on MPCDF testimonytwo runner
 #testimony_build_gnu:
@@ -737,6 +769,41 @@ sharedrunner_run_intel_mpi:
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
+# run with MPCDF Docker (intel2023) shared runner environment
+docker_intel2023_run_tag:
+  stage: run
+  needs:
+    - job: docker_intel2023_build_tag
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_docker_intel2023
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_tag_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel"
+
+# run with MPCDF Docker (intel-impi:latest) shared runner environment
+docker_intel_impi_latest_run_tag:
+  stage: run
+  needs:
+    - job: docker_intel_impi_latest_build_tag
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_docker_intel_impi_latest
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_tag_vars_matrix_mpi  # matrix of variables
+  variables:
+    CURR_CMP: "intel_mpi"  # _mpi must be used together with .run_vars_matrix_mpi above
+
+
 # run with Intel on MPCDF shared runner
 sharedrunner_run_tag_intel:
   stage: run
@@ -784,22 +851,22 @@ sharedrunner_run_tag_intel_mpi:
 # ____________________________
 # ${CI_COMMIT_BRANCH} branch (CI trigger branch)
 
-## run with Intel on MPCDF testimonytwo runner
-#testimony_run_intel:
-#  stage: run
-#  needs:
-#    - job: testimony_build_intel
-#      artifacts: true
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_run", "before_script"]
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_run
-#    - .tmpl_script_run
-#    - .run_vars_matrix  # matrix of variables
-#  variables:
-#    CURR_CMP: "intel"
+# run with Intel on MPCDF testimonytwo runner
+testimony_run_intel:
+  stage: run
+  needs:
+    - job: testimony_build_intel
+      artifacts: true
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_testimony
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .run_vars_matrix  # matrix of variables
+  variables:
+    CURR_CMP: "intel"
 
 ## run with GNU on MPCDF testimonytwo runner
 #testimony_run_gnu:
