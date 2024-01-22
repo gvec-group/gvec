@@ -223,7 +223,7 @@ CASE(1)
       !visuQuadElem
       Vertex(:,CellID) = (/ PointID+(i-1), PointID+ i /) 
     END DO
-    PointID=PointID+1
+    PointID=PointID+ProdNPlot_p1
   END DO
 CASE(2)
   CellID = 0
