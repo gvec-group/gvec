@@ -10,7 +10,7 @@ stages:
 
 
 workflow:
-  name: 'Pipeline for branch: $CI_COMMIT_BRANCH'
+  name: 'Pipeline for branch/tag: $CI_COMMIT_REF_NAME' #$CI_COMMIT_BRANCH
 
 # =================================================================================================================================
 # GLOBALS
@@ -18,7 +18,7 @@ workflow:
 
 variables:
   GIT_STRATEGY: none #clone
-  HASH_TAG: $CI_COMMIT_BRANCH
+  HASH_TAG: $CI_COMMIT_REF_NAME #$CI_COMMIT_BRANCH
   HASH_TAG_RELEASE: v0.0.0 #develop_mpi_par
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
@@ -126,7 +126,7 @@ variables:
 
 .tmpl_script_env:
   script:
-    - echo "Pipeline environment for branch:" $CI_COMMIT_BRANCH
+    - echo "Pipeline environment for branch:" $CI_COMMIT_REF_NAME #$CI_COMMIT_BRANCH
     - echo $CI_RUNNER_DESCRIPTION
     - echo $CI_RUNNER_TAGS
     - printenv
@@ -139,7 +139,7 @@ variables:
 # =================================================================================================================================
 
 # ____________________________
-# ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+# ${CI_COMMIT_REF_NAME} branch/tag (CI trigger commit)
 
 .build_vars_matrix:
   parallel:
@@ -176,8 +176,8 @@ variables:
     - pwd
     - echo "Building on branch ${HASH_TAG} with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
-    - echo "is ${HASH_TAG} the same as ${CI_COMMIT_BRANCH}?"
-    - if [ ${HASH_TAG} != ${CI_COMMIT_BRANCH} ]; then git checkout ${HASH_TAG}; fi
+    - echo "is ${HASH_TAG} the same as ${CI_COMMIT_REF_NAME}?"                        #${CI_COMMIT_BRANCH}
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git checkout ${HASH_TAG}; fi  #${CI_COMMIT_BRANCH}
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
@@ -208,7 +208,7 @@ variables:
 # =================================================================================================================================
 
 # ____________________________
-# ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
 
 .run_vars_matrix:
   parallel:
@@ -275,7 +275,7 @@ variables:
     - echo ${HOSTNAME}
     - export EXECPRE="${MPI_PRFX}"
     - echo "HASH_TAG is ${HASH_TAG}"
-    - if [ ${HASH_TAG} != ${CI_COMMIT_BRANCH} ]; then git checkout ${HASH_TAG}; fi
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git checkout ${HASH_TAG}; fi  #${CI_COMMIT_BRANCH}
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
     - echo "CASENAME is ${CASENAME} >> shortruns_${CASENAME}/"
     - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
@@ -375,7 +375,7 @@ testimony_env:
 # GitLab Shared Runners
 
 # ____________________________
-# ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
 
 # build with MPCDF Docker (Intel 2023) shared runner environment
 docker_intel2023_build:
@@ -587,7 +587,7 @@ sharedrunner_intel_mpi_build_tag:
 # GitLab Testimonytwo Runner
 
 # ____________________________
-# ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
 
 # build with Intel on MPCDF testimonytwo runner
 testimony_intel_build:
@@ -659,7 +659,7 @@ testimony_intel_build:
 # GitLab Shared Runners
 
 # ____________________________
-# ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
 
 # run with MPCDF Docker (intel2023) shared runner environment
 docker_intel2023_run:
@@ -879,7 +879,7 @@ sharedrunner_run_tag_intel_mpi:
 # GitLab Testimonytwo Runner
 
 # ____________________________
-# ${CI_COMMIT_BRANCH} branch (CI trigger branch)
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
 
 # run with Intel on MPCDF testimonytwo runner
 testimony_run_intel:
