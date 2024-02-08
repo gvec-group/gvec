@@ -19,7 +19,7 @@ workflow:
 variables:
   GIT_STRATEGY: none #clone
   HASH_TAG: $CI_COMMIT_REF_NAME #$CI_COMMIT_BRANCH
-  HASH_TAG_RELEASE: v0.0.0 #develop_mpi_par
+  HASH_TAG_RELEASE: v0.0.1-dev #develop_mpi_par
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
@@ -275,7 +275,7 @@ variables:
     - echo ${HOSTNAME}
     - export EXECPRE="${MPI_PRFX}"
     - echo "HASH_TAG is ${HASH_TAG}"
-    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git checkout ${HASH_TAG}; fi  #${CI_COMMIT_BRANCH}
+#not needed    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git checkout ${HASH_TAG}; fi  #${CI_COMMIT_BRANCH}
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
     - echo "CASENAME is ${CASENAME} >> shortruns_${CASENAME}/"
     - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
