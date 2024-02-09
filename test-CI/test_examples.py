@@ -6,15 +6,6 @@ from pathlib import Path
 
 import helpers
 
-# === AUTOMATIC / SETUP FIXTURES === #
-
-
-@pytest.fixture(autouse=True, scope="module")
-def chdir():
-    """change working directory to this module's directory"""
-    with helpers.chdir(os.path.dirname(__file__)):
-        yield  # ToDo: does this work as expected?
-
 
 # === HELPER FUNCTIONS === #
 
@@ -100,16 +91,16 @@ def test_restart(binpath, testcase):
         helpers.assert_stdout_finished()
 
 
-@pytest.mark.parametrize("directory", discover_subdirs())
-def test_regression_gvec(binpath, rootpath, refpath, directory):
-    """test end2end GVEC run (and restarts)"""
-    refdirectory = refpath / Path(__file__).parent.relative_to(rootpath) / directory
+@pytest.mark.parametrize("testcase", discover_subdirs("examples"))
+def test_regression(rootdir, refdir, testcase, logger):
+    """test regression of example GVEC runs and restarts"""
+    directory = Path(__file__).parent / "examples" / testcase
+    refdirectory = refdir / directory.relative_to(rootdir)
     assert refdirectory.exists(), f"Reference testcase {refdirectory} does not exist"
-    with helpers.chdir(directory):
-        # compare output to reference
-        for path in os.listdir():
-            if match := re.match(r"(REF_(\w+\.dat))", path):
-                helpers.assert_equal_statefiles(
-                    match.groups()[0],
-                    match.groups()[1],
-                )
+    # compare output to reference
+    for filename in os.listdir(directory):
+        if re.match(r'\w+State\w+\.dat', filename) and filename in os.listdir(refdirectory):
+            helpers.assert_equal_statefiles(
+                directory / filename,
+                refdirectory / filename,
+            )

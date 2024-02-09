@@ -11,13 +11,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
 def pytest_addoption(parser):
     parser.addoption(
         "--builddir",
-        type=str,
-        default="build",
+        type=Path,
+        default=Path(__file__).parent / "../build",
         help="Path to builddir from git repo root folder",
     )
     parser.addoption(
         "--refdir",
-        type=str,
+        type=Path,
         default=None,
         help="Path to reference pytest root directory. Required for regression tests.",
     )
@@ -60,13 +60,15 @@ def binpath(builddir) -> Path:
 @pytest.fixture(scope="session")
 def refdir(request) -> Path:
     """path to the reference (pytest root) directory"""
+    if request.config.getoption("--refdir") is None:
+        pytest.exit("--refdir is required for regression tests")
     return Path(request.config.getoption("--refdir")).absolute()
 
 
 @pytest.fixture(scope="session")
-def rootdir(config) -> Path:
+def rootdir(request) -> Path:
     """path to the (pytest root) directory"""
-    return Path(config.rootdir).absolute()
+    return Path(request.config.rootdir).absolute()
 
 
 
