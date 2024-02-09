@@ -68,4 +68,9 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                 line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
                 occurances[key] += 1
             target_file.write(line)
+        #add key,value pair if not existing in parameterfile.
+        for key,v in occurances.items():
+            if v==0:
+                target_file.write(("\n %s = %s"%(key,str(kwargs[key]))))
+                occurances[key] +=1       
     assert all([v == 1 for v in occurances.values()]), f"bad number of occurances: {occurances}"
