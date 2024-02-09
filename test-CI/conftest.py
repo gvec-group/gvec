@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 # add helpers.py to the `pythonpath` to be importable by all tests
-sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
+sys.path.append(str((Path(__file__).parent / "helpers")))
 
 
 def pytest_addoption(parser):
@@ -21,28 +21,19 @@ def pytest_addoption(parser):
         default=None,
         help="Path to reference pytest root directory. Required for regression tests.",
     )
-    parser.addoption(
-        "-S", 
-        "--stage",
-        action="store",
-        choices=["examples", "regression"],
-        default=[],
-        help="Test stage to run",
-    )
 
 
 def pytest_configure(config):
     # register an additional marker
     config.addinivalue_line(
-        "markers", "example: mark test as a testable example"
+        "markers", "example: mark test as a example"
     )
-
-
-def pytest_runtest_setup(item):  # ToDo document
-    if len(list(item.iter_markers("example"))) and "examples" not in item.config.getoption("-S"):
-        pytest.skip("skipping examples test")
-    elif "regression" in item.name and "regression" not in item.config.getoption("-S"):
-        pytest.skip("skipping regression test")
+    config.addinivalue_line(
+        "markers", "shortrun: mark test as a shortrun"
+    )
+    config.addinivalue_line(
+        "markers", "regression: mark test as a regression"
+    )
 
 
 @pytest.fixture(scope="session")
