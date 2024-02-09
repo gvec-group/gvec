@@ -63,8 +63,8 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     occurances = {key: 0 for key in kwargs}
     with open(source, "r") as source_file, open(target, "w") as target_file:
         for line in source_file:
-            if match := re.match(r'([^!]*)(' + "|".join(kwargs.keys()) + r')(\s*=\s*)(\S+)(.*)', line):
-                prefix, key, sep, value, suffix = match.groups()
+            if m := re.match(r'([^!]*)(' + "|".join(kwargs.keys()) + r')(\s*=\s*)(\S+)(.*)', line):
+                prefix, key, sep, value, suffix = m.groups()
                 line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
                 occurances[key] += 1
             target_file.write(line)

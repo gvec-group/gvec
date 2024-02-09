@@ -42,43 +42,56 @@ def discover_subdirs(path: Path | str = ".") -> list[str]:
     )
 
 
-def discover_examples(generate_shortruns: bool = True):
-    # discover example testcases
-    examples = discover_subdirs("examples")
-    # add example marker
-    testcases = [pytest.param("examples", example, marks=pytest.mark.example) for example in examples]
-    if not generate_shortruns:
-        return testcases
-    # generate shortruns
-    with helpers.chdir(Path(__file__).parent):
-        directory = Path("shortruns")
-        if directory.exists():
-            shutil.rmtree(directory)
-        # create a directory for each example, copy `parameters.ini` and modify the `testlevel`
-        directory.mkdir()
-        for example in examples:
-            subdir = directory / example
-            subdir.mkdir()
-            helpers.adapt_parameter_file("examples" / Path(example) / "parameter.ini", subdir / "parameter.ini", testlevel=2)
-            testcases.append(pytest.param("shortruns", example, marks=pytest.mark.shortrun))
-    return testcases
+@pytest.fixture(scope="session", params=discover_subdirs("examples"))
+def testcase(request):
+    """parametrize the testcase, ensure testcase scope is session"""
+    return request.param
+
+
+@pytest.fixture()
+def testcaserundir(rundir: Path, testgroup: str, testcase: str):
+    """generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `examples/{testcase}`"""
+    # assert that `{rundir}` and `{rundir}/{testgroup}` exist
+    if not rundir.exists():
+        rundir.mkdir()
+    if not (rundir / "data").exists():
+        (rundir / "data").symlink_to(Path(__file__).parent / "data")
+    if not (rundir / testgroup).exists():
+        (rundir / testgroup).mkdir()
+    # create the testcase directory
+    sourcedir = Path(__file__).parent / "examples" / testcase
+    targetdir = rundir / testgroup / testcase
+    if targetdir.exists():
+        shutil.rmtree(targetdir)
+    shutil.copytree(sourcedir, targetdir, symlinks=True)
+    # special treatment
+    match testgroup:
+        case "shortrun":
+            helpers.adapt_parameter_file(
+                sourcedir / "parameter.ini", targetdir / "parameter.ini", testlevel=2
+            )
+    return targetdir
 
 
 # === TESTS === #
 
 
-@pytest.mark.parametrize(["stage", "testcase"], discover_examples())
-def test_examples(binpath, stage, testcase):
-    """test end2end GVEC run with `{stage}/{testcase}/parameter.ini`"""
-    directory = Path(__file__).parent / stage / testcase
+def test_examples(binpath, testcaserundir, testcase):
+    """test end2end GVEC run with `{testgroup}/{testcase}/parameter.ini`"""
     args = [binpath, "parameter.ini"]
     # find restart statefile
     if "restart" in testcase:
-        base_directory = Path(__file__).parent / stage / testcase[:-8]  # [-8] to remove `_restart` suffix
-        states = [sd for sd in os.listdir(base_directory) if "State" in sd and sd.endswith(".dat")]
+        base_directory = (
+            testcaserundir / ".." / testcase[:-8]
+        )  # [-8] to remove `_restart` suffix
+        states = [
+            sd
+            for sd in os.listdir(base_directory)
+            if "State" in sd and sd.endswith(".dat")
+        ]
         args.append(base_directory / sorted(states)[-1])
     # run gvec
-    with helpers.chdir(directory):
+    with helpers.chdir(testcaserundir):
         # run GVEC
         with open("stdout", "w") as stdout, open("stderr", "w") as stderr:
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
@@ -88,15 +101,16 @@ def test_examples(binpath, stage, testcase):
 
 
 @pytest.mark.regression
-@pytest.mark.parametrize("testcase", discover_subdirs("examples"))
-def test_regression(rootdir, refdir, testcase, logger):
+def test_regression(testgroup, testcase, rundir, refdir):
     """test regression of example GVEC runs and restarts"""
-    directory = Path(__file__).parent / "examples" / testcase
-    refdirectory = refdir / directory.relative_to(rootdir)
+    directory = rundir / testgroup / testcase
+    refdirectory = refdir / testgroup / testcase
     assert refdirectory.exists(), f"Reference testcase {refdirectory} does not exist"
     # compare output to reference
     for filename in os.listdir(directory):
-        if re.match(r'\w+State\w+\.dat', filename) and filename in os.listdir(refdirectory):
+        if re.match(r"\w+State\w+\.dat", filename) and filename in os.listdir(
+            refdirectory
+        ):
             helpers.assert_equal_statefiles(
                 directory / filename,
                 refdirectory / filename,
