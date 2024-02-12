@@ -51,8 +51,8 @@ def pytest_configure(config):
         config (Config): The pytest configuration object.
     """
     # register an additional marker
-    config.addinivalue_line("markers", "example: mark test as a example")
-    config.addinivalue_line("markers", "shortrun: mark test as a shortrun")
+    for testgroup in TESTGROUPS:
+        config.addinivalue_line("markers", f"{testgroup}: mark test as a {testgroup}")
     config.addinivalue_line("markers", "regression: mark test as a regression")
 
 
