@@ -27,6 +27,11 @@ def pytest_addoption(parser):
         default=Path(__file__).parent / "run",
         help="Path to run directory",
     )
+    parser.addoption(
+        "--dry-run",
+        action="store_true",
+        help="Do not execute commands, but generate all runs."
+    )
 
 
 def pytest_configure(config):
@@ -42,17 +47,21 @@ def pytest_configure(config):
     )
 
 
-def pytest_cmdline_preparse(config, args):
-    # set default command line arguments
-    if "-m" not in args:
-        args.append("-m")
-        args.append("not regression")
-
-
 def pytest_collection_modifyitems(items):
+    """Modify collected tests (`items`)
+    
+    Add markers to each test based on the value of the `testgroup` (`example` or `shortrun`)."""
     for item in items:
         if "testgroup" in getattr(item, "fixturenames", ()):
             item.add_marker(getattr(pytest.mark, item.callspec.getparam("testgroup")))
+
+
+def pytest_runtest_setup(item):
+    """Runs before each test (`item`) is executed.
+    
+    Skip regression tests if `--refdir` is not set"""
+    if len(list(item.iter_markers(name="regression"))) and not item.config.getoption("--refdir"):
+        pytest.skip("regression tests require `--refdir`")
 
 
 @pytest.fixture(scope="session")
@@ -62,9 +71,14 @@ def builddir(request) -> Path:
 
 
 @pytest.fixture(scope="session")
-def binpath(builddir) -> Path:
+def binpath(request, builddir) -> Path:
     """path to the gvec binary"""
     return builddir / "bin" / "gvec"
+
+
+@pytest.fixture(scope="session")
+def dryrun(request) -> bool:
+    return request.config.getoption("--dry-run")
 
 
 @pytest.fixture(scope="session")

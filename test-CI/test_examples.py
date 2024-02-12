@@ -76,22 +76,30 @@ def testcaserundir(rundir: Path, testgroup: str, testcase: str):
 # === TESTS === #
 
 
-def test_examples(binpath, testcaserundir, testcase):
+def test_examples(binpath, testcaserundir, testcase, dryrun):
     """test end2end GVEC run with `{testgroup}/{testcase}/parameter.ini`"""
     args = [binpath, "parameter.ini"]
     # find restart statefile
-    if "restart" in testcase:
+    if "_restart" in testcase:
+        base_name, suffix = re.match(r'(.*)(_restart.*)', testcase).groups()  # remove sufix
         base_directory = (
-            testcaserundir / ".." / testcase[:-8]
-        )  # [-8] to remove `_restart` suffix
+            testcaserundir / ".." / base_name
+        ) 
         states = [
             sd
             for sd in os.listdir(base_directory)
             if "State" in sd and sd.endswith(".dat")
         ]
-        args.append(base_directory / sorted(states)[-1])
+        if not dryrun:
+            args.append(base_directory / sorted(states)[-1])
+        else:
+            args.append(base_directory / "STATEFILE?")
     # run gvec
     with helpers.chdir(testcaserundir):
+        if dryrun:
+            with open("dryrun-examples", "w") as file:
+                file.write(f"Dryrun would execute:\n{args}")
+            return
         # run GVEC
         with open("stdout", "w") as stdout, open("stderr", "w") as stderr:
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
@@ -101,17 +109,24 @@ def test_examples(binpath, testcaserundir, testcase):
 
 
 @pytest.mark.regression
-def test_regression(testgroup, testcase, rundir, refdir):
+def test_regression(testgroup, testcase, rundir, refdir, dryrun):
     """test regression of example GVEC runs and restarts"""
     directory = rundir / testgroup / testcase
     refdirectory = refdir / testgroup / testcase
     assert refdirectory.exists(), f"Reference testcase {refdirectory} does not exist"
+    if dryrun:
+        with open(directory / "dryrun-regression", "w") as file:
+            file.write(f"Dryrun would compare directories:\n{directory}\nwith\n{refdirectory}\n")
     # compare output to reference
     for filename in os.listdir(directory):
         if re.match(r"\w+State\w+\.dat", filename) and filename in os.listdir(
             refdirectory
         ):
-            helpers.assert_equal_statefiles(
-                directory / filename,
-                refdirectory / filename,
-            )
+            if not dryrun:
+                helpers.assert_equal_statefiles(
+                    directory / filename,
+                    refdirectory / filename,
+                )  
+            else:
+                with open(directory / "dryrun-regression", "a") as file:
+                    file.write(f"Dryrun would compare files:\n{directory / filename}\nwith\n{refdirectory / filename}\n")              
