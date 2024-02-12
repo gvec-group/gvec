@@ -16,6 +16,8 @@ workflow:
 
 variables:
   GIT_STRATEGY: none
+  PYTEST_OPTIONS: "-v -m '(debugrun or example) and (not regression)'"
+  PYTEST_EXEC_CMD: "python -m pytest" ${PYTEST_OPTIONS}
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
@@ -62,13 +64,6 @@ variables:
 # MPCDF shared runner
 .tmpl_MPCDF_shared_setup:
   extends: .tmpl_MPCDF_shared
-  before_script:
-    - . ./CI_setup/MPCDF_setup_${CURR_CMP}
-    - export OMP_NUM_THREADS=2
-
-# MPCDF testimonytwo runner
-.tmpl_MPCDF_testimony_setup:
-  extends: .tmpl_MPCDF_testimony
   before_script:
     - . ./CI_setup/MPCDF_setup_${CURR_CMP}
     - export OMP_NUM_THREADS=2
@@ -130,15 +125,15 @@ variables:
   script:
     - export OMP_MODE=${OMP_MODE:4}; export MPI_MODE=${MPI_MODE:4}
     - pwd
-    - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
-    - echo "shortruns_${CASENAME}/"
+    - rm -rf CIrun_${CASENAME}
+    - echo "DRY-RUN OF THE PYTEST CALL"
+    - ${PYTEST_EXEC_CMD}  --builddir=build_${CASENAME} --rundir=CIrun_${CASENAME}  --dry-run
     - echo "Running with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE} and MPI=${MPI_MODE}"
-    #- python gitlab_shortruns.py -execdir shortruns_${CASENAME} build_${CASENAME} |tee log_${CASENAME}_shortruns.txt
-    - ctest -R gvec_pytest --output-on-failure  # DUMMY FOR RUNNING TESTS
+    - ${PYTEST_EXEC_CMD}   --builddir=build_${CASENAME} --rundir=CIrun_${CASENAME} 
   artifacts:
     name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
     paths:
-      - shortruns_${CASENAME}
+      - CIrun_${CASENAME}
     expire_in: 1 week
     when: always
 #    when: on_failure
@@ -155,13 +150,6 @@ MPCDF_shared_env:
     - .tmpl_MPCDF_shared
     - .tmpl_printout_env
 #  needs: [] # set the job to start as soon as the pipeline is created
-
-# printout MPCDF testimonytwo runner environment
-MPCDF_testimony_env:
-  stage: env
-  extends:
-    - .tmpl_MPCDF_testimony
-    - .tmpl_printout_env
 
 # =================================================================================================================================
 # Stage "build"
@@ -180,22 +168,6 @@ MPCDF_shared_build_gnu:
   stage: build
   extends:
     - .tmpl_MPCDF_shared_setup
-    - .tmpl_setup_build_and_run_gnu
-    - .tmpl_script_build
-
-# build with Intel on MPCDF testimonytwo runner
-MPCDF_testimony_build_intel:
-  stage: build
-  extends:
-    - .tmpl_MPCDF_testimony_setup
-    - .tmpl_setup_build_and_run_intel
-    - .tmpl_script_build
-
-# build with GNU on MPCDF testimonytwo runner
-MPCDF_testimony_build_gnu:
-  stage: build
-  extends:
-    - .tmpl_MPCDF_testimony_setup
     - .tmpl_setup_build_and_run_gnu
     - .tmpl_script_build
 
@@ -225,24 +197,3 @@ MPCDF_shared_run_gnu:
     - .tmpl_setup_build_and_run_gnu
     - .tmpl_script_run
 
-# run with Intel on MPCDF testimonytwo runner
-MPCDF_testimony_run_intel:
-  stage: run
-  needs:
-    - job: MPCDF_testimony_build_intel
-      artifacts: true
-  extends:
-    - .tmpl_MPCDF_testimony_setup
-    - .tmpl_setup_build_and_run_intel
-    - .tmpl_script_run
-
-# run with GNU on MPCDF testimonytwo runner
-MPCDF_testimony_run_gnu:
-  stage: run
-  needs:
-    - job: MPCDF_testimony_build_gnu
-      artifacts: true
-  extends:
-    - .tmpl_MPCDF_testimony_setup
-    - .tmpl_setup_build_and_run_gnu
-    - .tmpl_script_run

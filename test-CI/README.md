@@ -3,18 +3,23 @@
 ## Usage
 * Call `pytest` or `python -m pytest` in the `test-CI` directory to run automatic tests.
 * With the `-m MARKERS` option tests can be selected or deselected based on their markers.
-    * Currently the three custom markers are: `example`, `shortrun` and `regression`.
-    * Example: `-m example` selects only tests marked with example, `-m "not example"` all but those tests
-    * Note that `example` and `shortrun` are exclusive, but a test can be marked as `regression` in addition to one of the two
+    * Currently these custom markers specify test groups: `example`, `shortrun`, `debugrun`  and `regression`.
+    * The default is `-m "(not regression)"`.
+    * Example: `-m example` selects only tests marked with example, `-m "(not example)"` all but those tests
+    * Note that `example`, `debugrun`and `shortrun` are exclusive, but a test can be marked as `regression` in addition
 * The relevant paths are supplied to `pytest` with `--builddir`, `--rundir` and `--refdir`.
     * if `--refdir` is not specified, the regression tests are skipped
+* With the `-k CASES ` option tests can be selected or deselected based on their names (which includes the python function name of the test, and the folder names).
+
 
 ### Examples
+* `python -m pytest -v --dry-run` to simulate a test run, without actually executing the tests. All tests are displayed and run folders and files are created, along with a dryrun output.
 * `python -m pytest -v --rundir RUNDIR --builddir BUILDDIR` to run all end2end tests using `BUILDDIR/bin/gvec` and store the results at `RUNDIR`
     * omitting `--builddir BUILDDIR` sets the default `BUILDDIR=build`
     * omitting `--rundir RUNDIR` sets the default `RUNDIR=test-CI/run`
 * `python -m pytest -v -m shortrun` to only run shortrun tests
 * `python -m pytest -v -m regression --rundir RUNDIR --refdir REFDIR` to run the regression tests by comparing RUNDIR to REFDIR
+* `python -m pytest -v -m "(debugrun or example) and (not regression)" ` to run both test groups `debugrun` and `example`, but without `regression``.
 
 ## Details
 * Large input files should be stored in `test-CI/data` and the examples should contain a *relative* symbolic link

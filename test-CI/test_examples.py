@@ -75,7 +75,15 @@ def testcaserundir(rundir: Path, testgroup: str, testcase: str):
     match testgroup:
         case "shortrun":
             helpers.adapt_parameter_file(
-                sourcedir / "parameter.ini", targetdir / "parameter.ini", testlevel=2
+                sourcedir / "parameter.ini", targetdir / "parameter.ini", 
+                testlevel=-1, 
+                MaxIter=1,logIter=1,outputIter=1,
+            )
+        case "debugrun":
+            helpers.adapt_parameter_file(
+                sourcedir / "parameter.ini", targetdir / "parameter.ini", 
+                testlevel=2, 
+                MaxIter=1,logIter=1,outputIter=1,
             )
     return targetdir
 
@@ -96,13 +104,18 @@ def test_examples(binpath, testgroup, testcaserundir, testcase, dryrun):
         base_name, suffix = re.match(
             r"(.*)(_restart.*)", testcase
         ).groups()  # remove sufix
-        base_directory = testcaserundir / ".." / base_name
-        states = [
-            sd
-            for sd in os.listdir(base_directory)
-            if "State" in sd and sd.endswith(".dat")
-        ]
+        base_directory = (
+            testcaserundir / ".." / base_name
+        ) 
+        
         if not dryrun:
+            assert base_directory.exists() , "no base directory found for restart"
+            states = [
+                sd
+                for sd in os.listdir(base_directory)
+                if "State" in sd and sd.endswith(".dat")
+            ]
+            assert len(states) > 0, f"no statefile for restart found in base directory ../{base_name}"
             args.append(base_directory / sorted(states)[-1])
         else:
             args.append(base_directory / "STATEFILE?")
@@ -110,10 +123,12 @@ def test_examples(binpath, testgroup, testcaserundir, testcase, dryrun):
     with helpers.chdir(testcaserundir):
         if dryrun:
             with open("dryrun-examples", "w") as file:
-                file.write(f"Dryrun would execute:\n{args}")
+                file.write(f"DRYRUN: execute:\n {args} \n")
             return
         # run GVEC
-        with open("stdout", "w") as stdout, open("stderr", "w") as stderr:
+        with open("stdout", "w") as stdout:
+            stdout.write(f"RUNNING: \n {args} \n")
+        with open("stdout", "a") as stdout, open("stderr", "w") as stderr:
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
         # check if GVEC was successful
         helpers.assert_empty_stderr()
@@ -133,9 +148,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun):
     assert refdirectory.exists(), f"Reference testcase {refdirectory} does not exist"
     if dryrun:
         with open(directory / "dryrun-regression", "w") as file:
-            file.write(
-                f"Dryrun would compare directories:\n{directory}\nwith\n{refdirectory}\n"
-            )
+            file.write(f"DRYRUN: compare directories:\n{directory}\nwith\n{refdirectory}\n")
     # compare output to reference
     for filename in os.listdir(directory):
         if re.match(r"\w+State\w+\.dat", filename) and filename in os.listdir(
@@ -148,6 +161,4 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun):
                 )
             else:
                 with open(directory / "dryrun-regression", "a") as file:
-                    file.write(
-                        f"Dryrun would compare files:\n{directory / filename}\nwith\n{refdirectory / filename}\n"
-                    )
+                    file.write(f"DRYRUN: compare files:\n{directory / filename}\nwith\n{refdirectory / filename}\n")              
