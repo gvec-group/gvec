@@ -8,7 +8,7 @@ import shutil
 import helpers
 
 
-# === HELPER FUNCTIONS === #
+# === HELPER FUNCTIONS & FIXTURES === #
 
 
 def discover_subdirs(path: Path | str = ".") -> list[str]:
@@ -44,13 +44,20 @@ def discover_subdirs(path: Path | str = ".") -> list[str]:
 
 @pytest.fixture(scope="session", params=discover_subdirs("examples"))
 def testcase(request):
-    """parametrize the testcase, ensure testcase scope is session"""
+    """
+    Fixture to parametrize the `testcase`
+
+    Discoveres subdirectories in `examples` and parametrizes the `testcase` fixture for each discovered subdirectory.
+    Ensures testcase scope is session.
+    """
     return request.param
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def testcaserundir(rundir: Path, testgroup: str, testcase: str):
-    """generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `examples/{testcase}`"""
+    """
+    Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `examples/{testcase}`
+    """
     # assert that `{rundir}` and `{rundir}/{testgroup}` exist
     if not rundir.exists():
         rundir.mkdir()
@@ -76,15 +83,20 @@ def testcaserundir(rundir: Path, testgroup: str, testcase: str):
 # === TESTS === #
 
 
-def test_examples(binpath, testcaserundir, testcase, dryrun):
-    """test end2end GVEC run with `{testgroup}/{testcase}/parameter.ini`"""
+def test_examples(binpath, testgroup, testcaserundir, testcase, dryrun):
+    """
+    Test end2end GVEC runs with `{testgroup}/{testcase}/parameter.ini`
+
+    Note: the `testgroup` fixture is contained in `testcaserundir`, but is given additionally to the test function
+    for better readability and proper parameter ordering for the pytest nodeID.
+    """
     args = [binpath, "parameter.ini"]
     # find restart statefile
     if "_restart" in testcase:
-        base_name, suffix = re.match(r'(.*)(_restart.*)', testcase).groups()  # remove sufix
-        base_directory = (
-            testcaserundir / ".." / base_name
-        ) 
+        base_name, suffix = re.match(
+            r"(.*)(_restart.*)", testcase
+        ).groups()  # remove sufix
+        base_directory = testcaserundir / ".." / base_name
         states = [
             sd
             for sd in os.listdir(base_directory)
@@ -110,13 +122,20 @@ def test_examples(binpath, testcaserundir, testcase, dryrun):
 
 @pytest.mark.regression
 def test_regression(testgroup, testcase, rundir, refdir, dryrun):
-    """test regression of example GVEC runs and restarts"""
+    """
+    Regression test of example GVEC runs and restarts.
+
+    Compares all statefiles in `{rundir}/{testgroup}/{testcase}` with the corresponding statefiles in
+    `{refdir}/{testgroup}/{testcase}` using `helpers.assert_equal_statefiles`.
+    """
     directory = rundir / testgroup / testcase
     refdirectory = refdir / testgroup / testcase
     assert refdirectory.exists(), f"Reference testcase {refdirectory} does not exist"
     if dryrun:
         with open(directory / "dryrun-regression", "w") as file:
-            file.write(f"Dryrun would compare directories:\n{directory}\nwith\n{refdirectory}\n")
+            file.write(
+                f"Dryrun would compare directories:\n{directory}\nwith\n{refdirectory}\n"
+            )
     # compare output to reference
     for filename in os.listdir(directory):
         if re.match(r"\w+State\w+\.dat", filename) and filename in os.listdir(
@@ -126,7 +145,9 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun):
                 helpers.assert_equal_statefiles(
                     directory / filename,
                     refdirectory / filename,
-                )  
+                )
             else:
                 with open(directory / "dryrun-regression", "a") as file:
-                    file.write(f"Dryrun would compare files:\n{directory / filename}\nwith\n{refdirectory / filename}\n")              
+                    file.write(
+                        f"Dryrun would compare files:\n{directory / filename}\nwith\n{refdirectory / filename}\n"
+                    )

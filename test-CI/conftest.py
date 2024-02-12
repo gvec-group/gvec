@@ -1,14 +1,23 @@
 import sys
-import os
 import pytest
 import logging
 from pathlib import Path
+
+
+TESTGROUPS = ["example", "shortrun"]
+
 
 # add helpers.py to the `pythonpath` to be importable by all tests
 sys.path.append(str((Path(__file__).parent / "helpers")))
 
 
 def pytest_addoption(parser):
+    """
+    Add custom command line options to pytest.
+
+    Args:
+        parser (ArgumentParser): The pytest argument parser.
+    """
     parser.addoption(
         "--builddir",
         type=Path,
@@ -30,37 +39,49 @@ def pytest_addoption(parser):
     parser.addoption(
         "--dry-run",
         action="store_true",
-        help="Do not execute commands, but generate all runs."
+        help="Do not execute commands, but generate all runs.",
     )
 
 
 def pytest_configure(config):
+    """
+    Add custom markers to pytest, as if using the `pytest.ini` file.
+
+    Args:
+        config (Config): The pytest configuration object.
+    """
     # register an additional marker
-    config.addinivalue_line(
-        "markers", "example: mark test as a example"
-    )
-    config.addinivalue_line(
-        "markers", "shortrun: mark test as a shortrun"
-    )
-    config.addinivalue_line(
-        "markers", "regression: mark test as a regression"
-    )
+    config.addinivalue_line("markers", "example: mark test as a example")
+    config.addinivalue_line("markers", "shortrun: mark test as a shortrun")
+    config.addinivalue_line("markers", "regression: mark test as a regression")
 
 
 def pytest_collection_modifyitems(items):
-    """Modify collected tests (`items`)
-    
-    Add markers to each test based on the value of the `testgroup` (`example` or `shortrun`)."""
+    """
+    Modify collected tests
+
+    Add markers to each test based on the value of the `testgroup` (`example` or `shortrun`).
+
+    Args:
+        items (List[Item]): The collected pytest testitem objects.
+    """
     for item in items:
         if "testgroup" in getattr(item, "fixturenames", ()):
             item.add_marker(getattr(pytest.mark, item.callspec.getparam("testgroup")))
 
 
 def pytest_runtest_setup(item):
-    """Runs before each test (`item`) is executed.
+    """
+    Runs before each test is executed.
+
+    Skip regression tests if `--refdir` is not set
     
-    Skip regression tests if `--refdir` is not set"""
-    if len(list(item.iter_markers(name="regression"))) and not item.config.getoption("--refdir"):
+    Args:
+        item (Item): The pytest testitem object.
+    """
+    if len(list(item.iter_markers(name="regression"))) and not item.config.getoption(
+        "--refdir"
+    ):
         pytest.skip("regression tests require `--refdir`")
 
 
@@ -78,12 +99,13 @@ def binpath(request, builddir) -> Path:
 
 @pytest.fixture(scope="session")
 def dryrun(request) -> bool:
+    """flag for dry-run mode"""
     return request.config.getoption("--dry-run")
 
 
 @pytest.fixture(scope="session")
 def refdir(request) -> Path:
-    """path to the reference (pytest root) directory"""
+    """path to the reference (test-CI) directory"""
     if request.config.getoption("--refdir") is None:
         pytest.exit("--refdir is required for regression tests")
     return Path(request.config.getoption("--refdir")).absolute()
@@ -91,7 +113,7 @@ def refdir(request) -> Path:
 
 @pytest.fixture(scope="session")
 def rootdir(request) -> Path:
-    """path to the (pytest root) directory"""
+    """path to the root (test-CI) directory"""
     return Path(request.config.rootdir).absolute()
 
 
@@ -101,9 +123,9 @@ def rundir(request) -> Path:
     return Path(request.config.getoption("--rundir")).absolute()
 
 
-@pytest.fixture(scope="session", params=["example", "shortrun"])
+@pytest.fixture(scope="session", params=TESTGROUPS)
 def testgroup(request) -> str:
-    """available test group names, automatically marked"""
+    """available test group names, will be automatically marked"""
     return request.param
 
 

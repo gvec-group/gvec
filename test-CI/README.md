@@ -4,9 +4,10 @@
 * Call `pytest` or `python -m pytest` in the `test-CI` directory to run automatic tests.
 * With the `-m MARKERS` option tests can be selected or deselected based on their markers.
     * Currently the three custom markers are: `example`, `shortrun` and `regression`.
-    * The default is `-m "not regression"`.
     * Example: `-m example` selects only tests marked with example, `-m "not example"` all but those tests
+    * Note that `example` and `shortrun` are exclusive, but a test can be marked as `regression` in addition to one of the two
 * The relevant paths are supplied to `pytest` with `--builddir`, `--rundir` and `--refdir`.
+    * if `--refdir` is not specified, the regression tests are skipped
 
 ### Examples
 * `python -m pytest -v --rundir RUNDIR --builddir BUILDDIR` to run all end2end tests using `BUILDDIR/bin/gvec` and store the results at `RUNDIR`
