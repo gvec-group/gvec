@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 
 
-TESTGROUPS = ["example", "shortrun"]
 
 
 # add helpers.py to the `pythonpath` to be importable by all tests
@@ -51,16 +50,25 @@ def pytest_configure(config):
         config (Config): The pytest configuration object.
     """
     # register an additional marker
-    config.addinivalue_line("markers", "example: mark test as a example")
-    config.addinivalue_line("markers", "shortrun: mark test as a shortrun")
-    config.addinivalue_line("markers", "regression: mark test as a regression")
+    config.addinivalue_line(
+        "markers", "example: mark test as a example"
+    )
+    config.addinivalue_line(
+        "markers", "shortrun: mark test as a shortrun  (overwrites parameters: `testlevel=-1` and `MaxIter=1`)"
+    )
+    config.addinivalue_line(
+        "markers", "debugrun: mark test as a debugrun (overwrites parameters: `testlevel=2` and `MaxIter=1`) "
+    )
+    config.addinivalue_line(
+        "markers", "regression: mark test as a regression"
+    )
 
 
 def pytest_collection_modifyitems(items):
     """
     Modify collected tests
 
-    Add markers to each test based on the value of the `testgroup` (`example` or `shortrun`).
+    Add markers to each test based on the value of the `testgroup` (`example` or `shortrun`  or `debugrun`).
 
     Args:
         items (List[Item]): The collected pytest testitem objects.
@@ -123,7 +131,7 @@ def rundir(request) -> Path:
     return Path(request.config.getoption("--rundir")).absolute()
 
 
-@pytest.fixture(scope="session", params=TESTGROUPS)
+@pytest.fixture(scope="session", params=["example", "shortrun","debugrun"])
 def testgroup(request) -> str:
     """available test group names, will be automatically marked"""
     return request.param
