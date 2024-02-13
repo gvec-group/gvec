@@ -7,6 +7,6 @@ module load mkl/2020.4
 module load hdf5-serial/1.10.7
 module load netcdf-serial/4.7.0
 module load ftimings
-module load numdiff
+module load anaconda/3/2023.03 #for pytest
 module list
 export FC=`which ifort`

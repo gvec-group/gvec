@@ -16,8 +16,11 @@ workflow:
 
 variables:
   GIT_STRATEGY: none
-  PYTEST_OPTIONS: "-v -m '(debugrun or example) and (not regression)'"
-  PYTEST_EXEC_CMD: "python -m pytest" ${PYTEST_OPTIONS}
+  PYTEST_EXEC_CMD: "python -m pytest -v" 
+  #PYTEST_MARKER_OPTS: "( (debugrun or example) and (not regression) )"
+  PYTEST_MARKER_OPTS: "( shortrun and (not regression) )"
+
+  
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
@@ -67,6 +70,11 @@ variables:
   before_script:
     - . ./CI_setup/MPCDF_setup_${CURR_CMP}
     - export OMP_NUM_THREADS=2
+    - python --version
+    - python -m pytest --version
+    - echo "DRY-RUN OF THE PYTEST CALL"
+    - ${PYTEST_EXEC_CMD} -m"${PYTEST_MARKER_OPTS}" --builddir=build_${CASENAME} --rundir=CIrun_${CASENAME}  --dry-run
+    - rm -rf CIrun_${CASENAME}
 
 .cmp_vars_matrix:
   parallel:
@@ -126,10 +134,9 @@ variables:
     - export OMP_MODE=${OMP_MODE:4}; export MPI_MODE=${MPI_MODE:4}
     - pwd
     - rm -rf CIrun_${CASENAME}
-    - echo "DRY-RUN OF THE PYTEST CALL"
-    - ${PYTEST_EXEC_CMD}  --builddir=build_${CASENAME} --rundir=CIrun_${CASENAME}  --dry-run
     - echo "Running with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE} and MPI=${MPI_MODE}"
-    - ${PYTEST_EXEC_CMD}   --builddir=build_${CASENAME} --rundir=CIrun_${CASENAME} 
+    - ${PYTEST_EXEC_CMD} -m"${PYTEST_MARKER_OPTS}" --builddir=build_${CASENAME} --rundir=CIrun_${CASENAME} -k "not _restart" 
+    - ${PYTEST_EXEC_CMD} -m"${PYTEST_MARKER_OPTS}" --builddir=build_${CASENAME} --rundir=CIrun_${CASENAME} -k "_restart"
   artifacts:
     name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
     paths:
