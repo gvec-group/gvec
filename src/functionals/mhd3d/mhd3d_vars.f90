@@ -64,7 +64,7 @@ INTEGER              :: init_BC         !! active if init_fromBC_only=T: -1: kee
 LOGICAL              :: init_LA         !! false: lambda=0 at initialization, true: lambda is computed from initial mapping
 INTEGER              :: PrecondType     !! -1: off: 1: .. 
 ! input parameters for minimization
-INTEGER              :: MinimizerType   !! which mimimizer to use: 0: steepest descent (default) , 1: LBFGS
+INTEGER              :: MinimizerType   !! which mimimizer to use: 0: gradient descent (default) , 10: accelerated gradient descent
 INTEGER              :: maxIter         !! maximum iteration count for minimization 
 INTEGER              :: outputIter      !! number of iterations after which output files are written
 INTEGER              :: logIter         !! number of iterations after which a screen log is written
