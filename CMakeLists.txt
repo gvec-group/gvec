@@ -315,6 +315,7 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
                           ./src/readstate*.f90
+                          ./src/io_netcdf.f90
                           ./src/output/*.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
@@ -324,10 +325,7 @@ IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
                             ./src/functionals/*.f90
                             ./src/analyze/*.f90
-                            ./src/lbfgsb/*.f90
                             ./src/vmec/*.f90
-                            ./src/io_netcdf.f90
-                            ./src/output/*.f90
                             ./src/restart/*.f90 )
 
   IF(USE_FTIMINGS)
