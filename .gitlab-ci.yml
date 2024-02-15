@@ -20,8 +20,8 @@ variables:
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_RELEASE: v0.0.1-dev
   PYTEST_EXEC_CMD: "python -m pytest -v" 
-  #PYTEST_MARKER_OPTS: "( (debugrun or example) and (not regression) )"
-  PYTEST_MARKER_OPTS: "( shortrun and (not regression) )"
+  #PYTEST_MARKER_OPTS: "( run_stage and debugrun )"
+  PYTEST_MARKER_OPTS: "( run_stage and shortrun )"
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 

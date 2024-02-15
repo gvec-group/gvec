@@ -396,12 +396,12 @@ IF(COMPILE_GVEC)
   add_test(
     NAME gvec_pytest_shortrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
-    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "shortrun and (not regression)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
   )
   #add_test(
   #  NAME gvec_pytest_example
   #  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
-  #  COMMAND ${Python_EXECUTABLE} -m pytest -v -m "example and (not regression)" --builddir=${CMAKE_BINARY_DIR}
+  #  COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and example" --builddir=${CMAKE_BINARY_DIR}
   #)
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)

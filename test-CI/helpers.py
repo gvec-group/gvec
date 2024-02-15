@@ -62,16 +62,16 @@ def assert_empty_stderr(path: str | Path = "stderr"):
         assert len(lines) == 0
 
 
-def assert_stdout_finished(path: str | Path = "stdout"):
+def assert_stdout_finished(path: str | Path = "stdout", message="SUCESSFULLY FINISHED"):
     """
-    Asserts that the specified file (default `stdout`) ends with "GVEC SUCESSFULLY FINISHED!".
+    Asserts that the specified file (default `stdout`) ends with a message in the second to last line.
 
     Args:
         path (str | Path, optional): The path to the stdout file. Defaults to `stdout`.
     """
     with open(path) as file:
         lines = file.readlines()
-        assert lines[-2].startswith(" GVEC SUCESSFULLY FINISHED!")
+        assert message.strip() in lines[-2] , f"final message '{message.strip()}' not found in stdout"
 
 
 # === HELPER FUNCTIONS === #
@@ -106,6 +106,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         source (str or Path): The path to the source parameter file.
         target (str or Path): The path to the target parameter file.
         **kwargs: Keyword arguments representing the parameters to be replaced.
+                  if the value of the key is "!", the line with the keyword is uncommented (must exist in the parameterfile)
 
     Raises:
         AssertionError: If the number of occurrences for any parameter is not exactly 1.
@@ -128,20 +129,31 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     with open(source, "r") as source_file, open(target, "w") as target_file:
         for line in source_file:
             if m := re.match(
-                r"([^!]*)("
+                r"([\s!]*)("
                 + "|".join(kwargs.keys())
                 + r")(\s*=\s*)(\(.*\)|[^!\s]*)(.*)",
                 line,
             ):
                 prefix, key, sep, value, suffix = m.groups()
-                line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
-                occurrences[key] += 1
+                if("!" in prefix): # found commented keyword
+                    if (kwargs[key]=="!"):  #only uncomment keyword
+                        line = f"{key}{sep}{value}{suffix}\n"
+                        occurrences[key] += 1
+                else: # found uncommented keywords
+                    if not (kwargs[key]=="!"):  #use new keyword
+                        line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
+                        occurrences[key] += 1
+                    else: # use the existing keyword,value pair with a comment
+                        line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
+                        occurrences[key] += 1
             target_file.write(line)
         # add key,value pair if not existing in parameterfile.
         for key, v in occurrences.items():
             if v == 0:
-                target_file.write(f"\n {key} = {kwargs[key]}")
-                occurrences[key] += 1
+                if not (kwargs[key]=="!"):   # ignore uncommenting keywords if not found
+                    target_file.write(f"\n {key} = {kwargs[key]}")
+                    occurrences[key] += 1
+
     assert all(
         [v == 1 for v in occurrences.values()]
-    ), f"bad number of occurrences: {occurrences}"
+    ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"

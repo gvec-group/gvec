@@ -56,7 +56,7 @@ def testcase(request):
 @pytest.fixture(scope="session")
 def testcaserundir(rundir: Path, testgroup: str, testcase: str):
     """
-    Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `examples/{testcase}`
+    Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `{testgroup}/{testcase}`
     """
     # assert that `{rundir}` and `{rundir}/{testgroup}` exist
     if not rundir.exists():
@@ -78,6 +78,7 @@ def testcaserundir(rundir: Path, testgroup: str, testcase: str):
                 sourcedir / "parameter.ini", targetdir / "parameter.ini", 
                 testlevel=-1, 
                 MaxIter=1,logIter=1,outputIter=1,
+                visu1D=0,visu2D=0,visu3D=0
             )
         case "debugrun":
             helpers.adapt_parameter_file(
@@ -87,18 +88,53 @@ def testcaserundir(rundir: Path, testgroup: str, testcase: str):
             )
     return targetdir
 
+@pytest.fixture(scope="session")
+def testcasepostdir(postdir: Path, rundir: Path, testgroup: str, testcase: str):
+    """
+    Generate the post directory at `{postdir}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
+    """
+    # assert that `{postdir}` and `{postdir}/{testgroup}` exist
+    if not postdir.exists():
+        postdir.mkdir()
+    if not (postdir / "data").exists():
+        (postdir / "data").symlink_to(Path(__file__).parent / "data")
+    if not (postdir / testgroup).exists():
+        (postdir / testgroup).mkdir()
+    # create the testcase directory
+    sourcedir = Path(__file__).parent / "examples" / testcase
+    sourcerundir = rundir / testgroup / testcase
+    targetdir = postdir / testgroup / testcase
+    if targetdir.exists():
+        shutil.rmtree(targetdir)
+    # copy input files from examples/testcase
+    shutil.copytree(sourcedir, targetdir, symlinks=True)
+    states = [
+              sd
+              for sd in os.listdir(sourcerundir)
+                 if "State" in sd and sd.endswith(".dat")
+    ]
+    # link to statefiles from run_stage
+    for statefile in states:
+        (targetdir / statefile).symlink_to(sourcerundir / statefile)
+    # overwrite parameter file with the rundir version and modify it
+    helpers.adapt_parameter_file(
+                sourcerundir / "parameter.ini", targetdir / "parameter.ini", 
+                visu1D="!", visu2D="!",visu3D="!",  # only uncomment visualization flags
+    )
+    return targetdir
+
 
 # === TESTS === #
 
-
+@pytest.mark.run_stage
 def test_examples(binpath, testgroup, testcaserundir, testcase, dryrun):
     """
     Test end2end GVEC runs with `{testgroup}/{testcase}/parameter.ini`
 
     Note: the `testgroup` fixture is contained in `testcaserundir`, but is given additionally to the test function
     for better readability and proper parameter ordering for the pytest nodeID.
-    """
-    args = [binpath, "parameter.ini"]
+    """ 
+    args = [binpath / "gvec",  "parameter.ini"]
     # find restart statefile
     if "_restart" in testcase:
         base_name, suffix = re.match(
@@ -107,18 +143,27 @@ def test_examples(binpath, testgroup, testcaserundir, testcase, dryrun):
         base_directory = (
             testcaserundir / ".." / base_name
         ) 
-        
+        if base_directory.exists():
+            states = [
+                    sd
+                    for sd in os.listdir(base_directory)
+                    if "State" in sd and sd.endswith(".dat")
+            ]  
         if not dryrun:
             assert base_directory.exists() , "no base directory found for restart"
-            states = [
-                sd
-                for sd in os.listdir(base_directory)
-                if "State" in sd and sd.endswith(".dat")
-            ]
             assert len(states) > 0, f"no statefile for restart found in base directory ../{base_name}"
-            args.append(base_directory / sorted(states)[-1])
+            laststatefile = sorted(states)[-1]
+            (testcaserundir / laststatefile).symlink_to( base_directory / laststatefile )
+            args.append(laststatefile)
         else:
-            args.append(base_directory / "STATEFILE?")
+            if base_directory.exists():
+               if len(states) > 0: 
+                   laststatefile=sorted(states)[-1]  
+               else:
+                   laststatefile="STATEFILE???" 
+               args.append(laststatefile)
+            else:
+                args.append(base_directory / "???")
     # run gvec
     with helpers.chdir(testcaserundir):
         if dryrun:
@@ -132,10 +177,51 @@ def test_examples(binpath, testgroup, testcaserundir, testcase, dryrun):
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
         # check if GVEC was successful
         helpers.assert_empty_stderr()
-        helpers.assert_stdout_finished()
+        helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
 
 
-@pytest.mark.regression
+@pytest.mark.post_stage
+def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
+    """
+    Post processing  of statefile(s) from an example GVEC run.
+
+    Takes the last two statefiles in `{rundir}/{testgroup}/{testcase}`  and runs the modified parameter with the post_gvec in 
+    `{postdir}/{testgroup}/{testcase}`. 
+    Note: the `testgroup` fixture is contained in `testcasepostdir`, but is given additionally to the test function
+    for better readability and proper parameter ordering for the pytest nodeID.
+    """
+    args = [binpath / "gvec_post",  "parameter.ini"]
+    # find all statefiles in directory
+
+   # run gvec
+    with helpers.chdir(testcasepostdir):
+        states = [
+              sd
+              for sd in os.listdir(".")
+                 if "State" in sd and sd.endswith(".dat")
+        ]
+        for statefile in states[len(states)-2:len(states)]:
+             args.append(statefile) # add the last two files
+        if dryrun:
+            if len(states) == 0:  args.append("STATEFILES???!")
+            with open("dryrun-examples", "w") as file:
+                file.write(f"DRYRUN: execute:\n {args} \n")
+            return
+        assert len(states) > 0, f"no statefile for post found in directory {directory}"
+        # run gvec_post
+        with open("stdout", "w") as stdout:
+            stdout.write(f"RUNNING: \n {args} \n")
+        with open("stdout", "a") as stdout, open("stderr", "w") as stderr:
+            subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
+        # check if GVEC was successful
+        helpers.assert_empty_stderr()
+        helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
+            
+
+
+
+
+@pytest.mark.regression_stage
 def test_regression(testgroup, testcase, rundir, refdir, dryrun):
     """
     Regression test of example GVEC runs and restarts.
