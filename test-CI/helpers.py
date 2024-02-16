@@ -58,7 +58,7 @@ def assert_equal_files(
             )
             assert (
                 textsA == textsB
-            ), f"Line no. {lidx+1} differs textually:\n{pathA}:\n{textsA}\n!=\n{pathB}:\n{textsB}"
+            ), f"Line no. {lidx+1} differs textually:\n ====> PATH A: {pathA}\n       PATH B: {pathB}\n   ==> TEXT A: {textsA}\n       TEXT B: {textsB}"
             # extract the float fragments
             floatsA, floatsB = (
                 np.array(split[1::2], dtype=float) for split in (splitA, splitB)
@@ -73,14 +73,14 @@ def assert_equal_files(
             try:
                 assert all(
                     close
-                ), f"Line no. {lidx+1} differs numerically ({pattern}):\n{pathA}:\n{floatsA}\n!=\n{pathB}:\n{floatsB}"
+                ), f"Line no. {lidx+1} differs numerically (rtol={rtol},atol={atol}, {pattern}):\n{pathA}:\n{floatsA}\n!=\n{pathB}:\n{floatsB}"
             except AssertionError as e:
-                logging.error(f"Line no. {lidx+1} differs numerically: {pattern}")
-                logging.error(f"A: {pathA}")
-                logging.error(f"A: {floatsA}")
-                logging.error(f"B: {pathB}")
-                logging.error(f"B: {floatsB}")
-                logging.error(f"=: {abs(floatsA - floatsB)}")
+                logging.error(f"Line no. {lidx+1} differs numerically (rtol={rtol},atol={atol}): {pattern}")
+                logging.error(f"====> FILE A:\n {pathA}")
+                logging.error(f"      FILE B:\n {pathB}")
+                logging.error(f"  ==> LINE A:\n {floatsA}")
+                logging.error(f"      LINE B:\n {floatsB}")
+                logging.error(f"  ==>  |A-B|:\n {abs(floatsA - floatsB)}")
                 raise e
 
 

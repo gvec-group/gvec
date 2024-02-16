@@ -470,10 +470,6 @@ mpcdfci_intel_gnu_regression:
     - .tmpl_before_script_modules # need to load modules 
     - .tmpl_script_regression
     - .vars_matrix_run
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
   variables:
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG}
@@ -507,7 +503,7 @@ mpcdfci_intel2023_post:
     - .tmpl_mpcdfci_intel2023
     - .tmpl_setup_post
     - .tmpl_script_post
-    - .vars_matrix_post  # matrix of variables
+    - .vars_matrix_run  # matrix of variables
   needs:
     - job: mpcdfci_intel2023_build
       artifacts: true

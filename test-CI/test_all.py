@@ -226,12 +226,12 @@ def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
 
 
 @pytest.mark.regression_stage
-def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger):
+def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger,reg_rtol,reg_atol):
     """
     Regression test of example GVEC runs and restarts.
 
     Compares all statefiles in `{rundir}/{testgroup}/{testcase}` with the corresponding statefiles in
-    `{refdir}/{testgroup}/{testcase}` using `helpers.assert_equal_statefiles`.
+    `{refdir}/{testgroup}/{testcase}` using `helpers.assert_equal_files`.
     """
     # the two directories to compare
     testcaserundir = rundir / testgroup / testcase
@@ -267,18 +267,23 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger):
                 helpers.assert_equal_files(
                     testcaserundir / filename,
                     testcaserefdir / filename,
-                    atol=1e-10,
+                    ignore_regexs=[ r".*/.*"], # ignore lines with a path
+                    atol=reg_atol,
+                    rtol=reg_rtol,
                 )
             elif re.match(r"log\w*\.csv", filename):
                 helpers.assert_equal_files(
                     testcaserundir / filename,
                     testcaserefdir / filename,
                     ignore_columns=[1],
+                    atol=reg_atol,
+                    rtol=reg_rtol,
                 )
             elif filename == "stdout.txt":
                 helpers.assert_equal_files(
                     testcaserundir / filename,
                     testcaserefdir / filename,
                     ignore_regexs=[r".*sec.*", r".*date.*", r".*PosixPath.*"],
-                    atol=1e-10,
+                    atol=reg_atol,
+                    rtol=reg_rtol,
                 )

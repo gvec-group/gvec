@@ -34,6 +34,7 @@
 * `python -m pytest -v -m "run_stage" --dry-run` to simulate a test run, without actually executing the tests. All tests are displayed and run folders and files are created, along with a dry-run output.
 * `python -m pytest -v -m "run_stage" --builddir="BUILDDIR" --rundir="RUNDIR"` to run all end2end tests using `BUILDDIR/bin/gvec` and store the results at `RUNDIR`
 * `python -m pytest -v -m "regression_stage" --builddir="BUILDDIR" --rundir="RUNDIR" --refdir="REFDIR"`
+
 ## Details
 * the main python script for all tests is in `test-CI/test_all.py`
 * Large input files should be stored in `test-CI/data` and the examples should contain a *relative* symbolic link

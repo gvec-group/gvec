@@ -50,6 +50,19 @@ def pytest_addoption(parser):
         action="store_true",
         help="Do not execute commands, but generate all runs.",
     )
+    parser.addoption(
+        "--reg-rtol",
+        type=float,
+        default=1.0e-7,
+        help="relative tolerance for regression stage",
+    )
+    parser.addoption(
+        "--reg-atol",
+        type=float,
+        default=1.0e-10,
+        help="absolute tolerance for regression stage",
+    )
+
 
 
 def pytest_configure(config):
@@ -135,6 +148,16 @@ def dryrun(request) -> bool:
     """flag for dry-run mode"""
     return request.config.getoption("--dry-run")
 
+
+@pytest.fixture(scope="session")
+def reg_rtol(request) -> float:
+    """relative tolerance for regression"""
+    return request.config.getoption("--reg-rtol")
+
+@pytest.fixture(scope="session")
+def reg_atol(request) -> float:
+    """absolute tolerance for regression"""
+    return request.config.getoption("--reg-atol")
 
 @pytest.fixture(scope="session")
 def refdir(request,dryrun) -> Path:
