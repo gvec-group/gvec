@@ -141,14 +141,14 @@
     ],
     "testPresets": [
         {
-            "name": "gvec_release_pytest_shortruns",
-            "displayName": "Test GVEC running pytest with shortruns",
+            "name": "gvec_release_pytest",
+            "displayName": "Test GVEC release running pytest",
             "configurePreset": "gvec_config_release",
             "output": {"outputOnFailure": true}
         },
         {
-            "name": "gvec_debut_pytest_shortruns",
-            "displayName": "Test GVEC running pytest with shortruns",
+            "name": "gvec_debug_pytest",
+            "displayName": "Test GVEC debug running pytest",
             "configurePreset": "gvec_config_debug",
             "output": {"outputOnFailure": true}
         }

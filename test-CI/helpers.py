@@ -10,68 +10,106 @@ import shutil
 # === ASSERTION FUNCTIONS === #
 
 
-def assert_equal_statefiles(
+def assert_equal_files(
     pathA: str | Path,
     pathB: str | Path,
     rtol: float = 1e-8,
     atol: float = 1e-12,
+    ignore_lines: list[int] = [],
+    ignore_columns: list[int] = [],
+    ignore_regexs: list[str] = [],
 ):
     """
     Asserts line-wise equality between two files at `pathA` and `pathB`.
 
     Compare two files line by line and raises an AssertionError if any line in the two files differs.
-    Comments (lines starting with '#') are compared exactly, while numerical lines are compared up to the specified
-    relative tolerance (`rtol`) and absolute tolerance (`atol`).
+    Float values (of the form 1.234E+45 or -1.234E-45) are compared up to the specified relative and absolute tolerance (`rtol`) and (`atol`),
+    while all other content is compared exactly (leading and trailing whitespace is ignored).
 
     Args:
         pathA (str | Path): The path to the first file.
         pathB (str | Path): The path to the second file.
         rtol (float, optional): The relative tolerance for numerical comparisons. Defaults to 1e-8.
         atol (float, optional): The absolute tolerance for numerical comparisons. Defaults to 1e-12.
+        ignore_lines (list[int], optional): List of line indices to ignore during comparison. Defaults to [].
+        ignore_columns (list[int], optional): List of column indices to ignore during numerical comparison. Defaults to [].
+        ignore_regexs (list[str], optional): List of regular expressions to match lines to ignore during comparison. Defaults to [].
 
     Raises:
         AssertionError: If a line in the two files differs.
     """
     with open(pathA) as fileA, open(pathB) as fileB:
         for lidx, (lineA, lineB) in enumerate(zip(fileA, fileB, strict=True)):
+            if lidx in ignore_lines or any(
+                [
+                    re.match(regex, lineA) or re.match(regex, lineB)
+                    for regex in ignore_regexs
+                ]
+            ):
+                continue
+            # compare with regex
+            # split line into text and float parts (where floats have the format 1.234E+45 or -1.234E-45)
+            splitA, splitB = (
+                re.split(r"(-?\d\.\d+E[+-]\d+)", line) for line in (lineA, lineB)
+            )
+            # extract the text fragments
+            textsA, textsB = (
+                [text.strip() for text in split[::2]] for split in (splitA, splitB)
+            )
+            assert (
+                textsA == textsB
+            ), f"Line no. {lidx+1} differs textually:\n{pathA}:\n{textsA}\n!=\n{pathB}:\n{textsB}"
+            # extract the float fragments
+            floatsA, floatsB = (
+                np.array(split[1::2], dtype=float) for split in (splitA, splitB)
+            )
+            select = np.ones(floatsA.shape, dtype=bool)
+            select[[i for i in ignore_columns if i < select.size]] = False
+            floatsA, floatsB = floatsA[select], floatsB[select]
+            close = np.isclose(floatsA, floatsB, rtol=rtol, atol=atol)
+            # error pattern for difference
+            pattern = "".join("." if c else "x" for c in close)
+            # assert equality with better error messages
             try:
-                # compare comments (exactly)
-                if lineA[0] == "#":
-                    assert lineA == lineB
-                # compare numerically (up to tolerances rtol & atol)
-                else:
-                    assert np.allclose(
-                        *[np.array(l.split(","), float) for l in [lineA, lineB]],
-                        rtol=rtol,
-                        atol=atol,
-                    )
+                assert all(
+                    close
+                ), f"Line no. {lidx+1} differs numerically ({pattern}):\n{pathA}:\n{floatsA}\n!=\n{pathB}:\n{floatsB}"
             except AssertionError as e:
-                logging.error(f"Line no. {lidx+1} differs for {pathA} and {pathB}")
+                logging.error(f"Line no. {lidx+1} differs numerically: {pattern}")
+                logging.error(f"A: {pathA}")
+                logging.error(f"A: {floatsA}")
+                logging.error(f"B: {pathB}")
+                logging.error(f"B: {floatsB}")
+                logging.error(f"=: {abs(floatsA - floatsB)}")
                 raise e
 
 
-def assert_empty_stderr(path: str | Path = "stderr"):
+def assert_empty_stderr(path: str | Path = "stderr.txt"):
     """
-    Asserts that the specified file (default `stderr`) is empty.
+    Asserts that the specified file (default `stderr.txt`) is empty.
 
     Args:
-        path (str | Path, optional): The path to the stderr file. Defaults to `stderr`.
+        path (str | Path, optional): The path to the stderr file. Defaults to `stderr.txt`.
     """
     with open(path) as file:
         lines = file.readlines()
         assert len(lines) == 0
 
 
-def assert_stdout_finished(path: str | Path = "stdout", message="SUCESSFULLY FINISHED"):
+def assert_stdout_finished(
+    path: str | Path = "stdout.txt", message="SUCESSFULLY FINISHED"
+):
     """
-    Asserts that the specified file (default `stdout`) ends with a message in the second to last line.
+    Asserts that the specified file (default `stdout.txt`) ends with a message in the second to last line.
 
     Args:
-        path (str | Path, optional): The path to the stdout file. Defaults to `stdout`.
+        path (str | Path, optional): The path to the stdout.txt file. Defaults to `stdout.txt`.
     """
     with open(path) as file:
         lines = file.readlines()
-        assert message.strip() in lines[-2] , f"final message '{message.strip()}' not found in stdout"
+        assert (
+            message.strip() in lines[-2]
+        ), f"final message '{message.strip()}' not found in stdout.txt"
 
 
 # === HELPER FUNCTIONS === #
@@ -135,22 +173,24 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                 line,
             ):
                 prefix, key, sep, value, suffix = m.groups()
-                if("!" in prefix): # found commented keyword
-                    if (kwargs[key]=="!"):  #only uncomment keyword
+                if "!" in prefix:  # found commented keyword
+                    if kwargs[key] == "!":  # only uncomment keyword
                         line = f"{key}{sep}{value}{suffix}\n"
                         occurrences[key] += 1
-                else: # found uncommented keywords
-                    if not (kwargs[key]=="!"):  #use new keyword
+                else:  # found uncommented keywords
+                    if not (kwargs[key] == "!"):  # use new keyword
                         line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
                         occurrences[key] += 1
-                    else: # use the existing keyword,value pair with a comment
+                    else:  # use the existing keyword,value pair with a comment
                         line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
                         occurrences[key] += 1
             target_file.write(line)
         # add key,value pair if not existing in parameterfile.
         for key, v in occurrences.items():
             if v == 0:
-                if not (kwargs[key]=="!"):   # ignore uncommenting keywords if not found
+                if not (
+                    kwargs[key] == "!"
+                ):  # ignore uncommenting keywords if not found
                     target_file.write(f"\n {key} = {kwargs[key]}")
                     occurrences[key] += 1
 

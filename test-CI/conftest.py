@@ -99,7 +99,8 @@ def pytest_collection_modifyitems(items):
         if ("testcase" in getattr(item, "fixturenames", ())) and ("_restart" in item.callspec.getparam("testcase")):
             item.add_marker(getattr(pytest.mark, "restart"))
     # sort tests by testgroup and testcase
-    items.sort(key=lambda item: (item.callspec.getparam("testgroup"), item.callspec.getparam("testcase")))
+    stages = ["test_run", "test_regression", "test_post"]
+    items.sort(key=lambda item: (stages.index(item.name.split('[')[0]), item.callspec.getparam("testgroup"), item.callspec.getparam("testcase")))
 
 
 def pytest_runtest_setup(item):
@@ -136,10 +137,10 @@ def dryrun(request) -> bool:
 
 
 @pytest.fixture(scope="session")
-def refdir(request) -> Path:
+def refdir(request,dryrun) -> Path:
     """path to the reference (test-CI) directory"""
     if request.config.getoption("--refdir") is None:
-        pytest.exit("--refdir is required for regression tests")
+        pytest.skip("--refdir is required for regression tests")
     return Path(request.config.getoption("--refdir")).absolute()
 
 @pytest.fixture(scope="session")

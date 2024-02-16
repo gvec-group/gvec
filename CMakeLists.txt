@@ -394,6 +394,11 @@ IF(COMPILE_GVEC)
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
   add_test(
+    NAME gvec_pytest_dryrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
+    COMMAND ${Python_EXECUTABLE} -m pytest -v --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
+  )
+  add_test(
     NAME gvec_pytest_shortrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
     COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
