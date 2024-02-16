@@ -190,7 +190,7 @@ def testgroup(request) -> str:
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def logger(caplog):
     """get the pytest logger (with level set to DEBUG)"""
     caplog.set_level(logging.DEBUG)

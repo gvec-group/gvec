@@ -10,7 +10,7 @@ import shutil
 # === ASSERTION FUNCTIONS === #
 
 
-def assert_equal_files(
+def check_diff_files(
     pathA: str | Path,
     pathB: str | Path,
     rtol: float = 1e-8,
@@ -18,6 +18,7 @@ def assert_equal_files(
     ignore_lines: list[int] = [],
     ignore_columns: list[int] = [],
     ignore_regexs: list[str] = [],
+    logger: logging.Logger = None,
 ):
     """
     Asserts line-wise equality between two files at `pathA` and `pathB`.
@@ -38,6 +39,12 @@ def assert_equal_files(
     Raises:
         AssertionError: If a line in the two files differs.
     """
+    # fall back to root logger
+    if logger is None:
+        logger = logging.getLogger()
+    # count the number of differences
+    num_differences = 0
+    # compare files
     with open(pathA) as fileA, open(pathB) as fileB:
         for lidx, (lineA, lineB) in enumerate(zip(fileA, fileB, strict=True)):
             if lidx in ignore_lines or any(
@@ -56,9 +63,16 @@ def assert_equal_files(
             textsA, textsB = (
                 [text.strip() for text in split[::2]] for split in (splitA, splitB)
             )
-            assert (
-                textsA == textsB
-            ), f"Line no. {lidx+1} differs textually:\n ====> PATH A: {pathA}\n       PATH B: {pathB}\n   ==> TEXT A: {textsA}\n       TEXT B: {textsB}"
+            if textsA != textsB:
+                if num_differences == 0:
+                    if Path(pathA).name != Path(pathB).name:
+                        logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
+                    else:
+                        logger.info(f"--- Comparing {Path(pathA).name} ---")
+                num_differences += 1
+                logger.error(f"Line #{lidx+1} differs textually")
+                logger.debug(f"=> Line A: {lineA!r}")
+                logger.debug(f"=> Line B: {lineB!r}")
             # extract the float fragments
             floatsA, floatsB = (
                 np.array(split[1::2], dtype=float) for split in (splitA, splitB)
@@ -70,18 +84,18 @@ def assert_equal_files(
             # error pattern for difference
             pattern = "".join("." if c else "x" for c in close)
             # assert equality with better error messages
-            try:
-                assert all(
-                    close
-                ), f"Line no. {lidx+1} differs numerically (rtol={rtol},atol={atol}, {pattern}):\n{pathA}:\n{floatsA}\n!=\n{pathB}:\n{floatsB}"
-            except AssertionError as e:
-                logging.error(f"Line no. {lidx+1} differs numerically (rtol={rtol},atol={atol}): {pattern}")
-                logging.error(f"====> FILE A:\n {pathA}")
-                logging.error(f"      FILE B:\n {pathB}")
-                logging.error(f"  ==> LINE A:\n {floatsA}")
-                logging.error(f"      LINE B:\n {floatsB}")
-                logging.error(f"  ==>  |A-B|:\n {abs(floatsA - floatsB)}")
-                raise e
+            if not all(close):
+                if num_differences == 0:
+                    if Path(pathA).name != Path(pathB).name:
+                        logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
+                    else:
+                        logger.info(f"--- Comparing {Path(pathA).name} ---")
+                num_differences += 1
+                logger.error(f"Line #{lidx+1} differs numerically (rtol={rtol}, atol={atol}, {pattern})")
+                logger.debug(f"=> Line A: {lineA!r}")
+                logger.debug(f"=> Line B: {lineB!r}")
+                logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")
+    return num_differences
 
 
 def assert_empty_stderr(path: str | Path = "stderr.txt"):

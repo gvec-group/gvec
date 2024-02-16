@@ -226,7 +226,7 @@ def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
 
 
 @pytest.mark.regression_stage
-def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger,reg_rtol,reg_atol):
+def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rtol, reg_atol):
     """
     Regression test of example GVEC runs and restarts.
 
@@ -256,34 +256,45 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger,reg_rtol
                 f"DRYRUN: compare directories:\n{testcaserundir}\nwith\n{testcaserefdir}\n"
             )
             file.write(f"DRYRUN: compare files: {runfiles}\n")
+        return
     # compare output to reference
-    else:
-        for filename in runfiles:
-            # skip symbolic links (mostly unreachable input)
-            if (testcaserundir / filename).is_symlink():
-                continue
-            # statefiles
-            elif re.match(r"\w+State\w+\.dat", filename):
-                helpers.assert_equal_files(
-                    testcaserundir / filename,
-                    testcaserefdir / filename,
-                    ignore_regexs=[ r".*/.*"], # ignore lines with a path
-                    atol=reg_atol,
-                    rtol=reg_rtol,
-                )
-            elif re.match(r"log\w*\.csv", filename):
-                helpers.assert_equal_files(
-                    testcaserundir / filename,
-                    testcaserefdir / filename,
-                    ignore_columns=[1],
-                    atol=reg_atol,
-                    rtol=reg_rtol,
-                )
-            elif filename == "stdout.txt":
-                helpers.assert_equal_files(
-                    testcaserundir / filename,
-                    testcaserefdir / filename,
-                    ignore_regexs=[r".*sec.*", r".*date.*", r".*PosixPath.*"],
-                    atol=reg_atol,
-                    rtol=reg_rtol,
-                )
+    num_diff_files = 0
+    num_differences = 0
+    for filename in runfiles:
+        # skip symbolic links (mostly unreachable input)
+        if (testcaserundir / filename).is_symlink():
+            continue
+        # statefiles
+        elif re.match(r"\w+State\w+\.dat", filename):
+            num = helpers.check_diff_files(
+                testcaserundir / filename,
+                testcaserefdir / filename,
+                ignore_regexs=[ r".*/.*"], # ignore lines with a path
+                atol=reg_atol,
+                rtol=reg_rtol,
+            )
+        elif re.match(r"log\w*\.csv", filename):
+            num = helpers.check_diff_files(
+                testcaserundir / filename,
+                testcaserefdir / filename,
+                ignore_columns=[1],
+                atol=reg_atol,
+                rtol=reg_rtol,
+            )
+        elif filename == "stdout.txt":
+            num = helpers.check_diff_files(
+                testcaserundir / filename,
+                testcaserefdir / filename,
+                ignore_regexs=[r".*sec.*", r".*date.*", r".*PosixPath.*"],
+                atol=reg_atol,
+                rtol=reg_rtol,
+            )
+        else:
+            continue
+        if num > 0:
+            num_diff_files += 1
+            num_differences += num
+    if num_diff_files > 0:
+        logger.error(f"Found {num_diff_files} different files with {num_differences} differences in total")
+        raise AssertionError(f"Found {num_diff_files} different files with {num_differences} differences in total")
+    
