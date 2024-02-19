@@ -320,7 +320,8 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
-                          ./src/readstate*.f90
+                          ./src/readstate/*.f90
+                          ./src/io_netcdf.f90
                           ./src/output/*.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
@@ -330,9 +331,7 @@ IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
                             ./src/functionals/*.f90
                             ./src/analyze/*.f90
-                            ./src/lbfgsb/*.f90
                             ./src/vmec/*.f90
-                            ./src/output/*.f90
                             ./src/restart/*.f90 )
 
   IF(USE_FTIMINGS)
@@ -392,13 +391,28 @@ IF(COMPILE_GVEC)
   ADD_DEPENDENCIES(gvec_post gveclib )
   add_test(
     NAME gvec_pytest_dryrun
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMAND ${Python_EXECUTABLE} -m pytest -v --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
   )
   add_test(
-    NAME gvec_pytest_shortrun
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
-    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+    NAME gvec_pytest_run_shortrun_norestart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_restart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_post_shortrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_debugrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
   )
   #add_test(
   #  NAME gvec_pytest_example

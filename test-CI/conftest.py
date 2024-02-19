@@ -21,46 +21,62 @@ def pytest_addoption(parser):
     Args:
         parser (ArgumentParser): The pytest argument parser.
     """
-    parser.addoption(
+    
+    group = parser.getgroup('custom_directories')
+    group.addoption(
         "--builddir",
         type=Path,
         default=Path(__file__).parent / "../build",
         help="Path to build directory",
     )
-    parser.addoption(
+    group.addoption(
         "--refdir",
         type=Path,
         default=None,
         help="Path to reference pytest root directory. Required for regression tests.",
     )
-    parser.addoption(
+    group.addoption(
         "--rundir",
         type=Path,
         default=Path(__file__).parent / "run",
         help="Path to run directory",
     )
-    parser.addoption(
+    group.addoption(
         "--postdir",
         type=Path,
         default=Path(__file__).parent / "post",
         help="Path to post directory",
     )
-    parser.addoption(
+    group = parser.getgroup('custom_run_options')
+    group.addoption(
         "--dry-run",
         action="store_true",
         help="Do not execute commands, but generate all runs.",
     )
-    parser.addoption(
+    group.addoption(
         "--reg-rtol",
         type=float,
         default=1.0e-7,
         help="relative tolerance for regression stage",
     )
-    parser.addoption(
+    group.addoption(
         "--reg-atol",
         type=float,
         default=1.0e-10,
         help="absolute tolerance for regression stage",
+    )
+    group = parser.getgroup('custom_exit_code')
+    group.addoption(
+        '--suppress-no-test-exit-code',
+        action='store_true',
+        default=True,
+        help='Suppress the "no tests collected" exit code.'
+    )
+    group.addoption(
+        '--suppress-tests-failed-exit-code',
+        action='store_true',
+        default=False,
+        help='Suppress the "some tests failed" exit code.'
     )
 
 
@@ -196,3 +212,21 @@ def logger(caplog):
     caplog.set_level(logging.DEBUG)
     logger = logging.getLogger()
     yield logger
+
+@pytest.hookimpl()
+def pytest_sessionfinish(session, exitstatus):
+    # Original code taken from "pytest-custom_exit_code" plugin
+    # From pytest version >=5, the values are inside an enum
+    from pytest import ExitCode
+    no_tests_collected = ExitCode.NO_TESTS_COLLECTED
+    tests_failed = ExitCode.TESTS_FAILED
+    ok = ExitCode.OK
+    if session.config.getoption('--suppress-no-test-exit-code'):
+        if exitstatus == no_tests_collected:
+            print(f"EXITING OK INSTEAD OF 'no tests collected' (exit status=0 instead of {exitstatus})")
+            session.exitstatus = ok
+
+    if session.config.getoption('--suppress-tests-failed-exit-code'):
+        if exitstatus == tests_failed:
+            print(f"EXITING OK INSTEAD OF 'tests failed' (exit status=0 instead of {exitstatus})")
+            session.exitstatus = ok
