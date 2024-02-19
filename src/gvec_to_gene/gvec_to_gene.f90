@@ -115,7 +115,7 @@ INTEGER :: mn_max(2)
       !IMPORTANT FIX: same maximal number of modes in both directions, since SFL coordinates are coupled (if not a tokamak)!
       mn_max       = MAXVAL(mn_max)*factorSFL !*SFLfactor on modes of GVEC solution
     END IF
-    CALL transform_sfl_new(trafoSFL,mn_max,SFLcoord,X1_base_r%s%deg,X1_base_r%s%continuity, &
+    CALL transform_sfl_new(trafoSFL,mn_max,SFLcoord,.FALSE.,X1_base_r%s%deg,X1_base_r%s%continuity, &
                            X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
     CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF

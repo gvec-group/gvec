@@ -567,7 +567,7 @@ END FUNCTION get_iMode
 SUBROUTINE InitSolution(U_init,which_init_in)
 ! MODULES
   USE MODgvec_Globals,       ONLY:ProgressBar
-  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly,init_BC,init_average_axis,average_axis_move
+  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly,init_BC,init_average_axis,average_axis_move,hmap
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
   USE MODgvec_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
@@ -837,7 +837,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       CALL ProgressBar(0,LA_base%s%nBase) !init
       DO is=1,LA_base%s%nBase
         spos=LA_base%s%s_IP(is)
-        CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
+        CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:))
         CALL ProgressBar(is,LA_base%s%nBase)
       END DO !is
       SWRITE(UNIT_stdOut,'(A)') "... done."
@@ -877,7 +877,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
 ! MODULES
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
-  USE MODgvec_MHD3D_Vars   , ONLY:LA_base,LA_BC_Type,init_LA
+  USE MODgvec_MHD3D_Vars   , ONLY:LA_base,LA_BC_Type,init_LA,hmap
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
   IMPLICIT NONE
@@ -952,7 +952,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
     !initialize Lambda
     DO is=1,LA_base%s%nBase
       spos=LA_base%s%s_IP(is)
-      CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
+      CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:))
     END DO !is
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
