@@ -22,8 +22,8 @@ variables:
   HASH_TAG_RELEASE: v0.0.2-dev
   PYTEST_EXEC_CMD: "python -m pytest -v -r A" 
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
-  PYTEST_MARKER_OPTS: "shortrun"  
-  PYTEST_K_OPTS: ""
+  PYTEST_MARKER_OPTS: "example"  
+  PYTEST_KEY_OPTS: ""
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
@@ -271,15 +271,14 @@ variables:
 .tmpl_before_script_run:
   before_script:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}"  --dry-run
+    - echo ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"  --dry-run
+    -      ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"  --dry-run
     - rm -rf CIrun_${CASENAME}
    
 .tmpl_script_run:
   script:
-    - echo ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
-    - echo ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and restart" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and restart" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" 
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" 
   artifacts:
     name: "${CASENAME}"
     paths:
@@ -471,8 +470,6 @@ mpcdfci_intel2023_build_tag:
 # run with MPCDF Docker (intel2023) shared runner environment
 mpcdfci_intel2023_run:
   stage: run
-  variables:
-    PYTEST_MARKER_OPTS: "example"
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
@@ -489,8 +486,6 @@ mpcdfci_intel2023_run:
 # run with MPCDF Docker (gcc13) shared runner environment
 mpcdfci_gcc13_run:
   stage: run
-  variables:
-    PYTEST_MARKER_OPTS: "example"
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
@@ -504,11 +499,13 @@ mpcdfci_gcc13_run:
     - job: mpcdfci_gcc13_build
       artifacts: true
 
+# debug runs overwrite the PYTEST_MARKER_OPTS and PYTEST_KEY_OPTS!
+
 mpcdfci_intel2023_debugrun:
   stage: run
   variables:
     PYTEST_MARKER_OPTS: "debugrun"
-    PYTEST_K_OPTS: "(not highres) and (not _restart)"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
@@ -527,7 +524,7 @@ mpcdfci_gcc13_debugrun:
   stage: run
   variables:
     PYTEST_MARKER_OPTS: "debugrun"
-    PYTEST_K_OPTS: "(not highres) and (not _restart)"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
