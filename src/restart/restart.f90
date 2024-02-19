@@ -232,10 +232,10 @@ IMPLICIT NONE
   changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
 
   IF(changed)THEN
-    SWRITE(UNIT_stdOut,*) '     ... restart from other configuration: \n', &
+    SWRITE(UNIT_stdOut,"(A,4(A,L1))") '     ... restart from other configuration: \n', &
                           '         sameGrid= ',sameGrid, ', sameX1= ',sameX1, ', sameX2= ',sameX2,', sameLA= ',sameLA
   ELSE
-    SWRITE(UNIT_stdOut,*) '     ... restart from same configuration ... '
+    SWRITE(UNIT_stdOut,"(A)") '     ... restart from same configuration ... '
   END IF
   CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
   CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)

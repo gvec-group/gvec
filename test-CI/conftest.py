@@ -3,7 +3,11 @@ import pytest
 import logging
 from pathlib import Path
 
-
+#### for VScode debugging
+#import debugpy
+#debugpy.listen(5678)
+#debugpy.wait_for_client()
+####
 
 
 # add helpers.py to the `pythonpath` to be importable by all tests
@@ -36,10 +40,29 @@ def pytest_addoption(parser):
         help="Path to run directory",
     )
     parser.addoption(
+        "--postdir",
+        type=Path,
+        default=Path(__file__).parent / "post",
+        help="Path to post directory",
+    )
+    parser.addoption(
         "--dry-run",
         action="store_true",
         help="Do not execute commands, but generate all runs.",
     )
+    parser.addoption(
+        "--reg-rtol",
+        type=float,
+        default=1.0e-7,
+        help="relative tolerance for regression stage",
+    )
+    parser.addoption(
+        "--reg-atol",
+        type=float,
+        default=1.0e-10,
+        help="absolute tolerance for regression stage",
+    )
+
 
 
 def pytest_configure(config):
@@ -51,16 +74,26 @@ def pytest_configure(config):
     """
     # register an additional marker
     config.addinivalue_line(
-        "markers", "example: mark test as a example"
+        "markers", "example: mark test as a example, which are all tests specified in `test-CI/examples`, executed in folder `rundir/example`"
     )
     config.addinivalue_line(
-        "markers", "shortrun: mark test as a shortrun  (overwrites parameters: `testlevel=-1` and `MaxIter=1`)"
+        "markers", "restart: mark test as a restart (deduced from example folder name). Needs the example to be run first!"
     )
     config.addinivalue_line(
-        "markers", "debugrun: mark test as a debugrun (overwrites parameters: `testlevel=2` and `MaxIter=1`) "
+        "markers", "shortrun: mark test as a shortrun  (executed in folder `rundir/shortrun`, overwrites parameters: `testlevel=-1` and `MaxIter=1`)"
     )
     config.addinivalue_line(
-        "markers", "regression: mark test as a regression"
+        "markers", "debugrun: mark test as a debugrun (executed in folder `rundir/debugrun`, overwrites parameters: `testlevel=2` and `MaxIter=1`) "
+    )
+    config.addinivalue_line(
+        "markers", "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)"    
+    )
+
+    config.addinivalue_line(
+        "markers", "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir`, activates visualization parameters). Needs run_stage to be executed before in a given `rundir` directory. "    
+    )
+    config.addinivalue_line(
+        "markers", "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!"    
     )
 
 
@@ -76,8 +109,11 @@ def pytest_collection_modifyitems(items):
     for item in items:
         if "testgroup" in getattr(item, "fixturenames", ()):
             item.add_marker(getattr(pytest.mark, item.callspec.getparam("testgroup")))
+        if ("testcase" in getattr(item, "fixturenames", ())) and ("_restart" in item.callspec.getparam("testcase")):
+            item.add_marker(getattr(pytest.mark, "restart"))
     # sort tests by testgroup and testcase
-    items.sort(key=lambda item: (item.callspec.getparam("testgroup"), item.callspec.getparam("testcase")))
+    stages = ["test_run", "test_regression", "test_post"]
+    items.sort(key=lambda item: (stages.index(item.name.split('[')[0]), item.callspec.getparam("testgroup"), item.callspec.getparam("testcase")))
 
 
 def pytest_runtest_setup(item):
@@ -103,8 +139,8 @@ def builddir(request) -> Path:
 
 @pytest.fixture(scope="session")
 def binpath(request, builddir) -> Path:
-    """path to the gvec binary"""
-    return builddir / "bin" / "gvec"
+    """path to the binary folder"""
+    return builddir / "bin" 
 
 
 @pytest.fixture(scope="session")
@@ -114,11 +150,26 @@ def dryrun(request) -> bool:
 
 
 @pytest.fixture(scope="session")
-def refdir(request) -> Path:
+def reg_rtol(request) -> float:
+    """relative tolerance for regression"""
+    return request.config.getoption("--reg-rtol")
+
+@pytest.fixture(scope="session")
+def reg_atol(request) -> float:
+    """absolute tolerance for regression"""
+    return request.config.getoption("--reg-atol")
+
+@pytest.fixture(scope="session")
+def refdir(request,dryrun) -> Path:
     """path to the reference (test-CI) directory"""
     if request.config.getoption("--refdir") is None:
-        pytest.exit("--refdir is required for regression tests")
+        pytest.skip("--refdir is required for regression tests")
     return Path(request.config.getoption("--refdir")).absolute()
+
+@pytest.fixture(scope="session")
+def postdir(request) -> Path:
+    """path to the post directory, default is test-CI/post"""
+    return Path(request.config.getoption("--postdir")).absolute()
 
 
 @pytest.fixture(scope="session")
@@ -139,7 +190,7 @@ def testgroup(request) -> str:
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def logger(caplog):
     """get the pytest logger (with level set to DEBUG)"""
     caplog.set_level(logging.DEBUG)
