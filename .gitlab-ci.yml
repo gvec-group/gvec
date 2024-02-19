@@ -3,7 +3,14 @@
 # =================================================================================================================================
 
 stages:
-  - build_and_run
+  - env
+  - build
+  - run
+  - regression
+  - postprocessing
+
+workflow:
+  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
 
 # =================================================================================================================================
 # GLOBALS
@@ -11,6 +18,13 @@ stages:
 
 variables:
   GIT_STRATEGY: none
+  HASH_TAG: $CI_COMMIT_REF_NAME
+  HASH_TAG_RELEASE: v0.0.2-dev
+  PYTEST_EXEC_CMD: "python -m pytest -v -r A" 
+  # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
+  PYTEST_MARKER_OPTS: "shortrun"  
+  PYTEST_K_OPTS: ""
+
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
@@ -30,134 +44,616 @@ variables:
 # =================================================================================================================================
 
 # =================================================================================================================================
-# TEMPLATE DEFINITIONS
+# ISSUE FOUND WITH PARALLEL MATRICES
 # =================================================================================================================================
-# NOTE: _ipp is the runner testimony_fluxo , with tag: vm_linux
 
-.tmpl_IPP_global: &IPP_global
+#  parallel:
+#    matrix:
+#      - CMP_MODE: ["Debug"]
+#        OMP_MODE: ["ompON"] #only one element/variable in matrix: causes CI dependency line to break
+#                             check issue report: https://gitlab.com/gitlab-org/gitlab/-/issues/428679
+#                             workaround is to use the keyword "variables:" instead (like below) 
+#  variables:
+#    HASH_TAG: ${HASH_TAG_RELEASE}
+#    CMP_MODE: "Debug"
+#    OMP_MODE: "ompON"
+
+
+# =================================================================================================================================
+# TEMPLATES INDEPENDENT OF STAGE
+# =================================================================================================================================
+
+# ____________________________
+# MPCDF new Docker images
+# (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# MPCDF Docker image intel_2023_1_0_x:latest
+.tmpl_mpcdfci_intel2023:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:latest
   tags:
-    - vm_linux
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "intel"
 
-.tmpl_IPP_setup_intel: &IPP_setup_intel
-  <<: *IPP_global
+# MPCDF Docker image gcc_13:latest
+.tmpl_mpcdfci_gcc13:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_13:latest
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "gnu"
+
+# ____________________________
+# bash scripts to load modules
+
+.tmpl_before_script_modules:
   before_script:
-    - . ~/environments/modules_for_gvec_intel ; pwd
-    - export OMP_NUM_THREADS=2
+    - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
 
-.tmpl_IPP_setup_build_intel_debug_noomp: &IPP_setup_build_intel_debug_noomp
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "env" (printout the enviroment for future reference)
+# =================================================================================================================================
+
+.tmpl_script_env:
+  script:
+    - echo "Pipeline environment for branch:" $CI_COMMIT_REF_NAME
+    - echo $CI_RUNNER_DESCRIPTION
+    - echo $CI_RUNNER_TAGS
+    - printenv
+    - module avail
+    - echo $OMP_NUM_THREADS
+
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "build" 
+# =================================================================================================================================
+
+# ____________________________
+# ${CI_COMMIT_REF_NAME} branch/tag (CI trigger commit)
+
+.vars_cmake_def_opts:
   variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "intel"
-    CMP_MODE: "Debug"
-    OMP_MODE: "OFF"
-    GIT_STRATEGY: clone
-  <<: *IPP_setup_intel
+    COMPILE_GVEC: "ON"
+    LINK_TO_NETCDF: "ON"
+    COMPILE_CONVERTERS: "ON"
+    CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF}"
 
-.tmpl_IPP_setup_build_intel_debug_omp: &IPP_setup_build_intel_debug_omp
+.vars_cmake_only_converter:
   variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "intel"
-    CMP_MODE: "Debug"
-    OMP_MODE: "ON"
-    GIT_STRATEGY: clone
-  <<: *IPP_setup_intel
+    COMPILE_GVEC: "OFF"
+    LINK_TO_NETCDF: "OFF"
+    COMPILE_CONVERTERS: "ON"
+    CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF}"
 
-.tmpl_IPP_setup_build_intel_release_omp: &IPP_setup_build_intel_release_omp
+.vars_matrix_build:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug", "Release"]
+        OMP_MODE: ["ompOFF", "ompON"]
   variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "intel"
-    CMP_MODE: "Release"
-    OMP_MODE: "ON"
-    GIT_STRATEGY: clone
-  <<: *IPP_setup_intel
+    MPI_MODE: "mpiOFF"
 
-.tmpl_IPP_setup_gnu: &IPP_setup_gnu
-  <<: *IPP_global
+# not yet used (for MPI jobs)
+.vars_matrix_mpi_build:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug", "Release"]
+        OMP_MODE: ["ompOFF", "ompON"]
+  variables:
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+
+# ____________________________
+# ${HASH_TAG} branch (release version)
+
+.vars_matrix_build_tag:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF", "ompON"]
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
+  variables:
+    HASH_TAG: ${HASH_TAG_RELEASE}
+    MPI_MODE: "mpiOFF"
+
+# not yet used (for MPI jobs)
+.vars_matrix_mpi_build_tag:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF", "ompON"]
+  variables:
+    HASH_TAG: ${HASH_TAG_RELEASE}
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+
+# ____________________________
+# Independent of ${HASH_TAG}
+
+.tmpl_setup_build:
+  variables:
+    GIT_STRATEGY: clone
+    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+
+.tmpl_before_script_build:
   before_script:
-    - . ~/environments/modules_for_gvec_gnu ; pwd
-    - export OMP_NUM_THREADS=2
+    - pwd
+    - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
+    - echo "is ${HASH_TAG} the same as ${CI_COMMIT_REF_NAME}?"
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git lfs fetch; git checkout ${HASH_TAG}; fi
+    - git tag
+    - echo "DRY-RUN OF THE FULL PYTEST CALL"
+    - python --version
+    - python -m pytest --version
+    - ${PYTEST_EXEC_CMD} --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
+    - rm -rf _dry_* 
+    - echo "BUILDNAME is ${BUILDNAME}"
+    - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
+    - cd build_${BUILDNAME}; pwd
+    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE}  -DUSE_OPENMP=${OMP_MODE} ${CMAKE_DEF_OPTS} ../."
 
-.tmpl_IPP_setup_build_gnu_debug_noomp: &IPP_setup_build_gnu_debug_noomp
+.tmpl_script_build:
+  script:
+    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - make -j |tee ../log_${BUILDNAME}_make.txt
+    - cd ..; echo "... BUILD PHASE FINISHED!"
+  artifacts:
+    name: "${CI_PIPELINE_ID}_${BUILDNAME}"
+    paths:
+      - build_${BUILDNAME}
+      - log_${BUILDNAME}_*.txt
+    expire_in: 1 week
+    when: always
+
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "run"
+# =================================================================================================================================
+
+# ____________________________
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
+
+.vars_matrix_run:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF","ompON"]
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
   variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "gnu"
-    CMP_MODE: "Debug"
-    OMP_MODE: "OFF"
-    GIT_STRATEGY: clone
-  <<: *IPP_setup_gnu
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "2"
 
-.tmpl_IPP_setup_build_gnu_debug_omp: &IPP_setup_build_gnu_debug_omp
+# ____________________________
+# ${HASH_TAG} branch (release version)
+
+.vars_matrix_run_tag:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF","ompON"]
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
   variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "gnu"
-    CMP_MODE: "Debug"
-    OMP_MODE: "ON"
-    GIT_STRATEGY: clone
-  <<: *IPP_setup_gnu
+    HASH_TAG: ${HASH_TAG_RELEASE}
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "2"
 
-.tmpl_IPP_setup_build_gnu_release_omp: &IPP_setup_build_gnu_release_omp
+# ____________________________
+# Independent of ${HASH_TAG}
+
+.tmpl_setup_run:
   variables:
-    RUNNERNAME: "IPP"
-    CURR_CMP: "gnu"
-    CMP_MODE: "Release"
-    OMP_MODE: "ON"
     GIT_STRATEGY: clone
-  <<: *IPP_setup_gnu
+    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+
+.tmpl_before_script_exportvars:
+  before_script:
+    - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
+    - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=${OMP_NUM_THR}; fi
+    - echo ${HOSTNAME}
+    - export EXECPRE="${MPI_PRFX}"
+    - echo "HASH_TAG is ${HASH_TAG}"
+    - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
+    - echo "CASENAME is ${CASENAME} >> CIrun_${CASENAME}/"
+    - echo "Running with ${CURR_CMP} in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - python --version
+    - python -m pytest --version
+
+.tmpl_before_script_run:
+  before_script:
+    - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}"  --dry-run
+    - rm -rf CIrun_${CASENAME}
+   
+.tmpl_script_run:
+  script:
+    - echo ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
+    - echo ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and restart" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and restart" $PYTEST_DIR_OPTS -k "${PYTEST_K_OPTS}" 
+  artifacts:
+    name: "${CASENAME}"
+    paths:
+      - CIrun_${CASENAME}
+    expire_in: 1 week
+    when: always
 
 
 
-.tmpl_common_arts:
-  artifacts: &common_arts
-    name: "${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}_${CI_JOB_NAME}"
-    expire_in: 2 days
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "regression"
+# =================================================================================================================================
+
+.tmpl_script_regression:
+  variables:
+    GIT_STRATEGY: fetch
+  script:
+    - python --version
+    - python -m pytest --version
+    - echo CIrun_${CASENAME_1}
+    - echo CIrun_${CASENAME_2}
+    - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS --dry-run
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS
+  artifacts:
+    name: "${CASENAME_1}_vs_${CASENAME_2}"
+    paths:
+      # I am not completely sure about this...
+      - CIrun_${CASENAME_1}
+      - CIrun_${CASENAME_2}
+    expire_in: 1 week
     when: on_failure
 
+
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "build_and_runs"
+# TEMPLATES FOR STAGE "post"
 # =================================================================================================================================
 
-.tmpl_script_build_and_run: &script_build_and_run
-  stage: build_and_run
+.vars_matrix_post:    
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF", "ompON"]
+  variables:
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "2"
+
+.tmpl_setup_post:
+  variables:
+    GIT_STRATEGY: clone
+    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+
+.tmpl_before_script_post:
+  before_script:
+    - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --dry-run
+    - rm -rf CIpost_${CASENAME}
+
+.tmpl_script_post:
   script:
-    - pwd 
-    - rm -rf build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}    ; mkdir -p build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-    - rm -rf shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; mkdir -p shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}
-    - cd build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}; pwd
-    - cmake -DCMAKE_HOSTNAME=hydra -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_cmake.txt
-    - make -j |tee ../log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_make.txt
-    - cd ..; echo "... BUILD PHASE FINISHED!"
-    - python gitlab_shortruns.py -execdir shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} build_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} |tee log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_shortruns.txt
+    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and post_stage"  $PYTEST_DIR_OPTS
   artifacts:
-    <<: *common_arts
+    name: "${CASENAME}"
     paths:
-    - log_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE}_*.txt 
-    - shortruns_${CURR_CMP}_${CMP_MODE}_omp${OMP_MODE} 
+      - CIpost_${CASENAME}
+    expire_in: 1 week
+    when: always
+
 
 # =================================================================================================================================
-# Stage "build_and_run"
+# Stage "env"
 # =================================================================================================================================
- 
-IPP_build_and_run_intel_debug_noomp:
-  <<: *IPP_setup_build_intel_debug_noomp
-  <<: *script_build_and_run
 
-IPP_build_and_run_intel_debug_omp:
-  <<: *IPP_setup_build_intel_debug_omp
-  <<: *script_build_and_run
+# printout MPCDF Docker (Intel 2023) shared runner environment
+mpcdfci_intel2023_env:
+  stage: env
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_script_env
 
-IPP_build_and_run_intel_release_omp:
-  <<: *IPP_setup_build_intel_release_omp
-  <<: *script_build_and_run
+# printout MPCDF Docker (GCC 13) shared runner environment
+mpcdfci_gcc13_env:
+  stage: env
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_script_env
 
-IPP_build_and_run_gnu_debug_noomp:
-  <<: *IPP_setup_build_gnu_debug_noomp
-  <<: *script_build_and_run
 
-IPP_build_and_run_gnu_debug_omp:
-  <<: *IPP_setup_build_gnu_debug_omp
-  <<: *script_build_and_run
+# =================================================================================================================================
+# Stage "build"
+# =================================================================================================================================
 
-IPP_build_and_run_gnu_release_omp:
-  <<: *IPP_setup_build_gnu_release_omp
-  <<: *script_build_and_run
+# ---------------------------------------------------------------------------------------------------------------------------------
+# GitLab Shared Runners
 
+# ____________________________
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
+
+# ____________________________
+# MPCDF new Docker images
+# (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# build with MPCDF Docker (Intel 2023) shared runner environment
+mpcdfci_intel2023_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .vars_cmake_def_opts
+    - .vars_matrix_build  # matrix of variables
+  needs: [mpcdfci_intel2023_env]
+#  needs: [] # set the job to start as soon as the pipeline is created
+
+mpcdfci_intel2023_build_only_converter:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .vars_cmake_only_converter
+    - .vars_matrix_build
+  needs: [mpcdfci_intel2023_env]
+
+# build with MPCDF Docker (GCC 13) shared runner environment
+mpcdfci_gcc13_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .vars_cmake_def_opts
+    - .vars_matrix_build
+  needs: [mpcdfci_gcc13_env]
+
+mpcdfci_gcc13_build_only_converter:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .vars_cmake_only_converter
+    - .vars_matrix_build  # matrix of variables
+  needs: [mpcdfci_gcc13_env]
+
+# ____________________________
+# ${HASH_TAG} branch (release version)
+
+# build (TAG) with MPCDF Docker (Intel 2023) shared runner environment
+mpcdfci_intel2023_build_tag:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_build","before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_setup_build
+    - .tmpl_script_build
+    - .vars_cmake_def_opts
+    - .vars_matrix_build_tag
+  needs: [mpcdfci_intel2023_env] # set the job to start as soon as the pipeline is created
+
+
+# =================================================================================================================================
+# Stage "run"
+# =================================================================================================================================
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# GitLab Shared Runners
+
+# ____________________________
+# MPCDF new Docker images
+# (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# run with MPCDF Docker (intel2023) shared runner environment
+mpcdfci_intel2023_run:
+  stage: run
+  variables:
+    PYTEST_MARKER_OPTS: "example"
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_intel2023_build
+      artifacts: true
+
+# run with MPCDF Docker (gcc13) shared runner environment
+mpcdfci_gcc13_run:
+  stage: run
+  variables:
+    PYTEST_MARKER_OPTS: "example"
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_gcc13_build
+      artifacts: true
+
+mpcdfci_intel2023_debugrun:
+  stage: run
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_K_OPTS: "(not highres) and (not _restart)"
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_intel2023_build
+      artifacts: true
+
+# run with MPCDF Docker (gcc13) shared runner environment
+mpcdfci_gcc13_debugrun:
+  stage: run
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_K_OPTS: "(not highres) and (not _restart)"
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_gcc13_build
+      artifacts: true
+# ____________________________
+# ${HASH_TAG} branch (release version)
+
+# run with MPCDF Docker (intel2023) shared runner environment
+mpcdfci_intel2023_run_tag:
+  stage: run
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".tmpl_before_script_run", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_setup_run
+    - .tmpl_script_run
+    - .vars_matrix_run_tag
+  needs:
+    - job: mpcdfci_intel2023_build_tag
+      artifacts: true
+
+
+# =================================================================================================================================
+# Stage "regression"
+# =================================================================================================================================
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# GitLab Shared Runners
+
+# ____________________________
+# MPCDF new Docker images
+# (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# compare results between intel and gnu on current branches (no MPI)
+mpcdfci_intel-vs-gnu_reg:
+  stage: regression
+  extends:
+    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # need to load modules 
+    - .tmpl_script_regression
+    - .vars_matrix_run
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: intel
+    CURR_CMP_2: gnu
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  needs:
+    - job: mpcdfci_intel2023_run
+      artifacts: true
+    - job: mpcdfci_gcc13_run
+      artifacts: true
+
+# compare results between current and tag branches (no MPI)
+mpcdfci_intel-vs-tag_reg:
+  stage: regression
+  extends:
+    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # need to load modules (numdiff cmd!)
+    - .tmpl_script_regression
+    - .vars_matrix_run
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG_RELEASE}
+    CURR_CMP_1: ${CURR_CMP}
+    CURR_CMP_2: ${CURR_CMP}
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  needs:
+    - job: mpcdfci_intel2023_run
+      artifacts: true
+    - job: mpcdfci_intel2023_run_tag
+      artifacts: true
+
+
+# ==========================================================================================================================
+# Stage "postprocessing"
+# ==========================================================================================================================
+
+# ____________________________
+# MPCDF new Docker images
+# (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# run with MPCDF Docker (intel2023) shared runner environment
+mpcdfci_intel2023_post:
+  stage: postprocessing
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".tmpl_before_script_post", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_setup_post
+    - .tmpl_script_post
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_intel2023_build
+      artifacts: true
+    - job: mpcdfci_intel2023_run
+      artifacts: true
+
+# run with MPCDF Docker (gcc13) shared runner environment
+mpcdfci_gcc13_post:
+  stage: postprocessing
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".tmpl_before_script_post", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_setup_post
+    - .tmpl_script_post
+    - .vars_matrix_post  # matrix of variables
+  needs:
+    - job: mpcdfci_gcc13_build
+      artifacts: true
+    - job: mpcdfci_gcc13_run
+      artifacts: true

@@ -15,6 +15,7 @@ INCLUDE(CMakeDependentOption)
 SITE_NAME(CMAKE_HOSTNAME)
 STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
 STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_HYDRA)
+STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "hydra"     ON_HYDRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
@@ -24,6 +25,8 @@ IF (ON_MARCONI GREATER -1)
   MESSAGE(STATUS "Compiling on Marconi")
 ELSEIF (ON_HYDRA GREATER -1)
   MESSAGE(STATUS "Compiling on hydra")
+ELSEIF (ON_MPCDFCIRUNNER GREATER -1)
+  MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
 ELSEIF (ON_COBRA GREATER -1)
   MESSAGE(STATUS "Compiling on cobra")
 ELSEIF (ON_DRACO GREATER -1)
@@ -166,6 +169,8 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
       SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
    ELSEIF (ON_HYDRA GREATER -1 )
       SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
+   ELSEIF (ON_MPCDFCIRUNNER GREATER -1 )
+      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
    ELSEIF (ON_TOKP GREATER -1 )
       SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
    ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
@@ -243,7 +248,7 @@ IF(ON_HYDRA GREATER -1)
   ELSE()
      MESSAGE(SEND_ERROR " Unknown compiler ...")
   ENDIF()
-ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
+ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -270,7 +275,7 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_HYDRA GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
+  IF((ON_HYDRA GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSE()
     SET(NETCDF_DIR  /usr)
@@ -295,6 +300,11 @@ IF(USE_FTIMINGS)
 ENDIF()
 
 # =========================================================================
+# python 
+# =========================================================================
+find_package(Python COMPONENTS Interpreter REQUIRED)
+
+# =========================================================================
 # project sources & targets
 # =========================================================================
 
@@ -315,6 +325,7 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
                           ./src/readstate/*.f90
+                          ./src/io_netcdf.f90
                           ./src/output/*.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
@@ -324,10 +335,7 @@ IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
                             ./src/functionals/*.f90
                             ./src/analyze/*.f90
-                            ./src/lbfgsb/*.f90
                             ./src/vmec/*.f90
-                            ./src/io_netcdf.f90
-                            ./src/output/*.f90
                             ./src/restart/*.f90 )
 
   IF(USE_FTIMINGS)
@@ -373,6 +381,9 @@ ENDIF()
     MACOSX_RPATH ON
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
+# Enable testing in general
+include(CTest) 
+#ENABLE_TESTING()
 
 # =========================================================================
 # Executable programs (simply use add_exec)
@@ -382,6 +393,37 @@ IF(COMPILE_GVEC)
   ADD_DEPENDENCIES(gvec gveclib )
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
+  add_test(
+    NAME gvec_pytest_dryrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
+    
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_norestart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_restart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_post_shortrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_debugrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  #add_test(
+  #  NAME gvec_pytest_example
+  #  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
+  #  COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and example" --builddir=${CMAKE_BINARY_DIR}
+  #)
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
   add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
