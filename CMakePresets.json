@@ -29,6 +29,34 @@
             }
         },
         {
+            "name": "gvec_config_debug_intel",
+            "displayName": "GVEC configure: default debug build, with intel compiler",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "COMPILE_GVEC": "On",
+                "LINK_GVEC_TO_NETCDF": "On",
+                "USE_OPENMP": "On"
+            },
+            "inherits": [
+                "mpcdf-intel-cpu"
+            ]
+        },
+        {
+            "name": "gvec_config_debug_gnu",
+            "displayName": "GVEC configure: default debug build, with gnu compiler",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "COMPILE_GVEC": "On",
+                "LINK_GVEC_TO_NETCDF": "On",
+                "USE_OPENMP": "On"
+            },
+            "inherits": [
+                "mpcdf-gnu-cpu"
+            ]
+        },
+        {
             "name": "gvec_config_no-netcdf_release",
             "displayName": "GVEC configure: release build without netcdf",
             "hidden": false,
@@ -96,7 +124,7 @@
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_FORTRAN_COMPILER": "gfortran"
+                "CMAKE_Fortran_COMPILER": "gfortran"
             }
         },
         {
@@ -106,7 +134,7 @@
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "icpx",
                 "CMAKE_C_COMPILER": "icc",
-                "CMAKE_FORTRAN_COMPILER": "ifort"
+                "CMAKE_Fortran_COMPILER": "ifort"
             }
         },
         {
@@ -119,7 +147,7 @@
             ]
         },
         {
-            "name": "mpcdf-gcc-cpu",
+            "name": "mpcdf-gnu-cpu",
             "displayName": "GCC CPU Settings",
             "hidden": true,
             "inherits": [

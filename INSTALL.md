@@ -78,18 +78,20 @@ Finally compile GVEC in the build folder by typing (`-j` compiles in parallel)
   make -j
 ```
 
-#### Compiling on Cobra cluster (Dec. 2019)
+#### Compiling on Raven cluster (Feb. 2024)
 
-Load the modules and export the fortran compiler : 
+Load the modules and export the fortran compiler, by using the script in `CI_setup` folder. 
+For the intel fortran compiler, use
 
 ```
-   module purge 
-   module load git cmake intel mkl hdf5-serial
-   module load netcdf-serial
-   export FC=`which ifort`
+   . CI_setup/raven_setup_intel
+```
+or with the gcc compiler
+```
+   . CI_setup/raven_setup_gnu
 ```
 
-Follow the steps above and be sure to set in ccmake the `CMAKE_HOSTNAME` to `cobra`.
+Follow the cmake steps above and be sure to set in ccmake the `CMAKE_HOSTNAME` to `raven`. Or use the presets described below
 
 If you want to run gvec with the OpenMP parallelization, be sure to set the desired number of threads:
 ```
@@ -108,11 +110,11 @@ Start from the GVEC directory with
 to show a list of presets (defined `CMakePresets.json`). 
 Then a preset can be chosen and configured for a specified build directory:
 ```
-  cmake --preset gvec_config_release -B build_dir
+  cmake --preset gvec_config_release -B BUILDDIR
 ```
 and then is compiled with
 ```
-  cmake --build build_dir
+  cmake --build BUILDDIR
 ```
 
 Further, the user can also create own presets by creating his own preset file `CMakeUserPresets.json` in the GVEC directory. For example:
@@ -143,5 +145,12 @@ Further, the user can also create own presets by creating his own preset file `C
 The user presets then appear also on the list of presets. 
 
 **Note:** The preset files allow building the code in **VScode** with "CMake" and "CMake Tools" extensions.
+
+### Running ctests
+
+You can run now several tests via ctest, that then calls the pytest environment. you change to the build directory, and execute:
+```
+ctest -T test --output-on-failure -R
+```
    
 
