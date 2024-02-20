@@ -19,7 +19,7 @@ def check_diff_files(
     ignore_columns: list[int] = [],
     ignore_regexs: list[str] = [],
     logger: logging.Logger = None,
-):
+) -> tuple[int, int]:
     """
     Asserts line-wise equality between two files at `pathA` and `pathB`.
 
@@ -38,11 +38,15 @@ def check_diff_files(
 
     Raises:
         AssertionError: If a line in the two files differs.
+    
+    Returns:
+        tuple[int, int]: The number of textual differences and the number of numerical differences.
     """
     # fall back to root logger
     if logger is None:
         logger = logging.getLogger()
     # count the number of differences
+    txt_differences = 0
     num_differences = 0
     # compare files
     with open(pathA) as fileA, open(pathB) as fileB:
@@ -69,7 +73,7 @@ def check_diff_files(
                         logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
                     else:
                         logger.info(f"--- Comparing {Path(pathA).name} ---")
-                num_differences += 1
+                txt_differences += 1
                 logger.error(f"Line #{lidx+1} differs textually")
                 logger.debug(f"=> Line A: {lineA!r}")
                 logger.debug(f"=> Line B: {lineB!r}")
@@ -95,7 +99,7 @@ def check_diff_files(
                 logger.debug(f"=> Line A: {lineA!r}")
                 logger.debug(f"=> Line B: {lineB!r}")
                 logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")
-    return num_differences
+    return txt_differences, num_differences
 
 
 def assert_empty_stderr(path: str | Path = "stderr.txt"):
