@@ -246,9 +246,6 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         set([file for file in os.listdir(directory) if "dryrun" not in file and not file.endswith("~")])
         for directory in [testcaserundir, testcaserefdir]
     )
-    assert (
-        runfiles == reffiles
-    ), f"Missing files {runfiles - reffiles} or extra files {reffiles - runfiles} in {testcaserundir} compared to {testcaserefdir}"
     # dry-run
     if dryrun:
         with open(testcaserundir / "dryrun-regression", "w") as file:
@@ -258,11 +255,13 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             file.write(f"DRYRUN: compare files: {runfiles}\n")
         return
     # compare output to reference
+    results = {}
     num_diff_files = 0
-    num_differences = 0
-    for filename in runfiles:
+    num_diff_lines = 0
+    for filename in runfiles & reffiles:
         # skip symbolic links (mostly unreachable input)
         if (testcaserundir / filename).is_symlink():
+            results[filename] = "symlink"
             continue
         # statefiles
         elif re.match(r"\w+State\w+\.dat", filename):
@@ -290,11 +289,32 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 rtol=reg_rtol,
             )
         else:
+            results[filename] = "ignored"
             continue
-        if num > 0:
+        if num[0] > 0 or num[1] > 0:
             num_diff_files += 1
-            num_differences += num
-    if num_diff_files > 0:
-        logger.error(f"Found {num_diff_files} different files with {num_differences} differences in total")
-        raise AssertionError(f"Found {num_diff_files} different files with {num_differences} differences in total")
+            num_diff_lines += num[0] + num[1]
+            if num[0] and num[1]:
+                results[filename] = "t&ndiff"
+            elif num[0]:
+                results[filename] = "txtdiff"
+            else:
+                results[filename] = "numdiff"
+        else:
+            results[filename] = "success"
+    if num_diff_files > 0 or runfiles != reffiles:
+        msg = f"Found {num_diff_files} different files with {num_diff_lines} different lines, " \
+            f"{len(runfiles - reffiles)} additional files and {len(reffiles - runfiles)} missing files."
+        logger.info(f"{' SUMMARY ':=^80}")
+        logger.error(msg)
+        for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
+            if result in ["success", "ignored"]:
+                logger.debug(f"... {result} : {filename}")
+            else:
+                logger.error(f"... \x1b[31;20m{result}\x1b[0m : {filename}")
+        for filename in runfiles - reffiles:
+            logger.error(f"... \x1b[31;20mextra\x1b[0m   : {filename}")
+        for filename in reffiles - runfiles:
+            logger.error(f"... \x1b[31;20mmissing\x1b[0m : {filename}")
+        raise AssertionError(msg)
     

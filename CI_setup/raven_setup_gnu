@@ -20,3 +20,4 @@ module load anaconda/3/2023.03 #for pytest
 
 module list
 export FC=`which gfortran`
+export CC=`which gcc`
