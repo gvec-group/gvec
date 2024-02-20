@@ -38,7 +38,7 @@ INTEGER              :: SFLout            !! input parameter: convert final stat
 INTEGER              :: SFLout_mn_max(2)   !! maximum mode number in theta and zeta. Defaults to 4*mn_max of X1_base, if set to (-1,-1)
 INTEGER              :: SFLout_nrp,SFLout_mn_pts(2 )  !! number of points for SFLOut file in theta,zeta
 REAL(wp),ALLOCATABLE :: SFLout_radialpos(:)     !! radial positions for output
-INTEGER              :: outfileType            !! =1: default, vtk paraview file. =2: structured netcdf array., 12: both
+INTEGER              :: outfileType=0          !! =1: default, vtk paraview file. =2: structured netcdf array., 12: both
 INTEGER              :: np_1d                  !! number of points for visualization in s
 INTEGER              :: np_visu_bc(2)          !! number of points for visualization in theta,zeta
 INTEGER              :: np_visu_planes(3)      !! number of points for visualization in s,theta,zeta
