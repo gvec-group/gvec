@@ -216,7 +216,7 @@ __PERFON("gvec2castor-init")
 
   IF(SFLcoord.NE.0)THEN
     mn_max_out=mn_max_out*factorSFL !*SFLfactor on modes
-    CALL transform_sfl_new(trafoSFL,mn_max_out,SFLcoord,X1_base_r%s%deg,X1_base_r%s%continuity, &
+    CALL transform_sfl_new(trafoSFL,mn_max_out,SFLcoord,.FALSE.,X1_base_r%s%deg,X1_base_r%s%continuity, &
     X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
     CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF
