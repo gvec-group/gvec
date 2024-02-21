@@ -13,27 +13,30 @@ INCLUDE(CMakeDependentOption)
 # Detect machine environements
 # =========================================================================
 SITE_NAME(CMAKE_HOSTNAME)
-STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
-STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_HYDRA)
+STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_TESTIMONY)
+STRING(FIND "${CMAKE_HOSTNAME}" "sharedrunner" ON_SHAREDRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
-STRING(FIND "${CMAKE_HOSTNAME}" "hydra"     ON_HYDRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
-IF (ON_MARCONI GREATER -1)
-  MESSAGE(STATUS "Compiling on Marconi")
-ELSEIF (ON_HYDRA GREATER -1)
-  MESSAGE(STATUS "Compiling on hydra")
-ELSEIF (ON_MPCDFCIRUNNER GREATER -1)
+STRING(FIND "${CMAKE_HOSTNAME}" "mac"       ON_MAC)
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
+
+IF((ON_MPCDFCIRUNNER GREATER -1))
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
+ELSEIF (ON_SHAREDRUNNER GREATER -1)
+  MESSAGE(STATUS "Compiling on MPCDF shared runner")
+ELSEIF (ON_TESTIMONY GREATER -1)
+  MESSAGE(STATUS "Compiling on testimony")
 ELSEIF (ON_COBRA GREATER -1)
-  MESSAGE(STATUS "Compiling on cobra")
+  MESSAGE(STATUS "Compiling on MPCDF cobra")
 ELSEIF (ON_DRACO GREATER -1)
-  MESSAGE(STATUS "Compiling on draco")
+  MESSAGE(STATUS "Compiling on MPCDF draco")
 ELSEIF (ON_RAVEN GREATER -1)
-  MESSAGE(STATUS "Compiling on raven")
-ELSEIF (ON_RAVEN GREATER -1)
+  MESSAGE(STATUS "Compiling on MPCDF raven")
+ELSEIF (ON_MAC GREATER -1) 
+  MESSAGE(STATUS "Compiling on MacOS")
+ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
 ELSE()
   MESSAGE(STATUS "Compiling on unknown hostname")
@@ -160,27 +163,23 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-   #environment specific variables
-   IF(ON_MARCONI GREATER -1)
-      SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
-   ELSEIF (ON_HYDRA GREATER -1 )
-      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
-   ELSEIF (ON_MPCDFCIRUNNER GREATER -1 )
-      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
-   ELSEIF (ON_TOKP GREATER -1 )
-      SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
-   ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
-      SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
-      # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
-   ELSEIF (ON_DRACO GREATER -1 )
-      SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
-   ELSE()
-      SET(MAIN_INSTRUCTION "-xHost")
-   ENDIF()
-   # set Flags
+  #environment specific variables
+  IF((ON_TESTIMONY GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1 ))
+     SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for testimony
+  ELSEIF (ON_TOKP GREATER -1 )
+     SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
+  ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
+     SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
+     # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
+  ELSEIF (ON_DRACO GREATER -1 )
+     SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
+  ELSE()
+     SET(MAIN_INSTRUCTION "-xHost")
+  ENDIF()
+  # set Flags
   #OpenMP
   IF(USE_OPENMP)
-   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
   ENDIF()
 
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
@@ -227,7 +226,7 @@ ELSE()
 ENDIF()
 
 
-IF(ON_HYDRA GREATER -1)
+IF(ON_TESTIMONY GREATER -1)
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -244,7 +243,7 @@ IF(ON_HYDRA GREATER -1)
   ELSE()
      MESSAGE(SEND_ERROR " Unknown compiler ...")
   ENDIF()
-ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1))
+ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -257,6 +256,13 @@ ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) O
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
+#ELSEIF(ON_MAC GREATER -1)
+#  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+#    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
+#    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
+#    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L/opt/local/lib -lopenblas")
+#    MESSAGE(STATUS "Using GNU BLAS/Lapack library")
+#  ENDIF()
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
   IF (LAPACK_FOUND)
@@ -271,7 +277,7 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_HYDRA GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSE()
     SET(NETCDF_DIR  /usr)
@@ -289,9 +295,13 @@ ENDIF()
 # =========================================================================
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  IF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
     LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
+  ENDIF()
+    #TTR: don't know why above list append fails for MacOS... needs line below to work
+  IF((ON_MAC GREATER -1))
+    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib")
   ENDIF()
 ENDIF()
 
@@ -323,6 +333,7 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/readstate/*.f90
                           ./src/io_netcdf.f90
                           ./src/output/*.f90
+                          ./src/analyze/analyze_vars.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
 
@@ -448,3 +459,61 @@ IF(NOT COMPILE_GVEC_TO_GENE)
 ELSE()
   INCLUDE(cmake/install_gene.cmake)
 ENDIF()
+
+
+# =========================================================================
+# USERBLOCK + Preproc_flags
+# =========================================================================
+# A function to get all user defined variables with a specified prefix
+function (getListOfVarsStartingWith _prefix _varResult)
+    GET_CMAKE_PROPERTY(_vars CACHE_VARIABLES)
+    STRING(REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
+    SET(${_varResult} ${_matchedVars} PARENT_SCOPE)
+endfunction()
+
+# A function to get all user[A-Za-z0-9_]* defined variables with a specified string
+function (getListOfVarsWith _str _varResult)
+    GET_CMAKE_PROPERTY(_vars CACHE_VARIABLES)
+    STRING(REGEX MATCHALL ";([A-Za-z0-9_]*${_str}[A-Za-z0-9_]*)" _matchedVars "${_vars}")
+    SET(${_varResult} ${_matchedVars} PARENT_SCOPE)
+endfunction()
+
+# Get the latest abbreviated commit hash of the working branch
+ execute_process(
+     COMMAND git log -n 1 --format=%H
+     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+     OUTPUT_VARIABLE GIT_HASH
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+     )
+# Get the latest abbreviated branch name
+ execute_process(
+     COMMAND git rev-parse --abbrev-ref HEAD
+     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+     OUTPUT_VARIABLE GIT_BRANCH
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+     )
+
+# A function to get all user defined variables with a specified prefix
+SET(configuration ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90)
+FILE(WRITE ${configuration} "!This file is included during compilation in gvec.f90 to show the configuration on the screen output. \n")
+FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A,3(1X,A))')  \"GIT_BRANCH:\",\"'${GIT_BRANCH}'\",\",GIT_HASH:\",\"'${GIT_HASH}'\"\n")
+FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A)') \" THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:\" \n")
+GETLISTOFVARSWITH("GVEC" gvecVars)
+GETLISTOFVARSSTARTINGWITH("USE_" useVars)
+GETLISTOFVARSSTARTINGWITH("CMAKE_BUILD_TYPE" cbVars)
+GETLISTOFVARSSTARTINGWITH("CMAKE_HOSTNAME" hnVars)
+FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
+  GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
+#  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+#  IF(${boolian})
+#    #FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
+#    FILE(APPEND ${configuration} "  WRITE(UNIT_stdOut,*)  \"   CMAKE,OPTION: ${_var} ${${_var}} \" \n")
+#  ELSE()
+    IF(${_var})
+      STRING(REPLACE "\\" "\\\\" ${_var} ${${_var}})
+    ENDIF()
+    #FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
+    FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A18,A30,A3,A40)')  \"   CMAKE-OPTION : \",\" ${_var} \",\" : \",\"${${_var}}\"\n")
+#  ENDIF()
+ENDFOREACH()
+

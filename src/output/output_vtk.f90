@@ -49,7 +49,7 @@ USE MODgvec_Globals
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,INTENT(IN)            :: dim1                    !! dimension of the data (either 2=quads or 3=hexas)
+INTEGER,INTENT(IN)            :: dim1                    !! dimension of the data (either 1:lines,2=quads or 3=hexas)
 INTEGER,INTENT(IN)            :: vecdim                  !! dimension of coordinates 
 INTEGER,INTENT(IN)            :: nVal                    !! Number of nodal output variables
 INTEGER,INTENT(IN)            :: NPlot(dim1)             !! Number of output points per element : (nPlot+1)**dim1
@@ -214,6 +214,17 @@ WRITE(ivtk) nBytes
 WRITE(ivtk) REAL(Coord(:,:,:),kindFloat)
 ! Connectivity
 SELECT CASE(dim1)
+CASE(1)
+  CellID = 0
+  PointID= 0
+  DO iElem=1,nElems
+    DO i=1,NPlot(1)
+      CellID = CellID+1
+      !visuQuadElem
+      Vertex(:,CellID) = (/ PointID+(i-1), PointID+ i /) 
+    END DO
+    PointID=PointID+1
+  END DO
 CASE(2)
   CellID = 0
   PointID= 0
@@ -264,7 +275,14 @@ nBytes = nVTKCells*sizeInt
 WRITE(ivtk) nBytes
 WRITE(ivtk) (Offset,Offset=2**dim1,2**dim1*nVTKCells,2**dim1)
 ! Elem type
-ElemType =3+3*dim1 !9 VTK_QUAD 12  VTK_HEXAHEDRON
+SELECT CASE(dim1)
+CASE(1)
+  ElemType =3 !VTK_LINE
+CASE(2)
+  ElemType =9 !VTK_QUAD
+CASE(3)
+  ElemType =12  !VTK_HEXAHEDRON
+END SELECT
 WRITE(ivtk) nBytes
 WRITE(ivtk) (ElemType,iElem=1,nVTKCells)
 ! Write footer

@@ -429,7 +429,7 @@ IMPLICIT NONE
 
     iTest=107 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
-    jElem=sf%nElems/2
+    jElem=(sf%nElems+1)/2
     x=0.5_wp*(sf%sp(jElem-1)+sf%sp(jElem))
     iElem=sf%find_elem(x)
     IF(testdbg.OR.(.NOT.( (iElem.EQ.jElem) )))THEN
