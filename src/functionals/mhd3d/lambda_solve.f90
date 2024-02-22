@@ -35,10 +35,9 @@ CONTAINS
 !! Note that the mapping defined by  X1 and X2 must be fully initialized, since derivatives in s must be taken!
 !!
 !===================================================================================================================================
-SUBROUTINE Lambda_solve(spos_in,hmap_in,X1_base_in,X2_base_in,LA_fbase_in,X1_in,X2_in,LA_s) 
+SUBROUTINE Lambda_solve(spos_in,hmap_in,X1_base_in,X2_base_in,LA_fbase_in,X1_in,X2_in,LA_s,phiPrime_s,chiPrime_s)
 ! MODULES
   USE MODgvec_Globals,       ONLY:n_warnings_occured
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_phiPrime,Eval_chiPrime
   USE MODgvec_base          ,ONLY: t_base
   USE MODgvec_fbase         ,ONLY: t_fbase
   USE MODgvec_hmap          ,ONLY: c_hmap
@@ -51,6 +50,8 @@ SUBROUTINE Lambda_solve(spos_in,hmap_in,X1_base_in,X2_base_in,LA_fbase_in,X1_in,
   REAL(wp)     , INTENT(IN) :: spos_in                  !! s position to evaluate lambda
   REAL(wp)     , INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes) !! U%X1 variable, is reshaped to 2D at input
   REAL(wp)     , INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes) !! U%X2 variable, is reshaped to 2D at input 
+  REAL(wp)     , INTENT(IN) :: phiPrime_s !! toroidal flux derivative phi' at the position s 
+  REAL(wp)     , INTENT(IN) :: chiPrime_s !! poloidal flux derivative chi' at the position s 
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -59,24 +60,18 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
 ! LOCAL VARIABLES
   INTEGER                               :: iMode,i_mn,mn_IP
   REAL(wp)                              :: spos,Jh,minJ,qloc(3),dqdthet(3),dqdzeta(3)
-  REAL(wp)                              :: phiPrime_s,ChiPrime_s   !! toroidal and poloidal flux s derivatives at s_pos
   REAL(wp),DIMENSION(1:X1_base_in%f%modes) :: X1_s,X1_ds !! X1 solution at spos 
   REAL(wp),DIMENSION(1:X2_base_in%f%modes) :: X2_s,X2_ds !! X1 solution at spos 
   REAL(wp),DIMENSION(1:X1_base_in%f%mn_IP) :: X1_s_IP,dX1ds,dX1dthet,dX1dzeta, & !mn_IP should be same for all!
-                                           X2_s_IP,dX2ds,dX2dthet,dX2dzeta, &
-                                           detJ,gam_tt,gam_tz,gam_zz,zeta_IP
+                                              X2_s_IP,dX2ds,dX2dthet,dX2dzeta, &
+                                              detJ,gam_tt,gam_tz,gam_zz,zeta_IP
 !===================================================================================================================================
   __PERFON('lambda_solve')
-
   spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos_in))
   mn_IP = X1_base_in%f%mn_IP
   IF(X2_base_in%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
   IF(LA_fbase_in%mn_IP .NE.mn_IP)  STOP 'LA mn_IP /= X1 mn_IP'
   zeta_IP  = X1_base_in%f%x_IP(2,:) 
- 
-  phiPrime_s=Eval_phiPrime(spos)
-  chiPrime_s=Eval_chiPrime(spos)
-
 
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 

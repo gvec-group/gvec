@@ -61,6 +61,7 @@ LOGICAL              :: init_fromBCOnly !! default=TRUE, for VMEC only, if set f
 LOGICAL              :: init_with_profile_pressure !! default=FALSE, if True, overwrite profile from VMEC ini using  profile from parameterfile
 LOGICAL              :: init_with_profile_iota     !! default=FALSE, if True, overwrite profile from VMEC ini using  profile from parameterfile
 LOGICAL              :: init_average_axis !! default=FALSE, if true, use outer boundary to estimate axis position (center of closed line)
+LOGICAL              :: boundary_perturb !! default=FALSE, if true, mapping is perturbed with a given modal perturbation of the boundary (X1pert_b,X2pert_b)
 REAL(wp)             :: average_axis_move(2) !! used if init_average_axis=True to additionally move axis in X1,X2   
 INTEGER              :: init_BC         !! active if init_fromBC_only=T: -1: keep vmec axis and boundary (default), 0: keep vmec boundary, overwrite axis, 1: keep vmec axis, overwrite boundary, 2: overwrite axis and boundary
 INTEGER              :: getBoundaryFromFile !! -1: off, 1: read from specific netcdf file
@@ -95,6 +96,8 @@ REAL(wp),ALLOCATABLE :: X2_b(:)         !! fourier modes of the edge boundary fo
 REAL(wp),ALLOCATABLE :: LA_b(:)         !! fourier modes of the edge boundary for LA
 REAL(wp),ALLOCATABLE :: X1_a(:)         !! fourier modes of the axis boundary for X1
 REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary for X2
+REAL(wp),ALLOCATABLE :: X1pert_b(:)     !! fourier modes of the boundary perturbation for X1 (if boundary_perturb=T)
+REAL(wp),ALLOCATABLE :: X2pert_b(:)     !! fourier modes of the boundary perturbation for X2 (if boundary_perturb=T)
 
 
 !===================================================================================================================================
