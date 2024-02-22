@@ -14,4 +14,4 @@ module load anaconda
 module list
 export FC=`which ifort`
 export CC=`which icc`
-export CXX=`which icx`
+export CXX=`which icc`

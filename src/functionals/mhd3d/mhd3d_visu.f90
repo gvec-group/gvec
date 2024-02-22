@@ -87,9 +87,9 @@ IMPLICIT NONE
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
   !make theta direction fully periodic
-  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    thet(mn_IP(1))=thet(1)
-  END IF
+    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      thet(mn_IP(1))=thet(1)
+    END IF
   !make zeta direction fully periodic
   IF(.NOT.((hmap%which_hmap.EQ.3).OR.(visu_q_as_xyz)))THEN !not for cylinder / visuQ
     IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
@@ -662,14 +662,6 @@ IMPLICIT NONE
             Jcart(1) = grad_Bcart(3, 2) - grad_Bcart(2, 3)   ! dBZ_dY - dBY_dZ
             Jcart(2) = grad_Bcart(1, 3) - grad_Bcart(3, 1)   ! dBX_dZ - dBZ_dX
             Jcart(3) = grad_Bcart(2, 1) - grad_Bcart(1, 2)   ! dBY_dX - dBX_dY
-!WRITE(*,'(A,3E21.11,A,3F11.5)')'DEBUG,  FD Jcart:',Jcart(1:3),' pos=',spos &
-!                                                                 , var_visu(VP_theta,i_s,j_s,i_n,i_m,iElem) &
-!                                                                 , var_visu(VP_zeta ,i_s,j_s,i_n,i_m,iElem)
-!WRITE(*,'(A,3E21.11)')'DEBUG,  ex Jcart:',             var_visu(VP_J:VP_J+2 ,i_s,j_s,i_n,i_m,iElem)*2.0e-7_wp*TWOPI
-!WRITE(*,'(A,3E21.11)')'DEBUG,diff Jcart:',ABS(Jcart(1)-var_visu(VP_J  ,i_s,j_s,i_n,i_m,iElem)*2.0e-7_wp*TWOPI) &
-!                                         ,ABS(Jcart(2)-var_visu(VP_J+1,i_s,j_s,i_n,i_m,iElem)*2.0e-7_wp*TWOPI) &
-!                                         ,ABS(Jcart(3)-var_visu(VP_J+2,i_s,j_s,i_n,i_m,iElem)*2.0e-7_wp*TWOPI)
-      
             var_visu(VP_J:VP_J+2,i_s,j_s,i_n,i_m,iElem) = Jcart(:)/(2.0e-7_wp*TWOPI)  !*1/mu_0
 #endif /*VISU_J_FD*/
           END DO !j_s
@@ -693,15 +685,15 @@ IMPLICIT NONE
   !END IF
 
   !make grid exactly periodic
-  !make theta direction exactly periodic
-  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-  !$OMP PARALLEL DO  COLLAPSE(3)     &  
-  !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
-          DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
-            coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
-          END DO; END DO; END DO
-  !$OMP END PARALLEL DO
-  END IF
+    !make theta direction exactly periodic
+    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+!$OMP PARALLEL DO  COLLAPSE(3)     &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
+      DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
+        coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
+      END DO; END DO; END DO
+!$OMP END PARALLEL DO
+    END IF
   IF(.NOT.((hmap%which_hmap.EQ.3).OR.(visu_q_as_xyz)))THEN !not for cylinder / visuQ
     !make zeta direction exactly periodic, only for 3Dvisu
     IF((.NOT.only_planes))THEN
@@ -734,8 +726,8 @@ IMPLICIT NONE
         TRIM(Projectname)//TRIM(MERGE("_visuQ","_visu ",visu_q_as_xyz)),outputLevel,fileID
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
       nplot(1:3)=(/n_s,n_s,mn_IP(2)/)-1
-      CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
-                          coord_visu(:,:,:,:,:,minElem:maxElem), &
+    CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
+                        coord_visu(:,:,:,:,:,minElem:maxElem), &
                             var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename)//".vtu")
     END IF
     IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
@@ -1540,11 +1532,11 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   DO iMode=1,base_in%f%modes
     nVal=nVal+1
     IF((iMode.GE.base_in%f%sin_range(1)+1).AND.(iMode.LE.base_in%f%sin_range(2)))THEN
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_sin", &
-        base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_sin", &
+      base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
     ELSE
-      WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_cos", &
-        base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
+    WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname)//"_cos", &
+      base_in%f%Xmn(1,iMode),base_in%f%Xmn(2,iMode)/base_in%f%nfp
     END IF
     DO j=1,nvisu
       val=base_in%s%evalDOF_s(s_visu(j),MAX(0,rderiv),xx_in(:,iMode))

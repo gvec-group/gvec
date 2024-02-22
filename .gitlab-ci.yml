@@ -19,7 +19,7 @@ workflow:
 variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: v0.0.1-frenet
+  HASH_TAG_RELEASE: v0.0.3-dev
   PYTEST_EXEC_CMD: "python -m pytest -v -r A" 
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"  
@@ -190,7 +190,7 @@ variables:
     - echo "DRY-RUN OF THE FULL PYTEST CALL"
     - python --version
     - python -m pytest --version
-    - ${PYTEST_EXEC_CMD} --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
+    - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
     - rm -rf _dry_* 
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
@@ -200,7 +200,7 @@ variables:
 .tmpl_script_build:
   script:
     - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
-    - make -j |tee ../log_${BUILDNAME}_make.txt
+    - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
   artifacts:
     name: "${CI_PIPELINE_ID}_${BUILDNAME}"
@@ -271,14 +271,14 @@ variables:
 .tmpl_before_script_run:
   before_script:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
-    - echo ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"  --dry-run
-    -      ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"  --dry-run
-    - rm -rf CIrun_${CASENAME}
+    - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
+    -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
+    - rm -rf CIrun_${CASENAME}                                                                                                      
    
 .tmpl_script_run:
   script:
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" 
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" 
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" 
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_restart.txt   -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"
   artifacts:
     name: "${CASENAME}"
     paths:
@@ -301,8 +301,8 @@ variables:
     - echo CIrun_${CASENAME_1}
     - echo CIrun_${CASENAME_2}
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS --dry-run
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS --dry-run
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS
   artifacts:
     name: "${CASENAME_1}_vs_${CASENAME_2}"
     paths:
@@ -336,12 +336,12 @@ variables:
 .tmpl_before_script_post:
   before_script:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --dry-run
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --dry-run
     - rm -rf CIpost_${CASENAME}
 
 .tmpl_script_post:
   script:
-    - ${PYTEST_EXEC_CMD} -m "${PYTEST_MARKER_OPTS} and post_stage"  $PYTEST_DIR_OPTS
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage"  $PYTEST_DIR_OPTS
   artifacts:
     name: "${CASENAME}"
     paths:

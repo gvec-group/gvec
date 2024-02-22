@@ -284,7 +284,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*sec.*", r".*date.*", r".*PosixPath.*"],
+                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*"],
                 atol=reg_atol,
                 rtol=reg_rtol,
             )

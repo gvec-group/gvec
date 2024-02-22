@@ -172,12 +172,6 @@ SUBROUTINE InitMHD3D(sf)
     gamm = 0.0_wp
     nfp_loc = nfp
     which_hmap=1 !hmap_RZ
-!    !hmap: depends on how vmec data is read:
-!    IF(switchZeta)THEN  
-!      which_hmap=1 !hmap_RZ
-!    ELSE
-!      which_hmap=2 !hmap_RphiZ
-!    END IF
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
 
@@ -755,10 +749,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         X1_gIP(:,iMode)=(1.0_wp-(s_IP(:)**2))*X1_a(iMode)+(s_IP(:)**2)*X1_b(iMode)  ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD_FIRST)
         X1_gIP(:,iMode)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
-!      CASE(M_ODD)
-!        X1_gIP(:,iMode)=(s_IP(:)**3)*X1_b(iMode) ! higher odd modes ~s^3
-!      CASE(M_EVEN)
-!        X1_gIP(:,iMode)=(s_IP(:)**2)*X1_b(iMode)   !even mode ~s^2
       CASE DEFAULT ! ~s^m
         X1_gIP(:,iMode)=s_IP(:)*X1_b(iMode)      
         DO i_m=2,X1_base%f%Xmn(1,iMode)
@@ -777,10 +767,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         X2_gIP(:,iMode)=(1.0_wp-(s_IP(:)**2))*X2_a(iMode)+(s_IP(:)**2)*X2_b(iMode) ! meet edge and axis, ~(1-s^2)
       CASE(M_ODD_FIRST)
         X2_gIP(:,iMode)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
-!      CASE(M_ODD)
-!        X2_gIP(:,iMode)=(s_IP(:)**3)*X2_b(iMode) ! higher odd modes ~s^3
-!      CASE(M_EVEN)
-!        X2_gIP(:,iMode)=(s_IP(:)**2)*X2_b(iMode) !even mode ~s^2
       CASE DEFAULT ! ~s^m
         X2_gIP(:,iMode)=s_IP(:)*X2_b(iMode)      
         DO i_m=2,X2_base%f%Xmn(1,iMode)
@@ -1146,7 +1132,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   CALL Analyze(MIN(iter,MaxIter))
   CALL WriteState(U(0),MIN(iter,MaxIter))
   CALL FinishLogging()
-   CALL writeSFLoutfile(U(0),MIN(iter,MaxIter))
+  CALL writeSFLoutfile(U(0),MIN(iter,MaxIter))
 !DEBUG
 !  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
 !  CALL ReadState(FileString,U(-1))
@@ -1302,6 +1288,7 @@ CONTAINS
   END SUBROUTINE FinishLogging
 
 END SUBROUTINE MinimizeMHD3D_descent
+
 
 !===================================================================================================================================
 !> Finalize Module

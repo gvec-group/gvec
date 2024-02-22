@@ -1363,7 +1363,7 @@ IMPLICIT NONE
        '\n =>  should be  0 : nsinzero = ', nsinzero,  &
        '\n =>  should be ', refreal,' : nfp*int(int(base(imode)*base(imode), 0, 2pi),0,2pi/nfp)= ', checkreal
     END IF !TEST
-    
+
     !test mass matrix of base
     iTest=104 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
