@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# ===========================================
+# use this setup on raven with the command:
+# > . CI_setup/raven_setup_intel
+#
+# LAST MODIFIED: 2024-02-19
+# ===========================================
+
+module purge
+module load git
+module load git-lfs
+module load cmake/3.26
+module load intel/21.7.1 
+module load mkl/2021.4
+module load hdf5-serial/1.14.1
+module load netcdf-serial/4.9.2
+module load ftimings
+module load anaconda/3/2023.03 #for pytest
+
+module list
+export FC=`which ifort`
+export CC=`which icc`
+export CXX=`which icc`

@@ -10,17 +10,22 @@ see [VMEC wiki pages](https://princetonuniversity.github.io/STELLOPT/VMEC).
 The main features of GVEC are
 
 * Use of modern **object-oriented FORTRAN**
-* **Radial High Order Finite Element** discretization: Splines with continuity `C^(deg-1)` or discontinuous polynomials
+* **Radial High Order B-spline** discretization: Splines with continuity `C^(deg-1)` or discontinuous polynomials
 * **Number of Fourier modes** for each variable `X^1,X^2,lambda` can be chosen separately
 * **Flexible choice of the mapping** between the space `(X^1,X^2,zeta)--> (x,y,z)` (in VMEC fixed to `(R,Z,phi)-->(x,y,z)` ) 
-  to find equilibria in complex-shaped domains (magnetic islands, knotted domain...)
-* Also a VMEC generated netcdf outputfile can be used for initialization of GVEC.
+  to find equilibria in complex-shaped domains (magnetic islands, knotted domains...)
+* A VMEC generated netcdf file can be used for initialization of GVEC.
+* GVEC can convert its final solution to several formats (VMEC netcdf, specific converters) 
 
 GVEC has been developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
 lead by Prof. Eric Sonnendruecker at the Max-Planck Institute for Plasma Physics 
 in Garching, Germany.
 
 The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md)
+
+### Installation
+
+After cloning this repository, follow the installation process: [For instructions see INSTALL.md](INSTALL.md).
 
 ### Documentation
 
@@ -36,10 +41,6 @@ GVEC is Copyright (C) 2017, F. Hindenlang, O. Maj, E. Sonnendruecker
 
 and is released under the terms of the GNU General Public License v3.0. 
 For the full license terms see the included license file [LICENSE.md](LICENSE.md).
-
-### Installation
-
-For [installation instructions see INSTALL.md](INSTALL.md).
 
 
 ### Run a GVEC example

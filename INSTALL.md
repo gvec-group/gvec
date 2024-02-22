@@ -155,14 +155,14 @@ Change to the build directory, and execute:
 ctest -T test --output-on-failure -R
 ```
 
-### Compiling on MPCDF cluster (cobra/raven/draco, Feb. 2024)
+### Compiling on MPCDF cluster (raven, Feb. 2024)
 
 Load the modules from the prepared shell script `CI_setup/MPCDF_setup_intel`
 
 ```
-./CI_setup/MPCDF_setup_intel
+./CI_setup/raven_setup_intel
 ```
-Follow the steps above and be sure to set in ccmake the `CMAKE_HOSTNAME` is set correctly (`cobra` or `raven` or `draco`).
+Follow the steps above and be sure to set in ccmake the `CMAKE_HOSTNAME` is set correctly (`raven`).
 
 If you run gvec with the OpenMP parallelization, be sure to set the desired number of threads as an environment variable:
 ```
