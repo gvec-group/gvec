@@ -37,7 +37,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "COMPILE_GVEC": "On",
-                "CMAKE_HOSTNAME": "mac"
+                "CMAKE_HOSTNAME": "mac_brew"
             },
             "inherits": [
                         ".gvec_static_omp_netcdf"
@@ -50,7 +50,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "COMPILE_GVEC": "On",
-                "CMAKE_HOSTNAME": "mac"
+                "CMAKE_HOSTNAME": "mac_brew"
             },
             "inherits": [
                         ".gvec_static_omp_netcdf"
@@ -70,7 +70,7 @@
             "displayName": "GVEC configure: default release build including all converters on a Mac",
             "hidden": false,
             "cacheVariables": {
-                "CMAKE_HOSTNAME": "mac"
+                "CMAKE_HOSTNAME": "mac_brew"
             },
             "inherits": [
                 "gvec_config_release",
