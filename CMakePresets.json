@@ -31,32 +31,6 @@
             ]
         },
         {
-            "name": "gvec_config_release_mac",
-            "displayName": "GVEC configure: default release build on a MAC",
-            "hidden": false,
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "COMPILE_GVEC": "On",
-                "CMAKE_HOSTNAME": "mac_brew"
-            },
-            "inherits": [
-                        ".gvec_static_omp_netcdf"
-            ]
-        },
-        {
-            "name": "gvec_config_debug_mac",
-            "displayName": "GVEC configure: default debug build on a MAC",
-            "hidden": false,
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "COMPILE_GVEC": "On",
-                "CMAKE_HOSTNAME": "mac_brew"
-            },
-            "inherits": [
-                        ".gvec_static_omp_netcdf"
-            ]
-        },
-        {
             "name": "gvec_config_release_all",
             "displayName": "GVEC configure: default release build including all converters",
             "hidden": false,
@@ -66,15 +40,69 @@
             ]
         },
         {
-            "name": "gvec_config_release_all_mac",
-            "displayName": "GVEC configure: default release build including all converters on a Mac",
+            "name": "gvec_config_release_mac_brew",
+            "displayName": "GVEC configure: default release build on a MAC, with homebrew",
             "hidden": false,
             "cacheVariables": {
                 "CMAKE_HOSTNAME": "mac_brew"
             },
             "inherits": [
-                "gvec_config_release",
-                ".gvec_cache_vars_to_x"
+                        "gvec_config_release"
+            ]
+        },
+        {
+            "name": "gvec_config_debug_mac_brew",
+            "displayName": "GVEC configure: default debug build on a MAC, with homebrew",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_brew"
+            },
+            "inherits": [
+                        "gvec_config_debug"
+            ]
+        },
+        {
+            "name": "gvec_config_release_all_mac_brew",
+            "displayName": "GVEC configure: default release build including all converters on a Mac, with homebrew",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_brew"
+            },
+            "inherits": [
+                "gvec_config_release_all"
+            ]
+        },
+        {
+            "name": "gvec_config_release_mac_ports",
+            "displayName": "GVEC configure: default release build on a MAC, with macports",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_ports"
+            },
+            "inherits": [
+                        "gvec_config_release"
+            ]
+        },
+        {
+            "name": "gvec_config_debug_mac_ports",
+            "displayName": "GVEC configure: default debug build on a MAC, with macports",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_ports"
+            },
+            "inherits": [
+                        "gvec_config_debug"
+            ]
+        },
+        {
+            "name": "gvec_config_release_all_mac_ports",
+            "displayName": "GVEC configure: default release build including all converters on a Mac, with macports",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_ports"
+            },
+            "inherits": [
+                "gvec_config_release_all"
             ]
         },
         {
