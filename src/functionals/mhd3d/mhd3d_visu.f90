@@ -689,9 +689,9 @@ IMPLICIT NONE
     IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
 !$OMP PARALLEL DO  COLLAPSE(3)     &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
-      DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
-        coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
-      END DO; END DO; END DO
+    DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
+      coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
+    END DO; END DO; END DO
 !$OMP END PARALLEL DO
     END IF
   IF(.NOT.((hmap%which_hmap.EQ.3).OR.(visu_q_as_xyz)))THEN !not for cylinder / visuQ

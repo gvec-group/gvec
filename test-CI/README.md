@@ -1,6 +1,7 @@
 # Automatic test system
 
-## Usage
+## Usage 
+
 * Call `pytest` or `python -m pytest` in the `test-CI` directory or the gvec root directory to run automatic tests.
 * With the `-m "(MARKER_A or MARKER_B) and MARKER_C"` option tests can be selected or deselected based on their markers.
     * Currently, these custom markers specify a **testgroup**: 
@@ -29,16 +30,27 @@
 * With the `-k "(CASE_A or CASE_B) and (not CASE_C)"` option tests can be selected or deselected based on their names, which includes the python function name of the test, and the folder name of the testcase.
 * With `--dry-run`, only the folders and parameter files are setup, but nothing is executed or compared. Good for testing the `pytest` command.
 
-
 ### More Examples
-* `python -m pytest -v -m "run_stage" --dry-run` to simulate a test run, without actually executing the tests. All tests are displayed and run folders and files are created, along with a dry-run output.
-* `python -m pytest -v -m "run_stage" --builddir="BUILDDIR" --rundir="RUNDIR"` to run all end2end tests using `BUILDDIR/bin/gvec` and store the results at `RUNDIR`
-* `python -m pytest -v -m "regression_stage" --builddir="BUILDDIR" --rundir="RUNDIR" --refdir="REFDIR"`
+
+* Simulate a test run, without actually executing the tests. All tests are displayed and run folders and files are created, along with a dry-run output:
+  ```bash 
+  python -m pytest -v -m "run_stage" --dry-run
+  ```
+* Run all end2end tests using `BUILDDIR/bin/gvec` and store the results at `RUNDIR`:
+  ```bash 
+  python -m pytest -v -m "run_stage" --builddir="BUILDDIR" --rundir="RUNDIR"
+  ```
+* Run the file comparison between `RUNDIR` and `REFDIR`
+  ```bash
+  python -m pytest -v -m "regression_stage" --builddir="BUILDDIR" --rundir="RUNDIR" --refdir="REFDIR"`
+  ```
 
 ## Details
+
+* Details on the gitlab CI setup are found in [README-CI.md](README-CI.md)
 * the main python script for all tests is in `test-CI/test_all.py`
 * Large input files should be stored in `test-CI/data` and the examples should contain a *relative* symbolic link
-    * When filling a `RUNDIR`, a link `RUNDIR/data -> test-CI/data` is setup. In this way the relative link should still work.
+    * When filling a `RUNDIR`, a link `RUNDIR/data -> test-CI/data` is created. In this way the relative link should still work.
 * The test logic is contained in `test_all.py:test_examples` but relies on other functions:
     * the test logic for a successful GVEC run is in `helpers.py:assert_empty_stderr` and `assert_finished_stdout`
-    * the test logic for statefile comparison in `helpers.py:assert_equal_statefiles`
+    * the test logic for file comparison in `helpers.py:assert_equal_files`

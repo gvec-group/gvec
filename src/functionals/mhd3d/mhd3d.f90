@@ -824,7 +824,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         spos=LA_base%s%s_IP(is)
         spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos)) !avoid evaluation at axis
         phiPrime_s=Eval_PhiPrime(spos)
-        phiPrime_s=Eval_chiPrime(spos)
+        chiPrime_s=Eval_chiPrime(spos)
         CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime_s,chiPrime_s)
         CALL ProgressBar(is,LA_base%s%nBase)
       END DO !is
