@@ -1,6 +1,6 @@
-### GVEC 
+# GVEC 
 
-#### Overview
+## Overview
 
 GVEC (Galerkin Variational Equilibrium Code) is an open-source software for
 the generation of three-dimensional ideal MHD equilibria.
@@ -23,11 +23,11 @@ in Garching, Germany.
 
 The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
-### Installation
+## Installation
 
 After cloning this repository, follow the installation process: [For instructions see INSTALL.md](INSTALL.md).
 
-### Documentation
+## Documentation
 
 A pdf that documents the theory and implementation details of GVEC  **[ can be found here](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf)**.
 
@@ -42,23 +42,37 @@ GVEC is Copyright (C) 2017, F. Hindenlang, O. Maj, E. Sonnendruecker
 and is released under the terms of the GNU General Public License v3.0. 
 For the full license terms see the included license file [LICENSE.md](LICENSE.md).
 
+### Testing
+
+GVEC has been equipped with automatic CI testing on the gitlab.mpcdf.mpg.de, using shared MPCDF the gitlab runners to execute the tests. 
+More details on the CI setup are found in [test-CI/README-CI.md](test-CI/README-CI.md).
+
+The CI controls builds of the code, then calls pytest for running it and checking the results (requires `python >3.10` to be installed!).
+The pytest feature allows to locally run the same tests. More details and examples on running the tests with pytest are found in [test-CI/README.md](test-CI/README.md).
+
+Some pytest commands can also be executed directly after the [cmake install process](INSTALL.md). Simply change to the build directory, and execute:
+```bash
+ctest -T test --output-on-failure -R
+```
 
 ### Run a GVEC example
 
 After [installation](INSTALL.md), the binary executable should be found in `build/bin/gvec`. 
-There are several example input files named `paramter.ini`, which are found the folders `ini/w7x` `ini/jet_single_null` `ini/test` .
+There are several example input files named `paramter.ini`, which are found in a subfolder of `test-CI/examples`.
 For execution, go into one of these folders and execute for example the following commands
+```bash
+  cd test-CI/examples/ellipstell_lowres
+  ../../../build/bin/gvec parameter.ini |tee log
 ``` 
-  cd ini/w7x
-  ../../build/bin/gvec parameter.ini |tee log
-``` 
-which pipes the screen output also into the file `log`.
+(pipes the screen output also into the file `log`)
 
-You can also restart a simulation by using on of the restart files (`*_State_*.dat`). Before the restart, resolution parameters in the ini file can be changed, so that the new iterations will be on a finer grid, for example, or with more modes. The restart is triggered by simply adding the restart filename as an argument to the execution command, for example:
-``` 
+You can also restart a simulation by using on of the restart files (`*_State_*.dat`). 
+Before the restart, resolution parameters in the `.ini` file can be changed, so that the new iterations will be on a finer grid, for example, or with more modes. The restart is triggered by simply adding the restart filename as an argument to the execution command, for example:
+```bash 
   ../../build/bin/gvec parameter.ini TOKSY_State_0000_00000200.dat |tee log
 ``` 
 Then the first integer (`_0000_`) will be incremented for the newly written restart files. 
+
 
 ### Visualization
 
