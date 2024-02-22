@@ -402,6 +402,33 @@ SUBROUTINE InitMHD3D(sf)
   END DO 
   END ASSOCIATE !LA
   
+  boundary_perturb=GETLOGICAL('boundary_perturb',Proposal=.FALSE.)
+  IF(boundary_perturb)THEN
+    ALLOCATE(X1pert_b(1:X1_base%f%modes) )
+    ALLOCATE(X2pert_b(1:X2_base%f%modes) )
+    X1pert_b=0.0_wp
+    X2pert_b=0.0_wp
+    !READ boudnary values from input file
+    ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
+    WRITE(UNIT_stdOut,'(4X,A)')'... read data for X1pert:'
+    DO iMode=sin_range(1)+1,sin_range(2)
+      X1pert_b(iMode)=get_iMode('X1pert_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      X1pert_b(iMode)=get_iMode('X1pert_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+    END DO !iMode
+    END ASSOCIATE
+    ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
+    WRITE(UNIT_stdOut,'(4X,A)')'... read data for X2pert:'
+    DO iMode=sin_range(1)+1,sin_range(2)
+      X2pert_b(iMode)=get_iMode('X2pert_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
+      X2pert_b(iMode)=get_iMode('X2pert_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+    END DO !iMode
+    END ASSOCIATE
+  END IF
+
   ! ALLOCATE DATA
   ALLOCATE(U(-3:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
@@ -455,9 +482,6 @@ SUBROUTINE InitSolutionMHD3D(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER              :: JacCheck,iMode
-  LOGICAL              :: boundary_perturb !! false: no boundary perturbation, true: add boundary perturbation X1pert_b,X2pert_b
-  REAL(wp),ALLOCATABLE :: X1pert_b(:)      !! fourier modes of the boundary perturbation for X1
-  REAL(wp),ALLOCATABLE :: X2pert_b(:)      !! fourier modes of the boundary perturbation for X2
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)') "INTIALIZE SOLUTION..."
   IF(doRestart)THEN
@@ -466,35 +490,6 @@ SUBROUTINE InitSolutionMHD3D(sf)
     CALL InitSolution(U(0),-1) !re-applies BC
   ELSE 
     CALL InitSolution(U(0),which_init)
-  END IF
-
-  boundary_perturb=GETLOGICAL('boundary_perturb',Proposal=.FALSE.)
-  IF(boundary_perturb)THEN
-    ALLOCATE(X1pert_b(1:X1_base%f%modes) )
-    ALLOCATE(X2pert_b(1:X2_base%f%modes) )
-    X1pert_b=0.0_wp
-    X2pert_b=0.0_wp
-    !READ boudnary values from input file
-    ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
-    WRITE(UNIT_stdOut,'(4X,A)')'... read data for X1pert:'
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X1pert_b(iMode)=get_iMode('X1pert_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X1pert_b(iMode)=get_iMode('X1pert_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-    ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
-    WRITE(UNIT_stdOut,'(4X,A)')'... read data for X2pert:'
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X2pert_b(iMode)=get_iMode('X2pert_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X2pert_b(iMode)=get_iMode('X2pert_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-    CALL AddBoundaryPerturbation(U(0),0.3,X1pert_b,X2pert_b)
-    DEALLOCATE(X1pert_b,X2pert_b)
   END IF
 
   CALL U(-1)%set_to(U(0))
@@ -567,9 +562,9 @@ END FUNCTION get_iMode
 SUBROUTINE InitSolution(U_init,which_init_in)
 ! MODULES
   USE MODgvec_Globals,       ONLY:ProgressBar
-  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly,init_BC,init_average_axis,average_axis_move,hmap
-  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
-  USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
+  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly,init_BC,init_average_axis,average_axis_move,hmap,boundary_perturb
+  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b,X1pert_b
+  USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b,X2pert_b
   USE MODgvec_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
@@ -577,6 +572,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
+  USE MODgvec_MHD3D_profiles,ONLY:Eval_PhiPrime,Eval_chiPrime
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -590,7 +586,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   INTEGER  :: iMode,is,i_m,i_n
   REAL(wp) :: BC_val(2)
   REAL(wp) :: spos
-  REAL(wp) :: StartTime,EndTime
+  REAL(wp) :: StartTime,EndTime,phiPrime_s,chiPrime_s
   REAL(wp) :: dl,lint,x1int,x2int 
   REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
   REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
@@ -795,6 +791,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END ASSOCIATE
   END IF !init_fromBConly
 
+  IF(boundary_perturb)THEN
+    CALL AddBoundaryPerturbation(X1pert_b,X2pert_b,X1_gIP,X2_gIP)
+  END IF
   !apply strong boundary conditions
   ASSOCIATE(modes        =>X1_base%f%modes, &
             zero_odd_even=>X1_base%f%zero_odd_even)
@@ -837,7 +836,10 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       CALL ProgressBar(0,LA_base%s%nBase) !init
       DO is=1,LA_base%s%nBase
         spos=LA_base%s%s_IP(is)
-        CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:))
+        spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos)) !avoid evaluation at axis
+        phiPrime_s=Eval_PhiPrime(spos)
+        phiPrime_s=Eval_chiPrime(spos)
+        CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime_s,chiPrime_s)
         CALL ProgressBar(is,LA_base%s%nBase)
       END DO !is
       SWRITE(UNIT_stdOut,'(A)') "... done."
@@ -873,7 +875,7 @@ END SUBROUTINE InitSolution
 !> Add boundary perturbation
 !!
 !===================================================================================================================================
-SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
+SUBROUTINE AddBoundaryPerturbation(X1pert_b,X2pert_b,X1_gIP,X2_gIP)
 ! MODULES
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
@@ -883,94 +885,23 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp),INTENT(IN) :: h ! depth of perturbation from boundary (0.1..0.3)
   REAL(wp),INTENT(IN) :: X1pert_b(1:X1_base%f%modes) 
   REAL(wp),INTENT(IN) :: X2pert_b(1:X2_base%f%modes) 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
+  REAL(wp),INTENT(OUT) :: X1_gIP(1:X1_base%s%nBase,1:X1_base%f%modes)
+  REAL(wp),INTENT(OUT) :: X2_gIP(1:X2_base%s%nBase,1:X2_base%f%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode,is
-  REAL(wp) :: BC_val(2),spos
-  REAL(wp) :: X1pert_gIP(1:X1_base%s%nBase)
-  REAL(wp) :: X2pert_gIP(1:X2_base%s%nBase)
-  REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A)') "ADD BOUNDARY PERTURBATION..."
+  DO imode=1,X1_base%f%modes
+    X1_gIP(:,iMode)=X1_gIP(:,iMode)+blend(X1_base%s%s_IP(:))*X1pert_b(iMode)
+  END DO 
   
- 
-  ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
-            modes        =>X1_base%f%modes )
-  DO imode=1,modes
-    X1_b(iMode)=X1_b(iMode)+X1pert_b(iMode)
-    X1pert_gIP(:)=blend(s_IP)*X1pert_b(iMode)
-    U_init%X1(:,iMode)=U_init%X1(:,iMode) + X1_base%s%initDOF( X1pert_gIP(:) )
+  DO imode=1,X2_base%f%modes
+    X2_gIP(:,iMode)=X2_gIP(:,iMode)+blend(X2_base%s%s_IP(:))*X2pert_b(iMode) 
   END DO 
-  END ASSOCIATE
-  
-  ASSOCIATE(s_IP         =>X2_base%s%s_IP, &
-            modes        =>X2_base%f%modes )
-  DO imode=1,modes
-    X2_b(iMode)=X2_b(iMode)+X2pert_b(iMode)
-    X2pert_gIP(:)=blend(s_IP)*X2pert_b(iMode) 
-    U_init%X2(:,iMode)=U_init%X2(:,iMode) + X2_base%s%initDOF( X2pert_gIP(:))
-  END DO 
-  END ASSOCIATE
-
-  !apply strong boundary conditions
-  ASSOCIATE(modes        =>X1_base%f%modes, &
-            zero_odd_even=>X1_base%f%zero_odd_even)
-  DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO)
-      BC_val =(/ X1_a(iMode)    ,      X1_b(iMode)/)
-    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
-    CASE DEFAULT
-      BC_val =(/          0.0_wp,      X1_b(iMode)/)
-    END SELECT !X1(:,iMode) zero odd even
-    CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
-  END DO 
-  END ASSOCIATE !X1
-  
-  ASSOCIATE(modes        =>X2_base%f%modes, &
-            zero_odd_even=>X2_base%f%zero_odd_even)
-  DO imode=1,modes
-    SELECT CASE(zero_odd_even(iMode))
-    CASE(MN_ZERO,M_ZERO)
-      BC_val =(/     X2_a(iMode),      X2_b(iMode)/)
-    !CASE(M_ODD_FIRST,M_ODD,M_EVEN)
-    CASE DEFAULT
-      BC_val =(/          0.0_wp,      X2_b(iMode)/)
-    END SELECT !X1(:,iMode) zero odd even
-    CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
-  END DO 
-  END ASSOCIATE !X2
-
-  IF(init_LA)THEN
-    SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
-    !initialize Lambda
-    DO is=1,LA_base%s%nBase
-      spos=LA_base%s%s_IP(is)
-      CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:))
-    END DO !is
-    ASSOCIATE(modes        =>LA_base%f%modes, &
-              zero_odd_even=>LA_base%f%zero_odd_even)
-    DO imode=1,modes
-      IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-        U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
-      ELSE
-        U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-      END IF!iMode ~ MN_ZERO
-      BC_val =(/ 0.0_wp, 0.0_wp/)
-      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
-    END DO !iMode 
-    END ASSOCIATE !LA
-  END IF !init_LA
-
-  SWRITE(UNIT_stdOut,'(4X,A)') "... DONE."
-  SWRITE(UNIT_stdOut,fmt_sep)
-
 
   CONTAINS
 
@@ -1571,6 +1502,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(LA_BC_type)
   SDEALLOCATE(X1_b)
   SDEALLOCATE(X2_b)
+  SDEALLOCATE(X1pert_b)
+  SDEALLOCATE(X2pert_b)
   SDEALLOCATE(LA_b)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
