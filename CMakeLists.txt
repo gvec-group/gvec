@@ -410,27 +410,27 @@ IF(COMPILE_GVEC)
   add_test(
     NAME gvec_pytest_dryrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
   )
   add_test(
     NAME gvec_pytest_run_shortrun_norestart
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
   )
   add_test(
     NAME gvec_pytest_run_shortrun_restart
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
   )
   add_test(
     NAME gvec_pytest_post_shortrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
   )
   add_test(
     NAME gvec_pytest_run_debugrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
   )
   #add_test(
   #  NAME gvec_pytest_example

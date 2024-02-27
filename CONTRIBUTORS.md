@@ -11,4 +11,6 @@ This is a (possibly incomplete) list of the people who contributed to GVEC
 * Joachim Geiger (2019..)
 * Matthias Borchardt (2019)
 * Rohan Ramasamy (2021)
+* Tiago Ribeiro (2021..)
+* Robert Babin (2024..)
 

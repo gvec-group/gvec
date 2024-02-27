@@ -19,7 +19,7 @@ workflow:
 variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: v0.0.3-dev
+  HASH_TAG_RELEASE: v0.2.0
   PYTEST_EXEC_CMD: "python -m pytest -v -r A" 
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"  
@@ -273,8 +273,8 @@ variables:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
-    - rm -rf CIrun_${CASENAME}                                                                                                      
-   
+    - rm -rf CIrun_${CASENAME}
+
 .tmpl_script_run:
   script:
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" 
@@ -306,7 +306,6 @@ variables:
   artifacts:
     name: "${CASENAME_1}_vs_${CASENAME_2}"
     paths:
-      # I am not completely sure about this...
       - CIrun_${CASENAME_1}
       - CIrun_${CASENAME_2}
     expire_in: 1 week
@@ -573,7 +572,7 @@ mpcdfci_intel-vs-gnu_reg:
   stage: regression
   extends:
     - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # need to load modules 
+    - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
     - .vars_matrix_run
   variables:
@@ -594,7 +593,7 @@ mpcdfci_intel-vs-tag_reg:
   stage: regression
   extends:
     - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # need to load modules (numdiff cmd!)
+    - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
     - .vars_matrix_run
   variables:
