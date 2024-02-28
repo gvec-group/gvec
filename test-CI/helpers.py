@@ -50,22 +50,23 @@ def check_diff_files(
     num_differences = 0
     # compare files
     with open(pathA) as fileA, open(pathB) as fileB:
-        #first sort out 
-        linesA=[] ; linesB=[] ;lidxsA=[] ; lidxsB=[]
-        for lidxs, lines, file in zip((lidxsA,lidxsB),(linesA,linesB),(fileA,fileB)):
+        # filter lines based on ignore_lines and ignore_regexs
+        linesA, linesB, lidxsA, lidxsB = [], [], [], [] 
+        for lidxs, lines, file in zip((lidxsA, lidxsB), (linesA, linesB), (fileA, fileB)):
             for lidx, line in enumerate(file):
                 if not (lidx in ignore_lines or any([re.match(regex, line) for regex in ignore_regexs])):
                     lines.append(line)
                     lidxs.append(lidx)
-        txt_differences += len(linesA)-len(linesB)
+        txt_differences += abs(len(linesA) - len(linesB))
         if(txt_differences > 0):
             if Path(pathA).name != Path(pathB).name:
                 logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
             else:
                 logger.info(f"--- Comparing {Path(pathA).name} ---")
-            logger.error(f"files (after applying filters) do not have the same number of lines")
+            logger.error(f"files (after applying filters) do not have the same number of lines ({len(linesA)} vs {len(linesB)})")
             return txt_differences, num_differences
-        for lidxA,lidxB,lineA, lineB in zip(lidxsA, lidxsB, linesA, linesB, strict=True):
+        # compare lines
+        for lidxA, lidxB, lineA, lineB in zip(lidxsA, lidxsB, linesA, linesB, strict=True):
             # compare with regex
             # split line into text and float parts (where floats have the format 1.234E+45 or -1.234E-45)
             splitA, splitB = (
