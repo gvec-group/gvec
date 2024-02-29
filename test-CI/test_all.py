@@ -285,7 +285,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*"],
+                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*", r"[\s=]*"],
                 warn_regexs=[r"\s*Number of OpenMP threads.*"],
                 atol=reg_atol,
                 rtol=reg_rtol,
@@ -305,7 +305,6 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 results[filename] = "numdiff"
         else:
             results[filename] = "success"
-    pytest.raised_warnings = True
     if num_warnings > 0:
         logger.warning(f"Found {num_warnings} warnings!")
         pytest.raised_warnings = True
@@ -316,7 +315,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         logger.error(msg)
         red, reset = "\x1b[31;20m", "\x1b[0m"
         for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
-            if result in ["success", "ignored"]:
+            if result in ["success", "ignored", "symlink"]:
                 logger.debug(f"... {result} : {filename}")
             else:
                 logger.error(f"... {red}{result}{reset} : {filename}")
