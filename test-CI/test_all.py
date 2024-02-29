@@ -258,6 +258,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
     results = {}
     num_diff_files = 0
     num_diff_lines = 0
+    num_warnings = 0
     for filename in runfiles & reffiles:
         # skip symbolic links (mostly unreachable input)
         if (testcaserundir / filename).is_symlink():
@@ -292,6 +293,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         else:
             results[filename] = "ignored"
             continue
+        num_warnings += num[2]
         if num[0] > 0 or num[1] > 0:
             num_diff_files += 1
             num_diff_lines += num[0] + num[1]
@@ -303,6 +305,10 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 results[filename] = "numdiff"
         else:
             results[filename] = "success"
+    pytest.raised_warnings = True
+    if num_warnings > 0:
+        logger.warning(f"Found {num_warnings} warnings!")
+        pytest.raised_warnings = True
     if num_diff_files > 0 or runfiles != reffiles:
         msg = f"Found {num_diff_files} different files with {num_diff_lines} different lines, " \
             f"{len(runfiles - reffiles)} additional files and {len(reffiles - runfiles)} missing files."

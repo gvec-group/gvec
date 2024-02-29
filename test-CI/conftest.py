@@ -88,29 +88,20 @@ def pytest_configure(config):
     Args:
         config (Config): The pytest configuration object.
     """
-    # register an additional marker
-    config.addinivalue_line(
-        "markers", "example: mark test as a example, which are all tests specified in `test-CI/examples`, executed in folder `rundir/example`"
-    )
-    config.addinivalue_line(
-        "markers", "restart: mark test as a restart (deduced from example folder name). Needs the example to be run first!"
-    )
-    config.addinivalue_line(
-        "markers", "shortrun: mark test as a shortrun  (executed in folder `rundir/shortrun`, overwrites parameters: `testlevel=-1` and `MaxIter=1`)"
-    )
-    config.addinivalue_line(
-        "markers", "debugrun: mark test as a debugrun (executed in folder `rundir/debugrun`, overwrites parameters: `testlevel=2` and `MaxIter=1`) "
-    )
-    config.addinivalue_line(
-        "markers", "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)"    
-    )
-
-    config.addinivalue_line(
-        "markers", "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir`, activates visualization parameters). Needs run_stage to be executed before in a given `rundir` directory. "    
-    )
-    config.addinivalue_line(
-        "markers", "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!"    
-    )
+    # register additional markers
+    for marker in [
+        "example: mark test as a example, which are all tests specified in `test-CI/examples`, executed in folder `rundir/example`",
+        "restart: mark test as a restart (deduced from example folder name). Needs the example to be run first!",
+        "shortrun: mark test as a shortrun  (executed in folder `rundir/shortrun`, overwrites parameters: `testlevel=-1` and `MaxIter=1`)",
+        "debugrun: mark test as a debugrun (executed in folder `rundir/debugrun`, overwrites parameters: `testlevel=2` and `MaxIter=1`)",
+        "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)",
+        "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir`, activates visualization parameters). Needs run_stage to be executed before in a given `rundir` directory.",
+        "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!"
+    ]:
+        config.addinivalue_line("markers", marker)
+    
+    # custom global variables
+    pytest.raised_warnings = False
 
 
 def pytest_collection_modifyitems(items):
@@ -218,9 +209,9 @@ def pytest_sessionfinish(session, exitstatus):
     # Original code taken from "pytest-custom_exit_code" plugin
     # From pytest version >=5, the values are inside an enum
     from pytest import ExitCode
-    no_tests_collected = ExitCode.NO_TESTS_COLLECTED
-    tests_failed = ExitCode.TESTS_FAILED
-    ok = ExitCode.OK
+    no_tests_collected = ExitCode.NO_TESTS_COLLECTED  # 5
+    tests_failed = ExitCode.TESTS_FAILED  # 1
+    ok = ExitCode.OK  # 0
     if session.config.getoption('--suppress-no-test-exit-code'):
         if exitstatus == no_tests_collected:
             print(f"EXITING OK INSTEAD OF 'no tests collected' (exit status=0 instead of {exitstatus})")
@@ -230,3 +221,6 @@ def pytest_sessionfinish(session, exitstatus):
         if exitstatus == tests_failed:
             print(f"EXITING OK INSTEAD OF 'tests failed' (exit status=0 instead of {exitstatus})")
             session.exitstatus = ok
+    
+    if pytest.raised_warnings:
+        session.exitstatus = no_tests_collected

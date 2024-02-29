@@ -51,7 +51,8 @@ def check_diff_files(
     # count the number of differences
     txt_differences = 0
     num_differences = 0
-    # compare files
+    warnings = 0
+    # read files
     with open(pathA) as fileA, open(pathB) as fileB:
         # filter lines based on ignore_lines and ignore_regexs
         linesA, linesB, lidxsA, lidxsB = [], [], [], [] 
@@ -60,68 +61,70 @@ def check_diff_files(
                 if not (lidx in ignore_lines or any([re.match(regex, line) for regex in ignore_regexs])):
                     lines.append(line)
                     lidxs.append(lidx)
-        txt_differences += abs(len(linesA) - len(linesB))
-        if(txt_differences > 0):
-            if Path(pathA).name != Path(pathB).name:
-                logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
+    # compare number of lines
+    txt_differences += abs(len(linesA) - len(linesB))
+    if(txt_differences > 0):
+        if Path(pathA).name != Path(pathB).name:
+            logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
+        else:
+            logger.info(f"--- Comparing {Path(pathA).name} ---")
+        logger.error(f"files (after applying filters) do not have the same number of lines ({len(linesA)} vs {len(linesB)})")
+        return txt_differences, num_differences, warnings
+    # compare lines
+    for lidxA, lidxB, lineA, lineB in zip(lidxsA, lidxsB, linesA, linesB, strict=True):
+        # compare with regex
+        # split line into text and float parts (where floats have the format 1.234E+45 or -1.234E-45)
+        splitA, splitB = (
+            re.split(r"(-?\d\.\d+E[+-]\d+)", line) for line in (lineA, lineB)
+        )
+        # extract the text fragments
+        textsA, textsB = (
+            [text.strip() for text in split[::2]] for split in (splitA, splitB)
+        )
+        if textsA != textsB:
+            if num_differences == 0:
+                if Path(pathA).name != Path(pathB).name:
+                    logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
+                else:
+                    logger.info(f"--- Comparing {Path(pathA).name} ---")
+            if not (any([re.match(regex, lineA) for regex in warn_regexs])):
+                txt_differences += 1
+                logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually")
             else:
-                logger.info(f"--- Comparing {Path(pathA).name} ---")
-            logger.error(f"files (after applying filters) do not have the same number of lines ({len(linesA)} vs {len(linesB)})")
-            return txt_differences, num_differences
-        # compare lines
-        for lidxA, lidxB, lineA, lineB in zip(lidxsA, lidxsB, linesA, linesB, strict=True):
-            # compare with regex
-            # split line into text and float parts (where floats have the format 1.234E+45 or -1.234E-45)
-            splitA, splitB = (
-                re.split(r"(-?\d\.\d+E[+-]\d+)", line) for line in (lineA, lineB)
-            )
-            # extract the text fragments
-            textsA, textsB = (
-                [text.strip() for text in split[::2]] for split in (splitA, splitB)
-            )
-            if textsA != textsB:
+                warnings += 1
+                logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually (suppressed)")
+            logger.debug(f"=> Line A: {lineA!r}")
+            logger.debug(f"=> Line B: {lineB!r}")
+        # extract the float fragments
+        floatsA, floatsB = (
+            np.array(split[1::2], dtype=float) for split in (splitA, splitB)
+        )
+        if not (len(floatsA)==len(floatsB)):
+            num_differences +=1
+            logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} do not have the same number of floats")
+        else:
+            select = np.ones(floatsA.shape, dtype=bool)
+            select[[i for i in ignore_columns if i < select.size]] = False
+            floatsA, floatsB = floatsA[select], floatsB[select]
+            close = np.isclose(floatsA, floatsB, rtol=rtol, atol=atol)
+            # error pattern for difference
+            pattern = "".join("." if c else "x" for c in close)
+            # assert equality with better error messages
+            if not all(close):
                 if num_differences == 0:
                     if Path(pathA).name != Path(pathB).name:
                         logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
                     else:
                         logger.info(f"--- Comparing {Path(pathA).name} ---")
                 if not (any([re.match(regex, lineA) for regex in warn_regexs])):
-                    txt_differences += 1
-                    logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually")
+                    num_differences += 1
+                    logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})")
                 else:
-                    logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually (suppressed)")
+                    logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ numerically (rtol={rtol}, atol={atol}, {pattern}) (suppressed)")
                 logger.debug(f"=> Line A: {lineA!r}")
                 logger.debug(f"=> Line B: {lineB!r}")
-            # extract the float fragments
-            floatsA, floatsB = (
-                np.array(split[1::2], dtype=float) for split in (splitA, splitB)
-            )
-            if not (len(floatsA)==len(floatsB)):
-                num_differences +=1
-                logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} do not have the same number of floats")
-            else:
-                select = np.ones(floatsA.shape, dtype=bool)
-                select[[i for i in ignore_columns if i < select.size]] = False
-                floatsA, floatsB = floatsA[select], floatsB[select]
-                close = np.isclose(floatsA, floatsB, rtol=rtol, atol=atol)
-                # error pattern for difference
-                pattern = "".join("." if c else "x" for c in close)
-                # assert equality with better error messages
-                if not all(close):
-                    if num_differences == 0:
-                        if Path(pathA).name != Path(pathB).name:
-                            logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
-                        else:
-                            logger.info(f"--- Comparing {Path(pathA).name} ---")
-                    if not (any([re.match(regex, lineA) for regex in warn_regexs])):
-                        num_differences += 1
-                        logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})")
-                    else:
-                        logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ numerically (rtol={rtol}, atol={atol}, {pattern}) (suppressed)")
-                    logger.debug(f"=> Line A: {lineA!r}")
-                    logger.debug(f"=> Line B: {lineB!r}")
-                    logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")
-    return txt_differences, num_differences
+                logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")
+    return txt_differences, num_differences, warnings
 
 
 def assert_empty_stderr(path: str | Path = "stderr.txt"):

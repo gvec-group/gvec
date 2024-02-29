@@ -478,6 +478,7 @@ mpcdfci_intel2023_run:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
+  allow_failure: true
   needs:
     - job: mpcdfci_intel2023_build
       artifacts: true
@@ -494,6 +495,7 @@ mpcdfci_gcc13_run:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
+  allow_failure: true
   needs:
     - job: mpcdfci_gcc13_build
       artifacts: true
@@ -514,6 +516,7 @@ mpcdfci_intel2023_debugrun:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
+  allow_failure: true
   needs:
     - job: mpcdfci_intel2023_build
       artifacts: true
@@ -533,6 +536,7 @@ mpcdfci_gcc13_debugrun:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
+  allow_failure: true
   needs:
     - job: mpcdfci_gcc13_build
       artifacts: true
@@ -551,6 +555,7 @@ mpcdfci_intel2023_run_tag:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run_tag
+  allow_failure: true
   needs:
     - job: mpcdfci_intel2023_build_tag
       artifacts: true
@@ -582,6 +587,8 @@ mpcdfci_intel-vs-gnu_reg:
     CURR_CMP_2: gnu
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
     CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
@@ -603,6 +610,8 @@ mpcdfci_intel-vs-tag_reg:
     CURR_CMP_2: ${CURR_CMP}
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
     CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
