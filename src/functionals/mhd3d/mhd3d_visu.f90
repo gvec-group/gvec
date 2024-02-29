@@ -1114,7 +1114,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
                       var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp),TRIM(filename)//TRIM(MERGE('_full  ','_direct',dbg.EQ.1))//".vtu")
   END IF
   IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
-    CALL WriteDataToNETCDF(2,3,nVal,(/Nthet_out,Nzeta_out,n_rp/),&
+    CALL WriteDataToNETCDF(3,3,nVal,(/Nthet_out,Nzeta_out,n_rp/),&
                            (/"dim_theta","dim_zeta ","dim_rho  "/),VarNames, &
                            coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:n_rp), &
                            var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp), TRIM(filename)//TRIM(MERGE('_full  ','_direct',dbg.EQ.1)))
