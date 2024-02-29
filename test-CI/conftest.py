@@ -211,7 +211,7 @@ def logger(caplog):
     """get the pytest logger (with level set to DEBUG)"""
     caplog.set_level(logging.DEBUG)
     logger = logging.getLogger()
-    yield logger
+    return logger
 
 @pytest.hookimpl()
 def pytest_sessionfinish(session, exitstatus):

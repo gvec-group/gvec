@@ -18,6 +18,7 @@ def check_diff_files(
     ignore_lines: list[int] = [],
     ignore_columns: list[int] = [],
     ignore_regexs: list[str] = [],
+    warn_regexs: list[str] = [],
     logger: logging.Logger = None,
 ) -> tuple[int, int]:
     """
@@ -35,10 +36,12 @@ def check_diff_files(
         ignore_lines (list[int], optional): List of line indices to ignore during comparison. Defaults to [].
         ignore_columns (list[int], optional): List of column indices to ignore during numerical comparison. Defaults to [].
         ignore_regexs (list[str], optional): List of regular expressions to match lines to ignore during comparison. Defaults to [].
+        warn_regexs (list[str], optional): List of regular expressions to match lines to suppress and warn about during comparison. Defaults to [].
+        logger (logging.Logger, optional): The logger to use for logging. If not provided, falls back to the root logger.
 
     Raises:
         AssertionError: If a line in the two files differs.
-    
+
     Returns:
         tuple[int, int]: The number of textual differences and the number of numerical differences.
     """
@@ -82,8 +85,11 @@ def check_diff_files(
                         logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
                     else:
                         logger.info(f"--- Comparing {Path(pathA).name} ---")
-                txt_differences += 1
-                logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually")
+                if not (any([re.match(regex, lineA) for regex in warn_regexs])):
+                    txt_differences += 1
+                    logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually")
+                else:
+                    logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually (suppressed)")
                 logger.debug(f"=> Line A: {lineA!r}")
                 logger.debug(f"=> Line B: {lineB!r}")
             # extract the float fragments
@@ -107,8 +113,11 @@ def check_diff_files(
                             logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
                         else:
                             logger.info(f"--- Comparing {Path(pathA).name} ---")
-                    num_differences += 1
-                    logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})")
+                    if not (any([re.match(regex, lineA) for regex in warn_regexs])):
+                        num_differences += 1
+                        logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})")
+                    else:
+                        logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ numerically (rtol={rtol}, atol={atol}, {pattern}) (suppressed)")
                     logger.debug(f"=> Line A: {lineA!r}")
                     logger.debug(f"=> Line B: {lineB!r}")
                     logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")

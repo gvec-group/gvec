@@ -268,7 +268,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[ r".*/.*"], # ignore lines with a path
+                ignore_regexs=[r".*/.*"], # ignore lines with a path
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
@@ -285,6 +285,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 testcaserundir / filename,
                 testcaserefdir / filename,
                 ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*"],
+                warn_regexs=[r"\s*Number of OpenMP threads.*"],
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
@@ -307,14 +308,15 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             f"{len(runfiles - reffiles)} additional files and {len(reffiles - runfiles)} missing files."
         logger.info(f"{' SUMMARY ':=^80}")
         logger.error(msg)
+        red, reset = "\x1b[31;20m", "\x1b[0m"
         for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
             if result in ["success", "ignored"]:
                 logger.debug(f"... {result} : {filename}")
             else:
-                logger.error(f"... \x1b[31;20m{result}\x1b[0m : {filename}")
+                logger.error(f"... {red}{result}{reset} : {filename}")
         for filename in runfiles - reffiles:
-            logger.error(f"... \x1b[31;20mextra\x1b[0m   : {filename}")
+            logger.error(f"... {red}extra{reset}   : {filename}")
         for filename in reffiles - runfiles:
-            logger.error(f"... \x1b[31;20mmissing\x1b[0m : {filename}")
+            logger.error(f"... {red}missing{reset} : {filename}")
         raise AssertionError(msg)
     
