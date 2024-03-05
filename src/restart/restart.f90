@@ -200,7 +200,7 @@ SUBROUTINE RestartFromState(fileString,U_r)
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:OutputLevel
-USE MODgvec_MHD3D_Vars,  ONLY:X1_base,X2_base,LA_base,sgrid
+USE MODgvec_MHD3D_Vars,  ONLY:X1_base,X2_base,LA_base,sgrid,hmap
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
@@ -219,7 +219,8 @@ IMPLICIT NONE
   LOGICAL              :: sameX1  ,sameX2  ,sameLA, changed 
 !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'RESTARTING FROM FILE ...'
-  CALL ReadState(FileString)
+
+  CALL ReadState(FileString,hmap_in=hmap)
 
   !update outputlevel
   WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r

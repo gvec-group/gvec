@@ -68,7 +68,7 @@ CONTAINS
 !! interpolate readin solution to the current base of Uin
 !!
 !===================================================================================================================================
-SUBROUTINE ReadStateFileFromASCII(fileString)
+SUBROUTINE ReadStateFileFromASCII(fileString,hmap_in)
 ! MODULES
 USE MODgvec_ReadState_Vars
 USE MODgvec_Globals,ONLY: Unit_stdOut,GETFREEUNIT,abort
@@ -81,6 +81,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CHARACTER(LEN=*)    , INTENT(IN   ) :: fileString
+  CLASS(c_hmap), INTENT(IN),OPTIONAL :: hmap_in !use this hmap instead of hmap_r (avoiding problems in restart)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -158,7 +159,11 @@ IMPLICIT NONE
 
   CLOSE(ioUnit)
 
-  CALL hmap_new(hmap_r,which_hmap_r)
+  IF(.NOT. PRESENT(hmap_in))THEN
+    CALL hmap_new(hmap_r,which_hmap_r)
+  ELSE
+    CALL hmap_new(hmap_r,which_hmap_r,hmap_in=hmap_in)
+  END IF
   IF((hmap_r%nfp.NE.-1).AND.(hmap_r%nfp.NE.nfp_r)) CALL abort(__STAMP__,&
                         "nfp from restart file does not match to nfp used in hmap.")
   ! check if input has changed:
