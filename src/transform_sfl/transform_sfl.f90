@@ -46,6 +46,7 @@ TYPE :: t_transform_sfl
   REAL(wp),       ALLOCATABLE :: X2sfl(:,:)    !! data (1:nBase,1:modes) of X2 in SFL coords.
   REAL(wp),       ALLOCATABLE :: Gthet(:,:)    !! data (1:nBase,1:modes) of Gthet in GVEC coords. (for BOOZER)
   REAL(wp),       ALLOCATABLE :: GZ(:,:)       !! data (1:nBase,1:modes) of GZ in GVEC coords. (for BOOZER)
+  REAL(wp),       ALLOCATABLE :: Gtsfl(:,:)    !! data (1:nBase,1:modes) of Gt in SFL coords.  (for BOOZER)
   REAL(wp),       ALLOCATABLE :: GZsfl(:,:)    !! data (1:nBase,1:modes) of GZ in SFL coords.  (for BOOZER)
   PROCEDURE(i_func_evalprof), POINTER, NOPASS  :: eval_phiPrime
   PROCEDURE(i_func_evalprof), POINTER, NOPASS  :: eval_iota
@@ -161,6 +162,7 @@ CASE(2) !BOOZER
   CALL base_new(sf%GZsfl_base, sf%deg, sf%continuity, sf%sgrid_sfl,sf%degGP,      &
   sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%GZ_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
 
+  ALLOCATE(sf%Gtsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%Gtsfl=0.0_wp
   ALLOCATE(sf%GZsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%GZsfl=0.0_wp
 
 CASE DEFAULT
@@ -204,6 +206,7 @@ CASE(2) !BOOZER
   CALL sf%Get_Boozer(X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in) ! fill sf%GZ,sf%Gthet
 
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,sf%GZ_base,sf%GZ,"GZ",sf%GZsfl_base,sf%GZsfl,B_in=sf%GZ)
+  CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,sf%GZ_base,sf%Gthet,"Gt",sf%Gzsfl_base,sf%Gtsfl,B_in=sf%GZ)
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,X1_base_in,X1_in,"X1",sf%X1sfl_base,sf%X1sfl,B_in=sf%GZ)
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,X2_base_in,X2_in,"X2",sf%X2sfl_base,sf%X2sfl,B_in=sf%GZ)
 END SELECT

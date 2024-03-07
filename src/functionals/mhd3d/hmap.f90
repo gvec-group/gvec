@@ -76,7 +76,6 @@ IMPLICIT NONE
     IF(which_hmap.NE.hmap_in%which_hmap) CALL abort(__STAMP__, &
        "hmap_in does not coincide with requested hmap in hmap_new")
     ALLOCATE(sf,source=hmap_in)
-    WRITE(*,*)'DEBUG hmap copy',sf%which_hmap
   END IF
    
 END SUBROUTINE hmap_new

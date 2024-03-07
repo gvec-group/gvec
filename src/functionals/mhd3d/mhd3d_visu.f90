@@ -850,7 +850,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   REAL(wp)                   :: spos,xp(2),sqrtG
   REAL(wp)                   :: dX1ds,dX1dthetstar,dX1dzetastar
   REAL(wp)                   :: dX2ds,dX2dthetstar,dX2dzetastar
-  REAL(wp)                   :: phiPrime_int,iota_int
+  REAL(wp)                   :: phiPrime_int,iota_int,Itor_int,Ipol_int
   REAL(wp)                   :: X1_int,X2_int,GZ_int,dGZds,dGZdthetstar,dGZdzetastar,LA_int,dLA_dthet,dLA_dzeta
   REAL(wp)                   :: Gt_int,dGZdthet,dGZdzeta,dX1dthet,dX1dzeta,dX2dthet,dX2dzeta
   REAL(wp)                   :: dthetstar_dthet ,dthetstar_dzeta ,dzetastar_dthet ,dzetastar_dzeta,Jstar
@@ -858,9 +858,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   REAL(wp)                   :: Bthet,Bzeta,Bthetstar,Bzetastar
   REAL(wp),DIMENSION(3)      :: qvec,e_s,e_thet,e_zeta,e_thetstar,e_zetastar,Bfield
   REAL(wp),ALLOCATABLE       :: X1_s(:),dX1ds_s(:),X2_s(:),dX2ds_s(:),Gz_s(:),dGZds_s(:),LA_s(:),Gt_s(:)
-  INTEGER                    :: VP_rho,VP_iota,VP_thetastar,VP_zetastar,VP_zeta,VP_X1sfl,VP_X2sfl,VP_SQRTG,&
-                                VP_B,VP_modB,VP_Bthet,VP_Bzeta
-  INTEGER,PARAMETER          :: nVal=12
+  INTEGER                    :: VP_rho,VP_iota,VP_thetastar,VP_zetastar,VP_zeta,VP_X1sfl,VP_X2sfl,VP_SQRTG,VP_SQRTGstar,&
+                                VP_B,VP_modB,VP_Bsubthet,VP_Bsubzeta,VP_Bthet,VP_Bzeta,VP_grads,VP_theta,&
+                                VP_Bsubthetstar,VP_Bsubzetastar,VP_Bthetstar,VP_Bzetastar,VP_Itor,VP_Ipol
+  INTEGER,PARAMETER          :: nVal=25
   CHARACTER(LEN=40)          :: VarNames(nval)  
   CHARACTER(LEN=10)          :: sfltype 
   CHARACTER(LEN=255)         :: filename
@@ -876,18 +877,32 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   iVal=1
   VP_rho        =iVal;iVal=iVal+1; VarNames(VP_rho      )="rho"
   VP_iota       =iVal;iVal=iVal+1; VarNames(VP_iota     )="iota"
-  VP_thetastar  =iVal;iVal=iVal+1; VarNames(VP_thetastar)="thetastar"!//TRIM(sfltype)
-  VP_zetastar   =iVal;iVal=iVal+1; VarNames(VP_zetastar )="zetastar"!//TRIM(sfltype)
+  VP_Itor       =iVal;iVal=iVal+1; VarNames(VP_Itor     )="Itor"
+  VP_Ipol       =iVal;iVal=iVal+1; VarNames(VP_Ipol     )="Ipol"
+  VP_thetastar  =iVal;iVal=iVal+1; VarNames(VP_thetastar)="thetastar"
+  VP_zetastar   =iVal;iVal=iVal+1; VarNames(VP_zetastar )="zetastar"
+  VP_theta      =iVal;iVal=iVal+1; VarNames(VP_theta    )="theta"
   VP_zeta       =iVal;iVal=iVal+1; VarNames(VP_zeta     )="zeta"
-  VP_SQRTG      =iVal;iVal=iVal+1; VarNames(VP_SQRTG    )="sqrtG_star"!//TRIM(sfltype)
+  VP_SQRTG      =iVal;iVal=iVal+1; VarNames(VP_SQRTG    )="sqrtG"
+  VP_SQRTGstar  =iVal;iVal=iVal+1; VarNames(VP_SQRTGstar)="sqrtGstar"
   VP_modB       =iVal;iVal=iVal+1; VarNames(VP_modB     )="modB"
   VP_B          =iVal;iVal=iVal+3; VarNames(VP_B        )="BvecX"
                                    VarNames(VP_B+1      )="BvecY"
                                    VarNames(VP_B+2      )="BvecZ"
-  VP_Bthet      =iVal;iVal=iVal+1; VarNames(VP_Bthet    )="B_thetastar"
-  VP_Bzeta      =iVal;iVal=iVal+1; VarNames(VP_Bzeta    )="B_zetastar"
+  VP_grads      =iVal;iVal=iVal+3; VarNames(VP_grads    )="grad_sX"
+                                   VarNames(VP_grads+1  )="grad_sY"
+                                   VarNames(VP_grads+2  )="grad_sZ"
+  VP_Bsubthet   =iVal;iVal=iVal+1; VarNames(VP_Bsubthet )="Bsubtheta"
+  VP_Bsubzeta   =iVal;iVal=iVal+1; VarNames(VP_Bsubzeta )="Bsubzeta"
+  VP_Bthet      =iVal;iVal=iVal+1; VarNames(VP_Bthet    )="Btheta"
+  VP_Bzeta      =iVal;iVal=iVal+1; VarNames(VP_Bzeta    )="Bzeta"
+  VP_Bsubthetstar   =iVal;iVal=iVal+1; VarNames(VP_Bsubthetstar )="Bsubthetastar"
+  VP_Bsubzetastar   =iVal;iVal=iVal+1; VarNames(VP_Bsubzetastar )="Bsubzetastar"
+  VP_Bthetstar      =iVal;iVal=iVal+1; VarNames(VP_Bthetstar    )="Bthetastar"
+  VP_Bzetastar      =iVal;iVal=iVal+1; VarNames(VP_Bzetastar    )="Bzetastar"
 
 
+  IF(iVal.NE.Nval+1) CALL abort(__STAMP__,"nVal parameter not correctly set")
 
 
   factorSFL=4
@@ -919,6 +934,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     zetastar_pos(izeta)=(TWOPI*(REAL(izeta,wp)-0.5_wp))/REAL((Nzeta_out*trafoSFL%nfp),wp)
   END DO
   ALLOCATE(coord_out(3,Nthet_out,Nzeta_out,n_rp),var_out(nVal,Nthet_out,Nzeta_out,n_rp))
+  var_out=0.
   
   useSFLcoords=(dbg.EQ.1)
   WRITE(*,*)'USESFLCOORDS=',useSFLcoords
@@ -930,6 +946,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     ALLOCATE(LA_s(LA_base%f%modes))
     IF(SFLcoord.EQ.2) ALLOCATE(Gt_s(G_base%f%modes),Gz_s(G_base%f%modes))
     DO i_rp=1,n_rp
+      Itor_int = 0.
+      Ipol_int = 0.
       spos=rp(i_rp)
       iota_int=Eval_iota(spos)
       phiPrime_int=Eval_PhiPrime(spos)
@@ -1013,6 +1031,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         Bzeta   = (1.0_wp + dLA_dthet ) * phiPrime_int       !/sqrtG
         Bfield(:) =  ( e_thet(:) * Bthet + e_zeta(:) * Bzeta) /sqrtG
 
+        Itor_int = Itor_int+ SUM(Bfield(:)*e_thet(:))   !B_theta=B.e_thet 
+        Ipol_int = Ipol_int+ SUM(Bfield(:)*e_zeta(:))   !B_zeta =B.e_zeta
         ! !e_s          = hmap%eval_dxdq(qvec,(/dX1ds       ,dX2ds       ,       -dGZds       /)) !dxvec/ds
         ! e_thetstar   = hmap%eval_dxdq(qvec,(/dX1dthetstar,dX2dthetstar,       -dGZdthetstar/)) !dxvec/dthetstar
         ! e_zetastar   = hmap%eval_dxdq(qvec,(/dX1dzetastar,dX2dzetastar,1.0_wp -dGZdzetastar/)) !dxvec/dzetastar
@@ -1022,26 +1042,40 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         ! Bzetastar    =          PhiPrime_int   !/sqrtG
         ! Bfield(:)    =  ( e_thetstar(:)*Bthetstar+e_zetastar(:)*Bzetastar) /sqrtG
         
+        var_out(VP_theta    ,ithet,izeta,i_rp)=xp(1)
         var_out(VP_zeta     ,ithet,izeta,i_rp)=xp(2)
-        var_out(VP_SQRTG    ,ithet,izeta,i_rp)=sqrtG/Jstar !=sqrtGstar
+        var_out(VP_SQRTG    ,ithet,izeta,i_rp)=sqrtG
+        var_out(VP_SQRTGstar,ithet,izeta,i_rp)=sqrtG/Jstar !=sqrtGstar
         var_out(VP_B:VP_B+2 ,ithet,izeta,i_rp)=Bfield
+        var_out(VP_grads:VP_grads+2 ,ithet,izeta,i_rp)=CROSS(e_thet,e_zeta)/sqrtG
         var_out(VP_modB     ,ithet,izeta,i_rp)=SQRT(SUM(Bfield*Bfield))
-        var_out(VP_Bthet    ,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
-        var_out(VP_Bzeta    ,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
+        var_out(VP_Bthet    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_zeta,e_s   ))/sqrtG
+        var_out(VP_Bzeta    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_thet,e_zeta))/sqrtG
+        var_out(VP_Bthetstar    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_zetastar,e_s       ))*Jstar/sqrtG
+        var_out(VP_Bzetastar    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_thetstar,e_zetastar))
+        var_out(VP_Bsubthet ,ithet,izeta,i_rp)=SUM(Bfield*e_thet)
+        var_out(VP_Bsubzeta ,ithet,izeta,i_rp)=SUM(Bfield*e_zeta)
+        var_out(VP_Bsubthetstar ,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
+        var_out(VP_Bsubzetastar ,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
       END DO; END DO !izeta,ithet
+      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+      var_out(VP_Itor ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp))
     END DO !i_rp=1,n_rp
 
     END ASSOCIATE
   ELSE !use quantities given in SFL coords 
     ASSOCIATE(X1sfl_base=>trafoSFL%X1sfl_base,X1sfl=>trafoSFL%X1sfl,&
               X2sfl_base=>trafoSFL%X2sfl_base,X2sfl=>trafoSFL%X2sfl,&
+              Gtsfl_base=>trafoSFL%GZsfl_base,Gtsfl=>trafoSFL%Gtsfl,&
               GZsfl_base=>trafoSFL%GZsfl_base,GZsfl=>trafoSFL%GZsfl )
     ALLOCATE(X1_s(X1sfl_base%f%modes),dX1ds_s(X1sfl_base%f%modes))
     ALLOCATE(X2_s(X2sfl_base%f%modes),dX2ds_s(X2sfl_base%f%modes)) 
-    IF(SFLcoord.EQ.2) ALLOCATE(GZ_s(GZsfl_base%f%modes),dGZds_s(GZsfl_base%f%modes))
+    IF(SFLcoord.EQ.2) ALLOCATE(Gt_s(GZsfl_base%f%modes),GZ_s(GZsfl_base%f%modes),dGZds_s(GZsfl_base%f%modes))
     DO i_rp=1,n_rp
       spos=rp(i_rp)
       iota_int=Eval_iota(spos)
+      Itor_int=0.
+      Ipol_int=0.
       phiPrime_int=Eval_PhiPrime(spos)
       var_out(VP_rho ,:,:,i_rp)=spos
       var_out(VP_iota,:,:,i_rp)=iota_int
@@ -1056,6 +1090,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
       X2_s(   :) = X2sfl_base%s%evalDOF2D_s(spos,X2sfl_base%f%modes,       0,X2sfl(:,:))
       dX2ds_s(:) = X2sfl_base%s%evalDOF2D_s(spos,X2sfl_base%f%modes, DERIV_S,X2sfl(:,:))
       IF(SFLcoord.EQ.2)THEN !BOOZER
+        Gt_s(   :) = GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,      0,Gtsfl(:,:))
         GZ_s(   :) = GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,      0,GZsfl(:,:))
         dGZds_s(:) = GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,DERIV_S,GZsfl(:,:))
       END IF
@@ -1089,15 +1124,23 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         Bthetstar    = iota_int*PhiPrime_int   !/sqrtG
         Bzetastar    =          PhiPrime_int   !/sqrtG
         Bfield(:)    =  ( e_thetstar(:)*Bthetstar+e_zetastar(:)*Bzetastar) /sqrtG
+        Itor_int = Itor_int+ SUM(Bfield(:)*e_thetstar(:))   !B_theta=B.e_thet 
+        Ipol_int = Ipol_int+ SUM(Bfield(:)*e_zetastar(:))   !B_zeta =B.e_zeta
         var_out(VP_thetastar,ithet,izeta,i_rp)=thetstar_pos(ithet)
         var_out(VP_zetastar ,ithet,izeta,i_rp)=zetastar_pos(izeta)
+        var_out(VP_theta    ,ithet,izeta,i_rp)=thetstar_pos(ithet)-GZsfl_base%f%evalDOF_x(xp,         0, Gt_s)
         var_out(VP_zeta     ,ithet,izeta,i_rp)=zetastar_pos(izeta)-GZ_int
-        var_out(VP_SQRTG    ,ithet,izeta,i_rp)=sqrtG
+        var_out(VP_SQRTGstar,ithet,izeta,i_rp)=sqrtG
         var_out(VP_B:VP_B+2 ,ithet,izeta,i_rp)=Bfield
+        var_out(VP_grads:VP_grads+2,ithet,izeta,i_rp)=CROSS(e_thetstar,e_zetastar)/sqrtG
         var_out(VP_modB     ,ithet,izeta,i_rp)=SQRT(SUM(Bfield*Bfield))
-        var_out(VP_Bthet    ,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
-        var_out(VP_Bzeta    ,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
+        var_out(VP_Bthetstar   ,ithet,izeta,i_rp)=Bthetstar
+        var_out(VP_Bzetastar   ,ithet,izeta,i_rp)=Bzetastar
+        var_out(VP_Bsubthetstar,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
+        var_out(VP_Bsubzetastar,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
       END DO; END DO !ithet,izeta
+      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+      var_out(VP_Itor ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp))
     END DO !i_rp=1,,n_rp
     END ASSOCIATE
   END IF !useSFLcoords
