@@ -11,10 +11,11 @@ stages:
 
 workflow:
   name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
-  rules:
+  rules: # use this for develop the CI script (fastere turnover times)
     - if: $CI_COMMIT_REF_NAME =~ /gitlab-ci/
       variables:
         MINIMAL_PIPELINE: "true"
+        PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
     - when: always
 
 # =================================================================================================================================
@@ -31,7 +32,6 @@ variables:
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""                                  # default value
-  #PYTEST_KEY_OPTS: "(not highres) and (not _restart)" # use this for develop the CI script (fastere turnover times)
   PYTEST_EXTRA_OPTS: ""
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
