@@ -12,7 +12,7 @@ stages:
 workflow:
   name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
   rules: # use this for develop the CI script (fastere turnover times)
-    - if: $CI_COMMIT_REF_NAME =~ /gitlab-ci/
+    - if: $CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/
       variables:
         MINIMAL_PIPELINE: "true"
         PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
@@ -28,7 +28,7 @@ variables:
   HASH_TAG_RELEASE: v0.2.0     # pipeline schedules
   NIGHTLY_PIPELINE: "false"    # pipeline schedules
   MINIMAL_PIPELINE: "false"
-  PYTEST_EXEC_CMD: "python -m pytest -v -r A"
+  PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short "
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""                                  # default value
@@ -291,14 +291,18 @@ variables:
 .tmpl_script_run:
   script:
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_restart.txt   -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest.xml
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_restart.txt   -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest-restart.xml
   artifacts:
     name: "${CI_PIPELINE_ID}_run_${CASENAME}"
     paths:
       - CIrun_${CASENAME}
     expire_in: 1 week
     when: always
+    reports:
+      junit:
+        - pytest.xml
+        - pytest-restart.xml
 
 
 # =================================================================================================================================
@@ -316,10 +320,10 @@ variables:
     - echo CIrun_${CASENAME_1}
     - echo CIrun_${CASENAME_2}
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
-    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS ${PYTEST_EXTRA_OPTS} --dry-run
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
-    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS ${PYTEST_EXTRA_OPTS}
-    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}"
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
+    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
     - echo "error code:" $?
   artifacts:
     name: "${CI_PIPELINE_ID}_${CASENAME_1}_vs_${CASENAME_2}"
@@ -329,6 +333,8 @@ variables:
       - CIrun_${CASENAME_2}
     expire_in: 1 week
     when: always #on_failure
+    reports:
+      junit: pytest.xml
 
 
 # =================================================================================================================================
@@ -354,18 +360,20 @@ variables:
 .tmpl_before_script_post:
   before_script:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --dry-run
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
     - rm -rf CIpost_${CASENAME}
 
 .tmpl_script_post:
   script:
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage"  $PYTEST_DIR_OPTS
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml
   artifacts:
     name: "${CI_PIPELINE_ID}_post_${CASENAME}"
     paths:
       - CIpost_${CASENAME}
     expire_in: 1 week
     when: always
+    reports:
+      junit: pytest.xml
 
 
 # =================================================================================================================================
