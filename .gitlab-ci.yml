@@ -11,6 +11,11 @@ stages:
 
 workflow:
   name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /gitlab-ci/
+      variables:
+        MINIMAL_PIPELINE: "true"
+    - when: always
 
 # =================================================================================================================================
 # GLOBALS
@@ -21,6 +26,7 @@ variables:
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_RELEASE: v0.2.0     # pipeline schedules
   NIGHTLY_PIPELINE: "false"    # pipeline schedules
+  MINIMAL_PIPELINE: "false"
   PYTEST_EXEC_CMD: "python -m pytest -v -r A"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
@@ -110,11 +116,10 @@ variables:
 
 .tmpl_script_env:
   script:
-    - echo "Pipeline environment for branch:" $CI_COMMIT_REF_NAME
+    - echo "Pipeline environment for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE"
     - echo $CI_RUNNER_DESCRIPTION
     - echo $CI_RUNNER_TAGS
     - printenv
-    - module avail
     - echo $OMP_NUM_THREADS
     - echo $SHELL
 
@@ -423,6 +428,8 @@ mpcdfci_intel2023_build_only_converter:
     - .vars_cmake_only_converter
     - .vars_matrix_build
   needs: [mpcdfci_intel2023_env]
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 # build with MPCDF Docker (GCC 13) shared runner environment
 mpcdfci_gcc13_build:
@@ -437,6 +444,8 @@ mpcdfci_gcc13_build:
     - .vars_cmake_def_opts
     - .vars_matrix_build
   needs: [mpcdfci_gcc13_env]
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 mpcdfci_gcc13_build_only_converter:
   stage: build
@@ -450,6 +459,8 @@ mpcdfci_gcc13_build_only_converter:
     - .vars_cmake_only_converter
     - .vars_matrix_build  # matrix of variables
   needs: [mpcdfci_gcc13_env]
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -467,6 +478,8 @@ mpcdfci_intel2023_build_tag:
     - .vars_cmake_def_opts
     - .vars_matrix_build_tag
   needs: [mpcdfci_intel2023_env] # set the job to start as soon as the pipeline is created
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 
 # =================================================================================================================================
@@ -511,6 +524,8 @@ mpcdfci_gcc13_run:
   needs:
     - job: mpcdfci_gcc13_build
       artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 # debug runs overwrite the PYTEST_MARKER_OPTS and PYTEST_KEY_OPTS!
 
@@ -574,6 +589,8 @@ mpcdfci_intel2023_run_tag:
   needs:
     - job: mpcdfci_intel2023_build_tag
       artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 
 # =================================================================================================================================
@@ -586,6 +603,28 @@ mpcdfci_intel2023_run_tag:
 # ____________________________
 # MPCDF new Docker images
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# compare results between serial and OpenMP for Intel compiler on current branches (no MPI)
+mpcdfci_intel-minimal_reg:
+  stage: regression
+  extends:
+    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # to be able to load modules
+    - .tmpl_script_regression
+    #- .vars_matrix_run
+  variables:
+    CMP_MODE: "Debug"
+    OMP_MODE_1: "ompOFF"
+    OMP_MODE_2: "ompON"
+    CASENAME_1: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
+  needs:
+    - job: mpcdfci_intel2023_run
+      artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "true"
 
 # compare results between intel and gnu on current branches (no MPI)
 mpcdfci_intel-vs-gnu_reg:
@@ -609,8 +648,10 @@ mpcdfci_intel-vs-gnu_reg:
       artifacts: true
     - job: mpcdfci_gcc13_run
       artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
-# compare results between intel and gnu on current branches (no MPI)
+# compare results between serial and OpenMP on current branches (no MPI)
 mpcdfci_omp-vs-ser_reg:
   stage: regression
   extends:
@@ -634,6 +675,8 @@ mpcdfci_omp-vs-ser_reg:
       artifacts: true
     - job: mpcdfci_gcc13_run
       artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 # compare results between current and tag branches (no MPI)
 mpcdfci_intel-vs-tag_reg:
@@ -657,6 +700,8 @@ mpcdfci_intel-vs-tag_reg:
       artifacts: true
     - job: mpcdfci_intel2023_run_tag
       artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 
 # ==========================================================================================================================
@@ -684,6 +729,8 @@ mpcdfci_intel2023_post:
       artifacts: true
     - job: mpcdfci_intel2023_run
       artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
 
 # run with MPCDF Docker (gcc13) shared runner environment
 mpcdfci_gcc13_post:
@@ -702,3 +749,5 @@ mpcdfci_gcc13_post:
       artifacts: true
     - job: mpcdfci_gcc13_run
       artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
