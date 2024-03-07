@@ -226,7 +226,7 @@ def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
 
 
 @pytest.mark.regression_stage
-def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rtol, reg_atol):
+def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rtol, reg_atol, extra_ignore_patterns):
     """
     Regression test of example GVEC runs and restarts.
 
@@ -269,7 +269,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*/.*"], # ignore lines with a path
+                ignore_regexs=[r".*/.*"] + extra_ignore_patterns, # ignore lines with a path
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
@@ -277,6 +277,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
+                ignore_regexs=extra_ignore_patterns,
                 ignore_columns=[1],
                 atol=reg_atol,
                 rtol=reg_rtol,
@@ -285,8 +286,8 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*", r"[\s=]*"],
-                warn_regexs=[r"\s*Number of OpenMP threads.*"],
+                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*", r"^[\s=]*$"] + extra_ignore_patterns,
+                warn_regexs=["Number of OpenMP threads"],
                 atol=reg_atol,
                 rtol=reg_rtol,
             )

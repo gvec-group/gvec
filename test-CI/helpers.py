@@ -52,36 +52,45 @@ def check_diff_files(
     txt_differences = 0
     num_differences = 0
     warnings = 0
-    # read files
-    with open(pathA) as fileA, open(pathB) as fileB:
-        # filter lines based on ignore_lines and ignore_regexs
-        linesA, linesB, lidxsA, lidxsB = [], [], [], []
-        fileEA, fileEB = enumerate(fileA), enumerate(fileB)
-        try:
-            while True:
-                lidxA, lineA = next(fileEA)
-                lidxB, lineB = next(fileEB)
-                # skip lines based on warn_regexs which are only present in one of the files
-                for regex in warn_regexs:
-                    if re.match(regex, lineA) and not re.match(regex, lineB):
-                        warnings += 1
-                        logger.warning(f"Extra lineA #{lidxA+1} (suppressed)")
-                        logger.debug(f"=> Line A: {lineA!r}")
-                        lidxA, lineA = next(fileEA)
-                    elif re.match(regex, lineB) and not re.match(regex, lineA):
-                        warnings += 1
-                        logger.warning(f"Extra lineB #{lidxB+1} (suppressed)")
-                        logger.debug(f"=> Line B: {lineB!r}")
-                        lidxB, lineB = next(fileEB)
-                # skip lines based on ignore_lines and ignore_regexs
-                if not(lidxA in ignore_lines or any([re.match(regex, lineA) for regex in ignore_regexs])):
-                    linesA.append(lineA)
-                    lidxsA.append(lidxA)
-                if not(lidxB in ignore_lines or any([re.match(regex, lineB) for regex in ignore_regexs])):
-                    linesB.append(lineB)
-                    lidxsB.append(lidxB)
-        except StopIteration:
-            pass
+    # read files & filter lines based on ignore_lines and ignore_regexs
+    linesA, linesB, lidxsA, lidxsB = [], [], [], []
+    for lines, lidxs, path in [(linesA, lidxsA, pathA), (linesB, lidxsB, pathB)]:
+        with open(path) as file:
+            for lidx, line in enumerate(file):
+                if lidx in ignore_lines or any([re.search(regex, line) for regex in ignore_regexs]):
+                    continue
+                lines.append(line)
+                lidxs.append(lidx)
+
+    # filter lines based on warn_regexs
+    lineZA, lineZB = zip(lidxsA, linesA), zip(lidxsB, linesB)
+    warningsA, warningsB = [], []
+    for (lidxA, lineA), (lidxB, lineB) in zip(lineZA, lineZB):
+        while True:
+            if any([re.search(regex, lineA) and not re.search(regex, lineB) for regex in warn_regexs]):
+                warnings += 1
+                logger.warning(f"Extra lineA #{lidxA+1} (suppressed)")
+                logger.debug(f"=> Line A: {lineA!r}")
+                warningsA.append(lidxA)
+                try:
+                    lidxA, lineA = next(lineZA)
+                except StopIteration:
+                    lidxA, lineA = None, ""
+            elif any([re.search(regex, lineB) and not re.search(regex, lineA) for regex in warn_regexs]):
+                warnings += 1
+                logger.warning(f"Extra lineB #{lidxB+1} (suppressed)")
+                logger.debug(f"=> Line B: {lineB!r}")
+                warningsB.append(lidxB)
+                try:
+                    lidxB, lineB = next(lineZB)
+                except StopIteration:
+                    lidxB, lineB = None, ""
+            else:
+                break
+    if len(warningsA) > 0:
+        lidxsA, linesA = zip(*[(lidx, line) for lidx, line in zip(lidxsA, linesA) if lidx not in warningsA])
+    if len(warningsB) > 0:
+        lidxsB, linesB = zip(*[(lidx, line) for lidx, line in zip(lidxsB, linesB) if lidx not in warningsB])
     # compare number of lines
     txt_differences += abs(len(linesA) - len(linesB))
     if(txt_differences > 0):
@@ -108,7 +117,7 @@ def check_diff_files(
                     logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
                 else:
                     logger.info(f"--- Comparing {Path(pathA).name} ---")
-            if not any([re.match(regex, lineA) for regex in warn_regexs]):
+            if not any([re.search(regex, lineA) for regex in warn_regexs]):
                 txt_differences += 1
                 logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually")
             else:
@@ -137,7 +146,7 @@ def check_diff_files(
                         logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
                     else:
                         logger.info(f"--- Comparing {Path(pathA).name} ---")
-                if not (any([re.match(regex, lineA) for regex in warn_regexs])):
+                if not (any([re.search(regex, lineA) for regex in warn_regexs])):
                     num_differences += 1
                     logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})")
                 else:
