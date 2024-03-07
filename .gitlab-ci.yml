@@ -11,7 +11,7 @@ stages:
 
 workflow:
   name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
-  rules: # use this for develop the CI script (fastere turnover times)
+  rules: # use this for develop the CI script (faster turnover times)
     - if: $CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/
       variables:
         MINIMAL_PIPELINE: "true"
@@ -191,13 +191,11 @@ variables:
 # ____________________________
 # Independent of ${HASH_TAG}
 
-.tmpl_setup_build:
+.tmpl_script_build:
   variables:
     GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
-
-.tmpl_before_script_build:
-  before_script:
+  script:
     - pwd
     - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
@@ -212,10 +210,8 @@ variables:
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
+    # BUILD
     - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE}  -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../."
-
-.tmpl_script_build:
-  script:
     - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
     - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
@@ -260,12 +256,6 @@ variables:
 # ____________________________
 # Independent of ${HASH_TAG}
 
-.tmpl_setup_run:
-  variables:
-    GIT_STRATEGY: clone
-    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
-    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
-
 .tmpl_before_script_exportvars:
   before_script:
     - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
@@ -281,15 +271,17 @@ variables:
     - python --version
     - python -m pytest --version
 
-.tmpl_before_script_run:
-  before_script:
+.tmpl_script_run:
+  variables:
+    GIT_STRATEGY: clone
+    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+  script:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     - rm -rf CIrun_${CASENAME}
-
-.tmpl_script_run:
-  script:
+    # RUN
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest.xml
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_restart.txt   -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest-restart.xml
@@ -351,20 +343,16 @@ variables:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "2"
 
-.tmpl_setup_post:
+.tmpl_script_post:
   variables:
     GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
-
-.tmpl_before_script_post:
-  before_script:
+  script:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
     - rm -rf CIpost_${CASENAME}
-
-.tmpl_script_post:
-  script:
+    # POST
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml
   artifacts:
     name: "${CI_PIPELINE_ID}_post_${CASENAME}"
@@ -414,10 +402,8 @@ mpcdfci_intel2023_build:
   stage: build
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
-    - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_cmake_def_opts
     - .vars_matrix_build  # matrix of variables
@@ -428,10 +414,8 @@ mpcdfci_intel2023_build_only_converter:
   stage: build
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
-    - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_cmake_only_converter
     - .vars_matrix_build
@@ -444,10 +428,8 @@ mpcdfci_gcc13_build:
   stage: build
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
   extends:
     - .tmpl_mpcdfci_gcc13
-    - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_cmake_def_opts
     - .vars_matrix_build
@@ -459,10 +441,8 @@ mpcdfci_gcc13_build_only_converter:
   stage: build
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
   extends:
     - .tmpl_mpcdfci_gcc13
-    - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_cmake_only_converter
     - .vars_matrix_build  # matrix of variables
@@ -478,10 +458,8 @@ mpcdfci_intel2023_build_tag:
   stage: build
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
-    - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_cmake_def_opts
     - .vars_matrix_build_tag
@@ -507,10 +485,8 @@ mpcdfci_intel2023_run:
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
-    - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
   needs:
@@ -523,10 +499,8 @@ mpcdfci_gcc13_run:
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_gcc13
-    - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
   needs:
@@ -545,10 +519,8 @@ mpcdfci_intel2023_debugrun:
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
-    - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
   needs:
@@ -567,10 +539,8 @@ mpcdfci_gcc13_debugrun:
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_gcc13
-    - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
   needs:
@@ -588,10 +558,8 @@ mpcdfci_intel2023_run_tag:
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
-    - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run_tag
   needs:
@@ -726,10 +694,8 @@ mpcdfci_intel2023_post:
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
-    - !reference [".tmpl_before_script_post", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
-    - .tmpl_setup_post
     - .tmpl_script_post
     - .vars_matrix_run  # matrix of variables
   needs:
@@ -746,10 +712,8 @@ mpcdfci_gcc13_post:
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
-    - !reference [".tmpl_before_script_post", "before_script"]
   extends:
     - .tmpl_mpcdfci_gcc13
-    - .tmpl_setup_post
     - .tmpl_script_post
     - .vars_matrix_post  # matrix of variables
   needs:
