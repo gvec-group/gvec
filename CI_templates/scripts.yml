@@ -147,12 +147,12 @@
     - echo CIrun_${CASENAME_1}
     - echo CIrun_${CASENAME_2}
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
-    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
-    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
+    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
     - echo -e "\e[0Ksection_end:`date +%s`:pre-reg\r\e[0K"
     - echo -e "\e[0Ksection_start:`date +%s`:regression[collapsed=true]\r\e[0KRegression"
-    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
-    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
+    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
     - echo "error code:" $?
     - echo -e "\e[0Ksection_end:`date +%s`:regression\r\e[0K"
   artifacts:
@@ -179,12 +179,12 @@
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-post[collapsed=true]\r\e[0KPrepare Postprocessing"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
     - rm -rf CIpost_${CASENAME}
     - echo -e "\e[0Ksection_end:`date +%s`:pre-post\r\e[0K"
     # POST
     - echo -e "\e[0Ksection_start:`date +%s`:post[collapsed=true]\r\e[0KPostprocessing"
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS --junitxml=pytest.xml
     - echo -e "\e[0Ksection_end:`date +%s`:post\r\e[0K"
   artifacts:
     name: "${CI_PIPELINE_ID}_post_${CASENAME}"
