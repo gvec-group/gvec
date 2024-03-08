@@ -1,0 +1,83 @@
+# =================================================================================================================================
+# Stage "build"
+# =================================================================================================================================
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# GitLab Shared Runners
+
+# ____________________________
+# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
+
+# ____________________________
+# MPCDF new Docker images
+# (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# build with MPCDF Docker (Intel 2023) shared runner environment
+mpcdfci_intel2023_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_script_build
+    - .vars_cmake_def_opts
+    - .vars_matrix_build  # matrix of variables
+  needs: [mpcdfci_intel2023_env]
+#  needs: [] # set the job to start as soon as the pipeline is created
+
+mpcdfci_intel2023_build_only_converter:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_script_build
+    - .vars_cmake_only_converter
+    - .vars_matrix_build
+  needs: [mpcdfci_intel2023_env]
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
+
+# build with MPCDF Docker (GCC 13) shared runner environment
+mpcdfci_gcc13_build:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_script_build
+    - .vars_cmake_def_opts
+    - .vars_matrix_build
+  needs: [mpcdfci_gcc13_env]
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
+
+mpcdfci_gcc13_build_only_converter:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_script_build
+    - .vars_cmake_only_converter
+    - .vars_matrix_build  # matrix of variables
+  needs: [mpcdfci_gcc13_env]
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
+
+# ____________________________
+# ${HASH_TAG} branch (release version)
+
+# build (TAG) with MPCDF Docker (Intel 2023) shared runner environment
+mpcdfci_intel2023_build_tag:
+  stage: build
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_script_build
+    - .vars_cmake_def_opts
+    - .vars_matrix_build_tag
+  needs: [mpcdfci_intel2023_env] # set the job to start as soon as the pipeline is created
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"

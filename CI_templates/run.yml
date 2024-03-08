@@ -1,0 +1,99 @@
+# =================================================================================================================================
+# Stage "run"
+# =================================================================================================================================
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# GitLab Shared Runners
+
+# ____________________________
+# MPCDF new Docker images
+# (each providing a toolchain based on a single combination of compiler and MPI variant)
+
+# run with MPCDF Docker (intel2023) shared runner environment
+mpcdfci_intel2023_run:
+  stage: run
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_intel2023_build
+      artifacts: true
+
+# run with MPCDF Docker (gcc13) shared runner environment
+mpcdfci_gcc13_run:
+  stage: run
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_gcc13_build
+      artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
+
+# debug runs overwrite the PYTEST_MARKER_OPTS and PYTEST_KEY_OPTS!
+
+mpcdfci_intel2023_debugrun:
+  stage: run
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_intel2023_build
+      artifacts: true
+  rules:  # runs only for nightly schedule pipelines
+    - if: $NIGHTLY_PIPELINE == "true" && $CI_PIPELINE_SOURCE == "schedule"
+#    $CI_PIPELINE_TRIGGERED
+
+# run with MPCDF Docker (gcc13) shared runner environment
+mpcdfci_gcc13_debugrun:
+  stage: run
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_gcc13
+    - .tmpl_script_run
+    - .vars_matrix_run  # matrix of variables
+  needs:
+    - job: mpcdfci_gcc13_build
+      artifacts: true
+  rules:  # runs only for nightly schedule pipelines
+    - if: $NIGHTLY_PIPELINE == "true" && $CI_PIPELINE_SOURCE == "schedule"
+
+# ____________________________
+# ${HASH_TAG} branch (release version)
+
+# run with MPCDF Docker (intel2023) shared runner environment
+mpcdfci_intel2023_run_tag:
+  stage: run
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_script_run
+    - .vars_matrix_run_tag
+  needs:
+    - job: mpcdfci_intel2023_build_tag
+      artifacts: true
+  rules:
+    - if: $MINIMAL_PIPELINE == "false"
