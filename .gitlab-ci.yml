@@ -28,7 +28,7 @@ variables:
   HASH_TAG_RELEASE: v0.2.0     # pipeline schedules
   NIGHTLY_PIPELINE: "false"    # pipeline schedules
   MINIMAL_PIPELINE: "false"
-  PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short "
+  PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""                                  # default value
@@ -105,9 +105,11 @@ variables:
 
 .tmpl_before_script_modules:
   before_script:
+    - echo -e "\e[0Ksection_start:`date +%s`:setup-env[collapsed=true]\r\e[0KSetup Environment"
     - echo ${CMAKE_HOSTNAME} ${CURR_CMP}
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
     - git status
+    - echo -e "\e[0Ksection_end:`date +%s`:setup-env\r\e[0K"
 
 
 # =================================================================================================================================
@@ -119,7 +121,9 @@ variables:
     - echo "Pipeline environment for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE"
     - echo $CI_RUNNER_DESCRIPTION
     - echo $CI_RUNNER_TAGS
+    - echo -e "\e[0Ksection_start:`date +%s`:printenv[collapsed=true]\r\e[0KEnvironment Variables"
     - printenv
+    - echo -e "\e[0Ksection_end:`date +%s`:printenv\r\e[0K"
     - echo $OMP_NUM_THREADS
     - echo $SHELL
 
@@ -196,6 +200,7 @@ variables:
     GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
   script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
     - pwd
     - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
@@ -205,15 +210,22 @@ variables:
     - echo "DRY-RUN OF THE FULL PYTEST CALL"
     - python --version
     - python -m pytest --version
+    - echo -e "\e[0Ksection_start:`date +%s`:pytest-dryrun[collapsed=true]\r\e[0KPytest dry-run"
     - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
+    - echo -e "\e[0Ksection_end:`date +%s`:pytest-dryrun\r\e[0K"
     - rm -rf _dry_* 
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
     # BUILD
+    - echo -e "\e[0Ksection_start:`date +%s`:cmake[collapsed=true]\r\e[0KCMake"
     - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE}  -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../."
     - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - echo -e "\e[0Ksection_end:`date +%s`:cmake\r\e[0K"
+    - echo -e "\e[0Ksection_start:`date +%s`:make[collapsed=true]\r\e[0KMake"
     - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
+    - echo -e "\e[0Ksection_end:`date +%s`:make\r\e[0K"
     - cd ..; echo "... BUILD PHASE FINISHED!"
   #allow_failure: true  # after git-lfs migrate
   artifacts:
@@ -258,6 +270,7 @@ variables:
 
 .tmpl_before_script_exportvars:
   before_script:
+    - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
     - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
     - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=${OMP_NUM_THR}; fi
     - echo "MPI prefix:" ${MPI_PRFX}
@@ -270,6 +283,7 @@ variables:
     - echo "Running with ${CURR_CMP} in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - python --version
     - python -m pytest --version
+    - echo -e "\e[0Ksection_end:`date +%s`:exportvars\r\e[0K"
 
 .tmpl_script_run:
   variables:
@@ -277,14 +291,18 @@ variables:
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-run[collapsed=true]\r\e[0KPrepare Run"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     - rm -rf CIrun_${CASENAME}
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-run\r\e[0K"
     # RUN
+    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KRun"
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest.xml
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_restart.txt   -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest-restart.xml
+    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
   artifacts:
     name: "${CI_PIPELINE_ID}_run_${CASENAME}"
     paths:
@@ -305,6 +323,7 @@ variables:
   variables:
     GIT_STRATEGY: fetch
   script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-reg[collapsed=true]\r\e[0KPrepare Regression"
     - python --version
     - python -m pytest --version
     - echo $SHELL
@@ -314,9 +333,12 @@ variables:
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-reg\r\e[0K"
+    - echo -e "\e[0Ksection_start:`date +%s`:regression[collapsed=true]\r\e[0KRegression"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
     - echo "error code:" $?
+    - echo -e "\e[0Ksection_end:`date +%s`:regression\r\e[0K"
   artifacts:
     name: "${CI_PIPELINE_ID}_${CASENAME_1}_vs_${CASENAME_2}"
     paths:
@@ -349,11 +371,15 @@ variables:
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-post[collapsed=true]\r\e[0KPrepare Postprocessing"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
     - rm -rf CIpost_${CASENAME}
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-post\r\e[0K"
     # POST
+    - echo -e "\e[0Ksection_start:`date +%s`:post[collapsed=true]\r\e[0KPostprocessing"
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --junitxml=pytest.xml
+    - echo -e "\e[0Ksection_end:`date +%s`:post\r\e[0K"
   artifacts:
     name: "${CI_PIPELINE_ID}_post_${CASENAME}"
     paths:
