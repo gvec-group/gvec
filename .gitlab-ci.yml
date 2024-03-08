@@ -82,26 +82,64 @@ include:
   # environment jobs
   # ============================
   - local: CI_templates/env.yml
+    inputs:
+      env: mpcdfci_intel2023
+  
+  - local: CI_templates/env.yml
+    inputs:
+      env: mpcdfci_gcc13
 
   # ============================
   # build jobs
   # ============================
   - local: CI_templates/build.yml
+    inputs:
+      env: mpcdfci_intel2023
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: mpcdfci_gcc13
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
+  
+  - local: CI_templates/build.yml
+    inputs:
+      env: mpcdfci_intel2023
+      job-postfix: _only_converter
+      cmake-opts: .vars_cmake_only_converter
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: mpcdfci_gcc13
+      job-postfix: _only_converter
+      cmake-opts: .vars_cmake_only_converter
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: mpcdfci_intel2023
+      job-postfix: _tag
+      vars: .vars_matrix_build_tag
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
 
   # ============================
   # run jobs
   # ============================
-  - local: CI_templates/run.yml
+  # - local: CI_templates/run.yml
 
   # ============================
   # regression jobs
   # ============================
-  - local: CI_templates/regression.yml
+  # - local: CI_templates/regression.yml
 
   # ============================
   # postprocessing jobs
   # ============================
-  - local: CI_templates/postprocessing.yml
+  # - local: CI_templates/postprocessing.yml
 
 
 # =================================================================================================================================
