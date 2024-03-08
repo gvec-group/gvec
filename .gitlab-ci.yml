@@ -11,12 +11,18 @@ stages:
 
 workflow:
   name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
-  rules: # use this for develop the CI script (faster turnover times)
+  rules:
+    # disable the pipeline for merge requests (to avoid duplicate pipelines)
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: never
+    # faster turnover times for gitlab-ci branches
     - if: $CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/
       variables:
         MINIMAL_PIPELINE: "true"
         PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
         PYTEST_MARKER_OPTS: "shortrun"
+      when: always
+    # otherwise always run the pipeline (e.g. on every push)
     - when: always
 
 # =================================================================================================================================
