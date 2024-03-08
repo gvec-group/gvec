@@ -13,13 +13,13 @@ spec:
     cmake-opts:
       description: Template with variables for CMake options
       default: .vars_cmake_def_opts
-    job-postfix:
+    build-postfix:
       description: Job name postfix, e.g. `_only_converter`
       default: ""
 
 ---
 
-$[[ inputs.env ]]_build$[[ inputs.job-postfix ]]:
+$[[ inputs.env ]]_build$[[ inputs.build-postfix ]]:
   stage: build
   extends:
     - .tmpl_$[[ inputs.env ]]

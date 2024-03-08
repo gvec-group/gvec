@@ -102,10 +102,11 @@ include:
     rules:
       - if: $MINIMAL_PIPELINE == "false"
   
+  # converter-only
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_intel2023
-      job-postfix: _only_converter
+      build-postfix: _only_converter
       cmake-opts: .vars_cmake_only_converter
     rules:
       - if: $MINIMAL_PIPELINE == "false"
@@ -113,15 +114,16 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_gcc13
-      job-postfix: _only_converter
+      build-postfix: _only_converter
       cmake-opts: .vars_cmake_only_converter
     rules:
       - if: $MINIMAL_PIPELINE == "false"
 
+  # release tag
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_intel2023
-      job-postfix: _tag
+      build-postfix: _tag
       vars: .vars_matrix_build_tag
     rules:
       - if: $MINIMAL_PIPELINE == "false"
@@ -129,7 +131,42 @@ include:
   # ============================
   # run jobs
   # ============================
-  # - local: CI_templates/run.yml
+  - local: CI_templates/run.yml
+    inputs:
+      env: mpcdfci_intel2023
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: mpcdfci_gcc13
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
+
+  # debugrun
+  - local: CI_templates/run.yml
+    inputs:
+      env: mpcdfci_intel2023
+      run-postfix: _debugrun
+      vars: .vars_matrix_run_debugrun
+    rules:
+      - if: $NIGHTLY_PIPELINE == "true" && $CI_PIPELINE_SOURCE == "schedule"
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: mpcdfci_gcc13
+      run-postfix: _debugrun
+      vars: .vars_matrix_run_debugrun
+    rules:
+      - if: $NIGHTLY_PIPELINE == "true" && $CI_PIPELINE_SOURCE == "schedule"
+  
+  # release tag
+  - local: CI_templates/run.yml
+    inputs:
+      env: mpcdfci_intel2023
+      run-postfix: _tag
+      build-postfix: _tag
+      vars: .vars_matrix_run_tag
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
 
   # ============================
   # regression jobs
@@ -254,6 +291,13 @@ include:
         OMP_MODE: ["ompOFF","ompON"]
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
+
+# debug runs overwrite the PYTEST_MARKER_OPTS and PYTEST_KEY_OPTS!
+.vars_matrix_run_debugrun:
+  extends: .vars_matrix_run
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
