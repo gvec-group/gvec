@@ -171,12 +171,23 @@ include:
   # ============================
   # regression jobs
   # ============================
-  # - local: CI_templates/regression.yml
+  # defined explicity, also containing rules
+  - local: CI_templates/regression.yml
 
   # ============================
   # postprocessing jobs
   # ============================
-  # - local: CI_templates/postprocessing.yml
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: mpcdfci_intel2023
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
+  
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: mpcdfci_gcc13
+    rules:
+      - if: $MINIMAL_PIPELINE == "false"
 
 
 # =================================================================================================================================

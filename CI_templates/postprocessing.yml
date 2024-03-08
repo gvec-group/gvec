@@ -2,42 +2,25 @@
 # Stage "postprocessing"
 # ==========================================================================================================================
 
-# ____________________________
-# MPCDF new Docker images
-# (each providing a toolchain based on a single combination of compiler and MPI variant)
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_intel2023`
+      default: mpcdfci_intel2023
 
-# run with MPCDF Docker (intel2023) shared runner environment
-mpcdfci_intel2023_post:
+---
+
+$[[ inputs.env ]]_post:
   stage: postprocessing
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
     - !reference [".tmpl_before_script_exportvars", "before_script"]
   extends:
-    - .tmpl_mpcdfci_intel2023
-    - .tmpl_script_post
-    - .vars_matrix_run  # matrix of variables
-  needs:
-    - job: mpcdfci_intel2023_build
-      artifacts: true
-    - job: mpcdfci_intel2023_run
-      artifacts: true
-  rules:
-    - if: $MINIMAL_PIPELINE == "false"
-
-# run with MPCDF Docker (gcc13) shared runner environment
-mpcdfci_gcc13_post:
-  stage: postprocessing
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_exportvars", "before_script"]
-  extends:
-    - .tmpl_mpcdfci_gcc13
+    - .tmpl_$[[ inputs.env ]]
     - .tmpl_script_post
     - .vars_matrix_post  # matrix of variables
   needs:
-    - job: mpcdfci_gcc13_build
+    - job: $[[ inputs.env ]]_build
       artifacts: true
-    - job: mpcdfci_gcc13_run
+    - job: $[[ inputs.env ]]_run
       artifacts: true
-  rules:
-    - if: $MINIMAL_PIPELINE == "false"

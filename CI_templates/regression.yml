@@ -28,6 +28,7 @@ mpcdfci_intel-minimal_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
+      optional: true
   rules:
     - if: $MINIMAL_PIPELINE == "true"
 
@@ -51,8 +52,10 @@ mpcdfci_intel-vs-gnu_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
+      optional: true
     - job: mpcdfci_gcc13_run
       artifacts: true
+      optional: true
   rules:
     - if: $MINIMAL_PIPELINE == "false"
 
@@ -78,8 +81,10 @@ mpcdfci_omp-vs-ser_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
+      optional: true
     - job: mpcdfci_gcc13_run
       artifacts: true
+      optional: true
   rules:
     - if: $MINIMAL_PIPELINE == "false"
 
@@ -103,7 +108,9 @@ mpcdfci_intel-vs-tag_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
+      optional: true
     - job: mpcdfci_intel2023_run_tag
       artifacts: true
+      optional: true
   rules:
     - if: $MINIMAL_PIPELINE == "false"
