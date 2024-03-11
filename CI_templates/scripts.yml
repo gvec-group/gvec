@@ -116,12 +116,28 @@
     # RUN
     - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KRun"
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest.xml
-    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_restart.txt   -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --junitxml=pytest-restart.xml
+    # pytest: no restart
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_run_norestart.txt 
+      -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" 
+      $PYTEST_DIR_OPTS 
+      -k "${PYTEST_KEY_OPTS}" 
+      --junitxml=pytest.xml 
+      --annotations=annotations.json
+    # pytest: restart
+    - ${PYTEST_EXEC_CMD} 
+      --log-file=log_pytest_run_restart.txt   
+      -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       
+      $PYTEST_DIR_OPTS
+      -k "${PYTEST_KEY_OPTS}" 
+      --junitxml=pytest-restart.xml
+      --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
   artifacts:
     name: "${CI_PIPELINE_ID}_run_${CASENAME}"
     paths:
+      - log_pytest_run_norestart.txt
+      - log_pytest_run_restart.txt
       - CIrun_${CASENAME}
     expire_in: 1 week
     when: always
@@ -129,6 +145,8 @@
       junit:
         - pytest.xml
         - pytest-restart.xml
+      annotations:
+        - annotations.json
 
 
 # =================================================================================================================================
@@ -152,7 +170,15 @@
     - echo -e "\e[0Ksection_end:`date +%s`:pre-reg\r\e[0K"
     - echo -e "\e[0Ksection_start:`date +%s`:regression[collapsed=true]\r\e[0KRegression"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
-    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
+    # pytest: regression
+    - ${PYTEST_EXEC_CMD} 
+      --log-file=log_pytest_regression.txt 
+      -m "${PYTEST_MARKER_OPTS} and regression_stage" 
+      -k "${PYTEST_KEY_OPTS}" 
+      $PYTEST_DIR_OPTS 
+      "${PYTEST_EXTRA_OPTS}" 
+      --junitxml=pytest.xml
+      --annotations=annotations.json
     - echo "error code:" $?
     - echo -e "\e[0Ksection_end:`date +%s`:regression\r\e[0K"
   artifacts:
@@ -165,6 +191,7 @@
     when: always #on_failure
     reports:
       junit: pytest.xml
+      annotations: annotations.json
 
 
 # =================================================================================================================================

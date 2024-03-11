@@ -135,7 +135,7 @@ def testcasepostdir(postdir: Path, rundir: Path, testgroup: str, testcase: str):
 
 
 @pytest.mark.run_stage
-def test_run(binpath, testgroup, testcaserundir, testcase, dryrun):
+def test_run(binpath, testgroup, testcaserundir, testcase, dryrun, annotations, artifact_pages_path):
     """
     Test end2end GVEC runs with `{testgroup}/{testcase}/parameter.ini`
 
@@ -183,6 +183,14 @@ def test_run(binpath, testgroup, testcaserundir, testcase, dryrun):
             stdout.write(f"RUNNING: \n {args} \n")
         with open("stdout.txt", "a") as stdout, open("stderr.txt", "w") as stderr:
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
+        for filename in ["stdout", "stderr"]:
+            if pages_rundir := os.environ.get("CASENAME"):
+                pages_rundir = f"CIrun_{pages_rundir}"
+            else:
+                pages_rundir = "."
+            annotations["gvec-output"].append(dict(external_link=dict(
+                label=f"{testgroup}/{testcase}/{filename}", 
+                url=f"{artifact_pages_path}/{pages_rundir}/{testgroup}/{testcase}/{filename}.txt")))
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
