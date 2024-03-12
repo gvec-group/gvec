@@ -182,7 +182,7 @@ END SUBROUTINE bff_init
   CALL sf%nc%get_array("boundary/X(::)",realout_2d=sf%X)
   ALLOCATE(sf%Y(sf%ntheta,sf%nzeta))
   CALL sf%nc%get_array("boundary/Y(::)",realout_2d=sf%Y)
-
+  CALL sf%nc%closefile()
 END SUBROUTINE READNETCDF
 
 

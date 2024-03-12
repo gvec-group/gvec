@@ -1165,6 +1165,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   END ASSOCIATE !n_rp,rp
   DEALLOCATE(coord_out,var_out)
 END DO !dbg
+  CALL trafoSFL%free()
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
   __PERFOFF("output_sfl")
 END SUBROUTINE WriteSFLoutfile

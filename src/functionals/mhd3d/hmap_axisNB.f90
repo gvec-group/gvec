@@ -71,9 +71,10 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp)             :: rot_origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
   REAL(wp)             :: rot_axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
   !---------------------------------------------------------------------------------------------------------------------------------
-  CLASS(t_fbase),ALLOCATABLE  :: fb  !! container for 1d fourier base on full turn
+  TYPE(t_hmap_axisNB_aux)      :: aux !! container for preevaluations
+  CLASS(t_fbase),ALLOCATABLE   :: fb  !! container for 1d fourier base on full turn
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
-  TYPE(t_hmap_axisNB_aux)  :: aux !! container for preevaluations
+ 
 
   CONTAINS
 
@@ -193,17 +194,17 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
   CALL sf%free_aux()
-  DEALLOCATE(sf%zeta)
-  DEALLOCATE(sf%xyz)
-  DEALLOCATE(sf%Nxyz)
-  DEALLOCATE(sf%Bxyz)
-  DEALLOCATE(sf%xyz_modes)
-  DEALLOCATE(sf%Nxyz_modes)
-  DEALLOCATE(sf%Bxyz_modes)
-  CALL sf%fb%free()
-  DEALLOCATE(sf%fb)
-  CALL sf%nc%free()
-  DEALLOCATE(sf%nc)
+  IF(ALLOCATED(sf%zeta))THEN
+    DEALLOCATE(sf%zeta,sf%xyz,sf%Nxyz,sf%Bxyz,sf%xyz_modes,sf%Nxyz_modes,sf%Bxyz_modes)
+  END IF
+  IF(ALLOCATED(sf%fb))THEN
+    CALL sf%fb%free()
+    DEALLOCATE(sf%fb)
+  END IF
+  IF(ALLOCATED(sf%nc))THEN
+    CALL sf%nc%free()
+    DEALLOCATE(sf%nc)
+  END IF
 
   sf%initialized=.FALSE.
 
@@ -229,23 +230,9 @@ SUBROUTINE hmap_axisNB_init_aux( sf ,nzeta_aux,zeta_aux)
   ALLOCATE(sf%aux%zeta(nzeta_aux))
   sf%aux%zeta=zeta_aux
   ALLOCATE(sf%aux%X0(3,nzeta_aux))
-  ALLOCATE(sf%aux%T( 3,nzeta_aux))
-  ALLOCATE(sf%aux%N( 3,nzeta_aux))
-  ALLOCATE(sf%aux%B( 3,nzeta_aux))
-  ALLOCATE(sf%aux%Np(3,nzeta_aux))
-  ALLOCATE(sf%aux%Bp(3,nzeta_aux))
-  ALLOCATE(sf%aux%TT(  nzeta_aux))
-  ALLOCATE(sf%aux%NN(  nzeta_aux))
-  ALLOCATE(sf%aux%BB(  nzeta_aux))
-  ALLOCATE(sf%aux%TN(  nzeta_aux))
-  ALLOCATE(sf%aux%TB(  nzeta_aux))
-  ALLOCATE(sf%aux%NB(  nzeta_aux))
-  ALLOCATE(sf%aux%NpT( nzeta_aux))
-  ALLOCATE(sf%aux%NpN( nzeta_aux))
-  ALLOCATE(sf%aux%NpB( nzeta_aux))
-  ALLOCATE(sf%aux%BpT( nzeta_aux))
-  ALLOCATE(sf%aux%BpN( nzeta_aux))
-  ALLOCATE(sf%aux%BpB( nzeta_aux))
+  ALLOCATE(sf%aux%T  ,sf%aux%N  ,sf%aux%B  ,sf%aux%Np ,sf%aux%Bp ,mold=sf%aux%X0)
+  ALLOCATE(sf%aux%TT ,sf%aux%NN ,sf%aux%BB ,sf%aux%TN ,sf%aux%TB ,sf%aux%NB , &
+           sf%aux%NpT,sf%aux%NpN,sf%aux%NpB,sf%aux%BpT,sf%aux%BpN,sf%aux%BpB, mold=sf%aux%zeta)
   
 END SUBROUTINE hmap_axisNB_init_aux
 
@@ -260,26 +247,11 @@ SUBROUTINE hmap_axisNB_free_aux( sf)
   ! OUTPUT VARIABLES
     CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
   !===================================================================================================================================
-    sf%aux%nzeta=0 
-    SDEALLOCATE(sf%aux%zeta)
-    SDEALLOCATE(sf%aux%X0  )
-    SDEALLOCATE(sf%aux%T   )
-    SDEALLOCATE(sf%aux%N   )
-    SDEALLOCATE(sf%aux%B   )
-    SDEALLOCATE(sf%aux%Np  )
-    SDEALLOCATE(sf%aux%Bp  )
-    SDEALLOCATE(sf%aux%TT  )
-    SDEALLOCATE(sf%aux%NN  )
-    SDEALLOCATE(sf%aux%BB  )
-    SDEALLOCATE(sf%aux%TN  )
-    SDEALLOCATE(sf%aux%TB  )
-    SDEALLOCATE(sf%aux%NB  )
-    SDEALLOCATE(sf%aux%NpT )
-    SDEALLOCATE(sf%aux%NpN )
-    SDEALLOCATE(sf%aux%NpB )
-    SDEALLOCATE(sf%aux%BpT )
-    SDEALLOCATE(sf%aux%BpN )
-    SDEALLOCATE(sf%aux%BpB )
+    IF(sf%aux%nzeta.NE.0)THEN !ALLOCATED
+      sf%aux%nzeta=0 
+      DEALLOCATE(sf%aux%X0,sf%aux%T,sf%aux%N,sf%aux%B,sf%aux%Np,sf%aux%Bp,sf%aux%TT,sf%aux%NN,sf%aux%BB)
+      DEALLOCATE(sf%aux%zeta,sf%aux%TN,sf%aux%TB,sf%aux%NB,sf%aux%NpT,sf%aux%NpN,sf%aux%NpB,sf%aux%BpT,sf%aux%BpN,sf%aux%BpB)
+    END IF
   END SUBROUTINE hmap_axisNB_free_aux
 
 
@@ -409,7 +381,7 @@ SUBROUTINE ReadNETCDF(sf)
   !SWRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
   !SWRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
   !SWRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
-
+  CALL sf%nc%closefile()
   SWRITE(*,'(4X,A)')'...DONE.'
 
 END SUBROUTINE ReadNETCDF
