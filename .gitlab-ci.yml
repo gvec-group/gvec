@@ -90,6 +90,9 @@ variables:
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
     CURR_CMP: "intel_mpi"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    OMP_NUM_THR: "2"
 
 # MPCDF Docker image gcc_13:latest
 .tmpl_mpcdfci_gcc13:
@@ -111,24 +114,10 @@ variables:
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
     CURR_CMP: "gnu_mpi"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    OMP_NUM_THR: "2"
 
-# ____________________________
-# MPCDF older Docker image
-
-# MPCDF shared runner (module-image, soon legacy, then deprecated)
-.tmpl_sharedrunner:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
-  tags:
-    - shared
-  variables:
-    CMAKE_HOSTNAME: "sharedrunner"
-
-# MPCDF testimonytwo runner
-.tmpl_testimony:
-  tags:
-    - vm_linux
-  variables:
-    CMAKE_HOSTNAME: "testimony"
 
 # ____________________________
 # bash scripts to load modules
@@ -181,8 +170,8 @@ variables:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
-  variables:
-    MPI_MODE: "mpiOFF"
+#  variables:
+#    MPI_MODE: "mpiOFF"
 
 # not yet used (for MPI jobs)
 .vars_matrix_mpi_build:
@@ -190,9 +179,9 @@ variables:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
-  variables:
-    MPI_MODE: "mpiON"
-    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+#  variables:
+#    MPI_MODE: "mpiON"
+#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -206,7 +195,7 @@ variables:
         OMP_MODE: ["ompON"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
-    MPI_MODE: "mpiOFF"
+#    MPI_MODE: "mpiOFF"
 
 # not yet used (for MPI jobs)
 .vars_matrix_mpi_build_tag:
@@ -216,8 +205,8 @@ variables:
         OMP_MODE: ["ompOFF", "ompON"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
-    MPI_MODE: "mpiON"
-    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+#    MPI_MODE: "mpiON"
+#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # Independent of ${HASH_TAG}
@@ -243,11 +232,11 @@ variables:
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
-    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE}  -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../."
+    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../."
 
 .tmpl_script_build:
   script:
-    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
     - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
   #allow_failure: true  # after git-lfs migrate
@@ -263,6 +252,7 @@ variables:
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "run"
 # =================================================================================================================================
+
 # ____________________________
 # ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
 
@@ -281,9 +271,9 @@ variables:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF","ompON"]
         MPI_RNKS: ["1","2"]
-  variables:
-    MPI_MODE: "mpiON"
-    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+#  variables:
+#    MPI_MODE: "mpiON"
+#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -306,8 +296,8 @@ variables:
         MPI_RNKS: ["1","2"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
-    MPI_MODE: "mpiON"
-    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+#    MPI_MODE: "mpiON"
+#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # Independent of ${HASH_TAG}
@@ -339,7 +329,6 @@ variables:
     - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     - rm -rf CIrun_${CASENAME}
-
 
 .tmpl_script_run:
   script:
@@ -452,20 +441,6 @@ mpcdfci_gcc_openmpi_latest_env:
     - .tmpl_mpcdfci_gcc_openmpi_latest
     - .tmpl_script_env
 
-# printout MPCDF shared runner environment
-sharedrunner_env:
-  stage: env
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_script_env
-
-# printout MPCDF testimonytwo runner environment
-testimony_env:
-  stage: env
-  extends:
-    - .tmpl_testimony
-    - .tmpl_script_env
-
 
 # =================================================================================================================================
 # Stage "build"
@@ -491,6 +466,7 @@ mpcdfci_intel2023_build:
     - .tmpl_mpcdfci_intel2023
     - .tmpl_setup_build
     - .tmpl_script_build
+    - .vars_cmake_def_opts
     - .vars_matrix_build  # matrix of variables
 #mr  variables:
 #mr    CURR_CMP: "intel"
@@ -508,7 +484,8 @@ mpcdfci_gcc13_build:
     - .tmpl_mpcdfci_gcc13
     - .tmpl_setup_build
     - .tmpl_script_build
-    - .vars_matrix_build  # matrix of variables
+    - .vars_cmake_def_opts
+    - .vars_matrix_build
 #mr  variables:
 #mr    CURR_CMP: "gnu"
 #mr    MPI_MODE: "mpiOFF"
@@ -547,75 +524,6 @@ mpcdfci_gcc_openmpi_latest_build:
   needs: [mpcdfci_gcc_openmpi_latest_env]
 
 # ____________________________
-# MPCDF older Docker image
-
-# build with Intel on MPCDF shared runner
-sharedrunner_intel_build:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .vars_matrix_build  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "intel"
-#mr    MPI_MODE: "mpiOFF"
-  needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
-
-# build with GNU on MPCDF shared runner
-sharedrunner_gnu_build:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .vars_matrix_build  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "gnu"
-#mr    MPI_MODE: "mpiOFF"
-  needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
-
-# build with Intel and MPI on MPCDF shared runner
-sharedrunner_intel_mpi_build:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .vars_matrix_mpi_build  # matrix of variables
-  variables:
-    CURR_CMP: "intel_mpi"
-#mr    MPI_MODE: "mpiON"
-  needs: [sharedrunner_env]
-###  needs: [] # set the job to start as soon as the pipeline is created
-
-## build with GNU and MPI on MPCDF shared runner
-#sharedrunner_gnu_mpi_build:
-#  stage: build
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_build","before_script"]
-#  extends:
-#    - .tmpl_sharedrunner
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#    - .vars_matrix_mpi_build  # matrix of variables
-#  variables:
-#    CURR_CMP: "gnu_mpi"
-#mr#    MPI_MODE: "mpiON"
-#  needs: [sharedrunner_env]
-####  needs: [] # set the job to start as soon as the pipeline is created
-
-# ____________________________
 # ${HASH_TAG} branch (release version)
 
 # build (TAG) with MPCDF Docker (Intel 2023) shared runner environment
@@ -628,7 +536,8 @@ mpcdfci_intel2023_build_tag:
     - .tmpl_mpcdfci_intel2023
     - .tmpl_setup_build
     - .tmpl_script_build
-    - .vars_matrix_build_tag  # matrix of variables
+    - .vars_cmake_def_opts
+    - .vars_matrix_build_tag
 #mr  variables:
 #mr    CURR_CMP: "intel"
 #mr    MPI_MODE: "mpiOFF"
@@ -650,106 +559,6 @@ mpcdfci_intel_impi_latest_build_tag:
 #mr    MPI_MODE: "mpiON"
   needs: [mpcdfci_intel_impi_latest_env] # set the job to start as soon as the pipeline is created
 
-# build with Intel on MPCDF shared runner
-sharedrunner_intel_build_tag:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .vars_matrix_build_tag  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
-#mr    MPI_MODE: "mpiOFF"
-  needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
-
-# build with Intel and MPI on MPCDF shared runner
-sharedrunner_intel_mpi_build_tag:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .vars_matrix_mpi_build_tag  # matrix of variables
-  variables:
-    CURR_CMP: "intel_mpi"
-#mr    MPI_MODE: "mpiON"
-  needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
-
-
-# ---------------------------------------------------------------------------------------------------------------------------------
-# GitLab Testimonytwo Runner
-
-# ____________________________
-# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
-
-# build with Intel on MPCDF testimonytwo runner
-testimony_intel_build:
-  stage: build
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_build","before_script"]
-  extends:
-    - .tmpl_testimony
-    - .tmpl_setup_build
-    - .tmpl_script_build
-    - .vars_matrix_build  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
-#mr    MPI_MODE: "mpiOFF"
-  needs: [testimony_env] # set the job to start as soon as the pipeline is created
-
-## build with GNU on MPCDF testimonytwo runner
-#testimony_gnu_build:
-#  stage: build
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_build","before_script"]
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#  variables:
-#    CURR_CMP: "gnu"
-##mr    MPI_MODE: "mpiOFF"
-#  needs: [testimony_env] # set the job to start as soon as the pipeline is created
-
-## build with Intel and MPI on MPCDF testimonytwo runner
-#testimony_intel_mpi_build:
-#  stage: build
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_build","before_script"]
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#  variables:
-#    CURR_CMP: "intel_mpi"
-##mr    MPI_MODE: "mpiON"
-#  needs: [testimony_env] # set the job to start as soon as the pipeline is created
-####  needs: [testimony_env]
-
-## build with GNU and MPI on MPCDF testimonytwo runner
-#testimony_gnu_mpi_build:
-#  stage: build
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_build","before_script"]
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_build
-#    - .tmpl_script_build
-#  variables:
-#    CURR_CMP: "gnu_mpi"
-##mr    MPI_MODE: "mpiON"
-#  needs: [testimony_env] # set the job to start as soon as the pipeline is created
 
 # =================================================================================================================================
 # Stage "run"
@@ -770,6 +579,7 @@ mpcdfci_intel2023_run:
   stage: run
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
     - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
@@ -787,6 +597,7 @@ mpcdfci_gcc13_run:
   stage: run
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
     - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_gcc13
@@ -804,6 +615,7 @@ mpcdfci_intel_impi_latest_run:
   stage: run
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
     - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel_impi_latest
@@ -821,6 +633,7 @@ mpcdfci_gcc_openmpi_latest_run:
   stage: run
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
     - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_gcc_openmpi_latest
@@ -833,75 +646,6 @@ mpcdfci_gcc_openmpi_latest_run:
     - job: mpcdfci_gcc_openmpi_latest_build
       artifacts: true
 
-# run with Intel on MPCDF shared runner
-sharedrunner_intel_run:
-  stage: run
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .vars_matrix_run  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
-  needs:
-    - job: sharedrunner_intel_build
-      artifacts: true
-
-# run with GNU on MPCDF shared runner
-sharedrunner_gnu_run:
-  stage: run
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .vars_matrix_run  # matrix of variables
-  variables:
-    CURR_CMP: "gnu"
-  needs:
-    - job: sharedrunner_gnu_build
-      artifacts: true
-
-# run with Intel on MPCDF shared runner
-sharedrunner_intel_mpi_run:
-  stage: run
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .vars_matrix_mpi_run  # matrix of variables
-  variables:
-    CURR_CMP: "intel_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
-  needs:
-    - job: sharedrunner_intel_mpi_build
-      artifacts: true
-
-## run with GNU on MPCDF shared runner
-#sharedrunner_gnu_mpi_run:
-#  stage: run
-#  needs:
-#    - job: sharedrunner_gnu_mpi_build
-#      artifacts: true
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_run", "before_script"]
-#  extends:
-#    - .tmpl_sharedrunner
-##b    - .tmpl_setup_run_mpi
-#    - .tmpl_setup_run
-#    - .tmpl_script_run
-#    - .vars_matrix_mpi_run  # matrix of variables
-#  variables:
-#    CURR_CMP: "gnu_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
-
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
@@ -910,12 +654,13 @@ mpcdfci_intel2023_run_tag:
   stage: run
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
     - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel2023
     - .tmpl_setup_run
     - .tmpl_script_run
-    - .vars_matrix_run_tag  # matrix of variables
+    - .vars_matrix_run_tag
 #mr  variables:
 #mr    CURR_CMP: "intel"
   needs:
@@ -927,6 +672,7 @@ mpcdfci_intel_impi_latest_run_tag:
   stage: run
   before_script:
     - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
     - !reference [".tmpl_before_script_run", "before_script"]
   extends:
     - .tmpl_mpcdfci_intel_impi_latest
@@ -940,117 +686,6 @@ mpcdfci_intel_impi_latest_run_tag:
       artifacts: true
 
 
-# run with Intel on MPCDF shared runner
-sharedrunner_intel_run_tag:
-  stage: run
-#      parallel:
-#        matrix:
-#          - CMP_MODE: ["Debug"]
-#            OMP_MODE: ["ompON"]
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .vars_matrix_run_tag  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
-  needs:
-    - job: sharedrunner_intel_build_tag
-      artifacts: true
-
-# run with Intel on MPCDF shared runner
-sharedrunner_intel_mpi_run_tag:
-  stage: run
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_sharedrunner
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .vars_matrix_mpi_run_tag  # matrix of variables
-  variables:
-    CURR_CMP: "intel_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
-  needs:
-    - job: sharedrunner_intel_mpi_build_tag
-      artifacts: true
-
-
-# ---------------------------------------------------------------------------------------------------------------------------------
-# GitLab Testimonytwo Runner
-
-# ____________________________
-# ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
-
-# run with Intel on MPCDF testimonytwo runner
-testimony_intel_run:
-  stage: run
-  before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_run", "before_script"]
-  extends:
-    - .tmpl_testimony
-    - .tmpl_setup_run
-    - .tmpl_script_run
-    - .vars_matrix_run  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
-  needs:
-    - job: testimony_intel_build
-      artifacts: true
-
-## run with GNU on MPCDF testimonytwo runner
-#testimony_gnu_run:
-#  stage: run
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_run", "before_script"]
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_run
-#    - .tmpl_script_run
-#  variables:
-#    CURR_CMP: "gnu"
-#  needs:
-#    - job: testimony_gnu_build
-#      artifacts: true
-
-## run with Intel on MPCDF testimonytwo runner
-#testimony_intel_mpi_run:
-#  stage: run
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_run", "before_script"]
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_run_mpi
-#    - .tmpl_script_run
-#  variables:
-#    CURR_CMP: "intel_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
-#  needs:
-#    - job: testimony_intel_mpi_build
-#      artifacts: true
-
-## run with GNU on MPCDF testimonytwo runner
-#testimony_gnu_mpi_run:
-#  stage: run
-#  before_script:
-#    - !reference [".tmpl_before_script_modules", "before_script"]
-#    - !reference [".tmpl_before_script_run", "before_script"]
-#    - module list
-#  extends:
-#    - .tmpl_testimony
-#    - .tmpl_setup_run_mpi
-#    - .tmpl_script_run
-#  variables:
-#    CURR_CMP: "gnu_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
-#  needs:
-#    - job: testimony_gnu_mpi_build
-#      artifacts: true
-
 # =================================================================================================================================
 # Stage "regression"
 # =================================================================================================================================
@@ -1062,27 +697,71 @@ testimony_intel_run:
 # MPCDF new Docker images
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
 
-
-# compare results between current and tag branches (no MPI)
-mpcdfci_intel_regression_tag:
+# compare results between intel and gnu on current branches (no MPI)
+mpcdfci_intel-vs-gnu_reg:
   stage: regression
   extends:
-    - .tmpl_mpcdfci_intel2023      # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # need to load modules (numdiff cmd!)
+    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # to be able to load modules
+    - .tmpl_script_regression
+    - .vars_matrix_run
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: intel
+    CURR_CMP_2: gnu
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
+  needs:
+    - job: mpcdfci_intel2023_run
+      artifacts: true
+    - job: mpcdfci_gcc13_run
+      artifacts: true
+
+# compare results between intel and gnu on current branches (no MPI)
+mpcdfci_omp-vs-ser_reg:
+  stage: regression
+  extends:
+    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
   parallel:
     matrix:
       - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
+        REG_CMP: ["intel","gnu"]
   variables:
-#    GIT_STRATEGY: fetch
-    CURR_CMP: intel # needed to load modules (numdiff cmd!)
+    OMP_MODE_1: "ompOFF"
+    OMP_MODE_2: "ompON"
+    CASENAME_1: ${HASH_TAG}_${REG_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${REG_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
+    PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
+  allow_failure:
+    exit_codes: 5  # warnings
+  needs:
+    - job: mpcdfci_intel2023_run
+      artifacts: true
+    - job: mpcdfci_gcc13_run
+      artifacts: true
+
+# compare results between current and tag branches (no MPI)
+mpcdfci_intel-vs-tag_reg:
+  stage: regression
+  extends:
+    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # to be able to load modules
+    - .tmpl_script_regression
+    - .vars_matrix_run
+  variables:
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG_RELEASE}
     CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: ${CURR_CMP}
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
     CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
@@ -1090,31 +769,26 @@ mpcdfci_intel_regression_tag:
       artifacts: true
 
 
-# compare results between intel and gnu on current branches
-mpcdfci_intel_mpi_regression:
+# compare results for intel between MPI=ON and MPI=OFF on trigger branche
+mpcdfci_intel_mpiON-mpiOFF_reg:
   stage: regression
-  script:
-    - numdiff --version
-    - echo shortruns_${CASENAME_1}
-    - echo shortruns_${CASENAME_2}
-    - python gitlab_regressions.py shortruns_${CASENAME_1} shortruns_${CASENAME_2}
   extends:
-    - .tmpl_mpcdfci_intel2023      # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # need to load modules (numdiff cmd!)
+    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
   parallel:
     matrix:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF","ompON"]
+        MPI_RNKS: ["1","2"]
   variables:
-    GIT_STRATEGY: fetch
-    CURR_CMP: intel # needed to load modules (numdiff cmd!)
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG}
     CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: ${CURR_CMP}_mpi
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON_nranks2
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON_${MPI_RNKS_MODE}
+    #CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON_nranks2
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
@@ -1145,90 +819,4 @@ mpcdfci_intel_gnu_regression:
     - job: mpcdfci_intel2023_run
       artifacts: true
     - job: mpcdfci_gcc13_run
-      artifacts: true
-
-# ____________________________
-# MPCDF older Docker image
-
-# compare results between current and tag branches (no MPI)
-shared_intel_regression_tag:
-  stage: regression
-  extends:
-    - .tmpl_sharedrunner          # needed to load modules (numdiff cmd!)
-    - .tmpl_before_script_modules # needed to load modules (numdiff cmd!)
-    - .tmpl_script_regression
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
-  variables:
-#    GIT_STRATEGY: fetch
-    CURR_CMP: intel # needed to load modules (numdiff cmd!)
-    HASH_TAG_1: ${HASH_TAG}
-    HASH_TAG_2: ${HASH_TAG_RELEASE}
-    CURR_CMP_1: ${CURR_CMP}
-    CURR_CMP_2: ${CURR_CMP}
-    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-  needs:
-    - job: sharedrunner_intel_run
-      artifacts: true
-    - job: sharedrunner_intel_run_tag
-      artifacts: true
-
-# compare results between intel and gnu on current branches
-shared_intel_mpi_regression:
-  stage: regression
-  script:
-    - numdiff --version
-    - echo shortruns_${CASENAME_1}
-    - echo shortruns_${CASENAME_2}
-    - python gitlab_regressions.py shortruns_${CASENAME_1} shortruns_${CASENAME_2}
-  extends:
-    - .tmpl_sharedrunner          # needed to load modules (numdiff cmd!)
-    - .tmpl_before_script_modules # needed to load modules (numdiff cmd!)
-    - .tmpl_script_regression
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
-  variables:
-    GIT_STRATEGY: fetch
-    CURR_CMP: intel # needed to load modules (numdiff cmd!)
-    HASH_TAG_1: ${HASH_TAG}
-    HASH_TAG_2: ${HASH_TAG}
-    CURR_CMP_1: ${CURR_CMP}
-    CURR_CMP_2: ${CURR_CMP}_mpi
-    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON_nranks2
-  needs:
-    - job: sharedrunner_intel_run
-      artifacts: true
-    - job: sharedrunner_intel_mpi_run
-      artifacts: true
-
-
-# compare results between intel and gnu on current branches (no MPI)
-shared_intel_gnu_regression:
-  stage: regression
-  extends:
-    - .tmpl_sharedrunner          # needed to load modules (numdiff cmd!)
-    - .tmpl_before_script_modules # needed to load modules (numdiff cmd!)
-    - .tmpl_script_regression
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
-  variables:
-    CURR_CMP: intel # needed to load modules (numdiff cmd!)
-    HASH_TAG_1: ${HASH_TAG}
-    HASH_TAG_2: ${HASH_TAG}
-    CURR_CMP_1: ${CURR_CMP}
-    CURR_CMP_2: gnu
-    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-  needs:
-    - job: sharedrunner_intel_run
-      artifacts: true
-    - job: sharedrunner_gnu_run
       artifacts: true
