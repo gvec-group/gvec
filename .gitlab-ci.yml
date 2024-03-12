@@ -15,13 +15,6 @@ workflow:
     # disable the pipeline for merge requests (to avoid duplicate pipelines)
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: never
-    # faster turnover times for gitlab-ci branches
-    - if: $CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/
-      variables:
-        MINIMAL_PIPELINE: "true"
-        PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
-        PYTEST_MARKER_OPTS: "shortrun"
-      when: always
     # otherwise always run the pipeline (e.g. on every push)
     - when: always
 
@@ -34,7 +27,6 @@ variables:
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_RELEASE: v0.2.0     # pipeline schedules
   NIGHTLY_PIPELINE: "false"    # pipeline schedules
-  MINIMAL_PIPELINE: "false"
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
@@ -91,6 +83,7 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: mpcdfci_intel2023
+      rules: .rules_minimal
   
   - local: CI_templates/env.yml
     inputs:
@@ -102,12 +95,11 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_intel2023
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_gcc13
-    rules:
-      - if: $MINIMAL_PIPELINE == "false"
   
   # converter-only
   - local: CI_templates/build.yml
@@ -115,16 +107,12 @@ include:
       env: mpcdfci_intel2023
       build-postfix: _only_converter
       cmake-opts: .vars_cmake_only_converter
-    rules:
-      - if: $MINIMAL_PIPELINE == "false"
 
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_gcc13
       build-postfix: _only_converter
       cmake-opts: .vars_cmake_only_converter
-    rules:
-      - if: $MINIMAL_PIPELINE == "false"
 
   # release tag
   - local: CI_templates/build.yml
@@ -132,8 +120,6 @@ include:
       env: mpcdfci_intel2023
       build-postfix: _tag
       vars: .vars_matrix_build_tag
-    rules:
-      - if: $MINIMAL_PIPELINE == "false"
 
   # ============================
   # run jobs
@@ -141,12 +127,11 @@ include:
   - local: CI_templates/run.yml
     inputs:
       env: mpcdfci_intel2023
+      rules: .rules_minimal
 
   - local: CI_templates/run.yml
     inputs:
       env: mpcdfci_gcc13
-    rules:
-      - if: $MINIMAL_PIPELINE == "false"
 
   # debugrun
   - local: CI_templates/run.yml
@@ -154,16 +139,14 @@ include:
       env: mpcdfci_intel2023
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
-    rules:
-      - if: $NIGHTLY_PIPELINE == "true" && $CI_PIPELINE_SOURCE == "schedule"
+      rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
       env: mpcdfci_gcc13
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
-    rules:
-      - if: $NIGHTLY_PIPELINE == "true" && $CI_PIPELINE_SOURCE == "schedule"
+      rules: .rules_nightly
   
   # release tag
   - local: CI_templates/run.yml
@@ -172,8 +155,6 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
-    rules:
-      - if: $MINIMAL_PIPELINE == "false"
 
   # ============================
   # regression jobs
@@ -187,17 +168,66 @@ include:
   - local: CI_templates/postprocessing.yml
     inputs:
       env: mpcdfci_intel2023
+      rules: .rules_minimal
   
   - local: CI_templates/postprocessing.yml
     inputs:
       env: mpcdfci_gcc13
-    rules:
-      - if: $MINIMAL_PIPELINE == "false"
 
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
 # =================================================================================================================================
+
+# ____________________________
+# Rules templates
+# reference: https://docs.gitlab.com/ee/ci/yaml/#rulesif
+# and: https://docs.gitlab.com/ee/ci/yaml/#when
+# An `- if:` beyond the first `- if:` is an "else if". And the last part (like `- when:` , does not have a condition, so it corresponds to an "else".
+# when: on_success - Run the job only when no jobs in earlier stages fail or have allow_failure: true.
+# when: on_failure - Run the job only when at least one job in an earlier stage fails.
+# when: always - Run the job regardless of the status of jobs in earlier stages.
+# when: never - Don’t run the job
+# when: manual - Run the job only when triggered manually.
+
+.rules_default:
+  rules:
+    # disable this job for gitlab-ci branches or if MINIMAL_PIPELINE is set to "true"
+    # MINIMAL_PIPELINE="false" overrides gitlab-ci jobs
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+      when: never
+    - when: on_success
+
+.rules_minimal:
+  rules:
+    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+      variables:
+        PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
+        PYTEST_MARKER_OPTS: "shortrun"
+      when: on_success
+    - when: on_success
+
+.rules_minimal_only:
+  rules:
+    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+      variables:
+        PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
+        PYTEST_MARKER_OPTS: "shortrun"
+      when: on_success
+    # don't run otherwise
+    - when: never
+
+.rules_nightly:
+  rules:
+    # disable this job for gitlab-ci branches or if MINIMAL_PIPELINE is set
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+      when: never
+    # only run this job in the nightly pipeline
+    - if: $NIGHTLY_PIPELINE == "true"
+      when: on_success
+    - when: never
 
 # ____________________________
 # MPCDF new Docker images

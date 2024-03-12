@@ -16,6 +16,9 @@ spec:
     build-postfix:
       description: Build-Job name postfix, e.g. `_only_converter`
       default: ""
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
 
 ---
 
@@ -28,6 +31,7 @@ $[[ inputs.env ]]_run$[[ inputs.run-postfix ]]:
     - .tmpl_$[[ inputs.env ]]
     - .tmpl_script_run
     - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
   needs:
     - job: $[[ inputs.env ]]_build$[[ inputs.build-postfix ]]
       artifacts: true

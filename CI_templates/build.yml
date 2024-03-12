@@ -16,6 +16,9 @@ spec:
     build-postfix:
       description: Job name postfix, e.g. `_only_converter`
       default: ""
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
 
 ---
 
@@ -27,5 +30,6 @@ $[[ inputs.env ]]_build$[[ inputs.build-postfix ]]:
     - .tmpl_script_build
     - $[[ inputs.cmake-opts ]]
     - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
   needs: 
     - $[[ inputs.env ]]_env

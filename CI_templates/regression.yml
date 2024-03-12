@@ -17,6 +17,7 @@ mpcdfci_intel-minimal_reg:
     - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
     #- .vars_matrix_run
+    - .rules_minimal_only
   variables:
     CMP_MODE: "Debug"
     OMP_MODE_1: "ompOFF"
@@ -28,9 +29,6 @@ mpcdfci_intel-minimal_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
-      optional: true
-  rules:
-    - if: $MINIMAL_PIPELINE == "true"
 
 # compare results between intel and gnu on current branches (no MPI)
 mpcdfci_intel-vs-gnu_reg:
@@ -40,6 +38,7 @@ mpcdfci_intel-vs-gnu_reg:
     - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
     - .vars_matrix_run
+    - .rules_default
   variables:
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG}
@@ -52,12 +51,8 @@ mpcdfci_intel-vs-gnu_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
-      optional: true
     - job: mpcdfci_gcc13_run
       artifacts: true
-      optional: true
-  rules:
-    - if: $MINIMAL_PIPELINE == "false"
 
 # compare results between serial and OpenMP on current branches (no MPI)
 mpcdfci_omp-vs-ser_reg:
@@ -66,6 +61,7 @@ mpcdfci_omp-vs-ser_reg:
     - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
     - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
+    - .rules_default
   parallel:
     matrix:
       - CMP_MODE: ["Debug"]
@@ -81,12 +77,8 @@ mpcdfci_omp-vs-ser_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
-      optional: true
     - job: mpcdfci_gcc13_run
       artifacts: true
-      optional: true
-  rules:
-    - if: $MINIMAL_PIPELINE == "false"
 
 # compare results between current and tag branches (no MPI)
 mpcdfci_intel-vs-tag_reg:
@@ -96,6 +88,7 @@ mpcdfci_intel-vs-tag_reg:
     - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
     - .vars_matrix_run
+    - .rules_default
   variables:
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG_RELEASE}
@@ -108,9 +101,5 @@ mpcdfci_intel-vs-tag_reg:
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
-      optional: true
     - job: mpcdfci_intel2023_run_tag
       artifacts: true
-      optional: true
-  rules:
-    - if: $MINIMAL_PIPELINE == "false"

@@ -7,6 +7,9 @@ spec:
     env:
       description: Name of the environment, e.g. `mpcdfci_intel2023`
       default: mpcdfci_intel2023
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
 
 ---
 
@@ -19,6 +22,7 @@ $[[ inputs.env ]]_post:
     - .tmpl_$[[ inputs.env ]]
     - .tmpl_script_post
     - .vars_matrix_post  # matrix of variables
+    - $[[ inputs.rules ]]
   needs:
     - job: $[[ inputs.env ]]_build
       artifacts: true
