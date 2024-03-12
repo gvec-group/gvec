@@ -73,11 +73,15 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   PROCEDURE :: eval_Jh_dq2   => hmap_frenet_eval_Jh_dq2    
   PROCEDURE :: eval_gij      => hmap_frenet_eval_gij      
   PROCEDURE :: eval_gij_dq1  => hmap_frenet_eval_gij_dq1  
-  PROCEDURE :: eval_gij_dq2  => hmap_frenet_eval_gij_dq2  
+  PROCEDURE :: eval_gij_dq2  => hmap_frenet_eval_gij_dq2
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_frenet:
   PROCEDURE :: eval_X0       => hmap_frenet_eval_X0_fromRZ
   PROCEDURE :: sigma         => hmap_frenet_sigma
+  ! --- Not used
+  PROCEDURE :: init_aux      => dummy_sub_hmap_init_aux
+  PROCEDURE :: free_aux      => dummy_sub_hmap
+  PROCEDURE :: eval_aux      => dummy_sub_hmap   
 END TYPE t_hmap_frenet
 
 LOGICAL :: test_called=.FALSE.
@@ -85,13 +89,21 @@ LOGICAL :: test_called=.FALSE.
 !===================================================================================================================================
 
 CONTAINS
+!===============================================================================================================================
+!> dummy routine that does noting
+!!
+SUBROUTINE dummy_sub_hmap( sf )
+  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+END SUBROUTINE dummy_sub_hmap
 
-SUBROUTINE init_dummy( sf )
-IMPLICIT NONE
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
-  CALL abort(__STAMP__, &
-             "dummy init in hmap_frenet should not be used")
-END SUBROUTINE init_dummy
+!===============================================================================================================================
+!> dummy routine that does noting
+!!
+SUBROUTINE dummy_sub_hmap_init_aux( sf ,nzeta_aux,zeta_aux)
+  INTEGER,INTENT(IN)   :: nzeta_aux
+  REAL(wp),INTENT(IN)  :: zeta_aux(1:nzeta_aux)
+  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+END SUBROUTINE dummy_sub_hmap_init_aux
 
 !===================================================================================================================================
 !> initialize the type hmap_frenet with number of elements

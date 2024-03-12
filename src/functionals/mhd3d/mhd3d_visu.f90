@@ -1134,8 +1134,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         var_out(VP_B:VP_B+2 ,ithet,izeta,i_rp)=Bfield
         var_out(VP_grads:VP_grads+2,ithet,izeta,i_rp)=CROSS(e_thetstar,e_zetastar)/sqrtG
         var_out(VP_modB     ,ithet,izeta,i_rp)=SQRT(SUM(Bfield*Bfield))
-        var_out(VP_Bthetstar   ,ithet,izeta,i_rp)=Bthetstar
-        var_out(VP_Bzetastar   ,ithet,izeta,i_rp)=Bzetastar
+        var_out(VP_Bthet    ,ithet,izeta,i_rp)=Bthetstar
+        var_out(VP_Bzeta    ,ithet,izeta,i_rp)=Bzetastar
         var_out(VP_Bsubthetstar,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
         var_out(VP_Bsubzetastar,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
       END DO; END DO !ithet,izeta

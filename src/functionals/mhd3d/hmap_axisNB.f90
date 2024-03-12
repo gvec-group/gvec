@@ -37,7 +37,18 @@ USE MODgvec_io_netcdf   ,ONLY: t_ncfile
 IMPLICIT NONE
 
 PUBLIC
- 
+
+
+!---------------------------------------------------------------------------------------------------------------------------------
+!> Store data that can be precomputed on a set ot zeta points 
+!> depends on hmap_axisNB, but could be used for different point sets in zeta
+! 
+TYPE :: t_hmap_axisNB_aux
+  INTEGER :: nzeta    !! size of zeta point positions
+  REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions, size(1:nzeta_eval)
+  REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: X0,T,N,B,Np,Bp    !! Position,Tangent,Normal,Bi-Normal and N',B' size (3,1:nzeta_eval)
+  REAL(wp),ALLOCATABLE,DIMENSION(:) :: TT,BB,NN,TB,TN,NB,BpT,BpN,BpB,NpT,NpN,NpB !!dot-products of above vectors, size(nzeta_eval)
+END TYPE t_hmap_axisNB_aux
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -62,12 +73,16 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !---------------------------------------------------------------------------------------------------------------------------------
   CLASS(t_fbase),ALLOCATABLE  :: fb  !! container for 1d fourier base on full turn
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
+  TYPE(t_hmap_axisNB_aux)  :: aux !! container for preevaluations
 
   CONTAINS
 
   PROCEDURE :: init          => hmap_axisNB_init
   PROCEDURE :: free          => hmap_axisNB_free
-  PROCEDURE :: eval          => hmap_axisNB_eval          
+  PROCEDURE :: eval          => hmap_axisNB_eval   
+  PROCEDURE :: init_aux      => hmap_axisNB_init_aux
+  PROCEDURE :: free_aux      => hmap_axisNB_free_aux
+  PROCEDURE :: eval_aux      => hmap_axisNB_eval_aux
   PROCEDURE :: eval_dxdq     => hmap_axisNB_eval_dxdq
   PROCEDURE :: eval_Jh       => hmap_axisNB_eval_Jh       
   PROCEDURE :: eval_Jh_dq1   => hmap_axisNB_eval_Jh_dq1    
@@ -152,11 +167,14 @@ IMPLICIT NONE
   IF(error_nfp.LT.0) &
      CALL abort(__STAMP__, &
           "hmap_axisNB check Field Periodicity failed!")
+  sf%aux%nzeta=0
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
   IF(.NOT.test_called) CALL hmap_axisNB_test(sf)
 
 END SUBROUTINE hmap_axisNB_init
+
+
 
 !===================================================================================================================================
 !> finalize the type hmap_axisNB
@@ -174,6 +192,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
+  CALL sf%free_aux()
   DEALLOCATE(sf%zeta)
   DEALLOCATE(sf%xyz)
   DEALLOCATE(sf%Nxyz)
@@ -189,6 +208,116 @@ IMPLICIT NONE
   sf%initialized=.FALSE.
 
 END SUBROUTINE hmap_axisNB_free
+
+!===================================================================================================================================
+!> initialize the aux variable
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_axisNB_init_aux( sf ,nzeta_aux,zeta_aux)
+  ! MODULES
+    IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    INTEGER, INTENT(IN)  :: nzeta_aux
+    REAL(wp),INTENT(IN)  :: zeta_aux(1:nzeta_aux)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
+  !===================================================================================================================================
+  IF(sf%aux%nzeta.NE.0) CALL sf%free_aux()
+  sf%aux%nzeta=nzeta_aux  
+  ALLOCATE(sf%aux%zeta(nzeta_aux))
+  sf%aux%zeta=zeta_aux
+  ALLOCATE(sf%aux%X0(3,nzeta_aux))
+  ALLOCATE(sf%aux%T( 3,nzeta_aux))
+  ALLOCATE(sf%aux%N( 3,nzeta_aux))
+  ALLOCATE(sf%aux%B( 3,nzeta_aux))
+  ALLOCATE(sf%aux%Np(3,nzeta_aux))
+  ALLOCATE(sf%aux%Bp(3,nzeta_aux))
+  ALLOCATE(sf%aux%TT(  nzeta_aux))
+  ALLOCATE(sf%aux%NN(  nzeta_aux))
+  ALLOCATE(sf%aux%BB(  nzeta_aux))
+  ALLOCATE(sf%aux%TN(  nzeta_aux))
+  ALLOCATE(sf%aux%TB(  nzeta_aux))
+  ALLOCATE(sf%aux%NB(  nzeta_aux))
+  ALLOCATE(sf%aux%NpT( nzeta_aux))
+  ALLOCATE(sf%aux%NpN( nzeta_aux))
+  ALLOCATE(sf%aux%NpB( nzeta_aux))
+  ALLOCATE(sf%aux%BpT( nzeta_aux))
+  ALLOCATE(sf%aux%BpN( nzeta_aux))
+  ALLOCATE(sf%aux%BpB( nzeta_aux))
+  
+END SUBROUTINE hmap_axisNB_init_aux
+
+!===================================================================================================================================
+!> free the aux variable
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_axisNB_free_aux( sf)
+  ! MODULES
+    IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
+  !===================================================================================================================================
+    sf%aux%nzeta=0 
+    SDEALLOCATE(sf%aux%zeta)
+    SDEALLOCATE(sf%aux%X0  )
+    SDEALLOCATE(sf%aux%T   )
+    SDEALLOCATE(sf%aux%N   )
+    SDEALLOCATE(sf%aux%B   )
+    SDEALLOCATE(sf%aux%Np  )
+    SDEALLOCATE(sf%aux%Bp  )
+    SDEALLOCATE(sf%aux%TT  )
+    SDEALLOCATE(sf%aux%NN  )
+    SDEALLOCATE(sf%aux%BB  )
+    SDEALLOCATE(sf%aux%TN  )
+    SDEALLOCATE(sf%aux%TB  )
+    SDEALLOCATE(sf%aux%NB  )
+    SDEALLOCATE(sf%aux%NpT )
+    SDEALLOCATE(sf%aux%NpN )
+    SDEALLOCATE(sf%aux%NpB )
+    SDEALLOCATE(sf%aux%BpT )
+    SDEALLOCATE(sf%aux%BpN )
+    SDEALLOCATE(sf%aux%BpB )
+  END SUBROUTINE hmap_axisNB_free_aux
+
+
+!===================================================================================================================================
+!> evaluate the auxiliar variables on the given zeta points
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_axisNB_eval_aux(sf)
+  ! MODULES
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! sf%aux variables
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER :: izeta
+  !===================================================================================================================================
+!$OMP PARALLEL DO &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta)
+  DO izeta=1,sf%aux%nzeta
+    CALL sf%eval_TNB(sf%aux%zeta(izeta),sf%aux%X0(:,izeta),sf%aux%T(:,izeta),sf%aux%N(:,izeta), &
+                     sf%aux%B(:,izeta),sf%aux%Np(:,izeta),sf%aux%Bp(:,izeta))
+    sf%aux%TT( izeta)=SUM(sf%aux%T( :,izeta)* sf%aux%T(:,izeta))
+    sf%aux%NN( izeta)=SUM(sf%aux%N( :,izeta)* sf%aux%N(:,izeta))
+    sf%aux%BB( izeta)=SUM(sf%aux%B( :,izeta)* sf%aux%B(:,izeta))
+    sf%aux%TN( izeta)=SUM(sf%aux%T( :,izeta)* sf%aux%N(:,izeta))
+    sf%aux%TB( izeta)=SUM(sf%aux%T( :,izeta)* sf%aux%B(:,izeta))
+    sf%aux%NB( izeta)=SUM(sf%aux%N( :,izeta)* sf%aux%B(:,izeta))
+    sf%aux%NpT(izeta)=SUM(sf%aux%Np(:,izeta)* sf%aux%T(:,izeta))
+    sf%aux%NpN(izeta)=SUM(sf%aux%Np(:,izeta)* sf%aux%N(:,izeta))
+    sf%aux%NpB(izeta)=SUM(sf%aux%Np(:,izeta)* sf%aux%B(:,izeta))
+    sf%aux%BpT(izeta)=SUM(sf%aux%Bp(:,izeta)* sf%aux%T(:,izeta))
+    sf%aux%BpN(izeta)=SUM(sf%aux%Bp(:,izeta)* sf%aux%N(:,izeta))
+    sf%aux%BpB(izeta)=SUM(sf%aux%Bp(:,izeta)* sf%aux%B(:,izeta))
+  END DO !izeta
+END SUBROUTINE hmap_axisNB_eval_aux
 
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
