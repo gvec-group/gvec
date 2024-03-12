@@ -19,7 +19,7 @@ workflow:
 variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: v0.0.3-dev
+  HASH_TAG_RELEASE: v0.0.2-frenet
   PYTEST_EXEC_CMD: "python -m pytest -v -r A" 
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"  
