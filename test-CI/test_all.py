@@ -77,19 +77,19 @@ def testcaserundir(rundir: Path, testgroup: str, testcase: str):
             helpers.adapt_parameter_file(
                 sourcedir / "parameter.ini",
                 targetdir / "parameter.ini",
-                testlevel=-1,
-                MaxIter=1,
-                logIter=1,
-                outputIter=1,
+                testlevel="-1",
+                logIter="1",
+                MaxIter="1",
+                outputIter="1",
             )
         case "debugrun":
             helpers.adapt_parameter_file(
                 sourcedir / "parameter.ini",
                 targetdir / "parameter.ini",
-                testlevel=2,
-                MaxIter=1,
-                logIter=1,
-                outputIter=1,
+                testlevel="2",
+                logIter="1",
+                MaxIter='1',
+                outputIter="1",
             )
     return targetdir
 
@@ -124,9 +124,10 @@ def testcasepostdir(postdir: Path, rundir: Path, testgroup: str, testcase: str):
     helpers.adapt_parameter_file(
         sourcerundir / "parameter.ini",
         targetdir / "parameter.ini",
-        visu1D="!",
-        visu2D="!",
-        visu3D="!",  # only uncomment visualization flags
+        visu1D="!0",
+        visu2D="!0",
+        visu3D="!0", 
+        SFLout="!0",  # only uncomment visualization flags
     )
     return targetdir
 
