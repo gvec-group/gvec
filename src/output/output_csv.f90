@@ -96,7 +96,7 @@ END DO
 WRITE(ioUnit,'(A)')  '"'//TRIM(varNames(nVal))//'"'
 
 DO iPlot=1,nPlot
-  WRITE(ioUnit,'(*('//TRIM(vfmt)//',:,","))') Values(:,iPlot) 
+  WRITE(ioUnit,'(*('//TRIM(vfmt)//',:,","))') Values(:,iPlot)+SIGN(1.0e-99,Values(:,iPlot))
 END DO
 
 CLOSE(ioUnit)

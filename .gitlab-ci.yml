@@ -7,18 +7,27 @@ stages:
   - build
   - run
   - regression
+  - postprocessing
 
 workflow:
-  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE' #$CI_COMMIT_BRANCH
+  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
 
 # =================================================================================================================================
 # GLOBALS
 # =================================================================================================================================
 
 variables:
-  GIT_STRATEGY: none #clone
-  HASH_TAG: $CI_COMMIT_REF_NAME #$CI_COMMIT_BRANCH
-  HASH_TAG_RELEASE: v0.0.1-dev #develop_mpi_par
+  GIT_STRATEGY: none
+  HASH_TAG: $CI_COMMIT_REF_NAME
+  HASH_TAG_RELEASE: v0.2.0     # pipeline schedules
+  NIGHTLY_PIPELINE: "false"    # pipeline schedules
+  PYTEST_EXEC_CMD: "python -m pytest -v -r A"
+  # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
+  PYTEST_MARKER_OPTS: "example"
+  PYTEST_KEY_OPTS: ""                                  # default value
+  #PYTEST_KEY_OPTS: "(not highres) and (not _restart)" # use this for develop the CI script (fastere turnover times)
+  PYTEST_EXTRA_OPTS: ""
+
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
@@ -46,7 +55,7 @@ variables:
 #      - CMP_MODE: ["Debug"]
 #        OMP_MODE: ["ompON"] #only one element/variable in matrix: causes CI dependency line to break
 #                             check issue report: https://gitlab.com/gitlab-org/gitlab/-/issues/428679
-#                             workaround is to use the keyword "variables:" instead (like below) 
+#                             workaround is to use the keyword "variables:" instead (like below)
 #  variables:
 #    HASH_TAG: ${HASH_TAG_RELEASE}
 #    CMP_MODE: "Debug"
@@ -69,6 +78,9 @@ variables:
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
     CURR_CMP: "intel"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
 
 # MPCDF Docker image intel-impi:latest
 .tmpl_mpcdfci_intel_impi_latest:
@@ -87,6 +99,9 @@ variables:
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
     CURR_CMP: "gnu"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
 
 # MPCDF Docker image gcc-openmpi:latest
 .tmpl_mpcdfci_gcc_openmpi_latest:
@@ -120,7 +135,9 @@ variables:
 
 .tmpl_before_script_modules:
   before_script:
+    - echo ${CMAKE_HOSTNAME} ${CURR_CMP}
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
+    - git status
 
 
 # =================================================================================================================================
@@ -129,12 +146,13 @@ variables:
 
 .tmpl_script_env:
   script:
-    - echo "Pipeline environment for branch:" $CI_COMMIT_REF_NAME #$CI_COMMIT_BRANCH
+    - echo "Pipeline environment for branch:" $CI_COMMIT_REF_NAME
     - echo $CI_RUNNER_DESCRIPTION
     - echo $CI_RUNNER_TAGS
     - printenv
     - module avail
     - echo $OMP_NUM_THREADS
+    - echo $SHELL
 
 
 # =================================================================================================================================
@@ -144,6 +162,20 @@ variables:
 # ____________________________
 # ${CI_COMMIT_REF_NAME} branch/tag (CI trigger commit)
 
+.vars_cmake_def_opts:
+  variables:
+    COMPILE_GVEC: "ON"
+    LINK_TO_NETCDF: "ON"
+    COMPILE_CONVERTERS: "ON"
+    CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
+
+.vars_cmake_only_converter:
+  variables:
+    COMPILE_GVEC: "OFF"
+    LINK_TO_NETCDF: "OFF"
+    COMPILE_CONVERTERS: "ON"
+    CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
+
 .vars_matrix_build:
   parallel:
     matrix:
@@ -152,6 +184,7 @@ variables:
   variables:
     MPI_MODE: "mpiOFF"
 
+# not yet used (for MPI jobs)
 .vars_matrix_mpi_build:
   parallel:
     matrix:
@@ -169,10 +202,13 @@ variables:
     matrix:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF", "ompON"]
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
     MPI_MODE: "mpiOFF"
 
+# not yet used (for MPI jobs)
 .vars_matrix_mpi_build_tag:
   parallel:
     matrix:
@@ -193,44 +229,40 @@ variables:
 
 .tmpl_before_script_build:
   before_script:
-#    - mkdir develop && cd develop && cp -R ../.git ./
-#    - git checkout -- . && git branch --all
-#    - git checkout develop_mpi_par
-#    - cd ..
     - pwd
     - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
-    - echo "is ${HASH_TAG} the same as ${CI_COMMIT_REF_NAME}?"                        #${CI_COMMIT_BRANCH}
-    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git checkout ${HASH_TAG}; fi  #${CI_COMMIT_BRANCH}
+    - echo "is ${HASH_TAG} the same as ${CI_COMMIT_REF_NAME}?"
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git checkout ${HASH_TAG}; fi
+    - git tag
+    - echo "DRY-RUN OF THE FULL PYTEST CALL"
+    - python --version
+    - python -m pytest --version
+    - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
+    - rm -rf _dry_* 
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
-    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} -DCOMPILE_GVEC_AS_STATIC_LIB=ON ../."
+    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE}  -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../."
 
 .tmpl_script_build:
   script:
-    # only compile gvec
-    #- cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DCOMPILE_GVEC_TO_CASTOR3D=ON -DCOMPILE_GVEC_TO_GENE=ON -DCOMPILE_GVEC_TO_JOREK=ON -DCOMPILE_GVEC_TO_HOPR=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE} ../. |tee ../log_${BUILDNAME}_cmake.txt
-    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DCOMPILE_GVEC=ON -DLINK_GVEC_TO_NETCDF=ON -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} -DCOMPILE_GVEC_AS_STATIC_LIB=ON ../. |tee ../log_${BUILDNAME}_cmake.txt
-    - make -j |tee ../log_${BUILDNAME}_make.txt
+    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
     - cd ..; echo "... BUILD PHASE FINISHED!"
+  #allow_failure: true  # after git-lfs migrate
   artifacts:
-    name: "${CI_PIPELINE_ID}_${BUILDNAME}"
-#    name: "${HASH_TAG}_${CI_PIPELINE_ID}_${BUILDNAME}"
+    name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
     paths:
       - build_${BUILDNAME}
       - log_${BUILDNAME}_*.txt
-#      - CI_setup
-#      - gitlab_*.py
     expire_in: 1 week
     when: always
-#    when: on_failure
 
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "run"
 # =================================================================================================================================
-
 # ____________________________
 # ${CI_COMMIT_REF_NAME} branch (CI trigger commit)
 
@@ -239,9 +271,8 @@ variables:
     matrix:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF","ompON"]
-  variables:
-    MPI_MODE: "mpiOFF"
-    MPI_RNKS_MODE: ""
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
 
 # there are different issues with MPI_RNKS>4 in both runners
 .vars_matrix_mpi_run:
@@ -260,13 +291,12 @@ variables:
 .vars_matrix_run_tag:
   parallel:
     matrix:
-      - OMP_MODE: ["ompOFF","ompON"]
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF","ompON"]
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
-    CMP_MODE: "Debug"
-    MPI_MODE: "mpiOFF"
-    MPI_RNKS_MODE: ""
-
 
 .vars_matrix_mpi_run_tag:
   parallel:
@@ -279,7 +309,6 @@ variables:
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
-
 # ____________________________
 # Independent of ${HASH_TAG}
 
@@ -289,37 +318,40 @@ variables:
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
 
-.tmpl_before_script_run:
+.tmpl_before_script_exportvars:
   before_script:
-#      line below is needed if MPI_RANKS>6 cores are requested
-#    - if [ ${CURR_CMP} = 'gnu_mpi' ]; if [ ${MPI_RNKS} -gt '4' ]; then export MPI_PRFX="mpirun --host ${HOSTNAME}:${MPI_RNKS} -np ${MPI_RNKS}"; fi; fi
     - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
-    - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=2; fi
-    - echo ${HOSTNAME}
+    - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=${OMP_NUM_THR}; fi
+    - echo "MPI prefix:" ${MPI_PRFX}
+    - echo "OpenMP number of threads:" $OMP_NUM_THREADS ", should be =" ${OMP_NUM_THR}
+    - echo "hostname:" $HOSTNAME
     - export EXECPRE="${MPI_PRFX}"
     - echo "HASH_TAG is ${HASH_TAG}"
-#not needed    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git checkout ${HASH_TAG}; fi  #${CI_COMMIT_BRANCH}
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
-    - echo "CASENAME is ${CASENAME} >> shortruns_${CASENAME}/"
-    - rm -rf shortruns_${CASENAME}; mkdir -p shortruns_${CASENAME}
-    - echo "Running with $CURR_CMP in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - echo "CASENAME is ${CASENAME} >> CIrun_${CASENAME}/"
+    - echo "Running with ${CURR_CMP} in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - python --version
-    - echo "python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} -execpre "${EXECPRE}" build_${BUILDNAME}"
+    - python -m pytest --version
+
+.tmpl_before_script_run:
+  before_script:
+    - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
+    - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
+    -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
+    - rm -rf CIrun_${CASENAME}
+
 
 .tmpl_script_run:
   script:
-    #- time python gitlab_shortruns.py -execdir shortruns_${CASENAME} build_${CASENAME} |tee log_${CASENAME}_shortruns.txt
-    # only execute case 1 for now...
-    - time python gitlab_shortruns.py -case 1 -execdir shortruns_${CASENAME} -execpre "${EXECPRE}" build_${BUILDNAME} |tee log_${CASENAME}_shortruns.txt
+    - echo "OpenMP number of threads:" $OMP_NUM_THREADS
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_restart.txt   -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}"
   artifacts:
-#    name: "${HASH_TAG}_${CI_PIPELINE_ID}_${CASENAME}"
-    name: "${CASENAME}"
+    name: "${CI_PIPELINE_ID}_run_${CASENAME}"
     paths:
-      - log_${CASENAME}_shortruns.txt
-      - shortruns_${CASENAME}
+      - CIrun_${CASENAME}
     expire_in: 1 week
     when: always
-#    when: on_failure
 
 
 # =================================================================================================================================
@@ -330,18 +362,63 @@ variables:
   variables:
     GIT_STRATEGY: fetch
   script:
-    - numdiff --version
-    - echo shortruns_${CASENAME_1}
-    - echo shortruns_${CASENAME_2}
-    - python gitlab_regressions.py shortruns_${CASENAME_1} shortruns_${CASENAME_2}
+    - python --version
+    - python -m pytest --version
+    - echo $SHELL
+    - set +e #allow error codes != 1 to be catched
+    - echo CIrun_${CASENAME_1}
+    - echo CIrun_${CASENAME_2}
+    - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS ${PYTEST_EXTRA_OPTS} --dry-run
+    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS ${PYTEST_EXTRA_OPTS}
+    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}"
+    - echo "error code:" $?
   artifacts:
-    name: "${CASENAME_1}_vs_${CASENAME_2}"
+    name: "${CI_PIPELINE_ID}_${CASENAME_1}_vs_${CASENAME_2}"
     paths:
-      - log_compare_*.txt
-      - tmp*
-      - std*
+      - log_pytest_regression.txt
+      - CIrun_${CASENAME_1}
+      - CIrun_${CASENAME_2}
     expire_in: 1 week
-    when: on_failure
+    when: always #on_failure
+
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "post"
+# =================================================================================================================================
+
+.vars_matrix_post:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug"]
+        OMP_MODE: ["ompOFF", "ompON"]
+  variables:
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "2"
+
+.tmpl_setup_post:
+  variables:
+    GIT_STRATEGY: clone
+    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+
+.tmpl_before_script_post:
+  before_script:
+    - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" $PYTEST_DIR_OPTS --dry-run
+    - rm -rf CIpost_${CASENAME}
+
+.tmpl_script_post:
+  script:
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage"  $PYTEST_DIR_OPTS
+  artifacts:
+    name: "${CI_PIPELINE_ID}_post_${CASENAME}"
+    paths:
+      - CIpost_${CASENAME}
+    expire_in: 1 week
+    when: always
 
 
 # =================================================================================================================================
@@ -483,9 +560,9 @@ sharedrunner_intel_build:
     - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_matrix_build  # matrix of variables
-  variables:
-    CURR_CMP: "intel"
-    MPI_MODE: "mpiOFF"
+#mr  variables:
+#mr    CURR_CMP: "intel"
+#mr    MPI_MODE: "mpiOFF"
   needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
 
 # build with GNU on MPCDF shared runner
@@ -499,8 +576,8 @@ sharedrunner_gnu_build:
     - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_matrix_build  # matrix of variables
-  variables:
-    CURR_CMP: "gnu"
+#mr  variables:
+#mr    CURR_CMP: "gnu"
 #mr    MPI_MODE: "mpiOFF"
   needs: [sharedrunner_env] # set the job to start as soon as the pipeline is created
 

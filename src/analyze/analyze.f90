@@ -409,6 +409,7 @@ USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
 USE MODgvec_Output_Vars,ONLY:Projectname
 USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Newton,     ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -421,7 +422,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER            :: i_s,j_s,i_m,i_n,iMode,nplot(3),mn_IP(2)
-  INTEGER,PARAMETER  :: nVal=9
+  INTEGER,PARAMETER  :: nVal=10
   REAL(wp)           :: coord_visu(     3,nFluxVMEC,np_in(1),np_in(3),np_in(2))
   REAL(wp)           :: var_visu(    nVal,nFluxVMEC,np_in(1),np_in(3),np_in(2))
   REAL(wp)           :: thet(np_in(1),np_in(2)),zeta(np_in(3)),R,Z,LA,sinmn(mn_mode),cosmn(mn_mode)
@@ -458,6 +459,7 @@ IMPLICIT NONE
   VarNames(7)="s"
   VarNames(8)="theta"
   VarNames(9)="zeta"
+  VarNames(10)="Mscale"
   mn_IP(1:2)=np_in(2:3)
   ASSOCIATE(n_s=>nFluxVMEC )
   DO i_m=1,mn_IP(1)
@@ -475,6 +477,13 @@ IMPLICIT NONE
     var_visu(2,i_s,:,:,:)=iotaf(i_s)
     var_visu(3,i_s,:,:,:)=presf(i_s)
     var_visu(7,i_s,:,:,:)=SQRT(Phi_prof(i_s)/Phi_prof(n_s)) !=s
+    IF(lasym)THEN
+      var_visu(10,i_s,:,:,:) = SUM(xm(:)**(4+1)*(Rmnc(:,i_s)**2+Rmns(:,i_s)**2+Zmnc(:,i_s)**2+Zmns(:,i_s)**2))/&  !pexp=4, qexp=1
+                               (SUM(xm(:)**(4  )*(Rmnc(:,i_s)**2+Rmns(:,i_s)**2+Zmnc(:,i_s)**2+Zmns(:,i_s)**2))+1.0e-14)
+    ELSE
+      var_visu(10,i_s,:,:,:) = SUM(xm(:)**(4+1)*(Rmnc(:,i_s)**2+Zmns(:,i_s)**2))/&  !pexp=4, qexp=1
+                               (SUM(xm(:)**(4  )*(Rmnc(:,i_s)**2+Zmns(:,i_s)**2))+1.0e-14)
+    END IF
   END DO !i_s
   DO i_n=1,mn_IP(2)
     xIP(2)=zeta(i_n)
@@ -541,6 +550,7 @@ IMPLICIT NONE
     var_visu(5,1,:,i_n,:) =SUM(var_visu(5,2,:,i_n,:))/REAL(mn_IP(1)*np_in(1))
     var_visu(6,1,:,i_n,:) =SUM(var_visu(6,2,:,i_n,:))/REAL(mn_IP(1)*np_in(1))
   END DO !i_m
+  var_visu(10,1,:,:,:)=1.
 
   !make grid exactly periodic
   !make theta direction exactly periodic
@@ -568,6 +578,9 @@ IMPLICIT NONE
                         coord_visu(:,:,:,:,:), &
                           var_visu(:,:,:,:,:),TRIM(filename))
   END IF
+  WRITE(filename,'(A,A)')TRIM(Projectname),"_profile_1D_VMEC.csv"
+  CALL WriteDataToCSV(VarNames(:) ,var_visu(:,:,1,1,1) ,TRIM(filename)  &
+                                  ,append_in=.FALSE.)
 
   END ASSOCIATE
 

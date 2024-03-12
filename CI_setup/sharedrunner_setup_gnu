@@ -8,6 +8,6 @@ module load mkl
 module load hdf5-serial
 module load netcdf-serial
 module load ftimings
-module load numdiff
+module load anaconda/3/2023.03  # for pytest
 module list
 export FC=`which gfortran`

@@ -96,8 +96,12 @@
 #define M_ODD_FIRST 4
 
 #define DERIV_S    1
+#define DERIV_S_S  2
 #define DERIV_THET 2
 #define DERIV_ZETA 3
+#define DERIV_THET_THET 22
+#define DERIV_THET_ZETA 23
+#define DERIV_ZETA_ZETA 33
 
 
 !!!!matvec with matmul

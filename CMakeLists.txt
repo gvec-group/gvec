@@ -20,24 +20,28 @@ STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
-STRING(FIND "${CMAKE_HOSTNAME}" "mac"       ON_MAC)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
+STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
+STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
+
 IF (ON_MARCONI GREATER -1)
   MESSAGE(STATUS "Compiling on Marconi")
-ELSEIF (ON_TESTIMONY GREATER -1)
-  MESSAGE(STATUS "Compiling on testimony")
-ELSEIF (ON_SHAREDRUNNER GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF shared runner")
 ELSEIF (ON_MPCDFCIRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
+ELSEIF (ON_SHAREDRUNNER GREATER -1)
+  MESSAGE(STATUS "Compiling on MPCDF shared runner")
+ELSEIF (ON_TESTIMONY GREATER -1)
+  MESSAGE(STATUS "Compiling on testimony")
 ELSEIF (ON_COBRA GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF cobra")
 ELSEIF (ON_DRACO GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF draco")
 ELSEIF (ON_RAVEN GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF raven")
-ELSEIF (ON_MAC GREATER -1) 
-  MESSAGE(STATUS "Compiling on MacOS")
+ELSEIF (ON_MAC_BREW GREATER -1)
+  MESSAGE(STATUS "Compiling on MacOS with homebrew!")
+ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
+  MESSAGE(STATUS "Compiling on MacOS with macports!")
 ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
 ELSE()
@@ -211,9 +215,7 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
    #environment specific variables
    IF(ON_MARCONI GREATER -1)
       SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
-   ELSEIF (ON_TESTIMONY GREATER -1 )
-      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
-   ELSEIF (ON_MPCDFCIRUNNER GREATER -1 )
+  ELSEIF((ON_TESTIMONY GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1 ))
       SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
    ELSEIF (ON_TOKP GREATER -1 )
       SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
@@ -228,7 +230,7 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
    # set Flags
   #OpenMP
   IF(USE_OPENMP)
-   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
   ENDIF()
 
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
@@ -279,7 +281,7 @@ IF(ON_TESTIMONY GREATER -1)
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -mkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    LIST(APPEND linkedlibs -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
     MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     FIND_PACKAGE(LAPACK QUIET)
@@ -292,11 +294,11 @@ IF(ON_TESTIMONY GREATER -1)
   ELSE()
      MESSAGE(SEND_ERROR " Unknown compiler ...")
   ENDIF()
-ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1))
+ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -mkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -326,8 +328,12 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
+  ELSEIF(ON_MAC_BREW GREATER -1)
+    SET(NETCDF_DIR  /opt/homebrew)
+  ELSEIF(ON_MAC_PORTS GREATER -1)
+    SET(NETCDF_DIR  /opt/local)
   ELSE()
     SET(NETCDF_DIR  /usr)
   ENDIF()
@@ -344,15 +350,20 @@ ENDIF()
 # =========================================================================
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  IF((ON_RAVEN GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_MAC GREATER -1) OR (ON_SHAREDRUNNER GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
     LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
   ENDIF()
-  #TTR: don't know why above list append fails for MacOS... needs line below to work
-  IF((ON_MAC GREATER -1))
+    #TTR: don't know why above list append fails for MacOS... needs line below to work
+  IF((ON_MAC_BREW GREATER -1) OR(ON_MAC_PORTS GREATER -1))
     SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib")
   ENDIF()
 ENDIF()
+
+# =========================================================================
+# python 
+# =========================================================================
+find_package(Python COMPONENTS Interpreter REQUIRED)
 
 # =========================================================================
 # project sources & targets
@@ -374,8 +385,10 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
-                          ./src/readstate*.f90
+                          ./src/readstate/*.f90
+                          ./src/io_netcdf.f90
                           ./src/output/*.f90
+                          ./src/analyze/analyze_vars.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
 
@@ -384,9 +397,7 @@ IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
                             ./src/functionals/*.f90
                             ./src/analyze/*.f90
-                            ./src/lbfgsb/*.f90
                             ./src/vmec/*.f90
-                            ./src/output/*.f90
                             ./src/restart/*.f90 )
 
   IF(USE_FTIMINGS)
@@ -432,6 +443,9 @@ ENDIF()
     MACOSX_RPATH ON
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
+# Enable testing in general
+include(CTest) 
+#ENABLE_TESTING()
 
 # =========================================================================
 # Executable programs (simply use add_exec)
@@ -441,6 +455,36 @@ IF(COMPILE_GVEC)
   ADD_DEPENDENCIES(gvec gveclib )
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
+  add_test(
+    NAME gvec_pytest_dryrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_norestart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_restart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_post_shortrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_debugrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  #add_test(
+  #  NAME gvec_pytest_example
+  #  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
+  #  COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and example" --builddir=${CMAKE_BINARY_DIR}
+  #)
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
   add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
@@ -470,3 +514,61 @@ IF(NOT COMPILE_GVEC_TO_GENE)
 ELSE()
   INCLUDE(cmake/install_gene.cmake)
 ENDIF()
+
+
+# =========================================================================
+# USERBLOCK + Preproc_flags
+# =========================================================================
+# A function to get all user defined variables with a specified prefix
+function (getListOfVarsStartingWith _prefix _varResult)
+    GET_CMAKE_PROPERTY(_vars CACHE_VARIABLES)
+    STRING(REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
+    SET(${_varResult} ${_matchedVars} PARENT_SCOPE)
+endfunction()
+
+# A function to get all user[A-Za-z0-9_]* defined variables with a specified string
+function (getListOfVarsWith _str _varResult)
+    GET_CMAKE_PROPERTY(_vars CACHE_VARIABLES)
+    STRING(REGEX MATCHALL ";([A-Za-z0-9_]*${_str}[A-Za-z0-9_]*)" _matchedVars "${_vars}")
+    SET(${_varResult} ${_matchedVars} PARENT_SCOPE)
+endfunction()
+
+# Get the latest abbreviated commit hash of the working branch
+ execute_process(
+     COMMAND git log -n 1 --format=%H
+     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+     OUTPUT_VARIABLE GIT_HASH
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+     )
+# Get the latest abbreviated branch name
+ execute_process(
+     COMMAND git rev-parse --abbrev-ref HEAD
+     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+     OUTPUT_VARIABLE GIT_BRANCH
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+     )
+
+# A function to get all user defined variables with a specified prefix
+SET(configuration ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90)
+FILE(WRITE ${configuration} "!This file is included during compilation in gvec.f90 to show the configuration on the screen output. \n")
+FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A,3(1X,A))')  \"GIT_BRANCH:\",\"'${GIT_BRANCH}'\",\",GIT_HASH:\",\"'${GIT_HASH}'\"\n")
+FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A)') \" THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:\" \n")
+GETLISTOFVARSWITH("GVEC" gvecVars)
+GETLISTOFVARSSTARTINGWITH("USE_" useVars)
+GETLISTOFVARSSTARTINGWITH("CMAKE_BUILD_TYPE" cbVars)
+GETLISTOFVARSSTARTINGWITH("CMAKE_HOSTNAME" hnVars)
+FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
+  GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
+#  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+#  IF(${boolian})
+#    #FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
+#    FILE(APPEND ${configuration} "  WRITE(UNIT_stdOut,*)  \"   CMAKE,OPTION: ${_var} ${${_var}} \" \n")
+#  ELSE()
+    IF(${_var})
+      STRING(REPLACE "\\" "\\\\" ${_var} ${${_var}})
+    ENDIF()
+    #FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
+    FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A18,A30,A3,A40)')  \"   CMAKE-OPTION : \",\" ${_var} \",\" : \",\"${${_var}}\"\n")
+#  ENDIF()
+ENDFOREACH()
+
