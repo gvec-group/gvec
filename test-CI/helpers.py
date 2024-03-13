@@ -185,6 +185,21 @@ def assert_stdout_finished(
         ), f"final message '{message.strip()}' not found in stdout.txt"
 
 
+def assert_stdout_OpenMP_MPI(path: str | Path = "stdout.txt"):
+    with open(path) as file:
+        lines = file.readlines()
+    # check OpenMP
+    if os.environ.get("OMP_MODE") == "ompON":
+        assert any(re.search(r"OpenMP threads", line) for line in lines), "no OpenMP support despite ompON"
+    elif os.environ.get("OMP_MODE") == "ompOFF":
+        assert not any(re.search(r"OpenMP threads", line) for line in lines), "OpenMP support despite ompOFF"
+    # check MPI
+    if os.environ.get("MPI_MODE") == "mpiON":
+        assert any(re.search(r"MPI tasks", line) for line in lines), "no MPI support despite mpiON"
+    elif os.environ.get("MPI_MODE") == "mpiOFF":
+        assert not any(re.search(r"MPI tasks", line) for line in lines), "MPI support despite mpiOFF"
+
+
 # === HELPER FUNCTIONS === #
 
 

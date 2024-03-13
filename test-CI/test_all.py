@@ -135,14 +135,14 @@ def testcasepostdir(postdir: Path, rundir: Path, testgroup: str, testcase: str):
 
 
 @pytest.mark.run_stage
-def test_run(binpath, testgroup, testcaserundir, testcase, dryrun):
+def test_run(runargs_prefix, binpath, testgroup, testcaserundir, testcase, dryrun):
     """
     Test end2end GVEC runs with `{testgroup}/{testcase}/parameter.ini`
 
     Note: the `testgroup` fixture is contained in `testcaserundir`, but is given additionally to the test function
     for better readability and proper parameter ordering for the pytest nodeID.
     """
-    args = [binpath / "gvec", "parameter.ini"]
+    args = runargs_prefix + [binpath / "gvec", "parameter.ini"]
     # find restart statefile
     if "_restart" in testcase:
         base_name, suffix = re.match(
@@ -186,10 +186,11 @@ def test_run(binpath, testgroup, testcaserundir, testcase, dryrun):
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
+        helpers.assert_stdout_OpenMP_MPI()
 
 
 @pytest.mark.post_stage
-def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
+def test_post(runargs_prefix, binpath, testgroup, testcase, testcasepostdir, dryrun):
     """
     Post processing  of statefile(s) from an example GVEC run.
 
@@ -198,7 +199,7 @@ def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
     Note: the `testgroup` fixture is contained in `testcasepostdir`, but is given additionally to the test function
     for better readability and proper parameter ordering for the pytest nodeID.
     """
-    args = [binpath / "gvec_post", "parameter.ini"]
+    args = runargs_prefix + [binpath / "gvec_post", "parameter.ini"]
     # find all statefiles in directory
 
     # run gvec
@@ -223,6 +224,7 @@ def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
+        helpers.assert_stdout_OpenMP_MPI()
 
 
 @pytest.mark.regression_stage

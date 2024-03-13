@@ -1,7 +1,9 @@
 import sys
+import os
 import pytest
 import logging
 from pathlib import Path
+import shlex  # shell-like syntax parsing
 
 # add helpers.py to the `pythonpath` to be importable by all tests
 sys.path.append(str((Path(__file__).parent / "helpers")))
@@ -187,6 +189,14 @@ def builddir(request) -> Path:
 def binpath(builddir) -> Path:
     """path to the binary folder"""
     return builddir / "bin"
+
+
+@pytest.fixture(scope="session")
+def runargs_prefix() -> list:
+    """prefix for the run arguments, e.g. mpirun"""
+    if prefix := os.environ.get("MPI_PRFX"):
+        return shlex.split(prefix)
+    return []
 
 
 @pytest.fixture(scope="session")
