@@ -40,8 +40,8 @@ TYPE :: t_transform_sfl
 
   CLASS(t_base),  ALLOCATABLE :: X1sfl_base    !! container for base of variable X1 in SFL coordinates
   CLASS(t_base),  ALLOCATABLE :: X2sfl_base    !! container for base of variable X2 in SFL coordinates
-  CLASS(t_base),  ALLOCATABLE :: GZ_base       !! container for base of variable and Gzeta (transforms to BOOZER!)
-  CLASS(t_base),  ALLOCATABLE :: GZsfl_base    !! container for base of variable Gzeta in SFL coordinates
+  CLASS(t_base),  ALLOCATABLE :: GZ_base       !! container for base of variable  Gthet and Gzeta (transforms to BOOZER!)
+  CLASS(t_base),  ALLOCATABLE :: GZsfl_base    !! container for base of variable Gtheta and Gzeta in SFL coordinates
   REAL(wp),       ALLOCATABLE :: X1sfl(:,:)    !! data (1:nBase,1:modes) of X1 in SFL coords.
   REAL(wp),       ALLOCATABLE :: X2sfl(:,:)    !! data (1:nBase,1:modes) of X2 in SFL coords.
   REAL(wp),       ALLOCATABLE :: Gthet(:,:)    !! data (1:nBase,1:modes) of Gthet in GVEC coords. (for BOOZER)

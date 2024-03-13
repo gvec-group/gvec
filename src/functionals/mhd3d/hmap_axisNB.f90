@@ -602,7 +602,7 @@ END FUNCTION hmap_axisNB_eval_dxdq
 !> evaluate all metrics necesseray for optimizer
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_all(sf,dim_2,q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta, &
+SUBROUTINE hmap_axisNB_eval_all(sf,ns,ndims,dim_zeta,q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta, &
                                 Jh    ,g_tt    ,g_tz    ,g_zz    ,           &
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,g_t1,g_z1, &
                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t2,g_z2  ) 
@@ -611,32 +611,78 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(INOUT)                  :: sf
-  INTEGER                                ,INTENT(IN)   ::dim_2
-  REAL(wp),DIMENSION(sf%nzeta_eval,dim_2),INTENT(IN)   :: q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta
+  INTEGER                           ,INTENT(IN)   :: ndims(3)    !! 3D dimensions
+  INTEGER                           ,INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
+  REAL(wp)                          ,INTENT(IN)   :: zeta(ndims(dim_zeta))  !! evaluation positions
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN)   :: q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp),DIMENSION(sf%nzeta_eval,dim_2),INTENT(OUT)   :: Jh    ,g_tt    ,g_tz    ,g_zz    ,           &
-                                                           Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,g_t1,g_z1, &
-                                                           Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t2,g_z2
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT)   :: Jh    ,g_tt    ,g_tz    ,g_zz    ,           &
+                                                                  Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,g_t1,g_z1, &
+                                                                  Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t2,g_z2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-!===================================================================================================================================
-  
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
-  NN  =SUM(N(:)*N(:))
-  BB  =SUM(B(:)*B(:))
-  NB  =SUM(N(:)*B(:))
+  INTEGER :: izeta,k,l                                                                
+  REAL(wp),DIMENSION(3):: X0,T,N,B,Np,Bp,Tq                                                                    
+  REAL(wp)             :: NN,BB,NpN,NpB,BpN,BpB,TqTq,NTq,BTq,NpTq,BpTq
 
+!===================================================================================================================================
+  SELECT CASE(dim_zeta)
+  CASE(1)
+    DO izeta=1,ndims(1)
+      CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+      NN  = SUM( N(:)*N( :))
+      BB  = SUM( B(:)*B( :))
+      NB  = SUM( N(:)*B( :))
+      NpB = SUM( B(:)*Np(:))
+      NpN = SUM( N(:)*Np(:))
+      BpB = SUM( B(:)*Bp(:))
+      BpN = SUM( N(:)*Bp(:))
+      DO l=1,ndims(3); DO k=1,ndims(1)
+        Tq=(T+q1_in(izeta,k,l)*Np+q2_in(izeta,k,l)*Bp)
+        TqTq=SUM(Tq(:)*Tq(:))
+        NTq =SUM(N(:)*Tq(:))
+        BTq =SUM(B(:)*Tq(:))
+        NpTq=SUM(Tq(:)*Np(:))
+        BpTq=SUM(Tq(:)*Bp(:))
+  
+        Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN   
+        Jh(izeta,k,l)=SQRT(Jh2)
+        Jh_dq1(izeta,k,l)=(NpTq*(NN*BB-NB*NB) + NpB*(NB*NTq-NN*BTq) + NpN*(NB*BTq-BB*Ntq)  )/Jh
+        Jh_dq2(izeta,k,l)=(BpTq*(NN*BB-NB*NB) + BpB*(NB*NTq-NN*BTq) + BpN*(NB*BTq-BB*Ntq)  )/Jh
+        q1t_q1t
+        q2t_q2t
+        q3t_q3t
+        q1t_q1z
+        q2t_q2z
+        q3t_q3z
+        q1z_q1z
+        q2z_q2z
+        q3z_q3z
+        
+        g_ab(izeta,k,l)=      NN*qLqR_11 &
+                          +   BB*qLqR_22 &
+                          + TqTq*qLqR_33 &
+                          +  NB *qLqR_12 &
+                          +  NTq*qLqR_13 &
+                          +  BTq*qLqR_23  
+        g_ab_dq1(izeta,k,l) =         NpN *qLqR_13 &
+                              +       NpB *qLqR_23 & 
+                              +2.0_wp*NpTq*qLqR_33
+        g_ab_dq2(izeta,k,l) =         BpN *qLqR_13 &
+                              +       BpB *qLqR_23 & 
+                              +2.0_wp*BpTq*qLqR_33
+      END DO; END DO !k,l
+    END DO!izeta
+  END SELECT   
   Tq=(T+q1*Np+q2*Bp)
   TqTq=SUM(Tq(:)*Tq(:))
   NTq =SUM(N(:)*Tq(:))
   BTq =SUM(B(:)*Tq(:))
   NpTq=SUM(Tq(:)*Np(:))
-  NpB =SUM( B(:)*Np(:))
-  NpN =SUM( N(:)*Np(:))
+
   BpTq=SUM(Tq(:)*Bp(:))
-  BpB =SUM( B(:)*Bp(:))
-  BpN =SUM( N(:)*Bp(:))
+
 
   Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN   
   Jh=SQRT(Jh2)
