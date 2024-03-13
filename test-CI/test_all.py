@@ -240,9 +240,11 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
     testcaserefdir = refdir / testgroup / testcase
     # skip if any of the two directories do not exist
     if not testcaserundir.exists():
-        pytest.skip(f"Testcase does not exist")
+        logger.error(f"Testcase does not exist")
+        pytest.fail(f"Testcase does not exist")
     if not testcaserefdir.exists():
-        pytest.skip(f"Reference does not exist")
+        logger.error(f"Reference does not exist")
+        pytest.fail(f"Reference does not exist")
     # compare the list of files in the two directories
     runfiles, reffiles = (
         set([file for file in os.listdir(directory) if "dryrun" not in file and not file.endswith("~")])

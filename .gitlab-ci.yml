@@ -227,6 +227,7 @@ variables:
     - echo "DRY-RUN OF THE FULL PYTEST CALL"
     - python --version
     - python -m pytest --version
+    - mkdir _dry_run
     - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
     - rm -rf _dry_* 
     - echo "BUILDNAME is ${BUILDNAME}"
@@ -787,7 +788,7 @@ mpcdfci_intel_mpiON-vs-mpiOFF_reg:
     CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: ${CURR_CMP}_mpi
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON_${MPI_RNKS_MODE}
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON${MPI_RNKS_MODE}
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
   needs:
     - job: mpcdfci_intel2023_run

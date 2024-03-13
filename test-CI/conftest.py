@@ -4,6 +4,7 @@ import pytest
 import logging
 from pathlib import Path
 import shlex  # shell-like syntax parsing
+import argparse
 
 # add helpers.py to the `pythonpath` to be importable by all tests
 sys.path.append(str((Path(__file__).parent / "helpers")))
@@ -19,6 +20,12 @@ def pytest_addoption(parser):
     Args:
         parser (ArgumentParser): The pytest argument parser.
     """
+    def _is_directory(arg):
+        """Check if the argument is an existing directory."""
+        arg = Path(arg)
+        if not arg.is_dir():
+            raise argparse.ArgumentTypeError(f"{arg} is not a directory")
+        return arg
 
     group = parser.getgroup("custom_directories")
     group.addoption(
@@ -29,7 +36,7 @@ def pytest_addoption(parser):
     )
     group.addoption(
         "--refdir",
-        type=Path,
+        type=_is_directory,
         default=None,
         help="Path to reference pytest root directory. Required for regression tests.",
     )
