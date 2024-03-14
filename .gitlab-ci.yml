@@ -355,7 +355,7 @@ variables:
     - python --version
     - python -m pytest --version
     - echo $SHELL
-    - set +e #allow error codes != 1 to be catched
+    - set +e -o pipefail #allow error codes != 1 to be catched
     - echo CIrun_${CASENAME_1}
     - echo CIrun_${CASENAME_2}
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
@@ -363,7 +363,6 @@ variables:
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS ${PYTEST_EXTRA_OPTS}
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}"
-    - echo "error code:" $?
   artifacts:
     name: "${CI_PIPELINE_ID}_${CASENAME_1}_vs_${CASENAME_2}"
     paths:
@@ -790,6 +789,7 @@ mpcdfci_intel_mpiON-vs-mpiOFF_reg:
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
     CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON${MPI_RNKS_MODE}
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    PYTEST_EXTRA_OPTS: "--add-ignore-pattern=['Number of OpenMP threads','Number of MPI tasks']"
   needs:
     - job: mpcdfci_intel2023_run
       artifacts: true
