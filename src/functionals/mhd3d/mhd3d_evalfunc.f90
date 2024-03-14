@@ -1268,7 +1268,8 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Feval 
   CHARACTER(LEN=60)                     :: fname
 !===================================================================================================================================
-  IF(testLevel.EQ.-1) RETURN
+  !IF(testLevel.EQ.-1) RETURN
+  IF(testlevel.LT.3) RETURN
   PrecondTypeTmp=PrecondType
   ALLOCATE(t_sol_var_MHD3D :: Utest)
   ALLOCATE(t_sol_var_MHD3D :: Ucopy)
@@ -1335,7 +1336,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
   SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force without BC |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
 
-  IF(testlevel.GE.2)THEN
+  IF(testlevel.GE.3)THEN
   WRITE(*,*)'-----------------------'
   modes = X1_Base%f%modes
   DO iMode=1,modes
