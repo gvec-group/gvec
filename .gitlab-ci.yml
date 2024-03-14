@@ -19,7 +19,7 @@ workflow:
 variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: v0.2.0-mpi_par     # pipeline schedules
+  HASH_TAG_RELEASE: v0.2.2-mpi_par     # pipeline schedules
   NIGHTLY_PIPELINE: "false"    # pipeline schedules
   PYTEST_EXEC_CMD: "python -m pytest -v -r A"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
@@ -170,8 +170,6 @@ variables:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
-#  variables:
-#    MPI_MODE: "mpiOFF"
 
 # not yet used (for MPI jobs)
 .vars_matrix_mpi_build:
@@ -179,9 +177,6 @@ variables:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
-#  variables:
-#    MPI_MODE: "mpiON"
-#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -205,8 +200,6 @@ variables:
         OMP_MODE: ["ompOFF", "ompON"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
-#    MPI_MODE: "mpiON"
-#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # Independent of ${HASH_TAG}
@@ -272,9 +265,6 @@ variables:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF","ompON"]
         MPI_RNKS: ["1","2"]
-#  variables:
-#    MPI_MODE: "mpiON"
-#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -297,8 +287,6 @@ variables:
         MPI_RNKS: ["1","2"]
   variables:
     HASH_TAG: ${HASH_TAG_RELEASE}
-#    MPI_MODE: "mpiON"
-#    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # Independent of ${HASH_TAG}
@@ -468,9 +456,6 @@ mpcdfci_intel2023_build:
     - .tmpl_script_build
     - .vars_cmake_def_opts
     - .vars_matrix_build  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "intel"
-#mr    MPI_MODE: "mpiOFF"
   needs: [mpcdfci_intel2023_env]
 #  needs: [] # set the job to start as soon as the pipeline is created
 
@@ -486,9 +471,6 @@ mpcdfci_gcc13_build:
     - .tmpl_script_build
     - .vars_cmake_def_opts
     - .vars_matrix_build
-#mr  variables:
-#mr    CURR_CMP: "gnu"
-#mr    MPI_MODE: "mpiOFF"
   needs: [mpcdfci_gcc13_env]
 
 # build with MPCDF Docker (intel-impi:latest) shared runner environment
@@ -502,9 +484,6 @@ mpcdfci_intel_impi_latest_build:
     - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_matrix_mpi_build  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "intel_mpi"
-#mr    MPI_MODE: "mpiON"
   needs: [mpcdfci_intel_impi_latest_env]
 
 # build with MPCDF Docker (gcc-openmpi:latest) shared runner environment
@@ -518,9 +497,6 @@ mpcdfci_gcc_openmpi_latest_build:
     - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_matrix_mpi_build  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "gnu_mpi"
-#mr    MPI_MODE: "mpiON"
   needs: [mpcdfci_gcc_openmpi_latest_env]
 
 # ____________________________
@@ -538,9 +514,6 @@ mpcdfci_intel2023_build_tag:
     - .tmpl_script_build
     - .vars_cmake_def_opts
     - .vars_matrix_build_tag
-#mr  variables:
-#mr    CURR_CMP: "intel"
-#mr    MPI_MODE: "mpiOFF"
   needs: [mpcdfci_intel2023_env] # set the job to start as soon as the pipeline is created
 
 # build (TAG) with MPCDF Docker (intel-impi:latest) shared runner environment
@@ -554,9 +527,6 @@ mpcdfci_intel_impi_latest_build_tag:
     - .tmpl_setup_build
     - .tmpl_script_build
     - .vars_matrix_mpi_build_tag  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "intel_mpi"
-#mr    MPI_MODE: "mpiON"
   needs: [mpcdfci_intel_impi_latest_env] # set the job to start as soon as the pipeline is created
 
 
@@ -586,8 +556,6 @@ mpcdfci_intel2023_run:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "intel"
   needs:
     - job: mpcdfci_intel2023_build
       artifacts: true
@@ -604,8 +572,6 @@ mpcdfci_gcc13_run:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "gnu"
   needs:
     - job: mpcdfci_gcc13_build
       artifacts: true
@@ -622,8 +588,6 @@ mpcdfci_intel_impi_latest_run:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_mpi_run  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "intel_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
   needs:
     - job: mpcdfci_intel_impi_latest_build
       artifacts: true
@@ -640,8 +604,6 @@ mpcdfci_gcc_openmpi_latest_run:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_mpi_run  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "gnu_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
   needs:
     - job: mpcdfci_gcc_openmpi_latest_build
       artifacts: true
@@ -661,8 +623,6 @@ mpcdfci_intel2023_run_tag:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_run_tag
-#mr  variables:
-#mr    CURR_CMP: "intel"
   needs:
     - job: mpcdfci_intel2023_build_tag
       artifacts: true
@@ -679,8 +639,6 @@ mpcdfci_intel_impi_latest_run_tag:
     - .tmpl_setup_run
     - .tmpl_script_run
     - .vars_matrix_mpi_run_tag  # matrix of variables
-#mr  variables:
-#mr    CURR_CMP: "intel_mpi"  # _mpi must be used together with .vars_matrix_mpi_run above
   needs:
     - job: mpcdfci_intel_impi_latest_build_tag
       artifacts: true

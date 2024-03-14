@@ -56,7 +56,6 @@ SUBROUTINE InitMHD3D(sf)
   ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_Globals        , ONLY: TWOPI,myRank
-  USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   USE MODgvec_sgrid          , ONLY: t_sgrid
   USE MODgvec_base           , ONLY: base_new
   USE MODgvec_hmap           , ONLY: hmap_new
@@ -65,6 +64,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor !<<< only exists on MPIroot!
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+  USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
