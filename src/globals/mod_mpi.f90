@@ -145,6 +145,9 @@ CONTAINS
     IF(PRESENT(beforeScreenOut).AND.MPIroot) WRITE(UNIT_StdOut,'(A)') beforeScreenOut
     CALL MPI_BARRIER(Communicator, ierr)
     IF(PRESENT(afterScreenOut) .AND.MPIroot) WRITE(UNIT_StdOut,'(A)') afterScreenOut
+#   else
+    IF(PRESENT(beforeScreenOut).AND.MPIroot) WRITE(UNIT_StdOut,'(A)') beforeScreenOut
+    IF(PRESENT(afterScreenOut) .AND.MPIroot) WRITE(UNIT_StdOut,'(A)') afterScreenOut
 #   endif
   END SUBROUTINE par_Barrier
 

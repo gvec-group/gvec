@@ -421,7 +421,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   REAL(wp),ALLOCATABLE :: X1pert_b(:)      !! fourier modes of the boundary perturbation for X1
   REAL(wp),ALLOCATABLE :: X2pert_b(:)      !! fourier modes of the boundary perturbation for X2
 !===================================================================================================================================
-  CALL par_barrier(beforeScreenOut="    INTIALIZE SOLUTION...",afterScreenOut="                           ...")
+  CALL par_barrier(beforeScreenOut="    INITIALIZE SOLUTION...",afterScreenOut="                           ...")
   IF(MPIroot) THEN
     IF(doRestart)THEN
       WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
