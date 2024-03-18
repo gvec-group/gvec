@@ -19,6 +19,7 @@
 !!
 !===================================================================================================================================
 PROGRAM GVEC_POST
+  USE MODgvec_MPI          ,ONLY : par_Init, par_Finalize,par_bcast
   USE MODgvec_Globals
   USE MODgvec_Analyze      ,ONLY: InitAnalyze,Analyze,FinalizeAnalyze
   USE MODgvec_Output       ,ONLY: InitOutput,FinalizeOutput
@@ -30,7 +31,7 @@ PROGRAM GVEC_POST
   USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
   USE MODgvec_MHD3D_Vars   ,ONLY: U,F
   USE MODgvec_MHD3D_EvalFunc,ONLY: EvalForce
-  USE MODgvec_ReadInTools  ,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
+  USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
   USE MODgvec_Functional
 !$ USE omp_lib
   IMPLICIT NONE
@@ -43,6 +44,7 @@ PROGRAM GVEC_POST
   INTEGER                 :: JacCheck 
   CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
+  CALL par_Init()
   __PERFINIT
   __PERFON('main')
   nArgs=COMMAND_ARGUMENT_COUNT()
@@ -54,14 +56,19 @@ PROGRAM GVEC_POST
     
   
   !header
-  WRITE(Unit_stdOut,'(132("="))')
-  WRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
-  WRITE(Unit_stdOut,'(132("="))')
+  SWRITE(Unit_stdOut,'(132("="))')
+  SWRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
+  SWRITE(Unit_stdOut,'(132("="))')
 !$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
 !$ WRITE(Unit_stdOut,'(132("="))')
+# if MPI
+  SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
+  SWRITE(Unit_stdOut,fmt_sep)
+# endif
+  CALL FillStrings(ParameterFile) !< readin parameterfile, done on MPI root + Bcast
   testdbg =.FALSE.
   testlevel=-1
-  
+
   !initialization phase
   CALL InitRestart()
   CALL InitOutput()
@@ -73,14 +80,14 @@ PROGRAM GVEC_POST
   CALL IgnoredStrings()
   DO iArg=2,nArgs
     CALL GET_COMMAND_ARGUMENT(iArg,StateFile)
-    WRITE(Unit_stdOut,'(132("-"))')
-    WRITE(UNIT_stdOut,'(A,I4,A4,I4,A3,A)') 'Post-Analyze StateFile ',iArg-1,' of ',nArgs-1,' : ',TRIM(StateFile)
-    WRITE(Unit_stdOut,'(132("-"))')
+    SWRITE(Unit_stdOut,'(132("-"))')
+    SWRITE(UNIT_stdOut,'(A,I4,A4,I4,A3,A)') 'Post-Analyze StateFile ',iArg-1,' of ',nArgs-1,' : ',TRIM(StateFile)
+    SWRITE(Unit_stdOut,'(132("-"))')
     ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
     CALL RestartFromState(StateFile,U(0))
     outputLevel=outputLevel_r
     JacCheck=2
-    CALL EvalForce(U(0),.TRUE.,JacCheck, F(0))
+    !CALL EvalForce(U(0),.TRUE.,JacCheck, F(0)) !TODO not yet working on develop_mpi_par branch
     CALL Analyze(FileID_r)
   END DO !iArg
   
@@ -96,6 +103,8 @@ PROGRAM GVEC_POST
 
   __PERFOFF('main')
   __PERFOUT('main')
+  CALL par_Finalize()
+
 END PROGRAM GVEC_POST
 
 
