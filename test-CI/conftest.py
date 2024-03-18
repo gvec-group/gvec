@@ -5,6 +5,8 @@ import logging
 from pathlib import Path
 import shlex  # shell-like syntax parsing
 import argparse
+import json
+import re
 
 # add helpers.py to the `pythonpath` to be importable by all tests
 sys.path.append(str((Path(__file__).parent / "helpers")))
@@ -52,6 +54,13 @@ def pytest_addoption(parser):
         default=Path(__file__).parent / "post",
         help="Path to post directory",
     )
+    group.addoption(
+        "--annotations",
+        type=Path,
+        default=None,
+        help="Path to the (output) annotations report file",
+    )
+
     group = parser.getgroup("custom_run_options")
     group.addoption(
         "--dry-run",
@@ -70,6 +79,7 @@ def pytest_addoption(parser):
         default=1.0e-10,
         help="absolute tolerance for regression stage",
     )
+
     group = parser.getgroup("custom_regression_options")
     group.addoption(
         "--add-ignore-pattern",
@@ -162,6 +172,7 @@ def pytest_sessionfinish(session, exitstatus):
     # From pytest version >=5, the values are inside an enum
     from pytest import ExitCode
 
+    # === Custom exit codes === #
     no_tests_collected = ExitCode.NO_TESTS_COLLECTED  # 5
     tests_failed = ExitCode.TESTS_FAILED  # 1
     ok = ExitCode.OK  # 0
@@ -181,6 +192,7 @@ def pytest_sessionfinish(session, exitstatus):
 
     if pytest.raised_warnings:
         session.exitstatus = no_tests_collected
+    
 
 
 # === FIXTURES === #
@@ -260,6 +272,43 @@ def extra_ignore_patterns(request) -> list:
 def testgroup(request) -> str:
     """available test group names, will be automatically marked"""
     return request.param
+
+
+@pytest.fixture(scope="session")
+def artifact_pages_path(rundir) -> str:
+    """path to the CI artifact pages"""
+    env = os.environ
+    try:
+        project_path = "/".join(env["CI_PROJECT_PATH"].split("/")[1:])  # remove the root namespace of the project path
+        return f"{env['CI_SERVER_PROTOCOL']}://{env['CI_PROJECT_ROOT_NAMESPACE']}.{env['CI_PAGES_DOMAIN']}/-/{project_path}/-/jobs/{env['CI_JOB_ID']}/artifacts"
+    except KeyError:
+        return rundir
+
+
+@pytest.fixture(scope="session", autouse=True)
+def annotations(request, artifact_pages_path):
+    """annotations for the CI report"""
+    mapping = {}
+    # load the annotations from the file if it exists
+    if (path := request.config.getoption("--annotations")) and os.path.exists(path):
+        with open(path, "r") as file:
+            mapping = json.load(file)
+    # required collections
+    for key in ["pytest-log", "gvec-output"]:
+        if key not in mapping:
+            mapping[key] = []
+    # add the pytest log file
+    if path := request.config.getoption("--log-file"):
+        mapping["pytest-log"].append(dict(external_link=dict(
+            label = path,
+            url = f"{artifact_pages_path}/{path}",
+        )))
+    # hand over mapping
+    yield mapping
+    # save the annotations to the file
+    if path := request.config.getoption("--annotations"):
+        with open(path, "w") as file:
+            json.dump(mapping, file)
 
 
 @pytest.fixture(autouse=True)
