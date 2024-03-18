@@ -52,6 +52,7 @@
     - echo "DRY-RUN OF THE FULL PYTEST CALL"
     - python --version
     - python -m pytest --version
+    - mkdir _dry_run
     - echo -e "\e[0Ksection_start:`date +%s`:pytest-dryrun[collapsed=true]\r\e[0KPytest dry-run"
     - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
     - echo -e "\e[0Ksection_end:`date +%s`:pytest-dryrun\r\e[0K"
@@ -62,7 +63,7 @@
     - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
     # BUILD
     - echo -e "\e[0Ksection_start:`date +%s`:cmake[collapsed=true]\r\e[0KCMake"
-    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE}  -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../."
+    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../."
     - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
     - echo -e "\e[0Ksection_end:`date +%s`:cmake\r\e[0K"
     - echo -e "\e[0Ksection_start:`date +%s`:make[collapsed=true]\r\e[0KMake"

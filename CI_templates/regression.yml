@@ -111,6 +111,7 @@ mpcdfci_intel_mpiON-vs-mpiOFF_reg:
     - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
     - .tmpl_before_script_modules # to be able to load modules
     - .tmpl_script_regression
+    - .rules_default
   parallel:
     matrix:
       - CMP_MODE: ["Debug"]

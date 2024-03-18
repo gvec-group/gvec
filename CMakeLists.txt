@@ -24,9 +24,7 @@ STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
 STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
 
-IF (ON_MARCONI GREATER -1)
-  MESSAGE(STATUS "Compiling on Marconi")
-ELSEIF (ON_MPCDFCIRUNNER GREATER -1)
+IF (ON_MPCDFCIRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
 ELSEIF (ON_SHAREDRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF shared runner")
@@ -44,6 +42,8 @@ ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
   MESSAGE(STATUS "Compiling on MacOS with macports!")
 ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
+ELSEIF (ON_MARCONI GREATER -1)
+  MESSAGE(STATUS "Compiling on Marconi")
 ELSE()
   MESSAGE(STATUS "Compiling on unknown hostname")
 ENDIF()
@@ -212,22 +212,22 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-   #environment specific variables
-   IF(ON_MARCONI GREATER -1)
-      SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
-  ELSEIF((ON_TESTIMONY GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1 ))
-      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
-   ELSEIF (ON_TOKP GREATER -1 )
-      SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
-   ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
-      SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
-      # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
-   ELSEIF (ON_DRACO GREATER -1 )
-      SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
-   ELSE()
-      SET(MAIN_INSTRUCTION "-xHost")
-   ENDIF()
-   # set Flags
+  #environment specific variables
+  IF((ON_TESTIMONY GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1 ))
+     SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for testimony
+  ELSEIF (ON_TOKP GREATER -1 )
+     SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
+  ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
+     SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
+     # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
+  ELSEIF (ON_DRACO GREATER -1 )
+     SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
+  ELSEIF(ON_MARCONI GREATER -1)
+    SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
+  ELSE()
+     SET(MAIN_INSTRUCTION "-xHost")
+  ENDIF()
+  # set Flags
   #OpenMP
   IF(USE_OPENMP)
     SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
@@ -307,13 +307,13 @@ ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBR
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
-ELSEIF(ON_MAC GREATER -1)
-  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
-    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
-    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L/opt/local/lib -lopenblas")
-    MESSAGE(STATUS "Using GNU BLAS/Lapack library")
-  ENDIF()
+#ELSEIF(ON_MAC_BREW GREATER -1)
+#  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+#    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
+#    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
+#    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L/opt/local/lib -lopenblas")
+#    MESSAGE(STATUS "Using GNU BLAS/Lapack library")
+#  ENDIF()
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
   IF (LAPACK_FOUND)
