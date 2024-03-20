@@ -1,0 +1,37 @@
+# =================================================================================================================================
+# Stage "run"
+# =================================================================================================================================
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_intel2023`
+      default: mpcdfci_intel2023
+    vars:
+      description: Template with variables or parallel:matrix
+      default: .vars_matrix_run
+    run-postfix:
+      description: Job name postfix, e.g. `_debugrun`
+      default: ""
+    build-postfix:
+      description: Build-Job name postfix, e.g. `_only_converter`
+      default: ""
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
+
+---
+
+$[[ inputs.env ]]_run$[[ inputs.run-postfix ]]:
+  stage: run
+  before_script:
+    - !reference [".tmpl_before_script_modules", "before_script"]
+    - !reference [".tmpl_before_script_exportvars", "before_script"]
+  extends:
+    - .tmpl_$[[ inputs.env ]]
+    - .tmpl_script_run
+    - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
+  needs:
+    - job: $[[ inputs.env ]]_build$[[ inputs.build-postfix ]]
+      artifacts: true

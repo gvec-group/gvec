@@ -136,7 +136,7 @@ def testcasepostdir(postdir: Path, rundir: Path, testgroup: str, testcase: str):
 
 
 @pytest.mark.run_stage
-def test_run(binpath, testgroup, testcaserundir, testcase, dryrun):
+def test_run(binpath, testgroup, testcaserundir, testcase, dryrun, annotations, artifact_pages_path):
     """
     Test end2end GVEC runs with `{testgroup}/{testcase}/parameter.ini`
 
@@ -184,6 +184,14 @@ def test_run(binpath, testgroup, testcaserundir, testcase, dryrun):
             stdout.write(f"RUNNING: \n {args} \n")
         with open("stdout.txt", "a") as stdout, open("stderr.txt", "w") as stderr:
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
+        for filename in ["stdout", "stderr"]:
+            if pages_rundir := os.environ.get("CASENAME"):
+                pages_rundir = f"CIrun_{pages_rundir}"
+            else:
+                pages_rundir = "."
+            annotations["gvec-output"].append(dict(external_link=dict(
+                label=f"{testgroup}/{testcase}/{filename}", 
+                url=f"{artifact_pages_path}/{pages_rundir}/{testgroup}/{testcase}/{filename}.txt")))
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
@@ -227,7 +235,7 @@ def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun):
 
 
 @pytest.mark.regression_stage
-def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rtol, reg_atol):
+def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rtol, reg_atol, extra_ignore_patterns):
     """
     Regression test of example GVEC runs and restarts.
 
@@ -259,6 +267,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
     results = {}
     num_diff_files = 0
     num_diff_lines = 0
+    num_warnings = 0
     for filename in runfiles & reffiles:
         # skip symbolic links (mostly unreachable input)
         if (testcaserundir / filename).is_symlink():
@@ -269,7 +278,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[ r".*/.*"], # ignore lines with a path
+                ignore_regexs=[r".*/.*"] + extra_ignore_patterns, # ignore lines with a path
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
@@ -277,6 +286,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
+                ignore_regexs=extra_ignore_patterns,
                 ignore_columns=[1],
                 atol=reg_atol,
                 rtol=reg_rtol,
@@ -285,13 +295,15 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*"],
+                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*", r"^[\s=]*$"] + extra_ignore_patterns,
+                warn_regexs=["Number of OpenMP threads"],
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
         else:
             results[filename] = "ignored"
             continue
+        num_warnings += num[2]
         if num[0] > 0 or num[1] > 0:
             num_diff_files += 1
             num_diff_lines += num[0] + num[1]
@@ -303,19 +315,23 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 results[filename] = "numdiff"
         else:
             results[filename] = "success"
+    if num_warnings > 0:
+        logger.warning(f"Found {num_warnings} warnings!")
+        pytest.raised_warnings = True
     if num_diff_files > 0 or runfiles != reffiles:
         msg = f"Found {num_diff_files} different files with {num_diff_lines} different lines, " \
             f"{len(runfiles - reffiles)} additional files and {len(reffiles - runfiles)} missing files."
         logger.info(f"{' SUMMARY ':=^80}")
         logger.error(msg)
+        red, reset = "\x1b[31;20m", "\x1b[0m"
         for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
-            if result in ["success", "ignored"]:
+            if result in ["success", "ignored", "symlink"]:
                 logger.debug(f"... {result} : {filename}")
             else:
-                logger.error(f"... \x1b[31;20m{result}\x1b[0m : {filename}")
+                logger.error(f"... {red}{result}{reset} : {filename}")
         for filename in runfiles - reffiles:
-            logger.error(f"... \x1b[31;20mextra\x1b[0m   : {filename}")
+            logger.error(f"... {red}extra{reset}   : {filename}")
         for filename in reffiles - runfiles:
-            logger.error(f"... \x1b[31;20mmissing\x1b[0m : {filename}")
+            logger.error(f"... {red}missing{reset} : {filename}")
         raise AssertionError(msg)
     

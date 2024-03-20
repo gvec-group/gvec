@@ -13,6 +13,11 @@ __*
 CMakeFiles
 CMakeCache.txt
 CMakeUserPresets.json
+.DS_Store
+
+# exclude all pytest run files
+test-CI/run*
+test-CI/CIrun*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
