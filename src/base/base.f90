@@ -79,8 +79,8 @@ CONTAINS
 !> allocate and initialize the type base 
 !!
 !===================================================================================================================================
-SUBROUTINE Base_new( sf, deg_in, continuity_in, grid_in, degGP_in, &
-                     mn_max_in, mn_nyq_in, nfp_in, sin_cos_in, exclude_mn_zero_in)
+SUBROUTINE Base_new( sf,deg_in,continuity_in,grid_in,degGP_in, &
+                     mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -220,11 +220,11 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                      :: modes,nGP,nBase,mn_IP,deg,degGP,nElems
-  INTEGER                      :: nGP_str, nGP_end, nElems_str, nElems_end
+  INTEGER                      :: nGP_str,nGP_end,nElems_str,nElems_end
 
   !matrix matrix version: first s then f
   INTEGER                      :: i,j,iElem,iMode,iGP
-  REAL(wp)                     :: y_tmp(sf%s%nGP_str:sf%s%nGP_end,sf%f%modes) 
+  REAL(wp)                     :: y_tmp(sf%s%nGP_str:sf%s%nGP_end,sf%f%modes)
 !===================================================================================================================================
 
   __PERFON('BaseEval')
@@ -249,7 +249,7 @@ IMPLICIT NONE
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i)
     DO iMode=1,modes
-      DO iElem=nElems_str,nElems_end 
+      DO iElem=nElems_str,nElems_end
         j=sf%s%base_offset(iElem)
         i=(iElem-1)*(degGP+1)+1
         y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
@@ -260,7 +260,7 @@ IMPLICIT NONE
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) FIRSTPRIVATE(nElems_str,nElems_end)
     DO iMode=1,modes
-      DO iElem=nElems_str,nElems_end 
+      DO iElem=nElems_str,nElems_end
         j=sf%s%base_offset(iElem)
         i=(iElem-1)*(degGP+1)+1
         y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_ds_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))

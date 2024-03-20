@@ -87,6 +87,7 @@ PROGRAM GVEC_POST
     CALL RestartFromState(StateFile,U(0))
     outputLevel=outputLevel_r
     JacCheck=2
+    !...check this: temporarily commented for gvec_post to run with MPI version...
     !CALL EvalForce(U(0),.TRUE.,JacCheck, F(0)) !TODO not yet working on develop_mpi_par branch
     CALL Analyze(FileID_r)
   END DO !iArg
@@ -106,5 +107,3 @@ PROGRAM GVEC_POST
   CALL par_Finalize()
 
 END PROGRAM GVEC_POST
-
-

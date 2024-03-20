@@ -3,7 +3,7 @@
 ! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
-! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3
 ! of the License, or (at your option) any later version.
 !
 ! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
@@ -87,7 +87,7 @@ ABSTRACT INTERFACE
     CLASS(c_fBase), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_fBase_copy
 
-  SUBROUTINE i_sub_fBase_compare( sf, tocompare, is_same, cond_out ) 
+  SUBROUTINE i_sub_fBase_compare( sf, tocompare, is_same, cond_out )
     IMPORT c_fBase
     CLASS(c_fBase)  , INTENT(IN   ) :: sf
     CLASS(c_fBase)  , INTENT(IN   ) :: tocompare
@@ -95,7 +95,7 @@ ABSTRACT INTERFACE
     LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
   END SUBROUTINE i_sub_fBase_compare
 
-  SUBROUTINE i_sub_fBase_change_base( sf, old_fBase, iterDim,old_data,sf_data ) 
+  SUBROUTINE i_sub_fBase_change_base( sf, old_fBase, iterDim,old_data,sf_data )
     IMPORT c_fBase,wp
     CLASS(c_fBase) , INTENT(IN   ) :: sf
     CLASS(c_fBase) , INTENT(IN   ) :: old_fBase
@@ -104,7 +104,7 @@ ABSTRACT INTERFACE
     REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
   END SUBROUTINE i_sub_fBase_change_base
 
-  FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs) 
+  FUNCTION i_fun_fBase_initDOF( sf, g_IP ) RESULT(DOFs)
     IMPORT wp,c_fBase
     CLASS(c_fBase), INTENT(IN   ) :: sf
     REAL(wp)      , INTENT(IN   ) :: g_IP(:)
@@ -158,7 +158,7 @@ ABSTRACT INTERFACE
   SUBROUTINE i_sub_fBase_projectIPtoDOF( sf,add,factor,deriv,y_IP,DOFs )
     IMPORT wp,c_fBase
   CLASS(c_fBase), INTENT(IN   ) :: sf
-  LOGICAL       , INTENT(IN   ) :: add   
+  LOGICAL       , INTENT(IN   ) :: add
   REAL(wp)      , INTENT(IN   ) :: factor
   INTEGER       , INTENT(IN   ) :: deriv
   REAL(wp)      , INTENT(IN   ) :: y_IP(:)
@@ -229,7 +229,7 @@ CONTAINS
 !> allocate the type fBase 
 !!
 !===================================================================================================================================
-SUBROUTINE fBase_new( fbase_in, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+SUBROUTINE fBase_new( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -241,13 +241,13 @@ IMPLICIT NONE
   LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: fbase_in
+  CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  ALLOCATE(t_fBase :: fbase_in)
+  ALLOCATE(t_fBase :: sf)
   __PERFON("fbase_new")
-  CALL fbase_in%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+  CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 
   __PERFOFF("fbase_new")
 END SUBROUTINE fBase_new
@@ -293,7 +293,7 @@ IMPLICIT NONE
         "error in fBase: mn_nyq in theta should be > mn_max(1)!") 
   IF((mn_nyq_in(2)/(mn_max_in(2)+1)).LT.1) &
     CALL abort(__STAMP__, &
-         "error in fBase: mn_nyq in zeta should be > mn_max(2)!",mn_nyq_in(2),REAL(mn_max_in(2))) 
+         "error in fBase: mn_nyq in zeta should be > mn_max(2)!",mn_nyq_in(2),REAL(mn_max_in(2)))
 
   sf%mn_max(1:2)  = mn_max_in(1:2)
   sf%mn_nyq(1:2)  = mn_nyq_in(1:2)
@@ -308,7 +308,7 @@ IMPLICIT NONE
     sf%sin_cos  = _SINCOS_
   ELSE 
     CALL abort(__STAMP__, &
-         "error in fBase: sin/cos not correctly specified, should be either _SIN_, _COS_ or _SINCOS_") 
+         "error in fBase: sin/cos not correctly specified, should be either _SIN_, _COS_ or _SINCOS_")
   END IF
   ASSOCIATE(&
               m_max      => sf%mn_max(1)   &
@@ -369,11 +369,11 @@ IMPLICIT NONE
     m=0
     DO n=1,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here 
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO !n
     DO m=1,m_max; DO n=-n_max,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here 
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO; END DO !m,n
   END IF !sin_range>0
 
@@ -385,11 +385,11 @@ IMPLICIT NONE
     IF(mn_excl.EQ.0) sf%mn_zero_mode=iMode+1
     DO n=mn_excl,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here 
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO !n
     DO m=1,m_max; DO n=-n_max,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here  
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO; END DO !m,n
   END IF !cos_range>0
 
@@ -438,7 +438,7 @@ IMPLICIT NONE
 
   sf%d_zeta = sf%d_zeta*REAL(nfp,wp) ! to get full integral [0,2pi)
  
-!! !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)  
+!! !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
 !!   DO i=1,sf%mn_IP
 !!     sf%base_IP(      i,:)=sf%eval(         0,sf%x_IP(:,i))
 !!     sf%base_dthet_IP(i,:)=sf%eval(DERIV_THET,sf%x_IP(:,i))
@@ -579,9 +579,9 @@ IMPLICIT NONE
   SDEALLOCATE(sf%offset_modes)
   
   sf%mn_max     =-1
-  sf%mn_nyq     =-1 
-  sf%mn_IP      =-1 
-  sf%nfp        =-1        
+  sf%mn_nyq     =-1
+  sf%mn_IP      =-1
+  sf%nfp        =-1
   sf%modes      =-1
   sf%sin_cos    =-1
   sf%d_thet     =0.0_wp
@@ -665,7 +665,7 @@ IMPLICIT NONE
   cond(2)=    ( sf%nfp            .EQ.  tocompare%nfp             )
   cond(3)=    ( sf%modes          .EQ.  tocompare%modes           )
   cond(4)=    ( sf%sin_cos        .EQ.  tocompare%sin_cos         )
-  cond(5)=    ( sf%exclude_mn_zero.EQV. tocompare%exclude_mn_zero ) 
+  cond(5)=    ( sf%exclude_mn_zero.EQV. tocompare%exclude_mn_zero )
 
   IF(PRESENT(is_same)) is_same=ALL(cond)
   IF(PRESENT(cond_out)) cond_out(1:5)=cond
@@ -788,7 +788,7 @@ IMPLICIT NONE
     DEALLOCATE(modeMapSin)
     DEALLOCATE(modeMapCos)
   END IF !same base
-     
+
   END SELECT !TYPE
 END SUBROUTINE fBase_change_base
 
@@ -803,10 +803,10 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: x(2)   !! theta,zeta point position 
+  REAL(wp)      , INTENT(IN   ) :: x(2)   !! theta,zeta point position
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                      :: base_x(sf%modes) 
+  REAL(wp)                      :: base_x(sf%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -825,56 +825,56 @@ IMPLICIT NONE
   CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
   INTEGER       , INTENT(IN   ) :: deriv      !! =0: base, =2: dthet , =3: dzeta
   INTEGER       , INTENT(IN   ) :: np         !! number of points in xn 
-  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np) !! theta,zeta point positions 
+  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np) !! theta,zeta point positions
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                      :: base_xn(1:np,sf%modes) 
+  REAL(wp)                      :: base_xn(1:np,sf%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: iMode
 !===================================================================================================================================
-  ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range,Xmn=>sf%Xmn) 
+  ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range,Xmn=>sf%Xmn)
   SELECT CASE(deriv)
   CASE(0)
     DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=                       SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                               
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=                       COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_THET)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_THET)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)= REAL(Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=-REAL(Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_ZETA)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_ZETA)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=-REAL(Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)= REAL(Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode
-  CASE(DERIV_THET_THET)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+  CASE(DERIV_THET_THET)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=-REAL(Xmn(1,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=-REAL(Xmn(1,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_THET_ZETA)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_THET_ZETA)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)= REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)= REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_ZETA_ZETA)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_ZETA_ZETA)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=-REAL(Xmn(2,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=-REAL(Xmn(2,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode
   CASE DEFAULT 
@@ -985,7 +985,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
-  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
+  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: y_IP(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1031,7 +1031,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes (sf%modes)
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)!! array of all modes (sf%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y_IP(sf%mn_IP)
@@ -1076,13 +1076,13 @@ IMPLICIT NONE
 !      END DO !i
 !    END DO !j
     __DGEMM_NN(Ctmp,2*sf%mn_nyq(1),  mTotal,sf%base1D_IPthet,  mTotal,      nTotal,Amn)
-    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta)
   CASE(DERIV_THET)
     __DGEMM_NN(Ctmp,2*sf%mn_nyq(1),  mTotal,sf%base1D_dthet_IPthet,  mTotal,      nTotal,Amn)
-    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,                  Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,                  Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta)
   CASE(DERIV_ZETA)
     __DGEMM_NN(Ctmp,2*sf%mn_nyq(1),  mTotal,sf%base1D_IPthet,  mTotal,      nTotal,Amn)
-    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta) 
+    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta)
   CASE DEFAULT  !for other derivatives, resort to not precomputed/ explicit computation:
      y_IP = sf%evalDOF_xn(sf%mn_IP,sf%x_IP,deriv,DOFs)
   END SELECT
@@ -1090,7 +1090,7 @@ END FUNCTION fBase_evalDOF_IP_tens
 
 
 !===================================================================================================================================
-!> inverse of fBase_evalDOF_IP_tens 
+!> inverse of fBase_evalDOF_IP_tens
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_projectIPtoDOF_tens(sf,add,factor,deriv,y_IP,DOFs)
@@ -1100,7 +1100,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
-  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
+  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: y_IP(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1134,14 +1134,14 @@ IMPLICIT NONE
 !      END DO !i
 !    END DO !j
 
-    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta)
     __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
 
   CASE(DERIV_THET)
     __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
     __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_dthet_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
   CASE(DERIV_ZETA)
-    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta) 
+    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta)
     __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
   CASE DEFAULT 
     CALL abort(__STAMP__, &
@@ -1168,7 +1168,7 @@ IMPLICIT NONE
 END SUBROUTINE fBase_projectIPtoDOF_tens
 
 !===================================================================================================================================
-!>  take values interpolated at sf%s_IP positions and project onto fourier basis by integration 
+!>  take values interpolated at sf%s_IP positions and project onto fourier basis by integration
 !!
 !===================================================================================================================================
 FUNCTION fBase_initDOF( sf , g_IP) RESULT(DOFs)
@@ -1406,7 +1406,7 @@ IMPLICIT NONE
     ALLOCATE(oldDOF(1:sf%modes,2),newDOF(1:testfBase%modes,2))
     oldDOF(:,1)=1.1_wp
     oldDOF(:,2)=2.2_wp
-    
+
     CALL testfBase%change_base(sf,2,oldDOF,newDOF)
     checkreal=SUM(newDOF)
     refreal  =SUM(oldDOF)
@@ -1430,7 +1430,7 @@ IMPLICIT NONE
     oldDOF(1,:)=-1.1_wp
     oldDOF(2,:)=-2.2_wp
     oldDOF(3,:)=-3.3_wp
-    
+
     CALL testfBase%change_base(sf,1,oldDOF,newDOF)
     checkreal=SUM(newDOF)/REAL(testfBase%modes,wp)
     refreal  =-6.6_wp

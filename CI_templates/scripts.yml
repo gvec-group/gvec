@@ -8,7 +8,7 @@
 # =================================================================================================================================
 
 # execute the bash script in `CI_setup` to setup the environment, e.g. by loading modules
-.tmpl_before_script_modules:
+.before_script_modules:
   before_script:
     - echo -e "\e[0Ksection_start:`date +%s`:setup-env[collapsed=true]\r\e[0KSetup Environment"
     - echo ${CMAKE_HOSTNAME} ${CURR_CMP}
@@ -21,7 +21,7 @@
 # TEMPLATES FOR STAGE "env" (printout the enviroment for future reference)
 # =================================================================================================================================
 
-.tmpl_script_env:
+.script_env:
   script:
     - echo "Pipeline environment for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE"
     - echo $CI_RUNNER_DESCRIPTION
@@ -37,7 +37,7 @@
 # TEMPLATES FOR STAGE "build" 
 # =================================================================================================================================
 
-.tmpl_script_build:
+.script_build:
   variables:
     GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
@@ -85,7 +85,7 @@
 # =================================================================================================================================
 
 # also required in "post"
-.tmpl_before_script_exportvars:
+.before_script_exportvars:
   before_script:
     - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
     - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
@@ -102,7 +102,7 @@
     - python -m pytest --version
     - echo -e "\e[0Ksection_end:`date +%s`:exportvars\r\e[0K"
 
-.tmpl_script_run:
+.script_run:
   variables:
     GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
@@ -154,7 +154,7 @@
 # TEMPLATES FOR STAGE "regression"
 # =================================================================================================================================
 
-.tmpl_script_regression:
+.script_regression:
   variables:
     GIT_STRATEGY: fetch
   script:
@@ -199,7 +199,7 @@
 # TEMPLATES FOR STAGE "post"
 # =================================================================================================================================
 
-.tmpl_script_post:
+.script_post:
   variables:
     GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}

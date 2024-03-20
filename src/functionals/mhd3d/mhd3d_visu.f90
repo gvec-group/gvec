@@ -25,7 +25,7 @@ USE MODgvec_Globals,ONLY: wp,Unit_stdOut,abort,MPIroot
 IMPLICIT NONE
 
 PRIVATE
-PUBLIC visu_BC_face,visu_3D,CheckDistance,CheckAxis,visu_1d_modes,writeDataMN_visu 
+PUBLIC visu_BC_face,visu_3D,CheckDistance,CheckAxis,visu_1d_modes,writeDataMN_visu
 
 
 
@@ -217,7 +217,7 @@ IMPLICIT NONE
   VP_IOTA   =iVal;iVal=iVal+1; VarNames(VP_IOTA  )="iota"
   VP_PRES   =iVal;iVal=iVal+1; VarNames(VP_PRES  )="pressure"
   VP_DP_DS  =iVal;iVal=iVal+1; VarNames(VP_DP_DS )="dp_ds"
-  VP_LAMBDA =iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="lambda" 
+  VP_LAMBDA =iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="lambda"
   VP_SQRTG  =iVal;iVal=iVal+1; VarNames(VP_SQRTG )="sqrtG"
   VP_g_tt   =iVal;iVal=iVal+1; VarNames(VP_g_tt  )="g_tt"
   VP_g_tz   =iVal;iVal=iVal+1; VarNames(VP_g_tz  )="g_tz"

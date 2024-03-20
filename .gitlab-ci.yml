@@ -116,27 +116,27 @@ include:
     inputs:
       env: mpcdfci_intel_impi_latest
       vars: .vars_matrix_mpi_build
-      cmake-opts: .vars_cmake_mpi_opts
+      cmake-opts: .cmake_mpi_opts
       rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_gcc_openmpi_latest
       vars: .vars_matrix_mpi_build
-      cmake-opts: .vars_cmake_mpi_opts
+      cmake-opts: .cmake_mpi_opts
 
   # converter-only
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_intel2023
       build-postfix: _only_converter
-      cmake-opts: .vars_cmake_only_converter
+      cmake-opts: .cmake_only_converter
 
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_gcc13
       build-postfix: _only_converter
-      cmake-opts: .vars_cmake_only_converter
+      cmake-opts: .cmake_only_converter
 
   # release tag
   - local: CI_templates/build.yml
@@ -151,7 +151,7 @@ include:
       env: mpcdfci_intel_impi_latest
       build-postfix: _tag
       vars: .vars_matrix_mpi_build_tag
-      cmake-opts: .vars_cmake_mpi_opts
+      cmake-opts: .cmake_mpi_opts
 
   # ============================
   # run jobs
@@ -287,7 +287,7 @@ include:
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
 
 # MPCDF Docker image intel_2023_1_0_x:latest
-.tmpl_mpcdfci_intel2023:
+.mpcdfci_intel2023:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:latest
   tags:
     - shared
@@ -299,7 +299,7 @@ include:
     OMP_NUM_THR: "4"
 
 # MPCDF Docker image intel-impi:latest
-.tmpl_mpcdfci_intel_impi_latest:
+.mpcdfci_intel_impi_latest:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel-impi:latest
   tags:
     - shared
@@ -311,7 +311,7 @@ include:
     OMP_NUM_THR: "2"
 
 # MPCDF Docker image gcc_13:latest
-.tmpl_mpcdfci_gcc13:
+.mpcdfci_gcc13:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_13:latest
   tags:
     - shared
@@ -323,7 +323,7 @@ include:
     OMP_NUM_THR: "4"
 
 # MPCDF Docker image gcc-openmpi:latest
-.tmpl_mpcdfci_gcc_openmpi_latest:
+.mpcdfci_gcc_openmpi_latest:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc-openmpi:latest
   tags:
     - shared
@@ -341,7 +341,7 @@ include:
 # ____________________________
 # ${CI_COMMIT_REF_NAME} branch/tag (CI trigger commit)
 
-.vars_cmake_def_opts:
+.cmake_def_opts:
   variables:
     COMPILE_GVEC: "ON"
     LINK_TO_NETCDF: "ON"
@@ -349,14 +349,14 @@ include:
     CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
 
 # MPI not needed/tested for converters
-.vars_cmake_mpi_opts:
+.cmake_mpi_opts:
   variables:
     COMPILE_GVEC: "ON"
     LINK_TO_NETCDF: "ON"
     COMPILE_CONVERTERS: "OFF"
     CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
 
-.vars_cmake_only_converter:
+.cmake_only_converter:
   variables:
     COMPILE_GVEC: "OFF"
     LINK_TO_NETCDF: "OFF"

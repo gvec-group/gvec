@@ -37,7 +37,7 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: phiPrime_GP(:)  !! s derivative of toroidal flux 
   REAL(wp),ALLOCATABLE :: phiPrime2_GP(:) !! s derivative of toroidal flux : |Phi'(s)|^2
   
-  !evaluations at all integration points, size(1:base%f%mn_IP,base%s%nGP_str:base%s%nGP_end)                                       
+  !evaluations at all integration points, size(1:base%f%mn_IP,base%s%nGP_str:base%s%nGP_end)
   REAL(wp),ALLOCATABLE :: X1_IP_GP(:,:)   !! evaluation of X1
   REAL(wp),ALLOCATABLE :: X2_IP_GP(:,:)   !! evaluation of X2
   REAL(wp),ALLOCATABLE :: J_h(:,:)        !! Jacobian of the mapping h (X1,X2,zeta) -->(x,y,z) 
@@ -540,7 +540,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
                                                   coefY,coefY_thet,coefY_zeta,coefY_s
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
-#if MPIDEBUG==1                                               
+#if MPIDEBUG==1
   WRITE(UNIT_stdOut,'(4X,A,I4)')'COMPUTE FORCE...',myRank
   CALL par_Barrier(beforeScreenOut="DEBUG ENTER FORCE")
 #endif
@@ -1755,7 +1755,7 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   IF(PrecondType.GT.0)THEN
     NULLIFY(DX1_tt); NULLIFY(DX1_tz); NULLIFY(DX1_zz); NULLIFY(DX1); NULLIFY(DX1_ss)
     NULLIFY(DX2_tt); NULLIFY(DX2_tz); NULLIFY(DX2_zz); NULLIFY(DX2); NULLIFY(DX2_ss)
-    NULLIFY(DLA_tt); NULLIFY(DLA_tz); NULLIFY(DLA_zz)         
+    NULLIFY(DLA_tt); NULLIFY(DLA_tz); NULLIFY(DLA_zz)
     DEALLOCATE(D_buf)
     IF(MPIroot)THEN
       SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)

@@ -16,11 +16,11 @@ spec:
 $[[ inputs.env ]]_post:
   stage: postprocessing
   before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".before_script_modules", "before_script"]
+    - !reference [".before_script_exportvars", "before_script"]
   extends:
-    - .tmpl_$[[ inputs.env ]]
-    - .tmpl_script_post
+    - .$[[ inputs.env ]]
+    - .script_post
     - .vars_matrix_post  # matrix of variables
     - $[[ inputs.rules ]]
   needs:

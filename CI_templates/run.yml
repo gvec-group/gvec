@@ -25,11 +25,11 @@ spec:
 $[[ inputs.env ]]_run$[[ inputs.run-postfix ]]:
   stage: run
   before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".before_script_modules", "before_script"]
+    - !reference [".before_script_exportvars", "before_script"]
   extends:
-    - .tmpl_$[[ inputs.env ]]
-    - .tmpl_script_run
+    - .$[[ inputs.env ]]
+    - .script_run
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   needs:

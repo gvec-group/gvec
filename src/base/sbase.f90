@@ -44,7 +44,7 @@ TYPE, ABSTRACT :: c_sbase
   INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER              :: nGP                      !! global number of gausspoints = (degGP+1)*nElems
-  INTEGER              :: nGP_str, nGP_end         !! local number of gausspoints = (degGP+1)*nElems per MPI subdomain 
+  INTEGER              :: nGP_str, nGP_end         !! local number of gausspoints = (degGP+1)*nElems per MPI subdomain
   INTEGER              :: nbase                    !! total number of degree of freedom / global basis functions
   CLASS(sll_c_spline_matrix),ALLOCATABLE :: mass
   CONTAINS
@@ -170,7 +170,7 @@ ABSTRACT INTERFACE
   END SUBROUTINE i_sub_sBase_applyBCtoRHS
 
 END INTERFACE
- 
+
 
 
 TYPE,EXTENDS(c_sbase) :: t_sBase
@@ -192,7 +192,7 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   REAL(wp),ALLOCATABLE :: base_dsAxis(:,:)         !! all derivatives 1..deg of all basis functions at axis size(1:deg+1,0:deg)
   REAL(wp),ALLOCATABLE :: base_dsEdge(:,:)         !! all derivatives 1..deg of all basis functions at edge size(nBase-deg:nBase,0:deg)
   INTEGER ,ALLOCATABLE :: nDOF_BC(:)               !! number of boundary dofs involved in bc of BC_TYPE, size(NBC_TYPES)
-  REAL(wp),ALLOCATABLE :: A_Axis(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct) 
+  REAL(wp),ALLOCATABLE :: A_Axis(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct)
   REAL(wp),ALLOCATABLE :: invA_Axis(:,:,:)         !! inverse of A_Axis 
   REAL(wp),ALLOCATABLE :: R_Axis(:,:,:)            !! matrix to apply boundary conditions for RHS (testfunction)
                                                    !! size(1:deg+1,1:deg+1,NBC_TYPES)
@@ -328,11 +328,11 @@ IMPLICIT NONE
   TYPE IS(t_sbase_disc)
     IF(continuity_in.NE.-1) &
       CALL abort(__STAMP__, &
-          "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!") 
+          "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!")
   TYPE IS(t_sbase_spl)
     IF(continuity_in.NE.deg_in-1) &
       CALL abort(__STAMP__, &
-          "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!") 
+          "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!")
   CLASS DEFAULT
       CALL abort(__STAMP__, &
           "error in sbase init: type is neither disc or spl!") 
