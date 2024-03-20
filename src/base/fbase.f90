@@ -1370,14 +1370,14 @@ IMPLICIT NONE
     checkreal=0.0_wp
     DO iMode=sin_range(1)+1,sin_range(2)
       DO jMode=sin_range(1)+1,sin_range(2)
-          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dthet_IP(:,jMode))))
-          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dzeta_IP(:,jMode))))
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dthet_IP(:,jMode)))/REAL(1+ABS(sf%Xmn(1,jmode)),wp))
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dzeta_IP(:,jMode)))/REAL(1+ABS(sf%Xmn(2,jmode)),wp))
       END DO
     END DO
     DO iMode=cos_range(1)+1,cos_range(2)
       DO jMode=cos_range(1)+1,cos_range(2)
-          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dthet_IP(:,jMode))))
-          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dzeta_IP(:,jMode))))
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dthet_IP(:,jMode)))/REAL(1+ABS(sf%Xmn(1,jmode)),wp))
+          checkreal=MAX(checkreal,ABS((sf%d_thet*sf%d_zeta)*SUM(sf%base_IP(:,iMode)*sf%base_dzeta_IP(:,jMode)))/REAL(1+ABS(sf%Xmn(2,jmode)),wp))
       END DO
     END DO
     refreal=0.0_wp
@@ -1771,11 +1771,11 @@ IMPLICIT NONE
     
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
-      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))/(1.0_wp+SQRT(REAL(Xmn(1,iMode)**2+Xmn(2,iMode)**2,wp)))
       g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(2,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     DO iMode=cos_range(1)+1,cos_range(2)
-      dofs(iMode)=0.1_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))
+      dofs(iMode)=0.2_wp*(REAL(iMode-modes/2,wp)/REAL(modes,wp))/(1.0_wp+SQRT(REAL(Xmn(1,iMode)**2+Xmn(2,iMode)**2,wp)))
       g_IP(:) =g_IP(:)+dofs(iMode)*REAL(-Xmn(2,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*sf%x_IP(1,:)-REAL(Xmn(2,iMode),wp)*sf%x_IP(2,:))
     END DO !iMode 
     checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_IP(DERIV_ZETA_ZETA,dofs)))
@@ -1813,7 +1813,7 @@ IMPLICIT NONE
     iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP / dofs from test 212, test evalDOF_xn
-    checkreal=SUM(ABS(g_IP(1:sf%mn_IP/2)-sf%evalDOF_xn(sf%mn_IP/2,sf%x_IP(1:2,1:sf%mn_IP/2),DERIV_ZETA_ZETA,dofs)))
+    checkreal=MAXVAL(ABS(g_IP(1:sf%mn_IP/2)-sf%evalDOF_xn(sf%mn_IP/2,sf%x_IP(1:2,1:sf%mn_IP/2),DERIV_ZETA_ZETA,dofs)))
     refreal=0.0_wp
 
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
