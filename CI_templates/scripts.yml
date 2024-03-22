@@ -162,7 +162,7 @@
     - python --version
     - python -m pytest --version
     - echo $SHELL
-    - set +e -o pipefail #allow error codes != 1 to be catched
+    - set +e #continue script after command fails, gitlab otherwise only returns 0 or 1
     - echo CIrun_${CASENAME_1}
     - echo CIrun_${CASENAME_2}
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
@@ -180,8 +180,9 @@
       "${PYTEST_EXTRA_OPTS}" 
       --junitxml=pytest.xml
       --annotations=annotations.json
-    - echo "error code:" $?
+      || RET=$?
     - echo -e "\e[0Ksection_end:`date +%s`:regression\r\e[0K"
+    - exit $RET
   artifacts:
     name: "${CI_PIPELINE_ID}_${CASENAME_1}_vs_${CASENAME_2}"
     paths:

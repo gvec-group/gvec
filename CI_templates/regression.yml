@@ -24,6 +24,8 @@ reg.mpcdfci_intel-minimal:
     OMP_MODE_2: "ompON"
     CASENAME_1: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
     CASENAME_2: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
+    #uncoment the next line to remove warning job#
+    #PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
   allow_failure:
     exit_codes: 5  # warnings
   needs:
