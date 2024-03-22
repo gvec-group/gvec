@@ -6,7 +6,7 @@ spec:
   inputs:
     env:
       description: Name of the environment, e.g. `mpcdfci_intel2023`
-      default: mpcdfci_intel2023
+      default: .mpcdfci_intel2023
     vars:
       description: Template with variables or parallel:matrix
       default: .vars_matrix_build
@@ -22,14 +22,14 @@ spec:
 
 ---
 
-$[[ inputs.env ]]_build$[[ inputs.build-postfix ]]:
+build$[[ inputs.env ]]$[[ inputs.build-postfix ]]:
   stage: build
   extends:
-    - .$[[ inputs.env ]]
+    - $[[ inputs.env ]]
     - .before_script_modules
     - .script_build
     - $[[ inputs.cmake-opts ]]
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   needs: 
-    - $[[ inputs.env ]]_env
+    - env$[[ inputs.env ]]

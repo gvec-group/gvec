@@ -6,7 +6,7 @@ spec:
   inputs:
     env:
       description: Name of the environment, e.g. `mpcdfci_intel2023`
-      default: mpcdfci_intel2023
+      default: .mpcdfci_intel2023
     vars:
       description: Template with variables or parallel:matrix
       default: .vars_matrix_run
@@ -22,16 +22,16 @@ spec:
 
 ---
 
-$[[ inputs.env ]]_run$[[ inputs.run-postfix ]]:
+run$[[ inputs.env ]]$[[ inputs.run-postfix ]]:
   stage: run
   before_script:
     - !reference [".before_script_modules", "before_script"]
     - !reference [".before_script_exportvars", "before_script"]
   extends:
-    - .$[[ inputs.env ]]
+    - $[[ inputs.env ]]
     - .script_run
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   needs:
-    - job: $[[ inputs.env ]]_build$[[ inputs.build-postfix ]]
+    - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true

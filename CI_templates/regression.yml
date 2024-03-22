@@ -10,7 +10,7 @@
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
 
 # compare results between serial and OpenMP for Intel compiler (no MPI)
-mpcdfci_intel-minimal_reg:
+reg.mpcdfci_intel-minimal:
   stage: regression
   extends:
     - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
@@ -27,11 +27,11 @@ mpcdfci_intel-minimal_reg:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
 
 # compare results between intel and gnu (no MPI)
-mpcdfci_intel-vs-gnu_reg:
+reg.mpcdfci_intel-vs-gnu:
   stage: regression
   extends:
     - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
@@ -49,13 +49,13 @@ mpcdfci_intel-vs-gnu_reg:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
-    - job: mpcdfci_gcc13_run
+    - job: run.mpcdfci_gcc13
       artifacts: true
 
 # compare results between [serial/OpenMP, Intel/GNU] (no MPI)
-mpcdfci_omp-vs-ser_reg:
+reg.mpcdfci_omp-vs-ser:
   stage: regression
   extends:
     - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
@@ -75,13 +75,13 @@ mpcdfci_omp-vs-ser_reg:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
-    - job: mpcdfci_gcc13_run
+    - job: run.mpcdfci_gcc13
       artifacts: true
 
 # compare results between current and tag branches for Intel compiler (no MPI)
-mpcdfci_intel-vs-tag_reg:
+reg.mpcdfci_intel-vs-tag:
   stage: regression
   extends:
     - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
@@ -99,13 +99,13 @@ mpcdfci_intel-vs-tag_reg:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
-    - job: mpcdfci_intel2023_run_tag
+    - job: run.mpcdfci_intel2023_tag
       artifacts: true
 
 # compare results between MPI=ON and MPI=OFF  for Intel compiler
-mpcdfci_intel_mpiON-vs-mpiOFF_reg:
+reg.mpcdfci_intel_mpiON-vs-mpiOFF:
   stage: regression
   extends:
     - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
@@ -127,7 +127,7 @@ mpcdfci_intel_mpiON-vs-mpiOFF_reg:
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
     PYTEST_EXTRA_OPTS: "--add-ignore-pattern=['Number of OpenMP threads','Number of MPI tasks']"
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
-    - job: mpcdfci_intel_impi_latest_run
+    - job: run.mpcdfci_intel_impi_latest
       artifacts: true

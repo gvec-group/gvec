@@ -82,73 +82,73 @@ include:
   # ============================
   - local: CI_templates/env.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
   
   - local: CI_templates/env.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
 
   # MPI
   - local: CI_templates/env.yml
     inputs:
-      env: mpcdfci_intel_impi_latest
+      env: .mpcdfci_intel_impi_latest
       rules: .rules_minimal
 
   - local: CI_templates/env.yml
     inputs:
-      env: mpcdfci_gcc_openmpi_latest
+      env: .mpcdfci_gcc_openmpi_latest
 
   # ============================
   # build jobs
   # ============================
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
 
   # MPI
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel_impi_latest
+      env: .mpcdfci_intel_impi_latest
       vars: .vars_matrix_mpi_build
       cmake-opts: .cmake_mpi_opts
       rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_gcc_openmpi_latest
+      env: .mpcdfci_gcc_openmpi_latest
       vars: .vars_matrix_mpi_build
       cmake-opts: .cmake_mpi_opts
 
   # converter-only
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
 
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
 
   # release tag
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       build-postfix: _tag
       vars: .vars_matrix_build_tag
 
   # release tag + MPI
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel_impi_latest
+      env: .mpcdfci_intel_impi_latest
       build-postfix: _tag
       vars: .vars_matrix_mpi_build_tag
       cmake-opts: .cmake_mpi_opts
@@ -158,24 +158,24 @@ include:
   # ============================
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
 
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
 
   # debugrun
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
@@ -183,19 +183,19 @@ include:
   # MPI
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel_impi_latest
+      env: .mpcdfci_intel_impi_latest
       vars: .vars_matrix_mpi_run
       rules: .rules_minimal
 
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_gcc_openmpi_latest
+      env: .mpcdfci_gcc_openmpi_latest
       vars: .vars_matrix_mpi_run
 
   # release tag
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
@@ -203,7 +203,7 @@ include:
   # release tag + MPI
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel_impi_latest
+      env: .mpcdfci_intel_impi_latest
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_mpi_run_tag
@@ -220,12 +220,12 @@ include:
   # ============================
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
   
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
 
 
 # =================================================================================================================================
