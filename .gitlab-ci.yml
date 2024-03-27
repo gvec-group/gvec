@@ -23,7 +23,7 @@ workflow:
 # =================================================================================================================================
 
 variables:
-  GIT_STRATEGY: none
+  GIT_STRATEGY: fetch
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_RELEASE: v0.2.2-mpi_par  # pipeline schedules
   NIGHTLY_PIPELINE: "false"         # pipeline schedules

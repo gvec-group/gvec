@@ -39,7 +39,6 @@
 
 .script_build:
   variables:
-    GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
@@ -70,7 +69,6 @@
     - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
     - echo -e "\e[0Ksection_end:`date +%s`:make\r\e[0K"
     - cd ..; echo "... BUILD PHASE FINISHED!"
-  #allow_failure: true  # after git-lfs migrate
   artifacts:
     name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
     paths:
@@ -104,7 +102,6 @@
 
 .script_run:
   variables:
-    GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
@@ -155,8 +152,6 @@
 # =================================================================================================================================
 
 .script_regression:
-  variables:
-    GIT_STRATEGY: fetch
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-reg[collapsed=true]\r\e[0KPrepare Regression"
     - python --version
@@ -202,7 +197,6 @@
 
 .script_post:
   variables:
-    GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
