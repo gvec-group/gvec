@@ -101,6 +101,7 @@ OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to li
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" OFF)
 OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
+OPTION(COMPILE_PYGVEC "compile python interface to gvec" OFF)
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
 
@@ -326,7 +327,11 @@ function(add_exec target)
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
   SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
   SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
-  INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
+  IF(${SKBUILD}) # scikit-build-core = python/pip installation - install to venv/bin
+    INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION ${SKBUILD_SCRIPTS_DIR})
+  ELSE()
+    INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
+  ENDIF()
   STRING(TOUPPER ${target} TARGETUP)
   ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: ${TARGETUP} BUILD COMPLETE!")
 endfunction()
@@ -398,6 +403,16 @@ ENDIF()
 # Enable testing in general
 include(CTest) 
 #ENABLE_TESTING()
+
+# =========================================================================
+# Python bindings (pygvec), using f90wrap and f2py
+# =========================================================================
+
+IF(COMPILE_PYGVEC)
+  FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module REQUIRED)
+
+  SET(PYPKG_PATH "python/pygvec")
+ENDIF()
 
 # =========================================================================
 # Executable programs (simply use add_exec)

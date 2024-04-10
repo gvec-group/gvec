@@ -41,6 +41,7 @@ PUBLIC::GETINTALLOCARRAY
 PUBLIC::GETREALALLOCARRAY
 
 PUBLIC::IgnoredStrings
+PUBLIC::FillStrings
 !===================================================================================================================================
 
 INTERFACE TRYREAD

@@ -135,13 +135,11 @@ def pytest_collection_modifyitems(items):
             item.add_marker(getattr(pytest.mark, "restart"))
     # sort tests by testgroup and testcase
     stages = ["test_run", "test_regression", "test_post"]
-    items.sort(
-        key=lambda item: (
-            stages.index(item.name.split("[")[0]),
-            item.callspec.getparam("testgroup"),
-            item.callspec.getparam("testcase"),
-        )
-    )
+    def sort_key(item):
+        if not hasattr(item, "callspec") or "testgroup" not in item.callspec.params:
+            return -1, item.name
+        return stages.index(item.name.split("[")[0]), item.callspec.getparam("testgroup"), item.callspec.getparam("testcase")
+    items.sort(key=sort_key)
 
 
 def pytest_runtest_setup(item):
