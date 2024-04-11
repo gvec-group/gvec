@@ -409,9 +409,65 @@ include(CTest)
 # =========================================================================
 
 IF(COMPILE_PYGVEC)
-  FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module REQUIRED)
+  FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
+  FIND_PROGRAM(PYTHON "python")
 
   SET(PYPKG_PATH "python/pygvec")
+
+  # f2py headers
+  EXECUTE_PROCESS(
+    COMMAND "${PYTHON}" -c
+            "import numpy.f2py; print(numpy.f2py.get_include())"
+    OUTPUT_VARIABLE F2PY_INCLUDE_DIR
+    RESULT_VARIABLE F2PY_INCLUDE_DIR_RESULT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+  ADD_LIBRARY(f2py_fortranobject OBJECT "${F2PY_INCLUDE_DIR}/fortranobject.c")
+  TARGET_LINK_LIBRARIES(f2py_fortranobject PUBLIC Python::NumPy)
+  TARGET_INCLUDE_DIRECTORIES(f2py_fortranobject PUBLIC "${F2PY_INCLUDE_DIR}")
+  SET_PROPERTY(TARGET f2py_fortranobject PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+  # src/pygvec/post.f90
+  ADD_CUSTOM_COMMAND(
+    OUTPUT f90wrap_post.f90 _post.py
+    DEPENDS src/pygvec/post.f90
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    VERBATIM
+    COMMAND f90wrap 
+            --mod-name _post 
+            --f90-mod-name pygvec._post_f90 
+            -k "${CMAKE_CURRENT_SOURCE_DIR}/f90wrap_kind_map.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
+  )
+  ADD_CUSTOM_COMMAND(
+    OUTPUT _post_f90-f2pywrappers.f _post_f90module.c
+    DEPENDS f90wrap_post.f90 src/pygvec/post.f90
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    VERBATIM
+    COMMAND f2py-f90wrap 
+            -m _post_f90
+            --lower
+            "f90wrap_post.f90"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
+  )
+  PYTHON_ADD_LIBRARY(_post_f90 MODULE
+    "${CMAKE_CURRENT_BINARY_DIR}/_post_f90module.c"
+    # "${CMAKE_CURRENT_BINARY_DIR}/_post_f90-f2pywrappers2.f90"
+    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
+    WITH_SOABI
+  )
+  SET_TARGET_PROPERTIES(_post_f90 PROPERTIES LINKER_LANGUAGE Fortran)
+  # TARGET_INCLUDE_DIRECTORIES(_post_f90 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/src/functionals" ${CMAKE_Fortran_MODULE_DIRECTORY})
+  TARGET_INCLUDE_DIRECTORIES(_post_f90 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  TARGET_LINK_LIBRARIES(_post_f90 PRIVATE f2py_fortranobject gveclib ${linkedlibs})
+
+  IF (${SKBUILD})
+    INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_post.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
+    INSTALL(TARGETS _post_f90 LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
+  ELSE()
+    INSTALL(TARGETS _post_f90 LIBRARY DESTINATION .)
+  ENDIF()
 ENDIF()
 
 # =========================================================================

@@ -9,7 +9,6 @@ ctags.txt
 *.o
 *.out
 *~
-__*
 CMakeFiles
 CMakeCache.txt
 CMakeUserPresets.json
@@ -30,6 +29,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+pybuild/
 develop-eggs/
 dist/
 downloads/

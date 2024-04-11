@@ -1,5 +1,4 @@
 import pytest
-import importlib
 import numpy as np
 import os
 from pathlib import Path
@@ -8,17 +7,13 @@ import helpers
 
 # === Fixtures === #
 
-
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def pygvec():
-    try:
-        pygvec = importlib.reload(pygvec)
-    except NameError:
-        import pygvec
+    import pygvec
     return pygvec
 
 @pytest.fixture()
-def ellipstell_tmpdir(tmpdir):
+def ellipstell(tmpdir):
     """prepare the ellipstell parameters"""
     refdir = Path("test-CI/run/example/ellipstell_lowres").absolute()
     paramfile = "parameter.ini"
@@ -29,18 +24,41 @@ def ellipstell_tmpdir(tmpdir):
         yield
 
 @pytest.fixture()
-def ellipstell_params(pygvec, ellipstell_tmpdir):
+def ellipstell_state(pygvec, ellipstell):
     paramfile = "parameter.ini"
-    # pygvec.main.ReadParameterFile(paramfile)
-    yield
+    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
+    with pygvec.post.State(paramfile, statefile) as state:
+        yield state
 
 # === Tests === #
-
 
 def test_version(pygvec):
     import pkg_resources
 
     assert isinstance(pygvec.__version__, str)
-    assert pygvec.__version__ == pygvec.version
     assert pygvec.__version_tuple__ >= (0, 2, 1)
     assert pkg_resources.get_distribution("pygvec").version == pygvec.__version__
+
+def test_post(pygvec, ellipstell):
+    paramfile = "parameter.ini"
+    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
+
+    with pygvec.post.State(paramfile, statefile) as state:
+        assert isinstance(state, pygvec.post.State)
+
+def test_post_twice(pygvec, ellipstell):
+    paramfile = "parameter.ini"
+    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
+
+    with pygvec.post.State(paramfile, statefile):
+        pass
+
+    with pytest.raises(NotImplementedError):
+        state = pygvec.post.State(paramfile, statefile)
+
+def test_evaluate(ellipstell_state):
+    s = np.linspace(0.1, 0.9, 8)
+    theta = np.linspace(0, 2*np.pi, 8, endpoint=False)
+    zeta = np.linspace(0, 2*np.pi, 8, endpoint=False)
+
+    ellipstell_state.evaluate(s, theta, zeta)
