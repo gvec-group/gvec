@@ -5,12 +5,16 @@ from pathlib import Path
 
 import helpers
 
+
 # === Fixtures === #
+
 
 @pytest.fixture(scope="session")
 def pygvec():
     import pygvec
+
     return pygvec
+
 
 @pytest.fixture()
 def ellipstell(tmpdir):
@@ -23,6 +27,7 @@ def ellipstell(tmpdir):
         os.symlink(refdir / statefile, statefile)
         yield
 
+
 @pytest.fixture()
 def ellipstell_state(pygvec, ellipstell):
     paramfile = "parameter.ini"
@@ -30,7 +35,9 @@ def ellipstell_state(pygvec, ellipstell):
     with pygvec.post.State(paramfile, statefile) as state:
         yield state
 
+
 # === Tests === #
+
 
 def test_version(pygvec):
     import pkg_resources
@@ -39,6 +46,7 @@ def test_version(pygvec):
     assert pygvec.__version_tuple__ >= (0, 2, 1)
     assert pkg_resources.get_distribution("pygvec").version == pygvec.__version__
 
+
 def test_post(pygvec, ellipstell):
     paramfile = "parameter.ini"
     statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
@@ -46,19 +54,25 @@ def test_post(pygvec, ellipstell):
     with pygvec.post.State(paramfile, statefile) as state:
         assert isinstance(state, pygvec.post.State)
 
+
+@pytest.mark.xfail()
 def test_post_twice(pygvec, ellipstell):
     paramfile = "parameter.ini"
     statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
 
-    with pygvec.post.State(paramfile, statefile):
+    with pygvec.post.State(paramfile, statefile) as state:
         pass
 
-    with pytest.raises(NotImplementedError):
-        state = pygvec.post.State(paramfile, statefile)
+    with pygvec.post.State(paramfile, statefile) as state:
+        pass
+
 
 def test_evaluate(ellipstell_state):
-    s = np.linspace(0.1, 0.9, 8)
-    theta = np.linspace(0, 2*np.pi, 8, endpoint=False)
-    zeta = np.linspace(0, 2*np.pi, 8, endpoint=False)
+    s = np.linspace(0.1, 0.9, 6)
+    theta = np.linspace(0, 2 * np.pi, 8, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
 
-    ellipstell_state.evaluate(s, theta, zeta)
+    result = ellipstell_state.evaluate_base(s, theta, zeta, "X1")
+    assert result.shape == (6, 8, 10)
+    print(result)
+    

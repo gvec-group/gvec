@@ -450,17 +450,19 @@ IF(COMPILE_PYGVEC)
             "f90wrap_post.f90"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
   )
+  ADD_LIBRARY(lib_post_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90")
+  SET_TARGET_PROPERTIES(lib_post_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
   PYTHON_ADD_LIBRARY(_post_f90 MODULE
     "${CMAKE_CURRENT_BINARY_DIR}/_post_f90module.c"
     # "${CMAKE_CURRENT_BINARY_DIR}/_post_f90-f2pywrappers2.f90"
     "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
+    # "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
     WITH_SOABI
   )
   SET_TARGET_PROPERTIES(_post_f90 PROPERTIES LINKER_LANGUAGE Fortran)
   # TARGET_INCLUDE_DIRECTORIES(_post_f90 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/src/functionals" ${CMAKE_Fortran_MODULE_DIRECTORY})
   TARGET_INCLUDE_DIRECTORIES(_post_f90 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-  TARGET_LINK_LIBRARIES(_post_f90 PRIVATE f2py_fortranobject gveclib ${linkedlibs})
+  TARGET_LINK_LIBRARIES(_post_f90 PRIVATE lib_post_f90 f2py_fortranobject gveclib ${linkedlibs})
 
   IF (${SKBUILD})
     INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_post.py" DESTINATION "${SKBUILD_PROJECT_NAME}")

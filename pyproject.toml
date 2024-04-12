@@ -17,6 +17,10 @@ classifiers = [
     "Programming Language :: Fortran",
     "Private :: Do Not Upload",
 ]
+dependencies = [
+    "f90wrap",
+    "numpy",
+]
 dynamic = [
     "version",
 ]
