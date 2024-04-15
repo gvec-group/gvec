@@ -89,6 +89,7 @@ SUBROUTINE ReadState(statefile)
 END SUBROUTINE ReadState
 
 !================================================================================================================================!
+! Evaluate the basis (X1, X2, LA) or it's derivatives at the meshgrid of the given parameters (s, theta, zeta)
 SUBROUTINE evaluate_base(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, result)
   ! MODULES
   USE MODgvec_Globals,        ONLY: TWOPI,PI,CROSS
@@ -161,16 +162,10 @@ SUBROUTINE evaluate_base(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, result)
   DO i_s=1,SIZE(s)
     ! evaluate spline to get the fourier dofs
     fourier_dofs(:) = base%s%evalDOF2D_s(s(i_s),base%f%modes,seli_deriv_s,solution_dofs(:,:))
-    ! assign theta_star for the tz mesh
-    ! IF (theta_star) THEN
-    !   DO i_t=1,SIZE(theta)
-    !     DO i_z=1,SIZE(zeta)
-    !       CALL Get_SFL_theta(theta(i_t),zeta(i_z),LA_base,LA_s,mesh_tz(1,(i_t-1)*SIZE(zeta)+i_z))
-    !     END DO
-    !   END DO
-    ! END IF
+    ! ToDO: use tensor product
+    ! y = base%f%evalDOF_xn_tens(n_theta, n_zeta, theta(:), zeta(:), seli_deriv_f, fourier_dofs(:))
     intermediate = base%f%evalDOF_xn(SIZE(theta)*SIZE(zeta),mesh_tz,seli_deriv_f,fourier_dofs)
-    result(i_s,:,:) = RESHAPE(intermediate,(/SIZE(theta),SIZE(zeta)/))
+    result(:,:,i_s) = RESHAPE(intermediate,(/SIZE(zeta),SIZE(theta)/))
   END DO
   DEALLOCATE(intermediate)
   DEALLOCATE(mesh_tz)

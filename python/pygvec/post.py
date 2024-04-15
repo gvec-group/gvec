@@ -91,14 +91,17 @@ class State:
         else:
             raise ValueError(f"Unknown quantity: {quantity}")
 
-        rho = np.asfortranarray(rho, dtype=np.float64)
-        theta = np.asfortranarray(theta, dtype=np.float64)
-        zeta = np.asfortranarray(zeta, dtype=np.float64)
+        
+        rho = np.asarray(rho, dtype=np.float64) # Fortran order does not matter (1D)
+        theta = np.asarray(theta, dtype=np.float64)
+        zeta = np.asarray(zeta, dtype=np.float64)
         if rho.ndim != 1 or theta.ndim != 1 or zeta.ndim != 1:
             raise ValueError("rho, theta, and zeta must be 1D arrays.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
 
         result = np.zeros(
-            (rho.size, theta.size, zeta.size), dtype=np.float64, order="F"
+            (zeta.size, theta.size, rho.size), dtype=np.float64, order="F"
         )
         _post.evaluate_base(rho, theta, zeta, *selection, result)
-        return result
+        return result.T  # C order (rho, theta, zeta)

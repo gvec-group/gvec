@@ -16,7 +16,7 @@ def pytest_configure(config):
         config.addinivalue_line("markers", marker)
 
 
-def pytest_collection_modifyitems(items):
+def pytest_collection_modifyitems(session, config, items):
     """
     Modify collected tests
 
@@ -29,3 +29,5 @@ def pytest_collection_modifyitems(items):
         if "unit-pygvec" in item.nodeid:
             item.add_marker(pytest.mark.unit)
             item.add_marker(pytest.mark.pygvec)
+            if config.getoption("--dry-run"):
+                item.add_marker(pytest.mark.skip("Dry-run: skipping unit tests"))

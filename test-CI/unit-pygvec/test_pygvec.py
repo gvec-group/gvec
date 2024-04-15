@@ -67,12 +67,49 @@ def test_post_twice(pygvec, ellipstell):
         pass
 
 
-def test_evaluate(ellipstell_state):
-    s = np.linspace(0.1, 0.9, 6)
-    theta = np.linspace(0, 2 * np.pi, 8, endpoint=False)
+def test_evaluate_base(ellipstell_state):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
 
-    result = ellipstell_state.evaluate_base(s, theta, zeta, "X1")
-    assert result.shape == (6, 8, 10)
-    print(result)
+    # base evaluation
+    X1 = ellipstell_state.evaluate_base(rho, theta, zeta, "X1")
+    X2 = ellipstell_state.evaluate_base(rho, theta, zeta, "X2")
+    LA = ellipstell_state.evaluate_base(rho, theta, zeta, "LA")
+    D_rtzX2 = ellipstell_state.evaluate_base(rho, theta, zeta, "D_rtz X2")
+
+    assert X1.shape == (6, 32, 10)
+    assert not np.any(np.isnan(X1))
+    assert not np.any(np.isnan(X2))
+    assert not np.any(np.isnan(LA))
+    # magnetic axis collapses to a line
+    assert np.allclose(np.std(X1[0, ...], axis=0), 0.0)
+    assert np.allclose(np.std(X2[0, ...], axis=0), 0.0)
+
+
+def test_evaluate_base_vectorize(ellipstell_state):
+    X1_222 = ellipstell_state.evaluate_base([.5, .6], [0, .1], [0, .1], "X1")
+    X1_122 = ellipstell_state.evaluate_base([.5    ], [0, .1], [0, .1], "X1")
+    X1_212 = ellipstell_state.evaluate_base([.5, .6], [   .1], [0, .1], "X1")
+    X1_221 = ellipstell_state.evaluate_base([.5, .6], [0, .1], [   .1], "X1")
+    X1_112 = ellipstell_state.evaluate_base([.5    ], [   .1], [0, .1], "X1")
+    assert np.allclose(X1_222[0,:,:], X1_122[0,:,:])
+    assert np.allclose(X1_222[:,1,:], X1_212[:,0,:])
+    assert np.allclose(X1_222[:,:,1], X1_221[:,:,0])
+    assert np.allclose(X1_222[0,1,:], X1_112[0,0,:])
+
+
+def test_evaluate_base_bounds(ellipstell_state):
+    s = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 4 * np.pi, 8, endpoint=False)
+    zeta = np.linspace(-2 * np.pi, 0, 10, endpoint=False)
+
+    X1 = ellipstell_state.evaluate_base(s, theta, zeta, "X1")
+
+    s = np.linspace(-1, 1, 6)
+    with pytest.raises(ValueError):
+        ellipstell_state.evaluate_base(s, theta, zeta, "X1")
     
+    s = np.linspace(0, 2, 6)
+    with pytest.raises(ValueError):
+        ellipstell_state.evaluate_base(s, theta, zeta, "X1")
