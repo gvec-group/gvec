@@ -1096,10 +1096,9 @@ IMPLICIT NONE
   REAL(wp)                      :: y(1:nthet*nzeta)   !! DOFS evaluated on tensor-product grid,
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                       :: iMode,offset,mTotal,nTotal,i,mIP,nIP
+  INTEGER                       :: iMode,offset,mTotal,nTotal
   REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
   REAL(wp)                      :: Ctmp(1:nthet,1:2,-sf%mn_max(2):sf%mn_max(2))
-  REAL(wp)                      :: xp(2,nthet*nzeta) 
   REAL(wp)                      :: base1D_thet(1:nthet,1:2,1:sf%mTotal1D) 
   REAL(wp)                      :: base1D_zeta(1:2,-sf%mn_max(2):sf%mn_max(2),1:nzeta) 
 !===================================================================================================================================
@@ -1126,9 +1125,6 @@ IMPLICIT NONE
   CASE(0)
     base1d_thet=fBase_eval1d_thet(sf,0,nthet,thet)
     base1d_zeta=fBase_eval1d_zeta(sf,0,nzeta,zeta)
-    WRITE(*,*)'DEBUG,diff base thet:  ',MAXVAL(ABS(base1D_thet-sf%base1D_IPthet)) 
-    WRITE(*,*)'DEBUG zeta=',zeta/TWOPI
-    WRITE(*,*)'DEBUG,diff base zeta:  ',MAXVAL(ABS(base1D_zeta-sf%base1D_IPzeta)) 
   CASE(DERIV_THET)
     base1d_thet=fBase_eval1d_thet(sf,1,nthet,thet)
     base1d_zeta=fBase_eval1d_zeta(sf,0,nzeta,zeta)
@@ -1145,16 +1141,8 @@ IMPLICIT NONE
     base1d_thet=fBase_eval1d_thet(sf,0,nthet,thet)
     base1d_zeta=fBase_eval1d_zeta(sf,2,nzeta,zeta)
   CASE DEFAULT  !for other derivatives, resort to not precomputed/ explicit computation:
-    i=0
-    DO nIP=1,nzeta
-      DO mIP=1,nthet
-        i=i+1
-        xp(1,i)=thet(mIP)
-        xp(2,i)=zeta(nIP)
-      END DO !m
-    END DO !n
-     y = sf%evalDOF_xn(nthet*nzeta,xp,deriv,DOFs)
-     RETURN
+    CALL abort(__STAMP__, &
+         "fbase_evalDOF_xn_tens: derivative must be 0,DERIV_THET,_ZETA,_THET_THET,_THET_ZETA,_ZETA_ZETA!")
   END SELECT
   __DGEMM_NN(Ctmp,2*nthet,  mTotal,base1D_thet,  mTotal, nTotal,Amn)
   __DGEMM_NN(y   ,  nthet,2*nTotal,       Ctmp,2*nTotal, nzeta ,base1D_zeta) 

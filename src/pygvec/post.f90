@@ -89,28 +89,18 @@ SUBROUTINE ReadState(statefile)
 END SUBROUTINE ReadState
 
 !================================================================================================================================!
-! Evaluate the basis (X1, X2, LA) or it's derivatives at the meshgrid of the given parameters (s, theta, zeta)
-SUBROUTINE evaluate_base(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, result)
+! Handle the selection of the functional and derivatives, based on the selection strings
+SUBROUTINE evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_dofs, seli_deriv_s, seli_deriv_f)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: TWOPI,PI,CROSS
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
-  USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_iota_Prime,Eval_pres,Eval_p_prime,Eval_Phi,Eval_PhiPrime,Eval_Phi_TwoPrime,&
-                                    Eval_chiPrime
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  REAL, INTENT(IN) :: s(:), theta(:), zeta(:)   ! evaluation points to construct a mesh
-  CHARACTER(LEN=2) :: var                       ! selection string: which variable to evaluate
-  CHARACTER(LEN=2) :: sel_deriv_s               ! selection string: which derivative to evaluate for the spline
-  CHARACTER(LEN=2) :: sel_deriv_f               ! selection string: which derivative to evaluate for the fourier series
-  REAL, INTENT(OUT) :: result(:,:,:)            ! output array
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: i_s, i_t, i_z                ! loop variables
-  INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
-  CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
-  REAL, POINTER :: solution_dofs(:,:)     ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
-  REAL, ALLOCATABLE :: fourier_dofs(:)    ! DOFs for the fourier series, calculated from the spline
-  REAL, ALLOCATABLE :: mesh_tz(:,:)       ! mesh for the theta-zeta coordinates
-  REAL, ALLOCATABLE :: intermediate(:)    ! intermediate result array before reshaping
+  CHARACTER(LEN=2), INTENT(IN) :: var                 ! selection string: which variable to evaluate
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_s         ! selection string: which derivative to evaluate for the spline
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_f         ! selection string: which derivative to evaluate for the fourier series
+  CLASS(t_base), POINTER, INTENT(OUT) :: base         ! pointer to the base object (X1, X2, LA)
+  REAL, POINTER, INTENT(OUT) :: solution_dofs(:,:)    ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  INTEGER, INTENT(OUT) :: seli_deriv_s, seli_deriv_f  ! integer values for the derivative selection
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   SELECT CASE(var)
     CASE('X1')
@@ -148,29 +138,69 @@ SUBROUTINE evaluate_base(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, result)
     CASE DEFAULT
       seli_deriv_f = 0
   END SELECT
+END SUBROUTINE evaluate_base_select
 
-  ! assemble the theta-zeta mesh
-  ALLOCATE(mesh_tz(2,SIZE(theta)*SIZE(zeta)))
-  DO i_t=1,SIZE(theta)
-    DO i_z=1,SIZE(zeta)
-      mesh_tz(1,(i_t-1)*SIZE(zeta)+i_z) = theta(i_t)
-      mesh_tz(2,(i_t-1)*SIZE(zeta)+i_z) = zeta(i_z)
-    END DO
+!================================================================================================================================!
+! Evaluate the basis for a list of (theta, zeta) positions on all flux surfaces given by s
+SUBROUTINE evaluate_base_list_tz(n_s, n_tz, s, thetazeta, var, sel_deriv_s, sel_deriv_f, result)
+  ! MODULES
+  USE MODgvec_base,           ONLY: t_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_s, n_tz              ! number of evaluation points
+  REAL, INTENT(IN) :: s(n_s), thetazeta(2,n_tz) ! evaluation points
+  CHARACTER(LEN=2) :: var                       ! selection string: which variable to evaluate
+  CHARACTER(LEN=2) :: sel_deriv_s               ! selection string: which derivative to evaluate for the spline
+  CHARACTER(LEN=2) :: sel_deriv_f               ! selection string: which derivative to evaluate for the fourier series
+  REAL, INTENT(OUT) :: result(n_s,n_tz)         ! output array
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i_s, i_t, i_z                ! loop variables
+  INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
+  CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
+  REAL, POINTER :: solution_dofs(:,:)     ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  REAL, ALLOCATABLE :: fourier_dofs(:)    ! DOFs for the fourier series, calculated from the spline
+  REAL, ALLOCATABLE :: intermediate(:)    ! intermediate result array before reshaping
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_dofs, seli_deriv_s, seli_deriv_f)
+
+  DO i_s=1,n_s
+    ! evaluate spline to get the fourier dofs
+    fourier_dofs = base%s%evalDOF2D_s(s(i_s),base%f%modes,seli_deriv_s,solution_dofs)
+    result(i_s,:) = base%f%evalDOF_xn(n_tz, thetazeta, seli_deriv_f, fourier_dofs)
   END DO
+  DEALLOCATE(fourier_dofs)
+END SUBROUTINE evaluate_base_list_tz
 
-  ALLOCATE(fourier_dofs(base%f%modes))
+!================================================================================================================================!
+! Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
+SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, result)
+  ! MODULES
+  USE MODgvec_base,           ONLY: t_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL, INTENT(IN) :: s(:), theta(:), zeta(:)   ! evaluation points to construct a mesh
+  CHARACTER(LEN=2) :: var                       ! selection string: which variable to evaluate
+  CHARACTER(LEN=2) :: sel_deriv_s               ! selection string: which derivative to evaluate for the spline
+  CHARACTER(LEN=2) :: sel_deriv_f               ! selection string: which derivative to evaluate for the fourier series
+  REAL, INTENT(OUT) :: result(:,:,:)            ! output array
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i_s, i_t, i_z                ! loop variables
+  INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
+  CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
+  REAL, POINTER :: solution_dofs(:,:)     ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  REAL, ALLOCATABLE :: fourier_dofs(:)    ! DOFs for the fourier series, calculated from the spline
+  REAL, ALLOCATABLE :: intermediate(:)    ! intermediate result array before reshaping
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_dofs, seli_deriv_s, seli_deriv_f)
+
   DO i_s=1,SIZE(s)
     ! evaluate spline to get the fourier dofs
-    fourier_dofs(:) = base%s%evalDOF2D_s(s(i_s),base%f%modes,seli_deriv_s,solution_dofs(:,:))
-    ! ToDO: use tensor product
-    ! y = base%f%evalDOF_xn_tens(n_theta, n_zeta, theta(:), zeta(:), seli_deriv_f, fourier_dofs(:))
-    intermediate = base%f%evalDOF_xn(SIZE(theta)*SIZE(zeta),mesh_tz,seli_deriv_f,fourier_dofs)
-    result(:,:,i_s) = RESHAPE(intermediate,(/SIZE(zeta),SIZE(theta)/))
+    fourier_dofs = base%s%evalDOF2D_s(s(i_s), base%f%modes, seli_deriv_s, solution_dofs(:,:))
+    ! use the tensorproduct for theta and zeta
+    intermediate = base%f%evalDOF_xn_tens(SIZE(theta), SIZE(zeta), theta, zeta, seli_deriv_f, fourier_dofs)
+    result(i_s,:,:) = RESHAPE(intermediate, (/SIZE(theta), SIZE(zeta)/))
   END DO
   DEALLOCATE(intermediate)
-  DEALLOCATE(mesh_tz)
   DEALLOCATE(fourier_dofs)
-END SUBROUTINE evaluate_base
+END SUBROUTINE evaluate_base_tens
 
 !================================================================================================================================!
 SUBROUTINE Finalize()

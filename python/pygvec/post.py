@@ -51,15 +51,14 @@ class State:
     def __del__(self):
         global _status
         if _status == "init":
-            _post.Finalize()
+            _post.finalize()
             _status = "final"
 
     def evaluate_base(
         self,
-        rho: np.ndarray | Sequence,
-        theta: np.ndarray | Sequence,
-        zeta: np.ndarray | Sequence,
         quantity: str,
+        *args,
+        **kwargs,
     ):
         global _status
         if _status != "init":
@@ -90,18 +89,61 @@ class State:
             )
         else:
             raise ValueError(f"Unknown quantity: {quantity}")
-
         
-        rho = np.asarray(rho, dtype=np.float64) # Fortran order does not matter (1D)
-        theta = np.asarray(theta, dtype=np.float64)
-        zeta = np.asarray(zeta, dtype=np.float64)
-        if rho.ndim != 1 or theta.ndim != 1 or zeta.ndim != 1:
-            raise ValueError("rho, theta, and zeta must be 1D arrays.")
-        if rho.max() > 1.0 or rho.min() < 0.0:
-            raise ValueError("rho must be in the range [0, 1].")
+        if len(args) == 3 and len(kwargs) == 0:
+            rho, theta, zeta = args
+            algorithm = "tensorproduct"
+        elif len(args) == 0 and {"rho", "theta", "zeta"} == set(kwargs.keys()):
+            rho = kwargs["rho"]
+            theta = kwargs["theta"]
+            zeta = kwargs["zeta"]
+            algorithm = "tensorproduct"
+        elif len(args) == 0 and {"r", "t", "z"} == set(kwargs.keys()):
+            rho = kwargs["r"]
+            theta = kwargs["t"]
+            zeta = kwargs["z"]
+            algorithm = "tensorproduct"
+        elif len(args) == 2 and len(kwargs) == 0:
+            rho, thetazeta = args
+            algorithm = "list-tz"
+        elif len(args) == 0 and {"rho", "thetazeta"} == set(kwargs.keys()): 
+            rho = kwargs["rho"]
+            thetazeta = kwargs["thetazeta"]
+            algorithm = "list-tz"
+        elif len(args) == 0 and {"r", "tz"} == set(kwargs.keys()): 
+            rho = kwargs["r"]
+            thetazeta = kwargs["tz"]
+            algorithm = "list-tz"
+        else:
+            raise ValueError("Invalid arguments.")
 
-        result = np.zeros(
-            (zeta.size, theta.size, rho.size), dtype=np.float64, order="F"
-        )
-        _post.evaluate_base(rho, theta, zeta, *selection, result)
-        return result.T  # C order (rho, theta, zeta)
+        if algorithm == "tensorproduct":
+            rho = np.asarray(rho, dtype=np.float64)
+            theta = np.asarray(theta, dtype=np.float64)
+            zeta = np.asarray(zeta, dtype=np.float64)
+            if rho.ndim != 1 or theta.ndim != 1 or zeta.ndim != 1:
+                raise ValueError("rho, theta, and zeta must be 1D arrays.")
+            if rho.max() > 1.0 or rho.min() < 0.0:
+                raise ValueError("rho must be in the range [0, 1].")
+
+            result = np.zeros(
+                (rho.size, theta.size, zeta.size), dtype=np.float64, order="F"
+            )
+            _post.evaluate_base_tens(rho, theta, zeta, *selection, result)
+            return result
+        elif algorithm == "list-tz":
+            rho = np.asarray(rho, dtype=np.float64)
+            thetazeta = np.asarray(thetazeta, dtype=np.float64, order="F")
+            if rho.ndim != 1:
+                raise ValueError("rho must be a 1D array.")
+            if thetazeta.ndim != 2 or thetazeta.shape[0] != 2:
+                raise ValueError("thetazeta must be a 2D array with shape (2, n).")
+            if rho.max() > 1.0 or rho.min() < 0.0:
+                raise ValueError("rho must be in the range [0, 1].")
+
+            result = np.zeros(
+                (rho.size, thetazeta.shape[1]), dtype=np.float64, order="F"
+            )
+            _post.evaluate_base_list_tz(rho.size, thetazeta.shape[1], rho, thetazeta, *selection, result)
+            return result 
+        raise RuntimeError("Internal Error: Unknown `algorithm`.")
