@@ -64,7 +64,9 @@ class State:
         if _status != "init":
             raise NotImplementedError("State is not initialized.")
 
-        if quantity in ["X1", "X2", "LA"]:
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity in ["all", "X1", "X2", "LA"]:
             selection = (quantity, "", "")
         elif quantity.startswith("D_"):
             deriv, quantity2 = quantity[2:].split(" ")
@@ -89,7 +91,7 @@ class State:
             )
         else:
             raise ValueError(f"Unknown quantity: {quantity}")
-        
+
         if len(args) == 3 and len(kwargs) == 0:
             rho, theta, zeta = args
             algorithm = "tensorproduct"
@@ -106,11 +108,11 @@ class State:
         elif len(args) == 2 and len(kwargs) == 0:
             rho, thetazeta = args
             algorithm = "list-tz"
-        elif len(args) == 0 and {"rho", "thetazeta"} == set(kwargs.keys()): 
+        elif len(args) == 0 and {"rho", "thetazeta"} == set(kwargs.keys()):
             rho = kwargs["rho"]
             thetazeta = kwargs["thetazeta"]
             algorithm = "list-tz"
-        elif len(args) == 0 and {"r", "tz"} == set(kwargs.keys()): 
+        elif len(args) == 0 and {"r", "tz"} == set(kwargs.keys()):
             rho = kwargs["r"]
             thetazeta = kwargs["tz"]
             algorithm = "list-tz"
@@ -126,11 +128,24 @@ class State:
             if rho.max() > 1.0 or rho.min() < 0.0:
                 raise ValueError("rho must be in the range [0, 1].")
 
-            result = np.zeros(
-                (rho.size, theta.size, zeta.size), dtype=np.float64, order="F"
-            )
-            _post.evaluate_base_tens(rho, theta, zeta, *selection, result)
-            return result
+            if quantity == "all":
+                # X1, X2, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta
+                results = [
+                    np.zeros(
+                        (rho.size, theta.size, zeta.size), dtype=np.float64, order="F"
+                    )
+                    for _ in range(8)
+                ]
+                _post.evaluate_base_tens_all(
+                    rho.size, theta.size, zeta.size, rho, theta, zeta, *results
+                )
+                return results
+            else:
+                result = np.zeros(
+                    (rho.size, theta.size, zeta.size), dtype=np.float64, order="F"
+                )
+                _post.evaluate_base_tens(rho, theta, zeta, *selection, result)
+                return result
         elif algorithm == "list-tz":
             rho = np.asarray(rho, dtype=np.float64)
             thetazeta = np.asarray(thetazeta, dtype=np.float64, order="F")
@@ -140,10 +155,33 @@ class State:
                 raise ValueError("thetazeta must be a 2D array with shape (2, n).")
             if rho.max() > 1.0 or rho.min() < 0.0:
                 raise ValueError("rho must be in the range [0, 1].")
+            if quantity == "all":
+                raise ValueError("Quantity 'all' is not supported for list-tz inputs.")
 
             result = np.zeros(
                 (rho.size, thetazeta.shape[1]), dtype=np.float64, order="F"
             )
-            _post.evaluate_base_list_tz(rho.size, thetazeta.shape[1], rho, thetazeta, *selection, result)
-            return result 
-        raise RuntimeError("Internal Error: Unknown `algorithm`.")
+            _post.evaluate_base_list_tz(
+                rho.size, thetazeta.shape[1], rho, thetazeta, *selection, result
+            )
+            return result
+        raise RuntimeError("Unknown `algorithm`.")
+    
+    def evaluate_hmap(self, *args):
+        global _status
+        if _status != "init":
+            raise NotImplementedError("State is not initialized.")
+
+        # X1, X2, zeta, dX1_drho, dX2_drho, dX1_dtheta, dX2_dtheta, dX1_dzeta, dX2_dzeta
+        inputs = list(args)
+        n = inputs[0].size
+        for i in range(len(inputs)):
+            inputs[i] = np.asarray(inputs[i], dtype=np.float64).flatten()
+            if inputs[i].size != n:
+                raise ValueError("All inputs must have the same size.")
+        # coords, e_rho, e_theta, e_zeta
+        outputs = [np.zeros((3, n), dtype=np.float64, order="F") for _ in range(4)]
+
+        _post.evaluate_hmap(n, *inputs, *outputs)
+        return outputs
+

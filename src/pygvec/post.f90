@@ -148,12 +148,12 @@ SUBROUTINE evaluate_base_list_tz(n_s, n_tz, s, thetazeta, var, sel_deriv_s, sel_
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s, n_tz              ! number of evaluation points
   REAL, INTENT(IN) :: s(n_s), thetazeta(2,n_tz) ! evaluation points
-  CHARACTER(LEN=2) :: var                       ! selection string: which variable to evaluate
-  CHARACTER(LEN=2) :: sel_deriv_s               ! selection string: which derivative to evaluate for the spline
-  CHARACTER(LEN=2) :: sel_deriv_f               ! selection string: which derivative to evaluate for the fourier series
+  CHARACTER(LEN=2), INTENT(IN) :: var           ! selection string: which variable to evaluate
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_s   ! selection string: which derivative to evaluate for the spline
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_f   ! selection string: which derivative to evaluate for the fourier series
   REAL, INTENT(OUT) :: result(n_s,n_tz)         ! output array
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: i_s, i_t, i_z                ! loop variables
+  INTEGER :: i_s                          ! loop variables
   INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
   CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
   REAL, POINTER :: solution_dofs(:,:)     ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
@@ -182,7 +182,7 @@ SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, res
   CHARACTER(LEN=2) :: sel_deriv_f               ! selection string: which derivative to evaluate for the fourier series
   REAL, INTENT(OUT) :: result(:,:,:)            ! output array
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: i_s, i_t, i_z                ! loop variables
+  INTEGER :: i_s                          ! loop variables
   INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
   CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
   REAL, POINTER :: solution_dofs(:,:)     ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
@@ -201,6 +201,76 @@ SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, res
   DEALLOCATE(intermediate)
   DEALLOCATE(fourier_dofs)
 END SUBROUTINE evaluate_base_tens
+
+!================================================================================================================================!
+! Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
+SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, &
+                                  X1, X2, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta)
+  ! MODULES
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_s, n_t, n_z                                            ! number of evaluation points
+  REAL, INTENT(IN) :: s(n_s), theta(n_t), zeta(n_z)                               ! evaluation points to construct a mesh
+  REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: X1, X2, dX1_ds, dX2_ds, dX1_dthet  ! reference space position & derivatives
+  REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: dX2_dthet, dX1_dzeta, dX2_dzeta    ! reference space derivatives
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i                                                                    ! loop variables
+  REAL, ALLOCATABLE, DIMENSION(:) :: X1_dofs, X2_dofs, dX1_ds_dofs, dX2_ds_dofs   ! DOFs for the fourier series
+  REAL, ALLOCATABLE :: intermediate(:)    ! intermediate result array before reshaping
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  DO i=1,n_s
+    ! evaluate spline to get the fourier dofs
+    X1_dofs = X1_base%s%evalDOF2D_s(s(i), X1_base%f%modes, 0, U(0)%X1(:,:))
+    X2_dofs = X2_base%s%evalDOF2D_s(s(i), X2_base%f%modes, 0, U(0)%X2(:,:))
+    dX1_ds_dofs = X1_base%s%evalDOF2D_s(s(i), X1_base%f%modes, DERIV_S, U(0)%X1(:,:))
+    dX2_ds_dofs = X2_base%s%evalDOF2D_s(s(i), X2_base%f%modes, DERIV_S, U(0)%X2(:,:))
+    ! use the tensorproduct for theta and zeta
+    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, X1_dofs)
+    X1(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, X2_dofs)
+    X2(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+
+    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dX1_ds_dofs)
+    dX1_ds(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dX2_ds_dofs)
+    dX2_ds(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+
+    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, X1_dofs)
+    dX1_dthet(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, X2_dofs)
+    dX2_dthet(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+
+    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, X1_dofs)
+    dX1_dzeta(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, X2_dofs)
+    dX2_dzeta(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+  END DO
+  DEALLOCATE(intermediate)
+  DEALLOCATE(X1_dofs, X2_dofs, dX1_ds_dofs, dX2_ds_dofs)
+END SUBROUTINE evaluate_base_tens_all
+
+!================================================================================================================================!
+! Evaluate the mapping from reference to physical space (hmap)
+SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta, coord, e_s, e_thet, e_zeta)
+  ! MODULES
+  USE MODgvec_MHD3D_vars,     ONLY: hmap
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n                                                      ! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds                ! reference space position & derivatives
+  REAL, INTENT(IN), DIMENSION(n) :: dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta  ! reference space derivatives
+  REAL, INTENT(OUT), DIMENSION(3,n) :: coord, e_s, e_thet, e_zeta               ! real space position and basis vectors
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i              ! loop variable
+  REAL, DIMENSION(3) :: q   ! position in reference space
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  DO i=1,n
+    q = (/X1(i),X2(i),zeta(i)/)
+    coord(:,i)  = hmap%eval(q)
+    e_s(:,i)    = hmap%eval_dxdq(q,(/dX1_ds(i),dX2_ds(i),0.0/))
+    e_thet(:,i) = hmap%eval_dxdq(q,(/dX1_dthet(i),dX2_dthet(i),0.0/))
+    e_zeta(:,i) = hmap%eval_dxdq(q,(/dX1_dzeta(i),dX2_dzeta(i),1.0/))
+  END DO
+END SUBROUTINE
 
 !================================================================================================================================!
 SUBROUTINE Finalize()
