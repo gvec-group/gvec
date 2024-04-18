@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import xarray as xr
 import os
 from pathlib import Path
 
@@ -159,6 +160,33 @@ def test_evaluate_base_args(ellipstell_state):
     with pytest.raises(ValueError):
         ellipstell_state.evaluate_base("all", rho, theta, zeta)
 
+
+def test_evaluate_base_xr(ellipstell_state):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    ds = xr.Dataset(coords={"rho": rho, "theta": theta, "zeta": zeta})
+
+    dsall = ellipstell_state.evaluate_base("all", ds)
+    assert all(
+        [
+            var in dsall
+            for var in [
+                "X1",
+                "X2",
+                "dX1_drho",
+                "dX2_drho",
+                "dX1_dtheta",
+                "dX2_dtheta",
+                "dX1_dzeta",
+                "dX2_dzeta",
+            ]
+        ]
+    )
+    dsX1 = ellipstell_state.evaluate_base("X1", ds)
+    assert "X1" in dsX1
+
+
 def test_evaluate_hmap(ellipstell_state):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
@@ -170,7 +198,4 @@ def test_evaluate_hmap(ellipstell_state):
 
     outputs = ellipstell_state.evaluate_hmap(*inputs)
     assert len(outputs) == 4
-    assert all(output.shape == (3, 6*32*10) for output in outputs)
-
-
-
+    assert all(output.shape == (3, 6 * 32 * 10) for output in outputs)

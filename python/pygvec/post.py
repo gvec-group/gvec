@@ -16,8 +16,8 @@ from ._post import modpygvec_post as _post
 
 from pathlib import Path
 import numpy as np
-from typing import Sequence
 from collections import Counter
+import xarray as xr
 
 _status = "pre"
 
@@ -92,7 +92,23 @@ class State:
         else:
             raise ValueError(f"Unknown quantity: {quantity}")
 
-        if len(args) == 3 and len(kwargs) == 0:
+        if len(args) == 1 and len(kwargs) == 0:
+            if not isinstance(args[0], xr.Dataset):
+                raise ValueError("'ds' must be an xarray.DataArray.")
+            ds = args[0]
+            rho = ds.coords["rho"].values
+            theta = ds.coords["theta"].values
+            zeta = ds.coords["zeta"].values
+            algorithm = "tensorproduct"
+        elif len(args) == 0 and {"ds"} == set(kwargs.keys()):
+            if not isinstance(kwargs["ds"], xr.DataArray):
+                raise ValueError("'ds' must be an xarray.DataArray.")
+            ds = kwargs["ds"]
+            rho = ds.coords["rho"].values
+            theta = ds.coords["theta"].values
+            zeta = ds.coords["zeta"].values
+            algorithm = "tensorproduct"
+        elif len(args) == 3 and len(kwargs) == 0:
             rho, theta, zeta = args
             algorithm = "tensorproduct"
         elif len(args) == 0 and {"rho", "theta", "zeta"} == set(kwargs.keys()):
@@ -120,9 +136,9 @@ class State:
             raise ValueError("Invalid arguments.")
 
         if algorithm == "tensorproduct":
-            rho = np.asarray(rho, dtype=np.float64)
-            theta = np.asarray(theta, dtype=np.float64)
-            zeta = np.asarray(zeta, dtype=np.float64)
+            rho = np.asfortranarray(rho, dtype=np.float64)
+            theta = np.asfortranarray(theta, dtype=np.float64)
+            zeta = np.asfortranarray(zeta, dtype=np.float64)
             if rho.ndim != 1 or theta.ndim != 1 or zeta.ndim != 1:
                 raise ValueError("rho, theta, and zeta must be 1D arrays.")
             if rho.max() > 1.0 or rho.min() < 0.0:
@@ -139,16 +155,31 @@ class State:
                 _post.evaluate_base_tens_all(
                     rho.size, theta.size, zeta.size, rho, theta, zeta, *results
                 )
+                if "ds" in locals():
+                    return ds.assign(
+                        {
+                            "X1": (["rho", "theta", "zeta"], results[0]),
+                            "X2": (["rho", "theta", "zeta"], results[1]),
+                            "dX1_drho": (["rho", "theta", "zeta"], results[2]),
+                            "dX2_drho": (["rho", "theta", "zeta"], results[3]),
+                            "dX1_dtheta": (["rho", "theta", "zeta"], results[4]),
+                            "dX2_dtheta": (["rho", "theta", "zeta"], results[5]),
+                            "dX1_dzeta": (["rho", "theta", "zeta"], results[6]),
+                            "dX2_dzeta": (["rho", "theta", "zeta"], results[7]),
+                        }
+                    )
                 return results
             else:
                 result = np.zeros(
                     (rho.size, theta.size, zeta.size), dtype=np.float64, order="F"
                 )
                 _post.evaluate_base_tens(rho, theta, zeta, *selection, result)
+                if "ds" in locals():
+                    return ds.assign({quantity: (["rho", "theta", "zeta"], result)})
                 return result
         elif algorithm == "list-tz":
-            rho = np.asarray(rho, dtype=np.float64)
-            thetazeta = np.asarray(thetazeta, dtype=np.float64, order="F")
+            rho = np.asfortranarray(rho, dtype=np.float64)
+            thetazeta = np.asfortranarray(thetazeta, dtype=np.float64, order="F")
             if rho.ndim != 1:
                 raise ValueError("rho must be a 1D array.")
             if thetazeta.ndim != 2 or thetazeta.shape[0] != 2:
@@ -166,22 +197,56 @@ class State:
             )
             return result
         raise RuntimeError("Unknown `algorithm`.")
-    
+
     def evaluate_hmap(self, *args):
         global _status
         if _status != "init":
             raise NotImplementedError("State is not initialized.")
 
         # X1, X2, zeta, dX1_drho, dX2_drho, dX1_dtheta, dX2_dtheta, dX1_dzeta, dX2_dzeta
-        inputs = list(args)
+        if len(args) == 9:
+            inputs = list(args)
+        elif len(args) == 1:
+            ds = args[0]
+            if not isinstance(ds, xr.Dataset):
+                raise ValueError("'ds' must be an xarray.Dataset.")
+            # use .data to avoid copying, conversion to numpy is done later
+            inputs = [ds[key].data for key in ["X1", "X2"]]
+            inputs += [ds.zeta.broadcast_like(ds.X1).data]
+            inputs += [
+                ds[key].data
+                for key in [
+                    "dX1_drho",
+                    "dX2_drho",
+                    "dX1_dtheta",
+                    "dX2_dtheta",
+                    "dX1_dzeta",
+                    "dX2_dzeta",
+                ]
+            ]
+        else:
+            raise ValueError("Invalid arguments.")
         n = inputs[0].size
         for i in range(len(inputs)):
-            inputs[i] = np.asarray(inputs[i], dtype=np.float64).flatten()
+            # assure that the array is contiguous (Fortran order isn't necessary for 1D)
+            inputs[i] = np.asfortranarray(inputs[i], dtype=np.float64).flatten()
             if inputs[i].size != n:
                 raise ValueError("All inputs must have the same size.")
         # coords, e_rho, e_theta, e_zeta
         outputs = [np.zeros((3, n), dtype=np.float64, order="F") for _ in range(4)]
 
         _post.evaluate_hmap(n, *inputs, *outputs)
+        if "ds" in locals():
+            ds = ds.assign_coords(vector=np.array(["x", "y", "z"]))
+            return ds.assign(
+                {
+                    key: (
+                        ["vector", "rho", "theta", "zeta"],
+                        value.reshape(3, ds.rho.size, ds.theta.size, ds.zeta.size),
+                    )
+                    for key, value in zip(
+                        ["coords", "e_rho", "e_theta", "e_zeta"], outputs
+                    )
+                }
+            )
         return outputs
-

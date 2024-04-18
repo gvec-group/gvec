@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "f90wrap",
     "numpy",
+    "xarray",
 ]
 dynamic = [
     "version",
@@ -48,8 +49,8 @@ verbose = true
 version = ">=3.15"
 args = [
     "-GUnix Makefiles", # Ninja doesn't work with the macro for CMAKE_Fortran_FLAGS
-    "-DCMAKE_BUILD_TYPE=Debug", # apprently this always overrides the preset
-    "--preset", "pygvec_config_debug",
+    # "-DCMAKE_BUILD_TYPE=Release", # apprently this always overrides the preset
+    "--preset", "pygvec_config_release",
 ]
 
 [tool.setuptools_scm]
