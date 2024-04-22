@@ -273,6 +273,55 @@ SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, 
 END SUBROUTINE
 
 !================================================================================================================================!
+SUBROUTINE evaluate_profile(n_s, s, var, result)
+  ! MODULES
+  USE MODgvec_MHD3D_profiles, ONLY: Eval_iota, Eval_iota_Prime, Eval_pres, Eval_p_prime, Eval_mass, Eval_chi, Eval_chiPrime, &
+                                    Eval_Phi, Eval_PhiPrime, Eval_Phi_TwoPrime, Eval_PhiNorm, Eval_PhiNormPrime
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n_s) :: s       ! radial evaluation points
+  CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i  ! loop variable
+  PROCEDURE(Eval_iota), POINTER :: eval_profile
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(TRIM(var))
+    CASE('iota')
+      eval_profile => Eval_iota
+    CASE('D_s iota')
+      eval_profile => Eval_iota_Prime
+    CASE('p')
+      eval_profile => Eval_pres
+    CASE('D_s p')
+      eval_profile => Eval_p_prime
+    CASE('mass')
+      eval_profile => Eval_mass
+    CASE('chi')
+      eval_profile => Eval_chi
+    CASE('D_s chi')
+      eval_profile => Eval_chiPrime
+    CASE('Phi')
+      eval_profile => Eval_Phi
+    CASE('D_s Phi')
+      eval_profile => Eval_PhiPrime
+    CASE('D_ss Phi')
+      eval_profile => Eval_Phi_TwoPrime
+    CASE('PhiNorm')
+      eval_profile => Eval_PhiNorm
+    CASE('D_s PhiNorm')
+      eval_profile => Eval_PhiNormPrime
+    CASE DEFAULT
+      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
+      STOP
+  END SELECT
+
+  DO i = 1,n_s
+    result(i) = eval_profile(s(i))
+  END DO
+END SUBROUTINE evaluate_profile
+
+!================================================================================================================================!
 SUBROUTINE Finalize()
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut

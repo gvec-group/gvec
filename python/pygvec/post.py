@@ -27,19 +27,21 @@ class State:
         global _status
         if _status != "pre":
             raise NotImplementedError("Only one instance of State is allowed.")
-        _status = "init"
         if not Path(parameterfile).exists():
             raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
         if not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
+        _status = "init"
+        self.parameterfile = Path(parameterfile)
         _post.init(parameterfile)
+        self.statefile = Path(statefile)
         _post.readstate(statefile)
 
     def __enter__(self):
         global _status
         if _status != "init":
-            raise NotImplementedError("State is not initialized.")
+            raise RuntimeError("State is not initialized.")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -53,6 +55,9 @@ class State:
         if _status == "init":
             _post.finalize()
             _status = "final"
+    
+    def __repr__(self):
+        return f"<pygvec.State({_status},{self.parameterfile},{self.statefile})>" 
 
     def evaluate_base(
         self,
@@ -62,7 +67,7 @@ class State:
     ):
         global _status
         if _status != "init":
-            raise NotImplementedError("State is not initialized.")
+            raise RuntimeError("State is not initialized.")
 
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
@@ -201,7 +206,7 @@ class State:
     def evaluate_hmap(self, *args):
         global _status
         if _status != "init":
-            raise NotImplementedError("State is not initialized.")
+            raise RuntimeError("State is not initialized.")
 
         # X1, X2, zeta, dX1_drho, dX2_drho, dX1_dtheta, dX2_dtheta, dX1_dzeta, dX2_dzeta
         if len(args) == 9:
@@ -250,3 +255,44 @@ class State:
                 }
             )
         return outputs
+
+    
+    @staticmethod
+    def evaluate_profile(quantity, *args, **kwargs):
+        global _status
+        if _status != "init":
+            raise RuntimeError("State is not initialized.")
+        
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["iota", "D_s iota", "p", "D_s p", "chi", "D_s chi", "Phi", "D_s Phi", "D_ss Phi", "PhiNorm", "D_s PhiNorm"]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+        
+        if len(args) == 1 and len(kwargs) == 0:
+            if isinstance(args[0], xr.Dataset):
+                ds = args[0]
+                rho = ds.coords["rho"].values
+            elif isinstance(args[0], np.ndarray):
+                rho = args[0]
+            else:
+                raise ValueError("Unknown input. Expect xarray.Dataset (ds) or numpy.ndarray (rho).")
+        elif len(args) == 0 and {"ds"} == set(kwargs.keys()):
+            ds = kwargs["ds"]
+            rho = ds.coords["rho"].values
+        elif len(args) == 0 and {"rho"} == set(kwargs.keys()):
+            rho = kwargs["rho"]
+        else:
+            raise ValueError("Invalid arguments.")
+        
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        if rho.ndim != 1:
+            raise ValueError("rho must be a 1D array.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+        
+        result = np.zeros(rho.size, dtype=np.float64, order="F")
+        _post.evaluate_profile(rho.size, rho, quantity, result)
+
+        if "ds" in locals():
+            return ds.assign({quantity: (["rho"], result)})
+        return result

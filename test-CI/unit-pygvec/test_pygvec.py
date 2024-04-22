@@ -199,3 +199,13 @@ def test_evaluate_hmap(ellipstell_state):
     outputs = ellipstell_state.evaluate_hmap(*inputs)
     assert len(outputs) == 4
     assert all(output.shape == (3, 6 * 32 * 10) for output in outputs)
+
+def test_evaluate_profile(ellipstell_state):
+    rho = np.linspace(0, 1, 6)
+    ds = xr.Dataset(coords={"rho": rho})
+
+    iota = ellipstell_state.evaluate_profile("iota", rho)
+    assert iota.shape == rho.shape
+    dp_drho = ellipstell_state.evaluate_profile("D_s p", rho)
+    ds = ellipstell_state.evaluate_profile("Phi", ds)
+    assert "Phi" in ds and ds.Phi.data.size == rho.size
