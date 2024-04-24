@@ -670,7 +670,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   DO iRank=0,nRanks-1 !<<<<
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
       !!!CALL par_Reduce(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank) !<<<< possible alternative
-      CALL par_IReduce(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank,req1(iRank)) !<<<< I-reduce different mode ranges to different ranks
+      CALL par_IReduce(F_MHD3D%X1(1:nBase,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank,req1(iRank)) !<<<< I-reduce different mode ranges to different ranks
   END DO
   __PERFOFF('reduce_solution_X1')
 
@@ -773,7 +773,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
       !!!CALL par_Reduce(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank) !<< possible alternative
-      CALL par_IReduce(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank,req2(iRank)) !<<<< I-reduce different mode ranges to different ranks
+      CALL par_IReduce(F_MHD3D%X2(1:nBase,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank,req2(iRank)) !<<<< I-reduce different mode ranges to different ranks
   END DO
   __PERFOFF('reduce_solution_X2')
 
@@ -824,7 +824,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
       !!!CALL par_Reduce(F_MHD3D%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank) !<< possible alternative
-      CALL par_IReduce(F_MHD3D%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank,req3(iRank)) !<<<< I-reduce different mode ranges to different ranks
+      CALL par_IReduce(F_MHD3D%LA(1:nBase,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank,req3(iRank)) !<<<< I-reduce different mode ranges to different ranks
   END DO
   __PERFOFF('reduce_solution_LA')
 
@@ -832,6 +832,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
 
   __PERFON('EvalForce_modes1')
+  nBase     = X1_base%s%nbase
+  modes     = X1_base%f%modes
   modes_str = X1_base%f%modes_str
   modes_end = X1_base%f%modes_end
   offset_modes = X1_Base%f%offset_modes
@@ -875,7 +877,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFON('Bcast_solution_X1')
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      CALL par_Bcast(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< broadcast different mode ranges to different ranks
+      CALL par_Bcast(F_MHD3D%X1(1:nBase,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< broadcast different mode ranges to different ranks
       !CALL par_IBcast(F_MHD3D%X1(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req1(iRank)) !<<<< broadcast different mode ranges to different ranks
   END DO
   __PERFOFF('Bcast_solution_X1')
@@ -884,6 +886,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('EvalForce_modes2')
 
+  nBase     = X2_base%s%nBase
+  modes     = X2_base%f%modes
   modes_str = X2_base%f%modes_str
   modes_end = X2_base%f%modes_end
   offset_modes = X2_Base%f%offset_modes
@@ -927,7 +931,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFON('Bcast_solution_X2')
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      CALL par_Bcast(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< reduce different mode ranges to different ranks
+      CALL par_Bcast(F_MHD3D%X2(1:nBase,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<<<< reduce different mode ranges to different ranks
       !CALL par_IBcast(F_MHD3D%X2(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req2(iRank)) !<<<< reduce different mode ranges to different ranks
   END DO
   __PERFOFF('Bcast_solution_X2')
@@ -937,6 +941,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('EvalForce_modes3')
 
+  nBase     = LA_base%s%nBase
+  modes     = LA_base%f%modes
   modes_str = LA_base%f%modes_str
   modes_end = LA_base%f%modes_end
   offset_modes = LA_Base%f%offset_modes
@@ -996,7 +1002,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
 !      CALL par_Bcast(F_MHD3D%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank) !<< possible alternative
-      CALL par_IBcast(F_MHD3D%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req3(iRank)) !<<<< reduce different mode ranges to different ranks
+      CALL par_IBcast(F_MHD3D%LA(1:nBase,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank,req3(iRank)) !<<<< reduce different mode ranges to different ranks
   END DO
 
 !  CALL par_Wait(req1(0:nRanks-1))
@@ -1208,15 +1214,15 @@ SUBROUTINE BuildPrecond()
 
       !CHECK =0
     IF(MPIroot)THEN
-      IF(SUM(ABS(DX1_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
-         WRITE(*,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(:)))
+      IF(SUM(ABS(DX1_ss(1:nGP))).LT.REAL(nGP,wp)*1.0E-10)  &
+         WRITE(*,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(1:nGP)))
     END IF
 
     __PERFON('modes_loop_1')
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge,nGP) & 
 #ifdef __INTEL_COMPILER
 !$OMP   DEFAULT(NONE) SHARED(X1_base,precond_X1,DX1,DX1_tt,DX1_tz,DX1_zz,DX1_ss,X1_BC_Type, &
 !$OMP          modes_str,modes_end,nElems,deg,degGP,nBase)
@@ -1226,9 +1232,9 @@ SUBROUTINE BuildPrecond()
     DO iMode=modes_str,modes_end !<<<
       norm_mn=1.0_wp/X1_base%f%snorm_base(iMode)
       CALL precond_X1(iMode)%reset() !set all values to zero
-      D_mn(:)=        (DX1+       (X1_Base%f%Xmn(1,iMode)**2)*DX1_tt(:)   &
-                          -PRODUCT(X1_Base%f%Xmn(:,iMode))   *DX1_tz(:)   &  !correct sign of theta,zeta derivative!
-                          +       (X1_Base%f%Xmn(2,iMode)**2)*DX1_zz(:) ) 
+      D_mn(1:nGP)=    (DX1(1:nGP)+(X1_Base%f%Xmn(1,iMode)**2)  *DX1_tt(1:nGP)   &
+             -(X1_Base%f%Xmn(1,iMode)*X1_Base%f%Xmn(2,iMode))  *DX1_tz(1:nGP)   &  !correct sign of theta,zeta derivative!
+                          +       (X1_Base%f%Xmn(2,iMode)**2)  *DX1_zz(1:nGP) ) 
       iGP=1
       DO iElem=1,nElems
         iBase=X1_base%s%base_offset(iElem)
@@ -1290,15 +1296,15 @@ SUBROUTINE BuildPrecond()
   
     IF(MPIroot)THEN
       !CHECK =0
-      IF(SUM(ABS(DX2_ss(:))).LT.REAL(nGP,wp)*1.0E-10)  &
-           WRITE(*,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(:)))
+      IF(SUM(ABS(DX2_ss(1:nGP))).LT.REAL(nGP,wp)*1.0E-10)  &
+           WRITE(*,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(1:nGP)))
     END IF
   
     __PERFON('modes_loop_2')
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)  &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  &
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge,nGP)  &
 #ifdef __INTEL_COMPILER
 !$OMP   DEFAULT(NONE) SHARED(X2_base,precond_X2,DX2,DX2_tt,DX2_tz,DX2_zz,DX2_ss,X2_BC_Type, &
 !$OMP          modes_str,modes_end,nElems,deg,degGP,nBase) 
@@ -1308,9 +1314,9 @@ SUBROUTINE BuildPrecond()
     DO iMode=modes_str,modes_end !<<<
       norm_mn=1.0_wp/X2_base%f%snorm_base(iMode)
       CALL precond_X2(iMode)%reset() !set all values to zero
-      D_mn(:)=        (DX2+       (X2_Base%f%Xmn(1,iMode)**2)*DX2_tt(:)   &
-                          -PRODUCT(X2_Base%f%Xmn(:,iMode))   *DX2_tz(:)   & !correct sign of theta,zeta derivative!
-                          +       (X2_Base%f%Xmn(2,iMode)**2)*DX2_zz(:) ) 
+      D_mn(1:nGP)=    (DX2(1:nGP)+(X2_Base%f%Xmn(1,iMode)**2)  *DX2_tt(1:nGP)   &
+             -(X2_Base%f%Xmn(1,iMode)*X2_Base%f%Xmn(2,iMode))  *DX2_tz(1:nGP)   & !correct sign of theta,zeta derivative!
+                          +       (X2_Base%f%Xmn(2,iMode)**2)  *DX2_zz(1:nGP) ) 
       iGP=1
       DO iElem=1,nElems
         iBase=X2_base%s%base_offset(iElem)
@@ -1374,10 +1380,10 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge,nGP) & 
 #ifdef __INTEL_COMPILER
 !$OMP   DEFAULT(NONE) SHARED(LA_base,precond_LA,DLA_tt,DLA_tz,DLA_zz,LA_BC_Type, &
-!$OMP          modes_str,modes_end,nElems,deg,degGP,nBase,nGP) 
+!$OMP          modes_str,modes_end,nElems,deg,degGP,nBase) 
 #else
 !$OMP   DEFAULT(SHARED)       
 #endif       
@@ -1385,12 +1391,12 @@ SUBROUTINE BuildPrecond()
       norm_mn=1.0_wp/LA_base%f%snorm_base(iMode)
       CALL precond_LA(iMode)%reset() !set all values to zero
       IF(LA_base%f%zero_odd_even(iMode) .NE. MN_ZERO) THEN !MN_ZERO should not exist
-        D_mn(:)=(        (        (LA_Base%f%Xmn(1,iMode)**2)*DLA_tt(:) &
-                          -PRODUCT(LA_Base%f%Xmn(:,iMode))   *DLA_tz(:) & !correct sign of theta,zeta derivative!
-                          +       (LA_Base%f%Xmn(2,iMode)**2)*DLA_zz(:) ))*norm_mn
+        D_mn(1:nGP)=(    (        (LA_Base%f%Xmn(1,iMode)**2)  *DLA_tt(1:nGP) &
+             -(LA_Base%f%Xmn(1,iMode)*LA_Base%f%Xmn(2,iMode))  *DLA_tz(1:nGP) & !correct sign of theta,zeta derivative!
+                          +       (LA_Base%f%Xmn(2,iMode)**2)  *DLA_zz(1:nGP) ))*norm_mn
         !CHECK =0
-        IF(SUM(ABS(D_mn(:))).LT.REAL(nGP,wp)*1.0E-10) WRITE(*,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
-             LA_Base%f%Xmn(1:2,iMode),SUM(D_mn(:))
+        IF(SUM(ABS(D_mn(1:nGP))).LT.REAL(nGP,wp)*1.0E-10) WRITE(*,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
+             LA_Base%f%Xmn(1,iMode),LA_Base%f%Xmn(2,iMode),SUM(D_mn(1:nGP))
         iGP=1
         DO iElem=1,nElems
           iBase=LA_base%s%base_offset(iElem)
@@ -1540,7 +1546,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   INTEGER               , INTENT(IN   ) :: FileID
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                               :: iBase,nBase,iMode,modes,JacCheck,PrecondTypeTmp
+  INTEGER                               :: iBase,nBase,iMode,modes,JacCheck,PrecondTypeTmp,np1d
   REAL(wp)                              :: W_MHD3D_in,eps_glob,eps,pTg
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Ucopy
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Utest
@@ -1619,43 +1625,43 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   WRITE(*,*)'-----------------------'
   modes = X1_Base%f%modes
   DO iMode=1,modes
-    WRITE(*,'(A,2I4,A,E11.3)')'X1 mode',X1_base%f%Xmn(:,iMode),', maxUMode= ',&
-                                            MAXVAL(ABS(Ucopy%X1(:,iMode)))
-    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X1(:,iMode))), & 
-                                ', maxfeval= ',MAXVAL((Feval%X1(:,iMode)))
-    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X1(:,iMode))), & 
-                                ', maxftest= ',MAXVAL((Ftest%X1(:,iMode))), & 
-                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X1(:,iMode) &
-                                                      -Feval%X1(:,iMode)))
+    WRITE(*,'(A,2I4,A,E11.3)')'X1 mode',X1_base%f%Xmn(1,iMode),X1_base%f%Xmn(2,iMode),', maxUMode= ',&
+                                            MAXVAL(ABS(Ucopy%X1(1:X1_base%s%nBase,iMode)))
+    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X1(1:X1_base%s%nBase,iMode))), & 
+                                ', maxfeval= ',MAXVAL((Feval%X1(1:X1_base%s%nBase,iMode)))
+    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X1(1:X1_base%s%nBase,iMode))), & 
+                                ', maxftest= ',MAXVAL((Ftest%X1(1:X1_base%s%nBase,iMode))), & 
+                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X1(1:X1_base%s%nBase,iMode) &
+                                                      -Feval%X1(1:X1_base%s%nBase,iMode)))
   END DO
   WRITE(*,*)'-----------------------'
   modes = X2_Base%f%modes
   DO iMode=1,modes
-    WRITE(*,'(A,2I4,A,E11.3)')'X2 mode',X2_base%f%Xmn(:,iMode),', maxUMode= ',&
-                                            MAXVAL(ABS(Ucopy%X2(:,iMode)))
-    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X2(:,iMode))), & 
-                                ', maxfeval= ',MAXVAL((Feval%X2(:,iMode)))
-    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X2(:,iMode))), & 
-                                ', maxftest= ',MAXVAL((Ftest%X2(:,iMode))), & 
-                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X2(:,iMode) &
-                                                      -Feval%X2(:,iMode)))
+    WRITE(*,'(A,2I4,A,E11.3)')'X2 mode',X2_base%f%Xmn(1,iMode),X2_base%f%Xmn(2,iMode),', maxUMode= ',&
+                                            MAXVAL(ABS(Ucopy%X2(1:X2_base%s%nBase,iMode)))
+    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X2(1:X2_base%s%nBase,iMode))), & 
+                                ', maxfeval= ',MAXVAL((Feval%X2(1:X2_base%s%nBase,iMode)))
+    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X2(1:X2_base%s%nBase,iMode))), & 
+                                ', maxftest= ',MAXVAL((Ftest%X2(1:X2_base%s%nBase,iMode))), & 
+                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X2(1:X2_base%s%nBase,iMode) &
+                                                      -Feval%X2(1:X2_base%s%nBase,iMode)))
   END DO
   WRITE(*,*)'-----------------------'
   modes = LA_Base%f%modes
   DO iMode=1,modes
-    WRITE(*,'(A,2I4,A,E11.3)')'LA mode',LA_base%f%Xmn(:,iMode),', maxUMode= ',&
-                                            MAXVAL(ABS(Ucopy%LA(:,iMode)))
-    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%LA(:,iMode))), & 
-                                ', maxfeval= ',MAXVAL((Feval%LA(:,iMode)))
-    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%LA(:,iMode))), & 
-                                ', maxftest= ',MAXVAL((Ftest%LA(:,iMode))), & 
-                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%LA(:,iMode) &
-                                                      -Feval%LA(:,iMode)))
+    WRITE(*,'(A,2I4,A,E11.3)')'LA mode',LA_base%f%Xmn(1,iMode),LA_base%f%Xmn(2,iMode),', maxUMode= ',&
+                                            MAXVAL(ABS(Ucopy%LA(1:LA_base%s%nBase,iMode)))
+    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%LA(1:LA_base%s%nBase,iMode))), & 
+                                ', maxfeval= ',MAXVAL((Feval%LA(1:LA_base%s%nBase,iMode)))
+    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%LA(1:LA_base%s%nBase,iMode))), & 
+                                ', maxftest= ',MAXVAL((Ftest%LA(1:LA_base%s%nBase,iMode))), & 
+                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%LA(1:LA_base%s%nBase,iMode) &
+                                                      -Feval%LA(1:LA_base%s%nBase,iMode)))
   END DO
   END IF !testlevel >=2
   
   IF(testlevel.GE.3.AND.MPIroot)THEN
-    ASSOCIATE(np1d=>2*(X1_base%s%deg+3) )
+    np1d=2*(X1_base%s%deg+3)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X1_cos_',outputLevel,fileID
     CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Ftest%X1)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X2_sin_',outputLevel,fileID
@@ -1668,7 +1674,6 @@ SUBROUTINE checkEvalForce(Uin,fileID)
     CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Feval%X2)
     WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_LA_sin_',outputLevel,fileID
     CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Feval%LA)
-    END ASSOCIATE !np1d
   END IF !testlevel >=3
 
   !check preconditioner positivity: preconditioned force^T * force should be <0

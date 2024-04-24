@@ -65,7 +65,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   REAL(wp),DIMENSION(1:LA_base%f%modes) :: RHS,sAdiag
 !  REAL(wp)                              :: gta_da,gza_da
   REAL(wp)                              :: sum_gta_da,sum_gza_da,sum_mn
-  REAL(wp),DIMENSION(1:X1_base%f%mn_IP,1:LA_base%f%modes) :: gta_da,gza_da
+  REAL(wp),DIMENSION(1:X1_base%f%mn_IP,1:LA_base%f%modes) :: gta_da,gza_da,sigma_dthet,sigma_dzeta
 !===================================================================================================================================
   __PERFON('lambda_solve')
 
@@ -163,17 +163,15 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
 !$OMP   SHARED(mn_IP,LA_modes,LA_base,sAdiag)
   !estimate of 1/Adiag for preconditioning
   DO iMode=1,LA_modes
-    ASSOCIATE(nfp=> LA_base%f%nfp,m=>LA_base%f%Xmn(1,iMode),n=>LA_base%f%Xmn(2,iMode))
-    sAdiag(iMode)=1.0_wp/(MAX(1.0_wp,REAL((nfp*m)**2+n**2 ,wp) )*REAL(mn_IP,wp))
+    sAdiag(iMode)=1.0_wp/(MAX(1.0_wp,REAL((LA_base%f%Xmn(1,iMode))**2+LA_base%f%Xmn(2,iMode)**2 ,wp) )*REAL(mn_IP,wp))
     !sAdiag(iMode)=1.0_wp 
-    END ASSOCIATE
   END DO !iMode
 !$OMP END PARALLEL DO 
 
   __PERFON('setup')
 
-  ASSOCIATE(sigma_dthet => LA_base%f%base_dthet_IP, &
-            sigma_dzeta => LA_base%f%base_dzeta_IP  )
+  sigma_dthet = LA_base%f%base_dthet_IP
+  sigma_dzeta = LA_base%f%base_dzeta_IP
 
 !  !old non-optimized version
 !  DO iMode=1,LA_modes
@@ -205,7 +203,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iMode,i_mn)        &
-!$OMP   SHARED(gta_da,gza_da,mn_IP,LA_modes,g_tt,g_zz,g_tz,LA_base)
+!$OMP   SHARED(gta_da,gza_da,mn_IP,LA_modes,g_tt,g_zz,g_tz,sigma_dthet,sigma_dzeta)
   DO iMode=1,LA_modes
     DO i_mn=1,mn_IP
       gta_da(i_mn,iMode)=g_tz(i_mn)*sigma_dthet(i_mn,iMode) - g_tt(i_mn)*sigma_dzeta(i_mn,iMode)
@@ -219,7 +217,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iMode,jMode,i_mn,sum_mn)        &
-!$OMP   SHARED(Amat,gta_da,gza_da,LA_base,mn_IP,LA_modes,PhiPrime_s,sAdiag) 
+!$OMP   SHARED(Amat,gta_da,gza_da,LA_base,mn_IP,LA_modes,PhiPrime_s,sAdiag,sigma_dthet,sigma_dzeta) 
   DO jMode=1,LA_modes
     !m=n=0 should not be in lambda, but check
     IF (LA_base%f%zero_odd_even(jMode).NE.MN_ZERO) THEN 
@@ -241,7 +239,6 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_base%f%modes) !! lambda at spos
   END DO!jMode
 !$OMP END PARALLEL DO 
 
-  END ASSOCIATE !sigma_dthet,sigma_dzeta
 
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 

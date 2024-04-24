@@ -554,7 +554,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,is,i_m,i_n
+  INTEGER  :: iMode,is,i_m,i_n,nBase
   REAL(wp) :: BC_val(2)
   REAL(wp) :: spos
   REAL(wp) :: StartTime,EndTime
@@ -659,8 +659,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       END ASSOCIATE
     END IF !init_average_axis
     IF(.NOT.init_fromBConly)THEN !whole solution from VMEC
+      nBase        = X1_base%s%nBase
       ASSOCIATE(s_IP         => X1_base%s%s_IP, &
-                nBase        => X1_base%s%nBase, &
                 sin_range    => X1_base%f%sin_range,&
                 cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
@@ -678,8 +678,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X1
+      nBase = X2_base%s%nBase
       ASSOCIATE(s_IP         => X2_base%s%s_IP, &
-                nBase        => X2_base%s%nBase, &
                 sin_range    => X2_base%f%sin_range,&
                 cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
@@ -698,8 +698,8 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       END IF !lasym
       END ASSOCIATE !X2
       IF(.NOT.init_LA)THEN
+        nBase        = LA_base%s%nBase
         ASSOCIATE(s_IP         => LA_base%s%s_IP, &
-                  nBase        => LA_base%s%nBase, &
                   sin_range    => LA_base%f%sin_range,&
                   cos_range    => LA_base%f%cos_range )
         DO imode=sin_range(1)+1,sin_range(2)
@@ -818,6 +818,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
 !!! --> THIS IS NOW DONE SEPARATELY
 
   IF(.NOT.init_LA)THEN
+    nBase        = LA_base%s%nBase
     !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
     IF(.NOT.init_fromBConly)THEN
       WRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
@@ -825,9 +826,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 zero_odd_even=>LA_base%f%zero_odd_even)
       DO imode=1,modes
         IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-          U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+          U_init%LA(1:nBase,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
         ELSE
-          U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+          U_init%LA(1:nBase,iMode)=LA_base%s%initDOF( LA_gIP(1:nBase,iMode) )
         END IF!iMode ~ MN_ZERO
         BC_val =(/ 0.0_wp, 0.0_wp/)
         CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
@@ -863,7 +864,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,is,ns_str,ns_end,iRank
+  INTEGER  :: iMode,is,ns_str,ns_end,iRank,nBase
   REAL(wp) :: BC_val(2),spos
   REAL(wp) :: StartTime,EndTime
   REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
@@ -871,8 +872,8 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !===================================================================================================================================
   StartTime=GetTime()
   SWRITE(UNIT_stdOut,'(4X,A)') "... Initialize lambda from mapping ..."
+  nBase        = LA_base%s%nBase
   ASSOCIATE(modes        => LA_base%f%modes, &
-            nBase        => LA_base%s%nBase, &
             s_IP         => LA_base%s%s_IP, &
             zero_odd_even=> LA_base%f%zero_odd_even, &
             modes_str    => LA_base%f%modes_str, &
@@ -914,13 +915,13 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   !reduce radially, different mode sets to different MPIranks (should be a gatherv)
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      CALL par_Reduce(LA_gIP(:,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank) 
+      CALL par_Reduce(LA_gIP(1:nbase,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank) 
   END DO
   DO iMode=modes_str,modes_end
     IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-      U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+      U_init%LA(1:nBase,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
     ELSE
-      U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+      U_init%LA(1:nBase,iMode)=LA_base%s%initDOF( LA_gIP(1:nBase,iMode) )
     END IF!iMode ~ MN_ZERO
     BC_val =(/ 0.0_wp, 0.0_wp/)
     CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
@@ -928,7 +929,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   ! broadcast result: different mode ranges to different MPIranks
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      CALL par_Bcast(U_init%LA(:,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank)
+      CALL par_Bcast(U_init%LA(1:nBase,offset_modes(iRank)+1:offset_modes(iRank+1)),iRank)
   END DO
   END ASSOCIATE !LA
   EndTime=GetTime()

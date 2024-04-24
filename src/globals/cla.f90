@@ -30,7 +30,7 @@ module MODgvec_cla_kinds
   integer(kind=4), public, parameter :: real_kind = 4
   integer(kind=4), public, parameter :: ptr_kind = 8
   
-  integer(kind=4), public, parameter :: STRLEN = 80
+  integer(kind=4), public, parameter :: STRLEN = 120
   integer(kind=4), public, parameter :: XSTRLEN = 256
   
 end module MODgvec_cla_kinds
@@ -517,7 +517,7 @@ module MODgvec_cla
           cla_str_eq(trim(key),'--usage')      &
           ) then
          call cla_help(cmd_name)
-         stop
+         stop " "
       endif
 
       !write(*,*) "    cla_command_argument_count = ",ncla
@@ -534,7 +534,7 @@ module MODgvec_cla
             kcla = kcla + 1
             if (kcla > cla_posarg_num) then
                write(*,*) "     ERROR: Too many positional arguments found!"
-               stop
+               stop " "
             endif
          else
             exit
@@ -569,7 +569,7 @@ module MODgvec_cla
          if (kcla == kkv) then
             if (index(key,"-") == 1) then
                write(*,*) "      ERROR: ",trim(key)," could not be matched to any known key!"
-               stop
+               stop " "
             else
                exit
             endif
@@ -582,12 +582,12 @@ module MODgvec_cla
             kcla = kcla + 1
             if ((kcla - kkv) > cla_posarg_num) then
                write(*,*) "     ERROR: Too many positional arguments found!"
-               stop
+               stop " "
             endif
          else
             write(*,*) "    ERROR: Positional arguments appear to be mixed in with -key value arguments."
             write(*,*) "    Move position arguments to the end of the list."
-            stop
+            stop " "
          end if
          !write(*,*) "    positional arg ?= ",arg
       end do

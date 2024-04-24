@@ -259,7 +259,7 @@ END FUNCTION Eval_chiPrime
 !> evaluate toroidal flux Phi 
 !!
 !===================================================================================================================================
-FUNCTION Eval_Phi(spos)
+PURE FUNCTION Eval_Phi(spos)
 ! MODULES
 USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
 IMPLICIT NONE
@@ -280,7 +280,7 @@ END FUNCTION Eval_Phi
 !> evaluate s-derivative of toroidal flux Phi
 !!
 !===================================================================================================================================
-FUNCTION Eval_PhiPrime(spos)
+PURE FUNCTION Eval_PhiPrime(spos)
 ! MODULES
 USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
 IMPLICIT NONE
@@ -301,7 +301,7 @@ END FUNCTION Eval_PhiPrime
 !> evaluate s-derivative of toroidal flux Phi
 !!
 !===================================================================================================================================
-FUNCTION Eval_Phi_TwoPrime(spos)
+PURE FUNCTION Eval_Phi_TwoPrime(spos)
 ! MODULES
 USE MODgvec_MHD3D_Vars,ONLY:Phi_edge
 IMPLICIT NONE
@@ -322,7 +322,7 @@ END FUNCTION Eval_Phi_TwoPrime
 !> evaluate normalized toroidal flux Phi/Phi_edge=s^2, this variable is used for the input profiles of iota and pressure!!!
 !!
 !===================================================================================================================================
-FUNCTION Eval_PhiNorm(spos)
+PURE FUNCTION Eval_PhiNorm(spos)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -342,7 +342,7 @@ END FUNCTION Eval_PhiNorm
 !> evaluate s derivative of normalized toroidal flux Phi/Phi_edge =s^2
 !!
 !===================================================================================================================================
-FUNCTION Eval_PhiNormPrime(spos)
+PURE FUNCTION Eval_PhiNormPrime(spos)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------

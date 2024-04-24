@@ -97,7 +97,6 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_intel_impi_latest
-      rules: .rules_minimal
 
   - local: CI_templates/env.yml
     inputs:
@@ -139,10 +138,17 @@ include:
       env: .mpcdfci_intel2023
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gcc13
+      build-postfix: _only_converter
+      cmake-opts: .cmake_only_converter
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
 
@@ -173,6 +179,11 @@ include:
     inputs:
       env: .mpcdfci_gcc13
 
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+      vars: .vars_matrix_run_nvhpc
+
   # debugrun
   - local: CI_templates/run.yml
     inputs:
@@ -184,6 +195,13 @@ include:
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_gcc13
+      run-postfix: _debugrun
+      vars: .vars_matrix_run_debugrun
+      rules: .rules_nightly
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
@@ -235,6 +253,28 @@ include:
     inputs:
       env: .mpcdfci_gcc13
 
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+
+  # ============================
+  # postprocessing converter jobs
+  # ============================
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_intel2023
+      build-postfix: _only_converter
+      rules: .rules_minimal
+
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_gcc13
+      build-postfix: _only_converter
+
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+      build-postfix: _only_converter
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -434,6 +474,12 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
 
+.vars_matrix_run_nvhpc:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug","Release"]
+        OMP_MODE: ["ompOFF","ompON"]
+
 # debug runs overwrite the PYTEST_MARKER_OPTS and PYTEST_KEY_OPTS!
 .vars_matrix_run_debugrun:
   extends: .vars_matrix_run
@@ -479,8 +525,18 @@ include:
 .vars_matrix_post:
   parallel:
     matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF", "ompON"]
+      - CMP_MODE: ["Debug","Release"]
+        OMP_MODE: ["ompON"]
+  variables:
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "2"
+
+.vars_matrix_conv:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug","Release"]
+        OMP_MODE: ["ompON"]
   variables:
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""

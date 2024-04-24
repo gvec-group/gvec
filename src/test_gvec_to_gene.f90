@@ -140,7 +140,7 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
 
   CALL CPU_TIME(EndTime)
   WRITE(Unit_stdOut,fmt_sep)
-  WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC_TO_GENE FINISHED! [',EndTime-StartTime,' sec ]'
+  WRITE(Unit_stdOut,'(A,F8.2,A)') ' TEST GVEC TO GENE FINISHED! [',EndTime-StartTime,' sec ]'
   WRITE(Unit_stdOut,fmt_sep)
   END DO !SFLcoord_test
 

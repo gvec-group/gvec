@@ -249,7 +249,7 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
   # add flags only for compiling not linking!
   SET (MAIN_COMPILE_FLAGS "-F")
 
-ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "PGI" OR CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
+ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
   # set Flags
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
@@ -257,6 +257,19 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "PGI" OR CMAKE_Fortran_COMPILER_ID MAT
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
   # add flags only for compiling not linking!
   SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
+ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
+  # set Flags
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
+  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3")
+  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g -C ")
+  # add flags only for compiling not linking!
+  SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
+  IF(USE_OPENMP)
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
+  ELSE()
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -nomp") 
+  ENDIF()
 
 
 ELSE()
@@ -466,29 +479,39 @@ IF(COMPILE_GVEC)
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
   add_test(
+    NAME gvec_pytest_create_rundir
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_run 
+  )
+  add_test(
+    NAME gvec_pytest_create_postdir
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_post 
+  )
+  add_test(
     NAME gvec_pytest_dryrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --refdir=${CMAKE_BINARY_DIR}/ctest_run  --dry-run -m "run_stage or post_stage or regression_stage"
   )
   add_test(
     NAME gvec_pytest_run_shortrun_norestart
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run
   )
   add_test(
     NAME gvec_pytest_run_shortrun_restart
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run
   )
   add_test(
     NAME gvec_pytest_post_shortrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --postdir=${CMAKE_BINARY_DIR}/ctest_post
   )
   add_test(
     NAME gvec_pytest_run_debugrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run
   )
   #add_test(
   #  NAME gvec_pytest_example
@@ -499,18 +522,70 @@ ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
   add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
   ADD_DEPENDENCIES(test_gvec_to_hopr gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_hopr_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_hopr 
+    )
+    add_test(
+      NAME gvec_to_hopr_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_hopr"
+    )
+    set_tests_properties(gvec_to_hopr_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_GENE)
   add_exec(test_gvec_to_gene ./src/test_gvec_to_gene.f90 )
   ADD_DEPENDENCIES(test_gvec_to_gene gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_gene_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_gene 
+    )
+    add_test(
+      NAME gvec_to_gene_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_gene"
+    )
+    set_tests_properties(gvec_to_gene_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_CASTOR3D)
   add_exec(convert_gvec_to_castor3d ./src/convert_gvec_to_castor3d.f90 )
   ADD_DEPENDENCIES(convert_gvec_to_castor3d gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_castor3d_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_castor3d
+    )
+    add_test(
+      NAME gvec_to_castor3d_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_castor3d"
+    )
+    set_tests_properties(gvec_to_castor3d_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_JOREK)
   add_exec(convert_gvec_to_jorek ./src/convert_gvec_to_jorek.f90 )
   ADD_DEPENDENCIES(convert_gvec_to_jorek gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_jorek_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_jorek
+    )
+    add_test(
+      NAME gvec_to_jorek_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_jorek"
+    )
+    set_tests_properties(gvec_to_jorek_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 
 # =========================================================================

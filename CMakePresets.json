@@ -40,6 +40,15 @@
             ]
         },
         {
+            "name": "gvec_config_debug_all",
+            "displayName": "GVEC configure: default debug build including all converters",
+            "hidden": false,
+            "inherits": [
+                "gvec_config_debug",
+                ".gvec_cache_vars_to_x"
+            ]
+        },
+        {
             "name": "gvec_config_release_mac_brew",
             "displayName": "GVEC configure: default release build on a MAC, with homebrew",
             "hidden": false,
@@ -124,6 +133,30 @@
                 "COMPILE_GVEC_TO_GENE": "On",
                 "COMPILE_GVEC_TO_HOPR": "On",
                 "COMPILE_GVEC_TO_JOREK": "On"
+            }
+        },
+        {
+            "name": "gvec_config_no-omp_release",
+            "displayName": "GVEC configure: release build without openMP",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "COMPILE_GVEC": "On",
+                "LINK_GVEC_TO_NETCDF": "On",
+                "USE_OPENMP": "Off",
+                "COMPILE_GVEC_AS_STATIC_LIB": "On"
+            }
+        },
+        {
+            "name": "gvec_config_no-omp_debug",
+            "displayName": "GVEC configure: debug build without openMP",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "COMPILE_GVEC": "On",
+                "LINK_GVEC_TO_NETCDF": "On",
+                "USE_OPENMP": "Off",
+                "COMPILE_GVEC_AS_STATIC_LIB": "On"
             }
         },
         {

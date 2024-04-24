@@ -4,11 +4,11 @@ module purge
 module load git
 module load git-lfs
 module load cmake
-module load nvhpcsdk
+module load nvhpcsdk/23
 module load mkl
 module load hdf5-serial
 module load netcdf-serial
-module load anaconda
+module load anaconda/3/2023.03 
 #module load numdiff
 module list
 export CC=`which nvc`

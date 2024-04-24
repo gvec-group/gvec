@@ -20,7 +20,7 @@
 !**************************************************************
 */
 
-#if (defined ( GNU ) ||defined ( GFORTRAN ) || defined ( __PGI ) || defined(MPIF90))
+#if (defined ( GNU ) ||defined ( GFORTRAN ) || defined ( NVHPC ) || defined ( __PGI ) || defined(MPIF90))
 # define STRNG(x) "x"
 #else
 # define STRNG(x) #x
@@ -30,12 +30,12 @@
     ! that this be a part of the macro since we also want to be able to
     ! use this macro call within other macros. If the expansion yields
     ! nothing (second case) then we don't want dangling semicolons...
-#ifdef DEBUG
+#if ((!defined( DEBUG )) || defined( NVHPC ))
+# define SLL_ASSERT( x )  
+#else
 # define SLL_ASSERT(x) if ( .not. (x) ) then; \
       call sll_s_assertion( STRNG(x), __FILE__, __LINE__ ); \
-   end if;
-#else
-# define SLL_ASSERT(x)
+      end if;
 #endif
 
     ! Version of SLL_ASSERT that is also run in release mode.

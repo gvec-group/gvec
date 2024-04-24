@@ -55,6 +55,12 @@ def pytest_addoption(parser):
         help="Path to post directory",
     )
     group.addoption(
+        "--convdir",
+        type=Path,
+        default=Path(__file__).parent / "conv",
+        help="Path to post-converter directory",
+    )
+    group.addoption(
         "--annotations",
         type=Path,
         default=None,
@@ -118,6 +124,8 @@ def pytest_configure(config):
         "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)",
         "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir`, activates visualization parameters). Needs run_stage to be executed before in a given `rundir` directory.",
         "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!",
+        "converter_stage: mark test belonging to the post-processing converter stage (executed for all testgroups into a `postdir`, for all compiled converters). Needs run_stage to be executed before in a given `rundir` directory.",
+        "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!",
     ]:
         config.addinivalue_line("markers", marker)
 
@@ -142,7 +150,7 @@ def pytest_collection_modifyitems(items):
         ):
             item.add_marker(getattr(pytest.mark, "restart"))
     # sort tests by testgroup and testcase
-    stages = ["test_run", "test_regression", "test_post"]
+    stages = ["test_run", "test_regression", "test_post","test_converter"]
     items.sort(
         key=lambda item: (
             stages.index(item.name.split("[")[0]),
@@ -248,6 +256,11 @@ def refdir(request) -> Path:
 def postdir(request) -> Path:
     """path to the post directory, default is test-CI/post"""
     return Path(request.config.getoption("--postdir")).absolute()
+
+@pytest.fixture(scope="session")
+def convdir(request) -> Path:
+    """path to the converter directory, default is test-CI/conv """
+    return Path(request.config.getoption("--convdir")).absolute()
 
 
 @pytest.fixture(scope="session")
