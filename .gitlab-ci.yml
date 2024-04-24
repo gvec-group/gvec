@@ -115,6 +115,10 @@ include:
     inputs:
       env: .mpcdfci_gcc13
 
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+
   # MPI
   - local: CI_templates/build.yml
     inputs:
