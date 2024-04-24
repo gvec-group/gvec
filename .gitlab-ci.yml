@@ -89,6 +89,10 @@ include:
     inputs:
       env: .mpcdfci_gcc13
 
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+
   # MPI
   - local: CI_templates/env.yml
     inputs:
@@ -333,6 +337,18 @@ include:
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
     OMP_NUM_THR: "2"
+
+# MPCDF Docker image intel_2023_1_0_x:latest
+.mpcdfci_nvhpc23:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_23:latest
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "nvidia"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build" 
