@@ -1,5 +1,6 @@
 from .post import Evaluations, State
 from xarray import Dataset
+import xarray as xr
 
 register = Evaluations.register_quantity
 
@@ -199,3 +200,38 @@ def hmap(ds: Dataset, state: State):
     ds.e_theta.attrs["symbol"] = r"\mathbf{x}_\vartheta"
     ds.e_zeta.attrs["long_name"] = "toroidal reciprocal basis vector"
     ds.e_zeta.attrs["symbol"] = r"\mathbf{x}_\zeta"
+
+
+# === derived ================================================================================================================== #
+
+
+@register(
+    coords=["rho", "theta", "zeta"],
+    requirements=["e_rho", "e_theta", "e_zeta"],
+)
+def Jac(ds: Dataset):
+    ds["Jac"] = xr.dot(
+        ds.e_rho, xr.cross(ds.e_theta, ds.e_zeta, dim="vector"), dim="vector"
+    )
+    ds.Jac.attrs["long_name"] = "Jacobian determinant"
+    ds.Jac.attrs["symbol"] = r"\mathcal{J}"
+
+
+@register(
+    coords=["vector", "rho", "theta", "zeta"],
+    requirements=[
+        "iota",
+        "dLA_dtheta",
+        "dLA_dzeta",
+        "dPhi_drho",
+        "Jac",
+        "e_theta",
+        "e_zeta",
+    ],
+)
+def B(ds: Dataset):
+    B_contra_theta = (ds.iota - ds.dLA_dzeta) * ds.dPhi_drho / ds.Jac
+    B_contra_zeta = (1 + ds.dLA_dtheta) * ds.dPhi_drho / ds.Jac
+    ds["B"] = B_contra_theta * ds.e_theta + B_contra_zeta * ds.e_zeta
+    ds.B.attrs["long_name"] = "magnetic field"
+    ds.B.attrs["symbol"] = r"\mathbf{B}"

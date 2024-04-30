@@ -37,6 +37,24 @@ def ellipstell_state(pygvec, ellipstell):
         yield state
 
 
+@pytest.fixture()
+def evals_r(pygvec, ellipstell_state):
+    rho = np.linspace(0, 1, 6)
+    ds = pygvec.post.Evaluations(state=ellipstell_state, coords={"rho": rho})
+    return ds
+
+
+@pytest.fixture()
+def evals_rtz(pygvec, ellipstell_state):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    ds = pygvec.post.Evaluations(
+        state=ellipstell_state, coords={"rho": rho, "theta": theta, "zeta": zeta}
+    )
+    return ds
+
+
 # === Tests === #
 
 
@@ -195,11 +213,9 @@ def test_evaluate_profile(ellipstell_state):
     dp_drho = ellipstell_state.evaluate_profile("p_prime", rho)
 
 
-def test_compute_profile(pygvec, ellipstell_state):
-    rho = np.linspace(0, 1, 6)
-    ds = pygvec.post.Evaluations(coords={"rho": rho})
-
-    for var in [
+@pytest.mark.parametrize(
+    "quantity",
+    [
         "iota",
         "diota_drho",
         "p",
@@ -211,9 +227,26 @@ def test_compute_profile(pygvec, ellipstell_state):
         "dchi_drho",
         "Phi_n",
         "dPhi_n_drho",
-    ]:
-        ds.compute(var, ellipstell_state)
-        assert var in ds
-        assert ds[var].data.size == rho.size
-        assert not np.any(np.isnan(ds[var]))
-    assert len(ds.variables) == 12
+    ],
+)
+def test_compute_profile(evals_r, quantity):
+    ds = evals_r
+    ds.compute(quantity)
+    assert quantity in ds
+    assert set(ds[quantity].coords) == {"rho"}
+    assert ds[quantity].data.size == ds.rho.size
+    assert not np.any(np.isnan(ds[quantity]))
+
+
+@pytest.mark.parametrize(
+    "quantity",
+    [
+        "Jac",
+        "B",
+    ],
+)
+def test_compute_derived(evals_rtz, quantity):
+    ds = evals_rtz
+    ds.compute(quantity)
+    assert quantity in ds
+    assert not np.any(np.isnan(ds[quantity]))

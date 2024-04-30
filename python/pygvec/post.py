@@ -20,6 +20,7 @@ from collections import Counter
 from typing import Sequence, Mapping
 import xarray as xr
 import re
+import inspect
 
 _status = "pre"
 
@@ -292,6 +293,9 @@ class Evaluations(xr.Dataset):
                 )
         for req in func.requirements:
             if req not in self:
-                self.compute(req, self.state)
+                self.compute(req)
 
-        func(self, self.state)
+        if "state" in inspect.signature(func).parameters:
+            func(self, self.state)
+        else:
+            func(self)
