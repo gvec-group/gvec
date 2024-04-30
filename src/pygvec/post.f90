@@ -2,7 +2,7 @@
 ! Copyright (C) 2024 Robert Babin <robert.babin@ipp.mpg.de>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
-! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3
 ! of the License, or (at your option) any later version.
 !
 ! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
@@ -42,7 +42,7 @@ SUBROUTINE Init(parameterfile)
   USE MODgvec_Analyze,        ONLY: InitAnalyze
   USE MODgvec_Output,         ONLY: InitOutput
   USE MODgvec_Restart,        ONLY: InitRestart
-  USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
+  USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
   USE MODgvec_Functional,     ONLY: InitFunctional
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
@@ -55,16 +55,16 @@ SUBROUTINE Init(parameterfile)
 
   ! read parameter file
   CALL FillStrings(parameterfile)
-  
+
   ! initialization phase
   CALL InitRestart()
   CALL InitOutput()
   CALL InitAnalyze()
-  
+
   ! initialize the functional
   which_functional = GETINT('which_functional',Proposal=1)
   CALL InitFunctional(functional,which_functional)
-  
+
   ! print the ignored parameters
   CALL IgnoredStrings()
 END SUBROUTINE init
@@ -204,49 +204,55 @@ END SUBROUTINE evaluate_base_tens
 
 !================================================================================================================================!
 ! Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
-SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, &
-                                  X1, X2, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta)
+SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, Qsel, Q, dQ_ds, dQ_dthet, dQ_dzeta)
   ! MODULES
+  USE MODgvec_base,           ONLY: t_base
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s, n_t, n_z                                            ! number of evaluation points
   REAL, INTENT(IN) :: s(n_s), theta(n_t), zeta(n_z)                               ! evaluation points to construct a mesh
-  REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: X1, X2, dX1_ds, dX2_ds, dX1_dthet  ! reference space position & derivatives
-  REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: dX2_dthet, dX1_dzeta, dX2_dzeta    ! reference space derivatives
+  CHARACTER(LEN=2) :: Qsel                                                        ! selection string: which variable to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: Q, dQ_ds, dQ_dthet, dQ_dzeta       ! reference space position & derivatives
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: i                                                                    ! loop variables
-  REAL, ALLOCATABLE, DIMENSION(:) :: X1_dofs, X2_dofs, dX1_ds_dofs, dX2_ds_dofs   ! DOFs for the fourier series
-  REAL, ALLOCATABLE :: intermediate(:)    ! intermediate result array before reshaping
+  INTEGER :: i                                            ! loop variables
+  CLASS(t_base), POINTER :: base                          ! pointer to the base object (X1, X2, LA)
+  REAL, POINTER :: solution_dofs(:,:)                     ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs   ! DOFs for the fourier series
+  REAL, ALLOCATABLE :: intermediate(:)                    ! intermediate result array before reshaping
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(Qsel)
+    CASE('X1')
+      base => X1_base
+      solution_dofs => U(0)%X1
+    CASE('X2')
+      base => X2_base
+      solution_dofs => U(0)%X2
+    CASE('LA')
+      base => LA_base
+      solution_dofs => U(0)%LA
+    CASE DEFAULT
+      WRITE(*,*) 'ERROR: variable', Qsel, 'not recognized'
+      STOP
+  END SELECT
   DO i=1,n_s
     ! evaluate spline to get the fourier dofs
-    X1_dofs = X1_base%s%evalDOF2D_s(s(i), X1_base%f%modes, 0, U(0)%X1(:,:))
-    X2_dofs = X2_base%s%evalDOF2D_s(s(i), X2_base%f%modes, 0, U(0)%X2(:,:))
-    dX1_ds_dofs = X1_base%s%evalDOF2D_s(s(i), X1_base%f%modes, DERIV_S, U(0)%X1(:,:))
-    dX2_ds_dofs = X2_base%s%evalDOF2D_s(s(i), X2_base%f%modes, DERIV_S, U(0)%X2(:,:))
+    Q_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, 0, solution_dofs(:,:))
+    dQ_ds_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S, solution_dofs(:,:))
     ! use the tensorproduct for theta and zeta
-    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, X1_dofs)
-    X1(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, X2_dofs)
-    X2(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, Q_dofs)
+    Q(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
 
-    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dX1_ds_dofs)
-    dX1_ds(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dX2_ds_dofs)
-    dX2_ds(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dQ_ds_dofs)
+    dQ_ds(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
 
-    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, X1_dofs)
-    dX1_dthet(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, X2_dofs)
-    dX2_dthet(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, Q_dofs)
+    dQ_dthet(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
 
-    intermediate = X1_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, X1_dofs)
-    dX1_dzeta(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-    intermediate = X2_base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, X2_dofs)
-    dX2_dzeta(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, Q_dofs)
+    dQ_dzeta(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
   END DO
   DEALLOCATE(intermediate)
-  DEALLOCATE(X1_dofs, X2_dofs, dX1_ds_dofs, dX2_ds_dofs)
+  DEALLOCATE(Q_dofs, dQ_ds_dofs)
 END SUBROUTINE evaluate_base_tens_all
 
 !================================================================================================================================!
@@ -287,29 +293,29 @@ SUBROUTINE evaluate_profile(n_s, s, var, result)
   PROCEDURE(Eval_iota), POINTER :: eval_profile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   SELECT CASE(TRIM(var))
-    CASE('iota')
+    CASE("iota")
       eval_profile => Eval_iota
-    CASE('D_s iota')
+    CASE("iota_prime")
       eval_profile => Eval_iota_Prime
-    CASE('p')
+    CASE("p")
       eval_profile => Eval_pres
-    CASE('D_s p')
+    CASE("p_prime")
       eval_profile => Eval_p_prime
-    CASE('mass')
+    CASE("mass")
       eval_profile => Eval_mass
-    CASE('chi')
+    CASE("chi")
       eval_profile => Eval_chi
-    CASE('D_s chi')
+    CASE("chi_prime")
       eval_profile => Eval_chiPrime
-    CASE('Phi')
+    CASE("Phi")
       eval_profile => Eval_Phi
-    CASE('D_s Phi')
+    CASE("Phi_prime")
       eval_profile => Eval_PhiPrime
-    CASE('D_ss Phi')
+    CASE("Phi_2prime")
       eval_profile => Eval_Phi_TwoPrime
-    CASE('PhiNorm')
+    CASE("PhiNorm")
       eval_profile => Eval_PhiNorm
-    CASE('D_s PhiNorm')
+    CASE("PhiNorm_prime")
       eval_profile => Eval_PhiNormPrime
     CASE DEFAULT
       WRITE(*,*) 'ERROR: variable', var, 'not recognized'
@@ -335,7 +341,7 @@ SUBROUTINE Finalize()
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
-  
+
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
   WRITE(Unit_stdOut,'(132("="))')

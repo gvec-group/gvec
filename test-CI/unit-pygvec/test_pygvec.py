@@ -68,16 +68,16 @@ def test_post_twice(pygvec, ellipstell):
         pass
 
 
-def test_evaluate_base(ellipstell_state):
+def test_evaluate_base_tens(ellipstell_state):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
 
     # base evaluation
-    X1 = ellipstell_state.evaluate_base("X1", rho, theta, zeta)
-    X2 = ellipstell_state.evaluate_base("X2", rho, theta, zeta)
-    LA = ellipstell_state.evaluate_base("LA", rho, theta, zeta)
-    D_rtzX2 = ellipstell_state.evaluate_base("D_rtz X2", rho, theta, zeta)
+    X1 = ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
+    X2 = ellipstell_state.evaluate_base_tens("X2", None, rho, theta, zeta)
+    LA = ellipstell_state.evaluate_base_tens("LA", None, rho, theta, zeta)
+    dX2_drtz = ellipstell_state.evaluate_base_tens("X2", "rtz", rho, theta, zeta)
 
     assert X1.shape == (6, 32, 10)
     assert not np.any(np.isnan(X1))
@@ -88,103 +88,68 @@ def test_evaluate_base(ellipstell_state):
     assert np.allclose(np.std(X2[0, ...], axis=0), 0.0)
 
 
-def test_evaluate_base_vectorize(ellipstell_state):
-    X1_222 = ellipstell_state.evaluate_base("X1", [0.5, 0.6], [0, 0.1], [0, 0.1])
-    X1_122 = ellipstell_state.evaluate_base("X1", [0.5], [0, 0.1], [0, 0.1])
-    X1_212 = ellipstell_state.evaluate_base("X1", [0.5, 0.6], [0.1], [0, 0.1])
-    X1_221 = ellipstell_state.evaluate_base("X1", [0.5, 0.6], [0, 0.1], [0.1])
-    X1_112 = ellipstell_state.evaluate_base("X1", [0.5], [0.1], [0, 0.1])
+def test_evaluate_base_tens_vectorize(ellipstell_state):
+    """Test if the vectorization works properly (correct order of indices)"""
+    X1_222 = ellipstell_state.evaluate_base_tens(
+        "X1", None, [0.5, 0.6], [0, 0.1], [0, 0.1]
+    )
+    X1_122 = ellipstell_state.evaluate_base_tens("X1", None, [0.5], [0, 0.1], [0, 0.1])
+    X1_212 = ellipstell_state.evaluate_base_tens(
+        "X1", None, [0.5, 0.6], [0.1], [0, 0.1]
+    )
+    X1_221 = ellipstell_state.evaluate_base_tens(
+        "X1", None, [0.5, 0.6], [0, 0.1], [0.1]
+    )
+    X1_112 = ellipstell_state.evaluate_base_tens("X1", None, [0.5], [0.1], [0, 0.1])
     assert np.allclose(X1_222[0, :, :], X1_122[0, :, :])
     assert np.allclose(X1_222[:, 1, :], X1_212[:, 0, :])
     assert np.allclose(X1_222[:, :, 1], X1_221[:, :, 0])
     assert np.allclose(X1_222[0, 1, :], X1_112[0, 0, :])
 
 
-def test_evaluate_base_bounds(ellipstell_state):
+def test_evaluate_base_tens_bounds(ellipstell_state):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 4 * np.pi, 8, endpoint=False)
     zeta = np.linspace(-2 * np.pi, 0, 10, endpoint=False)
 
-    ellipstell_state.evaluate_base("X1", rho, theta, zeta)
+    ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
+    with pytest.raises(ValueError):
+        ellipstell_state.evaluate_base_tens("X3", None, rho, theta, zeta)
     rho = np.linspace(-1, 1, 6)
     with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("X1", rho, theta, zeta)
+        ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
     rho = np.linspace(0, 2, 6)
     with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("X1", rho, theta, zeta)
+        ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
 
 
-def test_evaluate_base_all(ellipstell_state):
+def test_evaluate_base_tens_all(ellipstell_state):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
 
-    results = ellipstell_state.evaluate_base("all", rho, theta, zeta)
-    assert len(results) == 8
+    results = ellipstell_state.evaluate_base_tens_all("X1", rho, theta, zeta)
+    assert len(results) == 4
     assert all(result.shape == (6, 32, 10) for result in results)
     with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("all", rho, theta, zeta, selection="X1")
+        ellipstell_state.evaluate_base_tens_all("X3", rho, theta, zeta)
 
 
-def test_evaluate_base_args(ellipstell_state):
+def test_compute_base(pygvec, ellipstell_state):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-    Z, T = np.meshgrid(zeta, theta)
-    thetazeta = np.stack([T.flatten(), Z.flatten()], axis=0)
+    ds = pygvec.post.Evaluations(coords={"rho": rho, "theta": theta, "zeta": zeta})
 
-    # tensorproduct - positional
-    X1p = ellipstell_state.evaluate_base("X1", rho, theta, zeta)
-    # tensorproduct - keyword
-    X1k = ellipstell_state.evaluate_base("X1", rho=rho, theta=theta, zeta=zeta)
-    assert np.allclose(X1p, X1k)
-    # list-tz - positional
-    X1ptz = ellipstell_state.evaluate_base("X1", rho, thetazeta)
-    assert np.allclose(X1p, X1ptz)
-    # list-tz - keyword
-    X1ktz = ellipstell_state.evaluate_base("X1", rho=rho, thetazeta=thetazeta)
-    assert np.allclose(X1p, X1ktz)
-    # wrong errors
-    with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("X1", rho, theta)
-    with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("X1", rho, zeta, zeta=zeta)
-    with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("X1", rho, thetazeta=thetazeta)
-    with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base(
-            "X1", rho=rho, theta=theta, zeta=zeta, thetazeta=thetazeta
-        )
-    with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("X1", np.zeros((3, 32)))
-    with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base("all", rho, theta, zeta)
+    ds.compute("X1", ellipstell_state)
+    ds.compute("X2", ellipstell_state)
+    ds.compute("LA", ellipstell_state)
 
-
-def test_evaluate_base_xr(ellipstell_state):
-    rho = np.linspace(0, 1, 6)
-    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
-    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-    ds = xr.Dataset(coords={"rho": rho, "theta": theta, "zeta": zeta})
-
-    dsall = ellipstell_state.evaluate_base("all", ds)
-    assert all(
-        [
-            var in dsall
-            for var in [
-                "X1",
-                "X2",
-                "dX1_drho",
-                "dX2_drho",
-                "dX1_dtheta",
-                "dX2_dtheta",
-                "dX1_dzeta",
-                "dX2_dzeta",
-            ]
-        ]
-    )
-    dsX1 = ellipstell_state.evaluate_base("X1", ds)
-    assert "X1" in dsX1
+    assert ds.X1.shape == (6, 32, 10)
+    assert "dX1_drho" in ds
+    assert "dX2_dtheta" in ds
+    assert "dLA_dzeta" in ds
+    assert not np.any(np.isnan(ds.X1))
 
 
 def test_evaluate_hmap(ellipstell_state):
@@ -193,12 +158,33 @@ def test_evaluate_hmap(ellipstell_state):
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
     R, T, Z = np.meshgrid(rho, theta, zeta, indexing="ij")
     # X1, X2, dX1_drho, dX2_drho, dX1_dtheta, dX2_dtheta, dX1_dzeta, dX2_dzeta
-    inputs = ellipstell_state.evaluate_base("all", rho, theta, zeta)
+    X1 = ellipstell_state.evaluate_base_tens_all("X1", rho, theta, zeta)
+    X2 = ellipstell_state.evaluate_base_tens_all("X2", rho, theta, zeta)
+    inputs = sum([[x1, x2] for x1, x2 in zip(X1, X2)], [])
     inputs = inputs[:2] + [T] + inputs[2:]
+    inputs = [i.flatten() for i in inputs]
 
     outputs = ellipstell_state.evaluate_hmap(*inputs)
     assert len(outputs) == 4
     assert all(output.shape == (3, 6 * 32 * 10) for output in outputs)
+
+
+def test_compute_hmap(pygvec, ellipstell_state):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    ds = pygvec.post.Evaluations(coords={"rho": rho, "theta": theta, "zeta": zeta})
+
+    ds.compute("pos", ellipstell_state)
+
+    assert ds.pos.shape == (3, 6, 32, 10)
+    assert "vector" in ds.coords
+    assert "e_rho" in ds
+    assert "e_theta" in ds
+    assert "e_zeta" in ds
+    assert "dX1_drho" in ds
+    assert not np.any(np.isnan(ds.pos))
+
 
 def test_evaluate_profile(ellipstell_state):
     rho = np.linspace(0, 1, 6)
@@ -206,6 +192,28 @@ def test_evaluate_profile(ellipstell_state):
 
     iota = ellipstell_state.evaluate_profile("iota", rho)
     assert iota.shape == rho.shape
-    dp_drho = ellipstell_state.evaluate_profile("D_s p", rho)
-    ds = ellipstell_state.evaluate_profile("Phi", ds)
-    assert "Phi" in ds and ds.Phi.data.size == rho.size
+    dp_drho = ellipstell_state.evaluate_profile("p_prime", rho)
+
+
+def test_compute_profile(pygvec, ellipstell_state):
+    rho = np.linspace(0, 1, 6)
+    ds = pygvec.post.Evaluations(coords={"rho": rho})
+
+    for var in [
+        "iota",
+        "diota_drho",
+        "p",
+        "dp_drho",
+        "Phi",
+        "dPhi_drho",
+        "d2Phi_drho2",
+        "chi",
+        "dchi_drho",
+        "Phi_n",
+        "dPhi_n_drho",
+    ]:
+        ds.compute(var, ellipstell_state)
+        assert var in ds
+        assert ds[var].data.size == rho.size
+        assert not np.any(np.isnan(ds[var]))
+    assert len(ds.variables) == 12
