@@ -35,9 +35,9 @@ ELSEIF (ON_DRACO GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF draco")
 ELSEIF (ON_RAVEN GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF raven")
-ELSEIF (ON_MAC_BREW GREATER -1) 
+ELSEIF (ON_MAC_BREW GREATER -1)
   MESSAGE(STATUS "Compiling on MacOS with homebrew!")
-ELSEIF (ON_MAC_BREW_PORTS GREATER -1) 
+ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
   MESSAGE(STATUS "Compiling on MacOS with macports!")
 ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
@@ -304,7 +304,7 @@ ENDIF()
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
   IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
-    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
+    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib )
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
   ENDIF()
     #TTR: don't know why above list append fails for MacOS... needs line below to work
@@ -314,7 +314,7 @@ IF(USE_FTIMINGS)
 ENDIF()
 
 # =========================================================================
-# python 
+# python
 # =========================================================================
 find_package(Python COMPONENTS Interpreter REQUIRED)
 
@@ -401,7 +401,7 @@ ENDIF()
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
 # Enable testing in general
-include(CTest) 
+include(CTest)
 #ENABLE_TESTING()
 
 # =========================================================================
@@ -414,53 +414,55 @@ IF(COMPILE_PYGVEC)
 
   SET(PYPKG_PATH "python/pygvec")
 
-  # f2py headers
+  # --- f2py headers --- #
   EXECUTE_PROCESS(
     COMMAND "${PYTHON}" -c
             "import numpy.f2py; print(numpy.f2py.get_include())"
     OUTPUT_VARIABLE F2PY_INCLUDE_DIR
     RESULT_VARIABLE F2PY_INCLUDE_DIR_RESULT
     OUTPUT_STRIP_TRAILING_WHITESPACE)
-
   ADD_LIBRARY(f2py_fortranobject OBJECT "${F2PY_INCLUDE_DIR}/fortranobject.c")
   TARGET_LINK_LIBRARIES(f2py_fortranobject PUBLIC Python::NumPy)
   TARGET_INCLUDE_DIRECTORIES(f2py_fortranobject PUBLIC "${F2PY_INCLUDE_DIR}")
   SET_PROPERTY(TARGET f2py_fortranobject PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-  # src/pygvec/post.f90
+  # --- src/pygvec/post.f90 => python/pygvec/_post.py --- #
+  # gveclib => post.f90 => f90wrap_post.f90 => _post_f90module.c => _post_f90.so => _post.py
+
+  # split off lib_post_f90 to specify individual compile flags
+  ADD_LIBRARY(lib_post_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90")
+  SET_TARGET_PROPERTIES(lib_post_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+
   ADD_CUSTOM_COMMAND(
     OUTPUT f90wrap_post.f90 _post.py
     DEPENDS src/pygvec/post.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
-    COMMAND f90wrap 
-            --mod-name _post 
-            --f90-mod-name pygvec._post_f90 
-            -k "${CMAKE_CURRENT_SOURCE_DIR}/f90wrap_kind_map.py"
+    COMMAND f90wrap
             "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
+            --mod-name _post
+            --f90-mod-name pygvec._post_f90
+            -k "${CMAKE_CURRENT_SOURCE_DIR}/f90wrap_kind_map.py"
+            # --skip evaluate_base_select
   )
+
   ADD_CUSTOM_COMMAND(
-    OUTPUT _post_f90-f2pywrappers.f _post_f90module.c
-    DEPENDS f90wrap_post.f90 src/pygvec/post.f90
+    OUTPUT _post_f90module.c
+    DEPENDS f90wrap_post.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
-    COMMAND f2py-f90wrap 
+    COMMAND f2py-f90wrap
             -m _post_f90
             --lower
             "f90wrap_post.f90"
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
   )
-  ADD_LIBRARY(lib_post_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90")
-  SET_TARGET_PROPERTIES(lib_post_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+
   PYTHON_ADD_LIBRARY(_post_f90 MODULE
     "${CMAKE_CURRENT_BINARY_DIR}/_post_f90module.c"
-    # "${CMAKE_CURRENT_BINARY_DIR}/_post_f90-f2pywrappers2.f90"
     "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
-    # "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
     WITH_SOABI
   )
   SET_TARGET_PROPERTIES(_post_f90 PROPERTIES LINKER_LANGUAGE Fortran)
-  # TARGET_INCLUDE_DIRECTORIES(_post_f90 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/src/functionals" ${CMAKE_Fortran_MODULE_DIRECTORY})
   TARGET_INCLUDE_DIRECTORIES(_post_f90 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
   TARGET_LINK_LIBRARIES(_post_f90 PRIVATE lib_post_f90 f2py_fortranobject gveclib ${linkedlibs})
 
@@ -584,7 +586,7 @@ GETLISTOFVARSSTARTINGWITH("CMAKE_BUILD_TYPE" cbVars)
 GETLISTOFVARSSTARTINGWITH("CMAKE_HOSTNAME" hnVars)
 FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
   GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
-#  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+#  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF"))
 #  IF(${boolian})
 #    #FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
 #    FILE(APPEND ${configuration} "  WRITE(UNIT_stdOut,*)  \"   CMAKE,OPTION: ${_var} ${${_var}} \" \n")
@@ -596,4 +598,3 @@ FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
     FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A18,A30,A3,A40)')  \"   CMAKE-OPTION : \",\" ${_var} \",\" : \",\"${${_var}}\"\n")
 #  ENDIF()
 ENDFOREACH()
-

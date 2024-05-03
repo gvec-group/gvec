@@ -22,20 +22,14 @@ MODULE MODpygvec_post
 USE MODgvec_c_functional, ONLY: t_functional
 
 IMPLICIT NONE
-
 PUBLIC
 
 CLASS(t_functional), ALLOCATABLE :: functional
-
-! TYPE :: t_evaluations
-!   REAL, ALLOCATABLE, DIMENSION(  :,:,:) :: X1, X2
-!   REAL, ALLOCATABLE, DIMENSION(:,:,:,:) :: position
-! END TYPE t_evaluations
+LOGICAL :: initialized = .FALSE.
 
 CONTAINS
 
 !================================================================================================================================!
-! a simple scalar function to test the wrapper
 SUBROUTINE Init(parameterfile)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut
@@ -67,7 +61,9 @@ SUBROUTINE Init(parameterfile)
 
   ! print the ignored parameters
   CALL IgnoredStrings()
-END SUBROUTINE init
+
+  initialized = .TRUE.
+END SUBROUTINE Init
 
 !================================================================================================================================!
 SUBROUTINE ReadState(statefile)
@@ -335,12 +331,15 @@ SUBROUTINE Finalize()
   USE MODgvec_Output,         ONLY: FinalizeOutput
   USE MODgvec_Restart,        ONLY: FinalizeRestart
   USE MODgvec_Functional,     ONLY: FinalizeFunctional
+  USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL FinalizeFunctional(functional)
   DEALLOCATE(functional)
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
+  CALL FinalizeReadIn()
+  initialized = .FALSE.
 
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"

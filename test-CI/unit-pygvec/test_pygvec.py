@@ -74,6 +74,19 @@ def test_post(pygvec, ellipstell):
         assert isinstance(state, pygvec.post.State)
 
 
+def test_post_explicit(pygvec, ellipstell):
+    paramfile = "parameter.ini"
+    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
+
+    state = pygvec.post.State(paramfile, statefile)
+    assert isinstance(state, pygvec.post.State)
+    assert state.initialized
+    state.finalize()
+    assert not state.initialized
+    with pytest.raises(RuntimeError):
+        state.evaluate_base_tens("X1", None, [0.5], [0.5], [0.5])
+
+
 @pytest.mark.xfail()
 def test_post_twice(pygvec, ellipstell):
     paramfile = "parameter.ini"
@@ -82,8 +95,9 @@ def test_post_twice(pygvec, ellipstell):
     with pygvec.post.State(paramfile, statefile) as state:
         pass
 
-    with pygvec.post.State(paramfile, statefile) as state:
-        pass
+    with pytest.raises(NotImplementedError):
+        with pygvec.post.State(paramfile, statefile) as state:
+            pass
 
 
 def test_evaluate_base_tens(ellipstell_state):
@@ -153,15 +167,12 @@ def test_evaluate_base_tens_all(ellipstell_state):
         ellipstell_state.evaluate_base_tens_all("X3", rho, theta, zeta)
 
 
-def test_compute_base(pygvec, ellipstell_state):
-    rho = np.linspace(0, 1, 6)
-    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
-    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-    ds = pygvec.post.Evaluations(coords={"rho": rho, "theta": theta, "zeta": zeta})
+def test_compute_base(evals_rtz):
+    ds = evals_rtz
 
-    ds.compute("X1", ellipstell_state)
-    ds.compute("X2", ellipstell_state)
-    ds.compute("LA", ellipstell_state)
+    ds.compute("X1")
+    ds.compute("X2")
+    ds.compute("LA")
 
     assert ds.X1.shape == (6, 32, 10)
     assert "dX1_drho" in ds
@@ -191,9 +202,11 @@ def test_compute_hmap(pygvec, ellipstell_state):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-    ds = pygvec.post.Evaluations(coords={"rho": rho, "theta": theta, "zeta": zeta})
+    ds = pygvec.post.Evaluations(
+        ellipstell_state, coords={"rho": rho, "theta": theta, "zeta": zeta}
+    )
 
-    ds.compute("pos", ellipstell_state)
+    ds.compute("pos")
 
     assert ds.pos.shape == (3, 6, 32, 10)
     assert "vector" in ds.coords

@@ -15,53 +15,66 @@
 from ._post import modpygvec_post as _post
 
 from pathlib import Path
-import numpy as np
 from collections import Counter
 from typing import Sequence, Mapping
-import xarray as xr
 import re
 import inspect
+import functools
 
-_status = "pre"
+import numpy as np
+import xarray as xr
+
+
+def _assert_init(func):
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+        if not _post.initialized:
+            raise RuntimeError("State is not initialized.")
+        return func(*args, **kwargs)
+
+    return wrapped
 
 
 class State:
     def __init__(self, parameterfile, statefile):
-        global _status
-        if _status != "pre":
+        if self.initialized:
             raise NotImplementedError("Only one instance of State is allowed.")
         if not Path(parameterfile).exists():
             raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
         if not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
-        _status = "init"
         self.parameterfile = Path(parameterfile)
         _post.init(parameterfile)
         self.statefile = Path(statefile)
         _post.readstate(statefile)
 
+    @_assert_init
+    def finalize(self):
+        _post.finalize()
+
+    @_assert_init
     def __enter__(self):
-        global _status
-        if _status != "init":
-            raise RuntimeError("State is not initialized.")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        global _status
-        if _status == "init":
+        # silently ignore non-initialized states
+        if self.initialized:
             _post.finalize()
-            _status = "final"
 
     def __del__(self):
-        global _status
-        if _status == "init":
+        # silently ignore non-initialized states
+        if self.initialized:
             _post.finalize()
-            _status = "final"
 
     def __repr__(self):
-        return f"<pygvec.State({_status},{self.parameterfile},{self.statefile})>"
+        return f"<pygvec.State({bool(self.initialized)},{self.parameterfile},{self.statefile})>"
 
+    @property
+    def initialized(self) -> bool:
+        return bool(_post.initialized)
+
+    @_assert_init
     def evaluate_base_tens(
         self,
         quantity: str,
@@ -70,10 +83,6 @@ class State:
         theta: np.ndarray,
         zeta: np.ndarray,
     ):
-        global _status
-        if _status != "init":
-            raise RuntimeError("State is not initialized.")
-
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
@@ -102,13 +111,10 @@ class State:
         _post.evaluate_base_tens(rho, theta, zeta, quantity, *sel_derivs, result)
         return result
 
+    @_assert_init
     def evaluate_base_list_tz(
         self, quantity: str, derivs: str | None, rho: np.ndarray, thetazeta: np.ndarray
     ):
-        global _status
-        if _status != "init":
-            raise RuntimeError("State is not initialized.")
-
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
@@ -138,13 +144,10 @@ class State:
         )
         return result
 
+    @_assert_init
     def evaluate_base_tens_all(
         self, quantity: str, rho: np.ndarray, theta: np.ndarray, zeta: np.ndarray
     ):
-        global _status
-        if _status != "init":
-            raise RuntimeError("State is not initialized.")
-
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
@@ -170,13 +173,10 @@ class State:
         return outputs
 
     @staticmethod
+    @_assert_init
     def evaluate_hmap(
         X1, X2, zeta, dX1_drho, dX2_drho, dX1_dtheta, dX2_dtheta, dX1_dzeta, dX2_dzeta
     ):
-        global _status
-        if _status != "init":
-            raise RuntimeError("State is not initialized.")
-
         inputs = [
             X1,
             X2,
@@ -202,11 +202,8 @@ class State:
         return outputs
 
     @staticmethod
+    @_assert_init
     def evaluate_profile(quantity: str, rho: np.ndarray):
-        global _status
-        if _status != "init":
-            raise RuntimeError("State is not initialized.")
-
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in [
