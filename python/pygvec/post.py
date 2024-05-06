@@ -27,17 +27,19 @@ import xarray as xr
 
 def _assert_init(func):
     @functools.wraps(func)
-    def wrapped(*args, **kwargs):
-        if not _post.initialized:
+    def wrapped(self, *args, **kwargs):
+        if not self.initialized:
             raise RuntimeError("State is not initialized.")
-        return func(*args, **kwargs)
+        if not _post.initialized:
+            raise RuntimeError("State is initialized, but GVEC libaray is not!")
+        return func(self, *args, **kwargs)
 
     return wrapped
 
 
 class State:
     def __init__(self, parameterfile, statefile):
-        if self.initialized:
+        if _post.initialized:
             raise NotImplementedError("Only one instance of State is allowed.")
         if not Path(parameterfile).exists():
             raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
@@ -48,10 +50,12 @@ class State:
         _post.init(parameterfile)
         self.statefile = Path(statefile)
         _post.readstate(statefile)
+        self.initialized = True
 
     @_assert_init
     def finalize(self):
         _post.finalize()
+        self.initialized = False
 
     @_assert_init
     def __enter__(self):
@@ -60,19 +64,15 @@ class State:
     def __exit__(self, exc_type, exc_value, traceback):
         # silently ignore non-initialized states
         if self.initialized:
-            _post.finalize()
+            self.finalize()
 
     def __del__(self):
         # silently ignore non-initialized states
         if self.initialized:
-            _post.finalize()
+            self.finalize()
 
     def __repr__(self):
         return f"<pygvec.State({bool(self.initialized)},{self.parameterfile},{self.statefile})>"
-
-    @property
-    def initialized(self) -> bool:
-        return bool(_post.initialized)
 
     @_assert_init
     def evaluate_base_tens(
@@ -172,10 +172,18 @@ class State:
         )
         return outputs
 
-    @staticmethod
     @_assert_init
     def evaluate_hmap(
-        X1, X2, zeta, dX1_drho, dX2_drho, dX1_dtheta, dX2_dtheta, dX1_dzeta, dX2_dzeta
+        self,
+        X1,
+        X2,
+        zeta,
+        dX1_drho,
+        dX2_drho,
+        dX1_dtheta,
+        dX2_dtheta,
+        dX1_dzeta,
+        dX2_dzeta,
     ):
         inputs = [
             X1,
@@ -201,9 +209,8 @@ class State:
         _post.evaluate_hmap(n, *inputs, *outputs)
         return outputs
 
-    @staticmethod
     @_assert_init
-    def evaluate_profile(quantity: str, rho: np.ndarray):
+    def evaluate_profile(self, quantity: str, rho: np.ndarray):
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in [

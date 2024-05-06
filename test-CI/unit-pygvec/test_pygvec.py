@@ -66,7 +66,7 @@ def test_version(pygvec):
     assert pkg_resources.get_distribution("pygvec").version == pygvec.__version__
 
 
-def test_post(pygvec, ellipstell):
+def test_state(pygvec, ellipstell):
     paramfile = "parameter.ini"
     statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
 
@@ -74,7 +74,7 @@ def test_post(pygvec, ellipstell):
         assert isinstance(state, pygvec.post.State)
 
 
-def test_post_explicit(pygvec, ellipstell):
+def test_state_explicit(pygvec, ellipstell):
     paramfile = "parameter.ini"
     statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
 
@@ -87,17 +87,27 @@ def test_post_explicit(pygvec, ellipstell):
         state.evaluate_base_tens("X1", None, [0.5], [0.5], [0.5])
 
 
-@pytest.mark.xfail()
-def test_post_twice(pygvec, ellipstell):
+def test_state_twice(pygvec, ellipstell):
     paramfile = "parameter.ini"
     statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
 
+    # double context
+    with pygvec.post.State(paramfile, statefile) as state:
+        pass
     with pygvec.post.State(paramfile, statefile) as state:
         pass
 
+    # double explicit
+    state = pygvec.post.State(paramfile, statefile)
+    state.finalize()
+    state = pygvec.post.State(paramfile, statefile)
+    state.finalize()
+
+    # simultaneous context (not implemented yet)
     with pytest.raises(NotImplementedError):
-        with pygvec.post.State(paramfile, statefile) as state:
-            pass
+        with pygvec.post.State(paramfile, statefile) as state1:
+            with pygvec.post.State(paramfile, statefile) as state2:
+                pass
 
 
 def test_evaluate_base_tens(ellipstell_state):
@@ -198,14 +208,8 @@ def test_evaluate_hmap(ellipstell_state):
     assert all(output.shape == (3, 6 * 32 * 10) for output in outputs)
 
 
-def test_compute_hmap(pygvec, ellipstell_state):
-    rho = np.linspace(0, 1, 6)
-    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
-    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-    ds = pygvec.post.Evaluations(
-        ellipstell_state, coords={"rho": rho, "theta": theta, "zeta": zeta}
-    )
-
+def test_compute_hmap(evals_rtz):
+    ds = evals_rtz
     ds.compute("pos")
 
     assert ds.pos.shape == (3, 6, 32, 10)
@@ -219,7 +223,6 @@ def test_compute_hmap(pygvec, ellipstell_state):
 
 def test_evaluate_profile(ellipstell_state):
     rho = np.linspace(0, 1, 6)
-    ds = xr.Dataset(coords={"rho": rho})
 
     iota = ellipstell_state.evaluate_profile("iota", rho)
     assert iota.shape == rho.shape
