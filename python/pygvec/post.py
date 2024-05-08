@@ -37,8 +37,51 @@ def _assert_init(func):
     return wrapped
 
 
+def _evaluate_1D_factory(
+    func: callable, argnames: Sequence[str], n_out: int, vector_out: bool = False
+):
+    params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)] + [
+        inspect.Parameter(
+            name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=np.ndarray
+        )
+        for name in argnames
+    ]
+    returns = tuple[tuple(np.ndarray for _ in range(n_out))]
+    sig = inspect.Signature(params, return_annotation=returns)
+
+    @_assert_init
+    def wrapper(self, *args, **kwargs):
+        bound_args = sig.bind(self, *args, **kwargs)
+        inputs = [
+            np.asfortranarray(value, dtype=np.float64)
+            for key, value in bound_args.arguments.items()
+            if key != "self"
+        ]
+        n = inputs[0].size
+        for value in inputs:
+            if value.shape != (n,):
+                raise ValueError("All arguments must be 1D arrays of the same size.")
+
+        if vector_out:
+            outputs = [
+                np.zeros((3, n), dtype=np.float64, order="F") for _ in range(n_out)
+            ]
+        else:
+            outputs = [np.zeros(n, dtype=np.float64) for _ in range(n_out)]
+        func(n, *inputs, *outputs)
+        return outputs
+
+    wrapper.__signature__ = sig
+    wrapper.__name__ = func.__name__
+    return wrapper
+
+
 class State:
     def __init__(self, parameterfile, statefile):
+        self.initialized = False
+        self.parameterfile = None
+        self.statefile = None
+
         if _post.initialized:
             raise NotImplementedError("Only one instance of State is allowed.")
         if not Path(parameterfile).exists():
@@ -161,10 +204,10 @@ class State:
         if rho.max() > 1.0 or rho.min() < 0.0:
             raise ValueError("rho must be in the range [0, 1].")
 
-        # Q, dQ_drho, dQ_dtheta, dQ_dzeta
+        # Q, dQ_drho, dQ_dtheta, dQ_dzeta, dQ_drr, dQ_drt, dQ_drz, dQ_dtt, dQ_dtz, dQ_dzz
         outputs = [
             np.zeros((rho.size, theta.size, zeta.size), dtype=np.float64, order="F")
-            for _ in range(4)
+            for _ in range(10)
         ]
 
         _post.evaluate_base_tens_all(
@@ -172,42 +215,52 @@ class State:
         )
         return outputs
 
-    @_assert_init
-    def evaluate_hmap(
-        self,
-        X1,
-        X2,
-        zeta,
-        dX1_drho,
-        dX2_drho,
-        dX1_dtheta,
-        dX2_dtheta,
-        dX1_dzeta,
-        dX2_dzeta,
-    ):
-        inputs = [
-            X1,
-            X2,
-            zeta,
-            dX1_drho,
-            dX2_drho,
-            dX1_dtheta,
-            dX2_dtheta,
-            dX1_dzeta,
-            dX2_dzeta,
+    evaluate_hmap = _evaluate_1D_factory(
+        _post.evaluate_hmap,
+        [
+            "X1",
+            "X2",
+            "zeta",
         ]
-        n = X1.size
-        for i, value in enumerate(inputs):
-            # assure that the array is contiguous (Fortran order isn't necessary for 1D)
-            inputs[i] = np.asfortranarray(value, dtype=np.float64)
-            if inputs[i].shape != (n,):
-                raise ValueError("All inputs must be 1D with the same length.")
+        + [f"d{Q}_d{i}" for i in "rtz" for Q in ["X1", "X2"]],
+        4,
+        True,
+    )  # -> pos, e_rho, e_theta, e_zeta
 
-        # pos, e_rho, e_theta, e_zeta
-        outputs = [np.zeros((3, n), dtype=np.float64, order="F") for _ in range(4)]
+    evaluate_hmap_only = _evaluate_1D_factory(
+        _post.evaluate_hmap_only, ["X1", "X2", "zeta"], 4, True
+    )  # -> pos, e_X1, e_X2, e_zeta3
 
-        _post.evaluate_hmap(n, *inputs, *outputs)
-        return outputs
+    evaluate_metric = _evaluate_1D_factory(
+        _post.evaluate_metric,
+        [
+            "X1",
+            "X2",
+            "zeta",
+        ]
+        + [
+            f"d{Q}_d{i}"
+            for i in "r t z rr rt rz tt tz zz".split()
+            for Q in ["X1", "X2"]
+        ],
+        24,
+    )  # -> g_rr, g_rt ... g_zz, dg_rr_dr, dg_rt_dr ... dg_zz_dz
+
+    evaluate_jacobian = _evaluate_1D_factory(
+        _post.evaluate_jacobian,
+        [
+            "X1",
+            "X2",
+            "zeta",
+            "dX1_dr",
+            "dX2_dr",
+            "dX1_dt",
+            "dX2_dt",
+            "dX1_dz",
+            "dX2_dz",
+        ],
+        4,
+    )  # -> Jac_h, dJac_h_dr, dJac_h_dt, dJac_h_dz
 
     @_assert_init
     def evaluate_profile(self, quantity: str, rho: np.ndarray):
@@ -251,8 +304,8 @@ class Evaluations(xr.Dataset):
     def register_quantity(
         cls,
         name: None | str | Sequence[str] = None,
-        coords: Sequence[str] = [],
-        requirements: Sequence[str] = [],
+        coords: Sequence[str] = (...,),
+        requirements: Sequence[str] = (),
     ):
         """Decorator to register equilibrium quantities.
 
@@ -291,12 +344,16 @@ class Evaluations(xr.Dataset):
         if "vector" in func.coords and "vector" not in self.coords:
             self.coords["vector"] = ["x", "y", "z"]
         for coord in func.coords:
-            if coord not in self.coords:
+            if coord != ... and coord not in self.coords:
                 raise ValueError(
-                    f"The quantity `{quantity}` requires a grid of `({', '.join(func.coords)})` coordinates."
+                    f"The quantity `{quantity}` requires a grid of `({', '.join(map(str, func.coords))})` coordinates."
                 )
         for req in func.requirements:
             if req not in self:
+                if req == "mu0":
+                    self["mu0"] = 4 * np.pi * 1e-7
+                    self.mu0.attrs["long_name"] = "magnetic constant"
+                    self.mu0.attrs["symbol"] = r"\mu_0"
                 self.compute(req)
 
         if "state" in inspect.signature(func).parameters:

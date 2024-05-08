@@ -74,6 +74,17 @@ def test_state(pygvec, ellipstell):
         assert isinstance(state, pygvec.post.State)
 
 
+def test_state_args(pygvec, ellipstell):
+    paramfile = "parameter.ini"
+    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
+
+    with pytest.raises(FileNotFoundError):
+        state = pygvec.post.State(paramfile, "nonexistent.dat")
+
+    with pytest.raises(FileNotFoundError):
+        state = pygvec.post.State("nonexistent.ini", statefile)
+
+
 def test_state_explicit(pygvec, ellipstell):
     paramfile = "parameter.ini"
     statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
@@ -83,6 +94,7 @@ def test_state_explicit(pygvec, ellipstell):
     assert state.initialized
     state.finalize()
     assert not state.initialized
+
     with pytest.raises(RuntimeError):
         state.evaluate_base_tens("X1", None, [0.5], [0.5], [0.5])
 
@@ -185,9 +197,10 @@ def test_compute_base(evals_rtz):
     ds.compute("LA")
 
     assert ds.X1.shape == (6, 32, 10)
-    assert "dX1_drho" in ds
-    assert "dX2_dtheta" in ds
-    assert "dLA_dzeta" in ds
+    assert "dX1_dr" in ds
+    assert "dX2_dt" in ds
+    assert "dLA_dz" in ds
+    assert "dX1_drt" in ds
     assert not np.any(np.isnan(ds.X1))
 
 
@@ -196,11 +209,11 @@ def test_evaluate_hmap(ellipstell_state):
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
     R, T, Z = np.meshgrid(rho, theta, zeta, indexing="ij")
-    # X1, X2, dX1_drho, dX2_drho, dX1_dtheta, dX2_dtheta, dX1_dzeta, dX2_dzeta
+    # X1, X2, dX1_dr, dX2_dr, dX1_dt, dX2_dt, dX1_dz, dX2_dz
     X1 = ellipstell_state.evaluate_base_tens_all("X1", rho, theta, zeta)
     X2 = ellipstell_state.evaluate_base_tens_all("X2", rho, theta, zeta)
-    inputs = sum([[x1, x2] for x1, x2 in zip(X1, X2)], [])
-    inputs = inputs[:2] + [T] + inputs[2:]
+    inputs = sum([[x1, x2] for x1, x2 in zip(X1[:4], X2[:4])], [])
+    inputs = inputs[:2] + [Z] + inputs[2:]
     inputs = [i.flatten() for i in inputs]
 
     outputs = ellipstell_state.evaluate_hmap(*inputs)
@@ -214,11 +227,36 @@ def test_compute_hmap(evals_rtz):
 
     assert ds.pos.shape == (3, 6, 32, 10)
     assert "vector" in ds.coords
-    assert "e_rho" in ds
-    assert "e_theta" in ds
-    assert "e_zeta" in ds
-    assert "dX1_drho" in ds
+    assert "e_X1" in ds
+    assert "e_X2" in ds
+    assert "e_zeta3" in ds
     assert not np.any(np.isnan(ds.pos))
+
+    ds.compute("e_rho")
+    assert ds.e_rho.shape == (3, 6, 32, 10)
+
+
+def test_compute_metric(evals_rtz):
+    ds = evals_rtz
+
+    ds.compute("g_tt")
+    for ij in ("rr", "rt", "rz", "tt", "tz", "zz"):
+        key = f"g_{ij}"
+        assert key in ds
+        assert set(ds[key].coords) == {"rho", "theta", "zeta"}
+        for k in "rtz":
+            assert f"dg_{ij}_d{k}" in ds
+
+    ds.compute("e_rho")
+    ds.compute("e_theta")
+    ds.compute("e_zeta")
+    idxs = {"r": "rho", "t": "theta", "z": "zeta"}
+    for ij in "rr rt rz tt tz zz".split():
+        key = f"g_{ij}"
+        assert np.allclose(
+            ds[f"g_{ij}"],
+            xr.dot(ds[f"e_{idxs[ij[0]]}"], ds[f"e_{idxs[ij[1]]}"], dim="vector"),
+        )
 
 
 def test_evaluate_profile(ellipstell_state):
@@ -226,23 +264,23 @@ def test_evaluate_profile(ellipstell_state):
 
     iota = ellipstell_state.evaluate_profile("iota", rho)
     assert iota.shape == rho.shape
-    dp_drho = ellipstell_state.evaluate_profile("p_prime", rho)
+    dp_dr = ellipstell_state.evaluate_profile("p_prime", rho)
 
 
 @pytest.mark.parametrize(
     "quantity",
     [
         "iota",
-        "diota_drho",
+        "diota_dr",
         "p",
-        "dp_drho",
+        "dp_dr",
         "Phi",
-        "dPhi_drho",
-        "d2Phi_drho2",
+        "dPhi_dr",
+        "dPhi_drr",
         "chi",
-        "dchi_drho",
+        "dchi_dr",
         "Phi_n",
-        "dPhi_n_drho",
+        "dPhi_n_dr",
     ],
 )
 def test_compute_profile(evals_r, quantity):
@@ -266,3 +304,10 @@ def test_compute_derived(evals_rtz, quantity):
     ds.compute(quantity)
     assert quantity in ds
     assert not np.any(np.isnan(ds[quantity]))
+
+
+def test_compute_J(evals_rtz):
+    ds = evals_rtz
+    ds.compute("J")
+    assert "J" in ds
+    assert not np.any(np.isnan(ds["J"]))
