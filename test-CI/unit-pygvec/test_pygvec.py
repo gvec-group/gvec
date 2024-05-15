@@ -3,6 +3,7 @@ import numpy as np
 import xarray as xr
 import os
 from pathlib import Path
+import subprocess
 
 import helpers
 
@@ -17,40 +18,78 @@ def pygvec():
     return pygvec
 
 
+@pytest.fixture(scope="session")
+def testgroup():
+    return "unit-pygvec"
+
+
+@pytest.fixture(scope="session")
+def testcase():
+    return "ellipstell_lowres"
+
+
+@pytest.fixture(scope="session")
+def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_pages_path):
+    """run the default testcase and store the output"""
+    # assume pip-build: the gvec executable is in the PATH
+    args = ["gvec", "parameter.ini"]
+    # run gvec - adapted from test_all.test_run
+    with helpers.chdir(testcaserundir):
+        # run GVEC
+        with open("stdout.txt", "w") as stdout:
+            stdout.write(f"RUNNING: \n {args} \n")
+        with open("stdout.txt", "a") as stdout, open("stderr.txt", "w") as stderr:
+            subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
+        for filename in ["stdout", "stderr"]:
+            if pages_rundir := os.environ.get("CASENAME"):
+                pages_rundir = f"CIrun_{pages_rundir}"
+            else:
+                pages_rundir = "."
+            annotations["gvec-output"].append(
+                dict(
+                    external_link=dict(
+                        label=f"{testgroup}/{testcase}/{filename}",
+                        url=f"{artifact_pages_path}/{pages_rundir}/{testgroup}/{testcase}/{filename}.txt",
+                    )
+                )
+            )
+        # check if GVEC was successful
+        helpers.assert_empty_stderr()
+        helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
+    return
+
+
 @pytest.fixture()
-def ellipstell(tmpdir):
+def testfiles(tmpdir, testcaserundir, testcase_run):
     """prepare the ellipstell parameters"""
-    refdir = Path("test-CI/run/example/ellipstell_lowres").absolute()
     paramfile = "parameter.ini"
     statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
     with helpers.chdir(tmpdir):
-        os.symlink(refdir / paramfile, paramfile)
-        os.symlink(refdir / statefile, statefile)
-        yield
+        os.symlink(testcaserundir / paramfile, paramfile)
+        os.symlink(testcaserundir / statefile, statefile)
+        yield (paramfile, statefile)
 
 
 @pytest.fixture()
-def ellipstell_state(pygvec, ellipstell):
-    paramfile = "parameter.ini"
-    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
-    with pygvec.post.State(paramfile, statefile) as state:
+def teststate(pygvec, testfiles):
+    with pygvec.post.State(*testfiles) as state:
         yield state
 
 
 @pytest.fixture()
-def evals_r(pygvec, ellipstell_state):
+def evals_r(pygvec, teststate):
     rho = np.linspace(0, 1, 6)
-    ds = pygvec.post.Evaluations(state=ellipstell_state, coords={"rho": rho})
+    ds = pygvec.post.Evaluations(state=teststate, coords={"rho": rho})
     return ds
 
 
 @pytest.fixture()
-def evals_rtz(pygvec, ellipstell_state):
+def evals_rtz(pygvec, teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
     ds = pygvec.post.Evaluations(
-        state=ellipstell_state, coords={"rho": rho, "theta": theta, "zeta": zeta}
+        state=teststate, coords={"rho": rho, "theta": theta, "zeta": zeta}
     )
     return ds
 
@@ -66,17 +105,13 @@ def test_version(pygvec):
     assert pkg_resources.get_distribution("pygvec").version == pygvec.__version__
 
 
-def test_state(pygvec, ellipstell):
-    paramfile = "parameter.ini"
-    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
-
-    with pygvec.post.State(paramfile, statefile) as state:
+def test_state(pygvec, testfiles):
+    with pygvec.post.State(*testfiles) as state:
         assert isinstance(state, pygvec.post.State)
 
 
-def test_state_args(pygvec, ellipstell):
-    paramfile = "parameter.ini"
-    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
+def test_state_args(pygvec, testfiles):
+    paramfile, statefile = testfiles
 
     with pytest.raises(FileNotFoundError):
         state = pygvec.post.State(paramfile, "nonexistent.dat")
@@ -85,11 +120,8 @@ def test_state_args(pygvec, ellipstell):
         state = pygvec.post.State("nonexistent.ini", statefile)
 
 
-def test_state_explicit(pygvec, ellipstell):
-    paramfile = "parameter.ini"
-    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
-
-    state = pygvec.post.State(paramfile, statefile)
+def test_state_explicit(pygvec, testfiles):
+    state = pygvec.post.State(*testfiles)
     assert isinstance(state, pygvec.post.State)
     assert state.initialized
     state.finalize()
@@ -99,39 +131,36 @@ def test_state_explicit(pygvec, ellipstell):
         state.evaluate_base_tens("X1", None, [0.5], [0.5], [0.5])
 
 
-def test_state_twice(pygvec, ellipstell):
-    paramfile = "parameter.ini"
-    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
-
+def test_state_twice(pygvec, testfiles):
     # double context
-    with pygvec.post.State(paramfile, statefile) as state:
+    with pygvec.post.State(*testfiles) as state:
         pass
-    with pygvec.post.State(paramfile, statefile) as state:
+    with pygvec.post.State(*testfiles) as state:
         pass
 
     # double explicit
-    state = pygvec.post.State(paramfile, statefile)
+    state = pygvec.post.State(*testfiles)
     state.finalize()
-    state = pygvec.post.State(paramfile, statefile)
+    state = pygvec.post.State(*testfiles)
     state.finalize()
 
     # simultaneous context (not implemented yet)
     with pytest.raises(NotImplementedError):
-        with pygvec.post.State(paramfile, statefile) as state1:
-            with pygvec.post.State(paramfile, statefile) as state2:
+        with pygvec.post.State(*testfiles) as state1:
+            with pygvec.post.State(*testfiles) as state2:
                 pass
 
 
-def test_evaluate_base_tens(ellipstell_state):
+def test_evaluate_base_tens(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
 
     # base evaluation
-    X1 = ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
-    X2 = ellipstell_state.evaluate_base_tens("X2", None, rho, theta, zeta)
-    LA = ellipstell_state.evaluate_base_tens("LA", None, rho, theta, zeta)
-    dX2_drtz = ellipstell_state.evaluate_base_tens("X2", "rtz", rho, theta, zeta)
+    X1 = teststate.evaluate_base_tens("X1", None, rho, theta, zeta)
+    X2 = teststate.evaluate_base_tens("X2", None, rho, theta, zeta)
+    LA = teststate.evaluate_base_tens("LA", None, rho, theta, zeta)
+    dX2_drtz = teststate.evaluate_base_tens("X2", "rtz", rho, theta, zeta)
 
     assert X1.shape == (6, 32, 10)
     assert not np.any(np.isnan(X1))
@@ -142,51 +171,45 @@ def test_evaluate_base_tens(ellipstell_state):
     assert np.allclose(np.std(X2[0, ...], axis=0), 0.0)
 
 
-def test_evaluate_base_tens_vectorize(ellipstell_state):
+def test_evaluate_base_tens_vectorize(teststate):
     """Test if the vectorization works properly (correct order of indices)"""
-    X1_222 = ellipstell_state.evaluate_base_tens(
-        "X1", None, [0.5, 0.6], [0, 0.1], [0, 0.1]
-    )
-    X1_122 = ellipstell_state.evaluate_base_tens("X1", None, [0.5], [0, 0.1], [0, 0.1])
-    X1_212 = ellipstell_state.evaluate_base_tens(
-        "X1", None, [0.5, 0.6], [0.1], [0, 0.1]
-    )
-    X1_221 = ellipstell_state.evaluate_base_tens(
-        "X1", None, [0.5, 0.6], [0, 0.1], [0.1]
-    )
-    X1_112 = ellipstell_state.evaluate_base_tens("X1", None, [0.5], [0.1], [0, 0.1])
+    X1_222 = teststate.evaluate_base_tens("X1", None, [0.5, 0.6], [0, 0.1], [0, 0.1])
+    X1_122 = teststate.evaluate_base_tens("X1", None, [0.5], [0, 0.1], [0, 0.1])
+    X1_212 = teststate.evaluate_base_tens("X1", None, [0.5, 0.6], [0.1], [0, 0.1])
+    X1_221 = teststate.evaluate_base_tens("X1", None, [0.5, 0.6], [0, 0.1], [0.1])
+    X1_112 = teststate.evaluate_base_tens("X1", None, [0.5], [0.1], [0, 0.1])
     assert np.allclose(X1_222[0, :, :], X1_122[0, :, :])
     assert np.allclose(X1_222[:, 1, :], X1_212[:, 0, :])
     assert np.allclose(X1_222[:, :, 1], X1_221[:, :, 0])
     assert np.allclose(X1_222[0, 1, :], X1_112[0, 0, :])
 
 
-def test_evaluate_base_tens_bounds(ellipstell_state):
+def test_evaluate_base_tens_bounds(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 4 * np.pi, 8, endpoint=False)
     zeta = np.linspace(-2 * np.pi, 0, 10, endpoint=False)
 
-    ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
+    teststate.evaluate_base_tens("X1", None, rho, theta, zeta)
     with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base_tens("X3", None, rho, theta, zeta)
+        teststate.evaluate_base_tens("X3", None, rho, theta, zeta)
     rho = np.linspace(-1, 1, 6)
     with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
+        teststate.evaluate_base_tens("X1", None, rho, theta, zeta)
     rho = np.linspace(0, 2, 6)
     with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base_tens("X1", None, rho, theta, zeta)
+        teststate.evaluate_base_tens("X1", None, rho, theta, zeta)
 
 
-def test_evaluate_base_tens_all(ellipstell_state):
+def test_evaluate_base_tens_all(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
 
-    results = ellipstell_state.evaluate_base_tens_all("X1", rho, theta, zeta)
-    assert len(results) == 4
+    results = teststate.evaluate_base_tens_all("X1", rho, theta, zeta)
+    assert len(results) == 10
     assert all(result.shape == (6, 32, 10) for result in results)
     with pytest.raises(ValueError):
-        ellipstell_state.evaluate_base_tens_all("X3", rho, theta, zeta)
+        teststate.evaluate_base_tens_all("X3", rho, theta, zeta)
 
 
 def test_compute_base(evals_rtz):
@@ -204,19 +227,19 @@ def test_compute_base(evals_rtz):
     assert not np.any(np.isnan(ds.X1))
 
 
-def test_evaluate_hmap(ellipstell_state):
+def test_evaluate_hmap(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
     R, T, Z = np.meshgrid(rho, theta, zeta, indexing="ij")
     # X1, X2, dX1_dr, dX2_dr, dX1_dt, dX2_dt, dX1_dz, dX2_dz
-    X1 = ellipstell_state.evaluate_base_tens_all("X1", rho, theta, zeta)
-    X2 = ellipstell_state.evaluate_base_tens_all("X2", rho, theta, zeta)
+    X1 = teststate.evaluate_base_tens_all("X1", rho, theta, zeta)
+    X2 = teststate.evaluate_base_tens_all("X2", rho, theta, zeta)
     inputs = sum([[x1, x2] for x1, x2 in zip(X1[:4], X2[:4])], [])
     inputs = inputs[:2] + [Z] + inputs[2:]
     inputs = [i.flatten() for i in inputs]
 
-    outputs = ellipstell_state.evaluate_hmap(*inputs)
+    outputs = teststate.evaluate_hmap(*inputs)
     assert len(outputs) == 4
     assert all(output.shape == (3, 6 * 32 * 10) for output in outputs)
 
@@ -259,12 +282,12 @@ def test_compute_metric(evals_rtz):
         )
 
 
-def test_evaluate_profile(ellipstell_state):
+def test_evaluate_profile(teststate):
     rho = np.linspace(0, 1, 6)
 
-    iota = ellipstell_state.evaluate_profile("iota", rho)
+    iota = teststate.evaluate_profile("iota", rho)
     assert iota.shape == rho.shape
-    dp_dr = ellipstell_state.evaluate_profile("p_prime", rho)
+    dp_dr = teststate.evaluate_profile("p_prime", rho)
 
 
 @pytest.mark.parametrize(

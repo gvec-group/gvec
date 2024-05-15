@@ -16,7 +16,7 @@ spec:
 
 ---
 
-unit$[[ inputs.env ]]:
+$[[ inputs.env ]]_unit:
   stage: unit
   extends:
     - .tmpl_$[[ inputs.env ]]

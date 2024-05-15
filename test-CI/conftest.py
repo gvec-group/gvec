@@ -5,9 +5,11 @@ import logging
 from pathlib import Path
 import json
 import re
+import shutil
 
 # add helpers.py to the `pythonpath` to be importable by all tests
-sys.path.append(str((Path(__file__).parent / "helpers")))
+sys.path.append(str((Path(__file__).parent)))
+import helpers
 
 
 # === PYTEST CONFIGURATION === #
@@ -127,18 +129,29 @@ def pytest_collection_modifyitems(items):
         items (List[Item]): The collected pytest testitem objects.
     """
     for item in items:
-        if "testgroup" in getattr(item, "fixturenames", ()):
-            item.add_marker(getattr(pytest.mark, item.callspec.getparam("testgroup")))
-        if ("testcase" in getattr(item, "fixturenames", ())) and (
-            "_restart" in item.callspec.getparam("testcase")
-        ):
-            item.add_marker(getattr(pytest.mark, "restart"))
+        try:
+            if "testgroup" in getattr(item, "fixturenames", ()):
+                item.add_marker(
+                    getattr(pytest.mark, item.callspec.getparam("testgroup"))
+                )
+            if ("testcase" in getattr(item, "fixturenames", ())) and (
+                "_restart" in item.callspec.getparam("testcase")
+            ):
+                item.add_marker(getattr(pytest.mark, "restart"))
+        except (AttributeError, ValueError):
+            pass
     # sort tests by testgroup and testcase
     stages = ["test_run", "test_regression", "test_post"]
+
     def sort_key(item):
         if not hasattr(item, "callspec") or "testgroup" not in item.callspec.params:
             return -1, item.name
-        return stages.index(item.name.split("[")[0]), item.callspec.getparam("testgroup"), item.callspec.getparam("testcase")
+        return (
+            stages.index(item.name.split("[")[0]),
+            item.callspec.getparam("testgroup"),
+            item.callspec.getparam("testcase"),
+        )
+
     items.sort(key=sort_key)
 
 
@@ -182,10 +195,9 @@ def pytest_sessionfinish(session, exitstatus):
 
     if pytest.raised_warnings:
         session.exitstatus = no_tests_collected
-    
 
 
-# === FIXTURES === #
+# === FIXTURES: CONFIGURATION === #
 
 
 @pytest.fixture(scope="session")
@@ -250,18 +262,14 @@ def extra_ignore_patterns(request) -> list:
     return request.config.getoption("--add-ignore-pattern")
 
 
-@pytest.fixture(scope="session", params=["example", "shortrun", "debugrun"])
-def testgroup(request) -> str:
-    """available test group names, will be automatically marked"""
-    return request.param
-
-
 @pytest.fixture(scope="session")
 def artifact_pages_path(rundir) -> str:
     """path to the CI artifact pages"""
     env = os.environ
     try:
-        project_path = "/".join(env["CI_PROJECT_PATH"].split("/")[1:])  # remove the root namespace of the project path
+        project_path = "/".join(
+            env["CI_PROJECT_PATH"].split("/")[1:]
+        )  # remove the root namespace of the project path
         return f"{env['CI_SERVER_PROTOCOL']}://{env['CI_PROJECT_ROOT_NAMESPACE']}.{env['CI_PAGES_DOMAIN']}/-/{project_path}/-/jobs/{env['CI_JOB_ID']}/artifacts"
     except KeyError:
         return rundir
@@ -281,10 +289,14 @@ def annotations(request, artifact_pages_path):
             mapping[key] = []
     # add the pytest log file
     if path := request.config.getoption("--log-file"):
-        mapping["pytest-log"].append(dict(external_link=dict(
-            label = path,
-            url = f"{artifact_pages_path}/{path}",
-        )))
+        mapping["pytest-log"].append(
+            dict(
+                external_link=dict(
+                    label=path,
+                    url=f"{artifact_pages_path}/{path}",
+                )
+            )
+        )
     # hand over mapping
     yield mapping
     # save the annotations to the file
@@ -299,3 +311,85 @@ def logger(caplog):
     caplog.set_level(logging.DEBUG)
     logger = logging.getLogger()
     return logger
+
+
+# === FIXTURES: PREPARATION === #
+# Note: the `testgroup` and `testcase` fixtures are used to generate parameters and are defined in test_all.py and test_pygvec.py
+
+
+@pytest.fixture(scope="session")
+def testcaserundir(rundir: Path, testgroup: str, testcase: str):
+    """
+    Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `{testgroup}/{testcase}`
+    """
+    # check rundir, rundir/data and rundir/testgroup
+    if not rundir.exists():
+        rundir.mkdir()
+    if not (rundir / "data").exists():
+        (rundir / "data").symlink_to(Path(__file__).parent / "data")
+    if not (rundir / testgroup).exists():
+        (rundir / testgroup).mkdir()
+    # create the testcase directory
+    sourcedir = Path(__file__).parent / "examples" / testcase
+    targetdir = rundir / testgroup / testcase
+    if targetdir.exists():
+        shutil.rmtree(targetdir)
+    shutil.copytree(sourcedir, targetdir, symlinks=True)
+    # modify parameter files for certain testgroups
+    match testgroup:
+        case "shortrun" | "unit-pygvec":
+            helpers.adapt_parameter_file(
+                sourcedir / "parameter.ini",
+                targetdir / "parameter.ini",
+                testlevel=-1,
+                MaxIter=1,
+                logIter=1,
+                outputIter=1,
+            )
+        case "debugrun":
+            helpers.adapt_parameter_file(
+                sourcedir / "parameter.ini",
+                targetdir / "parameter.ini",
+                testlevel=2,
+                MaxIter=1,
+                logIter=1,
+                outputIter=1,
+            )
+    return targetdir
+
+
+@pytest.fixture(scope="session")
+def testcasepostdir(postdir: Path, rundir: Path, testgroup: str, testcase: str):
+    """
+    Generate the post directory at `{postdir}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
+    """
+    # assert that `{postdir}` and `{postdir}/{testgroup}` exist
+    if not postdir.exists():
+        postdir.mkdir()
+    if not (postdir / "data").exists():
+        (postdir / "data").symlink_to(Path(__file__).parent / "data")
+    if not (postdir / testgroup).exists():
+        (postdir / testgroup).mkdir()
+    # create the testcase directory
+    sourcedir = Path(__file__).parent / "examples" / testcase
+    sourcerundir = rundir / testgroup / testcase
+    targetdir = postdir / testgroup / testcase
+    if targetdir.exists():
+        shutil.rmtree(targetdir)
+    # copy input files from examples/testcase
+    shutil.copytree(sourcedir, targetdir, symlinks=True)
+    states = [
+        sd for sd in os.listdir(sourcerundir) if "State" in sd and sd.endswith(".dat")
+    ]
+    # link to statefiles from run_stage
+    for statefile in states:
+        (targetdir / statefile).symlink_to(sourcerundir / statefile)
+    # overwrite parameter file with the rundir version and modify it
+    helpers.adapt_parameter_file(
+        sourcerundir / "parameter.ini",
+        targetdir / "parameter.ini",
+        visu1D="!",
+        visu2D="!",
+        visu3D="!",  # only uncomment visualization flags
+    )
+    return targetdir

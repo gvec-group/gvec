@@ -57,3 +57,8 @@ args = [
 
 [tool.setuptools_scm]
 version_file = "python/pygvec/_version.py"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
