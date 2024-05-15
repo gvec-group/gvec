@@ -1,0 +1,28 @@
+# =================================================================================================================================
+# Stage "unit"
+# =================================================================================================================================
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_intel2023`
+      default: mpcdfci_intel2023
+    vars:
+      description: Template with variables or parallel:matrix
+      default: .vars_matrix_unit
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
+
+---
+
+unit$[[ inputs.env ]]:
+  stage: unit
+  extends:
+    - .tmpl_$[[ inputs.env ]]
+    - .tmpl_script_unit
+    - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
+  needs:
+    - job: $[[ inputs.env ]]_build-pip
+      artifacts: true

@@ -34,7 +34,7 @@
 
 
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "build" 
+# TEMPLATES FOR STAGE "build"
 # =================================================================================================================================
 
 .tmpl_script_build:
@@ -55,7 +55,7 @@
     - echo -e "\e[0Ksection_start:`date +%s`:pytest-dryrun[collapsed=true]\r\e[0KPytest dry-run"
     - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
     - echo -e "\e[0Ksection_end:`date +%s`:pytest-dryrun\r\e[0K"
-    - rm -rf _dry_* 
+    - rm -rf _dry_*
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
@@ -69,15 +69,67 @@
     - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
     - echo -e "\e[0Ksection_end:`date +%s`:make\r\e[0K"
     - cd ..; echo "... BUILD PHASE FINISHED!"
-  #allow_failure: true  # after git-lfs migrate
   artifacts:
-    name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
+    name: build_"${CI_PIPELINE_ID}_${CI_JOB_ID}_${BUILDNAME}"
     paths:
       - build_${BUILDNAME}
       - log_${BUILDNAME}_*.txt
     expire_in: 1 week
     when: always
 
+.tmpl_script_build-pip:
+  variables:
+    GIT_STRATEGY: clone
+    BUILDNAME: ${HASH_TAG}_pip
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
+    - pwd
+    # Debug Information
+    - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
+    - echo "is ${HASH_TAG} the same as ${CI_COMMIT_REF_NAME}?"
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git checkout ${HASH_TAG}; fi
+    - git tag
+    - python --version
+    - echo "BUILDNAME is ${BUILDNAME}"
+    # Create Virtual Environment
+    - rm -rf venv_${BUILDNAME}
+    - python -m venv venv_${BUILDNAME}
+    - source venv_${BUILDNAME}/bin/activate
+    - which python
+    - which pip
+    - pip list
+    # MKL Debug Information
+    - echo $MKLROOT
+    - echo $MKL_HOME
+    - echo $LD_LIBRARY_PATH
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
+    # BUILD
+    - echo -e "\e[0Ksection_start:`date +%s`:pip[collapsed=true]\r\e[0KPip install"
+    - echo "pip install .[dev]"
+    - pip install .[dev] | tee log_${BUILDNAME}_pip.txt
+    - pip list
+    - echo -e "\e[0Ksection_end:`date +%s`:pip\r\e[0K"
+    - echo "... BUILD PHASE FINISHED!"
+    # Check for successful installation
+    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KPreliminary pytest"
+    - which pytest
+    - pytest
+      -m "unit"
+      -k "version"
+      -v -rA
+      --junitxml=pytest.xml
+    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+  artifacts:
+    name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
+    paths:
+      - venv_${BUILDNAME}
+      - log_${BUILDNAME}_*.txt
+    expire_in: 1 week
+    when: always
+    reports:
+      junit:
+        - pytest.xml
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "run"
@@ -118,18 +170,18 @@
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
     # pytest: no restart
     - ${PYTEST_EXEC_CMD}
-      --log-file=log_pytest_run_norestart.txt 
-      -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" 
-      $PYTEST_DIR_OPTS 
-      -k "${PYTEST_KEY_OPTS}" 
-      --junitxml=pytest.xml 
+      --log-file=log_pytest_run_norestart.txt
+      -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)"
+      $PYTEST_DIR_OPTS
+      -k "${PYTEST_KEY_OPTS}"
+      --junitxml=pytest.xml
       --annotations=annotations.json
     # pytest: restart
-    - ${PYTEST_EXEC_CMD} 
-      --log-file=log_pytest_run_restart.txt   
-      -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_run_restart.txt
+      -m "${PYTEST_MARKER_OPTS} and run_stage and restart"
       $PYTEST_DIR_OPTS
-      -k "${PYTEST_KEY_OPTS}" 
+      -k "${PYTEST_KEY_OPTS}"
       --junitxml=pytest-restart.xml
       --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
@@ -148,6 +200,35 @@
       annotations:
         - annotations.json
 
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "unit"
+# =================================================================================================================================
+
+.tmpl_script_unit:
+  variables:
+    GIT_STRATEGY: clone
+    BUILDNAME: ${HASH_TAG}_pip
+    CASENAME: ${HASH_TAG}_pip
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre[collapsed=true]\r\e[0KPreparation"
+    - echo $PATH
+    - echo venv_${BUILDNAME}/bin/activate
+    - source venv_${BUILDNAME}/bin/activate
+    - module list
+    - pip list
+    - echo -e "\e[0Ksection_end:`date +%s`:pre\r\e[0K"
+    # RUN
+    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KUnit"
+    - which pytest
+    - pytest
+      -m "unit"
+      -v -rA
+      --junitxml=pytest.xml
+    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+  artifacts:
+    reports:
+      junit:
+        - pytest.xml
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "regression"
@@ -171,12 +252,12 @@
     - echo -e "\e[0Ksection_start:`date +%s`:regression[collapsed=true]\r\e[0KRegression"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
     # pytest: regression
-    - ${PYTEST_EXEC_CMD} 
-      --log-file=log_pytest_regression.txt 
-      -m "${PYTEST_MARKER_OPTS} and regression_stage" 
-      -k "${PYTEST_KEY_OPTS}" 
-      $PYTEST_DIR_OPTS 
-      "${PYTEST_EXTRA_OPTS}" 
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_regression.txt
+      -m "${PYTEST_MARKER_OPTS} and regression_stage"
+      -k "${PYTEST_KEY_OPTS}"
+      $PYTEST_DIR_OPTS
+      "${PYTEST_EXTRA_OPTS}"
       --junitxml=pytest.xml
       --annotations=annotations.json
     - echo "error code:" $?

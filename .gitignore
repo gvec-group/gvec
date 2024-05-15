@@ -1,5 +1,5 @@
 doc
-build*
+build/*
 ctags.txt
 *.vsz
 *.vtu

@@ -6,6 +6,7 @@ stages:
   - env
   - build
   - run
+  - unit
   - regression
   - postprocessing
 
@@ -68,7 +69,7 @@ variables:
 
 
 # =================================================================================================================================
-# INCLUDE TEMPLATES & JOBS 
+# INCLUDE TEMPLATES & JOBS
 # =================================================================================================================================
 
 include:
@@ -84,7 +85,7 @@ include:
     inputs:
       env: mpcdfci_intel2023
       rules: .rules_minimal
-  
+
   - local: CI_templates/env.yml
     inputs:
       env: mpcdfci_gcc13
@@ -100,7 +101,13 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: mpcdfci_gcc13
-  
+
+  # pip build
+  - local: CI_templates/build-pip.yml
+    inputs:
+      env: mpcdfci_intel2023
+      rules: .rules_minimal
+
   # converter-only
   - local: CI_templates/build.yml
     inputs:
@@ -147,7 +154,7 @@ include:
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
-  
+
   # release tag
   - local: CI_templates/run.yml
     inputs:
@@ -155,6 +162,14 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+
+  # ============================
+  # unit jobs
+  # ============================
+  - local: CI_templates/unit.yml
+    inputs:
+      env: mpcdfci_intel2023
+      rules: .rules_minimal
 
   # ============================
   # regression jobs
@@ -169,7 +184,7 @@ include:
     inputs:
       env: mpcdfci_intel2023
       rules: .rules_minimal
-  
+
   - local: CI_templates/postprocessing.yml
     inputs:
       env: mpcdfci_gcc13
@@ -194,14 +209,14 @@ include:
   rules:
     # disable this job for gitlab-ci branches or if MINIMAL_PIPELINE is set to "true"
     # MINIMAL_PIPELINE="false" overrides gitlab-ci jobs
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci|pygvec/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
       when: never
     - when: on_success
 
 .rules_minimal:
   rules:
     # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci|pygvec/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
       variables:
         PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
         PYTEST_MARKER_OPTS: "shortrun"
@@ -211,7 +226,7 @@ include:
 .rules_minimal_only:
   rules:
     # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci|pygvec/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
       variables:
         PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
         PYTEST_MARKER_OPTS: "shortrun"
@@ -222,7 +237,7 @@ include:
 .rules_nightly:
   rules:
     # disable this job for gitlab-ci branches or if MINIMAL_PIPELINE is set
-    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci|pygvec/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
       when: never
     # only run this job in the nightly pipeline
     - if: $NIGHTLY_PIPELINE == "true"
@@ -244,6 +259,7 @@ include:
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
+    LD_LIBRARY_PATH: "/mpcdf/soft/SLE_15/packages/x86_64/intel_oneapi/2023.1/mkl/latest/lib/intel64"
 
 # MPCDF Docker image gcc_13:latest
 .tmpl_mpcdfci_gcc13:
@@ -259,7 +275,7 @@ include:
 
 
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "build" 
+# TEMPLATES FOR STAGE "build"
 # =================================================================================================================================
 
 # ____________________________
@@ -322,6 +338,12 @@ include:
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
+# only pip defaults for now
+.vars_matrix_unit:
+  variables:
+    CMP_MODE: "-"
+    OMP_MODE: "-"
+    MPI_MODE: "-"
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "run"
