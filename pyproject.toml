@@ -55,6 +55,10 @@ args = [
     "--preset", "pygvec_config_debug",
 ]
 
+[tool.scikit-build.cmake.define]
+CMAKE_BUILD_TYPE = "Debug"
+CMAKE_HOSTNAME = {env="CMAKE_HOSTNAME"}
+
 [tool.setuptools_scm]
 version_file = "python/pygvec/_version.py"
 

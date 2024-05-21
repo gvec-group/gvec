@@ -259,7 +259,6 @@ include:
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
-    LD_LIBRARY_PATH: "/mpcdf/soft/SLE_15/packages/x86_64/intel_oneapi/2023.1/mkl/latest/lib/intel64"
 
 # MPCDF Docker image gcc_13:latest
 .tmpl_mpcdfci_gcc13:

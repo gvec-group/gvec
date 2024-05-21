@@ -99,18 +99,23 @@
     - which python
     - which pip
     - pip list
-    # MKL Debug Information
-    - echo $MKLROOT
-    - echo $MKL_HOME
-    - echo $LD_LIBRARY_PATH
+    - echo -e "\e[0Ksection_start:`date +%s`:printenv[collapsed=true]\r\e[0KEnvironment Variables"
+    - printenv
+    - echo -e "\e[0Ksection_end:`date +%s`:printenv\r\e[0K"
     - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
     # BUILD
     - echo -e "\e[0Ksection_start:`date +%s`:pip[collapsed=true]\r\e[0KPip install"
-    - echo "pip install .[dev]"
-    - pip install .[dev] | tee log_${BUILDNAME}_pip.txt
+    - pip install .[dev] -v | tee log_${BUILDNAME}_pip.txt
     - pip list
     - echo -e "\e[0Ksection_end:`date +%s`:pip\r\e[0K"
     - echo "... BUILD PHASE FINISHED!"
+    # Debug Information #2
+    - echo -e "\e[0Ksection_start:`date +%s`:printenv2[collapsed=true]\r\e[0KEnvironment Variables (post install)"
+    - printenv
+    - echo -e "\e[0Ksection_end:`date +%s`:printenv2\r\e[0K"
+    - echo -e "\e[0Ksection_start:`date +%s`:readelf[collapsed=true]\r\e[0KReadelf (_post_f90.so)"
+    - readelf -d venv_${BUILDNAME}/lib/python3.10/site-packages/pygvec/_post_f90.cpython-310-x86_64-linux-gnu.so
+    - echo -e "\e[0Ksection_end:`date +%s`:readelf\r\e[0K"
     # Check for successful installation
     - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KPreliminary pytest"
     - which pytest

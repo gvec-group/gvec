@@ -42,7 +42,7 @@ ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
 ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
 ELSE()
-  MESSAGE(STATUS "Compiling on unknown hostname")
+  MESSAGE(STATUS "Compiling on unknown hostname ${CMAKE_HOSTNAME}")
 ENDIF()
 
 
@@ -245,7 +245,7 @@ IF(ON_TESTIMONY GREATER -1)
       MESSAGE(WARNING " Lapack not found for GNU compiler!")
     ENDIF()
   ELSE()
-     MESSAGE(SEND_ERROR " Unknown compiler ...")
+     MESSAGE(SEND_ERROR " Unknown compiler ${CMAKE_Fortran_COMPILER_ID} ...")
   ENDIF()
 ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
@@ -258,6 +258,8 @@ ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBR
     LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
 		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
+  ELSE()
+    MESSAGE(SEND_ERROR " Unknown compiler ${CMAKE_Fortran_COMPILER_ID} ...")
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
 #ELSEIF(ON_MAC_BREW GREATER -1)
