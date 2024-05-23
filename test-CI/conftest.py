@@ -318,7 +318,7 @@ def logger(caplog):
 
 
 @pytest.fixture(scope="session")
-def testcaserundir(rundir: Path, testgroup: str, testcase: str):
+def testcaserundir(request, rundir: Path, testgroup: str, testcase: str):
     """
     Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `{testgroup}/{testcase}`
     """
@@ -333,6 +333,8 @@ def testcaserundir(rundir: Path, testgroup: str, testcase: str):
     sourcedir = Path(__file__).parent / "examples" / testcase
     targetdir = rundir / testgroup / testcase
     if targetdir.exists():
+        if testgroup == "unit-pygvec":
+            return targetdir
         shutil.rmtree(targetdir)
     shutil.copytree(sourcedir, targetdir, symlinks=True)
     # modify parameter files for certain testgroups

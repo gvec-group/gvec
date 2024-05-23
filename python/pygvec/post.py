@@ -20,6 +20,7 @@ from typing import Sequence, Mapping
 import re
 import inspect
 import functools
+import tempfile
 
 import numpy as np
 import xarray as xr
@@ -77,6 +78,9 @@ def _evaluate_1D_factory(
 
 
 class State:
+
+    # === Constructor & Desctructor === #
+
     def __init__(self, parameterfile, statefile):
         self.initialized = False
         self.parameterfile = None
@@ -89,6 +93,8 @@ class State:
         if not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
+        self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
+        _post.redirect_stdout(self._stdout.name)
         self.parameterfile = Path(parameterfile)
         _post.init(parameterfile)
         self.statefile = Path(statefile)
@@ -100,6 +106,15 @@ class State:
         _post.finalize()
         self.initialized = False
 
+    def __del__(self):
+        if hasattr(self, "_stdout"):
+            self._stdout.close()
+        # silently ignore non-initialized states
+        if self.initialized:
+            self.finalize()
+
+    # === Context Manager === #
+
     @_assert_init
     def __enter__(self):
         return self
@@ -109,13 +124,17 @@ class State:
         if self.initialized:
             self.finalize()
 
-    def __del__(self):
-        # silently ignore non-initialized states
-        if self.initialized:
-            self.finalize()
+    # === Debug Information === #
 
     def __repr__(self):
         return f"<pygvec.State({bool(self.initialized)},{self.parameterfile},{self.statefile})>"
+
+    @property
+    def stdout(self):
+        self._stdout.seek(0)
+        return self._stdout.read()
+
+    # === Evaluation Methods === #
 
     @_assert_init
     def evaluate_base_tens(

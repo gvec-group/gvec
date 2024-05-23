@@ -35,6 +35,14 @@ def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_page
     args = ["gvec", "parameter.ini"]
     # run gvec - adapted from test_all.test_run
     with helpers.chdir(testcaserundir):
+        # skip if stdout & stderr are present and ok
+        try:
+            helpers.assert_empty_stderr()
+            helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
+        except (FileNotFoundError, AssertionError):
+            pass
+        else:
+            return
         # run GVEC
         with open("stdout.txt", "w") as stdout:
             stdout.write(f"RUNNING: \n {args} \n")
