@@ -11,31 +11,56 @@ build-backend = "scikit_build_core.build"
 # ============================================================================ #
 [project]
 name = "pygvec"
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Fortran",
-    "Private :: Do Not Upload",
-]
+description = "The Galerkin Variational Equilibrium Code"
 dependencies = [
     "f90wrap",
     "numpy",
     "xarray",
 ]
-dynamic = [
-    "version",
+authors = [
+    {name = "Florian Hindenlang"},
+    {name = "Omar Maj"},
+    {name = "Jonathan Faustin"},
+    {name = "Maurice Maurer"},
+    {name = "Alejandro Banon Navarro"},
+    {name = "Erika Strumberger"},
+    {name = "Joachim Geiger"},
+    {name = "Matthias Borchardt"},
+    {name = "Rohan Ramasamy"},
+    {name = "fmarioli"},
+    {name = "Denis Jarema"},
+    {name = "Markus Rampp"},
+    {name = "Tiago Tamissa Ribeiro"},
+    {name = "Robert Koeberl"},
+    {name = "Robert Babin"},
 ]
+maintainers = [
+    {name = "Florian Hindenlang", email = "florian.hindenlang@ipp.mpg.de"},
+    {name = "Robert Babin", email = "robert.babin@ipp.mpg.de"},
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Fortran",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    # "License :: OSI Approved :: MIT License"
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Private :: Do Not Upload",
+]
+keywords = ["plasma", "mhd", "equilibrium"]
+dynamic = ["version"]
+
+[project.urls]
+#Homepage
+#Documentation
+Repository = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec"
+Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
-
-[[project.maintainers]]
-name = "Florian Hindenlang"
-email = "florian.hindenlang@ipp.mpg.de"
-
-[[project.maintainers]]
-name = "Robert Babin"
-email = "robert.babin@ipp.mpg.de"
 
 # ============================================================================ #
 [tool.scikit-build]
