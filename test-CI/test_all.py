@@ -1,9 +1,8 @@
 import pytest
-import sys, os
+import os
 import subprocess
 import re
 from pathlib import Path
-import shutil
 
 import helpers
 
