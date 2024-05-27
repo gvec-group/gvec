@@ -428,51 +428,55 @@ IF(COMPILE_PYGVEC)
   TARGET_INCLUDE_DIRECTORIES(f2py_fortranobject PUBLIC "${F2PY_INCLUDE_DIR}")
   SET_PROPERTY(TARGET f2py_fortranobject PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-  # --- src/pygvec/post.f90 => python/pygvec/_post.py --- #
-  # gveclib => post.f90 => f90wrap_post.f90 => _post_f90module.c => _post_f90.so => _post.py
-
   # split off lib_post_f90 to specify individual compile flags
+  # not part of gveclib!
   ADD_LIBRARY(lib_post_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90")
   SET_TARGET_PROPERTIES(lib_post_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 
+  # --- wrap fgvec package --- #
+
   ADD_CUSTOM_COMMAND(
-    OUTPUT f90wrap_post.f90 _post.py
-    DEPENDS src/pygvec/post.f90
+    OUTPUT
+    fgvec/post.py
+    f90wrap_post.f90
+    DEPENDS
+    src/pygvec/post.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
     COMMAND f90wrap
             "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
-            --mod-name _post
-            --f90-mod-name pygvec._post_f90
-            -k "${CMAKE_CURRENT_SOURCE_DIR}/f90wrap_kind_map.py"
-            # --skip evaluate_base_select
+            --mod-name _fgvec
+            --f90-mod-name gvec._libfgvec
+            --kind-map "${CMAKE_CURRENT_SOURCE_DIR}/python/kind_map.py"
+            --class-names "${CMAKE_CURRENT_SOURCE_DIR}/python/class_names.py"
   )
 
   ADD_CUSTOM_COMMAND(
-    OUTPUT _post_f90module.c
-    DEPENDS f90wrap_post.f90
+    OUTPUT _libfgvecmodule.c
+    DEPENDS
+    f90wrap_post.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
     COMMAND f2py-f90wrap
-            -m _post_f90
+            -m _libfgvec
             --lower
-            "f90wrap_post.f90"
+            f90wrap_post.f90
   )
 
-  PYTHON_ADD_LIBRARY(_post_f90 MODULE
-    "${CMAKE_CURRENT_BINARY_DIR}/_post_f90module.c"
+  PYTHON_ADD_LIBRARY(_libfgvec MODULE
+    "${CMAKE_CURRENT_BINARY_DIR}/_libfgvecmodule.c"
     "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
     WITH_SOABI
   )
-  SET_TARGET_PROPERTIES(_post_f90 PROPERTIES LINKER_LANGUAGE Fortran)
-  TARGET_INCLUDE_DIRECTORIES(_post_f90 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-  TARGET_LINK_LIBRARIES(_post_f90 PRIVATE lib_post_f90 f2py_fortranobject gveclib ${linkedlibs})
+  SET_TARGET_PROPERTIES(_libfgvec PROPERTIES LINKER_LANGUAGE Fortran)
+  TARGET_INCLUDE_DIRECTORIES(_libfgvec PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE lib_post_f90 f2py_fortranobject gveclib ${linkedlibs})
 
   IF (${SKBUILD})
-    INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_post.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
-    INSTALL(TARGETS _post_f90 LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
+    INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_fgvec.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
+    INSTALL(TARGETS _libfgvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
   ELSE()
-    INSTALL(TARGETS _post_f90 LIBRARY DESTINATION .)
+    INSTALL(TARGETS _libfgvec LIBRARY DESTINATION .)
   ENDIF()
 ENDIF()
 

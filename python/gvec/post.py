@@ -12,7 +12,7 @@
 # ============================================================================================================================== #
 """pygvec postprocessing"""
 
-from ._post import modpygvec_post as _post
+from ._fgvec import modgvec_py_post as _post
 
 from pathlib import Path
 from collections import Counter

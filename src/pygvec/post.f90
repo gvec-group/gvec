@@ -17,7 +17,7 @@
 
 #include "defines.h"
 
-MODULE MODpygvec_post
+MODULE MODgvec_py_post
 
 USE MODgvec_c_functional, ONLY: t_functional
 
@@ -507,4 +507,4 @@ SUBROUTINE Finalize()
   WRITE(Unit_stdOut,'(132("="))')
 END SUBROUTINE Finalize
 
-END MODULE MODpygvec_post
+END MODULE MODgvec_py_post

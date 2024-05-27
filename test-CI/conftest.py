@@ -203,10 +203,10 @@ def pytest_sessionfinish(session, exitstatus):
 @pytest.fixture(scope="session")
 def util():
     try:
-        from pygvec import util
+        from gvec import util
     except ImportError:
-        # local import if pygvec was not installed
-        sys.path.append(str((Path(__file__).parent / "../python/pygvec/")))
+        # local import if gvec was installed without pygvec
+        sys.path.append(str((Path(__file__).parent / "../python/gvec/")))
         import util
     return util
 
@@ -329,7 +329,7 @@ def logger(caplog):
 
 
 @pytest.fixture(scope="session")
-def testcaserundir(pygvec, rundir: Path, testgroup: str, testcase: str):
+def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
     """
     Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `{testgroup}/{testcase}`
     """
@@ -351,7 +351,7 @@ def testcaserundir(pygvec, rundir: Path, testgroup: str, testcase: str):
     # modify parameter files for certain testgroups
     match testgroup:
         case "shortrun" | "unit-pygvec":
-            pygvec.util.adapt_parameter_file(
+            util.adapt_parameter_file(
                 sourcedir / "parameter.ini",
                 targetdir / "parameter.ini",
                 testlevel=-1,
@@ -360,7 +360,7 @@ def testcaserundir(pygvec, rundir: Path, testgroup: str, testcase: str):
                 outputIter=1,
             )
         case "debugrun":
-            pygvec.util.adapt_parameter_file(
+            util.adapt_parameter_file(
                 sourcedir / "parameter.ini",
                 targetdir / "parameter.ini",
                 testlevel=2,
@@ -372,7 +372,7 @@ def testcaserundir(pygvec, rundir: Path, testgroup: str, testcase: str):
 
 
 @pytest.fixture(scope="session")
-def testcasepostdir(pygvec, postdir: Path, rundir: Path, testgroup: str, testcase: str):
+def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase: str):
     """
     Generate the post directory at `{postdir}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
     """
@@ -398,7 +398,7 @@ def testcasepostdir(pygvec, postdir: Path, rundir: Path, testgroup: str, testcas
     for statefile in states:
         (targetdir / statefile).symlink_to(sourcerundir / statefile)
     # overwrite parameter file with the rundir version and modify it
-    pygvec.util.adapt_parameter_file(
+    util.adapt_parameter_file(
         sourcerundir / "parameter.ini",
         targetdir / "parameter.ini",
         visu1D="!",

@@ -12,10 +12,10 @@ import helpers
 
 
 @pytest.fixture(scope="session")
-def pygvec():
-    import pygvec
+def gvec():
+    import gvec
 
-    return pygvec
+    return gvec
 
 
 @pytest.fixture(scope="session")
@@ -79,24 +79,24 @@ def testfiles(tmpdir, testcaserundir, testcase_run):
 
 
 @pytest.fixture()
-def teststate(pygvec, testfiles):
-    with pygvec.post.State(*testfiles) as state:
+def teststate(gvec, testfiles):
+    with gvec.post.State(*testfiles) as state:
         yield state
 
 
 @pytest.fixture()
-def evals_r(pygvec, teststate):
+def evals_r(gvec, teststate):
     rho = np.linspace(0, 1, 6)
-    ds = pygvec.post.Evaluations(state=teststate, coords={"rho": rho})
+    ds = gvec.post.Evaluations(state=teststate, coords={"rho": rho})
     return ds
 
 
 @pytest.fixture()
-def evals_rtz(pygvec, teststate):
+def evals_rtz(gvec, teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-    ds = pygvec.post.Evaluations(
+    ds = gvec.post.Evaluations(
         state=teststate, coords={"rho": rho, "theta": theta, "zeta": zeta}
     )
     return ds
@@ -105,32 +105,32 @@ def evals_rtz(pygvec, teststate):
 # === Tests === #
 
 
-def test_version(pygvec):
+def test_version(gvec):
     import pkg_resources
 
-    assert isinstance(pygvec.__version__, str)
-    assert pygvec.__version_tuple__ >= (0, 2, 1)
-    assert pkg_resources.get_distribution("pygvec").version == pygvec.__version__
+    assert isinstance(gvec.__version__, str)
+    assert gvec.__version_tuple__ >= (0, 2, 1)
+    assert pkg_resources.get_distribution("gvec").version == gvec.__version__
 
 
-def test_state(pygvec, testfiles):
-    with pygvec.post.State(*testfiles) as state:
-        assert isinstance(state, pygvec.post.State)
+def test_state(gvec, testfiles):
+    with gvec.post.State(*testfiles) as state:
+        assert isinstance(state, gvec.post.State)
 
 
-def test_state_args(pygvec, testfiles):
+def test_state_args(gvec, testfiles):
     paramfile, statefile = testfiles
 
     with pytest.raises(FileNotFoundError):
-        state = pygvec.post.State(paramfile, "nonexistent.dat")
+        state = gvec.post.State(paramfile, "nonexistent.dat")
 
     with pytest.raises(FileNotFoundError):
-        state = pygvec.post.State("nonexistent.ini", statefile)
+        state = gvec.post.State("nonexistent.ini", statefile)
 
 
-def test_state_explicit(pygvec, testfiles):
-    state = pygvec.post.State(*testfiles)
-    assert isinstance(state, pygvec.post.State)
+def test_state_explicit(gvec, testfiles):
+    state = gvec.post.State(*testfiles)
+    assert isinstance(state, gvec.post.State)
     assert state.initialized
     state.finalize()
     assert not state.initialized
@@ -139,23 +139,23 @@ def test_state_explicit(pygvec, testfiles):
         state.evaluate_base_tens("X1", None, [0.5], [0.5], [0.5])
 
 
-def test_state_twice(pygvec, testfiles):
+def test_state_twice(gvec, testfiles):
     # double context
-    with pygvec.post.State(*testfiles) as state:
+    with gvec.post.State(*testfiles) as state:
         pass
-    with pygvec.post.State(*testfiles) as state:
+    with gvec.post.State(*testfiles) as state:
         pass
 
     # double explicit
-    state = pygvec.post.State(*testfiles)
+    state = gvec.post.State(*testfiles)
     state.finalize()
-    state = pygvec.post.State(*testfiles)
+    state = gvec.post.State(*testfiles)
     state.finalize()
 
     # simultaneous context (not implemented yet)
     with pytest.raises(NotImplementedError):
-        with pygvec.post.State(*testfiles) as state1:
-            with pygvec.post.State(*testfiles) as state2:
+        with gvec.post.State(*testfiles) as state1:
+            with gvec.post.State(*testfiles) as state2:
                 pass
 
 
