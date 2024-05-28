@@ -1,0 +1,28 @@
+# =================================================================================================================================
+# Stage "publish"
+# =================================================================================================================================
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_intel2023`
+      default: mpcdfci_intel2023
+    publish-target:
+      description: Name of the target to publish to, e.g. `gitlab`
+      default: gitlab
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_develop_only
+
+---
+
+publish_$[[ inputs.publish-target ]]:
+  stage: publish
+  extends:
+    - .tmpl_$[[ inputs.env ]]
+    - .tmpl_script_publish_$[[ inputs.publish-target ]]
+    - $[[ inputs.rules ]]
+  needs:
+    - job: $[[ inputs.env ]]_unit
+    - job: $[[ inputs.env ]]_build-pip
+      artifacts: true # for venv

@@ -307,3 +307,25 @@
     when: always
     reports:
       junit: pytest.xml
+
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "publish"
+# =================================================================================================================================
+
+.tmpl_script_publish_gitlab:
+  variables:
+    GIT_STRATEGY: clone
+    BUILDNAME: ${HASH_TAG}_pip
+    TWINE_USERNAME: gitlab-ci-token
+    TWINE_PASSWORD: ${CI_JOB_TOKEN}
+  script:
+    - source venv_${BUILDNAME}/bin/activate
+    - pip install twine build
+    - python -m build --sdist
+    - python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - dist
+    when: always

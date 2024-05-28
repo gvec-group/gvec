@@ -9,6 +9,7 @@ stages:
   - unit
   - regression
   - postprocessing
+  - publish
 
 workflow:
   name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
@@ -27,12 +28,21 @@ variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_RELEASE: v0.2.0     # pipeline schedules
-  NIGHTLY_PIPELINE: "false"    # pipeline schedules
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""                                  # default value
   PYTEST_EXTRA_OPTS: ""
+  MINIMAL_PIPELINE:  # pipeline schedules
+    value: "false"
+    options:
+      - "true"
+      - "false"
+  NIGHTLY_PIPELINE:  # pipeline schedules
+    value: "false"
+    options:
+      - "true"
+      - "false"
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
@@ -189,6 +199,14 @@ include:
     inputs:
       env: mpcdfci_gcc13
 
+  # ============================
+  # publish jobs
+  # ============================
+  - local: CI_templates/publish.yml
+    inputs:
+      env: mpcdfci_intel2023
+      publish-target: gitlab
+      rules: .rules_develop_only
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -241,6 +259,16 @@ include:
       when: never
     # only run this job in the nightly pipeline
     - if: $NIGHTLY_PIPELINE == "true"
+      when: on_success
+    - when: never
+
+.rules_develop_only:
+  rules:
+    # disable this job if MINIMAL_PIPELINE or NIGHTLY_PIPELINE is set
+    - if: $MINIMAL_PIPELINE == "true" || $NIGHTLY_PIPELINE == "true"
+      when: never
+    # only run this job on the develop branch (e.g. after a merge request is merged)
+    - if: $CI_COMMIT_REF_NAME =~ /develop/
       when: on_success
     - when: never
 
