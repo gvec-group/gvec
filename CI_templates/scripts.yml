@@ -114,7 +114,7 @@
     - printenv
     - echo -e "\e[0Ksection_end:`date +%s`:printenv2\r\e[0K"
     - echo -e "\e[0Ksection_start:`date +%s`:readelf[collapsed=true]\r\e[0KReadelf (_post_f90.so)"
-    - readelf -d venv_${BUILDNAME}/lib/python3.10/site-packages/pygvec/_post_f90.cpython-310-x86_64-linux-gnu.so
+    - readelf -d venv_${BUILDNAME}/lib/python3.10/site-packages/gvec/_libfgvec.cpython-310-x86_64-linux-gnu.so
     - echo -e "\e[0Ksection_end:`date +%s`:readelf\r\e[0K"
     # Check for successful installation
     - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KPreliminary pytest"
