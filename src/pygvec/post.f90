@@ -26,6 +26,7 @@ PUBLIC
 
 CLASS(t_functional), ALLOCATABLE :: functional
 LOGICAL :: initialized = .FALSE.
+INTEGER :: nfp = 0
 
 CONTAINS
 
@@ -85,6 +86,7 @@ END SUBROUTINE Init
 SUBROUTINE ReadState(statefile)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base
   USE MODgvec_Output_Vars,    ONLY: outputLevel,ProjectName
   USE MODgvec_ReadState_Vars, ONLY: fileID_r,outputLevel_r
   USE MODgvec_Restart,        ONLY: RestartFromState
@@ -98,6 +100,8 @@ SUBROUTINE ReadState(statefile)
   ! CALL EvalForce(U(0),.TRUE.,2, F(0))
   ! CALL Analyze(FileID_r)
   outputLevel=outputLevel_r
+  ! additional global variables
+  nfp = X1_base%f%nfp
 END SUBROUTINE ReadState
 
 !================================================================================================================================!

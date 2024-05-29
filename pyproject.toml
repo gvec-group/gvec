@@ -15,21 +15,16 @@ description = "Galerkin Variational Equilibrium Code"
 dependencies = [
     "f90wrap",
     "numpy",
+    "matplotlib",
     "xarray",
 ]
 authors = [
     {name = "Florian Hindenlang"},
     {name = "Omar Maj"},
-    {name = "Jonathan Faustin"},
-    {name = "Maurice Maurer"},
     {name = "Alejandro Banon Navarro"},
-    {name = "Erika Strumberger"},
-    {name = "Joachim Geiger"},
-    {name = "Matthias Borchardt"},
-    {name = "Rohan Ramasamy"},
-    {name = "fmarioli"},
     {name = "Denis Jarema"},
     {name = "Markus Rampp"},
+    {name = "Rohan Ramasamy"},
     {name = "Tiago Tamissa Ribeiro"},
     {name = "Robert Koeberl"},
     {name = "Robert Babin"},
@@ -41,7 +36,7 @@ maintainers = [
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
-# unsure, tests require >=3.10 (match) -> need to check each version, tested on 3.10
+# match-case, intrinsic typing union
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",

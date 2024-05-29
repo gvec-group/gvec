@@ -15,8 +15,7 @@
 from ._fgvec import modgvec_py_post as _post
 
 from pathlib import Path
-from collections import Counter
-from typing import Sequence, Mapping
+from typing import Mapping, Any, Callable, Hashable, Iterable
 import re
 import inspect
 import functools
@@ -24,6 +23,8 @@ import tempfile
 
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def _assert_init(func):
@@ -39,7 +40,7 @@ def _assert_init(func):
 
 
 def _evaluate_1D_factory(
-    func: callable, argnames: Sequence[str], n_out: int, vector_out: bool = False
+    func: callable, argnames: Iterable[str], n_out: int, vector_out: bool = False
 ):
     params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)] + [
         inspect.Parameter(
@@ -81,7 +82,12 @@ class State:
 
     # === Constructor & Desctructor === #
 
-    def __init__(self, parameterfile, statefile):
+    def __init__(
+        self,
+        parameterfile: str | Path,
+        statefile: str | Path,
+        redirect_stdout: bool = True,
+    ):
         self.initialized = False
         self.parameterfile = None
         self.statefile = None
@@ -93,8 +99,9 @@ class State:
         if not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
-        self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
-        _post.redirect_stdout(self._stdout.name)
+        if redirect_stdout:
+            self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
+            _post.redirect_stdout(self._stdout.name)
         self.parameterfile = Path(parameterfile)
         _post.init(parameterfile)
         self.statefile = Path(statefile)
@@ -127,10 +134,22 @@ class State:
     # === Debug Information === #
 
     def __repr__(self):
-        return f"<pygvec.State({bool(self.initialized)},{self.parameterfile},{self.statefile})>"
+        return (
+            f"<pygvec.State("
+            + ",".join(
+                [
+                    "initialized" if self.initialized else "finalized",
+                    self.parameterfile.name,
+                    self.statefile.name,
+                ]
+            )
+            + ")>"
+        )
 
     @property
     def stdout(self):
+        if not hasattr(self, "_stdout"):
+            return None
         self._stdout.seek(0)
         return self._stdout.read()
 
@@ -310,21 +329,238 @@ class State:
         _post.evaluate_profile(rho.size, rho, quantity, result)
         return result
 
+    @property
+    @_assert_init
+    def nfp(self):
+        return _post.nfp
+
+    # === Plotting Methods === #
+
+    def plot_surfaces(
+        self,
+        quantities: (
+            str
+            | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
+            | Iterable[
+                str | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
+            ]
+        ),
+        rho: int | tuple[float, float, int] | np.ndarray = 3,
+        theta: int | tuple[float, float, int] | np.ndarray = 101,
+        zeta: int | tuple[float, float, int] | np.ndarray = 81,
+        n_xtick: int = 5,
+        n_ytick: int = 5,
+        share_colorbar: bool = True,
+        figkwargs: Mapping = {},
+        ckwargs: Mapping = {},
+    ):
+        # --- argument handling --- #
+        if isinstance(quantities, str) or isinstance(quantities, Callable):
+            quantities = [quantities]
+        theta_linear = isinstance(theta, int)
+        zeta_linear = isinstance(zeta, int)
+        ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
+        # --- plotting --- #
+        fig, axs = plt.subplots(
+            len(quantities), ds.rho.size, tight_layout=True, **figkwargs
+        )
+        axs = axs.reshape((len(quantities), ds.rho.size))
+        for q, quantity in enumerate(quantities):
+            if isinstance(quantity, str):
+                ds.compute(quantity)
+                values = ds[quantity]
+            else:
+                values = quantity(ds)
+                match values:
+                    case (xr.DataArray() as v, str() as s):
+                        v.attrs["symbol"] = s
+                        values = v
+            for r, rhoi in enumerate(ds.rho):
+                v = values.isel(rho=r).transpose("zeta", "theta").values
+                if share_colorbar:
+                    mesh = axs[q, r].contourf(
+                        ds.theta,
+                        ds.zeta,
+                        v,
+                        vmin=values.min(),
+                        vmax=values.max(),
+                        **ckwargs,
+                    )
+                    if r == ds.rho.size - 1:
+                        divider = make_axes_locatable(axs[q, r])
+                        cax = divider.append_axes("right", size="5%", pad=0.05)
+                        fig.colorbar(mesh, cax=cax)
+                else:
+                    mesh = axs[q, r].contourf(ds.theta, ds.zeta, v, **ckwargs)
+                    fig.colorbar(mesh, ax=axs[q, r])
+                if theta_linear:
+                    axs[q, r].set_xticks(np.linspace(0, 2 * np.pi, n_xtick))
+                if zeta_linear:
+                    axs[q, r].set_yticks(np.linspace(0, 2 * np.pi / self.nfp, n_ytick))
+                axs[q, r].set(
+                    xlim=(ds.theta[0], ds.theta[-1]),
+                    ylim=(ds.zeta[0], ds.zeta[-1]),
+                )
+                if q != len(quantities) - 1:
+                    axs[q, r].set_xticklabels(
+                        np.full_like(axs[q, r].get_xticks(), "", dtype="U0")
+                    )
+                if r != 0:
+                    axs[q, r].set_yticklabels(
+                        np.full_like(axs[q, r].get_yticks(), "", dtype="U0")
+                    )
+            symbol = f"${values.attrs['symbol']}$" if "symbol" in values.attrs else "?"
+            axs[q, 0].set_ylabel(f"{symbol}\n$\\zeta$")
+            if zeta_linear:
+                axs[q, 0].set_yticklabels(
+                    [
+                        rf"$\frac{{{2*i} \pi}}{{{self.nfp * (n_ytick - 1)}}}$"
+                        for i in range(n_ytick)
+                    ]
+                )
+        for r, rhoi in enumerate(ds.rho):
+            axs[0, r].set(
+                title=rf"$\rho = {rhoi:.2f}$",
+            )
+            if theta_linear:
+                axs[-1, r].set_xticklabels(
+                    [rf"$\frac{{{2*i} \pi}}{{{n_xtick - 1}}}$" for i in range(n_xtick)]
+                )
+            axs[-1, r].set_xlabel(r"$\theta$")
+        fig.suptitle(self.statefile.name)
+        return fig, axs
+
+    def plot_poloidal(
+        self,
+        quantities: (
+            str
+            | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
+            | Iterable[
+                str | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
+            ]
+        ),
+        rho: int | tuple[float, float, int] | np.ndarray = 81,
+        theta: int | tuple[float, float, int] | np.ndarray = 101,
+        zeta: int | tuple[float, float, int] | np.ndarray = 3,
+        share_colorbar: bool = True,
+        figkwargs: Mapping = {},
+        ckwargs: Mapping = {},
+    ):
+        # --- argument handling --- #
+        if isinstance(quantities, str) or isinstance(quantities, Callable):
+            quantities = [quantities]
+        ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
+        ds.compute("X1", "X2")
+        # --- plotting --- #
+        fig, axs = plt.subplots(
+            len(quantities),
+            ds.zeta.size,
+            tight_layout=True,
+            sharex=True,
+            sharey=True,
+            **figkwargs,
+        )
+        axs = np.asarray(axs).reshape((len(quantities), ds.zeta.size))
+        for q, quantity in enumerate(quantities):
+            if isinstance(quantity, str):
+                ds.compute(quantity)
+                values = ds[quantity]
+            else:
+                values = quantity(ds)
+                match values:
+                    case (xr.DataArray() as v, str() as s):
+                        v.attrs["symbol"] = s
+                        values = v
+            for z, zetai in enumerate(ds.zeta):
+                dsz = ds.isel(zeta=z)
+                v = values.isel(zeta=z)
+                if share_colorbar:
+                    mesh = axs[q, z].contourf(
+                        dsz.X1,
+                        dsz.X2,
+                        v,
+                        vmin=values.min(),
+                        vmax=values.max(),
+                        **ckwargs,
+                    )
+                    if z == ds.zeta.size - 1:
+                        divider = make_axes_locatable(axs[q, z])
+                        cax = divider.append_axes("right", size="5%", pad=0.05)
+                        fig.colorbar(mesh, cax=cax)
+                else:
+                    mesh = axs[q, z].contourf(dsz.X1, dsz.X2, v, **ckwargs)
+                    fig.colorbar(mesh, ax=axs[q, z])
+                axs[q, z].set(
+                    aspect="equal",
+                )
+            symbol = f"${values.attrs['symbol']}$" if "symbol" in values.attrs else "?"
+            axs[q, 0].set_ylabel(f"{symbol}\n$X^2$")
+        for z, zetai in enumerate(ds.zeta):
+            axs[0, z].set(
+                title=rf"$\zeta = {zetai:.2f}$",
+            )
+            axs[-1, z].set_xlabel(r"$X^1$")
+        fig.suptitle(self.statefile.name)
+        return fig, axs
+
 
 class Evaluations(xr.Dataset):
     __slots__ = ["state"]
     _quantities = {}
 
-    def __init__(self, state: State, **kwargs):
+    def __init__(
+        self,
+        state: State,
+        rho: int | tuple[float, float, int] | np.ndarray | None = None,
+        theta: int | tuple[float, float, int] | np.ndarray | None = None,
+        zeta: int | tuple[float, float, int] | np.ndarray | None = None,
+        **kwargs,
+    ):
         self.state = state
+        coords = kwargs["coords"] if "coords" in kwargs else {}
+        match rho:
+            case int() as num:
+                coords["rho"] = np.linspace(0, 1, num)
+                coords["rho"][0] = 0.01
+            case (start, stop):
+                coords["rho"] = np.linspace(start, stop)
+            case (start, stop, num):
+                coords["rho"] = np.linspace(start, stop, num)
+            case None:
+                pass
+            case _:
+                coords["rho"] = rho
+        match theta:
+            case int() as num:
+                coords["theta"] = np.linspace(0, 2 * np.pi, num)
+            case (start, stop):
+                coords["theta"] = np.linspace(start, stop)
+            case (start, stop, num):
+                coords["theta"] = np.linspace(start, stop, num)
+            case None:
+                pass
+            case _:
+                coords["theta"] = theta
+        match zeta:
+            case int() as num:
+                coords["zeta"] = np.linspace(0, 2 * np.pi / state.nfp, num)
+            case (start, stop):
+                coords["zeta"] = np.linspace(start, stop)
+            case (start, stop, num):
+                coords["zeta"] = np.linspace(start, stop, num)
+            case None:
+                pass
+            case _:
+                coords["zeta"] = zeta
+        kwargs["coords"] = coords
         super().__init__(**kwargs)
 
     @classmethod
     def register_quantity(
         cls,
-        name: None | str | Sequence[str] = None,
-        coords: Sequence[str] = (...,),
-        requirements: Sequence[str] = (),
+        name: None | str | Iterable[str] = None,
+        coords: Iterable[str] = (...,),
+        requirements: Iterable[str] = (),
     ):
         """Decorator to register equilibrium quantities.
 
@@ -350,32 +586,46 @@ class Evaluations(xr.Dataset):
 
         return _register
 
-    def compute(self, quantity: str):
+    def compute(self, *quantities: Iterable[str]):
         """Compute the target equilibrium quantity.
 
         This method will compute required parameters recursively.
         """
-        if quantity in self:
-            return self
-        if quantity not in self._quantities:
-            raise KeyError(f"The quantity `{quantity}` is not registered.")
-        func = self._quantities[quantity]
-        if "vector" in func.coords and "vector" not in self.coords:
-            self.coords["vector"] = ["x", "y", "z"]
-        for coord in func.coords:
-            if coord != ... and coord not in self.coords:
-                raise ValueError(
-                    f"The quantity `{quantity}` requires a grid of `({', '.join(map(str, func.coords))})` coordinates."
-                )
-        for req in func.requirements:
-            if req not in self:
-                if req == "mu0":
-                    self["mu0"] = 4 * np.pi * 1e-7
-                    self.mu0.attrs["long_name"] = "magnetic constant"
-                    self.mu0.attrs["symbol"] = r"\mu_0"
-                self.compute(req)
+        for quantity in quantities:
+            # --- get the compute function --- #
+            if quantity in self:
+                continue
+            if quantity not in self._quantities:
+                raise KeyError(f"The quantity `{quantity}` is not registered.")
+            func = self._quantities[quantity]
+            # --- handle requirements --- #
+            if "vector" in func.coords and "vector" not in self.coords:
+                self.coords["vector"] = ["x", "y", "z"]
+            for coord in func.coords:
+                if coord != ... and coord not in self.coords:
+                    raise ValueError(
+                        f"The quantity `{quantity}` requires a grid of `({', '.join(map(str, func.coords))})` coordinates."
+                    )
+            self.compute(*func.requirements)
+            # --- compute the quantity --- #
+            if "state" in inspect.signature(func).parameters:
+                func(self, self.state)
+            else:
+                func(self)
 
-        if "state" in inspect.signature(func).parameters:
-            func(self, self.state)
+    def __getitem__(self, key: Mapping | Hashable | Iterable[Hashable]):
+        """Access variables or coordinates of this dataset as a `xarray.DataArray` or a subset of variables or a indexed dataset.
+
+        Indexing with a list of names will return a new `Dataset` object.
+        Automatically computes a registered quantity.
+        """
+        # --- compute quantities if possible --- #
+        if not isinstance(key, str) and isinstance(key, Iterable):
+            for k in key:
+                if k in self._quantities:
+                    self.compute(k)
         else:
-            func(self)
+            if key in self._quantities:
+                self.compute(key)
+        # --- pass on to xarray --- #
+        return super().__getitem__(key)

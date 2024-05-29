@@ -235,6 +235,22 @@ def test_compute_base(evals_rtz):
     assert not np.any(np.isnan(ds.X1))
 
 
+def test_compute_implicit(evals_rtz):
+    ds = evals_rtz
+    # multiple computes
+    assert "X1" not in ds and "X2" not in ds
+    ds.compute("X1", "X2")
+    assert "X1" in ds and "X2" in ds
+    # implict compute with __getitem__
+    assert "LA" not in ds
+    assert isinstance(ds["LA"], xr.DataArray)
+    assert "LA" in ds
+    # implicit compute with __getattr__
+    assert "p" not in ds
+    assert isinstance(ds.p, xr.DataArray)
+    assert "p" in ds
+
+
 def test_evaluate_hmap(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
@@ -329,6 +345,8 @@ def test_compute_profile(evals_r, quantity):
         ("Jac", True),
         ("B", False),
         ("J", False),
+        ("mod_B", False),
+        ("mod_J", False),
     ],
 )
 def test_compute_derived(evals_rtz, quantity, on_axis):
@@ -340,3 +358,24 @@ def test_compute_derived(evals_rtz, quantity, on_axis):
     else:
         assert np.all(np.isnan(ds[quantity].isel(rho=0)))
         assert not np.any(np.isnan(ds[quantity].isel(rho=slice(1, None))))
+
+
+def test_compute_basis(evals_rtz):
+    ds = evals_rtz
+    for coord in ["rho", "theta", "zeta"]:
+        ds.compute(f"e_{coord}", f"grad_{coord}")
+    ds = ds.isel(rho=slice(1, None))
+    for coord in ["rho", "theta", "zeta"]:
+        assert np.allclose(
+            xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="vector"), 1.0
+        )
+        for coord2 in ["rho", "theta", "zeta"]:
+            if coord2 == coord:
+                continue
+            ds.compute(f"e_{coord2}", f"grad_{coord2}")
+            assert np.allclose(
+                xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="vector"), 0.0
+            )
+            assert np.allclose(
+                xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="vector"), 0.0
+            )

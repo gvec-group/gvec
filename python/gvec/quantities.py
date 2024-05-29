@@ -2,8 +2,8 @@ from .post import Evaluations, State
 
 import re
 
-from xarray import Dataset
 import xarray as xr
+import numpy as np
 
 register = Evaluations.register_quantity
 rtz_symbols = {"r": r"\rho", "t": r"\theta", "z": r"\zeta"}
@@ -23,81 +23,91 @@ def latex_partial2(var, deriv1, deriv2):
     return rf"\frac{{\partial^2 {var}}}{{\partial {rtz_symbols[deriv1]}\partial {rtz_symbols[deriv2]}}}"
 
 
+# === special ========================================================================== #
+
+
+@register(coords=())
+def mu0(ds: Evaluations):
+    ds["mu0"] = 4 * np.pi * 1e-7
+    ds.mu0.attrs["long_name"] = "magnetic constant"
+    ds.mu0.attrs["symbol"] = r"\mu_0"
+
+
 # === profiles ========================================================================= #
 
 
 @register(coords=["rho"])
-def iota(ds: Dataset, state: State):
+def iota(ds: Evaluations, state: State):
     ds["iota"] = ("rho", state.evaluate_profile("iota", ds.rho))
     ds.iota.attrs["long_name"] = "rotational transform profile"
     ds.iota.attrs["symbol"] = r"\iota"
 
 
 @register(coords=["rho"])
-def diota_dr(ds: Dataset, state: State):
+def diota_dr(ds: Evaluations, state: State):
     ds["diota_dr"] = ("rho", state.evaluate_profile("iota_prime", ds.rho))
     ds.diota_dr.attrs["long_name"] = "rotational transform gradient profile"
     ds.diota_dr.attrs["symbol"] = r"\frac{d\iota}{d\rho}"
 
 
 @register(coords=["rho"])
-def p(ds: Dataset, state: State):
+def p(ds: Evaluations, state: State):
     ds["p"] = ("rho", state.evaluate_profile("p", ds.rho))
     ds.p.attrs["long_name"] = "pressure profile"
     ds.p.attrs["symbol"] = r"p"
 
 
 @register(coords=["rho"])
-def dp_dr(ds: Dataset, state: State):
+def dp_dr(ds: Evaluations, state: State):
     ds["dp_dr"] = ("rho", state.evaluate_profile("p_prime", ds.rho))
     ds.dp_dr.attrs["long_name"] = "pressure gradient profile"
     ds.dp_dr.attrs["symbol"] = r"\frac{dp}{d\rho}"
 
 
 @register(coords=["rho"])
-def chi(ds: Dataset, state: State):
+def chi(ds: Evaluations, state: State):
     ds["chi"] = ("rho", state.evaluate_profile("chi", ds.rho))
     ds.chi.attrs["long_name"] = "poloidal magnetic flux profile"
     ds.chi.attrs["symbol"] = r"\chi"
 
 
 @register(coords=["rho"])
-def dchi_dr(ds: Dataset, state: State):
+def dchi_dr(ds: Evaluations, state: State):
     ds["dchi_dr"] = ("rho", state.evaluate_profile("chi_prime", ds.rho))
     ds.dchi_dr.attrs["long_name"] = "poloidal magnetic flux gradient profile"
     ds.dchi_dr.attrs["symbol"] = r"\frac{d\chi}{d\rho}"
 
 
 @register(coords=["rho"])
-def Phi(ds: Dataset, state: State):
+def Phi(ds: Evaluations, state: State):
     ds["Phi"] = ("rho", state.evaluate_profile("Phi", ds.rho))
     ds.Phi.attrs["long_name"] = "toroidal magnetic flux profile"
     ds.Phi.attrs["symbol"] = r"\Phi"
 
 
 @register(coords=["rho"])
-def dPhi_dr(ds: Dataset, state: State):
+def dPhi_dr(ds: Evaluations, state: State):
     ds["dPhi_dr"] = ("rho", state.evaluate_profile("Phi_prime", ds.rho))
     ds.dPhi_dr.attrs["long_name"] = "toroidal magnetic flux gradient profile"
     ds.dPhi_dr.attrs["symbol"] = r"\frac{d\Phi}{d\rho}"
 
 
 @register(coords=["rho"])
-def dPhi_drr(ds: Dataset, state: State):
+def dPhi_drr(ds: Evaluations, state: State):
     ds["dPhi_drr"] = ("rho", state.evaluate_profile("Phi_2prime", ds.rho))
     ds.dPhi_drr.attrs["long_name"] = "toroidal magnetic flux curvature profile"
     ds.dPhi_drr.attrs["symbol"] = r"\frac{d^2\Phi}{d\rho^2}"
 
 
 @register(coords=["rho"])
-def Phi_n(ds: Dataset, state: State):
+def Phi_n(ds: Evaluations, state: State):
     ds["Phi_n"] = ("rho", state.evaluate_profile("PhiNorm", ds.rho))
     ds.Phi_n.attrs["long_name"] = "normalized toroidal magnetic flux profile"
     ds.Phi_n.attrs["symbol"] = r"\Phi_n"
 
 
 @register(coords=["rho"])
-def dPhi_n_dr(ds: Dataset, state: State):
+def dPhi_n_dr(ds: Evaluations, state: State):
     ds["dPhi_n_dr"] = ("rho", state.evaluate_profile("PhiNorm_prime", ds.rho))
     ds.dPhi_n_dr.attrs["long_name"] = (
         "normalized toroidal magnetic flux gradient profile"
@@ -112,7 +122,7 @@ def dPhi_n_dr(ds: Dataset, state: State):
     name=["X1"] + [f"dX1_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
     coords=("rho", "theta", "zeta"),
 )
-def X1(ds: Dataset, state: State):
+def X1(ds: Evaluations, state: State):
     outputs = state.evaluate_base_tens_all("X1", ds.rho, ds.theta, ds.zeta)
     for key, value in zip(X1.name, outputs):
         ds[key] = (("rho", "theta", "zeta"), value)
@@ -128,7 +138,7 @@ def X1(ds: Dataset, state: State):
     name=["X2"] + [f"dX2_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
     coords=("rho", "theta", "zeta"),
 )
-def X2(ds: Dataset, state: State):
+def X2(ds: Evaluations, state: State):
     outputs = state.evaluate_base_tens_all("X2", ds.rho, ds.theta, ds.zeta)
     for key, value in zip(X2.name, outputs):
         ds[key] = (("rho", "theta", "zeta"), value)
@@ -144,7 +154,7 @@ def X2(ds: Dataset, state: State):
     name=["LA"] + [f"dLA_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
     coords=("rho", "theta", "zeta"),
 )
-def LA(ds: Dataset, state: State):
+def LA(ds: Evaluations, state: State):
     outputs = state.evaluate_base_tens_all("LA", ds.rho, ds.theta, ds.zeta)
     for key, value in zip(LA.name, outputs):
         ds[key] = (("rho", "theta", "zeta"), value)
@@ -164,7 +174,7 @@ def LA(ds: Dataset, state: State):
     coords=("vector", "rho", "theta", "zeta"),
     requirements=("X1", "X2", "zeta"),
 )
-def hmap(ds: Dataset, state: State):
+def hmap(ds: Evaluations, state: State):
     outputs = state.evaluate_hmap_only(
         **{
             var: ds[var].broadcast_like(ds.X1).values.flatten()
@@ -204,7 +214,7 @@ def hmap(ds: Dataset, state: State):
         for Xi in ("X1", "X2")
     ],
 )
-def metric(ds: Dataset, state: State):
+def metric(ds: Evaluations, state: State):
     idxs = {"r": r"\rho", "t": r"\vartheta", "z": r"\zeta"}
     outputs = state.evaluate_metric(
         *[ds[var].broadcast_like(ds.X1).values.flatten() for var in metric.requirements]
@@ -244,7 +254,7 @@ def metric(ds: Dataset, state: State):
         "dX2_dz",
     ],
 )
-def Jac_h(ds: Dataset, state: State):
+def Jac_h(ds: Evaluations, state: State):
     outputs = state.evaluate_jacobian(
         *[ds[var].broadcast_like(ds.X1).values.flatten() for var in Jac_h.requirements]
     )
@@ -278,7 +288,7 @@ def Jac_h(ds: Dataset, state: State):
         ),
     ),
 )
-def Jac(ds: Dataset):
+def Jac(ds: Evaluations):
     ds["Jac_l"] = ds.dX1_dr * ds.dX2_dt - ds.dX1_dt * ds.dX2_dr
     ds["dJac_l_dr"] = (
         ds.dX1_drr * ds.dX2_dt
@@ -326,7 +336,7 @@ def Jac(ds: Dataset):
     coords=("vector", ...),
     requirements=("e_X1", "e_X2", "dX1_dr", "dX2_dr"),
 )
-def e_rho(ds: Dataset):
+def e_rho(ds: Evaluations):
     da = ds.e_X1 * ds.dX1_dr + ds.e_X2 * ds.dX2_dr
     da.attrs["long_name"] = "radial tangent basis vector"
     da.attrs["symbol"] = r"\mathbf{e}_\rho"
@@ -337,7 +347,7 @@ def e_rho(ds: Dataset):
     coords=("vector", ...),
     requirements=["e_X1", "e_X2", "dX1_dt", "dX2_dt"],
 )
-def e_theta(ds: Dataset):
+def e_theta(ds: Evaluations):
     da = ds.e_X1 * ds.dX1_dt + ds.e_X2 * ds.dX2_dt
     da.attrs["long_name"] = "poloidal tangent basis vector"
     da.attrs["symbol"] = r"\mathbf{e}_\theta"
@@ -348,23 +358,44 @@ def e_theta(ds: Dataset):
     coords=("vector", ...),
     requirements=("e_X1", "e_X2", "e_zeta3", "dX1_dz", "dX2_dz"),
 )
-def e_zeta(ds: Dataset):
+def e_zeta(ds: Evaluations):
     da = ds.e_X1 * ds.dX1_dz + ds.e_X2 * ds.dX2_dz + ds.e_zeta3
     da.attrs["long_name"] = "toroidal tangent basis vector"
     da.attrs["symbol"] = r"\mathbf{e}_\zeta"
     ds["e_zeta"] = da
 
 
-# @register(
-#     coords=("rho", "theta", "zeta"),
-#     requirements=("e_rho", "e_theta", "e_zeta"),
-# )
-# def Jac(ds: Dataset):
-#     ds["Jac"] = xr.dot(
-#         ds.e_rho, xr.cross(ds.e_theta, ds.e_zeta, dim="vector"), dim="vector"
-#     )
-#     ds.Jac.attrs["long_name"] = "Jacobian determinant"
-#     ds.Jac.attrs["symbol"] = r"\mathcal{J}"
+@register(
+    coords=("vector", ...),
+    requirements=("Jac", "e_theta", "e_zeta"),
+)
+def grad_rho(ds: Evaluations):
+    da = xr.cross(ds.e_theta, ds.e_zeta, dim="vector") / ds.Jac
+    da.attrs["long_name"] = "radial reciprocal basis vector"
+    da.attrs["symbol"] = r"\nabla\rho"
+    ds["grad_rho"] = da
+
+
+@register(
+    coords=("vector", ...),
+    requirements=("Jac", "e_rho", "e_zeta"),
+)
+def grad_theta(ds: Evaluations):
+    da = xr.cross(ds.e_zeta, ds.e_rho, dim="vector") / ds.Jac
+    da.attrs["long_name"] = "poloidal reciprocal basis vector"
+    da.attrs["symbol"] = r"\nabla\theta"
+    ds["grad_theta"] = da
+
+
+@register(
+    coords=("vector", ...),
+    requirements=("Jac", "e_rho", "e_theta"),
+)
+def grad_zeta(ds: Evaluations):
+    da = xr.cross(ds.e_rho, ds.e_theta, dim="vector") / ds.Jac
+    da.attrs["long_name"] = "toroidal reciprocal basis vector"
+    da.attrs["symbol"] = r"\nabla\zeta"
+    ds["grad_zeta"] = da
 
 
 @register(
@@ -380,7 +411,7 @@ def e_zeta(ds: Dataset):
         "e_zeta",
     ),
 )
-def B(ds: Dataset):
+def B(ds: Evaluations):
     ds["B_contra_t"] = (ds.iota - ds.dLA_dz) * ds.dPhi_dr / ds.Jac
     ds["B_contra_z"] = (1 + ds.dLA_dt) * ds.dPhi_dr / ds.Jac
     ds["B"] = ds.B_contra_t * ds.e_theta + ds.B_contra_z * ds.e_zeta
@@ -405,7 +436,7 @@ def B(ds: Dataset):
     + [f"dJac_d{i}" for i in "r t z".split()]
     + [f"dLA_d{i}" for i in "t z rt rz tt tz zz".split()],
 )
-def dB(ds: Dataset):
+def dB(ds: Evaluations):
     ds["dB_contra_t_dr"] = -ds.dPhi_dr / ds.Jac * (
         ds.dJac_dr / ds.Jac * (ds.iota - ds.dLA_dz) + ds.dLA_drz - ds.diota_dr
     ) + ds.dPhi_drr / ds.Jac * (ds.iota - ds.dLA_dz)
@@ -445,7 +476,7 @@ def dB(ds: Dataset):
     + [f"dB_contra_{i}_d{j}" for i in "tz" for j in "rtz"]
     + [f"e_{i}" for i in "rho theta zeta".split()],
 )
-def J(ds: Dataset):
+def J(ds: Evaluations):
     def ij(i, j):
         if i < j:
             return i + j
@@ -476,3 +507,31 @@ def J(ds: Dataset):
         da.attrs["symbol"] = rf"J^{{{rtz_symbols[i]}}}"
     ds.J.attrs["long_name"] = "current density"
     ds.J.attrs["symbol"] = r"\mathbf{J}"
+
+
+def _modulus(v):
+    @register(
+        name=f"mod_{v}",
+        coords=(...,),
+        requirements=(v,),
+    )
+    def mod_v(ds: Evaluations):
+        da = np.sqrt(xr.dot(ds[v], ds[v], dim="vector"))
+        da.attrs["long_name"] = f"modulus of the {ds[v].attrs['long_name']}"
+        da.attrs["symbol"] = rf"\left|{ds[v].attrs['symbol']}\right|"
+        ds[f"mod_{v}"] = da
+
+    return mod_v
+
+
+for v in [
+    "e_rho",
+    "e_theta",
+    "e_zeta",
+    "grad_rho",
+    "grad_theta",
+    "grad_zeta",
+    "B",
+    "J",
+]:
+    globals()[v] = _modulus(v)
