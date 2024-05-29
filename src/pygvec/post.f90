@@ -156,6 +156,70 @@ SUBROUTINE evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_do
   END SELECT
 END SUBROUTINE evaluate_base_select
 
+
+!================================================================================================================================!
+SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
+  ! MODULES
+  USE MODgvec_base,           ONLY: t_base
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var           ! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: n_s, n_t, n_z            ! number of integration points
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CLASS(t_base), POINTER :: base                    ! pointer to the base object (X1, X2, LA)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(var)
+    CASE('X1')
+      base => X1_base
+    CASE('X2')
+      base => X2_base
+    CASE('LA')
+      base => LA_base
+    CASE DEFAULT
+      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
+      STOP
+  END SELECT
+  n_s = base%s%nGP
+  IF (base%s%nGP /= SIZE(base%s%s_GP)) THEN
+    WRITE(*,*) 'ERROR: number of integration points does not match the size of the array'
+    STOP
+  END IF
+  n_t = base%f%mn_nyq(1)
+  n_z = base%f%mn_nyq(2)
+END SUBROUTINE get_integration_points_num
+
+
+!================================================================================================================================!
+! Retrieve the integration points and weights (gauss points for radial integration)
+SUBROUTINE get_integration_points(var, s_GP, s_w, t_w, z_w)
+  ! MODULES
+  USE MODgvec_base,           ONLY: t_base
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var           ! selection string: which variable to evaluate
+  REAL, DIMENSION(:), INTENT(OUT) :: s_GP, s_w  ! output arrays for the gauss points and weights
+  REAL, INTENT(OUT) :: t_w, z_w                 ! output array for the fourier interpolation weights (equidistant points)
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CLASS(t_base), POINTER :: base                ! pointer to the base object (X1, X2, LA)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(var)
+    CASE('X1')
+      base => X1_base
+    CASE('X2')
+      base => X2_base
+    CASE('LA')
+      base => LA_base
+    CASE DEFAULT
+      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
+      STOP
+  END SELECT
+  s_GP = base%s%s_GP
+  s_w = base%s%w_GP
+  t_w = base%f%d_thet
+  z_w = base%f%d_zeta
+END SUBROUTINE get_integration_points
+
+
 !================================================================================================================================!
 ! Evaluate the basis for a list of (theta, zeta) positions on all flux surfaces given by s
 SUBROUTINE evaluate_base_list_tz(n_s, n_tz, s, thetazeta, var, sel_deriv_s, sel_deriv_f, result)

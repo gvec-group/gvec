@@ -155,6 +155,23 @@ class State:
 
     # === Evaluation Methods === #
 
+    @property
+    @_assert_init
+    def nfp(self):
+        return _post.nfp
+
+    @_assert_init
+    def get_integration_points(self, quantity: str):
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["X1", "X2", "LA"]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        r_n, t_n, z_n = _post.get_integration_points_num(quantity)
+        r_GP, r_w = (np.zeros(r_n, dtype=np.float64) for _ in range(2))
+        t_w, z_w = _post.get_integration_points(quantity, r_GP, r_w)
+        return r_GP, r_w, t_n, t_w, z_n, z_w
+
     @_assert_init
     def evaluate_base_tens(
         self,
@@ -328,11 +345,6 @@ class State:
         result = np.zeros(rho.size, dtype=np.float64, order="F")
         _post.evaluate_profile(rho.size, rho, quantity, result)
         return result
-
-    @property
-    @_assert_init
-    def nfp(self):
-        return _post.nfp
 
     # === Plotting Methods === #
 

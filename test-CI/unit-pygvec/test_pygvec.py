@@ -159,6 +159,17 @@ def test_state_twice(gvec, testfiles):
                 pass
 
 
+@pytest.mark.parametrize("quantity", ["X1", "X2", "LA"])
+def test_integration_points(teststate, quantity):
+    r_GP, r_w, t_n, t_w, z_n, z_w = teststate.get_integration_points(quantity)
+    assert np.isclose(t_w, 2 * np.pi / t_n)
+    assert np.isclose(z_w, 2 * np.pi / z_n)
+    assert np.isclose(np.sum(r_w), 1.0)
+    assert np.isclose(np.sum(r_w * r_GP), 0.5)
+    assert np.all(r_GP >= 0.0) and np.all(r_GP <= 1.0)
+    assert np.all(np.diff(r_GP) > 0.0)
+
+
 def test_evaluate_base_tens(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
