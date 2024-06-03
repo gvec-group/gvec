@@ -1,13 +1,41 @@
+"""
+This module defines various quantities and their computation functions for the GVEC package.
+
+The module contains functions that compute different physical quantities such as iota and pressure profiles, coordinate mappings and their derivatives, magnetic field, current density and more.
+
+These functions are registered with the `Evaluations` class using the `@register_compute_func()` decorator.
+"""
+
 from .post import Evaluations, State
 
 import re
+import logging
 
 import xarray as xr
 import numpy as np
 
-register = Evaluations.register_quantity
+register = Evaluations.register_compute_func
 rtz_symbols = {"r": r"\rho", "t": r"\theta", "z": r"\zeta"}
 rtz_directions = {"r": "radial", "t": "poloidal", "z": "toroidal"}
+
+
+"""
+There are two different kinds of dimensional/coordinate dependencies:
+    1) a quantity is defined over some dimensions in the dataset
+        * e.g. mu0(), iota(rho), B(vector, rho, theta, zeta)
+        * sometimes we only care about some of the dimensions, e.g. B(vector, ...)
+        * actually all of them could depend on some other dimension, like resolution or time
+            * but in the underlying dimension would be `state` and each computation happens only once per state
+        * this information is required when assigning the quantity, but not outside the compute function
+    2) a quantity makes some assumptions for the dimensions of other quantities
+        * e.g. I_tor(rho) needs theta_int, zeta_int, X1 needs rho,theta,zeta or rho,tz_list
+        * this information is required when selecting the right compute function, based on the available dimensions
+            * but its not just dimensions, e.g. theta_B, zeta_B =/= tz_list, but same compute function
+
+=> let us not overengineer this
+* we have two selection criteria: integration points & tensorproduct-tz
+-> set flags for them both and change the system later if required
+"""
 
 
 # === helpers ========================================================================== #
@@ -26,87 +54,94 @@ def latex_partial2(var, deriv1, deriv2):
 # === special ========================================================================== #
 
 
-@register(coords=())
+@register()
 def mu0(ds: Evaluations):
     ds["mu0"] = 4 * np.pi * 1e-7
     ds.mu0.attrs["long_name"] = "magnetic constant"
     ds.mu0.attrs["symbol"] = r"\mu_0"
 
 
+@register()
+def vector(ds: Evaluations):
+    ds.coords["vector"] = ["x", "y", "z"]
+    ds.vector.attrs["long_name"] = "cartesian vector components"
+    ds.vector.attrs["symbol"] = r"\mathbf{x}"
+
+
 # === profiles ========================================================================= #
 
 
-@register(coords=["rho"])
+@register()
 def iota(ds: Evaluations, state: State):
     ds["iota"] = ("rho", state.evaluate_profile("iota", ds.rho))
     ds.iota.attrs["long_name"] = "rotational transform profile"
     ds.iota.attrs["symbol"] = r"\iota"
 
 
-@register(coords=["rho"])
+@register()
 def diota_dr(ds: Evaluations, state: State):
     ds["diota_dr"] = ("rho", state.evaluate_profile("iota_prime", ds.rho))
     ds.diota_dr.attrs["long_name"] = "rotational transform gradient profile"
     ds.diota_dr.attrs["symbol"] = r"\frac{d\iota}{d\rho}"
 
 
-@register(coords=["rho"])
+@register()
 def p(ds: Evaluations, state: State):
     ds["p"] = ("rho", state.evaluate_profile("p", ds.rho))
     ds.p.attrs["long_name"] = "pressure profile"
     ds.p.attrs["symbol"] = r"p"
 
 
-@register(coords=["rho"])
+@register()
 def dp_dr(ds: Evaluations, state: State):
     ds["dp_dr"] = ("rho", state.evaluate_profile("p_prime", ds.rho))
     ds.dp_dr.attrs["long_name"] = "pressure gradient profile"
     ds.dp_dr.attrs["symbol"] = r"\frac{dp}{d\rho}"
 
 
-@register(coords=["rho"])
+@register()
 def chi(ds: Evaluations, state: State):
     ds["chi"] = ("rho", state.evaluate_profile("chi", ds.rho))
     ds.chi.attrs["long_name"] = "poloidal magnetic flux profile"
     ds.chi.attrs["symbol"] = r"\chi"
 
 
-@register(coords=["rho"])
+@register()
 def dchi_dr(ds: Evaluations, state: State):
     ds["dchi_dr"] = ("rho", state.evaluate_profile("chi_prime", ds.rho))
     ds.dchi_dr.attrs["long_name"] = "poloidal magnetic flux gradient profile"
     ds.dchi_dr.attrs["symbol"] = r"\frac{d\chi}{d\rho}"
 
 
-@register(coords=["rho"])
+@register()
 def Phi(ds: Evaluations, state: State):
     ds["Phi"] = ("rho", state.evaluate_profile("Phi", ds.rho))
     ds.Phi.attrs["long_name"] = "toroidal magnetic flux profile"
     ds.Phi.attrs["symbol"] = r"\Phi"
 
 
-@register(coords=["rho"])
+@register()
 def dPhi_dr(ds: Evaluations, state: State):
     ds["dPhi_dr"] = ("rho", state.evaluate_profile("Phi_prime", ds.rho))
     ds.dPhi_dr.attrs["long_name"] = "toroidal magnetic flux gradient profile"
     ds.dPhi_dr.attrs["symbol"] = r"\frac{d\Phi}{d\rho}"
 
 
-@register(coords=["rho"])
+@register()
 def dPhi_drr(ds: Evaluations, state: State):
     ds["dPhi_drr"] = ("rho", state.evaluate_profile("Phi_2prime", ds.rho))
     ds.dPhi_drr.attrs["long_name"] = "toroidal magnetic flux curvature profile"
     ds.dPhi_drr.attrs["symbol"] = r"\frac{d^2\Phi}{d\rho^2}"
 
 
-@register(coords=["rho"])
+@register()
 def Phi_n(ds: Evaluations, state: State):
     ds["Phi_n"] = ("rho", state.evaluate_profile("PhiNorm", ds.rho))
     ds.Phi_n.attrs["long_name"] = "normalized toroidal magnetic flux profile"
     ds.Phi_n.attrs["symbol"] = r"\Phi_n"
 
 
-@register(coords=["rho"])
+@register()
 def dPhi_n_dr(ds: Evaluations, state: State):
     ds["dPhi_n_dr"] = ("rho", state.evaluate_profile("PhiNorm_prime", ds.rho))
     ds.dPhi_n_dr.attrs["long_name"] = (
@@ -119,48 +154,45 @@ def dPhi_n_dr(ds: Evaluations, state: State):
 
 
 @register(
-    name=["X1"] + [f"dX1_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
-    coords=("rho", "theta", "zeta"),
+    quantities=["X1"] + [f"dX1_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
 )
 def X1(ds: Evaluations, state: State):
     outputs = state.evaluate_base_tens_all("X1", ds.rho, ds.theta, ds.zeta)
-    for key, value in zip(X1.name, outputs):
+    for key, value in zip(X1.quantities, outputs):
         ds[key] = (("rho", "theta", "zeta"), value)
     ds.X1.attrs["long_name"] = "first reference coordinate"
     ds.X1.attrs["symbol"] = r"X^1"
-    for key in X1.name[1:]:
+    for key in X1.quantities[1:]:
         deriv = " ".join(rtz_symbols[c] for c in key.split("_")[1][1:])
         ds[key].attrs["long_name"] = "derivative of the first reference coordinate"
         ds[key].attrs["symbol"] = r"\frac{\partial X^1}{\partial" rf"{deriv}}}"
 
 
 @register(
-    name=["X2"] + [f"dX2_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
-    coords=("rho", "theta", "zeta"),
+    quantities=["X2"] + [f"dX2_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
 )
 def X2(ds: Evaluations, state: State):
     outputs = state.evaluate_base_tens_all("X2", ds.rho, ds.theta, ds.zeta)
-    for key, value in zip(X2.name, outputs):
+    for key, value in zip(X2.quantities, outputs):
         ds[key] = (("rho", "theta", "zeta"), value)
     ds.X1.attrs["long_name"] = "first reference coordinate"
     ds.X1.attrs["symbol"] = r"X^2"
-    for key in X1.name[1:]:
+    for key in X1.quantities[1:]:
         deriv = " ".join(rtz_symbols[c] for c in key.split("_")[1][1:])
         ds[key].attrs["long_name"] = "derivative of the first reference coordinate"
         ds[key].attrs["symbol"] = r"\frac{\partial X^2}{\partial" rf"{deriv}}}"
 
 
 @register(
-    name=["LA"] + [f"dLA_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
-    coords=("rho", "theta", "zeta"),
+    quantities=["LA"] + [f"dLA_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
 )
 def LA(ds: Evaluations, state: State):
     outputs = state.evaluate_base_tens_all("LA", ds.rho, ds.theta, ds.zeta)
-    for key, value in zip(LA.name, outputs):
+    for key, value in zip(LA.quantities, outputs):
         ds[key] = (("rho", "theta", "zeta"), value)
     ds.LA.attrs["long_name"] = "straight field line potential"
     ds.LA.attrs["symbol"] = r"\lambda"
-    for key in LA.name[1:]:
+    for key in LA.quantities[1:]:
         deriv = " ".join(rtz_symbols[c] for c in key.split("_")[1][1:])
         ds[key].attrs["long_name"] = "derivative of the straight field line potential"
         ds[key].attrs["symbol"] = r"\frac{\partial \lambda}{\partial" rf"{deriv}}}"
@@ -170,8 +202,7 @@ def LA(ds: Evaluations, state: State):
 
 
 @register(
-    name=("pos", "e_X1", "e_X2", "e_zeta3"),
-    coords=("vector", "rho", "theta", "zeta"),
+    quantities=("pos", "e_X1", "e_X2", "e_zeta3"),
     requirements=("X1", "X2", "zeta"),
 )
 def hmap(ds: Evaluations, state: State):
@@ -181,9 +212,9 @@ def hmap(ds: Evaluations, state: State):
             for var in hmap.requirements
         }
     )
-    for key, value in zip(hmap.name, outputs):
+    for key, value in zip(hmap.quantities, outputs):
         ds[key] = (
-            hmap.coords,
+            ("vector", "rho", "theta", "zeta"),
             value.reshape(3, ds.rho.size, ds.theta.size, ds.zeta.size),
         )
 
@@ -201,12 +232,11 @@ def hmap(ds: Evaluations, state: State):
 
 
 @register(
-    name=[
+    quantities=[
         pattern.format(ij=ij)
         for pattern in ("g_{ij}", "dg_{ij}_dr", "dg_{ij}_dt", "dg_{ij}_dz")
         for ij in ("rr", "rt", "rz", "tt", "tz", "zz")
     ],
-    coords=(...,),
     requirements=["X1", "X2", "zeta"]
     + [
         f"d{Xi}_d{j}"
@@ -219,7 +249,7 @@ def metric(ds: Evaluations, state: State):
     outputs = state.evaluate_metric(
         *[ds[var].broadcast_like(ds.X1).values.flatten() for var in metric.requirements]
     )
-    for key, value in zip(metric.name, outputs):
+    for key, value in zip(metric.quantities, outputs):
         ds[key] = (
             ds.X1.coords,
             value.reshape(ds.X1.shape),
@@ -241,7 +271,7 @@ def metric(ds: Evaluations, state: State):
 
 
 @register(
-    name=("Jac_h", *(f"dJac_h_d{i}" for i in "r t z".split())),
+    quantities=("Jac_h", *(f"dJac_h_d{i}" for i in "r t z".split())),
     requirements=[
         "X1",
         "X2",
@@ -258,7 +288,7 @@ def Jac_h(ds: Evaluations, state: State):
     outputs = state.evaluate_jacobian(
         *[ds[var].broadcast_like(ds.X1).values.flatten() for var in Jac_h.requirements]
     )
-    for key, value in zip(Jac_h.name, outputs):
+    for key, value in zip(Jac_h.quantities, outputs):
         ds[key] = (
             ds.X1.coords,
             value.reshape(ds.X1.shape),
@@ -277,7 +307,11 @@ def Jac_h(ds: Evaluations, state: State):
 
 
 @register(
-    name=("Jac", "Jac_l", *(f"dJac{suf}_d{i}" for suf in ["", "_l"] for i in "rtz")),
+    quantities=(
+        "Jac",
+        "Jac_l",
+        *(f"dJac{suf}_d{i}" for suf in ["", "_l"] for i in "rtz"),
+    ),
     requirements=(
         "Jac_h",
         *(f"dJac_h_d{i}" for i in "rtz"),
@@ -333,8 +367,7 @@ def Jac(ds: Evaluations):
 
 
 @register(
-    coords=("vector", ...),
-    requirements=("e_X1", "e_X2", "dX1_dr", "dX2_dr"),
+    requirements=("vector", "e_X1", "e_X2", "dX1_dr", "dX2_dr"),
 )
 def e_rho(ds: Evaluations):
     da = ds.e_X1 * ds.dX1_dr + ds.e_X2 * ds.dX2_dr
@@ -344,8 +377,7 @@ def e_rho(ds: Evaluations):
 
 
 @register(
-    coords=("vector", ...),
-    requirements=["e_X1", "e_X2", "dX1_dt", "dX2_dt"],
+    requirements=("vector", "e_X1", "e_X2", "dX1_dt", "dX2_dt"),
 )
 def e_theta(ds: Evaluations):
     da = ds.e_X1 * ds.dX1_dt + ds.e_X2 * ds.dX2_dt
@@ -355,8 +387,7 @@ def e_theta(ds: Evaluations):
 
 
 @register(
-    coords=("vector", ...),
-    requirements=("e_X1", "e_X2", "e_zeta3", "dX1_dz", "dX2_dz"),
+    requirements=("vector", "e_X1", "e_X2", "e_zeta3", "dX1_dz", "dX2_dz"),
 )
 def e_zeta(ds: Evaluations):
     da = ds.e_X1 * ds.dX1_dz + ds.e_X2 * ds.dX2_dz + ds.e_zeta3
@@ -366,8 +397,7 @@ def e_zeta(ds: Evaluations):
 
 
 @register(
-    coords=("vector", ...),
-    requirements=("Jac", "e_theta", "e_zeta"),
+    requirements=("vector", "Jac", "e_theta", "e_zeta"),
 )
 def grad_rho(ds: Evaluations):
     da = xr.cross(ds.e_theta, ds.e_zeta, dim="vector") / ds.Jac
@@ -377,8 +407,7 @@ def grad_rho(ds: Evaluations):
 
 
 @register(
-    coords=("vector", ...),
-    requirements=("Jac", "e_rho", "e_zeta"),
+    requirements=("vector", "Jac", "e_rho", "e_zeta"),
 )
 def grad_theta(ds: Evaluations):
     da = xr.cross(ds.e_zeta, ds.e_rho, dim="vector") / ds.Jac
@@ -388,8 +417,7 @@ def grad_theta(ds: Evaluations):
 
 
 @register(
-    coords=("vector", ...),
-    requirements=("Jac", "e_rho", "e_theta"),
+    requirements=("vector", "Jac", "e_rho", "e_theta"),
 )
 def grad_zeta(ds: Evaluations):
     da = xr.cross(ds.e_rho, ds.e_theta, dim="vector") / ds.Jac
@@ -399,9 +427,9 @@ def grad_zeta(ds: Evaluations):
 
 
 @register(
-    name=("B", "B_contra_t", "B_contra_z"),
-    coords=("vector", ...),
+    quantities=("B", "B_contra_t", "B_contra_z"),
     requirements=(
+        "vector",
         "iota",
         "dLA_dt",
         "dLA_dz",
@@ -424,8 +452,7 @@ def B(ds: Evaluations):
 
 
 @register(
-    name=[f"dB_contra_{i}_d{j}" for i in "tz" for j in "rtz"],
-    coords=(...,),
+    quantities=[f"dB_contra_{i}_d{j}" for i in "tz" for j in "rtz"],
     requirements=[
         "Jac",
         "dPhi_dr",
@@ -463,8 +490,7 @@ def dB(ds: Evaluations):
 
 
 @register(
-    name=["J", "J_contra_r", "J_contra_t", "J_contra_z"],
-    coords=(...,),
+    quantities=["J", "J_contra_r", "J_contra_t", "J_contra_z"],
     requirements=[
         "B_contra_t",
         "B_contra_z",
@@ -511,8 +537,7 @@ def J(ds: Evaluations):
 
 def _modulus(v):
     @register(
-        name=f"mod_{v}",
-        coords=(...,),
+        quantities=f"mod_{v}",
         requirements=(v,),
     )
     def mod_v(ds: Evaluations):
@@ -535,3 +560,69 @@ for v in [
     "J",
 ]:
     globals()[v] = _modulus(v)
+
+
+# === integrals ======================================================================== #
+
+
+@register(
+    requirements=("Jac",),
+    integration=("rho", "theta", "zeta"),
+)
+def V(ds: Evaluations):
+    ds["V"] = ds.volume_integral("Jac")
+    ds.V.attrs["long_name"] = "plasma volume"
+    ds.V.attrs["symbol"] = r"V"
+
+
+@register(
+    quantities=("minor_radius", "major_radius"),
+    requirements=("V", "Jac_l"),
+    integration=("rho", "theta", "zeta"),
+)
+def minor_major_radius(ds: Evaluations):
+    surface_average = ds.volume_integral("Jac_l") / (2 * np.pi)
+    ds["minor_radius"] = np.sqrt(surface_average / np.pi)
+    ds.minor_radius.attrs["long_name"] = "minor radius"
+    ds.minor_radius.attrs["symbol"] = r"r_{min}"
+    ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
+    ds.major_radius.attrs["long_name"] = "major radius"
+    ds.major_radius.attrs["symbol"] = r"r_{maj}"
+
+
+@register(
+    requirements=("iota",),
+    integration=("rho",),
+)
+def mean_iota(ds: Evaluations):
+    ds["mean_iota"] = ds.radial_integral("iota")
+    ds.mean_iota.attrs["long_name"] = "mean rotational transform"
+    ds.mean_iota.attrs["symbol"] = r"\bar{\iota}"
+
+
+@register(
+    requirements=("B", "e_theta", "mu0"),
+    integration=("theta", "zeta"),
+)
+def I_tor(ds: Evaluations):
+    ds["I_tor"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="vector")) / (
+        2 * np.pi * ds.mu0
+    )
+    ds.I_tor.attrs["long_name"] = "toroidal current profile"
+    ds.I_tor.attrs["symbol"] = r"I_{tor}"
+
+
+@register(
+    requirements=("B", "e_zeta", "mu0"),
+    integration=("theta", "zeta"),
+)
+def I_pol(ds: Evaluations):
+    ds["I_pol"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="vector")) / (
+        2 * np.pi * ds.mu0
+    )
+    ds["I_pol"] = ds.I_pol - ds.I_pol.isel(rho=0)
+    logging.warning(
+        f"Computation of `I_pol` uses `rho={ds.rho[0]}` instead of the magnetic axis."
+    )
+    ds.I_pol.attrs["long_name"] = "poloidal current profile"
+    ds.I_pol.attrs["symbol"] = r"I_{pol}"

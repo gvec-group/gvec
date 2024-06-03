@@ -102,6 +102,17 @@ def evals_rtz(gvec, teststate):
     return ds
 
 
+@pytest.fixture()
+def evals_rtz_int(gvec, teststate):
+    ds = gvec.post.Evaluations(
+        state=teststate,
+        rho="int",
+        theta="int",
+        zeta="int",
+    )
+    return ds
+
+
 # === Tests === #
 
 
@@ -390,3 +401,11 @@ def test_compute_basis(evals_rtz):
             assert np.allclose(
                 xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="vector"), 0.0
             )
+
+
+@pytest.mark.parametrize(
+    "quantity", ["V", "minor_radius", "major_radius", "mean_iota", "I_tor", "I_pol"]
+)
+def test_integrations(evals_rtz_int, quantity):
+    ds = evals_rtz_int
+    ds.compute(quantity)

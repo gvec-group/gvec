@@ -18,3 +18,5 @@ from ._version import __version__, __version_tuple__
 from . import post
 from . import quantities
 from . import util
+
+from .post import State, Evaluations
