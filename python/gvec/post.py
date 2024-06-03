@@ -524,15 +524,13 @@ class Evaluations(xr.Dataset):
     def __init__(
         self,
         state: State,
-        rho: (
-            int | Literal["int"] | tuple[float, float, int] | np.ndarray | None
-        ) = "int",
+        rho: int | Literal["int"] | tuple[float, float, int] | np.ndarray | None = None,
         theta: (
             int | Literal["int"] | tuple[float, float, int] | np.ndarray | None
-        ) = "int",
+        ) = None,
         zeta: (
             int | Literal["int"] | tuple[float, float, int] | np.ndarray | None
-        ) = "int",
+        ) = None,
         **kwargs,
     ):
         self.state = state
@@ -541,6 +539,8 @@ class Evaluations(xr.Dataset):
         # --- get integration points --- #
         intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
         match rho:
+            case np.ndarray() | list():
+                coords["rho"] = rho
             case "int":
                 if any(
                     [
@@ -566,6 +566,8 @@ class Evaluations(xr.Dataset):
             case _:
                 coords["rho"] = rho
         match theta:
+            case np.ndarray() | list():
+                coords["theta"] = theta
             case "int":
                 if any(
                     [
@@ -590,6 +592,8 @@ class Evaluations(xr.Dataset):
             case _:
                 coords["theta"] = theta
         match zeta:
+            case np.ndarray() | list():
+                coords["theta"] = "theta"
             case "int":
                 if any(
                     [
@@ -625,15 +629,19 @@ class Evaluations(xr.Dataset):
         if "rho" in self:
             self.rho.attrs["long_name"] = "Logical radial coordinate"
             self.rho.attrs["symbol"] = r"\rho"
-            self.rho.attrs["integration_points"] = rho == "int"
+            self.rho.attrs["integration_points"] = isinstance(rho, str) and rho == "int"
         if "theta" in self:
             self.theta.attrs["long_name"] = "Logical poloidal angle"
             self.theta.attrs["symbol"] = r"\theta"
-            self.theta.attrs["integration_points"] = theta == "int"
+            self.theta.attrs["integration_points"] = (
+                isinstance(theta, str) and theta == "int"
+            )
         if "zeta" in self:
             self.zeta.attrs["long_name"] = "Logical toroidal angle"
             self.zeta.attrs["symbol"] = r"\zeta"
-            self.zeta.attrs["integration_points"] = zeta == "int"
+            self.zeta.attrs["integration_points"] = (
+                isinstance(zeta, str) and zeta == "int"
+            )
 
     @classmethod
     def register_compute_func(
@@ -726,7 +734,7 @@ class Evaluations(xr.Dataset):
         if isinstance(quantity, str):
             self.compute(quantity)
             quantity = self[quantity]
-        if not self.rho.attrs["integration_points"]:
+        if "rho" not in self or not self.rho.attrs["integration_points"]:
             raise ValueError("Radial average requires integration points for rho.")
         return (quantity * self.rho_weights).sum("rho")
 
@@ -736,8 +744,10 @@ class Evaluations(xr.Dataset):
             self.compute(quantity)
             quantity = self[quantity]
         if (
-            not self.theta.attrs["integration_points"]
-            and not self.zeta.attrs["integration_points"]
+            "theta" not in self
+            or not self.theta.attrs["integration_points"]
+            or "zeta" not in self
+            or not self.zeta.attrs["integration_points"]
         ):
             raise ValueError(
                 "Flux surface average requires integration points for theta and zeta."
@@ -754,9 +764,12 @@ class Evaluations(xr.Dataset):
             self.compute(quantity)
             quantity = self[quantity]
         if (
-            not self.rho.attrs["integration_points"]
-            and not self.theta.attrs["integration_points"]
-            and not self.zeta.attrs["integration_points"]
+            "rho" not in self
+            or not self.rho.attrs["integration_points"]
+            or "theta" not in self
+            or not self.theta.attrs["integration_points"]
+            or "zeta" not in self
+            or not self.zeta.attrs["integration_points"]
         ):
             raise ValueError(
                 "Volume integral requires integration points for rho, theta and zeta."

@@ -63,7 +63,7 @@ def mu0(ds: Evaluations):
 
 @register()
 def vector(ds: Evaluations):
-    ds.coords["vector"] = ["x", "y", "z"]
+    ds.coords["vector"] = ("vector", ["x", "y", "z"])
     ds.vector.attrs["long_name"] = "cartesian vector components"
     ds.vector.attrs["symbol"] = r"\mathbf{x}"
 
@@ -203,13 +203,14 @@ def LA(ds: Evaluations, state: State):
 
 @register(
     quantities=("pos", "e_X1", "e_X2", "e_zeta3"),
-    requirements=("X1", "X2", "zeta"),
+    requirements=("vector", "X1", "X2", "zeta"),
 )
 def hmap(ds: Evaluations, state: State):
     outputs = state.evaluate_hmap_only(
         **{
             var: ds[var].broadcast_like(ds.X1).values.flatten()
             for var in hmap.requirements
+            if var != "vector"
         }
     )
     for key, value in zip(hmap.quantities, outputs):
@@ -594,10 +595,10 @@ def minor_major_radius(ds: Evaluations):
     requirements=("iota",),
     integration=("rho",),
 )
-def mean_iota(ds: Evaluations):
-    ds["mean_iota"] = ds.radial_integral("iota")
-    ds.mean_iota.attrs["long_name"] = "mean rotational transform"
-    ds.mean_iota.attrs["symbol"] = r"\bar{\iota}"
+def iota_mean(ds: Evaluations):
+    ds["iota_mean"] = ds.radial_integral("iota")
+    ds.iota_mean.attrs["long_name"] = "mean rotational transform"
+    ds.iota_mean.attrs["symbol"] = r"\bar{\iota}"
 
 
 @register(

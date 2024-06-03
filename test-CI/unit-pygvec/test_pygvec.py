@@ -181,6 +181,34 @@ def test_integration_points(teststate, quantity):
     assert np.all(np.diff(r_GP) > 0.0)
 
 
+def test_evaluations_init(gvec, teststate):
+    ds = gvec.post.Evaluations(state=teststate, coords={"rho": [0.5, 0.6]})
+    assert np.allclose(ds.rho, [0.5, 0.6])
+    assert {"rho"} == set(ds.coords)
+    ds = gvec.post.Evaluations(teststate, rho=[0.5, 0.6])
+    assert np.allclose(ds.rho, [0.5, 0.6])
+    assert {"rho"} == set(ds.coords)
+    ds = gvec.post.Evaluations(
+        teststate, rho=np.array([0.5, 0.6]), theta="int", zeta="int"
+    )
+    assert np.allclose(ds.rho, [0.5, 0.6])
+    assert {"rho", "theta", "zeta"} == set(ds.coords)
+    assert ds.rho.attrs["integration_points"] == False
+    with pytest.raises(ValueError):
+        ds.compute("iota_mean")
+    ds = gvec.post.Evaluations(teststate, rho="int", theta=None, zeta=None)
+    assert {"rho"} == set(ds.coords)
+    assert ds.rho.attrs["integration_points"] == True
+    ds.compute("iota_mean")
+    with pytest.raises(ValueError):
+        ds.compute("V")
+    ds = gvec.post.Evaluations(teststate, "int", "int", "int")
+    for c in ["rho", "theta", "zeta"]:
+        assert c in ds.coords
+        assert ds[c].attrs["integration_points"] == True
+    ds.compute("V")
+
+
 def test_evaluate_base_tens(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
@@ -295,6 +323,7 @@ def test_compute_hmap(evals_rtz):
     ds.compute("pos")
 
     assert ds.pos.shape == (3, 6, 32, 10)
+    assert "vector" in ds.dims
     assert "vector" in ds.coords
     assert "e_X1" in ds
     assert "e_X2" in ds
@@ -404,7 +433,7 @@ def test_compute_basis(evals_rtz):
 
 
 @pytest.mark.parametrize(
-    "quantity", ["V", "minor_radius", "major_radius", "mean_iota", "I_tor", "I_pol"]
+    "quantity", ["V", "minor_radius", "major_radius", "iota_mean", "I_tor", "I_pol"]
 )
 def test_integrations(evals_rtz_int, quantity):
     ds = evals_rtz_int
