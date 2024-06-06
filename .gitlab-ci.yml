@@ -97,6 +97,7 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_intel_impi_latest
+      rules: .rules_minimal
 
   - local: CI_templates/env.yml
     inputs:
