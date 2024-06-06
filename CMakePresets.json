@@ -1,136 +1,255 @@
 {
     "version": 3,
     "cmakeMinimumRequired": {
-      "major": 3,
-      "minor": 22,
-      "patch": 0
+        "major": 3,
+        "minor": 22,
+        "patch": 0
     },
     "configurePresets": [
-      {
-        "name": "gvec_config_release",
-        "displayName": "GVEC configure: default release build",
-        "hidden": false,
-        "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Release",
-          "COMPILE_GVEC": "On",
-          "LINK_GVEC_TO_NETCDF": "On",
-          "USE_OPENMP": "On"
+        {
+            "name": "gvec_config_release",
+            "displayName": "GVEC configure: default release build",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "COMPILE_GVEC": "On"
+            },
+            "inherits": [
+                        ".gvec_static_omp_netcdf"
+            ]
+        },
+        {
+            "name": "gvec_config_debug",
+            "displayName": "GVEC configure: default debug build",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "COMPILE_GVEC": "On"
+            },
+            "inherits": [
+                        ".gvec_static_omp_netcdf"
+            ]
+        },
+        {
+            "name": "gvec_config_release_all",
+            "displayName": "GVEC configure: default release build including all converters",
+            "hidden": false,
+            "inherits": [
+                "gvec_config_release",
+                ".gvec_cache_vars_to_x"
+            ]
+        },
+        {
+            "name": "gvec_config_release_mac_brew",
+            "displayName": "GVEC configure: default release build on a MAC, with homebrew",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_brew"
+            },
+            "inherits": [
+                        "gvec_config_release"
+            ]
+        },
+        {
+            "name": "gvec_config_debug_mac_brew",
+            "displayName": "GVEC configure: default debug build on a MAC, with homebrew",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_brew"
+            },
+            "inherits": [
+                        "gvec_config_debug"
+            ]
+        },
+        {
+            "name": "gvec_config_release_all_mac_brew",
+            "displayName": "GVEC configure: default release build including all converters on a Mac, with homebrew",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_brew"
+            },
+            "inherits": [
+                "gvec_config_release_all"
+            ]
+        },
+        {
+            "name": "gvec_config_release_mac_ports",
+            "displayName": "GVEC configure: default release build on a MAC, with macports",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_ports"
+            },
+            "inherits": [
+                        "gvec_config_release"
+            ]
+        },
+        {
+            "name": "gvec_config_debug_mac_ports",
+            "displayName": "GVEC configure: default debug build on a MAC, with macports",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_ports"
+            },
+            "inherits": [
+                        "gvec_config_debug"
+            ]
+        },
+        {
+            "name": "gvec_config_release_all_mac_ports",
+            "displayName": "GVEC configure: default release build including all converters on a Mac, with macports",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_HOSTNAME": "mac_ports"
+            },
+            "inherits": [
+                "gvec_config_release_all"
+            ]
+        },
+        {
+            "name": ".gvec_static_omp_netcdf",
+            "displayName": "GVEC cache variables",
+            "hidden": true,
+            "cacheVariables": {
+                "LINK_GVEC_TO_NETCDF": "On",
+                "USE_OPENMP": "On",
+                "COMPILE_GVEC_AS_STATIC_LIB": "On"
+            }
+        },
+        {
+            "name": ".gvec_cache_vars_to_x",
+            "displayName": "GVEC compile all interfaces",
+            "hidden": true,
+            "cacheVariables": {
+                "COMPILE_GVEC_TO_CASTOR3D": "On",
+                "COMPILE_GVEC_TO_GENE": "On",
+                "COMPILE_GVEC_TO_HOPR": "On",
+                "COMPILE_GVEC_TO_JOREK": "On"
+            }
+        },
+        {
+            "name": "gvec_config_no-netcdf_release",
+            "displayName": "GVEC configure: release build without netcdf",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "COMPILE_GVEC": "On",
+                "LINK_GVEC_TO_NETCDF": "Off",
+                "USE_OPENMP": "On",
+                "COMPILE_GVEC_AS_STATIC_LIB": "On"
+            }
+        },
+        {
+            "name": "gvec_config_no-netcdf_debug",
+            "displayName": "GVEC configure: debug build without netcdf",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "COMPILE_GVEC": "On",
+                "LINK_GVEC_TO_NETCDF": "Off",
+                "USE_OPENMP": "On",
+                "COMPILE_GVEC_AS_STATIC_LIB": "On"
+            }
+        },
+        {
+            "name": "gvec_config_no-netcdf_debug_only_converters",
+            "displayName": "GVEC configure: debug build of the converters without gvec executable and without netcdf",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "COMPILE_GVEC": "Off",
+                "LINK_GVEC_TO_NETCDF": "Off",
+                "USE_OPENMP": "On",
+                "COMPILE_GVEC_AS_STATIC_LIB": "On"
+            },
+            "inherits": [
+                ".gvec_cache_vars_to_x"
+            ]
+        },
+        {
+            "name": "gvec_config_no-omp_no-netcdf_debug",
+            "displayName": "GVEC configure: debug build without OpenMP and without netcdf",
+            "hidden": false,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "COMPILE_GVEC": "On",
+                "LINK_GVEC_TO_NETCDF": "Off",
+                "USE_OPENMP": "Off",
+                "COMPILE_GVEC_AS_STATIC_LIB": "On"
+            },
+            "inherits": [
+                ".gvec_cache_vars_to_x"
+            ]
+        },
+        {
+            "name": ".mpcdf-env",
+            "displayName": "Third Party Library Paths MPCDF",
+            "hidden": true,
+            "environment": {
+                "NETCDF_ROOT": "$ENV{NETCDF_ROOT}"
+            }
+        },
+        {
+            "name": ".gnu-compiler",
+            "displayName": "GNU CPU Compiler",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_FORTRAN_COMPILER": "gfortran"
+            }
+        },
+        {
+            "name": ".intel-compiler",
+            "displayName": "Intel Compiler",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "icpx",
+                "CMAKE_C_COMPILER": "icc",
+                "CMAKE_FORTRAN_COMPILER": "ifort"
+            }
+        },
+        {
+            "name": ".mpcdf-intel-cpu",
+            "displayName": "INTEL CPU Settings",
+            "hidden": true,
+            "inherits": [
+                ".mpcdf-env",
+                ".intel-compiler"
+            ]
+        },
+        {
+            "name": ".mpcdf-gcc-cpu",
+            "displayName": "GCC CPU Settings",
+            "hidden": true,
+            "inherits": [
+                ".mpcdf-env",
+                ".gnu-compiler"
+            ]
         }
-      },
-      {
-        "name": "gvec_config_debug",
-        "displayName": "GVEC configure: default debug build",
-        "hidden": false,
-        "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Debug",
-          "COMPILE_GVEC": "On",
-          "LINK_GVEC_TO_NETCDF": "On",
-          "USE_OPENMP": "On"
-        }
-      },
-      {
-        "name": "gvec_config_no-netcdf_release",
-        "displayName": "GVEC configure: release build without netcdf",
-        "hidden": false,
-        "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Release",
-          "COMPILE_GVEC": "On",
-          "LINK_GVEC_TO_NETCDF": "Off",
-          "USE_OPENMP": "On"
-        }
-      },
-      {
-        "name": "gvec_config_no-netcdf_debug",
-        "displayName": "GVEC configure: debug build without netcdf",
-        "hidden": false,
-        "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Debug",
-          "COMPILE_GVEC": "On",
-          "LINK_GVEC_TO_NETCDF": "Off",
-          "USE_OPENMP": "On"
-        }
-      },
-      {
-        "name": "gvec_config_no-omp_no-netcdf_debug",
-        "displayName": "GVEC configure: debug build without OpenMP and without netcdf",
-        "hidden": false,
-        "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Debug",
-          "COMPILE_GVEC": "On",
-          "LINK_GVEC_TO_NETCDF": "Off",
-          "USE_OPENMP": "Off"
-        }
-      },
-      {
-        "name": "gvec_config_release_all",
-        "displayName": "GVEC configure: default release build including all converters",
-        "hidden": false,
-        "inherits": ["gvec_config_release","gvec_cache_vars_to_x"]
-      },
-      {
-        "name": "gvec_config_debug_all",
-        "displayName": "GVEC configure: debug build including all converters",
-        "hidden": false,
-        "inherits": ["gvec_config_debug","gvec_cache_vars_to_x"]
-      },
-      {
-        "name": "gvec_cache_vars_to_x",
-        "displayName": "GVEC compile all interfaces",
-        "hidden": true,
-        "cacheVariables": {
-          "COMPILE_GVEC_TO_CASTOR3D": "On",
-          "COMPILE_GVEC_TO_GENE": "On",
-          "COMPILE_GVEC_TO_HOPR": "On",
-          "COMPILE_GVEC_TO_JOREK":   "On"
-        }
-      }, 
-      {
-        "name": "mpcdf-env",
-        "displayName": "Third Party Library Paths MPCDF",
-        "hidden": true,
-        "environment": {
-          "NETCDF_ROOT": "$ENV{NETCDF_ROOT}"
-        }
-      },
-      {
-        "name": "gnu-compiler",
-        "displayName": "GNU CPU Compiler",
-        "hidden": true,
-        "cacheVariables": {
-          "CMAKE_CXX_COMPILER": "g++",
-          "CMAKE_C_COMPILER": "gcc",
-          "CMAKE_FORTRAN_COMPILER": "gfortran"
-        }
-      },
-      {
-        "name": "intel-compiler",
-        "displayName": "Intel Compiler",
-        "hidden": true,
-        "cacheVariables": {
-          "CMAKE_CXX_COMPILER": "icpx",
-          "CMAKE_C_COMPILER": "icc",
-          "CMAKE_FORTRAN_COMPILER": "ifort"
-        }
-      },
-      {
-        "name": "mpcdf-intel-cpu",
-        "displayName": "INTEL CPU Settings",
-        "hidden": true,
-        "inherits": ["mpcdf-env","intel-compiler"]
-      },
-      {
-        "name": "mpcdf-gcc-cpu",
-        "displayName": "GCC CPU Settings",
-        "hidden": true,
-        "inherits": ["mpcdf-env","gnu-compiler"]
-      }
     ],
     "buildPresets": [
-      {
-        "name": "gvec_build_release",
-        "displayName": "GVEC build the release",
-        "configurePreset": "gvec_config_release",
-        "targets": ["gvec","gvec_post"]
-      }
+        {
+            "name": "gvec_build_release",
+            "displayName": "GVEC build the release",
+            "configurePreset": "gvec_config_release",
+            "targets": [
+                "gvec",
+                "gvec_post"
+            ]
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "gvec_release_pytest",
+            "displayName": "Test GVEC release running pytest",
+            "configurePreset": "gvec_config_release",
+            "output": {"outputOnFailure": true}
+        },
+        {
+            "name": "gvec_debug_pytest",
+            "displayName": "Test GVEC debug running pytest",
+            "configurePreset": "gvec_config_debug",
+            "output": {"outputOnFailure": true}
+        }
     ]
-  }
+}

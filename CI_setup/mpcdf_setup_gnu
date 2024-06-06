@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# ===========================================
+# use this setup on raven or on cobra with the command:
+# > . CI_setup/mpcdf_setup_intel
+#
+# LAST MODIFIED: 2024-02-26
+# ===========================================
+
+module purge
+module load git
+module load git-lfs
+module load cmake/3.26
+module load gcc/13 
+module load mkl/2023.1
+module load hdf5-serial/1.14.1
+module load netcdf-serial/4.9.2
+module load ftimings
+module load anaconda/3/2023.03 #for pytest
+
+module list
+export FC=`which gfortran`
+export CC=`which gcc`
+export CXX=`which g++`

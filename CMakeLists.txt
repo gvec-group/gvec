@@ -13,24 +13,33 @@ INCLUDE(CMakeDependentOption)
 # Detect machine environements
 # =========================================================================
 SITE_NAME(CMAKE_HOSTNAME)
-STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
-STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_HYDRA)
-STRING(FIND "${CMAKE_HOSTNAME}" "hydra"     ON_HYDRA)
+STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_TESTIMONY)
+STRING(FIND "${CMAKE_HOSTNAME}" "sharedrunner" ON_SHAREDRUNNER)
+STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
-IF (ON_MARCONI GREATER -1)
-  MESSAGE(STATUS "Compiling on Marconi")
-ELSEIF (ON_HYDRA GREATER -1)
-  MESSAGE(STATUS "Compiling on hydra")
+STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
+STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
+
+IF((ON_MPCDFCIRUNNER GREATER -1))
+  MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
+ELSEIF (ON_SHAREDRUNNER GREATER -1)
+  MESSAGE(STATUS "Compiling on MPCDF shared runner")
+ELSEIF (ON_TESTIMONY GREATER -1)
+  MESSAGE(STATUS "Compiling on testimony")
 ELSEIF (ON_COBRA GREATER -1)
-  MESSAGE(STATUS "Compiling on cobra")
+  MESSAGE(STATUS "Compiling on MPCDF cobra")
 ELSEIF (ON_DRACO GREATER -1)
-  MESSAGE(STATUS "Compiling on draco")
+  MESSAGE(STATUS "Compiling on MPCDF draco")
 ELSEIF (ON_RAVEN GREATER -1)
-  MESSAGE(STATUS "Compiling on raven")
-ELSEIF (ON_RAVEN GREATER -1)
+  MESSAGE(STATUS "Compiling on MPCDF raven")
+ELSEIF (ON_MAC_BREW GREATER -1) 
+  MESSAGE(STATUS "Compiling on MacOS with homebrew!")
+ELSEIF (ON_MAC_BREW_PORTS GREATER -1) 
+  MESSAGE(STATUS "Compiling on MacOS with macports!")
+ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
 ELSE()
   MESSAGE(STATUS "Compiling on unknown hostname")
@@ -97,13 +106,9 @@ OPTION(USE_OPENMP "enable OpenMP" ON)
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 MARK_AS_ADVANCED(USE_FTIMINGS)
-SET (USE_VISU_J "off" CACHE STRING "enable visualization of current: off/ with Finite Difference / analytical")
-SET_PROPERTY(CACHE USE_VISU_J PROPERTY STRINGS off FD ANA )
-
-IF(USE_VISU_J STREQUAL "FD")
+OPTION(USE_VISU_J_FD "enable visualization of current with Finite difference (slow)" OFF)
+IF(USE_VISU_J_FD)
   ADD_DEFINITIONS("-DVISU_J_FD")
-ELSEIF(USE_VISU_J STREQUAL "ANA")
-  ADD_DEFINITIONS("-DVISU_J_EXACT")
 ENDIF()
 # =========================================================================
 # Build type
@@ -161,25 +166,23 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-   #environment specific variables
-   IF(ON_MARCONI GREATER -1)
-      SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
-   ELSEIF (ON_HYDRA GREATER -1 )
-      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for hydra
-   ELSEIF (ON_TOKP GREATER -1 )
-      SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
-   ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
-      SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
-      # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
-   ELSEIF (ON_DRACO GREATER -1 )
-      SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
-   ELSE()
-      SET(MAIN_INSTRUCTION "-xHost")
-   ENDIF()
-   # set Flags
+  #environment specific variables
+  IF((ON_TESTIMONY GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1 ))
+     SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for testimony
+  ELSEIF (ON_TOKP GREATER -1 )
+     SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
+  ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
+     SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
+     # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
+  ELSEIF (ON_DRACO GREATER -1 )
+     SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
+  ELSE()
+     SET(MAIN_INSTRUCTION "-xHost")
+  ENDIF()
+  # set Flags
   #OpenMP
   IF(USE_OPENMP)
-   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
   ENDIF()
 
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
@@ -226,11 +229,11 @@ ELSE()
 ENDIF()
 
 
-IF(ON_HYDRA GREATER -1)
+IF(ON_TESTIMONY GREATER -1)
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -mkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    LIST(APPEND linkedlibs -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
     MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     FIND_PACKAGE(LAPACK QUIET)
@@ -243,11 +246,11 @@ IF(ON_HYDRA GREATER -1)
   ELSE()
      MESSAGE(SEND_ERROR " Unknown compiler ...")
   ENDIF()
-ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
+ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -mkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -256,6 +259,13 @@ ELSEIF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) O
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
+#ELSEIF(ON_MAC_BREW GREATER -1)
+#  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+#    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
+#    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
+#    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L/opt/local/lib -lopenblas")
+#    MESSAGE(STATUS "Using GNU BLAS/Lapack library")
+#  ENDIF()
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
   IF (LAPACK_FOUND)
@@ -270,8 +280,12 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_HYDRA GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
+  ELSEIF(ON_MAC_BREW GREATER -1)
+    SET(NETCDF_DIR  /opt/homebrew)
+  ELSEIF(ON_MAC_PORTS GREATER -1)
+    SET(NETCDF_DIR  /opt/local)
   ELSE()
     SET(NETCDF_DIR  /usr)
   ENDIF()
@@ -288,11 +302,20 @@ ENDIF()
 # =========================================================================
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  IF((ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
     LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
   ENDIF()
+    #TTR: don't know why above list append fails for MacOS... needs line below to work
+  IF((ON_MAC_BREW GREATER -1) OR(ON_MAC_PORTS GREATER -1))
+    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib")
+  ENDIF()
 ENDIF()
+
+# =========================================================================
+# python 
+# =========================================================================
+find_package(Python COMPONENTS Interpreter REQUIRED)
 
 # =========================================================================
 # project sources & targets
@@ -314,8 +337,10 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
-                          ./src/readstate*.f90
+                          ./src/readstate/*.f90
+                          ./src/io_netcdf.f90
                           ./src/output/*.f90
+                          ./src/analyze/analyze_vars.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
 
@@ -324,10 +349,7 @@ IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
                             ./src/functionals/*.f90
                             ./src/analyze/*.f90
-                            ./src/lbfgsb/*.f90
                             ./src/vmec/*.f90
-                            ./src/io_netcdf.f90
-                            ./src/output/*.f90
                             ./src/restart/*.f90 )
 
   IF(USE_FTIMINGS)
@@ -354,7 +376,7 @@ ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
-OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC libraray as static (OFF: compiled as shared)" OFF)
+OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC library as static (OFF: compiled as shared)" OFF)
 MARK_AS_ADVANCED(COMPILE_GVEC_AS_STATIC_LIB)
 SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 IF(COMPILE_GVEC_AS_STATIC_LIB)
@@ -373,6 +395,9 @@ ENDIF()
     MACOSX_RPATH ON
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
+# Enable testing in general
+include(CTest) 
+#ENABLE_TESTING()
 
 # =========================================================================
 # Executable programs (simply use add_exec)
@@ -382,6 +407,36 @@ IF(COMPILE_GVEC)
   ADD_DEPENDENCIES(gvec gveclib )
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
+  add_test(
+    NAME gvec_pytest_dryrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_norestart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_restart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_post_shortrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+  )
+  add_test(
+    NAME gvec_pytest_run_debugrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
+  )
+  #add_test(
+  #  NAME gvec_pytest_example
+  #  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
+  #  COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and example" --builddir=${CMAKE_BINARY_DIR}
+  #)
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
   add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
