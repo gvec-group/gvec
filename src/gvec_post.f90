@@ -29,6 +29,7 @@ PROGRAM GVEC_POST
   USE MODgvec_Output_Vars  ,ONLY: OutputLevel,ProjectName
   USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
   USE MODgvec_MHD3D_Vars   ,ONLY: U,F
+  USE MODgvec_MHD3D_visu   ,ONLY:WriteSFLoutfile
   USE MODgvec_MHD3D_EvalFunc,ONLY: EvalForce
   USE MODgvec_ReadInTools  ,ONLY: GETLOGICAL,GETINT,IgnoredStrings 
   USE MODgvec_Functional
@@ -82,6 +83,7 @@ PROGRAM GVEC_POST
     JacCheck=2
     CALL EvalForce(U(0),.TRUE.,JacCheck, F(0))
     CALL Analyze(FileID_r)
+    CALL writeSFLoutfile(U(0),FileID_r)
   END DO !iArg
   
   CALL FinalizeFunctional(functional)

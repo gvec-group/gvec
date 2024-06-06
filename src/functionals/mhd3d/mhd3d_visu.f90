@@ -47,7 +47,7 @@ IMPLICIT NONE
   INTEGER       , INTENT(IN   ) :: mn_IP(2) !! muber of points in theta,zeta direction
   REAL(wp)      , INTENT(IN   ) :: minmax(2:3,0:1) !! min/max of theta,zeta [0,1] 
   INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
-!-----------------------------------------------------------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -86,9 +86,9 @@ IMPLICIT NONE
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
   !make theta direction fully periodic
-  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-    thet(mn_IP(1))=thet(1)
-  END IF
+    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+      thet(mn_IP(1))=thet(1)
+    END IF
   IF(hmap%which_hmap.NE.3)THEN !not for cylinder
     IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
       zeta(mn_IP(2))=zeta(1)
@@ -185,7 +185,7 @@ IMPLICIT NONE
   REAL(wp) :: dLA_dthet_eps,dLA_dzeta_eps,iota_s_eps,pres_s_eps,phiPrime_s_eps
   REAL(wp) :: B_ds(3), B_dthet(3), B_dzeta(3), grad_Bcart(3, 3)          !< cartesion current density and gradient of magnetic field components
   INTEGER  :: sgn
-  REAL(wp) :: delta_s,delta_thet,delta_zeta 
+  REAL(wp) :: delta_s,delta_thet,delta_zeta
   REAL(wp),PARAMETER :: eps   = 1.0e-8 !theta,zeta
   REAL(wp),PARAMETER :: eps_s   = 1.0e-4 !
 #endif
@@ -682,15 +682,15 @@ IMPLICIT NONE
   !END IF
 
   !make grid exactly periodic
-  !make theta direction exactly periodic
-  IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
+    !make theta direction exactly periodic
+    IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
 !$OMP PARALLEL DO  COLLAPSE(3)     &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
     DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
       coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
     END DO; END DO; END DO
 !$OMP END PARALLEL DO
-  END IF
+    END IF
   IF(hmap%which_hmap.NE.3)THEN !not for cylinder
     !make zeta direction exactly periodic, only for 3Dvisu
     IF(.NOT.only_planes)THEN
@@ -721,8 +721,8 @@ IMPLICIT NONE
     nplot(1:3)=(/n_s,n_s,mn_IP(2)/)-1
     WRITE(filename,'(A,"_visu_3D_",I4.4,"_",I8.8)')TRIM(Projectname),outputLevel,fileID
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
-      CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
-                          coord_visu(:,:,:,:,:,minElem:maxElem), &
+    CALL WriteDataToVTK(3,3,nVal,nplot,mn_IP(1)*(maxElem-minElem+1),VarNames, &
+                        coord_visu(:,:,:,:,:,minElem:maxElem), &
                             var_visu(:,:,:,:,:,minElem:maxElem),TRIM(filename)//".vtu")
     END IF
     IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
@@ -811,6 +811,359 @@ CONTAINS
   END FUNCTION FRdFR
 
 END SUBROUTINE Get_SFL_theta
+
+
+
+
+!===================================================================================================================================
+!> convert solution Uin to straight-field line coordinates, and then write to visualization/netcdf file.
+!! evaluation at given SFLout_radialpos. Passed to a grid, then a deg=1 spline is used, which is interpolatory at the grid points.
+!!
+!===================================================================================================================================
+SUBROUTINE WriteSFLoutfile(Uin,fileID)
+! MODULES
+  USE MODgvec_MHD3D_Vars,     ONLY: hmap,X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_PhiPrime
+  USE MODgvec_Transform_SFL,  ONLY: t_transform_sfl,transform_sfl_new
+  USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
+  USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
+  USE MODgvec_Output_vars,    ONLY: ProjectName,outputLevel
+  USE MODgvec_Analyze_Vars,   ONLY: outfileType,SFLout,SFLout_nrp,SFLout_mn_pts,SFLout_mn_max,SFLout_radialpos
+  USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_mhd3d
+  USE MODgvec_Globals,        ONLY: TWOPI,CROSS
+  IMPLICIT NONE 
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution 
+  INTEGER , INTENT(IN   ) :: fileID          !! added to file name before the ending
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  CLASS(t_transform_sfl),ALLOCATABLE :: trafoSFL
+  REAL(wp),ALLOCATABLE       :: coord_out(:,:,:,:),var_out(:,:,:,:),thetstar_pos(:),zetastar_pos(:)
+  INTEGER                    :: i_rp,izeta,ithet,nthet_out,nzeta_out,i
+  INTEGER                    :: mn_max(2),factorSFL,iVal
+  REAL(wp)                   :: spos,xp(2),sqrtG
+  REAL(wp)                   :: dX1ds,dX1dthetstar,dX1dzetastar
+  REAL(wp)                   :: dX2ds,dX2dthetstar,dX2dzetastar
+  REAL(wp)                   :: phiPrime_int,iota_int,Itor_int,Ipol_int
+  REAL(wp)                   :: X1_int,X2_int,GZ_int,dGZds,dGZdthetstar,dGZdzetastar,LA_int,dLA_dthet,dLA_dzeta
+  REAL(wp)                   :: Gt_int,dGZdthet,dGZdzeta,dX1dthet,dX1dzeta,dX2dthet,dX2dzeta
+  REAL(wp)                   :: dthetstar_dthet ,dthetstar_dzeta ,dzetastar_dthet ,dzetastar_dzeta,Jstar
+  REAL(wp)                   :: dthet_dthetstarJ,dthet_dzetastarJ,dzeta_dthetstarJ,dzeta_dzetastarJ
+  REAL(wp)                   :: Bthet,Bzeta,Bthetstar,Bzetastar
+  REAL(wp),DIMENSION(3)      :: qvec,e_s,e_thet,e_zeta,e_thetstar,e_zetastar,Bfield
+  REAL(wp),ALLOCATABLE       :: X1_s(:),dX1ds_s(:),X2_s(:),dX2ds_s(:),Gz_s(:),dGZds_s(:),LA_s(:),Gt_s(:)
+  INTEGER                    :: VP_rho,VP_iota,VP_thetastar,VP_zetastar,VP_zeta,VP_X1sfl,VP_X2sfl,VP_SQRTG,VP_SQRTGstar,&
+                                VP_B,VP_modB,VP_Bsubthet,VP_Bsubzeta,VP_Bthet,VP_Bzeta,VP_grads,VP_theta,&
+                                VP_Bsubthetstar,VP_Bsubzetastar,VP_Bthetstar,VP_Bzetastar,VP_Itor,VP_Ipol
+  INTEGER,PARAMETER          :: nVal=25
+  CHARACTER(LEN=40)          :: VarNames(nval)  
+  CHARACTER(LEN=10)          :: sfltype 
+  CHARACTER(LEN=255)         :: filename
+  LOGICAL                    :: useSFLcoords
+  INTEGER                    :: dbg
+  !=================================================================================================================================
+  IF(SFLout.EQ.0) RETURN
+  sfltype=MERGE("_boozer","_pest  ",SFLout.EQ.2)
+  WRITE(filename,'(A,"_",I4.4,"_",I8.8,"")') & 
+  TRIM(Projectname)//TRIM(sfltype),outputLevel,fileID
+  SWRITE(UNIT_stdOut,'(A,A,A)') 'WRITING SFL output: ',TRIM(filename),' ...'
+  __PERFON("output_sfl")
+  iVal=1
+  VP_rho        =iVal;iVal=iVal+1; VarNames(VP_rho      )="rho"
+  VP_iota       =iVal;iVal=iVal+1; VarNames(VP_iota     )="iota"
+  VP_Itor       =iVal;iVal=iVal+1; VarNames(VP_Itor     )="Itor"
+  VP_Ipol       =iVal;iVal=iVal+1; VarNames(VP_Ipol     )="Ipol"
+  VP_thetastar  =iVal;iVal=iVal+1; VarNames(VP_thetastar)="thetastar"
+  VP_zetastar   =iVal;iVal=iVal+1; VarNames(VP_zetastar )="zetastar"
+  VP_theta      =iVal;iVal=iVal+1; VarNames(VP_theta    )="theta"
+  VP_zeta       =iVal;iVal=iVal+1; VarNames(VP_zeta     )="zeta"
+  VP_SQRTG      =iVal;iVal=iVal+1; VarNames(VP_SQRTG    )="sqrtG"
+  VP_SQRTGstar  =iVal;iVal=iVal+1; VarNames(VP_SQRTGstar)="sqrtGstar"
+  VP_modB       =iVal;iVal=iVal+1; VarNames(VP_modB     )="modB"
+  VP_B          =iVal;iVal=iVal+3; VarNames(VP_B        )="BvecX"
+                                   VarNames(VP_B+1      )="BvecY"
+                                   VarNames(VP_B+2      )="BvecZ"
+  VP_grads      =iVal;iVal=iVal+3; VarNames(VP_grads    )="grad_sX"
+                                   VarNames(VP_grads+1  )="grad_sY"
+                                   VarNames(VP_grads+2  )="grad_sZ"
+  VP_Bsubthet   =iVal;iVal=iVal+1; VarNames(VP_Bsubthet )="Bsubtheta"
+  VP_Bsubzeta   =iVal;iVal=iVal+1; VarNames(VP_Bsubzeta )="Bsubzeta"
+  VP_Bthet      =iVal;iVal=iVal+1; VarNames(VP_Bthet    )="Btheta"
+  VP_Bzeta      =iVal;iVal=iVal+1; VarNames(VP_Bzeta    )="Bzeta"
+  VP_Bsubthetstar   =iVal;iVal=iVal+1; VarNames(VP_Bsubthetstar )="Bsubthetastar"
+  VP_Bsubzetastar   =iVal;iVal=iVal+1; VarNames(VP_Bsubzetastar )="Bsubzetastar"
+  VP_Bthetstar      =iVal;iVal=iVal+1; VarNames(VP_Bthetstar    )="Bthetastar"
+  VP_Bzetastar      =iVal;iVal=iVal+1; VarNames(VP_Bzetastar    )="Bzetastar"
+
+
+  IF(iVal.NE.Nval+1) CALL abort(__STAMP__,"nVal parameter not correctly set")
+
+
+  factorSFL=4
+  DO i=1,2
+    IF(SFLout_mn_max(i).EQ.-1)THEN !input =-1, automatic
+      mn_max(i) = factorSFL*MAXVAL((/X1_base%f%mn_max(i),X2_base%f%mn_max(i),LA_base%f%mn_max(i)/))
+    ELSE 
+      mn_max(i) = SFLout_mn_max(i) !user defined
+    END IF
+  END DO
+
+  CALL transform_sfl_new(trafoSFL,mn_max,SFLout,.false.,&  ! relambda=false
+                         X1_base%s%deg,X1_base%s%continuity,X1_base%s%degGP,X1_base%s%grid,&
+                         hmap,X1_base,X2_base,LA_base,Eval_PhiPrime,Eval_iota)  !same grid and degree as variable X1.
+  CALL trafoSFL%buildTransform(X1_base,X2_base,LA_base,Uin%X1,Uin%X2,Uin%LA)
+
+  Nthet_out=MERGE(2*mn_max(1)+1,SFLout_mn_pts(1),SFLout_mn_pts(1).EQ.-1) !if input =-1, automatically 2*m_max+1, else user defined
+  Nzeta_out=MERGE(2*mn_max(2)+1,SFLout_mn_pts(2),SFLout_mn_pts(2).EQ.-1) !if input =-1, automatically 2*n_max+1
+  
+  DO dbg=1,2
+  ASSOCIATE(n_rp=>SFLout_nrp, rp=>SFLout_radialpos,SFLcoord=>trafoSFL%whichSFLcoord)
+
+  ALLOCATE(thetstar_pos(Nthet_out))
+  ALLOCATE(zetastar_pos(Nzeta_out))
+  DO ithet=1,Nthet_out
+    thetstar_pos(ithet)=(TWOPI*(REAL(ithet,wp)-0.5_wp))/REAL(Nthet_out) 
+  END DO
+  DO izeta=1,Nzeta_out
+    zetastar_pos(izeta)=(TWOPI*(REAL(izeta,wp)-0.5_wp))/REAL((Nzeta_out*trafoSFL%nfp),wp)
+  END DO
+  ALLOCATE(coord_out(3,Nthet_out,Nzeta_out,n_rp),var_out(nVal,Nthet_out,Nzeta_out,n_rp))
+  var_out=0.
+  
+  useSFLcoords=(dbg.EQ.1)
+  WRITE(*,*)'USESFLCOORDS=',useSFLcoords
+
+  IF(.NOT.useSFLcoords)THEN !use quantities given in GVEC theta and zeta:
+    ASSOCIATE(G_base=>trafoSFL%GZ_base,Gt=>trafoSFL%Gthet,Gz=>trafoSFL%Gz)
+    ALLOCATE(X1_s(X1_base%f%modes),dX1ds_s(X1_base%f%modes))
+    ALLOCATE(X2_s(X2_base%f%modes),dX2ds_s(X2_base%f%modes))
+    ALLOCATE(LA_s(LA_base%f%modes))
+    IF(SFLcoord.EQ.2) ALLOCATE(Gt_s(G_base%f%modes),Gz_s(G_base%f%modes))
+    DO i_rp=1,n_rp
+      Itor_int = 0.
+      Ipol_int = 0.
+      spos=rp(i_rp)
+      iota_int=Eval_iota(spos)
+      phiPrime_int=Eval_PhiPrime(spos)
+      var_out(VP_rho ,:,:,i_rp)=spos
+      var_out(VP_iota,:,:,i_rp)=iota_int
+      GZ_int   = 0.0_wp !only changed for SFLcoords=2
+      dGZdthetstar = 0.0_wp !only changed for SFLcoords=2
+      dGZdzetastar = 0.0_wp !only changed for SFLcoords=2
+      !interpolate radially
+      X1_s(   :) = X1_base%s%evalDOF2D_s(spos,X1_base%f%modes,       0,Uin%X1(:,:))
+      dX1ds_s(:) = X1_base%s%evalDOF2D_s(spos,X1_base%f%modes, DERIV_S,Uin%X1(:,:))
+    
+      X2_s(   :) = X2_base%s%evalDOF2D_s(spos,X2_base%f%modes,       0,Uin%X2(:,:))
+      dX2ds_s(:) = X2_base%s%evalDOF2D_s(spos,X2_base%f%modes, DERIV_S,Uin%X2(:,:))
+      !IF(SFLcoord.EQ.1) THEN
+      LA_s=LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,0,Uin%LA)
+      IF(SFLcoord.EQ.2)THEN
+        Gt_s = G_base%s%evalDOF2D_s(spos,G_base%f%modes, 0,Gt)
+        Gz_s = G_base%s%evalDOF2D_s(spos,G_base%f%modes, 0,Gz)
+      END IF
+      DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
+        xp=(/thetstar_pos(ithet),zetastar_pos(izeta)/) !=theta,zeta GVEC !!!
+        IF(SFLcoord.EQ.1)THEN
+          var_out(VP_thetastar,ithet,izeta,i_rp)=thetstar_pos(ithet)+LA_base%f%evalDOF_x(xp,0,LA_s)
+          var_out(VP_zetastar ,ithet,izeta,i_rp)=zetastar_pos(izeta)
+          dthetstar_dthet=1.+LA_base%f%evalDOF_x(xp,DERIV_THET, LA_s)
+          dthetstar_dzeta=1.+LA_base%f%evalDOF_x(xp,DERIV_ZETA, LA_s)
+          dzetastar_dthet=0.
+          dzetastar_dzeta=1.
+        ELSEIF(SFLcoord.EQ.2)THEN
+          var_out(VP_thetastar,ithet,izeta,i_rp)=thetstar_pos(ithet)+G_base%f%evalDOF_x(xp, 0, Gt_s)
+          var_out(VP_zetastar ,ithet,izeta,i_rp)=zetastar_pos(izeta)+G_base%f%evalDOF_x(xp, 0, Gz_s)
+          dGZdthet=G_base%f%evalDOF_x(xp,DERIV_THET, Gz_s)  !d/dthet, but evaluated at theta*,zeta*!
+          dGZdzeta=G_base%f%evalDOF_x(xp,DERIV_ZETA, Gz_s)
+          dthetstar_dthet=1.+G_base%f%evalDOF_x(xp,DERIV_THET, Gt_s)
+          dthetstar_dzeta=   G_base%f%evalDOF_x(xp,DERIV_ZETA, Gt_s)
+          dzetastar_dthet=   dGZdthet
+          dzetastar_dzeta=1.+dGZdzeta
+        END IF
+        !inverse:
+        Jstar=dthetstar_dthet*dzetastar_dzeta-dthetstar_dzeta*dzetastar_dthet
+        dthet_dthetstarJ= dzetastar_dzeta !/Jstar*Jstar
+        dzeta_dzetastarJ= dthetstar_dthet !/Jstar*Jstar
+        dthet_dzetastarJ=-dthetstar_dzeta !/Jstar*Jstar
+        dzeta_dthetstarJ=-dzetastar_dthet !/Jstar*Jstar
+
+        X1_int   = X1_base%f%evalDOF_x(xp,          0, X1_s  )
+        dX1ds    = X1_base%f%evalDOF_x(xp,          0,dX1ds_s)
+        dX1dthet = X1_base%f%evalDOF_x(xp, DERIV_THET, X1_s  ) 
+        dX1dzeta = X1_base%f%evalDOF_x(xp, DERIV_ZETA, X1_s  ) 
+        
+        X2_int   = X2_base%f%evalDOF_x(xp,          0, X2_s  )
+        dX2ds    = X2_base%f%evalDOF_x(xp,          0,dX2ds_s)
+        dX2dthet = X2_base%f%evalDOF_x(xp, DERIV_THET, X2_s  )
+        dX2dzeta = X2_base%f%evalDOF_x(xp, DERIV_ZETA, X2_s  )
+        
+        dLA_dthet= LA_base%f%evalDOF_x(xp, DERIV_THET, LA_s  )
+        dLA_dzeta= LA_base%f%evalDOF_x(xp, DERIV_ZETA, LA_s  )
+        
+        ! !transform derivative from dthet,dzeta=>dthet*,dzeta*
+        ! dX1dthetstar = (dX1dthet*dthet_dthetstarJ+dX1dzeta*dzeta_dthetstarJ)/Jstar
+        ! dX2dthetstar = (dX2dthet*dthet_dthetstarJ+dX2dzeta*dzeta_dthetstarJ)/Jstar
+
+        ! dX1dzetastar = (dX1dthet*dthet_dzetastarJ+dX1dzeta*dzeta_dzetastarJ)/Jstar
+        ! dX2dzetastar = (dX2dthet*dthet_dzetastarJ+dX2dzeta*dzeta_dzetastarJ)/Jstar
+        ! IF(SFLcoord.EQ.2)THEN
+        !   dGZdthetstar=(dGZdthet*dthet_dthetstarJ+dGZdzeta*dzeta_dthetstarJ)/Jstar
+        !   dGZdzetastar=(dGZdthet*dthet_dzetastarJ+dGZdzeta*dzeta_dzetastarJ)/Jstar
+        ! END IF
+
+        qvec=(/X1_int,X2_int,xp(2)/)
+        coord_out(:,ithet,izeta,i_rp)=hmap%eval(qvec)
+        e_s   =hmap%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,0.0_wp/))
+        e_thet=hmap%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
+        e_zeta=hmap%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
+        sqrtG    = SUM(e_s * (CROSS(e_thet,e_zeta)))
+        e_thetstar=(e_thet*dthet_dthetstarJ+e_zeta*dzeta_dthetstarJ)/Jstar
+        e_zetastar=(e_thet*dthet_dzetastarJ+e_zeta*dzeta_dzetastarJ)/Jstar
+
+        Bthet   = (iota_int - dLA_dzeta ) * phiPrime_int   !/sqrtG
+        Bzeta   = (1.0_wp + dLA_dthet ) * phiPrime_int       !/sqrtG
+        Bfield(:) =  ( e_thet(:) * Bthet + e_zeta(:) * Bzeta) /sqrtG
+
+        Itor_int = Itor_int+ SUM(Bfield(:)*e_thet(:))   !B_theta=B.e_thet 
+        Ipol_int = Ipol_int+ SUM(Bfield(:)*e_zeta(:))   !B_zeta =B.e_zeta
+        ! !e_s          = hmap%eval_dxdq(qvec,(/dX1ds       ,dX2ds       ,       -dGZds       /)) !dxvec/ds
+        ! e_thetstar   = hmap%eval_dxdq(qvec,(/dX1dthetstar,dX2dthetstar,       -dGZdthetstar/)) !dxvec/dthetstar
+        ! e_zetastar   = hmap%eval_dxdq(qvec,(/dX1dzetastar,dX2dzetastar,1.0_wp -dGZdzetastar/)) !dxvec/dzetastar
+        ! !sqrtG        = SUM(e_s*(CROSS(e_thetstar,e_zetastar)))
+        ! sqrtG        = hmap%eval_Jh(qvec)*(dX1ds*dX2dthetstar-dX1dthetstar*dX2ds)
+        ! Bthetstar    = iota_int*PhiPrime_int   !/sqrtG
+        ! Bzetastar    =          PhiPrime_int   !/sqrtG
+        ! Bfield(:)    =  ( e_thetstar(:)*Bthetstar+e_zetastar(:)*Bzetastar) /sqrtG
+        
+        var_out(VP_theta    ,ithet,izeta,i_rp)=xp(1)
+        var_out(VP_zeta     ,ithet,izeta,i_rp)=xp(2)
+        var_out(VP_SQRTG    ,ithet,izeta,i_rp)=sqrtG
+        var_out(VP_SQRTGstar,ithet,izeta,i_rp)=sqrtG/Jstar !=sqrtGstar
+        var_out(VP_B:VP_B+2 ,ithet,izeta,i_rp)=Bfield
+        var_out(VP_grads:VP_grads+2 ,ithet,izeta,i_rp)=CROSS(e_thet,e_zeta)/sqrtG
+        var_out(VP_modB     ,ithet,izeta,i_rp)=SQRT(SUM(Bfield*Bfield))
+        var_out(VP_Bthet    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_zeta,e_s   ))/sqrtG
+        var_out(VP_Bzeta    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_thet,e_zeta))/sqrtG
+        var_out(VP_Bthetstar    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_zetastar,e_s       ))*Jstar/sqrtG
+        var_out(VP_Bzetastar    ,ithet,izeta,i_rp)=SUM(Bfield*CROSS(e_thetstar,e_zetastar))
+        var_out(VP_Bsubthet ,ithet,izeta,i_rp)=SUM(Bfield*e_thet)
+        var_out(VP_Bsubzeta ,ithet,izeta,i_rp)=SUM(Bfield*e_zeta)
+        var_out(VP_Bsubthetstar ,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
+        var_out(VP_Bsubzetastar ,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
+      END DO; END DO !izeta,ithet
+      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+      var_out(VP_Itor ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp))
+    END DO !i_rp=1,n_rp
+
+    END ASSOCIATE
+  ELSE !use quantities given in SFL coords 
+    ASSOCIATE(X1sfl_base=>trafoSFL%X1sfl_base,X1sfl=>trafoSFL%X1sfl,&
+              X2sfl_base=>trafoSFL%X2sfl_base,X2sfl=>trafoSFL%X2sfl,&
+              Gtsfl_base=>trafoSFL%GZsfl_base,Gtsfl=>trafoSFL%Gtsfl,&
+              GZsfl_base=>trafoSFL%GZsfl_base,GZsfl=>trafoSFL%GZsfl )
+    ALLOCATE(X1_s(X1sfl_base%f%modes),dX1ds_s(X1sfl_base%f%modes))
+    ALLOCATE(X2_s(X2sfl_base%f%modes),dX2ds_s(X2sfl_base%f%modes)) 
+    IF(SFLcoord.EQ.2) ALLOCATE(Gt_s(GZsfl_base%f%modes),GZ_s(GZsfl_base%f%modes),dGZds_s(GZsfl_base%f%modes))
+    DO i_rp=1,n_rp
+      spos=rp(i_rp)
+      iota_int=Eval_iota(spos)
+      Itor_int=0.
+      Ipol_int=0.
+      phiPrime_int=Eval_PhiPrime(spos)
+      var_out(VP_rho ,:,:,i_rp)=spos
+      var_out(VP_iota,:,:,i_rp)=iota_int
+      GZ_int   = 0.0_wp !only changed for SFLcoords=2
+      !dGZds    = 0.0_wp !only changed for SFLcoords=2
+      dGZdthetstar = 0.0_wp !only changed for SFLcoords=2
+      dGZdzetastar = 0.0_wp !only changed for SFLcoords=2
+        !interpolate radially
+      X1_s(   :) = X1sfl_base%s%evalDOF2D_s(spos,X1sfl_base%f%modes,       0,X1sfl(:,:))
+      dX1ds_s(:) = X1sfl_base%s%evalDOF2D_s(spos,X1sfl_base%f%modes, DERIV_S,X1sfl(:,:))
+    
+      X2_s(   :) = X2sfl_base%s%evalDOF2D_s(spos,X2sfl_base%f%modes,       0,X2sfl(:,:))
+      dX2ds_s(:) = X2sfl_base%s%evalDOF2D_s(spos,X2sfl_base%f%modes, DERIV_S,X2sfl(:,:))
+      IF(SFLcoord.EQ.2)THEN !BOOZER
+        Gt_s(   :) = GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,      0,Gtsfl(:,:))
+        GZ_s(   :) = GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,      0,GZsfl(:,:))
+        dGZds_s(:) = GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,DERIV_S,GZsfl(:,:))
+      END IF
+      DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
+        xp=(/thetstar_pos(ithet),zetastar_pos(izeta)/)
+        X1_int       = X1sfl_base%f%evalDOF_x(xp,          0, X1_s  )
+        dX1ds        = X1sfl_base%f%evalDOF_x(xp,          0,dX1ds_s)
+        dX1dthetstar = X1sfl_base%f%evalDOF_x(xp, DERIV_THET, X1_s  )
+        dX1dzetastar = X1sfl_base%f%evalDOF_x(xp, DERIV_ZETA, X1_s  )
+        
+        X2_int       = X2sfl_base%f%evalDOF_x(xp,          0, X2_s  )
+        dX2ds        = X2sfl_base%f%evalDOF_x(xp,          0,dX2ds_s)
+        dX2dthetstar = X2sfl_base%f%evalDOF_x(xp, DERIV_THET, X2_s  )
+        dX2dzetastar = X2sfl_base%f%evalDOF_x(xp, DERIV_ZETA, X2_s  )
+  
+        
+        IF(SFLcoord.EQ.2)THEN !BOOZER coordinates (else=0)
+          GZ_int       = GZsfl_base%f%evalDOF_x(xp,         0, GZ_s)
+          dGZds        = GZsfl_base%f%evalDOF_x(xp,         0, dGZds_s)
+          dGZdthetstar = GZsfl_base%f%evalDOF_x(xp,DERIV_THET, GZ_s)
+          dGZdzetastar = GZsfl_base%f%evalDOF_x(xp,DERIV_ZETA, GZ_s)
+        END IF
+        
+        qvec=(/X1_int,X2_int,zetastar_pos(izeta)-GZ_int/) !(X1,X2,"zeta=zetastar-GZ(spos,thetstar,zetastar)")
+        coord_out(:,ithet,izeta,i_rp)=hmap%eval(qvec)
+        e_s          = hmap%eval_dxdq(qvec,(/dX1ds       ,dX2ds       ,       -dGZds       /)) !dxvec/ds
+        e_thetstar   = hmap%eval_dxdq(qvec,(/dX1dthetstar,dX2dthetstar,       -dGZdthetstar/)) !dxvec/dthetstar
+        e_zetastar   = hmap%eval_dxdq(qvec,(/dX1dzetastar,dX2dzetastar,1.0_wp -dGZdzetastar/)) !dxvec/dzetastar
+        sqrtG        = SUM(e_s*(CROSS(e_thetstar,e_zetastar)))
+        !sqrtG        = hmap%eval_Jh(qvec)*(dX1ds*dX2dthetstar-dX1dthetstar*dX2ds)
+        Bthetstar    = iota_int*PhiPrime_int   !/sqrtG
+        Bzetastar    =          PhiPrime_int   !/sqrtG
+        Bfield(:)    =  ( e_thetstar(:)*Bthetstar+e_zetastar(:)*Bzetastar) /sqrtG
+        Itor_int = Itor_int+ SUM(Bfield(:)*e_thetstar(:))   !B_theta=B.e_thet 
+        Ipol_int = Ipol_int+ SUM(Bfield(:)*e_zetastar(:))   !B_zeta =B.e_zeta
+        var_out(VP_thetastar,ithet,izeta,i_rp)=thetstar_pos(ithet)
+        var_out(VP_zetastar ,ithet,izeta,i_rp)=zetastar_pos(izeta)
+        var_out(VP_theta    ,ithet,izeta,i_rp)=thetstar_pos(ithet)-GZsfl_base%f%evalDOF_x(xp,         0, Gt_s)
+        var_out(VP_zeta     ,ithet,izeta,i_rp)=zetastar_pos(izeta)-GZ_int
+        var_out(VP_SQRTGstar,ithet,izeta,i_rp)=sqrtG
+        var_out(VP_B:VP_B+2 ,ithet,izeta,i_rp)=Bfield
+        var_out(VP_grads:VP_grads+2,ithet,izeta,i_rp)=CROSS(e_thetstar,e_zetastar)/sqrtG
+        var_out(VP_modB     ,ithet,izeta,i_rp)=SQRT(SUM(Bfield*Bfield))
+        var_out(VP_Bthet    ,ithet,izeta,i_rp)=Bthetstar
+        var_out(VP_Bzeta    ,ithet,izeta,i_rp)=Bzetastar
+        var_out(VP_Bsubthetstar,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
+        var_out(VP_Bsubzetastar,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
+      END DO; END DO !ithet,izeta
+      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+      var_out(VP_Itor ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp))
+    END DO !i_rp=1,,n_rp
+    END ASSOCIATE
+  END IF !useSFLcoords
+  DEALLOCATE(X1_s,dX1ds_s,X2_s,dX2ds_s,thetstar_pos,zetastar_pos)
+  SDEALLOCATE(LA_s)
+  SDEALLOCATE(Gt_s)
+  SDEALLOCATE(dGzds_s)
+  SDEALLOCATE(Gz_s)
+
+
+  IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
+   CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,n_rp-1/),1,VarNames, &
+                      coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:n_rp), &
+                      var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp),TRIM(filename)//TRIM(MERGE('_full  ','_direct',dbg.EQ.1))//".vtu")
+  END IF
+  IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
+    CALL WriteDataToNETCDF(3,3,nVal,(/Nthet_out,Nzeta_out,n_rp/),&
+                           (/"dim_theta","dim_zeta ","dim_rho  "/),VarNames, &
+                           coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:n_rp), &
+                           var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp), TRIM(filename)//TRIM(MERGE('_full  ','_direct',dbg.EQ.1)))
+  END IF!outfileType
+  END ASSOCIATE !n_rp,rp
+  DEALLOCATE(coord_out,var_out)
+END DO !dbg
+  CALL trafoSFL%free()
+  SWRITE(UNIT_stdOut,'(A)') '... DONE.'
+  __PERFOFF("output_sfl")
+END SUBROUTINE WriteSFLoutfile
 
 
 !===================================================================================================================================
@@ -1132,7 +1485,7 @@ IMPLICIT NONE
 
   END ASSOCIATE !s_visu
   CALL WriteDataToCSV(VarNames(:) ,values_visu(:,:) ,TRIM(fname_in)  &
-                                  ,append_in=.FALSE.,vfmt_in='E15.5')
+                                  ,append_in=.FALSE.)
 
 END SUBROUTINE eval_1d_profiles
 

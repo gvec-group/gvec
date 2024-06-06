@@ -152,6 +152,19 @@ SUBROUTINE InitMHD3D(sf)
       init_BC=-1
     END IF
 
+    init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)      
+    IF(init_with_profile_iota)THEN
+      sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
+      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
+      iota_coefs=REAL(sign_iota)*iota_coefs
+    END IF ! iota from parameterfile
+
+    init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
+    IF(init_with_profile_pressure)THEN
+      CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+      pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
+      pres_coefs=pres_coefs*pres_scale
+    END IF ! pressure from parameterfile
         
     proposal_mn_max(:)=(/mpol-1,ntor/)
     IF(lasym)THEN !asymmetric
@@ -161,12 +174,7 @@ SUBROUTINE InitMHD3D(sf)
     END IF
     gamm = 0.0_wp
     nfp_loc = nfp
-    !hmap: depends on how vmec data is read:
-    IF(switchZeta)THEN  
-      which_hmap=1 !hmap_RZ
-    ELSE
-      which_hmap=2 !hmap_RphiZ
-    END IF
+    which_hmap=1 !hmap_RZ
     Phi_edge = Phi(nFluxVMEC)
   END SELECT !which_init
 
@@ -190,7 +198,7 @@ SUBROUTINE InitMHD3D(sf)
   
   
   LA_deg     = GETINT(     "LA_deg")
-  LA_cont    = GETINT(     "LA_continuity",Proposal=-1)
+  LA_cont    = GETINT(     "LA_continuity",Proposal=(LA_deg-1))
   LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=proposal_mn_max)
   LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal=proposal_LA_sin_cos)
   
@@ -283,25 +291,25 @@ SUBROUTINE InitMHD3D(sf)
     END ASSOCIATE
   END IF
   IF((init_BC.EQ.1).OR.(init_BC.EQ.2))THEN !READ edge values from input file
-    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
-    ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-    WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
-    ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
-    DO iMode=sin_range(1)+1,sin_range(2)
-      X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    DO iMode=cos_range(1)+1,cos_range(2)
-      X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-    END DO !iMode
-    END ASSOCIATE
-  END IF !init_BC
+      WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
+      ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+      WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
+      ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+    END IF !init_BC
 
   X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
   X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_NEUMANN  ) ! stronger: BC_TYPE_SYMM     
@@ -340,7 +348,7 @@ SUBROUTINE InitMHD3D(sf)
     LA_BC_type(BC_AXIS,iMode)=LA_BCtype_axis(zero_odd_even(iMode))
   END DO 
   END ASSOCIATE !LA
-  
+
   ! ALLOCATE DATA
   ALLOCATE(U(-3:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
@@ -499,7 +507,7 @@ END FUNCTION get_iMode
 SUBROUTINE InitSolution(U_init,which_init_in)
 ! MODULES
   USE MODgvec_Globals,       ONLY:ProgressBar
-  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly,init_BC,init_average_axis,average_axis_move
+  USE MODgvec_MHD3D_Vars   , ONLY:init_fromBConly,init_BC,init_average_axis,average_axis_move,hmap
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
   USE MODgvec_MHD3D_Vars   , ONLY:LA_base,init_LA,LA_BC_Type
@@ -509,6 +517,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
+  USE MODgvec_MHD3D_profiles,ONLY:Eval_PhiPrime,Eval_chiPrime
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -522,7 +531,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   INTEGER  :: iMode,is,i_m,i_n
   REAL(wp) :: BC_val(2)
   REAL(wp) :: spos
-  REAL(wp) :: StartTime,EndTime
+  REAL(wp) :: StartTime,EndTime,phiPrime_s,chiPrime_s
   REAL(wp) :: dl,lint,x1int,x2int 
   REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
   REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
@@ -750,18 +759,21 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   END DO 
   END ASSOCIATE !X2
 
-  IF(init_LA)THEN
-    CALL CPU_TIME(StartTime)
+    IF(init_LA)THEN
+      CALL CPU_TIME(StartTime)
 !$ StartTime=OMP_GET_WTIME()
-    SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
-    !initialize Lambda
-    CALL ProgressBar(0,LA_base%s%nBase) !init
-    DO is=1,LA_base%s%nBase
-      spos=LA_base%s%s_IP(is)
-      CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
-      CALL ProgressBar(is,LA_base%s%nBase)
-    END DO !is
-    SWRITE(UNIT_stdOut,'(A)') "... done."
+      SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda from mapping ..."
+      !initialize Lambda
+      CALL ProgressBar(0,LA_base%s%nBase) !init
+      DO is=1,LA_base%s%nBase
+        spos=LA_base%s%s_IP(is)
+        spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos)) !avoid evaluation at axis
+        phiPrime_s=Eval_PhiPrime(spos)
+        chiPrime_s=Eval_chiPrime(spos)
+        CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime_s,chiPrime_s)
+        CALL ProgressBar(is,LA_base%s%nBase)
+      END DO !is
+      SWRITE(UNIT_stdOut,'(A)') "... done."
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
     DO imode=1,modes
@@ -774,24 +786,24 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
     END DO !iMode 
     END ASSOCIATE !LA
-    CALL CPU_TIME(EndTime)
+      CALL CPU_TIME(EndTime)
 !$ EndTime=OMP_GET_WTIME()
-    SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
-  ELSE
-    !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
-    IF(.NOT.init_fromBConly)THEN
-      SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
+      SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
+    ELSE
+      !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
+      IF(.NOT.init_fromBConly)THEN
+        SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
       ASSOCIATE(modes        =>LA_base%f%modes, &
                 zero_odd_even=>LA_base%f%zero_odd_even)
-      DO imode=1,modes
-        IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-          U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
-        ELSE
+  DO imode=1,modes
+    IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
+      U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
+    ELSE
           U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
         END IF!iMode ~ MN_ZERO
-        BC_val =(/ 0.0_wp, 0.0_wp/)
-        CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
-      END DO !iMode 
+      BC_val =(/ 0.0_wp, 0.0_wp/)
+      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+  END DO !iMode 
       END ASSOCIATE !LA
     ELSE
       SWRITE(UNIT_stdOut,'(4X,A)') "... initialize lambda =0 ..."
@@ -810,9 +822,10 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
 ! MODULES
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b
-  USE MODgvec_MHD3D_Vars   , ONLY:LA_base,LA_BC_Type,init_LA
+  USE MODgvec_MHD3D_Vars   , ONLY:LA_base,LA_BC_Type,init_LA,hmap
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
+  USE MODgvec_MHD3D_profiles,ONLY:Eval_PhiPrime,Eval_chiPrime
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -825,7 +838,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode,is
-  REAL(wp) :: BC_val(2),spos
+  REAL(wp) :: BC_val(2),spos,phiPrime_s,chiPrime_s
   REAL(wp) :: X1pert_gIP(1:X1_base%s%nBase)
   REAL(wp) :: X2pert_gIP(1:X2_base%s%nBase)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -885,7 +898,10 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h,X1pert_b,X2pert_b)
     !initialize Lambda
     DO is=1,LA_base%s%nBase
       spos=LA_base%s%s_IP(is)
-      CALL lambda_Solve(spos,U_init%X1,U_init%X2,LA_gIP(is,:))
+      spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos)) !avoid evaluation at axis
+      phiPrime_s=Eval_PhiPrime(spos)
+      chiPrime_s=Eval_chiPrime(spos)
+      CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime_s,chiPrime_s)
     END DO !is
     ASSOCIATE(modes        =>LA_base%f%modes, &
               zero_odd_even=>LA_base%f%zero_odd_even)
@@ -954,6 +970,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   USE MODgvec_MHD3D_EvalFunc
   USE MODgvec_Analyze, ONLY:analyze
   USE MODgvec_Restart, ONLY:WriteState
+  USE MODgvec_MHD3D_visu, ONLY:WriteSFLoutfile
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1144,6 +1161,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   CALL Analyze(MIN(iter,MaxIter))
   CALL WriteState(U(0),MIN(iter,MaxIter))
   CALL FinishLogging()
+  CALL writeSFLoutfile(U(0),MIN(iter,MaxIter))
 !DEBUG
 !  WRITE(FileString,'(A,"_State_",I4.4,"_",I8.8,".dat")')TRIM(ProjectName),OutputLevel,99999999
 !  CALL ReadState(FileString,U(-1))

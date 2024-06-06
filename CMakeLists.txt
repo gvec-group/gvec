@@ -21,7 +21,7 @@ STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
 
 IF((ON_MPCDFCIRUNNER GREATER -1))
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
@@ -106,19 +106,23 @@ OPTION(USE_OPENMP "enable OpenMP" ON)
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 MARK_AS_ADVANCED(USE_FTIMINGS)
-OPTION(USE_VISU_J_FD "enable visualization of current with Finite difference (slow)" OFF)
-IF(USE_VISU_J_FD)
+SET (USE_VISU_J "off" CACHE STRING "enable visualization of current: off/ with Finite Difference / analytical")
+SET_PROPERTY(CACHE USE_VISU_J PROPERTY STRINGS off FD ANA )
+
+IF(USE_VISU_J STREQUAL "FD")
   ADD_DEFINITIONS("-DVISU_J_FD")
+ELSEIF(USE_VISU_J STREQUAL "ANA")
+  ADD_DEFINITIONS("-DVISU_J_EXACT")
 ENDIF()
 # =========================================================================
 # Build type
 # =========================================================================
 # make sure that the default is a RELEASE
 IF (NOT CMAKE_BUILD_TYPE)
-  SET (CMAKE_BUILD_TYPE Release CACHE STRING
+  SET (CMAKE_BUILD_TYPE "Release" CACHE STRING
       "Choose the type of build, options are: Debug / Release / Profile."
       FORCE)
-  SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile)
+  SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile )
 ENDIF (NOT CMAKE_BUILD_TYPE)
 
 IF (CMAKE_BUILD_TYPE MATCHES "Debug")
@@ -259,7 +263,7 @@ ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBR
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
-#ELSEIF(ON_MAC_BREW GREATER -1)
+#ELSEIF(ON_MAC_PORTS GREATER -1)
 #  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 #    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
 #    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
@@ -337,7 +341,9 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
+                          ./src/functionals/mhd3d/lambda_solve.f90
                           ./src/readstate/*.f90
+                          ./src/analyze/analyze_vars.f90
                           ./src/io_netcdf.f90
                           ./src/output/*.f90
                           ./src/analyze/analyze_vars.f90
@@ -376,7 +382,7 @@ ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
-OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC library as static (OFF: compiled as shared)" OFF)
+OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC libraray as static (OFF: compiled as shared)" ON)
 MARK_AS_ADVANCED(COMPILE_GVEC_AS_STATIC_LIB)
 SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 IF(COMPILE_GVEC_AS_STATIC_LIB)
@@ -413,14 +419,9 @@ IF(COMPILE_GVEC)
     COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
   )
   add_test(
-    NAME gvec_pytest_run_shortrun_norestart
+    NAME gvec_pytest_run_shortrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR}
-  )
-  add_test(
-    NAME gvec_pytest_run_shortrun_restart
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=log_pytest_run_shortrun.txt -m "run_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
   )
   add_test(
     NAME gvec_pytest_post_shortrun
@@ -432,11 +433,6 @@ IF(COMPILE_GVEC)
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
   )
-  #add_test(
-  #  NAME gvec_pytest_example
-  #  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test-CI
-  #  COMMAND ${Python_EXECUTABLE} -m pytest -v -m "run_stage and example" --builddir=${CMAKE_BINARY_DIR}
-  #)
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
   add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
