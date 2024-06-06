@@ -10,7 +10,7 @@ stages:
   - postprocessing
 
 workflow:
-  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
+  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and branch/commit/tag $HASH_TAG_RELEASE'
   rules:
     # disable the pipeline for merge requests (to avoid duplicate pipelines)
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -25,7 +25,7 @@ workflow:
 variables:
   GIT_STRATEGY: fetch
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: v0.2.2-mpi_par  # pipeline schedules
+  HASH_TAG_RELEASE: develop_mpi_par # pipeline schedules
   NIGHTLY_PIPELINE: "false"         # pipeline schedules
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
