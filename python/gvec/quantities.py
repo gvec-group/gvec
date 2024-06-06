@@ -175,11 +175,11 @@ def X2(ds: Evaluations, state: State):
     outputs = state.evaluate_base_tens_all("X2", ds.rho, ds.theta, ds.zeta)
     for key, value in zip(X2.quantities, outputs):
         ds[key] = (("rho", "theta", "zeta"), value)
-    ds.X1.attrs["long_name"] = "first reference coordinate"
-    ds.X1.attrs["symbol"] = r"X^2"
-    for key in X1.quantities[1:]:
+    ds.X2.attrs["long_name"] = "second reference coordinate"
+    ds.X2.attrs["symbol"] = r"X^2"
+    for key in X2.quantities[1:]:
         deriv = " ".join(rtz_symbols[c] for c in key.split("_")[1][1:])
-        ds[key].attrs["long_name"] = "derivative of the first reference coordinate"
+        ds[key].attrs["long_name"] = "derivative of the second reference coordinate"
         ds[key].attrs["symbol"] = r"\frac{\partial X^2}{\partial" rf"{deriv}}}"
 
 
@@ -362,6 +362,40 @@ def Jac(ds: Evaluations):
             f"{rtz_directions[i]} derivative of the logical Jacobian determinant"
         )
         da.attrs["symbol"] = latex_partial(r"\mathcal{J}_l", i)
+
+
+# === straight field line coordinates ================================================== #
+
+
+@register(requirements=("LA",))
+def theta_sfl(ds: Evaluations):
+    ds["theta_sfl"] = ds.theta + ds.LA
+    ds.theta_sfl.attrs["long_name"] = "straight-fieldline poloidal angle"
+    ds.theta_sfl.attrs["symbol"] = r"\theta^\star"
+
+
+@register(requirements=("theta_sfl", "dLA_dr", "dLA_dt", "dLA_dz"))
+def grad_theta_sfl(ds: Evaluations):
+    ds["grad_theta_sfl"] = (
+        ds.grad_theta * (1 + ds.dLA_dt)
+        + ds.grad_rho * ds.dLA_dr
+        + ds.grad_zeta * ds.dLA_dz
+    )
+    ds.grad_theta_sfl.attrs["long_name"] = (
+        "straight-fieldline poloidal reciprocal basis vector"
+    )
+    ds.grad_theta_sfl.attrs["symbol"] = r"\nabla \theta^\star"
+
+
+@register(requirements=("grad_rho", "grad_theta_sfl", "grad_zeta"))
+def Jac_sfl(ds: Evaluations):
+    ds["Jac_sfl"] = 1 / xr.dot(
+        ds.grad_rho,
+        xr.cross(ds.grad_theta_sfl, ds.grad_zeta, dim="vector"),
+        dim="vector",
+    )
+    ds.Jac_sfl.attrs["long_name"] = "straight-fieldline Jacobian determinant"
+    ds.Jac_sfl.attrs["symbol"] = r"\mathcal{J}^\star"
 
 
 # === derived ========================================================================== #
@@ -577,6 +611,34 @@ def V(ds: Evaluations):
 
 
 @register(
+    requirements=("Jac", "dPhi_n_dr"),
+    integration=("theta", "zeta"),
+)
+def dV_dPhi_n(ds: Evaluations):
+    ds["dV_dPhi_n"] = ds.fluxsurface_integral(ds.Jac) / ds.dPhi_n_dr
+    ds.dV_dPhi_n.attrs["long_name"] = (
+        "derivative of the plasma volume w.r.t. normalized toroidal magnetic flux"
+    )
+    ds.dV_dPhi_n.attrs["symbol"] = r"\frac{dV}{d\Phi_n}"
+
+
+@register(
+    requirements=("Jac", "dJac_dr", "dPhi_n_dr"),
+    integration=("theta", "zeta"),
+)
+def dV_dPhi_n2(ds: Evaluations):
+    ds["dV_dPhi_n2"] = (
+        ds.fluxsurface_integral(ds.dJac_dr) / ds.dPhi_n_dr**2
+        # with hardcoded d^2 rho / d Phi_n^2 = -1/(4 rho^3)
+        - ds.fluxsurface_integral(ds.Jac) / (4 * ds.rho**3)
+    )
+    ds.dV_dPhi_n2.attrs["long_name"] = (
+        "second derivative of the plasma volume w.r.t. normalized toroidal magnetic flux"
+    )
+    ds.dV_dPhi_n2.attrs["symbol"] = r"\frac{d^2V}{d\Phi_n^2}"
+
+
+@register(
     quantities=("minor_radius", "major_radius"),
     requirements=("V", "Jac_l"),
     integration=("rho", "theta", "zeta"),
@@ -623,7 +685,7 @@ def I_pol(ds: Evaluations):
     )
     ds["I_pol"] = ds.I_pol - ds.I_pol.isel(rho=0)
     logging.warning(
-        f"Computation of `I_pol` uses `rho={ds.rho[0]}` instead of the magnetic axis."
+        f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
     )
     ds.I_pol.attrs["long_name"] = "poloidal current profile"
     ds.I_pol.attrs["symbol"] = r"I_{pol}"

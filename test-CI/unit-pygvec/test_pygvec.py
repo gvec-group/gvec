@@ -270,6 +270,33 @@ def test_evaluate_base_tens_all(teststate):
         teststate.evaluate_base_tens_all("X3", rho, theta, zeta)
 
 
+def test_evaluate_base_list_tz_all(teststate):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    T, Z = np.meshgrid(theta, zeta)
+    thetazeta = np.stack([T.flatten(), Z.flatten()])
+
+    results = teststate.evaluate_base_list_tz_all("X1", rho, thetazeta)
+    assert len(results) == 10
+    assert all(result.shape == (6, 32 * 10) for result in results)
+    with pytest.raises(ValueError):
+        results = teststate.evaluate_base_list_tz_all("X1", rho, thetazeta.T)
+
+
+def test_evaluate_base_all_compare(teststate):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    T, Z = np.meshgrid(theta, zeta, indexing="ij")
+    thetazeta = np.stack([T.flatten(), Z.flatten()])
+
+    tens = teststate.evaluate_base_tens_all("X1", rho, theta, zeta)
+    list_tz = teststate.evaluate_base_list_tz_all("X1", rho, thetazeta)
+    for qt, ql in zip(tens, list_tz, strict=True):
+        assert np.allclose(qt, ql.reshape(6, 32, 10))
+
+
 def test_compute_base(evals_rtz):
     ds = evals_rtz
 
@@ -433,8 +460,19 @@ def test_compute_basis(evals_rtz):
 
 
 @pytest.mark.parametrize(
-    "quantity", ["V", "minor_radius", "major_radius", "iota_mean", "I_tor", "I_pol"]
+    "quantity",
+    [
+        "V",
+        "dV_dPhi_n",
+        "magnetic_well",
+        "minor_radius",
+        "major_radius",
+        "iota_mean",
+        "I_tor",
+        "I_pol",
+    ],
 )
 def test_integrations(evals_rtz_int, quantity):
     ds = evals_rtz_int
     ds.compute(quantity)
+    assert ds.rho.attrs["integration_points"] == True

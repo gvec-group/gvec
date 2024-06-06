@@ -229,7 +229,7 @@ class State:
             sel_derivs = ("", "")
 
         rho = np.asfortranarray(rho, dtype=np.float64)
-        thetazeta = np.asfortranarray(thetazeta, dtype=np.float64, order="F")
+        thetazeta = np.asfortranarray(thetazeta, dtype=np.float64)
         if rho.ndim != 1:
             raise ValueError("rho must be a 1D array.")
         if thetazeta.ndim != 2 or thetazeta.shape[0] != 2:
@@ -242,6 +242,35 @@ class State:
             rho.size, thetazeta.shape[1], rho, thetazeta, quantity, *sel_derivs, result
         )
         return result
+
+    @_assert_init
+    def evaluate_base_list_tz_all(
+        self, quantity: str, rho: np.ndarray, thetazeta: np.ndarray
+    ):
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["X1", "X2", "LA"]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        thetazeta = np.asfortranarray(thetazeta, dtype=np.float64)
+        if rho.ndim != 1:
+            raise ValueError("rho must be a 1D array.")
+        if thetazeta.ndim != 2 or thetazeta.shape[0] != 2:
+            raise ValueError("thetazeta must be a 2D array with shape (2, n).")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+
+        # Q, dQ_drho, dQ_dtheta, dQ_dzeta, dQ_drr, dQ_drt, dQ_drz, dQ_dtt, dQ_dtz, dQ_dzz
+        outputs = [
+            np.zeros((rho.size, thetazeta.shape[1]), dtype=np.float64, order="F")
+            for _ in range(10)
+        ]
+
+        _post.evaluate_base_list_tz_all(
+            rho.size, thetazeta.shape[1], rho, thetazeta, quantity, *outputs
+        )
+        return outputs
 
     @_assert_init
     def evaluate_base_tens_all(
@@ -707,10 +736,11 @@ class Evaluations(xr.Dataset):
                     )
             self.compute(*func.requirements)
             # --- compute the quantity --- #
-            if "state" in inspect.signature(func).parameters:
-                func(self, self.state)
-            else:
-                func(self)
+            with xr.set_options(keep_attrs=True):
+                if "state" in inspect.signature(func).parameters:
+                    func(self, self.state)
+                else:
+                    func(self)
 
     def __getitem__(self, key: Mapping | Hashable | Iterable[Hashable]):
         """Access variables or coordinates of this dataset as a `xarray.DataArray` or a subset of variables or a indexed dataset.
@@ -783,3 +813,31 @@ class Evaluations(xr.Dataset):
     def volume_average(self, quantity: str | xr.DataArray):
         """Compute the volume average of the given quantity."""
         return self.volume_integral(quantity) / 4 / np.pi**2
+
+    def table_of_quantities(self, markdown: bool = False):
+        # ToDo: move attributes to function attributes, remove requirement to compute them - this method becomes a classmethod
+        txt = (
+            f"| {'label':^20s} | {'long name':^40s} | {'symbol':^20s} |\n| "
+            + 20 * "-"
+            + " | "
+            + 40 * "-"
+            + " | "
+            + 20 * "-"
+            + " | \n"
+        )
+        for key, func in sorted(list(self._quantities.items())):
+            self.compute(key)
+            long_name = (
+                self[key].attrs["long_name"] if "long_name" in self[key].attrs else ""
+            )
+            symbol = (
+                f"${self[key].attrs['symbol']}$" if "symbol" in self[key].attrs else ""
+            )
+            symbol = symbol.replace("|", r"\|")
+            txt += f"| {f'`{key}`':^20s} | {long_name:^40s} | {symbol:^20s} |\n"
+        if markdown:
+            from IPython.display import Markdown
+
+            return Markdown(txt)
+        else:
+            return txt
