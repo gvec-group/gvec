@@ -14,8 +14,8 @@ display: public
          protected
          private
 source: false
-graph: false
-search: false
+graph: true
+search: true
 macro: TEST
        LOGIC=.true.
 
@@ -27,9 +27,9 @@ The ideas are strongly based on on the VMEC code.
 The main features of GVEC are
 
 * Use of modern **object-oriented FORTRAN**
-* **Radial High Order Finite Element** discretization: Splines with continuity `C^(deg-1)` or discontinuous polynomials
-* **Number of Fourier modes** for each variable `X^1,X^2,lambda` can be chosen separately
-* **Flexible choice of the mapping** between the space `(X^1,X^2,zeta)--> (x,y,z)` (in VMEC fixed to `(R,Z,phi)-->(x,y,z)` ) 
+* **Radial High Order Finite Element** discretization: Splines with continuity \(C^{deg-1}\) or discontinuous polynomials
+* **Number of Fourier modes** for each variable \(X^1,X^2,\lambda\) can be chosen separately
+* **Flexible choice of the mapping** between the space \(\left(X^1,X^2,\zeta\right) \rightarrow \left(x,y,z\right)\) (in VMEC fixed to \(\left(R,Z,\phi\right) \rightarrow \left(x,y,z\right)\)) 
   to find equilibria in complex-shaped domains (magnetic islands, knotted domain...)
 * Also a VMEC generated netcdf outputfile can be used for initialization of GVEC.
 

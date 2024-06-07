@@ -11,6 +11,7 @@ pages:
   variables:
     GIT_STRATEGY: clone
   script:
+    # - module load graphviz/8 # not available on sharedrunner
     - python -m venv venv
     - source venv/bin/activate
     - pip install ford
