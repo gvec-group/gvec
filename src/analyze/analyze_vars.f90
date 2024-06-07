@@ -34,7 +34,7 @@ INTEGER              :: visu1D                 !! visualize 1D data (each mode).
                                                !! 12 : case 1 & 2, 13,23,123: with radial derivatives, combine 1,2,3,4 ascending
 INTEGER              :: visu2D                 !! visualize 2D data ... 
 INTEGER              :: visu3D                 !! visualize 3D data ... 
-INTEGER              :: SFLout            !! input parameter: convert final state to straight-field line coordinates. =0: off, =1: PEST, =2: Boozer
+INTEGER              :: SFLout            !! input parameter: convert final state to straight-field line coordinates. =-1: off, =1: PEST, =2: Boozer
 INTEGER              :: SFLout_mn_max(2)   !! maximum mode number in theta and zeta. Defaults to 4*mn_max of X1_base, if set to (-1,-1)
 INTEGER              :: SFLout_nrp,SFLout_mn_pts(2 )  !! number of points for SFLOut file in theta,zeta
 REAL(wp),ALLOCATABLE :: SFLout_radialpos(:)     !! radial positions for output

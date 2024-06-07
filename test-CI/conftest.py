@@ -3,6 +3,8 @@ import os
 import pytest
 import logging
 from pathlib import Path
+import shlex  # shell-like syntax parsing
+import argparse
 import json
 import re
 
@@ -20,6 +22,12 @@ def pytest_addoption(parser):
     Args:
         parser (ArgumentParser): The pytest argument parser.
     """
+    def _is_directory(arg):
+        """Check if the argument is an existing directory."""
+        arg = Path(arg)
+        if not arg.is_dir():
+            raise argparse.ArgumentTypeError(f"{arg} is not a directory")
+        return arg
 
     group = parser.getgroup("custom_directories")
     group.addoption(
@@ -30,7 +38,7 @@ def pytest_addoption(parser):
     )
     group.addoption(
         "--refdir",
-        type=Path,
+        type=_is_directory,
         default=None,
         help="Path to reference pytest root directory. Required for regression tests.",
     )
@@ -45,6 +53,12 @@ def pytest_addoption(parser):
         type=Path,
         default=Path(__file__).parent / "post",
         help="Path to post directory",
+    )
+    group.addoption(
+        "--convdir",
+        type=Path,
+        default=Path(__file__).parent / "conv",
+        help="Path to post-converter directory",
     )
     group.addoption(
         "--annotations",
@@ -110,6 +124,8 @@ def pytest_configure(config):
         "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)",
         "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir`, activates visualization parameters). Needs run_stage to be executed before in a given `rundir` directory.",
         "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!",
+        "converter_stage: mark test belonging to the post-processing converter stage (executed for all testgroups into a `postdir`, for all compiled converters). Needs run_stage to be executed before in a given `rundir` directory.",
+        "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!",
     ]:
         config.addinivalue_line("markers", marker)
 
@@ -134,7 +150,7 @@ def pytest_collection_modifyitems(items):
         ):
             item.add_marker(getattr(pytest.mark, "restart"))
     # sort tests by testgroup and testcase
-    stages = ["test_run", "test_regression", "test_post"]
+    stages = ["test_run", "test_regression", "test_post","test_converter"]
     items.sort(
         key=lambda item: (
             stages.index(item.name.split("[")[0]),
@@ -203,6 +219,14 @@ def binpath(builddir) -> Path:
 
 
 @pytest.fixture(scope="session")
+def runargs_prefix() -> list:
+    """prefix for the run arguments, e.g. mpirun"""
+    if prefix := os.environ.get("MPI_PRFX"):
+        return shlex.split(prefix)
+    return []
+
+
+@pytest.fixture(scope="session")
 def dryrun(request) -> bool:
     """flag for dry-run mode"""
     return request.config.getoption("--dry-run")
@@ -232,6 +256,11 @@ def refdir(request) -> Path:
 def postdir(request) -> Path:
     """path to the post directory, default is test-CI/post"""
     return Path(request.config.getoption("--postdir")).absolute()
+
+@pytest.fixture(scope="session")
+def convdir(request) -> Path:
+    """path to the converter directory, default is test-CI/conv """
+    return Path(request.config.getoption("--convdir")).absolute()
 
 
 @pytest.fixture(scope="session")

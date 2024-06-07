@@ -1068,8 +1068,6 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
     BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
     DEALLOCATE(LA_s)
-    !Apply automatic, smooth axis BC:
-    BCtype_axis=0
   !$OMP PARALLEL DO        &  
   !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
     DO iMode=1,modes

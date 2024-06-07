@@ -160,6 +160,7 @@ IMPLICIT NONE
 #if (defined(VISU_J_FD) || defined(VISU_J_EXACT))
   INTEGER,PARAMETER  :: nVal=34
   INTEGER            :: VP_J
+  REAL(wp)           :: Jcart(3)
 #else
   INTEGER,PARAMETER  :: nVal=31
 #endif
@@ -209,7 +210,6 @@ IMPLICIT NONE
 
   REAL(wp) :: Js,Jthet,Jzeta
 #endif
-  REAL(wp) :: Jcart(3)
   REAL(wp),ALLOCATABLE :: tmpcoord(:,:,:,:),tmpvar(:,:,:,:) 
 !===================================================================================================================================
   IF(only_planes)THEN
@@ -846,14 +846,14 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   REAL(wp)                   :: dX1ds,dX1dthetstar,dX1dzetastar
   REAL(wp)                   :: dX2ds,dX2dthetstar,dX2dzetastar
   REAL(wp)                   :: phiPrime_int,iota_int,Itor_int,Ipol_int
-  REAL(wp)                   :: X1_int,X2_int,GZ_int,dGZds,dGZdthetstar,dGZdzetastar,LA_int,dLA_dthet,dLA_dzeta
+  REAL(wp)                   :: X1_int,X2_int,GZ_int,dGZds,dGZdthetstar,dGZdzetastar,dLA_dthet,dLA_dzeta
   REAL(wp)                   :: Gt_int,dGZdthet,dGZdzeta,dX1dthet,dX1dzeta,dX2dthet,dX2dzeta
   REAL(wp)                   :: dthetstar_dthet ,dthetstar_dzeta ,dzetastar_dthet ,dzetastar_dzeta,Jstar
   REAL(wp)                   :: dthet_dthetstarJ,dthet_dzetastarJ,dzeta_dthetstarJ,dzeta_dzetastarJ
   REAL(wp)                   :: Bthet,Bzeta,Bthetstar,Bzetastar
   REAL(wp),DIMENSION(3)      :: qvec,e_s,e_thet,e_zeta,e_thetstar,e_zetastar,Bfield
   REAL(wp),ALLOCATABLE       :: X1_s(:),dX1ds_s(:),X2_s(:),dX2ds_s(:),Gz_s(:),dGZds_s(:),LA_s(:),Gt_s(:)
-  INTEGER                    :: VP_rho,VP_iota,VP_thetastar,VP_zetastar,VP_zeta,VP_X1sfl,VP_X2sfl,VP_SQRTG,VP_SQRTGstar,&
+  INTEGER                    :: VP_rho,VP_iota,VP_thetastar,VP_zetastar,VP_zeta,VP_SQRTG,VP_SQRTGstar,&
                                 VP_B,VP_modB,VP_Bsubthet,VP_Bsubzeta,VP_Bthet,VP_Bzeta,VP_grads,VP_theta,&
                                 VP_Bsubthetstar,VP_Bsubzetastar,VP_Bthetstar,VP_Bzetastar,VP_Itor,VP_Ipol
   INTEGER,PARAMETER          :: nVal=25
@@ -861,10 +861,21 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   CHARACTER(LEN=10)          :: sfltype 
   CHARACTER(LEN=255)         :: filename
   LOGICAL                    :: useSFLcoords
-  INTEGER                    :: dbg
+  INTEGER                    :: dbg,k,sflouts(2),whichSFLout
   !=================================================================================================================================
-  IF(SFLout.EQ.0) RETURN
-  sfltype=MERGE("_boozer","_pest  ",SFLout.EQ.2)
+  IF(SFLout.EQ.12) THEN
+     sflouts=(/1,2/)
+  ELSE
+     sflouts=(/SFLout,-1/)
+  END IF
+  DO k=1,2
+  whichSFLout=sflouts(k)
+  !!!!! LOOP OVER WHICH SFL OUTPUT
+  
+  IF(whichSFLout.EQ.-1) CYCLE
+  
+
+  sfltype=MERGE("_boozer","_pest  ",whichSFLout.EQ.2)
   WRITE(filename,'(A,"_",I4.4,"_",I8.8,"")') & 
   TRIM(Projectname)//TRIM(sfltype),outputLevel,fileID
   SWRITE(UNIT_stdOut,'(A,A,A)') 'WRITING SFL output: ',TRIM(filename),' ...'
@@ -909,7 +920,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END IF
   END DO
 
-  CALL transform_sfl_new(trafoSFL,mn_max,SFLout,.false.,&  ! relambda=false
+  CALL transform_sfl_new(trafoSFL,mn_max,whichSFLout,.false.,&  ! relambda=false
                          X1_base%s%deg,X1_base%s%continuity,X1_base%s%degGP,X1_base%s%grid,&
                          hmap,X1_base,X2_base,LA_base,Eval_PhiPrime,Eval_iota)  !same grid and degree as variable X1.
   CALL trafoSFL%buildTransform(X1_base,X2_base,LA_base,Uin%X1,Uin%X2,Uin%LA)
@@ -931,7 +942,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   ALLOCATE(coord_out(3,Nthet_out,Nzeta_out,n_rp),var_out(nVal,Nthet_out,Nzeta_out,n_rp))
   var_out=0.
   
-  useSFLcoords=(dbg.EQ.1)
+  useSFLcoords=(dbg.EQ.2)
   WRITE(*,*)'USESFLCOORDS=',useSFLcoords
 
   IF(.NOT.useSFLcoords)THEN !use quantities given in GVEC theta and zeta:
@@ -1075,7 +1086,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
       var_out(VP_rho ,:,:,i_rp)=spos
       var_out(VP_iota,:,:,i_rp)=iota_int
       GZ_int   = 0.0_wp !only changed for SFLcoords=2
-      !dGZds    = 0.0_wp !only changed for SFLcoords=2
+      Gt_int   = 0.0_wp !only changed for SFLcoords=2
+      dGZds    = 0.0_wp !only changed for SFLcoords=2
       dGZdthetstar = 0.0_wp !only changed for SFLcoords=2
       dGZdzetastar = 0.0_wp !only changed for SFLcoords=2
         !interpolate radially
@@ -1104,6 +1116,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         
         IF(SFLcoord.EQ.2)THEN !BOOZER coordinates (else=0)
           GZ_int       = GZsfl_base%f%evalDOF_x(xp,         0, GZ_s)
+          Gt_int       = GZsfl_base%f%evalDOF_x(xp,         0, Gt_s)
           dGZds        = GZsfl_base%f%evalDOF_x(xp,         0, dGZds_s)
           dGZdthetstar = GZsfl_base%f%evalDOF_x(xp,DERIV_THET, GZ_s)
           dGZdzetastar = GZsfl_base%f%evalDOF_x(xp,DERIV_ZETA, GZ_s)
@@ -1123,7 +1136,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         Ipol_int = Ipol_int+ SUM(Bfield(:)*e_zetastar(:))   !B_zeta =B.e_zeta
         var_out(VP_thetastar,ithet,izeta,i_rp)=thetstar_pos(ithet)
         var_out(VP_zetastar ,ithet,izeta,i_rp)=zetastar_pos(izeta)
-        var_out(VP_theta    ,ithet,izeta,i_rp)=thetstar_pos(ithet)-GZsfl_base%f%evalDOF_x(xp,         0, Gt_s)
+        var_out(VP_theta    ,ithet,izeta,i_rp)=thetstar_pos(ithet)-Gt_int
         var_out(VP_zeta     ,ithet,izeta,i_rp)=zetastar_pos(izeta)-GZ_int
         var_out(VP_SQRTGstar,ithet,izeta,i_rp)=sqrtG
         var_out(VP_B:VP_B+2 ,ithet,izeta,i_rp)=Bfield
@@ -1149,19 +1162,22 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
    CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,n_rp-1/),1,VarNames, &
                       coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:n_rp), &
-                      var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp),TRIM(filename)//TRIM(MERGE('_full  ','_direct',dbg.EQ.1))//".vtu")
+                      var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp),TRIM(filename)//TRIM(MERGE('_full  ','_direct',useSFLcoords))//".vtu")
   END IF
   IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
     CALL WriteDataToNETCDF(3,3,nVal,(/Nthet_out,Nzeta_out,n_rp/),&
                            (/"dim_theta","dim_zeta ","dim_rho  "/),VarNames, &
                            coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:n_rp), &
-                           var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp), TRIM(filename)//TRIM(MERGE('_full  ','_direct',dbg.EQ.1)))
+                           var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:n_rp), TRIM(filename)//TRIM(MERGE('_full  ','_direct',useSFLcoords)))
   END IF!outfileType
   END ASSOCIATE !n_rp,rp
   DEALLOCATE(coord_out,var_out)
 END DO !dbg
   CALL trafoSFL%free()
+  DEALLOCATE(trafoSFL)
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
+!!! END LOOP OVER WHICH SFL OUTPUT
+END DO !k ... whichSFLout
   __PERFOFF("output_sfl")
 END SUBROUTINE WriteSFLoutfile
 
@@ -1326,7 +1342,6 @@ END SUBROUTINE CheckAxis
 SUBROUTINE visu_1d_modes(n_s,fileID)
 ! MODULES
 USE MODgvec_Analyze_Vars,  ONLY: visu1D
-USE MODgvec_fbase,         ONLY: sin_cos_map
 USE MODgvec_MHD3D_Vars,    ONLY: U,X1_base,X2_base,LA_base
 USE MODgvec_Output_vars,   ONLY: outputLevel
 IMPLICIT NONE

@@ -13,6 +13,7 @@
         * `run_stage`: runs all testcases of all testgroups (or only of those specified).
         * `regression_stage`: runs a comparison of the `RUNDIR` and the runs of a reference in directory `REFDIR`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
         * `post_stage`: runs post-processing/visualization of the tests in `RUNDIR`, saved into `POSTDIR`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
+        * `converter_stage`: runs post-processing using all converters of the tests in `RUNDIR`, saved into `CONVDIR`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
     * **Notes:**
         * Only one stage should be specified in a `pytest`` run!
         * Testgroups are exclusive. Testgroups are combined with a stage using `and`. 

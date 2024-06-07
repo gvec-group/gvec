@@ -223,22 +223,20 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
 
     Notes:
         - If no parameters are provided in `kwargs`, the function simply copies the `source` file to the `target` file.
-        - The function replaces the parameters in the format `key = value`, where VALUE IS ALWAYS A STRING, either a sequence of characters containing
+        - The function replaces the parameters in the format `key = value`, where value is either a sequence of characters containing
         no whitespace or a single pair of parentheses with any content. The value from `kwargs` is inserted using the standard python
-        string conversion. In the line of the parameterfile, there may be a comment, starting with `!`, after the value.
+        string conversion. There may be a comment, starting with `!`, after the value.
         - If a parameter already exists in the `source` file, its value is replaced with the corresponding value from `kwargs`.
         - If a parameter does not exist in the `source` file, it is added to the `target` file.
         - If the value of the key starts with "!", the line with the keyword is just uncommented.  (i.e. "!key=2.5" -> "key=2.5")
           If no line with the keyword is found, the key is added with the value, excluding the leading "!"  (i.e. value is "!0.5" -> "key=0.5" is added)
 
     Example:
-    >>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1="1.2", param2="(/1, 2, 3/)")
+    >>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")
     """
     if not len(kwargs.keys()):
         shutil.copy2(source, target)
         return
-    for key in kwargs:
-        assert isinstance(kwargs[key],str) , f" ... value must be passed as string: {key}='{kwargs[key]}'"
     occurrences = {key: 0 for key in kwargs}
     with open(source, "r") as source_file, open(target, "w") as target_file:
         for line in source_file:
@@ -250,11 +248,11 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
             ):
                 prefix, key, sep, value, suffix = m.groups()
                 if "!" in prefix:  # found commented keyword
-                    if kwargs[key][0] == "!":  # only uncomment keyword
+                    if str(kwargs[key])[0] == "!":  # only uncomment keyword
                         line = f"{key}{sep}{value}{suffix}\n"
                         occurrences[key] += 1
                 else:  # found uncommented keywords
-                    if not (kwargs[key][0] == "!"):  # use new keyword
+                    if not (str(kwargs[key])[0] == "!"):  # use new keyword
                         line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
                         occurrences[key] += 1
                     else:  # use the existing keyword,value pair with a comment
@@ -265,7 +263,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         for key, v in occurrences.items():
             if v == 0:
                 if not (
-                    kwargs[key][0] == "!"
+                    str(kwargs[key])[0] == "!"
                 ):  # ignore uncommenting keywords if not found
                     target_file.write(f"\n {key} = {kwargs[key]}")
                 else:

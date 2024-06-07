@@ -43,6 +43,7 @@ PROGRAM GVEC_POST
   INTEGER                 :: which_functional
   INTEGER                 :: JacCheck 
   CLASS(t_functional),ALLOCATABLE   :: functional
+  REAL(wp)                :: StartTime,EndTime
 !===================================================================================================================================
   __PERFINIT
   __PERFON('main')
@@ -53,6 +54,8 @@ PROGRAM GVEC_POST
   END IF
   CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
     
+  CALL CPU_TIME(StartTime)
+!$ StartTime=OMP_GET_WTIME()
   
   !header
   WRITE(Unit_stdOut,'(132("="))')
@@ -92,8 +95,10 @@ PROGRAM GVEC_POST
   CALL FinalizeOutput()
   CALL FinalizeRestart()
   
+  CALL CPU_TIME(EndTime)
+!$ EndTime=OMP_GET_WTIME()
   WRITE(Unit_stdOut,'(132("="))')
-  WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
+  WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC POST FINISHED ! [',EndTime-StartTime,' sec ]'
   WRITE(Unit_stdOut,'(132("="))')
 
   __PERFOFF('main')
