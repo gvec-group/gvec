@@ -10,7 +10,7 @@ stages:
   - postprocessing
 
 workflow:
-  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
+  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and branch/commit/tag $HASH_TAG_RELEASE'
   rules:
     # disable the pipeline for merge requests (to avoid duplicate pipelines)
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -23,7 +23,7 @@ workflow:
 # =================================================================================================================================
 
 variables:
-  GIT_STRATEGY: none
+  GIT_STRATEGY: fetch
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_RELEASE: develop    # pipeline schedules
   NIGHTLY_PIPELINE: "false"    # pipeline schedules
@@ -82,42 +82,43 @@ include:
   # ============================
   - local: CI_templates/env.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
   
   - local: CI_templates/env.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
 
   # ============================
   # build jobs
   # ============================
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
   
   # converter-only
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       build-postfix: _only_converter
-      cmake-opts: .vars_cmake_only_converter
+      cmake-opts: .cmake_only_converter
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
       build-postfix: _only_converter
-      cmake-opts: .vars_cmake_only_converter
+      cmake-opts: .cmake_only_converter
 
   # release tag
   - local: CI_templates/build.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       build-postfix: _tag
       vars: .vars_matrix_build_tag
 
@@ -126,24 +127,24 @@ include:
   # ============================
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
 
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
 
   # debugrun
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
@@ -151,7 +152,7 @@ include:
   # release tag
   - local: CI_templates/run.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
@@ -167,12 +168,26 @@ include:
   # ============================
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: mpcdfci_intel2023
+      env: .mpcdfci_intel2023
       rules: .rules_minimal
   
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: mpcdfci_gcc13
+      env: .mpcdfci_gcc13
+
+  # ============================
+  # postprocessing converter jobs
+  # ============================
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_intel2023
+      build-postfix: _only_converter
+      rules: .rules_minimal
+
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_gcc13
+      build-postfix: _only_converter
 
 
 # =================================================================================================================================
@@ -234,7 +249,7 @@ include:
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
 
 # MPCDF Docker image intel_2023_1_0_x:latest
-.tmpl_mpcdfci_intel2023:
+.mpcdfci_intel2023:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:latest
   tags:
     - shared
@@ -246,7 +261,7 @@ include:
     OMP_NUM_THR: "4"
 
 # MPCDF Docker image gcc_13:latest
-.tmpl_mpcdfci_gcc13:
+.mpcdfci_gcc13:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_13:latest
   tags:
     - shared
@@ -265,14 +280,14 @@ include:
 # ____________________________
 # ${CI_COMMIT_REF_NAME} branch/tag (CI trigger commit)
 
-.vars_cmake_def_opts:
+.cmake_def_opts:
   variables:
     COMPILE_GVEC: "ON"
     LINK_TO_NETCDF: "ON"
     COMPILE_CONVERTERS: "ON"
     CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
 
-.vars_cmake_only_converter:
+.cmake_only_converter:
   variables:
     COMPILE_GVEC: "OFF"
     LINK_TO_NETCDF: "OFF"
@@ -366,9 +381,17 @@ include:
 .vars_matrix_post:
   parallel:
     matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF", "ompON"]
+      - CMP_MODE: ["Debug","Release"]
+        OMP_MODE: ["ompON"]
   variables:
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "2"
+
+.vars_matrix_conv:
+  variables:
+    CMP_MODE: "Release"
+    OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "2"

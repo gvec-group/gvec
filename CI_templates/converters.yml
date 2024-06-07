@@ -1,5 +1,5 @@
 # ==========================================================================================================================
-# Stage "postprocessing"
+# Stage "postprocessing" with "converters"
 # ==========================================================================================================================
 
 spec:
@@ -7,24 +7,27 @@ spec:
     env:
       description: Name of the environment, e.g. `mpcdfci_intel2023`
       default: .mpcdfci_intel2023
+    build-postfix:
+      description: Job name postfix, here `_only_converter`
+      default: "_only_converter"
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
 
 ---
 
-post$[[ inputs.env ]]:
+conv$[[ inputs.env ]]:
   stage: postprocessing
   before_script:
     - !reference [".before_script_modules", "before_script"]
     - !reference [".before_script_exportvars", "before_script"]
   extends:
     - $[[ inputs.env ]]
-    - .script_post
-    - .vars_matrix_post  # matrix of variables
+    - .script_conv
+    - .vars_matrix_conv  # matrix of variables
     - $[[ inputs.rules ]]
   needs:
-    - job: build$[[ inputs.env ]]
+    - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
     - job: run$[[ inputs.env ]]
       artifacts: true

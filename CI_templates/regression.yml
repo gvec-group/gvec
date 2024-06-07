@@ -9,13 +9,13 @@
 # MPCDF new Docker images
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
 
-# compare results between serial and OpenMP for Intel compiler on current branches (no MPI)
-mpcdfci_intel-minimal_reg:
+# compare results between serial and OpenMP for Intel compiler (no MPI)
+reg.mpcdfci_intel-minimal:
   stage: regression
   extends:
-    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # to be able to load modules
-    - .tmpl_script_regression
+    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .before_script_modules # to be able to load modules
+    - .script_regression
     #- .vars_matrix_run
     - .rules_minimal_only
   variables:
@@ -24,19 +24,21 @@ mpcdfci_intel-minimal_reg:
     OMP_MODE_2: "ompON"
     CASENAME_1: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
     CASENAME_2: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
+    #uncoment the next line to remove warning job#
+    #PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
 
-# compare results between intel and gnu on current branches (no MPI)
-mpcdfci_intel-vs-gnu_reg:
+# compare results between intel and gnu (no MPI)
+reg.mpcdfci_intel-vs-gnu:
   stage: regression
   extends:
-    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # to be able to load modules
-    - .tmpl_script_regression
+    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .before_script_modules # to be able to load modules
+    - .script_regression
     - .vars_matrix_run
     - .rules_default
   variables:
@@ -49,18 +51,18 @@ mpcdfci_intel-vs-gnu_reg:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
-    - job: mpcdfci_gcc13_run
+    - job: run.mpcdfci_gcc13
       artifacts: true
 
-# compare results between serial and OpenMP on current branches (no MPI)
-mpcdfci_omp-vs-ser_reg:
+# compare results between [serial/OpenMP, Intel/GNU] (no MPI)
+reg.mpcdfci_omp-vs-ser:
   stage: regression
   extends:
-    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # to be able to load modules
-    - .tmpl_script_regression
+    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .before_script_modules # to be able to load modules
+    - .script_regression
     - .rules_default
   parallel:
     matrix:
@@ -75,18 +77,18 @@ mpcdfci_omp-vs-ser_reg:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
-    - job: mpcdfci_gcc13_run
+    - job: run.mpcdfci_gcc13
       artifacts: true
 
-# compare results between current and tag branches (no MPI)
-mpcdfci_intel-vs-tag_reg:
+# compare results between current and tag branches for Intel compiler (no MPI)
+reg.mpcdfci_intel-vs-tag:
   stage: regression
   extends:
-    - .tmpl_mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .tmpl_before_script_modules # to be able to load modules
-    - .tmpl_script_regression
+    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
+    - .before_script_modules # to be able to load modules
+    - .script_regression
     - .vars_matrix_run
     - .rules_default
   variables:
@@ -99,7 +101,7 @@ mpcdfci_intel-vs-tag_reg:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: mpcdfci_intel2023_run
+    - job: run.mpcdfci_intel2023
       artifacts: true
-    - job: mpcdfci_intel2023_run_tag
+    - job: run.mpcdfci_intel2023_tag
       artifacts: true

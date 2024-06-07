@@ -255,12 +255,22 @@ ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBR
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
     LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with INTEL")
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
     LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
 		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with GNU")
+  ELSE()
+    FIND_PACKAGE(LAPACK QUIET)
+    IF (LAPACK_FOUND)
+      LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
+      MESSAGE(STATUS "Using BLAS/Lapack library")
+    ELSE()
+      MESSAGE(WARNING " Lapack not found for GNU compiler!")
+    ENDIF()
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
 #ELSEIF(ON_MAC_PORTS GREATER -1)
@@ -461,7 +471,7 @@ IF(COMPILE_GVEC_TO_HOPR)
     add_test(
       NAME gvec_to_hopr_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_hopr"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_hopr and not highres"
     )
     set_tests_properties(gvec_to_hopr_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()
@@ -478,7 +488,7 @@ IF(COMPILE_GVEC_TO_GENE)
     add_test(
       NAME gvec_to_gene_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_gene"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_gene and not highres"
     )
     set_tests_properties(gvec_to_gene_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()
@@ -495,7 +505,7 @@ IF(COMPILE_GVEC_TO_CASTOR3D)
     add_test(
       NAME gvec_to_castor3d_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_castor3d"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_castor3d and not highres"
     )
     set_tests_properties(gvec_to_castor3d_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()
@@ -512,7 +522,7 @@ IF(COMPILE_GVEC_TO_JOREK)
     add_test(
       NAME gvec_to_jorek_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_jorek"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_jorek and not highres"
     )
     set_tests_properties(gvec_to_jorek_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()

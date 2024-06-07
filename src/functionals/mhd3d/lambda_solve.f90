@@ -164,7 +164,7 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-    CLASS(t_fbase),INTENT(IN),TARGET :: LA_fbase_in           !< base classes belong to solution U_in
+    CLASS(t_fbase),INTENT(IN)        :: LA_fbase_in           !< base classes belong to solution U_in
     REAL(wp),INTENT(IN)              :: phiPrime_s,ChiPrime_s   !! toroidal and poloidal flux s derivatives at s_pos
     REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP), INTENT(IN) :: gam_tt  !! g_tt/J evaluated on IP points
     REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP), INTENT(IN) :: gam_tz  !! g_tz/J evaluated on IP points

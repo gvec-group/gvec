@@ -64,7 +64,7 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
   WRITE(Unit_stdOut,'(A,I4)')'TESTING SFLCOORD= ',SFLcoord_test
   WRITE(Unit_stdOut,'(132("="))')
   !initialization phase
-  CALL Init_gvec_to_gene(filename,SFLcoord_test)
+  CALL Init_gvec_to_gene(filename,SFLcoord_in=SFLcoord_test,factorSFL_in=2)  !factorSFL=2 for testing purposes only, safe is 4
  
   CALL gvec_to_gene_scalars(Fa,minor_r,phiPrime_edge,q_edge,n0_global)
   WRITE(UNIT_stdOut,'(A,g21.13)')'Fa',Fa

@@ -8,7 +8,7 @@
 # =================================================================================================================================
 
 # execute the bash script in `CI_setup` to setup the environment, e.g. by loading modules
-.tmpl_before_script_modules:
+.before_script_modules:
   before_script:
     - echo -e "\e[0Ksection_start:`date +%s`:setup-env[collapsed=true]\r\e[0KSetup Environment"
     - echo ${CMAKE_HOSTNAME} ${CURR_CMP}
@@ -21,7 +21,7 @@
 # TEMPLATES FOR STAGE "env" (printout the enviroment for future reference)
 # =================================================================================================================================
 
-.tmpl_script_env:
+.script_env:
   script:
     - echo "Pipeline environment for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE"
     - echo $CI_RUNNER_DESCRIPTION
@@ -37,9 +37,8 @@
 # TEMPLATES FOR STAGE "build" 
 # =================================================================================================================================
 
-.tmpl_script_build:
+.script_build:
   variables:
-    GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
@@ -52,6 +51,7 @@
     - echo "DRY-RUN OF THE FULL PYTEST CALL"
     - python --version
     - python -m pytest --version
+    - mkdir _dry_run
     - echo -e "\e[0Ksection_start:`date +%s`:pytest-dryrun[collapsed=true]\r\e[0KPytest dry-run"
     - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
     - echo -e "\e[0Ksection_end:`date +%s`:pytest-dryrun\r\e[0K"
@@ -62,14 +62,13 @@
     - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
     # BUILD
     - echo -e "\e[0Ksection_start:`date +%s`:cmake[collapsed=true]\r\e[0KCMake"
-    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE}  -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../."
-    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
+    - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../."
+    - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
     - echo -e "\e[0Ksection_end:`date +%s`:cmake\r\e[0K"
     - echo -e "\e[0Ksection_start:`date +%s`:make[collapsed=true]\r\e[0KMake"
     - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
     - echo -e "\e[0Ksection_end:`date +%s`:make\r\e[0K"
     - cd ..; echo "... BUILD PHASE FINISHED!"
-  #allow_failure: true  # after git-lfs migrate
   artifacts:
     name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
     paths:
@@ -84,7 +83,7 @@
 # =================================================================================================================================
 
 # also required in "post"
-.tmpl_before_script_exportvars:
+.before_script_exportvars:
   before_script:
     - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
     - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
@@ -101,9 +100,8 @@
     - python -m pytest --version
     - echo -e "\e[0Ksection_end:`date +%s`:exportvars\r\e[0K"
 
-.tmpl_script_run:
+.script_run:
   variables:
-    GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
@@ -153,15 +151,13 @@
 # TEMPLATES FOR STAGE "regression"
 # =================================================================================================================================
 
-.tmpl_script_regression:
-  variables:
-    GIT_STRATEGY: fetch
+.script_regression:
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-reg[collapsed=true]\r\e[0KPrepare Regression"
     - python --version
     - python -m pytest --version
     - echo $SHELL
-    - set +e #allow error codes != 1 to be catched
+    - set +e #continue script after command fails, gitlab otherwise only returns 0 or 1
     - echo CIrun_${CASENAME_1}
     - echo CIrun_${CASENAME_2}
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
@@ -179,8 +175,9 @@
       "${PYTEST_EXTRA_OPTS}" 
       --junitxml=pytest.xml
       --annotations=annotations.json
-    - echo "error code:" $?
+      || RET=$?
     - echo -e "\e[0Ksection_end:`date +%s`:regression\r\e[0K"
+    - exit $RET
   artifacts:
     name: "${CI_PIPELINE_ID}_${CASENAME_1}_vs_${CASENAME_2}"
     paths:
@@ -198,9 +195,8 @@
 # TEMPLATES FOR STAGE "post"
 # =================================================================================================================================
 
-.tmpl_script_post:
+.script_post:
   variables:
-    GIT_STRATEGY: clone
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
@@ -217,6 +213,33 @@
     name: "${CI_PIPELINE_ID}_post_${CASENAME}"
     paths:
       - CIpost_${CASENAME}
+    expire_in: 1 week
+    when: always
+    reports:
+      junit: pytest.xml
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "postprocessing" + "converter"
+# =================================================================================================================================
+
+.script_conv:
+  variables:
+    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-conv[collapsed=true]\r\e[0KPrepare converter Postprocessing"
+    - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --convdir=CIconv_${CASENAME}"
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_conv.txt -m "${PYTEST_MARKER_OPTS} and converter_stage and (not restart)" -k "not highres" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
+    - rm -rf CIconv_${CASENAME}
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-conv\r\e[0K"
+    # CONVERTER TESTS
+    - echo -e "\e[0Ksection_start:`date +%s`:conv[collapsed=true]\r\e[0K converter Postprocessing"
+    - ${PYTEST_EXEC_CMD} --log-file=log_pytest_conv.txt -m "${PYTEST_MARKER_OPTS} and converter_stage and (not restart)" -k "not highres" $PYTEST_DIR_OPTS --junitxml=pytest.xml
+    - echo -e "\e[0Ksection_end:`date +%s`:conv\r\e[0K"
+  artifacts:
+    name: "${CI_PIPELINE_ID}_conv_${CASENAME}"
+    paths:
+      - CIconv_${CASENAME}
     expire_in: 1 week
     when: always
     reports:
