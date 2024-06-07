@@ -1,6 +1,7 @@
 # GVEC 
 
 Quick-links: 
+
 *   [Getting started](#getting-started)
 *   [Installation see INSTALL.md](INSTALL.md)
 *   [Run a GVEC example](#run-a-gvec-example)
@@ -40,9 +41,9 @@ For the full license terms see the included license file [LICENSE.md](LICENSE.md
 
 A pdf that documents the theory and implementation details of GVEC  **[ can be found here](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf)**.
 
-Direct code documentation can be found **[here.](http://gvec-group.pages.mpcdf.de/ford-gvec-doc)**
-It is generated using [FORD](https://forddocs.readthedocs.io/en/latest/) 
-and the input file for running ford is in `ford-config/project.md`.
+Direct code documentation can be found **[here.](http://gvec-group.pages.mpcdf.de/gvec)**
+It is generated using [FORD](https://forddocs.readthedocs.io/en/latest/).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Getting started
  

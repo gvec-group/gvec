@@ -8,6 +8,7 @@ stages:
   - run
   - regression
   - postprocessing
+  - publish
 
 workflow:
   name: 'Pipeline for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE'
@@ -26,7 +27,9 @@ variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_RELEASE: v0.2.0     # pipeline schedules
+  #MINIMAL_PIPELINE
   NIGHTLY_PIPELINE: "false"    # pipeline schedules
+  #PAGES_PIPELINE
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
@@ -174,6 +177,10 @@ include:
     inputs:
       env: mpcdfci_gcc13
 
+  # ============================
+  # publish jobs
+  # ============================
+  - local: CI_templates/pages.yml
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -227,6 +234,12 @@ include:
     # only run this job in the nightly pipeline
     - if: $NIGHTLY_PIPELINE == "true"
       when: on_success
+    - when: never
+
+.rules_pages:
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "develop" || $PAGES_PIPELINE == "true"
+      when: always
     - when: never
 
 # ____________________________

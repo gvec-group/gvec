@@ -1,0 +1,21 @@
+# =================================================================================================================================
+# Stage "publish" - generate documentation
+# =================================================================================================================================
+
+pages:
+  stage: publish
+  extends:
+    - .tmpl_mpcdfci_intel2023
+    - .tmpl_before_script_modules
+    - .rules_pages
+  variables:
+    GIT_STRATEGY: clone
+  script:
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install ford
+    - ford docs/ford.md -o ../public
+  artifacts:
+    paths:
+      - public
+  needs: []
