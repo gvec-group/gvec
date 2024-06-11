@@ -261,13 +261,13 @@ def test_post(binpath, testgroup, testcase, testcasepostdir, dryrun, annotations
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
         # add link to artifact (CI)
         for filename in ["stdout", "stderr"]:
-            if pages_rundir := os.environ.get("CASENAME"):
-                pages_rundir = f"CIrun_{pages_rundir}"
+            if pages_postdir := os.environ.get("CASENAME"):
+                pages_postdir = f"CIpost_{pages_postdir}"
             else:
-                pages_rundir = "."
+                pages_postdir = "."
             annotations["gvec-output"].append(dict(external_link=dict(
                 label=f"{testgroup}/{testcase}/{filename}", 
-                url=f"{artifact_pages_path}/{pages_rundir}/{testgroup}/{testcase}/{filename}.txt")))
+                url=f"{artifact_pages_path}/{pages_postdir}/{testgroup}/{testcase}/{filename}.txt")))
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
@@ -279,8 +279,8 @@ def test_converter(binpath, testgroup, testcase, which_conv, testcaseconvdir,  d
     """
     Post processing  of statefile(s) from an example GVEC run, using the compiled converters.
 
-    Takes the last two statefiles in `{rundir}/{testgroup}/{testcase}`  and runs the modified parameter with the post_gvec in
-    `{postdir}/{testgroup}+which_conv/{testcase}`.
+    Takes the last statefile in `{rundir}/{testgroup}/{testcase}`  and runs the modified parameter with the post_gvec in
+    `{postdir}/{which_conv}/{testgroup}/{testcase}`.
     Note: the `testgroup` fixture is contained in `testcasepostdir`, but is given additionally to the test function
     for better readability and proper parameter ordering for the pytest nodeID.
     """
@@ -325,7 +325,7 @@ def test_converter(binpath, testgroup, testcase, which_conv, testcaseconvdir,  d
                 return
             assert (len(states) > 0), f"no statefile for post-converter found in directory {testcaseconvdir}"
             
-            args.append(states[0])  # add the first file
+            args.append(states[-1])  # add the last state file
             if("fixedargs" in conv.keys()): args += conv["fixedargs"][irun]
             # run gvec_post
             with open(f"stdout{irun}.txt", "w") as stdout:
@@ -334,13 +334,13 @@ def test_converter(binpath, testgroup, testcase, which_conv, testcaseconvdir,  d
                 subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
             # add link to artifact (CI)
             for filename in [f"stdout{irun}", f"stderr{irun}"]:
-                if pages_rundir := os.environ.get("CASENAME"):
-                    pages_rundir = f"CIrun_{pages_rundir}"
+                if pages_convdir := os.environ.get("CASENAME"):
+                    pages_convdir = f"CIconv_{pages_convdir}"
                 else:
-                    pages_rundir = "."
+                    pages_convdir = "."
                 annotations["gvec-output"].append(dict(external_link=dict(
                     label=f"{which_conv}/{testgroup}/{testcase}/{filename}", 
-                    url=f"{artifact_pages_path}/{pages_rundir}/{which_conv}/{testgroup}/{testcase}/{filename}.txt")))
+                    url=f"{artifact_pages_path}/{pages_convdir}/{which_conv}/{testgroup}/{testcase}/{filename}.txt")))
             # check if GVEC was successful
             helpers.assert_empty_stderr(f"stderr{irun}.txt")
             helpers.assert_stdout_finished(f"stdout{irun}.txt",message=conv["msg"]+" FINISHED!")
