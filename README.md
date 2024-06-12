@@ -24,8 +24,8 @@ The main features of GVEC are
 * A VMEC generated netcdf file can be used for initialization of GVEC.
 * GVEC can convert its final solution to several formats (VMEC netcdf, specific converters) 
 
-GVEC has been developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
-lead by Prof. Eric Sonnendruecker at the Max-Planck Institute for Plasma Physics 
+GVEC is being developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
+led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics 
 in Garching, Germany.
 
 The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md)

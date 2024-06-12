@@ -11,11 +11,13 @@ pages:
   variables:
     GIT_STRATEGY: clone
   script:
-    # - module load graphviz/8 # not available on sharedrunner
+    - module load graphviz/2.44
+    - zypper install -y urw-fonts
     - python -m venv venv
     - source venv/bin/activate
-    - pip install ford
-    - ford docs/ford.md -o ../public
+    - pip install ford setuptools_scm
+    - export VERSION=$(python -m setuptools_scm)
+    - ford docs/ford.md -o ../public -r "$VERSION"
   artifacts:
     paths:
       - public
