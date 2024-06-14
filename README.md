@@ -1,12 +1,5 @@
 # GVEC 
 
-Quick-links: 
-
-*   [Getting started](#getting-started)
-*   [Installation see INSTALL.md](INSTALL.md)
-*   [Run a GVEC example](#run-a-gvec-example)
-
-
 ## Overview
 
 GVEC (Galerkin Variational Equilibrium Code) is an open-source software for
@@ -30,20 +23,18 @@ in Garching, Germany.
 
 The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
-### License
+## License
 
-GVEC is Copyright (C) 2017, F. Hindenlang, O. Maj, E. Sonnendruecker 
-
-and is released under the terms of the GNU General Public License v3.0. 
+GVEC is released under the terms of the GNU General Public License v3.0. 
 For the full license terms see the included license file [LICENSE.md](LICENSE.md).
 
-### Documentation
+Copyright 2017-2024 GVEC Contributors | Max Planck Institute for Plasma Physics
 
-A pdf that documents the theory and implementation details of GVEC  **[ can be found here](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf)**.
+## Documentation
 
-Direct code documentation can be found **[here.](http://gvec-group.pages.mpcdf.de/gvec)**
-It is generated using [FORD](https://forddocs.readthedocs.io/en/latest/).
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+ * a pdf that documents the [theory and implementation details](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf) of GVEC
+ * [user and developer documentation](https://gvec-group.pages.mpcdf.de/gvec) built with *sphinx*
+ * auto-generated [fortran code documentation](https://gvec-group.pages.mpcdf.de/gvec/_static/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
 
 ## Getting started
  
@@ -79,16 +70,6 @@ To clone the GVEC repository, please make sure you have `git` and `git lfs` inst
 
 After setting up the git repository, follow the installation process: [For instructions see INSTALL.md](INSTALL.md).
 
-### Testing
-
-*   GVEC has been equipped with automatic CI testing on the `gitlab.mpcdf.mpg.de` server, using shared MPCDF gitlab runners to execute the tests. 
-    *   More details on the CI setup are found in [test-CI/README-CI.md](test-CI/README-CI.md).
-    *   The CI manages different builds of the code, then calls pytest for running them and checking the results (requires `python >3.10` to be installed!).
-*   The `pytest` feature also **allows to locally run** the same tests. More details and examples on running the tests with pytest are found in [test-CI/README.md](test-CI/README.md).
-*   A predefined set of tests can be executed using `ctest`, after the [cmake install process](INSTALL.md). Simply change to the build directory, and execute:
-    ```bash
-    ctest -T test --output-on-failure -R
-    ```
 
 ### Run a GVEC example
 
@@ -117,11 +98,3 @@ There are several example input files named `parameter.ini`, which are found in 
 For line plots, csv datafiles are generated (we like to use [veusz](https://veusz.github.io/) for plotting). 
 
 For 3D data, we write `.vtu` files that can be visualized in [paraview](https://www.paraview.org).
-
-## Other
-
-### Object-Oriented Programming in FORTRAN
-
-Here is a recommendation for a tutorial on how to program in an object-oriented way
-with [polymorphism in fortran](https://gist.github.com/n-s-k/522f2669979ed6d0582b8e80cf6c95fd).
-

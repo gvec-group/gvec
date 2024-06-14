@@ -48,7 +48,7 @@
 
 ## Details
 
-* Details on the gitlab CI setup are found in [README-CI.md](README-CI.md)
+* Details on the gitlab CI setup are found at <project:pipeline.md>
 * the main python script for all tests is in `test-CI/test_all.py`
 * Large input files should be stored in `test-CI/data` and the examples should contain a *relative* symbolic link
     * When filling a `RUNDIR`, a link `RUNDIR/data -> test-CI/data` is created. In this way the relative link should still work.

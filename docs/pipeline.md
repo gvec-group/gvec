@@ -4,11 +4,7 @@ This text documents the GitLab continuous integration (CI) YAML script (`.gitlab
 
 Currently, the script invokes a pool of runners that are shared among all MPCDF users. The novel module-enabled MPCDF Docker images infrastructure allowa to choose different Docker images.
 
-In the following section ([GitLab CI YAML script](#gitlab-ci-yaml-script)) we analyse the source code of GVEC's CI script. The first subsection ([Organisation](#organisation)) provides an overview of the structure of the script, which will be useful to keep in mind throughout the document. The second subsection ([Jobs & templates per stage](#jobs-&-templates-per-stage)) provides more implementation details. We analyse the jobs and their templates together according to the stage they belong to, in order to make the description easier to follow. However, it should be noted that in the actual script all templates appear first, followed by the jobs, organised by stage. Finally, in the last subsection ([Conclusion](#conclusion)) a few basic concluding remarks are given. At the very end, a list of links to GitLab YAML reference pages is given, corresponding to concepts or keywords used throughout the text.
-
-
-# GitLab CI YAML script
-
+In this document we analyse the source code of GVEC's CI script. The first subsection ([Organisation](#organisation)) provides an overview of the structure of the script, which will be useful to keep in mind throughout the document. The second subsection ([Jobs & templates per stage](#jobs-&-templates-per-stage)) provides more implementation details. We analyse the jobs and their templates together according to the stage they belong to, in order to make the description easier to follow. However, it should be noted that in the actual script all templates appear first, followed by the jobs, organised by stage. Finally, in the last subsection ([Conclusion](#conclusion)) a few basic concluding remarks are given. At the very end, a list of links to GitLab YAML reference pages is given, corresponding to concepts or keywords used throughout the text.
 
 ## Organisation
 
@@ -426,7 +422,7 @@ Finally, it is noteworthy to mention that the global variable `HASH_TAG_RELEASE`
 As we have seen, all the jobs within a given CI stage are very similar to each other, in part thanks to the usage of common templates. In this document, whose purpose is to describe the machinery behind GVEC's CI script, only a subset of the CI jobs implemented are covered, and moreover, in a simplified fashion. For the complete implementation details, including all additionally available cases that were not shown here, the reader is advised to inspect directly the script file `.gitlab-ci.yml`.
 
 
-# References
+## References
 
 ##### List of references to keywords made throughout the document:
 

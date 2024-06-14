@@ -21,8 +21,8 @@ import logging
 # -- Project information -----------------------------------------------------
 
 project = 'GVEC'
-copyright = '2017-2024 (c) Florian Hindenlang | Max Planck Institute for Plasma Physics'
-author = 'Florian Hindenlang et al. | Max Planck Institute for Plasma Physics'
+copyright = '2017-2024 GVEC Contributors | Max Planck Institute for Plasma Physics'
+author = 'Florian Hindenlang et al.'
 
 try:
     p = subprocess.run(["git", "describe", "--tags", "--dirty", "--always"], capture_output=True)

@@ -1,5 +1,5 @@
 project: GVEC
-summary: This is the Fortran Code Documentation for GVEC. [Back to the full documentation](../../)
+summary: This is the Fortran Code Documentation for GVEC. [Back to the user and developer documentation](../../)
 project_gitlab: https://gitlab.mpcdf.mpg.de/gvec-group/gvec 
 project_website: ../../
 doc_license: by
