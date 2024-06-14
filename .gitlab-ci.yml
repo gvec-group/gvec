@@ -11,7 +11,7 @@ stages:
   - publish
 
 workflow:
-  name: 'Pipeline for branch $CI_COMMIT_REF_NAME and branch/commit/tag $HASH_TAG_RELEASE'
+  name: 'Pipeline for branch $CI_COMMIT_REF_NAME vs $HASH_TAG_RELEASE'
   rules:
     # disable the pipeline for merge requests (to avoid duplicate pipelines)
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'

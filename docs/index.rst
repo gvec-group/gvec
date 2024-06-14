@@ -12,5 +12,5 @@ Galerkin Variational Equilibrium Code
    ReadMe <README>
    Installation <INSTALL>
    dev
-   Contributers <CONTRIBUTORS>
+   Contributors <CONTRIBUTORS>
 
