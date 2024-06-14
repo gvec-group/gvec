@@ -1,0 +1,33 @@
+# =================================================================================================================================
+# Stage "publish" - generate documentation
+# =================================================================================================================================
+
+pages:
+  stage: publish
+  extends:
+    - .mpcdfci_intel2023
+    - .before_script_modules
+    - .rules_pages
+  variables:
+    GIT_STRATEGY: clone
+  script:
+    # install graphviz/dot & urw-fonts - required by ford to generate the graphs
+    - module load graphviz/2.44
+    - zypper install -y urw-fonts
+    # python environment to build the documentation
+    - cd docs
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    # run ford
+    - export VERSION=$(python -m setuptools_scm)
+    - mkdir prebuild -p
+    - ford ford/ford.md -r "$VERSION"
+    # run sphinx
+    - make html
+    - cd ..
+  publish: docs/build/html
+  artifacts:
+    paths:
+      - docs/build/html
+  needs: []
