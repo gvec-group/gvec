@@ -1,7 +1,6 @@
 sphinx
 pydata-sphinx-theme
 myst-parser
-setuptools_scm
 
 ford
 graphviz

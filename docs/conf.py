@@ -14,7 +14,8 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-import setuptools_scm
+import subprocess
+import logging
 
 
 # -- Project information -----------------------------------------------------
@@ -22,7 +23,13 @@ import setuptools_scm
 project = 'GVEC'
 copyright = '2017-2024 (c) Florian Hindenlang | Max Planck Institute for Plasma Physics'
 author = 'Florian Hindenlang et al. | Max Planck Institute for Plasma Physics'
-version = setuptools_scm.get_version(root="..")
+
+try:
+    p = subprocess.run(["git", "describe", "--tags", "--dirty", "--always"], capture_output=True)
+    version = p.stdout.decode().strip()
+except Exception as e:
+    logging.error(f"Could not get git version: {e}")
+    version = "unknown"
 release = version
 
 
