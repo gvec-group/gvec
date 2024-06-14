@@ -1,13 +1,11 @@
 project: GVEC
-summary: GVEC (Galerkin Variational Equilibrium Code) is an open-source software for the generation of three-dimensional ideal MHD equilibria.
-author: Florian Hindenlang et. al.
-email: florian.hindenlang@ipp.mpg.de
+summary: This is the Fortran Code Documentation for GVEC. [Back to the full documentation](../../)
 project_gitlab: https://gitlab.mpcdf.mpg.de/gvec-group/gvec 
+project_website: ../../
 doc_license: by
-src_dir: ../src/
-include: ../src/
-output_dir: ./_build
-page_dir: ./static
+src_dir: ../../src/
+include: ../../src/
+output_dir: ../prebuild/ford
 mathjax_config: ./MathJax-latex-macros.js
 predocmark: >
 display: public
@@ -32,7 +30,3 @@ The main features of GVEC are
 GVEC is being developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
 led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics 
 in Garching, Germany.
-
-## Getting Started
-* [README](page/README.html)
-* [Installation](page/INSTALL.html)

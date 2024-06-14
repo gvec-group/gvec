@@ -1,3 +1,0 @@
-title: Contributors
-
-{!../CONTRIBUTORS.md!}
