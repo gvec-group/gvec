@@ -3,17 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-GVEC: Galerkin Variational Equilibrium Code
-===========================================
+GVEC - 3D MHD equilibrium solver
+================================
 
-GVEC is an open-source software for the generation of three-dimensional ideal MHD equilibria.
+GVEC (Galerkin Variational Equilibrium Code) is an open-source software for the generation of three-dimensional ideal MHD equilibria.
 The ideas are strongly based on `VMEC <https://princetonuniversity.github.io/STELLOPT/VMEC>`_ (Hirshman & Whitson, 1983).
 
 The main features of GVEC are
 
 * **Radial discretization using B-Splines** of arbitrary polynomial degree
 * **Number of Fourier modes** for each variable :math:`X^1,X^2,\lambda` can be chosen separately
-* **Flexible choice of the mapping** between the space :math:`\left(X^1,X^2,\zeta\right) \mapsto \left(x,y,z\right)` (in VMEC fixed to `(R,Z,phi)-->(x,y,z)` ) 
+* **Flexible choice of the mapping** between the space :math:`\left(X^1,X^2,\zeta\right) \mapsto \left(x,y,z\right)`
+  (in VMEC fixed to :math:`\left(R,Z,\phi\right) \mapsto \left(x,y,z\right)` ) 
   to find equilibria in complex-shaped domains (magnetic islands, knotted domains...)
 * Use of modern **object-oriented FORTRAN**
 * **Python postprocessing** tools (in development)

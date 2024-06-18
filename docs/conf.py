@@ -80,7 +80,7 @@ html_theme_options = {
         {
             "name": "Issues",
             "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/issues",
-            "icon": "fa-solid fa-clipboard-list",
+            "icon": "fa-solid fa-bug",
         },
         # {
         #     "name": "PyPI",
