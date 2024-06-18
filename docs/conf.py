@@ -71,8 +71,23 @@ html_theme_options = {
 
     "gitlab_url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
     "external_links": [
-        {"name": "Fortran Code Documentation", "url": "_static/ford/index.html"},
-    ]
+        {
+            "name": "Fortran Code Documentation", 
+            "url": "_static/ford/index.html",
+        },
+    ],
+    "icon_links": [
+        {
+            "name": "Issues",
+            "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/issues",
+            "icon": "fa-solid fa-clipboard-list",
+        },
+        # {
+        #     "name": "PyPI",
+        #     "url": "https://pypi.org/project/gvec",
+        #     "icon": "fa-custom fa-pypi",
+        # },
+    ],
 }
 
 html_sidebars = {
@@ -86,8 +101,12 @@ html_last_updated_fmt = "%Y-%m-%d"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['static', 'prebuild']
-# static-build contains pages generated outside of sphinx - e.g. ford
-# static is intended for truly static pages
+# prebuild contains pages generated outside of sphinx - e.g. ford
+# static is intended for truly static pages & stylesheets
+
+html_css_files = [
+    "custom.css",
+]
 
 # --- markdown parsing with myst --- #
 myst_enable_extensions = [
@@ -107,3 +126,4 @@ myst_enable_extensions = [
 ]
 
 myst_dmath_allow_labels=True
+myst_heading_anchors = 3
