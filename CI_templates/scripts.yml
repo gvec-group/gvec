@@ -23,7 +23,7 @@
 
 .script_env:
   script:
-    - echo "Pipeline environment for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_RELEASE"
+    - echo "Pipeline environment for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_REFERENCE"
     - echo $CI_RUNNER_DESCRIPTION
     - echo $CI_RUNNER_TAGS
     - echo -e "\e[0Ksection_start:`date +%s`:printenv[collapsed=true]\r\e[0KEnvironment Variables"

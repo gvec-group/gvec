@@ -11,11 +11,16 @@ stages:
   - publish
 
 workflow:
-  name: 'Pipeline for branch $CI_COMMIT_REF_NAME vs $HASH_TAG_RELEASE'
+  name: 'Pipeline for branch $CI_COMMIT_REF_NAME vs $HASH_TAG_REFERENCE'
   rules:
     # disable the pipeline for merge requests (to avoid duplicate pipelines)
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: never
+    # compare tags and develop vs "main" / latest release, rarely makes sense otherwise
+    - if: $CI_COMMIT_TAG || $CI_COMMIT_REF_NAME == "develop"
+      when: always
+      variables:
+        HASH_TAG_REFERENCE: main
     # otherwise always run the pipeline (e.g. on every push)
     - when: always
 
@@ -26,10 +31,21 @@ workflow:
 variables:
   GIT_STRATEGY: fetch
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: develop    # pipeline schedules
-  #MINIMAL_PIPELINE
-  NIGHTLY_PIPELINE: "false"    # pipeline schedules
-  #PAGES_PIPELINE
+  HASH_TAG_REFERENCE:
+    value: develop
+    description: "The reference branch/tag to compare against"
+  MINIMAL_PIPELINE:
+    value: ""
+    options: ["", "true", "false"]
+    description: "''true'' to run only minimal tests, ''false'' to run all tests, '''' to run only minimal tests for ''.*gitlab[-_]ci.*'' branches"
+  NIGHTLY_PIPELINE:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to run additional ''nightly'' tests, ''false'' to run default tests"
+  PAGES_PIPELINE:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to deploy GitLab Pages"
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
@@ -65,7 +81,7 @@ variables:
 #                             check issue report: https://gitlab.com/gitlab-org/gitlab/-/issues/428679
 #                             workaround is to use the keyword "variables:" instead (like below)
 #  variables:
-#    HASH_TAG: ${HASH_TAG_RELEASE}
+#    HASH_TAG: ${HASH_TAG_REFERENCE}
 #    CMP_MODE: "Debug"
 #    OMP_MODE: "ompON"
 
@@ -255,7 +271,9 @@ include:
   rules:
     - if: $CI_COMMIT_REF_NAME == "develop" || $PAGES_PIPELINE == "true"
       when: always
-    - when: never
+    # allow manual triggering for pipelines where pages didn't run
+    - when: manual
+      allow_failure: true # workaround to disable reporting the pipeline as "Blocked"
 
 # ____________________________
 # MPCDF new Docker images
@@ -336,7 +354,7 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
   variables:
-    HASH_TAG: ${HASH_TAG_RELEASE}
+    HASH_TAG: ${HASH_TAG_REFERENCE}
     MPI_MODE: "mpiOFF"
 
 # not yet used (for MPI jobs)
@@ -346,7 +364,7 @@ include:
       - CMP_MODE: ["Debug"]
         OMP_MODE: ["ompOFF", "ompON"]
   variables:
-    HASH_TAG: ${HASH_TAG_RELEASE}
+    HASH_TAG: ${HASH_TAG_REFERENCE}
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
@@ -384,7 +402,7 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
   variables:
-    HASH_TAG: ${HASH_TAG_RELEASE}
+    HASH_TAG: ${HASH_TAG_REFERENCE}
 
 
 # =================================================================================================================================

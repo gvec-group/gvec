@@ -33,7 +33,7 @@ There are also some global variables, assigned as follows
 variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: v0.2.0
+  HASH_TAG_REFERENCE: develop
   PYTEST_EXEC_CMD: "python -m pytest -v -r A"
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""
@@ -382,7 +382,7 @@ mpcdfci_intel-vs-tag_reg:
     - .vars_matrix_run
   variables:
     HASH_TAG_1: ${HASH_TAG}
-    HASH_TAG_2: ${HASH_TAG_RELEASE}
+    HASH_TAG_2: ${HASH_TAG_REFERENCE}
     CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: ${CURR_CMP}
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
@@ -396,7 +396,7 @@ mpcdfci_intel-vs-tag_reg:
 
 The first job (`mpcdfci_intel-vs-gnu_reg`) compares the same commit of GVEC when built using Intel and GNU compilers (no MPI). The two first templates extended (`.tmpl_mpcdfci_intel2023 ` and `.tmpl_before_script_modules `) are from previous stages. As we know already, they choose a Docker image and load the respective modules. Note that at this level, which image is chosen is not so important. What matters is that the module for `anaconda` is loaded, since Pyhton >3.10 is needed for the Pytest framework, which is called from the template `tmpl_script_regression`. This wrapper compares output files from the two different directories specified by the variables `CASENAME_1` and `CASENAME_2`, which are in turn made by two sets of values of build variables: `CURR_CMP`, `HASH_TAG`, `CMP_MODE` and `OMP_MODE`. The latter two are declared via the [`parallel:matrix:`](https://gitlab.mpcdf.mpg.de/help/ci/yaml/index#parallelmatrix) keyword via the template `.vars_matrix_run` which triggers three different jobs in parallel. Naturally, this must be consistent with the set of jobs executed during the `run` stage, since now we depend on the existence of results produced there. In other words, the combination of variables specified here (`regression` stage) must be contained in the respective combination of variables specified at the `run` stage. This is guaranteed here by using the same parallel matrix template in both stages. Finally, we need to explicitly prescribe a dependency on `run` stage jobs, which must be chosen consistently with the values picked for those same variables. In this case, those jobs are `mpcdfci_intel2023_run` and `mpcdfci_gcc13_run`, together with their artifacts, which include the output files to be compared.
 
-The second set of `regression` jobs shown (`mpcdfci_intel-vs-tag_reg`) is very similar, but with some notable differences. Namely, the values for all `_1` and `_2` variables are the same, except for `HASH_TAG_1` and `HASH_TAG_2`, which therefore specify different commits. This means that, instead of comparing the results of the same commit built with two compilers, like before, we now compare two different commits using the same build setup. In particular, `HASH_TAG_1` refers to the commit triggering the pipeline (`HASH_TAG`), and the `HASH_TAG_2` to the specific commit tag `HASH_TAG_RELEASE=v0.2.0`. The latter was specified as a global variable, as mentioned at the beginning of this document. In order to be consistent with this specification of a different commit, the `run` job dependencies and corresponding artifacts now include the job `intel2023_run_tag` from the stage `run`, which itself depends on a `build` stage job that checks out a commit specified by the variable `HASH_TAG_RELEASE`. Therefore, it is now time to revisit the corresponding Shell command, which is part of the `.tmpl_before_script_build` template, presented when we discussed the stage `build` and its templates. Namely,
+The second set of `regression` jobs shown (`mpcdfci_intel-vs-tag_reg`) is very similar, but with some notable differences. Namely, the values for all `_1` and `_2` variables are the same, except for `HASH_TAG_1` and `HASH_TAG_2`, which therefore specify different commits. This means that, instead of comparing the results of the same commit built with two compilers, like before, we now compare two different commits using the same build setup. In particular, `HASH_TAG_1` refers to the commit triggering the pipeline (`HASH_TAG`), and the `HASH_TAG_2` to the specific commit tag `HASH_TAG_REFERENCE=v0.2.0`. The latter was specified as a global variable, as mentioned at the beginning of this document. In order to be consistent with this specification of a different commit, the `run` job dependencies and corresponding artifacts now include the job `intel2023_run_tag` from the stage `run`, which itself depends on a `build` stage job that checks out a commit specified by the variable `HASH_TAG_REFERENCE`. Therefore, it is now time to revisit the corresponding Shell command, which is part of the `.tmpl_before_script_build` template, presented when we discussed the stage `build` and its templates. Namely,
 
 ```yaml
 .tmpl_before_script_build:
@@ -408,7 +408,7 @@ The second set of `regression` jobs shown (`mpcdfci_intel-vs-tag_reg`) is very s
 
 Here we see that, if the variable `HASH_TAG`, which is globally set to be `CI_COMMIT_REF_NAME` by default (as we saw before), is subsequently set to something else, then an explicit `git checkout` of the corresponding commit is issued. This commit is then used for the remaining CI jobs, which is what enables regression tests between different commits in GVEC's CI pipeline.
 
-Finally, it is noteworthy to mention that the global variable `HASH_TAG_RELEASE` can be specified externally to override the value hardcoded in the CI script (in this case the tag commit `v0.2.0`). E.g., this can be achieved by creating [scheduled pipelines](https://gitlab.mpcdf.mpg.de/help/ci/pipelines/schedules) that are triggered automatically, e.g. at regular intervals, and specifying this variable and its desired value in its configuration.
+Finally, it is noteworthy to mention that the global variable `HASH_TAG_REFERENCE` can be specified externally to override the value hardcoded in the CI script (in this case the branch `develop`). E.g., this can be achieved by creating [scheduled pipelines](https://gitlab.mpcdf.mpg.de/help/ci/pipelines/schedules) that are triggered automatically, e.g. at regular intervals, and specifying this variable and its desired value in its configuration.
 
 
 ### Templates for stage `postprocessing`

@@ -92,7 +92,7 @@ reg.mpcdfci_intel-vs-tag:
     - .rules_default
   variables:
     HASH_TAG_1: ${HASH_TAG}
-    HASH_TAG_2: ${HASH_TAG_RELEASE}
+    HASH_TAG_2: ${HASH_TAG_REFERENCE}
     CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: ${CURR_CMP}
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
