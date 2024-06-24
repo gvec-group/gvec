@@ -1,4 +1,4 @@
-# GVEC GitLab CI guide
+# GitLab CI
 
 This text documents the GitLab continuous integration (CI) YAML script (`.gitlab-ci.yml`) used in GVEC.
 

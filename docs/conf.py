@@ -39,7 +39,8 @@ release = version
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "myst_parser",
+    "myst_parser",  # "a rich and extensible flavour of Markdown for authoring technical and scientific documentation."
+    "sphinx_design", # proveides Grids, Cards, Dropdowns & more
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -58,24 +59,24 @@ exclude_patterns = ["ford/ford.md"]
 html_theme = 'pydata_sphinx_theme'
 
 html_theme_options = {
-    # from struphy:
-    "sidebarwidth": 270,
-    "show_nav_level": 3,
-    "show_toc_level": 2,
-    "navigation_depth": 4,
-    "header_links_before_dropdown": 7,
-    "primary_sidebar_end": ["sidebar-ethical-ads"],
+    # "sidebarwidth": 270,
+    "show_toc_level": 1,
+    "show_nav_level": 2,
+    # "navigation_depth": ?,
+    "back_to_top_button": True,
 
-    "footer_start": ["copyright", "version", "last-updated"],
+    "footer_start": ["version", "last-updated"],
+    "footer_center": ["copyright"],
     "footer_end": ["sphinx-version", "theme-version"],
 
-    "gitlab_url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
+    # "header_links_before_dropdown": ?,
     "external_links": [
         {
-            "name": "Fortran Code Documentation", 
+            "name": "Fortran API", 
             "url": "_static/ford/index.html",
         },
     ],
+    "gitlab_url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
     "icon_links": [
         {
             "name": "Issues",
@@ -88,10 +89,6 @@ html_theme_options = {
         #     "icon": "fa-custom fa-pypi",
         # },
     ],
-}
-
-html_sidebars = {
-   '**': ['globaltoc.html', 'relations.html', 'searchbox.html'],
 }
 
 html_title = "GVEC Documentation"
