@@ -5,6 +5,7 @@ project_website: ../../
 doc_license: by
 src_dir: ../../src/
 include: ../../src/
+page_dir: ./static
 output_dir: ../prebuild/ford
 mathjax_config: ./MathJax-latex-macros.js
 predocmark: >

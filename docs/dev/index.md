@@ -13,8 +13,7 @@ in Garching, Germany. Outside contributions are of course very welcome!
 Here is a recommendation for a tutorial on how to program in an object-oriented way
 with [polymorphism in fortran](https://gist.github.com/n-s-k/522f2669979ed6d0582b8e80cf6c95fd).
 
- <!-- Developer Guide -->
-
+ <!-- TOC -->
  
 ```{toctree}
 :caption: Developer Guide
@@ -22,5 +21,5 @@ with [polymorphism in fortran](https://gist.github.com/n-s-k/522f2669979ed6d0582
 testing
 pipeline
 docs
-CONTRIBUTORS
+Contributors <CONTRIBUTORS>
 ```

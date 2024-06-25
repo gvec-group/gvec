@@ -1,6 +1,6 @@
 # List of Contributors
 
-GVEC is being developed by
+GVEC is being developed and maintained by
 
 * Florian Hindenlang (2017.. )
 * Tiago Tamissa Ribeiro (2021.. )

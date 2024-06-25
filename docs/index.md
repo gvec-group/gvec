@@ -37,6 +37,7 @@ Use of modern object-oriented Fortran
 
 ```{toctree}
 :maxdepth: 2
+:titlesonly:
 
 user/index
 ```
@@ -45,6 +46,7 @@ user/index
 
 ```{toctree}
 :maxdepth: 2
+:titlesonly:
 
 dev/index
 ```
@@ -53,7 +55,7 @@ dev/index
 
 Automatic Fortran code documentation generated with [ford](https://forddocs.readthedocs.io).
 
-[Fortran API](../_static/ford/index.html){.external}
+[Fortran Code Documentation](/_static/ford/index.html){.external}
 
 ## Contact
 

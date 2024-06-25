@@ -49,7 +49,7 @@ templates_path = ['templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["ford/ford.md"]
+exclude_patterns = ["ford/ford.md", "ford/static/index.md"]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -65,15 +65,19 @@ html_theme_options = {
     # "navigation_depth": ?,
     "back_to_top_button": True,
 
+    # --- footer --- #
     "footer_start": ["version", "last-updated"],
     "footer_center": ["copyright"],
     "footer_end": ["sphinx-version", "theme-version"],
 
+    # --- header --- #
     # "header_links_before_dropdown": ?,
-    "external_links": [
+    "external_links": [ 
         {
-            "name": "Fortran API", 
-            "url": "_static/ford/index.html",
+            # external section of the documentation, built with FORD
+            "name": "Fortran Code Documentation", 
+            # important to use an absolute path, denoted with a starting "/"
+            "url": "/_static/ford/index.html",
         },
     ],
     "gitlab_url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
