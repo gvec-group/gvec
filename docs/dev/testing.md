@@ -1,13 +1,16 @@
 # Testing
 
-*   GVEC has been equipped with automatic CI testing on the `gitlab.mpcdf.mpg.de` server, using shared MPCDF gitlab runners to execute the tests. 
-    *   More details on the CI setup are found at <project:pipeline.md>.
-    *   The CI manages different builds of the code, then calls pytest for running them and checking the results (requires `python >3.10` to be installed!).
-*   The `pytest` feature also **allows to locally run** the same tests. More details and examples on running the tests with pytest are found at <project:testing.md>.
-*   A predefined set of tests can be executed using `ctest`, after the [cmake install process](project:INSTALL.md). Simply change to the build directory, and execute:
+GVEC has a set of testcases and test logic contained within `test-CI`.
+
+* The test logic is implemented with [pytest](https://docs.pytest.org).
+* The tests can be executed locally using *pytest* with many options to customize which tests should be run (see [](#usage)).
+* A predefined set of tests can be executed using *ctest*, after the [cmake install process](/user/install). Simply change to the build directory, and execute:
     ```bash
     ctest -T test --output-on-failure -R
     ```
+* A CI pipeline with automatic tests is configured for the [](http://gitlab.mpcdf.mpg.de/gvec-group/gvec) repository, using shared MPCDF gitlab runners to execute the tests. 
+    * More details on the CI setup see: [](pipeline).
+    * The CI manages different builds of the code, then calls pytest for running them and checking the results (requires `python >3.10` to be installed!).
 
 ## Usage 
 

@@ -60,8 +60,8 @@ html_theme = 'pydata_sphinx_theme'
 
 html_theme_options = {
     # "sidebarwidth": 270,
-    "show_toc_level": 1,
-    "show_nav_level": 2,
+    "show_toc_level": 2,  # number of levels always visible in the (right) toc
+    # "show_nav_level": ?,
     # "navigation_depth": ?,
     "back_to_top_button": True,
 
