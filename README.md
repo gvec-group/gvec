@@ -34,7 +34,7 @@ Copyright 2017-2024 GVEC Contributors | Max Planck Institute for Plasma Physics
 
  * a pdf that documents the [theory and implementation details](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf) of GVEC
  * [user and developer documentation](https://gvec-group.pages.mpcdf.de/gvec) built with *sphinx*
- * auto-generated [fortran code documentation](https://gvec-group.pages.mpcdf.de/gvec/_static/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
+ * auto-generated [fortran code documentation](https://gvec-group.pages.mpcdf.de/gvec/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
 
 ## Installation & Getting started
 

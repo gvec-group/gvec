@@ -16,7 +16,7 @@ CMakeUserPresets.json
 
 # sphinx / ford docs
 docs/build
-docs/prebuild
+docs/extra/ford
 
 # exclude all pytest run files
 test-CI/run*

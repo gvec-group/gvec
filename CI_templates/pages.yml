@@ -10,6 +10,7 @@ pages:
     - .rules_pages
   variables:
     GIT_STRATEGY: clone
+    FORD_PREFIX: /gvec  # prefix for the absolute path to the generated ford docs in the header
   script:
     # install graphviz/dot & urw-fonts - required by ford to generate the graphs
     - module load graphviz/2.44
@@ -20,8 +21,8 @@ pages:
     - source venv/bin/activate
     - pip install -r requirements.txt
     # run ford
-    - export VERSION=$(python -m setuptools_scm)
-    - mkdir prebuild -p
+    - export VERSION=$(git describe --tags --always --dirty)
+    - mkdir extra -p
     - ford ford/ford.md -r "$VERSION"
     # run sphinx
     - make html

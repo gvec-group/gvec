@@ -1,12 +1,12 @@
 project: GVEC
-summary: This is the Fortran Code Documentation for GVEC. [Back to the user and developer documentation](../../)
+summary: This is the Fortran Code Documentation for GVEC. [Back to the user and developer documentation](../)
 project_gitlab: https://gitlab.mpcdf.mpg.de/gvec-group/gvec 
 project_website: ../../
 doc_license: by
 src_dir: ../../src/
 include: ../../src/
 page_dir: ./static
-output_dir: ../prebuild/ford
+output_dir: ../extra/ford
 mathjax_config: ./MathJax-latex-macros.js
 predocmark: >
 display: public

@@ -55,7 +55,7 @@ dev/index
 
 Automatic Fortran code documentation generated with [ford](https://forddocs.readthedocs.io).
 
-[Fortran Code Documentation](/_static/ford/index.html){.external}
+[Fortran Code Documentation](ford/index.html){.external}
 
 ## Contact
 
