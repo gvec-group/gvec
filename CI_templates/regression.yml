@@ -25,7 +25,7 @@ reg.mpcdfci_intel-minimal:
     CASENAME_1: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
     CASENAME_2: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
     #uncoment the next line to remove warning job#
-    #PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
+    PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
   allow_failure:
     exit_codes: 5  # warnings
   needs:
@@ -93,7 +93,7 @@ reg.mpcdfci_intel-vs-tag:
     - .rules_default
   variables:
     HASH_TAG_1: ${HASH_TAG}
-    HASH_TAG_2: ${HASH_TAG_RELEASE}
+    HASH_TAG_2: ${HASH_TAG_REFERENCE}
     CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: ${CURR_CMP}
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF

@@ -1,4 +1,3 @@
-doc
 build*
 ctags.txt
 *.vsz
@@ -14,6 +13,10 @@ CMakeFiles
 CMakeCache.txt
 CMakeUserPresets.json
 .DS_Store
+
+# sphinx / ford docs
+docs/build
+docs/extra/ford
 
 # exclude all pytest run files
 test-CI/run*
@@ -89,12 +92,6 @@ instance/
 
 # Scrapy stuff:
 .scrapy
-
-# Sphinx documentation
-docs/_build/
-docs/source/modules.rst
-docs/source/gvec_to_python.rst
-docs/source/gvec_to_python.*.rst
 
 # PyBuilder
 .pybuilder/

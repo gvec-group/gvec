@@ -1,4 +1,16 @@
-# Automatic test system
+# Testing
+
+GVEC has a set of testcases and test logic contained within `test-CI`.
+
+* The test logic is implemented with [pytest](https://docs.pytest.org).
+* The tests can be executed locally using *pytest* with many options to customize which tests should be run (see [](#usage)).
+* A predefined set of tests can be executed using *ctest*, after the [cmake install process](/user/install). Simply change to the build directory, and execute:
+    ```bash
+    ctest -T test --output-on-failure -R
+    ```
+* A CI pipeline with automatic tests is configured for the [](http://gitlab.mpcdf.mpg.de/gvec-group/gvec) repository, using shared MPCDF gitlab runners to execute the tests. 
+    * More details on the CI setup see: [](pipeline).
+    * The CI manages different builds of the code, then calls pytest for running them and checking the results (requires `python >3.10` to be installed!).
 
 ## Usage 
 
@@ -48,7 +60,7 @@
 
 ## Details
 
-* Details on the gitlab CI setup are found in [README-CI.md](README-CI.md)
+* Details on the gitlab CI setup are found at <project:pipeline.md>
 * the main python script for all tests is in `test-CI/test_all.py`
 * Large input files should be stored in `test-CI/data` and the examples should contain a *relative* symbolic link
     * When filling a `RUNDIR`, a link `RUNDIR/data -> test-CI/data` is created. In this way the relative link should still work.

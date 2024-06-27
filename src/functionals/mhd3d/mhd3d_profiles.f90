@@ -40,7 +40,7 @@ CONTAINS
 FUNCTION Eval_iota(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profiles,init_with_profiles,n_iota_coefs,iota_coefs
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_iota,n_iota_coefs,iota_coefs
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 !USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 USE MODgvec_VMEC_vars  ,ONLY: iota_spl
@@ -60,7 +60,7 @@ IMPLICIT NONE
   CASE(0)
     eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,phi_norm)
   CASE(1)
-    IF(init_with_profiles)THEN
+    IF(init_with_profile_iota)THEN
       eval_iota=Eval1DPoly(n_iota_coefs,iota_coefs,phi_norm)
     ELSE
       eval_iota= VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
@@ -108,7 +108,7 @@ END FUNCTION Eval_iota_Prime
 FUNCTION Eval_pres(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profiles,n_pres_coefs,pres_coefs
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure,n_pres_coefs,pres_coefs
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
@@ -127,7 +127,7 @@ IMPLICIT NONE
   CASE(0)
       eval_pres=Eval1DPoly(n_pres_coefs,pres_coefs,phi_norm) 
   CASE(1)
-    IF(init_with_profiles)THEN
+    IF(init_with_profile_pressure)THEN
       eval_pres=Eval1DPoly(n_pres_coefs,pres_coefs,phi_norm)
     ELSE
       eval_pres=VMEC_EvalSpl(0,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
@@ -142,7 +142,7 @@ END FUNCTION Eval_pres
 FUNCTION Eval_p_prime(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_deriv
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profiles,n_pres_coefs,pres_coefs
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure,n_pres_coefs,pres_coefs
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
@@ -161,7 +161,7 @@ IMPLICIT NONE
   CASE(0)
     eval_p_prime=Eval1DPoly_deriv(n_pres_coefs,pres_coefs,phi_norm)*Eval_PhiNormPrime(spos)
   CASE(1)
-    IF(init_with_profiles)THEN
+    IF(init_with_profile_pressure)THEN
       eval_p_prime=Eval1DPoly_deriv(n_pres_coefs,pres_coefs,phi_norm)*Eval_PhiNormPrime(spos)
     ELSE
       eval_p_prime=VMEC_EvalSpl(1,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is spos=sqrt(phi/phi_edge)

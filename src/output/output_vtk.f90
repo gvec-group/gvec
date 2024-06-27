@@ -220,10 +220,10 @@ CASE(1)
   DO iElem=1,nElems
     DO i=1,NPlot(1)
       CellID = CellID+1
-      !visuQuadElem
+      !visuLineElem
       Vertex(:,CellID) = (/ PointID+(i-1), PointID+ i /) 
     END DO
-    PointID=PointID+1
+    PointID=PointID+NPlot(1)
   END DO
 CASE(2)
   CellID = 0

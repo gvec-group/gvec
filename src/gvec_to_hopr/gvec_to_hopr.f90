@@ -51,9 +51,9 @@ CONTAINS
 SUBROUTINE Init_gvec_to_hopr(fileName,SFLcoord_in,factorSFL_in) 
 ! MODULES
 USE MODgvec_gvec_to_hopr_Vars
-USE MODgvec_readState         ,ONLY: ReadState
-USE MODgvec_ReadState_vars    ,ONLY: X1_base_r,X2_base_r,LA_base_r
-USE MODgvec_transform_sfl     ,ONLY: BuildTransform_SFL
+USE MODgvec_readState         ,ONLY: ReadState,eval_phiPrime_r,eval_iota_r
+USE MODgvec_ReadState_vars    ,ONLY: hmap_r,X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r
+USE MODgvec_transform_sfl     ,ONLY: transform_sfl_new
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -91,7 +91,9 @@ INTEGER :: mn_max(2),factorSFL
     mn_max(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
     mn_max(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
     mn_max=mn_max*factorSFL !*SFLfactor on modes
-    CALL buildTransform_SFL(X1_base_r%s%nBase,mn_max,SFLcoord)
+    CALL transform_sfl_new(trafoSFL,mn_max,SFLcoord,.FALSE.,X1_base_r%s%deg,X1_base_r%s%continuity, &
+                           X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
+    CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF
  
 
@@ -106,7 +108,6 @@ USE MODgvec_gvec_to_hopr_vars
 USE MODgvec_ReadState_Vars    ,ONLY: profiles_1d,sbase_prof !for profiles
 USE MODgvec_ReadState_vars    ,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_ReadState_vars    ,ONLY: LA_r,X1_r,X2_r 
-USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -130,9 +131,11 @@ SELECT CASE(SFLcoord)
 CASE(0) !DEFAULT, NO SFL coordinate
   CALL gvec_to_hopr_SFL(nNodes,xIn,X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r,xOut,data_out)
 CASE(1) !PEST coordinates
-  CALL gvec_to_hopr_SFL(nNodes,xIn,X1sfl_base,X1sfl,X2sfl_base,X2sfl,LA_base_r,LA_r,xOut,data_out) !LA only used as placeholder
+  CALL gvec_to_hopr_SFL(nNodes,xIn,trafoSFL%X1sfl_base,trafoSFL%X1sfl,trafoSFL%X2sfl_base,trafoSFL%X2sfl,LA_base_r,LA_r,&
+                        xOut,data_out) !LA only used as placeholder
 CASE(2) !BOOZER coordinates
-  CALL gvec_to_hopr_SFL(nNodes,xIn,X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl,xOut,data_out)
+  CALL gvec_to_hopr_SFL(nNodes,xIn,trafoSFL%X1sfl_base,trafoSFL%X1sfl,trafoSFL%X2sfl_base,trafoSFL%X2sfl, &
+                        trafoSFL%GZsfl_base,trafoSFL%GZsfl,xOut,data_out)
 END SELECT
 
 END SUBROUTINE gvec_to_hopr
@@ -274,7 +277,6 @@ SUBROUTINE Finalize_gvec_to_hopr
 ! MODULES
 USE MODgvec_gvec_to_hopr_Vars
 USE MODgvec_ReadState,ONLY:Finalize_ReadState
-USE MODgvec_Transform_SFL,ONLY:FinalizeTransform_SFL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -285,7 +287,10 @@ IMPLICIT NONE
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'FINALIZE GVEC_TO_HOPR ...'
   CALL Finalize_ReadState()
-  IF(SFLcoord.NE.0) CALL FinalizeTransform_SFL()
+  IF(SFLcoord.NE.0) THEN
+    CALL trafoSFL%free()
+    DEALLOCATE(trafoSFL)
+  END IF
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE Finalize_gvec_to_hopr

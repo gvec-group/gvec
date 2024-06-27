@@ -776,7 +776,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: nBase,is,iMode,modes,i_mn,mn_IP                  !< enumerators 
-  INTEGER               :: BCtype_axis(0:4)
+  INTEGER               :: BCtype_axis(0:4),BCaxis
   REAL(wp)              :: spos
   REAL(wp)              :: Phi_int,dPhids_int,iota_int,Chi_int
   REAL(wp)              :: dPhids_int_eps,iota_int_eps
@@ -1033,23 +1033,24 @@ IMPLICIT NONE
   END DO ! is
 
   ! Convert radial fourier representation into radial spline
-  IF (vector_component .ne. 5) THEN
-    BCtype_axis(MN_ZERO    )= BC_TYPE_DIRICHLET !=0 (should not be here!)
-    BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN   ! derivative zero
-    BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
-    BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
-    BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
-  ELSE
-    BCtype_axis(MN_ZERO    )= BC_TYPE_NEUMANN !=0 (should not be here!)
-    BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN   ! derivative zero
-    BCtype_axis(M_ODD_FIRST)= BC_TYPE_NEUMANN !=0
-    BCtype_axis(M_ODD      )= BC_TYPE_NEUMANN !=0
-    BCtype_axis(M_EVEN     )= BC_TYPE_NEUMANN !=0
-  END IF
+
+  ! SETTING boundary conditions at the axis (standard low order BC). 
+  !    Note: B_R and B_Z on the axis should be zero for mode m=n=0, but this should already be in the data and is not imposed here
+  BCtype_axis(MN_ZERO    )= BC_TYPE_NEUMANN   ! derivative zero at axis 
+  BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN   ! derivative zero at axis
+  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0 at axis m>0 modes should not contribute
+  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0 at axis
+  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0 at axis
+  ! for smooth axis BC use instead:
+  ! BCtype_axis=0
   DO iMode=1, modes
     field_out(:, iMode) = out_base%s%initDOF(field_out(:, iMode))
+    BCaxis=BCtype_axis(out_base%f%zero_odd_even(iMode))
+    IF(BCaxis.EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+      BCaxis=-1*MIN(out_base%s%deg+1,out_base%f%Xmn(1,iMode))
+    END IF
     CALL out_base%s%applyBCtoDOF(field_out(:,iMode), &
-                                 (/BCtype_axis(out_base%f%zero_odd_even(iMode)),BC_TYPE_OPEN/),(/0.0_wp,0.0_wp/))
+                                 (/BCaxis,BC_TYPE_OPEN/),(/0.0_wp,0.0_wp/))
   END DO
   
 END SUBROUTINE Get_Field

@@ -53,7 +53,7 @@ SUBROUTINE InitAnalyze
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_MPI,ONLY:par_Barrier
 USE MODgvec_Analyze_Vars
-USE MODgvec_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY,GETLOGICAL
+USE MODgvec_ReadInTools,ONLY:GETINT,GETINTARRAY,GETREALARRAY,GETLOGICAL,GETREALALLOCARRAY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -66,11 +66,12 @@ IMPLICIT NONE
 REAL(wp):: visu_minmax(3,0:1)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT ANALYZE ...')
+  SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
   visu1D    = GETINT('visu1D',Proposal=0)   
   visu2D    = GETINT('visu2D',Proposal=0)   
   visu3D    = GETINT('visu3D',Proposal=0)   
-  SFL_theta = GETLOGICAL('SFL_theta',Proposal=.TRUE.)   
-  
+  SFL_theta = GETLOGICAL('SFL_theta',Proposal=.FALSE.)   
+  outFileType  = GETINT('outfileType',Proposal=1)   
   
   visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
   visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))
@@ -101,6 +102,12 @@ REAL(wp):: visu_minmax(3,0:1)
     visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
     visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
   END IF
+  SFLout    = GETINT('SFLout',Proposal=-1)
+  IF(SFLout.GT.0)THEN
+    SFLout_mn_max = GETINTARRAY("SFLout_mn_max",2,Proposal=(/-1,-1/))
+    SFLout_mn_pts = GETINTARRAY("SFLout_mn_pts",2,Proposal=(/40,40/)) !off by default
+    CALL GETREALALLOCARRAY("SFLout_radialPos",SFLout_radialpos,SFLout_nrp,Proposal=(/1.0_wp/))
+  END IF !SFLout
   CALL par_Barrier(afterScreenOut='... DONE')
   SWRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitAnalyze

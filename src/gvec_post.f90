@@ -30,6 +30,7 @@ PROGRAM GVEC_POST
   USE MODgvec_Output_Vars  ,ONLY: OutputLevel,ProjectName
   USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
   USE MODgvec_MHD3D_Vars   ,ONLY: U,F
+  USE MODgvec_MHD3D_visu   ,ONLY:WriteSFLoutfile
   USE MODgvec_MHD3D_EvalFunc,ONLY: EvalForce
   USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
   USE MODgvec_Functional
@@ -43,6 +44,7 @@ PROGRAM GVEC_POST
   INTEGER                 :: which_functional
   INTEGER                 :: JacCheck 
   CLASS(t_functional),ALLOCATABLE   :: functional
+  REAL(wp)                :: StartTime,EndTime
 !===================================================================================================================================
   CALL par_Init()
   __PERFINIT
@@ -54,6 +56,8 @@ PROGRAM GVEC_POST
   END IF
   CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
     
+  CALL CPU_TIME(StartTime)
+!$ StartTime=OMP_GET_WTIME()
   
   !header
   SWRITE(Unit_stdOut,'(132("="))')
@@ -90,6 +94,7 @@ PROGRAM GVEC_POST
     !...check this: temporarily commented for gvec_post to run with MPI version...
     !CALL EvalForce(U(0),.TRUE.,JacCheck, F(0)) !TODO not yet working on develop_mpi_par branch
     CALL Analyze(FileID_r)
+    CALL writeSFLoutfile(U(0),FileID_r)
   END DO !iArg
   
   CALL FinalizeFunctional(functional)
@@ -98,8 +103,10 @@ PROGRAM GVEC_POST
   CALL FinalizeOutput()
   CALL FinalizeRestart()
   
+  CALL CPU_TIME(EndTime)
+!$ EndTime=OMP_GET_WTIME()
   WRITE(Unit_stdOut,'(132("="))')
-  WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
+  WRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC POST FINISHED ! [',EndTime-StartTime,' sec ]'
   WRITE(Unit_stdOut,'(132("="))')
 
   __PERFOFF('main')

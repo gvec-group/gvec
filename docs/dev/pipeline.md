@@ -1,14 +1,20 @@
-# GVEC GitLab CI guide
+# Continuous Integration
 
-This text documents the GitLab continuous integration (CI) YAML script (`.gitlab-ci.yml`) used in GVEC.
+GVEC uses continuous integration, in the form of GitLab pipelines, to automatically build, test and deploy GVEC.
 
-Currently, the script invokes a pool of runners that are shared among all MPCDF users. The novel module-enabled MPCDF Docker images infrastructure allowa to choose different Docker images.
+```{warning}
+The CI script that is shown here has been reworked since this guide was written. Primarily the changes were:
 
-In the following section ([GitLab CI YAML script](#gitlab-ci-yaml-script)) we analyse the source code of GVEC's CI script. The first subsection ([Organisation](#organisation)) provides an overview of the structure of the script, which will be useful to keep in mind throughout the document. The second subsection ([Jobs & templates per stage](#jobs-&-templates-per-stage)) provides more implementation details. We analyse the jobs and their templates together according to the stage they belong to, in order to make the description easier to follow. However, it should be noted that in the actual script all templates appear first, followed by the jobs, organised by stage. Finally, in the last subsection ([Conclusion](#conclusion)) a few basic concluding remarks are given. At the very end, a list of links to GitLab YAML reference pages is given, corresponding to concepts or keywords used throughout the text.
+* splitting the jobs & templates into several files within `CI_templates`
+* using parametrization of similar jobs
+* a new naming convention
 
+However the general principles mostly still apply.
+```
 
-# GitLab CI YAML script
+Currently, the script invokes a pool of runners that are shared among all MPCDF users. The novel module-enabled MPCDF Docker images infrastructure allows to choose different Docker images, e.g. for different compilers.
 
+In this document we analyse the source code of GVEC's CI script (`.gitlab-ci.yml`). The first subsection ([](#organisation)) provides an overview of the structure of the script, which will be useful to keep in mind throughout the document. The second subsection ([](#jobs-templates-per-stage)) provides more implementation details. We analyse the jobs and their templates together according to the stage they belong to, in order to make the description easier to follow. However, it should be noted that in the actual script all templates appear first, followed by the jobs, organised by stage. Finally, in the last subsection ([](#conclusion)) a few basic concluding remarks are given. At the very end, a list of links to GitLab YAML reference pages is given, corresponding to concepts or keywords used throughout the text.
 
 ## Organisation
 
@@ -37,7 +43,7 @@ There are also some global variables, assigned as follows
 variables:
   GIT_STRATEGY: none
   HASH_TAG: $CI_COMMIT_REF_NAME
-  HASH_TAG_RELEASE: v0.2.0
+  HASH_TAG_REFERENCE: develop
   PYTEST_EXEC_CMD: "python -m pytest -v -r A"
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""
@@ -55,6 +61,7 @@ The next section of the CI script comprises the CI jobs specification within eac
 
 Below, we use (often reduced) CI script snippets to explain the different kinds of CI templates used by GVEC, and how they are extended and combined by the CI jobs within each CI stage.
 
+(jobs-templates-per-stage)=
 ## Jobs & templates per stage
 
 The code snippets shown in the following paragraphs attempt to illustrate major aspects of GVEC's CI script. Some of the actual configuration details are skimmed down (wherever "(...)" appears) to maximise clarity. Additionally, all examples refer to the novel MPCDF Docker images, for simplicity. This is because the corresponding implementation for the remaining CI images/runners is quite similar. For the complete implementation details, the reader is advised to look into the CI script `.gitlab-ci.yml` directly.
@@ -117,7 +124,7 @@ The next section of the CI script has a template for the `env` stage. It provide
   script:
     - echo "Pipeline environment for branch:" $CI_COMMIT_REF_NAME
     - printenv
-    (...)
+#   (...)
 ```
 
 Jobs that extend any of the previous templates will inherit the specified configuration, as we will see next.
@@ -159,7 +166,7 @@ Now we jump back to the template section of the CI script to describe the templa
     COMPILE_GVEC: "ON"
     LINK_TO_NETCDF: "ON"
     COMPILE_CONVERTERS: "ON"
-    (...)
+#   (...)
 
 # combination of build variable values
 .vars_matrix_build:
@@ -174,27 +181,27 @@ Now we jump back to the template section of the CI script to describe the templa
 .tmpl_setup_build:
   variables:
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
-    (...)
+#   (...)
 
 # preparation before build job
 .tmpl_before_script_build:
   before_script:
-  	(...)
+# 	(...)
     - if [ ${HASH_TAG} != ${CI_COMMIT_BRANCH} ]; then git checkout ${HASH_TAG}; fi
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
-	(...)
+# (...)
 
 # build job script
 .tmpl_script_build:
   script:
     - cmake ["CMAKE options"] ../.
-	(...)
+# (...)
   artifacts:
     name: "${CI_PIPELINE_ID}_${BUILDNAME}"
     paths:
       - build_${BUILDNAME}
-      (...)
+#     (...)
 ```
 
 The first template (`.vars_cmake_def_opts`) sets the default values for CMake variables needed to build GVEC.
@@ -256,28 +263,28 @@ After each job from the previous stage (`build`) is finished, the corresponding 
         OMP_MODE: ["ompOFF","ompON"]
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
-    (...)
+#   (...)
 
 # target run directory defined by unique variable CASENAME
 .tmpl_setup_run:
   variables:
     BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
     CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
-    (...)
+#   (...)
 
 # preparation before run job
 .tmpl_before_script_exportvars:
   before_script:
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
     - echo "CASENAME is ${CASENAME} >> CIrun_${CASENAME}/"
-    (...)
+#   (...)
 
 # more preparation before run job
 .tmpl_before_script_run:
   before_script:
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - rm -rf CIrun_${CASENAME}
-	(...)
+# (...)
 
 # run job script
 .tmpl_script_run:
@@ -287,7 +294,7 @@ After each job from the previous stage (`build`) is finished, the corresponding 
     name: "${CASENAME}"
     paths:
       - CIrun_${CASENAME}
-	(...)
+# (...)
 ```
 
 Since these templates are very similar to the ones from the stage `build`, we are not going to repeat the description made therein, but rather highlight their differences. In particular, we note that there is an extra variable in `.tmpl_setup_run`, namely, `CASENAME`. This specifies the target directory where specified version of GVEC is going to run, which is different from the target build directory `BUILDNAME`. Naturally, the latter is also needed, because that is were the GVEC executable compiled during the `build` stage is stored. Another clear difference is, of course, the commands executed in the `script:` section, since now job runs GVEC, instead of building it. Moreover, looking more carefully at the last Shell command of the `.tmpl_script_run` template, GVEC is not executed directly. Rather, a Python framework based on Pytest is invoked, which then executes several GVEC cases by providing the corresponding input parameters, and further compares output results to stored reference values. In other words, it performs already a set of end-to-end tests. CI Artifacts are also used use to save the results for the subsequent stages (`regression` and `postprocessing`).
@@ -340,7 +347,7 @@ Below we are going to analyse how the corresponding CI stage is implemented in p
     paths:
       - CIrun_${CASENAME_1}
       - CIrun_${CASENAME_2}
-      (...)
+#     (...)
 ```
 
 This contains mostly the command to execute a Pyhton wrapper in the [`script:`](https://gitlab.mpcdf.mpg.de/help/ci/yaml/index#script) section, and declares which files are to be stored as artifacts, for future reference.
@@ -386,7 +393,7 @@ mpcdfci_intel-vs-tag_reg:
     - .vars_matrix_run
   variables:
     HASH_TAG_1: ${HASH_TAG}
-    HASH_TAG_2: ${HASH_TAG_RELEASE}
+    HASH_TAG_2: ${HASH_TAG_REFERENCE}
     CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: ${CURR_CMP}
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
@@ -400,25 +407,25 @@ mpcdfci_intel-vs-tag_reg:
 
 The first job (`mpcdfci_intel-vs-gnu_reg`) compares the same commit of GVEC when built using Intel and GNU compilers (no MPI). The two first templates extended (`.tmpl_mpcdfci_intel2023 ` and `.tmpl_before_script_modules `) are from previous stages. As we know already, they choose a Docker image and load the respective modules. Note that at this level, which image is chosen is not so important. What matters is that the module for `anaconda` is loaded, since Pyhton >3.10 is needed for the Pytest framework, which is called from the template `tmpl_script_regression`. This wrapper compares output files from the two different directories specified by the variables `CASENAME_1` and `CASENAME_2`, which are in turn made by two sets of values of build variables: `CURR_CMP`, `HASH_TAG`, `CMP_MODE` and `OMP_MODE`. The latter two are declared via the [`parallel:matrix:`](https://gitlab.mpcdf.mpg.de/help/ci/yaml/index#parallelmatrix) keyword via the template `.vars_matrix_run` which triggers three different jobs in parallel. Naturally, this must be consistent with the set of jobs executed during the `run` stage, since now we depend on the existence of results produced there. In other words, the combination of variables specified here (`regression` stage) must be contained in the respective combination of variables specified at the `run` stage. This is guaranteed here by using the same parallel matrix template in both stages. Finally, we need to explicitly prescribe a dependency on `run` stage jobs, which must be chosen consistently with the values picked for those same variables. In this case, those jobs are `mpcdfci_intel2023_run` and `mpcdfci_gcc13_run`, together with their artifacts, which include the output files to be compared.
 
-The second set of `regression` jobs shown (`mpcdfci_intel-vs-tag_reg`) is very similar, but with some notable differences. Namely, the values for all `_1` and `_2` variables are the same, except for `HASH_TAG_1` and `HASH_TAG_2`, which therefore specify different commits. This means that, instead of comparing the results of the same commit built with two compilers, like before, we now compare two different commits using the same build setup. In particular, `HASH_TAG_1` refers to the commit triggering the pipeline (`HASH_TAG`), and the `HASH_TAG_2` to the specific commit tag `HASH_TAG_RELEASE=v0.2.0`. The latter was specified as a global variable, as mentioned at the beginning of this document. In order to be consistent with this specification of a different commit, the `run` job dependencies and corresponding artifacts now include the job `intel2023_run_tag` from the stage `run`, which itself depends on a `build` stage job that checks out a commit specified by the variable `HASH_TAG_RELEASE`. Therefore, it is now time to revisit the corresponding Shell command, which is part of the `.tmpl_before_script_build` template, presented when we discussed the stage `build` and its templates. Namely,
+The second set of `regression` jobs shown (`mpcdfci_intel-vs-tag_reg`) is very similar, but with some notable differences. Namely, the values for all `_1` and `_2` variables are the same, except for `HASH_TAG_1` and `HASH_TAG_2`, which therefore specify different commits. This means that, instead of comparing the results of the same commit built with two compilers, like before, we now compare two different commits using the same build setup. In particular, `HASH_TAG_1` refers to the commit triggering the pipeline (`HASH_TAG`), and the `HASH_TAG_2` to the specific commit tag `HASH_TAG_REFERENCE=v0.2.0`. The latter was specified as a global variable, as mentioned at the beginning of this document. In order to be consistent with this specification of a different commit, the `run` job dependencies and corresponding artifacts now include the job `intel2023_run_tag` from the stage `run`, which itself depends on a `build` stage job that checks out a commit specified by the variable `HASH_TAG_REFERENCE`. Therefore, it is now time to revisit the corresponding Shell command, which is part of the `.tmpl_before_script_build` template, presented when we discussed the stage `build` and its templates. Namely,
 
 ```yaml
 .tmpl_before_script_build:
   before_script:
-    (...)
+#   (...)
     - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git lfs fetch; git checkout ${HASH_TAG}; fi
-    (...)
+#   (...)
 ```
 
 Here we see that, if the variable `HASH_TAG`, which is globally set to be `CI_COMMIT_REF_NAME` by default (as we saw before), is subsequently set to something else, then an explicit `git checkout` of the corresponding commit is issued. This commit is then used for the remaining CI jobs, which is what enables regression tests between different commits in GVEC's CI pipeline.
 
-Finally, it is noteworthy to mention that the global variable `HASH_TAG_RELEASE` can be specified externally to override the value hardcoded in the CI script (in this case the tag commit `v0.2.0`). E.g., this can be achieved by creating [scheduled pipelines](https://gitlab.mpcdf.mpg.de/help/ci/pipelines/schedules) that are triggered automatically, e.g. at regular intervals, and specifying this variable and its desired value in its configuration.
+Finally, it is noteworthy to mention that the global variable `HASH_TAG_REFERENCE` can be specified externally to override the value hardcoded in the CI script (in this case the branch `develop`). E.g., this can be achieved by creating [scheduled pipelines](https://gitlab.mpcdf.mpg.de/help/ci/pipelines/schedules) that are triggered automatically, e.g. at regular intervals, and specifying this variable and its desired value in its configuration.
 
 
-### Templates for stage `postprocessing`
+<!-- ### Templates for stage `postprocessing` -->
 
 
-### Stage `postprocessing`
+<!-- ### Stage `postprocessing` -->
 
 
 ## Conclusion
@@ -426,9 +433,9 @@ Finally, it is noteworthy to mention that the global variable `HASH_TAG_RELEASE`
 As we have seen, all the jobs within a given CI stage are very similar to each other, in part thanks to the usage of common templates. In this document, whose purpose is to describe the machinery behind GVEC's CI script, only a subset of the CI jobs implemented are covered, and moreover, in a simplified fashion. For the complete implementation details, including all additionally available cases that were not shown here, the reader is advised to inspect directly the script file `.gitlab-ci.yml`.
 
 
-# References
+## References
 
-##### List of references to keywords made throughout the document:
+**List of references to keywords made throughout the document:**
 
 * [`stage:`](https://gitlab.mpcdf.mpg.de/help/ci/yaml/index#stage)
 * [`extends:`](https://gitlab.mpcdf.mpg.de/help/ci/yaml/index#extends)
@@ -438,7 +445,7 @@ As we have seen, all the jobs within a given CI stage are very similar to each o
 * [`artifacts:`](https://gitlab.mpcdf.mpg.de/help/ci/yaml/index#artifacts)
 * [`needs:`](https://gitlab.mpcdf.mpg.de/help/ci/yaml/index#needs)
 
-##### List of reference to Git related concepts or services mention in this document:
+**List of reference to Git related concepts or services mention in this document:**
 
 * [direct acyclic graph](https://docs.gitlab.com/ee/ci/directed_acyclic_graph/)
 * [scheduled pipelines](https://gitlab.mpcdf.mpg.de/help/ci/pipelines/schedules)

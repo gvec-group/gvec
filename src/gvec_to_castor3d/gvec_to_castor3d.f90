@@ -182,11 +182,10 @@ END SUBROUTINE get_cla_gvec_to_castor3d
 SUBROUTINE init_gvec_to_castor3d() 
 ! MODULES
 USE MODgvec_Globals,ONLY: TWOPI
-USE MODgvec_ReadState         ,ONLY: ReadState
-USE MODgvec_ReadState_vars    ,ONLY: X1_base_r,X2_base_r,LA_base_r
+USE MODgvec_ReadState         ,ONLY: ReadState,eval_phiPrime_r,eval_iota_r
+USE MODgvec_ReadState_vars    ,ONLY: hmap_r,X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_ReadState_vars    ,ONLY: LA_r,X1_r,X2_r 
-USE MODgvec_transform_sfl_vars,ONLY: X1sfl_base,X1sfl,X2sfl_base,X2sfl ,GZsfl_base,GZsfl
-USE MODgvec_transform_sfl     ,ONLY: BuildTransform_SFL
+USE MODgvec_transform_sfl     ,ONLY: transform_sfl_new
 USE MODgvec_gvec_to_castor3d_vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -216,8 +215,10 @@ __PERFON("gvec2castor-init")
   END IF
 
   IF(SFLcoord.NE.0)THEN
-   mn_max_out=mn_max_out*factorSFL !*SFLfactor on modes
-   CALL buildTransform_SFL(Ns_out,mn_max_out,SFLcoord)
+    mn_max_out=mn_max_out*factorSFL !*SFLfactor on modes
+    CALL transform_sfl_new(trafoSFL,mn_max_out,SFLcoord,.FALSE.,X1_base_r%s%deg,X1_base_r%s%continuity, &
+    X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
+    CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF
   
   ALLOCATE(s_pos(Ns_out))
@@ -259,9 +260,11 @@ __PERFON("gvec2castor-init")
   CASE(0)
     CALL gvec_to_castor3D_prepare(X1_base_r,X1_r,X2_base_r,X2_r,LA_base_r,LA_r)
   CASE(1)
-    CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,LA_base_r,LA_r) !LA not needed, used as placeholder
+    CALL gvec_to_castor3D_prepare(trafoSFL%X1sfl_base,trafoSFL%X1sfl,trafoSFL%X2sfl_base,trafoSFL%X2sfl,&
+                                 LA_base_r,LA_r) !LA not needed, used as placeholder
   CASE(2)
-    CALL gvec_to_castor3D_prepare(X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl)
+    CALL gvec_to_castor3D_prepare(trafoSFL%X1sfl_base,trafoSFL%X1sfl,trafoSFL%X2sfl_base,trafoSFL%X2sfl,&
+                                  trafoSFL%GZsfl_base,trafoSFL%GZsfl)
   CASE DEFAULT
     SWRITE(UNIT_StdOut,*)'This SFLcoord is not valid',SFLcoord
     STOP
@@ -673,6 +676,10 @@ IMPLICIT NONE
   SDEALLOCATE(data_1D) 
   SDEALLOCATE(data_scalar3D) 
   SDEALLOCATE(data_vector3D) 
+  IF(SFLcoord.NE.0)THEN
+    CALL trafoSFL%free()
+    DEALLOCATE(trafoSFL)
+  END IF
 
 END SUBROUTINE finalize_gvec_to_castor3d
 
