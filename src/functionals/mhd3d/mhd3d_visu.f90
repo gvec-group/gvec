@@ -867,8 +867,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   LOGICAL                    :: useSFLcoords
   INTEGER                    :: dbg,k,sflouts(2),whichSFLout
   !=================================================================================================================================
-  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
-                        "visu_3D should only be called by MPIroot")  
+  IF(.NOT. MPIroot) RETURN
   IF(SFLout.EQ.12) THEN
      sflouts=(/1,2/)
   ELSE

@@ -403,7 +403,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
   USE MODgvec_Restart        , ONLY: RestartFromState
   USE MODgvec_Restart        , ONLY: WriteState
-  USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce,CheckEvalForce
+  USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce
   USE MODgvec_Analyze        , ONLY: Analyze
   USE MODgvec_ReadInTools    , ONLY: GETLOGICAL
   USE MODgvec_MPI            , ONLY: par_Bcast,par_barrier
@@ -475,7 +475,6 @@ SUBROUTINE InitSolutionMHD3D(sf)
   CALL WriteState(U(0),0)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
   SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
-  CALL CheckEvalForce(U(0),0)
   CALL Analyze(0)
 
   CALL par_barrier(afterScreenOut="    ...DONE")
@@ -1213,7 +1212,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       SWRITE(UNIT_stdOut,'(A)')'##########################  OUTPUT ##################################'
       CALL Analyze(iter)
       CALL WriteState(U(0),iter)
-      CALL CheckEvalForce(U(0),iter)
       SWRITE(UNIT_stdOut,'(A)')'#####################################################################'
       lastOutputIter=iter
       __PERFOFF('output')
