@@ -739,41 +739,57 @@ SUBROUTINE alloc_all()
   !! allocate memory for fourier arrays
   aError = 0
   ALLOCATE(xm(mn_mode), xn(mn_mode), stat = aStat)
+  xm=0.0_wp ; xn =0.0_wp
   aError = aError + aStat
   ALLOCATE(xm_nyq(mn_mode_nyq), xn_nyq(mn_mode_nyq), stat = aStat)
+  xm_nyq=0.0_wp ; xn_nyq =0.0_wp
   aError = aError + aStat
   ALLOCATE(iotaf(nFluxVMEC), stat = aStat)
+  iotaf=0.0_wp
   aError = aError + aStat
   ALLOCATE(presf(nFluxVMEC), stat = aStat)
+  presf=0.0_wp
   aError = aError + aStat
   ALLOCATE(phi(nFluxVMEC), stat = aStat)
+  phi=0.0_wp
   aError = aError + aStat
   ALLOCATE(chi(nFluxVMEC), stat = aStat)
+  chi=0.0_wp
   aError = aError + aStat
 !  ALLOCATE(phipf(nFluxVMEC), stat = aStat)
 !  aError = aError + aStat
   ALLOCATE(rmnc(mn_mode, nFluxVMEC), stat = aStat)
+  rmnc=0.0_wp
   aError = aError + aStat
   ALLOCATE(zmns(mn_mode, nFluxVMEC), stat = aStat)
+  zmns=0.0_wp
   aError = aError + aStat
   ALLOCATE(lmns(mn_mode, nFluxVMEC), stat = aStat)
+  lmns=0.0_wp
   aError = aError + aStat
   IF(lasym)THEN
     ALLOCATE(rmns(mn_mode, nFluxVMEC), stat = aStat)
+    rmns=0.0_wp
     aError = aError + aStat
     ALLOCATE(zmnc(mn_mode, nFluxVMEC), stat = aStat)
+    zmnc=0.0_wp
     aError = aError + aStat
     ALLOCATE(lmnc(mn_mode, nFluxVMEC), stat = aStat)
+    lmnc=0.0_wp
     aError = aError + aStat
     ALLOCATE(gmns(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    gmns=0.0_wp
     aError = aError + aStat
     ALLOCATE(bmns(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    bmns=0.0_wp
     aError = aError + aStat
   END IF
   ALLOCATE(gmnc(mn_mode_nyq, nFluxVMEC), stat = aStat)
+  gmnc=0.0_wp
   aError = aError + aStat
   ALLOCATE(bmnc(mn_mode_nyq, nFluxVMEC), stat = aStat)
   aError = aError + aStat
+  bmnc=0.0_wp
 
   IF (aError .NE. 0) THEN
     CALL abort(__STAMP__, &
