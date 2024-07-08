@@ -116,9 +116,9 @@ reg.mpcdfci_intel_mpiON-vs-mpiOFF:
     - .rules_minimal
   parallel:
     matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
-        MPI_RNKS: ["1","2"]
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
+        MPI_RNKS: ["1","2","4"]
   variables:
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG}

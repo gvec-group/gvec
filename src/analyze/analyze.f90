@@ -66,7 +66,6 @@ IMPLICIT NONE
 REAL(wp):: visu_minmax(3,0:1)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT ANALYZE ...')
-  SWRITE(UNIT_stdOut,'(A)')'INIT ANALYZE ...'
   visu1D    = GETINT('visu1D',Proposal=0)   
   visu2D    = GETINT('visu2D',Proposal=0)   
   visu3D    = GETINT('visu3D',Proposal=0)   

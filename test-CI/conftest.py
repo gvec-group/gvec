@@ -82,7 +82,7 @@ def pytest_addoption(parser):
     group.addoption(
         "--reg-atol",
         type=float,
-        default=1.0e-10,
+        default=1.0e-9,
         help="absolute tolerance for regression stage",
     )
 

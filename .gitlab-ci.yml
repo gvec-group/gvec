@@ -179,13 +179,15 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_build_tag
 
-  # release tag + MPI
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_intel_impi_latest
-      build-postfix: _tag
-      vars: .vars_matrix_mpi_build_tag
-      cmake-opts: .cmake_mpi_opts
+# UNCOMMENT ONCE MPI IS MERGED!
+
+#  # release tag + MPI
+#  - local: CI_templates/build.yml
+#    inputs:
+#      env: .mpcdfci_intel_impi_latest
+#      build-postfix: _tag
+#      vars: .vars_matrix_mpi_build_tag
+#      cmake-opts: .cmake_mpi_opts
 
   # ============================
   # run jobs

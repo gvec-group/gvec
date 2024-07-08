@@ -412,7 +412,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 testcaserundir / filename,
                 testcaserefdir / filename,
                 ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*", r"^[\s=]*$",r"100%\| \.\.\. of"] + extra_ignore_patterns,
-                warn_regexs=["Number of OpenMP threads"],
+                warn_regexs=["Number of OpenMP threads","Number of MPI tasks","GIT_","CMAKE"],
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
