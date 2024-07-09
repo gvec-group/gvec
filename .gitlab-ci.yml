@@ -248,13 +248,15 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_tag
 
-  # release tag + MPI
-  - local: CI_templates/run.yml
-    inputs:
-      env: .mpcdfci_intel_impi_latest
-      run-postfix: _tag
-      build-postfix: _tag
-      vars: .vars_matrix_mpi_run_tag
+# UNCOMMENT ONCE MPI IS MERGED!
+
+#  # release tag + MPI
+#  - local: CI_templates/run.yml
+#    inputs:
+#      env: .mpcdfci_intel_impi_latest
+#      run-postfix: _tag
+#      build-postfix: _tag
+#      vars: .vars_matrix_mpi_run_tag
 
 
   # ============================
