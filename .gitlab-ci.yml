@@ -523,7 +523,7 @@ include:
 .vars_matrix_mpi_run:
   parallel:
     matrix:
-      - CMP_MODE: ["Debug"]
+      - CMP_MODE: ["Debug","Release"]
         OMP_MODE: ["ompOFF","ompON"]
         MPI_RNKS: ["1","2"]
 
