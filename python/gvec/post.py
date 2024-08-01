@@ -622,11 +622,11 @@ class Evaluations(xr.Dataset):
                 coords["theta"] = theta
         match zeta:
             case np.ndarray() | list():
-                coords["theta"] = "theta"
+                coords["zeta"] = zeta
             case "int":
                 if any(
                     [
-                        not np.allclose(intp[2][j], intp[i][j])
+                        not np.allclose(intp[0][j], intp[i][j])
                         for i in (1, 2)
                         for j in (4, 5)
                     ]
@@ -759,20 +759,32 @@ class Evaluations(xr.Dataset):
         # --- pass on to xarray --- #
         return super().__getitem__(key)
 
-    def radial_integral(self, quantity: str | xr.DataArray):
-        """Compute the radial average of the given quantity."""
-        if isinstance(quantity, str):
-            self.compute(quantity)
-            quantity = self[quantity]
+    def radial_integral(self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = False):
+        """Compute the radial integral/average of the given quantity."""
+        # --- check for integration points --- #
         if "rho" not in self or not self.rho.attrs["integration_points"]:
             raise ValueError("Radial average requires integration points for rho.")
-        return (quantity * self.rho_weights).sum("rho")
-
-    def fluxsurface_integral(self, quantity: str | xr.DataArray):
-        """Compute the flux surface average of the given quantity."""
+        # --- handle quantity --- #
         if isinstance(quantity, str):
             self.compute(quantity)
             quantity = self[quantity]
+        # --- handle Jacobian --- #
+        if isinstance(Jac, str):
+            self.compute(Jac)
+            Jac = self[Jac]
+        elif not isinstance(Jac, xr.DataArray):
+            if Jac:
+                Jac = self.Jac
+            else:
+                Jac = 1
+        if getattr(Jac, "coords") and "theta" in Jac.coords and "zeta" in Jac.coords:
+            Jac = self.fluxsurface_integral(1, Jac=Jac)
+        # --- integrate --- #
+        return (quantity * Jac * self.rho_weights).sum("rho")
+
+    def fluxsurface_integral(self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True):
+        """Compute the flux surface integral of the given quantity."""
+        # --- check for integration points --- #
         if (
             "theta" not in self
             or not self.theta.attrs["integration_points"]
@@ -782,17 +794,35 @@ class Evaluations(xr.Dataset):
             raise ValueError(
                 "Flux surface average requires integration points for theta and zeta."
             )
-        return quantity.sum(("theta", "zeta")) * self.theta_weight * self.zeta_weight
-
-    def fluxsurface_average(self, quantity: str | xr.DataArray):
-        """Compute the flux surface average of the given quantity."""
-        return self.fluxsurface_integral(quantity) / 4 / np.pi**2
-
-    def volume_integral(self, quantity: str | xr.DataArray):
-        """Compute the volume integral of the given quantity."""
+        # --- handle quantity --- #
         if isinstance(quantity, str):
             self.compute(quantity)
             quantity = self[quantity]
+        # --- handle Jacobian --- #
+        if isinstance(Jac, str):
+            self.compute(Jac)
+            Jac = self[Jac]
+        elif not isinstance(Jac, xr.DataArray):
+            if Jac:
+                Jac = self.Jac
+            else:
+                Jac = 1
+        # --- integrate --- #
+        return (quantity * Jac).sum(("theta", "zeta")) * self.theta_weight * self.zeta_weight
+
+    def fluxsurface_average(self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True):
+        """Compute the flux surface average of the given quantity."""
+        # --- handle Jacobian --- #
+        if isinstance(Jac, bool) and not Jac:
+            norm = 4 * np.pi**2
+        else:
+            norm = self.fluxsurface_integral(1, Jac=Jac)
+        # --- integrate --- #
+        return self.fluxsurface_integral(quantity, Jac=Jac) / norm
+
+    def volume_integral(self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True):
+        """Compute the volume integral of the given quantity."""
+        # --- check for integration points --- #
         if (
             "rho" not in self
             or not self.rho.attrs["integration_points"]
@@ -804,15 +834,38 @@ class Evaluations(xr.Dataset):
             raise ValueError(
                 "Volume integral requires integration points for rho, theta and zeta."
             )
+        # --- handle quantity --- #
+        if isinstance(quantity, str):
+            self.compute(quantity)
+            quantity = self[quantity]
+        # --- handle Jacobian --- #
+        if isinstance(Jac, str):
+            self.compute(Jac)
+            Jac = self[Jac]
+        elif not isinstance(Jac, xr.DataArray):
+            if Jac:
+                Jac = self.Jac
+            else:
+                Jac = 1
+        # --- integrate --- #
         return (
-            (quantity * self.rho_weights).sum(("rho", "theta", "zeta"))
+            (quantity * Jac * self.rho_weights).sum(("rho", "theta", "zeta"))
             * self.theta_weight
             * self.zeta_weight
         )
 
-    def volume_average(self, quantity: str | xr.DataArray):
+    def volume_average(self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True):
         """Compute the volume average of the given quantity."""
-        return self.volume_integral(quantity) / 4 / np.pi**2
+        # --- handle Jacobian --- #
+        if isinstance(Jac, bool):
+            if Jac:
+                norm = self.V
+            else:
+                norm = 4 * np.pi**2
+        else:
+            norm = self.volume_integral(1, Jac=Jac)
+        # --- integrate --- #
+        return self.volume_integral(quantity, Jac=Jac) / norm
 
     def table_of_quantities(self, markdown: bool = False):
         # ToDo: move attributes to function attributes, remove requirement to compute them - this method becomes a classmethod

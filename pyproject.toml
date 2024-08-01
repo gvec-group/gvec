@@ -4,7 +4,7 @@
 requires = [
     "scikit-build-core",
     "f90wrap",
-    "numpy",  # for f2py
+    "numpy<2",  # for f2py
 ]
 build-backend = "scikit_build_core.build"
 
@@ -33,8 +33,6 @@ maintainers = [
     {name = "Florian Hindenlang", email = "florian.hindenlang@ipp.mpg.de"},
     {name = "Robert Babin", email = "robert.babin@ipp.mpg.de"},
 ]
-readme = "README.md"
-license = {file = "LICENSE"}
 requires-python = ">=3.10"
 # match-case, intrinsic typing union
 classifiers = [
@@ -49,11 +47,14 @@ classifiers = [
     "Private :: Do Not Upload",
 ]
 keywords = ["plasma", "mhd", "equilibrium"]
+readme.file = "README.md"
+readme.content-type = "text/markdown"
+license.file = "LICENSE"
 dynamic = ["version"]
 
 [project.urls]
 #Homepage
-#Documentation
+Documentation = "https://gvec-group.pages.mpcdf.de/gvec"
 Repository = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec"
 Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 

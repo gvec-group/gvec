@@ -459,12 +459,27 @@ def test_compute_basis(evals_rtz):
             )
 
 
+def test_volume_integral(evals_rtz_int):
+    ds = evals_rtz_int
+    one = xr.ones_like(ds.Jac)
+    V_default = ds.volume_integral(one)
+    V_true = ds.volume_integral(one, Jac=True)
+    V_false = ds.volume_integral(ds.Jac, Jac=False)
+    V_str = ds.volume_integral("Jac", Jac=False)
+    V_explicit = ds.volume_integral(one, Jac=ds.Jac)
+    for V in [V_default, V_false, V_str, V_explicit]:
+        assert np.allclose(V, V_true)
+    assert np.allclose(4 * np.pi**2, ds.volume_integral(one, Jac=False))
+    for Jac in [False, True, ds.Jac, ds.Jac_l, "Jac"]:
+        assert np.allclose(1, ds.volume_average(one, Jac=Jac))
+
+
 @pytest.mark.parametrize(
     "quantity",
     [
         "V",
         "dV_dPhi_n",
-        "magnetic_well",
+        "dV_dPhi_n2",
         "minor_radius",
         "major_radius",
         "iota_mean",
@@ -472,7 +487,8 @@ def test_compute_basis(evals_rtz):
         "I_pol",
     ],
 )
-def test_integrations(evals_rtz_int, quantity):
+def test_integral_quantities(evals_rtz_int, quantity):
     ds = evals_rtz_int
     ds.compute(quantity)
+    # --- check that metadata is preserved --- #
     assert ds.rho.attrs["integration_points"] == True

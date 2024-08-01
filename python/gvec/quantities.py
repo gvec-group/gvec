@@ -198,6 +198,13 @@ def LA(ds: Evaluations, state: State):
         ds[key].attrs["symbol"] = r"\frac{\partial \lambda}{\partial" rf"{deriv}}}"
 
 
+@register()
+def N_FP(ds: Evaluations, state: State):
+    ds["N_FP"] = state.nfp
+    ds.N_FP.attrs["long_name"] = "number of field periods"
+    ds.N_FP.attrs["symbol"] = r"N_{FP}"
+
+
 # === mapping ========================================================================== #
 
 
@@ -605,7 +612,7 @@ for v in [
     integration=("rho", "theta", "zeta"),
 )
 def V(ds: Evaluations):
-    ds["V"] = ds.volume_integral("Jac")
+    ds["V"] = ds.volume_integral(1, Jac=True)
     ds.V.attrs["long_name"] = "plasma volume"
     ds.V.attrs["symbol"] = r"V"
 
@@ -615,7 +622,7 @@ def V(ds: Evaluations):
     integration=("theta", "zeta"),
 )
 def dV_dPhi_n(ds: Evaluations):
-    ds["dV_dPhi_n"] = ds.fluxsurface_integral(ds.Jac) / ds.dPhi_n_dr
+    ds["dV_dPhi_n"] = ds.fluxsurface_integral(1, Jac=True) / ds.dPhi_n_dr
     ds.dV_dPhi_n.attrs["long_name"] = (
         "derivative of the plasma volume w.r.t. normalized toroidal magnetic flux"
     )
@@ -628,9 +635,9 @@ def dV_dPhi_n(ds: Evaluations):
 )
 def dV_dPhi_n2(ds: Evaluations):
     ds["dV_dPhi_n2"] = (
-        ds.fluxsurface_integral(ds.dJac_dr) / ds.dPhi_n_dr**2
+        ds.fluxsurface_integral(1, Jac=ds.dJac_dr) / ds.dPhi_n_dr**2
         # with hardcoded d^2 rho / d Phi_n^2 = -1/(4 rho^3)
-        - ds.fluxsurface_integral(ds.Jac) / (4 * ds.rho**3)
+        - ds.fluxsurface_integral(1, Jac=ds.Jac) / (4 * ds.rho**3)
     )
     ds.dV_dPhi_n2.attrs["long_name"] = (
         "second derivative of the plasma volume w.r.t. normalized toroidal magnetic flux"
@@ -644,7 +651,7 @@ def dV_dPhi_n2(ds: Evaluations):
     integration=("rho", "theta", "zeta"),
 )
 def minor_major_radius(ds: Evaluations):
-    surface_average = ds.volume_integral("Jac_l") / (2 * np.pi)
+    surface_average = ds.volume_integral(1, Jac="Jac_l") / (2 * np.pi)
     ds["minor_radius"] = np.sqrt(surface_average / np.pi)
     ds.minor_radius.attrs["long_name"] = "minor radius"
     ds.minor_radius.attrs["symbol"] = r"r_{min}"
@@ -668,7 +675,7 @@ def iota_mean(ds: Evaluations):
     integration=("theta", "zeta"),
 )
 def I_tor(ds: Evaluations):
-    ds["I_tor"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="vector")) / (
+    ds["I_tor"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="vector"), Jac=False) / (
         2 * np.pi * ds.mu0
     )
     ds.I_tor.attrs["long_name"] = "toroidal current profile"
@@ -680,10 +687,10 @@ def I_tor(ds: Evaluations):
     integration=("theta", "zeta"),
 )
 def I_pol(ds: Evaluations):
-    ds["I_pol"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="vector")) / (
+    ds["I_pol"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="vector"), Jac=False) / (
         2 * np.pi * ds.mu0
     )
-    ds["I_pol"] = ds.I_pol - ds.I_pol.isel(rho=0)
+    ds["I_pol"] = ds.I_pol.isel(rho=0) - ds.I_pol
     logging.warning(
         f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
     )
