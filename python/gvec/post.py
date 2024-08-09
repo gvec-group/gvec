@@ -777,7 +777,7 @@ class Evaluations(xr.Dataset):
                 Jac = self.Jac
             else:
                 Jac = 1
-        if getattr(Jac, "coords") and "theta" in Jac.coords and "zeta" in Jac.coords:
+        if hasattr(Jac, "coords") and "theta" in Jac.coords and "zeta" in Jac.coords:
             Jac = self.fluxsurface_integral(1, Jac=Jac)
         # --- integrate --- #
         return (quantity * Jac * self.rho_weights).sum("rho")

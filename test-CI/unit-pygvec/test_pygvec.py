@@ -483,6 +483,7 @@ def test_volume_integral(evals_rtz_int):
         "minor_radius",
         "major_radius",
         "iota_mean",
+        "iota_tor",
         "I_tor",
         "I_pol",
     ],

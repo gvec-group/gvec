@@ -665,9 +665,22 @@ def minor_major_radius(ds: Evaluations):
     integration=("rho",),
 )
 def iota_mean(ds: Evaluations):
-    ds["iota_mean"] = ds.radial_integral("iota")
+    ds["iota_mean"] = ds.radial_integral("iota", Jac=False)
     ds.iota_mean.attrs["long_name"] = "mean rotational transform"
     ds.iota_mean.attrs["symbol"] = r"\bar{\iota}"
+
+
+@register(
+    requirements=("mu0", "I_tor", "dPhi_dr", "Jac", "g_tt"),
+    integration=("theta", "zeta"),
+)
+def iota_tor(ds: Evaluations):
+    Gamma_t = ds.fluxsurface_integral(ds.g_tt / ds.Jac, Jac=False)
+    ds["iota_tor"] = 2 * np.pi * ds.mu0 * ds.I_tor / ds.dPhi_dr / Gamma_t
+    ds.iota_tor.attrs["long_name"] = (
+        "toroidal current contribution to the rotational transform profile"
+    )
+    ds.iota_tor.attrs["symbol"] = r"\iota_{tor}"
 
 
 @register(
@@ -675,9 +688,9 @@ def iota_mean(ds: Evaluations):
     integration=("theta", "zeta"),
 )
 def I_tor(ds: Evaluations):
-    ds["I_tor"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="vector"), Jac=False) / (
-        2 * np.pi * ds.mu0
-    )
+    ds["I_tor"] = ds.fluxsurface_integral(
+        xr.dot(ds.B, ds.e_theta, dim="vector"), Jac=False
+    ) / (2 * np.pi * ds.mu0)
     ds.I_tor.attrs["long_name"] = "toroidal current profile"
     ds.I_tor.attrs["symbol"] = r"I_{tor}"
 
@@ -687,9 +700,9 @@ def I_tor(ds: Evaluations):
     integration=("theta", "zeta"),
 )
 def I_pol(ds: Evaluations):
-    ds["I_pol"] = ds.fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="vector"), Jac=False) / (
-        2 * np.pi * ds.mu0
-    )
+    ds["I_pol"] = ds.fluxsurface_integral(
+        xr.dot(ds.B, ds.e_zeta, dim="vector"), Jac=False
+    ) / (2 * np.pi * ds.mu0)
     ds["I_pol"] = ds.I_pol.isel(rho=0) - ds.I_pol
     logging.warning(
         f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
