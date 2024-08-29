@@ -1,21 +1,19 @@
 import pytest
-import numpy as np
-import xarray as xr
-import os
-from pathlib import Path
-import subprocess
 
-import helpers
+try:
+    import numpy as np
+    import xarray as xr
+    import os
+    from pathlib import Path
+    import subprocess
+
+    import gvec
+    import helpers
+except ImportError:
+    pytest.skip("Import Error", allow_module_level=True)
 
 
 # === Fixtures === #
-
-
-@pytest.fixture(scope="session")
-def gvec():
-    import gvec
-
-    return gvec
 
 
 @pytest.fixture(scope="session")
@@ -79,20 +77,20 @@ def testfiles(tmpdir, testcaserundir, testcase_run):
 
 
 @pytest.fixture()
-def teststate(gvec, testfiles):
+def teststate(testfiles):
     with gvec.post.State(*testfiles) as state:
         yield state
 
 
 @pytest.fixture()
-def evals_r(gvec, teststate):
+def evals_r(teststate):
     rho = np.linspace(0, 1, 6)
     ds = gvec.post.Evaluations(state=teststate, coords={"rho": rho})
     return ds
 
 
 @pytest.fixture()
-def evals_rtz(gvec, teststate):
+def evals_rtz(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
@@ -103,7 +101,7 @@ def evals_rtz(gvec, teststate):
 
 
 @pytest.fixture()
-def evals_rtz_int(gvec, teststate):
+def evals_rtz_int(teststate):
     ds = gvec.post.Evaluations(
         state=teststate,
         rho="int",
@@ -116,7 +114,7 @@ def evals_rtz_int(gvec, teststate):
 # === Tests === #
 
 
-def test_version(gvec):
+def test_version():
     import pkg_resources
 
     assert isinstance(gvec.__version__, str)
@@ -124,12 +122,12 @@ def test_version(gvec):
     assert pkg_resources.get_distribution("gvec").version == gvec.__version__
 
 
-def test_state(gvec, testfiles):
+def test_state(testfiles):
     with gvec.post.State(*testfiles) as state:
         assert isinstance(state, gvec.post.State)
 
 
-def test_state_args(gvec, testfiles):
+def test_state_args(testfiles):
     paramfile, statefile = testfiles
 
     with pytest.raises(FileNotFoundError):
@@ -139,7 +137,7 @@ def test_state_args(gvec, testfiles):
         state = gvec.post.State("nonexistent.ini", statefile)
 
 
-def test_state_explicit(gvec, testfiles):
+def test_state_explicit(testfiles):
     state = gvec.post.State(*testfiles)
     assert isinstance(state, gvec.post.State)
     assert state.initialized
@@ -150,7 +148,7 @@ def test_state_explicit(gvec, testfiles):
         state.evaluate_base_tens("X1", None, [0.5], [0.5], [0.5])
 
 
-def test_state_twice(gvec, testfiles):
+def test_state_twice(testfiles):
     # double context
     with gvec.post.State(*testfiles) as state:
         pass
@@ -181,7 +179,7 @@ def test_integration_points(teststate, quantity):
     assert np.all(np.diff(r_GP) > 0.0)
 
 
-def test_evaluations_init(gvec, teststate):
+def test_evaluations_init(teststate):
     ds = gvec.post.Evaluations(state=teststate, coords={"rho": [0.5, 0.6]})
     assert np.allclose(ds.rho, [0.5, 0.6])
     assert {"rho"} == set(ds.coords)
@@ -295,6 +293,39 @@ def test_evaluate_base_all_compare(teststate):
     list_tz = teststate.evaluate_base_list_tz_all("X1", rho, thetazeta)
     for qt, ql in zip(tens, list_tz, strict=True):
         assert np.allclose(qt, ql.reshape(6, 32, 10))
+
+
+def test_init_base_Boozer(teststate):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+
+    assert not teststate.GB_available
+    with pytest.raises(AttributeError):
+        teststate.evaluate_base_tens_all("GB", rho, theta, zeta)
+
+    teststate.construct_GB(degree=4, continuity=3, m=3, n=3, fourier="sin")
+    assert teststate.GB_available
+    teststate.evaluate_base_tens_all("GB", rho, theta, zeta)
+
+    # teststate.project_GB(degree=5, continuity=4, m=3, n=3, fourier="both")
+
+    with pytest.raises(ValueError):
+        teststate.construct_GB(degree=5, continuity=3, m=3, n=3, fourier="both")
+
+
+@pytest.mark.xfail(reason="GB is not accurate enough yet")
+@pytest.mark.parametrize("method", ["projection", "interpolation"])
+def test_compute_Boozer(teststate, evals_rtz_int, method):
+    with pytest.raises(AttributeError):
+        evals_rtz_int.compute("GB")
+    
+    teststate.construct_GB(degree=4, m=4, n=4, method=method)
+    evals_rtz_int.compute("GB", "dGB_dt", "dGB_dz", "dGB_dt_def", "dGB_dz_def")
+    assert "GB" in evals_rtz_int
+    assert evals_rtz_int.GB.isel(rho=slice(1, None)).isnull().sum() == 0
+    assert np.allclose(evals_rtz_int.dGB_dt, evals_rtz_int.dGB_dt_def)
+    assert np.allclose(evals_rtz_int.dGB_dz, evals_rtz_int.dGB_dz_def)
 
 
 def test_compute_base(evals_rtz):

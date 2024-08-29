@@ -20,6 +20,7 @@
 MODULE MODgvec_py_post
 
 USE MODgvec_c_functional, ONLY: t_functional
+USE MODgvec_base,         ONLY: t_base
 
 IMPLICIT NONE
 PUBLIC
@@ -27,6 +28,9 @@ PUBLIC
 CLASS(t_functional), ALLOCATABLE :: functional
 LOGICAL :: initialized = .FALSE.
 INTEGER :: nfp = 0
+CLASS(t_base), ALLOCATABLE, TARGET        :: GB_base ! periodic potential for the Boozer transform
+REAL, DIMENSION(:,:), ALLOCATABLE, TARGET :: GB_dofs ! DoFs for the periodic potential for the Boozer transform, shape (npoly, nmodes)
+LOGICAL                                   :: GB_init = .FALSE.
 
 CONTAINS
 
@@ -105,7 +109,185 @@ SUBROUTINE ReadState(statefile)
 END SUBROUTINE ReadState
 
 !================================================================================================================================!
-! Handle the selection of the functional and derivatives, based on the selection strings
+SUBROUTINE init_base_GB(deg, cont, m_max, n_max, sin_cos)
+  ! MODULES
+  USE MODgvec_MHD3D_vars,     ONLY: LA_base
+  USE MODgvec_base,           ONLY: Base_new
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: deg              ! spline polynomial degree
+  INTEGER, INTENT(IN) :: cont             ! spline continuity
+  INTEGER, INTENT(IN) :: m_max, n_max     ! maximum number of poloidal, toroidal modes
+  CHARACTER(LEN=8), INTENT(IN) :: sin_cos ! "_sin_   ", " _cos_   " or "_sincos_"
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER, DIMENSION(2) :: mn_max
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  mn_max = (/m_max, n_max/)
+  CALL base_new(GB_base, deg, cont, LA_base%s%grid, LA_base%s%degGP, mn_max, LA_base%f%mn_nyq, LA_base%f%nfp, sin_cos, .TRUE. )
+  ALLOCATE(GB_dofs(1:GB_base%s%nbase, 1:GB_base%f%modes))
+  GB_init = .TRUE.
+END SUBROUTINE init_base_GB
+
+!================================================================================================================================!
+SUBROUTINE finalize_base_GB()
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL GB_base%free()
+  DEALLOCATE(GB_base)
+  DEALLOCATE(GB_dofs)
+  GB_init = .FALSE.
+END SUBROUTINE finalize_base_GB
+
+!================================================================================================================================!
+SUBROUTINE GB_project_f_interpolate_s(dGB_dt, dGB_dz)
+  ! MODULES ---------------------------------------------------------------------------------------------------------------------!
+  USE MODgvec_Globals, ONLY: PI
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL, DIMENSION(:,:), INTENT(IN) :: dGB_dt, dGB_dz  ! partial derivatives of GB(s_IP, tz_IP)
+  ! dGB_dt and dGB_dz are given on the radial interpolation points s_IP(1:nbase) and angular integration points
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: m, n, iMode, iIP, modes, nIP
+  REAL, DIMENSION(:,:), ALLOCATABLE :: GB_dofs_IP ! DOFs for the GB_base on the interpolation points s_IP, shape (nbase, nmodes)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  nIP = GB_base%s%nbase
+  modes = GB_base%f%modes
+
+  ALLOCATE(GB_dofs_IP(1:nIP, 1:modes))
+
+  ! project the derivatives onto the angular DoFs at the interpolation points
+  GB_dofs_IP(1,:) = 0.0 ! at axis, otherwise NaN
+  DO iIP = 2,nIP
+    CALL GB_base%f%projectIPtoDOFdtz(dGB_dt(iIP,:), dGB_dz(iIP,:), GB_dofs_IP(iIP,:))
+  END DO
+
+  ! interpolate from the gauss points to the radial DoFs
+  DO iMode = 1,modes
+    GB_dofs(:,iMode) = GB_base%s%initDOF(GB_dofs_IP(:,iMode))
+  END DO
+
+  DEALLOCATE(GB_dofs_IP)
+END SUBROUTINE GB_project_f_interpolate_s
+
+!================================================================================================================================!
+!> project the derivatives of the Boozer potential GB onto a basis, with Gauss points for the radial resolution
+!!
+!! see 'get_boozer.f90' for reference
+!================================================================================================================================!
+SUBROUTINE GB_project_f_project_s(dGB_dt, dGB_dz)
+  ! MODULES ---------------------------------------------------------------------------------------------------------------------!
+  USE MODgvec_Globals, ONLY: PI
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  REAL, DIMENSION(:,:), INTENT(IN) :: dGB_dt, dGB_dz  ! partial derivatives of GB(s_GP, tz_IP)
+  ! dGB_dt and dGB_dz are given on the radial Gauss points s_GP(1:nbase) and angular integration points
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: iGP, iMode, iElem, iBase   ! loop variables: Gauss point, angular mode, radial element, base DoF offset
+  INTEGER :: deg, degGP, nGP, nElems, modes
+  INTEGER :: BCtype_axis(0:4)
+  REAL, DIMENSION(:,:), ALLOCATABLE :: GB_dofs_GP     ! fourier DOFs the gauss points s_GP, shape (nbase, nmodes)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  deg = GB_base%s%deg
+  degGP = GB_base%s%degGP
+  nGP = GB_base%s%nGP
+  nElems = GB_base%s%grid%nElems
+  modes = GB_base%f%modes
+
+  ALLOCATE(GB_dofs_GP(1:nGP, 1:modes))
+
+  ! project the derivatives onto the angular DoFs at the gauss points
+  DO iGP = 1,nGP
+    CALL GB_base%f%projectIPtoDOFdtz(dGB_dt(iGP,:), dGB_dz(iGP,:), GB_dofs_GP(iGP,:))
+    GB_dofs_GP(iGP,:) = GB_dofs_GP(iGP,:) * GB_base%s%w_GP(iGP)
+  END DO
+
+  ! project from the gauss points to the radial DoFs
+  ! define boundary conditions
+  BCtype_axis(MN_ZERO    )= BC_TYPE_DIRICHLET !=0 (should not be here!)
+  BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN  ! derivative zero
+  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
+  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
+  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
+  DO iMode = 1,modes
+    GB_dofs(:,iMode) = 0.0
+    DO iElem = 1,nElems
+      iGP = (iElem - 1) * (degGP + 1) + 1
+      iBase = GB_base%s%base_offset(iElem)
+      GB_dofs(iBase:iBase+deg,iMode) = GB_dofs(iBase:iBase+deg,iMode) & 
+                                     + MATMUL(GB_dofs_GP(iGP:iGP+degGP,iMode),GB_base%s%base_GP(0:degGP,0:deg,iElem))
+    END DO
+    CALL GB_base%s%mass%solve_inplace(1,GB_dofs(:,iMode))
+    CALL GB_base%s%applyBCtoDOF(GB_dofs(:,iMode),(/BCtype_axis(GB_base%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
+                                                ,(/0.,0./))
+  END DO
+
+  DEALLOCATE(GB_dofs_GP)
+END SUBROUTINE GB_project_f_project_s
+
+!================================================================================================================================!
+!> Handle the selection of the base, based on the selection string
+!================================================================================================================================!
+SUBROUTINE select_base_dofs(var, base, dofs)
+  ! MODULES
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
+  USE MODgvec_base,           ONLY: t_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var                 ! selection string: which variable to evaluate
+  CLASS(t_base), POINTER, INTENT(OUT) :: base         ! pointer to the base object (X1, X2, LA)
+  REAL, POINTER, INTENT(OUT) :: dofs(:,:)    ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(var)
+    CASE('X1')
+      base => X1_base
+      dofs => U(0)%X1
+    CASE('X2')
+      base => X2_base
+      dofs => U(0)%X2
+    CASE('LA')
+      base => LA_base
+      dofs => U(0)%LA
+    CASE('GB')
+      IF (.NOT.GB_init) THEN
+        WRITE(*,*) 'ERROR: GB_base not initialized'
+        STOP
+      END IF
+      base => GB_base
+      dofs => GB_dofs
+    CASE DEFAULT
+      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
+      STOP
+  END SELECT
+END SUBROUTINE select_base_dofs
+
+!================================================================================================================================!
+!> Handle the selection of the base, based on the selection string
+!================================================================================================================================!
+SUBROUTINE select_base(var, base)
+  ! MODULES
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
+  USE MODgvec_base,           ONLY: t_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var                 ! selection string: which variable to evaluate
+  CLASS(t_base), POINTER, INTENT(OUT) :: base         ! pointer to the base object (X1, X2, LA)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(var)
+    CASE('X1')
+      base => X1_base
+    CASE('X2')
+      base => X2_base
+    CASE('LA')
+      base => LA_base
+    CASE('GB')
+      IF (.NOT.GB_init) THEN
+        WRITE(*,*) 'ERROR: GB_base not initialized'
+        STOP
+      END IF
+      base => GB_base
+    CASE DEFAULT
+      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
+      STOP
+  END SELECT
+END SUBROUTINE select_base
+
+!================================================================================================================================!
+!> Handle the selection of the functional and derivatives, based on the selection strings
+!================================================================================================================================!
 SUBROUTINE evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_dofs, seli_deriv_s, seli_deriv_f)
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
@@ -118,20 +300,7 @@ SUBROUTINE evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_do
   REAL, POINTER, INTENT(OUT) :: solution_dofs(:,:)    ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
   INTEGER, INTENT(OUT) :: seli_deriv_s, seli_deriv_f  ! integer values for the derivative selection
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  SELECT CASE(var)
-    CASE('X1')
-      base => X1_base
-      solution_dofs => U(0)%X1
-    CASE('X2')
-      base => X2_base
-      solution_dofs => U(0)%X2
-    CASE('LA')
-      base => LA_base
-      solution_dofs => U(0)%LA
-    CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
-      STOP
-  END SELECT
+  CALL select_base_dofs(var, base, solution_dofs)
   SELECT CASE(TRIM(sel_deriv_s))
     CASE('s')
       seli_deriv_s = DERIV_S
@@ -167,17 +336,7 @@ SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   CLASS(t_base), POINTER :: base                    ! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  SELECT CASE(var)
-    CASE('X1')
-      base => X1_base
-    CASE('X2')
-      base => X2_base
-    CASE('LA')
-      base => LA_base
-    CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
-      STOP
-  END SELECT
+  CALL select_base(var, base)
   n_s = base%s%nGP
   IF (base%s%nGP /= SIZE(base%s%s_GP)) THEN
     WRITE(*,*) 'ERROR: number of integration points does not match the size of the array'
@@ -188,7 +347,8 @@ SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
 END SUBROUTINE get_integration_points_num
 
 !================================================================================================================================!
-! Retrieve the integration points and weights (gauss points for radial integration)
+!> Retrieve the integration points and weights (gauss points for radial integration)
+!================================================================================================================================!
 SUBROUTINE get_integration_points(var, s_GP, s_w, t_w, z_w)
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
@@ -200,17 +360,7 @@ SUBROUTINE get_integration_points(var, s_GP, s_w, t_w, z_w)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   CLASS(t_base), POINTER :: base                ! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  SELECT CASE(var)
-    CASE('X1')
-      base => X1_base
-    CASE('X2')
-      base => X2_base
-    CASE('LA')
-      base => LA_base
-    CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
-      STOP
-  END SELECT
+  CALL select_base(var, base)
   s_GP = base%s%s_GP
   s_w = base%s%w_GP
   t_w = base%f%d_thet
@@ -218,7 +368,56 @@ SUBROUTINE get_integration_points(var, s_GP, s_w, t_w, z_w)
 END SUBROUTINE get_integration_points
 
 !================================================================================================================================!
-! Evaluate the basis for a list of (theta, zeta) positions on all flux surfaces given by s
+SUBROUTINE get_modes(var, modes)
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: modes         ! total number of modes in basis (depends if only sin/cos or sin & cos are used)
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA, GB)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL select_base(var, base)
+  modes = base%f%modes
+END SUBROUTINE get_modes
+
+!================================================================================================================================!
+SUBROUTINE get_mn_IP(var, mn_IP)
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: mn_IP         ! =mn_nyq(1)*mn_nyq(2) 
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA, GB)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL select_base(var, base)
+  mn_IP = base%f%mn_IP
+END SUBROUTINE get_mn_IP
+
+!================================================================================================================================!
+SUBROUTINE get_s_nBase(var, s_nbase)
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: s_nbase       ! total number of degree of freedom / global basis functions
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA, GB)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL select_base(var, base)
+  s_nbase = base%s%nbase
+END SUBROUTINE get_s_nBase
+
+!================================================================================================================================!
+SUBROUTINE get_s_IP(var, s_IP)
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=2), INTENT(IN) :: var       ! selection string: which variable to evaluate
+  REAL, DIMENSION(:), INTENT(OUT) :: s_IP   ! position of interpolation points for initialization, size(nBase)
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  CLASS(t_base), POINTER :: base            ! pointer to the base object (X1, X2, LA, GB)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL select_base(var, base)
+  s_IP = base%s%s_IP
+END SUBROUTINE get_s_IP
+
+!================================================================================================================================!
+!> Evaluate the basis for a list of (theta, zeta) positions on all flux surfaces given by s
+!================================================================================================================================!`
 SUBROUTINE evaluate_base_list_tz(n_s, n_tz, s, thetazeta, var, sel_deriv_s, sel_deriv_f, result)
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
@@ -247,7 +446,8 @@ SUBROUTINE evaluate_base_list_tz(n_s, n_tz, s, thetazeta, var, sel_deriv_s, sel_
 END SUBROUTINE evaluate_base_list_tz
 
 !================================================================================================================================!
-! Evaluate the basis and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s
+!> Evaluate the basis and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s
+!================================================================================================================================!
 SUBROUTINE evaluate_base_list_tz_all(n_s, n_tz, s, thetazeta, Qsel, Q, dQ_ds, dQ_dthet, dQ_dzeta, &
                                      dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz)
   ! MODULES
@@ -267,20 +467,7 @@ SUBROUTINE evaluate_base_list_tz_all(n_s, n_tz, s, thetazeta, Qsel, Q, dQ_ds, dQ
   REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs, dQ_dss_dofs  ! DOFs for the fourier series
   REAL, ALLOCATABLE :: intermediate(:)                                ! intermediate result array before reshaping
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  SELECT CASE(Qsel)
-    CASE('X1')
-      base => X1_base
-      solution_dofs => U(0)%X1
-    CASE('X2')
-      base => X2_base
-      solution_dofs => U(0)%X2
-    CASE('LA')
-      base => LA_base
-      solution_dofs => U(0)%LA
-    CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', Qsel, 'not recognized'
-      STOP
-  END SELECT
+  CALL select_base_dofs(Qsel, base, solution_dofs)
   DO i=1,n_s
     ! evaluate spline to get the fourier dofs
     Q_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, 0, solution_dofs(:,:))
@@ -302,7 +489,8 @@ SUBROUTINE evaluate_base_list_tz_all(n_s, n_tz, s, thetazeta, Qsel, Q, dQ_ds, dQ
 END SUBROUTINE evaluate_base_list_tz_all
 
 !================================================================================================================================!
-! Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
+!> Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
+!================================================================================================================================!
 SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, result)
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
@@ -334,7 +522,8 @@ SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, res
 END SUBROUTINE evaluate_base_tens
 
 !================================================================================================================================!
-! Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
+!> Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
+!================================================================================================================================!
 SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, Qsel, Q, dQ_ds, dQ_dthet, dQ_dzeta, &
                                   dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz)
   ! MODULES
@@ -353,20 +542,7 @@ SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, Qsel, Q, dQ_ds,
   REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs, dQ_dss_dofs   ! DOFs for the fourier series
   REAL, ALLOCATABLE :: intermediate(:)                                 ! intermediate result array before reshaping
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  SELECT CASE(Qsel)
-    CASE('X1')
-      base => X1_base
-      solution_dofs => U(0)%X1
-    CASE('X2')
-      base => X2_base
-      solution_dofs => U(0)%X2
-    CASE('LA')
-      base => LA_base
-      solution_dofs => U(0)%LA
-    CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', Qsel, 'not recognized'
-      STOP
-  END SELECT
+  CALL select_base_dofs(Qsel, base, solution_dofs)
   DO i=1,n_s
     ! evaluate spline to get the fourier dofs
     Q_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, 0, solution_dofs(:,:))
@@ -408,7 +584,8 @@ SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, Qsel, Q, dQ_ds,
 END SUBROUTINE evaluate_base_tens_all
 
 !================================================================================================================================!
-! Evaluate the mapping from reference to physical space (hmap)
+!> Evaluate the mapping from reference to physical space (hmap)
+!================================================================================================================================!
 SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta, coord, e_s, e_thet, e_zeta)
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: hmap
@@ -431,7 +608,8 @@ SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, 
 END SUBROUTINE
 
 !================================================================================================================================!
-! Evaluate the mapping from reference to physical space (hmap) without logical coordinates
+!> Evaluate the mapping from reference to physical space (hmap) without logical coordinates
+!================================================================================================================================!
 SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: hmap
@@ -453,7 +631,8 @@ SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
 END SUBROUTINE
 
 !================================================================================================================================!
-! evaluate components of the metric tensor and their derivatives
+!> evaluate components of the metric tensor and their derivatives
+!================================================================================================================================!
 SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, &
                            dX1_dss, dX2_dss, dX1_dst, dX2_dst, dX1_dsz, dX2_dsz, &
                            dX1_dtt, dX2_dtt, dX1_dtz, dX2_dtz, dX1_dzz, dX2_dzz, &
@@ -530,7 +709,8 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
 END SUBROUTINE
 
 !================================================================================================================================!
-! evaluate the jacobian determinant and its derivatives
+!> evaluate the jacobian determinant and its derivatives
+!================================================================================================================================!
 SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, Jh, dJh_ds, dJh_dt, dJh_dz)
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: hmap
@@ -613,6 +793,10 @@ SUBROUTINE Finalize()
   USE MODgvec_Functional,     ONLY: FinalizeFunctional
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (GB_init) THEN
+    CALL finalize_base_GB()
+  END IF
+
   CALL FinalizeFunctional(functional)
   DEALLOCATE(functional)
   CALL FinalizeAnalyze()
