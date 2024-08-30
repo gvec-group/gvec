@@ -464,7 +464,9 @@ class State:
         if degree < 1:
             raise ValueError("Degree must be larger than 0, got {degree}.")
         if method not in ["interpolation", "projection"]:
-            raise ValueError(f"Method must be one of 'interpolation' or 'projection', got {method}.")
+            raise ValueError(
+                f"Method must be one of 'interpolation' or 'projection', got {method}."
+            )
 
         # --- finalize previous base --- #
         if _post.gb_init:
@@ -482,7 +484,7 @@ class State:
             ev = Evaluations(self, s_IP, "int", "int")
         elif method == "projection":
             ev = Evaluations(self, "int", "int", "int")
-        
+
         ev.compute("dGB_dt_def", "dGB_dz_def")
         GBt = np.asfortranarray(
             ev.dGB_dt_def.transpose("rho", "zeta", "theta").values.reshape(
@@ -848,24 +850,51 @@ class Evaluations(xr.Dataset):
             if quantity not in self._quantities:
                 raise KeyError(f"The quantity `{quantity}` is not registered.")
             func = self._quantities[quantity]
+            # --- handle integration --- #
+            auxcoords = {
+                i
+                for i in func.integration
+                if i not in self
+                or "integration_points" not in self[i].attrs
+                or not self[i].attrs["integration_points"]
+            }
+            if auxcoords:
+                # --- auxiliary dataset for integration points --- #
+                logging.info(
+                    f"Using auxiliary dataset with integration points {auxcoords} to compute {quantity}."
+                )
+                keepint = {
+                    c
+                    for c in self.coords
+                    if "integration_points" in self[c].attrs
+                    and self[c].attrs["integration_points"]
+                }
+                coords = {
+                    c: self.coords[c]
+                    for c in self.coords
+                    if c not in auxcoords | keepint
+                }
+                obj = self.__class__(
+                    self.state, **{c: "int" for c in auxcoords | keepint}, coords=coords
+                )
+            else:
+                obj = self
             # --- handle requirements --- #
-            for i in func.integration:
-                if i not in self:
-                    raise ValueError(f"Cannot compute `{quantity}` without `{i}`.")
-                if (
-                    "integration_points" not in self[i].attrs
-                    or self[i].attrs["integration_points"] != True
-                ):
-                    raise ValueError(
-                        f"Computation of `{quantity}` requires integration points for `{i}`."
-                    )
-            self.compute(*func.requirements)
+            obj.compute(*func.requirements)
             # --- compute the quantity --- #
             with xr.set_options(keep_attrs=True):
                 if "state" in inspect.signature(func).parameters:
-                    func(self, self.state)
+                    func(obj, self.state)
                 else:
-                    func(self)
+                    func(obj)
+            # --- handle auxiliary integration dataset --- #
+            if auxcoords:
+                for q in obj:
+                    if (
+                        not any([c in obj[q].coords for c in auxcoords])
+                        and "weight" not in q
+                    ):
+                        self[q] = obj[q]
 
     def __getitem__(self, key: Mapping | Hashable | Iterable[Hashable]):
         """Access variables or coordinates of this dataset as a `xarray.DataArray` or a subset of variables or a indexed dataset.

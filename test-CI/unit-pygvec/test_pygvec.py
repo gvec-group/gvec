@@ -111,6 +111,17 @@ def evals_rtz_int(teststate):
     return ds
 
 
+@pytest.fixture()
+def evals_r_int_tz(teststate):
+    ds = gvec.post.Evaluations(
+        state=teststate,
+        rho="int",
+        theta=100,
+        zeta=100,
+    )
+    return ds
+
+
 # === Tests === #
 
 
@@ -490,7 +501,7 @@ def test_compute_basis(evals_rtz):
             )
 
 
-def test_volume_integral(evals_rtz_int):
+def test_volume_integral(evals_rtz_int, evals_rtz):
     ds = evals_rtz_int
     one = xr.ones_like(ds.Jac)
     V_default = ds.volume_integral(one)
@@ -503,6 +514,9 @@ def test_volume_integral(evals_rtz_int):
     assert np.allclose(4 * np.pi**2, ds.volume_integral(one, Jac=False))
     for Jac in [False, True, ds.Jac, ds.Jac_l, "Jac"]:
         assert np.allclose(1, ds.volume_average(one, Jac=Jac))
+
+    with pytest.raises(ValueError):
+        evals_rtz.volume_integral(one, Jac=ds.Jac_l)
 
 
 @pytest.mark.parametrize(
@@ -519,8 +533,17 @@ def test_volume_integral(evals_rtz_int):
         "I_pol",
     ],
 )
-def test_integral_quantities(evals_rtz_int, quantity):
+def test_integral_quantities(evals_rtz_int, evals_r_int_tz, quantity):
     ds = evals_rtz_int
     ds.compute(quantity)
     # --- check that metadata is preserved --- #
     assert ds.rho.attrs["integration_points"] == True
+
+    # automatic change to integration points if necessary
+    ds = evals_r_int_tz
+    ds.compute(quantity)
+    assert ds.rho.attrs["integration_points"] == True
+    assert ds.theta.attrs["integration_points"] == False
+    assert ds.zeta.attrs["integration_points"] == False
+    assert "theta_weight" not in ds and "zeta_weight" not in ds
+    assert "rho_weights" in ds
