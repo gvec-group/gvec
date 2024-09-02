@@ -103,6 +103,11 @@ include:
     inputs:
       env: .mpcdfci_intel2023
       rules: .rules_minimal
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
   
   - local: CI_templates/env.yml
     inputs:
@@ -113,6 +118,11 @@ include:
       env: .mpcdfci_nvhpc23
 
   # MPI
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_intel2023_impi
+      rules: .rules_minimal
+
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_intel_impi_latest
@@ -132,6 +142,11 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
       env: .mpcdfci_gcc13
 
   - local: CI_templates/build.yml
@@ -139,6 +154,13 @@ include:
       env: .mpcdfci_nvhpc23
 
   # MPI
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_intel2023_impi
+      vars: .vars_matrix_mpi_build
+      cmake-opts: .cmake_mpi_opts
+      rules: .rules_minimal
+
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_intel_impi_latest
@@ -162,6 +184,13 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      build-postfix: _only_converter
+      cmake-opts: .cmake_only_converter
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
       env: .mpcdfci_gcc13
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
@@ -176,6 +205,13 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_intel2023
+      build-postfix: _tag
+      vars: .vars_matrix_build_tag
+
+  # release tag
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_intel_latest
       build-postfix: _tag
       vars: .vars_matrix_build_tag
 
@@ -199,6 +235,11 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/run.yml
+    inputs:
       env: .mpcdfci_gcc13
 
   - local: CI_templates/run.yml
@@ -210,6 +251,14 @@ include:
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_intel2023
+      run-postfix: _debugrun
+      vars: .vars_matrix_run_debugrun
+      rules: .rules_nightly
+
+  # debugrun
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel_latest
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
@@ -231,6 +280,12 @@ include:
   # MPI
   - local: CI_templates/run.yml
     inputs:
+      env: .mpcdfci_intel2023_impi
+      vars: .vars_matrix_mpi_run
+      rules: .rules_minimal
+
+  - local: CI_templates/run.yml
+    inputs:
       env: .mpcdfci_intel_impi_latest
       vars: .vars_matrix_mpi_run
       rules: .rules_minimal
@@ -247,6 +302,19 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+
+# UNCOMMENT ONCE DEVELOP IS MERGED!
+# Due to missing CMakeList conditional Intel debug flags in branch DEVELOP
+
+  # release tag
+  # commented due to crash of the corresponding run stage jobs 
+  #- local: CI_templates/run.yml
+  #  inputs:
+  #    env: .mpcdfci_intel_latest
+  #    run-postfix: _tag
+  #    build-postfix: _tag
+  #    vars: .vars_matrix_run_tag
+
 
 # UNCOMMENT ONCE MPI IS MERGED!
 
@@ -272,7 +340,12 @@ include:
     inputs:
       env: .mpcdfci_intel2023
       rules: .rules_minimal
-  
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_gcc13
@@ -287,6 +360,12 @@ include:
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_intel2023
+      build-postfix: _only_converter
+      rules: .rules_minimal
+
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_intel_latest
       build-postfix: _only_converter
       rules: .rules_minimal
 
@@ -366,9 +445,21 @@ include:
 # MPCDF new Docker images
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
 
-# MPCDF Docker image intel_2023_1_0_x:latest
+# MPCDF Docker image intel_2023_1_0_x:2023
 .mpcdfci_intel2023:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:latest
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:2023
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "intel_ifort"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
+
+# MPCDF Docker image intel:latest
+.mpcdfci_intel_latest:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel:latest
   tags:
     - shared
   variables:
@@ -377,6 +468,18 @@ include:
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
+
+# MPCDF Docker image intel-impi:2023
+.mpcdfci_intel2023_impi:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x-impi_2021_9:2023
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "intel_mpiifort"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    OMP_NUM_THR: "2"
 
 # MPCDF Docker image intel-impi:latest
 .mpcdfci_intel_impi_latest:

@@ -13,6 +13,7 @@
     - echo -e "\e[0Ksection_start:`date +%s`:setup-env[collapsed=true]\r\e[0KSetup Environment"
     - echo ${CMAKE_HOSTNAME} ${CURR_CMP}
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
+    - echo "Fortran compiler is ${FC}"
     - git status
     - echo -e "\e[0Ksection_end:`date +%s`:setup-env\r\e[0K"
 
