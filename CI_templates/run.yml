@@ -5,8 +5,8 @@
 spec:
   inputs:
     env:
-      description: Name of the environment, e.g. `mpcdfci_intel2§`
-      default: .mpcdfci_intel_2023
+      description: Name of the environment, e.g. `mpcdfci_intel2023`
+      default: .mpcdfci_intel2023
     vars:
       description: Template with variables or parallel:matrix
       default: .vars_matrix_run
