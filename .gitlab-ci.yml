@@ -445,9 +445,9 @@ include:
 # MPCDF new Docker images
 # (each providing a toolchain based on a single combination of compiler and MPI variant)
 
-# MPCDF Docker image intel_2023_1_0_x:2023
+# MPCDF Docker image intel_2023_1_0_x:latest
 .mpcdfci_intel2023:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:2023
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:latest
   tags:
     - shared
   variables:
@@ -469,9 +469,9 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
-# MPCDF Docker image intel-impi:2023
+# MPCDF Docker image intel-impi:latest
 .mpcdfci_intel2023_impi:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x-impi_2021_9:2023
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x-impi_2021_9:latest
   tags:
     - shared
   variables:
