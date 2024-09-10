@@ -206,7 +206,7 @@ include:
     inputs:
       env: mpcdfci_intel2023
       publish-target: gitlab
-      rules: .rules_develop_only
+      rules: .rules_publish-python-gitlab
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -262,15 +262,19 @@ include:
       when: on_success
     - when: never
 
-.rules_develop_only:
+.rules_publish-python-gitlab:
   rules:
-    # disable this job if MINIMAL_PIPELINE or NIGHTLY_PIPELINE is set
-    - if: $MINIMAL_PIPELINE == "true" || $NIGHTLY_PIPELINE == "true"
+    # optional if MINIMAL_PIPELINE
+    - if: $MINIMAL_PIPELINE == "true"
+      when: manual
+    # disable for NIGHTLY_PIPELINE
+    - if: $NIGHTLY_PIPELINE == "true"
       when: never
-    # only run this job on the develop branch (e.g. after a merge request is merged)
+    # publish all commits on develop (e.g. after a merge request)
     - if: $CI_COMMIT_REF_NAME =~ /develop/
       when: on_success
-    - when: never
+    # optional for other branches
+    - when: manual
 
 # ____________________________
 # MPCDF new Docker images
