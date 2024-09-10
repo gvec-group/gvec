@@ -695,6 +695,15 @@ def iota_tor(ds: Evaluations):
 
 
 @register(
+    requirements=("iota", "diota_dr"),
+)
+def shear(ds: Evaluations):
+    ds["shear"] = - ds.rho / ds.iota * ds.diota_dr
+    ds.shear.attrs["long_name"] = "global magnetic shear"
+    ds.shear.attrs["symbol"] = r"?"
+
+
+@register(
     requirements=("B", "e_theta"),
     integration=("theta", "zeta"),
 )
