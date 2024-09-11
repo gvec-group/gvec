@@ -1,5 +1,5 @@
 # =================================================================================================================================
-# Stage "publish"
+# Stage "publish" - build a python package and publish it to a repository
 # =================================================================================================================================
 
 spec:
@@ -8,7 +8,7 @@ spec:
       description: Name of the environment, e.g. `.mpcdfci_intel2023`
       default: .mpcdfci_intel2023
     publish-target:
-      description: Name of the target to publish to, e.g. `gitlab`
+      description: Name of the target to publish to, one of [`gitlab`]
       default: gitlab
     rules:
       description: Rules for the job, e.g. `.rules_default`
@@ -16,13 +16,13 @@ spec:
 
 ---
 
-publish_$[[ inputs.publish-target ]]:
+pypi$[[ inputs.publish-target ]]:
   stage: publish
   extends:
     - $[[ inputs.env ]]
     - .script_publish_$[[ inputs.publish-target ]]
     - $[[ inputs.rules ]]
   needs:
-    - job: $[[ inputs.env ]]_unit
-    - job: $[[ inputs.env ]]_build-pip
+    - job: build.pip$[[ inputs.env ]]
       artifacts: true # for venv
+    - job: unit$[[ inputs.env ]]

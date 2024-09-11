@@ -228,14 +228,11 @@ include:
   # ============================
   - local: CI_templates/pages.yml
 
-  # ============================
-  # publish jobs
-  # ============================
-  - local: CI_templates/publish.yml
+  - local: CI_templates/pypi.yml
     inputs:
       env: .mpcdfci_intel2023
       publish-target: gitlab
-      rules: .rules_publish-python-gitlab
+      rules: .rules_pypi_gitlab
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -299,11 +296,8 @@ include:
     - when: manual
       allow_failure: true # workaround to disable reporting the pipeline as "Blocked"
 
-.rules_publish-python-gitlab:
+.rules_pypi_gitlab:
   rules:
-    # optional if MINIMAL_PIPELINE
-    - if: $MINIMAL_PIPELINE == "true"
-      when: manual
     # disable for NIGHTLY_PIPELINE
     - if: $NIGHTLY_PIPELINE == "true"
       when: never

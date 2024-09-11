@@ -77,7 +77,7 @@
     expire_in: 1 week
     when: always
 
-.script_build-pip:
+.script_build_pip:
   variables:
     BUILDNAME: ${HASH_TAG}_pip
   script:
