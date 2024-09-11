@@ -1177,8 +1177,8 @@ END DO !dbg
   DEALLOCATE(trafoSFL)
   SWRITE(UNIT_stdOut,'(A)') '... DONE.'
 !!! END LOOP OVER WHICH SFL OUTPUT
-END DO !k ... whichSFLout
   __PERFOFF("output_sfl")
+END DO !k ... whichSFLout
 END SUBROUTINE WriteSFLoutfile
 
 
