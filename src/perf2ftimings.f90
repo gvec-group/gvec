@@ -17,7 +17,7 @@ subroutine perfoff(label)
   use timings
   character(*), intent(in) :: label
 
-  call timer%stop()
+  call timer%stop(trim(adjustl(label)))
 end subroutine perfoff
 
 subroutine perfout(label)
