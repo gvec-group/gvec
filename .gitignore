@@ -20,6 +20,7 @@ docs/extra/ford
 
 # exclude all pytest run files
 test-CI/run*
+test-CI/conv*
 test-CI/CIrun*
 
 # Byte-compiled / optimized / DLL files

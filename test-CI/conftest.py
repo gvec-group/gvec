@@ -6,13 +6,10 @@ from pathlib import Path
 import shlex  # shell-like syntax parsing
 import argparse
 import json
-import re
 import shutil
 
 # add helpers.py to the `pythonpath` to be importable by all tests
 sys.path.append(str((Path(__file__).parent)))
-import helpers
-
 
 # === PYTEST CONFIGURATION === #
 
@@ -24,6 +21,7 @@ def pytest_addoption(parser):
     Args:
         parser (ArgumentParser): The pytest argument parser.
     """
+
     def _is_directory(arg):
         """Check if the argument is an existing directory."""
         arg = Path(arg)
@@ -277,9 +275,10 @@ def postdir(request) -> Path:
     """path to the post directory, default is test-CI/post"""
     return Path(request.config.getoption("--postdir")).absolute()
 
+
 @pytest.fixture(scope="session")
 def convdir(request) -> Path:
-    """path to the converter directory, default is test-CI/conv """
+    """path to the converter directory, default is test-CI/conv"""
     return Path(request.config.getoption("--convdir")).absolute()
 
 
@@ -429,8 +428,43 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     util.adapt_parameter_file(
         sourcerundir / "parameter.ini",
         targetdir / "parameter.ini",
-        visu1D="!",
-        visu2D="!",
-        visu3D="!",  # only uncomment visualization flags
+        visu1D="!0",
+        visu2D="!0",
+        visu3D="!0",
+        SFLout="!-1",  # only uncomment visualization flags
     )
+    return targetdir
+
+
+@pytest.fixture(scope="function")
+def testcaseconvdir(
+    convdir: Path, rundir: Path, testgroup: str, testcase: str, which_conv: str
+):
+    """
+    Generate the post directory at `{convdir}/which_conv/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
+    """
+    # assert that `{postdir}` and `{postdir}/{testgroup}` exist
+    if not convdir.exists():
+        convdir.mkdir()
+    if not (convdir / which_conv).exists():
+        (convdir / which_conv).mkdir()
+    postdir = convdir / which_conv
+    if not (postdir / "data").exists():
+        (postdir / "data").symlink_to(Path(__file__).parent / "data")
+    if not (postdir / testgroup).exists():
+        (postdir / testgroup).mkdir()
+    # create the testcase directory
+    sourcedir = Path(__file__).parent / "examples" / testcase
+    sourcerundir = rundir / testgroup / testcase
+    targetdir = postdir / testgroup / testcase
+    if targetdir.exists():
+        shutil.rmtree(targetdir)
+    # copy input files from examples/testcase
+    shutil.copytree(sourcedir, targetdir, symlinks=True)
+    states = [
+        sd for sd in os.listdir(sourcerundir) if "State" in sd and sd.endswith(".dat")
+    ]
+    # link to statefiles from run_stage
+    for statefile in states:
+        (targetdir / statefile).symlink_to(sourcerundir / statefile)
     return targetdir

@@ -16,7 +16,7 @@ spec:
 
 ---
 
-pypi$[[ inputs.publish-target ]]:
+pypi.$[[ inputs.publish-target ]]:
   stage: publish
   extends:
     - $[[ inputs.env ]]
