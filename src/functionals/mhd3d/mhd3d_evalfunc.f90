@@ -1252,7 +1252,7 @@ SUBROUTINE checkEvalForce(Uin,fileID)
   CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Feval 
   CHARACTER(LEN=60)                     :: fname
 !===================================================================================================================================
-  IF(testLevel.EQ.-1) RETURN
+  IF(testLevel.LE.3) RETURN
   PrecondTypeTmp=PrecondType
   ALLOCATE(t_sol_var_MHD3D :: Utest)
   ALLOCATE(t_sol_var_MHD3D :: Ucopy)

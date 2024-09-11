@@ -22,7 +22,7 @@ import os
 # -- Project information -----------------------------------------------------
 
 project = 'GVEC'
-copyright = '2017-2024 GVEC Contributors | Max Planck Institute for Plasma Physics'
+copyright = '2017-2024 Max Planck Institute for Plasma Physics'
 author = 'Florian Hindenlang et al.'
 
 try:

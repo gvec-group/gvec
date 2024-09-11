@@ -34,7 +34,7 @@
 
 
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "build" 
+# TEMPLATES FOR STAGE "build"
 # =================================================================================================================================
 
 .script_build:
@@ -55,7 +55,7 @@
     - echo -e "\e[0Ksection_start:`date +%s`:pytest-dryrun[collapsed=true]\r\e[0KPytest dry-run"
     - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
     - echo -e "\e[0Ksection_end:`date +%s`:pytest-dryrun\r\e[0K"
-    - rm -rf _dry_* 
+    - rm -rf _dry_*
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
@@ -77,6 +77,63 @@
     expire_in: 1 week
     when: always
 
+.script_build-pip:
+  variables:
+    BUILDNAME: ${HASH_TAG}_pip
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
+    - pwd
+    # Debug Information
+    - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
+    - echo "is ${HASH_TAG} the same as ${CI_COMMIT_REF_NAME}?"
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git checkout ${HASH_TAG}; fi
+    - git tag
+    - python --version
+    - echo "BUILDNAME is ${BUILDNAME}"
+    # Create Virtual Environment
+    - rm -rf venv_${BUILDNAME}
+    - python -m venv venv_${BUILDNAME}
+    - source venv_${BUILDNAME}/bin/activate
+    - which python
+    - which pip
+    - pip list
+    - echo -e "\e[0Ksection_start:`date +%s`:printenv[collapsed=true]\r\e[0KEnvironment Variables"
+    - printenv
+    - echo -e "\e[0Ksection_end:`date +%s`:printenv\r\e[0K"
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
+    # BUILD
+    - echo -e "\e[0Ksection_start:`date +%s`:pip[collapsed=true]\r\e[0KPip install"
+    - pip install .[dev] -v | tee log_${BUILDNAME}_pip.txt
+    - pip list
+    - echo -e "\e[0Ksection_end:`date +%s`:pip\r\e[0K"
+    - echo "... BUILD PHASE FINISHED!"
+    # Debug Information #2
+    - echo -e "\e[0Ksection_start:`date +%s`:printenv2[collapsed=true]\r\e[0KEnvironment Variables (post install)"
+    - printenv
+    - echo -e "\e[0Ksection_end:`date +%s`:printenv2\r\e[0K"
+    - echo -e "\e[0Ksection_start:`date +%s`:readelf[collapsed=true]\r\e[0KReadelf (_post_f90.so)"
+    - readelf -d venv_${BUILDNAME}/lib/python3.10/site-packages/gvec/_libfgvec.cpython-310-x86_64-linux-gnu.so
+    - echo -e "\e[0Ksection_end:`date +%s`:readelf\r\e[0K"
+    # Check for successful installation
+    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KPreliminary pytest"
+    - which pytest
+    - pytest
+      -m "unit"
+      -k "version"
+      -v -rA
+      --junitxml=pytest.xml
+    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+  artifacts:
+    name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
+    paths:
+      - venv_${BUILDNAME}
+      - log_${BUILDNAME}_*.txt
+    expire_in: 1 week
+    when: always
+    reports:
+      junit:
+        - pytest.xml
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "run"
@@ -116,18 +173,18 @@
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
     # pytest: no restart
     - ${PYTEST_EXEC_CMD}
-      --log-file=log_pytest_run_norestart.txt 
-      -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" 
-      $PYTEST_DIR_OPTS 
-      -k "${PYTEST_KEY_OPTS}" 
-      --junitxml=pytest.xml 
+      --log-file=log_pytest_run_norestart.txt
+      -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)"
+      $PYTEST_DIR_OPTS
+      -k "${PYTEST_KEY_OPTS}"
+      --junitxml=pytest.xml
       --annotations=annotations.json
     # pytest: restart
-    - ${PYTEST_EXEC_CMD} 
-      --log-file=log_pytest_run_restart.txt   
-      -m "${PYTEST_MARKER_OPTS} and run_stage and restart"       
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_run_restart.txt
+      -m "${PYTEST_MARKER_OPTS} and run_stage and restart"
       $PYTEST_DIR_OPTS
-      -k "${PYTEST_KEY_OPTS}" 
+      -k "${PYTEST_KEY_OPTS}"
       --junitxml=pytest-restart.xml
       --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
@@ -146,6 +203,34 @@
       annotations:
         - annotations.json
 
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "unit"
+# =================================================================================================================================
+
+.script_unit:
+  variables:
+    BUILDNAME: ${HASH_TAG}_pip
+    CASENAME: ${HASH_TAG}_pip
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre[collapsed=true]\r\e[0KPreparation"
+    - echo $PATH
+    - echo venv_${BUILDNAME}/bin/activate
+    - source venv_${BUILDNAME}/bin/activate
+    - module list
+    - pip list
+    - echo -e "\e[0Ksection_end:`date +%s`:pre\r\e[0K"
+    # RUN
+    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KUnit"
+    - which pytest
+    - pytest
+      -m "unit"
+      -v -rA
+      --junitxml=pytest.xml
+    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+  artifacts:
+    reports:
+      junit:
+        - pytest.xml
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "regression"
@@ -167,12 +252,12 @@
     - echo -e "\e[0Ksection_start:`date +%s`:regression[collapsed=true]\r\e[0KRegression"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
     # pytest: regression
-    - ${PYTEST_EXEC_CMD} 
-      --log-file=log_pytest_regression.txt 
-      -m "${PYTEST_MARKER_OPTS} and regression_stage" 
-      -k "${PYTEST_KEY_OPTS}" 
-      $PYTEST_DIR_OPTS 
-      "${PYTEST_EXTRA_OPTS}" 
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_regression.txt
+      -m "${PYTEST_MARKER_OPTS} and regression_stage"
+      -k "${PYTEST_KEY_OPTS}"
+      $PYTEST_DIR_OPTS
+      "${PYTEST_EXTRA_OPTS}"
       --junitxml=pytest.xml
       --annotations=annotations.json
       || RET=$?
@@ -260,3 +345,24 @@
     reports:
       junit: pytest.xml
       annotations: annotations.json
+
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "publish"
+# =================================================================================================================================
+
+.script_publish_gitlab:
+  variables:
+    BUILDNAME: ${HASH_TAG}_pip
+    TWINE_USERNAME: gitlab-ci-token
+    TWINE_PASSWORD: ${CI_JOB_TOKEN}
+  script:
+    - source venv_${BUILDNAME}/bin/activate
+    - pip install twine build
+    - python -m build --sdist
+    - python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - dist
+    when: always

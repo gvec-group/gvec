@@ -1,9 +1,8 @@
 import pytest
-import sys, os
+import os
 import subprocess
 import re
 from pathlib import Path
-import shutil
 
 import helpers
 
@@ -53,83 +52,10 @@ def testcase(request):
     return request.param
 
 
-@pytest.fixture(scope="session")
-def testcaserundir(rundir: Path, testgroup: str, testcase: str):
-    """
-    Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `{testgroup}/{testcase}`
-    """
-    # assert that `{rundir}` and `{rundir}/{testgroup}` exist
-    if not rundir.exists():
-        rundir.mkdir()
-    if not (rundir / "data").exists():
-        (rundir / "data").symlink_to(Path(__file__).parent / "data")
-    if not (rundir / testgroup).exists():
-        (rundir / testgroup).mkdir()
-    # create the testcase directory
-    sourcedir = Path(__file__).parent / "examples" / testcase
-    targetdir = rundir / testgroup / testcase
-    if targetdir.exists():
-        shutil.rmtree(targetdir)
-    shutil.copytree(sourcedir, targetdir, symlinks=True)
-    # special treatment
-    match testgroup:
-        case "shortrun":
-            helpers.adapt_parameter_file(
-                sourcedir / "parameter.ini",
-                targetdir / "parameter.ini",
-                testlevel=-1,
-                MaxIter=1,
-                logIter=1,
-                outputIter=1,
-            )
-        case "debugrun":
-            helpers.adapt_parameter_file(
-                sourcedir / "parameter.ini",
-                targetdir / "parameter.ini",
-                testlevel=2,
-                MaxIter=1,
-                logIter=1,
-                outputIter=1,
-            )
-    return targetdir
-
-
-@pytest.fixture(scope="session")
-def testcasepostdir(postdir: Path, rundir: Path, testgroup: str, testcase: str):
-    """
-    Generate the post directory at `{postdir}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
-    """
-    # assert that `{postdir}` and `{postdir}/{testgroup}` exist
-    if not postdir.exists():
-        postdir.mkdir()
-    if not (postdir / "data").exists():
-        (postdir / "data").symlink_to(Path(__file__).parent / "data")
-    if not (postdir / testgroup).exists():
-        (postdir / testgroup).mkdir()
-    # create the testcase directory
-    sourcedir = Path(__file__).parent / "examples" / testcase
-    sourcerundir = rundir / testgroup / testcase
-    targetdir = postdir / testgroup / testcase
-    if targetdir.exists():
-        shutil.rmtree(targetdir)
-    # copy input files from examples/testcase
-    shutil.copytree(sourcedir, targetdir, symlinks=True)
-    states = [
-        sd for sd in os.listdir(sourcerundir) if "State" in sd and sd.endswith(".dat")
-    ]
-    # link to statefiles from run_stage
-    for statefile in states:
-        (targetdir / statefile).symlink_to(sourcerundir / statefile)
-    # overwrite parameter file with the rundir version and modify it
-    helpers.adapt_parameter_file(
-        sourcerundir / "parameter.ini",
-        targetdir / "parameter.ini",
-        visu1D="!0",
-        visu2D="!0",
-        visu3D="!0", 
-        SFLout="!-1",  # only uncomment visualization flags
-    )
-    return targetdir
+@pytest.fixture(scope="session", params=["example", "shortrun", "debugrun"])
+def testgroup(request) -> str:
+    """available test group names, will be automatically marked"""
+    return request.param
 
 @pytest.fixture(scope="function")
 def testcaseconvdir(convdir: Path, rundir: Path, testgroup: str, testcase: str, which_conv: str):
@@ -166,7 +92,15 @@ def testcaseconvdir(convdir: Path, rundir: Path, testgroup: str, testcase: str, 
 
 
 @pytest.mark.run_stage
-def test_run(binpath, testgroup, testcaserundir, testcase, dryrun, annotations, artifact_pages_path):
+def test_run(
+    binpath,
+    testgroup,
+    testcaserundir,
+    testcase,
+    dryrun,
+    annotations,
+    artifact_pages_path,
+):
     """
     Test end2end GVEC runs with `{testgroup}/{testcase}/parameter.ini`
 
@@ -219,9 +153,14 @@ def test_run(binpath, testgroup, testcaserundir, testcase, dryrun, annotations, 
                 pages_rundir = f"CIrun_{pages_rundir}"
             else:
                 pages_rundir = "."
-            annotations["gvec-output"].append(dict(external_link=dict(
-                label=f"{testgroup}/{testcase}/{filename}", 
-                url=f"{artifact_pages_path}/{pages_rundir}/{testgroup}/{testcase}/{filename}.txt")))
+            annotations["gvec-output"].append(
+                dict(
+                    external_link=dict(
+                        label=f"{testgroup}/{testcase}/{filename}",
+                        url=f"{artifact_pages_path}/{pages_rundir}/{testgroup}/{testcase}/{filename}.txt",
+                    )
+                )
+            )
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
@@ -346,7 +285,17 @@ def test_converter(binpath, testgroup, testcase, which_conv, testcaseconvdir,  d
             helpers.assert_stdout_finished(f"stdout{irun}.txt",message=conv["msg"]+" FINISHED!")
 
 @pytest.mark.regression_stage
-def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rtol, reg_atol, extra_ignore_patterns):
+def test_regression(
+    testgroup,
+    testcase,
+    rundir,
+    refdir,
+    dryrun,
+    logger,
+    reg_rtol,
+    reg_atol,
+    extra_ignore_patterns,
+):
     """
     Regression test of example GVEC runs and restarts.
 
@@ -365,7 +314,13 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         pytest.fail(f"Reference does not exist")
     # compare the list of files in the two directories
     runfiles, reffiles = (
-        set([file for file in os.listdir(directory) if "dryrun" not in file and not file.endswith("~")])
+        set(
+            [
+                file
+                for file in os.listdir(directory)
+                if "dryrun" not in file and not file.endswith("~")
+            ]
+        )
         for directory in [testcaserundir, testcaserefdir]
     )
     # dry-run
@@ -391,7 +346,8 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*/.*"] + extra_ignore_patterns, # ignore lines with a path
+                ignore_regexs=[r".*/.*"]
+                + extra_ignore_patterns,  # ignore lines with a path
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
@@ -408,7 +364,16 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*GIT_.*",r".*CMAKE.*",r".*sec.*", r".*date.*", r".*PosixPath.*", r"^[\s=]*$",r"100%\| \.\.\. of"] + extra_ignore_patterns,
+                ignore_regexs=[
+                    r".*GIT_.*",
+                    r".*CMAKE.*",
+                    r".*sec.*",
+                    r".*date.*",
+                    r".*PosixPath.*",
+                    r"^[\s=]*$",
+                    r"100%\| \.\.\. of",
+                ]
+                + extra_ignore_patterns,
                 warn_regexs=["Number of OpenMP threads"],
                 atol=reg_atol,
                 rtol=reg_rtol,
@@ -432,8 +397,10 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         logger.warning(f"Found {num_warnings} warnings!")
         pytest.raised_warnings = True
     if num_diff_files > 0 or runfiles != reffiles:
-        msg = f"Found {num_diff_files} different files with {num_diff_lines} different lines, " \
+        msg = (
+            f"Found {num_diff_files} different files with {num_diff_lines} different lines, "
             f"{len(runfiles - reffiles)} additional files and {len(reffiles - runfiles)} missing files."
+        )
         logger.info(f"{' SUMMARY ':=^80}")
         logger.error(msg)
         red, reset = "\x1b[31;20m", "\x1b[0m"
@@ -447,4 +414,3 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         for filename in reffiles - runfiles:
             logger.error(f"... {red}missing{reset} : {filename}")
         raise AssertionError(msg)
-    

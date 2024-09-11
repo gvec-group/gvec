@@ -28,7 +28,7 @@ Outside contributions are always welcome!
 GVEC is released under the terms of the GNU General Public License v3.0. 
 For the full license terms see the included [license](LICENSE) file.
 
-Copyright 2017-2024 GVEC Contributors | Max Planck Institute for Plasma Physics
+Copyright 2017-2024 Max Planck Institute for Plasma Physics
 
 ## Documentation
 

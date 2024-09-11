@@ -1,5 +1,5 @@
 # =================================================================================================================================
-# Stage "build"
+# Stage "unit"
 # =================================================================================================================================
 
 spec:
@@ -9,27 +9,20 @@ spec:
       default: .mpcdfci_intel2023
     vars:
       description: Template with variables or parallel:matrix
-      default: .vars_matrix_build
-    cmake-opts:
-      description: Template with variables for CMake options
-      default: .cmake_def_opts
-    build-postfix:
-      description: Job name postfix, e.g. `_only_converter`
-      default: ""
+      default: .vars_matrix_unit
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
 
 ---
 
-build$[[ inputs.env ]]$[[ inputs.build-postfix ]]:
-  stage: build
+$[[ inputs.env ]]_unit:
+  stage: unit
   extends:
     - $[[ inputs.env ]]
-    - .before_script_modules
-    - .script_build
-    - $[[ inputs.cmake-opts ]]
+    - .script_unit
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
-  needs: 
-    - env$[[ inputs.env ]]
+  needs:
+    - job: $[[ inputs.env ]]_build-pip
+      artifacts: true
