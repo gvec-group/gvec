@@ -8,7 +8,6 @@ These functions are registered with the `Evaluations` class using the `@register
 
 from .post import Evaluations, State
 
-import re
 import logging
 
 import xarray as xr
@@ -51,103 +50,86 @@ def latex_partial2(var, deriv1, deriv2):
     return rf"\frac{{\partial^2 {var}}}{{\partial {rtz_symbols[deriv1]}\partial {rtz_symbols[deriv2]}}}"
 
 
+def latex_partial_smart(var, deriv):
+    if len(deriv) == 1:
+        return latex_partial(var, deriv[0])
+    elif len(deriv) == 2:
+        return latex_partial2(var, deriv[0], deriv[1])
+    raise TypeError(f"can only handle derivatives up to length 2, got '{deriv}'")
+
+
+def derivative_name_smart(name, deriv):
+    if len(deriv) == 1:
+        return f"{rtz_directions[deriv[0]]} derivative of the {name}"
+    elif len(deriv) == 2:
+        if deriv[0] == deriv[1]:
+            return f"second {rtz_directions[deriv[0]]} derivative of the {name}"
+        return f"{rtz_directions[deriv[0]]}-{rtz_directions[deriv[1]]} derivative of the {name}"
+    raise TypeError(f"can only handle derivatives up to length 2, got '{deriv}'")
+
+
 # === special ========================================================================== #
 
 
-@register()
+@register(
+    attrs=dict(long_name="magnetic constant", symbol=r"\mu_0"),
+)
 def mu0(ds: Evaluations):
     ds["mu0"] = 4 * np.pi * 1e-7
-    ds.mu0.attrs["long_name"] = "magnetic constant"
-    ds.mu0.attrs["symbol"] = r"\mu_0"
 
 
-@register()
+@register(
+    attrs=dict(long_name="cartesian vector components", symbol=r"\mathbf{x}"),
+)
 def vector(ds: Evaluations):
     ds.coords["vector"] = ("vector", ["x", "y", "z"])
-    ds.vector.attrs["long_name"] = "cartesian vector components"
-    ds.vector.attrs["symbol"] = r"\mathbf{x}"
 
 
 # === profiles ========================================================================= #
 
 
-@register()
-def iota(ds: Evaluations, state: State):
-    ds["iota"] = ("rho", state.evaluate_profile("iota", ds.rho))
-    ds.iota.attrs["long_name"] = "rotational transform profile"
-    ds.iota.attrs["symbol"] = r"\iota"
+def _profile(var, evalvar, long_name, symbol):
+    """Factory function for profile quantities."""
 
-
-@register()
-def diota_dr(ds: Evaluations, state: State):
-    ds["diota_dr"] = ("rho", state.evaluate_profile("iota_prime", ds.rho))
-    ds.diota_dr.attrs["long_name"] = "rotational transform gradient profile"
-    ds.diota_dr.attrs["symbol"] = r"\frac{d\iota}{d\rho}"
-
-
-@register()
-def p(ds: Evaluations, state: State):
-    ds["p"] = ("rho", state.evaluate_profile("p", ds.rho))
-    ds.p.attrs["long_name"] = "pressure profile"
-    ds.p.attrs["symbol"] = r"p"
-
-
-@register()
-def dp_dr(ds: Evaluations, state: State):
-    ds["dp_dr"] = ("rho", state.evaluate_profile("p_prime", ds.rho))
-    ds.dp_dr.attrs["long_name"] = "pressure gradient profile"
-    ds.dp_dr.attrs["symbol"] = r"\frac{dp}{d\rho}"
-
-
-@register()
-def chi(ds: Evaluations, state: State):
-    ds["chi"] = ("rho", state.evaluate_profile("chi", ds.rho))
-    ds.chi.attrs["long_name"] = "poloidal magnetic flux profile"
-    ds.chi.attrs["symbol"] = r"\chi"
-
-
-@register()
-def dchi_dr(ds: Evaluations, state: State):
-    ds["dchi_dr"] = ("rho", state.evaluate_profile("chi_prime", ds.rho))
-    ds.dchi_dr.attrs["long_name"] = "poloidal magnetic flux gradient profile"
-    ds.dchi_dr.attrs["symbol"] = r"\frac{d\chi}{d\rho}"
-
-
-@register()
-def Phi(ds: Evaluations, state: State):
-    ds["Phi"] = ("rho", state.evaluate_profile("Phi", ds.rho))
-    ds.Phi.attrs["long_name"] = "toroidal magnetic flux profile"
-    ds.Phi.attrs["symbol"] = r"\Phi"
-
-
-@register()
-def dPhi_dr(ds: Evaluations, state: State):
-    ds["dPhi_dr"] = ("rho", state.evaluate_profile("Phi_prime", ds.rho))
-    ds.dPhi_dr.attrs["long_name"] = "toroidal magnetic flux gradient profile"
-    ds.dPhi_dr.attrs["symbol"] = r"\frac{d\Phi}{d\rho}"
-
-
-@register()
-def dPhi_drr(ds: Evaluations, state: State):
-    ds["dPhi_drr"] = ("rho", state.evaluate_profile("Phi_2prime", ds.rho))
-    ds.dPhi_drr.attrs["long_name"] = "toroidal magnetic flux curvature profile"
-    ds.dPhi_drr.attrs["symbol"] = r"\frac{d^2\Phi}{d\rho^2}"
-
-
-@register()
-def Phi_n(ds: Evaluations, state: State):
-    ds["Phi_n"] = ("rho", state.evaluate_profile("PhiNorm", ds.rho))
-    ds.Phi_n.attrs["long_name"] = "normalized toroidal magnetic flux profile"
-    ds.Phi_n.attrs["symbol"] = r"\Phi_n"
-
-
-@register()
-def dPhi_n_dr(ds: Evaluations, state: State):
-    ds["dPhi_n_dr"] = ("rho", state.evaluate_profile("PhiNorm_prime", ds.rho))
-    ds.dPhi_n_dr.attrs["long_name"] = (
-        "normalized toroidal magnetic flux gradient profile"
+    @register(
+        quantities=var,
+        attrs=dict(long_name=long_name, symbol=symbol),
     )
-    ds.dPhi_n_dr.attrs["symbol"] = r"\frac{d\Phi_n}{d\rho}"
+    def profile(ds: Evaluations, state: State):
+        ds[var] = ("rho", state.evaluate_profile(evalvar, ds.rho))
+
+    return profile
+
+
+for var, *args in [
+    ("iota", "iota", "rotational transform", r"\iota"),
+    (
+        "diota_dr",
+        "iota_prime",
+        "rotational transform gradient",
+        r"\frac{d\iota}{d\rho}",
+    ),
+    ("p", "p", "pressure", r"p"),
+    ("dp_dr", "p_prime", "pressure gradient", r"\frac{dp}{d\rho}"),
+    ("chi", "chi", "poloidal magnetic flux", r"\chi"),
+    ("dchi_dr", "chi_prime", "poloidal magnetic flux gradient", r"\frac{d\chi}{d\rho}"),
+    ("Phi", "Phi", "toroidal magnetic flux", r"\Phi"),
+    ("dPhi_dr", "Phi_prime", "toroidal magnetic flux gradient", r"\frac{d\Phi}{d\rho}"),
+    (
+        "dPhi_drr",
+        "Phi_2prime",
+        "toroidal magnetic flux curvature",
+        r"\frac{d^2\Phi}{d\rho^2}",
+    ),
+    ("Phi_n", "PhiNorm", "normalized toroidal magnetic flux", r"\Phi_n"),
+    (
+        "dPhi_n_dr",
+        "PhiNorm_prime",
+        "normalized toroidal magnetic flux gradient",
+        r"\frac{d\Phi_n}{d\rho}",
+    ),
+]:
+    globals()[var] = _profile(var, *args)
 
 
 # === base ============================================================================= #
@@ -158,27 +140,20 @@ def _base(var, long_name, symbol):
 
     @register(
         quantities=[var] + [f"d{var}_d{i}" for i in "r t z rr rt rz tt tz zz".split()],
+        attrs={var: dict(long_name=long_name, symbol=symbol)}
+        | {
+            f"d{var}_d{i}": dict(
+                long_name=derivative_name_smart(long_name, i),
+                symbol=latex_partial_smart(symbol, i),
+            )
+            for i in ("r", "t", "z", "rr", "rt", "rz", "tt", "tz", "zz")
+        },
     )
     def base(ds: Evaluations, state: State):
         outputs = state.evaluate_base_tens_all(var, ds.rho, ds.theta, ds.zeta)
         for key, value in zip(base.quantities, outputs):
             ds[key] = (("rho", "theta", "zeta"), value)
-        ds[var].attrs["long_name"] = long_name
-        ds[var].attrs["symbol"] = symbol
-        for key in base.quantities[1:]:
-            deriv = list(key.split("_")[1][1:])
-            if len(deriv) == 1:
-                ds[key].attrs["long_name"] = f"{rtz_directions[deriv[0]]} derivative of the {long_name}"
-                ds[key].attrs["symbol"] = latex_partial(symbol, deriv[0])
-            elif len(deriv) == 2:
-                if deriv[0] == deriv[1]:
-                    ds[key].attrs["long_name"] = f"second {rtz_directions[deriv[0]]} derivative of the {long_name}"
-                else:
-                    ds[key].attrs["long_name"] = f"{rtz_directions[deriv[0]]}-{rtz_directions[deriv[1]]} derivative of the {long_name}"
-                ds[key].attrs["symbol"] = latex_partial2(symbol, deriv[0], deriv[1])
-            else:
-                raise RuntimeError(f"unexpected key {key}")
-    
+
     return base
 
 
@@ -191,11 +166,11 @@ for var, long_name, symbol in [
     globals()[var] = _base(var, long_name, symbol)
 
 
-@register()
+@register(
+    attrs=dict(long_name="number of field periods", symbol=r"N_{FP}"),
+)
 def N_FP(ds: Evaluations, state: State):
     ds["N_FP"] = state.nfp
-    ds.N_FP.attrs["long_name"] = "number of field periods"
-    ds.N_FP.attrs["symbol"] = r"N_{FP}"
 
 
 # === mapping ========================================================================== #
@@ -204,6 +179,20 @@ def N_FP(ds: Evaluations, state: State):
 @register(
     quantities=("pos", "e_X1", "e_X2", "e_zeta3"),
     requirements=("vector", "X1", "X2", "zeta"),
+    attrs=dict(
+        pos=dict(long_name="position vector", symbol=r"\mathbf{x}"),
+        e_X1=dict(
+            long_name="first reference tangent basis vector", symbol=r"\mathbf{e}_{X^1}"
+        ),
+        e_X2=dict(
+            long_name="second reference tangent basis vector",
+            symbol=r"\mathbf{e}_{X^2}",
+        ),
+        e_zeta3=dict(
+            long_name="toroidal reference tangent basis vector",
+            symbol=r"\mathbf{e}_{\zeta^3}",
+        ),
+    ),
 )
 def hmap(ds: Evaluations, state: State):
     outputs = state.evaluate_hmap_only(
@@ -218,15 +207,6 @@ def hmap(ds: Evaluations, state: State):
             ("vector", "rho", "theta", "zeta"),
             value.reshape(3, ds.rho.size, ds.theta.size, ds.zeta.size),
         )
-
-    ds.pos.attrs["long_name"] = "position vector"
-    ds.pos.attrs["symbol"] = r"\mathbf{x}"
-    ds.e_X1.attrs["long_name"] = "first reference tangent basis vector"
-    ds.e_X1.attrs["symbol"] = r"\mathbf{e}_{X^1}"
-    ds.e_X2.attrs["long_name"] = "second reference tangent basis vector"
-    ds.e_X2.attrs["symbol"] = r"\mathbf{e}_{X^2}"
-    ds.e_zeta3.attrs["long_name"] = "toroidal reference tangent basis vector"
-    ds.e_zeta3.attrs["symbol"] = r"\mathbf{e}_{\zeta^3}"
 
 
 # === metric =========================================================================== #
@@ -244,9 +224,22 @@ def hmap(ds: Evaluations, state: State):
         for j in ("r", "t", "z", "rr", "rt", "rz", "tt", "tz", "zz")
         for Xi in ("X1", "X2")
     ],
+    attrs={
+        f"g_{ij}": dict(
+            long_name=f"{ij} component of the metric tensor", symbol=rf"g_{{{ij}}}"
+        )
+        for ij in ("rr", "rt", "rz", "tt", "tz", "zz")
+    }
+    | {
+        f"dg_{ij}_d{k}": dict(
+            long_name=derivative_name_smart(f"{ij} component of the metric tensor", k),
+            symbol=latex_partial(f"g_{{{ij}}}", k),
+        )
+        for ij in ("rr", "rt", "rz", "tt", "tz", "zz")
+        for k in "rtz"
+    },
 )
 def metric(ds: Evaluations, state: State):
-    idxs = {"r": r"\rho", "t": r"\vartheta", "z": r"\zeta"}
     outputs = state.evaluate_metric(
         *[ds[var].broadcast_like(ds.X1).values.flatten() for var in metric.requirements]
     )
@@ -255,24 +248,13 @@ def metric(ds: Evaluations, state: State):
             ds.X1.coords,
             value.reshape(ds.X1.shape),
         )
-        if m := re.match(r"dg_(\w\w)_d(\w)", key):
-            ij, k = m.groups()
-            ij = idxs[ij[0]] + idxs[ij[1]]
-            k = idxs[k]
-            ds[key].attrs["long_name"] = "derivative of a metric coefficient"
-            ds[key].attrs["symbol"] = rf"\frac{{\partial g_{{{ij}}}}}{{\partial {k}}}"
-        else:
-            ij = key.split("_")[1]
-            ij = idxs[ij[0]] + idxs[ij[1]]
-            ds[key].attrs["long_name"] = "metric coefficient"
-            ds[key].attrs["symbol"] = rf"g_{{{ij}}}"
 
 
 # === jacobian determinant ============================================================= #
 
 
 @register(
-    quantities=("Jac_h", *(f"dJac_h_d{i}" for i in "r t z".split())),
+    quantities=("Jac_h", *(f"dJac_h_d{i}" for i in "rtz")),
     requirements=[
         "X1",
         "X2",
@@ -284,6 +266,18 @@ def metric(ds: Evaluations, state: State):
         "dX1_dz",
         "dX2_dz",
     ],
+    attrs={
+        "Jac_h": dict(
+            long_name="reference Jacobian determinant", symbol=r"\mathcal{J}_h"
+        ),
+    }
+    | {
+        f"dJac_h_d{i}": dict(
+            long_name=derivative_name_smart("reference Jacobian determinant", i),
+            symbol=latex_partial_smart(r"\mathcal{J}_h", i),
+        )
+        for i in "rtz"
+    },
 )
 def Jac_h(ds: Evaluations, state: State):
     outputs = state.evaluate_jacobian(
@@ -294,17 +288,6 @@ def Jac_h(ds: Evaluations, state: State):
             ds.X1.coords,
             value.reshape(ds.X1.shape),
         )
-        if key == "Jac_h":
-            ds[key].attrs["long_name"] = "reference Jacobian determinant"
-            ds[key].attrs["symbol"] = r"\mathcal{J}_h"
-        elif m := re.match(r"dJac_h_d(\w)", key):
-            i = m.group(1)
-            ds[key].attrs[
-                "long_name"
-            ] = f"{rtz_directions[i]} derivative of the reference Jacobian determinant"
-            ds[key].attrs["symbol"] = latex_partial(r"\mathcal{J}_h", i)
-        else:
-            raise RuntimeError(f"unexpected key {key}")
 
 
 @register(
@@ -322,6 +305,26 @@ def Jac_h(ds: Evaluations, state: State):
             for i in "r t z rr rt rz tt tz zz".split()
         ),
     ),
+    attrs={
+        "Jac": dict(long_name="Jacobian determinant", symbol=r"\mathcal{J}"),
+        "Jac_l": dict(
+            long_name="logical Jacobian determinant", symbol=r"\mathcal{J}_l"
+        ),
+    }
+    | {
+        f"dJac_d{i}": dict(
+            long_name=derivative_name_smart("Jacobian determinant", i),
+            symbol=latex_partial_smart(r"\mathcal{J}", i),
+        )
+        for i in "rtz"
+    }
+    | {
+        f"dJac_l_d{i}": dict(
+            long_name=derivative_name_smart("logical Jacobian determinant", i),
+            symbol=latex_partial_smart(r"\mathcal{J}_l", i),
+        )
+        for i in "rtz"
+    },
 )
 def Jac(ds: Evaluations):
     ds["Jac_l"] = ds.dX1_dr * ds.dX2_dt - ds.dX1_dt * ds.dX2_dr
@@ -347,51 +350,42 @@ def Jac(ds: Evaluations):
     ds["dJac_dr"] = ds.dJac_h_dr * ds.Jac_l + ds.Jac_h * ds.dJac_l_dr
     ds["dJac_dt"] = ds.dJac_h_dt * ds.Jac_l + ds.Jac_h * ds.dJac_l_dt
     ds["dJac_dz"] = ds.dJac_h_dz * ds.Jac_l + ds.Jac_h * ds.dJac_l_dz
-    ds.Jac_l.attrs["long_name"] = "logical Jacobian determinant"
-    ds.Jac_l.attrs["symbol"] = r"\mathcal{J}_l"
-    ds.Jac.attrs["long_name"] = "Jacobian determinant"
-    ds.Jac.attrs["symbol"] = r"\mathcal{J}"
-    for i in "rtz":
-        da = ds[f"dJac_d{i}"]
-        da.attrs["long_name"] = (
-            f"{rtz_directions[i]} derivative of the Jacobian determinant"
-        )
-        da.attrs["symbol"] = latex_partial(r"\mathcal{J}", i)
-        da = ds[f"dJac_l_d{i}"]
-        da.attrs["long_name"] = (
-            f"{rtz_directions[i]} derivative of the logical Jacobian determinant"
-        )
-        da.attrs["symbol"] = latex_partial(r"\mathcal{J}_l", i)
 
 
 # === straight field line coordinates - PEST =========================================== #
 
 
-@register(requirements=("LA",))
+@register(
+    requirements=("LA",),
+    attrs=dict(long_name="poloidal angle in PEST coordinates", symbol=r"\theta_P"),
+)
 def theta_P(ds: Evaluations):
     ds["theta_P"] = ds.theta + ds.LA
-    ds.theta_sfl.attrs["long_name"] = "poloidal angle in PEST coordinates"
-    ds.theta_sfl.attrs["symbol"] = r"\theta_P"
 
 
-@register(requirements=("vector", "theta_sfl", "dLA_dr", "dLA_dt", "dLA_dz"))
+@register(
+    requirements=("vector", "theta_sfl", "dLA_dr", "dLA_dt", "dLA_dz"),
+    attrs=dict(
+        long_name="poloidal reciprocal basis vector in PEST coordinates",
+        symbol=r"\nabla \theta_P",
+    ),
+)
 def grad_theta_P(ds: Evaluations):
     ds["grad_theta_P"] = (
         ds.grad_theta * (1 + ds.dLA_dt)
         + ds.grad_rho * ds.dLA_dr
         + ds.grad_zeta * ds.dLA_dz
     )
-    ds.grad_theta_P.attrs["long_name"] = (
-        "poloidal reciprocal basis vector in PEST coordinates"
-    )
-    ds.grad_theta_P.attrs["symbol"] = r"\nabla \theta_P"
 
 
-@register(requirements=("Jac", "dLA_dt"))
+@register(
+    requirements=("Jac", "dLA_dt"),
+    attrs=dict(
+        long_name="Jacobian determinant in PEST coordinates", symbol=r"\mathcal{J}_P"
+    ),
+)
 def Jac_P(ds: Evaluations):
     ds["Jac_P"] = ds.Jac / (1 + ds.dLA_dt)
-    ds.Jac_P.attrs["long_name"] = "Jacobian determinant in PEST coordinates"
-    ds.Jac_P.attrs["symbol"] = r"\mathcal{J}_P"
 
 
 # === derived ========================================================================== #
@@ -399,62 +393,50 @@ def Jac_P(ds: Evaluations):
 
 @register(
     requirements=("vector", "e_X1", "e_X2", "dX1_dr", "dX2_dr"),
+    attrs=dict(long_name="radial tangent basis vector", symbol=r"\mathbf{e}_\rho"),
 )
 def e_rho(ds: Evaluations):
-    da = ds.e_X1 * ds.dX1_dr + ds.e_X2 * ds.dX2_dr
-    da.attrs["long_name"] = "radial tangent basis vector"
-    da.attrs["symbol"] = r"\mathbf{e}_\rho"
-    ds["e_rho"] = da
+    ds["e_rho"] = ds.e_X1 * ds.dX1_dr + ds.e_X2 * ds.dX2_dr
 
 
 @register(
     requirements=("vector", "e_X1", "e_X2", "dX1_dt", "dX2_dt"),
+    attrs=dict(long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_\theta"),
 )
 def e_theta(ds: Evaluations):
-    da = ds.e_X1 * ds.dX1_dt + ds.e_X2 * ds.dX2_dt
-    da.attrs["long_name"] = "poloidal tangent basis vector"
-    da.attrs["symbol"] = r"\mathbf{e}_\theta"
-    ds["e_theta"] = da
+    ds["e_theta"] = ds.e_X1 * ds.dX1_dt + ds.e_X2 * ds.dX2_dt
 
 
 @register(
     requirements=("vector", "e_X1", "e_X2", "e_zeta3", "dX1_dz", "dX2_dz"),
+    attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_\zeta"),
 )
 def e_zeta(ds: Evaluations):
-    da = ds.e_X1 * ds.dX1_dz + ds.e_X2 * ds.dX2_dz + ds.e_zeta3
-    da.attrs["long_name"] = "toroidal tangent basis vector"
-    da.attrs["symbol"] = r"\mathbf{e}_\zeta"
-    ds["e_zeta"] = da
+    ds["e_zeta"] = ds.e_X1 * ds.dX1_dz + ds.e_X2 * ds.dX2_dz + ds.e_zeta3
 
 
 @register(
     requirements=("vector", "Jac", "e_theta", "e_zeta"),
+    attrs=dict(long_name="radial reciprocal basis vector", symbol=r"\nabla\rho"),
 )
 def grad_rho(ds: Evaluations):
-    da = xr.cross(ds.e_theta, ds.e_zeta, dim="vector") / ds.Jac
-    da.attrs["long_name"] = "radial reciprocal basis vector"
-    da.attrs["symbol"] = r"\nabla\rho"
-    ds["grad_rho"] = da
+    ds["grad_rho"] = xr.cross(ds.e_theta, ds.e_zeta, dim="vector") / ds.Jac
 
 
 @register(
     requirements=("vector", "Jac", "e_rho", "e_zeta"),
+    attrs=dict(long_name="poloidal reciprocal basis vector", symbol=r"\nabla\theta"),
 )
 def grad_theta(ds: Evaluations):
-    da = xr.cross(ds.e_zeta, ds.e_rho, dim="vector") / ds.Jac
-    da.attrs["long_name"] = "poloidal reciprocal basis vector"
-    da.attrs["symbol"] = r"\nabla\theta"
-    ds["grad_theta"] = da
+    ds["grad_theta"] = xr.cross(ds.e_zeta, ds.e_rho, dim="vector") / ds.Jac
 
 
 @register(
     requirements=("vector", "Jac", "e_rho", "e_theta"),
+    attrs=dict(long_name="toroidal reciprocal basis vector", symbol=r"\nabla\zeta"),
 )
 def grad_zeta(ds: Evaluations):
-    da = xr.cross(ds.e_rho, ds.e_theta, dim="vector") / ds.Jac
-    da.attrs["long_name"] = "toroidal reciprocal basis vector"
-    da.attrs["symbol"] = r"\nabla\zeta"
-    ds["grad_zeta"] = da
+    ds["grad_zeta"] = xr.cross(ds.e_rho, ds.e_theta, dim="vector") / ds.Jac
 
 
 @register(
@@ -469,17 +451,16 @@ def grad_zeta(ds: Evaluations):
         "e_theta",
         "e_zeta",
     ),
+    attrs=dict(
+        B=dict(long_name="magnetic field", symbol=r"\mathbf{B}"),
+        B_contra_t=dict(long_name="poloidal magnetic field", symbol=r"B^\theta"),
+        B_contra_z=dict(long_name="toroidal magnetic field", symbol=r"B^\zeta"),
+    ),
 )
 def B(ds: Evaluations):
     ds["B_contra_t"] = (ds.iota - ds.dLA_dz) * ds.dPhi_dr / ds.Jac
     ds["B_contra_z"] = (1 + ds.dLA_dt) * ds.dPhi_dr / ds.Jac
     ds["B"] = ds.B_contra_t * ds.e_theta + ds.B_contra_z * ds.e_zeta
-    ds.B.attrs["long_name"] = "magnetic field"
-    ds.B.attrs["symbol"] = r"\mathbf{B}"
-    ds.B_contra_t.attrs["long_name"] = "poloidal magnetic field"
-    ds.B_contra_t.attrs["symbol"] = r"B^\theta"
-    ds.B_contra_z.attrs["long_name"] = "toroidal magnetic field"
-    ds.B_contra_z.attrs["symbol"] = r"B^\zeta"
 
 
 @register(
@@ -493,6 +474,14 @@ def B(ds: Evaluations):
     ]
     + [f"dJac_d{i}" for i in "r t z".split()]
     + [f"dLA_d{i}" for i in "t z rt rz tt tz zz".split()],
+    attrs={
+        f"dB_contra_{i}_d{j}": dict(
+            long_name=derivative_name_smart(f"{rtz_directions[i]} magnetic field", j),
+            symbol=latex_partial(f"B^{rtz_symbols[i]}", j),
+        )
+        for i in "tz"
+        for j in "rtz"
+    },
 )
 def dB(ds: Evaluations):
     ds["dB_contra_t_dr"] = -ds.dPhi_dr / ds.Jac * (
@@ -513,11 +502,6 @@ def dB(ds: Evaluations):
     ds["dB_contra_z_dz"] = (
         -ds.dPhi_dr / ds.Jac * (ds.dJac_dz / ds.Jac * (1 + ds.dLA_dt) - ds.dLA_dtz)
     )
-    for i in "tz":
-        for j in "rtz":
-            da = ds[f"dB_contra_{i}_d{j}"]
-            da.attrs["long_name"] = "derivative of magnetic field"
-            da.attrs["symbol"] = latex_partial(f"B^{rtz_symbols[i]}", j)
 
 
 @register(
@@ -532,6 +516,16 @@ def dB(ds: Evaluations):
     + [f"dg_{ij}_d{k}" for ij in "rt rz tt tz zz".split() for k in "rtz"]
     + [f"dB_contra_{i}_d{j}" for i in "tz" for j in "rtz"]
     + [f"e_{i}" for i in "rho theta zeta".split()],
+    attrs={
+        "J": dict(long_name="current density", symbol=r"\mathbf{J}"),
+    }
+    | {
+        f"J_contra_{i}": dict(
+            long_name=f"contravariant {rtz_directions[i]} current density",
+            symbol=rf"J^{{{rtz_symbols[i]}}}",
+        )
+        for i in "rtz"
+    },
 )
 def J(ds: Evaluations):
     def ij(i, j):
@@ -558,24 +552,20 @@ def J(ds: Evaluations):
         + ds.J_contra_z * ds.e_zeta
     )
 
-    for i in "rtz":
-        da = ds[f"J_contra_{i}"]
-        da.attrs["long_name"] = f"contravariant {rtz_directions[i]} current density"
-        da.attrs["symbol"] = rf"J^{{{rtz_symbols[i]}}}"
-    ds.J.attrs["long_name"] = "current density"
-    ds.J.attrs["symbol"] = r"\mathbf{J}"
-
 
 def _modulus(v):
+    """Factory function for modulus (absolute value) quantities."""
+
     @register(
         quantities=f"mod_{v}",
         requirements=(v,),
+        attrs=dict(
+            long_name=f"modulus of the {Evaluations._quantities[v].attrs[v]['long_name']}",
+            symbol=rf"\left|{Evaluations._quantities[v].attrs[v]['symbol']}\right|",
+        ),
     )
     def mod_v(ds: Evaluations):
-        da = np.sqrt(xr.dot(ds[v], ds[v], dim="vector"))
-        da.attrs["long_name"] = f"modulus of the {ds[v].attrs['long_name']}"
-        da.attrs["symbol"] = rf"\left|{ds[v].attrs['symbol']}\right|"
-        ds[f"mod_{v}"] = da
+        ds[f"mod_{v}"] = np.sqrt(xr.dot(ds[v], ds[v], dim="vector"))
 
     return mod_v
 
@@ -596,23 +586,31 @@ for v in [
 
 
 @register(
-    requirements=("B", "e_theta", "dLA_dt", "iota", "B_theta_avg", "B_zeta_avg")
+    requirements=("B", "e_theta", "dLA_dt", "iota", "B_theta_avg", "B_zeta_avg"),
+    attrs=dict(
+        long_name="poloidal derivative of the Boozer potential per definition",
+        symbol=latex_partial(r"G_B", "t"),
+    ),
 )
 def dGB_dt_def(ds: Evaluations):
     Bt = xr.dot(ds.B, ds.e_theta, dim="vector")
-    ds["dGB_dt_def"] = (Bt - ds.B_theta_avg * (1 + ds.dLA_dt)) / (ds.iota * ds.B_theta_avg + ds.B_zeta_avg)
-    ds.dGB_dt_def.attrs["long_name"] = "poloidal derivative of the Boozer potential per definition"
-    ds.dGB_dt_def.attrs["symbol"] = latex_partial(r"G_B", "t")
+    ds["dGB_dt_def"] = (Bt - ds.B_theta_avg * (1 + ds.dLA_dt)) / (
+        ds.iota * ds.B_theta_avg + ds.B_zeta_avg
+    )
 
 
 @register(
-    requirements=("B", "e_zeta", "dLA_dz", "iota", "B_theta_avg", "B_zeta_avg")
+    requirements=("B", "e_zeta", "dLA_dz", "iota", "B_theta_avg", "B_zeta_avg"),
+    attrs=dict(
+        long_name="toroidal derivative of the Boozer potential per definition",
+        symbol=latex_partial(r"G_B", "z"),
+    ),
 )
 def dGB_dz_def(ds: Evaluations):
     Bz = xr.dot(ds.B, ds.e_zeta, dim="vector")
-    ds["dGB_dz_def"] = (Bz - ds.B_theta_avg * ds.dLA_dz - ds.B_zeta_avg) / (ds.iota * ds.B_theta_avg + ds.B_zeta_avg)
-    ds.dGB_dz_def.attrs["long_name"] = "toroidal derivative of the Boozer potential per definition"
-    ds.dGB_dz_def.attrs["symbol"] = latex_partial(r"G_B", "z")
+    ds["dGB_dz_def"] = (Bz - ds.B_theta_avg * ds.dLA_dz - ds.B_zeta_avg) / (
+        ds.iota * ds.B_theta_avg + ds.B_zeta_avg
+    )
 
 
 # === integrals ======================================================================== #
@@ -621,124 +619,123 @@ def dGB_dz_def(ds: Evaluations):
 @register(
     requirements=("Jac",),
     integration=("rho", "theta", "zeta"),
+    attrs=dict(long_name="plasma volume", symbol=r"V"),
 )
 def V(ds: Evaluations):
     ds["V"] = ds.volume_integral(1, Jac=True)
-    ds.V.attrs["long_name"] = "plasma volume"
-    ds.V.attrs["symbol"] = r"V"
 
 
 @register(
     requirements=("Jac", "dPhi_n_dr"),
     integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="derivative of the plasma volume w.r.t. normalized toroidal magnetic flux",
+        symbol=r"\frac{dV}{d\Phi_n}",
+    ),
 )
 def dV_dPhi_n(ds: Evaluations):
     ds["dV_dPhi_n"] = ds.fluxsurface_integral(1, Jac=True) / ds.dPhi_n_dr
-    ds.dV_dPhi_n.attrs["long_name"] = (
-        "derivative of the plasma volume w.r.t. normalized toroidal magnetic flux"
-    )
-    ds.dV_dPhi_n.attrs["symbol"] = r"\frac{dV}{d\Phi_n}"
 
 
 @register(
     requirements=("Jac", "dJac_dr", "dPhi_n_dr"),
     integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="second derivative of the plasma volume w.r.t. normalized toroidal magnetic flux",
+        symbol=r"\frac{d^2V}{d\Phi_n^2}",
+    ),
 )
 def dV_dPhi_n2(ds: Evaluations):
     ds["dV_dPhi_n2"] = (
-        ds.fluxsurface_integral(1, Jac=ds.dJac_dr) / ds.dPhi_n_dr**2
+        ds.fluxsurface_integral(1, Jac=ds.dJac_dr) / ds.dPhi_n_dr** 2
         # with hardcoded d^2 rho / d Phi_n^2 = -1/(4 rho^3)
         - ds.fluxsurface_integral(1, Jac=ds.Jac) / (4 * ds.rho**3)
     )
-    ds.dV_dPhi_n2.attrs["long_name"] = (
-        "second derivative of the plasma volume w.r.t. normalized toroidal magnetic flux"
-    )
-    ds.dV_dPhi_n2.attrs["symbol"] = r"\frac{d^2V}{d\Phi_n^2}"
 
 
 @register(
     quantities=("minor_radius", "major_radius"),
     requirements=("V", "Jac_l"),
     integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        minor_radius=dict(long_name="minor radius", symbol=r"r_{min}"),
+        major_radius=dict(long_name="major radius", symbol=r"r_{maj}"),
+    ),
 )
 def minor_major_radius(ds: Evaluations):
     surface_average = ds.volume_integral(1, Jac="Jac_l") / (2 * np.pi)
     ds["minor_radius"] = np.sqrt(surface_average / np.pi)
-    ds.minor_radius.attrs["long_name"] = "minor radius"
-    ds.minor_radius.attrs["symbol"] = r"r_{min}"
     ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
-    ds.major_radius.attrs["long_name"] = "major radius"
-    ds.major_radius.attrs["symbol"] = r"r_{maj}"
 
 
 @register(
     requirements=("iota",),
     integration=("rho",),
+    attrs=dict(long_name="mean rotational transform", symbol=r"\bar{\iota}"),
 )
 def iota_mean(ds: Evaluations):
     ds["iota_mean"] = ds.radial_integral("iota", Jac=False)
-    ds.iota_mean.attrs["long_name"] = "mean rotational transform"
-    ds.iota_mean.attrs["symbol"] = r"\bar{\iota}"
 
 
 @register(
     requirements=("mu0", "I_tor", "dPhi_dr", "Jac", "g_tt"),
     integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="toroidal current contribution to the rotational transform",
+        symbol=r"\iota_{tor}",
+    ),
 )
 def iota_tor(ds: Evaluations):
     Gamma_t = ds.fluxsurface_integral(ds.g_tt / ds.Jac, Jac=False)
     ds["iota_tor"] = 2 * np.pi * ds.mu0 * ds.I_tor / ds.dPhi_dr / Gamma_t
-    ds.iota_tor.attrs["long_name"] = (
-        "toroidal current contribution to the rotational transform profile"
-    )
-    ds.iota_tor.attrs["symbol"] = r"\iota_{tor}"
 
 
 @register(
     requirements=("iota", "diota_dr"),
+    attrs=dict(long_name="global magnetic shear", symbol=r"s_g"),
 )
 def shear(ds: Evaluations):
-    ds["shear"] = - ds.rho / ds.iota * ds.diota_dr
-    ds.shear.attrs["long_name"] = "global magnetic shear"
-    ds.shear.attrs["symbol"] = r"?"
+    ds["shear"] = -ds.rho / ds.iota * ds.diota_dr
 
 
 @register(
     requirements=("B", "e_theta"),
     integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="average poloidal magnetic field", symbol=r"\overline{B_\theta}"
+    ),
 )
 def B_theta_avg(ds: Evaluations):
     ds["B_theta_avg"] = ds.fluxsurface_average(
         xr.dot(ds.B, ds.e_theta, dim="vector"), Jac=False
     )
-    ds.B_theta_avg.attrs["long_name"] = "average poloidal magnetic field"
-    ds.B_theta_avg.attrs["symbol"] = r"\overline{B_\theta}"
 
 
 @register(
     requirements=("B_theta_avg", "mu0"),
+    attrs=dict(long_name="toroidal current", symbol=r"I_{tor}"),
 )
 def I_tor(ds: Evaluations):
     ds["I_tor"] = ds.B_theta_avg * 2 * np.pi / ds.mu0
-    ds.I_tor.attrs["long_name"] = "toroidal current profile"
-    ds.I_tor.attrs["symbol"] = r"I_{tor}"
 
 
 @register(
     requirements=("B", "e_zeta"),
     integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="average toroidal magnetic field", symbol=r"\overline{B_\zeta}"
+    ),
 )
 def B_zeta_avg(ds: Evaluations):
     ds["B_zeta_avg"] = ds.fluxsurface_average(
         xr.dot(ds.B, ds.e_zeta, dim="vector"), Jac=False
     )
-    ds.B_zeta_avg.attrs["long_name"] = "average toroidal magnetic field"
-    ds.B_zeta_avg.attrs["symbol"] = r"\overline{B_\zeta}"
 
 
 @register(
     requirements=("B_zeta_avg", "mu0"),
     integration=("theta", "zeta"),
+    attrs=dict(long_name="poloidal current", symbol=r"I_{pol}"),
 )
 def I_pol(ds: Evaluations):
     ds["I_pol"] = ds.B_zeta_avg * 2 * np.pi / ds.mu0
@@ -747,5 +744,3 @@ def I_pol(ds: Evaluations):
         logging.warning(
             f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
         )
-    ds.I_pol.attrs["long_name"] = "poloidal current profile"
-    ds.I_pol.attrs["symbol"] = r"I_{pol}"

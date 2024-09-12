@@ -4,7 +4,6 @@ try:
     import numpy as np
     import xarray as xr
     import os
-    from pathlib import Path
     import subprocess
 
     import gvec
@@ -204,19 +203,19 @@ def test_evaluations_init(teststate):
     )
     assert np.allclose(ds.rho, [0.5, 0.6])
     assert {"rho", "theta", "zeta"} == set(ds.coords)
-    assert ds.rho.attrs["integration_points"] == False
+    assert ds.rho.attrs["integration_points"] is False
     ds.compute("iota_mean")
 
     ds = gvec.post.Evaluations(teststate, rho="int", theta=None, zeta=None)
     assert {"rho"} == set(ds.coords)
-    assert ds.rho.attrs["integration_points"] == True
+    assert ds.rho.attrs["integration_points"] is True
     ds.compute("iota_mean")
     ds.compute("V")
 
     ds = gvec.post.Evaluations(teststate, "int", "int", "int")
     for c in ["rho", "theta", "zeta"]:
         assert c in ds.coords
-        assert ds[c].attrs["integration_points"] == True
+        assert ds[c].attrs["integration_points"] is True
     ds.compute("V")
 
 
@@ -538,13 +537,20 @@ def test_integral_quantities(evals_rtz_int, evals_r_int_tz, quantity):
     ds = evals_rtz_int
     ds.compute(quantity)
     # --- check that metadata is preserved --- #
-    assert ds.rho.attrs["integration_points"] == True
+    assert ds.rho.attrs["integration_points"] is True
 
     # automatic change to integration points if necessary
     ds = evals_r_int_tz
     ds.compute(quantity)
-    assert ds.rho.attrs["integration_points"] == True
-    assert ds.theta.attrs["integration_points"] == False
-    assert ds.zeta.attrs["integration_points"] == False
+    assert ds.rho.attrs["integration_points"] is True
+    assert ds.theta.attrs["integration_points"] is False
+    assert ds.zeta.attrs["integration_points"] is False
     assert "theta_weight" not in ds and "zeta_weight" not in ds
     assert "rho_weights" in ds
+
+
+def test_table_of_quantities():
+    s = gvec.Evaluations.table_of_quantities()
+    assert len(s.split("\n")) == 3 + len(
+        gvec.Evaluations._quantities
+    )  # 2 lines header, 1 trailing \n

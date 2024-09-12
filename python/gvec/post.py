@@ -80,8 +80,7 @@ def _evaluate_1D_factory(
 
 
 class State:
-
-    # === Constructor & Desctructor === #
+    # === Constructor & Destructor === #
 
     def __init__(
         self,
@@ -137,7 +136,7 @@ class State:
 
     def __repr__(self):
         return (
-            f"<pygvec.State("
+            "<pygvec.State("
             + ",".join(
                 [
                     "initialized" if self.initialized else "finalized",
@@ -805,6 +804,7 @@ class Evaluations(xr.Dataset):
         quantities: None | str | Iterable[str] = None,
         requirements: Iterable[str] = (),
         integration: Iterable[str] = (),
+        attrs: Mapping = {},
     ):
         """Decorator to register equilibrium quantities.
 
@@ -818,9 +818,9 @@ class Evaluations(xr.Dataset):
             func: (
                 Callable[[Evaluations], Evaluations]
                 | Callable[[Evaluations, State], Evaluations]
-            )
+            ),
         ):
-            nonlocal quantities
+            nonlocal quantities, requirements, integration, attrs
             if quantities is None:
                 quantities = [func.__name__]
             if isinstance(quantities, str):
@@ -828,6 +828,9 @@ class Evaluations(xr.Dataset):
             func.quantities = quantities
             func.requirements = requirements
             func.integration = integration
+            if len(quantities) == 1 and quantities[0] not in attrs:
+                attrs = {quantities[0]: attrs}
+            func.attrs = attrs
             for q in quantities:
                 if q in cls._quantities:
                     logging.warning(
@@ -887,6 +890,10 @@ class Evaluations(xr.Dataset):
                     func(obj, self.state)
                 else:
                     func(obj)
+            # --- set attributes --- #
+            for q in func.quantities:
+                if q in func.attrs:
+                    obj[q].attrs.update(func.attrs[q])
             # --- handle auxiliary integration dataset --- #
             if auxcoords:
                 for q in obj:
@@ -1035,27 +1042,44 @@ class Evaluations(xr.Dataset):
         # --- integrate --- #
         return self.volume_integral(quantity, Jac=Jac) / norm
 
-    def table_of_quantities(self, markdown: bool = False):
-        # ToDo: move attributes to function attributes, remove requirement to compute them - this method becomes a classmethod
-        txt = (
-            f"| {'label':^20s} | {'long name':^40s} | {'symbol':^20s} |\n| "
-            + 20 * "-"
-            + " | "
-            + 40 * "-"
-            + " | "
-            + 20 * "-"
-            + " | \n"
-        )
-        for key, func in sorted(list(self._quantities.items())):
-            self.compute(key)
-            long_name = (
-                self[key].attrs["long_name"] if "long_name" in self[key].attrs else ""
-            )
-            symbol = (
-                f"${self[key].attrs['symbol']}$" if "symbol" in self[key].attrs else ""
-            )
-            symbol = symbol.replace("|", r"\|")
-            txt += f"| {f'`{key}`':^20s} | {long_name:^40s} | {symbol:^20s} |\n"
+    @classmethod
+    def table_of_quantities(cls, markdown: bool = False):
+        """
+        Classmethod to generate the table of computable quantities.
+
+        Parameters
+        ----------
+        markdown : optional
+            If True, return the table as a Ipython.Markdown object. Otherwise, return the table as a string.
+
+        Returns
+        -------
+        str or IPython.display.Markdown
+            The table of quantities. If `markdown` is True, the table is returned as an instance of
+            IPython.display.Markdown. Otherwise, the table is returned as a string.
+
+        Notes
+        -----
+        This method generates a table of quantities based on the attributes of the quantities
+        defined in the class `cls`. The table includes the label, long name, and symbol of each
+        quantity.
+
+        Examples
+        --------
+        >>> Evaluations.table_of_quantities()
+        >>> Evaluations.table_of_quantities(markdown=True)
+        """
+        lines = []
+        for key, func in sorted(list(cls._quantities.items())):
+            long_name = func.attrs[key].get("long_name", "")
+            symbol = func.attrs[key].get("symbol", "")
+            symbol = "$" + symbol.replace("|", r"\|") + "$"
+            lines.append((f"`{key}`", long_name, symbol))
+        sizes = [max(len(s) for s in col) for col in zip(*lines)]
+        txt = f"| {'label':^{sizes[0]}s} | {'long name':^{sizes[1]}s} | {'symbol':^{sizes[2]}s} |\n"
+        txt += f"| {'-'*sizes[0]} | {'-'*sizes[1]} | {'-'*sizes[2]} |\n"
+        for line in lines:
+            txt += f"| {line[0]:^{sizes[0]}s} | {line[1]:^{sizes[1]}s} | {line[2]:^{sizes[2]}s} |\n"
         if markdown:
             from IPython.display import Markdown
 

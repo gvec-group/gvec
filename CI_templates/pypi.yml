@@ -26,3 +26,4 @@ pypi.$[[ inputs.publish-target ]]:
     - job: build.pip$[[ inputs.env ]]
       artifacts: true # for venv
     - job: unit$[[ inputs.env ]]
+  allow_failure: true  # ignore this job for the pipeline status

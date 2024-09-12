@@ -96,3 +96,6 @@ version_file = "python/gvec/_version.py"
 addopts = [
     "--import-mode=importlib",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["F841"]

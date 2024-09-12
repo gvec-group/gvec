@@ -5,4 +5,5 @@
 
 install
 getting-started
+python
 ```
