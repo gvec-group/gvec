@@ -31,5 +31,5 @@ build$[[ inputs.env ]]$[[ inputs.build-postfix ]]:
     - $[[ inputs.cmake-opts ]]
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
-  needs: 
+  needs:
     - env$[[ inputs.env ]]

@@ -91,6 +91,7 @@ variables:
 # =================================================================================================================================
 
 include:
+
   # ============================
   # script templates
   # ============================
@@ -215,15 +216,15 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_build_tag
 
-# UNCOMMENT ONCE MPI IS MERGED!
+# This FAILS before branch develop_mpi_par IS MERGED to branch develop!
 
-#  # release tag + MPI
-#  - local: CI_templates/build.yml
-#    inputs:
-#      env: .mpcdfci_intel_impi_latest
-#      build-postfix: _tag
-#      vars: .vars_matrix_mpi_build_tag
-#      cmake-opts: .cmake_mpi_opts
+  # release tag + MPI
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_intel_impi_latest
+      build-postfix: _tag
+      vars: .vars_matrix_mpi_build_tag
+      cmake-opts: .cmake_mpi_opts
 
   # ============================
   # run jobs
@@ -303,28 +304,23 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_tag
 
-# UNCOMMENT ONCE DEVELOP IS MERGED!
-# Due to missing CMakeList conditional Intel debug flags in branch DEVELOP
-
   # release tag
-  # commented due to crash of the corresponding run stage jobs 
-  #- local: CI_templates/run.yml
-  #  inputs:
-  #    env: .mpcdfci_intel_latest
-  #    run-postfix: _tag
-  #    build-postfix: _tag
-  #    vars: .vars_matrix_run_tag
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      run-postfix: _tag
+      build-postfix: _tag
+      vars: .vars_matrix_run_tag
 
+# This FAILS before branch develop_mpi_par IS MERGED to branch develop!
 
-# UNCOMMENT ONCE MPI IS MERGED!
-
-#  # release tag + MPI
-#  - local: CI_templates/run.yml
-#    inputs:
-#      env: .mpcdfci_intel_impi_latest
-#      run-postfix: _tag
-#      build-postfix: _tag
-#      vars: .vars_matrix_mpi_run_tag
+  # release tag + MPI
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel_impi_latest
+      run-postfix: _tag
+      build-postfix: _tag
+      vars: .vars_matrix_mpi_run_tag
 
 
   # ============================

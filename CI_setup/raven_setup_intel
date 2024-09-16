@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ===========================================
-# use this setup on raven or on cobra with the command:
-# > . CI_setup/mpcdf_setup_intel
+# use this setup on raven with the command:
+# > . CI_setup/raven_setup_intel
 #
-# LAST MODIFIED: 2024-02-26
+# LAST MODIFIED: 2024-09-10
 # ===========================================
 
 module purge

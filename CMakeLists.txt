@@ -22,7 +22,7 @@ STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
 
 IF (ON_MPCDFCIRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
@@ -138,7 +138,7 @@ IF (NOT CMAKE_BUILD_TYPE)
   SET (CMAKE_BUILD_TYPE "Release" CACHE STRING
       "Choose the type of build, options are: Debug / Release / Profile."
       FORCE)
-  SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile )
+  SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile)
 ENDIF (NOT CMAKE_BUILD_TYPE)
 
 IF (CMAKE_BUILD_TYPE MATCHES "Debug")
@@ -422,7 +422,6 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/analyze/analyze_vars.f90
                           ./src/io_netcdf.f90
                           ./src/output/*.f90
-                          ./src/analyze/analyze_vars.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
 
