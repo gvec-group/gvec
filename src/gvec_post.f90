@@ -31,7 +31,7 @@ PROGRAM GVEC_POST
   USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
   USE MODgvec_MHD3D_Vars   ,ONLY: U,F
   USE MODgvec_MHD3D_visu   ,ONLY:WriteSFLoutfile
-  USE MODgvec_MHD3D_EvalFunc,ONLY: EvalForce
+  USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce
   USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
   USE MODgvec_Functional
 !$ USE omp_lib
@@ -92,7 +92,9 @@ PROGRAM GVEC_POST
     outputLevel=outputLevel_r
     JacCheck=2
     !...check this: temporarily commented for gvec_post to run with MPI version...
-    !CALL EvalForce(U(0),.TRUE.,JacCheck, F(0)) !TODO not yet working on develop_mpi_par branch
+    CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
+    U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
+    CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
     CALL Analyze(FileID_r)
     CALL writeSFLoutfile(U(0),FileID_r)
   END DO !iArg
