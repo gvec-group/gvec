@@ -589,7 +589,7 @@ for v in [
     requirements=("B", "e_theta", "dLA_dt", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="poloidal derivative of the Boozer potential per definition",
-        symbol=latex_partial(r"G_B", "t"),
+        symbol=r"\left." + latex_partial(r"G_B", "t") + r"\right|_{\text{def}}",
     ),
 )
 def dGB_dt_def(ds: Evaluations):
@@ -603,7 +603,7 @@ def dGB_dt_def(ds: Evaluations):
     requirements=("B", "e_zeta", "dLA_dz", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="toroidal derivative of the Boozer potential per definition",
-        symbol=latex_partial(r"G_B", "z"),
+        symbol=r"\left." + latex_partial(r"G_B", "z") + r"\right|_{\text{def}}",
     ),
 )
 def dGB_dz_def(ds: Evaluations):

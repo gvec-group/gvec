@@ -414,11 +414,14 @@ class State:
         degree: int,
         m: int,
         n: int,
-        fourier: Literal["sin", "cos", "both", "sincos"] = "both",
+        fourier: Literal["sin", "cos", "both", "sincos"] = "sin",
         continuity: int | Literal["smooth"] = "smooth",
         method: Literal["interpolation", "projection"] = "projection",
+        n_theta: int | None = None,
+        n_zeta: int | None = None,
     ):
         """Construct the Boozer potential $G_B$ ('GB') by projection onto a basis.
+        Recomputes $\\lambda$ with the new basis to satisfy the integrability condition.
 
         Parameters
         ----------
@@ -434,6 +437,10 @@ class State:
             The continuity of the basis. Only 'degree - 1' / 'smooth' and '-1' is supported for now. Default is 'smooth'.
         method
             The method for the construction of the radial DoFs: 'interpolation' on the IPs or 'projection' using Gauss points. Default is 'projection'.
+        n_theta
+            The number of poloidal integration points. Set to 2 * m + 1 per default.
+        n_zeta
+            The number of toroidal integration points. Set to 2 * n + 1 per default.
 
         Raises
         ------
@@ -466,10 +473,34 @@ class State:
             raise ValueError(
                 f"Method must be one of 'interpolation' or 'projection', got {method}."
             )
+        mn_max = [(m, n)] + [
+            _post.get_mn_max(var)
+            for var in ["X1", "X2"] + (["GB"] if self.GB_available else [])
+        ]
+        m_max, n_max = max(list(zip(*mn_max))[0]), max(list(zip(*mn_max))[1])
+        if n_theta is not None and n_theta < 2 * m_max + 1:
+            raise ValueError(
+                f"n_theta must be at least 2 * m_max ({m_max}) + 1, got {n_theta}."
+            )
+        if n_zeta is not None and n_zeta < 2 * n_max + 1:
+            raise ValueError(
+                f"n_zeta must be at least 2 * n_max ({n_max}) + 1, got {n_zeta}."
+            )
 
-        # --- finalize previous base --- #
-        if _post.gb_init:
-            _post.finalize_base_gb()
+        _, n_theta0, n_zeta0 = _post.get_integration_points_num("LA")
+        if n_theta is None:
+            n_theta = 2 * m + 1
+            if n_theta < n_theta0:
+                n_theta = n_theta0
+        if n_zeta is None:
+            n_zeta = 2 * n + 1
+            if n_zeta < n_zeta0:
+                n_zeta = n_zeta0
+
+        # --- prepare lambda --- #
+        _post.set_integration_points_tz(n_theta, n_zeta)
+        _post.change_base_la(degree, continuity, m, n, fourier)
+        _post.recompute_la()
 
         # --- initialize new base --- #
         _post.init_base_gb(degree, continuity, m, n, fourier)
