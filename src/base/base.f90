@@ -42,18 +42,6 @@ TYPE                 :: t_base
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
-!!!TTR  !input parameters sbase
-!!!TTR  INTEGER              :: s_deg                      !! input parameter: degree of Spline/polynomial
-!!!TTR  INTEGER              :: s_degGP                    !! number of Gauss-points (degGP+1) per element >= deg
-!!!TTR  INTEGER              :: s_continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
-!!!TTR  CLASS(t_sgrid),POINTER :: s_grid    !TTR: NEEDED?  !! pointer to grid
-!!!TTR  !input parameters fbase
-!!!TTR  INTEGER              :: f_mn_max(2)   !! input parameter: maximum number of fourier modes: m_max=mn_max(1),n_max=mn_max(2)
-!!!TTR  INTEGER              :: f_mn_nyq(2)   !! number of equidistant integration points (trapezoidal rule) in m and n
-!!!TTR  INTEGER              :: f_nfp         !! number of field periods (toroidal repetition after 2pi/nfp)
-!!!TTR  INTEGER              :: f_sin_cos     !! can be either only sine: _SIN_  or only cosine _COS_ or full: _SINCOS_
-!!!TTR  !input parameters
-!!!TTR  LOGICAL              :: f_exclude_mn_zero  !!  =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 
   CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
   CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
@@ -258,7 +246,7 @@ IMPLICIT NONE
 !$OMP END PARALLEL DO
   CASE(DERIV_S)
 !$OMP PARALLEL DO        &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i) FIRSTPRIVATE(nElems_str,nElems_end)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i)
     DO iMode=1,modes
       DO iElem=nElems_str,nElems_end
         j=sf%s%base_offset(iElem)
@@ -273,7 +261,7 @@ IMPLICIT NONE
   __PERFON('eval_f')
 
 !$OMP PARALLEL DO        &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) FIRSTPRIVATE(nGP_str,nGP_end)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
   DO iGP=nGP_str,nGP_end
     y_IP_GP(:,iGP)=sf%f%evalDOF_IP(deriv(2),y_tmp(iGP,:))
   END DO !iGP
@@ -341,7 +329,6 @@ IMPLICIT NONE
 !===================================================================================================================================
   test_called=.TRUE.
   IF(testlevel.LE.0) RETURN
-  !IF(.NOT.MPIroot) RETURN
   IF(testdbg) THEN
      Fail=" DEBUG  !!"
   ELSE

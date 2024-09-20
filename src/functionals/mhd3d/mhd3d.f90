@@ -790,17 +790,17 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   IF(.NOT.init_LA) THEN
     !lambda init might not be needed since it has no boundary condition and changes anyway after the update of the mapping...
     IF(.NOT.init_fromBConly)THEN
-      SWRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
+      WRITE(UNIT_stdOut,'(4X,A)') "... lambda initialized with VMEC ..."
       ASSOCIATE(modes        =>LA_base%f%modes, &
                 zero_odd_even=>LA_base%f%zero_odd_even)
       DO imode=1,modes
         IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
           U_init%LA(:,iMode)=0.0_wp ! (0,0) mode should not be here, but must be zero if its used.
         ELSE
-              U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
-            END IF!iMode ~ MN_ZERO
-          BC_val =(/ 0.0_wp, 0.0_wp/)
-          CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
+          U_init%LA(:,iMode)=LA_base%s%initDOF( LA_gIP(:,iMode) )
+        END IF!iMode ~ MN_ZERO
+        BC_val =(/ 0.0_wp, 0.0_wp/)
+        CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
       END DO !iMode 
       END ASSOCIATE !LA
     ELSE

@@ -343,19 +343,6 @@ IMPLICIT NONE
   sf%grid       => grid_in
   sf%degGP      =  degGP_in
 
-  !ASSOCIATE(&
-  !            nElems      => sf%grid%nElems         &
-  !          , nElems_str  => sf%grid%nElems_str     &  !< for MPI
-  !          , nElems_end  => sf%grid%nElems_end     &  !< for MPI
-  !          , grid        => sf%grid                &
-  !          , deg         => sf%deg                 &
-  !          , degGP       => sf%degGP               &
-  !          , continuity  => sf%continuity          &
-  !          , nGP         => sf%nGP                 &
-  !          , nGP_str     => sf%nGP_str             &  !< for MPI
-  !          , nGP_end     => sf%nGP_end             &  !< for MPI
-  !          , nBase       => sf%nBase               &
-  !          )
   nElems      = sf%grid%nElems    
   nElems_str  = sf%grid%nElems_str  !< for MPI
   nElems_end  = sf%grid%nElems_end 
@@ -543,7 +530,6 @@ IMPLICIT NONE
       sf%R_edge(sf%nBase-nD+1:sf%nBase,:,iBC)=0.0_wp
     END IF
   END DO!iBC=1,NBC_TYPES
-  !!!END ASSOCIATE !sf%...
 
 
   sf%initialized=.TRUE.

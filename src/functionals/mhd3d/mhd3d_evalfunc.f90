@@ -29,7 +29,7 @@ MODULE MODgvec_MHD3D_evalFunc
   
   PRIVATE
   PUBLIC::InitializeMHD3D_EvalFunc, InitProfilesGP, & 
-          EvalEnergy, EvalForce,CheckEvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc
+          EvalEnergy, EvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc
   
   !evaluations at radial gauss points, size(base%s%nGP_str:base%s%nGP_end)
   REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile 
@@ -215,7 +215,7 @@ SUBROUTINE InitProfilesGP()
 !===================================================================================================================================
 IF(MPIroot)THEN
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP) FIRSTPRIVATE(nGP)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
   DO iGP=1,nGP
     chiPrime_GP( iGP) = Eval_chiPrime(s_GP(iGP))
     pres_GP(     iGP) = Eval_pres(    s_GP(iGP))
@@ -278,9 +278,8 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn,qloc)  &
-!$OMP   FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)  &
 !$OMP   REDUCTION(min:min_detJ) &
-!$OMP   SHARED(J_p,J_h,detJ,dX1_ds,dX2_dthet,dX2_ds,dX1_dthet,X1_IP_GP,X2_IP_GP,zeta_IP,hmap)
+!$OMP   SHARED(nGP_str,nGP_end,mn_IP,J_p,J_h,detJ,dX1_ds,dX2_dthet,dX2_ds,dX1_dthet,X1_IP_GP,X2_IP_GP,zeta_IP,hmap)
   DO iGP=nGP_str,nGP_end
     DO i_mn=1,mn_IP
       J_p(  i_mn,iGP) = ( dX1_ds(i_mn,iGP)*dX2_dthet(i_mn,iGP) &
@@ -294,8 +293,6 @@ SUBROUTINE EvalAux(Uin,JacCheck)
     END DO !i_mn
   END DO !iGP
 !$OMP END PARALLEL DO
-
-
   __PERFOFF('loop_1')
 
   !check Jacobian
@@ -339,8 +336,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta)  &
-!$OMP   FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)  &
-!$OMP   SHARED(b_thet,b_zeta,g_tt,g_tz,g_zz,sJ_p,sJ_h,sdetJ,sJ_bcov_thet,sJ_bcov_zeta,bbcov_sJ, &
+!$OMP   SHARED(nGP_str,nGP_end,mn_IP,b_thet,b_zeta,g_tt,g_tz,g_zz,sJ_p,sJ_h,sdetJ,sJ_bcov_thet,sJ_bcov_zeta,bbcov_sJ, &
 !$OMP          J_p,J_h,hmap,dX1_dzeta,dX2_dzeta,dX1_dthet,dX2_dthet,chiPrime_GP,phiPrime_GP,dLA_dzeta,    &
 !$OMP          dLA_dthet,X1_IP_GP,X2_IP_GP,zeta_IP)
   DO iGP=nGP_str,nGP_end
@@ -404,8 +400,8 @@ SUBROUTINE EvalTotals(Uin,vol,surfAvg)
   surfAvg=0.0_wp
 !$OMP PARALLEL DO       &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!$OMP   REDUCTION(+:vol,surfAvg) PRIVATE(iGP,i_mn) FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)&
-!$OMP   SHARED(J_h,J_p,w_GP)
+!$OMP   REDUCTION(+:vol,surfAvg) PRIVATE(iGP,i_mn) &
+!$OMP   SHARED(nGP_str,nGP_end,mn_IP,J_h,J_p,w_GP)
   DO iGP=nGP_str,nGP_end
     DO i_mn=1,mn_IP
       vol    =vol    +ABS(J_h(i_mn,iGP)*J_p(i_mn,iGP))*w_GP(iGP)
@@ -472,9 +468,8 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC)  DEFAULT(NONE)  &
 !$OMP   PRIVATE(iGP,i_mn,Wmag_GP,Vprime_GP)   &
-!$OMP   FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)  &
 !$OMP   REDUCTION(+:Wmag,Wpres)          &
-!$OMP   SHARED(bbcov_sJ,detJ,pres_GP,w_GP)
+!$OMP   SHARED(nGP_str,nGP_end,mn_IP,bbcov_sJ,detJ,pres_GP,w_GP)
   DO iGP=nGP_str,nGP_end
     Wmag_GP=0.0_wp
 !$OMP SIMD REDUCTION(+:Wmag_GP)
@@ -560,7 +555,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   !additional auxiliary variables for X1 and X2 force
   __PERFON('loop_prepare')
 !$OMP PARALLEL DO    &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,i_mn,p_mu_0) FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,i_mn,p_mu_0)
   DO iGP=nGP_str,nGP_end
     p_mu_0=mu_0*pres_GP(iGP)
     DO i_mn=1,mn_IP
@@ -586,8 +581,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,                                                &
 !$OMP           hmap_Jh_dq1,hmap_g_t1,hmap_g_tt_dq1,hmap_g_z1,hmap_g_zz_dq1,hmap_g_tz_dq1)  &
-!$OMP   FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)                                                 &
-!$OMP   SHARED(X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta, &
+!$OMP   SHARED(nGP_str,nGP_end,mn_IP,X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta, &
 !$OMP          hmap,dW,J_h,J_p,dX2_ds,btt_sJ,bzz_sJ,btz_sJ,                                 &
 !$OMP          coefY,coefY_thet,coefY_zeta,coefY_s)
   DO iGP=nGP_str,nGP_end
@@ -634,7 +628,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('fbase')
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,w_GP_IP) FIRSTPRIVATE(nGP_str,nGP_end)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,w_GP_IP)
   DO iGP=nGP_str,nGP_end
     w_GP_IP=w_GP(iGP)*dthet_dzeta
     CALL X1_base%f%projectIPtoDOF(.FALSE.,w_GP_IP,         0,coefY(     :,iGP),F_X1_GP_IP(  iGP,:))
@@ -647,7 +641,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('sbase')
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase) FIRSTPRIVATE(modes,nElems_str,nElems_end)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
   DO iMode=1,modes
     F_MHD3D%X1(:,iMode)=0.0_wp
     DO iElem=nElems_str,nElems_end 
@@ -682,8 +676,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta, &
 !$OMP           hmap_Jh_dq2,hmap_g_t2,hmap_g_tt_dq2,hmap_g_z2,hmap_g_zz_dq2,hmap_g_tz_dq2) &
-!$OMP   FIRSTPRIVATE(nGP_str,nGP_end,mn_IP)  &
-!$OMP   SHARED(X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX1_dzeta,dX2_dthet,dX2_dzeta,&
+!$OMP   SHARED(nGP_str,nGP_end,mn_IP,X1_IP_GP,X2_IP_GP,zeta_IP,dX1_dthet,dX1_dzeta,dX2_dthet,dX2_dzeta,&
 !$OMP          hmap,dW,J_h,J_p,dX2_ds,btt_sJ,bzz_sJ,btz_sJ,dX1_ds,  &
 !$OMP          coefY,coefY_thet,coefY_zeta,coefY_s)
   DO iGP=nGP_str,nGP_end
@@ -738,7 +731,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('fbase')
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,w_GP_IP) FIRSTPRIVATE(nGP_str,nGP_end) 
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,w_GP_IP)
   DO iGP=nGP_str,nGP_end
     w_GP_IP = w_GP(iGP)*dthet_dzeta
     CALL X2_base%f%projectIPtoDOF(.FALSE.,w_GP_IP,         0,coefY(     :,iGP),F_X2_GP_IP(  iGP,:))
@@ -750,7 +743,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFOFF('fbase')
   __PERFON('sbase')
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase) FIRSTPRIVATE(modes,nElems_str,nElems_end)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
   DO iMode=1,modes
     F_MHD3D%X2(:,iMode)=0.0_wp
     DO iElem=nElems_str,nElems_end
@@ -792,7 +785,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFON('fbase')
 !   coefY_zeta(i_mn,iGP)= w_GP_IP*sJ_bcov_thet(i_mn,iGP)
 !   coefY_thet(i_mn,iGP)=-w_GP_IP*sJ_bcov_zeta(i_mn,iGP)
-!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,w_GP_IP) FIRSTPRIVATE(nGP_str,nGP_end)
+!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP,w_GP_IP)
   DO iGP=nGP_str,nGP_end
     w_GP_IP=PhiPrime_GP(iGP)*w_GP(iGP)*dthet_dzeta
     CALL LA_base%f%projectIPtoDOF(.FALSE., w_GP_IP,DERIV_ZETA, sJ_bcov_thet(:,iGP),F_LA_GP_IP(iGP,:)) !d/dzeta
@@ -802,7 +795,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFOFF('fbase')
   __PERFON('sbase')
 !$OMP PARALLEL DO        &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase) FIRSTPRIVATE(modes,nElems_str,nElems_end)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
   DO iMode=1,modes
     F_MHD3D%LA(:,iMode)=0.0_wp
     DO iElem=nElems_str,nElems_end
@@ -831,7 +824,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFOFF('EvalForce_modes3')
 
 
-  __PERFON('EvalForce_modes1')
+  __PERFON('EvalForce_modes1_finalize')
   nBase     = X1_base%s%nbase
   modes     = X1_base%f%modes
   modes_str = X1_base%f%modes_str
@@ -847,7 +840,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('apply_precond')
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(F_MHD3D,X1_BC_type,X1_base) PRIVATE(iMode) FIRSTPRIVATE(modes_str,modes_end)
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(modes_str,modes_end,F_MHD3D,X1_BC_type,X1_base) PRIVATE(iMode)
   DO iMode=modes_str,modes_end
     CALL X1_base%s%applyBCtoRHS(F_MHD3D%X1(:,iMode),X1_BC_type(:,iMode))
   END DO !iMode
@@ -856,9 +849,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) PRIVATE(iMode)  FIRSTPRIVATE(modes_str,modes_end,nBase) &
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) SHARED(F_MHD3D,precond_X1)
+!$OMP   DEFAULT(NONE) SHARED(modes_str,modes_end,nBase,F_MHD3D,precond_X1)
 #else
 !$OMP   DEFAULT(SHARED)
 #endif
@@ -882,9 +875,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END DO
   __PERFOFF('Bcast_solution_X1')
 
-  __PERFOFF('EvalForce_modes1')
+  __PERFOFF('EvalForce_modes1_finalize')
 
-  __PERFON('EvalForce_modes2')
+  __PERFON('EvalForce_modes2_finalize')
 
   nBase     = X2_base%s%nBase
   modes     = X2_base%f%modes
@@ -901,7 +894,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('apply_precond')
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(X2_base,F_MHD3D,X2_BC_type) PRIVATE(iMode)  FIRSTPRIVATE(modes_str,modes_end)
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) SHARED(modes_str,modes_end,X2_base,F_MHD3D,X2_BC_type) 
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif    
   DO iMode=modes_str,modes_end
     CALL X2_base%s%applyBCtoRHS(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode))
   END DO !iMode
@@ -910,9 +908,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
 !$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) PRIVATE(iMode)  FIRSTPRIVATE(modes_str,modes_end,nBase) &
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) SHARED(precond_X2,F_MHD3D)
+!$OMP   DEFAULT(NONE) SHARED(modes_str,modes_end,nBase,precond_X2,F_MHD3D)
 #else
 !$OMP   DEFAULT(SHARED)
 #endif
@@ -936,10 +934,10 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END DO
   __PERFOFF('Bcast_solution_X2')
 
-  __PERFOFF('EvalForce_modes2')
+  __PERFOFF('EvalForce_modes2_finalize')
 
 
-  __PERFON('EvalForce_modes3')
+  __PERFON('EvalForce_modes3_finalize')
 
   nBase     = LA_base%s%nBase
   modes     = LA_base%f%modes
@@ -956,7 +954,12 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 
   __PERFON('apply_precond')
 !$OMP PARALLEL DO        &
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(LA_base,F_MHD3D,LA_BC_type) PRIVATE(iMode)  FIRSTPRIVATE(modes_str,modes_end)
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
+#ifdef __INTEL_COMPILER
+!$OMP   DEFAULT(NONE) SHARED(modes_str,modes_end,LA_base,F_MHD3D,LA_BC_type) 
+#else
+!$OMP   DEFAULT(SHARED)       
+#endif
   DO iMode=modes_str,modes_end
     CALL LA_base%s%applyBCtoRHS(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode))
   END DO !iMode
@@ -965,9 +968,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   IF(PrecondType.GT.0)THEN
     SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
 !$OMP PARALLEL DO        &
-!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) FIRSTPRIVATE(modes_str,modes_end,nBase)&
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) SHARED(precond_LA,F_MHD3D)
+!$OMP   DEFAULT(NONE) SHARED(modes_str,modes_end,nBase,precond_LA,F_MHD3D)
 #else
 !$OMP   DEFAULT(SHARED)
 #endif
@@ -978,9 +981,9 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
     END SELECT !TYPE(precond_LA)
   ELSE
 !$OMP PARALLEL DO        &
-!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) FIRSTPRIVATE(modes_str,modes_end)&
+!$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) SHARED(LA_base,F_MHD3D)
+!$OMP   DEFAULT(NONE) SHARED(modes_str,modes_end,LA_base,F_MHD3D)
 #else
 !$OMP   DEFAULT(SHARED)
 #endif
@@ -1016,7 +1019,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 #endif
   __PERFOFF('Bcast_solution_LA')
 
-  __PERFOFF('EvalForce_modes3')
+  __PERFOFF('EvalForce_modes3_finalize')
 
   IF(PRESENT(noBC))THEN
     IF(noBC)THEN
@@ -1118,16 +1121,15 @@ SUBROUTINE BuildPrecond()
 !===================================================================================================================================
 !  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
   __PERFON('loop_1')
-  smn_IP=1.0_wp/REAL(mn_IP,wp)
   
   !WHEN COMM CHANGED TO GATHER, ZEROING NOT NEEDED ANYMORE
   D_buf=0.0_wp
+  smn_IP=1.0_wp/REAL(mn_IP,wp)
   
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
 !$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,G11,G21,G31,G22,G32,dJh_dq1,dJh_dq2,bt_sJ,bz_sJ,&
-!$OMP           b_dX1_tz,b_dX2_tz,gtt_dq1,gtz_dq1,gzz_dq1,gtt_dq2,gtz_dq2,gzz_dq2,smn_IP_w_GP) &
-!$OMP   FIRSTPRIVATE(smn_IP,mn_IP,nGP_str,nGP_end)
+!$OMP           b_dX1_tz,b_dX2_tz,gtt_dq1,gtz_dq1,gzz_dq1,gtt_dq2,gtz_dq2,gzz_dq2,smn_IP_w_GP)
   loop_nGP: DO iGP=nGP_str,nGP_end  !<<<<
     !dont forget to average
     !additional variables
@@ -1222,9 +1224,9 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge,nGP) & 
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) SHARED(X1_base,precond_X1,DX1,DX1_tt,DX1_tz,DX1_zz,DX1_ss,X1_BC_Type, &
+!$OMP   DEFAULT(NONE) SHARED(nGP,X1_base,precond_X1,DX1,DX1_tt,DX1_tz,DX1_zz,DX1_ss,X1_BC_Type, &
 !$OMP          modes_str,modes_end,nElems,deg,degGP,nBase)
 #else
 !$OMP   DEFAULT(SHARED)
@@ -1304,9 +1306,9 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)  &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge,nGP)  &
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge)  &
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) SHARED(X2_base,precond_X2,DX2,DX2_tt,DX2_tz,DX2_zz,DX2_ss,X2_BC_Type, &
+!$OMP   DEFAULT(NONE) SHARED(nGP,X2_base,precond_X2,DX2,DX2_tt,DX2_tz,DX2_zz,DX2_ss,X2_BC_Type, &
 !$OMP          modes_str,modes_end,nElems,deg,degGP,nBase) 
 #else
 !$OMP   DEFAULT(SHARED)
@@ -1380,9 +1382,9 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge,nGP) & 
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
 #ifdef __INTEL_COMPILER
-!$OMP   DEFAULT(NONE) SHARED(LA_base,precond_LA,DLA_tt,DLA_tz,DLA_zz,LA_BC_Type, &
+!$OMP   DEFAULT(NONE) SHARED(nGP,LA_base,precond_LA,DLA_tt,DLA_tz,DLA_zz,LA_BC_Type, &
 !$OMP          modes_str,modes_end,nElems,deg,degGP,nBase) 
 #else
 !$OMP   DEFAULT(SHARED)       
@@ -1526,184 +1528,6 @@ SUBROUTINE ApplyPrecond(nBase,precond,F_inout)
 !===================================================================================================================================
   CALL precond%solve_inplace(1,F_inout(1:nBase))
 END SUBROUTINE ApplyPrecond
-
-
-!===================================================================================================================================
-!> check force with finite difference 
-!!
-!===================================================================================================================================
-SUBROUTINE checkEvalForce(Uin,fileID)
-! MODULES
-  USE MODgvec_Globals       , ONLY: testlevel
-  USE MODgvec_MHD3D_Vars    , ONLY: X1_base,X2_base,LA_base,PrecondType
-  USE MODgvec_MHD3D_visu    , ONLY: WriteDataMN_visu
-  USE MODgvec_sol_var_MHD3D , ONLY: t_sol_var_MHD3D
-  USE MODgvec_Output_Vars   , ONLY: outputLevel
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin   !! input solution 
-  INTEGER               , INTENT(IN   ) :: FileID
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER                               :: iBase,nBase,iMode,modes,JacCheck,PrecondTypeTmp,np1d
-  REAL(wp)                              :: W_MHD3D_in,eps_glob,eps,pTg
-  CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Ucopy
-  CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Utest
-  CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Ftest 
-  CLASS(t_sol_var_MHD3D),ALLOCATABLE    :: Feval 
-  CHARACTER(LEN=60)                     :: fname
-!===================================================================================================================================
-  IF(testLevel.EQ.-1) RETURN
-  PrecondTypeTmp=PrecondType
-  ALLOCATE(t_sol_var_MHD3D :: Utest)
-  ALLOCATE(t_sol_var_MHD3D :: Ucopy)
-  ALLOCATE(t_sol_var_MHD3D :: Ftest)
-  ALLOCATE(t_sol_var_MHD3D :: Feval)
-
-  CALL Ucopy%copy(Uin)
-  CALL Utest%copy(Ucopy) !initialize
-  CALL Ftest%copy(Ucopy) !initialize
-  CALL Ftest%set_to(0.0_wp)
-  CALL Feval%copy(Ftest)
-
-  JacCheck=1 !abort if detJ<0 
-  W_MHD3D_in=EvalEnergy(Utest,.TRUE.,JacCheck)
-  eps_glob=1.0e-10_wp*W_MHD3D_in
-
-  nBase = X1_Base%s%nBase 
-  modes = X1_Base%f%modes
-  SWRITE(*,*)'Test X1',nBase,modes
-  DO iBase=1,nBase
-    eps=eps_glob
-    DO iMode=1,modes
-      Utest%X1(iBase,iMode)= Ucopy%X1(iBase,iMode)+eps
-      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
-      Utest%X1(iBase,iMode)= Ucopy%X1(iBase,iMode)
-
-      Ftest%X1(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
-    END DO
-  END DO 
-
-  nBase = X2_Base%s%nBase 
-  modes = X2_Base%f%modes
-  SWRITE(*,*)'Test X2',nBase,modes
-  DO iBase=1,nBase
-    eps=eps_glob
-    DO iMode=1,modes
-      Utest%X2(iBase,iMode)= Ucopy%X2(iBase,iMode)+eps
-      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
-      Utest%X2(iBase,iMode)= Ucopy%X2(iBase,iMode)
-
-      Ftest%X2(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
-    END DO
-  END DO 
-
-  nBase = LA_Base%s%nBase 
-  modes = LA_Base%f%modes
-  SWRITE(*,*)'Test LA',nBase,modes
-  DO iBase=1,nBase
-    eps=eps_glob 
-    DO iMode=1,modes
-      Utest%LA(iBase,iMode)= Ucopy%LA(iBase,iMode)+eps
-      Utest%W_MHD3D        = EvalEnergy(Utest,.TRUE.,JacCheck)
-      Utest%LA(iBase,iMode)= Ucopy%LA(iBase,iMode)
-
-      Ftest%LA(iBase,iMode)= -(Utest%W_MHD3D-W_MHD3D_in)/eps
-    END DO
-  END DO 
-
-  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of test force without BC |X1|,|X2|,|LA|: ',SQRT(Ftest%norm_2())
-
-  PrecondType=-1
-  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.FALSE.)
-  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force with BC |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
-  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval,noBC=.TRUE.)
-  SWRITE(UNIT_stdOut,'(A,3E21.11)')'Norm of eval force without BC |X1|,|X2|,|LA|: ',SQRT(Feval%norm_2())
-
-  IF((testlevel.GE.2).AND.MPIroot)THEN
-  WRITE(*,*)'-----------------------'
-  modes = X1_Base%f%modes
-  DO iMode=1,modes
-    WRITE(*,'(A,2I4,A,E11.3)')'X1 mode',X1_base%f%Xmn(1,iMode),X1_base%f%Xmn(2,iMode),', maxUMode= ',&
-                                            MAXVAL(ABS(Ucopy%X1(1:X1_base%s%nBase,iMode)))
-    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X1(1:X1_base%s%nBase,iMode))), & 
-                                ', maxfeval= ',MAXVAL((Feval%X1(1:X1_base%s%nBase,iMode)))
-    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X1(1:X1_base%s%nBase,iMode))), & 
-                                ', maxftest= ',MAXVAL((Ftest%X1(1:X1_base%s%nBase,iMode))), & 
-                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X1(1:X1_base%s%nBase,iMode) &
-                                                      -Feval%X1(1:X1_base%s%nBase,iMode)))
-  END DO
-  WRITE(*,*)'-----------------------'
-  modes = X2_Base%f%modes
-  DO iMode=1,modes
-    WRITE(*,'(A,2I4,A,E11.3)')'X2 mode',X2_base%f%Xmn(1,iMode),X2_base%f%Xmn(2,iMode),', maxUMode= ',&
-                                            MAXVAL(ABS(Ucopy%X2(1:X2_base%s%nBase,iMode)))
-    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%X2(1:X2_base%s%nBase,iMode))), & 
-                                ', maxfeval= ',MAXVAL((Feval%X2(1:X2_base%s%nBase,iMode)))
-    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%X2(1:X2_base%s%nBase,iMode))), & 
-                                ', maxftest= ',MAXVAL((Ftest%X2(1:X2_base%s%nBase,iMode))), & 
-                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%X2(1:X2_base%s%nBase,iMode) &
-                                                      -Feval%X2(1:X2_base%s%nBase,iMode)))
-  END DO
-  WRITE(*,*)'-----------------------'
-  modes = LA_Base%f%modes
-  DO iMode=1,modes
-    WRITE(*,'(A,2I4,A,E11.3)')'LA mode',LA_base%f%Xmn(1,iMode),LA_base%f%Xmn(2,iMode),', maxUMode= ',&
-                                            MAXVAL(ABS(Ucopy%LA(1:LA_base%s%nBase,iMode)))
-    WRITE(*,'(4X,2(A,E11.3))')    'minfeval= ',MINVAL((Feval%LA(1:LA_base%s%nBase,iMode))), & 
-                                ', maxfeval= ',MAXVAL((Feval%LA(1:LA_base%s%nBase,iMode)))
-    WRITE(*,'(4X,3(A,E11.3))')    'minftest= ',MINVAL((Ftest%LA(1:LA_base%s%nBase,iMode))), & 
-                                ', maxftest= ',MAXVAL((Ftest%LA(1:LA_base%s%nBase,iMode))), & 
-                     ', maxdiff force= ' , MAXVAL(ABS( Ftest%LA(1:LA_base%s%nBase,iMode) &
-                                                      -Feval%LA(1:LA_base%s%nBase,iMode)))
-  END DO
-  END IF !testlevel >=2
-  
-  IF(testlevel.GE.3.AND.MPIroot)THEN
-    np1d=2*(X1_base%s%deg+3)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X1_cos_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Ftest%X1)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_X2_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Ftest%X2)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Ftest_LA_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Ftest%LA)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X1_cos_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X1_cos_',0,X1_base,Feval%X1)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_X2_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'X2_sin_',0,X2_base,Feval%X2)
-    WRITE(fname,'(A,"_",I4.4,"_",I8.8)')'Feval_LA_sin_',outputLevel,fileID
-    CALL writeDataMN_visu(np1d,fname,'LA_sin_',0,LA_base,Feval%LA)
-  END IF !testlevel >=3
-
-  !check preconditioner positivity: preconditioned force^T * force should be <0
-  PrecondType=-1
-  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Feval)
-  PrecondType= 1
-  CALL EvalForce(Ucopy,.TRUE.,JacCheck,Ftest)
-  IF(MPIroot)THEN
-    pTg= - SUM(Ftest%q*Feval%q)
-    IF (pTg.GT.0.0_wp) THEN
-      WRITE(*,'(A,E11.3)')'WARING: PRECONDITIONER is not positive symmetric',ptg
-    ELSE
-      WRITE(*,'(A,E11.3)')'OK: PRECONDITIONER is positive symmetric',ptg
-    END IF
-  END IF
-  
-  PrecondType=PrecondTypeTmp !save back 
-
-  CALL Utest%free()
-  CALL Ucopy%free()
-  CALL Ftest%free()
-  CALL Feval%free()
-
-
-  DEALLOCATE(Utest)
-  DEALLOCATE(Ucopy)
-  DEALLOCATE(Ftest)
-  DEALLOCATE(Feval)
-
-END SUBROUTINE checkEvalForce
 
 
 !===================================================================================================================================

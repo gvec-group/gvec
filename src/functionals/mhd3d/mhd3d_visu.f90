@@ -883,7 +883,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   sfltype=MERGE("_boozer","_pest  ",whichSFLout.EQ.2)
   WRITE(filename,'(A,"_",I4.4,"_",I8.8,"")') & 
   TRIM(Projectname)//TRIM(sfltype),outputLevel,fileID
-  SWRITE(UNIT_stdOut,'(A,A,A)') 'WRITING SFL output: ',TRIM(filename),' ...'
+  WRITE(UNIT_stdOut,'(A,A,A)') 'WRITING SFL output: ',TRIM(filename),' ...'
   __PERFON("output_sfl")
   iVal=1
   VP_rho        =iVal;iVal=iVal+1; VarNames(VP_rho      )="rho"
