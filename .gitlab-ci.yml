@@ -636,21 +636,12 @@ include:
 # ${HASH_TAG} branch (release version)
 
 .vars_matrix_run_tag:
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
-      - CMP_MODE: ["Release"]
-        OMP_MODE: ["ompON"]
+  extends: .vars_matrix_run
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
 
 .vars_matrix_mpi_run_tag:
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
-        MPI_RNKS: ["1","2"]
+  extends: .vars_matrix_mpi_run
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
 

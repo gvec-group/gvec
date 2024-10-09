@@ -25,7 +25,7 @@ reg.mpcdfci_intel-minimal:
     OMP_MODE_2: "ompON"
     CASENAME_1: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
     CASENAME_2: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
-    #uncoment the next line to remove warning job#
+    #uncomment the next line to remove warning job#
     PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
   allow_failure:
     exit_codes: 5  # warnings
@@ -88,10 +88,10 @@ reg.mpcdfci_intel-vs-tag:
   stage: regression
   extends:
     - .mpcdfci_intel2023        # need to choose one Docker image: this sets $CURR_CMP=intel_ifort
-    #- .mpcdfci_intel_latest     # need to choose one Docker image: this sets $CURR_CMP=intel
+    #- .mpcdfci_intel_latest    # need to choose one Docker image: this sets $CURR_CMP=intel
     - .before_script_modules    # to be able to load modules
     - .script_regression
-    - .vars_matrix_run
+    - .vars_matrix_run          # can NOT use .vars_matrix_run_tag here, otherwise HASH_TAG = HASH_TAG_REFERENCE
     - .rules_default
   variables:
     HASH_TAG_1: ${HASH_TAG}
