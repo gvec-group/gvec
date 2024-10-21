@@ -1058,8 +1058,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         var_out(VP_Bsubthetstar ,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
         var_out(VP_Bsubzetastar ,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
       END DO; END DO !izeta,ithet
-      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
-      var_out(VP_Itor ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp))
+      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)*(2.0e-7_wp*TWOPI)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+      var_out(VP_Ipol ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)*(2.0e-7_wp*TWOPI))
     END DO !i_rp=1,n_rp
 
     END ASSOCIATE
@@ -1139,8 +1139,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         var_out(VP_Bsubthetstar,ithet,izeta,i_rp)=SUM(Bfield*e_thetstar)
         var_out(VP_Bsubzetastar,ithet,izeta,i_rp)=SUM(Bfield*e_zetastar)
       END DO; END DO !ithet,izeta
-      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
-      var_out(VP_Itor ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp))
+      var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)*(2.0e-7_wp*TWOPI)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
+      var_out(VP_Ipol ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)*(2.0e-7_wp*TWOPI))
     END DO !i_rp=1,,n_rp
     END ASSOCIATE
   END IF !useSFLcoords
