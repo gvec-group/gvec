@@ -198,19 +198,50 @@ IMPLICIT NONE
   CLASS(t_transform_sfl), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+  REAL(wp):: thetzeta_trafo(2,sf%X1sfl_base%f%mn_nyq(1)*sf%X1sfl_base%f%mn_nyq(2))
+  REAL(wp),DIMENSION(sf%X1sfl_base%f%mn_nyq(1)*sf%X1sfl_base%f%mn_nyq(2))::check_1,check_2
 !===================================================================================================================================
 SELECT CASE(sf%whichSFLcoord)
 CASE(1) !PEST
   CALL Transform_Angles_sinterp(LA_base_in,LA_in,X1_base_in,X1_in,"X1",sf%X1sfl_base,sf%X1sfl)
   CALL Transform_Angles_sinterp(LA_base_in,LA_in,X2_base_in,X2_in,"X2",sf%X2sfl_base,sf%X2sfl)
+  CALL Find_new_Angles(LA_base_in%f,LA_in(LA_base_in%s%nBase,:),sf%X1sfl_base%f%mn_nyq,sf%X1sfl_base%f%x_IP,thetzeta_trafo)
+WRITE(*,*)'TEST_rootsearch, PEST:'
 CASE(2) !BOOZER
   CALL sf%Get_Boozer(X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in) ! fill sf%GZ,sf%Gthet
-
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,sf%GZ_base,sf%GZ,"GZ",sf%GZsfl_base,sf%GZsfl,B_in=sf%GZ)
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,sf%GZ_base,sf%Gthet,"Gt",sf%Gzsfl_base,sf%Gtsfl,B_in=sf%GZ)
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,X1_base_in,X1_in,"X1",sf%X1sfl_base,sf%X1sfl,B_in=sf%GZ)
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,X2_base_in,X2_in,"X2",sf%X2sfl_base,sf%X2sfl,B_in=sf%GZ)
+
+  !!TEST new angle transform for last surface
+  CALL Find_new_Angles(sf%GZ_base%f,sf%Gthet(sf%GZ_base%s%nBase,:),sf%X1sfl_base%f%mn_nyq,sf%X1sfl_base%f%x_IP, &
+                       thetzeta_trafo,B_in=sf%GZ(sf%GZ_base%s%nBase,:))
+WRITE(*,*)'TEST_rootsearch, BOOZER:'
+check_1= sf%GZ_base%f%evalDOF_xn(sf%X1sfl_base%f%mn_nyq(1)*sf%X1sfl_base%f%mn_nyq(2), &
+                                 thetzeta_trafo,0,sf%GZ(sf%GZ_base%s%nBase,:))
+check_2= sf%GZsfl_base%f%evalDOF_IP(0,sf%GZsfl(sf%GZsfl_base%s%nBase,:))
+WRITE(*,*)'TEST_rootsearch, GZ:',maxval(abs(check_1-check_2)),maxval(abs(check_1)),maxval(abs(check_2))
+check_2 = sf%X1sfl_base%f%x_IP(2,:) - check_2  ! zeta=zetaB-GZ(thetaB,zetaB)
+check_1 = thetzeta_trafo(2,:)
+WRITE(*,*)'TEST_rootsearch, maxdiff in zeta(thetaB_i,zetaB_j):',maxval(abs(check_1-check_2))
+check_1= sf%GZ_base%f%evalDOF_xn(sf%X1sfl_base%f%mn_nyq(1)*sf%X1sfl_base%f%mn_nyq(2), &
+                                 thetzeta_trafo,0,sf%Gthet(sf%GZ_base%s%nBase,:))
+check_2= sf%GZsfl_base%f%evalDOF_IP(0,sf%Gtsfl(sf%GZsfl_base%s%nBase,:))
+WRITE(*,*)'TEST_rootsearch, Gt:',maxval(abs(check_1-check_2)),maxval(abs(check_1)),maxval(abs(check_2))
+check_2 = sf%X1sfl_base%f%x_IP(1,:) - check_2  ! theta=thetaB-Gt(thetaB,zetaB)
+check_1 = thetzeta_trafo(1,:)
+WRITE(*,*)'TEST_rootsearch, maxdiff in theta(thetaB_i,zetaB_j):',maxval(abs(check_1-check_2))
 END SELECT
+
+check_1= X1_base_in%f%evalDOF_xn(sf%X1sfl_base%f%mn_nyq(1)*sf%X1sfl_base%f%mn_nyq(2), &
+                                 thetzeta_trafo,0,X1_in(X1_base_in%s%nBase,:))
+check_2= sf%X1sfl_base%f%evalDOF_IP(0,sf%X1sfl(sf%X1sfl_base%s%nBase,:))
+WRITE(*,*)'TEST_rootsearch, X1:',maxval(abs(check_1-check_2)),maxval(abs(check_1)),maxval(abs(check_2))
+check_1= X2_base_in%f%evalDOF_xn(sf%X1sfl_base%f%mn_nyq(1)*sf%X1sfl_base%f%mn_nyq(2), &
+thetzeta_trafo,0,X2_in(X2_base_in%s%nBase,:))
+check_2= sf%X2sfl_base%f%evalDOF_IP(0,sf%X2sfl(sf%X2sfl_base%s%nBase,:))
+WRITE(*,*)'TEST_rootsearch, X2:',maxval(abs(check_1-check_2)),maxval(abs(check_1)),maxval(abs(check_2))
 
 END SUBROUTINE BuildTransform_SFL
 
@@ -438,6 +469,146 @@ IMPLICIT NONE
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
   __PERFOFF('transform_angles')
 END SUBROUTINE Transform_Angles_sinterp
+
+!===================================================================================================================================
+!> on one flux surface, find for an equidistant grid in thet*_i,zeta*_j the corresponding thet_ij zeta_ij positions, given
+!> Here, new angles are 
+!> theta*=theta+A(theta,zeta)
+!>  zeta*=zeta+B(theta,zeta), 
+!> with A,B periodic functions and zero average and same base 
+!> Note that in this routine, we will use a 2d root search with a newton method, setting 
+!> [f1,f2]^T = [thet+A(thet,zeta)-thet*=0,  zeta+B(thet,zeta)-zeta*=0]^T
+!> that includes the derivatives (Jacobian), so that the newton step needs to the solved:
+!> -[f1]    [ 1+dA/dthet    dA/dzeta] [dthet]
+!>  |  | =  |                       | |     |
+!> -[f2]    [  dB/dthet   1+dB/dzeta] [dzeta] 
+!> 
+!!
+!===================================================================================================================================
+SUBROUTINE Find_new_Angles(AB_fbase_in,A_in,tz_dims,tzstar,thetzeta_out,B_in)
+! MODULES
+USE MODgvec_Globals,ONLY: UNIT_stdOut,PI
+USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new
+USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF,NewtonRoot2D
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase),INTENT(IN) :: AB_fbase_in                                    !< basis of A and B
+  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_fbase_in%modes) !< coefficients of thet*=thet+A(theta,zeta)  
+  INTEGER      ,INTENT(IN) :: tz_dims(2)                 !< size of the 2d grid in thetstar,zetastar
+  REAL(wp)     ,INTENT(IN) :: tzstar(2,tz_dims(1),tz_dims(2)) !< thetstar,zetastar positions 
+  REAL(wp)     ,INTENT(IN),OPTIONAL :: B_in(1:AB_fbase_in%modes) !< coefficients of zeta*=zeta+B(theta,zeta)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES      
+  REAL(wp) ,INTENT(INOUT) :: thetzeta_out(2,tz_dims(1),tz_dims(2))
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER               :: i,j
+  REAL(wp)              :: theta_star,zeta_star,zeta,xout(2),x0(2),bounds(2)
+  REAL(wp),DIMENSION(AB_fbase_in%modes)::base_x,base_dthet,base_dzeta
+  LOGICAL               :: Bpresent
+  REAL(wp)              :: check(tz_dims(1)*tz_dims(2)),maxerr
+!===================================================================================================================================
+  Bpresent=PRESENT(B_in)
+
+  SWRITE(UNIT_StdOut,'(A,2I4,A,L)')'Find new angles on grid ',tz_dims,', B_in= ',Bpresent
+                     
+  __PERFON('find_new_angles')
+  __PERFON('init')
+  bounds=(/PI, PI/AB_fbase_in%nfp/)
+  IF(Bpresent)THEN !BOOZER angles,2D root search
+!!! !$OMP PARALLEL DO COLLAPSE(2)     &  
+!!! !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!!! !$OMP   PRIVATE(i,j,x0,xout) &
+!!! !$OMP   SHARED(tz_dims,tzstar,thetzeta_out,bounds,AB_fbase_in,A_in,B_in)
+    DO j=1,tz_dims(2)
+      DO i=1,tz_dims(1)
+        x0=tzstar(:,i,j) 
+        !                                     a     b       maxstep  , xinit    ,funcs, funcs_jac
+        xout = NewtonRoot2D(1.0e-12_wp,x0-bounds,x0+bounds,0.1_wp*bounds,x0,ABtrafo,ABtrafo_jac)
+        thetzeta_out(:,i,j)=xout
+      END DO
+    END DO
+!!! !$OMP END PARALLEL DO
+    !check
+    check=AB_fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out,0,A_in)
+    maxerr=maxval(abs(check+RESHAPE(thetzeta_out(1,:,:)-tzstar(1,:,:),(/tz_dims(1)*tz_dims(2)/))))
+    WRITE(*,*)'CHECK BOOZER THETA*',maxerr
+    IF(maxerr.GT.1.0e-12)THEN
+      CALL abort(__STAMP__, &
+          "Find_new_Angles: Error in boozer theta*")
+    END IF
+    check=AB_fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out,0,B_in)
+    maxerr=maxval(abs(check+RESHAPE(thetzeta_out(2,:,:)-tzstar(2,:,:),(/tz_dims(1)*tz_dims(2)/))))
+    WRITE(*,*)'CHECK BOOZER ZETA*', maxerr
+    IF(maxerr.GT.1.0e-12)THEN
+      CALL abort(__STAMP__, &
+          "Find_new_Angles: Error in boozer zeta*")
+    END IF  
+  ELSE !PEST, only 1D root search in theta
+!!! !$OMP PARALLEL DO COLLAPSE(2)     &  
+!!! !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!!! !$OMP   PRIVATE(i,j,theta_star,zeta) &
+!!! !$OMP   SHARED(tz_dims,tzstar,thetzeta_out,bounds,AB_fbase_in,A_in)
+    DO j=1,tz_dims(2)
+      DO i=1,tz_dims(1)
+         theta_star=tzstar(1,i,j); zeta=tzstar(2,i,j)          
+         thetzeta_out(1,i,j)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-bounds(1),theta_star+bounds(1),0.1_wp*bounds(1), &
+                                              theta_star, theta_star,A_FRdFR) !start, rhs,func
+         thetzeta_out(2,i,j)=zeta
+      END DO
+    END DO
+!!! !$OMP END PARALLEL DO
+    !check
+    check=AB_fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out,0,A_in)
+    maxerr=maxval(abs(check+RESHAPE(thetzeta_out(1,:,:)-tzstar(1,:,:),(/tz_dims(1)*tz_dims(2)/))))
+    WRITE(*,*)'CHECK PEST THETA*',maxerr
+    IF(maxerr.GT.1.0e-12)THEN
+      CALL abort(__STAMP__, & 
+          "Find_new_Angles: Error in PEST theta*")
+    END IF
+  END IF
+
+  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  __PERFOFF('find_new_angles')
+
+  CONTAINS 
+!for newton root search 
+  FUNCTION ABtrafo(xiter) RESULT(FF) 
+    !uses current x0=(zetastar,thetastar) , and A,B and derivatives from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: xiter(2)
+    REAL(wp) :: FF(2) !two functions of x1,x2 to find root of
+    base_x =AB_fbase_in%eval(0,xiter) !base evaluation
+
+    FF(1)=xiter(1)-x0(1)+ DOT_PRODUCT(base_x,A_in)
+    FF(2)=xiter(2)-x0(2)+ DOT_PRODUCT(base_x,B_in)
+  END FUNCTION ABtrafo
+
+  FUNCTION ABtrafo_jac(xiter) RESULT(dFF) 
+    !uses current x0=(zetastar,thetastar) , and A,B and derivatives from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: xiter(2)
+    REAL(wp) :: dFF(2,2) !jacobian 
+    base_dthet =AB_fbase_in%eval(DERIV_THET,xiter) !dbase/dtheta
+    base_dzeta =AB_fbase_in%eval(DERIV_ZETA,xiter) !dbase/dtheta
+
+    dFF(1,:)=(/1.0_wp+ DOT_PRODUCT(base_dthet,A_in),        DOT_PRODUCT(base_dzeta,A_in)/)
+    dFF(2,:)=(/        DOT_PRODUCT(base_dthet,B_in),1.0_wp+ DOT_PRODUCT(base_dzeta,B_in)/)
+  END FUNCTION ABtrafo_jac
+
+  FUNCTION A_FRdFR(theta_iter)
+    !uses current zeta where newton is called, and A from subroutine above
+    IMPLICIT NONE
+    REAL(wp) :: theta_iter
+    REAL(wp) :: A_FRdFR(2) !output function and derivative
+    !--------------------------------------------------- 
+    A_FRdFR(1)=theta_iter+AB_fbase_in%evalDOF_x((/theta_iter,zeta/),         0,A_in(:))  !theta_iter+lambda = thet* (rhs)
+    A_FRdFR(2)=1.0_wp    +AB_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,A_in(:)) !1+dlambda/dtheta  
+  END FUNCTION A_FRdFR
+
+
+END SUBROUTINE find_new_angles
 
 !===================================================================================================================================
 !> Transform a function from VMEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*) 
