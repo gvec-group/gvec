@@ -23,6 +23,7 @@ MODULE MODgvec_Transform_SFL
 ! MODULES
 USE MODgvec_Globals, ONLY:wp,abort,MPIroot
 USE MODgvec_base   ,ONLY: t_base
+USE MODgvec_fbase   ,ONLY: t_fbase
 USE MODgvec_sGrid   ,ONLY: t_sgrid
 USE MODgvec_hmap,  ONLY: c_hmap
 IMPLICIT NONE
@@ -71,7 +72,35 @@ INTERFACE transform_sfl_new
   MODULE PROCEDURE transform_sfl_new
 END INTERFACE
 
-PUBLIC :: t_transform_sfl,transform_sfl_new
+!===================================================================================================================================
+!> Class for the computation of the boozer transform, on a given radial grid positions rho, with iota(rho) phiPrime(rho) values.
+!!
+!! theta^Boozer=theta+lambda+iota(rho)*nu(rho,theta,zeta)
+!! zeta^Boozer =zeta                  +nu(rho,theta,zeta)
+!===================================================================================================================================
+TYPE :: t_sfl_boozer
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !input parameters
+  INTEGER  :: nrho       !! number of rho positions
+  INTEGER  :: mn_max(2)
+  INTEGER  :: nfp        !! number of field periods 
+  CHARACTER(LEN=8) :: sin_cos    !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
+  TYPE(t_fbase), ALLOCATABLE :: nu_fbase
+  REAL(wp),ALLOCATABLE::rho_pos(:),iota(:),phiPrime(:) !! rho positions, iota and phiPrime at these rho positions
+  ! computed in the boozer transform
+  REAL(wp),ALLOCATABLE::lambda(:,:),nu(:,:)   !! lambda (recomputed on the fourier space of nu) and nu for boozer transform 
+  CONTAINS
+  !PROCEDURE :: init             => sfl_boozer_init
+  !PROCEDURE :: free             => sfl_boozer_free
+END TYPE t_sfl_boozer
+
+
+!INTERFACE sfl_boozer_new
+!  MODULE PROCEDURE sfl_boozer_new
+!END INTERFACE
+
+
+PUBLIC :: t_transform_sfl,transform_sfl_new,find_boozer_angles, find_pest_angles
 !===================================================================================================================================
 
 CONTAINS
@@ -205,7 +234,7 @@ SELECT CASE(sf%whichSFLcoord)
 CASE(1) !PEST
   CALL Transform_Angles_sinterp(LA_base_in,LA_in,X1_base_in,X1_in,"X1",sf%X1sfl_base,sf%X1sfl)
   CALL Transform_Angles_sinterp(LA_base_in,LA_in,X2_base_in,X2_in,"X2",sf%X2sfl_base,sf%X2sfl)
-  CALL Find_new_Angles(LA_base_in%f,LA_in(LA_base_in%s%nBase,:),sf%X1sfl_base%f%mn_nyq,sf%X1sfl_base%f%x_IP,thetzeta_trafo)
+  CALL find_pest_angles(1,LA_base_in%f,LA_in(LA_base_in%s%nBase,:),sf%X1sfl_base%f%mn_nyq,sf%X1sfl_base%f%x_IP,thetzeta_trafo)
 WRITE(*,*)'TEST_rootsearch, PEST:'
 CASE(2) !BOOZER
   CALL sf%Get_Boozer(X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in) ! fill sf%GZ,sf%Gthet
@@ -215,8 +244,10 @@ CASE(2) !BOOZER
   CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,X2_base_in,X2_in,"X2",sf%X2sfl_base,sf%X2sfl,B_in=sf%GZ)
 
   !!TEST new angle transform for last surface
-  CALL Find_new_Angles(sf%GZ_base%f,sf%Gthet(sf%GZ_base%s%nBase,:),sf%X1sfl_base%f%mn_nyq,sf%X1sfl_base%f%x_IP, &
-                       thetzeta_trafo,B_in=sf%GZ(sf%GZ_base%s%nBase,:))
+  CALL find_boozer_Angles(1,(/sf%eval_iota(1.0_wp)/),&
+    sf%GZ_base%f,sf%Gthet(sf%GZ_base%s%nBase,:)-sf%eval_iota(1.0_wp)*sf%GZ(sf%GZ_base%s%nBase,:), &
+      sf%GZ(sf%GZ_base%s%nBase,:),sf%X1sfl_base%f%mn_nyq,sf%X1sfl_base%f%x_IP, &
+                       thetzeta_trafo)
 WRITE(*,*)'TEST_rootsearch, BOOZER:'
 check_1= sf%GZ_base%f%evalDOF_xn(sf%X1sfl_base%f%mn_nyq(1)*sf%X1sfl_base%f%mn_nyq(2), &
                                  thetzeta_trafo,0,sf%GZ(sf%GZ_base%s%nBase,:))
@@ -472,10 +503,10 @@ END SUBROUTINE Transform_Angles_sinterp
 
 !===================================================================================================================================
 !> on one flux surface, find for an equidistant grid in thet*_i,zeta*_j the corresponding thet_ij zeta_ij positions, given
-!> Here, new angles are 
-!> theta*=theta+A(theta,zeta)
-!>  zeta*=zeta+B(theta,zeta), 
-!> with A,B periodic functions and zero average and same base 
+!> Here, new boozer angles are 
+!> theta*=theta+Gt(theta,zeta)  
+!>  zeta*=zeta+nu(theta,zeta), 
+!> with Gt=lambda+iota*nu and nu periodic functions and zero average and same base 
 !> Note that in this routine, we will use a 2d root search with a newton method, setting 
 !> [f1,f2]^T = [thet+A(thet,zeta)-thet*=0,  zeta+B(thet,zeta)-zeta*=0]^T
 !> that includes the derivatives (Jacobian), so that the newton step needs to the solved:
@@ -485,100 +516,100 @@ END SUBROUTINE Transform_Angles_sinterp
 !> 
 !!
 !===================================================================================================================================
-SUBROUTINE Find_new_Angles(AB_fbase_in,A_in,tz_dims,tzstar,thetzeta_out,B_in)
+SUBROUTINE find_boozer_angles(nrho,iota,fbase_in,LA_in,nu_in,tz_dims,tz_boozer,thetzeta_out)
 ! MODULES
 USE MODgvec_Globals,ONLY: UNIT_stdOut,PI
-USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new
-USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF,NewtonRoot2D
+USE MODgvec_fbase  ,ONLY: t_fbase
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_fBase),INTENT(IN) :: AB_fbase_in                                    !< basis of A and B
-  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_fbase_in%modes) !< coefficients of thet*=thet+A(theta,zeta)  
+  INTEGER      ,INTENT(IN) :: nrho   !! number of surfaces, (second dimension  of LA_in and nu_in modes)
+  REAL(wp)     ,INTENT(IN) :: iota(nrho)  !! iota at the rho positions.
+  CLASS(t_fBase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
+  REAL(wp)     ,INTENT(IN) :: LA_in(1:fbase_in%modes,nrho) !< fourier coefficients of thet*=thet+LA(theta,zeta)+iota*nu(theta,zeta)
+  REAL(wp)     ,INTENT(IN) :: nu_in(1:fbase_in%modes,nrho) !< coefficients of zeta*=zeta+nu(theta,zeta)
   INTEGER      ,INTENT(IN) :: tz_dims(2)                 !< size of the 2d grid in thetstar,zetastar
-  REAL(wp)     ,INTENT(IN) :: tzstar(2,tz_dims(1),tz_dims(2)) !< thetstar,zetastar positions 
-  REAL(wp)     ,INTENT(IN),OPTIONAL :: B_in(1:AB_fbase_in%modes) !< coefficients of zeta*=zeta+B(theta,zeta)
+  REAL(wp)     ,INTENT(IN) :: tz_boozer(2,tz_dims(1),tz_dims(2)) !< theta,zeta positions in boozer angle (same for all rho)
+  
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES      
-  REAL(wp) ,INTENT(INOUT) :: thetzeta_out(2,tz_dims(1),tz_dims(2))
+  REAL(wp) ,INTENT(OUT)   :: thetzeta_out(2,tz_dims(1),tz_dims(2),nrho)  !! theta,zeta position in original angles, for given boozer angles
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER               :: i,j
-  REAL(wp)              :: theta_star,zeta_star,zeta,xout(2),x0(2),bounds(2)
-  REAL(wp),DIMENSION(AB_fbase_in%modes)::base_x,base_dthet,base_dzeta
-  LOGICAL               :: Bpresent
-  REAL(wp)              :: check(tz_dims(1)*tz_dims(2)),maxerr
+  INTEGER               :: i,j,k
+  REAL(wp)              :: bounds(2)
+  REAL(wp)              :: check(tz_dims(1)*tz_dims(2)),maxerr(2,nrho)
+  REAL(wp)              :: Gt(1:fbase_in%modes)  !! transform in theta: lambda + iota*nu
 !===================================================================================================================================
-  Bpresent=PRESENT(B_in)
 
-  SWRITE(UNIT_StdOut,'(A,2I4,A,L)')'Find new angles on grid ',tz_dims,', B_in= ',Bpresent
+  SWRITE(UNIT_StdOut,'(A,2I4,A,L)')'Find boozer angles on grid ',tz_dims
                      
-  __PERFON('find_new_angles')
-  __PERFON('init')
-  bounds=(/PI, PI/AB_fbase_in%nfp/)
-  IF(Bpresent)THEN !BOOZER angles,2D root search
-!!! !$OMP PARALLEL DO COLLAPSE(2)     &  
-!!! !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!!! !$OMP   PRIVATE(i,j,x0,xout) &
-!!! !$OMP   SHARED(tz_dims,tzstar,thetzeta_out,bounds,AB_fbase_in,A_in,B_in)
+  __PERFON('find_boozer_angles')
+  bounds=(/PI, PI/fbase_in%nfp/)
+  DO k=1,nrho
+!!! !$OMP PARALLEL DO      &  
+    Gt=LA_in(:,k)+iota(k)*nu_in(:,k)
     DO j=1,tz_dims(2)
       DO i=1,tz_dims(1)
-        x0=tzstar(:,i,j) 
-        !                                     a     b       maxstep  , xinit    ,funcs, funcs_jac
-        xout = NewtonRoot2D(1.0e-12_wp,x0-bounds,x0+bounds,0.1_wp*bounds,x0,ABtrafo,ABtrafo_jac)
-        thetzeta_out(:,i,j)=xout
-      END DO
-    END DO
-!!! !$OMP END PARALLEL DO
+        !x0=tz_boozer(:,i,j) 
+        thetzeta_out(:,i,j,k)=get_booz_newton(tz_boozer(:,i,j),bounds,fbase_in,Gt,nu_in(:,k))
+      END DO !i
+    END DO !j 
     !check
-    check=AB_fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out,0,A_in)
-    maxerr=maxval(abs(check+RESHAPE(thetzeta_out(1,:,:)-tzstar(1,:,:),(/tz_dims(1)*tz_dims(2)/))))
-    WRITE(*,*)'CHECK BOOZER THETA*',maxerr
-    IF(maxerr.GT.1.0e-12)THEN
-      CALL abort(__STAMP__, &
-          "Find_new_Angles: Error in boozer theta*")
-    END IF
-    check=AB_fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out,0,B_in)
-    maxerr=maxval(abs(check+RESHAPE(thetzeta_out(2,:,:)-tzstar(2,:,:),(/tz_dims(1)*tz_dims(2)/))))
-    WRITE(*,*)'CHECK BOOZER ZETA*', maxerr
-    IF(maxerr.GT.1.0e-12)THEN
-      CALL abort(__STAMP__, &
-          "Find_new_Angles: Error in boozer zeta*")
-    END IF  
-  ELSE !PEST, only 1D root search in theta
-!!! !$OMP PARALLEL DO COLLAPSE(2)     &  
-!!! !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!!! !$OMP   PRIVATE(i,j,theta_star,zeta) &
-!!! !$OMP   SHARED(tz_dims,tzstar,thetzeta_out,bounds,AB_fbase_in,A_in)
-    DO j=1,tz_dims(2)
-      DO i=1,tz_dims(1)
-         theta_star=tzstar(1,i,j); zeta=tzstar(2,i,j)          
-         thetzeta_out(1,i,j)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-bounds(1),theta_star+bounds(1),0.1_wp*bounds(1), &
-                                              theta_star, theta_star,A_FRdFR) !start, rhs,func
-         thetzeta_out(2,i,j)=zeta
-      END DO
-    END DO
+    check=fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out(:,:,:,k),0,Gt)
+    maxerr(1,k)=maxval(abs(check+RESHAPE(thetzeta_out(1,:,:,k)-tz_boozer(1,:,:),(/tz_dims(1)*tz_dims(2)/))))
+    check=fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out(:,:,:,k),0,nu_in(:,k))
+    maxerr(2,k)=maxval(abs(check+RESHAPE(thetzeta_out(2,:,:,k)-tz_boozer(2,:,:),(/tz_dims(1)*tz_dims(2)/))))
+END DO !k
 !!! !$OMP END PARALLEL DO
-    !check
-    check=AB_fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out,0,A_in)
-    maxerr=maxval(abs(check+RESHAPE(thetzeta_out(1,:,:)-tzstar(1,:,:),(/tz_dims(1)*tz_dims(2)/))))
-    WRITE(*,*)'CHECK PEST THETA*',maxerr
-    IF(maxerr.GT.1.0e-12)THEN
-      CALL abort(__STAMP__, & 
-          "Find_new_Angles: Error in PEST theta*")
-    END IF
-  END IF
+WRITE(*,*)'CHECK BOOZER THETA*',MAXVAL(maxerr(1,:))
+IF(ANY(maxerr(1,:).GT.1.0e-12))THEN
+  CALL abort(__STAMP__, &
+      "find_boozer_angles: Error in  theta*")
+END IF
+    
+WRITE(*,*)'CHECK BOOZER ZETA*', maxerr
+IF(ANY(maxerr(2,:).GT.1.0e-12))THEN
+  CALL abort(__STAMP__, &
+      "find_boozer_angles: Error in zeta*")
+END IF  
+SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+__PERFOFF('find_boozer_angles')
 
-  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
-  __PERFOFF('find_new_angles')
+END SUBROUTINE find_boozer_angles
+
+!===================================================================================================================================
+!> This function returns the result of the 2D newton root search for the boozer angle 
+!!
+!===================================================================================================================================
+FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
+  USE MODgvec_fbase  ,ONLY: t_fbase
+  USE MODgvec_Newton ,ONLY: NewtonRoot2D
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!INPUT VARIABLES
+  REAL(wp),INTENT(IN) :: x0(2),bounds(2)
+  CLASS(t_fBase),INTENT(IN) :: AB_fbase_in
+  REAL(wp),INTENT(IN) :: A_in(1:AB_fbase_in%modes),B_in(1:AB_fbase_in%modes)
+!-----------------------------------------------------------------------------------------------------------------------------------
+!OUTPUT VARIABLES
+  REAL(wp) :: x_out(2)
+!-----------------------------------------------------------------------------------------------------------------------------------
+!LOCAL VARIABLES
+  REAL(wp),DIMENSION(AB_fbase_in%modes)::base_x,base_dthet,base_dzeta  !used inside sub-functions
+!===================================================================================================================================
+
+  !                                     a     b       maxstep  , xinit    ,funcs, funcs_jac
+  x_out = NewtonRoot2D(1.0e-12_wp,x0-bounds,x0+bounds,0.1_wp*bounds,x0,ABtrafo,ABtrafo_jac)
 
   CONTAINS 
-!for newton root search 
+  !for newton root search 
   FUNCTION ABtrafo(xiter) RESULT(FF) 
     !uses current x0=(zetastar,thetastar) , and A,B and derivatives from subroutine above
     IMPLICIT NONE
     REAL(wp) :: xiter(2)
     REAL(wp) :: FF(2) !two functions of x1,x2 to find root of
+    
     base_x =AB_fbase_in%eval(0,xiter) !base evaluation
 
     FF(1)=xiter(1)-x0(1)+ DOT_PRODUCT(base_x,A_in)
@@ -597,18 +628,101 @@ IMPLICIT NONE
     dFF(2,:)=(/        DOT_PRODUCT(base_dthet,B_in),1.0_wp+ DOT_PRODUCT(base_dzeta,B_in)/)
   END FUNCTION ABtrafo_jac
 
+END FUNCTION get_booz_newton
+
+
+!===================================================================================================================================
+!> on one flux surface, find for an equidistant grid in thet*_i,zeta*_j the corresponding thet_ij zeta_ij positions, given
+!> Here, new PEST angles are 
+!> theta*=theta+la(theta,zeta)  
+!>  zeta*=zeta, 
+!> so a 1D root search in theta is is enough
+!!
+!===================================================================================================================================
+SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dims,tz_pest,thetzeta_out)
+  ! MODULES
+  USE MODgvec_Globals,ONLY: UNIT_stdOut
+  USE MODgvec_fbase  ,ONLY: t_fbase
+  USE MODgvec_Newton ,ONLY: NewtonRoot2D
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    INTEGER      ,INTENT(IN) :: nrho   !! number of surfaces, (second dimension  of LA_in and nu_in modes)
+    CLASS(t_fBase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
+    REAL(wp)     ,INTENT(IN) :: LA_in(1:fbase_in%modes,nrho) !< fourier coefficients of thet*=thet+LA(theta,zeta)+iota*nu(theta,zeta)
+    INTEGER      ,INTENT(IN) :: tz_dims(2)                 !< size of the 2d grid in thetstar,zetastar
+    REAL(wp)     ,INTENT(IN) :: tz_pest(2,tz_dims(1),tz_dims(2)) !< theta,zeta positions in pest angle (same for all rho)
+    
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES      
+    REAL(wp)    ,INTENT(OUT) :: thetzeta_out(2,tz_dims(1),tz_dims(2),nrho)  !! theta,zeta position in original angles, for given pest angles
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER    :: i,j,k
+    REAL(wp)   :: theta_star,zeta
+    REAL(wp)   :: check(tz_dims(1)*tz_dims(2)),maxerr(nrho)
+  !===================================================================================================================================
+   __PERFON('find_pest_angles')
+!!! !$OMP PARALLEL DO 
+  DO k=1,nrho
+    DO j=1,tz_dims(2)
+      DO i=1,tz_dims(1)
+        theta_star=tz_pest(1,i,j); zeta=tz_pest(2,i,j)          
+        thetzeta_out(1,i,j,k)=get_pest_newton(theta_star,zeta,fbase_in,LA_in(:,k))
+        thetzeta_out(2,i,j,k)=zeta
+      END DO
+    END DO
+    !check
+    check=fbase_in%evalDOF_xn(tz_dims(1)*tz_dims(2),thetzeta_out(:,:,:,k),0,LA_in(:,k))
+    maxerr(k)=maxval(abs(check+RESHAPE(thetzeta_out(1,:,:,k)-tz_pest(1,:,:),(/tz_dims(1)*tz_dims(2)/))))
+  END DO !k
+!!! !$OMP END PARALLEL DO
+  WRITE(*,*)'CHECK PEST THETA*',MAXVAL(maxerr)
+  IF(ANY(maxerr.GT.1.0e-12))THEN
+    CALL abort(__STAMP__, & 
+        "Find_pest_Angles: Error in theta*")
+  END IF
+  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  __PERFOFF('find_pest_angles')
+
+END SUBROUTINE find_pest_angles
+
+!===================================================================================================================================
+!> This function returns the result of the 1D newton root search for the pest theta angle 
+!!
+!===================================================================================================================================
+FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
+  USE MODgvec_fbase  ,ONLY: t_fbase
+  USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF
+  USE MODgvec_Globals,ONLY: PI
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    REAL(wp)     ,INTENT(IN) :: theta_star !< initial guess = thet*
+    REAL(wp)     ,INTENT(IN) :: zeta
+    CLASS(t_fBase),INTENT(IN) ::LA_fbase_in     !<  basis of lambda
+    REAL(wp)     ,INTENT(IN) :: LA_in(1:LA_fbase_in%modes) !< fourier coefficients of thet*=thet+LA(theta,zeta)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES      
+    REAL(wp)              :: thet_out !< theta position in original coordinates
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  !===================================================================================================================================
+    thet_out=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI, &
+                                         theta_star, theta_star,A_FRdFR) !start, rhs,func
+  CONTAINS 
+!for newton root search 
   FUNCTION A_FRdFR(theta_iter)
     !uses current zeta where newton is called, and A from subroutine above
     IMPLICIT NONE
     REAL(wp) :: theta_iter
     REAL(wp) :: A_FRdFR(2) !output function and derivative
     !--------------------------------------------------- 
-    A_FRdFR(1)=theta_iter+AB_fbase_in%evalDOF_x((/theta_iter,zeta/),         0,A_in(:))  !theta_iter+lambda = thet* (rhs)
-    A_FRdFR(2)=1.0_wp    +AB_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,A_in(:)) !1+dlambda/dtheta  
+    A_FRdFR(1)=theta_iter+LA_fbase_in%evalDOF_x((/theta_iter,zeta/),         0,LA_in(:))  !theta_iter+lambda = thet* (rhs)
+    A_FRdFR(2)=1.0_wp    +LA_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_in(:)) !1+dlambda/dtheta  
   END FUNCTION A_FRdFR
-
-
-END SUBROUTINE find_new_angles
+  
+END FUNCTION get_pest_newton
 
 !===================================================================================================================================
 !> Transform a function from VMEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*) 
