@@ -31,11 +31,7 @@ IMPLICIT NONE
 PRIVATE
 PUBLIC t_fbase,fbase_new,sin_cos_map
 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
-!-----------------------------------------------------------------------------------------------------------------------------------
-
-TYPE, ABSTRACT :: c_fBase
+TYPE :: t_fBase
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   INTEGER              :: mn_max(2)   !! input parameter: maximum number of fourier modes: m_max=mn_max(1),n_max=mn_max(2)
@@ -51,139 +47,6 @@ TYPE, ABSTRACT :: c_fBase
   INTEGER,ALLOCATABLE  :: offset_modes(:)        !! allocated (0:nRanks), gives range on each rank: 
                                                  !!   modes_str:modes_end=offset_modes(myRank)+1:offset_modes(myRank+1)
   INTEGER,ALLOCATABLE  :: whichRank(:)           !! know the MPI rank for each mode
-  CONTAINS
-    PROCEDURE(i_sub_fBase_init          ),DEFERRED :: init
-    PROCEDURE(i_sub_fBase_free          ),DEFERRED :: free
-    PROCEDURE(i_sub_fBase_copy          ),DEFERRED :: copy
-    PROCEDURE(i_sub_fBase_compare       ),DEFERRED :: compare
-    PROCEDURE(i_sub_fBase_change_base   ),DEFERRED :: change_base
-    PROCEDURE(i_fun_fBase_eval          ),DEFERRED :: eval
-    PROCEDURE(i_fun_fBase_eval_xn       ),DEFERRED :: eval_xn
-    PROCEDURE(i_fun_fBase_evalDOF_x     ),DEFERRED :: evalDOF_x
-    PROCEDURE(i_fun_fBase_evalDOF_xn    ),DEFERRED :: evalDOF_xn
-    PROCEDURE(i_fun_fBase_evalDOF_IP    ),DEFERRED :: evalDOF_IP
-    PROCEDURE(i_fun_fBase_initDOF       ),DEFERRED :: initDOF
-    PROCEDURE(i_sub_fBase_projectIPtoDOF),DEFERRED :: projectIPtoDOF
-END TYPE c_fBase
-
-ABSTRACT INTERFACE
-  SUBROUTINE i_sub_fBase_init(sf, mn_max_in,mn_nyq_in,nfp_in, &
-                                  sin_cos_in,exclude_mn_zero_in)
-    IMPORT c_fBase
-    CLASS(c_fBase) , INTENT(INOUT) :: sf
-    INTEGER        , INTENT(IN   ) :: mn_max_in(2)
-    INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)
-    INTEGER        , INTENT(IN   ) :: nfp_in      
-    CHARACTER(LEN=8),INTENT(IN   ) :: sin_cos_in  
-    LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in
-  END SUBROUTINE i_sub_fBase_init
-
-  SUBROUTINE i_sub_fBase_free( sf ) 
-    IMPORT c_fBase
-    CLASS(c_fBase), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_fBase_free
-
-  SUBROUTINE i_sub_fBase_copy( sf, tocopy ) 
-    IMPORT c_fBase
-    CLASS(c_fBase), INTENT(IN   ) :: tocopy
-    CLASS(c_fBase), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_fBase_copy
-
-  SUBROUTINE i_sub_fBase_compare( sf, tocompare, is_same, cond_out )
-    IMPORT c_fBase
-    CLASS(c_fBase)  , INTENT(IN   ) :: sf
-    CLASS(c_fBase)  , INTENT(IN   ) :: tocompare
-    LOGICAL,OPTIONAL, INTENT(  OUT) :: is_same
-    LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
-  END SUBROUTINE i_sub_fBase_compare
-
-  SUBROUTINE i_sub_fBase_change_base( sf, old_fBase, iterDim,old_data,sf_data )
-    IMPORT c_fBase,wp
-    CLASS(c_fBase) , INTENT(IN   ) :: sf
-    CLASS(c_fBase) , INTENT(IN   ) :: old_fBase
-    INTEGER         ,INTENT(IN   ) :: iterDim
-    REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
-    REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
-  END SUBROUTINE i_sub_fBase_change_base
-
-  FUNCTION i_fun_fBase_initDOF( sf, g_IP,thet_zeta_start ) RESULT(DOFs)
-    IMPORT wp,c_fBase
-    CLASS(c_fBase), INTENT(IN   ) :: sf
-    REAL(wp)      , INTENT(IN   ) :: g_IP(:)
-    REAL(wp)      , INTENT(IN   ),OPTIONAL :: thet_zeta_start(2)
-    REAL(wp)                      :: DOFs(1:sf%modes)
-  END FUNCTION i_fun_fBase_initDOF
-
-  FUNCTION i_fun_fBase_eval( sf,deriv,x) RESULT(base_x)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: x(2)
-  REAL(wp)                      :: base_x(sf%modes)
-  END FUNCTION i_fun_fBase_eval
-
-  FUNCTION i_fun_fBase_eval_xn( sf,deriv,np,xn) RESULT(base_xn)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: deriv
-  INTEGER       , INTENT(IN   ) :: np
-  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)
-  REAL(wp)                      :: base_xn(1:np,sf%modes)
-  END FUNCTION i_fun_fBase_eval_xn
-
-  FUNCTION i_fun_fBase_evalDOF_x( sf,x,deriv,DOFs ) RESULT(y)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  REAL(wp)      , INTENT(IN   ) :: x(2)
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
-  REAL(wp)                      :: y
-  END FUNCTION i_fun_fBase_evalDOF_x
-
-  FUNCTION i_fun_fBase_evalDOF_xn( sf,np,xn,deriv,DOFs ) RESULT(y)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: np
-  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
-  REAL(wp)                      :: y(1:np)
-  END FUNCTION i_fun_fBase_evalDOF_xn
-
-  FUNCTION i_fun_fBase_evalDOF_IP( sf,deriv,DOFs ) RESULT(y_IP)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
-  REAL(wp)                      :: y_IP(sf%mn_IP)
-  END FUNCTION i_fun_fBase_evalDOF_IP
-
-  SUBROUTINE i_sub_fBase_projectIPtoDOF( sf,add,factor,deriv,y_IP,DOFs )
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  LOGICAL       , INTENT(IN   ) :: add
-  REAL(wp)      , INTENT(IN   ) :: factor
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: y_IP(:)
-  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)
-  END SUBROUTINE i_sub_fBase_projectIPtoDOF
-
-  SUBROUTINE i_sub_fBase_projectxntoDOF( sf,add,factor,deriv,np,xn,yn,DOFs )
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  LOGICAL       , INTENT(IN   ) :: add   
-  REAL(wp)      , INTENT(IN   ) :: factor
-  INTEGER       , INTENT(IN   ) :: deriv
-  INTEGER       , INTENT(IN   ) :: np
-  REAL(wp)      , INTENT(IN   ) :: xn(1:np)
-  REAL(wp)      , INTENT(IN   ) :: yn(1:np)
-  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)
-  END SUBROUTINE i_sub_fBase_projectxntoDOF
-END INTERFACE
- 
-
-
-TYPE,EXTENDS(c_fBase) :: t_fBase
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -223,9 +86,9 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: eval_xn          => fBase_eval_xn
   PROCEDURE :: evalDOF_x        => fBase_evalDOF_x
   PROCEDURE :: evalDOF_xn       => fBase_evalDOF_xn
-! PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP !use _tens instead!
+  ! PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP !use _tens instead!
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP_tens
-!  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
+  !  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
   PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF_tens
   PROCEDURE :: projectxntoDOF   => fBase_projectxntoDOF
   PROCEDURE :: initDOF          => fBase_initDOF
@@ -629,7 +492,7 @@ SUBROUTINE fBase_copy( sf , tocopy)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(c_fBase), INTENT(IN   ) :: tocopy
+  CLASS(t_fBase), INTENT(IN   ) :: tocopy
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_fBase), INTENT(INOUT) :: sf !! self
@@ -637,7 +500,6 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 CHARACTER(LEN=8) :: sin_cos
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPE IS(t_fBase)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_copy: not initialized fBase from which to copy!")
@@ -654,13 +516,12 @@ CHARACTER(LEN=8) :: sin_cos
   CASE(_SINCOS_)
     sin_cos  = "_sincos_"
   END SELECT
- CALL sf%init(tocopy%mn_max         &
-             ,tocopy%mn_nyq         &
-             ,tocopy%nfp            &
-             ,sin_cos               &
-             ,tocopy%exclude_mn_zero)
+  CALL sf%init(tocopy%mn_max         &
+              ,tocopy%mn_nyq         &
+              ,tocopy%nfp            &
+              ,sin_cos               &
+              ,tocopy%exclude_mn_zero)
 
-  END SELECT !TYPE
 END SUBROUTINE fBase_copy
 
 
@@ -674,7 +535,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
-  CLASS(c_fBase),  INTENT(IN   ) :: tocompare
+  TYPE(t_fBase),  INTENT(IN   ) :: tocompare
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   LOGICAL,OPTIONAL,INTENT(  OUT) :: is_same
@@ -683,7 +544,6 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   LOGICAL  :: cond(5)
 !===================================================================================================================================
-  SELECT TYPE(tocompare); TYPE IS(t_fBase)
   IF(.NOT.tocompare%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_compare: tried to compare with non-initialized fBase!")
@@ -698,7 +558,6 @@ IMPLICIT NONE
   IF(PRESENT(is_same)) is_same=ALL(cond)
   IF(PRESENT(cond_out)) cond_out(1:5)=cond
 
-  END SELECT !TYPE
 END SUBROUTINE fBase_compare
 
 
@@ -715,7 +574,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
-  CLASS(c_fBase),  INTENT(IN   ) :: old_fBase       !! base of old_data
+  CLASS(t_fBase),  INTENT(IN   ) :: old_fBase       !! base of old_data
   INTEGER         ,INTENT(IN   ) :: iterDim        !! iterate on first or second dimension or old_data/sf_data
   REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -727,7 +586,6 @@ IMPLICIT NONE
   INTEGER             :: iMode 
   INTEGER,ALLOCATABLE :: modeMapSin(:,:),modeMapCos(:,:)
 !===================================================================================================================================
-  SELECT TYPE(old_fBase); TYPE IS(t_fBase)
   IF(.NOT.old_fBase%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_change_base: tried to change base with non-initialized fBase!")
@@ -816,8 +674,6 @@ IMPLICIT NONE
     DEALLOCATE(modeMapSin)
     DEALLOCATE(modeMapCos)
   END IF !same base
-
-  END SELECT !TYPE
 END SUBROUTINE fBase_change_base
 
 !===================================================================================================================================
