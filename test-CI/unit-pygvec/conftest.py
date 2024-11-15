@@ -1,4 +1,11 @@
+import subprocess
+import os
+
 import pytest
+
+import helpers
+
+# === CONFIGURATION === #
 
 
 def pytest_configure(config):
@@ -31,3 +38,66 @@ def pytest_collection_modifyitems(session, config, items):
             item.add_marker(pytest.mark.pygvec)
             if config.getoption("--dry-run"):
                 item.add_marker(pytest.mark.skip("Dry-run: skipping unit tests"))
+
+
+# === FIXTURES === #
+
+
+@pytest.fixture(scope="session")
+def testgroup():
+    return "unit-pygvec"
+
+
+@pytest.fixture(scope="session")
+def testcase():
+    return "ellipstell_lowres"
+
+
+@pytest.fixture(scope="session")
+def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_pages_path):
+    """run the default testcase and store the output"""
+    # assume pip-build: the gvec executable is in the PATH
+    args = ["gvec", "parameter.ini"]
+    # run gvec - adapted from test_all.test_run
+    with helpers.chdir(testcaserundir):
+        # skip if stdout & stderr are present and ok
+        try:
+            helpers.assert_empty_stderr()
+            helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
+        except (FileNotFoundError, AssertionError):
+            pass
+        else:
+            return
+        # run GVEC
+        with open("stdout.txt", "w") as stdout:
+            stdout.write(f"RUNNING: \n {args} \n")
+        with open("stdout.txt", "a") as stdout, open("stderr.txt", "w") as stderr:
+            subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
+        for filename in ["stdout", "stderr"]:
+            if pages_rundir := os.environ.get("CASENAME"):
+                pages_rundir = f"CIrun_{pages_rundir}"
+            else:
+                pages_rundir = "."
+            annotations["gvec-output"].append(
+                dict(
+                    external_link=dict(
+                        label=f"{testgroup}/{testcase}/{filename}",
+                        url=f"{artifact_pages_path}/{pages_rundir}/{testgroup}/{testcase}/{filename}.txt",
+                    )
+                )
+            )
+        # check if GVEC was successful
+        helpers.assert_empty_stderr()
+        helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
+    return
+
+
+@pytest.fixture()
+def testfiles(tmpdir, testcaserundir, testcase_run):
+    """prepare the ellipstell parameters"""
+    paramfile = "parameter.ini"
+    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
+    with helpers.chdir(tmpdir):
+        os.symlink(testcaserundir / paramfile, paramfile)
+        os.symlink(testcaserundir / statefile, statefile)
+        yield (paramfile, statefile)

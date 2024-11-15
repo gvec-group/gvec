@@ -15,12 +15,11 @@
 from ._fgvec import modgvec_py_post as _post
 
 from pathlib import Path
-from typing import Mapping, Callable, Hashable, Iterable, Literal
+from typing import Mapping, Callable, Iterable, Literal
 import re
 import inspect
 import functools
 import tempfile
-import logging
 
 import numpy as np
 import xarray as xr
@@ -511,9 +510,10 @@ class State:
             s_IP = np.zeros(n_IP, dtype=np.float64)
             _post.get_s_ip("GB", s_IP)
 
-            ev = Evaluations(self, s_IP, "int", "int")
-        elif method == "projection":
-            ev = Evaluations(self, "int", "int", "int")
+            # ev = Evaluations(self, s_IP, "int", "int")
+        # elif method == "projection":
+        # ev = Evaluations(self, "int", "int", "int")
+        ev = NotImplemented
 
         ev.compute("dGB_dt_def", "dGB_dz_def")
         GBt = np.asfortranarray(
@@ -532,6 +532,13 @@ class State:
         elif method == "projection":
             _post.gb_project_f_project_s(GBt, GBz)
         self.GB_available = True
+
+    # === Integration with computable quantities === #
+
+    def compute(self, ds: xr.Dataset, *quantities):
+        from .comp import compute
+
+        return compute(ds, *quantities, state=self)
 
     # === Plotting Methods === #
 
@@ -558,7 +565,8 @@ class State:
             quantities = [quantities]
         theta_linear = isinstance(theta, int)
         zeta_linear = isinstance(zeta, int)
-        ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
+        # ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
+        ds = NotImplemented
         # --- plotting --- #
         fig, axs = plt.subplots(
             len(quantities), ds.rho.size, tight_layout=True, **figkwargs
@@ -648,7 +656,8 @@ class State:
         # --- argument handling --- #
         if isinstance(quantities, str) or isinstance(quantities, Callable):
             quantities = [quantities]
-        ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
+        # ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
+        ds = NotImplemented
         ds.compute("X1", "X2")
         # --- plotting --- #
         fig, axs = plt.subplots(
@@ -701,423 +710,3 @@ class State:
             axs[-1, z].set_xlabel(r"$X^1$")
         fig.suptitle(self.statefile.name)
         return fig, axs
-
-
-class Evaluations(xr.Dataset):
-    __slots__ = ["state"]
-    _quantities = {}
-
-    def __init__(
-        self,
-        state: State,
-        rho: int | Literal["int"] | tuple[float, float, int] | np.ndarray | None = None,
-        theta: (
-            int | Literal["int"] | tuple[float, float, int] | np.ndarray | None
-        ) = None,
-        zeta: (
-            int | Literal["int"] | tuple[float, float, int] | np.ndarray | None
-        ) = None,
-        **kwargs,
-    ):
-        self.state = state
-        coords = kwargs["coords"] if "coords" in kwargs else {}
-        data_vars = kwargs["data_vars"] if "data_vars" in kwargs else {}
-        # --- get integration points --- #
-        intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
-        match rho:
-            case np.ndarray() | list():
-                coords["rho"] = ("rad", rho)
-            case "int":
-                if any(
-                    [
-                        not np.allclose(intp[0][j], intp[i][j])
-                        for i in (1, 2)
-                        for j in (0, 1)
-                    ]
-                ):
-                    raise ValueError(
-                        "Integration points for rho do not align for X1, X2 and LA."
-                    )
-                coords["rho"] = ("rad", intp[0][0])
-                data_vars["rho_weights"] = ("rad", intp[0][1])
-            case int() as num:
-                coords["rho"] = ("rad", np.linspace(0, 1, num))
-                coords["rho"][1][0] = (
-                    0.1 * coords["rho"][1][1]
-                )  # avoid numerical issues at the magnetic axis
-            case (start, stop):
-                coords["rho"] = ("rad", np.linspace(start, stop))
-            case (start, stop, num):
-                coords["rho"] = ("rad", np.linspace(start, stop, num))
-            case None:
-                pass
-            case _:
-                raise ValueError(f"Could not parse rho, got {rho}.")
-        match theta:
-            case np.ndarray() | list():
-                coords["theta"] = ("pol", theta)
-            case "int":
-                if any(
-                    [
-                        not np.allclose(intp[0][j], intp[i][j])
-                        for i in (1, 2)
-                        for j in (2, 3)
-                    ]
-                ):
-                    raise ValueError(
-                        "Integration points for theta do not align for X1, X2 and LA."
-                    )
-                coords["theta"] = (
-                    "pol",
-                    np.linspace(0, 2 * np.pi, intp[0][2], endpoint=False),
-                )
-                data_vars["theta_weight"] = intp[0][3]
-            case int() as num:
-                coords["theta"] = ("pol", np.linspace(0, 2 * np.pi, num))
-            case (start, stop):
-                coords["theta"] = ("pol", np.linspace(start, stop))
-            case (start, stop, num):
-                coords["theta"] = ("pol", np.linspace(start, stop, num))
-            case None:
-                pass
-            case _:
-                raise ValueError(f"Could not parse theta, got {theta}.")
-        match zeta:
-            case np.ndarray() | list():
-                coords["zeta"] = ("tor", zeta)
-            case "int":
-                if any(
-                    [
-                        not np.allclose(intp[0][j], intp[i][j])
-                        for i in (1, 2)
-                        for j in (4, 5)
-                    ]
-                ):
-                    raise ValueError(
-                        "Integration points for zeta do not align for X1, X2 and LA."
-                    )
-                coords["zeta"] = (
-                    "tor",
-                    np.linspace(0, 2 * np.pi / state.nfp, intp[0][4], endpoint=False),
-                )
-                data_vars["zeta_weight"] = intp[0][5]
-            case int() as num:
-                coords["zeta"] = ("tor", np.linspace(0, 2 * np.pi / state.nfp, num))
-            case (start, stop):
-                coords["zeta"] = ("tor", np.linspace(start, stop))
-            case (start, stop, num):
-                coords["zeta"] = ("tor", np.linspace(start, stop, num))
-            case None:
-                pass
-            case _:
-                raise ValueError(f"Could not parse zeta, got {zeta}.")
-
-        # --- init Dataset --- #
-        kwargs["coords"] = coords
-        kwargs["data_vars"] = data_vars
-        super().__init__(**kwargs)
-
-        # --- set attributes --- #
-        if "rho" in self:
-            self.rho.attrs["long_name"] = "Logical radial coordinate"
-            self.rho.attrs["symbol"] = r"\rho"
-            self.rho.attrs["integration_points"] = isinstance(rho, str) and rho == "int"
-        if "theta" in self:
-            self.theta.attrs["long_name"] = "Logical poloidal angle"
-            self.theta.attrs["symbol"] = r"\theta"
-            self.theta.attrs["integration_points"] = (
-                isinstance(theta, str) and theta == "int"
-            )
-        if "zeta" in self:
-            self.zeta.attrs["long_name"] = "Logical toroidal angle"
-            self.zeta.attrs["symbol"] = r"\zeta"
-            self.zeta.attrs["integration_points"] = (
-                isinstance(zeta, str) and zeta == "int"
-            )
-
-    @classmethod
-    def register_compute_func(
-        cls,
-        quantities: None | str | Iterable[str] = None,
-        requirements: Iterable[str] = (),
-        integration: Iterable[str] = (),
-        attrs: Mapping = {},
-    ):
-        """Decorator to register equilibrium quantities.
-
-        Will select the dependencies specified in `requirements` recursively and compute them if necessary.
-        The required quantities will be selected based on their specified `dims`, allowing different computations for different dimensional layouts
-         * tensorproduct of rho, theta, zeta
-         * tensorproduct of rho, theta, zeta at integration points
-        """
-
-        def _register(
-            func: (
-                Callable[[Evaluations], Evaluations]
-                | Callable[[Evaluations, State], Evaluations]
-            ),
-        ):
-            nonlocal quantities, requirements, integration, attrs
-            if quantities is None:
-                quantities = [func.__name__]
-            if isinstance(quantities, str):
-                quantities = [quantities]
-            func.quantities = quantities
-            func.requirements = requirements
-            func.integration = integration
-            if len(quantities) == 1 and quantities[0] not in attrs:
-                attrs = {quantities[0]: attrs}
-            func.attrs = attrs
-            for q in quantities:
-                if q in cls._quantities:
-                    logging.warning(
-                        f"A quantity `{q}` is already registered with {cls}."
-                    )
-                cls._quantities[q] = func
-            return func
-
-        return _register
-
-    def compute(self, *quantities: Iterable[str]):
-        """Compute the target equilibrium quantity.
-
-        This method will compute required parameters recursively.
-        """
-        for quantity in quantities:
-            # --- get the compute function --- #
-            if quantity in self:
-                continue  # already computed
-            if quantity not in self._quantities:
-                raise KeyError(f"The quantity `{quantity}` is not registered.")
-            func = self._quantities[quantity]
-            # --- handle integration --- #
-            auxcoords = {
-                i
-                for i in func.integration
-                if i not in self
-                or "integration_points" not in self[i].attrs
-                or not self[i].attrs["integration_points"]
-            }
-            if auxcoords:
-                # --- auxiliary dataset for integration points --- #
-                logging.info(
-                    f"Using auxiliary dataset with integration points {auxcoords} to compute {quantity}."
-                )
-                keepint = {
-                    c
-                    for c in self.coords
-                    if "integration_points" in self[c].attrs
-                    and self[c].attrs["integration_points"]
-                }
-                coords = {
-                    c: self.coords[c]
-                    for c in self.coords
-                    if c not in auxcoords | keepint
-                }
-                obj = self.__class__(
-                    self.state, **{c: "int" for c in auxcoords | keepint}, coords=coords
-                )
-            else:
-                obj = self
-            # --- handle requirements --- #
-            obj.compute(*func.requirements)
-            # --- compute the quantity --- #
-            with xr.set_options(keep_attrs=True):
-                if "state" in inspect.signature(func).parameters:
-                    func(obj, self.state)
-                else:
-                    func(obj)
-            # --- set attributes --- #
-            for q in func.quantities:
-                if q in func.attrs:
-                    obj[q].attrs.update(func.attrs[q])
-            # --- handle auxiliary integration dataset --- #
-            if auxcoords:
-                for q in obj:
-                    if (
-                        not any([c in obj[q].coords for c in auxcoords])
-                        and "weight" not in q
-                    ):
-                        self[q] = obj[q]
-
-    def __getitem__(self, key: Mapping | Hashable | Iterable[Hashable]):
-        """Access variables or coordinates of this dataset as a `xarray.DataArray` or a subset of variables or a indexed dataset.
-
-        Indexing with a list of names will return a new `Dataset` object.
-        Automatically computes a registered quantity.
-        """
-        # --- compute quantities if possible --- #
-        if not isinstance(key, str) and isinstance(key, Iterable):
-            for k in key:
-                if k in self._quantities:
-                    self.compute(k)
-        else:
-            if key in self._quantities:
-                self.compute(key)
-        # --- pass on to xarray --- #
-        return super().__getitem__(key)
-
-    def radial_integral(
-        self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = False
-    ):
-        """Compute the radial integral/average of the given quantity."""
-        # --- check for integration points --- #
-        if "rho" not in self or not self.rho.attrs["integration_points"]:
-            raise ValueError("Radial average requires integration points for rho.")
-        # --- handle quantity --- #
-        if isinstance(quantity, str):
-            self.compute(quantity)
-            quantity = self[quantity]
-        # --- handle Jacobian --- #
-        if isinstance(Jac, str):
-            self.compute(Jac)
-            Jac = self[Jac]
-        elif not isinstance(Jac, xr.DataArray):
-            if Jac:
-                Jac = self.Jac
-            else:
-                Jac = 1
-        if hasattr(Jac, "coords") and "theta" in Jac.coords and "zeta" in Jac.coords:
-            Jac = self.fluxsurface_integral(1, Jac=Jac)
-        # --- integrate --- #
-        return (quantity * Jac * self.rho_weights).sum("rad")
-
-    def fluxsurface_integral(
-        self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True
-    ):
-        """Compute the flux surface integral of the given quantity."""
-        # --- check for integration points --- #
-        if (
-            "theta" not in self
-            or not self.theta.attrs["integration_points"]
-            or "zeta" not in self
-            or not self.zeta.attrs["integration_points"]
-        ):
-            raise ValueError(
-                "Flux surface average requires integration points for theta and zeta."
-            )
-        # --- handle quantity --- #
-        if isinstance(quantity, str):
-            self.compute(quantity)
-            quantity = self[quantity]
-        # --- handle Jacobian --- #
-        if isinstance(Jac, str):
-            self.compute(Jac)
-            Jac = self[Jac]
-        elif not isinstance(Jac, xr.DataArray):
-            if Jac:
-                Jac = self.Jac
-            else:
-                Jac = 1
-        # --- integrate --- #
-        return (
-            (quantity * Jac).sum(("pol", "tor")) * self.theta_weight * self.zeta_weight
-        )
-
-    def fluxsurface_average(
-        self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True
-    ):
-        """Compute the flux surface average of the given quantity."""
-        # --- handle Jacobian --- #
-        if isinstance(Jac, bool) and not Jac:
-            norm = 4 * np.pi**2
-        else:
-            norm = self.fluxsurface_integral(1, Jac=Jac)
-        # --- integrate --- #
-        return self.fluxsurface_integral(quantity, Jac=Jac) / norm
-
-    def volume_integral(
-        self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True
-    ):
-        """Compute the volume integral of the given quantity."""
-        # --- check for integration points --- #
-        if (
-            "rho" not in self
-            or not self.rho.attrs["integration_points"]
-            or "theta" not in self
-            or not self.theta.attrs["integration_points"]
-            or "zeta" not in self
-            or not self.zeta.attrs["integration_points"]
-        ):
-            raise ValueError(
-                "Volume integral requires integration points for rho, theta and zeta."
-            )
-        # --- handle quantity --- #
-        if isinstance(quantity, str):
-            self.compute(quantity)
-            quantity = self[quantity]
-        # --- handle Jacobian --- #
-        if isinstance(Jac, str):
-            self.compute(Jac)
-            Jac = self[Jac]
-        elif not isinstance(Jac, xr.DataArray):
-            if Jac:
-                Jac = self.Jac
-            else:
-                Jac = 1
-        # --- integrate --- #
-        return (
-            (quantity * Jac * self.rho_weights).sum(("rad", "pol", "tor"))
-            * self.theta_weight
-            * self.zeta_weight
-        )
-
-    def volume_average(
-        self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True
-    ):
-        """Compute the volume average of the given quantity."""
-        # --- handle Jacobian --- #
-        if isinstance(Jac, bool):
-            if Jac:
-                norm = self.V
-            else:
-                norm = 4 * np.pi**2
-        else:
-            norm = self.volume_integral(1, Jac=Jac)
-        # --- integrate --- #
-        return self.volume_integral(quantity, Jac=Jac) / norm
-
-    @classmethod
-    def table_of_quantities(cls, markdown: bool = False):
-        """
-        Classmethod to generate the table of computable quantities.
-
-        Parameters
-        ----------
-        markdown : optional
-            If True, return the table as a Ipython.Markdown object. Otherwise, return the table as a string.
-
-        Returns
-        -------
-        str or IPython.display.Markdown
-            The table of quantities. If `markdown` is True, the table is returned as an instance of
-            IPython.display.Markdown. Otherwise, the table is returned as a string.
-
-        Notes
-        -----
-        This method generates a table of quantities based on the attributes of the quantities
-        defined in the class `cls`. The table includes the label, long name, and symbol of each
-        quantity.
-
-        Examples
-        --------
-        >>> Evaluations.table_of_quantities()
-        >>> Evaluations.table_of_quantities(markdown=True)
-        """
-        lines = []
-        for key, func in sorted(list(cls._quantities.items())):
-            long_name = func.attrs[key].get("long_name", "")
-            symbol = func.attrs[key].get("symbol", "")
-            symbol = "$" + symbol.replace("|", r"\|") + "$"
-            lines.append((f"`{key}`", long_name, symbol))
-        sizes = [max(len(s) for s in col) for col in zip(*lines)]
-        txt = f"| {'label':^{sizes[0]}s} | {'long name':^{sizes[1]}s} | {'symbol':^{sizes[2]}s} |\n"
-        txt += f"| {'-'*sizes[0]} | {'-'*sizes[1]} | {'-'*sizes[2]} |\n"
-        for line in lines:
-            txt += f"| {line[0]:^{sizes[0]}s} | {line[1]:^{sizes[1]}s} | {line[2]:^{sizes[2]}s} |\n"
-        if markdown:
-            from IPython.display import Markdown
-
-            return Markdown(txt)
-        else:
-            return txt
