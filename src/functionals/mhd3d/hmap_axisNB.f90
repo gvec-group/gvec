@@ -63,9 +63,15 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:NFP*nzeta,1:3), zeta is on 'half' grid: zeta(i)=(i-0.5)/(NFP*nzeta)*(2pi)
   REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
   REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
-  REAL(wp),ALLOCATABLE :: xyz_modes(:,:)   !! fourier modes of xyz
+  REAL(wp),ALLOCATABLE :: xyz_modes(:,:)   !! 1D fourier modes of xyz on full torus
   REAL(wp),ALLOCATABLE :: Nxyz_modes(:,:)   !! 1d fourier modes of Nxyz
   REAL(wp),ALLOCATABLE :: Bxyz_modes(:,:)   !! 1d fourier modes of Bxyz
+  REAL(wp),ALLOCATABLE :: xyz_hat_modes(:,:)   !! fourier modes of xhat,yhat,zhat on one field period, 
+                                               !! x=cos(zeta)xhat-sin(zeta)yhat,
+                                               !! y=sin(zeta)xhat+cos(zeta)yhat, zhat=z
+  REAL(wp),ALLOCATABLE :: Nxyz_hat_modes(:,:)   !! 1d fourier modes of Nxyz, one field period
+  REAL(wp),ALLOCATABLE :: Bxyz_hat_modes(:,:)   !! 1d fourier modes of Bxyz, one field period
+  
   CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp)             :: rot_origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
@@ -73,6 +79,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !---------------------------------------------------------------------------------------------------------------------------------
   TYPE(t_hmap_axisNB_aux)      :: aux !! container for preevaluations
   CLASS(t_fbase),ALLOCATABLE   :: fb  !! container for 1d fourier base on full turn
+  CLASS(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
  
 
@@ -129,6 +136,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: i
   INTEGER :: nvisu,error_nfp
+  REAL(wp),ALLOCATABLE :: cosnz(:),sinnz(:)
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
 
@@ -149,6 +157,7 @@ IMPLICIT NONE
 
   WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(1,:)*sf%Bxyz(1,:)+sf%Nxyz(2,:)*sf%Bxyz(2,:)+sf%Nxyz(3,:)*sf%Bxyz(3,:)))
 
+  
   ALLOCATE( sf%xyz_modes(3,sf%fb%modes))
   ALLOCATE(sf%Nxyz_modes(3,sf%fb%modes))
   ALLOCATE(sf%Bxyz_modes(3,sf%fb%modes))
@@ -157,6 +166,20 @@ IMPLICIT NONE
      sf%Nxyz_modes(i,:)=sf%fb%initDOF(sf%Nxyz(i,:),thet_zeta_start=(/0.,sf%zeta(1)/))
      sf%Bxyz_modes(i,:)=sf%fb%initDOF(sf%Bxyz(i,:),thet_zeta_start=(/0.,sf%zeta(1)/))
   END DO
+
+  ALLOCATE(cosnz(sf%nzeta*sf%nfp),sinnz(sf%nzeta*sf%nfp))
+  !build cos(zeta),sin(zeta) on full torus
+  DO i=1,sf%nfp
+    cosnz(sf%nzeta*(i-1)+1:sf%nzeta*i)=COS(sf%zeta(1:sf%nzeta)+TWOPI*(REAL(i-1,wp)/REAL(sf%nfp,wp)))
+    sinnz(sf%nzeta*(i-1)+1:sf%nzeta*i)=SIN(sf%zeta(1:sf%nzeta)+TWOPI*(REAL(i-1,wp)/REAL(sf%nfp,wp)))
+  END DO
+  CALL fbase_new(sf%fb_hat,(/0,(sf%nzeta-1)/2/),(/1,sf%nzeta/),1,"_sincos_",.FALSE.)
+  ALLOCATE(sf%xyz_hat_modes( 3,sf%fb_hat%modes),&
+           sf%Nxyz_hat_modes(3,sf%fb_hat%modes),&
+           sf%Bxyz_hat_modes(3,sf%fb_hat%modes))
+  sf%xyz_hat_modes =transform_to_hat(sf%xyz, "xyz to xyzhat"  )
+  sf%Nxyz_hat_modes=transform_to_hat(sf%Nxyz,"Nxyz to Nxyzhat")
+  sf%Bxyz_hat_modes=transform_to_hat(sf%Bxyz,"Bxyz to Bxyzhat")
 
 
   nvisu=GETINT("hmap_nvisu",2*(sf%n_max+1)) 
@@ -171,6 +194,38 @@ IMPLICIT NONE
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
   IF(.NOT.test_called) CALL hmap_axisNB_test(sf)
+
+  !------------------
+  CONTAINS
+
+  FUNCTION transform_to_hat(xyz_in,msg)  RESULT(to_hat_modes)
+    IMPLICIT NONE
+    !using sinnz,cosnz sf from above
+    REAL(wp),INTENT(IN) :: xyz_in(3,sf%nzeta*sf%nfp)
+    CHARACTER(*),INTENT(IN) :: msg
+    REAL(wp) :: to_hat_modes(3,sf%fb_hat%modes)
+    !------------------
+    REAL(wp) :: to_hat(3,sf%nzeta*sf%nfp)
+    REAL(wp) :: check_xhat(1:3)
+    !------------------
+    to_hat(1,:)=xyz_in(1,:)*cosnz(:)+xyz_in(2,:)*sinnz(:)
+    to_hat(2,:)=xyz_in(2,:)*cosnz(:)-xyz_in(1,:)*sinnz(:)
+    to_hat(3,:)=xyz_in(3,:)
+    !check periodicity for remaining nfp
+    DO i=2,sf%nfp
+      check_xhat(1)=MAXVAL(ABS(to_hat(1,1:sf%nzeta)-to_hat(1,sf%nzeta*(i-1)+1:sf%nzeta*i)))
+      check_xhat(2)=MAXVAL(ABS(to_hat(2,1:sf%nzeta)-to_hat(2,sf%nzeta*(i-1)+1:sf%nzeta*i)))
+      check_xhat(3)=MAXVAL(ABS(to_hat(3,1:sf%nzeta)-to_hat(3,sf%nzeta*(i-1)+1:sf%nzeta*i)))
+      IF(ANY(check_xhat.GT.1.0e-12))THEN
+        WRITE(*,*)"WARNING! check_xhat=",check_xhat
+        CALL abort(__STAMP__,&
+              "transform "//TRIM(msg)//" not field periodic!")
+      END IF
+    END DO
+    DO i=1,3
+      to_hat_modes(i,:)=sf%fb_hat%initDOF(to_hat(i,1:sf%nzeta),thet_zeta_start=(/0.,sf%zeta(1)/))
+    END DO
+  END FUNCTION transform_to_hat
 
 END SUBROUTINE hmap_axisNB_init
 
