@@ -21,13 +21,13 @@ rtz_directions = {"r": "radial", "t": "poloidal", "z": "toroidal"}
 """
 There are two different kinds of dimensional/coordinate dependencies:
     1) a quantity is defined over some dimensions in the dataset
-        * e.g. mu0(), iota(rho), B(vector, rho, theta, zeta)
+        * e.g. mu0(), iota(rad), B(vector, rad, pol, tor)
         * sometimes we only care about some of the dimensions, e.g. B(vector, ...)
         * actually all of them could depend on some other dimension, like resolution or time
             * but in the underlying dimension would be `state` and each computation happens only once per state
         * this information is required when assigning the quantity, but not outside the compute function
     2) a quantity makes some assumptions for the dimensions of other quantities
-        * e.g. I_tor(rho) needs theta_int, zeta_int, X1 needs rho,theta,zeta or rho,tz_list
+        * e.g. I_tor(rad) needs theta_int, zeta_int, X1 needs rho,theta,zeta or rho,tz_list
         * this information is required when selecting the right compute function, based on the available dimensions
             * but its not just dimensions, e.g. theta_B, zeta_B =/= tz_list, but same compute function
 
@@ -96,7 +96,7 @@ def _profile(var, evalvar, long_name, symbol):
         attrs=dict(long_name=long_name, symbol=symbol),
     )
     def profile(ds: Evaluations, state: State):
-        ds[var] = ("rho", state.evaluate_profile(evalvar, ds.rho))
+        ds[var] = ("rad", state.evaluate_profile(evalvar, ds.rho))
 
     return profile
 
@@ -150,9 +150,40 @@ def _base(var, long_name, symbol):
         },
     )
     def base(ds: Evaluations, state: State):
-        outputs = state.evaluate_base_tens_all(var, ds.rho, ds.theta, ds.zeta)
-        for key, value in zip(base.quantities, outputs):
-            ds[key] = (("rho", "theta", "zeta"), value)
+        if set(ds.rho.dims) != {"rad"}:
+            raise ValueError(
+                f"Expected 'rho' to be of dimension '(rad,)', got {ds.rho.dims}"
+            )
+
+        if set(ds.theta.dims) == {"pol"} and set(ds.zeta.dims) == {"tor"}:
+            outputs = state.evaluate_base_tens_all(var, ds.rho, ds.theta, ds.zeta)
+            for key, value in zip(base.quantities, outputs):
+                ds[key] = (("rad", "pol", "tor"), value)
+
+        elif set(ds.theta.dims) | set(ds.zeta.dims) == {"pol", "tor"}:
+            stacked = ds[["rho", "theta", "zeta"]].stack(tz=("pol", "tor"))
+            thetazeta = np.stack([stacked.theta, stacked.zeta], axis=0)
+            outputs = state.evaluate_base_list_tz_all(var, ds.rho, thetazeta)
+            for key, value in zip(base.quantities, outputs):
+                value = xr.DataArray(value, coords=stacked.coords).unstack("tz")
+                ds[key] = value
+
+        elif set(ds.theta.dims) | set(ds.zeta.dims) == {"rad", "pol", "tor"}:
+            stacked = ds[["rho", "theta", "zeta"]].stack(tz=("pol", "tor"))
+            outputs = []
+            for r, rho in enumerate(ds.rho.data):
+                surface = stacked.isel(rad=r)
+                thetazeta = np.stack([surface.theta, surface.zeta], axis=0)
+                outputs.append(state.evaluate_base_list_tz_all(var, [rho], thetazeta))
+            for key, value in zip(base.quantities, zip(*outputs)):
+                value = xr.DataArray(
+                    np.stack(value).squeeze(), coords=stacked.coords
+                ).unstack("tz")
+                ds[key] = value
+        else:
+            raise ValueError(
+                f"Expected 'theta', 'zeta' to be of dimensions subset of '(rad, pol, tor)', got {ds.theta.dims}, {ds.zeta.dims}"
+            )
 
     return base
 
@@ -204,7 +235,7 @@ def hmap(ds: Evaluations, state: State):
     )
     for key, value in zip(hmap.quantities, outputs):
         ds[key] = (
-            ("vector", "rho", "theta", "zeta"),
+            ("vector", "rad", "pol", "tor"),
             value.reshape(3, ds.rho.size, ds.theta.size, ds.zeta.size),
         )
 
@@ -245,7 +276,7 @@ def metric(ds: Evaluations, state: State):
     )
     for key, value in zip(metric.quantities, outputs):
         ds[key] = (
-            ds.X1.coords,
+            ds.X1.dims,
             value.reshape(ds.X1.shape),
         )
 
@@ -285,7 +316,7 @@ def Jac_h(ds: Evaluations, state: State):
     )
     for key, value in zip(Jac_h.quantities, outputs):
         ds[key] = (
-            ds.X1.coords,
+            ds.X1.dims,
             value.reshape(ds.X1.shape),
         )
 

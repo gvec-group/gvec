@@ -14,7 +14,7 @@ name = "gvec"
 description = "Galerkin Variational Equilibrium Code"
 dependencies = [
     "f90wrap",
-    "numpy",
+    "numpy<2",
     "matplotlib",
     "xarray",
 ]

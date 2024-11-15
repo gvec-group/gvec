@@ -726,7 +726,7 @@ class Evaluations(xr.Dataset):
         intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
         match rho:
             case np.ndarray() | list():
-                coords["rho"] = rho
+                coords["rho"] = ("rad", rho)
             case "int":
                 if any(
                     [
@@ -738,22 +738,24 @@ class Evaluations(xr.Dataset):
                     raise ValueError(
                         "Integration points for rho do not align for X1, X2 and LA."
                     )
-                coords["rho"] = intp[0][0]
-                data_vars["rho_weights"] = ("rho", intp[0][1])
+                coords["rho"] = ("rad", intp[0][0])
+                data_vars["rho_weights"] = ("rad", intp[0][1])
             case int() as num:
-                coords["rho"] = np.linspace(0, 1, num)
-                coords["rho"][0] = 0.01
+                coords["rho"] = ("rad", np.linspace(0, 1, num))
+                coords["rho"][1][0] = (
+                    0.1 * coords["rho"][1][1]
+                )  # avoid numerical issues at the magnetic axis
             case (start, stop):
-                coords["rho"] = np.linspace(start, stop)
+                coords["rho"] = ("rad", np.linspace(start, stop))
             case (start, stop, num):
-                coords["rho"] = np.linspace(start, stop, num)
+                coords["rho"] = ("rad", np.linspace(start, stop, num))
             case None:
                 pass
             case _:
-                coords["rho"] = rho
+                raise ValueError(f"Could not parse rho, got {rho}.")
         match theta:
             case np.ndarray() | list():
-                coords["theta"] = theta
+                coords["theta"] = ("pol", theta)
             case "int":
                 if any(
                     [
@@ -765,21 +767,24 @@ class Evaluations(xr.Dataset):
                     raise ValueError(
                         "Integration points for theta do not align for X1, X2 and LA."
                     )
-                coords["theta"] = np.linspace(0, 2 * np.pi, intp[0][2], endpoint=False)
+                coords["theta"] = (
+                    "pol",
+                    np.linspace(0, 2 * np.pi, intp[0][2], endpoint=False),
+                )
                 data_vars["theta_weight"] = intp[0][3]
             case int() as num:
-                coords["theta"] = np.linspace(0, 2 * np.pi, num)
+                coords["theta"] = ("pol", np.linspace(0, 2 * np.pi, num))
             case (start, stop):
-                coords["theta"] = np.linspace(start, stop)
+                coords["theta"] = ("pol", np.linspace(start, stop))
             case (start, stop, num):
-                coords["theta"] = np.linspace(start, stop, num)
+                coords["theta"] = ("pol", np.linspace(start, stop, num))
             case None:
                 pass
             case _:
-                coords["theta"] = theta
+                raise ValueError(f"Could not parse theta, got {theta}.")
         match zeta:
             case np.ndarray() | list():
-                coords["zeta"] = zeta
+                coords["zeta"] = ("tor", zeta)
             case "int":
                 if any(
                     [
@@ -791,20 +796,21 @@ class Evaluations(xr.Dataset):
                     raise ValueError(
                         "Integration points for zeta do not align for X1, X2 and LA."
                     )
-                coords["zeta"] = np.linspace(
-                    0, 2 * np.pi / state.nfp, intp[0][4], endpoint=False
+                coords["zeta"] = (
+                    "tor",
+                    np.linspace(0, 2 * np.pi / state.nfp, intp[0][4], endpoint=False),
                 )
                 data_vars["zeta_weight"] = intp[0][5]
             case int() as num:
-                coords["zeta"] = np.linspace(0, 2 * np.pi / state.nfp, num)
+                coords["zeta"] = ("tor", np.linspace(0, 2 * np.pi / state.nfp, num))
             case (start, stop):
-                coords["zeta"] = np.linspace(start, stop)
+                coords["zeta"] = ("tor", np.linspace(start, stop))
             case (start, stop, num):
-                coords["zeta"] = np.linspace(start, stop, num)
+                coords["zeta"] = ("tor", np.linspace(start, stop, num))
             case None:
                 pass
             case _:
-                coords["zeta"] = zeta
+                raise ValueError(f"Could not parse zeta, got {zeta}.")
 
         # --- init Dataset --- #
         kwargs["coords"] = coords
@@ -974,7 +980,7 @@ class Evaluations(xr.Dataset):
         if hasattr(Jac, "coords") and "theta" in Jac.coords and "zeta" in Jac.coords:
             Jac = self.fluxsurface_integral(1, Jac=Jac)
         # --- integrate --- #
-        return (quantity * Jac * self.rho_weights).sum("rho")
+        return (quantity * Jac * self.rho_weights).sum("rad")
 
     def fluxsurface_integral(
         self, quantity: str | xr.DataArray, Jac: bool | str | xr.DataArray = True
@@ -1005,9 +1011,7 @@ class Evaluations(xr.Dataset):
                 Jac = 1
         # --- integrate --- #
         return (
-            (quantity * Jac).sum(("theta", "zeta"))
-            * self.theta_weight
-            * self.zeta_weight
+            (quantity * Jac).sum(("pol", "tor")) * self.theta_weight * self.zeta_weight
         )
 
     def fluxsurface_average(
@@ -1053,7 +1057,7 @@ class Evaluations(xr.Dataset):
                 Jac = 1
         # --- integrate --- #
         return (
-            (quantity * Jac * self.rho_weights).sum(("rho", "theta", "zeta"))
+            (quantity * Jac * self.rho_weights).sum(("rad", "pol", "tor"))
             * self.theta_weight
             * self.zeta_weight
         )
