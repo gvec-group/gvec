@@ -274,7 +274,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             results[filename] = "symlink"
             continue
         # statefiles
-        elif re.match(r"\w+State\w+\.dat", filename):
+        elif re.match(r".*_State_[\d_]*\.dat", filename):
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
@@ -282,7 +282,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
-        elif re.match(r"log\w*\.csv", filename):
+        elif re.match(r"log.*\.csv", filename):
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
