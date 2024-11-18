@@ -381,6 +381,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         return
     # compare output to reference
     results = {}
+    num_statefiles = 0
     num_diff_files = 0
     num_diff_lines = 0
     num_warnings = 0
@@ -390,7 +391,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             results[filename] = "symlink"
             continue
         # statefiles
-        elif re.match(r"\w+State\w+\.dat", filename):
+        elif re.match(r".*_State_[\d_]*\.dat", filename):
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
@@ -398,7 +399,8 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
-        elif re.match(r"log\w*\.csv", filename):
+            num_statefiles += 1
+        elif re.match(r"log.*\.csv", filename):
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
@@ -431,6 +433,9 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 results[filename] = "numdiff"
         else:
             results[filename] = "success"
+    if num_statefiles == 0:
+        logger.warning("Did not compare any statefiles!?")
+        pytest.raised_warnings = True
     if num_warnings > 0:
         logger.warning(f"Found {num_warnings} warnings!")
         pytest.raised_warnings = True
