@@ -32,7 +32,7 @@ def teststate(testfiles):
 @pytest.fixture()
 def evals_r():
     rho = np.linspace(0, 1, 6)
-    ds = Evaluations(rho=rho)
+    ds = Evaluations(rho=rho, theta=None, zeta=None)
     return ds
 
 
@@ -94,7 +94,7 @@ def evals_rtz_and_list(request, evals_rtz, evals_r_tz_list):
 
 
 def test_evaluations_init(teststate):
-    ds = Evaluations(rho=[0.5, 0.6])
+    ds = Evaluations(rho=[0.5, 0.6], theta=None, zeta=None)
     assert np.allclose(ds.rho, [0.5, 0.6])
     assert {"rho"} == set(ds.coords)
 
@@ -107,11 +107,11 @@ def test_evaluations_init(teststate):
 
     ds = Evaluations(rho=np.array([0.5, 0.6]), theta="int", zeta="int", state=teststate)
     assert np.allclose(ds.rho, [0.5, 0.6])
-    assert {"rho", "theta", "zeta"} == set(ds.coords)
+    assert {"rho", "theta", "zeta", "pol_weight", "tor_weight"} == set(ds.coords)
     assert ds.rho.attrs["integration_points"] is False
 
     ds = Evaluations(rho="int", theta=None, zeta=None, state=teststate)
-    assert {"rho"} == set(ds.coords)
+    assert {"rho", "rad_weight"} == set(ds.coords)
     assert ds.rho.attrs["integration_points"] is True
 
     ds = Evaluations("int", "int", "int", state=teststate)
