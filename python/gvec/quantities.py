@@ -195,7 +195,6 @@ for var, long_name, symbol in [
     ("X1", "first reference coordinate", r"X^1"),
     ("X2", "second reference coordinate", r"X^2"),
     ("LA", "straight field line potential", r"\lambda"),
-    ("GB", "Boozer potential", r"G_B"),
 ]:
     globals()[var] = _base(var, long_name, symbol)
 

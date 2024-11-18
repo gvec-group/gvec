@@ -29,8 +29,8 @@ CLASS(t_functional), ALLOCATABLE :: functional
 LOGICAL :: initialized = .FALSE.
 INTEGER :: nfp = 0
 ! additional base & dofs for SFL-potential (LA) and Boozer potential (GB)
-CLASS(t_base), ALLOCATABLE, TARGET        :: LA_base_new, GB_base
-REAL, DIMENSION(:,:), ALLOCATABLE, TARGET :: LA_dofs_new, GB_dofs ! shape (npoly, nmodes)
+CLASS(t_base), ALLOCATABLE, TARGET        :: LA_base_new
+REAL, DIMENSION(:,:), ALLOCATABLE, TARGET :: LA_dofs_new ! shape (npoly, nmodes)
 
 CONTAINS
 
@@ -107,119 +107,6 @@ SUBROUTINE ReadState(statefile)
   ! additional global variables
   nfp = X1_base%f%nfp
 END SUBROUTINE ReadState
-
-!================================================================================================================================!
-SUBROUTINE init_base_GB(deg, cont, m_max, n_max, sin_cos)
-  ! MODULES
-  USE MODgvec_MHD3D_vars,     ONLY: LA_base
-  USE MODgvec_base,           ONLY: Base_new
-  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: deg              ! spline polynomial degree
-  INTEGER, INTENT(IN) :: cont             ! spline continuity
-  INTEGER, INTENT(IN) :: m_max, n_max     ! maximum number of poloidal, toroidal modes
-  CHARACTER(LEN=8), INTENT(IN) :: sin_cos ! "_sin_   ", " _cos_   " or "_sincos_"
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER, DIMENSION(2) :: mn_max
-  CLASS(t_base), POINTER :: base
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  IF (ALLOCATED(GB_base)) THEN
-    CALL GB_base%free()
-    DEALLOCATE(GB_base)
-    DEALLOCATE(GB_dofs)
-  END IF
-  IF (ALLOCATED(LA_base_new)) THEN
-    base => LA_base_new
-  ELSE
-    base => LA_base
-  END IF
-  mn_max = (/m_max, n_max/)
-  CALL base_new(GB_base, deg, cont, base%s%grid, base%s%degGP, mn_max, base%f%mn_nyq, base%f%nfp, sin_cos, .TRUE. )
-  ALLOCATE(GB_dofs(1:GB_base%s%nbase, 1:GB_base%f%modes))
-END SUBROUTINE init_base_GB
-
-!================================================================================================================================!
-SUBROUTINE GB_project_f_interpolate_s(dGB_dt, dGB_dz)
-  ! MODULES ---------------------------------------------------------------------------------------------------------------------!
-  USE MODgvec_Globals, ONLY: PI
-  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  REAL, DIMENSION(:,:), INTENT(IN) :: dGB_dt, dGB_dz  ! partial derivatives of GB(s_IP, tz_IP)
-  ! dGB_dt and dGB_dz are given on the radial interpolation points s_IP(1:nbase) and angular integration points
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: m, n, iMode, iIP, modes, nIP
-  REAL, DIMENSION(:,:), ALLOCATABLE :: GB_dofs_IP ! DOFs for the GB_base on the interpolation points s_IP, shape (nbase, nmodes)
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  nIP = GB_base%s%nbase
-  modes = GB_base%f%modes
-
-  ALLOCATE(GB_dofs_IP(1:nIP, 1:modes))
-
-  ! project the derivatives onto the angular DoFs at the interpolation points
-  GB_dofs_IP(1,:) = 0.0 ! at axis, otherwise NaN
-  DO iIP = 2,nIP
-    CALL GB_base%f%projectIPtoDOFdtz(dGB_dt(iIP,:), dGB_dz(iIP,:), GB_dofs_IP(iIP,:))
-  END DO
-
-  ! interpolate from the gauss points to the radial DoFs
-  DO iMode = 1,modes
-    GB_dofs(:,iMode) = GB_base%s%initDOF(GB_dofs_IP(:,iMode))
-  END DO
-
-  DEALLOCATE(GB_dofs_IP)
-END SUBROUTINE GB_project_f_interpolate_s
-
-!================================================================================================================================!
-!> project the derivatives of the Boozer potential GB onto a basis, with Gauss points for the radial resolution
-!!
-!! see 'get_boozer.f90' for reference
-!================================================================================================================================!
-SUBROUTINE GB_project_f_project_s(dGB_dt, dGB_dz)
-  ! MODULES ---------------------------------------------------------------------------------------------------------------------!
-  USE MODgvec_Globals, ONLY: PI
-  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  REAL, DIMENSION(:,:), INTENT(IN) :: dGB_dt, dGB_dz  ! partial derivatives of GB(s_GP, tz_IP)
-  ! dGB_dt and dGB_dz are given on the radial Gauss points s_GP(1:nbase) and angular integration points
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: iGP, iMode, iElem, iBase   ! loop variables: Gauss point, angular mode, radial element, base DoF offset
-  INTEGER :: deg, degGP, nGP, nElems, modes
-  INTEGER :: BCtype_axis(0:4)
-  REAL, DIMENSION(:,:), ALLOCATABLE :: GB_dofs_GP     ! fourier DOFs the gauss points s_GP, shape (nbase, nmodes)
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  deg = GB_base%s%deg
-  degGP = GB_base%s%degGP
-  nGP = GB_base%s%nGP
-  nElems = GB_base%s%grid%nElems
-  modes = GB_base%f%modes
-
-  ALLOCATE(GB_dofs_GP(1:nGP, 1:modes))
-
-  ! project the derivatives onto the angular DoFs at the gauss points
-  DO iGP = 1,nGP
-    CALL GB_base%f%projectIPtoDOFdtz(dGB_dt(iGP,:), dGB_dz(iGP,:), GB_dofs_GP(iGP,:))
-    GB_dofs_GP(iGP,:) = GB_dofs_GP(iGP,:) * GB_base%s%w_GP(iGP)
-  END DO
-
-  ! project from the gauss points to the radial DoFs
-  ! define boundary conditions
-  BCtype_axis(MN_ZERO    )= BC_TYPE_DIRICHLET !=0 (should not be here!)
-  BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN  ! derivative zero
-  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
-  DO iMode = 1,modes
-    GB_dofs(:,iMode) = 0.0
-    DO iElem = 1,nElems
-      iGP = (iElem - 1) * (degGP + 1) + 1
-      iBase = GB_base%s%base_offset(iElem)
-      GB_dofs(iBase:iBase+deg,iMode) = GB_dofs(iBase:iBase+deg,iMode) &
-                                     + MATMUL(GB_dofs_GP(iGP:iGP+degGP,iMode),GB_base%s%base_GP(0:degGP,0:deg,iElem))
-    END DO
-    CALL GB_base%s%mass%solve_inplace(1,GB_dofs(:,iMode))
-    CALL GB_base%s%applyBCtoDOF(GB_dofs(:,iMode),(/BCtype_axis(GB_base%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
-                                                ,(/0.,0./))
-  END DO
-
-  DEALLOCATE(GB_dofs_GP)
-END SUBROUTINE GB_project_f_project_s
 
 !================================================================================================================================!
 !> change the base for the SFL potential lambda (LA), resets the solution dofs!
@@ -340,13 +227,6 @@ SUBROUTINE select_base_dofs(var, base, dofs)
         base => LA_base
         dofs => U(0)%LA
       END IF
-    CASE('GB')
-      IF (.NOT.ALLOCATED(GB_base)) THEN
-        WRITE(*,*) 'ERROR: GB_base not initialized'
-        STOP
-      END IF
-      base => GB_base
-      dofs => GB_dofs
     CASE DEFAULT
       WRITE(*,*) 'ERROR: variable', var, 'not recognized'
       STOP
@@ -375,12 +255,6 @@ SUBROUTINE select_base(var, base)
       ELSE
         base => LA_base
       END IF
-    CASE('GB')
-      IF (.NOT.ALLOCATED(GB_base)) THEN
-        WRITE(*,*) 'ERROR: GB_base not initialized'
-        STOP
-      END IF
-      base => GB_base
     CASE DEFAULT
       WRITE(*,*) 'ERROR: variable', var, 'not recognized'
       STOP
@@ -457,7 +331,7 @@ SUBROUTINE set_integration_points_tz(n_t, n_z)
   INTEGER, INTENT(IN) :: n_t, n_z
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER, DIMENSION(2) :: mn_nyq
-  CLASS(t_fBase), ALLOCATABLE :: X1_fbase_new, X2_fbase_new, LA_fbase_new, GB_fbase_new
+  CLASS(t_fBase), ALLOCATABLE :: X1_fbase_new, X2_fbase_new, LA_fbase_new
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   mn_nyq = (/n_t, n_z/)
   CALL fbase_new(X1_fbase_new, X1_base%f%mn_max, mn_nyq, X1_base%f%nfp, sin_cos_map(X1_base%f%sin_cos), X1_base%f%exclude_mn_zero)
@@ -482,12 +356,6 @@ SUBROUTINE set_integration_points_tz(n_t, n_z)
     LA_base%f = LA_fbase_new
   END IF
 
-  IF (ALLOCATED(GB_base)) THEN
-    CALL fbase_new(GB_fbase_new, GB_base%f%mn_max, mn_nyq, GB_base%f%nfp, sin_cos_map(GB_base%f%sin_cos), GB_base%f%exclude_mn_zero)
-    CALL GB_base%f%free()
-    DEALLOCATE(GB_base%f)
-    GB_base%f = GB_fbase_new
-  END IF
 END SUBROUTINE set_integration_points_tz
 
 !================================================================================================================================!
@@ -517,7 +385,7 @@ SUBROUTINE get_modes(var, modes)
   CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
   INTEGER, INTENT(OUT) :: modes         ! total number of modes in basis (depends if only sin/cos or sin & cos are used)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA, GB)
+  CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   modes = base%f%modes
@@ -529,7 +397,7 @@ SUBROUTINE get_mn_max(var, m_max, n_max)
   CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
   INTEGER, INTENT(OUT) :: m_max, n_max  ! maximum number of poloidal, toroidal modes
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA, GB)
+  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   m_max = base%f%mn_max(1)
@@ -542,7 +410,7 @@ SUBROUTINE get_mn_IP(var, mn_IP)
   CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
   INTEGER, INTENT(OUT) :: mn_IP         ! =mn_nyq(1)*mn_nyq(2)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA, GB)
+  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   mn_IP = base%f%mn_IP
@@ -554,7 +422,7 @@ SUBROUTINE get_s_nBase(var, s_nbase)
   CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
   INTEGER, INTENT(OUT) :: s_nbase       ! total number of degree of freedom / global basis functions
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA, GB)
+  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   s_nbase = base%s%nbase
@@ -566,7 +434,7 @@ SUBROUTINE get_s_IP(var, s_IP)
   CHARACTER(LEN=2), INTENT(IN) :: var       ! selection string: which variable to evaluate
   REAL, DIMENSION(:), INTENT(OUT) :: s_IP   ! position of interpolation points for initialization, size(nBase)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base            ! pointer to the base object (X1, X2, LA, GB)
+  CLASS(t_base), POINTER :: base            ! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   s_IP = base%s%s_IP
@@ -948,11 +816,6 @@ SUBROUTINE Finalize()
   USE MODgvec_Functional,     ONLY: FinalizeFunctional
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  IF (ALLOCATED(GB_base)) THEN
-    CALL GB_base%free()
-    DEALLOCATE(GB_base)
-    DEALLOCATE(GB_dofs)
-  END IF
   IF (ALLOCATED(LA_base_new)) THEN
     CALL LA_base_new%free()
     DEALLOCATE(LA_base_new)

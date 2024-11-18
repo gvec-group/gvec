@@ -303,20 +303,3 @@ def test_table_of_quantities():
     assert len(s.split("\n")) == 3 + len(
         gvec.comp.QUANTITIES
     )  # 2 lines header, 1 trailing \n
-
-
-@pytest.mark.skip
-@pytest.mark.parametrize("method", ["projection", "interpolation"])
-def test_compute_Boozer(teststate, evals_rtz_int, method):
-    with pytest.raises(AttributeError):
-        evals_rtz_int.compute("GB")
-    teststate.construct_GB(degree=5, m=14, n=4, method=method)
-    evals_rtz_int.compute("GB", "dGB_dt", "dGB_dz", "dGB_dt_def", "dGB_dz_def")
-    assert "GB" in evals_rtz_int
-    assert evals_rtz_int.GB.isel(rho=slice(1, None)).isnull().sum() == 0
-    assert np.allclose(
-        evals_rtz_int.dGB_dt, evals_rtz_int.dGB_dt_def, rtol=1e-1
-    ), np.mean(
-        (evals_rtz_int.dGB_dt - evals_rtz_int.dGB_dt_def) / evals_rtz_int.dGB_dt_def
-    )
-    assert np.allclose(evals_rtz_int.dGB_dz, evals_rtz_int.dGB_dz_def, rtol=1e-1)

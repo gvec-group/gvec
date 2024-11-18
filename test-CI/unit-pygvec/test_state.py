@@ -174,31 +174,6 @@ def test_evaluate_base_all_compare(teststate):
         assert np.allclose(qt, ql.reshape(6, 32, 10))
 
 
-@pytest.mark.skip
-def test_init_base_Boozer(teststate):
-    rho = np.linspace(0, 1, 6)
-    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
-    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-
-    assert not teststate.GB_available
-    with pytest.raises(AttributeError):
-        teststate.evaluate_base_tens_all("GB", rho, theta, zeta)
-
-    with pytest.raises(ValueError):
-        teststate.construct_GB(degree=4, continuity=3, m=5, n=2, n_theta=5)
-    with pytest.raises(ValueError):
-        teststate.construct_GB(degree=5, continuity=3, m=3, n=3, fourier="both")
-    teststate.construct_GB(degree=4, continuity=3, m=7, n=2, n_theta=15, n_zeta=5)
-    teststate.construct_GB(5, 7, 3)
-
-    _, _, t_n, _, z_n, _ = teststate.get_integration_points("GB")
-    assert teststate.GB_available
-    assert t_n == 15
-    assert z_n == 7
-
-    teststate.evaluate_base_tens_all("GB", rho, theta, zeta)
-
-
 def test_evaluate_hmap(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)

@@ -90,7 +90,6 @@ class State:
         self.initialized: bool = False
         self.parameterfile: Path | None = None
         self.statefile: Path | None = None
-        self.GB_available: bool = False
 
         if _post.initialized:
             raise NotImplementedError("Only one instance of State is allowed.")
@@ -164,13 +163,9 @@ class State:
     def get_integration_points(self, quantity: str = "LA"):
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in ["X1", "X2", "LA", "GB"]:
+        elif quantity not in ["X1", "X2", "LA"]:
             raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA', 'GB'."
-            )
-        elif quantity == "GB" and not self.GB_available:
-            raise AttributeError(
-                "Boozer potential GB is not available. Run `construct_GB` first."
+                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
             )
 
         r_n, t_n, z_n = _post.get_integration_points_num(quantity)
@@ -189,13 +184,9 @@ class State:
     ):
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in ["X1", "X2", "LA", "GB"]:
+        elif quantity not in ["X1", "X2", "LA"]:
             raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA', 'GB'."
-            )
-        elif quantity == "GB" and not self.GB_available:
-            raise AttributeError(
-                "Boozer potential GB is not available. Run `construct_GB` first."
+                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
             )
         if derivs is not None:
             if not isinstance(derivs, str):
@@ -227,13 +218,9 @@ class State:
     ):
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in ["X1", "X2", "LA", "GB"]:
+        elif quantity not in ["X1", "X2", "LA"]:
             raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA', 'GB'."
-            )
-        elif quantity == "GB" and not self.GB_available:
-            raise AttributeError(
-                "Boozer potential GB is not available. Run `construct_GB` first."
+                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
             )
         if derivs is not None:
             if not isinstance(derivs, str):
@@ -266,13 +253,9 @@ class State:
     ):
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in ["X1", "X2", "LA", "GB"]:
+        elif quantity not in ["X1", "X2", "LA"]:
             raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA', 'GB'."
-            )
-        elif quantity == "GB" and not self.GB_available:
-            raise AttributeError(
-                "Boozer potential GB is not available. Run `construct_GB` first."
+                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
             )
 
         rho = np.asfortranarray(rho, dtype=np.float64)
@@ -301,13 +284,9 @@ class State:
     ):
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in ["X1", "X2", "LA", "GB"]:
+        elif quantity not in ["X1", "X2", "LA"]:
             raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA', 'GB'."
-            )
-        elif quantity == "GB" and not self.GB_available:
-            raise AttributeError(
-                "Boozer potential GB is not available. Run `construct_GB` first."
+                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
             )
 
         rho = np.asfortranarray(rho, dtype=np.float64)
@@ -404,134 +383,6 @@ class State:
         result = np.zeros(rho.size, dtype=np.float64, order="F")
         _post.evaluate_profile(rho.size, rho, quantity, result)
         return result
-
-    # === Boozer transform === #
-
-    @_assert_init
-    def construct_GB(
-        self,
-        degree: int,
-        m: int,
-        n: int,
-        fourier: Literal["sin", "cos", "both", "sincos"] = "sin",
-        continuity: int | Literal["smooth"] = "smooth",
-        method: Literal["interpolation", "projection"] = "projection",
-        n_theta: int | None = None,
-        n_zeta: int | None = None,
-    ):
-        """Construct the Boozer potential $G_B$ ('GB') by projection onto a basis.
-        Recomputes $\\lambda$ with the new basis to satisfy the integrability condition.
-
-        Parameters
-        ----------
-        degree
-            The polynomial degree of the radial spline basis.
-        m
-            The maximum poloidal mode number.
-        n
-            The maximum toroidal mode number.
-        fourier
-            The type of Fourier series to use for the poloidal and toroidal direction. 'sin', 'cos', 'sincos' / 'both'. Default is 'both'.
-        continuity
-            The continuity of the basis. Only 'degree - 1' / 'smooth' and '-1' is supported for now. Default is 'smooth'.
-        method
-            The method for the construction of the radial DoFs: 'interpolation' on the IPs or 'projection' using Gauss points. Default is 'projection'.
-        n_theta
-            The number of poloidal integration points. Set to 2 * m + 1 per default.
-        n_zeta
-            The number of toroidal integration points. Set to 2 * n + 1 per default.
-
-        Raises
-        ------
-        ValueError
-            If the type of Fourier series is not one of 'sin', 'cos', 'sincos', or 'both'.
-            If the continuity is not either degree - 1 (smooth) or -1.
-            If m or n is negative.
-            If the degree is less than 1.
-        """
-        pass
-        # --- argument handling --- #
-        if fourier == "both":
-            fourier = "sincos"
-        if fourier not in ["sin", "cos", "sincos"]:
-            raise ValueError(
-                f"Type of fourier series must be one of 'sin', 'cos', 'sincos' or 'both', got {fourier}."
-            )
-        fourier = f"{f'_{fourier}_':8s}"
-        if continuity == "smooth":
-            continuity = degree - 1
-        if continuity not in [degree - 1, -1]:
-            raise ValueError(
-                f"Continuity must be either degree - 1 (smooth) or -1, got {continuity}."
-            )
-        if m < 0 or n < 0:
-            raise ValueError("m and n must be non-negative, got {m} and {n}.")
-        if degree < 1:
-            raise ValueError("Degree must be larger than 0, got {degree}.")
-        if method not in ["interpolation", "projection"]:
-            raise ValueError(
-                f"Method must be one of 'interpolation' or 'projection', got {method}."
-            )
-        mn_max = [(m, n)] + [
-            _post.get_mn_max(var)
-            for var in ["X1", "X2"] + (["GB"] if self.GB_available else [])
-        ]
-        m_max, n_max = max(list(zip(*mn_max))[0]), max(list(zip(*mn_max))[1])
-        if n_theta is not None and n_theta < 2 * m_max + 1:
-            raise ValueError(
-                f"n_theta must be at least 2 * m_max ({m_max}) + 1, got {n_theta}."
-            )
-        if n_zeta is not None and n_zeta < 2 * n_max + 1:
-            raise ValueError(
-                f"n_zeta must be at least 2 * n_max ({n_max}) + 1, got {n_zeta}."
-            )
-
-        _, n_theta0, n_zeta0 = _post.get_integration_points_num("LA")
-        if n_theta is None:
-            n_theta = 2 * m + 1
-            if n_theta < n_theta0:
-                n_theta = n_theta0
-        if n_zeta is None:
-            n_zeta = 2 * n + 1
-            if n_zeta < n_zeta0:
-                n_zeta = n_zeta0
-
-        # --- prepare lambda --- #
-        _post.set_integration_points_tz(n_theta, n_zeta)
-        _post.change_base_la(degree, continuity, m, n, fourier)
-        _post.recompute_la()
-
-        # --- initialize new base --- #
-        _post.init_base_gb(degree, continuity, m, n, fourier)
-
-        # --- construction --- #
-        if method == "interpolation":
-            n_IP = _post.get_s_nbase("GB")
-            s_IP = np.zeros(n_IP, dtype=np.float64)
-            _post.get_s_ip("GB", s_IP)
-
-            # ev = Evaluations(self, s_IP, "int", "int")
-        # elif method == "projection":
-        # ev = Evaluations(self, "int", "int", "int")
-        ev = NotImplemented
-
-        ev.compute("dGB_dt_def", "dGB_dz_def")
-        GBt = np.asfortranarray(
-            ev.dGB_dt_def.transpose("rho", "zeta", "theta").values.reshape(
-                ev.rho.size, -1
-            )
-        )
-        GBz = np.asfortranarray(
-            ev.dGB_dz_def.transpose("rho", "zeta", "theta").values.reshape(
-                ev.rho.size, -1
-            )
-        )
-
-        if method == "interpolation":
-            _post.gb_project_f_interpolate_s(GBt, GBz)
-        elif method == "projection":
-            _post.gb_project_f_project_s(GBt, GBz)
-        self.GB_available = True
 
     # === Integration with computable quantities === #
 
