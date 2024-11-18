@@ -21,8 +21,9 @@
 !===================================================================================================================================
 MODULE MODgvec_Transform_SFL
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,abort
-USE MODgvec_base   ,ONLY: t_base,t_sgrid
+USE MODgvec_Globals, ONLY:wp,abort,MPIroot
+USE MODgvec_base   ,ONLY: t_base
+USE MODgvec_sGrid   ,ONLY: t_sgrid
 USE MODgvec_hmap,  ONLY: c_hmap
 IMPLICIT NONE
 PRIVATE

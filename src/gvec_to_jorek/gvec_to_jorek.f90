@@ -345,7 +345,8 @@ SUBROUTINE gvec_to_jorek_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG
 USE MODgvec_gvec_to_jorek_Vars 
 USE MODgvec_Globals,        ONLY: CROSS,TWOPI,ProgressBar
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
-USE MODgvec_Base,           ONLY: t_base, t_fbase, fbase_new
+USE MODgvec_Base,           ONLY: t_base
+USE MODgvec_fBase,          ONLY: t_fbase, fbase_new
 
 
 IMPLICIT NONE

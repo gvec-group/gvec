@@ -2,12 +2,17 @@
 
 module purge
 module load git
+module load git-lfs
 module load cmake
-module load gcc/9
+module load intel
+module load impi
 module load mkl
 module load hdf5-serial
 module load netcdf-serial
-module load ftimings
 module load anaconda/3/2023.03  # for pytest
+#module load ftimings
+#module load numdiff
 module list
-export FC=`which gfortran`
+export FC=`which mpiifx`
+export CC=`which mpiicx`
+export CXX=`which mpiicx`

@@ -21,7 +21,7 @@
 !===================================================================================================================================
 MODULE MODgvec_ReadState
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,GETFREEUNIT,abort
+USE MODgvec_Globals, ONLY:wp,MPIroot
 IMPLICIT NONE
 PRIVATE
 
@@ -99,6 +99,8 @@ IMPLICIT NONE
   REAL(wp),ALLOCATABLE :: w_GP(:),s_GP(:), chi_IP(:)
   
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                       "ReadState should only be called by MPIroot!")
   WRITE(UNIT_stdOut,'(A)')'   READ STATEFILE    "'//TRIM(FileString)//'" ...'
 
   INQUIRE(FILE=TRIM(FileString), EXIST=file_exists)
@@ -314,6 +316,7 @@ END FUNCTION eval_prof_r
 !===================================================================================================================================
 SUBROUTINE Finalize_ReadState 
 ! MODULES
+USE MODgvec_Globals,ONLY: abort
 USE MODgvec_ReadState_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -323,6 +326,8 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                       "Finalize_ReadState should only be called by MPIroot!")
   DEALLOCATE(X1_r)
   DEALLOCATE(X2_r)
   DEALLOCATE(LA_r)

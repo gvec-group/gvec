@@ -63,6 +63,7 @@ def testgroup(request) -> str:
 
 @pytest.mark.run_stage
 def test_run(
+    runargs_prefix,
     binpath,
     testgroup,
     testcaserundir,
@@ -77,7 +78,7 @@ def test_run(
     Note: the `testgroup` fixture is contained in `testcaserundir`, but is given additionally to the test function
     for better readability and proper parameter ordering for the pytest nodeID.
     """
-    args = [binpath / "gvec", "parameter.ini"]
+    args = runargs_prefix + [binpath / "gvec", "parameter.ini"]
     # find restart statefile
     if "_restart" in testcase:
         base_name, suffix = re.match(
@@ -134,10 +135,12 @@ def test_run(
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
+        helpers.assert_stdout_OpenMP_MPI()
 
 
 @pytest.mark.post_stage
 def test_post(
+    runargs_prefix,
     binpath,
     testgroup,
     testcase,
@@ -154,7 +157,7 @@ def test_post(
     Note: the `testgroup` fixture is contained in `testcasepostdir`, but is given additionally to the test function
     for better readability and proper parameter ordering for the pytest nodeID.
     """
-    args = [binpath / "gvec_post", "parameter.ini"]
+    args = runargs_prefix + [binpath / "gvec_post", "parameter.ini"]
     # find all statefiles in directory
 
     # run gvec
@@ -193,6 +196,7 @@ def test_post(
         # check if GVEC was successful
         helpers.assert_empty_stderr()
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
+        helpers.assert_stdout_OpenMP_MPI()
 
 
 @pytest.mark.converter_stage
@@ -200,6 +204,7 @@ def test_post(
     "which_conv", ["to_gene", "to_jorek", "to_castor3d", "to_hopr"]
 )
 def test_converter(
+    runargs_prefix,
     binpath,
     testgroup,
     testcase,
@@ -267,7 +272,7 @@ def test_converter(
     # run converter
     with helpers.chdir(testcaseconvdir):
         for irun in range(0, nruns):
-            args = [binpath / conv["exec"]]
+            args = runargs_prefix + [binpath / conv["exec"]]
             if "args" in conv.keys():
                 args += conv["args"][irun]
             # find all statefiles in directory
@@ -292,9 +297,10 @@ def test_converter(
             # run gvec_post
             with open(f"stdout{irun}.txt", "w") as stdout:
                 stdout.write(f"RUNNING: \n {args} \n")
-            with open(f"stdout{irun}.txt", "a") as stdout, open(
-                f"stderr{irun}.txt", "w"
-            ) as stderr:
+            with (
+                open(f"stdout{irun}.txt", "a") as stdout,
+                open(f"stderr{irun}.txt", "w") as stderr,
+            ):
                 subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
             # add link to artifact (CI)
             for filename in [f"stdout{irun}", f"stderr{irun}"]:
@@ -315,6 +321,7 @@ def test_converter(
             helpers.assert_stdout_finished(
                 f"stdout{irun}.txt", message=conv["msg"] + " FINISHED!"
             )
+            # helpers.assert_stdout_OpenMP_MPI()
 
 
 @pytest.mark.regression_stage
@@ -407,7 +414,12 @@ def test_regression(
                     r"100%\| \.\.\. of",
                 ]
                 + extra_ignore_patterns,
-                warn_regexs=["Number of OpenMP threads"],
+                warn_regexs=[
+                    "Number of OpenMP threads",
+                    "Number of MPI tasks",
+                    "GIT_",
+                    "CMAKE",
+                ],
                 atol=reg_atol,
                 rtol=reg_rtol,
             )

@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (c) 2017 - 2018 Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (c) 2017 - 2022 Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (c) 2021 - 2022 Tiago Ribeiro 
 ! Copyright (c) 2010 - 2016 Claus-Dieter Munz (github.com/flexi-framework/hopr)
 !
 ! This file is a modified version from HOPR (github.com/fhindenlang/hopr).
@@ -27,6 +28,7 @@ MODULE MODgvec_Globals
 #ifndef NOISOENV
 USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
 #endif
+USE_MPI
 IMPLICIT NONE
 
 PUBLIC 
@@ -50,6 +52,9 @@ INTEGER                     :: nfailedMsg=0              !! counter for messages
 INTEGER                     :: testUnit                  !! unit for out.test file
 INTEGER                     :: ProgressBar_oldpercent    !! for progressBar
 REAL(wp)                    :: ProgressBar_starttime     !! for progressBar
+LOGICAL                     :: MPIRoot=.TRUE.            !! flag whether process is MPI root process
+INTEGER                     :: myRank=0                  !! rank of the MPI task
+INTEGER                     :: nRanks=1                  !! total number of MPI tasks
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
@@ -65,6 +70,14 @@ INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE
+
+INTERFACE GetTime
+  MODULE PROCEDURE GetTime
+END INTERFACE GetTime
+
+INTERFACE GetTimeSerial
+  MODULE PROCEDURE GetTimeSerial
+END INTERFACE GetTimeSerial
 
 INTERFACE ProgressBar
    MODULE PROCEDURE ProgressBar
@@ -129,11 +142,7 @@ IF (PRESENT(IntInfo))  WRITE(IntString,"(A,I0)")  "\nIntInfo:  ", IntInfo
 IF (PRESENT(RealInfo)) WRITE(RealString,"(A,F24.19)") "\nRealInfo: ", RealInfo
 
 WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
-#if MPI
                      'Program abort caused on Proc ',myRank, '\n', &
-#else
-                     'Program abort caused on Proc ',0, '\n', &
-#endif  
                      '  in File : ',TRIM(SourceFile),' Line ',SourceLine, '\n', &
                      '  This file was compiled at ',TRIM(CompDate),'  ',TRIM(CompTime), '\n', &
                      'Message: ',TRIM(ErrorMessage), &
@@ -151,6 +160,48 @@ CALL BACKTRACE
 ERROR STOP 2
 END SUBROUTINE Abort
 
+!==================================================================================================================================
+!> Calculates current time (serial / OpenMP /MPI)
+!!
+!==================================================================================================================================
+FUNCTION GetTime() RESULT(t)
+! MODULES
+!$ USE omp_lib
+  IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  REAL(wp) :: t   !< output time
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+#if MPI
+  LOGICAL :: barr
+  INTEGER :: ierr
+!==================================================================================================================================
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)  ! not possible to 'CALL parBarrier()' because MODgvec_MPI uses MODgvec_Globals!
+  t = MPI_WTIME()
+#else
+  CALL CPU_TIME(t)
+!$ t=OMP_GET_WTIME()
+#endif
+END FUNCTION GetTime
+
+!==================================================================================================================================
+!> Calculates current time locally on a MPIrank (no MPI Barrier)
+!!
+!==================================================================================================================================
+FUNCTION GetTimeSerial() RESULT(t)
+! MODULES
+!$ USE omp_lib
+  IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  REAL(wp) :: t   !< output time
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!==================================================================================================================================
+  CALL CPU_TIME(t)
+!$ t=OMP_GET_WTIME()
+END FUNCTION GetTimeSerial
 
 !==================================================================================================================================
 !> Print a progress bar to screen, call either with init=T or init=F
@@ -169,26 +220,25 @@ CHARACTER(LEN=8)  :: fmtstr
 INTEGER           :: newpercent
 REAL(wp)          :: endTime
 !==================================================================================================================================
+  IF(.NOT.MPIroot)RETURN
   IF(iter.LE.0)THEN !INIT
     ProgressBar_oldpercent=0
-    CALL CPU_Time(Progressbar_StartTime)
-!$ Progressbar_StartTime=OMP_GET_WTIME()
-    SWRITE(UNIT_StdOut,'(4X,A,I8)') &
+    ProgressBar_StartTime=GetTimeSerial()
+    WRITE(UNIT_StdOut,'(4X,A,I8)') &
     '|       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of ',n_iter
-    SWRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
+    WRITE(UNIT_StdOut,'(4X,A1)',ADVANCE='NO')'|'
     CALL FLUSH(UNIT_stdOut)
   ELSE
     newpercent=FLOOR(REAL(iter,wp)/REAL(n_iter,wp)*(100.0_wp+1.0e-12_wp))
     WRITE(fmtstr,'(I4)')newpercent-ProgressBar_oldpercent
     IF(newpercent-ProgressBar_oldpercent.GT.0)THEN
-      SWRITE(UNIT_StdOut,'('//TRIM(fmtstr)//'("."))',ADVANCE='NO')
+      WRITE(UNIT_StdOut,'('//TRIM(fmtstr)//'("."))',ADVANCE='NO')
       CALL FLUSH(UNIT_stdOut)
     END IF
     ProgressBar_oldPercent=newPercent
     IF(newpercent.EQ.100)THEN
-      CALL CPU_Time(endTime)
-!$  endTime=OMP_GET_WTIME()
-      SWRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
+      EndTime=GetTimeSerial()
+      WRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
     END IF
   END IF 
 END SUBROUTINE ProgressBar
@@ -222,7 +272,7 @@ END FUNCTION GETFREEUNIT
 !> evalute monomial polynomial c_1+c_2*x+c_3*x^2 ...
 !!
 !===================================================================================================================================
-FUNCTION Eval1DPoly(nCoefs,Coefs,x)
+PURE FUNCTION Eval1DPoly(nCoefs,Coefs,x)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -249,7 +299,7 @@ END FUNCTION Eval1DPoly
 !> evalute first derivative monomial polynomial (c_1+c_2*x+c_3*x^2) -> (c_2+2*c_3*x+3*c_4*x^2 ...
 !!
 !===================================================================================================================================
-FUNCTION Eval1DPoly_deriv(nCoefs,Coefs,x)
+PURE FUNCTION Eval1DPoly_deriv(nCoefs,Coefs,x)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -318,7 +368,7 @@ END FUNCTION CROSS
 !> compute determinant of 3x3 matrix
 !!
 !===================================================================================================================================
-FUNCTION DET33(Mat)
+PURE FUNCTION DET33(Mat)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -340,7 +390,7 @@ END FUNCTION DET33
 !> compute inverse of 3x3 matrix, needs sDet=1/det(Mat)
 !!
 !===================================================================================================================================
-FUNCTION INV33(Mat, Det_in)
+PURE FUNCTION INV33(Mat, Det_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------

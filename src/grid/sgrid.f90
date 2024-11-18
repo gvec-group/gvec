@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -21,10 +22,11 @@
 !===================================================================================================================================
 MODULE MODgvec_sGrid
 ! MODULES
-USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_Globals,    ONLY : wp,Unit_stdOut,abort,MPIRoot
 IMPLICIT NONE
 
-PUBLIC
+PRIVATE
+PUBLIC c_sgrid,t_sgrid
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
 TYPE, ABSTRACT :: c_sgrid
@@ -77,10 +79,13 @@ TYPE,EXTENDS(c_sgrid) :: t_sGrid
   LOGICAL :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
-  INTEGER              :: nElems                   !! total number of radial elements
+  INTEGER              :: nElems                   !! global number of radial elements
+  INTEGER              :: nElems_str, nElems_end   !! local number of radial elements per MPI subdomain  !<<<<
+  INTEGER,ALLOCATABLE  :: offset_elem(:)           !! allocated  (0:nRanks), gives range on each rank:
+                                                   !!   nElems_str:nElems_end=offset_elem(rank)+1:offset_elem(myRank+1)
   INTEGER              :: grid_type                !! type of grid (stretching functions...) 
   !---------------------------------------------------------------------------------------------------------------------------------
-  REAL(wp),ALLOCATABLE :: sp(:)                   !! element point positions in [0,1], size(0:nElems)
+  REAL(wp),ALLOCATABLE :: sp(:)                    !! element point positions in [0,1], size(0:nElems)
   REAL(wp),ALLOCATABLE :: ds(:)                    !! ds(i)=sp(i)-sp(i-1), size(1:nElems)
 
   CONTAINS
@@ -105,7 +110,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
 ! MODULES
-USE MODgvec_GLobals, ONLY: PI
+USE MODgvec_GLobals, ONLY: PI,myRank, nRanks
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -116,7 +121,7 @@ IMPLICIT NONE
   CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: iElem
+  INTEGER :: iElem,iRank
 !===================================================================================================================================
   IF(.NOT.test_called)THEN
     SWRITE(UNIT_stdOut,'(4X,A,I6,A,I3,A)')'INIT sGrid type nElems= ',nElems_in,' grid_type= ',grid_type_in, ' ...'
@@ -127,8 +132,20 @@ IMPLICIT NONE
     CALL sf%free() 
   END IF
 
-  sf%nElems   = nElems_in
-  sf%grid_Type= grid_type_in
+  sf%nElems     = nElems_in
+  ! MPI PSEUDO-DOMAIN DECOMPOSITION (full domain is allocated, but only part of it is actually used on the MPI task)
+  ALLOCATE(sf%offset_elem(0:nRanks))
+  sf%offset_elem(0)=0 
+  DO iRank=0,nRanks-1
+    sf%offset_elem(iRank+1)=(nElems_in*(iRank+1))/nRanks
+  END DO
+  sf%nElems_str = sf%offset_elem(myRank  ) +1    
+  sf%nElems_end = sf%offset_elem(myRank+1)
+  IF (sf%nElems_end-sf%nElems_str+1 .EQ. 0) THEN
+    CALL abort(__STAMP__, &
+         'number of MPI tasks can not be larger than nElems!')
+  END IF
+  sf%grid_Type  = grid_type_in
   ALLOCATE(sf%sp(0:nElems_in))
   ALLOCATE(sf%ds(1:nElems_in))
 
@@ -136,7 +153,7 @@ IMPLICIT NONE
               nElems    => sf%nElems    &
             , grid_Type => sf%grid_Type )
   
-  !uniform
+  !uniform [0,1]
   DO iElem=0,nElems
     sf%sp(iElem)=REAL(iElem,wp)/REAL(nElems,wp)
   END DO
@@ -147,9 +164,9 @@ IMPLICIT NONE
     sf%sp(:)=SQRT(sf%sp(:))
   CASE(GRID_TYPE_S2)   !finer at the center
     sf%sp(:)=sf%sp(:)*sf%sp(:)
-  CASE(GRID_TYPE_BUMP) !strechted towards axis and edge
+  CASE(GRID_TYPE_BUMP) !finer towards axis and edge
     sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*2.0_wp*sf%sp(:))
-  CASE(GRID_TYPE_BUMP_EDGE) ! imore equidistnat at the axis and stretched towards edge
+  CASE(GRID_TYPE_BUMP_EDGE) ! more equidistnat at the axis and finer towards edge
     sf%sp(:)=(sf%sp(:)-0.75_wp*((sf%sp(:)-0.4_wp)**3 + 0.4_wp**3))/(1.0_wp-0.75_wp*((1.0_wp-0.4_wp)**3+0.4**3))
   CASE DEFAULT
    CALL abort(__STAMP__, &
@@ -193,6 +210,7 @@ IMPLICIT NONE
   sf%nElems   = -1
   sf%grid_Type= -1
   
+  SDEALLOCATE(sf%offset_elem)
   SDEALLOCATE(sf%sp)
   SDEALLOCATE(sf%ds)
   

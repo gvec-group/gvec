@@ -60,6 +60,17 @@ END TYPE t_ncfile
 
 CONTAINS
 
+  SUBROUTINE mpi_check_single_access()
+    USE MODgvec_Globals,ONLY: abort,MPIroot
+    IMPLICIT NONE
+    !===============================================================================================================================
+#if MPI
+    IF(.NOT. MPIroot) &
+       CALL abort(__STAMP__,&
+                  "netcdf routines are supposed to be called by MPIroot only") 
+#endif /*MPI*/
+  END SUBROUTINE mpi_check_single_access
+
   !=================================================================================================================================
   !> allocate and initialize class and open/close the netcdf file and define  read ("r") or write ("w" includes read) mode
   !!
@@ -77,6 +88,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     ALLOCATE(t_ncfile :: sf)
     sf%isopen=.FALSE.
     sf%nc_id=0
@@ -101,6 +113,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     IF(sf%isopen) RETURN
 #if NETCDF
     SELECT CASE(sf%rwo_mode)
@@ -136,6 +149,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     IF(.NOT.sf%isopen) RETURN
 #if NETCDF
     sf%ioError = nf90_CLOSE(sf%nc_id)
@@ -168,6 +182,7 @@ CONTAINS
     CHARACTER(LEN=255) :: grpname
     INTEGER          :: grpid_old,id
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     IF(.NOT.sf%isopen) CALL sf%openfile()
     grpid=sf%nc_id 
     varname=varname_in
@@ -204,6 +219,7 @@ CONTAINS
     CHARACTER(LEN=255) :: varname
     INTEGER :: grpid,varid
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(exists)THEN
@@ -233,6 +249,7 @@ CONTAINS
     INTEGER :: grpid,varid
     LOGICAL :: exists
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
@@ -266,6 +283,7 @@ CONTAINS
     INTEGER :: grpid,varid,ndims_var,dim_ids(1:ndims_in),i
     LOGICAL :: exists,transpose
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     IF(PRESENT(transpose_in))THEN
       transpose=transpose_in
     ELSE
@@ -312,6 +330,7 @@ CONTAINS
     INTEGER :: grpid,varid
     LOGICAL :: exists
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
@@ -320,11 +339,11 @@ CONTAINS
     IF(PRESENT(intout))THEN
       sf%ioError = nf90_GET_VAR(grpid, varid, intout)
       CALL sf%handle_error("reading scalar variable '"//TRIM(varname_in)//"'")
-      SWRITE(UNIT_stdOut,'(6X,A,A30,A,I8)')'read netCDF scalar ','"'//TRIM(varname_in)//'"',' :: ',intout
+      WRITE(UNIT_stdOut,'(6X,A,A30,A,I8)')'read netCDF scalar ','"'//TRIM(varname_in)//'"',' :: ',intout
     ELSEIF(PRESENT(realout))THEN
       sf%ioError = nf90_GET_VAR(grpid, varid, realout)
       CALL sf%handle_error("reading scalar variable '"//TRIM(varname_in)//"'")
-      SWRITE(UNIT_stdOut,'(6X,A,A30,A,E21.11)')'read netCDF scalar ','"'//TRIM(varname_in)//'"',' :: ',realout
+      WRITE(UNIT_stdOut,'(6X,A,A30,A,E21.11)')'read netCDF scalar ','"'//TRIM(varname_in)//'"',' :: ',realout
     END IF
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_get_scalar
@@ -366,6 +385,7 @@ CONTAINS
     REAL(wp),ALLOCATABLE :: tmpreal2d(:,:),tmpreal3d(:,:,:),tmpreal4d(:,:,:,:)
     LOGICAL :: exists,transpose
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     IF(PRESENT(transpose_in))THEN
       transpose=transpose_in
     ELSE
@@ -445,7 +465,7 @@ CONTAINS
     END IF
     CALL sf%handle_error("reading array '"//TRIM(varname_in)//"'")
     WRITE(fmtstr,'(A,I4,A)')'(6X,A,A30,A,"["',ndims_var,'(I4),"]")'
-    SWRITE(UNIT_stdOut,fmtstr)'read netCDF array ','"'//TRIM(varname_in)//'"',', shape: ',dims(1:ndims_var)
+    WRITE(UNIT_stdOut,fmtstr)'read netCDF array ','"'//TRIM(varname_in)//'"',', shape: ',dims(1:ndims_var)
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_get_array
 
@@ -466,6 +486,7 @@ CONTAINS
     CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
     INTEGER,INTENT(OUT)          :: dimid !! id of the dimension
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
 #if NETCDF
     sf%ioError = nf90_def_dim(sf%nc_id, dimname_in, dimlen, dimid)
     CALL sf%handle_error("define dimension '"//TRIM(dimname_in)//"'")
@@ -486,6 +507,7 @@ CONTAINS
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
 #if NETCDF
     sf%ioError = nf90_enddef(sf%nc_id)
     CALL sf%handle_error("finalize definition mode")
@@ -511,6 +533,7 @@ CONTAINS
     ! LOCAL VARIABLES
     INTEGER    :: varid
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
 #if NETCDF
     IF(PRESENT(int_in))THEN
       SELECT CASE(def_put_mode)
@@ -566,6 +589,7 @@ CONTAINS
     INTEGER    :: varid
     LOGICAL ::transpose
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
 #if NETCDF
     IF(PRESENT(transpose_in))THEN
       transpose=transpose_in
@@ -669,9 +693,10 @@ CONTAINS
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
 #if NETCDF
     IF (sf%ioError .NE. nf90_NOERR) THEN
-       SWRITE(UNIT_stdOut,'(6X,A)')"A netCDF error has occurred:  "//TRIM(errmsg)
+       WRITE(UNIT_stdOut,'(6X,A)')"A netCDF error has occurred:  "//TRIM(errmsg)
        CALL abort(__STAMP__,&
                  nf90_STRERROR(sf%ioError))
     END IF
@@ -693,6 +718,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
+    CALL mpi_check_single_access() 
     IF(sf%isopen) CALL sf%closefile()
     sf%nc_id=0
     sf%filename=""

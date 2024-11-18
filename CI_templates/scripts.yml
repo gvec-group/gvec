@@ -13,6 +13,7 @@
     - echo -e "\e[0Ksection_start:`date +%s`:setup-env[collapsed=true]\r\e[0KSetup Environment"
     - echo ${CMAKE_HOSTNAME} ${CURR_CMP}
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${CURR_CMP}
+    - echo "Fortran compiler is ${FC}"
     - git status
     - echo -e "\e[0Ksection_end:`date +%s`:setup-env\r\e[0K"
 
@@ -292,12 +293,12 @@
     - echo -e "\e[0Ksection_end:`date +%s`:pre-post\r\e[0K"
     # POST
     - echo -e "\e[0Ksection_start:`date +%s`:post[collapsed=true]\r\e[0KPostprocessing"
-    - ${PYTEST_EXEC_CMD} 
-      --log-file=log_pytest_post.txt 
-      -m "${PYTEST_MARKER_OPTS} and post_stage" 
-      -k "${PYTEST_KEY_OPTS}" 
-      $PYTEST_DIR_OPTS 
-      --junitxml=pytest.xml 
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_post.txt
+      -m "${PYTEST_MARKER_OPTS} and post_stage"
+      -k "${PYTEST_KEY_OPTS}"
+      $PYTEST_DIR_OPTS
+      --junitxml=pytest.xml
       --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:post\r\e[0K"
   artifacts:
@@ -327,11 +328,11 @@
     - echo -e "\e[0Ksection_end:`date +%s`:pre-conv\r\e[0K"
     # CONVERTER TESTS
     - echo -e "\e[0Ksection_start:`date +%s`:conv[collapsed=true]\r\e[0K converter Postprocessing"
-    - ${PYTEST_EXEC_CMD} 
-      --log-file=log_pytest_conv.txt 
-      -m "${PYTEST_MARKER_OPTS} and converter_stage and (not restart)" 
-      -k "not highres" 
-      $PYTEST_DIR_OPTS 
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_conv.txt
+      -m "${PYTEST_MARKER_OPTS} and converter_stage and (not restart)"
+      -k "not highres"
+      $PYTEST_DIR_OPTS
       --junitxml=pytest.xml
       --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:conv\r\e[0K"

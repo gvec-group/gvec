@@ -13,6 +13,7 @@ INCLUDE(CMakeDependentOption)
 # Detect machine environements
 # =========================================================================
 SITE_NAME(CMAKE_HOSTNAME)
+STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
 STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_TESTIMONY)
 STRING(FIND "${CMAKE_HOSTNAME}" "sharedrunner" ON_SHAREDRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
@@ -21,9 +22,9 @@ STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
 
-IF((ON_MPCDFCIRUNNER GREATER -1))
+IF (ON_MPCDFCIRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
 ELSEIF (ON_SHAREDRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF shared runner")
@@ -41,6 +42,8 @@ ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
   MESSAGE(STATUS "Compiling on MacOS with macports!")
 ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
+ELSEIF (ON_MARCONI GREATER -1)
+  MESSAGE(STATUS "Compiling on Marconi")
 ELSE()
   MESSAGE(STATUS "Compiling on unknown hostname ${CMAKE_HOSTNAME}")
 ENDIF()
@@ -104,6 +107,19 @@ OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)"
 OPTION(COMPILE_PYGVEC "compile python interface to gvec" OFF)
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
+OPTION(USE_MPI "enable MPI" OFF)
+
+IF(USE_MPI)
+  IF(COMPILE_GVEC_TO_GENE)
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_GENE=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ELSEIF(COMPILE_GVEC_TO_HOPR)
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_HOPR=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ELSEIF(COMPILE_GVEC_TO_CASTOR3D)
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_CASTOR3D=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ELSEIF(COMPILE_GVEC_TO_JOREK)
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_JOREK=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ENDIF()
+ENDIF()
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 MARK_AS_ADVANCED(USE_FTIMINGS)
@@ -123,12 +139,42 @@ IF (NOT CMAKE_BUILD_TYPE)
   SET (CMAKE_BUILD_TYPE "Release" CACHE STRING
       "Choose the type of build, options are: Debug / Release / Profile."
       FORCE)
-  SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile )
+  SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile)
 ENDIF (NOT CMAKE_BUILD_TYPE)
 
 IF (CMAKE_BUILD_TYPE MATCHES "Debug")
   ADD_DEFINITIONS("-DDEBUG")
 ENDIF()
+
+
+# =========================================================================
+# MPI
+# =========================================================================
+IF(USE_MPI)
+  FIND_PACKAGE(MPI REQUIRED)
+  IF (NOT MPI_Fortran_NO_INTERROGATE)
+    FOREACH(DIR ${MPI_INCLUDE_PATH})
+      INCLUDE_DIRECTORIES(${DIR})
+    ENDFOREACH()
+    FOREACH(DIR ${MPI_Fortran_INCLUDE_PATH})
+      INCLUDE_DIRECTORIES(${DIR})
+    ENDFOREACH()
+    LIST(APPEND linkedlibs ${MPI_Fortran_LIBRARIES})
+  ENDIF()
+  MARK_AS_ADVANCED(MPI_LIBRARY MPI_EXTRA_LIBRARY) # don't show these ones
+  MESSAGE(STATUS "Building GVEC with MPI")
+  MESSAGE(STATUS "MPI Compiler: " ${MPI_Fortran_COMPILER})
+  ADD_DEFINITIONS(-DMPI=1)
+  OPTION(NO_MPI_F08 "disabe MPI F2008" OFF)
+  MARK_AS_ADVANCED(NO_MPI_F08)
+  IF(NO_MPI_F08)
+    ADD_DEFINITIONS(-DNO_MPI_F08)
+  ENDIF()
+ELSE()
+  ADD_DEFINITIONS(-DMPI=0)
+  UNSET(NO_MPI_F08 CACHE ) # if not MPI
+ENDIF()
+
 
 # =========================================================================
 # Location of binary and filenames
@@ -181,6 +227,8 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
      # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
   ELSEIF (ON_DRACO GREATER -1 )
      SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
+  ELSEIF(ON_MARCONI GREATER -1)
+    SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
   ELSE()
      SET(MAIN_INSTRUCTION "-xHost")
   ENDIF()
@@ -193,7 +241,12 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${MAIN_INSTRUCTION} -qopt-report=5 -diag-disable=10397 -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
+  IF (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
+    SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
+  ELSE()
+    # Temp FIX: the line below replaces the one above by removing the flags that are causing the code to crash when built with ifx; seems to be an issue related to NETCDF
+    SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
+  ENDIF()
    # add flags only for compiling not linking!
    SET (MAIN_COMPILE_FLAGS "-fpp -assume bscc -fPIC")
 
@@ -208,12 +261,25 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
   # set Flags
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8")
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O3")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
   # add flags only for compiling not linking!
   SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
+ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
+  # set Flags
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
+  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3")
+  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0  -g ") #-C option fails for LEN(*) STRINGS
+  # add flags only for compiling not linking!
+  SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
+  IF(USE_OPENMP)
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
+  ELSE()
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -nomp")
+  ENDIF()
 
 
 ELSE()
@@ -298,7 +364,7 @@ IF(LINK_GVEC_TO_NETCDF)
   IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSEIF(ON_MAC_BREW GREATER -1)
-    SET(NETCDF_DIR  /opt/homebrew)
+    SET(NETCDF_DIR $ENV{HOMEBREW_PREFIX})
   ELSEIF(ON_MAC_PORTS GREATER -1)
     SET(NETCDF_DIR  /opt/local)
   ELSE()
@@ -361,7 +427,6 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/analyze/analyze_vars.f90
                           ./src/io_netcdf.f90
                           ./src/output/*.f90
-                          ./src/analyze/analyze_vars.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
 
@@ -505,12 +570,12 @@ IF(COMPILE_GVEC)
   add_test(
     NAME gvec_pytest_create_rundir
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_run 
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_run
   )
   add_test(
     NAME gvec_pytest_create_postdir
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_post 
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_post
   )
   add_test(
     NAME gvec_pytest_dryrun
@@ -545,12 +610,12 @@ IF(COMPILE_GVEC_TO_HOPR)
     add_test(
       NAME gvec_to_hopr_pytest_create_convdir
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_hopr 
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_hopr
     )
     add_test(
       NAME gvec_to_hopr_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_hopr and not highres"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_hopr"
     )
     set_tests_properties(gvec_to_hopr_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()
@@ -562,12 +627,12 @@ IF(COMPILE_GVEC_TO_GENE)
     add_test(
       NAME gvec_to_gene_pytest_create_convdir
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_gene 
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_gene
     )
     add_test(
       NAME gvec_to_gene_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_gene and not highres"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_gene"
     )
     set_tests_properties(gvec_to_gene_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()
@@ -584,7 +649,7 @@ IF(COMPILE_GVEC_TO_CASTOR3D)
     add_test(
       NAME gvec_to_castor3d_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_castor3d and not highres"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_castor3d"
     )
     set_tests_properties(gvec_to_castor3d_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()
@@ -601,7 +666,7 @@ IF(COMPILE_GVEC_TO_JOREK)
     add_test(
       NAME gvec_to_jorek_pytest_shortrun_norestart
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_jorek and not highres"
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_jorek"
     )
     set_tests_properties(gvec_to_jorek_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
   ENDIF()

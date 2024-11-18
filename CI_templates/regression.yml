@@ -13,8 +13,9 @@
 reg.mpcdfci_intel-minimal:
   stage: regression
   extends:
-    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .before_script_modules # to be able to load modules
+    #- .mpcdfci_intel2023       # need to choose one Docker image: this sets $CURR_CMP=intel_ifort
+    - .mpcdfci_intel_latest     # need to choose one Docker image: this sets $CURR_CMP=intel
+    - .before_script_modules    # to be able to load modules
     - .script_regression
     #- .vars_matrix_run
     - .rules_minimal_only
@@ -24,33 +25,34 @@ reg.mpcdfci_intel-minimal:
     OMP_MODE_2: "ompON"
     CASENAME_1: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
     CASENAME_2: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
+    #uncomment the next line to remove warning job#
     PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: run.mpcdfci_intel2023
+    - job: run.mpcdfci_intel_latest
       artifacts: true
 
 # compare results between intel and gnu (no MPI)
 reg.mpcdfci_intel-vs-gnu:
   stage: regression
   extends:
-    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .before_script_modules # to be able to load modules
+    - .mpcdfci_intel_latest     # need to choose one Docker image: this sets $CURR_CMP=intel
+    - .before_script_modules    # to be able to load modules
     - .script_regression
     - .vars_matrix_run
     - .rules_default
   variables:
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG}
-    CURR_CMP_1: intel
+    CURR_CMP_1: ${CURR_CMP}
     CURR_CMP_2: gnu
     CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
     CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: run.mpcdfci_intel2023
+    - job: run.mpcdfci_intel_latest
       artifacts: true
     - job: run.mpcdfci_gcc13
       artifacts: true
@@ -59,8 +61,8 @@ reg.mpcdfci_intel-vs-gnu:
 reg.mpcdfci_omp-vs-ser:
   stage: regression
   extends:
-    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .before_script_modules # to be able to load modules
+    - .mpcdfci_intel_latest     # need to choose one Docker image: this sets $CURR_CMP=intel
+    - .before_script_modules    # to be able to load modules
     - .script_regression
     - .rules_default
   parallel:
@@ -76,7 +78,7 @@ reg.mpcdfci_omp-vs-ser:
   allow_failure:
     exit_codes: 5  # warnings
   needs:
-    - job: run.mpcdfci_intel2023
+    - job: run.mpcdfci_intel_latest
       artifacts: true
     - job: run.mpcdfci_gcc13
       artifacts: true
@@ -85,10 +87,11 @@ reg.mpcdfci_omp-vs-ser:
 reg.mpcdfci_intel-vs-tag:
   stage: regression
   extends:
-    - .mpcdfci_intel2023     # need to choose one (does not matter which) Docker image
-    - .before_script_modules # to be able to load modules
+    - .mpcdfci_intel2023        # need to choose one Docker image: this sets $CURR_CMP=intel_ifort
+    #- .mpcdfci_intel_latest    # need to choose one Docker image: this sets $CURR_CMP=intel
+    - .before_script_modules    # to be able to load modules
     - .script_regression
-    - .vars_matrix_run
+    - .vars_matrix_run          # can NOT use .vars_matrix_run_tag here, otherwise HASH_TAG = HASH_TAG_REFERENCE
     - .rules_default
   variables:
     HASH_TAG_1: ${HASH_TAG}
@@ -103,4 +106,32 @@ reg.mpcdfci_intel-vs-tag:
     - job: run.mpcdfci_intel2023
       artifacts: true
     - job: run.mpcdfci_intel2023_tag
+      artifacts: true
+
+# compare results between MPI=ON and MPI=OFF  for Intel compiler
+reg.mpcdfci_intel_mpiON-vs-mpiOFF:
+  stage: regression
+  extends:
+    - .mpcdfci_intel_latest     # need to choose one Docker image: this sets $CURR_CMP=intel
+    - .before_script_modules # to be able to load modules
+    - .script_regression
+    - .rules_minimal
+  parallel:
+    matrix:
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
+        MPI_RNKS: ["1","2"]
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: ${CURR_CMP}
+    CURR_CMP_2: ${CURR_CMP}_mpi
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON${MPI_RNKS_MODE}
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    PYTEST_EXTRA_OPTS: "--add-ignore-pattern=['Number of OpenMP threads','Number of MPI tasks']"
+  needs:
+    - job: run.mpcdfci_intel_latest
+      artifacts: true
+    - job: run.mpcdfci_intel_impi_latest
       artifacts: true

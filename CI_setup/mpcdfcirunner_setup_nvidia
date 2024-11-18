@@ -4,14 +4,15 @@ module purge
 module load git
 module load git-lfs
 module load cmake
-module load intel
+module load nvhpcsdk
 module load mkl
 module load hdf5-serial
 module load netcdf-serial
 module load anaconda
-#module load ftimings
 #module load numdiff
 module list
-export FC=`which ifx`
-export CC=`which icx`
-export CXX=`which icx`
+export CC=`which nvc`
+export FC=`which nvfortran`
+export CXX=`which nvc++`
+
+

@@ -50,7 +50,7 @@ variables:
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
-  PYTEST_KEY_OPTS: ""                                  # default value
+  PYTEST_KEY_OPTS: ""               # default value
   PYTEST_EXTRA_OPTS: ""
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
@@ -67,7 +67,7 @@ variables:
 # "artifacts:"     keep data from the job which is uploaded to gitlab.com. You really should set a duration to expiration.
 #                  "when:" can be either on_failure, on_success or always
 #
-# => SCIPT SYNTAX CAN BE CHECKED ON GITLAB with the "CI LINT" tool
+# => SCRIPT SYNTAX CAN BE CHECKED ON GITLAB with the "CI LINT" tool
 #
 # =================================================================================================================================
 
@@ -92,6 +92,7 @@ variables:
 # =================================================================================================================================
 
 include:
+
   # ============================
   # script templates
   # ============================
@@ -107,7 +108,31 @@ include:
 
   - local: CI_templates/env.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/env.yml
+    inputs:
       env: .mpcdfci_gcc13
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+
+  # MPI
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_intel2023_impi
+      rules: .rules_minimal
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_intel_impi_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .mpcdfci_gcc_openmpi_latest
 
   # ============================
   # build jobs
@@ -119,7 +144,37 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
       env: .mpcdfci_gcc13
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+
+  # MPI
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_intel2023_impi
+      vars: .vars_matrix_mpi_build
+      cmake-opts: .cmake_mpi_opts
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_intel_impi_latest
+      vars: .vars_matrix_mpi_build
+      cmake-opts: .cmake_mpi_opts
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_gcc_openmpi_latest
+      vars: .vars_matrix_mpi_build
+      cmake-opts: .cmake_mpi_opts
 
   # pip build
   - local: CI_templates/build-pip.yml
@@ -137,7 +192,20 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      build-postfix: _only_converter
+      cmake-opts: .cmake_only_converter
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
       env: .mpcdfci_gcc13
+      build-postfix: _only_converter
+      cmake-opts: .cmake_only_converter
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
 
@@ -147,6 +215,23 @@ include:
       env: .mpcdfci_intel2023
       build-postfix: _tag
       vars: .vars_matrix_build_tag
+
+  # release tag
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      build-postfix: _tag
+      vars: .vars_matrix_build_tag
+
+# This FAILS before branch develop_mpi_par IS MERGED to branch develop!
+
+  # release tag + MPI
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_intel_impi_latest
+      build-postfix: _tag
+      vars: .vars_matrix_mpi_build_tag
+      cmake-opts: .cmake_mpi_opts
 
   # ============================
   # run jobs
@@ -158,7 +243,17 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/run.yml
+    inputs:
       env: .mpcdfci_gcc13
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+      vars: .vars_matrix_run_nvhpc
 
   # debugrun
   - local: CI_templates/run.yml
@@ -168,12 +263,45 @@ include:
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
 
+  # debugrun
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      run-postfix: _debugrun
+      vars: .vars_matrix_run_debugrun
+      rules: .rules_nightly
+
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_gcc13
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
       rules: .rules_nightly
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
+      run-postfix: _debugrun
+      vars: .vars_matrix_run_debugrun
+      rules: .rules_nightly
+
+  # MPI
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel2023_impi
+      vars: .vars_matrix_mpi_run
+      rules: .rules_minimal
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel_impi_latest
+      vars: .vars_matrix_mpi_run
+      rules: .rules_minimal
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gcc_openmpi_latest
+      vars: .vars_matrix_mpi_run
 
   # release tag
   - local: CI_templates/run.yml
@@ -182,6 +310,23 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+
+  # release tag
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      run-postfix: _tag
+      build-postfix: _tag
+      vars: .vars_matrix_run_tag
+
+  # release tag + MPI
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_intel_impi_latest
+      run-postfix: _tag
+      build-postfix: _tag
+      vars: .vars_matrix_mpi_run_tag
+
 
   # ============================
   # unit jobs
@@ -194,7 +339,7 @@ include:
   # ============================
   # regression jobs
   # ============================
-  # defined explicity, also containing rules
+  # defined explicitly, also containing rules
   - local: CI_templates/regression.yml
 
   # ============================
@@ -207,7 +352,16 @@ include:
 
   - local: CI_templates/postprocessing.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
       env: .mpcdfci_gcc13
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
 
   # ============================
   # postprocessing converter jobs
@@ -220,7 +374,18 @@ include:
 
   - local: CI_templates/converters.yml
     inputs:
+      env: .mpcdfci_intel_latest
+      build-postfix: _only_converter
+      rules: .rules_minimal
+
+  - local: CI_templates/converters.yml
+    inputs:
       env: .mpcdfci_gcc13
+      build-postfix: _only_converter
+
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_nvhpc23
       build-postfix: _only_converter
 
   # ============================
@@ -318,10 +483,46 @@ include:
     - shared
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "intel_ifort"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
+
+# MPCDF Docker image intel:latest
+.mpcdfci_intel_latest:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel:latest
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
     CURR_CMP: "intel"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
+
+# MPCDF Docker image intel-impi:latest
+.mpcdfci_intel2023_impi:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x-impi_2021_9:latest
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "intel_mpiifort"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    OMP_NUM_THR: "2"
+
+# MPCDF Docker image intel-impi:latest
+.mpcdfci_intel_impi_latest:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel-impi:latest
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "intel_mpi"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    OMP_NUM_THR: "2"
 
 # MPCDF Docker image gcc_13:latest
 .mpcdfci_gcc13:
@@ -335,6 +536,29 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
+# MPCDF Docker image gcc-openmpi:latest
+.mpcdfci_gcc_openmpi_latest:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc-openmpi:latest
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "gnu_mpi"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    OMP_NUM_THR: "2"
+
+# MPCDF Docker image intel_2023_1_0_x:latest
+.mpcdfci_nvhpc23:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_23:latest
+  tags:
+    - shared
+  variables:
+    CMAKE_HOSTNAME: "mpcdfcirunner"
+    CURR_CMP: "nvidia"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build"
@@ -350,6 +574,14 @@ include:
     COMPILE_CONVERTERS: "ON"
     CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
 
+# MPI not needed/tested for converters
+.cmake_mpi_opts:
+  variables:
+    COMPILE_GVEC: "ON"
+    LINK_TO_NETCDF: "ON"
+    COMPILE_CONVERTERS: "OFF"
+    CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
+
 .cmake_only_converter:
   variables:
     COMPILE_GVEC: "OFF"
@@ -362,43 +594,27 @@ include:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
-  variables:
-    MPI_MODE: "mpiOFF"
 
-# not yet used (for MPI jobs)
+# MPI jobs
 .vars_matrix_mpi_build:
   parallel:
     matrix:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
-  variables:
-    MPI_MODE: "mpiON"
-    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
 .vars_matrix_build_tag:
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF", "ompON"]
-      - CMP_MODE: ["Release"]
-        OMP_MODE: ["ompON"]
+  extends: .vars_matrix_build
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
-    MPI_MODE: "mpiOFF"
 
-# not yet used (for MPI jobs)
+# MPI jobs
 .vars_matrix_mpi_build_tag:
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF", "ompON"]
+  extends: .vars_matrix_mpi_build
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
-    MPI_MODE: "mpiON"
-    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # only pip defaults for now
 .vars_matrix_unit:
@@ -422,6 +638,12 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
 
+.vars_matrix_run_nvhpc:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug","Release"]
+        OMP_MODE: ["ompOFF","ompON"]
+
 # debug runs overwrite the PYTEST_MARKER_OPTS and PYTEST_KEY_OPTS!
 .vars_matrix_run_debugrun:
   extends: .vars_matrix_run
@@ -429,18 +651,28 @@ include:
     PYTEST_MARKER_OPTS: "debugrun"
     PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec)"
 
+# there are different issues with MPI_RNKS>4 in both runners
+.vars_matrix_mpi_run:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug","Release"]
+        OMP_MODE: ["ompOFF","ompON"]
+        MPI_RNKS: ["1","2"]
+
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
 .vars_matrix_run_tag:
-  parallel:
-    matrix:
-      - CMP_MODE: ["Debug"]
-        OMP_MODE: ["ompOFF","ompON"]
-      - CMP_MODE: ["Release"]
-        OMP_MODE: ["ompON"]
+  extends: .vars_matrix_run
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
+
+.vars_matrix_mpi_run_tag:
+  extends: .vars_matrix_mpi_run
+  variables:
+    HASH_TAG: ${HASH_TAG_REFERENCE}
+
+# MPI not needed/tested for converters
 
 
 # =================================================================================================================================
