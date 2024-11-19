@@ -439,20 +439,22 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
     if num_warnings > 0:
         logger.warning(f"Found {num_warnings} warnings!")
         pytest.raised_warnings = True
+    logger.info(f"{' SUMMARY ':=^80}")
+    red, green, reset = "\x1b[31;20m", "\x1b[32;20m", "\x1b[0m"
+    for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
+        if result == "success":
+            logger.info(f"... {green}{result}{reset} : {filename}")
+        if result in ["ignored", "symlink"]:
+            logger.debug(f"... {result} : {filename}")
+        else:
+            logger.error(f"... {red}{result}{reset} : {filename}")
+    for filename in runfiles - reffiles:
+        logger.error(f"... {red}extra{reset}   : {filename}")
+    for filename in reffiles - runfiles:
+        logger.error(f"... {red}missing{reset} : {filename}")
     if num_diff_files > 0 or runfiles != reffiles:
         msg = f"Found {num_diff_files} different files with {num_diff_lines} different lines, " \
             f"{len(runfiles - reffiles)} additional files and {len(reffiles - runfiles)} missing files."
-        logger.info(f"{' SUMMARY ':=^80}")
         logger.error(msg)
-        red, reset = "\x1b[31;20m", "\x1b[0m"
-        for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
-            if result in ["success", "ignored", "symlink"]:
-                logger.debug(f"... {result} : {filename}")
-            else:
-                logger.error(f"... {red}{result}{reset} : {filename}")
-        for filename in runfiles - reffiles:
-            logger.error(f"... {red}extra{reset}   : {filename}")
-        for filename in reffiles - runfiles:
-            logger.error(f"... {red}missing{reset} : {filename}")
         raise AssertionError(msg)
     
