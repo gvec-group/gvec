@@ -58,6 +58,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !INTEGER              :: nfp   !! already part of c_hmap. Is overwritten in init!
   !curve description
   INTEGER              :: nzeta=0       !! number of points in zeta direction of the input axis 
+  INTEGER              :: sgn_rot       !! sign of rotation around Z axis,  either +1 or -1: positive means that from one field period to the next,
+                                        !! xyz rotate counterclockwise around the Z-axis (right hand rule), negative then clockwise.
   REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions in one field period (1:nzeta),  on 'half' grid: zeta(i)=(i-0.5)/nzeta*(2pi/nfp)
   INTEGER              :: n_max=0       !! maximum number of fourier coefficients on a field period (<=2*nzeta-1)
   REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:NFP*nzeta,1:3), zeta is on 'half' grid: zeta(i)=(i-0.5)/(NFP*nzeta)*(2pi)
@@ -65,8 +67,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
   !fourier modes
   REAL(wp),ALLOCATABLE :: xyz_hat_modes(:,:)   !! fourier modes of xhat,yhat,zhat on one field period, 
-                                               !! x=cos(zeta)xhat-sin(zeta)yhat,
-                                               !! y=sin(zeta)xhat+cos(zeta)yhat, zhat=z
+                                               !! x=cos(zeta)xhat-sgn_rot*sin(zeta)yhat,
+                                               !! y=sin(zeta)xhat+sgn_rot*cos(zeta)yhat, z=zhat
   REAL(wp),ALLOCATABLE :: Nxyz_hat_modes(:,:)   !! 1d fourier modes of Nxyz, one field period
   REAL(wp),ALLOCATABLE :: Bxyz_hat_modes(:,:)   !! 1d fourier modes of Bxyz, one field period
   
@@ -140,6 +142,20 @@ IMPLICIT NONE
   CALL ncfile_init(sf%nc,sf%ncfile,"r") 
   CALL ReadNETCDF(sf)
  
+
+  sf%sgn_rot=1 
+  IF(sf%nfp.GT.2)THEN !no need to check for nfp=1 and nfp=2 is either a positive or negative rotation by pi
+    IF(SUM((sf%xyz(:,1+sf%nzeta) -  rodrigues(sf%xyz(:,1),TWOPI/REAL(sf%nfp,wp)))**2).LT.1.0e-12)THEN
+       sf%sgn_rot=1
+    ELSEIF(SUM((sf%xyz(:,1+sf%nzeta) -  rodrigues(sf%xyz(:,1),-TWOPI/REAL(sf%nfp,wp)))**2).LT.1.0e-12)THEN
+       sf%sgn_rot=-1
+    ELSE
+      CALL abort(__STAMP__, &
+         'problem with check of field period rotation: point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.')
+    END IF
+  END IF
+  WRITE(UNIT_stdOut,'(4X,A,I2)')'INFO: sign of the rotation from zeta=0 to zeta=2pi/nfp is: ',sf%sgn_rot
+
   sf%n_max=(sf%nzeta-1)/2 ! maximum mode number on a field period
 
   WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(1,:)*sf%Bxyz(1,:)+sf%Nxyz(2,:)*sf%Bxyz(2,:)+sf%Nxyz(3,:)*sf%Bxyz(3,:)))
@@ -164,47 +180,54 @@ IMPLICIT NONE
 
   IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
-  CALL CheckFieldPeriodicity(sf,error_nfp)
+  CALL CheckFieldPeriodicity(sf,sf%sgn_rot,error_nfp)
   IF(error_nfp.LT.0) &
      CALL abort(__STAMP__, &
           "hmap_axisNB check Field Periodicity failed!")
   sf%aux%nzeta=0
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
+
   IF(.NOT.test_called) CALL hmap_axisNB_test(sf)
 
   !------------------
   CONTAINS
   !------------------
   !! transform from full period cartesian coordinates to one-field period "hat" cartesian coordinates, 
-  !! by rotating around the zaxis with the local angle zeta [0,2pi/NFP]
-  !! INVERSION OF: x=cos(zeta)xhat-sin(zeta)yhat,y=sin(zeta)xhat+cos(zeta)yhat, z=zhat
-  !! xhat=cos(zeta)x+sin(zeta)y, yhat=-sin(zeta)x+cos(zeta)y,
+  !! by rotating around the zaxis with the local angle zeta, 
+  !! with the sign given by which direction xyz(zeta=0) rotates to xyz(zeta=2pi/nfp)
+  !! INVERSION OF: x=cos(zeta)*xhat - sgn_rot*sin(zeta)*yhat,
+  !!               y=cos(zeta)*yhat + sgn_rot*sin(zeta)*xhat, z <=> zhat
+  !! ==>           xhat=cos(zeta)x+sgn_rot*sin(zeta)y, 
+  !!               yhat=cos(zeta)y-sgn_rot*sin(zeta)x,
   !! check that all points on full period are the same in the xhat,yhat,zhat coordinates
+  !! NOTE THIS FUNCTION IS USING sinz=sin(zeta),cosz=cos(zeta) and sgn_rot computed above!!!!
   FUNCTION transform_to_hat(xyz_in,msg)  RESULT(to_hat_modes)
     IMPLICIT NONE
-    !using sinz,cosz sf from above
+
     REAL(wp),INTENT(IN) :: xyz_in(3,sf%nzeta*sf%nfp)
     CHARACTER(*),INTENT(IN) :: msg
     REAL(wp) :: to_hat_modes(3,sf%fb_hat%modes)
     !------------------
     REAL(wp) :: to_hat(3,sf%nzeta*sf%nfp)
-    REAL(wp) :: check_xhat(1:3)
+    REAL(wp) :: check_xhat(1:3,2:sf%nfp)
     !------------------
-    to_hat(1,:)=xyz_in(1,:)*cosz(:)+xyz_in(2,:)*sinz(:)
-    to_hat(2,:)=xyz_in(2,:)*cosz(:)-xyz_in(1,:)*sinz(:)
+    to_hat(1,:)=xyz_in(1,:)*cosz(:)+sf%sgn_rot*xyz_in(2,:)*sinz(:)
+    to_hat(2,:)=xyz_in(2,:)*cosz(:)-sf%sgn_rot*xyz_in(1,:)*sinz(:)
     to_hat(3,:)=xyz_in(3,:)
     !check periodicity for remaining nfp
     DO i=2,sf%nfp
-      check_xhat(1)=MAXVAL(ABS(to_hat(1,1:sf%nzeta)-to_hat(1,sf%nzeta*(i-1)+1:sf%nzeta*i)))
-      check_xhat(2)=MAXVAL(ABS(to_hat(2,1:sf%nzeta)-to_hat(2,sf%nzeta*(i-1)+1:sf%nzeta*i)))
-      check_xhat(3)=MAXVAL(ABS(to_hat(3,1:sf%nzeta)-to_hat(3,sf%nzeta*(i-1)+1:sf%nzeta*i)))
-      IF(ANY(check_xhat.GT.1.0e-12))THEN
-        WRITE(*,*)"WARNING! check_xhat=",check_xhat
-        CALL abort(__STAMP__,&
-              "transform from cartesian to hat coordinates"//TRIM(msg)//" yields non-field periodic data!")
-      END IF
+      check_xhat(1,i)=MAXVAL(ABS(to_hat(1,1:sf%nzeta)-to_hat(1,sf%nzeta*(i-1)+1:sf%nzeta*i)))
+      check_xhat(2,i)=MAXVAL(ABS(to_hat(2,1:sf%nzeta)-to_hat(2,sf%nzeta*(i-1)+1:sf%nzeta*i)))
+      check_xhat(3,i)=MAXVAL(ABS(to_hat(3,1:sf%nzeta)-to_hat(3,sf%nzeta*(i-1)+1:sf%nzeta*i)))
     END DO
+    IF(ANY(check_xhat.GT.1.0e-12))THEN
+      DO i=2,sf%nfp
+        WRITE(*,'(A,I4,A,3E9.2)')'fp=1 vs fp=',i,', check_xyz=',check_xhat(1:3,i)
+      END DO
+      CALL abort(__STAMP__,&
+            "transform from cartesian to hat coordinates"//TRIM(msg)//" yields non-field periodic data!")
+    END IF
     DO i=1,3
       to_hat_modes(i,:)=sf%fb_hat%initDOF(to_hat(i,1:sf%nzeta),thet_zeta_start=(/0.,sf%zeta(1)/))
     END DO
@@ -414,46 +437,33 @@ END SUBROUTINE ReadNETCDF
 
 !===================================================================================================================================
 !> Check that the TNB frame  really has the field periodicity of NFP: 
-!> assumption for now is that the origin is fixed at rot_origin=(/0.,0.,0./)
-!> and the rotation axis is fixed at rot_axis=(/0.,0.,1./)
-!> the sign of rotation is being checked as well
+!! assumption for now is that the origin is fixed at rot_origin=(/0.,0.,0./)
+!! and the rotation axis is fixed at rot_axis=(/0.,0.,1./)
+!! sign of the rotation 'sgn_rot' is now accounted for in the transformation to xhat, so it has to be passed here.
 !!
 !===================================================================================================================================
-SUBROUTINE CheckFieldPeriodicity( sf ,error_nfp)
+SUBROUTINE CheckFieldPeriodicity( sf ,sgn_rot,error_nfp)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
+  INTEGER, INTENT(in)   :: sgn_rot !! sign of rotation
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   INTEGER, INTENT(out)  :: error_nfp
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)             :: rot_origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
-  REAL(wp)             :: rot_axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
   REAL(wp)              :: dzeta_fp
   REAL(wp),DIMENSION(3) :: X0_a,T,N_a,B_a,Np,Bp
-  REAL(wp),DIMENSION(3) :: X0_b,N_b,B_b,P_a,P_b
+  REAL(wp),DIMENSION(3) :: X0_b,N_b,B_b
   INTEGER               :: ifp,iz,error_x,error_n,error_b
 !===================================================================================================================================
   error_nfp=0
 
   dzeta_fp=TWOPI/REAL(sf%nfp,wp)
   CALL sf%eval_TNB(sf%zeta(1),X0_a,T,N_a,B_a,Np,Bp) 
-  P_a=X0_a-rot_origin
   CALL sf%eval_TNB(sf%zeta(1)+dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
-  P_b=X0_b-rot_origin
-  !account for possible sign change
-  IF(SUM((P_b -  rodrigues(P_a,rot_axis,dzeta_fp))**2).LT.1.0e-12)THEN
-    dzeta_fp=dzeta_fp
-  ELSEIF(SUM((P_b -  rodrigues(P_a,rot_axis,-dzeta_fp))**2).LT.1.0e-12)THEN
-    dzeta_fp=-dzeta_fp
-  ELSE
-    WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: axis point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.'
-    error_nfp=-1
-    RETURN
-  END IF
   DO ifp=0,sf%nfp
     error_x=0
     error_n=0
@@ -461,19 +471,13 @@ IMPLICIT NONE
     DO iz=1,sf%nzeta
       CALL sf%eval_TNB(sf%zeta(iz)+ ifp*dzeta_fp   ,X0_a,T,N_a,B_a,Np,Bp) 
       CALL sf%eval_TNB(sf%zeta(iz)+(ifp+1)*dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
-      P_a=X0_a-rot_origin
-      P_b=X0_b-rot_origin
-      IF(.NOT.(SUM((P_b -  rodrigues(P_a,rot_axis,dzeta_fp))**2).LT.1.0e-12))THEN
+      IF(.NOT.(SUM((X0_b -  rodrigues(X0_a,sgn_rot*dzeta_fp))**2).LT.1.0e-12))THEN
         error_x=error_x+1
       END IF
-      P_a=X0_a-rot_origin+N_a
-      P_b=X0_b-rot_origin+N_b
-      IF(.NOT.(SUM((P_b -  rodrigues(P_a,rot_axis,dzeta_fp))**2).LT.1.0e-12))THEN
+      IF(.NOT.(SUM((X0_b+N_b -  rodrigues(X0_a+N_a,sgn_rot*dzeta_fp))**2).LT.1.0e-12))THEN
         error_n=error_n+1
       END IF
-      P_a=X0_a-rot_origin+B_a
-      P_b=X0_b-rot_origin+B_b
-      IF(.NOT.(SUM((P_b -  rodrigues(P_a,rot_axis,dzeta_fp))**2).LT.1.0e-12))THEN
+      IF(.NOT.(SUM((X0_b+B_b -  rodrigues(X0_a+B_a,sgn_rot*dzeta_fp))**2).LT.1.0e-12))THEN
         error_b=error_b+1
       END IF
     END DO !iz
@@ -489,16 +493,34 @@ IMPLICIT NONE
       END IF
     END IF
   END DO !ifp
-        
-  CONTAINS 
-  ! Rodrigues' rotation formula
-  FUNCTION rodrigues(vec,axis,angle) RESULT(vec_rot)
-     REAL(wp) :: vec(3),axis(3),angle
-     REAL(wp) :: vec_rot(3)
-     vec_rot = vec*COS(angle)+CROSS(axis,vec)*SIN(angle)+axis*SUM(axis*vec)*(1.0_wp-COS(angle)) 
-  END FUNCTION rodrigues
+
 END SUBROUTINE CheckFieldPeriodicity
-  
+
+
+!===================================================================================================================================
+!> Rodrigues' rotation formula
+!> assumption for now is that the origin is fixed at rot_origin=(/0.,0.,0./)
+!> and the rotation axis is fixed at rot_axis=(/0.,0.,1./)
+!!
+!===================================================================================================================================
+FUNCTION rodrigues(pos,angle) RESULT(pos_rot)
+  IMPLICIT NONE
+  !---------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  REAL(wp) :: pos(3),angle
+  !---------------------------------------------------------------------------------------------------------------------------------  
+  ! OUTPUT VARIABLES
+  REAL(wp) :: pos_rot(3)
+  !---------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  REAL(wp) :: vec(3),vec_rot(3)
+  REAL(wp),PARAMETER :: origin(1:3)=(/0.,0.,0./)   !! origin of rotation, needed for checking field periodicity
+  REAL(wp),PARAMETER :: axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
+  !=================================================================================================================================
+  vec=pos-origin
+  vec_rot = vec*COS(angle)+CROSS(axis,vec)*SIN(angle)+axis*SUM(axis*vec)*(1.0_wp-COS(angle)) 
+  pos_rot=origin+vec_rot
+END FUNCTION rodrigues
 
 !===================================================================================================================================
 !> Write evaluation of the axis and signed axisNB frame to file
@@ -1002,7 +1024,7 @@ END FUNCTION hmap_axisNB_eval_gij_dq2
 !===================================================================================================================================
 !> evaluate curve X0(zeta), and T=X0',N,B,N',B', using the fourier series of X0_hat,N_hat and B_hat and transform from "hat"
 !! coordinates to cartesian coordinates:
-!! x=xhat*cos(zeta)-yhat*sin(zeta), y=xhat*sin(zeta)+yhat*cos(zeta), z=zhat
+!! x=xhat*cos(zeta)-sgn_rot*yhat*sin(zeta), y=yhat*cos(zeta)+sgn_rot*sin(zeta)*xhat, z=zhat
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_axisNB_eval_TNB_hat( sf,zeta,X0,T,N,B,Np,Bp)
@@ -1038,30 +1060,31 @@ IMPLICIT NONE
   __MATVEC_N(Np_hat,sf%Nxyz_hat_modes(:,:),base_dxdz)
   __MATVEC_N(Bp_hat,sf%Bxyz_hat_modes(:,:),base_dxdz)
 
-  ! apply transform to x,y,z: x=xhat*cos(zeta)-yhat*sin(zeta), y=xhat*sin(zeta)+yhat*cos(zeta), zhat=z
+  ! apply transform to x,y,z: x=xhat*cos(zeta)-sgn*yhat*sin(zeta), y=yhat*cos(zeta)+xhat*sgn*sin(zeta), z=zhat
+  ! sgn_rot was used in the transform from x to xhat, so it has to be used here as well!!
   cosz=COS(zeta); sinz=SIN(zeta)
-  X0=(/X0_hat(1)*cosz - X0_hat(2)*sinz, &
-       X0_hat(1)*sinz + X0_hat(2)*cosz, &
+  X0=(/X0_hat(1)*cosz - sf%sgn_rot*X0_hat(2)*sinz, &
+       X0_hat(2)*cosz + sf%sgn_rot*X0_hat(1)*sinz , &
        X0_hat(3)/)
   !dX0/dzeta:
-  T= (/(T_hat(1)-X0_hat(2))*cosz - (T_hat(2)+X0_hat(1))*sinz, &
-       (T_hat(1)-X0_hat(2))*sinz + (T_hat(2)+X0_hat(1))*cosz, &
+  T= (/(T_hat(1)-sf%sgn_rot*X0_hat(2))*cosz - (sf%sgn_rot*T_hat(2)+X0_hat(1))*sinz, &
+       (sf%sgn_rot*T_hat(1)-X0_hat(2))*sinz + (T_hat(2)+sf%sgn_rot*X0_hat(1))*cosz, &
        T_hat(3)/) 
   !transform N to x,y,z
-  N=(/N_hat(1)*cosz - N_hat(2)*sinz, &
-      N_hat(1)*sinz + N_hat(2)*cosz, &
+  N=(/N_hat(1)*cosz - sf%sgn_rot*N_hat(2)*sinz, &
+      N_hat(2)*cosz + sf%sgn_rot*N_hat(1)*sinz, &
       N_hat(3)/)
   !dN/dzeta:
-  Np= (/(Np_hat(1)-N_hat(2))*cosz - (Np_hat(2)+N_hat(1))*sinz, &
-        (Np_hat(1)-N_hat(2))*sinz + (Np_hat(2)+N_hat(1))*cosz, &  
+  Np= (/(Np_hat(1)-sf%sgn_rot*N_hat(2))*cosz - (sf%sgn_rot*Np_hat(2)+N_hat(1))*sinz, &
+        (sf%sgn_rot*Np_hat(1)-N_hat(2))*sinz + (Np_hat(2)+sf%sgn_rot*N_hat(1))*cosz, &  
          Np_hat(3)/)
   !transform B to x,y,z
-  B=(/B_hat(1)*cosz - B_hat(2)*sinz, &
-      B_hat(1)*sinz + B_hat(2)*cosz, &
+  B=(/B_hat(1)*cosz - sf%sgn_rot*B_hat(2)*sinz, &
+      B_hat(2)*cosz + sf%sgn_rot*B_hat(1)*sinz, &
       B_hat(3)/)
   !dB/dzeta:
-  Bp= (/(Bp_hat(1)-B_hat(2))*cosz - (Bp_hat(2)+B_hat(1))*sinz, &
-        (Bp_hat(1)-B_hat(2))*sinz + (Bp_hat(2)+B_hat(1))*cosz, &  
+  Bp= (/(Bp_hat(1)-sf%sgn_rot*B_hat(2))*cosz - (sf%sgn_rot*Bp_hat(2)+B_hat(1))*sinz, &
+        (sf%sgn_rot*Bp_hat(1)-B_hat(2))*sinz + (Bp_hat(2)+sf%sgn_rot*B_hat(1))*cosz, &  
          Bp_hat(3)/)  
 
 END SUBROUTINE hmap_axisNB_eval_TNB_hat
