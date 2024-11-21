@@ -925,7 +925,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END IF
   END DO
 
-  CALL transform_sfl_new(trafoSFL,mn_max,whichSFLout,.false.,&  ! relambda=false
+  CALL transform_sfl_new(trafoSFL,mn_max,whichSFLout,& 
                          X1_base%s%deg,X1_base%s%continuity,X1_base%s%degGP,X1_base%s%grid,&
                          hmap,X1_base,X2_base,LA_base,Eval_PhiPrime,Eval_iota)  !same grid and degree as variable X1.
   CALL trafoSFL%buildTransform(X1_base,X2_base,LA_base,Uin%X1,Uin%X2,Uin%LA)
