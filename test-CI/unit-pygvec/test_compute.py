@@ -110,6 +110,11 @@ def test_evaluations_init(teststate):
     assert {"rho", "theta", "zeta", "pol_weight", "tor_weight"} == set(ds.coords)
     assert ds.rho.attrs["integration_points"] is False
 
+    ds = Evaluations(rho=[0.5], theta="int", zeta="int", state=teststate)
+    assert np.allclose(ds.rho, [0.5])
+    assert {"rho", "theta", "zeta", "pol_weight", "tor_weight"} == set(ds.coords)
+    assert ds.rho.attrs["integration_points"] is False
+
     ds = Evaluations(rho="int", theta=None, zeta=None, state=teststate)
     assert {"rho", "rad_weight"} == set(ds.coords)
     assert ds.rho.attrs["integration_points"] is True
