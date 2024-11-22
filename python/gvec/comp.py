@@ -12,7 +12,7 @@
 # ============================================================================================================================== #
 """GVEC Postprocessing - Compute Functions"""
 
-from typing import Literal, Iterable, Mapping, Callable
+from typing import Literal, Iterable, Mapping, MutableMapping, Callable
 import logging
 import inspect
 
@@ -43,6 +43,7 @@ def register(
     requirements: Iterable[str] = (),
     integration: Iterable[str] = (),
     attrs: Mapping = {},
+    registry: MutableMapping = QUANTITIES,
 ):
     """Function decorator to register equilibrium quantities.
 
@@ -74,15 +75,15 @@ def register(
         func.attrs = attrs
 
         for q in quantities:
-            if q in QUANTITIES:
+            if q in registry:
                 logging.warning(f"A quantity `{q}` is already registered.")
-            QUANTITIES[q] = func
+            registry[q] = func
         return func
 
     return _register
 
 
-def table_of_quantities(markdown: bool = False):
+def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
     """
     Generate a table of computable quantities.
 
@@ -103,7 +104,7 @@ def table_of_quantities(markdown: bool = False):
     The table includes the label, long name, and symbol of each quantity.
     """
     lines = []
-    for key, func in sorted(list(QUANTITIES.items())):
+    for key, func in sorted(list(registry.items())):
         long_name = func.attrs[key].get("long_name", "")
         symbol = func.attrs[key].get("symbol", "")
         symbol = "$" + symbol.replace("|", r"\|") + "$"
@@ -122,7 +123,10 @@ def table_of_quantities(markdown: bool = False):
 
 
 def compute(
-    ev: xr.Dataset, *quantities: Iterable[str], state: State = None
+    ev: xr.Dataset,
+    *quantities: Iterable[str],
+    state: State = None,
+    registry: Mapping = QUANTITIES,
 ) -> xr.Dataset | xr.DataArray:
     """Compute the target equilibrium quantity.
 
@@ -132,9 +136,9 @@ def compute(
         # --- get the compute function --- #
         if quantity in ev:
             continue  # already computed
-        if quantity not in QUANTITIES:
+        if quantity not in registry:
             raise KeyError(f"The quantity `{quantity}` is not registered.")
-        func = QUANTITIES[quantity]
+        func = registry[quantity]
         # --- handle integration --- #
         auxcoords = {
             i
@@ -157,7 +161,7 @@ def compute(
         else:
             obj = ev
         # --- handle requirements --- #
-        compute(obj, *func.requirements, state=state)
+        compute(obj, *func.requirements, state=state, registry=registry)
         # --- compute the quantity --- #
         with xr.set_options(keep_attrs=True):
             if "state" in inspect.signature(func).parameters:
@@ -258,7 +262,7 @@ def Evaluations(
             )
             coords["pol_weight"] = intp[0][3]
         case int() as num:
-            coords["theta"] = ("pol", np.linspace(0, 2 * np.pi, num))
+            coords["theta"] = ("pol", np.linspace(0, 2 * np.pi, num, endpoint=False))
         case (start, stop):
             coords["theta"] = ("pol", np.linspace(start, stop))
         case (start, stop, num):
@@ -291,7 +295,10 @@ def Evaluations(
         case int() as num:
             if nfp is None:
                 raise ValueError("Automatic bounds for zeta require `nfp`.")
-            coords["zeta"] = ("tor", np.linspace(0, 2 * np.pi / nfp, num))
+            coords["zeta"] = (
+                "tor",
+                np.linspace(0, 2 * np.pi / nfp, num, endpoint=False),
+            )
         case (start, stop):
             coords["zeta"] = ("tor", np.linspace(start, stop))
         case (start, stop, num):

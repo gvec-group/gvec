@@ -259,14 +259,15 @@ def hmap(ds: xr.Dataset, state: State):
     ],
     attrs={
         f"g_{ij}": dict(
-            long_name=f"{ij} component of the metric tensor", symbol=rf"g_{{{ij}}}"
+            long_name=f"{ij} component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols[ij[0]] + rtz_symbols[ij[1]]}}}",
         )
         for ij in ("rr", "rt", "rz", "tt", "tz", "zz")
     }
     | {
         f"dg_{ij}_d{k}": dict(
             long_name=derivative_name_smart(f"{ij} component of the metric tensor", k),
-            symbol=latex_partial(f"g_{{{ij}}}", k),
+            symbol=latex_partial(f"g_{{{rtz_symbols[ij[0]] + rtz_symbols[ij[1]]}}}", k),
         )
         for ij in ("rr", "rt", "rz", "tt", "tz", "zz")
         for k in "rtz"

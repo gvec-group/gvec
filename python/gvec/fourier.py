@@ -193,7 +193,7 @@ def eval2d(
     if deriv is not None:
         mg, ng = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2, grid=True)
         ng *= nfp
-        if set(deriv) == {"t", "z"}:
+        if set(deriv) <= {"t", "z"}:
             ts, zs = deriv.count("t"), deriv.count("z")
             for _ in range(ts):
                 c, s = mg * s, -mg * c
@@ -205,7 +205,7 @@ def eval2d(
             c, s = -ng * s, ng * c
         else:
             raise ValueError(
-                "Invalid derivative specification, expected 'theta', 'zeta', 't', 'z', 'tt', 'tz', ..."
+                f"Invalid derivative specification, got '{deriv}', expected 'theta', 'zeta', 't', 'z', 'tt', 'tz', ..."
             )
 
     ms, ns = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2)
