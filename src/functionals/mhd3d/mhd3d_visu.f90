@@ -916,7 +916,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   IF(iVal.NE.Nval+1) CALL abort(__STAMP__,"nVal parameter not correctly set")
 
 
-  factorSFL=4
+  factorSFL=2
   DO i=1,2
     IF(SFLout_mn_max(i).EQ.-1)THEN !input =-1, automatic
       mn_max(i) = factorSFL*MAXVAL((/X1_base%f%mn_max(i),X2_base%f%mn_max(i),LA_base%f%mn_max(i)/))

@@ -404,8 +404,8 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
       check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,LA_in(:,irho))
       maxerr(irho)=maxval(abs(check+(thetzeta_out(1,:,irho)-tz_pest(1,:))))
     END DO
-    WRITE(*,*)'CHECK PEST THETA*',MAXVAL(maxerr)
     IF(ANY(maxerr.GT.1.0e-12))THEN
+      WRITE(*,*)'CHECK PEST THETA*',MAXVAL(maxerr)
       CALL abort(__STAMP__, & 
           "Find_pest_Angles: Error in theta*")
     END IF

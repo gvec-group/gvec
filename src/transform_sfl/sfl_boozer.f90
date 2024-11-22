@@ -456,12 +456,12 @@ IMPLICIT NONE
       maxerr(2,irho)=maxval(abs(check+(thetzeta_out(2,:,irho)-tz_boozer(2,:))))
     END DO
   
-    WRITE(*,*)'CHECK BOOZER THETA*',MAXVAL(maxerr(1,:))
-    IF(ANY(maxerr(1,:).GT.1.0e-12)) CALL abort(__STAMP__, &
-        "find_boozer_angles: Error in  theta*")
-    WRITE(*,*)'CHECK BOOZER ZETA*', maxerr
-    IF(ANY(maxerr(2,:).GT.1.0e-12)) CALL abort(__STAMP__, &
-        "find_boozer_angles: Error in zeta*")
+    IF(ANY(maxerr(:,:).GT.1.0e-12)) THEN
+        WRITE(*,*)'CHECK BOOZER THETA*',MAXVAL(maxerr(1,:))
+        WRITE(*,*)'CHECK BOOZER ZETA*', maxerr
+        CALL abort(__STAMP__, &
+        "find_boozer_angles: Error in transform")
+    END IF
   END IF  !docheck
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
 __PERFOFF('find_boozer_angles')
