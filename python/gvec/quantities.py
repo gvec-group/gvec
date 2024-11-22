@@ -84,8 +84,8 @@ def mu0(ds: xr.Dataset):
 @register(
     attrs=dict(long_name="cartesian vector components", symbol=r"\mathbf{x}"),
 )
-def vector(ds: xr.Dataset):
-    ds.coords["vector"] = ("vector", ["x", "y", "z"])
+def xyz(ds: xr.Dataset):
+    ds.coords["xyz"] = ("xyz", ["x", "y", "z"])
 
 
 # === profiles ========================================================================= #
@@ -211,7 +211,7 @@ def N_FP(ds: xr.Dataset, state: State):
 
 @register(
     quantities=("pos", "e_X1", "e_X2", "e_zeta3"),
-    requirements=("vector", "X1", "X2", "zeta"),
+    requirements=("xyz", "X1", "X2", "zeta"),
     attrs=dict(
         pos=dict(long_name="position vector", symbol=r"\mathbf{x}"),
         e_X1=dict(
@@ -232,12 +232,12 @@ def hmap(ds: xr.Dataset, state: State):
         **{
             var: ds[var].broadcast_like(ds.X1).values.flatten()
             for var in hmap.requirements
-            if var != "vector"
+            if var != "xyz"
         }
     )
     for key, value in zip(hmap.quantities, outputs):
         ds[key] = (
-            ("vector", "rad", "pol", "tor"),
+            ("xyz", "rad", "pol", "tor"),
             value.reshape(3, ds.rho.size, ds.theta.size, ds.zeta.size),
         )
 
@@ -397,7 +397,7 @@ def theta_P(ds: xr.Dataset):
 
 
 @register(
-    requirements=("vector", "theta_sfl", "dLA_dr", "dLA_dt", "dLA_dz"),
+    requirements=("xyz", "theta_sfl", "dLA_dr", "dLA_dt", "dLA_dz"),
     attrs=dict(
         long_name="poloidal reciprocal basis vector in PEST coordinates",
         symbol=r"\nabla \theta_P",
@@ -425,7 +425,7 @@ def Jac_P(ds: xr.Dataset):
 
 
 @register(
-    requirements=("vector", "e_X1", "e_X2", "dX1_dr", "dX2_dr"),
+    requirements=("xyz", "e_X1", "e_X2", "dX1_dr", "dX2_dr"),
     attrs=dict(long_name="radial tangent basis vector", symbol=r"\mathbf{e}_\rho"),
 )
 def e_rho(ds: xr.Dataset):
@@ -433,7 +433,7 @@ def e_rho(ds: xr.Dataset):
 
 
 @register(
-    requirements=("vector", "e_X1", "e_X2", "dX1_dt", "dX2_dt"),
+    requirements=("xyz", "e_X1", "e_X2", "dX1_dt", "dX2_dt"),
     attrs=dict(long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_\theta"),
 )
 def e_theta(ds: xr.Dataset):
@@ -441,7 +441,7 @@ def e_theta(ds: xr.Dataset):
 
 
 @register(
-    requirements=("vector", "e_X1", "e_X2", "e_zeta3", "dX1_dz", "dX2_dz"),
+    requirements=("xyz", "e_X1", "e_X2", "e_zeta3", "dX1_dz", "dX2_dz"),
     attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_\zeta"),
 )
 def e_zeta(ds: xr.Dataset):
@@ -449,33 +449,33 @@ def e_zeta(ds: xr.Dataset):
 
 
 @register(
-    requirements=("vector", "Jac", "e_theta", "e_zeta"),
+    requirements=("xyz", "Jac", "e_theta", "e_zeta"),
     attrs=dict(long_name="radial reciprocal basis vector", symbol=r"\nabla\rho"),
 )
 def grad_rho(ds: xr.Dataset):
-    ds["grad_rho"] = xr.cross(ds.e_theta, ds.e_zeta, dim="vector") / ds.Jac
+    ds["grad_rho"] = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz") / ds.Jac
 
 
 @register(
-    requirements=("vector", "Jac", "e_rho", "e_zeta"),
+    requirements=("xyz", "Jac", "e_rho", "e_zeta"),
     attrs=dict(long_name="poloidal reciprocal basis vector", symbol=r"\nabla\theta"),
 )
 def grad_theta(ds: xr.Dataset):
-    ds["grad_theta"] = xr.cross(ds.e_zeta, ds.e_rho, dim="vector") / ds.Jac
+    ds["grad_theta"] = xr.cross(ds.e_zeta, ds.e_rho, dim="xyz") / ds.Jac
 
 
 @register(
-    requirements=("vector", "Jac", "e_rho", "e_theta"),
+    requirements=("xyz", "Jac", "e_rho", "e_theta"),
     attrs=dict(long_name="toroidal reciprocal basis vector", symbol=r"\nabla\zeta"),
 )
 def grad_zeta(ds: xr.Dataset):
-    ds["grad_zeta"] = xr.cross(ds.e_rho, ds.e_theta, dim="vector") / ds.Jac
+    ds["grad_zeta"] = xr.cross(ds.e_rho, ds.e_theta, dim="xyz") / ds.Jac
 
 
 @register(
     quantities=("B", "B_contra_t", "B_contra_z"),
     requirements=(
-        "vector",
+        "xyz",
         "iota",
         "dLA_dt",
         "dLA_dz",
@@ -598,7 +598,7 @@ def _modulus(v):
         ),
     )
     def mod_v(ds: xr.Dataset):
-        ds[f"mod_{v}"] = np.sqrt(xr.dot(ds[v], ds[v], dim="vector"))
+        ds[f"mod_{v}"] = np.sqrt(xr.dot(ds[v], ds[v], dim="xyz"))
 
     return mod_v
 
@@ -621,13 +621,13 @@ for v in [
 @register(
     requirements=("B", "e_theta", "dLA_dt", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
-        long_name="poloidal derivative of the Boozer potential per definition",
-        symbol=r"\left." + latex_partial(r"G_B", "t") + r"\right|_{\text{def}}",
+        long_name="poloidal derivative of the Boozer potential computed from the magnetic field",
+        symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|",
     ),
 )
-def dGB_dt_def(ds: xr.Dataset):
-    Bt = xr.dot(ds.B, ds.e_theta, dim="vector")
-    ds["dGB_dt_def"] = (Bt - ds.B_theta_avg * (1 + ds.dLA_dt)) / (
+def dnu_B_dt(ds: xr.Dataset):
+    Bt = xr.dot(ds.B, ds.e_theta, dim="xyz")
+    ds["dnu_B_dt"] = (Bt - ds.B_theta_avg * (1 + ds.dLA_dt)) / (
         ds.iota * ds.B_theta_avg + ds.B_zeta_avg
     )
 
@@ -635,14 +635,88 @@ def dGB_dt_def(ds: xr.Dataset):
 @register(
     requirements=("B", "e_zeta", "dLA_dz", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
-        long_name="toroidal derivative of the Boozer potential per definition",
-        symbol=r"\left." + latex_partial(r"G_B", "z") + r"\right|_{\text{def}}",
+        long_name="toroidal derivative of the Boozer potential computed from the magnetic field",
+        symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|",
     ),
 )
-def dGB_dz_def(ds: xr.Dataset):
-    Bz = xr.dot(ds.B, ds.e_zeta, dim="vector")
-    ds["dGB_dz_def"] = (Bz - ds.B_theta_avg * ds.dLA_dz - ds.B_zeta_avg) / (
+def dnu_B_dz(ds: xr.Dataset):
+    Bz = xr.dot(ds.B, ds.e_zeta, dim="xyz")
+    ds["dnu_B_dz"] = (Bz - ds.B_theta_avg * ds.dLA_dz - ds.B_zeta_avg) / (
         ds.iota * ds.B_theta_avg + ds.B_zeta_avg
+    )
+
+
+@register(
+    requirements=("dPhi_dr", "iota", "B_theta_avg", "B_zeta_avg", "mod_B"),
+    attrs=dict(
+        long_name="Jacobian determinant in Boozer coordinates",
+        symbol=r"\mathcal{J}_B",
+    ),
+)
+def Jac_B(ds: xr.Dataset):
+    ds["Jac_B"] = ds.dPhi_dr * (ds.iota * ds.B_theta_avg + ds.B_zeta_avg) * ds.mod_B**2
+
+
+@register(
+    requirements=("dPhi_dr", "iota", "Jac_B"),
+    attrs=dict(
+        long_name="contravariant poloidal magnetic field in Boozer coordinates",
+        symbol=r"B^{\theta_B}",
+    ),
+)
+def B_contra_t_B(ds: xr.Dataset):
+    ds["B_contra_t_B"] = ds.dPhi_dr * ds.iota / ds.Jac_B
+
+
+@register(
+    requirements=("dPhi_dr", "Jac_B"),
+    attrs=dict(
+        long_name="contravariant toroidal magnetic field in Boozer coordinates",
+        symbol=r"B^{\zeta_B}",
+    ),
+)
+def B_contra_z_B(ds: xr.Dataset):
+    ds["B_contra_z_B"] = ds.dPhi_dr / ds.Jac_B
+
+
+@register(
+    requirements=("Jac_B", "Jac", "dnu_B_dz", "dnu_B_dt", "e_theta", "e_zeta"),
+    attrs=dict(
+        long_name="poloidal tangent basis vector in Boozer coordinates",
+        symbol=r"\mathbf{e}_{\theta_B}",
+    ),
+)
+def e_theta_B(ds: xr.Dataset):
+    ds["e_theta_B"] = (
+        ds.Jac_B / ds.Jac * ((1 + ds.dnu_B_dz) * ds.e_theta - ds.dnu_B_dt * ds.e_zeta)
+    )
+
+
+@register(
+    requirements=(
+        "Jac_B",
+        "Jac",
+        "dLA_dt",
+        "dLA_dz",
+        "iota",
+        "dnu_B_dz",
+        "dnu_B_dt",
+        "e_theta",
+        "e_zeta",
+    ),
+    attrs=dict(
+        long_name="toroidal tangent basis vector in Boozer coordinates",
+        symbol=r"\mathbf{e}_{\zeta_B}",
+    ),
+)
+def e_zeta_B(ds: xr.Dataset):
+    ds["e_zeta_B"] = (
+        ds.Jac_B
+        / ds.Jac
+        * (
+            (1 + ds.dLA_dt + ds.iota * ds.dnu_B_dt) * ds.e_zeta
+            + (ds.dLA_dz + ds.iota * ds.dnu_B_dz) * ds.e_zeta
+        )
     )
 
 
@@ -738,7 +812,7 @@ def shear(ds: xr.Dataset):
     ),
 )
 def B_theta_avg(ds: xr.Dataset):
-    ds["B_theta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="vector")) / (
+    ds["B_theta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="xyz")) / (
         4 * np.pi**2
     )
 
@@ -759,7 +833,7 @@ def I_tor(ds: xr.Dataset):
     ),
 )
 def B_zeta_avg(ds: xr.Dataset):
-    ds["B_zeta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="vector")) / (
+    ds["B_zeta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="xyz")) / (
         4 * np.pi**2
     )
 
