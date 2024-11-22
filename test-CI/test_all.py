@@ -381,6 +381,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
         return
     # compare output to reference
     results = {}
+    num_statefiles = 0
     num_diff_files = 0
     num_diff_lines = 0
     num_warnings = 0
@@ -390,7 +391,7 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
             results[filename] = "symlink"
             continue
         # statefiles
-        elif re.match(r"\w+State\w+\.dat", filename):
+        elif re.match(r".*_State_[\d_]*\.dat", filename):
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
@@ -398,7 +399,8 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 atol=reg_atol,
                 rtol=reg_rtol,
             )
-        elif re.match(r"log\w*\.csv", filename):
+            num_statefiles += 1
+        elif re.match(r"log.*\.csv", filename):
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
@@ -431,23 +433,28 @@ def test_regression(testgroup, testcase, rundir, refdir, dryrun, logger, reg_rto
                 results[filename] = "numdiff"
         else:
             results[filename] = "success"
+    if num_statefiles == 0:
+        logger.warning("Did not compare any statefiles!?")
+        pytest.raised_warnings = True
     if num_warnings > 0:
         logger.warning(f"Found {num_warnings} warnings!")
         pytest.raised_warnings = True
+    logger.info(f"{' SUMMARY ':=^80}")
+    red, green, reset = "\x1b[31;20m", "\x1b[32;20m", "\x1b[0m"
+    for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
+        if result == "success":
+            logger.info(f"... {green}{result}{reset} : {filename}")
+        if result in ["ignored", "symlink"]:
+            logger.debug(f"... {result} : {filename}")
+        else:
+            logger.error(f"... {red}{result}{reset} : {filename}")
+    for filename in runfiles - reffiles:
+        logger.error(f"... {red}extra{reset}   : {filename}")
+    for filename in reffiles - runfiles:
+        logger.error(f"... {red}missing{reset} : {filename}")
     if num_diff_files > 0 or runfiles != reffiles:
         msg = f"Found {num_diff_files} different files with {num_diff_lines} different lines, " \
             f"{len(runfiles - reffiles)} additional files and {len(reffiles - runfiles)} missing files."
-        logger.info(f"{' SUMMARY ':=^80}")
         logger.error(msg)
-        red, reset = "\x1b[31;20m", "\x1b[0m"
-        for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
-            if result in ["success", "ignored", "symlink"]:
-                logger.debug(f"... {result} : {filename}")
-            else:
-                logger.error(f"... {red}{result}{reset} : {filename}")
-        for filename in runfiles - reffiles:
-            logger.error(f"... {red}extra{reset}   : {filename}")
-        for filename in reffiles - runfiles:
-            logger.error(f"... {red}missing{reset} : {filename}")
         raise AssertionError(msg)
     

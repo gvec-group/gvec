@@ -178,6 +178,7 @@ def pytest_runtest_setup(item):
 def pytest_sessionfinish(session, exitstatus):
     # Original code taken from "pytest-custom_exit_code" plugin
     # From pytest version >=5, the values are inside an enum
+    # ToDo: replace `pytest.raised_warnings` with querying the caplog messages
     from pytest import ExitCode
 
     # === Custom exit codes === #
