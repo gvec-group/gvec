@@ -244,8 +244,7 @@ CASE(2) !BOOZER
   CALL sf%booz%Get_Boozer(X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in) ! fill sf%booz%lambda,sf%booz%nu
   !!!!
   !INIT Gthet,GZ as splines... needed?
-  CALL find_boozer_Angles(nrho,sf%booz%iota,sf%booz%nu_fbase,sf%booz%lambda(:,:),sf%booz%nu(:,:), &
-       sf%X1sfl_base%f%mn_IP,sf%X1sfl_base%f%x_IP, thetzeta_trafo)
+  CALL sf%booz%find_angles(sf%X1sfl_base%f%mn_IP,sf%X1sfl_base%f%x_IP, thetzeta_trafo)
   ALLOCATE(Gt_rho(sf%GZ_base%f%modes,nrho))
   DO irho=1,nrho
     Gt_rho(:,irho)=sf%booz%lambda(:,irho)+sf%booz%iota(irho)*sf%booz%nu(:,irho)

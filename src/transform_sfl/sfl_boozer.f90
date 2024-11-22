@@ -45,9 +45,9 @@ TYPE :: t_sfl_boozer
   ! computed in the boozer transform
   REAL(wp),ALLOCATABLE::lambda(:,:),nu(:,:)   !! Fourier modes for all rho positions of lambda (recomputed on the fourier space of nu) and nu for boozer transform , (iMode,irho)
   CONTAINS
-  PROCEDURE :: get_boozer => get_boozer_sinterp
-  PROCEDURE :: free       => sfl_boozer_free
-  !PROCEDURE :: find_angles => find_boozer_angles
+  PROCEDURE :: get_boozer  => get_boozer_sinterp
+  PROCEDURE :: free        => sfl_boozer_free
+  PROCEDURE :: find_angles => self_find_boozer_angles
 END TYPE t_sfl_boozer
 
 
@@ -370,6 +370,26 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     __PERFOFF('get_boozer')
   END SUBROUTINE Get_Boozer_sinterp
 
+
+!===================================================================================================================================
+!> interface to find_boozer_angles from the class t_sfl_boozer
+!!
+!===================================================================================================================================
+SUBROUTINE self_find_boozer_angles(sf,tz_dim,tz_boozer,thetzeta_out)
+  ! MODULES
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sfl_boozer), INTENT(IN) :: sf 
+  INTEGER             ,INTENT(IN) :: tz_dim                !< size of the list of in thetstar,zetastar
+  REAL(wp)            ,INTENT(IN) :: tz_boozer(2,tz_dim) !< theta,zeta positions in boozer angle (same for all rho)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES      
+  REAL(wp)  ,INTENT(OUT)   :: thetzeta_out(2,tz_dim,sf%nrho)  !! theta,zeta position in original angles, for given boozer angles
+!===================================================================================================================================
+  CALL find_boozer_angles(sf%nrho,sf%iota,sf%nu_fbase,sf%lambda,sf%nu,tz_dim,tz_boozer,thetzeta_out)
+END SUBROUTINE self_find_boozer_angles
+
 !===================================================================================================================================
 !> on one flux surface, find for an given list of  (thet*_j,zeta*_j), the corresponding (thet_j,zeta_j) positions, given
 !> Here, new boozer angles are 
@@ -381,8 +401,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
 !> that includes the derivatives (Jacobian), so that the newton step needs to the solved:
 !> -[f1]    [ 1+dA/dthet    dA/dzeta] [dthet]
 !>  |  | =  |                       | |     |
-!> -[f2]    [  dB/dthet   1+dB/dzeta] [dzeta] 
-!> 
+!> -[f2]    [  dB/dthet   1+dB/dzeta] [dzeta]
 !!
 !===================================================================================================================================
 SUBROUTINE find_boozer_angles(nrho,iota,fbase_in,LA_in,nu_in,tz_dim,tz_boozer,thetzeta_out)
