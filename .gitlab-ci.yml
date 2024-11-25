@@ -176,11 +176,15 @@ include:
       vars: .vars_matrix_mpi_build
       cmake-opts: .cmake_mpi_opts
 
-  # pip build
+  # pip
   - local: CI_templates/build-pip.yml
     inputs:
-      env: .mpcdfci_intel2023
+      env: .mpcdfci_intel_latest
       rules: .rules_minimal
+
+  - local: CI_templates/build-pip.yml
+    inputs:
+      env: .mpcdfci_gcc13
 
   # converter-only
   - local: CI_templates/build.yml
@@ -333,8 +337,12 @@ include:
   # ============================
   - local: CI_templates/unit.yml
     inputs:
-      env: .mpcdfci_intel2023
+      env: .mpcdfci_intel_latest
       rules: .rules_minimal
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .mpcdfci_gcc13
 
   # ============================
   # regression jobs
@@ -395,7 +403,7 @@ include:
 
   - local: CI_templates/pypi.yml
     inputs:
-      env: .mpcdfci_intel2023
+      env: .mpcdfci_intel_latest
       publish-target: gitlab
       rules: .rules_pypi_gitlab
 

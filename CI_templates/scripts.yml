@@ -105,7 +105,7 @@
     - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
     # BUILD
     - echo -e "\e[0Ksection_start:`date +%s`:pip[collapsed=true]\r\e[0KPip install"
-    - pip install .[dev] -v | tee log_${BUILDNAME}_pip.txt
+    - pip install .[dev] -v |& tee log_${BUILDNAME}.txt
     - pip list
     - echo -e "\e[0Ksection_end:`date +%s`:pip\r\e[0K"
     - echo "... BUILD PHASE FINISHED!"
