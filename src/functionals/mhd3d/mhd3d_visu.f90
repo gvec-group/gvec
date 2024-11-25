@@ -916,7 +916,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   IF(iVal.NE.Nval+1) CALL abort(__STAMP__,"nVal parameter not correctly set")
 
 
-  factorSFL=4
+  factorSFL=2
   DO i=1,2
     IF(SFLout_mn_max(i).EQ.-1)THEN !input =-1, automatic
       mn_max(i) = factorSFL*MAXVAL((/X1_base%f%mn_max(i),X2_base%f%mn_max(i),LA_base%f%mn_max(i)/))
@@ -925,7 +925,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END IF
   END DO
 
-  CALL transform_sfl_new(trafoSFL,mn_max,whichSFLout,.false.,&  ! relambda=false
+  CALL transform_sfl_new(trafoSFL,mn_max,whichSFLout,& 
                          X1_base%s%deg,X1_base%s%continuity,X1_base%s%degGP,X1_base%s%grid,&
                          hmap,X1_base,X2_base,LA_base,Eval_PhiPrime,Eval_iota)  !same grid and degree as variable X1.
   CALL trafoSFL%buildTransform(X1_base,X2_base,LA_base,Uin%X1,Uin%X2,Uin%LA)
