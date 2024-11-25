@@ -28,9 +28,6 @@ PUBLIC
 CLASS(t_functional), ALLOCATABLE :: functional
 LOGICAL :: initialized = .FALSE.
 INTEGER :: nfp = 0
-! additional base & dofs for SFL-potential (LA) and Boozer potential (GB)
-CLASS(t_base), ALLOCATABLE, TARGET        :: LA_base_new
-REAL, DIMENSION(:,:), ALLOCATABLE, TARGET :: LA_dofs_new ! shape (npoly, nmodes)
 
 CONTAINS
 
@@ -109,98 +106,6 @@ SUBROUTINE ReadState(statefile)
 END SUBROUTINE ReadState
 
 !================================================================================================================================!
-!> change the base for the SFL potential lambda (LA), resets the solution dofs!
-!================================================================================================================================!
-SUBROUTINE change_base_LA(deg, cont, m_max, n_max, sin_cos)
-  ! MODULES
-  USE MODgvec_MHD3D_Vars,     ONLY: LA_base, U
-  USE MODgvec_base,           ONLY: Base_new, t_Base
-  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: deg, cont, m_max, n_max
-  CHARACTER(LEN=8), INTENT(IN) :: sin_cos
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: mn_max(2)
-  CLASS(t_Base), ALLOCATABLE :: LA_base_tmp
-  CLASS(t_Base), POINTER :: base
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  IF (ALLOCATED(LA_base_new)) THEN
-    base => LA_base_new
-  ELSE
-    base => LA_base
-  END IF
-
-  mn_max = (/m_max, n_max/)
-  CALL base_new(LA_base_tmp, deg, cont, base%s%grid, base%s%degGP, mn_max, base%f%mn_nyq, base%f%nfp, sin_cos, .TRUE.)
-  NULLIFY(base)
-
-  IF (ALLOCATED(LA_base_new)) THEN
-    CALL LA_base_new%free()
-    DEALLOCATE(LA_base_new)
-    DEALLOCATE(LA_dofs_new)
-  END IF
-
-  LA_base_new = LA_base_tmp
-  ALLOCATE(LA_dofs_new(1:LA_base_new%s%nbase, 1:LA_base_new%f%modes))
-  LA_dofs_new = 0.0
-END SUBROUTINE change_base_LA
-
-!================================================================================================================================!
-!> Recompute the SFL potential lambda (LA) from J^rho = 0
-!
-!! see MODgvec_MHD3D.AddBoundaryPerturbation
-!================================================================================================================================!
-SUBROUTINE recompute_LA()
-  ! MODULES
-  USE MODgvec_MHD3D_Vars,     ONLY: hmap, X1_base, X2_base, LA_base, U, LA_BC_type
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_PhiPrime, Eval_chiPrime
-  USE MODgvec_base,           ONLY: Base_new
-  USE MODgvec_lambda_solve,   ONLY: lambda_Solve
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: is, iMode
-  INTEGER :: BCtype_axis(0:4)
-  REAL :: BC_val(2), spos, phiPrime_s, chiPrime_s
-  REAL, DIMENSION(:,:), ALLOCATABLE :: LA_gIP
-  REAL, POINTER, DIMENSION(:,:) :: dofs    ! pointer to the DoFs of LA
-  CLASS(t_Base), POINTER :: base
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  IF (ALLOCATED(LA_base_new)) THEN
-    base => LA_base_new
-    dofs => LA_dofs_new
-  ELSE
-    base => LA_base
-    dofs => U(0)%LA
-  END IF
-  ALLOCATE(LA_gIP(1:base%s%nbase, 1:base%f%modes))
-
-  DO is=1,base%s%nBase
-    spos=base%s%s_IP(is)
-    spos=MIN(1.0-1.0e-12,MAX(1.0e-04,spos)) !avoid evaluation at axis
-    phiPrime_s=Eval_PhiPrime(spos)
-    chiPrime_s=Eval_chiPrime(spos)
-    CALL lambda_Solve(spos,hmap,X1_base,X2_base,base%f,U(0)%X1,U(0)%X2,LA_gIP(is,:),phiPrime_s,chiPrime_s)
-  END DO !is
-
-  BCtype_axis(MN_ZERO    )= BC_TYPE_DIRICHLET !=0 (should not be here!)
-  BCtype_axis(M_ZERO     )= BC_TYPE_NEUMANN  ! derivative zero
-  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
-  ASSOCIATE(modes        =>base%f%modes, &
-            zero_odd_even=>base%f%zero_odd_even)
-  DO iMode=1,modes
-    IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
-      dofs(:,iMode) = 0.0 ! (0,0) mode should not be here, but must be zero if its used.
-    ELSE
-      dofs(:,iMode) = base%s%initDOF( LA_gIP(:,iMode) )
-    END IF !iMode ~ MN_ZERO
-    BC_val =(/ 0.0, 0.0/)
-    CALL base%s%applyBCtoDOF(dofs(:,iMode),(/BCtype_axis(base%f%zero_odd_even(iMode)),BC_TYPE_OPEN/),(/0.,0./))
-  END DO !iMode
-  END ASSOCIATE !LA
-  DEALLOCATE(LA_gIP)
-END SUBROUTINE recompute_LA
-
-!================================================================================================================================!
 !> Handle the selection of the base, based on the selection string
 !================================================================================================================================!
 SUBROUTINE select_base_dofs(var, base, dofs)
@@ -220,13 +125,8 @@ SUBROUTINE select_base_dofs(var, base, dofs)
       base => X2_base
       dofs => U(0)%X2
     CASE('LA')
-      IF (ALLOCATED(LA_dofs_new)) THEN
-        base => LA_base_new
-        dofs => LA_dofs_new
-      ELSE
-        base => LA_base
-        dofs => U(0)%LA
-      END IF
+      base => LA_base
+      dofs => U(0)%LA
     CASE DEFAULT
       WRITE(*,*) 'ERROR: variable', var, 'not recognized'
       STOP
@@ -250,11 +150,7 @@ SUBROUTINE select_base(var, base)
     CASE('X2')
       base => X2_base
     CASE('LA')
-      IF (ALLOCATED(LA_base_new)) THEN
-        base => LA_base_new
-      ELSE
-        base => LA_base
-      END IF
+      base => LA_base
     CASE DEFAULT
       WRITE(*,*) 'ERROR: variable', var, 'not recognized'
       STOP
@@ -319,44 +215,6 @@ SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   n_t = base%f%mn_nyq(1)
   n_z = base%f%mn_nyq(2)
 END SUBROUTINE get_integration_points_num
-
-!================================================================================================================================!
-!> Set the number of poloidal and toroidal integration points (mn_nyq)
-!================================================================================================================================!
-SUBROUTINE set_integration_points_tz(n_t, n_z)
-  ! MODULES
-  USE MODgvec_fBase,          ONLY: t_fBase, fBase_new, sin_cos_map
-  USE MODgvec_MHD3D_Vars,     ONLY: X1_base, X2_base, LA_base
-  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n_t, n_z
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER, DIMENSION(2) :: mn_nyq
-  CLASS(t_fBase), ALLOCATABLE :: X1_fbase_new, X2_fbase_new, LA_fbase_new
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  mn_nyq = (/n_t, n_z/)
-  CALL fbase_new(X1_fbase_new, X1_base%f%mn_max, mn_nyq, X1_base%f%nfp, sin_cos_map(X1_base%f%sin_cos), X1_base%f%exclude_mn_zero)
-  CALL X1_base%f%free()
-  DEALLOCATE(X1_base%f)
-  X1_base%f = X1_fbase_new
-
-  CALL fbase_new(X2_fbase_new, X2_base%f%mn_max, mn_nyq, X2_base%f%nfp, sin_cos_map(X2_base%f%sin_cos), X2_base%f%exclude_mn_zero)
-  CALL X2_base%f%free()
-  DEALLOCATE(X2_base%f)
-  X2_base%f = X2_fbase_new
-
-  IF (ALLOCATED(LA_base_new)) THEN
-    CALL fbase_new(LA_fbase_new, LA_base_new%f%mn_max, mn_nyq, LA_base_new%f%nfp, sin_cos_map(LA_base_new%f%sin_cos), LA_base_new%f%exclude_mn_zero)
-    CALL LA_base_new%f%free()
-    DEALLOCATE(LA_base_new%f)
-    LA_base_new%f = LA_fbase_new
-  ELSE
-    CALL fbase_new(LA_fbase_new, LA_base%f%mn_max, mn_nyq, LA_base%f%nfp, sin_cos_map(LA_base%f%sin_cos), LA_base%f%exclude_mn_zero)
-    CALL LA_base%f%free()
-    DEALLOCATE(LA_base%f)
-    LA_base%f = LA_fbase_new
-  END IF
-
-END SUBROUTINE set_integration_points_tz
 
 !================================================================================================================================!
 !> Retrieve the integration points and weights (gauss points for radial integration)
@@ -816,11 +674,6 @@ SUBROUTINE Finalize()
   USE MODgvec_Functional,     ONLY: FinalizeFunctional
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  IF (ALLOCATED(LA_base_new)) THEN
-    CALL LA_base_new%free()
-    DEALLOCATE(LA_base_new)
-    DEALLOCATE(LA_dofs_new)
-  END IF
 
   CALL FinalizeFunctional(functional)
   DEALLOCATE(functional)

@@ -145,8 +145,8 @@ def test_compute_hmap(teststate, evals_rtz):
     compute(ds, "pos", state=teststate)
 
     assert ds.pos.shape == (3, 6, 32, 10)
-    assert "vector" in ds.dims
-    assert "vector" in ds.coords
+    assert "xyz" in ds.dims
+    assert "xyz" in ds.coords
     assert "e_X1" in ds
     assert "e_X2" in ds
     assert "e_zeta3" in ds
@@ -173,7 +173,7 @@ def test_compute_metric(teststate, evals_rtz):
         key = f"g_{ij}"
         assert np.allclose(
             ds[f"g_{ij}"],
-            xr.dot(ds[f"e_{idxs[ij[0]]}"], ds[f"e_{idxs[ij[1]]}"], dim="vector"),
+            xr.dot(ds[f"e_{idxs[ij[0]]}"], ds[f"e_{idxs[ij[1]]}"], dim="xyz"),
         )
 
 
@@ -230,17 +230,17 @@ def test_compute_basis(teststate, evals_rtz):
     ds = ds.isel(rad=slice(1, None))
     for coord in ["rho", "theta", "zeta"]:
         assert np.allclose(
-            xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="vector"), 1.0
+            xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="xyz"), 1.0
         )
         for coord2 in ["rho", "theta", "zeta"]:
             if coord2 == coord:
                 continue
             compute(ds, f"e_{coord2}", f"grad_{coord2}", state=teststate)
             assert np.allclose(
-                xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="vector"), 0.0
+                xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"), 0.0
             )
             assert np.allclose(
-                xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="vector"), 0.0
+                xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0
             )
 
 
