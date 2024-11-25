@@ -156,7 +156,7 @@ CLASS(t_transform_sfl), INTENT(INOUT) :: sf !! self
 INTEGER :: irho
 REAL(wp),ALLOCATABLE :: rho_pos(:),iota(:),phiPrime(:)
 !===================================================================================================================================
-
+__PERFON('transform_SFL_init')
 ! extended base for q in the new angles, and on the new grid
 CALL base_new(sf%X1sfl_base,  sf%deg, sf%continuity, sf%sgrid_sfl, sf%degGP,      &
                sf%mn_max,2*sf%mn_max+1,sf%nfp,sin_cos_map(sf%X1sfl_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
@@ -194,8 +194,8 @@ SWRITE(UNIT_stdOut,*)'This input for SFL coordinate transform is not valid: whic
 CALL abort(__STAMP__, &
            "wrong input for SFL coordinate transform")
 END SELECT
-
 sf%initialized=.TRUE.
+__PERFOFF('transform_SFL_init')
 END SUBROUTINE transform_sfl_init
 
 
@@ -224,11 +224,13 @@ IMPLICIT NONE
   REAL(wp),ALLOCATABLE :: Gt_rho(:,:),thetzeta_trafo(:,:,:)
   REAL(wp):: spos
 !===================================================================================================================================
+__PERFON('BuildTransform_SFL')
 nrho = sf%X1sfl_base%s%nBase
 mnIP = sf%X1sfl_base%f%mn_IP
 ALLOCATE(thetzeta_trafo(2,mnIP,nrho))
 SELECT CASE(sf%whichSFLcoord)
 CASE(1) !PEST
+  !interpolate lambda at rho positions (for find_pest_angles)
   ALLOCATE(Gt_rho(LA_base_in%f%modes,nrho))
   DO irho=1,nrho
     spos=MIN(MAX(1.0e-4_wp,sf%X1sfl_base%s%s_IP(irho)),1.0_wp-1.0e-12_wp)
@@ -238,12 +240,8 @@ CASE(1) !PEST
   DEALLOCATE(Gt_rho)
   CALL transform_Angles_3d(X1_base_in,X1_in,"X1sfl",sf%X1sfl_base,sf%X1sfl,thetzeta_trafo)
   CALL transform_Angles_3d(X2_base_in,X2_in,"X2sfl",sf%X2sfl_base,sf%X2sfl,thetzeta_trafo)
-  !TODO INTERPOLATE SPLINE IN RHO AND APPLY BC!!! -> PUT ALL THIS INTO NEW transform_angles routine using full interpolation
-WRITE(*,*)'TEST_rootsearch, PEST:'
 CASE(2) !BOOZER
-  CALL sf%booz%Get_Boozer(X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in) ! fill sf%booz%lambda,sf%booz%nu
-  !!!!
-  !INIT Gthet,GZ as splines... needed?
+  CALL sf%booz%Get_Boozer(X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in) ! fill sf%booz%lambda,sf%booz%nu for find_angles
   CALL sf%booz%find_angles(sf%X1sfl_base%f%mn_IP,sf%X1sfl_base%f%x_IP, thetzeta_trafo)
   ALLOCATE(Gt_rho(sf%GZ_base%f%modes,nrho))
   DO irho=1,nrho
@@ -259,7 +257,7 @@ CASE(2) !BOOZER
 END SELECT
 
 DEALLOCATE(thetzeta_trafo)
-
+__PERFOFF('BuildTransform_SFL')
 END SUBROUTINE BuildTransform_SFL
 
 
@@ -310,7 +308,7 @@ IMPLICIT NONE
     !evaluate q_in at spos
     q_in_s(:)  = q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
     q_IP       = q_base_in%f%evalDOF_xn(mn_IP,thetazeta_IP(:,:,irho),0, q_in_s(:))
-    q_m(:,irho)=q_base_out%f%initDOF(q_IP(:))
+    q_m(:,irho)= q_base_out%f%initDOF(q_IP(:))
     CALL ProgressBar(irho,nBase)
   END DO !is
 
@@ -333,7 +331,7 @@ IMPLICIT NONE
   REAL(wp)     ,INTENT(IN) :: q_m(1:q_base_out%f%modes,1:q_base_out%s%nBase) !< coefficients of f, sampled at s_IP points 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES      
-  REAL(wp) ,INTENT(INOUT) :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< spline/fourier coefficients of q in new angles 
+  REAL(wp) ,INTENT(OUT)    :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< spline/fourier coefficients of q in new angles 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: iMode
@@ -346,11 +344,10 @@ IMPLICIT NONE
   BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
   !transform back to corresponding representation of DOF in s
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode) FIRSTPRIVATE(BCtype_axis)
   DO iMode=1,q_base_out%f%modes
     q_out(:,iMode)=q_base_out%s%initDOF( q_m(iMode,:) )
-    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis(q_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/)  &
-                                              ,(/0.,0./))
+    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis(q_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/),(/0.,0./))
   END DO
 !$OMP END PARALLEL DO 
 END SUBROUTINE to_spline_with_BC
@@ -389,8 +386,9 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
   !===================================================================================================================================
    __PERFON('find_pest_angles')
   SWRITE(UNIT_StdOut,'(A)') 'FIND PEST ANGLES VIA NEWTON'
-!$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(irho,j,theta_star,zeta)
+!$OMP PARALLEL DO COLLAPSE(2) &
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(irho,j,theta_star,zeta) &
+!$OMP   FIRSTPRIVATE(LA_in,tz_pest,fbase_in)
   DO irho=1,nrho
     DO j=1,tz_dim
       theta_star=tz_pest(1,j); zeta=tz_pest(2,j)          
@@ -404,8 +402,9 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
       check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,LA_in(:,irho))
       maxerr(irho)=maxval(abs(check+(thetzeta_out(1,:,irho)-tz_pest(1,:))))
     END DO
+    
     IF(ANY(maxerr.GT.1.0e-12))THEN
-      WRITE(*,*)'CHECK PEST THETA*',MAXVAL(maxerr)
+      WRITE(*,*)'CHECK PEST THETA*',maxerr
       CALL abort(__STAMP__, & 
           "Find_pest_Angles: Error in theta*")
     END IF
@@ -442,12 +441,11 @@ FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
 !for newton root search 
   FUNCTION A_FRdFR(theta_iter)
     !uses current zeta where newton is called, and A from subroutine above
-    IMPLICIT NONE
     REAL(wp) :: theta_iter
     REAL(wp) :: A_FRdFR(2) !output function and derivative
     !--------------------------------------------------- 
-    A_FRdFR(1)=theta_iter+LA_fbase_in%evalDOF_x((/theta_iter,zeta/),         0,LA_in(:))  !theta_iter+lambda = thet* (rhs)
-    A_FRdFR(2)=1.0_wp    +LA_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_in(:)) !1+dlambda/dtheta  
+    A_FRdFR(1)=theta_iter+LA_fbase_in%evalDOF_x((/theta_iter,zeta/),         0,LA_in)  !theta_iter+lambda = thet* (rhs)
+    A_FRdFR(2)=1.0_wp    +LA_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_in) !1+dlambda/dtheta  
   END FUNCTION A_FRdFR
   
 END FUNCTION get_pest_newton

@@ -176,7 +176,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
                    'GET BOOZER ANGLE TRANSFORM,  sf%nu_fbase%nfp not the same as in X1')
     mn_max(1:2)=sf%nu_fbase%mn_max
     mn_nyq(1:2)=sf%nu_fbase%mn_nyq
-    SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM, nfp=',nfp, &
+    SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM (RECOMPUTE LAMBDA!), nfp=',nfp, &
                                 ', mn_max_in=',LA_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
     __PERFON('get_boozer')
     __PERFON('init')
@@ -313,8 +313,6 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
       __PERFOFF('eval_bsub')
       __PERFON('project')
   
-      __PERFON('project_nu')
-  
       stmp=1.0_wp/(Itor*iota_int+Ipol)
   !$OMP PARALLEL DO        &  
   !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i_mn)        &
@@ -357,8 +355,6 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
         END ASSOCIATE !m,n
       END DO
       !write(*,*)'DEBUG ===',is
-  
-      __PERFOFF('project_nu')
   
       
   
@@ -439,7 +435,7 @@ IMPLICIT NONE
     Gt(:,irho)=LA_in(:,irho)+iota(irho)*nu_in(:,irho)
   END DO
 !$OMP PARALLEL DO COLLAPSE(2) &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(irho,j)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(irho,j) FIRSTPRIVATE(bounds,tz_boozer,fbase_in,Gt,nu_in)
   DO irho=1,nrho
     DO j=1,tz_dim
         !x0=tz_boozer(:,i,j) 
