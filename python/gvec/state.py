@@ -12,6 +12,7 @@
 # ============================================================================================================================== #
 """pygvec postprocessing"""
 
+from . import _fgvec
 from ._fgvec import modgvec_py_post as _post
 
 from pathlib import Path
@@ -20,6 +21,7 @@ import re
 import inspect
 import functools
 import tempfile
+import logging
 
 import numpy as np
 import xarray as xr
@@ -106,13 +108,27 @@ class State:
         self.statefile = Path(statefile)
         _post.readstate(statefile)
         self.initialized = True
+        self._children = []
+
+        self.logger = logging.getLogger("pyGVEC.State")
 
     @_assert_init
     def finalize(self):
+        """Finalize the state and free all (fortran) resources."""
+        self.logger.debug(f"Finalizing state {self!r}")
+        for child in self._children:
+            if isinstance(child, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+                if child.initialized:
+                    self.logger.debug(f"Finalizing Boozer potential {child!r}")
+                    child.free()
+            else:
+                self.logger.error(f"Unknown child: {child!r}")
+
         _post.finalize()
         self.initialized = False
 
     def __del__(self):
+        self.logger.debug(f"Deleting state {self!r}")
         if hasattr(self, "_stdout"):
             self._stdout.close()
         # silently ignore non-initialized states
@@ -126,6 +142,7 @@ class State:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.logger.debug(f"Exiting context manager for state {self!r}")
         # silently ignore non-initialized states
         if self.initialized:
             self.finalize()
@@ -383,6 +400,57 @@ class State:
         result = np.zeros(rho.size, dtype=np.float64, order="F")
         _post.evaluate_profile(rho.size, rho, quantity, result)
         return result
+
+    # === Boozer Potential === #
+
+    @_assert_init
+    def get_boozer(self, M: int, N: int, rho: np.ndarray, sincos: str = "sin"):
+        if not isinstance(M, int) or not isinstance(N, int) or M < 0 or N < 0:
+            raise ValueError("m and n must be non-negative integers.")
+
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        if rho.ndim != 1 or rho.max() > 1.0 or rho.min() < 1e-4:
+            raise ValueError("rho must be a 1D array in the range [1e-4, 1].")
+
+        if sincos not in ["sin", "cos", "sincos"]:
+            raise ValueError("sincos must be 'sin', 'cos', or 'sincos'.")
+        sincos = {"sin": " _sin_", "cos": " _cos_", "sincos": "_sin_cos_"}[sincos]
+
+        self.logger.debug("Initializing new Boozer potential.")
+        sfl_boozer = _post.init_boozer(
+            (M, N), (2 * M + 1, 2 * N + 1), sincos, rho.size, rho
+        )
+        self._children.append(sfl_boozer)
+        self.logger.debug(f"Computing Boozer potential {sfl_boozer!r}")
+        _post.get_boozer(sfl_boozer)
+
+        # ToDO: wrap sfl_boozer again to make it safer?
+        return sfl_boozer
+
+    @_assert_init
+    def get_boozer_angles(
+        self, sfl_boozer: _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer, tz_list: np.ndarray
+    ):
+        if not isinstance(sfl_boozer, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+            raise ValueError(
+                f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
+            )
+        if sfl_boozer not in self._children:
+            raise ValueError(
+                f"Boozer object {sfl_boozer!r} is not known to the state {self!r}."
+            )
+        if not sfl_boozer.initialized:
+            raise ValueError(f"Boozer object {sfl_boozer!r} is not initialized.")
+
+        tz_list = np.asfortranarray(tz_list, dtype=np.float64)
+        if tz_list.ndim != 2 or tz_list.shape[0] != 2:
+            raise ValueError("thetazeta must be a 2D array with shape (2, n).")
+
+        tz_out = np.ndarray(
+            (2, tz_list.shape[1], sfl_boozer.nrho), dtype=np.float64, order="F"
+        )
+        sfl_boozer.find_angles(tz_list.shape[1], tz_list, tz_out)
+        return tz_out
 
     # === Integration with computable quantities === #
 

@@ -197,3 +197,16 @@ def test_evaluate_profile(teststate):
     iota = teststate.evaluate_profile("iota", rho)
     assert iota.shape == rho.shape
     dp_dr = teststate.evaluate_profile("p_prime", rho)
+
+
+def test_get_boozer(teststate):
+    booz = teststate.get_boozer(12, 12, [0.1, 0.5, 0.9])
+    assert isinstance(booz, gvec._fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer)
+    assert booz.initialized
+    assert booz.nrho == 3
+
+
+def test_get_boozer_angles(teststate):
+    booz = teststate.get_boozer(12, 12, [0.1, 0.4, 0.6, 0.9])
+    tz = teststate.get_boozer_angles(booz, [[0.1, 0.5, 0.9], [0.1, 0.5, 0.9]])
+    assert tz.shape == (2, 3, 4)

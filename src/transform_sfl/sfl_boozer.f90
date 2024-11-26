@@ -2,7 +2,7 @@
 ! Copyright (C) 2024  Florian Hindenlang <hindenlang@gmail.com>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
-! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3
 ! of the License, or (at your option) any later version.
 !
 ! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
@@ -15,7 +15,7 @@
 !>
 !!# Module **SFL boozer**
 !!
-!! Transform to Straight-field line  BOOZER coordinates 
+!! Transform to Straight-field line  BOOZER coordinates
 !!
 !===================================================================================================================================
 MODULE MODgvec_SFL_Boozer
@@ -68,7 +68,7 @@ CONTAINS
 SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiPrime)
   ! MODULES
   USE MODgvec_fbase   ,ONLY: fbase_new
-  
+
   IMPLICIT NONE
   !---------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -80,9 +80,9 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
   INTEGER,INTENT(IN) :: nrho       !! number of rho positions
   REAL(wp),INTENT(IN) :: rho_pos(nrho),iota(nrho),phiPrime(nrho)  !! rho positions, iota and phiPrime at these rho positions
   ! OUTPUT VARIABLES
-  CLASS(t_sfl_boozer), ALLOCATABLE,INTENT(INOUT) :: sf !! self
+  TYPE(t_sfl_boozer), ALLOCATABLE, INTENT(INOUT) :: sf !! self
   !=================================================================================================================================
-  ALLOCATE(t_sfl_boozer::sf)
+  ALLOCATE(sf)
   sf%nrho = nrho
   ALLOCATE(sf%rho_pos(nrho),sf%iota(nrho),sf%phiPrime(nrho))
   sf%rho_pos = rho_pos
@@ -117,8 +117,8 @@ END SUBROUTINE sfl_boozer_free
 
 !===================================================================================================================================
 !> Builds the boozer transform coordinate
-!! theta^B = theta + lambda + iota(s)*nu(s,theta,zeta) 
-!! zeta^B  = zeta +nu(s,theta,zeta) 
+!! theta^B = theta + lambda + iota(s)*nu(s,theta,zeta)
+!! zeta^B  = zeta +nu(s,theta,zeta)
 !!
 !! since in Boozer, the covariant magnetic field components are the current profiles,
 !! B = Itor(s) grad theta^B + Ipol(s) grad zeta^B + X grad s
@@ -126,10 +126,10 @@ END SUBROUTINE sfl_boozer_free
 !!   = (Itor*(1+dlambda/dtheta) + (Itor*iota+Ipol)*dnu/dtheta) grad theta + (Itor*(dlambda/dzeta)+(Itor*iota+Ipol)*dnu/dzeta)
 !!=> dnu/dtheta = (B_theta - Itor - Itor*dlambda/dtheta ) / (Itor*iota+Ipol)
 !!=> dnu/dzeta  = (B_zeta  - Ipol - Itor*dlambda/dzeta  ) / (Itor*iota+Ipol)
-!! There is a integrability condition for nu: 
+!! There is a integrability condition for nu:
 !!     d/dzeta(dnu/dtheta)-d/dthet(dnu/dzeta)=d/dzeta(dB_theta/dtheta)-d/dthet(dB_theta/dzeta)=0
-!! which is equivalent to impose J^s=0. 
-!! now if lambda is recomputed via a projection of J^s=0 onto the same fourier series as nu, the compatibility condition is 
+!! which is equivalent to impose J^s=0.
+!! now if lambda is recomputed via a projection of J^s=0 onto the same fourier series as nu, the compatibility condition is
 !! EXACTLY(!) fullfilled.
 !===================================================================================================================================
 SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in)
@@ -147,24 +147,24 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     REAL(wp),INTENT(IN):: X2_in(1:X2_base_in%s%nbase,1:X2_base_in%f%modes)
     REAL(wp),INTENT(IN):: LA_in(1:LA_base_in%s%nbase,1:LA_base_in%f%modes)
   !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES  
+  ! OUTPUT VARIABLES
     CLASS(t_sfl_boozer), INTENT(INOUT) :: sf !!!-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
     INTEGER               :: mn_max(2),mn_nyq(2),irho,iMode,modes,i_mn,mn_IP
     INTEGER               :: nfp
     REAL(wp)              :: spos,dthet_dzeta,dPhids_int,iota_int,dChids_int
-    REAL(wp)              :: b_thet,b_zeta,qloc(3),q_thet(3),q_zeta(3) 
+    REAL(wp)              :: b_thet,b_zeta,qloc(3),q_thet(3),q_zeta(3)
     REAL(wp)              :: detJ,Itor,Ipol,stmp
-  
-    REAL(wp)                          ::  X1_s(  1:X1_base_in%f%modes) 
-    REAL(wp)                          :: dX1ds_s(1:X1_base_in%f%modes) 
-    REAL(wp)                          ::  X2_s(  1:X2_base_in%f%modes) 
-    REAL(wp)                          :: dX2ds_s(1:X2_base_in%f%modes) 
+
+    REAL(wp)                          ::  X1_s(  1:X1_base_in%f%modes)
+    REAL(wp)                          :: dX1ds_s(1:X1_base_in%f%modes)
+    REAL(wp)                          ::  X2_s(  1:X2_base_in%f%modes)
+    REAL(wp)                          :: dX2ds_s(1:X2_base_in%f%modes)
     REAL(wp),ALLOCATABLE              :: LA_s(:)
     REAL(wp),DIMENSION(sf%nu_fbase%modes) :: nu_m,nu_n
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: Bcov_thet_IP,Bcov_zeta_IP
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: dLAdthet_IP,dLAdzeta_IP
-    REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: LA_IP,fm_IP,fn_IP,gam_tt,gam_tz,gam_zz 
+    REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: LA_IP,fm_IP,fn_IP,gam_tt,gam_tz,gam_zz
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: X1_IP,dX1ds_IP,dX1dthet_IP,dX1dzeta_IP
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: X2_IP,dX2ds_IP,dX2dthet_IP,dX2dzeta_IP
     CLASS(t_fBase),ALLOCATABLE             :: X1_fbase_nyq
@@ -180,11 +180,11 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
                                 ', mn_max_in=',LA_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
     __PERFON('get_boozer')
     __PERFON('init')
-    
+
     mn_IP        = sf%nu_fbase%mn_IP  !total number of integration points
     modes        = sf%nu_fbase%modes  !number of modes in output
     dthet_dzeta  = sf%nu_fbase%d_thet*sf%nu_fbase%d_zeta !integration weights
-  
+
      !transpose basis functions and include norm for projection
     SWRITE(UNIT_StdOut,*)'        ...Init G_out Base Done'
     !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
@@ -193,7 +193,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
                       sin_cos_map(X1_base_in%f%sin_cos), &
                                   X1_base_in%f%exclude_mn_zero)
     SWRITE(UNIT_StdOut,*)'        ...Init X1_nyq Base Done'
-  
+
     CALL fbase_new( X2_fbase_nyq, X2_base_in%f%mn_max,  mn_nyq, &
                                   X2_base_in%f%nfp, &
                       sin_cos_map(X2_base_in%f%sin_cos), &
@@ -208,50 +208,50 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
       ALLOCATE(LA_s(1:LA_base_in%f%modes))
       SWRITE(UNIT_StdOut,*)'        ...Init LA_nyq Base Done'
     END IF
-    
+
     !!!ALLOCATE(LA_s(1:LA_fbase_nyq%modes))
     nu_m=0.0_wp; nu_n=0.0_wp
-  
+
     __PERFOFF('init')
-  
-  
+
+
     CALL ProgressBar(0,sf%nrho) !INIT
     DO irho=sf%nrho,1,-1
       __PERFON('eval_data')
       spos=sf%rho_pos(irho)
-  
+
       dPhids_int  = sf%phiPrime(irho)
       iota_int    = sf%iota(irho)
-      dChids_int  = dPhids_int*iota_int 
-  
+      dChids_int  = dPhids_int*iota_int
+
       !interpolate radially
       X1_s(:)    = X1_base_in%s%evalDOF2D_s(spos,X1_base_in%f%modes,      0,X1_in(:,:))
       dX1ds_s(:) = X1_base_in%s%evalDOF2D_s(spos,X1_base_in%f%modes,DERIV_S,X1_in(:,:))
-  
+
       X2_s(:)    = X2_base_in%s%evalDOF2D_s(spos,X2_base_in%f%modes,      0,X2_in(:,:))
       dX2ds_s(:) = X2_base_in%s%evalDOF2D_s(spos,X2_base_in%f%modes,DERIV_S,X2_in(:,:))
 
       IF(.NOT.sf%relambda) THEN
         LA_s(:)    = LA_base_in%s%evalDOF2D_s(spos,LA_base_in%f%modes,      0,LA_in(:,:))
       END IF
-  
+
       !evaluate at integration points
       X1_IP       = X1_fbase_nyq%evalDOF_IP(         0, X1_s(  :))
       dX1ds_IP    = X1_fbase_nyq%evalDOF_IP(         0,dX1ds_s(:))
       dX1dthet_IP = X1_fbase_nyq%evalDOF_IP(DERIV_THET, X1_s(  :))
       dX1dzeta_IP = X1_fbase_nyq%evalDOF_IP(DERIV_ZETA, X1_s(  :))
-  
+
       X2_IP       = X2_fbase_nyq%evalDOF_IP(         0, X2_s(  :))
       dX2ds_IP    = X2_fbase_nyq%evalDOF_IP(         0,dX2ds_s(:))
       dX2dthet_IP = X2_fbase_nyq%evalDOF_IP(DERIV_THET, X2_s(  :))
       dX2dzeta_IP = X2_fbase_nyq%evalDOF_IP(DERIV_ZETA, X2_s(  :))
-  
 
-  
+
+
       __PERFOFF('eval_data')
       __PERFON('eval_bsub')
       __PERFON('eval_metrics')
-      
+
   !$OMP PARALLEL DO &
   !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)  &
   !$OMP   PRIVATE(i_mn,qloc,q_thet,q_zeta,detJ)  &
@@ -269,7 +269,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
         gam_tz(i_mn)  = sf%hmap%eval_gij(q_thet,qloc,q_zeta)/detJ   !g_theta,zeta =g_zeta,theta
         gam_zz(i_mn)  = sf%hmap%eval_gij(q_zeta,qloc,q_zeta)/detJ   !g_zeta,zeta
       END DO !i_mn
-  !$OMP END PARALLEL DO 
+  !$OMP END PARALLEL DO
       __PERFOFF('eval_metrics')
 
       IF(sf%relambda)THEN
@@ -280,12 +280,12 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
         dLAdthet_IP = sf%nu_fbase%evalDOF_IP(DERIV_THET,sf%lambda(:,irho))
         dLAdzeta_IP = sf%nu_fbase%evalDOF_IP(DERIV_ZETA,sf%lambda(:,irho))
         __PERFOFF('new_lambda')
-      ELSE       
+      ELSE
         LA_IP(:)    = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:))
         dLAdthet_IP = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:))
         dLAdzeta_IP = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:))
       END IF
-      
+
 
       Itor=0.0_wp;Ipol=0.0_wp
   !$OMP PARALLEL DO &
@@ -297,55 +297,55 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
       DO i_mn=1,mn_IP
         b_thet = dchids_int- dPhids_int*dLAdzeta_IP(i_mn)    !b_theta
         b_zeta = dPhids_int*(1.0_wp   + dLAdthet_IP(i_mn))    !b_zeta
-  
+
         Bcov_thet_IP(i_mn) = (gam_tt(i_mn)*b_thet + gam_tz(i_mn)*b_zeta)
-        Bcov_zeta_IP(i_mn) = (gam_tz(i_mn)*b_thet + gam_zz(i_mn)*b_zeta) 
-        Itor=Itor+Bcov_thet_IP(i_mn) 
-        Ipol=Ipol+Bcov_zeta_IP(i_mn) 
+        Bcov_zeta_IP(i_mn) = (gam_tz(i_mn)*b_thet + gam_zz(i_mn)*b_zeta)
+        Itor=Itor+Bcov_thet_IP(i_mn)
+        Ipol=Ipol+Bcov_zeta_IP(i_mn)
       END DO !i_mn
-  !$OMP END PARALLEL DO 
+  !$OMP END PARALLEL DO
       Itor=(Itor/REAL(mn_IP,wp)) !Itor=zero mode of Bcov_thet
       Ipol=(Ipol/REAL(mn_IP,wp)) !Ipol=zero mode of Bcov_thet
-  
-  !    Itor=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_thet_IP(:)) 
+
+  !    Itor=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_thet_IP(:))
   !    Ipol=(1.0_wp/REAL(mn_IP,wp))*SUM(Bcov_zeta_IP(:))
-  
+
       __PERFOFF('eval_bsub')
       __PERFON('project')
-  
+
       stmp=1.0_wp/(Itor*iota_int+Ipol)
-  !$OMP PARALLEL DO        &  
+  !$OMP PARALLEL DO        &
   !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i_mn)        &
   !$OMP   SHARED(mn_IP,Itor,Ipol,stmp,dLAdthet_IP,Bcov_thet_IP,fm_IP)
       DO i_mn=1,mn_IP
         fm_IP(i_mn)  = (Bcov_thet_IP(i_mn)-Itor-Itor*dLAdthet_IP(i_mn))*stmp
       END DO
-  !$OMP END PARALLEL DO 
-  
+  !$OMP END PARALLEL DO
+
       !projection: only onto base_dthet
       CALL sf%nu_fbase%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_THET,fm_IP(:),nu_m(:))
-  
+
       IF(sf%nu_fbase%mn_max(2).GT.0) THEN !3D case
-  !$OMP PARALLEL DO        &  
+  !$OMP PARALLEL DO        &
   !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i_mn)        &
   !$OMP   SHARED(mn_IP,Itor,Ipol,stmp,dLAdzeta_IP,Bcov_zeta_IP,fn_IP)
         DO i_mn=1,mn_IP
           fn_IP(i_mn)= (Bcov_zeta_IP(i_mn)-Ipol-Itor*dLAdzeta_IP(i_mn))*stmp
         END DO
-  !$OMP END PARALLEL DO 
-  
+  !$OMP END PARALLEL DO
+
         !projection onto base_dzeta
         CALL sf%nu_fbase%projectIPtoDOF(.FALSE.,1.0_wp,DERIV_ZETA,fn_IP(:),nu_n(:))
       END IF !3D case (n_max >0)
-  
+
       ! only if n=0, use formula from base_dthet projected G, else use base_dzeta projected G
       DO iMode=1,modes
         ASSOCIATE(m=>sf%nu_fbase%Xmn(1,iMode),n=>sf%nu_fbase%Xmn(2,iMode))
         IF(m.NE.0) nu_m(iMode)=nu_m(iMode)*(dthet_dzeta*sf%nu_fbase%snorm_base(iMode))/REAL(m*m,wp)
         IF(n.NE.0) nu_n(iMode)=nu_n(iMode)*(dthet_dzeta*sf%nu_fbase%snorm_base(iMode))/REAL(n*n,wp)
-        IF(n.EQ.0)THEN 
+        IF(n.EQ.0)THEN
           sf%nu(iMode,irho)=nu_m(iMode)
-        ELSE 
+        ELSE
           sf%nu(iMode,irho)=nu_n(iMode)
         END IF
         IF((m.NE.0).AND.(n.NE.0))THEN
@@ -355,9 +355,9 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
         END ASSOCIATE !m,n
       END DO
       !write(*,*)'DEBUG ===',is
-  
-      
-  
+
+
+
       __PERFOFF('project')
       CALL ProgressBar(irho,sf%nrho)
     END DO !is
@@ -376,11 +376,11 @@ SUBROUTINE self_find_boozer_angles(sf,tz_dim,tz_boozer,thetzeta_out)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sfl_boozer), INTENT(IN) :: sf 
+  CLASS(t_sfl_boozer), INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: tz_dim                !< size of the list of in thetstar,zetastar
   REAL(wp)            ,INTENT(IN) :: tz_boozer(2,tz_dim) !< theta,zeta positions in boozer angle (same for all rho)
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES      
+! OUTPUT VARIABLES
   REAL(wp)  ,INTENT(OUT)   :: thetzeta_out(2,tz_dim,sf%nrho)  !! theta,zeta position in original angles, for given boozer angles
 !===================================================================================================================================
   CALL find_boozer_angles(sf%nrho,sf%iota,sf%nu_fbase,sf%lambda,sf%nu,tz_dim,tz_boozer,thetzeta_out)
@@ -388,11 +388,11 @@ END SUBROUTINE self_find_boozer_angles
 
 !===================================================================================================================================
 !> on one flux surface, find for an given list of  (thet*_j,zeta*_j), the corresponding (thet_j,zeta_j) positions, given
-!> Here, new boozer angles are 
-!> theta*=theta+Gt(theta,zeta)  
-!>  zeta*=zeta+nu(theta,zeta), 
-!> with Gt=lambda+iota*nu and nu periodic functions and zero average and same base 
-!> Note that in this routine, we will use a 2d root search with a newton method, setting 
+!> Here, new boozer angles are
+!> theta*=theta+Gt(theta,zeta)
+!>  zeta*=zeta+nu(theta,zeta),
+!> with Gt=lambda+iota*nu and nu periodic functions and zero average and same base
+!> Note that in this routine, we will use a 2d root search with a newton method, setting
 !> [f1,f2]^T = [thet+A(thet,zeta)-thet*=0,  zeta+B(thet,zeta)-zeta*=0]^T
 !> that includes the derivatives (Jacobian), so that the newton step needs to the solved:
 !> -[f1]    [ 1+dA/dthet    dA/dzeta] [dthet]
@@ -414,9 +414,9 @@ IMPLICIT NONE
   REAL(wp)     ,INTENT(IN) :: nu_in(1:fbase_in%modes,nrho) !< coefficients of zeta*=zeta+nu(theta,zeta)
   INTEGER      ,INTENT(IN) :: tz_dim                !< size of the list of in thetstar,zetastar
   REAL(wp)     ,INTENT(IN) :: tz_boozer(2,tz_dim) !< theta,zeta positions in boozer angle (same for all rho)
-  
+
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES      
+! OUTPUT VARIABLES
   REAL(wp) ,INTENT(OUT)   :: thetzeta_out(2,tz_dim,nrho)  !! theta,zeta position in original angles, for given boozer angles
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -428,7 +428,7 @@ IMPLICIT NONE
 !===================================================================================================================================
 
   SWRITE(UNIT_StdOut,'(A,I4)')'Find boozer angles via 2D Newton on  ',tz_dim, " points"
-                     
+
   __PERFON('find_boozer_angles')
   bounds=(/PI, PI/fbase_in%nfp/)
   DO irho=1,nrho
@@ -438,9 +438,9 @@ IMPLICIT NONE
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(irho,j) FIRSTPRIVATE(bounds,tz_boozer,fbase_in,Gt,nu_in)
   DO irho=1,nrho
     DO j=1,tz_dim
-        !x0=tz_boozer(:,i,j) 
+        !x0=tz_boozer(:,i,j)
         thetzeta_out(:,j,irho)=get_booz_newton(tz_boozer(:,j),bounds,fbase_in,Gt(:,irho),nu_in(:,irho))
-    END DO !j 
+    END DO !j
   END DO !irho
 !$OMP END PARALLEL DO
 
@@ -451,7 +451,7 @@ IMPLICIT NONE
       check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,nu_in(:,irho))
       maxerr(2,irho)=maxval(abs(check+(thetzeta_out(2,:,irho)-tz_boozer(2,:))))
     END DO
-  
+
     IF(ANY(maxerr(:,:).GT.1.0e-12)) THEN
         WRITE(*,*)'CHECK BOOZER THETA*',MAXVAL(maxerr(1,:))
         WRITE(*,*)'CHECK BOOZER ZETA*', maxerr
@@ -465,7 +465,7 @@ __PERFOFF('find_boozer_angles')
 END SUBROUTINE find_boozer_angles
 
 !===================================================================================================================================
-!> This function returns the result of the 2D newton root search for the boozer angle 
+!> This function returns the result of the 2D newton root search for the boozer angle
 !!
 !===================================================================================================================================
 FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
@@ -488,25 +488,25 @@ FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
   !                                     a     b       maxstep  , xinit    ,funcs, funcs_jac
   x_out = NewtonRoot2D(1.0e-12_wp,x0-bounds,x0+bounds,0.1_wp*bounds,x0,ABtrafo,ABtrafo_jac)
 
-  CONTAINS 
-  !for newton root search 
-  FUNCTION ABtrafo(xiter) RESULT(FF) 
+  CONTAINS
+  !for newton root search
+  FUNCTION ABtrafo(xiter) RESULT(FF)
     !uses current x0=(zetastar,thetastar) , and A,B and derivatives from subroutine above
     IMPLICIT NONE
     REAL(wp) :: xiter(2)
     REAL(wp) :: FF(2) !two functions of x1,x2 to find root of
-    
+
     base_x =AB_fbase_in%eval(0,xiter) !base evaluation
 
     FF(1)=xiter(1)-x0(1)+ DOT_PRODUCT(base_x,A_in)
     FF(2)=xiter(2)-x0(2)+ DOT_PRODUCT(base_x,B_in)
   END FUNCTION ABtrafo
 
-  FUNCTION ABtrafo_jac(xiter) RESULT(dFF) 
+  FUNCTION ABtrafo_jac(xiter) RESULT(dFF)
     !uses current x0=(zetastar,thetastar) , and A,B and derivatives from subroutine above
     IMPLICIT NONE
     REAL(wp) :: xiter(2)
-    REAL(wp) :: dFF(2,2) !jacobian 
+    REAL(wp) :: dFF(2,2) !jacobian
     base_dthet =AB_fbase_in%eval(DERIV_THET,xiter) !dbase/dtheta
     base_dzeta =AB_fbase_in%eval(DERIV_ZETA,xiter) !dbase/dtheta
 

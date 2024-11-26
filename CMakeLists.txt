@@ -518,33 +518,41 @@ IF(COMPILE_PYGVEC)
     OUTPUT
     fgvec/post.py
     f90wrap_post.f90
+    f90wrap_sfl_boozer.f90
     DEPENDS
     src/pygvec/post.f90
+    src/transform_sfl/sfl_boozer.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
     COMMAND f90wrap
             "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/transform_sfl/sfl_boozer.f90"
             --mod-name _fgvec
             --f90-mod-name gvec._libfgvec
             --kind-map "${CMAKE_CURRENT_SOURCE_DIR}/python/kind_map.py"
             --class-names "${CMAKE_CURRENT_SOURCE_DIR}/python/class_names.py"
+            --constructors
+            --destructors sfl_boozer_free
   )
 
   ADD_CUSTOM_COMMAND(
     OUTPUT _libfgvecmodule.c
     DEPENDS
     f90wrap_post.f90
+    f90wrap_sfl_boozer.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
     COMMAND f2py-f90wrap
             -m _libfgvec
             --lower
             f90wrap_post.f90
+            f90wrap_sfl_boozer.f90
   )
 
   PYTHON_ADD_LIBRARY(_libfgvec MODULE
     "${CMAKE_CURRENT_BINARY_DIR}/_libfgvecmodule.c"
     "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
+    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_sfl_boozer.f90"
     WITH_SOABI
   )
   SET_TARGET_PROPERTIES(_libfgvec PROPERTIES LINKER_LANGUAGE Fortran)
