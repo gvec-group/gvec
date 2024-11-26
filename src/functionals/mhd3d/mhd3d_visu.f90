@@ -842,7 +842,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   INTEGER , INTENT(IN   ) :: fileID          !! added to file name before the ending
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
-  CLASS(t_transform_sfl),ALLOCATABLE :: trafoSFL
+  TYPE(t_transform_sfl),ALLOCATABLE :: trafoSFL
   REAL(wp),ALLOCATABLE       :: coord_out(:,:,:,:),var_out(:,:,:,:),thetstar_pos(:),zetastar_pos(:)
   INTEGER                    :: i_rp,izeta,ithet,nthet_out,nzeta_out,i
   INTEGER                    :: mn_max(2),factorSFL,iVal

@@ -27,7 +27,7 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 INTEGER :: SFLcoord   !! which Straight-field line coordinate is used. =0: none,=1: PEST =2: Boozer
-CLASS(t_transform_sfl),ALLOCATABLE :: trafoSFL
+TYPE(t_transform_sfl),ALLOCATABLE :: trafoSFL
                                          
 !===================================================================================================================================
 END MODULE MODgvec_gvec_to_hopr_vars
