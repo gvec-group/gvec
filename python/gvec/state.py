@@ -25,8 +25,6 @@ import logging
 
 import numpy as np
 import xarray as xr
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def _assert_init(func):
@@ -499,6 +497,10 @@ class State:
         figkwargs: Mapping = {},
         ckwargs: Mapping = {},
     ):
+        # --- local imports --- #
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
         # --- argument handling --- #
         if isinstance(quantities, str) or isinstance(quantities, Callable):
             quantities = [quantities]
@@ -592,6 +594,10 @@ class State:
         figkwargs: Mapping = {},
         ckwargs: Mapping = {},
     ):
+        # --- local imports --- #
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
         # --- argument handling --- #
         if isinstance(quantities, str) or isinstance(quantities, Callable):
             quantities = [quantities]

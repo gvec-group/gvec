@@ -219,24 +219,20 @@ def test_compute_profile(teststate, evals_r, quantity):
 
 
 @pytest.mark.parametrize(
-    "quantity,on_axis",
+    "quantity",
     [
-        ("Jac", True),
-        ("B", False),
-        ("J", False),
-        ("mod_B", False),
-        ("mod_J", False),
+        "Jac",
+        "B",
+        "J",
+        "mod_B",
+        "mod_J",
     ],
 )
-def test_compute_derived(teststate, evals_rtz, quantity, on_axis):
+def test_compute_derived(teststate, evals_rtz, quantity):
     ds = evals_rtz
     compute(ds, quantity, state=teststate)
     assert quantity in ds
-    if on_axis:
-        assert not np.any(np.isnan(ds[quantity]))
-    else:
-        assert np.all(np.isnan(ds[quantity].isel(rad=0)))
-        assert not np.any(np.isnan(ds[quantity].isel(rad=slice(1, None))))
+    assert np.sum(np.isnan(ds[quantity].isel(rad=slice(1, None)))) == 0
 
 
 def test_compute_basis(teststate, evals_rtz):

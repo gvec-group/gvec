@@ -21,6 +21,16 @@ with State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
 Here the additional arguments configure the number of points in the radial, poloidal and toroidal direction respectively.
 The `ev` object is an instance of the `xarray.Dataset` and the individual `xarray.DataArray`s can then be accessed using `ev.B` or `ev["B"]`.
 
+## Installation
+
+```bash
+git clone git@gitlab.mpcdf.mpg.de:gvec-group/gvec.git gvec
+cd gvec
+python -m venv .venv
+source .venv/bin/activate
+pip install .[dev,examples] -v
+```
+
 ## Available Quantities for Evaluation
 The following table contains the quantities that can be evaluated with the python bindings.
 

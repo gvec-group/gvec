@@ -15,7 +15,6 @@ description = "Galerkin Variational Equilibrium Code"
 dependencies = [
     "f90wrap",
     "numpy<2",
-    "matplotlib",
     "xarray",
 ]
 authors = [
@@ -54,6 +53,7 @@ Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
+examples = ["matplotlib", "jupyter"]
 
 # ============================================================================ #
 [tool.scikit-build]
@@ -79,14 +79,16 @@ build-dir = "pybuild"
 
 [tool.scikit-build.cmake]
 verbose = true
-version = ">=3.15"
+version = ">=3.22"
 args = [
     "-GUnix Makefiles", # Ninja doesn't work with the macro for CMAKE_Fortran_FLAGS
-    "--preset", "pygvec_config_debug",
+    # "--preset", "pygvec_config_debug",
+    "--preset", "pygvec_config_release",
 ]
 
 [tool.scikit-build.cmake.define]
-CMAKE_BUILD_TYPE = "Debug"
+# CMAKE_BUILD_TYPE = "Debug"
+CMAKE_BUILD_TYPE = "Release"
 CMAKE_HOSTNAME = {env="CMAKE_HOSTNAME"}
 
 [tool.setuptools_scm]
