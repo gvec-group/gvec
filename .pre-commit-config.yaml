@@ -1,9 +1,12 @@
 repos:
+# whitespace checking
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
+
+# automatic (python) code formatting
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
   rev: v0.6.4
@@ -13,3 +16,12 @@ repos:
       args: [ --fix ]
     # Run the formatter.
     - id: ruff-format
+
+# cleaning jupyter notebooks
+-   repo: https://github.com/srstevenson/nb-clean
+    rev: 3.3.0
+    hooks:
+    -   id: nb-clean
+        args:
+        - --remove-empty-cells
+        - --remove-all-notebook-metadata
