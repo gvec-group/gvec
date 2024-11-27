@@ -385,9 +385,9 @@ def EvaluationsBoozer(
     n_theta: int,
     n_zeta: int,
     state: State,
-    M: int,
-    N: int,
-    sincos: str = "sin",
+    M: int | None = None,
+    N: int | None = None,
+    sincos: Literal["sin", "cos", "sincos"] = "sin",
 ):
     rho = np.asarray(rho)
     theta_B = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
@@ -404,7 +404,7 @@ def EvaluationsBoozer(
     # === Find the logical coordinates of the Boozer grid === #
     stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
     tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
-    sfl_boozer = state.get_boozer(M, N, rho, sincos)
+    sfl_boozer = state.get_boozer(rho, M, N, sincos=sincos)
     tz = state.get_boozer_angles(sfl_boozer, tz_B)
     stacked["theta"] = (("tz", "rad"), tz[0, :, :])
     stacked["zeta"] = (("tz", "rad"), tz[1, :, :])

@@ -668,16 +668,17 @@ END SUBROUTINE evaluate_profile
 !> initialize a SFL-Boozer object, with some parameters taken from the state (globals)
 !> Note: as of v0.2.16 (Thanks Christopher Albert) f90wrap supports ALLOCATABLEs in the return value
 !================================================================================================================================!
-FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos) RESULT(sfl_boozer)
+FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sfl_boozer)
   ! MODULES
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer, sfl_boozer_new
   USE MODgvec_MHD3D_profiles, ONLY: Eval_iota, Eval_PhiPrime
   USE MODgvec_MHD3D_vars,     ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer  ! SFL-Boozer object
+  TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer                 ! SFL-Boozer object
   INTEGER, INTENT(IN) :: mn_max(2), mn_nyq(2), nrho             ! parameters for the Boozer object
   CHARACTER(LEN=8), INTENT(IN)   :: sin_cos      !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
   REAL, INTENT(IN), DIMENSION(nrho) :: rho_pos                  ! radial positions
+  LOGICAL, INTENT(IN) :: relambda                               ! recompute lambda flag
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i
   REAL, DIMENSION(nrho) :: iota, phiPrime                       ! iota and phiPrime
@@ -687,7 +688,7 @@ FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos) RESULT(sfl_boozer)
     phiPrime(i) = Eval_PhiPrime(rho_pos(i))
   END DO
   ! ALLOCATE is called within sfl_boozer_new
-  CALL sfl_boozer_new(sfl_boozer, mn_max, mn_nyq, nfp, sin_cos, hmap, nrho, rho_pos, iota, phiPrime)
+  CALL sfl_boozer_new(sfl_boozer, mn_max, mn_nyq, nfp, sin_cos, hmap, nrho, rho_pos, iota, phiPrime, relambda)
 END FUNCTION init_boozer
 
 SUBROUTINE get_boozer(sfl_boozer)

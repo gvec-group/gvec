@@ -417,13 +417,62 @@ class State:
     # === Boozer Potential === #
 
     @_assert_init
-    def get_boozer(self, M: int, N: int, rho: np.ndarray, sincos: str = "sin"):
+    def get_boozer(
+        self,
+        rho: np.ndarray,
+        M: int | None = None,
+        N: int | None = None,
+        *,
+        M_nyq: int | None = None,
+        N_nyq: int | None = None,
+        sincos: Literal["sin", "cos", "sincos"] = "sin",
+        recompute_lambda: bool = True,
+    ):
+        r"""
+        Initialize a new Boozer potential with M poloidal and N toroidal nodes for all fluxsurfaces given by rho.
+
+        Parameters
+        ----------
+        M
+            Number of poloidal nodes of the Boozer potential :math:`\nu_B`. Defaults to the maximum number of nodes of the basis.
+        N
+            Number of toroidal nodes of the Boozer potential :math:`\nu_B`. Defaults to the maximum number of nodes of the basis.
+        rho
+            Array of (radius-like) flux surface labels.
+
+        Returns
+        -------
+        sfl_boozer
+            Straight-fieldline Boozer object (wrapped Fortran object).
+        """
+        # --- Defaults --- #
+        M_LA, N_LA = self.get_mn_max("LA")
+        _, M_nyq_LA, N_nyq_LA = _post.get_integration_points_num("LA")
+
+        if M is None:
+            M = M_LA
+        if N is None:
+            N = N_LA
+        if M_nyq is None:
+            M_nyq = max(4 * M + 1, M_nyq_LA)
+        if N_nyq is None:
+            N_nyq = max(4 * N + 1, N_nyq_LA)
+
+        # --- Argument Handling --- #
         if not isinstance(M, int) or not isinstance(N, int) or M < 0 or N < 0:
-            raise ValueError("m and n must be non-negative integers.")
-        Mmax, Nmax = self.get_mn_max()
-        if M < Mmax or N < Nmax:
+            raise ValueError("M and N must be non-negative integers (or None).")
+        if M < M_LA or N < N_LA:
             raise ValueError(
-                f"The number of poloidal and toroidal nodes for the Boozer potential must be equal or larger to those of the basis: ({M}, {N}) < ({Mmax}, {Nmax})"
+                f"The number of poloidal and toroidal nodes for the Boozer potential must be equal or larger to those of the original lambda: ({M}, {N}) < ({M_LA}, {N_LA})"
+            )
+        if (
+            not isinstance(M_nyq, int)
+            or not isinstance(N_nyq, int)
+            or M_nyq < min(2 * M + 1, M_nyq_LA)
+            or N_nyq < min(2 * N + 1, N_nyq_LA)
+        ):
+            raise ValueError(
+                f"M_nyq and N_nyq must be integers larger than min({2 * M + 1=}, {M_nyq_LA=}) and min({2 * N + 1=}, {N_nyq_LA=}) (or None)."
             )
 
         rho = np.asfortranarray(rho, dtype=np.float64)
@@ -434,15 +483,20 @@ class State:
             raise ValueError("sincos must be 'sin', 'cos', or 'sincos'.")
         sincos = {"sin": " _sin_", "cos": " _cos_", "sincos": "_sin_cos_"}[sincos]
 
+        recompute_lambda = bool(recompute_lambda)
+        if not recompute_lambda:
+            raise NotImplementedError("Reusing the original lambda is not safe.")
+
+        # --- Create & compute Boozer potential --- #
         self.logger.debug("Initializing new Boozer potential.")
         sfl_boozer = _post.init_boozer(
-            (M, N), (4 * M + 1, 4 * N + 1), sincos, rho.size, rho
+            (M, N), (M_nyq, N_nyq), sincos, rho.size, rho, recompute_lambda
         )
         self._children.append(sfl_boozer)
         self.logger.debug(f"Computing Boozer potential {sfl_boozer!r}")
         _post.get_boozer(sfl_boozer)
 
-        # ToDO: wrap sfl_boozer again to make it safer?
+        # ToDo: wrap sfl_boozer again to make it safer?
         return sfl_boozer
 
     @_assert_init
