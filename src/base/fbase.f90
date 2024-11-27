@@ -123,7 +123,7 @@ IMPLICIT NONE
   LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
+  TYPE(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================

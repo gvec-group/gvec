@@ -45,7 +45,7 @@ SUBROUTINE Lambda_solve(spos_in,hmap_in,X1_base_in,X2_base_in,LA_fbase_in,X1_in,
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_base),INTENT(IN)  :: X1_base_in,X2_base_in           !< base classes belong to solution X1_in,X2_in
-  CLASS(t_fbase),INTENT(IN) :: LA_fbase_in                     !< base class belong to solution LA_s
+  TYPE(t_fbase),INTENT(IN) :: LA_fbase_in                     !< base class belong to solution LA_s
   CLASS(c_hmap), INTENT(INOUT) :: hmap_in                         
   REAL(wp)     , INTENT(IN) :: spos_in                  !! s position to evaluate lambda
   REAL(wp)     , INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes) !! U%X1 variable, is reshaped to 2D at input
@@ -165,7 +165,7 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-    CLASS(t_fbase),INTENT(IN)        :: LA_fbase_in           !< base classes belong to solution U_in
+    TYPE(t_fbase),INTENT(IN)        :: LA_fbase_in           !< base classes belong to solution U_in
     REAL(wp),INTENT(IN)              :: phiPrime_s,ChiPrime_s   !! toroidal and poloidal flux s derivatives at s_pos
     REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP), INTENT(IN) :: gam_tt  !! g_tt/J evaluated on IP points
     REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP), INTENT(IN) :: gam_tz  !! g_tz/J evaluated on IP points

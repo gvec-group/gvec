@@ -34,7 +34,7 @@ INTEGER            :: Ns_out        !< number of equidistant points in radial s-
 INTEGER            :: npfactor      !< factor theta,zeta resolution Ntheta=Factor*m_max, Nzeta=MAX(1,Factor*n_max)
 INTEGER            :: SFLcoord      !< which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL
 INTEGER            :: factorSFL     !< factor for SFL coordinates, mn_max_sfl=mn_max*factorSFL, default=3
-CLASS(t_transform_sfl),ALLOCATABLE :: trafoSFL
+TYPE(t_transform_sfl),ALLOCATABLE :: trafoSFL
 CHARACTER(LEN=700) :: cmdline       !< full command line stored
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 

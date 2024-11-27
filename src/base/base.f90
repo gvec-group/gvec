@@ -44,7 +44,7 @@ TYPE                 :: t_base
   !---------------------------------------------------------------------------------------------------------------------------------
 
   CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
-  CLASS(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
+  TYPE(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
   
   CONTAINS
 

@@ -51,7 +51,7 @@ TYPE :: t_transform_sfl
   REAL(wp),       ALLOCATABLE :: GZ(:,:)       !! data (1:nBase,1:modes) of GZ in GVEC coords. (for BOOZER)
   REAL(wp),       ALLOCATABLE :: Gtsfl(:,:)    !! data (1:nBase,1:modes) of Gt in SFL coords.  (for BOOZER)
   REAL(wp),       ALLOCATABLE :: GZsfl(:,:)    !! data (1:nBase,1:modes) of GZ in SFL coords.  (for BOOZER)
-  CLASS(t_sfl_boozer),ALLOCATABLE :: booz      !! subclass needed for boozer transform
+  TYPE(t_sfl_boozer),ALLOCATABLE :: booz      !! subclass needed for boozer transform
   PROCEDURE(i_func_evalprof), POINTER, NOPASS  :: eval_phiPrime
   PROCEDURE(i_func_evalprof), POINTER, NOPASS  :: eval_iota
   CONTAINS
@@ -106,7 +106,7 @@ SUBROUTINE transform_sfl_new(sf,mn_max_in, whichSFL,deg_in,continuity_in,degGP_i
   PROCEDURE(i_func_evalprof)     :: eval_phiPrime_in,eval_iota_in  !!procedure pointers to profile evaluation functions.
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
-  CLASS(t_transform_sfl), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
+  TYPE(t_transform_sfl), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
   !===================================================================================================================================
   ALLOCATE(t_transform_sfl :: sf)
   sf%hmap => hmap_in
@@ -369,7 +369,7 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
     INTEGER      ,INTENT(IN) :: nrho   !! number of surfaces, (second dimension  of LA_in and nu_in modes)
-    CLASS(t_fBase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
+    TYPE(t_fbase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
     REAL(wp)     ,INTENT(IN) :: LA_in(1:fbase_in%modes,nrho) !< fourier coefficients of thet*=thet+LA(theta,zeta)+iota*nu(theta,zeta)
     INTEGER      ,INTENT(IN) :: tz_dim                 !< size of the list in thetstar,zetastar
     REAL(wp)     ,INTENT(IN) :: tz_pest(2,tz_dim) !< theta,zeta positions in pest angle (same for all rho)
@@ -427,7 +427,7 @@ FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
   ! INPUT VARIABLES
     REAL(wp)     ,INTENT(IN) :: theta_star !< initial guess = thet*
     REAL(wp)     ,INTENT(IN) :: zeta
-    CLASS(t_fBase),INTENT(IN) ::LA_fbase_in     !<  basis of lambda
+    TYPE(t_fbase),INTENT(IN) ::LA_fbase_in     !<  basis of lambda
     REAL(wp)     ,INTENT(IN) :: LA_in(1:LA_fbase_in%modes) !< fourier coefficients of thet*=thet+LA(theta,zeta)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES      

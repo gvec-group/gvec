@@ -39,7 +39,7 @@ TYPE :: t_sfl_boozer
   !input parameters
   INTEGER  :: nrho       !! number of rho positions
   LOGICAL  :: relambda   !! if =True, J^s=0 will be recomputed, for exact integrability condition of boozer transform  (but slower!)
-  CLASS(t_fbase), ALLOCATABLE :: nu_fbase
+  TYPE(t_fbase), ALLOCATABLE :: nu_fbase
   CLASS(c_hmap),  POINTER     :: hmap          !! pointer to hmap class
   REAL(wp),ALLOCATABLE::rho_pos(:),iota(:),phiPrime(:) !! rho positions, iota and phiPrime at these rho positions
   ! computed in the boozer transform
@@ -65,7 +65,7 @@ CONTAINS
 !> initialize sfl boozer class
 !!
 !===================================================================================================================================
-SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiPrime)
+SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiPrime,relambda_in)
   ! MODULES
   USE MODgvec_fbase   ,ONLY: fbase_new
 
@@ -79,8 +79,11 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
   CLASS(c_hmap),INTENT(IN),TARGET :: hmap_in
   INTEGER,INTENT(IN) :: nrho       !! number of rho positions
   REAL(wp),INTENT(IN) :: rho_pos(nrho),iota(nrho),phiPrime(nrho)  !! rho positions, iota and phiPrime at these rho positions
+  LOGICAL, INTENT(IN),OPTIONAL :: relambda_in  !! DEFAULT=TRUE: lambda is recomputed on the given fourier resolution, RECOMMENDED
+                                   !!   for exact integrability condition of boozer transform, but slower.
+                                   !! FALSE: lambda from equilibrium solution is taken.
   ! OUTPUT VARIABLES
-  TYPE(t_sfl_boozer), ALLOCATABLE, INTENT(INOUT) :: sf !! self
+  TYPE(t_sfl_boozer), ALLOCATABLE,INTENT(INOUT) :: sf !! self
   !=================================================================================================================================
   ALLOCATE(sf)
   sf%nrho = nrho
@@ -90,7 +93,11 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
          "sfl_boozer_new: rho_pos must be >1e-4 and <=1.0")
   sf%iota = iota
   sf%phiPrime = phiPrime
-  sf%relambda = .TRUE. ! default
+  IF(PRESENT(relambda_in)) THEN
+    sf%relambda=relambda_in
+  ELSE
+    sf%relambda = .TRUE. ! default
+  END IF
   CALL fbase_new(sf%nu_fbase,mn_max,mn_nyq,nfp,sin_cos,.TRUE.)
   sf%hmap => hmap_in
   ALLOCATE(sf%lambda(sf%nu_fbase%modes,nrho),sf%nu(sf%nu_fbase%modes,nrho))
@@ -160,16 +167,16 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     REAL(wp)                          :: dX1ds_s(1:X1_base_in%f%modes)
     REAL(wp)                          ::  X2_s(  1:X2_base_in%f%modes)
     REAL(wp)                          :: dX2ds_s(1:X2_base_in%f%modes)
-    REAL(wp),ALLOCATABLE              :: LA_s(:)
+    REAL(wp),ALLOCATABLE              :: LA_s(:,:)
     REAL(wp),DIMENSION(sf%nu_fbase%modes) :: nu_m,nu_n
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: Bcov_thet_IP,Bcov_zeta_IP
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: dLAdthet_IP,dLAdzeta_IP
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: LA_IP,fm_IP,fn_IP,gam_tt,gam_tz,gam_zz
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: X1_IP,dX1ds_IP,dX1dthet_IP,dX1dzeta_IP
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: X2_IP,dX2ds_IP,dX2dthet_IP,dX2dzeta_IP
-    CLASS(t_fBase),ALLOCATABLE             :: X1_fbase_nyq
-    CLASS(t_fBase),ALLOCATABLE             :: X2_fbase_nyq
-    CLASS(t_fBase),ALLOCATABLE             :: LA_fbase_nyq
+    TYPE(t_fbase),ALLOCATABLE             :: X1_fbase_nyq
+    TYPE(t_fbase),ALLOCATABLE             :: X2_fbase_nyq
+    TYPE(t_fbase),ALLOCATABLE             :: LA_fbase_nyq
   !===================================================================================================================================
     nfp = X1_base_in%f%nfp
     IF(nfp.NE.sf%nu_fbase%nfp) CALL abort(__STAMP__, &
@@ -205,7 +212,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
                                   LA_base_in%f%nfp, &
                       sin_cos_map(LA_base_in%f%sin_cos), &
                                   LA_base_in%f%exclude_mn_zero)
-      ALLOCATE(LA_s(1:LA_base_in%f%modes))
+      ALLOCATE(LA_s(1:LA_base_in%f%modes,sf%nrho))
       SWRITE(UNIT_StdOut,*)'        ...Init LA_nyq Base Done'
     END IF
 
@@ -216,7 +223,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
 
 
     CALL ProgressBar(0,sf%nrho) !INIT
-    DO irho=sf%nrho,1,-1
+    DO irho=1,sf%nrho
       __PERFON('eval_data')
       spos=sf%rho_pos(irho)
 
@@ -232,7 +239,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
       dX2ds_s(:) = X2_base_in%s%evalDOF2D_s(spos,X2_base_in%f%modes,DERIV_S,X2_in(:,:))
 
       IF(.NOT.sf%relambda) THEN
-        LA_s(:)    = LA_base_in%s%evalDOF2D_s(spos,LA_base_in%f%modes,      0,LA_in(:,:))
+        LA_s(:,irho) = LA_base_in%s%evalDOF2D_s(spos,LA_base_in%f%modes,      0,LA_in(:,:))
       END IF
 
       !evaluate at integration points
@@ -281,9 +288,9 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
         dLAdzeta_IP = sf%nu_fbase%evalDOF_IP(DERIV_ZETA,sf%lambda(:,irho))
         __PERFOFF('new_lambda')
       ELSE
-        LA_IP(:)    = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:))
-        dLAdthet_IP = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:))
-        dLAdzeta_IP = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:))
+        LA_IP(:)    = LA_fbase_nyq%evalDOF_IP(         0,LA_s(:,irho))
+        dLAdthet_IP = LA_fbase_nyq%evalDOF_IP(DERIV_THET,LA_s(:,irho))
+        dLAdzeta_IP = LA_fbase_nyq%evalDOF_IP(DERIV_ZETA,LA_s(:,irho))
       END IF
 
 
@@ -361,7 +368,12 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
       __PERFOFF('project')
       CALL ProgressBar(irho,sf%nrho)
     END DO !is
-    IF(.NOT. sf%relambda) DEALLOCATE(LA_s)
+    CALL X1_fbase_nyq%free() ; DEALLOCATE(X1_fbase_nyq)
+    CALL X2_fbase_nyq%free() ; DEALLOCATE(X2_fbase_nyq)
+    IF(.NOT. sf%relambda) THEN
+      CALL sf%nu_fbase%change_base(LA_fbase_nyq,1,LA_s,sf%lambda) !save lambda to sfl_boozer structure!
+      CALL LA_fbase_nyq%free() ; DEALLOCATE(LA_fbase_nyq) ; DEALLOCATE(LA_s)
+    END IF
     SWRITE(UNIT_StdOut,'(A)') '...DONE.'
     __PERFOFF('get_boozer')
   END SUBROUTINE Get_Boozer_sinterp
@@ -409,7 +421,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   INTEGER      ,INTENT(IN) :: nrho   !! number of surfaces, (second dimension  of LA_in and nu_in modes)
   REAL(wp)     ,INTENT(IN) :: iota(nrho)  !! iota at the rho positions.
-  CLASS(t_fBase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
+  TYPE(t_fbase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
   REAL(wp)     ,INTENT(IN) :: LA_in(1:fbase_in%modes,nrho) !< fourier coefficients of thet*=thet+LA(theta,zeta)+iota*nu(theta,zeta)
   REAL(wp)     ,INTENT(IN) :: nu_in(1:fbase_in%modes,nrho) !< coefficients of zeta*=zeta+nu(theta,zeta)
   INTEGER      ,INTENT(IN) :: tz_dim                !< size of the list of in thetstar,zetastar
@@ -475,7 +487,7 @@ FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
 !-----------------------------------------------------------------------------------------------------------------------------------
 !INPUT VARIABLES
   REAL(wp),INTENT(IN) :: x0(2),bounds(2)
-  CLASS(t_fBase),INTENT(IN) :: AB_fbase_in
+  TYPE(t_fbase),INTENT(IN) :: AB_fbase_in
   REAL(wp),INTENT(IN) :: A_in(1:AB_fbase_in%modes),B_in(1:AB_fbase_in%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 !OUTPUT VARIABLES
