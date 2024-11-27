@@ -244,11 +244,20 @@ def test_converter(
                     "--sflcoord=2",
                     "--factorsfl=2",
                 ],
+                [
+                    "--rpoints=6",
+                    "--polpoints=10",
+                    "--torpoints=10",
+                    "--sflcoord=2",
+                    "--factorsfl=2",
+                    "--booz_relambda=0",
+                ],
             ],
             fixedargs=[
                 ["gvec2castor3d_sfl0.dat"],
                 ["gvec2castor3d_sfl1.dat"],
                 ["gvec2castor3d_sfl2.dat"],
+                ["gvec2castor3d_sfl3.dat"],
             ],
         ),  # same length of args & fixedargs, give the number of runs
         "to_jorek": dict(

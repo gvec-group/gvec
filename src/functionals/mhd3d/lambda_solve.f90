@@ -175,21 +175,19 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos 
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
-    INTEGER                               :: iMode,jMode,i_mn,mn_IP,LA_modes
+    INTEGER                               :: iMode,jMode,mn_IP,LA_modes
     REAL(wp)                              :: Amat(1:LA_fbase_in%modes,1:LA_fbase_in%modes)
     REAL(wp),DIMENSION(1:LA_fbase_in%modes) :: RHS,sAdiag
   !  REAL(wp)                              :: gam_ta_da,gam_za_da
-    REAL(wp)                              :: sum_gam_ta_da,sum_gam_za_da,sum_mn
-    REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP,1:LA_fbase_in%modes) :: gam_ta_da,gam_za_da,sigma_dthet,sigma_dzeta
+    REAL(wp)                              :: sum_gam_ta_da,sum_gam_za_da
+    REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP,1:LA_fbase_in%modes) :: gam_ta_da,gam_za_da
   !===================================================================================================================================
-    __PERFON('setup')
+    __PERFON('setup_1')
     LA_modes=LA_fbase_in%modes
     mn_IP   =LA_fbase_in%mn_IP
 
   !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode)  &
+  !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iMode)  &
   !$OMP   SHARED(mn_IP,LA_modes,LA_fbase_in,sAdiag)
     !estimate of 1/Adiag for preconditioning (=1 for m=n=0)
     DO iMode=1,LA_modes
@@ -198,54 +196,40 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     END DO !iMode
   !$OMP END PARALLEL DO 
 
-  sigma_dthet = LA_fbase_in%base_dthet_IP
-  sigma_dzeta = LA_fbase_in%base_dzeta_IP
   !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode,i_mn)        &
-  !$OMP   SHARED(gam_ta_da,gam_za_da,mn_IP,LA_modes,gam_tt,gam_tz,gam_zz,sigma_dthet,sigma_dzeta)
+  !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iMode)        &
+  !$OMP   SHARED(gam_ta_da,gam_za_da,LA_modes,gam_tt,gam_tz,gam_zz,LA_fbase_in)
     DO iMode=1,LA_modes
-      DO i_mn=1,mn_IP
-        gam_ta_da(i_mn,iMode)=gam_tz(i_mn)*sigma_dthet(i_mn,iMode) - gam_tt(i_mn)*sigma_dzeta(i_mn,iMode)
-        gam_za_da(i_mn,iMode)=gam_zz(i_mn)*sigma_dthet(i_mn,iMode) - gam_tz(i_mn)*sigma_dzeta(i_mn,iMode)
-      END DO !i_mn
+      gam_ta_da(:,iMode)=gam_tz(:)*LA_fbase_in%base_dthet_IP(:,iMode) - gam_tt(:)*LA_fbase_in%base_dzeta_IP(:,iMode)
+      gam_za_da(:,iMode)=gam_zz(:)*LA_fbase_in%base_dthet_IP(:,iMode) - gam_tz(:)*LA_fbase_in%base_dzeta_IP(:,iMode)
     END DO!iMode
   !$OMP END PARALLEL DO 
 
-  
-  !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode,jMode,i_mn,sum_mn)        &
-  !$OMP   SHARED(Amat,gam_ta_da,gam_za_da,LA_fbase_in,mn_IP,LA_modes,PhiPrime_s,sAdiag,sigma_dthet,sigma_dzeta) 
+  __PERFOFF('setup_1')
+  __PERFON('setup_Amat')
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(jMode)        &
+!$OMP   SHARED(Amat,gam_ta_da,gam_za_da,LA_fbase_in,LA_modes,PhiPrime_s,sAdiag) 
     DO jMode=1,LA_modes
       !m=n=0 should not be in lambda, but check
       IF (LA_fbase_in%zero_odd_even(jMode).NE.MN_ZERO) THEN 
-        DO iMode=1,LA_modes
-          sum_mn=0.
-  !$OMP SIMD REDUCTION(+:sum_mn)
-          DO i_mn=1,mn_IP
-            sum_mn = sum_mn + ( gam_ta_da(i_mn,jMode)*sigma_dzeta(i_mn,iMode) &
-                               -gam_za_da(i_mn,jMode)*sigma_dthet(i_mn,iMode))
-          END DO !i_mn
-          ! 1/J ( (g_thet,zeta dsigma_dthet -g_thet,thet dsigma_dzeta ) dlambdaSIN_dzeta
-          !      -(g_zeta,zeta dsigma_dthet -g_zeta,thet dsigma_dzeta ) dlambdaSIN_dthet)
-          Amat(iMode,jMode) = sum_mn *PhiPrime_s*sAdiag(iMode)
-        END DO !iMode
+        CALL LA_fbase_in%projectIPtoDOF(.FALSE., PhiPrime_s,DERIV_ZETA,gam_ta_da(:,jMode),Amat(:,jMode))
+        CALL LA_fbase_in%projectIPtoDOF(.TRUE. ,-PhiPrime_s,DERIV_THET,gam_za_da(:,jMode),Amat(:,jMode))
+        Amat(:,jMode) = Amat(:,jMode) *sAdiag(:)
       ELSE
         Amat(:    ,jMode)=0.0_wp
         Amat(jMode,jMode)=1.0_wp
       END IF
     END DO!jMode
-  !$OMP END PARALLEL DO 
-  
+!$OMP END PARALLEL DO   
+
+  __PERFOFF('setup_Amat')
+  __PERFON('setup_rhs')
 
   !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode,i_mn,sum_gam_ta_da,sum_gam_za_da)        &
-  !$OMP   SHARED(RHS,gam_ta_da,gam_za_da,LA_fbase_in,mn_IP,LA_modes,chiPrime_s,PhiPrime_s,sAdiag) 
+  !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iMode,sum_gam_ta_da,sum_gam_za_da)        &
+  !$OMP   SHARED(RHS,gam_ta_da,gam_za_da,LA_fbase_in,LA_modes,chiPrime_s,PhiPrime_s,sAdiag) 
     DO iMode=1,LA_modes
       !m=n=0 should not be in lambda, but check
       IF (LA_fbase_in%zero_odd_even(iMode).NE.MN_ZERO) THEN 
@@ -260,7 +244,7 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     END DO!iMode
   !$OMP END PARALLEL DO 
   
-    __PERFOFF('setup')
+    __PERFOFF('setup_rhs')
     __PERFON('solve')
     LA_s=SOLVE(Amat,RHS)  
     __PERFOFF('solve')

@@ -35,9 +35,13 @@ TYPE :: t_transform_sfl
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER                     :: whichSFLcoord !! 
-  INTEGER                     :: fac_nyq,mn_max(2),mn_nyq(2),deg,continuity,degGP,nfp
+  INTEGER                     :: fac_nyq,mn_max(2),deg,continuity,degGP,nfp
+  INTEGER                     :: mn_nyq(2)     !! number of integration points in fbase for X1sfl,X2sfl,Gtsfl,GZsfl
+  INTEGER                     :: mn_nyq_booz(2)!! number of integration points in fbase for boozer transform (fbase of GZ_base)
   INTEGER                     :: X1sfl_sin_cos,X2sfl_sin_cos,GZ_sin_cos
-  LOGICAL                     :: relambda      !! =T: recompute lambda from mapping on full fourier series, =F: use LA from eq.
+  LOGICAL                     :: booz_relambda !! =T: recompute lambda from mapping on full fourier series, =F: use LA from eq.
+  INTEGER                     :: to_angle_method !! =1: "interpolate": root search of interpolation points (mn_nyq=2*(m_max,n_max)+1) in sfl angles,
+                                                 !! =2: "integrate": project to sfl angles with trapezoidal rule (integral with transform, mn_nyq=4*(m_max,n_max)+1)
   TYPE(t_sgrid)               :: sgrid_sfl     !! grid for SFL coordinates
   CLASS(c_hmap),  POINTER     :: hmap          !! pointer to hmap class
 
@@ -92,7 +96,7 @@ CONTAINS
 !!
 !===================================================================================================================================
 SUBROUTINE transform_sfl_new(sf,mn_max_in, whichSFL,deg_in,continuity_in,degGP_in,grid_in,  &
-                             hmap_in,X1_base_in,X2_base_in,LA_base_in,eval_phiPrime_in,eval_iota_in)
+                             hmap_in,X1_base_in,X2_base_in,LA_base_in,eval_phiPrime_in,eval_iota_in,booz_relambda)
   ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -104,6 +108,7 @@ SUBROUTINE transform_sfl_new(sf,mn_max_in, whichSFL,deg_in,continuity_in,degGP_i
   CLASS(t_base),INTENT(IN),TARGET :: X1_base_in,X2_base_in,LA_base_in           !< base classes belong to solution U_in
   CLASS(c_hmap),INTENT(IN),TARGET :: hmap_in
   PROCEDURE(i_func_evalprof)     :: eval_phiPrime_in,eval_iota_in  !!procedure pointers to profile evaluation functions.
+  LOGICAL,INTENT(IN),OPTIONAL :: booz_relambda !! for boozer transform, recompute lambda (recommended) 
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
   TYPE(t_transform_sfl), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
@@ -121,11 +126,21 @@ SUBROUTINE transform_sfl_new(sf,mn_max_in, whichSFL,deg_in,continuity_in,degGP_i
   sf%mn_max=mn_max_in; sf%deg=deg_in; sf%continuity=continuity_in ; sf%degGP = degGP_in
   sf%nfp = X1_base_in%f%nfp
   sf%whichSFLcoord=whichSFL
-  sf%relambda=.TRUE. !relambda !if =True, J^s=0 will be recomputed, for exact integrability condition of boozer transform  (but slower!)
+  IF(PRESENT(booz_relambda))THEN
+    sf%booz_relambda=booz_relambda
+  ELSE
+    sf%booz_relambda=.TRUE. !relambda !if =True, J^s=0 will be recomputed, for exact integrability condition of boozer transform  (but slower!)
+  END IF
   sf%fac_nyq=4  !hard coded for now
+  sf%mn_nyq_booz(1:2)=sf%fac_nyq*MAXVAL(sf%mn_max)+1  ! for boozer transform
   ! use maximum number of integration points from maximum mode number in both directions
-  sf%mn_nyq(1:2)=sf%fac_nyq*MAXVAL(sf%mn_max)+1 
-  IF(sf%mn_max(2).EQ.0) sf%mn_nyq(2)=1 !exception: 2D configuration
+  sf%to_angle_method=1 !HARD CODED TO NEWTON ROOT SEARCH for interpolation points, faster than projection
+  SELECT CASE(sf%to_angle_method)
+  CASE(1) !INTERPOLATION
+    sf%mn_nyq(1:2)=2*sf%mn_max+1  !only interpolation (=Fourier transform)
+  CASE(2) !PROJECTION (previous way)
+    sf%mn_nyq(1:2)=sf%mn_nyq_booz !projection with trapezoidal rule
+  END SELECT
   sf%X1sfl_sin_cos=X1_base_in%f%sin_cos
   sf%X2sfl_sin_cos=X2_base_in%f%sin_cos
   sf%GZ_sin_cos   =LA_base_in%f%sin_cos
@@ -159,9 +174,9 @@ REAL(wp),ALLOCATABLE :: rho_pos(:),iota(:),phiPrime(:)
 __PERFON('transform_SFL_init')
 ! extended base for q in the new angles, and on the new grid
 CALL base_new(sf%X1sfl_base,  sf%deg, sf%continuity, sf%sgrid_sfl, sf%degGP,      &
-               sf%mn_max,2*sf%mn_max+1,sf%nfp,sin_cos_map(sf%X1sfl_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
+               sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%X1sfl_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
 CALL base_new(sf%X2sfl_base,   sf%deg, sf%continuity, sf%sgrid_sfl,sf%degGP,      &
-              sf%mn_max,2*sf%mn_max+1,sf%nfp,sin_cos_map(sf%X2sfl_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
+              sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%X2sfl_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
 ALLOCATE(sf%X1sfl(sf%X1sfl_base%s%nBase,sf%X1sfl_base%f%modes)); sf%X1sfl=0.0_wp
 ALLOCATE(sf%X2sfl(sf%X2sfl_base%s%nBase,sf%X2sfl_base%f%modes)); sf%X2sfl=0.0_wp
 
@@ -170,13 +185,13 @@ CASE(1) !PEST
  ! nothing to initialize additionally
 CASE(2) !BOOZER
   CALL base_new(sf%GZ_base, sf%deg, sf%continuity, sf%sgrid_sfl,sf%degGP,      &
-  sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%GZ_sin_cos),.TRUE.) !exclude m=n=0
+  sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),.TRUE.) !exclude m=n=0
   
   ALLOCATE(sf%Gthet(sf%GZ_base%s%nBase,sf%GZ_base%f%modes)); sf%Gthet=0.0_wp
   ALLOCATE(sf%GZ(   sf%GZ_base%s%nBase,sf%GZ_base%f%modes)); sf%GZ=0.0_wp
 
   CALL base_new(sf%GZsfl_base, sf%deg, sf%continuity, sf%sgrid_sfl,sf%degGP,      &
-  sf%mn_max,2*sf%mn_max+1,sf%nfp,sin_cos_map(sf%GZ_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
+  sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%GZ_sin_cos), .FALSE.)!m=n=0 should be always there, because of coordinate transform
 
   ALLOCATE(rho_pos(1:sf%GZsfl_base%s%nBase),iota(1:sf%GZsfl_base%s%nBase),phiPrime(1:sf%GZsfl_base%s%nBase))
   DO irho=1,sf%GZsfl_base%s%nBase
@@ -184,7 +199,8 @@ CASE(2) !BOOZER
     iota(irho)=sf%eval_iota(rho_pos(irho))  
     phiPrime(irho)=sf%eval_phiPrime(rho_pos(irho))
   END DO
-  CALL sfl_boozer_new(sf%booz,sf%mn_max,sf%mn_nyq,sf%nfp,sin_cos_map(sf%GZ_sin_cos),sf%hmap,sf%GZsfl_base%s%nBase,rho_pos,iota,phiPrime)
+  CALL sfl_boozer_new(sf%booz,sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),sf%hmap,sf%GZsfl_base%s%nBase, &
+                      rho_pos,iota,phiPrime,relambda_in=sf%booz_relambda)
   DEALLOCATE(rho_pos,iota,phiPrime)
   ALLOCATE(sf%Gtsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%Gtsfl=0.0_wp
   ALLOCATE(sf%GZsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%GZsfl=0.0_wp
@@ -231,18 +247,24 @@ ALLOCATE(thetzeta_trafo(2,mnIP,nrho))
 SELECT CASE(sf%whichSFLcoord)
 CASE(1) !PEST
   !interpolate lambda at rho positions (for find_pest_angles)
-  ALLOCATE(Gt_rho(LA_base_in%f%modes,nrho))
-  DO irho=1,nrho
-    spos=MIN(MAX(1.0e-4_wp,sf%X1sfl_base%s%s_IP(irho)),1.0_wp-1.0e-12_wp)
-    Gt_rho(:,irho)=LA_base_in%s%evalDOF2D_s(spos,LA_base_in%f%modes,0,LA_in(:,:))
-  END DO
-  CALL find_pest_angles(nrho,LA_base_in%f,Gt_rho,sf%X1sfl_base%f%mn_IP,sf%X1sfl_base%f%x_IP,thetzeta_trafo)
-  DEALLOCATE(Gt_rho)
-  CALL transform_Angles_3d(X1_base_in,X1_in,"X1sfl",sf%X1sfl_base,sf%X1sfl,thetzeta_trafo)
-  CALL transform_Angles_3d(X2_base_in,X2_in,"X2sfl",sf%X2sfl_base,sf%X2sfl,thetzeta_trafo)
+
+  SELECT CASE(sf%to_angle_method)
+  CASE(1)
+    ALLOCATE(Gt_rho(LA_base_in%f%modes,nrho))
+    DO irho=1,nrho
+      spos=MIN(MAX(1.0e-4_wp,sf%X1sfl_base%s%s_IP(irho)),1.0_wp-1.0e-12_wp)
+      Gt_rho(:,irho)=LA_base_in%s%evalDOF2D_s(spos,LA_base_in%f%modes,0,LA_in(:,:))
+    END DO
+    CALL find_pest_angles(nrho,LA_base_in%f,Gt_rho,sf%X1sfl_base%f%mn_IP,sf%X1sfl_base%f%x_IP,thetzeta_trafo)
+    DEALLOCATE(Gt_rho)
+    CALL transform_Angles_3d(X1_base_in,X1_in,"X1sfl",sf%X1sfl_base,sf%X1sfl,thetzeta_trafo)
+    CALL transform_Angles_3d(X2_base_in,X2_in,"X2sfl",sf%X2sfl_base,sf%X2sfl,thetzeta_trafo)
+  CASE(2)
+    CALL Transform_Angles_sinterp(LA_base_in,LA_in,X1_base_in,X1_in,"X1",sf%X1sfl_base,sf%X1sfl)
+    CALL Transform_Angles_sinterp(LA_base_in,LA_in,X2_base_in,X2_in,"X2",sf%X2sfl_base,sf%X2sfl)
+  END SELECT
 CASE(2) !BOOZER
   CALL sf%booz%Get_Boozer(X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA_in) ! fill sf%booz%lambda,sf%booz%nu for find_angles
-  CALL sf%booz%find_angles(sf%X1sfl_base%f%mn_IP,sf%X1sfl_base%f%x_IP, thetzeta_trafo)
   ALLOCATE(Gt_rho(sf%GZ_base%f%modes,nrho))
   DO irho=1,nrho
     Gt_rho(:,irho)=sf%booz%lambda(:,irho)+sf%booz%iota(irho)*sf%booz%nu(:,irho)
@@ -250,10 +272,20 @@ CASE(2) !BOOZER
   CALL to_spline_with_BC(sf%GZ_base,Gt_rho,sf%Gthet)
   CALL to_spline_with_BC(sf%GZ_base,sf%booz%nu,sf%GZ)
   DEALLOCATE(Gt_rho)
-  CALL transform_Angles_3d(X1_base_in,X1_in   ,"X1sfl",sf%X1sfl_base,sf%X1sfl,thetzeta_trafo)
-  CALL transform_Angles_3d(X2_base_in,X2_in   ,"X2sfl",sf%X2sfl_base,sf%X2sfl,thetzeta_trafo)
-  CALL Transform_Angles_3d(sf%GZ_base,sf%Gthet,"Gtsfl",sf%GZsfl_base,sf%Gtsfl,thetzeta_trafo)
-  CALL Transform_Angles_3d(sf%GZ_base,sf%GZ   ,"GZsfl",sf%GZsfl_base,sf%GZsfl,thetzeta_trafo)
+  SELECT CASE(sf%to_angle_method)
+  CASE(1)
+    CALL sf%booz%find_angles(sf%X1sfl_base%f%mn_IP,sf%X1sfl_base%f%x_IP, thetzeta_trafo)
+    CALL transform_Angles_3d(X1_base_in,X1_in   ,"X1sfl",sf%X1sfl_base,sf%X1sfl,thetzeta_trafo)
+    CALL transform_Angles_3d(X2_base_in,X2_in   ,"X2sfl",sf%X2sfl_base,sf%X2sfl,thetzeta_trafo)
+    CALL Transform_Angles_3d(sf%GZ_base,sf%Gthet,"Gtsfl",sf%GZsfl_base,sf%Gtsfl,thetzeta_trafo)
+    CALL Transform_Angles_3d(sf%GZ_base,sf%GZ   ,"GZsfl",sf%GZsfl_base,sf%GZsfl,thetzeta_trafo)
+  CASE(2)
+    CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,sf%GZ_base,sf%GZ,"GZ",sf%GZsfl_base,sf%GZsfl,B_in=sf%GZ)
+    CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,sf%GZ_base,sf%Gthet,"Gt",sf%Gzsfl_base,sf%Gtsfl,B_in=sf%GZ)
+    CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,X1_base_in,X1_in,"X1",sf%X1sfl_base,sf%X1sfl,B_in=sf%GZ)
+    CALL Transform_Angles_sinterp(sf%GZ_base,sf%Gthet,X2_base_in,X2_in,"X2",sf%X2sfl_base,sf%X2sfl,B_in=sf%GZ)
+  END SELECT
+
 END SELECT
 
 DEALLOCATE(thetzeta_trafo)
@@ -353,6 +385,215 @@ IMPLICIT NONE
 END SUBROUTINE to_spline_with_BC
 
 !===================================================================================================================================
+!> Transform a function from VMEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*) 
+!> by projection onto the modes of the new angles: sigma_mn(theta*,zeta*)
+!> using a given in s 
+!> Here, new angles are theta*=theta+A(theta,zeta), zeta*=zeta+B(theta,zeta), 
+!> with A,B periodic functions and zero average and same base 
+!> Note that in this routine, the integral is transformed back to (theta,zeta)
+!> q*_mn = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) dtheta* dzeta*
+!>       = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) [(1+dA/dtheta)*(1+dB/dzeta)-(dA/dzeta*dB/dzeta)] dtheta dzeta
+!!
+!===================================================================================================================================
+SUBROUTINE Transform_Angles_sinterp(AB_base_in,A_in,q_base_in,q_in,q_name,q_base_out,q_out,B_in)
+! MODULES
+USE MODgvec_Globals,ONLY: UNIT_stdOut,Progressbar,testlevel
+USE MODgvec_base   ,ONLY: t_base,base_new
+USE MODgvec_sGrid  ,ONLY: t_sgrid
+USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_Base),INTENT(IN) :: AB_base_in                                    !< basis of A and B
+  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of thet*=thet+A(s,theta,zeta)  
+  CLASS(t_Base),INTENT(IN) :: q_base_in                                     !< basis of function f 
+  REAL(wp)     ,INTENT(IN) :: q_in(1:q_base_in%s%nBase,1:q_base_in%f%modes) !< coefficients of f 
+  CHARACTER(LEN=*),INTENT(IN):: q_name
+  CLASS(t_base),INTENT(IN) :: q_base_out                                    !< new fourier basis of function q in new angles, defined mn_max,mn_nyq 
+  REAL(wp)    ,INTENT(IN),OPTIONAL :: B_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of zeta*=zeta+B(s,theta,zeta)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES      
+  REAL(wp) ,INTENT(INOUT) :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< coefficients of q in new angles 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER               :: nBase,i,is,iMode,i_mn,mn_IP,mn_max(2),mn_nyq(2)
+  REAL(wp)              :: spos,dthet_dzeta 
+  REAL(wp)              :: check(1:7,q_base_out%s%nBase)
+  LOGICAL               :: docheck
+  LOGICAL               :: Bpresent
+  REAL(wp)              :: A_s(1:AB_base_in%f%modes) 
+  REAL(wp)              :: B_s(1:AB_base_in%f%modes) 
+  REAL(wp)              :: q_in_s(1:q_base_in%f%modes) 
+  REAL(wp), ALLOCATABLE :: q_IP(:),q_m(:,:)   ! q evaluated at spos and all integration points
+  REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
+  REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
+  TYPE(t_fBase),ALLOCATABLE        :: q_fbase_nyq
+  TYPE(t_fBase),ALLOCATABLE        :: AB_fbase_nyq
+  REAL(wp),DIMENSION(:),ALLOCATABLE :: A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
+!===================================================================================================================================
+  docheck=(testlevel.GT.0)
+  Bpresent=PRESENT(B_in)
+  mn_max(1:2) =q_base_out%f%mn_max
+  mn_nyq(1:2) =q_base_out%f%mn_nyq
+
+  SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
+                              ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
+                     
+  __PERFON('transform_angles')
+  __PERFON('init')
+  !initialize
+
+
+  !total number of integration points
+  mn_IP = q_base_out%f%mn_IP
+  nBase = q_base_out%s%nBase
+
+  SWRITE(UNIT_StdOut,*)'        ...Init q_out Base Done'
+
+
+  !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
+  CALL fbase_new( q_fbase_nyq,  q_base_in%f%mn_max,  mn_nyq, &
+                                q_base_in%f%nfp, &
+                    sin_cos_map(q_base_in%f%sin_cos), &
+                                q_base_in%f%exclude_mn_zero)
+  SWRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
+  !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
+  CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
+                                AB_base_in%f%nfp, &
+                    sin_cos_map(AB_base_in%f%sin_cos), &
+                                AB_base_in%f%exclude_mn_zero)
+  
+  SWRITE(UNIT_StdOut,*)'        ...Init AB_nyq Base Done'
+
+  IF(.NOT.Bpresent) THEN
+    ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP))
+  ELSE ! Bpresent
+    ALLOCATE(A_IP(1:mn_IP),dAdthet_IP(1:mn_IP),dAdzeta_IP(1:mn_IP),B_IP(1:mn_IP),dBdthet_IP(1:mn_IP),dBdzeta_IP(1:mn_IP))
+  END IF !.NOT.Bpresent
+
+  ALLOCATE(f_IP(1:mn_IP),q_IP(1:mn_IP),modes_IP(1:q_base_out%f%modes,1:mn_IP))
+
+  ALLOCATE(q_m(1:q_base_out%f%modes,nBase))
+  __PERFOFF('init')
+
+  dthet_dzeta  =q_base_out%f%d_thet*q_base_out%f%d_zeta !integration weights
+
+  CALL ProgressBar(0,nBase)!init
+  DO is=1,nBase
+    __PERFON('eval_data_s')
+    spos=MIN(MAX(1.0e-4_wp,q_base_out%s%s_IP(is)),1.0_wp-1.0e-12_wp) !interpolation points for q_in
+    !evaluate q_in at spos
+    q_in_s(:)= q_base_in%s%evalDOF2D_s(spos,q_base_in%f%modes,   0,q_in(:,:))
+    !evaluate A at spos
+    A_s(:)= AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,A_in(:,:))
+    IF(Bpresent)THEN
+      B_s(:)     = AB_base_in%s%evalDOF2D_s(spos,AB_base_in%f%modes,   0,B_in(:,:))
+    END IF
+    __PERFOFF('eval_data_s')
+    __PERFON('eval_data_f')
+    !evaluate lambda at spos
+    ! TEST EXACT CASE: A_s=0.
+    
+    IF(.NOT.Bpresent)THEN
+      q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
+      A_IP       = AB_fbase_nyq%evalDOF_IP(         0, A_s(  :))
+      dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, A_s(  :))
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn)        &
+!$OMP   SHARED(mn_IP,q_base_out,q_IP,A_IP,dAdthet_IP,f_IP,modes_IP)
+      DO i_mn=1,mn_IP
+        f_IP(i_mn) = q_IP(i_mn)*(1.0_wp + dAdthet_IP(i_mn))
+        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
+        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)/))
+      END DO !i_mn=1,mn_IP
+!$OMP END PARALLEL DO 
+
+    ELSE !Bpresent
+      q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
+      A_IP       = AB_fbase_nyq%evalDOF_IP(         0, A_s(  :))
+      dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, A_s(  :))
+      dAdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA, A_s(  :))
+      B_IP       = AB_fbase_nyq%evalDOF_IP(         0, B_s(  :))
+      dBdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, B_s(  :))
+      dBdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA, B_s(  :))
+      
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
+!$OMP   PRIVATE(i_mn)        &
+!$OMP   SHARED(mn_IP,q_base_out,q_IP,A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP,f_IP,modes_IP)
+      DO i_mn=1,mn_IP
+        f_IP(i_mn) = q_IP(i_mn)*((1.0_wp + dAdthet_IP(i_mn))*(1.0_wp + dBdzeta_IP(i_mn))-dAdzeta_IP(i_mn)*dBdthet_IP(i_mn))
+        !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
+        modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)+B_IP(i_mn)/))
+      END DO !i_mn=1,mn_IP
+!$OMP END PARALLEL DO 
+    END IF !Bpresent
+    __PERFON('project')
+    __MATVEC_N(q_m(:,is),modes_IP(:,:),f_IP(:)) 
+
+    __PERFOFF('project')
+    __PERFOFF('eval_data_f')
+
+    !projection: integrate (sum over mn_IP), includes normalization of base!
+    !q_m(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
+
+    q_m(:,is)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_m(:,is)
+    
+    !CHECK at all IP points
+    IF(doCheck) THEN
+      __PERFON('check')
+!      __MATVEC_N(f_IP,q_base_out%f%base_IP,q_m(:,is)) !other points
+!      check(6)=MIN(check(6),MINVAL(f_IP))
+!      check(7)=MAX(check(7),MAXVAL(f_IP))
+      check(6,is)=MINVAL(q_IP)
+      check(7,is)=MAXVAL(q_IP)
+      !f_IP=MATMUL(q_m(:,is),modes_IP(:,:))
+      __MATVEC_T(f_IP,modes_IP,q_m(:,is)) !same points
+      check(4,is)=MINVAL(f_IP)
+      check(5,is)=MAXVAL(f_IP)
+
+  
+      !f_IP = ABS(f_IP - q_IP)/SUM(ABS(q_IP))*REAL(mn_IP,wp)
+      f_IP=ABS(f_ip- q_IP)
+      check(1,is)=MINVAL(f_IP)
+      check(2,is)=MAXVAL(f_IP)
+      check(3,is)=SUM(f_IP)/REAL(mn_IP,wp)
+      !WRITE(*,*)'     ------  spos= ',spos
+      !WRITE(*,*)'check |q_in-q_out|/(surfavg|q_in|) (min/max/avg)',MINVAL(f_IP),MAXVAL(f_IP),SUM(f_IP)/REAL(mn_IP,wp)
+      !WRITE(*,*)'max,min,sum q_out |modes|',MAXVAL(ABS(q_out(is,:))),MINVAL(ABS(q_out(is,:))),SUM(ABS(q_out(is,:)))
+      __PERFOFF('check')
+    END IF !doCheck
+
+    CALL ProgressBar(is,nBase)
+  END DO !is
+
+  CALL to_spline_with_BC(q_base_out,q_m,q_out)
+
+  !finalize
+  CALL q_fbase_nyq%free()
+  CALL AB_fbase_nyq%free()
+  DEALLOCATE( q_fbase_nyq, AB_fbase_nyq, A_IP, dAdthet_IP)
+  IF(Bpresent) DEALLOCATE(dAdzeta_IP, B_IP,dBdthet_IP, dBdzeta_IP )
+
+  DEALLOCATE(modes_IP,q_IP,f_IP,q_m)
+
+  IF(doCheck) THEN
+    DO i=4,1,-1
+      is=MAX(1,nBase/i)
+      WRITE(UNIT_StdOut,'(A,E11.4)')'at rho=',q_base_out%s%s_IP(is)
+      WRITE(UNIT_StdOut,'(A,2E21.11)') '   MIN/MAX of input  '//TRIM(q_name)//':', check(6:7,is)
+      WRITE(UNIT_StdOut,'(A,2E21.11)') '   MIN/MAX of output '//TRIM(q_name)//':', check(4:5,is)
+      WRITE(UNIT_StdOut,'(2A,3E11.4)')'    ERROR of '//TRIM(q_name)//':', &
+                                      ' |q_in-q_out| (min/max/avg)',check(1:2,is),check(3,is)
+    END DO                                  
+  END IF
+
+  SWRITE(UNIT_StdOut,'(A)') '...DONE.'
+  __PERFOFF('transform_angles')
+END SUBROUTINE Transform_Angles_sinterp
+
+!===================================================================================================================================
 !> on one flux surface, find for a list of in thet*_j,zeta*_j, the corresponding (thet_j,zeta_j) positions, given
 !> Here, new PEST angles are 
 !> theta*=theta+lambda(theta,zeta)  
@@ -362,7 +603,7 @@ END SUBROUTINE to_spline_with_BC
 !===================================================================================================================================
 SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
   ! MODULES
-  USE MODgvec_Globals,ONLY: UNIT_stdOut
+  USE MODgvec_Globals,ONLY: UNIT_stdOut,ProgressBar,testlevel
   USE MODgvec_fbase  ,ONLY: t_fbase
   USE MODgvec_Newton ,ONLY: NewtonRoot2D
   IMPLICIT NONE
@@ -382,22 +623,27 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
     INTEGER    :: irho,j
     REAL(wp)   :: theta_star,zeta
     REAL(wp)   :: check(tz_dim),maxerr(nrho)
-    LOGICAL    :: docheck=.TRUE.
+    LOGICAL    :: docheck
   !===================================================================================================================================
    __PERFON('find_pest_angles')
-  SWRITE(UNIT_StdOut,'(A)') 'FIND PEST ANGLES VIA NEWTON'
-!$OMP PARALLEL DO COLLAPSE(2) &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(irho,j,theta_star,zeta) &
-!$OMP   FIRSTPRIVATE(LA_in,tz_pest,fbase_in)
+   docheck=(testlevel.GT.0)
+   SWRITE(UNIT_StdOut,'(A,2(I8,A))')'Find pest angles via Newton on  nrho=',nrho,' times ntheta_zeta= ',tz_dim, " points" 
+  CALL ProgressBar(0,nrho)!init
   DO irho=1,nrho
+!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(NONE) &
+!$OMP   PRIVATE(j,theta_star,zeta) FIRSTPRIVATE(irho) &
+!$OMP   SHARED(tz_dim,tz_pest,thetzeta_out,fbase_in,LA_in)
     DO j=1,tz_dim
       theta_star=tz_pest(1,j); zeta=tz_pest(2,j)          
       thetzeta_out(1,j,irho)=get_pest_newton(theta_star,zeta,fbase_in,LA_in(:,irho))
       thetzeta_out(2,j,irho)=zeta
     END DO! j
-  END DO !irho
 !$OMP END PARALLEL DO
+    CALL ProgressBar(irho,nrho)
+  END DO !irho
+
   IF(docheck)THEN
+    __PERFON("check")
     DO irho=1,nrho
       check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,LA_in(:,irho))
       maxerr(irho)=maxval(abs(check+(thetzeta_out(1,:,irho)-tz_pest(1,:))))
@@ -408,7 +654,8 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
       CALL abort(__STAMP__, & 
           "Find_pest_Angles: Error in theta*")
     END IF
-  END IF
+    __PERFOFF("check")
+  END IF! docheck
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
   __PERFOFF('find_pest_angles')
 

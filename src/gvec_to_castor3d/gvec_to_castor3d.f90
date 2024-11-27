@@ -64,7 +64,7 @@ CONTAINS
 SUBROUTINE get_CLA_gvec_to_castor3d() 
 ! MODULES
 USE MODgvec_cla
-USE MODgvec_gvec_to_castor3d_Vars, ONLY: gvecfileName,FileNameOut, Ns_out,npfactor,factorSFL,Nthet_out,Nzeta_out,SFLcoord,cmdline
+USE MODgvec_gvec_to_castor3d_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -92,7 +92,9 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   CALL cla_register('-s',  '--sflcoord', &
        'which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL [DEFAULT = 0]', cla_int,'0')
   CALL cla_register('-f',  '--factorsfl', &
-       'factor on maximum mode numbers (mn_max=factorsfl*mn_max_in) for SFL coords.  [DEFAULT = 4]', cla_int,'4')
+       'factor on maximum mode numbers (mn_max=factorsfl*mn_max_in) for SFL coords.  [DEFAULT = 2]', cla_int,'2')
+  CALL cla_register('-b',  '--booz_relambda', &
+       'for boozer output, =0: use lambda from equilibrium. =1: recompute lambda  (recommended,slower).  [DEFAULT = 1]', cla_int,'1')
   !positional argument
   CALL cla_posarg_register('gvecfile.dat', &
        'Input filename of GVEC restart file [MANDATORY]',  cla_char,'xxx') !    
@@ -106,6 +108,7 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
   CALL cla_get('-t',Nzeta_out)
   CALL cla_get('-s',SFLcoord)
   CALL cla_get('-f',factorSFL)
+  CALL cla_get('-b',booz_relambda)
   CALL cla_get('gvecfile.dat',f_str)
   gvecfilename=TRIM(f_str)
   CALL cla_get('outfile.dat',f_str)
@@ -142,6 +145,9 @@ CHARACTER(LEN=6),DIMENSION(0:2),PARAMETER :: SFLcoordName=(/" GVEC "," PEST ","B
     SWRITE(UNIT_stdOut,'(A,I4)')'  * number of points in zeta       : ',Nzeta_out
   END IF
   SWRITE(UNIT_stdOut,'(A,I4,A)')'  * SFL coordinates flag           : ',SFLcoord,' ( '//SFLcoordName(SFLcoord)//' )'
+  IF(SFLcoord.EQ.2) THEN
+    SWRITE(UNIT_stdOut,'(A,A)') '  * boozer recompute lambda        : ',MERGE("ON ","OFF",booz_relambda.EQ.1)
+  END IF
   SWRITE(UNIT_stdOut,'(A,I4)')  '  * factor for modes of SFL coords : ',factorSFL
   SWRITE(UNIT_stdOut,'(A,A)')   '  * GVEC input file                : ',TRIM(gvecfileName)
   SWRITE(UNIT_stdOut,'(A,A)')   '  * output file name               : ',TRIM(FileNameOut)
@@ -217,7 +223,8 @@ __PERFON("gvec2castor-init")
   IF(SFLcoord.NE.0)THEN
     mn_max_out=mn_max_out*factorSFL !*SFLfactor on modes
     CALL transform_sfl_new(trafoSFL,mn_max_out,SFLcoord,X1_base_r%s%deg,X1_base_r%s%continuity, &
-    X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
+                           X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r, &
+                           eval_phiPrime_r,eval_iota_r,booz_relambda=(booz_relambda.EQ.1))
     CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF
   

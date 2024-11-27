@@ -183,8 +183,9 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
                    'GET BOOZER ANGLE TRANSFORM,  sf%nu_fbase%nfp not the same as in X1')
     mn_max(1:2)=sf%nu_fbase%mn_max
     mn_nyq(1:2)=sf%nu_fbase%mn_nyq
-    SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM (RECOMPUTE LAMBDA!), nfp=',nfp, &
-                                ', mn_max_in=',LA_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
+    SWRITE(UNIT_StdOut,'(A,A,A,I4,3(A,2I6))')'GET BOOZER ANGLE TRANSFORM (', &
+                                             TRIM(MERGE('RECOMPUTE      ','USE EQUILIBRIUM',sf%relambda)),' LAMBDA!), nfp=',nfp, &
+                                            ', mn_max_in=',LA_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
     __PERFON('get_boozer')
     __PERFON('init')
 
@@ -192,8 +193,6 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     modes        = sf%nu_fbase%modes  !number of modes in output
     dthet_dzeta  = sf%nu_fbase%d_thet*sf%nu_fbase%d_zeta !integration weights
 
-     !transpose basis functions and include norm for projection
-    SWRITE(UNIT_StdOut,*)'        ...Init G_out Base Done'
     !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
     CALL fbase_new( X1_fbase_nyq, X1_base_in%f%mn_max,  mn_nyq, &
                                   X1_base_in%f%nfp, &
@@ -371,7 +370,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     CALL X1_fbase_nyq%free() ; DEALLOCATE(X1_fbase_nyq)
     CALL X2_fbase_nyq%free() ; DEALLOCATE(X2_fbase_nyq)
     IF(.NOT. sf%relambda) THEN
-      CALL sf%nu_fbase%change_base(LA_fbase_nyq,1,LA_s,sf%lambda) !save lambda to sfl_boozer structure!
+      CALL sf%nu_fbase%change_base(LA_fbase_nyq,2,LA_s,sf%lambda) !save lambda to sfl_boozer structure!
       CALL LA_fbase_nyq%free() ; DEALLOCATE(LA_fbase_nyq) ; DEALLOCATE(LA_s)
     END IF
     SWRITE(UNIT_StdOut,'(A)') '...DONE.'
@@ -414,7 +413,7 @@ END SUBROUTINE self_find_boozer_angles
 !===================================================================================================================================
 SUBROUTINE find_boozer_angles(nrho,iota,fbase_in,LA_in,nu_in,tz_dim,tz_boozer,thetzeta_out)
 ! MODULES
-USE MODgvec_Globals,ONLY: UNIT_stdOut,PI
+USE MODgvec_Globals,ONLY: UNIT_stdOut,PI,ProgressBar,testlevel
 USE MODgvec_fbase  ,ONLY: t_fbase
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -433,32 +432,32 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: irho,j
-  REAL(wp)              :: bounds(2)
+  REAL(wp)              :: bounds(2),x0(2)
   REAL(wp)              :: check(tz_dim),maxerr(2,nrho)
-  REAL(wp)              :: Gt(1:fbase_in%modes,nrho)  !! transform in theta: lambda + iota*nu
-  LOGICAL               :: docheck=.TRUE.
+  REAL(wp)              :: Gt(1:fbase_in%modes)  !! transform in theta: lambda + iota*nu
+  LOGICAL               :: docheck
 !===================================================================================================================================
-
-  SWRITE(UNIT_StdOut,'(A,I4)')'Find boozer angles via 2D Newton on  ',tz_dim, " points"
-
   __PERFON('find_boozer_angles')
+  SWRITE(UNIT_StdOut,'(A,2(I8,A))')'Find boozer angles via 2D Newton on  nrho=',nrho,' times ntheta_zeta= ',tz_dim, " points"
+  docheck=(testlevel.GT.0)
   bounds=(/PI, PI/fbase_in%nfp/)
+  CALL ProgressBar(0,nrho)!init
   DO irho=1,nrho
-    Gt(:,irho)=LA_in(:,irho)+iota(irho)*nu_in(:,irho)
-  END DO
-!$OMP PARALLEL DO COLLAPSE(2) &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(irho,j) FIRSTPRIVATE(bounds,tz_boozer,fbase_in,Gt,nu_in)
-  DO irho=1,nrho
+    Gt(:)=LA_in(:,irho)+iota(irho)*nu_in(:,irho)
+!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(NONE) &
+!$OMP   PRIVATE(j,x0) FIRSTPRIVATE(irho,bounds) &
+!$OMP   SHARED(tz_dim,tz_boozer,thetzeta_out,fbase_in,Gt,nu_in)
     DO j=1,tz_dim
-        !x0=tz_boozer(:,i,j)
-        thetzeta_out(:,j,irho)=get_booz_newton(tz_boozer(:,j),bounds,fbase_in,Gt(:,irho),nu_in(:,irho))
+        x0=tz_boozer(:,j)
+        thetzeta_out(:,j,irho)=get_booz_newton(x0,bounds,fbase_in,Gt(:),nu_in(:,irho))
     END DO !j
-  END DO !irho
 !$OMP END PARALLEL DO
+    CALL ProgressBar(irho,nrho)
+  END DO !irho
 
   IF(docheck)THEN
     DO irho=1,nrho
-      check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,Gt(:,irho))
+      check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,(LA_in(:,irho)+iota(irho)*nu_in(:,irho)))
       maxerr(1,irho)=maxval(abs(check+(thetzeta_out(1,:,irho)-tz_boozer(1,:))))
       check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,nu_in(:,irho))
       maxerr(2,irho)=maxval(abs(check+(thetzeta_out(2,:,irho)-tz_boozer(2,:))))
