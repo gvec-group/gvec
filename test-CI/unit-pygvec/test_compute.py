@@ -16,6 +16,7 @@ try:
         Evaluations,
         compute,
         volume_integral,
+        EvaluationsBoozer,
     )
 except ImportError:
     pytest.skip("Import Error", allow_module_level=True)
@@ -123,6 +124,21 @@ def test_evaluations_init(teststate):
     for c in ["rho", "theta", "zeta"]:
         assert c in ds.coords
         assert ds[c].attrs["integration_points"] is True
+
+
+def test_boozer_init(teststate):
+    ds = EvaluationsBoozer([0.5, 0.6], 20, 18, teststate, 7, 2)
+    assert np.allclose(ds.rho, [0.5, 0.6])
+    assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
+    assert {"rad", "pol", "tor"} == set(ds.dims)
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_B.dims == ("pol",)
+    assert ds.zeta_B.dims == ("tor",)
+    assert set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}
+
+    teststate.compute(ds, "mod_B")
+    assert "mod_B" in ds
+    assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
 
 
 def test_compute_base(teststate, evals_rtz_and_list):

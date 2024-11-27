@@ -16,6 +16,6 @@
 from ._version import __version__, __version_tuple__
 
 from .state import State
-from .comp import compute, Evaluations
+from .comp import compute, Evaluations, EvaluationsBoozer
 from . import quantities
 from . import util

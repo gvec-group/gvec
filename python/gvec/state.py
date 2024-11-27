@@ -191,6 +191,21 @@ class State:
         return r_GP, r_w, t_n, t_w, z_n, z_w
 
     @_assert_init
+    def get_mn_max(self, quantity: str = "all") -> tuple[int, int]:
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["X1", "X2", "LA", "all"]:
+            raise ValueError(
+                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
+            )
+
+        if quantity == "all":
+            m, n = zip(*[self.get_mn_max(q) for q in ["X1", "X2", "LA"]])
+            return max(m), max(n)
+
+        return _post.get_mn_max(quantity)
+
+    @_assert_init
     def evaluate_base_tens(
         self,
         quantity: str,
@@ -407,6 +422,11 @@ class State:
     def get_boozer(self, M: int, N: int, rho: np.ndarray, sincos: str = "sin"):
         if not isinstance(M, int) or not isinstance(N, int) or M < 0 or N < 0:
             raise ValueError("m and n must be non-negative integers.")
+        Mmax, Nmax = self.get_mn_max()
+        if M < Mmax or N < Nmax:
+            raise ValueError(
+                f"The number of poloidal and toroidal nodes for the Boozer potential must be equal or larger to those of the basis: ({M}, {N}) < ({Mmax}, {Nmax})"
+            )
 
         rho = np.asfortranarray(rho, dtype=np.float64)
         if rho.ndim != 1 or rho.max() > 1.0 or rho.min() < 1e-4:
@@ -418,7 +438,7 @@ class State:
 
         self.logger.debug("Initializing new Boozer potential.")
         sfl_boozer = _post.init_boozer(
-            (M, N), (2 * M + 1, 2 * N + 1), sincos, rho.size, rho
+            (M, N), (4 * M + 1, 4 * N + 1), sincos, rho.size, rho
         )
         self._children.append(sfl_boozer)
         self.logger.debug(f"Computing Boozer potential {sfl_boozer!r}")

@@ -493,7 +493,7 @@ IF(COMPILE_PYGVEC)
   FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
   FIND_PROGRAM(PYTHON "python")
 
-  SET(PYPKG_PATH "python/pygvec")
+  SET(PYPKG_PATH "python/gvec") # does nothing?
 
   # --- f2py headers --- #
   EXECUTE_PROCESS(

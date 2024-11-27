@@ -378,3 +378,57 @@ def volume_integral(
     return (
         quantity * quantity.rad_weight * quantity.pol_weight * quantity.tor_weight
     ).sum(("rad", "pol", "tor"))
+
+
+def EvaluationsBoozer(
+    rho: np.ndarray,
+    n_theta: int,
+    n_zeta: int,
+    state: State,
+    M: int,
+    N: int,
+    sincos: str = "sin",
+):
+    rho = np.asarray(rho)
+    theta_B = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
+    zeta_B = np.linspace(0, 2 * np.pi / state.nfp, n_zeta, endpoint=False)
+
+    ds = xr.Dataset(
+        coords=dict(
+            rho=("rad", rho),
+            theta_B=("pol", theta_B),
+            zeta_B=("tor", zeta_B),
+        )
+    )
+
+    # === Find the logical coordinates of the Boozer grid === #
+    stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
+    tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
+    sfl_boozer = state.get_boozer(M, N, rho, sincos)
+    tz = state.get_boozer_angles(sfl_boozer, tz_B)
+    stacked["theta"] = (("tz", "rad"), tz[0, :, :])
+    stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
+    ds["theta"] = stacked["theta"].unstack("tz")
+    ds["zeta"] = stacked["zeta"].unstack("tz")
+
+    # === Metadata === #
+    ds.rho.attrs["long_name"] = "Logical radial coordinate"
+    ds.rho.attrs["symbol"] = r"\rho"
+    ds.theta_B.attrs["long_name"] = "Boozer straight-fieldline poloidal angle"
+    ds.theta_B.attrs["symbol"] = r"\theta_B"
+    ds.zeta_B.attrs["long_name"] = "Boozer toroidal angle"
+    ds.zeta_B.attrs["symbol"] = r"\zeta_B"
+    ds.theta.attrs["long_name"] = "Logical poloidal angle"
+    ds.theta.attrs["symbol"] = r"\theta"
+    ds.zeta.attrs["long_name"] = "Logical toroidal angle"
+    ds.zeta.attrs["symbol"] = r"\zeta"
+
+    # === Indices === #
+    # setting them earlier causes issues with the stacking / unstacking
+    ds = ds.set_xindex("rho")
+    ds = ds.set_xindex("theta_B")
+    ds = ds.set_xindex("zeta_B")
+    ds = ds.drop_vars("pol")
+    ds = ds.drop_vars("tor")
+
+    return ds

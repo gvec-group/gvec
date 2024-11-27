@@ -158,31 +158,32 @@ def _base(var, long_name, symbol):
                 f"Expected 'rho' to be of dimension '(rad,)', got {ds.rho.dims}"
             )
 
+        # Default case: mesh in logical (rho, theta, zeta)
         if set(ds.theta.dims) == {"pol"} and set(ds.zeta.dims) == {"tor"}:
             outputs = state.evaluate_base_tens_all(var, ds.rho, ds.theta, ds.zeta)
             for key, value in zip(base.quantities, outputs):
                 ds[key] = (("rad", "pol", "tor"), value)
 
-        elif set(ds.theta.dims) | set(ds.zeta.dims) == {"pol", "tor"}:
-            stacked = ds[["rho", "theta", "zeta"]].stack(tz=("pol", "tor"))
-            thetazeta = np.stack([stacked.theta, stacked.zeta], axis=0)
-            outputs = state.evaluate_base_list_tz_all(var, ds.rho, thetazeta)
-            for key, value in zip(base.quantities, outputs):
-                value = xr.DataArray(value, coords=stacked.coords).unstack("tz")
-                ds[key] = value
+        # E.g. mesh in Boozer coordinates (rho, theta_B, zeta_B) -> theta, zeta are 3D fields
+        elif set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}:
+            # Flatten theta, zeta
+            theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(
+                ds.rad.size, -1
+            )
+            zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(
+                ds.rad.size, -1
+            )
 
-        elif set(ds.theta.dims) | set(ds.zeta.dims) == {"rad", "pol", "tor"}:
-            stacked = ds[["rho", "theta", "zeta"]].stack(tz=("pol", "tor"))
+            # Compute base on each radial position
             outputs = []
             for r, rho in enumerate(ds.rho.data):
-                surface = stacked.isel(rad=r)
-                thetazeta = np.stack([surface.theta, surface.zeta], axis=0)
+                thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
                 outputs.append(state.evaluate_base_list_tz_all(var, [rho], thetazeta))
+
+            # Write to dataset
             for key, value in zip(base.quantities, zip(*outputs)):
-                value = xr.DataArray(
-                    np.stack(value).squeeze(), coords=stacked.coords
-                ).unstack("tz")
-                ds[key] = value
+                value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+                ds[key] = (("rad", "pol", "tor"), value)
         else:
             raise ValueError(
                 f"Expected 'theta', 'zeta' to be of dimensions subset of '(rad, pol, tor)', got {ds.theta.dims}, {ds.zeta.dims}"
@@ -238,7 +239,7 @@ def hmap(ds: xr.Dataset, state: State):
     for key, value in zip(hmap.quantities, outputs):
         ds[key] = (
             ("xyz", "rad", "pol", "tor"),
-            value.reshape(3, ds.rho.size, ds.theta.size, ds.zeta.size),
+            value.reshape(3, ds.rad.size, ds.pol.size, ds.tor.size),
         )
 
 
