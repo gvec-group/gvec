@@ -291,11 +291,13 @@ def test_converter(runargs_prefix, binpath, testgroup, testcase, which_conv, tes
               "to_castor3d":dict(exec="convert_gvec_to_castor3d",msg="CONVERT GVEC TO CASTOR3D",
                                  args=[["--rpoints=7","--polpoints=12","--torpoints=8" ,"--sflcoord=0"],
                                        ["--rpoints=8","--polpoints=11","--torpoints=9" ,"--sflcoord=1","--factorsfl=2"], 
-                                       ["--rpoints=9","--polpoints=10","--torpoints=10","--sflcoord=2","--factorsfl=2"]
+                                       ["--rpoints=9","--polpoints=10","--torpoints=10","--sflcoord=2","--factorsfl=2"],
+                                       ["--rpoints=6","--polpoints=10","--torpoints=10","--sflcoord=2","--factorsfl=2","--booz_relambda=0"]
                                       ], 
                                  fixedargs=[["gvec2castor3d_sfl0.dat"],
                                             ["gvec2castor3d_sfl1.dat"],
-                                            ["gvec2castor3d_sfl2.dat"]
+                                            ["gvec2castor3d_sfl2.dat"],
+                                            ["gvec2castor3d_sfl3.dat"],
                                            ]),  # same length of args & fixedargs, give the number of runs
               "to_jorek":dict(   exec="convert_gvec_to_jorek",msg="CONVERT GVEC TO JOREK",
                                  args=[["--rpoints=8","--npfactor=1","--polpoints=12"]],
