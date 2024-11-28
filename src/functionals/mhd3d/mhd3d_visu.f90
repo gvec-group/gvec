@@ -834,7 +834,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
   USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
   USE MODgvec_Output_vars,    ONLY: ProjectName,outputLevel
-  USE MODgvec_Analyze_Vars,   ONLY: outfileType,SFLout,SFLout_nrp,SFLout_mn_pts,SFLout_mn_max,SFLout_radialpos
+  USE MODgvec_Analyze_Vars,   ONLY: outfileType,SFLout,SFLout_nrp,SFLout_mn_pts,SFLout_mn_max,&
+                                    SFLout_radialpos,SFLout_endpoint
   USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_mhd3d
   USE MODgvec_Globals,        ONLY: TWOPI,CROSS
   IMPLICIT NONE 
@@ -915,7 +916,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     IF(iVal.NE.Nval+1) CALL abort(__STAMP__,"nVal parameter not correctly set")
   
   
-    factorSFL=2
+    factorSFL=4
     DO i=1,2
       IF(SFLout_mn_max(i).EQ.-1)THEN !input =-1, automatic
         mn_max(i) = factorSFL*MAXVAL((/X1_base%f%mn_max(i),X2_base%f%mn_max(i),LA_base%f%mn_max(i)/))
@@ -935,10 +936,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END DO
     ALLOCATE(tz_star_pos(2,nthet_out,nzeta_out))
     DO ithet=1,Nthet_out
-      tz_star_pos(1,ithet,:)=(TWOPI*(REAL(ithet,wp)-0.5_wp))/REAL(Nthet_out) 
+      tz_star_pos(1,ithet,:)=(TWOPI*(REAL(ithet,wp)-0.5_wp))/REAL(Nthet_out-MERGE(1,0,SFLout_endpoint),wp) 
     END DO
     DO izeta=1,Nzeta_out
-      tz_star_pos(2,:,izeta)=(TWOPI*(REAL(izeta,wp)-0.5_wp))/REAL((Nzeta_out*nfp),wp)
+      tz_star_pos(2,:,izeta)=(TWOPI*(REAL(izeta,wp)-0.5_wp))/REAL(((Nzeta_out-MERGE(1,0,SFLout_endpoint))*nfp),wp)
     END DO
     ALLOCATE(tz_pos(2,nthet_out,nzeta_out,SFLout_nrp))
     SELECT CASE(whichSFLout)

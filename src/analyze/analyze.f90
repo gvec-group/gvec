@@ -105,6 +105,7 @@ REAL(wp):: visu_minmax(3,0:1)
   IF(SFLout.GT.-1)THEN
     SFLout_mn_max = GETINTARRAY("SFLout_mn_max",2,Proposal=(/-1,-1/))
     SFLout_mn_pts = GETINTARRAY("SFLout_mn_pts",2,Proposal=(/40,40/)) !off by default
+    SFLout_endpoint=GETLOGICAL("SFLout_endpoint",Proposal=.FALSE.)
     CALL GETREALALLOCARRAY("SFLout_radialPos",SFLout_radialpos,SFLout_nrp,Proposal=(/1.0_wp/))
   END IF !SFLout
   CALL par_Barrier(afterScreenOut='... DONE')
