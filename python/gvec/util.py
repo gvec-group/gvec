@@ -43,7 +43,16 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     if not len(kwargs.keys()):
         shutil.copy2(source, target)
         return
-    occurrences = {key: 0 for key in kwargs}
+
+    # initialize occurrences counters for all parameters to be set
+    occurrences = {}
+    for key in kwargs:
+        if isinstance(kwargs[key], dict):
+            for m, n in kwargs[key]:
+                occurrences[key, m, n] = 0
+        else:
+            occurrences[key] = 0
+
     assert target != source
     with open(source, "r") as source_file, open(target, "w") as target_file:
         for line in source_file:
@@ -84,17 +93,15 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         # add key,value pair if not existing in parameterfile.
         for key, v in occurrences.items():
             if v == 0:
-                if not (
-                    str(kwargs[key])[0] == "!"
-                ):  # ignore uncommenting keywords if not found
-                    if isinstance(kwargs[key], dict):
-                        for (m, n), value in kwargs[key].items():
-                            target_file.write(f"\n {key}({m};{n}) = {value}")
-                    else:
-                        target_file.write(f"\n {key} = {kwargs[key]}")
+                if isinstance(key, tuple):
+                    key, m, n = key
+                    if str(kwargs[key][m, n]) != "!":
+                        target_file.write(f"\n {key}({m};{n}) = {kwargs[key][m, n]}")
+                        occurrences[key, m, n] += 1
                 else:
-                    target_file.write(f"\n {key} = {kwargs[key][1:]}")
-                occurrences[key] += 1
+                    if str(kwargs[key]) != "!":
+                        target_file.write(f"\n {key} = {kwargs[key]}")
+                        occurrences[key] += 1
     assert all(
         [v == 1 for v in occurrences.values()]
     ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"
