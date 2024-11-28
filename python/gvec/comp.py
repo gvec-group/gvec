@@ -381,7 +381,7 @@ def volume_integral(
 
 
 def EvaluationsBoozer(
-    rho: np.ndarray,
+    rho: float | np.ndarray,
     n_theta: int,
     n_zeta: int,
     state: State,
@@ -392,6 +392,13 @@ def EvaluationsBoozer(
     rho = np.asarray(rho)
     theta_B = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
     zeta_B = np.linspace(0, 2 * np.pi / state.nfp, n_zeta, endpoint=False)
+
+    squeeze = False
+    if rho.ndim == 0:
+        rho = np.array([rho])
+        squeeze = True
+    elif rho.ndim != 1:
+        raise ValueError("rho must be 1D")
 
     ds = xr.Dataset(
         coords=dict(
@@ -430,5 +437,95 @@ def EvaluationsBoozer(
     ds = ds.set_xindex("zeta_B")
     ds = ds.drop_vars("pol")
     ds = ds.drop_vars("tor")
+
+    if squeeze:
+        ds = ds.squeeze("rad")
+
+    return ds
+
+
+def EvaluationsBoozerCustom(
+    rho: float | np.ndarray,
+    theta_B: np.ndarray,
+    zeta_B: np.ndarray,
+    poloidal: tuple[str, np.ndarray],
+    toroidal: tuple[str, np.ndarray],
+    state: State,
+    M: int | None = None,
+    N: int | None = None,
+    sincos: Literal["sin", "cos", "sincos"] = "sin",
+):
+    """Create an Evaluations dataset with a custom Boozer grid.
+
+    This factory function assumes that the target grid still has a poloidal-like and toroidal-like direction
+    and that the Boozer coordinates of each grid point are known. They do not have to lie within a single field
+    period, nor do they have to be periodic. The Boozer coordinates are used to find the logical coordinates via
+    Newton's method.
+    """
+    rho = np.asarray(rho)
+    theta_B = np.asarray(theta_B)
+    zeta_B = np.asarray(zeta_B)
+
+    squeeze = False
+    if rho.ndim == 0:
+        rho = np.array([rho])
+        squeeze = True
+    if rho.ndim != 1:
+        raise ValueError("rho must be 1D")
+    if not theta_B.ndim == zeta_B.ndim == 2 or theta_B.shape != zeta_B.shape:
+        raise ValueError("theta_B and zeta_B must be 2D of the same shape (pol, tor)")
+    if poloidal[1].ndim != 1 or poloidal[1].shape[0] != theta_B.shape[0]:
+        raise ValueError(
+            "poloidal data must be 1D and have the same length as the first dimension of theta_B/zeta_B"
+        )
+    if toroidal[1].ndim != 1 or toroidal[1].shape[0] != theta_B.shape[1]:
+        raise ValueError(
+            "toroidal data must be 1D and have the same length as the second dimension of theta_B/zeta_B"
+        )
+
+    ds = xr.Dataset(
+        data_vars={
+            "theta_B": (("pol", "tor"), theta_B),
+            "zeta_B": (("pol", "tor"), zeta_B),
+        },
+        coords={
+            "rho": ("rad", rho),
+            poloidal[0]: ("pol", poloidal[1]),
+            toroidal[0]: ("tor", toroidal[1]),
+        },
+    )
+
+    # === Find the logical coordinates of the Boozer grid === #
+    stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
+    tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
+    sfl_boozer = state.get_boozer(rho, M, N, sincos=sincos)
+    tz = state.get_boozer_angles(sfl_boozer, tz_B)
+    stacked["theta"] = (("tz", "rad"), tz[0, :, :])
+    stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
+    ds["theta"] = stacked["theta"].unstack("tz")
+    ds["zeta"] = stacked["zeta"].unstack("tz")
+
+    # === Metadata === #
+    ds.rho.attrs["long_name"] = "Logical radial coordinate"
+    ds.rho.attrs["symbol"] = r"\rho"
+    ds.theta_B.attrs["long_name"] = "Boozer straight-fieldline poloidal angle"
+    ds.theta_B.attrs["symbol"] = r"\theta_B"
+    ds.zeta_B.attrs["long_name"] = "Boozer toroidal angle"
+    ds.zeta_B.attrs["symbol"] = r"\zeta_B"
+    ds.theta.attrs["long_name"] = "Logical poloidal angle"
+    ds.theta.attrs["symbol"] = r"\theta"
+    ds.zeta.attrs["long_name"] = "Logical toroidal angle"
+    ds.zeta.attrs["symbol"] = r"\zeta"
+
+    # === Indices === #
+    # setting them earlier causes issues with the stacking / unstacking
+    ds = ds.set_xindex("rho")
+    ds = ds.set_xindex(poloidal[0])
+    ds = ds.set_xindex(toroidal[0])
+    ds = ds.drop_vars("pol")
+    ds = ds.drop_vars("tor")
+
+    if squeeze:
+        ds = ds.squeeze("rad")
 
     return ds

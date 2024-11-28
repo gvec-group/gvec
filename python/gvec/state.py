@@ -484,8 +484,6 @@ class State:
         sincos = {"sin": " _sin_", "cos": " _cos_", "sincos": "_sin_cos_"}[sincos]
 
         recompute_lambda = bool(recompute_lambda)
-        if not recompute_lambda:
-            raise NotImplementedError("Reusing the original lambda is not safe.")
 
         # --- Create & compute Boozer potential --- #
         self.logger.debug("Initializing new Boozer potential.")
