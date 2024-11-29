@@ -827,7 +827,7 @@ END SUBROUTINE Get_SFL_theta
 SUBROUTINE WriteSFLoutfile(Uin,fileID)
 ! MODULES
   USE MODgvec_MHD3D_Vars,     ONLY: hmap,X1_base,X2_base,LA_base
-  USE MODgvec_fBase,          ONLY: sin_cos_map
+  USE MODgvec_fBase,          ONLY: t_fbase,sin_cos_map
   USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_PhiPrime
   USE MODgvec_Transform_SFL,  ONLY: find_pest_angles
   USE MODgvec_SFL_Boozer,     ONLY: t_sfl_boozer,sfl_boozer_new
@@ -835,7 +835,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
   USE MODgvec_Output_vars,    ONLY: ProjectName,outputLevel
   USE MODgvec_Analyze_Vars,   ONLY: outfileType,SFLout,SFLout_nrp,SFLout_mn_pts,SFLout_mn_max,&
-                                    SFLout_radialpos,SFLout_endpoint
+                                    SFLout_radialpos,SFLout_endpoint,SFLout_relambda
   USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_mhd3d
   USE MODgvec_Globals,        ONLY: TWOPI,CROSS
   IMPLICIT NONE 
@@ -858,7 +858,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   REAL(wp)                   :: dthet_dthetstarJ,dthet_dzetastarJ,dzeta_dthetstarJ,dzeta_dzetastarJ
   REAL(wp)                   :: Bthet,Bzeta
   REAL(wp),DIMENSION(3)      :: qvec,e_s,e_thet,e_zeta,e_thetstar,e_zetastar,Bfield
-  REAL(wp),ALLOCATABLE       :: X1_s(:),dX1ds_s(:),X2_s(:),dX2ds_s(:),LA_s(:,:)
+  REAL(wp),ALLOCATABLE       :: X1_s(:),dX1ds_s(:),X2_s(:),dX2ds_s(:)
   INTEGER                    :: VP_rho,VP_iota,VP_phip,VP_thetastar,VP_zetastar,VP_zeta,VP_nu,VP_lambda,VP_SQRTG,&
                                 VP_SQRTGstar,VP_B,VP_modB,VP_gradrho,VP_etstar,VP_ezstar,VP_theta,VP_Itor,VP_Ipol,VP_X1,VP_X2
   INTEGER,PARAMETER          :: nVal=28
@@ -867,6 +867,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   CHARACTER(LEN=255)         :: filename
   INTEGER                    :: k,sflouts(2),whichSFLout
   REAL(wp)                   :: rho_pos(SFLout_nrp),iota_prof(SFLout_nrp),PhiPrime_prof(SFLout_nrp)
+  REAL(wp),ALLOCATABLE        :: LA_s(:,:)
   !=================================================================================================================================
   IF(.NOT. MPIroot) RETURN
   IF(SFLout.EQ.12) THEN
@@ -941,25 +942,34 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     DO izeta=1,Nzeta_out
       tz_star_pos(2,:,izeta)=(TWOPI*(REAL(izeta,wp)-0.5_wp))/REAL(((Nzeta_out-MERGE(1,0,SFLout_endpoint))*nfp),wp)
     END DO
-    ALLOCATE(tz_pos(2,nthet_out,nzeta_out,SFLout_nrp))
-    SELECT CASE(whichSFLout)
-    CASE(2) !Boozer
+    
+    IF(SFLout_relambda .OR. (whichSFLout.EQ.2))THEN
+      !for relambda=True, make use of the boozer transform computation
+      SWRITE(UNIT_stdOut,'(A)')'recomputing lambda using boozer transform...'
       CALL sfl_boozer_new(sfl_booz,mn_max,4*mn_max+1,nfp, &  !recomputation of lambda with 4 times the number of modes
                           sin_cos_map(LA_base%f%sin_cos),hmap, &
-                          SFLout_nrp,rho_pos,iota_prof,phiPrime_prof)
+                          SFLout_nrp,rho_pos,iota_prof,phiPrime_prof,&
+                          relambda_in=SFLout_relambda)
       CALL sfl_booz%get_boozer(X1_base,X2_base,LA_base,Uin%X1,Uin%X2,Uin%LA)
-      CALL sfl_booz%find_angles(nthet_out*nzeta_out,tz_star_pos,tz_pos)
-    CASE(1) !PEST  
+    ELSE 
       ALLOCATE(LA_s(LA_base%f%modes,SFLout_nrp))
       DO i_rp=1,SFLout_nrp
         LA_s(:,i_rp)=LA_base%s%evalDOF2D_s(rho_pos(i_rp),LA_base%f%modes,0,Uin%LA)
       END DO
-      CALL find_pest_angles(SFLout_nrp,LA_base%f,LA_s,nthet_out*nzeta_out,tz_star_pos,tz_pos)
+    END IF
+    ALLOCATE(tz_pos(2,nthet_out,nzeta_out,SFLout_nrp))
+    SELECT CASE(whichSFLout) !chooses which angles to use
+    CASE(2) !Boozer
+      CALL sfl_booz%find_angles(nthet_out*nzeta_out,tz_star_pos,tz_pos)
+    CASE(1) !PEST  
+      IF(SFLout_relambda)THEN
+        CALL find_pest_angles(SFLout_nrp,sfl_booz%nu_fbase,sfl_booz%lambda,nthet_out*nzeta_out,tz_star_pos,tz_pos)
+      ELSE 
+        CALL find_pest_angles(SFLout_nrp,LA_base%f,LA_s,nthet_out*nzeta_out,tz_star_pos,tz_pos)
+      END IF
     CASE(0) !no transform
-      ALLOCATE(LA_s(LA_base%f%modes,SFLout_nrp))
       DO i_rp=1,SFLout_nrp
         tz_pos(:,:,:,i_rp)=tz_star_pos(:,:,:)
-        LA_s(:,i_rp)=LA_base%s%evalDOF2D_s(rho_pos(i_rp),LA_base%f%modes,0,Uin%LA)
       END DO
     END SELECT
   
@@ -985,10 +995,12 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         dX2ds_s(:) = X2_base%s%evalDOF2D_s(rho_pos(i_rp),X2_base%f%modes, DERIV_S,Uin%X2(:,:))
         var_out(VP_thetastar,:,:,i_rp)=tz_star_pos(1,:,:)
         var_out(VP_zetastar ,:,:,i_rp)=tz_star_pos(2,:,:)  
+        !HACK!
+        tz_pos(:,:,:,i_rp)=tz_star_pos(:,:,:)
 !$OMP PARALLEL DO COLLAPSE(2) &
 !$OMP SCHEDULE(STATIC) DEFAULT(NONE) &
-!$OMP FIRSTPRIVATE(i_rp,iota_int,phiPrime_int,whichSFLout,VP_theta,VP_zeta,VP_nu,VP_lambda,VP_SQRTG,&
-!$OMP              VP_SQRTGstar,VP_modB,VP_B,VP_etstar,VP_ezstar,VP_gradrho,VP_X1,VP_X2) &
+!$OMP FIRSTPRIVATE(i_rp,iota_int,phiPrime_int,whichSFLout,SFLout_relambda,VP_theta,VP_zeta,VP_lambda,&
+!$OMP              VP_nu,VP_SQRTG,VP_SQRTGstar,VP_modB,VP_B,VP_etstar,VP_ezstar,VP_gradrho,VP_X1,VP_X2) &
 !$OMP PRIVATE(ithet,izeta,xp,LA_int,dLA_dthet,dLA_dzeta,nu_int,dnu_dthet,dnu_dzeta,&
 !$OMP         dthetstar_dthet ,dthetstar_dzeta ,dzetastar_dthet ,dzetastar_dzeta,Jstar,&
 !$OMP         dthet_dthetstarJ,dthet_dzetastarJ,dzeta_dthetstarJ,dzeta_dzetastarJ,&
@@ -997,33 +1009,32 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
 !$OMP REDUCTION(+:Itor_int,Ipol_int) &
 !$OMP SHARED(Nzeta_out,Nthet_out,X1_base,X2_base,LA_base,hmap,sfl_booz,tz_pos,LA_s,X1_s,dX1ds_s,X2_s,dX2ds_s,coord_out,var_out)
         DO izeta=1,Nzeta_out; DO ithet=1,Nthet_out
-          xp=tz_pos(:,ithet,izeta,i_rp) !=theta,zeta GVEC !!!    
+          xp=tz_pos(:,ithet,izeta,i_rp) !=theta,zeta GVEC !!!
+          IF(SFLout_relambda)THEN
+            LA_int     = sfl_booz%nu_fbase%evalDOF_x(xp,         0, sfl_booz%lambda(:,i_rp))
+            dLA_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%lambda(:,i_rp))  
+            dLA_dzeta  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_ZETA, sfl_booz%lambda(:,i_rp))
+            nu_int     = sfl_booz%nu_fbase%evalDOF_x(xp,         0, sfl_booz%nu(:,i_rp))
+          ELSE
+            LA_int    = LA_base%f%evalDOF_x(xp,          0, LA_s(:,i_rp) )
+            dLA_dthet = LA_base%f%evalDOF_x(xp, DERIV_THET, LA_s(:,i_rp) )
+            dLA_dzeta = LA_base%f%evalDOF_x(xp, DERIV_ZETA, LA_s(:,i_rp) )   
+            nu_int    = 0.0_wp
+          END IF
           SELECT CASE(whichSFLout)
           CASE(2)
-            LA_int     = sfl_booz%nu_fbase%evalDOF_x(xp,         0, sfl_booz%lambda(:,i_rp))!d/dthet, but evaluated at theta*,zeta*!
-            dLA_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%lambda(:,i_rp)) 
-            dLA_dzeta  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_ZETA, sfl_booz%lambda(:,i_rp)) 
-            nu_int     = sfl_booz%nu_fbase%evalDOF_x(xp,         0, sfl_booz%nu(    :,i_rp))
-            dnu_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%nu(    :,i_rp))  
-            dnu_dzeta  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_ZETA, sfl_booz%nu(    :,i_rp))
+            dnu_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%nu(:,i_rp))  
+            dnu_dzeta  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_ZETA, sfl_booz%nu(:,i_rp))
             dthetstar_dthet=1.+dLA_dthet + iota_int*dnu_dthet
             dthetstar_dzeta=   dLA_dzeta + iota_int*dnu_dzeta
             dzetastar_dthet=   dnu_dthet
             dzetastar_dzeta=1.+dnu_dzeta
-          CASE(1)
-            LA_int   = LA_base%f%evalDOF_x(xp,          0, LA_s(:,i_rp) )
-            dLA_dthet= LA_base%f%evalDOF_x(xp, DERIV_THET, LA_s(:,i_rp) )
-            dLA_dzeta= LA_base%f%evalDOF_x(xp, DERIV_ZETA, LA_s(:,i_rp) )     
-            nu_int   = 0.0_wp 
+          CASE(1)  
             dthetstar_dthet=1.+dLA_dthet
             dthetstar_dzeta=   dLA_dzeta
             dzetastar_dthet=0.
             dzetastar_dzeta=1.
-          CASE(0)!no Transform
-            LA_int   = LA_base%f%evalDOF_x(xp,          0, LA_s(:,i_rp) )
-            dLA_dthet= LA_base%f%evalDOF_x(xp, DERIV_THET, LA_s(:,i_rp) )
-            dLA_dzeta= LA_base%f%evalDOF_x(xp, DERIV_ZETA, LA_s(:,i_rp) )     
-            nu_int   = 0.0_wp 
+          CASE(0)!no Transform  
             dthetstar_dthet=1.
             dthetstar_dzeta=0.
             dzetastar_dthet=0.
@@ -1101,11 +1112,12 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
       END DO !i_rp=1,n_rp
   
     DEALLOCATE(X1_s,dX1ds_s,X2_s,dX2ds_s,tz_pos,tz_star_pos)
-    SDEALLOCATE(LA_s)
-    IF(whichSFLout.EQ.2)THEN
+    
+    IF(SFLout_relambda .OR.(whichSFLout.EQ.2))THEN
       CALL sfl_booz%free(); DEALLOCATE(sfl_booz)
+    ELSE 
+      DEALLOCATE(LA_s)
     END IF
-  
   
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
      CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,SFLout_nrp-1/),1,VarNames, &
