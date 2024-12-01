@@ -42,6 +42,10 @@ INTERFACE NewtonMin2D
   MODULE PROCEDURE NewtonMin2D 
 END INTERFACE
 
+INTERFACE NewtonRoot2D 
+  MODULE PROCEDURE NewtonRoot2D 
+END INTERFACE
+
 ABSTRACT INTERFACE 
   FUNCTION i_f1x1(x) RESULT (y1x1)
     IMPORT wp
@@ -295,5 +299,63 @@ IF(.NOT.converged) STOP 'NewtonMin2D not converged'
 fmin=FF(x)
 
 END FUNCTION NewtonMin2D
+
+!===================================================================================================================================
+!> Newton's iterative algorithm to find the root of function [f1(x1,x2),f2(x1,x2)]=[0,0] in the interval a(i)<=x(i)<=b(i),
+!! using the Jacobian  dfi/dxj, i=1,2, j=1,2, such that fi(x1,x2)=fi(x1_0,x2_0)+  [dfi/dx1,dfi/dx2].[dx1,dx2]
+!! in each step, we find dx1,dx2 st -[[dfi/dxj]] dxj =fi(x1_0,x2_0) 
+!!
+!===================================================================================================================================
+FUNCTION NewtonRoot2D(tol,a,b,maxstep,xin,FF,dFF) RESULT (xout)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL(wp),INTENT(IN)    :: tol        !! abort tolerance
+REAL(wp),INTENT(IN)    :: a(2),b(2)  !! search interval (2D)
+REAL(wp),INTENT(IN) :: maxstep(2) !! max|dx| allowed
+REAL(wp),INTENT(IN)    :: xin(2) !! initial guess
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+PROCEDURE(i_f2x2)      :: FF  !! f1(x1,x2),f2(x1,x2) to be zero
+PROCEDURE(i_f22x2)     :: dFF !! d fi(x1,x2) /dxj
+REAL(wp)               :: xout(2) !! x1,x2 that have f1(x1,x2)=0 and f2(x1,x2)=0 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER             :: iter,maxiter
+REAL(wp)            :: x(2),dx(2)
+REAL(wp)            :: det_Jac
+REAL(wp)            :: F(2),Jac(2,2),JacInv(2,2)
+LOGICAL             :: converged
+!===================================================================================================================================
+converged=.FALSE.
+x=xin
+maxiter=50
+DO iter=1,maxiter
+  Jac=dFF(x)
+  det_Jac = Jac(1,1)*Jac(2,2)-Jac(1,2)*Jac(2,1)
+  IF(det_Jac.LT.1.0E-12) STOP 'det Jacobian<=0 in NewtonRoot2d'
+  JacInv(1,1)= Jac(2,2)
+  JacInv(1,2)=-Jac(1,2)
+  JacInv(2,1)=-Jac(2,1)
+  JacInv(2,2)= Jac(1,1)
+  JacInv=JacInv/det_Jac
+  F=FF(x) 
+  dx=-MATMUL(JacInv,F)
+  dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+  IF(ABS(dx(1)).GT.maxstep(1)) dx(1)=dx(1)/ABS(dx(1))*maxstep(1)
+  IF(ABS(dx(2)).GT.maxstep(2)) dx(2)=dx(2)/ABS(dx(2))*maxstep(2)
+  
+  x = x+dx
+  converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
+  IF(converged) EXIT
+END DO !iter
+xout=x
+IF(.NOT.converged) THEN
+  WRITE(*,*)'Newton abs(dx)<tol',ABS(dx),tol,'F(x)',FF(xout)
+  STOP 'NewtonRoot2D not converged'
+END IF
+
+END FUNCTION NewtonRoot2D
 
 END MODULE MODgvec_Newton
