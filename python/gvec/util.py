@@ -24,7 +24,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         source (str or Path): The path to the source parameter file.
         target (str or Path): The path to the target parameter file.
         **kwargs: Keyword arguments representing the parameters to be replaced.
-                  if the value of the key is "!", the line with the keyword is uncommented (must exist in the parameterfile)
+                  if the value of the key is "!", the line with the keyword is uncommented, if possible
 
     Raises:
         AssertionError: If the number of occurrences for any parameter is not exactly 1.
@@ -36,6 +36,8 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         string conversion. There may be a comment, starting with `!`, after the value.
         - If a parameter already exists in the `source` file, its value is replaced with the corresponding value from `kwargs`.
         - If a parameter does not exist in the `source` file, it is added to the `target` file.
+        - If the value of the key starts with "!", the line with the keyword is just uncommented.  (i.e. "!key=2.5" -> "key=2.5")
+          If no line with the keyword is found, the key is added with the value, excluding the leading "!"  (i.e. value is "!0.5" -> "key=0.5" is added)
 
     Example:
     >>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")
@@ -99,9 +101,15 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                         target_file.write(f"\n {key}({m};{n}) = {kwargs[key][m, n]}")
                         occurrences[key, m, n] += 1
                 else:
-                    if str(kwargs[key]) != "!":
+                    if str(kwargs[key]) == "!":
+                        continue  # ignore 'uncomment' value if key is not found
+                    elif str(kwargs[key])[0] == "!":
+                        # use default value '!default' if key is not found
+                        target_file.write(f"\n {key} = {kwargs[key][1:]}")
+                    else:
+                        # add parameter at the end if key is not found
                         target_file.write(f"\n {key} = {kwargs[key]}")
-                        occurrences[key] += 1
+                    occurrences[key] += 1
     assert all(
         [v == 1 for v in occurrences.values()]
     ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"

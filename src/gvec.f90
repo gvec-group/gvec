@@ -108,12 +108,12 @@ CLASS(t_functional),ALLOCATABLE   :: functional
   CALL InitFunctional(functional,which_functional)
 
   
-  CALL IgnoredStrings()
-  
   CALL functional%InitSolution() 
   StartTime=GetTime()
   SWRITE(Unit_stdOut,'(A,F8.2,A)') ' INITIALIZATION FINISHED! [',StartTime-StartTimeTotal,' sec ]'
   SWRITE(Unit_stdOut,fmt_sep)
+  
+  CALL IgnoredStrings()
   
   CALL functional%minimize()
   EndTime=GetTime()

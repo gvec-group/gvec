@@ -91,7 +91,6 @@ TYPE :: t_fBase
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP_tens
   !  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
   PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF_tens
-  PROCEDURE :: projectIPtoDOFdtz=> fBase_projectIPtoDOF_tens_dtz
   PROCEDURE :: projectxntoDOF   => fBase_projectxntoDOF
   PROCEDURE :: initDOF          => fBase_initDOF
 
@@ -127,7 +126,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  ALLOCATE(t_fBase :: sf)
+  ALLOCATE(sf)
   __PERFON("fbase_new")
   CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 
@@ -1301,44 +1300,6 @@ IMPLICIT NONE
     END DO
   END IF !add
 END SUBROUTINE fBase_projectIPtoDOF_tens
-
-
-!===================================================================================================================================
-!> projection from the theta and zeta derivatives at the interpolation points to the DoFs
-!!
-!===================================================================================================================================
-SUBROUTINE fBase_projectIPtoDOF_tens_dtz(sf,dy_dthet_IP,dy_dzeta_IP,DOFs)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
-  REAL(wp)      , INTENT(IN   ) :: dy_dthet_IP(:), dy_dzeta_IP(:)  !! derivatives at the interpolation points
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)  !! array of all modes
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER                       :: iMode
-  REAL(wp)                      :: dofs_t(1:sf%modes), dofs_z(1:sf%modes)
-!===================================================================================================================================
-  CALL sf%projectIPtoDOF(.FALSE., 1.0, DERIV_THET, dy_dthet_IP, dofs_t)
-  CALL sf%projectIPtoDOF(.FALSE., 1.0, DERIV_ZETA, dy_dzeta_IP, dofs_z)
-  ! choose the correct derivative depending on the mode
-  ! include the weighting from the projection
-  DO iMode = 1,sf%modes
-    ! m == n == 0: set to 0
-    IF (sf%mn_zero_mode == iMode) THEN
-      DOFs(iMode) = 0.0
-    ! m == 0: use dy_dthet
-    ELSE IF (sf%Xmn(2,iMode) == 0) THEN  ! n == 0: use dGB_dt
-      DOFs(iMode) = dofs_t(iMode) * sf%d_thet * sf%d_zeta * sf%snorm_base(iMode) / REAL(sf%Xmn(1,iMode)**2,wp)
-    ! default: use dy_dzeta
-    ELSE
-      DOFs(iMode) = dofs_z(iMode) * sf%d_thet * sf%d_zeta * sf%snorm_base(iMode) / REAL(sf%Xmn(2,iMode)**2,wp)
-    END IF
-  END DO
-END SUBROUTINE fBase_projectIPtoDOF_tens_dtz
 
 !===================================================================================================================================
 !>  take values interpolated at sf%s_IP positions and project onto fourier basis by integration

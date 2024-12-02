@@ -741,11 +741,10 @@ LOGICAL                        :: file_exists !<<<<
 CHARACTER(LEN=255),ALLOCATABLE :: FileContent(:) !<<<<
 CHARACTER(LEN=1)               :: tmpChar='' !<<<<
 !===================================================================================================================================
+! do nothing if FillStrings was already called
+IF (ReadInDone) RETURN
 !READ FROM FILE ONLY ON MPIroot
 IF(MPIroot)THEN !<<<<
-  ! do nothing if FillStrings was already called
-  IF (ReadInDone) RETURN
-
   FileName = TRIM(IniFile)
   ! Get name of ini file
   WRITE(UNIT_StdOut,*)'| Reading from file "',TRIM(filename),'":'

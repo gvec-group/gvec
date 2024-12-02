@@ -60,7 +60,6 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_base           , ONLY: base_new
   USE MODgvec_hmap           , ONLY: hmap_new
   USE MODgvec_VMEC           , ONLY: InitVMEC
-  USE MODgvec_VMEC_vars      , ONLY: switchZeta
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor !<<< only exists on MPIroot!
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
@@ -179,11 +178,7 @@ SUBROUTINE InitMHD3D(sf)
         proposal_LA_sin_cos="_sincos_"
       END IF
       nfp_loc = nfp
-      IF (switchZeta) THEN
-        which_hmap=1 !hmap_RZ
-      ELSE
-        which_hmap=2 !hmap_RphiZ
-      END IF
+      which_hmap=1 !hmap_RZ
       Phi_edge = Phi(nFluxVMEC)
     END IF
     CALL par_BCast(proposal_mn_max,0)
