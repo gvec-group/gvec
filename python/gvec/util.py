@@ -163,3 +163,143 @@ def read_parameter_file(path: str | Path) -> dict:
                     except ValueError:
                         parameters[key] = value
     return parameters
+
+
+def flip_parameters_theta(parameters: dict) -> dict:
+    import copy
+
+    parameters2 = copy.deepcopy(parameters)
+    if "X1_b_cos" in parameters:
+        for (m, n), value in parameters["X1_b_cos"].items():
+            if m == 0:
+                continue
+            parameters2["X1_b_cos"][m, -n] = value
+    if "X1_b_sin" in parameters:
+        for (m, n), value in parameters["X1_b_sin"].items():
+            if m == 0:
+                continue
+            parameters2["X1_b_sin"][m, -n] = -value
+    if "X2_b_cos" in parameters:
+        for (m, n), value in parameters["X2_b_cos"].items():
+            if m == 0:
+                continue
+            parameters2["X2_b_cos"][m, -n] = value
+    if "X2_b_sin" in parameters:
+        for (m, n), value in parameters["X2_b_sin"].items():
+            if m == 0:
+                continue
+            parameters2["X2_b_sin"][m, -n] = -value
+    return parameters2
+
+
+def flip_parameters_zeta(parameters: dict) -> dict:
+    import copy
+
+    parameters2 = copy.deepcopy(parameters)
+    if "X1_b_cos" in parameters:
+        for (m, n), value in parameters["X1_b_cos"].items():
+            if m == 0:
+                continue
+            parameters2["X1_b_cos"][m, -n] = value
+    if "X1_b_sin" in parameters:
+        for (m, n), value in parameters["X1_b_sin"].items():
+            if m == 0:
+                parameters2["X1_b_sin"][m, n] = -value
+            else:
+                parameters2["X1_b_sin"][m, -n] = value
+    if "X2_b_cos" in parameters:
+        for (m, n), value in parameters["X2_b_cos"].items():
+            if m == 0:
+                continue
+            parameters2["X2_b_cos"][m, -n] = value
+    if "X2_b_sin" in parameters:
+        for (m, n), value in parameters["X2_b_sin"].items():
+            if m == 0:
+                parameters2["X2_b_sin"][m, n] = -value
+            else:
+                parameters2["X2_b_sin"][m, -n] = value
+    if "X1_a_sin" in parameters:
+        for (m, n), value in parameters["X1_a_sin"].items():
+            assert m == 0
+            parameters2["X1_a_sin"][m, n] = -value
+    if "X2_a_sin" in parameters:
+        for (m, n), value in parameters["X2_a_sin"].items():
+            assert m == 0
+            parameters2["X2_a_sin"][m, n] = -value
+    return parameters2
+
+
+def parameters_from_vmec(nml: dict) -> dict:
+    import numpy as np
+
+    M, N = nml["mpol"] - 1, nml["ntor"]
+    stellsym = nml["lasym"]  # stellarator symmetry
+    params = {
+        "nfp": nml["nfp"],
+        "X1_mn_max": f"(/{M}, {N}/)",
+        "X2_mn_max": f"(/{M}, {N}/)",
+        "LA_mn_max": f"(/{M}, {N}/)",
+        "PHIEDGE": nml["phiedge"],
+    }
+    if stellsym:
+        params["X1_sin_cos"] = "_cos_"
+        params["X2_sin_cos"] = "_sin_"
+        params["LA_sin_cos"] = "_sin_"
+    else:
+        params["X1_sin_cos"] = "_sincos_"
+        params["X2_sin_cos"] = "_sincos_"
+        params["LA_sin_cos"] = "_sincos_"
+
+    # --- boundary --- #
+    rbc = np.array(nml["rbc"], dtype=float)
+    zbs = np.array(nml["zbs"], dtype=float)
+    if not rbc.shape == zbs.shape == (M + 1, 2 * N + 1):
+        raise ValueError(
+            f"VMEC namelist arrays 'rbc' and 'zbs' have shape {rbc.shape} and {zbs.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+        )
+    if not stellsym:
+        rbs = np.array(nml["rbs"], dtype=float)
+        zbc = np.array(nml["zbc"], dtype=float)
+        if not rbs.shape == zbc.shape == (M + 1, 2 * N + 1):
+            raise ValueError(
+                f"VMEC namelist arrays 'rbs' and 'zbc' have shape {rbs.shape} and {zbc.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+            )
+
+    params["X1_b_cos"] = {}
+    params["X2_b_sin"] = {}
+    if not stellsym:
+        params["X1_b_sin"] = {}
+        params["X2_b_cos"] = {}
+    for m in range(M + 1):
+        for n in range(-N, N + 1):
+            if m == 0 and n < 0:
+                continue
+            params["X1_b_cos"][m, n] = rbc[m, n + N]
+            if not stellsym:
+                params["X1_b_sin"][m, n] = rbs[m, n + N]
+                params["X2_b_cos"][m, n] = zbc[m, n + N]
+            params["X2_b_sin"][m, n] = zbs[m, n + N]
+
+    # --- axis --- #
+    params["X1_a_cos"] = {(0, n): v for n, v in enumerate(nml["raxis_cc"])}
+    params["X2_a_sin"] = {(0, n): v for n, v in enumerate(nml["zaxis_cs"])}
+    if not stellsym and nml["raxis_cs"] is not None:
+        params["X1_a_sin"] = {(0, n): v for n, v in enumerate(nml["raxis_cs"])}
+    if not stellsym and nml["zaxis_cc"] is not None:
+        params["X2_a_cos"] = {(0, n): v for n, v in enumerate(nml["zaxis_cc"])}
+
+    return params
+
+
+def axis_from_boundary(parameters: dict) -> dict:
+    import copy
+
+    parameters2 = copy.deepcopy(parameters)
+    N = parameters["X1_mn_max"][1]
+    parameters2["X1_a_cos"] = {parameters["X1_b_cos"][0, n] for n in range(N + 1)}
+    parameters2["X2_a_sin"] = {parameters["X2_b_sin"][0, n] for n in range(N + 1)}
+    if "X1_b_sin" in parameters:
+        parameters2["X1_a_sin"] = {parameters["X1_b_sin"][0, n] for n in range(N + 1)}
+    if "X2_b_cos" in parameters:
+        parameters2["X2_a_cos"] = {parameters["X2_b_cos"][0, n] for n in range(N + 1)}
+    return parameters2
