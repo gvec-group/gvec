@@ -102,9 +102,11 @@ REAL(wp):: visu_minmax(3,0:1)
     visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
   END IF
   SFLout    = GETINT('SFLout',Proposal=-1)
-  IF(SFLout.GT.0)THEN
+  IF(SFLout.GT.-1)THEN
     SFLout_mn_max = GETINTARRAY("SFLout_mn_max",2,Proposal=(/-1,-1/))
     SFLout_mn_pts = GETINTARRAY("SFLout_mn_pts",2,Proposal=(/40,40/)) !off by default
+    SFLout_endpoint=GETLOGICAL("SFLout_endpoint",Proposal=.FALSE.)
+    SFLout_relambda=GETLOGICAL("SFLout_relambda",Proposal=.TRUE.)
     CALL GETREALALLOCARRAY("SFLout_radialPos",SFLout_radialpos,SFLout_nrp,Proposal=(/1.0_wp/))
   END IF !SFLout
   CALL par_Barrier(afterScreenOut='... DONE')

@@ -37,6 +37,8 @@ INTEGER              :: visu3D                 !! visualize 3D data ...
 INTEGER              :: SFLout            !! input parameter: convert final state to straight-field line coordinates. =-1: off, =1: PEST, =2: Boozer
 INTEGER              :: SFLout_mn_max(2)   !! maximum mode number in theta and zeta. Defaults to 4*mn_max of X1_base, if set to (-1,-1)
 INTEGER              :: SFLout_nrp,SFLout_mn_pts(2 )  !! number of points for SFLOut file in theta,zeta
+LOGICAL              :: SFLout_endpoint   !! =True: include end points of periodic angles (theta=[0,2pi],zeta=[0,2pi/nfp]) in SFLOut file, default=Flase
+LOGICAL              :: SFLout_relambda   !! =True: recompute lambda for any SFLout, default=True. 
 REAL(wp),ALLOCATABLE :: SFLout_radialpos(:)     !! radial positions for output
 INTEGER              :: outfileType=0          !! =1: default, vtk paraview file. =2: structured netcdf array., 12: both
 INTEGER              :: np_1d                  !! number of points for visualization in s

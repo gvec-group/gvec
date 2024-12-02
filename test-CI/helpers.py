@@ -191,7 +191,8 @@ def check_diff_files(
                     )
                 logger.debug(f"=> Line A: {lineA!r}")
                 logger.debug(f"=> Line B: {lineB!r}")
-                logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")
+                with np.printoptions(formatter={'float': '{:.2E}'.format}):
+                    logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")
     return txt_differences, num_differences, warnings
 
 
