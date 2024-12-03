@@ -31,30 +31,6 @@
             ]
         },
         {
-            "name": "pygvec_config_debug",
-            "displayName": "PyGVEC configure: default debug build",
-            "hidden": false,
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "COMPILE_GVEC": "On",
-                "COMPILE_PYGVEC": "On"
-            },
-            "inherits": [
-                        "gvec_config_no-netcdf_debug"
-            ]
-        },
-        {
-            "name": "pygvec_config_release",
-            "displayName": "PyGVEC configure: default release build",
-            "hidden": false,
-            "cacheVariables": {
-                "COMPILE_PYGVEC": "On"
-            },
-            "inherits": [
-                        "gvec_config_release"
-            ]
-        },
-        {
             "name": "gvec_config_release_all",
             "displayName": "GVEC configure: default release build including all converters",
             "hidden": false,

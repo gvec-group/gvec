@@ -82,14 +82,16 @@ verbose = true
 version = ">=3.22"
 args = [
     "-GUnix Makefiles", # Ninja doesn't work with the macro for CMAKE_Fortran_FLAGS
-    # "--preset", "pygvec_config_debug",
-    "--preset", "pygvec_config_release",
 ]
 
 [tool.scikit-build.cmake.define]
-# CMAKE_BUILD_TYPE = "Debug"
 CMAKE_BUILD_TYPE = "Release"
 CMAKE_HOSTNAME = {env="CMAKE_HOSTNAME"}
+COMPILE_PYGVEC = "On"
+COMPILE_GVEC = "On"
+LINK_GVEC_TO_NETCDF = "Off"
+USE_OPENMP = "On"
+COMPILE_GVEC_AS_STATIC_LIB = "On"
 
 [tool.setuptools_scm]
 version_file = "python/gvec/_version.py"
