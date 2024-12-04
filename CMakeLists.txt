@@ -117,9 +117,9 @@ IF(USE_MPI)
     MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_GENE=ON, set USE_MPI=OFF (MPI not needed/tested)")
   ELSEIF(COMPILE_GVEC_TO_HOPR)
     MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_HOPR=ON, set USE_MPI=OFF (MPI not needed/tested)")
-  ELSEIF(COMPILE_GVEC_TO_CASTOR3D) 
+  ELSEIF(COMPILE_GVEC_TO_CASTOR3D)
     MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_CASTOR3D=ON, set USE_MPI=OFF (MPI not needed/tested)")
-  ELSEIF(COMPILE_GVEC_TO_JOREK) 
+  ELSEIF(COMPILE_GVEC_TO_JOREK)
     MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_JOREK=ON, set USE_MPI=OFF (MPI not needed/tested)")
   ENDIF()
 ENDIF()
@@ -281,7 +281,7 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
   IF(USE_OPENMP)
     SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
   ELSE()
-    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -nomp") 
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -nomp")
   ENDIF()
 
 
@@ -387,7 +387,7 @@ ENDIF()
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
   IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
-    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
+    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib )
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
   ENDIF()
     #TTR: don't know why above list append fails for MacOS... needs line below to work
@@ -397,7 +397,7 @@ IF(USE_FTIMINGS)
 ENDIF()
 
 # =========================================================================
-# python 
+# python
 # =========================================================================
 find_package(Python COMPONENTS Interpreter REQUIRED)
 
@@ -485,7 +485,7 @@ ENDIF()
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
 # Enable testing in general
-include(CTest) 
+include(CTest)
 #ENABLE_TESTING()
 
 # =========================================================================
@@ -581,12 +581,12 @@ IF(COMPILE_GVEC)
   add_test(
     NAME gvec_pytest_create_rundir
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_run 
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_run
   )
   add_test(
     NAME gvec_pytest_create_postdir
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_post 
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_post
   )
   add_test(
     NAME gvec_pytest_dryrun
@@ -621,7 +621,7 @@ IF(COMPILE_GVEC_TO_HOPR)
     add_test(
       NAME gvec_to_hopr_pytest_create_convdir
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_hopr 
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_hopr
     )
     add_test(
       NAME gvec_to_hopr_pytest_shortrun_norestart
@@ -638,7 +638,7 @@ IF(COMPILE_GVEC_TO_GENE)
     add_test(
       NAME gvec_to_gene_pytest_create_convdir
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_gene 
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_gene
     )
     add_test(
       NAME gvec_to_gene_pytest_shortrun_norestart
@@ -739,7 +739,7 @@ GETLISTOFVARSSTARTINGWITH("CMAKE_BUILD_TYPE" cbVars)
 GETLISTOFVARSSTARTINGWITH("CMAKE_HOSTNAME" hnVars)
 FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
   GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
-#  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+#  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF"))
 #  IF(${boolian})
 #    #FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
 #    FILE(APPEND ${configuration} "  WRITE(UNIT_stdOut,*)  \"   CMAKE,OPTION: ${_var} ${${_var}} \" \n")

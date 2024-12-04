@@ -209,7 +209,7 @@ def pytest_sessionfinish(session, exitstatus):
 
     if pytest.raised_warnings:
         session.exitstatus = no_tests_collected
-    
+
 
 # === FIXTURES: CONFIGURATION === #
 

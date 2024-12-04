@@ -475,4 +475,4 @@ def test_regression(
         )
         logger.info(f"{' SUMMARY ':=^80}")
         logger.error(msg)
-        raise AssertionError(msg)    
+        raise AssertionError(msg)
