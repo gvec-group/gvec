@@ -1,5 +1,6 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2024  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
@@ -21,13 +22,15 @@
 !===================================================================================================================================
 MODULE MODgvec_sBase
 ! MODULES
-USE MODgvec_Globals                  ,ONLY: wp,Unit_stdOut,abort
+USE MODgvec_Globals                  ,ONLY: wp,Unit_stdOut,abort,MPIRoot
 USE sll_m_bsplines               ,ONLY: sll_c_bsplines
 USE sll_m_spline_interpolator_1d ,ONLY: sll_t_spline_interpolator_1d
 USE sll_m_spline_matrix          ,ONLY: sll_c_spline_matrix
 USE MODgvec_sGrid ,ONLY: c_sgrid,t_sgrid
 IMPLICIT NONE
-PUBLIC
+
+PRIVATE
+PUBLIC t_sbase,sbase_new
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
@@ -40,7 +43,8 @@ TYPE, ABSTRACT :: c_sbase
   INTEGER              :: degGP                    !! number of Gauss-points (degGP+1) per element >= deg
   INTEGER              :: continuity               !! input parameter: full spline (=deg-1) or discontinuous (=-1)
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: nGP                      !! total number of gausspoints = degGP*nElems
+  INTEGER              :: nGP                      !! global number of gausspoints = (degGP+1)*nElems
+  INTEGER              :: nGP_str, nGP_end         !! local number of gausspoints = (degGP+1)*nElems per MPI subdomain
   INTEGER              :: nbase                    !! total number of degree of freedom / global basis functions
   CLASS(sll_c_spline_matrix),ALLOCATABLE :: mass
   CONTAINS
@@ -166,7 +170,7 @@ ABSTRACT INTERFACE
   END SUBROUTINE i_sub_sBase_applyBCtoRHS
 
 END INTERFACE
- 
+
 
 
 TYPE,EXTENDS(c_sbase) :: t_sBase
@@ -187,13 +191,13 @@ TYPE,EXTENDS(c_sbase) :: t_sBase
   REAL(wp),ALLOCATABLE :: base_ds_GP(:,:,:)         !! s derivative of basis functions, (0:degGP,0:deg,1:nElems)
   REAL(wp),ALLOCATABLE :: base_dsAxis(:,:)         !! all derivatives 1..deg of all basis functions at axis size(1:deg+1,0:deg)
   REAL(wp),ALLOCATABLE :: base_dsEdge(:,:)         !! all derivatives 1..deg of all basis functions at edge size(nBase-deg:nBase,0:deg)
-  INTEGER ,ALLOCATABLE :: nDOF_BC(:)               !! number of boudnary dofs involved in bc of BC_TYPE, size(NBC_TYPES)
-  REAL(wp),ALLOCATABLE :: A_Axis(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct) 
+  INTEGER ,ALLOCATABLE :: nDOF_BC(:)               !! number of boundary dofs involved in bc of BC_TYPE, size(-(deg+1):NBC_TYPES)
+  REAL(wp),ALLOCATABLE :: A_Axis(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct)
   REAL(wp),ALLOCATABLE :: invA_Axis(:,:,:)         !! inverse of A_Axis 
   REAL(wp),ALLOCATABLE :: R_Axis(:,:,:)            !! matrix to apply boundary conditions for RHS (testfunction)
-                                                   !! size(1:deg+1,1:deg+1,NBC_TYPES)
+                                                   !! size(1:deg+1,1:deg+1,-(deg+1):NBC_TYPES)
   REAL(wp),ALLOCATABLE :: AR_Axis(:,:,:)           !! matrix to apply boundary conditions via LGM with identity
-                                                   !! size(1:deg+1,1:deg+1,NBC_TYPES)
+                                                   !! size(1:deg+1,1:deg+1,-(deg+1):NBC_TYPES)
   REAL(wp),ALLOCATABLE :: A_Edge(:,:,:)            !! matrix to apply boundary conditions after interpolation (direct)
   REAL(wp),ALLOCATABLE :: invA_Edge(:,:,:)         !! inverse of A_Edge 
   REAL(wp),ALLOCATABLE :: R_Edge(:,:,:)            !! matrix to apply boundary conditions for RHS
@@ -307,14 +311,14 @@ IMPLICIT NONE
                                                         !! 0: disc. polynomial
                                                         !! deg-1: spline with cont. deg-1
   CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
-  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
+  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 per elements
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sbase), INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: m,i,iGP,iElem,imin,jmin
-  INTEGER  :: iBC,j,diri,odd_even,BC_derivs(deg_in+1),drv 
+  INTEGER  :: i,m,iGP,iElem,imin,jmin,nElems,deg,degGP,nBase
+  INTEGER  :: iBC,j,diri,odd_even,nD,BC_derivs(deg_in+1),drv
   REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: locbasis,VdmGP
   REAL(wp),DIMENSION(1:deg_in+1,1:deg_in+1) :: PLmat,Umat
 !===================================================================================================================================
@@ -335,11 +339,11 @@ IMPLICIT NONE
   TYPE IS(t_sbase_disc)
     IF(continuity_in.NE.-1) &
       CALL abort(__STAMP__, &
-          "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!") 
+          "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!")
   TYPE IS(t_sbase_spl)
     IF(continuity_in.NE.deg_in-1) &
       CALL abort(__STAMP__, &
-          "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!") 
+          "error in sbase init: type is spl but continuity is not deg-1, mabye sbase_new was not called before!")
   CLASS DEFAULT
       CALL abort(__STAMP__, &
           "error in sbase init: type is neither disc or spl!") 
@@ -349,34 +353,32 @@ IMPLICIT NONE
   sf%grid       => grid_in
   sf%degGP      =  degGP_in
 
-  ASSOCIATE(&
-              nElems      => sf%grid%nElems         &
-            , grid        => sf%grid                &
-            , deg         => sf%deg                 &
-            , degGP       => sf%degGP               &
-            , continuity  => sf%continuity          &
-            , nGP         => sf%nGP                 &
-            , nBase       => sf%nBase               &
-            )
- 
-  nGP  = (degGP+1)*nElems
-  IF(continuity.EQ.-1)THEN !discontinuous
-    nBase  = (deg+1)*nElems
-  ELSEIF(continuity.EQ.deg-1)THEN !bspline with full continuity and interpolation base at boundaries 
-    nBase  = nElems + deg
+  nElems      = sf%grid%nElems
+  deg         = sf%deg
+  degGP       = sf%degGP
+
+  sf%nGP  = (degGP+1)*nElems
+  sf%nGP_str = (degGP+1)*(sf%grid%nElems_str-1)+1 !< for MPI
+  sf%nGP_end = (degGP+1)*sf%grid%nElems_end
+
+  IF(sf%continuity.EQ.-1)THEN !discontinuous
+    sf%nBase  = (deg+1)*nElems
+  ELSEIF(sf%continuity.EQ.deg-1)THEN !bspline with full continuity and interpolation base at boundaries 
+    sf%nBase  = nElems + deg
   ELSE
    CALL abort(__STAMP__, &
           'other spline continuities not yet implemented') 
   END IF !continuity
 
+  nBase = sf%nBase
   CALL sbase_alloc(sf)
 
              
   CALL LegendreGaussNodesAndWeights(degGP,sf%xi_GP,sf%w_GPloc) ![-1,1] !!!
 
   DO iElem=1,nElems
-    sf%w_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=                 0.5_wp *sf%w_GPloc(:)      *grid%ds(iElem)
-    sf%s_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(sf%xi_GP(:)+1.0_wp)*grid%ds(iElem)
+    sf%w_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=                    0.5_wp *sf%w_GPloc(:)      *sf%grid%ds(iElem)
+    sf%s_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)=sf%grid%sp(iElem-1)+0.5_wp*(sf%xi_GP(:)+1.0_wp)*sf%grid%ds(iElem)
   END DO !iElem 
 
   SELECT TYPE(sf)
@@ -406,7 +408,7 @@ IMPLICIT NONE
       DO iElem=1,nElems
         sf%base_offset(iElem)=1+(deg+1)*(iElem-1)
         sf%base_GP   (0:degGP,0:deg,iElem)=VdmGP(:,:)
-        sf%base_ds_GP(0:degGP,0:deg,iElem)=MATMUL(VdmGP,sf%DmatIP)*(2.0_wp/grid%ds(iElem))
+        sf%base_ds_GP(0:degGP,0:deg,iElem)=MATMUL(VdmGP,sf%DmatIP)*(2.0_wp/sf%grid%ds(iElem))
       END DO !iElem 
       !zero deriv: evaluation of basis functions (lagrange property!)
       sf%base_dsAxis(0,1      )=1.0_wp
@@ -414,12 +416,12 @@ IMPLICIT NONE
       sf%base_dsEdge(0,nBase-deg:nBase-1)=0.0_wp
       sf%base_dsEdge(0,          nBase  )=1.0_wp
       ! eval basis deriv at boundaries d/ds = d/dxi dxi/ds = 1/(0.5ds) d/dxi  
-      sf%base_dsAxis(1,1:deg+1        )=sf%DmatIP(  0,:)*(2.0_wp/grid%ds(1))
-      sf%base_dsEdge(1,nBase-deg:nBase)=sf%DmatIP(deg,:)*(2.0_wp/grid%ds(nElems))
+      sf%base_dsAxis(1,1:deg+1        )=sf%DmatIP(  0,:)*(2.0_wp/sf%grid%ds(1))
+      sf%base_dsEdge(1,nBase-deg:nBase)=sf%DmatIP(deg,:)*(2.0_wp/sf%grid%ds(nElems))
       !  higher derivatives 
       DO i=2,deg
-        sf%base_dsAxis(i,1:deg+1        )=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsAxis(i-1,:))*(2.0_wp/grid%ds(1))
-        sf%base_dsEdge(i,nBase-deg:nBase)=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsEdge(i-1,:))*(2.0_wp/grid%ds(nElems))
+        sf%base_dsAxis(i,1:deg+1        )=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsAxis(i-1,:))*(2.0_wp/sf%grid%ds(1))
+        sf%base_dsEdge(i,nBase-deg:nBase)=MATMUL(TRANSPOSE(sf%DmatIP),sf%base_dsEdge(i-1,:))*(2.0_wp/sf%grid%ds(nElems))
       END DO
       DEALLOCATE(VdmGP)
     END IF !deg=0
@@ -427,14 +429,17 @@ IMPLICIT NONE
     !  points are repeated at element interfaces (discontinuous)
     ALLOCATE(sf%s_IP(nBase)) !for spl, its allocated elsewhere...
     DO iElem=1,nElems
-      sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=grid%sp(iElem-1)+0.5_wp*(sf%xiIP+1.0_wp)*grid%ds(iElem)
+      sf%s_IP(1+(deg+1)*(iElem-1):(deg+1)*iElem)=sf%grid%sp(iElem-1)+0.5_wp*(sf%xiIP+1.0_wp)*sf%grid%ds(iElem)
     END DO !iElem 
     sf%s_IP(1)=0.0_wp
     sf%s_IP(nBase)=1.0_wp
   TYPE IS(t_sbase_spl)   
     ALLOCATE(locbasis(0:deg,0:deg))
-    CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE.,xmin=0.0_wp,xmax=1.0_wp,ncells=nElems,breaks=grid%sp(:))
+    CALL sll_s_bsplines_new(sf%bspl ,degree=deg,periodic=.FALSE., &
+                            xmin=sf%grid%sp(0),xmax=sf%grid%sp(nElems),&
+                            ncells=nElems,breaks=sf%grid%sp)
     !basis evaluation
+
     IF(sf%bspl%nBasis.NE.nBase) STOP 'problem with bspl basis'
     DO iElem=1,nElems
       j=1+(degGP+1)*(iElem-1)
@@ -455,11 +460,11 @@ IMPLICIT NONE
       sf%base_offset(iElem)=imin
     END DO !iElem=1,nElems
     !eval all basis derivatives at boundaries  
-    CALL sf%bspl % eval_basis_and_n_derivs(grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
+    CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
     IF(imin.NE.1) STOP 'problem eval_deriv left'
     sf%base_dsAxis(0:deg,1:deg+1) =locbasis(:,:) ! basis functions 1 ...deg+1
 
-    CALL sf%bspl % eval_basis_and_n_derivs(grid%sp(nElems),deg,locbasis,imin)
+    CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(nElems),deg,locbasis,imin)
     IF(imin.NE.nBase-deg) STOP 'problem eval_deriv right'
     sf%base_dsEdge(0:deg,nBase-deg:nBase)=locbasis(:,:) ! basis functions nBase-deg ... nbase
 
@@ -472,16 +477,13 @@ IMPLICIT NONE
 
 
   !mass matrix
-  CALL sll_s_spline_matrix_new(sf%mass , "banded",nBase,deg,deg)
+  CALL sll_s_spline_matrix_new(sf%mass , "banded",nBase,sf%deg,sf%deg)
   DO iElem=1,nElems
     jmin=sf%base_offset(iElem)
     DO i=0,deg
       DO j=0,deg
-        ASSOCIATE(sGP_loc=>sf%s_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem), &
-                  wGP_loc=>sf%w_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)  )
         CALL sf%mass%add_element(jmin+i,jmin+j, &
-             (SUM(wGP_loc(:)*sf%base_GP(:,i,iElem)*sf%base_GP(:,j,iElem))))
-        END ASSOCIATE
+             (SUM(sf%w_GP(1+(degGP+1)*(iElem-1):(degGP+1)*iElem)*sf%base_GP(:,i,iElem)*sf%base_GP(:,j,iElem))))
       END DO !j=0,deg
     END DO !i=0,deg
   END DO !iElem=1,nElems
@@ -489,9 +491,8 @@ IMPLICIT NONE
 
 
   !STRONG BOUNDARY CONDITIONS: A and R matrices
-   
+
   DO iBC=1,NBC_TYPES
-    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
     SELECT CASE(iBC)      !nDOF involved:    Dirichlet?  odd(0),even(1)
     CASE(BC_TYPE_OPEN)     ; nD =0                                   ! do nothing
     CASE(BC_TYPE_NEUMANN)  ; nD =1          ;   diri=0 ;  odd_even=0 ! first derivative=0
@@ -500,6 +501,7 @@ IMPLICIT NONE
     CASE(BC_TYPE_SYMMZERO) ; nD =1+(deg+1)/2;   diri=1 ;  odd_even=0 ! dirichlet=0+ derivatives (2*k-1)=0, k=1,...(deg+1)/2
     CASE(BC_TYPE_ANTISYMM) ; nD =1+deg/2    ;   diri=1 ;  odd_even=1 ! dirichlet=0+ derivatives (2*k  )=0  k=1,... deg/2
     END SELECT !iBC 
+    sf%nDOF_BC(iBC)=nD
     !A and R are already initialized as unit matrices!!
     IF((nD.GT.0).AND.(deg.GT.0))THEN
       IF(diri.EQ.1) BC_derivs(1)=0  !A(1,:) is already unit matrix
@@ -584,7 +586,6 @@ IMPLICIT NONE
       !! sf%R_axis(         1:nD   ,:,iBC)=0.0_wp
       !! sf%R_edge(nBase-nD+1:nBase,:,iBC)=0.0_wp
     END IF
-    END ASSOCIATE !nD=>nDOF_BC(iBC)
   END DO!iBC=1,NBC_TYPES
 
   ! mode number dependent boundary condition at axis, m  <=> -iBC
@@ -601,9 +602,9 @@ IMPLICIT NONE
   DO m=1,deg+1,2
     iBC=-m
     !BC_TYPE_ANTISYMM: nD =1+deg/2    ;   diri=1 ;  odd_even=1 ! dirichlet=0+ derivatives (2*k  )=0  k=1,... deg/2
-    !and also derivatives (2*k-1)=0, k=1,...,(m-1)/2  (2*k-1 < m-1)
-    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
+    !and also derivatives (2*k-1)=0, k=1,...,(m-1)/2  (2*k-1 < m-1)  
     nD=1+deg/2 +(m-1)/2
+    sf%nDOF_BC(iBC)=nD
     IF(nD.EQ.deg+1) CYCLE ! All deg+1 DOFs at the boundary just set to zero (A_axis is already identity matrix), if deg even and m=deg+1
     i=1
     BC_derivs(1)=0 !diri
@@ -620,15 +621,14 @@ IMPLICIT NONE
       drv=BC_derivs(i)
       sf%A_Axis(i,:,iBC)=sf%base_dsAxis(drv,:)/sf%base_dsAxis(drv,i) !normalized with diagonal entry
     END DO
-    END ASSOCIATE !nD
   END DO
   !  even m <=deg 
   DO m=2,deg+1,2
     iBC=-m
     !BC_TYPE_SYMMZERO: nD =1+(deg+1)/2;   diri=1 ;  odd_even=0 ! dirichlet=0+ derivatives (2*k-1)=0, k=1,...(deg+1)/2
     !and also derivatives (2*k)=0, k=1,...,(m-2)/2  (2*k < m-1) 
-    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
     nD=1+(deg+1)/2 +(m-2)/2
+    sf%nDOF_BC(iBC)=nD
     IF(nD.EQ.deg+1) CYCLE ! All deg+1 DOFs at the boundary just set to zero (A_axis is already identity matrix), if deg odd and m=deg+1
     i=1
     BC_derivs(1)=0 !diri
@@ -645,12 +645,11 @@ IMPLICIT NONE
       drv=BC_derivs(i)
       sf%A_Axis(i,:,iBC)=sf%base_dsAxis(drv,:)/sf%base_dsAxis(drv,i) !normalized with diagonal entry
     END DO
-    END ASSOCIATE !nD
   END DO
 
   DO m=0,deg+1
     iBC=-m
-    ASSOCIATE(nD=>sf%nDOF_BC(iBC))
+    nD=sf%nDOF_BC(iBC)
     IF(nD.LT.deg+1)THEN 
       !precondition A via LU decomp. of A_s^T
       ! A*x=0 , [A_s A_r]*[x1 x2] = 0  A_s*x1=-A_r*x2, U^T (PL)^T x1 = -A_r*x2 -> NEW A_s= (PL)^T, A_r = U^{-T} A_r
@@ -684,9 +683,7 @@ IMPLICIT NONE
       sf%AR_axis(  :,:,iBC)=sf%A_axis(:,:,iBC)
       sf%invA_axis(:,:,iBC)=sf%A_axis(:,:,iBC)
     END IF
-    END ASSOCIATE !nD=>nDOF_BC(iBC)
   END DO!m=0,deg+1
-  END ASSOCIATE !sf%...
 
 
   sf%initialized=.TRUE.
@@ -1169,11 +1166,11 @@ IMPLICIT NONE
   REAL(wp)                      :: y_GP(1:sf%nGP) ! will be be 1D array on input/output
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                       :: iElem,j,k
+  INTEGER                       :: iElem,j,k,deg,degGP,nelems
 !===================================================================================================================================
   IF(SIZE(DOFs,1).NE.sf%nBase) CALL abort(__STAMP__, &
                'nDOF not correct when calling sBase_evalDOF_GP')
-  ASSOCIATE(deg=>sf%deg, degGP=>sf%degGP, nElems=>sf%grid%nElems)
+  deg=sf%deg; degGP=sf%degGP; nElems=sf%grid%nElems
   SELECT CASE(deriv)
   CASE(0)
 !    k=1
@@ -1181,7 +1178,7 @@ IMPLICIT NONE
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iElem,j,k)  &
-!$OMP   SHARED(sf,y_GP,DOFs)
+!$OMP   SHARED(sf,y_GP,DOFs,deg,degGP,nElems)
      DO iElem=1,nElems
       j=sf%base_offset(iElem)
       k=(iElem-1)*(degGP+1)+1  
@@ -1195,7 +1192,7 @@ IMPLICIT NONE
 !$OMP   SCHEDULE(STATIC) & 
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(iElem,j,k)  &
-!$OMP   SHARED(sf,y_GP,DOFs)
+!$OMP   SHARED(sf,y_GP,DOFs,deg,degGP,nElems)
     DO iElem=1,nElems
       j=sf%base_offset(iElem)
       k=(iElem-1)*(degGP+1)+1  
@@ -1207,7 +1204,6 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
        'called evalDOF_GP: deriv must be 0 or DERIV_S!' )
   END SELECT !deriv
-  END ASSOCIATE
 END FUNCTION sbase_evalDOF_GP
 
 !===================================================================================================================================
@@ -1249,7 +1245,6 @@ END FUNCTION sbase_initDOF
 !===================================================================================================================================
 SUBROUTINE sBase_applyBCtoDOF_STRONG(sf ,DOFs,BC_Type,BC_val)
 ! MODULES
-USE MODgvec_linalg, ONLY: SOLVE
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1278,7 +1273,6 @@ REAL(wp):: raxis(1:sf%deg+1),redge(sf%nBase-sf%deg:sf%nbase)
     raxis(1:nDaxis)      =0.0_wp
     raxis(nDaxis+1:deg+1)= DOFs(nDaxis+1:deg+1)
     DOFs(1:deg+1)= MATMUL(sf%invA_axis(:,:,tBCaxis),raxis(:))
-    !DOFs(1:deg+1)= SOLVE(sf%A_axis(:,:,tBCaxis),raxis(:))
   END SELECT !tBCaxis
 
   SELECT CASE(tBCedge)
@@ -1418,7 +1412,7 @@ IMPLICIT NONE
   CLASS(t_sBase), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER            :: i,iTest,iElem,jElem,BC_Type(2)
+  INTEGER            :: i,iTest,iElem,jElem,BC_Type(2),deg,degGP,nElems,cont,nBase
   REAL(wp)           :: x,y,y2,dy,dy2
   REAL(wp)           :: y_BC(0:sf%deg),y2_BC(0:sf%deg),base_x(0:sf%deg)
   REAL(wp)           :: g_IP(1:sf%nBase),dofs(1:sf%nBase) 
@@ -1437,7 +1431,11 @@ IMPLICIT NONE
   ELSE
      Fail=" FAILED !!"
   END IF
-  ASSOCIATE(deg=>sf%deg,degGP=>sf%degGP,cont => sf%continuity,nBase=>sf%nBase,nElems=>sf%grid%nElems)
+  deg=sf%deg
+  degGP=sf%degGP
+  cont=sf%continuity
+  nBase=sf%nbase
+  nElems=sf%grid%nElems
   nTestCalled=nTestCalled+1
   SWRITE(UNIT_stdOut,'(A,I4,A)')'>>>>>>>>> RUN SBASE TEST ID',nTestCalled,'    >>>>>>>>>'
   IF(testlevel.GE.1)THEN
@@ -1746,42 +1744,16 @@ IMPLICIT NONE
 
     IF(nElems.GE.2)THEN
 
-      !check eval, evalDOF_base and evalDOF_s, function evaluation
-      iTest=211 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-     
-      x=sf%grid%sp(jElem)+0.9503_wp*sf%grid%ds(jElem+1) !element jElem+1
-      CALL sf%eval(x ,0,iElem,base_x) 
-      y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
-      y2=sf%evalDOF_s(x,0,dofs(:)) 
-      IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
-                           (ABS( y-y2         ).LT.realtol ).AND.&
-                           (iElem              .EQ.jElem+1 )     )))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
-         '   degree = ',deg &
-        ,'   continuity = ',cont,  ', nBase= ',nBase  &
-        ,'\n => should be ',jElem,': iElem= ' , iElem &
-        ,'\n => should be ',testf(x),' : y = ' , y     &
-        ,'\n => should be ',y       ,' : y2= ' , y2
-      END IF !TEST
-    END IF ! nElems.GE.2
+    !check eval, evalDOF_base and evalDOF_s, function evaluation
+    iTest=211 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
-
-    !check eval, evalDOF_base and evalDOF_s, function evaluation, in jElem
-    iTest=212 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-
-    x=sf%grid%sp(jElem-1)+ 0.7353_wp*sf%grid%ds(jElem) !in element jElem
+    x=sf%grid%sp(jElem)+0.9503_wp*sf%grid%ds(jElem+1) !element jElem+1
     CALL sf%eval(x ,0,iElem,base_x) 
     y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
     y2=sf%evalDOF_s(x,0,dofs(:)) 
-    IF((cont.EQ.-1).AND.(nElems.GT.1))THEN
-      y=y+0.113_wp
-      y2=y2+0.113_wp
-    END IF
     IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
                          (ABS( y-y2         ).LT.realtol ).AND.&
-                         (iElem              .EQ.jElem   )     )))THEN
+                         (iElem              .EQ.jElem+1 )     )))THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
       '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
@@ -1790,48 +1762,74 @@ IMPLICIT NONE
       ,'\n => should be ',jElem,': iElem= ' , iElem &
       ,'\n => should be ',testf(x),' : y = ' , y     &
       ,'\n => should be ',y       ,' : y2= ' , y2
-    END IF !test
+    END IF !TEST
+    END IF ! nElems.GE.2
+
+
+      !check eval, evalDOF_base and evalDOF_s, function evaluation, in jElem
+      iTest=212 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    x=sf%grid%sp(jElem-1)+ 0.7353_wp*sf%grid%ds(jElem) !in element jElem
+      CALL sf%eval(x ,0,iElem,base_x) 
+      y=sf%evalDOF_base(iElem,base_x,dofs(:)) 
+      y2=sf%evalDOF_s(x,0,dofs(:)) 
+    IF((cont.EQ.-1).AND.(nElems.GT.1))THEN
+        y=y+0.113_wp
+        y2=y2+0.113_wp
+      END IF
+      IF(testdbg.OR.(.NOT.((ABS( y-testf(x)   ).LT.realtol ).AND.&
+                           (ABS( y-y2         ).LT.realtol ).AND.&
+                           (iElem              .EQ.jElem   )     )))THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
+         '   degree = ',deg &
+        ,'   continuity = ',cont,  ', nBase= ',nBase  &
+        ,'\n => should be ',jElem,': iElem= ' , iElem &
+        ,'\n => should be ',testf(x),' : y = ' , y     &
+        ,'\n => should be ',y       ,' : y2= ' , y2
+      END IF !test
 
     IF(nElems.GE.2)THEN
-      !test first derivative
-      iTest=213 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      
-      x=sf%grid%sp(jElem)+0.64303_wp*sf%grid%ds(jElem+1) !in elem jElem+1
-      CALL sf%eval(x ,1,iElem,base_x)  
-      dy=sf%evalDOF_base(iElem,base_x,dofs(:))
-      dy2=sf%evalDOF_s(x,1,dofs(:))
-      IF(testdbg.OR.(.NOT.((ABS(dy-testf_dx(x)).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
-                           (ABS(dy-dy2        ).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
-                           (iElem              .EQ.jElem+1 ))))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
-         '   degree = ',deg &
-        ,'   continuity = ',cont,  ', nBase= ',nBase  &
-        ,'\n => should be ',jElem,': iElem= ' , iElem &
-        ,'\n => should be ',testf_dx(x),': dy = ' , dy  &
-        ,'\n => should be ',y          ,': dy2= ' , dy
-      END IF !test
-      
-      !test second derivative
-      iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      
-      x=sf%grid%sp(jElem)+0.17313_wp*sf%grid%ds(jElem+1) !in elem jElem+1
-      CALL sf%eval(x ,2,iElem,base_x)  
-      dy=sf%evalDOF_base(iElem,base_x,dofs(:)) !second derivative
-      dy2=sf%evalDOF_s(x,2,dofs(:))
-      IF(testdbg.OR.(.NOT.((ABS(dy-testf_dxdx(x)).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
-                           (ABS(dy-dy2          ).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
-                           (iElem                .EQ.jElem+1 ))))THEN
-        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
-        '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
-        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
-         '   degree = ',deg &
-        ,'   continuity = ',cont,  ', nBase= ',nBase  &
-        ,'\n => should be ',jElem,': iElem= ' , iElem &
-        ,'\n => should be ',testf_dxdx(x),': dy = ' , dy  &
-        ,'\n => should be ',y          ,': dy2= ' , dy2
-      END IF !test
+    !test first derivative
+    iTest=213 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    x=sf%grid%sp(jElem)+0.64303_wp*sf%grid%ds(jElem+1) !in elem jElem+1
+    CALL sf%eval(x ,1,iElem,base_x)  
+    dy=sf%evalDOF_base(iElem,base_x,dofs(:))
+    dy2=sf%evalDOF_s(x,1,dofs(:))
+    IF(testdbg.OR.(.NOT.((ABS(dy-testf_dx(x)).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
+                         (ABS(dy-dy2        ).LT.realtol/sf%grid%ds(jElem+1) ).AND.&
+                         (iElem              .EQ.jElem+1 ))))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
+       '   degree = ',deg &
+      ,'   continuity = ',cont,  ', nBase= ',nBase  &
+      ,'\n => should be ',jElem,': iElem= ' , iElem &
+      ,'\n => should be ',testf_dx(x),': dy = ' , dy  &
+      ,'\n => should be ',y          ,': dy2= ' , dy
+    END IF !test
+
+    !test second derivative
+    iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    x=sf%grid%sp(jElem)+0.17313_wp*sf%grid%ds(jElem+1) !in elem jElem+1
+    CALL sf%eval(x ,2,iElem,base_x)  
+    dy=sf%evalDOF_base(iElem,base_x,dofs(:)) !second derivative
+    dy2=sf%evalDOF_s(x,2,dofs(:))
+    IF(testdbg.OR.(.NOT.((ABS(dy-testf_dxdx(x)).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
+                         (ABS(dy-dy2          ).LT.realtol/(sf%grid%ds(jElem+1)**2) ).AND.&
+                         (iElem                .EQ.jElem+1 ))))THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! SBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(3(A,I4),2(A,I6),4(A,E11.3))') &
+       '   degree = ',deg &
+      ,'   continuity = ',cont,  ', nBase= ',nBase  &
+      ,'\n => should be ',jElem,': iElem= ' , iElem &
+      ,'\n => should be ',testf_dxdx(x),': dy = ' , dy  &
+      ,'\n => should be ',y          ,': dy2= ' , dy2
+    END IF !test
     END IF ! nElems.GE.2
 
     !check evalDOF_GP
@@ -2145,7 +2143,6 @@ IMPLICIT NONE
     
   END IF !testlevel>=2
 
-  END ASSOCIATE !deg,cont,nBase,nElems
   test_called=.FALSE.
 
   CONTAINS

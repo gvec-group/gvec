@@ -25,6 +25,7 @@ MODULE MODgvec_VMEC_Readin
 
   USE MODgvec_Globals,ONLY:wp,twoPi,UNIT_stdOut,abort
   IMPLICIT NONE
+
   PUBLIC
 
 !> mu_0 (Permeability)
@@ -92,6 +93,7 @@ CONTAINS
 !! 
 !===================================================================================================================================
 SUBROUTINE ReadVMEC(fileName,file_Format)
+  USE MODgvec_Globals,ONLY:MPIroot
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -103,23 +105,24 @@ SUBROUTINE ReadVMEC(fileName,file_Format)
 ! LOCAL VARIABLES
   INTEGER :: ok
 !===================================================================================================================================
+  IF(.NOT. MPIroot)RETURN
   SELECT CASE(file_Format)
   CASE(0)
 #if NETCDF
     ! read VMEC 2000 output (netcdf)
-    SWRITE(UNIT_stdOut,'(4X,A)')'VMEC READ WOUT FILE "'//TRIM(fileName)//'" in NETCDF format ...'
+    WRITE(UNIT_stdOut,'(4X,A)')'VMEC READ WOUT FILE "'//TRIM(fileName)//'" in NETCDF format ...'
     CALL ReadVmec_NETCDF(fileName)
 #else
     CALL abort(__STAMP__,&
         "cannot read VMEC file, since code is compiled with BUILD_NETCDF=OFF")
 #endif
   CASE(1)
-    SWRITE(UNIT_stdOut,'(4X,A)')'VMEC READ WOUT FILE "'//TRIM(fileName)//'" in NEMEC ASCII format ...'
+    WRITE(UNIT_stdOut,'(4X,A)')'VMEC READ WOUT FILE "'//TRIM(fileName)//'" in NEMEC ASCII format ...'
     CALL ReadNEMEC(fileName,1,ok)
     IF(ok.NE.0) CALL abort(__STAMP__,&
         "Problems with VMEC readin from NEMEC format (VMECwoutfile_format=1), maybe file is binary")
   CASE(2)
-    SWRITE(UNIT_stdOut,'(4X,A)')'VMEC READ WOUT FILE "'//TRIM(fileName)//'" in NEMEC BINARY format ...'
+    WRITE(UNIT_stdOut,'(4X,A)')'VMEC READ WOUT FILE "'//TRIM(fileName)//'" in NEMEC BINARY format ...'
     CALL ReadNEMEC(fileName,0,ok)
     IF(ok.NE.0) CALL abort(__STAMP__,&
         "Problems with VMEC readin from NEMEC format (VMECwoutfile_format=2), maybe file is ascii")
@@ -170,8 +173,8 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
 
   ! test input
   IF(itype.LT.0)THEN
-    SWRITE(UNIT_stdOut,*) '********** USER error **********',itype
-    SWRITE(UNIT_stdOut,*)'problem reading file:',TRIM(filename)
+    WRITE(UNIT_stdOut,*) '********** USER error **********',itype
+    WRITE(UNIT_stdOut,*)'problem reading file:',TRIM(filename)
     ok = -1 ; RETURN
   END IF
   
@@ -182,9 +185,9 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
     OPEN(inUnit,file=trim(filename),form='formatted', status='old',iostat=ierr)
   END IF
   IF(ierr.NE.0) THEN
-    SWRITE(UNIT_stdOut,*) '********** USER error **********'
-    SWRITE(UNIT_stdOut,*)'ierr = ',ierr
-    SWRITE(UNIT_stdOut,*)'could not open file:',TRIM(filename)
+    WRITE(UNIT_stdOut,*) '********** USER error **********'
+    WRITE(UNIT_stdOut,*)'ierr = ',ierr
+    WRITE(UNIT_stdOut,*)'could not open file:',TRIM(filename)
     ok = -1 ; RETURN
   END IF
 
@@ -201,20 +204,20 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
   mpnt   = NINT(empnt)
   iasym  = NINT(eiasym)
 
-  SWRITE(UNIT_stdOut,'(6X,A)')        '-----------------------------------'
-  SWRITE(UNIT_stdOut,'(6X,A)')        'NEMEC file parameters:'
-  SWRITE(UNIT_stdOut,'(6X,A,I6)')     '  nfp     : ',nfp
-  SWRITE(UNIT_stdOut,'(6X,A,I6)')     '  nrho    : ',nrho
-  SWRITE(UNIT_stdOut,'(6X,A,I6)')     '  mpol    : ',mpol
-  SWRITE(UNIT_stdOut,'(6X,A,I6)')     '  ntor    : ',ntor
-  SWRITE(UNIT_stdOut,'(6X,A,E23.15)') '  gamma   : ',gam
-  SWRITE(UNIT_stdOut,'(6X,A,E23.15)') '  phiEdge : ',phiEdge
+  WRITE(UNIT_stdOut,'(6X,A)')        '-----------------------------------'
+  WRITE(UNIT_stdOut,'(6X,A)')        'NEMEC file parameters:'
+  WRITE(UNIT_stdOut,'(6X,A,I6)')     '  nfp     : ',nfp
+  WRITE(UNIT_stdOut,'(6X,A,I6)')     '  nrho    : ',nrho
+  WRITE(UNIT_stdOut,'(6X,A,I6)')     '  mpol    : ',mpol
+  WRITE(UNIT_stdOut,'(6X,A,I6)')     '  ntor    : ',ntor
+  WRITE(UNIT_stdOut,'(6X,A,E23.15)') '  gamma   : ',gam
+  WRITE(UNIT_stdOut,'(6X,A,E23.15)') '  phiEdge : ',phiEdge
   IF(iasym.EQ.0)THEN
-    SWRITE(UNIT_stdOut,'(6X,A,I6)')   '  iasym=0... SYMMETRIC (half fourier modes)'
+    WRITE(UNIT_stdOut,'(6X,A,I6)')   '  iasym=0... SYMMETRIC (half fourier modes)'
   ELSE
-    SWRITE(UNIT_stdOut,'(6X,A,I6)')   '  iasym=1... ASYMMETRIC'
+    WRITE(UNIT_stdOut,'(6X,A,I6)')   '  iasym=1... ASYMMETRIC'
   END IF
-  SWRITE(UNIT_stdOut,'(6X,A)')        '-----------------------------------'
+  WRITE(UNIT_stdOut,'(6X,A)')        '-----------------------------------'
 
   nsin   = nrho-1
   mpol1  = mpol-1
@@ -320,16 +323,16 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
   hsve(nsin) = (nsin-0.5)*ds
 
 !!!  !test output
-!!!!  SWRITE(UNIT_StdOut,"(6x,'hsve',10x'hiota',9x,'hmass',9x,'hpres',9x,'hphip', &
+!!!!  WRITE(UNIT_StdOut,"(6x,'hsve',10x'hiota',9x,'hmass',9x,'hpres',9x,'hphip', &
 !!!!                      9x,'hbuco',9x,'hbvco',10x,'fphi',11x,'hvp',9x,'hoverr', &
 !!!!                      8x,'hspecw')")
 !!!  DO j=1,nsin
-!!!    SWRITE(UNIT_StdOut,"(13(2x,e12.4))") hsve(j),hiota(j),hmass(j),hpres(j),hphip(j), &
+!!!    WRITE(UNIT_StdOut,"(13(2x,e12.4))") hsve(j),hiota(j),hmass(j),hpres(j),hphip(j), &
 !!!                                        hbuco(j),hbvco(j),fphi(j),hvp(j),hoverr(j),hspecw(j)
 !!!  END DO
-!!!  SWRITE(UNIT_StdOut,"(6x,'fsve',10x,'fjcuru',8x,'fjcurv')")
+!!!  WRITE(UNIT_StdOut,"(6x,'fsve',10x,'fjcuru',8x,'fjcurv')")
 !!!  DO j=1,nsin
-!!!    SWRITE(UNIT_StdOut,"(3(2x,e12.4))") fsve(j),fjcuru(j),fjcurv(j)
+!!!    WRITE(UNIT_StdOut,"(3(2x,e12.4))") fsve(j),fjcuru(j),fjcurv(j)
 !!!  END DO
 
 ! --- translate to GVEC datastructure  
@@ -486,6 +489,7 @@ END SUBROUTINE HalfToFull
 !! lrfp
 !===================================================================================================================================
 SUBROUTINE ReadVMEC_NETCDF(fileName)
+  !USE netcdf
   IMPLICIT NONE
   INCLUDE "netcdf.inc"
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -556,7 +560,7 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
     WRITE(UNIT_stdOut,*) 'INFO VMEC READIN: problem reading lrfp' 
   ELSE
     IF (lrfp) THEN
-      SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with lrfp=TRUE !!!"
+      WRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with lrfp=TRUE !!!"
       STOP
     END IF
   END IF
@@ -568,7 +572,7 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
   ELSE
     !! check the sign of b0
     IF (b0 < 0) THEN
-      SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with b0 < 0 !!!"
+      WRITE(UNIT_stdOut,'(4X,A)') "  VMEC run with b0 < 0 !!!"
     END IF
   END IF
   !! get signgs
@@ -577,7 +581,7 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
   IF (ioError .NE. 0) CALL abort(__STAMP__,&
                             'VMEC READIN: problem reading signgs' )
   IF (signgs < 0) THEN
-    SWRITE(UNIT_stdOut,'(4X,A)') "  VMEC data has sign gs < 0 !!!"
+    WRITE(UNIT_stdOut,'(4X,A)') "  VMEC data has sign gs < 0 !!!"
   END IF
   !! get Aminor_p
   ioError = NF_INQ_VARID(ncid, "Aminor_p", id)
@@ -646,7 +650,7 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
        (/ nFluxVMEC /), chi(:))
   !IF (ioError .NE. 0)  STOP 'VMEC READIN: problem reading chi'
   IF (ioError .NE. 0) THEN
-    SWRITE(*,'(4X,A)') 'WARNING VMEC READIN: problem reading chi  (not used in GVEC up to now), is set to zero!!!'
+    WRITE(*,'(4X,A)') 'WARNING VMEC READIN: problem reading chi  (not used in GVEC up to now), is set to zero!!!'
     chi=0. 
   END IF
 
@@ -719,7 +723,7 @@ SUBROUTINE ReadVMEC_NETCDF(fileName)
                " Cannot read variables from "//TRIM(fileName)//" ! " )
 
   ioError = NF_CLOSE(ncid)
-  SWRITE(*,'(4X,A)')'...DONE.'
+  WRITE(*,'(4X,A)')'...DONE.'
 
 END SUBROUTINE ReadVMEC_NETCDF
 #endif /*NETCDF*/
@@ -739,41 +743,57 @@ SUBROUTINE alloc_all()
   !! allocate memory for fourier arrays
   aError = 0
   ALLOCATE(xm(mn_mode), xn(mn_mode), stat = aStat)
+  xm=0.0_wp ; xn =0.0_wp
   aError = aError + aStat
   ALLOCATE(xm_nyq(mn_mode_nyq), xn_nyq(mn_mode_nyq), stat = aStat)
+  xm_nyq=0.0_wp ; xn_nyq =0.0_wp
   aError = aError + aStat
   ALLOCATE(iotaf(nFluxVMEC), stat = aStat)
+  iotaf=0.0_wp
   aError = aError + aStat
   ALLOCATE(presf(nFluxVMEC), stat = aStat)
+  presf=0.0_wp
   aError = aError + aStat
   ALLOCATE(phi(nFluxVMEC), stat = aStat)
+  phi=0.0_wp
   aError = aError + aStat
   ALLOCATE(chi(nFluxVMEC), stat = aStat)
+  chi=0.0_wp
   aError = aError + aStat
 !  ALLOCATE(phipf(nFluxVMEC), stat = aStat)
 !  aError = aError + aStat
   ALLOCATE(rmnc(mn_mode, nFluxVMEC), stat = aStat)
+  rmnc=0.0_wp
   aError = aError + aStat
   ALLOCATE(zmns(mn_mode, nFluxVMEC), stat = aStat)
+  zmns=0.0_wp
   aError = aError + aStat
   ALLOCATE(lmns(mn_mode, nFluxVMEC), stat = aStat)
+  lmns=0.0_wp
   aError = aError + aStat
   IF(lasym)THEN
     ALLOCATE(rmns(mn_mode, nFluxVMEC), stat = aStat)
+    rmns=0.0_wp
     aError = aError + aStat
     ALLOCATE(zmnc(mn_mode, nFluxVMEC), stat = aStat)
+    zmnc=0.0_wp
     aError = aError + aStat
     ALLOCATE(lmnc(mn_mode, nFluxVMEC), stat = aStat)
+    lmnc=0.0_wp
     aError = aError + aStat
     ALLOCATE(gmns(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    gmns=0.0_wp
     aError = aError + aStat
     ALLOCATE(bmns(mn_mode_nyq, nFluxVMEC), stat = aStat)
+    bmns=0.0_wp
     aError = aError + aStat
   END IF
   ALLOCATE(gmnc(mn_mode_nyq, nFluxVMEC), stat = aStat)
+  gmnc=0.0_wp
   aError = aError + aStat
   ALLOCATE(bmnc(mn_mode_nyq, nFluxVMEC), stat = aStat)
   aError = aError + aStat
+  bmnc=0.0_wp
 
   IF (aError .NE. 0) THEN
     CALL abort(__STAMP__, &
@@ -786,31 +806,33 @@ END SUBROUTINE alloc_all
 !! 
 !===================================================================================================================================
 SUBROUTINE FinalizeReadVMEC()
+  USE MODgvec_Globals,ONLY:MPIroot
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SDEALLOCATE( xm       )
-SDEALLOCATE( xn       )
-SDEALLOCATE( xm_nyq   )
-SDEALLOCATE( xn_nyq   )
-SDEALLOCATE( iotaf   )    
-SDEALLOCATE( presf   )
-SDEALLOCATE( phi     )
-SDEALLOCATE( chi     )
-SDEALLOCATE( rmnc    )
-SDEALLOCATE( rmns    )
-SDEALLOCATE( zmnc    )
-SDEALLOCATE( zmns    )
-SDEALLOCATE( lmnc    )
-SDEALLOCATE( lmns    )
-
-SDEALLOCATE(gmnc)
-SDEALLOCATE(bmnc)
-SDEALLOCATE(gmns)
-SDEALLOCATE(bmns)
+  IF(.NOT. MPIroot)RETURN
+  SDEALLOCATE( xm       )
+  SDEALLOCATE( xn       )
+  SDEALLOCATE( xm_nyq   )
+  SDEALLOCATE( xn_nyq   )
+  SDEALLOCATE( iotaf   )    
+  SDEALLOCATE( presf   )
+  SDEALLOCATE( phi     )
+  SDEALLOCATE( chi     )
+  SDEALLOCATE( rmnc    )
+  SDEALLOCATE( rmns    )
+  SDEALLOCATE( zmnc    )
+  SDEALLOCATE( zmns    )
+  SDEALLOCATE( lmnc    )
+  SDEALLOCATE( lmns    )
+  
+  SDEALLOCATE(gmnc)
+  SDEALLOCATE(bmnc)
+  SDEALLOCATE(gmns)
+  SDEALLOCATE(bmns)
 END SUBROUTINE FinalizeReadVMEC
 
 END MODULE MODgvec_VMEC_Readin

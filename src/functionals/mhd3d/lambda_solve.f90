@@ -45,14 +45,13 @@ SUBROUTINE Lambda_solve(spos_in,hmap_in,X1_base_in,X2_base_in,LA_fbase_in,X1_in,
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_base),INTENT(IN)  :: X1_base_in,X2_base_in           !< base classes belong to solution X1_in,X2_in
-  CLASS(t_fbase),INTENT(IN) :: LA_fbase_in                     !< base class belong to solution LA_s
+  TYPE(t_fbase),INTENT(IN) :: LA_fbase_in                     !< base class belong to solution LA_s
   CLASS(c_hmap), INTENT(INOUT) :: hmap_in                         
   REAL(wp)     , INTENT(IN) :: spos_in                  !! s position to evaluate lambda
   REAL(wp)     , INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes) !! U%X1 variable, is reshaped to 2D at input
   REAL(wp)     , INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes) !! U%X2 variable, is reshaped to 2D at input 
   REAL(wp)     , INTENT(IN) :: phiPrime_s !! toroidal flux derivative phi' at the position s 
   REAL(wp)     , INTENT(IN) :: chiPrime_s !! poloidal flux derivative chi' at the position s 
-
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos 
@@ -67,11 +66,13 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
                                               detJ,gam_tt,gam_tz,gam_zz,zeta_IP
 !===================================================================================================================================
   __PERFON('lambda_solve')
+
   spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos_in))
   mn_IP = X1_base_in%f%mn_IP
   IF(X2_base_in%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
   IF(LA_fbase_in%mn_IP .NE.mn_IP)  STOP 'LA mn_IP /= X1 mn_IP'
   zeta_IP  = X1_base_in%f%x_IP(2,:) 
+
 
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) & 
@@ -164,7 +165,7 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-    CLASS(t_fbase),INTENT(IN),TARGET :: LA_fbase_in           !< base classes belong to solution U_in
+    TYPE(t_fbase),INTENT(IN)        :: LA_fbase_in           !< base classes belong to solution U_in
     REAL(wp),INTENT(IN)              :: phiPrime_s,ChiPrime_s   !! toroidal and poloidal flux s derivatives at s_pos
     REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP), INTENT(IN) :: gam_tt  !! g_tt/J evaluated on IP points
     REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP), INTENT(IN) :: gam_tz  !! g_tz/J evaluated on IP points
@@ -174,80 +175,61 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos 
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
-    INTEGER                               :: iMode,jMode,i_mn,mn_IP,LA_modes
+    INTEGER                               :: iMode,jMode,mn_IP,LA_modes
     REAL(wp)                              :: Amat(1:LA_fbase_in%modes,1:LA_fbase_in%modes)
     REAL(wp),DIMENSION(1:LA_fbase_in%modes) :: RHS,sAdiag
   !  REAL(wp)                              :: gam_ta_da,gam_za_da
-    REAL(wp)                              :: sum_gam_ta_da,sum_gam_za_da,sum_mn
+    REAL(wp)                              :: sum_gam_ta_da,sum_gam_za_da
     REAL(wp),DIMENSION(1:LA_fbase_in%mn_IP,1:LA_fbase_in%modes) :: gam_ta_da,gam_za_da
   !===================================================================================================================================
-    __PERFON('setup')
+    __PERFON('setup_1')
     LA_modes=LA_fbase_in%modes
     mn_IP   =LA_fbase_in%mn_IP
 
   !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode)  &
+  !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iMode)  &
   !$OMP   SHARED(mn_IP,LA_modes,LA_fbase_in,sAdiag)
     !estimate of 1/Adiag for preconditioning (=1 for m=n=0)
     DO iMode=1,LA_modes
-        ASSOCIATE(nfp=> LA_fbase_in%nfp,m=>LA_fbase_in%Xmn(1,iMode),n=>LA_fbase_in%Xmn(2,iMode))
-        sAdiag(iMode)=1.0_wp/(MAX(1.0_wp,REAL((nfp*m)**2+n**2 ,wp) )*REAL(mn_IP,wp))
+    sAdiag(iMode)=1.0_wp/(MAX(1.0_wp,REAL((LA_fbase_in%Xmn(1,iMode))**2+LA_fbase_in%Xmn(2,iMode)**2 ,wp) )*REAL(mn_IP,wp))
         !sAdiag(iMode)=1.0_wp 
-        END ASSOCIATE
     END DO !iMode
   !$OMP END PARALLEL DO 
 
-    ASSOCIATE(sigma_dthet => LA_fbase_in%base_dthet_IP, &
-              sigma_dzeta => LA_fbase_in%base_dzeta_IP  )
   !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode,i_mn)        &
-  !$OMP   SHARED(gam_ta_da,gam_za_da,mn_IP,LA_modes,gam_tt,gam_tz,gam_zz,LA_fbase_in)
+  !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iMode)        &
+  !$OMP   SHARED(gam_ta_da,gam_za_da,LA_modes,gam_tt,gam_tz,gam_zz,LA_fbase_in)
     DO iMode=1,LA_modes
-      DO i_mn=1,mn_IP
-        gam_ta_da(i_mn,iMode)=gam_tz(i_mn)*sigma_dthet(i_mn,iMode) - gam_tt(i_mn)*sigma_dzeta(i_mn,iMode)
-        gam_za_da(i_mn,iMode)=gam_zz(i_mn)*sigma_dthet(i_mn,iMode) - gam_tz(i_mn)*sigma_dzeta(i_mn,iMode)
-      END DO !i_mn
+      gam_ta_da(:,iMode)=gam_tz(:)*LA_fbase_in%base_dthet_IP(:,iMode) - gam_tt(:)*LA_fbase_in%base_dzeta_IP(:,iMode)
+      gam_za_da(:,iMode)=gam_zz(:)*LA_fbase_in%base_dthet_IP(:,iMode) - gam_tz(:)*LA_fbase_in%base_dzeta_IP(:,iMode)
     END DO!iMode
   !$OMP END PARALLEL DO 
 
-  
-  !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode,jMode,i_mn,sum_mn)        &
-  !$OMP   SHARED(Amat,gam_ta_da,gam_za_da,LA_fbase_in,mn_IP,LA_modes,PhiPrime_s,sAdiag) 
+  __PERFOFF('setup_1')
+  __PERFON('setup_Amat')
+
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(jMode)        &
+!$OMP   SHARED(Amat,gam_ta_da,gam_za_da,LA_fbase_in,LA_modes,PhiPrime_s,sAdiag) 
     DO jMode=1,LA_modes
       !m=n=0 should not be in lambda, but check
       IF (LA_fbase_in%zero_odd_even(jMode).NE.MN_ZERO) THEN 
-        DO iMode=1,LA_modes
-          sum_mn=0.
-  !$OMP SIMD REDUCTION(+:sum_mn)
-          DO i_mn=1,mn_IP
-            sum_mn = sum_mn + ( gam_ta_da(i_mn,jMode)*sigma_dzeta(i_mn,iMode) &
-                               -gam_za_da(i_mn,jMode)*sigma_dthet(i_mn,iMode))
-          END DO !i_mn
-          ! 1/J ( (g_thet,zeta dsigma_dthet -g_thet,thet dsigma_dzeta ) dlambdaSIN_dzeta
-          !      -(g_zeta,zeta dsigma_dthet -g_zeta,thet dsigma_dzeta ) dlambdaSIN_dthet)
-          Amat(iMode,jMode) = sum_mn *PhiPrime_s*sAdiag(iMode)
-        END DO !iMode
+        CALL LA_fbase_in%projectIPtoDOF(.FALSE., PhiPrime_s,DERIV_ZETA,gam_ta_da(:,jMode),Amat(:,jMode))
+        CALL LA_fbase_in%projectIPtoDOF(.TRUE. ,-PhiPrime_s,DERIV_THET,gam_za_da(:,jMode),Amat(:,jMode))
+        Amat(:,jMode) = Amat(:,jMode) *sAdiag(:)
       ELSE
         Amat(:    ,jMode)=0.0_wp
         Amat(jMode,jMode)=1.0_wp
       END IF
     END DO!jMode
-  !$OMP END PARALLEL DO 
-  
-    END ASSOCIATE !sigma_dthet,sigma_dzeta
+!$OMP END PARALLEL DO   
+
+  __PERFOFF('setup_Amat')
+  __PERFON('setup_rhs')
 
   !$OMP PARALLEL DO        &  
-  !$OMP   SCHEDULE(STATIC) & 
-  !$OMP   DEFAULT(NONE)    &
-  !$OMP   PRIVATE(iMode,i_mn,sum_gam_ta_da,sum_gam_za_da)        &
-  !$OMP   SHARED(RHS,gam_ta_da,gam_za_da,LA_fbase_in,mn_IP,LA_modes,chiPrime_s,PhiPrime_s,sAdiag) 
+  !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iMode,sum_gam_ta_da,sum_gam_za_da)        &
+  !$OMP   SHARED(RHS,gam_ta_da,gam_za_da,LA_fbase_in,LA_modes,chiPrime_s,PhiPrime_s,sAdiag) 
     DO iMode=1,LA_modes
       !m=n=0 should not be in lambda, but check
       IF (LA_fbase_in%zero_odd_even(iMode).NE.MN_ZERO) THEN 
@@ -262,7 +244,7 @@ SUBROUTINE Lambda_setup_and_solve(LA_fbase_in,phiPrime_s,ChiPrime_s,gam_tt,gam_t
     END DO!iMode
   !$OMP END PARALLEL DO 
   
-    __PERFOFF('setup')
+    __PERFOFF('setup_rhs')
     __PERFON('solve')
     LA_s=SOLVE(Amat,RHS)  
     __PERFOFF('solve')

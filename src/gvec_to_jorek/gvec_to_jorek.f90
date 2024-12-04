@@ -345,7 +345,8 @@ SUBROUTINE gvec_to_jorek_prepare(X1_base_in,X1_in,X2_base_in,X2_in,LG_base_in,LG
 USE MODgvec_gvec_to_jorek_Vars 
 USE MODgvec_Globals,        ONLY: CROSS,TWOPI,ProgressBar
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
-USE MODgvec_Base,           ONLY: t_base, t_fbase, fbase_new
+USE MODgvec_Base,           ONLY: t_base
+USE MODgvec_fBase,          ONLY: t_fbase, fbase_new
 
 
 IMPLICIT NONE
@@ -795,9 +796,9 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(1:out_base%f%mn_IP) :: X1_IP,dX1ds_IP,dX1dthet_IP,dX1dzeta_IP,X1_IP_eps,dX1ds_IP_eps,dX1dthet_IP_eps,dX1dzeta_IP_eps
   REAL(wp),DIMENSION(1:out_base%f%mn_IP) :: X2_IP,dX2ds_IP,dX2dthet_IP,dX2dzeta_IP,X2_IP_eps,dX2ds_IP_eps,dX2dthet_IP_eps,dX2dzeta_IP_eps
   REAL(wp),DIMENSION(1:out_base%f%mn_IP) :: LA_IP, LA_IP_eps,field_out_IP
-!  CLASS(t_fBase),ALLOCATABLE          :: X1_fbase_nyq
-!  CLASS(t_fBase),ALLOCATABLE          :: X2_fbase_nyq
-!  CLASS(t_fBase),ALLOCATABLE          :: LA_fbase_nyq
+!  TYPE(t_fbase),ALLOCATABLE          :: X1_fbase_nyq
+!  TYPE(t_fbase),ALLOCATABLE          :: X2_fbase_nyq
+!  TYPE(t_fbase),ALLOCATABLE          :: LA_fbase_nyq
   
   ! Variables used in local interpolations for finite difference calculation of current density
   REAL(wp) :: X1_int,dX1ds,dX1dthet,dX1dzeta

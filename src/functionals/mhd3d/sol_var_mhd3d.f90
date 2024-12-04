@@ -21,10 +21,12 @@
 !===================================================================================================================================
 MODULE MODgvec_sol_var_MHD3D
 ! MODULES
-USE MODgvec_Globals,ONLY:wp,Unit_stdOut,abort
-USE MODgvec_c_sol_var
+USE MODgvec_Globals,ONLY:wp,Unit_stdOut,abort,MPIRoot
+USE MODgvec_c_sol_var,ONLY:c_sol_var
 IMPLICIT NONE
-PUBLIC
+
+PRIVATE
+PUBLIC t_sol_var_MHD3D
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
@@ -35,7 +37,7 @@ TYPE,EXTENDS(c_sol_var) :: t_sol_var_MHD3D
   LOGICAL               :: initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp)              :: W_MHD3D
-  REAL(wp),CONTIGUOUS,POINTER :: X1(:,:)    !! X1 variable, size (base_f%mn_mode*base_s%nBase)
+  REAL(wp),CONTIGUOUS,POINTER :: X1(:,:)    !! X1 variable, shape=(base_s%nBase,base_f%mn_mode)
   REAL(wp),CONTIGUOUS,POINTER :: X2(:,:)    !! X2 variable 
   REAL(wp),CONTIGUOUS,POINTER :: LA(:,:)    !! lambda variable
   REAL(wp),CONTIGUOUS,POINTER :: q(:)       !! 1d array container for all variables (is the one allocated)
@@ -50,7 +52,7 @@ TYPE,EXTENDS(c_sol_var) :: t_sol_var_MHD3D
   PROCEDURE  :: set_to_solvar => sol_var_MHD3D_set_to_solvar
   PROCEDURE  :: set_to_scalar => sol_var_MHD3D_set_to_scalar
   GENERIC    :: set_to        => set_to_solvar,set_to_scalar  !chooses right routine depending on input type!
-  PROCEDURE  :: norm_2        => sol_var_MHD3D_norm_2  
+  PROCEDURE  :: norm_2        => sol_var_MHD3D_norm_2
   PROCEDURE  :: AXBY          => sol_var_MHD3D_AXBY
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_sol_var_MHD3D
@@ -223,7 +225,7 @@ IMPLICIT NONE
         "sol_var_MHD3D_set_to: not initialized sol_var from which to set!")
   END IF
   IF(PRESENT(scal_in))THEN
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
     DO i=1,sf%offset(3)
       sf%q(i)=scal_in*toset%q(i)

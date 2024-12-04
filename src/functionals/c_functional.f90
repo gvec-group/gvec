@@ -24,7 +24,8 @@ MODULE MODgvec_c_functional
 USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
 IMPLICIT NONE
 
-PUBLIC
+PRIVATE
+PUBLIC t_functional
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! TYPES 
 TYPE, ABSTRACT :: c_functional

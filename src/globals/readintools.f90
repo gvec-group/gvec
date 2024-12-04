@@ -41,6 +41,8 @@ PUBLIC::GETINTALLOCARRAY
 PUBLIC::GETREALALLOCARRAY
 
 PUBLIC::IgnoredStrings
+PUBLIC::FillStrings
+PUBLIC::FinalizeReadIn
 !===================================================================================================================================
 
 INTERFACE TRYREAD
@@ -163,8 +165,6 @@ CHARACTER(LEN=255)                   :: GetStr   !! String read from setup file 
 ! LOCAL VARIABLES 
 CHARACTER(LEN=8)                     :: DefMsg  
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
   CALL FindStr(Key,GetStr,DefMsg,Proposal)
@@ -195,8 +195,6 @@ INTEGER                              :: CntStr   !! Number of parameters named "
 CHARACTER(LEN=LEN(Key))              :: TmpKey  
 TYPE(tString),POINTER                :: Str1  
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 CntStr=0
 CALL LowCase(Key,TmpKey)
@@ -245,8 +243,6 @@ CHARACTER(LEN=8)            :: DefMsg
 INTEGER                     :: ioerr
 LOGICAL                     :: quiet_def
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
   CALL ConvertToProposalStr(ProposalStr,intScalar=Proposal)
@@ -296,8 +292,6 @@ CHARACTER(LEN=8)                     :: DefMsg
 INTEGER                              :: ioerr
 LOGICAL                              :: quiet_def
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
   CALL ConvertToProposalStr(ProposalStr,realScalar=Proposal)
@@ -306,7 +300,6 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 ! Find values of pi in the string
-!CALL getPImultiplies(helpstr)
 READ(HelpStr,*,IOSTAT=ioerr)GetReal
 IF(ioerr.NE.0)THEN
   WRITE(*,*)'PROBLEM IN READIN OF LINE (real):'
@@ -349,8 +342,6 @@ CHARACTER(LEN=8)                     :: DefMsg
 INTEGER                              :: ioerr
 LOGICAL                              :: quiet_def
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
   CALL ConvertToProposalStr(ProposalStr,logScalar=Proposal)
@@ -403,8 +394,6 @@ INTEGER                         :: ioerr
 TYPE(varying_string)            :: separator,astr,bstr
 LOGICAL                         :: quiet_def
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
   CALL ConvertToProposalStr(ProposalStr,intarr=Proposal)
@@ -481,8 +470,6 @@ INTEGER                   :: ioerr
 TYPE(varying_string)      :: separator,astr,bstr
 LOGICAL                   :: quiet_def
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
   CALL ConvertToProposalStr(ProposalStr,intarr=Proposal)
@@ -554,8 +541,6 @@ INTEGER                      :: ioerr
 TYPE(varying_string)         :: separator,astr,bstr
 LOGICAL                      :: quiet_def
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 
 IF (PRESENT(Proposal)) THEN
@@ -564,7 +549,6 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-!CALL getPImultiplies(helpstr)
 !count number of components
 astr=var_str(TRIM(helpstr))
 iReal=0
@@ -634,8 +618,6 @@ INTEGER                   :: ioerr
 TYPE(varying_string)      :: separator,astr,bstr
 LOGICAL                   :: quiet_def
 !===================================================================================================================================
-! Read-in ini file if not done already
-CALL FillStrings
 
 IF (PRESENT(Proposal)) THEN
   CALL ConvertToProposalStr(ProposalStr,realarr=Proposal)
@@ -643,7 +625,6 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-!CALL getPImultiplies(helpstr)
 !count number of components
 astr=var_str(TRIM(helpstr))
 nReals=0
@@ -696,102 +677,157 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-TYPE(tString),POINTER                  :: Str1  
+TYPE(tString),POINTER                  :: Str1, Str2
 !===================================================================================================================================
-Str1=>FirstString
-IF(ASSOCIATED(str1))THEN
-  SWRITE(UNIT_stdOut,'(132("-"))')
-  SWRITE(UNIT_stdOut,'(A)')" THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:"
-  DO WHILE(ASSOCIATED(Str1))
-    SWRITE(UNIT_stdOut,'(A4,A)')" |- ",TRIM(CHAR(Str1%Str))
-    Str1=>Str1%NextStr
-  END DO
-  SWRITE(UNIT_stdOut,'(132("-"))')
-END IF
-
+IF(MPIroot)THEN !<<<<
+  Str1=>FirstString
+  IF(ASSOCIATED(str1))THEN
+    WRITE(UNIT_stdOut,'(132("-"))')
+    WRITE(UNIT_stdOut,'(A)')" THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:"
+    DO WHILE(ASSOCIATED(Str1))
+      WRITE(UNIT_stdOut,'(A4,A)')" |- ",TRIM(CHAR(Str1%Str))
+      Str2=>Str1%NextStr
+      CALL DeleteString(Str1) ! remove string from the list -> no strings should be left
+      Str1=>Str2
+    END DO
+    WRITE(UNIT_stdOut,'(132("-"))')
+  END IF
+END IF !MPIroot !<<<<
 END SUBROUTINE IgnoredStrings
 
 
 !===================================================================================================================================
-!> Read ini file and put each line in a string object. All string objects are connected to a list of string objects starting
-!! with "firstString"
+!> Reset global variables
+!!
 !===================================================================================================================================
-SUBROUTINE FillStrings(IniFile)
+SUBROUTINE FinalizeReadIn()
 ! MODULES
-USE,INTRINSIC :: ISO_FORTRAN_ENV,ONLY:IOSTAT_END
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN),OPTIONAL   :: IniFile                    !! Name of ini file to be read in
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+IF (ASSOCIATED(FirstString)) THEN
+  CALL IgnoredStrings()
+END IF
+ReadInDone=.FALSE.
+END SUBROUTINE FinalizeReadIn
+
+
+!===================================================================================================================================
+!> Read ini file and put each line in a string object. All string objects are connected to a list of string objects starting
+!! with "firstString". MUST BE CALLED IN THE VERY BEGINNING OF THE PROGRAM!
+!===================================================================================================================================
+SUBROUTINE FillStrings(IniFile)
+! MODULES
+USE MODgvec_MPI, ONLY: par_BCast
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+CHARACTER(LEN=*),INTENT(IN)            :: IniFile                    !! Name of ini file to be read in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-TYPE(tString),POINTER                  :: Str1=>NULL(),Str2=>NULL()  
-CHARACTER(LEN=255)                     :: HelpStr,Str  
-CHARACTER(LEN=300)                     :: File  
-TYPE(Varying_String)                   :: aStr,bStr,Separator  
-INTEGER                                :: EOF  
+TYPE(tString),POINTER          :: Str1=>NULL(),Str2=>NULL()  
+CHARACTER(LEN=255)             :: HelpStr,Str  
+CHARACTER(LEN=300)             :: Filename  
+TYPE(Varying_String)           :: aStr,bStr,Separator  
+INTEGER                        :: stat,iniUnit,nLines,i,iError !<<<<
+LOGICAL                        :: file_exists !<<<<
+CHARACTER(LEN=255),ALLOCATABLE :: FileContent(:) !<<<<
+CHARACTER(LEN=1)               :: tmpChar='' !<<<<
 !===================================================================================================================================
-! Check if we have read in ini file already
+! do nothing if FillStrings was already called
 IF (ReadInDone) RETURN
-! Get name of ini file
-IF (PRESENT(IniFile)) THEN
-  File = TRIM(IniFile)
-ELSE
-  IF(COMMAND_ARGUMENT_COUNT().LT.1) STOP 'Parameter file not specified! Usage: "hopr <parameter.ini>"'
-  CALL GET_COMMAND_ARGUMENT(1,File)
-END IF
-SWRITE(UNIT_StdOut,*)'| Reading from file "',TRIM(File),'":'
+!READ FROM FILE ONLY ON MPIroot
+IF(MPIroot)THEN !<<<<
+  FileName = TRIM(IniFile)
+  ! Get name of ini file
+  WRITE(UNIT_StdOut,*)'| Reading from file "',TRIM(filename),'":'
+  INQUIRE(FILE=TRIM(filename), EXIST=file_exists)
+  IF (.NOT.file_exists) THEN
+    CALL Abort(__STAMP__,&
+        "Ini file does not exist.")
+  END IF
 
-OPEN(UNIT   = 103,        &
-     FILE   = File,       &
-     STATUS = 'OLD',      &
-     ACTION = 'READ',     &
-     ACCESS = 'SEQUENTIAL')
-EOF=0
+  OPEN(NEWUNIT= iniUnit,        &
+       FILE   = TRIM(filename), &
+       STATUS = 'OLD',          &
+       ACTION = 'READ',         &
+       ACCESS = 'SEQUENTIAL',   &
+       IOSTAT = stat)
+  IF(stat.NE.0)THEN
+    CALL abort(__STAMP__,&
+      "Could not open ini file.")
+  END IF
+
+  ! parallel IO: ROOT reads file and sends it to all other procs
+  nLines=0
+  stat=0
+  DO
+    READ(iniunit,"(A)",IOSTAT=stat)tmpChar
+    IF(stat.NE.0)EXIT
+    nLines=nLines+1
+  END DO
+END IF !MPIroot !<<<<
+
+!broadcast number of lines, read and broadcast file content
+CALL par_BCast(nLines,0)
+ALLOCATE(FileContent(nLines))
+
+IF(MPIroot)THEN !<<<<
+  !read file
+  REWIND(iniUnit)
+  READ(iniUnit,'(A)') FileContent
+  CLOSE(iniUnit)
+END IF !MPIroot !<<<<
+!BROADCAST FileContent
+CALL par_BCast(FileContent,0)
+!#if MPI
+!CALL MPI_BCAST(FileContent,LEN(FileContent)*nLines,MPI_CHARACTER,0,worldComm,iError) !<<<<
+!#endif
 
 NULLIFY(Str1,Str2)
-DO WHILE(EOF.NE.IOSTAT_END)
+DO i=1,nLines !<<<<
   IF(.NOT.ASSOCIATED(Str1)) CALL GetNewString(Str1)
-    ! Read line from file
-    CALL Get(103,aStr,iostat=EOF)
-    Str=aStr
-!IPWRITE(*,*)'Reading: ',Str,EOF
-    IF (EOF.NE.IOSTAT_END) THEN
-      ! Remove comments with "!"
-      CALL Split(aStr,Str1%Str,"!")
-      ! Remove comments with "#"
-      CALL Split(Str1%Str,bStr,"#")
-      Str1%Str=bStr
-      ! Remove "%" sign from old ini files, i.e. mesh% disc% etc.
-      CALL Split(Str1%Str,bStr,"%",Separator,Back=.false.)
-      ! If we have a newtype ini file, take the other part
-      IF(LEN(CHAR(Separator)).EQ.0) Str1%Str=bStr
-      ! Remove blanks
-      Str1%Str=Replace(Str1%Str," ","",Every=.true.)
-      ! Replace brackets
-      Str1%Str=Replace(Str1%Str,"(/","",Every=.true.)
-      Str1%Str=Replace(Str1%Str,"/)","",Every=.true.)
-      ! Replace commas
-      Str1%Str=Replace(Str1%Str,","," ",Every=.true.)
-      ! Lower case
-      CALL LowCase(CHAR(Str1%Str),HelpStr)
-      ! If we have a remainder (no comment only)
-      IF(LEN_TRIM(HelpStr).GT.2) THEN
-        Str1%Str=Var_Str(HelpStr)
-        IF(.NOT.ASSOCIATED(Str2)) THEN
-          FirstString=>Str1
-        ELSE
-          Str2%NextStr=>Str1
-          Str1%PrevStr=>Str2
-        END IF
-        Str2=>Str1
-        CALL GetNewString(Str1)
-      END IF
+  ! Read line from file
+  aStr=FileContent(i)
+  Str=aStr
+  ! Remove comments with "!"
+  CALL Split(aStr,Str1%Str,"!")
+  ! Remove comments with "#"
+  CALL Split(Str1%Str,bStr,"#")
+  Str1%Str=bStr
+  ! Remove "%" sign from old ini files, i.e. mesh% disc% etc.
+  CALL Split(Str1%Str,bStr,"%",Separator,Back=.false.)
+  ! If we have a newtype ini file, take the other part
+  IF(LEN(CHAR(Separator)).EQ.0) Str1%Str=bStr
+  ! Remove blanks
+  Str1%Str=Replace(Str1%Str," ","",Every=.true.)
+  ! Replace brackets
+  Str1%Str=Replace(Str1%Str,"(/","",Every=.true.)
+  Str1%Str=Replace(Str1%Str,"/)","",Every=.true.)
+  ! Replace commas
+  Str1%Str=Replace(Str1%Str,","," ",Every=.true.)
+  ! Lower case
+  CALL LowCase(CHAR(Str1%Str),HelpStr)
+  ! If we have a remainder (no comment only)
+  IF(LEN_TRIM(HelpStr).GT.2) THEN
+    Str1%Str=Var_Str(HelpStr)
+    IF(.NOT.ASSOCIATED(Str2)) THEN
+      FirstString=>Str1
+    ELSE
+      Str2%NextStr=>Str1
+      Str1%PrevStr=>Str2
     END IF
+    Str2=>Str1
+    CALL GetNewString(Str1)
+  END IF
 END DO
-CLOSE(103)
 
 !find line continuation "&" and merge strings (can be multiple lines)
 Str1=>FirstString
@@ -807,10 +843,8 @@ DO WHILE (ASSOCIATED(Str1))
   END IF
 END DO
 
-ReadInDone=.TRUE.
-
+ReadInDone = .TRUE.
 CALL UserDefinedVars()
-
 
 END SUBROUTINE FillStrings
 
@@ -1100,66 +1134,6 @@ DO iLen=1,nLen
   IF ((Upper > 0).AND. .NOT. HasEq) Str2(iLen:iLen) = lc(Upper:Upper)
 END DO
 END SUBROUTINE LowCase
-
-!===================================================================================================================================
-!> Searches for the occurence of 'PI','Pi','pi' and 'pI' in a helpstr and replaces
-!! it with the value of pi=3.1415... etc. and oes a multiplication.
-!===================================================================================================================================
-SUBROUTINE getPImultiplies(helpstr)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-CHARACTER(LEN=*),INTENT(INOUT) :: helpstr   !! Input character string
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-TYPE(varying_string)      :: separator  
-TYPE(varying_string)      :: astr,bstr,cstr,dstr  
-CHARACTER(LEN=1000)       :: dummystr  
-REAL(wp)                  :: PI  
-REAL(wp)                  :: adummy  
-LOGICAL                   :: finished  
-!===================================================================================================================================
-!Initialiazation
-dstr=var_str("")
-PI=ACOS(-1.)
-finished=.false.
-!Replace all occurences of pi in the string by one symbol
-helpstr=replace(helpstr,"PI","@",every=.true.)  ! Insert value of Pi
-helpstr=replace(helpstr,"pi","@",every=.true.)  ! Insert value of Pi
-helpstr=replace(helpstr,"pI","@",every=.true.)  ! Insert value of Pi
-helpstr=replace(helpstr,"Pi","@",every=.true.)  ! Insert value of Pi
-astr=var_str(helpstr)
-! loop over string
-DO WHILE(.NOT. finished)
-  !split sting at "@-occurences"
-  CALL split(astr,bstr,"@",separator,back=.false.) !bStr is string in front of @
-  IF(len(char(separator)) .NE. 0)THEN 
-    ! we have found something, bnow get the factor in front of @
-    CALL split(bstr,cstr," ",separator,back=.true.)
-    IF(LEN(char(cstr)) .EQ. 0)THEN
-      !no factor
-      adummy=1
-    ELSE
-      !extract factor 
-      dummystr=trim(char(cstr))
-      READ(dummystr,*)adummy
-    ENDIF
-    !do the multiplication and recombine the string into "dstr"
-    adummy=PI*adummy
-    WRITE(dummystr,'(2a,1X,E23.15)')trim(char(dstr)),trim(char(bstr)),adummy
-    dstr=var_str(dummystr)
-  ELSE
-    ! we did not find anything now recombine the remaining string into "dstr"
-    WRITE(dummystr,'(2a)')trim(char(dstr)),trim(char(bstr))
-    dstr=var_str(dummystr)
-    finished=.true.
-  END IF
-END DO
-helpstr=trim(char(dstr))
-END SUBROUTINE getPImultiplies
 
 !===================================================================================================================================
 !> Get logical, integer, real, integer array or real array and transform it to string in the proposal format

@@ -1,7 +1,7 @@
 # =========================================================================
 # GVEC CMake configuration
 # =========================================================================
-CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.22)
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 INCLUDE(ExternalProject)
@@ -13,17 +13,19 @@ INCLUDE(CMakeDependentOption)
 # Detect machine environements
 # =========================================================================
 SITE_NAME(CMAKE_HOSTNAME)
+STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
 STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_TESTIMONY)
 STRING(FIND "${CMAKE_HOSTNAME}" "sharedrunner" ON_SHAREDRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "cobra"     ON_COBRA)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
+STRING(FIND "${CMAKE_HOSTNAME}" "viper"     ON_VIPER)
 STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP )
+STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
 
-IF((ON_MPCDFCIRUNNER GREATER -1))
+IF (ON_MPCDFCIRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
 ELSEIF (ON_SHAREDRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF shared runner")
@@ -35,14 +37,18 @@ ELSEIF (ON_DRACO GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF draco")
 ELSEIF (ON_RAVEN GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF raven")
-ELSEIF (ON_MAC_BREW GREATER -1) 
+  ELSEIF (ON_VIPER GREATER -1)
+  MESSAGE(STATUS "Compiling on MPCDF viper")
+ELSEIF (ON_MAC_BREW GREATER -1)
   MESSAGE(STATUS "Compiling on MacOS with homebrew!")
-ELSEIF (ON_MAC_BREW_PORTS GREATER -1) 
+ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
   MESSAGE(STATUS "Compiling on MacOS with macports!")
 ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
+ELSEIF (ON_MARCONI GREATER -1)
+  MESSAGE(STATUS "Compiling on Marconi")
 ELSE()
-  MESSAGE(STATUS "Compiling on unknown hostname")
+  MESSAGE(STATUS "Compiling on unknown hostname ${CMAKE_HOSTNAME}")
 ENDIF()
 
 
@@ -101,8 +107,22 @@ OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to li
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" OFF)
 OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
+OPTION(COMPILE_PYGVEC "compile python interface to gvec" OFF)
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
+OPTION(USE_MPI "enable MPI" OFF)
+
+IF(USE_MPI)
+  IF(COMPILE_GVEC_TO_GENE)
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_GENE=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ELSEIF(COMPILE_GVEC_TO_HOPR)
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_HOPR=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ELSEIF(COMPILE_GVEC_TO_CASTOR3D) 
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_CASTOR3D=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ELSEIF(COMPILE_GVEC_TO_JOREK) 
+    MESSAGE(SEND_ERROR " IF COMPILE_GVEC_TO_JOREK=ON, set USE_MPI=OFF (MPI not needed/tested)")
+  ENDIF()
+ENDIF()
 
 OPTION(USE_FTIMINGS "enable profiling with ftimings" OFF)
 MARK_AS_ADVANCED(USE_FTIMINGS)
@@ -119,7 +139,7 @@ ENDIF()
 # =========================================================================
 # make sure that the default is a RELEASE
 IF (NOT CMAKE_BUILD_TYPE)
-  SET (CMAKE_BUILD_TYPE Release CACHE STRING
+  SET (CMAKE_BUILD_TYPE "Release" CACHE STRING
       "Choose the type of build, options are: Debug / Release / Profile."
       FORCE)
   SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release Profile)
@@ -128,6 +148,36 @@ ENDIF (NOT CMAKE_BUILD_TYPE)
 IF (CMAKE_BUILD_TYPE MATCHES "Debug")
   ADD_DEFINITIONS("-DDEBUG")
 ENDIF()
+
+
+# =========================================================================
+# MPI
+# =========================================================================
+IF(USE_MPI)
+  FIND_PACKAGE(MPI REQUIRED)
+  IF (NOT MPI_Fortran_NO_INTERROGATE)
+    FOREACH(DIR ${MPI_INCLUDE_PATH})
+      INCLUDE_DIRECTORIES(${DIR})
+    ENDFOREACH()
+    FOREACH(DIR ${MPI_Fortran_INCLUDE_PATH})
+      INCLUDE_DIRECTORIES(${DIR})
+    ENDFOREACH()
+    LIST(APPEND linkedlibs ${MPI_Fortran_LIBRARIES})
+  ENDIF()
+  MARK_AS_ADVANCED(MPI_LIBRARY MPI_EXTRA_LIBRARY) # don't show these ones
+  MESSAGE(STATUS "Building GVEC with MPI")
+  MESSAGE(STATUS "MPI Compiler: " ${MPI_Fortran_COMPILER})
+  ADD_DEFINITIONS(-DMPI=1)
+  OPTION(NO_MPI_F08 "disabe MPI F2008" OFF)
+  MARK_AS_ADVANCED(NO_MPI_F08)
+  IF(NO_MPI_F08)
+    ADD_DEFINITIONS(-DNO_MPI_F08)
+  ENDIF()
+ELSE()
+  ADD_DEFINITIONS(-DMPI=0)
+  UNSET(NO_MPI_F08 CACHE ) # if not MPI
+ENDIF()
+
 
 # =========================================================================
 # Location of binary and filenames
@@ -180,6 +230,8 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
      # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
   ELSEIF (ON_DRACO GREATER -1 )
      SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
+  ELSEIF(ON_MARCONI GREATER -1)
+    SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
   ELSE()
      SET(MAIN_INSTRUCTION "-xHost")
   ENDIF()
@@ -192,7 +244,12 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${MAIN_INSTRUCTION} -qopt-report=5 -diag-disable=10397 -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
+  IF (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
+    SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
+  ELSE()
+    # Temp FIX: the line below replaces the one above by removing the flags that are causing the code to crash when built with ifx; seems to be an issue related to NETCDF
+    SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
+  ENDIF()
    # add flags only for compiling not linking!
    SET (MAIN_COMPILE_FLAGS "-fpp -assume bscc -fPIC")
 
@@ -207,12 +264,25 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
   # set Flags
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8")
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
   SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O3")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
   # add flags only for compiling not linking!
   SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
+ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
+  # set Flags
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
+  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3")
+  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0  -g ") #-C option fails for LEN(*) STRINGS
+  # add flags only for compiling not linking!
+  SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
+  IF(USE_OPENMP)
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
+  ELSE()
+    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -nomp") 
+  ENDIF()
 
 
 ELSE()
@@ -248,19 +318,29 @@ IF(ON_TESTIMONY GREATER -1)
       MESSAGE(WARNING " Lapack not found for GNU compiler!")
     ENDIF()
   ELSE()
-     MESSAGE(SEND_ERROR " Unknown compiler ...")
+     MESSAGE(SEND_ERROR " Unknown compiler ${CMAKE_Fortran_COMPILER_ID} ...")
   ENDIF()
-ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
+ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
     LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with INTEL")
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
     LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
 		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
 		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
+    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with GNU")
+  ELSE()
+    FIND_PACKAGE(LAPACK QUIET)
+    IF (LAPACK_FOUND)
+      LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
+      MESSAGE(STATUS "Using BLAS/Lapack library")
+    ELSE()
+      MESSAGE(WARNING " Lapack not found for GNU compiler!")
+    ENDIF()
   ENDIF()
   MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
 #ELSEIF(ON_MAC_PORTS GREATER -1)
@@ -284,10 +364,10 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_TOKP GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSEIF(ON_MAC_BREW GREATER -1)
-    SET(NETCDF_DIR  /opt/homebrew)
+    SET(NETCDF_DIR $ENV{HOMEBREW_PREFIX})
   ELSEIF(ON_MAC_PORTS GREATER -1)
     SET(NETCDF_DIR  /opt/local)
   ELSE()
@@ -306,7 +386,7 @@ ENDIF()
 # =========================================================================
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1))
     LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
   ENDIF()
@@ -330,7 +410,11 @@ function(add_exec target)
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
   SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
   SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
-  INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
+  IF(${SKBUILD}) # scikit-build-core = python/pip installation - install to venv/bin
+    INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION ${SKBUILD_SCRIPTS_DIR})
+  ELSE()
+    INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
+  ENDIF()
   STRING(TOUPPER ${target} TARGETUP)
   ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: ${TARGETUP} BUILD COMPLETE!")
 endfunction()
@@ -346,7 +430,6 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/analyze/analyze_vars.f90
                           ./src/io_netcdf.f90
                           ./src/output/*.f90
-                          ./src/analyze/analyze_vars.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
 
@@ -406,6 +489,88 @@ include(CTest)
 #ENABLE_TESTING()
 
 # =========================================================================
+# Python bindings (pygvec), using f90wrap and f2py
+# =========================================================================
+
+IF(COMPILE_PYGVEC)
+  FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
+  FIND_PROGRAM(PYTHON "python")
+
+  SET(PYPKG_PATH "python/gvec") # does nothing?
+
+  # --- f2py headers --- #
+  EXECUTE_PROCESS(
+    COMMAND "${PYTHON}" -c
+            "import numpy.f2py; print(numpy.f2py.get_include())"
+    OUTPUT_VARIABLE F2PY_INCLUDE_DIR
+    RESULT_VARIABLE F2PY_INCLUDE_DIR_RESULT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  ADD_LIBRARY(f2py_fortranobject OBJECT "${F2PY_INCLUDE_DIR}/fortranobject.c")
+  TARGET_LINK_LIBRARIES(f2py_fortranobject PUBLIC Python::NumPy)
+  TARGET_INCLUDE_DIRECTORIES(f2py_fortranobject PUBLIC "${F2PY_INCLUDE_DIR}")
+  SET_PROPERTY(TARGET f2py_fortranobject PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+  # split off lib_post_f90 to specify individual compile flags
+  # not part of gveclib!
+  ADD_LIBRARY(lib_post_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90")
+  SET_TARGET_PROPERTIES(lib_post_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+
+  # --- wrap fgvec package --- #
+
+  ADD_CUSTOM_COMMAND(
+    OUTPUT
+    fgvec/post.py
+    f90wrap_post.f90
+    f90wrap_sfl_boozer.f90
+    DEPENDS
+    src/pygvec/post.f90
+    src/transform_sfl/sfl_boozer.f90
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    VERBATIM
+    COMMAND f90wrap
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/transform_sfl/sfl_boozer.f90"
+            --mod-name _fgvec
+            --f90-mod-name gvec._libfgvec
+            --kind-map "${CMAKE_CURRENT_SOURCE_DIR}/python/kind_map.py"
+            --class-names "${CMAKE_CURRENT_SOURCE_DIR}/python/class_names.py"
+            --constructors
+            --destructors sfl_boozer_free
+  )
+
+  ADD_CUSTOM_COMMAND(
+    OUTPUT _libfgvecmodule.c
+    DEPENDS
+    f90wrap_post.f90
+    f90wrap_sfl_boozer.f90
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    VERBATIM
+    COMMAND f2py-f90wrap
+            -m _libfgvec
+            --lower
+            f90wrap_post.f90
+            f90wrap_sfl_boozer.f90
+  )
+
+  PYTHON_ADD_LIBRARY(_libfgvec MODULE
+    "${CMAKE_CURRENT_BINARY_DIR}/_libfgvecmodule.c"
+    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
+    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_sfl_boozer.f90"
+    WITH_SOABI
+  )
+  SET_TARGET_PROPERTIES(_libfgvec PROPERTIES LINKER_LANGUAGE Fortran)
+  TARGET_INCLUDE_DIRECTORIES(_libfgvec PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE lib_post_f90 f2py_fortranobject gveclib ${linkedlibs})
+
+  IF (${SKBUILD})
+    INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_fgvec.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
+    INSTALL(TARGETS _libfgvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
+  ELSE()
+    INSTALL(TARGETS _libfgvec LIBRARY DESTINATION .)
+  ENDIF()
+ENDIF()
+
+# =========================================================================
 # Executable programs (simply use add_exec)
 # =========================================================================
 IF(COMPILE_GVEC)
@@ -414,41 +579,108 @@ IF(COMPILE_GVEC)
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
   add_test(
-    NAME gvec_pytest_dryrun
+    NAME gvec_pytest_create_rundir
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR}  --refdir=run --dry-run
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_run 
   )
   add_test(
-    NAME gvec_pytest_run_shortrun
+    NAME gvec_pytest_create_postdir
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=log_pytest_run_shortrun.txt -m "run_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_post 
+  )
+  add_test(
+    NAME gvec_pytest_dryrun
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --refdir=${CMAKE_BINARY_DIR}/ctest_run  --dry-run -m "run_stage or post_stage or regression_stage"
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_norestart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "run_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run
+  )
+  add_test(
+    NAME gvec_pytest_run_shortrun_restart
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_restart.txt -m "run_stage and shortrun and (restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run
   )
   add_test(
     NAME gvec_pytest_post_shortrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_post_shortrun.txt -m "post_stage and shortrun" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --postdir=${CMAKE_BINARY_DIR}/ctest_post
   )
   add_test(
     NAME gvec_pytest_run_debugrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR}
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_debugrun.txt -m "run_stage and debugrun" -k " (not highres) and (not _restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run
   )
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
   add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
   ADD_DEPENDENCIES(test_gvec_to_hopr gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_hopr_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_hopr 
+    )
+    add_test(
+      NAME gvec_to_hopr_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_hopr"
+    )
+    set_tests_properties(gvec_to_hopr_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_GENE)
   add_exec(test_gvec_to_gene ./src/test_gvec_to_gene.f90 )
   ADD_DEPENDENCIES(test_gvec_to_gene gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_gene_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_gene 
+    )
+    add_test(
+      NAME gvec_to_gene_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_gene"
+    )
+    set_tests_properties(gvec_to_gene_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_CASTOR3D)
   add_exec(convert_gvec_to_castor3d ./src/convert_gvec_to_castor3d.f90 )
   ADD_DEPENDENCIES(convert_gvec_to_castor3d gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_castor3d_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_castor3d
+    )
+    add_test(
+      NAME gvec_to_castor3d_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_castor3d"
+    )
+    set_tests_properties(gvec_to_castor3d_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_JOREK)
   add_exec(convert_gvec_to_jorek ./src/convert_gvec_to_jorek.f90 )
   ADD_DEPENDENCIES(convert_gvec_to_jorek gveclib )
+  IF(COMPILE_GVEC)
+    add_test(
+      NAME gvec_to_jorek_pytest_create_convdir
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/ctest_conv/to_jorek
+    )
+    add_test(
+      NAME gvec_to_jorek_pytest_shortrun_norestart
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_run_shortrun_norestart.txt -m "converter_stage and shortrun and (not restart)" --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --convdir=${CMAKE_BINARY_DIR}/ctest_conv -k "to_jorek"
+    )
+    set_tests_properties(gvec_to_jorek_pytest_shortrun_norestart PROPERTIES DEPENDS "gvec_pytest_shortrun_norestart")
+  ENDIF()
 ENDIF()
 
 # =========================================================================
@@ -519,4 +751,3 @@ FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
     FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A18,A30,A3,A40)')  \"   CMAKE-OPTION : \",\" ${_var} \",\" : \",\"${${_var}}\"\n")
 #  ENDIF()
 ENDFOREACH()
-

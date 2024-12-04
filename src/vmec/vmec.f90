@@ -1,5 +1,5 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
 
 ! This file is a modified version from HOPR (github.com/fhindenlang/hopr).
 !
@@ -25,7 +25,7 @@
 !===================================================================================================================================
 MODULE MODgvec_VMEC
 ! MODULES
-USE MODgvec_Globals,ONLY:wp
+USE MODgvec_Globals,ONLY:wp,MPIroot
 IMPLICIT NONE
 PRIVATE
 
@@ -76,7 +76,8 @@ IMPLICIT NONE
 INTEGER              :: iMode,nyq,np_m,np_n
 LOGICAL              :: useFilter
 !===================================================================================================================================
-SWRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
+IF(.NOT.MPIroot) RETURN
+WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 
 !VMEC "wout*.nc"  file
 VMECdataFile   = GETSTR("VMECwoutfile")
@@ -91,7 +92,7 @@ IF(switchZeta)THEN
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  SWRITE(UNIT_stdOut,'(A)')'  ... switching from VMECs (R,phi,Z) to gvecs (R,Z,phi) coordinate system ...'
+  WRITE(UNIT_stdOut,'(A)')'  ... switching from VMECs (R,phi,Z) to gvecs (R,Z,phi) coordinate system ...'
   DO iMode=1,mn_mode
     IF(xm(iMode).EQ.0)THEN
       !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients 
@@ -131,20 +132,20 @@ Phi_prof = phi
 !normalized toroidal flux (=flux variable s [0;1] in VMEC)
 ALLOCATE(NormFlux_prof(nFluxVMEC))
 NormFlux_prof=(Phi_prof-Phi_prof(1))/(Phi_prof(nFluxVMEC)-Phi_prof(1))
-SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'normalized toroidal flux of first three flux surfaces',NormFlux_prof(2:4)
+WRITE(UNIT_stdOut,'(4X,A,3F10.4)')'normalized toroidal flux of first three flux surfaces',NormFlux_prof(2:4)
 !poloidal flux from VMEC
 ALLOCATE(chi_prof(nFluxVMEC))
 chi_prof=chi
-SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max toroidal flux',MINVAL(phi)*TwoPi,MAXVAL(phi)*TwoPi
-SWRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi)*TwoPi,MAXVAL(chi)*TwoPi
+WRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max toroidal flux',MINVAL(phi)*TwoPi,MAXVAL(phi)*TwoPi
+WRITE(UNIT_stdOut,'(4X,A,3F10.4)')'min/max poloidal flux',MINVAL(chi)*TwoPi,MAXVAL(chi)*TwoPi
 
-SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of flux surfaces: ',nFluxVMEC
-SWRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes     : ',mn_mode
-SWRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp             : ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
+WRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of flux surfaces: ',nFluxVMEC
+WRITE(UNIT_stdOut,'(4X,A, I6)')'Total Number of mn-modes     : ',mn_mode
+WRITE(UNIT_stdOut,'(4X,A,3I6)')'Max Mode m,n,nfp             : ',NINT(MAXVAL(xm)),NINT(MAXVAL(xn)),nfp
 IF(lasym)THEN
-  SWRITE(UNIT_stdOut,'(6X,A,I6)')   '  lasym=T... ASYMMETRIC'
+  WRITE(UNIT_stdOut,'(6X,A,I6)')   '  lasym=T... ASYMMETRIC'
 ELSE
-  SWRITE(UNIT_stdOut,'(6X,A,I6)')   '  lasym=F... SYMMETRIC (half fourier modes)'
+  WRITE(UNIT_stdOut,'(6X,A,I6)')   '  lasym=F... SYMMETRIC (half fourier modes)'
 END IF
 
 useFilter=.TRUE. !GETLOGICAL('VMECuseFilter',Proposal=.TRUE.) !SHOULD BE ALWAYS TRUE...
@@ -175,7 +176,7 @@ ALLOCATE(Zmns_Spl(4,1:nFluxVMEC,mn_mode))
 CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmns,Zmns_Spl)
 
 IF(lasym)THEN
-  SWRITE(Unit_stdOut,'(4X,A)')'LASYM=TRUE : R,Z,lambda in cos and sin!'
+  WRITE(Unit_stdOut,'(4X,A)')'LASYM=TRUE : R,Z,lambda in cos and sin!'
   ALLOCATE(Rmns_Spl(4,1:nFluxVMEC,mn_mode)) 
   CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmns,Rmns_Spl)
   
@@ -226,14 +227,14 @@ ALLOCATE(iota_spl(4,1:nFluxVMEC))
 iota_spl(1,:)=iotaf(:)
 CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
 
-SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'tor. flux Phi  axis/middle/edge',Phi(1)*TwoPi,Phi(nFluxVMEC/2)*TwoPi,Phi(nFluxVMEC)*TwoPi
-SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'pol. flux chi  axis/middle/edge',chi(1)*TwoPi,chi(nFluxVMEC/2)*TwoPi,chi(nFluxVMEC)*TwoPi
-SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'   iota        axis/middle/edge',iota_Spl(1,1),iota_Spl(1,nFluxVMEC/2),iota_Spl(1,nFluxVMEC)
-SWRITE(Unit_stdOut,'(4X,A,3F12.4)')'  pressure     axis/middle/edge',pres_Spl(1,1),pres_Spl(1,nFluxVMEC/2),pres_Spl(1,nFluxVMEC)
+WRITE(Unit_stdOut,'(4X,A,3F12.4)')'tor. flux Phi  axis/middle/edge',Phi(1)*TwoPi,Phi(nFluxVMEC/2)*TwoPi,Phi(nFluxVMEC)*TwoPi
+WRITE(Unit_stdOut,'(4X,A,3F12.4)')'pol. flux chi  axis/middle/edge',chi(1)*TwoPi,chi(nFluxVMEC/2)*TwoPi,chi(nFluxVMEC)*TwoPi
+WRITE(Unit_stdOut,'(4X,A,3F12.4)')'   iota        axis/middle/edge',iota_Spl(1,1),iota_Spl(1,nFluxVMEC/2),iota_Spl(1,nFluxVMEC)
+WRITE(Unit_stdOut,'(4X,A,3F12.4)')'  pressure     axis/middle/edge',pres_Spl(1,1),pres_Spl(1,nFluxVMEC/2),pres_Spl(1,nFluxVMEC)
 
 
-SWRITE(UNIT_stdOut,'(A)')'  ... INIT VMEC DONE.'
-SWRITE(UNIT_stdOut,fmt_sep)
+WRITE(UNIT_stdOut,'(A)')'  ... INIT VMEC DONE.'
+WRITE(UNIT_stdOut,fmt_sep)
 
 END SUBROUTINE InitVMEC
 
@@ -244,7 +245,6 @@ END SUBROUTINE InitVMEC
 !===================================================================================================================================
 SUBROUTINE FitSpline(modes,nFlux,mAbs,Xmn,Xmn_Spl)
 ! MODULES
-USE MODgvec_Globals
 USE MODgvec_VMEC_Vars, ONLY: rho
 USE SPLINE1_MOD,       ONLY: SPLINE1_FIT 
 ! IMPLICIT VARIABLE HANDLING
@@ -293,7 +293,6 @@ END SUBROUTINE FitSpline
 !===================================================================================================================================
 SUBROUTINE FitSplineHalf(modes,nFlux,mabs,Xmn_half,Xmn_Spl)
 ! MODULES
-USE MODgvec_Globals
 USE MODgvec_VMEC_Vars, ONLY: rho,NormFlux_prof
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 USE SPLINE1_MOD,       ONLY:SPLINE1_INTERP 
@@ -375,6 +374,8 @@ IMPLICIT NONE
   INTEGER            :: iGuess
   REAL(wp)           :: splout(3)
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        'EvalSpl called from non-MPIroot process, but VMEC data only on root!')
   CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in,rho,xx_Spl(:,:),iGuess,splout) 
   VMEC_EvalSpl=splout(1+rderiv)
 END FUNCTION VMEC_EvalSpl
@@ -403,6 +404,8 @@ IMPLICIT NONE
   INTEGER                    :: iGuess,jMode,modefound
   REAL(wp)                   :: rhom,drhom,splOut(3) !for weighted spline interpolation
 !===================================================================================================================================
+  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                        'EvalSpl called from non-MPIroot process, but VMEC data only on root!')
   IF(size(mn_in,1).EQ.2)THEN
     modefound=0
     DO jMode=1,mn_mode
@@ -458,6 +461,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+IF(.NOT.MPIroot) RETURN
  
   CALL FinalizeReadVmec()
 

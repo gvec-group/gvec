@@ -1,0 +1,180 @@
+# Python Bindings
+GVEC has *Python* bindings to evaluate equilibria from *Python*, while relying on the compiled *Fortran* functions to perform the actual computations.
+This ensures postprocessing is consistent with computing the equilibrium and also improves performance.
+
+The low-level interface is provided with a `State` class, which can be instantiated from a given *parameter-* and *statefile*:
+```python
+from gvec import State
+
+with State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
+    ...
+```
+
+A high-level interface for evaluations using [xarray](https://docs.xarray.dev/) is provided by the `Evaluations` class:
+```python
+from gvec import State, Evaluations
+
+with State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
+    ev = Evaluations(state, 50, 100, 100)
+    ev.compute("B")
+```
+Here the additional arguments configure the number of points in the radial, poloidal and toroidal direction respectively.
+The `ev` object is an instance of the `xarray.Dataset` and the individual `xarray.DataArray`s can then be accessed using `ev.B` or `ev["B"]`.
+
+## Installation
+
+```bash
+git clone git@gitlab.mpcdf.mpg.de:gvec-group/gvec.git gvec
+cd gvec
+python -m venv .venv
+source .venv/bin/activate
+pip install .[dev,examples] -v
+```
+
+## Available Quantities for Evaluation
+The following table contains the quantities that can be evaluated with the python bindings.
+
+:::{note}
+This table is not automatically generated (yet) and might be out of date.
+:::
+
+|      label       |                                    long name                                    |                           symbol                           |
+| ---------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+|       `B`        |                                 magnetic field                                  |                        $\mathbf{B}$                        |
+|   `B_contra_t`   |                             poloidal magnetic field                             |                         $B^\theta$                         |
+|   `B_contra_z`   |                             toroidal magnetic field                             |                         $B^\zeta$                          |
+|  `B_theta_avg`   |                         average poloidal magnetic field                         |                   $\overline{B_\theta}$                    |
+|   `B_zeta_avg`   |                         average toroidal magnetic field                         |                    $\overline{B_\zeta}$                    |
+|       `GB`       |                                Boozer potential                                 |                           $G_B$                            |
+|     `I_pol`      |                                poloidal current                                 |                         $I_{pol}$                          |
+|     `I_tor`      |                                toroidal current                                 |                         $I_{tor}$                          |
+|       `J`        |                                 current density                                 |                        $\mathbf{J}$                        |
+|   `J_contra_r`   |                      contravariant radial current density                       |                         $J^{\rho}$                         |
+|   `J_contra_t`   |                     contravariant poloidal current density                      |                        $J^{\theta}$                        |
+|   `J_contra_z`   |                     contravariant toroidal current density                      |                        $J^{\zeta}$                         |
+|      `Jac`       |                              Jacobian determinant                               |                       $\mathcal{J}$                        |
+|     `Jac_P`      |                    Jacobian determinant in PEST coordinates                     |                      $\mathcal{J}_P$                       |
+|     `Jac_h`      |                         reference Jacobian determinant                          |                      $\mathcal{J}_h$                       |
+|     `Jac_l`      |                          logical Jacobian determinant                           |                      $\mathcal{J}_l$                       |
+|       `LA`       |                          straight field line potential                          |                         $\lambda$                          |
+|      `N_FP`      |                             number of field periods                             |                          $N_{FP}$                          |
+|      `Phi`       |                             toroidal magnetic flux                              |                           $\Phi$                           |
+|     `Phi_n`      |                        normalized toroidal magnetic flux                        |                          $\Phi_n$                          |
+|       `V`        |                                  plasma volume                                  |                            $V$                             |
+|       `X1`       |                           first reference coordinate                            |                           $X^1$                            |
+|       `X2`       |                           second reference coordinate                           |                           $X^2$                            |
+|      `chi`       |                             poloidal magnetic flux                              |                           $\chi$                           |
+| `dB_contra_t_dr` |                radial derivative of the poloidal magnetic field                 |         $\frac{\partial B^\theta}{\partial \rho}$          |
+| `dB_contra_t_dt` |               poloidal derivative of the poloidal magnetic field                |        $\frac{\partial B^\theta}{\partial \theta}$         |
+| `dB_contra_t_dz` |               toroidal derivative of the poloidal magnetic field                |         $\frac{\partial B^\theta}{\partial \zeta}$         |
+| `dB_contra_z_dr` |                radial derivative of the toroidal magnetic field                 |          $\frac{\partial B^\zeta}{\partial \rho}$          |
+| `dB_contra_z_dt` |               poloidal derivative of the toroidal magnetic field                |         $\frac{\partial B^\zeta}{\partial \theta}$         |
+| `dB_contra_z_dz` |               toroidal derivative of the toroidal magnetic field                |         $\frac{\partial B^\zeta}{\partial \zeta}$          |
+|     `dGB_dr`     |                    radial derivative of the Boozer potential                    |            $\frac{\partial G_B}{\partial \rho}$            |
+|    `dGB_drr`     |                second radial derivative of the Boozer potential                 |          $\frac{\partial^2 G_B}{\partial \rho^2}$          |
+|    `dGB_drt`     |               radial-poloidal derivative of the Boozer potential                |   $\frac{\partial^2 G_B}{\partial \rho\partial \theta}$    |
+|    `dGB_drz`     |               radial-toroidal derivative of the Boozer potential                |    $\frac{\partial^2 G_B}{\partial \rho\partial \zeta}$    |
+|     `dGB_dt`     |                   poloidal derivative of the Boozer potential                   |           $\frac{\partial G_B}{\partial \theta}$           |
+|   `dGB_dt_def`   |           poloidal derivative of the Boozer potential per definition            |           $\frac{\partial G_B}{\partial \theta}$           |
+|    `dGB_dtt`     |               second poloidal derivative of the Boozer potential                |         $\frac{\partial^2 G_B}{\partial \theta^2}$         |
+|    `dGB_dtz`     |              poloidal-toroidal derivative of the Boozer potential               |   $\frac{\partial^2 G_B}{\partial \theta\partial \zeta}$   |
+|     `dGB_dz`     |                   toroidal derivative of the Boozer potential                   |           $\frac{\partial G_B}{\partial \zeta}$            |
+|   `dGB_dz_def`   |           toroidal derivative of the Boozer potential per definition            |           $\frac{\partial G_B}{\partial \zeta}$            |
+|    `dGB_dzz`     |               second toroidal derivative of the Boozer potential                |         $\frac{\partial^2 G_B}{\partial \zeta^2}$          |
+|    `dJac_dr`     |                  radial derivative of the Jacobian determinant                  |        $\frac{\partial \mathcal{J}}{\partial \rho}$        |
+|    `dJac_dt`     |                 poloidal derivative of the Jacobian determinant                 |       $\frac{\partial \mathcal{J}}{\partial \theta}$       |
+|    `dJac_dz`     |                 toroidal derivative of the Jacobian determinant                 |       $\frac{\partial \mathcal{J}}{\partial \zeta}$        |
+|   `dJac_h_dr`    |             radial derivative of the reference Jacobian determinant             |       $\frac{\partial \mathcal{J}_h}{\partial \rho}$       |
+|   `dJac_h_dt`    |            poloidal derivative of the reference Jacobian determinant            |      $\frac{\partial \mathcal{J}_h}{\partial \theta}$      |
+|   `dJac_h_dz`    |            toroidal derivative of the reference Jacobian determinant            |      $\frac{\partial \mathcal{J}_h}{\partial \zeta}$       |
+|   `dJac_l_dr`    |              radial derivative of the logical Jacobian determinant              |       $\frac{\partial \mathcal{J}_l}{\partial \rho}$       |
+|   `dJac_l_dt`    |             poloidal derivative of the logical Jacobian determinant             |      $\frac{\partial \mathcal{J}_l}{\partial \theta}$      |
+|   `dJac_l_dz`    |             toroidal derivative of the logical Jacobian determinant             |      $\frac{\partial \mathcal{J}_l}{\partial \zeta}$       |
+|     `dLA_dr`     |             radial derivative of the straight field line potential              |          $\frac{\partial \lambda}{\partial \rho}$          |
+|    `dLA_drr`     |          second radial derivative of the straight field line potential          |        $\frac{\partial^2 \lambda}{\partial \rho^2}$        |
+|    `dLA_drt`     |         radial-poloidal derivative of the straight field line potential         | $\frac{\partial^2 \lambda}{\partial \rho\partial \theta}$  |
+|    `dLA_drz`     |         radial-toroidal derivative of the straight field line potential         |  $\frac{\partial^2 \lambda}{\partial \rho\partial \zeta}$  |
+|     `dLA_dt`     |            poloidal derivative of the straight field line potential             |         $\frac{\partial \lambda}{\partial \theta}$         |
+|    `dLA_dtt`     |         second poloidal derivative of the straight field line potential         |       $\frac{\partial^2 \lambda}{\partial \theta^2}$       |
+|    `dLA_dtz`     |        poloidal-toroidal derivative of the straight field line potential        | $\frac{\partial^2 \lambda}{\partial \theta\partial \zeta}$ |
+|     `dLA_dz`     |            toroidal derivative of the straight field line potential             |         $\frac{\partial \lambda}{\partial \zeta}$          |
+|    `dLA_dzz`     |         second toroidal derivative of the straight field line potential         |       $\frac{\partial^2 \lambda}{\partial \zeta^2}$        |
+|    `dPhi_dr`     |                         toroidal magnetic flux gradient                         |                   $\frac{d\Phi}{d\rho}$                    |
+|    `dPhi_drr`    |                        toroidal magnetic flux curvature                         |                 $\frac{d^2\Phi}{d\rho^2}$                  |
+|   `dPhi_n_dr`    |                   normalized toroidal magnetic flux gradient                    |                  $\frac{d\Phi_n}{d\rho}$                   |
+|   `dV_dPhi_n`    |    derivative of the plasma volume w.r.t. normalized toroidal magnetic flux     |                    $\frac{dV}{d\Phi_n}$                    |
+|   `dV_dPhi_n2`   | second derivative of the plasma volume w.r.t. normalized toroidal magnetic flux |                  $\frac{d^2V}{d\Phi_n^2}$                  |
+|     `dX1_dr`     |               radial derivative of the first reference coordinate               |            $\frac{\partial X^1}{\partial \rho}$            |
+|    `dX1_drr`     |           second radial derivative of the first reference coordinate            |          $\frac{\partial^2 X^1}{\partial \rho^2}$          |
+|    `dX1_drt`     |          radial-poloidal derivative of the first reference coordinate           |   $\frac{\partial^2 X^1}{\partial \rho\partial \theta}$    |
+|    `dX1_drz`     |          radial-toroidal derivative of the first reference coordinate           |    $\frac{\partial^2 X^1}{\partial \rho\partial \zeta}$    |
+|     `dX1_dt`     |              poloidal derivative of the first reference coordinate              |           $\frac{\partial X^1}{\partial \theta}$           |
+|    `dX1_dtt`     |          second poloidal derivative of the first reference coordinate           |         $\frac{\partial^2 X^1}{\partial \theta^2}$         |
+|    `dX1_dtz`     |         poloidal-toroidal derivative of the first reference coordinate          |   $\frac{\partial^2 X^1}{\partial \theta\partial \zeta}$   |
+|     `dX1_dz`     |              toroidal derivative of the first reference coordinate              |           $\frac{\partial X^1}{\partial \zeta}$            |
+|    `dX1_dzz`     |          second toroidal derivative of the first reference coordinate           |         $\frac{\partial^2 X^1}{\partial \zeta^2}$          |
+|     `dX2_dr`     |              radial derivative of the second reference coordinate               |            $\frac{\partial X^2}{\partial \rho}$            |
+|    `dX2_drr`     |           second radial derivative of the second reference coordinate           |          $\frac{\partial^2 X^2}{\partial \rho^2}$          |
+|    `dX2_drt`     |          radial-poloidal derivative of the second reference coordinate          |   $\frac{\partial^2 X^2}{\partial \rho\partial \theta}$    |
+|    `dX2_drz`     |          radial-toroidal derivative of the second reference coordinate          |    $\frac{\partial^2 X^2}{\partial \rho\partial \zeta}$    |
+|     `dX2_dt`     |             poloidal derivative of the second reference coordinate              |           $\frac{\partial X^2}{\partial \theta}$           |
+|    `dX2_dtt`     |          second poloidal derivative of the second reference coordinate          |         $\frac{\partial^2 X^2}{\partial \theta^2}$         |
+|    `dX2_dtz`     |         poloidal-toroidal derivative of the second reference coordinate         |   $\frac{\partial^2 X^2}{\partial \theta\partial \zeta}$   |
+|     `dX2_dz`     |             toroidal derivative of the second reference coordinate              |           $\frac{\partial X^2}{\partial \zeta}$            |
+|    `dX2_dzz`     |          second toroidal derivative of the second reference coordinate          |         $\frac{\partial^2 X^2}{\partial \zeta^2}$          |
+|    `dchi_dr`     |                         poloidal magnetic flux gradient                         |                   $\frac{d\chi}{d\rho}$                    |
+|    `dg_rr_dr`    |           radial derivative of the rr component of the metric tensor            |          $\frac{\partial g_{rr}}{\partial \rho}$           |
+|    `dg_rr_dt`    |          poloidal derivative of the rr component of the metric tensor           |         $\frac{\partial g_{rr}}{\partial \theta}$          |
+|    `dg_rr_dz`    |          toroidal derivative of the rr component of the metric tensor           |          $\frac{\partial g_{rr}}{\partial \zeta}$          |
+|    `dg_rt_dr`    |           radial derivative of the rt component of the metric tensor            |          $\frac{\partial g_{rt}}{\partial \rho}$           |
+|    `dg_rt_dt`    |          poloidal derivative of the rt component of the metric tensor           |         $\frac{\partial g_{rt}}{\partial \theta}$          |
+|    `dg_rt_dz`    |          toroidal derivative of the rt component of the metric tensor           |          $\frac{\partial g_{rt}}{\partial \zeta}$          |
+|    `dg_rz_dr`    |           radial derivative of the rz component of the metric tensor            |          $\frac{\partial g_{rz}}{\partial \rho}$           |
+|    `dg_rz_dt`    |          poloidal derivative of the rz component of the metric tensor           |         $\frac{\partial g_{rz}}{\partial \theta}$          |
+|    `dg_rz_dz`    |          toroidal derivative of the rz component of the metric tensor           |          $\frac{\partial g_{rz}}{\partial \zeta}$          |
+|    `dg_tt_dr`    |           radial derivative of the tt component of the metric tensor            |          $\frac{\partial g_{tt}}{\partial \rho}$           |
+|    `dg_tt_dt`    |          poloidal derivative of the tt component of the metric tensor           |         $\frac{\partial g_{tt}}{\partial \theta}$          |
+|    `dg_tt_dz`    |          toroidal derivative of the tt component of the metric tensor           |          $\frac{\partial g_{tt}}{\partial \zeta}$          |
+|    `dg_tz_dr`    |           radial derivative of the tz component of the metric tensor            |          $\frac{\partial g_{tz}}{\partial \rho}$           |
+|    `dg_tz_dt`    |          poloidal derivative of the tz component of the metric tensor           |         $\frac{\partial g_{tz}}{\partial \theta}$          |
+|    `dg_tz_dz`    |          toroidal derivative of the tz component of the metric tensor           |          $\frac{\partial g_{tz}}{\partial \zeta}$          |
+|    `dg_zz_dr`    |           radial derivative of the zz component of the metric tensor            |          $\frac{\partial g_{zz}}{\partial \rho}$           |
+|    `dg_zz_dt`    |          poloidal derivative of the zz component of the metric tensor           |         $\frac{\partial g_{zz}}{\partial \theta}$          |
+|    `dg_zz_dz`    |          toroidal derivative of the zz component of the metric tensor           |          $\frac{\partial g_{zz}}{\partial \zeta}$          |
+|    `diota_dr`    |                          rotational transform gradient                          |                   $\frac{d\iota}{d\rho}$                   |
+|     `dp_dr`      |                                pressure gradient                                |                     $\frac{dp}{d\rho}$                     |
+|      `e_X1`      |                      first reference tangent basis vector                       |                     $\mathbf{e}_{X^1}$                     |
+|      `e_X2`      |                      second reference tangent basis vector                      |                     $\mathbf{e}_{X^2}$                     |
+|     `e_rho`      |                           radial tangent basis vector                           |                     $\mathbf{e}_\rho$                      |
+|    `e_theta`     |                          poloidal tangent basis vector                          |                    $\mathbf{e}_\theta$                     |
+|     `e_zeta`     |                          toroidal tangent basis vector                          |                     $\mathbf{e}_\zeta$                     |
+|    `e_zeta3`     |                     toroidal reference tangent basis vector                     |                   $\mathbf{e}_{\zeta^3}$                   |
+|      `g_rr`      |                        rr component of the metric tensor                        |                          $g_{rr}$                          |
+|      `g_rt`      |                        rt component of the metric tensor                        |                          $g_{rt}$                          |
+|      `g_rz`      |                        rz component of the metric tensor                        |                          $g_{rz}$                          |
+|      `g_tt`      |                        tt component of the metric tensor                        |                          $g_{tt}$                          |
+|      `g_tz`      |                        tz component of the metric tensor                        |                          $g_{tz}$                          |
+|      `g_zz`      |                        zz component of the metric tensor                        |                          $g_{zz}$                          |
+|    `grad_rho`    |                         radial reciprocal basis vector                          |                        $\nabla\rho$                        |
+|   `grad_theta`   |                        poloidal reciprocal basis vector                         |                       $\nabla\theta$                       |
+|  `grad_theta_P`  |              poloidal reciprocal basis vector in PEST coordinates               |                     $\nabla \theta_P$                      |
+|   `grad_zeta`    |                        toroidal reciprocal basis vector                         |                       $\nabla\zeta$                        |
+|      `iota`      |                              rotational transform                               |                          $\iota$                           |
+|   `iota_mean`    |                            mean rotational transform                            |                       $\bar{\iota}$                        |
+|    `iota_tor`    |            toroidal current contribution to the rotational transform            |                       $\iota_{tor}$                        |
+|  `major_radius`  |                                  major radius                                   |                         $r_{maj}$                          |
+|  `minor_radius`  |                                  minor radius                                   |                         $r_{min}$                          |
+|     `mod_B`      |                          modulus of the magnetic field                          |                $\left\|\mathbf{B}\right\|$                 |
+|     `mod_J`      |                         modulus of the current density                          |                $\left\|\mathbf{J}\right\|$                 |
+|   `mod_e_rho`    |                   modulus of the radial tangent basis vector                    |              $\left\|\mathbf{e}_\rho\right\|$              |
+|  `mod_e_theta`   |                  modulus of the poloidal tangent basis vector                   |             $\left\|\mathbf{e}_\theta\right\|$             |
+|   `mod_e_zeta`   |                  modulus of the toroidal tangent basis vector                   |             $\left\|\mathbf{e}_\zeta\right\|$              |
+|  `mod_grad_rho`  |                  modulus of the radial reciprocal basis vector                  |                $\left\|\nabla\rho\right\|$                 |
+| `mod_grad_theta` |                 modulus of the poloidal reciprocal basis vector                 |               $\left\|\nabla\theta\right\|$                |
+| `mod_grad_zeta`  |                 modulus of the toroidal reciprocal basis vector                 |                $\left\|\nabla\zeta\right\|$                |
+|      `mu0`       |                                magnetic constant                                |                          $\mu_0$                           |
+|       `p`        |                                    pressure                                     |                            $p$                             |
+|      `pos`       |                                 position vector                                 |                        $\mathbf{x}$                        |
+|     `shear`      |                              global magnetic shear                              |                           $s_g$                            |
+|    `theta_P`     |                       poloidal angle in PEST coordinates                        |                         $\theta_P$                         |
+|     `vector`     |                           cartesian vector components                           |                        $\mathbf{x}$                        |

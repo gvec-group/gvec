@@ -40,7 +40,7 @@
 !===================================================================================================================================
 MODULE MODgvec_hmap_frenet
 ! MODULES
-USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort
+USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort,MPIroot
 USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
@@ -155,9 +155,11 @@ IMPLICIT NONE
 
   nvisu=GETINT("hmap_nvisu",0) 
 
-  IF(nvisu.GT.0) CALL VisuFrenet(sf,nvisu)
+  IF(MPIroot)THEN
+    IF(nvisu.GT.0) CALL VisuFrenet(sf,nvisu)
   
-  CALL CheckZeroCurvature(sf)
+    CALL CheckZeroCurvature(sf)
+  END IF
 
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'

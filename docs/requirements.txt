@@ -1,0 +1,7 @@
+sphinx
+pydata-sphinx-theme
+myst-parser
+sphinx_design
+
+ford
+graphviz

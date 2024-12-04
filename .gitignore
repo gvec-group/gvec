@@ -1,5 +1,5 @@
 doc
-build*
+build/*
 ctags.txt
 *.vsz
 *.vtu
@@ -9,14 +9,18 @@ ctags.txt
 *.o
 *.out
 *~
-__*
 CMakeFiles
 CMakeCache.txt
 CMakeUserPresets.json
 .DS_Store
 
+# sphinx / ford docs
+docs/build
+docs/extra/ford
+
 # exclude all pytest run files
 test-CI/run*
+test-CI/conv*
 test-CI/CIrun*
 
 # Byte-compiled / optimized / DLL files
@@ -30,6 +34,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+post/
+pybuild/
 develop-eggs/
 dist/
 downloads/
@@ -46,6 +52,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+python/gvec/_version.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -88,12 +95,6 @@ instance/
 
 # Scrapy stuff:
 .scrapy
-
-# Sphinx documentation
-docs/_build/
-docs/source/modules.rst
-docs/source/gvec_to_python.rst
-docs/source/gvec_to_python.*.rst
 
 # PyBuilder
 .pybuilder/

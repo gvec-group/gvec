@@ -1,8 +1,9 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2018  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2024  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
-! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3
 ! of the License, or (at your option) any later version.
 !
 ! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
@@ -24,15 +25,13 @@
 !===================================================================================================================================
 MODULE MODgvec_fBase
 ! MODULES
-USE MODgvec_Globals                  ,ONLY: TWOPI,wp,Unit_stdOut,abort
+USE MODgvec_Globals                  ,ONLY: TWOPI,wp,Unit_stdOut,abort,MPIRoot
 IMPLICIT NONE
-PUBLIC
 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
-!-----------------------------------------------------------------------------------------------------------------------------------
+PRIVATE
+PUBLIC t_fbase,fbase_new,sin_cos_map
 
-TYPE, ABSTRACT :: c_fBase
+TYPE :: t_fBase
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   INTEGER              :: mn_max(2)   !! input parameter: maximum number of fourier modes: m_max=mn_max(1),n_max=mn_max(2)
@@ -43,145 +42,16 @@ TYPE, ABSTRACT :: c_fBase
   !input parameters
   LOGICAL              :: exclude_mn_zero  !!  =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: modes       !! total number of modes in basis (depends if only sin/cos or sin & cos are used)
-  CONTAINS
-    PROCEDURE(i_sub_fBase_init          ),DEFERRED :: init
-    PROCEDURE(i_sub_fBase_free          ),DEFERRED :: free
-    PROCEDURE(i_sub_fBase_copy          ),DEFERRED :: copy
-    PROCEDURE(i_sub_fBase_compare       ),DEFERRED :: compare
-    PROCEDURE(i_sub_fBase_change_base   ),DEFERRED :: change_base
-    PROCEDURE(i_fun_fBase_eval          ),DEFERRED :: eval
-    PROCEDURE(i_fun_fBase_eval_xn       ),DEFERRED :: eval_xn
-    PROCEDURE(i_fun_fBase_evalDOF_x     ),DEFERRED :: evalDOF_x
-    PROCEDURE(i_fun_fBase_evalDOF_xn    ),DEFERRED :: evalDOF_xn
-    PROCEDURE(i_fun_fBase_evalDOF_IP    ),DEFERRED :: evalDOF_IP
-    PROCEDURE(i_fun_fBase_initDOF       ),DEFERRED :: initDOF
-
-END TYPE c_fBase
-
-ABSTRACT INTERFACE
-  SUBROUTINE i_sub_fBase_init(sf, mn_max_in,mn_nyq_in,nfp_in, &
-                                  sin_cos_in,exclude_mn_zero_in)
-    IMPORT c_fBase
-    CLASS(c_fBase) , INTENT(INOUT) :: sf
-    INTEGER        , INTENT(IN   ) :: mn_max_in(2)
-    INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)
-    INTEGER        , INTENT(IN   ) :: nfp_in      
-    CHARACTER(LEN=8),INTENT(IN   ) :: sin_cos_in  
-    LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in
-  END SUBROUTINE i_sub_fBase_init
-
-  SUBROUTINE i_sub_fBase_free( sf ) 
-    IMPORT c_fBase
-    CLASS(c_fBase), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_fBase_free
-
-  SUBROUTINE i_sub_fBase_copy( sf, tocopy ) 
-    IMPORT c_fBase
-    CLASS(c_fBase), INTENT(IN   ) :: tocopy
-    CLASS(c_fBase), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_fBase_copy
-
-  SUBROUTINE i_sub_fBase_compare( sf, tocompare, is_same, cond_out ) 
-    IMPORT c_fBase
-    CLASS(c_fBase)  , INTENT(IN   ) :: sf
-    CLASS(c_fBase)  , INTENT(IN   ) :: tocompare
-    LOGICAL,OPTIONAL, INTENT(  OUT) :: is_same
-    LOGICAL,OPTIONAL, INTENT(  OUT) :: cond_out(:)
-  END SUBROUTINE i_sub_fBase_compare
-
-  SUBROUTINE i_sub_fBase_change_base( sf, old_fBase, iterDim,old_data,sf_data ) 
-    IMPORT c_fBase,wp
-    CLASS(c_fBase) , INTENT(IN   ) :: sf
-    CLASS(c_fBase) , INTENT(IN   ) :: old_fBase
-    INTEGER         ,INTENT(IN   ) :: iterDim
-    REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
-    REAL(wp)        ,INTENT(  OUT) :: sf_data(:,:)
-  END SUBROUTINE i_sub_fBase_change_base
-
-  FUNCTION i_fun_fBase_initDOF( sf, g_IP,thet_zeta_start ) RESULT(DOFs) 
-    IMPORT wp,c_fBase
-    CLASS(c_fBase), INTENT(IN   ) :: sf
-    REAL(wp)      , INTENT(IN   ) :: g_IP(:)
-    REAL(wp)      , INTENT(IN   ),OPTIONAL :: thet_zeta_start(2)
-    REAL(wp)                      :: DOFs(1:sf%modes)
-  END FUNCTION i_fun_fBase_initDOF
-
-  FUNCTION i_fun_fBase_eval( sf,deriv,x) RESULT(base_x)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: x(2)
-  REAL(wp)                      :: base_x(sf%modes)
-  END FUNCTION i_fun_fBase_eval
-
-  FUNCTION i_fun_fBase_eval_xn( sf,deriv,np,xn) RESULT(base_xn)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: deriv
-  INTEGER       , INTENT(IN   ) :: np
-  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)
-  REAL(wp)                      :: base_xn(1:np,sf%modes)
-  END FUNCTION i_fun_fBase_eval_xn
-
-  FUNCTION i_fun_fBase_evalDOF_x( sf,x,deriv,DOFs ) RESULT(y)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  REAL(wp)      , INTENT(IN   ) :: x(2)
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
-  REAL(wp)                      :: y
-  END FUNCTION i_fun_fBase_evalDOF_x
-
-  FUNCTION i_fun_fBase_evalDOF_xn( sf,np,xn,deriv,DOFs ) RESULT(y)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: np
-  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np)
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
-  REAL(wp)                      :: y(1:np)
-  END FUNCTION i_fun_fBase_evalDOF_xn
-
-  FUNCTION i_fun_fBase_evalDOF_IP( sf,deriv,DOFs ) RESULT(y_IP)
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)
-  REAL(wp)                      :: y_IP(sf%mn_IP)
-  END FUNCTION i_fun_fBase_evalDOF_IP
-
-  SUBROUTINE i_sub_fBase_projectIPtoDOF( sf,add,factor,deriv,y_IP,DOFs )
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  LOGICAL       , INTENT(IN   ) :: add   
-  REAL(wp)      , INTENT(IN   ) :: factor
-  INTEGER       , INTENT(IN   ) :: deriv
-  REAL(wp)      , INTENT(IN   ) :: y_IP(:)
-  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)
-  END SUBROUTINE i_sub_fBase_projectIPtoDOF
-
-  SUBROUTINE i_sub_fBase_projectxntoDOF( sf,add,factor,deriv,np,xn,yn,DOFs )
-    IMPORT wp,c_fBase
-  CLASS(c_fBase), INTENT(IN   ) :: sf
-  LOGICAL       , INTENT(IN   ) :: add   
-  REAL(wp)      , INTENT(IN   ) :: factor
-  INTEGER       , INTENT(IN   ) :: deriv
-  INTEGER       , INTENT(IN   ) :: np
-  REAL(wp)      , INTENT(IN   ) :: xn(1:np)
-  REAL(wp)      , INTENT(IN   ) :: yn(1:np)
-  REAL(wp)      , INTENT(INOUT) :: DOFs(1:sf%modes)
-  END SUBROUTINE i_sub_fBase_projectxntoDOF
-END INTERFACE
- 
-
-
-TYPE,EXTENDS(c_fBase) :: t_fBase
+  INTEGER              :: modes       !! total(global) number of modes in basis (depends if only sin/cos or sin & cos are used)
+  INTEGER              :: modes_str, modes_end   !! local range of modes, when distributed over MPI subdomains 
+  INTEGER,ALLOCATABLE  :: offset_modes(:)        !! allocated (0:nRanks), gives range on each rank: 
+                                                 !!   modes_str:modes_end=offset_modes(myRank)+1:offset_modes(myRank+1)
+  INTEGER,ALLOCATABLE  :: whichRank(:)           !! know the MPI rank for each mode
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: sin_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases 
-  INTEGER              :: cos_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases 
+  INTEGER              :: sin_range(2)        !! sin_range(1)+1:sin_range(2) is range with sine bases
+  INTEGER              :: cos_range(2)        !! sin_range(1)+1:sin_range(2) is range with cosine bases
   INTEGER              :: mn_zero_mode        !! points to m=0,n=0 mode in mode array (1:mn_modes) (only one can exist for cosine, else =-1)
   REAL(wp)             :: d_thet              !! integration weight in theta direction: =2pi/mn_nyq(1)
   REAL(wp)             :: d_zeta              !! integration weight in zeta direction : =nfp*(2pi/nfp)/mn_nyq(2)=2*pi/mn_nyq(2)
@@ -194,7 +64,7 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   REAL(wp),ALLOCATABLE :: base_dthet_IP(:,:)  !! dthet derivative of basis functions, (1:mn_IP,1:modes)
   REAL(wp),ALLOCATABLE :: base_dzeta_IP(:,:)  !! dzeta derivative of basis functions, (1:mn_IP,1:modes)
 
-  REAL(wp),ALLOCATABLE :: snorm_base(:)       !! 1/norm of each basis function, size(1:mn_modes), norm=int_0^2pi int_0^pi (base_mn(thet,zeta))^2 dthet dzeta 
+  REAL(wp),ALLOCATABLE :: snorm_base(:)       !! 1/norm of each basis function, size(1:modes), norm=int_0^2pi int_0^pi (base_mn(thet,zeta))^2 dthet dzeta
   INTEGER              :: mTotal1D            !! mTotal1D =mn_max(1)+1  for sin or cos base, and mTotal=2*(mn_max(1)+1) for sin&cos base
   REAL(wp),ALLOCATABLE :: base1D_IPthet(:,:,:) !! 1D basis,  size(1:mn_nyq(1),1:2,1:mTotal1D), 
                                                !! if sin(m t-n z):   sin(m t), -cos(m t) and if cos(m t-n z): cos(m t),sin(m t)
@@ -216,9 +86,10 @@ TYPE,EXTENDS(c_fBase) :: t_fBase
   PROCEDURE :: eval_xn          => fBase_eval_xn
   PROCEDURE :: evalDOF_x        => fBase_evalDOF_x
   PROCEDURE :: evalDOF_xn       => fBase_evalDOF_xn
-! PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP !use _tens instead!
+  PROCEDURE :: evalDOF_xn_tens  => fBase_evalDOF_xn_tens
+  ! PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP !use _tens instead!
   PROCEDURE :: evalDOF_IP       => fBase_evalDOF_IP_tens
-!  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
+  !  PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF
   PROCEDURE :: projectIPtoDOF   => fBase_projectIPtoDOF_tens
   PROCEDURE :: projectxntoDOF   => fBase_projectxntoDOF
   PROCEDURE :: initDOF          => fBase_initDOF
@@ -251,11 +122,11 @@ IMPLICIT NONE
   LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !! =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
+  TYPE(t_fBase), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  ALLOCATE(t_fBase :: sf)
+  ALLOCATE(sf)
   __PERFON("fbase_new")
   CALL sf%init(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 
@@ -268,6 +139,7 @@ END SUBROUTINE fBase_new
 !===================================================================================================================================
 SUBROUTINE fBase_init( sf, mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
 ! MODULES
+USE MODgvec_Globals, ONLY: myRank, nRanks
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -281,7 +153,7 @@ IMPLICIT NONE
   CLASS(t_fBase), INTENT(INOUT)        :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,iMode,m,n,mIP,nIP,mn_excl
+  INTEGER :: i,iMode,m,n,mIP,nIP,mn_excl,iRank
   INTEGER :: modes_sin,modes_cos
   REAL(wp):: mm,nn
 !===================================================================================================================================
@@ -317,7 +189,7 @@ IMPLICIT NONE
     sf%sin_cos  = _SINCOS_
   ELSE 
     CALL abort(__STAMP__, &
-         "error in fBase: sin/cos not correctly specified, should be either _SIN_, _COS_ or _SINCOS_") 
+         "error in fBase: sin/cos not correctly specified, should be either _SIN_, _COS_ or _SINCOS_")
   END IF
   ASSOCIATE(&
               m_max      => sf%mn_max(1)   &
@@ -331,8 +203,8 @@ IMPLICIT NONE
             , cos_range  => sf%cos_range &
             )
   mn_excl=MERGE(1,0,sf%exclude_mn_zero) !=1 if exclude=TRUE, =0 if exclude=FALSE
-  ! modes_sin :: m=0: n=1...nMax , m=1...m_max: n=-n_max...n_max. REMARK: for sine, m=0,n=0 is automatically excluded
-  ! mode_ cos :: m=0: n=0...nMax , m=1...m_max: n=-n_max...n_max. mn_excl=True will exclude m=n=0 
+  ! modes_sin :: m=0: n=1...n_max , m=1...m_max: n=-n_max...n_max. REMARK: for sine, m=0,n=0 is automatically excluded
+  ! modes_cos :: m=0: n=0...n_max , m=1...m_max: n=-n_max...n_max. mn_excl=True will exclude m=n=0 
   modes_sin= (n_max  )         + m_max*(2*n_max+1) 
   modes_cos= (n_max+1)-mn_excl + m_max*(2*n_max+1) 
   SELECT CASE(sin_cos)
@@ -353,6 +225,23 @@ IMPLICIT NONE
     sf%mTotal1D=2*(m_max+1)
   END SELECT
 
+  !MPI DECOMPOSITION OF MODES INTO EQUAL MODE GROUPS, FOR PARALLELIZING COMPUTATIONS DONE SEPARATELY ON EACH MODE
+  ALLOCATE(sf%offset_modes(0:nRanks))
+  sf%offset_modes(0)=0 
+  DO iRank=0,nRanks-1
+    sf%offset_modes(iRank+1)=(modes*(iRank+1))/nRanks
+  END DO
+  sf%modes_str = sf%offset_modes(myRank  )+1
+  sf%modes_end = sf%offset_modes(myRank+1)
+  IF(MPIroot)THEN
+    iRank=COUNT((sf%offset_modes(1:nRanks)-sf%offset_modes(0:nRanks-1)) .EQ. 0)
+    IF (iRank.GT.0) THEN
+      WRITE(*,'(5X,A,I4,A,I4,A)') &
+      'WARNING: more MPI ranks than number of modes! ', iRank , ' ranks of ' ,nRanks, &
+              ' have no modes associated. This only affects MPI scaling.'
+    END IF
+  END IF
+
   CALL fbase_alloc(sf)
   
   iMode=0 !first sine then cosine
@@ -361,11 +250,11 @@ IMPLICIT NONE
     m=0
     DO n=1,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here 
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO !n
     DO m=1,m_max; DO n=-n_max,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here 
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO; END DO !m,n
   END IF !sin_range>0
 
@@ -377,11 +266,11 @@ IMPLICIT NONE
     IF(mn_excl.EQ.0) sf%mn_zero_mode=iMode+1
     DO n=mn_excl,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here 
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO !n
     DO m=1,m_max; DO n=-n_max,n_max
       iMode=iMode+1
-      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here  
+      sf%Xmn(:,iMode)=(/m,n*nfp/)  !include nfp here
     END DO; END DO !m,n
   END IF !cos_range>0
 
@@ -437,7 +326,7 @@ IMPLICIT NONE
 
   sf%d_zeta = sf%d_zeta*REAL(nfp,wp) ! to get full integral [0,2pi)
  
-!! !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)  
+!! !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
 !!   DO i=1,sf%mn_IP
 !!     sf%base_IP(      i,:)=sf%eval(         0,sf%x_IP(:,i))
 !!     sf%base_dthet_IP(i,:)=sf%eval(DERIV_THET,sf%x_IP(:,i))
@@ -579,11 +468,12 @@ IMPLICIT NONE
   SDEALLOCATE(sf%base1D_dthet_IPthet)
   SDEALLOCATE(sf%base1D_IPzeta)
   SDEALLOCATE(sf%base1D_dzeta_IPzeta)
+  SDEALLOCATE(sf%offset_modes)
   
   sf%mn_max     =-1
-  sf%mn_nyq     =-1 
-  sf%mn_IP      =-1 
-  sf%nfp        =-1        
+  sf%mn_nyq     =-1
+  sf%mn_IP      =-1
+  sf%nfp        =-1
   sf%modes      =-1
   sf%sin_cos    =-1
   sf%d_thet     =0.0_wp
@@ -603,7 +493,7 @@ SUBROUTINE fBase_copy( sf , tocopy)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(c_fBase), INTENT(IN   ) :: tocopy
+  CLASS(t_fBase), INTENT(IN   ) :: tocopy
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_fBase), INTENT(INOUT) :: sf !! self
@@ -611,7 +501,6 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 CHARACTER(LEN=8) :: sin_cos
 !===================================================================================================================================
-  SELECT TYPE(tocopy); TYPE IS(t_fBase)
   IF(.NOT.tocopy%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_copy: not initialized fBase from which to copy!")
@@ -628,13 +517,12 @@ CHARACTER(LEN=8) :: sin_cos
   CASE(_SINCOS_)
     sin_cos  = "_sincos_"
   END SELECT
- CALL sf%init(tocopy%mn_max         &
-             ,tocopy%mn_nyq         &
-             ,tocopy%nfp            &
-             ,sin_cos               &
-             ,tocopy%exclude_mn_zero)
+  CALL sf%init(tocopy%mn_max         &
+              ,tocopy%mn_nyq         &
+              ,tocopy%nfp            &
+              ,sin_cos               &
+              ,tocopy%exclude_mn_zero)
 
-  END SELECT !TYPE
 END SUBROUTINE fBase_copy
 
 
@@ -648,7 +536,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
-  CLASS(c_fBase),  INTENT(IN   ) :: tocompare
+  TYPE(t_fBase),  INTENT(IN   ) :: tocompare
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   LOGICAL,OPTIONAL,INTENT(  OUT) :: is_same
@@ -657,7 +545,6 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   LOGICAL  :: cond(5)
 !===================================================================================================================================
-  SELECT TYPE(tocompare); TYPE IS(t_fBase)
   IF(.NOT.tocompare%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_compare: tried to compare with non-initialized fBase!")
@@ -667,12 +554,11 @@ IMPLICIT NONE
   cond(2)=    ( sf%nfp            .EQ.  tocompare%nfp             )
   cond(3)=    ( sf%modes          .EQ.  tocompare%modes           )
   cond(4)=    ( sf%sin_cos        .EQ.  tocompare%sin_cos         )
-  cond(5)=    ( sf%exclude_mn_zero.EQV. tocompare%exclude_mn_zero ) 
+  cond(5)=    ( sf%exclude_mn_zero.EQV. tocompare%exclude_mn_zero )
 
   IF(PRESENT(is_same)) is_same=ALL(cond)
   IF(PRESENT(cond_out)) cond_out(1:5)=cond
 
-  END SELECT !TYPE
 END SUBROUTINE fBase_compare
 
 
@@ -689,7 +575,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_fBase),  INTENT(IN   ) :: sf !! self
-  CLASS(c_fBase),  INTENT(IN   ) :: old_fBase       !! base of old_data
+  CLASS(t_fBase),  INTENT(IN   ) :: old_fBase       !! base of old_data
   INTEGER         ,INTENT(IN   ) :: iterDim        !! iterate on first or second dimension or old_data/sf_data
   REAL(wp)        ,INTENT(IN   ) :: old_data(:,:)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -701,7 +587,6 @@ IMPLICIT NONE
   INTEGER             :: iMode 
   INTEGER,ALLOCATABLE :: modeMapSin(:,:),modeMapCos(:,:)
 !===================================================================================================================================
-  SELECT TYPE(old_fBase); TYPE IS(t_fBase)
   IF(.NOT.old_fBase%initialized) THEN
     CALL abort(__STAMP__, &
         "fBase_change_base: tried to change base with non-initialized fBase!")
@@ -790,9 +675,8 @@ IMPLICIT NONE
     DEALLOCATE(modeMapSin)
     DEALLOCATE(modeMapCos)
   END IF !same base
-     
-  END SELECT !TYPE
 END SUBROUTINE fBase_change_base
+
 !===================================================================================================================================
 !> evaluate  all modes at specific given point in theta and zeta
 !!
@@ -804,10 +688,10 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: x(2)   !! theta,zeta point position 
+  REAL(wp)      , INTENT(IN   ) :: x(2)   !! theta,zeta point position
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                      :: base_x(sf%modes) 
+  REAL(wp)                      :: base_x(sf%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -826,56 +710,56 @@ IMPLICIT NONE
   CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
   INTEGER       , INTENT(IN   ) :: deriv      !! =0: base, =2: dthet , =3: dzeta
   INTEGER       , INTENT(IN   ) :: np         !! number of points in xn 
-  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np) !! theta,zeta point positions 
+  REAL(wp)      , INTENT(IN   ) :: xn(2,1:np) !! theta,zeta point positions
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                      :: base_xn(1:np,sf%modes) 
+  REAL(wp)                      :: base_xn(1:np,sf%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: iMode
 !===================================================================================================================================
-  ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range,Xmn=>sf%Xmn) 
+  ASSOCIATE(sin_range=>sf%sin_range,cos_range=>sf%cos_range,Xmn=>sf%Xmn)
   SELECT CASE(deriv)
   CASE(0)
     DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=                       SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                               
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=                       COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_THET)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_THET)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)= REAL(Xmn(1,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=-REAL(Xmn(1,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_ZETA)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_ZETA)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=-REAL(Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)= REAL(Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode
-  CASE(DERIV_THET_THET)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+  CASE(DERIV_THET_THET)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=-REAL(Xmn(1,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=-REAL(Xmn(1,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_THET_ZETA)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_THET_ZETA)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)= REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)= REAL(Xmn(1,iMode)*Xmn(2,iMode),wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-  CASE(DERIV_ZETA_ZETA)                                                                                
-    DO iMode=sin_range(1)+1,sin_range(2)                                                          
+    END DO !iMode
+  CASE(DERIV_ZETA_ZETA)
+    DO iMode=sin_range(1)+1,sin_range(2)
       base_xn(:,iMode)=-REAL(Xmn(2,iMode)**2,wp)*SIN(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
-    END DO !iMode                                                                                 
-    DO iMode=cos_range(1)+1,cos_range(2)                                                          
+    END DO !iMode
+    DO iMode=cos_range(1)+1,cos_range(2)
       base_xn(:,iMode)=-REAL(Xmn(2,iMode)**2,wp)*COS(REAL(Xmn(1,iMode),wp)*xn(1,:)-REAL(Xmn(2,iMode),wp)*xn(2,:))
     END DO !iMode
   CASE DEFAULT 
@@ -884,6 +768,145 @@ IMPLICIT NONE
   END SELECT
   END ASSOCIATE
 END FUNCTION fbase_eval_xn
+
+!===================================================================================================================================
+!> evaluate special 1D base in theta direction (cos(m*t_i),sin(m*t_i)) or its derivative(s) on a given set of points
+!! for tensor-product evaluation of 2D sin and cos base:
+!!   sin(m*thet-n*zeta) = sin(m*thet)*cos(n*zeta)-cos(m*thet)*sin(n*zeta)
+!!     == dot_product( (sin(m*thet),-cos(m*thet)) , (cos(n*zeta),sin(n*zeta)))
+!!   cos(m*thet-n*zeta) = cos(m*thet)*cos(n*zeta)+sin(m*thet)*sin(n*zeta)
+!!     == dot_product( (cos(m*thet), sin(m*thet)) , (cos(n*zeta),sin(n*zeta)))
+!! so for the 1D base, mTotal1d depends on using sin/cos/sin+cos base.
+!===================================================================================================================================
+FUNCTION fBase_eval1d_thet(sf,deriv,nthet,thet) RESULT(base1d_thet)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
+  INTEGER       , INTENT(IN   ) :: deriv !! =0: base, =1: dthet , =2: dthet^2
+  INTEGER       , INTENT(IN   ) :: nthet       !! number of points in theta
+  REAL(wp)      , INTENT(IN   ) :: thet(1:nthet)   !! theta 1D point positions
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: base1d_thet(1:nthet,1:2,1:sf%mTotal1D)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: m,m_max,i
+  REAL(wp):: mm
+!===================================================================================================================================
+m_max=sf%mn_max(1)
+
+SELECT CASE(deriv)
+CASE(0)
+  IF((sf%sin_cos.EQ._SIN_).OR.(sf%sin_cos.EQ._SINCOS_))THEN !2D SINE
+    DO m=0,m_max
+      mm=REAL(m,wp)
+      base1d_thet(:,1,1+m)  = SIN(mm*thet(:))
+      base1d_thet(:,2,1+m)  =-COS(mm*thet(:))
+    END DO
+  END IF
+  IF((sf%sin_cos.EQ._COS_).OR.(sf%sin_cos.EQ._SINCOS_))THEN !2D cosine
+    i=sf%mTotal1D-(sf%mn_max(1)+1) !=offset, =0 if cos, =m_max+1 if sincos
+    DO m=0,m_max
+      mm=REAL(m,wp)
+      base1d_thet(:,1,i+1+m)  =COS(mm*thet(:))
+      base1d_thet(:,2,i+1+m)  =SIN(mm*thet(:))
+    END DO
+  END IF
+CASE(1)
+  IF((sf%sin_cos.EQ._SIN_).OR.(sf%sin_cos.EQ._SINCOS_))THEN !2D SINE
+    DO m=0,m_max
+      mm=REAL(m,wp)
+      base1d_thet(:,1,1+m)  = mm*COS(mm*thet(:))
+      base1d_thet(:,2,1+m)  = mm*SIN(mm*thet(:))
+    END DO
+  END IF
+  IF((sf%sin_cos.EQ._COS_).OR.(sf%sin_cos.EQ._SINCOS_))THEN !2D cosine
+    i=sf%mTotal1D-(sf%mn_max(1)+1) !=offset, =0 if cos, =m_max+1 if sincos
+    DO m=0,m_max
+      mm=REAL(m,wp)
+      base1d_thet(:,1,i+1+m)  =-mm*SIN(mm*thet(:))
+      base1d_thet(:,2,i+1+m)  = mm*COS(mm*thet(:))
+    END DO
+  END IF
+CASE(2)
+  IF((sf%sin_cos.EQ._SIN_).OR.(sf%sin_cos.EQ._SINCOS_))THEN !2D SINE
+    DO m=0,m_max
+      mm=REAL(m,wp)
+      base1d_thet(:,1,1+m)  =-mm*mm*SIN(mm*thet(:))
+      base1d_thet(:,2,1+m)  = mm*mm*COS(mm*thet(:))
+    END DO
+  END IF
+  IF((sf%sin_cos.EQ._COS_).OR.(sf%sin_cos.EQ._SINCOS_))THEN !2D cosine
+    i=sf%mTotal1D-(sf%mn_max(1)+1) !=offset, =0 if cos, =m_max+1 if sincos
+    DO m=0,m_max
+      mm=REAL(m,wp)
+      base1d_thet(:,1,i+1+m)  =-mm*mm*COS(mm*thet(:))
+      base1d_thet(:,2,i+1+m)  =-mm*mm*SIN(mm*thet(:))
+    END DO
+  END IF
+  CASE DEFAULT
+    CALL abort(__STAMP__, &
+         "fBase_eval1d_thet: derivative must be 0,1,2 !")
+  END SELECT
+END FUNCTION fBase_eval1d_thet
+
+
+
+!===================================================================================================================================
+!> evaluate special 1D base in zeta direction (cos(m*t_i),sin(m*t_i)) or its derivative(s) on a given set of points
+!! for tensor-product evaluation of 2D sin and cos base:
+!!   sin(m*thet-n*zeta) = sin(m*thet)*cos(n*zeta)-cos(m*thet)*sin(n*zeta)
+!!     == dot_product( (sin(m*thet),-cos(m*thet)) , (cos(n*zeta),sin(n*zeta)))
+!!   cos(m*thet-n*zeta) = cos(m*thet)*cos(n*zeta)+sin(m*thet)*sin(n*zeta)
+!!     == dot_product( (cos(m*thet), sin(m*thet)) , (cos(n*zeta),sin(n*zeta)))
+!! so for the 1D base, nTotal1d is always 2*n_max+1
+!===================================================================================================================================
+FUNCTION fBase_eval1d_zeta(sf,deriv,nzeta,zeta) RESULT(base1d_zeta)
+  ! MODULES
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CLASS(t_fBase), INTENT(IN   ) :: sf         !! self
+    INTEGER       , INTENT(IN   ) :: deriv !! =0: base, =1: dzeta , =2: dzeta^2
+    INTEGER       , INTENT(IN   ) :: nzeta       !! number of points in zeta
+    REAL(wp)      , INTENT(IN   ) :: zeta(1:nzeta)   !! zeta 1D point positions
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)                      :: base1d_zeta(1:2,-sf%mn_max(2):sf%mn_max(2),1:nzeta)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER :: n,n_max,nfp
+    REAL(wp):: nn
+  !===================================================================================================================================
+  n_max=sf%mn_max(2)
+  nfp=sf%nfp
+
+  SELECT CASE(deriv)
+  CASE(0)
+    DO n=-n_max,n_max
+      nn=REAL(n*nfp,wp)
+      base1D_zeta(      1,n,:)  = COS(nn*zeta(:))
+      base1D_zeta(      2,n,:)  = SIN(nn*zeta(:))
+    END DO
+  CASE(1)  !
+    DO n=-n_max,n_max
+      nn=REAL(n*nfp,wp)
+      base1D_zeta(      1,n,:)  = -nn*SIN(nn*zeta(:))
+      base1D_zeta(      2,n,:)  =  nn*COS(nn*zeta(:))
+    END DO
+  CASE(2)
+    DO n=-n_max,n_max
+      nn=REAL(n*nfp,wp)
+      base1D_zeta(      1,n,:)  = -nn*nn*COS(nn*zeta(:))
+      base1D_zeta(      2,n,:)  = -nn*nn*SIN(nn*zeta(:))
+    END DO
+  CASE DEFAULT
+    CALL abort(__STAMP__, &
+           "fBase_eval1d_zeta: derivative must be 0,1,2 !")
+    END SELECT
+  END FUNCTION fBase_eval1d_zeta
 
 !===================================================================================================================================
 !> evaluate  all modes at a given interpolation point
@@ -941,6 +964,88 @@ IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
 END FUNCTION fBase_evalDOF_xn
 
 !===================================================================================================================================
+!> evaluate  all modes on a tensor-produc grid (t_i,z_j), making use of the tensor product in the fourier series:
+!> y_ij = DOFs_mn * SIN(m*t_i - n*z_j ) => SIN(m*t_i) DOFs_mn COS(n*z_j) -COS(m*t_i) DOFs_mn SIN(n*z_j)
+!> y_ij = DOFs_mn * COS(m*t_i - n*z_j ) => COS(m*t_i) DOFs_mn COS(n*z_j) +SIN(m*t_i) DOFs_mn SIN(n*z_j)
+!>                                     => a1_im DOFs_mn b1_nj + a2_im DOFs_mn b2_nj
+!> can be written as 2 SPECIAL MATMAT operations:
+!> c(i,1,n)=a1(i,m) DOFs(m,n) , c(i,2,n) = a2(i,m) DOFs(m,n)  => c(i,d,n) = DOT_PROD(a(i,d,1:mmax),DOFs(1:mmax,n))
+!> y(i,j) = c(i,1,n) b1(n,j) + c(i,2,n) b2(n,j)
+!>        = DOT_PROD(c(i,1:2,1:nmax),b(1:2,1:nmax,j)
+!> the 1D ordering in y does not neead a reshape, y(i,j) => y(1:mn_IP), 1D array data can be kept,
+!> as it is passed (with its start adress) to DGEMM.
+!!
+!===================================================================================================================================
+FUNCTION fBase_evalDOF_xn_tens(sf,nthet,nzeta,thet,zeta,deriv,DOFs) RESULT(y)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
+  INTEGER       , INTENT(IN   ) :: nthet  !! number of points in theta
+  INTEGER       , INTENT(IN   ) :: nzeta  !! number of points in zeta
+  REAL(wp)      , INTENT(IN   ) :: thet(1:nthet) !! theta positions
+  REAL(wp)      , INTENT(IN   ) :: zeta(1:nzeta) !! zeta positions
+  INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                      :: y(1:nthet*nzeta)   !! DOFS evaluated on tensor-product grid,
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER                       :: iMode,offset,mTotal,nTotal
+  REAL(wp)                      :: Amn(1:sf%mTotal1D,-sf%mn_max(2):sf%mn_max(2))
+  REAL(wp)                      :: Ctmp(1:nthet,1:2,-sf%mn_max(2):sf%mn_max(2))
+  REAL(wp)                      :: base1D_thet(1:nthet,1:2,1:sf%mTotal1D)
+  REAL(wp)                      :: base1D_zeta(1:2,-sf%mn_max(2):sf%mn_max(2),1:nzeta)
+!===================================================================================================================================
+  IF(SIZE(DOFs,1).NE.sf%modes) CALL abort(__STAMP__, &
+         'nDOF not correct when calling fBase_evalDOF_IP_tens' )
+
+  offset=sf%mTotal1D-(sf%mn_max(1)+1) !=0 if sin or cos, =sf%mn_max(1)+1 if sin+cos
+  !initialize non existing modes to zero
+  Amn(1,-sf%mn_max(2):0)=0.0_wp
+  IF(offset.GT.0) Amn(offset+1,-sf%mn_max(2):0)=0.0_wp
+
+  !copy DOFs to  (0:m_max , -n_max:n_max) matrix, careful: Xmn(2,:) has nfp factor!
+  DO iMode=sf%sin_range(1)+1,sf%sin_range(2)
+    Amn(1+sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp)=DOFs(iMode)
+  END DO
+  DO iMode=sf%cos_range(1)+1,sf%cos_range(2)
+    Amn(offset+1+sf%Xmn(1,iMode),sf%Xmn(2,iMode)/sf%nfp)=DOFs(iMode)
+  END DO
+
+  mTotal=  sf%mTotal1D
+  nTotal=2*sf%mn_max(2)+1 !-n_max:n_nax
+
+  SELECT CASE(deriv)
+  CASE(0)
+    base1d_thet=fBase_eval1d_thet(sf,0,nthet,thet)
+    base1d_zeta=fBase_eval1d_zeta(sf,0,nzeta,zeta)
+  CASE(DERIV_THET)
+    base1d_thet=fBase_eval1d_thet(sf,1,nthet,thet)
+    base1d_zeta=fBase_eval1d_zeta(sf,0,nzeta,zeta)
+  CASE(DERIV_ZETA)
+    base1d_thet=fBase_eval1d_thet(sf,0,nthet,thet)
+    base1d_zeta=fBase_eval1d_zeta(sf,1,nzeta,zeta)
+  CASE(DERIV_THET_THET)
+    base1d_thet=fBase_eval1d_thet(sf,2,nthet,thet)
+    base1d_zeta=fBase_eval1d_zeta(sf,0,nzeta,zeta)
+  CASE(DERIV_THET_ZETA)
+    base1d_thet=fBase_eval1d_thet(sf,1,nthet,thet)
+    base1d_zeta=fBase_eval1d_zeta(sf,1,nzeta,zeta)
+  CASE(DERIV_ZETA_ZETA)
+    base1d_thet=fBase_eval1d_thet(sf,0,nthet,thet)
+    base1d_zeta=fBase_eval1d_zeta(sf,2,nzeta,zeta)
+  CASE DEFAULT  !for other derivatives, resort to not precomputed/ explicit computation:
+    CALL abort(__STAMP__, &
+         "fbase_evalDOF_xn_tens: derivative must be 0,DERIV_THET,_ZETA,_THET_THET,_THET_ZETA,_ZETA_ZETA!")
+  END SELECT
+  __DGEMM_NN(Ctmp,2*nthet,  mTotal,base1D_thet,  mTotal, nTotal,Amn)
+  __DGEMM_NN(y   ,  nthet,2*nTotal,       Ctmp,2*nTotal, nzeta ,base1D_zeta)
+END FUNCTION fBase_evalDOF_xn_tens
+
+!===================================================================================================================================
 !> evaluate  all modes at all interpolation points 
 !!
 !===================================================================================================================================
@@ -986,7 +1091,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
-  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
+  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: y_IP(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1061,7 +1166,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
-  REAL(wp)      , INTENT(IN   ) :: DOFs(:)  !! array of all modes
+  REAL(wp)      , INTENT(IN   ) :: DOFs(:)!! array of all modes (sf%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: y_IP(sf%mn_IP)
@@ -1106,13 +1211,13 @@ IMPLICIT NONE
 !      END DO !i
 !    END DO !j
     __DGEMM_NN(Ctmp,2*sf%mn_nyq(1),  mTotal,sf%base1D_IPthet,  mTotal,      nTotal,Amn)
-    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta)
   CASE(DERIV_THET)
     __DGEMM_NN(Ctmp,2*sf%mn_nyq(1),  mTotal,sf%base1D_dthet_IPthet,  mTotal,      nTotal,Amn)
-    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,                  Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,                  Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta)
   CASE(DERIV_ZETA)
     __DGEMM_NN(Ctmp,2*sf%mn_nyq(1),  mTotal,sf%base1D_IPthet,  mTotal,      nTotal,Amn)
-    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta) 
+    __DGEMM_NN(y_IP,  sf%mn_nyq(1),2*nTotal,            Ctmp,2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta)
   CASE DEFAULT  !for other derivatives, resort to not precomputed/ explicit computation:
      y_IP = sf%evalDOF_xn(sf%mn_IP,sf%x_IP,deriv,DOFs)
   END SELECT
@@ -1120,7 +1225,7 @@ END FUNCTION fBase_evalDOF_IP_tens
 
 
 !===================================================================================================================================
-!> inverse of fBase_evalDOF_IP_tens 
+!> inverse of fBase_evalDOF_IP_tens
 !!
 !===================================================================================================================================
 SUBROUTINE fBase_projectIPtoDOF_tens(sf,add,factor,deriv,y_IP,DOFs)
@@ -1130,7 +1235,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   CLASS(t_fBase), INTENT(IN   ) :: sf     !! self
   LOGICAL       , INTENT(IN   ) :: add    !! =F initialize DOFs , =T add to DOFs
-  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed) 
+  REAL(wp)      , INTENT(IN   ) :: factor !! scale result by factor, before adding to DOFs (should be =1.0_wp if not needed)
   INTEGER       , INTENT(IN   ) :: deriv  !! =0: base, =2: dthet , =3: dzeta
   REAL(wp)      , INTENT(IN   ) :: y_IP(:) !! point values (at sf%x_IP if x_IP_in not given)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1163,14 +1268,14 @@ IMPLICIT NONE
 !      END DO !i
 !    END DO !j
 
-    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
+    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta)
     __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
 
   CASE(DERIV_THET)
     __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_IPzeta) 
     __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_dthet_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
   CASE(DERIV_ZETA)
-    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta) 
+    __DGEMM_NT(Ctmp,  sf%mn_nyq(1),sf%mn_nyq(2),y_IP,  2*nTotal,sf%mn_nyq(2),sf%base1D_dzeta_IPzeta)
     __ADGEMM_TN(Amn,factor, 2*sf%mn_nyq(1),mTotal,sf%base1D_IPthet,  2*sf%mn_nyq(1),nTotal,Ctmp)
   CASE DEFAULT 
     CALL abort(__STAMP__, &
@@ -1197,7 +1302,7 @@ IMPLICIT NONE
 END SUBROUTINE fBase_projectIPtoDOF_tens
 
 !===================================================================================================================================
-!>  take values interpolated at sf%s_IP positions and project onto fourier basis by integration 
+!>  take values interpolated at sf%s_IP positions and project onto fourier basis by integration
 !!
 !===================================================================================================================================
 FUNCTION fBase_initDOF( sf , g_IP,thet_zeta_start) RESULT(DOFs)
@@ -1220,7 +1325,6 @@ IMPLICIT NONE
   IF(.NOT.(PRESENT(thet_zeta_start)))THEN
     CALL sf%projectIPtoDOF(.FALSE.,(sf%d_thet*sf%d_zeta),0,g_IP,DOFs)
   ELSE
-
     x_IP_shift(1,:)=sf%x_IP(1,:)-sf%x_IP(1,1)+thet_zeta_start(1)
     x_IP_shift(2,:)=sf%x_IP(2,:)-sf%x_IP(2,1)+thet_zeta_start(2)
     CALL sf%projectxntoDOF(.FALSE.,(sf%d_thet*sf%d_zeta),0,sf%mn_IP,x_IP_shift,g_IP,DOFs)
@@ -1255,6 +1359,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   test_called=.TRUE. !avoid infinite loop if init is called here
   IF(testlevel.LE.0) RETURN
+  IF(.NOT.MPIroot) RETURN
   IF(testdbg) THEN
      Fail=" DEBUG  !!"
   ELSE
@@ -1443,7 +1548,7 @@ IMPLICIT NONE
     ALLOCATE(oldDOF(1:sf%modes,2),newDOF(1:testfBase%modes,2))
     oldDOF(:,1)=1.1_wp
     oldDOF(:,2)=2.2_wp
-    
+
     CALL testfBase%change_base(sf,2,oldDOF,newDOF)
     checkreal=SUM(newDOF)
     refreal  =SUM(oldDOF)
@@ -1467,7 +1572,7 @@ IMPLICIT NONE
     oldDOF(1,:)=-1.1_wp
     oldDOF(2,:)=-2.2_wp
     oldDOF(3,:)=-3.3_wp
-    
+
     CALL testfBase%change_base(sf,1,oldDOF,newDOF)
     checkreal=SUM(newDOF)/REAL(testfBase%modes,wp)
     refreal  =-6.6_wp
@@ -1484,9 +1589,6 @@ IMPLICIT NONE
     END IF !TEST
     END IF !sf%mn_max>1
 
-
-
-  
 
     iTest=201 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
@@ -1512,7 +1614,23 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF(dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=202 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_xn_tens(sf%mn_nyq(1),sf%mn_nyq(2),sf%X_IP(1,1:sf%mn_nyq(1)),sf%X_IP(2,1:PRODUCT(sf%mn_nyq(1:2)):sf%mn_nyq(1)),0,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_xn_tens(dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP /dofs from test 201
     
@@ -1532,7 +1650,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(x,(:),dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=203 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1  ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP /dofs from test 201
     tmpdofs=sf%initDOF(g_IP)
@@ -1548,6 +1666,51 @@ IMPLICIT NONE
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : MAX(|initDOF(g_IP)-dofs|) ', checkreal
     END IF !TEST
+
+    iTest=iTest+1  ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    !use g_IP /dofs from test 201
+    tmpdofs=sf%initDOF(g_IP,thet_zeta_start=(/sf%thet_IP(1),sf%zeta_IP(1)/))
+    checkreal=MAXVAL(ABS(tmpdofs-dofs))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|initDOF(g_IP)-initDOF(g_IP,x_IP)|) ', checkreal
+    END IF !TEST
+
+    iTest=iTest+1  ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    !use g_IP  from test 201
+    IF(sin_cos.EQ.3)THEN
+      dangle=(/0.333_wp,-0.222_wp/)
+    ELSE
+      dangle=(/TWOPI,-2*TWOPI/)
+    END IF
+    tmpdofs=sf%initDOF(g_IP,thet_zeta_start=(/sf%x_IP(1,1),sf%x_IP(2,1)/)+dangle)
+    checkreal=0.0_wp
+    DO i_mn=1,sf%mn_IP
+      checkreal=MAX(checkreal, ABS(g_IP(i_mn)-sf%evalDOF_x((sf%X_IP(:,i_mn)+dangle),0,tmpdofs)))
+    END DO
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(x+delta,initdof(g_IP,xIP+delta)|)', checkreal
+    END IF !TEST
+
+  END IF !testlevel <=1
+  IF (testlevel .GE.2)THEN
 
     iTest=2031 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
@@ -1594,7 +1757,7 @@ IMPLICIT NONE
   END IF !testlevel <=1
   IF (testlevel .GE.2)THEN
 
-    iTest=204 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1  ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
@@ -1618,7 +1781,22 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet(dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=205 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1  ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_xn_tens(sf%mn_nyq(1),sf%mn_nyq(2),sf%X_IP(1,1:sf%mn_nyq(1)),sf%X_IP(2,1:PRODUCT(sf%mn_nyq(1:2)):sf%mn_nyq(1)),DERIV_THET,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_xn_tens_dthet(dofs)|) ', checkreal
+    END IF !TEST
+
+    iTest=iTest+1  ; IF(testdbg)WRITE(*,*)'iTest=',iTest
 
     ! use g_IP and dofs from test 204
     checkreal=0.0_wp
@@ -1636,7 +1814,6 @@ IMPLICIT NONE
        ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet,x(:),dofs)|) ', checkreal
     END IF !TEST
-
 
     iTest=206 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
@@ -1662,7 +1839,23 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dzeta(dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=207 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1  ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+
+    checkreal=MAXVAL(ABS(g_IP-sf%evalDOF_xn_tens(sf%mn_nyq(1),sf%mn_nyq(2),sf%X_IP(1,1:sf%mn_nyq(1)),sf%X_IP(2,1:PRODUCT(sf%mn_nyq(1:2)):sf%mn_nyq(1)),DERIV_ZETA,dofs)))
+    refreal=0.0_wp
+
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+      '\n!! FBASE TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,I6," , ",I6,(A,I4),A,2(A,E11.3))') &
+       ' mn_max= (',m_max,n_max, &
+       ' )  nfp    = ',nfp, &
+       ' ,  sin/cos : '//TRIM( sin_cos_map(sin_cos)), &
+      '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_xn_tens_dzeta(dofs)|) ', checkreal
+    END IF !TEST
+
+
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP / dofs from test 206
     checkreal=0.0_wp
@@ -1681,7 +1874,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dzeta,x(:),dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=208 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
@@ -1705,7 +1898,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet_dthet(dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=209 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP / dofs from test 208
     checkreal=0.0_wp
@@ -1724,7 +1917,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet_dthet,x(:),dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=210 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
@@ -1748,7 +1941,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dthet_dzeta(dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=211 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP / dofs from test 210
     checkreal=0.0_wp
@@ -1767,7 +1960,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dthet_dzeta,x(:),dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=212 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     g_IP=0.
     DO iMode=sin_range(1)+1,sin_range(2)
@@ -1791,7 +1984,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP-evalDOF_dzeta_dzeta(dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=213 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP / dofs from test 212
     checkreal=0.0_wp
@@ -1810,7 +2003,7 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : MAX(|g_IP(:)-evalDOF_x(dzeta_dzeta,x(:),dofs)|) ', checkreal
     END IF !TEST
 
-    iTest=214 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     
     !use g_IP / dofs from test 212, test evalDOF_xn
     checkreal=MAXVAL(ABS(g_IP(1:sf%mn_IP/2)-sf%evalDOF_xn(sf%mn_IP/2,sf%x_IP(1:2,1:sf%mn_IP/2),DERIV_ZETA_ZETA,dofs)))
@@ -1834,4 +2027,3 @@ END SUBROUTINE fBase_test
 
 
 END MODULE MODgvec_fBase
-

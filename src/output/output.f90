@@ -21,7 +21,6 @@
 !===================================================================================================================================
 MODULE MODgvec_Output
 ! MODULES
-USE MODgvec_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
@@ -50,7 +49,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitOutput 
 ! MODULES
-USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
+USE MODgvec_Globals, ONLY:wp,UNIT_stdOut,fmt_sep,MPIroot
 USE MODgvec_Output_Vars
 USE MODgvec_ReadInTools,ONLY:GETSTR
 IMPLICIT NONE

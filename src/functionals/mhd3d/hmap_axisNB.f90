@@ -30,7 +30,7 @@
 !===================================================================================================================================
 MODULE MODgvec_hmap_axisNB
 ! MODULES
-USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort
+USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort,MPIroot
 USE MODgvec_c_hmap,    ONLY:c_hmap
 USE MODgvec_fBase   ,ONLY: t_fbase
 USE MODgvec_io_netcdf   ,ONLY: t_ncfile
@@ -176,14 +176,16 @@ IMPLICIT NONE
   sf%Bxyz_hat_modes=transform_to_hat(sf%Bxyz,"Bxyz to Bxyzhat")
   DEALLOCATE(cosz,sinz)
 
-  nvisu=GETINT("hmap_nvisu",2*(sf%n_max*sf%nfp+1)) 
+  IF(MPIroot)THEN
+    nvisu=GETINT("hmap_nvisu",2*(sf%n_max*sf%nfp+1)) 
 
-  IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
+    IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
   
-  CALL CheckFieldPeriodicity(sf,sf%sgn_rot,error_nfp)
-  IF(error_nfp.LT.0) &
-     CALL abort(__STAMP__, &
+    CALL CheckFieldPeriodicity(sf,sf%sgn_rot,error_nfp)
+    IF(error_nfp.LT.0) &
+       CALL abort(__STAMP__, &
           "hmap_axisNB check Field Periodicity failed!")
+  END IF !MPIroot
   sf%aux%nzeta=0
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'

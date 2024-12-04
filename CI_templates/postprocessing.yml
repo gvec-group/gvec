@@ -6,25 +6,25 @@ spec:
   inputs:
     env:
       description: Name of the environment, e.g. `mpcdfci_intel2023`
-      default: mpcdfci_intel2023
+      default: .mpcdfci_intel2023
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
 
 ---
 
-$[[ inputs.env ]]_post:
+post$[[ inputs.env ]]:
   stage: postprocessing
   before_script:
-    - !reference [".tmpl_before_script_modules", "before_script"]
-    - !reference [".tmpl_before_script_exportvars", "before_script"]
+    - !reference [".before_script_modules", "before_script"]
+    - !reference [".before_script_exportvars", "before_script"]
   extends:
-    - .tmpl_$[[ inputs.env ]]
-    - .tmpl_script_post
+    - $[[ inputs.env ]]
+    - .script_post
     - .vars_matrix_post  # matrix of variables
     - $[[ inputs.rules ]]
   needs:
-    - job: $[[ inputs.env ]]_build
+    - job: build$[[ inputs.env ]]
       artifacts: true
-    - job: $[[ inputs.env ]]_run
+    - job: run$[[ inputs.env ]]
       artifacts: true

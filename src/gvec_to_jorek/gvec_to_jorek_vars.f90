@@ -56,10 +56,10 @@ INTEGER               :: cos_range(2)       !< start/end position of cos of toro
 
 !base needed for evaluation on increased mode numbers / integration points
 CLASS(t_Base),ALLOCATABLE           :: out_base        !< same full base for  all output fields 
-CLASS(t_fBase),ALLOCATABLE          :: X1_fbase_nyq    !< same as X1_base_r%f exept integration points
-CLASS(t_fBase),ALLOCATABLE          :: X2_fbase_nyq    !< same as X2_base_r%f exept integration points
-CLASS(t_fBase),ALLOCATABLE          :: LA_fbase_nyq    !< same as LA_base_r%f exept integration points
-CLASS(t_fBase),ALLOCATABLE          :: fbase_zeta      !< base for doing a fourier transform in zeta only, for 1D toroidal representation
+TYPE(t_fbase),ALLOCATABLE          :: X1_fbase_nyq    !< same as X1_base_r%f exept integration points
+TYPE(t_fbase),ALLOCATABLE          :: X2_fbase_nyq    !< same as X2_base_r%f exept integration points
+TYPE(t_fbase),ALLOCATABLE          :: LA_fbase_nyq    !< same as LA_base_r%f exept integration points
+TYPE(t_fbase),ALLOCATABLE          :: fbase_zeta      !< base for doing a fourier transform in zeta only, for 1D toroidal representation
 !1D data - Unnecessary for initial JOREK import
 !INTEGER,PARAMETER     :: nVar1D = 0          !< number of variables in 1d profiles
 !INTEGER,PARAMETER     :: SPOS__    = 1
