@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ===========================================
-# use this setup on raven with the command:
-# > . CI_setup/raven_setup_intel
+# use this setup on viper with the command:
+# > . CI_setup/viper_setup_intel
 #
 # LAST MODIFIED: 2024-12-05
 # ===========================================
