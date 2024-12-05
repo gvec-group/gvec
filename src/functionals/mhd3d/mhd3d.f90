@@ -1129,7 +1129,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 
   CALL U(-3)%set_to(U(0)) !initial state, should remain unchanged
 
-  DO WHILE(iter.LE.maxIter)
+  DO WHILE(iter.LT.maxIter)
     IF((first_iter).OR.(restart_iter))THEN
       JacCheck=1 !abort if detJ<0
       CALL EvalAux(           U(0),JacCheck)

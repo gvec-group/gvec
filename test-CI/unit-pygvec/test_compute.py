@@ -127,7 +127,7 @@ def test_evaluations_init(teststate):
 
 
 def test_boozer_init(teststate):
-    ds = EvaluationsBoozer([0.5, 0.6], 20, 18, teststate, 7, 2)
+    ds = EvaluationsBoozer([0.5, 0.6], 20, 18, teststate)
     assert np.allclose(ds.rho, [0.5, 0.6])
     assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
     assert {"rad", "pol", "tor"} == set(ds.dims)

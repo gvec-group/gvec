@@ -50,7 +50,7 @@ def testgroup():
 
 @pytest.fixture(scope="session")
 def testcase():
-    return "ellipstell_lowres"
+    return "frenet_axisNB_N2-12"
 
 
 @pytest.fixture(scope="session")
@@ -94,10 +94,7 @@ def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_page
 
 @pytest.fixture()
 def testfiles(tmpdir, testcaserundir, testcase_run):
-    """prepare the ellipstell parameters"""
+    """prepare the testcase parameters"""
     paramfile = "parameter.ini"
-    statefile = "ELLIPSTELL_LOWRES_State_0000_00000000.dat"
-    with helpers.chdir(tmpdir):
-        os.symlink(testcaserundir / paramfile, paramfile)
-        os.symlink(testcaserundir / statefile, statefile)
-        yield (paramfile, statefile)
+    statefile = "GVEC_axisNB_N2-12-hi_iota07_State_0000_00000002.dat"
+    yield (testcaserundir / paramfile, testcaserundir / statefile)

@@ -22,6 +22,7 @@ import inspect
 import functools
 import tempfile
 import logging
+import os
 
 import numpy as np
 import xarray as xr
@@ -102,9 +103,15 @@ class State:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
             _post.redirect_stdout(self._stdout.name)
         self.parameterfile = Path(parameterfile)
-        _post.init(parameterfile)
         self.statefile = Path(statefile)
-        _post.readstate(statefile)
+
+        self._original_dir = os.getcwd()
+        os.chdir(self.parameterfile.parent)
+        self.statefile = self.statefile.relative_to(self.parameterfile.parent)
+        self.parameterfile = self.parameterfile.relative_to(self.parameterfile.parent)
+
+        _post.init(self.parameterfile)
+        _post.readstate(self.statefile)
         self.initialized = True
         self._children = []
 
@@ -124,6 +131,8 @@ class State:
 
         _post.finalize()
         self.initialized = False
+
+        os.chdir(self._original_dir)
 
     def __del__(self):
         self.logger.debug(f"Deleting state {self!r}")

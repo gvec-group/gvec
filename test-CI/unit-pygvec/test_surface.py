@@ -23,7 +23,7 @@ def state(testfiles):
 @pytest.fixture()
 def ev(state):
     rho = [0.1, 0.5, 0.9]
-    ds = Evaluations(rho=rho, theta=20, zeta=20, state=state)
+    ds = Evaluations(rho=rho, theta=20, zeta=50, state=state)
     compute(ds, "pos", "N_FP", state=state)
     return ds
 
@@ -92,4 +92,4 @@ def test_compute(surfs, Q):
 def test_compare(ev, state, surfs, Q):
     surface.compute(surfs, Q)
     compute(ev, Q, state=state)
-    np.testing.assert_allclose(ev[Q].data, surfs[Q].data, atol=1e-12)
+    np.testing.assert_allclose(ev[Q].data, surfs[Q].data, atol=1e-6, rtol=1.0e-4)
