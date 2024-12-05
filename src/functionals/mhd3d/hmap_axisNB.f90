@@ -75,7 +75,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
   TYPE(t_hmap_axisNB_aux)      :: aux !! container for preevaluations
-  CLASS(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
+  TYPE(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
  
 
@@ -118,10 +118,10 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_axisNB_init( sf )
 ! MODULES
-USE MODgvec_ReadInTools, ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
-USE MODgvec_fbase,ONLY:fbase_new
-USE MODgvec_io_netcdf,ONLY:ncfile_init
-
+USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
+USE MODgvec_fbase      ,ONLY: fbase_new
+USE MODgvec_io_netcdf  ,ONLY: ncfile_init
+USE MODgvec_MPI        ,ONLY: par_BCast,par_barrier
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -134,49 +134,59 @@ IMPLICIT NONE
   INTEGER :: nvisu,error_nfp
   REAL(wp),ALLOCATABLE :: cosz(:),sinz(:)
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...'
+  CALL par_Barrier(beforeScreenOut='INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...')
 
-
-  ! read axis from netcdf
   sf%ncfile=GETSTR("hmap_ncfile")
-  CALL ncfile_init(sf%nc,sf%ncfile,"r") 
-  CALL ReadNETCDF(sf)
+  IF(MPIroot)THEN
+    ! read axis from netcdf
+    CALL ncfile_init(sf%nc,sf%ncfile,"r") 
+    CALL ReadNETCDF(sf)
  
 
-  sf%sgn_rot=1 
-  IF(sf%nfp.GT.2)THEN !no need to check for nfp=1 and nfp=2 is either a positive or negative rotation by pi
-    IF(SUM((sf%xyz(:,1+sf%nzeta) -  rodrigues(sf%xyz(:,1),TWOPI/REAL(sf%nfp,wp)))**2).LT.1.0e-12)THEN
-       sf%sgn_rot=1
-    ELSEIF(SUM((sf%xyz(:,1+sf%nzeta) -  rodrigues(sf%xyz(:,1),-TWOPI/REAL(sf%nfp,wp)))**2).LT.1.0e-12)THEN
-       sf%sgn_rot=-1
-    ELSE
-      CALL abort(__STAMP__, &
-         'problem with check of field period rotation: point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.')
+    sf%sgn_rot=1 
+    IF(sf%nfp.GT.2)THEN !no need to check for nfp=1 and nfp=2 is either a positive or negative rotation by pi
+      IF(SUM((sf%xyz(:,1+sf%nzeta) -  rodrigues(sf%xyz(:,1),TWOPI/REAL(sf%nfp,wp)))**2).LT.1.0e-12)THEN
+         sf%sgn_rot=1
+      ELSEIF(SUM((sf%xyz(:,1+sf%nzeta) -  rodrigues(sf%xyz(:,1),-TWOPI/REAL(sf%nfp,wp)))**2).LT.1.0e-12)THEN
+         sf%sgn_rot=-1
+      ELSE
+        CALL abort(__STAMP__, &
+           'problem with check of field period rotation: point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.')
+      END IF
     END IF
-  END IF
-  WRITE(UNIT_stdOut,'(4X,A,I2)')'INFO: sign of the rotation from zeta=0 to zeta=2pi/nfp is: ',sf%sgn_rot
+    WRITE(UNIT_stdOut,'(4X,A,I2)')'INFO: sign of the rotation from zeta=0 to zeta=2pi/nfp is: ',sf%sgn_rot
 
-  sf%n_max=(sf%nzeta-1)/2 ! maximum mode number on a field period
+    sf%n_max=(sf%nzeta-1)/2 ! maximum mode number on a field period
 
-  WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(1,:)*sf%Bxyz(1,:)+sf%Nxyz(2,:)*sf%Bxyz(2,:)+sf%Nxyz(3,:)*sf%Bxyz(3,:)))
-
-  ALLOCATE(cosz(sf%nzeta*sf%nfp),sinz(sf%nzeta*sf%nfp))
-  !build cos(zeta),sin(zeta) on full torus
-  DO i=1,sf%nfp
-    cosz(sf%nzeta*(i-1)+1:sf%nzeta*i)=COS(sf%zeta(1:sf%nzeta)+TWOPI*(REAL(i-1,wp)/REAL(sf%nfp,wp)))
-    sinz(sf%nzeta*(i-1)+1:sf%nzeta*i)=SIN(sf%zeta(1:sf%nzeta)+TWOPI*(REAL(i-1,wp)/REAL(sf%nfp,wp)))
-  END DO
+    WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(1,:)*sf%Bxyz(1,:)+sf%Nxyz(2,:)*sf%Bxyz(2,:)+sf%Nxyz(3,:)*sf%Bxyz(3,:)))
+  
+  END IF !MPIroot
+  CALL par_BCast(sf%nzeta,0)
+  CALL par_BCast(sf%nfp,0)
+  CALL par_BCast(sf%n_max,0)
+  CALL par_Bcast(sf%sgn_rot,0)
+  IF(.NOT.MPIroot) CALL allocate_readin_vars(sf)
+  CALL par_Bcast(sf%zeta,0)  
+  CALL par_Bcast(sf%xyz,0)
+  CALL par_Bcast(sf%Nxyz,0)
+  CALL par_Bcast(sf%Bxyz,0)
   !Fourier 1D base on one field period for "hat" coordinates
   CALL fbase_new(sf%fb_hat,(/0,sf%n_max/),(/1,sf%nzeta/),sf%nfp,"_sincos_",.FALSE.)
   ALLOCATE(sf%xyz_hat_modes( 3,sf%fb_hat%modes),&
            sf%Nxyz_hat_modes(3,sf%fb_hat%modes),&
            sf%Bxyz_hat_modes(3,sf%fb_hat%modes))
-  sf%xyz_hat_modes =transform_to_hat(sf%xyz, "xyz to xyzhat"  )
-  sf%Nxyz_hat_modes=transform_to_hat(sf%Nxyz,"Nxyz to Nxyzhat")
-  sf%Bxyz_hat_modes=transform_to_hat(sf%Bxyz,"Bxyz to Bxyzhat")
-  DEALLOCATE(cosz,sinz)
-
   IF(MPIroot)THEN
+    ALLOCATE(cosz(sf%nzeta*sf%nfp),sinz(sf%nzeta*sf%nfp))
+    !build cos(zeta),sin(zeta) on full torus
+    DO i=1,sf%nfp
+      cosz(sf%nzeta*(i-1)+1:sf%nzeta*i)=COS(sf%zeta(1:sf%nzeta)+TWOPI*(REAL(i-1,wp)/REAL(sf%nfp,wp)))
+      sinz(sf%nzeta*(i-1)+1:sf%nzeta*i)=SIN(sf%zeta(1:sf%nzeta)+TWOPI*(REAL(i-1,wp)/REAL(sf%nfp,wp)))
+    END DO
+    sf%xyz_hat_modes =transform_to_hat(sf%xyz, "xyz to xyzhat"  )
+    sf%Nxyz_hat_modes=transform_to_hat(sf%Nxyz,"Nxyz to Nxyzhat")
+    sf%Bxyz_hat_modes=transform_to_hat(sf%Bxyz,"Bxyz to Bxyzhat")
+    DEALLOCATE(cosz,sinz)
+
     nvisu=GETINT("hmap_nvisu",2*(sf%n_max*sf%nfp+1)) 
 
     IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
@@ -186,9 +196,14 @@ IMPLICIT NONE
        CALL abort(__STAMP__, &
           "hmap_axisNB check Field Periodicity failed!")
   END IF !MPIroot
+
+  CALL par_BCast(sf%xyz_hat_modes,0)
+  CALL par_BCast(sf%Nxyz_hat_modes,0)
+  CALL par_BCast(sf%Bxyz_hat_modes,0)
+
   sf%aux%nzeta=0
   sf%initialized=.TRUE.
-  SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
+  CALL par_barrier(afterScreenOut='...DONE')
 
   IF(.NOT.test_called) CALL hmap_axisNB_test(sf)
 
@@ -256,9 +271,14 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
   CALL sf%free_aux()
-  IF(ALLOCATED(sf%zeta))THEN
-    DEALLOCATE(sf%zeta,sf%xyz,sf%Nxyz,sf%Bxyz,sf%xyz_hat_modes,sf%Nxyz_hat_modes,sf%Bxyz_hat_modes)
-  END IF
+  
+  SDEALLOCATE(sf%zeta)
+  SDEALLOCATE(sf%xyz)
+  SDEALLOCATE(sf%Nxyz)
+  SDEALLOCATE(sf%Bxyz)
+  SDEALLOCATE(sf%xyz_hat_modes)
+  SDEALLOCATE(sf%Nxyz_hat_modes)
+  SDEALLOCATE(sf%Bxyz_hat_modes)
   IF(ALLOCATED(sf%fb_hat))THEN
     CALL sf%fb_hat%free()
     DEALLOCATE(sf%fb_hat)
@@ -409,33 +429,40 @@ SUBROUTINE ReadNETCDF(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%nc%fileName)//'" in NETCDF format ...'
-
-
+  IF(.NOT.MPIroot)RETURN
+  WRITE(UNIT_stdOut,'(4X,A)')'READ AXIS FILE "'//TRIM(sf%nc%fileName)//'" in NETCDF format ...'
 
   CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
   !sf%nzeta=sf%nc%get_dimension("axis/nzeta")
   CALL sf%nc%get_scalar("axis/nzeta",intout=sf%nzeta)
   
-  ALLOCATE(sf%zeta(sf%nzeta))
+  CALL allocate_readin_vars(sf)
   CALL sf%nc%get_array("axis/zeta(:)",realout_1d=sf%zeta)
 
-  ALLOCATE(sf%xyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/xyz(::)",realout_2d=sf%xyz)
   
-  ALLOCATE(sf%Nxyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/Nxyz(::)",realout_2d=sf%Nxyz)
   
-  ALLOCATE(sf%Bxyz(3,sf%nfp*sf%nzeta))
   CALL sf%nc%get_array("axis/Bxyz(::)",realout_2d=sf%Bxyz)
   !SWRITE(*,*)'DEBUG,zeta(1)',sf%zeta(1)
   !SWRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
   !SWRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
   !SWRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
   CALL sf%nc%closefile()
-  SWRITE(*,'(4X,A)')'...DONE.'
+  WRITE(*,'(4X,A)')'...DONE.'
 
 END SUBROUTINE ReadNETCDF
+
+SUBROUTINE allocate_readin_vars(sf)
+  IMPLICIT NONE
+  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
+  IF(sf%nzeta.EQ.0) CALL abort(__STAMP__, &
+       'sf%nzeta must be set before allocation')
+  ALLOCATE(sf%zeta(sf%nzeta))
+  ALLOCATE(sf%xyz(3,sf%nfp*sf%nzeta))
+  ALLOCATE(sf%Nxyz(3,sf%nfp*sf%nzeta))
+  ALLOCATE(sf%Bxyz(3,sf%nfp*sf%nzeta))
+END SUBROUTINE allocate_readin_vars
 
 !===================================================================================================================================
 !> Check that the TNB frame  really has the field periodicity of NFP: 

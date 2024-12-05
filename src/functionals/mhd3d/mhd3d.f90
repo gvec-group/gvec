@@ -178,11 +178,6 @@ SUBROUTINE InitMHD3D(sf)
       which_hmap=1 !hmap_RZ
       Phi_edge = Phi(nFluxVMEC)
     END IF
-    CALL par_BCast(proposal_mn_max,0)
-    CALL par_BCast(proposal_X1_sin_cos,0)
-    CALL par_BCast(proposal_X2_sin_cos,0)
-    CALL par_BCast(proposal_LA_sin_cos,0)
-    CALL par_BCast(nfp_loc,0)
     CALL par_BCast(which_hmap,0)
     CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
@@ -193,16 +188,25 @@ SUBROUTINE InitMHD3D(sf)
     !do nothing
   CASE(1)
     boundary_filename=GETSTR("boundary_filename")
-    CALL boundaryFromFile_new(BFF,boundary_filename)
-    IF(nfp_loc.NE.BFF%nfp) WRITE(UNIT_stdOut,'(6X,A,I4)')'INFO: changed to boundary file NFP= ',BFF%nfp
-    nfp_loc=BFF%nfp
-    proposal_mn_max(:)=(/BFF%m_max,BFF%n_max/)
-    IF(BFF%lasym.EQ.1)THEN !asymmetric
-      proposal_X1_sin_cos="_sincos_"
-      proposal_X2_sin_cos="_sincos_"
-      proposal_LA_sin_cos="_sincos_"
+    scale_minor_radius=GETREAL("scale_minor_radius",Proposal=1.0_wp)
+    IF(MPIroot)THEN
+      CALL boundaryFromFile_new(BFF,boundary_filename)
+      IF(nfp_loc.NE.BFF%nfp) WRITE(UNIT_stdOut,'(6X,A,I4)')'INFO: changed to boundary file NFP= ',BFF%nfp
+      nfp_loc=BFF%nfp
+      proposal_mn_max(:)=(/BFF%m_max,BFF%n_max/)
+      IF(BFF%lasym.EQ.1)THEN !asymmetric
+        proposal_X1_sin_cos="_sincos_"
+        proposal_X2_sin_cos="_sincos_"
+        proposal_LA_sin_cos="_sincos_"
+      END IF
     END IF
   END SELECT
+  CALL par_BCast(proposal_mn_max,0)
+  CALL par_BCast(proposal_X1_sin_cos,0)
+  CALL par_BCast(proposal_X2_sin_cos,0)
+  CALL par_BCast(proposal_LA_sin_cos,0)
+  CALL par_BCast(nfp_loc,0)
+
 
   init_average_axis= GETLOGICAL("init_average_axis",Proposal=.FALSE.)
   IF(init_average_axis)THEN
@@ -351,7 +355,6 @@ SUBROUTINE InitMHD3D(sf)
         END ASSOCIATE
       END IF !init_BC
     ELSE !getBoundaryFromFile
-      scale_minor_radius=GETREAL("scale_minor_radius",Proposal=1.0_wp)
       CALL BFF%convert_to_modes(X1_base%f,X2_base%f,X1_b,X2_b,scale_minor_radius)
       CALL BFF%free()
     END IF
@@ -374,9 +377,9 @@ SUBROUTINE InitMHD3D(sf)
     X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
       X1_BC_type(BC_AXIS,iMode)=-1*MIN(X1_base%s%deg+1,X1_base%f%Xmn(1,iMode))
-      IF((nElems.EQ.1).AND.(X1_base%f%Xmn(1,iMode).GT.X1_base%s%deg)) THEN
+      IF(MPIroot.AND.(nElems.EQ.1).AND.(X1_base%f%Xmn(1,iMode).GT.X1_base%s%deg)) THEN
         IF(X1_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
-          SWRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X1_b(m=',&
+           WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X1_b(m=',&
                                           X1_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
       END IF
     END IF
@@ -390,9 +393,9 @@ SUBROUTINE InitMHD3D(sf)
     X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
     IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
       X2_BC_type(BC_AXIS,iMode)=-1*MIN(X2_base%s%deg+1,X2_base%f%Xmn(1,iMode))
-      IF((nElems.EQ.1).AND.(X2_base%f%Xmn(1,iMode).GT.X2_base%s%deg)) THEN
+      IF(MPIroot.AND.(nElems.EQ.1).AND.(X2_base%f%Xmn(1,iMode).GT.X2_base%s%deg)) THEN
         IF(X2_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
-          SWRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X2_b(m=',&
+          WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X2_b(m=',&
                                           X2_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
       END IF
     END IF

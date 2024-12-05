@@ -199,7 +199,7 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-  CLASS(t_fbase), INTENT(IN):: x1_fbase_in,x2_fbase_in
+  TYPE(t_fbase), INTENT(IN):: x1_fbase_in,x2_fbase_in
   REAL(wp), INTENT(IN)  :: scale_minor_radius 
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
@@ -207,7 +207,7 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor
   CLASS(t_boundaryFromFile), INTENT(INOUT) :: sf !! self
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
-  CLASS(t_fBase),ALLOCATABLE        :: X_fbase,Y_fbase
+  TYPE(t_fBase),ALLOCATABLE        :: X_fbase,Y_fbase
   INTEGER                           :: i,nIP,mIP,mn_max_pts(2)
   REAL(wp)                          :: xn(2,sf%ntheta*sf%nzeta)
   REAL(wp),ALLOCATABLE              :: xydofs(:,:),X12dofs(:,:)
