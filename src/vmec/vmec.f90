@@ -480,6 +480,7 @@ IF(.NOT.MPIroot) RETURN
   SDEALLOCATE(pres_spl)
   SDEALLOCATE(Phi_spl)
   SDEALLOCATE(chi_spl)
+  SDEALLOCATE(iota_spl)
 
 END SUBROUTINE FinalizeVMEC
 
