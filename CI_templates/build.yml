@@ -27,6 +27,7 @@ build$[[ inputs.env ]]$[[ inputs.build-postfix ]]:
   extends:
     - $[[ inputs.env ]]
     - .before_script_modules
+    - .vars_dirs_artifacts
     - .script_build
     - $[[ inputs.cmake-opts ]]
     - $[[ inputs.vars ]]

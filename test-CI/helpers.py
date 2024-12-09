@@ -171,7 +171,7 @@ def assert_empty_stderr(path: str | Path = "stderr.txt"):
 
 
 def assert_stdout_finished(
-    path: str | Path = "stdout.txt", message="SUCESSFULLY FINISHED"
+    path: str | Path = "stdout.txt", message="SUCCESSFULLY FINISHED"
 ):
     """
     Asserts that the specified file (default `stdout.txt`) ends with a message in the second to last line.
@@ -275,7 +275,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                         line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
                         occurrences[key] += 1
             target_file.write(line)
-        # add key,value pair if not existing in parameterfile.
+        # add key,value pair if not existing in parameter-file.
         for key, v in occurrences.items():
             if v == 0:
                 if not (

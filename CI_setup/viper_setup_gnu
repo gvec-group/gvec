@@ -2,23 +2,23 @@
 
 # ===========================================
 # use this setup on raven with the command:
-# > . CI_setup/raven_setup_intel
+# > . CI_setup/viper_setup_intel
 #
-# LAST MODIFIED: 2024-02-19
+# LAST MODIFIED: 2024-10-14
 # ===========================================
 
 module purge
 module load git
 module load git-lfs
-module load cmake/3.26
-module load intel/21.7.1 
-module load mkl/2021.4
-module load hdf5-serial/1.14.1
-module load netcdf-serial/4.9.2
+module load cmake
+module load gcc
+module load mkl
+module load hdf5-serial
+module load netcdf-serial
 module load ftimings
 module load anaconda/3/2023.03 #for pytest
 
 module list
-export FC=`which ifort`
-export CC=`which icc`
-export CXX=`which icc`
+export FC=`which gfortran`
+export CC=`which gcc`
+export CXX=`which g++`

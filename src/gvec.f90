@@ -36,6 +36,7 @@ IMPLICIT NONE
 INTEGER                 :: nArgs
 CHARACTER(LEN=255)      :: Parameterfile,testfile
 INTEGER                 :: which_functional
+INTEGER                 :: TimeArray(8)
 REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
 !===================================================================================================================================
@@ -52,7 +53,11 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     STOP 'parameterfile not given, usage: "./executable parameter.ini"'
   END IF
     
-  
+  SWRITE(Unit_stdOut,fmt_sep)
+  CALL DATE_AND_TIME(values=TimeArray) ! get System time
+  SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
+    '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
+
   !header
   SWRITE(Unit_stdOut,fmt_sep)
   SWRITE(Unit_stdOut,'(18(("*",A128,2X,"*",:,"\n")))')&
@@ -144,6 +149,10 @@ CLASS(t_functional),ALLOCATABLE   :: functional
     CLOSE(testUnit)
   END IF !testlevel
   EndTimeTotal=GetTime()
+  SWRITE(Unit_stdOut,fmt_sep)
+  CALL DATE_AND_TIME(values=TimeArray) ! get System time
+  SWRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
+    '%%% Sys date : ',timeArray(1:3),timeArray(5:7)
   SWRITE(Unit_stdOut,fmt_sep)
   IF(n_warnings_occured.EQ.0)THEN
     SWRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC SUCESSFULLY FINISHED! [',EndTimeTotal-StartTimeTotal,' sec ]'

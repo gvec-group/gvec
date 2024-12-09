@@ -51,6 +51,10 @@ variables:
   PYTEST_MARKER_OPTS: "example"
   PYTEST_KEY_OPTS: ""               # default value
   PYTEST_EXTRA_OPTS: ""
+  PRIVATE_RUNNER_PIPELINE:
+   value: "true"
+   options: ["true", "false"]
+   description: "''true'' to include the SLURM jobs in the pipeline, ''false'' to exclude them from the pipeline"
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
@@ -98,7 +102,7 @@ include:
   - local: CI_templates/scripts.yml
 
   # ============================
-  # environment jobs
+  # stage env jobs
   # ============================
   - local: CI_templates/env.yml
     inputs:
@@ -133,8 +137,35 @@ include:
     inputs:
       env: .mpcdfci_gcc_openmpi_latest
 
+  # Private runners
+  # ---------------
+
+  # Raven private runner (Intel)
+  - local: CI_templates/env.yml
+    inputs:
+      env: .raven_intel
+      rules: .rules_private_runner_minimal
+
+  # Raven private runner (Gnu)
+  - local: CI_templates/env.yml
+    inputs:
+      env: .raven_gcc
+      rules: .rules_private_runner
+
+  # Raven private runner (Nvidia)
+  - local: CI_templates/env.yml
+    inputs:
+      env: .raven_nvhpc
+      rules: .rules_private_runner
+
+  # Viper private runner (Gnu)
+  - local: CI_templates/env.yml
+    inputs:
+      env: .viper_gcc
+      rules: .rules_private_runner_minimal
+
   # ============================
-  # build jobs
+  # stage build jobs
   # ============================
   - local: CI_templates/build.yml
     inputs:
@@ -202,21 +233,21 @@ include:
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
 
-  # release tag
+  # reference tag
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_intel2023
       build-postfix: _tag
       vars: .vars_matrix_build_tag
+      rules: .rules_minimal
 
-  # release tag
+  # reference tag
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_intel_latest
       build-postfix: _tag
       vars: .vars_matrix_build_tag
-
-# This FAILS before branch develop_mpi_par IS MERGED to branch develop!
+      rules: .rules_minimal
 
   # release tag + MPI
   - local: CI_templates/build.yml
@@ -225,9 +256,61 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_mpi_build_tag
       cmake-opts: .cmake_mpi_opts
+      rules: .rules_minimal
+
+  # Private runners
+  # ---------------
+
+  # Raven private runner (Intel)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .raven_intel
+      vars: .vars_raven_build
+      rules: .rules_private_runner_minimal
+
+  # Raven private runner (Gnu)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .raven_gcc
+      vars: .vars_raven_build
+      rules: .rules_private_runner
+
+  # Raven private runner (Nvidia)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .raven_nvhpc
+      vars: .vars_raven_build
+      rules: .rules_private_runner
+
+  # Viper private runner (Gnu)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .viper_gcc
+      vars: .vars_viper_build
+      rules: .rules_private_runner_minimal
+
+  # reference tag
+  # Raven private runner (Intel)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .raven_intel
+      build-postfix: _tag
+      vars: .vars_raven_build_tag
+      rules: .rules_private_runner_minimal
+
+  # FAILS until `feature_salloc` is merged into `develop` due to missing `CMakeLists.txt` Viper configuration
+  # reference tag
+  # Viper private runner (Gnu)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .viper_gcc
+      build-postfix: _tag
+      vars: .vars_viper_build_tag
+      rules: .rules_private_runner_minimal
+
 
   # ============================
-  # run jobs
+  # stage run jobs
   # ============================
   - local: CI_templates/run.yml
     inputs:
@@ -296,23 +379,23 @@ include:
       env: .mpcdfci_gcc_openmpi_latest
       vars: .vars_matrix_mpi_run
 
-  # release tag
+  # reference tag
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_intel2023
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+      rules: .rules_minimal
 
-  # release tag
+  # reference tag
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_intel_latest
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
-
-# This FAILS before branch develop_mpi_par IS MERGED to branch develop!
+      rules: .rules_minimal
 
   # release tag + MPI
   - local: CI_templates/run.yml
@@ -321,16 +404,43 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_mpi_run_tag
+      rules: .rules_minimal
+
+  # Private runners
+  # ---------------
+
+  # Raven private runner - login nodes (Intel), left here for reference, should never be executed
+  - local: CI_templates/run.yml
+    inputs:
+      env: .raven_intel
+      vars: .vars_raven_run
+      rules: .rules_never
+
+  # Raven private runner (Intel) + srun
+  - local: CI_templates/run.yml
+    inputs:
+      env: .raven_intel
+      vars: .vars_raven_run_slurm
+      slurm-postfix: _slurm
+      rules: .rules_private_runner_minimal
+
+  # Viper private runner (Gnu) + srun
+  - local: CI_templates/run.yml
+    inputs:
+      env: .viper_gcc
+      vars: .vars_viper_run_slurm
+      slurm-postfix: _slurm
+      rules: .rules_private_runner_minimal
 
 
   # ============================
-  # regression jobs
+  # stage regression jobs
   # ============================
   # defined explicitly, also containing rules
   - local: CI_templates/regression.yml
 
   # ============================
-  # postprocessing jobs
+  # stage postprocessing jobs
   # ============================
   - local: CI_templates/postprocessing.yml
     inputs:
@@ -351,7 +461,7 @@ include:
       env: .mpcdfci_nvhpc23
 
   # ============================
-  # postprocessing converter jobs
+  # stage converter jobs: postprocessing
   # ============================
   - local: CI_templates/converters.yml
     inputs:
@@ -375,8 +485,9 @@ include:
       env: .mpcdfci_nvhpc23
       build-postfix: _only_converter
 
+
   # ============================
-  # publish jobs
+  # stage publish jobs
   # ============================
   - local: CI_templates/pages.yml
 
@@ -435,6 +546,34 @@ include:
       when: on_success
     - when: never
 
+.rules_private_runner:
+  rules:
+    # disable this job for non-protected branches
+    - if: $CI_COMMIT_REF_PROTECTED == "false"
+      when: never
+    # disable this job for´ gitlab-ci branches or if MINIMAL_PIPELINE="true" or $PRIVATE_RUNNER_PIPELINE="false"
+    - if: $PRIVATE_RUNNER_PIPELINE == "false"
+      when: never
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+      when: never
+    - when: on_success
+
+.rules_private_runner_minimal:
+  rules:
+    # disable this job for non-protected branches
+    - if: $CI_COMMIT_REF_PROTECTED == "false"
+      when: never
+    # disable this job only for $PRIVATE_RUNNER_PIPELINE="false"
+    - if: $PRIVATE_RUNNER_PIPELINE == "false"
+      when: never
+    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+      variables:
+        PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
+        PYTEST_MARKER_OPTS: "shortrun"
+      when: on_success
+    - when: on_success
+
 .rules_pages:
   rules:
     - if: $CI_COMMIT_REF_NAME == "develop" || $PAGES_PIPELINE == "true"
@@ -442,6 +581,15 @@ include:
     # allow manual triggering for pipelines where pages didn't run
     - when: manual
       allow_failure: true # workaround to disable reporting the pipeline as "Blocked"
+
+.rules_never:
+  rules:
+    - when: never
+
+.vars_dirs_artifacts:
+  variables:
+    BUILDNAME: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
 
 # ____________________________
 # MPCDF new Docker images
@@ -471,7 +619,7 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
-# MPCDF Docker image intel-impi:latest
+# MPCDF Docker image intel-impi:2023_2021
 .mpcdfci_intel2023_impi:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x-impi_2021_9:latest
   tags:
@@ -519,7 +667,7 @@ include:
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
     OMP_NUM_THR: "2"
 
-# MPCDF Docker image intel_2023_1_0_x:latest
+# MPCDF Docker image nvhpcsdk_23:latest
 .mpcdfci_nvhpc23:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_23:latest
   tags:
@@ -531,6 +679,90 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
+# hooks section must be present in all private runner jobs (all stages)
+.hooks_mpcdf_runner:
+  hooks:
+    pre_get_sources_script:
+      - module load git; module load git-lfs
+      - git lfs install
+
+# ____________________________
+# MPCDF Raven GVEC private runner templates
+
+# Raven GVEC private runner tags
+.raven:
+  tags:
+    - raven
+
+.raven_intel:
+  variables:
+    CMAKE_HOSTNAME: "raven"
+    CURR_CMP: "intel"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4" #"20"
+  extends:
+    - .raven
+    - .hooks_mpcdf_runner
+
+.raven_gcc:
+  variables:
+    CMAKE_HOSTNAME: "raven"
+    CURR_CMP: "gnu"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
+  extends:
+    - .raven
+    - .hooks_mpcdf_runner
+
+.raven_nvhpc:
+  variables:
+    CMAKE_HOSTNAME: "raven"
+    CURR_CMP: "nvidia"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4"
+  extends:
+    - .raven
+    - .hooks_mpcdf_runner
+
+# SLURM variables for Raven (debug queue)
+.vars_raven_slurm:
+  variables:
+    SLURM_NAME: ci-raven_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}     #_${CI_JOB_ID}
+    SLURM_TIME: "10" #minutes; the format "00:10:00" does not seem to work with SLURM here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_MEM: 10G
+    SLURM_NODES: 1
+    SLURM_CPUS_PER_TASK: 4
+    SLURM_TIMEOUT: "3600"  # wait 60 minutes before killing the srun job; should not outlive the CI pipeline
+    #SRUN_PRFX: ""
+
+# Viper GVEC private runner tags
+.viper:
+  tags:
+    - viper
+
+.viper_gcc:
+  variables:
+    CMAKE_HOSTNAME: "viper"
+    CURR_CMP: "gnu"
+    MPI_MODE: "mpiOFF"
+    MPI_RNKS_MODE: ""
+    OMP_NUM_THR: "4" #"20"
+  extends:
+    - .viper
+    - .hooks_mpcdf_runner
+
+# SLURM variables for Viper (debug queue)
+.vars_viper_slurm:
+  variables:
+    SLURM_NAME: ci-viper_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}
+    SLURM_TIME: "10" #minutes; the format "00:10:00" does not seem to work with SLURM here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_MEM: 10G
+    SLURM_NODES: 1
+    SLURM_CPUS_PER_TASK: 4
+    SLURM_TIMEOUT: "3600"  # wait 60 minutes before killing the srun job; should not outlive the CI pipeline
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build" 
 # =================================================================================================================================
@@ -573,6 +805,18 @@ include:
       - CMP_MODE: ["Debug", "Release"]
         OMP_MODE: ["ompOFF", "ompON"]
 
+# Raven private runner
+.vars_raven_build:
+  variables:
+    CMP_MODE: "Release"
+    OMP_MODE: "ompON"
+
+# Viper private runner
+.vars_viper_build:
+  variables:
+    CMP_MODE: "Release"
+    OMP_MODE: "ompON"
+
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
@@ -584,6 +828,18 @@ include:
 # MPI jobs
 .vars_matrix_mpi_build_tag:
   extends: .vars_matrix_mpi_build
+  variables:
+    HASH_TAG: ${HASH_TAG_REFERENCE}
+
+# Raven private runner
+.vars_raven_build_tag:
+  extends: .vars_raven_build
+  variables:
+    HASH_TAG: ${HASH_TAG_REFERENCE}
+
+# Viper private runner
+.vars_viper_build_tag:
+  extends: .vars_viper_build
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
 
@@ -624,6 +880,30 @@ include:
         OMP_MODE: ["ompOFF","ompON"]
         MPI_RNKS: ["1","2"]
 
+# Raven private runner (vars for runs on login nodes)
+.vars_raven_run:   # to be extended in the `regression` stage (allow_failure can NOT be in this template)
+  extends: .vars_raven_build
+
+# Raven private runner (runs on SLURM queues via srun)
+.vars_raven_run_slurm:
+  extends:
+    - .vars_raven_slurm
+    - .vars_raven_build
+  variables:
+    OMP_NUM_THR: "72"
+
+# Viper private runner (login nodes)
+.vars_viper_run:
+  extends: .vars_viper_build
+
+# Raven private runner (runs on SLURM queues via srun)
+.vars_viper_run_slurm:
+  extends:
+    - .vars_viper_slurm
+    - .vars_viper_build
+  variables:
+    OMP_NUM_THR: "72"
+
 # ____________________________
 # ${HASH_TAG} branch (release version)
 
@@ -634,6 +914,11 @@ include:
 
 .vars_matrix_mpi_run_tag:
   extends: .vars_matrix_mpi_run
+  variables:
+    HASH_TAG: ${HASH_TAG_REFERENCE}
+
+.vars_matrix_run_nvhpc_tag:
+  extends: .vars_matrix_run_nvhpc
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
 

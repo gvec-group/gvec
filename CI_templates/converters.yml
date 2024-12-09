@@ -23,6 +23,7 @@ conv$[[ inputs.env ]]:
     - !reference [".before_script_exportvars", "before_script"]
   extends:
     - $[[ inputs.env ]]
+    - .vars_dirs_artifacts
     - .script_conv
     - .vars_matrix_conv  # matrix of variables
     - $[[ inputs.rules ]]
