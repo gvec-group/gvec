@@ -306,7 +306,7 @@ include:
       env: .viper_gcc
       build-postfix: _tag
       vars: .vars_viper_build_tag
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
 
   # ============================
@@ -397,7 +397,7 @@ include:
       vars: .vars_matrix_run_tag
       rules: .rules_minimal
 
-  # release tag + MPI
+  # reference tag + MPI
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_intel_impi_latest
@@ -432,6 +432,14 @@ include:
       slurm-postfix: _slurm
       rules: .rules_private_runner_minimal
 
+  # Viper private runner (debugrun Gnu) + srun
+  - local: CI_templates/run.yml
+    inputs:
+      env: .viper_gcc
+      vars: .vars_viper_run_debugrun_slurm
+      run-postfix: _debugrun
+      slurm-postfix: _slurm
+      rules: .rules_private_runner_minimal
 
   # ============================
   # stage regression jobs
@@ -568,9 +576,6 @@ include:
       when: never
     # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
     - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
-      variables:
-        PYTEST_KEY_OPTS: "(not highres) and (not _restart)"
-        PYTEST_MARKER_OPTS: "shortrun"
       when: on_success
     - when: on_success
 
@@ -695,47 +700,47 @@ include:
     - raven
 
 .raven_intel:
+  extends:
+    - .raven
+    - .hooks_mpcdf_runner
   variables:
     CMAKE_HOSTNAME: "raven"
     CURR_CMP: "intel"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4" #"20"
+
+.raven_gcc:
   extends:
     - .raven
     - .hooks_mpcdf_runner
-
-.raven_gcc:
   variables:
     CMAKE_HOSTNAME: "raven"
     CURR_CMP: "gnu"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
+
+.raven_nvhpc:
   extends:
     - .raven
     - .hooks_mpcdf_runner
-
-.raven_nvhpc:
   variables:
     CMAKE_HOSTNAME: "raven"
     CURR_CMP: "nvidia"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
-  extends:
-    - .raven
-    - .hooks_mpcdf_runner
 
 # SLURM variables for Raven (debug queue)
 .vars_raven_slurm:
   variables:
     SLURM_NAME: ci-raven_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}     #_${CI_JOB_ID}
-    SLURM_TIME: "10" #minutes; the format "00:10:00" does not seem to work with SLURM here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_TIME: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
     SLURM_MEM: 10G
     SLURM_NODES: 1
     SLURM_CPUS_PER_TASK: 4
-    SLURM_TIMEOUT: "3600"  # wait 60 minutes before killing the srun job; should not outlive the CI pipeline
+    SLURM_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline
     #SRUN_PRFX: ""
 
 # Viper GVEC private runner tags
@@ -744,25 +749,26 @@ include:
     - viper
 
 .viper_gcc:
+  extends:
+    - .viper
+    - .hooks_mpcdf_runner
   variables:
     CMAKE_HOSTNAME: "viper"
     CURR_CMP: "gnu"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4" #"20"
-  extends:
-    - .viper
-    - .hooks_mpcdf_runner
 
 # SLURM variables for Viper (debug queue)
 .vars_viper_slurm:
   variables:
     SLURM_NAME: ci-viper_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}
-    SLURM_TIME: "10" #minutes; the format "00:10:00" does not seem to work with SLURM here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_TIME: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
     SLURM_MEM: 10G
     SLURM_NODES: 1
     SLURM_CPUS_PER_TASK: 4
-    SLURM_TIMEOUT: "3600"  # wait 60 minutes before killing the srun job; should not outlive the CI pipeline
+    SLURM_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline
+
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build" 
 # =================================================================================================================================
@@ -892,10 +898,6 @@ include:
   variables:
     OMP_NUM_THR: "72"
 
-# Viper private runner (login nodes)
-.vars_viper_run:
-  extends: .vars_viper_build
-
 # Raven private runner (runs on SLURM queues via srun)
 .vars_viper_run_slurm:
   extends:
@@ -903,6 +905,13 @@ include:
     - .vars_viper_build
   variables:
     OMP_NUM_THR: "72"
+
+.vars_viper_run_debugrun_slurm:
+  extends: .vars_viper_run_slurm
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec)"
+
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
