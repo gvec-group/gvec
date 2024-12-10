@@ -19,145 +19,55 @@
 !!
 !===================================================================================================================================
 PROGRAM GVEC
-USE_MPI
-USE MODgvec_MPI        ,ONLY : par_Init, par_Finalize,par_bcast
-USE MODgvec_Globals    ,ONLY : wp,fmt_sep,n_warnings_occured,testdbg,testlevel,testUnit,nfailedMsg,UNIT_stdOut,GETFREEUNIT
-USE MODgvec_Globals    ,ONLY : GetTime,MPIRoot,nRanks,myRank
-USE MODgvec_Analyze    ,ONLY : InitAnalyze,FinalizeAnalyze
-USE MODgvec_Output     ,ONLY : InitOutput,FinalizeOutput
-USE MODgvec_Restart    ,ONLY : InitRestart,FinalizeRestart
-USE MODgvec_ReadInTools,ONLY : FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
-USE MODgvec_Functional ,ONLY : t_functional, InitFunctional,FinalizeFunctional
-USE MODgvec_MHD3D_Vars ,ONLY : maxIter
-!$ USE omp_lib
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-!local variables
-INTEGER                 :: nArgs
-CHARACTER(LEN=255)      :: Parameterfile,testfile
-INTEGER                 :: which_functional
-REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
-CLASS(t_functional),ALLOCATABLE   :: functional
-!===================================================================================================================================
-  CALL par_Init()
-  __PERFINIT
-  __PERFON('main')
+  USE_MPI
+  USE MODgvec_Globals, ONLY : UNIT_stdOut,abort,MPIroot
+  USE MODgvec_MPI    ,ONLY  : par_Init,par_finalize
+  USE MODgvec_rungvec, ONLY : rungvec
+  USE MODgvec_cla
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  !local variables
+  CHARACTER(LEN=STRLEN)   :: Parameterfile=""
+  CHARACTER(LEN=STRLEN)   :: RestartFile=""
+  CHARACTER(LEN=STRLEN)   :: f_str
+  CHARACTER(LEN=24)       :: execname="gvec"
+  LOGICAL                 :: commandFailed
+  LOGICAL                 :: doRestart
+  INTEGER                 :: comm
+  !===================================================================================================================================
+  CALL par_Init() !USE MPI_COMM_WORLD
 
-
-  StartTimeTotal=GetTime()
-  nArgs=COMMAND_ARGUMENT_COUNT()
-  IF(nArgs.GE.1)THEN
-    CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
-  ELSE
-    STOP 'parameterfile not given, usage: "./executable parameter.ini"'
-  END IF
+  IF(MPIroot)THEN
+    !USING CLAF90 module to get command line arguments!
+    CALL cla_init()
     
-  
-  !header
-  SWRITE(Unit_stdOut,fmt_sep)
-  SWRITE(Unit_stdOut,'(18(("*",A128,2X,"*",:,"\n")))')&
- '  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '&
-,' - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - -  '&
-,'  - - - - - - - - - - GGGG::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - - CCCC::::::::::::C - - - '&
-,' - - - - - - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - -  '&
-,'  - - - - - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - - '&
-,' - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - -  '&
-,'  - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - - '&
-,' - - - - - - G:::::G - - - - - - - - -  V:::::V  - -  V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - -  '&
-,'  - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V - - V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - - '&
-,' - - - - - G:::::G -  G::::::::G - - -  V:::::V   V:::::V  - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - -  '&
-,'  - - - - G:::::G -  GGGGG::::G - - - - V:::::V V:::::V - - - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - - '&
-,' - - - - G:::::G - - -  G::::G - - - -  V:::::V:::::V  - - - - - E:::::E - - - - - - - - C:::::C - - - - - - - - - - - - - -  '&
-,'  - - -  G:::::G  - -  G::::G - - - - - V:::::::::V - - - - - - E:::::E - - - EEEEEE  -  C:::::C  - -  CCCCCC - - - - - - - - '&
-,' - - - - G::::::GGGGGGG::::G - - - - -  V:::::::V  - - - - - EEE:::::EEEEEEEEE::::E  - - C::::::CCCCCCC::::C - - - - - - - -  '&
-,'  - - - - G:::::::::::::::G - - - - - - V:::::V - - - - - - E::::::::::::::::::::E  - - - C:::::::::::::::C - - - - - - - - - '&
-,' - - - - - GG::::GGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - -  '&
-,'  - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - - '&
-,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
-  SWRITE(Unit_stdOut,fmt_sep)
-  !.only executes if compiled with OpenMP
-!$ SWRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
-!$ SWRITE(Unit_stdOut,'(132("="))')
-  !.only executes if compiled with MPI
-# if MPI
-  SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
-  SWRITE(Unit_stdOut,fmt_sep)
-# endif
-#include  "configuration-cmake.f90"
-  SWRITE(Unit_stdOut,fmt_sep)
+    CALL cla_posarg_register('parameterfile', &
+         ' path/filename of GVEC input parameter file [MANDATORY]',  cla_char,'') !    
+    CALL cla_posarg_register('statefile', &
+         'path/filename of a GVEC State. if provided, a restart from this State is done  [OPTIONAL, DEFAULT: None provided]',  cla_char,'') 
+    CALL cla_validate('gvec')
+    CALL cla_get('parameterfile',f_str)
+    parameterfile=TRIM(f_str)
+    CALL cla_get('statefile',f_str)
+    RestartFile=TRIM(f_str)
+    commandFailed=.FALSE.
+    IF((LEN(TRIM(parameterfile)).EQ.0))THEN
+      IF(.NOT.commandFailed) CALL cla_help(execname)
+      commandFailed=.TRUE.
+      SWRITE(UNIT_StdOut,*) " ==> input parameter filename is MANDATORY must be specified as first positional argument!!!"
+    END IF
+    dorestart=(LEN(TRIM(restartFile)).GT.0)
 
-  CALL FillStrings(ParameterFile) !< readin parameterfile, done on MPI root + Bcast
-
-  testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
-  testlevel=GETINT('testlevel',Proposal=-1)
-  IF(testlevel.GT.0)THEN
-    testUnit=GETFREEUNIT()
-    WRITE(testFile,'(A,I4.4,A)')"tests_",myRank,".out"
-    OPEN(UNIT     = testUnit    ,&
-         FILE     = testfile    ,&
-         STATUS   = 'REPLACE'   ,&
-         ACCESS   = 'SEQUENTIAL' ) 
+    IF(commandFailed) STOP " ...check your command line arguments!" 
+  END IF !MPIroot
+  IF(dorestart)THEN
+    CALL rungvec(parameterfile,restartfile_in=restartfile)
+  ELSE                                        
+    CALL rungvec(parameterfile)
   END IF
-  
-  !initialization phase
-  CALL InitRestart()
-  CALL InitOutput()
-  CALL InitAnalyze()
-  
-  which_functional=GETINT('which_functional', Proposal=1 )
-  CALL InitFunctional(functional,which_functional)
 
-  
-  CALL IgnoredStrings()
-  
-  CALL functional%InitSolution() 
-  StartTime=GetTime()
-  SWRITE(Unit_stdOut,'(A,F8.2,A)') ' INITIALIZATION FINISHED! [',StartTime-StartTimeTotal,' sec ]'
-  SWRITE(Unit_stdOut,fmt_sep)
-  
-  CALL functional%minimize()
-  EndTime=GetTime()
-  SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
-       (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
-
-  CALL FinalizeFunctional(functional)
- 
-  CALL FinalizeAnalyze()
-  CALL FinalizeOutput()
-  CALL FinalizeRestart()
-
-
-  ! do something
-  IF(testlevel.GT.0)THEN
-    SWRITE(UNIT_stdout,*)
-    SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"
-    SWRITE(UNIT_stdout,*)
-    n_warnings_occured=n_warnings_occured +nFailedMsg
-    IF(nFailedMsg.GT.0)THEN
-      SWRITE(UNIT_stdOut,'(A)')"!!!!!!!   SOME TEST(S) FAILED, see tests.out !!!!!!!!!!!!!"
-    ELSE
-      SWRITE(UNIT_stdOut,'(A)')"   ...   ALL IMPLEMENTED TESTS SUCCESSFULL ..."
-    END IF !nFailedMsg
-    SWRITE(UNIT_stdout,*)
-    SWRITE(UNIT_stdOut,'(A)')"** TESTESTESTESTESTESTESTESTESTESTESTESTESTESTESTEST **"
-    SWRITE(UNIT_stdout,*)
-    CLOSE(testUnit)
-  END IF !testlevel
-  EndTimeTotal=GetTime()
-  SWRITE(Unit_stdOut,fmt_sep)
-  IF(n_warnings_occured.EQ.0)THEN
-    SWRITE(Unit_stdOut,'(A,F8.2,A)') ' GVEC SUCESSFULLY FINISHED! [',EndTimeTotal-StartTimeTotal,' sec ]'
-  ELSE
-    SWRITE(Unit_stdOut,'(A,F8.2,A,I8,A)') ' GVEC FINISHED! [',EndTimeTotal-StartTimeTotal,' sec ], WITH ' , n_warnings_occured , ' WARNINGS!!!!'
-  END IF
-  SWRITE(Unit_stdOut,fmt_sep)
-
-  __PERFOFF('main')
-  IF(MPIRoot) THEN
-  __PERFOUT('main')
-  END IF
-  CALL par_Finalize()
-
+  CALL par_finalize()
+  CALL FLUSH()
 END PROGRAM GVEC
 
 

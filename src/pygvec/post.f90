@@ -724,6 +724,7 @@ SUBROUTINE Finalize()
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
   WRITE(Unit_stdOut,'(132("="))')
+  CALL FLUSH() ! flush all open files, needed for gvec simsopt to check the stdout file
 END SUBROUTINE Finalize
 
 END MODULE MODgvec_py_post

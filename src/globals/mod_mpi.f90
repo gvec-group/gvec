@@ -74,22 +74,30 @@ CONTAINS
   !================================================================================================================================
   !> Initialisation of MPI.
   !================================================================================================================================
-  SUBROUTINE par_Init()
+  SUBROUTINE par_Init(comm_in)
   ! MODULES
     USE MODgvec_Globals, ONLY : MPIRoot,myRank,nRanks
     IMPLICIT NONE
+  !--------------------------------------------------------------------------------------------------------------------------------
+  !--------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLE
+  INTEGER, INTENT(IN),OPTIONAL :: comm_in
   !--------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
     INTEGER :: ierr,provided
   !================================================================================================================================
   ! BODY
 #   if MPI
-    !CALL MPI_INIT(ierr)
-    CALL MPI_INIT_THREAD(MPI_THREAD_SINGLE,provided,ierr)
-    !CALL MPI_INIT_THREAD(MPI_THREAD_FUNNELED,provided,ierr)
-    CALL MPI_COMM_SIZE(MPI_COMM_WORLD, nRanks, ierr)
-    CALL MPI_COMM_RANK(MPI_COMM_WORLD, myRank, ierr)
-    worldComm = MPI_COMM_WORLD
+    IF(PRESENT(comm_in)) THEN
+      worldComm = TRANSFER(comm_in,MPI_comm_TYPE)
+    ELSE
+      !CALL MPI_INIT(ierr)
+      CALL MPI_INIT_THREAD(MPI_THREAD_SINGLE,provided,ierr)
+      !CALL MPI_INIT_THREAD(MPI_THREAD_FUNNELED,provided,ierr)
+      worldComm = MPI_COMM_WORLD
+    END IF
+    CALL MPI_COMM_SIZE(worldComm, nRanks, ierr)
+    CALL MPI_COMM_RANK(worldComm, myRank, ierr)
     dType=MPI_DOUBLE_PRECISION
 #   endif
     MPIRoot=(myRank.EQ.0)

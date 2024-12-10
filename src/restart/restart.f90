@@ -53,31 +53,29 @@ CONTAINS
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE InitRestart 
+SUBROUTINE InitRestart(RestartFile_in) 
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_Restart_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+CHARACTER(LEN=*),INTENT(IN),OPTIONAL    :: Restartfile_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: nArgs
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   WRITE(UNIT_stdOut,'(A)')'INIT RESTART ...'
-  nArgs=COMMAND_ARGUMENT_COUNT()
-  IF(nArgs.EQ.2)THEN
-    doRestart=.TRUE.
-    CALL GET_COMMAND_ARGUMENT(2,RestartFile)
+  doRestart=.TRUE.
+  IF(PRESENT(restartFile_in))THEN
+    restartfile=restartfile_in
   ELSE
-    doRestart=.FALSE.
+    restartfile=""  !nothing to save!
   END IF
-
   WRITE(UNIT_stdOut,'(A)')'... DONE'
   WRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitRestart
@@ -247,6 +245,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
+  dorestart=.FALSE.
 END SUBROUTINE FinalizeRestart
 
 END MODULE MODgvec_Restart

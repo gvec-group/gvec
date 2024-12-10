@@ -436,6 +436,7 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
 # define libs
 IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
+                            ./src/rungvec.f90
                             ./src/functionals/*.f90
                             ./src/analyze/*.f90
                             ./src/vmec/*.f90
@@ -512,22 +513,25 @@ IF(COMPILE_PYGVEC)
 
   # split off lib_post_f90 to specify individual compile flags
   # not part of gveclib!
-  ADD_LIBRARY(lib_post_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90")
-  SET_TARGET_PROPERTIES(lib_post_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+  ADD_LIBRARY(lib_pygvec_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90" "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/run.f90")
+  SET_TARGET_PROPERTIES(lib_pygvec_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 
   # --- wrap fgvec package --- #
 
   ADD_CUSTOM_COMMAND(
     OUTPUT
     fgvec/post.py
+    f90wrap_run.f90
     f90wrap_post.f90
     f90wrap_sfl_boozer.f90
     DEPENDS
+    src/pygvec/run.f90
     src/pygvec/post.f90
     src/transform_sfl/sfl_boozer.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
     COMMAND f90wrap
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/run.f90"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/transform_sfl/sfl_boozer.f90"
             --mod-name _fgvec
@@ -541,6 +545,7 @@ IF(COMPILE_PYGVEC)
   ADD_CUSTOM_COMMAND(
     OUTPUT _libfgvecmodule.c
     DEPENDS
+    f90wrap_run.f90
     f90wrap_post.f90
     f90wrap_sfl_boozer.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
@@ -548,19 +553,21 @@ IF(COMPILE_PYGVEC)
     COMMAND f2py-f90wrap
             -m _libfgvec
             --lower
+            f90wrap_run.f90
             f90wrap_post.f90
             f90wrap_sfl_boozer.f90
   )
 
   PYTHON_ADD_LIBRARY(_libfgvec MODULE
     "${CMAKE_CURRENT_BINARY_DIR}/_libfgvecmodule.c"
+    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_run.f90"
     "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
     "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_sfl_boozer.f90"
     WITH_SOABI
   )
   SET_TARGET_PROPERTIES(_libfgvec PROPERTIES LINKER_LANGUAGE Fortran)
   TARGET_INCLUDE_DIRECTORIES(_libfgvec PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE lib_post_f90 f2py_fortranobject gveclib ${linkedlibs})
+  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE lib_pygvec_f90 f2py_fortranobject gveclib ${linkedlibs})
 
   IF (${SKBUILD})
     INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_fgvec.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
