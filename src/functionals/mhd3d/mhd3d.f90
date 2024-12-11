@@ -109,11 +109,11 @@ SUBROUTINE InitMHD3D(sf)
     doLineSearch=GETLOGICAL("doLineSearch",Proposal=.FALSE.) ! does not improve convergence
   END IF
   maxIter   = GETINT("maxIter",Proposal=5000)
-  outputIter= GETINT("outputIter",Proposal=500)
-  logIter   = GETINT("logIter",Proposal=250)
+  outputIter= GETINT("outputIter",Proposal=maxIter)
+  logIter   = GETINT("logIter",Proposal=maxIter)
   nlogScreen= GETINT("nLogScreen",Proposal=1)
   minimize_tol  =GETREAL("minimize_tol",Proposal=1.0e-12_wp)
-  start_dt  =GETREAL("start_dt",Proposal=1.0e-08_wp)
+  start_dt  =GETREAL("start_dt",Proposal=0.1_wp)
   doCheckDistance=GETLOGICAL("doCheckDistance",Proposal=.FALSE.)
   doCheckAxis=GETLOGICAL("doCheckAxis",Proposal=.TRUE.)
   !-----------
@@ -207,12 +207,6 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
 
-
-  init_average_axis= GETLOGICAL("init_average_axis",Proposal=.FALSE.)
-  IF(init_average_axis)THEN
-    average_axis_move(1) = GETREAL("average_axis_move_X1",Proposal=0.0_wp)
-    average_axis_move(2) = GETREAL("average_axis_move_X2",Proposal=0.0_wp)
-  END IF
 
   sgammM1=1.0_wp/(gamm-1.0_wp)
   
@@ -1276,12 +1270,14 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
     END IF
   END DO !iter
   IF(iter.GE.MaxIter)THEN
-    SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded, not converged" 
+    SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded" 
   END IF
   SWRITE(UNIT_stdOut,'(A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
-  CALL Analyze(MIN(iter,MaxIter))
-  CALL WriteState(U(0),MIN(iter,MaxIter))
+  IF(lastoutputIter.NE.iter)THEN
+    CALL Analyze(MIN(iter,MaxIter))
+    CALL WriteState(U(0),MIN(iter,MaxIter))
+  END IF
   CALL FinishLogging()
   CALL writeSFLoutfile(U(0),MIN(iter,MaxIter))
   
