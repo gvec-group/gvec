@@ -89,7 +89,7 @@ CONTAINS
   ! BODY
 #   if MPI
     IF(PRESENT(comm_in)) THEN
-      worldComm = TRANSFER(comm_in,MPI_comm_TYPE)
+      worldComm = TRANSFER(comm_in,worldcomm)
     ELSE
       !CALL MPI_INIT(ierr)
       CALL MPI_INIT_THREAD(MPI_THREAD_SINGLE,provided,ierr)
@@ -508,7 +508,7 @@ CONTAINS
   !================================================================================================================================
   SUBROUTINE par_Bcast_scalar_int(scalar_int,fromRank)
   ! MODULES
-    USE MODgvec_Globals, ONLY : wp,myRank
+    USE MODgvec_Globals, ONLY : wp
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -529,7 +529,7 @@ CONTAINS
   !================================================================================================================================
   SUBROUTINE par_Bcast_scalar_str(scalar_str,fromRank)
   ! MODULES
-    USE MODgvec_Globals, ONLY : wp,myRank
+    USE MODgvec_Globals, ONLY : wp
     IMPLICIT NONE
   !--------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
