@@ -91,6 +91,7 @@ class State:
         self.initialized: bool = False
         self.parameterfile: Path | None = None
         self.statefile: Path | None = None
+        self.logger = logging.getLogger("pyGVEC.State")
 
         if _post.initialized:
             raise NotImplementedError("Only one instance of State is allowed.")
@@ -114,8 +115,6 @@ class State:
         _post.readstate(self.statefile)
         self.initialized = True
         self._children = []
-
-        self.logger = logging.getLogger("pyGVEC.State")
 
     @_assert_init
     def finalize(self):
