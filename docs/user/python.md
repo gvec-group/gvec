@@ -1,5 +1,5 @@
 # Python Bindings
-GVEC has *Python* bindings to evaluate equilibria from *Python*, while relying on the compiled *Fortran* functions to perform the actual computations.
+GVEC has *Python* bindings (referred to as *pyGVEC*) to evaluate equilibria from *Python*, while relying on the compiled *Fortran* functions to perform the actual computations.
 This ensures postprocessing is consistent with computing the equilibrium and also improves performance.
 
 The low-level interface is provided with a `State` class, which can be instantiated from a given *parameter-* and *statefile*:
@@ -10,19 +10,28 @@ with State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
     ...
 ```
 
-A high-level interface for evaluations using [xarray](https://docs.xarray.dev/) is provided by the `Evaluations` class:
+A high-level interface for evaluations is provided in form of a [xarray](https://docs.xarray.dev/) `Dataset` that can be generated with the `Evaluations` factory:
 ```python
 from gvec import State, Evaluations
 
 with State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
-    ev = Evaluations(state, 50, 100, 100)
-    ev.compute("B")
+    ev = Evaluations(rho=[0.1, 0.5, 0.9], theta="int", zeta="int", state=state)
+    state.compute(ev, "B")
 ```
-Here the additional arguments configure the number of points in the radial, poloidal and toroidal direction respectively.
+Here the additional arguments configure the points in the radial, poloidal and toroidal direction respectively, with `"int"` selecting the integration points that are used internally by GVEC.
 The `ev` object is an instance of the `xarray.Dataset` and the individual `xarray.DataArray`s can then be accessed using `ev.B` or `ev["B"]`.
+A `xarray.Dataset` closely mirrors the structure of netCDF, grouping several variables with named dimensions and coordinates as well as metadata.
+The `state.compute` method can be used to compute various quantities that are then added to the `Dataset`.
+Here *pyGVEC* takes care of computing all the required intermediate quantities, which are also added to the `Dataset`.
 
 ## Installation
 
+### With `pip`
+```bash
+pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@feature_pygvec_f90wrap
+```
+
+### Manually
 ```bash
 git clone git@gitlab.mpcdf.mpg.de:gvec-group/gvec.git gvec
 cd gvec
@@ -36,16 +45,18 @@ The following table contains the quantities that can be evaluated with the pytho
 
 :::{note}
 This table is not automatically generated (yet) and might be out of date.
+It was last generated for `0.5.1.dev85` on 2024-12-05.
 :::
 
 |      label       |                                    long name                                    |                           symbol                           |
 | ---------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 |       `B`        |                                 magnetic field                                  |                        $\mathbf{B}$                        |
 |   `B_contra_t`   |                             poloidal magnetic field                             |                         $B^\theta$                         |
+|  `B_contra_t_B`  |           contravariant poloidal magnetic field in Boozer coordinates           |                       $B^{\theta_B}$                       |
 |   `B_contra_z`   |                             toroidal magnetic field                             |                         $B^\zeta$                          |
+|  `B_contra_z_B`  |           contravariant toroidal magnetic field in Boozer coordinates           |                       $B^{\zeta_B}$                        |
 |  `B_theta_avg`   |                         average poloidal magnetic field                         |                   $\overline{B_\theta}$                    |
 |   `B_zeta_avg`   |                         average toroidal magnetic field                         |                    $\overline{B_\zeta}$                    |
-|       `GB`       |                                Boozer potential                                 |                           $G_B$                            |
 |     `I_pol`      |                                poloidal current                                 |                         $I_{pol}$                          |
 |     `I_tor`      |                                toroidal current                                 |                         $I_{tor}$                          |
 |       `J`        |                                 current density                                 |                        $\mathbf{J}$                        |
@@ -53,6 +64,7 @@ This table is not automatically generated (yet) and might be out of date.
 |   `J_contra_t`   |                     contravariant poloidal current density                      |                        $J^{\theta}$                        |
 |   `J_contra_z`   |                     contravariant toroidal current density                      |                        $J^{\zeta}$                         |
 |      `Jac`       |                              Jacobian determinant                               |                       $\mathcal{J}$                        |
+|     `Jac_B`      |                   Jacobian determinant in Boozer coordinates                    |                      $\mathcal{J}_B$                       |
 |     `Jac_P`      |                    Jacobian determinant in PEST coordinates                     |                      $\mathcal{J}_P$                       |
 |     `Jac_h`      |                         reference Jacobian determinant                          |                      $\mathcal{J}_h$                       |
 |     `Jac_l`      |                          logical Jacobian determinant                           |                      $\mathcal{J}_l$                       |
@@ -70,17 +82,6 @@ This table is not automatically generated (yet) and might be out of date.
 | `dB_contra_z_dr` |                radial derivative of the toroidal magnetic field                 |          $\frac{\partial B^\zeta}{\partial \rho}$          |
 | `dB_contra_z_dt` |               poloidal derivative of the toroidal magnetic field                |         $\frac{\partial B^\zeta}{\partial \theta}$         |
 | `dB_contra_z_dz` |               toroidal derivative of the toroidal magnetic field                |         $\frac{\partial B^\zeta}{\partial \zeta}$          |
-|     `dGB_dr`     |                    radial derivative of the Boozer potential                    |            $\frac{\partial G_B}{\partial \rho}$            |
-|    `dGB_drr`     |                second radial derivative of the Boozer potential                 |          $\frac{\partial^2 G_B}{\partial \rho^2}$          |
-|    `dGB_drt`     |               radial-poloidal derivative of the Boozer potential                |   $\frac{\partial^2 G_B}{\partial \rho\partial \theta}$    |
-|    `dGB_drz`     |               radial-toroidal derivative of the Boozer potential                |    $\frac{\partial^2 G_B}{\partial \rho\partial \zeta}$    |
-|     `dGB_dt`     |                   poloidal derivative of the Boozer potential                   |           $\frac{\partial G_B}{\partial \theta}$           |
-|   `dGB_dt_def`   |           poloidal derivative of the Boozer potential per definition            |           $\frac{\partial G_B}{\partial \theta}$           |
-|    `dGB_dtt`     |               second poloidal derivative of the Boozer potential                |         $\frac{\partial^2 G_B}{\partial \theta^2}$         |
-|    `dGB_dtz`     |              poloidal-toroidal derivative of the Boozer potential               |   $\frac{\partial^2 G_B}{\partial \theta\partial \zeta}$   |
-|     `dGB_dz`     |                   toroidal derivative of the Boozer potential                   |           $\frac{\partial G_B}{\partial \zeta}$            |
-|   `dGB_dz_def`   |           toroidal derivative of the Boozer potential per definition            |           $\frac{\partial G_B}{\partial \zeta}$            |
-|    `dGB_dzz`     |               second toroidal derivative of the Boozer potential                |         $\frac{\partial^2 G_B}{\partial \zeta^2}$          |
 |    `dJac_dr`     |                  radial derivative of the Jacobian determinant                  |        $\frac{\partial \mathcal{J}}{\partial \rho}$        |
 |    `dJac_dt`     |                 poloidal derivative of the Jacobian determinant                 |       $\frac{\partial \mathcal{J}}{\partial \theta}$       |
 |    `dJac_dz`     |                 toroidal derivative of the Jacobian determinant                 |       $\frac{\partial \mathcal{J}}{\partial \zeta}$        |
@@ -123,38 +124,42 @@ This table is not automatically generated (yet) and might be out of date.
 |     `dX2_dz`     |             toroidal derivative of the second reference coordinate              |           $\frac{\partial X^2}{\partial \zeta}$            |
 |    `dX2_dzz`     |          second toroidal derivative of the second reference coordinate          |         $\frac{\partial^2 X^2}{\partial \zeta^2}$          |
 |    `dchi_dr`     |                         poloidal magnetic flux gradient                         |                   $\frac{d\chi}{d\rho}$                    |
-|    `dg_rr_dr`    |           radial derivative of the rr component of the metric tensor            |          $\frac{\partial g_{rr}}{\partial \rho}$           |
-|    `dg_rr_dt`    |          poloidal derivative of the rr component of the metric tensor           |         $\frac{\partial g_{rr}}{\partial \theta}$          |
-|    `dg_rr_dz`    |          toroidal derivative of the rr component of the metric tensor           |          $\frac{\partial g_{rr}}{\partial \zeta}$          |
-|    `dg_rt_dr`    |           radial derivative of the rt component of the metric tensor            |          $\frac{\partial g_{rt}}{\partial \rho}$           |
-|    `dg_rt_dt`    |          poloidal derivative of the rt component of the metric tensor           |         $\frac{\partial g_{rt}}{\partial \theta}$          |
-|    `dg_rt_dz`    |          toroidal derivative of the rt component of the metric tensor           |          $\frac{\partial g_{rt}}{\partial \zeta}$          |
-|    `dg_rz_dr`    |           radial derivative of the rz component of the metric tensor            |          $\frac{\partial g_{rz}}{\partial \rho}$           |
-|    `dg_rz_dt`    |          poloidal derivative of the rz component of the metric tensor           |         $\frac{\partial g_{rz}}{\partial \theta}$          |
-|    `dg_rz_dz`    |          toroidal derivative of the rz component of the metric tensor           |          $\frac{\partial g_{rz}}{\partial \zeta}$          |
-|    `dg_tt_dr`    |           radial derivative of the tt component of the metric tensor            |          $\frac{\partial g_{tt}}{\partial \rho}$           |
-|    `dg_tt_dt`    |          poloidal derivative of the tt component of the metric tensor           |         $\frac{\partial g_{tt}}{\partial \theta}$          |
-|    `dg_tt_dz`    |          toroidal derivative of the tt component of the metric tensor           |          $\frac{\partial g_{tt}}{\partial \zeta}$          |
-|    `dg_tz_dr`    |           radial derivative of the tz component of the metric tensor            |          $\frac{\partial g_{tz}}{\partial \rho}$           |
-|    `dg_tz_dt`    |          poloidal derivative of the tz component of the metric tensor           |         $\frac{\partial g_{tz}}{\partial \theta}$          |
-|    `dg_tz_dz`    |          toroidal derivative of the tz component of the metric tensor           |          $\frac{\partial g_{tz}}{\partial \zeta}$          |
-|    `dg_zz_dr`    |           radial derivative of the zz component of the metric tensor            |          $\frac{\partial g_{zz}}{\partial \rho}$           |
-|    `dg_zz_dt`    |          poloidal derivative of the zz component of the metric tensor           |         $\frac{\partial g_{zz}}{\partial \theta}$          |
-|    `dg_zz_dz`    |          toroidal derivative of the zz component of the metric tensor           |          $\frac{\partial g_{zz}}{\partial \zeta}$          |
+|    `dg_rr_dr`    |           radial derivative of the rr component of the metric tensor            |       $\frac{\partial g_{\rho\rho}}{\partial \rho}$        |
+|    `dg_rr_dt`    |          poloidal derivative of the rr component of the metric tensor           |      $\frac{\partial g_{\rho\rho}}{\partial \theta}$       |
+|    `dg_rr_dz`    |          toroidal derivative of the rr component of the metric tensor           |       $\frac{\partial g_{\rho\rho}}{\partial \zeta}$       |
+|    `dg_rt_dr`    |           radial derivative of the rt component of the metric tensor            |      $\frac{\partial g_{\rho\theta}}{\partial \rho}$       |
+|    `dg_rt_dt`    |          poloidal derivative of the rt component of the metric tensor           |     $\frac{\partial g_{\rho\theta}}{\partial \theta}$      |
+|    `dg_rt_dz`    |          toroidal derivative of the rt component of the metric tensor           |      $\frac{\partial g_{\rho\theta}}{\partial \zeta}$      |
+|    `dg_rz_dr`    |           radial derivative of the rz component of the metric tensor            |       $\frac{\partial g_{\rho\zeta}}{\partial \rho}$       |
+|    `dg_rz_dt`    |          poloidal derivative of the rz component of the metric tensor           |      $\frac{\partial g_{\rho\zeta}}{\partial \theta}$      |
+|    `dg_rz_dz`    |          toroidal derivative of the rz component of the metric tensor           |      $\frac{\partial g_{\rho\zeta}}{\partial \zeta}$       |
+|    `dg_tt_dr`    |           radial derivative of the tt component of the metric tensor            |     $\frac{\partial g_{\theta\theta}}{\partial \rho}$      |
+|    `dg_tt_dt`    |          poloidal derivative of the tt component of the metric tensor           |    $\frac{\partial g_{\theta\theta}}{\partial \theta}$     |
+|    `dg_tt_dz`    |          toroidal derivative of the tt component of the metric tensor           |     $\frac{\partial g_{\theta\theta}}{\partial \zeta}$     |
+|    `dg_tz_dr`    |           radial derivative of the tz component of the metric tensor            |      $\frac{\partial g_{\theta\zeta}}{\partial \rho}$      |
+|    `dg_tz_dt`    |          poloidal derivative of the tz component of the metric tensor           |     $\frac{\partial g_{\theta\zeta}}{\partial \theta}$     |
+|    `dg_tz_dz`    |          toroidal derivative of the tz component of the metric tensor           |     $\frac{\partial g_{\theta\zeta}}{\partial \zeta}$      |
+|    `dg_zz_dr`    |           radial derivative of the zz component of the metric tensor            |      $\frac{\partial g_{\zeta\zeta}}{\partial \rho}$       |
+|    `dg_zz_dt`    |          poloidal derivative of the zz component of the metric tensor           |     $\frac{\partial g_{\zeta\zeta}}{\partial \theta}$      |
+|    `dg_zz_dz`    |          toroidal derivative of the zz component of the metric tensor           |      $\frac{\partial g_{\zeta\zeta}}{\partial \zeta}$      |
 |    `diota_dr`    |                          rotational transform gradient                          |                   $\frac{d\iota}{d\rho}$                   |
+|    `dnu_B_dt`    |  poloidal derivative of the Boozer potential computed from the magnetic field   |   $\left.\frac{\partial \nu_B}{\partial \theta}\right\|$   |
+|    `dnu_B_dz`    |  toroidal derivative of the Boozer potential computed from the magnetic field   |   $\left.\frac{\partial \nu_B}{\partial \zeta}\right\|$    |
 |     `dp_dr`      |                                pressure gradient                                |                     $\frac{dp}{d\rho}$                     |
 |      `e_X1`      |                      first reference tangent basis vector                       |                     $\mathbf{e}_{X^1}$                     |
 |      `e_X2`      |                      second reference tangent basis vector                      |                     $\mathbf{e}_{X^2}$                     |
 |     `e_rho`      |                           radial tangent basis vector                           |                     $\mathbf{e}_\rho$                      |
 |    `e_theta`     |                          poloidal tangent basis vector                          |                    $\mathbf{e}_\theta$                     |
+|   `e_theta_B`    |               poloidal tangent basis vector in Boozer coordinates               |                  $\mathbf{e}_{\theta_B}$                   |
 |     `e_zeta`     |                          toroidal tangent basis vector                          |                     $\mathbf{e}_\zeta$                     |
 |    `e_zeta3`     |                     toroidal reference tangent basis vector                     |                   $\mathbf{e}_{\zeta^3}$                   |
-|      `g_rr`      |                        rr component of the metric tensor                        |                          $g_{rr}$                          |
-|      `g_rt`      |                        rt component of the metric tensor                        |                          $g_{rt}$                          |
-|      `g_rz`      |                        rz component of the metric tensor                        |                          $g_{rz}$                          |
-|      `g_tt`      |                        tt component of the metric tensor                        |                          $g_{tt}$                          |
-|      `g_tz`      |                        tz component of the metric tensor                        |                          $g_{tz}$                          |
-|      `g_zz`      |                        zz component of the metric tensor                        |                          $g_{zz}$                          |
+|    `e_zeta_B`    |               toroidal tangent basis vector in Boozer coordinates               |                   $\mathbf{e}_{\zeta_B}$                   |
+|      `g_rr`      |                        rr component of the metric tensor                        |                       $g_{\rho\rho}$                       |
+|      `g_rt`      |                        rt component of the metric tensor                        |                      $g_{\rho\theta}$                      |
+|      `g_rz`      |                        rz component of the metric tensor                        |                      $g_{\rho\zeta}$                       |
+|      `g_tt`      |                        tt component of the metric tensor                        |                     $g_{\theta\theta}$                     |
+|      `g_tz`      |                        tz component of the metric tensor                        |                     $g_{\theta\zeta}$                      |
+|      `g_zz`      |                        zz component of the metric tensor                        |                      $g_{\zeta\zeta}$                      |
 |    `grad_rho`    |                         radial reciprocal basis vector                          |                        $\nabla\rho$                        |
 |   `grad_theta`   |                        poloidal reciprocal basis vector                         |                       $\nabla\theta$                       |
 |  `grad_theta_P`  |              poloidal reciprocal basis vector in PEST coordinates               |                     $\nabla \theta_P$                      |
@@ -177,4 +182,4 @@ This table is not automatically generated (yet) and might be out of date.
 |      `pos`       |                                 position vector                                 |                        $\mathbf{x}$                        |
 |     `shear`      |                              global magnetic shear                              |                           $s_g$                            |
 |    `theta_P`     |                       poloidal angle in PEST coordinates                        |                         $\theta_P$                         |
-|     `vector`     |                           cartesian vector components                           |                        $\mathbf{x}$                        |
+|      `xyz`       |                           cartesian vector components                           |                        $\mathbf{x}$                        |

@@ -588,6 +588,31 @@ def J(ds: xr.Dataset):
     )
 
 
+@register(
+    requirements=("J", "B", "dp_r", "grad_rho"),
+    attrs=dict(
+        long_name="MHD force",
+        symbol=r"F",
+    ),
+)
+def F(ds: xr.Dataset):
+    ds["F"] = xr.cross(ds.J, ds.B, dim="xyz") - ds.dp_dr * ds.grad_rho
+
+
+@register(
+    requirements=("F", "e_rho", "Jac"),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="radial force balance",
+        symbol=r"\overline{F_\rho}",
+    ),
+)
+def F_r_avg(ds: xr.Dataset):
+    ds["F_r_avg"] = fluxsurface_integral(
+        xr.dot(ds.F, ds.e_rho, dim="xyz") * ds.Jac
+    ) / fluxsurface_integral(ds.Jac)
+
+
 def _modulus(v):
     """Factory function for modulus (absolute value) quantities."""
 
@@ -614,8 +639,10 @@ for v in [
     "grad_zeta",
     "B",
     "J",
+    "F",
 ]:
     globals()[v] = _modulus(v)
+
 
 # === Straight Field Line Coordinates - Boozer ========================================= #
 
@@ -779,10 +806,10 @@ def minor_major_radius(ds: xr.Dataset):
 @register(
     requirements=("iota",),
     integration=("rho",),
-    attrs=dict(long_name="mean rotational transform", symbol=r"\bar{\iota}"),
+    attrs=dict(long_name="average rotational transform", symbol=r"\bar{\iota}"),
 )
-def iota_mean(ds: xr.Dataset):
-    ds["iota_mean"] = radial_integral(ds.iota)
+def iota_avg(ds: xr.Dataset):
+    ds["iota_avg"] = radial_integral(ds.iota)
 
 
 @register(
@@ -793,9 +820,25 @@ def iota_mean(ds: xr.Dataset):
         symbol=r"\iota_{tor}",
     ),
 )
-def iota_tor(ds: xr.Dataset):
+def iota_curr(ds: xr.Dataset):
     Gamma_t = fluxsurface_integral(ds.g_tt / ds.Jac)
-    ds["iota_tor"] = 2 * np.pi * ds.mu0 * ds.I_tor / ds.dPhi_dr / Gamma_t
+    ds["iota_curr"] = 2 * np.pi * ds.mu0 * ds.I_tor / ds.dPhi_dr / Gamma_t
+
+
+@register(
+    requirements=("g_tt", "g_tz", "Jac", "dLA_dt", "dLA_dz"),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="geometric contribution to the rotational transform",
+        symbol=r"\iota_0",
+    ),
+)
+def iota_0(ds: xr.Dataset):
+    ds["iota_0"] = (
+        fluxsurface_integral(ds.g_tt / ds.Jac * ds.dLA_dz)
+        - fluxsurface_integral(ds.g_tz / ds.Jac)
+        - fluxsurface_integral(ds.g_tz / ds.Jac * ds.dLA_dt)
+    ) / fluxsurface_integral(ds.g_tt / ds.Jac)
 
 
 @register(
@@ -852,3 +895,15 @@ def I_pol(ds: xr.Dataset):
         logging.warning(
             f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
         )
+
+
+@register(
+    requirements=("mod_B", "mu_0", "p", "Jac"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        long_name="total MHD energy",
+        symbol=r"W_{MHD}",
+    ),
+)
+def W_MHD(ds: xr.Dataset):
+    ds["W_MHD"] = volume_integral((ds.mod_B**2 / (2 * ds.mu_0) + ds.p) * ds.Jac)
