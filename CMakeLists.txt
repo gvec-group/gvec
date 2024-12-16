@@ -520,7 +520,6 @@ IF(COMPILE_PYGVEC)
 
   ADD_CUSTOM_COMMAND(
     OUTPUT
-    fgvec/post.py
     f90wrap_run.f90
     f90wrap_post.f90
     f90wrap_sfl_boozer.f90

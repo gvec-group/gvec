@@ -274,11 +274,14 @@ def test_volume_integral(teststate, evals_rtz_int, evals_rtz):
         "dV_dPhi_n2",
         "minor_radius",
         "major_radius",
-        "iota_mean",
-        "iota_tor",
+        "iota_avg",
+        "iota_curr",
+        "iota_0",
         "I_tor",
         "I_pol",
         "B_theta_avg",
+        "W_MHD",
+        "F_r_avg",
     ],
 )
 def test_integral_quantities(teststate, evals_rtz_int, quantity):

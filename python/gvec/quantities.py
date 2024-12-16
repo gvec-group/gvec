@@ -82,6 +82,14 @@ def mu0(ds: xr.Dataset):
 
 
 @register(
+    attrs=dict(long_name="adiabatic index", symbol=r"\gamma"),
+)
+def gamma(ds: xr.Dataset):
+    # only gamma=0 is supported by gvec currently, in order to prescibe pressure profile directly.
+    ds["gamma"] = 0.0
+
+
+@register(
     attrs=dict(long_name="cartesian vector components", symbol=r"\mathbf{x}"),
 )
 def xyz(ds: xr.Dataset):
@@ -589,7 +597,7 @@ def J(ds: xr.Dataset):
 
 
 @register(
-    requirements=("J", "B", "dp_r", "grad_rho"),
+    requirements=("J", "B", "dp_dr", "grad_rho"),
     attrs=dict(
         long_name="MHD force",
         symbol=r"F",
@@ -898,7 +906,7 @@ def I_pol(ds: xr.Dataset):
 
 
 @register(
-    requirements=("mod_B", "mu_0", "p", "Jac"),
+    requirements=("mu0", "gamma", "mod_B", "p", "Jac"),
     integration=("rho", "theta", "zeta"),
     attrs=dict(
         long_name="total MHD energy",
@@ -906,4 +914,6 @@ def I_pol(ds: xr.Dataset):
     ),
 )
 def W_MHD(ds: xr.Dataset):
-    ds["W_MHD"] = volume_integral((ds.mod_B**2 / (2 * ds.mu_0) + ds.p) * ds.Jac)
+    ds["W_MHD"] = volume_integral(
+        (0.5 * ds.mod_B**2 + (ds.gamma - 1) * ds.mu0 * ds.p) * ds.Jac
+    )
