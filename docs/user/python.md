@@ -26,10 +26,22 @@ Here *pyGVEC* takes care of computing all the required intermediate quantities, 
 
 ## Installation
 
-### With `pip`
+### With `pip` from the GitLab package registry
 ```bash
-pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@feature_pygvec_f90wrap
+pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
 ```
+
+### With `pip` from the `develop` branch
+```bash
+pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git
+```
+
+:::{note}
+If you want to install a development version from a different branch, you can specify this using `@branch_name`, e.g.:
+```bash
+pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@merge_frenet_pygvec
+```
+:::
 
 ### Manually
 ```bash
@@ -45,7 +57,7 @@ The following table contains the quantities that can be evaluated with the pytho
 
 :::{note}
 This table is not automatically generated (yet) and might be out of date.
-It was last generated for `0.5.1.dev85` on 2024-12-05.
+It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
 :::
 
 |      label       |                                    long name                                    |                           symbol                           |
@@ -57,6 +69,8 @@ It was last generated for `0.5.1.dev85` on 2024-12-05.
 |  `B_contra_z_B`  |           contravariant toroidal magnetic field in Boozer coordinates           |                       $B^{\zeta_B}$                        |
 |  `B_theta_avg`   |                         average poloidal magnetic field                         |                   $\overline{B_\theta}$                    |
 |   `B_zeta_avg`   |                         average toroidal magnetic field                         |                    $\overline{B_\zeta}$                    |
+|       `F`        |                                    MHD force                                    |                            $F$                             |
+|    `F_r_avg`     |                              radial force balance                               |                    $\overline{F_\rho}$                     |
 |     `I_pol`      |                                poloidal current                                 |                         $I_{pol}$                          |
 |     `I_tor`      |                                toroidal current                                 |                         $I_{tor}$                          |
 |       `J`        |                                 current density                                 |                        $\mathbf{J}$                        |
@@ -73,6 +87,7 @@ It was last generated for `0.5.1.dev85` on 2024-12-05.
 |      `Phi`       |                             toroidal magnetic flux                              |                           $\Phi$                           |
 |     `Phi_n`      |                        normalized toroidal magnetic flux                        |                          $\Phi_n$                          |
 |       `V`        |                                  plasma volume                                  |                            $V$                             |
+|     `W_MHD`      |                                total MHD energy                                 |                         $W_{MHD}$                          |
 |       `X1`       |                           first reference coordinate                            |                           $X^1$                            |
 |       `X2`       |                           second reference coordinate                           |                           $X^2$                            |
 |      `chi`       |                             poloidal magnetic flux                              |                           $\chi$                           |
@@ -165,11 +180,13 @@ It was last generated for `0.5.1.dev85` on 2024-12-05.
 |  `grad_theta_P`  |              poloidal reciprocal basis vector in PEST coordinates               |                     $\nabla \theta_P$                      |
 |   `grad_zeta`    |                        toroidal reciprocal basis vector                         |                       $\nabla\zeta$                        |
 |      `iota`      |                              rotational transform                               |                          $\iota$                           |
-|   `iota_mean`    |                            mean rotational transform                            |                       $\bar{\iota}$                        |
-|    `iota_tor`    |            toroidal current contribution to the rotational transform            |                       $\iota_{tor}$                        |
+|     `iota_0`     |               geometric contribution to the rotational transform                |                         $\iota_0$                          |
+|    `iota_avg`    |                          average rotational transform                           |                       $\bar{\iota}$                        |
+|   `iota_curr`    |            toroidal current contribution to the rotational transform            |                       $\iota_{tor}$                        |
 |  `major_radius`  |                                  major radius                                   |                         $r_{maj}$                          |
 |  `minor_radius`  |                                  minor radius                                   |                         $r_{min}$                          |
 |     `mod_B`      |                          modulus of the magnetic field                          |                $\left\|\mathbf{B}\right\|$                 |
+|     `mod_F`      |                            modulus of the MHD force                             |                     $\left\|F\right\|$                     |
 |     `mod_J`      |                         modulus of the current density                          |                $\left\|\mathbf{J}\right\|$                 |
 |   `mod_e_rho`    |                   modulus of the radial tangent basis vector                    |              $\left\|\mathbf{e}_\rho\right\|$              |
 |  `mod_e_theta`   |                  modulus of the poloidal tangent basis vector                   |             $\left\|\mathbf{e}_\theta\right\|$             |
