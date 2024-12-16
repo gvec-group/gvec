@@ -40,6 +40,8 @@ SUBROUTINE redirect_stdout(filename)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: ios
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CLOSE(Unit_stdOut)
+
   OPEN(Unit_stdOut, FILE=filename, STATUS='REPLACE', ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', IOSTAT=ios)
   IF (ios /= 0) THEN
     WRITE(Unit_errOut, '(A)') 'ERROR: could not open file', filename, 'for writing'
@@ -724,7 +726,7 @@ SUBROUTINE Finalize()
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
   WRITE(Unit_stdOut,'(132("="))')
-  CALL FLUSH() ! flush all open files, needed for gvec simsopt to check the stdout file
+  FLUSH(Unit_stdOut)
 END SUBROUTINE Finalize
 
 END MODULE MODgvec_py_post

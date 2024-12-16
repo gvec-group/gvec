@@ -169,7 +169,8 @@ LOGICAL                 :: dorestart
   IF(MPIRoot) THEN
   __PERFOUT('main')
   END IF
-  CALL FLUSH() ! flush all open files, needed for gvec simsopt to check the stdout file
+
+  CLOSE(Unit_stdOut)
 END SUBROUTINE rungvec
 END MODULE MODgvec_rungvec
 
