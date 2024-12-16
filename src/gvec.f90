@@ -67,7 +67,6 @@ PROGRAM GVEC
   END IF
 
   CALL par_finalize()
-  CALL FLUSH()
 END PROGRAM GVEC
 
 

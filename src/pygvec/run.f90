@@ -52,7 +52,6 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
       CALL rungvec(parameterfile,comm_in=comm_in)
     END IF
   END IF
-  CALL FLUSH() ! flush all open files, needed for gvec simsopt to check the stdout file
 END SUBROUTINE start_rungvec
 
 END MODULE MODgvec_py_run
