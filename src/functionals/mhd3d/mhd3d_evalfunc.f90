@@ -999,7 +999,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   END IF 
 
 #if MPIDEBUG==1
-  WRITE(*,*)'DEBUG',myRank, offset_modes(myRank),offset_modes(myRank+1)
+  WRITE(UNIT_stdout,*)'DEBUG',myRank, offset_modes(myRank),offset_modes(myRank+1)
 #endif
   __PERFON('Bcast_solution_LA')
   DO iRank=0,nRanks-1
@@ -1217,7 +1217,7 @@ SUBROUTINE BuildPrecond()
       !CHECK =0
     IF(MPIroot)THEN
       IF(SUM(ABS(DX1_ss(1:nGP))).LT.REAL(nGP,wp)*1.0E-10)  &
-         WRITE(*,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(1:nGP)))
+         WRITE(UNIT_stdout,*)'WARNING: very small DX1_ss: m,n,SUM(|DX1_ss|)= ',SUM(ABS(DX1_ss(1:nGP)))
     END IF
 
     __PERFON('modes_loop_1')
@@ -1299,7 +1299,7 @@ SUBROUTINE BuildPrecond()
     IF(MPIroot)THEN
       !CHECK =0
       IF(SUM(ABS(DX2_ss(1:nGP))).LT.REAL(nGP,wp)*1.0E-10)  &
-           WRITE(*,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(1:nGP)))
+           WRITE(UNIT_stdout,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(1:nGP)))
     END IF
   
     __PERFON('modes_loop_2')
@@ -1397,7 +1397,7 @@ SUBROUTINE BuildPrecond()
              -(LA_Base%f%Xmn(1,iMode)*LA_Base%f%Xmn(2,iMode))  *DLA_tz(1:nGP) & !correct sign of theta,zeta derivative!
                           +       (LA_Base%f%Xmn(2,iMode)**2)  *DLA_zz(1:nGP) ))*norm_mn
         !CHECK =0
-        IF(SUM(ABS(D_mn(1:nGP))).LT.REAL(nGP,wp)*1.0E-10) WRITE(*,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
+        IF(SUM(ABS(D_mn(1:nGP))).LT.REAL(nGP,wp)*1.0E-10) WRITE(UNIT_stdout,*)'WARNING: small DLA: m,n,SUM(|DLA_mn|)= ', &
              LA_Base%f%Xmn(1,iMode),LA_Base%f%Xmn(2,iMode),SUM(D_mn(1:nGP))
         iGP=1
         DO iElem=1,nElems

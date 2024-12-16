@@ -34,7 +34,7 @@ CONTAINS
 !================================================================================================================================!
 SUBROUTINE redirect_stdout(filename)
   ! MODULES
-  USE MODgvec_Globals, ONLY: Unit_stdOut, UNIT_errOut
+  USE MODgvec_Globals, ONLY: Unit_stdOut, UNIT_errOut,abort
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*), INTENT(IN) :: filename
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
@@ -45,7 +45,7 @@ SUBROUTINE redirect_stdout(filename)
   OPEN(Unit_stdOut, FILE=filename, STATUS='REPLACE', ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', IOSTAT=ios)
   IF (ios /= 0) THEN
     WRITE(Unit_errOut, '(A)') 'ERROR: could not open file', filename, 'for writing'
-    STOP
+    CALL abort(__STAMP__,"")
   END IF
 END SUBROUTINE redirect_stdout
 
@@ -112,6 +112,7 @@ END SUBROUTINE ReadState
 !================================================================================================================================!
 SUBROUTINE select_base_dofs(var, base, dofs)
   ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -130,8 +131,8 @@ SUBROUTINE select_base_dofs(var, base, dofs)
       base => LA_base
       dofs => U(0)%LA
     CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
-      STOP
+      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
+      CALL abort(__STAMP__,"")
   END SELECT
 END SUBROUTINE select_base_dofs
 
@@ -140,6 +141,7 @@ END SUBROUTINE select_base_dofs
 !================================================================================================================================!
 SUBROUTINE select_base(var, base)
   ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -154,8 +156,8 @@ SUBROUTINE select_base(var, base)
     CASE('LA')
       base => LA_base
     CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
-      STOP
+      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
+      CALL abort(__STAMP__,"")
   END SELECT
 END SUBROUTINE select_base
 
@@ -201,6 +203,7 @@ END SUBROUTINE evaluate_base_select
 !================================================================================================================================!
 SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=2), INTENT(IN) :: var           ! selection string: which variable to evaluate
@@ -211,8 +214,8 @@ SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   CALL select_base(var, base)
   n_s = base%s%nGP
   IF (base%s%nGP /= SIZE(base%s%s_GP)) THEN
-    WRITE(*,*) 'ERROR: number of integration points does not match the size of the array'
-    STOP
+    WRITE(UNIT_stdout,*) 'ERROR: number of integration points does not match the size of the array'
+    CALL abort(__STAMP__,"")
   END IF
   n_t = base%f%mn_nyq(1)
   n_z = base%f%mn_nyq(2)
@@ -620,6 +623,7 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_profile(n_s, s, var, result)
   ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_MHD3D_profiles, ONLY: Eval_iota, Eval_iota_Prime, Eval_pres, Eval_p_prime, Eval_mass, Eval_chi, Eval_chiPrime, &
                                     Eval_Phi, Eval_PhiPrime, Eval_Phi_TwoPrime, Eval_PhiNorm, Eval_PhiNormPrime
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -657,8 +661,8 @@ SUBROUTINE evaluate_profile(n_s, s, var, result)
     CASE("PhiNorm_prime")
       eval_profile => Eval_PhiNormPrime
     CASE DEFAULT
-      WRITE(*,*) 'ERROR: variable', var, 'not recognized'
-      STOP
+      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
+      CALL abort(__STAMP__,"")
   END SELECT
 
   DO i = 1,n_s

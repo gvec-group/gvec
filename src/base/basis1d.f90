@@ -13,6 +13,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
+#include "defines.h"
 
 !==================================================================================================================================
 !>
@@ -23,7 +24,7 @@
 !==================================================================================================================================
 MODULE MODgvec_Basis1D
 ! MODULES
-USE MODgvec_Globals, ONLY: wp
+USE MODgvec_Globals, ONLY: UNIT_stdout,wp,abort
 IMPLICIT NONE
 PRIVATE
 SAVE
@@ -149,8 +150,8 @@ END DO; END DO !j
 sVdm_Leg=INV(Vdm_Leg)
 !check (Vdm_Leg)^(-1)*Vdm_Leg := I
 dummy=ABS(SUM(ABS(MATMUL(sVdm_Leg,Vdm_Leg)))/REAL(N_In+1,wp)-1.0_wp)
-IF(dummy.GT.10.0_wp*PP_RealTolerance) STOP &
-                                         'problems in MODAL<->NODAL Vandermonde '
+IF(dummy.GT.10.0_wp*PP_RealTolerance) CALL abort(__STAMP__, &
+                                         'problems in MODAL<->NODAL Vandermonde ')
 END SUBROUTINE buildLegendreVdm
 
 
@@ -368,18 +369,18 @@ ELSE ! N_in>1
       IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
     END DO ! iter
     IF(iter.GT.nIter) THEN
-      WRITE(*,*) 'maximum iteration steps >10 in Newton iteration for Legendre Gausspoint'
+      WRITE(UNIT_stdout,*) 'maximum iteration steps >10 in Newton iteration for Legendre Gausspoint'
       xGP(iGP)=-cos(cheb_tmp*REAL(2*iGP+1)) !initial guess
       ! Newton iteration
       DO iter=0,nIter
-        WRITE(*,*)iter,xGP(iGP)    !DEBUG
+        WRITE(UNIT_stdout,*)iter,xGP(iGP)    !DEBUG
         CALL LegendrePolynomialAndDerivative(N_in+1,xGP(iGP),L_Np1,Lder_Np1)
         dx=-L_Np1/Lder_Np1
         xGP(iGP)=xGP(iGP)+dx
         IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
       END DO !iter
-      STOP &
-                 'ERROR: Legendre Gauss nodes could not be computed up to desired precision. Code stopped!'
+      CALL abort(__STAMP__, &
+                 'ERROR: Legendre Gauss nodes could not be computed up to desired precision. Code stopped!')
     END IF ! (iter.GT.nIter)
     CALL LegendrePolynomialAndDerivative(N_in+1,xGP(iGP),L_Np1,Lder_Np1)
     xGP(N_in-iGP)=-xGP(iGP)
@@ -479,18 +480,18 @@ IF(N_in.GT.1)THEN
       IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
     END DO ! iter
     IF(iter.GT.nIter) THEN
-      WRITE(*,*) 'maximum iteration steps >10 in Newton iteration for LGL point:'
+      WRITE(UNIT_stdout,*) 'maximum iteration steps >10 in Newton iteration for LGL point:'
       xGP(iGP)=-cos(cont1*(REAL(iGP,wp)+0.25)-cont2/(REAL(iGP,wp)+0.25_wp)) !initial guess
       ! Newton iteration
       DO iter=0,nIter
-        WRITE(*,*)'iter,x^i',iter,xGP(iGP)     !DEBUG
+        WRITE(UNIT_stdout,*)'iter,x^i',iter,xGP(iGP)     !DEBUG
         CALL qAndLEvaluation(N_in,xGP(iGP),q,qder,L)
         dx=-q/qder
         xGP(iGP)=xGP(iGP)+dx
         IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
       END DO ! iter
-      STOP &
-                 'ERROR: Legendre Gauss Lobatto nodes could not be computed up to desired precision. Code stopped!'
+      CALL abort(__STAMP__, &
+                 'ERROR: Legendre Gauss Lobatto nodes could not be computed up to desired precision. Code stopped!')
     END IF ! (iter.GT.nIter)
     CALL qAndLEvaluation(N_in,xGP(iGP),q,qder,L)
     xGP(N_in-iGP)=-xGP(iGP)
@@ -578,7 +579,8 @@ INTEGER            :: ideriv,iGP,iLagrange
 REAL(wp)           :: wBary(0:N_in),Dii_last
 !==================================================================================================================================
 D=0.0_wp
-IF(deriv.LT.1) STOP 'deriv in MthPolyDerivativeMatrix must be >=1!'
+IF(deriv.LT.1) CALL abort(__STAMP__, &
+                          'deriv in MthPolyDerivativeMatrix must be >=1!')
 IF(deriv.GT.N_in) RETURN
 CALL BarycentricWeights(N_in,xGP,wBary)
 CALL PolynomialDerivativeMatrix(N_in,xGP,D)

@@ -158,7 +158,6 @@ IMPLICIT NONE
 
     sf%n_max=(sf%nzeta-1)/2 ! maximum mode number on a field period
 
-    WRITE(*,*)'DEBUG,MAXVAL(|N.B|)',MAXVAL(ABS(sf%Nxyz(1,:)*sf%Bxyz(1,:)+sf%Nxyz(2,:)*sf%Bxyz(2,:)+sf%Nxyz(3,:)*sf%Bxyz(3,:)))
   
   END IF !MPIroot
   CALL par_BCast(sf%nzeta,0)
@@ -240,7 +239,7 @@ IMPLICIT NONE
     END DO
     IF(ANY(check_xhat.GT.1.0e-12))THEN
       DO i=2,sf%nfp
-        WRITE(*,'(A,I4,A,3E9.2)')'fp=1 vs fp=',i,', check_xyz=',check_xhat(1:3,i)
+        WRITE(UNIT_stdout,'(A,I4,A,3E9.2)')'fp=1 vs fp=',i,', check_xyz=',check_xhat(1:3,i)
       END DO
       CALL abort(__STAMP__,&
             "transform from cartesian to hat coordinates"//TRIM(msg)//" yields non-field periodic data!")
@@ -449,7 +448,7 @@ SUBROUTINE ReadNETCDF(sf)
   !SWRITE(*,*)'DEBUG,Nxyz(1:3,1)',sf%Nxyz(1:3,1)
   !SWRITE(*,*)'DEBUG,Bxyz(1:3,1)',sf%Bxyz(1:3,1)
   CALL sf%nc%closefile()
-  WRITE(*,'(4X,A)')'...DONE.'
+  WRITE(UNIT_stdout,'(4X,A)')'...DONE.'
 
 END SUBROUTINE ReadNETCDF
 

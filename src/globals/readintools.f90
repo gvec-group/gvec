@@ -24,7 +24,7 @@
 !===================================================================================================================================
 MODULE MODgvec_ReadInTools
 ! MODULES
-USE MODgvec_Globals
+USE MODgvec_Globals, ONLY:wp,UNIT_stdout,MPIroot,abort
 USE ISO_VARYING_STRING
 IMPLICIT NONE
 PRIVATE
@@ -252,9 +252,9 @@ ELSE
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetInt
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer):'
+  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -302,9 +302,9 @@ END IF
 ! Find values of pi in the string
 READ(HelpStr,*,IOSTAT=ioerr)GetReal
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (real):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (real):'
+  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -351,9 +351,9 @@ ELSE
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetLogical
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (logical):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (logical):'
+  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -410,15 +410,15 @@ DO WHILE(LEN(CHAR(separator)) .NE. 0)
   CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
 END DO
 IF(iInteger.NE.nIntegers)THEN
-  WRITE(*,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (integer Array), number of elements : ', iInteger, ' .NE. ',nIntegers
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (integer Array), number of elements : ', iInteger, ' .NE. ',nIntegers
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer array):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer array):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -489,9 +489,9 @@ IF(ALLOCATED(GetIntArray)) DEALLOCATE(GetIntArray)
 ALLOCATE(GetIntArray(nIntegers))
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer array):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer array):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -558,16 +558,16 @@ DO WHILE(LEN(CHAR(separator)) .NE. 0)
   CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
 END DO
 IF(iReal.NE.nReals)THEN
-  WRITE(*,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (RealArray), number of elements : ', iReal, ' .NE. ',nReals
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (RealArray), number of elements : ', iReal, ' .NE. ',nReals
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (RealArray):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (RealArray):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -638,9 +638,9 @@ ALLOCATE(GetRealArray(nReals))
 
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (RealArray):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (RealArray):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN

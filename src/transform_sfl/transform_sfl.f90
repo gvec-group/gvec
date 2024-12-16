@@ -655,7 +655,7 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
     END DO
     
     IF(ANY(maxerr.GT.1.0e-12))THEN
-      WRITE(*,*)'CHECK PEST THETA*',maxerr
+      WRITE(UNIT_stdout,*)'CHECK PEST THETA*',maxerr
       CALL abort(__STAMP__, & 
           "Find_pest_Angles: Error in theta*")
     END IF

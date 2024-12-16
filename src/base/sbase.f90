@@ -440,32 +440,41 @@ IMPLICIT NONE
                             ncells=nElems,breaks=sf%grid%sp)
     !basis evaluation
 
-    IF(sf%bspl%nBasis.NE.nBase) STOP 'problem with bspl basis'
+    IF(sf%bspl%nBasis.NE.nBase) CALL abort(__STAMP__, &
+                                           'problem with bspl basis')
     DO iElem=1,nElems
       j=1+(degGP+1)*(iElem-1)
       CALL sf%bspl % eval_basis(sf%s_GP(j),sf%base_GP(0,0:deg,iElem),imin)
-      IF(imin.EQ.-1) STOP 'problem, element in eval_basis not found!'
+      IF(imin.EQ.-1) CALL abort(__STAMP__,&
+                                'problem, element in eval_basis not found!')
       DO iGP=1,degGP
         CALL sf%bspl % eval_basis(sf%s_GP(j+iGP),sf%base_GP(iGP,0:deg,iElem),jmin)
-        IF(jmin.EQ.-1) STOP 'problem, element in eval_basis not found!'
-        IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
+        IF(jmin.EQ.-1) CALL abort(__STAMP__,&
+                                 'problem, element in eval_basis not found!')
+        IF(jmin.NE.imin) CALL abort(__STAMP__,&
+                                    'problem, GP are not in one element!')
       END DO !iGP=0,degGP
       CALL sf%bspl % eval_deriv(sf%s_GP(j),sf%base_ds_GP(0,0:deg,iElem),imin)
-      IF(imin.EQ.-1) STOP 'problem, element in eval_basis not found!'
+      IF(imin.EQ.-1) CALL abort(__STAMP__,& 
+                                'problem, element in eval_basis not found!')
       DO iGP=1,degGP
         CALL sf%bspl % eval_deriv(sf%s_GP(j+iGP),sf%base_ds_GP(iGP,0:deg,iElem),jmin)
-        IF(jmin.EQ.-1) STOP 'problem, element in eval_basis not found!'
-        IF(jmin.NE.imin) STOP 'problem, GP are not in one element!'
+        IF(jmin.EQ.-1) CALL abort(__STAMP__,&
+                                  'problem, element in eval_basis not found!')
+        IF(jmin.NE.imin) CALL abort(__STAMP__,&
+                                    'problem, GP are not in one element!')
       END DO !iGP=0,degGP
       sf%base_offset(iElem)=imin
     END DO !iElem=1,nElems
     !eval all basis derivatives at boundaries  
     CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(     0),deg,locBasis,imin) !locBasis(0:nderiv,0:deg Base)
-    IF(imin.NE.1) STOP 'problem eval_deriv left'
+    IF(imin.NE.1) CALL abort(__STAMP__,&
+                             'problem eval_deriv left')
     sf%base_dsAxis(0:deg,1:deg+1) =locbasis(:,:) ! basis functions 1 ...deg+1
 
     CALL sf%bspl % eval_basis_and_n_derivs(sf%grid%sp(nElems),deg,locbasis,imin)
-    IF(imin.NE.nBase-deg) STOP 'problem eval_deriv right'
+    IF(imin.NE.nBase-deg) CALL abort(__STAMP__,&
+                                     'problem eval_deriv right')
     sf%base_dsEdge(0:deg,nBase-deg:nBase)=locbasis(:,:) ! basis functions nBase-deg ... nbase
 
     !interpolation
@@ -616,7 +625,8 @@ IMPLICIT NONE
       i=i+1
       BC_derivs(i)=drv
     END DO
-    IF(i.NE.nD) STOP "DEBUG odd m, i NE nD"
+    IF(i.NE.nD) CALL abort(__STAMP__,&
+                           "DEBUG odd m, i NE nD")
     DO i=2,nD
       drv=BC_derivs(i)
       sf%A_Axis(i,:,iBC)=sf%base_dsAxis(drv,:)/sf%base_dsAxis(drv,i) !normalized with diagonal entry
@@ -640,7 +650,8 @@ IMPLICIT NONE
       i=i+1
       BC_derivs(i)=drv
     END DO
-    IF(i.NE.nD) STOP "DEBUG even m,i NE nD"
+    IF(i.NE.nD) CALL abort(__STAMP__,&
+                           "DEBUG even m,i NE nD")
     DO i=2,nD
       drv=BC_derivs(i)
       sf%A_Axis(i,:,iBC)=sf%base_dsAxis(drv,:)/sf%base_dsAxis(drv,i) !normalized with diagonal entry
@@ -1053,7 +1064,8 @@ TYPE IS(t_sbase_spl)
     base_x=baseloc(deriv,:)
   END IF
 
-  IF(iElem.EQ.-1)STOP 'PROBLEM, iElem not found in spline eval (sbase_eval)...'
+  IF(iElem.EQ.-1)CALL abort(__STAMP__,&
+                            'PROBLEM, iElem not found in spline eval (sbase_eval)...')
 CLASS DEFAULT
   CALL abort(__STAMP__, &
     "this type of continuity not implemented!")

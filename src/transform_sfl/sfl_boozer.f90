@@ -464,8 +464,8 @@ IMPLICIT NONE
     END DO
   
     IF(ANY(maxerr(:,:).GT.1.0e-12)) THEN
-        WRITE(*,*)'CHECK BOOZER THETA*',MAXVAL(maxerr(1,:))
-        WRITE(*,*)'CHECK BOOZER ZETA*', maxerr
+        WRITE(UNIT_stdout,*)'CHECK BOOZER THETA*',MAXVAL(maxerr(1,:))
+        WRITE(UNIT_stdout,*)'CHECK BOOZER ZETA*', maxerr
         CALL abort(__STAMP__, &
         "find_boozer_angles: Error in transform")
     END IF

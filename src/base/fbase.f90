@@ -236,7 +236,7 @@ IMPLICIT NONE
   IF(MPIroot)THEN
     iRank=COUNT((sf%offset_modes(1:nRanks)-sf%offset_modes(0:nRanks-1)) .EQ. 0)
     IF (iRank.GT.0) THEN
-      WRITE(*,'(5X,A,I4,A,I4,A)') &
+      WRITE(UNIT_stdout,'(5X,A,I4,A,I4,A)') &
       'WARNING: more MPI ranks than number of modes! ', iRank , ' ranks of ' ,nRanks, &
               ' have no modes associated. This only affects MPI scaling.'
     END IF
@@ -274,7 +274,8 @@ IMPLICIT NONE
     END DO; END DO !m,n
   END IF !cos_range>0
 
-  IF(iMode.NE.modes) STOP ' Problem in Xmn '
+  IF(iMode.NE.modes) CALL abort(__STAMP__,&
+                                ' Problem in Xmn ')
 
   DO iMode=1,modes
     m=sf%Xmn(1,iMode)
