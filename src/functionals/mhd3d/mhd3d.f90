@@ -1209,6 +1209,20 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
           EXIT !DO LOOP
         END IF
         iter=iter+1
+        t_pseudo=t_pseudo+dt
+        ! for simple gradient & hirshman
+        CALL U(-1)%set_to(U(0))
+        CALL U(0)%set_to(P(1))
+        ! for hirshman method
+        IF(MinimizerType.EQ.10)THEN
+          CALL V(-1)%set_to(V(0))
+          CALL V(0)%set_to(V(1))
+        END IF
+
+        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
+        Fnorm_old=Fnorm
+        Fnorm=SQRT(F(0)%norm_2())
+
         nstepDecreased=0
         min_dt_out=MIN(min_dt_out,dt)
         max_dt_out=MAX(max_dt_out,dt)
@@ -1229,20 +1243,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
           END IF
           logIter_ramp=MIN(logIter,logIter_ramp*2)
         END IF
-
-        t_pseudo=t_pseudo+dt
-        ! for simple gradient & hirshman
-        CALL U(-1)%set_to(U(0))
-        CALL U(0)%set_to(P(1))
-        ! for hirshman method
-        IF(MinimizerType.EQ.10)THEN
-          CALL V(-1)%set_to(V(0))
-          CALL V(0)%set_to(V(1))
-        END IF
-
-        CALL EvalForce(P(1),.FALSE.,JacCheck,F(0)) !evalAux was already called on P(1)=U(0), so that its set false here.
-        Fnorm_old=Fnorm
-        Fnorm=SQRT(F(0)%norm_2())
 
       ELSE !not a valid step, decrease timestep and skip P(1)
         dt=0.9_wp*dt
