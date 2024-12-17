@@ -298,7 +298,7 @@ include:
       vars: .vars_raven_build_tag
       rules: .rules_private_runner_minimal
 
-  # FAILS until `feature_salloc` is merged into `develop` due to missing `CMakeLists.txt` Viper configuration
+  # FAILS until `feature_private-runners` is merged into `develop` due to missing `CMakeLists.txt` Viper configuration
   # reference tag
   # Viper private runner (Gnu)
   - local: CI_templates/build.yml
@@ -739,7 +739,7 @@ include:
     SLURM_TIME: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
     SLURM_MEM: 10G
     SLURM_NODES: 1
-    SLURM_CPUS_PER_TASK: 4
+    SLURM_CPUS_PER_TASK: 72
     SLURM_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline
     #SRUN_PRFX: ""
 
@@ -759,6 +759,15 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4" #"20"
 
+# MPCDF Docker image gcc-openmpi:latest
+.viper_gcc_openmpi:
+  variables:
+    CMAKE_HOSTNAME: "viper"
+    CURR_CMP: "gnu_mpi"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    OMP_NUM_THR: "36"
+
 # SLURM variables for Viper (debug queue)
 .vars_viper_slurm:
   variables:
@@ -766,7 +775,7 @@ include:
     SLURM_TIME: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
     SLURM_MEM: 10G
     SLURM_NODES: 1
-    SLURM_CPUS_PER_TASK: 4
+    SLURM_CPUS_PER_TASK: 128
     SLURM_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline
 
 # =================================================================================================================================

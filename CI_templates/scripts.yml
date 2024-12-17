@@ -100,8 +100,6 @@
     - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
     - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=${OMP_NUM_THR}; fi
     - echo "MPI prefix:" ${MPI_PRFX}
-    ###- export EXECPRE="${MPI_PRFX}"
-    ###- echo "MPI prefix:" ${MPI_PRFX}
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS ", should be =" ${OMP_NUM_THR}
     - echo "hostname:" $HOSTNAME
     - echo "HASH_TAG is ${HASH_TAG}"
@@ -116,8 +114,8 @@
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-run[collapsed=true]\r\e[0KPrepare Run"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
-    - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
-    -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
+    - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${MPI_PRFX}" --dry-run
+    -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${MPI_PRFX}" --dry-run
     - rm -rf CIrun_${CASENAME}
     - echo -e "\e[0Ksection_end:`date +%s`:pre-run\r\e[0K"
     # RUN
@@ -129,6 +127,7 @@
       -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" 
       $PYTEST_DIR_OPTS 
       -k "${PYTEST_KEY_OPTS}" 
+      --run-prefix "${MPI_PRFX}" 
       --junitxml=pytest.xml 
       --annotations=annotations.json
     # pytest: restart
@@ -137,6 +136,7 @@
       -m "${PYTEST_MARKER_OPTS} and run_stage and restart" 
       $PYTEST_DIR_OPTS
       -k "${PYTEST_KEY_OPTS}" 
+      --run-prefix "${MPI_PRFX}" 
       --junitxml=pytest-restart.xml
       --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"

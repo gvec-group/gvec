@@ -85,6 +85,12 @@ def pytest_addoption(parser):
         default=1.0e-9,
         help="absolute tolerance for regression stage",
     )
+    group.addoption(
+        "--run-prefix",
+        type=str,
+        default="",
+        help="prefix for the run commands, e.g. mpirun or srun (with arguments)",
+    )
 
     group = parser.getgroup("custom_regression_options")
     group.addoption(
@@ -220,9 +226,9 @@ def binpath(builddir) -> Path:
 
 
 @pytest.fixture(scope="session")
-def runargs_prefix() -> list:
-    """prefix for the run arguments, e.g. mpirun"""
-    if prefix := os.environ.get("MPI_PRFX"):
+def runargs_prefix(request) -> list[str]:
+    """prefix for the run arguments, e.g. mpirun or srun (with arguments)"""
+    if prefix := request.config.getoption("--run-prefix"):
         return shlex.split(prefix)
     return []
 
