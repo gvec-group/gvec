@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 import re
 import shutil
-
+import sys
 
 # === ASSERTION FUNCTIONS === #
 
@@ -160,13 +160,26 @@ def check_diff_files(
 
 def assert_empty_stderr(path: str | Path = "stderr.txt"):
     """
-    Asserts that the specified file (default `stderr.txt`) is empty.
+    Asserts that the specified file (default `stderr.txt`) is empty or contains SLURM stderr.
 
     Args:
         path (str | Path, optional): The path to the stderr file. Defaults to `stderr.txt`.
     """
+    prfxsrun = ""
+    for i, arg in enumerate(sys.argv):
+        if arg == '--run-prefix' and i < len(sys.argv) - 1:
+            #print(sys.argv[i+1])  ## DEBUG, line to be removed
+            prfxsrun = sys.argv[i+1]
     with open(path) as file:
         lines = file.readlines()
+    print("prfxsrun = ",prfxsrun)  ## DEBUG, line to be removed
+    if "srun" in prfxsrun:
+    # check for SLURM stderr in stderr.txt
+        assert len(lines) == 2, "Errors found in stderr.txt"
+        assert ("srun:" in line for line in lines), "SLURM stderr not found in stderr.txt"
+        #assert any(re.search(r"srun:", line) for line in lines), "SLURM stderr not found in stderr.txt"
+    else:
+    # check for an empty stderr.txt file
         assert len(lines) == 0
 
 
