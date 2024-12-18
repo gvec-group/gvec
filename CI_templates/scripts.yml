@@ -20,6 +20,7 @@
 .after_script_basic:
   after_script:
     - echo "CI_JOB_STATUS is ${CI_JOB_STATUS}"
+    - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then sacct --name ${SLURM_JOB_NAME} -o JobID,JobName,State,NNodes,NCPUS,NTasks; fi
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "env" (printout the environment for future reference)
@@ -91,20 +92,29 @@
   before_script:
     - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
     # Retrieving the allocation name in a separate shell is the uglier part
+        #export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT} --time=${SLURM_TIMELIMIT} --nodes=${SLURM_NNODES} --mem=${SLURM_MEM_PER_NODE} --cpus-per-task=${OMP_NUM_THR} --job-name=${SLURM_JOB_NAME}";
     - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then
-        export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT} --time=${SLURM_TIMELIMIT} --nodes=${SLURM_NNODES} --mem=${SLURM_MEM_PER_NODE} --cpus-per-task=${OMP_NUM_THR} --job-name=${SLURM_JOB_NAME}";
+        export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT} --cpus-per-task=${OMP_NUM_THR}";
       else
         if [ ${MPI_MODE} = 'mpiON' ]; then export RUN_PRFX="mpirun -np ${MPI_RNKS}"; else export RUN_PRFX=""; fi
       fi
     #- if [ ${MPI_MODE} = 'mpiON' ]; then export RUN_PRFX="mpirun -np ${MPI_RNKS}"; else export RUN_PRFX=""; fi
     - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=${OMP_NUM_THR}; fi
-    - echo "Run prefix:" ${RUN_PRFX}
-    - echo "OpenMP number of threads:" $OMP_NUM_THREADS ", should be =" ${OMP_NUM_THR}
     - echo "hostname:" $HOSTNAME
     - echo "HASH_TAG is ${HASH_TAG}"
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
     - echo "CASENAME is ${CASENAME} >> CIrun_${CASENAME}/"
-    - echo "Running with ${CURR_CMP} in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - echo "Running with ${CURR_CMP} in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}";
+    - echo "Run prefix:" ${RUN_PRFX}
+    - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then
+        echo "SLURM_JOB_NAME:" ${SLURM_JOB_NAME};
+        echo "SLURM_MEM_PER_NODE:" ${SLURM_MEM_PER_NODE};
+        echo "SLURM_NNODES:" ${SLURM_NNODES};
+        echo "SLURM_NTASKS_PER_NODE:" ${SLURM_NTASKS_PER_NODE};
+        echo "SLURM_CPUS_PER_TASK:" ${SLURM_CPUS_PER_TASK};
+        echo "SLURM_NTASKS_PER_CORE:" ${SLURM_NTASKS_PER_CORE};
+        echo "OpenMP number of threads:" $OMP_NUM_THREADS ", should be =" ${OMP_NUM_THR};
+      fi
     - python --version
     - python -m pytest --version
     - echo -e "\e[0Ksection_end:`date +%s`:exportvars\r\e[0K"
