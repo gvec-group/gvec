@@ -92,7 +92,7 @@
     - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
     # Retrieving the allocation name in a separate shell is the uglier part
     - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then
-        export RUN_PRFX="srun --immediate=${SLURM_TIMEOUT} --time=${SLURM_TIME} --nodes=${SLURM_NODES} --mem=${SLURM_MEM} --cpus-per-task=${OMP_NUM_THR} --job-name=${SLURM_NAME}";
+        export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT} --time=${SLURM_TIMELIMIT} --nodes=${SLURM_NNODES} --mem=${SLURM_MEM_PER_NODE} --cpus-per-task=${OMP_NUM_THR} --job-name=${SLURM_JOB_NAME}";
       else
         if [ ${MPI_MODE} = 'mpiON' ]; then export RUN_PRFX="mpirun -np ${MPI_RNKS}"; else export RUN_PRFX=""; fi
       fi

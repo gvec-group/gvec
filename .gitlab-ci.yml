@@ -735,13 +735,13 @@ include:
 # SLURM variables for Raven (debug queue)
 .vars_raven_slurm:
   variables:
-    SLURM_NAME: ci-raven_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}     #_${CI_JOB_ID}
-    SLURM_TIME: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
-    SLURM_MEM: 10G
-    SLURM_NODES: 1
+    SLURM_JOB_NAME: ci-raven_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}     #_${CI_JOB_ID}
+    SLURM_TIMELIMIT: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_MEM_PER_NODE: 10G
+    SLURM_NNODES: 1
+    SLURM_NTASKS_PER_NODE: 1
     SLURM_CPUS_PER_TASK: 72
-    SLURM_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline
-    #SRUN_PRFX: ""
+    SRUN_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
 
 # Viper GVEC private runner tags
 .viper:
@@ -771,12 +771,13 @@ include:
 # SLURM variables for Viper (debug queue)
 .vars_viper_slurm:
   variables:
-    SLURM_NAME: ci-viper_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}
-    SLURM_TIME: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
-    SLURM_MEM: 10G
-    SLURM_NODES: 1
+    SLURM_JOB_NAME: ci-viper_${CI_PIPELINE_ID}_${CI_PROJECT_NAME}
+    SLURM_TIMELIMIT: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_MEM_PER_NODE: 10G
+    SLURM_NNODES: 1
+    SLURM_NTASKS_PER_NODE: 1
     SLURM_CPUS_PER_TASK: 128
-    SLURM_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline
+    SRUN_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build" 
