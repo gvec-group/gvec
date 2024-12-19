@@ -166,6 +166,12 @@ include:
 
   # MPI
 
+  # Raven private runner (Intel + IntelMPI)
+  - local: CI_templates/env.yml
+    inputs:
+      env: .raven_intel_impi
+      rules: .rules_private_runner_minimal
+
   # Viper private runner (Gnu + OpenMPI)
   - local: CI_templates/env.yml
     inputs:
@@ -317,6 +323,15 @@ include:
       rules: .rules_private_runner
 
   # MPI
+
+  # Raven private runner (Intel + IntelMPI)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .raven_intel_impi
+      vars: .vars_raven_build
+      cmake-opts: .cmake_mpi_opts
+      rules: .rules_private_runner_minimal
+
   # Viper private runner (Gnu + OpenMPI)
   - local: CI_templates/build.yml
     inputs:
@@ -455,11 +470,19 @@ include:
       vars: .vars_viper_run_debugrun_slurm
       run-postfix: _debugrun
       slurm-postfix: _slurm
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner_nightly
 
   # MPI
 
-  # Viper private runner (Gnu + OpenMPI)
+  # Raven private runner (Intel + IntelMPI) + srun
+  - local: CI_templates/run.yml
+    inputs:
+      env: .raven_intel_impi
+      vars: .vars_raven_mpi_run_slurm
+      slurm-postfix: _slurm
+      rules: .rules_private_runner_minimal
+
+  # Viper private runner (Gnu + OpenMPI) + srun
   - local: CI_templates/run.yml
     inputs:
       env: .viper_gcc_openmpi
@@ -604,6 +627,22 @@ include:
     - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
       when: on_success
     - when: on_success
+
+.rules_private_runner_nightly:
+  rules:
+    # disable this job for non-protected branches
+    - if: $CI_COMMIT_REF_PROTECTED == "false"
+      when: never
+    # disable this job for $PRIVATE_RUNNER_PIPELINE="false"
+    - if: $PRIVATE_RUNNER_PIPELINE == "false"
+      when: never
+    # special variables for gitlab-ci branches or if MINIMAL_PIPELINE is set
+    - if: ($CI_COMMIT_REF_NAME =~ /gitlab[-_]ci/ && $MINIMAL_PIPELINE != "false") || $MINIMAL_PIPELINE == "true"
+      when: never
+    # only run this job in the nightly pipeline
+    - if: $NIGHTLY_PIPELINE == "true"
+      when: on_success
+    - when: never
 
 .rules_pages:
   rules:
@@ -758,6 +797,18 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
+# MPCDF Viper private runner with modules gcc/openmpi
+.raven_intel_impi:
+  extends:
+    - .raven
+    - .hooks_mpcdf_runner
+  variables:
+    CMAKE_HOSTNAME: "raven"
+    CURR_CMP: "intel_mpi"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    ###OMP_NUM_THR: "32"
+
 # SLURM base variables (for both Raven and Viper)
 .vars_base_slurm:
   variables:
@@ -792,7 +843,7 @@ include:
     MPI_RNKS_MODE: ""
     ###OMP_NUM_THR: "4" #"20"
 
-# MPCDF Docker image gcc-openmpi:latest
+# MPCDF Viper private runner with modules gcc/openmpi
 .viper_gcc_openmpi:
   extends:
     - .viper
@@ -950,7 +1001,19 @@ include:
     SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
     SLURM_CPUS_PER_TASK: 72   # number of OpenMP threads per MPI task
     SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
-    OMP_NUM_THR: "72"
+    OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
+
+# MPI
+.vars_raven_mpi_run_slurm:
+  extends:
+    - .vars_raven_build
+    - .vars_base_slurm
+  variables:
+    SLURM_NNODES: 1           # number of compute nodes:
+    SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node
+    SLURM_CPUS_PER_TASK: 36   # number of OpenMP threads per MPI task
+    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
+    OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
 
 # Raven private runner (runs on SLURM queues via srun)
 .vars_viper_run_slurm:
@@ -962,7 +1025,7 @@ include:
     SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
     SLURM_CPUS_PER_TASK: 128  # number of OpenMP threads per MPI task
     SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
-    OMP_NUM_THR: "128"
+    OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
 
 .vars_viper_run_debugrun_slurm:
   extends: .vars_viper_run_slurm
@@ -970,6 +1033,7 @@ include:
     PYTEST_MARKER_OPTS: "debugrun"
     PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec)"
 
+# MPI
 .vars_viper_mpi_run_slurm:
   extends:
     - .vars_viper_build
