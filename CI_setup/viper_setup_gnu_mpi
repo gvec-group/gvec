@@ -2,9 +2,9 @@
 
 # ===========================================
 # use this setup on raven with the command:
-# > . CI_setup/viper_setup_gnu
+# > . CI_setup/viper_setup_gnu_mpi
 #
-# LAST MODIFIED: 2024-10-14
+# LAST MODIFIED: 2024-12-19
 # ===========================================
 
 module purge
@@ -13,12 +13,13 @@ module load git-lfs
 module load cmake
 module load gcc
 module load mkl
+module load openmpi
 module load hdf5-serial
 module load netcdf-serial
 module load ftimings
 module load anaconda/3/2023.03 #for pytest
 
 module list
-export FC=`which gfortran`
+export FC=`which mpif90`
 export CC=`which gcc`
 export CXX=`which g++`

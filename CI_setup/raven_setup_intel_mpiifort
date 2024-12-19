@@ -26,7 +26,7 @@ export CC=`which mpiicc`
 export CXX=`which mpiicc`
 
 #used for pytest
-export MPI_PRFX="mpirun -np 2"
+export RUN_PRFX="mpirun -np 2"
 #uncomment to be able to use mpirun directly
 unset I_MPI_HYDRA_BOOTSTRAP
 unset I_MPI_PMI_LIBRARY

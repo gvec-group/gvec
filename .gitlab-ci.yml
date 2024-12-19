@@ -164,6 +164,14 @@ include:
       env: .viper_gcc
       rules: .rules_private_runner_minimal
 
+  # MPI
+
+  # Viper private runner (Gnu + OpenMPI)
+  - local: CI_templates/env.yml
+    inputs:
+      env: .viper_gcc_openmpi
+      rules: .rules_private_runner_minimal
+
   # ============================
   # stage build jobs
   # ============================
@@ -308,6 +316,14 @@ include:
       vars: .vars_viper_build_tag
       rules: .rules_private_runner
 
+  # MPI
+  # Viper private runner (Gnu + OpenMPI)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .viper_gcc_openmpi
+      vars: .vars_viper_build  ### .vars_viper_mpi_build
+      cmake-opts: .cmake_mpi_opts
+      rules: .rules_private_runner_minimal
 
   # ============================
   # stage run jobs
@@ -438,6 +454,16 @@ include:
       env: .viper_gcc
       vars: .vars_viper_run_debugrun_slurm
       run-postfix: _debugrun
+      slurm-postfix: _slurm
+      rules: .rules_private_runner_minimal
+
+  # MPI
+
+  # Viper private runner (Gnu + OpenMPI)
+  - local: CI_templates/run.yml
+    inputs:
+      env: .viper_gcc_openmpi
+      vars: .vars_viper_mpi_run_slurm
       slurm-postfix: _slurm
       rules: .rules_private_runner_minimal
 
@@ -732,17 +758,23 @@ include:
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
-# SLURM variables for Raven (debug queue)
-.vars_raven_slurm:
+# SLURM base variables (for both Raven and Viper)
+.vars_base_slurm:
   variables:
     SLURM_JOB_NAME: ci_${CI_PROJECT_NAME}_${CI_PIPELINE_ID}_${CI_JOB_ID}
-    SLURM_TIMELIMIT: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_TIMELIMIT: "10"     # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
     SLURM_MEM_PER_NODE: 10G
-    SLURM_NNODES: 1           # number of compute nodes:
-    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
-    SLURM_CPUS_PER_TASK: 72   # number of OpenMP threads per MPI task
-    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
-    SRUN_TIMEOUT: "3600"  # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
+    SRUN_TIMEOUT: "3600"      # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
+
+#### SLURM variables for Raven
+###.vars_raven_slurm:
+###  extends:
+###    - .vars_base_slurm
+###  variables:
+###    SLURM_NNODES: 1           # number of compute nodes:
+###    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
+###    SLURM_CPUS_PER_TASK: 72   # number of OpenMP threads per MPI task
+###    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
 
 # Viper GVEC private runner tags
 .viper:
@@ -758,28 +790,29 @@ include:
     CURR_CMP: "gnu"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
-    OMP_NUM_THR: "4" #"20"
+    ###OMP_NUM_THR: "4" #"20"
 
 # MPCDF Docker image gcc-openmpi:latest
 .viper_gcc_openmpi:
+  extends:
+    - .viper
+    - .hooks_mpcdf_runner
   variables:
     CMAKE_HOSTNAME: "viper"
     CURR_CMP: "gnu_mpi"
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
-    OMP_NUM_THR: "36"
+    ###OMP_NUM_THR: "32"
 
-# SLURM variables for Viper (debug queue)
-.vars_viper_slurm:
-  variables:
-    SLURM_JOB_NAME: ci_${CI_PROJECT_NAME}_${CI_PIPELINE_ID}_${CI_JOB_ID}
-    SLURM_TIMELIMIT: "10"       # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
-    SLURM_MEM_PER_NODE: 10G
-    SLURM_NNODES: 1           # number of compute nodes:
-    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
-    SLURM_CPUS_PER_TASK: 128  # number of OpenMP threads per MPI task
-    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
-    SRUN_TIMEOUT: "3600"      # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
+#### SLURM variables for Viper
+###.vars_viper_slurm:
+###  extends:
+###    - .vars_base_slurm
+###  variables:
+###    SLURM_NNODES: 1           # number of compute nodes:
+###    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
+###    SLURM_CPUS_PER_TASK: 128  # number of OpenMP threads per MPI task
+###    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build" 
@@ -834,6 +867,11 @@ include:
   variables:
     CMP_MODE: "Release"
     OMP_MODE: "ompON"
+
+###.vars_viper_mpi_build:
+###  variables:
+###    CMP_MODE: "Release"
+###    OMP_MODE: "ompON"
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
@@ -905,17 +943,25 @@ include:
 # Raven private runner (runs on SLURM queues via srun)
 .vars_raven_run_slurm:
   extends:
-    - .vars_raven_slurm
     - .vars_raven_build
+    - .vars_base_slurm
   variables:
+    SLURM_NNODES: 1           # number of compute nodes:
+    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
+    SLURM_CPUS_PER_TASK: 72   # number of OpenMP threads per MPI task
+    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
     OMP_NUM_THR: "72"
 
 # Raven private runner (runs on SLURM queues via srun)
 .vars_viper_run_slurm:
   extends:
-    - .vars_viper_slurm
     - .vars_viper_build
+    - .vars_base_slurm
   variables:
+    SLURM_NNODES: 1           # number of compute nodes:
+    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
+    SLURM_CPUS_PER_TASK: 128  # number of OpenMP threads per MPI task
+    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
     OMP_NUM_THR: "128"
 
 .vars_viper_run_debugrun_slurm:
@@ -924,6 +970,16 @@ include:
     PYTEST_MARKER_OPTS: "debugrun"
     PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec)"
 
+.vars_viper_mpi_run_slurm:
+  extends:
+    - .vars_viper_build
+    - .vars_base_slurm
+  variables:
+    SLURM_NNODES: 1           # number of compute nodes:
+    SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node
+    SLURM_CPUS_PER_TASK: 64   # number of OpenMP threads per MPI task
+    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
+    OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
 
 # ____________________________
 # ${HASH_TAG} branch (release version)
