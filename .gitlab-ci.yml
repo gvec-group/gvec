@@ -21,8 +21,7 @@ workflow:
     - if: $CI_COMMIT_TAG || $CI_COMMIT_REF_NAME == "develop"
       when: always
       variables:
-        ####  ==================== USE main if merged to develop!!!==
-        HASH_TAG_REFERENCE: feature_hmap_frenet
+        HASH_TAG_REFERENCE: main
     # otherwise always run the pipeline (e.g. on every push)
     - when: always
 
