@@ -40,7 +40,9 @@ SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
 USE MODgvec_Globals,    ONLY: TWOPI
 USE MODgvec_MHD3D_vars, ONLY: X1_base,X2_base,LA_base,hmap,U
 USE MODgvec_output_vtk, ONLY: WriteDataToVTK
+USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
 USE MODgvec_Output_vars,ONLY: Projectname,OutputLevel
+USE MODgvec_Analyze_Vars,ONLY: outfileType
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -55,8 +57,8 @@ IMPLICIT NONE
   REAL(wp) :: xIP(2),q(3)
   REAL(wp) :: X1_visu,X2_visu
   REAL(wp) :: coord_visu(3,mn_IP(1),mn_IP(2),1)
-  INTEGER,PARAMETER  :: nVal=3
-  INTEGER  :: VP_LAMBDA,VP_theta,VP_zeta
+  INTEGER,PARAMETER  :: nVal=5
+  INTEGER  :: VP_LAMBDA,VP_theta,VP_zeta,VP_X1,VP_X2
   REAL(wp) :: var_visu(nVal,mn_IP(1),mn_IP(2),1)
   REAL(wp) :: thet(mn_IP(1)),zeta(mn_IP(2))
   REAL(wp) :: spos
@@ -81,6 +83,8 @@ IMPLICIT NONE
   VP_LAMBDA=iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="lambda"
   VP_theta =iVal;iVal=iVal+1; VarNames(VP_theta )="theta"
   VP_zeta  =iVal;iVal=iVal+1; VarNames(VP_zeta  )="zeta"
+  VP_X1    =iVal;iVal=iVal+1; VarNames(VP_X1  )="X1"
+  VP_X2    =iVal;iVal=iVal+1; VarNames(VP_X2  )="X2"
   DO i_m=1,mn_IP(1)
     thet(i_m)= TWOPI*(minmax(2,0)+(minmax(2,1)-minmax(2,0))*REAL(i_m-1,wp)/REAL(mn_IP(1)-1,wp)) !repeat point exactly
   END DO
@@ -117,11 +121,19 @@ IMPLICIT NONE
       var_visu(VP_LAMBDA,i_m,i_n,1)=LA_base%f%evalDOF_x(xIP,0,LA_s)
       var_visu(VP_theta ,i_m,i_n,1)=xIP(1)
       var_visu(VP_zeta  ,i_m,i_n,1)=xIP(2)
+      var_visu(VP_X1    ,i_m,i_n,1)=X1_visu
+      var_visu(VP_X2    ,i_m,i_n,1)=X2_visu
     END DO !i_m
   END DO !i_n
   nplot(:)=mn_IP-1
-  WRITE(filename,'(A,"_visu_BC_",I4.4,"_",I8.8,".vtu")')TRIM(Projectname),outputLevel,fileID
-  CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,coord_visu,var_visu,TRIM(filename))
+  WRITE(filename,'(A,"_visu_BC_",I4.4,"_",I8.8)')TRIM(Projectname),outputLevel,fileID
+  IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
+    CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,coord_visu,var_visu,TRIM(filename)//".vtu")
+  END IF
+  IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
+    CALL WriteDataToNETCDF(2,3,nVal,mn_IP,(/"dim_theta","dim_zeta "/),VarNames,&
+    coord_visu,var_visu, TRIM(filename))
+  END IF
 
 END SUBROUTINE visu_BC_face
 
@@ -132,7 +144,7 @@ END SUBROUTINE visu_BC_face
 !===================================================================================================================================
 SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
 ! MODULES
-USE MODgvec_Globals,        ONLY: TWOPI,PI,CROSS
+USE MODgvec_Globals,        ONLY: TWOPI,CROSS
 USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
 USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime,Eval_chiPrime,Eval_p_prime
 USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota_Prime,Eval_Phi_TwoPrime
@@ -160,15 +172,15 @@ IMPLICIT NONE
   REAL(wp) :: X1_visu,X2_visu,dX1_ds,dX2_ds,dX1_dthet,dX1_dzeta,dX2_dthet,dX2_dzeta
   REAL(wp) :: dLA_dthet,dLA_dzeta,iota_s,pres_s,phiPrime_s,e_s(3),e_thet(3),e_zeta(3)
 #if (defined(VISU_J_FD) || defined(VISU_J_EXACT))
-  INTEGER,PARAMETER  :: nVal=34
+  INTEGER,PARAMETER  :: nVal=36
   INTEGER            :: VP_J
   REAL(wp)           :: Jcart(3)
 #else
-  INTEGER,PARAMETER  :: nVal=31
+  INTEGER,PARAMETER  :: nVal=33
 #endif
   INTEGER  ::VP_LAMBDA,VP_SQRTG,VP_PHI,VP_IOTA,VP_PRES,VP_dp_ds,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, &
              VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,VP_MscaleF,&
-             VP_Ipol,VP_Itor
+             VP_Ipol,VP_Itor,VP_X1,VP_X2
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu_1d(nVal+3,(np_in(1)-1)*sgrid%nElems+1)
@@ -254,6 +266,8 @@ IMPLICIT NONE
   VP_B      =iVal;iVal=iVal+3; VarNames(VP_B     )="BvecX"
                                VarNames(VP_B+1   )="BvecY"
                                VarNames(VP_B+2   )="BvecZ"
+  VP_X1     =iVal;iVal=iVal+1; VarNames(VP_X1    )="X1"
+  VP_X2     =iVal;iVal=iVal+1; VarNames(VP_X2    )="X2"
   VP_F_X1   =iVal;iVal=iVal+1; VarNames(VP_F_X1  )="F_X1"
   VP_F_X2   =iVal;iVal=iVal+1; VarNames(VP_F_X2  )="F_X2"
   VP_F_LA   =iVal;iVal=iVal+1; VarNames(VP_F_LA  )="F_LA"
@@ -375,7 +389,7 @@ IMPLICIT NONE
 !$OMP           Bcart, Bthet, Bzeta, grad_s, grad_thet, grad_zeta) &
 !$OMP   REDUCTION(+:Itor_int,Ipol_int) &
 !$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
-!$OMP          VP_LAMBDA,VP_SQRTG,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, VP_Ipol,VP_Itor,&
+!$OMP          VP_LAMBDA,VP_SQRTG,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, VP_Ipol,VP_Itor,VP_X1,VP_X2,&
 !$OMP          VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,iota_s, &
 #ifdef VISU_J_FD
 !$OMP          X1_s_eps,X2_s_eps,LA_s_eps,dX1ds_eps,dX2ds_eps,VP_J,iota_s_eps,PhiPrime_s_eps,delta_s,&
@@ -440,6 +454,8 @@ IMPLICIT NONE
             var_visu(VP_LAMBDA,i_s,j_s,i_n,i_m,iElem) = LA_base%f%evalDOF_x(xIP,0,LA_s)
             !sqrtG
             var_visu(VP_SQRTG,i_s,j_s,i_n,i_m,iElem) = sqrtG
+            var_visu(VP_X1   ,i_s,j_s,i_n,i_m,iElem) = X1_visu
+            var_visu(VP_X2   ,i_s,j_s,i_n,i_m,iElem) = X2_visu
             !F_X1,F_X2,F_LA  
             var_visu(VP_F_X1,i_s,j_s,i_n,i_m,iElem) = X1_base%f%evalDOF_x(xIP,         0,F_X1_s )
             var_visu(VP_F_X2,i_s,j_s,i_n,i_m,iElem) = X2_base%f%evalDOF_x(xIP,         0,F_X2_s )

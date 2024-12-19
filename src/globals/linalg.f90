@@ -10,7 +10,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !===================================================================================================================================
-
+#include "defines.h"
 
 !===================================================================================================================================
 !>
@@ -24,7 +24,7 @@
 !===================================================================================================================================
 MODULE MODgvec_LinAlg
 
-USE MODgvec_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp,abort
 IMPLICIT NONE
 
 PUBLIC 
@@ -61,7 +61,8 @@ n = size(A,1)
 CALL DGETRF(n, n, Ainv, n, ipiv, info)
 
 IF(info.NE.0)THEN
-   STOP 'Matrix is numerically singular!'
+   CALL abort(__STAMP__,&
+              'Matrix is numerically singular!')
 END IF
 
 ! DGETRI computes the inverse of a matrix using the LU factorization
@@ -69,7 +70,8 @@ END IF
 CALL DGETRI(n, Ainv, n, ipiv, work, n, info)
 
 IF(info.NE.0)THEN
-   STOP 'Matrix inversion failed!'
+   CALL abort(__STAMP__,&
+              'Matrix inversion failed!')
 END IF
 END FUNCTION INV
 
@@ -106,12 +108,14 @@ nRHS=SIZE(RHS,1)/SIZE(A,1)
 CALL DGETRF(n, n, Atmp, n, ipiv, info)
 
 IF(info.NE.0)THEN
-   STOP 'Matrix is numerically singular!'
+   CALL abort(__STAMP__,&
+              'Matrix is numerically singular!')
 END IF
 
 CALL DGETRS('N',n, nRHS,Atmp, n, ipiv,X,n, info)
 IF(info.NE.0)THEN
-   STOP 'Matrix solve does not work!'
+   CALL abort(__STAMP__,&
+              'Matrix solve does not work!')
 END IF
 END FUNCTION SOLVE
 
@@ -147,12 +151,14 @@ nRHS=SIZE(RHS,2)
 CALL DGETRF(n, n, Atmp, n, ipiv, info)
 
 IF(info.NE.0)THEN
-   STOP 'Matrix is numerically singular!'
+   CALL abort(__STAMP__,&
+              'Matrix is numerically singular!')
 END IF
 
 CALL DGETRS('N',n, nRHS,Atmp, n, ipiv,X,n, info)
 IF(info.NE.0)THEN
-   STOP 'Matrix solve does not work!'
+   CALL abort(__STAMP__,&
+             'Matrix solve does not work!')
 END IF
 END FUNCTION SOLVEMAT
 
@@ -186,7 +192,8 @@ Atmp=A
 CALL DGETRF(dimA, dimA, Atmp, dimA, ipiv, info)
  
 IF(info.NE.0)THEN
-   STOP 'Matrix is numerically singular!'
+   CALL abort(__STAMP__,&
+              'Matrix is numerically singular!')
 END IF
 !upper diagonal part
 U=0.
@@ -221,7 +228,8 @@ IF(PRESENT(P))THEN
   
   !CHECK
   IF(SUM(ABS(MATMUL(P,MATMUL(L,U))-A)).GT.1e-12*dimA*dimA) THEN
-    STOP 'A=P*L*U decomposition not correct'
+    CALL abort(__STAMP__,&
+               'A=P*L*U decomposition not correct')
   END IF
 ELSE
   !pivoting of rows in L, backwards 
@@ -235,7 +243,8 @@ ELSE
   
   !CHECK
   IF(SUM(ABS(MATMUL(L,U)-A)).GT.1e-12*dimA*dimA) THEN
-    STOP 'A=L*U decomposition not correct'
+    CALL abort(__STAMP__,&
+               'A=L*U decomposition not correct')
   END IF
 END IF
 

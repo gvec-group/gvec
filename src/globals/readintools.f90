@@ -24,12 +24,11 @@
 !===================================================================================================================================
 MODULE MODgvec_ReadInTools
 ! MODULES
-USE MODgvec_Globals
+USE MODgvec_Globals, ONLY:wp,UNIT_stdout,MPIroot,abort
 USE ISO_VARYING_STRING
 IMPLICIT NONE
 PRIVATE
 
-PUBLIC::FillStrings
 PUBLIC::TRYREAD
 PUBLIC::GETSTR
 PUBLIC::CNTSTR
@@ -42,6 +41,8 @@ PUBLIC::GETINTALLOCARRAY
 PUBLIC::GETREALALLOCARRAY
 
 PUBLIC::IgnoredStrings
+PUBLIC::FillStrings
+PUBLIC::FinalizeReadIn
 !===================================================================================================================================
 
 INTERFACE TRYREAD
@@ -105,6 +106,7 @@ TYPE tString
   TYPE(tString),POINTER::NextStr,PrevStr
 END TYPE tString
 
+LOGICAL,PUBLIC::ReadInDone=.FALSE.
 TYPE(tString),POINTER::FirstString
 
 CONTAINS
@@ -250,9 +252,9 @@ ELSE
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetInt
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer):'
+  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -300,9 +302,9 @@ END IF
 ! Find values of pi in the string
 READ(HelpStr,*,IOSTAT=ioerr)GetReal
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (real):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (real):'
+  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -349,9 +351,9 @@ ELSE
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetLogical
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (logical):'
-  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (logical):'
+  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -408,15 +410,15 @@ DO WHILE(LEN(CHAR(separator)) .NE. 0)
   CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
 END DO
 IF(iInteger.NE.nIntegers)THEN
-  WRITE(*,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (integer Array), number of elements : ', iInteger, ' .NE. ',nIntegers
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (integer Array), number of elements : ', iInteger, ' .NE. ',nIntegers
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer array):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer array):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -487,9 +489,9 @@ IF(ALLOCATED(GetIntArray)) DEALLOCATE(GetIntArray)
 ALLOCATE(GetIntArray(nIntegers))
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer array):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer array):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -556,16 +558,16 @@ DO WHILE(LEN(CHAR(separator)) .NE. 0)
   CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
 END DO
 IF(iReal.NE.nReals)THEN
-  WRITE(*,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (RealArray), number of elements : ', iReal, ' .NE. ',nReals
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (RealArray), number of elements : ', iReal, ' .NE. ',nReals
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (RealArray):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (RealArray):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -636,9 +638,9 @@ ALLOCATE(GetRealArray(nReals))
 
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
-  WRITE(*,*)'PROBLEM IN READIN OF LINE (RealArray):'
-  WRITE(*,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  STOP     
+  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (RealArray):'
+  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
+  CALL abort(__STAMP__,"")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -675,7 +677,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-TYPE(tString),POINTER                  :: Str1  
+TYPE(tString),POINTER                  :: Str1, Str2
 !===================================================================================================================================
 IF(MPIroot)THEN !<<<<
   Str1=>FirstString
@@ -684,12 +686,35 @@ IF(MPIroot)THEN !<<<<
     WRITE(UNIT_stdOut,'(A)')" THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:"
     DO WHILE(ASSOCIATED(Str1))
       WRITE(UNIT_stdOut,'(A4,A)')" |- ",TRIM(CHAR(Str1%Str))
-      Str1=>Str1%NextStr
+      Str2=>Str1%NextStr
+      CALL DeleteString(Str1) ! remove string from the list -> no strings should be left
+      Str1=>Str2
     END DO
     WRITE(UNIT_stdOut,'(132("-"))')
   END IF
 END IF !MPIroot !<<<<
 END SUBROUTINE IgnoredStrings
+
+
+!===================================================================================================================================
+!> Reset global variables
+!!
+!===================================================================================================================================
+SUBROUTINE FinalizeReadIn()
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+IF (ASSOCIATED(FirstString)) THEN
+  CALL IgnoredStrings()
+END IF
+ReadInDone=.FALSE.
+END SUBROUTINE FinalizeReadIn
 
 
 !===================================================================================================================================
@@ -716,6 +741,8 @@ LOGICAL                        :: file_exists !<<<<
 CHARACTER(LEN=255),ALLOCATABLE :: FileContent(:) !<<<<
 CHARACTER(LEN=1)               :: tmpChar='' !<<<<
 !===================================================================================================================================
+! do nothing if FillStrings was already called
+IF (ReadInDone) RETURN
 !READ FROM FILE ONLY ON MPIroot
 IF(MPIroot)THEN !<<<<
   FileName = TRIM(IniFile)
@@ -816,8 +843,8 @@ DO WHILE (ASSOCIATED(Str1))
   END IF
 END DO
 
+ReadInDone = .TRUE.
 CALL UserDefinedVars()
-
 
 END SUBROUTINE FillStrings
 

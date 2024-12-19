@@ -69,8 +69,10 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
 
   spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04,spos_in))
   mn_IP = X1_base_in%f%mn_IP
-  IF(X2_base_in%f%mn_IP.NE.mn_IP) STOP 'X2 mn_IP /= X1 mn_IP'
-  IF(LA_fbase_in%mn_IP .NE.mn_IP)  STOP 'LA mn_IP /= X1 mn_IP'
+  IF(X2_base_in%f%mn_IP.NE.mn_IP) CALL abort(__STAMP__,&
+                                             'X2 mn_IP /= X1 mn_IP')
+  IF(LA_fbase_in%mn_IP .NE.mn_IP)  CALL abort(__STAMP__,& 
+                                             'LA mn_IP /= X1 mn_IP')
   zeta_IP  = X1_base_in%f%x_IP(2,:) 
 
 

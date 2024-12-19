@@ -6,6 +6,7 @@ stages:
   - env
   - build
   - run
+  - unit
   - regression
   - postprocessing
   - publish
@@ -20,7 +21,8 @@ workflow:
     - if: $CI_COMMIT_TAG || $CI_COMMIT_REF_NAME == "develop"
       when: always
       variables:
-        HASH_TAG_REFERENCE: main
+        ####  ==================== USE main if merged to develop!!!==
+        HASH_TAG_REFERENCE: feature_hmap_frenet
     # otherwise always run the pipeline (e.g. on every push)
     - when: always
 
@@ -87,7 +89,7 @@ variables:
 
 
 # =================================================================================================================================
-# INCLUDE TEMPLATES & JOBS 
+# INCLUDE TEMPLATES & JOBS
 # =================================================================================================================================
 
 include:
@@ -109,7 +111,7 @@ include:
     inputs:
       env: .mpcdfci_intel_latest
       rules: .rules_minimal
-  
+
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gcc13
@@ -174,6 +176,16 @@ include:
       env: .mpcdfci_gcc_openmpi_latest
       vars: .vars_matrix_mpi_build
       cmake-opts: .cmake_mpi_opts
+
+  # pip
+  - local: CI_templates/build-pip.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/build-pip.yml
+    inputs:
+      env: .mpcdfci_gcc13
 
   # converter-only
   - local: CI_templates/build.yml
@@ -312,8 +324,6 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_tag
 
-# This FAILS before branch develop_mpi_par IS MERGED to branch develop!
-
   # release tag + MPI
   - local: CI_templates/run.yml
     inputs:
@@ -322,6 +332,18 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_mpi_run_tag
 
+
+  # ============================
+  # unit jobs
+  # ============================
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .mpcdfci_gcc13
 
   # ============================
   # regression jobs
@@ -380,6 +402,11 @@ include:
   # ============================
   - local: CI_templates/pages.yml
 
+  - local: CI_templates/pypi.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      publish-target: gitlab
+      rules: .rules_pypi_gitlab
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -442,6 +469,17 @@ include:
     # allow manual triggering for pipelines where pages didn't run
     - when: manual
       allow_failure: true # workaround to disable reporting the pipeline as "Blocked"
+
+.rules_pypi_gitlab:
+  rules:
+    # disable for NIGHTLY_PIPELINE
+    - if: $NIGHTLY_PIPELINE == "true"
+      when: never
+    # publish all commits on develop (e.g. after a merge request)
+    - if: $CI_COMMIT_REF_NAME =~ /develop/
+      when: on_success
+    # optional for other branches
+    - when: manual
 
 # ____________________________
 # MPCDF new Docker images
@@ -532,7 +570,7 @@ include:
     OMP_NUM_THR: "4"
 
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "build" 
+# TEMPLATES FOR STAGE "build"
 # =================================================================================================================================
 
 # ____________________________
@@ -587,6 +625,12 @@ include:
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
 
+# only pip defaults for now
+.vars_matrix_unit:
+  variables:
+    CMP_MODE: "-"
+    OMP_MODE: "-"
+    MPI_MODE: "-"
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "run"

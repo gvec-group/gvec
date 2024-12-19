@@ -32,11 +32,16 @@ TYPE, ABSTRACT :: c_hmap
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
   INTEGER              :: which_hmap         !! points to hmap (1: MHD3D) 
+  INTEGER              :: nfp=-1             !! number of field periods used in hmap. If =-1, its not used
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
     PROCEDURE(i_sub_hmap            ),DEFERRED :: init
     PROCEDURE(i_sub_hmap            ),DEFERRED :: free
     PROCEDURE(i_fun_hmap_eval       ),DEFERRED :: eval
+    !PROCEDURE(i_fun_hmap_eval_all   ),DEFERRED :: eval_all
+    PROCEDURE(i_sub_hmap_init_aux   ),DEFERRED :: init_aux
+    PROCEDURE(i_sub_hmap            ),DEFERRED :: free_aux
+    PROCEDURE(i_sub_hmap            ),DEFERRED :: eval_aux
     PROCEDURE(i_fun_hmap_eval_dxdq  ),DEFERRED :: eval_dxdq
     PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh    
     PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq1 
@@ -52,6 +57,14 @@ ABSTRACT INTERFACE
     IMPORT c_hmap
     CLASS(c_hmap), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_hmap
+
+
+  SUBROUTINE i_sub_hmap_init_aux( sf ,nzeta_aux,zeta_aux)
+    IMPORT c_hmap,wp
+    INTEGER,INTENT(IN)   :: nzeta_aux
+    REAL(wp),INTENT(IN)  :: zeta_aux(1:nzeta_aux)
+    CLASS(c_hmap), INTENT(INOUT) :: sf
+  END SUBROUTINE i_sub_hmap_init_aux
 
   !===============================================================================================================================
   !> evaluate the mapping h q=(X^1,X^2,zeta) -> (x,y,z) 
@@ -132,6 +145,8 @@ ABSTRACT INTERFACE
 END INTERFACE
 
 !===================================================================================================================================
+
+
 
 END MODULE MODgvec_c_hmap
 
