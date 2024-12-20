@@ -1,6 +1,6 @@
 ! CLAF90 MODULE
 !
-! Copyright (c) 2015 Edward D. Zaron, Portland, Oregon, USA
+! Copyright (c) 2020 Edward D. Zaron, Portland, Oregon, USA
 !
 ! Permission is hereby granted, free of charge, to any person obtaining a copy of this
 ! software and associated documentation files (the "Software"), to deal in the Software
@@ -37,7 +37,7 @@ end module MODgvec_cla_kinds
 
 !
 !   Edward D. Zaron
-!    ezaron@pdx.edu
+!   edward.d.zaron@oregonstate.edu
 !   
 module MODgvec_cla
 
@@ -247,6 +247,7 @@ module MODgvec_cla
       ! Allocate a zero size registry, just so that it gets
       ! associated.
       cla_num = 0
+      cla_posarg_num = 0 ! Hmmm. 2020-10-23. Somehow this worked previously without this!
       allocate(cla_registry(0))
       allocate(cla_posarg_registry(0))      
       cla_kindstr(cla_int)     = 'integer'
@@ -320,8 +321,11 @@ module MODgvec_cla
       type(cla_t), dimension(:), pointer :: cla_registry_tmp
       integer(kind=int_kind) :: i
 
-      if (len(key) > 2)then
-        call cla_fatal("The short key should be a dash plus one character (-e)")
+      if (key(1:1) .ne. '-')then
+         call cla_fatal("The short key must begin with a dash (e.g., -e)")
+      endif
+      if (longkey(1:2) .ne. '--')then
+         call cla_fatal("The long key must begin with a two dashes (e.g., --extended_key)")
       end if
       
       ! This is a dumb way to increase the size of the
@@ -421,7 +425,7 @@ module MODgvec_cla
         if (cla_registry(i)%kind == cla_flag) then
           cmd_usage = trim(cmd_usage) // " [" // trim(cla_registry(i)%key) // "]"
         else
-          cmd_usage = trim(cmd_usage) // " [" // trim(cla_registry(i)%key) // " " // &
+          cmd_usage = trim(cmd_usage) // " [" // trim(cla_registry(i)%key) // "=" // &
           trim(cla_registry(i)%default) // "]"
         endif
       enddo
@@ -488,20 +492,27 @@ module MODgvec_cla
       str_test = index(trim(str1),trim(str2))*index(trim(str2),trim(str1))
       cla_str_eq = .false.
       if (str_test /= 0) cla_str_eq = .true.
-    end function cla_str_eq
-    
+    end function cla_str_eq  
     
     subroutine cla_validate(cmd_name)
+      implicit none
+      character(len=*)      :: cmd_name
+      call cla_validate_info(cmd_name,.false.)
+      
+    end subroutine cla_validate
+
+    subroutine cla_validate_info(cmd_name,info)
       implicit none
       character(len=*)      :: cmd_name
       character(len=STRLEN) :: arg
       character(len=STRLEN)  :: value, key
       integer(kind=int_kind) :: ncla, k, kk, iequal, kcla, kkv
+      logical :: info
 
-      !write(*,*) "Validating the command line arguments:"
+      if (info) write(*,*) "Validating the command line arguments:"
       ncla = cla_command_argument_count()
       if (ncla == 0) then
-         !write(*,*) "    ... none found. Returning."
+         if (info) write(*,*) "    ... none found. Returning."
          return
       end if
       
@@ -520,34 +531,37 @@ module MODgvec_cla
          stop " "
       endif
 
-      !write(*,*) "    cla_command_argument_count = ",ncla
+      if (info) write(*,*) "    cla_command_argument_count = ",ncla
       do k=1,ncla
          call cla_get_command_argument(k,arg)
-         !write(*,*) "    cla_command_argument #",k,": ",arg
+         if (info) write(*,*) "    cla_command_argument #",k,": ",arg
       end do
       ! Positional arguments must all occur either before or after all the key/value arguments.
       kcla = 0
       do while (kcla < ncla)
          call cla_get_command_argument(kcla+1,arg)
+         ! Search the arguments until we find one that begins with "-", which we know is the marker
+         ! for the key,value pairs or flags.
          if (index(arg,"-") /= 1) then
-            !if (kcla == 0) write(*,*) "    Positional arguments appear to occur prior to key/value arguments."
+            if (info .and.(kcla == 0)) write(*,*) "    Positional arguments appear to occur prior to key/value arguments."
             kcla = kcla + 1
             if (kcla > cla_posarg_num) then
-               write(*,*) "     ERROR: Too many positional arguments found!"
-               stop " "
+               stop "     ERROR: Too many positional arguments found!"
             endif
          else
             exit
          end if
-         !write(*,*) "          positional arg #",kcla,"= ",trim(arg), &
-         !     " is expected to be of type ",trim(cla_kindstr(cla_posarg_registry(kcla)%kind))
+         if (info) write(*,*) "          positional arg #",kcla,"= ",trim(arg), &
+              " is expected to be of type ",trim(cla_kindstr(cla_posarg_registry(kcla)%kind))
       end do
       ! Look for key value pairs:
-      do while (kcla < ncla-1)
+      do while (kcla < ncla)
          call cla_get_command_argument(kcla+1,key)
-         !if ( (index(key,"-") == 1) .and. (kcla == 0) ) then
-         !   write(*,*) "    Positional arguments appear to occur after to key/value arguments."
-         !endif
+         if (info) then
+            if ( (index(key,"-") == 1) .and. (kcla == 0) .and. (cla_posarg_num > 0)) then
+               write(*,*) "    Positional arguments appear to occur after to key/value arguments."
+            endif
+         endif
          kkv = kcla
          do kk=1,cla_num
             ! must test for exact match, not just substring
@@ -555,22 +569,22 @@ module MODgvec_cla
                  cla_registry(kk)%longkey, &
                  key))then
                if (cla_registry(kk)%kind == cla_flag) then
-                  !write(*,*) "          key = ",trim(key)," is a flag"
+                  if (info) write(*,*)"          key = ",trim(key)," is a flag"
                   kcla = kcla + 1
                   exit
                else
                   call cla_get_command_argument(kcla+2,value)
                   kcla = kcla + 2
-                  !write(*,*) "          key, value ?= ",trim(key)," ",trim(value), &
-                  !     " is expected to be of type ",trim(cla_kindstr(cla_registry(kk)%kind))
+                  if (info) write(*,*)"          key, value ?= ",trim(key)," ",trim(value), &
+                       " is expected to be of type ",trim(cla_kindstr(cla_registry(kk)%kind))
                end if
             end if           
          end do
          if (kcla == kkv) then
             if (index(key,"-") == 1) then
-               write(*,*) "      ERROR: ",trim(key)," could not be matched to any known key!"
-               stop " "
+               stop "      ERROR: "//trim(key)//" could not be matched to any known key!"
             else
+               ! We have reached the end of the key/value,flags and now check again for posarg.
                exit
             endif
          end if
@@ -581,19 +595,17 @@ module MODgvec_cla
          if (index(arg,"-") /= 1) then
             kcla = kcla + 1
             if ((kcla - kkv) > cla_posarg_num) then
-               write(*,*) "     ERROR: Too many positional arguments found!"
-               stop " "
+               stop "     ERROR: Too many positional arguments found!"
             endif
          else
-            write(*,*) "    ERROR: Positional arguments appear to be mixed in with -key value arguments."
-            write(*,*) "    Move position arguments to the end of the list."
-            stop " "
+            stop "    ERROR: Positional arguments appear to be mixed in with -key value arguments."// &
+                              " Move position arguments to the end of the list." 
          end if
-         !write(*,*) "    positional arg ?= ",arg
+         if (info) write(*,*)"    positional arg ?= ",arg
       end do
-      !write(*,*) "    No errors found in syntax validation, but type/kind-validity not checked!"
-      !write(*,*) "    If a -key value pair is repeated, the last one is used."
-    end subroutine cla_validate
+      if (info) write(*,*)"    No errors found in syntax validation, but type/kind-validity not checked!"
+      if (info) write(*,*)"    If a -key value pair is repeated, the last one is used."
+    end subroutine cla_validate_info
     
     logical function cla_key_present(key)
       implicit none
@@ -786,7 +798,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)float_value
       return
-100   call cla_fatal("Input value not correct type: "//key//" "//value)
+100   call cla_fatal("Input value not correct type: "//key//":"//value)
     end subroutine cla_get_float_r4
     
     subroutine cla_get_float_r8(key,float_value)
@@ -798,7 +810,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)float_value
       return
-100   call cla_fatal("Input value not correct type: "//key//" "//value)
+100   call cla_fatal("Input value not correct type: "//key//":"//value)
     end subroutine cla_get_float_r8
     
     
@@ -811,7 +823,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)int_value
       return
-100   call cla_fatal("Input value not correct type: "//key//" "//value)
+100   call cla_fatal("Input value not correct type: "//key//":"//value)
     end subroutine cla_get_int_i4
     
     subroutine cla_get_int_i8(key,int_value)
@@ -823,7 +835,7 @@ module MODgvec_cla
       call cla_get_char(key,value)
       if (index(trim(value),trim(cla_empty)) == 0) read(value,*,err=100)int_value
       return
-100   call cla_fatal("Input value not correct type: "//key//" "//value)        
+100   call cla_fatal("Input value not correct type: "//key//":"//value)        
     end subroutine cla_get_int_i8
     
     subroutine cla_get_logical(key,logical_value)

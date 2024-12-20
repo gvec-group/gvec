@@ -6,6 +6,7 @@ stages:
   - env
   - build
   - run
+  - unit
   - regression
   - postprocessing
   - publish
@@ -91,7 +92,7 @@ variables:
 
 
 # =================================================================================================================================
-# INCLUDE TEMPLATES & JOBS 
+# INCLUDE TEMPLATES & JOBS
 # =================================================================================================================================
 
 include:
@@ -113,7 +114,7 @@ include:
     inputs:
       env: .mpcdfci_intel_latest
       rules: .rules_minimal
-  
+
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gcc13
@@ -225,6 +226,16 @@ include:
       env: .mpcdfci_gcc_openmpi_latest
       vars: .vars_matrix_mpi_build
       cmake-opts: .cmake_mpi_opts
+
+  # pip
+  - local: CI_templates/build-pip.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/build-pip.yml
+    inputs:
+      env: .mpcdfci_gcc13
 
   # converter-only
   - local: CI_templates/build.yml
@@ -513,6 +524,18 @@ include:
       slurm-postfix: _slurm
       rules: .rules_private_runner_minimal
 
+
+  # unit jobs
+  # ============================
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      rules: .rules_minimal
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .mpcdfci_gcc13
+
   # ============================
   # stage regression jobs
   # ============================
@@ -571,6 +594,11 @@ include:
   # ============================
   - local: CI_templates/pages.yml
 
+  - local: CI_templates/pypi.yml
+    inputs:
+      env: .mpcdfci_intel_latest
+      publish-target: gitlab
+      rules: .rules_pypi_gitlab
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -678,6 +706,17 @@ include:
 .rules_never:
   rules:
     - when: never
+
+.rules_pypi_gitlab:
+  rules:
+    # disable for NIGHTLY_PIPELINE
+    - if: $NIGHTLY_PIPELINE == "true"
+      when: never
+    # publish all commits on develop (e.g. after a merge request)
+    - if: $CI_COMMIT_REF_NAME =~ /develop/
+      when: on_success
+    # optional for other branches
+    - when: manual
 
 .vars_dirs_artifacts:
   variables:
@@ -900,7 +939,7 @@ include:
 ###    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
 
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "build" 
+# TEMPLATES FOR STAGE "build"
 # =================================================================================================================================
 
 # ____________________________
@@ -983,6 +1022,13 @@ include:
   extends: .vars_viper_build
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
+
+# only pip defaults for now
+.vars_matrix_unit:
+  variables:
+    CMP_MODE: "-"
+    OMP_MODE: "-"
+    MPI_MODE: "-"
 
 
 # =================================================================================================================================

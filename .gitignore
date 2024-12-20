@@ -1,4 +1,5 @@
-build*
+doc
+build/*
 ctags.txt
 *.vsz
 *.vtu
@@ -8,7 +9,6 @@ ctags.txt
 *.o
 *.out
 *~
-__*
 CMakeFiles
 CMakeCache.txt
 CMakeUserPresets.json
@@ -36,6 +36,7 @@ __pycache__/
 .Python
 build/
 post/
+pybuild/
 develop-eggs/
 dist/
 downloads/
@@ -52,6 +53,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+python/gvec/_version.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

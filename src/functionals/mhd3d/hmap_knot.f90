@@ -53,6 +53,10 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   ! procedures for hmap_knot:
   PROCEDURE :: Rl            => hmap_knot_eval_Rl
   PROCEDURE :: Zl            => hmap_knot_eval_Zl
+  ! --- Not used
+  PROCEDURE :: init_aux      => dummy_sub_hmap_init_aux
+  PROCEDURE :: free_aux      => dummy_sub_hmap
+  PROCEDURE :: eval_aux      => dummy_sub_hmap   
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_knot
 
@@ -61,6 +65,21 @@ LOGICAL :: test_called=.FALSE.
 !===================================================================================================================================
 
 CONTAINS
+!===============================================================================================================================
+!> dummy routine that does noting
+!!
+SUBROUTINE dummy_sub_hmap( sf )
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+END SUBROUTINE dummy_sub_hmap
+
+!===============================================================================================================================
+!> dummy routine that does noting
+!!
+SUBROUTINE dummy_sub_hmap_init_aux( sf ,nzeta_aux,zeta_aux)
+  INTEGER,INTENT(IN)   :: nzeta_aux
+  REAL(wp),INTENT(IN)  :: zeta_aux(1:nzeta_aux)
+  CLASS(t_hmap_knot), INTENT(INOUT) :: sf
+END SUBROUTINE dummy_sub_hmap_init_aux
 
 !===================================================================================================================================
 !> initialize the type hmap_knot with number of elements

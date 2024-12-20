@@ -57,7 +57,9 @@ def check_diff_files(
     for lines, lidxs, path in [(linesA, lidxsA, pathA), (linesB, lidxsB, pathB)]:
         with open(path) as file:
             for lidx, line in enumerate(file):
-                if lidx in ignore_lines or any([re.search(regex, line) for regex in ignore_regexs]):
+                if lidx in ignore_lines or any(
+                    [re.search(regex, line) for regex in ignore_regexs]
+                ):
                     continue
                 lines.append(line)
                 lidxs.append(lidx)
@@ -67,7 +69,12 @@ def check_diff_files(
     warningsA, warningsB = [], []
     for (lidxA, lineA), (lidxB, lineB) in zip(lineZA, lineZB):
         while True:
-            if any([re.search(regex, lineA) and not re.search(regex, lineB) for regex in warn_regexs]):
+            if any(
+                [
+                    re.search(regex, lineA) and not re.search(regex, lineB)
+                    for regex in warn_regexs
+                ]
+            ):
                 warnings += 1
                 logger.warning(f"Extra lineA #{lidxA+1} (suppressed)")
                 logger.debug(f"=> Line A: {lineA!r}")
@@ -76,7 +83,12 @@ def check_diff_files(
                     lidxA, lineA = next(lineZA)
                 except StopIteration:
                     lidxA, lineA = None, ""
-            elif any([re.search(regex, lineB) and not re.search(regex, lineA) for regex in warn_regexs]):
+            elif any(
+                [
+                    re.search(regex, lineB) and not re.search(regex, lineA)
+                    for regex in warn_regexs
+                ]
+            ):
                 warnings += 1
                 logger.warning(f"Extra lineB #{lidxB+1} (suppressed)")
                 logger.debug(f"=> Line B: {lineB!r}")
@@ -88,17 +100,31 @@ def check_diff_files(
             else:
                 break
     if len(warningsA) > 0:
-        lidxsA, linesA = zip(*[(lidx, line) for lidx, line in zip(lidxsA, linesA) if lidx not in warningsA])
+        lidxsA, linesA = zip(
+            *[
+                (lidx, line)
+                for lidx, line in zip(lidxsA, linesA)
+                if lidx not in warningsA
+            ]
+        )
     if len(warningsB) > 0:
-        lidxsB, linesB = zip(*[(lidx, line) for lidx, line in zip(lidxsB, linesB) if lidx not in warningsB])
+        lidxsB, linesB = zip(
+            *[
+                (lidx, line)
+                for lidx, line in zip(lidxsB, linesB)
+                if lidx not in warningsB
+            ]
+        )
     # compare number of lines
     txt_differences += abs(len(linesA) - len(linesB))
-    if(txt_differences > 0):
+    if txt_differences > 0:
         if Path(pathA).name != Path(pathB).name:
             logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
         else:
             logger.info(f"--- Comparing {Path(pathA).name} ---")
-        logger.error(f"files (after applying filters) do not have the same number of lines ({len(linesA)} vs {len(linesB)})")
+        logger.error(
+            f"files (after applying filters) do not have the same number of lines ({len(linesA)} vs {len(linesB)})"
+        )
         return txt_differences, num_differences, warnings
     # compare lines
     for lidxA, lidxB, lineA, lineB in zip(lidxsA, lidxsB, linesA, linesB, strict=True):
@@ -114,7 +140,9 @@ def check_diff_files(
         if textsA != textsB:
             if num_differences == 0:
                 if Path(pathA).name != Path(pathB).name:
-                    logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
+                    logger.info(
+                        f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---"
+                    )
                 else:
                     logger.info(f"--- Comparing {Path(pathA).name} ---")
             if not any([re.search(regex, lineA) for regex in warn_regexs]):
@@ -122,16 +150,20 @@ def check_diff_files(
                 logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually")
             else:
                 warnings += 1
-                logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually (suppressed)")
+                logger.warning(
+                    f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually (suppressed)"
+                )
             logger.debug(f"=> Line A: {lineA!r}")
             logger.debug(f"=> Line B: {lineB!r}")
         # extract the float fragments
         floatsA, floatsB = (
             np.array(split[1::2], dtype=float) for split in (splitA, splitB)
         )
-        if not (len(floatsA)==len(floatsB)):
-            num_differences +=1
-            logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} do not have the same number of floats")
+        if not (len(floatsA) == len(floatsB)):
+            num_differences += 1
+            logger.error(
+                f"LineA #{lidxA+1} and LineB #{lidxB+1} do not have the same number of floats"
+            )
         else:
             select = np.ones(floatsA.shape, dtype=bool)
             select[[i for i in ignore_columns if i < select.size]] = False
@@ -143,14 +175,20 @@ def check_diff_files(
             if not all(close):
                 if num_differences == 0:
                     if Path(pathA).name != Path(pathB).name:
-                        logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
+                        logger.info(
+                            f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---"
+                        )
                     else:
                         logger.info(f"--- Comparing {Path(pathA).name} ---")
                 if not (any([re.search(regex, lineA) for regex in warn_regexs])):
                     num_differences += 1
-                    logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})")
+                    logger.error(
+                        f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})"
+                    )
                 else:
-                    logger.warning(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ numerically (rtol={rtol}, atol={atol}, {pattern}) (suppressed)")
+                    logger.warning(
+                        f"LineA #{lidxA+1} and LineB #{lidxB+1} differ numerically (rtol={rtol}, atol={atol}, {pattern}) (suppressed)"
+                    )
                 logger.debug(f"=> Line A: {lineA!r}")
                 logger.debug(f"=> Line B: {lineB!r}")
                 with np.printoptions(formatter={'float': '{:.2E}'.format}):
@@ -202,14 +240,22 @@ def assert_stdout_OpenMP_MPI(path: str | Path = "stdout.txt"):
         lines = file.readlines()
     # check OpenMP
     if os.environ.get("OMP_MODE") == "ompON":
-        assert any(re.search(r"OpenMP threads", line) for line in lines), "no OpenMP support despite ompON"
+        assert any(
+            re.search(r"OpenMP threads", line) for line in lines
+        ), "no OpenMP support despite ompON"
     elif os.environ.get("OMP_MODE") == "ompOFF":
-        assert not any(re.search(r"OpenMP threads", line) for line in lines), "OpenMP support despite ompOFF"
+        assert not any(
+            re.search(r"OpenMP threads", line) for line in lines
+        ), "OpenMP support despite ompOFF"
     # check MPI
     if os.environ.get("MPI_MODE") == "mpiON":
-        assert any(re.search(r"MPI tasks", line) for line in lines), "no MPI support despite mpiON"
+        assert any(
+            re.search(r"MPI tasks", line) for line in lines
+        ), "no MPI support despite mpiON"
     elif os.environ.get("MPI_MODE") == "mpiOFF":
-        assert not any(re.search(r"MPI tasks", line) for line in lines), "MPI support despite mpiOFF"
+        assert not any(
+            re.search(r"MPI tasks", line) for line in lines
+        ), "MPI support despite mpiOFF"
 
 
 # === HELPER FUNCTIONS === #
@@ -235,68 +281,3 @@ def chdir(target: str | Path):
     finally:
         os.chdir(source)
 
-
-def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
-    """
-    Copy the `source` file to the `target` file, replacing the parameters according to `kwargs`.
-
-    Args:
-        source (str or Path): The path to the source parameter file.
-        target (str or Path): The path to the target parameter file.
-        **kwargs: Keyword arguments representing the parameters to be replaced.
-
-    Raises:
-        AssertionError: If the number of occurrences for any parameter is not exactly 1.
-
-    Notes:
-        - If no parameters are provided in `kwargs`, the function simply copies the `source` file to the `target` file.
-        - The function replaces the parameters in the format `key = value`, where value is either a sequence of characters containing
-        no whitespace or a single pair of parentheses with any content. The value from `kwargs` is inserted using the standard python
-        string conversion. There may be a comment, starting with `!`, after the value.
-        - If a parameter already exists in the `source` file, its value is replaced with the corresponding value from `kwargs`.
-        - If a parameter does not exist in the `source` file, it is added to the `target` file.
-        - If the value of the key starts with "!", the line with the keyword is just uncommented.  (i.e. "!key=2.5" -> "key=2.5")
-          If no line with the keyword is found, the key is added with the value, excluding the leading "!"  (i.e. value is "!0.5" -> "key=0.5" is added)
-
-    Example:
-    >>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")
-    """
-    if not len(kwargs.keys()):
-        shutil.copy2(source, target)
-        return
-    occurrences = {key: 0 for key in kwargs}
-    with open(source, "r") as source_file, open(target, "w") as target_file:
-        for line in source_file:
-            if m := re.match(
-                r"([\s!]*)("
-                + "|".join(kwargs.keys())
-                + r")(\s*=\s*)(\(.*\)|[^!\s]*)(.*)",
-                line,
-            ):
-                prefix, key, sep, value, suffix = m.groups()
-                if "!" in prefix:  # found commented keyword
-                    if str(kwargs[key])[0] == "!":  # only uncomment keyword
-                        line = f"{key}{sep}{value}{suffix}\n"
-                        occurrences[key] += 1
-                else:  # found uncommented keywords
-                    if not (str(kwargs[key])[0] == "!"):  # use new keyword
-                        line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
-                        occurrences[key] += 1
-                    else:  # use the existing keyword,value pair with a comment
-                        line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
-                        occurrences[key] += 1
-            target_file.write(line)
-        # add key,value pair if not existing in parameter-file.
-        for key, v in occurrences.items():
-            if v == 0:
-                if not (
-                    str(kwargs[key])[0] == "!"
-                ):  # ignore uncommenting keywords if not found
-                    target_file.write(f"\n {key} = {kwargs[key]}")
-                else:
-                    target_file.write(f"\n {key} = {kwargs[key][1:]}")
-                occurrences[key] += 1
-
-    assert all(
-        [v == 1 for v in occurrences.values()]
-    ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"

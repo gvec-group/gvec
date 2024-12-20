@@ -1,5 +1,5 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2022  Florian Hindenlang <hindenlang@gmail.com>
+! Copyright (C) 2017 - 2024  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2021 - 2022  Tiago Ribeiro
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
@@ -40,10 +40,11 @@ TYPE, ABSTRACT :: c_sgrid
 END TYPE c_sgrid
 
 ABSTRACT INTERFACE
-  SUBROUTINE i_sub_sgrid_init( sf , nElems_in, grid_type_in)
-    IMPORT c_sgrid
+  SUBROUTINE i_sub_sgrid_init( sf , nElems_in, grid_type_in,sp_in)
+    IMPORT wp,c_sgrid
     INTEGER       , INTENT(IN   ) :: nElems_in 
     INTEGER       , INTENT(IN   ) :: grid_type_in 
+    REAL(wp),INTENT(IN),OPTIONAL  :: sp_in(0:nElems_in)
     CLASS(c_sgrid), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sgrid_init
 
@@ -108,7 +109,7 @@ CONTAINS
 !> initialize the type sgrid with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in)
+SUBROUTINE sGrid_init( sf, nElems_in,grid_type_in,sp_in)
 ! MODULES
 USE MODgvec_GLobals, ONLY: PI,myRank, nRanks
 IMPLICIT NONE
@@ -116,6 +117,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: nElems_in       !! total number of elements
   INTEGER       , INTENT(IN   ) :: grid_type_in    !! GRID_TYPE_UNIFORM, GRID_TYPE_SQRT_S, GRID_TYPE_S2, GRID_TYPE_BUMP
+  REAL(wp),INTENT(IN),OPTIONAL  :: sp_in(0:nElems_in) !! inner grid point positions, first position should be 0, last should be 1.
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sgrid), INTENT(INOUT) :: sf !! self
@@ -152,26 +154,30 @@ IMPLICIT NONE
   ASSOCIATE( &
               nElems    => sf%nElems    &
             , grid_Type => sf%grid_Type )
-  
-  !uniform [0,1]
-  DO iElem=0,nElems
-    sf%sp(iElem)=REAL(iElem,wp)/REAL(nElems,wp)
-  END DO
-  SELECT CASE(grid_type)
-  CASE(GRID_TYPE_UNIFORM)
-    !do nothing
-  CASE(GRID_TYPE_SQRT_S) !finer at the edge
-    sf%sp(:)=SQRT(sf%sp(:))
-  CASE(GRID_TYPE_S2)   !finer at the center
-    sf%sp(:)=sf%sp(:)*sf%sp(:)
-  CASE(GRID_TYPE_BUMP) !finer towards axis and edge
-    sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*2.0_wp*sf%sp(:))
-  CASE(GRID_TYPE_BUMP_EDGE) ! more equidistnat at the axis and finer towards edge
-    sf%sp(:)=(sf%sp(:)-0.75_wp*((sf%sp(:)-0.4_wp)**3 + 0.4_wp**3))/(1.0_wp-0.75_wp*((1.0_wp-0.4_wp)**3+0.4**3))
-  CASE DEFAULT
-   CALL abort(__STAMP__, &
+
+  IF(PRESENT(sp_in))THEN
+    sf%sp=sp_in
+  ELSE   
+    !uniform [0,1]
+    DO iElem=0,nElems
+      sf%sp(iElem)=REAL(iElem,wp)/REAL(nElems,wp)
+    END DO
+    SELECT CASE(grid_type)
+    CASE(GRID_TYPE_UNIFORM)
+      !do nothing
+    CASE(GRID_TYPE_SQRT_S) !finer at the edge
+      sf%sp(:)=SQRT(sf%sp(:))
+    CASE(GRID_TYPE_S2)   !finer at the center
+      sf%sp(:)=sf%sp(:)*sf%sp(:)
+    CASE(GRID_TYPE_BUMP) !finer towards axis and edge
+      sf%sp(:)=sf%sp(:)-0.05_wp*SIN(PI*2.0_wp*sf%sp(:))
+    CASE(GRID_TYPE_BUMP_EDGE) ! more equidistnat at the axis and finer towards edge
+      sf%sp(:)=(sf%sp(:)-0.75_wp*((sf%sp(:)-0.4_wp)**3 + 0.4_wp**3))/(1.0_wp-0.75_wp*((1.0_wp-0.4_wp)**3+0.4**3))
+    CASE DEFAULT
+      CALL abort(__STAMP__, &
           'given grid type does not exist') 
-  END SELECT
+    END SELECT
+  END IF!PRESENT(sp_in)
   
   !compute delta s
   DO iElem=1,nElems

@@ -629,7 +629,8 @@ CONTAINS
             sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(int_in,dims(1:4)))
           END IF
         CASE DEFAULT
-          STOP "ndims_var>4 not implemented yet in io_netcdf"
+          CALL abort(__STAMP__,&
+                     "ndims_var>4 not implemented yet in io_netcdf")
         END SELECT
         CALL sf%handle_error("write integer array '"//TRIM(varname_in)//"'")
       END SELECT !CASE(def_put_mode)
@@ -668,7 +669,8 @@ CONTAINS
             sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(real_in,dims(1:4)))
           END IF
         CASE DEFAULT
-          STOP "ndims_var>4 not implemented yet in io_netcdf"
+          CALL abort(__STAMP__,&
+                     "ndims_var>4 not implemented yet in io_netcdf")
         END SELECT
         CALL sf%handle_error("write real array '"//TRIM(varname_in)//"'")
       END SELECT !CASE(def_put_mode)

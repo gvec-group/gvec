@@ -351,7 +351,7 @@ IMPLICIT NONE
 END SUBROUTINE Transform_Angles_3d
 
 !===================================================================================================================================
-!> Helper routine to go from spline interpolation points to spline coefficients and apply axis boundary condition
+!> Helper routine to go from spline interpolation points to spline coefficients and apply smooth axis boundary condition.
 !!
 !===================================================================================================================================
 SUBROUTINE to_spline_with_BC(q_base_out,q_m,q_out)
@@ -367,19 +367,24 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: iMode
-  INTEGER               :: BCtype_axis(0:4)
+  INTEGER               :: BCtype_axis
+  REAL(wp)              :: BCval_axis,BCval_edge
 !===================================================================================================================================
-  BCtype_axis(MN_ZERO    )= BC_TYPE_OPEN   !do nothing
-  BCtype_axis(M_ZERO     )= BC_TYPE_OPEN   !do nothing
-  BCtype_axis(M_ODD_FIRST)= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_ODD      )= BC_TYPE_DIRICHLET !=0
-  BCtype_axis(M_EVEN     )= BC_TYPE_DIRICHLET !=0
   !transform back to corresponding representation of DOF in s
 !$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode) FIRSTPRIVATE(BCtype_axis)
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,BCtype_axis,BCval_axis,BCval_edge)
   DO iMode=1,q_base_out%f%modes
     q_out(:,iMode)=q_base_out%s%initDOF( q_m(iMode,:) )
-    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis(q_base_out%f%zero_odd_even(iMode)),BC_TYPE_OPEN/),(/0.,0./))
+    BCval_edge=q_m(iMode,q_base_out%s%nBase)
+    !NEW m-dependent smooth BC at axis, for m>deg, switch off all DOF up to deg
+    BCtype_axis=-1*MIN(q_base_out%s%deg+1,q_base_out%f%Xmn(1,iMode)) !
+    SELECT CASE(q_base_out%f%zero_odd_even(iMode))
+    CASE(MN_ZERO,M_ZERO)
+      BCval_axis=q_m(iMode,1)
+    CASE DEFAULT
+      BCval_axis=0.0_wp
+    END SELECT
+    CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis,BC_TYPE_DIRICHLET/),(/BCval_axis,BCval_edge/))
   END DO
 !$OMP END PARALLEL DO 
 END SUBROUTINE to_spline_with_BC
@@ -416,7 +421,7 @@ IMPLICIT NONE
   REAL(wp) ,INTENT(INOUT) :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< coefficients of q in new angles 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER               :: nBase,i,is,iMode,i_mn,mn_IP,mn_max(2),mn_nyq(2)
+  INTEGER               :: nBase,i,is,i_mn,mn_IP,mn_max(2),mn_nyq(2)
   REAL(wp)              :: spos,dthet_dzeta 
   REAL(wp)              :: check(1:7,q_base_out%s%nBase)
   LOGICAL               :: docheck
@@ -650,7 +655,7 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
     END DO
     
     IF(ANY(maxerr.GT.1.0e-12))THEN
-      WRITE(*,*)'CHECK PEST THETA*',maxerr
+      WRITE(UNIT_stdout,*)'CHECK PEST THETA*',maxerr
       CALL abort(__STAMP__, & 
           "Find_pest_Angles: Error in theta*")
     END IF

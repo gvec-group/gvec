@@ -12,6 +12,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
+#include "defines.h"
 
 !===================================================================================================================================
 !>
@@ -22,7 +23,7 @@
 !===================================================================================================================================
 MODULE MODgvec_Newton
 ! MODULES
-USE MODgvec_Globals, ONLY:wp
+USE MODgvec_Globals, ONLY:wp,UNIT_stdout,abort
 IMPLICIT NONE
 PUBLIC
 
@@ -172,11 +173,12 @@ IF(.NOT.converged) THEN
     xout=x
     RETURN
   END IF
-  WRITE(*,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
-  WRITE(*,*)'Newton x>a',x,a,(x.GT.a)
-  WRITE(*,*)'Newton x<b',x,b,(x.LT.b)
-  WRITE(*,*)'after iter',iter-1
-  STOP 'NewtonRoot1D not converged'
+  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+  WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
+  WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
+  WRITE(UNIT_stdout,*)'after iter',iter-1
+  CALL abort(__STAMP__, &
+             'NewtonRoot1D not converged')
 END IF
 xout=x
 
@@ -239,11 +241,12 @@ IF(.NOT.converged) THEN
     xout=x
     RETURN
   END IF
-  WRITE(*,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
-  WRITE(*,*)'Newton x>a',x,a,(x.GT.a)
-  WRITE(*,*)'Newton x<b',x,b,(x.LT.b)
-  WRITE(*,*)'after iter',iter-1
-  STOP 'NewtonRoot1D_FdF not converged'
+  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+  WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
+  WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
+  WRITE(UNIT_stdout,*)'after iter',iter-1
+  CALL abort(__STAMP__,&
+             'NewtonRoot1D_FdF not converged')
 END IF
 xout=x
 
@@ -282,7 +285,8 @@ maxiter=50
 DO iter=1,maxiter
   Hess=ddFF(x)
   det_Hess = Hess(1,1)*Hess(2,2)-Hess(1,2)*Hess(2,1)
-  IF(det_Hess.LT.1.0E-12) STOP 'det Hessian=0 in NewtonMin'
+  IF(det_Hess.LT.1.0E-12) CALL abort(__STAMP__,&
+                                     'det Hessian=0 in NewtonMin')
   HessInv(1,1)= Hess(2,2)
   HessInv(1,2)=-Hess(1,2)
   HessInv(2,1)=-Hess(2,1)
@@ -295,7 +299,8 @@ DO iter=1,maxiter
   converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
   IF(converged) EXIT
 END DO !iter
-IF(.NOT.converged) STOP 'NewtonMin2D not converged'
+IF(.NOT.converged) CALL abort(__STAMP__,&
+                              'NewtonMin2D not converged')
 fmin=FF(x)
 
 END FUNCTION NewtonMin2D
@@ -334,7 +339,8 @@ maxiter=50
 DO iter=1,maxiter
   Jac=dFF(x)
   det_Jac = Jac(1,1)*Jac(2,2)-Jac(1,2)*Jac(2,1)
-  IF(det_Jac.LT.1.0E-12) STOP 'det Jacobian<=0 in NewtonRoot2d'
+  IF(det_Jac.LT.1.0E-12) CALL abort(__STAMP__,&
+                                    'det Jacobian<=0 in NewtonRoot2d')
   JacInv(1,1)= Jac(2,2)
   JacInv(1,2)=-Jac(1,2)
   JacInv(2,1)=-Jac(2,1)
@@ -352,8 +358,9 @@ DO iter=1,maxiter
 END DO !iter
 xout=x
 IF(.NOT.converged) THEN
-  WRITE(*,*)'Newton abs(dx)<tol',ABS(dx),tol,'F(x)',FF(xout)
-  STOP 'NewtonRoot2D not converged'
+  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,'F(x)',FF(xout)
+  CALL abort(__STAMP__,&
+             'NewtonRoot2D not converged')
 END IF
 
 END FUNCTION NewtonRoot2D

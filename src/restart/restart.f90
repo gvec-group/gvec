@@ -53,31 +53,29 @@ CONTAINS
 !> Initialize Module 
 !!
 !===================================================================================================================================
-SUBROUTINE InitRestart 
+SUBROUTINE InitRestart(RestartFile_in) 
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_Restart_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+CHARACTER(LEN=*),INTENT(IN),OPTIONAL    :: Restartfile_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: nArgs
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   WRITE(UNIT_stdOut,'(A)')'INIT RESTART ...'
-  nArgs=COMMAND_ARGUMENT_COUNT()
-  IF(nArgs.EQ.2)THEN
-    doRestart=.TRUE.
-    CALL GET_COMMAND_ARGUMENT(2,RestartFile)
+  doRestart=.TRUE.
+  IF(PRESENT(restartFile_in))THEN
+    restartfile=restartfile_in
   ELSE
-    doRestart=.FALSE.
+    restartfile=""  !nothing to save!
   END IF
-
   WRITE(UNIT_stdOut,'(A)')'... DONE'
   WRITE(UNIT_stdOut,fmt_sep)
 END SUBROUTINE InitRestart
@@ -184,7 +182,7 @@ SUBROUTINE RestartFromState(fileString,U_r)
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:OutputLevel
-USE MODgvec_MHD3D_Vars,  ONLY:X1_base,X2_base,LA_base,sgrid
+USE MODgvec_MHD3D_Vars,  ONLY:X1_base,X2_base,LA_base,sgrid,hmap
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
@@ -204,7 +202,8 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   WRITE(UNIT_stdOut,'(A)')'RESTARTING FROM FILE ...'
-  CALL ReadState(FileString)
+
+  CALL ReadState(FileString,hmap_in=hmap)
 
   !update outputlevel
   WRITE(UNIT_stdOut,'(A,I4.4,A)')' outputLevel of restartFile: ',outputLevel_r
@@ -246,6 +245,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
+  dorestart=.FALSE.
 END SUBROUTINE FinalizeRestart
 
 END MODULE MODgvec_Restart
