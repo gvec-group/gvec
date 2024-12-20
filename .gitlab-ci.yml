@@ -170,6 +170,12 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .raven_intel_impi
+      rules: .rules_private_runner_nightly
+
+  # Raven private runner (Gnu + OpenMPI)
+  - local: CI_templates/env.yml
+    inputs:
+      env: .raven_gcc_openmpi
       rules: .rules_private_runner_minimal
 
   # Viper private runner (Gnu + OpenMPI)
@@ -330,6 +336,14 @@ include:
       env: .raven_intel_impi
       vars: .vars_raven_build
       cmake-opts: .cmake_mpi_opts
+      rules: .rules_private_runner_nightly
+
+  # Raven private runner (Gnu + OpenMPI)
+  - local: CI_templates/build.yml
+    inputs:
+      env: .raven_gcc_openmpi
+      vars: .vars_raven_build
+      cmake-opts: .cmake_mpi_opts
       rules: .rules_private_runner_minimal
 
   # Viper private runner (Gnu + OpenMPI)
@@ -475,9 +489,18 @@ include:
   # MPI
 
   # Raven private runner (Intel + IntelMPI) + srun
+  # this one CRASHES on Raven due to srun. If executed with mpirun, it works!
   - local: CI_templates/run.yml
     inputs:
       env: .raven_intel_impi
+      vars: .vars_raven_mpi_run_slurm
+      slurm-postfix: _slurm
+      rules: .rules_private_runner_nightly
+
+  # Raven private runner (Gnu + OpenMPI) + srun
+  - local: CI_templates/run.yml
+    inputs:
+      env: .raven_gcc_openmpi
       vars: .vars_raven_mpi_run_slurm
       slurm-postfix: _slurm
       rules: .rules_private_runner_minimal
@@ -759,6 +782,14 @@ include:
 # ____________________________
 # MPCDF Raven GVEC private runner templates
 
+# SLURM base variables (for both Raven and Viper)
+.vars_base_slurm:
+  variables:
+    SLURM_JOB_NAME: ci_${CI_PROJECT_NAME}_${CI_PIPELINE_ID}_${CI_JOB_ID}
+    SLURM_TIMELIMIT: "10"     # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
+    SLURM_MEM_PER_NODE: 10G
+    SRUN_TIMEOUT: "3600"      # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
+
 # Raven GVEC private runner tags
 .raven:
   tags:
@@ -809,13 +840,16 @@ include:
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
     ###OMP_NUM_THR: "32"
 
-# SLURM base variables (for both Raven and Viper)
-.vars_base_slurm:
+# MPCDF Raven private runner with modules gcc/openmpi
+.raven_gcc_openmpi:
+  extends:
+    - .raven
+    - .hooks_mpcdf_runner
   variables:
-    SLURM_JOB_NAME: ci_${CI_PROJECT_NAME}_${CI_PIPELINE_ID}_${CI_JOB_ID}
-    SLURM_TIMELIMIT: "10"     # specified in minutes: 10 minutes; the format "00:10:00" does not seem to work here (gets converted to 600 and then is interpreted as 600 minutes)
-    SLURM_MEM_PER_NODE: 10G
-    SRUN_TIMEOUT: "3600"      # specified in seconds: wait 1 hour before killing the srun job; should not outlive the CI pipeline; NOT a prefix SLURM env variable
+    CMAKE_HOSTNAME: "raven"
+    CURR_CMP: "gnu_mpi"
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 #### SLURM variables for Raven
 ###.vars_raven_slurm:
