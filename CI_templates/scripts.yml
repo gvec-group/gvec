@@ -51,7 +51,7 @@
     - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
     - echo "is ${HASH_TAG} the same as ${CI_COMMIT_REF_NAME}?"
-    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git restore . ; git checkout ${HASH_TAG}; fi
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git restore . ; git checkout ${HASH_TAG}; git pull; fi
     - git tag
     - echo "DRY-RUN OF THE FULL PYTEST CALL"
     - python --version
@@ -79,7 +79,7 @@
     paths:
       - build_${BUILDNAME}
       - log_${BUILDNAME}_*.txt
-    expire_in: 2 days #1 week
+    expire_in: 1 week
     when: always
 
 .script_build_pip:
@@ -216,7 +216,7 @@
       - log_pytest_run_norestart.txt
       - log_pytest_run_restart.txt
       - CIrun_${CASENAME}
-    expire_in: 2 days #1 week
+    expire_in: 1 week
     when: always
     reports:
       junit:
@@ -291,7 +291,7 @@
       - log_pytest_regression.txt
       - CIrun_${CASENAME_1}
       - CIrun_${CASENAME_2}
-    expire_in: 2 days #1 week
+    expire_in: 1 week
     when: always #on_failure
     reports:
       junit: pytest.xml
@@ -324,7 +324,7 @@
     paths:
       - log_pytest_post.txt
       - CIpost_${CASENAME}
-    expire_in: 1 day #1 week
+    expire_in: 1 week
     when: always
     reports:
       junit: pytest.xml
@@ -357,7 +357,7 @@
     paths:
       - log_pytest_conv.txt
       - CIconv_${CASENAME}
-    expire_in: 2 days #1 week
+    expire_in: 1 week
     when: always
     reports:
       junit: pytest.xml
