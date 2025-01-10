@@ -1296,12 +1296,13 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: TimeArray(8),iLogDat
-  REAL(wp)            :: AxisPos(2,2)
+  REAL(wp)            :: AxisPos(2,2),W_MHD3D
   INTEGER,PARAMETER   :: nLogDat=20
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   __PERFON('log_output')
+  W_MHD3D=U(0)%W_MHD3D
   CALL DATE_AND_TIME(values=TimeArray) ! get System time
   WRITE(UNIT_stdOut,'(A,E11.4,A)')'%%%%%%%%%%  START ITERATION, dt= ',dt, '  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'
   WRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
@@ -1328,7 +1329,7 @@ CONTAINS
   WRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
   WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW","sum_dW"'
   WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
-  LogDat(ilogDat+1:iLogDat+11)=(/0.0_wp,0.0_wp,dt,dt,U(0)%W_MHD3D,0.0_wp,0.0_wp,0.0_wp,Fnorm(1:3)/)
+  LogDat(ilogDat+1:iLogDat+11)=(/0.0_wp,0.0_wp,dt,dt,W_MHD3D,0.0_wp,0.0_wp,0.0_wp,Fnorm(1:3)/)
   iLogDat=11 
   IF(MinimizerType.EQ.10) THEN
     WRITE(logUnit,'(A)',ADVANCE="NO")',"tau","normV_X1","normV_X2","normV_LA"'
@@ -1363,13 +1364,14 @@ CONTAINS
   LOGICAL, INTENT(IN) :: quiet !! True: no screen output
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER             :: TimeArray(8),runtime_ms,iLogDat
-  REAL(wp)            :: AxisPos(2,2),maxDist,avgDist
+  REAL(wp)            :: AxisPos(2,2),maxDist,avgDist,W_MHD3D
   INTEGER,PARAMETER   :: nLogDat=20
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   __PERFON('log_output')
   CALL DATE_AND_TIME(values=TimeArray) ! get System time
+  W_MHD3D=U(0)%W_MHD3D
   IF(.NOT.quiet)THEN
     WRITE(UNIT_stdOut,'(80("%"))')
     WRITE(UNIT_stdOut,'(A,I4.2,"-",I2.2,"-",I2.2,1X,I2.2,":",I2.2,":",I2.2)') &
@@ -1377,7 +1379,7 @@ CONTAINS
     WRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,3E12.4)') &
                       '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
               '\n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-              '\n%%% W_MHD3D= ',U(0)%W_MHD3D,', min/max/sum deltaW= ' , min_dW_out,max_dW_out,sum_dW_out 
+              '\n%%% W_MHD3D= ',W_MHD3D,', min/max/sum deltaW= ' , min_dW_out,max_dW_out,sum_dW_out 
     WRITE(UNIT_stdOut,'(A,3E21.14)') &
                 '%%% dU = |Force|= ',Fnorm(1:3)
     !------------------------------------
@@ -1385,7 +1387,7 @@ CONTAINS
   iLogDat=0
   runtime_ms=MAX(0,SUM((timeArray(5:8)-StartTimearray(5:8))*(/360000,6000,100,1/)))
   LogDat(ilogDat+1:iLogDat+11)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
-                                min_dt_out,max_dt_out,U(0)%W_MHD3D,min_dW_out,max_dW_out,sum_dW_out, &
+                                min_dt_out,max_dt_out,W_MHD3D,min_dW_out,max_dW_out,sum_dW_out, &
                                 Fnorm(1:3)/)
   iLogDat=11 
   IF(MinimizerType.EQ.10) THEN

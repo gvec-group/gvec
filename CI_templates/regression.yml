@@ -57,6 +57,54 @@ reg.mpcdfci_intel-vs-gnu:
     - job: run.mpcdfci_gcc13
       artifacts: true
 
+# compare results between intel2023 and intel_latest (no MPI)
+reg.mpcdfci_intel2023-vs-intel:
+  stage: regression
+  extends:
+    - .mpcdfci_intel_latest     # need to choose one Docker image: this sets $CURR_CMP=intel
+    - .before_script_modules    # to be able to load modules
+    - .script_regression
+    - .vars_matrix_run
+    - .rules_default
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: intel_ifort
+    CURR_CMP_2: intel
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
+  needs:
+    - job: run.mpcdfci_intel2023
+      artifacts: true
+    - job: run.mpcdfci_intel_latest
+      artifacts: true
+
+# compare results between intel2023 and intel2024 (no MPI)
+reg.mpcdfci_intel2023-vs-intel2024:
+  stage: regression
+  extends:
+    - .mpcdfci_intel_latest     # need to choose one Docker image: this sets $CURR_CMP=intel
+    - .before_script_modules    # to be able to load modules
+    - .script_regression
+    - .vars_matrix_run
+    - .rules_default
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG}
+    CURR_CMP_1: intel_ifort
+    CURR_CMP_2: intel_ifx
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
+  needs:
+    - job: run.mpcdfci_intel2023
+      artifacts: true
+    - job: run.mpcdfci_intel2024
+      artifacts: true
+
 # compare results between [serial/OpenMP, Intel/GNU] (no MPI)
 reg.mpcdfci_omp-vs-ser:
   stage: regression
@@ -84,11 +132,10 @@ reg.mpcdfci_omp-vs-ser:
       artifacts: true
 
 # compare results between current and tag branches for Intel compiler (no MPI)
-reg.mpcdfci_intel-vs-tag:
+reg.mpcdfci_intel2023-vs-tag:
   stage: regression
   extends:
     - .mpcdfci_intel2023        # need to choose one Docker image: this sets $CURR_CMP=intel_ifort
-    #- .mpcdfci_intel_latest    # need to choose one Docker image: this sets $CURR_CMP=intel
     - .before_script_modules    # to be able to load modules
     - .script_regression
     - .vars_matrix_run          # can NOT use .vars_matrix_run_tag here, otherwise HASH_TAG = HASH_TAG_REFERENCE
@@ -106,6 +153,30 @@ reg.mpcdfci_intel-vs-tag:
     - job: run.mpcdfci_intel2023
       artifacts: true
     - job: run.mpcdfci_intel2023_tag
+      artifacts: true
+
+# compare results between current and tag branches for Intel compiler (no MPI)
+reg.mpcdfci_intel2024-vs-tag:
+  stage: regression
+  extends:
+    - .mpcdfci_intel2024        # need to choose one Docker image: this sets $CURR_CMP=intel_ifx
+    - .before_script_modules    # to be able to load modules
+    - .script_regression
+    - .vars_matrix_run          # can NOT use .vars_matrix_run_tag here, otherwise HASH_TAG = HASH_TAG_REFERENCE
+    - .rules_default
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG_REFERENCE}
+    CURR_CMP_1: ${CURR_CMP}
+    CURR_CMP_2: ${CURR_CMP}
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # warnings
+  needs:
+    - job: run.mpcdfci_intel2024
+      artifacts: true
+    - job: run.mpcdfci_intel2024_tag
       artifacts: true
 
 # compare results between MPI=ON and MPI=OFF  for Intel compiler
