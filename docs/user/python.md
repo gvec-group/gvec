@@ -26,15 +26,14 @@ Here *pyGVEC* takes care of computing all the required intermediate quantities, 
 
 ## Installation
 
-### With `pip` from the GitLab package registry
-```bash
-pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
-```
-
 ### With `pip` from the `develop` branch
 ```bash
 pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git
 ```
+
+:::{note}
+This requires you to have a ssh-key registered with your gitlab account.
+:::
 
 :::{note}
 If you want to install a development version from a different branch, you can specify this using `@branch_name`, e.g.:
@@ -43,7 +42,7 @@ pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@merge_frenet_p
 ```
 :::
 
-### Manually
+### Manually with `git`
 ```bash
 git clone git@gitlab.mpcdf.mpg.de:gvec-group/gvec.git gvec
 cd gvec
@@ -51,6 +50,34 @@ python -m venv .venv
 source .venv/bin/activate
 pip install .[dev,examples] -v
 ```
+
+### With `pip` from the GitLab package registry
+The `gvec` python package is not (yet) available on PyPI, but it is available from the [GitLab package registry](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/packages/):
+```bash
+pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
+```
+
+:::{note}
+Currently you need a [Gitlab personal access token](https://gitlab.mpcdf.mpg.de/help/user/profile/personal_access_tokens) to use this installation method.
+:::
+
+## Troubleshooting
+
+* `401 Error` when trying to install from the GitLab package registry:
+  * `WARNING: 401 Error, Credentials not correct for https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple/gvec/`
+  * you likely missing the [personal access token](https://gitlab.mpcdf.mpg.de/help/user/profile/personal_access_tokens) required for this installation method (for now)
+* `Cannot open include file 'netcdf.inc'` during installation
+  * `gvec/src/vmec/vmec_readin.f90(494): error #5102: Cannot open include file 'netcdf.inc'`
+  * gvec likely did not recognize your hostname and cannot find netCDF. Possible fixes:
+    * explicitly tell gvec which preset to use, e.g. `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.CMAKE_HOSTNAME=tokp`
+    * disable netCDF: `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
+* `INTEL_MKL_ERROR` when trying to use pyGVEC
+  * `INTEL MKL ERROR: /usr/lib/x86_64-linux-gnu/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.`
+  * `Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.`
+  * you can try `export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmkl_def.so:/usr/lib/x86_64-linux-gnu/libmkl_avx2.so:/usr/lib/x86_64-linux-gnu/libmkl_core.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_lp64.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_thread.so:/usr/lib/x86_64-linux-gnu/libiomp5.so`
+* `undefined reference to EVP_KDF_CTX` when trying to import pyGVEC and using `conda`
+  * `/lib64/libk5crypto.so.3: undefined reference to EVP_KDF_CTX_new_id@OPENSSL_1_1_1b`
+  * this can be caused by the `conda` environment conflicting with system libraries. You can try: `export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"`
 
 ## Available Quantities for Evaluation
 The following table contains the quantities that can be evaluated with the python bindings.
