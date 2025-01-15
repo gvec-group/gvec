@@ -65,8 +65,7 @@ INTEGER, PARAMETER          :: UNIT_stdIn  = 5           !! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = 6           !! Terminal output
 INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 #endif
-
-
+INTEGER, PARAMETER          :: MAXLEN  = 255+2000      !! max length of strings (string + 100 20 character numbers)
 INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE

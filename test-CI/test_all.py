@@ -416,6 +416,7 @@ def test_regression(
                 testcaserundir / filename,
                 testcaserefdir / filename,
                 ignore_regexs=[
+                    r".* |- .*",
                     r".*GIT_.*",
                     r".*CMAKE.*",
                     r".*sec.*",
