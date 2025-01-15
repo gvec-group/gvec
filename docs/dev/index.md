@@ -5,11 +5,11 @@ These pages contain development guidelines and useful resources for developing G
 ## Contact
 
 GVEC is mainly being developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
-led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics 
+led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics
 in Garching, Germany. Outside contributions are of course very welcome!
 
 <!-- TOC -->
- 
+
 ```{toctree}
 :caption: Developer Guide
 
@@ -60,13 +60,14 @@ with [polymorphism in fortran](https://gist.github.com/n-s-k/522f2669979ed6d0582
 * Git Graph
 * GitLab Workflow
 * GitLens (Premium/Students)
-* GitHub Copilot (Premium/Students)
-* Codeium
+* GitHub Copilot (AI, Premium/Students)
+* Codeium (AI)
 * Jupyter
 * MyST-Markdown
 * Python
 * Pylance
-* Black Formatter
+* ~~Black Formatter~~
+* Ruff (Python Linter & Formatter)
 * Todo Tree
 * Vim
 * YAML
