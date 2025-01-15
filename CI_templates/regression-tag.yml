@@ -1,0 +1,42 @@
+# =================================================================================================================================
+# Stage "regression"
+# =================================================================================================================================
+# compare results with the reference (tag/branch) for one run job
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_ifx-latest`
+      default: .mpcdfci_ifx-latest
+    vars:
+      description: Template with variables or parallel:matrix (do not use a `_tag` variant here)
+      default: .vars_matrix_run
+    run-postfix:
+      description: Run job name postfix, e.g. `_debugrun`
+      default: ""
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
+
+---
+
+reg$[[ inputs.env ]]$[[ inputs.run-postfix ]]_vs_tag:
+  stage: regression
+  extends:
+    - $[[ inputs.env ]]
+    - .before_script_modules
+    - .script_regression
+    - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG_REFERENCE}
+    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+  allow_failure:
+    exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
+  needs:
+    - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]
+      artifacts: true
+    - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]_tag
+      artifacts: true

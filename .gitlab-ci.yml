@@ -256,7 +256,7 @@ include:
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
 
-  # regression tag
+  # reference tag
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifort-2023
@@ -365,7 +365,7 @@ include:
       env: .mpcdfci_gfortran-openmpi-latest
       vars: .vars_matrix_run_mpi
 
-  # regression tag
+  # reference tag
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_ifort-2023
@@ -387,7 +387,7 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_tag
 
-  # regression tag + MPI
+  # reference tag + MPI
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_ifx-impi-latest
@@ -410,8 +410,42 @@ include:
   # ============================
   # regression jobs
   # ============================
-  # defined explicitly, also containing rules
-  - local: CI_templates/regression.yml
+  - local: CI_templates/regression-cmp.yml
+    inputs:
+      CURR_CMP_1: ifx-latest
+      CURR_CMP_2: gfortran-latest
+
+  - local: CI_templates/regression-cmp.yml
+    inputs:
+      CURR_CMP_1: ifort-2023
+      CURR_CMP_2: ifx-latest
+
+  - local: CI_templates/regression-cmp.yml
+    inputs:
+      CURR_CMP_1: ifort-2023
+      CURR_CMP_2: ifx-2024
+
+  - local: CI_templates/regression-omp.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
+
+  - local: CI_templates/regression-omp.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+
+  - local: CI_templates/regression-tag.yml
+    inputs:
+      env: .mpcdfci_ifort-2023
+
+  - local: CI_templates/regression-tag.yml
+    inputs:
+      env: .mpcdfci_ifx-2024
+
+  - local: CI_templates/regression-mpi.yml
+    inputs:
+      CURR_CMP: ifx-latest
+      CURR_CMP_MPI: ifx-impi-latest
 
   # ============================
   # postprocessing jobs
@@ -752,7 +786,7 @@ include:
     MPI_MODE: "-"
 
 # ____________________________
-# set HASH_TAG for regression builds
+# set HASH_TAG for reference builds
 
 .vars_matrix_build_tag:
   extends: .vars_matrix_build
@@ -795,7 +829,7 @@ include:
         MPI_RNKS: ["1","2"]
 
 # ____________________________
-# set HASH_TAG for regression builds
+# set HASH_TAG for reference builds
 
 .vars_matrix_run_tag:
   extends: .vars_matrix_run
@@ -806,6 +840,21 @@ include:
   extends: .vars_matrix_run_mpi
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
+
+# =================================================================================================================================
+# TEMPLATES FOR STAGE "regression"
+# =================================================================================================================================
+
+.vars_matrix_reg_omp:
+  variables:
+    CMP_MODE: "Debug"
+
+.vars_matrix_reg_mpi:
+  parallel:
+    matrix:
+      - CMP_MODE: ["Release"]
+        OMP_MODE: ["ompON"]
+        MPI_RNKS: ["1","2"]
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "post"
