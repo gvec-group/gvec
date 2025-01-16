@@ -498,86 +498,95 @@ include(CTest)
 
 IF(COMPILE_PYGVEC)
   FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
-  FIND_PROGRAM(PYTHON "python")
+
+  IF (PYTHON_FOUND)
+    MESSAGE(STATUS "Python version: ${Python_VERSION}")
+  ELSE()
+    MESSAGE(SEND_ERROR "Python not found, required for 'COMPILE_PYGVEC=ON'!")
+  ENDIF()
 
   SET(PYPKG_PATH "python/gvec") # does nothing?
 
   # --- f2py headers --- #
   EXECUTE_PROCESS(
-    COMMAND "${PYTHON}" -c
-            "import numpy.f2py; print(numpy.f2py.get_include())"
+    COMMAND "${PYTHON_EXECUTABLE}"
+            -c "import numpy.f2py; print(numpy.f2py.get_include())"
     OUTPUT_VARIABLE F2PY_INCLUDE_DIR
-    RESULT_VARIABLE F2PY_INCLUDE_DIR_RESULT
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
   ADD_LIBRARY(f2py_fortranobject OBJECT "${F2PY_INCLUDE_DIR}/fortranobject.c")
   TARGET_LINK_LIBRARIES(f2py_fortranobject PUBLIC Python::NumPy)
   TARGET_INCLUDE_DIRECTORIES(f2py_fortranobject PUBLIC "${F2PY_INCLUDE_DIR}")
   SET_PROPERTY(TARGET f2py_fortranobject PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-  # split off lib_post_f90 to specify individual compile flags
-  # not part of gveclib!
-  ADD_LIBRARY(lib_pygvec_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90" "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/run.f90" "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/binding.f90")
-  SET_TARGET_PROPERTIES(lib_pygvec_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+  # --- pygvec modules --- #
+  # modules that are not part of gveclib
+  # compiled seperately from the bindings to allow specifying individual compile flags
+  SET(pygveclib_files
+    src/pygvec/binding.f90
+    src/pygvec/post.f90
+    src/pygvec/run.f90
+  )
+  ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
+  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 
-  # --- wrap fgvec package --- #
+  # --- wrap gvec using f90wrap & f2py --- #
+  # specify files to be wrapped with f90wrap
+  SET(pygvec_src_files
+    src/pygvec/binding.f90
+    src/pygvec/post.f90
+    src/pygvec/run.f90
+    src/transform_sfl/sfl_boozer.f90
+  )
+
+  FOREACH(file ${pygvec_src_files})
+    GET_FILENAME_COMPONENT(basename "${file}" NAME_WE)
+    LIST(APPEND pygvec_wrap_files "f90wrap_${basename}.f90")
+  ENDFOREACH()
+
+  LIST(TRANSFORM pygvec_src_files PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
+  LIST(TRANSFORM pygvec_wrap_files PREPEND "${CMAKE_CURRENT_BINARY_DIR}/")
 
   ADD_CUSTOM_COMMAND(
-    OUTPUT
-    f90wrap_run.f90
-    f90wrap_post.f90
-    f90wrap_sfl_boozer.f90
-    f90wrap_binding.f90
-    DEPENDS
-    src/pygvec/run.f90
-    src/pygvec/post.f90
-    src/transform_sfl/sfl_boozer.f90
-    src/pygvec/binding.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
-    COMMAND f90wrap
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/run.f90"
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/transform_sfl/sfl_boozer.f90"
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/binding.f90"
-            --mod-name _fgvec
-            --f90-mod-name gvec._libfgvec
+    COMMAND "${PYTHON_EXECUTABLE}"
+            -m f90wrap
+            ${pygvec_src_files}
+            --mod-name _fgvec  # -> _fgvec.py
+            --f90-mod-name gvec._libfgvec  # python module name
             --kind-map "${CMAKE_CURRENT_SOURCE_DIR}/python/kind_map.py"
             --class-names "${CMAKE_CURRENT_SOURCE_DIR}/python/class_names.py"
             --constructors
             --destructors sfl_boozer_free
+    DEPENDS ${pygvec_src_files}
+    OUTPUT ${pygvec_wrap_files}
+    COMMENT "pyGVEC: generating the Fortran layer with f90wrap"
   )
 
   ADD_CUSTOM_COMMAND(
+    DEPENDS ${pygvec_wrap_files}
     OUTPUT _libfgvecmodule.c
-    DEPENDS
-    f90wrap_run.f90
-    f90wrap_post.f90
-    f90wrap_sfl_boozer.f90
-    f90wrap_binding.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
     COMMAND f2py-f90wrap
-            -m _libfgvec
+            -m _libfgvec  # python module name
             --lower
-            f90wrap_run.f90
-            f90wrap_post.f90
-            f90wrap_sfl_boozer.f90
-            f90wrap_binding.f90
+            ${pygvec_wrap_files}
+    COMMENT "pyGVEC: generating the C layer with f2py-f90wrap"
   )
 
   PYTHON_ADD_LIBRARY(_libfgvec MODULE
-    "${CMAKE_CURRENT_BINARY_DIR}/_libfgvecmodule.c"
-    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_run.f90"
-    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
-    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_sfl_boozer.f90"
-    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_binding.f90"
+    _libfgvecmodule.c
+    ${pygvec_wrap_files}
     WITH_SOABI
   )
   SET_TARGET_PROPERTIES(_libfgvec PROPERTIES LINKER_LANGUAGE Fortran)
   TARGET_INCLUDE_DIRECTORIES(_libfgvec PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE lib_pygvec_f90 f2py_fortranobject gveclib ${linkedlibs})
+  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE pygveclib f2py_fortranobject gveclib ${linkedlibs})
 
-  IF (${SKBUILD})
+  IF (${SKBUILD})  # scikit-build-learn -> install e.g. to venv
     INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_fgvec.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
     INSTALL(TARGETS _libfgvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
   ELSE()
