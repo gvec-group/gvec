@@ -1,10 +1,8 @@
-#!/bin/bash
-
 module purge
 module load git
 module load git-lfs
 module load cmake
-module load intel
+module load gcc
 module load mkl
 module load hdf5-serial
 module load netcdf-serial
@@ -12,6 +10,4 @@ module load anaconda
 #module load ftimings
 #module load numdiff
 module list
-export FC=`which ifort`
-export CC=`which icc`
-export CXX=`which icc`
+export FC=`which gfortran`
