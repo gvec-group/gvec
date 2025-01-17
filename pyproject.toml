@@ -69,10 +69,8 @@ sdist.exclude = [
     "test-CI/data",
     # exclude unnecessary files
     "CI_templates",
-    "ford-config",
     "template",
     "test-CI",
-    "tests",
     "tools",
 ]
 build-dir = "pybuild"
