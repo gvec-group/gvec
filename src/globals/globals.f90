@@ -73,13 +73,13 @@ INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE
 
-INTERFACE RaiseException
+ABSTRACT INTERFACE
   SUBROUTINE RaiseException(ErrorMessage)
     CHARACTER(LEN=*), INTENT(IN) :: ErrorMessage
   END SUBROUTINE RaiseException
-END INTERFACE RaiseException
+END INTERFACE
 
-PROCEDURE(RaiseException), POINTER :: RaiseExceptionPtr => NULL()
+PROCEDURE(RaiseException), POINTER :: RaiseExceptionPtr  => NULL()
 
 INTERFACE GetTime
   MODULE PROCEDURE GetTime
