@@ -19,8 +19,10 @@ In this context, the Fourier series is of the form :math:`x(\theta, \zeta) = \su
 # === Imports === #
 
 from typing import Iterable
+import logging
 
 import numpy as np
+import xarray as xr
 
 
 # === Transform functions === #
@@ -74,10 +76,6 @@ def fft2d(x: np.ndarray):
         Cosine coefficients of the double-angle Fourier series.
     s : ndarray
         Sine coefficients of the double-angle Fourier series.
-    m : ndarray
-        Poloidal harmonic indices.
-    n : ndarray
-        Toroidal harmonic indices.
     """
     x = np.asarray(x)
     xf = np.fft.rfft2(x.T, norm="forward").T
@@ -214,3 +212,80 @@ def eval2d(
             x += c[m, n] * np.cos(m * theta - n * nfp * zeta)
             x += s[m, n] * np.sin(m * theta - n * nfp * zeta)
     return x
+
+
+def ev2ft(ev, quiet=False):
+    m, n = None, None
+    data = {}
+
+    if "N_FP" not in ev.data_vars and not quiet:
+        logging.warning("recommended quantity 'N_FP' not found in the provided dataset")
+
+    for var in ev.data_vars:
+        if ev[var].dims == ():  # scalar
+            data[var] = ((), ev[var].data.item(), ev[var].attrs)
+
+        elif ev[var].dims == ("rad",):  # profile
+            data[var] = ("rad", ev[var].data, ev[var].attrs)
+
+        elif {"pol", "tor"} <= set(ev[var].dims) <= {"rad", "pol", "tor"}:
+            if "rad" in ev[var].dims:
+                vft = []
+                for r in ev.rad:
+                    vft.append(fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data))
+                vcos, vsin = map(np.array, zip(*vft))
+                dims = ("rad", "m", "n")
+            else:
+                vcos, vsin = fft2d(ev[var].transpose("pol", "tor").data)
+                dims = ("m", "n")
+
+            if m is None:
+                m, n = fft2d_modes(vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False)
+
+            attrs = {
+                k: v for k, v in ev[var].attrs.items() if k in {"long_name", "symbol"}
+            }
+            data[f"{var}_mnc"] = (
+                dims,
+                vcos,
+                dict(
+                    long_name=f"{ev[var].long_name}, cosine coefficient",
+                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^c",
+                )
+                | attrs,
+            )
+            data[f"{var}_mns"] = (
+                dims,
+                vsin,
+                dict(
+                    long_name=f"{ev[var].long_name}, sine coefficient",
+                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^s",
+                )
+                | attrs,
+            )
+
+        elif "xyz" in ev[var].dims and not quiet:
+            logging.info(f"skipping quantity '{var}' with cartesian components")
+
+        elif not quiet:
+            logging.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
+
+    coords = dict(
+        rho=(ev.rho.dims, ev.rho.data, ev.rho.attrs),
+        m=(
+            "m",
+            m if m is not None else [],
+            dict(long_name="poloidal mode number", symbol="m"),
+        ),
+        n=(
+            "n",
+            n if n is not None else [],
+            dict(long_name="toroidal mode number", symbol="n"),
+        ),
+    )
+
+    ft = xr.Dataset(data, coords=coords)
+    ft.attrs["fourier series"] = (
+        "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v^c_mn(r) cos(m θ - n N_FP ζ) + v^s_mn(r) sin(m θ - n N_FP ζ)'"
+    )
+    return ft
