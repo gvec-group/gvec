@@ -26,6 +26,8 @@ USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base
 USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
 USE MODgvec_c_hmap, ONLY: c_hmap
+USE MODgvec_splProfile, ONLY: t_splProfile
+
 IMPLICIT NONE
 PUBLIC
 
@@ -98,7 +100,16 @@ REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary fo
 REAL(wp),ALLOCATABLE :: X1pert_b(:)     !! fourier modes of the boundary perturbation for X1 (if boundary_perturb=T)
 REAL(wp),ALLOCATABLE :: X2pert_b(:)     !! fourier modes of the boundary perturbation for X2 (if boundary_perturb=T)
 
+LOGICAL                           :: init_with_iota_spline
+TYPE(t_splProfile), ALLOCATABLE   :: iota_bspl
+INTEGER                           :: n_iota_knots
+REAL(wp),ALLOCATABLE              :: iota_knots(:)
 
+
+LOGICAL                           :: init_with_pres_spline
+TYPE(t_splProfile), ALLOCATABLE   :: pres_bspl
+INTEGER                           :: n_pres_knots
+REAL(wp),ALLOCATABLE              :: pres_knots(:)
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars
