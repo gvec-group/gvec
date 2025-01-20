@@ -94,7 +94,9 @@ SUBROUTINE InitMHD3D(sf)
   REAL(wp)         :: pres_scale,scale_minor_radius
   CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
-  
+  INTEGER          :: n_iota_knots, n_pres_knots
+  REAL(wp),ALLOCATABLE :: pres_knots(:)
+  REAL(wp),ALLOCATABLE :: iota_knots(:)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
@@ -129,8 +131,8 @@ SUBROUTINE InitMHD3D(sf)
 
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
   
-  init_with_iota_spline = GETLOGICAL("init_with_iota_spline",Proposal=(.FALSE.))
-  init_with_pres_spline = GETLOGICAL("init_with_pres_spline",Proposal=(.FALSE.))
+  init_with_iota_spline = GETLOGICAL("init_with_iota_spline",Proposal=.FALSE.)
+  init_with_pres_spline = GETLOGICAL("init_with_pres_spline",Proposal=.FALSE.)
   SELECT CASE(which_init)
   CASE(0)
     init_fromBConly= .TRUE.
@@ -151,11 +153,13 @@ SUBROUTINE InitMHD3D(sf)
     IF(init_with_iota_spline)THEN
       CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
       CALL splProfile_new(iota_bspl, iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
+      SDEALLOCATE(iota_knots)
     END IF !iota as spline
     
     IF(init_with_pres_spline)THEN
       CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
       CALL splProfile_new(pres_bspl, pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
+      SDEALLOCATE(pres_knots)
     END IF !pressure as spline
     
   CASE(1) !VMEC init
@@ -1508,12 +1512,10 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
   
-  CALL iota_bspl%free()
-  CALL pres_bspl%free()
+  IF (init_with_iota_spline) CALL iota_bspl%free()
+  IF (init_with_pres_spline) CALL pres_bspl%free()
   SDEALLOCATE(pres_coefs)
-  SDEALLOCATE(pres_knots)
   SDEALLOCATE(iota_coefs)
-  SDEALLOCATE(iota_knots)
   SDEALLOCATE(iota_bspl)
   SDEALLOCATE(pres_bspl)
   

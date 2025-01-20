@@ -102,14 +102,10 @@ REAL(wp),ALLOCATABLE :: X2pert_b(:)     !! fourier modes of the boundary perturb
 
 LOGICAL                           :: init_with_iota_spline
 TYPE(t_splProfile), ALLOCATABLE   :: iota_bspl
-INTEGER                           :: n_iota_knots
-REAL(wp),ALLOCATABLE              :: iota_knots(:)
 
 
 LOGICAL                           :: init_with_pres_spline
 TYPE(t_splProfile), ALLOCATABLE   :: pres_bspl
-INTEGER                           :: n_pres_knots
-REAL(wp),ALLOCATABLE              :: pres_knots(:)
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars
