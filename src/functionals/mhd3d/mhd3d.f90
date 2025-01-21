@@ -131,8 +131,6 @@ SUBROUTINE InitMHD3D(sf)
 
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
   
-  init_with_iota_spline = GETLOGICAL("init_with_iota_spline",Proposal=.FALSE.)
-  init_with_pres_spline = GETLOGICAL("init_with_pres_spline",Proposal=.FALSE.)
   SELECT CASE(which_init)
   CASE(0)
     init_fromBConly= .TRUE.
@@ -150,17 +148,23 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
     
-    IF(init_with_iota_spline)THEN
-      CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
+    CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots, Proposal=(/1e8/))
+    IF((iota_knots(1)==1e8) .AND. (n_iota_knots==1)) THEN
+      init_with_iota_spline = .FALSE.
+    ELSE
+      init_with_iota_spline = .TRUE.
       CALL splProfile_new(iota_bspl, iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
-      SDEALLOCATE(iota_knots)
-    END IF !iota as spline
+    END IF
+    SDEALLOCATE(iota_knots)
     
-    IF(init_with_pres_spline)THEN
-      CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
+    CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots, Proposal=(/1e8/))
+    IF((pres_knots(1)==1e8) .AND. (n_pres_knots==1)) THEN
+      init_with_pres_spline = .FALSE.
+    ELSE
+      init_with_pres_spline = .TRUE.
       CALL splProfile_new(pres_bspl, pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
-      SDEALLOCATE(pres_knots)
-    END IF !pressure as spline
+    END IF
+    SDEALLOCATE(pres_knots)
     
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
@@ -176,10 +180,16 @@ SUBROUTINE InitMHD3D(sf)
       sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
       CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
       iota_coefs=REAL(sign_iota)*iota_coefs
-      IF(init_with_iota_spline)THEN
-          CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
-          CALL splProfile_new(iota_bspl, iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
-      END IF ! iota as spline
+      
+      ! Check if it is a BSpline profile
+      CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots, Proposal=(/1e8/))
+      IF((iota_knots(1)==1e8) .AND. (n_iota_knots==1)) THEN
+        init_with_iota_spline = .FALSE.
+      ELSE
+        init_with_iota_spline = .TRUE.
+        CALL splProfile_new(iota_bspl, iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
+      END IF ! Bspline Profile
+      SDEALLOCATE(iota_knots)
     END IF ! iota from parameterfile
 
     init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
@@ -187,10 +197,15 @@ SUBROUTINE InitMHD3D(sf)
       CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
       pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
       pres_coefs=pres_coefs*pres_scale
-      IF(init_with_pres_spline)THEN
-          CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
-          CALL splProfile_new(pres_bspl, pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
-      END IF ! pressure as spline 
+      ! Check if it is a BSpline profile
+      CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots, Proposal=(/1e8/))
+      IF((pres_knots(1)==1e8) .AND. (n_pres_knots==1)) THEN
+        init_with_pres_spline = .FALSE.
+      ELSE
+        init_with_pres_spline = .TRUE.
+        CALL splProfile_new(pres_bspl, pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
+      END IF !Bspline profile
+      SDEALLOCATE(pres_knots)
     END IF ! pressure from parameterfile
 
     gamm = 0.0_wp
