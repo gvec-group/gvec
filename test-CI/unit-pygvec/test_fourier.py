@@ -4,7 +4,7 @@ try:
     import numpy as np
     from numpy.random import random
 
-    from gvec import fourier
+    from gvec import fourier, State, Evaluations, compute
 except ImportError:
     pytest.skip("Import Error", allow_module_level=True)
 
@@ -30,6 +30,20 @@ def MN(request):
 )
 def points2d(request):
     return request.param
+
+
+@pytest.fixture()
+def state(testfiles):
+    with State(*testfiles) as state:
+        yield state
+
+
+@pytest.fixture()
+def ev(state):
+    rho = [0.1, 0.5, 0.9]
+    ds = Evaluations(rho=rho, theta=20, zeta=50, state=state)
+    compute(ds, "mod_B", state=state)
+    return ds
 
 
 # === Test FFT === #
@@ -134,6 +148,39 @@ def test_fft2d(MN, points2d):
     assert np.allclose(s, xs)
 
 
-@pytest.mark.xfail(reason="No test implemented")
-def test_eval2d():
-    raise NotImplementedError
+def test_eval2d(MN, points2d):
+    t = np.linspace(0, 2 * np.pi, points2d[0], endpoint=False)
+    z = np.linspace(0, 2 * np.pi, points2d[1], endpoint=False)
+    T, Z = np.meshgrid(t, z, indexing="ij")
+    M, N = MN
+    ms, ns = fourier.fft2d_modes(M, N)
+    c = random((M + 1, 2 * N + 1))
+    c[0, ns < 0] = 0
+    s = random((M + 1, 2 * N + 1))
+    s[0, ns <= 0] = 0
+
+    x = sum(
+        [
+            sum(
+                [
+                    c[m, n] * np.cos(m * T - n * Z) + s[m, n] * np.sin(m * T - n * Z)
+                    for m in ms
+                ]
+            )
+            for n in ns
+        ]
+    )
+    xe = fourier.eval2d(c, s, T, Z)
+    assert np.allclose(x, xe)
+
+
+def test_ev2ft_2d(ev):
+    ft = fourier.ev2ft(ev[["mod_B"]].isel(rad=0))
+    assert set(ft.dims) == {"m", "n"}
+    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
+
+
+def test_ev2ft_3d(ev):
+    ft = fourier.ev2ft(ev[["mod_B"]])
+    assert set(ft.dims) == {"rad", "m", "n"}
+    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
