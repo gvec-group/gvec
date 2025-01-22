@@ -29,6 +29,9 @@ MODULE MODgvec_Globals
 USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
 #endif
 USE_MPI
+
+! USE MODgvec_py_abort, ONLY: PY_ABORT
+
 IMPLICIT NONE
 
 PUBLIC 
@@ -65,11 +68,18 @@ INTEGER, PARAMETER          :: UNIT_stdIn  = 5           !! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = 6           !! Terminal output
 INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 #endif
-
-
+INTEGER, PARAMETER          :: MAXLEN  = 255+2000      !! max length of strings (string + 100 20 character numbers)
 INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE
+
+ABSTRACT INTERFACE
+  SUBROUTINE RaiseException(ErrorMessage)
+    CHARACTER(LEN=*), INTENT(IN) :: ErrorMessage
+  END SUBROUTINE RaiseException
+END INTERFACE
+
+PROCEDURE(RaiseException), POINTER :: RaiseExceptionPtr  => NULL()
 
 INTERFACE GetTime
   MODULE PROCEDURE GetTime
@@ -157,6 +167,9 @@ CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 #if GNU
 CALL BACKTRACE
 #endif
+IF (ASSOCIATED(RaiseExceptionPtr)) THEN
+  CALL RaiseExceptionPtr(ErrorMessage)
+END IF
 ERROR STOP 2
 END SUBROUTINE Abort
 

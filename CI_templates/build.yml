@@ -5,14 +5,14 @@
 spec:
   inputs:
     env:
-      description: Name of the environment, e.g. `.mpcdfci_intel2023`
-      default: .mpcdfci_intel2023
+      description: Name of the environment, e.g. `.mpcdfci_ifx-latest`
+      default: .mpcdfci_ifx-latest
     vars:
       description: Template with variables or parallel:matrix
       default: .vars_matrix_build
     cmake-opts:
       description: Template with variables for CMake options
-      default: .cmake_def_opts
+      default: .cmake_default
     build-postfix:
       description: Job name postfix, e.g. `_only_converter`
       default: ""

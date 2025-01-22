@@ -589,7 +589,7 @@ END SUBROUTINE InitSolutionMHD3D
 !===================================================================================================================================
 FUNCTION get_iMode(varname_in,mn_in,nfp_in)
 ! MODULES
-  USE MODgvec_ReadInTools    , ONLY: GETREAL
+  USE MODgvec_ReadInTools    , ONLY: GETREAL,remove_blanks
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -604,23 +604,8 @@ FUNCTION get_iMode(varname_in,mn_in,nfp_in)
     CHARACTER(LEN=100) :: varstr
 !===================================================================================================================================
   SWRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn_in(1),mn_in(2)/nfp_in
-  varstr=delete_spaces(varstr)         !quiet on default=0.0
+  varstr=remove_blanks(varstr)         !quiet on default=0.0
   get_iMode=GETREAL(TRIM(varstr),Proposal=0.0_wp,quiet_def_in=.TRUE.)
-
-  CONTAINS
-
-  FUNCTION delete_spaces(str_in)
-    USE ISO_VARYING_STRING,ONLY:VARYING_STRING,VAR_STR,CHAR,replace
-    IMPLICIT NONE
-    !-------------------------------------------
-    !input/output
-    CHARACTER(LEN=*),INTENT(IN) :: str_in
-    CHARACTER(LEN=LEN(str_in))  :: delete_spaces
-    TYPE(VARYING_STRING) :: tmpstr
-    !-------------------------------------------
-    tmpstr=VAR_STR(str_in);delete_spaces=CHAR(Replace(tmpstr," ","",Every=.true.))
-   
-  END FUNCTION delete_spaces
 END FUNCTION get_iMode
 
 

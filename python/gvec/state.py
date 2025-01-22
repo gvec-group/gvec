@@ -14,6 +14,7 @@
 
 from . import _fgvec
 from ._fgvec import modgvec_py_post as _post
+from ._fgvec import modgvec_py_binding as _binding
 
 from pathlib import Path
 from typing import Mapping, Callable, Iterable, Literal
@@ -100,9 +101,10 @@ class State:
         if not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
+        _binding.redirect_abort()  # redirect abort to raise a RuntimeError
         if redirect_stdout:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
-            _post.redirect_stdout(self._stdout.name)
+            _binding.redirect_stdout(self._stdout.name)
         self.parameterfile = Path(parameterfile)
         self.statefile = Path(statefile)
 

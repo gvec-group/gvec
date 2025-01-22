@@ -24,6 +24,7 @@ STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
 STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
+STRING(FIND "${CMAKE_HOSTNAME}" "toki"      ON_TOKI)
 
 IF (ON_MPCDFCIRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
@@ -45,6 +46,8 @@ ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
   MESSAGE(STATUS "Compiling on MacOS with macports!")
 ELSEIF (ON_TOKP GREATER -1)
   MESSAGE(STATUS "Compiling on tokp")
+ELSEIF (ON_TOKI GREATER -1)
+  MESSAGE(STATUS "Compiling on toki")
 ELSEIF (ON_MARCONI GREATER -1)
   MESSAGE(STATUS "Compiling on Marconi")
 ELSE()
@@ -223,7 +226,7 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   #environment specific variables
   IF((ON_TESTIMONY GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1 ))
      SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for testimony
-  ELSEIF (ON_TOKP GREATER -1 )
+  ELSEIF ((ON_TOKP GREATER -1 ) OR (ON_TOKI GREATER -1))
      SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
   ELSEIF ((ON_COBRA GREATER -1 ) OR (ON_RAVEN GREATER -1))
      SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
@@ -320,7 +323,7 @@ IF(ON_TESTIMONY GREATER -1)
   ELSE()
      MESSAGE(SEND_ERROR " Unknown compiler ${CMAKE_Fortran_COMPILER_ID} ...")
   ENDIF()
-ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1))
+ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_TOKI GREATER -1))
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
     SET(MKL_DIR $ENV{MKL_HOME})
@@ -364,7 +367,7 @@ ENDIF()
 # NETCDF (locally installed only!)
 # =========================================================================
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1))
+  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_COBRA GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_TOKI GREATER -1))
     SET(NETCDF_DIR  $ENV{NETCDF_HOME})
   ELSEIF(ON_MAC_BREW GREATER -1)
     SET(NETCDF_DIR $ENV{HOMEBREW_PREFIX})
@@ -495,80 +498,95 @@ include(CTest)
 
 IF(COMPILE_PYGVEC)
   FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
-  FIND_PROGRAM(PYTHON "python")
+
+  IF (PYTHON_FOUND)
+    MESSAGE(STATUS "Python version: ${Python_VERSION}")
+  ELSE()
+    MESSAGE(SEND_ERROR "Python not found, required for 'COMPILE_PYGVEC=ON'!")
+  ENDIF()
 
   SET(PYPKG_PATH "python/gvec") # does nothing?
 
   # --- f2py headers --- #
   EXECUTE_PROCESS(
-    COMMAND "${PYTHON}" -c
-            "import numpy.f2py; print(numpy.f2py.get_include())"
+    COMMAND "${PYTHON_EXECUTABLE}"
+            -c "import numpy.f2py; print(numpy.f2py.get_include())"
     OUTPUT_VARIABLE F2PY_INCLUDE_DIR
-    RESULT_VARIABLE F2PY_INCLUDE_DIR_RESULT
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
   ADD_LIBRARY(f2py_fortranobject OBJECT "${F2PY_INCLUDE_DIR}/fortranobject.c")
   TARGET_LINK_LIBRARIES(f2py_fortranobject PUBLIC Python::NumPy)
   TARGET_INCLUDE_DIRECTORIES(f2py_fortranobject PUBLIC "${F2PY_INCLUDE_DIR}")
   SET_PROPERTY(TARGET f2py_fortranobject PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-  # split off lib_post_f90 to specify individual compile flags
-  # not part of gveclib!
-  ADD_LIBRARY(lib_pygvec_f90 OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90" "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/run.f90")
-  SET_TARGET_PROPERTIES(lib_pygvec_f90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+  # --- pygvec modules --- #
+  # modules that are not part of gveclib
+  # compiled seperately from the bindings to allow specifying individual compile flags
+  SET(pygveclib_files
+    src/pygvec/binding.f90
+    src/pygvec/post.f90
+    src/pygvec/run.f90
+  )
+  ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
+  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
 
-  # --- wrap fgvec package --- #
+  # --- wrap gvec using f90wrap & f2py --- #
+  # specify files to be wrapped with f90wrap
+  SET(pygvec_src_files
+    src/pygvec/binding.f90
+    src/pygvec/post.f90
+    src/pygvec/run.f90
+    src/transform_sfl/sfl_boozer.f90
+  )
+
+  FOREACH(file ${pygvec_src_files})
+    GET_FILENAME_COMPONENT(basename "${file}" NAME_WE)
+    LIST(APPEND pygvec_wrap_files "f90wrap_${basename}.f90")
+  ENDFOREACH()
+
+  LIST(TRANSFORM pygvec_src_files PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
+  LIST(TRANSFORM pygvec_wrap_files PREPEND "${CMAKE_CURRENT_BINARY_DIR}/")
 
   ADD_CUSTOM_COMMAND(
-    OUTPUT
-    f90wrap_run.f90
-    f90wrap_post.f90
-    f90wrap_sfl_boozer.f90
-    DEPENDS
-    src/pygvec/run.f90
-    src/pygvec/post.f90
-    src/transform_sfl/sfl_boozer.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
-    COMMAND f90wrap
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/run.f90"
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/pygvec/post.f90"
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/transform_sfl/sfl_boozer.f90"
-            --mod-name _fgvec
-            --f90-mod-name gvec._libfgvec
+    COMMAND "${PYTHON_EXECUTABLE}"
+            -m f90wrap
+            ${pygvec_src_files}
+            --mod-name _fgvec  # -> _fgvec.py
+            --f90-mod-name gvec._libfgvec  # python module name
             --kind-map "${CMAKE_CURRENT_SOURCE_DIR}/python/kind_map.py"
             --class-names "${CMAKE_CURRENT_SOURCE_DIR}/python/class_names.py"
             --constructors
             --destructors sfl_boozer_free
+    DEPENDS ${pygvec_src_files}
+    OUTPUT ${pygvec_wrap_files}
+    COMMENT "pyGVEC: generating the Fortran layer with f90wrap"
   )
 
   ADD_CUSTOM_COMMAND(
+    DEPENDS ${pygvec_wrap_files}
     OUTPUT _libfgvecmodule.c
-    DEPENDS
-    f90wrap_run.f90
-    f90wrap_post.f90
-    f90wrap_sfl_boozer.f90
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
     COMMAND f2py-f90wrap
-            -m _libfgvec
+            -m _libfgvec  # python module name
             --lower
-            f90wrap_run.f90
-            f90wrap_post.f90
-            f90wrap_sfl_boozer.f90
+            ${pygvec_wrap_files}
+    COMMENT "pyGVEC: generating the C layer with f2py-f90wrap"
   )
 
   PYTHON_ADD_LIBRARY(_libfgvec MODULE
-    "${CMAKE_CURRENT_BINARY_DIR}/_libfgvecmodule.c"
-    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_run.f90"
-    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_post.f90"
-    "${CMAKE_CURRENT_BINARY_DIR}/f90wrap_sfl_boozer.f90"
+    _libfgvecmodule.c
+    ${pygvec_wrap_files}
     WITH_SOABI
   )
   SET_TARGET_PROPERTIES(_libfgvec PROPERTIES LINKER_LANGUAGE Fortran)
   TARGET_INCLUDE_DIRECTORIES(_libfgvec PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE lib_pygvec_f90 f2py_fortranobject gveclib ${linkedlibs})
+  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE pygveclib f2py_fortranobject gveclib ${linkedlibs})
 
-  IF (${SKBUILD})
+  IF (${SKBUILD})  # scikit-build-learn -> install e.g. to venv
     INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_fgvec.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
     INSTALL(TARGETS _libfgvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
   ELSE()
@@ -741,9 +759,13 @@ FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A,3(1X,A))')  \"GIT_BRANCH:
 FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A)') \" THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:\" \n")
 GETLISTOFVARSWITH("GVEC" gvecVars)
 GETLISTOFVARSSTARTINGWITH("USE_" useVars)
-GETLISTOFVARSSTARTINGWITH("CMAKE_BUILD_TYPE" cbVars)
-GETLISTOFVARSSTARTINGWITH("CMAKE_HOSTNAME" hnVars)
-FOREACH (_var IN LISTS cbVars hnVars gvecVars useVars )
+LIST(APPEND cmpVars "CMAKE_HOSTNAME")
+LIST(APPEND cmpVars "CMAKE_BUILD_TYPE")
+LIST(APPEND cmpVars "CMAKE_Fortran_COMPILER")
+LIST(APPEND cmpVars "CMAKE_C_COMPILER")
+LIST(APPEND cmpVars "CMAKE_CXX_COMPILER")
+
+FOREACH (_var IN LISTS cmpVars gvecVars useVars)
   GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
 #  SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF"))
 #  IF(${boolian})

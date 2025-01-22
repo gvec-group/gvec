@@ -5,7 +5,7 @@
 pages:
   stage: publish
   extends:
-    - .mpcdfci_intel2023
+    - .mpcdfci_ifx-latest
     - .before_script_modules
     - .rules_pages
   variables:

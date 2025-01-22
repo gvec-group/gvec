@@ -16,7 +16,7 @@
 
 from . import _fgvec
 from ._fgvec import modgvec_py_run as _run
-from ._fgvec import modgvec_py_post as _post
+from ._fgvec import modgvec_py_binding as _binding
 
 from pathlib import Path
 
@@ -44,7 +44,8 @@ def run(
     """
 
     if stdout_path is not None:
-        _post.redirect_stdout(str(stdout_path))
+        _binding.redirect_abort()
+        _binding.redirect_stdout(str(stdout_path))
 
     if not Path(parameterfile).exists():
         raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
