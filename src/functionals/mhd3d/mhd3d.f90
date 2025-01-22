@@ -66,7 +66,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   
-  USE MODgvec_splProfile, ONLY: splProfile_new
+  USE MODgvec_splProfile, ONLY: splProfile_init
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -153,7 +153,8 @@ SUBROUTINE InitMHD3D(sf)
       init_with_iota_spline = .FALSE.
     ELSE
       init_with_iota_spline = .TRUE.
-      CALL splProfile_new(iota_bspl, iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
+      ALLOCATE(iota_bspl)
+      iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
     END IF
     SDEALLOCATE(iota_knots)
     
@@ -162,7 +163,8 @@ SUBROUTINE InitMHD3D(sf)
       init_with_pres_spline = .FALSE.
     ELSE
       init_with_pres_spline = .TRUE.
-      CALL splProfile_new(pres_bspl, pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
+      ALLOCATE(pres_bspl)
+      pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
     END IF
     SDEALLOCATE(pres_knots)
     
@@ -187,7 +189,8 @@ SUBROUTINE InitMHD3D(sf)
         init_with_iota_spline = .FALSE.
       ELSE
         init_with_iota_spline = .TRUE.
-        CALL splProfile_new(iota_bspl, iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
+        ALLOCATE(iota_bspl)
+        iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
       END IF ! Bspline Profile
       SDEALLOCATE(iota_knots)
     END IF ! iota from parameterfile
@@ -203,7 +206,8 @@ SUBROUTINE InitMHD3D(sf)
         init_with_pres_spline = .FALSE.
       ELSE
         init_with_pres_spline = .TRUE.
-        CALL splProfile_new(pres_bspl, pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
+        ALLOCATE(pres_bspl)
+        pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
       END IF !Bspline profile
       SDEALLOCATE(pres_knots)
     END IF ! pressure from parameterfile
@@ -1527,8 +1531,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
   
-  IF (init_with_iota_spline) CALL iota_bspl%free()
-  IF (init_with_pres_spline) CALL pres_bspl%free()
+  !IF (init_with_iota_spline) CALL iota_bspl%free()
+  !IF (init_with_pres_spline) CALL pres_bspl%free()
   SDEALLOCATE(pres_coefs)
   SDEALLOCATE(iota_coefs)
   SDEALLOCATE(iota_bspl)
