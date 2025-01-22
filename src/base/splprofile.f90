@@ -83,9 +83,10 @@ FUNCTION splProfile_init(knots, n_knots, coefs, n_coefs) RESULT(sf)
   sf%knots = knots
   ALLOCATE(sf%coefs(1:n_coefs))
   sf%coefs = coefs
+  PRINT*, size(sf%knots(sf%deg+1:n_knots-sf%deg))
   CALL sll_s_bsplines_new(sf%bspl, sf%deg, .FALSE., & 
                           sf%knots(1),sf%knots(n_knots),&
-                          sf%deg , & 
+                          size(sf%knots(sf%deg+1:n_knots-sf%deg))-1 , & ! number of knots handed to the library
                           sf%knots(sf%deg+1:n_knots-sf%deg)) ! remove repeated edge knots
   __PERFOFF("splProfile_init")
 
