@@ -291,7 +291,6 @@ def test_integral_quantities(teststate, evals_rtz_int, quantity):
     assert ds.rho.attrs["integration_points"] is True
 
 
-@pytest.mark.xfail()
 @pytest.mark.parametrize(
     "quantity",
     [
@@ -300,22 +299,62 @@ def test_integral_quantities(teststate, evals_rtz_int, quantity):
         "dV_dPhi_n2",
         "minor_radius",
         "major_radius",
-        "iota_mean",
-        "iota_tor",
+        "iota_avg",
+        "iota_curr",
+        "iota_0",
         "I_tor",
         "I_pol",
         "B_theta_avg",
     ],
 )
-def test_integral_quantities_aux(teststate, evals_r_int_tz, quantity):
+def test_integral_quantities_aux_r_only(teststate, evals_r, quantity):
     # automatic change to integration points if necessary
+    ds = evals_r
+    compute(ds, quantity, state=teststate)
+    assert ds.rho.attrs["integration_points"] is False
+    assert "theta" not in ds
+    assert "zeta" not in ds
+    assert "pol_weight" not in ds and "tor_weight" not in ds
+    assert "rad_weight" not in ds
+
+
+@pytest.mark.parametrize(
+    "quantity",
+    [
+        "V",  # volume integral
+        "iota_avg",  # radial integral
+        "B_theta_avg",  # fluxsurface integral
+    ],
+)
+def test_integral_quantities_aux_rtz(teststate, evals_rtz, quantity):
+    ds = evals_rtz
+    compute(ds, quantity, state=teststate)
+    assert ds.rho.attrs["integration_points"] is False
+    assert ds.theta.attrs["integration_points"] is False
+    assert ds.zeta.attrs["integration_points"] is False
+    assert "rad_weight" not in ds
+    assert "pol_weight" not in ds
+    assert "tor_weight" not in ds
+
+
+@pytest.mark.parametrize(
+    "quantity",
+    [
+        "V",  # volume integral
+        "iota_avg",  # radial integral
+        "B_theta_avg",  # fluxsurface integral
+    ],
+)
+def test_integral_quantities_aux_r_int_tz(teststate, evals_r_int_tz, quantity):
     ds = evals_r_int_tz
     compute(ds, quantity, state=teststate)
+    assert quantity in ds
     assert ds.rho.attrs["integration_points"] is True
     assert ds.theta.attrs["integration_points"] is False
     assert ds.zeta.attrs["integration_points"] is False
-    assert "theta_weight" not in ds and "zeta_weight" not in ds
-    assert "rho_weights" in ds
+    assert "rad_weight" in ds
+    assert "pol_weight" not in ds
+    assert "tor_weight" not in ds
 
 
 def test_table_of_quantities():

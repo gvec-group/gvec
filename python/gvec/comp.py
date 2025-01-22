@@ -140,6 +140,11 @@ def compute(
             raise KeyError(f"The quantity `{quantity}` is not registered.")
         func = registry[quantity]
         # --- handle integration --- #
+        # we assume the dimensions are {rad, pol, tor} or {pol, tor}
+        # we don't assume which coordinates are associated with which dimensions
+        # in particular: (rho, theta, zeta), (rho, theta_B, zeta_B), (rho, alpha, phi_alpha) are all expected
+        # some quantities may require integration points in any of {rho, theta, zeta}
+        # if the integration points are not present we will create an auxiliary dataset with integration points
         auxcoords = {
             i
             for i in func.integration
@@ -148,10 +153,14 @@ def compute(
             or not ev[i].attrs["integration_points"]
         }
         if auxcoords:
-            # --- auxiliary dataset for integration points --- #
+            # --- auxiliary dataset for integration --- #
             logging.info(
-                f"Using auxiliary dataset with integration points {auxcoords} to compute {quantity}."
+                f"Using auxiliary dataset with integration points in {auxcoords} to compute {quantity}."
             )
+            if auxcoords > {"rho", "theta", "zeta"}:
+                raise ValueError(
+                    f"Unsupported integration coordinates for auxiliary dataset: {auxcoords}"
+                )
             rho = "int" if "rho" in auxcoords else ev.rho if "rho" in ev else None
             theta = (
                 "int" if "theta" in auxcoords else ev.theta if "theta" in ev else None
@@ -179,11 +188,11 @@ def compute(
         # --- handle auxiliary integration dataset --- #
         if auxcoords:
             for q in obj:
-                if (
-                    not any([c in obj[q].coords for c in auxcoords])
-                    and "weight" not in q
-                ):
-                    ev[q] = obj[q]
+                if "weight" in q:
+                    continue
+                if any([c in auxcoords for c in obj[q].coords]):
+                    continue
+                ev[q] = (obj[q].dims, obj[q].data, obj[q].attrs)
     if len(quantities) == 1:
         return ev[quantities[0]]
     return ev
@@ -210,6 +219,8 @@ def Evaluations(
         nfp = state.nfp
     # --- parse coordinates --- #
     match rho:
+        case xr.DataArray():
+            coords["rho"] = rho
         case np.ndarray() | list():
             coords["rho"] = ("rad", rho)
         case "int":
@@ -241,6 +252,8 @@ def Evaluations(
         case _:
             raise ValueError(f"Could not parse rho, got {rho}.")
     match theta:
+        case xr.DataArray():
+            coords["theta"] = theta
         case np.ndarray() | list():
             coords["theta"] = ("pol", theta)
         case "int":
@@ -272,6 +285,8 @@ def Evaluations(
         case _:
             raise ValueError(f"Could not parse theta, got {theta}.")
     match zeta:
+        case xr.DataArray():
+            coords["zeta"] = zeta
         case np.ndarray() | list():
             coords["zeta"] = ("tor", zeta)
         case "int":
