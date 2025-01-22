@@ -36,7 +36,7 @@ TYPE :: t_splProfile
   REAL(wp), ALLOCATABLE :: knots(:)   !! knot values, includinng edge knots
   REAL(wp), ALLOCATABLE :: coefs(:)   !! basis coefficients
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER                           :: deg !! degree of the B-splines
+  INTEGER                           :: deg = 0!! degree of the B-splines
   CLASS(sll_c_bsplines),ALLOCATABLE :: bspl
   
   CONTAINS
@@ -49,9 +49,9 @@ TYPE :: t_splProfile
   FINAL     :: splProfile_free
 END TYPE t_splProfile
 
-INTERFACE t_splProfile
-  MODULE PROCEDURE :: splProfile_init
-END INTERFACE t_splProfile
+interface t_splProfile
+  module procedure :: splProfile_init
+end interface t_splProfile
 
 !===================================================================================================================================
 
@@ -88,7 +88,7 @@ FUNCTION splProfile_init(knots, n_knots, coefs, n_coefs) RESULT(sf)
                           sf%deg , & 
                           sf%knots(sf%deg+1:n_knots-sf%deg)) ! remove repeated edge knots
   __PERFOFF("splProfile_init")
-  
+
 END FUNCTION splProfile_init
 
 !===================================================================================================================================
@@ -148,10 +148,10 @@ SUBROUTINE splProfile_free(sf)
   TYPE(t_splProfile), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 !=================================================================================================================================== 
-  DEALLOCATE(sf%knots)
-  DEALLOCATE(sf%coefs)
-  CALL sf%bspl%free()
-  DEALLOCATE(sf%bspl)
+  SDEALLOCATE(sf%knots)
+  SDEALLOCATE(sf%coefs)
+  IF (ALLOCATED(sf%bspl)) CALL sf%bspl%free()
+  SDEALLOCATE(sf%bspl)
   sf%deg        =-1
   sf%n_coefs    =-1
   sf%n_knots    =-1
