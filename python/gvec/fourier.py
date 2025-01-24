@@ -98,6 +98,28 @@ def fft2d(x: np.ndarray):
     return c, s
 
 
+def ifft2d(c: np.ndarray, s: np.ndarray):
+    if c.shape != s.shape:
+        raise ValueError("c and s must have the same shape")
+    M = c.shape[0] - 1
+    N = c.shape[1] // 2
+
+    c = np.asarray(c)
+    c = np.roll(c[:, ::-1], 1, axis=1)
+    c[0, :] *= 2
+    c = c / 2
+
+    s = np.asarray(s)
+    s = np.roll(s[:, ::-1], 1, axis=1)
+    s[0, :] *= 2
+    s = -s / 2
+
+    xf = c + 1j * s
+    # always use an odd number of points in both directions
+    x = np.fft.irfft2(xf.T, s=(2 * N + 1, 2 * M + 1), norm="forward").T
+    return x
+
+
 def fft2d_modes(M: int, N: int, grid: bool = False):
     """
     Generate the modenumbers for a 2D FFT, as performed by `fft2d`.
@@ -186,8 +208,12 @@ def eval2d(
     x : numpy.ndarray
         The values of the series at the given angles.
     """
-    theta, zeta = np.broadcast_arrays(theta, zeta)
-    x = np.zeros_like(theta)
+    if theta.shape != zeta.shape:
+        raise ValueError("theta and zeta must have the same shape")
+
+    shape = theta.shape
+    theta, zeta = theta.ravel(), zeta.ravel()
+
     if deriv is not None:
         mg, ng = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2, grid=True)
         ng *= nfp
@@ -207,11 +233,13 @@ def eval2d(
             )
 
     ms, ns = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2)
+    x = np.zeros_like(theta)
     for m in ms:
         for n in ns:
+            # this python double loop is NOT slower than numpy array operations
             x += c[m, n] * np.cos(m * theta - n * nfp * zeta)
             x += s[m, n] * np.sin(m * theta - n * nfp * zeta)
-    return x
+    return x.reshape(shape)
 
 
 def ev2ft(ev, quiet=False):
@@ -243,13 +271,15 @@ def ev2ft(ev, quiet=False):
                 m, n = fft2d_modes(vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False)
 
             attrs = {
-                k: v for k, v in ev[var].attrs.items() if k in {"long_name", "symbol"}
+                k: v
+                for k, v in ev[var].attrs.items()
+                if k not in {"long_name", "symbol"}
             }
             data[f"{var}_mnc"] = (
                 dims,
                 vcos,
                 dict(
-                    long_name=f"{ev[var].long_name}, cosine coefficient",
+                    long_name=f"{ev[var].long_name}, cosine coefficients",
                     symbol=f"{{{ev[var].symbol}}}_{{mn}}^c",
                 )
                 | attrs,
@@ -258,7 +288,7 @@ def ev2ft(ev, quiet=False):
                 dims,
                 vsin,
                 dict(
-                    long_name=f"{ev[var].long_name}, sine coefficient",
+                    long_name=f"{ev[var].long_name}, sine coefficients",
                     symbol=f"{{{ev[var].symbol}}}_{{mn}}^s",
                 )
                 | attrs,
@@ -271,7 +301,7 @@ def ev2ft(ev, quiet=False):
             logging.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
 
     coords = dict(
-        rho=(ev.rho.dims, ev.rho.data, ev.rho.attrs),
+        rho=("rad", ev.rho.data, ev.rho.attrs),
         m=(
             "m",
             m if m is not None else [],
@@ -285,7 +315,20 @@ def ev2ft(ev, quiet=False):
     )
 
     ft = xr.Dataset(data, coords=coords)
+    ft = ft.set_xindex("rho")
     ft.attrs["fourier series"] = (
         "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v^c_mn(r) cos(m θ - n N_FP ζ) + v^s_mn(r) sin(m θ - n N_FP ζ)'"
     )
     return ft
+
+
+def ft_autoremove(ft: xr.Dataset, **tol_kwargs):
+    """autoremove variables which are always close to zero (e.g. due to stellarator symmetry)"""
+    selected = []
+    for var in ft.data_vars:
+        if set(ft[var].dims) >= {"m", "n"} and np.allclose(
+            ft[var].data, 0, **tol_kwargs
+        ):
+            continue
+        selected.append(var)
+    return ft[selected]

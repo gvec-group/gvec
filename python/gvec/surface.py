@@ -54,9 +54,22 @@ def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
     if isinstance(nfp, xr.DataArray):
         nfp = nfp.item()
 
-    theta1d = pos.theta_B
-    zeta1d = pos.zeta_B
-    theta2d, zeta2d = xr.broadcast(theta1d, zeta1d)
+    use_fft = False
+    if (
+        pos.theta_B.ndim == 1
+        and pos.theta_B.size % 2 == 1
+        and pos.zeta_B.ndim == 1
+        and pos.zeta_B.size % 2 == 1
+    ):
+        theta1d = np.linspace(0, 2 * np.pi, pos.theta_B.size, endpoint=False)
+        zeta1d = np.linspace(0, 2 * np.pi / nfp, pos.zeta_B.size, endpoint=False)
+        if np.allclose(theta1d, pos.theta_B) and np.allclose(zeta1d, pos.zeta_B):
+            use_fft = True
+    if not use_fft:
+        logging.warning("Unaligned boozer angles: use slower evaluation method")
+        theta1d = pos.theta_B
+        zeta1d = pos.zeta_B
+        theta2d, zeta2d = xr.broadcast(theta1d, zeta1d)
 
     surf = xr.Dataset(coords=pos.coords)
 
@@ -69,8 +82,7 @@ def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
         )
         zhat = pos.sel(xyz="z", rad=r)
 
-        # Ignore stellarator symmetry: will not store fourier coefficients
-        # ToDo: performance impact?
+        # Ignore stellarator symmetry: will not store fourier coefficients - performance impact is negligible
         xhatc, xhats = fourier.fft2d(xhat.transpose("pol", "tor").data)
         yhatc, yhats = fourier.fft2d(yhat.transpose("pol", "tor").data)
         zhatc, zhats = fourier.fft2d(zhat.transpose("pol", "tor").data)
@@ -85,9 +97,12 @@ def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
                     ("rad", "pol", "tor"),
                     np.zeros((pos.rad.size, pos.pol.size, pos.tor.size)),
                 )
-            surf[var][r, :, :] = fourier.eval2d(
-                c, s, theta2d.data, zeta2d.data, nfp=nfp
-            )
+            if use_fft:
+                surf[var][r, :, :] = fourier.ifft2d(c, s)
+            else:
+                surf[var][r, :, :] = fourier.eval2d(
+                    c, s, theta2d.data, zeta2d.data, nfp=nfp
+                )
             surf[var].attrs["long_name"] = f"{name}-coordinate"
             surf[var].attrs["symbol"] = symbol
             for deriv in ["t", "z", "tt", "tz", "zz"]:
@@ -97,9 +112,12 @@ def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
                         ("rad", "pol", "tor"),
                         np.zeros((pos.rad.size, pos.pol.size, pos.tor.size)),
                     )
-                surf[dvar][r, :, :] = fourier.eval2d(
-                    c, s, theta2d.data, zeta2d.data, deriv, nfp=nfp
-                )
+                if use_fft:
+                    surf[dvar][r, :, :] = fourier.ifft2d(c, s)
+                else:
+                    surf[dvar][r, :, :] = fourier.eval2d(
+                        c, s, theta2d.data, zeta2d.data, deriv, nfp=nfp
+                    )
                 surf[dvar].attrs["long_name"] = derivative_name_smart(
                     f"{name}-coordinate", deriv
                 )
@@ -184,7 +202,7 @@ def normal(ds: xr.Dataset):
     requirements=["e_theta_B"],
     attrs=dict(
         long_name="poloidal component of the metric tensor / first fundamental form",
-        symbol=r"g_{\theta_B\theta_B,B}",
+        symbol=r"g_{\theta_B\theta_B}",
     ),
 )
 def g_tt_B(ds: xr.Dataset):
