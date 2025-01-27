@@ -1,0 +1,51 @@
+# =================================================================================================================================
+# Stage "regression"
+# =================================================================================================================================
+# compare results between two different runs
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_ifx-latest` (only for pytest, CURR_CMP is overridden)
+      default: .mpcdfci_ifx-latest
+    HOSTNAME:
+      description: Name of the host, e.g. `mpcdfci`
+      default: mpcdfci
+    CURR_CMP_1:
+      description: Name of the first compiler, e.g. `ifort-2023`
+      default: ifort-2023
+    CURR_CMP_2:
+      description: Name of the second compiler, e.g. `ifx-latest`
+      default: ifx-latest
+    vars:
+      description: Template with variables or parallel:matrix
+      default: .vars_matrix_run
+    run-postfix:
+      description: Run job name postfix, e.g. `_debugrun`
+      default: ""
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
+
+---
+
+reg.$[[ inputs.HOSTNAME ]]$[[ inputs.run-postfix ]]_$[[ inputs.CURR_CMP_1 ]]_vs_$[[ inputs.CURR_CMP_2 ]]:
+  stage: regression
+  extends:
+    - $[[ inputs.env ]]
+    - .before_script_modules
+    - .script_regression
+    - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
+  variables:
+    CURR_CMP_1: $[[ inputs.CURR_CMP_1 ]]
+    CURR_CMP_2: $[[ inputs.CURR_CMP_2 ]]
+    CASENAME_1: ${HASH_TAG}_${HOSTNAME}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${HOSTNAME}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+  allow_failure:
+    exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
+  needs:
+    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP_1 ]]$[[ inputs.run-postfix ]]
+      artifacts: true
+    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP_2 ]]$[[ inputs.run-postfix ]]
+      artifacts: true

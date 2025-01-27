@@ -24,12 +24,12 @@
 !===================================================================================================================================
 MODULE MODgvec_ReadInTools
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,UNIT_stdout,MPIroot,abort
-USE ISO_VARYING_STRING
+USE MODgvec_Globals, ONLY:wp,UNIT_stdout,MPIroot,abort,MAXLEN
+!USE ISO_VARYING_STRING
 IMPLICIT NONE
 PRIVATE
 
-PUBLIC::TRYREAD
+
 PUBLIC::GETSTR
 PUBLIC::CNTSTR
 PUBLIC::GETINT
@@ -39,15 +39,12 @@ PUBLIC::GETINTARRAY
 PUBLIC::GETREALARRAY
 PUBLIC::GETINTALLOCARRAY
 PUBLIC::GETREALALLOCARRAY
+PUBLIC::remove_blanks,replace,split
 
 PUBLIC::IgnoredStrings
 PUBLIC::FillStrings
 PUBLIC::FinalizeReadIn
 !===================================================================================================================================
-
-INTERFACE TRYREAD
-  MODULE PROCEDURE TRYREAD
-END INTERFACE
 
 INTERFACE GETSTR
   MODULE PROCEDURE GETSTR
@@ -102,48 +99,20 @@ INTERFACE DeleteString
 END INTERFACE
 
 TYPE tString
-  TYPE(Varying_String)::Str
+#if defined(NVHPC)
+  CHARACTER(LEN=MAXLEN) :: Str  !! ONLY NVHPC COMPILER DOES NOT SEEM TO WORK WITH ALLOCATABLE CHARACTERS (SIGSEV!)
+#else
+  CHARACTER(LEN=:),ALLOCATABLE::Str 
+#endif
   TYPE(tString),POINTER::NextStr,PrevStr
 END TYPE tString
+
 
 LOGICAL,PUBLIC::ReadInDone=.FALSE.
 TYPE(tString),POINTER::FirstString
 
+
 CONTAINS
-
-!===================================================================================================================================
-!> Read string from specified unit
-!!
-!===================================================================================================================================
-FUNCTION TRYREAD(UnitLoc,Key,abortOpt)
-! MODULES
-USE MODgvec_Globals,ONLY:abort
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in ini file
-INTEGER,INTENT(IN)                   :: unitLoc
-LOGICAL,INTENT(IN),OPTIONAL          :: abortOpt
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-LOGICAL                              :: TRYREAD
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-INTEGER                              :: stat
-CHARACTER(LEN=255)                   :: tmp
-LOGICAL                              :: abortLoc=.TRUE.
-!===================================================================================================================================
-IF(PRESENT(abortOpt)) abortLoc=abortOpt
-TRYREAD=.TRUE.
-READ(unitLoc,*,IOSTAT=stat) tmp
-IF(stat.NE.0)              TRYREAD=.FALSE.
-IF(TRIM(Key).NE.TRIM(tmp)) TRYREAD=.FALSE.
-
-IF(.NOT.TRYREAD.AND.abortLoc)&
-  CALL abort(__STAMP__,&
-             'Keyword '//TRIM(Key)//' not found in file.')
-END FUNCTION TRYREAD
-
 
 !===================================================================================================================================
 !> Read string named "key" from setup file and store in "GETINT". If keyword "Key" is not found in ini file,
@@ -160,7 +129,7 @@ CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in i
 CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal !! Default values as character string (as in ini file)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-CHARACTER(LEN=255)                   :: GetStr   !! String read from setup file or initialized with default value
+CHARACTER(LEN=512)                   :: GetStr   !! String read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 CHARACTER(LEN=8)                     :: DefMsg  
@@ -198,13 +167,12 @@ TYPE(tString),POINTER                :: Str1
 
 CntStr=0
 CALL LowCase(Key,TmpKey)
-! Remove blanks
-TmpKey=REPLACE(TmpKey," ","",Every=.TRUE.)
+TmpKey=remove_blanks(TmpKey)
 
 ! Search
 Str1=>FirstString
 DO WHILE (ASSOCIATED(Str1))
-  IF (INDEX(CHAR(Str1%Str),TRIM(TmpKey)//'=').EQ.1) CntStr=CntStr+1
+  IF (INDEX(Str1%Str,TRIM(TmpKey)//'=').EQ.1) CntStr=CntStr+1
   ! Next string in list
   Str1=>Str1%NextStr
 END DO
@@ -238,7 +206,7 @@ LOGICAL,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is ta
 INTEGER                     :: GetInt  !! Integer read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255)          :: HelpStr,ProposalStr
+CHARACTER(LEN=MAXLEN)       :: HelpStr,ProposalStr
 CHARACTER(LEN=8)            :: DefMsg  
 INTEGER                     :: ioerr
 LOGICAL                     :: quiet_def
@@ -287,7 +255,7 @@ LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFA
 REAL(wp)                             :: GetReal  !! Real read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=500)                   :: HelpStr,ProposalStr  
+CHARACTER(LEN=MAXLEN)                :: HelpStr,ProposalStr  
 CHARACTER(LEN=8)                     :: DefMsg  
 INTEGER                              :: ioerr
 LOGICAL                              :: quiet_def
@@ -337,7 +305,7 @@ LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFA
 LOGICAL                              :: GetLogical !! Logical read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255)                   :: HelpStr,ProposalStr 
+CHARACTER(LEN=MAXLEN)                :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)                     :: DefMsg  
 INTEGER                              :: ioerr
 LOGICAL                              :: quiet_def
@@ -387,11 +355,10 @@ LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in     !! flag to be quiet if 
 INTEGER                   :: GetIntArray(nIntegers)      !! Integer array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255+nIntegers*50) :: HelpStr,ProposalStr 
+CHARACTER(LEN=MAXLEN)           :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)                :: DefMsg  
 INTEGER                         :: iInteger  
 INTEGER                         :: ioerr
-TYPE(varying_string)            :: separator,astr,bstr
 LOGICAL                         :: quiet_def
 !===================================================================================================================================
 
@@ -402,13 +369,8 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-astr=var_str(TRIM(helpstr))
-iInteger=0
-Separator="X"
-DO WHILE(LEN(CHAR(separator)) .NE. 0)
-  iInteger=iInteger+1
-  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
-END DO
+iInteger=1+count_sep(helpstr,",")
+
 IF(iInteger.NE.nIntegers)THEN
   WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (integer Array), number of elements : ', iInteger, ' .NE. ',nIntegers
   WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
@@ -463,11 +425,10 @@ INTEGER,INTENT(OUT)       :: nIntegers        !! Number of values in array
 INTEGER,ALLOCATABLE       :: GetIntArray(:)   !! Integer array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=50*255)     :: HelpStr,ProposalStr 
+CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)          :: DefMsg  
 INTEGER                   :: iInteger  
 INTEGER                   :: ioerr
-TYPE(varying_string)      :: separator,astr,bstr
 LOGICAL                   :: quiet_def
 !===================================================================================================================================
 
@@ -478,13 +439,8 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-astr=var_str(TRIM(helpstr))
-nIntegers=0
-Separator="X"
-DO WHILE(LEN(CHAR(separator)) .NE. 0)
-  nIntegers=nIntegers+1
-  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
-END DO
+nIntegers=1+count_sep(helpstr,",")
+
 IF(ALLOCATED(GetIntArray)) DEALLOCATE(GetIntArray)
 ALLOCATE(GetIntArray(nIntegers))
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
@@ -534,11 +490,10 @@ LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFA
 REAL(wp)                  :: GetRealArray(nReals)        !! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255+nReals*50) :: HelpStr,ProposalStr 
+CHARACTER(LEN=MAXLEN)        :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)             :: DefMsg  
 INTEGER                      :: iReal  
 INTEGER                      :: ioerr  
-TYPE(varying_string)         :: separator,astr,bstr
 LOGICAL                      :: quiet_def
 !===================================================================================================================================
 
@@ -550,13 +505,7 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-astr=var_str(TRIM(helpstr))
-iReal=0
-Separator="X"
-DO WHILE(LEN(CHAR(separator)) .NE. 0)
-  iReal=iReal+1
-  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
-END DO
+iReal=1+count_sep(helpstr,",")
 IF(iReal.NE.nReals)THEN
   WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (RealArray), number of elements : ', iReal, ' .NE. ',nReals
   WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
@@ -611,14 +560,12 @@ INTEGER,INTENT(OUT)       :: nReals           !! Number of values in array
 REAL(wp),ALLOCATABLE      :: GetRealArray(:)  !! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=50*255)     :: HelpStr,ProposalStr 
+CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr 
 CHARACTER(LEN=8)          :: DefMsg  
 INTEGER                   :: iReal  
 INTEGER                   :: ioerr  
-TYPE(varying_string)      :: separator,astr,bstr
 LOGICAL                   :: quiet_def
 !===================================================================================================================================
-
 IF (PRESENT(Proposal)) THEN
   CALL ConvertToProposalStr(ProposalStr,realarr=Proposal)
   CALL FindStr(Key,HelpStr,DefMsg,ProposalStr)
@@ -626,13 +573,8 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-astr=var_str(TRIM(helpstr))
-nReals=0
-Separator="X"
-DO WHILE(LEN(CHAR(separator)) .NE. 0)
-  nReals=nReals+1
-  CALL split(astr,bstr," ",separator,back=.false.) !bStr is string in front of @
-END DO
+nReals=1+count_sep(helpstr,",")
+
 IF(ALLOCATED(GetRealarray)) DEALLOCATE(GetRealArray)
 ALLOCATE(GetRealArray(nReals))
 
@@ -685,7 +627,7 @@ IF(MPIroot)THEN !<<<<
     WRITE(UNIT_stdOut,'(132("-"))')
     WRITE(UNIT_stdOut,'(A)')" THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:"
     DO WHILE(ASSOCIATED(Str1))
-      WRITE(UNIT_stdOut,'(A4,A)')" |- ",TRIM(CHAR(Str1%Str))
+      WRITE(UNIT_stdOut,'(A4,A)')" |- ",TRIM(Str1%Str)
       Str2=>Str1%NextStr
       CALL DeleteString(Str1) ! remove string from the list -> no strings should be left
       Str1=>Str2
@@ -733,12 +675,11 @@ CHARACTER(LEN=*),INTENT(IN)            :: IniFile                    !! Name of 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 TYPE(tString),POINTER          :: Str1=>NULL(),Str2=>NULL()  
-CHARACTER(LEN=255)             :: HelpStr,Str  
-CHARACTER(LEN=300)             :: Filename  
-TYPE(Varying_String)           :: aStr,bStr,Separator  
-INTEGER                        :: stat,iniUnit,nLines,i,iError !<<<<
+CHARACTER(LEN=MAXLEN)          :: HelpStr,Str  
+CHARACTER(LEN=300)             :: Filename   
+INTEGER                        :: stat,iniUnit,nLines,i !<<<<
 LOGICAL                        :: file_exists !<<<<
-CHARACTER(LEN=255),ALLOCATABLE :: FileContent(:) !<<<<
+CHARACTER(LEN=MAXLEN),ALLOCATABLE :: FileContent(:) !<<<<
 CHARACTER(LEN=1)               :: tmpChar='' !<<<<
 !===================================================================================================================================
 ! do nothing if FillStrings was already called
@@ -795,29 +736,22 @@ NULLIFY(Str1,Str2)
 DO i=1,nLines !<<<<
   IF(.NOT.ASSOCIATED(Str1)) CALL GetNewString(Str1)
   ! Read line from file
-  aStr=FileContent(i)
-  Str=aStr
+  Str=FileContent(i)
   ! Remove comments with "!"
-  CALL Split(aStr,Str1%Str,"!")
+  CALL Split(Str,Str,"!")
   ! Remove comments with "#"
-  CALL Split(Str1%Str,bStr,"#")
-  Str1%Str=bStr
-  ! Remove "%" sign from old ini files, i.e. mesh% disc% etc.
-  CALL Split(Str1%Str,bStr,"%",Separator,Back=.false.)
-  ! If we have a newtype ini file, take the other part
-  IF(LEN(CHAR(Separator)).EQ.0) Str1%Str=bStr
-  ! Remove blanks
-  Str1%Str=Replace(Str1%Str," ","",Every=.true.)
+  CALL Split(Str,Str,"#")
+  Str=remove_blanks(Str)
+  Str=Replace(Str,"(/","")
+  Str=Replace(Str,"/)","")
   ! Replace brackets
-  Str1%Str=Replace(Str1%Str,"(/","",Every=.true.)
-  Str1%Str=Replace(Str1%Str,"/)","",Every=.true.)
-  ! Replace commas
-  Str1%Str=Replace(Str1%Str,","," ",Every=.true.)
+  ! DO NOT Replace commas, used for array dimensions!
+  !Str1%Str=Replace(Str1%Str,","," ")
   ! Lower case
-  CALL LowCase(CHAR(Str1%Str),HelpStr)
+  CALL LowCase(TRIM(Str),HelpStr)
   ! If we have a remainder (no comment only)
   IF(LEN_TRIM(HelpStr).GT.2) THEN
-    Str1%Str=Var_Str(HelpStr)
+    Str1%Str=TRIM(HelpStr)
     IF(.NOT.ASSOCIATED(Str2)) THEN
       FirstString=>Str1
     ELSE
@@ -828,173 +762,37 @@ DO i=1,nLines !<<<<
     CALL GetNewString(Str1)
   END IF
 END DO
+DEALLOCATE(FileContent)
 
 !find line continuation "&" and merge strings (can be multiple lines)
 Str1=>FirstString
 DO WHILE (ASSOCIATED(Str1))
-  IF(INDEX(CHAR(Str1%str),'&').NE.0)THEN !found "&"
-    CALL Split(Str1%Str,aStr,"&") !take part in front of "&"
+  IF(INDEX((Str1%str),'&').NE.0)THEN !found "&"
+    CALL Split(Str1%Str,HelpStr,"&") !take part in front of "&"
     Str2=>Str1%nextStr
-    Str1%Str=Var_str(CHAR(aStr)//CHAR(Str2%Str))
+#if(!defined(NVHPC)) 
+    DEALLOCATE(Str1%Str)
+#endif /* ONLY NVHPC COMPILER DOES NOT SEEM TO WORK WITH ALLOCATABLE CHARACTERS (SIGSEV!) */
+    Str1%Str=TRIM(HelpStr)//TRIM(Str2%Str)
     CALL deleteString(Str2) 
     !do not go to next  string as long as there are "&" in the string  
   ELSE
     Str1=>Str1%NextStr !nothing to be done
   END IF
 END DO
+!check len_trim<MAXLEN
+Str1=>FirstString
+DO WHILE (ASSOCIATED(Str1))
+  IF(LEN_TRIM(Str1%Str).EQ.MAXLEN)THEN
+    CALL abort(__STAMP__,& 
+      "parameter readin: Line of input file might be longer than MAXLEN.",Intinfo=MAXLEN)
+  END IF
+  Str1=>Str1%NextStr !nothing to be done
+END DO
 
 ReadInDone = .TRUE.
-CALL UserDefinedVars()
 
 END SUBROUTINE FillStrings
-
-!===================================================================================================================================
-!> Get the user defined variables 
-!!
-!===================================================================================================================================
-SUBROUTINE UserDefinedVars()
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-INTEGER                          :: i,j,nDefVars
-TYPE(Varying_String),ALLOCATABLE :: DefVar(:,:)
-TYPE(tString),POINTER            :: Str1  
-TYPE(Varying_String)             :: vStr,vStr1,vStr2
-LOGICAL                          :: found
-!===================================================================================================================================
-nDefVars=CNTSTR('defvar',0)
-IF(nDefVars.EQ.0) RETURN
-SWRITE(UNIT_StdOut,'(A,I4,A)')' | Found ',nDefVars,' UserDefined variables: '
-ALLOCATE(DefVar(2,nDefVars))
-DO i=1,nDefVars
-  CALL GetDefVar(DefVar(:,i))
-  !check if part of the variable name was used before
-  DO j=1,i-1
-    IF (INDEX(TRIM(CHAR(DefVar(1,i))),TRIM(CHAR(DefVar(1,j)))).NE.0) THEN
-      SWRITE(UNIT_StdOut,*) '!! WARNING !! Problem with DEFVAR ', TRIM(CHAR(DefVar(1,i)))
-      SWRITE(UNIT_StdOut,*) '  a part of this variable name was already used in DEFVAR ' ,TRIM(CHAR(DefVar(1,j)))
-      CALL abort(__STAMP__, &
-         'DEFVAR: do not reuse same strings for variable names! Code stopped during inifile parsing!')
-    END IF
-  END DO
-  Str1=>FirstString
-  DO WHILE(ASSOCIATED(Str1))
-    vStr=Str1%Str
-    vStr2=Str1%Str
-    CALL Split(vStr2,vStr1,"=",back=.FALSE.) 
-    found=.FALSE.
-    IF (INDEX(TRIM(CHAR(vStr2)),TRIM(CHAR(DefVar(1,i)))).NE.0) THEN
-      found=.TRUE.
-      vStr2=replace(vStr2,TRIM(CHAR(DefVar(1,i))),TRIM(CHAR(DefVar(2,i))),Every=.TRUE.)
-    END IF
-    IF(Found)THEN
-      !SWRITE(UNIT_StdOut,*)'DEBUG, ',TRIM(CHAR(Str1%str))
-      Str1%Str=CHAR(vStr1)//'='//CHAR(vStr2)
-      !SWRITE(UNIT_StdOut,*)' >>>>>>',TRIM(CHAR(Str1%str))
-    END IF !found
-    ! Next string in list
-    Str1=>Str1%NextStr
-  END DO !WHILE Str1 associated
-END DO !i=1,nDefVars
-
-END SUBROUTINE UserDefinedVars 
-
-
-!===================================================================================================================================
-!> Get the user defined variables 
-!!
-!===================================================================================================================================
-SUBROUTINE GetDefVar(DefVar)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-TYPE(Varying_String):: DefVar(2)   !! Name, Value
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=255)  :: HelpStr  
-CHARACTER(LEN=255)  :: aStr  
-CHARACTER(LEN=8)    :: DefMsg  
-TYPE(Varying_String):: vStr,vStr1,vStr2,vStrTmp,vStr_narr
-INTEGER             :: DefVarInt
-REAL(wp)            :: DefVarReal
-INTEGER,ALLOCATABLE :: DefVarIntArr(:)
-REAL(wp),ALLOCATABLE:: DefVarRealArr(:)
-INTEGER             :: nArr
-LOGICAL             :: DefVarIsInt
-LOGICAL             :: DefVarIsIntarray
-LOGICAL             :: DefVarIsReal
-LOGICAL             :: DefVarIsRealarray
-!===================================================================================================================================
-CALL FindStr('DEFVAR',HelpStr,DefMsg)
-CALL LowCase(HelpStr,aStr)
-vStr=aStr
-
-CALL Split(vStr,vStr1,":",back=.FALSE.) !split after first occurence in vStr, and put first part in vStr1, second part in vStr
-CALL Split(vStr,vStr2,":",back=.TRUE.)  !split after last occurence in Vstr and put second part in vStr1 and first part in Vstr
-
-vStrTmp=vStr1
-CALL Split(vStrtmp,vStr1,"~",back=.FALSE.) !first part in vStr1, second part in VStrtmp
-CALL Split(vStrtmp,vStr_narr,"~",back=.TRUE.) !second part in VStr_narr, first part in VStrtmp
-CALL Split(vStr_narr,vStrTmp,")",back=.TRUE.) !first part VStr_narr
-
-DefVarIsInt      =(CHAR(vStr1).EQ.'(int)') 
-DefVarIsIntarray =(CHAR(vStr1).EQ.'(int') !array  must be of format (int~n)
-DefVarIsReal     =(CHAR(vStr1).EQ.'(real)') 
-DefVarIsRealarray=(CHAR(vStr1).EQ.'(real') 
-
-
-IF(.NOT.((DefVarIsInt).OR.(DefVarIsIntArray).OR.(DefVarIsReal).OR.(defVarIsRealarray) ))THEN
-  SWRITE(UNIT_StdOut,*) 'DEFVAR not correctly defined: ',TRIM(HelpStr)
-    CALL abort(__STAMP__, &
-         'Code stopped during inifile parsing!')
-END IF
-
-IF(DefVarIsIntArray.OR.DefVarIsRealArray)THEN
-  aStr=CHAR(vstr_narr)
-  READ(aStr,*) nArr
-END IF
-
-!now take the second part of the definition ( nvar = xxx)
-vStr=VStr2
-CALL Split(vStr,vStr1,"=",back=.FALSE.) 
-CALL Split(vStr,vStr2,"=",back=.TRUE.) 
-DefVar(1)=vStr1
-DefVar(2)=vStr2
-aStr=CHAR(DefVar(2))
-IF(DefVarIsInt) THEN
-  READ(aStr,*)DefVarInt
-  SWRITE(UNIT_StdOut,'(A3,A30,A3,I33,A3,A7,A3)')  ' | ',TRIM(CHAR(DefVar(1))),' | ', DefVarInt      ,' | ','=>INT  ',' | '
-ELSE IF(DefVarIsReal)THEN
-  READ(aStr,*)DefVarReal
-  SWRITE(UNIT_StdOut,'(A3,A30,A3,E33.5,A3,A7,A3)')' | ',TRIM(CHAR(DefVar(1))),' | ', DefVarReal     ,' | ','=>REAL ',' | '
-ELSE IF(DefVarIsIntArray)THEN
-  ALLOCATE(DefVarIntArr(nArr))
-  READ(aStr,*)DefVarIntArr(:)
-  SWRITE(UNIT_StdOut,'(A3,A30,A31,I4,A4,A7,A3,'//TRIM(CHAR(vStr_narr))//'(X,I4))')' | ',TRIM(CHAR(DefVar(1))), &
-        ' |      Integer array of size (', nArr,') | ','=>INT  ',' | ',DefVarIntArr(1:narr)
-  WRITE(aStr,'('//TRIM(CHAR(vStr_narr))//'(X,I8))') DefVarIntArr !overwrite
-  DEALLOCATE(DefVarIntArr)
-  DefVar(2)=aStr
-ELSE IF(DefVarIsRealArray)THEN
-  ALLOCATE(DefVarRealArr(nArr))
-  READ(aStr,*)DefVarRealArr(:)
-  SWRITE(UNIT_StdOut,'(A3,A30,A31,I4,A4,A7,A3,'//TRIM(CHAR(vStr_narr))//'(X,E8.1))')' | ',TRIM(CHAR(DefVar(1))), &
-        ' |         Real array of size (', nArr,') | ','=>REAL ',' | ',DefVarRealArr(1:narr)
-  WRITE(aStr,'('//TRIM(CHAR(vStr_narr))//'(X,E23.15))') DefVarRealArr !overwrite
-  DEALLOCATE(DefVarRealArr)
-  DefVar(2)=aStr
-END IF
-
-END SUBROUTINE GetDefVar 
-
 
 !===================================================================================================================================
 !> Create and initialize new string object.
@@ -1038,6 +836,9 @@ IF (ASSOCIATED(Str,FirstString)) THEN
 ELSE
   Str%PrevStr%NextStr=>Str%NextStr
 END IF
+#if (!defined(NVHPC))
+DEALLOCATE(Str%Str)
+#endif /* ONLY NVHPC COMPILER DOES NOT SEEM TO WORK WITH ALLOCATABLE CHARACTERS (SIGSEV!) */
 DEALLOCATE(Str)
 NULLIFY(Str)
 END SUBROUTINE DeleteString
@@ -1063,14 +864,13 @@ CHARACTER(LEN=*),INTENT(OUT)         :: Str         !! Parameter string without 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 CHARACTER(LEN=LEN(Key))              :: TmpKey   
-TYPE(tString),POINTER                :: Str1  
+TYPE(tString),POINTER                :: Str1 
 LOGICAL                              :: Found  
 !===================================================================================================================================
 DefMsg='*CUSTOM'
 ! Convert to lower case
 CALL LowCase(Key,TmpKey)
-! Remove blanks
-TmpKey=REPLACE(TmpKey," ","",Every=.TRUE.)
+TmpKey=remove_blanks(TmpKey)
 Found=.FALSE.
 Str1=>FirstString
 DO WHILE(.NOT.Found)
@@ -1081,7 +881,14 @@ DO WHILE(.NOT.Found)
            'Code stopped during inifile parsing!')
     ELSE ! Return default value
 !      CALL LowCase(TRIM(Proposal),Str)
-      Str=TRIM(Proposal)
+      IF(LEN_TRIM(Proposal).LE.LEN(Str))THEN
+        Str=TRIM(Proposal)
+      ELSE 
+        CALL abort(__STAMP__,&
+          'parameter readin: proposal string of parameter '//TRIM(Key)//' does not fit into output string!')
+      END IF
+
+      
       IF (Str(1:1).NE.'@') THEN
         DefMsg='DEFAULT'
       END IF
@@ -1089,10 +896,15 @@ DO WHILE(.NOT.Found)
     END IF ! (.NOT.PRESENT(Proposal))
   END IF ! (.NOT.ASSOCIATED(Str1))
 
-  IF (INDEX(CHAR(Str1%Str),TRIM(TmpKey)//'=').EQ.1) THEN
+  IF (INDEX(Str1%Str,TRIM(TmpKey)//'=').EQ.1) THEN
     Found=.TRUE.
-    Str1%Str=replace(Str1%Str,TRIM(TmpKey)//'=',"",Every=.TRUE.)
-    Str=TRIM(CHAR(Str1%Str))
+    Str1%Str=replace(Str1%Str,TRIM(TmpKey)//'=',"")
+    IF(LEN_TRIM(Str1%str).LE.LEN(Str))THEN
+      Str=TRIM(Str1%Str)
+    ELSE
+      CALL abort(__STAMP__,&
+        'parameter readin: string of parameter '//TRIM(Key)//' does not fit into output string!')
+    END IF
     ! Remove string from list
     CALL DeleteString(Str1)
   ELSE
@@ -1105,7 +917,7 @@ END SUBROUTINE FindStr
 
 
 !===================================================================================================================================
-!> Transform upper case letters in "Str1" into lower case letters, result is "Str2"
+!> Transform upper case letters in "Str1" into lower case letters, result is "Str2", but only up the the equal sign.
 !!
 !==================================================================================================================================
 SUBROUTINE LowCase(Str1,Str2)
@@ -1122,16 +934,13 @@ CHARACTER(LEN=*),INTENT(OUT) :: Str2 !! Output string, lower case letters only
 INTEGER                      :: iLen,nLen,Upper  
 CHARACTER(LEN=*),PARAMETER   :: lc='abcdefghijklmnopqrstuvwxyz'  
 CHARACTER(LEN=*),PARAMETER   :: UC='ABCDEFGHIJKLMNOPQRSTUVWXYZ'  
-LOGICAL                      :: HasEq  
 !===================================================================================================================================
-HasEq=.FALSE.
 Str2=Str1
 nLen=LEN_TRIM(Str1)
 DO iLen=1,nLen
-  ! Transformation stops at "="
-  IF(Str1(iLen:iLen).EQ.'=') HasEq=.TRUE.
+  IF(Str1(iLen:iLen).EQ.'=') EXIT ! Transformation stops at "="
   Upper=INDEX(UC,Str1(iLen:iLen))
-  IF ((Upper > 0).AND. .NOT. HasEq) Str2(iLen:iLen) = lc(Upper:Upper)
+  IF (Upper > 0) Str2(iLen:iLen) = lc(Upper:Upper)
 END DO
 END SUBROUTINE LowCase
 
@@ -1155,7 +964,6 @@ CHARACTER(LEN=*),INTENT(INOUT) :: ProposalStr
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 CHARACTER(LEN=LEN(ProposalStr)) :: str_tmp
-TYPE(VARYING_STRING) :: tmpstr
 !===================================================================================================================================
   IF(PRESENT(logScalar))THEN
     IF(logScalar)THEn
@@ -1175,10 +983,106 @@ TYPE(VARYING_STRING) :: tmpstr
     ProposalStr=" "
     RETURN
   END IF
-  tmpstr=VAR_STR(str_tmp)
-  tmpstr=Replace(tmpstr," ","",Every=.true.)
-  tmpstr=Replace(tmpstr,","," ",Every=.true.)
-  ProposalStr=TRIM(CHAR(tmpstr))
+  ProposalStr=TRIM(remove_blanks(str_tmp))
 END SUBROUTINE ConvertToProposalStr
+
+PURE FUNCTION remove_blanks(str_in) RESULT(str_out)
+  IMPLICIT NONE
+  !-------------------------------------------
+  !input
+  CHARACTER(LEN=*),INTENT(IN) :: str_in
+  !output
+  CHARACTER(LEN=LEN(str_in))  :: str_out
+  !-------------------------------------------
+  ! LOCAL VARIABLES
+  INTEGER :: len_in,i,j
+  !==============================================================================
+  len_in=LEN_TRIM(str_in)
+  str_out=""
+  j=1
+  DO i=1,len_in
+    IF (str_in(i:i).NE.' ') THEN
+      str_out(j:j)=str_in(i:i)
+      j=j+1
+    END If
+  END DO
+END FUNCTION remove_blanks
+
+PURE FUNCTION replace(str_in,find,rep) RESULT(str_out)
+  IMPLICIT NONE
+  !-------------------------------------------
+  ! input
+  CHARACTER(LEN=*),INTENT(IN) :: str_in 
+  CHARACTER(LEN=*),INTENT(IN) :: find
+  CHARACTER(LEN=*),INTENT(IN) :: rep
+  ! output
+  CHARACTER(LEN=LEN(str_in)) :: str_out
+  !-------------------------------------------
+  ! LOCAL VARIABLES
+  CHARACTER(LEN=LEN(str_in)) :: str_tmp
+  INTEGER :: i_find,lfind,lrep
+  !=============================================================================
+  str_out=""
+  str_tmp=TRIM(str_in)
+  i_find=INDEX(str_tmp,TRIM(find))
+  lfind=LEN_TRIM(find)
+  lrep=LEN_TRIM(rep)
+  DO WHILE (i_find > 0)
+    str_out=TRIM(str_out)//str_tmp(1:i_find-1)//TRIM(rep)
+    str_tmp=str_tmp(i_find+lfind:)
+    i_find=INDEX(str_tmp,TRIM(find))
+  END DO
+  str_out=TRIM(str_out)//TRIM(str_tmp)
+END FUNCTION replace  
+
+SUBROUTINE split(str_in,bStr,separator)
+  IMPLICIT NONE
+  !-------------------------------------------  
+  ! input
+  CHARACTER(LEN=*),INTENT(IN) :: str_in
+  CHARACTER(LEN=1),INTENT(IN) :: separator
+  ! output
+  CHARACTER(LEN=*),INTENT(OUT) :: bStr
+  !-------------------------------------------
+  ! LOCAL VARIABLES
+  INTEGER :: i_sep
+  !==============================================================================
+  bstr=TRIM(str_in)
+  i_sep = INDEX(bstr,separator)
+  IF (i_sep > 0) THEN
+      bstr=bstr(1:i_sep-1)
+  END IF
+END SUBROUTINE split
+
+FUNCTION count_sep(str_in,separator) RESULT(n_sep)
+  IMPLICIT NONE
+  !-------------------------------------------  
+  ! input
+  CHARACTER(LEN=*),INTENT(IN) :: str_in
+  CHARACTER(LEN=1),INTENT(IN) :: separator
+  ! output
+  INTEGER :: n_sep
+  !-------------------------------------------
+  ! LOCAL VARIABLES
+  CHARACTER(LEN=LEN(str_in)) :: str_tmp
+  INTEGER :: len_in,i
+  !==============================================================================
+  n_sep=0
+  len_in=LEN_TRIM(str_in)
+  str_tmp=TRIM(str_in)
+  IF(str_tmp(1:1).EQ.separator) THEN
+    CALL abort(__STAMP__,& 
+         "parameter readin, count separator:  first character should not be a separator!")
+  END IF
+  DO i=2,len_in-1
+    IF (str_tmp(i:i).EQ.separator) THEN
+      n_sep=n_sep+1
+    END IF
+  END DO
+  IF(str_tmp(len_in:len_in).EQ.separator) THEN
+    CALL abort(__STAMP__,& 
+         "parameter readin, count separator: last character should not be a separator!")
+  END IF
+END FUNCTION count_sep
 
 END MODULE MODgvec_ReadInTools

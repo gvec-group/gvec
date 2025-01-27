@@ -5,8 +5,8 @@
 spec:
   inputs:
     env:
-      description: Name of the environment, e.g. `mpcdfci_intel2023`
-      default: .mpcdfci_intel2023
+      description: Name of the environment, e.g. `mpcdfci_ifx-latest`
+      default: .mpcdfci_ifx-latest
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default

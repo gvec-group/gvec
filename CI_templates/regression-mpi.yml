@@ -1,0 +1,53 @@
+# =================================================================================================================================
+# Stage "regression"
+# =================================================================================================================================
+# compare results between OpenMP-only and MPI
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_ifx-latest` (only for pytest, CURR_CMP is overridden)
+      default: .mpcdfci_ifx-latest
+    HOSTNAME:
+      description: Name of the host, e.g. `mpcdfci`
+      default: mpcdfci
+    CURR_CMP:
+      description: Name of the base compiler, e.g. `ifort-2023`
+      default: ifort-2023
+    CURR_CMP_MPI:
+      description: Name of the mpi compiler, e.g. `ifort-impi-2023`
+      default: ifort-impi-2023
+    vars:
+      description: Template with variables or parallel:matrix
+      default: .vars_matrix_reg_mpi
+    run-postfix:
+      description: Run job name postfix, e.g. `_debugrun`
+      default: ""
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
+
+---
+
+reg.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]_vs_mpi:
+  stage: regression
+  extends:
+    - $[[ inputs.env ]]
+    - .before_script_modules
+    - .script_regression
+    - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
+  variables:
+    CURR_CMP_1: $[[ inputs.CURR_CMP ]]
+    CURR_CMP_2: $[[ inputs.CURR_CMP_MPI ]]
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+    CASENAME_1: ${HASH_TAG}_${HOSTNAME}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${HOSTNAME}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON${MPI_RNKS_MODE}
+    PYTEST_EXTRA_OPTS: "--add-ignore-pattern=['Number of OpenMP threads','Number of MPI tasks']"
+  allow_failure:
+    exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
+  needs:
+    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]
+      artifacts: true
+    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP_MPI ]]$[[ inputs.run-postfix ]]
+      artifacts: true
