@@ -100,11 +100,7 @@ REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary fo
 REAL(wp),ALLOCATABLE :: X1pert_b(:)     !! fourier modes of the boundary perturbation for X1 (if boundary_perturb=T)
 REAL(wp),ALLOCATABLE :: X2pert_b(:)     !! fourier modes of the boundary perturbation for X2 (if boundary_perturb=T)
 
-LOGICAL                           :: init_with_iota_spline
 TYPE(t_splProfile), ALLOCATABLE   :: iota_bspl
-
-
-LOGICAL                           :: init_with_pres_spline
 TYPE(t_splProfile), ALLOCATABLE   :: pres_bspl
 !===================================================================================================================================
 

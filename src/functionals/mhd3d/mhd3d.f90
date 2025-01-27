@@ -67,6 +67,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   
   USE MODgvec_splProfile, ONLY: splProfile_init
+  USE MODgvec_PolyToBspl, ONLY: poly2bspl
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -95,8 +96,8 @@ SUBROUTINE InitMHD3D(sf)
   CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
   INTEGER          :: n_iota_knots, n_pres_knots
-  REAL(wp),ALLOCATABLE :: pres_knots(:)
-  REAL(wp),ALLOCATABLE :: iota_knots(:)
+  REAL(wp),ALLOCATABLE :: pres_knots(:), c_pres_bspl(:)
+  REAL(wp),ALLOCATABLE :: iota_knots(:), c_iota_bspl(:)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
@@ -150,9 +151,20 @@ SUBROUTINE InitMHD3D(sf)
     
     CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots, Proposal=(/1e8/))
     IF((iota_knots(1)==1e8) .AND. (n_iota_knots==1)) THEN
-      init_with_iota_spline = .FALSE.
+      SDEALLOCATE(iota_knots)
+      n_iota_knots = 2*n_iota_coefs
+      ALLOCATE(iota_knots(n_iota_knots))
+      ALLOCATE(c_iota_bspl(n_iota_coefs))
+      iota_knots(1:n_iota_coefs) = 0.0_wp
+      iota_knots(n_iota_coefs+1:) = 1.0_wp
+      DO i = 1,n_iota_coefs
+        c_iota_bspl(i) = poly2bspl(iota_coefs, i, iota_knots)
+      END DO
+      ALLOCATE(iota_bspl)
+      iota_coefs = c_iota_bspl
+      iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
+      SDEALLOCATE(c_iota_bspl)
     ELSE
-      init_with_iota_spline = .TRUE.
       ALLOCATE(iota_bspl)
       iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
     END IF
@@ -160,9 +172,20 @@ SUBROUTINE InitMHD3D(sf)
     
     CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots, Proposal=(/1e8/))
     IF((pres_knots(1)==1e8) .AND. (n_pres_knots==1)) THEN
-      init_with_pres_spline = .FALSE.
+      SDEALLOCATE(pres_knots)
+      n_pres_knots = 2*n_pres_coefs
+      ALLOCATE(pres_knots(n_pres_knots))
+      ALLOCATE(c_pres_bspl(n_pres_coefs))
+      pres_knots(1:n_pres_coefs) = 0.0_wp
+      pres_knots(n_pres_coefs+1:) = 1.0_wp
+      DO i = 1,n_pres_coefs
+        c_pres_bspl(i) = poly2bspl(pres_coefs, i, pres_knots)
+      END DO
+      ALLOCATE(pres_bspl)
+      pres_coefs = c_pres_bspl
+      pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
+      SDEALLOCATE(c_pres_bspl)
     ELSE
-      init_with_pres_spline = .TRUE.
       ALLOCATE(pres_bspl)
       pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
     END IF
@@ -186,9 +209,20 @@ SUBROUTINE InitMHD3D(sf)
       ! Check if it is a BSpline profile
       CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots, Proposal=(/1e8/))
       IF((iota_knots(1)==1e8) .AND. (n_iota_knots==1)) THEN
-        init_with_iota_spline = .FALSE.
+        SDEALLOCATE(iota_knots)
+        n_iota_knots = 2*n_iota_coefs
+        ALLOCATE(iota_knots(n_iota_knots))
+        ALLOCATE(c_iota_bspl(n_iota_coefs))
+        iota_knots(1:n_iota_coefs) = 0.0_wp
+        iota_knots(n_iota_coefs+1:) = 1.0_wp
+        DO i = 1,n_iota_coefs
+          c_iota_bspl(i) = poly2bspl(iota_coefs, i, iota_knots)
+        END DO
+        ALLOCATE(iota_bspl)
+        iota_coefs = c_iota_bspl
+        iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
+        SDEALLOCATE(c_iota_bspl)
       ELSE
-        init_with_iota_spline = .TRUE.
         ALLOCATE(iota_bspl)
         iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
       END IF ! Bspline Profile
@@ -203,9 +237,20 @@ SUBROUTINE InitMHD3D(sf)
       ! Check if it is a BSpline profile
       CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots, Proposal=(/1e8/))
       IF((pres_knots(1)==1e8) .AND. (n_pres_knots==1)) THEN
-        init_with_pres_spline = .FALSE.
+        SDEALLOCATE(pres_knots)
+        n_pres_knots = 2*n_pres_coefs
+        ALLOCATE(pres_knots(n_pres_knots))
+        ALLOCATE(c_pres_bspl(n_pres_coefs))
+        pres_knots(1:n_pres_coefs) = 0.0_wp
+        pres_knots(n_pres_coefs+1:) = 1.0_wp
+        DO i = 1,n_pres_coefs
+          c_pres_bspl(i) = poly2bspl(pres_coefs, i, pres_knots)
+        END DO
+        ALLOCATE(pres_bspl)
+        pres_coefs = c_pres_bspl
+        pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
+        SDEALLOCATE(c_pres_bspl)
       ELSE
-        init_with_pres_spline = .TRUE.
         ALLOCATE(pres_bspl)
         pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
       END IF !Bspline profile
@@ -1516,8 +1561,6 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
   
-  !IF (init_with_iota_spline) CALL iota_bspl%free()
-  !IF (init_with_pres_spline) CALL pres_bspl%free()
   SDEALLOCATE(pres_coefs)
   SDEALLOCATE(iota_coefs)
   SDEALLOCATE(iota_bspl)
