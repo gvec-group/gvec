@@ -1,7 +1,7 @@
 # =================================================================================================================================
 # Stage "regression"
 # =================================================================================================================================
-# compare results between two different runs
+# compare results between two different compilers
 
 spec:
   inputs:
@@ -34,14 +34,15 @@ reg.$[[ inputs.HOSTNAME ]]$[[ inputs.run-postfix ]]_$[[ inputs.CURR_CMP_1 ]]_vs_
   extends:
     - $[[ inputs.env ]]
     - .before_script_modules
+    - .vars_dirs_artifacts
     - .script_regression
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   variables:
     CURR_CMP_1: $[[ inputs.CURR_CMP_1 ]]
     CURR_CMP_2: $[[ inputs.CURR_CMP_2 ]]
-    CASENAME_1: ${HASH_TAG}_${HOSTNAME}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG}_${HOSTNAME}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_1: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
   allow_failure:
     exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
   needs:
