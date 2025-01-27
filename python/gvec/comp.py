@@ -20,6 +20,7 @@ import numpy as np
 import xarray as xr
 
 from .state import State
+from . import fourier
 
 # === Globals === #
 
@@ -544,3 +545,112 @@ def EvaluationsBoozerCustom(
         ds = ds.squeeze("rad")
 
     return ds
+
+
+# === Fourier Transform === #
+
+
+def ev2ft(ev, quiet=False):
+    m, n = None, None
+    data = {}
+
+    if "N_FP" not in ev.data_vars and not quiet:
+        logging.warning("recommended quantity 'N_FP' not found in the provided dataset")
+
+    for var in ev.data_vars:
+        if ev[var].dims == ():  # scalar
+            data[var] = ((), ev[var].data.item(), ev[var].attrs)
+
+        elif ev[var].dims == ("rad",):  # profile
+            data[var] = ("rad", ev[var].data, ev[var].attrs)
+
+        elif {"pol", "tor"} <= set(ev[var].dims) <= {"rad", "pol", "tor"}:
+            if "rad" in ev[var].dims:
+                vft = []
+                for r in ev.rad:
+                    vft.append(
+                        fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data)
+                    )
+                vcos, vsin = map(np.array, zip(*vft))
+                dims = ("rad", "m", "n")
+            else:
+                vcos, vsin = fourier.fft2d(ev[var].transpose("pol", "tor").data)
+                dims = ("m", "n")
+
+            if m is None:
+                m, n = fourier.fft2d_modes(
+                    vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False
+                )
+
+            attrs = {
+                k: v
+                for k, v in ev[var].attrs.items()
+                if k not in {"long_name", "symbol"}
+            }
+            data[f"{var}_mnc"] = (
+                dims,
+                vcos,
+                dict(
+                    long_name=f"{ev[var].long_name}, cosine coefficients",
+                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^c",
+                )
+                | attrs,
+            )
+            data[f"{var}_mns"] = (
+                dims,
+                vsin,
+                dict(
+                    long_name=f"{ev[var].long_name}, sine coefficients",
+                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^s",
+                )
+                | attrs,
+            )
+
+        elif "xyz" in ev[var].dims and not quiet:
+            logging.info(f"skipping quantity '{var}' with cartesian components")
+
+        elif not quiet:
+            logging.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
+
+    if "rad" in ev.dims:
+        coords = dict(rho=("rad", ev.rho.data, ev.rho.attrs))
+    else:
+        data["rho"] = ((), ev.rho.item(), ev.rho.attrs)
+        coords = {}
+    coords |= dict(
+        m=(
+            "m",
+            m if m is not None else [],
+            dict(long_name="poloidal mode number", symbol="m"),
+        ),
+        n=(
+            "n",
+            n if n is not None else [],
+            dict(long_name="toroidal mode number", symbol="n"),
+        ),
+    )
+
+    ft = xr.Dataset(data, coords=coords)
+    if "rad" in ev.dims:
+        ft = ft.set_xindex("rho")
+    ft.attrs["fourier series"] = (
+        "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v^c_mn(r) cos(m θ - n N_FP ζ) + v^s_mn(r) sin(m θ - n N_FP ζ)'"
+    )
+    return ft
+
+
+def ft_autoremove(ft: xr.Dataset, drop=False, **tol_kwargs):
+    """autoremove variables which are always close to zero (e.g. due to stellarator symmetry)"""
+    selected = []
+    for var in ft.data_vars:
+        if set(ft[var].dims) >= {"m", "n"} and np.allclose(
+            ft[var].data, 0, **tol_kwargs
+        ):
+            if not drop:
+                ft[var] = ((), 0, ft[var].attrs)
+            continue
+        selected.append(var)
+    if drop:
+        return ft[selected]
+    else:
+        return ft

@@ -19,10 +19,8 @@ In this context, the Fourier series is of the form :math:`x(\theta, \zeta) = \su
 # === Imports === #
 
 from typing import Iterable
-import logging
 
 import numpy as np
-import xarray as xr
 
 
 # === Transform functions === #
@@ -98,18 +96,57 @@ def fft2d(x: np.ndarray):
     return c, s
 
 
-def ifft2d(c: np.ndarray, s: np.ndarray):
+def ifft2d(
+    c: np.ndarray, s: np.ndarray, deriv: str | None = None, nfp: int = 1
+) -> np.ndarray:
+    """
+    Inverse Fast-Fourier-Transform of a 2D Fourier series.
+
+    Parameters
+    ----------
+    c : numpy.ndarray
+        Cosine coefficients of the Fourier series.
+    s : numpy.ndarray
+        Sine coefficients of the Fourier series.
+    deriv : str, optional
+        Derivative to evaluate, by default None. Specified as 'theta', 'zeta' or any string of 't' & 'z', e.g. 't', 'tz', 'ttz', ...
+    nfp : int, optional
+        Number of field periods, by default 1. Only used for derivatives, the data itself is always assumed to be in a single field period.
+
+    Returns
+    -------
+    x : numpy.ndarray
+        The values of the series at the given angles.
+    """
     if c.shape != s.shape:
         raise ValueError("c and s must have the same shape")
     M = c.shape[0] - 1
     N = c.shape[1] // 2
-
     c = np.asarray(c)
+    s = np.asarray(s)
+
+    if deriv is not None:
+        mg, ng = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2, grid=True)
+        ng *= nfp
+        if set(deriv) <= {"t", "z"}:
+            ts, zs = deriv.count("t"), deriv.count("z")
+            for _ in range(ts):
+                c, s = mg * s, -mg * c
+            for _ in range(zs):
+                c, s = -ng * s, ng * c
+        elif deriv == "theta":
+            c, s = mg * s, -mg * c
+        elif deriv == "zeta":
+            c, s = -ng * s, ng * c
+        else:
+            raise ValueError(
+                f"Invalid derivative specification, got '{deriv}', expected 'theta', 'zeta', 't', 'z', 'tt', 'tz', ..."
+            )
+
     c = np.roll(c[:, ::-1], 1, axis=1)
     c[0, :] *= 2
     c = c / 2
 
-    s = np.asarray(s)
     s = np.roll(s[:, ::-1], 1, axis=1)
     s[0, :] *= 2
     s = -s / 2
@@ -240,95 +277,3 @@ def eval2d(
             x += c[m, n] * np.cos(m * theta - n * nfp * zeta)
             x += s[m, n] * np.sin(m * theta - n * nfp * zeta)
     return x.reshape(shape)
-
-
-def ev2ft(ev, quiet=False):
-    m, n = None, None
-    data = {}
-
-    if "N_FP" not in ev.data_vars and not quiet:
-        logging.warning("recommended quantity 'N_FP' not found in the provided dataset")
-
-    for var in ev.data_vars:
-        if ev[var].dims == ():  # scalar
-            data[var] = ((), ev[var].data.item(), ev[var].attrs)
-
-        elif ev[var].dims == ("rad",):  # profile
-            data[var] = ("rad", ev[var].data, ev[var].attrs)
-
-        elif {"pol", "tor"} <= set(ev[var].dims) <= {"rad", "pol", "tor"}:
-            if "rad" in ev[var].dims:
-                vft = []
-                for r in ev.rad:
-                    vft.append(fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data))
-                vcos, vsin = map(np.array, zip(*vft))
-                dims = ("rad", "m", "n")
-            else:
-                vcos, vsin = fft2d(ev[var].transpose("pol", "tor").data)
-                dims = ("m", "n")
-
-            if m is None:
-                m, n = fft2d_modes(vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False)
-
-            attrs = {
-                k: v
-                for k, v in ev[var].attrs.items()
-                if k not in {"long_name", "symbol"}
-            }
-            data[f"{var}_mnc"] = (
-                dims,
-                vcos,
-                dict(
-                    long_name=f"{ev[var].long_name}, cosine coefficients",
-                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^c",
-                )
-                | attrs,
-            )
-            data[f"{var}_mns"] = (
-                dims,
-                vsin,
-                dict(
-                    long_name=f"{ev[var].long_name}, sine coefficients",
-                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^s",
-                )
-                | attrs,
-            )
-
-        elif "xyz" in ev[var].dims and not quiet:
-            logging.info(f"skipping quantity '{var}' with cartesian components")
-
-        elif not quiet:
-            logging.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
-
-    coords = dict(
-        rho=("rad", ev.rho.data, ev.rho.attrs),
-        m=(
-            "m",
-            m if m is not None else [],
-            dict(long_name="poloidal mode number", symbol="m"),
-        ),
-        n=(
-            "n",
-            n if n is not None else [],
-            dict(long_name="toroidal mode number", symbol="n"),
-        ),
-    )
-
-    ft = xr.Dataset(data, coords=coords)
-    ft = ft.set_xindex("rho")
-    ft.attrs["fourier series"] = (
-        "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v^c_mn(r) cos(m θ - n N_FP ζ) + v^s_mn(r) sin(m θ - n N_FP ζ)'"
-    )
-    return ft
-
-
-def ft_autoremove(ft: xr.Dataset, **tol_kwargs):
-    """autoremove variables which are always close to zero (e.g. due to stellarator symmetry)"""
-    selected = []
-    for var in ft.data_vars:
-        if set(ft[var].dims) >= {"m", "n"} and np.allclose(
-            ft[var].data, 0, **tol_kwargs
-        ):
-            continue
-        selected.append(var)
-    return ft[selected]

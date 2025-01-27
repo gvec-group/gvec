@@ -18,7 +18,7 @@ Currently this surface is always defined in terms of the Boozer angles (theta_B,
 
 # === Imports === #
 
-from typing import Iterable
+from typing import Literal
 import logging
 import functools
 
@@ -38,7 +38,9 @@ register = functools.partial(register, registry=QUANTITIES_SURFACE)
 # === Surface === #
 
 
-def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
+def init_surface(
+    pos: xr.DataArray, nfp: int | xr.DataArray = 1, ift: Literal["fft", "eval"] = "fft"
+) -> xr.Dataset:
     if set(pos.dims) > {"xyz", "rad", "pol", "tor"} or set(pos.dims) < {
         "xyz",
         "pol",
@@ -54,22 +56,29 @@ def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
     if isinstance(nfp, xr.DataArray):
         nfp = nfp.item()
 
-    use_fft = False
-    if (
-        pos.theta_B.ndim == 1
-        and pos.theta_B.size % 2 == 1
-        and pos.zeta_B.ndim == 1
-        and pos.zeta_B.size % 2 == 1
-    ):
-        theta1d = np.linspace(0, 2 * np.pi, pos.theta_B.size, endpoint=False)
-        zeta1d = np.linspace(0, 2 * np.pi / nfp, pos.zeta_B.size, endpoint=False)
-        if np.allclose(theta1d, pos.theta_B) and np.allclose(zeta1d, pos.zeta_B):
-            use_fft = True
-    if not use_fft:
-        logging.warning("Unaligned boozer angles: use slower evaluation method")
+    if ift == "fft":
+        use_fft = False
+        if (
+            pos.theta_B.ndim == 1
+            and pos.theta_B.size % 2 == 1
+            and pos.zeta_B.ndim == 1
+            and pos.zeta_B.size % 2 == 1
+        ):
+            theta1d = np.linspace(0, 2 * np.pi, pos.theta_B.size, endpoint=False)
+            zeta1d = np.linspace(0, 2 * np.pi / nfp, pos.zeta_B.size, endpoint=False)
+            if np.allclose(theta1d, pos.theta_B) and np.allclose(zeta1d, pos.zeta_B):
+                use_fft = True
+        if not use_fft:
+            logging.warning(
+                "Unaligned boozer angles: use explicit evaluation method (slower)"
+            )
+            ift = "eval"
+    if ift == "eval":
         theta1d = pos.theta_B
         zeta1d = pos.zeta_B
         theta2d, zeta2d = xr.broadcast(theta1d, zeta1d)
+    if ift not in ["fft", "eval"]:
+        raise ValueError("expected ift to be 'fft' or 'eval'")
 
     surf = xr.Dataset(coords=pos.coords)
 
@@ -97,7 +106,7 @@ def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
                     ("rad", "pol", "tor"),
                     np.zeros((pos.rad.size, pos.pol.size, pos.tor.size)),
                 )
-            if use_fft:
+            if ift == "fft":
                 surf[var][r, :, :] = fourier.ifft2d(c, s)
             else:
                 surf[var][r, :, :] = fourier.eval2d(
@@ -112,8 +121,8 @@ def init_surface(pos: xr.DataArray, nfp: int | xr.DataArray = 1):
                         ("rad", "pol", "tor"),
                         np.zeros((pos.rad.size, pos.pol.size, pos.tor.size)),
                     )
-                if use_fft:
-                    surf[dvar][r, :, :] = fourier.ifft2d(c, s)
+                if ift == "fft":
+                    surf[dvar][r, :, :] = fourier.ifft2d(c, s, deriv, nfp)
                 else:
                     surf[dvar][r, :, :] = fourier.eval2d(
                         c, s, theta2d.data, zeta2d.data, deriv, nfp=nfp

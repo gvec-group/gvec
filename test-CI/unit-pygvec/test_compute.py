@@ -357,6 +357,20 @@ def test_integral_quantities_aux_r_int_tz(teststate, evals_r_int_tz, quantity):
     assert "tor_weight" not in ds
 
 
+def test_ev2ft_2d(teststate, evals_rtz):
+    teststate.compute(evals_rtz, "mod_B")
+    ft = gvec.comp.ev2ft(evals_rtz[["mod_B"]].isel(rad=0))
+    assert set(ft.dims) == {"m", "n"}
+    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
+
+
+def test_ev2ft_3d(teststate, evals_rtz):
+    teststate.compute(evals_rtz, "mod_B")
+    ft = gvec.comp.ev2ft(evals_rtz[["mod_B"]])
+    assert set(ft.dims) == {"rad", "m", "n"}
+    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
+
+
 def test_table_of_quantities():
     s = gvec.comp.table_of_quantities()
     assert len(s.split("\n")) == 3 + len(

@@ -157,7 +157,7 @@ def test_ifft2d(MN):
     s[0, ns <= 0] = 0
 
     x = fourier.ifft2d(c, s)
-    assert x.shape == (2 * N + 1, 2 * M + 1)
+    assert x.shape == (2 * M + 1, 2 * N + 1)
 
     t = np.linspace(0, 2 * np.pi, 2 * M + 1, endpoint=False)
     z = np.linspace(0, 2 * np.pi, 2 * N + 1, endpoint=False)
@@ -173,7 +173,7 @@ def test_ifft2d(MN):
             for n in ns
         ]
     )
-    assert np.allclose(x, ref.T)
+    assert np.allclose(x, ref)
 
 
 def test_ifft2d_fft2d(MN):
@@ -190,12 +190,7 @@ def test_ifft2d_fft2d(MN):
     assert np.allclose(s, xs)
 
 
-@pytest.mark.parametrize(
-    "loop",
-    [True, False],
-    ids=["loop", "mesh"],
-)
-def test_eval2d(MN, points2d, loop):
+def test_eval2d(MN, points2d):
     t = np.linspace(0, 2 * np.pi, points2d[0], endpoint=False)
     z = np.linspace(0, 2 * np.pi, points2d[1], endpoint=False)
     T, Z = np.meshgrid(t, z, indexing="ij")
@@ -217,17 +212,5 @@ def test_eval2d(MN, points2d, loop):
             for n in ns
         ]
     )
-    xe = fourier.eval2d(c, s, T, Z, loop=loop)
+    xe = fourier.eval2d(c, s, T, Z)
     assert np.allclose(x, xe)
-
-
-def test_ev2ft_2d(ev):
-    ft = fourier.ev2ft(ev[["mod_B"]].isel(rad=0))
-    assert set(ft.dims) == {"m", "n"}
-    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
-
-
-def test_ev2ft_3d(ev):
-    ft = fourier.ev2ft(ev[["mod_B"]])
-    assert set(ft.dims) == {"rad", "m", "n"}
-    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
