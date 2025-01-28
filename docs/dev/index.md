@@ -8,17 +8,6 @@ GVEC is mainly being developed in the department of **Numerical Methods in Plasm
 led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics
 in Garching, Germany. Outside contributions are of course very welcome!
 
-<!-- TOC -->
-
-```{toctree}
-:caption: Developer Guide
-
-testing
-pipeline
-docs
-Contributors <CONTRIBUTORS>
-```
-
 <!-- Other Topics -->
 
 ## Development Workflow
@@ -66,9 +55,33 @@ with [polymorphism in fortran](https://gist.github.com/n-s-k/522f2669979ed6d0582
 * MyST-Markdown
 * Python
 * Pylance
-* ~~Black Formatter~~
 * Ruff (Python Linter & Formatter)
 * Todo Tree
 * Vim
 * YAML
 * netCDF Preview
+
+## Contents
+
+<!-- TOC -->
+
+```{toctree}
+:caption: Developer Guide
+
+testing
+pipeline
+docs
+python
+Contributors <CONTRIBUTORS>
+```
+
+```{toctree}
+:caption: API
+gvec.run <api/run>
+gvec.state <api/state>
+gvec.comp <api/comp>
+gvec.quantities <api/quantities>
+gvec.fourier <api/fourier>
+gvec.surface <api/surface>
+gvec.util <api/util>
+```
