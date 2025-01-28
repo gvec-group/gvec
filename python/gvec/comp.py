@@ -30,9 +30,13 @@ __all__ = [
     "compute",
     "table_of_quantities",
     "Evaluations",
+    "EvaluationsBoozer",
+    "EvaluationsBoozerCustom",
     "radial_integral",
     "fluxsurface_integral",
     "volume_integral",
+    "ev2ft",
+    "ft_autoremove",
 ]
 QUANTITIES = {}  # dictionary to store the registered quantities (compute functions)
 

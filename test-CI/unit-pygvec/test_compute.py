@@ -361,7 +361,7 @@ def test_ev2ft_2d(teststate, evals_rtz):
     teststate.compute(evals_rtz, "mod_B")
     ft = gvec.comp.ev2ft(evals_rtz[["mod_B"]].isel(rad=0))
     assert set(ft.dims) == {"m", "n"}
-    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
+    assert set(ft.data_vars) == {"rho", "mod_B_mnc", "mod_B_mns"}
 
 
 def test_ev2ft_3d(teststate, evals_rtz):
