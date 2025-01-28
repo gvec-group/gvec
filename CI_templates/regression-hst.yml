@@ -1,0 +1,56 @@
+# =================================================================================================================================
+# Stage "regression"
+# =================================================================================================================================
+# compare results between two different CI runners
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `.raven_gcc_openmpi`
+      default: .raven_gcc_openmpi
+    CI_HOSTNAME_1:
+      description: Hostname of the first runner, e.g. `raven`
+      default: raven
+    CI_HOSTNAME_2:
+      description: Hostname of the second runner, e.g. `viper`
+      default: viper
+    CURR_CMP:
+      description: Name of the base compiler, e.g. `gcc_openmpi` # maybe this should change to `gfortran-openmpi-latest`
+      default: gcc_openmpi
+    vars:
+      description: Template with variables or parallel:matrix, e.g. `.vars_reg_mpi_slurm`
+      default: .vars_reg_mpi_slurm
+    run-postfix:
+      description: Run job name postfix, e.g. `_debugrun`
+      default: ""
+    slurm-postfix:
+      description: Postfix needed for srun jobs, e.g. `_slurm`
+      default: "_slurm"
+    rules:
+      description: Rules for the job, e.g. `.rules_private_runner`
+      default: .rules_private_runner
+
+---
+
+reg.$[[ inputs.CI_HOSTNAME_1 ]]_vs_$[[ inputs.CI_HOSTNAME_2 ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]:
+  stage: regression
+  extends:
+    - $[[ inputs.env ]]
+    - .before_script_modules
+    - .vars_dirs_artifacts
+    - .script_regression
+    - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
+  variables:
+    CI_HOSTNAME_1: $[[ inputs.CI_HOSTNAME_1 ]]
+    CI_HOSTNAME_2: $[[ inputs.CI_HOSTNAME_2 ]]
+    CURR_CMP: $[[ inputs.CURR_CMP ]]
+    CASENAME_1: ${HASH_TAG}_${CI_HOSTNAME_1}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+    CASENAME_2: ${HASH_TAG}_${CI_HOSTNAME_2}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+  allow_failure:
+    exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
+  needs:
+    - job: run.$[[ inputs.CI_HOSTNAME_1 ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]$[[ inputs.slurm-postfix ]]
+      artifacts: true
+    - job: run.$[[ inputs.CI_HOSTNAME_2 ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]$[[ inputs.slurm-postfix ]]
+      artifacts: true

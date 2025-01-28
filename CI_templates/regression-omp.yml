@@ -32,8 +32,8 @@ reg$[[ inputs.env ]]$[[ inputs.run-postfix ]]_serial_vs_omp:
   variables:
     OMP_MODE_1: "ompOFF"
     OMP_MODE_2: "ompON"
-    CASENAME_1: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
-    CASENAME_2: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
+    CASENAME_1: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_1}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE_2}_mpiOFF
     PYTEST_EXTRA_OPTS: "--add-ignore-pattern=Number of OpenMP threads"
   allow_failure:
     exit_codes: 5  # recognize pytest-warnings as pipeline-warnings

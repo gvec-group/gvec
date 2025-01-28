@@ -35,6 +35,7 @@ variables:
   HASH_TAG_REFERENCE:
     value: develop
     description: "The reference branch/tag to compare against"
+  CI_HOSTNAME: ${CMAKE_HOSTNAME}
   MINIMAL_PIPELINE:
     value: ""
     options: ["", "true", "false"]
@@ -165,7 +166,7 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .raven_intel
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
   # Raven private runner (Gnu)
   - local: CI_templates/env.yml
@@ -183,7 +184,7 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .viper_gcc
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
   # MPI
 
@@ -344,7 +345,7 @@ include:
     inputs:
       env: .raven_intel
       vars: .vars_raven_build
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
   # Raven private runner (Gnu)
   - local: CI_templates/build.yml
@@ -365,7 +366,7 @@ include:
     inputs:
       env: .viper_gcc
       vars: .vars_viper_build
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
   # reference tag
   # Raven private runner (Intel)
@@ -374,7 +375,7 @@ include:
       env: .raven_intel
       build-postfix: _tag
       vars: .vars_raven_build_tag
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
   # FAILS until `feature_private-runners` is merged into `develop` due to missing `CMakeLists.txt` Viper configuration
   # reference tag
@@ -543,7 +544,7 @@ include:
       env: .raven_intel
       vars: .vars_raven_run_slurm
       slurm-postfix: _slurm
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
   # Viper private runner (Gnu) + srun
   - local: CI_templates/run.yml
@@ -551,7 +552,7 @@ include:
       env: .viper_gcc
       vars: .vars_viper_run_slurm
       slurm-postfix: _slurm
-      rules: .rules_private_runner_minimal
+      rules: .rules_private_runner
 
   # Viper private runner (debugrun Gnu) + srun
   - local: CI_templates/run.yml
@@ -646,6 +647,10 @@ include:
       CURR_CMP: ifx-latest
       CURR_CMP_MPI: ifx-impi-latest
       rules: .rules_minimal
+
+  - local: CI_templates/regression-hst.yml
+    inputs:
+      rules: .rules_private_runner_minimal
 
   # ============================
   # stage postprocessing jobs
@@ -832,8 +837,8 @@ include:
 
 .vars_dirs_artifacts:
   variables:
-    BUILDNAME: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
-    CASENAME: ${HASH_TAG}_${CMAKE_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+    BUILDNAME: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
+    CASENAME: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
 
 # ____________________________
 # Variables
@@ -862,6 +867,7 @@ include:
     - shared
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
+    CI_HOSTNAME: "mpcdfci"
 
 .mpcdfci_ifort-2023:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2023_1_0_x:latest
@@ -992,7 +998,7 @@ include:
       - git lfs install
 
 # ____________________________
-# MPCDF Raven GVEC private runner templates
+# MPCDF GVEC private runner templates
 
 # SLURM base variables (for both Raven and Viper)
 .vars_base_slurm:
@@ -1006,13 +1012,15 @@ include:
 .raven:
   tags:
     - raven
+  variables:
+    CMAKE_HOSTNAME: "raven"
+    CI_HOSTNAME: "raven"
 
 .raven_intel:
   extends:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CMAKE_HOSTNAME: "raven"
     CURR_CMP: "intel"
     SETUP_SCRIPT: "intel"
     MPI_MODE: "mpiOFF"
@@ -1024,7 +1032,6 @@ include:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CMAKE_HOSTNAME: "raven"
     CURR_CMP: "gnu"
     SETUP_SCRIPT: "gnu"
     MPI_MODE: "mpiOFF"
@@ -1036,7 +1043,6 @@ include:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CMAKE_HOSTNAME: "raven"
     CURR_CMP: "nvidia"
     SETUP_SCRIPT: "nvidia"
     MPI_MODE: "mpiOFF"
@@ -1049,12 +1055,10 @@ include:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CMAKE_HOSTNAME: "raven"
     CURR_CMP: "intel_mpi"
     SETUP_SCRIPT: "intel_mpi"
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
-    ###OMP_NUM_THR: "32"
 
 # MPCDF Raven private runner with modules gcc/openmpi
 .raven_gcc_openmpi:
@@ -1062,38 +1066,28 @@ include:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CMAKE_HOSTNAME: "raven"
-    CURR_CMP: "gnu_mpi"
+    CURR_CMP: "gcc_openmpi"
     SETUP_SCRIPT: "gnu_mpi"
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
-
-#### SLURM variables for Raven
-###.vars_raven_slurm:
-###  extends:
-###    - .vars_base_slurm
-###  variables:
-###    SLURM_NNODES: 1           # number of compute nodes:
-###    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
-###    SLURM_CPUS_PER_TASK: 72   # number of OpenMP threads per MPI task
-###    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
 
 # Viper GVEC private runner tags
 .viper:
   tags:
     - viper
+  variables:
+    CMAKE_HOSTNAME: "viper"
+    CI_HOSTNAME: "viper"
 
 .viper_gcc:
   extends:
     - .viper
     - .hooks_mpcdf_runner
   variables:
-    CMAKE_HOSTNAME: "viper"
     CURR_CMP: "gnu"
     SETUP_SCRIPT: "gnu"
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
-    ###OMP_NUM_THR: "4" #"20"
 
 # MPCDF Viper private runner with modules gcc/openmpi
 .viper_gcc_openmpi:
@@ -1101,22 +1095,11 @@ include:
     - .viper
     - .hooks_mpcdf_runner
   variables:
-    CMAKE_HOSTNAME: "viper"
-    CURR_CMP: "gnu_mpi"
+    CURR_CMP: "gcc_openmpi"
     SETUP_SCRIPT: "gnu_mpi"
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
-    ###OMP_NUM_THR: "32"
 
-#### SLURM variables for Viper
-###.vars_viper_slurm:
-###  extends:
-###    - .vars_base_slurm
-###  variables:
-###    SLURM_NNODES: 1           # number of compute nodes:
-###    SLURM_NTASKS_PER_NODE: 1  # number of MPI tasks per node
-###    SLURM_CPUS_PER_TASK: 128  # number of OpenMP threads per MPI task
-###    SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "build"
@@ -1270,10 +1253,11 @@ include:
     - .vars_base_slurm
   variables:
     SLURM_NNODES: 1           # number of compute nodes:
-    SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node
+    SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node (same for all private runners for `regression-hst` to work!)
     SLURM_CPUS_PER_TASK: 36   # number of OpenMP threads per MPI task
     SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
     OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
+    MPI_RNKS: ${SLURM_NTASKS_PER_NODE}
 
 # Raven private runner (runs on SLURM queues via srun)
 .vars_viper_run_slurm:
@@ -1300,10 +1284,11 @@ include:
     - .vars_base_slurm
   variables:
     SLURM_NNODES: 1           # number of compute nodes:
-    SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node
+    SLURM_NTASKS_PER_NODE: 2  # number of MPI tasks per node (same for all private runners for `regression-hst` to work!)
     SLURM_CPUS_PER_TASK: 64   # number of OpenMP threads per MPI task
     SLURM_NTASKS_PER_CORE: 1  # Hyperthreading: disable (set=1) / enable (set=2)
     OMP_NUM_THR: ${SLURM_CPUS_PER_TASK}
+    MPI_RNKS: ${SLURM_NTASKS_PER_NODE}
 
 # ____________________________
 # set HASH_TAG for reference builds
@@ -1334,6 +1319,11 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
         MPI_RNKS: ["1","2"]
+
+.vars_reg_mpi_slurm:
+  extends:
+    - .vars_raven_mpi_run_slurm # all we need from here is MPI_RNKS, which the same for all private runners
+
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "post"
