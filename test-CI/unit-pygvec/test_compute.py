@@ -141,6 +141,36 @@ def test_boozer_init(teststate):
     assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
 
 
+@pytest.mark.parametrize(
+    "eval_la, eval_nu",
+    [(True, False), (False, True), (True, True)],
+    ids=["la", "nu", "both"],
+)
+def test_boozer_la_nu(teststate, eval_la, eval_nu):
+    ds = EvaluationsBoozer(
+        [0.5, 0.6], 20, 18, teststate, eval_la=eval_la, eval_nu=eval_nu
+    )
+    assert np.allclose(ds.rho, [0.5, 0.6])
+    assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
+    assert {"rad", "pol", "tor"} == set(ds.dims)
+    assert ("LA_B" in ds) == eval_la
+    assert ("NU_B" in ds) == eval_nu
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_B.dims == ("pol",)
+    assert ds.zeta_B.dims == ("tor",)
+    assert set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}
+    if eval_la and eval_nu:
+        teststate.compute(ds, "iota")
+        assert np.allclose(
+            *xr.broadcast(ds.theta_B, ds.theta + ds.LA_B + ds.iota * ds.NU_B)
+        )
+        assert np.allclose(*xr.broadcast(ds.zeta_B, ds.zeta + ds.NU_B))
+
+    teststate.compute(ds, "mod_B")
+    assert "mod_B" in ds
+    assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
+
+
 def test_compute_base(teststate, evals_rtz_and_list):
     ds = evals_rtz_and_list
 

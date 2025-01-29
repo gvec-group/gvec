@@ -532,6 +532,51 @@ class State:
         sfl_boozer.find_angles(tz_list.shape[1], tz_list, tz_out)
         return tz_out
 
+    @_assert_init
+    def evaluate_boozer_list_tz_all(
+        self,
+        sfl_boozer: _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer,
+        quantity: str,
+        rad: np.ndarray,
+        thetazeta: np.ndarray,
+    ):
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["LA", "NU"]:
+            raise ValueError(
+                f"Unknown quantity: {quantity}, expected one of 'LA', 'NU'."
+            )
+        if not isinstance(sfl_boozer, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+            raise ValueError(
+                f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
+            )
+        if sfl_boozer not in self._children:
+            raise ValueError(
+                f"Boozer object {sfl_boozer!r} is not known to the state {self!r}."
+            )
+        if not sfl_boozer.initialized:
+            raise ValueError(f"Boozer object {sfl_boozer!r} is not initialized.")
+
+        rad = np.asfortranarray(rad, dtype=np.int64)
+        thetazeta = np.asfortranarray(thetazeta, dtype=np.float64)
+        if rad.ndim != 1:
+            raise ValueError("rad must be a 1D array.")
+        if thetazeta.ndim != 2 or thetazeta.shape[0] != 2:
+            raise ValueError("thetazeta must be a 2D array with shape (2, n).")
+        if rad.min() < 0:
+            raise ValueError("rad must be a positive integer.")
+
+        # Q, dQ_dtheta, dQ_dzeta, dQ_dtt, dQ_dtz, dQ_dzz
+        outputs = [
+            np.zeros((rad.size, thetazeta.shape[1]), dtype=np.float64, order="F")
+            for _ in range(6)
+        ]
+
+        _post.evaluate_boozer_list_tz_all(
+            sfl_boozer, rad.size, thetazeta.shape[1], rad, thetazeta, quantity, *outputs
+        )
+        return outputs
+
     # === Integration with computable quantities === #
 
     def compute(self, ds: xr.Dataset, *quantities):
