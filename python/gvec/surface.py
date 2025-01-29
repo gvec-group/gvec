@@ -26,8 +26,7 @@ import numpy as np
 import xarray as xr
 
 from . import fourier
-from .comp import register, compute
-from .quantities import latex_partial_smart, derivative_name_smart
+from .comp import register, compute, latex_partial_smart, derivative_name_smart
 
 # === Globals === #
 

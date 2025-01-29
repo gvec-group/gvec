@@ -33,42 +33,12 @@ from .comp import (
     radial_integral,
     fluxsurface_integral,
     volume_integral,
+    rtz_directions,
+    rtz_symbols,
+    derivative_name_smart,
+    latex_partial,
+    latex_partial_smart,
 )
-
-
-# === helpers ========================================================================== #
-
-
-rtz_symbols = {"r": r"\rho", "t": r"\theta", "z": r"\zeta"}
-rtz_directions = {"r": "radial", "t": "poloidal", "z": "toroidal"}
-
-
-def latex_partial(var, deriv):
-    return rf"\frac{{\partial {var}}}{{\partial {rtz_symbols[deriv]}}}"
-
-
-def latex_partial2(var, deriv1, deriv2):
-    if deriv1 == deriv2:
-        return rf"\frac{{\partial^2 {var}}}{{\partial {rtz_symbols[deriv1]}^2}}"
-    return rf"\frac{{\partial^2 {var}}}{{\partial {rtz_symbols[deriv1]}\partial {rtz_symbols[deriv2]}}}"
-
-
-def latex_partial_smart(var, deriv):
-    if len(deriv) == 1:
-        return latex_partial(var, deriv[0])
-    elif len(deriv) == 2:
-        return latex_partial2(var, deriv[0], deriv[1])
-    raise TypeError(f"can only handle derivatives up to length 2, got '{deriv}'")
-
-
-def derivative_name_smart(name, deriv):
-    if len(deriv) == 1:
-        return f"{rtz_directions[deriv[0]]} derivative of the {name}"
-    elif len(deriv) == 2:
-        if deriv[0] == deriv[1]:
-            return f"second {rtz_directions[deriv[0]]} derivative of the {name}"
-        return f"{rtz_directions[deriv[0]]}-{rtz_directions[deriv[1]]} derivative of the {name}"
-    raise TypeError(f"can only handle derivatives up to length 2, got '{deriv}'")
 
 
 # === special ========================================================================== #
@@ -825,7 +795,7 @@ def iota_avg(ds: xr.Dataset):
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="toroidal current contribution to the rotational transform",
-        symbol=r"\iota_{tor}",
+        symbol=r"\iota_{curr}",
     ),
 )
 def iota_curr(ds: xr.Dataset):

@@ -55,6 +55,9 @@ Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 dev = ["pytest"]
 examples = ["matplotlib", "jupyter"]
 
+[project.scripts]
+gvec_to_cas3d = "gvec:gvec_to_cas3d.main"
+
 # ============================================================================ #
 [tool.scikit-build]
 minimum-version = "0.8"
