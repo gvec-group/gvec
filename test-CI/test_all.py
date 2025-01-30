@@ -97,7 +97,7 @@ def test_run(
                 len(states) > 0
             ), f"no statefile for restart found in base directory ../{base_name}"
             laststatefile = sorted(states)[-1]
-            (testcaserundir / laststatefile).symlink_to(base_directory / laststatefile)
+            (testcaserundir / laststatefile).symlink_to(os.path.relpath(base_directory / laststatefile, testcaserundir))
             args.append(laststatefile)
         else:
             if base_directory.exists():

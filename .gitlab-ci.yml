@@ -666,7 +666,6 @@ include:
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_minimal
 
   - local: CI_templates/postprocessing.yml
     inputs:

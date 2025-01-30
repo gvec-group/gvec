@@ -371,7 +371,7 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
     if not rundir.exists():
         rundir.mkdir()
     if not (rundir / "data").exists():
-        (rundir / "data").symlink_to(Path(__file__).parent / "data")
+        (rundir / "data").symlink_to(os.path.relpath(Path(__file__).parent / "data", rundir))
     if not (rundir / testgroup).exists():
         (rundir / testgroup).mkdir()
     # create the testcase directory
@@ -414,7 +414,7 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     if not postdir.exists():
         postdir.mkdir()
     if not (postdir / "data").exists():
-        (postdir / "data").symlink_to(Path(__file__).parent / "data")
+        (postdir / "data").symlink_to(os.path.relpath(Path(__file__).parent / "data", postdir))
     if not (postdir / testgroup).exists():
         (postdir / testgroup).mkdir()
     # create the testcase directory
@@ -430,7 +430,7 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(sourcerundir / statefile)
+        (targetdir / statefile).symlink_to(os.path.relpath(Path(sourcerundir / statefile), targetdir))
     # overwrite parameter file with the rundir version and modify it
     util.adapt_parameter_file(
         sourcerundir / "parameter.ini",
@@ -473,5 +473,5 @@ def testcaseconvdir(
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(sourcerundir / statefile)
+        (targetdir / statefile).symlink_to(os.path.relpath(Path(sourcerundir / statefile), targetdir))
     return targetdir
