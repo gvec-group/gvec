@@ -6,8 +6,8 @@
 spec:
   inputs:
     env:
-      description: Name of the environment, e.g. `.raven_gcc_openmpi`
-      default: .raven_gcc_openmpi
+      description: Name of the environment, e.g. `.raven_gfortran`
+      default: .raven_gfortran
     CI_HOSTNAME_1:
       description: Hostname of the first runner, e.g. `raven`
       default: raven
@@ -15,11 +15,11 @@ spec:
       description: Hostname of the second runner, e.g. `viper`
       default: viper
     CURR_CMP:
-      description: Name of the base compiler, e.g. `gcc_openmpi` # maybe this should change to `gfortran-openmpi-latest`
-      default: gcc_openmpi
+      description: Name of the base compiler, e.g. `gfortran` # maybe this should change to `gfortran-openmpi-latest`
+      default: gfortran
     vars:
       description: Template with variables or parallel:matrix, e.g. `.vars_reg_mpi_slurm`
-      default: .vars_reg_mpi_slurm
+      default: ".vars_reg_slurm"
     run-postfix:
       description: Run job name postfix, e.g. `_debugrun`
       default: ""
