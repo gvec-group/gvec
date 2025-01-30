@@ -40,7 +40,7 @@ CONTAINS
 FUNCTION Eval_iota(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_iota,n_iota_coefs,iota_coefs, iota_bspl
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_iota, iota_bspl
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 !USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 USE MODgvec_VMEC_vars  ,ONLY: iota_spl
@@ -58,10 +58,10 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_iota = iota_bspl%eval_at_phi_norm(phi_norm)
+    eval_iota = iota_bspl%eval_at_rho(spos)
   CASE(1)
     IF(init_with_profile_iota) THEN
-      eval_iota = iota_bspl%eval_at_phi_norm(phi_norm)
+      eval_iota = iota_bspl%eval_at_rho(spos)
     ELSE
       eval_iota=VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
     END IF
@@ -77,7 +77,7 @@ END FUNCTION Eval_iota
 FUNCTION Eval_iota_Prime(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_DERIV
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,n_iota_coefs,iota_coefs, iota_bspl, init_with_profile_iota
+USE MODgvec_MHD3D_Vars ,ONLY: which_init, iota_bspl, init_with_profile_iota
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 !USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 USE MODgvec_VMEC_vars  ,ONLY: iota_spl
@@ -95,10 +95,10 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_iota_prime = iota_bspl%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
+    eval_iota_prime = iota_bspl%eval_prime_at_rho(spos)
   CASE(1)
     IF(init_with_profile_iota) THEN
-      eval_iota_prime = iota_bspl%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
+      eval_iota_prime = iota_bspl%eval_prime_at_rho(spos)
     ELSE
       eval_iota_prime=VMEC_EvalSpl(1,SQRT(phi_norm),iota_Spl)
     END IF  
@@ -112,7 +112,7 @@ END FUNCTION Eval_iota_Prime
 FUNCTION Eval_pres(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure,n_pres_coefs,pres_coefs, pres_bspl
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure, pres_bspl
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
@@ -129,10 +129,10 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_pres = pres_bspl%eval_at_phi_norm(phi_norm)
+    eval_pres = pres_bspl%eval_at_rho(spos)
   CASE(1)
     IF(init_with_profile_pressure) THEN
-      eval_pres = pres_bspl%eval_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
+      eval_pres = pres_bspl%eval_at_rho(spos)
     ELSE
       eval_pres=VMEC_EvalSpl(0,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
     END IF
@@ -146,7 +146,7 @@ END FUNCTION Eval_pres
 FUNCTION Eval_p_prime(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_deriv
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure,n_pres_coefs,pres_coefs, pres_bspl
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure, pres_bspl
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
@@ -163,10 +163,10 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_p_prime=pres_bspl%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
+    eval_p_prime=pres_bspl%eval_prime_at_rho(spos)
   CASE(1)
     IF(init_with_profile_pressure) THEN
-      eval_p_prime=pres_bspl%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
+      eval_p_prime=pres_bspl%eval_prime_at_rho(spos)
     ELSE
       eval_p_prime=VMEC_EvalSpl(1,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is spos=sqrt(phi/phi_edge)
     END IF

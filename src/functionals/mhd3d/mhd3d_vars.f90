@@ -82,10 +82,7 @@ LOGICAL              :: DoCheckDistance !! TRUE: check distance between solution
 LOGICAL              :: DoCheckAxis     !! TRUE: check axis position (default: true)
 ! input parameters for functional
 REAL(wp)             :: Phi_edge        !! toroidal flux at the last flux surface of the domain
-INTEGER              :: n_pres_coefs    !! number of polynomial coeffients for mass profile
-INTEGER              :: n_iota_coefs    !! number of polynomial coeffients for iota profile
-REAL(wp),ALLOCATABLE :: pres_coefs(:)   !! polynomial coefficients of the mass profile
-REAL(wp),ALLOCATABLE :: iota_coefs(:)   !! polynomial coefficients of the iota profile
+
 !constants
 REAL(wp)             :: mu_0            !! permeability
 REAL(wp)             :: gamm            !! isentropic exponent, if gamma /= 0 pres ~ mass profile

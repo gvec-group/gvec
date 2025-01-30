@@ -30,23 +30,23 @@ PUBLIC
 
 CONTAINS
 
-FUNCTION factorial(n) RESULT(n_fac)
-    INTEGER, INTENT(IN)  :: n
-    INTEGER :: n_fac, i
-    n_fac = 1.0_wp
-    DO i = 2, n
-        n_fac = n_fac * i
-    END DO
-END FUNCTION factorial
-
 !===================================================================================================================================
 !> Calculate the binomial coefficient n over r => n!/(r!(n-r)!) 
 !===================================================================================================================================
-FUNCTION binomial(n,r) RESULT(coef)
-    INTEGER, INTENT(IN) :: n, r 
+RECURSIVE FUNCTION binomial(n,r) RESULT(coef)
+    REAL, INTENT(IN) :: n, r 
     REAL :: coef
 
-    coef = factorial(n)/(factorial(r)*factorial(n-r))
+    IF (r>n) THEN
+        CALL abort(__STAMP__,'error in binomial coefficient (n r) calculation r>n')
+    END IF
+    IF (ABS(r)<=1e-12) THEN
+        coef = 1.0_wp
+    ELSE IF (r>n/2) THEN
+        coef = binomial(n,n-r)
+    ELSE
+        coef = n*binomial(n-1,r-1)/r
+    END IF
 END FUNCTION binomial
 
 !===================================================================================================================================
@@ -67,7 +67,7 @@ FUNCTION dual_factor(r, d, j, t)
     IF (r>n) THEN
         dual_factor = 0.0_wp
     ELSE
-        dual_factor = binomial(n,r)/binomial(d,r)
+        dual_factor = binomial(REAL(n),REAL(r))/binomial(REAL(d),REAL(r))
     END IF
 END FUNCTION dual_factor
 

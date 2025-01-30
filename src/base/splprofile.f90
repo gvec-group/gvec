@@ -41,11 +41,9 @@ TYPE :: t_splProfile
   
   CONTAINS
 
-  !PROCEDURE :: init             => splProfile_init
-  !PROCEDURE :: copy             => splProfile_copy
-  !PROCEDURE :: compare          => splProfile_compare
-  PROCEDURE :: eval_at_phi_norm        => splProfile_eval_at_phi_norm
-  PROCEDURE :: eval_prime_at_phi_norm  => splProfile_eval_prime_at_phi_norm
+  PROCEDURE :: eval_at_rho        => splProfile_eval_at_rho
+  PROCEDURE :: eval_prime_at_rho  => splProfile_eval_prime_at_rho
+  PROCEDURE :: eval_derivative    => splProfile_eval_derivative
   FINAL     :: splProfile_free
 END TYPE t_splProfile
 
@@ -69,7 +67,11 @@ FUNCTION splProfile_init(knots, n_knots, coefs, n_coefs) RESULT(sf)
   INTEGER, INTENT(IN) :: n_knots !! number of knots
   INTEGER, INTENT(IN) :: n_coefs !! number of coefficients
   REAL,    INTENT(IN) :: knots(n_knots)  !! knots of the B-Spline with repeated start and end points
-  REAL,    INTENT(IN) :: coefs(n_coefs)  !! B-Spline coefficients  
+  REAL,    INTENT(IN) :: coefs(n_coefs)  !! B-Spline coefficients 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL                :: nth_deriv_at_axis
+  INTEGER             :: i
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   TYPE(t_splProfile)  :: sf !! self
@@ -83,10 +85,19 @@ FUNCTION splProfile_init(knots, n_knots, coefs, n_coefs) RESULT(sf)
   sf%knots = knots
   ALLOCATE(sf%coefs(1:n_coefs))
   sf%coefs = coefs
-  CALL sll_s_bsplines_new(sf%bspl, sf%deg, .FALSE., & 
-                          sf%knots(1),sf%knots(n_knots),&
-                          size(sf%knots(sf%deg+1:n_knots-sf%deg))-1 , & ! number of knots handed to the library
-                          sf%knots(sf%deg+1:n_knots-sf%deg)) ! remove repeated edge knots
+  IF (sf%deg>0) THEN
+    CALL sll_s_bsplines_new(sf%bspl, sf%deg, .FALSE., & 
+                            sf%knots(1),sf%knots(n_knots),&
+                            size(sf%knots(sf%deg+1:n_knots-sf%deg))-1 , & ! number of knots handed to the library
+                            sf%knots(sf%deg+1:n_knots-sf%deg)) ! remove repeated edge knots
+    ! Test if the first odd derivatives are zero at the magnetic axis to avoid discontinuous profiles
+    DO i = 1,sf%deg-1,2
+      nth_deriv_at_axis = sf%eval_derivative(0.0_wp,i)
+      IF (ABS(nth_deriv_at_axis) > 1E-12) THEN
+        WRITE(UNIT_stdOut,'(6X,A,I4,A,3E11.4)')'WARNING: n-th odd derivative at axis of spline profile is not zero. n= ',i," derivative value:",nth_deriv_at_axis
+      END IF
+    END DO
+  END IF
   __PERFOFF("splProfile_init")
 
 END FUNCTION splProfile_init
@@ -95,12 +106,12 @@ END FUNCTION splProfile_init
 !> evaluate the splProfile at position s
 !!
 !===================================================================================================================================
-FUNCTION splProfile_eval_at_phi_norm( sf, phi_norm ) RESULT(profile_value)
+FUNCTION splProfile_eval_at_rho( sf, rho ) RESULT(profile_value)
 ! MODULES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_splProfile), INTENT(IN)  :: sf !! self
-  REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (phi_norm=phi/phi_edge= s^2)
+  REAL(wp)           , INTENT(IN)  :: rho !! evaluation point in the toroidal flux coordinate (rho=sqrt(phi/phi_edge)= spos)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                         :: profile_value
@@ -109,20 +120,25 @@ FUNCTION splProfile_eval_at_phi_norm( sf, phi_norm ) RESULT(profile_value)
   REAL(wp)                         :: basis_values(sf%deg+1) !! values of the (deg+1) B-splines that contribute at s_pos
   INTEGER                          :: first_non_zero_bspl !! index offset for the coefficients
 !===================================================================================================================================
-  CALL sf%bspl%eval_basis(phi_norm,basis_values,first_non_zero_bspl)
-  profile_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*basis_values(:sf%deg+1))
-END FUNCTION splProfile_eval_at_phi_norm
+  IF (sf%deg > 0) THEN
+    CALL sf%bspl%eval_basis(rho,basis_values,first_non_zero_bspl)
+    profile_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*basis_values(:sf%deg+1))
+    !profile_value = sf%eval_derivative(rho, n=0)
+  ELSE
+    profile_value = sf%coefs(1)
+  END IF
+END FUNCTION splProfile_eval_at_rho
 
 !===================================================================================================================================
 !> evaluate the first derivative of the splProfile at position s
 !!
 !===================================================================================================================================
-FUNCTION splProfile_eval_prime_at_phi_norm( sf, phi_norm ) RESULT(profile_prime_value)
+FUNCTION splProfile_eval_prime_at_rho( sf, rho ) RESULT(profile_prime_value)
 ! MODULES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_splProfile), INTENT(IN)  :: sf !! self
-  REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (s=phi/phi_edge= rho^2)
+  REAL(wp)           , INTENT(IN)  :: rho !! evaluation point in the toroidal flux coordinate (spos=sqrt(phi/phi_edge) = rho)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                         :: profile_prime_value
@@ -131,9 +147,47 @@ FUNCTION splProfile_eval_prime_at_phi_norm( sf, phi_norm ) RESULT(profile_prime_
   REAL(wp)                         :: deriv_values(sf%deg+1) !! values of the (deg+1) B-splines that contribute at s_pos
   INTEGER                          :: first_non_zero_bspl !! index offset for the coefficients
 !===================================================================================================================================
-  CALL sf%bspl%eval_deriv(phi_norm,deriv_values,first_non_zero_bspl)
-  profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(:sf%deg+1))
-END FUNCTION splProfile_eval_prime_at_phi_norm
+  IF (sf%deg>0) THEN
+    CALL sf%bspl%eval_deriv(rho,deriv_values,first_non_zero_bspl)
+    profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(:sf%deg+1))
+    !profile_prime_value = sf%eval_derivative(rho, n=1)
+  ELSE 
+    profile_prime_value = 0.0_wp
+  END IF
+END FUNCTION splProfile_eval_prime_at_rho
+
+!===================================================================================================================================
+!> evaluate the n-th derivative of the splProfile at position s
+!!
+!===================================================================================================================================
+FUNCTION splProfile_eval_derivative( sf, rho, n ) RESULT(profile_prime_value)
+  ! MODULES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CLASS(t_splProfile), INTENT(IN)  :: sf !! self
+    REAL(wp)           , INTENT(IN)  :: rho !! evaluation point in the toroidal flux coordinate (s=sqrt(phi/phi_edge)=rho)
+    INTEGER, OPTIONAL    :: n
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)                         :: profile_prime_value
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    REAL(wp), ALLOCATABLE            :: deriv_values(:,:) !! values of the (deg+1) B-splines that contribute at s_pos
+    INTEGER                          :: first_non_zero_bspl !! index offset for the coefficients
+  !===================================================================================================================================
+    IF (.NOT.PRESENT(n)) THEN
+      n = 0
+    END IF
+
+    ALLOCATE(deriv_values(n+1,sf%deg+1))
+    IF (sf%deg>0) THEN
+      CALL sf%bspl%eval_basis_and_n_derivs(rho,n,deriv_values,first_non_zero_bspl)
+      profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(n+1,:sf%deg+1))
+    ELSE 
+      profile_prime_value = 0.0_wp
+    END IF
+    SDEALLOCATE(deriv_values)
+END FUNCTION splProfile_eval_derivative
 
 !===================================================================================================================================
 !> finalize the type splProfile
