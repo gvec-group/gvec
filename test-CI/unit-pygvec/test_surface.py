@@ -8,7 +8,7 @@ try:
     from gvec import State, EvaluationsBoozer, compute
     from gvec import surface
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 
 # === FIXTURES === #

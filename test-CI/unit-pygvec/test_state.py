@@ -6,7 +6,7 @@ try:
     import gvec
     from gvec.state import State
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 
 # === Fixtures === #

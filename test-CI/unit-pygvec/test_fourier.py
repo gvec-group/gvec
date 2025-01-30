@@ -6,7 +6,7 @@ try:
 
     from gvec import fourier, State, Evaluations, compute
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 
 # === Fixtures === #

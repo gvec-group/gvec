@@ -43,6 +43,14 @@ def pytest_collection_modifyitems(session, config, items):
 # === FIXTURES === #
 
 
+@pytest.fixture(scope="module", autouse=True)
+def check_imports():
+    try:
+        import gvec
+    except ImportError:
+        pytest.skip("Import Error: gvec")
+
+
 @pytest.fixture(scope="session")
 def testgroup():
     return "unit-pygvec"

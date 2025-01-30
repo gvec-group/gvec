@@ -19,7 +19,7 @@ try:
         EvaluationsBoozer,
     )
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 # === FIXTURES === #
 
