@@ -133,7 +133,7 @@ def test_run(
                 )
             )
         # check if GVEC was successful
-        helpers.assert_empty_stderr()
+        helpers.assert_empty_stderr(slurm="srun" in runargs_prefix)
         helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
         helpers.assert_stdout_OpenMP_MPI()
 
@@ -194,7 +194,7 @@ def test_post(
                 )
             )
         # check if GVEC was successful
-        helpers.assert_empty_stderr()
+        helpers.assert_empty_stderr(slurm="srun" in runargs_prefix)
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
         helpers.assert_stdout_OpenMP_MPI()
 
@@ -326,7 +326,7 @@ def test_converter(
                     )
                 )
             # check if GVEC was successful
-            helpers.assert_empty_stderr(f"stderr{irun}.txt")
+            helpers.assert_empty_stderr(f"stderr{irun}.txt", slurm="srun" in runargs_prefix)
             helpers.assert_stdout_finished(
                 f"stdout{irun}.txt", message=conv["msg"] + " FINISHED!"
             )

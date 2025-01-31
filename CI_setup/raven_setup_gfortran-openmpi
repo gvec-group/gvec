@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ===========================================
-# use this setup on raven or on cobra with the command:
-# > . CI_setup/mpcdf_setup_intel
+# use this setup on raven with the command:
+# > . CI_setup/mpcdf_setup_gfortran-openmpi
 #
-# LAST MODIFIED: 2024-07-01
+# LAST MODIFIED: 2025-01-31
 # ===========================================
 
 module purge
@@ -25,6 +25,3 @@ module list
 export FC=`which gfortran`
 export CC=`which gcc`
 export CXX=`which g++`
-
-#used for pytest
-export RUN_PRFX="mpirun -np 2"

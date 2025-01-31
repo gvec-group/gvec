@@ -430,7 +430,7 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(os.path.relpath(Path(sourcerundir / statefile), targetdir))
+        (targetdir / statefile).symlink_to(os.path.relpath(sourcerundir / statefile, targetdir))
     # overwrite parameter file with the rundir version and modify it
     util.adapt_parameter_file(
         sourcerundir / "parameter.ini",
@@ -473,5 +473,5 @@ def testcaseconvdir(
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(os.path.relpath(Path(sourcerundir / statefile), targetdir))
+        (targetdir / statefile).symlink_to(os.path.relpath(sourcerundir / statefile, targetdir))
     return targetdir

@@ -189,11 +189,12 @@ include:
 
   # MPI
 
-  # Raven private runner (Intel + IntelMPI)
+  # Intel
+
   - local: CI_templates/env.yml
     inputs:
       env: .raven_ifx-impi
-      rules: .rules_private_runner_nightly
+      rules: .rules_private_runner
 
   # Raven private runner (Gnu + OpenMPI)
   - local: CI_templates/env.yml
@@ -219,6 +220,13 @@ include:
       rules: .rules_private_runner
 
   # MPI
+
+  # Intel
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .viper_ifx-impi
+      rules: .rules_private_runner
 
   # Gnu + OpenMPI
 
@@ -413,7 +421,7 @@ include:
       env: .raven_ifx-impi
       vars: .vars_raven_build
       cmake-opts: .cmake_no_converter
-      rules: .rules_private_runner_nightly
+      rules: .rules_private_runner
 
   # GNU
 
@@ -444,6 +452,15 @@ include:
       rules: .rules_private_runner
 
   # MPI
+
+  # Intel
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .viper_ifx-impi
+      vars: .vars_viper_build
+      cmake-opts: .cmake_no_converter
+      rules: .rules_private_runner
 
   # GNU
 
@@ -596,7 +613,7 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_mpi_tag
 
-  # Raven private runner
+  # Raven private runner + srun
   # --------------------
 
   # login nodes (Intel), left here for reference, should never be executed
@@ -606,7 +623,7 @@ include:
       vars: .vars_raven_run
       rules: .rules_never
 
-  # Intel + srun
+  # Intel
 
   - local: CI_templates/run.yml
     inputs:
@@ -615,7 +632,7 @@ include:
       slurm-postfix: _slurm
       rules: .rules_private_runner
 
-  # GNU + srun
+  # GNU
 
   - local: CI_templates/run.yml
     inputs:
@@ -626,17 +643,16 @@ include:
 
   # MPI
 
-  # Intel + srun
+  # Intel
   
-  # this one CRASHES on Raven due to srun. If executed with mpirun, it works!
   - local: CI_templates/run.yml
     inputs:
       env: .raven_ifx-impi
       vars: .vars_raven_mpi_run_slurm
       slurm-postfix: _slurm
-      rules: .rules_private_runner_nightly
+      rules: .rules_private_runner
 
-  # GNU + srun
+  # GNU
   
   - local: CI_templates/run.yml
     inputs:
@@ -677,6 +693,15 @@ include:
       rules: .rules_private_runner_nightly
 
   # MPI
+
+  # Intel
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .viper_ifx-impi
+      vars: .vars_viper_mpi_run_slurm
+      slurm-postfix: _slurm
+      rules: .rules_private_runner
 
   # GNU
 
@@ -1143,7 +1168,8 @@ include:
 .hooks_mpcdf_runner:
   hooks:
     pre_get_sources_script:
-      - module load git; module load git-lfs
+      - module purge
+      - module load git git-lfs
       - git lfs install
 
 # ____________________________
@@ -1248,7 +1274,16 @@ include:
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
 
-# MPCDF Viper private runner with modules gcc/openmpi
+.viper_ifx-impi:
+  extends:
+    - .viper
+    - .hooks_mpcdf_runner
+  variables:
+    CURR_CMP: "ifx-impi"
+    SETUP_SCRIPT: ${CURR_CMP}
+    MPI_MODE: "mpiON"
+    MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+
 .viper_gfortran-openmpi:
   extends:
     - .viper

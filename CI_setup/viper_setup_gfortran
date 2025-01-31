@@ -2,9 +2,9 @@
 
 # ===========================================
 # use this setup on raven with the command:
-# > . CI_setup/viper_setup_gnu
+# > . CI_setup/viper_setup_gfortran
 #
-# LAST MODIFIED: 2024-10-14
+# LAST MODIFIED: 2025-01-31
 # ===========================================
 
 module purge

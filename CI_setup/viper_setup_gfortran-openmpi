@@ -2,9 +2,9 @@
 
 # ===========================================
 # use this setup on raven with the command:
-# > . CI_setup/viper_setup_gnu_mpi
+# > . CI_setup/viper_setup_gfortran-openmpi
 #
-# LAST MODIFIED: 2024-12-19
+# LAST MODIFIED: 2025-01-31
 # ===========================================
 
 module purge

@@ -2,9 +2,9 @@
 
 # ===========================================
 # use this setup on viper with the command:
-# > . CI_setup/viper_setup_intel
+# > . CI_setup/viper_setup_ifx
 #
-# LAST MODIFIED: 2024-12-05
+# LAST MODIFIED: 2025-01-31
 # ===========================================
 
 module purge

@@ -196,26 +196,22 @@ def check_diff_files(
     return txt_differences, num_differences, warnings
 
 
-def assert_empty_stderr(path: str | Path = "stderr.txt"):
+def assert_empty_stderr(path: str | Path = "stderr.txt", slurm: bool = False):
     """
-    Asserts that the specified file (default `stderr.txt`) is empty or contains SLURM stderr.
+    Asserts that the specified file (default `stderr.txt`) is empty.
 
     Args:
         path (str | Path, optional): The path to the stderr file. Defaults to `stderr.txt`.
+
     """
-    prfxsrun = ""
-    for i, arg in enumerate(sys.argv):
-        if arg == '--run-prefix' and i < len(sys.argv) - 1:
-            prfxsrun = sys.argv[i+1]
     with open(path) as file:
         lines = file.readlines()
-    ##print("prfxsrun = ",prfxsrun)  ## DEBUG, line to be removed
-    if "srun" in prfxsrun:
-    # check for SLURM stderr in stderr.txt
+    if slurm is True:
+        # check for SLURM stderr in stderr.txt
         assert len(lines) == 2, "Errors found in stderr.txt"
         assert ("srun:" in line for line in lines), "SLURM stderr not found in stderr.txt"
     else:
-    # check for an empty stderr.txt file
+        # check for an empty stderr.txt file
         assert len(lines) == 0
 
 
