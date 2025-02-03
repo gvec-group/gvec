@@ -1,8 +1,5 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven with the command:
-# > . CI_setup/viper_setup_gfortran-openmpi
+# bash source script
+# usage: source CI_setup/viper_setup_gfortran-openmpi
 #
 # LAST MODIFIED: 2025-01-31
 # ===========================================

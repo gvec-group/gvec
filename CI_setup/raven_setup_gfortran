@@ -1,20 +1,17 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven with the command:
-# > . CI_setup/raven_setup_gfortran
-#
+# bash source script
+# usage: source CI_setup/raven_setup_gfortran
 # LAST MODIFIED: 2025-01-31
 # ===========================================
+
 
 module purge
 module load git
 module load git-lfs
 module load cmake/3.26
-module load gcc/13 
+module load gcc
 module load mkl/2023.1
 module load hdf5-serial/1.14.1
-module load netcdf-serial/4.9.2
+module load netcdf-serial
 module load ftimings
 module load anaconda/3/2023.03 #for pytest
 

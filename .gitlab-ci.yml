@@ -170,21 +170,21 @@ include:
 
   - local: CI_templates/env.yml
     inputs:
-      env: .raven_ifx
+      env: .raven_ifx-2024
       rules: .rules_private_runner
 
   # GNU
 
   - local: CI_templates/env.yml
     inputs:
-      env: .raven_gfortran
+      env: .raven_gfortran-13
       rules: .rules_private_runner
 
   # Nvidia
 
   - local: CI_templates/env.yml
     inputs:
-      env: .raven_nvfortran
+      env: .raven_nvfortran-23
       rules: .rules_private_runner
 
   # MPI
@@ -193,13 +193,13 @@ include:
 
   - local: CI_templates/env.yml
     inputs:
-      env: .raven_ifx-impi
+      env: .raven_ifx-impi-2024
       rules: .rules_private_runner
 
   # Raven private runner (Gnu + OpenMPI)
   - local: CI_templates/env.yml
     inputs:
-      env: .raven_gfortran-openmpi
+      env: .raven_gfortran-openmpi-13
       rules: .rules_private_runner
 
   # Viper private runner
@@ -209,14 +209,14 @@ include:
 
   - local: CI_templates/env.yml
     inputs:
-      env: .viper_ifx
+      env: .viper_ifx-2024
       rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/env.yml
     inputs:
-      env: .viper_gfortran
+      env: .viper_gfortran-13
       rules: .rules_private_runner
 
   # MPI
@@ -225,14 +225,14 @@ include:
 
   - local: CI_templates/env.yml
     inputs:
-      env: .viper_ifx-impi
+      env: .viper_ifx-impi-2024
       rules: .rules_private_runner
 
   # Gnu + OpenMPI
 
   - local: CI_templates/env.yml
     inputs:
-      env: .viper_gfortran-openmpi
+      env: .viper_gfortran-openmpi-13
       rules: .rules_private_runner
 
   # ============================
@@ -381,24 +381,24 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .raven_ifx
-      vars: .vars_raven_build
+      env: .raven_ifx-2024
+      vars: .vars_hpc
       rules: .rules_private_runner
 
   # GNU
 
   - local: CI_templates/build.yml
     inputs:
-      env: .raven_gfortran
-      vars: .vars_raven_build
+      env: .raven_gfortran-13
+      vars: .vars_hpc
       rules: .rules_private_runner
 
   # Nvidia
 
   - local: CI_templates/build.yml
     inputs:
-      env: .raven_nvfortran
-      vars: .vars_raven_build
+      env: .raven_nvfortran-23
+      vars: .vars_hpc
       rules: .rules_private_runner
 
   # reference tag
@@ -407,9 +407,9 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .raven_ifx
+      env: .raven_ifx-2024
       build-postfix: _tag
-      vars: .vars_raven_build_tag
+      vars: .vars_hpc_tag
       rules: .rules_private_runner
 
   # MPI
@@ -418,8 +418,8 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .raven_ifx-impi
-      vars: .vars_raven_build
+      env: .raven_ifx-impi-2024
+      vars: .vars_hpc
       cmake-opts: .cmake_no_converter
       rules: .rules_private_runner
 
@@ -427,8 +427,8 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .raven_gfortran-openmpi
-      vars: .vars_raven_build
+      env: .raven_gfortran-openmpi-13
+      vars: .vars_hpc
       cmake-opts: .cmake_no_converter
       rules: .rules_private_runner
 
@@ -439,16 +439,16 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .viper_ifx
-      vars: .vars_viper_build
+      env: .viper_ifx-2024
+      vars: .vars_hpc
       rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/build.yml
     inputs:
-      env: .viper_gfortran
-      vars: .vars_viper_build
+      env: .viper_gfortran-13
+      vars: .vars_hpc
       rules: .rules_private_runner
 
   # MPI
@@ -457,8 +457,8 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .viper_ifx-impi
-      vars: .vars_viper_build
+      env: .viper_ifx-impi-2024
+      vars: .vars_hpc
       cmake-opts: .cmake_no_converter
       rules: .rules_private_runner
 
@@ -466,8 +466,8 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .viper_gfortran-openmpi
-      vars: .vars_viper_build  ### .vars_viper_mpi_build
+      env: .viper_gfortran-openmpi-13
+      vars: .vars_hpc  ### .vars_viper_mpi_build
       cmake-opts: .cmake_no_converter
       rules: .rules_private_runner
 
@@ -477,18 +477,18 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .viper_ifx
+      env: .viper_ifx-2024
       build-postfix: _tag
-      vars: .vars_viper_build_tag
+      vars: .vars_hpc_tag
       rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/build.yml
     inputs:
-      env: .viper_gfortran
+      env: .viper_gfortran-13
       build-postfix: _tag
-      vars: .vars_viper_build_tag
+      vars: .vars_hpc_tag
       rules: .rules_private_runner
 
   # ============================
@@ -616,29 +616,30 @@ include:
   # Raven private runner + srun
   # --------------------
 
-  # login nodes (Intel), left here for reference, should never be executed
-  - local: CI_templates/run.yml
-    inputs:
-      env: .raven_ifx
-      vars: .vars_raven_run
-      rules: .rules_never
+  # # login nodes (Intel), left here for reference, should never be executed
+  # - local: CI_templates/run.yml
+  #   inputs:
+  #     env: .raven_ifx-2024
+  #     vars: .vars_raven_run
+  #     rules: .rules_never
 
   # Intel
 
   - local: CI_templates/run.yml
     inputs:
-      env: .raven_ifx
+      env: .raven_ifx-2024
       vars: .vars_raven_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
+      ###slurm-postfix: _slurm
       rules: .rules_private_runner
 
   # GNU
 
   - local: CI_templates/run.yml
     inputs:
-      env: .raven_gfortran
+      env: .raven_gfortran-13
       vars: .vars_raven_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner
 
   # MPI
@@ -647,18 +648,18 @@ include:
   
   - local: CI_templates/run.yml
     inputs:
-      env: .raven_ifx-impi
+      env: .raven_ifx-impi-2024
       vars: .vars_raven_mpi_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner
 
   # GNU
   
   - local: CI_templates/run.yml
     inputs:
-      env: .raven_gfortran-openmpi
+      env: .raven_gfortran-openmpi-13
       vars: .vars_raven_mpi_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner
 
   # Viper private runner + srun
@@ -668,28 +669,28 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .viper_ifx
+      env: .viper_ifx-2024
       vars: .vars_viper_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/run.yml
     inputs:
-      env: .viper_gfortran
+      env: .viper_gfortran-13
       vars: .vars_viper_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner
 
   # debugrun
   
   - local: CI_templates/run.yml
     inputs:
-      env: .viper_gfortran
+      env: .viper_gfortran-13
       vars: .vars_viper_run_debugrun_slurm
-      run-postfix: _debugrun
-      slurm-postfix: _slurm
+      run-postfix: _debugrun_slurm
+      ###slurm-postfix: _slurm
       rules: .rules_private_runner_nightly
 
   # MPI
@@ -698,18 +699,18 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .viper_ifx-impi
+      env: .viper_ifx-impi-2024
       vars: .vars_viper_mpi_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner
 
   # GNU
 
   - local: CI_templates/run.yml
     inputs:
-      env: .viper_gfortran-openmpi
+      env: .viper_gfortran-openmpi-13
       vars: .vars_viper_mpi_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner
 
   # reference tag
@@ -718,22 +719,22 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .viper_ifx
+      env: .viper_ifx-2024
       vars: .vars_viper_run_tag_slurm
-      run-postfix: _tag
+      run-postfix: _tag_slurm
       build-postfix: _tag
-      slurm-postfix: _slurm
+      ###slurm-postfix: _slurm
       rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/run.yml
     inputs:
-      env: .viper_gfortran
+      env: .viper_gfortran-13
       vars: .vars_viper_run_tag_slurm
-      run-postfix: _tag
+      run-postfix: _tag_slurm
       build-postfix: _tag
-      slurm-postfix: _slurm
+      ###slurm-postfix: _slurm
       rules: .rules_private_runner
 
   # ============================
@@ -801,18 +802,18 @@ include:
 
   - local: CI_templates/regression-tag.yml
     inputs:
-      env: .viper_ifx
+      env: .viper_ifx-2024
       vars: .vars_viper_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner_minimal
 
   # GNU
 
   - local: CI_templates/regression-tag.yml
     inputs:
-      env: .viper_gfortran
+      env: .viper_gfortran-13
       vars: .vars_viper_run_slurm
-      slurm-postfix: _slurm
+      run-postfix: _slurm
       rules: .rules_private_runner
 
   # Raven vs. Viper private runners
@@ -822,8 +823,8 @@ include:
 
   - local: CI_templates/regression-hst.yml
     inputs:
-      env: .raven_gfortran-openmpi
-      CURR_CMP: "gfortran-openmpi"
+      env: .raven_gfortran-openmpi-13
+      CURR_CMP: "gfortran-openmpi-13"
       vars: .vars_reg_mpi_slurm
 
   # ============================
@@ -1030,6 +1031,20 @@ include:
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
     OMP_NUM_THR: "2"
 
+
+# private runner vars for longer/larger runs
+.vars_hpc:
+  variables:
+    CMP_MODE: "Release"
+    OMP_MODE: "ompON"
+    PYTEST_KEY_OPTS: "frenet_axisNB_QH_nfp7"
+
+# reference tag
+.vars_hpc_tag:
+  extends: .vars_hpc
+  variables:
+    HASH_TAG: ${HASH_TAG_REFERENCE}
+
 # ____________________________
 # Environments / Compiler
 # MPCDF new Docker images: each providing a toolchain based on a single combination of compiler and MPI variant
@@ -1191,57 +1206,57 @@ include:
     CMAKE_HOSTNAME: "raven"
     CI_HOSTNAME: ${CMAKE_HOSTNAME}
 
-.raven_ifx:
+.raven_ifx-2024:
   extends:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "ifx"
+    CURR_CMP: "ifx-2024"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4" #"20"
 
-.raven_gfortran:
+.raven_gfortran-13:
   extends:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "gfortran"
+    CURR_CMP: "gfortran-13"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
-.raven_nvfortran:
+.raven_nvfortran-23:
   extends:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "nvfortran"
+    CURR_CMP: "nvfortran-23"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
     OMP_NUM_THR: "4"
 
 # MPCDF Viper private runner with modules gcc/openmpi
-.raven_ifx-impi:
+.raven_ifx-impi-2024:
   extends:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: ifx-impi
+    CURR_CMP: "ifx-impi-2024"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
 # MPCDF Raven private runner with modules gcc/openmpi
-.raven_gfortran-openmpi:
+.raven_gfortran-openmpi-13:
   extends:
     - .raven
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "gfortran-openmpi"
+    CURR_CMP: "gfortran-openmpi-13"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
@@ -1254,42 +1269,42 @@ include:
     CMAKE_HOSTNAME: "viper"
     CI_HOSTNAME: ${CMAKE_HOSTNAME}
 
-.viper_ifx:
+.viper_ifx-2024:
   extends:
     - .viper
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "ifx"
+    CURR_CMP: "ifx-2024"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
 
-.viper_gfortran:
+.viper_gfortran-13:
   extends:
     - .viper
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "gfortran"
+    CURR_CMP: "gfortran-13"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiOFF"
     MPI_RNKS_MODE: ""
 
-.viper_ifx-impi:
+.viper_ifx-impi-2024:
   extends:
     - .viper
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "ifx-impi"
+    CURR_CMP: "ifx-impi-2024"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
 
-.viper_gfortran-openmpi:
+.viper_gfortran-openmpi-13:
   extends:
     - .viper
     - .hooks_mpcdf_runner
   variables:
-    CURR_CMP: "gfortran-openmpi"
+    CURR_CMP: "gfortran-openmpi-13"
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
@@ -1340,29 +1355,29 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
 
-# Raven private runner
-.vars_raven_build:
-  variables:
-    CMP_MODE: "Release"
-    OMP_MODE: "ompON"
+# # Raven private runner
+# .vars_raven_build:
+#   variables:
+#     CMP_MODE: "Release"
+#     OMP_MODE: "ompON"
 
-# Viper private runner
-.vars_viper_build:
-  variables:
-    CMP_MODE: "Release"
-    OMP_MODE: "ompON"
+# # Viper private runner
+# .vars_viper_build:
+#   variables:
+#     CMP_MODE: "Release"
+#     OMP_MODE: "ompON"
 
-# Raven private runner
-.vars_raven_build_tag:
-  extends: .vars_raven_build
-  variables:
-    HASH_TAG: ${HASH_TAG_REFERENCE}
+# # Raven private runner
+# .vars_raven_build_tag:
+#   extends: .vars_raven_build
+#   variables:
+#     HASH_TAG: ${HASH_TAG_REFERENCE}
 
-# Viper private runner
-.vars_viper_build_tag:
-  extends: .vars_viper_build
-  variables:
-    HASH_TAG: ${HASH_TAG_REFERENCE}
+# # Viper private runner
+# .vars_viper_build_tag:
+#   extends: .vars_viper_build
+#   variables:
+#     HASH_TAG: ${HASH_TAG_REFERENCE}
 
 .vars_matrix_unit:
   variables:
@@ -1424,16 +1439,16 @@ include:
         OMP_MODE: ["ompOFF","ompON"]
         MPI_RNKS: ["1","2"]
 
-  # Raven private runner (vars for runs on login nodes)
-.vars_raven_run:   # to be extended in the `regression` stage (allow_failure can NOT be in this template)
-  extends: .vars_raven_build
+#   # Raven private runner (vars for runs on login nodes)
+# .vars_raven_run:   # to be extended in the `regression` stage (allow_failure can NOT be in this template)
+#   extends: .vars_raven_build
 
   # Raven private runner (runs on SLURM queues via srun)
   # ----------------------------------------------------
 
 .vars_raven_run_slurm:
   extends:
-    - .vars_raven_build
+    - .vars_hpc
     - .vars_base_slurm
   variables:
     SLURM_NNODES: 1           # number of compute nodes:
@@ -1446,7 +1461,7 @@ include:
 
 .vars_raven_mpi_run_slurm:
   extends:
-    - .vars_raven_build
+    - .vars_hpc
     - .vars_base_slurm
   variables:
     SLURM_NNODES: 1           # number of compute nodes:
@@ -1461,7 +1476,7 @@ include:
 
 .vars_viper_run_slurm:
   extends:
-    - .vars_viper_build
+    - .vars_hpc
     - .vars_base_slurm
   variables:
     SLURM_NNODES: 1           # number of compute nodes:
@@ -1480,7 +1495,7 @@ include:
 
 .vars_viper_mpi_run_slurm:
   extends:
-    - .vars_viper_build
+    - .vars_hpc
     - .vars_base_slurm
   variables:
     SLURM_NNODES: 1           # number of compute nodes:

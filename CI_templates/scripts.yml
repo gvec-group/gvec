@@ -148,14 +148,11 @@
 .before_script_exportvars:
   before_script:
     - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
-    # Retrieving the allocation name in a separate shell is the uglier part
-        #export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT} --time=${SLURM_TIMELIMIT} --nodes=${SLURM_NNODES} --mem=${SLURM_MEM_PER_NODE} --cpus-per-task=${OMP_NUM_THR} --job-name=${SLURM_JOB_NAME}";
     - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then
         export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT}";
       else
         if [ ${MPI_MODE} = 'mpiON' ]; then export RUN_PRFX="mpirun -np ${MPI_RNKS}"; else export RUN_PRFX=""; fi
       fi
-    #- if [ ${MPI_MODE} = 'mpiON' ]; then export RUN_PRFX="mpirun -np ${MPI_RNKS}"; else export RUN_PRFX=""; fi
     - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=${OMP_NUM_THR}; fi
     - echo "hostname:" $HOSTNAME
     - echo "HASH_TAG is ${HASH_TAG}"
@@ -183,9 +180,8 @@
     - echo -e "\e[0Ksection_start:`date +%s`:pre-run[collapsed=true]\r\e[0KPrepare Run"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${RUN_PRFX}" --dry-run
+    # avoid submission of SLURM jobs for the --dry-run by removing the --run-prefix argument
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
-    # avoid submission of SLURM jobs for the --dry-run
-    #-      ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${RUN_PRFX}" --dry-run
     - rm -rf CIrun_${CASENAME}
     - echo -e "\e[0Ksection_end:`date +%s`:pre-run\r\e[0K"
     # RUN

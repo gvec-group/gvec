@@ -1,17 +1,17 @@
 # bash source script
-# usage: source CI_setup/viper_setup_gfortran
+# usage: source CI_setup/raven_setup_gfortran-13
 #
-# LAST MODIFIED: 2025-01-31
+# LAST MODIFIED: 2025-02-03
 # ===========================================
 
 module purge
 module load git
 module load git-lfs
-module load cmake
-module load gcc
-module load mkl
-module load hdf5-serial
-module load netcdf-serial
+module load cmake/3.26
+module load gcc/13 
+module load mkl/2023.1
+module load hdf5-serial/1.14.1
+module load netcdf-serial/4.9.2
 module load ftimings
 module load anaconda/3/2023.03 #for pytest
 

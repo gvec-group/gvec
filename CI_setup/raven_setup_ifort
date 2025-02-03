@@ -1,8 +1,5 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven with the command:
-# > . CI_setup/raven_setup_ifort
+# bash source script
+# usage: source CI_setup/raven_setup_ifort
 #
 # LAST MODIFIED: 2025-01-31
 # ===========================================

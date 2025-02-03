@@ -1,16 +1,13 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven with the command:
-# > . CI_setup/mpcdf_setup_ifx-impi
+# bash source script
+# usage: source CI_setup/viper_setup_ifx-impi-2024
 #
-# LAST MODIFIED: 2025-01-31
+# LAST MODIFIED: 2025-02-03
 # ===========================================
 
 module purge
 module load git
 module load git-lfs
-module load cmake/3.26
+module load cmake/3.30
 module load intel/2024.0
 module load impi/2021.11
 module load mkl/2024.0

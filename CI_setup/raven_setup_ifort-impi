@@ -1,8 +1,5 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven with the command:
-# > . CI_setup/mpcdf_setup_ifort-impi
+# bash source script
+# usage: source CI_setup/mpcdf_setup_ifort-impi
 #
 # LAST MODIFIED: 2025-01-31
 # ===========================================
