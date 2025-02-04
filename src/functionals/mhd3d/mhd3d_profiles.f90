@@ -40,7 +40,7 @@ CONTAINS
 FUNCTION Eval_iota(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_iota, iota_bspl
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_iota, iota_profile
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 !USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 USE MODgvec_VMEC_vars  ,ONLY: iota_spl
@@ -58,10 +58,10 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_iota = iota_bspl%eval_at_rho(spos)
+    eval_iota = iota_profile%eval_at_phi_norm(phi_norm)
   CASE(1)
     IF(init_with_profile_iota) THEN
-      eval_iota = iota_bspl%eval_at_rho(spos)
+      eval_iota = iota_profile%eval_at_phi_norm(phi_norm)
     ELSE
       eval_iota=VMEC_EvalSpl(0,SQRT(phi_norm),iota_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
     END IF
@@ -77,7 +77,7 @@ END FUNCTION Eval_iota
 FUNCTION Eval_iota_Prime(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_DERIV
-USE MODgvec_MHD3D_Vars ,ONLY: which_init, iota_bspl, init_with_profile_iota
+USE MODgvec_MHD3D_Vars ,ONLY: which_init, iota_profile, init_with_profile_iota
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 !USE MODgvec_VMEC_vars  ,ONLY: chi_spl
 USE MODgvec_VMEC_vars  ,ONLY: iota_spl
@@ -95,15 +95,48 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_iota_prime = iota_bspl%eval_prime_at_rho(spos)
+    eval_iota_prime = iota_profile%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
   CASE(1)
     IF(init_with_profile_iota) THEN
-      eval_iota_prime = iota_bspl%eval_prime_at_rho(spos)
+      eval_iota_prime = iota_profile%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
     ELSE
       eval_iota_prime=VMEC_EvalSpl(1,SQRT(phi_norm),iota_Spl)
     END IF  
   END SELECT
 END FUNCTION Eval_iota_Prime
+
+!===================================================================================================================================
+!> evaluate n-th derivative in s of rotational transform, iota(phi_norm(s)) =chi'/phi'
+!! NOTE that since VMEC has a definition of a positive iota with respect to R,phi,Z coordinate system, but GVEC is in (R,Z,phi)
+!! the sign of iota in GVEC is opposite to the sign in VMEC
+!!
+!===================================================================================================================================
+FUNCTION Eval_iota_n_Prime(spos, n)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars ,ONLY: which_init, iota_profile, init_with_profile_iota
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    REAL(wp), INTENT(IN) :: spos !! s position to evaluate s=[0,1]
+    INTEGER, INTENT(IN)  :: n !! order of the derivative n in [0,4]
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)               :: Eval_iota_n_Prime
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  !===================================================================================================================================
+    SELECT CASE(which_init)
+    CASE(0)
+      Eval_iota_n_Prime = iota_profile%eval_rho_derivative(spos,n)
+    CASE(1)
+      IF(init_with_profile_iota) THEN
+        Eval_iota_n_Prime = iota_profile%eval_rho_derivative(spos,n)
+      ELSE
+        CALL abort(__STAMP__,&
+          "error in iota derivative calcultaion: derivatives for VMEC profiles are not yet implemented!")
+      END IF  
+    END SELECT
+END FUNCTION Eval_iota_n_Prime
 
 !===================================================================================================================================
 !> evaluate pressure profile p(phi_norm(s))
@@ -112,7 +145,7 @@ END FUNCTION Eval_iota_Prime
 FUNCTION Eval_pres(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure, pres_bspl
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure, pres_profile
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
@@ -129,10 +162,10 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_pres = pres_bspl%eval_at_rho(spos)
+    eval_pres = pres_profile%eval_at_phi_norm(phi_norm)
   CASE(1)
     IF(init_with_profile_pressure) THEN
-      eval_pres = pres_bspl%eval_at_rho(spos)
+      eval_pres = pres_profile%eval_at_phi_norm(phi_norm)
     ELSE
       eval_pres=VMEC_EvalSpl(0,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
     END IF
@@ -146,7 +179,7 @@ END FUNCTION Eval_pres
 FUNCTION Eval_p_prime(spos)
 ! MODULES
 USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_deriv
-USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure, pres_bspl
+USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure, pres_profile
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 USE MODgvec_VMEC_vars  ,ONLY: pres_spl
 IMPLICIT NONE
@@ -163,15 +196,46 @@ IMPLICIT NONE
   phi_norm=Eval_PhiNorm(spos)
   SELECT CASE(which_init)
   CASE(0)
-    eval_p_prime=pres_bspl%eval_prime_at_rho(spos)
+    eval_p_prime=pres_profile%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
   CASE(1)
     IF(init_with_profile_pressure) THEN
-      eval_p_prime=pres_bspl%eval_prime_at_rho(spos)
+      eval_p_prime=pres_profile%eval_prime_at_phi_norm(phi_norm)*Eval_PhiNormPrime(spos)
     ELSE
       eval_p_prime=VMEC_EvalSpl(1,SQRT(phi_norm),pres_Spl) !variable rho in vmec evaluations is spos=sqrt(phi/phi_edge)
     END IF
   END SELECT
 END FUNCTION Eval_p_prime
+
+!===================================================================================================================================
+!> evaluate d^n/ds^n derivative pressure profile p(phi_norm(s))
+!!
+!===================================================================================================================================
+FUNCTION Eval_p_n_prime(spos,n)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars ,ONLY: which_init,init_with_profile_pressure, pres_profile
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    REAL(wp), INTENT(IN) :: spos !! s position to evaluate s=[0,1] 
+    INTEGER,  INTENT(IN) :: n
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)               :: Eval_p_n_prime
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  !===================================================================================================================================
+    SELECT CASE(which_init)
+    CASE(0)
+      Eval_p_n_prime=pres_profile%eval_rho_derivative(spos,n)
+    CASE(1)
+      IF(init_with_profile_pressure) THEN
+        Eval_p_n_prime=pres_profile%eval_rho_derivative(spos,n)
+      ELSE
+        CALL abort(__STAMP__,&
+          "error in pressure derivative calcultaion: derivatives for VMEC profiles are not yet implemented!")
+      END IF
+    END SELECT
+END FUNCTION Eval_p_n_prime
 
 !===================================================================================================================================
 !> evaluate mass profile mass(phi_norm(s))

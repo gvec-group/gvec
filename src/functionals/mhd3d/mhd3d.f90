@@ -66,7 +66,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   
-  USE MODgvec_splProfile, ONLY: splProfile_init
+  USE MODgvec_rProfile, ONLY: rProfile_init
   USE MODgvec_PolyToBspl, ONLY: poly2bspl
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -97,13 +97,16 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=255) ::boundary_filename
 
   INTEGER              :: n_iota_knots, n_pres_knots
-  REAL(wp),ALLOCATABLE :: pres_knots(:), c_pres_bspl(:)
-  REAL(wp),ALLOCATABLE :: iota_knots(:), c_iota_bspl(:)
+  REAL(wp),ALLOCATABLE :: pres_knots(:)
+  REAL(wp),ALLOCATABLE :: iota_knots(:)
   INTEGER              :: n_pres_coefs    !! number of polynomial coeffients for mass profile
   INTEGER              :: n_iota_coefs    !! number of polynomial coeffients for iota profile
   REAL(wp),ALLOCATABLE :: pres_coefs(:)   !! polynomial/bspline coefficients of the mass profile
   REAL(wp),ALLOCATABLE :: iota_coefs(:)   !! polynomial/bspline coefficients of the iota profile
-  REAL(wp),ALLOCATABLE :: c_aux(:) !! auxiliary coefficients used for the power profile readin
+  CHARACTER(LEN=10)    :: iota_type
+  INTEGER              :: iota_type_value
+  CHARACTER(LEN=10)    :: pres_type 
+  INTEGER              :: pres_type_value
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
@@ -146,6 +149,7 @@ SUBROUTINE InitMHD3D(sf)
     nfp_loc  = GETINT( "nfp")
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
+
     sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
     CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
     iota_coefs=REAL(sign_iota)*iota_coefs
@@ -154,66 +158,34 @@ SUBROUTINE InitMHD3D(sf)
     pres_coefs=pres_coefs*pres_scale
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
-    
-    CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots, Proposal=(/1e8/))
-    IF((SIZE(iota_knots)==1) .AND. (n_iota_knots==1)) THEN
-      WRITE(UNIT_stdOut,'(A)')'No valid iota B-spline knots found. Interpreting iota_coefs as polynomial coefficients.'
-      SDEALLOCATE(iota_knots)
+    iota_type  = GETSTR("iota_type", Proposal="polynomial")
+    pres_type  = GETSTR("pres_type", Proposal="polynomial")
 
-      ALLOCATE(c_aux(2*n_iota_coefs-1))
-      c_aux = 0.0_wp
-      DO i = 1,n_iota_coefs
-        c_aux(2*i-1) = iota_coefs(i) ! Only take even powers of rho in the profile
-      END DO
-      n_iota_coefs = 2*n_iota_coefs-1
-
-      n_iota_knots = 2*n_iota_coefs
-      ALLOCATE(iota_knots(n_iota_knots))
-      ALLOCATE(c_iota_bspl(n_iota_coefs))
-      iota_knots(1:n_iota_coefs) = 0.0_wp
-      iota_knots(n_iota_coefs+1:) = 1.0_wp
-      DO i = 1,n_iota_coefs
-        c_iota_bspl(i) = poly2bspl(c_aux, i, iota_knots)
-      END DO
-      ALLOCATE(iota_bspl)
-      iota_bspl = splProfile_init(iota_knots, n_iota_knots, c_iota_bspl, n_iota_coefs)
-      SDEALLOCATE(c_iota_bspl)
-      SDEALLOCATE(c_aux)
+    ALLOCATE(iota_profile)
+    IF (iota_type=="polynomial") THEN
+      iota_type_value = 0
+      iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs)
+    ELSE IF (iota_type=="bspline") THEN
+      iota_type_value = 1
+      CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
+      iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
     ELSE
-      ALLOCATE(iota_bspl)
-      iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
-    END IF
+      WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
+    END IF 
     SDEALLOCATE(iota_knots)
     SDEALLOCATE(iota_coefs)
     
-    CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots, Proposal=(/1e8/))
-    IF((pres_knots(1)==1e8) .AND. (n_pres_knots==1)) THEN
-      WRITE(UNIT_stdOut,'(A)')'No valid pressure B-spline knots found. Interpreting pres_coefs as polynomial coefficients.'
-      SDEALLOCATE(pres_knots)
-      
-      ALLOCATE(c_aux(2*n_pres_coefs-1))
-      c_aux = 0.0_wp
-      DO i = 1,n_pres_coefs
-        c_aux(2*i-1) = pres_coefs(i) ! Only take even powers of rho in the profile
-      END DO
-      n_pres_coefs = 2*n_pres_coefs-1
-
-      n_pres_knots = 2*n_pres_coefs
-      ALLOCATE(pres_knots(n_pres_knots))
-      ALLOCATE(c_pres_bspl(n_pres_coefs))
-      pres_knots(1:n_pres_coefs) = 0.0_wp
-      pres_knots(n_pres_coefs+1:) = 1.0_wp
-      DO i = 1,n_pres_coefs
-        c_pres_bspl(i) = poly2bspl(c_aux, i, pres_knots)
-      END DO
-      ALLOCATE(pres_bspl)
-      pres_bspl = splProfile_init(pres_knots, n_pres_knots, c_pres_bspl, n_pres_coefs)
-      SDEALLOCATE(c_pres_bspl)
-      SDEALLOCATE(c_aux)
+    ALLOCATE(pres_profile)
+    IF (pres_type=="polynomial") THEN
+      pres_type_value = 0
+      pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs)
+    ELSE IF (pres_type=="bspline") THEN
+      pres_type_value = 1
+      CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
+      pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
     ELSE
-      ALLOCATE(pres_bspl)
-      pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
-    END IF
+      WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
+    END IF 
     SDEALLOCATE(pres_knots)
     SDEALLOCATE(pres_coefs)
   CASE(1) !VMEC init
@@ -230,36 +202,19 @@ SUBROUTINE InitMHD3D(sf)
       sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
       CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
       iota_coefs=REAL(sign_iota)*iota_coefs
-      
-      ! Check if it is a BSpline profile
-      CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots, Proposal=(/1e8/))
-      IF((iota_knots(1)==1e8) .AND. (n_iota_knots==1)) THEN
-        WRITE(UNIT_stdOut,'(A)')'No valid iota B-spline knots found. Interpreting iota_coefs as polynomial coefficients.'
-        SDEALLOCATE(iota_knots)
+      iota_type  = GETSTR("iota_type", Proposal="polynomial")
 
-        ALLOCATE(c_aux(2*n_iota_coefs-1))
-        c_aux = 0.0_wp
-        DO i = 1,n_iota_coefs
-          c_aux(2*i-1) = iota_coefs(i) ! Only take even powers of rho in the profile
-        END DO
-        n_iota_coefs = SIZE(c_aux)
-
-        n_iota_knots = 2*n_iota_coefs
-        ALLOCATE(iota_knots(n_iota_knots))
-        ALLOCATE(c_iota_bspl(n_iota_coefs))
-        iota_knots(1:n_iota_coefs) = 0.0_wp
-        iota_knots(n_iota_coefs+1:) = 1.0_wp
-        DO i = 1,n_iota_coefs
-          c_iota_bspl(i) = poly2bspl(c_aux, i, iota_knots)
-        END DO
-        ALLOCATE(iota_bspl)
-        iota_bspl = splProfile_init(iota_knots, n_iota_knots, c_iota_bspl, n_iota_coefs)
-        SDEALLOCATE(c_iota_bspl)
-        SDEALLOCATE(c_aux)
+      ALLOCATE(iota_profile)
+      IF (iota_type=="polynomial") THEN
+        iota_type_value = 0
+        iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs)
+      ELSE IF (iota_type=="bspline") THEN
+        iota_type_value = 1
+        CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
+        iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
       ELSE
-        ALLOCATE(iota_bspl)
-        iota_bspl = splProfile_init(iota_knots, n_iota_knots, iota_coefs, n_iota_coefs)
-      END IF ! Bspline Profile
+        WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
+      END IF 
       SDEALLOCATE(iota_knots)
       SDEALLOCATE(iota_coefs)
     END IF ! iota from parameterfile
@@ -269,35 +224,19 @@ SUBROUTINE InitMHD3D(sf)
       CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
       pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
       pres_coefs=pres_coefs*pres_scale
-      ! Check if it is a BSpline profile
-      CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots, Proposal=(/1e8/))
-      IF((pres_knots(1)==1e8) .AND. (n_pres_knots==1)) THEN
-        WRITE(UNIT_stdOut,'(A)')'No valid pressure B-spline knots found. Interpreting pres_coefs as polynomial coefficients.'
-        SDEALLOCATE(pres_knots)
+      pres_type  = GETSTR("pres_type", Proposal="polynomial")
 
-        ALLOCATE(c_aux(2*n_pres_coefs-1))
-        c_aux = 0.0_wp
-        DO i = 1,n_pres_coefs
-          c_aux(2*i-1) = pres_coefs(i) ! Only take even powers of rho in the profile
-        END DO
-        n_pres_coefs = SIZE(c_aux)
-
-        n_pres_knots = 2*n_pres_coefs
-        ALLOCATE(pres_knots(n_pres_knots))
-        ALLOCATE(c_pres_bspl(n_pres_coefs))
-        pres_knots(1:n_pres_coefs) = 0.0_wp
-        pres_knots(n_pres_coefs+1:) = 1.0_wp
-        DO i = 1,n_pres_coefs
-          c_pres_bspl(i) = poly2bspl(c_aux, i, pres_knots)
-        END DO
-        ALLOCATE(pres_bspl)
-        pres_bspl = splProfile_init(pres_knots, n_pres_knots, c_pres_bspl, n_pres_coefs)
-        SDEALLOCATE(c_pres_bspl)
-        SDEALLOCATE(c_aux)
+      ALLOCATE(pres_profile)
+      IF (pres_type=="polynomial") THEN
+        pres_type_value = 0
+        pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs)
+      ELSE IF (pres_type=="bspline") THEN
+        pres_type_value = 1
+        CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
+        pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
       ELSE
-        ALLOCATE(pres_bspl)
-        pres_bspl = splProfile_init(pres_knots, n_pres_knots, pres_coefs, n_pres_coefs)
-      END IF !Bspline profile
+        WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
+      END IF 
       SDEALLOCATE(pres_knots)
       SDEALLOCATE(pres_coefs)
     END IF ! pressure from parameterfile
@@ -1606,8 +1545,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
   
-  SDEALLOCATE(iota_bspl)
-  SDEALLOCATE(pres_bspl)
+  SDEALLOCATE(iota_profile)
+  SDEALLOCATE(pres_profile)
   
   CALL FinalizeMHD3D_EvalFunc()
   IF(which_init.EQ.1) CALL FinalizeVMEC()

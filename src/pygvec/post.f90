@@ -653,6 +653,36 @@ SUBROUTINE evaluate_profile(n_s, s, var, result)
 END SUBROUTINE evaluate_profile
 
 !================================================================================================================================!
+SUBROUTINE evaluate_profile_deriv(n_s, s, n, var, result)
+  ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_MHD3D_profiles, ONLY: Eval_iota_n_Prime, Eval_p_n_Prime
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
+  INTEGER, INTENT(IN) :: n                    ! order of derivative
+  REAL, INTENT(IN), DIMENSION(n_s) :: s       ! radial evaluation points
+  CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i  ! loop variable
+  PROCEDURE(Eval_iota_n_Prime), POINTER :: eval_profile
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(TRIM(var))
+    CASE("iota")
+      eval_profile => Eval_iota_n_Prime
+    CASE("p")
+      eval_profile => Eval_p_n_Prime
+    CASE DEFAULT
+      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
+      CALL abort(__STAMP__,"")
+  END SELECT
+
+  DO i = 1,n_s
+    result(i) = eval_profile(s(i),n)
+  END DO
+END SUBROUTINE evaluate_profile_deriv
+
+!================================================================================================================================!
 !> initialize a SFL-Boozer object, with some parameters taken from the state (globals)
 !> Note: as of v0.2.16 (Thanks Christopher Albert) f90wrap supports ALLOCATABLEs in the return value
 !================================================================================================================================!

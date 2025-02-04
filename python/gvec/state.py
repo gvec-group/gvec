@@ -423,6 +423,26 @@ class State:
         result = np.zeros(rho.size, dtype=np.float64, order="F")
         _post.evaluate_profile(rho.size, rho, quantity, result)
         return result
+    
+    @_assert_init
+    def evaluate_profile_deriv(self, quantity: str, rho: np.ndarray, n: int):
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in [
+            "iota",
+            "p",
+        ]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        if rho.ndim != 1:
+            raise ValueError("rho must be a 1D array.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+
+        result = np.zeros(rho.size, dtype=np.float64, order="F")
+        _post.evaluate_profile_deriv(rho.size, rho, n, quantity, result)
+        return result
 
     # === Boozer Potential === #
 
