@@ -32,24 +32,6 @@ INTEGER :: nfp = 0
 CONTAINS
 
 !================================================================================================================================!
-SUBROUTINE redirect_stdout(filename)
-  ! MODULES
-  USE MODgvec_Globals, ONLY: Unit_stdOut, UNIT_errOut,abort
-  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=*), INTENT(IN) :: filename
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: ios
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  CLOSE(Unit_stdOut)
-
-  OPEN(Unit_stdOut, FILE=filename, STATUS='REPLACE', ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', IOSTAT=ios)
-  IF (ios /= 0) THEN
-    WRITE(Unit_errOut, '(A)') 'ERROR: could not open file', filename, 'for writing'
-    CALL abort(__STAMP__,"")
-  END IF
-END SUBROUTINE redirect_stdout
-
-!================================================================================================================================!
 SUBROUTINE Init(parameterfile)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut

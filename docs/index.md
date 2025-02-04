@@ -19,7 +19,7 @@ Ideas are strongly based on [VMEC](https://princetonuniversity.github.io/STELLOP
 Radial discretization using B-Splines of arbitrary polynomial degree. Fourier series in poloidal and toroidal direction with different maximum modenumber for each variable.
 :::
 :::{grid-item-card}  Flexible Mapping
-Choice of the mapping $(X^1,X^2,\zeta) \mapsto (x,y,z)$, not restricted to $(R,Z,\phi)$.
+Choice of the mapping $(X^1,X^2,\zeta) \mapsto (x,y,z)$, not restricted to $(R,Z,\phi)$, but e.g. a generalized Frenet frame.
 :::
 :::{grid-item-card}  Multiple Interfaces
 Initialize with a VMEC netCDF output and convert to VMEC netCDF or interface with other specific converters.
@@ -27,8 +27,8 @@ Initialize with a VMEC netCDF output and convert to VMEC netCDF or interface wit
 :::{grid-item-card}  Modern Fortran
 Use of modern object-oriented Fortran
 :::
-:::{grid-item-card}  Python Postprocessing
-*Python bindings for easy postprocessing and integration with other tools.* (in development)
+:::{grid-item-card}  Python bindings
+Python bindings for running and postprocessing and integration with other tools.
 :::
 ::::
 
@@ -60,7 +60,7 @@ Automatic Fortran code documentation generated with [ford](https://forddocs.read
 ## Contact
 
 GVEC is being developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
-led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics 
+led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics
 in Garching, Germany.
 
 The list of contributors is found in <project:dev/CONTRIBUTORS.md>.

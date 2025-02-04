@@ -5,11 +5,11 @@ These pages contain development guidelines and useful resources for developing G
 ## Contact
 
 GVEC is mainly being developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
-led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics 
+led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics
 in Garching, Germany. Outside contributions are of course very welcome!
 
 <!-- TOC -->
- 
+
 ```{toctree}
 :caption: Developer Guide
 
@@ -24,7 +24,6 @@ Contributors <CONTRIBUTORS>
 ## Development Workflow
 
 * prefer merging over rebasing
-* use `git-lfs` for large files
 * automatic testing of all pushes to GitLab, **add tests for new features**
 * use feature branches, merge to `develop` early and often (*at least in theory*)
     * use GitLab *merge requests* to document the changes and code review
@@ -43,7 +42,6 @@ Contributors <CONTRIBUTORS>
 * `.gitlab-ci.yml` & `CI_templates` - configuration of the GitLab CI Pipelines (see <dev/pipeline>)
 * `docs/` - configuration and static content for the documentation
 * `.gitignore` - file patterns to be ignored by `git`
-* `.gitattributes` - configuration of `git-lfs`
 * `.mailmap` - cleaning git authors for `git blame`
 * `template/` - a structural template for fortran sources
 * `tools/`
@@ -60,13 +58,13 @@ with [polymorphism in fortran](https://gist.github.com/n-s-k/522f2669979ed6d0582
 * Git Graph
 * GitLab Workflow
 * GitLens (Premium/Students)
-* GitHub Copilot (Premium/Students)
-* Codeium
+* GitHub Copilot (AI, Premium/Students)
+* Codeium (AI)
 * Jupyter
 * MyST-Markdown
 * Python
 * Pylance
-* Black Formatter
+* Ruff (Python Linter & Formatter)
 * Todo Tree
 * Vim
 * YAML
