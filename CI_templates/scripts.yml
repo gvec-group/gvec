@@ -17,9 +17,13 @@
     - git status
     - echo -e "\e[0Ksection_end:`date +%s`:setup-env\r\e[0K"
 
+.after_script_basic:
+  after_script:
+    - echo "CI_JOB_STATUS is ${CI_JOB_STATUS}"
+    - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then sacct --name ${SLURM_JOB_NAME} -o JobID,JobName,State,NNodes,NCPUS,NTasks; fi
 
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "env" (printout the enviroment for future reference)
+# TEMPLATES FOR STAGE "env" (printout the environment for future reference)
 # =================================================================================================================================
 
 .script_env:
@@ -32,6 +36,8 @@
     - echo -e "\e[0Ksection_end:`date +%s`:printenv\r\e[0K"
     - echo $OMP_NUM_THREADS
     - echo $SHELL
+    - ls -las
+    - date
 
 
 # =================================================================================================================================
@@ -39,8 +45,6 @@
 # =================================================================================================================================
 
 .script_build:
-  variables:
-    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
     - pwd
@@ -71,7 +75,7 @@
     - echo -e "\e[0Ksection_end:`date +%s`:make\r\e[0K"
     - cd ..; echo "... BUILD PHASE FINISHED!"
   artifacts:
-    name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
+    name: "build_${CI_PIPELINE_ID}_${CI_JOB_ID}_${BUILDNAME}"
     paths:
       - build_${BUILDNAME}
       - log_${BUILDNAME}_*.txt
@@ -144,29 +148,40 @@
 .before_script_exportvars:
   before_script:
     - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
-    - if [ ${MPI_MODE} = 'mpiON' ]; then export MPI_PRFX="mpirun -np ${MPI_RNKS}"; else export MPI_PRFX=""; fi
+    - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then
+        export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT}";
+      else
+        if [ ${MPI_MODE} = 'mpiON' ]; then export RUN_PRFX="mpirun -np ${MPI_RNKS}"; else export RUN_PRFX=""; fi
+      fi
     - if [ ${OMP_MODE} = 'ompON' ]; then export OMP_NUM_THREADS=${OMP_NUM_THR}; fi
-    - echo "MPI prefix:" ${MPI_PRFX}
-    - echo "OpenMP number of threads:" $OMP_NUM_THREADS ", should be =" ${OMP_NUM_THR}
     - echo "hostname:" $HOSTNAME
-    - export EXECPRE="${MPI_PRFX}"
     - echo "HASH_TAG is ${HASH_TAG}"
     - echo "BUILDNAME is ${BUILDNAME} >> build_${BUILDNAME}/"
     - echo "CASENAME is ${CASENAME} >> CIrun_${CASENAME}/"
-    - echo "Running with ${CURR_CMP} in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
+    - echo "Running with ${CURR_CMP} in $CMP_MODE mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}";
+    - echo "Run prefix:" ${RUN_PRFX}
+    - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then
+        echo "SLURM_JOB_NAME:" ${SLURM_JOB_NAME};
+        echo "SLURM_TIMELIMIT:" ${SLURM_TIMELIMIT} "minutes";
+        echo "SRUN_TIMEOUT:" ${SRUN_TIMEOUT} "seconds";
+        echo "SLURM_MEM_PER_NODE:" ${SLURM_MEM_PER_NODE};
+        echo "SLURM_NNODES:" ${SLURM_NNODES};
+        echo "SLURM_NTASKS_PER_NODE:" ${SLURM_NTASKS_PER_NODE};
+        echo "SLURM_CPUS_PER_TASK:" ${SLURM_CPUS_PER_TASK};
+        echo "SLURM_NTASKS_PER_CORE:" ${SLURM_NTASKS_PER_CORE};
+        echo "OpenMP number of threads:" $OMP_NUM_THREADS ", should be =" ${OMP_NUM_THR};
+      fi
     - python --version
     - python -m pytest --version
     - echo -e "\e[0Ksection_end:`date +%s`:exportvars\r\e[0K"
 
 .script_run:
-  variables:
-    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
-    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-run[collapsed=true]\r\e[0KPrepare Run"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
-    - echo ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
-    -      ${PYTEST_EXEC_CMD}  --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${RUN_PRFX}" --dry-run
+    # avoid submission of SLURM jobs for the --dry-run by removing the --run-prefix argument
+    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     - rm -rf CIrun_${CASENAME}
     - echo -e "\e[0Ksection_end:`date +%s`:pre-run\r\e[0K"
     # RUN
@@ -176,9 +191,10 @@
     - ${PYTEST_EXEC_CMD}
       --log-file=log_pytest_run_norestart.txt
       -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)"
-      $PYTEST_DIR_OPTS
+      $PYTEST_DIR_OPTS 
       -k "${PYTEST_KEY_OPTS}"
-      --junitxml=pytest.xml
+      --run-prefix "${RUN_PRFX}"
+      --junitxml=pytest.xml 
       --annotations=annotations.json
     # pytest: restart
     - ${PYTEST_EXEC_CMD}
@@ -186,11 +202,12 @@
       -m "${PYTEST_MARKER_OPTS} and run_stage and restart"
       $PYTEST_DIR_OPTS
       -k "${PYTEST_KEY_OPTS}"
+      --run-prefix "${RUN_PRFX}"
       --junitxml=pytest-restart.xml
       --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
   artifacts:
-    name: "${CI_PIPELINE_ID}_run_${CASENAME}"
+    name: "run_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
       - log_pytest_run_norestart.txt
       - log_pytest_run_restart.txt
@@ -265,7 +282,7 @@
     - echo -e "\e[0Ksection_end:`date +%s`:regression\r\e[0K"
     - exit $RET
   artifacts:
-    name: "${CI_PIPELINE_ID}_${CASENAME_1}_vs_${CASENAME_2}"
+    name: "reg_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME_1}_vs_${CASENAME_2}"
     paths:
       - log_pytest_regression.txt
       - CIrun_${CASENAME_1}
@@ -282,9 +299,6 @@
 # =================================================================================================================================
 
 .script_post:
-  variables:
-    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
-    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-post[collapsed=true]\r\e[0KPrepare Postprocessing"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
@@ -302,7 +316,7 @@
       --annotations=annotations.json
     - echo -e "\e[0Ksection_end:`date +%s`:post\r\e[0K"
   artifacts:
-    name: "${CI_PIPELINE_ID}_post_${CASENAME}"
+    name: "post_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
       - log_pytest_post.txt
       - CIpost_${CASENAME}
@@ -317,9 +331,6 @@
 # =================================================================================================================================
 
 .script_conv:
-  variables:
-    BUILDNAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}
-    CASENAME: ${HASH_TAG}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-conv[collapsed=true]\r\e[0KPrepare converter Postprocessing"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --convdir=CIconv_${CASENAME}"
@@ -338,7 +349,7 @@
       # <==== -k"not frenet": FRENET HMAP NOT YET WORKING WITH CONVERTERS, NEED TO READ PARAMETER FROM PARAMETER.INI
     - echo -e "\e[0Ksection_end:`date +%s`:conv\r\e[0K"
   artifacts:
-    name: "${CI_PIPELINE_ID}_conv_${CASENAME}"
+    name: "conv_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
       - log_pytest_conv.txt
       - CIconv_${CASENAME}

@@ -1,10 +1,7 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven with the command:
-# > . CI_setup/raven_setup_intel
+# bash source script
+# usage: source CI_setup/raven_setup_gfortran-13
 #
-# LAST MODIFIED: 2024-02-19
+# LAST MODIFIED: 2025-02-03
 # ===========================================
 
 module purge
