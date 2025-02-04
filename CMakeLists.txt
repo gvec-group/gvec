@@ -108,6 +108,7 @@ OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to li
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" OFF)
 OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
 OPTION(COMPILE_PYGVEC "compile python interface to gvec" OFF)
+MARK_AS_ADVANCED(COMPILE_PYGVEC)
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
 OPTION(USE_MPI "enable MPI" OFF)
@@ -387,7 +388,7 @@ ENDIF()
 IF(USE_FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
   IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_DRACO GREATER -1))
-    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib ) 
+    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib )
     INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
   ENDIF()
     #TTR: don't know why above list append fails for MacOS... needs line below to work

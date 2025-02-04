@@ -74,32 +74,19 @@ Additionally GVEC requires:
 - netcdf library (Fortran & serial!)
 
 :::::
-:::::{tab-item} MPCDF
+:::::{tab-item} cluster
 :sync: mpcdf
 
-On MPCDF clusters (raven, cobra) we can use the `module` system to manage dependencies.
-There is a prepared shell script in `CI_setup` to load the modules, depending on the compiler:
-
-::::{tab-set}
-:sync-group: compiler
-
-:::{tab-item} Intel
-:sync: intel
-
+On MPCDF clusters (raven, viper) we can use the `module` system to manage dependencies.
+There are prepared scripts in `CI_setup` that need to be sourced to load the modules, depending on the machine and the compiler.
+For example on raven with the latest intel compiler, use
 ```bash
-. CI_setup/mpcdf_setup_intel
+. CI_setup/raven_setup_ifx-2025
 ```
-
-:::
-:::{tab-item} GNU
-:sync: gnu
-
+or on viper with the latest gfortran compiler, use
 ```bash
-. CI_setup/mpcdf_setup_gnu
+. CI_setup/viper_setup_gfortran-13
 ```
-
-:::
-::::
 
 :::::
 :::::{tab-item} Ubuntu
@@ -207,6 +194,8 @@ python
 >>> import gvec
 ```
 Also, the virtual environment should allow to call the executable with `gvec -h`.
+
+Once GVEC and its python bindings are properly installed, please continue with [](getting-started).
 
 ### Troubleshooting
 
