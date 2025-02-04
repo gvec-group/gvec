@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 import re
 import shutil
-
+import sys
 
 # === ASSERTION FUNCTIONS === #
 
@@ -196,20 +196,27 @@ def check_diff_files(
     return txt_differences, num_differences, warnings
 
 
-def assert_empty_stderr(path: str | Path = "stderr.txt"):
+def assert_empty_stderr(path: str | Path = "stderr.txt", slurm: bool = False):
     """
     Asserts that the specified file (default `stderr.txt`) is empty.
 
     Args:
         path (str | Path, optional): The path to the stderr file. Defaults to `stderr.txt`.
+
     """
     with open(path) as file:
         lines = file.readlines()
+    if slurm is True:
+        # check for SLURM stderr in stderr.txt
+        assert len(lines) == 2, "Errors found in stderr.txt"
+        assert ("srun:" in line for line in lines), "SLURM stderr not found in stderr.txt"
+    else:
+        # check for an empty stderr.txt file
         assert len(lines) == 0
 
 
 def assert_stdout_finished(
-    path: str | Path = "stdout.txt", message="SUCESSFULLY FINISHED"
+    path: str | Path = "stdout.txt", message="SUCCESSFULLY FINISHED"
 ):
     """
     Asserts that the specified file (default `stdout.txt`) ends with a message in the second to last line.
@@ -269,3 +276,4 @@ def chdir(target: str | Path):
         yield
     finally:
         os.chdir(source)
+

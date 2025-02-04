@@ -20,6 +20,7 @@ post$[[ inputs.env ]]:
     - !reference [".before_script_exportvars", "before_script"]
   extends:
     - $[[ inputs.env ]]
+    - .vars_dirs_artifacts
     - .script_post
     - .vars_matrix_post  # matrix of variables
     - $[[ inputs.rules ]]
