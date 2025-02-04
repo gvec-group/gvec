@@ -46,7 +46,7 @@
 :::: -->
 
 :::{note}
-These instructions have last been updated on 2024-02-26 and tested with ubuntu/raven/cobra/macOS.
+These instructions have last been updated on 2025-02-04 and tested with ubuntu/raven/cobra/macOS.
 :::
 
 ## Prerequisites
@@ -67,8 +67,7 @@ Compilers tested with GVEC include:
 Additionally GVEC requires:
 
 - git
-- git lfs
-- cmake 
+- cmake
 - libc6
 - zlib
 - BLAS/LAPACK (or compatible, e.g. ATLAS, MKL)
@@ -109,7 +108,6 @@ There is a prepared shell script in `CI_setup` to load the modules, depending on
 Install the following packages using `apt`:
 
 - `cmake` and `cmake-curses-gui`
-- `git-lfs`
 - `gcc`,`g++` and `gfortran`
 - `liblapack3` and `liblapack-dev`
 - `zlib1g-dev`
@@ -121,8 +119,7 @@ Install the following packages using `apt`:
 
 Install the following packages using homebrew (`brew install`)
 
-- `cmake` 
-- `git-lfs`
+- `cmake`
 - `netcdf-fortran`
 - `gcc` (possibly no need to install explicitly)
 - `lapack` (possibly no need to install explicitly)
@@ -137,7 +134,7 @@ Install the following packages using homebrew (`brew install`)
 
     :::{tab-item} HTTPS
 
-    Either you use the `https` address to clone, which always requests username and password when connecting to the mpcdf gitlab: 
+    Either you use the `https` address to clone, which always requests username and password when connecting to the mpcdf gitlab:
     ```bash
     git clone https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git
     ```
@@ -162,35 +159,88 @@ Install the following packages using homebrew (`brew install`)
     ```bash
     git checkout NAME_OF_BRANCH
     ```
-1.  Since `git lfs` has been recently introduced, once you have GVEC cloned and the branch checked out, be sure to run in the `gvec` folder 
-    ```bash
-    git lfs install
-    git lfs pull
-    ```
 
-## Compiling GVEC with `cmake`
+## Install gvec with python bindings
+
+:::{note}
+Please ensure to have installed all packages mentioned in the 'Prerequisites' section.
+:::
+
+#### Manually from a cloned repository
+You can install the gvec python package **manually**, from a cloned repository.
+We strongly recommend to **always** use a clean virtual environment for the installation, e.g.
+```bash
+cd gvec
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Then you can install the gvec python package manually with
+```bash
+pip install .[dev,examples] -v
+```
+
+#### Via pip without a clone
+
+Another possibility, still **within a virtual environment**, but without cloning the repository, is using `pip` from the GitLab package registry
+```bash
+pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
+```
+
+or using `pip` from the `develop` branch
+```bash
+pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git
+```
+:::{note}
+
+If you want to install a development version from a different branch, you can specify this using `@branch_name`, e.g.:
+```bash
+pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
+```
+:::
+
+#### Check the installation
+
+Once the virtual environment is activated with `source .venv/bin/activate`, you should be able to import the `gvec` python package without any errors:
+```bash
+python
+>>> import gvec
+```
+Also, the virtual environment should allow to call the executable with `gvec -h`.
+
+
+## Install GVEC with `cmake`
 
 The standard way of compiling GVEC is using cmake presets, but there is also an interactive way with ccmake.
 
 :::::{note}
-Before executing cmake, be sure that you have all libraries (netcdf must be compiled in serial). It might also be necessary to export an environment variable `FC` to point to the compiler. 
+Before executing cmake, be sure that you have all libraries (netcdf must be compiled in serial). It might also be necessary to export an environment variable `FC` to point to the compiler.
 
 ::::{tab-set}
 :sync-group: compiler
 
-:::{tab-item} Intel
+
+:::{tab-item} GNU
+:sync: gnu
+
+```bash
+export FC=`which gfortran`
+```
+:::
+
+:::{tab-item} Intel ifx
+:sync: intel
+
+```bash
+export FC=`which ifx`
+```
+
+:::
+:::{tab-item} Intel ifort
 :sync: intel
 
 ```bash
 export FC=`which ifort`
-```
-
-:::
-:::{tab-item} GNU
-:sync: gnu
-   
-```bash 
-export FC=`which gfortran`
 ```
 
 :::
@@ -201,14 +251,14 @@ export FC=`which gfortran`
 :::::{tab-item} CMake Presets
 <!-- ### Configure and build with cmake presets -->
 
-With Cmake version > 3.22, the CMakePresets feature can be used to configure and then build the code. 
+With Cmake version > 3.22, the CMakePresets feature can be used to configure and then build the code.
 
 1.  Start from the GVEC directory with
     ```bash
     cmake --list-presets
     ```
     to show a list of presets (defined `CMakePresets.json` and `CMakeUserPresets.json`).
-1.  Select a preset and specify the `build` directory (the build directory can have any name). 
+1.  Select a preset and specify the `build` directory (the build directory can have any name).
 
     ::::{tab-set}
     :sync-group: os
@@ -230,7 +280,7 @@ With Cmake version > 3.22, the CMakePresets feature can be used to configure and
 
     :::
     ::::
-    
+
 1.  Then compile with  (`-j` compiles in parallel)
     ```bash
     cmake --build build -j
@@ -262,7 +312,7 @@ Further, the user can also create own presets by creating his own preset file `C
   ]
 }
 ```
-The user presets then appear also on the list of presets. 
+The user presets then appear also on the list of presets.
 
 :::{note}
 The preset files allow building the code in **VScode** with "CMake" and "CMake Tools" extensions.
@@ -274,20 +324,20 @@ The preset files allow building the code in **VScode** with "CMake" and "CMake T
 
 To compile GVEC interactively (needs `ccmake` command):
 
-1.  create a new subdirectory that can have any name, e.g. `build` 
-    ```bash 
+1.  create a new subdirectory that can have any name, e.g. `build`
+    ```bash
     mkdir build ; cd build
     ```
 1.  Inside that directory execute
     ```bash
     ccmake ../
-    ``` 
-    `ccmake` gives you a visual setup on the terminal. 
+    ```
+    `ccmake` gives you a visual setup on the terminal.
     *  Press "enter" to change options, and press "enter" again to fix the change
-    *  Press "c" to configure and "g" to create the Makefiles. 
+    *  Press "c" to configure and "g" to create the Makefiles.
     *  If `BUILD_NETCDF=ON` and no preinstalled libraries for netcdf are found, an error occurs...
     * On a Mac, be sure to activate `COMPILE_GVEC_AS_STATIC_LIB=ON` (in ccmake, toggle to view all variables by typing `t`)
-    *  In the main `CMakeList.txt` file, some pre-defined setups (library paths) for different architectures are controlled 
+    *  In the main `CMakeList.txt` file, some pre-defined setups (library paths) for different architectures are controlled
        by setting the  `CMAKE_HOSTNAME` to `cobra`/`raven`/`mac_brew`/`mac_ports`/`tokp`/.. .
 1.  Finally, compile GVEC in the build directory by typing (`-j` compiles in parallel)
     ```bash

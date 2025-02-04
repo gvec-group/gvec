@@ -1,0 +1,27 @@
+# bash source script
+# usage: source CI_setup/mpcdf_setup_ifx-impi-2024
+#
+# LAST MODIFIED: 2025-02-03
+# ===========================================
+
+module purge
+module load git
+module load git-lfs
+module load cmake/3.26
+module load intel/2024.0
+module load impi/2021.11
+module load mkl/2024.0
+module load hdf5-serial/1.14.1
+module load netcdf-serial/4.9.2
+module load ftimings
+module load anaconda/3/2023.03 #for pytest
+#module load ftimings
+#module load numdiff
+module list
+export FC=`which mpiifx`
+export CC=`which mpiicx`
+export CXX=`which mpiicx`
+
+#uncomment to be able to use mpirun directly
+#unset I_MPI_HYDRA_BOOTSTRAP
+#unset I_MPI_PMI_LIBRARY

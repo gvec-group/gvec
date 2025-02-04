@@ -1,14 +1,14 @@
 # =================================================================================================================================
 # Stage "regression"
 # =================================================================================================================================
-# compare results between two different runs
+# compare results between two different compilers
 
 spec:
   inputs:
     env:
       description: Name of the environment, e.g. `mpcdfci_ifx-latest` (only for pytest, CURR_CMP is overridden)
       default: .mpcdfci_ifx-latest
-    HOSTNAME:
+    CI_HOSTNAME:
       description: Name of the host, e.g. `mpcdfci`
       default: mpcdfci
     CURR_CMP_1:
@@ -29,23 +29,24 @@ spec:
 
 ---
 
-reg.$[[ inputs.HOSTNAME ]]$[[ inputs.run-postfix ]]_$[[ inputs.CURR_CMP_1 ]]_vs_$[[ inputs.CURR_CMP_2 ]]:
+reg.$[[ inputs.CI_HOSTNAME ]]$[[ inputs.run-postfix ]]_$[[ inputs.CURR_CMP_1 ]]_vs_$[[ inputs.CURR_CMP_2 ]]:
   stage: regression
   extends:
     - $[[ inputs.env ]]
     - .before_script_modules
+    - .vars_dirs_artifacts
     - .script_regression
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   variables:
     CURR_CMP_1: $[[ inputs.CURR_CMP_1 ]]
     CURR_CMP_2: $[[ inputs.CURR_CMP_2 ]]
-    CASENAME_1: ${HASH_TAG}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_1: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiOFF
   allow_failure:
     exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
   needs:
-    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP_1 ]]$[[ inputs.run-postfix ]]
+    - job: run.$[[ inputs.CI_HOSTNAME ]]_$[[ inputs.CURR_CMP_1 ]]$[[ inputs.run-postfix ]]
       artifacts: true
-    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP_2 ]]$[[ inputs.run-postfix ]]
+    - job: run.$[[ inputs.CI_HOSTNAME ]]_$[[ inputs.CURR_CMP_2 ]]$[[ inputs.run-postfix ]]
       artifacts: true

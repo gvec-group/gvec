@@ -12,7 +12,7 @@ spec:
       description: Template with variables or parallel:matrix (do not use a `_tag` variant here)
       default: .vars_matrix_run
     run-postfix:
-      description: Run job name postfix, e.g. `_debugrun`
+      description: Run job name postfix, e.g. `_debugrun` or `_tag_slurm`
       default: ""
     rules:
       description: Rules for the job, e.g. `.rules_default`
@@ -25,18 +25,19 @@ reg$[[ inputs.env ]]$[[ inputs.run-postfix ]]_vs_tag:
   extends:
     - $[[ inputs.env ]]
     - .before_script_modules
+    - .vars_dirs_artifacts
     - .script_regression
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   variables:
     HASH_TAG_1: ${HASH_TAG}
     HASH_TAG_2: ${HASH_TAG_REFERENCE}
-    CASENAME_1: ${HASH_TAG_1}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
-    CASENAME_2: ${HASH_TAG_2}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+    CASENAME_1: ${HASH_TAG_1}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+    CASENAME_2: ${HASH_TAG_2}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
   allow_failure:
     exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
   needs:
     - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]
       artifacts: true
-    - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]_tag
+    - job: run$[[ inputs.env ]]_tag$[[ inputs.run-postfix ]]
       artifacts: true

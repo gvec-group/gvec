@@ -11,7 +11,7 @@ spec:
       description: Template with variables or parallel:matrix
       default: .vars_matrix_run
     run-postfix:
-      description: Job name postfix, e.g. `_debugrun`
+      description: Job name postfix, e.g. `_debugrun` or `_tag_slurm`
       default: ""
     build-postfix:
       description: Build-Job name postfix, e.g. `_only_converter`
@@ -29,9 +29,11 @@ run$[[ inputs.env ]]$[[ inputs.run-postfix ]]:
     - !reference [".before_script_exportvars", "before_script"]
   extends:
     - $[[ inputs.env ]]
+    - .vars_dirs_artifacts
     - .script_run
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
+    - .after_script_basic
   needs:
     - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true

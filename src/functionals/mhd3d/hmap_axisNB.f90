@@ -687,7 +687,7 @@ END FUNCTION hmap_axisNB_eval_dxdq
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta, &
-                                Jh,sJh,g_tt    ,g_tz    ,g_zz    , &
+                                Jh,g_tt    ,g_tz    ,g_zz    , &
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  ) 
 ! MODULES
@@ -700,28 +700,19 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN)   :: q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT)   :: Jh,sJh,g_tt    ,g_tz    ,g_zz    , &
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT)   :: Jh,g_tt    ,g_tz    ,g_zz    , &
                                                                   Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                                                   Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i,j,k                                                                
-  REAL(wp),DIMENSION(3):: Tq 
-  REAL(wp) :: TqTq,NTq,BTq,NpTq,BpTq                                                                    
   !===================================================================================================================================
-#define OMPDEF PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k,Tq,TqTq,NTq,BTq,NpTq,BpTq)
+#define OMPDEF PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
 #define TEMPLATE_LOOP(IZT) \
   DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1);\
-    Tq=(sf%aux%T(:,IZT)+q1_in(i,j,k)*sf%aux%Np(:,IZT)+q2_in(i,j,k)*sf%aux%Bp(:,IZT)); \
-    TqTq=SUM(Tq(:)*Tq(:)); \
-    NTq =SUM(sf%aux%N( :,IZT)*Tq(:)); \
-    BTq =SUM(sf%aux%B( :,IZT)*Tq(:)); \
-    NpTq=SUM(sf%aux%Np(:,IZT)*Tq(:)); \
-    BpTq=SUM(sf%aux%Bp(:,IZT)*Tq(:)); \
-    CALL eval_all_e(TqTq,NTq,BTq,NpTq,BpTq,sf%aux%NN(IZT),sf%aux%BB(IZT),sf%aux%NB(IZT), \
-                    sf%aux%NpN(IZT),sf%aux%NpB(IZT),sf%aux%BpN(IZT),sf%aux%BpB(IZT), \
-                    q1_thet(i,j,k),q2_thet(i,j,k),q1_zeta(i,j,k),q2_zeta(i,j,k), \
-                    Jh(i,j,k),sJh(i,j,k),g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k)    , \
+    CALL eval_all_e(sf%aux,IZT, \
+                    q1_in(i,j,k),q2_in(i,j,k),q1_thet(i,j,k),q2_thet(i,j,k),q1_zeta(i,j,k),q2_zeta(i,j,k), \
+                    Jh(i,j,k),g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k)    , \
                     Jh_dq1(i,j,k)     ,g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), \
                     Jh_dq2(i,j,k)     ,g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k) ); \
   END DO; END DO; END DO \
@@ -755,38 +746,43 @@ END SUBROUTINE hmap_axisNB_eval_all
 !> evaluate all quantities at one given point (elemental)
 !!
 !===================================================================================================================================
-PURE ELEMENTAL SUBROUTINE eval_all_e(TqTq,NTq,BTq,NpTq,BpTq,NN,BB,NB,NpN,NpB,BpN,BpB,q1t,q2t,q1z,q2z, &
-                                     Jh,sJh,g_tt,    g_tz,    g_zz,     &
+PURE SUBROUTINE eval_all_e(aux,iz,q1,q2,q1t,q2t,q1z,q2z, &
+                                     Jh,g_tt,    g_tz,    g_zz,     &
                                      Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                      Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp),INTENT(IN) :: TqTq,NTq,BTq,NpTq,BpTq    !! solution dependent dot products
-  REAL(wp),INTENT(IN) :: NN,BB,NB,NpN,NpB,BpN,BpB  !! dot products of frame dependent vectors
-  REAL(wp),INTENT(IN) :: q1t,q2t     !! theta derivative of solution variables q1,q2 
-  REAL(wp),INTENT(IN) :: q1z,q2z     !!  zeta derivative of solution variables q1,q2 
+  TYPE(t_hmap_axisNB_aux),INTENT(IN) :: aux
+  INTEGER ,INTENT(IN)  :: iz
+  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: q1t,q2t     !! theta derivative of solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: q1z,q2z     !!  zeta derivative of solution variables q1,q2 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp),INTENT(OUT) :: Jh,sJh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
+  REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
   REAL(wp),INTENT(OUT) :: Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1  !! and their variation vs q1
   REAL(wp),INTENT(OUT) :: Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  !! and their variation vs q2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)              :: Jh2 
+  !REAL(wp)            :: TqTq,NTq,BTq,NpTq,BpTq    !! solution dependent dot products
+  !REAL(wp)            :: NN,BB,NB,NpN,NpB,BpN,BpB  !! dot products of frame dependent vectors
+  REAL(wp) :: Tq(3),NxB(3),TqTq,NTq,BTq,NpTq,BpTq
 !===================================================================================================================================
-  !Tq=(T+q1*Np+q2*Bp)
-  !TqTq =SUM(Tq(:)*Tq(:))
-  !NTq  =SUM(N( :)*Tq(:))
-  !BTq  =SUM(B( :)*Tq(:))
-  !NpTq =SUM(Np(:)*Tq(:))
-  !BpTq =SUM(Bp(:)*Tq(:))
-  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN   
-  Jh=SQRT(Jh2)
-  sJh=1.0_wp/Jh
-  Jh_dq1=(NpTq*(NN*BB-NB*NB) + NpB*(NB*NTq-NN*BTq) + NpN*(NB*BTq-BB*Ntq))*sJh
-  Jh_dq2=(BpTq*(NN*BB-NB*NB) + BpB*(NB*NTq-NN*BTq) + BpN*(NB*BTq-BB*Ntq))*sJh
+  ASSOCIATE(T=>aux%T(:,iz),N=>aux%N(:,iz),B=>aux%B(:,iz),Np=>aux%Np(:,iz),Bp=>aux%Bp(:,iz), &
+            NN=>aux%NN(iz),BB=>aux%BB(iz),NB=>aux%NB(iz),NpN=>aux%NpN(iz),NpB=>aux%NpB(iz), &
+            BpN=>aux%BpN(iz),BpB=>aux%BpB(iz))
+  Tq=(T+q1*Np+q2*Bp)
+  NxB=CROSS(N,B)
+  TqTq =SUM(Tq(:)*Tq(:))
+  NTq  =SUM(N( :)*Tq(:))
+  BTq  =SUM(B( :)*Tq(:))
+  NpTq =SUM(Np(:)*Tq(:))
+  BpTq =SUM(Bp(:)*Tq(:))
+  Jh=SUM(Tq*NxB)
+  Jh_dq1=SUM(Np*NxB)
+  Jh_dq2=SUM(Bp*NxB)
   !! template for g_ab
   !! q1q1_ab = q1a*q1b
   !! q2q2_ab = q2a*q2b
@@ -828,6 +824,7 @@ PURE ELEMENTAL SUBROUTINE eval_all_e(TqTq,NTq,BTq,NpTq,BpTq,NN,BB,NB,NpN,NpB,BpN
   g_zz     = NN*q1z*q1z + BB*q2z*q2z + TqTq + NB *(q1z*q2z+q2z*q1z) + NTq*(q1z+q1z) + BTq*(q2z+q2z)
   g_zz_dq1 =                   2.0_wp*(NpTq                         + NpN* q1z      + NpB* q2z      )
   g_zz_dq2 =                   2.0_wp*(BpTq                         + BpN* q1z      + BpB* q2z      )
+  END ASSOCIATE
 END SUBROUTINE eval_all_e
 
 
@@ -848,23 +845,14 @@ IMPLICIT NONE
   REAL(wp)                          :: Jh
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
-  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
   CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
-  Tq=(T+q1*Np+q2*Bp)
-  TqTq=SUM(Tq(:)*Tq(:))
-  NTq =SUM(N(:)*Tq(:))
-  BTq =SUM(B(:)*Tq(:))
-  NN  =SUM(N(:)*N(:))
-  BB  =SUM(B(:)*B(:))
-  NB  =SUM(N(:)*B(:))
-  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN   
-  IF(Jh2 .LT. 1.0e-4) &
+  Jh=SUM((T+q1*Np+q2*Bp)*CROSS(N,B))  ! Tq. (N x B)
+  IF(Jh .LT. 1.0e-8) &
       CALL abort(__STAMP__, &
            "hmap_axisNB,  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
-  Jh=SQRT(Jh2)
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh
 
@@ -884,25 +872,11 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
   REAL(wp)                          :: Jh_dq1
 !-----------------------------------------------------------------------------------------------------------------------------------
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
-  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
   CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
-  Tq=(T+q1*Np+q2*Bp)
-  TqTq=SUM(Tq(:)*Tq(:))
-  NTq =SUM(N(:)*Tq(:))
-  BTq =SUM(B(:)*Tq(:))
-  NN  =SUM(N(:)*N(:))
-  BB  =SUM(B(:)*B(:))
-  NB  =SUM(N(:)*B(:))
-  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN
-  IF(Jh2 .LT. 1.0e-4) &
-      CALL abort(__STAMP__, &
-           "hmap_axisNB,  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
-
-  Jh_dq1=(SUM(Tq*Np)*(NN*BB-NB*NB) + SUM(B*Np)*(NB*NTq-NN*BTq) + SUM(N*Np)*(NB*BTq-BB*Ntq)  )/SQRT(Jh2) 
-
+  Jh_dq1=SUM(Np*CROSS(N,B))  ! Tq. (N x B)
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh_dq1
 
@@ -922,24 +896,11 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
   REAL(wp)                          :: Jh_dq2
 !-----------------------------------------------------------------------------------------------------------------------------------
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
-  REAL(wp)              :: TqTq,NN,BB,NTq,BTq,NB,Jh2 
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
   CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
-  Tq=(T+q1*Np+q2*Bp)
-  TqTq=SUM(Tq(:)*Tq(:))
-  NTq =SUM(N(:)*Tq(:))
-  BTq =SUM(B(:)*Tq(:))
-  NN  =SUM(N(:)*N(:))
-  BB  =SUM(B(:)*B(:))
-  NB  =SUM(N(:)*B(:))
-  Jh2=TqTq*(NN*BB-NB*NB)  +2.0_wp*NB*Btq*Ntq - NTq*NTq*BB - BTq*BTq*NN
-  IF(Jh2 .LT. 1.0e-4) &
-      CALL abort(__STAMP__, &
-           "hmap_axisNB,  Jh<0",RealInfo=zeta*sf%nfp/TWOPI)
-
-  Jh_dq2=(SUM(Tq*Bp)*(NN*BB-NB*NB) + SUM(B*Bp)*(NB*NTq-NN*BTq) + SUM(N*Bp)*(NB*BTq-BB*Ntq)  )/SQRT(Jh2) 
+  Jh_dq2=SUM(Bp*CROSS(N,B))
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh_dq2
 
@@ -1139,7 +1100,7 @@ IMPLICIT NONE
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps
   REAL(wp)           :: zeta(nzeta)
   REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,q1t,q2t,q1z,q2z, &
-                                     Jh,sJh,g_tt,    g_tz,    g_zz,     &
+                                     Jh,g_tt,    g_tz,    g_zz,     &
                                      Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                      Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
@@ -1293,7 +1254,7 @@ IMPLICIT NONE
       ndims(jdir)=ns
       ndims(kdir)=nthet
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
-      ALLOCATE(q2,q1t,q2t,q1z,q2z,Jh,sJh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+      ALLOCATE(q2,q1t,q2t,q1z,q2z,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                mold=q1)
       !assign somewhat randomly
       DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)  
@@ -1305,12 +1266,11 @@ IMPLICIT NONE
         q2z(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
       END DO; END DO; END DO 
       CALL hmap_axisNB_eval_all(sf,ndims,idir,q1,q2,q1t,q2t,q1z,q2z, &
-           Jh,sJh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
+           Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
       DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
         ijk=(/i,j,k/)
         izeta=ijk(idir)
         Jh(i,j,k)       =Jh(i,j,k)       - sf%eval_Jh((/q1(i,j,k),q2(i,j,k),zeta(izeta)/))
-        sJh(i,j,k)      =sJh(i,j,k)      - 1.0_wp/sf%eval_Jh((/q1(i,j,k),q2(i,j,k),zeta(izeta)/))
         !g_tt(i,j,k)     =g_tt(i,j,k)     - sf%eval_ ()
         !g_tz(i,j,k)     =g_tz(i,j,k)     - sf%eval_ ()
         !g_zz(i,j,k)     =g_zz(i,j,k)     - sf%eval_ ()
@@ -1332,7 +1292,7 @@ IMPLICIT NONE
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
       '\n =>  should be ', refreal,' : |sum(|Jh_all-eval_Jh(xall)|)|= ', checkreal, " ,idir=",idir
       END IF
-      DEALLOCATE(q1,q2,q1t,q2t,q1z,q2z,Jh,sJh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
+      DEALLOCATE(q1,q2,q1t,q2t,q1z,q2z,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
     END DO !idir
     CALL sf%free_aux()  
  END IF

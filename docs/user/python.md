@@ -1,6 +1,14 @@
 # Python Bindings
-GVEC has *Python* bindings (referred to as *pyGVEC*) to evaluate equilibria from *Python*, while relying on the compiled *Fortran* functions to perform the actual computations.
-This ensures postprocessing is consistent with computing the equilibrium and also improves performance.
+GVEC has *Python* bindings (referred to as *pyGVEC*) to run gvec and evaluate gvec equilibria from *Python*, while relying on the compiled *Fortran* functions to perform the actual computations.
+This ensures post-processing is consistent with computing the equilibrium and also improves performance.
+
+
+## Installation
+
+Please follow the instructions for installing [**gvec and its python bindings**](install.md).
+
+
+## Python interface to gvec state
 
 The low-level interface is provided with a `State` class, which can be instantiated from a given *parameter-* and *statefile*:
 ```python
@@ -23,43 +31,6 @@ The `ev` object is an instance of the `xarray.Dataset` and the individual `xarra
 A `xarray.Dataset` closely mirrors the structure of netCDF, grouping several variables with named dimensions and coordinates as well as metadata.
 The `state.compute` method can be used to compute various quantities that are then added to the `Dataset`.
 Here *pyGVEC* takes care of computing all the required intermediate quantities, which are also added to the `Dataset`.
-
-## Installation
-
-### With `pip` from the `develop` branch
-```bash
-pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git
-```
-
-:::{note}
-This requires you to have a ssh-key registered with your gitlab account.
-:::
-
-:::{note}
-If you want to install a development version from a different branch, you can specify this using `@branch_name`, e.g.:
-```bash
-pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@merge_frenet_pygvec
-```
-:::
-
-### Manually with `git`
-```bash
-git clone git@gitlab.mpcdf.mpg.de:gvec-group/gvec.git gvec
-cd gvec
-python -m venv .venv
-source .venv/bin/activate
-pip install .[dev,examples] -v
-```
-
-### With `pip` from the GitLab package registry
-The `gvec` python package is not (yet) available on PyPI, but it is available from the [GitLab package registry](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/packages/):
-```bash
-pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
-```
-
-:::{note}
-Currently you need a [Gitlab personal access token](https://gitlab.mpcdf.mpg.de/help/user/profile/personal_access_tokens) to use this installation method.
-:::
 
 ## Troubleshooting
 
