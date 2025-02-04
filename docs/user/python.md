@@ -32,24 +32,6 @@ A `xarray.Dataset` closely mirrors the structure of netCDF, grouping several var
 The `state.compute` method can be used to compute various quantities that are then added to the `Dataset`.
 Here *pyGVEC* takes care of computing all the required intermediate quantities, which are also added to the `Dataset`.
 
-## Troubleshooting
-
-* `401 Error` when trying to install from the GitLab package registry:
-  * `WARNING: 401 Error, Credentials not correct for https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple/gvec/`
-  * you likely missing the [personal access token](https://gitlab.mpcdf.mpg.de/help/user/profile/personal_access_tokens) required for this installation method (for now)
-* `Cannot open include file 'netcdf.inc'` during installation
-  * `gvec/src/vmec/vmec_readin.f90(494): error #5102: Cannot open include file 'netcdf.inc'`
-  * gvec likely did not recognize your hostname and cannot find netCDF. Possible fixes:
-    * explicitly tell gvec which preset to use, e.g. `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.CMAKE_HOSTNAME=tokp`
-    * disable netCDF: `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
-* `INTEL_MKL_ERROR` when trying to use pyGVEC
-  * `INTEL MKL ERROR: /usr/lib/x86_64-linux-gnu/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.`
-  * `Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.`
-  * you can try `export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmkl_def.so:/usr/lib/x86_64-linux-gnu/libmkl_avx2.so:/usr/lib/x86_64-linux-gnu/libmkl_core.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_lp64.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_thread.so:/usr/lib/x86_64-linux-gnu/libiomp5.so`
-* `undefined reference to EVP_KDF_CTX` when trying to import pyGVEC and using `conda`
-  * `/lib64/libk5crypto.so.3: undefined reference to EVP_KDF_CTX_new_id@OPENSSL_1_1_1b`
-  * this can be caused by the `conda` environment conflicting with system libraries. You can try: `export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"`
-
 ## Available Quantities for Evaluation
 The following table contains the quantities that can be evaluated with the python bindings.
 
@@ -173,6 +155,7 @@ It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
 |      `g_tt`      |                        tt component of the metric tensor                        |                     $g_{\theta\theta}$                     |
 |      `g_tz`      |                        tz component of the metric tensor                        |                     $g_{\theta\zeta}$                      |
 |      `g_zz`      |                        zz component of the metric tensor                        |                      $g_{\zeta\zeta}$                      |
+|     `gamma`      |                                 adiabatic index                                 |                          $\gamma$                          |
 |    `grad_rho`    |                         radial reciprocal basis vector                          |                        $\nabla\rho$                        |
 |   `grad_theta`   |                        poloidal reciprocal basis vector                         |                       $\nabla\theta$                       |
 |  `grad_theta_P`  |              poloidal reciprocal basis vector in PEST coordinates               |                     $\nabla \theta_P$                      |
