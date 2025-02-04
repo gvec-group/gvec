@@ -22,6 +22,6 @@ export FC=`which mpiifort`
 export CC=`which mpiicc`
 export CXX=`which mpiicc`
 
-#uncomment to be able to use mpirun directly
+#uncomment to be able to use mpirun interactively (without submitting to the queue)
 #unset I_MPI_HYDRA_BOOTSTRAP
 #unset I_MPI_PMI_LIBRARY

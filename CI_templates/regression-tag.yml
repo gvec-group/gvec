@@ -14,9 +14,6 @@ spec:
     run-postfix:
       description: Run job name postfix, e.g. `_debugrun` or `_tag_slurm`
       default: ""
-    # slurm-postfix:
-    #   description: Postfix needed for srun jobs, e.g. `_slurm`
-    #   default: ""
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
@@ -40,9 +37,7 @@ reg$[[ inputs.env ]]$[[ inputs.run-postfix ]]_vs_tag:
   allow_failure:
     exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
   needs:
-    ###- job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]$[[ inputs.slurm-postfix ]]
     - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]
       artifacts: true
-    ###- job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]$[[ inputs.slurm-postfix ]]
     - job: run$[[ inputs.env ]]_tag$[[ inputs.run-postfix ]]
       artifacts: true

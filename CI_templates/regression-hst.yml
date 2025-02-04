@@ -23,9 +23,6 @@ spec:
     run-postfix:
       description: Run job name postfix, e.g. `_debugrun` or `_tag_slurm`
       default: "_slurm"
-    # slurm-postfix:
-    #   description: Postfix needed for srun jobs, e.g. `_slurm`
-    #   default: "_slurm"
     rules:
       description: Rules for the job, e.g. `.rules_private_runner`
       default: .rules_private_runner
@@ -50,9 +47,7 @@ reg.$[[ inputs.CI_HOSTNAME_1 ]]_vs_$[[ inputs.CI_HOSTNAME_2 ]]_$[[ inputs.CURR_C
   allow_failure:
     exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
   needs:
-    ###- job: run.$[[ inputs.CI_HOSTNAME_1 ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]$[[ inputs.slurm-postfix ]]
     - job: run.$[[ inputs.CI_HOSTNAME_1 ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]
       artifacts: true
-    ###- job: run.$[[ inputs.CI_HOSTNAME_2 ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]$[[ inputs.slurm-postfix ]]
     - job: run.$[[ inputs.CI_HOSTNAME_2 ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]
       artifacts: true

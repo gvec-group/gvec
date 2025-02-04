@@ -16,16 +16,12 @@ spec:
     build-postfix:
       description: Build-Job name postfix, e.g. `_only_converter`
       default: ""
-    # slurm-postfix:
-    #   description: Postfix needed for srun jobs, e.g. `_slurm`
-    #   default: ""
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
 
 ---
 
-###run$[[ inputs.env ]]$[[ inputs.run-postfix ]]$[[ inputs.slurm-postfix ]]:
 run$[[ inputs.env ]]$[[ inputs.run-postfix ]]:
   stage: run
   before_script:

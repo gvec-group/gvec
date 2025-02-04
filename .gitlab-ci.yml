@@ -467,7 +467,7 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .viper_gfortran-openmpi-13
-      vars: .vars_hpc  ### .vars_viper_mpi_build
+      vars: .vars_hpc
       cmake-opts: .cmake_no_converter
       rules: .rules_private_runner
 
@@ -615,14 +615,7 @@ include:
 
   # Raven private runner + srun
   # --------------------
-
-  # # login nodes (Intel), left here for reference, should never be executed
-  # - local: CI_templates/run.yml
-  #   inputs:
-  #     env: .raven_ifx-2024
-  #     vars: .vars_raven_run
-  #     rules: .rules_never
-
+  
   # Intel
 
   - local: CI_templates/run.yml
@@ -630,7 +623,6 @@ include:
       env: .raven_ifx-2024
       vars: .vars_raven_run_slurm
       run-postfix: _slurm
-      ###slurm-postfix: _slurm
       rules: .rules_private_runner
 
   # GNU
@@ -690,7 +682,6 @@ include:
       env: .viper_gfortran-13
       vars: .vars_viper_run_debugrun_slurm
       run-postfix: _debugrun_slurm
-      ###slurm-postfix: _slurm
       rules: .rules_private_runner_nightly
 
   # MPI
@@ -723,7 +714,6 @@ include:
       vars: .vars_viper_run_tag_slurm
       run-postfix: _tag_slurm
       build-postfix: _tag
-      ###slurm-postfix: _slurm
       rules: .rules_private_runner_minimal
 
   # GNU
@@ -734,7 +724,6 @@ include:
       vars: .vars_viper_run_tag_slurm
       run-postfix: _tag_slurm
       build-postfix: _tag
-      ###slurm-postfix: _slurm
       rules: .rules_private_runner
 
   # ============================
@@ -1355,40 +1344,11 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
 
-# # Raven private runner
-# .vars_raven_build:
-#   variables:
-#     CMP_MODE: "Release"
-#     OMP_MODE: "ompON"
-
-# # Viper private runner
-# .vars_viper_build:
-#   variables:
-#     CMP_MODE: "Release"
-#     OMP_MODE: "ompON"
-
-# # Raven private runner
-# .vars_raven_build_tag:
-#   extends: .vars_raven_build
-#   variables:
-#     HASH_TAG: ${HASH_TAG_REFERENCE}
-
-# # Viper private runner
-# .vars_viper_build_tag:
-#   extends: .vars_viper_build
-#   variables:
-#     HASH_TAG: ${HASH_TAG_REFERENCE}
-
 .vars_matrix_unit:
   variables:
     CMP_MODE: "-"
     OMP_MODE: "-"
     MPI_MODE: "-"
-
-###.vars_viper_mpi_build:
-###  variables:
-###    CMP_MODE: "Release"
-###    OMP_MODE: "ompON"
 
 # ____________________________
 # set HASH_TAG for reference builds
@@ -1397,12 +1357,6 @@ include:
   extends: .vars_matrix_build
   variables:
     HASH_TAG: ${HASH_TAG_REFERENCE}
-
-## MPI jobs
-#.vars_matrix_mpi_build_tag:
-#  extends: .vars_matrix_mpi_build
-#  variables:
-#    HASH_TAG: ${HASH_TAG_REFERENCE}
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "run"
@@ -1438,10 +1392,6 @@ include:
       - CMP_MODE: ["Debug","Release"]
         OMP_MODE: ["ompOFF","ompON"]
         MPI_RNKS: ["1","2"]
-
-#   # Raven private runner (vars for runs on login nodes)
-# .vars_raven_run:   # to be extended in the `regression` stage (allow_failure can NOT be in this template)
-#   extends: .vars_raven_build
 
   # Raven private runner (runs on SLURM queues via srun)
   # ----------------------------------------------------
