@@ -6,4 +6,5 @@
 install
 getting-started
 python
+coordinate-conventions
 ```
