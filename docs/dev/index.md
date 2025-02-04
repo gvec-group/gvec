@@ -64,7 +64,6 @@ with [polymorphism in fortran](https://gist.github.com/n-s-k/522f2669979ed6d0582
 * MyST-Markdown
 * Python
 * Pylance
-* ~~Black Formatter~~
 * Ruff (Python Linter & Formatter)
 * Todo Tree
 * Vim

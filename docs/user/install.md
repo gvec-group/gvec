@@ -166,7 +166,7 @@ Install the following packages using homebrew (`brew install`)
 Please ensure to have installed all packages mentioned in the 'Prerequisites' section.
 :::
 
-#### Manually from a cloned repository
+### Manually from a cloned repository
 You can install the gvec python package **manually**, from a cloned repository.
 We strongly recommend to **always** use a clean virtual environment for the installation, e.g.
 ```bash
@@ -180,7 +180,7 @@ Then you can install the gvec python package manually with
 pip install .[dev,examples] -v
 ```
 
-#### Via pip without a clone
+### Via pip without a clone
 
 Another possibility, still **within a virtual environment**, but without cloning the repository, is using `pip` from the GitLab package registry
 ```bash
@@ -199,7 +199,7 @@ pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
 ```
 :::
 
-#### Check the installation
+### Check the installation
 
 Once the virtual environment is activated with `source .venv/bin/activate`, you should be able to import the `gvec` python package without any errors:
 ```bash
