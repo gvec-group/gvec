@@ -35,6 +35,7 @@ CONTAINS
 SUBROUTINE Init(parameterfile)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base
   USE MODgvec_Analyze,        ONLY: InitAnalyze
   USE MODgvec_Output,         ONLY: InitOutput
   USE MODgvec_Restart,        ONLY: InitRestart
@@ -53,7 +54,6 @@ SUBROUTINE Init(parameterfile)
   CALL FillStrings(parameterfile)
 
   ! initialization phase
-  CALL InitRestart()
   CALL InitOutput()
   CALL InitAnalyze()
 
@@ -64,14 +64,21 @@ SUBROUTINE Init(parameterfile)
   ! print the ignored parameters
   CALL IgnoredStrings()
 
+  ! additional global variables
+  nfp = X1_base%f%nfp
   initialized = .TRUE.
 END SUBROUTINE Init
+
+!================================================================================================================================!
+SUBROUTINE InitSolution()
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL functional%InitSolution() 
+END SUBROUTINE InitSolution
 
 !================================================================================================================================!
 SUBROUTINE ReadState(statefile)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base
   USE MODgvec_Output_Vars,    ONLY: outputLevel,ProjectName
   USE MODgvec_ReadState_Vars, ONLY: fileID_r,outputLevel_r
   USE MODgvec_Restart,        ONLY: RestartFromState
@@ -82,11 +89,7 @@ SUBROUTINE ReadState(statefile)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
   CALL RestartFromState(StateFile,U(0))
-  ! CALL EvalForce(U(0),.TRUE.,2, F(0))
-  ! CALL Analyze(FileID_r)
   outputLevel=outputLevel_r
-  ! additional global variables
-  nfp = X1_base%f%nfp
 END SUBROUTINE ReadState
 
 !================================================================================================================================!

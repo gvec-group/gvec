@@ -12,10 +12,14 @@ except ImportError:
 # === Fixtures === #
 
 
-@pytest.fixture()
-def teststate(testfiles):
-    with State(*testfiles) as state:
-        yield state
+@pytest.fixture(params=["post", "init"])
+def teststate(request, testfiles):
+    if request.param == "post":
+        with State(*testfiles) as state:
+            yield state
+    elif request.param == "init":
+        with State(testfiles[0]) as state:
+            yield state
 
 
 # === Tests === #
@@ -31,6 +35,11 @@ def test_version():
 
 def test_state(testfiles):
     with State(*testfiles) as state:
+        assert isinstance(state, State)
+
+
+def test_state_init(testfiles):
+    with State(testfiles[0], None) as state:
         assert isinstance(state, State)
 
 
