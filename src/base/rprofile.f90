@@ -1,6 +1,5 @@
 !===================================================================================================================================
-! Copyright (C) 2017 - 2024  Florian Hindenlang <hindenlang@gmail.com>
-! Copyright (C) 2021 - 2022  Tiago Ribeiro
+! Copyright (C) 2024 Robert Koeberl <robert.koeberl@ipp.mpg.de>
 !
 ! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3

@@ -423,9 +423,25 @@ class State:
         result = np.zeros(rho.size, dtype=np.float64, order="F")
         _post.evaluate_profile(rho.size, rho, quantity, result)
         return result
-    
+
     @_assert_init
-    def evaluate_profile_deriv(self, quantity: str, rho: np.ndarray, n: int):
+    def evaluate_profile_deriv(self, quantity: str, rho: np.ndarray, order: int):
+        """Evaluate the n-th derivative with respect to rho of the specified profile at position `rho`.
+
+        Args:
+            quantity (str): profile identifyer, has to be either `"iota"` or `"pres"`.
+            rho (np.ndarray): radial position(s).
+            order (int): order of the derivative with order in [0,4].
+
+        Raises:
+            ValueError: If `quantity` is not a string.
+            ValueError: If `quantity` is not `"iota"` or `"pres"`.
+            ValueError: If `rho` is not a 1D array.
+            ValueError: If `rho` is not in [0,1].
+
+        Returns:
+            np.ndarray: derivative values at `rho` positions.
+        """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in [
@@ -441,7 +457,7 @@ class State:
             raise ValueError("rho must be in the range [0, 1].")
 
         result = np.zeros(rho.size, dtype=np.float64, order="F")
-        _post.evaluate_profile_deriv(rho.size, rho, n, quantity, result)
+        _post.evaluate_profile_deriv(rho.size, rho, order, quantity, result)
         return result
 
     # === Boozer Potential === #

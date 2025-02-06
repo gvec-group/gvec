@@ -14,11 +14,10 @@
 from pathlib import Path
 import re
 import shutil
-import warnings
 from numpy.typing import ArrayLike
-from typing import Callable
+
 try:
-    from scipy.interpolate import make_splrep
+    from scipy.interpolate import BSpline
 except ImportError:
     _has_scipy = False
 else:
@@ -313,75 +312,81 @@ def axis_from_boundary(parameters: dict) -> dict:
         parameters2["X2_a_cos"] = {parameters["X2_b_cos"][0, n] for n in range(N + 1)}
     return parameters2
 
-def np2gvec(a):
-    import numpy as np
-    a = np.array(a)
-    a_str = np.array2string(a, separator=",", threshold=1e3, max_line_width=128)
-    a_str =a_str.replace("[","(/").replace("]","/)").replace("\n", " & \n")
-    return a_str
-    
-def profile2bspline(which_profile : str, profile: ArrayLike | Callable, s=None, deg : int = 3,
-                    bspl_kwargs : dict ={},
-                    params : dict ={}, source : str | Path = None, target : str | Path = None) -> dict:
-    """Interpolate a 1D radial profile via B-splines and return a dictionary of the parameters as 
-    used in the GVEC parameter.ini file.
+
+def np2gvec(a: ArrayLike) -> str:
+    """Transforms a numpy array into a string that can be used in the gvec parameter file.
 
     Args:
-        which_profile (str): identifyer for the profile, must be either `iota` or `pres`.
-        profile (ArrayLike | Callable): values of the profile at position `s` or a callable object if `s` is not provided.
-            If it is a callable object, the profile is evaluated at `s` or 10 lineary spaced positions in `s`.
-        s (array-like, optional): Positions in the radial flux coordinate where `profile` has been evaluated. Defaults to None.
-        deg (int, optional): Degree of the fitted B-splines.Defaults to 3.
-        bspl_kwargs (dict, optional): Keyword arguments as used by the `scipy.interpolate.make_splrep` routine.
-            Defaults to {}.
-        params (dict, optional): Dictionary of GVEC parameters that will be extended with the interpolated B-spline coefficients
-            and knots. Defaults to {}.
-        source (str | Path, optional): Path to a source parameter file. 
-            If a source file is provided, its parameters are read and extended with the fitted B-splines. 
-            Defaults to None.
-        target (str | Path, optional): Path to a target parameter file, requires a source parameter file. 
-            If `source` and `target` are provided, a new parameter file with the interpolated profile is created.
-            Defaults to None.
+        a (ArrayLike): input array
+
+    Returns:
+        str: string that translates into a gvec parameterfile array
+    """
+    import numpy as np
+
+    a = np.array(a)
+    a_str = np.array2string(a, separator=",", threshold=1e3, max_line_width=64)
+    a_str = a_str.replace("[", "(/").replace("]", "/)").replace(",\n", " &\n,")
+    return a_str
+
+
+def scipy_bspl2gvec(which_profile: str, bspl, params={}) -> dict:
+    """Translates a scipy BSpline object into the necessary parameters utilized by the gvec parameter file.
+
+    Args:
+        which_profile (str): profile identifier, has to be either `iota` or `pres`
+        bspl (scipy.interpolate.BSpline): B-Spline object.
+        params (dict, optional): dictionary of gvec input parameters. Defaults to {}.
 
     Raises:
         AssertionError: If the profile type is not `iota` or `pres`.
-        ImportError: If `scipy` is not installed.
-        Exception: If profile values are provided but no corresponding s positions.
+        TypeError: If `bspl` is not the expected scipy BSpline.
 
     Returns:
-        dict: dictionary containing the knots and coefficients of the interpolated B-spline.
+        dict: Dictionary of gvec input parameters
     """
-    import numpy as np
-    
-    if which_profile not in ["iota","pres"]:
-        raise AssertionError("Specified profile is not known!"+\
-            "`which_profile` has to be either `iota` or `pres`.")
-    
-    if not _has_scipy:
-        raise ImportError("scipy required!"+\
-            "To utilize the automatic B-spline interpolation please install scipy.")
-    
-    if hasattr(profile,"__call__"):
-        if s is None:
-            s = np.linspace(0,1,10)
-        y = profile(s)
+
+    if which_profile not in ["iota", "pres"]:
+        raise AssertionError(
+            "Specified profile is not known!"
+            + "`which_profile` has to be either `iota` or `pres`."
+        )
+
+    if isinstance(bspl, BSpline):
+        params[which_profile + "_knots"] = np2gvec(bspl.t)
+        params[which_profile + "_coefs"] = np2gvec(bspl.c)
+        params[which_profile + "_type"] = "bspl"
     else:
-        if s is None:
-            raise Exception("s is None but profile is not callable."+\
-                "Please provide the s positions corresponding to your profile values")
-        y = profile
-    
-    bspl = make_splrep(s,y,k=deg, **bspl_kwargs)
-    params[which_profile+"_coefs"] = np2gvec(bspl.c)
-    params[which_profile+"_knots"] = np2gvec(bspl.t)
-    params[which_profile+"_type"] = "bspline"
-    
-    if target is not None:
-        try :
-            adapt_parameter_file(source, target, **params)
-        except TypeError:
-            if source is None:
-                warnings.warn("Could not write the new parameter file. Please provide a source parameter file.")
-            else:
-                warnings.warn("Could not write the new parameter file.")
+        raise TypeError("Expected instance of scipy.interpolate.BSpline")
+    return params
+
+
+def bspl2gvec(
+    which_profile: str, knots: ArrayLike, coefs: ArrayLike, params: dict = {}
+) -> dict:
+    """Translates B-spline coefficients and knots for either a iota or pressure profile into dictionary entries
+    that can be handed to `adapt_parameter_file`.
+
+    Args:
+        which_profile (str): profile identifyer, has to be either `iota` or `pres`.
+        knots (ArrayLike): Knots for the B-splines. Note that repeated edge knots according to the degree are expected.
+        coefs (ArrayLike): Coefficients for the B-splines.
+        params (dict, optional): Dictionary of gvec input parameters that will be adapted. Defaults to {}.
+
+    Raises:
+        AssertionError: If `which_profile` is neither `iota` nor `pres`.
+
+    Returns:
+        dict: Dictionary of gvec input parameters
+    """
+    if which_profile not in ["iota", "pres"]:
+        raise AssertionError(
+            "Specified profile is not known!"
+            + "`which_profile` has to be either `iota` or `pres`."
+        )
+
+    params[which_profile + "_coefs"] = np2gvec(coefs)
+    params[which_profile + "_knots"] = np2gvec(knots)
+    params[which_profile + "_type"] = "bspline"
+
     return params
