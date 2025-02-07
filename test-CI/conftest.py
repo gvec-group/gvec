@@ -85,6 +85,12 @@ def pytest_addoption(parser):
         default=1.0e-9,
         help="absolute tolerance for regression stage",
     )
+    group.addoption(
+        "--run-prefix",
+        type=str,
+        default="",
+        help="prefix for the run commands, e.g. mpirun or srun (with arguments)",
+    )
 
     group = parser.getgroup("custom_regression_options")
     group.addoption(
@@ -238,9 +244,9 @@ def binpath(builddir) -> Path:
 
 
 @pytest.fixture(scope="session")
-def runargs_prefix() -> list:
-    """prefix for the run arguments, e.g. mpirun"""
-    if prefix := os.environ.get("MPI_PRFX"):
+def runargs_prefix(request) -> list[str]:
+    """prefix for the run arguments, e.g. mpirun or srun (with arguments)"""
+    if prefix := request.config.getoption("--run-prefix"):
         return shlex.split(prefix)
     return []
 
@@ -365,7 +371,7 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
     if not rundir.exists():
         rundir.mkdir()
     if not (rundir / "data").exists():
-        (rundir / "data").symlink_to(Path(__file__).parent / "data")
+        (rundir / "data").symlink_to(os.path.relpath(Path(__file__).parent / "data", rundir))
     if not (rundir / testgroup).exists():
         (rundir / testgroup).mkdir()
     # create the testcase directory
@@ -408,7 +414,7 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     if not postdir.exists():
         postdir.mkdir()
     if not (postdir / "data").exists():
-        (postdir / "data").symlink_to(Path(__file__).parent / "data")
+        (postdir / "data").symlink_to(os.path.relpath(Path(__file__).parent / "data", postdir))
     if not (postdir / testgroup).exists():
         (postdir / testgroup).mkdir()
     # create the testcase directory
@@ -424,7 +430,7 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(sourcerundir / statefile)
+        (targetdir / statefile).symlink_to(os.path.relpath(sourcerundir / statefile, targetdir))
     # overwrite parameter file with the rundir version and modify it
     util.adapt_parameter_file(
         sourcerundir / "parameter.ini",
@@ -467,5 +473,5 @@ def testcaseconvdir(
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(sourcerundir / statefile)
+        (targetdir / statefile).symlink_to(os.path.relpath(sourcerundir / statefile, targetdir))
     return targetdir

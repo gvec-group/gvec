@@ -509,10 +509,10 @@ module MODgvec_cla
       integer(kind=int_kind) :: ncla, k, kk, iequal, kcla, kkv
       logical :: info
 
-      if (info) write(*,*) "Validating the command line arguments:"
+      if (info) write(stdout,*) "Validating the command line arguments:"
       ncla = cla_command_argument_count()
       if (ncla == 0) then
-         if (info) write(*,*) "    ... none found. Returning."
+         if (info) write(stdout,*) "    ... none found. Returning."
          return
       end if
       
@@ -531,10 +531,10 @@ module MODgvec_cla
          stop " "
       endif
 
-      if (info) write(*,*) "    cla_command_argument_count = ",ncla
+      if (info) write(stdout,*) "    cla_command_argument_count = ",ncla
       do k=1,ncla
          call cla_get_command_argument(k,arg)
-         if (info) write(*,*) "    cla_command_argument #",k,": ",arg
+         if (info) write(stdout,*) "    cla_command_argument #",k,": ",arg
       end do
       ! Positional arguments must all occur either before or after all the key/value arguments.
       kcla = 0
@@ -543,15 +543,16 @@ module MODgvec_cla
          ! Search the arguments until we find one that begins with "-", which we know is the marker
          ! for the key,value pairs or flags.
          if (index(arg,"-") /= 1) then
-            if (info .and.(kcla == 0)) write(*,*) "    Positional arguments appear to occur prior to key/value arguments."
+            if (info .and.(kcla == 0)) write(stdout,*) "    Positional arguments appear to occur prior to key/value arguments."
             kcla = kcla + 1
             if (kcla > cla_posarg_num) then
-               stop "     ERROR: Too many positional arguments found!"
+               write(stderr,*)"     ERROR: Too many positional arguments found!"
+               stop 5
             endif
          else
             exit
          end if
-         if (info) write(*,*) "          positional arg #",kcla,"= ",trim(arg), &
+         if (info) write(stdout,*) "          positional arg #",kcla,"= ",trim(arg), &
               " is expected to be of type ",trim(cla_kindstr(cla_posarg_registry(kcla)%kind))
       end do
       ! Look for key value pairs:
@@ -559,7 +560,7 @@ module MODgvec_cla
          call cla_get_command_argument(kcla+1,key)
          if (info) then
             if ( (index(key,"-") == 1) .and. (kcla == 0) .and. (cla_posarg_num > 0)) then
-               write(*,*) "    Positional arguments appear to occur after to key/value arguments."
+               write(stdout,*) "    Positional arguments appear to occur after to key/value arguments."
             endif
          endif
          kkv = kcla
@@ -569,20 +570,21 @@ module MODgvec_cla
                  cla_registry(kk)%longkey, &
                  key))then
                if (cla_registry(kk)%kind == cla_flag) then
-                  if (info) write(*,*)"          key = ",trim(key)," is a flag"
+                  if (info) write(stdout,*)"          key = ",trim(key)," is a flag"
                   kcla = kcla + 1
                   exit
                else
                   call cla_get_command_argument(kcla+2,value)
                   kcla = kcla + 2
-                  if (info) write(*,*)"          key, value ?= ",trim(key)," ",trim(value), &
+                  if (info) write(stdout,*)"          key, value ?= ",trim(key)," ",trim(value), &
                        " is expected to be of type ",trim(cla_kindstr(cla_registry(kk)%kind))
                end if
             end if           
          end do
          if (kcla == kkv) then
             if (index(key,"-") == 1) then
-               stop "      ERROR: "//trim(key)//" could not be matched to any known key!"
+               write(stderr,*)"      ERROR: "//trim(key)//" could not be matched to any known key!"
+               stop 5
             else
                ! We have reached the end of the key/value,flags and now check again for posarg.
                exit
@@ -595,16 +597,18 @@ module MODgvec_cla
          if (index(arg,"-") /= 1) then
             kcla = kcla + 1
             if ((kcla - kkv) > cla_posarg_num) then
-               stop "     ERROR: Too many positional arguments found!"
+               write(stderr,*)"     ERROR: Too many positional arguments found!"
+               stop 5
             endif
          else
-            stop "    ERROR: Positional arguments appear to be mixed in with -key value arguments."// &
-                              " Move position arguments to the end of the list." 
+            write(stderr,*) "    ERROR: Positional arguments appear to be mixed in with -key value arguments."
+            write(stderr,*) "    Move position arguments to the end of the list." 
+            stop 5
          end if
-         if (info) write(*,*)"    positional arg ?= ",arg
+         if (info) write(stdout,*)"    positional arg ?= ",arg
       end do
-      if (info) write(*,*)"    No errors found in syntax validation, but type/kind-validity not checked!"
-      if (info) write(*,*)"    If a -key value pair is repeated, the last one is used."
+      if (info) write(stdout,*)"    No errors found in syntax validation, but type/kind-validity not checked!"
+      if (info) write(stdout,*)"    If a -key value pair is repeated, the last one is used."
     end subroutine cla_validate_info
     
     logical function cla_key_present(key)
@@ -691,7 +695,7 @@ module MODgvec_cla
          ! It seems that value is not yet defined here:
          !         if (index(trim(value),trim(cla_empty)) /= 0) then
          if (ordinal == -1) then
-            write(*,*) 'Error: You tried to retrieve an unknown command line argument: ',trim(key)
+            write(stderr,*) 'Error: You tried to retrieve an unknown command line argument: ',trim(key)
             call cla_show
             stop 5
          endif
@@ -757,7 +761,7 @@ module MODgvec_cla
       end do
       
       if (index(trim(value),trim(cla_empty)) /= 0) then
-         write(*,*) 'Error: You tried to retrieve an unknown command line argument: ',trim(key)
+         write(stderr,*) 'Error: You tried to retrieve an unknown command line argument: ',trim(key)
          call cla_show
          stop 5
       endif

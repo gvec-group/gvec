@@ -427,6 +427,24 @@ Finally, it is noteworthy to mention that the global variable `HASH_TAG_REFERENC
 
 <!-- ### Stage `postprocessing` -->
 
+## Private CI Runners
+
+Each job in the pipeline is executed on a *runner*.
+GVEC per default uses the *shared* runners provided by MPCDF, with the relevant OS image providing the compilers and libraries.
+It would be of interest to run some testcases within the pipeline using the queues of the HPC clusters.
+We use *private runners* to achieve this:
+
+* The private runners run under a maintainer's personal account on a login node of a cluster.
+  * a `tmux` keeps the session with the runner alive.
+  * the job script needs to be configured in such a way that all serious computations are scheduled with the queue and do not block the login node.
+* as a rule, new private runners should be created in private own repository (project) and then temporarily added to other project as needed
+* if private runners are created inside Gitlab projects/groups with many members, it is necessary to immediately select `Lock to current projects` in the CI/CD settings, otherwise all members with `developer` roles and above have access to these runners via the CI pipeline on every branch
+* therefore, it is recommended to select also the CI/CD settings option `Protected`, to restrict their use to pipelines for protected branches only
+* project/repo member with roles of `owner`/`maintainer` can edit CI/CD settings and change the options above, so the group of members with these roles should be restricted to the bare minimum
+* E.g. a private runner can be enabled/disabled on any given project by any of its `maintainers`/`owners` by deselecting the option `Lock to current projects`; i.e. any member with these roles can add an existing private runner to any other of the projects/repos he/she owns/maintains
+* Some extra information is found in the [related merge request](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/merge_requests/50)
+* MPCDF is looking into [Jacamar CI runners](https://apps.fz-juelich.de/jsc/hps/jureca/jacamar.html) as general solution avoiding private runners
+
 
 ## Conclusion
 

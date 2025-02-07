@@ -13,7 +13,6 @@ in Garching, Germany. Outside contributions are of course very welcome!
 ## Development Workflow
 
 * prefer merging over rebasing
-* use `git-lfs` for large files
 * automatic testing of all pushes to GitLab, **add tests for new features**
 * use feature branches, merge to `develop` early and often (*at least in theory*)
     * use GitLab *merge requests* to document the changes and code review
@@ -32,7 +31,6 @@ in Garching, Germany. Outside contributions are of course very welcome!
 * `.gitlab-ci.yml` & `CI_templates` - configuration of the GitLab CI Pipelines (see <dev/pipeline>)
 * `docs/` - configuration and static content for the documentation
 * `.gitignore` - file patterns to be ignored by `git`
-* `.gitattributes` - configuration of `git-lfs`
 * `.mailmap` - cleaning git authors for `git blame`
 * `template/` - a structural template for fortran sources
 * `tools/`

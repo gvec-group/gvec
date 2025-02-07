@@ -8,7 +8,7 @@ spec:
     env:
       description: Name of the environment, e.g. `mpcdfci_ifx-latest` (only for pytest, CURR_CMP is overridden)
       default: .mpcdfci_ifx-latest
-    HOSTNAME:
+    CI_HOSTNAME:
       description: Name of the host, e.g. `mpcdfci`
       default: mpcdfci
     CURR_CMP:
@@ -29,11 +29,12 @@ spec:
 
 ---
 
-reg.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]_vs_mpi:
+reg.$[[ inputs.CI_HOSTNAME ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]_vs_mpi:
   stage: regression
   extends:
     - $[[ inputs.env ]]
     - .before_script_modules
+    - .vars_dirs_artifacts
     - .script_regression
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
@@ -41,13 +42,13 @@ reg.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]_vs_mp
     CURR_CMP_1: $[[ inputs.CURR_CMP ]]
     CURR_CMP_2: $[[ inputs.CURR_CMP_MPI ]]
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
-    CASENAME_1: ${HASH_TAG}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
-    CASENAME_2: ${HASH_TAG}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON${MPI_RNKS_MODE}
+    CASENAME_1: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP_1}_${CMP_MODE}_${OMP_MODE}_mpiOFF
+    CASENAME_2: ${HASH_TAG}_${CI_HOSTNAME}_${CURR_CMP_2}_${CMP_MODE}_${OMP_MODE}_mpiON${MPI_RNKS_MODE}
     PYTEST_EXTRA_OPTS: "--add-ignore-pattern=['Number of OpenMP threads','Number of MPI tasks']"
   allow_failure:
     exit_codes: 5  # recognize pytest-warnings as pipeline-warnings
   needs:
-    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]
+    - job: run.$[[ inputs.CI_HOSTNAME ]]_$[[ inputs.CURR_CMP ]]$[[ inputs.run-postfix ]]
       artifacts: true
-    - job: run.$[[ inputs.HOSTNAME ]]_$[[ inputs.CURR_CMP_MPI ]]$[[ inputs.run-postfix ]]
+    - job: run.$[[ inputs.CI_HOSTNAME ]]_$[[ inputs.CURR_CMP_MPI ]]$[[ inputs.run-postfix ]]
       artifacts: true
