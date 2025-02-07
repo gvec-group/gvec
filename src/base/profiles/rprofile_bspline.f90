@@ -1,0 +1,195 @@
+!===================================================================================================================================
+! Copyright (C) 2024 Robert Koeberl <robert.koeberl@ipp.mpg.de>
+!
+! This file is part of GVEC. GVEC is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3
+! of the License, or (at your option) any later version.
+!
+! GVEC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+! of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License v3.0 for more details.
+!
+! You should have received a copy of the GNU General Public License along with GVEC. If not, see <http://www.gnu.org/licenses/>.
+!=================================================================================================================================
+#include "defines.h"
+
+!===================================================================================================================================
+!>
+!!# Module ** rProfile **
+!!
+!! Defines a 1-D profile in rho^2 via B-Spline knots and coefficients
+!===================================================================================================================================
+MODULE MODgvec_rProfile_bspl
+! MODULES
+USE MODgvec_Globals ,ONLY: wp
+USE MODgvec_rProfile_base, ONLY: c_rProfile
+USE sll_m_bsplines  ,ONLY: sll_s_bsplines_new, sll_c_bsplines
+IMPLICIT NONE
+
+PUBLIC
+
+TYPE, EXTENDS(c_rProfile) :: t_rProfile_bspl
+  
+    INTEGER               :: n_knots !! number of knots, including repeated edge knots
+    REAL(wp), ALLOCATABLE :: knots(:)   !! knot values, includinng edge knots
+    CLASS(sll_c_bsplines),ALLOCATABLE :: bspl !! b-spline class
+    
+  CONTAINS
+  
+  PROCEDURE :: init                    => bsplProfile_init
+  PROCEDURE :: eval_at_phi_norm        => bsplProfile_eval_at_phi_norm
+  PROCEDURE :: eval_prime_at_phi_norm  => bsplProfile_eval_prime_at_phi_norm
+  PROCEDURE :: eval_derivative         => bsplProfile_eval_derivative
+
+  PROCEDURE :: free => bsplProfile_free
+  
+END TYPE t_rProfile_bspl
+
+CONTAINS
+
+!===================================================================================================================================
+!> initialize the rProfile of type bspline
+!!
+!===================================================================================================================================
+SUBROUTINE bsplProfile_init(sf, knots, n_knots, coefs, n_coefs)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+    INTEGER, INTENT(IN) :: n_knots !! number of knots
+    INTEGER, INTENT(IN) :: n_coefs !! number of coefficients
+    REAL,    INTENT(IN) :: knots(n_knots)  !! knots of the B-Spline with repeated start and end points
+    REAL,    INTENT(IN) :: coefs(n_coefs)  !! B-Spline coefficients 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+    CLASS(t_rProfile_bspl), INTENT(OUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+    REAL                :: nth_deriv_at_axis
+    INTEGER             :: i
+!===================================================================================================================================
+    sf%profile_type = 1
+    sf%deg   = COUNT(knots==knots(1))-1 ! multiplicity of the first knot determines the degree
+    sf%n_knots = n_knots
+    sf%n_coefs = n_coefs
+    ALLOCATE(sf%knots(1:n_knots))
+    sf%knots = knots
+    ALLOCATE(sf%coefs(1:n_coefs))
+    sf%coefs = coefs
+    IF (sf%deg>0) THEN
+      CALL sll_s_bsplines_new(sf%bspl, sf%deg, .FALSE., & 
+                              sf%knots(1),sf%knots(n_knots),&
+                              size(sf%knots(sf%deg+1:n_knots-sf%deg))-1 , & ! number of knots handed to the library
+                              sf%knots(sf%deg+1:n_knots-sf%deg)) ! remove repeated edge knots
+    END IF
+
+END SUBROUTINE bsplProfile_init
+
+!===================================================================================================================================
+!> evaluate the bsplProfile at position s
+!!
+!===================================================================================================================================
+FUNCTION bsplProfile_eval_at_phi_norm( sf, phi_norm ) RESULT(profile_value)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+    CLASS(t_rProfile_bspl), INTENT(IN)  :: sf !! self
+    REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (phi_norm=phi/phi_edge= spos^2)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+    REAL(wp)                         :: profile_value
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+    REAL(wp)                         :: basis_values(sf%deg+1) !! values of the (deg+1) B-splines that contribute at s_pos
+    INTEGER                          :: first_non_zero_bspl !! index offset for the coefficients
+!===================================================================================================================================
+    IF (sf%deg > 0) THEN
+      CALL sf%bspl%eval_basis(phi_norm,basis_values,first_non_zero_bspl)
+      profile_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*basis_values(:sf%deg+1))
+    ELSE
+      profile_value = sf%coefs(1)
+    END IF
+END FUNCTION bsplProfile_eval_at_phi_norm
+
+!===================================================================================================================================
+!> evaluate the first derivative of the bsplProfile at position s
+!!
+!===================================================================================================================================
+FUNCTION bsplProfile_eval_prime_at_phi_norm( sf, phi_norm ) RESULT(profile_prime_value)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_rProfile_bspl), INTENT(IN)  :: sf !! self
+  REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (phi_norm=phi/phi_edge= spos^2)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: profile_prime_value
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp)                         :: deriv_values(sf%deg+1) !! values of the (deg+1) B-splines that contribute at s_pos
+  INTEGER                          :: first_non_zero_bspl !! index offset for the coefficients
+!===================================================================================================================================
+  IF (sf%deg>0) THEN
+    CALL sf%bspl%eval_deriv(phi_norm,deriv_values,first_non_zero_bspl)
+    profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(:sf%deg+1))
+    !profile_prime_value = sf%eval_derivative(phi_norm, n=1)
+  ELSE 
+    profile_prime_value = 0.0_wp
+  END IF
+END FUNCTION bsplProfile_eval_prime_at_phi_norm
+
+!===================================================================================================================================
+!> evaluate the n-th derivative of the bsplProfile at position s
+!!
+!===================================================================================================================================
+FUNCTION bsplProfile_eval_derivative( sf, phi_norm, n ) RESULT(profile_prime_value)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_rProfile_bspl), INTENT(IN)  :: sf !! self
+  REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (phi_norm=phi/phi_edge= spos^2)
+  INTEGER, OPTIONAL    :: n
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: profile_prime_value
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp), ALLOCATABLE            :: deriv_values(:,:) !! values of the (deg+1) B-splines that contribute at s_pos
+  INTEGER                          :: first_non_zero_bspl !! index offset for the coefficients
+!===================================================================================================================================
+    IF (.NOT.PRESENT(n)) THEN
+      n = 0
+    END IF
+
+    ALLOCATE(deriv_values(n+1,sf%deg+1))
+    IF (sf%deg>0) THEN
+      CALL sf%bspl%eval_basis_and_n_derivs(phi_norm,n,deriv_values,first_non_zero_bspl)
+      profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(n+1,:sf%deg+1))
+    ELSE 
+      profile_prime_value = 0.0_wp
+    END IF
+    SDEALLOCATE(deriv_values)
+END FUNCTION bsplProfile_eval_derivative
+
+!===================================================================================================================================
+!> finalize the type rProfile
+!!
+!===================================================================================================================================
+SUBROUTINE bsplProfile_free(sf)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(t_rProfile_bspl), INTENT(INOUT) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+!=================================================================================================================================== 
+  SDEALLOCATE(sf%knots)
+  SDEALLOCATE(sf%coefs)
+  IF (ALLOCATED(sf%bspl)) CALL sf%bspl%free()
+  SDEALLOCATE(sf%bspl)
+  sf%deg          =-1
+  sf%n_coefs      =-1
+  sf%n_knots      =-1
+  sf%profile_type =-1
+END SUBROUTINE bsplProfile_free
+
+END MODULE MODgvec_rProfile_bspl

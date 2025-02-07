@@ -67,7 +67,8 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   
   USE MODgvec_rProfile, ONLY: rProfile_init
-  USE MODgvec_PolyToBspl, ONLY: poly2bspl
+  USE MODgvec_rProfile_poly, ONLY: t_rProfile_poly
+  USE MODgvec_rProfile_bspl, ONLY: t_rProfile_bspl
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -161,28 +162,26 @@ SUBROUTINE InitMHD3D(sf)
     iota_type  = GETSTR("iota_type", Proposal="polynomial")
     pres_type  = GETSTR("pres_type", Proposal="polynomial")
 
-    ALLOCATE(iota_profile)
     IF (iota_type=="polynomial") THEN
       iota_type_value = 0
-      iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs)
+      CALL rProfile_init(iota_profile, iota_type_value, iota_coefs, n_iota_coefs)
     ELSE IF (iota_type=="bspline") THEN
       iota_type_value = 1
       CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
-      iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
+      CALL rProfile_init(iota_profile, iota_type_value, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
     ELSE
       WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
     END IF 
     SDEALLOCATE(iota_knots)
     SDEALLOCATE(iota_coefs)
     
-    ALLOCATE(pres_profile)
     IF (pres_type=="polynomial") THEN
       pres_type_value = 0
-      pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs)
+      CALL rProfile_init(pres_profile, pres_type_value, pres_coefs, n_pres_coefs)
     ELSE IF (pres_type=="bspline") THEN
       pres_type_value = 1
       CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
-      pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
+      CALL rProfile_init(pres_profile,pres_type_value, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
     ELSE
       WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
     END IF 
@@ -204,14 +203,13 @@ SUBROUTINE InitMHD3D(sf)
       iota_coefs=REAL(sign_iota)*iota_coefs
       iota_type  = GETSTR("iota_type", Proposal="polynomial")
 
-      ALLOCATE(iota_profile)
       IF (iota_type=="polynomial") THEN
         iota_type_value = 0
-        iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs)
+        CALL rProfile_init(iota_profile,iota_type_value, iota_coefs, n_iota_coefs)
       ELSE IF (iota_type=="bspline") THEN
         iota_type_value = 1
         CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
-        iota_profile = rProfile_init(iota_type_value, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
+        CALL rProfile_init(iota_profile,iota_type_value, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
       ELSE
         WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
       END IF 
@@ -226,14 +224,13 @@ SUBROUTINE InitMHD3D(sf)
       pres_coefs=pres_coefs*pres_scale
       pres_type  = GETSTR("pres_type", Proposal="polynomial")
 
-      ALLOCATE(pres_profile)
       IF (pres_type=="polynomial") THEN
         pres_type_value = 0
-        pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs)
+        CALL rProfile_init(pres_profile,pres_type_value, pres_coefs, n_pres_coefs)
       ELSE IF (pres_type=="bspline") THEN
         pres_type_value = 1
         CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
-        pres_profile = rProfile_init(pres_type_value, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
+        CALL rProfile_init(pres_profile, pres_type_value, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
       ELSE
         WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
       END IF 
