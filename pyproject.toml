@@ -53,7 +53,7 @@ Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
-examples = ["matplotlib", "jupyter"]
+examples = ["matplotlib", "jupyter", "ipywidgets", "ipympl"]
 
 [project.scripts]
 gvec_to_cas3d = "gvec:gvec_to_cas3d.main"
