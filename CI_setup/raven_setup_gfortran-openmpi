@@ -1,22 +1,19 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven or on cobra with the command:
-# > . CI_setup/mpcdf_setup_intel
+# bash source script
+# usage: source CI_setup/mpcdf_setup_gfortran-openmpi
 #
-# LAST MODIFIED: 2024-07-01
+# LAST MODIFIED: 2025-01-31
 # ===========================================
 
 module purge
 module load git
 module load git-lfs
 module load cmake/3.26
-module load gcc/13 
+module load gcc
 module load mkl/2023.1
 module load openmpi/4.1
 module load mkl/2023.1
 module load hdf5-serial/1.14.1
-module load netcdf-serial/4.9.2
+module load netcdf-serial
 module load anaconda/3/2023.03 #for pytest
 #module load ftimings
 #module load numdiff
@@ -25,6 +22,3 @@ module list
 export FC=`which gfortran`
 export CC=`which gcc`
 export CXX=`which g++`
-
-#used for pytest
-export MPI_PRFX="mpirun -np 2"

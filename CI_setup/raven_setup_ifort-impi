@@ -1,10 +1,7 @@
-#!/bin/bash
-
-# ===========================================
-# use this setup on raven or on cobra with the command:
-# > . CI_setup/mpcdf_setup_intel
+# bash source script
+# usage: source CI_setup/mpcdf_setup_ifort-impi
 #
-# LAST MODIFIED: 2024-06-01
+# LAST MODIFIED: 2025-01-31
 # ===========================================
 
 module purge
@@ -25,8 +22,6 @@ export FC=`which mpiifort`
 export CC=`which mpiicc`
 export CXX=`which mpiicc`
 
-#used for pytest
-export MPI_PRFX="mpirun -np 2"
-#uncomment to be able to use mpirun directly
-unset I_MPI_HYDRA_BOOTSTRAP
-unset I_MPI_PMI_LIBRARY
+#uncomment to be able to use mpirun interactively (without submitting to the queue)
+#unset I_MPI_HYDRA_BOOTSTRAP
+#unset I_MPI_PMI_LIBRARY

@@ -27,8 +27,8 @@ Initialize with a VMEC netCDF output and convert to VMEC netCDF or interface wit
 :::{grid-item-card}  Modern Fortran
 Use of modern object-oriented Fortran
 :::
-:::{grid-item-card}  Python Postprocessing
-Python bindings for easy postprocessing and integration with other tools.
+:::{grid-item-card}  Python bindings
+Python bindings for running and postprocessing and integration with other tools.
 :::
 ::::
 

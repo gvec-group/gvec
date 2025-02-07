@@ -1,4 +1,8 @@
-#!/bin/bash
+# bash source script
+# usage: source CI_setup/mpcdf_setup_nvfortran-23
+#
+# LAST MODIFIED: 2025-02-03
+# ===========================================
 
 module purge
 module load git

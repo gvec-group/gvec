@@ -1,5 +1,5 @@
 doc
-build/*
+build*/*
 ctags.txt
 *.vsz
 *.vtu
@@ -18,10 +18,11 @@ CMakeUserPresets.json
 docs/build
 docs/extra/ford
 
-# exclude all pytest run files
+# exclude all pytest run/conv files
 test-CI/run*
-test-CI/conv*
 test-CI/CIrun*
+test-CI/conv*
+test-CI/perf*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -86,7 +86,7 @@ class State:
     def __init__(
         self,
         parameterfile: str | Path,
-        statefile: str | Path,
+        statefile: str | Path | None = None,
         redirect_stdout: bool = True,
     ):
         self.initialized: bool = False
@@ -98,7 +98,7 @@ class State:
             raise NotImplementedError("Only one instance of State is allowed.")
         if not Path(parameterfile).exists():
             raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
-        if not Path(statefile).exists():
+        if statefile is not None and not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
         _binding.redirect_abort()  # redirect abort to raise a RuntimeError
@@ -106,15 +106,23 @@ class State:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
             _binding.redirect_stdout(self._stdout.name)
         self.parameterfile = Path(parameterfile)
-        self.statefile = Path(statefile)
-
+        if statefile is not None:
+            self.statefile = Path(statefile)
+        else:
+            self.statefile = None
         self._original_dir = os.getcwd()
         os.chdir(self.parameterfile.parent)
-        self.statefile = self.statefile.relative_to(self.parameterfile.parent)
-        self.parameterfile = self.parameterfile.relative_to(self.parameterfile.parent)
+        if self.statefile is not None:
+            self.statefile = self.statefile.relative_to(self.parameterfile.parent)
+        self.parameterfile = self.parameterfile.relative_to(
+            self.parameterfile.parent
+        )  # do this last! (self-referencing)
 
         _post.init(self.parameterfile)
-        _post.readstate(self.statefile)
+        if self.statefile is not None:
+            _post.readstate(self.statefile)
+        else:
+            _post.initsolution()
         self.initialized = True
         self._children = []
 
@@ -163,8 +171,10 @@ class State:
             + ",".join(
                 [
                     "initialized" if self.initialized else "finalized",
-                    self.parameterfile.name,
-                    self.statefile.name,
+                    self.parameterfile.name
+                    if self.parameterfile is not None
+                    else "None",
+                    self.statefile.name if self.statefile is not None else "None",
                 ]
             )
             + ")>"
@@ -673,7 +683,9 @@ class State:
                     [rf"$\frac{{{2*i} \pi}}{{{n_xtick - 1}}}$" for i in range(n_xtick)]
                 )
             axs[-1, r].set_xlabel(r"$\theta$")
-        fig.suptitle(self.statefile.name)
+        fig.suptitle(
+            self.statefile.name if self.statefile is not None else "Initial State"
+        )
         return fig, axs
 
     def plot_poloidal(
@@ -751,5 +763,7 @@ class State:
                 title=rf"$\zeta = {zetai:.2f}$",
             )
             axs[-1, z].set_xlabel(r"$X^1$")
-        fig.suptitle(self.statefile.name)
+        fig.suptitle(
+            self.statefile.name if self.statefile is not None else "Initial State"
+        )
         return fig, axs
