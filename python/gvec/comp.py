@@ -689,8 +689,8 @@ def ev2ft(ev, quiet=False):
                 dims,
                 vcos,
                 dict(
-                    long_name=f"{ev[var].long_name}, cosine coefficients",
-                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^c",
+                    long_name=f"{ev[var].attrs['long_name']}, cosine coefficients",
+                    symbol=f"{{{ev[var].attrs['symbol']}}}_{{mn}}^c",
                 )
                 | attrs,
             )
@@ -698,8 +698,8 @@ def ev2ft(ev, quiet=False):
                 dims,
                 vsin,
                 dict(
-                    long_name=f"{ev[var].long_name}, sine coefficients",
-                    symbol=f"{{{ev[var].symbol}}}_{{mn}}^s",
+                    long_name=f"{ev[var].attrs['long_name']}, sine coefficients",
+                    symbol=f"{{{ev[var].attrs['symbol']}}}_{{mn}}^s",
                 )
                 | attrs,
             )
