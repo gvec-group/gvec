@@ -1515,8 +1515,13 @@ SUBROUTINE FinalizeMHD3D(sf)
   END DO
   CALL sgrid%free()
 
-  CALL iota_profile%free()
-  CALL pres_profile%free()
+  IF (ALLOCATED(iota_profile)) THEN
+    CALL iota_profile%free()
+  END IF
+
+  IF (ALLOCATED(pres_profile)) THEN
+    CALL pres_profile%free()
+  END IF
 
   SDEALLOCATE(U)
   SDEALLOCATE(P)
