@@ -1515,6 +1515,9 @@ SUBROUTINE FinalizeMHD3D(sf)
   END DO
   CALL sgrid%free()
 
+  CALL iota_profile%free()
+  CALL pres_profile%free()
+
   SDEALLOCATE(U)
   SDEALLOCATE(P)
   SDEALLOCATE(V)

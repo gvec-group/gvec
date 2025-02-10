@@ -1,0 +1,164 @@
+import pytest
+
+try:
+    import numpy as np
+
+    import gvec
+    from gvec.state import State
+except ImportError:
+    pytest.skip("Import Error", allow_module_level=True)
+
+
+# Utility functions for transforming polynomials into B-Splines.
+# ============================================================== #
+def binc(n, k):
+    """Binomial coefficient implementation to avoid using scipy.
+
+    Args:
+        n (int): top value
+        k (int): bottom value
+
+    Returns:
+        float: binomial coefficient (n k)
+    """
+    if k > k:
+        AssertionError("error in binomial coefficient (n k) calculation: k>n")
+    if abs(k) <= 1e-12:
+        coef = 1.0
+    elif k > n / 2:
+        coef = binc(n, n - k)
+    else:
+        coef = n * binc(n - 1, k - 1) / k
+    return coef
+
+
+def dual_fatcor(r: int, d: int, j: int, t):
+    """Prefactor for the transformation of polynomial coefficients to B-spline coefficients.
+    Only works on the interval s=rho^2 in [0,1].
+
+    Args:
+        r (int): polynomial degree.
+        d (int): max polynomial degree.
+        j (int): index of the B-spline.
+        t (np.ArrayLike): B-spline knots.
+
+    Returns:
+        float: prefactor from the dual-polynomial.
+    """
+    n = int(np.sum(t[j : j + d + 1]))
+    if r > n:
+        return 0
+    c_jr = binc(n, r) / binc(d, r)
+    return c_jr
+
+
+def poly2bspl_coeff(c, j, t):
+    """
+
+    Args:
+        c (int): polynomial coefficients
+        j (int): index of the B-spline.
+        t (int): B-spline knots.
+
+    Returns:
+        float: B-spline coefficient.
+    """
+    d = len(c) - 1
+    c_spl = 0
+    for r in range(d + 1):
+        c_jr = dual_fatcor(r, d, j, t)
+        c_spl += c[r] * c_jr
+    return c_spl
+
+
+# === Fixtures === #
+
+
+@pytest.fixture
+def c_poly():
+    """Reference polynomial to test against.
+
+    Returns:
+        list: polynomial coefficients
+    """
+    return [1, 2, 3, -1, -2, -3]
+
+
+@pytest.fixture(params=["poly", "bspl"])
+def testfile_aux(request, testcaserundir, c_poly):
+    """prepare the testcase parameters"""
+    paramfile = "parameter_aux.ini"
+    params_gvec = {"sign_iota": 1, "pres_scale": 1}
+    deg = len(c_poly) - 1
+    if request.param == "poly":
+        params_gvec["pres_coefs"] = gvec.util.np2gvec(c_poly)
+        params_gvec["pres_type"] = "polynomial"
+        params_gvec["iota_coefs"] = gvec.util.np2gvec(c_poly)
+        params_gvec["iota_type"] = "polynomial"
+    elif request.param == "bspl":
+        c_bspl = np.zeros(deg + 1)
+        knots = np.concatenate([np.zeros(deg + 1), np.ones(deg + 1)])
+        for j in range(deg + 1):
+            c_bspl[j] = poly2bspl_coeff(c_poly, j, knots)
+        params_gvec = gvec.util.bspl2gvec(
+            "pres", knots=knots, coefs=c_bspl, params=params_gvec
+        )
+        params_gvec = gvec.util.bspl2gvec(
+            "iota", knots=knots, coefs=c_bspl, params=params_gvec
+        )
+    gvec.util.adapt_parameter_file(
+        testcaserundir / "parameter.ini", testcaserundir / paramfile, **params_gvec
+    )
+    yield (testcaserundir / paramfile)
+
+
+@pytest.fixture()
+def teststate(testfile_aux):
+    with State(testfile_aux) as state:
+        yield state
+
+
+# === Tests === #
+@pytest.mark.parametrize("type", ["p", "iota"])
+def test_eval_profile(teststate, type, c_poly):
+    rho = np.linspace(0, 1, 100)
+    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly_vals = ref_poly(rho**2)
+    gvec_profile = teststate.evaluate_profile(type, rho=rho)
+    np.testing.assert_almost_equal(ref_poly_vals, gvec_profile)
+
+
+@pytest.mark.parametrize("type", ["p_prime", "iota_prime"])
+def test_eval_profile_prime(teststate, type, c_poly):
+    rho = np.linspace(0, 1, 100)
+    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly_vals = ref_poly.deriv(m=1)(rho**2) * 2 * rho
+    gvec_profile = teststate.evaluate_profile(type, rho=rho)
+    np.testing.assert_almost_equal(ref_poly_vals, gvec_profile)
+
+
+@pytest.mark.parametrize("type", ["p", "iota"])
+def test_eval_profile_n_deriv(teststate, type, c_poly):
+    rho = np.linspace(0, 1, 100)
+    ref_poly = np.polynomial.Polynomial(c_poly)
+
+    # derivatives of s=rho**2 with respect to rho
+    ds1 = 2 * rho
+    ds2 = 2
+
+    # derivatives of the test-polynomial with respect to s=rho**2
+    drefs1 = ref_poly.deriv(m=1)(rho**2)
+    drefs2 = ref_poly.deriv(m=2)(rho**2)
+    drefs3 = ref_poly.deriv(m=3)(rho**2)
+    drefs4 = ref_poly.deriv(m=4)(rho**2)
+
+    # derivatives of the test-polynomial with respect to rho
+    dref1 = drefs1 * ds1
+    dref2 = ds1**2 * drefs2 + drefs1 * ds2
+    dref3 = 3 * ds1 * drefs2 * ds2 + ds1**3 * drefs3
+    dref4 = ds1**4 * drefs4 + 6 * ds2 * ds1**2 * drefs4 + 3 * ds2**2 * drefs2
+    drefi = [dref1, dref2, dref3, dref4]
+
+    for i in range(1, len(drefi)):
+        gvec_profile_di = teststate.evaluate_profile_deriv(type, rho=rho, order=i)
+        np.testing.assert_almost_equal(drefi[i - 1], gvec_profile_di)
