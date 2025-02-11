@@ -33,7 +33,7 @@ TYPE, ABSTRACT :: c_rProfile
 
     contains
 
-    PROCEDURE(i_fun_eval_at_rho2      ), DEFERRED :: eval_at_rho2
+    PROCEDURE(i_fun_eval_at_rho2), DEFERRED :: eval_at_rho2
 
     PROCEDURE :: eval_at_rho => rProfile_eval_at_rho
     ! hard coded derivatives with respect to rho=sqrt(phi/phi_edge)

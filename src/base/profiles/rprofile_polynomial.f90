@@ -31,7 +31,7 @@ TYPE, EXTENDS(c_rProfile) :: t_rProfile_poly
   CONTAINS
   
   PROCEDURE :: eval_at_rho2        => polyProfile_eval_at_rho2
-  FINAL     :: polyProfile_free
+  !FINAL     :: polyProfile_free !! no finalizer necessary
   
 END TYPE t_rProfile_poly
 
@@ -55,7 +55,6 @@ FUNCTION polyProfile_new(coefs, n_coefs) RESULT(sf)
 !===================================================================================================================================
     sf%deg   = n_coefs-1
     sf%n_coefs = n_coefs
-    ALLOCATE(sf%coefs(1:n_coefs))
     sf%coefs = coefs
 END FUNCTION polyProfile_new
 
@@ -97,23 +96,5 @@ FUNCTION polyProfile_eval_at_rho2(sf, rho2, deriv) RESULT(profile_prime_value)
         END DO
     END IF
 END FUNCTION polyProfile_eval_at_rho2
-
-!===================================================================================================================================
-!> finalize the type rProfile
-!!
-!===================================================================================================================================
-SUBROUTINE polyProfile_free(sf)
-! MODULES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-    TYPE(t_rProfile_poly), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-!=================================================================================================================================== 
-    SDEALLOCATE(sf%coefs)
-    sf%deg          =-1
-    sf%n_coefs      =-1
-END SUBROUTINE polyProfile_free
 
 END MODULE MODgvec_rProfile_poly

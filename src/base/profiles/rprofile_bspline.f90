@@ -67,9 +67,7 @@ FUNCTION bsplProfile_new(knots, n_knots, coefs, n_coefs) RESULT(sf)
     sf%deg   = COUNT(knots==knots(1))-1 ! multiplicity of the first knot determines the degree
     sf%n_knots = n_knots
     sf%n_coefs = n_coefs
-    ALLOCATE(sf%knots(1:n_knots))
     sf%knots = knots
-    ALLOCATE(sf%coefs(1:n_coefs))
     sf%coefs = coefs
     IF (sf%deg>0) THEN
       CALL sll_s_bsplines_new(sf%bspl, sf%deg, .FALSE., & 
@@ -126,13 +124,7 @@ SUBROUTINE bsplProfile_free(sf)
   TYPE(t_rProfile_bspl), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 !=================================================================================================================================== 
-  SDEALLOCATE(sf%knots)
-  SDEALLOCATE(sf%coefs)
   IF (ALLOCATED(sf%bspl)) CALL sf%bspl%free()
-  SDEALLOCATE(sf%bspl)
-  sf%deg          =-1
-  sf%n_coefs      =-1
-  sf%n_knots      =-1
 END SUBROUTINE bsplProfile_free
 
 END MODULE MODgvec_rProfile_bspl
