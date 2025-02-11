@@ -29,17 +29,13 @@ TYPE, ABSTRACT :: c_rProfile
 
     INTEGER               :: n_coefs
     REAL(wp), ALLOCATABLE :: coefs(:)  
-    INTEGER               :: profile_type
     INTEGER               :: deg = 0
 
     contains
 
-    PROCEDURE(i_fun_eval_at_phi_norm      ), DEFERRED :: eval_at_phi_norm
-    PROCEDURE(i_fun_eval_prime_at_phi_norm), DEFERRED :: eval_prime_at_phi_norm
-    PROCEDURE(i_fun_eval_derivative       ), DEFERRED :: eval_derivative
-    PROCEDURE(i_sub_free                  ), DEFERRED :: free
+    PROCEDURE(i_fun_eval_at_rho2      ), DEFERRED :: eval_at_rho2
 
-    PROCEDURE :: eval_rho_derivative => rProfile_eval_rho_derivative
+    PROCEDURE :: eval_at_rho => rProfile_eval_at_rho
     ! hard coded derivatives with respect to rho=sqrt(phi/phi_edge)
     PROCEDURE, PRIVATE :: rProfile_drho2
     PROCEDURE, PRIVATE :: rProfile_drho3
@@ -49,35 +45,14 @@ end type c_rProfile
 
 ABSTRACT INTERFACE
 
-    FUNCTION i_fun_eval_at_phi_norm( sf, phi_norm ) RESULT(profile_value)
+    FUNCTION i_fun_eval_at_rho2( sf, rho2, deriv ) RESULT(profile_value)
         IMPORT c_rProfile
         IMPORT wp
         CLASS(c_rProfile), INTENT(IN)  :: sf
-        REAL(wp)           , INTENT(IN)  :: phi_norm 
-        REAL(wp)                         :: profile_value
-    END FUNCTION i_fun_eval_at_phi_norm
-
-    FUNCTION i_fun_eval_prime_at_phi_norm( sf, phi_norm ) RESULT(profile_value)
-        IMPORT c_rProfile
-        IMPORT wp
-        CLASS(c_rProfile), INTENT(IN) :: sf
-        REAL(wp)         , INTENT(IN)   :: phi_norm 
-        REAL(wp)                        :: profile_value
-    END FUNCTION i_fun_eval_prime_at_phi_norm
-
-    FUNCTION i_fun_eval_derivative(sf, phi_norm, n ) RESULT(profile_prime_value)
-        IMPORT c_rProfile
-        IMPORT wp
-        CLASS(c_rProfile), INTENT(IN) :: sf
-        REAL(wp)           , INTENT(IN) :: phi_norm
-        INTEGER, OPTIONAL    :: n
-        REAL(wp)                        :: profile_prime_value
-    END FUNCTION i_fun_eval_derivative
-
-    SUBROUTINE i_sub_free(sf)
-        IMPORT c_rProfile
-        CLASS(c_rProfile), INTENT(INOUT) :: sf
-    END SUBROUTINE i_sub_free
+        REAL(wp)         , INTENT(IN)  :: rho2 
+        INTEGER          , OPTIONAL    :: deriv
+        REAL(wp)                       :: profile_value
+    END FUNCTION i_fun_eval_at_rho2
 
 END INTERFACE
 
@@ -86,38 +61,38 @@ CONTAINS
 !> calculate the prefactor for the d-th coefficient of the n-th derivative of a polynomial
 !!
 !===================================================================================================================================
-FUNCTION poly_derivative_prefactor(D,n) RESULT(prefactor)
-    INTEGER, INTENT(IN) :: D,n
+FUNCTION poly_derivative_prefactor(D,deriv) RESULT(prefactor)
+    INTEGER, INTENT(IN) :: D,deriv
     INTEGER :: i
     REAL(wp) :: prefactor
     prefactor = 1.0_wp
-    DO i=D-n+1,D
+    DO i=D-deriv+1,D
         prefactor = prefactor*i
     END DO
 END FUNCTION poly_derivative_prefactor
 
 !===================================================================================================================================
-!> evaluate the n-th derivative of phi_norm with respect to rho=sqrt(phi/phi_edge)
+!> evaluate the n-th derivative of rho2 with respect to rho=sqrt(phi/phi_edge)
 !!
 !===================================================================================================================================
-FUNCTION phi_norm_derivative(spos,n) RESULT(phi_norm_prime)
+FUNCTION rho2_derivative(spos,deriv) RESULT(rho2_prime)
 ! MODULES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
     REAL(wp), INTENT(IN) :: spos
-    INTEGER, INTENT(IN)  :: n
+    INTEGER, INTENT(IN)  :: deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-    REAL(wp) :: phi_norm_prime
+    REAL(wp) :: rho2_prime
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-    IF (n>2) THEN
-        phi_norm_prime = 0.0_wp
+    IF (deriv>2) THEN
+        rho2_prime = 0.0_wp
     ELSE
-        phi_norm_prime = poly_derivative_prefactor(2,n)*spos**(2-n)
+        rho2_prime = poly_derivative_prefactor(2,deriv)*spos**(2-deriv)
     END IF
-END FUNCTION phi_norm_derivative
+END FUNCTION rho2_derivative
 
 !===================================================================================================================================
 !> evaluate the 2nd derivative of a radial profile with respect to rho= sqrt(phi/phi-edge).
@@ -134,12 +109,12 @@ FUNCTION rProfile_drho2(sf, spos) RESULT(derivative)
     REAL(wp) :: derivative
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-    REAL(wp) :: phi_norm
+    REAL(wp) :: rho2
 !===================================================================================================================================
-    phi_norm = phi_norm_derivative(spos,n=0)
+    rho2 = rho2_derivative(spos,deriv=0)
     ! d^2/dx^2 f(g(x)) = [g'(x)]^2 * f''(g(x))+g''(x) * f'(g(x))
-    derivative = phi_norm_derivative(spos,n=1)**2*sf%eval_derivative(phi_norm, n=2) &
-                + phi_norm_derivative(spos,n=2)*sf%eval_derivative(phi_norm, n=1)
+    derivative = rho2_derivative(spos,deriv=1)**2*sf%eval_at_rho2(rho2, deriv=2) &
+                + rho2_derivative(spos,deriv=2)*sf%eval_at_rho2(rho2, deriv=1)
 END FUNCTION rProfile_drho2
 
 !===================================================================================================================================
@@ -157,13 +132,13 @@ FUNCTION rProfile_drho3(sf, spos) RESULT(derivative)
     REAL(wp) :: derivative
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-    REAL(wp) :: phi_norm
+    REAL(wp) :: rho2
 !===================================================================================================================================
-    phi_norm = phi_norm_derivative(spos,n=0)
+    rho2 = rho2_derivative(spos,deriv=0)
     ! d^3/dx^3 f(g(x)) = 3g'(x) * f''(g(x)) * g''(x) + [g'(x)]^3*f'''(g(x)) + f'(x) * g'''(x)
-    derivative = 3*phi_norm_derivative(spos,n=1)*sf%eval_derivative(phi_norm, n=2)*phi_norm_derivative(spos,n=2) &
-                + phi_norm_derivative(spos,n=1)**3*sf%eval_derivative(phi_norm, n=3) &
-                + phi_norm_derivative(spos,n=3)*sf%eval_derivative(phi_norm, n=1)
+    derivative = 3*rho2_derivative(spos,deriv=1)*sf%eval_at_rho2(rho2, deriv=2)*rho2_derivative(spos,deriv=2) &
+                + rho2_derivative(spos,deriv=1)**3*sf%eval_at_rho2(rho2, deriv=3) &
+                + rho2_derivative(spos,deriv=3)*sf%eval_at_rho2(rho2, deriv=1)
 END FUNCTION rProfile_drho3
 !===================================================================================================================================
 !> evaluate the 4th derivative of a radial profile with respect to rho= sqrt(phi/phi-edge).
@@ -180,45 +155,49 @@ FUNCTION rProfile_drho4(sf, spos) RESULT(derivative)
     REAL(wp) :: derivative
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-    REAL(wp) :: phi_norm
+    REAL(wp) :: rho2
 !===================================================================================================================================
-    phi_norm = phi_norm_derivative(spos,n=0)
+    rho2 = rho2_derivative(spos,deriv=0)
     ! d^4/dx^4 f(g(x)) = f''''(g(x))g'(x)**4 
     !                   + 6f'''(g(x))g''(x)g'(x)^2
     !                   + 3f''(g(x))g''(x)^2 
     !                   + 4f''(g(x))g'''(x)g'(x)
     !                   + f'(g(x))g''''(x)
-    derivative = sf%eval_derivative(phi_norm, n=4)*phi_norm_derivative(spos,n=1)**4 &
-                + 6*sf%eval_derivative(phi_norm, n=3)*phi_norm_derivative(spos,n=2)*phi_norm_derivative(spos,n=1)**2 &
-                + 3*sf%eval_derivative(phi_norm, n=2)*phi_norm_derivative(spos,n=2)**2 &
-                + 4*sf%eval_derivative(phi_norm, n=2)*phi_norm_derivative(spos,n=3)*phi_norm_derivative(spos,n=1) &
-                + sf%eval_derivative(phi_norm, n=1)*phi_norm_derivative(spos,n=4)
+    derivative = sf%eval_at_rho2(rho2, deriv=4)*rho2_derivative(spos,deriv=1)**4 &
+                + 6*sf%eval_at_rho2(rho2, deriv=3)*rho2_derivative(spos,deriv=2)*rho2_derivative(spos,deriv=1)**2 &
+                + 3*sf%eval_at_rho2(rho2, deriv=2)*rho2_derivative(spos,deriv=2)**2 &
+                + 4*sf%eval_at_rho2(rho2, deriv=2)*rho2_derivative(spos,deriv=3)*rho2_derivative(spos,deriv=1) &
+                + sf%eval_at_rho2(rho2, deriv=1)*rho2_derivative(spos,deriv=4)
 END FUNCTION rProfile_drho4
 
 !===================================================================================================================================
 !> evaluate the n-th derivative of a radial profile with respect to rho= sqrt(phi/phi-edge).
 !! NOTE: n has to be in [0,4] due to a lazy implementation of the product rule.
 !===================================================================================================================================
-FUNCTION rProfile_eval_rho_derivative(sf, spos, n) RESULT(derivative)
+FUNCTION rProfile_eval_at_rho(sf, spos, deriv) RESULT(derivative)
 ! MODULES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
     CLASS(c_rProfile)  :: sf !! self
     REAL(wp), INTENT(IN) :: spos
-    INTEGER,  INTENT(IN) :: n
+    INTEGER,  OPTIONAL   :: deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
     REAL(wp) :: derivative
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-    REAL(wp) :: phi_norm
+    REAL(wp) :: rho2
 !===================================================================================================================================
-    phi_norm = phi_norm_derivative(spos,n=0)
-    SELECT CASE(n)
+    IF (.NOT.PRESENT(deriv)) THEN
+        deriv = 0
+    END IF 
+
+    rho2 = rho2_derivative(spos,deriv=0)
+    SELECT CASE(deriv)
     CASE(0)
-        derivative = sf%eval_at_phi_norm(phi_norm)
+        derivative = sf%eval_at_rho2(rho2, deriv=0)
     CASE(1)
-        derivative = sf%eval_prime_at_phi_norm(phi_norm)*phi_norm_derivative(spos,n=1)
+        derivative = sf%eval_at_rho2(rho2,deriv=1)*rho2_derivative(spos,deriv=1)
     CASE(2)
         derivative = sf%rProfile_drho2(spos)
     CASE(3)
@@ -229,6 +208,6 @@ FUNCTION rProfile_eval_rho_derivative(sf, spos, n) RESULT(derivative)
         CALL abort(__STAMP__,&
             "error in rprofile: derivatives higher than 4 with respect to rho=sqrt(phi/phi_edge) are not implemented!")
     END SELECT
-END FUNCTION rProfile_eval_rho_derivative
+END FUNCTION rProfile_eval_at_rho
 
 END MODULE MODgvec_rProfile_base

@@ -66,7 +66,8 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   
-  USE MODgvec_rProfile, ONLY: rProfile_init
+  USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
+  USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -159,10 +160,10 @@ SUBROUTINE InitMHD3D(sf)
     pres_type  = GETSTR("pres_type", Proposal="polynomial")
 
     IF (iota_type=="polynomial") THEN
-      CALL rProfile_init(iota_profile, 0, iota_coefs, n_iota_coefs)
+      iota_profile = t_rProfile_poly(iota_coefs, n_iota_coefs)
     ELSE IF (iota_type=="bspline") THEN
       CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
-      CALL rProfile_init(iota_profile, 1, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
+      iota_profile = t_rProfile_bspl(coefs=iota_coefs, n_coefs=n_iota_coefs, knots=iota_knots, n_knots=n_iota_knots)
     ELSE
       WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
     END IF 
@@ -170,10 +171,10 @@ SUBROUTINE InitMHD3D(sf)
     SDEALLOCATE(iota_coefs)
     
     IF (pres_type=="polynomial") THEN
-      CALL rProfile_init(pres_profile, 0, pres_coefs, n_pres_coefs)
+      pres_profile = t_rProfile_poly(pres_coefs, n_pres_coefs)
     ELSE IF (pres_type=="bspline") THEN
       CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
-      CALL rProfile_init(pres_profile,1, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
+      pres_profile = t_rProfile_bspl(coefs=pres_coefs, n_coefs=n_pres_coefs,knots=pres_knots, n_knots=n_pres_knots)
     ELSE
       WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
     END IF 
@@ -196,10 +197,10 @@ SUBROUTINE InitMHD3D(sf)
       iota_type  = GETSTR("iota_type", Proposal="polynomial")
 
       IF (iota_type=="polynomial") THEN
-        CALL rProfile_init(iota_profile, 0, iota_coefs, n_iota_coefs)
+        iota_profile = t_rProfile_poly(iota_coefs, n_iota_coefs)
       ELSE IF (iota_type=="bspline") THEN
         CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
-        CALL rProfile_init(iota_profile, 1, iota_coefs, n_iota_coefs,iota_knots, n_iota_knots)
+        iota_profile = t_rProfile_bspl(coefs=iota_coefs, n_coefs=n_iota_coefs, knots=iota_knots, n_knots=n_iota_knots)
       ELSE
         WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
       END IF 
@@ -215,10 +216,10 @@ SUBROUTINE InitMHD3D(sf)
       pres_type  = GETSTR("pres_type", Proposal="polynomial")
 
       IF (pres_type=="polynomial") THEN
-        CALL rProfile_init(pres_profile,0, pres_coefs, n_pres_coefs)
+        pres_profile = t_rProfile_poly(pres_coefs, n_pres_coefs)
       ELSE IF (pres_type=="bspline") THEN
         CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
-        CALL rProfile_init(pres_profile, 0, pres_coefs, n_pres_coefs,pres_knots, n_pres_knots)
+        pres_profile = t_rProfile_bspl(coefs=pres_coefs, n_coefs=n_pres_coefs,knots=pres_knots, n_knots=n_pres_knots)
       ELSE
         WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial" or "bspline". Continuing with default type "polynomial".'
       END IF 
@@ -1514,14 +1515,6 @@ SUBROUTINE FinalizeMHD3D(sf)
     CALL F(i)%free()
   END DO
   CALL sgrid%free()
-
-  IF (ALLOCATED(iota_profile)) THEN
-    CALL iota_profile%free()
-  END IF
-
-  IF (ALLOCATED(pres_profile)) THEN
-    CALL pres_profile%free()
-  END IF
 
   SDEALLOCATE(U)
   SDEALLOCATE(P)

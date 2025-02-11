@@ -30,18 +30,18 @@ TYPE, EXTENDS(c_rProfile) :: t_rProfile_poly
   
   CONTAINS
   
-  PROCEDURE :: init                    => polyProfile_init
-  PROCEDURE :: eval_at_phi_norm        => polyProfile_eval_at_phi_norm
-  PROCEDURE :: eval_prime_at_phi_norm  => polyProfile_eval_prime_at_phi_norm
-  PROCEDURE :: eval_derivative         => polyProfile_eval_derivative
-
-  PROCEDURE :: free => polyProfile_free
+  PROCEDURE :: eval_at_rho2        => polyProfile_eval_at_rho2
+  FINAL     :: polyProfile_free
   
 END TYPE t_rProfile_poly
 
+INTERFACE t_rProfile_poly
+    MODULE PROCEDURE polyProfile_new
+END INTERFACE t_rProfile_poly
+
 CONTAINS
 
-SUBROUTINE polyProfile_init(sf, coefs, n_coefs)
+FUNCTION polyProfile_new(coefs, n_coefs) RESULT(sf)
 ! MODULES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -49,71 +49,28 @@ SUBROUTINE polyProfile_init(sf, coefs, n_coefs)
     INTEGER, INTENT(IN) :: n_coefs !! number of coefficients
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-    CLASS(t_rProfile_poly), INTENT(OUT) :: sf
+    TYPE(t_rProfile_poly) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-    sf%profile_type = 0
     sf%deg   = n_coefs-1
     sf%n_coefs = n_coefs
     ALLOCATE(sf%coefs(1:n_coefs))
     sf%coefs = coefs
-END SUBROUTINE polyProfile_init
-
-!===================================================================================================================================
-!> evaluate the polyProfile at position phi_norm
-!!
-!===================================================================================================================================
-FUNCTION polyProfile_eval_at_phi_norm( sf, phi_norm ) RESULT(profile_value)
-! MODULES
-    USE MODgvec_Globals    ,ONLY: EVAL1DPOLY
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-    CLASS(t_rProfile_poly), INTENT(IN)  :: sf !! self
-    REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (phi_norm=phi/phi_edge= spos^2)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-    REAL(wp)                         :: profile_value
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-
-    profile_value = EVAL1DPOLY(sf%n_coefs,sf%coefs,phi_norm)
-
-END FUNCTION polyProfile_eval_at_phi_norm
-
-!===================================================================================================================================
-!> evaluate the first derivative of the polyProfile at position phi_norm
-!!
-!===================================================================================================================================
-FUNCTION polyProfile_eval_prime_at_phi_norm( sf, phi_norm ) RESULT(profile_value)
-! MODULES
-    USE MODgvec_Globals    ,ONLY: EVAL1DPOLY_DERIV
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-    CLASS(t_rProfile_poly), INTENT(IN)  :: sf !! self
-    REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (phi_norm=phi/phi_edge= spos^2)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-    REAL(wp)                         :: profile_value
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-    profile_value = EVAL1DPOLY_DERIV(sf%n_coefs,sf%coefs,phi_norm)
-
-END FUNCTION polyProfile_eval_prime_at_phi_norm
+END FUNCTION polyProfile_new
 
 !===================================================================================================================================
 !> evaluate the n-th derivative of a power polynomial
 !!
 !===================================================================================================================================
-FUNCTION polyProfile_eval_derivative(sf, phi_norm, n) RESULT(profile_prime_value)
+FUNCTION polyProfile_eval_at_rho2(sf, rho2, deriv) RESULT(profile_prime_value)
 ! MODULES
+    USE MODgvec_Globals, ONLY: Eval1DPoly,Eval1DPoly_deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
     CLASS(t_rProfile_poly), INTENT(IN)  :: sf !! self
-    REAL(wp)           , INTENT(IN)  :: phi_norm !! evaluation point in the toroidal flux coordinate (phi_norm=phi/phi_edge= spos^2)
-    INTEGER            , OPTIONAL  :: n
+    REAL(wp)              , INTENT(IN)  :: rho2 !! evaluation point in the toroidal flux coordinate (rho2=phi/phi_edge= spos^2)
+    INTEGER               , OPTIONAL    :: deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
     REAL(wp)                         :: profile_prime_value
@@ -122,20 +79,24 @@ FUNCTION polyProfile_eval_derivative(sf, phi_norm, n) RESULT(profile_prime_value
     REAL(wp)                         :: prefactor
     INTEGER                          :: d
 !===================================================================================================================================
-    IF (.NOT.PRESENT(n)) THEN
-        n = 0
+    IF (.NOT.PRESENT(deriv)) THEN
+        deriv = 0
     END IF
     
-    IF (n>sf%deg) THEN
+    IF (deriv>sf%deg) THEN
         profile_prime_value = 0.0_wp
-    ELSE 
+    ELSE IF (deriv==0) THEN
+        profile_prime_value = EVAL1DPOLY(sf%n_coefs, sf%coefs, rho2)
+    ELSE IF (deriv==1) THEN
+        profile_prime_value = EVAL1DPOLY_deriv(sf%n_coefs, sf%coefs, rho2)
+    ELSE
         profile_prime_value = 0.0_wp
-        DO d=n,sf%deg
-            prefactor=poly_derivative_prefactor(d,n)
-            profile_prime_value = profile_prime_value +prefactor*sf%coefs(d+1)*(phi_norm**(d-n))
+        DO d=deriv,sf%deg
+            prefactor=poly_derivative_prefactor(d,deriv)
+            profile_prime_value = profile_prime_value +prefactor*sf%coefs(d+1)*(rho2**(d-deriv))
         END DO
     END IF
-END FUNCTION polyProfile_eval_derivative
+END FUNCTION polyProfile_eval_at_rho2
 
 !===================================================================================================================================
 !> finalize the type rProfile
@@ -147,13 +108,12 @@ SUBROUTINE polyProfile_free(sf)
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-    CLASS(t_rProfile_poly), INTENT(INOUT) :: sf !! self
+    TYPE(t_rProfile_poly), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 !=================================================================================================================================== 
     SDEALLOCATE(sf%coefs)
     sf%deg          =-1
     sf%n_coefs      =-1
-    sf%profile_type =-1
 END SUBROUTINE polyProfile_free
 
 END MODULE MODgvec_rProfile_poly
