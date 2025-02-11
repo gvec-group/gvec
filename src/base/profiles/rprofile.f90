@@ -63,7 +63,7 @@ SUBROUTINE rProfile_init(sf, profile_type, coefs, n_coefs, knots, n_knots)
     TYPE IS( t_rProfile_poly )
         CALL sf%init(coefs, n_coefs)
     TYPE IS( t_rProfile_bspl )
-        CALL sf% init(knots, n_knots, coefs, n_coefs)
+        CALL sf%init(knots, n_knots, coefs, n_coefs)
     END SELECT
 END SUBROUTINE rProfile_init
 

@@ -41,9 +41,9 @@ TYPE, ABSTRACT :: c_rProfile
 
     PROCEDURE :: eval_rho_derivative => rProfile_eval_rho_derivative
     ! hard coded derivatives with respect to rho=sqrt(phi/phi_edge)
-    PROCEDURE :: rProfile_drho2
-    PROCEDURE :: rProfile_drho3
-    PROCEDURE :: rProfile_drho4
+    PROCEDURE, PRIVATE :: rProfile_drho2
+    PROCEDURE, PRIVATE :: rProfile_drho3
+    PROCEDURE, PRIVATE :: rProfile_drho4
 
 end type c_rProfile
 

@@ -74,7 +74,7 @@ def poly2bspl_coeff(c, j, t):
 # === Fixtures === #
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def c_poly():
     """Reference polynomial to test against.
 
@@ -84,18 +84,19 @@ def c_poly():
     return [1, 2, 3, -1, -2, -3]
 
 
-@pytest.fixture(params=["poly", "bspl"])
+@pytest.fixture(scope="module", params=["poly", "bspl"])
 def testfile_aux(request, testcaserundir, c_poly):
     """prepare the testcase parameters"""
-    paramfile = "parameter_aux.ini"
     params_gvec = {"sign_iota": 1, "pres_scale": 1}
     deg = len(c_poly) - 1
     if request.param == "poly":
+        paramfile = "parameter_poly.ini"
         params_gvec["pres_coefs"] = gvec.util.np2gvec(c_poly)
         params_gvec["pres_type"] = "polynomial"
         params_gvec["iota_coefs"] = gvec.util.np2gvec(c_poly)
         params_gvec["iota_type"] = "polynomial"
     elif request.param == "bspl":
+        paramfile = "parameter_bspl.ini"
         c_bspl = np.zeros(deg + 1)
         knots = np.concatenate([np.zeros(deg + 1), np.ones(deg + 1)])
         for j in range(deg + 1):
