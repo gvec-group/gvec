@@ -584,7 +584,7 @@ IF(COMPILE_PYGVEC)
   TARGET_INCLUDE_DIRECTORIES(_libfgvec PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
   TARGET_LINK_LIBRARIES(_libfgvec PRIVATE pygveclib f2py_fortranobject gveclib ${linkedlibs})
 
-  IF (${SKBUILD})  # scikit-build-learn -> install e.g. to venv
+  IF (${SKBUILD})  # scikit-build-core -> install e.g. to venv
     INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_fgvec.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
     INSTALL(TARGETS _libfgvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
   ELSE()
