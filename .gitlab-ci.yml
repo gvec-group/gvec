@@ -111,7 +111,7 @@ include:
   # ----------------------
 
   # Intel
-  
+
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_ifort-2023
@@ -346,7 +346,7 @@ include:
       cmake-opts: .cmake_only_converter
 
   # reference tag
-  
+
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifort-2023
@@ -615,7 +615,7 @@ include:
 
   # Raven private runner + srun
   # --------------------
-  
+
   # Intel
 
   - local: CI_templates/run.yml
@@ -637,7 +637,7 @@ include:
   # MPI
 
   # Intel
-  
+
   - local: CI_templates/run.yml
     inputs:
       env: .raven_ifx-impi-2024
@@ -646,7 +646,7 @@ include:
       rules: .rules_private_runner
 
   # GNU
-  
+
   - local: CI_templates/run.yml
     inputs:
       env: .raven_gfortran-openmpi-13
@@ -676,7 +676,7 @@ include:
       rules: .rules_private_runner
 
   # debugrun
-  
+
   - local: CI_templates/run.yml
     inputs:
       env: .viper_gfortran-13
@@ -979,10 +979,10 @@ include:
 .rules_pages:
   rules:
     - if: $CI_COMMIT_REF_NAME == "develop" || $PAGES_PIPELINE == "true"
-      when: always
+      when: always  # also runs if earlier jobs fail
     # allow manual triggering for pipelines where pages didn't run
     - when: manual
-      allow_failure: true # workaround to disable reporting the pipeline as "Blocked"
+      allow_failure: true  # prevent pipeline from being "Blocked" if it isn't run
 
 .rules_never:
   rules:

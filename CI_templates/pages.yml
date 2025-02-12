@@ -11,14 +11,22 @@ pages:
   variables:
     GIT_STRATEGY: clone
     FORD_PREFIX: /gvec  # prefix for the absolute path to the generated ford docs in the header
+    BUILDNAME: ${HASH_TAG}_pip
   script:
     # install graphviz/dot & urw-fonts - required by ford to generate the graphs
     - module load graphviz/2.44
     - zypper install -y urw-fonts
     # python environment to build the documentation
+    # (venv needs to be outside the docs folder, otherwise autodoc will be confused)
+    # try using the venv from the build-pip otherwise create a new one
+    - |
+      if [ -d "venv_${BUILDNAME}" ]; then
+      source "venv_${BUILDNAME}/bin/activate"
+      else
+      python -m venv venv_docs
+      source venv_docs/bin/activate
+      fi
     - cd docs
-    - python -m venv venv
-    - source venv/bin/activate
     - pip install -r requirements.txt
     # run ford
     - export VERSION=$(git describe --tags --always --dirty)
@@ -31,4 +39,7 @@ pages:
   artifacts:
     paths:
       - docs/build/html
-  needs: []
+  needs:
+    - job: build.pip.mpcdfci_gfortran-latest
+      artifacts: true
+      optional: true
