@@ -21,6 +21,7 @@ authors = [
     {name = "Florian Hindenlang"},
     {name = "Tiago Tamissa Ribeiro"},
     {name = "Robert Babin"},
+    # with additional contributions from a number of people. Thank you!
 ]
 maintainers = [
     {name = "Florian Hindenlang", email = "florian.hindenlang@ipp.mpg.de"},
@@ -33,8 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Fortran",
-    # "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    # "License :: OSI Approved :: MIT License"
+    "License :: OSI Approved :: MIT License",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
     "Private :: Do Not Upload",
