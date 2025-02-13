@@ -4,7 +4,7 @@
 requires = [
     "scikit-build-core",
     "f90wrap",
-    "numpy<2",  # for f2py
+    "numpy>=2",  # for f2py
 ]
 build-backend = "scikit_build_core.build"
 
@@ -14,7 +14,7 @@ name = "gvec"
 description = "Galerkin Variational Equilibrium Code"
 dependencies = [
     "f90wrap",
-    "numpy<2",
+    "numpy>=2",
     "xarray",
 ]
 authors = [
@@ -77,6 +77,7 @@ sdist.exclude = [
     "tools",
 ]
 build-dir = "pybuild"
+editable.rebuild = true
 
 [tool.scikit-build.cmake]
 verbose = true

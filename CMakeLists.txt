@@ -495,28 +495,23 @@ include(CTest)
 # =========================================================================
 
 IF(COMPILE_PYGVEC)
-  FIND_PACKAGE(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
+  FIND_PACKAGE(Python COMPONENTS Interpreter Development NumPy REQUIRED)
 
   IF (PYTHON_FOUND)
     MESSAGE(STATUS "Python version: ${Python_VERSION}")
+    MESSAGE(STATUS "Python executable: ${PYTHON_EXECUTABLE}")
+    MESSAGE(STATUS "Python include dir: ${Python_INCLUDE_DIRS}")
+    MESSAGE(STATUS "Python libraries: ${Python_LIBRARIES}")
+    MESSAGE(STATUS "Python NumPy include dir: ${Python_NumPy_INCLUDE_DIRS}")
   ELSE()
     MESSAGE(SEND_ERROR "Python not found, required for 'COMPILE_PYGVEC=ON'!")
   ENDIF()
 
-  SET(PYPKG_PATH "python/gvec") # does nothing?
+  SET(PYPKG_PATH "python/gvec")
 
   # --- f2py headers --- #
-  EXECUTE_PROCESS(
-    COMMAND "${PYTHON_EXECUTABLE}"
-            -c "import numpy.f2py; print(numpy.f2py.get_include())"
-    OUTPUT_VARIABLE F2PY_INCLUDE_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-
-  ADD_LIBRARY(f2py_fortranobject OBJECT "${F2PY_INCLUDE_DIR}/fortranobject.c")
-  TARGET_LINK_LIBRARIES(f2py_fortranobject PUBLIC Python::NumPy)
-  TARGET_INCLUDE_DIRECTORIES(f2py_fortranobject PUBLIC "${F2PY_INCLUDE_DIR}")
-  SET_PROPERTY(TARGET f2py_fortranobject PROPERTY POSITION_INDEPENDENT_CODE ON)
+  SET(F2PY_INCLUDE_DIR "${Python_NumPy_INCLUDE_DIRS}/../../f2py/src")
+  MESSAGE(STATUS "F2PY include dir: ${F2PY_INCLUDE_DIR}")
 
   # --- pygvec modules --- #
   # modules that are not part of gveclib
@@ -563,6 +558,10 @@ IF(COMPILE_PYGVEC)
     COMMENT "pyGVEC: generating the Fortran layer with f90wrap"
   )
 
+  ADD_CUSTOM_TARGET(
+    pygvec_wrap_files
+    DEPENDS ${pygvec_wrap_files}
+  )
   ADD_CUSTOM_COMMAND(
     DEPENDS ${pygvec_wrap_files}
     OUTPUT _libfgvecmodule.c
@@ -575,14 +574,14 @@ IF(COMPILE_PYGVEC)
     COMMENT "pyGVEC: generating the C layer with f2py-f90wrap"
   )
 
-  PYTHON_ADD_LIBRARY(_libfgvec MODULE
+  PYTHON_ADD_LIBRARY(_libfgvec MODULE WITH_SOABI
     _libfgvecmodule.c
+    ${F2PY_INCLUDE_DIR}/fortranobject.c
     ${pygvec_wrap_files}
-    WITH_SOABI
   )
-  SET_TARGET_PROPERTIES(_libfgvec PROPERTIES LINKER_LANGUAGE Fortran)
-  TARGET_INCLUDE_DIRECTORIES(_libfgvec PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE pygveclib f2py_fortranobject gveclib ${linkedlibs})
+  TARGET_INCLUDE_DIRECTORIES(_libfgvec PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" ${F2PY_INCLUDE_DIR} ${Python_NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
+  ADD_DEPENDENCIES(_libfgvec pygvec_wrap_files)
+  TARGET_LINK_LIBRARIES(_libfgvec PRIVATE pygveclib gveclib ${linkedlibs})
 
   IF (${SKBUILD})  # scikit-build-core -> install e.g. to venv
     INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/_fgvec.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
