@@ -406,7 +406,25 @@ class State:
     )  # -> Jac_h, dJac_h_dr, dJac_h_dt, dJac_h_dz
 
     @_assert_init
-    def evaluate_profile(self, quantity: str, rho: np.ndarray):
+    def evaluate_profile(self, quantity: str, rho: np.ndarray, deriv: int = 0):
+        """Evaluate 1D profiles at the provided positions of the radial coordinate rho.
+
+        Args:
+            quantity (str): name of the profile. Has to be either `iota`, `p`, `chi`, `Phi` or `PhiNorm`
+            rho (np.ndarray): Positions at the radial flux coordinate rho.
+            deriv (int, optional): Order of the derivative. Note that for some quantities not all derivatives can
+            be calculated, e.g. for `iota` and `p` the maximum is `deriv=4`. Defaults to 0.
+
+        Raises:
+            ValueError: If `quantity`is not a string.
+            ValueError: If an invalid quantity is provided.
+            NotImplementedError: If `deriv > 1` for `quantity="chi"`.
+            ValueError: If `rho` is not a 1D array.
+            ValueError: If `rho` is not in [0, 1].
+
+        Returns:
+            np.ndarray: profile values at `rho`.
+        """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in [
@@ -424,41 +442,19 @@ class State:
         ]:
             raise ValueError(f"Unknown quantity: {quantity}")
 
-        rho = np.asfortranarray(rho, dtype=np.float64)
-        if rho.ndim != 1:
-            raise ValueError("rho must be a 1D array.")
-        if rho.max() > 1.0 or rho.min() < 0.0:
-            raise ValueError("rho must be in the range [0, 1].")
+        if "_prime" in quantity:
+            deriv += 1
+            quantity = quantity.replace("_prime", "")
 
-        result = np.zeros(rho.size, dtype=np.float64, order="F")
-        _post.evaluate_profile(rho.size, rho, quantity, result)
-        return result
+        if "_2prime" in quantity:
+            deriv += 2
+            quantity = quantity.replace("_2prime", "")
 
-    @_assert_init
-    def evaluate_profile_deriv(self, quantity: str, rho: np.ndarray, order: int):
-        """Evaluate the n-th derivative with respect to rho of the specified profile at position `rho`.
-
-        Args:
-            quantity (str): profile identifyer, has to be either `"iota"` or `"pres"`.
-            rho (np.ndarray): radial position(s).
-            order (int): order of the derivative with order in [0,4].
-
-        Raises:
-            ValueError: If `quantity` is not a string.
-            ValueError: If `quantity` is not `"iota"` or `"pres"`.
-            ValueError: If `rho` is not a 1D array.
-            ValueError: If `rho` is not in [0,1].
-
-        Returns:
-            np.ndarray: derivative values at `rho` positions.
-        """
-        if not isinstance(quantity, str):
-            raise ValueError("Quantity must be a string.")
-        elif quantity not in [
-            "iota",
-            "p",
-        ]:
-            raise ValueError(f"Unknown quantity: {quantity}")
+        if quantity == "chi" and deriv > 1:
+            raise NotImplementedError(
+                "chi derivative is not implemented!"
+                + f" Requestet deriv={deriv} but max. implemented deriv=1."
+            )
 
         rho = np.asfortranarray(rho, dtype=np.float64)
         if rho.ndim != 1:
@@ -467,7 +463,14 @@ class State:
             raise ValueError("rho must be in the range [0, 1].")
 
         result = np.zeros(rho.size, dtype=np.float64, order="F")
-        _post.evaluate_profile_deriv(rho.size, rho, order, quantity, result)
+
+        if quantity == "PhiNorm" and deriv == 2:
+            return 2 * np.ones(rho.size, dtype=np.float64, order="F")
+
+        if quantity in ["Phi", "PhiNorm"] and deriv > 2:
+            return result
+
+        _post.evaluate_profile(rho.size, rho, deriv, quantity, result)
         return result
 
     # === Boozer Potential === #

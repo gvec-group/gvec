@@ -606,84 +606,69 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
 END SUBROUTINE
 
 !================================================================================================================================!
-SUBROUTINE evaluate_profile(n_s, s, var, result)
+SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_iota, Eval_iota_Prime, Eval_pres, Eval_p_prime, Eval_mass, Eval_chi, Eval_chiPrime, &
-                                    Eval_Phi, Eval_PhiPrime, Eval_Phi_TwoPrime, Eval_PhiNorm, Eval_PhiNormPrime
+  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure
+  USE MODgvec_MHD3D_profiles, ONLY: Eval_mass, Eval_chi, Eval_chiPrime, Eval_Phi, Eval_PhiPrime, Eval_Phi_TwoPrime, &
+                                    Eval_PhiNorm, Eval_PhiNormPrime, Eval_iota_n_Prime, Eval_p_n_Prime, Eval_iota
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n_s) :: s       ! radial evaluation points
+  INTEGER, INTENT(IN) :: deriv                ! order of the derivative
   CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
   REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i  ! loop variable
+  LOGICAL :: is_input_profile ! check for iota or pres
   PROCEDURE(Eval_iota), POINTER :: eval_profile
+  PROCEDURE(Eval_iota_n_Prime), POINTER :: eval_profile_n_prime
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  is_input_profile = .FALSE.
   SELECT CASE(TRIM(var))
     CASE("iota")
-      eval_profile => Eval_iota
-    CASE("iota_prime")
-      eval_profile => Eval_iota_Prime
+      is_input_profile = .TRUE.
+      eval_profile_n_prime => Eval_iota_n_Prime
     CASE("p")
-      eval_profile => Eval_pres
-    CASE("p_prime")
-      eval_profile => Eval_p_prime
+      is_input_profile = .TRUE.
+      eval_profile_n_prime => Eval_p_n_Prime
     CASE("mass")
       eval_profile => Eval_mass
     CASE("chi")
-      eval_profile => Eval_chi
-    CASE("chi_prime")
-      eval_profile => Eval_chiPrime
+      IF (deriv .EQ. 0) THEN
+        eval_profile => Eval_chi
+      ELSE IF (deriv .EQ. 1) THEN
+        eval_profile => Eval_chiPrime
+      END IF
     CASE("Phi")
-      eval_profile => Eval_Phi
-    CASE("Phi_prime")
-      eval_profile => Eval_PhiPrime
-    CASE("Phi_2prime")
-      eval_profile => Eval_Phi_TwoPrime
+      IF (deriv .EQ. 0) THEN 
+        eval_profile => Eval_Phi
+      ELSE IF (deriv .EQ. 1) THEN
+        eval_profile => Eval_PhiPrime
+      ELSE IF (deriv == 2) THEN
+        eval_profile => Eval_Phi_TwoPrime
+      END IF
     CASE("PhiNorm")
-      eval_profile => Eval_PhiNorm
-    CASE("PhiNorm_prime")
-      eval_profile => Eval_PhiNormPrime
+      IF (deriv .EQ. 0) THEN
+        eval_profile => Eval_PhiNorm
+      ELSE IF (deriv .EQ. 1) THEN
+        eval_profile => Eval_PhiNormPrime
+      END IF
     CASE DEFAULT
       WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
       CALL abort(__STAMP__,"")
   END SELECT
 
-  DO i = 1,n_s
-    result(i) = eval_profile(s(i))
-  END DO
+  IF (is_input_profile) THEN
+    DO i = 1,n_s
+      result(i) = eval_profile_n_prime(spos=s(i), deriv=deriv)
+    END DO
+  ELSE 
+    DO i = 1,n_s
+      result(i) = eval_profile(s(i))
+    END DO
+  END IF
 END SUBROUTINE evaluate_profile
-
-!================================================================================================================================!
-SUBROUTINE evaluate_profile_deriv(n_s, s, n, var, result)
-  ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_iota_n_Prime, Eval_p_n_Prime
-  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
-  INTEGER, INTENT(IN) :: n                    ! order of derivative
-  REAL, INTENT(IN), DIMENSION(n_s) :: s       ! radial evaluation points
-  CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
-  REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
-  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: i  ! loop variable
-  PROCEDURE(Eval_iota_n_Prime), POINTER :: eval_profile
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  SELECT CASE(TRIM(var))
-    CASE("iota")
-      eval_profile => Eval_iota_n_Prime
-    CASE("p")
-      eval_profile => Eval_p_n_Prime
-    CASE DEFAULT
-      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
-      CALL abort(__STAMP__,"")
-  END SELECT
-
-  DO i = 1,n_s
-    result(i) = eval_profile(s(i),n)
-  END DO
-END SUBROUTINE evaluate_profile_deriv
 
 !================================================================================================================================!
 !> initialize a SFL-Boozer object, with some parameters taken from the state (globals)

@@ -172,7 +172,7 @@ END FUNCTION rProfile_drho4
 
 !===================================================================================================================================
 !> evaluate the n-th derivative of a radial profile with respect to rho= sqrt(phi/phi-edge).
-!! NOTE: n has to be in [0,4] due to a lazy implementation of the product rule.
+!! NOTE: n has to be in [0,4] due to an explicit implementation of the product rule.
 !===================================================================================================================================
 FUNCTION rProfile_eval_at_rho(sf, spos, deriv) RESULT(derivative)
 ! MODULES

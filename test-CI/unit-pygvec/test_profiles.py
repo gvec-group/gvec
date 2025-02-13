@@ -81,7 +81,7 @@ def c_poly():
     Returns:
         list: polynomial coefficients
     """
-    return [1, 2, 3, -1, -2, -3]
+    return [1, 0, 3, 1, 0, 1]
 
 
 @pytest.fixture(scope="module", params=["poly", "bspl"])
@@ -126,7 +126,7 @@ def test_eval_profile(teststate, type, c_poly):
     ref_poly = np.polynomial.Polynomial(c_poly)
     ref_poly_vals = ref_poly(rho**2)
     gvec_profile = teststate.evaluate_profile(type, rho=rho)
-    np.testing.assert_almost_equal(ref_poly_vals, gvec_profile)
+    np.testing.assert_allclose(gvec_profile, ref_poly_vals)
 
 
 @pytest.mark.parametrize("type", ["p_prime", "iota_prime"])
@@ -135,7 +135,7 @@ def test_eval_profile_prime(teststate, type, c_poly):
     ref_poly = np.polynomial.Polynomial(c_poly)
     ref_poly_vals = ref_poly.deriv(m=1)(rho**2) * 2 * rho
     gvec_profile = teststate.evaluate_profile(type, rho=rho)
-    np.testing.assert_almost_equal(ref_poly_vals, gvec_profile)
+    np.testing.assert_allclose(gvec_profile, ref_poly_vals)
 
 
 @pytest.mark.parametrize("type", ["p", "iota"])
@@ -157,9 +157,8 @@ def test_eval_profile_n_deriv(teststate, type, c_poly):
     dref1 = drefs1 * ds1
     dref2 = ds1**2 * drefs2 + drefs1 * ds2
     dref3 = 3 * ds1 * drefs2 * ds2 + ds1**3 * drefs3
-    dref4 = ds1**4 * drefs4 + 6 * ds2 * ds1**2 * drefs4 + 3 * ds2**2 * drefs2
-    drefi = [dref1, dref2, dref3, dref4]
+    dref4 = ds1**4 * drefs4 + 6 * ds2 * ds1**2 * drefs3 + 3 * ds2**2 * drefs2
 
-    for i in range(1, len(drefi)):
-        gvec_profile_di = teststate.evaluate_profile_deriv(type, rho=rho, order=i)
-        np.testing.assert_almost_equal(drefi[i - 1], gvec_profile_di)
+    for i, dref in enumerate([dref1, dref2, dref3, dref4]):
+        gvec_profile_di = teststate.evaluate_profile(type, rho=rho, deriv=i + 1)
+        np.testing.assert_allclose(dref, gvec_profile_di)

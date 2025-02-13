@@ -76,7 +76,7 @@ FUNCTION bsplProfile_new(knots, n_knots, coefs, n_coefs) RESULT(sf)
                               sf%knots(sf%deg+1:n_knots-sf%deg)) ! remove repeated edge knots
     END IF
 
-  END FUNCTION bsplProfile_new
+END FUNCTION bsplProfile_new
 
 !===================================================================================================================================
 !> evaluate the n-th derivative of the bsplProfile at position s
