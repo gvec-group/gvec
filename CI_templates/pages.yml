@@ -5,7 +5,7 @@
 pages:
   stage: publish
   extends:
-    - .mpcdfci_ifx-latest
+    - .mpcdfci_gfortran-latest
     - .before_script_modules
     - .rules_pages
   variables:
@@ -26,10 +26,15 @@ pages:
       python -m venv venv_docs
       source venv_docs/bin/activate
       fi
+    - which python
     - cd docs
     - pip install -r requirements.txt
+    - echo -e "\e[0Ksection_start:`date +%s`:piplist[collapsed=true]\r\e[0KInstalled Python Packages"
+    - pip list
+    - echo -e "\e[0Ksection_end:`date +%s`:piplist\r\e[0K"
     # run ford
     - export VERSION=$(git describe --tags --always --dirty)
+    - echo $VERSION
     - mkdir extra -p
     - ford ford/ford.md -r "$VERSION"
     # run sphinx
