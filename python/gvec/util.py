@@ -14,6 +14,23 @@
 from pathlib import Path
 import re
 import shutil
+import contextlib
+import os
+
+
+@contextlib.contextmanager
+def chdir(target: Path | str):
+    """
+    Contextmanager to change the current working directory.
+
+    Using a context has the benefit of automatically changing back to the original directory when the context is exited, even if an exception is raised.
+    """
+    target = Path(target)
+    source = Path(os.getcwd())
+
+    os.chdir(target)
+    yield
+    os.chdir(source)
 
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
