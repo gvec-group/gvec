@@ -155,7 +155,7 @@ SUBROUTINE interpolate_complete_bspl(x, y, c, knots, y_BC)
     basis_values = 0.0_wp
     ALLOCATE(RHS(n_x+2))
     RHS = 0.0_wp
-    
+
     knots(k+1:n_x+k) = x(:)
     knots(:k) = x(1)
     knots(n_x+k+1:) = x(n_x)
@@ -191,5 +191,38 @@ SUBROUTINE interpolate_complete_bspl(x, y, c, knots, y_BC)
     SDEALLOCATE(bspl)
 
 END SUBROUTINE interpolate_complete_bspl
+
+FUNCTION get_sign(x) RESULT(s)
+    REAL(wp), INTENT(IN) :: x
+    INTEGER :: s
+
+    IF (x<0) THEN
+        s = -1
+    ELSE
+        s = 1
+    END IF
+END FUNCTION
+
+FUNCTION check_sign_change(x, tol) RESULT(sign_change)
+    REAL(wp) :: x(:)
+    REAL(wp), OPTIONAL :: tol
+    REAL(wp) :: t
+    LOGICAL :: sign_change
+    INTEGER :: i, sign_first
+
+    IF (PRESENT(tol)) THEN
+        t = tol
+    ELSE
+        t = 1E-12
+    END IF
+
+    sign_first = get_sign(x(1))
+    DO i=2,SIZE(x)
+        IF ((get_sign(x(i)).NE.sign_first).AND.(ABS(x(i))>t)) THEN
+            sign_change = .TRUE.
+            EXIT
+        END IF
+    END DO
+END FUNCTION check_sign_change
 
 END MODULE MODgvec_bspline_interpolation

@@ -66,9 +66,6 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
   
-  USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
-  USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
-  USE MODgvec_bspline_interpolation, ONLY: interpolate_not_a_knot, interpolate_complete_bspl
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -87,37 +84,14 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: LA_sin_cos
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
   INTEGER          :: nfp_loc
-  INTEGER          :: sign_iota
   INTEGER          :: X1X2_BCtype_axis(0:4),LA_BCtype_axis(0:4)
   INTEGER          :: proposal_mn_max(1:2)=(/2,0/) !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X1_sin_cos="_cos_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
-  REAL(wp)         :: pres_scale,scale_minor_radius
+  REAL(wp)         :: scale_minor_radius
   CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
-
-  INTEGER              :: n_iota_knots, n_pres_knots
-  REAL(wp),ALLOCATABLE :: pres_knots(:)
-  REAL(wp),ALLOCATABLE :: iota_knots(:)
-  INTEGER              :: n_pres_coefs    !! number of polynomial coeffients for mass profile
-  INTEGER              :: n_iota_coefs    !! number of polynomial coeffients for iota profile
-  REAL(wp),ALLOCATABLE :: pres_coefs(:)   !! polynomial/bspline coefficients of the mass profile
-  REAL(wp),ALLOCATABLE :: iota_coefs(:)   !! polynomial/bspline coefficients of the iota profile
-  CHARACTER(LEN=20)    :: iota_type
-  CHARACTER(LEN=20)    :: pres_type
-  REAL(wp),ALLOCATABLE :: pres_rho2(:)
-  REAL(wp),ALLOCATABLE :: pres_vals(:)
-  INTEGER              :: n_pres_vals
-  INTEGER              :: n_pres_rho2
-  REAL(wp),ALLOCATABLE :: iota_rho2(:)
-  REAL(wp),ALLOCATABLE :: iota_vals(:)
-  INTEGER              :: n_iota_vals
-  INTEGER              :: n_iota_rho2
-  REAL(wp)             :: iota_BC_vals(2)
-  REAL(wp)             :: pres_BC_vals(2)
-  CHARACTER(LEN=10)    :: iota_BC_type
-  CHARACTER(LEN=10)    :: pres_BC_type
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
@@ -161,97 +135,12 @@ SUBROUTINE InitMHD3D(sf)
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
 
-    sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
-    pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
-    iota_type  = GETSTR("iota_type", Proposal="polynomial")
-    pres_type  = GETSTR("pres_type", Proposal="polynomial")
 
-    IF (iota_type=="polynomial") THEN
-      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
-      iota_coefs=REAL(sign_iota)*iota_coefs
-      iota_profile = t_rProfile_poly(iota_coefs, n_iota_coefs)
-    ELSE IF (iota_type=="bspline") THEN
-      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
-      iota_coefs=REAL(sign_iota)*iota_coefs
-      CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
-      iota_profile = t_rProfile_bspl(coefs=iota_coefs, n_coefs=n_iota_coefs, knots=iota_knots, n_knots=n_iota_knots)
-    ELSE IF (iota_type=="interpolation") THEN
-      SDEALLOCATE(iota_coefs)
-      CALL GETREALALLOCARRAY("iota_vals",iota_vals, n_iota_vals)
-      CALL GETREALALLOCARRAY("iota_rho2",iota_rho2, n_iota_rho2)
-      IF (n_iota_vals .NE. n_iota_rho2) THEN
-        WRITE(UNIT_stdOut,'(A,I4,A,I4,A,I4)')'WARNING: Size of iota_rho2 = ', n_iota_rho2, &
-        'but size of iota_vals = ', n_iota_vals, '. Excess positions/values are not considered in the interpolation!'
-      END IF
-      n_iota_vals = MIN(n_iota_vals,n_iota_rho2)
-      iota_BC_type = GETSTR("iota_BC_type", Proposal="not_a_knot")
-      IF ((iota_BC_type .NE. "not_a_knot") .AND. (iota_BC_type .NE. "clamped")) THEN
-        WRITE(UNIT_stdOut,'(A)')'WARNING: Unknown iota_BC_type, proceeding with "not_a_knot" BC!'
-        iota_BC_type = 'not_a_knot'
-      END IF
-
-      IF (iota_BC_type .EQ. "clamped") THEN
-        iota_BC_vals = GETREALARRAY("iota_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-        CALL interpolate_complete_bspl(iota_rho2, iota_vals, iota_coefs, iota_knots, iota_BC_vals)
-      ELSE IF (iota_BC_type .EQ. "not_a_knot") THEN
-        CALL interpolate_not_a_knot(x=iota_rho2, y=iota_vals, c=iota_coefs, knots=iota_knots)
-      END IF !iota BC type
-      n_iota_coefs = SIZE(iota_coefs)
-      n_iota_knots = SIZE(iota_knots)
-      iota_coefs=REAL(sign_iota)*iota_coefs
-      iota_profile = t_rProfile_bspl(coefs=iota_coefs, n_coefs=n_iota_coefs, knots=iota_knots, n_knots=n_iota_knots)
-      SDEALLOCATE(iota_vals)
-      SDEALLOCATE(iota_rho2)
-    ELSE
-      WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial", "bspline" or "interpolation". Continuing with default type "polynomial".'
-    END IF ! iota profile type
-
-    SDEALLOCATE(iota_knots)
-    SDEALLOCATE(iota_coefs)
+    CALL InitProfile(sf,"iota")
+    CALL InitProfile(sf,"pres")
     
-    IF (pres_type.EQ."polynomial") THEN
-      CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
-      pres_coefs=pres_coefs*pres_scale
-      pres_profile = t_rProfile_poly(pres_coefs, n_pres_coefs)
-    ELSE IF (pres_type.EQ."bspline") THEN
-      CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
-      pres_coefs=pres_coefs*pres_scale
-      CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
-      pres_profile = t_rProfile_bspl(coefs=pres_coefs, n_coefs=n_pres_coefs,knots=pres_knots, n_knots=n_pres_knots)
-    ELSE IF (pres_type.EQ."interpolation") THEN
-      SDEALLOCATE(pres_coefs)
-      CALL GETREALALLOCARRAY("pres_vals",pres_vals, n_pres_vals)
-      CALL GETREALALLOCARRAY("pres_rho2",pres_rho2, n_pres_rho2)
-      IF (n_pres_vals .NE. n_pres_rho2) THEN
-        WRITE(UNIT_stdOut,'(A,I4,A,I4,A,I4)')'WARNING: Size of pres_rho2 = ', n_pres_rho2, &
-        'but size of pres_vals = ', n_pres_vals, '. Excess positions/values are not considered in the interpolation!'
-      END IF
-      n_pres_vals = MIN(n_pres_vals,n_pres_rho2)
-      pres_BC_type = GETSTR("pres_BC_type", Proposal="not_a_knot")
-      IF ((pres_BC_type .NE. "not_a_knot") .AND. (pres_BC_type .NE. "clamped")) THEN
-        WRITE(UNIT_stdOut,'(A)')'WARNING: Unknown pres_BC_type, proceeding with "not_a_knot" BC!'
-        pres_BC_type = 'not_a_knot'
-      END IF
-
-      IF (pres_BC_type .EQ. "clamped") THEN
-        pres_BC_vals = GETREALARRAY("pres_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-        CALL interpolate_complete_bspl(pres_rho2, pres_vals, pres_coefs, pres_knots, pres_BC_vals)
-      ELSE IF (pres_BC_type .EQ. "not_a_knot") THEN
-        CALL interpolate_not_a_knot(pres_rho2, pres_vals, pres_coefs, pres_knots, 3)
-      END IF
-      pres_coefs=pres_coefs*pres_scale
-      n_pres_coefs = SIZE(pres_coefs)
-      n_pres_knots = SIZE(pres_knots)
-      pres_profile = t_rProfile_bspl(coefs=pres_coefs, n_coefs=n_pres_coefs, knots=pres_knots, n_knots=n_pres_knots)
-      SDEALLOCATE(pres_vals)
-      SDEALLOCATE(pres_rho2)
-    ELSE
-      WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial", "bspline" or "interpolation". Continuing with default type "polynomial".'
-    END IF ! pres profile type
-    SDEALLOCATE(pres_knots)
-    SDEALLOCATE(pres_coefs)
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     IF(init_fromBConly)THEN
@@ -263,92 +152,12 @@ SUBROUTINE InitMHD3D(sf)
 
     init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)      
     IF(init_with_profile_iota)THEN
-      sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
-      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
-      iota_coefs=REAL(sign_iota)*iota_coefs
-      iota_type  = GETSTR("iota_type", Proposal="polynomial")
-
-      IF (iota_type=="polynomial") THEN
-        iota_profile = t_rProfile_poly(iota_coefs, n_iota_coefs)
-      ELSE IF (iota_type=="bspline") THEN
-        CALL GETREALALLOCARRAY("iota_knots",iota_knots,n_iota_knots)
-        iota_profile = t_rProfile_bspl(coefs=iota_coefs, n_coefs=n_iota_coefs, knots=iota_knots, n_knots=n_iota_knots)
-      ELSE IF (iota_type=="interpolation") THEN
-        SDEALLOCATE(iota_coefs)
-        CALL GETREALALLOCARRAY("iota_vals",iota_vals, n_iota_vals)
-        CALL GETREALALLOCARRAY("iota_rho2",iota_rho2, n_iota_rho2)
-        IF (n_iota_vals .NE. n_iota_rho2) THEN
-          WRITE(UNIT_stdOut,'(A,I4,A,I4,A,I4)')'WARNING: Size of iota_rho2 = ', n_iota_rho2, &
-          'but size of iota_vals = ', n_iota_vals, '. Excess positions/values are not considered in the interpolation!'
-        END IF
-        n_iota_vals = MIN(n_iota_vals,n_iota_rho2)
-        iota_BC_type = GETSTR("iota_BC_type", Proposal="not_a_knot")
-        IF ((iota_BC_type .NE. "not_a_knot") .AND. (iota_BC_type .NE. "clamped")) THEN
-          WRITE(UNIT_stdOut,'(A)')'WARNING: Unknown iota_BC_type, proceeding with "not_a_knot" BC!'
-          iota_BC_type = 'not_a_knot'
-        END IF
-  
-        IF (iota_BC_type .EQ. "clamped") THEN
-          iota_BC_vals = GETREALARRAY("iota_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-          CALL interpolate_complete_bspl(iota_rho2, iota_vals, iota_coefs, iota_knots, iota_BC_vals)
-        ELSE IF (iota_BC_type .EQ. "not_a_knot") THEN
-          CALL interpolate_not_a_knot(iota_rho2, iota_vals, iota_coefs, iota_knots, 3)
-        END IF
-        n_iota_coefs = SIZE(iota_coefs)
-        n_iota_knots = SIZE(iota_knots)
-        iota_coefs=REAL(sign_iota)*iota_coefs
-        iota_profile = t_rProfile_bspl(coefs=iota_coefs, n_coefs=n_iota_coefs, knots=iota_knots, n_knots=n_iota_knots)
-      ELSE
-        WRITE(UNIT_stdOut,'(A)')'WARNING: Specified iota_type unknown. It must be either "polynomial", "bspline" or "interpolation". Continuing with default type "polynomial".'
-      END IF ! iota profile type
-      SDEALLOCATE(iota_knots)
-      SDEALLOCATE(iota_coefs)
+      CALL InitProfile(sf,"iota")
     END IF ! iota from parameterfile
 
     init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
     IF(init_with_profile_pressure)THEN
-      pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
-      pres_type  = GETSTR("pres_type", Proposal="polynomial")
-
-      IF (pres_type=="polynomial") THEN
-        CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
-        pres_coefs=pres_coefs*pres_scale
-        pres_profile = t_rProfile_poly(pres_coefs, n_pres_coefs)
-      ELSE IF (pres_type=="bspline") THEN
-        CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
-        pres_coefs=pres_coefs*pres_scale
-        CALL GETREALALLOCARRAY("pres_knots",pres_knots,n_pres_knots)
-        pres_profile = t_rProfile_bspl(coefs=pres_coefs, n_coefs=n_pres_coefs,knots=pres_knots, n_knots=n_pres_knots)
-      ELSE IF (pres_type.EQ."interpolation") THEN
-        SDEALLOCATE(pres_coefs)
-        CALL GETREALALLOCARRAY("pres_vals",pres_vals, n_pres_vals)
-        CALL GETREALALLOCARRAY("pres_rho2",pres_rho2, n_pres_rho2)
-        IF (n_pres_vals .NE. n_pres_rho2) THEN
-          WRITE(UNIT_stdOut,'(A,I4,A,I4,A,I4)')'WARNING: Size of pres_rho2 = ', n_pres_rho2, &
-          'but size of pres_vals = ', n_pres_vals, '. Excess positions/values are not considered in the interpolation!'
-        END IF
-        n_pres_vals = MIN(n_pres_vals,n_pres_rho2)
-        pres_BC_type = GETSTR("pres_BC_type", Proposal="not_a_knot")
-        IF ((pres_BC_type .NE. "not_a_knot") .AND. (pres_BC_type .NE. "clamped")) THEN
-          WRITE(UNIT_stdOut,'(A)')'WARNING: Unknown pres_BC_type, proceeding with "not_a_knot" BC!'
-          pres_BC_type = 'not_a_knot'
-        END IF
-  
-        IF (pres_BC_type .EQ. "clamped") THEN
-          pres_BC_vals = GETREALARRAY("pres_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-          CALL interpolate_complete_bspl(pres_rho2, pres_vals, pres_coefs, pres_knots, pres_BC_vals)
-        ELSE IF (pres_BC_type .EQ. "not_a_knot") THEN
-          CALL interpolate_not_a_knot(pres_rho2, pres_vals, pres_coefs, pres_knots, 3)
-        END IF
-        pres_coefs = pres_coefs*pres_scale
-        n_pres_coefs = SIZE(pres_coefs)
-        n_pres_knots = SIZE(pres_knots)
-        pres_profile = t_rProfile_bspl(coefs=pres_coefs, n_coefs=n_pres_coefs, knots=pres_knots, n_knots=n_pres_knots)
-      ELSE
-        WRITE(UNIT_stdOut,'(A)')'WARNING: Specified pres_type unknown. It must be either "polynomial", "bspline" or "interpolation". Continuing with default type "polynomial".'
-      END IF 
-      SDEALLOCATE(pres_knots)
-      SDEALLOCATE(pres_coefs)
+      CALL InitProfile(sf,"pres")
     END IF ! pressure from parameterfile
 
     gamm = 0.0_wp
@@ -653,7 +462,96 @@ SUBROUTINE InitMHD3D(sf)
   
 END SUBROUTINE InitMHD3D
 
+SUBROUTINE InitProfile(sf, var)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: pres_profile, iota_profile
+  USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
+  USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
+  USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
+  USE MODgvec_bspline_interpolation, ONLY: interpolate_not_a_knot, interpolate_complete_bspl, check_sign_change
+  USE MODgvec_rProfile_base, ONLY: c_rProfile
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  CHARACTER(LEN=4), INTENT(IN) :: var
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  CLASS(c_rProfile), ALLOCATABLE   :: profile_profile
+  INTEGER              :: n_profile_knots
+  REAL(wp),ALLOCATABLE :: profile_knots(:)
+  INTEGER              :: n_profile_coefs    !! number of polynomial/bspline coeffients for profile profile
+  REAL(wp),ALLOCATABLE :: profile_coefs(:)   !! polynomial/bspline coefficients of the profile profile
+  CHARACTER(LEN=20)    :: profile_type
+  REAL(wp),ALLOCATABLE :: profile_rho2(:)
+  REAL(wp),ALLOCATABLE :: profile_vals(:)
+  INTEGER              :: n_profile_vals
+  INTEGER              :: n_profile_rho2
+  REAL(wp)             :: profile_BC_vals(2)
+  CHARACTER(LEN=10)    :: profile_BC_type
+  REAL(wp)             :: profile_scale
 
+  IF (var.EQ."pres") THEN
+    profile_scale=GETREAL("pres_scale",Proposal=1.0_wp)
+  ELSE IF (var.EQ."iota") THEN
+    profile_scale=REAL(GETINT("sign_iota",Proposal=-1))
+  ELSE
+    CALL abort(__STAMP__,&
+    "Tried to initialize unknown profile type!")
+  END IF
+  profile_type  = GETSTR(var//"_type", Proposal="polynomial")
+  IF (profile_type.EQ."polynomial") THEN
+    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+    profile_coefs=profile_coefs*profile_scale
+    profile_profile = t_rProfile_poly(profile_coefs, n_profile_coefs)
+  ELSE IF (profile_type.EQ."bspline") THEN
+    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+    profile_coefs=profile_coefs*profile_scale
+    CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
+    profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs,knots=profile_knots, n_knots=n_profile_knots)
+  ELSE IF (profile_type.EQ."interpolation") THEN
+    SDEALLOCATE(profile_coefs)
+    CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
+    CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
+    IF (n_profile_vals .NE. n_profile_rho2) THEN
+      WRITE(UNIT_stdOut,'(A,I4,A,I4,A,I4)')'WARNING: Size of '//var//'_rho2 = ', n_profile_rho2, &
+      'but size of '//var//'_vals = ', n_profile_vals, '. Excess positions/values are not considered in the interpolation!'
+    END IF
+    n_profile_vals = MIN(n_profile_vals,n_profile_rho2)
+    profile_BC_type = GETSTR(var//"_BC_type", Proposal="not_a_knot")
+    IF ((profile_BC_type .NE. "not_a_knot") .AND. (profile_BC_type .NE. "clamped")) THEN
+      WRITE(UNIT_stdOut,'(A)')'WARNING: Unknown '//var//'_BC_type, proceeding with "not_a_knot" BC!'
+      profile_BC_type = 'not_a_knot'
+    END IF
+
+    IF (profile_BC_type .EQ. "clamped") THEN
+      profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
+      CALL interpolate_complete_bspl(profile_rho2, profile_vals, profile_coefs, profile_knots, profile_BC_vals)
+    ELSE IF (profile_BC_type .EQ. "not_a_knot") THEN
+      CALL interpolate_not_a_knot(profile_rho2, profile_vals, profile_coefs, profile_knots, 3)
+    END IF
+    IF ((var.EQ."pres").AND.(check_sign_change(profile_coefs, tol=1e-6))) THEN
+       WRITE(UNIT_stdOut,'(A)')'WARNING: Interpolated pressure profile changes sign!'
+    END IF
+    profile_coefs=profile_coefs*profile_scale
+    n_profile_coefs = SIZE(profile_coefs)
+    n_profile_knots = SIZE(profile_knots)
+    profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs, knots=profile_knots, n_knots=n_profile_knots)
+    SDEALLOCATE(profile_vals)
+    SDEALLOCATE(profile_rho2)
+  ELSE
+    WRITE(UNIT_stdOut,'(A)')'WARNING: Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation". Continuing with default type "polynomial".'
+  END IF ! profile type
+  IF (var.EQ."pres") THEN
+    pres_profile = profile_profile
+  ELSE
+    iota_profile = profile_profile
+  END IF
+  SDEALLOCATE(profile_knots)
+  SDEALLOCATE(profile_coefs)
+END SUBROUTINE InitProfile
 
 !===================================================================================================================================
 !> Initialize Module 

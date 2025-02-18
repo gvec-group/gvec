@@ -61,6 +61,9 @@ CONTAINS
 SUBROUTINE InitVMEC 
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,abort,fmt_sep
+USE MODgvec_MHD3D_Vars, ONLY: iota_profile, pres_profile
+USE MODgvec_rProfile_bspl, ONLY: t_rProfile_bspl
+USE MODgvec_bspline_interpolation, ONLY: interpolate_not_a_knot
 USE MODgvec_ReadInTools
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 USE MODgvec_VMEC_Vars
@@ -75,6 +78,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER              :: iMode,nyq,np_m,np_n
 LOGICAL              :: useFilter
+REAL(wp),ALLOCATABLE :: c_iota(:),knots_iota(:), c_pres(:), knots_pres(:)
 !===================================================================================================================================
 IF(.NOT.MPIroot) RETURN
 WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
@@ -214,6 +218,10 @@ END IF
 ALLOCATE(pres_spl(4,1:nFluxVMEC))
 pres_spl(1,:)=presf(:)
 CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
+CALL interpolate_not_a_knot(rho**2,presf,c_pres,knots_pres)
+pres_profile = t_rProfile_bspl(knots_pres, SIZE(knots_pres), c_pres, SIZE(c_pres))
+SDEALLOCATE(knots_pres)
+SDEALLOCATE(c_pres)
 
 ALLOCATE(Phi_spl(4,1:nFluxVMEC))
 Phi_spl(1,:)=Phi_Prof(:)
@@ -226,11 +234,17 @@ CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=0, K_BCN=0)
 ALLOCATE(iota_spl(4,1:nFluxVMEC))
 iota_spl(1,:)=iotaf(:)
 CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
+CALL interpolate_not_a_knot(rho**2,iotaf,c_iota,knots_iota)
+iota_profile = t_rProfile_bspl(knots_iota, SIZE(knots_iota), c_iota, SIZE(c_iota))
+SDEALLOCATE(knots_iota)
+SDEALLOCATE(c_iota)
 
 WRITE(Unit_stdOut,'(4X,A,3F12.4)')'tor. flux Phi  axis/middle/edge',Phi(1)*TwoPi,Phi(nFluxVMEC/2)*TwoPi,Phi(nFluxVMEC)*TwoPi
 WRITE(Unit_stdOut,'(4X,A,3F12.4)')'pol. flux chi  axis/middle/edge',chi(1)*TwoPi,chi(nFluxVMEC/2)*TwoPi,chi(nFluxVMEC)*TwoPi
-WRITE(Unit_stdOut,'(4X,A,3F12.4)')'   iota        axis/middle/edge',iota_Spl(1,1),iota_Spl(1,nFluxVMEC/2),iota_Spl(1,nFluxVMEC)
-WRITE(Unit_stdOut,'(4X,A,3F12.4)')'  pressure     axis/middle/edge',pres_Spl(1,1),pres_Spl(1,nFluxVMEC/2),pres_Spl(1,nFluxVMEC)
+WRITE(Unit_stdOut,'(4X,A,3F12.4)')'   iota        axis/middle/edge',iota_profile%eval_at_rho(0.0_wp),&
+iota_profile%eval_at_rho(rho(nFluxVMEC/2)),iota_profile%eval_at_rho(1.0_wp)
+WRITE(Unit_stdOut,'(4X,A,3F12.4)')'  pressure     axis/middle/edge',pres_profile%eval_at_rho(0.0_wp),&
+pres_profile%eval_at_rho(rho(nFluxVMEC/2)),pres_profile%eval_at_rho(1.0_wp)
 
 
 WRITE(UNIT_stdOut,'(A)')'  ... INIT VMEC DONE.'
