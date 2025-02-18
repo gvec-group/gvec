@@ -109,21 +109,21 @@ def test_evaluations_init(teststate):
     ds = Evaluations(rho=np.array([0.5, 0.6]), theta="int", zeta="int", state=teststate)
     assert np.allclose(ds.rho, [0.5, 0.6])
     assert {"rho", "theta", "zeta", "pol_weight", "tor_weight"} == set(ds.coords)
-    assert bool(ds.rho.attrs["integration_points"]) is False
+    assert ds.rho.attrs["integration_points"] == "False"
 
     ds = Evaluations(rho=[0.5], theta="int", zeta="int", state=teststate)
     assert np.allclose(ds.rho, [0.5])
     assert {"rho", "theta", "zeta", "pol_weight", "tor_weight"} == set(ds.coords)
-    assert bool(ds.rho.attrs["integration_points"]) is False
+    assert ds.rho.attrs["integration_points"] == "False"
 
     ds = Evaluations(rho="int", theta=None, zeta=None, state=teststate)
     assert {"rho", "rad_weight"} == set(ds.coords)
-    assert bool(ds.rho.attrs["integration_points"]) is True
+    assert ds.rho.attrs["integration_points"] == "True"
 
     ds = Evaluations("int", "int", "int", state=teststate)
     for c in ["rho", "theta", "zeta"]:
         assert c in ds.coords
-        assert bool(ds[c].attrs["integration_points"]) is True
+        assert ds[c].attrs["integration_points"] == "True"
 
 
 def test_boozer_init(teststate):
@@ -288,7 +288,7 @@ def test_integral_quantities(teststate, evals_rtz_int, quantity):
     ds = evals_rtz_int
     compute(ds, quantity, state=teststate)
     # --- check that metadata is preserved --- #
-    assert bool(ds.rho.attrs["integration_points"]) is True
+    assert ds.rho.attrs["integration_points"] == "True"
 
 
 def test_iota_curr(teststate, evals_rtz_int):
@@ -317,9 +317,9 @@ def test_integral_quantities_aux(teststate, evals_r_int_tz, quantity):
     # automatic change to integration points if necessary
     ds = evals_r_int_tz
     compute(ds, quantity, state=teststate)
-    assert bool(ds.rho.attrs["integration_points"]) is True
-    assert bool(ds.theta.attrs["integration_points"]) is False
-    assert bool(ds.zeta.attrs["integration_points"]) is False
+    assert ds.rho.attrs["integration_points"] == "True"
+    assert ds.theta.attrs["integration_points"] == "False"
+    assert ds.zeta.attrs["integration_points"] == "False"
     assert "theta_weight" not in ds and "zeta_weight" not in ds
     assert "rho_weights" in ds
 

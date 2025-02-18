@@ -145,7 +145,7 @@ def compute(
             for i in func.integration
             if i not in ev
             or "integration_points" not in ev[i].attrs
-            or not bool(ev[i].attrs["integration_points"])
+            or ev[i].attrs["integration_points"] == "False"
         }
         if auxcoords:
             # --- auxiliary dataset for integration points --- #
