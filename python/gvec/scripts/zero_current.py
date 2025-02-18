@@ -73,6 +73,7 @@ parser.add_argument(
     default="GVEC_zero_current.nc",
     help="output netCDF file for diagnostics",
 )
+parser.add_argument("-p", "--plots", action="store_true", help="plot diagnostics")
 parser.add_argument(
     "-v",
     "--verbose",
@@ -97,6 +98,7 @@ def run_zero_current(
     outputfile: str | Path,
     progressbar: bool = True,
     gvec_stdout_path: str | Path | None = "stdout.txt",
+    plots: bool = False,
 ):
     """Run GVEC multiple times with Picard iterations on the iota profile to reach zero current.
 
@@ -129,6 +131,9 @@ def run_zero_current(
     statefile: Path = None  # Last state of latest iteration
     diagnostics: xr.Dataset = None
     logger = logging.getLogger("pyGVEC.script")
+
+    if plots:
+        import matplotlib.pyplot as plt
 
     iterations = range(max_iteration + 1)
     if progressbar:
@@ -201,7 +206,9 @@ def run_zero_current(
 
         # diagnostics
         # ToDo: possible early stop condition
-        iota_curr_rms = np.sqrt(gvec.comp.radial_integral(ev_vol.iota_curr**2))
+        # ToDo: iota_curr seems to diverge near the axis -> check boundary conditions
+        # iota_curr_rms = np.sqrt(gvec.comp.radial_integral(ev_vol.iota_curr**2))
+        iota_curr_rms = np.sqrt((ev.iota_curr**2).mean("rad"))
 
         logger.info(f"W_MHD: {ev_vol.W_MHD.item():.3e}")
         logger.info(f"max iota_curr: {np.abs(ev.iota_curr).max().item():.3f}")
@@ -230,6 +237,47 @@ def run_zero_current(
         end_time = time.time()
         logger.info(f"Iteration took {end_time-start_time:5.1f} seconds.")
         logger.info("-" * 40)
+
+    if plots:
+        logger.debug("Plotting diagnostics...")
+
+        fig, axs = plt.subplots(1, 2, figsize=(10, 3), tight_layout=True)
+        axs[0].plot(
+            diagnostics.iteration, np.sqrt((diagnostics.iota_curr**2).mean("rad")), ".-"
+        )
+        axs[0].set(
+            xlabel="picard iterations",
+            ylabel=r"$\sqrt{\sum \iota_{\mathrm{curr}}^2 }$",
+            title=f"{diagnostics.iota_curr.attrs['long_name']}\nroot mean square",
+            yscale="log",
+        )
+        axs[1].plot(diagnostics.iteration, diagnostics.W_MHD, ".-")
+        axs[1].set(
+            xlabel="picard iterations for curr. constraint",
+            ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
+            title=diagnostics.W_MHD.attrs["long_name"],
+        )
+        fig.savefig("iterations.png")
+
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5), tight_layout=True, sharex=True)
+        for i in diagnostics.iteration.data:
+            if i == max_iteration:
+                kwargs = dict(marker=".", color="C0", alpha=1.0)
+            else:
+                kwargs = dict(color="black", alpha=0.2 + 0.3 * (i / max_iteration))
+            d = diagnostics.sel(iteration=i)
+            axs[0].plot(d.rho**2, d.iota, **kwargs)
+            axs[1].plot(d.rho**2, np.abs(d.iota_curr), **kwargs)
+            axs[2].plot(d.rho**2, np.abs(d.I_tor), **kwargs)
+        for i, var in enumerate(["iota", "iota_curr", "I_tor"]):
+            axs[i].set(
+                title=diagnostics[var].attrs["long_name"],
+                xlabel=r"$\rho^2$",
+                ylabel=f"$|{diagnostics[var].attrs['symbol']}|$",
+            )
+        axs[1].set_yscale("log")
+        axs[2].set_yscale("log")
+        fig.savefig("profiles.png")
 
     logger.info("Done.")
     return 0
@@ -266,6 +314,7 @@ def main() -> int:
         outputfile=args.outputfile,
         progressbar=not args.quiet and not args.verbose,
         gvec_stdout_path=None if args.verbose >= 3 else "stdout.txt",
+        plots=args.plots,
     )
     return 0
 
