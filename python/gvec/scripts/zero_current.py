@@ -46,7 +46,7 @@ parser.add_argument(
     type=int,
     nargs=2,
     default=(100, 1000),
-    help="minimum and maximum number of GVEC iterations (min is doubled until max)",
+    help="minimum and maximum number of GVEC iterations (min is doubled until max, in each picard iteration)",
 )
 parser.add_argument(
     "--gvec-nelems",
@@ -54,7 +54,7 @@ parser.add_argument(
     type=int,
     nargs=2,
     default=(2, 10),
-    help="minimum and maximum number of elements in the sgrid (increased linearly)",
+    help="minimum and maximum number of elements in the sgrid (increases linearly over picard iterations)",
 )
 parser.add_argument(
     "--iota-poly-degree",
@@ -125,7 +125,8 @@ def run_zero_current(
     gvec_stdout_path : str | Path | None
         The path to the GVEC stdout file or None to write to stdout.
     """
-    rho = np.sqrt(np.linspace(0, 1, 41)[1:])
+    rho = np.sqrt(np.linspace(0, 1, 41))
+    rho[0] = 1e-4
 
     ev: xr.Dataset = None  # Postprocssing of latest iteration
     statefile: Path = None  # Last state of latest iteration
@@ -146,7 +147,7 @@ def run_zero_current(
             + "." * (max_iteration - i)
         )
         start_time = time.time()
-        path = Path(f"{i:02d}")
+        rundir = Path(f"{i:02d}")
         params = {}
         # find previous state
         if i > 0:
@@ -171,18 +172,18 @@ def run_zero_current(
         logger.debug(f"Setting sgrid_nElems to {params['sgrid_nElems']}")
 
         # prepare the run directory
-        if path.exists():
-            logger.debug(f"Removing existing run directory {path}")
-            shutil.rmtree(path)
-        if not path.exists():
-            path.mkdir()
-            logger.debug(f"Created run directory {path}")
+        if rundir.exists():
+            logger.debug(f"Removing existing run directory {rundir}")
+            shutil.rmtree(rundir)
+        if not rundir.exists():
+            rundir.mkdir()
+            logger.debug(f"Created run directory {rundir}")
 
         # copy & modify parameterfile
-        gvec.util.adapt_parameter_file(template, path / "parameter.ini", **params)
+        gvec.util.adapt_parameter_file(template, rundir / "parameter.ini", **params)
 
         # run gvec
-        with gvec.util.chdir(path):
+        with gvec.util.chdir(rundir):
             # ToDo: GVEC should raise an error if it fails
             gvec.run(
                 "parameter.ini",
@@ -191,23 +192,21 @@ def run_zero_current(
             )
 
         # postprocessing
-        statefile = sorted(path.glob("*State*.dat"))[-1]
+        statefile = sorted(rundir.glob("*State*.dat"))[-1]
         logger.debug(f"Using statefile {statefile}")
 
-        with gvec.State(path / "parameter.ini", statefile) as state:
+        with gvec.State(rundir / "parameter.ini", statefile) as state:
             ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
             state.compute(ev, "iota", "iota_curr", "iota_0", "I_tor", "N_FP")
             # ToDo: merge into one Evaluations once MR!55 is merged
             ev_vol = gvec.Evaluations(rho="int", theta="int", zeta="int", state=state)
-            state.compute(ev_vol, "W_MHD", "iota_curr")
+            state.compute(ev_vol, "W_MHD")
 
         # get polynomial fit of iota_0 = iota - iota_curr
         iota_coefs = np.polyfit(rho**2, ev.iota_0, iota_poly_degree)
 
         # diagnostics
         # ToDo: possible early stop condition
-        # ToDo: iota_curr seems to diverge near the axis -> check boundary conditions
-        # iota_curr_rms = np.sqrt(gvec.comp.radial_integral(ev_vol.iota_curr**2))
         iota_curr_rms = np.sqrt((ev.iota_curr**2).mean("rad"))
 
         logger.info(f"W_MHD: {ev_vol.W_MHD.item():.3e}")
