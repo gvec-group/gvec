@@ -69,7 +69,7 @@ FUNCTION polyProfile_eval_at_rho2(sf, rho2, deriv) RESULT(profile_prime_value)
 ! INPUT VARIABLES
     CLASS(t_rProfile_poly), INTENT(IN)  :: sf !! self
     REAL(wp)              , INTENT(IN)  :: rho2 !! evaluation point in the toroidal flux coordinate (rho2=phi/phi_edge= spos^2)
-    INTEGER               , OPTIONAL    :: deriv
+    INTEGER , OPTIONAL    , INTENT(IN)  :: deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
     REAL(wp)                         :: profile_prime_value
@@ -77,22 +77,25 @@ FUNCTION polyProfile_eval_at_rho2(sf, rho2, deriv) RESULT(profile_prime_value)
 ! LOCAL VARIABLES
     REAL(wp)                         :: prefactor
     INTEGER                          :: d
+    INTEGER                          :: deriv_case
 !===================================================================================================================================
-    IF (.NOT.PRESENT(deriv)) THEN
-        deriv = 0
+    IF (PRESENT(deriv)) THEN
+        deriv_case = deriv
+    ELSE
+        deriv_case = 0
     END IF
     
-    IF (deriv>sf%deg) THEN
+    IF (deriv_case>sf%deg) THEN
         profile_prime_value = 0.0_wp
-    ELSE IF (deriv==0) THEN
+    ELSE IF (deriv_case==0) THEN
         profile_prime_value = EVAL1DPOLY(sf%n_coefs, sf%coefs, rho2)
-    ELSE IF (deriv==1) THEN
+    ELSE IF (deriv_case==1) THEN
         profile_prime_value = EVAL1DPOLY_deriv(sf%n_coefs, sf%coefs, rho2)
     ELSE
         profile_prime_value = 0.0_wp
-        DO d=deriv,sf%deg
-            prefactor=poly_derivative_prefactor(d,deriv)
-            profile_prime_value = profile_prime_value +prefactor*sf%coefs(d+1)*(rho2**(d-deriv))
+        DO d=deriv_case,sf%deg
+            prefactor=poly_derivative_prefactor(d,deriv_case)
+            profile_prime_value = profile_prime_value +prefactor*sf%coefs(d+1)*(rho2**(d-deriv_case))
         END DO
     END IF
 END FUNCTION polyProfile_eval_at_rho2

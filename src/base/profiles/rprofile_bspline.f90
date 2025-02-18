@@ -56,8 +56,8 @@ FUNCTION bsplProfile_new(knots, n_knots, coefs, n_coefs) RESULT(sf)
 ! INPUT VARIABLES
     INTEGER, INTENT(IN) :: n_knots !! number of knots
     INTEGER, INTENT(IN) :: n_coefs !! number of coefficients
-    REAL,    INTENT(IN) :: knots(n_knots)  !! knots of the B-Spline with repeated start and end points
-    REAL,    INTENT(IN) :: coefs(n_coefs)  !! B-Spline coefficients 
+    REAL(wp),    INTENT(IN) :: knots(n_knots)  !! knots of the B-Spline with repeated start and end points
+    REAL(wp),    INTENT(IN) :: coefs(n_coefs)  !! B-Spline coefficients 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
     TYPE(t_rProfile_bspl) :: sf !! self
@@ -88,7 +88,7 @@ FUNCTION bsplProfile_eval_at_rho2( sf, rho2, deriv ) RESULT(profile_prime_value)
 ! INPUT VARIABLES
   CLASS(t_rProfile_bspl), INTENT(IN)  :: sf !! self
   REAL(wp)              , INTENT(IN)  :: rho2 !! evaluation point in the toroidal flux coordinate (rho2=phi/phi_edge= spos^2)
-  INTEGER               , OPTIONAL    :: deriv
+  INTEGER , OPTIONAL    , INTENT(IN)    :: deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                         :: profile_prime_value
@@ -96,15 +96,18 @@ FUNCTION bsplProfile_eval_at_rho2( sf, rho2, deriv ) RESULT(profile_prime_value)
 ! LOCAL VARIABLES
   REAL(wp), ALLOCATABLE            :: deriv_values(:,:) !! values of the (deg+1) B-splines that contribute at s_pos
   INTEGER                          :: first_non_zero_bspl !! index offset for the coefficients
+  INTEGER                          :: deriv_case
 !===================================================================================================================================
-    IF (.NOT.PRESENT(deriv)) THEN
-      deriv = 0
+    IF (PRESENT(deriv)) THEN
+      deriv_case = deriv
+    ELSE
+      deriv_case = 0
     END IF
 
-    ALLOCATE(deriv_values(deriv+1,sf%deg+1))
+    ALLOCATE(deriv_values(deriv_case+1,sf%deg+1))
     IF (sf%deg>0) THEN
-      CALL sf%bspl%eval_basis_and_n_derivs(rho2,deriv,deriv_values,first_non_zero_bspl)
-      profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(deriv+1,:sf%deg+1))
+      CALL sf%bspl%eval_basis_and_n_derivs(rho2,deriv_case,deriv_values,first_non_zero_bspl)
+      profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(deriv_case+1,:sf%deg+1))
     ELSE 
       profile_prime_value = 0.0_wp
     END IF

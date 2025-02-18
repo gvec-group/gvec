@@ -50,7 +50,7 @@ ABSTRACT INTERFACE
         IMPORT wp
         CLASS(c_rProfile), INTENT(IN)  :: sf
         REAL(wp)         , INTENT(IN)  :: rho2 
-        INTEGER          , OPTIONAL    :: deriv
+        INTEGER, OPTIONAL, INTENT(IN)  :: deriv
         REAL(wp)                       :: profile_value
     END FUNCTION i_fun_eval_at_rho2
 
@@ -180,20 +180,23 @@ FUNCTION rProfile_eval_at_rho(sf, spos, deriv) RESULT(derivative)
 ! INPUT VARIABLES
     CLASS(c_rProfile)  :: sf !! self
     REAL(wp), INTENT(IN) :: spos
-    INTEGER,  OPTIONAL   :: deriv
+    INTEGER,  OPTIONAL, INTENT(IN)   :: deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
     REAL(wp) :: derivative
+    INTEGER :: deriv_case
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
     REAL(wp) :: rho2
 !===================================================================================================================================
-    IF (.NOT.PRESENT(deriv)) THEN
-        deriv = 0
+    IF (PRESENT(deriv)) THEN
+        deriv_case = deriv
+    ELSE
+        deriv_case = 0
     END IF 
 
     rho2 = rho2_derivative(spos,deriv=0)
-    SELECT CASE(deriv)
+    SELECT CASE(deriv_case)
     CASE(0)
         derivative = sf%eval_at_rho2(rho2, deriv=0)
     CASE(1)
