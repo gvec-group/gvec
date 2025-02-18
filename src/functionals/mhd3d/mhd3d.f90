@@ -498,7 +498,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
     IF(doRestart)THEN
       WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
       CALL RestartFromState(RestartFile,U(0))
-      !CALL InitSolution(U(0),-1) !would apply BC and recompute lambda
+      CALL InitSolution(U(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
     ELSE 
       CALL InitSolution(U(0),which_init)
     END IF
