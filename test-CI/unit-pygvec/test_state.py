@@ -205,7 +205,7 @@ def test_evaluate_profile(teststate):
 
     iota = teststate.evaluate_profile("iota", rho)
     assert iota.shape == rho.shape
-    dp_dr = teststate.evaluate_profile("p_prime", rho)
+    dp_dr = teststate.evaluate_profile("p", rho, deriv=1)
 
 
 @pytest.mark.parametrize("reLA", [True, False], ids=["reLA", "not reLA"])

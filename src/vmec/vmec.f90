@@ -78,7 +78,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER              :: iMode,nyq,np_m,np_n
 LOGICAL              :: useFilter
-REAL(wp),ALLOCATABLE :: c_iota(:),knots_iota(:), c_pres(:), knots_pres(:)
+REAL(wp),ALLOCATABLE :: c_iota(:),knots_iota(:), c_pres(:), knots_pres(:), pres_scale
+REAL(wp),ALLOCATABLE :: c_phi(:),knots_phi(:), c_chi(:), knots_chi(:)
 !===================================================================================================================================
 IF(.NOT.MPIroot) RETURN
 WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
@@ -214,26 +215,22 @@ ELSE
   END IF
 END IF
 
-
-ALLOCATE(pres_spl(4,1:nFluxVMEC))
-pres_spl(1,:)=presf(:)
-CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
-CALL interpolate_not_a_knot(rho**2,presf,c_pres,knots_pres)
-pres_profile = t_rProfile_bspl(knots_pres, SIZE(knots_pres), c_pres, SIZE(c_pres))
+pres_scale = presf(1)
+CALL interpolate_not_a_knot(rho**2,presf/pres_scale,c_pres,knots_pres)
+pres_profile = t_rProfile_bspl(knots_pres, SIZE(knots_pres), pres_scale*c_pres, SIZE(c_pres))
 SDEALLOCATE(knots_pres)
 SDEALLOCATE(c_pres)
 
-ALLOCATE(Phi_spl(4,1:nFluxVMEC))
-Phi_spl(1,:)=Phi_Prof(:)
-CALL SPLINE1_FIT(nFluxVMEC,rho,Phi_Spl(:,:), K_BC1=0, K_BCN=0)
+CALL interpolate_not_a_knot(rho**2,Phi_prof,c_phi,knots_phi)
+phi_profile = t_rProfile_bspl(knots_phi, SIZE(knots_phi), c_phi, SIZE(c_phi))
+SDEALLOCATE(knots_phi)
+SDEALLOCATE(c_phi)
 
-ALLOCATE(chi_spl(4,1:nFluxVMEC))
-chi_spl(1,:)=chi_Prof(:)
-CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=0, K_BCN=0)
+CALL interpolate_not_a_knot(rho**2,chi_prof,c_chi,knots_chi)
+chi_profile = t_rProfile_bspl(knots_chi, SIZE(knots_chi), c_chi, SIZE(c_chi))
+SDEALLOCATE(knots_chi)
+SDEALLOCATE(c_chi)
 
-ALLOCATE(iota_spl(4,1:nFluxVMEC))
-iota_spl(1,:)=iotaf(:)
-CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
 CALL interpolate_not_a_knot(rho**2,iotaf,c_iota,knots_iota)
 iota_profile = t_rProfile_bspl(knots_iota, SIZE(knots_iota), c_iota, SIZE(c_iota))
 SDEALLOCATE(knots_iota)
@@ -491,10 +488,8 @@ IF(.NOT.MPIroot) RETURN
   SDEALLOCATE(Zmnc_Spl)
   SDEALLOCATE(lmns_Spl)
   SDEALLOCATE(lmnc_Spl)
-  SDEALLOCATE(pres_spl)
-  SDEALLOCATE(Phi_spl)
-  SDEALLOCATE(chi_spl)
-  SDEALLOCATE(iota_spl)
+  SDEALLOCATE(Phi_profile)
+  SDEALLOCATE(chi_profile)
 
 END SUBROUTINE FinalizeVMEC
 

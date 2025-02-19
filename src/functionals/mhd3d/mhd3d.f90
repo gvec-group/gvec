@@ -542,7 +542,8 @@ SUBROUTINE InitProfile(sf, var)
     SDEALLOCATE(profile_vals)
     SDEALLOCATE(profile_rho2)
   ELSE
-    WRITE(UNIT_stdOut,'(A)')'WARNING: Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation". Continuing with default type "polynomial".'
+    CALL abort(__STAMP__,&
+    'Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation".')
   END IF ! profile type
   IF (var.EQ."pres") THEN
     pres_profile = profile_profile

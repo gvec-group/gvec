@@ -609,9 +609,10 @@ END SUBROUTINE
 SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
-  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure
+  USE MODgvec_rProfile_base,  ONLY: c_rProfile
+  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure, iota_profile, pres_profile
   USE MODgvec_MHD3D_profiles, ONLY: Eval_mass, Eval_chi, Eval_chiPrime, Eval_Phi, Eval_PhiPrime, Eval_Phi_TwoPrime, &
-                                    Eval_PhiNorm, Eval_PhiNormPrime, Eval_iota_n_Prime, Eval_p_n_Prime, Eval_iota
+                                    Eval_PhiNorm, Eval_PhiNormPrime
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n_s) :: s       ! radial evaluation points
@@ -621,17 +622,17 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i  ! loop variable
   LOGICAL :: is_input_profile ! check for iota or pres
-  PROCEDURE(Eval_iota), POINTER :: eval_profile
-  PROCEDURE(Eval_iota_n_Prime), POINTER :: eval_profile_n_prime
+  PROCEDURE(Eval_chiPrime), POINTER :: eval_profile
+  CLASS(c_rProfile), ALLOCATABLE :: input_profile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   is_input_profile = .FALSE.
   SELECT CASE(TRIM(var))
     CASE("iota")
       is_input_profile = .TRUE.
-      eval_profile_n_prime => Eval_iota_n_Prime
+      input_profile = iota_profile
     CASE("p")
       is_input_profile = .TRUE.
-      eval_profile_n_prime => Eval_p_n_Prime
+      input_profile = pres_profile
     CASE("mass")
       eval_profile => Eval_mass
     CASE("chi")
@@ -661,8 +662,9 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
 
   IF (is_input_profile) THEN
     DO i = 1,n_s
-      result(i) = eval_profile_n_prime(spos=s(i), deriv=deriv)
+      result(i) = input_profile%eval_at_rho(spos=s(i), deriv=deriv)
     END DO
+    SDEALLOCATE(input_profile)
   ELSE 
     DO i = 1,n_s
       result(i) = eval_profile(s(i))
@@ -677,8 +679,8 @@ END SUBROUTINE evaluate_profile
 FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sfl_boozer)
   ! MODULES
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer, sfl_boozer_new
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_iota, Eval_PhiPrime
-  USE MODgvec_MHD3D_vars,     ONLY: hmap
+  USE MODgvec_MHD3D_profiles, ONLY: Eval_PhiPrime
+  USE MODgvec_MHD3D_vars,     ONLY: hmap, iota_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer                 ! SFL-Boozer object
   INTEGER, INTENT(IN) :: mn_max(2), mn_nyq(2), nrho             ! parameters for the Boozer object
@@ -690,7 +692,7 @@ FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sf
   REAL, DIMENSION(nrho) :: iota, phiPrime                       ! iota and phiPrime
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   DO i = 1,nrho
-    iota(i) = Eval_iota(rho_pos(i))
+    iota(i) = iota_profile%eval_at_rho(rho_pos(i))
     phiPrime(i) = Eval_PhiPrime(rho_pos(i))
   END DO
   ! ALLOCATE is called within sfl_boozer_new

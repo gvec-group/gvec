@@ -29,151 +29,13 @@ PUBLIC
 
 CONTAINS
 
-
-
-!===================================================================================================================================
-!> evaluate rotational transform, iota(phi_norm(s)) =chi'/phi'
-!! NOTE that since VMEC has a definition of a positive iota with respect to R,phi,Z coordinate system, but GVEC is in (R,Z,phi)
-!! the sign of iota in GVEC is opposite to the sign in VMEC
-!!
-!===================================================================================================================================
-FUNCTION Eval_iota(spos)
-! MODULES
-USE MODgvec_MHD3D_Vars ,ONLY: iota_profile
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_iota
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp) :: phi_norm
-!===================================================================================================================================
-  phi_norm=Eval_PhiNorm(spos)
-  eval_iota = iota_profile%eval_at_rho(spos, deriv=0)
-END FUNCTION Eval_iota
-
-!===================================================================================================================================
-!> evaluate derivative in s of rotational transform, iota(phi_norm(s)) =chi'/phi'
-!! NOTE that since VMEC has a definition of a positive iota with respect to R,phi,Z coordinate system, but GVEC is in (R,Z,phi)
-!! the sign of iota in GVEC is opposite to the sign in VMEC
-!!
-!===================================================================================================================================
-FUNCTION Eval_iota_Prime(spos)
-! MODULES
-USE MODgvec_MHD3D_Vars ,ONLY: iota_profile
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_iota_Prime
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp) :: phi_norm
-!===================================================================================================================================
-  phi_norm=Eval_PhiNorm(spos)
-  eval_iota_prime = iota_profile%eval_at_rho(spos, deriv=1)
-END FUNCTION Eval_iota_Prime
-
-!===================================================================================================================================
-!> evaluate n-th derivative in s of rotational transform, iota(phi_norm(s)) =chi'/phi'
-!! NOTE that since VMEC has a definition of a positive iota with respect to R,phi,Z coordinate system, but GVEC is in (R,Z,phi)
-!! the sign of iota in GVEC is opposite to the sign in VMEC
-!!
-!===================================================================================================================================
-FUNCTION Eval_iota_n_Prime(spos, deriv)
-  ! MODULES
-  USE MODgvec_MHD3D_Vars ,ONLY: which_init, iota_profile
-  IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
-    REAL(wp), INTENT(IN) :: spos !! s position to evaluate s=[0,1]
-    INTEGER, INTENT(IN)  :: deriv !! order of the derivative n in [0,4]
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
-    REAL(wp)               :: Eval_iota_n_Prime
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! LOCAL VARIABLES
-  !===================================================================================================================================
-    Eval_iota_n_Prime = iota_profile%eval_at_rho(spos,deriv)
-END FUNCTION Eval_iota_n_Prime
-
-!===================================================================================================================================
-!> evaluate pressure profile p(phi_norm(s))
-!!
-!===================================================================================================================================
-FUNCTION Eval_pres(spos)
-! MODULES
-USE MODgvec_MHD3D_Vars ,ONLY: pres_profile
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_pres
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp) :: phi_norm
-!===================================================================================================================================
-  phi_norm=Eval_PhiNorm(spos)
-  eval_pres = pres_profile%eval_at_rho(spos, deriv=0)
-END FUNCTION Eval_pres
-
-!===================================================================================================================================
-!> evaluate d/ds derivative pressure profile p(phi_norm(s)) => dp/dphinorm*dphinorm/ds
-!!
-!===================================================================================================================================
-FUNCTION Eval_p_prime(spos)
-! MODULES
-USE MODgvec_MHD3D_Vars ,ONLY: pres_profile
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp), INTENT(IN   ) :: spos !! s position to evaluate s=[0,1] 
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)               :: Eval_p_prime
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp) :: phi_norm
-!===================================================================================================================================
-  phi_norm=Eval_PhiNorm(spos)
-  eval_p_prime=pres_profile%eval_at_rho(spos, deriv=1)
-END FUNCTION Eval_p_prime
-
-!===================================================================================================================================
-!> evaluate d^n/ds^n derivative pressure profile p(phi_norm(s))
-!!
-!===================================================================================================================================
-FUNCTION Eval_p_n_prime(spos,deriv)
-  ! MODULES
-  USE MODgvec_MHD3D_Vars ,ONLY: pres_profile
-  IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
-    REAL(wp), INTENT(IN) :: spos !! s position to evaluate s=[0,1] 
-    INTEGER,  INTENT(IN) :: deriv
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
-    REAL(wp)               :: Eval_p_n_prime
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! LOCAL VARIABLES
-  !===================================================================================================================================
-    Eval_p_n_prime=pres_profile%eval_at_rho(spos,deriv)
-END FUNCTION Eval_p_n_prime
-
 !===================================================================================================================================
 !> evaluate mass profile mass(phi_norm(s))
 !!
 !===================================================================================================================================
 FUNCTION Eval_mass(spos)
 ! MODULES
-USE MODgvec_MHD3D_vars, ONLY:gamm
+USE MODgvec_MHD3D_vars, ONLY:gamm, pres_profile
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -185,7 +47,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 IF(ABS(gamm).LT.1.0E-12)THEN
-  eval_mass=eval_pres(spos)
+  eval_mass=pres_profile%eval_at_rho(spos)!eval_pres(spos)
 ELSE
   !TODO would need to multiply by ( V'(s) ) ^gamma
   CALL abort(__STAMP__, &
@@ -202,7 +64,7 @@ FUNCTION Eval_chi(spos)
 ! MODULES
 USE MODgvec_MHD3D_Vars ,ONLY: which_init
 USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
-USE MODgvec_VMEC_vars  ,ONLY: chi_spl
+USE MODgvec_VMEC_vars  ,ONLY: Chi_profile
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -230,7 +92,7 @@ IMPLICIT NONE
     eval_chi=eval_chi+0.5_wp*Eval_chiPrime(spos)
     eval_chi=eval_chi*ds
   CASE(1)
-    eval_chi=VMEC_EvalSpl(0,SQRT(phi_norm),chi_Spl) !variable rho in vmec evaluations is sqrt(phi/phi_edge)
+    eval_chi=Chi_profile%eval_at_rho(spos)
   END SELECT
 END FUNCTION Eval_chi
 
@@ -240,6 +102,7 @@ END FUNCTION Eval_chi
 !===================================================================================================================================
 FUNCTION Eval_chiPrime(spos)
 ! MODULES
+  USE MODgvec_MHD3D_Vars ,ONLY: iota_profile
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -250,7 +113,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  Eval_ChiPrime = Eval_PhiPrime(spos)*Eval_iota(spos)
+  Eval_ChiPrime = Eval_PhiPrime(spos)*iota_profile%eval_at_rho(spos)!Eval_iota(spos)
 END FUNCTION Eval_chiPrime
 
 !===================================================================================================================================

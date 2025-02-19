@@ -129,12 +129,12 @@ def test_eval_profile(teststate, type, c_poly):
     np.testing.assert_allclose(gvec_profile, ref_poly_vals)
 
 
-@pytest.mark.parametrize("type", ["p_prime", "iota_prime"])
+@pytest.mark.parametrize("type", ["p", "iota"])
 def test_eval_profile_prime(teststate, type, c_poly):
     rho = np.linspace(0, 1, 100)
     ref_poly = np.polynomial.Polynomial(c_poly)
     ref_poly_vals = ref_poly.deriv(m=1)(rho**2) * 2 * rho
-    gvec_profile = teststate.evaluate_profile(type, rho=rho)
+    gvec_profile = teststate.evaluate_profile(type, rho=rho, deriv=1)
     np.testing.assert_allclose(gvec_profile, ref_poly_vals)
 
 

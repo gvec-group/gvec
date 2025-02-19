@@ -89,7 +89,7 @@ SUBROUTINE WriteStateToASCII(Uin,fileID)
 ! MODULES
 USE MODgvec_Globals,ONLY:Unit_stdOut,PI,TWOPI,GETFREEUNIT
 USE MODgvec_Output_Vars, ONLY:ProjectName,OutputLevel
-USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap
+USE MODgvec_MHD3D_Vars, ONLY:X1_base,X2_base,LA_base,sgrid,which_hmap, pres_profile, iota_profile
 USE MODgvec_MPI, ONLY:par_Reduce
 USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_MHD3D
 USE MODgvec_MHD3D_profiles
@@ -158,7 +158,7 @@ IMPLICIT NONE
               nBase        => X1_base%s%nBase )
     !write Profiles at Greville interpolation points s_IP(1:nBase) 
     DO is=1,nBase
-      WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),Eval_iota(s_IP(is)),Eval_pres(s_IP(is))
+      WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Eval_Phi(s_IP(is)),Eval_chi(s_IP(is)),iota_profile%eval_at_rho(s_IP(is)),pres_profile%eval_at_rho(s_IP(is))
     END DO 
     END ASSOCIATE
     WRITE(ioUnit,'(A)')'## a_minor,r_major,volume  ################################################################################'

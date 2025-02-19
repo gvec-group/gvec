@@ -62,29 +62,6 @@ PUBLIC
     DEALLOCATE(knots_aux)
 END FUNCTION not_a_knot
 
-SUBROUTINE SOLVE_LSTSQ(A, b, c)
-    EXTERNAL DGELS 
-    REAL(wp), INTENT(IN) :: A(:,:)
-    REAL(wp), INTENT(IN) :: b(:)
-    REAL(wp), INTENT(INOUT) :: c(:)
-    INTEGER :: n_rows, n_cols, info, MN, LWORK
-    REAL(wp), ALLOCATABLE :: WORK(:)
-
-    n_rows = SIZE(A,1)
-    n_cols = SIZE(A,2)
-    MN = MIN(n_rows,n_cols)
-    LWORK = MAX(1,MN+MAX(MN,1))
-    ALLOCATE(WORK(LWORK))
-    CALL DGELS("N", n_rows, n_cols, 1, A, n_rows, b,SIZE(b,1),WORK,LWORK,info)
-    IF(info.NE.0)THEN
-        CALL abort(__STAMP__,&
-                   'Matrix solve for LSTSQ does not work!')
-    END IF
-    SDEALLOCATE(WORK)
-    c=b
-
-END SUBROUTINE SOLVE_LSTSQ
-
 SUBROUTINE interpolate_not_a_knot(x, y, c, knots, deg)
     REAL(wp), INTENT(IN)                 :: x(:), y(:)
     REAL(wp), INTENT(INOUT), ALLOCATABLE :: c(:), knots(:)
@@ -124,7 +101,7 @@ SUBROUTINE interpolate_not_a_knot(x, y, c, knots, deg)
         N(i,jmin:jmin+k) = basis_values
     END DO
     c = SOLVE(N,y)
-    ! CALL SOLVE_LSTSQ(N,y,c)
+
     CALL bspl%free()
     SDEALLOCATE(bspl)
     SDEALLOCATE(basis_values)
@@ -182,7 +159,6 @@ SUBROUTINE interpolate_complete_bspl(x, y, c, knots, y_BC)
     RHS(n_x+2) = y_BC(2)
 
     c = SOLVE(N, RHS)
-    ! CALL SOLVE_LSTSQ(N,RHS,c)
 
     SDEALLOCATE(basis_values)
     SDEALLOCATE(N)

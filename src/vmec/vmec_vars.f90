@@ -23,6 +23,7 @@
 MODULE MODgvec_VMEC_Vars
 ! MODULES
 USE MODgvec_Globals, ONLY: wp
+USE MODgvec_rProfile_base, ONLY: c_rProfile
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -40,16 +41,14 @@ REAL(wp),ALLOCATABLE    :: normFlux_prof(:)          !! normalized flux profile,
 REAL(wp),ALLOCATABLE    :: chi_prof(:)               !! POLOIDAL flux profile (called chi in VMEC)
 
 REAL(wp),ALLOCATABLE    :: rho(:)                    !! := sqrt(phinorm) at all flux surface 
-REAL(wp),ALLOCATABLE    :: pres_Spl(:,:)             !! Spline coefficients in (rho) for Pressure, (1:4,nFluxVMEC)
-REAL(wp),ALLOCATABLE    :: iota_Spl(:,:)             !! Spline coefficients in (rho) for iota, (1:4,nFluxVMEC)
-REAL(wp),ALLOCATABLE    :: Phi_Spl(:,:)              !! Spline coefficients in (rho) for Phi, (1:4,nFluxVMEC)
-REAL(wp),ALLOCATABLE    :: chi_Spl(:,:)              !! Spline coefficients in (rho) for chi, (1:4,nFluxVMEC)
 REAL(wp),ALLOCATABLE    :: Rmnc_Spl(:,:,:)           !! modified spline coefficients R cosine, (1:4,iFlux,iMode)
 REAL(wp),ALLOCATABLE    :: Rmns_Spl(:,:,:)           !! modified spline coefficients R sine,   (1:4,iFlux,iMode)
 REAL(wp),ALLOCATABLE    :: lmnc_Spl(:,:,:)           !! modified spline coefficients of lambda cosine , (1:4,iFlux,iMode)
 REAL(wp),ALLOCATABLE    :: lmns_Spl(:,:,:)           !! modified spline coefficients of lambda sine,   (1:4,iFlux,iMode)
 REAL(wp),ALLOCATABLE    :: Zmnc_Spl(:,:,:)           !! modified spline coefficients of Z cosine, (1:4,iFlux,iMode)
 REAL(wp),ALLOCATABLE    :: Zmns_Spl(:,:,:)           !! modified spline coefficients of Z sine,   (1:4,iFlux,iMode)
+CLASS(c_rProfile), ALLOCATABLE :: Phi_profile        !! B-spline profiles in (rho^2) for Phi
+CLASS(c_rProfile), ALLOCATABLE :: Chi_profile        !! B-spline profile in (rho^2) for chi
 
 !===================================================================================================================================
 END MODULE MODgvec_VMEC_Vars

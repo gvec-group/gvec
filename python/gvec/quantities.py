@@ -99,7 +99,7 @@ def xyz(ds: xr.Dataset):
 # === profiles ========================================================================= #
 
 
-def _profile(var, evalvar, long_name, symbol):
+def _profile(var, evalvar, deriv, long_name, symbol):
     """Factory function for profile quantities."""
 
     @register(
@@ -107,35 +107,38 @@ def _profile(var, evalvar, long_name, symbol):
         attrs=dict(long_name=long_name, symbol=symbol),
     )
     def profile(ds: xr.Dataset, state: State):
-        ds[var] = ("rad", state.evaluate_profile(evalvar, ds.rho))
+        ds[var] = ("rad", state.evaluate_profile(evalvar, ds.rho, deriv=deriv))
 
     return profile
 
 
 for var, *args in [
-    ("iota", "iota", "rotational transform", r"\iota"),
+    ("iota", "iota", 0, "rotational transform", r"\iota"),
     (
         "diota_dr",
-        "iota_prime",
+        "iota",
+        1,
         "rotational transform gradient",
         r"\frac{d\iota}{d\rho}",
     ),
-    ("p", "p", "pressure", r"p"),
-    ("dp_dr", "p_prime", "pressure gradient", r"\frac{dp}{d\rho}"),
-    ("chi", "chi", "poloidal magnetic flux", r"\chi"),
-    ("dchi_dr", "chi_prime", "poloidal magnetic flux gradient", r"\frac{d\chi}{d\rho}"),
-    ("Phi", "Phi", "toroidal magnetic flux", r"\Phi"),
-    ("dPhi_dr", "Phi_prime", "toroidal magnetic flux gradient", r"\frac{d\Phi}{d\rho}"),
+    ("p", "p", 0, "pressure", r"p"),
+    ("dp_dr", "p", 1, "pressure gradient", r"\frac{dp}{d\rho}"),
+    ("chi", "chi", 0, "poloidal magnetic flux", r"\chi"),
+    ("dchi_dr", "chi", 1, "poloidal magnetic flux gradient", r"\frac{d\chi}{d\rho}"),
+    ("Phi", "Phi", 0, "toroidal magnetic flux", r"\Phi"),
+    ("dPhi_dr", "Phi", 1, "toroidal magnetic flux gradient", r"\frac{d\Phi}{d\rho}"),
     (
         "dPhi_drr",
-        "Phi_2prime",
+        "Phi",
+        2,
         "toroidal magnetic flux curvature",
         r"\frac{d^2\Phi}{d\rho^2}",
     ),
-    ("Phi_n", "PhiNorm", "normalized toroidal magnetic flux", r"\Phi_n"),
+    ("Phi_n", "PhiNorm", 0, "normalized toroidal magnetic flux", r"\Phi_n"),
     (
         "dPhi_n_dr",
-        "PhiNorm_prime",
+        "PhiNorm",
+        1,
         "normalized toroidal magnetic flux gradient",
         r"\frac{d\Phi_n}{d\rho}",
     ),

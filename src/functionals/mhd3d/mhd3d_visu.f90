@@ -145,9 +145,9 @@ END SUBROUTINE visu_BC_face
 SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
 ! MODULES
 USE MODgvec_Globals,        ONLY: TWOPI,CROSS
-USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F
-USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_pres,Eval_Phi,Eval_PhiPrime,Eval_chiPrime,Eval_p_prime
-USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota_Prime,Eval_Phi_TwoPrime
+USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid,U,F, iota_profile, pres_profile
+USE MODgvec_MHD3D_Profiles, ONLY: Eval_Phi,Eval_PhiPrime,Eval_chiPrime
+USE MODgvec_MHD3D_Profiles, ONLY: Eval_Phi_TwoPrime
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
 USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
@@ -319,21 +319,21 @@ IMPLICIT NONE
       LA_s(:)   = LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,      0,U(0)%LA(:,:))
       F_LA_s(:) = LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,      0,F(0)%LA(:,:))
 
-      iota_s=Eval_iota(spos)
-      pres_s=Eval_pres(spos)
+      iota_s=iota_profile%eval_at_rho(spos)
+      pres_s=pres_profile%eval_at_rho(spos)
       phiPrime_s=Eval_PhiPrime(spos)
 #ifdef VISU_J_EXACT
       dX1ds_ds(:)  = X1_base%s%evalDOF2D_s(spos,X1_base%f%modes,DERIV_S_S,U(0)%X1(:,:))
       dX2ds_ds(:)  = X2_base%s%evalDOF2D_s(spos,X2_base%f%modes,DERIV_S_S,U(0)%X2(:,:))
       dLAds(:)     = LA_base%s%evalDOF2D_s(spos,LA_base%f%modes,DERIV_S  ,U(0)%LA(:,:))
-      iota_s_s=Eval_iota_Prime(spos)
+      iota_s_s=iota_profile%eval_at_rho(spos,deriv=1)
       phiPrime_s_s=Eval_Phi_TwoPrime(spos)
 #endif
       var_visu(VP_S    ,i_s,:,:,:,iElem) =spos
       var_visu(VP_PHI  ,i_s,:,:,:,iElem) =Eval_Phi(spos)
       var_visu(VP_IOTA ,i_s,:,:,:,iElem) =iota_s
       var_visu(VP_PRES ,i_s,:,:,:,iElem) =pres_s
-      var_visu(VP_DP_DS,i_s,:,:,:,iElem) =Eval_p_prime(spos)
+      var_visu(VP_DP_DS,i_s,:,:,:,iElem) =pres_profile%eval_at_rho(spos,deriv=1)
       var_visu(VP_Mscale,i_s,:,:,:,iElem) = (SUM(X1_base%f%Xmn(1,:)**(4+1)*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*X2_s(:)**2))/&  !pexp=4, qexp=1
                                             (SUM(X1_base%f%Xmn(1,:)**(4  )*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*X2_s(:)**2))
       var_visu(VP_MscaleF,i_s,:,:,:,iElem)= (SUM(X1_base%f%Xmn(1,:)**(4+1)*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*F_X2_s(:)**2))/&  !pexp=4, qexp=1
@@ -351,8 +351,8 @@ IMPLICIT NONE
       X2_s_eps(:)   = X2_base%s%evalDOF2D_s(spos+delta_s,X2_base%f%modes,      0,U(0)%X2(:,:))
       dX2ds_eps(:)  = X2_base%s%evalDOF2D_s(spos+delta_s,X2_base%f%modes,DERIV_S,U(0)%X2(:,:))
       LA_s_eps(:)   = LA_base%s%evalDOF2D_s(spos+delta_s,LA_base%f%modes,      0,U(0)%LA(:,:))
-      iota_s_eps=Eval_iota(spos+delta_s)
-      pres_s_eps=Eval_pres(spos+delta_s)
+      iota_s_eps=iota_profile%eval_at_rho(spos+delta_s)
+      pres_s_eps=pres_profile%eval_at_rho(spos+delta_s)
       phiPrime_s_eps=Eval_PhiPrime(spos+delta_s)
 #endif
       !define theta2, which corresponds to the theta angle of a given theta_star=theta
@@ -842,9 +842,9 @@ END SUBROUTINE Get_SFL_theta
 !===================================================================================================================================
 SUBROUTINE WriteSFLoutfile(Uin,fileID)
 ! MODULES
-  USE MODgvec_MHD3D_Vars,     ONLY: hmap,X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_Vars,     ONLY: hmap,X1_base,X2_base,LA_base, iota_profile
   USE MODgvec_fBase,          ONLY: t_fbase,sin_cos_map
-  USE MODgvec_MHD3D_Profiles, ONLY: Eval_iota,Eval_PhiPrime
+  USE MODgvec_MHD3D_Profiles, ONLY: Eval_PhiPrime
   USE MODgvec_Transform_SFL,  ONLY: find_pest_angles
   USE MODgvec_SFL_Boozer,     ONLY: t_sfl_boozer,sfl_boozer_new
   USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
@@ -948,7 +948,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     DO i_rp=1,SFLout_nrp
       !respect bounds
       rho_pos(i_rp)=MIN(MAX(1.0e-4_wp,SFLout_radialpos(i_rp)),1.0_wp)
-      iota_prof(i_rp)=Eval_iota(rho_pos(i_rp))
+      iota_prof(i_rp)=iota_profile%eval_at_rho(rho_pos(i_rp))
       PhiPrime_prof(i_rp)=Eval_PhiPrime(rho_pos(i_rp))
     END DO
     ALLOCATE(tz_star_pos(2,nthet_out,nzeta_out))
@@ -1423,8 +1423,8 @@ END SUBROUTINE visu_1d_modes
 !===================================================================================================================================
 SUBROUTINE eval_1d_profiles(n_s,fname_in)
 ! MODULES
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
-  USE MODgvec_MHD3D_Vars,    ONLY: sgrid
+  USE MODgvec_MHD3D_Profiles,ONLY: Eval_Phi
+  USE MODgvec_MHD3D_Vars,    ONLY: sgrid, iota_profile, pres_profile
   USE MODgvec_Output_CSV, ONLY:WriteDataToCSV
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1467,13 +1467,13 @@ IMPLICIT NONE
   Varnames(iVar)='iota(Phi_norm)'
   
   DO i=1,nvisu
-    values_visu(  iVar,i)=Eval_iota(s_visu(i))
+    values_visu(  iVar,i)=iota_profile%eval_at_rho(s_visu(i))
   END DO !i
   
   iVar=iVar+1
   Varnames(iVar)='pres(Phi_norm)'
   DO i=1,nvisu
-    values_visu(  iVar,i)=Eval_pres(s_visu(i))
+    values_visu(  iVar,i)=pres_profile%eval_at_rho(s_visu(i))
   END DO !i
 
   END ASSOCIATE !s_visu
@@ -1489,8 +1489,8 @@ END SUBROUTINE eval_1d_profiles
 SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
 ! MODULES
   USE MODgvec_base,          ONLY: t_base
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_iota,Eval_pres,Eval_Phi
-  USE MODgvec_MHD3D_Vars,    ONLY: sgrid
+  USE MODgvec_MHD3D_Profiles,ONLY: Eval_Phi
+  USE MODgvec_MHD3D_Vars,    ONLY: sgrid, iota_profile, pres_profile
   USE MODgvec_write_modes,   ONLY: write_modes
   USE MODgvec_output_vars,   ONLY: Projectname
   IMPLICIT NONE
@@ -1555,13 +1555,13 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   Varnames(nVal)='iota(Phi_norm)'
   
   DO i=1,nvisu
-    values_visu(  nVal,i)=Eval_iota(s_visu(i))
+    values_visu(  nVal,i)=iota_profile%eval_at_rho(s_visu(i))
   END DO !i
   
   nVal=nVal+1
   Varnames(nVal)='pres(Phi_norm)'
   DO i=1,nvisu
-    values_visu(  nVal,i)=Eval_pres(s_visu(i))
+    values_visu(  nVal,i)=pres_profile%eval_at_rho(s_visu(i))
   END DO !i
 
   DO iMode=1,base_in%f%modes

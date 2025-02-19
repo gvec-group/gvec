@@ -429,26 +429,12 @@ class State:
             raise ValueError("Quantity must be a string.")
         elif quantity not in [
             "iota",
-            "iota_prime",
             "p",
-            "p_prime",
             "chi",
-            "chi_prime",
             "Phi",
-            "Phi_prime",
-            "Phi_2prime",
             "PhiNorm",
-            "PhiNorm_prime",
         ]:
             raise ValueError(f"Unknown quantity: {quantity}")
-
-        if "_prime" in quantity:
-            deriv += 1
-            quantity = quantity.replace("_prime", "")
-
-        if "_2prime" in quantity:
-            deriv += 2
-            quantity = quantity.replace("_2prime", "")
 
         if quantity == "chi" and deriv > 1:
             raise NotImplementedError(

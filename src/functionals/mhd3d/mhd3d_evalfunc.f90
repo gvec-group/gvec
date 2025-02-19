@@ -203,7 +203,8 @@ END SUBROUTINE InitializeMHD3D_evalFunc
 SUBROUTINE InitProfilesGP()
 ! MODULES
   USE MODgvec_MPI             , ONLY: par_Bcast
-  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_pres,Eval_chiPrime,Eval_phiPrime
+  USE MODgvec_MHD3D_Profiles  , ONLY: Eval_chiPrime,Eval_phiPrime
+  USE MODgvec_MHD3D_Vars, ONLY: pres_profile
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -217,10 +218,10 @@ IF(MPIroot)THEN
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
   DO iGP=1,nGP
-    chiPrime_GP( iGP) = Eval_chiPrime(s_GP(iGP))
-    pres_GP(     iGP) = Eval_pres(    s_GP(iGP))
-    PhiPrime_GP( iGP) = Eval_PhiPrime(s_GP(iGP))
-    PhiPrime2_GP(iGP) = PhiPrime_GP(       iGP)**2
+    chiPrime_GP( iGP) = Eval_chiPrime(           s_GP(iGP))
+    pres_GP(     iGP) = pres_profile%eval_at_rho(s_GP(iGP))
+    PhiPrime_GP( iGP) = Eval_PhiPrime(           s_GP(iGP))
+    PhiPrime2_GP(iGP) = PhiPrime_GP(                  iGP)**2
   END DO !iGP
 !$OMP END PARALLEL DO
 END  IF !MPIroot
