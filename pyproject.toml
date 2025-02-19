@@ -16,6 +16,8 @@ dependencies = [
     "f90wrap",
     "numpy>=2",
     "xarray",
+    "netcdf4",
+    "tqdm",
 ]
 authors = [
     {name = "Florian Hindenlang"},
@@ -56,7 +58,8 @@ dev = ["pytest"]
 examples = ["matplotlib", "jupyter", "ipywidgets", "ipympl"]
 
 [project.scripts]
-gvec_to_cas3d = "gvec:gvec_to_cas3d.main"
+gvec_zero_current = "gvec.scripts.zero_current:main"
+gvec_to_cas3d = "gvec.gvec_to_cas3d:main"
 
 # ============================================================================ #
 [tool.scikit-build]
