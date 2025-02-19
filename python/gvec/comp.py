@@ -145,7 +145,7 @@ def compute(
             for i in func.integration
             if i not in ev
             or "integration_points" not in ev[i].attrs
-            or not ev[i].attrs["integration_points"]
+            or ev[i].attrs["integration_points"] == "False"
         }
         if auxcoords:
             # --- auxiliary dataset for integration points --- #
@@ -315,19 +315,23 @@ def Evaluations(
     if "rho" in ds:
         ds.rho.attrs["long_name"] = "Logical radial coordinate"
         ds.rho.attrs["symbol"] = r"\rho"
-        ds.rho.attrs["integration_points"] = isinstance(rho, str) and rho == "int"
+        ds.rho.attrs["integration_points"] = str(isinstance(rho, str) and rho == "int")
         if ds.rho.dims == ("rad",):
             ds = ds.set_xindex("rho")
     if "theta" in ds:
         ds.theta.attrs["long_name"] = "Logical poloidal angle"
         ds.theta.attrs["symbol"] = r"\theta"
-        ds.theta.attrs["integration_points"] = isinstance(theta, str) and theta == "int"
+        ds.theta.attrs["integration_points"] = str(
+            isinstance(theta, str) and theta == "int"
+        )
         if ds.theta.dims == ("pol",):
             ds = ds.set_xindex("theta")
     if "zeta" in ds:
         ds.zeta.attrs["long_name"] = "Logical toroidal angle"
         ds.zeta.attrs["symbol"] = r"\zeta"
-        ds.zeta.attrs["integration_points"] = isinstance(zeta, str) and zeta == "int"
+        ds.zeta.attrs["integration_points"] = str(
+            isinstance(zeta, str) and zeta == "int"
+        )
         if ds.zeta.dims == ("tor",):
             ds = ds.set_xindex("zeta")
 

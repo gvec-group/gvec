@@ -163,7 +163,11 @@ def pytest_collection_modifyitems(items):
     stages = ["test_run", "test_regression", "test_post", "test_converter"]
 
     def sort_key(item):
-        if not hasattr(item, "callspec") or "testgroup" not in item.callspec.params:
+        if (
+            not hasattr(item, "callspec")
+            or "testgroup" not in item.callspec.params
+            or "testcase" not in item.callspec.params
+        ):
             return -1, item.name
         return (
             stages.index(item.name.split("[")[0]),
@@ -365,13 +369,15 @@ def logger(caplog):
 @pytest.fixture(scope="session")
 def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
     """
-    Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `{testgroup}/{testcase}`
+    Generate the run directory at `{rundir}/{testgroup}/{testcase}` based on `examples/{testcase}`
     """
     # check rundir, rundir/data and rundir/testgroup
     if not rundir.exists():
         rundir.mkdir()
     if not (rundir / "data").exists():
-        (rundir / "data").symlink_to(os.path.relpath(Path(__file__).parent / "data", rundir))
+        (rundir / "data").symlink_to(
+            os.path.relpath(Path(__file__).parent / "data", rundir)
+        )
     if not (rundir / testgroup).exists():
         (rundir / testgroup).mkdir()
     # create the testcase directory
@@ -414,7 +420,9 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     if not postdir.exists():
         postdir.mkdir()
     if not (postdir / "data").exists():
-        (postdir / "data").symlink_to(os.path.relpath(Path(__file__).parent / "data", postdir))
+        (postdir / "data").symlink_to(
+            os.path.relpath(Path(__file__).parent / "data", postdir)
+        )
     if not (postdir / testgroup).exists():
         (postdir / testgroup).mkdir()
     # create the testcase directory
@@ -430,7 +438,9 @@ def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase:
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(os.path.relpath(sourcerundir / statefile, targetdir))
+        (targetdir / statefile).symlink_to(
+            os.path.relpath(sourcerundir / statefile, targetdir)
+        )
     # overwrite parameter file with the rundir version and modify it
     util.adapt_parameter_file(
         sourcerundir / "parameter.ini",
@@ -473,5 +483,7 @@ def testcaseconvdir(
     ]
     # link to statefiles from run_stage
     for statefile in states:
-        (targetdir / statefile).symlink_to(os.path.relpath(sourcerundir / statefile, targetdir))
+        (targetdir / statefile).symlink_to(
+            os.path.relpath(sourcerundir / statefile, targetdir)
+        )
     return targetdir
