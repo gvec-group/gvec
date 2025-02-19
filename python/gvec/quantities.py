@@ -828,7 +828,7 @@ def iota_avg(ds: xr.Dataset):
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="toroidal current contribution to the rotational transform",
-        symbol=r"\iota_{tor}",
+        symbol=r"\iota_{curr}",
     ),
 )
 def iota_curr(ds: xr.Dataset):

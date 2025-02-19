@@ -21,6 +21,23 @@ try:
     from scipy.interpolate import BSpline
 except ImportError:
     BSpline = None
+import contextlib
+import os
+
+
+@contextlib.contextmanager
+def chdir(target: Path | str):
+    """
+    Contextmanager to change the current working directory.
+
+    Using a context has the benefit of automatically changing back to the original directory when the context is exited, even if an exception is raised.
+    """
+    target = Path(target)
+    source = Path(os.getcwd())
+
+    os.chdir(target)
+    yield
+    os.chdir(source)
 
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
@@ -203,36 +220,27 @@ def flip_parameters_zeta(parameters: dict) -> dict:
     import copy
 
     parameters2 = copy.deepcopy(parameters)
-    if "X1_b_cos" in parameters:
-        for (m, n), value in parameters["X1_b_cos"].items():
-            if m == 0:
-                continue
-            parameters2["X1_b_cos"][m, -n] = value
-    if "X1_b_sin" in parameters:
-        for (m, n), value in parameters["X1_b_sin"].items():
-            if m == 0:
-                parameters2["X1_b_sin"][m, n] = -value
-            else:
-                parameters2["X1_b_sin"][m, -n] = value
-    if "X2_b_cos" in parameters:
-        for (m, n), value in parameters["X2_b_cos"].items():
-            if m == 0:
-                continue
-            parameters2["X2_b_cos"][m, -n] = value
-    if "X2_b_sin" in parameters:
-        for (m, n), value in parameters["X2_b_sin"].items():
-            if m == 0:
-                parameters2["X2_b_sin"][m, n] = -value
-            else:
-                parameters2["X2_b_sin"][m, -n] = value
-    if "X1_a_sin" in parameters:
-        for (m, n), value in parameters["X1_a_sin"].items():
-            assert m == 0
-            parameters2["X1_a_sin"][m, n] = -value
-    if "X2_a_sin" in parameters:
-        for (m, n), value in parameters["X2_a_sin"].items():
-            assert m == 0
-            parameters2["X2_a_sin"][m, n] = -value
+    for var in ["X1_b", "X2_b"]:
+        if f"{var}_cos" in parameters:
+            for (m, n), value in parameters[f"{var}_cos"].items():
+                if m == 0:
+                    continue
+                parameters2[f"{var}_cos"][m, -n] = value
+        if f"{var}_sin" in parameters:
+            for (m, n), value in parameters[f"{var}_sin"].items():
+                if m == 0:
+                    parameters2[f"{var}_sin"][m, n] = -value
+                else:
+                    parameters2[f"{var}_sin"][m, -n] = value
+    for var in ["X1_a", "X2_a"]:
+        if f"{var}_sin" in parameters:
+            for (m, n), value in parameters[f"{var}_sin"].items():
+                assert m == 0
+                parameters2[f"{var}_sin"][m, n] = -value
+        if f"{var}_cos" in parameters:
+            for (m, n), value in parameters[f"{var}_cos"].items():
+                assert m == 0
+                # parameters2[f"{var}_cos"][m, n] = value
     return parameters2
 
 
