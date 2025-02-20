@@ -64,7 +64,7 @@ FUNCTION bsplProfile_new(knots, n_knots, coefs, n_coefs) RESULT(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-    sf%deg   = COUNT(knots==knots(1))-1 ! multiplicity of the first knot determines the degree
+    sf%deg   = COUNT((ABS(knots-knots(1)).LE.1E-12))-1 ! multiplicity of the first knot determines the degree
     sf%n_knots = n_knots
     sf%n_coefs = n_coefs
     sf%knots = knots

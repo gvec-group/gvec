@@ -30,14 +30,26 @@ PUBLIC
  CONTAINS
 
 ! This tries to replicate the scipy implementation 
- FUNCTION not_a_knot(x, k) RESULT(knots)
-    REAL(wp), INTENT(IN)  :: x(:) ! interpolation points x position
-    INTEGER,  INTENT(IN)  :: k ! B-splines degree
 
+!===================================================================================================================================
+!> Find the knots for B-spline interpolation for an arbitray spline degree using not-a-knot boundary conditions. 
+!!
+!===================================================================================================================================
+ FUNCTION not_a_knot(x, k) RESULT(knots)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+    REAL(wp), INTENT(IN)  :: x(:) !! abscissas
+    INTEGER,  INTENT(IN)  :: k    !! B-splines degree
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+    REAL(wp), ALLOCATABLE :: knots(:) !! B-spline knots
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
     INTEGER               :: k2
     INTEGER               :: n, n_aux, n_internal, n_knots
-    REAL(wp), ALLOCATABLE :: knots(:)
     REAL(wp), ALLOCATABLE :: knots_aux(:)
+!===================================================================================================================================
 
     n = SIZE(x)
 
@@ -62,16 +74,26 @@ PUBLIC
     DEALLOCATE(knots_aux)
 END FUNCTION not_a_knot
 
+!===================================================================================================================================
+!> Interpolate y=f(x) via B-splines of arbitrary degree using the not-a-knot boundary condition
+!!
+!===================================================================================================================================
 SUBROUTINE interpolate_not_a_knot(x, y, c, knots, deg)
-    REAL(wp), INTENT(IN)                 :: x(:), y(:)
-    REAL(wp), INTENT(INOUT), ALLOCATABLE :: c(:), knots(:)
-
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+    REAL(wp), INTENT(IN)                 :: x(:), y(:) !! abscissas and ordinates
+    INTEGER,  INTENT(IN), OPTIONAL       :: deg !! B-spline degree
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+    REAL(wp), INTENT(INOUT), ALLOCATABLE :: c(:), knots(:) !! B-spine coefficients and knots
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
     CLASS(sll_c_bsplines), ALLOCATABLE :: bspl
-    INTEGER, OPTIONAL, INTENT(IN) :: deg
     INTEGER                  :: n_basis, n_x, n_knots, i, jmin, k
     REAL(wp), ALLOCATABLE    :: N(:,:)
     REAL(wp), ALLOCATABLE    :: basis_values(:)
-
+!===================================================================================================================================
     IF (PRESENT(deg)) THEN
         k = deg
     ELSE
@@ -109,54 +131,138 @@ SUBROUTINE interpolate_not_a_knot(x, y, c, knots, deg)
 
 END SUBROUTINE interpolate_not_a_knot
 
-SUBROUTINE interpolate_complete_bspl(x, y, c, knots, y_BC)
-    REAL(wp), INTENT(IN)                 :: x(:), y(:)
-    REAL(wp), INTENT(INOUT), ALLOCATABLE :: c(:)
-    REAL(wp), INTENT(INOUT), ALLOCATABLE :: knots(:)
+!===================================================================================================================================
+!> Find the knots for cubic B-spline interpolation for mixed boundary conditions.
+!! NOTE: The boundary conditions have to be either not-a-knot or clamped
+!===================================================================================================================================
+SUBROUTINE get_knots_cubic(knots, x, n_x, axis_BC, edge_BC)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+    REAL, INTENT(IN)                 :: x(:) !! abscissas
+    INTEGER, INTENT(IN)              :: n_x !! number of abscissas
+    INTEGER, INTENT(IN)              :: axis_BC, edge_BC !! inner/outer boundary condition type: not-a-knot=0, clamped=1
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+    REAL, INTENT(INOUT), ALLOCATABLE :: knots(:) !! B-spline knots
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+    INTEGER                          :: n_knots, axis_offset, edge_offset
+!===================================================================================================================================
+    n_knots = n_x+6
+    
+    SELECT CASE(axis_BC)
+    CASE(0)! not-a-knot
+        n_knots = n_knots- 1
+        axis_offset = 3
+    CASE(1)  ! clamped
+        axis_offset = 2
+    CASE DEFAULT
+        CALL abort(__STAMP__,'Unknown b-spline interpolation inner boundary condition!'&
+        //'Has to be either 0 or 1 for not-a-knot or clamped.')
+    END SELECT
 
+    
+    SELECT CASE(edge_BC)
+    CASE(0) ! not-a-knot
+        n_knots = n_knots - 1
+        edge_offset = n_x-2
+    CASE(1) ! clamped
+        edge_offset = n_x-1
+    CASE DEFAULT
+        CALL abort(__STAMP__,'Unknown b-spline interpolation outer boundary condition!'&
+        //'Has to be either 0 or 1 for not-a-knot or clamped.')
+    END SELECT
+
+    ALLOCATE(knots(n_knots))
+    knots = 0.0_wp
+
+    knots(1:4) = x(1)
+    knots(n_knots-3:) = x(n_x)
+    knots(5:n_knots-4) = x(axis_offset:edge_offset)
+END SUBROUTINE get_knots_cubic
+
+!===================================================================================================================================
+!> Interpolate y=f(x) via cubic B-splines 
+!! 
+!===================================================================================================================================
+SUBROUTINE interpolate_cubic_bspl(x, y, c, knots,  axis_BC, edge_BC, axis_BC_val, edge_BC_val)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+    REAL(wp), INTENT(IN)                 :: x(:), y(:) !! abscissas and ordinates
+    INTEGER,  INTENT(IN)                 :: axis_BC, edge_BC !! inner/outer boundary conditions: 0=not-a-knot, 1=clamped
+    REAL(WP), INTENT(IN), OPTIONAL       :: axis_BC_val, edge_BC_val !! inner/outer first derivative values for clamped BC, defaults to zero
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+    REAL(wp), INTENT(INOUT), ALLOCATABLE :: c(:) !! B-spline coefficients
+    REAL(wp), INTENT(INOUT), ALLOCATABLE :: knots(:) !! B-spline knots
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
     CLASS(sll_c_bsplines), ALLOCATABLE :: bspl
-    REAL(wp)                           :: y_BC(2)
     INTEGER                            :: k, n_x, n_basis, n_knots, i, jmin
     REAL(wp), ALLOCATABLE              :: N(:,:)
     REAL(wp), ALLOCATABLE              :: basis_values(:), RHS(:)
+    REAL(wp)                           :: a_val, b_val
+    INTEGER                            :: axis_offset, edge_offset, counter
+!===================================================================================================================================
+    IF (PRESENT(axis_BC_val)) THEN
+        a_val = axis_BC_val 
+    ELSE
+        a_val = 0.0_wp
+    END IF
+
+    IF (PRESENT(edge_BC_val)) THEN
+        b_val = edge_BC_val 
+    ELSE
+        b_val = 0.0_wp
+    END IF
 
     k = 3
     n_x = SIZE(x)
-    n_knots = n_x+2*k
+    CALL get_knots_cubic(knots, x, n_x, axis_BC, edge_BC)
+    n_knots = SIZE(knots)
+    n_basis = n_knots-k-1
 
-    ALLOCATE(c(n_x+2))
+    ALLOCATE(c(n_basis))
     c = 0.0_wp
-    ALLOCATE(knots(n_knots))
-    knots = 0.0_wp
     ALLOCATE(basis_values(k+1))
     basis_values = 0.0_wp
-    ALLOCATE(RHS(n_x+2))
+    ALLOCATE(RHS(n_basis))
     RHS = 0.0_wp
-
-    knots(k+1:n_x+k) = x(:)
-    knots(:k) = x(1)
-    knots(n_x+k+1:) = x(n_x)
 
     CALL sll_s_bsplines_new(bspl, k, .FALSE., xmin=x(1), xmax=x(n_x), &
     ncells=SIZE(knots(k+1:n_knots-k))-1, breaks=knots(k+1:n_knots-k))
 
-    n_basis = SIZE(knots)-k-1
     ALLOCATE(N(n_basis,n_basis))
     N = 0.0_wp
-    DO i=1,n_x
-        CALL bspl%eval_basis(x(i),basis_values, jmin)
-        N(i+1,jmin:jmin+k) = basis_values
+
+    IF (axis_BC.EQ.0) THEN ! not-a-knot
+        axis_offset = 1
+    ELSE ! clamped
+        axis_offset = 2
+        CALL bspl%eval_deriv(x(1),basis_values, jmin)
+        N(1,jmin:jmin+k) = basis_values
+        RHS(1) = a_val
+    END IF
+
+    IF (edge_BC.EQ.0) THEN ! not-a-knot
+        edge_offset = n_basis
+    ELSE ! clamped
+        edge_offset = n_basis-1
+        CALL bspl%eval_deriv(x(n_x),basis_values, jmin)
+        N(n_basis,jmin:jmin+k) = basis_values
+        RHS(n_basis) = b_val
+    END IF
+
+    counter  = 1
+    DO i=axis_offset,edge_offset
+        CALL bspl%eval_basis(x(counter),basis_values, jmin)
+        N(i,jmin:jmin+k) = basis_values
+        counter = counter + 1
     END DO
 
-    CALL bspl%eval_deriv(x(1),basis_values, jmin)
-    N(1,jmin:jmin+k) = basis_values
-
-    CALL bspl%eval_deriv(x(n_x),basis_values, jmin)
-    N(n_basis,jmin:jmin+k) = basis_values
-    
-    RHS(2:n_x+1) = y
-    RHS(1) = y_BC(1)
-    RHS(n_x+2) = y_BC(2)
+    RHS(axis_offset:edge_offset) = y
 
     c = SOLVE(N, RHS)
 
@@ -165,13 +271,21 @@ SUBROUTINE interpolate_complete_bspl(x, y, c, knots, y_BC)
     SDEALLOCATE(RHS)
     CALL bspl%free()
     SDEALLOCATE(bspl)
+END SUBROUTINE interpolate_cubic_bspl
 
-END SUBROUTINE interpolate_complete_bspl
-
+!===================================================================================================================================
+!> Get the sign of x
+!! NOTE: the sign of 0 is defined as positive!
+!===================================================================================================================================
 FUNCTION get_sign(x) RESULT(s)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
     REAL(wp), INTENT(IN) :: x
-    INTEGER :: s
-
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+    INTEGER :: s !! sign of x, is either 1 or -1
+!===================================================================================================================================
     IF (x<0) THEN
         s = -1
     ELSE
@@ -179,13 +293,24 @@ FUNCTION get_sign(x) RESULT(s)
     END IF
 END FUNCTION
 
+!===================================================================================================================================
+!> Check if the entries in x change sign
+!! 
+!===================================================================================================================================
 FUNCTION check_sign_change(x, tol) RESULT(sign_change)
+! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
     REAL(wp) :: x(:)
-    REAL(wp), OPTIONAL :: tol
-    REAL(wp) :: t
+    REAL(wp), OPTIONAL :: tol !! numerical tolerance, if a value is below this tolerance its sign is not considered
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
     LOGICAL :: sign_change
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+    REAL(wp) :: t
     INTEGER :: i, sign_first
-
+!===================================================================================================================================
     IF (PRESENT(tol)) THEN
         t = tol
     ELSE

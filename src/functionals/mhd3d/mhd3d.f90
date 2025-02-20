@@ -468,7 +468,7 @@ SUBROUTINE InitProfile(sf, var)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
   USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
-  USE MODgvec_bspline_interpolation, ONLY: interpolate_not_a_knot, interpolate_complete_bspl, check_sign_change
+  USE MODgvec_bspline_interpolation, ONLY: interpolate_cubic_bspl, check_sign_change
   USE MODgvec_rProfile_base, ONLY: c_rProfile
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -528,9 +528,9 @@ SUBROUTINE InitProfile(sf, var)
 
     IF (profile_BC_type .EQ. "clamped") THEN
       profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-      CALL interpolate_complete_bspl(profile_rho2, profile_vals, profile_coefs, profile_knots, profile_BC_vals)
+      CALL interpolate_cubic_bspl(profile_rho2,profile_vals, profile_coefs, profile_knots, 1, 1)
     ELSE IF (profile_BC_type .EQ. "not_a_knot") THEN
-      CALL interpolate_not_a_knot(profile_rho2, profile_vals, profile_coefs, profile_knots, 3)
+      CALL interpolate_cubic_bspl(profile_rho2,profile_vals, profile_coefs, profile_knots, 0, 0)
     END IF
     IF ((var.EQ."pres").AND.(check_sign_change(profile_coefs, tol=1e-6))) THEN
        WRITE(UNIT_stdOut,'(A)')'WARNING: Interpolated pressure profile changes sign!'
