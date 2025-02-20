@@ -52,13 +52,7 @@ def pytest_addoption(parser):
         "--postdir",
         type=Path,
         default=Path(__file__).parent / "post",
-        help="Path to post directory",
-    )
-    group.addoption(
-        "--convdir",
-        type=Path,
-        default=Path(__file__).parent / "conv",
-        help="Path to post-converter directory",
+        help="Path to post/converter directory",
     )
     group.addoption(
         "--annotations",
@@ -115,25 +109,7 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    """
-    Add custom markers to pytest, as if using the `pytest.ini` file.
-
-    Args:
-        config (Config): The pytest configuration object.
-    """
-    # register additional markers
-    for marker in [
-        "example: mark test as a example, which are all tests specified in `test-CI/examples`, executed in folder `rundir/example`",
-        "restart: mark test as a restart (deduced from example folder name). Needs the example to be run first!",
-        "shortrun: mark test as a shortrun  (executed in folder `rundir/shortrun`, overwrites parameters: `testlevel=-1` and `MaxIter=1`)",
-        "debugrun: mark test as a debugrun (executed in folder `rundir/debugrun`, overwrites parameters: `testlevel=2` and `MaxIter=1`)",
-        "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)",
-        "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir`, activates visualization parameters). Needs run_stage to be executed before in a given `rundir` directory.",
-        "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!",
-        "converter_stage: mark test belonging to the post-processing converter stage (executed for all testgroups into a `postdir`, for all compiled converters). Needs run_stage to be executed before in a given `rundir` directory.",
-    ]:
-        config.addinivalue_line("markers", marker)
-
+    """modify the pytest configuration (beyond the configuration in pyproject.toml)"""
     # custom global variables
     pytest.raised_warnings = False
 
@@ -285,12 +261,6 @@ def refdir(request) -> Path:
 def postdir(request) -> Path:
     """path to the post directory, default is test-CI/post"""
     return Path(request.config.getoption("--postdir")).absolute()
-
-
-@pytest.fixture(scope="session")
-def convdir(request) -> Path:
-    """path to the converter directory, default is test-CI/conv"""
-    return Path(request.config.getoption("--convdir")).absolute()
 
 
 @pytest.fixture(scope="session")
