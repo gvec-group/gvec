@@ -16,6 +16,7 @@ import re
 import shutil
 import contextlib
 import os
+from typing import Iterable
 
 
 @contextlib.contextmanager
@@ -63,6 +64,16 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         shutil.copy2(source, target)
         return
 
+    for key, value in kwargs.items():
+        if isinstance(value, dict) or isinstance(value, str):
+            pass
+        elif isinstance(value, bool):
+            kwargs[key] = "T" if value else "F"
+        elif isinstance(value, Iterable):
+            kwargs[key] = f"(/{', '.join(map(str, value))}/)"
+        else:
+            kwargs[key] = str(value)
+
     # initialize occurrences counters for all parameters to be set
     occurrences = {}
     for key in kwargs:
@@ -72,8 +83,9 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         else:
             occurrences[key] = 0
 
-    assert target != source
-    with open(source, "r") as source_file, open(target, "w") as target_file:
+    with open(source, "r") as source_file:
+        source_file = source_file.readlines()
+    with open(target, "w") as target_file:
         for line in source_file:
             if m := re.match(
                 r"\s*([^!=\s\(]+)\s*\(\s*([-\d]+);\s*([-\d]+)\)\s*=\s*([-+\d\.Ee]+)",
@@ -115,17 +127,17 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                 if isinstance(key, tuple):
                     key, m, n = key
                     if str(kwargs[key][m, n]) != "!":
-                        target_file.write(f"\n {key}({m};{n}) = {kwargs[key][m, n]}")
+                        target_file.write(f"\n{key}({m};{n}) = {kwargs[key][m, n]}")
                         occurrences[key, m, n] += 1
                 else:
                     if str(kwargs[key]) == "!":
                         continue  # ignore 'uncomment' value if key is not found
                     elif str(kwargs[key])[0] == "!":
                         # use default value '!default' if key is not found
-                        target_file.write(f"\n {key} = {kwargs[key][1:]}")
+                        target_file.write(f"\n{key} = {kwargs[key][1:]}")
                     else:
                         # add parameter at the end if key is not found
-                        target_file.write(f"\n {key} = {kwargs[key]}")
+                        target_file.write(f"\n{key} = {kwargs[key]}")
                     occurrences[key] += 1
     assert all(
         [v == 1 for v in occurrences.values()]
