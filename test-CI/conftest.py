@@ -390,7 +390,7 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
     shutil.copytree(sourcedir, targetdir, symlinks=True)
     # modify parameter files for certain testgroups
     match testgroup:
-        case "shortrun" | "unit-pygvec":
+        case "shortrun":
             util.adapt_parameter_file(
                 sourcedir / "parameter.ini",
                 targetdir / "parameter.ini",
@@ -407,6 +407,19 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
                 MaxIter=1,
                 logIter=1,
                 outputIter=1,
+            )
+        case "unit-pygvec":
+            util.adapt_parameter_file(
+                sourcedir / "parameter.ini",
+                targetdir / "parameter.ini",
+                testlevel=-1,
+                MaxIter=1,
+                logIter=1,
+                outputIter=1,
+                visu1D=0,
+                visu2D=0,
+                visu3D=0,
+                SFLout=0,
             )
     return targetdir
 

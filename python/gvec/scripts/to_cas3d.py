@@ -10,7 +10,7 @@ import numpy as np
 import xarray as xr
 import tqdm
 
-from . import State, EvaluationsBoozer, util, surface, comp, __version__
+from gvec import State, EvaluationsBoozer, util, surface, comp, __version__
 
 # === Argument parser === #
 
@@ -335,3 +335,7 @@ def main():
         args.stellsym,
         args.pointwise,
     )
+
+
+if __name__ == "__main__":
+    main()

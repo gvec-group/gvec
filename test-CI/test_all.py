@@ -3,8 +3,15 @@ import os
 import subprocess
 import re
 from pathlib import Path
+import shutil
 
 import helpers
+
+try:
+    import xarray as xr
+    import gvec
+except ImportError:
+    pass
 
 
 # === HELPER FUNCTIONS & FIXTURES === #
@@ -335,6 +342,164 @@ def test_converter(
                 f"stdout{irun}.txt", message=conv["msg"] + " FINISHED!"
             )
             # helpers.assert_stdout_OpenMP_MPI()
+
+
+class BaseTestPost:
+    """Base class for postprocessing/converter tests
+
+    required fixtures/parameters:
+    - name: identifier used in the directory path
+    - args: list of arguments to pass to the executable
+    """
+
+    exec: str  # name of the executable
+
+    @pytest.fixture(autouse=True)
+    def testcasedir(
+        self, postdir: Path, rundir: Path, testgroup: str, testcase: str, name: str
+    ):
+        """
+        Generate the post directory at `{convdir}/{name}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
+        where name can include the identifier for different arguments
+        """
+        if not postdir.exists():
+            postdir.mkdir()
+        if not (postdir / name).exists():
+            (postdir / name).mkdir()
+        if not (postdir / name / "data").exists():
+            (postdir / name / "data").symlink_to(Path(__file__).parent / "data")
+        if not (postdir / name / testgroup).exists():
+            (postdir / name / testgroup).mkdir()
+        # create the testcase directory
+        sourcedir = Path(__file__).parent / "examples" / testcase
+        sourcerundir = rundir / testgroup / testcase
+        targetdir = postdir / name / testgroup / testcase
+        if targetdir.exists():
+            shutil.rmtree(targetdir)
+        # copy input files from examples/testcase
+        shutil.copytree(sourcedir, targetdir, symlinks=True)
+        # link to statefiles from run_stage
+        states = sorted(sourcerundir.glob("*State*.dat"))
+        for statefile in states:
+            (targetdir / statefile.name).symlink_to(
+                os.path.relpath(statefile, targetdir)
+            )
+        with helpers.chdir(targetdir):
+            yield
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        args = runargs_prefix + [binpath / self.exec] + args
+        states = sorted(Path(".").glob("*State*.dat"))
+        # dryrun
+        if dryrun:
+            with open("dryrun.txt", "w") as file:
+                file.write(f"found statefiles {states}\n")
+                file.write(f"DRYRUN: execute:\n {args} \n")
+            return
+        # insert the last statefile
+        assert len(states) > 0, "no statefile for post/converter found"
+        args[args.index("STATEFILE")] = states[-1]
+        # run
+        with open("stdout.txt", "w") as stdout:
+            stdout.write(f"RUNNING: \n {args} \n")
+        with (
+            open("stdout.txt", "a") as stdout,
+            open("stderr.txt", "w") as stderr,
+        ):
+            subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
+        # add link to artifact (CI)
+        for filename in ["stdout", "stderr"]:
+            if casename := os.environ.get("CASENAME"):
+                pages_convdir = f"CIconv_{casename}"
+            else:
+                pages_convdir = "."
+            annotations["gvec-output"].append(
+                dict(
+                    external_link=dict(
+                        label=f"{name}/{testgroup}/{testcase}/{filename}",
+                        url=f"{artifact_pages_path}/{pages_convdir}/{name}/{testgroup}/{testcase}/{filename}.txt",
+                    )
+                )
+            )
+
+
+@pytest.mark.pygvec
+@pytest.mark.converter_stage
+class TestToCAS3D(BaseTestPost):
+    exec = "gvec_to_cas3d"
+
+    @pytest.fixture
+    def name(self):
+        return "to_cas3d"
+
+    @pytest.fixture
+    def args(self):
+        return [
+            "--ns",
+            "3",
+            "--MN_out",
+            "4",
+            "4",
+            "--stellsym",
+            "--pointwise",
+            "Booz-CAS3D.nc",
+            "parameter.ini",
+            "STATEFILE",
+            "BoozFT-CAS3D.nc",
+        ]
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        super().test_post(
+            testgroup,
+            testcase,
+            binpath,
+            runargs_prefix,
+            name,
+            args,
+            dryrun,
+            annotations,
+            artifact_pages_path,
+        )
+        if dryrun:
+            return
+
+        with open("stderr.txt") as file:
+            lines = file.readlines()
+            assert "done" in lines[-2]
+
+        assert Path("BoozFT-CAS3D.nc").exists()
+        boozft = xr.open_dataset("BoozFT-CAS3D.nc")
+        for var in boozft.variables:
+            assert "long_name" in boozft[var].attrs
+            assert "symbol" in boozft[var].attrs
+
+        assert Path("Booz-CAS3D.nc").exists()
+        booz = xr.open_dataset("Booz-CAS3D.nc")
+        for var in booz.variables:
+            assert "long_name" in booz[var].attrs
+            assert "symbol" in booz[var].attrs
 
 
 @pytest.mark.regression_stage
