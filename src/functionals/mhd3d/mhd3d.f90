@@ -510,11 +510,11 @@ SUBROUTINE InitProfile(sf, var)
   END IF
   profile_type  = GETSTR(var//"_type", Proposal="polynomial")
   IF (profile_type.EQ."polynomial") THEN
-    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) !a+b*s+c*s^2...
     profile_coefs=profile_coefs*profile_scale
     profile_profile = t_rProfile_poly(profile_coefs, n_profile_coefs)
   ELSE IF (profile_type.EQ."bspline") THEN
-    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
+    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) 
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
     profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs,knots=profile_knots, n_knots=n_profile_knots)
@@ -523,8 +523,8 @@ SUBROUTINE InitProfile(sf, var)
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
     IF (n_profile_vals .NE. n_profile_rho2) THEN
-      WRITE(UNIT_stdOut,'(A,I4,A,I4,A,I4)')'WARNING: Size of '//var//'_rho2 = ', n_profile_rho2, &
-      'but size of '//var//'_vals = ', n_profile_vals, '. Excess positions/values are not considered in the interpolation!'
+      CALL abort(__STAMP__,&
+      'Size of '//var//'_rho2 and '//var//'_vals must be equal!')
     END IF
     n_profile_vals = MIN(n_profile_vals,n_profile_rho2)
     profile_BC_type(1) = GETSTR(var//"_BC_type_axis",Proposal="not_a_knot")
@@ -540,16 +540,16 @@ SUBROUTINE InitProfile(sf, var)
     END DO !iBC
     IF(ANY(BC<0)) THEN
       CALL abort(__STAMP__,&
-                 "BC_type can only be 'not_a_knot', 'first_derivative' or 'second_derivative'!")
+                 "BC_type can only be 'not_a_knot', '1st_deriv' or '2nd_deriv'!")
     END IF
-    IF(ANY(BC>0)) THEN
-      profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-    END IF
-   
-      
+    !Roberts implementation:
     CALL interpolate_cubic_bspl(profile_rho2,profile_vals, profile_coefs, profile_knots, BC(1), BC(2))
-    !CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC, profile_BC_vals)
-
+    !IF(ANY(BC>0)) THEN
+    !  profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
+    !  CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC, profile_BC_vals)
+    !ELSE
+    !  CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC)
+    !END IF
 
     profile_coefs=profile_coefs*profile_scale
     n_profile_coefs = SIZE(profile_coefs)
