@@ -468,6 +468,7 @@ SUBROUTINE InitProfile(sf, var)
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
   USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
+  USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
   USE MODgvec_bspline_interpolation, ONLY: interpolate_cubic_bspl, check_sign_change
   USE MODgvec_rProfile_base, ONLY: c_rProfile
   IMPLICIT NONE
@@ -489,10 +490,16 @@ SUBROUTINE InitProfile(sf, var)
   REAL(wp),ALLOCATABLE :: profile_vals(:)
   INTEGER              :: n_profile_vals
   INTEGER              :: n_profile_rho2
-  REAL(wp)             :: profile_BC_vals(2)
-  CHARACTER(LEN=10)    :: profile_BC_type
+  REAL(wp)             :: profile_BC_vals(1:2)
+  CHARACTER(LEN=10)    :: profile_BC_type(1:2)
   REAL(wp)             :: profile_scale
-
+  CHARACTER(LEN=10)    :: possible_BCs(0:2)
+  INTEGER              :: BC(1:2),iBC,jBC
+  !===================================================================================================================================
+  possible_BCs(0)="not_a_knot"
+  possible_BCs(1)="1st_deriv"
+  possible_BCs(2)="2nd_deriv"
+  
   IF (var.EQ."pres") THEN
     profile_scale=GETREAL("pres_scale",Proposal=1.0_wp)
   ELSE IF (var.EQ."iota") THEN
@@ -520,21 +527,30 @@ SUBROUTINE InitProfile(sf, var)
       'but size of '//var//'_vals = ', n_profile_vals, '. Excess positions/values are not considered in the interpolation!'
     END IF
     n_profile_vals = MIN(n_profile_vals,n_profile_rho2)
-    profile_BC_type = GETSTR(var//"_BC_type", Proposal="not_a_knot")
-    IF ((profile_BC_type .NE. "not_a_knot") .AND. (profile_BC_type .NE. "clamped")) THEN
-      WRITE(UNIT_stdOut,'(A)')'WARNING: Unknown '//var//'_BC_type, proceeding with "not_a_knot" BC!'
-      profile_BC_type = 'not_a_knot'
+    profile_BC_type(1) = GETSTR(var//"_BC_type_axis",Proposal="not_a_knot")
+    profile_BC_type(2) = GETSTR(var//"_BC_type_edge",Proposal="not_a_knot")
+    BC=-1
+    DO iBC=1,2
+      DO jBC=0,2
+        IF (INDEX(TRIM(profile_BC_type(iBC)),TRIM(possible_BCs(jBC)))>0) THEN
+          BC(iBC)=jBC
+          EXIT 
+        END IF 
+      END DO !jBC
+    END DO !iBC
+    IF(ANY(BC<0)) THEN
+      CALL abort(__STAMP__,&
+                 "BC_type can only be 'not_a_knot', 'first_derivative' or 'second_derivative'!")
     END IF
-
-    IF (profile_BC_type .EQ. "clamped") THEN
+    IF(ANY(BC>0)) THEN
       profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-      CALL interpolate_cubic_bspl(profile_rho2,profile_vals, profile_coefs, profile_knots, 1, 1)
-    ELSE IF (profile_BC_type .EQ. "not_a_knot") THEN
-      CALL interpolate_cubic_bspl(profile_rho2,profile_vals, profile_coefs, profile_knots, 0, 0)
     END IF
-    IF ((var.EQ."pres").AND.(check_sign_change(profile_coefs, tol=1e-6))) THEN
-       WRITE(UNIT_stdOut,'(A)')'WARNING: Interpolated pressure profile changes sign!'
-    END IF
+   
+      
+    CALL interpolate_cubic_bspl(profile_rho2,profile_vals, profile_coefs, profile_knots, BC(1), BC(2))
+    !CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC, profile_BC_vals)
+
+
     profile_coefs=profile_coefs*profile_scale
     n_profile_coefs = SIZE(profile_coefs)
     n_profile_knots = SIZE(profile_knots)
