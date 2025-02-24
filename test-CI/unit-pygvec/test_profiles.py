@@ -1,8 +1,10 @@
 import pytest
+from pathlib import Path
 
 try:
     import numpy as np
 
+    import xarray as xr
     import gvec
     from gvec.state import State
 except ImportError:
@@ -117,6 +119,13 @@ def testfile_aux(request, testcaserundir, c_poly):
 def teststate(testfile_aux):
     with State(testfile_aux) as state:
         yield state
+
+
+@pytest.fixture(scope="module")
+def vmecfiles():
+    testcase = "w7x_from_vmec_initLA_F"
+    path_example = Path(__file__).parent / "../examples/" / testcase
+    return (path_example / "parameter.ini", path_example / "wout_d23p4_tm.nc")
 
 
 # === Tests === #
@@ -234,3 +243,22 @@ def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge):
     if BC_type_edge == "2nd_deriv":
         assert abs(dP_interpol_dss[-1]) <= 1e-13
         assert abs(diota_interpol_dss[-1]) <= 1e-13
+
+
+def test_vmec_profile_init(vmecfiles):
+    wout = xr.open_dataset(vmecfiles[1])
+    phi = wout.phi
+    P_vmec = wout.presf
+    iota_vmec = -1 * wout.iotaf
+    rho_wout = np.sqrt((phi - phi[0]) / (phi[-1] - phi[0]))  # Normalized toroidal flux
+
+    with State(vmecfiles[0]) as state:
+        P_gvec = state.evaluate_profile("p", rho_wout, deriv=0)
+        dP_dr_gvec = state.evaluate_profile("p", 0, deriv=1)
+        iota_gvec = state.evaluate_profile("iota", rho_wout, deriv=0)
+        diota_dr_gvec = state.evaluate_profile("iota", 0, deriv=1)
+
+    np.testing.assert_allclose(P_gvec, P_vmec)
+    np.testing.assert_allclose(iota_gvec, iota_vmec)
+    assert abs(diota_dr_gvec) <= 1e-13
+    assert abs(dP_dr_gvec) <= 1e-13
