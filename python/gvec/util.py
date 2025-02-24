@@ -73,6 +73,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
             kwargs[key] = f"(/{', '.join(map(str, value))}/)"
         else:
             kwargs[key] = str(value)
+    kwargs = {key.lower(): value for key, value in kwargs.items()}
 
     # initialize occurrences counters for all parameters to be set
     occurrences = {}
@@ -92,38 +93,39 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                 line,
             ):
                 key, *mn, value = m.groups()
-                if key in kwargs:
-                    if (int(mn[0]), int(mn[1])) in kwargs[key]:
-                        line = f"{key}({mn[0]};{mn[1]}) = {kwargs[key][(int(mn[0]), int(mn[1]))]}\n"
+                if key.lower() in kwargs:
+                    if (int(mn[0]), int(mn[1])) in kwargs[key.lower()]:
+                        line = f"{key}({mn[0]};{mn[1]}) = {kwargs[key.lower()][(int(mn[0]), int(mn[1]))]}\n"
                         occurrences[key, int(mn[0]), int(mn[1])] += 1
             elif m := re.match(
                 r"([\s!]*)("
                 + "|".join(
                     [
-                        key
+                        key.lower()
                         for key, value in kwargs.items()
                         if not isinstance(value, dict)
                     ]
                 )
                 + r")(\s*=\s*)(\([^\)]*\)|[^!\s]*)(.*)",
                 line,
+                re.IGNORECASE,
             ):
                 prefix, key, sep, value, suffix = m.groups()
                 if "!" in prefix:  # found commented keyword
-                    if str(kwargs[key])[0] == "!":  # only uncomment keyword
+                    if str(kwargs[key.lower()])[0] == "!":  # only uncomment keyword
                         line = f"{key}{sep}{value}{suffix}\n"
-                        occurrences[key] += 1
+                        occurrences[key.lower()] += 1
                 else:  # found uncommented keywords
-                    if not (str(kwargs[key])[0] == "!"):  # use new keyword
-                        line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
-                        occurrences[key] += 1
+                    if str(kwargs[key.lower()])[0] != "!":  # use new keyword
+                        line = f"{prefix}{key}{sep}{kwargs[key.lower()]}{suffix}\n"
+                        occurrences[key.lower()] += 1
                     else:  # use the existing keyword,value pair with a comment
                         line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
-                        occurrences[key] += 1
+                        occurrences[key.lower()] += 1
             target_file.write(line)
         # add key,value pair if not existing in parameterfile.
-        for key, v in occurrences.items():
-            if v == 0:
+        for key, o in occurrences.items():
+            if o == 0:
                 if isinstance(key, tuple):
                     key, m, n = key
                     if str(kwargs[key][m, n]) != "!":
@@ -140,7 +142,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                         target_file.write(f"\n{key} = {kwargs[key]}")
                     occurrences[key] += 1
     assert all(
-        [v == 1 for v in occurrences.values()]
+        [o == 1 for o in occurrences.values()]
     ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"
 
 
@@ -173,7 +175,7 @@ def read_parameter_file(path: str | Path) -> dict:
                     assert (int(m), int(n)) not in parameters[key]
                     parameters[key][int(m), int(n)] = float(value)
             # match parameter in the form `key = (/value/)` with value an array of ints or floats, separated by commas
-            elif ln := re.match(r"\s*([^!=\s]+)\s*=\s*\(/(.*)/\)", line):
+            elif ln := re.match(r"\s*([^!=\s]+)\s*=\s*\(/(.*?)/\)", line):
                 key, value = ln.groups()
                 assert key not in parameters
                 try:
