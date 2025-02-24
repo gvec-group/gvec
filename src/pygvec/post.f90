@@ -606,6 +606,40 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
 END SUBROUTINE
 
 !================================================================================================================================!
+!> evaluate iota/pressure profile and its derivatives with respect to rho2=rho^2
+!================================================================================================================================!
+SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
+  ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_rProfile_base,  ONLY: c_rProfile
+  USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n_s) :: rho2    ! radial evaluation points
+  INTEGER, INTENT(IN) :: deriv                ! order of the derivative
+  CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i  ! loop variable
+  CLASS(c_rProfile), ALLOCATABLE :: input_profile
+  SELECT CASE(TRIM(var))
+  CASE("iota")
+    input_profile = iota_profile
+  CASE("p")
+    input_profile = pres_profile
+  CASE DEFAULT
+    WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
+    CALL abort(__STAMP__,"")
+  END SELECT
+  DO i = 1,n_s
+    result(i) = input_profile%eval_at_rho2(rho2=rho2(i), deriv=deriv)
+  END DO
+  SDEALLOCATE(input_profile)
+END SUBROUTINE evaluate_rho2_profile
+
+!================================================================================================================================!
+!> evaluate 1D-radial profiles and their derivatives with respect to rho
+!================================================================================================================================!
 SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut,abort

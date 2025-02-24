@@ -63,7 +63,7 @@ SUBROUTINE InitVMEC
 USE MODgvec_Globals,ONLY:UNIT_stdOut,abort,fmt_sep
 USE MODgvec_MHD3D_Vars, ONLY: iota_profile, pres_profile
 USE MODgvec_rProfile_bspl, ONLY: t_rProfile_bspl
-USE MODgvec_bspline_interpolation, ONLY: interpolate_not_a_knot
+USE MODgvec_cubic_spline, ONLY: interpolate_cubic_spline
 USE MODgvec_ReadInTools
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 USE MODgvec_VMEC_Vars
@@ -216,22 +216,22 @@ ELSE
 END IF
 
 pres_scale = presf(1)
-CALL interpolate_not_a_knot(rho**2,presf/pres_scale,c_pres,knots_pres)
+CALL interpolate_cubic_spline(rho**2,presf/pres_scale,c_pres,knots_pres, (/0,0/))
 pres_profile = t_rProfile_bspl(knots_pres, SIZE(knots_pres), pres_scale*c_pres, SIZE(c_pres))
 SDEALLOCATE(knots_pres)
 SDEALLOCATE(c_pres)
 
-CALL interpolate_not_a_knot(rho**2,Phi_prof,c_phi,knots_phi)
+CALL interpolate_cubic_spline(rho**2,Phi_prof,c_phi,knots_phi,(/0,0/))
 phi_profile = t_rProfile_bspl(knots_phi, SIZE(knots_phi), c_phi, SIZE(c_phi))
 SDEALLOCATE(knots_phi)
 SDEALLOCATE(c_phi)
 
-CALL interpolate_not_a_knot(rho**2,chi_prof,c_chi,knots_chi)
+CALL interpolate_cubic_spline(rho**2,chi_prof,c_chi,knots_chi,(/0,0/))
 chi_profile = t_rProfile_bspl(knots_chi, SIZE(knots_chi), c_chi, SIZE(c_chi))
 SDEALLOCATE(knots_chi)
 SDEALLOCATE(c_chi)
 
-CALL interpolate_not_a_knot(rho**2,iotaf,c_iota,knots_iota)
+CALL interpolate_cubic_spline(rho**2,iotaf,c_iota,knots_iota,(/0,0/))
 iota_profile = t_rProfile_bspl(knots_iota, SIZE(knots_iota), c_iota, SIZE(c_iota))
 SDEALLOCATE(knots_iota)
 SDEALLOCATE(c_iota)

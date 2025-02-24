@@ -459,6 +459,41 @@ class State:
         _post.evaluate_profile(rho.size, rho, deriv, quantity, result)
         return result
 
+    @_assert_init
+    def evaluate_rho2_profile(self, quantity: str, rho2: np.ndarray, deriv: int = 0):
+        r"""Evaluate 1D profiles at the provided positions of the radial coordinate `rho2`=:math:`\rho^2`.
+        Note: Use this routine to obtain derivarives with respect to `rho2`, else use `evaluate_profile`.
+
+        Args:
+            quantity (str): name of the profile. Has to be either `iota` or `p`
+            rho (np.ndarray): Positions at the radial flux coordinate rho.
+            deriv (int, optional): Order of the derivative. Defaults to 0.
+
+        Raises:
+            ValueError: If `quantity`is not a string.
+            ValueError: If an invalid quantity is provided.
+            ValueError: If `rho2` is not a 1D array.
+            ValueError: If `rho2` is not in [0, 1].
+
+        Returns:
+            np.ndarray: profile values at `rho2`.
+        """
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["iota", "p"]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        rho2 = np.asfortranarray(rho2, dtype=np.float64)
+        if rho2.ndim != 1:
+            raise ValueError("rho2 must be a 1D array.")
+        if rho2.max() > 1.0 or rho2.min() < 0.0:
+            raise ValueError("rho2 must be in the range [0, 1].")
+
+        result = np.zeros(rho2.size, dtype=np.float64, order="F")
+
+        _post.evaluate_rho2_profile(rho2.size, rho2, deriv, quantity, result)
+        return result
+
     # === Boozer Potential === #
 
     @_assert_init

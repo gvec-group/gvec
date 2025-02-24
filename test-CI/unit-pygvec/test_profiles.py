@@ -81,7 +81,7 @@ def c_poly():
     Returns:
         list: polynomial coefficients
     """
-    return [1, 0, 3, 1, 0, 1]
+    return [1, 2, 3, -1, -2, -3]
 
 
 @pytest.fixture(scope="module", params=["poly", "bspl"])
@@ -162,3 +162,75 @@ def test_eval_profile_n_deriv(teststate, type, c_poly):
     for i, dref in enumerate([dref1, dref2, dref3, dref4]):
         gvec_profile_di = teststate.evaluate_profile(type, rho=rho, deriv=i + 1)
         np.testing.assert_allclose(dref, gvec_profile_di)
+
+
+@pytest.mark.parametrize("BC_type_axis", ["not_a_knot", "1st_deriv", "2nd_deriv"])
+@pytest.mark.parametrize("BC_type_edge", ["not_a_knot", "1st_deriv", "2nd_deriv"])
+def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge):
+    pres_scale = 1500
+    params_gvec = {"sign_iota": 1, "pres_scale": 1}
+    cubic_poly_c = c_poly[:4]
+    paramfile = "parameter_interpolation.ini"
+
+    cubic_poly = np.polynomial.Polynomial(cubic_poly_c)
+    rho2_vals = np.linspace(0, 1, 11)
+    P_vals = pres_scale * cubic_poly(rho2_vals)
+    iota_vals = cubic_poly(rho2_vals)
+
+    params_gvec["pres_type"] = "interpolation"
+    params_gvec["pres_rho2"] = gvec.util.np2gvec(rho2_vals)
+    params_gvec["pres_vals"] = gvec.util.np2gvec(P_vals)
+    params_gvec["pres_BC_type_axis"] = BC_type_axis
+    params_gvec["pres_BC_type_edge"] = BC_type_edge
+
+    params_gvec["iota_type"] = "interpolation"
+    params_gvec["iota_rho2"] = gvec.util.np2gvec(rho2_vals)
+    params_gvec["iota_vals"] = gvec.util.np2gvec(iota_vals)
+    params_gvec["iota_BC_type_axis"] = BC_type_axis
+    params_gvec["iota_BC_type_edge"] = BC_type_edge
+
+    rho2 = np.linspace(0, 1, 200)
+    P = pres_scale * cubic_poly(rho2)
+    iota = cubic_poly(rho2)
+
+    gvec.util.adapt_parameter_file(
+        testcaserundir / "parameter.ini", testcaserundir / paramfile, **params_gvec
+    )
+    with State(testcaserundir / paramfile) as state:
+        P_p_interpol = state.evaluate_rho2_profile("p", rho2_vals, deriv=0)
+        iota_p_interpol = state.evaluate_rho2_profile("iota", rho2_vals, deriv=0)
+
+        P_interpol = state.evaluate_rho2_profile("p", rho2, deriv=0)
+        iota_interpol = state.evaluate_rho2_profile("iota", rho2, deriv=0)
+
+        dP_interpol_ds = state.evaluate_rho2_profile("p", rho2, deriv=1)
+        diota_interpol_ds = state.evaluate_rho2_profile("iota", rho2, deriv=1)
+
+        dP_interpol_dss = state.evaluate_rho2_profile("p", rho2, deriv=2)
+        diota_interpol_dss = state.evaluate_rho2_profile("iota", rho2, deriv=2)
+
+    # check that the profiles are the same at all provided interpolation points
+    np.testing.assert_allclose(P_p_interpol, P_vals)
+    np.testing.assert_allclose(iota_p_interpol, iota_vals)
+
+    # check that the profiles are the same if not-a-knot BC are used.
+    if BC_type_axis == "not_a_knot" and BC_type_edge == "not_a_knot":
+        np.testing.assert_allclose(P_interpol, P)
+        np.testing.assert_allclose(iota_interpol, iota)
+
+    # check that the BC-are enforced.
+    if BC_type_axis == "1st_deriv":
+        assert abs(dP_interpol_ds[0]) <= 1e-13
+        assert abs(diota_interpol_ds[0]) <= 1e-13
+
+    if BC_type_axis == "2nd_deriv":
+        assert abs(dP_interpol_dss[0]) <= 1e-13
+        assert abs(diota_interpol_dss[0]) <= 1e-13
+
+    if BC_type_edge == "1st_deriv":
+        assert abs(dP_interpol_ds[-1]) <= 1e-13
+        assert abs(diota_interpol_ds[-1]) <= 1e-13
+
+    if BC_type_edge == "2nd_deriv":
+        assert abs(dP_interpol_dss[-1]) <= 1e-13
+        assert abs(diota_interpol_dss[-1]) <= 1e-13

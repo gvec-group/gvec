@@ -469,7 +469,6 @@ SUBROUTINE InitProfile(sf, var)
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
   USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
   USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
-  USE MODgvec_bspline_interpolation, ONLY: interpolate_cubic_bspl, check_sign_change
   USE MODgvec_rProfile_base, ONLY: c_rProfile
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -519,7 +518,6 @@ SUBROUTINE InitProfile(sf, var)
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
     profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs,knots=profile_knots, n_knots=n_profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
-    SDEALLOCATE(profile_coefs)
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
     IF (n_profile_vals .NE. n_profile_rho2) THEN
@@ -542,14 +540,13 @@ SUBROUTINE InitProfile(sf, var)
       CALL abort(__STAMP__,&
                  "BC_type can only be 'not_a_knot', '1st_deriv' or '2nd_deriv'!")
     END IF
-    !Roberts implementation:
-    CALL interpolate_cubic_bspl(profile_rho2,profile_vals, profile_coefs, profile_knots, BC(1), BC(2))
-    !IF(ANY(BC>0)) THEN
-    !  profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
-    !  CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC, profile_BC_vals)
-    !ELSE
-    !  CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC)
-    !END IF
+
+    IF(ANY(BC>0)) THEN
+     profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
+     CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC, profile_BC_vals)
+    ELSE
+     CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC)
+    END IF
 
     profile_coefs=profile_coefs*profile_scale
     n_profile_coefs = SIZE(profile_coefs)
