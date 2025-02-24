@@ -295,30 +295,24 @@ include:
       env: .mpcdfci_gfortran-openmpi-latest
       cmake-opts: .cmake_no_converter
 
-  # pip
+  # python / pip
 
-  - local: CI_templates/build-pip.yml
+  - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifx-latest
       rules: .rules_minimal
+      vars: .vars_matrix_unit
+      script-postfix: _py
+      build_postfix: _py
 
-  - local: CI_templates/build-pip.yml
+  - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_unit
+      script_postfix: _py
+      build_postfix: _py
 
-  # converter-only
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_ifort-2023
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_ifx-2024
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
+  # converter-only (converters are also built as part of the normal build jobs)
 
   - local: CI_templates/build.yml
     inputs:
@@ -326,24 +320,6 @@ include:
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
       rules: .rules_minimal
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_gfortran-13
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_nvfortran-23
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
 
   # reference tag
 
@@ -726,6 +702,8 @@ include:
       build-postfix: _tag
       rules: .rules_private_runner
 
+  # python ToDo
+
   # ============================
   # unit jobs
   # ============================
@@ -840,34 +818,41 @@ include:
     inputs:
       env: .mpcdfci_nvfortran-23
 
+  # python
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_unit
+      build-postfix: _py
+      # run-postfix: ""
+      post-postfix: _py
+      script-postfix: _py
+      rules: .rules_minimal
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_unit
+      build-postfix: _py
+      # run-postfix: ""
+      post-postfix: _py
+      script-postfix: _py
+
   # ============================
   # stage converter jobs: postprocessing
   # ============================
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifort-2023
-      build-postfix: _only_converter
 
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifx-2024
-      build-postfix: _only_converter
-
-  - local: CI_templates/converters.yml
-    inputs:
-      env: .mpcdfci_ifx-latest
-      build-postfix: _only_converter
-      rules: .rules_minimal
-
-  - local: CI_templates/converters.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-      build-postfix: _only_converter
 
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_nvfortran-23
-      build-postfix: _only_converter
 
   # ============================
   # stage publish jobs

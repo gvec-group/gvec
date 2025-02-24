@@ -83,8 +83,6 @@
     when: always
 
 .script_build_pip:
-  variables:
-    BUILDNAME: ${HASH_TAG}_pip
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
     - pwd
@@ -113,13 +111,6 @@
     - pip list
     - echo -e "\e[0Ksection_end:`date +%s`:pip\r\e[0K"
     - echo "... BUILD PHASE FINISHED!"
-    # Debug Information #2
-    - echo -e "\e[0Ksection_start:`date +%s`:printenv2[collapsed=true]\r\e[0KEnvironment Variables (post install)"
-    - printenv
-    - echo -e "\e[0Ksection_end:`date +%s`:printenv2\r\e[0K"
-    - echo -e "\e[0Ksection_start:`date +%s`:readelf[collapsed=true]\r\e[0KReadelf (_post_f90.so)"
-    - readelf -d venv_${BUILDNAME}/lib/python3.10/site-packages/gvec/_libfgvec.cpython-310-x86_64-linux-gnu.so
-    - echo -e "\e[0Ksection_end:`date +%s`:readelf\r\e[0K"
     # Check for successful installation
     - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KPreliminary pytest"
     - which pytest
@@ -221,18 +212,67 @@
       annotations:
         - annotations.json
 
+.script_run_py:
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:pre[collapsed=true]\r\e[Activate Environment"
+    - echo "Buildname:" ${BUILDNAME}
+    - source venv_${BUILDNAME}/bin/activate
+    - module list
+    - pip list
+    - echo -e "\e[0Ksection_end:`date +%s`:pre\r\e[0K"
+    # dry-run
+    - echo -e "\e[0Ksection_start:`date +%s`:pre-run[collapsed=true]\r\e[0KPrepare Run"
+    - export PYTEST_DIR_OPTS="--builddir=venv_${BUILDNAME} --rundir=CIrun_${CASENAME}"
+    - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${RUN_PRFX}" --dry-run
+    # avoid submission of SLURM jobs for the --dry-run by removing the --run-prefix argument
+    -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
+    - rm -rf CIrun_${CASENAME}
+    - echo -e "\e[0Ksection_end:`date +%s`:pre-run\r\e[0K"
+    # RUN
+    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KRun"
+    - echo "OpenMP number of threads:" $OMP_NUM_THREADS
+    # pytest: no restart
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_run_norestart.txt
+      -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)"
+      $PYTEST_DIR_OPTS
+      -k "${PYTEST_KEY_OPTS}"
+      --run-prefix "${RUN_PRFX}"
+      --junitxml=pytest.xml
+      --annotations=annotations.json
+    # pytest: restart
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest_run_restart.txt
+      -m "${PYTEST_MARKER_OPTS} and run_stage and restart"
+      $PYTEST_DIR_OPTS
+      -k "${PYTEST_KEY_OPTS}"
+      --run-prefix "${RUN_PRFX}"
+      --junitxml=pytest-restart.xml
+      --annotations=annotations.json
+    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+  artifacts:
+    name: "run_py_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
+    paths:
+      - log_pytest_run_norestart.txt
+      - log_pytest_run_restart.txt
+      - CIrun_${CASENAME}
+    expire_in: 1 week
+    when: always
+    reports:
+      junit:
+        - pytest.xml
+        - pytest-restart.xml
+      annotations:
+        - annotations.json
+
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "unit"
 # =================================================================================================================================
 
 .script_unit:
-  variables:
-    BUILDNAME: ${HASH_TAG}_pip
-    CASENAME: ${HASH_TAG}_pip
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre[collapsed=true]\r\e[0KPreparation"
-    - echo $PATH
-    - echo venv_${BUILDNAME}/bin/activate
+    - echo "Buildname:" ${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
     - module list
     - pip list
@@ -293,9 +333,8 @@
       junit: pytest.xml
       annotations: annotations.json
 
-
 # =================================================================================================================================
-# TEMPLATES FOR STAGE "post"
+# TEMPLATES FOR STAGE "postprocessing" + "converter"
 # =================================================================================================================================
 
 .script_post:
@@ -326,10 +365,6 @@
       junit: pytest.xml
       annotations: annotations.json
 
-# =================================================================================================================================
-# TEMPLATES FOR STAGE "postprocessing" + "converter"
-# =================================================================================================================================
-
 .script_conv:
   script:
     - echo -e "\e[0Ksection_start:`date +%s`:pre-conv[collapsed=true]\r\e[0KPrepare converter Postprocessing"
@@ -359,6 +394,29 @@
       junit: pytest.xml
       annotations: annotations.json
 
+.script_post_py:
+  script:
+    - export PYTEST_DIR_OPTS="--builddir=venv_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
+    # POST & CONVERTER TESTS
+    - echo -e "\e[0Ksection_start:`date +%s`:post[collapsed=true]\r\e[0KTest Postprocessors & Converters"
+    - ${PYTEST_EXEC_CMD}
+      --log-file=log_pytest.txt
+      -m "${PYTEST_MARKER_OPTS} and (post_stage or converter_stage)"
+      -k "${PYTEST_KEY_OPTS}"
+      $PYTEST_DIR_OPTS
+      --junitxml=pytest.xml
+      --annotations=annotations.json
+    - echo -e "\e[0Ksection_end:`date +%s`:post\r\e[0K"
+  artifacts:
+    name: "post-py_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
+    paths:
+      - log_pytest.txt
+      - CIpost_${CASENAME}
+    expire_in: 1 week
+    when: always
+    reports:
+      junit: pytest.xml
+      annotations: annotations.json
 
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "publish"

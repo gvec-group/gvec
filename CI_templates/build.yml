@@ -13,6 +13,9 @@ spec:
     cmake-opts:
       description: Template with variables for CMake options
       default: .cmake_default
+    script-postfix:
+      description: Script name postfix, e.g. `_py`
+      default: ""
     build-postfix:
       description: Job name postfix, e.g. `_only_converter`
       default: ""
@@ -28,7 +31,7 @@ build$[[ inputs.env ]]$[[ inputs.build-postfix ]]:
     - $[[ inputs.env ]]
     - .before_script_modules
     - .vars_dirs_artifacts
-    - .script_build
+    - .script_build$[[ inputs.script-postfix ]]
     - $[[ inputs.cmake-opts ]]
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
