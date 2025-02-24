@@ -94,9 +94,15 @@ CMAKE_BUILD_TYPE = "Release"
 CMAKE_HOSTNAME = {env="CMAKE_HOSTNAME"}
 COMPILE_PYGVEC = "On"
 COMPILE_GVEC = "On"
+COMPILE_GVEC_TO_CASTOR3D = "On"
+COMPILE_GVEC_TO_GENE = "On"
+COMPILE_GVEC_TO_JOREK = "On"
+COMPILE_GVEC_TO_HOPR = "On"
 LINK_GVEC_TO_NETCDF = "On"
-USE_OPENMP = "On"
 COMPILE_GVEC_AS_STATIC_LIB = "On"
+USE_OPENMP = "On"
+USE_MPI = "Off"
+USE_FTIMINGS = "Off"
 
 [tool.setuptools_scm]
 version_file = "python/gvec/_version.py"

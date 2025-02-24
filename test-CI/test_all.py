@@ -378,6 +378,11 @@ class TestConverters(BaseTestPost):
     ciprefix = "CIconv"
 
     @pytest.fixture(autouse=True)
+    def mark_xfail(self, request):
+        if "frenet" in request.node.name:
+            request.node.add_marker(pytest.mark.xfail(reason="not implemented yet"))
+
+    @pytest.fixture(autouse=True)
     def set_exec(self, exec):
         self.exec = exec
 
