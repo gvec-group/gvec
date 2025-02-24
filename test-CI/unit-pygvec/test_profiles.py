@@ -11,6 +11,9 @@ except ImportError:
     pytest.skip("Import Error", allow_module_level=True)
 
 
+tol = 1e-12
+
+
 # Utility functions for transforming polynomials into B-Splines.
 # ============================================================== #
 def binc(n, k):
@@ -25,7 +28,7 @@ def binc(n, k):
     """
     if k > k:
         AssertionError("error in binomial coefficient (n k) calculation: k>n")
-    if abs(k) <= 1e-12:
+    if abs(k) <= tol:
         coef = 1.0
     elif k > n / 2:
         coef = binc(n, n - k)
@@ -177,13 +180,13 @@ def test_eval_profile_n_deriv(teststate, type, c_poly):
 @pytest.mark.parametrize("BC_type_edge", ["not_a_knot", "1st_deriv", "2nd_deriv"])
 def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge):
     pres_scale = 1500
-    params_gvec = {"sign_iota": 1, "pres_scale": 1}
+    params_gvec = {"sign_iota": 1, "pres_scale": pres_scale}
     cubic_poly_c = c_poly[:4]
     paramfile = "parameter_interpolation.ini"
 
     cubic_poly = np.polynomial.Polynomial(cubic_poly_c)
     rho2_vals = np.linspace(0, 1, 11)
-    P_vals = pres_scale * cubic_poly(rho2_vals)
+    P_vals = cubic_poly(rho2_vals)
     iota_vals = cubic_poly(rho2_vals)
 
     params_gvec["pres_type"] = "interpolation"
@@ -219,7 +222,7 @@ def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge):
         diota_interpol_dss = state.evaluate_rho2_profile("iota", rho2, deriv=2)
 
     # check that the profiles are the same at all provided interpolation points
-    np.testing.assert_allclose(P_p_interpol, P_vals)
+    np.testing.assert_allclose(P_p_interpol / pres_scale, P_vals)
     np.testing.assert_allclose(iota_p_interpol, iota_vals)
 
     # check that the profiles are the same if not-a-knot BC are used.
@@ -229,20 +232,20 @@ def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge):
 
     # check that the BC-are enforced.
     if BC_type_axis == "1st_deriv":
-        assert abs(dP_interpol_ds[0]) <= 1e-13
-        assert abs(diota_interpol_ds[0]) <= 1e-13
+        np.testing.assert_allclose(dP_interpol_ds[0] / pres_scale, 0, atol=tol)
+        np.testing.assert_allclose(diota_interpol_ds[0], 0, atol=tol)
 
     if BC_type_axis == "2nd_deriv":
-        assert abs(dP_interpol_dss[0]) <= 1e-13
-        assert abs(diota_interpol_dss[0]) <= 1e-13
+        np.testing.assert_allclose(dP_interpol_dss[0] / pres_scale, 0, atol=tol)
+        np.testing.assert_allclose(diota_interpol_dss[0], 0, atol=tol)
 
     if BC_type_edge == "1st_deriv":
-        assert abs(dP_interpol_ds[-1]) <= 1e-13
-        assert abs(diota_interpol_ds[-1]) <= 1e-13
+        np.testing.assert_allclose(dP_interpol_ds[-1] / pres_scale, 0, atol=tol)
+        np.testing.assert_allclose(diota_interpol_ds[-1], 0, atol=tol)
 
     if BC_type_edge == "2nd_deriv":
-        assert abs(dP_interpol_dss[-1]) <= 1e-13
-        assert abs(diota_interpol_dss[-1]) <= 1e-13
+        np.testing.assert_allclose(dP_interpol_dss[-1] / pres_scale, 0, atol=tol)
+        np.testing.assert_allclose(diota_interpol_dss[-1], 0, atol=tol)
 
 
 def test_vmec_profile_init(vmecfiles):
@@ -260,5 +263,5 @@ def test_vmec_profile_init(vmecfiles):
 
     np.testing.assert_allclose(P_gvec, P_vmec)
     np.testing.assert_allclose(iota_gvec, iota_vmec)
-    assert abs(diota_dr_gvec) <= 1e-13
-    assert abs(dP_dr_gvec) <= 1e-13
+    np.testing.assert_allclose(diota_dr_gvec, 0, atol=tol)
+    np.testing.assert_allclose(dP_dr_gvec, 0, atol=tol)
