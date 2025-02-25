@@ -9,7 +9,7 @@ spec:
       default: .mpcdfci_ifx-latest
     vars:
       description: Template with variables or parallel:matrix
-      default: .vars_matrix_unit
+      default: .vars_matrix_py
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
@@ -20,9 +20,10 @@ unit$[[ inputs.env ]]:
   stage: unit
   extends:
     - $[[ inputs.env ]]
+    - .vars_dirs_artifacts
     - .script_unit
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   needs:
-    - job: build.pip$[[ inputs.env ]]_py
+    - job: build$[[ inputs.env ]]_py
       artifacts: true

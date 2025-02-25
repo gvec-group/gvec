@@ -45,6 +45,6 @@ pages:
     paths:
       - docs/build/html
   needs:
-    - job: build.pip.mpcdfci_gfortran-latest
+    - job: build.mpcdfci_gfortran-latest_py
       artifacts: true
       optional: true

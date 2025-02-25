@@ -411,7 +411,7 @@ function(add_exec target)
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
   SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
   SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
-  IF(${SKBUILD}) # scikit-build-core = python/pip installation - install to venv/bin
+  IF(COMPILE_PYGVEC) # scikit-build-core = python/pip installation - install to venv/bin
     INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION ${SKBUILD_SCRIPTS_DIR})
   ELSE()
     INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION bin)
@@ -497,7 +497,7 @@ include(CTest)
 IF(COMPILE_PYGVEC)
   FIND_PACKAGE(Python COMPONENTS Interpreter Development NumPy REQUIRED)
 
-  IF (PYTHON_FOUND)
+  IF(PYTHON_FOUND)
     MESSAGE(STATUS "Python version: ${Python_VERSION}")
     MESSAGE(STATUS "Python executable: ${PYTHON_EXECUTABLE}")
     MESSAGE(STATUS "Python include dir: ${Python_INCLUDE_DIRS}")
@@ -505,6 +505,10 @@ IF(COMPILE_PYGVEC)
     MESSAGE(STATUS "Python NumPy include dir: ${Python_NumPy_INCLUDE_DIRS}")
   ELSE()
     MESSAGE(SEND_ERROR "Python not found, required for 'COMPILE_PYGVEC=ON'!")
+  ENDIF()
+
+  IF(NOT ${SKBUILD})
+    MESSAGE(SEND_ERROR "pyGVEC expects scikit-build-core to be used!")
   ENDIF()
 
   SET(PYPKG_PATH "python/gvec")
@@ -583,12 +587,8 @@ IF(COMPILE_PYGVEC)
   ADD_DEPENDENCIES(libpygvec pygvec_wrap_files)
   TARGET_LINK_LIBRARIES(libpygvec PRIVATE pygveclib gveclib ${linkedlibs})
 
-  IF (${SKBUILD})  # scikit-build-core -> install e.g. to venv
-    INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
-    INSTALL(TARGETS libpygvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
-  ELSE()
-    INSTALL(TARGETS libpygvec LIBRARY DESTINATION .)
-  ENDIF()
+  INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
+  INSTALL(TARGETS libpygvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
 ENDIF()
 
 # =========================================================================
@@ -708,7 +708,7 @@ ENDIF()
 # Install
 # =========================================================================
 
-IF((NOT COMPILE_GVEC_TO_GENE) AND (NOT ${SKBUILD}))
+IF((NOT COMPILE_GVEC_TO_GENE) AND (NOT COMPILE_PYGVEC))
   INSTALL(FILES
     ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90
     DESTINATION include )

@@ -7,16 +7,19 @@ spec:
     env:
       description: Name of the environment, e.g. `mpcdfci_ifx-latest`
       default: .mpcdfci_ifx-latest
+    conv-postfix:
+      description: Postfix for the converter job, e.g. `_only_converter`
+      default: ""
     build-postfix:
-      description: Job name postfix, here `_only_converter`
-      default: "_only_converter"
+      description: Job name postfix, e.g. `_only_converter`
+      default: ""
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
 
 ---
 
-conv$[[ inputs.env ]]:
+conv$[[ inputs.env ]]$[[ inputs.conv-postfix ]]:
   stage: postprocessing
   before_script:
     - !reference [".before_script_modules", "before_script"]

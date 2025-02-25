@@ -301,16 +301,16 @@ include:
     inputs:
       env: .mpcdfci_ifx-latest
       rules: .rules_minimal
-      vars: .vars_matrix_unit
+      vars: .vars_matrix_py
       script-postfix: _py
-      build_postfix: _py
+      build-postfix: _py
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-latest
-      vars: .vars_matrix_unit
-      script_postfix: _py
-      build_postfix: _py
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
 
   # converter-only (converters are also built as part of the normal build jobs)
 
@@ -823,7 +823,7 @@ include:
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      vars: .vars_matrix_unit
+      vars: .vars_matrix_py
       build-postfix: _py
       # run-postfix: ""
       post-postfix: _py
@@ -833,7 +833,7 @@ include:
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_gfortran-latest
-      vars: .vars_matrix_unit
+      vars: .vars_matrix_py
       build-postfix: _py
       # run-postfix: ""
       post-postfix: _py
@@ -849,6 +849,12 @@ include:
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifx-2024
+
+  - local: CI_templates/converters.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      conv-postfix: _only_converter
+      build-postfix: _only_converter
 
   - local: CI_templates/converters.yml
     inputs:
@@ -1329,11 +1335,11 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
 
-.vars_matrix_unit:
+.vars_matrix_py:
   variables:
-    CMP_MODE: "-"
-    OMP_MODE: "-"
-    MPI_MODE: "-"
+    CMP_MODE: "Release"
+    OMP_MODE: "ompON"
+    MPI_MODE: "mpiOFF"
 
 # ____________________________
 # set HASH_TAG for reference builds

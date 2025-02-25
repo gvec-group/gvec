@@ -28,7 +28,7 @@ spec:
 
 ---
 
-post$[[ inputs.env ]]:
+post$[[ inputs.env ]]$[[ inputs.post-postfix ]]:
   stage: postprocessing
   before_script:
     - !reference [".before_script_modules", "before_script"]

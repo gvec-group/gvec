@@ -99,7 +99,7 @@
       )
 
     # Install python package
-    IF(NOT ${SKBUILD})
+    IF(NOT COMPILE_PYGVEC)
       INSTALL(
         FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/__init__.py
@@ -118,7 +118,7 @@
       )
   ENDIF()
 
-  IF(${SKBUILD})
+  IF(COMPILE_PYGVEC)
     # pyGVEC installation (via scikit-build-core): only install test_gvec_to_gene for now
     INSTALL(
       TARGETS
