@@ -99,12 +99,14 @@
       )
 
     # Install python package
-    INSTALL(
-      FILES
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/__init__.py
-      DESTINATION
-      ${_GVEC_TO_GENE_PYTHON_INSTALL}
-      )
+    IF(NOT ${SKBUILD})
+      INSTALL(
+        FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/__init__.py
+        DESTINATION
+        ${_GVEC_TO_GENE_PYTHON_INSTALL}
+        )
+    ENDIF()
 
     # Add additional properties to gveclib to enable Python bindings
     SET_TARGET_PROPERTIES( gveclib
@@ -116,6 +118,15 @@
       )
   ENDIF()
 
+  IF(${SKBUILD})
+    # pyGVEC installation (via scikit-build-core): only install test_gvec_to_gene for now
+    INSTALL(
+      TARGETS
+      test_gvec_to_gene
+      DESTINATION
+      ${SKBUILD_SCRIPTS_DIR}
+    )
+  ELSE()
   # install gveclib and test_gvec_to_gene
   INSTALL(
     TARGETS
@@ -188,4 +199,5 @@
       GVEC_TO_GENE_LIBRARY_FILE=$<TARGET_FILE:gveclib>
       ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/src/gvec_to_gene/test.py
       )
+  ENDIF()
   ENDIF()

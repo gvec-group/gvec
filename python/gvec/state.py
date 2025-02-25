@@ -13,8 +13,8 @@
 """pygvec postprocessing"""
 
 from . import _fgvec
-from ._fgvec import modgvec_py_post as _post
-from ._fgvec import modgvec_py_binding as _binding
+from .lib import modgvec_py_post as _post
+from .lib import modgvec_py_binding as _binding
 
 from pathlib import Path
 from typing import Mapping, Callable, Iterable, Literal
