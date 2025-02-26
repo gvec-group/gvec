@@ -193,7 +193,7 @@ def pytest_sessionfinish(session, exitstatus):
             )
             session.exitstatus = ok
 
-    if pytest.raised_warnings:
+    if pytest.raised_warnings and exitstatus != tests_failed:
         session.exitstatus = no_tests_collected
 
 
