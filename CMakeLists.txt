@@ -578,17 +578,17 @@ IF(COMPILE_PYGVEC)
     COMMENT "pyGVEC: generating the C layer with f2py-f90wrap"
   )
 
-  PYTHON_ADD_LIBRARY(libpygvec MODULE WITH_SOABI
+  PYTHON_ADD_LIBRARY(_libpygvec MODULE WITH_SOABI
     _libpygvecmodule.c
     ${F2PY_INCLUDE_DIR}/fortranobject.c
     ${pygvec_wrap_files}
   )
-  TARGET_INCLUDE_DIRECTORIES(libpygvec PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" ${F2PY_INCLUDE_DIR} ${Python_NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
-  ADD_DEPENDENCIES(libpygvec pygvec_wrap_files)
-  TARGET_LINK_LIBRARIES(libpygvec PRIVATE pygveclib gveclib ${linkedlibs})
+  TARGET_INCLUDE_DIRECTORIES(_libpygvec PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" ${F2PY_INCLUDE_DIR} ${Python_NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
+  ADD_DEPENDENCIES(_libpygvec pygvec_wrap_files)
+  TARGET_LINK_LIBRARIES(_libpygvec PRIVATE pygveclib gveclib ${linkedlibs})
 
   INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
-  INSTALL(TARGETS libpygvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
+  INSTALL(TARGETS _libpygvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
 ENDIF()
 
 # =========================================================================

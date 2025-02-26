@@ -12,7 +12,7 @@
 # ============================================================================================================================== #
 """pygvec postprocessing"""
 
-from . import _fgvec
+from . import lib
 from .lib import modgvec_py_post as _post
 from .lib import modgvec_py_binding as _binding
 
@@ -123,7 +123,7 @@ class State:
         """Finalize the state and free all (fortran) resources."""
         self.logger.debug(f"Finalizing state {self!r}")
         for child in self._children:
-            if isinstance(child, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+            if isinstance(child, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
                 if child.initialized:
                     self.logger.debug(f"Finalizing Boozer potential {child!r}")
                     child.free()
@@ -509,9 +509,9 @@ class State:
 
     @_assert_init
     def get_boozer_angles(
-        self, sfl_boozer: _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer, tz_list: np.ndarray
+        self, sfl_boozer: lib.Modgvec_Sfl_Boozer.t_sfl_boozer, tz_list: np.ndarray
     ):
-        if not isinstance(sfl_boozer, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+        if not isinstance(sfl_boozer, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
             raise ValueError(
                 f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
             )
@@ -535,7 +535,7 @@ class State:
     @_assert_init
     def evaluate_boozer_list_tz_all(
         self,
-        sfl_boozer: _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer,
+        sfl_boozer: lib.Modgvec_Sfl_Boozer.t_sfl_boozer,
         quantity: str,
         rad: np.ndarray,
         thetazeta: np.ndarray,
@@ -546,7 +546,7 @@ class State:
             raise ValueError(
                 f"Unknown quantity: {quantity}, expected one of 'LA', 'NU'."
             )
-        if not isinstance(sfl_boozer, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+        if not isinstance(sfl_boozer, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
             raise ValueError(
                 f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
             )

@@ -85,6 +85,11 @@ def pytest_addoption(parser):
         default="",
         help="prefix for the run commands, e.g. mpirun or srun (with arguments)",
     )
+    group.addoption(
+        "--require-pygvec",
+        action="store_true",
+        help="Fail tests (rather than skip) if pygvec is not available",
+    )
 
     group = parser.getgroup("custom_regression_options")
     group.addoption(
@@ -279,6 +284,12 @@ def rundir(request) -> Path:
 def extra_ignore_patterns(request) -> list:
     """additional ignore patterns for the `test_regression` line comparison"""
     return request.config.getoption("--add-ignore-pattern")
+
+
+@pytest.fixture(scope="session")
+def require_pygvec(request) -> bool:
+    """flag to require pygvec for the tests"""
+    return request.config.getoption("--require-pygvec")
 
 
 @pytest.fixture(scope="session")

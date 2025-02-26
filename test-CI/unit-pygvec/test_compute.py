@@ -347,7 +347,7 @@ def test_integral_quantities_aux_r_only(teststate, evals_r, quantity):
     # automatic change to integration points if necessary
     ds = evals_r
     compute(ds, quantity, state=teststate)
-    assert ds.rho.attrs["integration_points"] is False
+    assert ds.rho.attrs["integration_points"] == "False"
     assert "theta" not in ds
     assert "zeta" not in ds
     assert "pol_weight" not in ds and "tor_weight" not in ds
@@ -365,9 +365,9 @@ def test_integral_quantities_aux_r_only(teststate, evals_r, quantity):
 def test_integral_quantities_aux_rtz(teststate, evals_rtz, quantity):
     ds = evals_rtz
     compute(ds, quantity, state=teststate)
-    assert ds.rho.attrs["integration_points"] is False
-    assert ds.theta.attrs["integration_points"] is False
-    assert ds.zeta.attrs["integration_points"] is False
+    assert ds.rho.attrs["integration_points"] == "False"
+    assert ds.theta.attrs["integration_points"] == "False"
+    assert ds.zeta.attrs["integration_points"] == "False"
     assert "rad_weight" not in ds
     assert "pol_weight" not in ds
     assert "tor_weight" not in ds

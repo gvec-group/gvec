@@ -155,7 +155,6 @@ class BaseTestPost:
     - args: list of arguments to pass to the executable
     """
 
-    ciprefix = "CIpost"
     exec: str  # name of the executable
 
     @pytest.fixture(autouse=True)
@@ -225,7 +224,7 @@ class BaseTestPost:
         # add link to artifact (CI)
         for filename in ["stdout", "stderr"]:
             if casename := os.environ.get("CASENAME"):
-                pages_convdir = f"{self.ciprefix}_{casename}"
+                pages_convdir = f"CIpost_{casename}"
             else:
                 pages_convdir = "."
             annotations["gvec-output"].append(
@@ -375,8 +374,6 @@ class TestPost(BaseTestPost):
     ],
 )
 class TestConverters(BaseTestPost):
-    ciprefix = "CIconv"
-
     @pytest.fixture(autouse=True)
     def mark_xfail(self, request):
         if "frenet" in request.node.name:
@@ -420,7 +417,6 @@ class TestConverters(BaseTestPost):
 @pytest.mark.pygvec
 @pytest.mark.converter_stage
 class TestToCAS3D(BaseTestPost):
-    ciprefix = "CIconv"
     exec = "gvec_to_cas3d"
 
     @pytest.fixture

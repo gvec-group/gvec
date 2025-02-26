@@ -25,6 +25,7 @@ spec:
     allow_failure:
       description: Allow the job to fail
       default: false
+      type: boolean
 
 ---
 
