@@ -144,9 +144,10 @@ MODULE MODgvec_cubic_spline
                  "minimum number of conditions of a cubic spline is 4")
     END IF
     ALLOCATE(coefs(ncoefs),knots(1:nbreaks+2*deg))
+    knots = -42e5
     knots(1:1+deg)=x(1) !repreat first knot deg+1 times
     knots(nbreaks+deg:nbreaks+2*deg)=x(n) !repeat last knot deg+1 times
-    IF(innerpts(2)-innerpts(1).GT.0)THEN
+    IF(innerpts(2)-innerpts(1)+1.GT.0)THEN
       knots(2+deg:nbreaks+deg-1)=x(innerpts(1):innerpts(2))
     END IF
     CALL sll_s_bsplines_new(bspl, deg, .FALSE., x(1),x(n),nbreaks-1,knots(1+deg:nbreaks+deg))

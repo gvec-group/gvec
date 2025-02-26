@@ -178,14 +178,15 @@ def test_eval_profile_n_deriv(teststate, type, c_poly):
 
 @pytest.mark.parametrize("BC_type_axis", ["not_a_knot", "1st_deriv", "2nd_deriv"])
 @pytest.mark.parametrize("BC_type_edge", ["not_a_knot", "1st_deriv", "2nd_deriv"])
-def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge):
+@pytest.mark.parametrize("n_points", [4, 5, 6, 11])
+def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge, n_points):
     pres_scale = 1500
     params_gvec = {"sign_iota": 1, "pres_scale": pres_scale}
     cubic_poly_c = c_poly[:4]
     paramfile = "parameter_interpolation.ini"
 
     cubic_poly = np.polynomial.Polynomial(cubic_poly_c)
-    rho2_vals = np.linspace(0, 1, 11)
+    rho2_vals = np.linspace(0, 1, n_points)
     P_vals = cubic_poly(rho2_vals)
     iota_vals = cubic_poly(rho2_vals)
 
@@ -265,3 +266,38 @@ def test_vmec_profile_init(vmecfiles):
     np.testing.assert_allclose(iota_gvec, iota_vmec)
     np.testing.assert_allclose(diota_dr_gvec, 0, atol=tol)
     np.testing.assert_allclose(dP_dr_gvec, 0, atol=tol)
+
+
+@pytest.mark.parametrize("profile_type", ["pres", "iota"])
+def test_vmec_with_custom_profile(testcaserundir, vmecfiles, c_poly, profile_type):
+    wout = xr.open_dataset(vmecfiles[1])
+    phi = wout.phi
+    rho_wout = np.sqrt((phi - phi[0]) / (phi[-1] - phi[0]))  # Normalized toroidal flux
+
+    params = {"vmecwoutFile": vmecfiles[1]}
+    if profile_type == "pres":
+        var = "p"
+        scale = 1
+        params["init_with_profile_pressure"] = "T"
+        params["pres_scale"] = scale
+    else:
+        var = "iota"
+        scale = -1
+        params["init_with_profile_iota"] = "T"
+        params["iota_sign"] = scale
+
+    params[f"{profile_type}_coefs"] = gvec.util.np2gvec(c_poly)
+    params[f"{profile_type}_type"] = "polynomial"
+    param_file = testcaserundir / f"parameter_vmec_custom_{profile_type}.ini"
+    gvec.util.adapt_parameter_file(vmecfiles[0], param_file, **params)
+    rho = np.linspace(0, 1, 100)
+    ref_poly = np.polynomial.Polynomial(c_poly)
+    profile_true = scale * ref_poly(rho**2)
+    with State(param_file) as state:
+        profile_gvec = state.evaluate_profile(var, rho, deriv=0)
+        profile_gvec_at_vmec = state.evaluate_profile(var, rho_wout, deriv=0)
+
+    print(wout[f"{profile_type}f"])
+    with np.testing.assert_raises(AssertionError):
+        np.testing.assert_allclose(profile_gvec_at_vmec, wout[f"{profile_type}f"])
+    np.testing.assert_allclose(profile_gvec, profile_true)

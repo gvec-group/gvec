@@ -20,7 +20,7 @@
 !===================================================================================================================================
 MODULE MODgvec_rProfile_bspl
 ! MODULES
-USE MODgvec_Globals ,ONLY: wp
+USE MODgvec_Globals ,ONLY: wp, abort
 USE MODgvec_rProfile_base, ONLY: c_rProfile
 USE sll_m_bsplines  ,ONLY: sll_s_bsplines_new, sll_c_bsplines
 IMPLICIT NONE
@@ -65,6 +65,9 @@ FUNCTION bsplProfile_new(knots, n_knots, coefs, n_coefs) RESULT(sf)
 ! LOCAL VARIABLES
 !===================================================================================================================================
     sf%deg   = COUNT((ABS(knots-knots(1)).LE.1E-12))-1 ! multiplicity of the first knot determines the degree
+    IF (n_coefs < n_knots-sf%deg-1) THEN
+      CALL abort(__STAMP__, "Bspline knots and coefficients are inconsistent.")
+    END IF 
     sf%n_knots = n_knots
     sf%n_coefs = n_coefs
     sf%knots = knots
@@ -88,7 +91,7 @@ FUNCTION bsplProfile_eval_at_rho2( sf, rho2, deriv ) RESULT(profile_prime_value)
 ! INPUT VARIABLES
   CLASS(t_rProfile_bspl), INTENT(IN)  :: sf !! self
   REAL(wp)              , INTENT(IN)  :: rho2 !! evaluation point in the toroidal flux coordinate (rho2=phi/phi_edge= spos^2)
-  INTEGER , OPTIONAL    , INTENT(IN)    :: deriv
+  INTEGER , OPTIONAL    , INTENT(IN)  :: deriv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                         :: profile_prime_value
@@ -105,11 +108,16 @@ FUNCTION bsplProfile_eval_at_rho2( sf, rho2, deriv ) RESULT(profile_prime_value)
     END IF
 
     ALLOCATE(deriv_values(deriv_case+1,sf%deg+1))
+    deriv_values = 0.0_wp
     IF (sf%deg>0) THEN
       CALL sf%bspl%eval_basis_and_n_derivs(rho2,deriv_case,deriv_values,first_non_zero_bspl)
       profile_prime_value =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%deg)*deriv_values(deriv_case+1,:sf%deg+1))
     ELSE 
-      profile_prime_value = 0.0_wp
+      IF (deriv_case > 0) THEN
+        profile_prime_value = 0.0_wp
+      ELSE
+        profile_prime_value = sf%coefs(1)
+      END IF
     END IF
     SDEALLOCATE(deriv_values)
 END FUNCTION bsplProfile_eval_at_rho2
