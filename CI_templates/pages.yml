@@ -13,6 +13,7 @@ pages:
     FORD_PREFIX: /gvec  # prefix for the absolute path to the generated ford docs in the header
     BUILDNAME: ${HASH_TAG}_pip
   script:
+    - source CI_templates/helpers.bash
     # install graphviz/dot & urw-fonts - required by ford to generate the graphs
     - module load graphviz/2.44
     - zypper install -y urw-fonts
@@ -29,9 +30,9 @@ pages:
     - which python
     - cd docs
     - pip install -r requirements.txt
-    - echo -e "\e[0Ksection_start:`date +%s`:piplist[collapsed=true]\r\e[0KInstalled Python Packages"
+    - start_details piplist "Installed Python Packages"
     - pip list
-    - echo -e "\e[0Ksection_end:`date +%s`:piplist\r\e[0K"
+    - end_details piplist
     # run ford
     - export VERSION=$(git describe --tags --always --dirty)
     - echo $VERSION

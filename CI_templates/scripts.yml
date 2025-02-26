@@ -10,12 +10,13 @@
 # execute the bash script in `CI_setup` to setup the environment, e.g. by loading modules
 .before_script_modules:
   before_script:
-    - echo -e "\e[0Ksection_start:`date +%s`:setup-env[collapsed=true]\r\e[0KSetup Environment"
+    - source CI_templates/helpers.bash
+    - start_details setup-env "Setup Environment"
     - echo ${CMAKE_HOSTNAME} ${SETUP_SCRIPT} ${CURR_CMP}
     - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${SETUP_SCRIPT}
     - echo "Fortran compiler is ${FC}"
     - git status
-    - echo -e "\e[0Ksection_end:`date +%s`:setup-env\r\e[0K"
+    - end_details setup-env
 
 .after_script_basic:
   after_script:
@@ -31,9 +32,9 @@
     - echo "Pipeline environment for branch $CI_COMMIT_REF_NAME and tag $HASH_TAG_REFERENCE"
     - echo $CI_RUNNER_DESCRIPTION
     - echo $CI_RUNNER_TAGS
-    - echo -e "\e[0Ksection_start:`date +%s`:printenv[collapsed=true]\r\e[0KEnvironment Variables"
+    - start_details env "Environment Variables"
     - printenv
-    - echo -e "\e[0Ksection_end:`date +%s`:printenv\r\e[0K"
+    - end_details env
     - echo $OMP_NUM_THREADS
     - echo $SHELL
     - ls -las
@@ -46,7 +47,7 @@
 
 .script_build:
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
+    - start_details pre-build "Prepare Build"
     - pwd
     - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
     - echo "CMAKE_HOSTNAME is ${CMAKE_HOSTNAME}"
@@ -57,22 +58,22 @@
     - python --version
     - python -m pytest --version
     - mkdir _dry_run
-    - echo -e "\e[0Ksection_start:`date +%s`:pytest-dryrun[collapsed=true]\r\e[0KPytest dry-run"
+    - start_details pytest-dryrun "Pytest dry-run"
     - ${PYTEST_EXEC_CMD} --log-file=log_dryrun.txt --rundir=_dry_run --refdir=_dry_run --postdir=_dry_post --dry-run
-    - echo -e "\e[0Ksection_end:`date +%s`:pytest-dryrun\r\e[0K"
+    - end_details pytest-dryrun
     - rm -rf _dry_*
     - echo "BUILDNAME is ${BUILDNAME}"
     - rm -rf build_${BUILDNAME}; mkdir -p build_${BUILDNAME}
     - cd build_${BUILDNAME}; pwd
-    - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
+    - end_details pre-build
     # BUILD
-    - echo -e "\e[0Ksection_start:`date +%s`:cmake[collapsed=true]\r\e[0KCMake"
+    - start_details cmake "CMake"
     - echo "cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../."
     - cmake -DCMAKE_HOSTNAME=${CMAKE_HOSTNAME} -DCMAKE_BUILD_TYPE=${CMP_MODE} -DUSE_OPENMP=${OMP_MODE:3} -DUSE_MPI=${MPI_MODE:3} ${CMAKE_DEF_OPTS} ../. |tee ../log_${BUILDNAME}_cmake.txt
-    - echo -e "\e[0Ksection_end:`date +%s`:cmake\r\e[0K"
-    - echo -e "\e[0Ksection_start:`date +%s`:make[collapsed=true]\r\e[0KMake"
+    - end_details cmake
+    - start_details make "Make"
     - make -j VERBOSE=1 |tee ../log_${BUILDNAME}_make.txt
-    - echo -e "\e[0Ksection_end:`date +%s`:make\r\e[0K"
+    - end_details make
     - cd ..; echo "... BUILD PHASE FINISHED!"
   artifacts:
     name: "build_${CI_PIPELINE_ID}_${CI_JOB_ID}_${BUILDNAME}"
@@ -87,7 +88,7 @@
     SKBUILD_CMAKE_BUILD_TYPE: "${CMP_MODE}"
     SKBUILD_CMAKE_DEFINE: "USE_OPENMP=${OMP_MODE:3} USE_MPI=${MPI_MODE:3}"
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre-build[collapsed=true]\r\e[0KPrepare Build"
+    - start_details pre-build "Prepare Build"
     - pwd
     # Debug Information
     - echo "Building on branch ${HASH_TAG} with ${CURR_CMP} in ${CMP_MODE} mode, OMP=${OMP_MODE:3} and MPI=${MPI_MODE:3}"
@@ -104,25 +105,25 @@
     - which python
     - which pip
     - pip list
-    - echo -e "\e[0Ksection_start:`date +%s`:printenv[collapsed=true]\r\e[0KEnvironment Variables"
+    - start_details printenv "Environment Variables"
     - printenv
-    - echo -e "\e[0Ksection_end:`date +%s`:printenv\r\e[0K"
-    - echo -e "\e[0Ksection_end:`date +%s`:pre-build\r\e[0K"
+    - end_details printenv
+    - end_details pre-build
     # BUILD
-    - echo -e "\e[0Ksection_start:`date +%s`:pip[collapsed=true]\r\e[0KPip install"
+    - start_details pip "Pip install"
     - pip install .[dev] -v |& tee log_${BUILDNAME}.txt
     - pip list
-    - echo -e "\e[0Ksection_end:`date +%s`:pip\r\e[0K"
+    - end_details pip
     - echo "... BUILD PHASE FINISHED!"
     # Check for successful installation
-    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KPreliminary pytest"
+    - start_details run "Preliminary pytest"
     - which pytest
     - pytest
       -m "unit"
       -k "version"
       -v -rA
       --junitxml=pytest.xml
-    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+    - end_details run
   artifacts:
     name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
     paths:
@@ -141,7 +142,8 @@
 # also required in "post"
 .before_script_exportvars:
   before_script:
-    - echo -e "\e[0Ksection_start:`date +%s`:exportvars[collapsed=true]\r\e[0KExport environment variables"
+    - source CI_templates/helpers.bash
+    - start_details exportvars "Export environment variables"
     - if [[ "${CI_JOB_NAME}" = *"_slurm"* ]]; then
         export RUN_PRFX="srun --immediate=${SRUN_TIMEOUT}";
       else
@@ -167,19 +169,19 @@
       fi
     - python --version
     - python -m pytest --version
-    - echo -e "\e[0Ksection_end:`date +%s`:exportvars\r\e[0K"
+    - end_details exportvars
 
 .script_run:
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre-run[collapsed=true]\r\e[0KPrepare Run"
+    - start_details pre-run "Prepare Run"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${RUN_PRFX}" --dry-run
     # avoid submission of SLURM jobs for the --dry-run by removing the --run-prefix argument
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     - rm -rf CIrun_${CASENAME}
-    - echo -e "\e[0Ksection_end:`date +%s`:pre-run\r\e[0K"
+    - end_details pre-run
     # RUN
-    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KRun"
+    - start_details run "Run"
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
     # pytest: no restart
     - ${PYTEST_EXEC_CMD}
@@ -199,7 +201,7 @@
       --run-prefix "${RUN_PRFX}"
       --junitxml=pytest-restart.xml
       --annotations=annotations.json
-    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+    - end_details run
   artifacts:
     name: "run_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
@@ -217,22 +219,22 @@
 
 .script_run_py:
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre[collapsed=true]\r\e[Activate Environment"
+    - start_details pre "Activate Environment"
     - echo "Buildname:" ${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
     - module list
     - pip list
-    - echo -e "\e[0Ksection_end:`date +%s`:pre\r\e[0K"
+    - end_details pre
     # dry-run
-    - echo -e "\e[0Ksection_start:`date +%s`:pre-run[collapsed=true]\r\e[0KPrepare Run"
+    - start_details pre-run "Prepare Run"
     - export PYTEST_DIR_OPTS="--builddir=venv_${BUILDNAME} --rundir=CIrun_${CASENAME}"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --run-prefix "${RUN_PRFX}" --dry-run
     # avoid submission of SLURM jobs for the --dry-run by removing the --run-prefix argument
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_run_norestart.txt -m "${PYTEST_MARKER_OPTS} and run_stage and (not restart)" $PYTEST_DIR_OPTS -k "${PYTEST_KEY_OPTS}" --dry-run
     - rm -rf CIrun_${CASENAME}
-    - echo -e "\e[0Ksection_end:`date +%s`:pre-run\r\e[0K"
+    - end_details pre-run
     # RUN
-    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KRun"
+    - start_details run "Run"
     - echo "OpenMP number of threads:" $OMP_NUM_THREADS
     # pytest: no restart
     - ${PYTEST_EXEC_CMD}
@@ -252,7 +254,7 @@
       --run-prefix "${RUN_PRFX}"
       --junitxml=pytest-restart.xml
       --annotations=annotations.json
-    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+    - end_details run
   artifacts:
     name: "run_py_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
@@ -274,20 +276,20 @@
 
 .script_unit:
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre[collapsed=true]\r\e[0KPreparation"
+    - start_details pre "Preparation"
     - echo "Buildname:" ${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
     - module list
     - pip list
-    - echo -e "\e[0Ksection_end:`date +%s`:pre\r\e[0K"
+    - end_details pre
     # RUN
-    - echo -e "\e[0Ksection_start:`date +%s`:run[collapsed=true]\r\e[0KUnit"
+    - start_details run "Unit"
     - which pytest
     - pytest
       -m "unit"
       -v -rA
       --junitxml=pytest.xml
-    - echo -e "\e[0Ksection_end:`date +%s`:run\r\e[0K"
+    - end_details run
   artifacts:
     reports:
       junit:
@@ -299,7 +301,7 @@
 
 .script_regression:
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre-reg[collapsed=true]\r\e[0KPrepare Regression"
+    - start_details pre-reg "Prepare Regression"
     - python --version
     - python -m pytest --version
     - echo $SHELL
@@ -309,8 +311,8 @@
     - export PYTEST_DIR_OPTS="--rundir=CIrun_${CASENAME_1} --refdir=CIrun_${CASENAME_2}"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
     -      ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --dry-run
-    - echo -e "\e[0Ksection_end:`date +%s`:pre-reg\r\e[0K"
-    - echo -e "\e[0Ksection_start:`date +%s`:regression[collapsed=true]\r\e[0KRegression"
+    - end_details pre-reg
+    - start_details regression "Regression"
     - echo ${PYTEST_EXEC_CMD} --log-file=log_pytest_regression.txt -m "${PYTEST_MARKER_OPTS} and regression_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS "${PYTEST_EXTRA_OPTS}" --junitxml=pytest.xml
     # pytest: regression
     - ${PYTEST_EXEC_CMD}
@@ -322,7 +324,7 @@
       --junitxml=pytest.xml
       --annotations=annotations.json
       || RET=$?
-    - echo -e "\e[0Ksection_end:`date +%s`:regression\r\e[0K"
+    - end_details regression
     - exit $RET
   artifacts:
     name: "reg_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME_1}_vs_${CASENAME_2}"
@@ -342,13 +344,13 @@
 
 .script_post:
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre-post[collapsed=true]\r\e[0KPrepare Postprocessing"
+    - start_details pre-post "Prepare Postprocessing"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_post.txt -m "${PYTEST_MARKER_OPTS} and post_stage" -k "${PYTEST_KEY_OPTS}" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
     - rm -rf CIpost_${CASENAME}
-    - echo -e "\e[0Ksection_end:`date +%s`:pre-post\r\e[0K"
+    - end_details pre-post
     # POST
-    - echo -e "\e[0Ksection_start:`date +%s`:post[collapsed=true]\r\e[0KPostprocessing"
+    - start_details post "Postprocessing"
     - ${PYTEST_EXEC_CMD}
       --log-file=log_pytest_post.txt
       -m "${PYTEST_MARKER_OPTS} and post_stage"
@@ -356,7 +358,7 @@
       $PYTEST_DIR_OPTS
       --junitxml=pytest.xml
       --annotations=annotations.json
-    - echo -e "\e[0Ksection_end:`date +%s`:post\r\e[0K"
+    - end_details post
   artifacts:
     name: "post_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
@@ -370,13 +372,13 @@
 
 .script_conv:
   script:
-    - echo -e "\e[0Ksection_start:`date +%s`:pre-conv[collapsed=true]\r\e[0KPrepare converter Postprocessing"
+    - start_details pre-conv "Prepare converter Postprocessing"
     - export PYTEST_DIR_OPTS="--builddir=build_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIconv_${CASENAME}"
     - ${PYTEST_EXEC_CMD} --log-file=log_pytest_conv.txt -m "${PYTEST_MARKER_OPTS} and converter_stage and not restart and not pygvec" -k "not highres" $PYTEST_DIR_OPTS --junitxml=pytest.xml --dry-run
     - rm -rf CIconv_${CASENAME}
-    - echo -e "\e[0Ksection_end:`date +%s`:pre-conv\r\e[0K"
+    - end_details pre-conv
     # CONVERTER TESTS
-    - echo -e "\e[0Ksection_start:`date +%s`:conv[collapsed=true]\r\e[0K converter Postprocessing"
+    - start_details conv "converter Postprocessing"
     - ${PYTEST_EXEC_CMD}
       --log-file=log_pytest_conv.txt
       -m "${PYTEST_MARKER_OPTS} and converter_stage and not restart and not pygvec"
@@ -385,7 +387,7 @@
       --junitxml=pytest.xml
       --annotations=annotations.json
       # <==== -k"not frenet": FRENET HMAP NOT YET WORKING WITH CONVERTERS, NEED TO READ PARAMETER FROM PARAMETER.INI
-    - echo -e "\e[0Ksection_end:`date +%s`:conv\r\e[0K"
+    - end_details conv
   artifacts:
     name: "conv_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
@@ -401,7 +403,7 @@
   script:
     - export PYTEST_DIR_OPTS="--builddir=venv_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
     # POST & CONVERTER TESTS
-    - echo -e "\e[0Ksection_start:`date +%s`:post[collapsed=true]\r\e[0KTest Postprocessors & Converters"
+    - start_details post "Test Postprocessors & Converters"
     - ${PYTEST_EXEC_CMD}
       --log-file=log_pytest.txt
       -m "${PYTEST_MARKER_OPTS} and (post_stage or converter_stage)"
@@ -409,7 +411,7 @@
       $PYTEST_DIR_OPTS
       --junitxml=pytest.xml
       --annotations=annotations.json
-    - echo -e "\e[0Ksection_end:`date +%s`:post\r\e[0K"
+    - end_details post
   artifacts:
     name: "post-py_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:

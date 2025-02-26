@@ -61,6 +61,14 @@ variables:
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
+# DEFAULTS
+# =================================================================================================================================
+
+default:
+  before_script:
+    - source CI_templates/helpers.bash
+
+# =================================================================================================================================
 # SHORT SYNTAX EXPLANATIONS FOR THE JOB, FOR DETAILS VISIT:    ===> https://docs.gitlab.com/ce/ci/yaml/   <===
 # "stage:"         makes the job part of a stage defined above
 # "tags:"          selects the runner
