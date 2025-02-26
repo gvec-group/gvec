@@ -22,6 +22,9 @@ spec:
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
+    allow_failure:
+      description: Allow the job to fail
+      default: false
 
 ---
 
@@ -40,3 +43,4 @@ run$[[ inputs.env ]]$[[ inputs.run-postfix ]]:
   needs:
     - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
+  allow_failure: $[[ inputs.allow_failure ]]

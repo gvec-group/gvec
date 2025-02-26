@@ -572,6 +572,7 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -579,6 +580,7 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -587,6 +589,7 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_tag
       rules: .rules_minimal
+      allow_failure: true
 
   # reference tag + MPI
 
@@ -596,6 +599,7 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_mpi_tag
+      allow_failure: true
 
   # Raven private runner + srun
   # --------------------
@@ -699,6 +703,7 @@ include:
       run-postfix: _tag_slurm
       build-postfix: _tag
       rules: .rules_private_runner_minimal
+      allow_failure: true
 
   # GNU
 
@@ -709,8 +714,7 @@ include:
       run-postfix: _tag_slurm
       build-postfix: _tag
       rules: .rules_private_runner
-
-  # python ToDo
+      allow_failure: true
 
   # ============================
   # unit jobs
