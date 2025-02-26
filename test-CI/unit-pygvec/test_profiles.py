@@ -297,7 +297,6 @@ def test_vmec_with_custom_profile(testcaserundir, vmecfiles, c_poly, profile_typ
         profile_gvec = state.evaluate_profile(var, rho, deriv=0)
         profile_gvec_at_vmec = state.evaluate_profile(var, rho_wout, deriv=0)
 
-    print(wout[f"{profile_type}f"])
     with np.testing.assert_raises(AssertionError):
         np.testing.assert_allclose(profile_gvec_at_vmec, wout[f"{profile_type}f"])
     np.testing.assert_allclose(profile_gvec, profile_true)

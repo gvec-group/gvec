@@ -116,8 +116,8 @@ SUBROUTINE select_base_dofs(var, base, dofs)
       base => LA_base
       dofs => U(0)%LA
     CASE DEFAULT
-      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
-      CALL abort(__STAMP__,"")
+      CALL abort(__STAMP__, &
+      'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
 END SUBROUTINE select_base_dofs
 
@@ -141,8 +141,8 @@ SUBROUTINE select_base(var, base)
     CASE('LA')
       base => LA_base
     CASE DEFAULT
-      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
-      CALL abort(__STAMP__,"")
+      CALL abort(__STAMP__, &
+      'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
 END SUBROUTINE select_base
 
@@ -199,8 +199,8 @@ SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   CALL select_base(var, base)
   n_s = base%s%nGP
   IF (base%s%nGP /= SIZE(base%s%s_GP)) THEN
-    WRITE(UNIT_stdout,*) 'ERROR: number of integration points does not match the size of the array'
-    CALL abort(__STAMP__,"")
+    CALL abort(__STAMP__, &
+    'ERROR: number of integration points does not match the size of the array')
   END IF
   n_t = base%f%mn_nyq(1)
   n_z = base%f%mn_nyq(2)
@@ -628,8 +628,8 @@ SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
   CASE("p")
     input_profile = pres_profile
   CASE DEFAULT
-    WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
-    CALL abort(__STAMP__,"")
+    CALL abort(__STAMP__, &
+    'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
   DO i = 1,n_s
     result(i) = input_profile%eval_at_rho2(rho2=rho2(i), deriv=deriv)
@@ -690,8 +690,8 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
         eval_profile => Eval_PhiNormPrime
       END IF
     CASE DEFAULT
-      WRITE(UNIT_stdout,*) 'ERROR: variable', var, 'not recognized'
-      CALL abort(__STAMP__,"")
+      CALL abort(__STAMP__, &
+      'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
 
   IF (is_input_profile) THEN

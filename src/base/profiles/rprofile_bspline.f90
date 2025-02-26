@@ -65,8 +65,13 @@ FUNCTION bsplProfile_new(knots, n_knots, coefs, n_coefs) RESULT(sf)
 ! LOCAL VARIABLES
 !===================================================================================================================================
     sf%deg   = COUNT((ABS(knots-knots(1)).LE.1E-12))-1 ! multiplicity of the first knot determines the degree
-    IF (n_coefs < n_knots-sf%deg-1) THEN
-      CALL abort(__STAMP__, "Bspline knots and coefficients are inconsistent.")
+    IF(COUNT((ABS(knots-knots(n_knots)).LE.1E-12)).NE.sf%deg+1) THEN
+      CALL abort(__STAMP__, &
+                 "The Bspline knot sequence need the same multiplicity at the beginning and end (=degree+1).")
+    END IF
+    IF (n_coefs .NE. n_knots-sf%deg-1) THEN
+      CALL abort(__STAMP__, &
+                 "Number of Bspline coeffcients must be number of knots - (degree+1)!")
     END IF 
     sf%n_knots = n_knots
     sf%n_coefs = n_coefs
