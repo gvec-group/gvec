@@ -26,27 +26,21 @@
 MODULE MODgvec_VMEC
 ! MODULES
 USE MODgvec_Globals,ONLY:wp,MPIroot
+USE MODgvec_cubic_spline, ONLY: t_cubspl
 IMPLICIT NONE
 PRIVATE
 
 INTERFACE InitVMEC 
   MODULE PROCEDURE InitVMEC 
 END INTERFACE
-
-INTERFACE VMEC_EvalSpl
-  MODULE PROCEDURE VMEC_EvalSpl  
+INTERFACE VMEC_EvalSplMode 
+  MODULE PROCEDURE VMEC_EvalSplMode 
 END INTERFACE
-
-INTERFACE VMEC_EvalSplMode
-  MODULE PROCEDURE VMEC_EvalSplMode
-END INTERFACE
-
 INTERFACE FinalizeVMEC 
   MODULE PROCEDURE FinalizeVMEC 
 END INTERFACE
 
 PUBLIC::InitVMEC
-PUBLIC::VMEC_EvalSpl
 PUBLIC::VMEC_EvalSplMode
 PUBLIC::FinalizeVMEC
 !===================================================================================================================================
@@ -65,9 +59,7 @@ USE MODgvec_MHD3D_Vars, ONLY: iota_profile, pres_profile
 USE MODgvec_rProfile_bspl, ONLY: t_rProfile_bspl
 USE MODgvec_cubic_spline, ONLY: interpolate_cubic_spline
 USE MODgvec_ReadInTools
-USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 USE MODgvec_VMEC_Vars
-USE MODgvec_VMEC_lambda, ONLY:recomputeLambda
 USE MODgvec_VMEC_Readin
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -87,9 +79,8 @@ WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 !VMEC "wout*.nc"  file
 VMECdataFile   = GETSTR("VMECwoutfile")
 VMECFile_Format= GETINT("VMECwoutfile_format",Proposal=0)
-switchZeta     = GETLOGICAL("VMEC_switchZeta",Proposal=.TRUE.)
-relambda       = GETLOGICAL("VMEC_relambda",Proposal=.FALSE.)
-IF(relambda) nyq=GETINT("VMEC_Lam_nyq",Proposal=4)
+switchZeta=.TRUE.
+switchTheta= GETLOGICAL("VMEC_switchTheta",Proposal=.FALSE.)
 
 CALL ReadVmec(VMECdataFile,VMECfile_format)
 
@@ -174,45 +165,36 @@ ALLOCATE(rho(1:nFluxVMEC))
 rho(:)=SQRT(NormFlux_prof(:))
 
 
-ALLOCATE(Rmnc_Spl(4,1:nFluxVMEC,mn_mode)) !first dim is for spline interpolation
+ALLOCATE(Rmnc_Spl(mn_mode))
 CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmnc,Rmnc_Spl)
 
-ALLOCATE(Zmns_Spl(4,1:nFluxVMEC,mn_mode))
+ALLOCATE(Zmns_Spl(mn_mode))
 CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmns,Zmns_Spl)
 
 IF(lasym)THEN
   WRITE(Unit_stdOut,'(4X,A)')'LASYM=TRUE : R,Z,lambda in cos and sin!'
-  ALLOCATE(Rmns_Spl(4,1:nFluxVMEC,mn_mode)) 
+  ALLOCATE(Rmns_Spl(mn_mode)) 
   CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmns,Rmns_Spl)
   
-  ALLOCATE(Zmnc_Spl(4,1:nFluxVMEC,mn_mode))
+  ALLOCATE(Zmnc_Spl(mn_mode))
   CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmnc,Zmnc_Spl)
   
 END IF
 
 
-ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
-IF(lasym) ALLOCATE(lmnc_Spl(4,1:nFluxVMEC,mn_mode))
-IF(reLambda)THEN
-  np_m=1+nyq*2*(NINT(MAXVAL(ABS(xm)))/2) !m_points [0,2pi]
-  np_n=1+nyq*2*(NINT(MAXVAL(ABS(xn)))/(2*nfp)) !n_points [0,2pi/nfs] ->  
-  !recompute lambda on FULL GRID
-  CALL RecomputeLambda(np_m,np_n) 
-  lambda_grid="full"
+ALLOCATE(lmns_Spl(mn_mode))
+IF(lasym) ALLOCATE(lmnc_Spl(mn_mode))
+WRITE(*,*)'DEBUG:lambda_grid:',lambda_grid
+IF(lambda_grid.EQ."half")THEN
+  !lambda given on half grid
+  CALL           FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
+  IF(lasym) CALL FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
+ELSEIF(lambda_grid.EQ."full")THEN
   CALL           FitSpline(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
   IF(lasym) CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
 ELSE
-  IF(lambda_grid.EQ."half")THEN
-    !lambda given on half grid
-    CALL           FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
-    IF(lasym) CALL FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
-  ELSEIF(lambda_grid.EQ."full")THEN
-    CALL           FitSpline(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
-    IF(lasym) CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,lmnc,lmnc_Spl)
-  ELSE
-    CALL abort(__STAMP__, &
-               'no lambda_grid found!!!! lambda_grid='//TRIM(lambda_grid) )
-  END IF
+  CALL abort(__STAMP__, &
+             'no lambda_grid found!!!! lambda_grid='//TRIM(lambda_grid) )
 END IF
 
 pres_scale = presf(1)
@@ -257,7 +239,6 @@ END SUBROUTINE InitVMEC
 SUBROUTINE FitSpline(modes,nFlux,mAbs,Xmn,Xmn_Spl)
 ! MODULES
 USE MODgvec_VMEC_Vars, ONLY: rho
-USE SPLINE1_MOD,       ONLY: SPLINE1_FIT 
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -268,31 +249,26 @@ INTEGER, INTENT(IN)  :: mabs(modes)       !! filtered m-mode value
 REAL(wp), INTENT(IN) :: Xmn(modes,nFlux)  !! fourier coefficients at all flux surfaces 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp), INTENT(OUT):: Xmn_Spl(4,nFlux,modes)  !!  spline fitted fourier coefficients 
+TYPE(t_cubspl),INTENT(OUT):: Xmn_Spl(modes)  !!  spline fitted fourier coefficients 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iMode,iFlux
+REAL(wp)          :: Xmn_val(nFlux)  ! 
 !===================================================================================================================================
-Xmn_Spl=0.0_wp
-DO iMode=1,modes
-  !scaling with rho^|m|
-  DO iFlux=2,nFlux
-    IF(mabs(iMode).EQ.0)THEN
-      Xmn_Spl(1,iFlux,iMode)=Xmn(iMode,iFlux)
-    ELSE
-      Xmn_Spl(1,iFlux,iMode)=Xmn(iMode,iFlux) /(rho(iFlux)**mabs(iMode))
-    END IF
-  END DO !i
-  !Parabolic extrapolation to axis with dx'(rho=0)=0.0_wp
-  Xmn_Spl(1,1,iMode)=(Xmn_Spl(1,2,iMode)*rho(3)**2-Xmn_Spl(1,3,iMode)*rho(2)**2) /(rho(3)**2-rho(2)**2)
-!  !Quadratic extrapolation to axis with dx'(rho=0)=0.0_wp
-!  r1=rho(2)**2*rho(3)**4-rho(2)**4*rho(3)**2
-!  r2=rho(2)**2*rho(4)**4-rho(2)**4*rho(4)**2
-!  Xmn_Spl(1,1,iMode)= ( r1*(Xmn_Spl(1,2,iMode)*rho(4)**4-Xmn_Spl(1,4,iMode)*rho(2)**4) &
-!                       -r2*(Xmn_Spl(1,2,iMode)*rho(3)**4-Xmn_Spl(1,3,iMode)*rho(2)**4)) &
-!                     /( r1*(rho(4)**4-rho(2)**4)-r2*(rho(3)**4-rho(2)**4))
-  CALL SPLINE1_FIT(nFlux,rho,Xmn_Spl(:,:,iMode), K_BC1=3, K_BCN=0)
-END DO !iMode 
+  DO iMode=1,modes
+    !scaling with rho^|m|
+    DO iFlux=2,nFlux
+      IF(mabs(iMode).EQ.0)THEN
+        Xmn_val(iFlux)=Xmn(iMode,iFlux)
+      ELSE
+        Xmn_val(iFlux)=Xmn(iMode,iFlux) /(rho(iFlux)**mabs(iMode))
+      END IF
+    END DO !i
+    !Parabolic extrapolation to axis with dx'(rho=0)=0.0_wp
+    Xmn_val(1)=(Xmn_val(2)*rho(3)**2-Xmn_val(3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
+    
+    Xmn_spl(iMode)=t_cubspl(rho,Xmn_val, BC=(/1,0/))
+  END DO !iMode 
 
 END SUBROUTINE FitSpline
 
@@ -305,8 +281,6 @@ END SUBROUTINE FitSpline
 SUBROUTINE FitSplineHalf(modes,nFlux,mabs,Xmn_half,Xmn_Spl)
 ! MODULES
 USE MODgvec_VMEC_Vars, ONLY: rho,NormFlux_prof
-USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
-USE SPLINE1_MOD,       ONLY:SPLINE1_INTERP 
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -317,14 +291,15 @@ INTEGER, INTENT(IN) :: mabs(modes)            !! filtered m-mode value
 REAL(wp),INTENT(IN) :: Xmn_half(modes,nFlux)  !! fourier coefficients at all flux surfaces 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL(wp),INTENT(OUT):: Xmn_Spl(4,nFlux,modes) !!  spline fitted fourier coefficients 
+TYPE(t_cubspl),INTENT(OUT):: Xmn_Spl(1:modes) !!  spline fitted fourier coefficients 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iMode,iFlux
-REAL(wp)          :: Xmn_half_Spl(4,nFlux+1)  ! spline fitted fourier coefficients 
-REAL(wp)          :: rho_half(1:nFlux+1)
+REAL(wp)          :: Xmn_val(nFlux+1)  ! spline fitted fourier coefficients 
+REAL(wp)          :: rho_half(nFlux+1)
 INTEGER           :: iFlag
 CHARACTER(len=100):: message
+TYPE(t_cubspl),ALLOCATABLE :: spl_half
 !===================================================================================================================================
 DO iFlux=1,nFlux-1
   rho_half(iFlux+1)=SQRT(0.5_wp*(NormFlux_prof(iFlux+1)+NormFlux_prof(iFlux))) !0.5*(rho(iFlux)+rho(iFlux+1))
@@ -333,128 +308,103 @@ END DO
 rho_half(1)=0.0_wp
 rho_half(nFlux+1)=1.0_wp
 
-DO iMode=1,modes
-  !scaling with rho^|m|
-  DO iFlux=2,nFlux
-    IF(mabs(iMode).EQ.0)THEN
-      Xmn_half_Spl(1,iFlux)=Xmn_half(iMode,iFlux)
-    ELSE
-      Xmn_half_Spl(1,iFlux)=Xmn_half(iMode,iFlux) /(rho_half(iFlux)**mabs(iMode))
-    END IF
-  END DO !i
-  !Parabolic extrapolation to axis with dx'(rho=0)=0.0_wp
-  Xmn_Half_Spl(1,1)=(Xmn_Half_Spl(1,2)*rho_half(3)**2-Xmn_Half_Spl(1,3)*rho_half(2)**2) /(rho_half(3)**2-rho_half(2)**2)
-  !Extrapolate to Edge 
-  Xmn_Half_Spl(1,nFlux+1)= ( Xmn_half_Spl(1,nFlux  )*(rho_half(nFlux+1)-rho_half(nFlux-1))     &
-                            -Xmn_half_Spl(1,nFlux-1)*(rho_half(nFlux+1)-rho_half(nFlux  )) )   &
-                               /(  rho_half(nFlux)   -rho_half(nFlux-1) )
-  CALL SPLINE1_FIT(nFlux+1,rho_half,Xmn_half_Spl(:,:), K_BC1=3, K_BCN=0)
-  iflag=0
-  message=''
-  CALL SPLINE1_INTERP((/1,0,0/),nFlux+1,rho_half,Xmn_half_Spl, &
-                                nFlux  ,rho     ,Xmn_Spl(:,:,iMode),       &
-                          iflag,message, K_BC1=3,K_BCN=0)
-  !respline
-  Xmn_Spl(2:4,:,iMode)=0.0_wp
-  Xmn_Spl(1,1,iMode)  =(Xmn_Spl(1,2,iMode)*rho(3)**2-Xmn_Spl(1,3,iMode)*rho(2)**2) /(rho(3)**2-rho(2)**2)
-  CALL SPLINE1_FIT(nFlux,rho,Xmn_Spl(:,:,iMode), K_BC1=3, K_BCN=0)
-END DO !iMode 
-
+ DO iMode=1,modes
+   !scaling with rho^|m|
+   DO iFlux=2,nFlux
+     IF(mabs(iMode).EQ.0)THEN
+       Xmn_val(iFlux)=Xmn_half(iMode,iFlux)
+     ELSE
+       Xmn_val(iFlux)=Xmn_half(iMode,iFlux) /(rho_half(iFlux)**mabs(iMode))
+     END IF
+   END DO !i
+   !Parabolic extrapolation to axis with dx'(rho=0)=0.0_wp
+   Xmn_val(1)=(Xmn_val(2)*rho_half(3)**2-Xmn_val(3)*rho_half(2)**2) /(rho_half(3)**2-rho_half(2)**2)
+   !Extrapolate to Edge 
+   Xmn_val(nFlux+1)= ( Xmn_val(nFlux  )*(rho_half(nFlux+1)-rho_half(nFlux-1))     &
+                      -Xmn_val(nFlux-1)*(rho_half(nFlux+1)-rho_half(nFlux  )) )   &
+                    /(  rho_half(nFlux)   -rho_half(nFlux-1) )
+    
+   spl_half=t_cubspl(rho_half,Xmn_val, BC=(/1,0/))
+   Xmn_val(1:nFlux) = spl_half%eval(rho,0)
+   !respline
+   Xmn_val(1)  = ( Xmn_val(2)*rho(3)**2-Xmn_val(3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
+   Xmn_Spl(iMode)=t_cubspl(rho,Xmn_val(1:nFlux), BC=(/1,0/))
+ END DO !iMode 
+! 
 END SUBROUTINE FitSplineHalf
 
-!===================================================================================================================================
-!> evaluate 1d spline at position s
-!!
-!===================================================================================================================================
-FUNCTION VMEC_EvalSpl(rderiv,rho_in,xx_spl)
-! MODULES
-USE MODgvec_VMEC_Readin
-USE MODgvec_VMEC_Vars
-USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  INTEGER      , INTENT(IN   ) :: rderiv 
-  REAL(wp)     , INTENT(IN   ) :: rho_in !! position to evaluate rho=[0,1], rho=sqrt(phi_norm)
-  REAL(wp)     , INTENT(IN   ) :: xx_Spl(:,:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)           :: VMEC_EvalSpl
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER            :: iGuess
-  REAL(wp)           :: splout(3)
-!===================================================================================================================================
-  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
-                        'EvalSpl called from non-MPIroot process, but VMEC data only on root!')
-  CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in,rho,xx_Spl(:,:),iGuess,splout) 
-  VMEC_EvalSpl=splout(1+rderiv)
-END FUNCTION VMEC_EvalSpl
 
 !===================================================================================================================================
 !> evaluate spline for specific mode at position s
 !!
 !===================================================================================================================================
 FUNCTION VMEC_EvalSplMode(mn_in,rderiv,rho_in,xx_Spl)
-! MODULES
-USE MODgvec_VMEC_Readin
-USE MODgvec_VMEC_Vars
-USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  INTEGER,INTENT(IN)         :: mn_in(:) !of size 1: =jmode, of size 2: find jmode to mn
-  INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
-  REAL(wp),INTENT(IN)        :: rho_in !! position to evaluate rho=[0,1], rho=sqrt(phi_norm)
-  REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                   :: VMEC_EvalSplMode
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER                    :: iGuess,jMode,modefound
-  REAL(wp)                   :: rhom,drhom,splOut(3) !for weighted spline interpolation
-!===================================================================================================================================
-  IF(.NOT.MPIroot) CALL abort(__STAMP__, &
-                        'EvalSpl called from non-MPIroot process, but VMEC data only on root!')
-  IF(size(mn_in,1).EQ.2)THEN
-    modefound=0
-    DO jMode=1,mn_mode
-      IF((NINT(xm(jMode)).EQ.mn_in(1)).AND.(NINT(xn(jMode)).EQ.mn_in(2)))THEN
-        modefound=jMode
-        EXIT
+  ! MODULES
+  USE MODgvec_VMEC_Readin
+  USE MODgvec_VMEC_Vars
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    INTEGER,INTENT(IN)         :: mn_in(:) !of size 1: =jmode, of size 2: find jmode to mn
+    INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
+    REAL(wp),INTENT(IN)        :: rho_in(:) !! position to evaluate rho=[0,1], rho=sqrt(phi_norm)
+    TYPE(t_cubspl),INTENT(IN)  :: xx_Spl(:)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)                   :: VMEC_EvalSplMode(SIZE(rho_in))
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER                    :: jMode,modefound
+    REAL(wp),DIMENSION(SIZE(rho_in))  :: rhom,drhom,xx_eval !for weighted spline interpolation
+  !===================================================================================================================================
+    IF(.NOT.MPIroot) CALL abort(__STAMP__, &
+                          'EvalSpl called from non-MPIroot process, but VMEC data only on root!')
+    IF(size(mn_in,1).EQ.2)THEN
+      modefound=0
+      DO jMode=1,mn_mode
+        IF((NINT(xm(jMode)).EQ.mn_in(1)).AND.(NINT(xn(jMode)).EQ.mn_in(2)))THEN
+          modefound=jMode
+          EXIT
+        END IF
+      END DO
+      IF(modefound.NE.0) THEN
+        jMode=modefound
+      ELSE
+        WRITE(*,*)'Remark: mode m= ',mn_in(1),' n= ',mn_in(2),'not found in VMEC solution, setting to zero!'
+        VMEC_EvalSplMode=0.0_wp
+        RETURN
       END IF
-    END DO
-    IF(modefound.NE.0) THEN
-      jMode=modefound
+    ELSEIF(size(mn_in,1).EQ.1)THEN
+      jMode=mn_in(1)
     ELSE
-      WRITE(*,*)'Remark: mode m= ',mn_in(1),' n= ',mn_in(2),'not found in VMEC solution, setting to zero!'
-      VMEC_EvalSplMode=0.0_wp
-      RETURN
+      CALL abort(__STAMP__, &
+       'mn_in should have size 1 or 2')
+    END IF 
+  
+    SELECT CASE(xmabs(jMode))
+    CASE(0)
+      rhom=1.0_wp
+      drhom=0.0_wp
+    CASE(1)
+      rhom=rho_in
+      drhom=1.0_wp
+    CASE(2)
+      rhom=rho_in*rho_in
+      drhom=2.0_wp*rho_in
+    CASE DEFAULT
+      rhom=rho_in**xmabs(jMode)
+      drhom=REAL(xmabs(jMode),wp)*rho_in**(xmabs(jMode)-1)
+    END SELECT
+    xx_eval=xx_Spl(jMode)%eval(rho_in,0)  ! includes weight 1/rhom
+    IF(rderiv.EQ.0) THEN
+      VMEC_EvalSplMode=rhom*xx_eval
+    ELSEIF(rderiv.EQ.1) THEN
+      VMEC_EvalSplMode=rhom*xx_Spl(jMode)%eval(rho_in,1) + drhom*xx_eval
+    ELSE
+      CALL abort(__STAMP__, &
+       'rderiv should be 0 or 1') 
     END IF
-  ELSEIF(size(mn_in,1).EQ.1)THEN
-    jMode=mn_in(1)
-  ELSE
-    STOP 'mn_in should have size 1 or 2'
-  END IF 
-
-  SELECT CASE(xmabs(jMode))
-  CASE(0)
-    rhom=1.0_wp
-    drhom=0.0_wp
-  CASE(1)
-    rhom=rho_in
-    drhom=1.0_wp
-  CASE(2)
-    rhom=rho_in*rho_in
-    drhom=2.0_wp*rho_in
-  CASE DEFAULT
-    rhom=rho_in**xmabs(jMode)
-    drhom=REAL(xmabs(jMode),wp)*rho_in**(xmabs(jMode)-1)
-  END SELECT
-  CALL SPLINE1_EVAL((/1,rderiv,0/), nFluxVMEC,rho_in,rho,xx_Spl(:,:,jMode),iGuess,splout) 
-  VMEC_EvalSplMode=rhom*splout(1+rderiv)+REAL(rderiv,wp)*(drhom*splout(1))
-END FUNCTION VMEC_EvalSplMode
+  END FUNCTION VMEC_EvalSplMode
 
 !===================================================================================================================================
 !> Finalize VMEC module

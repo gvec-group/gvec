@@ -63,7 +63,6 @@ END FUNCTION Eval_mass
 FUNCTION Eval_chi(spos)
 ! MODULES
 USE MODgvec_MHD3D_Vars ,ONLY: which_init
-USE MODgvec_VMEC       ,ONLY: VMEC_EvalSpl
 USE MODgvec_VMEC_vars  ,ONLY: Chi_profile
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------

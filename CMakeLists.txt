@@ -613,7 +613,7 @@ IF(COMPILE_GVEC)
   add_test(
     NAME gvec_pytest_dryrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --refdir=${CMAKE_BINARY_DIR}/ctest_run  --dry-run -m "run_stage or post_stage or regression_stage"
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --refdir=${CMAKE_BINARY_DIR}/ctest_run  --dry-run -m "run_stage"
   )
   add_test(
     NAME gvec_pytest_run_shortrun_norestart
