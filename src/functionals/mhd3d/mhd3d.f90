@@ -165,11 +165,6 @@ SUBROUTINE InitMHD3D(sf)
       pres_profile=vmec_pres_profile
     END IF ! pressure from parameterfile
 
-    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
-    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
-    chi_profile=iota_profile%antiderivative()
-    chi_profile%coefs=chi_profile%coefs*Phi_edge 
-
     gamm = 0.0_wp
         
     IF(MPIroot)THEN
@@ -186,6 +181,11 @@ SUBROUTINE InitMHD3D(sf)
     CALL par_BCast(which_hmap,0)
     CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
+
+  Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
+  !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
+  chi_profile=iota_profile%antiderivative()
+  chi_profile%coefs=chi_profile%coefs*Phi_edge 
 
   getBoundaryFromFile=GETINT("getBoundaryFromFile",Proposal=-1)  ! =-1: OFF, get X1b and X2b from parameterfile. 1: get boundary from specific netcdf file
   SELECT CASE(getBoundaryFromFile)
