@@ -638,6 +638,39 @@ SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
 END SUBROUTINE evaluate_rho2_profile
 
 !================================================================================================================================!
+!> evaluate iota/pressure profile antiderivative (with respect to rho^2) at rho
+!================================================================================================================================!
+SUBROUTINE evaluate_profile_antideriv(n_s, rho, deriv, var, result)
+  ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_rProfile_base,  ONLY: c_rProfile
+  USE MODgvec_rProfile_bspl,  ONLY: t_rProfile_bspl
+  USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
+  INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n_s) :: rho     ! radial evaluation points
+  INTEGER, INTENT(IN) :: deriv                ! order of the derivative
+  REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i  ! loop variable
+  CLASS(c_rProfile), ALLOCATABLE :: antideriv
+  SELECT CASE(TRIM(var))
+  CASE("p")
+    antideriv = pres_profile%antiderivative()
+  CASE("iota")
+    antideriv = iota_profile%antiderivative()
+  CASE DEFAULT
+    CALL abort(__STAMP__, &
+    'ERROR: variable "'//TRIM(var)//'" not recognized')
+  END SELECT
+  DO i = 1,n_s
+    result(i) = antideriv%eval_at_rho(rho(i), deriv)
+  END DO
+  SDEALLOCATE(antideriv)
+END SUBROUTINE evaluate_profile_antideriv
+
+!================================================================================================================================!
 !> evaluate 1D-radial profiles and their derivatives with respect to rho
 !================================================================================================================================!
 SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)

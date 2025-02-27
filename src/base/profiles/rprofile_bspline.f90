@@ -36,6 +36,7 @@ TYPE, EXTENDS(c_rProfile) :: t_rProfile_bspl
   CONTAINS
   
   PROCEDURE :: eval_at_rho2        => bsplProfile_eval_at_rho2
+  PROCEDURE :: antiderivative      => bsplProfile_antiderivative
   FINAL :: bsplProfile_free
   
 END TYPE t_rProfile_bspl
@@ -126,6 +127,37 @@ FUNCTION bsplProfile_eval_at_rho2( sf, rho2, deriv ) RESULT(profile_prime_value)
     END IF
     SDEALLOCATE(deriv_values)
 END FUNCTION bsplProfile_eval_at_rho2
+
+FUNCTION bsplProfile_antiderivative(sf) RESULT(antideriv)
+  ! MODULES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_rProfile_bspl), INTENT(IN)  :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(c_rProfile),ALLOCATABLE :: antideriv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: coefs(sf%n_coefs+1), knots(sf%n_knots+2), intermid
+  INTEGER :: i, n_coefs, n_knots, deg
+!===================================================================================================================================
+  coefs = 0.0_wp
+  knots = -42.0_wp
+
+  n_coefs = sf%n_coefs+1
+  n_knots = sf%n_knots+2
+  deg = sf%deg+1 
+  ! increase multiplicity at the edges
+  knots(2:n_knots-1) = sf%knots
+  knots(1) = sf%knots(1)
+  knots(n_knots) = sf%knots(sf%n_knots)
+
+  DO i=1,sf%n_coefs
+    intermid = sf%coefs(i)*(sf%knots(i+deg)-sf%knots(i))/deg
+    coefs(i+1) = coefs(i) + intermid
+  END DO
+  antideriv = t_rProfile_bspl(knots, n_knots, coefs, n_coefs)
+END FUNCTION bsplProfile_antiderivative
 
 !===================================================================================================================================
 !> finalize the type rProfile

@@ -494,6 +494,46 @@ class State:
         _post.evaluate_rho2_profile(rho2.size, rho2, deriv, quantity, result)
         return result
 
+    @_assert_init
+    def evaluate_profile_antiderivative(
+        self, quantity: str, rho: np.ndarray, deriv: int = 0
+    ):
+        r"""Evaluate the antiderivative of either the pressure or :math:`\iota` profile at radial position `rho`. Note: The antiderivative is with respect to :math:`\rho^2` but `deriv` specifies
+        derivatives with respect to :math:`\rho`.
+
+        Args:
+            quantity (str): name of the profile. Has to be either `iota` or `p`
+            rho (np.ndarray): Positions at the radial flux coordinate rho.
+            deriv (int, optional): Order of the derivative. Defaults to 0.
+
+        Raises:
+            ValueError: If `quantity`is not a string.
+            ValueError: If an invalid quantity is provided.
+            ValueError: If `rho` is not a 1D array.
+            ValueError: If `rho` is not in [0, 1].
+
+        Returns:
+            np.ndarray: profile values at `rho`.
+        """
+
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["iota", "p"]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        if rho.ndim != 1:
+            raise ValueError("rho2 must be a 1D array.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho2 must be in the range [0, 1].")
+
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        result = np.zeros(rho.size, dtype=np.float64, order="F")
+
+        _post.evaluate_profile_antideriv(
+            n_s=rho.size, rho=rho, deriv=deriv, var=quantity, result=result
+        )
+        return result
+
     # === Boozer Potential === #
 
     @_assert_init

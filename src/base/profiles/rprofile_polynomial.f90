@@ -31,6 +31,7 @@ TYPE, EXTENDS(c_rProfile) :: t_rProfile_poly
   CONTAINS
   
   PROCEDURE :: eval_at_rho2        => polyProfile_eval_at_rho2
+  PROCEDURE :: antiderivative      => polyProfile_antiderivative
   !FINAL     :: polyProfile_free !! no finalizer necessary
   
 END TYPE t_rProfile_poly
@@ -99,5 +100,29 @@ FUNCTION polyProfile_eval_at_rho2(sf, rho2, deriv) RESULT(profile_prime_value)
         END DO
     END IF
 END FUNCTION polyProfile_eval_at_rho2
+
+FUNCTION polyProfile_antiderivative(sf) RESULT(antideriv)
+    ! MODULES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CLASS(t_rProfile_poly), INTENT(IN)  :: sf !! self
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    CLASS(c_rProfile),ALLOCATABLE :: antideriv
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    REAL(wp) :: coefs(sf%n_coefs+1)
+    INTEGER :: i, n_coefs, deg
+  !===================================================================================================================================
+    coefs = 0.0_wp
+  
+    n_coefs = sf%n_coefs+1
+    deg = sf%deg+1 
+ 
+    DO i=1,sf%n_coefs
+      coefs(i+1) = sf%coefs(i)/(i)
+    END DO
+    antideriv = t_rProfile_poly(coefs, n_coefs)
+  END FUNCTION polyProfile_antiderivative
 
 END MODULE MODgvec_rProfile_poly

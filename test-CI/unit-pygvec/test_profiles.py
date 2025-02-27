@@ -176,6 +176,16 @@ def test_eval_profile_n_deriv(teststate, type, c_poly):
         np.testing.assert_allclose(dref, gvec_profile_di)
 
 
+@pytest.mark.parametrize("type", ["p", "iota"])
+def test_eval_profile_antiderivative(teststate, type, c_poly):
+    rho = np.linspace(0, 1, 100)
+    ref_poly = np.polynomial.Polynomial(c_poly)
+    ref_poly = ref_poly.integ()
+    ref_poly_vals = ref_poly(rho**2)
+    gvec_profile = teststate.evaluate_profile_antiderivative(type, rho=rho)
+    np.testing.assert_allclose(gvec_profile, ref_poly_vals)
+
+
 @pytest.mark.parametrize("BC_type_axis", ["not_a_knot", "1st_deriv", "2nd_deriv"])
 @pytest.mark.parametrize("BC_type_edge", ["not_a_knot", "1st_deriv", "2nd_deriv"])
 @pytest.mark.parametrize("n_points", [4, 5, 6, 11])

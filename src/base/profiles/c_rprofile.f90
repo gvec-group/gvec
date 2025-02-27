@@ -34,6 +34,7 @@ TYPE, ABSTRACT :: c_rProfile
     contains
 
     PROCEDURE(i_fun_eval_at_rho2), DEFERRED :: eval_at_rho2
+    PROCEDURE(i_fun_antiderivative), DEFERRED :: antiderivative
 
     PROCEDURE :: eval_at_rho => rProfile_eval_at_rho
     ! hard coded derivatives with respect to rho=sqrt(phi/phi_edge)
@@ -54,6 +55,12 @@ ABSTRACT INTERFACE
         REAL(wp)                       :: profile_value
     END FUNCTION i_fun_eval_at_rho2
 
+    FUNCTION i_fun_antiderivative(sf) RESULT(antideriv)
+        IMPORT c_rProfile
+        IMPORT wp
+        CLASS(c_rProfile), INTENT(IN)   :: sf
+        CLASS(c_rProfile), ALLOCATABLE  :: antideriv
+    END FUNCTION i_fun_antiderivative
 END INTERFACE
 
 CONTAINS
