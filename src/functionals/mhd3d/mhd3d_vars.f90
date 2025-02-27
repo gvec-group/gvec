@@ -99,6 +99,8 @@ REAL(wp),ALLOCATABLE :: X2pert_b(:)     !! fourier modes of the boundary perturb
 
 CLASS(c_rProfile), ALLOCATABLE   :: iota_profile
 CLASS(c_rProfile), ALLOCATABLE   :: pres_profile
+CLASS(c_rProfile), ALLOCATABLE   :: Phi_profile
+CLASS(c_rProfile), ALLOCATABLE   :: chi_profile
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars

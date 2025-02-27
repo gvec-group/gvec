@@ -61,11 +61,12 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_boundaryFromFile, ONLY: t_boundaryFromFile,boundaryFromFile_new
   USE MODgvec_hmap           , ONLY: hmap_new
   USE MODgvec_VMEC           , ONLY: InitVMEC
+  USE MODgvec_VMEC_vars      , ONLY: vmec_iota_profile,vmec_pres_profile
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor !<<< only exists on MPIroot!
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
-  
+  USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -153,12 +154,21 @@ SUBROUTINE InitMHD3D(sf)
     init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)      
     IF(init_with_profile_iota)THEN
       CALL InitProfile(sf,"iota")
+    ELSE 
+      iota_profile=vmec_iota_profile
     END IF ! iota from parameterfile
 
     init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
     IF(init_with_profile_pressure)THEN
       CALL InitProfile(sf,"pres")
+    ELSE 
+      pres_profile=vmec_pres_profile
     END IF ! pressure from parameterfile
+
+    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
+    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
+    chi_profile=iota_profile%antiderivative()
+    chi_profile%coefs=chi_profile%coefs*Phi_edge 
 
     gamm = 0.0_wp
         
@@ -511,12 +521,12 @@ SUBROUTINE InitProfile(sf, var)
   IF (profile_type.EQ."polynomial") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) !a+b*s+c*s^2...
     profile_coefs=profile_coefs*profile_scale
-    profile_profile = t_rProfile_poly(profile_coefs, n_profile_coefs)
+    profile_profile = t_rProfile_poly(profile_coefs)
   ELSE IF (profile_type.EQ."bspline") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) 
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
-    profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs,knots=profile_knots, n_knots=n_profile_knots)
+    profile_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
@@ -524,7 +534,6 @@ SUBROUTINE InitProfile(sf, var)
       CALL abort(__STAMP__,&
       'Size of '//var//'_rho2 and '//var//'_vals must be equal!')
     END IF
-    n_profile_vals = MIN(n_profile_vals,n_profile_rho2)
     profile_BC_type(1) = GETSTR(var//"_BC_type_axis",Proposal="not_a_knot")
     profile_BC_type(2) = GETSTR(var//"_BC_type_edge",Proposal="not_a_knot")
     BC=-1
@@ -549,9 +558,7 @@ SUBROUTINE InitProfile(sf, var)
     END IF
 
     profile_coefs=profile_coefs*profile_scale
-    n_profile_coefs = SIZE(profile_coefs)
-    n_profile_knots = SIZE(profile_knots)
-    profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs, knots=profile_knots, n_knots=n_profile_knots)
+    profile_profile = t_rProfile_bspl(profile_knots,profile_coefs)
     SDEALLOCATE(profile_vals)
     SDEALLOCATE(profile_rho2)
   ELSE
@@ -1569,6 +1576,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   
   SDEALLOCATE(iota_profile)
   SDEALLOCATE(pres_profile)
+  SDEALLOCATE(Phi_profile)
+  SDEALLOCATE(chi_profile)
   
   CALL FinalizeMHD3D_EvalFunc()
   IF(which_init.EQ.1) CALL FinalizeVMEC()

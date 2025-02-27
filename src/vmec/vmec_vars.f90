@@ -49,6 +49,8 @@ REAL(wp),ALLOCATABLE    :: Zmnc_Spl(:,:,:)           !! modified spline coeffici
 REAL(wp),ALLOCATABLE    :: Zmns_Spl(:,:,:)           !! modified spline coefficients of Z sine,   (1:4,iFlux,iMode)
 CLASS(c_rProfile), ALLOCATABLE :: Phi_profile        !! B-spline profiles in (rho^2) for Phi
 CLASS(c_rProfile), ALLOCATABLE :: Chi_profile        !! B-spline profile in (rho^2) for chi
+CLASS(c_rProfile), ALLOCATABLE :: vmec_iota_profile        !! B-spline profiles in (rho^2) for iota
+CLASS(c_rProfile), ALLOCATABLE :: vmec_pres_profile        !! B-spline profile in (rho^2) for pressure
 
 !===================================================================================================================================
 END MODULE MODgvec_VMEC_Vars

@@ -194,7 +194,6 @@ USE MODgvec_Output_Vars, ONLY:ProjectName
 USE MODgvec_write_modes
 USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
-USE MODgvec_MHD3D_Vars, ONLY: iota_profile, pres_profile
 USE MODgvec_VMEC, ONLY: VMEC_EvalSpl,VMEC_EvalSplMode
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 IMPLICIT NONE
@@ -265,14 +264,14 @@ CHARACTER(LEN=4)   :: vstr
   Varnames(nVal)='iota(Phi_norm)'
   values(  nVal,:)=iotaf(:)
   DO i=1,n_int
-    values_int(nVal,i)=iota_profile%eval_at_rho(rho_int(i))
+    values_int(nVal,i)=vmec_iota_profile%eval_at_rho(rho_int(i))
   END DO !i
   
   nVal=nVal+1
   Varnames(nVal)='pres(Phi_norm)'
   values(  nVal,:)=presf(:)
   DO i=1,n_int
-    values_int(nVal,i)=pres_profile%eval_at_rho(rho_int(i))
+    values_int(nVal,i)=vmec_pres_profile%eval_at_rho(rho_int(i))
   END DO !i
   
   nValRewind=nVal

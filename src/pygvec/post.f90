@@ -632,7 +632,7 @@ SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
     'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
   DO i = 1,n_s
-    result(i) = input_profile%eval_at_rho2(rho2=rho2(i), deriv=deriv)
+    result(i) = input_profile%eval_at_rho2(rho2(i), deriv)
   END DO
   SDEALLOCATE(input_profile)
 END SUBROUTINE evaluate_rho2_profile
@@ -729,7 +729,7 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
 
   IF (is_input_profile) THEN
     DO i = 1,n_s
-      result(i) = input_profile%eval_at_rho(spos=s(i), deriv=deriv)
+      result(i) = input_profile%eval_at_rho(s(i),deriv)
     END DO
     SDEALLOCATE(input_profile)
   ELSE 
