@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup splines
 !> @brief   Derived type for banded matrices
 !> @author  Yaman Güçlü  - IPP Garching

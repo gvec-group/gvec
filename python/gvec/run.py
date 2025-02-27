@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 """run gvec from python"""
 
 from . import _fgvec

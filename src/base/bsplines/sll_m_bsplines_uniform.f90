@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup splines
 !> @brief   Derived type for uniform B-splines of arbitrary degree
 !> @author  Yaman Güçlü  - IPP Garching

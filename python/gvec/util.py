@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 """GVEC utility module
 
 This module is part of the gvec python package, but also used directly in the tests.

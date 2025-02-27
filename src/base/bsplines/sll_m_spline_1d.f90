@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup splines
 !> @brief   Module for 1D splines, linear combination of B-spline functions.
 !>

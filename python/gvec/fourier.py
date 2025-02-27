@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 r"""pyGVEC postprocessing - Fourier representation
 
 This module provides functions for computing the Fourier transform in 1D and 2D.

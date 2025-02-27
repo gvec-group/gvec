@@ -8,6 +8,7 @@ GVEC is being developed and maintained by
 
 with additional contributions from
 
+* Claus-Dieter Munz
 * Omar Maj (2017.. )
 * Jonathan Faustin (2018)
 * Alejandro Banon Navarro (2019)

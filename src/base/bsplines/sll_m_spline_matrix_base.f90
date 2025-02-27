@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup splines
 !> @brief
 !> Abstract class for small matrix library with basic operations:

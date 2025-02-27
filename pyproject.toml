@@ -42,7 +42,7 @@ classifiers = [
 keywords = ["plasma", "mhd", "equilibrium"]
 readme.file = "README.md"
 readme.content-type = "text/markdown"
-license.file = "LICENSE"
+license.file = "LICENSE.txt"
 dynamic = ["version"]
 
 [project.urls]

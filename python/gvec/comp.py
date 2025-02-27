@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 """GVEC Postprocessing - Compute Functions"""
 
 from typing import Literal, Iterable, Mapping, MutableMapping, Callable

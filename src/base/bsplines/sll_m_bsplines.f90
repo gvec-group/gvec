@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup splines
 !> @brief   Access point to B-splines of arbitrary degree providing factory function
 !> @author  Yaman Güçlü - IPP Garching

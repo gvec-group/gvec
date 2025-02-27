@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 """pyGVEC postprocessing - Surface representation
 
 This module provides a Surface class for representing a flux surface in 3D.
