@@ -233,6 +233,8 @@ CHARACTER(LEN=4)   :: vstr
   !strech towards axis and edge
   rho_int=rho_int+0.05_wp*SIN(Pi*(2.0_wp*rho_int-1.0_wp))
   
+  rho_int(1)=1.0e-12
+  rho_int(n_int)=1.0-1e-12
   nVal=1
   Varnames(nVal)='Phi'
   values(  nVal,:)=Phi_prof(:)
@@ -252,7 +254,7 @@ CHARACTER(LEN=4)   :: vstr
   values(  nVal,:)=rho(:)
   values_int(nVal,:)=rho_int(:)
   
-  rho_half(1)=0.
+  rho_half(1)=1.0e-12
   DO i=1,nFluxVMEC-1
     rho_half(i+1)=SQRT(0.5_wp*(NormFlux_prof(i+1)+NormFlux_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
   END DO

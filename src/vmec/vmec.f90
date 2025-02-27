@@ -79,16 +79,18 @@ WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 !VMEC "wout*.nc"  file
 VMECdataFile   = GETSTR("VMECwoutfile")
 VMECFile_Format= GETINT("VMECwoutfile_format",Proposal=0)
-switchZeta=.TRUE.
-switchTheta= GETLOGICAL("VMEC_switchTheta",Proposal=.FALSE.)
 
 CALL ReadVmec(VMECdataFile,VMECfile_format)
 
-IF(switchZeta)THEN
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  WRITE(UNIT_stdOut,'(A)')'  ... switching from VMECs (R,phi,Z) to gvecs (R,Z,phi) coordinate system ...'
+switchzeta=.TRUE. !always switch zeta=-phi_vmec
+switchtheta=(signgs>0) !
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+WRITE(UNIT_stdOut,'(A)')'  ... switching from VMECs (R,phi,Z) to gvecs (R,Z,phi) coordinate system ...'
+IF(.NOT.switchtheta)THEN
+  WRITE(UNIT_stdOut,'(A)')'  ... VMEC signgs<0, so zeta direction is switched.'
   DO iMode=1,mn_mode
     IF(xm(iMode).EQ.0)THEN
       !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients 
@@ -118,8 +120,16 @@ IF(switchZeta)THEN
 
   ! also iota must change sign, since its sign depend on the coordinate system
   iotaf=-iotaf
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-END IF !switchZeta
+ELSE
+  WRITE(UNIT_stdOut,'(A)')'  ... VMEC signgs>0, so zeta and theta direction are switched.'
+  !cos(-m*theta - (-n*zeta))=cos(m*theta-n*zeta)  !same sign for coefficients
+  !only sin(-m*theta - (-n*zeta))=-sin(m*theta-n*zeta)  ! switch sign of coefficients
+  zmns=-zmns
+  lmns=-lmns
+  IF(lasym) THEN
+      rmns=-rmns
+  END IF    
+END IF !not switchtheta
 
 !toroidal flux from VMEC, now called PHI!
 ALLOCATE(Phi_prof(nFluxVMEC))

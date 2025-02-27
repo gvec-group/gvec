@@ -43,7 +43,7 @@ MODULE MODgvec_VMEC_Readin
                              !< if lrfp=1, profiles use normalized poloidal flux, q is used to compute tor. flux
   INTEGER :: mPol            !< poloidal mode number
   INTEGER :: nTor            !< toroidal mode number
-  INTEGER :: signgs          !< signum of sqrtG
+  INTEGER :: signgs=-1       !< signum of sqrtG
 !  INTEGER :: mnmax           !< maximum mode number over m,n
 !  INTEGER :: mnmax_nyq       !< maximum mode number over m_nyq,n_nyq
   REAL(wp) :: b0             !< magnetic field on axis B_0
@@ -414,10 +414,6 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
   DEALLOCATE(fsve,hsve,hiota,hpres)
   DEALLOCATE(frmnc,frmns,fzmnc,fzmns)
   DEALLOCATE(flmnc,flmns)
-
-  CONTAINS
-
-  !
 
 END SUBROUTINE ReadNEMEC
 
