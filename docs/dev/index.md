@@ -82,4 +82,5 @@ gvec.quantities <api/quantities>
 gvec.fourier <api/fourier>
 gvec.surface <api/surface>
 gvec.util <api/util>
+gvec.lib <api/lib>
 ```
