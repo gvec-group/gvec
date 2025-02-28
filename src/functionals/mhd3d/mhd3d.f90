@@ -684,7 +684,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
-  USE MODgvec_MHD3D_profiles,ONLY:Eval_PhiPrime,Eval_chiPrime
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -960,9 +959,8 @@ END SUBROUTINE InitSolution
 SUBROUTINE Init_LA_from_Solution(U_init)
 ! MODULES
   USE MODgvec_Globals,       ONLY:ProgressBar,getTime,myRank,nRanks
-  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X2_base,LA_base,LA_BC_Type,hmap
+  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X2_base,LA_base,LA_BC_Type,hmap, Phi_profile, chi_profile
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_phiPrime,Eval_chiPrime
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
   USE MODgvec_MPI           ,ONLY:par_reduce,par_BCast
 !$ USE omp_lib
@@ -993,8 +991,8 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   IF(MPIroot)THEN
     DO is=1,nBase
       spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-      phiPrime(is)=Eval_phiPrime(spos)
-      chiPrime(is)=Eval_chiPrime(spos)
+      phiPrime(is)=Phi_profile%eval_at_rho(spos, deriv=1)!Eval_phiPrime(spos)
+      chiPrime(is)=chi_profile%eval_at_rho(spos, deriv=1)!Eval_chiPrime(spos)
     END DO
   END IF !MPIroot
   CALL par_BCast(phiPrime,0)

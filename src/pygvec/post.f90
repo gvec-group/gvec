@@ -677,9 +677,8 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_rProfile_base,  ONLY: c_rProfile
-  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure, iota_profile, pres_profile
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_mass, Eval_chi, Eval_chiPrime, Eval_Phi, Eval_PhiPrime, Eval_Phi_TwoPrime, &
-                                    Eval_PhiNorm, Eval_PhiNormPrime
+  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure, iota_profile, pres_profile, &
+                                    Phi_profile, chi_profile, Phi_edge
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n_s) :: s       ! radial evaluation points
@@ -688,55 +687,34 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i  ! loop variable
-  LOGICAL :: is_input_profile ! check for iota or pres
-  PROCEDURE(Eval_chiPrime), POINTER :: eval_profile
+  REAl :: scale
   CLASS(c_rProfile), ALLOCATABLE :: input_profile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  is_input_profile = .FALSE.
+  scale = 1.0
   SELECT CASE(TRIM(var))
     CASE("iota")
-      is_input_profile = .TRUE.
       input_profile = iota_profile
     CASE("p")
-      is_input_profile = .TRUE.
       input_profile = pres_profile
     CASE("mass")
-      eval_profile => Eval_mass
+      CALL abort(__STAMP__, &
+      'ERROR: "mass" profile is not implemented.')
     CASE("chi")
-      IF (deriv .EQ. 0) THEN
-        eval_profile => Eval_chi
-      ELSE IF (deriv .EQ. 1) THEN
-        eval_profile => Eval_chiPrime
-      END IF
+      input_profile = chi_profile
     CASE("Phi")
-      IF (deriv .EQ. 0) THEN 
-        eval_profile => Eval_Phi
-      ELSE IF (deriv .EQ. 1) THEN
-        eval_profile => Eval_PhiPrime
-      ELSE IF (deriv == 2) THEN
-        eval_profile => Eval_Phi_TwoPrime
-      END IF
+      input_profile = Phi_profile
     CASE("PhiNorm")
-      IF (deriv .EQ. 0) THEN
-        eval_profile => Eval_PhiNorm
-      ELSE IF (deriv .EQ. 1) THEN
-        eval_profile => Eval_PhiNormPrime
-      END IF
+      input_profile = Phi_profile
+      scale = 1/Phi_edge
     CASE DEFAULT
       CALL abort(__STAMP__, &
       'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
 
-  IF (is_input_profile) THEN
-    DO i = 1,n_s
-      result(i) = input_profile%eval_at_rho(s(i),deriv)
-    END DO
-    SDEALLOCATE(input_profile)
-  ELSE 
-    DO i = 1,n_s
-      result(i) = eval_profile(s(i))
-    END DO
-  END IF
+  DO i = 1,n_s
+    result(i) = scale*input_profile%eval_at_rho(s(i),deriv)
+  END DO
+  SDEALLOCATE(input_profile)
 END SUBROUTINE evaluate_profile
 
 !================================================================================================================================!
@@ -746,8 +724,7 @@ END SUBROUTINE evaluate_profile
 FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sfl_boozer)
   ! MODULES
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer, sfl_boozer_new
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_PhiPrime
-  USE MODgvec_MHD3D_vars,     ONLY: hmap, iota_profile
+  USE MODgvec_MHD3D_vars,     ONLY: hmap, iota_profile, Phi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer                 ! SFL-Boozer object
   INTEGER, INTENT(IN) :: mn_max(2), mn_nyq(2), nrho             ! parameters for the Boozer object
@@ -760,7 +737,7 @@ FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sf
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   DO i = 1,nrho
     iota(i) = iota_profile%eval_at_rho(rho_pos(i))
-    phiPrime(i) = Eval_PhiPrime(rho_pos(i))
+    phiPrime(i) = Phi_profile%eval_at_rho(rho_pos(i),deriv=1)
   END DO
   ! ALLOCATE is called within sfl_boozer_new
   CALL sfl_boozer_new(sfl_boozer, mn_max, mn_nyq, nfp, sin_cos, hmap, nrho, rho_pos, iota, phiPrime, relambda)
