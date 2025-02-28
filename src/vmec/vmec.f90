@@ -77,7 +77,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER              :: iMode,nyq,np_m,np_n
 LOGICAL              :: useFilter
-REAL(wp),ALLOCATABLE :: c_iota(:),knots_iota(:), c_pres(:), knots_pres(:), pres_scale
+REAL(wp),ALLOCATABLE :: c_iota(:),knots_iota(:), c_pres(:), knots_pres(:)
 REAL(wp),ALLOCATABLE :: c_phi(:),knots_phi(:), c_chi(:), knots_chi(:)
 !===================================================================================================================================
 IF(.NOT.MPIroot) RETURN
@@ -214,19 +214,19 @@ ELSE
   END IF
 END IF
 
-pres_scale = presf(1)
-CALL interpolate_cubic_spline(rho**2,presf/pres_scale,c_pres,knots_pres, (/0,0/))
-vmec_pres_profile = t_rProfile_bspl(knots_pres, pres_scale*c_pres)
+
+CALL interpolate_cubic_spline(rho**2,presf,c_pres,knots_pres, (/0,0/))
+vmec_pres_profile = t_rProfile_bspl(knots_pres, c_pres)
 SDEALLOCATE(knots_pres)
 SDEALLOCATE(c_pres)
 
 CALL interpolate_cubic_spline(rho**2,Phi_prof,c_phi,knots_phi,(/0,0/))
-phi_profile = t_rProfile_bspl(knots_phi, c_phi)
+vmec_phi_profile = t_rProfile_bspl(knots_phi, c_phi)
 SDEALLOCATE(knots_phi)
 SDEALLOCATE(c_phi)
 
 CALL interpolate_cubic_spline(rho**2,chi_prof,c_chi,knots_chi,(/0,0/))
-chi_profile = t_rProfile_bspl(knots_chi, c_chi)
+vmec_chi_profile = t_rProfile_bspl(knots_chi, c_chi)
 SDEALLOCATE(knots_chi)
 SDEALLOCATE(c_chi)
 
@@ -487,8 +487,8 @@ IF(.NOT.MPIroot) RETURN
   SDEALLOCATE(Zmnc_Spl)
   SDEALLOCATE(lmns_Spl)
   SDEALLOCATE(lmnc_Spl)
-  SDEALLOCATE(Phi_profile)
-  SDEALLOCATE(chi_profile)
+  SDEALLOCATE(vmec_Phi_profile)
+  SDEALLOCATE(vmec_chi_profile)
   SDEALLOCATE(vmec_iota_profile)
   SDEALLOCATE(vmec_pres_profile)
 
