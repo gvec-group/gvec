@@ -63,12 +63,19 @@ PROGRAM GVEC_POST
   SWRITE(Unit_stdOut,'(132("="))')
   SWRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
   SWRITE(Unit_stdOut,'(132("="))')
-!$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
-!$ WRITE(Unit_stdOut,'(132("="))')
+  !.only executes if compiled with OpenMP
+!$ SWRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
+!$ SWRITE(Unit_stdOut,'(132("="))')
+  !.only executes if compiled with MPI
 # if MPI
   SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
   SWRITE(Unit_stdOut,fmt_sep)
+  IF(nRanks.GT.1) CALL abort(__STAMP__,&
+                   "GVEC post is compiled with MPI, but can only be called with 1 MPI rank." )
 # endif
+#include  "configuration-cmake.f90"
+  SWRITE(Unit_stdOut,fmt_sep)
+
   CALL FillStrings(ParameterFile) !< readin parameterfile, done on MPI root + Bcast
   testdbg =.FALSE.
   testlevel=-1

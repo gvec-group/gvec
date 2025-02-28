@@ -63,7 +63,7 @@ END FUNCTION Eval_mass
 FUNCTION Eval_chi(spos)
 ! MODULES
 USE MODgvec_MHD3D_Vars ,ONLY: which_init
-USE MODgvec_VMEC_vars  ,ONLY: Chi_profile
+USE MODgvec_VMEC_vars  ,ONLY: vmec_chi_profile
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -91,7 +91,7 @@ IMPLICIT NONE
     eval_chi=eval_chi+0.5_wp*Eval_chiPrime(spos)
     eval_chi=eval_chi*ds
   CASE(1)
-    eval_chi=Chi_profile%eval_at_rho(spos)
+    eval_chi=vmec_chi_profile%eval_at_rho(spos)
   END SELECT
 END FUNCTION Eval_chi
 

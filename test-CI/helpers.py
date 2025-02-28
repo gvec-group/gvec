@@ -254,6 +254,13 @@ def assert_stdout_OpenMP_MPI(path: str | Path = "stdout.txt"):
         ), "MPI support despite mpiOFF"
 
 
+def assert_stdout_no_NaN(path: str | Path = "stdout.txt"):
+    with open(path) as file:
+        lines = file.readlines()
+        assert not any(
+            re.search(r"NaN", line) for line in lines
+        ), "found NaN in stdout"
+
 # === HELPER FUNCTIONS === #
 
 

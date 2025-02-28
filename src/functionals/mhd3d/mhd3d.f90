@@ -61,11 +61,12 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_boundaryFromFile, ONLY: t_boundaryFromFile,boundaryFromFile_new
   USE MODgvec_hmap           , ONLY: hmap_new
   USE MODgvec_VMEC           , ONLY: InitVMEC
+  USE MODgvec_VMEC_vars      , ONLY: vmec_iota_profile,vmec_pres_profile
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor !<<< only exists on MPIroot!
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
-  
+  USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -122,24 +123,25 @@ SUBROUTINE InitMHD3D(sf)
   
   !constants
   mu_0    = 2.0e-07_wp*TWOPI
-  
+  gamm    = 0.0_wp  !fixed!
+  sgammM1=1.0_wp/(gamm-1.0_wp)
 
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
-  
+
   SELECT CASE(which_init)
   CASE(0)
     init_fromBConly= .TRUE.
     init_BC        = 2
-    gamm    = GETREAL("GAMMA",Proposal=0.0_wp)
     nfp_loc  = GETINT( "nfp")
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
 
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
-
-    CALL InitProfile(sf,"iota")
-    CALL InitProfile(sf,"pres")
+    IF(MPIroot)THEN
+      CALL InitProfile(sf,"iota")
+      CALL InitProfile(sf,"pres")
+    END IF
     
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
@@ -150,19 +152,20 @@ SUBROUTINE InitMHD3D(sf)
       init_BC=-1
     END IF
 
-    init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)      
-    IF(init_with_profile_iota)THEN
-      CALL InitProfile(sf,"iota")
-    END IF ! iota from parameterfile
-
-    init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
-    IF(init_with_profile_pressure)THEN
-      CALL InitProfile(sf,"pres")
-    END IF ! pressure from parameterfile
-
-    gamm = 0.0_wp
-        
-    IF(MPIroot)THEN
+    IF(MPIroot)THEN   
+      init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)   
+      IF(init_with_profile_iota)THEN
+        CALL InitProfile(sf,"iota")
+      ELSE 
+        iota_profile=vmec_iota_profile
+      END IF ! iota from parameterfile
+      init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
+      IF(init_with_profile_pressure)THEN
+        CALL InitProfile(sf,"pres")
+      ELSE 
+        pres_profile=vmec_pres_profile
+      END IF ! pressure from parameterfile
+    
       proposal_mn_max(:)=(/mpol-1,ntor/)
       IF(lasym)THEN !asymmetric
         proposal_X1_sin_cos="_sincos_"
@@ -176,6 +179,12 @@ SUBROUTINE InitMHD3D(sf)
     CALL par_BCast(which_hmap,0)
     CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
+  IF(MPIroot)THEN
+    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
+    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
+    chi_profile=iota_profile%antiderivative()
+    chi_profile%coefs=chi_profile%coefs*Phi_edge 
+  END IF
 
   getBoundaryFromFile=GETINT("getBoundaryFromFile",Proposal=-1)  ! =-1: OFF, get X1b and X2b from parameterfile. 1: get boundary from specific netcdf file
   SELECT CASE(getBoundaryFromFile)
@@ -202,8 +211,6 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
 
-
-  sgammM1=1.0_wp/(gamm-1.0_wp)
   
   CALL hmap_new(hmap,which_hmap)
   IF((hmap%nfp.NE.-1).AND.(hmap%nfp.NE.nfp_loc)) CALL abort(__STAMP__,&
@@ -350,13 +357,13 @@ SUBROUTINE InitMHD3D(sf)
   END IF !MPIroot
 
   
-
-  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent 
-
+   
+  !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent 
+  X1X2_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
                                     
   !boundary conditions (used in force, in init slightly changed)
   ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
@@ -391,11 +398,12 @@ SUBROUTINE InitMHD3D(sf)
   END DO
   END ASSOCIATE !X2
 
-  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
-  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
-  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
-  LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
-  LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
+  !LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
+  !LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  LA_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
 
   ASSOCIATE(modes        =>LA_base%f%modes, zero_odd_even=>LA_base%f%zero_odd_even)
   ALLOCATE(LA_BC_type(1:2,modes))
@@ -511,12 +519,12 @@ SUBROUTINE InitProfile(sf, var)
   IF (profile_type.EQ."polynomial") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) !a+b*s+c*s^2...
     profile_coefs=profile_coefs*profile_scale
-    profile_profile = t_rProfile_poly(profile_coefs, n_profile_coefs)
+    profile_profile = t_rProfile_poly(profile_coefs)
   ELSE IF (profile_type.EQ."bspline") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) 
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
-    profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs,knots=profile_knots, n_knots=n_profile_knots)
+    profile_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
@@ -524,7 +532,6 @@ SUBROUTINE InitProfile(sf, var)
       CALL abort(__STAMP__,&
       'Size of '//var//'_rho2 and '//var//'_vals must be equal!')
     END IF
-    n_profile_vals = MIN(n_profile_vals,n_profile_rho2)
     profile_BC_type(1) = GETSTR(var//"_BC_type_axis",Proposal="not_a_knot")
     profile_BC_type(2) = GETSTR(var//"_BC_type_edge",Proposal="not_a_knot")
     BC=-1
@@ -549,9 +556,7 @@ SUBROUTINE InitProfile(sf, var)
     END IF
 
     profile_coefs=profile_coefs*profile_scale
-    n_profile_coefs = SIZE(profile_coefs)
-    n_profile_knots = SIZE(profile_knots)
-    profile_profile = t_rProfile_bspl(coefs=profile_coefs, n_coefs=n_profile_coefs, knots=profile_knots, n_knots=n_profile_knots)
+    profile_profile = t_rProfile_bspl(profile_knots,profile_coefs)
     SDEALLOCATE(profile_vals)
     SDEALLOCATE(profile_rho2)
   ELSE
@@ -1557,6 +1562,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   
   SDEALLOCATE(iota_profile)
   SDEALLOCATE(pres_profile)
+  SDEALLOCATE(Phi_profile)
+  SDEALLOCATE(chi_profile)
   
   CALL FinalizeMHD3D_EvalFunc()
   IF(which_init.EQ.1) CALL FinalizeVMEC()

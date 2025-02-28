@@ -49,8 +49,10 @@ TYPE(t_cubspl),ALLOCATABLE    :: lmnc_Spl(:)           !! cubic spline fit of la
 TYPE(t_cubspl),ALLOCATABLE    :: lmns_Spl(:)           !! cubic spline fit of lambda sine, array over modes
 TYPE(t_cubspl),ALLOCATABLE    :: Zmnc_Spl(:)           !! cubic spline fit of Z cosine,array over modes
 TYPE(t_cubspl),ALLOCATABLE    :: Zmns_Spl(:)           !! cubic spline fit of Z sine,array over modes
-CLASS(c_rProfile), ALLOCATABLE :: Phi_profile        !! B-spline profiles in (rho^2) for Phi
-CLASS(c_rProfile), ALLOCATABLE :: Chi_profile        !! B-spline profile in (rho^2) for chi
+CLASS(c_rProfile), ALLOCATABLE :: vmec_Phi_profile        !! B-spline profiles in (rho^2) for Phi
+CLASS(c_rProfile), ALLOCATABLE :: vmec_Chi_profile        !! B-spline profile in (rho^2) for chi
+CLASS(c_rProfile), ALLOCATABLE :: vmec_iota_profile        !! B-spline profiles in (rho^2) for iota
+CLASS(c_rProfile), ALLOCATABLE :: vmec_pres_profile        !! B-spline profile in (rho^2) for pressure
 
 !===================================================================================================================================
 END MODULE MODgvec_VMEC_Vars
