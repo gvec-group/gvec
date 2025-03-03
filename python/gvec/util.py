@@ -146,12 +146,13 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"
 
 
-def read_parameter_file(path: str | Path) -> dict:
+def read_parameter_file(path: str | Path, lowercase: bool = False) -> dict:
     """
     Read the parameters from the specified parameter file.
 
     Args:
         path (str | Path): The path to the parameter file.
+        lowercase (bool): If True, the keys in the returned dictionary are converted to lowercase.
 
     Returns:
         dict: A dictionary containing the parameters from the parameter file.
@@ -193,6 +194,8 @@ def read_parameter_file(path: str | Path) -> dict:
                         parameters[key] = float(value)
                     except ValueError:
                         parameters[key] = value
+    if lowercase:
+        parameters = {key.lower(): value for key, value in parameters.items()}
     return parameters
 
 
