@@ -86,7 +86,7 @@ class State:
     def __init__(
         self,
         parameterfile: str | Path,
-        statefile: str | Path,
+        statefile: str | Path | None = None,
         redirect_stdout: bool = True,
     ):
         self.initialized: bool = False
@@ -98,7 +98,7 @@ class State:
             raise NotImplementedError("Only one instance of State is allowed.")
         if not Path(parameterfile).exists():
             raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
-        if not Path(statefile).exists():
+        if statefile is not None and not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
         _binding.redirect_abort()  # redirect abort to raise a RuntimeError
@@ -106,15 +106,23 @@ class State:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
             _binding.redirect_stdout(self._stdout.name)
         self.parameterfile = Path(parameterfile)
-        self.statefile = Path(statefile)
-
+        if statefile is not None:
+            self.statefile = Path(statefile)
+        else:
+            self.statefile = None
         self._original_dir = os.getcwd()
         os.chdir(self.parameterfile.parent)
-        self.statefile = self.statefile.relative_to(self.parameterfile.parent)
-        self.parameterfile = self.parameterfile.relative_to(self.parameterfile.parent)
+        if self.statefile is not None:
+            self.statefile = self.statefile.relative_to(self.parameterfile.parent)
+        self.parameterfile = self.parameterfile.relative_to(
+            self.parameterfile.parent
+        )  # do this last! (self-referencing)
 
         _post.init(self.parameterfile)
-        _post.readstate(self.statefile)
+        if self.statefile is not None:
+            _post.readstate(self.statefile)
+        else:
+            _post.initsolution()
         self.initialized = True
         self._children = []
 
@@ -163,8 +171,10 @@ class State:
             + ",".join(
                 [
                     "initialized" if self.initialized else "finalized",
-                    self.parameterfile.name,
-                    self.statefile.name,
+                    self.parameterfile.name
+                    if self.parameterfile is not None
+                    else "None",
+                    self.statefile.name if self.statefile is not None else "None",
                 ]
             )
             + ")>"
@@ -396,22 +406,27 @@ class State:
     )  # -> Jac_h, dJac_h_dr, dJac_h_dt, dJac_h_dz
 
     @_assert_init
-    def evaluate_profile(self, quantity: str, rho: np.ndarray):
+    def evaluate_profile(self, quantity: str, rho: np.ndarray, deriv: int = 0):
+        """Evaluate 1D profiles at the provided positions of the radial coordinate rho.
+
+        Args:
+            quantity (str): name of the profile. Has to be either `iota` (rotational transform), `p` (pressure), `chi`(poloidal magn. flux), `Phi`(toroidal magn. flux)
+            rho (np.ndarray): Positions at the radial flux coordinate rho.
+            deriv (int, optional): Order of the derivative in rho. Note that for some quantities not all derivatives can be calculated, e.g. for `iota` and `p` the maximum is `deriv=4`. Defaults to 0.
+
+        Raises:
+            ValueError: If `quantity`is not a string.
+            ValueError: If an invalid quantity is provided.
+            NotImplementedError: If `deriv > 1` for `quantity="chi"`.
+            ValueError: If `rho` is not a 1D array.
+            ValueError: If `rho` is not in [0, 1].
+
+        Returns:
+            np.ndarray: profile values at `rho`.
+        """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in [
-            "iota",
-            "iota_prime",
-            "p",
-            "p_prime",
-            "chi",
-            "chi_prime",
-            "Phi",
-            "Phi_prime",
-            "Phi_2prime",
-            "PhiNorm",
-            "PhiNorm_prime",
-        ]:
+        elif quantity not in ["iota", "p", "chi", "Phi"]:
             raise ValueError(f"Unknown quantity: {quantity}")
 
         rho = np.asfortranarray(rho, dtype=np.float64)
@@ -421,7 +436,43 @@ class State:
             raise ValueError("rho must be in the range [0, 1].")
 
         result = np.zeros(rho.size, dtype=np.float64, order="F")
-        _post.evaluate_profile(rho.size, rho, quantity, result)
+
+        _post.evaluate_profile(rho.size, rho, deriv, quantity, result)
+        return result
+
+    @_assert_init
+    def evaluate_rho2_profile(self, quantity: str, rho2: np.ndarray, deriv: int = 0):
+        r"""Evaluate 1D profiles at the provided positions of the radial coordinate `rho2`=:math:`\rho^2`.
+        Note: Use this routine to obtain derivarives with respect to `rho2`, else use `evaluate_profile`.
+
+        Args:
+            quantity (str): name of the profile. Has to be either `iota` or `p`
+            rho2 (np.ndarray): Positions at the radial flux coordinate rho^2.
+            deriv (int, optional): Order of the derivative, in s=rho^2 (!). Defaults to 0.
+
+        Raises:
+            ValueError: If `quantity`is not a string.
+            ValueError: If an invalid quantity is provided.
+            ValueError: If `rho2` is not a 1D array.
+            ValueError: If `rho2` is not in [0, 1].
+
+        Returns:
+            np.ndarray: profile values at `rho2`.
+        """
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["iota", "p", "chi", "Phi"]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        rho2 = np.asfortranarray(rho2, dtype=np.float64)
+        if rho2.ndim != 1:
+            raise ValueError("rho2 must be a 1D array.")
+        if rho2.max() > 1.0 or rho2.min() < 0.0:
+            raise ValueError("rho2 must be in the range [0, 1].")
+
+        result = np.zeros(rho2.size, dtype=np.float64, order="F")
+
+        _post.evaluate_rho2_profile(rho2.size, rho2, deriv, quantity, result)
         return result
 
     # === Boozer Potential === #
@@ -637,7 +688,9 @@ class State:
                     [rf"$\frac{{{2*i} \pi}}{{{n_xtick - 1}}}$" for i in range(n_xtick)]
                 )
             axs[-1, r].set_xlabel(r"$\theta$")
-        fig.suptitle(self.statefile.name)
+        fig.suptitle(
+            self.statefile.name if self.statefile is not None else "Initial State"
+        )
         return fig, axs
 
     def plot_poloidal(
@@ -715,5 +768,7 @@ class State:
                 title=rf"$\zeta = {zetai:.2f}$",
             )
             axs[-1, z].set_xlabel(r"$X^1$")
-        fig.suptitle(self.statefile.name)
+        fig.suptitle(
+            self.statefile.name if self.statefile is not None else "Initial State"
+        )
         return fig, axs

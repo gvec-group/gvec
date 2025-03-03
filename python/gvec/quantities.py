@@ -99,7 +99,7 @@ def xyz(ds: xr.Dataset):
 # === profiles ========================================================================= #
 
 
-def _profile(var, evalvar, long_name, symbol):
+def _profile(var, evalvar, deriv, long_name, symbol):
     """Factory function for profile quantities."""
 
     @register(
@@ -107,40 +107,31 @@ def _profile(var, evalvar, long_name, symbol):
         attrs=dict(long_name=long_name, symbol=symbol),
     )
     def profile(ds: xr.Dataset, state: State):
-        ds[var] = ("rad", state.evaluate_profile(evalvar, ds.rho))
+        ds[var] = ("rad", state.evaluate_profile(evalvar, ds.rho, deriv=deriv))
 
     return profile
 
 
-for var, *args in [
-    ("iota", "iota", "rotational transform", r"\iota"),
-    (
-        "diota_dr",
-        "iota_prime",
-        "rotational transform gradient",
-        r"\frac{d\iota}{d\rho}",
-    ),
-    ("p", "p", "pressure", r"p"),
-    ("dp_dr", "p_prime", "pressure gradient", r"\frac{dp}{d\rho}"),
-    ("chi", "chi", "poloidal magnetic flux", r"\chi"),
-    ("dchi_dr", "chi_prime", "poloidal magnetic flux gradient", r"\frac{d\chi}{d\rho}"),
-    ("Phi", "Phi", "toroidal magnetic flux", r"\Phi"),
-    ("dPhi_dr", "Phi_prime", "toroidal magnetic flux gradient", r"\frac{d\Phi}{d\rho}"),
-    (
-        "dPhi_drr",
-        "Phi_2prime",
-        "toroidal magnetic flux curvature",
-        r"\frac{d^2\Phi}{d\rho^2}",
-    ),
-    ("Phi_n", "PhiNorm", "normalized toroidal magnetic flux", r"\Phi_n"),
-    (
-        "dPhi_n_dr",
-        "PhiNorm_prime",
-        "normalized toroidal magnetic flux gradient",
-        r"\frac{d\Phi_n}{d\rho}",
-    ),
+for var, name, symbol in [
+    ("iota", "rotational transform", r"\iota"),
+    ("p", "pressure", r"p"),
+    ("chi", "poloidal magnetic flux", r"\chi"),
+    ("Phi", "toroidal magnetic flux", r"\Phi"),
 ]:
-    globals()[var] = _profile(var, *args)
+    globals()[var] = _profile(var, var, 0, name, symbol)
+    globals()[f"d{var}_dr"] = _profile(
+        f"d{var}_dr", var, 1, f"{name} gradient", f"\\frac{{d{symbol}}}{{d\\rho}}"
+    )
+    globals()[f"d{var}_drr"] = _profile(
+        f"d{var}_drr", var, 2, f"{name} curvature", f"\\frac{{d^2{symbol}}}{{d\\rho^2}}"
+    )
+
+
+@register(
+    attrs=dict(long_name="toroidal magnetic flux at the edge", symbol=r"\Phi_0"),
+)
+def Phi_edge(ds: xr.Dataset, state: State):
+    ds["Phi_edge"] = ((), state.evaluate_profile("Phi", [1.0])[0])
 
 
 # === base ============================================================================= #
@@ -770,7 +761,7 @@ def V(ds: xr.Dataset):
 
 
 @register(
-    requirements=("Jac", "dPhi_n_dr"),
+    requirements=("Jac", "Phi_edge", "dPhi_dr"),
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="derivative of the plasma volume w.r.t. normalized toroidal magnetic flux",
@@ -778,11 +769,12 @@ def V(ds: xr.Dataset):
     ),
 )
 def dV_dPhi_n(ds: xr.Dataset):
-    ds["dV_dPhi_n"] = fluxsurface_integral(ds.Jac) / ds.dPhi_n_dr
+    # d/dPhi_n = dr/dPhi_n * d/dr = Phi_0 / dPhi_dr * d/dr
+    ds["dV_dPhi_n"] = fluxsurface_integral(ds.Jac) * ds.Phi_edge / ds.dPhi_dr
 
 
 @register(
-    requirements=("Jac", "dJac_dr", "dPhi_n_dr"),
+    requirements=("Jac", "dJac_dr", "Phi_edge", "dPhi_dr", "dPhi_drr"),
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="second derivative of the plasma volume w.r.t. normalized toroidal magnetic flux",
@@ -790,10 +782,12 @@ def dV_dPhi_n(ds: xr.Dataset):
     ),
 )
 def dV_dPhi_n2(ds: xr.Dataset):
-    # d^2 rho / d Phi_n^2 = -1/(4 rho^3)
-    ds["dV_dPhi_n2"] = fluxsurface_integral(
-        ds.dJac_dr
-    ) / ds.dPhi_n_dr**2 - fluxsurface_integral(ds.Jac) / (4 * ds.rho**3)
+    # d/dPhi_n = dr/dPhi_n * d/dr = Phi_0 / dPhi_dr * d/dr
+    # d/dr 1/dPhi_dr = -1/dPhi_dr**2 * dPhi_drr
+    ds["dV_dPhi_n2"] = (
+        fluxsurface_integral(ds.dJac_dr) * (ds.Phi_edge / ds.dPhi_dr) ** 2
+        - fluxsurface_integral(ds.Jac) * ds.Phi_edge**2 / ds.dPhi_dr**3 * ds.dPhi_drr
+    )
 
 
 @register(

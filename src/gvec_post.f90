@@ -26,7 +26,6 @@ PROGRAM GVEC_POST
   USE MODgvec_Output_vars  ,ONLY: OutputLevel
   USE MODgvec_Restart      ,ONLY: InitRestart,FinalizeRestart
   USE MODgvec_Restart      ,ONLY: RestartFromState
-  USE MODgvec_Restart_vars ,ONLY: doRestart
   USE MODgvec_Output_Vars  ,ONLY: OutputLevel,ProjectName
   USE MODgvec_ReadState_Vars,ONLY: fileID_r,outputLevel_r
   USE MODgvec_MHD3D_Vars   ,ONLY: U,F
