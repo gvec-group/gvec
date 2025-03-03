@@ -972,7 +972,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode,is,ns_str,ns_end,iRank,nBase
-  REAL(wp) :: BC_val(2),spos
+  REAL(wp) :: BC_val(2),rhopos
   REAL(wp) :: StartTime,EndTime
   REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -989,9 +989,9 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   !evaluate profiles only in MPIroot!
   IF(MPIroot)THEN
     DO is=1,nBase
-      spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-      phiPrime(is)=Phi_profile%eval_at_rho(spos, deriv=1)!Eval_phiPrime(spos)
-      chiPrime(is)=chi_profile%eval_at_rho(spos, deriv=1)!Eval_chiPrime(spos)
+      rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+      phiPrime(is)=Phi_profile%eval_at_rho(rhopos,deriv=1)
+      chiPrime(is)=chi_profile%eval_at_rho(rhopos,deriv=1)
     END DO
   END IF !MPIroot
   CALL par_BCast(phiPrime,0)
@@ -1002,8 +1002,8 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
   DO is=ns_str,ns_end
-    spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-    CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
+    rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+    CALL lambda_Solve(rhopos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
     CALL ProgressBar(is,ns_end)
   END DO !is
 !!!  CALL par_reduce(LA_gIP,'SUM',0)

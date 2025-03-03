@@ -410,10 +410,9 @@ class State:
         """Evaluate 1D profiles at the provided positions of the radial coordinate rho.
 
         Args:
-            quantity (str): name of the profile. Has to be either `iota`, `p`, `chi`, `Phi` or `PhiNorm`
+            quantity (str): name of the profile. Has to be either `iota` (rotational transform), `p` (pressure), `chi`(poloidal magn. flux), `Phi`(toroidal magn. flux)
             rho (np.ndarray): Positions at the radial flux coordinate rho.
-            deriv (int, optional): Order of the derivative. Note that for some quantities not all derivatives can
-            be calculated, e.g. for `iota` and `p` the maximum is `deriv=4`. Defaults to 0.
+            deriv (int, optional): Order of the derivative in rho. Note that for some quantities not all derivatives can be calculated, e.g. for `iota` and `p` the maximum is `deriv=4`. Defaults to 0.
 
         Raises:
             ValueError: If `quantity`is not a string.
@@ -427,20 +426,8 @@ class State:
         """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in [
-            "iota",
-            "p",
-            "chi",
-            "Phi",
-            "PhiNorm",
-        ]:
+        elif quantity not in ["iota", "p", "chi", "Phi"]:
             raise ValueError(f"Unknown quantity: {quantity}")
-
-        if quantity == "chi" and deriv > 1:
-            raise NotImplementedError(
-                "chi derivative is not implemented!"
-                + f" Requestet deriv={deriv} but max. implemented deriv=1."
-            )
 
         rho = np.asfortranarray(rho, dtype=np.float64)
         if rho.ndim != 1:
@@ -449,12 +436,6 @@ class State:
             raise ValueError("rho must be in the range [0, 1].")
 
         result = np.zeros(rho.size, dtype=np.float64, order="F")
-
-        if quantity == "PhiNorm" and deriv == 2:
-            return 2 * np.ones(rho.size, dtype=np.float64, order="F")
-
-        if quantity in ["Phi", "PhiNorm"] and deriv > 2:
-            return result
 
         _post.evaluate_profile(rho.size, rho, deriv, quantity, result)
         return result
@@ -466,8 +447,8 @@ class State:
 
         Args:
             quantity (str): name of the profile. Has to be either `iota` or `p`
-            rho (np.ndarray): Positions at the radial flux coordinate rho.
-            deriv (int, optional): Order of the derivative. Defaults to 0.
+            rho2 (np.ndarray): Positions at the radial flux coordinate rho^2.
+            deriv (int, optional): Order of the derivative, in s=rho^2 (!). Defaults to 0.
 
         Raises:
             ValueError: If `quantity`is not a string.
@@ -480,7 +461,7 @@ class State:
         """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in ["iota", "p"]:
+        elif quantity not in ["iota", "p", "chi", "Phi"]:
             raise ValueError(f"Unknown quantity: {quantity}")
 
         rho2 = np.asfortranarray(rho2, dtype=np.float64)
@@ -492,46 +473,6 @@ class State:
         result = np.zeros(rho2.size, dtype=np.float64, order="F")
 
         _post.evaluate_rho2_profile(rho2.size, rho2, deriv, quantity, result)
-        return result
-
-    @_assert_init
-    def evaluate_profile_antiderivative(
-        self, quantity: str, rho: np.ndarray, deriv: int = 0
-    ):
-        r"""Evaluate the antiderivative of either the pressure or :math:`\iota` profile at radial position `rho`. Note: The antiderivative is with respect to :math:`\rho^2` but `deriv` specifies
-        derivatives with respect to :math:`\rho`.
-
-        Args:
-            quantity (str): name of the profile. Has to be either `iota` or `p`
-            rho (np.ndarray): Positions at the radial flux coordinate rho.
-            deriv (int, optional): Order of the derivative. Defaults to 0.
-
-        Raises:
-            ValueError: If `quantity`is not a string.
-            ValueError: If an invalid quantity is provided.
-            ValueError: If `rho` is not a 1D array.
-            ValueError: If `rho` is not in [0, 1].
-
-        Returns:
-            np.ndarray: profile values at `rho`.
-        """
-
-        if not isinstance(quantity, str):
-            raise ValueError("Quantity must be a string.")
-        elif quantity not in ["iota", "p"]:
-            raise ValueError(f"Unknown quantity: {quantity}")
-
-        if rho.ndim != 1:
-            raise ValueError("rho2 must be a 1D array.")
-        if rho.max() > 1.0 or rho.min() < 0.0:
-            raise ValueError("rho2 must be in the range [0, 1].")
-
-        rho = np.asfortranarray(rho, dtype=np.float64)
-        result = np.zeros(rho.size, dtype=np.float64, order="F")
-
-        _post.evaluate_profile_antideriv(
-            n_s=rho.size, rho=rho, deriv=deriv, var=quantity, result=result
-        )
         return result
 
     # === Boozer Potential === #

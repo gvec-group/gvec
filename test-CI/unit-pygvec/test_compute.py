@@ -205,8 +205,6 @@ def test_compute_metric(teststate, evals_rtz):
         "dPhi_drr",
         "chi",
         "dchi_dr",
-        "Phi_n",
-        "dPhi_n_dr",
     ],
 )
 def test_compute_profile(teststate, evals_r, quantity):

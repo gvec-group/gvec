@@ -217,9 +217,9 @@ IF(MPIroot)THEN
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
   DO iGP=1,nGP
-    chiPrime_GP( iGP) = chi_profile%eval_at_rho( s_GP(iGP), deriv=1)!Eval_chiPrime(           s_GP(iGP))
+    chiPrime_GP( iGP) = chi_profile%eval_at_rho(s_GP(iGP),deriv=1)
     pres_GP(     iGP) = pres_profile%eval_at_rho(s_GP(iGP))
-    PhiPrime_GP( iGP) = Phi_profile%eval_at_rho( s_GP(iGP), deriv=1)!Eval_PhiPrime(           s_GP(iGP))
+    PhiPrime_GP( iGP) = Phi_profile%eval_at_rho(s_GP(iGP),deriv=1)
     PhiPrime2_GP(iGP) = PhiPrime_GP(                  iGP)**2
   END DO !iGP
 !$OMP END PARALLEL DO
