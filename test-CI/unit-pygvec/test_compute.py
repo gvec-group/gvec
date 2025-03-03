@@ -198,13 +198,16 @@ def test_compute_metric(teststate, evals_rtz):
     [
         "iota",
         "diota_dr",
+        "diota_drr",
         "p",
         "dp_dr",
+        "dp_drr",
         "Phi",
         "dPhi_dr",
         "dPhi_drr",
         "chi",
         "dchi_dr",
+        "dchi_drr",
     ],
 )
 def test_compute_profile(teststate, evals_r, quantity):
