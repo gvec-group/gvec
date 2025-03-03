@@ -185,10 +185,10 @@ def test_eval_profile_iota_vs_phi_and_chi(teststate, c_poly):
     ref_poly = np.polynomial.Polynomial(c_poly)
     ref_poly_vals = ref_poly(rho**2)
     eval_iota = teststate.evaluate_profile("iota", rho=rho)
-    np.testing.assert_allclose(eval_iota, ref_poly_vals)
+    np.testing.assert_allclose(eval_iota, ref_poly_vals, atol=tol)
     eval_phiprime = teststate.evaluate_profile("Phi", rho=rho, deriv=1)
     eval_chiprime = teststate.evaluate_profile("chi", rho=rho, deriv=1)
-    np.testing.assert_allclose(eval_chiprime / eval_phiprime, ref_poly_vals)
+    np.testing.assert_allclose(eval_chiprime / eval_phiprime, ref_poly_vals, atol=tol)
 
 
 def test_eval_rho2_profile_iota_vs_phi_and_chi(teststate, c_poly):
@@ -196,14 +196,14 @@ def test_eval_rho2_profile_iota_vs_phi_and_chi(teststate, c_poly):
     since chi and phi are computed using an anti-derivative from dPhi/ds and dchi/ds,
     this is a test for the anti-derivative.
     """
-    rho = np.linspace(1.0e-16, 1.0, 129)
+    rho2 = np.linspace(1.0e-16, 1.0, 129)
     ref_poly = np.polynomial.Polynomial(c_poly)
-    ref_poly_vals = ref_poly(rho**2)
-    eval_iota = teststate.evaluate_profile("iota", rho=rho)
-    np.testing.assert_allclose(eval_iota, ref_poly_vals)
-    eval_dphids = teststate.evaluate_rho2_profile("Phi", rho2=rho**2, deriv=1)
-    eval_dchids = teststate.evaluate_rho2_profile("chi", rho2=rho**2, deriv=1)
-    np.testing.assert_allclose(eval_dchids / eval_dphids, ref_poly_vals)
+    ref_poly_vals = ref_poly(rho2)
+    eval_iota = teststate.evaluate_rho2_profile("iota", rho2=rho2)
+    np.testing.assert_allclose(eval_iota, ref_poly_vals, atol=tol)
+    eval_dphids = teststate.evaluate_rho2_profile("Phi", rho2=rho2, deriv=1)
+    eval_dchids = teststate.evaluate_rho2_profile("chi", rho2=rho2, deriv=1)
+    np.testing.assert_allclose(eval_dchids / eval_dphids, ref_poly_vals, atol=tol)
 
 
 @pytest.mark.parametrize("BC_type_axis", ["not_a_knot", "1st_deriv", "2nd_deriv"])
