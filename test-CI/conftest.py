@@ -52,13 +52,7 @@ def pytest_addoption(parser):
         "--postdir",
         type=Path,
         default=Path(__file__).parent / "post",
-        help="Path to post directory",
-    )
-    group.addoption(
-        "--convdir",
-        type=Path,
-        default=Path(__file__).parent / "conv",
-        help="Path to post-converter directory",
+        help="Path to post/converter directory",
     )
     group.addoption(
         "--annotations",
@@ -91,6 +85,11 @@ def pytest_addoption(parser):
         default="",
         help="prefix for the run commands, e.g. mpirun or srun (with arguments)",
     )
+    group.addoption(
+        "--require-pygvec",
+        action="store_true",
+        help="Fail tests (rather than skip) if pygvec is not available",
+    )
 
     group = parser.getgroup("custom_regression_options")
     group.addoption(
@@ -115,25 +114,7 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    """
-    Add custom markers to pytest, as if using the `pytest.ini` file.
-
-    Args:
-        config (Config): The pytest configuration object.
-    """
-    # register additional markers
-    for marker in [
-        "example: mark test as a example, which are all tests specified in `test-CI/examples`, executed in folder `rundir/example`",
-        "restart: mark test as a restart (deduced from example folder name). Needs the example to be run first!",
-        "shortrun: mark test as a shortrun  (executed in folder `rundir/shortrun`, overwrites parameters: `testlevel=-1` and `MaxIter=1`)",
-        "debugrun: mark test as a debugrun (executed in folder `rundir/debugrun`, overwrites parameters: `testlevel=2` and `MaxIter=1`)",
-        "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)",
-        "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir`, activates visualization parameters). Needs run_stage to be executed before in a given `rundir` directory.",
-        "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The --refdir argument is mandatory!",
-        "converter_stage: mark test belonging to the post-processing converter stage (executed for all testgroups into a `postdir`, for all compiled converters). Needs run_stage to be executed before in a given `rundir` directory.",
-    ]:
-        config.addinivalue_line("markers", marker)
-
+    """modify the pytest configuration (beyond the configuration in pyproject.toml)"""
     # custom global variables
     pytest.raised_warnings = False
 
@@ -217,7 +198,7 @@ def pytest_sessionfinish(session, exitstatus):
             )
             session.exitstatus = ok
 
-    if pytest.raised_warnings:
+    if pytest.raised_warnings and exitstatus != tests_failed:
         session.exitstatus = no_tests_collected
 
 
@@ -288,12 +269,6 @@ def postdir(request) -> Path:
 
 
 @pytest.fixture(scope="session")
-def convdir(request) -> Path:
-    """path to the converter directory, default is test-CI/conv"""
-    return Path(request.config.getoption("--convdir")).absolute()
-
-
-@pytest.fixture(scope="session")
 def rootdir(request) -> Path:
     """path to the root (test-CI) directory"""
     return Path(request.config.rootdir).absolute()
@@ -309,6 +284,12 @@ def rundir(request) -> Path:
 def extra_ignore_patterns(request) -> list:
     """additional ignore patterns for the `test_regression` line comparison"""
     return request.config.getoption("--add-ignore-pattern")
+
+
+@pytest.fixture(scope="session")
+def require_pygvec(request) -> bool:
+    """flag to require pygvec for the tests"""
+    return request.config.getoption("--require-pygvec")
 
 
 @pytest.fixture(scope="session")
@@ -390,7 +371,7 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
     shutil.copytree(sourcedir, targetdir, symlinks=True)
     # modify parameter files for certain testgroups
     match testgroup:
-        case "shortrun" | "unit-pygvec":
+        case "shortrun":
             util.adapt_parameter_file(
                 sourcedir / "parameter.ini",
                 targetdir / "parameter.ini",
@@ -408,82 +389,17 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
                 logIter=1,
                 outputIter=1,
             )
-    return targetdir
-
-
-@pytest.fixture(scope="session")
-def testcasepostdir(util, postdir: Path, rundir: Path, testgroup: str, testcase: str):
-    """
-    Generate the post directory at `{postdir}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
-    """
-    # assert that `{postdir}` and `{postdir}/{testgroup}` exist
-    if not postdir.exists():
-        postdir.mkdir()
-    if not (postdir / "data").exists():
-        (postdir / "data").symlink_to(
-            os.path.relpath(Path(__file__).parent / "data", postdir)
-        )
-    if not (postdir / testgroup).exists():
-        (postdir / testgroup).mkdir()
-    # create the testcase directory
-    sourcedir = Path(__file__).parent / "examples" / testcase
-    sourcerundir = rundir / testgroup / testcase
-    targetdir = postdir / testgroup / testcase
-    if targetdir.exists():
-        shutil.rmtree(targetdir)
-    # copy input files from examples/testcase
-    shutil.copytree(sourcedir, targetdir, symlinks=True)
-    states = [
-        sd for sd in os.listdir(sourcerundir) if "State" in sd and sd.endswith(".dat")
-    ]
-    # link to statefiles from run_stage
-    for statefile in states:
-        (targetdir / statefile).symlink_to(
-            os.path.relpath(sourcerundir / statefile, targetdir)
-        )
-    # overwrite parameter file with the rundir version and modify it
-    util.adapt_parameter_file(
-        sourcerundir / "parameter.ini",
-        targetdir / "parameter.ini",
-        visu1D="!0",
-        visu2D="!0",
-        visu3D="!0",
-        SFLout="!-1",  # only uncomment visualization flags
-    )
-    return targetdir
-
-
-@pytest.fixture(scope="function")
-def testcaseconvdir(
-    convdir: Path, rundir: Path, testgroup: str, testcase: str, which_conv: str
-):
-    """
-    Generate the post directory at `{convdir}/which_conv/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
-    """
-    # assert that `{postdir}` and `{postdir}/{testgroup}` exist
-    if not convdir.exists():
-        convdir.mkdir()
-    if not (convdir / which_conv).exists():
-        (convdir / which_conv).mkdir()
-    postdir = convdir / which_conv
-    if not (postdir / "data").exists():
-        (postdir / "data").symlink_to(Path(__file__).parent / "data")
-    if not (postdir / testgroup).exists():
-        (postdir / testgroup).mkdir()
-    # create the testcase directory
-    sourcedir = Path(__file__).parent / "examples" / testcase
-    sourcerundir = rundir / testgroup / testcase
-    targetdir = postdir / testgroup / testcase
-    if targetdir.exists():
-        shutil.rmtree(targetdir)
-    # copy input files from examples/testcase
-    shutil.copytree(sourcedir, targetdir, symlinks=True)
-    states = [
-        sd for sd in os.listdir(sourcerundir) if "State" in sd and sd.endswith(".dat")
-    ]
-    # link to statefiles from run_stage
-    for statefile in states:
-        (targetdir / statefile).symlink_to(
-            os.path.relpath(sourcerundir / statefile, targetdir)
-        )
+        case "unit-pygvec":
+            util.adapt_parameter_file(
+                sourcedir / "parameter.ini",
+                targetdir / "parameter.ini",
+                testlevel=-1,
+                MaxIter=1,
+                logIter=1,
+                outputIter=1,
+                visu1D=0,
+                visu2D=0,
+                visu3D=0,
+                SFLout=-1,
+            )
     return targetdir

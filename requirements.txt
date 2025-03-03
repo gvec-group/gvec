@@ -1,0 +1,8 @@
+# python packages needed for editable installations
+# all other dependencies are in pyproject.toml
+#$ pip install --no-build-isolation -ve .
+
+numpy>=2
+scikit_build_core
+setuptools_scm
+f90wrap

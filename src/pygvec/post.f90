@@ -101,9 +101,9 @@ SUBROUTINE select_base_dofs(var, base, dofs)
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var                 ! selection string: which variable to evaluate
-  CLASS(t_base), POINTER, INTENT(OUT) :: base         ! pointer to the base object (X1, X2, LA)
-  REAL, POINTER, INTENT(OUT) :: dofs(:,:)    ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  CHARACTER(LEN=2), INTENT(IN) :: var          !! selection string: which variable to evaluate
+  CLASS(t_base), POINTER, INTENT(OUT) :: base  !! pointer to the base object (X1, X2, LA)
+  REAL, POINTER, INTENT(OUT) :: dofs(:,:)      !! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   SELECT CASE(var)
     CASE('X1')
@@ -130,8 +130,8 @@ SUBROUTINE select_base(var, base)
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var                 ! selection string: which variable to evaluate
-  CLASS(t_base), POINTER, INTENT(OUT) :: base         ! pointer to the base object (X1, X2, LA)
+  CHARACTER(LEN=2), INTENT(IN) :: var                 !! selection string: which variable to evaluate
+  CLASS(t_base), POINTER, INTENT(OUT) :: base         !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   SELECT CASE(var)
     CASE('X1')
@@ -153,12 +153,12 @@ SUBROUTINE evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_do
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var                 ! selection string: which variable to evaluate
-  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_s         ! selection string: which derivative to evaluate for the spline
-  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_f         ! selection string: which derivative to evaluate for the fourier series
-  CLASS(t_base), POINTER, INTENT(OUT) :: base         ! pointer to the base object (X1, X2, LA)
-  REAL, POINTER, INTENT(OUT) :: solution_dofs(:,:)    ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
-  INTEGER, INTENT(OUT) :: seli_deriv_s, seli_deriv_f  ! integer values for the derivative selection
+  CHARACTER(LEN=2), INTENT(IN) :: var                 !! selection string: which variable to evaluate
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_s         !! selection string: which derivative to evaluate for the spline
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_f         !! selection string: which derivative to evaluate for the fourier series
+  CLASS(t_base), POINTER, INTENT(OUT) :: base         !! pointer to the base object (X1, X2, LA)
+  REAL, POINTER, INTENT(OUT) :: solution_dofs(:,:)    !! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  INTEGER, INTENT(OUT) :: seli_deriv_s, seli_deriv_f  !! integer values for the derivative selection
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base_dofs(var, base, solution_dofs)
   SELECT CASE(TRIM(sel_deriv_s))
@@ -191,10 +191,10 @@ SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var           ! selection string: which variable to evaluate
-  INTEGER, INTENT(OUT) :: n_s, n_t, n_z            ! number of integration points
+  CHARACTER(LEN=2), INTENT(IN) :: var           !! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: n_s, n_t, n_z         !! number of integration points
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base                    ! pointer to the base object (X1, X2, LA)
+  CLASS(t_base), POINTER :: base                !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   n_s = base%s%nGP
@@ -214,11 +214,11 @@ SUBROUTINE get_integration_points(var, s_GP, s_w, t_w, z_w)
   USE MODgvec_base,           ONLY: t_base
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var           ! selection string: which variable to evaluate
-  REAL, DIMENSION(:), INTENT(OUT) :: s_GP, s_w  ! output arrays for the gauss points and weights
-  REAL, INTENT(OUT) :: t_w, z_w                 ! output array for the fourier interpolation weights (equidistant points)
+  CHARACTER(LEN=2), INTENT(IN) :: var           !! selection string: which variable to evaluate
+  REAL, DIMENSION(:), INTENT(OUT) :: s_GP, s_w  !! output arrays for the gauss points and weights
+  REAL, INTENT(OUT) :: t_w, z_w                 !! output array for the fourier interpolation weights (equidistant points)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base                ! pointer to the base object (X1, X2, LA)
+  CLASS(t_base), POINTER :: base                !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   s_GP = base%s%s_GP
@@ -230,10 +230,10 @@ END SUBROUTINE get_integration_points
 !================================================================================================================================!
 SUBROUTINE get_modes(var, modes)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
-  INTEGER, INTENT(OUT) :: modes         ! total number of modes in basis (depends if only sin/cos or sin & cos are used)
+  CHARACTER(LEN=2), INTENT(IN) :: var   !! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: modes         !! total number of modes in basis (depends if only sin/cos or sin & cos are used)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
+  CLASS(t_base), POINTER :: base        !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   modes = base%f%modes
@@ -242,10 +242,10 @@ END SUBROUTINE get_modes
 !================================================================================================================================!
 SUBROUTINE get_mn_max(var, m_max, n_max)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
-  INTEGER, INTENT(OUT) :: m_max, n_max  ! maximum number of poloidal, toroidal modes
+  CHARACTER(LEN=2), INTENT(IN) :: var   !! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: m_max, n_max  !! maximum number of poloidal, toroidal modes
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA)
+  CLASS(t_base), POINTER :: base        !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   m_max = base%f%mn_max(1)
@@ -255,10 +255,10 @@ END SUBROUTINE get_mn_max
 !================================================================================================================================!
 SUBROUTINE get_mn_IP(var, mn_IP)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
-  INTEGER, INTENT(OUT) :: mn_IP         ! =mn_nyq(1)*mn_nyq(2)
+  CHARACTER(LEN=2), INTENT(IN) :: var   !! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: mn_IP         !! =mn_nyq(1)*mn_nyq(2)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA)
+  CLASS(t_base), POINTER :: base        !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   mn_IP = base%f%mn_IP
@@ -267,10 +267,10 @@ END SUBROUTINE get_mn_IP
 !================================================================================================================================!
 SUBROUTINE get_s_nBase(var, s_nbase)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var   ! selection string: which variable to evaluate
-  INTEGER, INTENT(OUT) :: s_nbase       ! total number of degree of freedom / global basis functions
+  CHARACTER(LEN=2), INTENT(IN) :: var   !! selection string: which variable to evaluate
+  INTEGER, INTENT(OUT) :: s_nbase       !! total number of degree of freedom / global basis functions
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base        ! pointer to the base object (X1, X2, LA)
+  CLASS(t_base), POINTER :: base        !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   s_nbase = base%s%nbase
@@ -279,10 +279,10 @@ END SUBROUTINE get_s_nBase
 !================================================================================================================================!
 SUBROUTINE get_s_IP(var, s_IP)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  CHARACTER(LEN=2), INTENT(IN) :: var       ! selection string: which variable to evaluate
-  REAL, DIMENSION(:), INTENT(OUT) :: s_IP   ! position of interpolation points for initialization, size(nBase)
+  CHARACTER(LEN=2), INTENT(IN) :: var       !! selection string: which variable to evaluate
+  REAL, DIMENSION(:), INTENT(OUT) :: s_IP   !! position of interpolation points for initialization, size(nBase)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  CLASS(t_base), POINTER :: base            ! pointer to the base object (X1, X2, LA)
+  CLASS(t_base), POINTER :: base            !! pointer to the base object (X1, X2, LA)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base(var, base)
   s_IP = base%s%s_IP
@@ -295,12 +295,12 @@ SUBROUTINE evaluate_base_list_tz(n_s, n_tz, s, thetazeta, var, sel_deriv_s, sel_
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n_s, n_tz              ! number of evaluation points
-  REAL, INTENT(IN) :: s(n_s), thetazeta(2,n_tz) ! evaluation points
-  CHARACTER(LEN=2), INTENT(IN) :: var           ! selection string: which variable to evaluate
-  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_s   ! selection string: which derivative to evaluate for the spline
-  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_f   ! selection string: which derivative to evaluate for the fourier series
-  REAL, INTENT(OUT) :: result(n_s,n_tz)         ! output array
+  INTEGER, INTENT(IN) :: n_s, n_tz              !! number of evaluation points
+  REAL, INTENT(IN) :: s(n_s), thetazeta(2,n_tz) !! evaluation points
+  CHARACTER(LEN=2), INTENT(IN) :: var           !! selection string: which variable to evaluate
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_s   !! selection string: which derivative to evaluate for the spline
+  CHARACTER(LEN=2), INTENT(IN) :: sel_deriv_f   !! selection string: which derivative to evaluate for the fourier series
+  REAL, INTENT(OUT) :: result(n_s,n_tz)         !! output array
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i_s                          ! loop variables
   INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
@@ -326,10 +326,10 @@ SUBROUTINE evaluate_base_list_tz_all(n_s, n_tz, s, thetazeta, Qsel, Q, dQ_ds, dQ
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n_s, n_tz                ! number of evaluation points
-  REAL, INTENT(IN) :: s(n_s), thetazeta(2,n_tz)   ! evaluation points
-  CHARACTER(LEN=2), INTENT(IN) :: Qsel            ! selection string: which variable to evaluate
-  REAL, INTENT(OUT), DIMENSION(n_s,n_tz) :: Q, &  ! reference space position and derivatives
+  INTEGER, INTENT(IN) :: n_s, n_tz                !! number of evaluation points
+  REAL, INTENT(IN) :: s(n_s), thetazeta(2,n_tz)   !! evaluation points
+  CHARACTER(LEN=2), INTENT(IN) :: Qsel            !! selection string: which variable to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s,n_tz) :: Q, &  !! reference space position and derivatives
     dQ_ds, dQ_dthet, dQ_dzeta, dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i                                                        ! loop variables
@@ -367,11 +367,11 @@ SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, res
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  REAL, INTENT(IN) :: s(:), theta(:), zeta(:)   ! evaluation points to construct a mesh
-  CHARACTER(LEN=2) :: var                       ! selection string: which variable to evaluate
-  CHARACTER(LEN=2) :: sel_deriv_s               ! selection string: which derivative to evaluate for the spline
-  CHARACTER(LEN=2) :: sel_deriv_f               ! selection string: which derivative to evaluate for the fourier series
-  REAL, INTENT(OUT) :: result(:,:,:)            ! output array
+  REAL, INTENT(IN) :: s(:), theta(:), zeta(:)   !! evaluation points to construct a mesh
+  CHARACTER(LEN=2) :: var                       !! selection string: which variable to evaluate
+  CHARACTER(LEN=2) :: sel_deriv_s               !! selection string: which derivative to evaluate for the spline
+  CHARACTER(LEN=2) :: sel_deriv_f               !! selection string: which derivative to evaluate for the fourier series
+  REAL, INTENT(OUT) :: result(:,:,:)            !! output array
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i_s                          ! loop variables
   INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
@@ -401,10 +401,10 @@ SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, Qsel, Q, dQ_ds,
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n_s, n_t, n_z                                            ! number of evaluation points
-  REAL, INTENT(IN) :: s(n_s), theta(n_t), zeta(n_z)                               ! evaluation points to construct a mesh
-  CHARACTER(LEN=2) :: Qsel                                                        ! selection string: which variable to evaluate
-  REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: Q, dQ_ds, dQ_dthet, dQ_dzeta       ! reference space position & derivatives
+  INTEGER, INTENT(IN) :: n_s, n_t, n_z                                            !! number of evaluation points
+  REAL, INTENT(IN) :: s(n_s), theta(n_t), zeta(n_z)                               !! evaluation points to construct a mesh
+  CHARACTER(LEN=2) :: Qsel                                                        !! selection string: which variable to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: Q, dQ_ds, dQ_dthet, dQ_dzeta       !! reference space position & derivatives
   REAL, INTENT(OUT), DIMENSION(n_s,n_t,n_z) :: dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i                                                         ! loop variables
@@ -461,10 +461,10 @@ SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, 
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n                                                      ! number of evaluation points
-  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds                ! reference space position & derivatives
-  REAL, INTENT(IN), DIMENSION(n) :: dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta  ! reference space derivatives
-  REAL, INTENT(OUT), DIMENSION(3,n) :: coord, e_s, e_thet, e_zeta               ! real space position and basis vectors
+  INTEGER, INTENT(IN) :: n                                                      !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds                !! reference space position & derivatives
+  REAL, INTENT(IN), DIMENSION(n) :: dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta  !! reference space derivatives
+  REAL, INTENT(OUT), DIMENSION(3,n) :: coord, e_s, e_thet, e_zeta               !! real space position and basis vectors
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
   REAL, DIMENSION(3) :: q   ! position in reference space
@@ -485,9 +485,9 @@ SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n                                      ! number of evaluation points
-  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta                ! reference space position
-  REAL, INTENT(OUT), DIMENSION(3,n) :: pos, e_X1, e_X2, e_zeta3 ! real space position and reference tangent basis vectors
+  INTEGER, INTENT(IN) :: n                                      !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta                !! reference space position
+  REAL, INTENT(OUT), DIMENSION(3,n) :: pos, e_X1, e_X2, e_zeta3 !! real space position and reference tangent basis vectors
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
   REAL, DIMENSION(3) :: q   ! position in reference space
@@ -514,14 +514,14 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n                                                                        ! number of evaluation points
-  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  ! reference coordinates
-  REAL, INTENT(IN), DIMENSION(n) :: dX1_dss, dX2_dss, dX1_dst, dX2_dst, dX1_dsz, dX2_dsz          ! and their derivatives
+  INTEGER, INTENT(IN) :: n                                                                        !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  !! reference coordinates
+  REAL, INTENT(IN), DIMENSION(n) :: dX1_dss, dX2_dss, dX1_dst, dX2_dst, dX1_dsz, dX2_dsz          !! and their derivatives
   REAL, INTENT(IN), DIMENSION(n) :: dX1_dtt, dX2_dtt, dX1_dtz, dX2_dtz, dX1_dzz, dX2_dzz
-  REAL, INTENT(OUT), DIMENSION(n) :: g_ss, g_st, g_sz, g_tt, g_tz, g_zz                           ! metric coefficients
-  REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_ds, dg_st_ds, dg_sz_ds, dg_tt_ds, dg_tz_ds, dg_zz_ds   ! derivatives of the m. coef.
-  REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt   ! derivatives of the m. coef.
-  REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz   ! derivatives of the m. coef.
+  REAL, INTENT(OUT), DIMENSION(n) :: g_ss, g_st, g_sz, g_tt, g_tz, g_zz                           !! metric coefficients
+  REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_ds, dg_st_ds, dg_sz_ds, dg_tt_ds, dg_tz_ds, dg_zz_ds   !! derivatives of the m. coef.
+  REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt   !! derivatives of the m. coef.
+  REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz   !! derivatives of the m. coef.
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i                                                                ! loop variable
   REAL, DIMENSION(3) :: q, q_s, q_t, q_z, q_ss, q_st, q_sz, q_tt, q_tz, q_zz  ! position in reference space
@@ -586,9 +586,9 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: hmap
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n                                                                        ! number of evaluation points
-  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  ! reference coordinates
-  REAL, INTENT(OUT), DIMENSION(n) :: Jh, dJh_ds, dJh_dt, dJh_dz                                   ! jacobian det. and derivatives
+  INTEGER, INTENT(IN) :: n                                                                        !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  !! reference coordinates
+  REAL, INTENT(OUT), DIMENSION(n) :: Jh, dJh_ds, dJh_dt, dJh_dz                                   !! jacobian det. and derivatives
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
   REAL, DIMENSION(3) :: q   ! position in reference space
@@ -612,13 +612,13 @@ SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_rProfile_base,  ONLY: c_rProfile
-  USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile
+  USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile, chi_profile, Phi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
-  REAL, INTENT(IN), DIMENSION(n_s) :: rho2    ! radial evaluation points
-  INTEGER, INTENT(IN) :: deriv                ! order of the derivative
-  CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
-  REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
+  INTEGER, INTENT(IN) :: n_s                  !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n_s) :: rho2    !! radial evaluation points (in rho^2)
+  INTEGER, INTENT(IN) :: deriv                !! order of the derivative in rho^2
+  CHARACTER(LEN=*), INTENT(IN) :: var         !! selection string: which profile to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s) :: result !! values of the profile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i  ! loop variable
   CLASS(c_rProfile), ALLOCATABLE :: input_profile
@@ -627,15 +627,20 @@ SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
     input_profile = iota_profile
   CASE("p")
     input_profile = pres_profile
+  CASE("chi")
+    input_profile = chi_profile
+  CASE("Phi")
+    input_profile = Phi_profile
   CASE DEFAULT
     CALL abort(__STAMP__, &
     'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
   DO i = 1,n_s
-    result(i) = input_profile%eval_at_rho2(rho2=rho2(i), deriv=deriv)
+    result(i) = input_profile%eval_at_rho2(rho2(i), deriv)
   END DO
   SDEALLOCATE(input_profile)
 END SUBROUTINE evaluate_rho2_profile
+
 
 !================================================================================================================================!
 !> evaluate 1D-radial profiles and their derivatives with respect to rho
@@ -644,66 +649,36 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
   USE MODgvec_rProfile_base,  ONLY: c_rProfile
-  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure, iota_profile, pres_profile
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_mass, Eval_chi, Eval_chiPrime, Eval_Phi, Eval_PhiPrime, Eval_Phi_TwoPrime, &
-                                    Eval_PhiNorm, Eval_PhiNormPrime
+  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure, iota_profile, pres_profile, &
+                                    Phi_profile, chi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  INTEGER, INTENT(IN) :: n_s                  ! number of evaluation points
-  REAL, INTENT(IN), DIMENSION(n_s) :: s       ! radial evaluation points
-  INTEGER, INTENT(IN) :: deriv                ! order of the derivative
-  CHARACTER(LEN=*), INTENT(IN) :: var         ! selection string: which profile to evaluate
-  REAL, INTENT(OUT), DIMENSION(n_s) :: result ! values of the profile
+  INTEGER, INTENT(IN) :: n_s                  !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n_s) :: s       !! radial evaluation points
+  INTEGER, INTENT(IN) :: deriv                !! order of the derivative in rho
+  CHARACTER(LEN=*), INTENT(IN) :: var         !! selection string: which profile to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_s) :: result !! values of the profile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i  ! loop variable
-  LOGICAL :: is_input_profile ! check for iota or pres
-  PROCEDURE(Eval_chiPrime), POINTER :: eval_profile
   CLASS(c_rProfile), ALLOCATABLE :: input_profile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  is_input_profile = .FALSE.
   SELECT CASE(TRIM(var))
     CASE("iota")
-      is_input_profile = .TRUE.
       input_profile = iota_profile
     CASE("p")
-      is_input_profile = .TRUE.
       input_profile = pres_profile
-    CASE("mass")
-      eval_profile => Eval_mass
     CASE("chi")
-      IF (deriv .EQ. 0) THEN
-        eval_profile => Eval_chi
-      ELSE IF (deriv .EQ. 1) THEN
-        eval_profile => Eval_chiPrime
-      END IF
+      input_profile = chi_profile
     CASE("Phi")
-      IF (deriv .EQ. 0) THEN 
-        eval_profile => Eval_Phi
-      ELSE IF (deriv .EQ. 1) THEN
-        eval_profile => Eval_PhiPrime
-      ELSE IF (deriv == 2) THEN
-        eval_profile => Eval_Phi_TwoPrime
-      END IF
-    CASE("PhiNorm")
-      IF (deriv .EQ. 0) THEN
-        eval_profile => Eval_PhiNorm
-      ELSE IF (deriv .EQ. 1) THEN
-        eval_profile => Eval_PhiNormPrime
-      END IF
+      input_profile = Phi_profile
     CASE DEFAULT
       CALL abort(__STAMP__, &
       'ERROR: variable "'//TRIM(var)//'" not recognized')
   END SELECT
 
-  IF (is_input_profile) THEN
-    DO i = 1,n_s
-      result(i) = input_profile%eval_at_rho(spos=s(i), deriv=deriv)
-    END DO
-    SDEALLOCATE(input_profile)
-  ELSE 
-    DO i = 1,n_s
-      result(i) = eval_profile(s(i))
-    END DO
-  END IF
+  DO i = 1,n_s
+    result(i) = input_profile%eval_at_rho(s(i),deriv)
+  END DO
+  SDEALLOCATE(input_profile)
 END SUBROUTINE evaluate_profile
 
 !================================================================================================================================!
@@ -713,21 +688,20 @@ END SUBROUTINE evaluate_profile
 FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sfl_boozer)
   ! MODULES
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer, sfl_boozer_new
-  USE MODgvec_MHD3D_profiles, ONLY: Eval_PhiPrime
-  USE MODgvec_MHD3D_vars,     ONLY: hmap, iota_profile
+  USE MODgvec_MHD3D_vars,     ONLY: hmap, iota_profile, Phi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer                 ! SFL-Boozer object
-  INTEGER, INTENT(IN) :: mn_max(2), mn_nyq(2), nrho             ! parameters for the Boozer object
+  TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer                 !! SFL-Boozer object
+  INTEGER, INTENT(IN) :: mn_max(2), mn_nyq(2), nrho             !! parameters for the Boozer object
   CHARACTER(LEN=8), INTENT(IN)   :: sin_cos      !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
-  REAL, INTENT(IN), DIMENSION(nrho) :: rho_pos                  ! radial positions
-  LOGICAL, INTENT(IN) :: relambda                               ! recompute lambda flag
+  REAL, INTENT(IN), DIMENSION(nrho) :: rho_pos                  !! radial positions
+  LOGICAL, INTENT(IN) :: relambda                               !! recompute lambda flag
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i
   REAL, DIMENSION(nrho) :: iota, phiPrime                       ! iota and phiPrime
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   DO i = 1,nrho
     iota(i) = iota_profile%eval_at_rho(rho_pos(i))
-    phiPrime(i) = Eval_PhiPrime(rho_pos(i))
+    phiPrime(i) = Phi_profile%eval_at_rho(rho_pos(i),deriv=1)
   END DO
   ! ALLOCATE is called within sfl_boozer_new
   CALL sfl_boozer_new(sfl_boozer, mn_max, mn_nyq, nfp, sin_cos, hmap, nrho, rho_pos, iota, phiPrime, relambda)
@@ -743,6 +717,56 @@ SUBROUTINE get_boozer(sfl_boozer)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base, U(0)%X1, U(0)%X2, U(0)%LA)
 END SUBROUTINE get_boozer
+
+!================================================================================================================================!
+!> Evaluate LA or NU and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s
+!================================================================================================================================!
+SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Qsel, Q, dQ_dthet, dQ_dzeta, &
+                                       dQ_dtt, dQ_dtz, dQ_dzz)
+  ! MODULES
+  USE MODgvec_Globals,      ONLY: Unit_stdOut,abort
+  USE MODgvec_fbase,        ONLY: t_fbase
+  USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  TYPE(t_sfl_boozer), INTENT(IN), TARGET :: sfl_boozer  ! SFL-Boozer object
+  INTEGER, INTENT(IN) :: n_s, n_tz                      ! number of evaluation points
+  INTEGER, INTENT(IN) :: irho(1:n_s)                      ! indices of the flux surfaces
+  REAL, INTENT(IN) :: thetazeta(2,n_tz)                 ! evaluation points
+  CHARACTER(LEN=2), INTENT(IN) :: Qsel                  ! selection string: which variable to evaluate
+  REAL, INTENT(OUT), DIMENSION(1:n_s,n_tz) :: Q, &        ! reference space position and derivatives
+    dQ_dthet, dQ_dzeta, dQ_dtt, dQ_dtz, dQ_dzz
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i                                                        ! loop variables
+  INTEGER :: seli_deriv_s, seli_deriv_f                               ! integer values for the derivative selection
+  CLASS(t_fbase), POINTER :: base                                     ! pointer to the base object (LA, NU)
+  REAL, POINTER :: dofs(:,:)                                          ! pointer to the solution dofs
+  REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs                           ! DOFs for the fourier series
+  REAL, ALLOCATABLE :: intermediate(:)                                ! intermediate result array before reshaping
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(Qsel)
+    CASE('LA')
+      base => sfl_boozer%nu_fbase
+      dofs => sfl_boozer%lambda
+    CASE('NU')
+      base => sfl_boozer%nu_fbase
+      dofs => sfl_boozer%nu
+    CASE DEFAULT
+      WRITE(UNIT_stdout,*) 'ERROR: variable', Qsel, 'not recognized'
+      CALL abort(__STAMP__,"")
+  END SELECT
+  DO i=1,n_s
+    ! there is no radial basis in the Boozer object, so we only select the correct radial position
+    Q_dofs = dofs(:, irho(i)+1)
+    ! use the tensorproduct for theta and zeta
+    Q(i,:) = base%evalDOF_xn(n_tz, thetazeta, 0, Q_dofs)
+    dQ_dthet(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_THET, Q_dofs)
+    dQ_dzeta(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA, Q_dofs)
+    dQ_dtt(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_THET_THET, Q_dofs)
+    dQ_dtz(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_THET_ZETA, Q_dofs)
+    dQ_dzz(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA_ZETA, Q_dofs)
+  END DO
+  DEALLOCATE(Q_dofs)
+END SUBROUTINE evaluate_boozer_list_tz_all
 
 !================================================================================================================================!
 SUBROUTINE Finalize()

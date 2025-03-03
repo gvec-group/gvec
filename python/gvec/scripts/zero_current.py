@@ -282,7 +282,7 @@ def run_zero_current(
     return 0
 
 
-def main() -> int:
+def main():
     args = parser.parse_args()
     if args.quiet and args.verbose:
         raise ValueError("Cannot be quiet and verbose at the same time.")
@@ -315,7 +315,6 @@ def main() -> int:
         gvec_stdout_path=None if args.verbose >= 3 else "stdout.txt",
         plots=args.plots,
     )
-    return 0
 
 
 if __name__ == "__main__":

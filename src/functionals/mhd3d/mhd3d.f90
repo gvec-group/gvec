@@ -165,7 +165,7 @@ SUBROUTINE InitMHD3D(sf)
       ELSE 
         pres_profile=vmec_pres_profile
       END IF ! pressure from parameterfile
-    
+
       proposal_mn_max(:)=(/mpol-1,ntor/)
       IF(lasym)THEN !asymmetric
         proposal_X1_sin_cos="_sincos_"
@@ -175,7 +175,7 @@ SUBROUTINE InitMHD3D(sf)
       nfp_loc = nfp
       which_hmap=1 !hmap_RZ
       Phi_edge = Phi(nFluxVMEC)
-    END IF
+    END IF !MPIroot
     CALL par_BCast(which_hmap,0)
     CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
@@ -211,7 +211,7 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
 
-  
+ 
   CALL hmap_new(hmap,which_hmap)
   IF((hmap%nfp.NE.-1).AND.(hmap%nfp.NE.nfp_loc)) CALL abort(__STAMP__,&
                         "nfp from GVEC parameterfile does not match to nfp used in hmap.")
@@ -357,7 +357,7 @@ SUBROUTINE InitMHD3D(sf)
   END IF !MPIroot
 
   
-   
+
   !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
   !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
   !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent  
@@ -682,7 +682,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
-  USE MODgvec_MHD3D_profiles,ONLY:Eval_PhiPrime,Eval_chiPrime
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -946,9 +945,8 @@ END SUBROUTINE InitSolution
 SUBROUTINE Init_LA_from_Solution(U_init)
 ! MODULES
   USE MODgvec_Globals,       ONLY:ProgressBar,getTime,myRank,nRanks
-  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X2_base,LA_base,LA_BC_Type,hmap
+  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X2_base,LA_base,LA_BC_Type,hmap, Phi_profile, chi_profile
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_phiPrime,Eval_chiPrime
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
   USE MODgvec_MPI           ,ONLY:par_reduce,par_BCast
 !$ USE omp_lib
@@ -961,7 +959,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode,is,ns_str,ns_end,iRank,nBase
-  REAL(wp) :: BC_val(2),spos
+  REAL(wp) :: BC_val(2),rhopos
   REAL(wp) :: StartTime,EndTime
   REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -978,9 +976,9 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   !evaluate profiles only in MPIroot!
   IF(MPIroot)THEN
     DO is=1,nBase
-      spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-      phiPrime(is)=Eval_phiPrime(spos)
-      chiPrime(is)=Eval_chiPrime(spos)
+      rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+      phiPrime(is)=Phi_profile%eval_at_rho(rhopos,deriv=1)
+      chiPrime(is)=chi_profile%eval_at_rho(rhopos,deriv=1)
     END DO
   END IF !MPIroot
   CALL par_BCast(phiPrime,0)
@@ -991,8 +989,8 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
   DO is=ns_str,ns_end
-    spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-    CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
+    rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+    CALL lambda_Solve(rhopos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
     CALL ProgressBar(is,ns_end)
   END DO !is
 !!!  CALL par_reduce(LA_gIP,'SUM',0)
