@@ -17,6 +17,7 @@ import shutil
 import contextlib
 import os
 from typing import Iterable
+from collections.abc import Mapping, MutableMapping
 
 
 @contextlib.contextmanager
@@ -32,6 +33,84 @@ def chdir(target: Path | str):
     os.chdir(target)
     yield
     os.chdir(source)
+
+
+class CaseInsensitiveDict(MutableMapping):
+    # Adapted from requests.structures.CaseInsensitiveDict
+    # See: https://github.com/psf/requests/blob/main/src/requests/structures.py
+    # Original license: Apache License 2.0
+    """A dictionary-like Mutable Mapping where string keys are case-insensitive.
+
+    Implements all methods and operations of
+    ``MutableMapping`` as well as dict's ``copy``. Also
+    provides ``lower_items`` and ``lower_keys``.
+
+    Keys that are not strings will be stored as-is.
+    The structure remembers the case of the last used key, and
+    ``iter(instance)``, ``keys()``, ``items()``, ``iterkeys()``, and ``iteritems()``
+    will contain case-sensitive keys. However, querying and contains
+    testing is case insensitive:
+
+        cid = CaseInsensitiveDict()
+        cid['param'] = 'value'
+        cid['Param'] == 'value'  # True
+
+    If the constructor, ``.update``, or equality comparison
+    operations are given keys that have equal ``.lower()``s, a ValueError is raised.
+    """
+
+    def __init__(self, data=(), /, **kwargs):
+        self._data = {}
+        self.update(data, **kwargs)
+
+    @staticmethod
+    def _idx(key):
+        return key.lower() if isinstance(key, str) else key
+
+    def __setitem__(self, key, value):
+        # Use the lowercased key for lookups, but remember the last key alongside the value.
+        self._data[self._idx(key)] = (key, value)
+
+    def __getitem__(self, key):
+        return self._data[self._idx(key)][1]
+
+    def __delitem__(self, key):
+        del self._data[self._idx(key)]
+
+    def update(self, data=(), /, **kwargs):
+        updates = {}
+        updates.update(data, **kwargs)
+        idxs = {self._idx(key) for key in updates}
+        if len(idxs) != len(updates):
+            raise ValueError("Duplicate keys passed to CaseInsensitiveDict.update")
+        for key, value in updates.items():
+            self[key] = value
+
+    def __iter__(self):
+        return (key for key, value in self._data.values())
+
+    def lower_keys(self):
+        return (idx for idx in self._data.keys())
+
+    def lower_items(self):
+        return ((idx, value) for idx, (key, value) in self._data.items())
+
+    def __len__(self):
+        return len(self._data)
+
+    def __eq__(self, other):
+        if isinstance(other, Mapping):
+            other = CaseInsensitiveDict(other)
+        else:
+            return NotImplemented
+        # Compare insensitively
+        return dict(self.lower_items()) == dict(other.lower_items())
+
+    def copy(self):
+        return self.__class__(self._data.values())
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}{dict(self.items())}"
 
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
@@ -96,7 +175,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                 if key.lower() in kwargs:
                     if (int(mn[0]), int(mn[1])) in kwargs[key.lower()]:
                         line = f"{key}({mn[0]};{mn[1]}) = {kwargs[key.lower()][(int(mn[0]), int(mn[1]))]}\n"
-                        occurrences[key, int(mn[0]), int(mn[1])] += 1
+                        occurrences[key.lower(), int(mn[0]), int(mn[1])] += 1
             elif m := re.match(
                 r"([\s!]*)("
                 + "|".join(
@@ -146,22 +225,21 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"
 
 
-def read_parameter_file(path: str | Path, lowercase: bool = False) -> dict:
+def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
     """
     Read the parameters from the specified parameter file.
 
     Args:
         path (str | Path): The path to the parameter file.
-        lowercase (bool): If True, the keys in the returned dictionary are converted to lowercase.
 
     Returns:
-        dict: A dictionary containing the parameters from the parameter file.
+        CaseInsensitiveDict: A dictionary (with case insensitive keys) containing the parameters from the parameter file.
 
     Example:
     >>> read_parameter_file('/path/to/parameter.ini')
     {'param1': 1.2, 'param2': (1, 2, 3), 'param3': {(-1, 0): 0.5, (0, 0): 1.0}}
     """
-    parameters = {}
+    parameters = CaseInsensitiveDict()
     with open(path, "r") as file:
         for line in file:
             # match parameter in the form `key(m,n) = value` with m,n integers and value a float
@@ -194,8 +272,6 @@ def read_parameter_file(path: str | Path, lowercase: bool = False) -> dict:
                         parameters[key] = float(value)
                     except ValueError:
                         parameters[key] = value
-    if lowercase:
-        parameters = {key.lower(): value for key, value in parameters.items()}
     return parameters
 
 
