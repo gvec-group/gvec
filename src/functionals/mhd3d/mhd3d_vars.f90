@@ -26,6 +26,8 @@ USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base
 USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
 USE MODgvec_c_hmap, ONLY: c_hmap
+USE MODgvec_rProfile_base, ONLY: c_rProfile
+
 IMPLICIT NONE
 PUBLIC
 
@@ -80,10 +82,7 @@ LOGICAL              :: DoCheckDistance !! TRUE: check distance between solution
 LOGICAL              :: DoCheckAxis     !! TRUE: check axis position (default: true)
 ! input parameters for functional
 REAL(wp)             :: Phi_edge        !! toroidal flux at the last flux surface of the domain
-INTEGER              :: n_pres_coefs    !! number of polynomial coeffients for mass profile
-INTEGER              :: n_iota_coefs    !! number of polynomial coeffients for iota profile
-REAL(wp),ALLOCATABLE :: pres_coefs(:)   !! polynomial coefficients of the mass profile
-REAL(wp),ALLOCATABLE :: iota_coefs(:)   !! polynomial coefficients of the iota profile
+
 !constants
 REAL(wp)             :: mu_0            !! permeability
 REAL(wp)             :: gamm            !! isentropic exponent, if gamma /= 0 pres ~ mass profile
@@ -98,7 +97,10 @@ REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary fo
 REAL(wp),ALLOCATABLE :: X1pert_b(:)     !! fourier modes of the boundary perturbation for X1 (if boundary_perturb=T)
 REAL(wp),ALLOCATABLE :: X2pert_b(:)     !! fourier modes of the boundary perturbation for X2 (if boundary_perturb=T)
 
-
+CLASS(c_rProfile), ALLOCATABLE   :: iota_profile
+CLASS(c_rProfile), ALLOCATABLE   :: pres_profile
+CLASS(c_rProfile), ALLOCATABLE   :: Phi_profile
+CLASS(c_rProfile), ALLOCATABLE   :: chi_profile
 !===================================================================================================================================
 
 END MODULE MODgvec_MHD3D_Vars

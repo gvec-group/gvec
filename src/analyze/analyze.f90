@@ -232,18 +232,20 @@ CHARACTER(LEN=4)   :: vstr
   !strech towards axis and edge
   rho_int=rho_int+0.05_wp*SIN(Pi*(2.0_wp*rho_int-1.0_wp))
   
+  rho_int(1)=1.0e-12
+  rho_int(n_int)=1.0-1e-12
   nVal=1
   Varnames(nVal)='Phi'
   values(  nVal,:)=Phi_prof(:)
   DO i=1,n_int
-    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),Phi_Spl)
+    values_int(nVal,i)=vmec_phi_profile%eval_at_rho(rho_int(i))
   END DO !i
   
   nVal=nVal+1
   Varnames(nVal)='chi'
   values(  nVal,:)=Chi_prof(:)
   DO i=1,n_int
-    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),chi_Spl)
+    values_int(nVal,i)=vmec_chi_profile%eval_at_rho(rho_int(i))
   END DO !i
   
   nVal=nVal+1
@@ -251,7 +253,7 @@ CHARACTER(LEN=4)   :: vstr
   values(  nVal,:)=rho(:)
   values_int(nVal,:)=rho_int(:)
   
-  rho_half(1)=0.
+  rho_half(1)=1.0e-12
   DO i=1,nFluxVMEC-1
     rho_half(i+1)=SQRT(0.5_wp*(NormFlux_prof(i+1)+NormFlux_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
   END DO
@@ -264,14 +266,14 @@ CHARACTER(LEN=4)   :: vstr
   Varnames(nVal)='iota(Phi_norm)'
   values(  nVal,:)=iotaf(:)
   DO i=1,n_int
-    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),iota_Spl)
+    values_int(nVal,i)=vmec_iota_profile%eval_at_rho(rho_int(i))
   END DO !i
   
   nVal=nVal+1
   Varnames(nVal)='pres(Phi_norm)'
   values(  nVal,:)=presf(:)
   DO i=1,n_int
-    values_int(nVal,i)=VMEC_EvalSpl(0,rho_int(i),pres_Spl)
+    values_int(nVal,i)=vmec_pres_profile%eval_at_rho(rho_int(i))
   END DO !i
   
   nValRewind=nVal
