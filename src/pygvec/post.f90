@@ -719,6 +719,56 @@ SUBROUTINE get_boozer(sfl_boozer)
 END SUBROUTINE get_boozer
 
 !================================================================================================================================!
+!> Evaluate LA or NU and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s
+!================================================================================================================================!
+SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Qsel, Q, dQ_dthet, dQ_dzeta, &
+                                       dQ_dtt, dQ_dtz, dQ_dzz)
+  ! MODULES
+  USE MODgvec_Globals,      ONLY: Unit_stdOut,abort
+  USE MODgvec_fbase,        ONLY: t_fbase
+  USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  TYPE(t_sfl_boozer), INTENT(IN), TARGET :: sfl_boozer  ! SFL-Boozer object
+  INTEGER, INTENT(IN) :: n_s, n_tz                      ! number of evaluation points
+  INTEGER, INTENT(IN) :: irho(1:n_s)                      ! indices of the flux surfaces
+  REAL, INTENT(IN) :: thetazeta(2,n_tz)                 ! evaluation points
+  CHARACTER(LEN=2), INTENT(IN) :: Qsel                  ! selection string: which variable to evaluate
+  REAL, INTENT(OUT), DIMENSION(1:n_s,n_tz) :: Q, &        ! reference space position and derivatives
+    dQ_dthet, dQ_dzeta, dQ_dtt, dQ_dtz, dQ_dzz
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i                                                        ! loop variables
+  INTEGER :: seli_deriv_s, seli_deriv_f                               ! integer values for the derivative selection
+  CLASS(t_fbase), POINTER :: base                                     ! pointer to the base object (LA, NU)
+  REAL, POINTER :: dofs(:,:)                                          ! pointer to the solution dofs
+  REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs                           ! DOFs for the fourier series
+  REAL, ALLOCATABLE :: intermediate(:)                                ! intermediate result array before reshaping
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  SELECT CASE(Qsel)
+    CASE('LA')
+      base => sfl_boozer%nu_fbase
+      dofs => sfl_boozer%lambda
+    CASE('NU')
+      base => sfl_boozer%nu_fbase
+      dofs => sfl_boozer%nu
+    CASE DEFAULT
+      WRITE(UNIT_stdout,*) 'ERROR: variable', Qsel, 'not recognized'
+      CALL abort(__STAMP__,"")
+  END SELECT
+  DO i=1,n_s
+    ! there is no radial basis in the Boozer object, so we only select the correct radial position
+    Q_dofs = dofs(:, irho(i)+1)
+    ! use the tensorproduct for theta and zeta
+    Q(i,:) = base%evalDOF_xn(n_tz, thetazeta, 0, Q_dofs)
+    dQ_dthet(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_THET, Q_dofs)
+    dQ_dzeta(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA, Q_dofs)
+    dQ_dtt(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_THET_THET, Q_dofs)
+    dQ_dtz(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_THET_ZETA, Q_dofs)
+    dQ_dzz(i,:) = base%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA_ZETA, Q_dofs)
+  END DO
+  DEALLOCATE(Q_dofs)
+END SUBROUTINE evaluate_boozer_list_tz_all
+
+!================================================================================================================================!
 SUBROUTINE Finalize()
   ! MODULES
   USE MODgvec_Globals,        ONLY: Unit_stdOut

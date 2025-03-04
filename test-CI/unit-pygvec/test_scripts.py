@@ -12,7 +12,7 @@ import pytest
 try:
     import gvec
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 
 # === FIXTURES === #
@@ -23,7 +23,7 @@ def prepare_testcaserundir(tmp_path):
     """Prepare the test case run directory"""
     testcase = "w7x"
     shutil.copytree(
-        Path(__file__).parent / "../examples/w7x", tmp_path, dirs_exist_ok=True
+        Path(__file__).parent / "../examples/" / testcase, tmp_path, dirs_exist_ok=True
     )
     source = os.getcwd()
     os.chdir(tmp_path)

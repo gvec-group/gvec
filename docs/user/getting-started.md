@@ -45,6 +45,8 @@ Here, we mention the main steps from the notebook to run gvec and post-process t
     gvec.comp.table_of_quantities(markdown=True)
     ```
 
+1. More visualization examples are provided in the `ipython` notebook in `python/examples/visu.ipynb`.
+
 ## Run GVEC via the command line
 
 1) To install GVEC, follow the [installation instructions](install).
@@ -87,6 +89,8 @@ ctest -T test --output-on-failure -R
 ```
 
 ### Visualization
+
+Using the python interface, any statefile can be loaded and visualized using the `ipython` notebook in `python/examples/visu.ipynb`.
 
 For line plots, csv datafiles are generated.
 

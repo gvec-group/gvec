@@ -3,8 +3,15 @@ import os
 import subprocess
 import re
 from pathlib import Path
+import shutil
 
 import helpers
+
+try:
+    import xarray as xr
+    import gvec
+except ImportError:
+    pass
 
 
 # === HELPER FUNCTIONS & FIXTURES === #
@@ -97,7 +104,9 @@ def test_run(
                 len(states) > 0
             ), f"no statefile for restart found in base directory ../{base_name}"
             laststatefile = sorted(states)[-1]
-            (testcaserundir / laststatefile).symlink_to(os.path.relpath(base_directory / laststatefile, testcaserundir))
+            (testcaserundir / laststatefile).symlink_to(
+                os.path.relpath(base_directory / laststatefile, testcaserundir)
+            )
             args.append(laststatefile)
         else:
             if base_directory.exists():
@@ -138,62 +147,146 @@ def test_run(
         helpers.assert_stdout_OpenMP_MPI()
 
 
-@pytest.mark.post_stage
-def test_post(
-    runargs_prefix,
-    binpath,
-    testgroup,
-    testcase,
-    testcasepostdir,
-    dryrun,
-    annotations,
-    artifact_pages_path,
-):
-    """
-    Post processing  of statefile(s) from an example GVEC run.
+class BaseTestPost:
+    """Base class for postprocessing/converter tests
 
-    Takes the last two statefiles in `{rundir}/{testgroup}/{testcase}`  and runs the modified parameter with the post_gvec in
-    `{postdir}/{testgroup}/{testcase}`.
-    Note: the `testgroup` fixture is contained in `testcasepostdir`, but is given additionally to the test function
-    for better readability and proper parameter ordering for the pytest nodeID.
+    required fixtures/parameters:
+    - name: identifier used in the directory path
+    - args: list of arguments to pass to the executable
     """
-    args = runargs_prefix + [binpath / "gvec_post", "parameter.ini"]
-    # find all statefiles in directory
 
-    # run gvec
-    with helpers.chdir(testcasepostdir):
-        states = [sd for sd in os.listdir(".") if "State" in sd and sd.endswith(".dat")]
-        for statefile in states[len(states) - 2 : len(states)]:
-            args.append(statefile)  # add the last two files
+    exec: str  # name of the executable
+
+    @pytest.fixture(autouse=True)
+    def testcasedir(
+        self, postdir: Path, rundir: Path, testgroup: str, testcase: str, name: str
+    ):
+        """
+        Generate the post directory at `{convdir}/{name}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
+        where name can include the identifier for different arguments
+        """
+        if not postdir.exists():
+            postdir.mkdir()
+        if not (postdir / name).exists():
+            (postdir / name).mkdir()
+        if not (postdir / name / "data").exists():
+            (postdir / name / "data").symlink_to(Path(__file__).parent / "data")
+        if not (postdir / name / testgroup).exists():
+            (postdir / name / testgroup).mkdir()
+        # create the testcase directory
+        sourcedir = Path(__file__).parent / "examples" / testcase
+        sourcerundir = rundir / testgroup / testcase
+        targetdir = postdir / name / testgroup / testcase
+        if targetdir.exists():
+            shutil.rmtree(targetdir)
+        # copy input files from examples/testcase
+        shutil.copytree(sourcedir, targetdir, symlinks=True)
+        # link to statefiles from run_stage
+        states = sorted(sourcerundir.glob("*State*.dat"))
+        for statefile in states:
+            (targetdir / statefile.name).symlink_to(
+                os.path.relpath(statefile, targetdir)
+            )
+        with helpers.chdir(targetdir):
+            yield
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        args = runargs_prefix + [binpath / self.exec] + args
+        states = sorted(Path(".").glob("*State*.dat"))
+        # dryrun
         if dryrun:
-            if len(states) == 0:
-                args.append("STATEFILES???!")
-            with open("dryrun-post.txt", "w") as file:
+            with open("dryrun.txt", "w") as file:
+                file.write(f"found statefiles {states}\n")
                 file.write(f"DRYRUN: execute:\n {args} \n")
             return
-        assert (
-            len(states) > 0
-        ), f"no statefile for post found in directory {testcasepostdir}"
-        # run gvec_post
+        # insert the last statefile
+        assert len(states) > 0, "no statefile for post/converter found"
+        args[args.index("STATEFILE")] = states[-1]
+        # run
         with open("stdout.txt", "w") as stdout:
             stdout.write(f"RUNNING: \n {args} \n")
-        with open("stdout.txt", "a") as stdout, open("stderr.txt", "w") as stderr:
+        with (
+            open("stdout.txt", "a") as stdout,
+            open("stderr.txt", "w") as stderr,
+        ):
             subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
         # add link to artifact (CI)
         for filename in ["stdout", "stderr"]:
-            if pages_postdir := os.environ.get("CASENAME"):
-                pages_postdir = f"CIpost_{pages_postdir}"
+            if casename := os.environ.get("CASENAME"):
+                pages_convdir = f"CIpost_{casename}"
             else:
-                pages_postdir = "."
+                pages_convdir = "."
             annotations["gvec-output"].append(
                 dict(
                     external_link=dict(
-                        label=f"{testgroup}/{testcase}/{filename}",
-                        url=f"{artifact_pages_path}/{pages_postdir}/{testgroup}/{testcase}/{filename}.txt",
+                        label=f"{name}/{testgroup}/{testcase}/{filename}",
+                        url=f"{artifact_pages_path}/{pages_convdir}/{name}/{testgroup}/{testcase}/{filename}.txt",
                     )
                 )
             )
-        # check if GVEC was successful
+
+
+@pytest.mark.post_stage
+class TestPost(BaseTestPost):
+    exec = "gvec_post"
+
+    @pytest.fixture(autouse=True)
+    def adapt_parameters(self, util, testcasedir):
+        # uncomment visualization flags
+        util.adapt_parameter_file(
+            "parameter.ini",
+            "parameter.ini",
+            visu1D="!0",
+            visu2D="!0",
+            visu3D="!0",
+            SFLout="!-1",
+        )
+
+    @pytest.fixture
+    def name(self):
+        return "post"
+
+    @pytest.fixture
+    def args(self):
+        return ["parameter.ini", "STATEFILE"]
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        super().test_post(
+            testgroup,
+            testcase,
+            binpath,
+            runargs_prefix,
+            name,
+            args,
+            dryrun,
+            annotations,
+            artifact_pages_path,
+        )
+        if dryrun:
+            return
+
         helpers.assert_empty_stderr(slurm="srun" in runargs_prefix)
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
         helpers.assert_stdout_OpenMP_MPI()
@@ -201,35 +294,36 @@ def test_post(
 
 @pytest.mark.converter_stage
 @pytest.mark.parametrize(
-    "which_conv", ["to_gene", "to_jorek", "to_castor3d", "to_hopr"]
-)
-def test_converter(
-    runargs_prefix,
-    binpath,
-    testgroup,
-    testcase,
-    which_conv,
-    testcaseconvdir,
-    dryrun,
-    annotations,
-    artifact_pages_path,
-):
-    """
-    Post processing  of statefile(s) from an example GVEC run, using the compiled converters.
-
-    Takes the last statefile in `{rundir}/{testgroup}/{testcase}`  and runs the modified parameter with the post_gvec in
-    `{postdir}/{which_conv}/{testgroup}/{testcase}`.
-    Note: the `testgroup` fixture is contained in `testcasepostdir`, but is given additionally to the test function
-    for better readability and proper parameter ordering for the pytest nodeID.
-    """
-    conv_def = {
-        "to_gene": dict(exec="test_gvec_to_gene", msg="TEST GVEC TO GENE"),
-        "to_hopr": dict(exec="test_gvec_to_hopr", msg="TEST GVEC TO HOPR"),
-        "to_castor3d": dict(
-            exec="convert_gvec_to_castor3d",
-            msg="CONVERT GVEC TO CASTOR3D",
-            args=[
-                ["--rpoints=7", "--polpoints=12", "--torpoints=8", "--sflcoord=0"],
+    "name, exec, msg, args",
+    [
+        (
+            "to_gene",
+            "test_gvec_to_gene",
+            "TEST GVEC TO GENE",
+            ["STATEFILE"],
+        ),
+        (
+            "to_hopr",
+            "test_gvec_to_hopr",
+            "TEST GVEC TO HOPR",
+            ["STATEFILE"],
+        ),
+    ]
+    + [
+        (
+            f"to_castor3d-{i}",
+            "convert_gvec_to_castor3d",
+            "CONVERT GVEC TO CASTOR3D",
+            args + ["STATEFILE", "gvec2castor3d_sfl.dat"],
+        )
+        for i, args in enumerate(
+            [
+                [
+                    "--rpoints=7",
+                    "--polpoints=12",
+                    "--torpoints=8",
+                    "--sflcoord=0",
+                ],
                 [
                     "--rpoints=8",
                     "--polpoints=11",
@@ -252,85 +346,140 @@ def test_converter(
                     "--factorsfl=2",
                     "--booz_relambda=0",
                 ],
-            ],
-            fixedargs=[
-                ["gvec2castor3d_sfl0.dat"],
-                ["gvec2castor3d_sfl1.dat"],
-                ["gvec2castor3d_sfl2.dat"],
-                ["gvec2castor3d_sfl3.dat"],
-            ],
-        ),  # same length of args & fixedargs, give the number of runs
-        "to_jorek": dict(
-            exec="convert_gvec_to_jorek",
-            msg="CONVERT GVEC TO JOREK",
-            args=[["--rpoints=8", "--npfactor=1", "--polpoints=12"]],
-            fixedargs=[["gvec2jorek_out.dat"]],
-        ),
-    }
-    conv = conv_def[which_conv]
-    if not ((not dryrun) and (binpath / conv["exec"]).exists()):
-        pytest.skip(f"Executable {conv['exec']} not found in binary folder!")
-        return
-    # multiple runs with different arguments:
-    if "args" in conv.keys():
-        nruns = len(conv["args"])
-        if "fixedargs" in conv.keys():
-            assert len(conv["fixedargs"]) == len(conv["args"])
-    else:
-        nruns = 1
-    # run converter
-    with helpers.chdir(testcaseconvdir):
-        for irun in range(0, nruns):
-            args = runargs_prefix + [binpath / conv["exec"]]
-            if "args" in conv.keys():
-                args += conv["args"][irun]
-            # find all statefiles in directory
-            states = [
-                sd for sd in os.listdir(".") if "State" in sd and sd.endswith(".dat")
             ]
-            if dryrun:
-                if len(states) == 0:
-                    args.append("STATEFILES???!")
-                    if "fixedargs" in conv.keys():
-                        args.append(conv["fixedargs"][irun])
-                with open(f"dryrun-post-converter{irun}.txt", "w") as file:
-                    file.write(f"DRYRUN: execute:\n {args} \n")
-                return
-            assert (
-                len(states) > 0
-            ), f"no statefile for post-converter found in directory {testcaseconvdir}"
+        )
+    ]
+    + [
+        (
+            "to_jorek",
+            "convert_gvec_to_jorek",
+            "CONVERT GVEC TO JOREK",
+            [
+                "--rpoints=8",
+                "--npfactor=1",
+                "--polpoints=12",
+                "STATEFILE",
+                "gvec2jorek_out.dat",
+            ],
+        )
+    ],
+    ids=[
+        "to_gene",
+        "to_hopr",
+        "to_castor3d-0",
+        "to_castor3d-1",
+        "to_castor3d-2",
+        "to_castor3d-3",
+        "to_jorek",
+    ],
+)
+class TestConverters(BaseTestPost):
+    @pytest.fixture(autouse=True)
+    def mark_xfail(self, request):
+        if "frenet" in request.node.name:
+            request.node.add_marker(pytest.mark.xfail(reason="not implemented yet"))
 
-            args.append(states[-1])  # add the last state file
-            if "fixedargs" in conv.keys():
-                args += conv["fixedargs"][irun]
-            # run gvec_post
-            with open(f"stdout{irun}.txt", "w") as stdout:
-                stdout.write(f"RUNNING: \n {args} \n")
-            with (
-                open(f"stdout{irun}.txt", "a") as stdout,
-                open(f"stderr{irun}.txt", "w") as stderr,
-            ):
-                subprocess.run(args, text=True, stdout=stdout, stderr=stderr)
-            # add link to artifact (CI)
-            for filename in [f"stdout{irun}", f"stderr{irun}"]:
-                if pages_convdir := os.environ.get("CASENAME"):
-                    pages_convdir = f"CIconv_{pages_convdir}"
-                else:
-                    pages_convdir = "."
-                annotations["gvec-output"].append(
-                    dict(
-                        external_link=dict(
-                            label=f"{which_conv}/{testgroup}/{testcase}/{filename}",
-                            url=f"{artifact_pages_path}/{pages_convdir}/{which_conv}/{testgroup}/{testcase}/{filename}.txt",
-                        )
-                    )
-                )
-            # check if GVEC was successful
-            helpers.assert_empty_stderr(f"stderr{irun}.txt", slurm="srun" in runargs_prefix)
-            helpers.assert_stdout_finished(
-                f"stdout{irun}.txt", message=conv["msg"] + " FINISHED!"
-            )
-            # helpers.assert_stdout_OpenMP_MPI()
+    @pytest.fixture(autouse=True)
+    def set_exec(self, exec):
+        self.exec = exec
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        msg,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        super().test_post(
+            testgroup,
+            testcase,
+            binpath,
+            runargs_prefix,
+            name,
+            args,
+            dryrun,
+            annotations,
+            artifact_pages_path,
+        )
+        if dryrun:
+            return
+
+        helpers.assert_empty_stderr("stderr.txt", slurm="srun" in runargs_prefix)
+        helpers.assert_stdout_finished("stdout.txt", message=f"{msg} FINISHED!")
+
+
+@pytest.mark.pygvec
+@pytest.mark.converter_stage
+class TestToCAS3D(BaseTestPost):
+    exec = "gvec_to_cas3d"
+
+    @pytest.fixture
+    def name(self):
+        return "to_cas3d"
+
+    @pytest.fixture
+    def args(self):
+        return [
+            "--ns",
+            "3",
+            "--MN_out",
+            "4",
+            "4",
+            "--stellsym",
+            "--pointwise",
+            "Booz-CAS3D.nc",
+            "parameter.ini",
+            "STATEFILE",
+            "BoozFT-CAS3D.nc",
+        ]
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        super().test_post(
+            testgroup,
+            testcase,
+            binpath,
+            runargs_prefix,
+            name,
+            args,
+            dryrun,
+            annotations,
+            artifact_pages_path,
+        )
+        if dryrun:
+            return
+
+        with open("stderr.txt") as file:
+            lines = file.readlines()
+            assert "done" in lines[-2]
+
+        assert Path("BoozFT-CAS3D.nc").exists()
+        boozft = xr.open_dataset("BoozFT-CAS3D.nc")
+        for var in boozft.variables:
+            assert "long_name" in boozft[var].attrs
+            assert "symbol" in boozft[var].attrs
+
+        assert Path("Booz-CAS3D.nc").exists()
+        booz = xr.open_dataset("Booz-CAS3D.nc")
+        for var in booz.variables:
+            assert "long_name" in booz[var].attrs
+            assert "symbol" in booz[var].attrs
 
 
 @pytest.mark.regression_stage
@@ -461,7 +610,7 @@ def test_regression(
     for filename, result in sorted(results.items(), key=lambda x: (x[1], x[0])):
         if result == "success":
             logger.info(f"... {green}{result}{reset} : {filename}")
-        if result in ["ignored", "symlink"]:
+        elif result in ["ignored", "symlink"]:
             logger.debug(f"... {result} : {filename}")
         else:
             logger.error(f"... {red}{result}{reset} : {filename}")

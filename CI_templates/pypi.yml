@@ -23,7 +23,7 @@ pypi.$[[ inputs.publish-target ]]:
     - .script_publish_$[[ inputs.publish-target ]]
     - $[[ inputs.rules ]]
   needs:
-    - job: build.pip$[[ inputs.env ]]
+    - job: build$[[ inputs.env ]]_py
       artifacts: true # for venv
     - job: unit$[[ inputs.env ]]
   allow_failure: true  # ignore this job for the pipeline status

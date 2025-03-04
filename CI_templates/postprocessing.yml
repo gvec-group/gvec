@@ -7,13 +7,28 @@ spec:
     env:
       description: Name of the environment, e.g. `mpcdfci_ifx-latest`
       default: .mpcdfci_ifx-latest
+    vars:
+      description: Template with variables or parallel:matrix
+      default: .vars_matrix_post
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
+    build-postfix:
+      description: Job name postfix, e.g. `_only_converter`
+      default: ""
+    run-postfix:
+      description: Job name postfix, e.g. `_debugrun` or `_tag_slurm`
+      default: ""
+    post-postfix:
+      description: Job name postfix, e.g. `_debugrun` or `_tag_slurm`
+      default: ""
+    script-postfix:
+      description: Script name postfix, e.g. `_py`
+      default: ""
 
 ---
 
-post$[[ inputs.env ]]:
+post$[[ inputs.env ]]$[[ inputs.post-postfix ]]:
   stage: postprocessing
   before_script:
     - !reference [".before_script_modules", "before_script"]
@@ -21,11 +36,11 @@ post$[[ inputs.env ]]:
   extends:
     - $[[ inputs.env ]]
     - .vars_dirs_artifacts
-    - .script_post
-    - .vars_matrix_post  # matrix of variables
+    - .script_post$[[ inputs.script-postfix ]]
+    - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   needs:
-    - job: build$[[ inputs.env ]]
+    - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
     - job: run$[[ inputs.env ]]
       artifacts: true

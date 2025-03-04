@@ -23,6 +23,8 @@ except ImportError:
     BSpline = None
 import contextlib
 import os
+from typing import Iterable
+from collections.abc import Mapping, MutableMapping
 
 
 @contextlib.contextmanager
@@ -38,6 +40,84 @@ def chdir(target: Path | str):
     os.chdir(target)
     yield
     os.chdir(source)
+
+
+class CaseInsensitiveDict(MutableMapping):
+    # Adapted from requests.structures.CaseInsensitiveDict
+    # See: https://github.com/psf/requests/blob/main/src/requests/structures.py
+    # Original license: Apache License 2.0
+    """A dictionary-like Mutable Mapping where string keys are case-insensitive.
+
+    Implements all methods and operations of
+    ``MutableMapping`` as well as dict's ``copy``. Also
+    provides ``lower_items`` and ``lower_keys``.
+
+    Keys that are not strings will be stored as-is.
+    The structure remembers the case of the last used key, and
+    ``iter(instance)``, ``keys()``, ``items()``, ``iterkeys()``, and ``iteritems()``
+    will contain case-sensitive keys. However, querying and contains
+    testing is case insensitive:
+
+        cid = CaseInsensitiveDict()
+        cid['param'] = 'value'
+        cid['Param'] == 'value'  # True
+
+    If the constructor, ``.update``, or equality comparison
+    operations are given keys that have equal ``.lower()``s, a ValueError is raised.
+    """
+
+    def __init__(self, data=(), /, **kwargs):
+        self._data = {}
+        self.update(data, **kwargs)
+
+    @staticmethod
+    def _idx(key):
+        return key.lower() if isinstance(key, str) else key
+
+    def __setitem__(self, key, value):
+        # Use the lowercased key for lookups, but remember the last key alongside the value.
+        self._data[self._idx(key)] = (key, value)
+
+    def __getitem__(self, key):
+        return self._data[self._idx(key)][1]
+
+    def __delitem__(self, key):
+        del self._data[self._idx(key)]
+
+    def update(self, data=(), /, **kwargs):
+        updates = {}
+        updates.update(data, **kwargs)
+        idxs = {self._idx(key) for key in updates}
+        if len(idxs) != len(updates):
+            raise ValueError("Duplicate keys passed to CaseInsensitiveDict.update")
+        for key, value in updates.items():
+            self[key] = value
+
+    def __iter__(self):
+        return (key for key, value in self._data.values())
+
+    def lower_keys(self):
+        return (idx for idx in self._data.keys())
+
+    def lower_items(self):
+        return ((idx, value) for idx, (key, value) in self._data.items())
+
+    def __len__(self):
+        return len(self._data)
+
+    def __eq__(self, other):
+        if isinstance(other, Mapping):
+            other = CaseInsensitiveDict(other)
+        else:
+            return NotImplemented
+        # Compare insensitively
+        return dict(self.lower_items()) == dict(other.lower_items())
+
+    def copy(self):
+        return self.__class__(self._data.values())
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}{dict(self.items())}"
 
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
@@ -70,6 +150,17 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         shutil.copy2(source, target)
         return
 
+    for key, value in kwargs.items():
+        if isinstance(value, dict) or isinstance(value, str):
+            pass
+        elif isinstance(value, bool):
+            kwargs[key] = "T" if value else "F"
+        elif isinstance(value, Iterable):
+            kwargs[key] = f"(/{', '.join(map(str, value))}/)"
+        else:
+            kwargs[key] = str(value)
+    kwargs = {key.lower(): value for key, value in kwargs.items()}
+
     # initialize occurrences counters for all parameters to be set
     occurrences = {}
     for key in kwargs:
@@ -79,67 +170,69 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         else:
             occurrences[key] = 0
 
-    assert target != source
-    with open(source, "r") as source_file, open(target, "w") as target_file:
+    with open(source, "r") as source_file:
+        source_file = source_file.readlines()
+    with open(target, "w") as target_file:
         for line in source_file:
             if m := re.match(
                 r"\s*([^!=\s\(]+)\s*\(\s*([-\d]+);\s*([-\d]+)\)\s*=\s*([-+\d\.Ee]+)",
                 line,
             ):
                 key, *mn, value = m.groups()
-                if key in kwargs:
-                    if (int(mn[0]), int(mn[1])) in kwargs[key]:
-                        line = f"{key}({mn[0]};{mn[1]}) = {kwargs[key][(int(mn[0]), int(mn[1]))]}\n"
-                        occurrences[key, int(mn[0]), int(mn[1])] += 1
+                if key.lower() in kwargs:
+                    if (int(mn[0]), int(mn[1])) in kwargs[key.lower()]:
+                        line = f"{key}({mn[0]};{mn[1]}) = {kwargs[key.lower()][(int(mn[0]), int(mn[1]))]}\n"
+                        occurrences[key.lower(), int(mn[0]), int(mn[1])] += 1
             elif m := re.match(
                 r"([\s!]*)("
                 + "|".join(
                     [
-                        key
+                        key.lower()
                         for key, value in kwargs.items()
                         if not isinstance(value, dict)
                     ]
                 )
                 + r")(\s*=\s*)(\([^\)]*\)|[^!\s]*)(.*)",
                 line,
+                re.IGNORECASE,
             ):
                 prefix, key, sep, value, suffix = m.groups()
                 if "!" in prefix:  # found commented keyword
-                    if str(kwargs[key])[0] == "!":  # only uncomment keyword
+                    if str(kwargs[key.lower()])[0] == "!":  # only uncomment keyword
                         line = f"{key}{sep}{value}{suffix}\n"
-                        occurrences[key] += 1
+                        occurrences[key.lower()] += 1
                 else:  # found uncommented keywords
-                    if not (str(kwargs[key])[0] == "!"):  # use new keyword
-                        line = f"{prefix}{key}{sep}{kwargs[key]}{suffix}\n"
-                        occurrences[key] += 1
+                    if str(kwargs[key.lower()])[0] != "!":  # use new keyword
+                        line = f"{prefix}{key}{sep}{kwargs[key.lower()]}{suffix}\n"
+                        occurrences[key.lower()] += 1
                     else:  # use the existing keyword,value pair with a comment
                         line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
-                        occurrences[key] += 1
+                        occurrences[key.lower()] += 1
             target_file.write(line)
         # add key,value pair if not existing in parameterfile.
-        for key, v in occurrences.items():
-            if v == 0:
+        for key, o in occurrences.items():
+            if o == 0:
                 if isinstance(key, tuple):
                     key, m, n = key
                     if str(kwargs[key][m, n]) != "!":
-                        target_file.write(f"\n {key}({m};{n}) = {kwargs[key][m, n]}")
+                        target_file.write(f"\n{key}({m};{n}) = {kwargs[key][m, n]}")
                         occurrences[key, m, n] += 1
                 else:
                     if str(kwargs[key]) == "!":
                         continue  # ignore 'uncomment' value if key is not found
                     elif str(kwargs[key])[0] == "!":
                         # use default value '!default' if key is not found
-                        target_file.write(f"\n {key} = {kwargs[key][1:]}")
+                        target_file.write(f"\n{key} = {kwargs[key][1:]}")
                     else:
                         # add parameter at the end if key is not found
-                        target_file.write(f"\n {key} = {kwargs[key]}")
+                        target_file.write(f"\n{key} = {kwargs[key]}")
                     occurrences[key] += 1
     assert all(
-        [v == 1 for v in occurrences.values()]
+        [o == 1 for o in occurrences.values()]
     ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"
 
 
-def read_parameter_file(path: str | Path) -> dict:
+def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
     """
     Read the parameters from the specified parameter file.
 
@@ -147,13 +240,13 @@ def read_parameter_file(path: str | Path) -> dict:
         path (str | Path): The path to the parameter file.
 
     Returns:
-        dict: A dictionary containing the parameters from the parameter file.
+        CaseInsensitiveDict: A dictionary (with case insensitive keys) containing the parameters from the parameter file.
 
     Example:
     >>> read_parameter_file('/path/to/parameter.ini')
     {'param1': 1.2, 'param2': (1, 2, 3), 'param3': {(-1, 0): 0.5, (0, 0): 1.0}}
     """
-    parameters = {}
+    parameters = CaseInsensitiveDict()
     with open(path, "r") as file:
         for line in file:
             # match parameter in the form `key(m,n) = value` with m,n integers and value a float
@@ -168,7 +261,7 @@ def read_parameter_file(path: str | Path) -> dict:
                     assert (int(m), int(n)) not in parameters[key]
                     parameters[key][int(m), int(n)] = float(value)
             # match parameter in the form `key = (/value/)` with value an array of ints or floats, separated by commas
-            elif ln := re.match(r"\s*([^!=\s]+)\s*=\s*\(/(.*)/\)", line):
+            elif ln := re.match(r"\s*([^!=\s]+)\s*=\s*\(/(.*?)/\)", line):
                 key, value = ln.groups()
                 assert key not in parameters
                 try:
