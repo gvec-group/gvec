@@ -363,7 +363,7 @@
     name: "post_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
       - log_pytest_post.txt
-      - CIpost_${CASENAME}
+      # - CIpost_${CASENAME}  # disable for now, unused, ~460MB per job!
     expire_in: 1 week
     when: always
     reports:
