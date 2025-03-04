@@ -39,7 +39,10 @@ options:
                         output pointwise data to a separate file
 ```
 
-Note that per default `gvec_to_cas3d` will be parallelized with OpenMP and you can set the number of threads with the environment variable `OMP_NUM_THREADS`.
+Note that per default `gvec_to_cas3d` will be parallelized with OpenMP and you can set the number of threads (for example 20) before running the converter as an environment variable, with
+```bash
+export OMP_NUM_THREADS=20
+```
 
 :::{note}
 The Boozer Transform is limiting both the performance and memory usage of the converter. A higher resolution (e.g. `--MN_out 16 32 --sampling 4`) can require significant amounts of RAM (e..g more than 32GiB).
@@ -78,27 +81,27 @@ The derived quantities are then transformed as shown [here](./coordinate-convent
 
 ### field-periodic representation
 
-The flux surface position in cartesian coordinates is not periodic on one field-period. Guiliani et. al. [^xhat] presented a representation of $x,y,z$ with the fourier series for $\hat{x},\hat{y},\hat{z}$ with the transformation defined as:
+If the number of field periods is >1, the flux surface positions $x,y,z$ in cartesian coordinates are not periodic on one field-period. A transformation to field-periodic variables $\hat{x},\hat{y},\hat{z}$ is possible, using the toroidal parameterization $\zeta\in[0,2\pi]$, see Guiliani et. al. [^xhat]. The transform forflux surface with $\theta$ poloidal  and $\zeta$ toroidal parameterization is then defined as:
 
 $$
 \begin{align}
-\hat{x}(\zeta) &:=x(\zeta)\cos2\pi\zeta+y(\zeta)\sin2\pi\zeta, \\
-\hat{y}(\zeta) &:=-x(\zeta)\cos2\pi\zeta+y(\zeta)\cos2\pi\zeta, \\
-\hat{z}(\zeta) &:=z(\zeta)
+\hat{x}(\theta,\zeta) &:=\quad x(\theta,\zeta)\cos(2\pi\zeta)+y(\theta,\zeta)\sin(2\pi\zeta), \\
+\hat{y}(\theta,\zeta) &:=-x(\theta,\zeta)\cos(2\pi\zeta)+y(\theta,\zeta)\cos(2\pi\zeta), \\
+\hat{z}(\theta,\zeta) &:=\quad z(\theta,\zeta)
 \end{align}
 $$
 
-and
+and its inverse
 
 $$
 \begin{align}
-x(s,\theta,\zeta) &:= \hat{x}(s,\theta,\zeta)\cos(2\pi\zeta) - \hat{y}(s,\theta,\zeta)\sin(2\pi\zeta), \\
-y(s,\theta,\zeta) &:= \hat{x}(s,\theta,\zeta)\cos(2\pi\zeta) + \hat{y}(s,\theta,\zeta)\cos(2\pi\zeta), \\
-z(s,\theta,\zeta) &:= \hat{z}(s,\theta,\zeta),
+x(\theta,\zeta) &:= \hat{x}(\theta,\zeta)\cos(2\pi\zeta) - \hat{y}(\theta,\zeta)\sin(2\pi\zeta), \\
+y(\theta,\zeta) &:= \hat{x}(\theta,\zeta)\cos(2\pi\zeta) + \hat{y}(\theta,\zeta)\cos(2\pi\zeta), \\
+z(\theta,\zeta) &:= \hat{z}(\theta,\zeta),
 \end{align}
 $$
 
-where $\hat{x}$ is an even periodic function on a field period and $\hat{y},\hat{z}$ are odd periodic functions on a field period.
+With stellarator-symmetry, $\hat{x}$ is an even periodic function on a field period and $\hat{y},\hat{z}$ are odd periodic functions on a field period.
 
 <!--- References -->
 

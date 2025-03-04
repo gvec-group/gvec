@@ -8,28 +8,28 @@ GVEC has a set of testcases and test logic contained within `test-CI`.
     ```bash
     ctest -T test --output-on-failure -R
     ```
-* A CI pipeline with automatic tests is configured for the [](http://gitlab.mpcdf.mpg.de/gvec-group/gvec) repository, using shared MPCDF gitlab runners to execute the tests. 
+* A CI pipeline with automatic tests is configured for the [](http://gitlab.mpcdf.mpg.de/gvec-group/gvec) repository, using shared MPCDF gitlab runners to execute the tests.
     * More details on the CI setup see: [](pipeline).
     * The CI manages different builds of the code, then calls pytest for running them and checking the results (requires `python >3.10` to be installed!).
 
-## Usage 
+## Usage
 
 * Call `pytest` or `python -m pytest` in the `test-CI` directory or the gvec root directory to run automatic tests.
 * With the `-m "(MARKER_A or MARKER_B) and MARKER_C"` option tests can be selected or deselected based on their markers.
-    * Currently, these custom markers specify a **testgroup**: 
-        * `example`: runs all testcases from `test-CI/examples/*` 
+    * Currently, these custom markers specify a **testgroup**:
+        * `example`: runs all testcases from `test-CI/examples/*`
         * `shortrun`: runs all testcases from `test-CI/examples/*`, saved in `RUNDIR/shortrun/*`, changing the parameters to one iteration, and no visualization.
         * `debugrun`: runs all testcases from `test-CI/examples/*`, saved in `RUNDIR/debugrun/*`, changing the parameters to one iteration and trigger additional testing during runtime.
     * Additionally, the marker `restart` exists, that executes all testcases that are named "BASENAME_restart", which have a dependency on the base testcase named "BASENAME". The base testcase must be run before!
     * Currently, these custom markers specify a **stage**:
         * `run_stage`: runs all testcases of all testgroups (or only of those specified).
         * `regression_stage`: runs a comparison of the `RUNDIR` and the runs of a reference in directory `REFDIR`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
-        * `post_stage`: runs post-processing/visualization of the tests in `RUNDIR`, saved into `POSTDIR`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
-        * `converter_stage`: runs post-processing using all converters of the tests in `RUNDIR`, saved into `CONVDIR`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
+        * `post_stage`: runs post-processing/visualization of the tests in `RUNDIR`, saved into `POSTDIR/post`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
+        * `converter_stage`: runs post-processing using all converters of the tests in `RUNDIR`, saved into `POSTDIR/converter-name`, for all testcases of all testgroups (or only of those specified). Depends on a `run_stage` executed before!
     * **Notes:**
         * Only one stage should be specified in a `pytest`` run!
-        * Testgroups are exclusive. Testgroups are combined with a stage using `and`. 
-    * **Examples:** 
+        * Testgroups are exclusive. Testgroups are combined with a stage using `and`.
+    * **Examples:**
         * `-m "run_stage"`: runs all tests of all testgroups
         * `-m "run_stage and example"`: runs tests marked with `example`
         * `-m "run_stage and (not example)"`: run all tests except those marked with `example`
@@ -46,11 +46,11 @@ GVEC has a set of testcases and test logic contained within `test-CI`.
 ### More Examples
 
 * Simulate a test run, without actually executing the tests. All tests are displayed and run folders and files are created, along with a dry-run output:
-  ```bash 
+  ```bash
   python -m pytest -v -m "run_stage" --dry-run
   ```
 * Run all end2end tests using `BUILDDIR/bin/gvec` and store the results at `RUNDIR`:
-  ```bash 
+  ```bash
   python -m pytest -v -m "run_stage" --builddir="BUILDDIR" --rundir="RUNDIR"
   ```
 * Run the file comparison between `RUNDIR` and `REFDIR`

@@ -80,7 +80,7 @@
     paths:
       - build_${BUILDNAME}
       - log_${BUILDNAME}_*.txt
-    expire_in: 1 week
+    expire_in: 3 days
     when: always
 
 .script_build_py:
@@ -128,7 +128,7 @@
     paths:
       - venv_${BUILDNAME}
       - log_${BUILDNAME}_*.txt
-    expire_in: 1 week
+    expire_in: 3 days
     when: always
     reports:
       junit:
@@ -207,7 +207,7 @@
       - log_pytest_run_norestart.txt
       - log_pytest_run_restart.txt
       - CIrun_${CASENAME}
-    expire_in: 1 week
+    expire_in: 3 days
     when: always
     reports:
       junit:
@@ -260,7 +260,7 @@
       - log_pytest_run_norestart.txt
       - log_pytest_run_restart.txt
       - CIrun_${CASENAME}
-    expire_in: 1 week
+    expire_in: 3 days
     when: always
     reports:
       junit:
@@ -332,7 +332,7 @@
       - log_pytest_regression.txt
       - CIrun_${CASENAME_1}
       - CIrun_${CASENAME_2}
-    expire_in: 1 week
+    expire_in: 3 days
     when: always #on_failure
     reports:
       junit: pytest.xml
@@ -364,7 +364,7 @@
     paths:
       - log_pytest_post.txt
       # - CIpost_${CASENAME}  # disable for now, unused, ~460MB per job!
-    expire_in: 1 week
+    expire_in: 3 days
     when: always
     reports:
       junit: pytest.xml
@@ -393,7 +393,7 @@
     paths:
       - log_pytest_conv.txt
       - CIpost_${CASENAME}
-    expire_in: 1 week
+    expire_in: 3 days
     when: always
     reports:
       junit: pytest.xml
@@ -403,10 +403,11 @@
   script:
     - export PYTEST_DIR_OPTS="--builddir=venv_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
     # POST & CONVERTER TESTS
-    - start_details post "Test Postprocessors & Converters"
+    - start_details post "Test Converters"
+    - rm -rf CIpost_${CASENAME}
     - ${PYTEST_EXEC_CMD}
       --log-file=log_pytest.txt
-      -m "${PYTEST_MARKER_OPTS} and (post_stage or converter_stage)"
+      -m "${PYTEST_MARKER_OPTS} and converter_stage"
       -k "${PYTEST_KEY_OPTS}"
       $PYTEST_DIR_OPTS
       --junitxml=pytest.xml
@@ -417,7 +418,7 @@
     paths:
       - log_pytest.txt
       - CIpost_${CASENAME}
-    expire_in: 1 week
+    expire_in: 3 days
     when: always
     reports:
       junit: pytest.xml
@@ -438,7 +439,7 @@
     - python -m build --sdist
     - python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
   artifacts:
-    expire_in: 1 week
+    expire_in: 3 days
     paths:
       - dist
     when: always

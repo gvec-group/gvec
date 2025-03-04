@@ -400,6 +400,6 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
                 visu1D=0,
                 visu2D=0,
                 visu3D=0,
-                SFLout=0,
+                SFLout=-1,
             )
     return targetdir

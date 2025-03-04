@@ -3,7 +3,7 @@
 ## python bindings - behind the scenes
 
 ```{figure} /static/pygvec_flowchart.png
-:width: 100 %
+:width: 80 %
 :align: center
 :alt: map to buried treasure
 
