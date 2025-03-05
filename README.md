@@ -1,5 +1,7 @@
 # GVEC
 
+[![License](https://img.shields.io/badge/license-MIT-red)](./LICENSE.txt)
+
 ## Overview
 
 GVEC (Galerkin Variational Equilibrium Code) is an open-source software for
@@ -23,19 +25,6 @@ in Garching, Germany.
 The list of contributors is found in [CONTRIBUTORS.md](CONTRIBUTORS.md).
 Outside contributions are always welcome!
 
-## License
-
-GVEC is released under the terms of the MIT License.
-For the full license terms see the included [license](LICENSE) file.
-
-Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
-
-Parts of this software are licensed differently:
-* `src/base/bsplines/` is part of [SeLaLib](https://github.com/selalib/selalib/) and licensed with `CECILL-B`.
-* `src/mod_timings.f90` & `src/perf2timings.f90` are wrappers for the [ftimings](https://gitlab.mpcdf.mpg.de/loh/ftimings) library, licensed with `LGPL-3.0-only`.
-* `src/globals/cla.f90` is [CLAF90](https://ingria.ceoas.oregonstate.edu/fossil/CLAF90) licensed with a modified `MIT` license.
-* `src/vmec/track_spline1_mod.f90` ???
-
 ## Documentation
 
  * a pdf that documents the [theory and implementation details](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf) of GVEC
@@ -53,3 +42,16 @@ Please report any bugs you find on the [Issue tracker](https://gitlab.mpcdf.mpg.
 
 Contributions are always welcome, best get into contact directly with the maintainers.
 Also see the relevant [documentation](https://gvec-group.pages.mpcdf.de/gvec/user/index.html).
+
+## License
+
+GVEC is released under the terms of the MIT License.
+For the full license terms see the included [license](LICENSE.txt) file.
+
+Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+
+Parts of this software are licensed differently:
+* `src/base/bsplines/` is part of [SeLaLib](https://github.com/selalib/selalib/) and licensed with `CECILL-B`.
+* `src/mod_timings.f90` & `src/perf2timings.f90` are wrappers for the [ftimings](https://gitlab.mpcdf.mpg.de/loh/ftimings) library, licensed with `LGPL-3.0-only`.
+* `src/globals/cla.f90` is [CLAF90](https://ingria.ceoas.oregonstate.edu/fossil/CLAF90) licensed with a modified `MIT` license.
+* `src/vmec/track_spline1_mod.f90` ???
