@@ -8,21 +8,6 @@ import helpers
 # === CONFIGURATION === #
 
 
-def pytest_configure(config):
-    """
-    Add custom markers to pytest, as if using the `pytest.ini` file.
-
-    Args:
-        config (Config): The pytest configuration object.
-    """
-    # register additional markers
-    for marker in [
-        "unit: mark test as a unittest - a test that is isolated and tests a specific functionality",
-        "pygvec: mark test that are related to the python bindings",
-    ]:
-        config.addinivalue_line("markers", marker)
-
-
 def pytest_collection_modifyitems(session, config, items):
     """
     Modify collected tests
@@ -41,6 +26,17 @@ def pytest_collection_modifyitems(session, config, items):
 
 
 # === FIXTURES === #
+
+
+@pytest.fixture(scope="module", autouse=True)
+def check_imports(require_pygvec):
+    try:
+        import gvec
+    except ImportError:
+        if require_pygvec:
+            pytest.fail("Import Error: gvec")
+        else:
+            pytest.skip("Import Error: gvec")
 
 
 @pytest.fixture(scope="session")

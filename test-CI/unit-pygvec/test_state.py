@@ -6,16 +6,20 @@ try:
     import gvec
     from gvec.state import State
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 
 # === Fixtures === #
 
 
-@pytest.fixture()
-def teststate(testfiles):
-    with State(*testfiles) as state:
-        yield state
+@pytest.fixture(params=["post", "init"])
+def teststate(request, testfiles):
+    if request.param == "post":
+        with State(*testfiles) as state:
+            yield state
+    elif request.param == "init":
+        with State(testfiles[0]) as state:
+            yield state
 
 
 # === Tests === #
@@ -31,6 +35,11 @@ def test_version():
 
 def test_state(testfiles):
     with State(*testfiles) as state:
+        assert isinstance(state, State)
+
+
+def test_state_init(testfiles):
+    with State(testfiles[0], None) as state:
         assert isinstance(state, State)
 
 
@@ -196,13 +205,13 @@ def test_evaluate_profile(teststate):
 
     iota = teststate.evaluate_profile("iota", rho)
     assert iota.shape == rho.shape
-    dp_dr = teststate.evaluate_profile("p_prime", rho)
+    dp_dr = teststate.evaluate_profile("p", rho, deriv=1)
 
 
 @pytest.mark.parametrize("reLA", [True, False], ids=["reLA", "not reLA"])
 def test_get_boozer(teststate, reLA):
     booz = teststate.get_boozer([0.1, 0.5, 0.9], 12, 12, recompute_lambda=reLA)
-    assert isinstance(booz, gvec._fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer)
+    assert isinstance(booz, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer)
     assert booz.initialized
     # assert booz.relambda == reLA
     assert booz.nrho == 3

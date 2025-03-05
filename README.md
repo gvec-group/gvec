@@ -45,8 +45,8 @@ Also see the relevant [documentation](https://gvec-group.pages.mpcdf.de/gvec/use
 
 ## License
 
-GVEC is released under the terms of the MIT License.
-For the full license terms see the included [license](LICENSE.txt) file.
+GVEC is released under the terms of the [MIT License](https://spdx.org/licenses/MIT.html).
+For the full license terms see the included [LICENSE.txt](LICENSE.txt) file.
 
 Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 
@@ -54,4 +54,3 @@ Parts of this software are licensed differently:
 * `src/base/bsplines/` is part of [SeLaLib](https://github.com/selalib/selalib/) and licensed with `CECILL-B`.
 * `src/mod_timings.f90` & `src/perf2timings.f90` are wrappers for the [ftimings](https://gitlab.mpcdf.mpg.de/loh/ftimings) library, licensed with `LGPL-3.0-only`.
 * `src/globals/cla.f90` is [CLAF90](https://ingria.ceoas.oregonstate.edu/fossil/CLAF90) licensed with a modified `MIT` license.
-* `src/vmec/track_spline1_mod.f90` ???

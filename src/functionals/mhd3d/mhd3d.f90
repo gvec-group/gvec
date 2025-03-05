@@ -52,10 +52,12 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_boundaryFromFile, ONLY: t_boundaryFromFile,boundaryFromFile_new
   USE MODgvec_hmap           , ONLY: hmap_new
   USE MODgvec_VMEC           , ONLY: InitVMEC
+  USE MODgvec_VMEC_vars      , ONLY: vmec_iota_profile,vmec_pres_profile
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor !<<< only exists on MPIroot!
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitializeMHD3D_EvalFunc
-  USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY
+  USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_MPI            , ONLY: par_BCast,par_barrier
+  USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -74,13 +76,12 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: LA_sin_cos
   INTEGER          :: degGP,mn_nyq(2),mn_nyq_min(2),fac_nyq
   INTEGER          :: nfp_loc
-  INTEGER          :: sign_iota
   INTEGER          :: X1X2_BCtype_axis(0:4),LA_BCtype_axis(0:4)
   INTEGER          :: proposal_mn_max(1:2)=(/2,0/) !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X1_sin_cos="_cos_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
-  REAL(wp)         :: pres_scale,scale_minor_radius
+  REAL(wp)         :: scale_minor_radius
   CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
 !===================================================================================================================================
@@ -113,26 +114,26 @@ SUBROUTINE InitMHD3D(sf)
   
   !constants
   mu_0    = 2.0e-07_wp*TWOPI
-  
+  gamm    = 0.0_wp  !fixed!
+  sgammM1=1.0_wp/(gamm-1.0_wp)
 
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
-  
+
   SELECT CASE(which_init)
   CASE(0)
     init_fromBConly= .TRUE.
     init_BC        = 2
-    gamm    = GETREAL("GAMMA",Proposal=0.0_wp)
     nfp_loc  = GETINT( "nfp")
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
-    sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
-    CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
-    iota_coefs=REAL(sign_iota)*iota_coefs
-    CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
-    pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
-    pres_coefs=pres_coefs*pres_scale
+
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
+    IF(MPIroot)THEN
+      CALL InitProfile(sf,"iota")
+      CALL InitProfile(sf,"pres")
+    END IF
+    
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     IF(init_fromBConly)THEN
@@ -142,23 +143,20 @@ SUBROUTINE InitMHD3D(sf)
       init_BC=-1
     END IF
 
-    init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)      
-    IF(init_with_profile_iota)THEN
-      sign_iota  = GETINT( "sign_iota",Proposal=-1) !if positive in vmec, this should be -1, because of (R,Z,phi) coordinate system
-      CALL GETREALALLOCARRAY("iota_coefs",iota_coefs,n_iota_coefs,Proposal=(/1.1_wp,0.1_wp/)) !a+b*s+c*s^2...
-      iota_coefs=REAL(sign_iota)*iota_coefs
-    END IF ! iota from parameterfile
+    IF(MPIroot)THEN   
+      init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)   
+      IF(init_with_profile_iota)THEN
+        CALL InitProfile(sf,"iota")
+      ELSE 
+        iota_profile=vmec_iota_profile
+      END IF ! iota from parameterfile
+      init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
+      IF(init_with_profile_pressure)THEN
+        CALL InitProfile(sf,"pres")
+      ELSE 
+        pres_profile=vmec_pres_profile
+      END IF ! pressure from parameterfile
 
-    init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
-    IF(init_with_profile_pressure)THEN
-      CALL GETREALALLOCARRAY("pres_coefs",pres_coefs,n_pres_coefs,Proposal=(/1.0_wp,0.0_wp/)) !a+b*s+c*s^2...
-      pres_scale=GETREAL("PRES_SCALE",Proposal=1.0_wp)
-      pres_coefs=pres_coefs*pres_scale
-    END IF ! pressure from parameterfile
-
-    gamm = 0.0_wp
-        
-    IF(MPIroot)THEN
       proposal_mn_max(:)=(/mpol-1,ntor/)
       IF(lasym)THEN !asymmetric
         proposal_X1_sin_cos="_sincos_"
@@ -168,10 +166,23 @@ SUBROUTINE InitMHD3D(sf)
       nfp_loc = nfp
       which_hmap=1 !hmap_RZ
       Phi_edge = Phi(nFluxVMEC)
-    END IF
+    END IF !MPIroot
     CALL par_BCast(which_hmap,0)
     CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
+  IF(MPIroot)THEN
+    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
+    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
+    chi_profile=iota_profile%antiderivative()
+    chi_profile%coefs=chi_profile%coefs*Phi_edge 
+  END IF
+
+  IF(MPIroot)THEN
+    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
+    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
+    chi_profile=iota_profile%antiderivative()
+    chi_profile%coefs=chi_profile%coefs*Phi_edge 
+  END IF !MPIroot
 
   getBoundaryFromFile=GETINT("getBoundaryFromFile",Proposal=-1)  ! =-1: OFF, get X1b and X2b from parameterfile. 1: get boundary from specific netcdf file
   SELECT CASE(getBoundaryFromFile)
@@ -198,9 +209,7 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
 
-
-  sgammM1=1.0_wp/(gamm-1.0_wp)
-  
+ 
   CALL hmap_new(hmap,which_hmap)
   IF((hmap%nfp.NE.-1).AND.(hmap%nfp.NE.nfp_loc)) CALL abort(__STAMP__,&
                         "nfp from GVEC parameterfile does not match to nfp used in hmap.")
@@ -347,12 +356,12 @@ SUBROUTINE InitMHD3D(sf)
 
   
 
-  X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent 
-
+  !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent  
+  !X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent 
+  X1X2_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
                                     
   !boundary conditions (used in force, in init slightly changed)
   ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
@@ -387,11 +396,12 @@ SUBROUTINE InitMHD3D(sf)
   END DO
   END ASSOCIATE !X2
 
-  LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
-  LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
-  LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
-  LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
-  LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
+  !LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
+  !LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  LA_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
 
   ASSOCIATE(modes        =>LA_base%f%modes, zero_odd_even=>LA_base%f%zero_odd_even)
   ALLOCATE(LA_BC_type(1:2,modes))
@@ -458,7 +468,107 @@ SUBROUTINE InitMHD3D(sf)
   
 END SUBROUTINE InitMHD3D
 
+SUBROUTINE InitProfile(sf, var)
+  ! MODULES
+  USE MODgvec_MHD3D_Vars, ONLY: pres_profile, iota_profile
+  USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
+  USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
+  USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
+  USE MODgvec_cubic_spline   , ONLY: interpolate_cubic_spline
+  USE MODgvec_rProfile_base, ONLY: c_rProfile
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
+  CHARACTER(LEN=4), INTENT(IN) :: var
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  CLASS(c_rProfile), ALLOCATABLE   :: profile_profile
+  INTEGER              :: n_profile_knots
+  REAL(wp),ALLOCATABLE :: profile_knots(:)
+  INTEGER              :: n_profile_coefs    !! number of polynomial/bspline coeffients for profile profile
+  REAL(wp),ALLOCATABLE :: profile_coefs(:)   !! polynomial/bspline coefficients of the profile profile
+  CHARACTER(LEN=20)    :: profile_type
+  REAL(wp),ALLOCATABLE :: profile_rho2(:)
+  REAL(wp),ALLOCATABLE :: profile_vals(:)
+  INTEGER              :: n_profile_vals
+  INTEGER              :: n_profile_rho2
+  REAL(wp)             :: profile_BC_vals(1:2)
+  CHARACTER(LEN=10)    :: profile_BC_type(1:2)
+  REAL(wp)             :: profile_scale
+  CHARACTER(LEN=10)    :: possible_BCs(0:2)
+  INTEGER              :: BC(1:2),iBC,jBC
+  !===================================================================================================================================
+  possible_BCs(0)="not_a_knot"
+  possible_BCs(1)="1st_deriv"
+  possible_BCs(2)="2nd_deriv"
+  
+  IF (var.EQ."pres") THEN
+    profile_scale=GETREAL("pres_scale",Proposal=1.0_wp)
+  ELSE IF (var.EQ."iota") THEN
+    profile_scale=REAL(GETINT("sign_iota",Proposal=-1))
+  ELSE
+    CALL abort(__STAMP__,&
+    "Tried to initialize unknown profile type!")
+  END IF
+  profile_type  = GETSTR(var//"_type", Proposal="polynomial")
+  IF (profile_type.EQ."polynomial") THEN
+    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) !a+b*s+c*s^2...
+    profile_coefs=profile_coefs*profile_scale
+    profile_profile = t_rProfile_poly(profile_coefs)
+  ELSE IF (profile_type.EQ."bspline") THEN
+    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) 
+    profile_coefs=profile_coefs*profile_scale
+    CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
+    profile_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
+  ELSE IF (profile_type.EQ."interpolation") THEN
+    CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
+    CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
+    IF (n_profile_vals .NE. n_profile_rho2) THEN
+      CALL abort(__STAMP__,&
+      'Size of '//var//'_rho2 and '//var//'_vals must be equal!')
+    END IF
+    profile_BC_type(1) = GETSTR(var//"_BC_type_axis",Proposal="not_a_knot")
+    profile_BC_type(2) = GETSTR(var//"_BC_type_edge",Proposal="not_a_knot")
+    BC=-1
+    DO iBC=1,2
+      DO jBC=0,2
+        IF (INDEX(TRIM(profile_BC_type(iBC)),TRIM(possible_BCs(jBC)))>0) THEN
+          BC(iBC)=jBC
+          EXIT 
+        END IF 
+      END DO !jBC
+    END DO !iBC
+    IF(ANY(BC<0)) THEN
+      CALL abort(__STAMP__,&
+                 "BC_type can only be 'not_a_knot', '1st_deriv' or '2nd_deriv'!")
+    END IF
 
+    IF(ANY(BC>0)) THEN
+     profile_BC_vals = GETREALARRAY(var//"_BC_vals", 2, Proposal=(/0.0_wp, 0.0_wp/))
+     CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC, profile_BC_vals)
+    ELSE
+     CALL interpolate_cubic_spline(profile_rho2,profile_vals, profile_coefs, profile_knots, BC)
+    END IF
+
+    profile_coefs=profile_coefs*profile_scale
+    profile_profile = t_rProfile_bspl(profile_knots,profile_coefs)
+    SDEALLOCATE(profile_vals)
+    SDEALLOCATE(profile_rho2)
+  ELSE
+    CALL abort(__STAMP__,&
+    'Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation".')
+  END IF ! profile type
+  IF (var.EQ."pres") THEN
+    pres_profile = profile_profile
+  ELSE
+    iota_profile = profile_profile
+  END IF
+  SDEALLOCATE(profile_knots)
+  SDEALLOCATE(profile_coefs)
+END SUBROUTINE InitProfile
 
 !===================================================================================================================================
 !> Initialize Module 
@@ -489,7 +599,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
     IF(doRestart)THEN
       WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
       CALL RestartFromState(RestartFile,U(0))
-      !CALL InitSolution(U(0),-1) !would apply BC and recompute lambda
+      CALL InitSolution(U(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
     ELSE 
       CALL InitSolution(U(0),which_init)
     END IF
@@ -570,7 +680,6 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   USE MODgvec_VMEC_Vars,     ONLY:lmnc_spl,lmns_spl
   USE MODgvec_VMEC_Readin,   ONLY:lasym
   USE MODgvec_VMEC,          ONLY:VMEC_EvalSplMode
-  USE MODgvec_MHD3D_profiles,ONLY:Eval_PhiPrime,Eval_chiPrime
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -581,9 +690,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,is,i_m,i_n
+  INTEGER  :: iMode,i_m,i_n
   REAL(wp) :: BC_val(2)
-  REAL(wp) :: spos
+  REAL(wp) :: rhopos
   REAL(wp) :: dl,lint,x1int,x2int 
   REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
   REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
@@ -605,47 +714,47 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     !X1_a,X2_a and X1_b,X2_b already filled from parameter file readin...
   CASE(1) !VMEC
     IF((init_BC.EQ.-1).OR.(init_BC.EQ.1))THEN ! compute  axis from VMEC, else use the one defined in paramterfile
-      spos=0.0_wp
+      rhopos=0.0_wp
       ASSOCIATE(sin_range    => X1_base%f%sin_range, cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
-        X1_a(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
+        X1_a(iMode:iMode)= VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmnc_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
-          X1_a(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
+          X1_a(iMode:iMode)=X1_a(iMode:imode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmns_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X1
       ASSOCIATE(sin_range    => X2_base%f%sin_range, cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        X2_a(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
+        X2_a(iMode:iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmns_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          X2_a(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
+          X2_a(iMode:iMode)=X2_a(iMode:iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmnc_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X2
     END IF
     IF((init_BC.EQ.-1).OR.(init_BC.EQ.0))THEN ! compute edge from VMEC, else use the one defined in paramterfile
-      spos=1.0_wp
+      rhopos=1.0_wp
       ASSOCIATE(sin_range    => X1_base%f%sin_range, cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
-        X1_b(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
+        X1_b(iMode:iMode)=VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmnc_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
-          X1_b(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
+          X1_b(iMode:iMode)=X1_b(iMode:iMode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmns_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X1
       ASSOCIATE(sin_range    => X2_base%f%sin_range, cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        X2_b(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
+        X2_b(iMode:iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmns_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          X2_b(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
+          X2_b(iMode:iMode)=X2_b(iMode:iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmnc_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X2
@@ -692,15 +801,11 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 sin_range    => X1_base%f%sin_range,&
                 cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
-        DO is=1,nBase
-          X1_gIP(is,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmnc_Spl)
-        END DO !is
+        X1_gIP(:,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmnc_Spl)
       END DO !imode=cos_range
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
-          DO is=1,nBase
-            X1_gIP(is,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmns_Spl)
-          END DO !is
+          X1_gIP(:,iMode)=X1_gIP(:,iMode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmns_Spl)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X1
@@ -709,15 +814,11 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 sin_range    => X2_base%f%sin_range,&
                 cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        DO is=1,nBase
-          X2_gIP(is,iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmns_Spl)
-        END DO !is
+        X2_gIP(:,iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmns_Spl)
       END DO !imode=sin_range
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          DO is=1,nBase
-            X2_gIP(is,iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmnc_Spl)
-          END DO !is
+          X2_gIP(:,iMode)=X2_gIP(:,iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmnc_Spl)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X2
@@ -726,15 +827,11 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 sin_range    => LA_base%f%sin_range,&
                 cos_range    => LA_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        DO is=1,nBase
-          LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),lmns_Spl)
-        END DO !is
+        LA_gIP(:,iMode)=VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP,lmns_Spl)
       END DO !imode= sin_range
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          DO is=1,nBase
-            LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),Lmnc_Spl)
-          END DO !is
+          LA_gIP(:,iMode)=LA_gIP(:,iMode)  +VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP,lmnc_Spl)
         END DO !imode=cos_range
       END IF !lasym
       END ASSOCIATE !LA
@@ -846,9 +943,8 @@ END SUBROUTINE InitSolution
 SUBROUTINE Init_LA_from_Solution(U_init)
 ! MODULES
   USE MODgvec_Globals,       ONLY:ProgressBar,getTime,myRank,nRanks
-  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X2_base,LA_base,LA_BC_Type,hmap
+  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X2_base,LA_base,LA_BC_Type,hmap, Phi_profile, chi_profile
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
-  USE MODgvec_MHD3D_Profiles,ONLY: Eval_phiPrime,Eval_chiPrime
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
   USE MODgvec_MPI           ,ONLY:par_reduce,par_BCast
 !$ USE omp_lib
@@ -861,7 +957,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iMode,is,ns_str,ns_end,iRank,nBase
-  REAL(wp) :: BC_val(2),spos
+  REAL(wp) :: BC_val(2),rhopos
   REAL(wp) :: StartTime,EndTime
   REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -878,9 +974,9 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   !evaluate profiles only in MPIroot!
   IF(MPIroot)THEN
     DO is=1,nBase
-      spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-      phiPrime(is)=Eval_phiPrime(spos)
-      chiPrime(is)=Eval_chiPrime(spos)
+      rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+      phiPrime(is)=Phi_profile%eval_at_rho(rhopos,deriv=1)
+      chiPrime(is)=chi_profile%eval_at_rho(rhopos,deriv=1)
     END DO
   END IF !MPIroot
   CALL par_BCast(phiPrime,0)
@@ -891,8 +987,8 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
   DO is=ns_str,ns_end
-    spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
-    CALL lambda_Solve(spos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
+    rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+    CALL lambda_Solve(rhopos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
     CALL ProgressBar(is,ns_end)
   END DO !is
 !!!  CALL par_reduce(LA_gIP,'SUM',0)
@@ -1434,7 +1530,7 @@ SUBROUTINE FinalizeMHD3D(sf)
   CALL X1_base%free()
   CALL X2_base%free()
   CALL LA_base%free()
-
+  
   DO i=-1,1
     CALL U(i)%free()
     CALL P(i)%free()
@@ -1459,9 +1555,12 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(LA_b)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
-  SDEALLOCATE(pres_coefs)
-  SDEALLOCATE(iota_coefs)
-
+  
+  SDEALLOCATE(iota_profile)
+  SDEALLOCATE(pres_profile)
+  SDEALLOCATE(Phi_profile)
+  SDEALLOCATE(chi_profile)
+  
   CALL FinalizeMHD3D_EvalFunc()
   IF(which_init.EQ.1) CALL FinalizeVMEC()
 

@@ -2,9 +2,9 @@
 # License: MIT
 """pygvec postprocessing"""
 
-from . import _fgvec
-from ._fgvec import modgvec_py_post as _post
-from ._fgvec import modgvec_py_binding as _binding
+from . import lib
+from .lib import modgvec_py_post as _post
+from .lib import modgvec_py_binding as _binding
 
 from pathlib import Path
 from typing import Mapping, Callable, Iterable, Literal
@@ -76,7 +76,7 @@ class State:
     def __init__(
         self,
         parameterfile: str | Path,
-        statefile: str | Path,
+        statefile: str | Path | None = None,
         redirect_stdout: bool = True,
     ):
         self.initialized: bool = False
@@ -88,7 +88,7 @@ class State:
             raise NotImplementedError("Only one instance of State is allowed.")
         if not Path(parameterfile).exists():
             raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
-        if not Path(statefile).exists():
+        if statefile is not None and not Path(statefile).exists():
             raise FileNotFoundError(f"State file {statefile} does not exist.")
 
         _binding.redirect_abort()  # redirect abort to raise a RuntimeError
@@ -96,15 +96,23 @@ class State:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
             _binding.redirect_stdout(self._stdout.name)
         self.parameterfile = Path(parameterfile)
-        self.statefile = Path(statefile)
-
+        if statefile is not None:
+            self.statefile = Path(statefile)
+        else:
+            self.statefile = None
         self._original_dir = os.getcwd()
         os.chdir(self.parameterfile.parent)
-        self.statefile = self.statefile.relative_to(self.parameterfile.parent)
-        self.parameterfile = self.parameterfile.relative_to(self.parameterfile.parent)
+        if self.statefile is not None:
+            self.statefile = self.statefile.relative_to(self.parameterfile.parent)
+        self.parameterfile = self.parameterfile.relative_to(
+            self.parameterfile.parent
+        )  # do this last! (self-referencing)
 
         _post.init(self.parameterfile)
-        _post.readstate(self.statefile)
+        if self.statefile is not None:
+            _post.readstate(self.statefile)
+        else:
+            _post.initsolution()
         self.initialized = True
         self._children = []
 
@@ -113,7 +121,7 @@ class State:
         """Finalize the state and free all (fortran) resources."""
         self.logger.debug(f"Finalizing state {self!r}")
         for child in self._children:
-            if isinstance(child, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+            if isinstance(child, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
                 if child.initialized:
                     self.logger.debug(f"Finalizing Boozer potential {child!r}")
                     child.free()
@@ -153,8 +161,10 @@ class State:
             + ",".join(
                 [
                     "initialized" if self.initialized else "finalized",
-                    self.parameterfile.name,
-                    self.statefile.name,
+                    self.parameterfile.name
+                    if self.parameterfile is not None
+                    else "None",
+                    self.statefile.name if self.statefile is not None else "None",
                 ]
             )
             + ")>"
@@ -386,22 +396,27 @@ class State:
     )  # -> Jac_h, dJac_h_dr, dJac_h_dt, dJac_h_dz
 
     @_assert_init
-    def evaluate_profile(self, quantity: str, rho: np.ndarray):
+    def evaluate_profile(self, quantity: str, rho: np.ndarray, deriv: int = 0):
+        """Evaluate 1D profiles at the provided positions of the radial coordinate rho.
+
+        Args:
+            quantity (str): name of the profile. Has to be either `iota` (rotational transform), `p` (pressure), `chi`(poloidal magn. flux), `Phi`(toroidal magn. flux)
+            rho (np.ndarray): Positions at the radial flux coordinate rho.
+            deriv (int, optional): Order of the derivative in rho. Note that for some quantities not all derivatives can be calculated, e.g. for `iota` and `p` the maximum is `deriv=4`. Defaults to 0.
+
+        Raises:
+            ValueError: If `quantity`is not a string.
+            ValueError: If an invalid quantity is provided.
+            NotImplementedError: If `deriv > 1` for `quantity="chi"`.
+            ValueError: If `rho` is not a 1D array.
+            ValueError: If `rho` is not in [0, 1].
+
+        Returns:
+            np.ndarray: profile values at `rho`.
+        """
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
-        elif quantity not in [
-            "iota",
-            "iota_prime",
-            "p",
-            "p_prime",
-            "chi",
-            "chi_prime",
-            "Phi",
-            "Phi_prime",
-            "Phi_2prime",
-            "PhiNorm",
-            "PhiNorm_prime",
-        ]:
+        elif quantity not in ["iota", "p", "chi", "Phi"]:
             raise ValueError(f"Unknown quantity: {quantity}")
 
         rho = np.asfortranarray(rho, dtype=np.float64)
@@ -411,7 +426,43 @@ class State:
             raise ValueError("rho must be in the range [0, 1].")
 
         result = np.zeros(rho.size, dtype=np.float64, order="F")
-        _post.evaluate_profile(rho.size, rho, quantity, result)
+
+        _post.evaluate_profile(rho.size, rho, deriv, quantity, result)
+        return result
+
+    @_assert_init
+    def evaluate_rho2_profile(self, quantity: str, rho2: np.ndarray, deriv: int = 0):
+        r"""Evaluate 1D profiles at the provided positions of the radial coordinate `rho2`=:math:`\rho^2`.
+        Note: Use this routine to obtain derivarives with respect to `rho2`, else use `evaluate_profile`.
+
+        Args:
+            quantity (str): name of the profile. Has to be either `iota` or `p`
+            rho2 (np.ndarray): Positions at the radial flux coordinate rho^2.
+            deriv (int, optional): Order of the derivative, in s=rho^2 (!). Defaults to 0.
+
+        Raises:
+            ValueError: If `quantity`is not a string.
+            ValueError: If an invalid quantity is provided.
+            ValueError: If `rho2` is not a 1D array.
+            ValueError: If `rho2` is not in [0, 1].
+
+        Returns:
+            np.ndarray: profile values at `rho2`.
+        """
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["iota", "p", "chi", "Phi"]:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        rho2 = np.asfortranarray(rho2, dtype=np.float64)
+        if rho2.ndim != 1:
+            raise ValueError("rho2 must be a 1D array.")
+        if rho2.max() > 1.0 or rho2.min() < 0.0:
+            raise ValueError("rho2 must be in the range [0, 1].")
+
+        result = np.zeros(rho2.size, dtype=np.float64, order="F")
+
+        _post.evaluate_rho2_profile(rho2.size, rho2, deriv, quantity, result)
         return result
 
     # === Boozer Potential === #
@@ -499,9 +550,9 @@ class State:
 
     @_assert_init
     def get_boozer_angles(
-        self, sfl_boozer: _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer, tz_list: np.ndarray
+        self, sfl_boozer: lib.Modgvec_Sfl_Boozer.t_sfl_boozer, tz_list: np.ndarray
     ):
-        if not isinstance(sfl_boozer, _fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer):
+        if not isinstance(sfl_boozer, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
             raise ValueError(
                 f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
             )
@@ -522,188 +573,54 @@ class State:
         sfl_boozer.find_angles(tz_list.shape[1], tz_list, tz_out)
         return tz_out
 
+    @_assert_init
+    def evaluate_boozer_list_tz_all(
+        self,
+        sfl_boozer: lib.Modgvec_Sfl_Boozer.t_sfl_boozer,
+        quantity: str,
+        rad: np.ndarray,
+        thetazeta: np.ndarray,
+    ):
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["LA", "NU"]:
+            raise ValueError(
+                f"Unknown quantity: {quantity}, expected one of 'LA', 'NU'."
+            )
+        if not isinstance(sfl_boozer, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
+            raise ValueError(
+                f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
+            )
+        if sfl_boozer not in self._children:
+            raise ValueError(
+                f"Boozer object {sfl_boozer!r} is not known to the state {self!r}."
+            )
+        if not sfl_boozer.initialized:
+            raise ValueError(f"Boozer object {sfl_boozer!r} is not initialized.")
+
+        rad = np.asfortranarray(rad, dtype=np.int64)
+        thetazeta = np.asfortranarray(thetazeta, dtype=np.float64)
+        if rad.ndim != 1:
+            raise ValueError("rad must be a 1D array.")
+        if thetazeta.ndim != 2 or thetazeta.shape[0] != 2:
+            raise ValueError("thetazeta must be a 2D array with shape (2, n).")
+        if rad.min() < 0:
+            raise ValueError("rad must be a positive integer.")
+
+        # Q, dQ_dtheta, dQ_dzeta, dQ_dtt, dQ_dtz, dQ_dzz
+        outputs = [
+            np.zeros((rad.size, thetazeta.shape[1]), dtype=np.float64, order="F")
+            for _ in range(6)
+        ]
+
+        _post.evaluate_boozer_list_tz_all(
+            sfl_boozer, rad.size, thetazeta.shape[1], rad, thetazeta, quantity, *outputs
+        )
+        return outputs
+
     # === Integration with computable quantities === #
 
     def compute(self, ds: xr.Dataset, *quantities):
         from .comp import compute
 
         return compute(ds, *quantities, state=self)
-
-    # === Plotting Methods === #
-
-    def plot_surfaces(
-        self,
-        quantities: (
-            str
-            | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
-            | Iterable[
-                str | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
-            ]
-        ),
-        rho: int | tuple[float, float, int] | np.ndarray = 3,
-        theta: int | tuple[float, float, int] | np.ndarray = 101,
-        zeta: int | tuple[float, float, int] | np.ndarray = 81,
-        n_xtick: int = 5,
-        n_ytick: int = 5,
-        share_colorbar: bool = True,
-        figkwargs: Mapping = {},
-        ckwargs: Mapping = {},
-    ):
-        # --- local imports --- #
-        import matplotlib.pyplot as plt
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-        # --- argument handling --- #
-        if isinstance(quantities, str) or isinstance(quantities, Callable):
-            quantities = [quantities]
-        theta_linear = isinstance(theta, int)
-        zeta_linear = isinstance(zeta, int)
-        # ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
-        ds = NotImplemented
-        # --- plotting --- #
-        fig, axs = plt.subplots(
-            len(quantities), ds.rho.size, tight_layout=True, **figkwargs
-        )
-        axs = axs.reshape((len(quantities), ds.rho.size))
-        for q, quantity in enumerate(quantities):
-            if isinstance(quantity, str):
-                ds.compute(quantity)
-                values = ds[quantity]
-            else:
-                values = quantity(ds)
-                match values:
-                    case (xr.DataArray() as v, str() as s):
-                        v.attrs["symbol"] = s
-                        values = v
-            for r, rhoi in enumerate(ds.rho):
-                v = values.isel(rho=r).transpose("zeta", "theta").values
-                if share_colorbar:
-                    mesh = axs[q, r].contourf(
-                        ds.theta,
-                        ds.zeta,
-                        v,
-                        vmin=values.min(),
-                        vmax=values.max(),
-                        **ckwargs,
-                    )
-                    if r == ds.rho.size - 1:
-                        divider = make_axes_locatable(axs[q, r])
-                        cax = divider.append_axes("right", size="5%", pad=0.05)
-                        fig.colorbar(mesh, cax=cax)
-                else:
-                    mesh = axs[q, r].contourf(ds.theta, ds.zeta, v, **ckwargs)
-                    fig.colorbar(mesh, ax=axs[q, r])
-                if theta_linear:
-                    axs[q, r].set_xticks(np.linspace(0, 2 * np.pi, n_xtick))
-                if zeta_linear:
-                    axs[q, r].set_yticks(np.linspace(0, 2 * np.pi / self.nfp, n_ytick))
-                axs[q, r].set(
-                    xlim=(ds.theta[0], ds.theta[-1]),
-                    ylim=(ds.zeta[0], ds.zeta[-1]),
-                )
-                if q != len(quantities) - 1:
-                    axs[q, r].set_xticklabels(
-                        np.full_like(axs[q, r].get_xticks(), "", dtype="U0")
-                    )
-                if r != 0:
-                    axs[q, r].set_yticklabels(
-                        np.full_like(axs[q, r].get_yticks(), "", dtype="U0")
-                    )
-            symbol = f"${values.attrs['symbol']}$" if "symbol" in values.attrs else "?"
-            axs[q, 0].set_ylabel(f"{symbol}\n$\\zeta$")
-            if zeta_linear:
-                axs[q, 0].set_yticklabels(
-                    [
-                        rf"$\frac{{{2*i} \pi}}{{{self.nfp * (n_ytick - 1)}}}$"
-                        for i in range(n_ytick)
-                    ]
-                )
-        for r, rhoi in enumerate(ds.rho):
-            axs[0, r].set(
-                title=rf"$\rho = {rhoi:.2f}$",
-            )
-            if theta_linear:
-                axs[-1, r].set_xticklabels(
-                    [rf"$\frac{{{2*i} \pi}}{{{n_xtick - 1}}}$" for i in range(n_xtick)]
-                )
-            axs[-1, r].set_xlabel(r"$\theta$")
-        fig.suptitle(self.statefile.name)
-        return fig, axs
-
-    def plot_poloidal(
-        self,
-        quantities: (
-            str
-            | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
-            | Iterable[
-                str | Callable[[xr.Dataset], xr.DataArray | tuple[xr.DataArray, str]]
-            ]
-        ),
-        rho: int | tuple[float, float, int] | np.ndarray = 81,
-        theta: int | tuple[float, float, int] | np.ndarray = 101,
-        zeta: int | tuple[float, float, int] | np.ndarray = 3,
-        share_colorbar: bool = True,
-        figkwargs: Mapping = {},
-        ckwargs: Mapping = {},
-    ):
-        # --- local imports --- #
-        import matplotlib.pyplot as plt
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-        # --- argument handling --- #
-        if isinstance(quantities, str) or isinstance(quantities, Callable):
-            quantities = [quantities]
-        # ds = Evaluations(self, rho=rho, theta=theta, zeta=zeta)
-        ds = NotImplemented
-        ds.compute("X1", "X2")
-        # --- plotting --- #
-        fig, axs = plt.subplots(
-            len(quantities),
-            ds.zeta.size,
-            tight_layout=True,
-            sharex=True,
-            sharey=True,
-            **figkwargs,
-        )
-        axs = np.asarray(axs).reshape((len(quantities), ds.zeta.size))
-        for q, quantity in enumerate(quantities):
-            if isinstance(quantity, str):
-                ds.compute(quantity)
-                values = ds[quantity]
-            else:
-                values = quantity(ds)
-                match values:
-                    case (xr.DataArray() as v, str() as s):
-                        v.attrs["symbol"] = s
-                        values = v
-            for z, zetai in enumerate(ds.zeta):
-                dsz = ds.isel(zeta=z)
-                v = values.isel(zeta=z)
-                if share_colorbar:
-                    mesh = axs[q, z].contourf(
-                        dsz.X1,
-                        dsz.X2,
-                        v,
-                        vmin=values.min(),
-                        vmax=values.max(),
-                        **ckwargs,
-                    )
-                    if z == ds.zeta.size - 1:
-                        divider = make_axes_locatable(axs[q, z])
-                        cax = divider.append_axes("right", size="5%", pad=0.05)
-                        fig.colorbar(mesh, cax=cax)
-                else:
-                    mesh = axs[q, z].contourf(dsz.X1, dsz.X2, v, **ckwargs)
-                    fig.colorbar(mesh, ax=axs[q, z])
-                axs[q, z].set(
-                    aspect="equal",
-                )
-            symbol = f"${values.attrs['symbol']}$" if "symbol" in values.attrs else "?"
-            axs[q, 0].set_ylabel(f"{symbol}\n$X^2$")
-        for z, zetai in enumerate(ds.zeta):
-            axs[0, z].set(
-                title=rf"$\zeta = {zetai:.2f}$",
-            )
-            axs[-1, z].set_xlabel(r"$X^1$")
-        fig.suptitle(self.statefile.name)
-        return fig, axs

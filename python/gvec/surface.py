@@ -3,11 +3,12 @@
 """pyGVEC postprocessing - Surface representation
 
 This module provides a Surface class for representing a flux surface in 3D.
+Currently this surface is always defined in terms of the Boozer angles (theta_B, zeta_B).
 """
 
 # === Imports === #
 
-from typing import Iterable
+from typing import Literal
 import logging
 import functools
 
@@ -15,8 +16,7 @@ import numpy as np
 import xarray as xr
 
 from . import fourier
-from .comp import register, compute
-from .quantities import latex_partial_smart, derivative_name_smart
+from .comp import register, compute, latex_partial_smart, derivative_name_smart
 
 # === Globals === #
 
@@ -27,64 +27,100 @@ register = functools.partial(register, registry=QUANTITIES_SURFACE)
 # === Surface === #
 
 
-def init_surface(x: np.ndarray, y: np.ndarray, z: np.ndarray, nfp: int = 1):
-    if x.shape != y.shape != z.shape or x.ndim not in [2, 3]:
+def init_surface(
+    pos: xr.DataArray, nfp: int | xr.DataArray = 1, ift: Literal["fft", "eval"] = "fft"
+) -> xr.Dataset:
+    if set(pos.dims) > {"xyz", "rad", "pol", "tor"} or set(pos.dims) < {
+        "xyz",
+        "pol",
+        "tor",
+    }:
         raise ValueError(
-            "x, y, and z must have the same shape '(rad,pol,tor)' or '(pol,tor)'."
+            "expected pos to be a DataArray with dimensions ('xyz', 'rad', 'pol', 'tor') or ('xyz', 'pol', 'tor')"
         )
 
-    if x.ndim == 2:
-        x = x[np.newaxis, :, :]
-        y = y[np.newaxis, :, :]
-        z = z[np.newaxis, :, :]
+    if "rad" not in pos.dims:
+        pos = pos.expand_dims("rad")
 
-    theta1d = np.linspace(0, 2 * np.pi, x.shape[1], endpoint=False)
-    zeta1d = np.linspace(0, 2 * np.pi / nfp, x.shape[2], endpoint=False)
-    theta, zeta = np.meshgrid(theta1d, zeta1d, indexing="ij")
-    surfs = []
+    if isinstance(nfp, xr.DataArray):
+        nfp = nfp.item()
 
-    for radidx in range(x.shape[0]):
-        xhat = np.cos(zeta) * x[radidx, ...] + np.sin(zeta) * y[radidx, ...]
-        yhat = -np.sin(zeta) * x[radidx, ...] + np.cos(zeta) * y[radidx, ...]
-        zhat = z[radidx, ...]
-
-        # Ignore stellarator symmetry: will not store fourier coefficients
-        # ToDo: performance impact?
-        xhatc, xhats = fourier.fft2d(xhat)
-        yhatc, yhats = fourier.fft2d(yhat)
-        zhatc, zhats = fourier.fft2d(zhat)
-
-        surf = xr.Dataset(
-            coords=dict(
-                theta=("pol", theta1d),
-                zeta=("tor", zeta1d),
+    if ift == "fft":
+        use_fft = False
+        if (
+            pos.theta_B.ndim == 1
+            and pos.theta_B.size % 2 == 1
+            and pos.zeta_B.ndim == 1
+            and pos.zeta_B.size % 2 == 1
+        ):
+            theta1d = np.linspace(0, 2 * np.pi, pos.theta_B.size, endpoint=False)
+            zeta1d = np.linspace(0, 2 * np.pi / nfp, pos.zeta_B.size, endpoint=False)
+            if np.allclose(theta1d, pos.theta_B) and np.allclose(zeta1d, pos.zeta_B):
+                use_fft = True
+        if not use_fft:
+            logging.warning(
+                "Unaligned boozer angles: use explicit evaluation method (slower)"
             )
+            ift = "eval"
+    if ift == "eval":
+        theta1d = pos.theta_B
+        zeta1d = pos.zeta_B
+        theta2d, zeta2d = xr.broadcast(theta1d, zeta1d)
+    if ift not in ["fft", "eval"]:
+        raise ValueError("expected ift to be 'fft' or 'eval'")
+
+    surf = xr.Dataset(coords=pos.coords)
+
+    for r in pos.rad:
+        xhat = np.cos(zeta1d) * pos.sel(xyz="x", rad=r) + np.sin(zeta1d) * pos.sel(
+            xyz="y", rad=r
         )
+        yhat = -np.sin(zeta1d) * pos.sel(xyz="x", rad=r) + np.cos(zeta1d) * pos.sel(
+            xyz="y", rad=r
+        )
+        zhat = pos.sel(xyz="z", rad=r)
+
+        # Ignore stellarator symmetry: will not store fourier coefficients - performance impact is negligible
+        xhatc, xhats = fourier.fft2d(xhat.transpose("pol", "tor").data)
+        yhatc, yhats = fourier.fft2d(yhat.transpose("pol", "tor").data)
+        zhatc, zhats = fourier.fft2d(zhat.transpose("pol", "tor").data)
 
         for var, c, s, symbol, name in [
             ("xhat", xhatc, xhats, r"\hat{x}", "modified x"),
             ("yhat", yhatc, yhats, r"\hat{y}", "modified y"),
             ("zhat", zhatc, zhats, r"\hat{z}", "modified z"),
         ]:
-            surf[var] = (("pol", "tor"), fourier.eval2d(c, s, theta, zeta, nfp=nfp))
+            if var not in surf:
+                surf[var] = (
+                    ("rad", "pol", "tor"),
+                    np.zeros((pos.rad.size, pos.pol.size, pos.tor.size)),
+                )
+            if ift == "fft":
+                surf[var][r, :, :] = fourier.ifft2d(c, s)
+            else:
+                surf[var][r, :, :] = fourier.eval2d(
+                    c, s, theta2d.data, zeta2d.data, nfp=nfp
+                )
             surf[var].attrs["long_name"] = f"{name}-coordinate"
             surf[var].attrs["symbol"] = symbol
             for deriv in ["t", "z", "tt", "tz", "zz"]:
                 dvar = f"d{var}_d{deriv}"
-                surf[dvar] = (
-                    ("pol", "tor"),
-                    fourier.eval2d(c, s, theta, zeta, deriv, nfp=nfp),
-                )
+                if dvar not in surf:
+                    surf[dvar] = (
+                        ("rad", "pol", "tor"),
+                        np.zeros((pos.rad.size, pos.pol.size, pos.tor.size)),
+                    )
+                if ift == "fft":
+                    surf[dvar][r, :, :] = fourier.ifft2d(c, s, deriv, nfp)
+                else:
+                    surf[dvar][r, :, :] = fourier.eval2d(
+                        c, s, theta2d.data, zeta2d.data, deriv, nfp=nfp
+                    )
                 surf[dvar].attrs["long_name"] = derivative_name_smart(
                     f"{name}-coordinate", deriv
                 )
                 surf[dvar].attrs["symbol"] = latex_partial_smart(symbol, deriv)
-        surfs.append(surf)
-
-    if len(surfs) == 1:
-        return surfs[0]
-    else:
-        return xr.concat(surfs, dim="rad")
+    return surf
 
 
 # === Computable Quantities === #
@@ -98,7 +134,7 @@ def xyz(ds: xr.Dataset):
 
 
 @register(
-    requirements=["xhat", "yhat", "zhat", "zeta", "xyz"],
+    requirements=["xhat", "yhat", "zhat", "zeta_B", "xyz"],
     attrs=dict(
         long_name="cartesian coordinates",
         symbol=r"\mathbf{x}",
@@ -107,8 +143,8 @@ def xyz(ds: xr.Dataset):
 def pos(ds: xr.Dataset):
     ds["pos"] = xr.concat(
         [
-            ds.xhat * np.cos(ds.zeta) - ds.yhat * np.sin(ds.zeta),
-            ds.xhat * np.sin(ds.zeta) + ds.yhat * np.cos(ds.zeta),
+            ds.xhat * np.cos(ds.zeta_B) - ds.yhat * np.sin(ds.zeta_B),
+            ds.xhat * np.sin(ds.zeta_B) + ds.yhat * np.cos(ds.zeta_B),
             ds.zhat,
         ],
         dim="xyz",
@@ -116,16 +152,16 @@ def pos(ds: xr.Dataset):
 
 
 @register(
-    requirements=["dxhat_dt", "dyhat_dt", "dzhat_dt", "zeta", "xyz"],
+    requirements=["dxhat_dt", "dyhat_dt", "dzhat_dt", "zeta_B", "xyz"],
     attrs=dict(
-        long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_{\theta}"
+        long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_{\theta_B}"
     ),
 )
-def e_theta(ds: xr.Dataset):
-    ds["e_theta"] = xr.concat(
+def e_theta_B(ds: xr.Dataset):
+    ds["e_theta_B"] = xr.concat(
         [
-            ds.dxhat_dt * np.cos(ds.zeta) - ds.dyhat_dt * np.sin(ds.zeta),
-            ds.dxhat_dt * np.sin(ds.zeta) + ds.dyhat_dt * np.cos(ds.zeta),
+            ds.dxhat_dt * np.cos(ds.zeta_B) - ds.dyhat_dt * np.sin(ds.zeta_B),
+            ds.dxhat_dt * np.sin(ds.zeta_B) + ds.dyhat_dt * np.cos(ds.zeta_B),
             ds.dzhat_dt,
         ],
         dim="xyz",
@@ -133,16 +169,18 @@ def e_theta(ds: xr.Dataset):
 
 
 @register(
-    requirements=["dxhat_dz", "dyhat_dz", "dzhat_dz", "xhat", "yhat", "zeta", "xyz"],
-    attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_{\zeta}"),
+    requirements=["dxhat_dz", "dyhat_dz", "dzhat_dz", "xhat", "yhat", "zeta_B", "xyz"],
+    attrs=dict(
+        long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_{\zeta_B}"
+    ),
 )
-def e_zeta(ds: xr.Dataset):
-    ds["e_zeta"] = xr.concat(
+def e_zeta_B(ds: xr.Dataset):
+    ds["e_zeta_B"] = xr.concat(
         [
-            (ds.dxhat_dz - ds.yhat) * np.cos(ds.zeta)
-            - (ds.dyhat_dz + ds.xhat) * np.sin(ds.zeta),
-            (ds.dxhat_dz - ds.yhat) * np.sin(ds.zeta)
-            + (ds.dyhat_dz + ds.xhat) * np.cos(ds.zeta),
+            (ds.dxhat_dz - ds.yhat) * np.cos(ds.zeta_B)
+            - (ds.dyhat_dz + ds.xhat) * np.sin(ds.zeta_B),
+            (ds.dxhat_dz - ds.yhat) * np.sin(ds.zeta_B)
+            + (ds.dyhat_dz + ds.xhat) * np.cos(ds.zeta_B),
             ds.dzhat_dz,
         ],
         dim="xyz",
@@ -150,58 +188,58 @@ def e_zeta(ds: xr.Dataset):
 
 
 @register(
-    requirements=["e_theta", "e_zeta"],
+    requirements=["e_theta_B", "e_zeta_B"],
     attrs=dict(long_name="surface normal vector", symbol=r"\mathbf{n}"),
 )
 def normal(ds: xr.Dataset):
-    n = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz")
+    n = xr.cross(ds.e_theta_B, ds.e_zeta_B, dim="xyz")
     ds["normal"] = n / np.sqrt(xr.dot(n, n, dim="xyz"))
 
 
 @register(
-    requirements=["e_theta"],
+    requirements=["e_theta_B"],
     attrs=dict(
         long_name="poloidal component of the metric tensor / first fundamental form",
-        symbol=r"g_{\theta\theta}",
+        symbol=r"g_{\theta_B\theta_B}",
     ),
 )
-def g_tt(ds: xr.Dataset):
-    ds["g_tt"] = xr.dot(ds.e_theta, ds.e_theta, dim="xyz")
+def g_tt_B(ds: xr.Dataset):
+    ds["g_tt_B"] = xr.dot(ds.e_theta_B, ds.e_theta_B, dim="xyz")
 
 
 @register(
-    requirements=["e_theta", "e_zeta"],
+    requirements=["e_theta_B", "e_zeta_B"],
     attrs=dict(
         long_name="poloidal-toroidal component of the metric tensor / first fundamental form",
-        symbol=r"g_{\theta\zeta}",
+        symbol=r"g_{\theta_B\zeta_B}",
     ),
 )
-def g_tz(ds: xr.Dataset):
-    ds["g_tz"] = xr.dot(ds.e_theta, ds.e_zeta, dim="xyz")
+def g_tz_B(ds: xr.Dataset):
+    ds["g_tz_B"] = xr.dot(ds.e_theta_B, ds.e_zeta_B, dim="xyz")
 
 
 @register(
-    requirements=["e_zeta"],
+    requirements=["e_zeta_B"],
     attrs=dict(
         long_name="toroidal component of the metric tensor / first fundamental form",
-        symbol=r"g_{\zeta\zeta}",
+        symbol=r"g_{\zeta_B\zeta_B}",
     ),
 )
-def g_zz(ds: xr.Dataset):
-    ds["g_zz"] = xr.dot(ds.e_zeta, ds.e_zeta, dim="xyz")
+def g_zz_B(ds: xr.Dataset):
+    ds["g_zz_B"] = xr.dot(ds.e_zeta_B, ds.e_zeta_B, dim="xyz")
 
 
 @register(
-    requirements=["dxhat_dtt", "dyhat_dtt", "zeta", "xyz"],
+    requirements=["dxhat_dtt", "dyhat_dtt", "zeta_B", "xyz"],
     attrs=dict(
-        long_name="poloidal curvature vector", symbol=r"\mathbf{k}_{\theta\theta}"
+        long_name="poloidal curvature vector", symbol=r"\mathbf{k}_{\theta_B\theta_B}"
     ),
 )
-def k_tt(ds: xr.Dataset):
-    ds["k_tt"] = xr.concat(
+def k_tt_B(ds: xr.Dataset):
+    ds["k_tt_B"] = xr.concat(
         [
-            ds.dxhat_dtt * np.cos(ds.zeta) - ds.dyhat_dtt * np.sin(ds.zeta),
-            ds.dxhat_dtt * np.sin(ds.zeta) + ds.dyhat_dtt * np.cos(ds.zeta),
+            ds.dxhat_dtt * np.cos(ds.zeta_B) - ds.dyhat_dtt * np.sin(ds.zeta_B),
+            ds.dxhat_dtt * np.sin(ds.zeta_B) + ds.dyhat_dtt * np.cos(ds.zeta_B),
             ds.dzhat_dtt,
         ],
         dim="xyz",
@@ -215,21 +253,21 @@ def k_tt(ds: xr.Dataset):
         "dzhat_dtz",
         "dyhat_dt",
         "dxhat_dt",
-        "zeta",
+        "zeta_B",
         "xyz",
     ],
     attrs=dict(
         long_name="poloidal-toroidal curvature vector",
-        symbol=r"\mathbf{k}_{\theta\zeta}",
+        symbol=r"\mathbf{k}_{\theta_B\zeta_B}",
     ),
 )
-def k_tz(ds: xr.Dataset):
-    ds["k_tz"] = xr.concat(
+def k_tz_B(ds: xr.Dataset):
+    ds["k_tz_B"] = xr.concat(
         [
-            (ds.dxhat_dtz - ds.dyhat_dt) * np.cos(ds.zeta)
-            - (ds.dyhat_dtz + ds.dxhat_dt) * np.sin(ds.zeta),
-            (ds.dxhat_dtz - ds.dyhat_dt) * np.sin(ds.zeta)
-            + (ds.dyhat_dtz + ds.dxhat_dt) * np.cos(ds.zeta),
+            (ds.dxhat_dtz - ds.dyhat_dt) * np.cos(ds.zeta_B)
+            - (ds.dyhat_dtz + ds.dxhat_dt) * np.sin(ds.zeta_B),
+            (ds.dxhat_dtz - ds.dyhat_dt) * np.sin(ds.zeta_B)
+            + (ds.dyhat_dtz + ds.dxhat_dt) * np.cos(ds.zeta_B),
             ds.dzhat_dtz,
         ],
         dim="xyz",
@@ -245,20 +283,20 @@ def k_tz(ds: xr.Dataset):
         "dyhat_dz",
         "xhat",
         "yhat",
-        "zeta",
+        "zeta_B",
         "xyz",
     ],
     attrs=dict(
-        long_name="toroidal curvature vector", symbol=r"\mathbf{k}_{\zeta\zeta}"
+        long_name="toroidal curvature vector", symbol=r"\mathbf{k}_{\zeta_B\zeta_B}"
     ),
 )
-def k_zz(ds: xr.Dataset):
-    ds["k_zz"] = xr.concat(
+def k_zz_B(ds: xr.Dataset):
+    ds["k_zz_B"] = xr.concat(
         [
-            (ds.dxhat_dzz - 2 * ds.dyhat_dz - ds.xhat) * np.cos(ds.zeta)
-            - (ds.dyhat_dzz + 2 * ds.dxhat_dz - ds.yhat) * np.sin(ds.zeta),
-            (ds.dxhat_dzz - 2 * ds.dyhat_dz - ds.xhat) * np.sin(ds.zeta)
-            + (ds.dyhat_dzz + 2 * ds.dxhat_dz - ds.yhat) * np.cos(ds.zeta),
+            (ds.dxhat_dzz - 2 * ds.dyhat_dz - ds.xhat) * np.cos(ds.zeta_B)
+            - (ds.dyhat_dzz + 2 * ds.dxhat_dz - ds.yhat) * np.sin(ds.zeta_B),
+            (ds.dxhat_dzz - 2 * ds.dyhat_dz - ds.xhat) * np.sin(ds.zeta_B)
+            + (ds.dyhat_dzz + 2 * ds.dxhat_dz - ds.yhat) * np.cos(ds.zeta_B),
             ds.dzhat_dzz,
         ],
         dim="xyz",
@@ -266,33 +304,33 @@ def k_zz(ds: xr.Dataset):
 
 
 @register(
-    requirements=["normal", "k_tt"],
+    requirements=["normal", "k_tt_B"],
     attrs=dict(
         long_name="poloidal component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\theta\theta}",
+        symbol=r"\mathrm{II}_{\theta_B\theta_B}",
     ),
 )
-def II_tt(ds: xr.Dataset):
-    ds["II_tt"] = xr.dot(ds.normal, ds.k_tt, dim="xyz")
+def II_tt_B(ds: xr.Dataset):
+    ds["II_tt_B"] = xr.dot(ds.normal, ds.k_tt_B, dim="xyz")
 
 
 @register(
-    requirements=["normal", "k_tz"],
+    requirements=["normal", "k_tz_B"],
     attrs=dict(
         long_name="poloidal-toroidal component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\theta\zeta}",
+        symbol=r"\mathrm{II}_{\theta_B\zeta_B}",
     ),
 )
-def II_tz(ds: xr.Dataset):
-    ds["II_tz"] = xr.dot(ds.normal, ds.k_tz, dim="xyz")
+def II_tz_B(ds: xr.Dataset):
+    ds["II_tz_B"] = xr.dot(ds.normal, ds.k_tz_B, dim="xyz")
 
 
 @register(
-    requirements=["normal", "k_zz"],
+    requirements=["normal", "k_zz_B"],
     attrs=dict(
         long_name="toroidal component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\zeta\zeta}",
+        symbol=r"\mathrm{II}_{\zeta_B\zeta_B}",
     ),
 )
-def II_zz(ds: xr.Dataset):
-    ds["II_zz"] = xr.dot(ds.normal, ds.k_zz, dim="xyz")
+def II_zz_B(ds: xr.Dataset):
+    ds["II_zz_B"] = xr.dot(ds.normal, ds.k_zz_B, dim="xyz")

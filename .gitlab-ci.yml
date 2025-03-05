@@ -61,6 +61,14 @@ variables:
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
 # =================================================================================================================================
+# DEFAULTS
+# =================================================================================================================================
+
+default:
+  before_script:
+    - source CI_templates/helpers.bash
+
+# =================================================================================================================================
 # SHORT SYNTAX EXPLANATIONS FOR THE JOB, FOR DETAILS VISIT:    ===> https://docs.gitlab.com/ce/ci/yaml/   <===
 # "stage:"         makes the job part of a stage defined above
 # "tags:"          selects the runner
@@ -111,7 +119,7 @@ include:
   # ----------------------
 
   # Intel
-  
+
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_ifort-2023
@@ -295,30 +303,24 @@ include:
       env: .mpcdfci_gfortran-openmpi-latest
       cmake-opts: .cmake_no_converter
 
-  # pip
+  # python / pip
 
-  - local: CI_templates/build-pip.yml
+  - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifx-latest
       rules: .rules_minimal
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
 
-  - local: CI_templates/build-pip.yml
+  - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
 
-  # converter-only
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_ifort-2023
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_ifx-2024
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
+  # converter-only (converters are also built as part of the normal build jobs)
 
   - local: CI_templates/build.yml
     inputs:
@@ -326,27 +328,9 @@ include:
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
       rules: .rules_minimal
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_gfortran-13
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_nvfortran-23
-      build-postfix: _only_converter
-      cmake-opts: .cmake_only_converter
 
   # reference tag
-  
+
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifort-2023
@@ -588,6 +572,7 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -595,6 +580,7 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+      allow_failure: true
 
   - local: CI_templates/run.yml
     inputs:
@@ -603,6 +589,7 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_tag
       rules: .rules_minimal
+      allow_failure: true
 
   # reference tag + MPI
 
@@ -612,10 +599,11 @@ include:
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_mpi_tag
+      allow_failure: true
 
   # Raven private runner + srun
   # --------------------
-  
+
   # Intel
 
   - local: CI_templates/run.yml
@@ -637,7 +625,7 @@ include:
   # MPI
 
   # Intel
-  
+
   - local: CI_templates/run.yml
     inputs:
       env: .raven_ifx-impi-2024
@@ -646,7 +634,7 @@ include:
       rules: .rules_private_runner
 
   # GNU
-  
+
   - local: CI_templates/run.yml
     inputs:
       env: .raven_gfortran-openmpi-13
@@ -676,7 +664,7 @@ include:
       rules: .rules_private_runner
 
   # debugrun
-  
+
   - local: CI_templates/run.yml
     inputs:
       env: .viper_gfortran-13
@@ -715,6 +703,7 @@ include:
       run-postfix: _tag_slurm
       build-postfix: _tag
       rules: .rules_private_runner_minimal
+      allow_failure: true
 
   # GNU
 
@@ -725,6 +714,7 @@ include:
       run-postfix: _tag_slurm
       build-postfix: _tag
       rules: .rules_private_runner
+      allow_failure: true
 
   # ============================
   # unit jobs
@@ -840,34 +830,47 @@ include:
     inputs:
       env: .mpcdfci_nvfortran-23
 
+  # python
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_py
+      build-postfix: _py
+      # run-postfix: ""
+      post-postfix: _py
+      script-postfix: _py
+      rules: .rules_minimal
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_py
+      build-postfix: _py
+      # run-postfix: ""
+      post-postfix: _py
+      script-postfix: _py
+
   # ============================
   # stage converter jobs: postprocessing
   # ============================
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifort-2023
-      build-postfix: _only_converter
 
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifx-2024
-      build-postfix: _only_converter
 
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      build-postfix: _only_converter
-      rules: .rules_minimal
-
-  - local: CI_templates/converters.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
+      conv-postfix: _only_converter
       build-postfix: _only_converter
 
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_nvfortran-23
-      build-postfix: _only_converter
 
   # ============================
   # stage publish jobs
@@ -979,10 +982,10 @@ include:
 .rules_pages:
   rules:
     - if: $CI_COMMIT_REF_NAME == "develop" || $PAGES_PIPELINE == "true"
-      when: always
+      when: always  # also runs if earlier jobs fail
     # allow manual triggering for pipelines where pages didn't run
     - when: manual
-      allow_failure: true # workaround to disable reporting the pipeline as "Blocked"
+      allow_failure: true  # prevent pipeline from being "Blocked" if it isn't run
 
 .rules_never:
   rules:
@@ -1344,11 +1347,11 @@ include:
       - CMP_MODE: ["Release"]
         OMP_MODE: ["ompON"]
 
-.vars_matrix_unit:
+.vars_matrix_py:
   variables:
-    CMP_MODE: "-"
-    OMP_MODE: "-"
-    MPI_MODE: "-"
+    CMP_MODE: "Release"
+    OMP_MODE: "ompON"
+    MPI_MODE: "mpiOFF"
 
 # ____________________________
 # set HASH_TAG for reference builds

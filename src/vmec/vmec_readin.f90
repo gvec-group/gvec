@@ -32,7 +32,7 @@ MODULE MODgvec_VMEC_Readin
                              !< if lrfp=1, profiles use normalized poloidal flux, q is used to compute tor. flux
   INTEGER :: mPol            !< poloidal mode number
   INTEGER :: nTor            !< toroidal mode number
-  INTEGER :: signgs          !< signum of sqrtG
+  INTEGER :: signgs=-1       !< signum of sqrtG
 !  INTEGER :: mnmax           !< maximum mode number over m,n
 !  INTEGER :: mnmax_nyq       !< maximum mode number over m_nyq,n_nyq
   REAL(wp) :: b0             !< magnetic field on axis B_0
@@ -404,10 +404,6 @@ SUBROUTINE ReadNEMEC(fileName,itype,ok)
   DEALLOCATE(frmnc,frmns,fzmnc,fzmns)
   DEALLOCATE(flmnc,flmns)
 
-  CONTAINS
-
-  !
-
 END SUBROUTINE ReadNEMEC
 
 
@@ -417,8 +413,7 @@ END SUBROUTINE ReadNEMEC
 !===================================================================================================================================
 SUBROUTINE HalfToFull(nFlux,y_half,y_full)
 ! MODULES
-  USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
-  USE SPLINE1_MOD,       ONLY:SPLINE1_INTERP 
+  USE MODgvec_cubic_spline, ONLY:t_cubspl
 ! IMPLICIT VARIABLE HANDLING
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -432,12 +427,12 @@ SUBROUTINE HalfToFull(nFlux,y_half,y_full)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER           :: iFlux
-  REAL(wp)          :: y_half_Spl(4,nFlux+1)  ! spline fitted on half grid
-  REAL(wp)          :: y_Spl(4,nFlux)  ! spline fitted on full grid
+  REAL(wp)          :: y_half_Spl(nFlux+1)  ! point values fitted on half grid
   REAL(wp)          :: rho(1:nFlux)
   REAL(wp)          :: rho_half(1:nFlux+1)
   INTEGER           :: iFlag
   CHARACTER(len=100):: message
+  TYPE(t_cubspl),ALLOCATABLE    :: spl_half ! spline on half grid
 !===================================================================================================================================
   rho(1)=0.
   DO iFlux=2,nFlux
@@ -451,24 +446,20 @@ SUBROUTINE HalfToFull(nFlux,y_half,y_full)
 
   y_half_Spl=0.
   DO iFlux=2,nFlux
-      y_half_Spl(1,iFlux)=y_half(iFlux)
+      y_half_Spl(iFlux)=y_half(iFlux)
   END DO !i
   !Parabolic extrapolation to axis with dx'(rho=0)=0.0_wp
-  y_Half_Spl(1,1)=(y_Half_Spl(1,2)*rho_half(3)**2-y_Half_Spl(1,3)*rho_half(2)**2) /(rho_half(3)**2-rho_half(2)**2)
+  y_Half_Spl(1)=(y_Half_Spl(2)*rho_half(3)**2-y_Half_Spl(3)*rho_half(2)**2) /(rho_half(3)**2-rho_half(2)**2)
   !Extrapolate to Edge 
-  y_Half_Spl(1,nFlux+1)= ( y_half_Spl(1,nFlux  )*(rho_half(nFlux+1)-rho_half(nFlux-1))     &
-                          -y_half_Spl(1,nFlux-1)*(rho_half(nFlux+1)-rho_half(nFlux  )) )   &
-                           /(  rho_half(nFlux)   -rho_half(nFlux-1) )
-  CALL SPLINE1_FIT(nFlux+1,rho_half,y_half_Spl(:,:), K_BC1=3, K_BCN=0)
+  y_Half_Spl(nFlux+1)= ( y_half_Spl(nFlux  )*(rho_half(nFlux+1)-rho_half(nFlux-1))     &
+                        -y_half_Spl(nFlux-1)*(rho_half(nFlux+1)-rho_half(nFlux  )) )   &
+                      /(  rho_half(nFlux)   -rho_half(nFlux-1) )
+  spl_half=t_cubspl(rho_half,y_half_spl(:), BC=(/1,0/))
   iflag=0
   message=''
-  CALL SPLINE1_INTERP((/1,0,0/),nFlux+1,rho_half,y_half_Spl, &
-                                nFlux  ,rho     ,y_Spl(:,:),       &
-                          iflag,message, K_BC1=3,K_BCN=0)
+  y_full(:)=spl_half%eval(rho,0)
   !redo extrapolation with rho
-  y_Spl(1,1)  =(y_Spl(1,2)*rho(3)**2-y_Spl(1,3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
-
-  y_full=y_Spl(1,:)
+  y_full(1)  =(y_full(2)*rho(3)**2-y_full(3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
 
 END SUBROUTINE HalfToFull
 

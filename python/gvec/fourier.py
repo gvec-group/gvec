@@ -64,10 +64,6 @@ def fft2d(x: np.ndarray):
         Cosine coefficients of the double-angle Fourier series.
     s : ndarray
         Sine coefficients of the double-angle Fourier series.
-    m : ndarray
-        Poloidal harmonic indices.
-    n : ndarray
-        Toroidal harmonic indices.
     """
     x = np.asarray(x)
     xf = np.fft.rfft2(x.T, norm="forward").T
@@ -88,6 +84,67 @@ def fft2d(x: np.ndarray):
         s = np.concatenate([s[:, : N + 1], s[:, -N:]], axis=1)
 
     return c, s
+
+
+def ifft2d(
+    c: np.ndarray, s: np.ndarray, deriv: str | None = None, nfp: int = 1
+) -> np.ndarray:
+    """
+    Inverse Fast-Fourier-Transform of a 2D Fourier series.
+
+    Parameters
+    ----------
+    c : numpy.ndarray
+        Cosine coefficients of the Fourier series.
+    s : numpy.ndarray
+        Sine coefficients of the Fourier series.
+    deriv : str, optional
+        Derivative to evaluate, by default None. Specified as 'theta', 'zeta' or any string of 't' & 'z', e.g. 't', 'tz', 'ttz', ...
+    nfp : int, optional
+        Number of field periods, by default 1. Only used for derivatives, the data itself is always assumed to be in a single field period.
+
+    Returns
+    -------
+    x : numpy.ndarray
+        The values of the series at the given angles.
+    """
+    if c.shape != s.shape:
+        raise ValueError("c and s must have the same shape")
+    M = c.shape[0] - 1
+    N = c.shape[1] // 2
+    c = np.asarray(c)
+    s = np.asarray(s)
+
+    if deriv is not None:
+        mg, ng = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2, grid=True)
+        ng *= nfp
+        if set(deriv) <= {"t", "z"}:
+            ts, zs = deriv.count("t"), deriv.count("z")
+            for _ in range(ts):
+                c, s = mg * s, -mg * c
+            for _ in range(zs):
+                c, s = -ng * s, ng * c
+        elif deriv == "theta":
+            c, s = mg * s, -mg * c
+        elif deriv == "zeta":
+            c, s = -ng * s, ng * c
+        else:
+            raise ValueError(
+                f"Invalid derivative specification, got '{deriv}', expected 'theta', 'zeta', 't', 'z', 'tt', 'tz', ..."
+            )
+
+    c = np.roll(c[:, ::-1], 1, axis=1)
+    c[0, :] *= 2
+    c = c / 2
+
+    s = np.roll(s[:, ::-1], 1, axis=1)
+    s[0, :] *= 2
+    s = -s / 2
+
+    xf = c + 1j * s
+    # always use an odd number of points in both directions
+    x = np.fft.irfft2(xf.T, s=(2 * N + 1, 2 * M + 1), norm="forward").T
+    return x
 
 
 def fft2d_modes(M: int, N: int, grid: bool = False):
@@ -178,8 +235,12 @@ def eval2d(
     x : numpy.ndarray
         The values of the series at the given angles.
     """
-    theta, zeta = np.broadcast_arrays(theta, zeta)
-    x = np.zeros_like(theta)
+    if theta.shape != zeta.shape:
+        raise ValueError("theta and zeta must have the same shape")
+
+    shape = theta.shape
+    theta, zeta = theta.ravel(), zeta.ravel()
+
     if deriv is not None:
         mg, ng = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2, grid=True)
         ng *= nfp
@@ -199,8 +260,10 @@ def eval2d(
             )
 
     ms, ns = fft2d_modes(c.shape[0] - 1, c.shape[1] // 2)
+    x = np.zeros_like(theta)
     for m in ms:
         for n in ns:
+            # this python double loop is NOT slower than numpy array operations
             x += c[m, n] * np.cos(m * theta - n * nfp * zeta)
             x += s[m, n] * np.sin(m * theta - n * nfp * zeta)
-    return x
+    return x.reshape(shape)

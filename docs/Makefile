@@ -1,5 +1,8 @@
 # Minimal makefile for Sphinx documentation
 #
+# To find the (installed) python package, you need to set the PYTHONPATH when
+# calling `make html`, e.g.:
+#  PYTHONPATH=../venv/lib/python3.10/site-packages/ make html
 
 # You can set these variables from the command line, and also
 # from the environment for the first two.

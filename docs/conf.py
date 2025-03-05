@@ -44,6 +44,8 @@ release = version
 extensions = [
     "myst_parser",  # "a rich and extensible flavour of Markdown for authoring technical and scientific documentation."
     "sphinx_design",  # proveides Grids, Cards, Dropdowns & more
+    "sphinx.ext.napoleon",  # preprocessor for NumPy and Google style docstrings
+    "sphinx.ext.autodoc",  # automatically generated API documentation from docstrings
 ]
 
 # Add any paths that contain templates here, relative to this directory.

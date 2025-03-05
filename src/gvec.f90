@@ -25,7 +25,6 @@ PROGRAM GVEC
   CHARACTER(LEN=24)       :: execname="gvec"
   LOGICAL                 :: commandFailed
   LOGICAL                 :: doRestart
-  INTEGER                 :: comm
   !===================================================================================================================================
   CALL par_Init() !USE MPI_COMM_WORLD
 
