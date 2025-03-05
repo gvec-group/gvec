@@ -24,6 +24,7 @@ MODULE MODgvec_VMEC_Vars
 ! MODULES
 USE MODgvec_Globals, ONLY: wp
 USE MODgvec_rProfile_base, ONLY: c_rProfile
+USE MODgvec_cubic_spline, ONLY: t_cubspl
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -31,8 +32,8 @@ PUBLIC
 
 ! GLOBAL VARIABLES 
 LOGICAL                 :: useVMEC                   !! main switch
-LOGICAL                 :: switchZeta                !! True: change from R,phi,Z to R,Z,phi coordinate system
-LOGICAL                 :: reLambda                  !! switch for recomputing lambda
+LOGICAL                 :: switchZeta                !! switch vmec_phi = -zeta
+LOGICAL                 :: switchTheta               !! switch vmec_theta = -theta
 CHARACTER(LEN = 256)    :: VMECdataFile
 INTEGER                 :: VMECFile_Format           !! 0: netcdf format (default), 1: nemec ascii, 2: nemec binary
 INTEGER,ALLOCATABLE     :: xmAbs(:)                  !! |xm(iMode)|, 1 for m=0, 2 for even, 3 for odd
@@ -41,12 +42,13 @@ REAL(wp),ALLOCATABLE    :: normFlux_prof(:)          !! normalized flux profile,
 REAL(wp),ALLOCATABLE    :: chi_prof(:)               !! POLOIDAL flux profile (called chi in VMEC)
 
 REAL(wp),ALLOCATABLE    :: rho(:)                    !! := sqrt(phinorm) at all flux surface 
-REAL(wp),ALLOCATABLE    :: Rmnc_Spl(:,:,:)           !! modified spline coefficients R cosine, (1:4,iFlux,iMode)
-REAL(wp),ALLOCATABLE    :: Rmns_Spl(:,:,:)           !! modified spline coefficients R sine,   (1:4,iFlux,iMode)
-REAL(wp),ALLOCATABLE    :: lmnc_Spl(:,:,:)           !! modified spline coefficients of lambda cosine , (1:4,iFlux,iMode)
-REAL(wp),ALLOCATABLE    :: lmns_Spl(:,:,:)           !! modified spline coefficients of lambda sine,   (1:4,iFlux,iMode)
-REAL(wp),ALLOCATABLE    :: Zmnc_Spl(:,:,:)           !! modified spline coefficients of Z cosine, (1:4,iFlux,iMode)
-REAL(wp),ALLOCATABLE    :: Zmns_Spl(:,:,:)           !! modified spline coefficients of Z sine,   (1:4,iFlux,iMode)
+
+TYPE(t_cubspl),ALLOCATABLE    :: Rmnc_Spl(:)           !! cubic spline fit of R cosine, array over modes
+TYPE(t_cubspl),ALLOCATABLE    :: Rmns_Spl(:)           !! cubic spline fit of R sine, array over modes
+TYPE(t_cubspl),ALLOCATABLE    :: lmnc_Spl(:)           !! cubic spline fit of lambda  cosine , array over modes
+TYPE(t_cubspl),ALLOCATABLE    :: lmns_Spl(:)           !! cubic spline fit of lambda sine, array over modes
+TYPE(t_cubspl),ALLOCATABLE    :: Zmnc_Spl(:)           !! cubic spline fit of Z cosine,array over modes
+TYPE(t_cubspl),ALLOCATABLE    :: Zmns_Spl(:)           !! cubic spline fit of Z sine,array over modes
 CLASS(c_rProfile), ALLOCATABLE :: vmec_Phi_profile        !! B-spline profiles in (rho^2) for Phi
 CLASS(c_rProfile), ALLOCATABLE :: vmec_Chi_profile        !! B-spline profile in (rho^2) for chi
 CLASS(c_rProfile), ALLOCATABLE :: vmec_iota_profile        !! B-spline profiles in (rho^2) for iota

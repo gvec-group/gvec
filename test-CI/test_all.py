@@ -144,6 +144,7 @@ def test_run(
         # check if GVEC was successful
         helpers.assert_empty_stderr(slurm="srun" in runargs_prefix)
         helpers.assert_stdout_finished(message="GVEC SUCESSFULLY FINISHED!")
+        helpers.assert_stdout_no_NaN()
         helpers.assert_stdout_OpenMP_MPI()
 
 
@@ -289,6 +290,7 @@ class TestPost(BaseTestPost):
 
         helpers.assert_empty_stderr(slurm="srun" in runargs_prefix)
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
+        helpers.assert_stdout_no_NaN()
         helpers.assert_stdout_OpenMP_MPI()
 
 

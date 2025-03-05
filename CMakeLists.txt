@@ -425,6 +425,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
+                          ./src/hmap/*.f90
                           ./src/profiles/*.f90
                           ./src/functionals/mhd3d/*hmap*.f90
                           ./src/functionals/mhd3d/lambda_solve.f90
@@ -600,6 +601,7 @@ IF(COMPILE_GVEC)
   ADD_DEPENDENCIES(gvec gveclib )
   add_exec(gvec_post ./src/gvec_post.f90)
   ADD_DEPENDENCIES(gvec_post gveclib )
+  MESSAGE(STATUS "path to build directory: ${CMAKE_BINARY_DIR}")
   add_test(
     NAME gvec_pytest_create_rundir
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -613,7 +615,7 @@ IF(COMPILE_GVEC)
   add_test(
     NAME gvec_pytest_dryrun
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --refdir=${CMAKE_BINARY_DIR}/ctest_run  --dry-run -m "run_stage or post_stage or regression_stage"
+    COMMAND ${Python_EXECUTABLE}  -m pytest -v -r A --log-file=${CMAKE_BINARY_DIR}/log_pytest_dryrun.txt --builddir=${CMAKE_BINARY_DIR} --rundir=${CMAKE_BINARY_DIR}/ctest_run --dry-run -m "run_stage"
   )
   add_test(
     NAME gvec_pytest_run_shortrun_norestart

@@ -127,7 +127,7 @@ SUBROUTINE InitMHD3D(sf)
   sgammM1=1.0_wp/(gamm-1.0_wp)
 
   init_LA= GETLOGICAL("init_LA",Proposal=.TRUE.)
-  
+
   SELECT CASE(which_init)
   CASE(0)
     init_fromBConly= .TRUE.
@@ -179,6 +179,12 @@ SUBROUTINE InitMHD3D(sf)
     CALL par_BCast(which_hmap,0)
     CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
+  IF(MPIroot)THEN
+    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
+    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
+    chi_profile=iota_profile%antiderivative()
+    chi_profile%coefs=chi_profile%coefs*Phi_edge 
+  END IF
 
   IF(MPIroot)THEN
     Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
@@ -693,9 +699,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,is,i_m,i_n
+  INTEGER  :: iMode,i_m,i_n
   REAL(wp) :: BC_val(2)
-  REAL(wp) :: spos
+  REAL(wp) :: rhopos
   REAL(wp) :: dl,lint,x1int,x2int 
   REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
   REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
@@ -717,47 +723,47 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     !X1_a,X2_a and X1_b,X2_b already filled from parameter file readin...
   CASE(1) !VMEC
     IF((init_BC.EQ.-1).OR.(init_BC.EQ.1))THEN ! compute  axis from VMEC, else use the one defined in paramterfile
-      spos=0.0_wp
+      rhopos=0.0_wp
       ASSOCIATE(sin_range    => X1_base%f%sin_range, cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
-        X1_a(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
+        X1_a(iMode:iMode)= VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmnc_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
-          X1_a(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
+          X1_a(iMode:iMode)=X1_a(iMode:imode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmns_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X1
       ASSOCIATE(sin_range    => X2_base%f%sin_range, cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        X2_a(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
+        X2_a(iMode:iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmns_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          X2_a(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
+          X2_a(iMode:iMode)=X2_a(iMode:iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmnc_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X2
     END IF
     IF((init_BC.EQ.-1).OR.(init_BC.EQ.0))THEN ! compute edge from VMEC, else use the one defined in paramterfile
-      spos=1.0_wp
+      rhopos=1.0_wp
       ASSOCIATE(sin_range    => X1_base%f%sin_range, cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
-        X1_b(iMode:iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmnc_Spl)
+        X1_b(iMode:iMode)=VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmnc_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
-          X1_b(iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,spos,Rmns_Spl)
+          X1_b(iMode:iMode)=X1_b(iMode:iMode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmns_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X1
       ASSOCIATE(sin_range    => X2_base%f%sin_range, cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        X2_b(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmns_Spl)
+        X2_b(iMode:iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmns_Spl)
       END DO 
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          X2_b(iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,spos,Zmnc_Spl)
+          X2_b(iMode:iMode)=X2_b(iMode:iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmnc_Spl)
         END DO 
       END IF !lasym
       END ASSOCIATE !X2
@@ -804,15 +810,11 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 sin_range    => X1_base%f%sin_range,&
                 cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
-        DO is=1,nBase
-          X1_gIP(is,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmnc_Spl)
-        END DO !is
+        X1_gIP(:,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmnc_Spl)
       END DO !imode=cos_range
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
-          DO is=1,nBase
-            X1_gIP(is,iMode)  =VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP(is),Rmns_Spl)
-          END DO !is
+          X1_gIP(:,iMode)=X1_gIP(:,iMode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,s_IP,Rmns_Spl)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X1
@@ -821,15 +823,11 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 sin_range    => X2_base%f%sin_range,&
                 cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        DO is=1,nBase
-          X2_gIP(is,iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmns_Spl)
-        END DO !is
+        X2_gIP(:,iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmns_Spl)
       END DO !imode=sin_range
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          DO is=1,nBase
-            X2_gIP(is,iMode)  =VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP(is),Zmnc_Spl)
-          END DO !is
+          X2_gIP(:,iMode)=X2_gIP(:,iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,s_IP,Zmnc_Spl)
         END DO !imode= sin_range
       END IF !lasym
       END ASSOCIATE !X2
@@ -838,15 +836,11 @@ SUBROUTINE InitSolution(U_init,which_init_in)
                 sin_range    => LA_base%f%sin_range,&
                 cos_range    => LA_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
-        DO is=1,nBase
-          LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),lmns_Spl)
-        END DO !is
+        LA_gIP(:,iMode)=VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP,lmns_Spl)
       END DO !imode= sin_range
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
-          DO is=1,nBase
-            LA_gIP(is,iMode)  =VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP(is),Lmnc_Spl)
-          END DO !is
+          LA_gIP(:,iMode)=LA_gIP(:,iMode)  +VMEC_EvalSplMode(LA_base%f%Xmn(:,iMode),0,s_IP,lmnc_Spl)
         END DO !imode=cos_range
       END IF !lasym
       END ASSOCIATE !LA
