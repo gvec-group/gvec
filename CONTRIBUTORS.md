@@ -5,9 +5,11 @@ GVEC is being developed and maintained by
 * Florian Hindenlang (2017.. )
 * Tiago Tamissa Ribeiro (2021.. )
 * Robert Babin (2024.. )
+* Dean Muir (2025.. )
 
 with additional contributions from
 
+* Eric Sonnendrücker
 * Claus-Dieter Munz
 * Omar Maj (2017.. )
 * Jonathan Faustin (2018)
@@ -21,6 +23,7 @@ with additional contributions from
 * Markus Rampp (2020)
 * Rohan Ramasamy (2021)
 * Robert Köberl (2023.. )
+* Gabriel Plunk
 
 ---
 
