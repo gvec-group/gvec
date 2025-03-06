@@ -4,7 +4,9 @@ import re
 from pathlib import Path
 
 
-def generate_formatted_param(param, vals, formatting="markdown", enable_links=True):
+def generate_formatted_param(
+    param, vals, formatting="markdown", enable_links=True, open_all=False
+):
     """
     generate a list of strings (each entry is a line)
     for a parameter named `param` and the dictionary `vals` which
@@ -57,9 +59,6 @@ def generate_formatted_param(param, vals, formatting="markdown", enable_links=Tr
     #####
 
     outstr = []
-
-    # debug, have open all dropdown open
-    open_all = True
 
     if formatting == "markdown":
         outstr.append(f"::::{{dropdown}} `{param}`")

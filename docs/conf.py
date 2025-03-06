@@ -36,16 +36,15 @@ except Exception as e:
     version = "unknown"
 release = version
 
-# generate parameter lists, generators/initialization-parameters.md ...
-
+# generate parameter lists, generators/parameters-*md
 genpath = Path(__file__).parent / "generators"
-format_parameter_list(
-    genpath / "parameters.yaml",
-    output_file=genpath / "parameters-all.md",
-    formatting="markdown",
-)
-print("generated parameters-all.md")
-for category in ["profiles", "minimizer", "initialization"]:
+for category in [
+    "minimizer",
+    "initialization",
+    "discretization",
+    "hmap",
+    "visualization",
+]:
     format_parameter_list(
         genpath / "parameters.yaml",
         output_file=genpath / f"parameters-{category}.md",

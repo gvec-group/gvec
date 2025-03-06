@@ -162,7 +162,8 @@ def run_zero_current(
 
             # set new parameters
             params["init_LA"] = "T" if reinit_LA else "F"
-            params["sign_iota"] = 1
+            params["iota_type"] = "polynomial"
+            params["iota_scale"] = 1.0
             # currently adapt_parameter_file expects strings for iota coefficients
             params["iota_coefs"] = "(/" + ", ".join(map(str, iota_coefs[::-1])) + "/)"
 

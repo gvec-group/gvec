@@ -43,7 +43,8 @@ iota_type:
   category:
   - Initialization
   - profiles
-  subtitle: essential parameter
+  subtitle: mandatory if `whichInitEquilibrium=0`
+  required_if: '`whichInitEquilibrium=0`'
   description:
   - Type of profile to represent the rotational transform `iota(s)`. Can be a polynomial,
     B-Spline or a set of points which is then interpolated
@@ -52,26 +53,25 @@ iota_type:
     radius-like coordinate is $\rho=\sqrt{s}$.'
   type: '`string`'
   allowed_table:
-  - - '`"polynomial"`'
+  - - '`polynomial`'
     - polynomial represenation, **needs** lnk_to_param(iota_coefs)
-  - - '`"bspline"`'
+  - - '`bspline`'
     - B-Spline representation, **needs** lnk_to_param(iota_coefs) and lnk_to_param(iota_knots)
-  - - '`"interpolation"`'
+  - - '`interpolation`'
     - Cubic spline interpolation from point values at s-positions, **needs** lnk_to_param(iota_rho2)
       and lnk_to_param(iota_vals)
-  default: '`"polynomial"`'
 iota_coefs:
   category:
   - Initialization
   - profiles
   description:
   - 'Depending on the type of profile of the rotational transform `iota(s)`:'
-  - '- if lnk_to_param(`iota_type="polynomial"`|iota_type), it sets the coefficients
+  - '- if lnk_to_param(`iota_type=polynomial`|iota_type), it sets the coefficients
     $c_0 + c_1 s + c_2 s^2 \dots$'
-  - '- if lnk_to_param(`iota_type="bspline"`|iota_type), these are the B-Spline coefficients
+  - '- if lnk_to_param(`iota_type=bspline`|iota_type), these are the B-Spline coefficients
     (which need to be compatible to the knots lnk_to_param(iota_knots))'
   type: array of `real` of any size
-  required_if: lnk_to_param(iota_type) is `"polynomial"` or `"bspline"`
+  required_if: lnk_to_param(iota_type) is `polynomial` or `bspline`
 iota_knots:
   category:
   - Initialization
@@ -83,7 +83,7 @@ iota_knots:
     at $s=1$. The degree of the B-Spline is deduced from the multiplicity.
   - Knots need to be compatible with the B-Spline coefficients lnk_to_param(iota_coefs)
   type: array of `real` of any size
-  required_if: lnk_to_param(iota_type) is `"bspline"`
+  required_if: lnk_to_param(iota_type) is `bspline`
 iota_rho2:
   category:
   - Initialization
@@ -94,7 +94,7 @@ iota_rho2:
   - They must cover the range of $s=[0,1]$ and must be monotonically increasing.
   - Point positions must of same size as the values, specified by lnk_to_param(iota_vals)
   type: array of `real` of any size
-  required_if: lnk_to_param(iota_type) is `"interpolation"`
+  required_if: lnk_to_param(iota_type) is `interpolation`
 iota_vals:
   category:
   - Initialization
@@ -105,7 +105,7 @@ iota_vals:
     magnetic flux
   - Point positions must of same size as the values, specified by lnk_to_param(iota_rho2)
   type: array of `real` of any size
-  required_if: lnk_to_param(iota_type) is `"interpolation"`
+  required_if: lnk_to_param(iota_type) is `interpolation`
 iota_BC_type_axis:
   category:
   - Initialization
@@ -124,7 +124,7 @@ iota_BC_type_axis:
   - - '`"2nd_deriv"`'
     - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
       first value of lnk_to_param(iota_BC_vals)
-  required_if: lnk_to_param(iota_type) is `"interpolation"`
+  required_if: lnk_to_param(iota_type) is `interpolation`
   default: '`"not_a_knot"`'
 iota_BC_type_edge:
   category:
@@ -144,7 +144,7 @@ iota_BC_type_edge:
   - - '`"2nd_deriv"`'
     - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
       second value of lnk_to_param(iota_BC_vals)
-  required_if: lnk_to_param(iota_type) is `"interpolation"`
+  required_if: lnk_to_param(iota_type) is `interpolation`
   default: '`"not_a_knot"`'
 iota_BC_vals:
   category:
@@ -154,14 +154,24 @@ iota_BC_vals:
   - Values for the first / second derivative, at $s=0$ and $s=1$, for the cubic spline
     interpolation of the rotational transform `iota(s)`.
   type: array of `real` of size 2
-  required_if: lnk_to_param(iota_type) is `"interpolation"` , and if lnk_to_param(iota_BC_type_axis)
+  required_if: lnk_to_param(iota_type) is `interpolation` , and if lnk_to_param(iota_BC_type_axis)
     or lnk_to_param(iota_BC_type_edge) is different from `"not_a_knot"`
   default: '`(/0.0,0.0/))`'
+iota_scale:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Scales the {proflong} `{prof}(s)` by a constant.
+  - See profile definition lnk_to_param(iota_type)
+  type: '`real`'
+  default: '`1.0`'
 pres_type:
   category:
   - Initialization
   - profiles
-  subtitle: essential parameter
+  subtitle: mandatory if `whichInitEquilibrium=0`
+  required_if: '`whichInitEquilibrium=0`'
   description:
   - Type of profile to represent the pressure `pres(s)`. Can be a polynomial, B-Spline
     or a set of points which is then interpolated
@@ -170,26 +180,25 @@ pres_type:
     radius-like coordinate is $\rho=\sqrt{s}$.'
   type: '`string`'
   allowed_table:
-  - - '`"polynomial"`'
+  - - '`polynomial`'
     - polynomial represenation, **needs** lnk_to_param(pres_coefs)
-  - - '`"bspline"`'
+  - - '`bspline`'
     - B-Spline representation, **needs** lnk_to_param(pres_coefs) and lnk_to_param(pres_knots)
-  - - '`"interpolation"`'
+  - - '`interpolation`'
     - Cubic spline interpolation from point values at s-positions, **needs** lnk_to_param(pres_rho2)
       and lnk_to_param(pres_vals)
-  default: '`"polynomial"`'
 pres_coefs:
   category:
   - Initialization
   - profiles
   description:
   - 'Depending on the type of profile of the pressure `pres(s)`:'
-  - '- if lnk_to_param(`pres_type="polynomial"`|pres_type), it sets the coefficients
+  - '- if lnk_to_param(`pres_type=polynomial`|pres_type), it sets the coefficients
     $c_0 + c_1 s + c_2 s^2 \dots$'
-  - '- if lnk_to_param(`pres_type="bspline"`|pres_type), these are the B-Spline coefficients
+  - '- if lnk_to_param(`pres_type=bspline`|pres_type), these are the B-Spline coefficients
     (which need to be compatible to the knots lnk_to_param(pres_knots))'
   type: array of `real` of any size
-  required_if: lnk_to_param(pres_type) is `"polynomial"` or `"bspline"`
+  required_if: lnk_to_param(pres_type) is `polynomial` or `bspline`
 pres_knots:
   category:
   - Initialization
@@ -201,7 +210,7 @@ pres_knots:
     at $s=1$. The degree of the B-Spline is deduced from the multiplicity.
   - Knots need to be compatible with the B-Spline coefficients lnk_to_param(pres_coefs)
   type: array of `real` of any size
-  required_if: lnk_to_param(pres_type) is `"bspline"`
+  required_if: lnk_to_param(pres_type) is `bspline`
 pres_rho2:
   category:
   - Initialization
@@ -212,7 +221,7 @@ pres_rho2:
   - They must cover the range of $s=[0,1]$ and must be monotonically increasing.
   - Point positions must of same size as the values, specified by lnk_to_param(pres_vals)
   type: array of `real` of any size
-  required_if: lnk_to_param(pres_type) is `"interpolation"`
+  required_if: lnk_to_param(pres_type) is `interpolation`
 pres_vals:
   category:
   - Initialization
@@ -223,7 +232,7 @@ pres_vals:
     magnetic flux
   - Point positions must of same size as the values, specified by lnk_to_param(pres_rho2)
   type: array of `real` of any size
-  required_if: lnk_to_param(pres_type) is `"interpolation"`
+  required_if: lnk_to_param(pres_type) is `interpolation`
 pres_BC_type_axis:
   category:
   - Initialization
@@ -240,7 +249,7 @@ pres_BC_type_axis:
   - - '`"2nd_deriv"`'
     - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
       first value of lnk_to_param(pres_BC_vals)
-  required_if: lnk_to_param(pres_type) is `"interpolation"`
+  required_if: lnk_to_param(pres_type) is `interpolation`
   default: '`"not_a_knot"`'
 pres_BC_type_edge:
   category:
@@ -258,7 +267,7 @@ pres_BC_type_edge:
   - - '`"2nd_deriv"`'
     - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
       second value of lnk_to_param(pres_BC_vals)
-  required_if: lnk_to_param(pres_type) is `"interpolation"`
+  required_if: lnk_to_param(pres_type) is `interpolation`
   default: '`"not_a_knot"`'
 pres_BC_vals:
   category:
@@ -268,7 +277,7 @@ pres_BC_vals:
   - Values for the first / second derivative, at $s=0$ and $s=1$, for the cubic spline
     interpolation of the pressure `pres(s)`.
   type: array of `real` of size 2
-  required_if: lnk_to_param(pres_type) is `"interpolation"` , and if lnk_to_param(pres_BC_type_axis)
+  required_if: lnk_to_param(pres_type) is `interpolation` , and if lnk_to_param(pres_BC_type_axis)
     or lnk_to_param(pres_BC_type_edge) is different from `"not_a_knot"`
   default: '`(/0.0,0.0/))`'
 pres_scale:
@@ -276,17 +285,7 @@ pres_scale:
   - Initialization
   - profiles
   description:
-  - Scales the pressure profile `pres(s)` by a constant.
-  - See pressure profile definition lnk_to_param(pres_type)
+  - Scales the {proflong} `{prof}(s)` by a constant.
+  - See profile definition lnk_to_param(pres_type)
   type: '`real`'
   default: '`1.0`'
-sign_iota:
-  category:
-  - Initialization
-  - profiles
-  description:
-  - The rotational transform `ìota(s)` is always multiplied with `sign_iota`. Note
-    that it is **negative** by default.
-  - See rotational transform profile definition lnk_to_param(iota_type)
-  type: '`integer`'
-  default: '`-1`'
