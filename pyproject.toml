@@ -127,3 +127,4 @@ markers = [
 [tool.ruff.lint.per-file-ignores]
 "test_*.py" = ["F841"]
 "*.py" = ["F401"]
+"docs/conf.py" = ["E402"]

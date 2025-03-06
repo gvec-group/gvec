@@ -8,15 +8,16 @@
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+# add these directories to sys.path here.
+
+import sys
 import subprocess
 import logging
 import os
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent / "generators"))  # docs/generators
+from generate_parameter_list import format_parameter_list
 
 
 # -- Project information -----------------------------------------------------
@@ -34,6 +35,24 @@ except Exception as e:
     logging.error(f"Could not get git version: {e}")
     version = "unknown"
 release = version
+
+# generate parameter lists, generators/initialization-parameters.md ...
+
+genpath = Path(__file__).parent / "generators"
+format_parameter_list(
+    genpath / "parameters.yaml",
+    output_file=genpath / "parameters-all.md",
+    formatting="markdown",
+)
+print("generated parameters-all.md")
+for category in ["profiles", "minimizer", "initialization"]:
+    format_parameter_list(
+        genpath / "parameters.yaml",
+        output_file=genpath / f"parameters-{category}.md",
+        filter={"category": category},
+        formatting="markdown",
+    )
+    print(f"generated parameters-{category}.md")
 
 
 # -- General configuration ---------------------------------------------------
@@ -54,7 +73,7 @@ templates_path = ["templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["ford/ford.md", "ford/static/index.md"]
+exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators"]
 
 # -- Options for HTML output -------------------------------------------------
 

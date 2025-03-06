@@ -1,0 +1,292 @@
+whichInitEquilibrium:
+  category:
+  - Initialization
+  subtitle: mandatory
+  required: true
+  description:
+  - How initial guess is computed. Either from boundary and axis parameters, or from
+    VMEC file.
+  type: '`integer`'
+  allowed_table:
+  - - '`0`'
+    - from axis and boundary parameters
+  - - '`1`'
+    - from VMEC file, **needs:** lnk_to_param(VMECwoutfile)
+VMECwoutfile:
+  category:
+  - Initialization
+  - VMEC
+  description:
+  - full file name of vmec solution file, either as netcdf or as nemec output,
+  - '**needs** lnk_to_param(VMECwoutfile_format)'
+  required_if: lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+  type: '`string`'
+VMECwoutfile_format:
+  category:
+  - Initialization
+  - VMEC
+  description:
+  - Choose which VMEC wout file format, either netcdf or ascii/binary format from
+    NEMEC
+  - The filename is specified in lnk_to_param(VMECwoutfile)
+  required_if: lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+  type: '`string`'
+  allowed_table:
+  - - '`0`'
+    - netcdf format
+  - - '`1`'
+    - ascii format from older vmec (nemec)
+  - - '`2`'
+    - binary format from older vmec (nemec)
+  default: '`0`'
+iota_type:
+  category:
+  - Initialization
+  - profiles
+  subtitle: essential parameter
+  description:
+  - Type of profile to represent the rotational transform `iota(s)`. Can be a polynomial,
+    B-Spline or a set of points which is then interpolated
+  - '**Note:** the profile is always given as a function of the normalized magnetic
+    flux $s$, with $s=0$ as the magnetic axis, and $s=1$ at the boundary. The normalized
+    radius-like coordinate is $\rho=\sqrt{s}$.'
+  type: '`string`'
+  allowed_table:
+  - - '`"polynomial"`'
+    - polynomial represenation, **needs** lnk_to_param(iota_coefs)
+  - - '`"bspline"`'
+    - B-Spline representation, **needs** lnk_to_param(iota_coefs) and lnk_to_param(iota_knots)
+  - - '`"interpolation"`'
+    - Cubic spline interpolation from point values at s-positions, **needs** lnk_to_param(iota_rho2)
+      and lnk_to_param(iota_vals)
+  default: '`"polynomial"`'
+iota_coefs:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Depending on the type of profile of the rotational transform `iota(s)`:'
+  - '- if lnk_to_param(`iota_type="polynomial"`|iota_type), it sets the coefficients
+    $c_0 + c_1 s + c_2 s^2 \dots$'
+  - '- if lnk_to_param(`iota_type="bspline"`|iota_type), these are the B-Spline coefficients
+    (which need to be compatible to the knots lnk_to_param(iota_knots))'
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `"polynomial"` or `"bspline"`
+iota_knots:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Required for the B-Spline profile of the rotational transform `iota(s)`:'
+  - The knots must be in the range of $s=[0,1]$ and must be monotonically increasing.
+  - They must have the same multiplicity of the first knot at $s=0$ and the last knot
+    at $s=1$. The degree of the B-Spline is deduced from the multiplicity.
+  - Knots need to be compatible with the B-Spline coefficients lnk_to_param(iota_coefs)
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `"bspline"`
+iota_rho2:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the rotational transform `iota(s)`:'
+  - These are the radial point positions, in the normalized magnetic flux
+  - They must cover the range of $s=[0,1]$ and must be monotonically increasing.
+  - Point positions must of same size as the values, specified by lnk_to_param(iota_vals)
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `"interpolation"`
+iota_vals:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the rotational transform `iota(s)`:'
+  - These are the values of `iota` at the radial point positions, in the normalized
+    magnetic flux
+  - Point positions must of same size as the values, specified by lnk_to_param(iota_rho2)
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `"interpolation"`
+iota_BC_type_axis:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Boundary condition at $s=0$ for the cubic spline interpolation of the rotational
+    transform `iota(s)`
+  type: '`string`'
+  allowed_table:
+  - &id001
+    - '`"not_a_knot"`'
+    - Makes the third derivative continuous at the second grid point
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(iota_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(iota_BC_vals)
+  required_if: lnk_to_param(iota_type) is `"interpolation"`
+  default: '`"not_a_knot"`'
+iota_BC_type_edge:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Boundary condition at $s=1$ for the cubic spline interpolation of the rotational
+    transform `iota(s)`
+  type: '`string`'
+  allowed_table:
+  - &id002
+    - '`"not_a_knot"`'
+    - Makes the third derivative continuous at the second to last grid point
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=1$, either to zero or to the provided
+      second value of lnk_to_param(iota_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      second value of lnk_to_param(iota_BC_vals)
+  required_if: lnk_to_param(iota_type) is `"interpolation"`
+  default: '`"not_a_knot"`'
+iota_BC_vals:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Values for the first / second derivative, at $s=0$ and $s=1$, for the cubic spline
+    interpolation of the rotational transform `iota(s)`.
+  type: array of `real` of size 2
+  required_if: lnk_to_param(iota_type) is `"interpolation"` , and if lnk_to_param(iota_BC_type_axis)
+    or lnk_to_param(iota_BC_type_edge) is different from `"not_a_knot"`
+  default: '`(/0.0,0.0/))`'
+pres_type:
+  category:
+  - Initialization
+  - profiles
+  subtitle: essential parameter
+  description:
+  - Type of profile to represent the pressure `pres(s)`. Can be a polynomial, B-Spline
+    or a set of points which is then interpolated
+  - '**Note:** the profile is always given as a function of the normalized magnetic
+    flux $s$, with $s=0$ as the magnetic axis, and $s=1$ at the boundary. The normalized
+    radius-like coordinate is $\rho=\sqrt{s}$.'
+  type: '`string`'
+  allowed_table:
+  - - '`"polynomial"`'
+    - polynomial represenation, **needs** lnk_to_param(pres_coefs)
+  - - '`"bspline"`'
+    - B-Spline representation, **needs** lnk_to_param(pres_coefs) and lnk_to_param(pres_knots)
+  - - '`"interpolation"`'
+    - Cubic spline interpolation from point values at s-positions, **needs** lnk_to_param(pres_rho2)
+      and lnk_to_param(pres_vals)
+  default: '`"polynomial"`'
+pres_coefs:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Depending on the type of profile of the pressure `pres(s)`:'
+  - '- if lnk_to_param(`pres_type="polynomial"`|pres_type), it sets the coefficients
+    $c_0 + c_1 s + c_2 s^2 \dots$'
+  - '- if lnk_to_param(`pres_type="bspline"`|pres_type), these are the B-Spline coefficients
+    (which need to be compatible to the knots lnk_to_param(pres_knots))'
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `"polynomial"` or `"bspline"`
+pres_knots:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Required for the B-Spline profile of the pressure `pres(s)`:'
+  - The knots must be in the range of $s=[0,1]$ and must be monotonically increasing.
+  - They must have the same multiplicity of the first knot at $s=0$ and the last knot
+    at $s=1$. The degree of the B-Spline is deduced from the multiplicity.
+  - Knots need to be compatible with the B-Spline coefficients lnk_to_param(pres_coefs)
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `"bspline"`
+pres_rho2:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the pressure `pres(s)`:'
+  - These are the radial point positions, in the normalized magnetic flux
+  - They must cover the range of $s=[0,1]$ and must be monotonically increasing.
+  - Point positions must of same size as the values, specified by lnk_to_param(pres_vals)
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `"interpolation"`
+pres_vals:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the pressure `pres(s)`:'
+  - These are the values of `pres` at the radial point positions, in the normalized
+    magnetic flux
+  - Point positions must of same size as the values, specified by lnk_to_param(pres_rho2)
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `"interpolation"`
+pres_BC_type_axis:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Boundary condition at $s=0$ for the cubic spline interpolation of the pressure
+    `pres(s)`
+  type: '`string`'
+  allowed_table:
+  - *id001
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(pres_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(pres_BC_vals)
+  required_if: lnk_to_param(pres_type) is `"interpolation"`
+  default: '`"not_a_knot"`'
+pres_BC_type_edge:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Boundary condition at $s=1$ for the cubic spline interpolation of the pressure
+    `pres(s)`
+  type: '`string`'
+  allowed_table:
+  - *id002
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=1$, either to zero or to the provided
+      second value of lnk_to_param(pres_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      second value of lnk_to_param(pres_BC_vals)
+  required_if: lnk_to_param(pres_type) is `"interpolation"`
+  default: '`"not_a_knot"`'
+pres_BC_vals:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Values for the first / second derivative, at $s=0$ and $s=1$, for the cubic spline
+    interpolation of the pressure `pres(s)`.
+  type: array of `real` of size 2
+  required_if: lnk_to_param(pres_type) is `"interpolation"` , and if lnk_to_param(pres_BC_type_axis)
+    or lnk_to_param(pres_BC_type_edge) is different from `"not_a_knot"`
+  default: '`(/0.0,0.0/))`'
+pres_scale:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - Scales the pressure profile `pres(s)` by a constant.
+  - See pressure profile definition lnk_to_param(pres_type)
+  type: '`real`'
+  default: '`1.0`'
+sign_iota:
+  category:
+  - Initialization
+  - profiles
+  description:
+  - The rotational transform `ìota(s)` is always multiplied with `sign_iota`. Note
+    that it is **negative** by default.
+  - See rotational transform profile definition lnk_to_param(iota_type)
+  type: '`integer`'
+  default: '`-1`'
