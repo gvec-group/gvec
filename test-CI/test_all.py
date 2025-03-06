@@ -248,9 +248,9 @@ class TestPost(BaseTestPost):
         util.adapt_parameter_file(
             "parameter.ini",
             "parameter.ini",
-            visu1D="!0",
-            visu2D="!0",
-            visu3D="!0",
+            visu1D="!-1",
+            visu2D="!-1",
+            visu3D="!-1",
             SFLout="!-1",
         )
 

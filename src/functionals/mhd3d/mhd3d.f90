@@ -95,11 +95,6 @@ SUBROUTINE InitMHD3D(sf)
   PrecondType  = GETINT("PrecondType",Proposal=-1)
 
   dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
-  IF(MinimizerType.EQ.10)THEN !for hirshman method
-    doLineSearch=.FALSE.  !does not work
-  ELSE
-    doLineSearch=GETLOGICAL("doLineSearch",Proposal=.FALSE.) ! does not improve convergence
-  END IF
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=maxIter)
   logIter   = GETINT("logIter",Proposal=maxIter)
@@ -505,15 +500,8 @@ SUBROUTINE InitProfile(sf, var)
   possible_BCs(1)="1st_deriv"
   possible_BCs(2)="2nd_deriv"
   
-  IF (var.EQ."pres") THEN
-    profile_scale=GETREAL("pres_scale",Proposal=1.0_wp)
-  ELSE IF (var.EQ."iota") THEN
-    profile_scale=REAL(GETINT("sign_iota",Proposal=-1))
-  ELSE
-    CALL abort(__STAMP__,&
-    "Tried to initialize unknown profile type!")
-  END IF
-  profile_type  = GETSTR(var//"_type", Proposal="polynomial")
+  profile_scale=GETREAL(var//"_scale",Proposal=1.0_wp)
+  profile_type  = GETSTR(var//"_type") !make it mandatory
   IF (profile_type.EQ."polynomial") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) !a+b*s+c*s^2...
     profile_coefs=profile_coefs*profile_scale
@@ -1256,24 +1244,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       !detJ>0
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
       IF(deltaW.LE.dW_allowed*W_MHD3D_0)THEN !valid step /hirshman method accept W increase!
-        IF(doLineSearch)THEN
-          ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
-          CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
-          JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
-          U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
-          IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-            CALL P(1)%set_to(U(1)) !accept smaller step
-            CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
-            JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
-            U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
-            IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-              !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
-              CALL P(1)%set_to(U(1)) !accept smaller step
-            ELSE
-              !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
-            END IF
-          END IF
-        END IF !dolinesearch
 
         IF(ALL(Fnorm.LE.abstol))THEN
           CALL Logging(.FALSE.)

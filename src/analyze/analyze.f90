@@ -58,10 +58,10 @@ IMPLICIT NONE
 REAL(wp):: visu_minmax(3,0:1)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT ANALYZE ...')
-  visu1D    = GETINT('visu1D',Proposal=0)   
-  visu2D    = GETINT('visu2D',Proposal=0)   
-  visu3D    = GETINT('visu3D',Proposal=0)   
-  SFL_theta = GETLOGICAL('SFL_theta',Proposal=.FALSE.)   
+  visu1D    = GETINT('visu1D',Proposal=-1)   
+  visu2D    = GETINT('visu2D',Proposal=-1)   
+  visu3D    = GETINT('visu3D',Proposal=-1)   
+  
   outFileType  = GETINT('outfileType',Proposal=1)   
   
   visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
@@ -136,16 +136,16 @@ INTEGER            :: FileID
   END IF
   IF(iAnalyze.EQ.0) THEN
     IF(which_init.EQ.1) THEN
-      IF(visu1D.NE.0) CALL VMEC1D_visu() 
-      IF(visu2D.NE.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
-      IF(visu3D.NE.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 
+      IF(visu1D.GT.0) CALL VMEC1D_visu() 
+      IF(visu2D.GT.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
+      IF(visu3D.GT.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 
     END IF
   END IF !iAnalyze==0
-  IF(visu1D.NE.0)THEN
+  IF(visu1D.GT.0)THEN
     CALL visu_1d_modes(np_1d,FileID) 
     !
   END IF !visu1D
-  IF(visu2D.NE.0)THEN
+  IF(visu2D.GT.0)THEN
     vcase=.FALSE.
     WRITE(vstr,'(I4)')visu2D
     IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
@@ -159,7 +159,7 @@ INTEGER            :: FileID
       CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
     END IF 
   END IF !visu2d
-  IF(visu3D.NE.0)THEN
+  IF(visu3D.GT.0)THEN
     vcase=.FALSE.
     WRITE(vstr,'(I4)')visu3D
     IF(INDEX(vstr,'1').NE.0) vcase(1)=.TRUE.
