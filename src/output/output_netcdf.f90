@@ -75,7 +75,7 @@ WRITE(UNIT_stdOut,'(A)')'   OMIT WRITING DATA TO NETCDF FILE "'//TRIM(FileString
 RETURN
 #endif
 CALL ncfile_init(nc,TRIM(fileString)//".nc","o") 
-CALL nc%def_dim("vecdim",vecdim,vecdimid) 
+CALL nc%def_dim("xyz",vecdim,vecdimid) 
 DO i=1,dim1
   CALL nc%def_dim(TRIM(DimNames(i)),ndims(i),dimids(i)) 
 END DO
@@ -127,6 +127,7 @@ DO def_put_mode=1,2
   IF (PRESENT(coord3)) THEN
     CALL nc%put_array(TRIM(DimNames(3)),1,(/ndims(3)/),(/dimids(3)/),def_put_mode,real_in=coord3)
   END IF
+  CALL nc%put_array("xyz",1,(/3/),(/vecdimid/),def_put_mode,char_in=(/"xyz"/),transpose_in=.FALSE.)
 END DO !mode
 CALL nc%free()
 WRITE(UNIT_stdOut,'(A)',ADVANCE='YES')"   DONE"

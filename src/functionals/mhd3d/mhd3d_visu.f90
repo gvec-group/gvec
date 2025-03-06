@@ -783,9 +783,11 @@ IMPLICIT NONE
       END DO
 
       coord3 = var_visu(VP_zeta,1,1,:,1,1)
-      
+      VarNames(VP_s)   = "rho_grid"
+      VarNames(VP_zeta)  = "zeta_grid"
+      VarNames(VP_theta) = "theta_grid"
       CALL WriteDataToNETCDF(3,3,nVal,(/tmp_nrho,tmp_ntheta,mn_IP(2)/),&
-                          (/"dim_rho  ","dim_theta","dim_zeta "/),VarNames, &
+                          (/"rho  ","theta","zeta "/),VarNames, &
                           tmpcoord,tmpvar, TRIM(filename),coord1=coord1, coord2=coord2, coord3=coord3)
       DEALLOCATE(tmpcoord,tmpvar, coord1, coord2, coord3)
     END IF !outfileType
@@ -803,8 +805,11 @@ IMPLICIT NONE
     i=i+1
   END DO; END DO
 #if NETCDF
-  CALL WriteDataToNETCDF(1,3,nVal-3,(/(n_s-1)*nElems+1/),(/"dim_rho"/), &
-       VarNames(4:nVal),var_visu_1d(1:3,:),var_visu_1d(4:3+nVal,:), TRIM(filename))
+  ALLOCATE(coord1((n_s-1)*nElems+1))
+  coord1=var_visu_1d(4,:)
+  CALL WriteDataToNETCDF(1,3,nVal-3,(/(n_s-1)*nElems+1/),(/"rho"/), &
+       VarNames(4:nVal),var_visu_1d(1:3,:),var_visu_1d(7:3+nVal,:), TRIM(filename), coord1=coord1)
+  DEALLOCATE(coord1)
 #else
   CALL WriteDataToCSV((/CoordNames,VarNames(:)/) ,var_visu_1d,TRIM(filename)//".csv"  &
                                   ,append_in=.FALSE.,vfmt_in='E15.5')
