@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 """Run GVEC multiple times with Picard iterations on the iota profile to reach zero current.
 
 Run GVEC multiple times with different parameters and restart from the final state of each previous run.

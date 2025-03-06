@@ -1,3 +1,6 @@
+// Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+// License: MIT
+
 /* CFFI would issue warning with pragma once */
 #ifndef GVEC_TO_GENE_H_INCLUDED
 #define GVEC_TO_GENE_H_INCLUDED

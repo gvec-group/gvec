@@ -1,3 +1,6 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
+
 import os
 import sys
 sys.path.append(os.getenv('GVEC_TO_GENE_MODULE_PATH'))

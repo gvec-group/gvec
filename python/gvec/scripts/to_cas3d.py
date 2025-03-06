@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 """gvec_to_cas3d.py - convert a GVEC equilibrium to be used in CAS3D"""
 
 # === Imports === #

@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup splines
 !> @brief   Access point to matrix class providing factory function
 !> @author  Yaman Güçlü  - IPP Garching

@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup boundary_condition_descriptors
 !> @brief Describe different boundary conditions
 !> @details

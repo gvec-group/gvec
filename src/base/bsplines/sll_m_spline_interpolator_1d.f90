@@ -1,3 +1,6 @@
+! Copyright (c) INRIA
+! License: CECILL-B
+!
 !> @ingroup splines
 !> @brief   Interpolator for 1D splines of arbitrary degree,
 !>          on uniform and non-uniform grids
