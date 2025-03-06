@@ -41,7 +41,7 @@ CONTAINS
 !> Subroutine to write multidimensional data to netCDF format
 !!
 !===================================================================================================================================
-SUBROUTINE WriteDataToNETCDF(dim1,vecdim,nVal,ndims,Dimnames,VarNames,Coord,Values,FileString)
+SUBROUTINE WriteDataToNETCDF(dim1,vecdim,nVal,ndims,Dimnames,VarNames,Coord,Values,FileString,coord1,coord2,coord3)
 ! MODULES
 USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut
 USE MODgvec_io_netcdf, ONLY:t_ncfile,ncfile_init
@@ -58,6 +58,7 @@ REAL(wp),INTENT(IN)           :: Coord(vecdim,1:PRODUCT(ndims))      ! Coordinat
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          !! Names of all variables that will be written out
 REAL(wp),INTENT(IN)           :: Values(nVal,1:PRODUCT(ndims))   !! Statevector 
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name (without .nc ending)
+REAL(wp),INTENT(IN),OPTIONAL  :: coord1(:),coord2(:),coord3(:) !! Netcdf coordinate values e.g. rho, theta and zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -117,6 +118,15 @@ DO def_put_mode=1,2
       CALL nc%put_array(TRIM(tmpVarName),dim1,ndims,dimids,def_put_mode,real_in=Values(iVal,:))
     END IF !isvector
   END DO !iVal <=nVal
+  IF (PRESENT(coord1)) THEN
+    CALL nc%put_array(TRIM(DimNames(1)),1,(/ndims(1)/),(/dimids(1)/),def_put_mode,real_in=coord1)
+  END IF
+  IF (PRESENT(coord2)) THEN
+    CALL nc%put_array(TRIM(DimNames(2)),1,(/ndims(2)/),(/dimids(2)/),def_put_mode,real_in=coord2)
+  END IF
+  IF (PRESENT(coord3)) THEN
+    CALL nc%put_array(TRIM(DimNames(3)),1,(/ndims(3)/),(/dimids(3)/),def_put_mode,real_in=coord3)
+  END IF
 END DO !mode
 CALL nc%free()
 WRITE(UNIT_stdOut,'(A)',ADVANCE='YES')"   DONE"

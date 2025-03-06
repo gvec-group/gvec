@@ -132,7 +132,7 @@ IMPLICIT NONE
   END IF
   IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
     CALL WriteDataToNETCDF(2,3,nVal,mn_IP,(/"dim_theta","dim_zeta "/),VarNames,&
-    coord_visu,var_visu, TRIM(filename))
+    coord_visu,var_visu, TRIM(filename), coord1=thet, coord2=zeta)
   END IF
 
 END SUBROUTINE visu_BC_face
@@ -223,7 +223,8 @@ IMPLICIT NONE
 
   REAL(wp) :: Js,Jthet,Jzeta
 #endif
-  REAL(wp),ALLOCATABLE :: tmpcoord(:,:,:,:),tmpvar(:,:,:,:) 
+  REAL(wp),ALLOCATABLE :: tmpcoord(:,:,:,:),tmpvar(:,:,:,:), coord1(:), coord2(:), coord3(:)
+  INTEGER :: tmp_nrho, tmp_ntheta, tmp_nzeta
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                         "visu_3D should only be called by MPIroot")
@@ -248,7 +249,7 @@ IMPLICIT NONE
   __PERFON("output_visu")
   __PERFON("prepare_visu")
   iVal=1
-  VP_s      =iVal;iVal=iVal+1; VarNames(VP_s     )="s"
+  VP_s      =iVal;iVal=iVal+1; VarNames(VP_s     )="rho"
   VP_theta  =iVal;iVal=iVal+1; VarNames(VP_theta )="theta"
   VP_zeta   =iVal;iVal=iVal+1; VarNames(VP_zeta  )="zeta"
   VP_PHI    =iVal;iVal=iVal+1; VarNames(VP_PHI   )="Phi"
@@ -759,10 +760,34 @@ IMPLICIT NONE
            j=j+1
         END DO; END DO
       END DO
-      CALL WriteDataToNETCDF(3,3,nVal,(/(maxElem-minElem+1)*(n_s-1)+1,mn_IP(1)*(n_s-1)+1,mn_IP(2)/),&
+      tmp_nrho = (maxElem-minElem+1)*(n_s-1)+1
+      ALLOCATE(coord1(tmp_nrho))
+      coord1 =-42.0_wp
+      coord1(1:n_s) = var_visu(VP_s,:,1,1,1,1)
+      coord1(tmp_nrho-n_s+2:tmp_nrho) = var_visu(VP_s,2:,1,1,1,nElems)
+      i = n_s+1
+      DO iElem=2,nElems-1
+        coord1(i:i+n_s-2) = var_visu(VP_s,2:n_s,1,1,1,iElem)
+        i = i+n_s-1
+      END DO
+
+      tmp_ntheta = mn_IP(1)*(n_s-1)+1
+      ALLOCATE(coord2(tmp_ntheta))
+      coord2 =-42.0_wp
+      coord2(1:n_s) = var_visu(VP_theta,1,:,1,1,1)
+      coord2(tmp_ntheta-n_s+2:tmp_ntheta) = var_visu(VP_theta,1,2:,1,mn_IP(1),1)
+      i = n_s+1
+      DO i_m=2,mn_IP(1)-1
+        coord2(i:i+n_s-2) = var_visu(VP_theta,1,2:n_s,1,i_m,1)
+        i = i+n_s-1
+      END DO
+
+      coord3 = var_visu(VP_zeta,1,1,:,1,1)
+      
+      CALL WriteDataToNETCDF(3,3,nVal,(/tmp_nrho,tmp_ntheta,mn_IP(2)/),&
                           (/"dim_rho  ","dim_theta","dim_zeta "/),VarNames, &
-                          tmpcoord,tmpvar, TRIM(filename))
-      DEALLOCATE(tmpcoord,tmpvar)
+                          tmpcoord,tmpvar, TRIM(filename),coord1=coord1, coord2=coord2, coord3=coord3)
+      DEALLOCATE(tmpcoord,tmpvar, coord1, coord2, coord3)
     END IF !outfileType
   END IF
   __PERFOFF("write_visu")
