@@ -14,9 +14,8 @@
 # ============================================================================================================================== #
 """pygvec run gvec from python"""
 
-from . import _fgvec
-from ._fgvec import modgvec_py_run as _run
-from ._fgvec import modgvec_py_binding as _binding
+from .lib import modgvec_py_run as _run
+from .lib import modgvec_py_binding as _binding
 
 from pathlib import Path
 

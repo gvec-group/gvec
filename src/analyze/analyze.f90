@@ -194,8 +194,8 @@ USE MODgvec_Output_Vars, ONLY:ProjectName
 USE MODgvec_write_modes
 USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
-USE MODgvec_VMEC, ONLY: VMEC_EvalSpl,VMEC_EvalSplMode
-USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
+USE MODgvec_VMEC, ONLY: VMEC_EvalSplMode
+USE MODgvec_cubic_spline, ONLY: t_cubspl
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -286,7 +286,7 @@ CHARACTER(LEN=4)   :: vstr
     nval=nValRewind
     CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Zmns","Zmns",0,rho_int,Zmns_Spl)
     nval=nValRewind
-    IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+    IF(lambda_grid.EQ."full")THEN
       CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmns","Lmns",0,rho_int,Lmns_Spl)
     ELSE
       CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmns_half","Lmns_h",0,rho_int,Lmns_spl)
@@ -297,7 +297,7 @@ CHARACTER(LEN=4)   :: vstr
       nval=nValRewind
       CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Zmnc","Zmnc",0,rho_int,Zmnc_Spl)
       nval=nValRewind
-      IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+      IF(lambda_grid.EQ."full")THEN
         CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmnc","Lmnc",0,rho_int,Lmnc_Spl)
       ELSE
         CALL writeDataMN_int(TRIM(ProjectName)//"_VMEC_INT_Lmnc_half","Lmnc_h",0,rho_int,Lmnc_spl)
@@ -325,7 +325,7 @@ CHARACTER(LEN=4)   :: vstr
     nval=nValRewind
     CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Zmns","Zmns",0,rho,Zmns)
     nval=nValRewind
-    IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+    IF(lambda_grid.EQ."full")THEN
       CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmns","Lmns",0,rho,Lmns)
     ELSE
       CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmns_half","Lmns_h",0,rho_half,Lmns)
@@ -336,7 +336,7 @@ CHARACTER(LEN=4)   :: vstr
       nval=nValRewind
       CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Zmnc","Zmnc",0,rho,Zmnc)
       nval=nValRewind
-      IF(reLambda.OR.(lambda_grid.EQ."full"))THEN
+      IF(lambda_grid.EQ."full")THEN
         CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmnc","Lmnc",0,rho,Lmnc)
       ELSE
         CALL writeDataMN(TRIM(ProjectName)//"_VMEC_Lmnc_half","Lmnc_h",0,rho_half,Lmnc)
@@ -389,15 +389,13 @@ CHARACTER(LEN=4)   :: vstr
     INTEGER,INTENT(IN)         :: rderiv !0: eval spl, 1: eval spl deriv
     CHARACTER(LEN=*),INTENT(IN):: fname
     CHARACTER(LEN=*),INTENT(IN):: vname
-    REAL(wp),INTENT(IN)        :: xx_Spl(:,:,:)
+    TYPE(t_cubspl),INTENT(IN)  :: xx_Spl(:)
     REAL(wp),INTENT(IN)        :: coord(n_int)
 
     DO iMode=1,mn_mode
       nVal=nVal+1
       WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
-      DO i=1,n_int
-        values_int(    nVal,i)  =VMEC_EvalSplMode((/iMode/),rderiv,coord(i),xx_Spl)
-      END DO
+      values_int(nVal,:)= VMEC_EvalSplMode((/iMode/),rderiv,coord,xx_Spl)
     END DO
 
     CALL write_modes(TRIM(fname)//'.csv',vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values_int,VarNames) 

@@ -20,6 +20,7 @@ import numpy as np
 import xarray as xr
 
 from .state import State
+from . import fourier
 
 # === Globals === #
 
@@ -29,11 +30,51 @@ __all__ = [
     "compute",
     "table_of_quantities",
     "Evaluations",
+    "EvaluationsBoozer",
+    "EvaluationsBoozerCustom",
     "radial_integral",
     "fluxsurface_integral",
     "volume_integral",
+    "ev2ft",
+    "ft_autoremove",
 ]
 QUANTITIES = {}  # dictionary to store the registered quantities (compute functions)
+
+
+# === helpers ========================================================================== #
+
+
+rtz_symbols = {"r": r"\rho", "t": r"\theta", "z": r"\zeta"}
+rtz_directions = {"r": "radial", "t": "poloidal", "z": "toroidal"}
+
+
+def latex_partial(var, deriv):
+    return rf"\frac{{\partial {var}}}{{\partial {rtz_symbols[deriv]}}}"
+
+
+def latex_partial2(var, deriv1, deriv2):
+    if deriv1 == deriv2:
+        return rf"\frac{{\partial^2 {var}}}{{\partial {rtz_symbols[deriv1]}^2}}"
+    return rf"\frac{{\partial^2 {var}}}{{\partial {rtz_symbols[deriv1]}\partial {rtz_symbols[deriv2]}}}"
+
+
+def latex_partial_smart(var, deriv):
+    if len(deriv) == 1:
+        return latex_partial(var, deriv[0])
+    elif len(deriv) == 2:
+        return latex_partial2(var, deriv[0], deriv[1])
+    raise TypeError(f"can only handle derivatives up to length 2, got '{deriv}'")
+
+
+def derivative_name_smart(name, deriv):
+    if len(deriv) == 1:
+        return f"{rtz_directions[deriv[0]]} derivative of the {name}"
+    elif len(deriv) == 2:
+        if deriv[0] == deriv[1]:
+            return f"second {rtz_directions[deriv[0]]} derivative of the {name}"
+        return f"{rtz_directions[deriv[0]]}-{rtz_directions[deriv[1]]} derivative of the {name}"
+    raise TypeError(f"can only handle derivatives up to length 2, got '{deriv}'")
+
 
 # === Register Compute Functions === #
 
@@ -140,6 +181,11 @@ def compute(
             raise KeyError(f"The quantity `{quantity}` is not registered.")
         func = registry[quantity]
         # --- handle integration --- #
+        # we assume the dimensions are {rad, pol, tor} or {pol, tor}
+        # we don't assume which coordinates are associated with which dimensions
+        # in particular: (rho, theta, zeta), (rho, theta_B, zeta_B), (rho, alpha, phi_alpha) are all expected
+        # some quantities may require integration points in any of {rho, theta, zeta}
+        # if the integration points are not present we will create an auxiliary dataset with integration points
         auxcoords = {
             i
             for i in func.integration
@@ -148,10 +194,14 @@ def compute(
             or ev[i].attrs["integration_points"] == "False"
         }
         if auxcoords:
-            # --- auxiliary dataset for integration points --- #
+            # --- auxiliary dataset for integration --- #
             logging.info(
-                f"Using auxiliary dataset with integration points {auxcoords} to compute {quantity}."
+                f"Using auxiliary dataset with integration points in {auxcoords} to compute {quantity}."
             )
+            if auxcoords > {"rho", "theta", "zeta"}:
+                raise ValueError(
+                    f"Unsupported integration coordinates for auxiliary dataset: {auxcoords}"
+                )
             rho = "int" if "rho" in auxcoords else ev.rho if "rho" in ev else None
             theta = (
                 "int" if "theta" in auxcoords else ev.theta if "theta" in ev else None
@@ -179,11 +229,11 @@ def compute(
         # --- handle auxiliary integration dataset --- #
         if auxcoords:
             for q in obj:
-                if (
-                    not any([c in obj[q].coords for c in auxcoords])
-                    and "weight" not in q
-                ):
-                    ev[q] = obj[q]
+                if "weight" in q:
+                    continue
+                if any([c in auxcoords for c in obj[q].coords]):
+                    continue
+                ev[q] = (obj[q].dims, obj[q].data, obj[q].attrs)
     if len(quantities) == 1:
         return ev[quantities[0]]
     return ev
@@ -210,6 +260,8 @@ def Evaluations(
         nfp = state.nfp
     # --- parse coordinates --- #
     match rho:
+        case xr.DataArray():
+            coords["rho"] = rho
         case np.ndarray() | list():
             coords["rho"] = ("rad", rho)
         case "int":
@@ -241,6 +293,8 @@ def Evaluations(
         case _:
             raise ValueError(f"Could not parse rho, got {rho}.")
     match theta:
+        case xr.DataArray():
+            coords["theta"] = theta
         case np.ndarray() | list():
             coords["theta"] = ("pol", theta)
         case "int":
@@ -272,6 +326,8 @@ def Evaluations(
         case _:
             raise ValueError(f"Could not parse theta, got {theta}.")
     match zeta:
+        case xr.DataArray():
+            coords["zeta"] = zeta
         case np.ndarray() | list():
             coords["zeta"] = ("tor", zeta)
         case "int":
@@ -392,6 +448,8 @@ def EvaluationsBoozer(
     M: int | None = None,
     N: int | None = None,
     sincos: Literal["sin", "cos", "sincos"] = "sin",
+    eval_la: bool = False,
+    eval_nu: bool = False,
 ):
     rho = np.asarray(rho)
     theta_B = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
@@ -441,6 +499,62 @@ def EvaluationsBoozer(
     ds = ds.set_xindex("zeta_B")
     ds = ds.drop_vars("pol")
     ds = ds.drop_vars("tor")
+
+    # === Evaluate LA & NU === #
+    if eval_la or eval_nu:
+        # Flatten theta, zeta
+        theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+        zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+
+        # Compute base on each radial position
+        outputs_la = []
+        outputs_nu = []
+        for r, rho in enumerate(ds.rho.data):
+            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+            if eval_la:
+                outputs_la.append(
+                    state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
+                )
+            if eval_nu:
+                outputs_nu.append(
+                    state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
+                )
+
+        # Write to dataset
+        if eval_la:
+            for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):
+                if deriv == "":
+                    var = "LA_B"
+                    long_name = "Boozer straight field line potential"
+                    symbol = r"\lambda_B"
+                else:
+                    var = f"dLA_B_d{deriv}"
+                    long_name = derivative_name_smart(
+                        "Boozer straight field line potential", deriv
+                    )
+                    symbol = latex_partial_smart(r"\lambda_B", deriv)
+                value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+                ds[var] = (
+                    ("rad", "pol", "tor"),
+                    value,
+                    dict(long_name=long_name, symbol=symbol),
+                )
+        if eval_nu:
+            for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_nu)):
+                if deriv == "":
+                    var = "NU_B"
+                    long_name = "Boozer angular potential"
+                    symbol = r"\nu_B"
+                else:
+                    var = f"dNU_B_d{deriv}"
+                    long_name = derivative_name_smart("Boozer angular potential", deriv)
+                    symbol = latex_partial_smart(r"\nu_B", deriv)
+                value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+                ds[var] = (
+                    ("rad", "pol", "tor"),
+                    value,
+                    dict(long_name=long_name, symbol=symbol),
+                )
 
     if squeeze:
         ds = ds.squeeze("rad")
@@ -533,3 +647,112 @@ def EvaluationsBoozerCustom(
         ds = ds.squeeze("rad")
 
     return ds
+
+
+# === Fourier Transform === #
+
+
+def ev2ft(ev, quiet=False):
+    m, n = None, None
+    data = {}
+
+    if "N_FP" not in ev.data_vars and not quiet:
+        logging.warning("recommended quantity 'N_FP' not found in the provided dataset")
+
+    for var in ev.data_vars:
+        if ev[var].dims == ():  # scalar
+            data[var] = ((), ev[var].data.item(), ev[var].attrs)
+
+        elif ev[var].dims == ("rad",):  # profile
+            data[var] = ("rad", ev[var].data, ev[var].attrs)
+
+        elif {"pol", "tor"} <= set(ev[var].dims) <= {"rad", "pol", "tor"}:
+            if "rad" in ev[var].dims:
+                vft = []
+                for r in ev.rad:
+                    vft.append(
+                        fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data)
+                    )
+                vcos, vsin = map(np.array, zip(*vft))
+                dims = ("rad", "m", "n")
+            else:
+                vcos, vsin = fourier.fft2d(ev[var].transpose("pol", "tor").data)
+                dims = ("m", "n")
+
+            if m is None:
+                m, n = fourier.fft2d_modes(
+                    vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False
+                )
+
+            attrs = {
+                k: v
+                for k, v in ev[var].attrs.items()
+                if k not in {"long_name", "symbol"}
+            }
+            data[f"{var}_mnc"] = (
+                dims,
+                vcos,
+                dict(
+                    long_name=f"{ev[var].attrs['long_name']}, cosine coefficients",
+                    symbol=f"{{{ev[var].attrs['symbol']}}}_{{mn}}^c",
+                )
+                | attrs,
+            )
+            data[f"{var}_mns"] = (
+                dims,
+                vsin,
+                dict(
+                    long_name=f"{ev[var].attrs['long_name']}, sine coefficients",
+                    symbol=f"{{{ev[var].attrs['symbol']}}}_{{mn}}^s",
+                )
+                | attrs,
+            )
+
+        elif "xyz" in ev[var].dims and not quiet:
+            logging.info(f"skipping quantity '{var}' with cartesian components")
+
+        elif not quiet:
+            logging.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
+
+    if "rad" in ev.dims:
+        coords = dict(rho=("rad", ev.rho.data, ev.rho.attrs))
+    else:
+        data["rho"] = ((), ev.rho.item(), ev.rho.attrs)
+        coords = {}
+    coords |= dict(
+        m=(
+            "m",
+            m if m is not None else [],
+            dict(long_name="poloidal mode number", symbol="m"),
+        ),
+        n=(
+            "n",
+            n if n is not None else [],
+            dict(long_name="toroidal mode number", symbol="n"),
+        ),
+    )
+
+    ft = xr.Dataset(data, coords=coords)
+    if "rad" in ev.dims:
+        ft = ft.set_xindex("rho")
+    ft.attrs["fourier series"] = (
+        "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v^c_mn(r) cos(m θ - n N_FP ζ) + v^s_mn(r) sin(m θ - n N_FP ζ)'"
+    )
+    return ft
+
+
+def ft_autoremove(ft: xr.Dataset, drop=False, **tol_kwargs):
+    """autoremove variables which are always close to zero (e.g. due to stellarator symmetry)"""
+    selected = []
+    for var in ft.data_vars:
+        if set(ft[var].dims) >= {"m", "n"} and np.allclose(
+            ft[var].data, 0, **tol_kwargs
+        ):
+            if not drop:
+                ft[var] = ((), 0, ft[var].attrs)
+            continue
+        selected.append(var)
+    if drop:
+        return ft[selected]
+    else:
+        return ft

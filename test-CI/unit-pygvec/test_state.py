@@ -6,7 +6,7 @@ try:
     import gvec
     from gvec.state import State
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 
 # === Fixtures === #
@@ -211,7 +211,7 @@ def test_evaluate_profile(teststate):
 @pytest.mark.parametrize("reLA", [True, False], ids=["reLA", "not reLA"])
 def test_get_boozer(teststate, reLA):
     booz = teststate.get_boozer([0.1, 0.5, 0.9], 12, 12, recompute_lambda=reLA)
-    assert isinstance(booz, gvec._fgvec.Modgvec_Sfl_Boozer.t_sfl_boozer)
+    assert isinstance(booz, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer)
     assert booz.initialized
     # assert booz.relambda == reLA
     assert booz.nrho == 3

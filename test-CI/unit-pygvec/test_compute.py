@@ -19,7 +19,7 @@ try:
         EvaluationsBoozer,
     )
 except ImportError:
-    pytest.skip("Import Error", allow_module_level=True)
+    pass  # tests will be skipped via the `check_import` fixture
 
 # === FIXTURES === #
 
@@ -135,6 +135,36 @@ def test_boozer_init(teststate):
     assert ds.theta_B.dims == ("pol",)
     assert ds.zeta_B.dims == ("tor",)
     assert set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}
+
+    teststate.compute(ds, "mod_B")
+    assert "mod_B" in ds
+    assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
+
+
+@pytest.mark.parametrize(
+    "eval_la, eval_nu",
+    [(True, False), (False, True), (True, True)],
+    ids=["la", "nu", "both"],
+)
+def test_boozer_la_nu(teststate, eval_la, eval_nu):
+    ds = EvaluationsBoozer(
+        [0.5, 0.6], 20, 18, teststate, eval_la=eval_la, eval_nu=eval_nu
+    )
+    assert np.allclose(ds.rho, [0.5, 0.6])
+    assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
+    assert {"rad", "pol", "tor"} == set(ds.dims)
+    assert ("LA_B" in ds) == eval_la
+    assert ("NU_B" in ds) == eval_nu
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_B.dims == ("pol",)
+    assert ds.zeta_B.dims == ("tor",)
+    assert set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}
+    if eval_la and eval_nu:
+        teststate.compute(ds, "iota")
+        assert np.allclose(
+            *xr.broadcast(ds.theta_B, ds.theta + ds.LA_B + ds.iota * ds.NU_B)
+        )
+        assert np.allclose(*xr.broadcast(ds.zeta_B, ds.zeta + ds.NU_B))
 
     teststate.compute(ds, "mod_B")
     assert "mod_B" in ds
@@ -298,7 +328,6 @@ def test_iota_curr(teststate, evals_rtz_int):
     np.testing.assert_allclose(ds.iota_curr + ds.iota_0, ds.iota)
 
 
-@pytest.mark.xfail()
 @pytest.mark.parametrize(
     "quantity",
     [
@@ -307,22 +336,76 @@ def test_iota_curr(teststate, evals_rtz_int):
         "dV_dPhi_n2",
         "minor_radius",
         "major_radius",
-        "iota_mean",
-        "iota_tor",
+        "iota_avg",
+        "iota_curr",
+        "iota_0",
         "I_tor",
         "I_pol",
         "B_theta_avg",
     ],
 )
-def test_integral_quantities_aux(teststate, evals_r_int_tz, quantity):
+def test_integral_quantities_aux_r_only(teststate, evals_r, quantity):
     # automatic change to integration points if necessary
+    ds = evals_r
+    compute(ds, quantity, state=teststate)
+    assert ds.rho.attrs["integration_points"] == "False"
+    assert "theta" not in ds
+    assert "zeta" not in ds
+    assert "pol_weight" not in ds and "tor_weight" not in ds
+    assert "rad_weight" not in ds
+
+
+@pytest.mark.parametrize(
+    "quantity",
+    [
+        "V",  # volume integral
+        "iota_avg",  # radial integral
+        "B_theta_avg",  # fluxsurface integral
+    ],
+)
+def test_integral_quantities_aux_rtz(teststate, evals_rtz, quantity):
+    ds = evals_rtz
+    compute(ds, quantity, state=teststate)
+    assert ds.rho.attrs["integration_points"] == "False"
+    assert ds.theta.attrs["integration_points"] == "False"
+    assert ds.zeta.attrs["integration_points"] == "False"
+    assert "rad_weight" not in ds
+    assert "pol_weight" not in ds
+    assert "tor_weight" not in ds
+
+
+@pytest.mark.parametrize(
+    "quantity",
+    [
+        "V",  # volume integral
+        "iota_avg",  # radial integral
+        "B_theta_avg",  # fluxsurface integral
+    ],
+)
+def test_integral_quantities_aux_r_int_tz(teststate, evals_r_int_tz, quantity):
     ds = evals_r_int_tz
     compute(ds, quantity, state=teststate)
+    assert quantity in ds
     assert ds.rho.attrs["integration_points"] == "True"
     assert ds.theta.attrs["integration_points"] == "False"
     assert ds.zeta.attrs["integration_points"] == "False"
-    assert "theta_weight" not in ds and "zeta_weight" not in ds
-    assert "rho_weights" in ds
+    assert "rad_weight" in ds
+    assert "pol_weight" not in ds
+    assert "tor_weight" not in ds
+
+
+def test_ev2ft_2d(teststate, evals_rtz):
+    teststate.compute(evals_rtz, "mod_B")
+    ft = gvec.comp.ev2ft(evals_rtz[["mod_B"]].isel(rad=0))
+    assert set(ft.dims) == {"m", "n"}
+    assert set(ft.data_vars) == {"rho", "mod_B_mnc", "mod_B_mns"}
+
+
+def test_ev2ft_3d(teststate, evals_rtz):
+    teststate.compute(evals_rtz, "mod_B")
+    ft = gvec.comp.ev2ft(evals_rtz[["mod_B"]])
+    assert set(ft.dims) == {"rad", "m", "n"}
+    assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
 
 
 def test_table_of_quantities():

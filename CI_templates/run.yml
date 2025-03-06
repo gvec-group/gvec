@@ -13,12 +13,19 @@ spec:
     run-postfix:
       description: Job name postfix, e.g. `_debugrun` or `_tag_slurm`
       default: ""
+    script-postfix:
+      description: Script name postfix, e.g. `_py`
+      default: ""
     build-postfix:
       description: Build-Job name postfix, e.g. `_only_converter`
       default: ""
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
+    allow_failure:
+      description: Allow the job to fail
+      default: false
+      type: boolean
 
 ---
 
@@ -30,10 +37,11 @@ run$[[ inputs.env ]]$[[ inputs.run-postfix ]]:
   extends:
     - $[[ inputs.env ]]
     - .vars_dirs_artifacts
-    - .script_run
+    - .script_run$[[ inputs.script-postfix ]]
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
     - .after_script_basic
   needs:
     - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
+  allow_failure: $[[ inputs.allow_failure ]]
