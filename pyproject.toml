@@ -58,6 +58,7 @@ dev = ["pytest"]
 examples = ["matplotlib", "jupyter", "scipy", "ipywidgets", "ipympl"]
 
 [project.scripts]
+pygvec = "gvec.scripts.pygvec:main"
 gvec_zero_current = "gvec.scripts.zero_current:main"
 gvec_to_cas3d = "gvec.scripts.to_cas3d:main"
 
