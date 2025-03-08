@@ -125,8 +125,8 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
     IF(MPIroot)THEN
-      CALL InitProfile(sf,"iota")
-      CALL InitProfile(sf,"pres")
+      CALL InitProfile(sf,"iota",iota_profile)
+      CALL InitProfile(sf,"pres",pres_profile)
     END IF
     
   CASE(1) !VMEC init
@@ -141,13 +141,13 @@ SUBROUTINE InitMHD3D(sf)
     IF(MPIroot)THEN   
       init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)   
       IF(init_with_profile_iota)THEN
-        CALL InitProfile(sf,"iota")
+        CALL InitProfile(sf,"iota",iota_profile)
       ELSE 
         iota_profile=vmec_iota_profile
       END IF ! iota from parameterfile
       init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
       IF(init_with_profile_pressure)THEN
-        CALL InitProfile(sf,"pres")
+        CALL InitProfile(sf,"pres",pres_profile)
       ELSE 
         pres_profile=vmec_pres_profile
       END IF ! pressure from parameterfile
@@ -163,14 +163,7 @@ SUBROUTINE InitMHD3D(sf)
       Phi_edge = Phi(nFluxVMEC)
     END IF !MPIroot
     CALL par_BCast(which_hmap,0)
-    CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
-  IF(MPIroot)THEN
-    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
-    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
-    chi_profile=iota_profile%antiderivative()
-    chi_profile%coefs=chi_profile%coefs*Phi_edge 
-  END IF
 
   IF(MPIroot)THEN
     Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
@@ -463,9 +456,8 @@ SUBROUTINE InitMHD3D(sf)
   
 END SUBROUTINE InitMHD3D
 
-SUBROUTINE InitProfile(sf, var)
+SUBROUTINE InitProfile(sf, var,var_profile)
   ! MODULES
-  USE MODgvec_MHD3D_Vars, ONLY: pres_profile, iota_profile
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
   USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
@@ -478,9 +470,9 @@ SUBROUTINE InitProfile(sf, var)
   CHARACTER(LEN=4), INTENT(IN) :: var
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+  CLASS(c_rProfile), ALLOCATABLE   :: var_profile
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  CLASS(c_rProfile), ALLOCATABLE   :: profile_profile
   INTEGER              :: n_profile_knots
   REAL(wp),ALLOCATABLE :: profile_knots(:)
   INTEGER              :: n_profile_coefs    !! number of polynomial/bspline coeffients for profile profile
@@ -505,12 +497,12 @@ SUBROUTINE InitProfile(sf, var)
   IF (profile_type.EQ."polynomial") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) !a+b*s+c*s^2...
     profile_coefs=profile_coefs*profile_scale
-    profile_profile = t_rProfile_poly(profile_coefs)
+    var_profile = t_rProfile_poly(profile_coefs)
   ELSE IF (profile_type.EQ."bspline") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) 
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
-    profile_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
+    var_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
@@ -542,18 +534,14 @@ SUBROUTINE InitProfile(sf, var)
     END IF
 
     profile_coefs=profile_coefs*profile_scale
-    profile_profile = t_rProfile_bspl(profile_knots,profile_coefs)
+    var_profile = t_rProfile_bspl(profile_knots,profile_coefs)
     SDEALLOCATE(profile_vals)
     SDEALLOCATE(profile_rho2)
   ELSE
     CALL abort(__STAMP__,&
     'Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation".')
   END IF ! profile type
-  IF (var.EQ."pres") THEN
-    pres_profile = profile_profile
-  ELSE
-    iota_profile = profile_profile
-  END IF
+
   SDEALLOCATE(profile_knots)
   SDEALLOCATE(profile_coefs)
 END SUBROUTINE InitProfile
