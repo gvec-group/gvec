@@ -51,6 +51,8 @@ TYPE :: t_ncfile
   PROCEDURE :: def_dim        => ncfile_def_dim
   PROCEDURE :: end_def_mode   => ncfile_end_def_mode
   PROCEDURE :: put_scalar     => ncfile_put_scalar
+  PROCEDURE :: put_attr_char  => ncfile_put_attributes_char
+  PROCEDURE :: put_char     => ncfile_put_char
   PROCEDURE :: put_array      => ncfile_put_array
   PROCEDURE :: enter_groups   => ncfile_enter_groups
   PROCEDURE :: handle_error   => ncfile_handle_error
@@ -565,11 +567,78 @@ CONTAINS
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_put_scalar
 
+  SUBROUTINE ncfile_put_attributes_char(sf,varname_in,n_attr,attrs_names,attr_values)
+    ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in !! name of the variable
+    INTEGER, INTENT(IN) :: n_attr           !! number of attributes
+    CHARACTER(LEN=*),INTENT(IN) :: attrs_names(:)   !! Array of attribute names
+    CHARACTER(LEN=*),INTENT(IN) :: attr_values(:)   !!  double input
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
+    ! LOCAL VARIABLES
+    INTEGER :: varid !! ID of the variable
+    INTEGER :: i !! iterable
+    !===============================================================================================================================
+    CALL mpi_check_single_access()
+#if NETCDF
+    DO i=1,n_attr
+      sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+      CALL sf%handle_error("find varid during attribute write for '"//TRIM(varname_in)//"'")
+      sf%ioError = nf90_put_att(sf%nc_id, varid, TRIM(attrs_names(i)), TRIM(attr_values(i)))
+      CALL sf%handle_error("Putting attribute '"//TRIM(attrs_names(i))//"'")
+    END DO
+#else
+  CALL abort(__STAMP__,&
+      "cannot write array, BUILD_NETCDF=OFF")
+#endif /*NETCDF*/
+  END SUBROUTINE
+
+  !=================================================================================================================================
+  !> define and put a char to the netCDF file as a string
+  !! NOTE: This is only used for naming coordinate directions with a single character
+  !=================================================================================================================================
+  SUBROUTINE ncfile_put_char(sf,varname_in,dimid,def_put_mode,char_in)
+        ! MODULES
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! INPUT VARIABLES
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable
+    INTEGER,INTENT(IN)          :: dimid !! ids of dimensions, must be created before by put_dim
+    INTEGER,INTENT(IN)          :: def_put_mode  !! 1:"def" or 2:"put" mode
+    CHARACTER(LEN=*),INTENT(IN) :: char_in   !!  double input
+    !-------------------------------------------------------------------------------------------------------------------------------
+    ! OUTPUT VARIABLES
+    CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
+    ! LOCAL VARIABLES
+    INTEGER    :: varid
+    !===============================================================================================================================
+    CALL mpi_check_single_access()
+#if NETCDF
+
+    SELECT CASE(def_put_mode)
+    CASE(1) !def
+      sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_CHAR,dimid,varid)
+      CALL sf%handle_error("define String'"//TRIM(varname_in)//"'")
+    CASE(2) !put
+      sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+      CALL sf%handle_error("find varid of string'"//TRIM(varname_in)//"'")
+      sf%ioError = nf90_put_var(sf%nc_id, varid,char_in)
+      CALL sf%handle_error("write string '"//TRIM(varname_in)//"'")
+    END SELECT !CASE(def_put_mode)
+#else
+  CALL abort(__STAMP__,&
+      "cannot write string, BUILD_NETCDF=OFF")
+#endif /*NETCDF*/
+  END SUBROUTINE
   !=================================================================================================================================
   !> define and put an array value to the netCDF file 
   !!
   !=================================================================================================================================
-  SUBROUTINE ncfile_put_array(sf,varname_in,ndims_var,dims,dimids,def_put_mode,transpose_in, int_in,real_in,char_in)
+  SUBROUTINE ncfile_put_array(sf,varname_in,ndims_var,dims,dimids,def_put_mode,transpose_in, int_in,real_in)
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -582,7 +651,6 @@ CONTAINS
     LOGICAL,INTENT(IN),OPTIONAL :: transpose_in !! transpose the data array, default is true, because of fortran ordering
     INTEGER,INTENT(IN),OPTIONAL  :: int_in(PRODUCT(dims))     !! integer input
     REAL(wp),INTENT(IN),OPTIONAL :: real_in(PRODUCT(dims))   !!  double input
-    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: char_in(PRODUCT(dims))   !!  double input
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
@@ -674,34 +742,6 @@ CONTAINS
                      "ndims_var>4 not implemented yet in io_netcdf")
         END SELECT
         CALL sf%handle_error("write real array '"//TRIM(varname_in)//"'")
-      END SELECT !CASE(def_put_mode)
-    END IF
-    IF(PRESENT(char_in))THEN
-      IF(transpose)THEN
-        CALL abort(__STAMP__,&
-        "ERROR in io_netcdf: Cannot transpose char.")
-      END IF
-      SELECT CASE(def_put_mode)
-      CASE(1) !def
-        sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_CHAR,dimids(1:ndims_var),varid)
-        CALL sf%handle_error("define char array'"//TRIM(varname_in)//"'")
-      CASE(2) !put
-        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
-        CALL sf%handle_error("find varid of char array'"//TRIM(varname_in)//"'")
-        SELECT CASE(ndims_var)
-        CASE(1)
-          sf%ioError = nf90_put_var(sf%nc_id, varid,char_in)
-        CASE(2)
-          sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(char_in,dims(1:2)))
-        CASE(3)
-          sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(char_in,dims(1:3)))
-        CASE(4)
-          sf%ioError = nf90_put_var(sf%nc_id, varid,RESHAPE(char_in,dims(1:4)))
-        CASE DEFAULT
-          CALL abort(__STAMP__,&
-                     "ndims_var>4 not implemented yet in io_netcdf")
-        END SELECT
-        CALL sf%handle_error("write char array '"//TRIM(varname_in)//"'")
       END SELECT !CASE(def_put_mode)
     END IF
 #else

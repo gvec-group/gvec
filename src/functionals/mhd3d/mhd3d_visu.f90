@@ -67,6 +67,8 @@ IMPLICIT NONE
   REAL(wp) :: LA_s(LA_base%f%modes)
   CHARACTER(LEN=40) :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: FileName
+  CHARACTER(LEN=255) :: var_visu_attr(nVal,2)
+  CHARACTER(LEN=255) :: coord_attr(2,2)
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                         "visu_BC_face should only be called by MPIroot")
@@ -80,9 +82,9 @@ IMPLICIT NONE
     RETURN
   END IF
   ival=1
-  VP_LAMBDA=iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="lambda"
-  VP_theta =iVal;iVal=iVal+1; VarNames(VP_theta )="theta"
-  VP_zeta  =iVal;iVal=iVal+1; VarNames(VP_zeta  )="zeta"
+  VP_LAMBDA=iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="LA"
+  VP_theta =iVal;iVal=iVal+1; VarNames(VP_theta )="theta_grid"
+  VP_zeta  =iVal;iVal=iVal+1; VarNames(VP_zeta  )="zeta_grid"
   VP_X1    =iVal;iVal=iVal+1; VarNames(VP_X1  )="X1"
   VP_X2    =iVal;iVal=iVal+1; VarNames(VP_X2  )="X2"
   DO i_m=1,mn_IP(1)
@@ -131,8 +133,16 @@ IMPLICIT NONE
     CALL WriteDataToVTK(2,3,nVal,nplot,1,VarNames,coord_visu,var_visu,TRIM(filename)//".vtu")
   END IF
   IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
-    CALL WriteDataToNETCDF(2,3,nVal,mn_IP,(/"dim_theta","dim_zeta "/),VarNames,&
-    coord_visu,var_visu, TRIM(filename), coord1=thet, coord2=zeta)
+    var_visu_attr(VP_LAMBDA,1) = "straight field line potential";              var_visu_attr(VP_LAMBDA,2) = "\lambda"
+    var_visu_attr(VP_theta,1)  = "Logical poloidal angle on the pol-tor grid"; var_visu_attr(VP_theta,2)  = "\\theta"
+    var_visu_attr(VP_zeta,1)   = "Logical toroidal angle on the pol-tor grid"; var_visu_attr(VP_zeta,2)   = "\zeta"
+    var_visu_attr(VP_X1,1)     = "first reference coordinate";                 var_visu_attr(VP_X1,2)     = "X^1"
+    var_visu_attr(VP_X2,1)     = "second reference coordinate";                var_visu_attr(VP_X2,2)     = "X^2"
+
+    coord_attr(1,1) = "Logical poloidal angle"; coord_attr(1,2) = "\\theta"
+    coord_attr(2,1) = "Logical toroidal angle"; coord_attr(2,2) = "\zeta"
+    CALL WriteDataToNETCDF(2,3,nVal,mn_IP,(/"pol","tor"/),VarNames,&
+    coord_visu,var_visu, TRIM(filename), coord1=thet, coord2=zeta, attr_values=var_visu_attr, CoordNames=(/"theta","zeta "/), attr_coords=coord_attr)
   END IF
 
 END SUBROUTINE visu_BC_face
@@ -183,6 +193,8 @@ IMPLICIT NONE
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu_1d(nVal+3,(np_in(1)-1)*sgrid%nElems+1)
+  CHARACTER(LEN=255) :: var_visu_attr(nVal,2) !! attributes of all variables that will be written out
+  CHARACTER(LEN=255) :: coord_attr(3,2)
   REAL(wp) :: thet(np_in(1),np_in(2)),zeta(np_in(3))
   REAL(wp) :: theta_star,sqrtG
   CHARACTER(LEN=40) :: CoordNames(3)
@@ -254,11 +266,11 @@ IMPLICIT NONE
   VP_zeta   =iVal;iVal=iVal+1; VarNames(VP_zeta  )="zeta"
   VP_PHI    =iVal;iVal=iVal+1; VarNames(VP_PHI   )="Phi"
   VP_IOTA   =iVal;iVal=iVal+1; VarNames(VP_IOTA  )="iota"
-  VP_PRES   =iVal;iVal=iVal+1; VarNames(VP_PRES  )="pressure"
+  VP_PRES   =iVal;iVal=iVal+1; VarNames(VP_PRES  )="p"
   VP_DP_DR  =iVal;iVal=iVal+1; VarNames(VP_DP_DR )="dp_dr"
   VP_Mscale =iVal;iVal=iVal+1; VarNames(VP_Mscale)="Mscale"
   VP_MscaleF=iVal;iVal=iVal+1; VarNames(VP_MscaleF)="MscaleForce"
-  VP_LAMBDA =iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="lambda"
+  VP_LAMBDA =iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="LA"
   VP_SQRTG  =iVal;iVal=iVal+1; VarNames(VP_SQRTG )="sqrtG"
   VP_g_tt   =iVal;iVal=iVal+1; VarNames(VP_g_tt  )="g_tt"
   VP_g_tz   =iVal;iVal=iVal+1; VarNames(VP_g_tz  )="g_tz"
@@ -786,9 +798,50 @@ IMPLICIT NONE
       VarNames(VP_s)   = "rho_grid"
       VarNames(VP_zeta)  = "zeta_grid"
       VarNames(VP_theta) = "theta_grid"
+      
+      ! Set NETCDF attributes
+      var_visu_attr = ""
+
+      var_visu_attr(VP_Itor,1)   = "toroidal current";                                  var_visu_attr(VP_Itor,2)   = "I_{tor}"
+      var_visu_attr(VP_Ipol,1)   = "poloidal current";                                  var_visu_attr(VP_Ipol,2)   = "I_{pol}"
+
+      var_visu_attr(VP_gr_z+2,1) = "toroidal reciprocal basis vector";                  var_visu_attr(VP_gr_z+2,2) = "\\nabla\\zeta"
+      var_visu_attr(VP_gr_t+2,1) = "poloidal reciprocal basis vector";                  var_visu_attr(VP_gr_t+2,2) = "\\nabla\\theta"
+      var_visu_attr(VP_gr_s+2,1) = "radial reciprocal basis vector";                    var_visu_attr(VP_gr_s+2,2) = "\\nabla\\rho"
+      
+      var_visu_attr(VP_B+2,1)    = "magnetic field";                                    var_visu_attr(VP_B+2,2)    = "\mathbf{B}"
+
+      var_visu_attr(VP_g_tt,1)   = "Metric coefficient theta/theta";                    var_visu_attr(VP_g_tt,2)   = "g_{\\theta,\\theta}"
+      var_visu_attr(VP_g_tz,1)   = "Metric coefficient theta/zeta";                     var_visu_attr(VP_g_tz,2)   = "g_{\\theta,\zeta}"
+      var_visu_attr(VP_g_zz,1)   = "Metric coefficient zeta/zeta";                      var_visu_attr(VP_g_zz,2)   = "g_{\\zeta,\zeta}"
+
+      var_visu_attr(VP_F_X1,1)   = "Force residual in X1";                              var_visu_attr(VP_F_X1,2)   = "F_{X^1}"
+      var_visu_attr(VP_F_X2,1)   = "Force residual in X2";                              var_visu_attr(VP_F_X2,2)   = "F_{X^2}"
+      var_visu_attr(VP_F_LA,1)   = "Force residual in lambda";                          var_visu_attr(VP_F_LA,2)   = "F_{\lambda}"
+
+      var_visu_attr(VP_dp_dr,1)  = "radial derivative of the pressure";                 var_visu_attr(VP_dp_dr,2)  = "\\frac{\partial p}{\partia\\rho}"
+      var_visu_attr(VP_PRES,1)   = "pressure";                                          var_visu_attr(VP_PRES,2)   = "p"
+      var_visu_attr(VP_IOTA,1)   = "rotational transform";                              var_visu_attr(VP_IOTA,2)   = "\iota"
+      var_visu_attr(VP_PHI,1)    = "toroidal flux";                                     var_visu_attr(VP_PHI,2)    = "\phi"
+
+      var_visu_attr(VP_SQRTG,1)  = "Jacobian determinant";                              var_visu_attr(VP_SQRTG,2)  = "\sqrt{g}"
+
+      var_visu_attr(VP_LAMBDA,1) = "straight field line potential";                     var_visu_attr(VP_LAMBDA,2) = "\lambda"
+      var_visu_attr(VP_X1,1)     = "first reference coordinate";                        var_visu_attr(VP_X1,2)     = "X^1"
+      var_visu_attr(VP_X2,1)     = "second reference coordinate";                       var_visu_attr(VP_X2,2)     = "X^2"
+
+      var_visu_attr(VP_s,1)      = "Logical radial coordinate on the rad-pol-tor grid"; var_visu_attr(VP_s,2)      = "\\rho"
+      var_visu_attr(VP_theta,1)  = "Logical poloidal angle on the rad-pol-tor grid";    var_visu_attr(VP_theta,2)  = "\\theta"
+      var_visu_attr(VP_zeta,1)   = "Logical toroidal angle on the rad-pol-tor grid";    var_visu_attr(VP_zeta,2)   = "\zeta"
+
+      
+      coord_attr(1,1) = "Logical radial coordinate"; coord_attr(1,2) = "\\rho"
+      coord_attr(2,1) = "Logical poloidal angle"; coord_attr(2,2) = "\\theta"
+      coord_attr(3,1) = "Logical toroidal angle"; coord_attr(3,2) = "\zeta"
       CALL WriteDataToNETCDF(3,3,nVal,(/tmp_nrho,tmp_ntheta,mn_IP(2)/),&
-                          (/"rho  ","theta","zeta "/),VarNames, &
-                          tmpcoord,tmpvar, TRIM(filename),coord1=coord1, coord2=coord2, coord3=coord3)
+                          (/"rad","pol","tor"/),VarNames, &
+                          tmpcoord,tmpvar, TRIM(filename),attr_values=var_visu_attr, &
+                          coord1=coord1, coord2=coord2, coord3=coord3,CoordNames=(/"rho  ", "theta", "zeta "/), attr_coords=coord_attr)
       DEALLOCATE(tmpcoord,tmpvar, coord1, coord2, coord3)
     END IF !outfileType
   END IF
@@ -807,8 +860,8 @@ IMPLICIT NONE
 #if NETCDF
   ALLOCATE(coord1((n_s-1)*nElems+1))
   coord1=var_visu_1d(4,:)
-  CALL WriteDataToNETCDF(1,3,nVal-3,(/(n_s-1)*nElems+1/),(/"rho"/), &
-       VarNames(4:nVal),var_visu_1d(1:3,:),var_visu_1d(7:3+nVal,:), TRIM(filename), coord1=coord1)
+  CALL WriteDataToNETCDF(1,3,nVal-3,(/(n_s-1)*nElems+1/),(/"rad"/), &
+       VarNames(4:nVal),var_visu_1d(1:3,:),var_visu_1d(7:3+nVal,:), TRIM(filename), coord1=coord1, CoordNames=(/"rho"/))
   DEALLOCATE(coord1)
 #else
   CALL WriteDataToCSV((/CoordNames,VarNames(:)/) ,var_visu_1d,TRIM(filename)//".csv"  &
