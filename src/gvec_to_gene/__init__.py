@@ -1,3 +1,6 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
+
 from subprocess import check_output
 from cffi import FFI
 import os

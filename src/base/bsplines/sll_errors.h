@@ -1,3 +1,8 @@
+/*
+! Copyright (c) INRIA
+! License: CECILL-B
+*/
+
 #ifndef _SLL_ERRORS_H_
 #define _SLL_ERRORS_H_
 
