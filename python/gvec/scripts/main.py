@@ -95,7 +95,7 @@ run_parser.add_argument(
     "-d",
     "--diagnostics",
     type=Path,
-    default="GVEC-diagnostics.nc",
+    default=None,
     help="output netCDF file for diagnostics",
 )
 run_parser.add_argument("-p", "--plots", action="store_true", help="plot diagnostics")
@@ -252,7 +252,17 @@ def run_stages(
             case "polynomial":
                 coefs = np.array(parameters["Itor"]["coefs"][::-1])
                 coefs *= parameters["Itor"].get("scale", 1.0)
-                Itor = np.poly1d(coefs)
+                I_tor_target = np.poly1d(coefs)(rho**2)
+            case "bspline":
+                from scipy.interpolate import BSpline
+
+                coefs = np.array(parameters["Itor"]["coefs"], dtype=float)
+                coefs *= parameters["Itor"].get("scale", 1.0)
+                knots = np.array(parameters["Itor"]["knots"], dtype=float)
+                I_tor_target = BSpline(knots, coefs)(rho**2)
+            case "interpolation":
+                I_tor_target = np.array(parameters["Itor"]["vals"], dtype=float)
+                rho = np.sqrt(np.array(parameters["Itor"]["rho2"], dtype=float))
             case _:
                 raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
 
@@ -270,7 +280,11 @@ def run_stages(
                     run_params[key] = {}
                 for subkey, subvalue in value.items():
                     run_params[key][subkey] = subvalue
-            run_params[key] = value
+            if key in run_params and isinstance(value, Mapping):
+                for subkey, subvalue in value.items():
+                    run_params[key][subkey] = subvalue
+            else:
+                run_params[key] = value
 
         # run the stage
         runs = range(stage.get("runs", 1))
@@ -336,8 +350,7 @@ def run_stages(
                     state.compute(ev, "iota", "iota_curr_0", "iota_0", "I_tor")
 
             if "Itor" in parameters:
-                Itor_values = Itor(rho**2)
-                iota_values = ev.iota_0 + Itor_values * ev.iota_curr_0
+                iota_values = ev.iota_0 + I_tor_target * ev.iota_curr_0
                 run_params["iota"] = {
                     "type": "interpolation",
                     "vals": iota_values.data,
@@ -355,7 +368,7 @@ def run_stages(
                     f"rms Δiota: {np.sqrt((iota_delta**2).mean('rad')).item():.3f}"
                 )
                 logger.info(
-                    f"max ΔItor: {np.abs(ev.I_tor - Itor_values).max().item():.3e}"
+                    f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.3e}"
                 )
 
             d = xr.Dataset(
@@ -368,7 +381,7 @@ def run_stages(
                 d["iota"] = ev.iota
                 d["I_tor"] = ev.I_tor
                 d["iota_delta"] = iota_delta
-                d["I_tor_delta"] = ev.I_tor - Itor_values
+                d["I_tor_delta"] = ev.I_tor - I_tor_target
             d = d.drop_vars(["pol_weight", "tor_weight"])
             if diagnostics is None:
                 d = d.expand_dims(dict(run=[r]))
