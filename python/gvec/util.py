@@ -25,7 +25,7 @@ import contextlib
 import os
 from typing import Iterable
 from collections.abc import Mapping, MutableMapping
-
+from ._xr2vtk import xr2vtk, write_to_vtk
 
 @contextlib.contextmanager
 def chdir(target: Path | str):
