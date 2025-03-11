@@ -18,6 +18,8 @@ dependencies = [
     "xarray",
     "netcdf4",
     "tqdm",
+    "PyYAML",
+    "tomlkit",
 ]
 authors = [
     {name = "Florian Hindenlang"},
@@ -58,8 +60,7 @@ dev = ["pytest"]
 examples = ["matplotlib", "jupyter", "scipy", "ipywidgets", "ipympl"]
 
 [project.scripts]
-pygvec = "gvec.scripts.pygvec:main"
-gvec_zero_current = "gvec.scripts.zero_current:main"
+pygvec = "gvec.scripts.main:main"
 gvec_to_cas3d = "gvec.scripts.to_cas3d:main"
 
 # ============================================================================ #
@@ -113,16 +114,16 @@ addopts = [
     "--import-mode=importlib",
 ]
 markers = [
-    "`example`: mark test as a example, which are all tests specified in `test-CI/examples`, executed in folder `rundir/example`",
-    "`restart`: mark test as a restart (deduced from example folder name). Needs the example to be run first!",
-    "`shortrun`: mark test as a short run  (executed in folder `rundir/shortrun`, overwrites parameters: `testlevel=-1` and `MaxIter=1`)",
-    "`debugrun`: mark test as a debug run (executed in folder `rundir/debugrun`, overwrites parameters: `testlevel=2` and `MaxIter=1`)",
-    "`run_stage`: mark test belonging to the run stage (executed for all testgroups into a `rundir`)",
-    "`post_stage`: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir/post`, activates visualization parameters). Needs `run_stage` to be executed before in a given `rundir` directory.",
-    "`regression_stage`: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The `--refdir` argument is mandatory!",
-    "`converter_stage`: mark test belonging to the post-processing converter stage (executed for all testgroups into a `postdir/converter-name`, for all compiled converters). Needs `run_stage` to be executed before in a given `rundir` directory.",
-    "`unit`: mark test as a unittest - a test that is isolated and tests a specific functionality",
-    "`pygvec`: mark test that are related to the python bindings",
+    "example: mark test as a example, which are all tests specified in `test-CI/examples`, executed in folder `rundir/example`",
+    "restart: mark test as a restart (deduced from example folder name). Needs the example to be run first!",
+    "shortrun: mark test as a short run  (executed in folder `rundir/shortrun`, overwrites parameters: `testlevel=-1` and `MaxIter=1`)",
+    "debugrun: mark test as a debug run (executed in folder `rundir/debugrun`, overwrites parameters: `testlevel=2` and `MaxIter=1`)",
+    "run_stage: mark test belonging to the run stage (executed for all testgroups into a `rundir`)",
+    "post_stage: mark test belonging to the post-processing stage (executed for all testgroups into a `postdir/post`, activates visualization parameters). Needs `run_stage` to be executed before in a given `rundir` directory.",
+    "regression_stage: mark test belonging to the regression stage (compares files from `rundir` and  `refdir`. The `--refdir` argument is mandatory!",
+    "converter_stage: mark test belonging to the post-processing converter stage (executed for all testgroups into a `postdir/converter-name`, for all compiled converters). Needs `run_stage` to be executed before in a given `rundir` directory.",
+    "unit: mark test as a unittest - a test that is isolated and tests a specific functionality",
+    "pygvec: mark test that are related to the python bindings",
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -15,18 +15,19 @@ from typing import Mapping
 from datetime import datetime
 import copy
 
-import yaml
 import numpy as np
 import xarray as xr
-from tqdm import tqdm
+import yaml
+import tomlkit  # also supports writing (compared to tomllib)
 
 import gvec
+from gvec.scripts import to_cas3d
 
 # === Arguments === #
 
 parser = argparse.ArgumentParser(
     prog="pygvec",
-    description="Run GVEC",
+    description="GVEC: a 3D MHD equilibrium solver",
 )
 subparsers = parser.add_subparsers(
     title="mode",
@@ -45,6 +46,10 @@ parser.add_argument(
 run_parser = subparsers.add_parser(
     "run",
     help="run GVEC",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description="Run GVEC with a given parameterfile, optionally restarting from an existing statefile.\n\n"
+    "When given an INI parameterfile, GVEC is called directly.\n"
+    "With YAML and TOML parameterfiles, GVEC can be run in several stages and a current constraint with picard iterations can be performed.",
 )
 run_parser.add_argument("parameterfile", type=Path, help="input GVEC parameterfile")
 run_parser.add_argument(
@@ -59,14 +64,21 @@ run_parser_param_type.add_argument(
     action="store_const",
     const="ini",
     dest="param_type",
-    help="use classic GVEC parameterfile",
+    help="interpret GVEC parameterfile classicly (INI)",
 )
 run_parser_param_type.add_argument(
     "--yaml",
     action="store_const",
     const="yaml",
     dest="param_type",
-    help="use YAML GVEC parameterfile",
+    help="interpret GVEC parameterfile as YAML",
+)
+run_parser_param_type.add_argument(
+    "--toml",
+    action="store_const",
+    const="toml",
+    dest="param_type",
+    help="interpret GVEC parameterfile as TOML",
 )
 run_parser_verbosity = run_parser.add_mutually_exclusive_group()
 run_parser_verbosity.add_argument(
@@ -91,8 +103,11 @@ run_parser.add_argument("-p", "--plots", action="store_true", help="plot diagnos
 # --- convert parameterfile --- #
 
 convert_parser = subparsers.add_parser(
-    "convert",
-    help="convert GVEC parameterfile",
+    "convert-params",
+    help="convert the GVEC parameterfile between different formats",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description="Convert GVEC parameterfiles between different formats.\n"
+    "The INI (classical) parameter files do not support stages or the current constraint!\nAlso the formatting is lost upon conversion.",
 )
 convert_parser.add_argument(
     "input",
@@ -103,6 +118,17 @@ convert_parser.add_argument(
     "output",
     type=Path,
     help="output GVEC parameterfile",
+)
+
+# --- other scripts --- #
+
+cas3d_parser = subparsers.add_parser(
+    "to-cas3d",
+    help="convert a GVEC state to a CAS3D compatible input file",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description="Convert a GVEC statefile to a CAS3D compatible input file.",
+    parents=[to_cas3d.parser],
+    add_help=False,
 )
 
 # === Script === #
@@ -119,10 +145,17 @@ def main():
             args.param_type = args.parameterfile.suffix[1:]
 
         if args.param_type == "ini":
-            gvec.run(args.parameterfile, args.restartfile, stdout_path=None)
-        elif args.param_type == "yaml":
+            gvec.run(
+                args.parameterfile,
+                args.restartfile,
+                stdout_path="stdout.txt" if args.quiet else None,
+            )
+        elif args.param_type in ["yaml", "toml"]:
             with open(args.parameterfile, "r") as file:
-                parameters = yaml.safe_load(file)
+                if args.param_type == "yaml":
+                    parameters = yaml.safe_load(file)
+                elif args.param_type == "toml":
+                    parameters = tomlkit.parse(file.read()).unwrap()
             parameters = unstringify_mn_params(parameters)
             if "stages" not in parameters:
                 parameters = flatten_params(parameters)
@@ -132,7 +165,11 @@ def main():
                     parameterfile,
                     header=f"!Auto-generated from {args.parameterfile.name} with `pygvec run`\n!Created at {datetime.now().isoformat()}\n!pyGVEC v{gvec.__version__}\n",
                 )
-                gvec.run(parameterfile, args.restartfile, stdout_path=None)
+                gvec.run(
+                    parameterfile,
+                    args.restartfile,
+                    stdout_path="stdout.txt" if args.quiet else None,
+                )
             else:
                 logging.basicConfig(
                     level=logging.WARNING
@@ -154,20 +191,24 @@ def main():
                     args.restartfile,
                     progressbar=not args.quiet and not args.verbose,
                     redirect_gvec_stdout=args.verbose < 3,
-                    diagnosticfile="diagnostics.nc",
+                    diagnosticfile=args.diagnostics,
                     plots=args.plots,
                 )
         else:
             raise ValueError("Cannot determine parameterfile type")
 
     # --- convert parameterfile --- #
-    elif args.mode == "convert":
+    elif args.mode == "convert-params":
         if args.input.suffix == ".ini":
             inputs = gvec.util.read_parameter_file(args.input)
             inputs = stack_params(inputs)
         elif args.input.suffix == ".yaml":
             with open(args.input, "r") as file:
                 inputs = yaml.safe_load(file)
+            inputs = unstringify_mn_params(inputs)
+        elif args.input.suffix == ".toml":
+            with open(args.input, "r") as file:
+                inputs = tomlkit.parse(file.read()).unwrap()
             inputs = unstringify_mn_params(inputs)
         else:
             raise ValueError(f"Unknown input file type: {args.input}")
@@ -178,8 +219,18 @@ def main():
             outputs = stringify_mn_params(inputs)
             with open(args.output, "w") as file:
                 yaml.safe_dump(outputs, file)
+        elif args.output.suffix == ".toml":
+            outputs = stringify_mn_params(inputs)
+            with open(args.output, "w") as file:
+                file.write(
+                    tomlkit.dumps(outputs)
+                )  # ToDo: nicer output using document API
         else:
             raise ValueError(f"Unknown output file type: {args.output}")
+
+    # --- other scripts --- #
+    elif args.mode == "to-cas3d":
+        to_cas3d.main(args)
 
 
 def run_stages(
@@ -223,16 +274,24 @@ def run_stages(
 
         # run the stage
         runs = range(stage.get("runs", 1))
-        if progressbar:
-            runs = tqdm(runs, ascii=True, desc=f"stage {s}", ncols=80)
         for r in runs:
-            logger.info(
-                f"GVEC stage {s} run {r}: |"
+            progressstr = (
+                "".join(
+                    "|" + "=" * st.get("runs", 1) for st in parameters["stages"][:s]
+                )
+                + "|"
                 + "=" * r
                 + ">"
                 + "." * (stage.get("runs", 1) - r - 1)
                 + "|"
+                + "".join(
+                    "." * st.get("runs", 1) + "|"
+                    for st in parameters["stages"][s + 1 :]
+                )
             )
+            if progressbar:
+                print(f"GVEC stage {s} run {r}: {progressstr}", end="\r")
+            logger.info(f"GVEC stage {s} run {r}: {progressstr}")
             start_time = time.time()
             # find previous state
             if statefile:
@@ -249,21 +308,28 @@ def run_stages(
 
             # write parameterfile & run GVEC
             gvec.util.write_parameter_file(
-                flatten_params(run_params), rundir / "parameter.ini"
+                flatten_params(run_params),
+                rundir / "parameter.ini",
+                header=f"!Auto-generated with `pygvec run` (stage {s} run {r})\n"
+                "!Created at {datetime.now().isoformat()}\n"
+                "!pyGVEC v{gvec.__version__}\n",
             )
             with gvec.util.chdir(rundir):
                 gvec.run(
                     "parameter.ini",
                     ".." / statefile if statefile else None,
                     stdout_path="stdout.txt" if redirect_gvec_stdout else None,
-                    # ToDo: doesn't work yet
                 )
 
             # postprocessing
             statefile = sorted(rundir.glob("*State*.dat"))[-1]
             logger.debug(f"Postprocessing statefile {statefile}")
 
-            with gvec.State(rundir / "parameter.ini", statefile) as state:
+            with gvec.State(
+                rundir / "parameter.ini",
+                statefile,
+                redirect_stdout=redirect_gvec_stdout,
+            ) as state:
                 ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
                 state.compute(ev, "W_MHD", "N_FP")
                 if "Itor" in parameters:
@@ -415,7 +481,7 @@ def stringify_mn_params(parameters):
         if re.match(r"(X1|X2|LA)_[a|b]_(sin|cos)", key):
             output[key] = {}
             for (m, n), val in value.items():
-                output[key][f"{m}, {n:2d}"] = val
+                output[key][f"({m}, {n:2d})"] = val
         else:
             output[key] = value
     return output
@@ -428,7 +494,7 @@ def unstringify_mn_params(parameters):
         if re.match(r"(X1|X2|LA)_[a|b]_(sin|cos)", key):
             output[key] = {}
             for mn, val in value.items():
-                m, n = mn.split(",")
+                m, n = map(int, mn.strip("()").split(","))
                 output[key][(m, n)] = val
         else:
             output[key] = value

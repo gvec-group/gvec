@@ -20,9 +20,8 @@ PUBLIC
 !===================================================================================================================================
 CONTAINS
 
-SUBROUTINE rungvec(parameterFile,restartfile_in,comm_in)
+SUBROUTINE rungvec(parameterFile,restartfile_in)
 USE_MPI
-USE MODgvec_MPI        ,ONLY : par_Init
 USE MODgvec_Globals    ,ONLY : wp,fmt_sep,n_warnings_occured,testdbg,testlevel,testUnit,nfailedMsg,UNIT_stdOut,GETFREEUNIT
 USE MODgvec_Globals    ,ONLY : GetTime,MPIRoot,nRanks,myRank
 USE MODgvec_Analyze    ,ONLY : InitAnalyze,FinalizeAnalyze
@@ -37,7 +36,6 @@ IMPLICIT NONE
 !INPUT VARIABLES
   CHARACTER(LEN=*),INTENT(IN)             :: Parameterfile  !! input parameters of GVEC
   CHARACTER(LEN=*),INTENT(IN),OPTIONAL    :: RestartFile_in  !! if present, a restart will be executed
-  INTEGER,INTENT(IN),OPTIONAL             :: comm_in  !! MPI communicator, if not passed, parInit is supposed to be called outside before!
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
 INTEGER                 :: which_functional
@@ -47,7 +45,6 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
 CLASS(t_functional),ALLOCATABLE   :: functional
 LOGICAL                 :: dorestart
 !===================================================================================================================================
-  IF(PRESENT(comm_in)) CALL par_init(comm_in)
   __PERFINIT
   __PERFON('main')
 
@@ -170,8 +167,6 @@ LOGICAL                 :: dorestart
   IF(MPIRoot) THEN
   __PERFOUT('main')
   END IF
-
-  CLOSE(Unit_stdOut)
 END SUBROUTINE rungvec
 END MODULE MODgvec_rungvec
 

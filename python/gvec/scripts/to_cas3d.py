@@ -324,8 +324,9 @@ def gvec_to_cas3d(
         progress.set_description("done")
 
 
-def main():
-    args = parser.parse_args()
+def main(args=None):
+    if args is None:
+        args = parser.parse_args()
     gvec_to_cas3d(
         args.parameterfile,
         args.statefile,
