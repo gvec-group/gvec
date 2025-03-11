@@ -5,6 +5,8 @@ We group the parameters by the following (sub-)categories:
 
 1. [Initialization](#initialization-parameters)
 1. [Discretization](#discretization-parameters)
+1. [Boundary and axis](#boundary-and-axis-parameters)
+1. [Profile specification](#profile-parameters)
 1. [Minimizer](#minimizer-parameters)
 1. [hmap](#hmap-parameters)
 1. [Visualization/Output](#visualization-and-output-parameters)
@@ -18,6 +20,14 @@ We group the parameters by the following (sub-)categories:
 ## Discretization parameters
 
 ```{include} ../generators/parameters-discretization.md
+```
+
+## Boundary and axis parameters
+```{include} ../generators/parameters-bcs.md
+```
+
+## Profile parameters
+```{include} ../generators/parameters-profiles.md
 ```
 
 ## Minimizer parameters

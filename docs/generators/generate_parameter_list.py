@@ -223,27 +223,49 @@ def generate_formatted_param(
 
 
 def format_parameter_list(
-    yamlfile, formatting="markdown", output_file=None, filter={}, enable_links=True
+    yamlfile,
+    formatting="markdown",
+    output_file=None,
+    filter_expr=None,
+    enable_links=True,
+    open_all=False,
 ):
     """
-    filter is a dictionary, with "name":searchstring and/or "category":searchstring  as possibilities.
+    filter is a logical expression, with where 'name' is then replaced by the parameter name and 'category by the category/categories of the parameter. For example:
+    "'project' in 'name'" or
+    "'init' in 'category'" or both
+    "'project' in 'name' and 'init' in 'category'"
     This then only shows the entrys where the searchstring is found (ignore case) in the parameter name  and/or in the category  of the parameter
     """
     with open(yamlfile, "r") as f:
         dict = yaml.safe_load(f)
     out = []
 
+    def evaluate_expression(expr: str, name: str, category: str, verbose=False):
+        eval_expr = (
+            expr.lower()
+            .replace("name", name.lower())
+            .replace("category", category.lower())
+        )
+        if verbose:
+            print(f"{eval(eval_expr)}={eval_expr}")
+        return eval(eval_expr)
+
     for param, vals in dict.items():
-        if filt_name := filter.get("name"):
-            if filt_name.lower() not in param.lower():
-                continue
-        if filt_category := filter.get("category"):
+        if filter_expr:
             if not any(
-                [(filt_category.lower() in x.lower()) for x in vals["category"]]
+                [
+                    evaluate_expression(filter_expr, param, cat)
+                    for cat in vals["category"]
+                ]
             ):
                 continue
         out += generate_formatted_param(
-            param, vals, formatting=formatting, enable_links=enable_links
+            param,
+            vals,
+            formatting=formatting,
+            enable_links=enable_links,
+            open_all=open_all,
         )
 
     if output_file:

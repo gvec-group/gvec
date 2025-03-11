@@ -38,18 +38,21 @@ release = version
 
 # generate parameter lists, generators/parameters-*md
 genpath = Path(__file__).parent / "generators"
-for category in [
-    "minimizer",
-    "initialization",
-    "discretization",
-    "hmap",
-    "visualization",
+for category, expr in [
+    ("minimizer", "'minimizer' in 'category'"),
+    ("initialization", "'initialization' in 'category'"),
+    ("discretization", "'discretization' in 'category'"),
+    ("profiles", "'profiles' in 'category'"),
+    ("bcs", "'boundary' in 'category' or 'axis' in 'category'"),
+    ("hmap", "'hmap' in 'category'"),
+    ("visualization", "'visualization' in 'category'"),
 ]:
     format_parameter_list(
         genpath / "parameters.yaml",
         output_file=genpath / f"parameters-{category}.md",
-        filter={"category": category},
+        filter_expr=expr,
         formatting="markdown",
+        open_all=False,
     )
     print(f"generated parameters-{category}.md")
 
