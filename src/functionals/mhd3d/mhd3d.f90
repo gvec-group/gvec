@@ -94,7 +94,7 @@ SUBROUTINE InitMHD3D(sf)
   MinimizerType= GETINT("MinimizerType",Proposal=0)
   PrecondType  = GETINT("PrecondType",Proposal=-1)
 
-  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
+  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10_wp) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=maxIter)
   logIter   = GETINT("logIter",Proposal=maxIter)
@@ -580,7 +580,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
       CALL InitSolution(U(0),which_init)
     END IF
     IF(boundary_perturb)THEN
-      CALL AddBoundaryPerturbation(U(0),0.3)
+      CALL AddBoundaryPerturbation(U(0),0.3_wp)
     END IF !boundary_perturb
   END IF !MPIroot
   CALL par_Bcast(U(0)%X1,0)
@@ -950,7 +950,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   !evaluate profiles only in MPIroot!
   IF(MPIroot)THEN
     DO is=1,nBase
-      rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+      rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4_wp,s_IP(is))) !exclude axis
       phiPrime(is)=Phi_profile%eval_at_rho(rhopos,deriv=1)
       chiPrime(is)=chi_profile%eval_at_rho(rhopos,deriv=1)
     END DO
