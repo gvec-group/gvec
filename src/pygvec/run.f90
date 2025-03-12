@@ -6,6 +6,10 @@
 
 MODULE MODgvec_py_run
 
+#ifndef NOISOENV
+USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
+#endif
+
 IMPLICIT NONE
 PUBLIC
 
@@ -15,7 +19,7 @@ CONTAINS
 SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
   ! MODULES
   USE MODgvec_Globals, ONLY: Unit_stdOut
-  USE MODgvec_MPI    ,ONLY  : par_Init,par_finalize
+  USE MODgvec_MPI    , ONLY: par_Init,par_finalize
   USE MODgvec_rungvec, ONLY: rungvec
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*),INTENT(IN) :: parameterfile
@@ -24,21 +28,18 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: comm
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  IF(.NOT.PRESENT(comm_in))THEN 
-    CALL par_init() !USE MPI_COMM_WORLD
-    IF(PRESENT(restartfile_in))THEN
-      CALL rungvec(parameterfile,restartfile_in=restartfile_in)
-    ELSE                                        
-      CALL rungvec(parameterfile)
-    END IF
-    CALL par_finalize()
+  IF(PRESENT(comm_in)) THEN
+    CALL par_init(comm_in)
   ELSE
-    IF(PRESENT(restartfile_in))THEN
-      CALL rungvec(parameterfile,restartfile_in=restartfile_in,comm_in=comm_in)
-    ELSE                                        
-      CALL rungvec(parameterfile,comm_in=comm_in)
-    END IF
+    CALL par_init() !USE MPI_COMM_WORLD
   END IF
-END SUBROUTINE start_rungvec
 
+  IF(PRESENT(restartfile_in))THEN
+    CALL rungvec(parameterfile,restartfile_in=restartfile_in)
+  ELSE                                        
+    CALL rungvec(parameterfile)
+  END IF
+
+  CALL par_finalize()
+END SUBROUTINE start_rungvec
 END MODULE MODgvec_py_run

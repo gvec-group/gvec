@@ -775,16 +775,29 @@ def iota_avg(ds: xr.Dataset):
 
 
 @register(
-    requirements=("mu0", "I_tor", "dPhi_dr", "Jac", "g_tt"),
+    requirements=("mu0", "dPhi_dr", "Jac", "g_tt"),
     integration=("theta", "zeta"),
     attrs=dict(
+        long_name="factor to the toroidal current contribution to the rotational transform",
+        description="iota = iota_0 + iota_curr, iota_curr = I_tor * iota_curr_0",
+        symbol=r"\iota_{curr,0}",
+    ),
+)
+def iota_curr_0(ds: xr.Dataset):
+    Gamma_t = fluxsurface_integral(ds.g_tt / ds.Jac)
+    ds["iota_curr_0"] = 2 * np.pi * ds.mu0 / ds.dPhi_dr / Gamma_t
+
+
+@register(
+    requirements=("I_tor", "iota_curr_0"),
+    attrs=dict(
         long_name="toroidal current contribution to the rotational transform",
+        description="iota = iota_0 + iota_curr, iota_curr = I_tor * iota_curr_0",
         symbol=r"\iota_{curr}",
     ),
 )
 def iota_curr(ds: xr.Dataset):
-    Gamma_t = fluxsurface_integral(ds.g_tt / ds.Jac)
-    ds["iota_curr"] = 2 * np.pi * ds.mu0 * ds.I_tor / ds.dPhi_dr / Gamma_t
+    ds["iota_curr"] = ds.I_tor * ds.iota_curr_0
 
 
 @register(
@@ -792,6 +805,7 @@ def iota_curr(ds: xr.Dataset):
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="geometric contribution to the rotational transform",
+        description="iota = iota_0 + iota_curr",
         symbol=r"\iota_0",
     ),
 )

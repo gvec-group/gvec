@@ -30,8 +30,8 @@ def run(
         If set to None, stdout is not redirected
     """
 
+    _binding.redirect_abort()
     if stdout_path is not None:
-        _binding.redirect_abort()
         _binding.redirect_stdout(str(stdout_path))
 
     if not Path(parameterfile).exists():
@@ -41,8 +41,3 @@ def run(
             raise FileNotFoundError(f"Restart file {restartfile} does not exist.")
 
     _run.start_rungvec(str(parameterfile), restartfile_in=restartfile, comm_in=MPIcomm)
-    # check for success
-    if stdout_path is not None:
-        with open(stdout_path) as stdout:
-            if "GVEC SUCESSFULLY FINISHED!" not in stdout.read():
-                raise RuntimeError(f"GVEC failed (see {stdout_path})")

@@ -18,6 +18,8 @@ dependencies = [
     "xarray",
     "netcdf4",
     "tqdm",
+    "PyYAML",
+    "tomlkit",
 ]
 authors = [
     {name = "Florian Hindenlang"},
@@ -58,7 +60,7 @@ dev = ["pytest"]
 examples = ["matplotlib", "jupyter", "scipy", "ipywidgets", "ipympl"]
 
 [project.scripts]
-gvec_zero_current = "gvec.scripts.zero_current:main"
+pygvec = "gvec.scripts.main:main"
 gvec_to_cas3d = "gvec.scripts.to_cas3d:main"
 
 # ============================================================================ #
