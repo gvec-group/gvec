@@ -12,6 +12,7 @@ def generate_formatted_param(
     for a parameter named `param` and the dictionary `vals` which
     *  must contain 'description': a list of string
     *  can  contain 'subtitle'
+    *  can contain a 'linkname' that is used instead of the `param` name
     *  can contain 'required' True/False
     *  can  contain 'required_if': string
     *  must contain 'type': string
@@ -64,7 +65,10 @@ def generate_formatted_param(
         outstr.append(f"::::{{dropdown}} `{param}`")
         if subtitle := vals.get("subtitle"):
             outstr[-1] += f" ({subtitle})"
-        outstr.append(f":name: lnktoparam-{param}")
+        if linkname := vals.get("linkname"):
+            outstr.append(f":name: lnktoparam-{linkname}")
+        else:
+            outstr.append(f":name: lnktoparam-{param}")
         if open_all:
             outstr.append(":open:")
         outstr.append("")
