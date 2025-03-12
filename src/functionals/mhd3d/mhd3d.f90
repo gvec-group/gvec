@@ -678,7 +678,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                        "InitSolution should only be called by MPIroot!")
-  X1_gIP=0.; X2_gIP=0.; LA_gIP=0.
+  X1_gIP=0.0_wp; X2_gIP=0.0_wp; LA_gIP=0.0_wp
 
   SELECT CASE(which_init_in)
   CASE(-1) !restart
@@ -963,7 +963,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
   DO is=ns_str,ns_end
-    rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+    rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4_wp,s_IP(is))) !exclude axis
     CALL lambda_Solve(rhopos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
     CALL ProgressBar(is,ns_end)
   END DO !is
@@ -1092,7 +1092,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
     !blend= 2. -2./(EXP(8.*(s_in-1.)/h) +1)
     !blend= EXP(-4.*((s_in-1.)/h)**2)
     !blend= s_in 
-    blend= EXP(-4.*((s_in-1.)/0.6)**2)
+    blend= EXP(-4.0_wp*((s_in-1.0_wp)/0.6_wp)**2)
   END FUNCTION blend
 
 END SUBROUTINE AddBoundaryPerturbation
@@ -1162,7 +1162,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   t_pseudo=0
   lastOutputIter=0
   iter=0
-  Vnorm=0.
+  Vnorm=0.0_wp
   logiter_ramp=1
   logscreen=1
 
@@ -1180,7 +1180,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
       Fnorm0=SQRT(F(0)%norm_2())
       Fnorm=Fnorm0
-      Fnorm_old=1.1*Fnorm0
+      Fnorm_old=1.1_wp*Fnorm0
       CALL U(-1)%set_to(U(0)) !last state
       CALL U(-2)%set_to(U(0)) !state at last logging interval
       !for hirshman method
@@ -1212,7 +1212,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       !tau is damping parameter
       tau(1:ndamp-1) = tau(2:ndamp) !save old
       tau(ndamp)  = MIN(0.15_wp,ABS(LOG(SUM(Fnorm**2)/SUM(Fnorm_old**2))))/dt  !ln(|F_n|^2/|F_{n-1}|^2), Fnorm=|F_X1|,|F_X2|,|F_LA|
-      tau_bar = 0.5*dt*SUM(tau)/REAL(ndamp,wp)   !=1/2 * tauavg
+      tau_bar = 0.5_wp*dt*SUM(tau)/REAL(ndamp,wp)   !=1/2 * tauavg
       CALL V(1)%AXBY(((1.0_wp-tau_bar)/(1.0_wp+tau_bar)),V(0),(dt/(1.0_wp+tau_bar)),F(0)) !velocity V(1)
       CALL P(1)%AXBY(1.0_wp,U(0),dt,V(1)) !overwrites P(1), predicst solution U(1)
       Vnorm=SQRT(V(1)%norm_2())
