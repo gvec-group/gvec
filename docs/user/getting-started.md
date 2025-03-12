@@ -2,10 +2,10 @@
 
 ## Run GVEC via its python bindings
 
-First, please follow the installation instructions for installing  [gvec with python bindings](install.md). Details on the python bindings are given [here](python.md).
+First, please follow the installation instructions for installing [gvec with python bindings](install.md). Details on the python bindings are given [here](python.md).
 
-We have prepared a circular tokamak example as a `ipython` notebook, found here: [`python/examples/gvecrun_tokamak/run_and_visualize_gvec.ipynb`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/gvecrun_tokamak/run_and_visualize_gvec.ipynb).
-
+We have prepared a circular tokamak example as a `ipython` notebook: [`run_and_visualize_gvec.ipynb`](<path:../../python/examples/gvecrun_tokamak/run_and_visualize_gvec.ipynb>).
+All files for this example are also part of the repository at `python/examples/gvecrun_tokamak/` (view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/gvecrun_tokamak)).
 
 Note that the kernel for the ipython notebook should be chosen as the virtual environment where the gvec python package is installed.
 
@@ -17,8 +17,7 @@ Here, we mention the main steps from the notebook to run gvec and post-process t
     ```
     Note that the number of openMP threads must be set before the import.
 
-1.  To run gvec, a parameter file is still necessary.
-    A template parameter file is found in [`python/examples/gvecrun_tokamak/parameter.ini`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/gvecrun_tokamak/parameter.ini).
+1.  To run gvec, a template [`parameter.ini`](<path:../../python/examples/gvecrun_tokamak/parameter.ini>) file is necessary.
     First, a sub-directory `runpath="run_01"` for the gvec run is created.
 
 1.  From the template, one can modify its parameters using `gvec.util.adapt_parameter_file` and providing a dictionary with (key,value) pairs.
@@ -45,18 +44,18 @@ Here, we mention the main steps from the notebook to run gvec and post-process t
     gvec.comp.table_of_quantities(markdown=True)
     ```
 
-1. More visualization examples are provided in the `ipython` notebook in `python/examples/visu.ipynb`.
+1. More visualization examples are provided in the `ipython` notebook [`visu.ipynb`](<path:../../python/examples/visu.ipynb>) (view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/visu.ipynb)).
 
 ## Run GVEC via the command line
 
 1) To install GVEC, follow the [installation instructions](install).
-2) The binary executables `gvec` and `gvec_post` should now be found in `build/bin/`
+2) The binary executables `gvec` and `gvec_post` should now be found in `build/bin/`.
 3) GVEC is configured with a custom parameter file, typically called `parameter.ini`.
 Example parameter files are found in `ini/` or `test-CI/examples/`
 
 ### Running GVEC
 
-There are several example input files named `parameter.ini`, which are found in a subfolder of `test-CI/examples`.
+There are several example input files named `parameter.ini`, which are found in a subfolder of [`test-CI/examples` {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/test-CI/examples/).
 
 *   For execution, go into one of these folders and execute for example the following commands
     ```bash
@@ -90,8 +89,110 @@ ctest -T test --output-on-failure -R
 
 ### Visualization
 
-Using the python interface, any statefile can be loaded and visualized using the `ipython` notebook in `python/examples/visu.ipynb`.
+Using the python interface, any statefile can be loaded and visualized using the `ipython` notebook [`visu.ipynb`](<path:../../python/examples/visu.ipynb>) (view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/visu.ipynb)).
 
 For line plots, csv datafiles are generated.
 
 For 3D visualization data, we write `*visu*.vtu` files, that can be visualized in [paraview](https://www.paraview.org). There is an option to write visualization data in netcdf, `*visu*.nc`, which can be read for example in python.
+
+### Current constraint & increasing resolution
+
+:::{warning}
+This feature is experimental!
+:::
+
+The python bindings for GVEC provide a simple wrapper to run GVEC:
+```bash
+pygvec run parameter.ini
+```
+
+They also allow running GVEC with a *current constraint* (strictly speaking a current-optimization using picard iterations) and refinement.
+
+For this the parameters need to be specified in YAML or TOML files, which are more flexible than the classic GVEC-INI files.
+The parameters use the same keys, with a different syntax for specifying the boundary and axis coefficients.
+In addition the parameters for `iota`, `pres` and `sgrid` are grouped together
+and two new groups of parameters, `Itor` and `stages` are available.
+If `Itor` and `stages` are not present in the parameterfile, a TOML or YAML parameterfile is equivalent to a `.ini` file.
+
+The `stages` parameter is a list of stages, which are executed in order, for which each parameters can be selected that replace the default values.
+The `Itor` parameter defines the target toroidal current profile (with the same syntax as the other profiles, but currently only with `type: polynomial`).
+GVEC will now use picard iterations to optimize the input `iota` profile, such that the resulting current converges towards the target profile.
+The `iota` parameter is now only used for the initial profile in the first run of the first stage.
+The `runs` parameter within `stages` sets the number of picard iterations (GVEC restarts) to be done within each stage.
+
+::::{tab-set}
+:::{tab-item} TOML
+
+```{code-block} toml
+:caption: `parameter.toml`
+# GVEC parameter file for W7X
+ProjectName = "W7X"
+whichInitEquilibrium = 0
+
+...
+
+stages = [
+    {runs = 3, maxIter = 100, sgrid.nElems = 3},
+    {runs = 5, maxIter = 20, sgrid.nElems = 10},
+]
+
+[Itor]
+type = "polynomial"
+scale = 1000
+coefs = [0.0]
+
+[iota]
+type = "polynomial"
+coefs = [0.9]
+
+[X1_b_cos]
+"(0, 0)" = 1.0
+"(0, 1)" = 0.1
+
+...
+```
+
+Full example: [`parameter.toml`](<path:../../python/examples/current_constraint/parameter.toml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/parameter.toml))
+
+:::
+
+:::{tab-item} YAML
+```{code-block} yaml
+:caption: `parameter.yaml`
+# GVEC parameter file for W7X
+ProjectName: W7X
+whichInitEquilibrium: 0
+
+...
+
+stages:
+-   runs: 3
+    maxIter: 100
+    sgrid:
+        nElems:
+-   runs: 5
+    maxIter: 20
+    sgrid:
+        nElems: 10
+
+Itor:
+  type: polynomial
+  scale: 1000
+  coefs: [0.0]
+iota:
+  type: polynomial
+  coefs: [0.9]
+
+X1_b_cos:
+  (0, 0): 1.0
+  (0, 1): 0.1
+
+...
+```
+
+Full example: [`parameter.yaml`](<path:../../python/examples/current_constraint/parameter.yaml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/parameter.yaml))
+
+:::
+::::

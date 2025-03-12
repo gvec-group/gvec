@@ -226,6 +226,36 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"
 
 
+def write_parameter_file(
+    parameters: dict, path: str | Path = "parameter.ini", header: str = ""
+):
+    """
+    Write the parameters to the specified parameter file.
+
+    Args:
+        parameters: A dictionary containing the parameters to be written to the parameter file.
+        path: The path to the parameter file.
+    """
+    for key, value in parameters.items():
+        if isinstance(value, dict) or isinstance(value, str):
+            pass
+        elif isinstance(value, bool):
+            parameters[key] = "T" if value else "F"
+        elif isinstance(value, Iterable):
+            parameters[key] = f"(/{', '.join(map(str, value))}/)"
+        else:
+            parameters[key] = str(value)
+
+    with open(path, "w") as file:
+        file.write(header)
+        for key, value in parameters.items():
+            if isinstance(value, dict):
+                for (m, n), val in value.items():
+                    file.write(f"{key}({m};{n}) = {val}\n")
+            else:
+                file.write(f"{key} = {value}\n")
+
+
 def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
     """
     Read the parameters from the specified parameter file.
