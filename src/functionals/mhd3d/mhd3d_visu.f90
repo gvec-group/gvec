@@ -177,10 +177,10 @@ IMPLICIT NONE
   INTEGER            :: VP_J
   REAL(wp)           :: Jcart(3)
 #else
-  INTEGER,PARAMETER  :: nVal=33
+  INTEGER,PARAMETER  :: nVal=32
 #endif
   INTEGER  ::VP_LAMBDA,VP_SQRTG,VP_PHI,VP_IOTA,VP_PRES,VP_dp_dr,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, &
-             VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,VP_MscaleF,&
+             VP_s,VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,VP_Mscale ,&
              VP_Ipol,VP_Itor,VP_X1,VP_X2
   REAL(wp) :: coord_visu( 3,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
   REAL(wp) :: var_visu(nVal,np_in(1),np_in(1),np_in(3),np_in(2),sgrid%nElems)
@@ -261,7 +261,6 @@ IMPLICIT NONE
   VP_PRES   =iVal;iVal=iVal+1; VarNames(VP_PRES  )="p"
   VP_DP_DR  =iVal;iVal=iVal+1; VarNames(VP_DP_DR )="dp_dr"
   VP_Mscale =iVal;iVal=iVal+1; VarNames(VP_Mscale)="Mscale"
-  VP_MscaleF=iVal;iVal=iVal+1; VarNames(VP_MscaleF)="MscaleForce"
   VP_LAMBDA =iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="LA"
   VP_SQRTG  =iVal;iVal=iVal+1; VarNames(VP_SQRTG )="sqrtG"
   VP_g_tt   =iVal;iVal=iVal+1; VarNames(VP_g_tt  )="g_tt"
@@ -311,6 +310,8 @@ IMPLICIT NONE
   var_visu_attr(VP_F_X1,1)   = "Force residual in X1";                              var_visu_attr(VP_F_X1,2)   = "F_{X^1}"
   var_visu_attr(VP_F_X2,1)   = "Force residual in X2";                              var_visu_attr(VP_F_X2,2)   = "F_{X^2}"
   var_visu_attr(VP_F_LA,1)   = "Force residual in lambda";                          var_visu_attr(VP_F_LA,2)   = "F_{\lambda}"
+
+  var_visu_attr(VP_Mscale,1)   = "normalized spectral width";                       var_visu_attr(VP_Mscale,2)   = "M_{scale}"
 
   var_visu_attr(VP_dp_dr,1)  = "radial derivative of the pressure";                 var_visu_attr(VP_dp_dr,2)  = "\\frac{\partial p}{\partia\\rho}"
   var_visu_attr(VP_PRES,1)   = "pressure";                                          var_visu_attr(VP_PRES,2)   = "p"
@@ -380,8 +381,6 @@ IMPLICIT NONE
       var_visu(VP_DP_DR,i_s,:,:,:,iElem) =pres_profile%eval_at_rho(rhopos,deriv=1)
       var_visu(VP_Mscale,i_s,:,:,:,iElem) = (SUM(X1_base%f%Xmn(1,:)**(4+1)*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*X2_s(:)**2))/&  !pexp=4, qexp=1
                                             (SUM(X1_base%f%Xmn(1,:)**(4  )*X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*X2_s(:)**2))
-      var_visu(VP_MscaleF,i_s,:,:,:,iElem)= (SUM(X1_base%f%Xmn(1,:)**(4+1)*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4+1)*F_X2_s(:)**2))/&  !pexp=4, qexp=1
-                                            (SUM(X1_base%f%Xmn(1,:)**(4  )*F_X1_s(:)**2)+SUM(X2_base%f%Xmn(1,:)**(4  )*F_X2_s(:)**2)+1.0e-14)
 #ifdef VISU_J_FD
       ! for Finite  Difference in s
       if (i_s .ne. n_s) then !switch sign of finite difference at last point
@@ -768,7 +767,6 @@ IMPLICIT NONE
       END IF
     END IF
   END IF!hmap not cylinder
-  var_visu(VP_MscaleF,n_s,:,:,:,nElems)= var_visu(VP_MscaleF,n_s-1,:,:,:,nElems) !boundary force=0
   __PERFOFF("prepare_visu")
   __PERFON("write_visu")
   !range s: include all elements belonging to [smin,smax]
