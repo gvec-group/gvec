@@ -110,7 +110,7 @@
     - end_details pre-build
     # BUILD
     - start_details pip "Pip install"
-    - pip install .[dev, util] -v |& tee log_${BUILDNAME}.txt
+    - pip install .[dev] -v |& tee log_${BUILDNAME}.txt
     - pip list
     - end_details pip
     - echo "... BUILD PHASE FINISHED!"

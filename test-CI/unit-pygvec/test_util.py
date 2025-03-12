@@ -2,6 +2,7 @@ import pytest
 
 try:
     from gvec import util
+    from gvec.vtk import ev2vtk
     import gvec
     import numpy as np
 except ImportError:
@@ -30,18 +31,18 @@ def test_CaseInsensitiveDict():
     with pytest.raises(ValueError):
         cid == {"a": 1, "A": 2}
 
-def test_xr2vtk(tmpdir, testcaserundir,testfiles):
-    with gvec.State(*testfiles) as state_new:
-        ev = gvec.Evaluations(rho=4, theta=5, zeta=5, state=state_new)
-        state_new.compute(ev, "X1", "X2", "LA", "iota", "p","pos","grad_zeta","e_rho","B")
-    ev_out=ev[["X1", "X2", "LA", "iota", "p","pos","grad_zeta","e_rho","B"]]
-    
-    # check if any of the variables contain NaNs
-    list_vars = []
-    for var in ev_out:
-        if ev_out[var].isnull().any():
-            continue
-        else:
-            list_vars.append(var)
-    ev_out = ev_out[list_vars]
-    text = gvec.util.xr2vtk(str(testcaserundir)+"/test_xr2vtk", ev_out)
+
+def test_ev2vtk(testcaserundir, testfiles):
+    rho = np.linspace(0, 1, 5)
+    rho[0] = 1e-4  # avoid evaluation at rho=0
+    theta = np.linspace(0, 2 * np.pi, 5)  # including endpoints
+    zeta = np.linspace(0, 2 * np.pi, 5)  # full torus, including endpoints
+    vars_out = ["X1", "X2", "LA", "iota", "p", "pos", "grad_zeta", "e_rho", "B"]
+
+    with gvec.State(*testfiles) as state:
+        ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=state)
+        state.compute(ev, *vars_out)
+
+    ev = ev[vars_out]
+
+    ev2vtk(str(testcaserundir) + "/test_ev2.vtk", ev)
