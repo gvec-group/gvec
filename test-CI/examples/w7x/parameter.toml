@@ -29,8 +29,8 @@ minimize_tol = 1e-08
 # Run GVEC in several stages, with `runs` runs per stage (picard iterations)
 # each stage overrides specified parameters
 stages = [
-    {runs = 3, maxIter = 10, sgrid.nElems = 3},
-    {runs = 5, maxIter = 5, sgrid.nElems = 10},
+    {runs = 2, maxIter = 10, sgrid.nElems = 3},
+    {runs = 1, maxIter = 5, sgrid.nElems = 10},
 ]
 
 # optimize for zero-current with picard iterations

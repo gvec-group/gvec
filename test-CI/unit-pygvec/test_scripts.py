@@ -46,13 +46,13 @@ def test_zero_current_cmd(suffix):
             "pygvec",
             "run",
             f"parameter.{suffix}",
-        ]
+        ],
     )
     assert proc.returncode == 0
 
     if suffix == "ini":
         assert Path("W7X_State_0000_00000100.dat").exists()
     else:
-        assert Path("0-00/W7X_State_0000_00000025.dat").exists()
-        assert Path("0-01/W7X_State_0001_00000025.dat").exists()
-        assert Path("1-04/W7X_State_0007_00000005.dat").exists()
+        assert Path("0-00/W7X_State_0000_00000010.dat").exists()
+        assert Path("0-01/W7X_State_0001_00000010.dat").exists()
+        assert Path("1-00/W7X_State_0002_00000005.dat").exists()

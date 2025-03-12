@@ -9,11 +9,11 @@ which_hmap: 1
 sign_iota: 1
 
 stages:
-- runs: 3
+- runs: 2
   maxIter: 10
   sgrid:
     nElems: 3
-- runs: 5
+- runs: 1
   maxIter: 5
   sgrid:
     nElems: 10
