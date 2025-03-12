@@ -44,7 +44,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE InitVMEC 
 ! MODULES
-USE MODgvec_Globals,ONLY:UNIT_stdOut,abort,fmt_sep
+USE MODgvec_Globals,ONLY:UNIT_stdOut,abort,fmt_sep,GETFREEUNIT
 USE MODgvec_rProfile_bspl, ONLY: t_rProfile_bspl
 USE MODgvec_cubic_spline, ONLY: interpolate_cubic_spline
 USE MODgvec_ReadInTools
@@ -57,7 +57,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER              :: iMode,nyq,np_m,np_n
+INTEGER              :: iMode,bc_unit
 LOGICAL              :: useFilter
 REAL(wp),ALLOCATABLE :: c_iota(:),knots_iota(:), c_pres(:), knots_pres(:)
 REAL(wp),ALLOCATABLE :: c_phi(:),knots_phi(:), c_chi(:), knots_chi(:)
@@ -81,7 +81,7 @@ WRITE(UNIT_stdOut,'(A)')'  ... switching from VMECs (R,phi,Z) to gvecs (R,Z,phi)
 IF(.NOT.switchtheta)THEN
   WRITE(UNIT_stdOut,'(A)')'  ... VMEC signgs<0, so zeta direction is switched.'
   DO iMode=1,mn_mode
-    IF(xm(iMode).EQ.0)THEN
+    IF(NINT(xm(iMode)).EQ.0)THEN
       !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients 
       ! -coef_{0n} sin(-n*(-zeta))= coef_{0n} sin(-n*zeta)
       !( cosine cos(-n*(-zeta))=cos(-n*zeta), symmetric in zeta for m=0)
@@ -99,7 +99,7 @@ IF(.NOT.switchtheta)THEN
   !additional nyq data (bmnc,gmnc
   DO iMode=1,mn_mode_nyq
     ! nyq data is only cosine (bmnc,gmnc)
-    IF(xm_nyq(iMode).NE.0)THEN
+    IF(NINT(xm_nyq(iMode)).NE.0)THEN
       xn_nyq(iMode)=-xn_nyq(iMode)
     END If  
   END DO !iMode=1,mn_mode_nyq
@@ -119,6 +119,74 @@ ELSE
       rmns=-rmns
   END IF    
 END IF !not switchtheta
+
+!WRITE VMEC_TO_GVEC BOUNDARY AND AXIS file
+bc_Unit=GETFREEUNIT()
+OPEN(UNIT     = bc_Unit       ,&
+     FILE     = "vmec_to_gvec_boundary_and_axis.txt" ,&
+     STATUS   = 'REPLACE'   ,&
+     ACCESS   = 'SEQUENTIAL' ) 
+  WRITE(bc_unit,'(A)')'! vmec boundary and axis written in the gvec coordinates (right-handed in rho,theta,zeta)'
+  WRITE(bc_unit,'(A)')'!'
+  WRITE(bc_unit,'(A)')'! non-zero boundary values of rmnc vmec -> X1_b_cos'
+  DO iMode=1,mn_mode
+    IF(ABS(rmnc(iMode,nFluxVMEC)).GT.1e-12)THEN
+      WRITE(bc_unit,'("X1_b_cos(",I5,",",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),rmnc(iMode,nFluxVMEC)
+    END IF
+  END DO !imode
+  IF(lasym)THEN
+    WRITE(bc_unit,'(A)')'! non-zero boundary values of rmns vmec -> X1_b_sin'
+    DO iMode=1,mn_mode
+      IF(ABS(rmns(iMode,nFluxVMEC)).GT.1e-12)THEN
+        WRITE(bc_unit,'("X1_b_sin(",I5,",",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),rmns(iMode,nFluxVMEC)
+      END IF
+    END DO !imode
+  END IF  
+  IF(lasym)THEN
+    WRITE(bc_unit,'(A)')'! non-zero boundary values of zmnc vmec -> X2_b_cos'
+    DO iMode=1,mn_mode
+      IF(ABS(zmnc(iMode,nFluxVMEC)).GT.1e-12)THEN
+        WRITE(bc_unit,'("X2_b_cos(",I5,",",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),zmnc(iMode,nFluxVMEC)
+      END IF
+    END DO !imode
+  END IF
+  WRITE(bc_unit,'(A)')'! non-zero boundary values of zmns vmec -> X2_b_sin'
+  DO iMode=1,mn_mode
+    IF(ABS(zmns(iMode,nFluxVMEC)).GT.1e-12)THEN
+      WRITE(bc_unit,'("X2_b_sin(",I5,",",I5,")",X,"=",X,E22.15)') NINT(xm(iMode)),NINT(xn(iMode)/nfp),zmns(iMode,nFluxVMEC)
+    END IF
+  END DO !imode
+  !axis
+  WRITE(bc_unit,'(A)')'! non-zero axis values of rmnc vmec -> X1_a_cos'
+  DO iMode=1,mn_mode
+    IF((NINT(xm(imode)).EQ.0).AND.(ABS(rmnc(iMode,nFluxVMEC)).GT.1e-12))THEN
+      WRITE(bc_unit,'("X1_a_cos(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),rmnc(iMode,1)
+    END IF
+  END DO !imode
+  IF(lasym)THEN
+    WRITE(bc_unit,'(A)')'! non-zero axis values of rmns vmec -> X1_a_sin'
+    DO iMode=1,mn_mode
+      IF((NINT(xm(imode)).EQ.0).AND.(ABS(rmns(iMode,nFluxVMEC)).GT.1e-12))THEN
+        WRITE(bc_unit,'("X1_a_sin(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),rmns(iMode,1)
+      END IF
+    END DO !imode
+  END IF  
+  IF(lasym)THEN
+    WRITE(bc_unit,'(A)')'! non-zero axis values of zmnc vmec -> X2_a_cos'
+    DO iMode=1,mn_mode
+      IF((NINT(xm(imode)).EQ.0).AND.(ABS(zmnc(iMode,nFluxVMEC)).GT.1e-12))THEN
+        WRITE(bc_unit,'("X2_a_cos(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),zmnc(iMode,1)
+      END IF
+    END DO !imode
+  END IF
+  WRITE(bc_unit,'(A)')'! non-zero axis values of zmns vmec -> X2_a_sin'
+  DO iMode=1,mn_mode
+    IF((NINT(xm(imode)).EQ.0).AND.(ABS(zmns(iMode,nFluxVMEC)).GT.1e-12))THEN
+      WRITE(bc_unit,'("X2_a_sin(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),zmns(iMode,1)
+    END IF
+  END DO !imode
+CLOSE(bc_unit)
+
 
 !toroidal flux from VMEC, now called PHI!
 ALLOCATE(Phi_prof(nFluxVMEC))
@@ -296,8 +364,6 @@ TYPE(t_cubspl),INTENT(OUT):: Xmn_Spl(1:modes) !!  spline fitted fourier coeffici
 INTEGER           :: iMode,iFlux
 REAL(wp)          :: Xmn_val(nFlux+1)  ! spline fitted fourier coefficients 
 REAL(wp)          :: rho_half(nFlux+1)
-INTEGER           :: iFlag
-CHARACTER(len=100):: message
 TYPE(t_cubspl),ALLOCATABLE :: spl_half
 !===================================================================================================================================
 DO iFlux=1,nFlux-1
