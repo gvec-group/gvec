@@ -189,7 +189,7 @@ LA_continuity:
   type: '`integer`'
   default: lnk_to_param(`LA_deg-1`|LA_deg)
   allowed: $\geq 0$
-X1_b_cos(m,n):
+X1_b_cos(m;n):
   category:
   - boundary
   linkname: X1_b_cos
@@ -198,8 +198,8 @@ X1_b_cos(m,n):
     as a double-periodic Fourier series.
   - This parameter sets the coefficient of the Fourier mode of $X^1$ variable, with
     basis function $\cos(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
-    the $N_{FP}$ factor).'
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
   - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
   - ignored if lnk_to_param(`X1_sin_cos=_cos_`|X1_sin_cos)
   required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
@@ -207,7 +207,7 @@ X1_b_cos(m,n):
   type: '`real`'
   allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
     and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
-X1_b_sin(m,n):
+X1_b_sin(m;n):
   category:
   - boundary
   linkname: X1_b_sin
@@ -216,8 +216,8 @@ X1_b_sin(m,n):
     as a double-periodic Fourier series.
   - This parameter sets the coefficient of the Fourier mode of $X^1$ variable, with
     basis function $\sin(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
-    the $N_{FP}$ factor).'
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
   - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
   - ignored if lnk_to_param(`X1_sin_cos=_sin_`|X1_sin_cos)
   required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
@@ -225,7 +225,7 @@ X1_b_sin(m,n):
   type: '`real`'
   allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
     and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
-X2_b_cos(m,n):
+X2_b_cos(m;n):
   category:
   - boundary
   linkname: X2_b_cos
@@ -234,8 +234,8 @@ X2_b_cos(m,n):
     as a double-periodic Fourier series.
   - This parameter sets the coefficient of the Fourier mode of $X^2$ variable, with
     basis function $\cos(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
-    the $N_{FP}$ factor).'
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
   - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
   - ignored if lnk_to_param(`X2_sin_cos=_cos_`|X2_sin_cos)
   required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
@@ -243,7 +243,7 @@ X2_b_cos(m,n):
   type: '`real`'
   allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
     and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
-X2_b_sin(m,n):
+X2_b_sin(m;n):
   category:
   - boundary
   linkname: X2_b_sin
@@ -252,8 +252,8 @@ X2_b_sin(m,n):
     as a double-periodic Fourier series.
   - This parameter sets the coefficient of the Fourier mode of $X^2$ variable, with
     basis function $\sin(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
-    the $N_{FP}$ factor).'
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
   - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
   - ignored if lnk_to_param(`X2_sin_cos=_sin_`|X2_sin_cos)
   required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
@@ -287,15 +287,15 @@ average_axis_move_X2:
     lnk_to_param(`init_average_axis=True`|init_average_axis)
   type: '`real`'
   default: '`0.0`'
-X1_a_cos(0,n):
+X1_a_cos(0;n):
   category:
   - boundary
   linkname: X1_a_cos
   description:
   - This parameter sets the Fourier mode of the initial axis guess for the $X^1$ variable,
     with basis function $\cos(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - ',n` must be replaced by the toroidal ($n$) mode number (excluding the $N_{FP}$
-    factor).'
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
   - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
   - ignored if lnk_to_param(`X1_sin_cos=_cos_`|X1_sin_cos),
   - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).
@@ -303,15 +303,15 @@ X1_a_cos(0,n):
   default: '`0`'
   type: '`real`'
   allowed: Coefficients are read for mode numbers $\{0\le n\le n_\text{max}\}$
-X1_a_sin(0,n):
+X1_a_sin(0;n):
   category:
   - boundary
   linkname: X1_a_sin
   description:
   - This parameter sets the Fourier mode of the initial axis guess for the $X^1$ variable,
     with basis function $\sin(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - ',n` must be replaced by the toroidal ($n$) mode number (excluding the $N_{FP}$
-    factor).'
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
   - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
   - ignored if lnk_to_param(`X1_sin_cos=_sin_`|X1_sin_cos),
   - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).
@@ -319,15 +319,15 @@ X1_a_sin(0,n):
   default: '`0`'
   type: '`real`'
   allowed: Coefficients are read for mode numbers $\{0\le n\le n_\text{max}\}$
-X2_a_cos(0,n):
+X2_a_cos(0;n):
   category:
   - boundary
   linkname: X2_a_cos
   description:
   - This parameter sets the Fourier mode of the initial axis guess for the $X^2$ variable,
     with basis function $\cos(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - ',n` must be replaced by the toroidal ($n$) mode number (excluding the $N_{FP}$
-    factor).'
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
   - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
   - ignored if lnk_to_param(`X2_sin_cos=_cos_`|X2_sin_cos),
   - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).
@@ -335,15 +335,15 @@ X2_a_cos(0,n):
   default: '`0`'
   type: '`real`'
   allowed: Coefficients are read for mode numbers $\{0\le n\le n_\text{max}\}$
-X2_a_sin(0,n):
+X2_a_sin(0;n):
   category:
   - boundary
   linkname: X2_a_sin
   description:
   - This parameter sets the Fourier mode of the initial axis guess for the $X^2$ variable,
     with basis function $\sin(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
-  - ',n` must be replaced by the toroidal ($n$) mode number (excluding the $N_{FP}$
-    factor).'
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
   - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
   - ignored if lnk_to_param(`X2_sin_cos=_sin_`|X2_sin_cos),
   - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).

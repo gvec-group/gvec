@@ -131,14 +131,14 @@ OPEN(UNIT     = bc_Unit       ,&
   WRITE(bc_unit,'(A)')'! non-zero boundary values of rmnc vmec -> X1_b_cos'
   DO iMode=1,mn_mode
     IF(ABS(rmnc(iMode,nFluxVMEC)).GT.1e-12)THEN
-      WRITE(bc_unit,'("X1_b_cos(",I5,",",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),rmnc(iMode,nFluxVMEC)
+      WRITE(bc_unit,'("X1_b_cos(",I5,";",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),rmnc(iMode,nFluxVMEC)
     END IF
   END DO !imode
   IF(lasym)THEN
     WRITE(bc_unit,'(A)')'! non-zero boundary values of rmns vmec -> X1_b_sin'
     DO iMode=1,mn_mode
       IF(ABS(rmns(iMode,nFluxVMEC)).GT.1e-12)THEN
-        WRITE(bc_unit,'("X1_b_sin(",I5,",",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),rmns(iMode,nFluxVMEC)
+        WRITE(bc_unit,'("X1_b_sin(",I5,";",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),rmns(iMode,nFluxVMEC)
       END IF
     END DO !imode
   END IF  
@@ -146,28 +146,28 @@ OPEN(UNIT     = bc_Unit       ,&
     WRITE(bc_unit,'(A)')'! non-zero boundary values of zmnc vmec -> X2_b_cos'
     DO iMode=1,mn_mode
       IF(ABS(zmnc(iMode,nFluxVMEC)).GT.1e-12)THEN
-        WRITE(bc_unit,'("X2_b_cos(",I5,",",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),zmnc(iMode,nFluxVMEC)
+        WRITE(bc_unit,'("X2_b_cos(",I5,";",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),zmnc(iMode,nFluxVMEC)
       END IF
     END DO !imode
   END IF
   WRITE(bc_unit,'(A)')'! non-zero boundary values of zmns vmec -> X2_b_sin'
   DO iMode=1,mn_mode
     IF(ABS(zmns(iMode,nFluxVMEC)).GT.1e-12)THEN
-      WRITE(bc_unit,'("X2_b_sin(",I5,",",I5,")",X,"=",X,E22.15)') NINT(xm(iMode)),NINT(xn(iMode)/nfp),zmns(iMode,nFluxVMEC)
+      WRITE(bc_unit,'("X2_b_sin(",I5,";",I5,")",X,"=",X,E22.15)') NINT(xm(iMode)),NINT(xn(iMode)/nfp),zmns(iMode,nFluxVMEC)
     END IF
   END DO !imode
   !axis
   WRITE(bc_unit,'(A)')'! non-zero axis values of rmnc vmec -> X1_a_cos'
   DO iMode=1,mn_mode
     IF((NINT(xm(imode)).EQ.0).AND.(ABS(rmnc(iMode,nFluxVMEC)).GT.1e-12))THEN
-      WRITE(bc_unit,'("X1_a_cos(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),rmnc(iMode,1)
+      WRITE(bc_unit,'("X1_a_cos(",I1,";",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),rmnc(iMode,1)
     END IF
   END DO !imode
   IF(lasym)THEN
     WRITE(bc_unit,'(A)')'! non-zero axis values of rmns vmec -> X1_a_sin'
     DO iMode=1,mn_mode
       IF((NINT(xm(imode)).EQ.0).AND.(ABS(rmns(iMode,nFluxVMEC)).GT.1e-12))THEN
-        WRITE(bc_unit,'("X1_a_sin(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),rmns(iMode,1)
+        WRITE(bc_unit,'("X1_a_sin(",I1,";",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),rmns(iMode,1)
       END IF
     END DO !imode
   END IF  
@@ -175,14 +175,14 @@ OPEN(UNIT     = bc_Unit       ,&
     WRITE(bc_unit,'(A)')'! non-zero axis values of zmnc vmec -> X2_a_cos'
     DO iMode=1,mn_mode
       IF((NINT(xm(imode)).EQ.0).AND.(ABS(zmnc(iMode,nFluxVMEC)).GT.1e-12))THEN
-        WRITE(bc_unit,'("X2_a_cos(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),zmnc(iMode,1)
+        WRITE(bc_unit,'("X2_a_cos(",I1,";",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),zmnc(iMode,1)
       END IF
     END DO !imode
   END IF
   WRITE(bc_unit,'(A)')'! non-zero axis values of zmns vmec -> X2_a_sin'
   DO iMode=1,mn_mode
     IF((NINT(xm(imode)).EQ.0).AND.(ABS(zmns(iMode,nFluxVMEC)).GT.1e-12))THEN
-      WRITE(bc_unit,'("X2_a_sin(",I1,",",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),zmns(iMode,1)
+      WRITE(bc_unit,'("X2_a_sin(",I1,";",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),zmns(iMode,1)
     END IF
   END DO !imode
 CLOSE(bc_unit)
@@ -251,7 +251,7 @@ END IF
 
 ALLOCATE(lmns_Spl(mn_mode))
 IF(lasym) ALLOCATE(lmnc_Spl(mn_mode))
-WRITE(*,*)'DEBUG:lambda_grid:',lambda_grid
+!WRITE(*,*)'DEBUG:lambda_grid:',lambda_grid
 IF(lambda_grid.EQ."half")THEN
   !lambda given on half grid
   CALL           FitSplineHalf(mn_mode,nFluxVMEC,xmAbs,lmns,lmns_Spl)
