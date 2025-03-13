@@ -31,9 +31,11 @@ def chdir(target: Path | str):
     target = Path(target)
     source = Path(os.getcwd())
 
-    os.chdir(target)
-    yield
-    os.chdir(source)
+    try:
+        os.chdir(target)
+        yield
+    finally:
+        os.chdir(source)
 
 
 class CaseInsensitiveDict(MutableMapping):
