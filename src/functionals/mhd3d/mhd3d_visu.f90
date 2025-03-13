@@ -842,17 +842,48 @@ IMPLICIT NONE
   CoordNames(1)="X"
   CoordNames(2)="Y"
   CoordNames(3)="Z"
-  i=1 
-  DO iElem=1,nElems;   DO i_s=1,MERGE(n_s-1,n_s,iElem.LT.nElems)
-    var_visu_1d(1:3,i)     =coord_visu(:,i_s,1,1,1,iElem)
-    var_visu_1d(4:3+nval,i)=var_visu(  :,i_s,1,1,1,iElem)
-    i=i+1
-  END DO; END DO
+
+  ! Rename for 1d output
+  var_visu_attr(VP_s,1)      = "Logical radial coordinate on the rad grid"
+  var_visu_attr(VP_theta,1)  = "Logical poloidal angle on the rad grid"
+  var_visu_attr(VP_zeta,1)   = "Logical toroidal angle on the rad grid"
+
+  ! number of rho positions
+  tmp_nrho = (maxElem-minElem+1)*(n_s-1)+1
+
+  ! initialization, all values should be overwritten
+  var_visu_1d = -42.0_wp
+  DO i=1,nVal
+    ! first n_s values 
+    var_visu_1d(3+i,1:n_s)=var_visu(i,:,1,1,1,1)
+    ! last (n_-1) values
+    var_visu_1d(3+i,tmp_nrho-n_s+2:tmp_nrho) = var_visu(i,2:,1,1,1,nElems)
+
+    ! fill the values which are not in the first or last element
+    j = n_s+1
+    DO iElem=2,nElems-1
+      var_visu_1d(3+i,j:j+n_s-2) = var_visu(i,2:n_s,1,1,1,iElem)
+      j = j+n_s-1
+    END DO
+  END DO
+
+  ! same as above for the x,y,z coordinates
+  DO i=1,3
+    var_visu_1d(i,1:n_s)=coord_visu(i,:,1,1,1,1)
+    var_visu_1d(i,tmp_nrho-n_s+2:tmp_nrho) = coord_visu(i,2:,1,1,1,nElems)
+    j = n_s+1
+    DO iElem=2,nElems-1
+      var_visu_1d(i,j:j+n_s-2) = coord_visu(i,2:n_s,1,1,1,iElem)
+      j = j+n_s-1
+    END DO
+  END DO
+
 #if NETCDF
   ALLOCATE(coord1((n_s-1)*nElems+1))
   coord1=var_visu_1d(4,:)
   CALL WriteDataToNETCDF(1,3,nVal-3,(/(n_s-1)*nElems+1/),(/"rad"/), &
-       VarNames(4:nVal),var_visu_1d(1:3,:),var_visu_1d(7:3+nVal,:), TRIM(filename), coord1=coord1, CoordNames=(/"rho"/))
+       VarNames(4:),var_visu_1d(1:3,:),var_visu_1d(7:,:), TRIM(filename),&
+       coord1=coord1, CoordNames=(/"rho"/), attr_coords=coord_attr(1,:), attr_values=var_visu_attr(4:,:))
   DEALLOCATE(coord1)
 #else
   CALL WriteDataToCSV((/CoordNames,VarNames(:)/) ,var_visu_1d,TRIM(filename)//".csv"  &
