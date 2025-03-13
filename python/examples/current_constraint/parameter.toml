@@ -6,7 +6,6 @@ init_LA = true
 PHIEDGE = 2.15
 whichInitEquilibrium = 0
 which_hmap = 1
-sign_iota = 1
 
 X1X2_deg = 5
 LA_deg = 5
