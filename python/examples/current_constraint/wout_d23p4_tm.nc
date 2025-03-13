@@ -1,1 +1,0 @@
-../../../test-CI/data/wout_d23p4_tm.nc
