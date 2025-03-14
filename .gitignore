@@ -3,6 +3,7 @@ build*/*
 ctags.txt
 *.vsz
 *.vtu
+*.vts
 *.csv
 *.dat
 *.mod

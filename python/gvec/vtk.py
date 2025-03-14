@@ -12,7 +12,7 @@ except ImportError:
 
 
 def ev2vtk(
-    filename: str,
+    filename: Path | str,
     xrds: xr.Dataset,
     quiet: bool = True,
 ):
@@ -56,6 +56,10 @@ def ev2vtk(
     """
     if gridToVTK is None:
         raise ImportError("gridToVTK not found, please make sure pyevtk is installed.")
+
+    # pyevtk expects a string
+    if isinstance(filename, Path):
+        filename = str(filename)
 
     # name of the cartesian components of grid points
     position_vector = "xyz"

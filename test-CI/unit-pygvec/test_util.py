@@ -44,5 +44,4 @@ def test_ev2vtk(testcaserundir, testfiles):
         state.compute(ev, *vars_out)
 
     ev = ev[vars_out]
-
-    ev2vtk(str(testcaserundir) + "/test_ev2.vtk", ev)
+    ev2vtk(testcaserundir / "test_ev2.vtk", ev)

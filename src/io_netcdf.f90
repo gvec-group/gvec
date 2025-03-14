@@ -587,7 +587,7 @@ CONTAINS
   CALL abort(__STAMP__,&
       "cannot write array, BUILD_NETCDF=OFF")
 #endif /*NETCDF*/
-  END SUBROUTINE
+  END SUBROUTINE ncfile_put_attributes_char
 
   !=================================================================================================================================
   !> define and put a char to the netCDF file as a string
@@ -625,7 +625,7 @@ CONTAINS
   CALL abort(__STAMP__,&
       "cannot write string, BUILD_NETCDF=OFF")
 #endif /*NETCDF*/
-  END SUBROUTINE
+  END SUBROUTINE ncfile_put_char
   !=================================================================================================================================
   !> define and put an array value to the netCDF file 
   !!
