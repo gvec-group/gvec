@@ -156,9 +156,9 @@ def main():
                     parameters = yaml.safe_load(file)
                 elif args.param_type == "toml":
                     parameters = tomlkit.parse(file.read()).unwrap()
-            parameters = unstringify_mn_params(parameters)
+            parameters = gvec.util.unstringify_mn_parameters(parameters)
             if "stages" not in parameters:
-                parameters = flatten_params(parameters)
+                parameters = gvec.util.flatten_parameters(parameters)
                 parameterfile = f"{args.parameterfile.name}.ini"
                 gvec.util.write_parameter_file(
                     parameters,
@@ -199,34 +199,8 @@ def main():
 
     # --- convert parameterfile --- #
     elif args.mode == "convert-params":
-        if args.input.suffix == ".ini":
-            inputs = gvec.util.read_parameter_file(args.input)
-            inputs = stack_params(inputs)
-        elif args.input.suffix == ".yaml":
-            with open(args.input, "r") as file:
-                inputs = yaml.safe_load(file)
-            inputs = unstringify_mn_params(inputs)
-        elif args.input.suffix == ".toml":
-            with open(args.input, "r") as file:
-                inputs = tomlkit.parse(file.read()).unwrap()
-            inputs = unstringify_mn_params(inputs)
-        else:
-            raise ValueError(f"Unknown input file type: {args.input}")
-        if args.output.suffix == ".ini":
-            outputs = flatten_params(inputs)
-            gvec.util.write_parameter_file(outputs, args.output)
-        elif args.output.suffix == ".yaml":
-            outputs = stringify_mn_params(inputs)
-            with open(args.output, "w") as file:
-                yaml.safe_dump(outputs, file)
-        elif args.output.suffix == ".toml":
-            outputs = stringify_mn_params(inputs)
-            with open(args.output, "w") as file:
-                file.write(
-                    tomlkit.dumps(outputs)
-                )  # ToDo: nicer output using document API
-        else:
-            raise ValueError(f"Unknown output file type: {args.output}")
+        parameters = gvec.util.read_parameters(args.input)
+        gvec.util.write_parameters(parameters, args.output)
 
     # --- other scripts --- #
     elif args.mode == "to-cas3d":
@@ -266,7 +240,7 @@ def run_stages(
             case _:
                 raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
 
-    for s, stage in enumerate(parameters["stages"]):
+    for s, stage in enumerate(parameters.get("stages", [{}])):
         # adapt parameters for this stage
         run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
         for key in ["stages", "Itor"]:
@@ -322,7 +296,7 @@ def run_stages(
 
             # write parameterfile & run GVEC
             gvec.util.write_parameter_file(
-                flatten_params(run_params),
+                gvec.util.flatten_parameters(run_params),
                 rundir / "parameter.ini",
                 header=f"!Auto-generated with `pygvec run` (stage {s} run {r})\n"
                 "!Created at {datetime.now().isoformat()}\n"
@@ -337,6 +311,9 @@ def run_stages(
 
             # postprocessing
             statefile = sorted(rundir.glob("*State*.dat"))[-1]
+            iterations = int(re.match(r".*State.*_(\d+)\.dat", statefile.name).group(1))
+            max_iterations = run_params.get("maxiter")
+            tolerance = run_params.get("minimize_tol")
             logger.debug(f"Postprocessing statefile {statefile}")
 
             with gvec.State(
@@ -360,21 +337,23 @@ def run_stages(
             # diagnostics
             # ToDo: possible early stop condition
 
-            logger.info(f"W_MHD: {ev.W_MHD.item():.3e}")
+            logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
             if "Itor" in parameters:
                 iota_delta = ev.iota - iota_values
-                logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.3f}")
+                logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
                 logger.info(
-                    f"rms Δiota: {np.sqrt((iota_delta**2).mean('rad')).item():.3f}"
+                    f"rms Δiota: {np.sqrt((iota_delta**2).mean('rad')).item():.2e}"
                 )
                 logger.info(
-                    f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.3e}"
+                    f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.2e}"
                 )
 
             d = xr.Dataset(
                 dict(
                     W_MHD=ev.W_MHD,
-                    gvec_iterations=run_params["maxiter"],
+                    gvec_iterations=iterations,
+                    gvec_max_iterations=max_iterations,
+                    gvec_tolerance=tolerance,
                 )
             )
             if "Itor" in parameters:
@@ -393,7 +372,9 @@ def run_stages(
                 diagnostics.to_netcdf(diagnosticfile)
 
             end_time = time.time()
-            logger.info(f"GVEC run took {end_time-start_time:5.1f} seconds.")
+            logger.info(
+                f"GVEC run took {end_time-start_time:5.1f} seconds for {iterations} iterations. (max {max_iterations}, tol {tolerance:.1e})"
+            )
             logger.info("-" * 40)
 
     if plots:
@@ -454,64 +435,7 @@ def run_stages(
             fig.savefig("profiles.png")
 
     logger.info("Done.")
-
-
-def stack_params(parameters):
-    """Stack parameters into a hierarchical dictionary"""
-    output = {}
-    for key, value in parameters.items():
-        if "_" not in key:
-            output[key] = value
-            continue
-        group, name = key.split("_", 1)
-        if group in ["iota", "pres", "sgrid"]:
-            if group not in output:
-                output[group] = {}
-            output[group][name] = value
-        else:
-            output[key] = value
-    return output
-
-
-def flatten_params(parameters):
-    """Flatten parameters from a hierarchical dictionary"""
-    output = {}
-    for key, value in parameters.items():
-        if isinstance(value, dict) and not re.match(r"(X1|X2|LA)_[a|b]_(sin|cos)", key):
-            if key in ["stages", "Itor"]:  # not supported by fortran-GVEC
-                continue
-            for subkey, subvalue in value.items():
-                output[f"{key}_{subkey}"] = subvalue
-        else:
-            output[key] = value
-    return output
-
-
-def stringify_mn_params(parameters):
-    """Serialize parameters into a string"""
-    output = {}
-    for key, value in parameters.items():
-        if re.match(r"(X1|X2|LA)_[a|b]_(sin|cos)", key):
-            output[key] = {}
-            for (m, n), val in value.items():
-                output[key][f"({m}, {n:2d})"] = val
-        else:
-            output[key] = value
-    return output
-
-
-def unstringify_mn_params(parameters):
-    """Deserialize parameters from a string"""
-    output = {}
-    for key, value in parameters.items():
-        if re.match(r"(X1|X2|LA)_[a|b]_(sin|cos)", key):
-            output[key] = {}
-            for mn, val in value.items():
-                m, n = map(int, mn.strip("()").split(","))
-                output[key][(m, n)] = val
-        else:
-            output[key] = value
-    return output
+    return rundir, statefile, diagnostics
 
 
 if __name__ == "__main__":

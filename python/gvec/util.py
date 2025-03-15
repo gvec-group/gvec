@@ -5,20 +5,19 @@
 This module is part of the gvec python package, but also used directly in the tests.
 """
 
+import os
 from pathlib import Path
 import re
 import shutil
+import contextlib
 from numpy.typing import ArrayLike
-from typing import Literal
+from typing import Literal, Iterable
+from collections.abc import Mapping, MutableMapping
 
 try:
     from scipy.interpolate import BSpline
 except ImportError:
     BSpline = None
-import contextlib
-import os
-from typing import Iterable
-from collections.abc import Mapping, MutableMapping
 
 
 @contextlib.contextmanager
@@ -437,6 +436,121 @@ def axis_from_boundary(parameters: dict) -> dict:
     if "X2_b_cos" in parameters:
         parameters2["X2_a_cos"] = {parameters["X2_b_cos"][0, n] for n in range(N + 1)}
     return parameters2
+
+
+def stack_parameters(parameters):
+    """Stack parameters into a hierarchical dictionary"""
+    output = {}
+    for key, value in parameters.items():
+        if "_" not in key:
+            output[key] = value
+            continue
+        group, name = key.split("_", 1)
+        if group in ["iota", "pres", "sgrid"]:
+            if group not in output:
+                output[group] = {}
+            output[group][name] = value
+        else:
+            output[key] = value
+    return output
+
+
+def flatten_parameters(parameters):
+    """Flatten parameters from a hierarchical dictionary"""
+    output = {}
+    for key, value in parameters.items():
+        if isinstance(value, dict) and not re.match(
+            r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key
+        ):
+            if key in ["stages", "Itor"]:  # not supported by fortran-GVEC
+                continue
+            for subkey, subvalue in value.items():
+                output[f"{key}_{subkey}"] = subvalue
+        else:
+            output[key] = value
+    return output
+
+
+def stringify_mn_parameters(parameters):
+    """Serialize parameters into a string"""
+    output = {}
+    for key, value in parameters.items():
+        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+            output[key] = {}
+            for (m, n), val in value.items():
+                output[key][f"({m}, {n:2d})"] = val
+        else:
+            output[key] = value
+    return output
+
+
+def unstringify_mn_parameters(parameters):
+    """Deserialize parameters from a string"""
+    output = {}
+    for key, value in parameters.items():
+        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+            output[key] = {}
+            for mn, val in value.items():
+                m, n = map(int, mn.strip("()").split(","))
+                output[key][(m, n)] = val
+        else:
+            output[key] = value
+    return output
+
+
+def read_parameters(
+    path: Path | str, format: Literal["ini", "yaml", "toml"] | None = None
+) -> CaseInsensitiveDict:
+    import yaml
+    import tomlkit
+
+    path = Path(path)
+    # auto-detect format
+    if format is None:
+        format = path.suffix[1:]
+
+    if format == "ini":
+        inputs = read_parameter_file(path)
+        inputs = stack_parameters(inputs)
+    elif format == "yaml":
+        with open(path, "r") as file:
+            inputs = yaml.safe_load(file)
+        inputs = unstringify_mn_parameters(inputs)
+    elif format == "toml":
+        with open(path, "r") as file:
+            inputs = tomlkit.parse(file.read()).unwrap()
+        inputs = unstringify_mn_parameters(inputs)
+    else:
+        raise ValueError(f"Unknown parameter file format {format}")
+    return inputs
+
+
+def write_parameters(
+    parameters: Mapping,
+    path: Path | str = "parameter.ini",
+    format: Literal["ini", "yaml", "toml"] | None = None,
+):
+    import yaml
+    import tomlkit
+
+    path = Path(path)
+    # auto-detect format
+    if format is None:
+        format = path.suffix[1:]
+
+    if format == "ini":
+        outputs = flatten_parameters(parameters)
+        write_parameter_file(outputs, path)
+    elif format == "yaml":
+        outputs = stringify_mn_parameters(parameters)
+        with open(path, "w") as file:
+            yaml.safe_dump(outputs, file)
+    elif format == "toml":
+        outputs = stringify_mn_parameters(parameters)
+        with open(path, "w") as file:
+            file.write(tomlkit.dumps(outputs))  # ToDo: nicer output using document API
+    else:
+        raise ValueError(f"Unknown parameter file format {format}")
 
 
 def np2gvec(a: ArrayLike) -> str:
