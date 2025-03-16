@@ -67,10 +67,51 @@ extensions = [
     "sphinx_design",  # proveides Grids, Cards, Dropdowns & more
     "sphinx.ext.napoleon",  # preprocessor for NumPy and Google style docstrings
     "sphinx.ext.autodoc",  # automatically generated API documentation from docstrings
+    "sphinxcontrib.bibtex",  # bibtex citation with :cite:`refname`
+    "sphinx_math_dollar",
+    "sphinx.ext.mathjax",  # mathjax
 ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["templates"]
+
+bibtex_bibfiles = ["static/references.bib"]
+
+# -- Options for LaTeX output --------------------------------------------
+mathjax3_config = {
+    "loader": {"load": ["[tex]/physics"]},
+    "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"},
+    "tex": {
+        "packages": {"[+]": ["physics", "amsmath", "amssymb"]},
+        "macros": {
+            "vec": [r"\mathbf{#1}", 1],
+            "Jac": r"\mathcal{J}",
+            "rint": r"\int\limits_0^{1}\!",
+            "dblint": r"\int\limits_0^{2\pi}\!\int\limits_0^{2\pi}",
+            "thet": r"\vartheta",
+            "erho": r"\vec{e}_{\rho}",
+            "ethet": r"\vec{e}_{\rho}",
+            "ezeta": r"\vec{e}_{\zeta}",
+            "submin": r"_\text{min}",
+            "submax": r"_\text{max}",
+            "R": r"\mathbb{R}",
+            "nfp": r"N_{FP}",
+            "rbasis": r"\mathcal{N}",
+            "fbasis": r"\mathcal{F}",
+            "Btavg": r"\langle{B_\thet}\rangle",
+            "Bzavg": r"\langle{B_\zeta}\rangle",
+            "el": r"\ell",
+            "elp": r"\el^{\prime}",
+            "elpp": r"\el^{\prime\prime}",
+            "X": r"\vec{X}_0",
+            "Xp": r"\X^{\prime}",
+            "Xpp": r"\X^{\prime\prime}",
+            "Xppp": r"\X^{\prime\prime\prime}",
+            "ttilde": r"{\vec{\tilde{T}}_q}",
+        },
+    },
+}
+
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
