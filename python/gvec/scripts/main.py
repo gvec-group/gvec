@@ -5,20 +5,10 @@
 # === Imports === #
 
 import platform
-import time
 from pathlib import Path
-import shutil
 import logging
 import argparse
-import re
-from typing import Mapping, Sequence
-from datetime import datetime
-import copy
-
-import numpy as np
-import xarray as xr
-import yaml
-import tomlkit  # also supports writing (compared to tomllib)
+from typing import Sequence
 
 import gvec
 from gvec.scripts import to_cas3d, run
@@ -38,7 +28,7 @@ parser.add_argument(
     "-V",
     "--version",
     action="version",
-    version=gvec.__version_str__,
+    version=f"pyGVEC v{gvec.__version__} from {Path(gvec.__file__).parent} (python {platform.python_version()})",
 )
 
 # --- convert parameterfile --- #

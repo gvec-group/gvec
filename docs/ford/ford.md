@@ -1,7 +1,7 @@
 project: GVEC
 summary: This is the Fortran Code Documentation for GVEC. [Back to the user and developer documentation](../)
-project_gitlab: https://gitlab.mpcdf.mpg.de/gvec-group/gvec 
-project_website: ../../
+project_gitlab: https://gitlab.mpcdf.mpg.de/gvec-group/gvec
+project_website: ../
 doc_license: by
 src_dir: ../../src/
 include: ../../src/
@@ -21,5 +21,5 @@ macro: TEST
 GVEC: Galerkin Variational Equilibrium Code - Fortran Code Documentation
 
 GVEC is being developed in the department of **Numerical Methods in Plasma Physics (NMPP)**
-led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics 
+led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics
 in Garching, Germany.

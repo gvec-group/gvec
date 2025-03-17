@@ -4,7 +4,7 @@
 
 import argparse
 import copy
-import datetime
+from datetime import datetime
 import logging
 import re
 import shutil
@@ -109,7 +109,8 @@ def run_stages(
             case _:
                 raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
 
-    for s, stage in enumerate(parameters.get("stages", [{}])):
+    stages = parameters.get("stages", [{}])
+    for s, stage in enumerate(stages):
         # adapt parameters for this stage
         run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
         for key in ["stages", "Itor"]:
@@ -133,18 +134,13 @@ def run_stages(
         runs = range(stage.get("runs", 1))
         for r in runs:
             progressstr = (
-                "".join(
-                    "|" + "=" * st.get("runs", 1) for st in parameters["stages"][:s]
-                )
+                "".join("|" + "=" * st.get("runs", 1) for st in stages[:s])
                 + "|"
                 + "=" * r
                 + ">"
                 + "." * (stage.get("runs", 1) - r - 1)
                 + "|"
-                + "".join(
-                    "." * st.get("runs", 1) + "|"
-                    for st in parameters["stages"][s + 1 :]
-                )
+                + "".join("." * st.get("runs", 1) + "|" for st in stages[s + 1 :])
             )
             if progressbar:
                 print(f"GVEC stage {s} run {r}: {progressstr}", end="\r")
@@ -168,8 +164,8 @@ def run_stages(
                 gvec.util.flatten_parameters(run_params),
                 rundir / "parameter.ini",
                 header=f"!Auto-generated with `pygvec run` (stage {s} run {r})\n"
-                "!Created at {datetime.now().isoformat()}\n"
-                "!pyGVEC v{gvec.__version__}\n",
+                f"!Created at {datetime.now().isoformat()}\n"
+                f"!pyGVEC v{gvec.__version__}\n",
             )
             with gvec.util.chdir(rundir):
                 gvec.run(
