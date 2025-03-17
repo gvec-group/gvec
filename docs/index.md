@@ -6,10 +6,9 @@ myst:
 html_theme.sidebar_secondary.remove: true
 ---
 
-# GVEC
+# GVEC: A flexible 3D MHD equilibrium solver
 
-The Galerkin Variational Equilibrium Code.
-An open-source software for the generation of three-dimensional ideal MHD equilibria.
+The Galerkin Variational Equilibrium Code (GVEC) is open-source software for the generation of three-dimensional ideal MHD equilibria.
 
 ::::{grid} 2
 :::{grid-item-card}  Inspired by VMEC
@@ -28,7 +27,7 @@ Initialize with a VMEC netCDF output and convert to VMEC netCDF or interface wit
 Use of modern object-oriented Fortran
 :::
 :::{grid-item-card}  Python bindings
-Python bindings for running and postprocessing and integration with other tools.
+Installable with `pip`. Python bindings for running, postprocessing and integration with other tools.
 :::
 ::::
 

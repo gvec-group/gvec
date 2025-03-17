@@ -1,6 +1,8 @@
 # GVEC - 3D MHD Equilibrium Solver
 
-[![License](https://img.shields.io/badge/license-MIT-red)](./LICENSE.txt)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE.txt)
+[![PyPI](https://img.shields.io/pypi/v/gvec)](https://pypi.org/project/gvec/)
+[![python-version](https://img.shields.io/pypi/pyversions/gvec)](https://pypi.org/project/gvec)
 
 ## Overview
 
@@ -32,7 +34,12 @@ Outside contributions are always welcome!
 
 ## Installation & Getting started
 
-See the documentation on [Installation](https://gvec-group.pages.mpcdf.de/gvec/user/install.html) and [Getting Started](https://gvec-group.pages.mpcdf.de/gvec/user/getting-started.html).
+GVEC is available on [PyPI](https://pypi.org/project/gvec/):
+```bash
+pip install gvec
+```
+
+For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec-group.pages.mpcdf.de/gvec/user/install.html) and [Getting Started](https://gvec-group.pages.mpcdf.de/gvec/user/getting-started.html).
 
 ## Reporting Bugs & Contributing to GVEC
 

@@ -27,7 +27,7 @@ from gvec.scripts import to_cas3d, run
 
 parser = argparse.ArgumentParser(
     prog="pygvec",
-    description="GVEC: a 3D MHD equilibrium solver",
+    description=f"GVEC: a flexible 3D MHD equilibrium solver\npyGVEC v{gvec.__version__}",
 )
 subparsers = parser.add_subparsers(
     title="mode",
@@ -38,7 +38,7 @@ parser.add_argument(
     "-V",
     "--version",
     action="version",
-    version=f"pyGVEC v{gvec.__version__} from {Path(gvec.__file__).parent} (python {platform.python_version()})",
+    version=gvec.__version_str__,
 )
 
 # --- convert parameterfile --- #
