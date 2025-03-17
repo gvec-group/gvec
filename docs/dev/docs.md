@@ -1,9 +1,8 @@
 # Documentation
 
-The documentation of GVEC is split into three parts:
-1) Mathematical details, found in [theory and implementation details](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf) 
-2) [User and developer documentation](/index) written in *restructured text* and *markdown* and compiled with [sphinx](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html)
-3) Auto-generated [fortran code documentation](../ford/index.html){.external} built with [ford](https://forddocs.readthedocs.io)
+The documentation of GVEC is split into the following parts:
+1) [User and developer documentation](/index) written in *restructured text* and *markdown* and compiled with [sphinx](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html)
+2) Auto-generated [fortran code documentation](../ford/index.html){.external} built with [ford](https://forddocs.readthedocs.io)
 
 ## Requirements
 The required python packages to build the documentation are given in `docs/requirements.txt` and can be installed with:
@@ -30,6 +29,7 @@ In addition the `graphs` feature of *ford* requires an installation of *graphviz
     * `requirements.txt` contain the python packages required to build the documentation
     * `templates/` contains html templates that can be used to style the documentation
     * `static/` contains content that should be copied directly to the build directory
+    * `generators/` contains additional material that generates figures. And there is a script for generating the parameter list (`generate_parameter_list.py`), which parser the `parameters.yaml` file. This is called in `conf.py` to generate markdown files `parameters-*.md`. To add a new parameter to the yaml file, the `param_dict_to_doc.ipynb` has to be edited and run.
     * `ford/` contains the [ford](https://forddocs.readthedocs.io) configuration (`ford.md`) and auxiliary files
     * `ford/static` contains the static pages processed by *ford*, currently only a redirect to the main documentation is used.
     * `extra/` contains auto-generated content (e.g by *ford*) to be included in the build directory
@@ -49,6 +49,7 @@ This will generate files in `docs/extra/ford`.
 The sphinx documentation is configured in `docs/conf.py` and `docs/Makefile` and build with
 ```bash
 cd docs
+make cleanall
 make html
 ```
 generating documentation in `docs/build`. It will copy files from `docs/static` and `docs/extra`.

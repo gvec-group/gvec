@@ -287,7 +287,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   __PERFOFF('loop_1')
 
   !check Jacobian
-  IF(min_detJ .LT.1.0e-12) THEN
+  IF(min_detJ .LT.1.0e-12_wp) THEN
     SELECT CASE(JacCheck)
     CASE(1)
       n_warnings_occured=n_warnings_occured+1
@@ -1115,8 +1115,8 @@ SUBROUTINE BuildPrecond()
       G21(    i_mn) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
       G31(    i_mn) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
      !G12=G21
-      G22(    i_mn) = hmap%eval_gij((/0.,1.,0./),qloc,(/0.,1.,0./))
-      G32(    i_mn) = hmap%eval_gij((/0.,0.,1./),qloc,(/0.,1.,0./))
+      G22(    i_mn) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      G32(    i_mn) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
       dJh_dq1(i_mn) = hmap%eval_Jh_dq1(qloc)
       dJh_dq2(i_mn) = hmap%eval_Jh_dq2(qloc)
       bt_sJ(  i_mn) = b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
@@ -1128,7 +1128,7 @@ SUBROUTINE BuildPrecond()
     !X1
     DX1_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 )
     DX1(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*dJh_dq1(:))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*dJh_dq1(:)) &
-                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq1(:)+2.0*b_zeta(:,iGP)*gtz_dq1(:))    &
+                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq1(:)+2.0_wp*b_zeta(:,iGP)*gtz_dq1(:))    &
                                     +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq1(:))  ) )
     DX1_tt(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
                                 +bt_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
@@ -1140,12 +1140,12 @@ SUBROUTINE BuildPrecond()
                                             *( b_dX1_tz(:    )*G11(:)   &
                                               +b_dX2_tz(:    )*G21(:)   &
                                               +b_zeta(  :,iGP)*G31(:))) &
-                                           +b_thet(:,iGP)*2.0*G11(:))                                               )
+                                           +b_thet(:,iGP)*2.0_wp*G11(:))                                               )
     DX1_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*G11(:))
     !X2
     DX2_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 )
     DX2(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*dJh_dq2(:))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*dJh_dq2(:)) &
-                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq2(:)+2.0*b_zeta(:,iGP)*gtz_dq2(:))    &
+                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq2(:)+2.0_wp*b_zeta(:,iGP)*gtz_dq2(:))    &
                                     +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq2(:))  ) )
     DX2_tt(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
                                 +bt_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
@@ -1157,7 +1157,7 @@ SUBROUTINE BuildPrecond()
                                             *( b_dX1_tz(:    )*G21(:)   &
                                               +b_dX2_tz(:    )*G22(:)   &
                                               +b_zeta(  :,iGP)*G32(:))) &
-                                           +b_thet(:,iGP)*2.0*G22(:))                  )
+                                           +b_thet(:,iGP)*2.0_wp*G22(:))                  )
     DX2_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*G22(:))
     !LA
     DLA_tt(iGP) =         smn_IP_w_GP*phiPrime2_GP(iGP)*SUM(g_zz(:,iGP)*sdetJ(:,iGP))

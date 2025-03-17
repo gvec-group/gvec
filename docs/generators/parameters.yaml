@@ -1,0 +1,1333 @@
+ProjectName:
+  category:
+  - Initialization
+  description:
+  - Project name, used for all output files, must be a string without spaces
+  default: '`GVEC`'
+  type: '`string`'
+  allowed: ''
+whichInitEquilibrium:
+  category:
+  - Initialization
+  subtitle: mandatory
+  required: true
+  description:
+  - How initial guess is computed. Either from boundary and axis parameters, or from
+    VMEC file.
+  type: '`integer`'
+  allowed_table:
+  - - '`0`'
+    - from axis and boundary parameters
+  - - '`1`'
+    - from VMEC file, **needs:** lnk_to_param(VMECwoutfile)
+VMECwoutfile:
+  category:
+  - Initialization
+  - VMEC
+  description:
+  - full file name of vmec solution file, either as netcdf or as nemec output,
+  - '**needs** lnk_to_param(VMECwoutfile_format)'
+  required_if: lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+  type: '`string`'
+VMECwoutfile_format:
+  category:
+  - Initialization
+  - VMEC
+  description:
+  - Choose which VMEC wout file format, either netcdf or ascii/binary format from
+    NEMEC
+  - The filename is specified in lnk_to_param(VMECwoutfile)
+  required_if: lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+  type: '`string`'
+  allowed_table:
+  - - '`0`'
+    - netcdf format
+  - - '`1`'
+    - ascii format from older vmec (nemec)
+  - - '`2`'
+    - binary format from older vmec (nemec)
+  default: '`0`'
+init_LA:
+  category:
+  - Initialization
+  description:
+  - Recompute $\lambda$ at the start of the simulation, from the initial guess of
+    $X^1$ and $X^2$
+  default: '`True`'
+  type: '`logical`'
+  allowed_table:
+  - - '`False`'
+    - if `whichInitEquilibrium=1`, interpolate from VMEC, else set to zero
+  - - '`True`'
+    - recompute $\lambda$ from mapping
+init_fromBConly:
+  category:
+  - Initialization
+  description:
+  - Only active for initialization from  VMEC solution, lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium).
+  default: '`False`'
+  type: '`logical`'
+  allowed_table:
+  - - '`False`'
+    - use the full VMEC solution
+  - - '`True`'
+    - only use axis and boundary from VMEC
+reinit_BC:
+  category:
+  - Initialization
+  description:
+  - Only active for initialization from  VMEC solution, lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+    and `init_fromBConly=T`.
+  - Defines how axis and boundary are initialized, can be partly from VMEC file and
+    partly from GVEC parameters.
+  default: '`-1`'
+  type: '`integer`'
+  allowed_table:
+  - - '`-1`'
+    - 'default: keep vmec axis and boundary'
+  - - '`0`'
+    - keep vmec boundary, overwrite axis
+  - - '`1`'
+    - keep vmec axis, overwrite boundary
+  - - '`2`'
+    - overwrite axis and boundary
+sgrid_nElems:
+  category:
+  - Discretization
+  subtitle: mandatory parameter
+  required: true
+  description:
+  - Number of elements in the radial grid, used for B-Spline in all variables $X^1,X^2,\lambda$
+  - Can be chosen independently of the B-Spline polynomial degree.
+  - "The case of 1 element is equivalent using a polynomial in $\rho\\in[0,1]$."
+  type: '`integer`'
+  allowed: $> 0$
+sgrid_grid_type:
+  category:
+  - Discretization
+  description:
+  - Type of radial grid, used for B-Spline in all variables $X^1,X^2,\lambda$
+  type: '`integer`'
+  allowed_table:
+  - - '`0`'
+    - uniform grid
+  - - '`1`'
+    - 'finer towards the edge '
+  - - '`2`'
+    - 'finer towards the axis '
+  - - '`3`'
+    - finer towards axis and edge
+  - - '`4`'
+    - uniform in the axis region and finer towards edge
+  default: '`0`'
+fac_nyq:
+  category:
+  - Discretization
+  description:
+  - Nyquist factor, factor between the maximum mode number and the number of integration
+    points in poloidal and toroidal directions.
+  - " if `fac_nyq=-1`, lnk_to_param(mn_nyq) \tmust be provided instead."
+  default: '`4`'
+  type: '`integer`'
+  allowed: $\geq 2$ or $-1$
+mn_nyq:
+  category:
+  - Discretization
+  description:
+  - 'Number of integration points $n_\vartheta,n_\zeta$ in poloidal and toroidal directions. '
+  required_if: lnk_to_param(`fac_nyq=-1`|fac_nyq)
+  type: array of `integer` of size 2
+  allowed: $n_\vartheta\geq 2m_\text{max}+1$ and $n_\zeta\geq 2n_\text{max}+1$
+nfp:
+  category:
+  - Discretization
+  subtitle: mandatory parameter
+  required: true
+  description:
+  - This parameter sets the number of field periods $N_{FP}$
+  type: '`integer`'
+  allowed: $> 0$
+X1_mn_max:
+  category:
+  - Discretization
+  subtitle: mandatory if `whichInitEquilibrium=0`
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets maximum poloidal and toroidal mode numbers $m_\text{max}$,$n_\text{max}$
+    of the variable$X^1$
+  - Overwrites the default, which is only set if lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+    (initialize with VMEC file).
+  type: array of `integer` of size 2
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium)
+  default: only if lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium), the
+    default is set to the maximum mode numbers from the VMEC solution file.
+  allowed: $m_\text{max}\gt 0,n_\text{max}\ge 0$
+X2_mn_max:
+  category:
+  - Discretization
+  subtitle: mandatory if `whichInitEquilibrium=0`
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets maximum poloidal and toroidal mode numbers $m_\text{max}$,$n_\text{max}$
+    of the variable$X^2$
+  - Overwrites the default, which is only set if lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+    (initialize with VMEC file).
+  type: array of `integer` of size 2
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium)
+  default: only if lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium), the
+    default is set to the maximum mode numbers from the VMEC solution file.
+  allowed: $m_\text{max}\gt 0,n_\text{max}\ge 0$
+LA_mn_max:
+  category:
+  - Discretization
+  subtitle: mandatory if `whichInitEquilibrium=0`
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets maximum poloidal and toroidal mode numbers $m_\text{max}$,$n_\text{max}$
+    of the variable$\lambda$
+  - Overwrites the default, which is only set if lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium)
+    (initialize with VMEC file).
+  type: array of `integer` of size 2
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium)
+  default: only if lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium), the
+    default is set to the maximum mode numbers from the VMEC solution file.
+  allowed: $m_\text{max}\gt 0,n_\text{max}\ge 0$
+X1_sin_cos:
+  category:
+  - Discretization
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets which Fourier modes are active for the variable$X^1$, thus
+    allows to impose stellarator symmetry.
+  type: '`string`'
+  default: '`_cos_` if lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+    Ff lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium), the default is
+    set from the VMEC solution.'
+  allowed_table:
+  - &id001
+    - '`_sin_`'
+    - only use $\sin(m\vartheta-n\zeta)$, with $\{m=0,1\leq n\leq n_\text{max}\,\,
+      1\leq m\leq m_\text{max},-n_\text{max}\leq n\leq n_\text{max}\}$
+  - &id002
+    - '`_cos_`'
+    - only use $\cos(m\vartheta-n\zeta)$, with $\{m=0,0\leq n\leq n_\text{max}\,;
+      \,1\leq m\leq m_\text{max},-n_\text{max}\leq n\leq n_\text{max}\}$
+  - &id003
+    - '`_sincos_`'
+    - use both sine and cosine modes
+X2_sin_cos:
+  category:
+  - Discretization
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets which Fourier modes are active for the variable$X^2$, thus
+    allows to impose stellarator symmetry.
+  type: '`string`'
+  default: '`_sin_` if lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+    Ff lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium), the default is
+    set from the VMEC solution.'
+  allowed_table:
+  - *id001
+  - *id002
+  - *id003
+LA_sin_cos:
+  category:
+  - Discretization
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets which Fourier modes are active for the variable$\lambda$,
+    thus allows to impose stellarator symmetry.
+  type: '`string`'
+  default: '`_sin_` if lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+    Ff lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium), the default is
+    set from the VMEC solution.'
+  allowed_table:
+  - *id001
+  - *id002
+  - *id003
+X1X2_deg:
+  category:
+  - Discretization
+  subtitle: mandatory parameter
+  required: true
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets the polynomial degree $p$ of the B-Spline, for the variables
+    $X^1,X^2$.
+  type: '`integer`'
+  allowed: $>0$
+X1X2_continuity:
+  category:
+  - Discretization
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets the continuity of the B-Spline, for the variables $X^1,X^2$.
+  - For now, only a continuity of  $p-1$  is possible, with $p$ from lnk_to_param(X1X2_deg).
+  type: '`integer`'
+  default: lnk_to_param(`X1X2_deg-1`|X1X2_deg)
+  allowed: $\geq 0$
+LA_deg:
+  category:
+  - Discretization
+  subtitle: mandatory parameter
+  required: true
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets the polynomial degree $p$ of the B-Spline, for the variable
+    $\lambda$.
+  type: '`integer`'
+  allowed: $>0$
+LA_continuity:
+  category:
+  - Discretization
+  description:
+  - The solution is described by three variables $X^1,X^2,\lambda$ with a B-Spline
+    discretization in radial direction$\rho$ and a double-periodic Fourier series
+    in the poloidal angle $\vartheta$ and the toroidal angle $\zeta$.
+  - This parameter sets the continuity of the B-Spline, for the variable $\lambda$.
+  - For now, only a continuity of  $p-1$  is possible, with $p$ from lnk_to_param(LA_deg).
+  type: '`integer`'
+  default: lnk_to_param(`LA_deg-1`|LA_deg)
+  allowed: $\geq 0$
+degGP:
+  category:
+  - Discretization
+  description:
+  - interpolatory degree of the Gauss quadrature.
+  - Number of quadrature points per B-Spline element is $n_\text{GP}=$`(degGP+1)`,
+  - default depends on lnk_to_param(X1X2_deg) and lnk_to_param(LA_deg)
+  type: '`integer`'
+  allowed: must be larger than `max(X1X2_deg,LA_deg)`
+  default: '`max(X1X2_deg,LA_deg)+2`'
+X1_b_cos(m;n):
+  category:
+  - boundary
+  linkname: X1_b_cos
+  description:
+  - The boundary is described by two variables $X^1(\vartheta,\zeta)$,$X^2(\vartheta,\zeta)$,
+    as a double-periodic Fourier series.
+  - This parameter sets the coefficient of the Fourier mode of $X^1$ variable, with
+    basis function $\cos(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
+  - ignored if lnk_to_param(`X1_sin_cos=_cos_`|X1_sin_cos)
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+X1_b_sin(m;n):
+  category:
+  - boundary
+  linkname: X1_b_sin
+  description:
+  - The boundary is described by two variables $X^1(\vartheta,\zeta)$,$X^2(\vartheta,\zeta)$,
+    as a double-periodic Fourier series.
+  - This parameter sets the coefficient of the Fourier mode of $X^1$ variable, with
+    basis function $\sin(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
+  - ignored if lnk_to_param(`X1_sin_cos=_sin_`|X1_sin_cos)
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+X2_b_cos(m;n):
+  category:
+  - boundary
+  linkname: X2_b_cos
+  description:
+  - The boundary is described by two variables $X^1(\vartheta,\zeta)$,$X^2(\vartheta,\zeta)$,
+    as a double-periodic Fourier series.
+  - This parameter sets the coefficient of the Fourier mode of $X^2$ variable, with
+    basis function $\cos(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
+  - ignored if lnk_to_param(`X2_sin_cos=_cos_`|X2_sin_cos)
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+X2_b_sin(m;n):
+  category:
+  - boundary
+  linkname: X2_b_sin
+  description:
+  - The boundary is described by two variables $X^1(\vartheta,\zeta)$,$X^2(\vartheta,\zeta)$,
+    as a double-periodic Fourier series.
+  - This parameter sets the coefficient of the Fourier mode of $X^2$ variable, with
+    basis function $\sin(m\vartheta-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - In `(m;n)`, `m` and `n` must be set to the actual poloidal ($m$) and toroidal
+    ($n$) mode number (excluding the $N_{FP}$ factor).
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
+  - ignored if lnk_to_param(`X2_sin_cos=_sin_`|X2_sin_cos)
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+init_average_axis:
+  category:
+  - boundary
+  description:
+  - Instead of a prescribed initial axis guess, via lnk_to_param(X1_a_cos),lnk_to_param(X2_a_sin)...,
+    use the boundary data of each $(X^1,X^2)$ cross-section and compute the center
+    of the area.
+  type: '`logical`'
+  allowed: '`True` or `False`'
+  default: '`False`'
+average_axis_move_X1:
+  category:
+  - boundary
+  description:
+  - Offset the axis in $X^{xd}$ direction, from the position found by the average
+    lnk_to_param(`init_average_axis=True`|init_average_axis)
+  type: '`real`'
+  default: '`0.0`'
+average_axis_move_X2:
+  category:
+  - boundary
+  description:
+  - Offset the axis in $X^{xd}$ direction, from the position found by the average
+    lnk_to_param(`init_average_axis=True`|init_average_axis)
+  type: '`real`'
+  default: '`0.0`'
+X1_a_cos(0;n):
+  category:
+  - boundary
+  linkname: X1_a_cos
+  description:
+  - This parameter sets the Fourier mode of the initial axis guess for the $X^1$ variable,
+    with basis function $\cos(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
+  - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
+  - ignored if lnk_to_param(`X1_sin_cos=_cos_`|X1_sin_cos),
+  - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{0\le n\le n_\text{max}\}$
+X1_a_sin(0;n):
+  category:
+  - boundary
+  linkname: X1_a_sin
+  description:
+  - This parameter sets the Fourier mode of the initial axis guess for the $X^1$ variable,
+    with basis function $\sin(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
+  - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
+  - ignored if lnk_to_param(`X1_sin_cos=_sin_`|X1_sin_cos),
+  - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{0\le n\le n_\text{max}\}$
+X2_a_cos(0;n):
+  category:
+  - boundary
+  linkname: X2_a_cos
+  description:
+  - This parameter sets the Fourier mode of the initial axis guess for the $X^2$ variable,
+    with basis function $\cos(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
+  - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
+  - ignored if lnk_to_param(`X2_sin_cos=_cos_`|X2_sin_cos),
+  - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{0\le n\le n_\text{max}\}$
+X2_a_sin(0;n):
+  category:
+  - boundary
+  linkname: X2_a_sin
+  description:
+  - This parameter sets the Fourier mode of the initial axis guess for the $X^2$ variable,
+    with basis function $\sin(-n N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - in `(0;n)`, `n` must be set to the actual toroidal  mode number $n$ (excluding
+    the $N_{FP}$ factor).
+  - 'The maximum mode number $n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
+  - ignored if lnk_to_param(`X2_sin_cos=_sin_`|X2_sin_cos),
+  - also ignored if lnk_to_param(`init_average_axis=True`|init_average_axis).
+  required_if: lnk_to_param(`whichInitEquilibrium=0`|whichInitEquilibrium).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{0\le n\le n_\text{max}\}$
+boundary_perturb:
+  category:
+  - boundary
+  description:
+  - 'Add boundary perturbations to intial state, also after a restart. '
+  type: '`logical`'
+  allowed: '`True` or `False`'
+  default: '`False`'
+X1pert_b_cos(m,n):
+  category:
+  - boundary
+  linkname: X1pert_b_cos
+  description:
+  - This parameter sets the coefficient of the Fourier mode that is added as a perturbation
+    at the boundary, for the $X^1$ variable, with basis function $\cos(m\vartheta-n
+    N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
+    the $N_{FP}$ factor).'
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
+  - ignored if lnk_to_param(`X1_sin_cos=_cos_`|X1_sin_cos)
+  required_if: lnk_to_param(`boundary_perturb=True`|boundary_perturb).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+X1pert_b_sin(m,n):
+  category:
+  - boundary
+  linkname: X1pert_b_sin
+  description:
+  - This parameter sets the coefficient of the Fourier mode that is added as a perturbation
+    at the boundary, for the $X^1$ variable, with basis function $\sin(m\vartheta-n
+    N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
+    the $N_{FP}$ factor).'
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X1_mn_max). '
+  - ignored if lnk_to_param(`X1_sin_cos=_sin_`|X1_sin_cos)
+  required_if: lnk_to_param(`boundary_perturb=True`|boundary_perturb).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+X2pert_b_cos(m,n):
+  category:
+  - boundary
+  linkname: X2pert_b_cos
+  description:
+  - This parameter sets the coefficient of the Fourier mode that is added as a perturbation
+    at the boundary, for the $X^2$ variable, with basis function $\cos(m\vartheta-n
+    N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
+    the $N_{FP}$ factor).'
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
+  - ignored if lnk_to_param(`X2_sin_cos=_cos_`|X2_sin_cos)
+  required_if: lnk_to_param(`boundary_perturb=True`|boundary_perturb).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+X2pert_b_sin(m,n):
+  category:
+  - boundary
+  linkname: X2pert_b_sin
+  description:
+  - This parameter sets the coefficient of the Fourier mode that is added as a perturbation
+    at the boundary, for the $X^2$ variable, with basis function $\sin(m\vartheta-n
+    N_{FP}\zeta)$. The number of field periods lnk_to_param($N_{FP}$|nfp).
+  - '`m,n` must be replaced by the poloidal ($m$) and toroidal ($n$) mode number (excluding
+    the $N_{FP}$ factor).'
+  - 'The maximum mode number $m_\text{max}$,$n_\text{max}$ is provided by lnk_to_param(X2_mn_max). '
+  - ignored if lnk_to_param(`X2_sin_cos=_sin_`|X2_sin_cos)
+  required_if: lnk_to_param(`boundary_perturb=True`|boundary_perturb).
+  default: '`0`'
+  type: '`real`'
+  allowed: Coefficients are read for mode numbers $\{m=0,0\le n\le n_\text{max}\}$
+    and $\{1\le m\le m_\text{max},-n_\text{max}\le n\le n_\text{max}\}$
+GetBoundaryFromFile:
+  category:
+  - boundary
+  description:
+  - "Instead of providing fourier modes for the boundary $X^1,X^2$, use a dataset\
+    \ stored in a netcdf file that contains the $X^1,X^2$ positions on a regular grid\
+    \ in $\vartheta,\\zeta$."
+  type: '`integer`'
+  allowed_table:
+  - - '`-1`'
+    - 'off'
+  - - '`1`'
+    - read from specific netcdf file
+  default: '`-1`'
+boundary_filename:
+  category:
+  - boundary
+  description:
+  - Full file name of the boundary data netcdf file.
+  required_if: lnk_to_param(`GetBoundaryFromFile=1`|GetBoundaryFromFile)
+  type: '`string`'
+scale_minor_radius:
+  category:
+  - boundary
+  description:
+  - scale $X^1, X^2$ boundary data from file by a constant factor. The parameter is
+    used in combination with the G-Frame hmap, where the boundary is typically centered
+    around $X^1=X^2=0$.
+  required_if: lnk_to_param(`GetBoundaryFromFile=1`|GetBoundaryFromFile)
+  type: '`real`'
+  default: '1.0'
+PhiEdge:
+  category:
+  - profiles
+  description:
+  - Total toroidal magnetic flux $\Phi$ at the boundary. Defines the $\Phi$ profile.
+    A positive sign means that the toroidal magnetic field points in positive $\zeta$
+    direction.
+  - Note that internally, GVEC then uses $\Phi_\text{edge}/(2\pi)$.
+  type: '`real`'
+  default: '`1.0`'
+iota_type:
+  category:
+  - profiles
+  subtitle: mandatory if `whichInitEquilibrium=0`
+  required_if: '`whichInitEquilibrium=0`'
+  description:
+  - Type of profile to represent the rotational transform `iota(s)`. Can be a polynomial,
+    B-Spline or a set of points which is then interpolated
+  - '**Note:** the profile is always given as a function of the normalized magnetic
+    flux $s$, with $s=0$ as the magnetic axis, and $s=1$ at the boundary. The normalized
+    radius-like coordinate is $\rho=\sqrt{s}$.'
+  type: '`string`'
+  allowed_table:
+  - - '`polynomial`'
+    - polynomial represenation, **needs** lnk_to_param(iota_coefs)
+  - - '`bspline`'
+    - B-Spline representation, **needs** lnk_to_param(iota_coefs) and lnk_to_param(iota_knots)
+  - - '`interpolation`'
+    - Cubic spline interpolation from point values at s-positions, **needs** lnk_to_param(iota_rho2)
+      and lnk_to_param(iota_vals)
+iota_coefs:
+  category:
+  - profiles
+  description:
+  - 'Depending on the type of profile of the rotational transform `iota(s)`:'
+  - '- if lnk_to_param(`iota_type=polynomial`|iota_type), it sets the coefficients
+    $c_0 + c_1 s + c_2 s^2 \dots$'
+  - '- if lnk_to_param(`iota_type=bspline`|iota_type), these are the B-Spline coefficients
+    (which need to be compatible to the knots lnk_to_param(iota_knots))'
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `polynomial` or `bspline`
+iota_knots:
+  category:
+  - profiles
+  description:
+  - 'Required for the B-Spline profile of the rotational transform `iota(s)`:'
+  - The knots must be in the range of $s=[0,1]$ and must be monotonically increasing.
+  - They must have the same multiplicity of the first knot at $s=0$ and the last knot
+    at $s=1$. The degree of the B-Spline is deduced from the multiplicity.
+  - Knots need to be compatible with the B-Spline coefficients lnk_to_param(iota_coefs)
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `bspline`
+iota_rho2:
+  category:
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the rotational transform `iota(s)`:'
+  - These are the radial point positions, in the normalized magnetic flux
+  - They must cover the range of $s=[0,1]$ and must be monotonically increasing.
+  - Point positions must of same size as the values, specified by lnk_to_param(iota_vals)
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `interpolation`
+iota_vals:
+  category:
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the rotational transform `iota(s)`:'
+  - These are the values of `iota` at the radial point positions, in the normalized
+    magnetic flux
+  - Point positions must of same size as the values, specified by lnk_to_param(iota_rho2)
+  type: array of `real` of any size
+  required_if: lnk_to_param(iota_type) is `interpolation`
+iota_BC_type_axis:
+  category:
+  - profiles
+  description:
+  - Boundary condition at $s=0$ for the cubic spline interpolation of the rotational
+    transform `iota(s)`
+  type: '`string`'
+  allowed_table:
+  - &id004
+    - '`"not_a_knot"`'
+    - Makes the third derivative continuous at the second grid point
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(iota_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(iota_BC_vals)
+  required_if: lnk_to_param(iota_type) is `interpolation`
+  default: '`"not_a_knot"`'
+iota_BC_type_edge:
+  category:
+  - profiles
+  description:
+  - Boundary condition at $s=1$ for the cubic spline interpolation of the rotational
+    transform `iota(s)`
+  type: '`string`'
+  allowed_table:
+  - &id005
+    - '`"not_a_knot"`'
+    - Makes the third derivative continuous at the second to last grid point
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=1$, either to zero or to the provided
+      second value of lnk_to_param(iota_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      second value of lnk_to_param(iota_BC_vals)
+  required_if: lnk_to_param(iota_type) is `interpolation`
+  default: '`"not_a_knot"`'
+iota_BC_vals:
+  category:
+  - profiles
+  description:
+  - Values for the first / second derivative, at $s=0$ and $s=1$, for the cubic spline
+    interpolation of the rotational transform `iota(s)`.
+  type: array of `real` of size 2
+  required_if: lnk_to_param(iota_type) is `interpolation` , and if lnk_to_param(iota_BC_type_axis)
+    or lnk_to_param(iota_BC_type_edge) is different from `"not_a_knot"`
+  default: '`(/0.0,0.0/))`'
+iota_scale:
+  category:
+  - profiles
+  description:
+  - Scales the {proflong} `{prof}(s)` by a constant.
+  - See profile definition lnk_to_param(iota_type)
+  type: '`real`'
+  default: '`1.0`'
+pres_type:
+  category:
+  - profiles
+  subtitle: mandatory if `whichInitEquilibrium=0`
+  required_if: '`whichInitEquilibrium=0`'
+  description:
+  - Type of profile to represent the pressure `pres(s)`. Can be a polynomial, B-Spline
+    or a set of points which is then interpolated
+  - '**Note:** the profile is always given as a function of the normalized magnetic
+    flux $s$, with $s=0$ as the magnetic axis, and $s=1$ at the boundary. The normalized
+    radius-like coordinate is $\rho=\sqrt{s}$.'
+  type: '`string`'
+  allowed_table:
+  - - '`polynomial`'
+    - polynomial represenation, **needs** lnk_to_param(pres_coefs)
+  - - '`bspline`'
+    - B-Spline representation, **needs** lnk_to_param(pres_coefs) and lnk_to_param(pres_knots)
+  - - '`interpolation`'
+    - Cubic spline interpolation from point values at s-positions, **needs** lnk_to_param(pres_rho2)
+      and lnk_to_param(pres_vals)
+pres_coefs:
+  category:
+  - profiles
+  description:
+  - 'Depending on the type of profile of the pressure `pres(s)`:'
+  - '- if lnk_to_param(`pres_type=polynomial`|pres_type), it sets the coefficients
+    $c_0 + c_1 s + c_2 s^2 \dots$'
+  - '- if lnk_to_param(`pres_type=bspline`|pres_type), these are the B-Spline coefficients
+    (which need to be compatible to the knots lnk_to_param(pres_knots))'
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `polynomial` or `bspline`
+pres_knots:
+  category:
+  - profiles
+  description:
+  - 'Required for the B-Spline profile of the pressure `pres(s)`:'
+  - The knots must be in the range of $s=[0,1]$ and must be monotonically increasing.
+  - They must have the same multiplicity of the first knot at $s=0$ and the last knot
+    at $s=1$. The degree of the B-Spline is deduced from the multiplicity.
+  - Knots need to be compatible with the B-Spline coefficients lnk_to_param(pres_coefs)
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `bspline`
+pres_rho2:
+  category:
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the pressure `pres(s)`:'
+  - These are the radial point positions, in the normalized magnetic flux
+  - They must cover the range of $s=[0,1]$ and must be monotonically increasing.
+  - Point positions must of same size as the values, specified by lnk_to_param(pres_vals)
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `interpolation`
+pres_vals:
+  category:
+  - profiles
+  description:
+  - 'Required for the cubic spline interpolation of the pressure `pres(s)`:'
+  - These are the values of `pres` at the radial point positions, in the normalized
+    magnetic flux
+  - Point positions must of same size as the values, specified by lnk_to_param(pres_rho2)
+  type: array of `real` of any size
+  required_if: lnk_to_param(pres_type) is `interpolation`
+pres_BC_type_axis:
+  category:
+  - profiles
+  description:
+  - Boundary condition at $s=0$ for the cubic spline interpolation of the pressure
+    `pres(s)`
+  type: '`string`'
+  allowed_table:
+  - *id004
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(pres_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      first value of lnk_to_param(pres_BC_vals)
+  required_if: lnk_to_param(pres_type) is `interpolation`
+  default: '`"not_a_knot"`'
+pres_BC_type_edge:
+  category:
+  - profiles
+  description:
+  - Boundary condition at $s=1$ for the cubic spline interpolation of the pressure
+    `pres(s)`
+  type: '`string`'
+  allowed_table:
+  - *id005
+  - - '`"1st_deriv"`'
+    - Sets the first derivative at the boundary $s=1$, either to zero or to the provided
+      second value of lnk_to_param(pres_BC_vals)
+  - - '`"2nd_deriv"`'
+    - Sets the second derivative at the boundary $s=0$, either to zero or to the provided
+      second value of lnk_to_param(pres_BC_vals)
+  required_if: lnk_to_param(pres_type) is `interpolation`
+  default: '`"not_a_knot"`'
+pres_BC_vals:
+  category:
+  - profiles
+  description:
+  - Values for the first / second derivative, at $s=0$ and $s=1$, for the cubic spline
+    interpolation of the pressure `pres(s)`.
+  type: array of `real` of size 2
+  required_if: lnk_to_param(pres_type) is `interpolation` , and if lnk_to_param(pres_BC_type_axis)
+    or lnk_to_param(pres_BC_type_edge) is different from `"not_a_knot"`
+  default: '`(/0.0,0.0/))`'
+pres_scale:
+  category:
+  - profiles
+  description:
+  - Scales the {proflong} `{prof}(s)` by a constant.
+  - See profile definition lnk_to_param(pres_type)
+  type: '`real`'
+  default: '`1.0`'
+init_with_profile_iota:
+  category:
+  - profiles
+  description:
+  - Only relevant for VMEC readin, lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium).
+    Possibility to replace rotational transform profile from VMEC.
+  type: '`logical`'
+  default: '`False`'
+  allowed_table:
+  - - '`True`'
+    - the rotational transform profile is defined from GVEC parameters
+  - - '`False`'
+    - default, the rotational transform profile is interpolated from the VMEC data
+init_with_profile_pres:
+  category:
+  - profiles
+  description:
+  - Only relevant for VMEC readin, lnk_to_param(`whichInitEquilibrium=1`|whichInitEquilibrium).
+    Possibility to replace pressure profile from VMEC.
+  type: '`logical`'
+  default: '`False`'
+  allowed_table:
+  - - '`True`'
+    - the pressure profile is defined from GVEC parameters
+  - - '`False`'
+    - default, the pressure profile is interpolated from the VMEC data
+MinimizerType:
+  category:
+  - minimization
+  description:
+  - Switch for minimization method.
+  type: integer
+  default: '`0`'
+  allowed_table:
+  - - '`0`'
+    - gradient descent
+  - - '`10`'
+    - accelerated gradient descent
+PrecondType:
+  category:
+  - minimization
+  description:
+  - Switch for radial preconditioner onto the gradient of the energy functional.
+  - Build and invert approximate Hessian for each mode.
+  - Makes the start timestep lnk_to_param(start_dt) of the order of unity.
+  type: integer
+  default: '`1`'
+  allowed_table:
+  - - '`-1`'
+    - 'off'
+  - - '`1`'
+    - 'on'
+start_dt:
+  category:
+  - minimizer
+  description:
+  - Initial pseudo-timestep for gradient descent.Is automatically reduced, if too
+    large.
+  - It can happen that automatism fails, especially if the Jacobian inverts in the
+    first iterations. Then `start_dt` needs to be reduced by hand.
+  type: real
+  default: '`0.1`'
+  allowed: $<1$ and $>0$
+maxIter:
+  category:
+  - minimizer
+  description:
+  - Maximum iteration count, stopping criterion for minimization.
+  type: integer
+  default: '`5000`'
+minimize_tol:
+  category:
+  - minimizer
+  description:
+  - 'Stopping criterion for minimization: tolerance on the norm of the force residual
+    in $X^1,X^2,\lambda$.Note that the square root of the norm is taken $\sqrt{|F|^2}$.'
+  - The norm is computed of forces after preconditioning and application of the boundary
+    conditions.
+  type: real
+  default: '`1.0e-12`, means its off'
+  allowed: '`>1.0e-8` , since the square root of the norm is taken'
+dW_allowed:
+  category:
+  - minimizer
+  description:
+  - Minimum of change in total energy per iteration step. Should be always decreasing,
+    but numerically, one can allow for small positive change.
+  type: real
+  default: '`1.0e-10`'
+outputIter:
+  category:
+  - minimizer
+  description:
+  - Interval of iterations, where Statefiles and visualization files are written.
+  type: integer
+  default: '`=maxIter`'
+logIter:
+  category:
+  - minimizer
+  description:
+  - Interval of iterations, where logging quantities are printed to screen and to
+    logfile.
+  type: integer
+  default: '`=maxIter`'
+nLogScreen:
+  category:
+  - minimizer
+  description:
+  - 'Number of times the screen output of the logging is skipped (=1: no skip).'
+  type: integer
+  default: '`1`'
+doCheckDistance:
+  category:
+  - minimizer
+  description:
+  - In the logging, compare the change of the positions $X^1,X^1$ to the solution
+    of the last log.
+  type: logical
+  default: '`False`'
+doCheckAxis:
+  category:
+  - minimizer
+  description:
+  - Log the X1,X2 positions of the axis.
+  type: logical
+  default: '`True`'
+which_hmap:
+  category:
+  - hmap
+  description:
+  - Select which hmap between $X^1,X^2,\zeta$ coordinates and cartesian coordinates,
+    $(x,y,z).
+  default: '`1`'
+  type: '`integer`'
+  allowed: ''
+  allowed_table:
+  - - '`1`'
+    - cylinder coordinates, $x=X^1\cos(\zeta),y=-X^1\sin(\zeta),z=X^2$
+  - - '`3`'
+    - straight cylinder $x=X^1,y=L\zeta/(2\pi),z=X^2$
+  - - '`10`'
+    - knot
+  - - '`20`'
+    - Frenet frame based on Fourier modes of axis in $R,Z,\phi$
+  - - '`21`'
+    - G-Frame, based on axis and N,B vectors in cartesian space (read from netcdf
+      file)
+hmap_cyl_len:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=3`
+  description:
+  - Length of the domain in Z=zeta*len
+  default: '1.0'
+  type: '`real`'
+  allowed: $>0$
+hmap_knot_kl:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=10`
+  description:
+  - Type of the knot, $(k,l)$-torus parameter
+  default: '`(/2,3/)`'
+  type: array of `integer` of size 2
+hmap_knot_major_radius:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=10`
+  description:
+  - Knot major radius
+  default: '1.0'
+  type: '`real`'
+  allowed: $>0$
+hmap_knot_delta_shift:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=10`
+  description:
+  - Knot delta shift
+  default: '0.4'
+  type: '`real`'
+  allowed: ''
+hmap_n_max:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=20`
+  description:
+  - 'Frenet frame: Number of  fourier modes of the axis (excluding lnk_to_param($N_{FP}$
+    factor|nfp))'
+  default: '10'
+  type: '`integer`'
+  allowed: $\geq 0$
+hmap_nfp:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=20`
+  description:
+  - 'Frenet frame: Number of field periods of the axis'
+  default: '1'
+  type: '`integer`'
+  allowed: $\geq 1$
+hmap_omnig:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=20`
+  description:
+  - 'Frenet frame: omingeneity of axis, if true, sign flips of the frame are assumed
+    at $\zeta=0,\pi/n_{FP},2\pi/n_{FP},...$'
+  type: '`logical`'
+  default: '`False`'
+hmap_rc:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=20`
+  description:
+  - ' Frenet frame: cosine Fourier mode coefficients of axis $R(\zeta)$ position.'
+  - $\cos(n N_{FP} \zeta)$, from $n=0,...n_{max}$
+  type: array of `real` of size `hmap_n_max+1`
+  default: zeros
+hmap_rs:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=20`
+  description:
+  - ' Frenet frame: sine Fourier mode coefficients of axis $R(\zeta)$ position.'
+  - $\sin(n N_{FP} \zeta)$, from $n=0,...n_{max}$
+  type: array of `real` of size `hmap_n_max+1`
+  default: zeros
+hmap_zc:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=20`
+  description:
+  - ' Frenet frame: cosine Fourier mode coefficients of axis $Z(\zeta)$ position.'
+  - $\cos(n N_{FP} \zeta)$, from $n=0,...n_{max}$
+  type: array of `real` of size `hmap_n_max+1`
+  default: zeros
+hmap_zs:
+  category:
+  - hmap
+  subtitle: only if `which_hmap=20`
+  description:
+  - ' Frenet frame: sine Fourier mode coefficients of axis $Z(\zeta)$ position.'
+  - $\sin(n N_{FP} \zeta)$, from $n=0,...n_{max}$
+  type: array of `real` of size `hmap_n_max+1`
+  default: zeros
+hmap_nvisu:
+  category:
+  - hmap
+  description:
+  - Number of points along the axis (full turn) for visualization of the T,N,B frame
+  - active for lnk_to_param(`which_hmap=20/21`|which_hmap)
+  default: '`2*n_max*hmap_nfp+1`'
+  type: '`integer`'
+hmap_ncfile:
+  category:
+  - hmap
+  subtitle: mandatory if `which_hmap=21`
+  required_if: lnk_to_param(`which_hmap=21`|which_hmap)
+  description:
+  - 'G-Frame: full name of netcdf file that contains the cartesian coordinates of
+    the axis, N and B vectors.'
+  type: '`string`'
+outFileType:
+  category:
+  - visualization
+  description:
+  - File type of visualization output.
+  type: integer
+  default: '`1`'
+  allowed_table:
+  - - '`1`'
+    - all visualization files as  `.vtu` paraview file (or `.csv` for 1D data)
+  - - '`2`'
+    - all visualization files are structured array netcdf file
+  - - '`12`'
+    - option `1` and `2`
+SFLout:
+  category:
+  - visualization
+  description:
+  - 'Switch for visualization after straight-field line transform, either PEST or
+    Boozer. '
+  type: integer
+  default: '`-1`'
+  allowed_table:
+  - - '`-1`'
+    - 'off'
+  - - '`0`'
+    - without SFL transform, still writes`*_noSFL*` files
+  - - '`1`'
+    - PEST, writes `*_pest*` files
+  - - '`2`'
+    - Boozer writes `*_boozer*` files
+SFLout_mn_max:
+  category:
+  - visualization
+  subtitle: only if `SFLout>-1`
+  description:
+  - Number of modes used in PEST / Boozer transform. If set to `-1`, this number is
+    computed as 4 times the maximum mode number of the solution variables.
+  type: array of `integer` of size 2
+  default: '`(/-1,-1/)`'
+  allowed: needs to be $>=$ the maximum mode number of the solution variables
+SFLout_relambda:
+  category:
+  - visualization
+  subtitle: only if `SFLout>-1`
+  description:
+  - Recompute lambda for pest and boozer (strongly recommended for boozer!)
+  type: boolean
+  default: '`True`'
+SFLout_mn_pts:
+  category:
+  - visualization
+  subtitle: only if `SFLout>-1`
+  description:
+  - Number of visualization grid points in $\vartheta,\zeta$ direction, always on
+    one field period!
+  type: array of `integer` of size 2
+  default: '`(/40,40/)`'
+SFLout_endpoint:
+  category:
+  - visualization
+  subtitle: only if `SFLout>-1`
+  description:
+  - Include the periodic endpoint at the end of the field period in the visualization
+    points
+  type: '`logical`'
+  default: '`False`'
+SFLout_radialPos:
+  category:
+  - visualization
+  subtitle: only if `SFLout>-1`
+  description:
+  - Which flux surface positions (in $\rho~\sqrt$(magn.flux) are used for the SFL
+    visualization.
+  type: array of `real` of any size
+  default: '`(/1.0/)`'
+  allowed: " $0\\leq \rho_i\\leq 1$ "
+visu1D:
+  category:
+  - visualization
+  description:
+  - 'Visualize data over radius $\rho$  (profiles and fourier modes). '
+  type: integer
+  default: '`-1`'
+  allowed_table:
+  - - '`-1`'
+    - 'off'
+  - - '`1`'
+    - '1d profiles and modes $X^1$,$X^2$,$\lambda$ '
+  - - '`2`'
+    - '1st radial derivative of modes $X^1$,$X^2$,$\lambda$ '
+  - - '`3`'
+    - '2nd radial derivative of modes $X^1$,$X^2$,$\lambda$ '
+  - - '`4`'
+    - absolute value of modes $X^1$,$X^2$,$\lambda$
+  - - '`5`'
+    - "absolute value of modes $X^1$,$X^2$,$\\lambda$ divided by $\rho^m$: "
+np_1d:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu1d): number of visualization points in $\rho$, per B-Spline
+    element!'
+  type: integer
+  default: '`5`'
+  allowed: '$>0$ '
+visu2D:
+  category:
+  - visualization
+  description:
+  - 'Visualize boundary and/or solution as poloidal planes, still in 3D space. '
+  type: integer
+  default: '`-1`'
+  allowed_table:
+  - - '`-1`'
+    - 'off'
+  - - '`1`'
+    - boundary visualization files `*visu_BC_*`
+  - - '`2`'
+    - poloidal plane visualization files `*visu_planes_*`
+  - - '`12`'
+    - option `1` and `2`
+np_visu_BC:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu2D): number of visualization points $n_\vartheta,n_\zeta$
+    of the boundary'
+  type: array of `integer` of size 2
+  default: '`(/20,30/)`'
+  allowed: '$>0$ '
+visu3D:
+  category:
+  - visualization
+  description:
+  - 'Visualize full volumetric solution in 3D space. '
+  type: integer
+  default: '`-1`'
+  allowed_table:
+  - - '`-1`'
+    - 'off'
+  - - '`1`'
+    - visualiztion files `*visu3D_*`
+visu_min:
+  category:
+  - visualization
+  description:
+  - General lower bound in $\rho,\vartheta,\zeta$ directions for visualization. Is
+    used to set the defaults of the other lower bounds
+  type: array of `real` of size 3
+  default: '`(/0.,0.,0./)`'
+  allowed: '$0 \leq \rho\leq 1,-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq
+    1$ '
+visu_max:
+  category:
+  - visualization
+  description:
+  - General upper bound in $\rho,\vartheta,\zeta$ directions for visualization. Is
+    used to set the defaults of the other upper bounds. Note that for visualization
+    of a field period, the range in zeta must be $1/N_{FP}$.
+  type: array of `real` of size 3
+  default: '`(/1.,1.,1./)`'
+  allowed: '$0 \leq \rho\leq 1,-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq
+    1$ '
+visu_BC_min:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu2D): Lower bound in $\vartheta,\zeta$ directions for boundary
+    visualization. '
+  type: array of `real` of size 2
+  default: '`=visu_min(2:3)`'
+  allowed: '$-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq 1$ '
+visu_BC_max:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu2D): Upper bound in $\vartheta,\zeta$ directions for boundary
+    visualization. '
+  type: array of `real` of size 2
+  default: '`=visu_max(2:3)`'
+  allowed: '$-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq 1$ '
+np_visu_planes:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu2D): Number of visualization points $n_\rho,n_\vartheta,n_\zeta$,
+    with $n_\zeta$ the number of poloidal planes. $n_\rho$, is per B-Spline element.
+    In $\vartheta$, the number is multiplied with $n_\rho$.'
+  type: array of `integer` of size 3
+  default: '`(/5,12,10/)`'
+visu_planes_min:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu2D): Lower bound in $\rho,\vartheta,\zeta$ directions for
+    poloidal planes visualization. '
+  type: array of `real` of size 3
+  default: '`=visu_min(1:3)`'
+  allowed: '$0 \leq \rho\leq 1,-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq
+    1$ '
+visu_planes_max:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu2D): Upper bound in $\rho,\vartheta,\zeta$ directions for
+    poloidal planes visualization. '
+  type: array of `real` of size 3
+  default: '`=visu_max(1:3)`'
+  allowed: '$0 \leq \rho\leq 1,-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq
+    1$ '
+np_visu_3D:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu3D): Number of visualization points $n_\rho,n_\vartheta,n_\zeta$.
+    $n_\rho$, is per B-Spline element. In $\vartheta$, the number is multiplied with
+    $n_\rho$.'
+  type: array of `integer` of size 3
+  default: '`(/5,12,10/)`'
+visu_3D_min:
+  category:
+  - visualization
+  description:
+  - 'For lnk_to_param(visu3D): Lower bound in $\rho,\vartheta,\zeta$ directions for
+    3D volume visualization. '
+  type: array of `real` of size 3
+  default: '`=visu_min(1:3)`'
+  allowed: '$0 \leq \rho\leq 1,-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq
+    1$ '
+visu_3D_max:
+  category:
+  - visualization
+  description:
+  - "For lnk_to_param(visu3D): Upper bound in $\rho,\vartheta,\\zeta$ directions for\
+    \ 3D volume visualization. "
+  type: array of `real` of size 3
+  default: '`=visu_max(1:3)`'
+  allowed: '$0 \leq \rho\leq 1,-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq
+    1$ '

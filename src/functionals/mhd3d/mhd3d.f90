@@ -92,14 +92,9 @@ SUBROUTINE InitMHD3D(sf)
   
   !-----------MINIMIZER
   MinimizerType= GETINT("MinimizerType",Proposal=0)
-  PrecondType  = GETINT("PrecondType",Proposal=-1)
+  PrecondType  = GETINT("PrecondType",Proposal=1)
 
-  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
-  IF(MinimizerType.EQ.10)THEN !for hirshman method
-    doLineSearch=.FALSE.  !does not work
-  ELSE
-    doLineSearch=GETLOGICAL("doLineSearch",Proposal=.FALSE.) ! does not improve convergence
-  END IF
+  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10_wp) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=maxIter)
   logIter   = GETINT("logIter",Proposal=maxIter)
@@ -130,8 +125,8 @@ SUBROUTINE InitMHD3D(sf)
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
     IF(MPIroot)THEN
-      CALL InitProfile(sf,"iota")
-      CALL InitProfile(sf,"pres")
+      CALL InitProfile(sf,"iota",iota_profile)
+      CALL InitProfile(sf,"pres",pres_profile)
     END IF
     
   CASE(1) !VMEC init
@@ -146,13 +141,13 @@ SUBROUTINE InitMHD3D(sf)
     IF(MPIroot)THEN   
       init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)   
       IF(init_with_profile_iota)THEN
-        CALL InitProfile(sf,"iota")
+        CALL InitProfile(sf,"iota",iota_profile)
       ELSE 
         iota_profile=vmec_iota_profile
       END IF ! iota from parameterfile
       init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
       IF(init_with_profile_pressure)THEN
-        CALL InitProfile(sf,"pres")
+        CALL InitProfile(sf,"pres",pres_profile)
       ELSE 
         pres_profile=vmec_pres_profile
       END IF ! pressure from parameterfile
@@ -168,14 +163,7 @@ SUBROUTINE InitMHD3D(sf)
       Phi_edge = Phi(nFluxVMEC)
     END IF !MPIroot
     CALL par_BCast(which_hmap,0)
-    CALL par_BCast(Phi_edge,0)
   END SELECT !which_init
-  IF(MPIroot)THEN
-    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
-    !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
-    chi_profile=iota_profile%antiderivative()
-    chi_profile%coefs=chi_profile%coefs*Phi_edge 
-  END IF
 
   IF(MPIroot)THEN
     Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
@@ -250,7 +238,7 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
 
-  nElems   = GETINT("sgrid_nElems",Proposal=10)
+  nElems   = GETINT("sgrid_nElems")
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
   degGP    = GETINT("degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
@@ -468,9 +456,8 @@ SUBROUTINE InitMHD3D(sf)
   
 END SUBROUTINE InitMHD3D
 
-SUBROUTINE InitProfile(sf, var)
+SUBROUTINE InitProfile(sf, var,var_profile)
   ! MODULES
-  USE MODgvec_MHD3D_Vars, ONLY: pres_profile, iota_profile
   USE MODgvec_ReadInTools    , ONLY: GETSTR,GETLOGICAL,GETINT,GETINTARRAY,GETREAL,GETREALALLOCARRAY, GETREALARRAY
   USE MODgvec_rProfile_bspl  , ONLY: t_rProfile_bspl
   USE MODgvec_rProfile_poly  , ONLY: t_rProfile_poly
@@ -483,9 +470,9 @@ SUBROUTINE InitProfile(sf, var)
   CHARACTER(LEN=4), INTENT(IN) :: var
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+  CLASS(c_rProfile), ALLOCATABLE   :: var_profile
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  CLASS(c_rProfile), ALLOCATABLE   :: profile_profile
   INTEGER              :: n_profile_knots
   REAL(wp),ALLOCATABLE :: profile_knots(:)
   INTEGER              :: n_profile_coefs    !! number of polynomial/bspline coeffients for profile profile
@@ -505,24 +492,17 @@ SUBROUTINE InitProfile(sf, var)
   possible_BCs(1)="1st_deriv"
   possible_BCs(2)="2nd_deriv"
   
-  IF (var.EQ."pres") THEN
-    profile_scale=GETREAL("pres_scale",Proposal=1.0_wp)
-  ELSE IF (var.EQ."iota") THEN
-    profile_scale=REAL(GETINT("sign_iota",Proposal=-1))
-  ELSE
-    CALL abort(__STAMP__,&
-    "Tried to initialize unknown profile type!")
-  END IF
-  profile_type  = GETSTR(var//"_type", Proposal="polynomial")
+  profile_scale=GETREAL(var//"_scale",Proposal=1.0_wp)
+  profile_type  = GETSTR(var//"_type") !make it mandatory
   IF (profile_type.EQ."polynomial") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) !a+b*s+c*s^2...
     profile_coefs=profile_coefs*profile_scale
-    profile_profile = t_rProfile_poly(profile_coefs)
+    var_profile = t_rProfile_poly(profile_coefs)
   ELSE IF (profile_type.EQ."bspline") THEN
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) 
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
-    profile_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
+    var_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
@@ -554,18 +534,14 @@ SUBROUTINE InitProfile(sf, var)
     END IF
 
     profile_coefs=profile_coefs*profile_scale
-    profile_profile = t_rProfile_bspl(profile_knots,profile_coefs)
+    var_profile = t_rProfile_bspl(profile_knots,profile_coefs)
     SDEALLOCATE(profile_vals)
     SDEALLOCATE(profile_rho2)
   ELSE
     CALL abort(__STAMP__,&
     'Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation".')
   END IF ! profile type
-  IF (var.EQ."pres") THEN
-    pres_profile = profile_profile
-  ELSE
-    iota_profile = profile_profile
-  END IF
+
   SDEALLOCATE(profile_knots)
   SDEALLOCATE(profile_coefs)
 END SUBROUTINE InitProfile
@@ -604,7 +580,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
       CALL InitSolution(U(0),which_init)
     END IF
     IF(boundary_perturb)THEN
-      CALL AddBoundaryPerturbation(U(0),0.3)
+      CALL AddBoundaryPerturbation(U(0),0.3_wp)
     END IF !boundary_perturb
   END IF !MPIroot
   CALL par_Bcast(U(0)%X1,0)
@@ -702,7 +678,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                        "InitSolution should only be called by MPIroot!")
-  X1_gIP=0.; X2_gIP=0.; LA_gIP=0.
+  X1_gIP=0.0_wp; X2_gIP=0.0_wp; LA_gIP=0.0_wp
 
   SELECT CASE(which_init_in)
   CASE(-1) !restart
@@ -974,7 +950,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   !evaluate profiles only in MPIroot!
   IF(MPIroot)THEN
     DO is=1,nBase
-      rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+      rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4_wp,s_IP(is))) !exclude axis
       phiPrime(is)=Phi_profile%eval_at_rho(rhopos,deriv=1)
       chiPrime(is)=chi_profile%eval_at_rho(rhopos,deriv=1)
     END DO
@@ -987,7 +963,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
   DO is=ns_str,ns_end
-    rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4,s_IP(is))) !exclude axis
+    rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4_wp,s_IP(is))) !exclude axis
     CALL lambda_Solve(rhopos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
     CALL ProgressBar(is,ns_end)
   END DO !is
@@ -1116,7 +1092,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
     !blend= 2. -2./(EXP(8.*(s_in-1.)/h) +1)
     !blend= EXP(-4.*((s_in-1.)/h)**2)
     !blend= s_in 
-    blend= EXP(-4.*((s_in-1.)/0.6)**2)
+    blend= EXP(-4.0_wp*((s_in-1.0_wp)/0.6_wp)**2)
   END FUNCTION blend
 
 END SUBROUTINE AddBoundaryPerturbation
@@ -1186,7 +1162,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   t_pseudo=0
   lastOutputIter=0
   iter=0
-  Vnorm=0.
+  Vnorm=0.0_wp
   logiter_ramp=1
   logscreen=1
 
@@ -1204,7 +1180,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       CALL EvalForce(         U(0),.FALSE.,JacCheck,F(0))
       Fnorm0=SQRT(F(0)%norm_2())
       Fnorm=Fnorm0
-      Fnorm_old=1.1*Fnorm0
+      Fnorm_old=1.1_wp*Fnorm0
       CALL U(-1)%set_to(U(0)) !last state
       CALL U(-2)%set_to(U(0)) !state at last logging interval
       !for hirshman method
@@ -1236,7 +1212,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       !tau is damping parameter
       tau(1:ndamp-1) = tau(2:ndamp) !save old
       tau(ndamp)  = MIN(0.15_wp,ABS(LOG(SUM(Fnorm**2)/SUM(Fnorm_old**2))))/dt  !ln(|F_n|^2/|F_{n-1}|^2), Fnorm=|F_X1|,|F_X2|,|F_LA|
-      tau_bar = 0.5*dt*SUM(tau)/REAL(ndamp,wp)   !=1/2 * tauavg
+      tau_bar = 0.5_wp*dt*SUM(tau)/REAL(ndamp,wp)   !=1/2 * tauavg
       CALL V(1)%AXBY(((1.0_wp-tau_bar)/(1.0_wp+tau_bar)),V(0),(dt/(1.0_wp+tau_bar)),F(0)) !velocity V(1)
       CALL P(1)%AXBY(1.0_wp,U(0),dt,V(1)) !overwrites P(1), predicst solution U(1)
       Vnorm=SQRT(V(1)%norm_2())
@@ -1256,24 +1232,6 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       !detJ>0
       deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
       IF(deltaW.LE.dW_allowed*W_MHD3D_0)THEN !valid step /hirshman method accept W increase!
-        IF(doLineSearch)THEN
-          ! LINE SEARCH ... SEEMS THAT IT NEVER REALLY REDUCES THE STEP SIZE... NOT NEEDED?
-          CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
-          JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
-          U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
-          IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-            CALL P(1)%set_to(U(1)) !accept smaller step
-            CALL U(1)%AXBY(0.5_wp,P(1),0.5_wp,U(0)) !overwrites U(1) 
-            JacCheck=2 !no abort,if detJ<0, JacCheck=-1, if detJ>0 Jaccheck=1
-            U(1)%W_MHD3D=EvalEnergy(U(1),.TRUE.,JacCheck) 
-            IF((U(1)%W_MHD3D.LT.U(0)%W_MHD3D).AND.(U(1)%W_MHD3D.LT.P(1)%W_MHD3D).AND.(JacCheck.EQ.1))THEN
-              !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/4 step!'
-              CALL P(1)%set_to(U(1)) !accept smaller step
-            ELSE
-              !SWRITE(UNIT_stdOut,'(8X,I8,A)')iter,' linesearch: 1/2 step!'
-            END IF
-          END IF
-        END IF !dolinesearch
 
         IF(ALL(Fnorm.LE.abstol))THEN
           CALL Logging(.FALSE.)

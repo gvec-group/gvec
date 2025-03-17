@@ -214,6 +214,10 @@ Once GVEC and its python bindings are properly installed, please continue with [
 * `undefined reference to EVP_KDF_CTX` when trying to import pyGVEC and using `conda`
   * `/lib64/libk5crypto.so.3: undefined reference to EVP_KDF_CTX_new_id@OPENSSL_1_1_1b`
   * this can be caused by the `conda` environment conflicting with system libraries. You can try: `export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"`
+* on Fedora linux, it seems that the gfortran compiler needs an additional flag, in `CMakeList.txt`:
+  ```
+   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -I/usr/lib64/gfortran/modules")
+  ```
 
 ## Install GVEC with `cmake`
 

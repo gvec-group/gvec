@@ -92,7 +92,7 @@ def c_poly():
 @pytest.fixture(scope="module", params=["poly", "bspl"])
 def testfile_aux(request, testcaserundir, c_poly):
     """prepare the testcase parameters"""
-    params_gvec = {"sign_iota": 1, "pres_scale": 1}
+    params_gvec = {"iota_scale": 1, "pres_scale": 1}
     deg = len(c_poly) - 1
     if request.param == "poly":
         paramfile = "parameter_poly.ini"
@@ -211,7 +211,7 @@ def test_eval_rho2_profile_iota_vs_phi_and_chi(teststate, c_poly):
 @pytest.mark.parametrize("n_points", [4, 5, 6, 11])
 def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge, n_points):
     pres_scale = 1500
-    params_gvec = {"sign_iota": 1, "pres_scale": pres_scale}
+    params_gvec = {"iota_scale": 1, "pres_scale": pres_scale}
     cubic_poly_c = c_poly[:4]
     paramfile = "parameter_interpolation.ini"
 
@@ -314,7 +314,7 @@ def test_vmec_with_custom_profile(testcaserundir, vmecfiles, c_poly, profile_typ
         var = "iota"
         scale = -1
         params["init_with_profile_iota"] = "T"
-        params["iota_sign"] = scale
+        params["iota_scale"] = scale
 
     params[f"{profile_type}_coefs"] = gvec.util.np2gvec(c_poly)
     params[f"{profile_type}_type"] = "polynomial"
