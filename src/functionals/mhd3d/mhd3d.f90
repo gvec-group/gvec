@@ -1298,8 +1298,8 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
       END IF
     END IF !JacCheck
    
-    IF(nStepDecreased.GT.20) THEN ! 2^20 ~10^6
-      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 2^20: ', dt 
+    IF(nStepDecreased.GT.130) THEN ! 0.9^130 ~10^-6
+      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 0.9^130: ', dt 
       SWRITE(UNIT_stdOut,fmt_sep)
       RETURN
     END IF
