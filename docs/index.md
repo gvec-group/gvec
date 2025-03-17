@@ -31,6 +31,12 @@ Installable with `pip`. Python bindings for running, postprocessing and integrat
 :::
 ::::
 
+```{figure} static/frenet_n2-12_bfield.png
+:width: 70 %
+:align: center
+
+The magnetic field of a two-fieldperiod QI-stellarator configuration (configuration taken from [[HPM25]](https://doi.org/10.1088/1361-6587/adba11)).
+```
 
 ## User Guide
 
