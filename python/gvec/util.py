@@ -5,14 +5,15 @@
 This module is part of the gvec python package, but also used directly in the tests.
 """
 
+import contextlib
 import os
-from pathlib import Path
 import re
 import shutil
-import contextlib
-from numpy.typing import ArrayLike
-from typing import Literal, Iterable
 from collections.abc import Mapping, MutableMapping
+from pathlib import Path
+from typing import Iterable, Literal
+
+from numpy.typing import ArrayLike
 
 try:
     from scipy.interpolate import BSpline

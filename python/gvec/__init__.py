@@ -13,4 +13,4 @@ from .run import run
 
 # submodules
 
-from . import comp, fourier, quantities, state, surface, util
+from . import comp, fourier, quantities, scripts, state, surface, util

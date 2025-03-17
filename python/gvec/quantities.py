@@ -798,6 +798,12 @@ def iota_curr_0(ds: xr.Dataset):
 )
 def iota_curr(ds: xr.Dataset):
     ds["iota_curr"] = ds.I_tor * ds.iota_curr_0
+    # = 2 * np.pi * ds.mu0 * ds.dI_tor_dr / (ds.dPhi_drr * Gamma_t + ds.dPhi_dr * dGamma_t_dr)
+    # = 2 * np.pi * ds.mu0 * ds.dI_tor_drr / (ds.dPhi_drr * dGamma_t_dr + ds.dPhi_dr * dGamma_t_drr)
+    # = 2 * np.pi * ds.mu0 * ds.dI_tor_drr / (ds.dPhi_drr * dGamma_t_dr)
+
+    # Gamma_t_dr = fluxsurface_integral(ds.dg_tt_dr / ds.Jac - ds.g_tt / ds.Jac**2 * ds.dJac_dr)
+    # = ds.dg_tt_drr / ds.dJac_dr - ds.dg_tt_dr / (2 * ds.Jac * ds.dJac_dr) * ds.dJac_dr
 
 
 @register(
