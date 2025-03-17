@@ -987,6 +987,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   CHARACTER(LEN=255)         :: coord_attr(3,2)
   CHARACTER(LEN=255)         :: sfl_char
   CHARACTER(LEN=10)          :: sfltype
+  CHARACTER(LEN=2)           :: angle_suffix
   CHARACTER(LEN=255)         :: filename
   INTEGER                    :: k,sflouts(2),whichSFLout
   REAL(wp)                   :: rho_pos(SFLout_nrp),iota_prof(SFLout_nrp),PhiPrime_prof(SFLout_nrp)
@@ -1006,10 +1007,13 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     SELECT CASE(whichSFLout)
     CASE(0) !GVEC angles(not a SFL coordinate)
       sfltype="_noSFL"
+      angle_suffix="_0"
     CASE(1) !Pest
       sfltype="_pest"
+      angle_suffix="_P"
     CASE(2) !Boozer
       sfltype="_boozer"
+      angle_suffix="_B"
     END SELECT
     WRITE(filename,'(A,"_",I4.4,"_",I8.8,"")') & 
     TRIM(Projectname)//TRIM(sfltype),outputLevel,fileID
@@ -1026,13 +1030,13 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     VP_zeta       =iVal;iVal=iVal+1; VarNames(VP_zeta     )="zeta"
     VP_nu         =iVal;iVal=iVal+1; VarNames(VP_nu       )="nu"
     VP_lambda     =iVal;iVal=iVal+1; VarNames(VP_lambda   )="lambda"
-    VP_SQRTG      =iVal;iVal=iVal+1; VarNames(VP_SQRTG    )="sqrtG"
-    VP_SQRTGstar  =iVal;iVal=iVal+1; VarNames(VP_SQRTGstar)="sqrtGstar"
+    VP_SQRTG      =iVal;iVal=iVal+1; VarNames(VP_SQRTG    )="Jac"
+    VP_SQRTGstar  =iVal;iVal=iVal+1; VarNames(VP_SQRTGstar)="Jac"//angle_suffix
     VP_modB       =iVal;iVal=iVal+1; VarNames(VP_modB     )="modB"
     VP_B          =iVal;iVal=iVal+3; VarNames(VP_B:VP_B+2 )=(/"BX","BY","BZ"/)
     VP_gradrho    =iVal;iVal=iVal+3; VarNames(VP_gradrho:VP_gradrho+2)=(/"grad_rhoX","grad_rhoY","grad_rhoZ"/)
-    VP_etstar     =iVal;iVal=iVal+3; VarNames(VP_etstar:VP_etstar+2)=(/"e_thetastarX","e_thetastarY","e_thetastarZ"/)
-    VP_ezstar     =iVal;iVal=iVal+3; VarNames(VP_ezstar:VP_ezstar+2)=(/"e_zetastarX","e_zetastarY","e_zetastarZ"/)
+    VP_etstar     =iVal;iVal=iVal+3; VarNames(VP_etstar:VP_etstar+2)=(/"e_theta"//angle_suffix//"X","e_theta "//angle_suffix//"Y","e_theta "//angle_suffix//"Z"/)
+    VP_ezstar     =iVal;iVal=iVal+3; VarNames(VP_ezstar:VP_ezstar+2)=(/"e_zeta "//angle_suffix//"X","e_zeta "//angle_suffix//"Y","e_zeta "//angle_suffix//"Z"/)
     VP_X1         =iVal;iVal=iVal+1; VarNames(VP_X1       )="X1"
     VP_X2         =iVal;iVal=iVal+1; VarNames(VP_X2       )="X2"
   
@@ -1052,7 +1056,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   
     var_visu_attr(VP_iota,1)   = "rotational transform";                              var_visu_attr(VP_IOTA,2)   = "\iota"
   
-    var_visu_attr(VP_SQRTG,1)  = "Jacobian determinant";                              var_visu_attr(VP_SQRTG,2)  = "\sqrt{g}"
+    var_visu_attr(VP_SQRTG,1)  = "Jacobian determinant";                              var_visu_attr(VP_SQRTG,2)  = "\\mathcal{J}"
   
     
     var_visu_attr(VP_X1,1)     = "first reference coordinate";                        var_visu_attr(VP_X1,2)     = "X^1"
@@ -1065,16 +1069,16 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     var_visu_attr(VP_nu,1)     = TRIM(sfl_char)//" stream function";                  var_visu_attr(VP_nu,2)        = "\\nu"
     var_visu_attr(VP_modB,1) = "modulus of the magnetic field";                       var_visu_attr(VP_modB,2)      = "|\mathbf{B}|"
     var_visu_attr(VP_lambda,1) = TRIM(sfl_char)//" potential";                        var_visu_attr(VP_lambda,2)    = "\lambda"
-    var_visu_attr(VP_SQRTGstar,1) = TRIM(sfl_char)//" Jacobian determinant";          var_visu_attr(VP_SQRTGstar,2) = "\sqrt{G*}"
+    var_visu_attr(VP_SQRTGstar,1) = TRIM(sfl_char)//" Jacobian determinant";          var_visu_attr(VP_SQRTGstar,2) = "\\mathcal{J}"//angle_suffix
 
     var_visu_attr(VP_zetastar,1)  = TRIM(sfl_char)//" toroidal angle on the rad-pol-tor grid"
-    var_visu_attr(VP_zetastar,2)  = "\\zeta*"
+    var_visu_attr(VP_zetastar,2)  = "\\zeta"//angle_suffix
 
     var_visu_attr(VP_thetastar,1) = TRIM(sfl_char)//" poloidal angle on the rad-pol-tor grid"
-    var_visu_attr(VP_thetastar,2) = "\\theta*"
+    var_visu_attr(VP_thetastar,2) = "\\theta"//angle_suffix
 
-    coord_attr(1,1) = TRIM(sfl_char)//" poloidal angle"; coord_attr(1,2) = "\\theta*"
-    coord_attr(2,1) = TRIM(sfl_char)//" toroidal angle"; coord_attr(2,2) = "\zeta*"
+    coord_attr(1,1) = TRIM(sfl_char)//" poloidal angle"; coord_attr(1,2) = "\\theta"//angle_suffix
+    coord_attr(2,1) = TRIM(sfl_char)//" toroidal angle"; coord_attr(2,2) = "\zeta"//angle_suffix
     coord_attr(3,1) = "Logical radial coordinate";       coord_attr(3,2) = "\\rho"
 
     factorSFL=4
@@ -1298,7 +1302,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
                              var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:SFLout_nrp), TRIM(filename), &
                              attr_values=var_visu_attr, &
                              coord1=tz_star_pos(1,:,1), coord2=tz_star_pos(2,1,:), coord3=rho_pos, &
-                             CoordNames=(/"thetastar", "zetastar ", "rho      "/), attr_coords=coord_attr)
+                             CoordNames=(/"theta"//angle_suffix, "zeta"//angle_suffix//" ", "rho        "/), attr_coords=coord_attr)
     END IF!outfileType
     DEALLOCATE(coord_out,var_out,tz_star_pos)
     WRITE(UNIT_stdOut,'(A)') '... DONE.'
