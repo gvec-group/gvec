@@ -554,23 +554,6 @@ def write_parameters(
         raise ValueError(f"Unknown parameter file format {format}")
 
 
-def np2gvec(a: ArrayLike) -> str:
-    """Transforms a numpy array into a string that can be used in the gvec parameter file.
-
-    Args:
-        a (ArrayLike): input array
-
-    Returns:
-        str: string that translates into a gvec parameterfile array
-    """
-    import numpy as np
-
-    a = np.array(a)
-    a_str = np.array2string(a, separator=",", threshold=1e3, max_line_width=64)
-    a_str = a_str.replace("[", "(/").replace("]", "/)").replace(",\n", " &\n,")
-    return a_str
-
-
 def bspl2gvec(
     name: Literal["iota", "pres"],
     bspl: BSpline = None,
@@ -607,11 +590,11 @@ def bspl2gvec(
         )
 
     if bspl is not None:
-        params[f"{name}_coefs"] = np2gvec(bspl.c)
-        params[f"{name}_knots"] = np2gvec(bspl.t)
+        params[f"{name}_coefs"] = bspl.c
+        params[f"{name}_knots"] = bspl.t
     else:
-        params[f"{name}_coefs"] = np2gvec(coefs)
-        params[f"{name}_knots"] = np2gvec(knots)
+        params[f"{name}_coefs"] = coefs
+        params[f"{name}_knots"] = knots
     params[f"{name}_type"] = "bspline"
 
     return params
