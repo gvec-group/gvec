@@ -11,7 +11,7 @@ import shutil
 import logging
 import argparse
 import re
-from typing import Mapping
+from typing import Mapping, Sequence
 from datetime import datetime
 import copy
 
@@ -83,9 +83,12 @@ cas3d_parser = subparsers.add_parser(
 # === Script === #
 
 
-def main():
+def main(args: Sequence[str] | argparse.Namespace | None = None):
     logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
-    args = parser.parse_args()
+    if isinstance(args, argparse.Namespace):
+        pass
+    else:
+        args = parser.parse_args(args)
 
     # --- run GVEC --- #
     if args.mode == "run":

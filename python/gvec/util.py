@@ -460,7 +460,7 @@ def stack_parameters(parameters: Mapping) -> CaseInsensitiveDict:
 
 def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Flatten parameters from a hierarchical dictionary"""
-    output = CaseInsensitiveDict
+    output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if isinstance(value, dict) and not re.match(
             r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key
@@ -476,7 +476,7 @@ def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
 
 def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Serialize parameters into a string"""
-    output = CaseInsensitiveDict
+    output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
             output[key] = {}
@@ -489,7 +489,7 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
 
 def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Deserialize parameters from a string"""
-    output = CaseInsensitiveDict
+    output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
             output[key] = {}

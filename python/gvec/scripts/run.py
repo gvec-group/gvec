@@ -10,7 +10,7 @@ import re
 import shutil
 import time
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 
 import numpy as np
 import xarray as xr
@@ -307,9 +307,11 @@ def run_stages(
     return rundir, statefile, diagnostics
 
 
-def main(args=None):
-    if args is None:
-        args = parser.parse_args()
+def main(args: Sequence[str] | argparse.Namespace | None = None):
+    if isinstance(args, argparse.Namespace):
+        pass
+    else:
+        args = parser.parse_args(args)
     if args.param_type is None:
         args.param_type = args.parameterfile.suffix[1:]
 

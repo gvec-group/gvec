@@ -6,6 +6,8 @@ Only very simple tests for now.
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import re
 
 import pytest
 
@@ -34,21 +36,38 @@ def prepare_testcaserundir(tmp_path):
 # === TESTS === #
 
 
-@pytest.mark.parametrize("suffix", ["ini", "yaml", "toml"])
-def test_zero_current_cmd(suffix):
+def test_version():
     """
-    Test the zero_current script via command line
+    Test the version of the main script
     """
-    from subprocess import run
-
-    proc = run(
-        [
-            "pygvec",
-            "run",
-            f"parameter.{suffix}",
-        ],
-    )
+    proc = subprocess.run(["pygvec", "-V"], capture_output=True)
+    m = re.match(r"pyGVEC v(\S+)", proc.stdout.decode())
+    assert m is not None
+    assert m.group(1) == gvec.__version__
     assert proc.returncode == 0
+
+
+@pytest.mark.parametrize("mode", ["", "run", "to-cas3d", "convert-params"])
+def test_help(mode):
+    """
+    Test the help message of the main script
+    """
+    if mode == "":
+        args = ["pygvec", "-h"]
+    else:
+        args = ["pygvec", mode, "-h"]
+
+    proc = subprocess.run(args, capture_output=True)
+    assert proc.returncode == 0
+
+
+@pytest.mark.parametrize("suffix", ["ini", "yaml", "toml"])
+def test_run_stages(suffix):
+    """
+    Test the run_stages function
+    """
+    args = [f"parameter.{suffix}"]
+    gvec.scripts.run.main(args)
 
     if suffix == "ini":
         assert Path("W7X_State_0000_00000100.dat").exists()

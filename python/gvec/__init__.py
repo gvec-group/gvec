@@ -8,7 +8,7 @@ from ._version import __version__, __version_tuple__
 # primary classes and functions
 
 from .state import State
-from .comp import compute, Evaluations, EvaluationsBoozer
+from .comp import compute, Evaluations, EvaluationsBoozer, EvaluationsBoozerCustom
 from .run import run
 
 # submodules
