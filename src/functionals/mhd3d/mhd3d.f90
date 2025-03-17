@@ -672,7 +672,6 @@ SUBROUTINE InitAverageAxis()
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_a,X1_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_a,X2_b
   USE MODgvec_MHD3D_Vars   , ONLY:average_axis_move
-  USE MODgvec_ReadInTools  , ONLY: GETLOGICAL,GETREAL
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT Variables
@@ -735,7 +734,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,i_m,i_n
+  INTEGER  :: iMode,i_m
   REAL(wp) :: BC_val(2)
   REAL(wp) :: rhopos
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase,1:X1_base%f%modes)
