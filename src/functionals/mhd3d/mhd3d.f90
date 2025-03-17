@@ -92,7 +92,7 @@ SUBROUTINE InitMHD3D(sf)
   
   !-----------MINIMIZER
   MinimizerType= GETINT("MinimizerType",Proposal=0)
-  PrecondType  = GETINT("PrecondType",Proposal=-1)
+  PrecondType  = GETINT("PrecondType",Proposal=1)
 
   dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10_wp) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
   maxIter   = GETINT("maxIter",Proposal=5000)
@@ -238,7 +238,7 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
 
-  nElems   = GETINT("sgrid_nElems",Proposal=10)
+  nElems   = GETINT("sgrid_nElems")
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
   degGP    = GETINT("degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 

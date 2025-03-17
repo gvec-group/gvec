@@ -79,7 +79,7 @@ END SUBROUTINE dummy_sub_hmap_init_aux
 !===================================================================================================================================
 SUBROUTINE hmap_knot_init( sf )
 ! MODULES
-USE MODgvec_ReadInTools, ONLY: GETINT, GETREAL
+USE MODgvec_ReadInTools, ONLY: GETINTARRAY, GETREAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -88,16 +88,14 @@ IMPLICIT NONE
   CLASS(t_hmap_knot), INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                           :: knot_k, knot_l         !parameters of the (k,l)-torus
+  INTEGER                           :: knot_kl(1:2)         !parameters of the (k,l)-torus
   REAL(wp)                          :: knot_R0, knot_delta    !major radius and shift
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ON A (k,l)-TORUS ...'
 
-  knot_k=GETINT("hmap_knot_k",2)
-  sf%k=REAL(knot_k, wp)
-
-  knot_l=GETINT("hmap_knot_l",3)
-  sf%l=REAL(knot_l, wp)
+  knot_kl=GETINTARRAY("hmap_knot_kl",2,proposal=(/2,3/))
+  sf%k=REAL(knot_kl(1), wp)
+  sf%l=REAL(knot_kl(2), wp)
 
   knot_R0=GETREAL("hmap_knot_major_radius",1.0_wp)
   sf%R0=knot_R0

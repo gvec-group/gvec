@@ -5,8 +5,9 @@
 
 install
 getting-started
-gvec-parameter-list
 python
+gvec-parameter-list
+theory
 coordinate-conventions
 gvec_to_cas3d
 ```
