@@ -262,7 +262,7 @@ IMPLICIT NONE
   VP_DP_DR  =iVal;iVal=iVal+1; VarNames(VP_DP_DR )="dp_dr"
   VP_Mscale =iVal;iVal=iVal+1; VarNames(VP_Mscale)="Mscale"
   VP_LAMBDA =iVal;iVal=iVal+1; VarNames(VP_LAMBDA)="LA"
-  VP_SQRTG  =iVal;iVal=iVal+1; VarNames(VP_SQRTG )="sqrtG"
+  VP_SQRTG  =iVal;iVal=iVal+1; VarNames(VP_SQRTG )="Jac"
   VP_g_tt   =iVal;iVal=iVal+1; VarNames(VP_g_tt  )="g_tt"
   VP_g_tz   =iVal;iVal=iVal+1; VarNames(VP_g_tz  )="g_tz"
   VP_g_zz   =iVal;iVal=iVal+1; VarNames(VP_g_zz  )="g_zz"
@@ -318,7 +318,7 @@ IMPLICIT NONE
   var_visu_attr(VP_IOTA,1)   = "rotational transform";                              var_visu_attr(VP_IOTA,2)   = "\iota"
   var_visu_attr(VP_PHI,1)    = "toroidal flux";                                     var_visu_attr(VP_PHI,2)    = "\phi"
 
-  var_visu_attr(VP_SQRTG,1)  = "Jacobian determinant";                              var_visu_attr(VP_SQRTG,2)  = "\sqrt{g}"
+  var_visu_attr(VP_SQRTG,1)  = "Jacobian determinant";                              var_visu_attr(VP_SQRTG,2)  = "\\mathcal{J}"
 
   var_visu_attr(VP_LAMBDA,1) = "straight field line potential";                     var_visu_attr(VP_LAMBDA,2) = "\lambda"
   var_visu_attr(VP_X1,1)     = "first reference coordinate";                        var_visu_attr(VP_X1,2)     = "X^1"
@@ -825,13 +825,11 @@ IMPLICIT NONE
       END DO
 
       coord3 = var_visu(VP_zeta,1,1,:,1,1)
-      VarNames(VP_rho)   = "rho_grid"
-      VarNames(VP_zeta)  = "zeta_grid"
-      VarNames(VP_theta) = "theta_grid"
       
-      CALL WriteDataToNETCDF(3,3,nVal,(/tmp_nrho,tmp_ntheta,mn_IP(2)/),&
-                          (/"rad","pol","tor"/),VarNames, &
-                          tmpcoord,tmpvar, TRIM(filename),attr_values=var_visu_attr, &
+      ! do not write rho, theta, zeta => nVal-3, VarNames(4:) etc.
+      CALL WriteDataToNETCDF(3,3,nVal-3,(/tmp_nrho,tmp_ntheta,mn_IP(2)/),&
+                          (/"rad","pol","tor"/),VarNames(4:), &
+                          tmpcoord,tmpvar(4:,:,:,:), TRIM(filename),attr_values=var_visu_attr(4:,:), &
                           coord1=coord1, coord2=coord2, coord3=coord3,CoordNames=(/"rho  ", "theta", "zeta "/), attr_coords=coord_attr)
       DEALLOCATE(tmpcoord,tmpvar, coord1, coord2, coord3)
     END IF !outfileType
@@ -967,7 +965,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   ! LOCAL VARIABLES
   TYPE(t_sfl_boozer),ALLOCATABLE :: sfl_booz
   REAL(wp),ALLOCATABLE       :: coord_out(:,:,:,:),var_out(:,:,:,:),tz_pos(:,:,:,:),tz_star_pos(:,:,:)
-  INTEGER                    :: i_rp,izeta,ithet,nthet_out,nzeta_out,i
+  INTEGER                    :: i_rp,izeta,ithet,nthet_out,nzeta_out,i,j
   INTEGER                    :: mn_max(2),factorSFL,iVal,nfp
   REAL(wp)                   :: xp(2),sqrtG
   REAL(wp)                   :: dX1ds,dX2ds
@@ -991,7 +989,9 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   CHARACTER(LEN=255)         :: filename
   INTEGER                    :: k,sflouts(2),whichSFLout
   REAL(wp)                   :: rho_pos(SFLout_nrp),iota_prof(SFLout_nrp),PhiPrime_prof(SFLout_nrp)
-  REAL(wp),ALLOCATABLE        :: LA_s(:,:)
+  INTEGER, ALLOCATABLE       :: netcdf_var_out_idx(:)
+  INTEGER                    :: nVal_out
+  REAL(wp),ALLOCATABLE       :: LA_s(:,:)
   !=================================================================================================================================
   IF(.NOT. MPIroot) RETURN
   IF(SFLout.EQ.12) THEN
@@ -1024,8 +1024,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     VP_iota       =iVal;iVal=iVal+1; VarNames(VP_iota     )="iota"
     VP_Itor       =iVal;iVal=iVal+1; VarNames(VP_Itor     )="Itor"
     VP_Ipol       =iVal;iVal=iVal+1; VarNames(VP_Ipol     )="Ipol"
-    VP_thetastar  =iVal;iVal=iVal+1; VarNames(VP_thetastar)="thetastar"
-    VP_zetastar   =iVal;iVal=iVal+1; VarNames(VP_zetastar )="zetastar"
+    VP_thetastar  =iVal;iVal=iVal+1; VarNames(VP_thetastar)="theta"//angle_suffix
+    VP_zetastar   =iVal;iVal=iVal+1; VarNames(VP_zetastar )="zeta"//angle_suffix
     VP_theta      =iVal;iVal=iVal+1; VarNames(VP_theta    )="theta"
     VP_zeta       =iVal;iVal=iVal+1; VarNames(VP_zeta     )="zeta"
     VP_nu         =iVal;iVal=iVal+1; VarNames(VP_nu       )="nu"
@@ -1035,8 +1035,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     VP_modB       =iVal;iVal=iVal+1; VarNames(VP_modB     )="modB"
     VP_B          =iVal;iVal=iVal+3; VarNames(VP_B:VP_B+2 )=(/"BX","BY","BZ"/)
     VP_gradrho    =iVal;iVal=iVal+3; VarNames(VP_gradrho:VP_gradrho+2)=(/"grad_rhoX","grad_rhoY","grad_rhoZ"/)
-    VP_etstar     =iVal;iVal=iVal+3; VarNames(VP_etstar:VP_etstar+2)=(/"e_theta"//angle_suffix//"X","e_theta "//angle_suffix//"Y","e_theta "//angle_suffix//"Z"/)
-    VP_ezstar     =iVal;iVal=iVal+3; VarNames(VP_ezstar:VP_ezstar+2)=(/"e_zeta "//angle_suffix//"X","e_zeta "//angle_suffix//"Y","e_zeta "//angle_suffix//"Z"/)
+    VP_etstar     =iVal;iVal=iVal+3; VarNames(VP_etstar:VP_etstar+2)=(/"e_theta"//angle_suffix//"X","e_theta"//angle_suffix//"Y","e_theta"//angle_suffix//"Z"/)
+    VP_ezstar     =iVal;iVal=iVal+3; VarNames(VP_ezstar:VP_ezstar+2)=(/"e_zeta"//angle_suffix//"X","e_zeta"//angle_suffix//"Y","e_zeta"//angle_suffix//"Z"/)
     VP_X1         =iVal;iVal=iVal+1; VarNames(VP_X1       )="X1"
     VP_X2         =iVal;iVal=iVal+1; VarNames(VP_X2       )="X2"
   
@@ -1289,20 +1289,42 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
                         var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:SFLout_nrp),TRIM(filename)//".vtu")
     END IF
     IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
-      
-      VarNames(VP_rho)   = "rho_grid"
+
       VarNames(VP_zeta)  = "zeta_grid"
       VarNames(VP_theta) = "theta_grid"
-      VarNames(VP_thetastar)="thetastar_grid"
-      VarNames(VP_zetastar )="zetastar_grid"
-
-      CALL WriteDataToNETCDF(3,3,nVal,(/Nthet_out,Nzeta_out,SFLout_nrp/),&
-                             (/"pol","tor","rad"/),VarNames, &
-                             coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:SFLout_nrp), &
-                             var_out(1:nval,1:Nthet_out,1:Nzeta_out,1:SFLout_nrp), TRIM(filename), &
-                             attr_values=var_visu_attr, &
-                             coord1=tz_star_pos(1,:,1), coord2=tz_star_pos(2,1,:), coord3=rho_pos, &
-                             CoordNames=(/"theta"//angle_suffix, "zeta"//angle_suffix//" ", "rho        "/), attr_coords=coord_attr)
+      IF (whichSFLout.EQ.2) THEN ! write nu
+        ALLOCATE(netcdf_var_out_idx(nVal-3)) ! remove rho, theta*, zeta* grid but not nu
+        j = 1
+        DO i=1,nVal
+          IF ((i.EQ.VP_rho).OR.(i.EQ.VP_thetastar).OR.(i.EQ.VP_zetastar)) THEN
+            CONTINUE
+          ELSE
+            netcdf_var_out_idx(j) = i
+            j = j+1
+          END IF
+        END DO
+        nVal_out = nVal-3
+      ELSE
+        ALLOCATE(netcdf_var_out_idx(nVal-4)) ! remove rho, theta*, zeta* grid and nu
+        j = 1
+        DO i=1,nVal
+          IF ((i.EQ.VP_rho).OR.(i.EQ.VP_thetastar).OR.(i.EQ.VP_zetastar).OR.(i.EQ.VP_nu)) THEN
+            CONTINUE
+          ELSE
+            netcdf_var_out_idx(j) = i
+            j = j+1
+          END IF
+        END DO
+        nVal_out = nVal-4
+      END IF ! write nu
+      CALL WriteDataToNETCDF(3,3,nVal_out,(/Nthet_out,Nzeta_out,SFLout_nrp/),&
+                            (/"pol","tor","rad"/),VarNames(netcdf_var_out_idx), &
+                            coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:SFLout_nrp), &
+                            var_out(netcdf_var_out_idx,1:Nthet_out,1:Nzeta_out,1:SFLout_nrp), TRIM(filename), &
+                            attr_values=var_visu_attr(netcdf_var_out_idx,:), &
+                            coord1=tz_star_pos(1,:,1), coord2=tz_star_pos(2,1,:), coord3=rho_pos, &
+                            CoordNames=(/"theta"//angle_suffix, "zeta"//angle_suffix//" ", "rho    "/), attr_coords=coord_attr)
+      DEALLOCATE(netcdf_var_out_idx)
     END IF!outfileType
     DEALLOCATE(coord_out,var_out,tz_star_pos)
     WRITE(UNIT_stdOut,'(A)') '... DONE.'
