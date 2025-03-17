@@ -60,7 +60,7 @@ In GVEC, the total MHD energy $W_{MHD}$ is minimized using a gradient based meth
 ```
 
 ## hmap parameters
-The hmap is an exchangeable function that specifies how the $(q^1,q^2,q^3)=(X^1,X^2,\zeta)$ variables are mapped to Cartesian coordinates $(x,y,z)$. The simplest map is a straight periodic cylinder, with $x=q^1,y=q^2,z=\zeta$, or the torus with $x=q^1\cos(\zeta),y=-q^1\sin(\zeta),z=q^2$. There is a more academic knot-map, and then two types of axis-following frames, the Frenet frame given only by a closed 3D curve, provided as a Fourier series in $R,Z$. And the generalized frame, or G-Frame, where a curve and the normal and binormal vector are given as at point positions/vectors in cartesian coordinates, which are provided via a dataset in a netcdf file.
+The hmap is an exchangeable function that specifies how the $(q^1,q^2,q^3)=(X^1,X^2,\zeta)$ variables are mapped to Cartesian coordinates $(x,y,z)$. The simplest map is a straight periodic cylinder, or the cylinder coordinates. There is a more academic knot-map, and then two types of axis-following frames, the Frenet frame given only by a closed 3D curve, provided as a Fourier series in $R,Z$. And the generalized frame, or G-Frame, where a curve and the normal and binormal vector are given as at point positions/vectors in cartesian coordinates, which are provided via a dataset in a netcdf file.
 
 ```{include} ../generators/parameters-hmap.md
 ```

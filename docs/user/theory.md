@@ -58,9 +58,8 @@ In the following, we first define the coordinates and the magnetic field $\vec{B
 
 Before we introduce the magnetic field representation, we begin with details on the coordinate systems.
 
-```{figure} /static/mappings.png
-:name:fig_gvec_mappings
-:width: 50 %
+```{figure} ../static/mappings.png
+:width: 70 %
 :align: center
 
 Illustration of logical and Cartesian coordinates and the coordinate transforms in GVEC.
@@ -100,9 +99,8 @@ with $(q^1,q^2,q^3):=(X^1,X^2,\zeta)$ and $i,j=1,2,3$ and $\alpha, \beta \in [\r
 
 #### A simple map: the torus
 
-```{figure} /static/gvec_coordinates.png
-:name:fig_gvec_coordinates
-:width: 50 %
+```{figure} ../static/gvec_coordinates.png
+:width: 70 %
 :align: center
 
 Sketch of the GVEC logical coordinate directions $\rho,\vartheta,\zeta$ in a stellarator geometry (with magnetic field lines shown in red).
@@ -497,7 +495,7 @@ Remind the GVEC mapping $f:(\rho,\thet,\zeta)\mapsto(x,y,z)$, and introduce the 
 
 ## Other choices for hmap
 
-####  Periodic Cylinder
+###  Periodic Cylinder
 
 We can also map to the periodic cylinder of length $L_c$ with its axis pointing in $y$ axis:
 \begin{equation}
@@ -506,7 +504,7 @@ We can also map to the periodic cylinder of length $L_c$ with its axis pointing 
 
 The Jacobian and metric tensor are simply $\Jac_h=\frac{L_c}{2\pi}$ and $G_{ij}=\delta_{i1}\delta_{j1}+\delta_{i2}\delta_{j2}+\delta_{i3}\delta_{j3}\left(\frac{L_c}{2\pi}\right)^2$.
 
-####  The knot
+###  The knot
 
 As an example of non-standard choice of the map we construct coordinates based on the $(k,l)$-torus.
 The map is a generalization of the standard cylindrical coordinates $(R,Z)$ given by
@@ -575,7 +573,7 @@ and the derivatives of the metric tensor with respect to $(q^1, q^2)$ are
 \end{equation}
 
 
-####  Frenet-Serret frame of a closed curve
+###  Frenet-Serret frame of a closed curve
 
 
 We can define the map $h$ using a closed curve  $\X(\zeta)$ as an input, and the Frenet-Serret apparatus, or $(TNB)$ frame of that curve:
@@ -682,7 +680,7 @@ with $R_0,Z_0$ represented as a real 1D Fourier series
 \end{equation}
 
 
-####  G-Frame: A generalized curve-following frame
+###  G-Frame: A generalized curve-following frame
 
 
 The G-frame was introduced in  {cite}`Hindenlang_2025`, it  is a generalization of the Frenet frame. We can define the map $h$ using a closed curve  $\X(\zeta)$ and the normal $\vec{N}(\zeta)$ and binormal vector $\vec{B}(\zeta)$ as an input:
