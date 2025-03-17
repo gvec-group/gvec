@@ -640,6 +640,50 @@ END FUNCTION get_iMode
 
 
 !===================================================================================================================================
+!> Overwrite axis with average axis by center of closed line of the boundary in each poloidal plane
+!!
+!===================================================================================================================================
+SUBROUTINE InitAverageAxis()
+! MODULES
+  USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_a,X1_b
+  USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_a,X2_b
+  USE MODgvec_MHD3D_Vars   , ONLY:average_axis_move
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT Variables
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL Variables
+  REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
+  REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
+
+  INTEGER  :: i_m,i_n
+  REAL(wp) :: dl,lint,x1int,x2int 
+!-----------------------------------------------------------------------------------------------------------------------------------
+  ASSOCIATE(m_nyq=>X1_base%f%mn_nyq(1),n_nyq=>X1_base%f%mn_nyq(2))
+    X1_b_IP(:,:) = RESHAPE(X1_base%f%evalDOF_IP(0,X1_b),(/m_nyq,n_nyq/))
+    X2_b_IP(:,:) = RESHAPE(X2_base%f%evalDOF_IP(0,X2_b),(/m_nyq,n_nyq/))
+    DO i_n=1,n_nyq
+      dl=X1_b_IP(m_nyq,i_n)*X2_b_IP(1,i_n)-X1_b_IP(1,i_n)*X2_b_IP(m_nyq,i_n)
+      lint=dl
+      x1int=(X1_b_IP(m_nyq,i_n)+X1_b_IP(1,i_n))*dl
+      x2int=(X2_b_IP(m_nyq,i_n)+X2_b_IP(1,i_n))*dl
+      DO i_m=2,m_nyq
+        dl=SQRT((X1_b_IP(i_m,i_n)-X1_b_IP(i_m-1,i_n))**2+(X2_b_IP(i_m,i_n)-X2_b_IP(i_m-1,i_n))**2)
+        dl=X1_b_IP(i_m-1,i_n)*X2_b_IP(i_m,i_n)-X1_b_IP(i_m,i_n)*X2_b_IP(i_m-1,i_n)
+        lint=lint+dl
+        x1int=x1int+(X1_b_IP(i_m-1,i_n)+X1_b_IP(i_m,i_n))*dl
+        x2int=x2int+(X2_b_IP(i_m-1,i_n)+X2_b_IP(i_m,i_n))*dl
+      END DO
+      ! c_x= 1/(6A) sum_i (x_i-1+x_i)*(x_i-1*y_i - x_i*y_i-1), A=1/2 sum_i  (x_i-1*y_i - x_i*y_i-1)
+      X1_b_IP(:,i_n) = x1int/(3.0_wp*lint) + average_axis_move(1)
+      X2_b_IP(:,i_n) = x2int/(3.0_wp*lint) + average_axis_move(2)
+    END DO
+    X1_a = X1_base%f%initDOF(RESHAPE(X1_b_IP,(/X1_base%f%mn_IP/)))
+    X2_a = X2_base%f%initDOF(RESHAPE(X2_b_IP,(/X2_base%f%mn_IP/)))
+  END ASSOCIATE
+END SUBROUTINE InitAverageAxis
+
+!===================================================================================================================================
 !> Initialize the solution with the given boundary condition 
 !!
 !===================================================================================================================================
@@ -666,12 +710,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER  :: iMode,i_m,i_n
+  INTEGER  :: iMode,i_m
   REAL(wp) :: BC_val(2)
   REAL(wp) :: rhopos
-  REAL(wp) :: dl,lint,x1int,x2int 
-  REAL(wp) :: X1_b_IP(X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2))
-  REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
   REAL(wp) :: X1_gIP(1:X1_base%s%nBase,1:X1_base%f%modes)
   REAL(wp) :: X2_gIP(1:X2_base%s%nBase,1:X2_base%f%modes)
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
@@ -686,8 +727,14 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     X2_a(:)=U_init%X2(1,:)
     X1_b(:)=U_init%X1(X1_base%s%nBase,:)
     X2_b(:)=U_init%X2(X2_base%s%nBase,:)
+    IF (init_average_axis)THEN
+      WRITE(UNIT_stdOut,'(A)') "WARNING: init_average_axis ignored due to restart!"
+    END IF
   CASE(0)
     !X1_a,X2_a and X1_b,X2_b already filled from parameter file readin...
+    IF(init_average_axis)THEN
+      CALL InitAverageAxis()
+    END IF !init_average_axis
   CASE(1) !VMEC
     IF((init_BC.EQ.-1).OR.(init_BC.EQ.1))THEN ! compute  axis from VMEC, else use the one defined in paramterfile
       rhopos=0.0_wp
@@ -736,40 +783,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       END ASSOCIATE !X2
     END IF
     IF(init_average_axis)THEN
-      ASSOCIATE(m_nyq=>X1_base%f%mn_nyq(1),n_nyq=>X1_base%f%mn_nyq(2))
-      X1_b_IP(:,:) = RESHAPE(X1_base%f%evalDOF_IP(0,X1_b),(/m_nyq,n_nyq/))
-      X2_b_IP(:,:) = RESHAPE(X2_base%f%evalDOF_IP(0,X2_b),(/m_nyq,n_nyq/))
-      DO i_n=1,n_nyq
-        !overwrite axis with average axis by center of closed line of the boundary in each poloidal plane:
-        !dl=SQRT((X1_b_IP(1,i_n)-X1_b_IP(m_nyq,i_n))**2+(X2_b_IP(1,i_n)-X2_b_IP(m_nyq,i_n))**2)
-        !lint=dl
-        !x1int=X1_b_IP(1,i_n)*dl
-        !x2int=X2_b_IP(1,i_n)*dl
-        !DO i_m=2,m_nyq
-        !  dl=SQRT((X1_b_IP(i_m,i_n)-X1_b_IP(i_m-1,i_n))**2+(X2_b_IP(i_m,i_n)-X2_b_IP(i_m-1,i_n))**2)
-        !  lint=lint+dl
-        !  x1int=x1int+X1_b_IP(i_m,i_n)*dl
-        !  x2int=x2int+X2_b_IP(i_m,i_n)*dl
-        !END DO
-        !overwrite axis with centroid  of surface enclosed  by the line of the boundary in each poloidal plane:
-        ! c_x= 1/(6A) sum_i (x_i-1+x_i)*(x_i-1*y_i - x_i*y_i-1), A=1/2 sum_i  (x_i-1*y_i - x_i*y_i-1)
-        dl=X1_b_IP(m_nyq,i_n)*X2_b_IP(1,i_n)-X1_b_IP(1,i_n)*X2_b_IP(m_nyq,i_n)
-        lint=dl
-        x1int=(X1_b_IP(m_nyq,i_n)+X1_b_IP(1,i_n))*dl
-        x2int=(X2_b_IP(m_nyq,i_n)+X2_b_IP(1,i_n))*dl
-        DO i_m=2,m_nyq
-          dl=SQRT((X1_b_IP(i_m,i_n)-X1_b_IP(i_m-1,i_n))**2+(X2_b_IP(i_m,i_n)-X2_b_IP(i_m-1,i_n))**2)
-          dl=X1_b_IP(i_m-1,i_n)*X2_b_IP(i_m,i_n)-X1_b_IP(i_m,i_n)*X2_b_IP(i_m-1,i_n)
-          lint=lint+dl
-          x1int=x1int+(X1_b_IP(i_m-1,i_n)+X1_b_IP(i_m,i_n))*dl
-          x2int=x2int+(X2_b_IP(i_m-1,i_n)+X2_b_IP(i_m,i_n))*dl
-        END DO
-        X1_b_IP(:,i_n) = x1int/(3.0_wp*lint) + average_axis_move(1)
-        X2_b_IP(:,i_n) = x2int/(3.0_wp*lint) + average_axis_move(2)
-      END DO
-      X1_a = X1_base%f%initDOF(RESHAPE(X1_b_IP,(/X1_base%f%mn_IP/)))
-      X2_a = X2_base%f%initDOF(RESHAPE(X2_b_IP,(/X2_base%f%mn_IP/)))
-      END ASSOCIATE
+      CALL InitAverageAxis()
     END IF !init_average_axis
     IF(.NOT.init_fromBConly)THEN !only boundary and axis from VMEC
       ASSOCIATE(s_IP         => X1_base%s%s_IP, &
