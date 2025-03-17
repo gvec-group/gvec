@@ -75,7 +75,7 @@ extensions = [
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["templates"]
 
-bibtex_bibfiles = ["static/references.bib"]
+bibtex_bibfiles = ["generators/references.bib"]
 
 # -- Options for LaTeX output --------------------------------------------
 mathjax3_config = {

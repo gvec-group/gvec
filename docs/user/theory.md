@@ -1,5 +1,8 @@
 # Theory
 
+GVEC is already providing stellarator-type equilibrium solutions to the gyro-kinetic code GENE-3D {cite}`navarro2020global`,{cite}`maurer2020gene`,{cite}`wilms2021global`, the linear MHD stability code CASTOR-3D {cite}`puchmayr2023helical` and the nonlinear time-dependent MHD code JOREK-3D {cite}`nikulsin2022jorek3d`.  The new G-Frame feature and its application are presented in {cite}`Hindenlang_2025` and {cite}`Plunk_figure_8`.
+
+GVEC builds upon the ideas of the well-established VMEC {cite}`vmec_83`.
 
 ##  Continuous problem
 
@@ -77,7 +80,7 @@ leaving $X^1,X^2$ as functions of $(\rho,\thet,\zeta)$ to describe the geometry 
 
 
 Simple examples of $h$ are given by the periodic cylinder $(x,y,z) := (q^1,q^2,\zeta)$ and the conventional cylindrical representation $(x,y,z) := (q^1 \cos\zeta,q^1 \sin\zeta,q^2)$.
-As mentioned in the introduction, a new possibility for $h$ is the G-Frame, a flexible coordinate frame which is moving along a closed curve and is fully user-defined, details are given in {cite}`Hindenlang_2025`.
+A new possibility for $h$ is the G-Frame, a flexible coordinate frame which is moving along a closed curve and is fully user-defined, details are given in {cite}`Hindenlang_2025`.
 
 It is always assumed that $(x,y,z) = h(q^1,q^2,q^3)$ is an orientation-preserving coordinate transformation, i.e., the Jacobian determinant is strictly positive, $\det (Dh) > 0$. (Here and in the following $D$ denotes the derivative operator.) For the composition $f = h \circ \tilde{X}$ to be defined, the function $\tilde{X}$ must take values in the domain of definition of $h$. This is the only constraint that links $h$ and $\tilde{X}$. In addition, we require (independently of $h$) that
 \begin{equation*}
@@ -152,7 +155,7 @@ In the previous sections, we have defined everything to be able to write the con
 
 \begin{align}\label{eq:MHD energy functional expanded}
     W(u) &= \rint \dblint \left( -p(\rho)\Jac +
-        \frac{1}{2\mu_0} \frac{(b^\alpha g_{\alpha\beta} b^\beta)}{\Jac} \right) \,  \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta,
+        \frac{1}{2\mu_0} \frac{(b^\alpha g_{\alpha\beta} b^\beta)}{\Jac} \right) \, \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta,
 \end{align}
 where we now fixed $\gamma=0$, again use Einstein summation convention, but $\alpha,\beta\in\{\thet,\zeta\}$ only.
 
@@ -219,8 +222,11 @@ The double-angle Fourier series is defined by the maximum mode numbers $(m\subma
 \end{aligned}
 \end{equation}
 
-To impose stellarator symmetry {cite}`dewarStellaratorSymmetry1998`, we  restrict the list of Fourier basis functions to a subset of either cosines, using $\ell\submin=1,\ell\submax=m\submax(2n\submax+1)+n\submax+1$, or sines, using $\ell\submin=m\submax(2n\submax+1)+n\submax+2,\ell\submax=(m\submax+1)(2n\submax+1)$. \footnote{In cylinder coordinates, stellarator symmetry implies $R(\thet,\zeta)=R(-\thet,-\zeta)$ and $Z(\thet,\zeta)=-Z(-\thet,-\zeta)$, thus cosine for $R$ and sine for $Z$.}
 The mode number $m,n$ can be deduced from the index $\ell$.
+
+To impose stellarator symmetry {cite}`dewarStellaratorSymmetry1998`, we  restrict the list of Fourier basis functions to a subset of either cosines, using $\ell\submin=1,\ell\submax=m\submax(2n\submax+1)+n\submax+1$, or sines, using $\ell\submin=m\submax(2n\submax+1)+n\submax+2,\ell\submax=(m\submax+1)(2n\submax+1)$.
+ (In cylinder coordinates, stellarator symmetry implies $R(\thet,\zeta)=R(-\thet,-\zeta)$ and $Z(\thet,\zeta)=-Z(-\thet,-\zeta)$, thus cosine for $R$ and sine for $Z$.)
+
 
 The B-Spline in $\rho$ is defined by the polynomial degree $p$ and a set of grid points $\{\rho_i\}_{i=1}^{N_r}$ with $\rho_1=0,\rho_{N_r}=1$. From the grid points, a knot sequence is constructed, with a multiplicity of $p+1$ at the first and the last knot. As we do not allow for any multiplicity of internal knots, the continuity of the B-Spline is $p-1$ and the number of basis functions is $k\submax=N_r+(p-1)$.
 
@@ -233,12 +239,12 @@ Note that all variables $X^1,X^2,\lambda$ share the same radial grid, but are al
 The first and last B-Spline coefficient equals the value at the boundary. This allows to easily set Dirichlet boundary conditions.
 As we only consider fixed-boundary equilibria in this work, we impose a Dirichlet boundary condition at $\rho=1$ for the variables $X^1,X^2$, by setting the last B-Spline coefficient of each Fourier modes to the value provided by the boundary geometry. For $\lambda$, no boundary condition is imposed at $\rho=1$, as its boundary value is an unknown of the solution.
 
-We know from the mapping $\widetilde{X}$ ([see](#coordinate-maps)) that each cross-section  $X^1(\rho,\thet,\zeta=\text{const.})$, $X^2(\rho,\thet,\zeta=\text{const.})$ represents a map to the unit disc $\rho\exp(\mathrm{i}\thet)$, which has to be smooth at any point inside the unit disc. Away from the singular point $\rho=0$, the tensor-product of B-Splines and Fourier series is smooth, up to the polynomial degree of the B-Spline.
+We know from the mapping $\widetilde{X}$ (see [Coordinate maps](#coordinate-maps)) that each cross-section  $X^1(\rho,\thet,\zeta=\text{const.})$, $X^2(\rho,\thet,\zeta=\text{const.})$ represents a map to the unit disc $\rho\exp(\mathrm{i}\thet)$, which has to be smooth at any point inside the unit disc. Away from the singular point $\rho=0$, the tensor-product of B-Splines and Fourier series is smooth, up to the polynomial degree of the B-Spline.
 
-In order to preserve the same smoothness at the magnetic axis $\rho=0$,  we need to impose a boundary condition for the B-Spline representation of each Fourier mode that depends on the poloidal mode number $m$.
+In order to preserve the same smoothness at the magnetic axis $\rho=0$, we need to impose a boundary condition for the B-Spline representation of each Fourier mode that depends on the poloidal mode number $m$.
 The necessary and sufficient conditions for smoothness at the magnetic axis have been presented in {cite}`lewisPhysicalConstraintsCoefficients1990`.
 
-First, the value of $U$ at $\rho=0$ must be unique and independent of $\thet$,  thus it is determined solely by the B-Spline representing the $m=0$ poloidal mode. All B-Splines representing non-zero poloidal modes have zero Dirichlet boundary condition at $\rho=0$.
+First, the value of $U$ at $\rho=0$ must be unique and independent of $\thet$, thus it is determined solely by the B-Spline representing the $m=0$ poloidal mode. All B-Splines representing non-zero poloidal modes have zero Dirichlet boundary condition at $\rho=0$.
 
 Additionally, the boundary condition must involve radial derivatives of the B-Spline, up to the polynomial degree $p$.
 The argument in {cite}`lewisPhysicalConstraintsCoefficients1990` is that on the unit disc, a polynomial of degree $m$ can be expressed  $(\rho\exp(\mathrm{i}\thet))^m=\rho^m\exp(\mathrm{i}m\thet)$.
@@ -279,12 +285,12 @@ We approximate the integrals in $\rho, \thet, \zeta$ by numerical quadrature.
 
 \begin{align}
     \rint \dblint W(\rho,\thet,\zeta) \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta &= N_{FP}\rint \int\limits_{0}^{2\pi}\!\int\limits_{0}^{2\pi/N_{FP}} W(\rho,\thet,\zeta) \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta, \\
-    &\approx \sum_{i=1}^{n_q} \omega_i \sum_{j=1}^{n_\thet} \sum_{k=1}^{n_\zeta} W(\rho^q_i,\thet_j,\zeta_j),
+    &\approx \sum_{i=1}^{n_q} \omega_i \sum_{j=1}^{n_\thet} \sum_{k=1}^{n_\zeta} W(\rho^q_i,\thet_j,\zeta_k),
 \end{align}
 where $\omega_i$ is the quadrature weight and $n_q$ is the total number of Gauss quadrature points in the radial direction. The total number is given by the number of grid elements of the B-Splines and the number of quadrature points in each B-Spline element, chosen to integrate piecewise-polynomial functions exactly up to degree $2p+1$. The number of integration points in the poloidal and toroidal direction are$n_\thet$, $n_\zeta$ and we choose the positions as
 \begin{equation*}
-  \thet_j=2\pi\frac{j-1/2}{n_\thet+1}\,,\quad
-  \zeta_k=\frac{2\pi}{\nfp}\frac{k-1}{n_\zeta+1}\,.
+  \thet_j=2\pi\frac{j-1/2}{n_\thet}\,,\quad
+  \zeta_k=\frac{2\pi}{\nfp}\frac{k-1/2}{n_\zeta}\,.
 \end{equation*}
 
 
@@ -292,7 +298,7 @@ where $\omega_i$ is the quadrature weight and $n_q$ is the total number of Gauss
 
 ##  An equation for lambda
 
-While the degrees of freedom of $\lambda(\rho,\thet,\zeta)$ are evolved in the minimisation of the energy functional, an initial guess is required. One option is to simply choose $\lambda(\rho,\thet,\zeta)=0$, however a better initial guess can be obtained by solving an elliptic equation ofr $\lambda$.
+While the degrees of freedom of $\lambda(\rho,\thet,\zeta)$ are evolved in the minimization of the energy functional, an initial guess is required. One option is to simply choose $\lambda(\rho,\thet,\zeta)=0$, however a better initial guess can be obtained by solving an elliptic equation for $\lambda$.
 
 
 In an ideal MHD equilibria we have the relations,
@@ -366,7 +372,7 @@ Letting
 \end{align}
 and finally write the discrete equation system as,
 \begin{align}\label{eq:lambda discrete elliptic equation compact}
-    -\Phi^\prime \sum_j \lambda^j A^{ij} &= \chi^\prime Q_\thet^i + \Phi^\prime Q_\zeta^i, \\
+    -\Phi^\prime \sum_j \Lambda^j A^{ij} &= \chi^\prime Q_\thet^i + \Phi^\prime Q_\zeta^i, \\
     A^{ij} &= \left( Q_\thet^i \pdv{\fbasis^j}{\thet} + Q_\zeta^i \pdv{\fbasis^j}{\zeta} \right).
 \end{align}
 Since $A^{ij}$ arises from the elliptic equation, it follows that $A^{ij}$ is a dense symmetric positive definite matrix.
@@ -484,7 +490,7 @@ The magnetic field strength is computed
 \end{equation}
 thus the variation on a flux surface only depends on $1/\Jac_B$.
 
-Remind the GVEC mapping $f:(\rho,\thet,\zeta)\mapsto(x,y,z)$, and introduce the mapping $g: (\rho,\thet,\zeta)\mapsto(s,\thet^\star_B,\zeta^\star_B)$, and the mapping $f^\star:(s,\thet^\star_B,\zeta^\star_B)\mapsto(x,y,z)$, its clear that $f^\star=g^ {-1}\circ f$. Thus we find the Boozer Jacobian,
+Recalling the mapping $f:(\rho,\thet,\zeta)\mapsto(x,y,z)$, and introducing the mapping $g: (\rho,\thet,\zeta)\mapsto(s,\thet^\star_B,\zeta^\star_B)$, and the mapping $f^\star:(s,\thet^\star_B,\zeta^\star_B)\mapsto(x,y,z)$, its clear that $f^\star=g^ {-1}\circ f$. Thus we find the Boozer Jacobian,
 \begin{equation}
 \begin{aligned}
  1/\Jac_B(\thet,\zeta) &=:1/\det(f^\star)=\det(g)/\det(f) \\
@@ -736,5 +742,5 @@ and the derivatives of the metric tensor with respect to $q^1, q^2$ are
 ## References
 
 
-```{bibliography} ../static/references.bib
+```{bibliography} ../generators/references.bib
 ```

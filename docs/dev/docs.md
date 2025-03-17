@@ -1,9 +1,8 @@
 # Documentation
 
-The documentation of GVEC is split into three parts:
-1) Mathematical details, found in [theory and implementation details](https://gitlab.mpcdf.mpg.de/gvec-group/GVEC_doc/blob/master/GVEC_prototype/GVEC_prototype.pdf)
-2) [User and developer documentation](/index) written in *restructured text* and *markdown* and compiled with [sphinx](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html)
-3) Auto-generated [fortran code documentation](../ford/index.html){.external} built with [ford](https://forddocs.readthedocs.io)
+The documentation of GVEC is split into the following parts:
+1) [User and developer documentation](/index) written in *restructured text* and *markdown* and compiled with [sphinx](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html)
+2) Auto-generated [fortran code documentation](../ford/index.html){.external} built with [ford](https://forddocs.readthedocs.io)
 
 ## Requirements
 The required python packages to build the documentation are given in `docs/requirements.txt` and can be installed with:
