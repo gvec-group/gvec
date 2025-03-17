@@ -1,14 +1,7 @@
-/* Inspired by Struphy's configuration */
-/*.eqno {
-    float: right;
+/* transparent background images https://github.com/pydata/pydata-sphinx-theme/issues/918 */
+html[data-theme="dark"] img {
+    filter: none;
 }
-
-.bd-main .bd-content .bd-article-container {
-    max-width: 100%;  /* default is 60em *//*
-  }
-
-.bd-page-width {
-max-width: 95%;  /* default is 88rem *//*
+html[data-theme="dark"] .bd-content img:not(.only-dark):not(.dark-light) {
+    background: unset;
 }
-  
-*/

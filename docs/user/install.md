@@ -114,7 +114,57 @@ Install the following packages using homebrew (`brew install`)
 :::::
 ::::::
 
-## Getting GVEC with `git`
+## Install GVEC with `pip`
+
+The latest release of GVEC is available on [PyPI](https://pypi.org/project/gvec/) and can be installed with:
+```bash
+pip install gvec
+```
+
+Currently GVEC is only available as an `sdist` (source-distribution) and not as a `wheel` (pre-compiled). This means `pip` will download GVEC and compile it with CMake.
+
+Installing GVEC with `pip` will also install the python bindings and a number of scripts, see:
+```bash
+pygvec --help
+```
+
+### Installing pre-releases
+
+The latest version of the `develop` branch of GVEC is available in the GitLab package registry and can be installed with:
+```bash
+pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
+```
+
+You can also tell `pip` to install directly from the repository:
+```bash
+pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git
+```
+
+And even specify a different branch, using `@branch_name`, e.g.:
+```bash
+pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
+```
+
+#### Troubleshooting
+
+* `Cannot open include file 'netcdf.inc'` during installation
+  * `gvec/src/vmec/vmec_readin.f90(494): error #5102: Cannot open include file 'netcdf.inc'`
+  * gvec likely did not recognize your hostname and cannot find netCDF. Possible fixes:
+    * explicitly tell gvec which preset to use, e.g. `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.CMAKE_HOSTNAME=tokp`
+    * disable netCDF: `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
+* `INTEL_MKL_ERROR` when trying to use pyGVEC
+  * `INTEL MKL ERROR: /usr/lib/x86_64-linux-gnu/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.`
+  * `Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.`
+  * you can try `export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmkl_def.so:/usr/lib/x86_64-linux-gnu/libmkl_avx2.so:/usr/lib/x86_64-linux-gnu/libmkl_core.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_lp64.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_thread.so:/usr/lib/x86_64-linux-gnu/libiomp5.so`
+* `undefined reference to EVP_KDF_CTX` when trying to import pyGVEC and using `conda`
+  * `/lib64/libk5crypto.so.3: undefined reference to EVP_KDF_CTX_new_id@OPENSSL_1_1_1b`
+  * this can be caused by the `conda` environment conflicting with system libraries. You can try: `export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"`
+* on Fedora linux, it seems that the gfortran compiler needs an additional flag, in `CMakeList.txt`:
+  ```
+   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -I/usr/lib64/gfortran/modules")
+  ```
+
+## Getting GVEC with `git` & `CMake`
 
 1.  Clone the repository to a local directory:
     ::::{tab-set}
@@ -147,13 +197,7 @@ Install the following packages using homebrew (`brew install`)
     git checkout NAME_OF_BRANCH
     ```
 
-## Install gvec with python bindings
-
-:::{note}
-Please ensure to have installed all packages mentioned in the 'Prerequisites' section.
-:::
-
-### Manually from a cloned repository
+### Installing the python bindings manually
 You can install the gvec python package **manually**, from a cloned repository.
 We strongly recommend to **always** use a clean virtual environment for the installation, e.g.
 ```bash
@@ -166,58 +210,6 @@ Then you can install the gvec python package manually with
 ```bash
 pip install .[dev,examples] -v
 ```
-
-### Via pip without a clone
-
-Another possibility, still **within a virtual environment**, but without cloning the repository, is using `pip` from the GitLab package registry
-```bash
-pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
-```
-
-or using `pip` from the `develop` branch
-```bash
-pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git
-```
-:::{note}
-
-If you want to install a development version from a different branch, you can specify this using `@branch_name`, e.g.:
-```bash
-pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
-```
-:::
-
-### Check the installation
-
-Once the virtual environment is activated with `source .venv/bin/activate`, you should be able to import the `gvec` python package without any errors:
-```bash
-python
->>> import gvec
-```
-Also, the virtual environment should allow to call the executable with `gvec -h`.
-
-Once GVEC and its python bindings are properly installed, please continue with [](getting-started).
-
-### Troubleshooting
-
-* `401 Error` when trying to install from the GitLab package registry:
-  * `WARNING: 401 Error, Credentials not correct for https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple/gvec/`
-  * you likely missing the [personal access token](https://gitlab.mpcdf.mpg.de/help/user/profile/personal_access_tokens) required for this installation method (for now)
-* `Cannot open include file 'netcdf.inc'` during installation
-  * `gvec/src/vmec/vmec_readin.f90(494): error #5102: Cannot open include file 'netcdf.inc'`
-  * gvec likely did not recognize your hostname and cannot find netCDF. Possible fixes:
-    * explicitly tell gvec which preset to use, e.g. `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.CMAKE_HOSTNAME=tokp`
-    * disable netCDF: `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
-* `INTEL_MKL_ERROR` when trying to use pyGVEC
-  * `INTEL MKL ERROR: /usr/lib/x86_64-linux-gnu/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.`
-  * `Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.`
-  * you can try `export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmkl_def.so:/usr/lib/x86_64-linux-gnu/libmkl_avx2.so:/usr/lib/x86_64-linux-gnu/libmkl_core.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_lp64.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_thread.so:/usr/lib/x86_64-linux-gnu/libiomp5.so`
-* `undefined reference to EVP_KDF_CTX` when trying to import pyGVEC and using `conda`
-  * `/lib64/libk5crypto.so.3: undefined reference to EVP_KDF_CTX_new_id@OPENSSL_1_1_1b`
-  * this can be caused by the `conda` environment conflicting with system libraries. You can try: `export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"`
-* on Fedora linux, it seems that the gfortran compiler needs an additional flag, in `CMakeList.txt`:
-  ```
-   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -I/usr/lib64/gfortran/modules")
-  ```
 
 ## Install GVEC with `cmake`
 

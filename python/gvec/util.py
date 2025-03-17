@@ -5,20 +5,20 @@
 This module is part of the gvec python package, but also used directly in the tests.
 """
 
-from pathlib import Path
+import contextlib
+import os
 import re
 import shutil
+from collections.abc import Mapping, MutableMapping
+from pathlib import Path
+from typing import Iterable, Literal
+
 from numpy.typing import ArrayLike
-from typing import Literal
 
 try:
     from scipy.interpolate import BSpline
 except ImportError:
     BSpline = None
-import contextlib
-import os
-from typing import Iterable
-from collections.abc import Mapping, MutableMapping
 
 
 @contextlib.contextmanager
@@ -31,9 +31,11 @@ def chdir(target: Path | str):
     target = Path(target)
     source = Path(os.getcwd())
 
-    os.chdir(target)
-    yield
-    os.chdir(source)
+    try:
+        os.chdir(target)
+        yield
+    finally:
+        os.chdir(source)
 
 
 class CaseInsensitiveDict(MutableMapping):
@@ -145,7 +147,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         return
 
     for key, value in kwargs.items():
-        if isinstance(value, dict) or isinstance(value, str):
+        if isinstance(value, Mapping) or isinstance(value, str):
             pass
         elif isinstance(value, bool):
             kwargs[key] = "T" if value else "F"
@@ -158,7 +160,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     # initialize occurrences counters for all parameters to be set
     occurrences = {}
     for key in kwargs:
-        if isinstance(kwargs[key], dict):
+        if isinstance(kwargs[key], Mapping):
             for m, n in kwargs[key]:
                 occurrences[key, m, n] = 0
         else:
@@ -227,7 +229,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
 
 
 def write_parameter_file(
-    parameters: dict, path: str | Path = "parameter.ini", header: str = ""
+    parameters: Mapping, path: str | Path = "parameter.ini", header: str = ""
 ):
     """
     Write the parameters to the specified parameter file.
@@ -237,7 +239,7 @@ def write_parameter_file(
         path: The path to the parameter file.
     """
     for key, value in parameters.items():
-        if isinstance(value, dict) or isinstance(value, str):
+        if isinstance(value, Mapping) or isinstance(value, str):
             pass
         elif isinstance(value, bool):
             parameters[key] = "T" if value else "F"
@@ -249,7 +251,7 @@ def write_parameter_file(
     with open(path, "w") as file:
         file.write(header)
         for key, value in parameters.items():
-            if isinstance(value, dict):
+            if isinstance(value, Mapping):
                 for (m, n), val in value.items():
                     file.write(f"{key}({m};{n}) = {val}\n")
             else:
@@ -306,7 +308,7 @@ def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
     return parameters
 
 
-def flip_parameters_theta(parameters: dict) -> dict:
+def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
     import copy
 
     parameters2 = copy.deepcopy(parameters)
@@ -333,7 +335,7 @@ def flip_parameters_theta(parameters: dict) -> dict:
     return parameters2
 
 
-def flip_parameters_zeta(parameters: dict) -> dict:
+def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
     import copy
 
     parameters2 = copy.deepcopy(parameters)
@@ -361,18 +363,20 @@ def flip_parameters_zeta(parameters: dict) -> dict:
     return parameters2
 
 
-def parameters_from_vmec(nml: dict) -> dict:
+def parameters_from_vmec(nml: Mapping) -> CaseInsensitiveDict:
     import numpy as np
 
     M, N = nml["mpol"] - 1, nml["ntor"]
     stellsym = nml["lasym"]  # stellarator symmetry
-    params = {
-        "nfp": nml["nfp"],
-        "X1_mn_max": f"(/{M}, {N}/)",
-        "X2_mn_max": f"(/{M}, {N}/)",
-        "LA_mn_max": f"(/{M}, {N}/)",
-        "PHIEDGE": nml["phiedge"],
-    }
+    params = CaseInsensitiveDict(
+        {
+            "nfp": nml["nfp"],
+            "X1_mn_max": f"(/{M}, {N}/)",
+            "X2_mn_max": f"(/{M}, {N}/)",
+            "LA_mn_max": f"(/{M}, {N}/)",
+            "PHIEDGE": nml["phiedge"],
+        }
+    )
     if stellsym:
         params["X1_sin_cos"] = "_cos_"
         params["X2_sin_cos"] = "_sin_"
@@ -423,7 +427,7 @@ def parameters_from_vmec(nml: dict) -> dict:
     return params
 
 
-def axis_from_boundary(parameters: dict) -> dict:
+def axis_from_boundary(parameters: MutableMapping) -> MutableMapping:
     import copy
 
     parameters2 = copy.deepcopy(parameters)
@@ -437,21 +441,119 @@ def axis_from_boundary(parameters: dict) -> dict:
     return parameters2
 
 
-def np2gvec(a: ArrayLike) -> str:
-    """Transforms a numpy array into a string that can be used in the gvec parameter file.
+def stack_parameters(parameters: Mapping) -> CaseInsensitiveDict:
+    """Stack parameters into a hierarchical dictionary"""
+    output = CaseInsensitiveDict()
+    for key, value in parameters.items():
+        if "_" not in key:
+            output[key] = value
+            continue
+        group, name = key.split("_", 1)
+        if group in ["iota", "pres", "sgrid"]:
+            if group not in output:
+                output[group] = {}
+            output[group][name] = value
+        else:
+            output[key] = value
+    return output
 
-    Args:
-        a (ArrayLike): input array
 
-    Returns:
-        str: string that translates into a gvec parameterfile array
-    """
-    import numpy as np
+def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
+    """Flatten parameters from a hierarchical dictionary"""
+    output = CaseInsensitiveDict()
+    for key, value in parameters.items():
+        if isinstance(value, dict) and not re.match(
+            r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key
+        ):
+            if key in ["stages", "Itor"]:  # not supported by fortran-GVEC
+                continue
+            for subkey, subvalue in value.items():
+                output[f"{key}_{subkey}"] = subvalue
+        else:
+            output[key] = value
+    return output
 
-    a = np.array(a)
-    a_str = np.array2string(a, separator=",", threshold=1e3, max_line_width=64)
-    a_str = a_str.replace("[", "(/").replace("]", "/)").replace(",\n", " &\n,")
-    return a_str
+
+def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
+    """Serialize parameters into a string"""
+    output = CaseInsensitiveDict()
+    for key, value in parameters.items():
+        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+            output[key] = {}
+            for (m, n), val in value.items():
+                output[key][f"({m}, {n:2d})"] = val
+        else:
+            output[key] = value
+    return output
+
+
+def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
+    """Deserialize parameters from a string"""
+    output = CaseInsensitiveDict()
+    for key, value in parameters.items():
+        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+            output[key] = {}
+            for mn, val in value.items():
+                m, n = map(int, mn.strip("()").split(","))
+                output[key][(m, n)] = val
+        else:
+            output[key] = value
+    return output
+
+
+def read_parameters(
+    path: Path | str, format: Literal["ini", "yaml", "toml"] | None = None
+) -> CaseInsensitiveDict:
+    import tomlkit
+    import yaml
+
+    path = Path(path)
+    # auto-detect format
+    if format is None:
+        format = path.suffix[1:]
+
+    if format == "ini":
+        inputs = read_parameter_file(path)
+        inputs = stack_parameters(inputs)
+    elif format == "yaml":
+        with open(path, "r") as file:
+            inputs = yaml.safe_load(file)
+        inputs = unstringify_mn_parameters(inputs)
+    elif format == "toml":
+        with open(path, "r") as file:
+            inputs = tomlkit.parse(file.read()).unwrap()
+        inputs = unstringify_mn_parameters(inputs)
+    else:
+        raise ValueError(f"Unknown parameter file format {format}")
+    return inputs
+
+
+def write_parameters(
+    parameters: Mapping,
+    path: Path | str = "parameter.ini",
+    format: Literal["ini", "yaml", "toml"] | None = None,
+):
+    import tomlkit
+    import yaml
+
+    path = Path(path)
+    # auto-detect format
+    if format is None:
+        format = path.suffix[1:]
+
+    if format == "ini":
+        outputs = flatten_parameters(parameters)
+        write_parameter_file(outputs, path)
+    elif format == "yaml":
+        outputs = stringify_mn_parameters(parameters)
+        with open(path, "w") as file:
+            yaml.safe_dump(outputs, file)
+    elif format == "toml":
+        outputs = stringify_mn_parameters(parameters)
+        with open(path, "w") as file:
+            file.write(tomlkit.dumps(outputs))  # ToDo: nicer output using document API
+    else:
+        raise ValueError(f"Unknown parameter file format {format}")
 
 
 def bspl2gvec(
@@ -490,11 +592,11 @@ def bspl2gvec(
         )
 
     if bspl is not None:
-        params[f"{name}_coefs"] = np2gvec(bspl.c)
-        params[f"{name}_knots"] = np2gvec(bspl.t)
+        params[f"{name}_coefs"] = bspl.c
+        params[f"{name}_knots"] = bspl.t
     else:
-        params[f"{name}_coefs"] = np2gvec(coefs)
-        params[f"{name}_knots"] = np2gvec(knots)
+        params[f"{name}_coefs"] = coefs
+        params[f"{name}_knots"] = knots
     params[f"{name}_type"] = "bspline"
 
     return params

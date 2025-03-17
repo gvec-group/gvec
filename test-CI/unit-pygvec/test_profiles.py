@@ -96,9 +96,9 @@ def testfile_aux(request, testcaserundir, c_poly):
     deg = len(c_poly) - 1
     if request.param == "poly":
         paramfile = "parameter_poly.ini"
-        params_gvec["pres_coefs"] = gvec.util.np2gvec(c_poly)
+        params_gvec["pres_coefs"] = c_poly
         params_gvec["pres_type"] = "polynomial"
-        params_gvec["iota_coefs"] = gvec.util.np2gvec(c_poly)
+        params_gvec["iota_coefs"] = c_poly
         params_gvec["iota_type"] = "polynomial"
     elif request.param == "bspl":
         paramfile = "parameter_bspl.ini"
@@ -221,14 +221,14 @@ def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge, n_poi
     iota_vals = cubic_poly(rho2_vals)
 
     params_gvec["pres_type"] = "interpolation"
-    params_gvec["pres_rho2"] = gvec.util.np2gvec(rho2_vals)
-    params_gvec["pres_vals"] = gvec.util.np2gvec(P_vals)
+    params_gvec["pres_rho2"] = rho2_vals
+    params_gvec["pres_vals"] = P_vals
     params_gvec["pres_BC_type_axis"] = BC_type_axis
     params_gvec["pres_BC_type_edge"] = BC_type_edge
 
     params_gvec["iota_type"] = "interpolation"
-    params_gvec["iota_rho2"] = gvec.util.np2gvec(rho2_vals)
-    params_gvec["iota_vals"] = gvec.util.np2gvec(iota_vals)
+    params_gvec["iota_rho2"] = rho2_vals
+    params_gvec["iota_vals"] = iota_vals
     params_gvec["iota_BC_type_axis"] = BC_type_axis
     params_gvec["iota_BC_type_edge"] = BC_type_edge
 
@@ -316,7 +316,7 @@ def test_vmec_with_custom_profile(testcaserundir, vmecfiles, c_poly, profile_typ
         params["init_with_profile_iota"] = "T"
         params["iota_scale"] = scale
 
-    params[f"{profile_type}_coefs"] = gvec.util.np2gvec(c_poly)
+    params[f"{profile_type}_coefs"] = c_poly
     params[f"{profile_type}_type"] = "polynomial"
     param_file = testcaserundir / f"parameter_vmec_custom_{profile_type}.ini"
     gvec.util.adapt_parameter_file(vmecfiles[0], param_file, **params)

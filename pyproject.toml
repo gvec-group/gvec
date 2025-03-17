@@ -35,13 +35,11 @@ requires-python = ">=3.10"
 # match-case, intrinsic typing union
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Fortran",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
-    "Private :: Do Not Upload",
 ]
 keywords = ["plasma", "mhd", "equilibrium"]
 readme.file = "README.md"
@@ -82,7 +80,7 @@ sdist.exclude = [
     "tools",
 ]
 build-dir = "pybuild"
-editable.rebuild = true
+editable.rebuild = false
 
 [tool.scikit-build.cmake]
 verbose = true
@@ -109,6 +107,7 @@ USE_FTIMINGS = "Off"
 [tool.setuptools_scm]
 version_file = "python/gvec/_version.py"
 
+# ============================================================================ #
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",

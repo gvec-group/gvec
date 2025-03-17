@@ -7,6 +7,7 @@
 from pathlib import Path
 import datetime
 import argparse
+from typing import Sequence
 
 import numpy as np
 import xarray as xr
@@ -18,7 +19,7 @@ from gvec import State, EvaluationsBoozer, util, surface, comp, __version__
 
 parser = argparse.ArgumentParser(
     prog="gvec_to_cas3d",
-    description="Convert a GVEC equilibrium to be used in CAS3D",
+    description="Convert a GVEC statefile to a CAS3D compatible input file.",
 )
 parser.add_argument("parameterfile", type=Path, help="input GVEC parameter-file")
 parser.add_argument("statefile", type=Path, help="input GVEC state-file")
@@ -324,9 +325,12 @@ def gvec_to_cas3d(
         progress.set_description("done")
 
 
-def main(args=None):
-    if args is None:
-        args = parser.parse_args()
+def main(args: Sequence[str] | argparse.Namespace | None = None):
+    if isinstance(args, argparse.Namespace):
+        pass
+    else:
+        args = parser.parse_args(args)
+
     gvec_to_cas3d(
         args.parameterfile,
         args.statefile,
