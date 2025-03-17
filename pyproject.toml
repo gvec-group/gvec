@@ -18,6 +18,7 @@ dependencies = [
     "xarray",
     "netcdf4",
     "tqdm",
+    "pyevtk",
     "PyYAML",
     "tomlkit",
 ]
