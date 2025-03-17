@@ -689,11 +689,11 @@ with $R_0,Z_0$ represented as a real 1D Fourier series
 ###  G-Frame: A generalized curve-following frame
 
 
-The G-frame was introduced in  {cite}`Hindenlang_2025`, it  is a generalization of the Frenet frame. We can define the map $h$ using a closed curve  $\X(\zeta)$ and the normal $\vec{N}(\zeta)$ and binormal vector $\vec{B}(\zeta)$ as an input:
+The G-frame was introduced in  {cite}`Hindenlang_2025`, it  is a generalization of the Frenet frame. We can define the map $h$ using a closed curve  $\X(\zeta)$ and two basis vectors $\vec{N}(\zeta)$ and$\vec{B}(\zeta)$ as an input:
 \begin{equation}
  h:\quad (q^1,q^2,q^3)\mapsto(x,y,z):=  \X(\zeta) + q_1   \vec{N}(\zeta) +q_2 \vec{B}(\zeta) \label{eq:hmap_gen_axis}
 \end{equation}
-Note that now,  $\vec{N},\vec{B}$ are **input functions**. They are not assumed to be unit length nor orthogonal, but together with the tangent of the curve $\vec{T}=\Xp$, $(\vec{T},\vec{N},\vec{B})$ should form a linearly independent set of basis vectors, with $\vec{T}\cdot(\vec{N}\times \vec{B})>0$.
+Note, since $\vec{N},\vec{B}$ are now **input functions**, they are not assumed to be unit length nor orthogonal, but together with the tangent of the curve $\vec{T}=\Xp$, $(\vec{T},\vec{N},\vec{B})$ should form a linearly independent set of basis vectors, with $\vec{T}\cdot(\vec{N}\times \vec{B})>0$.
 
 The derivatives of the mapping are
 \begin{equation}
