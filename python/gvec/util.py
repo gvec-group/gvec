@@ -147,7 +147,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
         return
 
     for key, value in kwargs.items():
-        if isinstance(value, dict) or isinstance(value, str):
+        if isinstance(value, Mapping) or isinstance(value, str):
             pass
         elif isinstance(value, bool):
             kwargs[key] = "T" if value else "F"
@@ -160,7 +160,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     # initialize occurrences counters for all parameters to be set
     occurrences = {}
     for key in kwargs:
-        if isinstance(kwargs[key], dict):
+        if isinstance(kwargs[key], Mapping):
             for m, n in kwargs[key]:
                 occurrences[key, m, n] = 0
         else:
@@ -229,7 +229,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
 
 
 def write_parameter_file(
-    parameters: dict, path: str | Path = "parameter.ini", header: str = ""
+    parameters: Mapping, path: str | Path = "parameter.ini", header: str = ""
 ):
     """
     Write the parameters to the specified parameter file.
@@ -239,7 +239,7 @@ def write_parameter_file(
         path: The path to the parameter file.
     """
     for key, value in parameters.items():
-        if isinstance(value, dict) or isinstance(value, str):
+        if isinstance(value, Mapping) or isinstance(value, str):
             pass
         elif isinstance(value, bool):
             parameters[key] = "T" if value else "F"
@@ -251,7 +251,7 @@ def write_parameter_file(
     with open(path, "w") as file:
         file.write(header)
         for key, value in parameters.items():
-            if isinstance(value, dict):
+            if isinstance(value, Mapping):
                 for (m, n), val in value.items():
                     file.write(f"{key}({m};{n}) = {val}\n")
             else:
@@ -308,7 +308,7 @@ def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
     return parameters
 
 
-def flip_parameters_theta(parameters: dict) -> dict:
+def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
     import copy
 
     parameters2 = copy.deepcopy(parameters)
@@ -335,7 +335,7 @@ def flip_parameters_theta(parameters: dict) -> dict:
     return parameters2
 
 
-def flip_parameters_zeta(parameters: dict) -> dict:
+def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
     import copy
 
     parameters2 = copy.deepcopy(parameters)
@@ -363,18 +363,20 @@ def flip_parameters_zeta(parameters: dict) -> dict:
     return parameters2
 
 
-def parameters_from_vmec(nml: dict) -> dict:
+def parameters_from_vmec(nml: Mapping) -> CaseInsensitiveDict:
     import numpy as np
 
     M, N = nml["mpol"] - 1, nml["ntor"]
     stellsym = nml["lasym"]  # stellarator symmetry
-    params = {
-        "nfp": nml["nfp"],
-        "X1_mn_max": f"(/{M}, {N}/)",
-        "X2_mn_max": f"(/{M}, {N}/)",
-        "LA_mn_max": f"(/{M}, {N}/)",
-        "PHIEDGE": nml["phiedge"],
-    }
+    params = CaseInsensitiveDict(
+        {
+            "nfp": nml["nfp"],
+            "X1_mn_max": f"(/{M}, {N}/)",
+            "X2_mn_max": f"(/{M}, {N}/)",
+            "LA_mn_max": f"(/{M}, {N}/)",
+            "PHIEDGE": nml["phiedge"],
+        }
+    )
     if stellsym:
         params["X1_sin_cos"] = "_cos_"
         params["X2_sin_cos"] = "_sin_"
@@ -425,7 +427,7 @@ def parameters_from_vmec(nml: dict) -> dict:
     return params
 
 
-def axis_from_boundary(parameters: dict) -> dict:
+def axis_from_boundary(parameters: MutableMapping) -> MutableMapping:
     import copy
 
     parameters2 = copy.deepcopy(parameters)
@@ -439,9 +441,9 @@ def axis_from_boundary(parameters: dict) -> dict:
     return parameters2
 
 
-def stack_parameters(parameters):
+def stack_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Stack parameters into a hierarchical dictionary"""
-    output = {}
+    output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if "_" not in key:
             output[key] = value
@@ -456,9 +458,9 @@ def stack_parameters(parameters):
     return output
 
 
-def flatten_parameters(parameters):
+def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Flatten parameters from a hierarchical dictionary"""
-    output = {}
+    output = CaseInsensitiveDict
     for key, value in parameters.items():
         if isinstance(value, dict) and not re.match(
             r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key
@@ -472,9 +474,9 @@ def flatten_parameters(parameters):
     return output
 
 
-def stringify_mn_parameters(parameters):
+def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Serialize parameters into a string"""
-    output = {}
+    output = CaseInsensitiveDict
     for key, value in parameters.items():
         if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
             output[key] = {}
@@ -485,9 +487,9 @@ def stringify_mn_parameters(parameters):
     return output
 
 
-def unstringify_mn_parameters(parameters):
+def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Deserialize parameters from a string"""
-    output = {}
+    output = CaseInsensitiveDict
     for key, value in parameters.items():
         if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
             output[key] = {}
@@ -502,8 +504,8 @@ def unstringify_mn_parameters(parameters):
 def read_parameters(
     path: Path | str, format: Literal["ini", "yaml", "toml"] | None = None
 ) -> CaseInsensitiveDict:
-    import yaml
     import tomlkit
+    import yaml
 
     path = Path(path)
     # auto-detect format
@@ -531,8 +533,8 @@ def write_parameters(
     path: Path | str = "parameter.ini",
     format: Literal["ini", "yaml", "toml"] | None = None,
 ):
-    import yaml
     import tomlkit
+    import yaml
 
     path = Path(path)
     # auto-detect format
