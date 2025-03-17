@@ -192,13 +192,13 @@ The terms related to the variation in $\lambda$ are
 
 We can collect the terms corresponding to the derivative of each component to obtain,
 \begin{align}\label{eq:energy functional derivative lambda terms}
-    -\operatorname{D}_\lambda W(u) v = \rint\dblint \frac{\Phi^\prime}{\mu_0\Jac} b^\alpha
+    -\operatorname{D}_\lambda W(u) \Lambda = \rint\dblint \frac{\Phi^\prime}{\mu_0\Jac} b^\alpha
     \left(- g_{\alpha\zeta}\pdv{\Lambda}{\thet} + g_{\alpha\thet}\pdv{\Lambda}{\zeta}
          \right) \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta
 \end{align}
 and for $k\in\{1,2\}$,
 \begin{align}\label{eq:energy functional derivative X terms}
-    -\operatorname{D}_{X^k} W(u) v = \rint\dblint \left( p(\rho) + \frac{b^\alpha g_{\alpha\beta} b^\beta}{2\mu_0\Jac^2} \right) [\delta \Jac]_{X^k} - \frac{1}{2\mu_0} \frac{b^\alpha b^\beta}{\Jac} [\delta g_{\alpha\beta}]_{X^k}
+    -\operatorname{D}_{X^k} W(u) Y^k = \rint\dblint \left( p(\rho) + \frac{b^\alpha g_{\alpha\beta} b^\beta}{2\mu_0\Jac^2} \right) [\delta \Jac]_{Y^k} - \frac{1}{2\mu_0} \frac{b^\alpha b^\beta}{\Jac} [\delta g_{\alpha\beta}]_{Y^k}
      \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta.
  \end{align}
 
@@ -276,7 +276,7 @@ Here is an explicit example of all boundary conditions set at the axis, for a B-
     &m=5: &\left.\pdv[j]{U}{\rho}\right|_{\rho=0}&= 0, \quad j = 0, 1, 2, 3, 4 \\
     &m=6: &\left.\pdv[j]{U}{\rho}\right|_{\rho=0}&= 0, \quad j = 0, 1, 2, 3, 4, 5
 \end{align*}
-
+and for $m>0$ the value at $U(\rho=0)$ is also et to zero.
 
 
 ###  Approximation of the integrals
@@ -287,12 +287,12 @@ We approximate the integrals in $\rho, \thet, \zeta$ by numerical quadrature.
     \rint \dblint W(\rho,\thet,\zeta) \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta &= N_{FP}\rint \int\limits_{0}^{2\pi}\!\int\limits_{0}^{2\pi/N_{FP}} W(\rho,\thet,\zeta) \,\mathrm{d}\rho\,\mathrm{d}\thet\,\mathrm{d}\zeta, \\
     &\approx \sum_{i=1}^{n_q} \omega_i \sum_{j=1}^{n_\thet} \sum_{k=1}^{n_\zeta} W(\rho^q_i,\thet_j,\zeta_k),
 \end{align}
-where $\omega_i$ is the quadrature weight and $n_q$ is the total number of Gauss quadrature points in the radial direction. The total number is given by the number of grid elements of the B-Splines and the number of quadrature points in each B-Spline element, chosen to integrate piecewise-polynomial functions exactly up to degree $2p+1$. The number of integration points in the poloidal and toroidal direction are$n_\thet$, $n_\zeta$ and we choose the positions as
+where $\omega_i$ is the quadrature weight and $n_q$ is the total number of Gauss quadrature points in the radial direction. The total number is given by the number of grid elements of the B-Splines and the number of quadrature points in each B-Spline element, chosen to integrate piecewise-polynomial functions exactly up to degree $2p+1$. The number of integration points in the poloidal and toroidal direction are $n_\thet$, $n_\zeta$ and we choose the positions as
 \begin{equation*}
   \thet_j=2\pi\frac{j-1/2}{n_\thet}\,,\quad
   \zeta_k=\frac{2\pi}{\nfp}\frac{k-1/2}{n_\zeta}\,.
 \end{equation*}
-
+We choose the number of integration points $n_\thet$, $n_\zeta$  $4$ times larger than the maximum mode number in each direction.
 
 
 
