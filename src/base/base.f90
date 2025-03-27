@@ -44,6 +44,7 @@ TYPE                 :: t_base
   PROCEDURE :: compare     => base_compare
   PROCEDURE :: change_base => base_change_base
   PROCEDURE :: evalDOF     => base_evalDOF
+  PROCEDURE :: evalDOF_all  => base_evalDOF_all
   PROCEDURE :: evalDOF_x   => base_evalDOF_x
 
 END TYPE t_base
@@ -198,7 +199,7 @@ IMPLICIT NONE
   REAL(wp)     , INTENT(OUT  ) :: y_IP_GP(sf%f%mn_IP,sf%s%nGP_str:sf%s%nGP_end)  !! OUTPUT ARRAY OF MPI SUBDOMAIN (GP points)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                      :: modes,nGP,nBase,mn_IP,deg,degGP,nElems
+  INTEGER                      :: modes,mn_IP,deg,degGP
   INTEGER                      :: nGP_str,nGP_end,nElems_str,nElems_end
 
   !matrix matrix version: first s then f
@@ -208,15 +209,12 @@ IMPLICIT NONE
 
   __PERFON('BaseEval')
 
-  nGP     = sf%s%nGP
-  nGP_str=  sf%s%nGP_str !< for MPI
-  nGP_end=  sf%s%nGP_end !< for MPI
   modes   = sf%f%modes
-  nBase   = sf%s%nBase
   mn_IP   = sf%f%mn_IP
   deg     = sf%s%deg
   degGP   = sf%s%degGP
-  nElems  = sf%s%grid%nElems
+  nGP_str=  sf%s%nGP_str !< for MPI
+  nGP_end=  sf%s%nGP_end !< for MPI
   nElems_str=sf%s%grid%nElems_str !< for MPI
   nElems_end=sf%s%grid%nElems_end !< for MPI
 
@@ -264,6 +262,90 @@ IMPLICIT NONE
   __PERFOFF('BaseEval')
 
 END SUBROUTINE base_evalDOF
+
+
+!===================================================================================================================================
+!> evaluate all degrees of freedom at all Gauss Points , for deriv=0 in s and deriv=0,theta,zeta in f
+!!
+!===================================================================================================================================
+SUBROUTINE base_evalDOF_all(sf,DOFs,y_IP_GP,dy_dthet_IP_GP,dy_dzeta_IP_GP)
+  ! MODULES
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CLASS(t_base), INTENT(IN   ) :: sf     !! self
+    REAL(wp)     , INTENT(IN   ) :: DOFs(1:sf%s%nBase,1:sf%f%modes)  !! array of all modes and all radial dofs
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)     , INTENT(OUT  ),OPTIONAL :: y_IP_GP(sf%f%mn_IP,sf%s%nGP_str:sf%s%nGP_end)  !! value, OUTPUT ARRAY OF MPI SUBDOMAIN (GP points)
+    REAL(wp)     , INTENT(OUT  ),OPTIONAL :: dy_dthet_IP_GP(sf%f%mn_IP,sf%s%nGP_str:sf%s%nGP_end)  !! derivative in theta, OUTPUT ARRAY OF MPI SUBDOMAIN (GP points)
+    REAL(wp)     , INTENT(OUT  ),OPTIONAL :: dy_dzeta_IP_GP(sf%f%mn_IP,sf%s%nGP_str:sf%s%nGP_end)  !! derivative in zeta, OUTPUT ARRAY OF MPI SUBDOMAIN (GP points)  
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER                      :: modes,mn_IP,deg,degGP
+    INTEGER                      :: nGP_str,nGP_end,nElems_str,nElems_end
+  
+    !matrix matrix version: first s then f
+    INTEGER                      :: i,j,iElem,iMode,iGP
+    REAL(wp)                     :: y_tmp(sf%s%nGP_str:sf%s%nGP_end,sf%f%modes)
+  !===================================================================================================================================
+  
+    __PERFON('BaseEval_all')
+  
+    modes   = sf%f%modes
+    mn_IP   = sf%f%mn_IP
+    deg     = sf%s%deg
+    degGP   = sf%s%degGP
+    nGP_str=  sf%s%nGP_str !< for MPI
+    nGP_end=  sf%s%nGP_end !< for MPI
+    nElems_str=sf%s%grid%nElems_str !< for MPI
+    nElems_end=sf%s%grid%nElems_end !< for MPI
+    
+    ! matrix-matrix version of first s then f
+  
+    __PERFON('eval_s')
+    !$OMP PARALLEL DO        &
+    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,j,i)
+    DO iMode=1,modes
+      DO iElem=nElems_str,nElems_end
+        j=sf%s%base_offset(iElem)
+        i=(iElem-1)*(degGP+1)+1
+        y_tmp(i:i+degGP,iMode)=MATMUL(sf%s%base_GP(0:degGP,0:deg,iElem),DOFs(j:j+deg,iMode))
+      END DO !iElem
+    END DO!iMode
+    !$OMP END PARALLEL DO 
+    __PERFOFF('eval_s')
+  
+    __PERFON('eval_f')
+    IF(PRESENT(y_IP_GP))THEN
+    !$OMP PARALLEL DO        &
+    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
+      DO iGP=nGP_str,nGP_end
+        y_IP_GP(:,iGP)=sf%f%evalDOF_IP(0,y_tmp(iGP,:))
+      END DO !iGP
+    !$OMP END PARALLEL DO
+    END IF
+    IF(PRESENT(dy_dthet_IP_GP))THEN
+    !$OMP PARALLEL DO        &
+    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
+      DO iGP=nGP_str,nGP_end
+        dy_dthet_IP_GP(:,iGP)=sf%f%evalDOF_IP(DERIV_THET,y_tmp(iGP,:))
+      END DO !iGP
+    !$OMP END PARALLEL DO
+    END IF 
+    IF(PRESENT(dy_dzeta_IP_GP))THEN
+    !$OMP PARALLEL DO        &
+    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
+      DO iGP=nGP_str,nGP_end
+        dy_dzeta_IP_GP(:,iGP)=sf%f%evalDOF_IP(DERIV_ZETA,y_tmp(iGP,:))
+      END DO !iGP
+    !$OMP END PARALLEL DO
+    END IF
+  
+    __PERFOFF('eval_f')
+    __PERFOFF('BaseEval_all')
+  
+  END SUBROUTINE base_evalDOF_all
 
 
 !===================================================================================================================================
