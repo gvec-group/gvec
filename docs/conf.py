@@ -34,7 +34,16 @@ try:
 except Exception as e:
     logging.error(f"Could not get git version: {e}")
     version = "unknown"
-release = version
+try:
+    p = subprocess.run(["git", "branch", "--show-current"], capture_output=True)
+    branch = p.stdout.decode().strip()
+except Exception:
+    branch = ""
+
+if branch:
+    release = f"{version} ({branch})"
+else:
+    release = version
 
 # generate parameter lists, generators/parameters-*md
 genpath = Path(__file__).parent / "generators"
@@ -153,13 +162,22 @@ html_theme_options = {
             "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/issues",
             "icon": "fa-solid fa-bug",
         },
-        # {
-        #     "name": "PyPI",
-        #     "url": "https://pypi.org/project/gvec",
-        #     "icon": "fa-custom fa-pypi",
-        # },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/gvec",
+            "icon": "fa-custom fa-pypi",
+        },
     ],
 }
+
+# add version switcher (only on readthedocs)
+if os.environ.get("READTHEDOCS_VERSION"):
+    html_theme_options |= {
+        "switcher": {
+            "json_url": "https://gvec.readthedocs.io/latest/_static/version-switcher.json",
+            "version_match": os.environ.get("READTHEDOCS_VERSION"),
+        },
+    }
 
 html_title = "GVEC Documentation"
 html_last_updated_fmt = "%Y-%m-%d"
