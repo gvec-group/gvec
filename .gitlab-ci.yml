@@ -44,10 +44,6 @@ variables:
     value: "false"
     options: ["true", "false"]
     description: "''true'' to run additional ''nightly'' tests, ''false'' to run default tests"
-  PAGES_PIPELINE:
-    value: "false"
-    options: ["true", "false"]
-    description: "''true'' to deploy GitLab Pages"
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
@@ -880,8 +876,7 @@ include:
   - local: CI_templates/pypi.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      publish-target: gitlab
-      rules: .rules_pypi_gitlab
+      rules: .rules_pypi
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -981,7 +976,7 @@ include:
 
 .rules_pages:
   rules:
-    - if: $CI_COMMIT_REF_NAME == "develop" || $PAGES_PIPELINE == "true"
+    - if: $CI_COMMIT_REF_NAME == "develop"
       when: always  # also runs if earlier jobs fail
     # allow manual triggering for pipelines where pages didn't run
     - when: manual
@@ -991,16 +986,14 @@ include:
   rules:
     - when: never
 
-.rules_pypi_gitlab:
+.rules_pypi:
   rules:
-    # disable for NIGHTLY_PIPELINE
-    - if: $NIGHTLY_PIPELINE == "true"
-      when: never
-    # publish all commits on develop (e.g. after a merge request)
-    - if: $CI_COMMIT_REF_NAME =~ /develop/
-      when: on_success
-    # optional for other branches
-    - when: manual
+    # publish releases/tags, but require manual approval
+    - if: $CI_COMMIT_TAG
+      when: manual
+      allow_failure: false # set pipeline to "Blocked" until job is run
+    # never for other branches
+    - when: never
 
 .vars_dirs_artifacts:
   variables:

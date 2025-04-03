@@ -7,23 +7,19 @@ spec:
     env:
       description: Name of the environment, e.g. `.mpcdfci_ifx-latest`
       default: .mpcdfci_ifx-latest
-    publish-target:
-      description: Name of the target to publish to, one of [`gitlab`]
-      default: gitlab
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_develop_only
 
 ---
 
-pypi.$[[ inputs.publish-target ]]:
+publish.pypi:
   stage: publish
   extends:
     - $[[ inputs.env ]]
-    - .script_publish_$[[ inputs.publish-target ]]
+    - .script_publish_pypi
     - $[[ inputs.rules ]]
   needs:
     - job: build$[[ inputs.env ]]_py
       artifacts: true # for venv
     - job: unit$[[ inputs.env ]]
-  allow_failure: true  # ignore this job for the pipeline status
