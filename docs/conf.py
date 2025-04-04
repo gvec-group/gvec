@@ -154,7 +154,7 @@ html_theme_options = {
         {
             # external section of the documentation, built with FORD
             "name": "Fortran Code Documentation",
-            "url": f"{os.environ.get('READTHEDOCS_CANONICAL_URL','')}/ford/index.html",
+            "url": "/ford/index.html",
         },
     ],
     "icon_links": [

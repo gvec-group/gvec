@@ -45,7 +45,7 @@ GVEC is available on [PyPI](https://pypi.org/project/gvec/):
 pip install gvec
 ```
 
-For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec-group.pages.mpcdf.de/gvec/user/install.html) and [Getting Started](https://gvec-group.pages.mpcdf.de/gvec/user/getting-started.html).
+For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec.readthedocs.io/latest/user/install.html) and [Getting Started](https://gvec.readthedocs.io/latest/user/getting-started.html).
 
 ## Reporting Bugs & Contributing to GVEC
 

@@ -38,7 +38,11 @@ In addition the `graphs` feature of *ford* requires an installation of *graphviz
 
 ## Building documentation
 
-Parts 2 and 3 are compiled using the CI and deployed to GitLab Pages. In the future we might also deploy to *readthedocs*.
+The documentation is built and deployed on *Read the Docs* with the url [https://gvec.readthedocs.io](https://gvec.readthedocs.io).
+*Read the Docs* allows switching between different versions.
+Which version are built is configured in the [Read the Docs Settings](https://app.readthedocs.org/projects/gvec).
+Supported versions users can switch between are configured in `docs/static/version-switcher.json`.
+*Read the Docs* also provides a small menu in the lower right corner that can be used to switch versions, e.g. to test a branch with a new version.
 
 [FORD](https://forddocs.readthedocs.io/en/latest/) is configured in the `docs/ford/ford.md` file and can manually be triggered with:
 ```bash

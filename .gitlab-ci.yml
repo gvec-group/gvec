@@ -44,10 +44,6 @@ variables:
     value: "false"
     options: ["true", "false"]
     description: "''true'' to run additional ''nightly'' tests, ''false'' to run default tests"
-  PAGES_PIPELINE:
-    value: "false"
-    options: ["true", "false"]
-    description: "''true'' to deploy GitLab Pages"
   PYTEST_EXEC_CMD: "python -m pytest -v -rA --tb=short"
   # global defaults for the pytest -m and -k options (can be reassigned at the job level!)
   PYTEST_MARKER_OPTS: "example"
@@ -875,8 +871,6 @@ include:
   # ============================
   # stage publish jobs
   # ============================
-  - local: CI_templates/pages.yml
-
   - local: CI_templates/pypi.yml
     inputs:
       env: .mpcdfci_ifx-latest
@@ -978,14 +972,6 @@ include:
     - if: $NIGHTLY_PIPELINE == "true"
       when: on_success
     - when: never
-
-.rules_pages:
-  rules:
-    - if: $CI_COMMIT_REF_NAME == "develop" || $PAGES_PIPELINE == "true"
-      when: always  # also runs if earlier jobs fail
-    # allow manual triggering for pipelines where pages didn't run
-    - when: manual
-      allow_failure: true  # prevent pipeline from being "Blocked" if it isn't run
 
 .rules_never:
   rules:
