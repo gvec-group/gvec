@@ -66,11 +66,7 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: gtz_dq2(:,:)  !! hmap  dg_{theta,zeta}/dq2
   REAL(wp),ALLOCATABLE :: gzz_dq2(:,:)  !! hmap  dg_{zeta,zeta}/dq2
   REAL(wp),ALLOCATABLE :: Gh11(:,:)     !! hmap  G_{11}
-  REAL(wp),ALLOCATABLE :: Gh21(:,:)     !! hmap  G_{21}=G_{12}
-  REAL(wp),ALLOCATABLE :: Gh31(:,:)     !! hmap  G_{31}=G_{13}
   REAL(wp),ALLOCATABLE :: Gh22(:,:)     !! hmap  G_{22}
-  REAL(wp),ALLOCATABLE :: Gh32(:,:)     !! hmap  G_{32}=G_{23}
-  
   
   INTEGER                         :: nGP
   INTEGER                         :: nGP_str, nGP_end !< for MPI
@@ -140,7 +136,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
            b_thet,b_zeta,sJ_bcov_thet,sJ_bcov_zeta,bbcov_sJ,&
            g_tt,g_tz,g_zz,g_t1,g_t2,g_z1,g_z2, &
            Jh_dq1,Jh_dq2,gtt_dq1,gtt_dq2,gtz_dq1,gtz_dq2,gzz_dq1,gzz_dq2, &
-           Gh11,Gh21,Gh31,Gh22,Gh32, mold=J_h)
+           Gh11,Gh22, mold=J_h)
  
   IF(PrecondType.GT.0)THEN
     !WHEN CHANGED TO ALLGATHERV COMM IN BUILDPRECOND, THIS ALLOCATE WILL BE THE SAME.
@@ -378,12 +374,12 @@ SUBROUTINE eval_hmap(X1,X2,dX1_dt,dX2_dt,dX1_dz,dX2_dz)
 !------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iGP,i_mn
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),Gh33
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),Gh21,Gh31,Gh32,Gh33
 !===================================================================================================================================
   __PERFON('loop_hmap')
 !$OMP PARALLEL DO        &  
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)    &
-!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,Gh33)  
+!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,Gh21,Gh31,Gh32,Gh33)  
   DO iGP=nGP_str,nGP_end
     DO i_mn=1,mn_IP
       qloc(  1:3) = (/ X1(i_mn,iGP), X2(i_mn,iGP),zeta_IP(i_mn)/)
@@ -411,14 +407,14 @@ SUBROUTINE eval_hmap(X1,X2,dX1_dt,dX2_dt,dX1_dz,dX2_dz)
       gzz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
 
       Gh11(   i_mn,iGP) = hmap%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
-      Gh21(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
-      Gh31(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      Gh21              = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      Gh31              = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
       Gh22(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
-      Gh32(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      Gh32              = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
       Gh33              = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/0.0_wp,0.0_wp,1.0_wp/))
 
       CALL hmap_fromGijs(dX1_dt(i_mn,iGP),dX2_dt(i_mn,iGP),dX1_dz(i_mn,iGP),dX2_dz(i_mn,iGP), &
-                     Gh11(i_mn,iGP),Gh21(i_mn,iGP),Gh31(i_mn,iGP),Gh22(i_mn,iGP),Gh32(i_mn,iGP),Gh33,  &
+                     Gh11(i_mn,iGP),Gh21,Gh31,Gh22(i_mn,iGP),Gh32,Gh33,  &
                      g_t1(i_mn,iGP),g_z1(i_mn,iGP),g_t2(i_mn,iGP),g_z2(i_mn,iGP), &
                      g_tt(i_mn,iGP),g_tz(i_mn,iGP),g_zz(i_mn,iGP))
     END DO !i_mn
@@ -1166,7 +1162,6 @@ SUBROUTINE BuildPrecond()
   INTEGER                     :: ibase,nBase,iMode,modes_str,modes_end,iGP,i_mn,Deg,iElem,i,j
   INTEGER                     :: nD,tBC
   REAL(wp)                    :: smn_IP,smn_IP_w_GP,norm_mn
-  REAL(wp),DIMENSION(1:mn_IP) :: bt_sJ, bz_sJ,b_dX1_tz,b_dX2_tz
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DX1_tt, DX1_tz, DX1_zz, DX1, DX1_ss
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DX2_tt, DX2_tz, DX2_zz, DX2, DX2_ss
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DLA_tt, DLA_tz, DLA_zz
@@ -1185,52 +1180,69 @@ SUBROUTINE BuildPrecond()
 
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
-!$OMP   PRIVATE(iGP,i_mn,bt_sJ,bz_sJ,b_dX1_tz,b_dX2_tz,smn_IP_w_GP)
+!$OMP   PRIVATE(iGP,i_mn,smn_IP_w_GP)
   loop_nGP: DO iGP=nGP_str,nGP_end  !<<<<
     !dont forget to average
     !additional variables
     smn_IP_w_GP=smn_IP*w_GP(iGP) !include gauss weight here!
-    loop_mn_IP: DO i_mn=1,mn_IP
-      bt_sJ(  i_mn) = b_thet(i_mn,iGP)*sdetJ(i_mn,iGP)
-      bz_sJ(  i_mn) = b_zeta(i_mn,iGP)*sdetJ(i_mn,iGP)
-      b_dX1_tz(i_mn)= b_thet(i_mn,iGP)*dX1_dthet(i_mn,iGP)+b_zeta(i_mn,iGP)*dX1_dzeta(i_mn,iGP)
-      b_dX2_tz(i_mn)= b_thet(i_mn,iGP)*dX2_dthet(i_mn,iGP)+b_zeta(i_mn,iGP)*dX2_dzeta(i_mn,iGP)
-    END DO loop_mn_IP !i_mn
     !averaged quantities
     !X1
-    DX1_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 )
-    DX1(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*Jh_dq1(:,iGP))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*Jh_dq1(:,iGP)) &
-                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq1(:,iGP)+2.0_wp*b_zeta(:,iGP)*gtz_dq1(:,iGP))    &
-                                    +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq1(:,iGP))  ) )
-    DX1_tt(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
-                                +bt_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*Gh11(:,iGP)   &
-                                              +b_dX2_tz(:    )*Gh21(:,iGP)   &
-                                              +b_zeta(  :,iGP)*Gh31(:,iGP))) &
-                                           +b_thet(:,iGP)*Gh11(:,iGP))       ) 
-    DX1_tz(iGP) =smn_IP_w_GP*SUM(bz_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*Gh11(:,iGP)   &
-                                              +b_dX2_tz(:    )*Gh21(:,iGP)   &
-                                              +b_zeta(  :,iGP)*Gh31(:,iGP))) &
-                                           +b_thet(:,iGP)*2.0_wp*Gh11(:,iGP))  )
-    DX1_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*Gh11(:,iGP))
+    DX1_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*( sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 )
+
+    DX1(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*Jh_dq1(:,iGP))*(bbcov_sJ(:,iGP)*(sJ_h(:,iGP)*Jh_dq1(:,iGP)) &
+                                                -sdetJ(:,iGP)*( b_thet(:,iGP)*(        b_thet(:,iGP)*gtt_dq1(:,iGP)  &
+                                                                               +2.0_wp*b_zeta(:,iGP)*gtz_dq1(:,iGP)  &
+                                                                              ) &
+                                                               +b_zeta(:,iGP)*         b_zeta(:,iGP)*gzz_dq1(:,iGP)  &
+                                                              ) &
+                                                             ) &
+                                )
+    DX1_tt(iGP) =smn_IP_w_GP*SUM( bbcov_sJ(:,iGP)*( sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
+                                 +b_thet(:,iGP)*sdetJ(:,iGP)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )  &
+                                                                *( b_thet(:,iGP)*g_t1(:,iGP) &
+                                                                  +b_zeta(:,iGP)*g_z1(:,iGP) &
+                                                                 ) &
+                                                               ) &
+                                                              +b_thet(:,iGP)*Gh11(:,iGP) &
+                                                             ) &
+                                ) 
+    DX1_tz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*sdetJ(:,iGP)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP))  &
+                                                               *( b_thet(:,iGP)*g_t1(:,iGP) &
+                                                                 +b_zeta(:,iGP)*g_z1(:,iGP) &
+                                                                )&
+                                                              ) &
+                                                             +b_thet(:,iGP)*2.0_wp*Gh11(:,iGP) &
+                                                            ) &
+                                )
+    DX1_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*b_zeta(:,iGP)*sdetJ(:,iGP)*Gh11(:,iGP))
     !X2
-    DX2_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 )
-    DX2(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*Jh_dq2(:,iGP))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*Jh_dq2(:,iGP)) &
-                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq2(:,iGP)+2.0_wp*b_zeta(:,iGP)*gtz_dq2(:,iGP))    &
-                                    +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq2(:,iGP))  ) )
-    DX2_tt(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
-                                +bt_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*Gh21(:,iGP)   &
-                                              +b_dX2_tz(:    )*Gh22(:,iGP)   &
-                                              +b_zeta(  :,iGP)*Gh32(:,iGP))) &
-                                           +b_thet(:,iGP)*Gh22(:,iGP))      )
-    DX2_tz(iGP) =smn_IP_w_GP*SUM(bz_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*Gh21(:,iGP)   &
-                                              +b_dX2_tz(:    )*Gh22(:,iGP)   &
-                                              +b_zeta(  :,iGP)*Gh32(:,iGP))) &
-                                           +b_thet(:,iGP)*2.0_wp*Gh22(:,iGP))                  )
-    DX2_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*Gh22(:,iGP))
+    DX2_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*( sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 )
+    DX2(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*Jh_dq2(:,iGP))*(bbcov_sJ(:,iGP)*( sJ_h(:,iGP)*Jh_dq2(:,iGP)) &
+                                                -sdetJ(:,iGP)*( b_thet(:,iGP)*(        b_thet(:,iGP)*gtt_dq2(:,iGP) &
+                                                                               +2.0_wp*b_zeta(:,iGP)*gtz_dq2(:,iGP) &
+                                                                              )  &
+                                                               +b_zeta(:,iGP)*         b_zeta(:,iGP)*gzz_dq2(:,iGP) &
+                                                              ) &
+                                                             )&
+                               )
+    DX2_tt(iGP) =smn_IP_w_GP*SUM( bbcov_sJ(:,iGP)*( sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
+                                 +b_thet(:,iGP)*sdetJ(:,iGP)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) ) &
+                                                                *( b_thet(:,iGP)*g_t2(:,iGP) &
+                                                                  +b_zeta(:,iGP)*g_z2(:,iGP) &
+                                                                ) &
+                                                               ) &
+                                                              +b_thet(:,iGP)*Gh22(:,iGP) &
+                                                             ) &
+                                )
+    DX2_tz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*sdetJ(:,iGP)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )  &
+                                                               *( b_thet(:,iGP)*g_t2(:,iGP) &
+                                                                 +b_zeta(:,iGP)*g_z2(:,iGP) &
+                                                                ) &
+                                                              ) &
+                                                             +b_thet(:,iGP)*2.0_wp*Gh22(:,iGP) &
+                                                            ) &
+                                )
+    DX2_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*b_zeta(:,iGP)*sdetJ(:,iGP)*Gh22(:,iGP))
     !LA
     DLA_tt(iGP) =         smn_IP_w_GP*phiPrime2_GP(iGP)*SUM(g_zz(:,iGP)*sdetJ(:,iGP))
     DLA_tz(iGP) = -2.0_wp*smn_IP_w_GP*phiPrime2_GP(iGP)*SUM(g_tz(:,iGP)*sdetJ(:,iGP))
@@ -1605,10 +1617,8 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(gzz_dq1)
   SDEALLOCATE(gzz_dq2)
   SDEALLOCATE(Gh11)
-  SDEALLOCATE(Gh21)
-  SDEALLOCATE(Gh31)
   SDEALLOCATE(Gh22)
-  SDEALLOCATE(Gh32)
+
   
 
   IF(PrecondType.GT.0)THEN
