@@ -873,6 +873,8 @@ include:
   # ============================
   - local: CI_templates/pages.yml
 
+  - local: CI_templates/pre-commit.yml
+
   - local: CI_templates/pypi.yml
     inputs:
       env: .mpcdfci_ifx-latest

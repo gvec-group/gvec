@@ -19,10 +19,8 @@ repos:
       # Run the linter.
       - id: ruff
         args: [--fix]
-        exclude: 'tools/|src/gvec_to_gene'
       # Run the formatter.
       - id: ruff-format
-        exclude: 'tools/|src/gvec_to_gene'
 
   # cleaning jupyter notebooks
   - repo: https://github.com/srstevenson/nb-clean
