@@ -14,7 +14,7 @@ pre-commit:
   stage: publish
   extends:
     - $[[ inputs.env ]]
-    - $[[ inputs.rules ]]
+    - .before_script_modules
   variables:
     PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
   cache:
@@ -22,7 +22,7 @@ pre-commit:
       - ${PRE_COMMIT_HOME}
   script:
     - pip install pre-commit
-    - pre-commit run --from-ref ${HASH_TAG_REFERENCE} --to-ref ${HASH_TAG}
+    - pre-commit run --all-files
   needs: []
   rules:
-    when: always
+    - when: always
