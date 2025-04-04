@@ -145,7 +145,7 @@ html_theme_options = {
     "footer_center": ["copyright"],
     "footer_end": ["sphinx-version", "theme-version"],
     # --- header --- #
-    "navbar_start": ["navbar-logo", "version-switcher"],
+    "navbar_start": ["navbar-logo"],
     # "navbar_center": ["navbar-nav"],
     # "navbar_persistent": ["search-button"],
     # "navbar_end": ["theme-switcher", "navbar-icon-links"],
@@ -154,9 +154,7 @@ html_theme_options = {
         {
             # external section of the documentation, built with FORD
             "name": "Fortran Code Documentation",
-            # important to use an absolute path, denoted with a starting "/"
-            # prefix with the FORD_PREFIX environment variable (e.g. set to "/gvec" on GitLab Pages)
-            "url": f"{os.environ.get('FORD_PREFIX', ' ')}/ford/index.html",
+            "url": f"{os.environ.get('READTHEDOCS_CANONICAL_URL','')}/ford/index.html",
         },
     ],
     "icon_links": [
@@ -185,7 +183,9 @@ html_theme_options = {
 
 # add version switcher (only on readthedocs)
 if os.environ.get("READTHEDOCS_VERSION"):
+    html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL")
     html_theme_options |= {
+        "navbar_start": ["navbar-logo", "version-switcher"],
         "switcher": {
             "json_url": "https://gvec.readthedocs.io/latest/_static/version-switcher.json",
             "version_match": os.environ.get("READTHEDOCS_VERSION"),
@@ -194,7 +194,6 @@ if os.environ.get("READTHEDOCS_VERSION"):
 
 html_title = "GVEC"
 html_last_updated_fmt = "%Y-%m-%d"
-html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

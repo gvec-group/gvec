@@ -3,11 +3,5 @@
     "name": "dev",
     "version": "latest",
     "url": "https://gvec.readthedocs.io/latest/"
-  },
-  {
-    "name": "v1.0 (latest)",
-    "version": "latest",
-    "url": "https://gvec.readthedocs.io/stable/",
-    "preferred": true
   }
 ]

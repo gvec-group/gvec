@@ -3,12 +3,18 @@ myst:
   html_meta:
     "description lang=en": |
       Top-level documentation for GVEC, with links to the rest of the site..
+html_theme.primary_secondary.remove: true
 html_theme.sidebar_secondary.remove: true
 ---
 
-# GVEC: A flexible 3D MHD equilibrium solver
 
-The Galerkin Variational Equilibrium Code (GVEC) is open-source software for the generation of three-dimensional ideal MHD equilibria.
+<div style="text-align: center;">
+
+# The Galerkin Variational Equilibrium Code
+## A flexible 3D MHD equilibrium solver
+</div>
+
+GVEC is an open-source software for the generation of three-dimensional ideal MHD equilibria.
 
 ::::{grid} 2
 :::{grid-item-card}  Inspired by VMEC
