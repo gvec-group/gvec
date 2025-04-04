@@ -5,9 +5,12 @@
 [![github-mirror](https://img.shields.io/badge/GitHub%20mirror-gray?logo=github&labelColor=gray)](https://gvec.readthedocs.io)
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026781.svg)](https://doi.org/10.5281/zenodo.15026781)
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE.txt)
+[![License](https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative)](./LICENSE.txt)
 [![PyPI](https://img.shields.io/pypi/v/gvec)](https://pypi.org/project/gvec/)
-[![python-version](https://img.shields.io/pypi/pyversions/gvec)](https://pypi.org/project/gvec)
+[![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
+
+[![pre-commit](https://img.shields.io/badge/pre--commit-gray?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Overview
 

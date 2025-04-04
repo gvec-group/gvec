@@ -52,7 +52,7 @@ dynamic = ["version"]
 Homepage = "https://gvec.readthedocs.io/latest"
 Documentation = "https://gvec.readthedocs.io/latest"
 Repository = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec"
-Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
+Issues = "https://github.com/gvec-group/gvec/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
