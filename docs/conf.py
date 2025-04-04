@@ -133,18 +133,22 @@ exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators"]
 # a list of builtin themes.
 #
 html_theme = "pydata_sphinx_theme"
-
 html_theme_options = {
     # "sidebarwidth": 270,
     "show_toc_level": 2,  # number of levels always visible in the (right) toc
     # "show_nav_level": ?,
     # "navigation_depth": ?,
     "back_to_top_button": True,
+    "primary_sidebar_end": ["sidebar-ethical-ads"],
     # --- footer --- #
     "footer_start": ["version", "last-updated"],
     "footer_center": ["copyright"],
     "footer_end": ["sphinx-version", "theme-version"],
     # --- header --- #
+    "navbar_start": ["navbar-logo", "version-switcher"],
+    # "navbar_center": ["navbar-nav"],
+    # "navbar_persistent": ["search-button"],
+    # "navbar_end": ["theme-switcher", "navbar-icon-links"],
     # "header_links_before_dropdown": ?,
     "external_links": [
         {
@@ -155,17 +159,26 @@ html_theme_options = {
             "url": f"{os.environ.get('FORD_PREFIX', ' ')}/ford/index.html",
         },
     ],
-    "gitlab_url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
     "icon_links": [
         {
+            "name": "GitLab",
+            "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
+            "icon": "fa-brands fa-gitlab",
+        },
+        {
+            "name": "GitHub (mirror)",
+            "url": "https://github.com/gvec-group/gvec",
+            "icon": "fa-brands fa-github",
+        },
+        {
             "name": "Issues",
-            "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/issues",
+            "url": "https://github.com/gvec-group/gvec/issues",
             "icon": "fa-solid fa-bug",
         },
         {
             "name": "PyPI",
             "url": "https://pypi.org/project/gvec",
-            "icon": "fa-custom fa-pypi",
+            "icon": "fa-brands fa-python",
         },
     ],
 }
@@ -179,8 +192,9 @@ if os.environ.get("READTHEDOCS_VERSION"):
         },
     }
 
-html_title = "GVEC Documentation"
+html_title = "GVEC"
 html_last_updated_fmt = "%Y-%m-%d"
+html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
