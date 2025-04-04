@@ -50,17 +50,26 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: sJ_bcov_thet(:,:)  !! covariant normalized magnetic field, scaled with 1/J:
   REAL(wp),ALLOCATABLE :: sJ_bcov_zeta(:,:)  !! sJ_bcov_alpha=1/detJ (g_{alpha,theta} b_theta + g_{alpha,zeta) b_zeta)
   REAL(wp),ALLOCATABLE :: bbcov_sJ(:,:)      !! (b^alpha*g_{alpha,beta}*b^beta)/(detJ)
-  REAL(wp),ALLOCATABLE :: g_tt(     :,:)     !! metric tensor g_(theta,theta)
-  REAL(wp),ALLOCATABLE :: g_tz(     :,:)     !! metric tensor g_(theta,zeta )=g_(zeta,theta)
-  REAL(wp),ALLOCATABLE :: g_zz(     :,:)     !! metric tensor g_(zeta ,zeta )
-  REAL(wp),ALLOCATABLE :: hmap_Jh_dq1(:,:)  !! hmap  dJh/dq1
-  REAL(wp),ALLOCATABLE :: hmap_Jh_dq2(:,:)  !! hmap  dJh/dq2
-  REAL(wp),ALLOCATABLE :: hmap_gtt_dq1(:,:)  !! hmap  dg_{thet,theta}/dq1
-  REAL(wp),ALLOCATABLE :: hmap_gtz_dq1(:,:)  !! hmap  dg_{theta,zeta}/dq1
-  REAL(wp),ALLOCATABLE :: hmap_gzz_dq1(:,:)  !! hmap  dg_{zeta,zeta}/dq1
-  REAL(wp),ALLOCATABLE :: hmap_gtt_dq2(:,:)  !! hmap  dg_{thet,theta}/dq2
-  REAL(wp),ALLOCATABLE :: hmap_gtz_dq2(:,:)  !! hmap  dg_{theta,zeta}/dq2
-  REAL(wp),ALLOCATABLE :: hmap_gzz_dq2(:,:)  !! hmap  dg_{zeta,zeta}/dq2
+  REAL(wp),ALLOCATABLE :: g_tt(:,:)     !! metric tensor g_(theta,theta)
+  REAL(wp),ALLOCATABLE :: g_tz(:,:)     !! metric tensor g_(theta,zeta )=g_(zeta,theta)
+  REAL(wp),ALLOCATABLE :: g_zz(:,:)     !! metric tensor g_(zeta ,zeta )
+  REAL(wp),ALLOCATABLE :: g_t1(:,:)     !! metric tensor dq^i_dthet G^i1   (sum over i=1,2,3)
+  REAL(wp),ALLOCATABLE :: g_t2(:,:)     !! metric tensor dq^i_dthet G^i2 
+  REAL(wp),ALLOCATABLE :: g_z1(:,:)     !! metric tensor dq^i_dzeta G^i1 
+  REAL(wp),ALLOCATABLE :: g_z2(:,:)     !! metric tensor dq^i_dzeta G^i2 
+  REAL(wp),ALLOCATABLE :: Jh_dq1(:,:)   !! hmap  dJh/dq1
+  REAL(wp),ALLOCATABLE :: Jh_dq2(:,:)   !! hmap  dJh/dq2
+  REAL(wp),ALLOCATABLE :: gtt_dq1(:,:)  !! hmap  dg_{thet,theta}/dq1
+  REAL(wp),ALLOCATABLE :: gtz_dq1(:,:)  !! hmap  dg_{theta,zeta}/dq1
+  REAL(wp),ALLOCATABLE :: gzz_dq1(:,:)  !! hmap  dg_{zeta,zeta}/dq1
+  REAL(wp),ALLOCATABLE :: gtt_dq2(:,:)  !! hmap  dg_{thet,theta}/dq2
+  REAL(wp),ALLOCATABLE :: gtz_dq2(:,:)  !! hmap  dg_{theta,zeta}/dq2
+  REAL(wp),ALLOCATABLE :: gzz_dq2(:,:)  !! hmap  dg_{zeta,zeta}/dq2
+  REAL(wp),ALLOCATABLE :: Gh11(:,:)     !! hmap  G_{11}
+  REAL(wp),ALLOCATABLE :: Gh21(:,:)     !! hmap  G_{21}=G_{12}
+  REAL(wp),ALLOCATABLE :: Gh31(:,:)     !! hmap  G_{31}=G_{13}
+  REAL(wp),ALLOCATABLE :: Gh22(:,:)     !! hmap  G_{22}
+  REAL(wp),ALLOCATABLE :: Gh32(:,:)     !! hmap  G_{32}=G_{23}
   
   
   INTEGER                         :: nGP
@@ -124,37 +133,14 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   ALLOCATE(phiPrime_GP( 1:nGP) )
   ALLOCATE(phiPrime2_GP(1:nGP) )
   ALLOCATE(J_h(         mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(J_p(         mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(sJ_h(        mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(sJ_p(        mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(detJ(        mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(sdetJ(       mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(X1_IP_GP(    mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(X2_IP_GP(    mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dX1_ds(      mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dX2_ds(      mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dX1_dthet(   mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dX2_dthet(   mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dLA_dthet(   mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dX1_dzeta(   mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dX2_dzeta(   mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(dLA_dzeta(   mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(b_thet(      mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(b_zeta(      mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(sJ_bcov_thet(mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(sJ_bcov_zeta(mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(bbcov_sJ    (mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(g_tt(        mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(g_tz(        mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(g_zz(        mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_Jh_dq1( mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_Jh_dq2( mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_gtt_dq1(mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_gtt_dq2(mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_gtz_dq1(mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_gtz_dq2(mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_gzz_dq1(mn_IP,nGP_str:nGP_end) )
-  ALLOCATE(hmap_gzz_dq2(mn_IP,nGP_str:nGP_end) )
+  ALLOCATE(J_p,sJ_h,sJ_p,detJ,sdetJ, &
+           X1_IP_GP,X2_IP_GP,dX1_ds,dX2_ds, &
+           dX1_dthet,dX2_dthet,dLA_dthet, &
+           dX1_dzeta,dX2_dzeta,dLA_dzeta, &
+           b_thet,b_zeta,sJ_bcov_thet,sJ_bcov_zeta,bbcov_sJ,&
+           g_tt,g_tz,g_zz,g_t1,g_t2,g_z1,g_z2, &
+           Jh_dq1,Jh_dq2,gtt_dq1,gtt_dq2,gtz_dq1,gtz_dq2,gzz_dq1,gzz_dq2, &
+           Gh11,Gh21,Gh31,Gh22,Gh32, mold=J_h)
  
   IF(PrecondType.GT.0)THEN
     !WHEN CHANGED TO ALLGATHERV COMM IN BUILDPRECOND, THIS ALLOCATE WILL BE THE SAME.
@@ -249,7 +235,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 ! MODULES
   USE MODgvec_MPI             , ONLY: par_AllReduce
   USE MODgvec_Globals         , ONLY: n_warnings_occured,myRank
-  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
+  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -291,29 +277,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   
   __PERFOFF('EvalDOF_1')
 
-  __PERFON('loop_hmap')
-!$OMP PARALLEL DO        &  
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta)  &
-!$OMP   SHARED(nGP_str,nGP_end,mn_IP,J_h,g_tt,g_tz,g_zz,dX1_dzeta,dX2_dzeta,dX1_dthet,dX2_dthet,X1_IP_GP,X2_IP_GP,zeta_IP,hmap)
-  DO iGP=nGP_str,nGP_end
-    DO i_mn=1,mn_IP
-      qloc(  1:3) = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
-
-      J_h( i_mn,iGP) = hmap%eval_Jh(qloc)
-
-      q_thet(1:2) = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP)/) !dq(1:2)/dtheta
-      q_thet(3)   = 0.0_wp                                      !dq(3)/dtheta
-      q_zeta(1:2) = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP)/) !dq(1:2)/dzeta
-      q_zeta(3)   = 1.0_wp                                      !dq(3)/zeta
-
-      g_tt(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
-      g_tz(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_zeta)   !g_theta,zeta =g_zeta,theta
-      g_zz(i_mn,iGP)         = hmap%eval_gij(q_zeta,qloc,q_zeta)   !g_zeta,zeta
-    END DO !i_mn  
-  END DO !iGP
-!$OMP END PARALLEL DO
-  __PERFOFF('loop_hmap')
+  CALL eval_hmap(X1_IP_GP,X2_IP_GP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta)
 
   __PERFON('loop_1')
   min_detJ =HUGE(1.0_wp)
@@ -396,6 +360,116 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   __PERFOFF('EvalAux')
 
 END SUBROUTINE EvalAux
+
+!===================================================================================================================================
+!> Evaluate auxiliary variables related to hmap
+!! needs X1_IP_GP,X2_IP_GP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta  to be computed before!
+!!
+!===================================================================================================================================
+SUBROUTINE eval_hmap(X1,X2,dX1_dt,dX2_dt,dX1_dz,dX2_dz)
+! MODULES
+  USE MODgvec_MHD3D_vars      , ONLY: hmap
+  IMPLICIT NONE
+!------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end),INTENT(IN) :: X1,X2          !! position X^1,X^2
+  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end),INTENT(IN) :: dX1_dt,dX2_dt  !! theta derivative of X^1,X^2
+  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end),INTENT(IN) :: dX1_dz,dX2_dz  !! zeta derivative of X^1,X^2
+!------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER   :: iGP,i_mn
+  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),Gh33
+!===================================================================================================================================
+  __PERFON('loop_hmap')
+!$OMP PARALLEL DO        &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)    &
+!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,Gh33)  
+  DO iGP=nGP_str,nGP_end
+    DO i_mn=1,mn_IP
+      qloc(  1:3) = (/ X1(i_mn,iGP), X2(i_mn,iGP),zeta_IP(i_mn)/)
+
+      J_h( i_mn,iGP) = hmap%eval_Jh(qloc)
+
+      q_thet(1:3) = (/dX1_dt(i_mn,iGP),dX2_dt(i_mn,iGP),0.0_wp/) !dq(1:3)/dtheta
+      q_zeta(1:3) = (/dX1_dz(i_mn,iGP),dX2_dz(i_mn,iGP),1.0_wp/) !dq(1:3)/dzeta
+
+      !g_tt(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_thet)   !g_theta,theta
+      !g_tz(i_mn,iGP)         = hmap%eval_gij(q_thet,qloc,q_zeta)   !g_theta,zeta =g_zeta,theta
+      !g_zz(i_mn,iGP)         = hmap%eval_gij(q_zeta,qloc,q_zeta)   !g_zeta,zeta
+
+      Jh_dq1( i_mn,iGP) = hmap%eval_Jh_dq1(       qloc        ) !~Y1
+      Jh_dq2( i_mn,iGP) = hmap%eval_Jh_dq2(       qloc        ) !~Y2
+      !g_t1(   i_mn,iGP) = hmap%eval_gij(   q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/)) !~Y1_thet
+      !g_z1(   i_mn,iGP) = hmap%eval_gij(   q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/)) !~Y1_zeta
+      !g_t2(   i_mn,iGP) = hmap%eval_gij(   q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/)) !~Y2_thet
+      !g_z2(   i_mn,iGP) = hmap%eval_gij(   q_zeta,qloc,(/0.0_wp,1.0_wp,0.0_wp/)) !~Y2_zeta
+      gtt_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_thet,qloc, q_thet) !~Y1
+      gtz_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_thet,qloc, q_zeta) !~Y1
+      gzz_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_zeta,qloc, q_zeta) !~Y1
+      gtt_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_thet,qloc, q_thet) !~Y2
+      gtz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_thet,qloc, q_zeta) !~Y2
+      gzz_dq2(i_mn,iGP) = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
+
+      Gh11(   i_mn,iGP) = hmap%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      Gh21(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      Gh31(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      Gh22(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      Gh32(   i_mn,iGP) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      Gh33              = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/0.0_wp,0.0_wp,1.0_wp/))
+
+      CALL hmap_fromGijs(dX1_dt(i_mn,iGP),dX2_dt(i_mn,iGP),dX1_dz(i_mn,iGP),dX2_dz(i_mn,iGP), &
+                     Gh11(i_mn,iGP),Gh21(i_mn,iGP),Gh31(i_mn,iGP),Gh22(i_mn,iGP),Gh32(i_mn,iGP),Gh33,  &
+                     g_t1(i_mn,iGP),g_z1(i_mn,iGP),g_t2(i_mn,iGP),g_z2(i_mn,iGP), &
+                     g_tt(i_mn,iGP),g_tz(i_mn,iGP),g_zz(i_mn,iGP))
+    END DO !i_mn
+  END DO !iGP
+!$OMP END PARALLEL DO
+  __PERFOFF('loop_hmap')
+END SUBROUTINE eval_hmap
+
+!===================================================================================================================================
+!> compute g_ab from (dq^i_da * G_ij dq^j_db)
+!! g_ab =  G_11 *  dq1_da * dq1_db 
+!!       + G_12 * (dq1_da * dq2_db + dq2_da * dq1_db) 
+!!       + G_13 * (dq1_da * dq3_db + dq3_da * dq1_db) 
+!!       + G_22 *  dq2_da * dq2_db
+!!       + G_23 * (dq2_da * dq3_db + dq3_da * dq2_db) 
+!!       + G_33 *  dq3_da * dq3_db#
+!! a,b can be t or z, and dq3_dt = 0, dq3_dz = 1
+!!
+!===================================================================================================================================
+PURE ELEMENTAL SUBROUTINE hmap_fromGijs(dX1_dthet_e,dX2_dthet_e,dX1_dzeta_e,dX2_dzeta_e, &
+                                    Gh11_e,Gh21_e,Gh31_e,Gh22_e,Gh32_e,Gh33_e, &
+                                    g_t1_e,g_z1_e,g_t2_e,g_z2_e, g_tt_e,g_tz_e,g_zz_e)
+! MODULES
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp),INTENT(IN):: dX1_dthet_e,dX2_dthet_e,dX1_dzeta_e,dX2_dzeta_e, &
+                        Gh11_e,Gh21_e,Gh31_e,Gh22_e,Gh32_e,Gh33_e
+
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT)::g_t1_e,g_z1_e,g_t2_e,g_z2_e, g_tt_e,g_tz_e,g_zz_e
+!===================================================================================================================================
+  !g_tt_e =   dX1_dthet_e * (Gh11_e*dX1_dthet_e + Gh21_e*dX2_dthet_e) &
+  !        +  dX2_dthet_e * (Gh22_e*dX2_dthet_e + Gh21_e*dX1_dthet_e)
+  !g_tz_e =   dX1_dthet_e * (Gh11_e*dX1_dzeta_e + Gh21_e*dX2_dzeta_e + Gh31_e) &
+  !        +  dX2_dthet_e * (Gh22_e*dX2_dzeta_e + Gh21_e*dX1_dzeta_e + Gh32_e)
+  !g_zz_e =   dX1_dzeta_e * (Gh11_e*dX1_dzeta_e + Gh21_e*dX2_dzeta_e + 2*Gh31_e)  &
+  !        +  dX2_dzeta_e * (Gh22_e*dX2_dzeta_e + Gh21_e*dX1_dzeta_e + 2*Gh32_e)  + Gh33_e  
+
+  g_t1_e = Gh11_e * dX1_dthet_e + Gh21_e * dX2_dthet_e
+  g_t2_e = Gh21_e * dX1_dthet_e + Gh22_e * dX2_dthet_e
+  g_z1_e = Gh11_e * dX1_dzeta_e + Gh21_e * dX2_dzeta_e + Gh31_e
+  g_z2_e = Gh21_e * dX1_dzeta_e + Gh22_e * dX2_dzeta_e + Gh32_e
+
+  g_tt_e =   dX1_dthet_e *  g_t1_e           +  dX2_dthet_e *  g_t2_e
+  g_tz_e =   dX1_dthet_e *  g_z1_e           +  dX2_dthet_e *  g_z2_e
+  g_zz_e =   dX1_dzeta_e * (g_z1_e + Gh31_e) +  dX2_dzeta_e * (g_z2_e + Gh32_e)  + Gh33_e  
+          
+END SUBROUTINE hmap_fromGijs                                  
+
 
 !===================================================================================================================================
 !> Evaluate total volume and average surface
@@ -533,7 +607,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 ! MODULES
   USE MODgvec_Globals,       ONLY : nRanks
   USE MODgvec_MPI,           ONLY : par_IReduce,par_IBcast,par_Wait,req1,req2,req3,par_Barrier,par_BCast
-  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,hmap,mu_0,PrecondType
+  USE MODgvec_MHD3D_Vars,    ONLY : X1_base,X2_base,LA_base,mu_0,PrecondType
   USE MODgvec_MHD3D_Vars,    ONLY : X1_BC_type,X2_BC_type,LA_BC_type
   USE MODgvec_sol_var_MHD3D, ONLY : t_sol_var_MHD3D
   IMPLICIT NONE
@@ -550,9 +624,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: ibase,nBase,iMode,modes,iGP,i_mn,Deg,iElem,modes_str,modes_end,iRank,offset_modes(0:nRanks)
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),w_GP_IP,p_mu_0
-  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end)  :: hmap_g_t1,hmap_g_z1
-  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end)  :: hmap_g_t2,hmap_g_z2
+  REAL(wp)  :: w_GP_IP,p_mu_0
   REAL(wp)  ::    F_X1_GP_IP(nGP_str:nGP_end,1:X1_base%f%modes)
   REAL(wp)  ::  F_X1ds_GP_IP(nGP_str:nGP_end,1:X1_base%f%modes)
   REAL(wp)  ::    F_X2_GP_IP(nGP_str:nGP_end,1:X2_base%f%modes)
@@ -576,37 +648,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
          'negative Jacobian was found when you call EvalAux before!!!')
   END IF
 
-  __PERFON('loop_hmap')
-!$OMP PARALLEL DO    &
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta) &
-!$OMP   SHARED(nGP_str,nGP_end,mn_IP,dX1_dzeta,dX2_dzeta,dX1_dthet,dX2_dthet,X1_IP_GP,X2_IP_GP,zeta_IP,hmap,&
-!$OMP          hmap_Jh_dq1,hmap_gtt_dq1,hmap_gzz_dq1,hmap_gtz_dq1, &
-!$OMP          hmap_Jh_dq2,hmap_gtt_dq2,hmap_gzz_dq2,hmap_gtz_dq2, &
-!$OMP          hmap_g_t1,hmap_g_t2,hmap_g_z1,hmap_g_z2)
-  DO iGP=nGP_str,nGP_end
-    DO i_mn=1,mn_IP
-      qloc(1:3)      = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
-      q_thet(1:3)    = (/dX1_dthet(i_mn,iGP),dX2_dthet(i_mn,iGP),0.0_wp/)
-      q_zeta(1:3)    = (/dX1_dzeta(i_mn,iGP),dX2_dzeta(i_mn,iGP),1.0_wp/)
-      !Y1tilde=(1,0,0)
-      hmap_Jh_dq1(i_mn,iGP)   = hmap%eval_Jh_dq1(       qloc        ) !~Y1
-      hmap_g_t1(i_mn,iGP)     = hmap%eval_gij(   q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/)) !~Y1_thet
-      hmap_g_z1(i_mn,iGP)     = hmap%eval_gij(   q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/)) !~Y1_zeta
-      hmap_gtt_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_thet,qloc, q_thet) !~Y1
-      hmap_gtz_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_thet,qloc, q_zeta) !~Y1
-      hmap_gzz_dq1(i_mn,iGP) = hmap%eval_gij_dq1(q_zeta,qloc, q_zeta) !~Y1
 
-      !Y2tilde=(0,1,0)
-      hmap_Jh_dq2(i_mn,iGP)    = hmap%eval_Jh_dq2(       qloc        ) !~Y2
-      hmap_g_t2(i_mn,iGP)      = hmap%eval_gij(   q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/)) !~Y2_thet
-      hmap_g_z2(i_mn,iGP)      = hmap%eval_gij(   q_zeta,qloc,(/0.0_wp,1.0_wp,0.0_wp/)) !~Y2_zeta
-      hmap_gtt_dq2(i_mn,iGP)  = hmap%eval_gij_dq2(q_thet,qloc, q_thet) !~Y2
-      hmap_gtz_dq2(i_mn,iGP)  = hmap%eval_gij_dq2(q_thet,qloc, q_zeta) !~Y2
-      hmap_gzz_dq2(i_mn,iGP)  = hmap%eval_gij_dq2(q_zeta,qloc, q_zeta) !~Y2
-    END DO !i_mn
-  END DO !iGP
-!$OMP END PARALLEL DO
-  __PERFOFF('loop_hmap')
 
   __PERFON('buildPrecond')
   IF(PrecondType.GT.0) CALL BuildPrecond()
@@ -644,31 +686,31 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   PRIVATE(iGP,i_mn)  &
 !$OMP   SHARED(nGP_str,nGP_end,mn_IP,dW,J_h,J_p,dX2_dthet,dX2_ds,btt_sJ,bzz_sJ,btz_sJ,                                 &
 !$OMP          coefY,coefY_thet,coefY_zeta,coefY_s, &
-!$OMP          hmap_Jh_dq1,hmap_g_t1,hmap_gtt_dq1,hmap_g_z1,hmap_gzz_dq1,hmap_gtz_dq1)
+!$OMP          Jh_dq1,g_t1,gtt_dq1,g_z1,gzz_dq1,gtz_dq1)
   DO iGP=nGP_str,nGP_end
     DO i_mn=1,mn_IP
 ! ADDED TO F_X1_GP_IP(iGP,iMode):
 !                         -dW(    i_mn,iGP)*J_h(i_mn,iGP)*dX2_ds(     i_mn,iGP)*Y1_thet   & ![deltaJ]_Y1
-!                         +dW(    i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq1(i_mn,iGP)*Y1        & ![deltaJ]_Y1
-!                         -btt_sJ(i_mn,iGP)*2.0_wp*hmap_g_t1(         i_mn,iGP)*Y1_thet   & ![delta g_tt]_Y1
-!                         -btt_sJ(i_mn,iGP)*       hmap_gtt_dq1(     i_mn,iGP)*Y1        & ![delta g_tt]_Y1
-!                         -bzz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z1(         i_mn,iGP)*Y1_zeta   & ![delta g_zz]_Y1
-!                         -bzz_sJ(i_mn,iGP)*       hmap_gzz_dq1(     i_mn,iGP)*Y1        & ![delta g_zz]_Y1
-!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_t1(         i_mn,iGP)*Y1_zeta   & !2*[delta g_tz]_y1
-!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z1(         i_mn,iGP)*Y1_thet   & !2*[delta g_tz]_y1
-!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_gtz_dq1(     i_mn,iGP)*Y1        & !2*[delta g_tz]_y1
+!                         +dW(    i_mn,iGP)*J_p(i_mn,iGP)*Jh_dq1(i_mn,iGP)*Y1        & ![deltaJ]_Y1
+!                         -btt_sJ(i_mn,iGP)*2.0_wp*g_t1(         i_mn,iGP)*Y1_thet   & ![delta g_tt]_Y1
+!                         -btt_sJ(i_mn,iGP)*       gtt_dq1(     i_mn,iGP)*Y1        & ![delta g_tt]_Y1
+!                         -bzz_sJ(i_mn,iGP)*2.0_wp*g_z1(         i_mn,iGP)*Y1_zeta   & ![delta g_zz]_Y1
+!                         -bzz_sJ(i_mn,iGP)*       gzz_dq1(     i_mn,iGP)*Y1        & ![delta g_zz]_Y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*g_t1(         i_mn,iGP)*Y1_zeta   & !2*[delta g_tz]_y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*g_z1(         i_mn,iGP)*Y1_thet   & !2*[delta g_tz]_y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*gtz_dq1(     i_mn,iGP)*Y1        & !2*[delta g_tz]_y1
 
-      coefY     (i_mn,iGP)=( dW(    i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq1(i_mn,iGP)    & ![deltaJ]_Y1
-                            -btt_sJ(i_mn,iGP)*       hmap_gtt_dq1(i_mn,iGP)         & ![delta g_tt]_Y1
-                            -bzz_sJ(i_mn,iGP)*       hmap_gzz_dq1(i_mn,iGP)         & ![delta g_zz]_Y1
-                            -btz_sJ(i_mn,iGP)*2.0_wp*hmap_gtz_dq1(i_mn,iGP)      )  !2*[delta g_tz]_y1
+      coefY     (i_mn,iGP)=( dW(    i_mn,iGP)*J_p(i_mn,iGP)*Jh_dq1(i_mn,iGP)    & ![deltaJ]_Y1
+                            -btt_sJ(i_mn,iGP)*       gtt_dq1(i_mn,iGP)         & ![delta g_tt]_Y1
+                            -bzz_sJ(i_mn,iGP)*       gzz_dq1(i_mn,iGP)         & ![delta g_zz]_Y1
+                            -btz_sJ(i_mn,iGP)*2.0_wp*gtz_dq1(i_mn,iGP)      )  !2*[delta g_tz]_y1
 
       coefY_thet(i_mn,iGP)=(-dW(i_mn,iGP)*J_h(i_mn,iGP)*dX2_ds(i_mn,iGP)   & ![deltaJ]_Y1
-                            +2.0_wp*(-btt_sJ(i_mn,iGP)*hmap_g_t1(i_mn,iGP)           & ![delta g_tt]_Y1
-                                     -btz_sJ(i_mn,iGP)*hmap_g_z1(i_mn,iGP)  )      )   !2*[delta g_tz]_y1
+                            +2.0_wp*(-btt_sJ(i_mn,iGP)*g_t1(i_mn,iGP)           & ![delta g_tt]_Y1
+                                     -btz_sJ(i_mn,iGP)*g_z1(i_mn,iGP)  )      )   !2*[delta g_tz]_y1
 
-      coefY_zeta(i_mn,iGP)=( 2.0_wp*(-bzz_sJ(i_mn,iGP)*hmap_g_z1(i_mn,iGP)           & ![delta g_zz]_Y1
-                                     -btz_sJ(i_mn,iGP)*hmap_g_t1(i_mn,iGP)  )      )   !2*[delta g_tz]_y1
+      coefY_zeta(i_mn,iGP)=( 2.0_wp*(-bzz_sJ(i_mn,iGP)*g_z1(i_mn,iGP)           & ![delta g_zz]_Y1
+                                     -btz_sJ(i_mn,iGP)*g_t1(i_mn,iGP)  )      )   !2*[delta g_tz]_y1
 
       coefY_s   (i_mn,iGP)=(dW(i_mn,iGP)*J_h(i_mn,iGP)*dX2_dthet( i_mn,iGP))
     END DO !i_mn
@@ -727,31 +769,31 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   PRIVATE(iGP,i_mn) &
 !$OMP   SHARED(nGP_str,nGP_end,mn_IP,dW,J_h,J_p,dX1_dthet,dX1_ds,btt_sJ,bzz_sJ,btz_sJ,  &
 !$OMP          coefY,coefY_thet,coefY_zeta,coefY_s, &
-!$OMP          hmap_Jh_dq2,hmap_g_t2,hmap_gtt_dq2,hmap_g_z2,hmap_gzz_dq2,hmap_gtz_dq2)
+!$OMP          Jh_dq2,g_t2,gtt_dq2,g_z2,gzz_dq2,gtz_dq2)
   DO iGP=nGP_str,nGP_end
     DO i_mn=1,mn_IP
 ! ADDED TO F_X2_GP_IP(iGP,iMode):
 !                         +dW(    i_mn,iGP)*J_h(i_mn,iGP)*dX1_ds(i_mn,iGP)*Y2_thet  & ! [deltaJ]_Y2
-!                         +dW(    i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq2     *Y2       & ! [deltaJ]_Y2
-!                         -btt_sJ(i_mn,iGP)*2.0_wp*hmap_g_t2              *Y2_thet  & ! [delta g_tt]_Y2
-!                         -btt_sJ(i_mn,iGP)*       hmap_gtt_dq2          *Y2       & ! [delta g_tt]_Y2
-!                         -bzz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z2              *Y2_zeta  & ! [delta g_zz]_Y2
-!                         -bzz_sJ(i_mn,iGP)*       hmap_gzz_dq2          *Y2       & ! [delta g_zz]_Y2
-!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_t2              *Y2_zeta  & ! 2*[delta g_tz]_Y1
-!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_g_z2              *Y2_thet  & ! 2*[delta g_tz]_Y1
-!                         -btz_sJ(i_mn,iGP)*2.0_wp*hmap_gtz_dq2          *Y2       & ! 2*[delta g_tz]_Y1
+!                         +dW(    i_mn,iGP)*J_p(i_mn,iGP)*Jh_dq2     *Y2       & ! [deltaJ]_Y2
+!                         -btt_sJ(i_mn,iGP)*2.0_wp*g_t2              *Y2_thet  & ! [delta g_tt]_Y2
+!                         -btt_sJ(i_mn,iGP)*       gtt_dq2          *Y2       & ! [delta g_tt]_Y2
+!                         -bzz_sJ(i_mn,iGP)*2.0_wp*g_z2              *Y2_zeta  & ! [delta g_zz]_Y2
+!                         -bzz_sJ(i_mn,iGP)*       gzz_dq2          *Y2       & ! [delta g_zz]_Y2
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*g_t2              *Y2_zeta  & ! 2*[delta g_tz]_Y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*g_z2              *Y2_thet  & ! 2*[delta g_tz]_Y1
+!                         -btz_sJ(i_mn,iGP)*2.0_wp*gtz_dq2          *Y2       & ! 2*[delta g_tz]_Y1
 
-      coefY     (i_mn,iGP)=( dW(i_mn,iGP)*J_p(i_mn,iGP)*hmap_Jh_dq2(i_mn,iGP)       & ! [deltaJ]_Y2
-                            -btt_sJ(i_mn,iGP)*       hmap_gtt_dq2(i_mn,iGP)        & ! [delta g_tt]_Y2
-                            -bzz_sJ(i_mn,iGP)*       hmap_gzz_dq2(i_mn,iGP)        & ! [delta g_zz]_Y2
-                            -btz_sJ(i_mn,iGP)*2.0_wp*hmap_gtz_dq2(i_mn,iGP)      )   ! 2*[delta g_tz]_Y1
+      coefY     (i_mn,iGP)=( dW(i_mn,iGP)*J_p(i_mn,iGP)*Jh_dq2(i_mn,iGP)       & ! [deltaJ]_Y2
+                            -btt_sJ(i_mn,iGP)*       gtt_dq2(i_mn,iGP)        & ! [delta g_tt]_Y2
+                            -bzz_sJ(i_mn,iGP)*       gzz_dq2(i_mn,iGP)        & ! [delta g_zz]_Y2
+                            -btz_sJ(i_mn,iGP)*2.0_wp*gtz_dq2(i_mn,iGP)      )   ! 2*[delta g_tz]_Y1
 
       coefY_thet(i_mn,iGP)=( dW(i_mn,iGP)*J_h(i_mn,iGP)*dX1_ds(i_mn,iGP)  & ! [deltaJ]_Y2
-                            +2.0_wp*(-btt_sJ(i_mn,iGP)*hmap_g_t2(i_mn,iGP)          & ! [delta g_tt]_Y2
-                                     -btz_sJ(i_mn,iGP)*hmap_g_z2(i_mn,iGP) )      )   ! 2*[delta g_tz]_Y1
+                            +2.0_wp*(-btt_sJ(i_mn,iGP)*g_t2(i_mn,iGP)          & ! [delta g_tt]_Y2
+                                     -btz_sJ(i_mn,iGP)*g_z2(i_mn,iGP) )      )   ! 2*[delta g_tz]_Y1
 
-      coefY_zeta(i_mn,iGP)=( 2.0_wp*(-bzz_sJ(i_mn,iGP)*hmap_g_z2(i_mn,iGP)          & ! [delta g_zz]_Y2
-                                     -btz_sJ(i_mn,iGP)*hmap_g_t2(i_mn,iGP) )      )   ! 2*[delta g_tz]_Y1
+      coefY_zeta(i_mn,iGP)=( 2.0_wp*(-bzz_sJ(i_mn,iGP)*g_z2(i_mn,iGP)          & ! [delta g_zz]_Y2
+                                     -btz_sJ(i_mn,iGP)*g_t2(i_mn,iGP) )      )   ! 2*[delta g_tz]_Y1
 
       coefY_s   (i_mn,iGP)=(-dW(i_mn,iGP)*J_h(i_mn,iGP)*dX1_dthet( i_mn,iGP))
     END DO !i_mn
@@ -1112,7 +1154,7 @@ END SUBROUTINE ApplyBC_Fstrong
 SUBROUTINE BuildPrecond()
 ! MODULES
   USE MODgvec_MPI,        ONLY : par_AllReduce
-  USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base,hmap
+  USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base
   USE MODgvec_MHD3D_Vars, ONLY : X1_BC_Type,X2_BC_Type,LA_BC_type
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1123,32 +1165,15 @@ SUBROUTINE BuildPrecond()
 ! LOCAL VARIABLES
   INTEGER                     :: ibase,nBase,iMode,modes_str,modes_end,iGP,i_mn,Deg,iElem,i,j
   INTEGER                     :: nD,tBC
-  REAL(wp)                    :: qloc(3),smn_IP,smn_IP_w_GP,norm_mn
+  REAL(wp)                    :: smn_IP,smn_IP_w_GP,norm_mn
   REAL(wp),DIMENSION(1:mn_IP) :: bt_sJ, bz_sJ,b_dX1_tz,b_dX2_tz
-  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end) :: G11, G21, G31, G22, G32
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DX1_tt, DX1_tz, DX1_zz, DX1, DX1_ss
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DX2_tt, DX2_tz, DX2_zz, DX2, DX2_ss
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DLA_tt, DLA_tz, DLA_zz
 
   REAL(wp),ALLOCATABLE        :: D_mn(:),P_BCaxis(:,:), P_BCedge(:,:) !only needed on MPIroot
 !===================================================================================================================================
-  __PERFON('loop_hmap')
-  !$OMP PARALLEL DO        &
-!$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
-!$OMP   PRIVATE(iGP,i_mn,qloc)
-  DO iGP=nGP_str,nGP_end  !<<<<
-    DO i_mn=1,mn_IP
-      qloc(1:3)     = (/ X1_IP_GP(i_mn,iGP), X2_IP_GP(i_mn,iGP),zeta_IP(i_mn)/)
-      G11(    i_mn,iGP) = hmap%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
-      G21(    i_mn,iGP) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
-      G31(    i_mn,iGP) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
-     !G12=G21,iGP
-      G22(    i_mn,iGP) = hmap%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
-      G32(    i_mn,iGP) = hmap%eval_gij((/0.0_wp,0.0_wp,1.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
-    END DO !i_mn
-  END DO !iGP
-!$OMP END PARALLEL DO
-  __PERFOFF('loop_hmap')
+
 
 
 !  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
@@ -1174,38 +1199,38 @@ SUBROUTINE BuildPrecond()
     !averaged quantities
     !X1
     DX1_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_dthet(:,iGP) )**2 )
-    DX1(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*hmap_Jh_dq1(:,iGP))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*hmap_Jh_dq1(:,iGP)) &
-                                  -( bt_sJ(:)*(b_thet(:,iGP)*hmap_gtt_dq1(:,iGP)+2.0_wp*b_zeta(:,iGP)*hmap_gtz_dq1(:,iGP))    &
-                                    +bz_sJ(:)*                              b_zeta(:,iGP)*hmap_gzz_dq1(:,iGP))  ) )
+    DX1(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*Jh_dq1(:,iGP))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*Jh_dq1(:,iGP)) &
+                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq1(:,iGP)+2.0_wp*b_zeta(:,iGP)*gtz_dq1(:,iGP))    &
+                                    +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq1(:,iGP))  ) )
     DX1_tt(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX2_ds(   :,iGP) )**2  &
                                 +bt_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*G11(:,iGP)   &
-                                              +b_dX2_tz(:    )*G21(:,iGP)   &
-                                              +b_zeta(  :,iGP)*G31(:,iGP))) &
-                                           +b_thet(:,iGP)*G11(:,iGP))       ) 
+                                            *( b_dX1_tz(:    )*Gh11(:,iGP)   &
+                                              +b_dX2_tz(:    )*Gh21(:,iGP)   &
+                                              +b_zeta(  :,iGP)*Gh31(:,iGP))) &
+                                           +b_thet(:,iGP)*Gh11(:,iGP))       ) 
     DX1_tz(iGP) =smn_IP_w_GP*SUM(bz_sJ(:)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*G11(:,iGP)   &
-                                              +b_dX2_tz(:    )*G21(:,iGP)   &
-                                              +b_zeta(  :,iGP)*G31(:,iGP))) &
-                                           +b_thet(:,iGP)*2.0_wp*G11(:,iGP))  )
-    DX1_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*G11(:,iGP))
+                                            *( b_dX1_tz(:    )*Gh11(:,iGP)   &
+                                              +b_dX2_tz(:    )*Gh21(:,iGP)   &
+                                              +b_zeta(  :,iGP)*Gh31(:,iGP))) &
+                                           +b_thet(:,iGP)*2.0_wp*Gh11(:,iGP))  )
+    DX1_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*Gh11(:,iGP))
     !X2
     DX2_ss(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_dthet(:,iGP) )**2 )
-    DX2(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*hmap_Jh_dq2(:,iGP))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*hmap_Jh_dq2(:,iGP)) &
-                                  -( bt_sJ(:)*(b_thet(:,iGP)*hmap_gtt_dq2(:,iGP)+2.0_wp*b_zeta(:,iGP)*hmap_gtz_dq2(:,iGP))    &
-                                    +bz_sJ(:)*                              b_zeta(:,iGP)*hmap_gzz_dq2(:,iGP))  ) )
+    DX2(   iGP) =smn_IP_w_GP*SUM((sJ_h(:,iGP)*Jh_dq2(:,iGP))*(bbcov_sJ(:,iGP)*(  sJ_h(:,iGP)*Jh_dq2(:,iGP)) &
+                                  -( bt_sJ(:)*(b_thet(:,iGP)*gtt_dq2(:,iGP)+2.0_wp*b_zeta(:,iGP)*gtz_dq2(:,iGP))    &
+                                    +bz_sJ(:)*                              b_zeta(:,iGP)*gzz_dq2(:,iGP))  ) )
     DX2_tt(iGP) =smn_IP_w_GP*SUM(bbcov_sJ(:,iGP)*(   sJ_p(:,iGP)*dX1_ds(   :,iGP) )**2  &
                                 +bt_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*G21(:,iGP)   &
-                                              +b_dX2_tz(:    )*G22(:,iGP)   &
-                                              +b_zeta(  :,iGP)*G32(:,iGP))) &
-                                           +b_thet(:,iGP)*G22(:,iGP))      )
+                                            *( b_dX1_tz(:    )*Gh21(:,iGP)   &
+                                              +b_dX2_tz(:    )*Gh22(:,iGP)   &
+                                              +b_zeta(  :,iGP)*Gh32(:,iGP))) &
+                                           +b_thet(:,iGP)*Gh22(:,iGP))      )
     DX2_tz(iGP) =smn_IP_w_GP*SUM(bz_sJ(:)*(-(2.0_wp*(sJ_p(:,iGP)*dX1_ds(   :,iGP) )      &
-                                            *( b_dX1_tz(:    )*G21(:,iGP)   &
-                                              +b_dX2_tz(:    )*G22(:,iGP)   &
-                                              +b_zeta(  :,iGP)*G32(:,iGP))) &
-                                           +b_thet(:,iGP)*2.0_wp*G22(:,iGP))                  )
-    DX2_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*G22(:,iGP))
+                                            *( b_dX1_tz(:    )*Gh21(:,iGP)   &
+                                              +b_dX2_tz(:    )*Gh22(:,iGP)   &
+                                              +b_zeta(  :,iGP)*Gh32(:,iGP))) &
+                                           +b_thet(:,iGP)*2.0_wp*Gh22(:,iGP))                  )
+    DX2_zz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*bz_sJ(:)*Gh22(:,iGP))
     !LA
     DLA_tt(iGP) =         smn_IP_w_GP*phiPrime2_GP(iGP)*SUM(g_zz(:,iGP)*sdetJ(:,iGP))
     DLA_tz(iGP) = -2.0_wp*smn_IP_w_GP*phiPrime2_GP(iGP)*SUM(g_tz(:,iGP)*sdetJ(:,iGP))
@@ -1564,17 +1589,27 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(sJ_bcov_thet )
   SDEALLOCATE(sJ_bcov_zeta )
   SDEALLOCATE(bbcov_sJ     )
-  SDEALLOCATE(g_tt         )
-  SDEALLOCATE(g_tz         )
-  SDEALLOCATE(g_zz         )
-  SDEALLOCATE(hmap_Jh_dq1  )
-  SDEALLOCATE(hmap_Jh_dq2  )
-  SDEALLOCATE(hmap_gtt_dq1 )
-  SDEALLOCATE(hmap_gtt_dq2 )
-  SDEALLOCATE(hmap_gtz_dq1 )
-  SDEALLOCATE(hmap_gtz_dq2 )
-  SDEALLOCATE(hmap_gzz_dq1 )
-  SDEALLOCATE(hmap_gzz_dq2 )
+  SDEALLOCATE(g_tt)
+  SDEALLOCATE(g_tz)
+  SDEALLOCATE(g_zz)
+  SDEALLOCATE(g_t1)
+  SDEALLOCATE(g_t2)
+  SDEALLOCATE(g_z1)
+  SDEALLOCATE(g_z2)
+  SDEALLOCATE(Jh_dq1)
+  SDEALLOCATE(Jh_dq2)
+  SDEALLOCATE(gtt_dq1)
+  SDEALLOCATE(gtt_dq2)
+  SDEALLOCATE(gtz_dq1)
+  SDEALLOCATE(gtz_dq2)
+  SDEALLOCATE(gzz_dq1)
+  SDEALLOCATE(gzz_dq2)
+  SDEALLOCATE(Gh11)
+  SDEALLOCATE(Gh21)
+  SDEALLOCATE(Gh31)
+  SDEALLOCATE(Gh22)
+  SDEALLOCATE(Gh32)
+  
 
   IF(PrecondType.GT.0)THEN
     NULLIFY(DX1_tt); NULLIFY(DX1_tz); NULLIFY(DX1_zz); NULLIFY(DX1); NULLIFY(DX1_ss)
