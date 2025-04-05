@@ -30,10 +30,7 @@ TYPE, ABSTRACT :: c_hmap
     PROCEDURE(i_sub_hmap            ),DEFERRED :: init
     PROCEDURE(i_sub_hmap            ),DEFERRED :: free
     PROCEDURE(i_fun_hmap_eval       ),DEFERRED :: eval
-    !PROCEDURE(i_fun_hmap_eval_all   ),DEFERRED :: eval_all
-    PROCEDURE(i_sub_hmap_init_aux   ),DEFERRED :: init_aux
-    PROCEDURE(i_sub_hmap            ),DEFERRED :: free_aux
-    PROCEDURE(i_sub_hmap            ),DEFERRED :: eval_aux
+    PROCEDURE(i_sub_hmap_eval_all   ),DEFERRED :: eval_all
     PROCEDURE(i_fun_hmap_eval_dxdq  ),DEFERRED :: eval_dxdq
     PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh
     PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq1
@@ -51,12 +48,22 @@ ABSTRACT INTERFACE
   END SUBROUTINE i_sub_hmap
 
 
-  SUBROUTINE i_sub_hmap_init_aux( sf ,nzeta_aux,zeta_aux)
+  SUBROUTINE i_sub_hmap_eval_all(sf,ndims,dim_zeta,zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                                 Jh,    g_tt,    g_tz,    g_zz,&
+                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                 g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  ) 
     IMPORT c_hmap,wp
-    INTEGER,INTENT(IN)   :: nzeta_aux
-    REAL(wp),INTENT(IN)  :: zeta_aux(1:nzeta_aux)
     CLASS(c_hmap), INTENT(INOUT) :: sf
-  END SUBROUTINE i_sub_hmap_init_aux
+    INTEGER ,INTENT(IN)   :: ndims(3)
+    INTEGER ,INTENT(IN)   :: dim_zeta
+    REAL(wp),INTENT(IN)   :: zeta(ndims(dim_zeta))
+    REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
+    REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT):: Jh,g_tt    ,g_tz    ,g_zz    , &
+                                                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                                                 g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
+  END SUBROUTINE i_sub_hmap_eval_all
 
   !===============================================================================================================================
   !> evaluate the mapping h q=(X^1,X^2,zeta) -> (x,y,z)

@@ -38,10 +38,23 @@ IMPLICIT NONE
 
 PUBLIC
 
+!> Store data that can be precomputed on a set ot zeta points 
+!> depends on hmap_frenet, but could be used for different point sets in zeta
+! 
+TYPE t_aux_var
+  REAL(wp)  :: lp,kappa,tau,sigma
+END TYPE t_aux_var
+
+TYPE :: t_hmap_frenet_aux
+  INTEGER :: nzeta    !! size of zeta point positions
+  REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions, size(1:nzeta_eval)
+  TYPE(t_aux_var),ALLOCATABLE :: var(:)
+END TYPE t_hmap_frenet_aux
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL  :: initialized=.FALSE.
+  LOGICAL  :: aux_initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_frenet:
   !curve description
@@ -54,11 +67,14 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp
   LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
   !---------------------------------------------------------------------------------------------------------------------------------
+  TYPE(t_hmap_frenet_aux)      :: aux !! container for preevaluations
+
   CONTAINS
 
   PROCEDURE :: init          => hmap_frenet_init
   PROCEDURE :: free          => hmap_frenet_free
-  PROCEDURE :: eval          => hmap_frenet_eval
+  PROCEDURE :: eval_all      => hmap_frenet_eval_all
+  PROCEDURE :: eval          => hmap_frenet_eval          
   PROCEDURE :: eval_dxdq     => hmap_frenet_eval_dxdq
   PROCEDURE :: eval_Jh       => hmap_frenet_eval_Jh
   PROCEDURE :: eval_Jh_dq1   => hmap_frenet_eval_Jh_dq1
@@ -70,10 +86,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   ! procedures for hmap_frenet:
   PROCEDURE :: eval_X0       => hmap_frenet_eval_X0_fromRZ
   PROCEDURE :: sigma         => hmap_frenet_sigma
-  ! --- Not used
-  PROCEDURE :: init_aux      => dummy_sub_hmap_init_aux
-  PROCEDURE :: free_aux      => dummy_sub_hmap
-  PROCEDURE :: eval_aux      => dummy_sub_hmap
 END TYPE t_hmap_frenet
 
 LOGICAL :: test_called=.FALSE.
@@ -81,21 +93,7 @@ LOGICAL :: test_called=.FALSE.
 !===================================================================================================================================
 
 CONTAINS
-!===============================================================================================================================
-!> dummy routine that does noting
-!!
-SUBROUTINE dummy_sub_hmap( sf )
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
-END SUBROUTINE dummy_sub_hmap
 
-!===============================================================================================================================
-!> dummy routine that does noting
-!!
-SUBROUTINE dummy_sub_hmap_init_aux( sf ,nzeta_aux,zeta_aux)
-  INTEGER,INTENT(IN)   :: nzeta_aux
-  REAL(wp),INTENT(IN)  :: zeta_aux(1:nzeta_aux)
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
-END SUBROUTINE dummy_sub_hmap_init_aux
 
 !===================================================================================================================================
 !> initialize the type hmap_frenet with number of elements
@@ -183,6 +181,7 @@ IMPLICIT NONE
   sf%initialized=.FALSE.
 
 END SUBROUTINE hmap_frenet_free
+
 
 !===================================================================================================================================
 !> Sample axis and check for zero (<1.e-12) curvature
@@ -326,6 +325,234 @@ IMPLICIT NONE
 #endif
   END IF
 END SUBROUTINE VisuFrenet
+
+
+!===================================================================================================================================
+!> initialize the aux variable
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_frenet_init_aux( sf ,zeta_aux)
+  ! MODULES
+    IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+
+    REAL(wp),INTENT(IN)  :: zeta_aux(:)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
+  !===================================================================================================================================
+  !check if aux is already initialized and if yes,  free aux if zeta differs
+  IF(sf%aux_initialized) THEN
+    IF(sf%aux%nzeta.NE.SIZE(zeta_aux))THEN
+      CALL hmap_frenet_free_aux(sf)
+    ELSE
+      IF(MAXVAL(ABS(sf%aux%zeta-zeta_aux)).GT.1.0e-12)THEN
+        CALL hmap_frenet_free_aux(sf)
+      ELSE 
+        RETURN !already initialized with same zeta!
+      END IF
+    END IF
+  END IF
+  sf%aux%nzeta=SIZE(zeta_aux)  
+  ALLOCATE(sf%aux%zeta(sf%aux%nzeta))
+  sf%aux%zeta=zeta_aux
+  ALLOCATE(sf%aux%var(sf%aux%nzeta))
+  CALL hmap_frenet_eval_aux(sf)
+  sf%aux_initialized=.TRUE.
+END SUBROUTINE hmap_frenet_init_aux
+
+!===================================================================================================================================
+!> free the aux variable
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_frenet_free_aux( sf)
+  ! MODULES
+    IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
+  !===================================================================================================================================
+    IF(sf%aux_initialized)THEN !ALLOCATED
+      sf%aux%nzeta=0 
+      DEALLOCATE(sf%aux%var)
+      DEALLOCATE(sf%aux%zeta)
+      sf%aux_initialized=.FALSE.
+    END IF
+  END SUBROUTINE hmap_frenet_free_aux
+
+  !===================================================================================================================================
+!> evaluate the auxiliar variables on the given zeta points
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_frenet_eval_aux(sf)
+  ! MODULES
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! sf%aux variables
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER :: izeta
+    REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+    REAL(wp)  :: absB
+  !===================================================================================================================================
+!$OMP PARALLEL DO &  
+!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta,X0,X0p,X0pp,X0ppp,B,absB)
+  DO izeta=1,sf%aux%nzeta
+    ASSOCIATE(var=>sf%aux%var(izeta))
+    CALL sf%eval_X0(sf%aux%zeta(izeta),X0,X0p,X0pp,X0ppp) 
+    var%lp=SQRT(SUM(X0p*X0p))
+    B=CROSS(X0p,X0pp)
+    absB=SQRT(SUM(B*B))
+    var%kappa=absB/(var%lp**3)
+    var%sigma=sf%sigma(sf%aux%zeta(izeta))
+    var%tau=SUM(X0ppp*B)/(absB**2)
+    END ASSOCIATE !var
+  END DO !izeta
+!$OMP END PARALLEL DO
+END SUBROUTINE hmap_frenet_eval_aux
+
+!===================================================================================================================================
+!> evaluate all metrics necesseray for optimizer
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_frenet_eval_all(sf,ndims,dim_zeta,zeta,&
+                                q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                                Jh,    g_tt,    g_tz,    g_zz,&
+                                Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  ) 
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_frenet), INTENT(INOUT):: sf
+  INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
+  INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
+  REAL(wp)            , INTENT(IN)   :: zeta(ndims(dim_zeta))  !! zeta point positions
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT):: Jh,g_tt    ,g_tz    ,g_zz    , &
+                                                               Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                                               Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                                               g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: i,j,k                                                                
+  !===================================================================================================================================
+  !allocate aux and fills aux%var(:) with data 
+  IF(.NOT.sf%aux_initialized) CALL hmap_frenet_init_aux(sf,zeta) 
+  SELECT CASE(dim_zeta)
+  CASE(1)
+    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+      CALL hmap_frenet_eval_all_e(sf%aux%var(i), &
+               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
+    END DO; END DO; END DO 
+    !$OMP END PARALLEL DO
+  CASE(2)
+    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+      CALL hmap_frenet_eval_all_e(sf%aux%var(j), &
+               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
+    END DO; END DO; END DO 
+    !$OMP END PARALLEL DO
+  CASE(3)
+    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+      CALL hmap_frenet_eval_all_e(sf%aux%var(k), &
+               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
+    END DO; END DO; END DO 
+    !$OMP END PARALLEL DO
+  END SELECT
+
+END SUBROUTINE hmap_frenet_eval_all
+
+!===================================================================================================================================
+!> evaluate all quantities at one given point (elemental)
+!!
+!===================================================================================================================================
+PURE SUBROUTINE hmap_frenet_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                                       Jh,    g_tt,    g_tz,    g_zz,     &
+                                       Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                       Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                       g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
+! MODULES
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  TYPE(t_aux_var),INTENT(IN) :: xv    !! precomputed auxiliary variables
+  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
+  REAL(wp),INTENT(OUT) :: Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1  !! and their variation vs q1
+  REAL(wp),INTENT(OUT) :: Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  !! and their variation vs q2
+  REAL(wp),INTENT(OUT) :: g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  !! dq^{i}/dtheta*G^{i1}, dq^{i}/dtheta*G^{i2}, and dq^{i}/dzeta*G^{i1}, dq^{i}/dzeta*G^{i2} and G^{11},G^{22}
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: Gh31,Gh32,Gh33
+!===================================================================================================================================
+  ASSOCIATE(  lp=>xv%lp, tau=>xv%tau, sigma=>xv%sigma, kappa=>xv%kappa)
+  Gh11=1.0_wp
+  !Gh21=0.0_wp
+  Gh22=1.0_wp
+  Gh31 =-lp*tau*q2 
+  Gh32 = lp*tau*q1
+
+  !Jh=lp*(1.0_wp-sigma*kappa*q1)
+  Jh_dq1=-lp*sigma*kappa
+  Jh_dq2=0.0_wp
+  
+  Jh=lp+Jh_dq1*q1
+  ! Gh33 = (lp**2)*((1.0_wp-sigma*kappa*q1)**2+tau**2*(q1**2+q2**2))
+  Gh33 = Jh*Jh + Gh31*Gh31 + Gh32*Gh32
+
+  g_t1 = dX1_dt 
+  g_t2 = dX2_dt
+  g_z1 = dX1_dz + Gh31
+  g_z2 = dX2_dz + Gh32
+  
+  g_tt =   dX1_dt *  g_t1         +  dX2_dt *  g_t2
+  g_tz =   dX1_dt *  g_z1         +  dX2_dt *  g_z2
+  g_zz =   dX1_dz * (g_z1 + Gh31) +  dX2_dz * (g_z2 + Gh32)  + Gh33  
+
+  !Gh11/dq1 =0 Gh12/dq1 =0 Gh13/dq1 = 0
+  !            Gh22/dq1 =0 Gh23/dq1 = lp*tau
+  !                        Gh33/dq1 = 2*(lp**2)*((1.0_wp-sigma*kappa*q1)*(-sigma*kappa)+tau**2 *(q1))
+  !Gh11/dq2 =0 Gh12/dq2 =0 Gh13/dq2 = -lp*tau
+  !            Gh22/dq2 =0 Gh23/dq2 = 0
+  !                        Gh33/dq2 = 2*(lp*tau)**2*(q2)
+  ! => g_t1 /dq1 =0, g_t1/dq2 =0, g_t2/dq1 =0, g_t2/dq2 =0
+  ! => g_z1 /dq1 = Gh31/dq1, g_z1/dq2 =Gh31/dq2, g_z2/dq1 =Gh32/dq1, g_z2/dq2 =Gh32/dq2
+  g_tt_dq1 = 0.0_wp
+  g_tt_dq2 = 0.0_wp
+  
+  g_tz_dq1 =  lp*tau*dX2_dt
+  g_tz_dq2 = -lp*tau*dX1_dt
+
+  g_zz_dq1 =  2.0_wp*(lp*tau*(dX2_dz + Gh32)+Jh*Jh_dq1)
+  g_zz_dq2 = -2.0_wp*lp*tau*(dX1_dz + Gh31)
+  END ASSOCIATE
+END SUBROUTINE hmap_frenet_eval_all_e
 
 !===================================================================================================================================
 !> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
@@ -765,8 +992,18 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER            :: iTest,idir,jdir,qdir
+  INTEGER            :: iTest,idir,jdir,kdir,qdir,izeta,i,j,k,ndims(1:3),ijk(3)
+  INTEGER,PARAMETER  :: nzeta=5
+  INTEGER,PARAMETER  :: ns=2
+  INTEGER,PARAMETER  :: nthet=3
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps
+  REAL(wp)           :: zeta(nzeta)
+  REAL(wp)           :: qloc(3),q_thet(3),q_zeta(3)
+  REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                                     Jh,g_tt,    g_tz,    g_zz,     &
+                                     Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                     Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                     g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
@@ -855,7 +1092,249 @@ IMPLICIT NONE
 
 
  END IF !testlevel >=1
+ IF (testlevel .GE. 2) THEN
+  DO izeta=1,nzeta
+    zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(nzeta-1,wp)*0.221_wp
+  END DO
+  DO idir=1,3
+    SELECT CASE(idir)
+    CASE(1)
+      jdir=2; kdir=3
+    CASE(2)
+      jdir=1; kdir=3
+    CASE(3)
+      jdir=1; kdir=2
+    END SELECT
+    ndims(idir)=nzeta
+    ndims(jdir)=ns
+    ndims(kdir)=nthet
+    ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
+    ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
+             mold=q1)
+    !assign somewhat randomly
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)  
+      q1(i,j,k) = 0.11_wp -0.22_wp *REAL((i+j)*k,wp)/REAL((ndims(idir)+ndims(jdir))*ndims(kdir),wp)
+      q2(i,j,k) = 0.15_wp -0.231_wp*REAL((i+k)*j,wp)/REAL((ndims(idir)+ndims(kdir))*ndims(jdir),wp)
+      dX1_dt(i,j,k)=-0.1_wp  +0.211_wp*REAL((i+2*j)*k,wp)/REAL((ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
+      dX2_dt(i,j,k)= 0.231_wp-0.116_wp*REAL((2*i+k)*j,wp)/REAL((2*ndims(idir)+ndims(kdir))*ndims(jdir),wp)
+      dX1_dz(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
+      dX2_dz(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
+    END DO; END DO; END DO 
+    CALL sf%eval_all(ndims,idir,zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+         Jh,g_tt,g_tz,g_zz,&
+         Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
+         Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,&
+         g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
+      ijk=(/i,j,k/)
+      izeta=ijk(idir)
+      qloc=(/q1(i,j,k),q2(i,j,k),zeta(izeta)/)
+      q_thet=(/dX1_dt(i,j,k),dX2_dt(i,j,k),0.0_wp/)
+      q_zeta=(/dX1_dz(i,j,k),dX2_dz(i,j,k),1.0_wp/)
+      Jh(i,j,k)       =Jh(i,j,k)       - sf%eval_Jh(qloc)
+      g_tt(i,j,k)     =g_tt(i,j,k)     - sf%eval_gij(q_thet,qloc,q_thet)
+      g_tz(i,j,k)     =g_tz(i,j,k)     - sf%eval_gij(q_thet,qloc,q_zeta)
+      g_zz(i,j,k)     =g_zz(i,j,k)     - sf%eval_gij(q_zeta,qloc,q_zeta)
+      Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq1(qloc)
+      Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq2(qloc)
+      g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_thet)
+      g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_thet)
+      g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_zeta)
+      g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_zeta)
+      g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq1(q_zeta,qloc,q_zeta)
+      g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq2(q_zeta,qloc,q_zeta)
+      g_t1(i,j,k)     =g_t1(i,j,k)     - sf%eval_gij(q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      g_t2(i,j,k)     =g_t2(i,j,k)     - sf%eval_gij(q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      g_z1(i,j,k)     =g_z1(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      g_z2(i,j,k)     =g_z2(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      Gh11(i,j,k)     =Gh11(i,j,k)     - sf%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      Gh22(i,j,k)     =Gh22(i,j,k)     - sf%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+    END DO; END DO; END DO 
 
+    iTest=201+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(Jh))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|Jh_all-eval_Jh(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=202+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_tt))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_tt_all-eval_g_tt(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=203+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_tz))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') & 
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_tz_all-eval_g_tz(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=203+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_zz))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_zz_all-eval_g_zz(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=204+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(Jh_dq1))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|Jh_dq1_all-eval_Jh_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=205+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(Jh_dq2))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|Jh_dq2_all-eval_Jh_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=206+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_tt_dq1))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_tt_dq1_all-eval_g_tt_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=207+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_tz_dq1))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_tz_dq1_all-eval_g_tz_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=208+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_zz_dq1))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_zz_dq1_all-eval_g_zz_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=209+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_tt_dq2))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_tt_dq2_all-eval_g_tt_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=210+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_tz_dq2))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_tz_dq2_all-eval_g_tz_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=211+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_zz_dq2))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_zz_dq2_all-eval_g_zz_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=212+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_t1))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_t1_all-eval_g_t1(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=213+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_t2))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_t2_all-eval_g_t2(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=214+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_z1))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_z1_all-eval_g_z1(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=215+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(g_z2))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|g_z2_all-eval_g_z2(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=216+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(Gh11))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|Gh11_all-eval_Gh11(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    iTest=217+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+    checkreal=SUM(ABS(Gh22))/REAL(ns*nthet*nzeta,wp)
+    refreal=0.0_wp
+    IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+           '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+    '\n =>  should be ', refreal,' : |sum(|Gh22_all-eval_Gh22(xall)|)|= ', checkreal, " ,idir=",idir
+    END IF
+
+    DEALLOCATE(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+  END DO !idir
+END IF
+ 
  test_called=.FALSE. ! to prevent infinite loop in this routine
 
 

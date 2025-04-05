@@ -28,7 +28,6 @@ SUBROUTINE hmap_new( sf, which_hmap,hmap_in)
 ! MODULES
 USE MODgvec_Globals   , ONLY: abort
 USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
-USE MODgvec_hmap_RphiZ, ONLY: t_hmap_RphiZ
 USE MODgvec_hmap_knot , ONLY: t_hmap_knot
 USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl
 USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet

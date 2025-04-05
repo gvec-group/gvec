@@ -34,17 +34,22 @@ PUBLIC
 !---------------------------------------------------------------------------------------------------------------------------------
 !> Store data that can be precomputed on a set ot zeta points
 !> depends on hmap_axisNB, but could be used for different point sets in zeta
-!
+! 
+TYPE t_aux_var
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,NxB    !! Position,Tangent,Normal,Bi-Normal and N',B' 
+  REAL(wp)              :: BB,NN,NB,BpN,BpB,NpN,NpB !!dot-products of above vectors, size(nzeta_eval)
+END TYPE t_aux_var
+
 TYPE :: t_hmap_axisNB_aux
   INTEGER :: nzeta    !! size of zeta point positions
   REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions, size(1:nzeta_eval)
-  REAL(wp),ALLOCATABLE,DIMENSION(:,:) :: X0,T,N,B,Np,Bp    !! Position,Tangent,Normal,Bi-Normal and N',B' size (3,1:nzeta_eval)
-  REAL(wp),ALLOCATABLE,DIMENSION(:) :: BB,NN,NB,BpN,BpB,NpN,NpB !!dot-products of above vectors, size(nzeta_eval)
+  TYPE(t_aux_var),ALLOCATABLE :: var(:)
 END TYPE t_hmap_axisNB_aux
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL  :: initialized=.FALSE.
+  LOGICAL  :: aux_initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_axisNB:
   !INTEGER              :: nfp   !! already part of c_hmap. Is overwritten in init!
@@ -75,10 +80,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
 
   PROCEDURE :: init          => hmap_axisNB_init
   PROCEDURE :: free          => hmap_axisNB_free
-  PROCEDURE :: eval          => hmap_axisNB_eval
-  PROCEDURE :: init_aux      => hmap_axisNB_init_aux
-  PROCEDURE :: free_aux      => hmap_axisNB_free_aux
-  PROCEDURE :: eval_aux      => hmap_axisNB_eval_aux
+  PROCEDURE :: eval_all      => hmap_axisNB_eval_all
+  PROCEDURE :: eval          => hmap_axisNB_eval   
   PROCEDURE :: eval_dxdq     => hmap_axisNB_eval_dxdq
   PROCEDURE :: eval_Jh       => hmap_axisNB_eval_Jh
   PROCEDURE :: eval_Jh_dq1   => hmap_axisNB_eval_Jh_dq1
@@ -261,8 +264,8 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
-  CALL sf%free_aux()
-
+  CALL hmap_axisNB_free_aux(sf)
+  
   SDEALLOCATE(sf%zeta)
   SDEALLOCATE(sf%xyz)
   SDEALLOCATE(sf%Nxyz)
@@ -287,26 +290,35 @@ END SUBROUTINE hmap_axisNB_free
 !> initialize the aux variable
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_init_aux( sf ,nzeta_aux,zeta_aux)
+SUBROUTINE hmap_axisNB_init_aux( sf ,zeta_aux)
   ! MODULES
     IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-    INTEGER, INTENT(IN)  :: nzeta_aux
-    REAL(wp),INTENT(IN)  :: zeta_aux(1:nzeta_aux)
+
+    REAL(wp),INTENT(IN)  :: zeta_aux(:)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
     CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
   !===================================================================================================================================
-  IF(sf%aux%nzeta.NE.0) CALL sf%free_aux()
-  sf%aux%nzeta=nzeta_aux
-  ALLOCATE(sf%aux%zeta(nzeta_aux))
+  !check if aux is already initialized and if yes,  free aux if zeta differs
+  IF(sf%aux_initialized) THEN
+    IF(sf%aux%nzeta.NE.SIZE(zeta_aux))THEN
+      CALL hmap_axisNB_free_aux(sf)
+    ELSE
+      IF(MAXVAL(ABS(sf%aux%zeta-zeta_aux)).GT.1.0e-12)THEN
+        CALL hmap_axisNB_free_aux(sf)
+      ELSE 
+        RETURN !already initialized with same zeta!
+      END IF
+    END IF
+  END IF
+  sf%aux%nzeta=SIZE(zeta_aux)  
+  ALLOCATE(sf%aux%zeta(sf%aux%nzeta))
   sf%aux%zeta=zeta_aux
-  ALLOCATE(sf%aux%X0(3,nzeta_aux))
-  ALLOCATE(sf%aux%T  ,sf%aux%N  ,sf%aux%B  ,sf%aux%Np ,sf%aux%Bp ,mold=sf%aux%X0)
-  ALLOCATE(sf%aux%NN ,sf%aux%BB ,sf%aux%NB ,sf%aux%NpN, &
-           sf%aux%NpB,sf%aux%BpN,sf%aux%BpB,    mold=sf%aux%zeta)
-
+  ALLOCATE(sf%aux%var(sf%aux%nzeta))
+  CALL hmap_axisNB_eval_aux(sf)
+  sf%aux_initialized=.TRUE.
 END SUBROUTINE hmap_axisNB_init_aux
 
 !===================================================================================================================================
@@ -320,10 +332,11 @@ SUBROUTINE hmap_axisNB_free_aux( sf)
   ! OUTPUT VARIABLES
     CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
   !===================================================================================================================================
-    IF(sf%aux%nzeta.NE.0)THEN !ALLOCATED
-      sf%aux%nzeta=0
-      DEALLOCATE(sf%aux%X0,sf%aux%T,sf%aux%N,sf%aux%B,sf%aux%Np,sf%aux%Bp)
-      DEALLOCATE(sf%aux%zeta,sf%aux%NN,sf%aux%BB,sf%aux%NB,sf%aux%NpN,sf%aux%NpB,sf%aux%BpN,sf%aux%BpB)
+    IF(sf%aux_initialized)THEN !ALLOCATED
+      sf%aux%nzeta=0 
+      DEALLOCATE(sf%aux%var)
+      DEALLOCATE(sf%aux%zeta)
+      sf%aux_initialized=.FALSE.
     END IF
   END SUBROUTINE hmap_axisNB_free_aux
 
@@ -347,15 +360,17 @@ SUBROUTINE hmap_axisNB_eval_aux(sf)
 !$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta)
   DO izeta=1,sf%aux%nzeta
-    CALL sf%eval_TNB(sf%aux%zeta(izeta),sf%aux%X0(:,izeta),sf%aux%T(:,izeta),sf%aux%N(:,izeta), &
-                     sf%aux%B(:,izeta),sf%aux%Np(:,izeta),sf%aux%Bp(:,izeta))
-    sf%aux%NN( izeta)=SUM(sf%aux%N( :,izeta)* sf%aux%N(:,izeta))
-    sf%aux%BB( izeta)=SUM(sf%aux%B( :,izeta)* sf%aux%B(:,izeta))
-    sf%aux%NB( izeta)=SUM(sf%aux%N( :,izeta)* sf%aux%B(:,izeta))
-    sf%aux%NpN(izeta)=SUM(sf%aux%Np(:,izeta)* sf%aux%N(:,izeta))
-    sf%aux%NpB(izeta)=SUM(sf%aux%Np(:,izeta)* sf%aux%B(:,izeta))
-    sf%aux%BpN(izeta)=SUM(sf%aux%Bp(:,izeta)* sf%aux%N(:,izeta))
-    sf%aux%BpB(izeta)=SUM(sf%aux%Bp(:,izeta)* sf%aux%B(:,izeta))
+    ASSOCIATE(var=>sf%aux%var(izeta))
+    CALL sf%eval_TNB(sf%aux%zeta(izeta),var%X0(:),var%T(:),var%N(:),var%B(:),var%Np(:),var%Bp(:))
+    var%NxB =CROSS(var%N(:),var%B(:))
+    var%NN  =SUM( var%N(:)* var%N(:))
+    var%BB  =SUM( var%B(:)* var%B(:))
+    var%NB  =SUM( var%N(:)* var%B(:))
+    var%NpN =SUM(var%Np(:)* var%N(:))
+    var%NpB =SUM(var%Np(:)* var%B(:))
+    var%BpN =SUM(var%Bp(:)* var%N(:))
+    var%BpB =SUM(var%Bp(:)* var%B(:))
+    END ASSOCIATE !var
   END DO !izeta
 !$OMP END PARALLEL DO
 END SUBROUTINE hmap_axisNB_eval_aux
@@ -678,59 +693,68 @@ END FUNCTION hmap_axisNB_eval_dxdq
 !> evaluate all metrics necesseray for optimizer
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta, &
-                                Jh,g_tt    ,g_tz    ,g_zz    , &
+SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,zeta,&
+                                q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                                Jh,    g_tt,    g_tz,    g_zz,&
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
-                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  )
+                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  ) 
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(INOUT)                  :: sf
-  INTEGER                           ,INTENT(IN)   :: ndims(3)    !! 3D dimensions
-  INTEGER                           ,INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
-  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN)   :: q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta
+  CLASS(t_hmap_axisNB), INTENT(INOUT):: sf
+  INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
+  INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
+  REAL(wp)            , INTENT(IN)   :: zeta(ndims(dim_zeta))  !! zeta point positions
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT)   :: Jh,g_tt    ,g_tz    ,g_zz    , &
-                                                                  Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
-                                                                  Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT):: Jh,g_tt    ,g_tz    ,g_zz    , &
+                                                               Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                                               Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                                               g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i,j,k
   !===================================================================================================================================
-#define OMPDEF PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
-#define TEMPLATE_LOOP(IZT) \
-  DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1);\
-    CALL eval_all_e(sf%aux,IZT, \
-                    q1_in(i,j,k),q2_in(i,j,k),q1_thet(i,j,k),q2_thet(i,j,k),q1_zeta(i,j,k),q2_zeta(i,j,k), \
-                    Jh(i,j,k),g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k)    , \
-                    Jh_dq1(i,j,k)     ,g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), \
-                    Jh_dq2(i,j,k)     ,g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k) ); \
-  END DO; END DO; END DO \
-
+  !allocate aux and fills aux%var(:) with data 
+  IF(.NOT.sf%aux_initialized) CALL hmap_axisNB_init_aux(sf,zeta) 
   SELECT CASE(dim_zeta)
   CASE(1)
-#define IZT i
-!$OMP OMPDEF
-    TEMPLATE_LOOP(IZT)
-!$OMP END PARALLEL DO
-#undef IZT
+    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+      CALL hmap_axisNB_eval_all_e(sf%aux%var(i), &
+               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
+    END DO; END DO; END DO 
+    !$OMP END PARALLEL DO
   CASE(2)
-#define IZT j
-!$OMP OMPDEF
-    TEMPLATE_LOOP(IZT)
-!$OMP END PARALLEL DO
-#undef IZT
+    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+      CALL hmap_axisNB_eval_all_e(sf%aux%var(j), &
+               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
+    END DO; END DO; END DO 
+    !$OMP END PARALLEL DO
   CASE(3)
-#define IZT k
-!$OMP OMPDEF
-    TEMPLATE_LOOP(IZT)
-!$OMP END PARALLEL DO
-#undef IZT
+    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+      CALL hmap_axisNB_eval_all_e(sf%aux%var(k), &
+               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
+    END DO; END DO; END DO 
+    !$OMP END PARALLEL DO
   END SELECT
-#undef OMPDEF
-#undef TEMPLATE_LOOP
 
 END SUBROUTINE hmap_axisNB_eval_all
 
@@ -738,86 +762,72 @@ END SUBROUTINE hmap_axisNB_eval_all
 !> evaluate all quantities at one given point (elemental)
 !!
 !===================================================================================================================================
-PURE SUBROUTINE eval_all_e(aux,iz,q1,q2,q1t,q2t,q1z,q2z, &
-                                     Jh,g_tt,    g_tz,    g_zz,     &
-                                     Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
-                                     Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
+PURE SUBROUTINE hmap_axisNB_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                                       Jh,    g_tt,    g_tz,    g_zz,     &
+                                       Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                       Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                       g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  TYPE(t_hmap_axisNB_aux),INTENT(IN) :: aux
-  INTEGER ,INTENT(IN)  :: iz
-  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
-  REAL(wp),INTENT(IN)  :: q1t,q2t     !! theta derivative of solution variables q1,q2
-  REAL(wp),INTENT(IN)  :: q1z,q2z     !!  zeta derivative of solution variables q1,q2
+  TYPE(t_aux_var),INTENT(IN) :: xv    !! precomputed auxiliary variables
+  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
   REAL(wp),INTENT(OUT) :: Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1  !! and their variation vs q1
   REAL(wp),INTENT(OUT) :: Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  !! and their variation vs q2
+  REAL(wp),INTENT(OUT) :: g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  !! dq^{i}/dtheta*G^{i1}, dq^{i}/dtheta*G^{i2}, and dq^{i}/dzeta*G^{i1}, dq^{i}/dzeta*G^{i2} and G^{11},G^{22}
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  !REAL(wp)            :: TqTq,NTq,BTq,NpTq,BpTq    !! solution dependent dot products
-  !REAL(wp)            :: NN,BB,NB,NpN,NpB,BpN,BpB  !! dot products of frame dependent vectors
-  REAL(wp) :: Tq(3),NxB(3),TqTq,NTq,BTq,NpTq,BpTq
+  REAL(wp) :: Gh21,Gh31,Gh32,Gh33
+  REAL(wp) :: Tq(3)
 !===================================================================================================================================
-  ASSOCIATE(T=>aux%T(:,iz),N=>aux%N(:,iz),B=>aux%B(:,iz),Np=>aux%Np(:,iz),Bp=>aux%Bp(:,iz), &
-            NN=>aux%NN(iz),BB=>aux%BB(iz),NB=>aux%NB(iz),NpN=>aux%NpN(iz),NpB=>aux%NpB(iz), &
-            BpN=>aux%BpN(iz),BpB=>aux%BpB(iz))
+  ASSOCIATE(  T=>xv%T(:),  N=>xv%N(:),  B=>xv%B(:), Np=>xv%Np(:), Bp=>xv%Bp(:), NxB=>xv%NxB(:),&
+             NN=>xv%NN  , BB=>xv%BB  , NB=>xv%NB  ,NpN=>xv%NpN  , &
+            NpB=>xv%NpB, BpN=>xv%BpN ,BpB=>xv%BpB   )
   Tq=(T+q1*Np+q2*Bp)
-  NxB=CROSS(N,B)
-  TqTq =SUM(Tq(:)*Tq(:))
-  NTq  =SUM(N( :)*Tq(:))
-  BTq  =SUM(B( :)*Tq(:))
-  NpTq =SUM(Np(:)*Tq(:))
-  BpTq =SUM(Bp(:)*Tq(:))
+  Gh11=NN
+  Gh21=NB
+  Gh22=BB
+  Gh31 =SUM(N( :)*Tq(:))
+  Gh32 =SUM(B( :)*Tq(:))  
+  Gh33 =SUM(Tq(:)*Tq(:))
+
   Jh=SUM(Tq*NxB)
   Jh_dq1=SUM(Np*NxB)
   Jh_dq2=SUM(Bp*NxB)
-  !! template for g_ab
-  !! q1q1_ab = q1a*q1b
-  !! q2q2_ab = q2a*q2b
-  !! q3q3_ab = q3a*q3b
-  !! q1q2_ab  = (q1a*q2b+q2a*q1b)
-  !! q1q3_ab  = (q1a*q3b+q3a*q1b)
-  !! q2q3_ab  = (q2a*q3b+q3a*q2b)
-  !! g_ab     = NN*q1q1_ab + BB*q2q2_ab + TqTq*q3q3_ab + NB *q1q2_ab + NTq*q1q3_ab + BTq*q2q3_ab
-  !! g_ab_dq1 =                    2.0_wp*NpTq*q3q3_ab               + NpN*q1q3_ab + NpB*q2q3_ab
-  !! g_ab_dq2 =                    2.0_wp*BpTq*q3q3_ab               + BpN*q1q3_ab + BpB*q2q3_ab
-  !q3t=dzeta/dtheta=0,q3z=dzeta/dzeta=1
-  !g_tt
-  !q1q1_tt = q1t*q1t
-  !q2q2_tt = q2t*q2t
-  !q3q3_tt = q3t*q3t =0
-  !q1q2_tt  = (q1t*q2t+q2t*q1t)
-  !q1q3_tt  = (q1t*q3t+q3t*q1t) =0
-  !q2q3_tt  = (q2t*q3t+q3t*q2t) =0
-  g_tt     = NN*q1t*q1t + BB*q2t*q2t + NB *(q1t*q2t+q2t*q1t)
-  g_tt_dq1 = 0.
-  g_tt_dq2 = 0.
-  !g_tz
-  !q1q1_tz = q1t*q1z
-  !q2q2_tz = q2t*q2z
-  !q3q3_tz = q3t*q3z =0
-  !q1q2_tz  = (q1t*q2z+q2t*q1z)
-  !q1q3_tz  = q1t  !(q1t*q3z+q3t*q1z)
-  !q2q3_tz  = q2t  !(q2t*q3z+q3t*q2z)
-  g_tz     = NN*q1t*q1z + BB*q2t*q2z + NB *(q1t*q2z+q2t*q1z)+ NTq*q1t + BTq*q2t
-  g_tz_dq1 =                                                  NpN*q1t + NpB*q2t
-  g_tz_dq2 =                                                  BpN*q1t + BpB*q2t
-  !g_zz
-  !q1q1_zz = q1z*q1z
-  !q2q2_zz = q2z*q2z
-  !q3q3_zz = q3z*q3z =1
-  !q1q2_zz  = (q1z*q2z+q2z*q1z)
-  !q1q3_zz  = (q1z+q1z)  !(q1z*q3z+q3z*q1z)
-  !q2q3_zz  = (q2z+q2z)  !(q2z*q3z+q3z*q2z)
-  g_zz     = NN*q1z*q1z + BB*q2z*q2z + TqTq + NB *(q1z*q2z+q2z*q1z) + NTq*(q1z+q1z) + BTq*(q2z+q2z)
-  g_zz_dq1 =                   2.0_wp*(NpTq                         + NpN* q1z      + NpB* q2z      )
-  g_zz_dq2 =                   2.0_wp*(BpTq                         + BpN* q1z      + BpB* q2z      )
+
+  g_t1 = Gh11 * dX1_dt + Gh21 * dX2_dt
+  g_t2 = Gh21 * dX1_dt + Gh22 * dX2_dt
+  g_z1 = Gh11 * dX1_dz + Gh21 * dX2_dz + Gh31
+  g_z2 = Gh21 * dX1_dz + Gh22 * dX2_dz + Gh32
+  
+  g_tt =   dX1_dt *  g_t1         +  dX2_dt *  g_t2
+  g_tz =   dX1_dt *  g_z1         +  dX2_dt *  g_z2
+  g_zz =   dX1_dz * (g_z1 + Gh31) +  dX2_dz * (g_z2 + Gh32)  + Gh33  
+
+  !Gh11/dq1 =0 Gh12/dq1 =0 Gh13/dq1 = Np.N
+  !            Gh22/dq1 =0 Gh23/dq1 = Np.B
+  !                        Gh33/dq1 = 2*Np.Tq
+  !Gh11/dq2 =0 Gh12/dq2 =0 Gh13/dq2 = Bp.N
+  !            Gh22/dq2 =0 Gh23/dq2 = Bp.B
+  !                        Gh33/dq2 = 2*Bp.Tq
+  ! => g_t1 /dq1 =0, g_t1/dq2 =0, g_t2/dq1 =0, g_t2/dq2 =0
+  ! => g_z1 /dq1 = Gh31/dq1, g_z1/dq2 =Gh31/dq2, g_z2/dq1 =Gh32/dq1, g_z2/dq2 =Gh32/dq2
+  g_tt_dq1 = 0.0_wp
+  g_tt_dq2 = 0.0_wp
+  
+  g_tz_dq1 = NpN*dX1_dt + NpB*dX2_dt
+  g_tz_dq2 = BpN*dX1_dt + BpB*dX2_dt
+
+  g_zz_dq1 = 2.0_wp*(SUM(Np(:)*Tq(:)) + NpN* dX1_dz + NpB* dX2_dz )
+  g_zz_dq2 = 2.0_wp*(SUM(Bp(:)*Tq(:)) + BpN* dX1_dz + BpB* dX2_dz )
   END ASSOCIATE
-END SUBROUTINE eval_all_e
+END SUBROUTINE hmap_axisNB_eval_all_e
 
 
 
@@ -1091,10 +1101,12 @@ IMPLICIT NONE
   INTEGER,PARAMETER  :: nthet=3
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps
   REAL(wp)           :: zeta(nzeta)
-  REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,q1t,q2t,q1z,q2z, &
+  REAL(wp)           :: qloc(3),q_thet(3),q_zeta(3)
+  REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                      Jh,g_tt,    g_tz,    g_zz,     &
                                      Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
-                                     Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2
+                                     Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                     g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
@@ -1231,8 +1243,6 @@ IMPLICIT NONE
     DO izeta=1,nzeta
       zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(nzeta-1,wp)*0.221_wp
     END DO
-    CALL sf%init_aux(nzeta,zeta)
-    CALL sf%eval_aux()
     DO idir=1,3
       SELECT CASE(idir)
       CASE(1)
@@ -1246,36 +1256,49 @@ IMPLICIT NONE
       ndims(jdir)=ns
       ndims(kdir)=nthet
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
-      ALLOCATE(q2,q1t,q2t,q1z,q2z,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+      ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)
       !assign somewhat randomly
       DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
         q1(i,j,k) = 0.11_wp -0.22_wp *REAL((i+j)*k,wp)/REAL((ndims(idir)+ndims(jdir))*ndims(kdir),wp)
         q2(i,j,k) = 0.15_wp -0.231_wp*REAL((i+k)*j,wp)/REAL((ndims(idir)+ndims(kdir))*ndims(jdir),wp)
-        q1t(i,j,k)=-0.1_wp  +0.211_wp*REAL((i+2*j)*k,wp)/REAL((ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
-        q2t(i,j,k)= 0.231_wp-0.116_wp*REAL((2*i+k)*j,wp)/REAL((2*ndims(idir)+ndims(kdir))*ndims(jdir),wp)
-        q1z(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
-        q2z(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
-      END DO; END DO; END DO
-      CALL hmap_axisNB_eval_all(sf,ndims,idir,q1,q2,q1t,q2t,q1z,q2z, &
-           Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
+        dX1_dt(i,j,k)=-0.1_wp  +0.211_wp*REAL((i+2*j)*k,wp)/REAL((ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
+        dX2_dt(i,j,k)= 0.231_wp-0.116_wp*REAL((2*i+k)*j,wp)/REAL((2*ndims(idir)+ndims(kdir))*ndims(jdir),wp)
+        dX1_dz(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
+        dX2_dz(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
+      END DO; END DO; END DO 
+      CALL sf%eval_all(ndims,idir,zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+           Jh,g_tt,g_tz,g_zz,&
+           Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
+           Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,&
+           g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
       DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
         ijk=(/i,j,k/)
         izeta=ijk(idir)
-        Jh(i,j,k)       =Jh(i,j,k)       - sf%eval_Jh((/q1(i,j,k),q2(i,j,k),zeta(izeta)/))
-        !g_tt(i,j,k)     =g_tt(i,j,k)     - sf%eval_ ()
-        !g_tz(i,j,k)     =g_tz(i,j,k)     - sf%eval_ ()
-        !g_zz(i,j,k)     =g_zz(i,j,k)     - sf%eval_ ()
-        !Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_ ()
-        !g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_ ()
-        !g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_ ()
-        !g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_ ()
-        !Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_ ()
-        !g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_ ()
-        !g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_ ()
-        !g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_ ()
-      END DO; END DO; END DO
-      iTest=200+idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+        qloc=(/q1(i,j,k),q2(i,j,k),zeta(izeta)/)
+        q_thet=(/dX1_dt(i,j,k),dX2_dt(i,j,k),0.0_wp/)
+        q_zeta=(/dX1_dz(i,j,k),dX2_dz(i,j,k),1.0_wp/)
+        Jh(i,j,k)       =Jh(i,j,k)       - sf%eval_Jh(qloc)
+        g_tt(i,j,k)     =g_tt(i,j,k)     - sf%eval_gij(q_thet,qloc,q_thet)
+        g_tz(i,j,k)     =g_tz(i,j,k)     - sf%eval_gij(q_thet,qloc,q_zeta)
+        g_zz(i,j,k)     =g_zz(i,j,k)     - sf%eval_gij(q_zeta,qloc,q_zeta)
+        Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq1(qloc)
+        Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq2(qloc)
+        g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_thet)
+        g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_thet)
+        g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_zeta)
+        g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_zeta)
+        g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq1(q_zeta,qloc,q_zeta)
+        g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq2(q_zeta,qloc,q_zeta)
+        g_t1(i,j,k)     =g_t1(i,j,k)     - sf%eval_gij(q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_t2(i,j,k)     =g_t2(i,j,k)     - sf%eval_gij(q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+        g_z1(i,j,k)     =g_z1(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_z2(i,j,k)     =g_z2(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+        Gh11(i,j,k)     =Gh11(i,j,k)     - sf%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+        Gh22(i,j,k)     =Gh22(i,j,k)     - sf%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      END DO; END DO; END DO 
+
+      iTest=201+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
       checkreal=SUM(ABS(Jh))/REAL(ns*nthet*nzeta,wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
@@ -1284,9 +1307,179 @@ IMPLICIT NONE
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
       '\n =>  should be ', refreal,' : |sum(|Jh_all-eval_Jh(xall)|)|= ', checkreal, " ,idir=",idir
       END IF
-      DEALLOCATE(q1,q2,q1t,q2t,q1z,q2z,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
+
+      iTest=202+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_tt))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_tt_all-eval_g_tt(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=203+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_tz))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') & 
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_tz_all-eval_g_tz(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=203+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_zz))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_zz_all-eval_g_zz(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=204+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(Jh_dq1))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|Jh_dq1_all-eval_Jh_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=205+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(Jh_dq2))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|Jh_dq2_all-eval_Jh_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=206+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_tt_dq1))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_tt_dq1_all-eval_g_tt_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=207+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_tz_dq1))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_tz_dq1_all-eval_g_tz_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=208+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_zz_dq1))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_zz_dq1_all-eval_g_zz_dq1(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=209+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_tt_dq2))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_tt_dq2_all-eval_g_tt_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=210+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_tz_dq2))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_tz_dq2_all-eval_g_tz_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=211+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_zz_dq2))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_zz_dq2_all-eval_g_zz_dq2(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=212+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_t1))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_t1_all-eval_g_t1(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=213+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_t2))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_t2_all-eval_g_t2(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=214+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_z1))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_z1_all-eval_g_z1(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=215+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(g_z2))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|g_z2_all-eval_g_z2(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=216+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(Gh11))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|Gh11_all-eval_Gh11(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      iTest=217+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal=SUM(ABS(Gh22))/REAL(ns*nthet*nzeta,wp)
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+             '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
+      '\n =>  should be ', refreal,' : |sum(|Gh22_all-eval_Gh22(xall)|)|= ', checkreal, " ,idir=",idir
+      END IF
+
+      DEALLOCATE(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
     END DO !idir
-    CALL sf%free_aux()
  END IF
 
  test_called=.FALSE. ! to prevent infinite loop in this routine

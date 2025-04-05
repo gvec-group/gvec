@@ -231,7 +231,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 ! MODULES
   USE MODgvec_MPI             , ONLY: par_AllReduce
   USE MODgvec_Globals         , ONLY: n_warnings_occured,myRank
-  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base
+  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -244,7 +244,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iGP,i_mn,IP_GP(2)
-  REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),min_detJ
+  REAL(wp)  :: min_detJ
 !===================================================================================================================================
   IF(JacCheck.EQ.-1) THEN
       CALL abort(__STAMP__, &
@@ -273,7 +273,15 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   
   __PERFOFF('EvalDOF_1')
 
-  CALL eval_hmap(X1_IP_GP,X2_IP_GP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta)
+  __PERFON('eval_hmap')
+  !CALL eval_hmap(X1_IP_GP,X2_IP_GP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta)
+  CALL hmap%eval_all((/X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2),nGP_end-nGP_str+1/),2,X1_base%f%zeta_IP, &
+                     X1_IP_GP,X2_IP_GP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta, &
+                     J_h,   g_tt, g_tz,g_zz, &
+                     Jh_dq1,gtt_dq1,gtz_dq1,gzz_dq1, &
+                     Jh_dq2,gtt_dq2,gtz_dq2,gzz_dq2, &
+                     g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+  __PERFOFF('eval_hmap')
 
   __PERFON('loop_1')
   min_detJ =HUGE(1.0_wp)
@@ -334,7 +342,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   __PERFON('loop_2')
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
-!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta)  &
+!$OMP   PRIVATE(iGP,i_mn)  &
 !$OMP   SHARED(nGP_str,nGP_end,mn_IP,b_thet,b_zeta,sJ_p,sJ_h,sdetJ,sJ_bcov_thet,sJ_bcov_zeta,bbcov_sJ, &
 !$OMP          J_p,J_h,chiPrime_GP,phiPrime_GP,dLA_dzeta,dLA_dthet,g_tt,g_tz,g_zz)
   DO iGP=nGP_str,nGP_end
@@ -1159,7 +1167,7 @@ SUBROUTINE BuildPrecond()
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER                     :: ibase,nBase,iMode,modes_str,modes_end,iGP,i_mn,Deg,iElem,i,j
+  INTEGER                     :: ibase,nBase,iMode,modes_str,modes_end,iGP,Deg,iElem,i,j
   INTEGER                     :: nD,tBC
   REAL(wp)                    :: smn_IP,smn_IP_w_GP,norm_mn
 !  REAL(wp),DIMENSION(nGP_str:nGP_end)   :: DX1_tt, DX1_tz, DX1_zz, DX1, DX1_ss
@@ -1180,7 +1188,7 @@ SUBROUTINE BuildPrecond()
 
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
-!$OMP   PRIVATE(iGP,i_mn,smn_IP_w_GP)
+!$OMP   PRIVATE(iGP,smn_IP_w_GP)
   loop_nGP: DO iGP=nGP_str,nGP_end  !<<<<
     !dont forget to average
     !additional variables
