@@ -16,13 +16,13 @@ repos:
     # Ruff version.
     rev: v0.11.3
     hooks:
-      # Run the linter.
-      - id: ruff
+      - id: ruff  # litner
         args: [--fix]
-      # Run the formatter.
-      - id: ruff-format
+        exclude: 'tools|gvec_to_gene'
+      - id: ruff-format  # formatter (like black, but faster)
+        exclude: 'tools|gvec_to_gene'
 
-  # cleaning jupyter notebooks
+  # cleaning jupyter notebooks (metadata & outputs)
   - repo: https://github.com/srstevenson/nb-clean
     rev: 4.0.1
     hooks:
