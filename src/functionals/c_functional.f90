@@ -19,7 +19,7 @@ IMPLICIT NONE
 PRIVATE
 PUBLIC t_functional
 !-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
+! TYPES
 TYPE, ABSTRACT :: c_functional
   CONTAINS
     PROCEDURE(i_sub_functional     ),DEFERRED :: init
@@ -41,12 +41,12 @@ ABSTRACT INTERFACE
   END SUBROUTINE i_sub_functional_min
 
 END INTERFACE
- 
+
 
 TYPE,ABSTRACT,EXTENDS(c_functional) :: t_functional
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
-  INTEGER              :: which_functional         !! points to functional (1: MHD3D) 
+  INTEGER              :: which_functional         !! points to functional (1: MHD3D)
   !---------------------------------------------------------------------------------------------------------------------------------
 
 END TYPE t_functional
@@ -55,4 +55,3 @@ END TYPE t_functional
 
 
 END MODULE MODgvec_c_functional
-

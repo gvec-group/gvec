@@ -8,7 +8,7 @@
 !>
 !!# Module **Globals**
 !!
-!! Here globally used variables /functions are defined 
+!! Here globally used variables /functions are defined
 !!
 !===================================================================================================================================
 MODULE MODgvec_Globals
@@ -22,7 +22,7 @@ USE_MPI
 
 IMPLICIT NONE
 
-PUBLIC 
+PUBLIC
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Select here the working precision wp
@@ -39,7 +39,7 @@ INTEGER             :: n_warnings_occured=0              !! for final line in sc
 LOGICAL                     :: testdbg=.FALSE.           !! for debugging the tests, set true for implementing tests, false to run
 INTEGER                     :: testlevel =-1             !! flag for testing routines in code: -1: off
 INTEGER                     :: ntestCalled=0             !! counter for called tests
-INTEGER                     :: nfailedMsg=0              !! counter for messages on failed tests 
+INTEGER                     :: nfailedMsg=0              !! counter for messages on failed tests
 INTEGER                     :: testUnit                  !! unit for out.test file
 INTEGER                     :: ProgressBar_oldpercent    !! for progressBar
 REAL(wp)                    :: ProgressBar_starttime     !! for progressBar
@@ -51,7 +51,7 @@ INTEGER                     :: nRanks=1                  !! total number of MPI 
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = output_unit !! Terminal output
 INTEGER, PARAMETER          :: UNIT_errOut = error_unit  !! For error output
-#else                                                     
+#else
 INTEGER, PARAMETER          :: UNIT_stdIn  = 5           !! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = 6           !! Terminal output
 INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
@@ -85,7 +85,7 @@ INTERFACE GETFREEUNIT
    MODULE PROCEDURE GETFREEUNIT
 END INTERFACE
 
-INTERFACE Eval1DPoly 
+INTERFACE Eval1DPoly
   MODULE PROCEDURE Eval1DPoly
 END INTERFACE
 
@@ -151,7 +151,7 @@ CALL FLUSH(UNIT_stdOut)
 signalout=2 ! MPI_ABORT requires an output error-code /=0
 IF(PRESENT(ErrorCode)) signalout=ErrorCode
 CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
-#endif  
+#endif
 #if GNU
 CALL BACKTRACE
 #endif
@@ -241,7 +241,7 @@ REAL(wp)          :: endTime
       EndTime=GetTimeSerial()
       WRITE(Unit_stdOut,'(A3,F8.2,A)') '| [',EndTime-ProgressBar_StartTime,' sec ]'
     END IF
-  END IF 
+  END IF
 END SUBROUTINE ProgressBar
 
 !==================================================================================================================================
@@ -278,7 +278,7 @@ PURE FUNCTION Eval1DPoly(nCoefs,Coefs,x)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients 
+INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients
 REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
 REAL(wp), INTENT(IN)  :: x                        !! evaluation position
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -305,7 +305,7 @@ PURE FUNCTION Eval1DPoly_deriv(nCoefs,Coefs,x)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients 
+INTEGER,  INTENT(IN)  :: nCoefs                   !! number of coefficients
 REAL(wp), INTENT(IN)  :: Coefs(nCoefs)            !! coefficients
 REAL(wp), INTENT(IN)  :: x                        !! evaluation position
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -338,7 +338,7 @@ REAL(wp),INTENT(IN) :: v1(nVal) !! vector
 ! OUTPUT VARIABLES
 REAL(wp)            :: normalize(nVal) !! result, normalized vector
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 !===================================================================================================================================
 normalize=v1/SQRT(SUM(v1*v1))
 END FUNCTION NORMALIZE
@@ -353,13 +353,13 @@ PURE FUNCTION CROSS(v1,v2)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL(wp),INTENT(IN) :: v1(3) !! first input vector 
-REAL(wp),INTENT(IN) :: v2(3) !! second input vector  
+REAL(wp),INTENT(IN) :: v1(3) !! first input vector
+REAL(wp),INTENT(IN) :: v2(3) !! second input vector
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp)            :: cross(3)  !! result v1 x v2
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 !===================================================================================================================================
 cross=(/v1(2)*v2(3)-v1(3)*v2(2),v1(3)*v2(1)-v1(1)*v2(3),v1(1)*v2(2)-v1(2)*v2(1)/)
 END FUNCTION CROSS
@@ -403,7 +403,7 @@ REAL(wp),INTENT(IN),OPTIONAL    ::  Det_in  !! determinant of input matrix (othe
 REAL(wp)             :: INV33(3,3) !! inverse matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL(wp)             :: sDet 
+REAL(wp)             :: sDet
 !===================================================================================================================================
 IF(PRESENT(Det_in))THEN
   sDet=1.0_wp/Det_in

@@ -20,7 +20,7 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 
-! GLOBAL VARIABLES 
+! GLOBAL VARIABLES
 LOGICAL                 :: useVMEC                   !! main switch
 LOGICAL                 :: switchZeta                !! switch vmec_phi = -zeta
 LOGICAL                 :: switchTheta               !! switch vmec_theta = -theta
@@ -28,10 +28,10 @@ CHARACTER(LEN = 256)    :: VMECdataFile
 INTEGER                 :: VMECFile_Format           !! 0: netcdf format (default), 1: nemec ascii, 2: nemec binary
 INTEGER,ALLOCATABLE     :: xmAbs(:)                  !! |xm(iMode)|, 1 for m=0, 2 for even, 3 for odd
 REAL(wp),ALLOCATABLE    :: Phi_prof(:)               !! TOROIDAL flux profile (called phi in VMEC)
-REAL(wp),ALLOCATABLE    :: normFlux_prof(:)          !! normalized flux profile, can be either toroidal of poloidal flux) 
+REAL(wp),ALLOCATABLE    :: normFlux_prof(:)          !! normalized flux profile, can be either toroidal of poloidal flux)
 REAL(wp),ALLOCATABLE    :: chi_prof(:)               !! POLOIDAL flux profile (called chi in VMEC)
 
-REAL(wp),ALLOCATABLE    :: rho(:)                    !! := sqrt(phinorm) at all flux surface 
+REAL(wp),ALLOCATABLE    :: rho(:)                    !! := sqrt(phinorm) at all flux surface
 
 TYPE(t_cubspl),ALLOCATABLE    :: Rmnc_Spl(:)           !! cubic spline fit of R cosine, array over modes
 TYPE(t_cubspl),ALLOCATABLE    :: Rmns_Spl(:)           !! cubic spline fit of R sine, array over modes
@@ -46,4 +46,3 @@ CLASS(c_rProfile), ALLOCATABLE :: vmec_pres_profile        !! B-spline profile i
 
 !===================================================================================================================================
 END MODULE MODgvec_VMEC_Vars
-

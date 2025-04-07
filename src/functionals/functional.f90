@@ -47,7 +47,7 @@ IMPLICIT NONE
   CASE DEFAULT
     CALL abort(__STAMP__, &
          "this functional choice does not exist (MHD3D=1) !")
-  END SELECT 
+  END SELECT
 
   sf%which_functional=which_functional
   CALL sf%init()
@@ -75,4 +75,3 @@ IMPLICIT NONE
 END SUBROUTINE FinalizeFunctional
 
 END MODULE MODgvec_functional
-

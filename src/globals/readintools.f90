@@ -7,8 +7,8 @@
 !===================================================================================================================================
 !>
 !!# MODULE **READ IN TOOLS"
-!! 
-!! Readin routines for the input file 
+!!
+!! Readin routines for the input file
 !!
 !===================================================================================================================================
 MODULE MODgvec_ReadInTools
@@ -91,7 +91,7 @@ TYPE tString
 #if defined(NVHPC)
   CHARACTER(LEN=MAXLEN) :: Str  !! ONLY NVHPC COMPILER DOES NOT SEEM TO WORK WITH ALLOCATABLE CHARACTERS (SIGSEV!)
 #else
-  CHARACTER(LEN=:),ALLOCATABLE::Str 
+  CHARACTER(LEN=:),ALLOCATABLE::Str
 #endif
   TYPE(tString),POINTER::NextStr,PrevStr
 END TYPE tString
@@ -120,8 +120,8 @@ CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal !! Default values as character 
 ! OUTPUT VARIABLES
 CHARACTER(LEN=512)                   :: GetStr   !! String read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=8)                     :: DefMsg  
+! LOCAL VARIABLES
+CHARACTER(LEN=8)                     :: DefMsg
 !===================================================================================================================================
 
 IF (PRESENT(Proposal)) THEN
@@ -144,14 +144,14 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key      !! Search for this keyword in ini file
-INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal !! Default values as integer 
+INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal !! Default values as integer
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER                              :: CntStr   !! Number of parameters named "Key" in inifile
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-CHARACTER(LEN=LEN(Key))              :: TmpKey  
-TYPE(tString),POINTER                :: Str1  
+CHARACTER(LEN=LEN(Key))              :: TmpKey
+TYPE(tString),POINTER                :: Str1
 !===================================================================================================================================
 
 CntStr=0
@@ -188,15 +188,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN) :: Key          !! Search for this keyword in ini file
-INTEGER,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as integer scalar 
-LOGICAL,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
+INTEGER,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as integer scalar
+LOGICAL,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER                     :: GetInt  !! Integer read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 CHARACTER(LEN=MAXLEN)       :: HelpStr,ProposalStr
-CHARACTER(LEN=8)            :: DefMsg  
+CHARACTER(LEN=8)            :: DefMsg
 INTEGER                     :: ioerr
 LOGICAL                     :: quiet_def
 !===================================================================================================================================
@@ -238,14 +238,14 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
 REAL(wp)        ,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as real scalar
-LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES                                 
+! OUTPUT VARIABLES
 REAL(wp)                             :: GetReal  !! Real read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=MAXLEN)                :: HelpStr,ProposalStr  
-CHARACTER(LEN=8)                     :: DefMsg  
+! LOCAL VARIABLES
+CHARACTER(LEN=MAXLEN)                :: HelpStr,ProposalStr
+CHARACTER(LEN=8)                     :: DefMsg
 INTEGER                              :: ioerr
 LOGICAL                              :: quiet_def
 !===================================================================================================================================
@@ -287,15 +287,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
-LOGICAL         ,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as logical 
-LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
+LOGICAL         ,OPTIONAL,INTENT(IN) :: Proposal     !! Default values as logical
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES                                  
+! OUTPUT VARIABLES
 LOGICAL                              :: GetLogical !! Logical read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=MAXLEN)                :: HelpStr,ProposalStr 
-CHARACTER(LEN=8)                     :: DefMsg  
+! LOCAL VARIABLES
+CHARACTER(LEN=MAXLEN)                :: HelpStr,ProposalStr
+CHARACTER(LEN=8)                     :: DefMsg
 INTEGER                              :: ioerr
 LOGICAL                              :: quiet_def
 !===================================================================================================================================
@@ -337,16 +337,16 @@ FUNCTION GETINTARRAY(Key,nIntegers,Proposal,quiet_def_in)
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key              !! Search for this keyword in ini file
 INTEGER,INTENT(IN)                   :: nIntegers        !! Number of values in array
-INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal(:)      !! Default values as integer array 
-LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in     !! flag to be quiet if DEFAULT is taken 
+INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal(:)      !! Default values as integer array
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in     !! flag to be quiet if DEFAULT is taken
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER                   :: GetIntArray(nIntegers)      !! Integer array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=MAXLEN)           :: HelpStr,ProposalStr 
-CHARACTER(LEN=8)                :: DefMsg  
-INTEGER                         :: iInteger  
+! LOCAL VARIABLES
+CHARACTER(LEN=MAXLEN)           :: HelpStr,ProposalStr
+CHARACTER(LEN=8)                :: DefMsg
+INTEGER                         :: iInteger
 INTEGER                         :: ioerr
 LOGICAL                         :: quiet_def
 !===================================================================================================================================
@@ -394,7 +394,7 @@ END FUNCTION GETINTARRAY
 
 
 !===================================================================================================================================
-!> Allocate and read integer array of unknown length "nIntegers" integer values named "Key" from ini file. 
+!> Allocate and read integer array of unknown length "nIntegers" integer values named "Key" from ini file.
 !! If keyword "Key" is not found in setup file, the default
 !! values "Proposal" are used to create the array (error if "Proposal" not given). Setup file was read in before and is stored as
 !! list of character strings starting with "FirstString".
@@ -406,17 +406,17 @@ SUBROUTINE GETINTALLOCARRAY(Key,GetIntArray,nIntegers,Proposal,quiet_def_in)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
-INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal(:)  !! Default values as integer array 
-LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
+INTEGER         ,OPTIONAL,INTENT(IN) :: Proposal(:)  !! Default values as integer array
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER,INTENT(OUT)       :: nIntegers        !! Number of values in array
 INTEGER,ALLOCATABLE       :: GetIntArray(:)   !! Integer array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr 
-CHARACTER(LEN=8)          :: DefMsg  
-INTEGER                   :: iInteger  
+! LOCAL VARIABLES
+CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr
+CHARACTER(LEN=8)          :: DefMsg
+INTEGER                   :: iInteger
 INTEGER                   :: ioerr
 LOGICAL                   :: quiet_def
 !===================================================================================================================================
@@ -473,16 +473,16 @@ IMPLICIT NONE
 CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
 INTEGER,INTENT(IN)                   :: nReals       !! Number of values in array
 REAL(wp)        ,OPTIONAL,INTENT(IN) :: Proposal(:)  !! Default values as real array
-LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp)                  :: GetRealArray(nReals)        !! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=MAXLEN)        :: HelpStr,ProposalStr 
-CHARACTER(LEN=8)             :: DefMsg  
-INTEGER                      :: iReal  
-INTEGER                      :: ioerr  
+! LOCAL VARIABLES
+CHARACTER(LEN=MAXLEN)        :: HelpStr,ProposalStr
+CHARACTER(LEN=8)             :: DefMsg
+INTEGER                      :: iReal
+INTEGER                      :: ioerr
 LOGICAL                      :: quiet_def
 !===================================================================================================================================
 
@@ -542,17 +542,17 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)          :: Key          !! Search for this keyword in ini file
 REAL(wp)        ,OPTIONAL,INTENT(IN) :: Proposal(:)  !! Default values as real array
-LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken 
+LOGICAL         ,OPTIONAL,INTENT(IN) :: quiet_def_in !! flag to be quiet if DEFAULT is taken
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER,INTENT(OUT)       :: nReals           !! Number of values in array
 REAL(wp),ALLOCATABLE      :: GetRealArray(:)  !! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr 
-CHARACTER(LEN=8)          :: DefMsg  
-INTEGER                   :: iReal  
-INTEGER                   :: ioerr  
+! LOCAL VARIABLES
+CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr
+CHARACTER(LEN=8)          :: DefMsg
+INTEGER                   :: iReal
+INTEGER                   :: ioerr
 LOGICAL                   :: quiet_def
 !===================================================================================================================================
 IF (PRESENT(Proposal)) THEN
@@ -662,10 +662,10 @@ CHARACTER(LEN=*),INTENT(IN)            :: IniFile                    !! Name of 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-TYPE(tString),POINTER          :: Str1=>NULL(),Str2=>NULL()  
-CHARACTER(LEN=MAXLEN)          :: HelpStr,Str  
-CHARACTER(LEN=300)             :: Filename   
+! LOCAL VARIABLES
+TYPE(tString),POINTER          :: Str1=>NULL(),Str2=>NULL()
+CHARACTER(LEN=MAXLEN)          :: HelpStr,Str
+CHARACTER(LEN=300)             :: Filename
 INTEGER                        :: stat,iniUnit,nLines,i !<<<<
 LOGICAL                        :: file_exists !<<<<
 CHARACTER(LEN=MAXLEN),ALLOCATABLE :: FileContent(:) !<<<<
@@ -759,12 +759,12 @@ DO WHILE (ASSOCIATED(Str1))
   IF(INDEX((Str1%str),'&').NE.0)THEN !found "&"
     CALL Split(Str1%Str,HelpStr,"&") !take part in front of "&"
     Str2=>Str1%nextStr
-#if(!defined(NVHPC)) 
+#if(!defined(NVHPC))
     DEALLOCATE(Str1%Str)
 #endif /* ONLY NVHPC COMPILER DOES NOT SEEM TO WORK WITH ALLOCATABLE CHARACTERS (SIGSEV!) */
     Str1%Str=TRIM(HelpStr)//TRIM(Str2%Str)
-    CALL deleteString(Str2) 
-    !do not go to next  string as long as there are "&" in the string  
+    CALL deleteString(Str2)
+    !do not go to next  string as long as there are "&" in the string
   ELSE
     Str1=>Str1%NextStr !nothing to be done
   END IF
@@ -773,7 +773,7 @@ END DO
 Str1=>FirstString
 DO WHILE (ASSOCIATED(Str1))
   IF(LEN_TRIM(Str1%Str).EQ.MAXLEN)THEN
-    CALL abort(__STAMP__,& 
+    CALL abort(__STAMP__,&
       "parameter readin: Line of input file might be longer than MAXLEN.",Intinfo=MAXLEN)
   END IF
   Str1=>Str1%NextStr !nothing to be done
@@ -796,7 +796,7 @@ TYPE(tString),POINTER,INTENT(INOUT) :: Str !! New string
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 !===================================================================================================================================
 NULLIFY(Str)
 ALLOCATE(Str)
@@ -817,7 +817,7 @@ TYPE(tString),POINTER,INTENT(INOUT) :: Str         !! String to delete
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 !===================================================================================================================================
 IF (ASSOCIATED(Str%NextStr)) Str%NextStr%PrevStr=>Str%PrevStr
 IF (ASSOCIATED(Str,FirstString)) THEN
@@ -851,10 +851,10 @@ CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal    !! Default values as charact
 ! OUTPUT VARIABLES
 CHARACTER(LEN=*),INTENT(OUT)         :: Str         !! Parameter string without keyword
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-CHARACTER(LEN=LEN(Key))              :: TmpKey   
-TYPE(tString),POINTER                :: Str1 
-LOGICAL                              :: Found  
+! LOCAL VARIABLES
+CHARACTER(LEN=LEN(Key))              :: TmpKey
+TYPE(tString),POINTER                :: Str1
+LOGICAL                              :: Found
 !===================================================================================================================================
 DefMsg='*CUSTOM'
 ! Convert to lower case
@@ -872,12 +872,12 @@ DO WHILE(.NOT.Found)
 !      CALL LowCase(TRIM(Proposal),Str)
       IF(LEN_TRIM(Proposal).LE.LEN(Str))THEN
         Str=TRIM(Proposal)
-      ELSE 
+      ELSE
         CALL abort(__STAMP__,&
           'parameter readin: proposal string of parameter '//TRIM(Key)//' does not fit into output string!')
       END IF
 
-      
+
       IF (Str(1:1).NE.'@') THEN
         DefMsg='DEFAULT'
       END IF
@@ -914,15 +914,15 @@ SUBROUTINE LowCase(Str1,Str2)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)  :: Str1 !! Input string 
+CHARACTER(LEN=*),INTENT(IN)  :: Str1 !! Input string
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 CHARACTER(LEN=*),INTENT(OUT) :: Str2 !! Output string, lower case letters only
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-INTEGER                      :: iLen,nLen,Upper  
-CHARACTER(LEN=*),PARAMETER   :: lc='abcdefghijklmnopqrstuvwxyz'  
-CHARACTER(LEN=*),PARAMETER   :: UC='ABCDEFGHIJKLMNOPQRSTUVWXYZ'  
+! LOCAL VARIABLES
+INTEGER                      :: iLen,nLen,Upper
+CHARACTER(LEN=*),PARAMETER   :: lc='abcdefghijklmnopqrstuvwxyz'
+CHARACTER(LEN=*),PARAMETER   :: UC='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 !===================================================================================================================================
 Str2=Str1
 nLen=LEN_TRIM(Str1)
@@ -951,7 +951,7 @@ REAL(wp),INTENT(IN),OPTIONAL   :: realarr(:)
 ! OUTPUT VARIABLES
 CHARACTER(LEN=*),INTENT(INOUT) :: ProposalStr
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 CHARACTER(LEN=LEN(ProposalStr)) :: str_tmp
 !===================================================================================================================================
   IF(PRESENT(logScalar))THEN
@@ -968,7 +968,7 @@ CHARACTER(LEN=LEN(ProposalStr)) :: str_tmp
     WRITE(str_tmp,'(*(I8,:,","))')intarr(:)
   ELSEIF(PRESENT(realarr))THEN
     WRITE(str_tmp,'(*(E21.11,:,","))')realarr(:)
-  ELSE 
+  ELSE
     ProposalStr=" "
     RETURN
   END IF
@@ -1001,7 +1001,7 @@ PURE FUNCTION replace(str_in,find,rep) RESULT(str_out)
   IMPLICIT NONE
   !-------------------------------------------
   ! input
-  CHARACTER(LEN=*),INTENT(IN) :: str_in 
+  CHARACTER(LEN=*),INTENT(IN) :: str_in
   CHARACTER(LEN=*),INTENT(IN) :: find
   CHARACTER(LEN=*),INTENT(IN) :: rep
   ! output
@@ -1022,11 +1022,11 @@ PURE FUNCTION replace(str_in,find,rep) RESULT(str_out)
     i_find=INDEX(str_tmp,TRIM(find))
   END DO
   str_out=TRIM(str_out)//TRIM(str_tmp)
-END FUNCTION replace  
+END FUNCTION replace
 
 SUBROUTINE split(str_in,bStr,separator)
   IMPLICIT NONE
-  !-------------------------------------------  
+  !-------------------------------------------
   ! input
   CHARACTER(LEN=*),INTENT(IN) :: str_in
   CHARACTER(LEN=1),INTENT(IN) :: separator
@@ -1045,7 +1045,7 @@ END SUBROUTINE split
 
 FUNCTION count_sep(str_in,separator) RESULT(n_sep)
   IMPLICIT NONE
-  !-------------------------------------------  
+  !-------------------------------------------
   ! input
   CHARACTER(LEN=*),INTENT(IN) :: str_in
   CHARACTER(LEN=1),INTENT(IN) :: separator
@@ -1060,7 +1060,7 @@ FUNCTION count_sep(str_in,separator) RESULT(n_sep)
   len_in=LEN_TRIM(str_in)
   str_tmp=TRIM(str_in)
   IF(str_tmp(1:1).EQ.separator) THEN
-    CALL abort(__STAMP__,& 
+    CALL abort(__STAMP__,&
          "parameter readin, count separator:  first character should not be a separator!")
   END IF
   DO i=2,len_in-1
@@ -1069,7 +1069,7 @@ FUNCTION count_sep(str_in,separator) RESULT(n_sep)
     END IF
   END DO
   IF(str_tmp(len_in:len_in).EQ.separator) THEN
-    CALL abort(__STAMP__,& 
+    CALL abort(__STAMP__,&
          "parameter readin, count separator: last character should not be a separator!")
   END IF
 END FUNCTION count_sep

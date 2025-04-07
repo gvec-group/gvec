@@ -8,7 +8,7 @@
 !>
 !!# Module **Transform SFL**
 !!
-!! Transform to Straight-field line angles, PEST / BOOZER 
+!! Transform to Straight-field line angles, PEST / BOOZER
 !!
 !===================================================================================================================================
 MODULE MODgvec_Transform_SFL
@@ -26,7 +26,7 @@ TYPE :: t_transform_sfl
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER                     :: whichSFLcoord !! 
+  INTEGER                     :: whichSFLcoord !!
   INTEGER                     :: fac_nyq,mn_max(2),deg,continuity,degGP,nfp
   INTEGER                     :: mn_nyq(2)     !! number of integration points in fbase for X1sfl,X2sfl,Gtsfl,GZsfl
   INTEGER                     :: mn_nyq_booz(2)!! number of integration points in fbase for boozer transform (fbase of GZ_base)
@@ -94,13 +94,13 @@ SUBROUTINE transform_sfl_new(sf,mn_max_in, whichSFL,deg_in,continuity_in,degGP_i
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER     ,INTENT(IN) :: mn_max_in(2)                                        !< maximum number for new variables in SFL coordinates
-  INTEGER     ,INTENT(IN) :: whichSFL                                         !< either =1: PEST, =2:Boozer 
+  INTEGER     ,INTENT(IN) :: whichSFL                                         !< either =1: PEST, =2:Boozer
   INTEGER     ,INTENT(IN) :: deg_in,continuity_in,degGP_in                    !< for output base (X1,X2,G)
   CLASS(t_sgrid),INTENT(IN),TARGET :: grid_in                            !! grid information
   CLASS(t_base),INTENT(IN),TARGET :: X1_base_in,X2_base_in,LA_base_in           !< base classes belong to solution U_in
   CLASS(c_hmap),INTENT(IN),TARGET :: hmap_in
   PROCEDURE(i_func_evalprof)     :: eval_phiPrime_in,eval_iota_in  !!procedure pointers to profile evaluation functions.
-  LOGICAL,INTENT(IN),OPTIONAL :: booz_relambda !! for boozer transform, recompute lambda (recommended) 
+  LOGICAL,INTENT(IN),OPTIONAL :: booz_relambda !! for boozer transform, recompute lambda (recommended)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
   TYPE(t_transform_sfl), ALLOCATABLE,INTENT(INOUT)        :: sf !! self
@@ -112,7 +112,7 @@ SUBROUTINE transform_sfl_new(sf,mn_max_in, whichSFL,deg_in,continuity_in,degGP_i
   !TEST
   !WRITE(*,*)'DEBUG,phiprime= ? ',sf%eval_phiPrime(0.0_wp),sf%eval_phiPrime(1.0_wp)
   !WRITE(*,*)'DEBUG,iota= ? ',sf%eval_iota(0.0_wp),sf%eval_iota(1.0_wp)
-  
+
   !pass any grid here
   CALL sf%sgrid_sfl%copy(grid_in)
   sf%mn_max=mn_max_in; sf%deg=deg_in; sf%continuity=continuity_in ; sf%degGP = degGP_in
@@ -143,7 +143,7 @@ END SUBROUTINE transform_sfl_new
 
 
 !===================================================================================================================================
-!> get_new 
+!> get_new
 !!
 !===================================================================================================================================
 SUBROUTINE transform_SFL_init(sf)
@@ -178,7 +178,7 @@ CASE(1) !PEST
 CASE(2) !BOOZER
   CALL base_new(sf%GZ_base, sf%deg, sf%continuity, sf%sgrid_sfl,sf%degGP,      &
   sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),.TRUE.) !exclude m=n=0
-  
+
   ALLOCATE(sf%Gthet(sf%GZ_base%s%nBase,sf%GZ_base%f%modes)); sf%Gthet=0.0_wp
   ALLOCATE(sf%GZ(   sf%GZ_base%s%nBase,sf%GZ_base%f%modes)); sf%GZ=0.0_wp
 
@@ -188,7 +188,7 @@ CASE(2) !BOOZER
   ALLOCATE(rho_pos(1:sf%GZsfl_base%s%nBase),iota(1:sf%GZsfl_base%s%nBase),phiPrime(1:sf%GZsfl_base%s%nBase))
   DO irho=1,sf%GZsfl_base%s%nBase
     rho_pos(irho)=MIN(MAX(1.0e-4_wp,sf%GZsfl_base%s%s_IP(irho)),1.0_wp-1.0e-12_wp)
-    iota(irho)=sf%eval_iota(rho_pos(irho))  
+    iota(irho)=sf%eval_iota(rho_pos(irho))
     phiPrime(irho)=sf%eval_phiPrime(rho_pos(irho))
   END DO
   CALL sfl_boozer_new(sf%booz,sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),sf%hmap,sf%GZsfl_base%s%nBase, &
@@ -196,7 +196,7 @@ CASE(2) !BOOZER
   DEALLOCATE(rho_pos,iota,phiPrime)
   ALLOCATE(sf%Gtsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%Gtsfl=0.0_wp
   ALLOCATE(sf%GZsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%GZsfl=0.0_wp
-  
+
 CASE DEFAULT
 SWRITE(UNIT_stdOut,*)'This input for SFL coordinate transform is not valid: whichSFL=',sf%whichSFLcoord
 CALL abort(__STAMP__, &
@@ -286,12 +286,12 @@ END SUBROUTINE BuildTransform_SFL
 
 
 !===================================================================================================================================
-!> Transform a function from the GVEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*) 
+!> Transform a function from the GVEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*)
 !! by using interpolation in angular direction (fourier transform)
 !! and spline interpolation in radial direction (at s_IP points of output base)
-!! the interpolation points are given by thetazeta_IP, 
+!! the interpolation points are given by thetazeta_IP,
 !! which are the angle positions of an equidistant interpolation grid in PEST/Boozer angles
-!! 
+!!
 !===================================================================================================================================
 SUBROUTINE Transform_Angles_3d(q_base_in,q_in,q_name,q_base_out,q_out,thetazeta_IP)
 ! MODULES
@@ -300,14 +300,14 @@ USE MODgvec_base   ,ONLY: t_base
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_Base),INTENT(IN) :: q_base_in                                     !< basis of function f 
-  REAL(wp)     ,INTENT(IN) :: q_in(1:q_base_in%s%nBase,1:q_base_in%f%modes) !< coefficients of f 
+  CLASS(t_Base),INTENT(IN) :: q_base_in                                     !< basis of function f
+  REAL(wp)     ,INTENT(IN) :: q_in(1:q_base_in%s%nBase,1:q_base_in%f%modes) !< coefficients of f
   CHARACTER(LEN=*),INTENT(IN):: q_name
-  CLASS(t_base),INTENT(IN) :: q_base_out                                    !< new fourier basis of function q in new angles, defined mn_max,mn_nyq 
+  CLASS(t_base),INTENT(IN) :: q_base_out                                    !< new fourier basis of function q in new angles, defined mn_max,mn_nyq
   REAL(wp)     ,INTENT(IN) :: thetazeta_IP(2,q_base_out%f%mn_IP,q_base_out%s%nBase) !< theta zeta evaluation points corresponding to equispaced integration points in boozer/pest angles
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES      
-  REAL(wp) ,INTENT(INOUT) :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< spline/fourier coefficients of q in new angles 
+! OUTPUT VARIABLES
+  REAL(wp) ,INTENT(INOUT) :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< spline/fourier coefficients of q in new angles
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: nBase,irho,mn_IP,mn_max(2),mn_nyq(2)
@@ -319,14 +319,14 @@ IMPLICIT NONE
   mn_nyq(1:2) =q_base_out%f%mn_nyq
   SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6))')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
                               ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq
-                     
+
   __PERFON('transform_angles')
   !total number of integration points
   mn_IP = q_base_out%f%mn_IP
   nBase = q_base_out%s%nBase
 
   CALL ProgressBar(0,nBase)!init
-  
+
   DO irho=1,nBase
     spos=q_base_out%s%s_IP(irho) !interpolation points for q_in
     !evaluate q_in at spos
@@ -351,11 +351,11 @@ SUBROUTINE to_spline_with_BC(q_base_out,q_m,q_out)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_Base),INTENT(IN) :: q_base_out                                  !< basis of function f  
-  REAL(wp)     ,INTENT(IN) :: q_m(1:q_base_out%f%modes,1:q_base_out%s%nBase) !< coefficients of f, sampled at s_IP points 
+  CLASS(t_Base),INTENT(IN) :: q_base_out                                  !< basis of function f
+  REAL(wp)     ,INTENT(IN) :: q_m(1:q_base_out%f%modes,1:q_base_out%s%nBase) !< coefficients of f, sampled at s_IP points
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES      
-  REAL(wp) ,INTENT(OUT)    :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< spline/fourier coefficients of q in new angles 
+! OUTPUT VARIABLES
+  REAL(wp) ,INTENT(OUT)    :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< spline/fourier coefficients of q in new angles
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: iMode
@@ -363,7 +363,7 @@ IMPLICIT NONE
   REAL(wp)              :: BCval_axis,BCval_edge
 !===================================================================================================================================
   !transform back to corresponding representation of DOF in s
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,BCtype_axis,BCval_axis,BCval_edge)
   DO iMode=1,q_base_out%f%modes
     q_out(:,iMode)=q_base_out%s%initDOF( q_m(iMode,:) )
@@ -378,15 +378,15 @@ IMPLICIT NONE
     END SELECT
     CALL q_base_out%s%applyBCtoDOF(q_out(:,iMode),(/BCtype_axis,BC_TYPE_DIRICHLET/),(/BCval_axis,BCval_edge/))
   END DO
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 END SUBROUTINE to_spline_with_BC
 
 !===================================================================================================================================
-!> Transform a function from VMEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*) 
+!> Transform a function from VMEC angles q(s,theta,zeta) to new angles q*(s,theta*,zeta*)
 !> by projection onto the modes of the new angles: sigma_mn(theta*,zeta*)
-!> using a given in s 
-!> Here, new angles are theta*=theta+A(theta,zeta), zeta*=zeta+B(theta,zeta), 
-!> with A,B periodic functions and zero average and same base 
+!> using a given in s
+!> Here, new angles are theta*=theta+A(theta,zeta), zeta*=zeta+B(theta,zeta),
+!> with A,B periodic functions and zero average and same base
 !> Note that in this routine, the integral is transformed back to (theta,zeta)
 !> q*_mn = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) dtheta* dzeta*
 !>       = iint_0^2pi q(theta,zeta) sigma_mn(theta*,zeta*) [(1+dA/dtheta)*(1+dB/dzeta)-(dA/dzeta*dB/dzeta)] dtheta dzeta
@@ -402,25 +402,25 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_Base),INTENT(IN) :: AB_base_in                                    !< basis of A and B
-  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of thet*=thet+A(s,theta,zeta)  
-  CLASS(t_Base),INTENT(IN) :: q_base_in                                     !< basis of function f 
-  REAL(wp)     ,INTENT(IN) :: q_in(1:q_base_in%s%nBase,1:q_base_in%f%modes) !< coefficients of f 
+  REAL(wp)     ,INTENT(IN) :: A_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of thet*=thet+A(s,theta,zeta)
+  CLASS(t_Base),INTENT(IN) :: q_base_in                                     !< basis of function f
+  REAL(wp)     ,INTENT(IN) :: q_in(1:q_base_in%s%nBase,1:q_base_in%f%modes) !< coefficients of f
   CHARACTER(LEN=*),INTENT(IN):: q_name
-  CLASS(t_base),INTENT(IN) :: q_base_out                                    !< new fourier basis of function q in new angles, defined mn_max,mn_nyq 
+  CLASS(t_base),INTENT(IN) :: q_base_out                                    !< new fourier basis of function q in new angles, defined mn_max,mn_nyq
   REAL(wp)    ,INTENT(IN),OPTIONAL :: B_in(1:AB_base_in%s%nBase,1:AB_base_in%f%modes) !< coefficients of zeta*=zeta+B(s,theta,zeta)
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES      
-  REAL(wp) ,INTENT(INOUT) :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< coefficients of q in new angles 
+! OUTPUT VARIABLES
+  REAL(wp) ,INTENT(INOUT) :: q_out(q_base_out%s%nBase,1:q_base_out%f%modes)          !< coefficients of q in new angles
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER               :: nBase,i,is,i_mn,mn_IP,mn_max(2),mn_nyq(2)
-  REAL(wp)              :: spos,dthet_dzeta 
+  REAL(wp)              :: spos,dthet_dzeta
   REAL(wp)              :: check(1:7,q_base_out%s%nBase)
   LOGICAL               :: docheck
   LOGICAL               :: Bpresent
-  REAL(wp)              :: A_s(1:AB_base_in%f%modes) 
-  REAL(wp)              :: B_s(1:AB_base_in%f%modes) 
-  REAL(wp)              :: q_in_s(1:q_base_in%f%modes) 
+  REAL(wp)              :: A_s(1:AB_base_in%f%modes)
+  REAL(wp)              :: B_s(1:AB_base_in%f%modes)
+  REAL(wp)              :: q_in_s(1:q_base_in%f%modes)
   REAL(wp), ALLOCATABLE :: q_IP(:),q_m(:,:)   ! q evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
   REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
@@ -435,7 +435,7 @@ IMPLICIT NONE
 
   SWRITE(UNIT_StdOut,'(A,I4,3(A,2I6),A,L)')'TRANSFORM '//TRIM(q_name)//' TO NEW ANGLE COORDINATES, nfp=',q_base_in%f%nfp, &
                               ', mn_max_in=',q_base_in%f%mn_max,', mn_max_out=',mn_max,', mn_int=',mn_nyq, ', B_in= ',Bpresent
-                     
+
   __PERFON('transform_angles')
   __PERFON('init')
   !initialize
@@ -459,7 +459,7 @@ IMPLICIT NONE
                                 AB_base_in%f%nfp, &
                     sin_cos_map(AB_base_in%f%sin_cos), &
                                 AB_base_in%f%exclude_mn_zero)
-  
+
   SWRITE(UNIT_StdOut,*)'        ...Init AB_nyq Base Done'
 
   IF(.NOT.Bpresent) THEN
@@ -490,12 +490,12 @@ IMPLICIT NONE
     __PERFON('eval_data_f')
     !evaluate lambda at spos
     ! TEST EXACT CASE: A_s=0.
-    
+
     IF(.NOT.Bpresent)THEN
       q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
       A_IP       = AB_fbase_nyq%evalDOF_IP(         0, A_s(  :))
       dAdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, A_s(  :))
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(i_mn)        &
 !$OMP   SHARED(mn_IP,q_base_out,q_IP,A_IP,dAdthet_IP,f_IP,modes_IP)
@@ -504,7 +504,7 @@ IMPLICIT NONE
         !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
         modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)/))
       END DO !i_mn=1,mn_IP
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 
     ELSE !Bpresent
       q_IP       =  q_fbase_nyq%evalDOF_IP(         0, q_in_s(  :))
@@ -514,8 +514,8 @@ IMPLICIT NONE
       B_IP       = AB_fbase_nyq%evalDOF_IP(         0, B_s(  :))
       dBdthet_IP = AB_fbase_nyq%evalDOF_IP(DERIV_THET, B_s(  :))
       dBdzeta_IP = AB_fbase_nyq%evalDOF_IP(DERIV_ZETA, B_s(  :))
-      
-!$OMP PARALLEL DO        &  
+
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(i_mn)        &
 !$OMP   SHARED(mn_IP,q_base_out,q_IP,A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP,f_IP,modes_IP)
@@ -524,19 +524,19 @@ IMPLICIT NONE
         !evaluate (theta*,zeta*) modes of q_in at (theta,zeta)
         modes_IP(:,i_mn)= q_base_out%f%eval(0,(/q_base_out%f%x_IP(1,i_mn)+A_IP(i_mn),q_base_out%f%x_IP(2,i_mn)+B_IP(i_mn)/))
       END DO !i_mn=1,mn_IP
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
     END IF !Bpresent
     __PERFON('project')
-    __MATVEC_N(q_m(:,is),modes_IP(:,:),f_IP(:)) 
+    __MATVEC_N(q_m(:,is),modes_IP(:,:),f_IP(:))
 
     __PERFOFF('project')
     __PERFOFF('eval_data_f')
 
     !projection: integrate (sum over mn_IP), includes normalization of base!
-    !q_m(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))  
+    !q_m(:,is)=(dthet_dzeta*q_base_out%f%snorm_base(:))*(MATMUL(modes_IP(:,1:mn_IP),f_IP(1:mn_IP)))
 
     q_m(:,is)=dthet_dzeta*q_base_out%f%snorm_base(:)*q_m(:,is)
-    
+
     !CHECK at all IP points
     IF(doCheck) THEN
       __PERFON('check')
@@ -550,7 +550,7 @@ IMPLICIT NONE
       check(4,is)=MINVAL(f_IP)
       check(5,is)=MAXVAL(f_IP)
 
-  
+
       !f_IP = ABS(f_IP - q_IP)/SUM(ABS(q_IP))*REAL(mn_IP,wp)
       f_IP=ABS(f_ip- q_IP)
       check(1,is)=MINVAL(f_IP)
@@ -583,7 +583,7 @@ IMPLICIT NONE
       WRITE(UNIT_StdOut,'(A,2E21.11)') '   MIN/MAX of output '//TRIM(q_name)//':', check(4:5,is)
       WRITE(UNIT_StdOut,'(2A,3E11.4)')'    ERROR of '//TRIM(q_name)//':', &
                                       ' |q_in-q_out| (min/max/avg)',check(1:2,is),check(3,is)
-    END DO                                  
+    END DO
   END IF
 
   SWRITE(UNIT_StdOut,'(A)') '...DONE.'
@@ -592,9 +592,9 @@ END SUBROUTINE Transform_Angles_sinterp
 
 !===================================================================================================================================
 !> on one flux surface, find for a list of in thet*_j,zeta*_j, the corresponding (thet_j,zeta_j) positions, given
-!> Here, new PEST angles are 
-!> theta*=theta+lambda(theta,zeta)  
-!>  zeta*=zeta, 
+!> Here, new PEST angles are
+!> theta*=theta+lambda(theta,zeta)
+!>  zeta*=zeta,
 !> so a 1D root search in theta is is enough
 !!
 !===================================================================================================================================
@@ -611,9 +611,9 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
     REAL(wp)     ,INTENT(IN) :: LA_in(1:fbase_in%modes,nrho) !< fourier coefficients of thet*=thet+LA(theta,zeta)+iota*nu(theta,zeta)
     INTEGER      ,INTENT(IN) :: tz_dim                 !< size of the list in thetstar,zetastar
     REAL(wp)     ,INTENT(IN) :: tz_pest(2,tz_dim) !< theta,zeta positions in pest angle (same for all rho)
-    
+
   !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES      
+  ! OUTPUT VARIABLES
     REAL(wp)    ,INTENT(OUT) :: thetzeta_out(2,tz_dim,nrho)  !! theta,zeta position in original angles, for given pest angles
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
@@ -624,14 +624,14 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
   !===================================================================================================================================
    __PERFON('find_pest_angles')
    docheck=(testlevel.GT.0)
-   SWRITE(UNIT_StdOut,'(A,2(I8,A))')'Find pest angles via Newton on  nrho=',nrho,' times ntheta_zeta= ',tz_dim, " points" 
+   SWRITE(UNIT_StdOut,'(A,2(I8,A))')'Find pest angles via Newton on  nrho=',nrho,' times ntheta_zeta= ',tz_dim, " points"
   CALL ProgressBar(0,nrho)!init
   DO irho=1,nrho
 !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(NONE) &
 !$OMP   PRIVATE(j,theta_star,zeta) FIRSTPRIVATE(irho) &
 !$OMP   SHARED(tz_dim,tz_pest,thetzeta_out,fbase_in,LA_in)
     DO j=1,tz_dim
-      theta_star=tz_pest(1,j); zeta=tz_pest(2,j)          
+      theta_star=tz_pest(1,j); zeta=tz_pest(2,j)
       thetzeta_out(1,j,irho)=get_pest_newton(theta_star,zeta,fbase_in,LA_in(:,irho))
       thetzeta_out(2,j,irho)=zeta
     END DO! j
@@ -645,10 +645,10 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
       check=fbase_in%evalDOF_xn(tz_dim,thetzeta_out(:,:,irho),0,LA_in(:,irho))
       maxerr(irho)=maxval(abs(check+(thetzeta_out(1,:,irho)-tz_pest(1,:))))
     END DO
-    
+
     IF(ANY(maxerr.GT.1.0e-12))THEN
       WRITE(UNIT_stdout,*)'CHECK PEST THETA*',maxerr
-      CALL abort(__STAMP__, & 
+      CALL abort(__STAMP__, &
           "Find_pest_Angles: Error in theta*")
     END IF
     __PERFOFF("check")
@@ -659,7 +659,7 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
 END SUBROUTINE find_pest_angles
 
 !===================================================================================================================================
-!> This function returns the result of the 1D newton root search for the pest theta angle 
+!> This function returns the result of the 1D newton root search for the pest theta angle
 !!
 !===================================================================================================================================
 FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
@@ -674,32 +674,32 @@ FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
     TYPE(t_fbase),INTENT(IN) ::LA_fbase_in     !<  basis of lambda
     REAL(wp)     ,INTENT(IN) :: LA_in(1:LA_fbase_in%modes) !< fourier coefficients of thet*=thet+LA(theta,zeta)
   !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES      
+  ! OUTPUT VARIABLES
     REAL(wp)              :: thet_out !< theta position in original coordinates
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
   !===================================================================================================================================
     thet_out=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI, &
                                          theta_star, theta_star,A_FRdFR) !start, rhs,func
-  CONTAINS 
-!for newton root search 
+  CONTAINS
+!for newton root search
   FUNCTION A_FRdFR(theta_iter)
     !uses current zeta where newton is called, and A from subroutine above
     REAL(wp) :: theta_iter
     REAL(wp) :: A_FRdFR(2) !output function and derivative
-    !--------------------------------------------------- 
+    !---------------------------------------------------
     A_FRdFR(1)=theta_iter+LA_fbase_in%evalDOF_x((/theta_iter,zeta/),         0,LA_in)  !theta_iter+lambda = thet* (rhs)
-    A_FRdFR(2)=1.0_wp    +LA_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_in) !1+dlambda/dtheta  
+    A_FRdFR(2)=1.0_wp    +LA_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_in) !1+dlambda/dtheta
   END FUNCTION A_FRdFR
-  
+
 END FUNCTION get_pest_newton
 
 
-  
+
 
 
 !===================================================================================================================================
-!> 
+!>
 !!
 !===================================================================================================================================
 SUBROUTINE transform_SFL_free(sf)

@@ -15,9 +15,9 @@ MODULE MODgvec_rProfile_poly
   USE MODgvec_Globals ,ONLY: wp
   USE MODgvec_rProfile_base, ONLY: c_rProfile, poly_derivative_prefactor
   IMPLICIT NONE
-  
+
   PUBLIC
-  
+
   TYPE, EXTENDS(c_rProfile) :: t_rProfile_poly
     !INTEGER               :: n_coefs !! number of polynomial coefficients, part of abstract type
     INTEGER               :: deg = 0
@@ -25,16 +25,16 @@ MODULE MODgvec_rProfile_poly
     CONTAINS
     PROCEDURE :: eval_at_rho2        => polyProfile_eval_at_rho2
     PROCEDURE :: antiderivative      => polyProfile_antiderivative
-    FINAL     :: polyProfile_free 
-    
+    FINAL     :: polyProfile_free
+
   END TYPE t_rProfile_poly
-  
+
   INTERFACE t_rProfile_poly
       MODULE PROCEDURE polyProfile_new
   END INTERFACE t_rProfile_poly
-  
+
   CONTAINS
-  
+
   FUNCTION polyProfile_new(coefs) RESULT(sf)
   ! MODULES
   !-----------------------------------------------------------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ MODULE MODgvec_rProfile_poly
     ALLOCATE(sf%coefs(1:n_coefs))
     sf%coefs = coefs
   END FUNCTION polyProfile_new
-  
+
   !===================================================================================================================================
   !> evaluate the n-th derivative of a power polynomial
   !!
@@ -80,7 +80,7 @@ MODULE MODgvec_rProfile_poly
     ELSE
         deriv_case = 0
     END IF
-    
+
     IF (deriv_case>sf%deg) THEN
         profile_prime_value = 0.0_wp
     ELSE IF (deriv_case==0) THEN
@@ -99,7 +99,7 @@ MODULE MODgvec_rProfile_poly
   !===================================================================================================================================
   !> get the exact polynomial antiderivative, with respect to rho2
   !!
-  !=================================================================================================================================== 
+  !===================================================================================================================================
   FUNCTION polyProfile_antiderivative(sf) RESULT(antideriv)
   ! MODULES
   !-----------------------------------------------------------------------------------------------------------------------------------

@@ -17,27 +17,27 @@ USE MODgvec_Globals, ONLY:wp,UNIT_stdout,abort
 IMPLICIT NONE
 PUBLIC
 
-INTERFACE NewtonMin1D 
-  MODULE PROCEDURE NewtonMin1D 
+INTERFACE NewtonMin1D
+  MODULE PROCEDURE NewtonMin1D
 END INTERFACE
 
-INTERFACE NewtonRoot1D 
-  MODULE PROCEDURE NewtonRoot1D 
+INTERFACE NewtonRoot1D
+  MODULE PROCEDURE NewtonRoot1D
 END INTERFACE
 
 INTERFACE NewtonRoot1D_FdF
   MODULE PROCEDURE NewtonRoot1D_FdF
 END INTERFACE
 
-INTERFACE NewtonMin2D 
-  MODULE PROCEDURE NewtonMin2D 
+INTERFACE NewtonMin2D
+  MODULE PROCEDURE NewtonMin2D
 END INTERFACE
 
-INTERFACE NewtonRoot2D 
-  MODULE PROCEDURE NewtonRoot2D 
+INTERFACE NewtonRoot2D
+  MODULE PROCEDURE NewtonRoot2D
 END INTERFACE
 
-ABSTRACT INTERFACE 
+ABSTRACT INTERFACE
   FUNCTION i_f1x1(x) RESULT (y1x1)
     IMPORT wp
     IMPLICIT NONE
@@ -80,7 +80,7 @@ CONTAINS
 
 
 !===================================================================================================================================
-!> Newton's iterative algorithm to find the minimimum of function f(x) in the interval [a,b], using df(x)=0 and the derivative 
+!> Newton's iterative algorithm to find the minimimum of function f(x) in the interval [a,b], using df(x)=0 and the derivative
 !!
 !===================================================================================================================================
 FUNCTION NewtonMin1D(tol,a,b,maxstep,x,FF,dFF,ddFF) RESULT (fmin)
@@ -110,7 +110,7 @@ END FUNCTION NewtonMin1D
 
 
 !===================================================================================================================================
-!> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative 
+!> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative
 !!
 !===================================================================================================================================
 FUNCTION NewtonRoot1D(tol,a,b,maxstep,xin,F0,FR,dFR) RESULT (xout)
@@ -121,8 +121,8 @@ IMPLICIT NONE
 REAL(wp),INTENT(IN) :: tol    !! abort tolerance
 REAL(wp),INTENT(IN) :: a,b    !! search interval
 REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
-REAL(wp),INTENT(IN) :: xin    !! initial guess 
-REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0 
+REAL(wp),INTENT(IN) :: xin    !! initial guess
+REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 PROCEDURE(i_f1x1)   :: FR      !! function to find root
@@ -148,7 +148,7 @@ DO iter=1,maxiter
   IF(converged) EXIT
 END DO !iter
 IF(.NOT.converged) THEN
-  !repeat with maxstep /10 and a little change in the initial condition 
+  !repeat with maxstep /10 and a little change in the initial condition
   x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
   maxiter=200
   DO iter=1,maxiter
@@ -176,7 +176,7 @@ END FUNCTION NewtonRoot1D
 
 
 !===================================================================================================================================
-!> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative 
+!> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative
 !!
 !===================================================================================================================================
 FUNCTION NewtonRoot1D_FdF(tol,a,b,maxstep,xin,F0,FRdFR) RESULT (xout)
@@ -188,7 +188,7 @@ REAL(wp),INTENT(IN) :: tol     !! abort tolerance
 REAL(wp),INTENT(IN) :: a,b     !! search interval
 REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
 REAL(wp),INTENT(IN) :: xin     !! initial guess on input
-REAL(wp),INTENT(IN) :: F0      !! function to find root is FR(x)-F0 
+REAL(wp),INTENT(IN) :: F0      !! function to find root is FR(x)-F0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 PROCEDURE(i_f2x1)   :: FRdFR   !! function to find root f(x) & derivative d/dx f(x)
@@ -214,7 +214,7 @@ DO iter=1,maxiter
   IF(converged) EXIT
 END DO !iter
 IF(.NOT.converged) THEN
-  !repeat with maxstep /10 and a little change in the initial condition 
+  !repeat with maxstep /10 and a little change in the initial condition
   converged2=.FALSE.
   x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
   maxiter=200
@@ -245,7 +245,7 @@ END FUNCTION NewtonRoot1D_FdF
 
 !===================================================================================================================================
 !> Newton's iterative algorithm to find the minimimum of function f(x,y) in the interval x(i)[a(i),b(i)],
-!! using grad(f(x)=0 and the derivative 
+!! using grad(f(x)=0 and the derivative
 !!
 !===================================================================================================================================
 FUNCTION NewtonMin2D(tol,a,b,x,FF,dFF,ddFF) RESULT (fmin)
@@ -282,7 +282,7 @@ DO iter=1,maxiter
   HessInv(2,1)=-Hess(2,1)
   HessInv(2,2)= Hess(1,1)
   HessInv=HessInv/det_Hess
-  gradF=dFF(x) 
+  gradF=dFF(x)
   dx=-MATMUL(HessInv,gradF)
   dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
   x = x+dx
@@ -298,7 +298,7 @@ END FUNCTION NewtonMin2D
 !===================================================================================================================================
 !> Newton's iterative algorithm to find the root of function [f1(x1,x2),f2(x1,x2)]=[0,0] in the interval a(i)<=x(i)<=b(i),
 !! using the Jacobian  dfi/dxj, i=1,2, j=1,2, such that fi(x1,x2)=fi(x1_0,x2_0)+  [dfi/dx1,dfi/dx2].[dx1,dx2]
-!! in each step, we find dx1,dx2 st -[[dfi/dxj]] dxj =fi(x1_0,x2_0) 
+!! in each step, we find dx1,dx2 st -[[dfi/dxj]] dxj =fi(x1_0,x2_0)
 !!
 !===================================================================================================================================
 FUNCTION NewtonRoot2D(tol,a,b,maxstep,xin,FF,dFF) RESULT (xout)
@@ -314,7 +314,7 @@ REAL(wp),INTENT(IN)    :: xin(2) !! initial guess
 ! OUTPUT VARIABLES
 PROCEDURE(i_f2x2)      :: FF  !! f1(x1,x2),f2(x1,x2) to be zero
 PROCEDURE(i_f22x2)     :: dFF !! d fi(x1,x2) /dxj
-REAL(wp)               :: xout(2) !! x1,x2 that have f1(x1,x2)=0 and f2(x1,x2)=0 
+REAL(wp)               :: xout(2) !! x1,x2 that have f1(x1,x2)=0 and f2(x1,x2)=0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: iter,maxiter
@@ -336,12 +336,12 @@ DO iter=1,maxiter
   JacInv(2,1)=-Jac(2,1)
   JacInv(2,2)= Jac(1,1)
   JacInv=JacInv/det_Jac
-  F=FF(x) 
+  F=FF(x)
   dx=-MATMUL(JacInv,F)
   dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
   IF(ABS(dx(1)).GT.maxstep(1)) dx(1)=dx(1)/ABS(dx(1))*maxstep(1)
   IF(ABS(dx(2)).GT.maxstep(2)) dx(2)=dx(2)/ABS(dx(2))*maxstep(2)
-  
+
   x = x+dx
   converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
   IF(converged) EXIT

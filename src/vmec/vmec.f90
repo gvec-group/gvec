@@ -8,9 +8,9 @@
 !>
 !!# Module **VMEC**
 !!
-!! Initializes variables to evaluate a VMEC dataset. 
-!! In radial direction, a cubic spline is used to interpolate the data. 
-!! Calls readin of VMEC "wout" datafile (netcdf format). 
+!! Initializes variables to evaluate a VMEC dataset.
+!! In radial direction, a cubic spline is used to interpolate the data.
+!! Calls readin of VMEC "wout" datafile (netcdf format).
 !!
 !===================================================================================================================================
 MODULE MODgvec_VMEC
@@ -20,14 +20,14 @@ USE MODgvec_cubic_spline, ONLY: t_cubspl
 IMPLICIT NONE
 PRIVATE
 
-INTERFACE InitVMEC 
-  MODULE PROCEDURE InitVMEC 
+INTERFACE InitVMEC
+  MODULE PROCEDURE InitVMEC
 END INTERFACE
-INTERFACE VMEC_EvalSplMode 
-  MODULE PROCEDURE VMEC_EvalSplMode 
+INTERFACE VMEC_EvalSplMode
+  MODULE PROCEDURE VMEC_EvalSplMode
 END INTERFACE
-INTERFACE FinalizeVMEC 
-  MODULE PROCEDURE FinalizeVMEC 
+INTERFACE FinalizeVMEC
+  MODULE PROCEDURE FinalizeVMEC
 END INTERFACE
 
 PUBLIC::InitVMEC
@@ -42,7 +42,7 @@ CONTAINS
 !> Initialize VMEC module
 !!
 !===================================================================================================================================
-SUBROUTINE InitVMEC 
+SUBROUTINE InitVMEC
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,abort,fmt_sep,GETFREEUNIT
 USE MODgvec_rProfile_bspl, ONLY: t_rProfile_bspl
@@ -75,23 +75,23 @@ switchzeta=.TRUE. !always switch zeta=-phi_vmec
 switchtheta=(signgs>0) !
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta  
+!! transform VMEC data (R,phi=zeta,Z) to GVEC right hand side system (R,Z,phi), swap sign of zeta
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 WRITE(UNIT_stdOut,'(A)')'  ... switching from VMECs (R,phi,Z) to gvecs (R,Z,phi) coordinate system ...'
 IF(.NOT.switchtheta)THEN
   WRITE(UNIT_stdOut,'(A)')'  ... VMEC signgs<0, so zeta direction is switched.'
   DO iMode=1,mn_mode
     IF(NINT(xm(iMode)).EQ.0)THEN
-      !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients 
+      !xn for m=0 are only positive, so we need to swap the sign of sinus coefficients
       ! -coef_{0n} sin(-n*(-zeta))= coef_{0n} sin(-n*zeta)
       !( cosine cos(-n*(-zeta))=cos(-n*zeta), symmetric in zeta for m=0)
       zmns(iMode,:)=-zmns(iMode,:)
       lmns(iMode,:)=-lmns(iMode,:)
       IF(lasym) THEN
         rmns(iMode,:)=-rmns(iMode,:)
-      END IF    
+      END IF
     ELSE
-      !for m>0 , xn are always pairs of negative and positive modes, 
+      !for m>0 , xn are always pairs of negative and positive modes,
       !so here we can simply swap the sign of the mode number
       xn(iMode)=-xn(iMode)
     END IF
@@ -101,7 +101,7 @@ IF(.NOT.switchtheta)THEN
     ! nyq data is only cosine (bmnc,gmnc)
     IF(NINT(xm_nyq(iMode)).NE.0)THEN
       xn_nyq(iMode)=-xn_nyq(iMode)
-    END If  
+    END If
   END DO !iMode=1,mn_mode_nyq
   !since sign of zeta has changed, swap sign of Jacobian, too.
   gmnc=-gmnc
@@ -117,7 +117,7 @@ ELSE
   lmns=-lmns
   IF(lasym) THEN
       rmns=-rmns
-  END IF    
+  END IF
 END IF !not switchtheta
 
 !WRITE VMEC_TO_GVEC BOUNDARY AND AXIS file
@@ -125,7 +125,7 @@ bc_Unit=GETFREEUNIT()
 OPEN(UNIT     = bc_Unit       ,&
      FILE     = "vmec_to_gvec_boundary_and_axis.txt" ,&
      STATUS   = 'REPLACE'   ,&
-     ACCESS   = 'SEQUENTIAL' ) 
+     ACCESS   = 'SEQUENTIAL' )
   WRITE(bc_unit,'(A)')'! vmec boundary and axis written in the gvec coordinates (right-handed in rho,theta,zeta)'
   WRITE(bc_unit,'(A)')'!'
   WRITE(bc_unit,'(A)')'! non-zero boundary values of rmnc vmec -> X1_b_cos'
@@ -141,7 +141,7 @@ OPEN(UNIT     = bc_Unit       ,&
         WRITE(bc_unit,'("X1_b_sin(",I5,";",I5,")",X,"=",X,E22.15)')NINT(xm(iMode)),NINT(xn(iMode)/nfp),rmns(iMode,nFluxVMEC)
       END IF
     END DO !imode
-  END IF  
+  END IF
   IF(lasym)THEN
     WRITE(bc_unit,'(A)')'! non-zero boundary values of zmnc vmec -> X2_b_cos'
     DO iMode=1,mn_mode
@@ -170,7 +170,7 @@ OPEN(UNIT     = bc_Unit       ,&
         WRITE(bc_unit,'("X1_a_sin(",I1,";",I5,")",X,"=",X,E22.15)')0,NINT(xn(iMode)/nfp),rmns(iMode,1)
       END IF
     END DO !imode
-  END IF  
+  END IF
   IF(lasym)THEN
     WRITE(bc_unit,'(A)')'! non-zero axis values of zmnc vmec -> X2_a_cos'
     DO iMode=1,mn_mode
@@ -240,12 +240,12 @@ CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmns,Zmns_Spl)
 
 IF(lasym)THEN
   WRITE(Unit_stdOut,'(4X,A)')'LASYM=TRUE : R,Z,lambda in cos and sin!'
-  ALLOCATE(Rmns_Spl(mn_mode)) 
+  ALLOCATE(Rmns_Spl(mn_mode))
   CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Rmns,Rmns_Spl)
-  
+
   ALLOCATE(Zmnc_Spl(mn_mode))
   CALL FitSpline(mn_mode,nFluxVMEC,xmAbs,Zmnc,Zmnc_Spl)
-  
+
 END IF
 
 
@@ -313,14 +313,14 @@ IMPLICIT NONE
 INTEGER, INTENT(IN)  :: modes             !! number of modes
 INTEGER, INTENT(IN)  :: nFlux             !! number of flux surfaces
 INTEGER, INTENT(IN)  :: mabs(modes)       !! filtered m-mode value
-REAL(wp), INTENT(IN) :: Xmn(modes,nFlux)  !! fourier coefficients at all flux surfaces 
+REAL(wp), INTENT(IN) :: Xmn(modes,nFlux)  !! fourier coefficients at all flux surfaces
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-TYPE(t_cubspl),INTENT(OUT):: Xmn_Spl(modes)  !!  spline fitted fourier coefficients 
+TYPE(t_cubspl),INTENT(OUT):: Xmn_Spl(modes)  !!  spline fitted fourier coefficients
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iMode,iFlux
-REAL(wp)          :: Xmn_val(nFlux)  ! 
+REAL(wp)          :: Xmn_val(nFlux)  !
 !===================================================================================================================================
   DO iMode=1,modes
     !scaling with rho^|m|
@@ -333,16 +333,16 @@ REAL(wp)          :: Xmn_val(nFlux)  !
     END DO !i
     !Parabolic extrapolation to axis with dx'(rho=0)=0.0_wp
     Xmn_val(1)=(Xmn_val(2)*rho(3)**2-Xmn_val(3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
-    
+
     Xmn_spl(iMode)=t_cubspl(rho,Xmn_val, BC=(/1,0/))
-  END DO !iMode 
+  END DO !iMode
 
 END SUBROUTINE FitSpline
 
 
 !===================================================================================================================================
 !> Fit disrete data along flux surfaces as spline for each fourier mode
-!! input is given on the half mesh 2:nFluxVMEC 
+!! input is given on the half mesh 2:nFluxVMEC
 !!
 !===================================================================================================================================
 SUBROUTINE FitSplineHalf(modes,nFlux,mabs,Xmn_half,Xmn_Spl)
@@ -355,14 +355,14 @@ IMPLICIT NONE
 INTEGER, INTENT(IN) :: modes                  !! number of modes
 INTEGER, INTENT(IN) :: nFlux                  !! number of flux surfaces
 INTEGER, INTENT(IN) :: mabs(modes)            !! filtered m-mode value
-REAL(wp),INTENT(IN) :: Xmn_half(modes,nFlux)  !! fourier coefficients at all flux surfaces 
+REAL(wp),INTENT(IN) :: Xmn_half(modes,nFlux)  !! fourier coefficients at all flux surfaces
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-TYPE(t_cubspl),INTENT(OUT):: Xmn_Spl(1:modes) !!  spline fitted fourier coefficients 
+TYPE(t_cubspl),INTENT(OUT):: Xmn_Spl(1:modes) !!  spline fitted fourier coefficients
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iMode,iFlux
-REAL(wp)          :: Xmn_val(nFlux+1)  ! spline fitted fourier coefficients 
+REAL(wp)          :: Xmn_val(nFlux+1)  ! spline fitted fourier coefficients
 REAL(wp)          :: rho_half(nFlux+1)
 TYPE(t_cubspl),ALLOCATABLE :: spl_half
 !===================================================================================================================================
@@ -384,18 +384,18 @@ rho_half(nFlux+1)=1.0_wp
    END DO !i
    !Parabolic extrapolation to axis with dx'(rho=0)=0.0_wp
    Xmn_val(1)=(Xmn_val(2)*rho_half(3)**2-Xmn_val(3)*rho_half(2)**2) /(rho_half(3)**2-rho_half(2)**2)
-   !Extrapolate to Edge 
+   !Extrapolate to Edge
    Xmn_val(nFlux+1)= ( Xmn_val(nFlux  )*(rho_half(nFlux+1)-rho_half(nFlux-1))     &
                       -Xmn_val(nFlux-1)*(rho_half(nFlux+1)-rho_half(nFlux  )) )   &
                     /(  rho_half(nFlux)   -rho_half(nFlux-1) )
-    
+
    spl_half=t_cubspl(rho_half,Xmn_val, BC=(/1,0/))
    Xmn_val(1:nFlux) = spl_half%eval(rho,0)
    !respline
    Xmn_val(1)  = ( Xmn_val(2)*rho(3)**2-Xmn_val(3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
    Xmn_Spl(iMode)=t_cubspl(rho,Xmn_val(1:nFlux), BC=(/1,0/))
- END DO !iMode 
-! 
+ END DO !iMode
+!
 END SUBROUTINE FitSplineHalf
 
 
@@ -444,8 +444,8 @@ FUNCTION VMEC_EvalSplMode(mn_in,rderiv,rho_in,xx_Spl)
     ELSE
       CALL abort(__STAMP__, &
        'mn_in should have size 1 or 2')
-    END IF 
-  
+    END IF
+
     SELECT CASE(xmabs(jMode))
     CASE(0)
       rhom=1.0_wp
@@ -467,7 +467,7 @@ FUNCTION VMEC_EvalSplMode(mn_in,rderiv,rho_in,xx_Spl)
       VMEC_EvalSplMode=rhom*xx_Spl(jMode)%eval(rho_in,1) + drhom*xx_eval
     ELSE
       CALL abort(__STAMP__, &
-       'rderiv should be 0 or 1') 
+       'rderiv should be 0 or 1')
     END IF
   END FUNCTION VMEC_EvalSplMode
 
@@ -475,7 +475,7 @@ FUNCTION VMEC_EvalSplMode(mn_in,rderiv,rho_in,xx_Spl)
 !> Finalize VMEC module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeVMEC 
+SUBROUTINE FinalizeVMEC
 ! MODULES
 USE MODgvec_VMEC_Vars
 USE MODgvec_VMEC_Readin,ONLY:FinalizeReadVMEC
@@ -488,7 +488,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 IF(.NOT.MPIroot) RETURN
- 
+
   CALL FinalizeReadVmec()
 
 

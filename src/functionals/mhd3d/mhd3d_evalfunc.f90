@@ -8,7 +8,7 @@
 !>
 !!# Module **MHD3D Evalfunc**
 !!
-!! Evaluate the MHD3D functional and its derivative 
+!! Evaluate the MHD3D functional and its derivative
 !!
 !===================================================================================================================================
 MODULE MODgvec_MHD3D_evalFunc
@@ -17,25 +17,25 @@ MODULE MODgvec_MHD3D_evalFunc
   USE sll_m_spline_matrix,        ONLY : sll_c_spline_matrix !for precond
   USE sll_m_spline_matrix_banded, ONLY : sll_t_spline_matrix_banded
   IMPLICIT NONE
-  
+
   PRIVATE
-  PUBLIC::InitializeMHD3D_EvalFunc, InitProfilesGP, & 
+  PUBLIC::InitializeMHD3D_EvalFunc, InitProfilesGP, &
           EvalEnergy, EvalForce, EvalAux, EvalTotals, FinalizeMHD3D_EvalFunc
-  
+
   !evaluations at radial gauss points, size(base%s%nGP_str:base%s%nGP_end)
-  REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile 
-  REAL(wp),ALLOCATABLE :: chiPrime_GP(:)  !! s derivative of poloidal flux 
-  REAL(wp),ALLOCATABLE :: phiPrime_GP(:)  !! s derivative of toroidal flux 
+  REAL(wp),ALLOCATABLE :: pres_GP(:)      !! mass profile
+  REAL(wp),ALLOCATABLE :: chiPrime_GP(:)  !! s derivative of poloidal flux
+  REAL(wp),ALLOCATABLE :: phiPrime_GP(:)  !! s derivative of toroidal flux
   REAL(wp),ALLOCATABLE :: phiPrime2_GP(:) !! s derivative of toroidal flux : |Phi'(s)|^2
-  
+
   !evaluations at all integration points, size(1:base%f%mn_IP,base%s%nGP_str:base%s%nGP_end)
   REAL(wp),ALLOCATABLE :: X1_IP_GP(:,:)   !! evaluation of X1
   REAL(wp),ALLOCATABLE :: X2_IP_GP(:,:)   !! evaluation of X2
-  REAL(wp),ALLOCATABLE :: J_h(:,:)        !! Jacobian of the mapping h (X1,X2,zeta) -->(x,y,z) 
+  REAL(wp),ALLOCATABLE :: J_h(:,:)        !! Jacobian of the mapping h (X1,X2,zeta) -->(x,y,z)
   REAL(wp),ALLOCATABLE :: J_p(:,:)        !! Jacobian of poloidal mapping: dX1_ds*dX2_dtheta - dX2_ds*dX1_theta
   REAL(wp),ALLOCATABLE :: sJ_h(:,:)       !! 1/J_h
   REAL(wp),ALLOCATABLE :: sJ_p(:,:)       !! 1/J_p
-  REAL(wp),ALLOCATABLE :: detJ(:,:)       !! global Jacobian: detJ=sqrt(det g)=J_h*J_p ) 
+  REAL(wp),ALLOCATABLE :: detJ(:,:)       !! global Jacobian: detJ=sqrt(det g)=J_h*J_p )
   REAL(wp),ALLOCATABLE :: sdetJ(:,:)      !! 1/detJ
   REAL(wp),ALLOCATABLE :: dX1_ds(:,:)     !! radial derivative of X1
   REAL(wp),ALLOCATABLE :: dX2_ds(:,:)     !! radial derivative of X2
@@ -46,14 +46,14 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: dX2_dzeta(:,:)  !! zeta   derivative of X2
   REAL(wp),ALLOCATABLE :: dLA_dzeta(:,:)  !! zeta   derivative of lambda
   REAL(wp),ALLOCATABLE :: b_thet(   :,:)  !! b_thet=(iota-dlamba_dzeta,1+dlambda_dtheta), normalized contravariant magnetic field
-  REAL(wp),ALLOCATABLE :: b_zeta(   :,:)  !! b_zeta=1+dlambda_dtheta, normalized contravariant magnetic field 
-  REAL(wp),ALLOCATABLE :: sJ_bcov_thet(:,:)  !! covariant normalized magnetic field, scaled with 1/J:  
+  REAL(wp),ALLOCATABLE :: b_zeta(   :,:)  !! b_zeta=1+dlambda_dtheta, normalized contravariant magnetic field
+  REAL(wp),ALLOCATABLE :: sJ_bcov_thet(:,:)  !! covariant normalized magnetic field, scaled with 1/J:
   REAL(wp),ALLOCATABLE :: sJ_bcov_zeta(:,:)  !! sJ_bcov_alpha=1/detJ (g_{alpha,theta} b_theta + g_{alpha,zeta) b_zeta)
   REAL(wp),ALLOCATABLE :: bbcov_sJ(:,:)      !! (b^alpha*g_{alpha,beta}*b^beta)/(detJ)
   REAL(wp),ALLOCATABLE :: g_tt(     :,:)     !! metric tensor g_(theta,theta)
   REAL(wp),ALLOCATABLE :: g_tz(     :,:)     !! metric tensor g_(theta,zeta )=g_(zeta,theta)
   REAL(wp),ALLOCATABLE :: g_zz(     :,:)     !! metric tensor g_(zeta ,zeta )
-  
+
   INTEGER                         :: nGP
   INTEGER                         :: nGP_str, nGP_end !< for MPI
   INTEGER                         :: mn_IP
@@ -66,8 +66,8 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE   ,PRIVATE :: s_GP(:),zeta_IP(:)
 
   !FOR PRECONDITIONER
-  REAL(wp),CONTIGUOUS,POINTER :: DX1_tt(:), DX1_tz(:), DX1_zz(:), DX1(:), DX1_ss(:)   
-  REAL(wp),CONTIGUOUS,POINTER :: DX2_tt(:), DX2_tz(:), DX2_zz(:), DX2(:), DX2_ss(:)  
+  REAL(wp),CONTIGUOUS,POINTER :: DX1_tt(:), DX1_tz(:), DX1_zz(:), DX1(:), DX1_ss(:)
+  REAL(wp),CONTIGUOUS,POINTER :: DX2_tt(:), DX2_tz(:), DX2_zz(:), DX2(:), DX2_ss(:)
   REAL(wp),CONTIGUOUS,POINTER :: DLA_tt(:), DLA_tz(:), DLA_zz(:)
   REAL(wp),CONTIGUOUS,POINTER :: D_buf(:,:)    !! 2d array container for all 1d array abpove (is the one allocated)
 
@@ -79,10 +79,10 @@ MODULE MODgvec_MHD3D_evalFunc
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitializeMHD3D_evalFunc() 
+SUBROUTINE InitializeMHD3D_evalFunc()
 ! MODULES
   USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base,PrecondType
   IMPLICIT NONE
@@ -105,7 +105,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   degGP   = X1_base%s%degGP
   mn_IP   = X1_base%f%mn_IP
   dthet_dzeta  =X1_base%f%d_thet*X1_base%f%d_zeta
-  ALLOCATE(s_GP(1:nGP),w_GP(1:nGP),zeta_IP(1:mn_IP)) 
+  ALLOCATE(s_GP(1:nGP),w_GP(1:nGP),zeta_IP(1:mn_IP))
   s_GP    = X1_base%s%s_GP(1:nGP)
   w_GP    = X1_base%s%w_GP(1:nGP)
   zeta_IP = X1_base%f%x_IP(2,:)
@@ -138,7 +138,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   ALLOCATE(g_tt(        mn_IP,nGP_str:nGP_end) )
   ALLOCATE(g_tz(        mn_IP,nGP_str:nGP_end) )
   ALLOCATE(g_zz(        mn_IP,nGP_str:nGP_end) )
- 
+
   IF(PrecondType.GT.0)THEN
     !WHEN CHANGED TO ALLGATHERV COMM IN BUILDPRECOND, THIS ALLOCATE WILL BE THE SAME.
     ! POINTERS HELP TO GATHER ALL DATA IN ONE ARRAY (buf)
@@ -149,13 +149,13 @@ SUBROUTINE InitializeMHD3D_evalFunc()
     DX1_zz(1:nGP) => D_buf(1:nGP,3)
     DX1(1:nGP)    => D_buf(1:nGP,4)
     DX1_ss(1:nGP) => D_buf(1:nGP,5)
-    
+
     DX2_tt(1:nGP) => D_buf(1:nGP,6)
     DX2_tz(1:nGP) => D_buf(1:nGP,7)
     DX2_zz(1:nGP) => D_buf(1:nGP,8)
     DX2(1:nGP)    => D_buf(1:nGP,9)
     DX2_ss(1:nGP) => D_buf(1:nGP,10)
-    
+
     DLA_tt(1:nGP) => D_buf(1:nGP,11)
     DLA_tz(1:nGP) => D_buf(1:nGP,12)
     DLA_zz(1:nGP) => D_buf(1:nGP,13)
@@ -183,7 +183,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
 
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
-  
+
 
 END SUBROUTINE InitializeMHD3D_evalFunc
 
@@ -205,7 +205,7 @@ SUBROUTINE InitProfilesGP()
   INTEGER                     :: iGP
 !===================================================================================================================================
 IF(MPIroot)THEN
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iGP)
   DO iGP=1,nGP
     chiPrime_GP( iGP) = chi_profile%eval_at_rho(s_GP(iGP),deriv=1)
@@ -237,8 +237,8 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution 
-  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0. 
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution
+  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0.
                                                     !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -266,7 +266,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 
   __PERFON('loop_1')
   min_detJ =HUGE(1.0_wp)
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(iGP,i_mn,qloc)  &
 !$OMP   REDUCTION(min:min_detJ) &
@@ -295,11 +295,11 @@ SUBROUTINE EvalAux(Uin,JacCheck)
       WRITE(UNIT_stdOut,'(4X,A8,I8,4(A,E11.3))')'WARNING ',n_warnings_occured, &
            &                                       ' : min(J)= ',MINVAL(detJ(:,nGP_str:nGP_end)),' at s= ',s_GP(IP_GP(2)), &
            &                                                             ' theta= ',X1_base%f%x_IP(1,IP_GP(1)), &
-           &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1)) 
+           &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1))
       IP_GP= MAXLOC(detJ(:,:))
       WRITE(UNIT_stdOut,'(4X,16X,4(A,E11.3))')'     ...max(J)= ',MAXVAL(detJ(:,nGP_str:nGP_end)),' at s= ',s_GP(IP_GP(2)), &
            &                                                             ' theta= ',X1_base%f%x_IP(1,IP_GP(1)), &
-           &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1)) 
+           &                                                              ' zeta= ',X1_base%f%x_IP(2,IP_GP(1))
       CALL abort(__STAMP__, &
            'EvalAux: Jacobian smaller that  1.0e-12 !!!', IntInfo=myRank )
     CASE(2) !quiet check, give back
@@ -372,11 +372,11 @@ SUBROUTINE EvalTotals(Uin,vol,surfAvg)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN ) :: Uin  !! input solution 
+  CLASS(t_sol_var_MHD3D), INTENT(IN ) :: Uin  !! input solution
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)              , INTENT(OUT) :: vol      !! total integral of the volume
-  REAL(wp)              , INTENT(OUT) :: surfAvg  !! average polodial surface 
+  REAL(wp)              , INTENT(OUT) :: surfAvg  !! average polodial surface
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER             :: iGP,i_mn,JacCheck
@@ -389,7 +389,7 @@ SUBROUTINE EvalTotals(Uin,vol,surfAvg)
   END IF
   vol=0.0_wp
   surfAvg=0.0_wp
-!$OMP PARALLEL DO       &  
+!$OMP PARALLEL DO       &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   REDUCTION(+:vol,surfAvg) PRIVATE(iGP,i_mn) &
 !$OMP   SHARED(nGP_str,nGP_end,mn_IP,J_h,J_p,w_GP)
@@ -398,7 +398,7 @@ SUBROUTINE EvalTotals(Uin,vol,surfAvg)
       vol    =vol    +ABS(J_h(i_mn,iGP)*J_p(i_mn,iGP))*w_GP(iGP)
       surfAvg=surfAvg+ABS(J_p(i_mn,iGP))*w_GP(iGP)
     END DO
-  END DO 
+  END DO
 !$OMP END PARALLEL DO
   CALL par_Reduce(vol,'SUM',0)
   CALL par_Reduce(surfAvg,'SUM',0)
@@ -420,18 +420,18 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin         !! input solution 
-  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin 
-  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0. 
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin         !! input solution
+  LOGICAL               , INTENT(IN   ) :: callEvalAux !! set True if evalAux was not called on Uin
+  INTEGER               , INTENT(INOUT) :: JacCheck !! if 1 on input: abort if detJ<0.
                                                     !! if 2 on input, no abort, unchanged if detJ>0 ,return -1 if detJ<=0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                              :: W_MHD3D     !! total integral of MHD3D energy 
+  REAL(wp)                              :: W_MHD3D     !! total integral of MHD3D energy
                                                        !! W_MHD3D= int ( p/(gamma-1) + 1/(2mu_0) |B|^2) detJ ds dtheta dzeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER  :: iGP,i_mn
-  REAL(wp) :: Wmag_GP    !! magnetic energy at gauss points 
+  REAL(wp) :: Wmag_GP    !! magnetic energy at gauss points
                          !! = 1/(dtheta*dzeta) * ( int [1/detJ * b_alpha*g_{alpha,beta}*b_beta]_iGP dtheta dzeta )
   REAL(wp) :: Vprime_GP  !! =  1/(dtheta*dzeta) *( int detJ|_iGP ,dtheta dzeta)
   REAL(wp) :: Wmag,Wpres
@@ -456,7 +456,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
 
   Wmag = 0.0_wp
   Wpres= 0.0_wp
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)  DEFAULT(NONE)  &
 !$OMP   PRIVATE(iGP,i_mn,Wmag_GP,Vprime_GP)   &
 !$OMP   REDUCTION(+:Wmag,Wpres)          &
@@ -475,7 +475,7 @@ FUNCTION EvalEnergy(Uin,callEvalAux,JacCheck) RESULT(W_MHD3D)
     Wmag  = Wmag  + Wmag_GP*w_GP(iGP)
     Wpres = Wpres + Vprime_GP*pres_GP(iGP)*w_GP(iGP)
   END DO !iGP
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 
   W_MHD3D= dthet_dzeta* (  0.5_wp      *Wmag + mu_0*sgammM1*Wpres)
   __PERFON('reduce_W_MHD3D')
@@ -522,7 +522,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   REAL(wp)  ::  F_X2ds_GP_IP(nGP_str:nGP_end,1:X2_base%f%modes)
   REAL(wp)  ::    F_LA_GP_IP(nGP_str:nGP_end,1:LA_base%f%modes)
   REAL(wp)  ::    dW(1:mn_IP,nGP_str:nGP_end)        != p+1/2*B^2=p(s)+|Phi'(s)|^2 (b^alpha *g_{alpha,beta} *b^beta)/(2 *detJ^2)
-  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end)  :: btt_sJ,btz_sJ,bzz_sJ,  & != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ 
+  REAL(wp),DIMENSION(1:mn_IP,nGP_str:nGP_end)  :: btt_sJ,btz_sJ,bzz_sJ,  & != b^theta*b^theta/detJ, b^theta*b^zeta/detJ,b^zeta*b^zeta/detJ
                                                   coefY,coefY_thet,coefY_zeta,coefY_s
 !===================================================================================================================================
 !  SWRITE(UNIT_stdOut,'(4X,A)',ADVANCE='NO')'COMPUTE FORCE...'
@@ -635,7 +635,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iMode,iElem,iGP,iBase)
   DO iMode=1,modes
     F_MHD3D%X1(:,iMode)=0.0_wp
-    DO iElem=nElems_str,nElems_end 
+    DO iElem=nElems_str,nElems_end
       iGP=(iElem-1)*(degGP+1)+1
       iBase=X1_base%s%base_offset(iElem)
       F_MHD3D%X1(iBase:iBase+deg,iMode) = F_MHD3D%X1(iBase:iBase+deg,iMode) &
@@ -741,11 +741,11 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
       iGP=(iElem-1)*(degGP+1)+1
       ibase=X2_base%s%base_offset(iElem)
       F_MHD3D%X2(iBase:iBase+deg,iMode) = F_MHD3D%X2(iBase:iBase+deg,iMode) &
-                                    + MATMUL(F_X2_GP_IP(  iGP:iGP+degGP,iMode),X2_base%s%base_GP(   0:degGP,0:deg,iElem)) & 
-                                    + MATMUL(F_X2ds_GP_IP(iGP:iGP+degGP,iMode),X2_base%s%base_ds_GP(0:degGP,0:deg,iElem)) 
+                                    + MATMUL(F_X2_GP_IP(  iGP:iGP+degGP,iMode),X2_base%s%base_GP(   0:degGP,0:deg,iElem)) &
+                                    + MATMUL(F_X2ds_GP_IP(iGP:iGP+degGP,iMode),X2_base%s%base_ds_GP(0:degGP,0:deg,iElem))
     END DO !iElem
   END DO !iMode
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
   __PERFOFF('sbase')
 
 #if MPIDEBUG==1
@@ -851,8 +851,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFOFF('apply_precond')
   IF(PrecondType.LE.0)THEN
     !apply strong BC to X1 if no Precond
-    CALL ApplyBC_Fstrong(1,F_MHD3D)  
-  END IF 
+    CALL ApplyBC_Fstrong(1,F_MHD3D)
+  END IF
 
   __PERFON('Bcast_solution_X1')
   DO iRank=0,nRanks-1
@@ -882,7 +882,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFON('apply_precond')
 !$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
-!$OMP   DEFAULT(SHARED)       
+!$OMP   DEFAULT(SHARED)
   DO iMode=modes_str,modes_end
     CALL X2_base%s%applyBCtoRHS(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode))
   END DO !iMode
@@ -902,8 +902,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFOFF('apply_precond')
   IF(PrecondType.LE.0)THEN
     !apply strong BC to X2 if no Precond
-    CALL ApplyBC_Fstrong(2,F_MHD3D)  
-  END IF 
+    CALL ApplyBC_Fstrong(2,F_MHD3D)
+  END IF
 
   __PERFON('Bcast_solution_X2')
   DO iRank=0,nRanks-1
@@ -934,7 +934,7 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFON('apply_precond')
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
-!$OMP   DEFAULT(SHARED)       
+!$OMP   DEFAULT(SHARED)
   DO iMode=modes_str,modes_end
     CALL LA_base%s%applyBCtoRHS(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode))
   END DO !iMode
@@ -962,8 +962,8 @@ SUBROUTINE EvalForce(Uin,callEvalAux,JacCheck,F_MHD3D,noBC)
   __PERFOFF('apply_precond')
   IF(PrecondType.LE.0)THEN
     !apply strong BC to LA if no Precond
-    CALL ApplyBC_Fstrong(3,F_MHD3D)  
-  END IF 
+    CALL ApplyBC_Fstrong(3,F_MHD3D)
+  END IF
 
 #if MPIDEBUG==1
   WRITE(UNIT_stdout,*)'DEBUG',myRank, offset_modes(myRank),offset_modes(myRank+1)
@@ -1005,7 +1005,7 @@ END SUBROUTINE EvalForce
 !> Applies strong boundary condition to force DOF
 !!
 !===================================================================================================================================
-SUBROUTINE ApplyBC_Fstrong(whichVar,F_MHD3D) 
+SUBROUTINE ApplyBC_Fstrong(whichVar,F_MHD3D)
 ! MODULES
   USE MODgvec_MHD3D_Vars,ONLY:X1_base,X2_base,LA_base
   USE MODgvec_MHD3D_Vars,ONLY:X1_BC_Type,X2_BC_Type,LA_BC_type
@@ -1016,40 +1016,40 @@ SUBROUTINE ApplyBC_Fstrong(whichVar,F_MHD3D)
   INTEGER, INTENT(IN) :: whichVar !! =1: X1, =2: X2,  =3: LA
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin 
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: F_MHD3D     !! variation of the energy projected onto the basis functions of Uin
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER   :: iMode
   REAL(wp)  :: BC_val(2)
 !===================================================================================================================================
   !apply strong boundary conditions
-  
+
   BC_val =(/      0.0_wp,      0.0_wp/)
 
-  SELECT CASE(whichVar)  
+  SELECT CASE(whichVar)
   CASE(1)  !X1 BC
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(X1_base,F_MHD3D,X1_BC_type,BC_val) PRIVATE(iMode)
     DO imode=X1_base%f%modes_str,X1_base%f%modes_end
       CALL X1_base%s%applyBCtoDOF(F_MHD3D%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
-    END DO 
-!$OMP END PARALLEL DO 
-  
+    END DO
+!$OMP END PARALLEL DO
+
   CASE(2)  !X2 BC
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(X2_base,F_MHD3D,X2_BC_type,BC_val) PRIVATE(iMode)
     DO imode=X2_base%f%modes_str,X2_base%f%modes_end
       CALL X2_base%s%applyBCtoDOF(F_MHD3D%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
-    END DO 
-!$OMP END PARALLEL DO 
-  
+    END DO
+!$OMP END PARALLEL DO
+
   CASE(3)  !LA BC
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(LA_base,F_MHD3D,LA_BC_type,BC_val) PRIVATE(iMode)
     DO imode=LA_base%f%modes_str,LA_base%f%modes_end
       CALL LA_base%s%applyBCtoDOF(F_MHD3D%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
-    END DO 
-!$OMP END PARALLEL DO 
+    END DO
+!$OMP END PARALLEL DO
   END SELECT !whichVar
 
 END SUBROUTINE ApplyBC_Fstrong
@@ -1063,7 +1063,7 @@ END SUBROUTINE ApplyBC_Fstrong
 !! where < > denote an average over the angular coordinates
 !!
 !===================================================================================================================================
-SUBROUTINE BuildPrecond() 
+SUBROUTINE BuildPrecond()
 ! MODULES
   USE MODgvec_MPI,        ONLY : par_AllReduce
   USE MODgvec_MHD3D_Vars, ONLY : X1_base,X2_base,LA_base,hmap
@@ -1088,11 +1088,11 @@ SUBROUTINE BuildPrecond()
 !===================================================================================================================================
 !  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'
   __PERFON('loop_1')
-  
+
   !WHEN COMM CHANGED TO GATHER, ZEROING NOT NEEDED ANYMORE
   D_buf=0.0_wp
   smn_IP=1.0_wp/REAL(mn_IP,wp)
-  
+
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)   &
 !$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,G11,G21,G31,G22,G32,dJh_dq1,dJh_dq2,bt_sJ,bz_sJ,&
@@ -1172,7 +1172,7 @@ SUBROUTINE BuildPrecond()
   !THIS SHOULD BE A ALLGATHERV of (nGP_str:nGP_end,:)<=>(1:nGP,:) , NOT A ALLREDUCE (BUT CHEAP ANYWAYS)!
   CALL par_AllReduce(D_buf,'SUM')
   __PERFOFF('par_Reduce_D_buf')
-  
+
   ALLOCATE(D_mn(1:nGP))
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     nBase = X1_Base%s%nBase
@@ -1191,14 +1191,14 @@ SUBROUTINE BuildPrecond()
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) &
 !$OMP   DEFAULT(SHARED)
     DO iMode=modes_str,modes_end !<<<
       norm_mn=1.0_wp/X1_base%f%snorm_base(iMode)
       CALL precond_X1(iMode)%reset() !set all values to zero
       D_mn(1:nGP)=    (DX1(1:nGP)+(X1_Base%f%Xmn(1,iMode)**2)  *DX1_tt(1:nGP)   &
              -(X1_Base%f%Xmn(1,iMode)*X1_Base%f%Xmn(2,iMode))  *DX1_tz(1:nGP)   &  !correct sign of theta,zeta derivative!
-                          +       (X1_Base%f%Xmn(2,iMode)**2)  *DX1_zz(1:nGP) ) 
+                          +       (X1_Base%f%Xmn(2,iMode)**2)  *DX1_zz(1:nGP) )
       iGP=1
       DO iElem=1,nElems
         iBase=X1_base%s%base_offset(iElem)
@@ -1219,11 +1219,11 @@ SUBROUTINE BuildPrecond()
       !ACCOUNT FOR BOUNDARY CONDITIONS!
       P_BCaxis=0.0_wp; P_BCedge=0.0_wp
       tBC = X1_BC_Type(BC_AXIS,iMode)
-      nD  = X1_base%s%nDOF_BC(tBC) 
+      nD  = X1_base%s%nDOF_BC(tBC)
       IF(nD.GT.0)THEN
         !save 1:deg rows
         DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
-          P_BCaxis(i,j)=precond_X1(iMode)%get_element(i,j) 
+          P_BCaxis(i,j)=precond_X1(iMode)%get_element(i,j)
         END DO; END DO !j,i
         P_BCaxis(:,1:MIN(2*deg+1,nBase))     =MATMUL(X1_base%s%R_axis(:,:,tBC),P_BCaxis(:,1:MIN(2*deg+1,nBase))) !also sets rows 1:nD =0
         P_BCaxis(1:nD,1:deg+1) =X1_base%s%A_axis(1:nD,:,tBC)
@@ -1232,13 +1232,13 @@ SUBROUTINE BuildPrecond()
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
       tBC = X1_BC_Type(BC_EDGE,iMode)
-      nD  = X1_base%s%nDOF_BC(tBC) 
+      nD  = X1_base%s%nDOF_BC(tBC)
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
-          P_BCedge(i,j)=precond_X1(iMode)%get_element(i,j) 
+          P_BCedge(i,j)=precond_X1(iMode)%get_element(i,j)
         END DO; END DO !j,i
-        P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(X1_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0 
+        P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(X1_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0
         P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=X1_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
           CALL Precond_X1(iMode)%set_element( i,j,P_BCedge(i,j) )
@@ -1252,18 +1252,18 @@ SUBROUTINE BuildPrecond()
   END SELECT !TYPE X1
 
   SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
-    nBase = X2_Base%s%nBase 
+    nBase = X2_Base%s%nBase
     modes_str = X2_Base%f%modes_str
     modes_end = X2_Base%f%modes_end
     deg   = X2_base%s%deg
     ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
-  
+
     IF(MPIroot)THEN
       !CHECK =0
       IF(SUM(ABS(DX2_ss(1:nGP))).LT.REAL(nGP,wp)*1.0E-10)  &
            WRITE(UNIT_stdout,*)'WARNING: very small DX2_ss: m,n,SUM(|DX2_ss|)= ',SUM(ABS(DX2_ss(1:nGP)))
     END IF
-  
+
     __PERFON('modes_loop_2')
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)  &
@@ -1275,7 +1275,7 @@ SUBROUTINE BuildPrecond()
       CALL precond_X2(iMode)%reset() !set all values to zero
       D_mn(1:nGP)=    (DX2(1:nGP)+(X2_Base%f%Xmn(1,iMode)**2)  *DX2_tt(1:nGP)   &
              -(X2_Base%f%Xmn(1,iMode)*X2_Base%f%Xmn(2,iMode))  *DX2_tz(1:nGP)   & !correct sign of theta,zeta derivative!
-                          +       (X2_Base%f%Xmn(2,iMode)**2)  *DX2_zz(1:nGP) ) 
+                          +       (X2_Base%f%Xmn(2,iMode)**2)  *DX2_zz(1:nGP) )
       iGP=1
       DO iElem=1,nElems
         iBase=X2_base%s%base_offset(iElem)
@@ -1296,11 +1296,11 @@ SUBROUTINE BuildPrecond()
       !ACCOUNT FOR BOUNDARY CONDITIONS!
       P_BCaxis=0.0_wp; P_BCedge=0.0_wp
       tBC = X2_BC_Type(BC_AXIS,iMode)
-      nD  = X2_base%s%nDOF_BC(tBC) 
+      nD  = X2_base%s%nDOF_BC(tBC)
       IF(nD.GT.0)THEN
         !save 1:deg rows
         DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
-          P_BCaxis(i,j)=precond_X2(iMode)%get_element(i,j) 
+          P_BCaxis(i,j)=precond_X2(iMode)%get_element(i,j)
         END DO; END DO !j,i
         P_BCaxis(:,1:MIN(2*deg+1,nBase))=MATMUL(X2_base%s%R_axis(:,:,tBC),P_BCaxis(:,1:MIN(2*deg+1,nBase))) !also sets rows 1:nD =0
         P_BCaxis(1:nD,1:deg+1) =X2_base%s%A_axis(1:nD,:,tBC)
@@ -1309,13 +1309,13 @@ SUBROUTINE BuildPrecond()
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
       tBC = X2_BC_Type(BC_EDGE,iMode)
-      nD  = X2_base%s%nDOF_BC(tBC) 
+      nD  = X2_base%s%nDOF_BC(tBC)
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
-          P_BCedge(i,j)=precond_X2(iMode)%get_element(i,j) 
+          P_BCedge(i,j)=precond_X2(iMode)%get_element(i,j)
         END DO; END DO !j,i
-        P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(X2_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0 
+        P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(X2_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0
         P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=X2_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
           CALL Precond_X2(iMode)%set_element( i,j,P_BCedge(i,j) )
@@ -1324,23 +1324,23 @@ SUBROUTINE BuildPrecond()
     END DO !iMode
 !$OMP END PARALLEL DO
     __PERFOFF('modes_loop_2')
-  
+
     DEALLOCATE(P_BCaxis,P_BCedge)
   END SELECT !TYPE X2
- 
+
   SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
-    nBase = LA_Base%s%nBase 
+    nBase = LA_Base%s%nBase
     modes_str = LA_Base%f%modes_str
     modes_end = LA_Base%f%modes_end
     deg   = LA_base%s%deg
     ALLOCATE(P_BCaxis(1:deg+1,1:2*deg+1),P_BCedge(nBase-deg:nBase,nBase-2*deg:nBase))
 
     __PERFON('modes_loop_3')
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC)   &
 !$OMP   PRIVATE(iMode,iGP,D_mn,iElem,i,j,iBase,tBC,nD,norm_mn) &
-!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) & 
-!$OMP   DEFAULT(SHARED)       
+!$OMP   FIRSTPRIVATE(P_BCaxis,P_BCedge) &
+!$OMP   DEFAULT(SHARED)
     DO iMode=modes_str,modes_end !<<<
       norm_mn=1.0_wp/LA_base%f%snorm_base(iMode)
       CALL precond_LA(iMode)%reset() !set all values to zero
@@ -1372,11 +1372,11 @@ SUBROUTINE BuildPrecond()
       !ACCOUNT FOR BOUNDARY CONDITIONS!
       P_BCaxis=0.0_wp; P_BCedge=0.0_wp
       tBC = LA_BC_Type(BC_AXIS,iMode)
-      nD  = LA_base%s%nDOF_BC(tBC) 
+      nD  = LA_base%s%nDOF_BC(tBC)
       IF(nD.GT.0)THEN
         !save 1:deg rows
         DO i=1,deg+1; DO j=1,MIN(deg+i,nBase)
-          P_BCaxis(i,j)=precond_LA(iMode)%get_element(i,j) 
+          P_BCaxis(i,j)=precond_LA(iMode)%get_element(i,j)
         END DO; END DO !j,i
         P_BCaxis(:,1:MIN(2*deg+1,nBase)) =MATMUL(LA_base%s%R_axis(:,:,tBC),P_BCaxis(:,1:MIN(2*deg+1,nBase))) !also sets rows 1:nD =0
         P_BCaxis(1:nD,1:deg+1) =LA_base%s%A_axis(1:nD,:,tBC)
@@ -1385,13 +1385,13 @@ SUBROUTINE BuildPrecond()
         END DO; END DO !j,i
       END IF !nDOF_BCaxis>0
       tBC = LA_BC_Type(BC_EDGE,iMode)
-      nD  = LA_base%s%nDOF_BC(tBC) 
+      nD  = LA_base%s%nDOF_BC(tBC)
       IF(nD.GT.0)THEN
         !save nBase-deg:nBase rows
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
-          P_BCedge(i,j)=precond_LA(iMode)%get_element(i,j) 
+          P_BCedge(i,j)=precond_LA(iMode)%get_element(i,j)
         END DO; END DO !j,i
-        P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(LA_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0 
+        P_BCedge(:,MAX(1,nBase-2*deg):nBase) =MATMUL(LA_base%s%R_edge(:,:,tBC),P_BCedge(:,MAX(1,nBase-2*deg):nBase)) !also sets rows nBase-nD+1:nBase =0
         P_BCedge(nBase-nD+1:nBase,nBase-deg:nBase)=LA_base%s%A_edge(nBase-nD+1:nBase,:,tBC)
         DO i=nBase-deg,nBase; DO j=MAX(1,i-deg),nBase
           CALL Precond_LA(iMode)%set_element( i,j,P_BCedge(i,j) )
@@ -1410,40 +1410,40 @@ SUBROUTINE BuildPrecond()
 
   SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
     __PERFON('modes_loop_4')
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
-!$OMP   DEFAULT(SHARED)       
+!$OMP   DEFAULT(SHARED)
     DO iMode=X1_Base%f%modes_str,X1_Base%f%modes_end !<<<
       CALL precond_X1(iMode)%factorize()
     END DO !iMode
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
     __PERFOFF('modes_loop_4')
   END SELECT !TYPE X1
 
   SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
     __PERFON('modes_loop_5')
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
-!$OMP   DEFAULT(SHARED)       
+!$OMP   DEFAULT(SHARED)
     DO iMode=X2_base%f%modes_str,X2_Base%f%modes_end !<<<
       CALL precond_X2(iMode)%factorize()
     END DO !iMode
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
     __PERFOFF('modes_loop_5')
   END SELECT !TYPE X2
 
   SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
     __PERFON('modes_loop_6')
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) PRIVATE(iMode) &
-!$OMP   DEFAULT(SHARED)       
+!$OMP   DEFAULT(SHARED)
     DO iMode=LA_base%f%modes_str,LA_Base%f%modes_end !<<<
       CALL precond_LA(iMode)%factorize()
     END DO !iMode
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
     __PERFOFF('modes_loop_6')
   END SELECT !TYPE LA
-    
+
 
 END SUBROUTINE BuildPrecond
 
@@ -1533,14 +1533,14 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
         END DO !iMode
       END SELECT !TYPE
       DEALLOCATE(precond_X1)
-     
+
       SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
         DO iMode=1,X2_base%f%modes
           CALL precond_X2(iMode)%free()
         END DO !iMode
       END SELECT !TYPE
       DEALLOCATE(precond_X2)
-     
+
       SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
         DO iMode=1,LA_base%f%modes
           CALL precond_LA(iMode)%free()

@@ -142,7 +142,7 @@ def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
         lines.append((f"`{key}`", long_name, symbol))
     sizes = [max(len(s) for s in col) for col in zip(*lines)]
     txt = f"| {'label':^{sizes[0]}s} | {'long name':^{sizes[1]}s} | {'symbol':^{sizes[2]}s} |\n"
-    txt += f"| {'-'*sizes[0]} | {'-'*sizes[1]} | {'-'*sizes[2]} |\n"
+    txt += f"| {'-' * sizes[0]} | {'-' * sizes[1]} | {'-' * sizes[2]} |\n"
     for line in lines:
         txt += f"| {line[0]:^{sizes[0]}s} | {line[1]:^{sizes[1]}s} | {line[2]:^{sizes[2]}s} |\n"
     if markdown:

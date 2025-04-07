@@ -18,7 +18,7 @@ USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
- 
+
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -33,14 +33,14 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
 
   PROCEDURE :: init          => hmap_knot_init
   PROCEDURE :: free          => hmap_knot_free
-  PROCEDURE :: eval          => hmap_knot_eval          
+  PROCEDURE :: eval          => hmap_knot_eval
   PROCEDURE :: eval_dxdq     => hmap_knot_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_knot_eval_Jh       
-  PROCEDURE :: eval_Jh_dq1   => hmap_knot_eval_Jh_dq1    
-  PROCEDURE :: eval_Jh_dq2   => hmap_knot_eval_Jh_dq2    
-  PROCEDURE :: eval_gij      => hmap_knot_eval_gij      
-  PROCEDURE :: eval_gij_dq1  => hmap_knot_eval_gij_dq1  
-  PROCEDURE :: eval_gij_dq2  => hmap_knot_eval_gij_dq2  
+  PROCEDURE :: eval_Jh       => hmap_knot_eval_Jh
+  PROCEDURE :: eval_Jh_dq1   => hmap_knot_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2   => hmap_knot_eval_Jh_dq2
+  PROCEDURE :: eval_gij      => hmap_knot_eval_gij
+  PROCEDURE :: eval_gij_dq1  => hmap_knot_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq2  => hmap_knot_eval_gij_dq2
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_knot:
   PROCEDURE :: Rl            => hmap_knot_eval_Rl
@@ -48,7 +48,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   ! --- Not used
   PROCEDURE :: init_aux      => dummy_sub_hmap_init_aux
   PROCEDURE :: free_aux      => dummy_sub_hmap
-  PROCEDURE :: eval_aux      => dummy_sub_hmap   
+  PROCEDURE :: eval_aux      => dummy_sub_hmap
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_knot
 
@@ -142,7 +142,7 @@ END SUBROUTINE hmap_knot_free
 
 
 !===================================================================================================================================
-!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z) 
+!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
 !!
 !===================================================================================================================================
 FUNCTION hmap_knot_eval( sf ,q_in) RESULT(x_out)
@@ -203,12 +203,12 @@ IMPLICIT NONE
                       -sf%k*sf%Rl(q_in)*coskzeta+sf%l*sf%delta*SIN(sf%l*zeta)*sinkzeta, &
                                                  sf%l*sf%delta*COS(sf%l*zeta)      /)*q_vec(3)
  END ASSOCIATE
- 
+
 
 END FUNCTION hmap_knot_eval_dxdq
 
 !===================================================================================================================================
-!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta) 
+!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_knot_eval_Jh( sf ,q_in) RESULT(Jh)
@@ -229,7 +229,7 @@ END FUNCTION hmap_knot_eval_Jh
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_knot_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
@@ -248,7 +248,7 @@ END FUNCTION hmap_knot_eval_Jh_dq1
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_knot_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
@@ -268,7 +268,7 @@ END FUNCTION hmap_knot_eval_Jh_dq2
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -286,12 +286,12 @@ FUNCTION hmap_knot_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 ! LOCAL VARIABLES
   REAL(wp)                          :: A, B, C
 !===================================================================================================================================
-  ! A = - l * delta * sin(l*zeta), 
+  ! A = - l * delta * sin(l*zeta),
   ! B = l * delta * cos(l*zeta)
   ! C = k**2 * Rl**2 + l**2 * delta**2
-  !                       |q1  |   |1  0  A|        |q1  |  
+  !                       |q1  |   |1  0  A|        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |0  1  B| (dbeta |q2  | )
-  !                       |q3  |   |A  B  C|        |q3  |  
+  !                       |q3  |   |A  B  C|        |q3  |
  ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
    A = - sf%l*sf%delta*SIN(sf%l*zeta)
    B = sf%l*sf%delta*COS(sf%l*zeta)
@@ -303,8 +303,8 @@ END FUNCTION hmap_knot_eval_gij
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -319,17 +319,17 @@ FUNCTION hmap_knot_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  !                       |q1  |   |0  0  0        |        |q1  |  
+  !                       |q1  |   |0  0  0        |        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |0  0  0        | (dbeta |q2  | )
-  !                       |q3  |   |0  0  2k**2 *Rl|        |q3  |  
-  g_ab_dq1 = qL_in(3) * 2.0_wp * sf%k**2 * sf%Rl(q_G) * qR_in(3)  
+  !                       |q3  |   |0  0  2k**2 *Rl|        |q3  |
+  g_ab_dq1 = qL_in(3) * 2.0_wp * sf%k**2 * sf%Rl(q_G) * qR_in(3)
 END FUNCTION hmap_knot_eval_gij_dq1
 
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -342,15 +342,15 @@ FUNCTION hmap_knot_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
 ! OUTPUT VARIABLES
   REAL(wp)                          :: g_ab_dq2
 !===================================================================================================================================
-  !                            |q1  |   |0  0  0  |        |q1   |  
+  !                            |q1  |   |0  0  0  |        |q1   |
   !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0  0  0  | (dbeta |q1   | ) =0
-  !                            |q3  |   |0  0  0  |        |q3   |  
-  g_ab_dq2=0.0_wp 
+  !                            |q3  |   |0  0  0  |        |q3   |
+  g_ab_dq2=0.0_wp
 END FUNCTION hmap_knot_eval_gij_dq2
 
 
 !===================================================================================================================================
-!> evaluate the effective major radius coordinate Rl(q) 
+!> evaluate the effective major radius coordinate Rl(q)
 !!
 !===================================================================================================================================
 FUNCTION hmap_knot_eval_Rl( sf ,q_in) RESULT(Rl_out)
@@ -463,13 +463,12 @@ IMPLICIT NONE
        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3))') &
      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
     END IF !TEST
-    
+
  END IF !testlevel >=1
- 
+
  test_called=.FALSE. ! to prevent infinite loop in this routine
- 
+
 
 END SUBROUTINE hmap_knot_test
 
 END MODULE MODgvec_hmap_knot
-
