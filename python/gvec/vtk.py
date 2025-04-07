@@ -1,14 +1,11 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
-import xarray as xr
-import numpy as np
 from pathlib import Path
 import logging
 
-try:
-    from pyevtk.hl import gridToVTK
-except ImportError:
-    gridToVTK = None
+from pyevtk.hl import gridToVTK
+import xarray as xr
+import numpy as np
 
 
 def ev2vtk(
@@ -54,9 +51,6 @@ def ev2vtk(
     >>> xrds = xr.Dataset({"pos": (["xyz", "rad", "pol", "tor"], np.random.rand(3, 10, 10, 10))})
     >>> ev2vtk(filename, xrds)
     """
-    if gridToVTK is None:
-        raise ImportError("gridToVTK not found, please make sure pyevtk is installed.")
-
     # pyevtk expects a string
     if isinstance(filename, Path):
         filename = str(filename)
@@ -146,7 +140,7 @@ def ev2vtk(
     )
 
     if len(ignored_variables) != 0:
-        logging.warn(
+        logging.warning(
             f"The following varivables are ignored and not written to {filename}.vts: {ignored_variables}."
         )
 
