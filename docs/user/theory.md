@@ -79,7 +79,7 @@ leaving $X^1,X^2$ as functions of $(\rho,\thet,\zeta)$ to describe the geometry 
 
 
 
-Simple examples of $h$ are given by the periodic cylinder $(x,y,z) := (q^1,q^2,\zeta)$ and the conventional cylindrical representation $(x,y,z) := (q^1 \cos\zeta,q^1 \sin\zeta,q^2)$.
+Simple examples of $h$ are given by the periodic cylinder $(x,y,z) := (q^1,q^2,\zeta)$ and the conventional cylindrical representation $(x,y,z) := (q^1 \cos(\zeta),-q^1 \sin(\zeta),q^2)$.
 A new possibility for $h$ is the G-Frame, a flexible coordinate frame which is moving along a closed curve and is fully user-defined, details are given in {cite}`Hindenlang_2025`.
 
 It is always assumed that $(x,y,z) = h(q^1,q^2,q^3)$ is an orientation-preserving coordinate transformation, i.e., the Jacobian determinant is strictly positive, $\det (Dh) > 0$. (Here and in the following $D$ denotes the derivative operator.) For the composition $f = h \circ \tilde{X}$ to be defined, the function $\tilde{X}$ must take values in the domain of definition of $h$. This is the only constraint that links $h$ and $\tilde{X}$. In addition, we require (independently of $h$) that
@@ -500,6 +500,13 @@ Recalling the mapping $f:(\rho,\thet,\zeta)\mapsto(x,y,z)$, and introducing the 
 \end{equation}
 
 ## Other choices for hmap
+
+As mentioned above, other choices of the hmap are available, besides the one of cylindrical coordinates:
+\begin{equation}
+   h:\quad (q^1,q^2,q^3)\mapsto(x,y,z):=(q^1\cos(\zeta), -q^1\sin(\zeta),q^2)\,,
+\end{equation}
+with the Jacobian and metric tensor  $\Jac_h=q^1$ and $G_{ij}=\delta_{i1}\delta_{j1}+\delta_{i2}\delta_{j2}+\delta_{i3}\delta_{j3}\left(q^1\right)^2$.
+
 
 ###  Periodic Cylinder
 
