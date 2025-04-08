@@ -30,7 +30,7 @@ workflow:
 # =================================================================================================================================
 
 variables:
-  GIT_STRATEGY: fetch
+  GIT_STRATEGY: clone
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_REFERENCE:
     value: develop
