@@ -18,7 +18,7 @@ USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
- 
+
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_RphiZ
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -31,18 +31,18 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_RphiZ
 
   PROCEDURE :: init          => hmap_RphiZ_init
   PROCEDURE :: free          => hmap_RphiZ_free
-  PROCEDURE :: eval          => hmap_RphiZ_eval          
+  PROCEDURE :: eval          => hmap_RphiZ_eval
   PROCEDURE :: eval_dxdq     => hmap_RphiZ_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_RphiZ_eval_Jh       
-  PROCEDURE :: eval_Jh_dq1   => hmap_RphiZ_eval_Jh_dq1    
-  PROCEDURE :: eval_Jh_dq2   => hmap_RphiZ_eval_Jh_dq2    
-  PROCEDURE :: eval_gij      => hmap_RphiZ_eval_gij      
-  PROCEDURE :: eval_gij_dq1  => hmap_RphiZ_eval_gij_dq1  
+  PROCEDURE :: eval_Jh       => hmap_RphiZ_eval_Jh
+  PROCEDURE :: eval_Jh_dq1   => hmap_RphiZ_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2   => hmap_RphiZ_eval_Jh_dq2
+  PROCEDURE :: eval_gij      => hmap_RphiZ_eval_gij
+  PROCEDURE :: eval_gij_dq1  => hmap_RphiZ_eval_gij_dq1
   PROCEDURE :: eval_gij_dq2  => hmap_RphiZ_eval_gij_dq2
   ! --- Not used
   PROCEDURE :: init_aux      => dummy_sub_hmap_init_aux
   PROCEDURE :: free_aux      => dummy_sub_hmap
-  PROCEDURE :: eval_aux      => dummy_sub_hmap     
+  PROCEDURE :: eval_aux      => dummy_sub_hmap
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_RphiZ
 
@@ -113,7 +113,7 @@ IMPLICIT NONE
 END SUBROUTINE hmap_RphiZ_free
 
 !===================================================================================================================================
-!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) cartesian 
+!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) cartesian
 !!
 !===================================================================================================================================
 FUNCTION hmap_RphiZ_eval( sf ,q_in) RESULT(x_out)
@@ -162,9 +162,9 @@ IMPLICIT NONE
   REAL(wp) :: coszeta,sinzeta
 !===================================================================================================================================
   !  dxdq_qvec=
-  ! |  cos(zeta)  0  -q^1 sin(zeta) | |q_vec(1) |  
-  ! |  sin(zeta)  0  +q^1 cos(zeta) | |q_vec(2) | 
-  ! |     0       1        0        | |q_vec(3) |  
+  ! |  cos(zeta)  0  -q^1 sin(zeta) | |q_vec(1) |
+  ! |  sin(zeta)  0  +q^1 cos(zeta) | |q_vec(2) |
+  ! |     0       1        0        | |q_vec(3) |
 
 sinzeta=SIN(q_in(3))
 coszeta=COS(q_in(3))
@@ -176,7 +176,7 @@ dxdq_qvec(1:3) = (/ q_vec(1)*coszeta-q_vec(3)*q_in(1)*sinzeta, &
 END FUNCTION hmap_RphiZ_eval_dxdq
 
 !===================================================================================================================================
-!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta) 
+!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_RphiZ_eval_Jh( sf ,q_in) RESULT(Jh)
@@ -196,7 +196,7 @@ END FUNCTION hmap_RphiZ_eval_Jh
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_RphiZ_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
@@ -215,7 +215,7 @@ IMPLICIT NONE
 END FUNCTION hmap_RphiZ_eval_Jh_dq1
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_RphiZ_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
@@ -236,7 +236,7 @@ END FUNCTION hmap_RphiZ_eval_Jh_dq2
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -251,17 +251,17 @@ FUNCTION hmap_RphiZ_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 ! OUTPUT VARIABLES
   REAL(wp)                        :: g_ab
 !===================================================================================================================================
-  !                       |R   |   |1  0  0   |        |R   |  
+  !                       |R   |   |1  0  0   |        |R   |
   !q_i G_ij q_j = (dalpha |Z   | ) |0  1  0   | (dbeta |Z   | )
-  !                       |zeta|   |0  0  R^2 |        |zeta|  
+  !                       |zeta|   |0  0  R^2 |        |zeta|
   g_ab=SUM(qL_in(:)*(/qR_in(1),qR_in(2),q_G(1)**2*(-qR_in(3))/))
 END FUNCTION hmap_RphiZ_eval_gij
 
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -274,17 +274,17 @@ FUNCTION hmap_RphiZ_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
 ! OUTPUT VARIABLES
   REAL(wp)                        :: g_ab_dq1
 !===================================================================================================================================
-  !                            |R   |   |0  0  0   |        |R   |  
+  !                            |R   |   |0  0  0   |        |R   |
   !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0   | (dbeta |Z   | )
-  !                            |zeta|   |0  0  2*R |        |zeta|  
+  !                            |zeta|   |0  0  2*R |        |zeta|
   g_ab_dq1=(-qL_in(3))*2.0_wp*q_G(1)*(-qR_in(3))
 END FUNCTION hmap_RphiZ_eval_gij_dq1
 
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -297,15 +297,15 @@ FUNCTION hmap_RphiZ_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
 ! OUTPUT VARIABLES
   REAL(wp)                        :: g_ab_dq2
 !===================================================================================================================================
-  !                            |R   |   |0  0  0  |        |R   |  
+  !                            |R   |   |0  0  0  |        |R   |
   !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0  | (dbeta |Z   | ) =0
-  !                            |zeta|   |0  0  0  |        |zeta|  
+  !                            |zeta|   |0  0  0  |        |zeta|
   g_ab_dq2=0.0_wp
 END FUNCTION hmap_RphiZ_eval_gij_dq2
 
 
 !===================================================================================================================================
-!> test hmap_RphiZ 
+!> test hmap_RphiZ
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_RphiZ_test( sf )
@@ -368,4 +368,3 @@ IMPLICIT NONE
 END SUBROUTINE hmap_RphiZ_test
 
 END MODULE MODgvec_hmap_RphiZ
-

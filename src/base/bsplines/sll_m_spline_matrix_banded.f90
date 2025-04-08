@@ -106,7 +106,7 @@ contains
   subroutine s_spline_matrix_banded__mat_copy( self,tocopy)
     class(sll_t_spline_matrix_banded), intent(inout) :: self
     class(sll_c_spline_matrix       ), intent(in   ) :: tocopy
-     
+
     select type(tocopy); type is(sll_t_spline_matrix_banded)
     SLL_ASSERT( tocopy%n  == self%n  )
     SLL_ASSERT( tocopy%kl == self%kl )
@@ -118,8 +118,8 @@ contains
     self%q(:,:)    = tocopy%q(:,:)
     self%ipiv(:)   = tocopy%ipiv(:)
     self%factorized= tocopy%factorized
-    end select 
-     
+    end select
+
   end subroutine s_spline_matrix_banded__mat_copy
 
   !-----------------------------------------------------------------------------
@@ -141,11 +141,11 @@ contains
     SLL_ASSERT( .not.amat%factorized )
     SLL_ASSERT( .not.bmat%factorized )
 
-    self%q(:,:) = a*amat%q(:,:)+b*bmat%q(:,:) 
+    self%q(:,:) = a*amat%q(:,:)+b*bmat%q(:,:)
     self%ipiv(:)=0
     self%factorized=.FALSE.
-    end select 
-    end select 
+    end select
+    end select
   end subroutine s_spline_matrix_banded__mat_add
 
   !-----------------------------------------------------------------------------
@@ -205,7 +205,7 @@ contains
       imax=min(self%n,j+self%kl)
       v_out(j)=DOT_PRODUCT(self%q(self%kl+self%ku+1+imin-j:self%kl+self%ku+1+imax-j,j),v_in(imin:imax))
     END DO
-   
+
   end function s_spline_matrix_banded__matvec_prod
 
   !-----------------------------------------------------------------------------
@@ -271,13 +271,13 @@ contains
     integer :: i, j
     integer :: unit_loc
     character(len=32) :: fmt_loc
-    
+
     if ( present( unit ) ) then
       unit_loc = unit
     else
       unit_loc = output_unit
     end if
-    
+
     if ( present( fmt  ) ) then
       fmt_loc = fmt
     else

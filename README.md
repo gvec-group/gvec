@@ -1,9 +1,16 @@
 # GVEC - 3D MHD Equilibrium Solver
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026781.svg)](https://doi.org/10.5281/zenodo.15026781)
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE.txt)
+[![readthedocs](https://img.shields.io/badge/Read%20the%20Docs-8CA1AF?logo=readthedocs&labelColor=gray)](https://gvec.readthedocs.io)
+[![gitlab](https://img.shields.io/badge/GitLab-FC6D26?logo=gitlab&labelColor=gray)](https://gitlab.mpcdf.mpg.de/gvec-group/gvec)
+[![github-mirror](https://img.shields.io/badge/GitHub%20mirror-gray?logo=github&labelColor=gray)](https://github.com/gvec-group/gvec)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
+[![License](https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative)](./LICENSE.txt)
 [![PyPI](https://img.shields.io/pypi/v/gvec)](https://pypi.org/project/gvec/)
-[![python-version](https://img.shields.io/pypi/pyversions/gvec)](https://pypi.org/project/gvec)
+[![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
+
+[![pre-commit](https://img.shields.io/badge/pre--commit-gray?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Overview
 
@@ -28,11 +35,11 @@ Outside contributions are always welcome!
 
 ## Documentation
 
- * [user and developer documentation](https://gvec-group.pages.mpcdf.de/gvec) built with *sphinx*
-   * [Installation](https://gvec-group.pages.mpcdf.de/gvec/user/install.html)
-   * [Getting Started](https://gvec-group.pages.mpcdf.de/gvec/user/getting-started.html)
-   * [Theoretical considerations](https://gvec-group.pages.mpcdf.de/gvec/user/theory.html)
- * auto-generated [fortran code documentation](https://gvec-group.pages.mpcdf.de/gvec/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
+ * [user and developer documentation](https://gvec.readthedocs.io/stable) built with *sphinx* and hosted on *readthedocs*.
+   * [Installation](https://gvec.readthedocs.io/stable/user/install.html)
+   * [Getting Started](https://gvec.readthedocs.io/stable/user/getting-started.html)
+   * [Theoretical considerations](https://gvec.readthedocs.io/stable/user/theory.html)
+ * auto-generated [fortran code documentation](https://gvec.readthedocs.io/stable/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
 
 ## Installation & Getting started
 
@@ -41,14 +48,19 @@ GVEC is available on [PyPI](https://pypi.org/project/gvec/):
 pip install gvec
 ```
 
-For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec-group.pages.mpcdf.de/gvec/user/install.html) and [Getting Started](https://gvec-group.pages.mpcdf.de/gvec/user/getting-started.html).
+For required libraries, other installation methods and more details see the documentation on [Installation](https://gvec.readthedocs.io/latest/user/install.html) and [Getting Started](https://gvec.readthedocs.io/latest/user/getting-started.html).
 
 ## Reporting Bugs & Contributing to GVEC
 
-Please report any bugs you find on the [Issue tracker](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues).
+The GVEC development repository is hosted at the [MPCDF-GitLab](https://gitlab.mpcdf.mpg.de/gvec-group/gvec).
+There you can also find the [Issue tracker](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues), merge requests and releases.
+Contact the maintainers for a guest account if you want to contribute to GVEC.
+
+A public mirror of GVEC is hosted on [GitHub](https://github.com/gvec-group/gvec).
+There you can also open [issues](https://github.com/gvec-group/gvec/issues) and pull requests.
 
 Contributions are always welcome, best get into contact directly with the maintainers.
-Also see the relevant [documentation](https://gvec-group.pages.mpcdf.de/gvec/user/index.html).
+Also see the relevant [documentation](https://gvec.readthedocs.io/stable/dev/index.html).
 
 ## License
 

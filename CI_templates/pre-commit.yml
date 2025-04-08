@@ -1,5 +1,5 @@
 # =================================================================================================================================
-# Stage "publish" - build a python package and publish it to a repository
+# Stage "publish" - check pre-commit hooks: linting, formatting and other rules
 # =================================================================================================================================
 
 spec:
@@ -7,19 +7,22 @@ spec:
     env:
       description: Name of the environment, e.g. `.mpcdfci_ifx-latest`
       default: .mpcdfci_ifx-latest
-    rules:
-      description: Rules for the job, e.g. `.rules_default`
-      default: .rules_develop_only
 
 ---
 
-publish.pypi:
+pre-commit:
   stage: publish
   extends:
     - $[[ inputs.env ]]
-    - .script_publish_pypi
-    - $[[ inputs.rules ]]
-  needs:
-    - job: build$[[ inputs.env ]]_py
-      artifacts: true # for venv
-    - job: unit$[[ inputs.env ]]
+    - .before_script_modules
+  variables:
+    PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+  cache:
+    paths:
+      - ${PRE_COMMIT_HOME}
+  script:
+    - pip install pre-commit
+    - pre-commit run --all-files
+  needs: []
+  rules:
+    - when: always

@@ -3,31 +3,36 @@ myst:
   html_meta:
     "description lang=en": |
       Top-level documentation for GVEC, with links to the rest of the site..
+html_theme.primary_secondary.remove: true
 html_theme.sidebar_secondary.remove: true
 ---
 
-# GVEC: A flexible 3D MHD equilibrium solver
 
-The Galerkin Variational Equilibrium Code (GVEC) is open-source software for the generation of three-dimensional ideal MHD equilibria.
+<div style="text-align: center;">
+
+# The Galerkin Variational Equilibrium Code
+## A flexible 3D MHD equilibrium solver
+</div>
+
+[GVEC](https://gitlab.mpcdf.mpg.de/gvec-group/gvec) is an open-source software for the generation of three-dimensional ideal MHD equilibria.
 
 ::::{grid} 2
 :::{grid-item-card}  Inspired by VMEC
 Ideas are strongly based on [VMEC](https://princetonuniversity.github.io/STELLOPT/VMEC) (Hirshman & Whitson, 1983).
 :::
+:::{grid-item-card}  Python bindings
+Installable with `pip`. Python bindings for running, postprocessing and integration with other tools.
 :::{grid-item-card}  Radial B-Splines
 Radial discretization using B-Splines of arbitrary polynomial degree. Fourier series in poloidal and toroidal direction with different maximum modenumber for each variable.
-:::
-:::{grid-item-card}  Flexible Mapping
-Choice of the mapping $(X^1,X^2,\zeta) \mapsto (x,y,z)$, not restricted to $(R,Z,\phi)$, but e.g. a generalized Frenet frame.
 :::
 :::{grid-item-card}  Multiple Interfaces
 Initialize with a VMEC netCDF output and convert to VMEC netCDF or interface with other specific converters.
 :::
+:::{grid-item-card}  Flexible Mapping
+Choice of the mapping $(X^1,X^2,\zeta) \mapsto (x,y,z)$, not restricted to $(R,Z,\phi)$, but e.g. a generalized Frenet frame.
+:::
 :::{grid-item-card}  Modern Fortran
 Use of modern object-oriented Fortran
-:::
-:::{grid-item-card}  Python bindings
-Installable with `pip`. Python bindings for running, postprocessing and integration with other tools.
 :::
 ::::
 

@@ -75,7 +75,7 @@ contains
   subroutine s_spline_matrix_dense__mat_copy( self,tocopy)
     class(sll_t_spline_matrix_dense), intent(inout) :: self
     class(sll_c_spline_matrix      ), intent(in   ) :: tocopy
-     
+
     select type(tocopy); type is(sll_t_spline_matrix_dense)
     SLL_ASSERT( tocopy%n  == self%n  )
 
@@ -83,7 +83,7 @@ contains
     self%a(:,:)     = tocopy%a(:,:)
     self%ipiv(:)    = tocopy%ipiv(:)
     self%factorized = tocopy%factorized
-    end select 
+    end select
   end subroutine s_spline_matrix_dense__mat_copy
 
   !-----------------------------------------------------------------------------
@@ -93,7 +93,7 @@ contains
     class(sll_c_spline_matrix      ), intent(in   ) :: amat
     real(wp)                        , intent(in   ) :: b
     class(sll_c_spline_matrix      ), intent(in   ) :: bmat
-    
+
     select type(amat); type is(sll_t_spline_matrix_dense)
     select type(bmat); type is(sll_t_spline_matrix_dense)
     SLL_ASSERT( amat%n == self%n )
@@ -101,11 +101,11 @@ contains
     SLL_ASSERT( .NOT.amat%factorized )
     SLL_ASSERT( .NOT.bmat%factorized )
 
-    self%a(:,:) = a*amat%a(:,:)+b*bmat%a(:,:) 
+    self%a(:,:) = a*amat%a(:,:)+b*bmat%a(:,:)
     self%ipiv(:)=0
     self%factorized=.FALSE.
-    end select 
-    end select 
+    end select
+    end select
   end subroutine s_spline_matrix_dense__mat_add
 
   !-----------------------------------------------------------------------------
@@ -153,7 +153,7 @@ contains
     DO j=1,self%n
       v_out(j)=DOT_PRODUCT(self%a(:,j),v_in(:))
     END DO
-   
+
   end function s_spline_matrix_dense__matvec_prod
 
   !-----------------------------------------------------------------------------

@@ -8,7 +8,7 @@
 !>
 !!# Module ** c_hmap **
 !!
-!! contains only the abstract type to point to a specific map h (maps  omega_p x S^1 --> omega) 
+!! contains only the abstract type to point to a specific map h (maps  omega_p x S^1 --> omega)
 !!
 !===================================================================================================================================
 MODULE MODgvec_c_hmap
@@ -18,12 +18,12 @@ IMPLICIT NONE
 
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
+! TYPES
 !-----------------------------------------------------------------------------------------------------------------------------------
 TYPE, ABSTRACT :: c_hmap
   !---------------------------------------------------------------------------------------------------------------------------------
   !input parameters
-  INTEGER              :: which_hmap         !! points to hmap (1: MHD3D) 
+  INTEGER              :: which_hmap         !! points to hmap (1: MHD3D)
   INTEGER              :: nfp=-1             !! number of field periods used in hmap. If =-1, its not used
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
@@ -35,10 +35,10 @@ TYPE, ABSTRACT :: c_hmap
     PROCEDURE(i_sub_hmap            ),DEFERRED :: free_aux
     PROCEDURE(i_sub_hmap            ),DEFERRED :: eval_aux
     PROCEDURE(i_fun_hmap_eval_dxdq  ),DEFERRED :: eval_dxdq
-    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh    
-    PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq1 
-    PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq2 
-    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij   
+    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh
+    PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq1
+    PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq2
+    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij
     PROCEDURE(i_fun_hmap_eval_gij_dq),DEFERRED :: eval_gij_dq1
     PROCEDURE(i_fun_hmap_eval_gij_dq),DEFERRED :: eval_gij_dq2
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -59,7 +59,7 @@ ABSTRACT INTERFACE
   END SUBROUTINE i_sub_hmap_init_aux
 
   !===============================================================================================================================
-  !> evaluate the mapping h q=(X^1,X^2,zeta) -> (x,y,z) 
+  !> evaluate the mapping h q=(X^1,X^2,zeta) -> (x,y,z)
   !!
   !===============================================================================================================================
   FUNCTION i_fun_hmap_eval( sf ,q_in) RESULT(x_out)
@@ -68,7 +68,7 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN   ) :: q_in(3)
     REAL(wp)                     :: x_out(3)
   END FUNCTION i_fun_hmap_eval
-  
+
   !===============================================================================================================================
   !> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
   !! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
@@ -81,7 +81,7 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN   ) :: q_vec(3)
     REAL(wp)                     :: dxdq_qvec(3)
   END FUNCTION i_fun_hmap_eval_dxdq
-  
+
   !===============================================================================================================================
   !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)
   !!
@@ -92,9 +92,9 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN   ) :: q_in(3)
     REAL(wp)                     :: Jh
   END FUNCTION i_fun_hmap_eval_Jh
-  
+
   !===============================================================================================================================
-  !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta) 
+  !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
   !!
   !===============================================================================================================================
   FUNCTION i_fun_hmap_eval_Jh_dq( sf ,q_in) RESULT(Jh_dq)
@@ -103,10 +103,10 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN   ) :: q_in(3)
     REAL(wp)                     :: Jh_dq
   END FUNCTION i_fun_hmap_eval_Jh_dq
-  
+
   !===============================================================================================================================
   !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,
-  !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+  !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
   !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
   !!
   !===============================================================================================================================
@@ -118,10 +118,10 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN   ) :: qR_in(3)
     REAL(wp)                     :: g_ab
   END FUNCTION i_fun_hmap_eval_gij
-  
+
   !===============================================================================================================================
   !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-  !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+  !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
   !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
   !!
   !===============================================================================================================================
@@ -133,7 +133,7 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN   ) :: qR_in(3)
     REAL(wp)                     :: g_ab_dq
   END FUNCTION i_fun_hmap_eval_gij_dq
-  
+
 END INTERFACE
 
 !===================================================================================================================================
@@ -141,4 +141,3 @@ END INTERFACE
 
 
 END MODULE MODgvec_c_hmap
-

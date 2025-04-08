@@ -9,7 +9,7 @@
 !>
 !!# Module **Output VTK**
 !!
-!! Write to unstructured VTK file 
+!! Write to unstructured VTK file
 !!
 !===================================================================================================================================
 MODULE MODgvec_Output_VTK
@@ -39,13 +39,13 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER,INTENT(IN)            :: dim1                    !! dimension of the data (either 1:lines,2=quads or 3=hexas)
-INTEGER,INTENT(IN)            :: vecdim                  !! dimension of coordinates 
+INTEGER,INTENT(IN)            :: vecdim                  !! dimension of coordinates
 INTEGER,INTENT(IN)            :: nVal                    !! Number of nodal output variables
 INTEGER,INTENT(IN)            :: NPlot(dim1)             !! Number of output points per element : (nPlot+1)**dim1
 INTEGER,INTENT(IN)            :: nElems                  !! Number of output elements
-REAL(wp),INTENT(IN)           :: Coord(vecdim,1:PRODUCT(Nplot+1),nElems)      ! CoordinatesVector 
+REAL(wp),INTENT(IN)           :: Coord(vecdim,1:PRODUCT(Nplot+1),nElems)      ! CoordinatesVector
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          !! Names of all variables that will be written out
-REAL(wp),INTENT(IN)           :: Values(nVal,1:PRODUCT(Nplot+1),nElems)   !! Statevector 
+REAL(wp),INTENT(IN)           :: Values(nVal,1:PRODUCT(Nplot+1),nElems)   !! Statevector
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -73,11 +73,11 @@ NPlot_p1  =(Nplot(:)+1)
 ProdNPlot  =PRODUCT(Nplot(:))
 ProdNPlot_p1  =PRODUCT(Nplot_p1(:))
 
-IF(kindFloat.EQ.4) THEN 
+IF(kindFloat.EQ.4) THEN
   strfloat='Float32'
 ELSEIF(kindFloat.EQ.8)THEN
   strfloat='Float64'
-ELSE 
+ELSE
   STOP 'kindFloat not implemented in output vtk'
 END IF
 sizefloat=SIZEOF_F(FLOATdummy)
@@ -109,9 +109,9 @@ Buffer='    <Piece NumberOfPoints="'//TRIM(ADJUSTL(TempStr1))//'" &
 Buffer='      <PointData>'//lf;WRITE(ivtk) TRIM(Buffer)
 Offset=0
 WRITE(StrOffset,'(I16)')Offset
-!accout for vectors: 
-! if Variable Name ends with an X and the following have the same name with Y and Z 
-! then it forms a vector variable (X is omitted for the name) 
+!accout for vectors:
+! if Variable Name ends with an X and the following have the same name with Y and Z
+! then it forms a vector variable (X is omitted for the name)
 
 iVal=0 !scalars
 iValVec=0 !scalars & vectors
@@ -119,7 +119,7 @@ VecOffset(0)=0
 DO WHILE(iVal.LT.nVal)
   iVal=iVal+1
   iValVec=iValVec+1
-  tmpVarName=TRIM(VarNames(iVal)) 
+  tmpVarName=TRIM(VarNames(iVal))
   StrLen=LEN(TRIM(tmpVarName))
   maybeVector=(iVal+vecdim-1.LE.nVal)
   isVector=.FALSE.
@@ -131,7 +131,7 @@ DO WHILE(iVal.LT.nVal)
                                 .AND.(INDEX(tmpVarNameY(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Y").NE.0))
     CASE(3)
       tmpVarNameY=TRIM(VarNames(iVal+1))
-      tmpVarNameZ=TRIM(VarNames(iVal+2)) 
+      tmpVarNameZ=TRIM(VarNames(iVal+2))
       isVector=((iVal+2.LE.nVal).AND.(INDEX(tmpVarName( StrLen:StrLen),"X").NE.0) &
                                 .AND.(INDEX(tmpVarNameY(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Y").NE.0) &
                                 .AND.(INDEX(tmpVarNameZ(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Z").NE.0))
@@ -210,7 +210,7 @@ CASE(1)
     DO i=1,NPlot(1)
       CellID = CellID+1
       !visuLineElem
-      Vertex(:,CellID) = (/ PointID+(i-1), PointID+ i /) 
+      Vertex(:,CellID) = (/ PointID+(i-1), PointID+ i /)
     END DO
     PointID=PointID+NPlot(1)
   END DO
@@ -280,7 +280,7 @@ Buffer='</VTKFile>'//lf;WRITE(ivtk) TRIM(Buffer)
 CLOSE(ivtk)
 WRITE(UNIT_stdOut,'(A)',ADVANCE='YES')"   DONE"
 END SUBROUTINE WriteDataToVTK
- 
- 
+
+
 
 END MODULE MODgvec_Output_VTK

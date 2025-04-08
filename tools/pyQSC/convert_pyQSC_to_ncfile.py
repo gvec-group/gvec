@@ -15,7 +15,7 @@ def convert_pyQSC_to_GVEC_ncfile(pyQSC_stel_command='Qsc.from_paper("r1 section 
     #stel = Qsc.from_paper("2022 QH nfp7")
     #ncout_file ="axisNB_2022_QH_nfp7"
     ############################
-    
+
     print(('QSC CASE: %s\n - netCDF output file: "%s" \n - boundary_m_max=%d \n - r_bound=%f'%(pyQSC_stel_command,ncout_file,boundary_m_max,r_bound)))
     stel=eval(pyQSC_stel_command)
 
@@ -79,7 +79,7 @@ def convert_pyQSC_to_GVEC_ncfile(pyQSC_stel_command='Qsc.from_paper("r1 section 
 
 
     os.system("rm -f "+ncout_file+".nc")
-    ncfile = nc.Dataset(ncout_file+'.nc', 'w') 
+    ncfile = nc.Dataset(ncout_file+'.nc', 'w')
     vec_dim = ncfile.createDimension('vec',3)
     axis_nzeta_dim = ncfile.createDimension('nzeta_axis',axis_nzeta)
     #axis_nzeta_dim = ncfile.createDimension('axis/nzeta',axis_nzeta)
@@ -203,8 +203,8 @@ if __name__ == "__main__":
     parser.add_argument('-boundary_m_max', type=int, default=10,     help='number of modes in theta direction')
     parser.add_argument('-r_bound', type=float, default=0.1,     help='evaluate boundary at r=r_bound')
     args = parser.parse_args()
-    
+
     convert_pyQSC_to_GVEC_ncfile(pyQSC_stel_command=args.pyQSC_stel_command,
-                                 ncout_file=args.ncout_file, 
-                                 boundary_m_max=args.boundary_m_max, 
+                                 ncout_file=args.ncout_file,
+                                 boundary_m_max=args.boundary_m_max,
                                  r_bound=args.r_bound)

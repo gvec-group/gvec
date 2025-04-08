@@ -21,7 +21,7 @@ PRIVATE
 PUBLIC t_sol_var_MHD3D
 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
+! TYPES
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 TYPE,EXTENDS(c_sol_var) :: t_sol_var_MHD3D
@@ -30,7 +30,7 @@ TYPE,EXTENDS(c_sol_var) :: t_sol_var_MHD3D
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp)              :: W_MHD3D
   REAL(wp),CONTIGUOUS,POINTER :: X1(:,:)    !! X1 variable, shape=(base_s%nBase,base_f%mn_mode)
-  REAL(wp),CONTIGUOUS,POINTER :: X2(:,:)    !! X2 variable 
+  REAL(wp),CONTIGUOUS,POINTER :: X2(:,:)    !! X2 variable
   REAL(wp),CONTIGUOUS,POINTER :: LA(:,:)    !! lambda variable
   REAL(wp),CONTIGUOUS,POINTER :: q(:)       !! 1d array container for all variables (is the one allocated)
   INTEGER, ALLOCATABLE  :: varsize(:,:)     !! varsize(a,b): size of rank a of variable b =1..nvars
@@ -56,7 +56,7 @@ CONTAINS
 
 
 !===================================================================================================================================
-!> initialize (=allocate) sf of type t_sol_var 
+!> initialize (=allocate) sf of type t_sol_var
 !!
 !===================================================================================================================================
 SUBROUTINE sol_var_MHD3D_init( sf,varsize)
@@ -87,7 +87,7 @@ IMPLICIT NONE
   sf%offset(2)=sf%offset(1)+PRODUCT(sf%varsize(:,2))
   sf%offset(3)=sf%offset(2)+PRODUCT(sf%varsize(:,3))
   ALLOCATE(sf%q(1:sf%offset(sf%nvars)))
- 
+
   sf%X1(1:sf%varSize(1,1),1:sf%varSize(2,1))=>sf%q(1+sf%offset(0) : sf%offset(1))
   sf%X2(1:sf%varSize(1,2),1:sf%varSize(2,2))=>sf%q(1+sf%offset(1) : sf%offset(2))
   sf%LA(1:sf%varSize(1,3),1:sf%varSize(2,3))=>sf%q(1+sf%offset(2) : sf%offset(3))
@@ -100,7 +100,7 @@ END SUBROUTINE sol_var_MHD3D_init
 
 
 !===================================================================================================================================
-!> free (=deallocate) sf of type t_sol_var_MHD3D 
+!> free (=deallocate) sf of type t_sol_var_MHD3D
 !!
 !===================================================================================================================================
 SUBROUTINE sol_var_MHD3D_free( sf )
@@ -129,7 +129,7 @@ END SUBROUTINE sol_var_MHD3D_free
 !> copy tocopy  => sf
 !!
 !===================================================================================================================================
-SUBROUTINE sol_var_MHD3D_copy( sf ,tocopy) 
+SUBROUTINE sol_var_MHD3D_copy( sf ,tocopy)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -153,19 +153,19 @@ IMPLICIT NONE
   END IF
   CALL sf%init((/size(tocopy%X1,1),size(tocopy%X2,1),size(tocopy%LA,1),  &
                  size(tocopy%X1,2),size(tocopy%X2,2),size(tocopy%LA,2)/) )
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,sf%offset(3)
     sf%q(i)=tocopy%q(i)
   END DO
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
   sf%W_MHD3D=tocopy%W_MHD3D
 
   END SELECT !TYPE
 END SUBROUTINE sol_var_MHD3D_copy
 
 !===================================================================================================================================
-!> set all variables to scalar 
+!> set all variables to scalar
 !!
 !===================================================================================================================================
 SUBROUTINE sol_var_MHD3D_set_to_scalar( sf, scalar)
@@ -184,12 +184,12 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
         "sol_var_MHD3D not initialized in set_to!")
   END IF
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,sf%offset(3)
     sf%q(i)=scalar
   END DO
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
   sf%W_MHD3D=0.0_wp
 END SUBROUTINE sol_var_MHD3D_set_to_Scalar
 
@@ -197,7 +197,7 @@ END SUBROUTINE sol_var_MHD3D_set_to_Scalar
 !> set variabes X1,X2,LA of toset  => sf, optional argument to scale toset with a scalar (for example -1.0_wp)
 !!
 !===================================================================================================================================
-SUBROUTINE sol_var_MHD3D_set_to_solvar( sf ,toset,scal_in) 
+SUBROUTINE sol_var_MHD3D_set_to_solvar( sf ,toset,scal_in)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -222,15 +222,15 @@ IMPLICIT NONE
     DO i=1,sf%offset(3)
       sf%q(i)=scal_in*toset%q(i)
     END DO
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
     sf%W_MHD3D=0.0_wp
   ELSE
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
     DO i=1,sf%offset(3)
       sf%q(i)=toset%q(i)
     END DO
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
     sf%W_MHD3D=toset%W_MHD3D
   END IF
 
@@ -238,7 +238,7 @@ IMPLICIT NONE
 END SUBROUTINE sol_var_MHD3D_set_to_solvar
 
 !===================================================================================================================================
-!> |X|^2, where X is of type t_var_sol, so three values are returned: |X1|^2,|X2|^2,|LA|^2 
+!> |X|^2, where X is of type t_var_sol, so three values are returned: |X1|^2,|X2|^2,|LA|^2
 !!
 !===================================================================================================================================
 FUNCTION sol_var_MHD3D_norm_2( sf ) RESULT(norm_2)
@@ -287,19 +287,19 @@ IMPLICIT NONE
   IF(.NOT.Y%initialized) CALL abort(__STAMP__,&
                                        'AXBY: Y not initialized')
 
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,sf%offset(3)
     sf%q(i) = aa*X%q(i) + bb*Y%q(i)
   END DO
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
   END SELECT !Type
   END SELECT !Type
 END SUBROUTINE sol_var_MHD3D_AXBY
 
 
 !===================================================================================================================================
-!> test sol_var_MHD3D 
+!> test sol_var_MHD3D
 !!
 !===================================================================================================================================
 SUBROUTINE sol_var_MHD3D_test( sf )
@@ -357,7 +357,7 @@ IMPLICIT NONE
     CALL Utest(1)%set_to(0.8_wp)
     CALL Utest(2)%set_to(-0.53_wp)
     CALL Utest(3)%AXBY(1.1_wp,Utest(1),-5.5_wp,Utest(2))
-    refreal = (1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2 
+    refreal = (1.1_wp*0.8_wp-5.5_wp*(-0.53_wp))**2
     checkreal=SUM(Utest(3)%norm_2())/SUM(sf%varsize(1,:)*sf%varsize(2,:))
     IF(testdbg.OR.(.NOT.( (ABS(checkreal-refreal).LT. realtol) ))) THEN
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -379,4 +379,3 @@ IMPLICIT NONE
 END SUBROUTINE sol_var_MHD3D_test
 
 END MODULE MODgvec_Sol_var_MHD3D
-

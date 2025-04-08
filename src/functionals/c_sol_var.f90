@@ -37,7 +37,7 @@ ABSTRACT INTERFACE
     CLASS(c_sol_var), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sol_var_init
 
-  SUBROUTINE i_sub_sol_var( sf ) 
+  SUBROUTINE i_sub_sol_var( sf )
     IMPORT c_sol_var
     CLASS(c_sol_var), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sol_var
@@ -48,26 +48,26 @@ ABSTRACT INTERFACE
     REAL(wp)                       :: norm_2(sf%nvars)
   END FUNCTION i_fun_sol_var_norm_2
 
-  SUBROUTINE i_sub_sol_var_copy( sf, tocopy ) 
+  SUBROUTINE i_sub_sol_var_copy( sf, tocopy )
     IMPORT c_sol_var
     CLASS(c_sol_var), INTENT(IN   ) :: tocopy
     CLASS(c_sol_var), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sol_var_copy
 
-  SUBROUTINE i_sub_sol_var_set_to_solvar( sf, toset ,scal_in) 
+  SUBROUTINE i_sub_sol_var_set_to_solvar( sf, toset ,scal_in)
     IMPORT wp,c_sol_var
     CLASS(c_sol_var), INTENT(IN   ) :: toset
     CLASS(c_sol_var), INTENT(INOUT) :: sf
     REAL(wp),INTENT(IN),OPTIONAL    :: scal_in
   END SUBROUTINE i_sub_sol_var_set_to_solvar
 
-  SUBROUTINE i_sub_sol_var_set_to_scalar( sf, scalar ) 
+  SUBROUTINE i_sub_sol_var_set_to_scalar( sf, scalar )
     IMPORT wp,c_sol_var
     REAL(wp)        , INTENT(IN   ) :: scalar
     CLASS(c_sol_var), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sol_var_set_to_scalar
 
-  SUBROUTINE i_sub_sol_var_AXBY( sf, aa, X, bb, Y ) 
+  SUBROUTINE i_sub_sol_var_AXBY( sf, aa, X, bb, Y )
     IMPORT wp,c_sol_var
     REAL(wp)        , INTENT(IN   ) :: aa
     CLASS(c_sol_var), INTENT(IN   ) :: X
@@ -79,4 +79,3 @@ END INTERFACE
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 END MODULE MODgvec_c_sol_var
-

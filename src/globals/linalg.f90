@@ -11,7 +11,7 @@
 !! Provides the linear algebra wrapper routines using LAPACK.
 !!
 !!- matrix inverse
-!!- solve linear system 
+!!- solve linear system
 !!
 !===================================================================================================================================
 MODULE MODgvec_LinAlg
@@ -19,7 +19,7 @@ MODULE MODgvec_LinAlg
 USE MODgvec_Globals, ONLY:wp,abort
 IMPLICIT NONE
 
-PUBLIC 
+PUBLIC
 
 CONTAINS
 
@@ -168,21 +168,21 @@ REAL(wp),INTENT(IN) :: A(1:dimA,1:dimA) !! matrix
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL(wp),INTENT(OUT) :: L(1:dimA,1:dimA)   !! L or P*L (if P omitted)
-REAL(wp),INTENT(OUT) :: U(1:dimA,1:dimA) 
-REAL(wp),INTENT(OUT),OPTIONAL :: P(1:dimA,1:dimA) 
+REAL(wp),INTENT(OUT) :: U(1:dimA,1:dimA)
+REAL(wp),INTENT(OUT),OPTIONAL :: P(1:dimA,1:dimA)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 ! External procedures defined in LAPACK
 EXTERNAL DGETRF
 ! LOCAL VARIABLES
-REAL(wp)    :: tmp,Atmp(dimA,dimA) 
+REAL(wp)    :: tmp,Atmp(dimA,dimA)
 INTEGER     :: ipiv(dimA)  ! pivot indices
 INTEGER     :: i,j,info
 !===================================================================================================================================
 Atmp=A
 
 CALL DGETRF(dimA, dimA, Atmp, dimA, ipiv, info)
- 
+
 IF(info.NE.0)THEN
    CALL abort(__STAMP__,&
               'Matrix is numerically singular!')
@@ -194,7 +194,7 @@ DO i=1,dimA
     U(i,j)=Atmp(i,j)
   END DO
 END DO
-!lower diagonal part, known: 1 on the diagonal 
+!lower diagonal part, known: 1 on the diagonal
 L=0.
 DO i=1,dimA
   L(i,i)=1.
@@ -208,7 +208,7 @@ IF(PRESENT(P))THEN
   DO i=1,dimA
     P(i,i)=1.
   END DO
-  
+
   !pivoting of rows in L is pivoting of columns in P
   DO i=1,dimA
     DO j=1,dimA
@@ -217,14 +217,14 @@ IF(PRESENT(P))THEN
       P(j,ipiv(i))=tmp
     END DO
   END DO
-  
+
   !CHECK
   IF(SUM(ABS(MATMUL(P,MATMUL(L,U))-A)).GT.1e-12*dimA*dimA) THEN
     CALL abort(__STAMP__,&
                'A=P*L*U decomposition not correct')
   END IF
 ELSE
-  !pivoting of rows in L, backwards 
+  !pivoting of rows in L, backwards
   DO i=dimA,1,-1
     DO j=1,dimA
       tmp=L(i,j)
@@ -232,7 +232,7 @@ ELSE
       L(ipiv(i),j)=tmp
     END DO
   END DO
-  
+
   !CHECK
   IF(SUM(ABS(MATMUL(L,U)-A)).GT.1e-12*dimA*dimA) THEN
     CALL abort(__STAMP__,&

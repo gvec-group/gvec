@@ -141,7 +141,7 @@ def generate_formatted_param(
         if vals.get("required"):
             outstr.append("├" + "─" * (swid + 2) + "┤")
             line = "required input!"
-            outstr.append(f"|    {line:{swid-3}} |")
+            outstr.append(f"|    {line:{swid - 3}} |")
         if reqif := vals.get("required_if"):
             outstr.append("├" + "─" * (swid + 2) + "┤")
             wreqif = wrap_swid("   required if: ", replace_lnk_to_param(reqif), swid)
@@ -157,7 +157,7 @@ def generate_formatted_param(
 
         outstr.append(sepline)
         line = f"Type: {vals['type']}"
-        outstr.append(f"|    {line:{swid-3}} |")
+        outstr.append(f"|    {line:{swid - 3}} |")
 
         if alwd := vals.get("allowed"):
             outstr.append(sepline)
@@ -167,7 +167,7 @@ def generate_formatted_param(
         if table := vals.get("allowed_table"):
             outstr.append(sepline)
             line = "Allowed Values:"
-            outstr.append(f"|    {line:{swid-3}} |")
+            outstr.append(f"|    {line:{swid - 3}} |")
 
             maxcol1 = max([len(row[0]) for row in table])
             maxcol2_swid = swid - 10 - maxcol1

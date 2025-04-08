@@ -16,12 +16,11 @@ USE MODgvec_Globals,ONLY:wp
 IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
-! GLOBAL VARIABLES 
+! GLOBAL VARIABLES
 CHARACTER(LEN=100)  :: ProjectName         !! Name used for output files
-INTEGER             :: outputLevel         !! on restart +1, used as file identifier            
+INTEGER             :: outputLevel         !! on restart +1, used as file identifier
 
 !===================================================================================================================================
 
 
 END MODULE MODgvec_Output_Vars
-

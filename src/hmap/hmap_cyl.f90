@@ -18,7 +18,7 @@ USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
- 
+
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_cyl
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -31,18 +31,18 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_cyl
 
   PROCEDURE :: init          => hmap_cyl_init
   PROCEDURE :: free          => hmap_cyl_free
-  PROCEDURE :: eval          => hmap_cyl_eval    
+  PROCEDURE :: eval          => hmap_cyl_eval
   PROCEDURE :: eval_dxdq     => hmap_cyl_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_cyl_eval_Jh       
-  PROCEDURE :: eval_Jh_dq1   => hmap_cyl_eval_Jh_dq1    
-  PROCEDURE :: eval_Jh_dq2   => hmap_cyl_eval_Jh_dq2    
-  PROCEDURE :: eval_gij      => hmap_cyl_eval_gij      
-  PROCEDURE :: eval_gij_dq1  => hmap_cyl_eval_gij_dq1  
-  PROCEDURE :: eval_gij_dq2  => hmap_cyl_eval_gij_dq2  
+  PROCEDURE :: eval_Jh       => hmap_cyl_eval_Jh
+  PROCEDURE :: eval_Jh_dq1   => hmap_cyl_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2   => hmap_cyl_eval_Jh_dq2
+  PROCEDURE :: eval_gij      => hmap_cyl_eval_gij
+  PROCEDURE :: eval_gij_dq1  => hmap_cyl_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq2  => hmap_cyl_eval_gij_dq2
   ! --- Not used
   PROCEDURE :: init_aux      => dummy_sub_hmap_init_aux
   PROCEDURE :: free_aux      => dummy_sub_hmap
-  PROCEDURE :: eval_aux      => dummy_sub_hmap   
+  PROCEDURE :: eval_aux      => dummy_sub_hmap
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_cyl
 
@@ -117,7 +117,7 @@ IMPLICIT NONE
 END SUBROUTINE hmap_cyl_free
 
 !===================================================================================================================================
-!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) 
+!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z)
 !!
 !===================================================================================================================================
 FUNCTION hmap_cyl_eval( sf ,q_in) RESULT(x_out)
@@ -165,16 +165,16 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   !  dxdq_qvec=
-  ! | 1  0  0        | |q_vec(1) |  
-  ! | 0  0  -cyl_len | |q_vec(2) | 
-  ! | 0  1  0        | |q_vec(3) |  
+  ! | 1  0  0        | |q_vec(1) |
+  ! | 0  0  -cyl_len | |q_vec(2) |
+  ! | 0  1  0        | |q_vec(3) |
 
 dxdq_qvec = (/q_vec(1),-sf%cyl_len*q_vec(3),q_vec(2)/)
 
 END FUNCTION hmap_cyl_eval_dxdq
 
 !===================================================================================================================================
-!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta) 
+!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_cyl_eval_Jh( sf ,q_in) RESULT(Jh)
@@ -193,7 +193,7 @@ END FUNCTION hmap_cyl_eval_Jh
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_cyl_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
@@ -211,7 +211,7 @@ IMPLICIT NONE
 END FUNCTION hmap_cyl_eval_Jh_dq1
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_cyl_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
@@ -231,7 +231,7 @@ END FUNCTION hmap_cyl_eval_Jh_dq2
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -252,8 +252,8 @@ END FUNCTION hmap_cyl_eval_gij
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -272,8 +272,8 @@ END FUNCTION hmap_cyl_eval_gij_dq1
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -291,7 +291,7 @@ END FUNCTION hmap_cyl_eval_gij_dq2
 
 
 !===================================================================================================================================
-!> test hmap_cyl 
+!> test hmap_cyl
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_cyl_test( sf )
@@ -353,4 +353,3 @@ IMPLICIT NONE
 END SUBROUTINE hmap_cyl_test
 
 END MODULE MODgvec_hmap_cyl
-

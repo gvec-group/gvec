@@ -4,7 +4,7 @@
 !===================================================================================================================================
 
 ! Abbrevations
-#ifndef __FILENAME__ 
+#ifndef __FILENAME__
 #define __FILENAME__ __FILE__
 #endif
 #define __STAMP__ __FILENAME__,__LINE__,__DATE__,__TIME__
@@ -46,9 +46,9 @@
 #  define __PERFOFF(a) call perfoff(a)
 #  define __PERFOUT(a) call perfout(a)
 #else
-#  define __PERFINIT  
-#  define __PERFON(a) 
-#  define __PERFOFF(a) 
+#  define __PERFINIT
+#  define __PERFON(a)
+#  define __PERFOFF(a)
 #  define __PERFOUT(a)
 #endif
 
@@ -58,7 +58,7 @@
 !boundary types
 #define NBC_TYPES    6
 
-#define BC_TYPE_OPEN      1 
+#define BC_TYPE_OPEN      1
 #define BC_TYPE_NEUMANN   2
 #define BC_TYPE_DIRICHLET 3
 #define BC_TYPE_SYMM      4
@@ -70,11 +70,11 @@
 #define BC_EDGE 2
 
 !grid types
-#define GRID_TYPE_UNIFORM 0 
-#define GRID_TYPE_SQRT_S  1 
-#define GRID_TYPE_S2      2 
-#define GRID_TYPE_BUMP    3 
-#define GRID_TYPE_BUMP_EDGE 4 
+#define GRID_TYPE_UNIFORM 0
+#define GRID_TYPE_SQRT_S  1
+#define GRID_TYPE_S2      2
+#define GRID_TYPE_BUMP    3
+#define GRID_TYPE_BUMP_EDGE 4
 
 !fbase definitions
 #define _SIN_    1
@@ -97,7 +97,7 @@
 
 
 !!!!matvec with matmul
-!!!#define __MATVEC_N(y,Mat,Vec)           y=MATMUL(Mat,Vec) 
+!!!#define __MATVEC_N(y,Mat,Vec)           y=MATMUL(Mat,Vec)
 !!!#define __MATVEC_T(y,Mat,Vec)           y=MATMUL(Vec,Mat)
 !!!#define __PMATVEC_N(fy,y,Mat,Vec)       y=fy*y+MATMUL(Mat,Vec)
 !!!#define __PMATVEC_T(fy,y,Mat,Vec)       y=fy*y+MATMUL(Vec,Mat)
@@ -107,17 +107,17 @@
 !!!#define __PAMATVEC_T(fy,y,fMat,Mat,Vec) y=fy*y+fMat*MATMUL(Vec,Mat)
 
 ! matvec with blas
-#define __MATVEC_N(y,Mat,Vec)           __GENERICMATVEC('N',0.0_wp,y,1.0_wp,Mat,Vec) 
-#define __MATVEC_T(y,Mat,Vec)           __GENERICMATVEC('T',0.0_wp,y,1.0_wp,Mat,Vec) 
-                                     
-#define __PMATVEC_N(fy,y,Mat,Vec)       __GENERICMATVEC('N',fy,y,1.0_wp,Mat,Vec) 
-#define __PMATVEC_T(fy,y,Mat,Vec)       __GENERICMATVEC('T',fy,y,1.0_wp,Mat,Vec) 
-                                     
-#define __AMATVEC_N(y,fMat,Mat,Vec)     __GENERICMATVEC('N',0.0_wp,y,fMat,Mat,Vec) 
-#define __AMATVEC_T(y,fMat,Mat,Vec)     __GENERICMATVEC('T',0.0_wp,y,fMat,Mat,Vec) 
+#define __MATVEC_N(y,Mat,Vec)           __GENERICMATVEC('N',0.0_wp,y,1.0_wp,Mat,Vec)
+#define __MATVEC_T(y,Mat,Vec)           __GENERICMATVEC('T',0.0_wp,y,1.0_wp,Mat,Vec)
 
-#define __PAMATVEC_N(fy,y,fMat,Mat,Vec) __GENERICMATVEC('N',fy,y,fMat,Mat,Vec) 
-#define __PAMATVEC_T(fy,y,fMat,Mat,Vec) __GENERICMATVEC('T',fy,y,fMat,Mat,Vec) 
+#define __PMATVEC_N(fy,y,Mat,Vec)       __GENERICMATVEC('N',fy,y,1.0_wp,Mat,Vec)
+#define __PMATVEC_T(fy,y,Mat,Vec)       __GENERICMATVEC('T',fy,y,1.0_wp,Mat,Vec)
+
+#define __AMATVEC_N(y,fMat,Mat,Vec)     __GENERICMATVEC('N',0.0_wp,y,fMat,Mat,Vec)
+#define __AMATVEC_T(y,fMat,Mat,Vec)     __GENERICMATVEC('T',0.0_wp,y,fMat,Mat,Vec)
+
+#define __PAMATVEC_N(fy,y,fMat,Mat,Vec) __GENERICMATVEC('N',fy,y,fMat,Mat,Vec)
+#define __PAMATVEC_T(fy,y,fMat,Mat,Vec) __GENERICMATVEC('T',fy,y,fMat,Mat,Vec)
 
 !!!!#define __GENERICMATVEC(NT,fy,y,fMat,Mat,Vec) CALL DGEMV(NT,SIZE(Mat,1),SIZE(Mat,2),fMat,Mat,SIZE(Mat,1),Vec,1,fy,y,1)
 
@@ -164,7 +164,7 @@
 #define __AMATMAT_TT(Y,fa,A,B) __GENERICMATMAT_TT(0.0_wp,Y,fa,A,B)
 
 !!! GEMM does in general Y = fa A^?*B^? + fy Y
-!!! with structure: (m x n) = (m x k) (k x n)  
+!!! with structure: (m x n) = (m x k) (k x n)
 !!! Y=A  *B   : DGEMM('N','N',m,n,k,fa,Amat ,m, Bmat,k, fy,Y,m)
 !!! Y=A^T*B   : DGEMM('T','N',m,n,k,fa,Amat ,k, Bmat,k, fy,Y,m)
 !!! Y=A  *B^T : DGEMM('N','T',m,n,k,fa,Amat ,m, Bmat,n, fy,Y,m)
@@ -198,7 +198,7 @@
 #define __ADGEMM_TT(Y,fa,sza1,sza2,A,szb1,szb2,B) __PADGEMM_TT(0.0_wp,Y,fa,sza1,sza2,A,szb1,szb2,B)
 
 !!! GEMM does in general Y = fa A^?*B^? + fy Y
-!!! with structure: (m x n) = (m x k) (k x n)  
+!!! with structure: (m x n) = (m x k) (k x n)
 !!! Y=A  *B   : DGEMM('N','N',m,n,k,fa,Amat ,m, Bmat,k, fy,Y,m)
 !!! Y=A^T*B   : DGEMM('T','N',m,n,k,fa,Amat ,k, Bmat,k, fy,Y,m)
 !!! Y=A  *B^T : DGEMM('N','T',m,n,k,fa,Amat ,m, Bmat,n, fy,Y,m)

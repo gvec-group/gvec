@@ -428,16 +428,16 @@
 # TEMPLATES FOR STAGE "publish"
 # =================================================================================================================================
 
-.script_publish_gitlab:
+.script_publish_pypi:
   variables:
     BUILDNAME: ${HASH_TAG}_pip
-    TWINE_USERNAME: gitlab-ci-token
-    TWINE_PASSWORD: ${CI_JOB_TOKEN}
+    TWINE_USERNAME: ${PYPI_USERNAME}
+    TWINE_PASSWORD: ${PYPI_PASSWORD}
   script:
     - source venv_${BUILDNAME}/bin/activate
     - pip install twine build
     - python -m build --sdist
-    - python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+    - python -m twine upload dist/*
   artifacts:
     expire_in: 3 days
     paths:

@@ -6,8 +6,8 @@
 
 
 !===================================================================================================================================
-!> 
-!!# **GVEC_TO_CASTOR3D**  converter program 
+!>
+!!# **GVEC_TO_CASTOR3D**  converter program
 !!
 !===================================================================================================================================
 PROGRAM CONVERT_GVEC_TO_CASTOR3D
@@ -24,7 +24,7 @@ REAL(wp)                :: StartTime,EndTime
 
   CALL CPU_TIME(StartTime)
 !$ StartTime=OMP_GET_WTIME()
-    
+
   !header
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(Unit_stdOut,'(5(("*",A128,2X,"*",:,"\n")))')&
@@ -37,10 +37,10 @@ REAL(wp)                :: StartTime,EndTime
 !$ WRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
 !$ WRITE(Unit_stdOut,'(132("="))')
   CALL GET_CLA_gvec_to_castor3d()
-  
+
   !initialization phase
   CALL Init_gvec_to_castor3d()
- 
+
   CALL gvec_to_castor3d_writeToFile()
   CALL Finalize_gvec_to_castor3d()
 
@@ -53,5 +53,3 @@ REAL(wp)                :: StartTime,EndTime
   __PERFOFF('main')
   __PERFOUT('main')
 END PROGRAM CONVERT_GVEC_TO_CASTOR3D
-
-

@@ -6,15 +6,15 @@
 
 
 !===================================================================================================================================
-!> 
-!!# **GVEC** Driver Module 
+!>
+!!# **GVEC** Driver Module
 !!
 !===================================================================================================================================
 MODULE MODgvec_rungvec
 IMPLICIT NONE
 PUBLIC
 
-!INTERFACE rungvec 
+!INTERFACE rungvec
 !  MODULE PROCEDURE rungvec
 !END INTERFACE
 !===================================================================================================================================
@@ -98,37 +98,37 @@ LOGICAL                 :: dorestart
     OPEN(UNIT     = testUnit    ,&
          FILE     = testfile    ,&
          STATUS   = 'REPLACE'   ,&
-         ACCESS   = 'SEQUENTIAL' ) 
+         ACCESS   = 'SEQUENTIAL' )
   END IF
-  
+
   !initialization phase
   dorestart=.FALSE.
   IF(PRESENT(RestartFile_in)) THEN
-    dorestart=(LEN(TRIM(RestartFile_in)).GT.0) 
+    dorestart=(LEN(TRIM(RestartFile_in)).GT.0)
   END IF
   IF(dorestart) CALL InitRestart(RestartFile_in)
-  
+
   CALL InitOutput()
   CALL InitAnalyze()
-  
+
   which_functional=GETINT('which_functional', Proposal=1 )
   CALL InitFunctional(functional,which_functional)
 
-  
+
   CALL IgnoredStrings()
-  
-  CALL functional%InitSolution() 
+
+  CALL functional%InitSolution()
   StartTime=GetTime()
   SWRITE(Unit_stdOut,'(A,F8.2,A)') ' INITIALIZATION FINISHED! [',StartTime-StartTimeTotal,' sec ]'
   SWRITE(Unit_stdOut,fmt_sep)
-  
+
   CALL functional%minimize()
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
        (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
 
   CALL FinalizeFunctional(functional)
- 
+
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   IF(dorestart) CALL FinalizeRestart()
@@ -169,4 +169,3 @@ LOGICAL                 :: dorestart
   END IF
 END SUBROUTINE rungvec
 END MODULE MODgvec_rungvec
-
