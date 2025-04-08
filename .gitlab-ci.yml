@@ -871,11 +871,12 @@ include:
   # ============================
   # stage publish jobs
   # ============================
+  - local: CI_templates/pre-commit.yml
+
   - local: CI_templates/pypi.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      publish-target: gitlab
-      rules: .rules_pypi_gitlab
+      rules: .rules_pypi
 
 # =================================================================================================================================
 # TEMPLATES INDEPENDENT OF STAGE
@@ -977,16 +978,14 @@ include:
   rules:
     - when: never
 
-.rules_pypi_gitlab:
+.rules_pypi:
   rules:
-    # disable for NIGHTLY_PIPELINE
-    - if: $NIGHTLY_PIPELINE == "true"
-      when: never
-    # publish all commits on develop (e.g. after a merge request)
-    - if: $CI_COMMIT_REF_NAME =~ /develop/
-      when: on_success
-    # optional for other branches
-    - when: manual
+    # publish releases/tags, but require manual approval
+    - if: $CI_COMMIT_TAG
+      when: manual
+      allow_failure: false # set pipeline to "Blocked" until job is run
+    # never for other branches
+    - when: never
 
 .vars_dirs_artifacts:
   variables:

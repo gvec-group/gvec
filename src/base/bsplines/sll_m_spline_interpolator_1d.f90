@@ -140,7 +140,7 @@ contains
       SLL_ASSERT( bc_xmin == sll_p_periodic )
       SLL_ASSERT( bc_xmax == sll_p_periodic )
     end if
-    
+
     ! Save pointer to B-splines
     ! (later needed to verify 1D spline input to 'compute_interpolant')
     self % bspl => bspl
@@ -241,9 +241,9 @@ contains
   subroutine s_spline_interpolator_1d__compute_interpolant( self, &
       bcoef, gtau, derivs_xmin, derivs_xmax )
     class(sll_t_spline_interpolator_1d), intent(in   ) :: self
-  !  type (sll_t_spline_1d)             , intent(inout) :: spline  
+  !  type (sll_t_spline_1d)             , intent(inout) :: spline
     real(wp)                           , intent(  out) :: &  ! not using spline to separate data and basis
-    bcoef(1-MERGE(1+self%bspl%degree/2,0,self%bspl%periodic):self%bspl%nbasis+MERGE(1+self%bspl%degree/2,0,self%bspl%periodic)) 
+    bcoef(1-MERGE(1+self%bspl%degree/2,0,self%bspl%periodic):self%bspl%nbasis+MERGE(1+self%bspl%degree/2,0,self%bspl%periodic))
     real(wp)                           , intent(in   ) :: gtau(:)
     real(wp),                  optional, intent(in   ) :: derivs_xmin(:)
     real(wp),                  optional, intent(in   ) :: derivs_xmax(:)

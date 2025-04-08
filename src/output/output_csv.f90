@@ -8,7 +8,7 @@
 !>
 !!# Module **Output CSV**
 !!
-!! 
+!!
 !!
 !===================================================================================================================================
 MODULE MODgvec_Output_CSV
@@ -27,7 +27,7 @@ PUBLIC::WriteDataToCSV
 CONTAINS
 
 !===================================================================================================================================
-!> Subroutine to write  
+!> Subroutine to write
 !!
 !===================================================================================================================================
 SUBROUTINE WriteDataToCSV(VarNames,Values,FileString,append_in,vfmt_in)
@@ -37,7 +37,7 @@ USE MODgvec_Globals,ONLY:Unit_stdOut,GETFREEUNIT
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-CHARACTER(LEN=*),INTENT(IN)   :: VarNames(:)          !! Variable names, 
+CHARACTER(LEN=*),INTENT(IN)   :: VarNames(:)          !! Variable names,
 REAL(wp),INTENT(IN)           :: Values(:,:)      !! variable data
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name
 LOGICAL,INTENT(IN),OPTIONAL   :: append_in                  !! append data
@@ -46,8 +46,8 @@ CHARACTER(LEN=*),INTENT(IN),OPTIONAL   :: vfmt_in           !! value format
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                       :: nVal                    !! Number of output Values 
-INTEGER                       :: nPlot                   !! number of 1D values 
+INTEGER                       :: nVal                    !! Number of output Values
+INTEGER                       :: nPlot                   !! number of 1D values
 INTEGER                        :: iVal,iPlot,ioUnit
 LOGICAL                        :: append
 CHARACTER(LEN=10)              :: vfmt
@@ -72,13 +72,13 @@ IF(append)THEN
        FILE     = TRIM(FileString)   ,&
        STATUS   = 'OLD'   ,&
        POSITION = 'APPEND'   ,&
-       ACCESS   = 'SEQUENTIAL' ) 
+       ACCESS   = 'SEQUENTIAL' )
 ELSE
   WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO CSV FILE    "'//TRIM(FileString)//'" ...'
   OPEN(UNIT     = ioUnit       ,&
        FILE     = TRIM(FileString)   ,&
        STATUS   = 'REPLACE'   ,&
-       ACCESS   = 'SEQUENTIAL' ) 
+       ACCESS   = 'SEQUENTIAL' )
 END IF
 
 
@@ -95,7 +95,7 @@ CLOSE(ioUnit)
 
 WRITE(UNIT_stdOut,'(A)',ADVANCE='YES')"   DONE"
 END SUBROUTINE WriteDataToCSV
- 
- 
+
+
 
 END MODULE MODgvec_Output_CSV

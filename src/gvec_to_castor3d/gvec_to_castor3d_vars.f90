@@ -25,13 +25,13 @@ INTEGER            :: npfactor      !< factor theta,zeta resolution Ntheta=Facto
 INTEGER            :: SFLcoord      !< which angular coordinates to choose: =0: GVEC coord. (no SFL), =1: PEST SFL, =2: BOOZER SFL
 INTEGER            :: factorSFL     !< factor for SFL coordinates, mn_max_sfl=mn_max*factorSFL, default=3
 INTEGER            :: booz_relambda  !< flag if lambda is recomputed for boozer transform. default=1
-                                     !! =0: use lambda from equilibrium. =1: recompute lambda  (recommended,slower) 
+                                     !! =0: use lambda from equilibrium. =1: recompute lambda  (recommended,slower)
 TYPE(t_transform_sfl),ALLOCATABLE :: trafoSFL
 CHARACTER(LEN=700) :: cmdline       !< full command line stored
 !-----------------------------------------------------------------------------------------------------------------------------------
-! GLOBAL VARIABLES 
+! GLOBAL VARIABLES
 INTEGER               :: nfp_out            !< number of field periods
-INTEGER               :: asym_out           !< =0: symmetric configuration (R~cos,Z~sin,lambda~sin), =1 asymmetric 
+INTEGER               :: asym_out           !< =0: symmetric configuration (R~cos,Z~sin,lambda~sin), =1 asymmetric
 INTEGER               :: mn_max_out(2)      !< maximum number of modes in m,n
 INTEGER               :: Nthet_out          !< total number of points in theta direction theta[0,2pi (
 INTEGER               :: Nzeta_out          !< total number of points in zeta direction zeta[0,-2pi/NFP( opposite sign compared to GVEC!!
@@ -57,21 +57,21 @@ INTEGER,PARAMETER     :: FMIN__    =11
 INTEGER,PARAMETER     :: FMAX__    =12
 CHARACTER(LEN=50),DIMENSION(nVar1D),PARAMETER :: StrVarNames1D(nVar1D)=(/ CHARACTER(LEN=50) :: &
                            's'            & ! 1 : position s =sqrt(phi/phiEdge) [0,1]
-                          ,'Phi'          & ! 2 : toroidal flux 
+                          ,'Phi'          & ! 2 : toroidal flux
                           ,'dPhi_ds'      & ! 3 : derivative of toroidal flux to s coordinate
                           ,'Chi'          & ! 4 : poloidal flux
                           ,'dChi_ds'      & ! 5 : derivative of poloidal flux to s coordinate
                           ,'iota'         & ! 6 : iota profile
-                          ,'Pressure'     & ! 7 : pressure 
-                          ,'Itor'         & ! 8 : Toroidal current 
-                          ,'Ipol'         & ! 9 : Poloidal current 
+                          ,'Pressure'     & ! 7 : pressure
+                          ,'Itor'         & ! 8 : Toroidal current
+                          ,'Ipol'         & ! 9 : Poloidal current
                           ,'Favg'         & !10 : Only tokamaks(n=0!), toroidal magnetic field strength is F/R (averaged over theta)
                           ,'Fmin'         & !11 : F(s) is averaged over theta, Fmin(s) = min(F(s,theta))
                           ,'Fmax'         & !12 : F(s) is averaged over theta, Fmax(s) = max(F(s,theta))
                                     /)
 REAL(wp),ALLOCATABLE  :: data_1D(:,:)        !< 1D profiles size (nVar1D,Ns_out)
 
-!3D scalar data 
+!3D scalar data
 INTEGER,PARAMETER     :: nVarScalar3D=6           !< number of variabels in 3D data
 INTEGER,PARAMETER     :: X1__     = 1
 INTEGER,PARAMETER     :: X2__     = 2
@@ -85,11 +85,11 @@ CHARACTER(LEN=50),DIMENSION(nVarScalar3D),PARAMETER :: StrVarNamesScalar3D(nVarS
                           ,'Gzeta'       & ! 3 : map to geometric toroidal angle, phi = zeta+Gzeta
                           ,'sqrtG*B^thet'& ! 4 : theta component of magnetic field B^theta = B.grad(theta), scaled with sqrtG
                           ,'sqrtG*B^zeta'& ! 5 : zeta component of magnetic field B^theta =  B.grad(zeta) , scaled with sqrtG
-                          ,'sqrtG'       & ! 6 : Jacobian  
+                          ,'sqrtG'       & ! 6 : Jacobian
                                     /)
 REAL(wp),ALLOCATABLE  :: data_scalar3D(:,:,:,:)    !< Size (Nthet_out,Nzeta_out,Ns_out,nVar3D)
 
-!3D vector data 
+!3D vector data
 INTEGER,PARAMETER     :: nVarVector3D=4           !< number of variabels in 3D data
 INTEGER,PARAMETER     :: BFIELD__     = 1
 INTEGER,PARAMETER     :: ECOV_S__     = 2
@@ -102,10 +102,9 @@ CHARACTER(LEN=50),DIMENSION(nVarVector3D),PARAMETER :: StrVarNamesVector3D(nVarV
                           ,'ecov_zeta'        & ! 4 : covariant vector in zeta , (x,y,z) cartesian components
                                     /)
 REAL(wp),ALLOCATABLE  :: data_vector3D(:,:,:,:,:)    !< Size (3,Nthet_out,Nzeta_out,Ns_out,nVarVector3D)
-                                         
+
 !===================================================================================================================================
 
 
 
 END MODULE MODgvec_gvec_to_castor3d_Vars
-

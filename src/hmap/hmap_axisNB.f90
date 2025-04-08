@@ -8,7 +8,7 @@
 !>
 !!# Module ** hmap_axisNB **
 !!
-!! This map uses a given periodic input curve X0(zeta) along the curve parameter zeta in [0,2pi]. 
+!! This map uses a given periodic input curve X0(zeta) along the curve parameter zeta in [0,2pi].
 !! It is very similar to a Frenet-Serret frame (TNB frame), but with normal N and binormal B vectors as input functions as well.
 !! h:  X_0(\zeta) + q_1 N(\zeta) + q_2 B(\zeta)
 !! the tangent is T=X_0', and N and B are assumed to be continous along zeta, so no switches.
@@ -32,9 +32,9 @@ PUBLIC
 
 
 !---------------------------------------------------------------------------------------------------------------------------------
-!> Store data that can be precomputed on a set ot zeta points 
+!> Store data that can be precomputed on a set ot zeta points
 !> depends on hmap_axisNB, but could be used for different point sets in zeta
-! 
+!
 TYPE :: t_hmap_axisNB_aux
   INTEGER :: nzeta    !! size of zeta point positions
   REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions, size(1:nzeta_eval)
@@ -49,7 +49,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   ! parameters for hmap_axisNB:
   !INTEGER              :: nfp   !! already part of c_hmap. Is overwritten in init!
   !curve description
-  INTEGER              :: nzeta=0       !! number of points in zeta direction of the input axis 
+  INTEGER              :: nzeta=0       !! number of points in zeta direction of the input axis
   INTEGER              :: sgn_rot       !! sign of rotation around Z axis,  either +1 or -1: positive means that from one field period to the next,
                                         !! xyz rotate counterclockwise around the Z-axis (right hand rule), negative then clockwise.
   REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions in one field period (1:nzeta),  on 'half' grid: zeta(i)=(i-0.5)/nzeta*(2pi/nfp)
@@ -58,34 +58,34 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
   REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
   !fourier modes
-  REAL(wp),ALLOCATABLE :: xyz_hat_modes(:,:)   !! fourier modes of xhat,yhat,zhat on one field period, 
+  REAL(wp),ALLOCATABLE :: xyz_hat_modes(:,:)   !! fourier modes of xhat,yhat,zhat on one field period,
                                                !! x=cos(zeta)xhat-sgn_rot*sin(zeta)yhat,
                                                !! y=sin(zeta)xhat+sgn_rot*cos(zeta)yhat, z=zhat
   REAL(wp),ALLOCATABLE :: Nxyz_hat_modes(:,:)   !! 1d fourier modes of Nxyz, one field period
   REAL(wp),ALLOCATABLE :: Bxyz_hat_modes(:,:)   !! 1d fourier modes of Bxyz, one field period
-  
+
   CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
   TYPE(t_hmap_axisNB_aux)      :: aux !! container for preevaluations
   TYPE(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
- 
+
 
   CONTAINS
 
   PROCEDURE :: init          => hmap_axisNB_init
   PROCEDURE :: free          => hmap_axisNB_free
-  PROCEDURE :: eval          => hmap_axisNB_eval   
+  PROCEDURE :: eval          => hmap_axisNB_eval
   PROCEDURE :: init_aux      => hmap_axisNB_init_aux
   PROCEDURE :: free_aux      => hmap_axisNB_free_aux
   PROCEDURE :: eval_aux      => hmap_axisNB_eval_aux
   PROCEDURE :: eval_dxdq     => hmap_axisNB_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_axisNB_eval_Jh       
-  PROCEDURE :: eval_Jh_dq1   => hmap_axisNB_eval_Jh_dq1    
-  PROCEDURE :: eval_Jh_dq2   => hmap_axisNB_eval_Jh_dq2    
-  PROCEDURE :: eval_gij      => hmap_axisNB_eval_gij      
-  PROCEDURE :: eval_gij_dq1  => hmap_axisNB_eval_gij_dq1  
-  PROCEDURE :: eval_gij_dq2  => hmap_axisNB_eval_gij_dq2  
+  PROCEDURE :: eval_Jh       => hmap_axisNB_eval_Jh
+  PROCEDURE :: eval_Jh_dq1   => hmap_axisNB_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2   => hmap_axisNB_eval_Jh_dq2
+  PROCEDURE :: eval_gij      => hmap_axisNB_eval_gij
+  PROCEDURE :: eval_gij_dq1  => hmap_axisNB_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq2  => hmap_axisNB_eval_gij_dq2
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_axisNB:
   PROCEDURE :: eval_TNB     => hmap_axisNB_eval_TNB_hat
@@ -131,11 +131,11 @@ IMPLICIT NONE
   sf%ncfile=GETSTR("hmap_ncfile")
   IF(MPIroot)THEN
     ! read axis from netcdf
-    CALL ncfile_init(sf%nc,sf%ncfile,"r") 
+    CALL ncfile_init(sf%nc,sf%ncfile,"r")
     CALL ReadNETCDF(sf)
- 
 
-    sf%sgn_rot=1 
+
+    sf%sgn_rot=1
     IF(sf%nfp.GT.2)THEN !no need to check for nfp=1 and nfp=2 is either a positive or negative rotation by pi
       IF(SUM((sf%xyz(:,1+sf%nzeta) -  rodrigues(sf%xyz(:,1),TWOPI/REAL(sf%nfp,wp)))**2).LT.1.0e-12)THEN
          sf%sgn_rot=1
@@ -150,14 +150,14 @@ IMPLICIT NONE
 
     sf%n_max=(sf%nzeta-1)/2 ! maximum mode number on a field period
 
-  
+
   END IF !MPIroot
   CALL par_BCast(sf%nzeta,0)
   CALL par_BCast(sf%nfp,0)
   CALL par_BCast(sf%n_max,0)
   CALL par_Bcast(sf%sgn_rot,0)
   IF(.NOT.MPIroot) CALL allocate_readin_vars(sf)
-  CALL par_Bcast(sf%zeta,0)  
+  CALL par_Bcast(sf%zeta,0)
   CALL par_Bcast(sf%xyz,0)
   CALL par_Bcast(sf%Nxyz,0)
   CALL par_Bcast(sf%Bxyz,0)
@@ -178,10 +178,10 @@ IMPLICIT NONE
     sf%Bxyz_hat_modes=transform_to_hat(sf%Bxyz,"Bxyz to Bxyzhat")
     DEALLOCATE(cosz,sinz)
 
-    nvisu=GETINT("hmap_nvisu",2*(sf%n_max*sf%nfp+1)) 
+    nvisu=GETINT("hmap_nvisu",2*(sf%n_max*sf%nfp+1))
 
     IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
-  
+
     CALL CheckFieldPeriodicity(sf,sf%sgn_rot,error_nfp)
     IF(error_nfp.LT.0) &
        CALL abort(__STAMP__, &
@@ -201,12 +201,12 @@ IMPLICIT NONE
   !------------------
   CONTAINS
   !------------------
-  !! transform from full period cartesian coordinates to one-field period "hat" cartesian coordinates, 
-  !! by rotating around the zaxis with the local angle zeta, 
+  !! transform from full period cartesian coordinates to one-field period "hat" cartesian coordinates,
+  !! by rotating around the zaxis with the local angle zeta,
   !! with the sign given by which direction xyz(zeta=0) rotates to xyz(zeta=2pi/nfp)
   !! INVERSION OF: x=cos(zeta)*xhat - sgn_rot*sin(zeta)*yhat,
   !!               y=cos(zeta)*yhat + sgn_rot*sin(zeta)*xhat, z <=> zhat
-  !! ==>           xhat=cos(zeta)x+sgn_rot*sin(zeta)y, 
+  !! ==>           xhat=cos(zeta)x+sgn_rot*sin(zeta)y,
   !!               yhat=cos(zeta)y-sgn_rot*sin(zeta)x,
   !! check that all points on full period are the same in the xhat,yhat,zhat coordinates
   !! NOTE THIS FUNCTION IS USING sinz=sin(zeta),cosz=cos(zeta) and sgn_rot computed above!!!!
@@ -262,7 +262,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
   CALL sf%free_aux()
-  
+
   SDEALLOCATE(sf%zeta)
   SDEALLOCATE(sf%xyz)
   SDEALLOCATE(sf%Nxyz)
@@ -299,14 +299,14 @@ SUBROUTINE hmap_axisNB_init_aux( sf ,nzeta_aux,zeta_aux)
     CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
   !===================================================================================================================================
   IF(sf%aux%nzeta.NE.0) CALL sf%free_aux()
-  sf%aux%nzeta=nzeta_aux  
+  sf%aux%nzeta=nzeta_aux
   ALLOCATE(sf%aux%zeta(nzeta_aux))
   sf%aux%zeta=zeta_aux
   ALLOCATE(sf%aux%X0(3,nzeta_aux))
   ALLOCATE(sf%aux%T  ,sf%aux%N  ,sf%aux%B  ,sf%aux%Np ,sf%aux%Bp ,mold=sf%aux%X0)
   ALLOCATE(sf%aux%NN ,sf%aux%BB ,sf%aux%NB ,sf%aux%NpN, &
            sf%aux%NpB,sf%aux%BpN,sf%aux%BpB,    mold=sf%aux%zeta)
-  
+
 END SUBROUTINE hmap_axisNB_init_aux
 
 !===================================================================================================================================
@@ -321,7 +321,7 @@ SUBROUTINE hmap_axisNB_free_aux( sf)
     CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
   !===================================================================================================================================
     IF(sf%aux%nzeta.NE.0)THEN !ALLOCATED
-      sf%aux%nzeta=0 
+      sf%aux%nzeta=0
       DEALLOCATE(sf%aux%X0,sf%aux%T,sf%aux%N,sf%aux%B,sf%aux%Np,sf%aux%Bp)
       DEALLOCATE(sf%aux%zeta,sf%aux%NN,sf%aux%BB,sf%aux%NB,sf%aux%NpN,sf%aux%NpB,sf%aux%BpN,sf%aux%BpB)
     END IF
@@ -344,7 +344,7 @@ SUBROUTINE hmap_axisNB_eval_aux(sf)
   ! LOCAL VARIABLES
     INTEGER :: izeta
   !===================================================================================================================================
-!$OMP PARALLEL DO &  
+!$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta)
   DO izeta=1,sf%aux%nzeta
     CALL sf%eval_TNB(sf%aux%zeta(izeta),sf%aux%X0(:,izeta),sf%aux%T(:,izeta),sf%aux%N(:,izeta), &
@@ -372,7 +372,7 @@ END SUBROUTINE hmap_axisNB_eval_aux
 !!     Thus the number of points along the axis for a full turn is NFP*nzeta
 !!   * definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
 !!
-!!      {x,y,z}(rho,theta,zeta)={x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
+!!      {x,y,z}(rho,theta,zeta)={x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)
 !!
 !! === DATA DESCRIPTION
 !! - general data
@@ -387,9 +387,9 @@ END SUBROUTINE hmap_axisNB_eval_aux
 !!   * 'axis/Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* nzeta), evaluated analogously to the axis
 !!   * 'axis/Bxyz(::)': cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
 !! - boundary data group:
-!!   * 'boundary/m_max'    : maximum mode number in theta 
+!!   * 'boundary/m_max'    : maximum mode number in theta
 !!   * 'boundary/n_max'    : maximum mode number in zeta (in one field period)
-!!   * 'boundary/lasym'    : asymmetry, logical. 
+!!   * 'boundary/lasym'    : asymmetry, logical.
 !!                            if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
 !!                              X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
 !!                              Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
@@ -401,13 +401,13 @@ END SUBROUTINE hmap_axisNB_eval_aux
 !!   * 'boundary/X(::)',
 !!     'boundary/Y(::)'     : boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
 !!                               X[i, j]=X(theta[i],zeta[j])
-!!                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1                                         
-!! 
+!!                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
+!!
 !! ---- PLASMA PARAMETERS:
 !!  ....
 !! ======= END HEADER,START DATA ===================================================================================
-!! 
-!! NOTE THAT ONLY THE AXIS DATA IS NEEDED FOR THE AXIS DEFINITION 
+!!
+!! NOTE THAT ONLY THE AXIS DATA IS NEEDED FOR THE AXIS DEFINITION
 !===================================================================================================================================
 SUBROUTINE ReadNETCDF(sf)
   USE MODgvec_io_netcdf
@@ -426,14 +426,14 @@ SUBROUTINE ReadNETCDF(sf)
   CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
   !sf%nzeta=sf%nc%get_dimension("axis/nzeta")
   CALL sf%nc%get_scalar("axis/nzeta",intout=sf%nzeta)
-  
+
   CALL allocate_readin_vars(sf)
   CALL sf%nc%get_array("axis/zeta(:)",realout_1d=sf%zeta)
 
   CALL sf%nc%get_array("axis/xyz(::)",realout_2d=sf%xyz)
-  
+
   CALL sf%nc%get_array("axis/Nxyz(::)",realout_2d=sf%Nxyz)
-  
+
   CALL sf%nc%get_array("axis/Bxyz(::)",realout_2d=sf%Bxyz)
   !SWRITE(*,*)'DEBUG,zeta(1)',sf%zeta(1)
   !SWRITE(*,*)'DEBUG,xyz(1:3,1)',sf%xyz(1:3,1)
@@ -456,7 +456,7 @@ SUBROUTINE allocate_readin_vars(sf)
 END SUBROUTINE allocate_readin_vars
 
 !===================================================================================================================================
-!> Check that the TNB frame  really has the field periodicity of NFP: 
+!> Check that the TNB frame  really has the field periodicity of NFP:
 !! assumption for now is that the origin is fixed at rot_origin=(/0.,0.,0./)
 !! and the rotation axis is fixed at rot_axis=(/0.,0.,1./)
 !! sign of the rotation 'sgn_rot' is now accounted for in the transformation to xhat, so it has to be passed here.
@@ -482,15 +482,15 @@ IMPLICIT NONE
   error_nfp=0
 
   dzeta_fp=TWOPI/REAL(sf%nfp,wp)
-  CALL sf%eval_TNB(sf%zeta(1),X0_a,T,N_a,B_a,Np,Bp) 
-  CALL sf%eval_TNB(sf%zeta(1)+dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
+  CALL sf%eval_TNB(sf%zeta(1),X0_a,T,N_a,B_a,Np,Bp)
+  CALL sf%eval_TNB(sf%zeta(1)+dzeta_fp,X0_b,T,N_b,B_b,Np,Bp)
   DO ifp=0,sf%nfp
     error_x=0
     error_n=0
     error_b=0
     DO iz=1,sf%nzeta
-      CALL sf%eval_TNB(sf%zeta(iz)+ ifp*dzeta_fp   ,X0_a,T,N_a,B_a,Np,Bp) 
-      CALL sf%eval_TNB(sf%zeta(iz)+(ifp+1)*dzeta_fp,X0_b,T,N_b,B_b,Np,Bp) 
+      CALL sf%eval_TNB(sf%zeta(iz)+ ifp*dzeta_fp   ,X0_a,T,N_a,B_a,Np,Bp)
+      CALL sf%eval_TNB(sf%zeta(iz)+(ifp+1)*dzeta_fp,X0_b,T,N_b,B_b,Np,Bp)
       IF(.NOT.(SUM((X0_b -  rodrigues(X0_a,sgn_rot*dzeta_fp))**2).LT.1.0e-12))THEN
         error_x=error_x+1
       END IF
@@ -502,13 +502,13 @@ IMPLICIT NONE
       END IF
     END DO !iz
     IF(error_x.NE.0)THEN
-      WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two axis points do not match at NFP' 
+      WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two axis points do not match at NFP'
       error_nfp=-10
       IF(error_n.NE.0)THEN
-        WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two normal vectors do not match at NFP' 
+        WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two normal vectors do not match at NFP'
         error_nfp=-20
       ELSEIF(error_b.NE.0)THEN
-        WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two bi-normal vectors do not match at NFP' 
+        WRITE(UNIT_stdOut,*)'problem in CheckFieldPeriodicity: at least one pair of two bi-normal vectors do not match at NFP'
         error_nfp=-30
       END IF
     END IF
@@ -528,7 +528,7 @@ FUNCTION rodrigues(pos,angle) RESULT(pos_rot)
   !---------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
   REAL(wp) :: pos(3),angle
-  !---------------------------------------------------------------------------------------------------------------------------------  
+  !---------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
   REAL(wp) :: pos_rot(3)
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -538,7 +538,7 @@ FUNCTION rodrigues(pos,angle) RESULT(pos_rot)
   REAL(wp),PARAMETER :: axis(1:3)=(/0.,0.,1./)   !! rotation axis (unit length), needed for checking field periodicity
   !=================================================================================================================================
   vec=pos-origin
-  vec_rot = vec*COS(angle)+CROSS(axis,vec)*SIN(angle)+axis*SUM(axis*vec)*(1.0_wp-COS(angle)) 
+  vec_rot = vec*COS(angle)+CROSS(axis,vec)*SIN(angle)+axis*SUM(axis*vec)*(1.0_wp-COS(angle))
   pos_rot=origin+vec_rot
 END FUNCTION rodrigues
 
@@ -566,7 +566,7 @@ IMPLICIT NONE
   INTEGER               :: iVar,ivisu
   INTEGER,PARAMETER     :: nVars=21
   CHARACTER(LEN=20)     :: VarNames(1:nVars)
-  REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1) 
+  REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1)
 !===================================================================================================================================
   IF(nvisu.LE.0) RETURN
   iVar=0
@@ -579,11 +579,11 @@ IMPLICIT NONE
   VarNames(iVar+1       )="zeta"               ;iVar=iVar+1
   VarNames(iVar+1       )="zeta_norm"          ;iVar=iVar+1
   VarNames(iVar+1       )="lprime"             ;iVar=iVar+1
-  
+
 !  values=0.
   DO ivisu=1,nvisu*sf%nfp+1
     zeta=(0.5_wp+REAL(ivisu-1,wp))/REAL(nvisu*sf%nfp,wp)*TWOPI
-    CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+    CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
     lp=SQRT(SUM(T*T))
     iVar=0
     values(ivar+1:iVar+3,ivisu)=X0                 ;iVar=iVar+3
@@ -610,7 +610,7 @@ IMPLICIT NONE
 END SUBROUTINE Visu_axisNB
 
 !===================================================================================================================================
-!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z) 
+!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_eval( sf ,q_in) RESULT(x_out)
@@ -630,12 +630,12 @@ IMPLICIT NONE
   ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
   ! X(:) = (x,y,z) are the variables in the range of the map
   !
-  !  |x |  
+  !  |x |
   !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
-  !  |z |  
- 
+  !  |z |
+
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   x_out=X0 +(q1*N + q2*B)
   END ASSOCIATE
 END FUNCTION hmap_axisNB_eval
@@ -661,15 +661,15 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
-  !  |x |  
+  !  |x |
   !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
-  !  |z |  
-  !  dh/dq1 =N , dh/dq2=B 
+  !  |z |
+  !  dh/dq1 =N , dh/dq2=B
   !  dh/dq3 = t + q1 N' + q2 * B'
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   dxdq_qvec(1:3)= N(:)*q_vec(1)+B(:)*q_vec(2)+(T(:)+q1*Np(:)+q2*Bp(:))*q_vec(3)
-                                                  
+
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_dxdq
 
@@ -681,7 +681,7 @@ END FUNCTION hmap_axisNB_eval_dxdq
 SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,q1_in,q2_in,q1_thet,q2_thet,q1_zeta,q2_zeta, &
                                 Jh,g_tt    ,g_tz    ,g_zz    , &
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
-                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  ) 
+                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  )
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -697,7 +697,7 @@ IMPLICIT NONE
                                                                   Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,j,k                                                                
+  INTEGER :: i,j,k
   !===================================================================================================================================
 #define OMPDEF PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
 #define TEMPLATE_LOOP(IZT) \
@@ -748,9 +748,9 @@ PURE SUBROUTINE eval_all_e(aux,iz,q1,q2,q1t,q2t,q1z,q2z, &
 ! INPUT VARIABLES
   TYPE(t_hmap_axisNB_aux),INTENT(IN) :: aux
   INTEGER ,INTENT(IN)  :: iz
-  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2 
-  REAL(wp),INTENT(IN)  :: q1t,q2t     !! theta derivative of solution variables q1,q2 
-  REAL(wp),INTENT(IN)  :: q1z,q2z     !!  zeta derivative of solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
+  REAL(wp),INTENT(IN)  :: q1t,q2t     !! theta derivative of solution variables q1,q2
+  REAL(wp),INTENT(IN)  :: q1z,q2z     !!  zeta derivative of solution variables q1,q2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
@@ -778,7 +778,7 @@ PURE SUBROUTINE eval_all_e(aux,iz,q1,q2,q1t,q2t,q1z,q2z, &
   !! template for g_ab
   !! q1q1_ab = q1a*q1b
   !! q2q2_ab = q2a*q2b
-  !! q3q3_ab = q3a*q3b 
+  !! q3q3_ab = q3a*q3b
   !! q1q2_ab  = (q1a*q2b+q2a*q1b)
   !! q1q3_ab  = (q1a*q3b+q3a*q1b)
   !! q2q3_ab  = (q2a*q3b+q3a*q2b)
@@ -822,7 +822,7 @@ END SUBROUTINE eval_all_e
 
 
 !===================================================================================================================================
-!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta) 
+!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_eval_Jh( sf ,q_in) RESULT(Jh)
@@ -840,7 +840,7 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   Jh=SUM((T+q1*Np+q2*Bp)*CROSS(N,B))  ! Tq. (N x B)
   IF(Jh .LT. 1.0e-8) &
       CALL abort(__STAMP__, &
@@ -850,7 +850,7 @@ END FUNCTION hmap_axisNB_eval_Jh
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
@@ -867,14 +867,14 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   Jh_dq1=SUM(Np*CROSS(N,B))  ! Tq. (N x B)
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh_dq1
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
@@ -891,7 +891,7 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   Jh_dq2=SUM(Bp*CROSS(N,B))
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh_dq2
@@ -899,7 +899,7 @@ END FUNCTION hmap_axisNB_eval_Jh_dq2
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -917,18 +917,18 @@ FUNCTION hmap_axisNB_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
 !===================================================================================================================================
-  !                       |q1  |   |N.N   B.N   Tq.N |        |q1  |  
+  !                       |q1  |   |N.N   B.N   Tq.N |        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |N.B   B.B   Tq.B | (dbeta |q2  | )
-  !                       |q3  |   |N.Tq  B.Tq  Tq.Tq|        |q3  |  
+  !                       |q3  |   |N.Tq  B.Tq  Tq.Tq|        |q3  |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   Tq=(T+q1*Np+q2*Bp)
   g_ab=    SUM( N* N)*qL_in(1)*qR_in(1) &
          + SUM( B* B)*qL_in(2)*qR_in(2) &
          + SUM(Tq*Tq)*qL_in(3)*qR_in(3) &
          + SUM( N* B)*(qL_in(1)*qR_in(2)+qL_in(2)*qR_in(1)) &
          + SUM( N*Tq)*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) &
-         + SUM( B*Tq)*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))  
+         + SUM( B*Tq)*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))
 
   END ASSOCIATE
 END FUNCTION hmap_axisNB_eval_gij
@@ -936,8 +936,8 @@ END FUNCTION hmap_axisNB_eval_gij
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -953,15 +953,15 @@ FUNCTION hmap_axisNB_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
 !===================================================================================================================================
-  !                            |q1  |   |0     0      N'.N  |        |q1  |  
+  !                            |q1  |   |0     0      N'.N  |        |q1  |
   !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0     0      N'.B  | (dbeta |q2  | )
-  !                            |q3  |   |N.N'  B.N'  2N'.Tq |        |q3  |  
+  !                            |q3  |   |N.N'  B.N'  2N'.Tq |        |q3  |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   Tq=(T+q1*Np+q2*Bp)
 
   g_ab_dq1 =         SUM(N *Np)*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
-             +       SUM(B *Np)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) & 
+             +       SUM(B *Np)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
              +2.0_wp*SUM(Tq*Np)*(qL_in(3)*qR_in(3))
 
   END ASSOCIATE
@@ -970,8 +970,8 @@ END FUNCTION hmap_axisNB_eval_gij_dq1
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -987,15 +987,15 @@ FUNCTION hmap_axisNB_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
 !===================================================================================================================================
-  !                            |q1  |   |0     0      B'.N  |        |q1  |  
+  !                            |q1  |   |0     0      B'.N  |        |q1  |
   !q_i dG_ij/dq2 q_j = (dalpha |q2  | ) |0     0      B'.B  | (dbeta |q2  | )
-  !                            |q3  |   |N.B'  B.B'  2B'.Tq |        |q3  |  
+  !                            |q3  |   |N.B'  B.B'  2B'.Tq |        |q3  |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp) 
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
   Tq=(T+q1*Np+q2*Bp)
 
   g_ab_dq2 =         SUM(N *Bp)*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
-             +       SUM(B *Bp)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) & 
+             +       SUM(B *Bp)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
              +2.0_wp*SUM(Tq*Bp)*(qL_in(3)*qR_in(3))
 
   END ASSOCIATE
@@ -1025,8 +1025,8 @@ IMPLICIT NONE
   REAL(wp)            , INTENT(OUT) :: Bp(1:3)      !! derivative of bi-Normal in zeta  (B')
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp)                      :: base_x(sf%fb_hat%modes) 
-  REAL(wp)                      :: base_dxdz(sf%fb_hat%modes) 
+  REAL(wp)                      :: base_x(sf%fb_hat%modes)
+  REAL(wp)                      :: base_dxdz(sf%fb_hat%modes)
   REAL(wp)                      :: cosz,sinz
   REAL(wp),DIMENSION(3)         :: X0_hat,T_hat,N_hat,B_hat,Np_hat,Bp_hat
 !===================================================================================================================================
@@ -1050,14 +1050,14 @@ IMPLICIT NONE
   !dX0/dzeta:
   T= (/(T_hat(1)-sf%sgn_rot*X0_hat(2))*cosz - (sf%sgn_rot*T_hat(2)+X0_hat(1))*sinz, &
        (sf%sgn_rot*T_hat(1)-X0_hat(2))*sinz + (T_hat(2)+sf%sgn_rot*X0_hat(1))*cosz, &
-       T_hat(3)/) 
+       T_hat(3)/)
   !transform N to x,y,z
   N=(/N_hat(1)*cosz - sf%sgn_rot*N_hat(2)*sinz, &
       N_hat(2)*cosz + sf%sgn_rot*N_hat(1)*sinz, &
       N_hat(3)/)
   !dN/dzeta:
   Np= (/(Np_hat(1)-sf%sgn_rot*N_hat(2))*cosz - (sf%sgn_rot*Np_hat(2)+N_hat(1))*sinz, &
-        (sf%sgn_rot*Np_hat(1)-N_hat(2))*sinz + (Np_hat(2)+sf%sgn_rot*N_hat(1))*cosz, &  
+        (sf%sgn_rot*Np_hat(1)-N_hat(2))*sinz + (Np_hat(2)+sf%sgn_rot*N_hat(1))*cosz, &
          Np_hat(3)/)
   !transform B to x,y,z
   B=(/B_hat(1)*cosz - sf%sgn_rot*B_hat(2)*sinz, &
@@ -1065,8 +1065,8 @@ IMPLICIT NONE
       B_hat(3)/)
   !dB/dzeta:
   Bp= (/(Bp_hat(1)-sf%sgn_rot*B_hat(2))*cosz - (sf%sgn_rot*Bp_hat(2)+B_hat(1))*sinz, &
-        (sf%sgn_rot*Bp_hat(1)-B_hat(2))*sinz + (Bp_hat(2)+sf%sgn_rot*B_hat(1))*cosz, &  
-         Bp_hat(3)/)  
+        (sf%sgn_rot*Bp_hat(1)-B_hat(2))*sinz + (Bp_hat(2)+sf%sgn_rot*B_hat(1))*cosz, &
+         Bp_hat(3)/)
 
 END SUBROUTINE hmap_axisNB_eval_TNB_hat
 
@@ -1140,7 +1140,7 @@ IMPLICIT NONE
        nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
      '\n =>  should be ', refreal,' : |y-eval_map(x)|= ', checkreal, " ,izeta=",izeta
     END IF !TEST
-    
+
     !evaluate at q1=0.,q2=0.2 (= x+0.*N+0.2*B)
     iTest=120+i ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     q_in=(/0.0_wp,0.2_wp, sf%zeta(izeta)/)
@@ -1183,7 +1183,7 @@ IMPLICIT NONE
       dxdq = sf%eval_dxdq(q_in,q_test(qdir,:))
       checkreal=SQRT(SUM((dxdq - (x_eps-x)/epsFD)**2)/SUM(x*x))
       refreal = 0.0_wp
-      
+
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
               '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
@@ -1195,7 +1195,7 @@ IMPLICIT NONE
     !! TEST G_ij
     DO idir=1,3; DO jdir=1,3
       iTest=150+idir+3*(jdir-1) ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal= SUM(sf%eval_dxdq(q_in,q_test(idir,:))*sf%eval_dxdq(q_in,q_test(jdir,:))) 
+      checkreal= SUM(sf%eval_dxdq(q_in,q_test(idir,:))*sf%eval_dxdq(q_in,q_test(jdir,:)))
       refreal  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1204,7 +1204,7 @@ IMPLICIT NONE
        '\n =>  should be ', refreal,' : sum|Gij-eval_gij|= ', checkreal,', i=',idir,', j=',jdir
       END IF !TEST
     END DO; END DO
-    !! TEST dG_ij_dq1 with FD 
+    !! TEST dG_ij_dq1 with FD
     DO qdir=1,2
     DO idir=1,3; DO jdir=1,3
       iTest=160+idir+3*(jdir-1); IF(testdbg)WRITE(*,*)'iTest=',iTest
@@ -1223,9 +1223,9 @@ IMPLICIT NONE
     END DO; END DO
     END DO
 
-    
-      
-    
+
+
+
  END IF !testlevel >=1
  IF (testlevel .GE. 2) THEN
     DO izeta=1,nzeta
@@ -1249,14 +1249,14 @@ IMPLICIT NONE
       ALLOCATE(q2,q1t,q2t,q1z,q2z,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                mold=q1)
       !assign somewhat randomly
-      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)  
+      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
         q1(i,j,k) = 0.11_wp -0.22_wp *REAL((i+j)*k,wp)/REAL((ndims(idir)+ndims(jdir))*ndims(kdir),wp)
         q2(i,j,k) = 0.15_wp -0.231_wp*REAL((i+k)*j,wp)/REAL((ndims(idir)+ndims(kdir))*ndims(jdir),wp)
         q1t(i,j,k)=-0.1_wp  +0.211_wp*REAL((i+2*j)*k,wp)/REAL((ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
         q2t(i,j,k)= 0.231_wp-0.116_wp*REAL((2*i+k)*j,wp)/REAL((2*ndims(idir)+ndims(kdir))*ndims(jdir),wp)
         q1z(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
         q2z(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
-      END DO; END DO; END DO 
+      END DO; END DO; END DO
       CALL hmap_axisNB_eval_all(sf,ndims,idir,q1,q2,q1t,q2t,q1z,q2z, &
            Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
       DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
@@ -1274,7 +1274,7 @@ IMPLICIT NONE
         !g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_ ()
         !g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_ ()
         !g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_ ()
-      END DO; END DO; END DO 
+      END DO; END DO; END DO
       iTest=200+idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
       checkreal=SUM(ABS(Jh))/REAL(ns*nthet*nzeta,wp)
       refreal=0.0_wp
@@ -1286,13 +1286,12 @@ IMPLICIT NONE
       END IF
       DEALLOCATE(q1,q2,q1t,q2t,q1z,q2z,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2)
     END DO !idir
-    CALL sf%free_aux()  
+    CALL sf%free_aux()
  END IF
- 
+
  test_called=.FALSE. ! to prevent infinite loop in this routine
- 
+
 
 END SUBROUTINE hmap_axisNB_test
 
 END MODULE MODgvec_hmap_axisNB
-

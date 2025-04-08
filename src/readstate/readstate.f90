@@ -55,7 +55,7 @@ CONTAINS
 
 
 !===================================================================================================================================
-!> read an input solution and initialize U(0) (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file 
+!> read an input solution and initialize U(0) (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file
 !! if size of grid/X1/X2/LA  not equal X1/X2/X3_base
 !! interpolate readin solution to the current base of Uin
 !!
@@ -67,7 +67,7 @@ USE MODgvec_Globals,ONLY: Unit_stdOut,GETFREEUNIT,abort
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
 USE MODgvec_sbase,  ONLY: sbase_new
-USE MODgvec_fbase,  ONLY: sin_cos_map 
+USE MODgvec_fbase,  ONLY: sin_cos_map
 USE MODgvec_hmap,  ONLY: hmap_new
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -90,14 +90,14 @@ IMPLICIT NONE
   INTEGER              :: iGP
   REAL                 :: chi_int, iota_int, phi_edge,  ds
   REAL(wp),ALLOCATABLE :: w_GP(:),s_GP(:), chi_IP(:)
-  
+
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                        "ReadState should only be called by MPIroot!")
   WRITE(UNIT_stdOut,'(A)')'   READ STATEFILE    "'//TRIM(FileString)//'" ...'
 
   INQUIRE(FILE=TRIM(FileString), EXIST=file_exists)
-  
+
   IF(.NOT.file_exists) CALL abort(__STAMP__, &
         TRIM("STATEFILE: "//TRIM(FileString)//" DOES NOT EXIST!!"))
   ioUnit=GETFREEUNIT()
@@ -105,7 +105,7 @@ IMPLICIT NONE
      FILE     = TRIM(FileString) ,&
      STATUS   = 'OLD'            ,&
      ACTION   = 'READ'           ,&
-     ACCESS   = 'SEQUENTIAL' ) 
+     ACCESS   = 'SEQUENTIAL' )
 
   READ(ioUnit,*) !## MHD3D Solution file
   READ(ioUnit,*) outputLevel_r,fileID_r
@@ -117,11 +117,11 @@ IMPLICIT NONE
   READ(ioUnit,*)sp_r(:)
   READ(ioUnit,*) !## global: nfp, degGP, mn_nyq
   READ(ioUnit,*) nfp_r, degGP_r,mn_nyq_r,which_hmap_r
-  READ(ioUnit,*) !## X1_base: 
+  READ(ioUnit,*) !## X1_base:
   READ(ioUnit,*) X1_nBase_r,X1_deg_r,X1_cont_r,X1_modes_r,X1_sin_cos_r,X1_excl_mn_zero_r
-  READ(ioUnit,*) !## X2_base:                 
+  READ(ioUnit,*) !## X2_base:
   READ(ioUnit,*) X2_nBase_r,X2_deg_r,X2_cont_r,X2_modes_r,X2_sin_cos_r,X2_excl_mn_zero_r
-  READ(ioUnit,*) !## LA_base:                 
+  READ(ioUnit,*) !## LA_base:
   READ(ioUnit,*) LA_nBase_r,LA_deg_r,LA_cont_r,LA_modes_r,LA_sin_cos_r,LA_excl_mn_zero_r
 
   ALLOCATE(X1_r(1:X1_nbase_r,1:X1_modes_r))
@@ -132,23 +132,23 @@ IMPLICIT NONE
   ALLOCATE(X1_mn_r(2,1:X1_modes_r))
   ALLOCATE(X2_mn_r(2,1:X2_modes_r))
   ALLOCATE(LA_mn_r(2,1:LA_modes_r))
-  READ(ioUnit,*) !## X1: 
+  READ(ioUnit,*) !## X1:
   DO iMode=1,X1_modes_r
     READ(ioUnit,*)X1_mn_r(:,iMode),X1_r(:,iMode)
   END DO
-  READ(ioUnit,*) !## X2: 
+  READ(ioUnit,*) !## X2:
   DO iMode=1,X2_modes_r
     READ(ioUnit,*)X2_mn_r(:,iMode),X2_r(:,iMode)
   END DO
-  READ(ioUnit,*) !## LA: 
+  READ(ioUnit,*) !## LA:
   DO iMode=1,LA_modes_r
     READ(ioUnit,*)LA_mn_r(:,iMode),LA_r(:,iMode)
   END DO
-  READ(ioUnit,*) !## profiles at X1_base IP points : spos,phi,chi,iota,pressure 
+  READ(ioUnit,*) !## profiles at X1_base IP points : spos,phi,chi,iota,pressure
   DO is=1,X1_nbase_r
     READ(ioUnit,*)profiles_IP(is,:)
   END DO
-  READ(ioUnit,*) !## a_minor,r_major,volume 
+  READ(ioUnit,*) !## a_minor,r_major,volume
   READ(ioUnit,*)a_minor,r_major,volume
 
   CLOSE(ioUnit)
@@ -205,7 +205,7 @@ IMPLICIT NONE
   profiles_1d(:, 2) = X1_base_r%s%initDOF(chi_IP)
 
   DEALLOCATE(s_GP, w_GP, chi_IP)
-  
+
   DEALLOCATE(sp_r,profiles_IP)
   DEALLOCATE(X1_mn_r)
   DEALLOCATE(X2_mn_r)
@@ -213,7 +213,7 @@ IMPLICIT NONE
 
 
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
-END SUBROUTINE ReadStateFileFromASCII 
+END SUBROUTINE ReadStateFileFromASCII
 
 !===================================================================================================================================
 !> Evaluate phi profile from restart data
@@ -313,7 +313,7 @@ END FUNCTION eval_prof_r
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE Finalize_ReadState 
+SUBROUTINE Finalize_ReadState
 ! MODULES
 USE MODgvec_Globals,ONLY: abort
 USE MODgvec_ReadState_Vars

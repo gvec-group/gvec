@@ -31,7 +31,7 @@ contains
   !>  @brief
   !>  Print warning message to standard-error and continue execution.
   !>  @details
-  !>  
+  !>
   !----------------------------------------------------------------------------
   subroutine sll_s_warning_handler( file_name, line_num, caller, message )
     character(len=*), intent(in) :: file_name !< file name
@@ -47,7 +47,7 @@ contains
   !>  @brief
   !>  Print error message to standard-error, stop execution and dump backtrace information.
   !>  @details
-  !>  
+  !>
   !----------------------------------------------------------------------------
   subroutine sll_s_error_handler( file_name, line_num, caller, message )
     character(len=*), intent(in) :: file_name !< file name
@@ -64,10 +64,10 @@ contains
   !>  @brief
   !>  Write error/warning message to a given unit.
   !>  @details
-  !>  
+  !>
   !----------------------------------------------------------------------------
   subroutine errout( out_unit, severity, file_name, line_num, caller, message )
-                     
+
     integer         , intent(in) :: out_unit  !< output file unit number
     character(len=1), intent(in) :: severity  !< "W" or "F" : Warning or Fatal
     character(len=*), intent(in) :: file_name !< file name

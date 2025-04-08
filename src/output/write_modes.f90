@@ -8,7 +8,7 @@
 !>
 !!# Module **write_modes**
 !!
-!! Analyze and output equilibrium data 
+!! Analyze and output equilibrium data
 !!
 !===================================================================================================================================
 MODULE MODgvec_write_modes
@@ -27,7 +27,7 @@ PUBLIC::write_modes
 CONTAINS
 
 !===================================================================================================================================
-!> write modes prepared above 
+!> write modes prepared above
 !!
 !===================================================================================================================================
 SUBROUTINE write_modes(fname,vname,nval,modes,xm,xn,coord,rho_first,values_in,VarNames_in)
@@ -85,14 +85,14 @@ IMPLICIT NONE
 !  DO i=1,nVal
 !    max_loc_val(i)=coord(MAXLOC(ABS(values_in(i,:)),1))
 !    Varnames_max(i)=TRIM(VarNames_in(i))//'_maxloc'
-!  END DO 
+!  END DO
 !  CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
 !                             ,TRIM(fname) &
 !                             ,append_in=.TRUE.,vfmt_in='E15.5')
 !  DO i=1,nVal
 !    max_loc_val(i)=      MAXVAL(ABS(values_in(i,:)))+1.0E-12
 !    Varnames_max(i)=TRIM(VarNames_in(i))//'_maxval'
-!  END DO 
+!  END DO
 !  CALL WriteDataToCSV(VarNames_max(:) ,RESHAPE(max_loc_val(:),(/nval,1/)) &
 !                             ,TRIM(fname) &
 !                             ,append_in=.TRUE.,vfmt_in='E15.5')

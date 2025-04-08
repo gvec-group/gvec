@@ -11,7 +11,7 @@
 !! 2D Fourier base in the two angular directions: (poloidal,toroidal) ~ (m,n) ~ (theta,zeta) [0,2pi]x[0,2pi/nfp]
 !!
 !! explicit real fourier basis: sin(x_mn) or cos(x_mn) with x_mn=(m*theta - n*nfp*zeta)  ,
-!! with mode numbers m and n 
+!! with mode numbers m and n
 !!
 !===================================================================================================================================
 MODULE MODgvec_base
@@ -26,7 +26,7 @@ PRIVATE
 PUBLIC t_base, base_new
 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
+! TYPES
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 TYPE                 :: t_base
@@ -36,7 +36,7 @@ TYPE                 :: t_base
 
   CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
   TYPE(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
-  
+
   CONTAINS
 
   PROCEDURE :: free        => base_free
@@ -55,7 +55,7 @@ LOGICAL  :: test_called=.FALSE.
 CONTAINS
 
 !===================================================================================================================================
-!> allocate and initialize the type base 
+!> allocate and initialize the type base
 !!
 !===================================================================================================================================
 SUBROUTINE Base_new( sf,deg_in,continuity_in,grid_in,degGP_in, &
@@ -65,12 +65,12 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   )        :: deg_in        !! polynomial degree
-  INTEGER       , INTENT(IN   )        :: continuity_in !! continuity: 
+  INTEGER       , INTENT(IN   )        :: continuity_in !! continuity:
   CLASS(t_sgrid), INTENT(IN   ),TARGET :: grid_in       !! grid information
-  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1 
+  INTEGER       , INTENT(IN   )        :: degGP_in      !! gauss quadrature points: nGP=degGP+1
   INTEGER        , INTENT(IN   ) :: mn_max_in(2)  !! maximum mode in m and n
-  INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)  !! number of integration points 
-  INTEGER        , INTENT(IN   ) :: nfp_in        !! number of field periods 
+  INTEGER        , INTENT(IN   ) :: mn_nyq_in(2)  !! number of integration points
+  INTEGER        , INTENT(IN   ) :: nfp_in        !! number of field periods
   CHARACTER(LEN=8),INTENT(IN   ) :: sin_cos_in    !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
   LOGICAL         ,INTENT(IN   ) :: exclude_mn_zero_in !!  =true: exclude m=n=0 mode in the basis (only important if cos is in basis)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -158,7 +158,7 @@ is_same=same_s.AND.same_f
 END SUBROUTINE base_compare
 
 !===================================================================================================================================
-!> change basis from old input base to new base, 
+!> change basis from old input base to new base,
 !!
 !===================================================================================================================================
 SUBROUTINE base_change_base( sf , old_base, old_data, sf_data)
@@ -219,7 +219,7 @@ IMPLICIT NONE
   nElems  = sf%s%grid%nElems
   nElems_str=sf%s%grid%nElems_str !< for MPI
   nElems_end=sf%s%grid%nElems_end !< for MPI
-  
+
   ! matrix-matrix version of first s then f
 
   __PERFON('eval_s')
@@ -312,7 +312,7 @@ IMPLICIT NONE
   INTEGER            :: iTest,iMode,iGP
   CHARACTER(LEN=10)  :: fail
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
-  REAL(wp)           :: checkreal,tmp 
+  REAL(wp)           :: checkreal,tmp
   REAL(wp)           :: dofs(1:sf%s%nBase,1:sf%f%modes)
   REAL(wp)           :: g_sIP(1:sf%s%nBase)
   REAL(wp)           :: g_IP_GP(1:sf%f%mn_IP,sf%s%nGP_str:sf%s%nGP_end)
@@ -485,4 +485,3 @@ END SUBROUTINE Base_test
 
 
 END MODULE MODgvec_base
-

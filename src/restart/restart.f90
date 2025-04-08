@@ -42,10 +42,10 @@ PUBLIC::FinalizeRestart
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitRestart(RestartFile_in) 
+SUBROUTINE InitRestart(RestartFile_in)
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_Restart_Vars
@@ -74,7 +74,7 @@ END SUBROUTINE InitRestart
 
 
 !===================================================================================================================================
-!> write an input solution (X1,X2,LA) to an ascii .dat file 
+!> write an input solution (X1,X2,LA) to an ascii .dat file
 !!
 !===================================================================================================================================
 SUBROUTINE WriteStateToASCII(Uin,fileID)
@@ -89,7 +89,7 @@ USE MODgvec_MHD3D_evalFunc, ONLY: EvalTotals
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin 
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin
   INTEGER               , INTENT(IN   ) :: fileID
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -107,20 +107,20 @@ IMPLICIT NONE
   IF(MPIroot)THEN
     a_Minor = SQRT(surfAvg/PI)
     r_Major = vol/(TWOPI*surfAvg)
-    
+
     __PERFON("write_state")
     WRITE(UNIT_stdOut,'(A)',ADVANCE='NO') ' ...'
     ioUnit=GETFREEUNIT()
     OPEN(UNIT     = ioUnit       ,&
        FILE     = TRIM(FileString) ,&
        STATUS   = 'REPLACE'   ,&
-       ACCESS   = 'SEQUENTIAL' ) 
-    
+       ACCESS   = 'SEQUENTIAL' )
+
     WRITE(ioUnit,'(A)')'## MHD3D Solution... outputLevel and fileID:'
     WRITE(ioUnit,'(I4.4,",",I8.8)')outputLevel,fileID
     WRITE(ioUnit,'(A)')'## grid: nElems, gridType #################################################################################'
     WRITE(ioUnit,'(*(I8,:,","))')sgrid%nElems,sgrid%grid_type
-    WRITE(ioUnit,'(A)')'## grid: sp(0:nElems)' 
+    WRITE(ioUnit,'(A)')'## grid: sp(0:nElems)'
     WRITE(ioUnit,'(*(E23.15,:,","))')X1_base%s%grid%sp(:)
     WRITE(ioUnit,'(A)')'## global: nfp,degGP,mn_nyq(2),hmap #######################################################################'
     WRITE(ioUnit,'(*(I8,:,","))')X1_base%f%nfp,X1_base%s%degGP,X1_base%f%mn_nyq,which_hmap
@@ -148,27 +148,27 @@ IMPLICIT NONE
     WRITE(ioUnit,'(A)')'## at X1_base IP point positions (size nBase): spos,phi,chi,iota,pressure  ################################'
     ASSOCIATE(s_IP         => X1_base%s%s_IP, &
               nBase        => X1_base%s%nBase )
-    !write Profiles at Greville interpolation points s_IP(1:nBase) 
+    !write Profiles at Greville interpolation points s_IP(1:nBase)
     DO is=1,nBase
       WRITE(ioUnit,'(*(E23.15,:,","))')s_IP(is),Phi_profile%eval_at_rho(s_IP(is)), &
                                                 chi_profile%eval_at_rho(s_IP(is)), &
                                                iota_profile%eval_at_rho(s_IP(is)),&
                                                pres_profile%eval_at_rho(s_IP(is))
-    END DO 
+    END DO
     END ASSOCIATE
     WRITE(ioUnit,'(A)')'## a_minor,r_major,volume  ################################################################################'
     WRITE(ioUnit,'(*(E23.15,:,","))')a_Minor,r_Major,vol
-    
+
     CLOSE(ioUnit)
     WRITE(UNIT_stdOut,'(A)')'...DONE.'
     __PERFOFF("write_state")
   END IF !MPIroot
   __PERFOFF("output_state")
-END SUBROUTINE WriteStateToASCII 
+END SUBROUTINE WriteStateToASCII
 
 
 !===================================================================================================================================
-!> read an input solution and initialize U(0) (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file 
+!> read an input solution and initialize U(0) (X1,X2,LA) of size X1/X2/LA_base , from an ascii .dat file
 !! if size of grid/X1/X2/LA  not equal X1/X2/X3_base
 !! interpolate readin solution to the current base of Uin
 !!
@@ -189,11 +189,11 @@ IMPLICIT NONE
   CHARACTER(LEN=255)    , INTENT(IN   ) :: fileString
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_r 
+  CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_r
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   LOGICAL              :: sameGrid
-  LOGICAL              :: sameX1  ,sameX2  ,sameLA, changed 
+  LOGICAL              :: sameX1  ,sameX2  ,sameLA, changed
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   WRITE(UNIT_stdOut,'(A)')'RESTARTING FROM FILE ...'
@@ -207,9 +207,9 @@ IMPLICIT NONE
   CALL X1_base%compare(X1_base_r,sameX1)
   CALL X2_base%compare(X2_base_r,sameX2)
   CALL LA_base%compare(LA_base_r,sameLA)
-  
+
   changed=.NOT.(sameX1.AND.sameX2.AND.sameLA)
-  
+
   IF(changed)THEN
     WRITE(UNIT_stdOut,'(A,4(A,L1))') '    ... restart from other configuration: \n','         sameGrid= ',sameGrid, ', sameX1= ',sameX1,', sameX2= ',sameX2,', sameLA= ',sameLA
   ELSE
@@ -218,7 +218,7 @@ IMPLICIT NONE
   CALL X1_base%change_base(X1_base_r,X1_r,U_r%X1)
   CALL X2_base%change_base(X2_base_r,X2_r,U_r%X2)
   CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
-  
+
   CALL Finalize_ReadState()
 
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
@@ -228,7 +228,7 @@ END SUBROUTINE RestartFromState
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeRestart 
+SUBROUTINE FinalizeRestart
 ! MODULES
 USE MODgvec_Restart_Vars
 IMPLICIT NONE

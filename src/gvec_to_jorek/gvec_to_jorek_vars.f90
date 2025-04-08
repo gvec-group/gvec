@@ -30,9 +30,9 @@ REAL(wp)            :: s_max                 !< radial range goes from [0,1]*sma
 CHARACTER(LEN=700) :: cmdline                !< full command line stored
 LOGICAL            :: generate_test_data     !< Determine whether to generate fourier representation, or test data for JOREK
 !-----------------------------------------------------------------------------------------------------------------------------------
-! GLOBAL VARIABLES 
+! GLOBAL VARIABLES
 INTEGER               :: nfp_out            !< number of field periods
-INTEGER               :: asym_out           !< =0: symmetric configuration (R~cos,Z~sin,lambda~sin), =1 asymmetric 
+INTEGER               :: asym_out           !< =0: symmetric configuration (R~cos,Z~sin,lambda~sin), =1 asymmetric
 INTEGER               :: mn_max_out(2)      !< maximum number of modes in m,n
 INTEGER               :: fac_nyq_fields     !< nyquist factor for field fourier representations constructed for JOREK
 INTEGER               :: Nthet_out          !< total number of points in theta direction theta[0,2pi (
@@ -45,7 +45,7 @@ INTEGER               :: sin_range(2)       !< start/end position of sin of toro
 INTEGER               :: cos_range(2)       !< start/end position of cos of toroidal modes in output (from fbase_zeta)
 
 !base needed for evaluation on increased mode numbers / integration points
-CLASS(t_Base),ALLOCATABLE           :: out_base        !< same full base for  all output fields 
+CLASS(t_Base),ALLOCATABLE           :: out_base        !< same full base for  all output fields
 TYPE(t_fbase),ALLOCATABLE          :: X1_fbase_nyq    !< same as X1_base_r%f exept integration points
 TYPE(t_fbase),ALLOCATABLE          :: X2_fbase_nyq    !< same as X2_base_r%f exept integration points
 TYPE(t_fbase),ALLOCATABLE          :: LA_fbase_nyq    !< same as LA_base_r%f exept integration points
@@ -66,14 +66,14 @@ TYPE(t_fbase),ALLOCATABLE          :: fbase_zeta      !< base for doing a fourie
 !INTEGER,PARAMETER     :: FMAX__    =12
 !CHARACTER(LEN=50),DIMENSION(nVar1D),PARAMETER :: StrVarNames1D(nVar1D)=(/ CHARACTER(LEN=50) :: &
 !                           's'            & ! 1 : position s =sqrt(phi/phiEdge) [0,1]
-!                          ,'Phi'          & ! 2 : toroidal flux 
+!                          ,'Phi'          & ! 2 : toroidal flux
 !                          ,'dPhi_ds'      & ! 3 : derivative of toroidal flux to s coordinate
 !                          ,'Chi'          & ! 4 : poloidal flux
 !                          ,'dChi_ds'      & ! 5 : derivative of poloidal flux to s coordinate
 !                          ,'iota'         & ! 6 : iota profile
-!                          ,'Pressure'     & ! 7 : pressure 
-!                          ,'Itor'         & ! 8 : Toroidal current 
-!                          ,'Ipol'         & ! 9 : Poloidal current 
+!                          ,'Pressure'     & ! 7 : pressure
+!                          ,'Itor'         & ! 8 : Toroidal current
+!                          ,'Ipol'         & ! 9 : Poloidal current
 !                          ,'Favg'         & !10 : Only tokamaks(n=0!), toroidal magnetic field strength is F/R (averaged over theta)
 !                          ,'Fmin'         & !11 : F(s) is averaged over theta, Fmin(s) = min(F(s,theta))
 !                          ,'Fmax'         & !12 : F(s) is averaged over theta, Fmax(s) = max(F(s,theta))
@@ -106,7 +106,7 @@ INTEGER, PARAMETER    :: A_phi2D__      = 21
 INTEGER, PARAMETER    :: A_phi2D_S__    = 22
 INTEGER, PARAMETER    :: A_phi2D_T__    = 23
 INTEGER, PARAMETER    :: A_phi2D_ST__   = 24
-INTEGER, PARAMETER    :: B_R2D__        = 25 
+INTEGER, PARAMETER    :: B_R2D__        = 25
 INTEGER, PARAMETER    :: B_R2D_S__      = 26 !<
 INTEGER, PARAMETER    :: B_R2D_T__      = 27
 INTEGER, PARAMETER    :: B_R2D_ST__     = 28 !<
@@ -120,9 +120,9 @@ INTEGER, PARAMETER    :: B_phi2D_T__    = 35  !<
 INTEGER, PARAMETER    :: B_phi2D_ST__   = 36  !<
 INTEGER, PARAMETER    :: J_R2D__        = 37  !<<<
 INTEGER, PARAMETER    :: J_R2D_S__      = 38  !<<<
-INTEGER, PARAMETER    :: J_R2D_T__      = 39  !<<< 
+INTEGER, PARAMETER    :: J_R2D_T__      = 39  !<<<
 INTEGER, PARAMETER    :: J_R2D_ST__     = 40  !<<<
-INTEGER, PARAMETER    :: J_Z2D__        = 41  !<<<  
+INTEGER, PARAMETER    :: J_Z2D__        = 41  !<<<
 INTEGER, PARAMETER    :: J_Z2D_S__      = 42  !<<<
 INTEGER, PARAMETER    :: J_Z2D_T__      = 43  !<<<
 INTEGER, PARAMETER    :: J_Z2D_ST__     = 44  !<<<
@@ -185,7 +185,7 @@ REAL(wp),ALLOCATABLE  :: data_scalar2D(:,:,:,:)    !< Size (Nthet_out,Ns_out,1:n
 
 INTEGER,DIMENSION(nVarScalar2D)  :: map_vars_3D_2D  !< map variables from 3D data container to 2D+fourier data container
 
-!3D scalar data 
+!3D scalar data
 INTEGER,PARAMETER     :: nVarScalar3D = 49           !< number of variables in 3D data
 INTEGER,PARAMETER     :: S__          = 1
 INTEGER,PARAMETER     :: THET__       = 2
@@ -302,7 +302,7 @@ REAL(wp),ALLOCATABLE  :: data_scalar3D(:,:,:,:)    !< Size (Nthet_out,Nzeta_out,
 !                          ,'ecov_zeta'        & ! 4 : covariant vector in zeta , (x,y,z) cartesian components
 !                                    /)
 !REAL(wp),ALLOCATABLE  :: data_vector3D(:,:,:,:,:)    !< Size (3,Nthet_out,Nzeta_out,Ns_out,nVarVector3D)
-                                         
+
 !===================================================================================================================================
 
 CONTAINS
@@ -312,4 +312,3 @@ CONTAINS
 
 
 END MODULE MODgvec_gvec_to_jorek_Vars
-

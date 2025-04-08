@@ -37,10 +37,10 @@ PUBLIC::Finalize_gvec_to_hopr
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE Init_gvec_to_hopr(fileName,SFLcoord_in,factorSFL_in) 
+SUBROUTINE Init_gvec_to_hopr(fileName,SFLcoord_in,factorSFL_in)
 ! MODULES
 USE MODgvec_gvec_to_hopr_Vars
 USE MODgvec_readState         ,ONLY: ReadState,eval_phiPrime_r,eval_iota_r
@@ -68,17 +68,17 @@ INTEGER :: mn_max(2),factorSFL
   IF(PRESENT(SFLcoord_in))THEN
     SFLcoord=SFLcoord_in
   ELSE
-    SFLcoord=0 
+    SFLcoord=0
   END IF
   IF((SFLcoord.LT.0).OR.(SFLcoord.GT.2))THEN
     STOP "init_gvec_to_hopr: SFLcoord must be 0,1,2"
   END IF
- 
+
   IF(SFLcoord.NE.0)THEN
     IF(PRESENT(factorSFL_in))THEN
       factorSFL=factorSFL_in
     ELSE
-      factorSFL=4 !default 
+      factorSFL=4 !default
     END IF
     mn_max(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
     mn_max(2)    = MAXVAL((/X1_base_r%f%mn_max(2),X2_base_r%f%mn_max(2),LA_base_r%f%mn_max(2)/))
@@ -87,7 +87,7 @@ INTEGER :: mn_max(2),factorSFL
                            X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
     CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF
- 
+
 
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -99,7 +99,7 @@ USE MODgvec_Globals, ONLY: CROSS
 USE MODgvec_gvec_to_hopr_vars
 USE MODgvec_ReadState_Vars    ,ONLY: profiles_1d,sbase_prof !for profiles
 USE MODgvec_ReadState_vars    ,ONLY: X1_base_r,X2_base_r,LA_base_r
-USE MODgvec_ReadState_vars    ,ONLY: LA_r,X1_r,X2_r 
+USE MODgvec_ReadState_vars    ,ONLY: LA_r,X1_r,X2_r
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -112,7 +112,7 @@ REAL(wp),INTENT(OUT) :: data_out(9,nNodes)  !! pressure,Bcart(3),chi,phi,Acart(3
 REAL(wp),INTENT(OUT) :: phi_axis_edge(2)
 REAL(wp),INTENT(OUT) :: chi_axis_edge(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
-! local Variables 
+! local Variables
 !===================================================================================================================================
 phi_axis_edge(1)= sbase_prof%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,1))
 chi_axis_edge(1)= sbase_prof%evalDOF_s(1.0e-08_wp, 0,profiles_1d(:,2))
@@ -183,7 +183,7 @@ dGdthet = 0.0_wp !only changed for SFLcoords=2
 dGdzeta = 0.0_wp !only changed for SFLcoords=2
 
 !$OMP PARALLEL DO  SCHEDULE(STATIC) DEFAULT(NONE)                                   &
-!$OMP   FIRSTPRIVATE(LA_int,dLAdthet,dLAdzeta,G_int,dGds,dGdthet,dGdzeta)         & 
+!$OMP   FIRSTPRIVATE(LA_int,dLAdthet,dLAdzeta,G_int,dGds,dGdthet,dGdzeta)         &
 !$OMP   PRIVATE(iNode,spos,X1_int,dX1ds,dX1dthet,dX1dzeta,X2_int,dX2ds,dX2dthet,dX2dzeta,      &
 !$OMP           phi_int,chi_int,iota_int,pres_int,dPhids_int,dChids_int,X1_s,dX1ds_s,X2_s,dX2ds_s,LG_s,dGds_s,          &
 !$OMP           xp,qvec,e_s,e_thet,e_zeta,sqrtG,Bcart,Acart,grad_s,grad_thet,grad_zeta)           &
@@ -200,7 +200,7 @@ DO iNode=1,nNodes
   pres_int     = sbase_prof%evalDOF_s(spos, 0,profiles_1d(:,4))
   dPhids_int = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,1))
   !dChids_int = sbase_prof%evalDOF_s(spos, DERIV_S ,profiles_1d(:,2))
-  dChids_int  = dPhids_int*iota_int 
+  dChids_int  = dPhids_int*iota_int
 
   X1_s(   :) = X1_base_in%s%evalDOF2D_s(spos,X1_base_in%f%modes,      0,X1_in(:,:))
   dX1ds_s(:) = X1_base_in%s%evalDOF2D_s(spos,X1_base_in%f%modes,DERIV_S,X1_in(:,:))
@@ -256,7 +256,7 @@ DO iNode=1,nNodes
   data_out(  6,iNode)=phi_int
   data_out(7:9,iNode)=Acart(:)
 END DO
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 
 END SUBROUTINE gvec_to_hopr_SFL
 
@@ -265,7 +265,7 @@ END SUBROUTINE gvec_to_hopr_SFL
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE Finalize_gvec_to_hopr 
+SUBROUTINE Finalize_gvec_to_hopr
 ! MODULES
 USE MODgvec_gvec_to_hopr_Vars
 USE MODgvec_ReadState,ONLY:Finalize_ReadState

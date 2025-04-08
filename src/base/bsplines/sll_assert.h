@@ -31,7 +31,7 @@
     ! use this macro call within other macros. If the expansion yields
     ! nothing (second case) then we don't want dangling semicolons...
 #if ((!defined( DEBUG )) || defined( NVHPC ))
-# define SLL_ASSERT( x )  
+# define SLL_ASSERT( x )
 #else
 # define SLL_ASSERT(x) if ( .not. (x) ) then; \
       call sll_s_assertion( STRNG(x), __FILE__, __LINE__ ); \

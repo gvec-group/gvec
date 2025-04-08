@@ -8,8 +8,8 @@
 !>
 !!# Module ** hmap_frenet **
 !!
-!! This map uses the Frenet frame of a given periodic input curve X0(zeta) along the curve parameter zeta in [0,2pi]. 
-!! It uses the signed orthonormal Frenet-Serret frame (TNB frame) that can be computed from derivatives of X0  in zeta. 
+!! This map uses the Frenet frame of a given periodic input curve X0(zeta) along the curve parameter zeta in [0,2pi].
+!! It uses the signed orthonormal Frenet-Serret frame (TNB frame) that can be computed from derivatives of X0  in zeta.
 !! h:  X_0(\zeta) + q_1 \sigma N(\zeta) + q_2 \sigma B(\zeta)
 !! with a sign switching function \sigma(\zeta), that accounts for points of zero curvature.
 !! the tangent is T=X_0' / |X_0'|, the bi-normal is B= (X_0' x X_0'') / |X_0' x X_0''|, and the normal N= B X T
@@ -19,8 +19,8 @@
 !! dN/dl = -kappa T + tau B
 !! dB/dl = -tau N
 !!
-!! With  l(\zeta) being the arc-length, and l' = |X_0'|. 
-!! the curvature is kappa=  |X_0' x  X_0''| / (l')^3, 
+!! With  l(\zeta) being the arc-length, and l' = |X_0'|.
+!! the curvature is kappa=  |X_0' x  X_0''| / (l')^3,
 !! and the torsion tau= (X_0' x X_0'').X_0''' /  |X_0' x X_0''|^2
 !!
 !! As a first representation of the curve X0(\zeta), we choose zeta to be the geometric toroidal angle zeta=phi, such that
@@ -37,7 +37,7 @@ USE MODgvec_c_hmap,    ONLY:c_hmap
 IMPLICIT NONE
 
 PUBLIC
- 
+
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -46,25 +46,25 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   ! parameters for hmap_frenet:
   !curve description
   !INTEGER             :: nfp  !already part of c_hmap. Is overwritten in init
-  INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max, 
-  REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp  
-  REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp 
-  INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp 
+  INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max,
+  REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
+  REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
+  REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
+  REAL(wp),ALLOCATABLE :: zs(:)  !! input   sine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
+  INTEGER,ALLOCATABLE  :: Xn(:)   !! array of mode numbers,  local variable =(0,1,...,n_max)*nfp
   LOGICAL              :: omnig=.FALSE.   !! omnigenity. True: sign change of frame at pi/nfp , False: no sign change
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
   PROCEDURE :: init          => hmap_frenet_init
   PROCEDURE :: free          => hmap_frenet_free
-  PROCEDURE :: eval          => hmap_frenet_eval          
+  PROCEDURE :: eval          => hmap_frenet_eval
   PROCEDURE :: eval_dxdq     => hmap_frenet_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_frenet_eval_Jh       
-  PROCEDURE :: eval_Jh_dq1   => hmap_frenet_eval_Jh_dq1    
-  PROCEDURE :: eval_Jh_dq2   => hmap_frenet_eval_Jh_dq2    
-  PROCEDURE :: eval_gij      => hmap_frenet_eval_gij      
-  PROCEDURE :: eval_gij_dq1  => hmap_frenet_eval_gij_dq1  
+  PROCEDURE :: eval_Jh       => hmap_frenet_eval_Jh
+  PROCEDURE :: eval_Jh_dq1   => hmap_frenet_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2   => hmap_frenet_eval_Jh_dq2
+  PROCEDURE :: eval_gij      => hmap_frenet_eval_gij
+  PROCEDURE :: eval_gij_dq1  => hmap_frenet_eval_gij_dq1
   PROCEDURE :: eval_gij_dq2  => hmap_frenet_eval_gij_dq2
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_frenet:
@@ -73,7 +73,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   ! --- Not used
   PROCEDURE :: init_aux      => dummy_sub_hmap_init_aux
   PROCEDURE :: free_aux      => dummy_sub_hmap
-  PROCEDURE :: eval_aux      => dummy_sub_hmap   
+  PROCEDURE :: eval_aux      => dummy_sub_hmap
 END TYPE t_hmap_frenet
 
 LOGICAL :: test_called=.FALSE.
@@ -137,7 +137,7 @@ IMPLICIT NONE
   sf%rs=GETREALARRAY("hmap_rs",sf%n_max+1,sf%rs)
   sf%zc=GETREALARRAY("hmap_zc",sf%n_max+1,sf%zc)
   sf%zs=GETREALARRAY("hmap_zs",sf%n_max+1,sf%zs)
-  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity 
+  sf%omnig=GETLOGICAL("hmap_omnig",.FALSE.) !omnigenity
 
 
   IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
@@ -145,11 +145,11 @@ IMPLICIT NONE
           "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!")
   END IF
 
-  nvisu=GETINT("hmap_nvisu",0) 
+  nvisu=GETINT("hmap_nvisu",0)
 
   IF(MPIroot)THEN
     IF(nvisu.GT.0) CALL VisuFrenet(sf,nvisu)
-  
+
     CALL CheckZeroCurvature(sf)
   END IF
 
@@ -185,7 +185,7 @@ IMPLICIT NONE
 END SUBROUTINE hmap_frenet_free
 
 !===================================================================================================================================
-!> Sample axis and check for zero (<1.e-12) curvature 
+!> Sample axis and check for zero (<1.e-12) curvature
 !!
 !===================================================================================================================================
 SUBROUTINE checkZeroCurvature( sf)
@@ -207,7 +207,7 @@ IMPLICIT NONE
   nz=(sf%n_max+1)*8
   DO iz=1,nz
     zeta(iz)=REAL(iz-1,wp)/REAL(nz,wp)*TWOPI/sf%nfp  !0...2pi/nfp without endpoint
-    CALL sf%eval_X0(zeta(iz),X0,X0p,X0pp,X0ppp) 
+    CALL sf%eval_X0(zeta(iz),X0,X0p,X0pp,X0ppp)
     lp=SQRT(SUM(X0p*X0p))
     B=CROSS(X0p,X0pp)
     absB=SQRT(SUM(B*B))
@@ -218,14 +218,14 @@ IMPLICIT NONE
     IF(sf%omnig)THEN
       !omnig=True: kappa can only be zero once, at 0,pi/nfp,[2pi/nfp...]
       IF(.NOT.(checkzero(1).AND.checkzero(nz/2+1).AND.(COUNT(checkzero).EQ.2)))THEN
-        DO iz=1,nz  
+        DO iz=1,nz
           IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
         END DO
         CALL abort(__STAMP__, &
              "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature")
       END IF
     ELSE
-      DO iz=1,nz  
+      DO iz=1,nz
         IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
       END DO
       CALL abort(__STAMP__, &
@@ -258,7 +258,7 @@ IMPLICIT NONE
   INTEGER               :: iVar,ivisu,itest
   INTEGER,PARAMETER     :: nVars=26
   CHARACTER(LEN=20)     :: VarNames(1:nVars)
-  REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1) 
+  REAL(wp)              :: values(1:nVars,1:nvisu*sf%nfp+1)
 !===================================================================================================================================
   IF(nvisu.LE.0) RETURN
   iVar=0
@@ -274,7 +274,7 @@ IMPLICIT NONE
   VarNames(ivar+1:iVar+3)=(/ "X0pX", "X0pY", "X0pZ"/);iVar=iVar+3
   VarNames(ivar+1:iVar+3)=(/ "X0ppX", "X0ppY", "X0ppZ"/);iVar=iVar+3
   VarNames(ivar+1:iVar+3)=(/ "X0pppX", "X0pppY", "X0pppZ"/);iVar=iVar+3
-  
+
 !  values=0.
   DO ivisu=1,nvisu*sf%nfp+1
     eps=0.
@@ -282,7 +282,7 @@ IMPLICIT NONE
     itest=0
     DO WHILE(kappa.LT.1.0e-6)! for tau being meaningful
       zeta=(REAL(ivisu-1,wp)+eps)/REAL(nvisu*sf%nfp,wp)*TWOPI
-      CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+      CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
       lp=SQRT(SUM(X0p*X0p))
       T=X0p/lp
       B=CROSS(X0p,X0pp)
@@ -294,7 +294,7 @@ IMPLICIT NONE
         B=0.
         kappa=1.0e-6 !-12
         absB=1.
-      END IF   
+      END IF
     END DO
     tau=SUM(X0ppp*B)/(absB**2)
     B=B/absB
@@ -328,7 +328,7 @@ IMPLICIT NONE
 END SUBROUTINE VisuFrenet
 
 !===================================================================================================================================
-!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z) 
+!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
 !!
 !===================================================================================================================================
 FUNCTION hmap_frenet_eval( sf ,q_in) RESULT(x_out)
@@ -349,12 +349,12 @@ IMPLICIT NONE
   ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
   ! X(:) = (x,y,z) are the variables in the range of the map
   !
-  !  |x |  
+  !  |x |
   !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
-  !  |z |  
- 
+  !  |z |
+
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
   T=X0p/lp
   B=CROSS(X0p,X0pp)
@@ -375,7 +375,7 @@ IMPLICIT NONE
 END FUNCTION hmap_frenet_eval
 
 !===================================================================================================================================
-!> sign function depending on zeta, 
+!> sign function depending on zeta,
 !! if omnig=False, sigma=1
 !! if omnig=True, sigma=+1 for 0<=zeta<=pi/nfp, and -1 for pi/nfp<zeta<2pi
 !!
@@ -414,13 +414,13 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,T,N,B
   REAL(wp)          :: lp,absB,kappa,tau,sigma,Jh
 !===================================================================================================================================
-  !  |x |  
+  !  |x |
   !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
-  !  |z |  
-  !  dh/dq1 =sigma*N , dh/dq2=sigma*B 
+  !  |z |
+  !  dh/dq1 =sigma*N , dh/dq2=sigma*B
   !  dh/dq3 = l' [(1-sigma*kappa*q1)T + sigma*tau*(B*q1-N*q2) ]
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
   T=X0p/lp
   B=CROSS(X0p,X0pp)
@@ -440,12 +440,12 @@ IMPLICIT NONE
   B=B/absB
   N=CROSS(B,T)
   dxdq_qvec(1:3)= sigma*(N*q_vec(1)+B*q_vec(2))+(Jh*T +sigma*lp*tau*(B*q1-N*q2))*q_vec(3)
-                                                  
+
   END ASSOCIATE !zeta
 END FUNCTION hmap_frenet_eval_dxdq
 
 !===================================================================================================================================
-!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta) 
+!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_frenet_eval_Jh( sf ,q_in) RESULT(Jh)
@@ -464,7 +464,7 @@ IMPLICIT NONE
   REAL(wp)          :: lp,absB,kappa,sigma
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
@@ -484,7 +484,7 @@ END FUNCTION hmap_frenet_eval_Jh
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_frenet_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
@@ -501,11 +501,11 @@ IMPLICIT NONE
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
   REAL(wp)          :: lp,absB,kappa,sigma
 !===================================================================================================================================
-  !  |x |  
+  !  |x |
   !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
-  !  |z |  
+  !  |z |
   ASSOCIATE(zeta=>q_in(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
@@ -519,7 +519,7 @@ END FUNCTION hmap_frenet_eval_Jh_dq1
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta) 
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
 FUNCTION hmap_frenet_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
@@ -533,13 +533,13 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
   REAL(wp)                          :: Jh_dq2
 !===================================================================================================================================
-  Jh_dq2 = 0.0_wp 
+  Jh_dq2 = 0.0_wp
 END FUNCTION hmap_frenet_eval_Jh_dq2
 
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -559,37 +559,37 @@ FUNCTION hmap_frenet_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
   REAL(wp)              :: lp,absB,kappa,tau,sigma
   REAL(wp)              :: Ga, Gb, Gc
 !===================================================================================================================================
-  ! A = -q2*l' * tau 
+  ! A = -q2*l' * tau
   ! B =  q1*l' * tau
-  ! C = Jh^2 + (l'*tau)^2(q1^2+q2^2) 
-  !                       |q1  |   |1   0   Ga|        |q1  |  
+  ! C = Jh^2 + (l'*tau)^2(q1^2+q2^2)
+  !                       |q1  |   |1   0   Ga|        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |0   1   Gb| (dbeta |q2  | )
-  !                       |q3  |   |Ga  Gb  Gc|        |q3  |  
+  !                       |q3  |   |Ga  Gb  Gc|        |q3  |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
   kappa=absB/(lp**3)
   sigma=sf%sigma(zeta)
   tau=SUM(X0ppp*B)/(absB**2)
- 
-  Ga = -lp*tau*q2 
+
+  Ga = -lp*tau*q2
   Gb =  lp*tau*q1
   Gc = (lp**2)*((1.0_wp-sigma*kappa*q1)**2+tau**2*(q1**2+q2**2))
   g_ab=      qL_in(1)*qR_in(1) &
             +qL_in(2)*qR_in(2) &
        + Gc* qL_in(3)*qR_in(3) &
        + Ga*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) &
-       + Gb*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))  
+       + Gb*(qL_in(2)*qR_in(3)+qL_in(3)*qR_in(2))
   END ASSOCIATE
 END FUNCTION hmap_frenet_eval_gij
 
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -606,11 +606,11 @@ FUNCTION hmap_frenet_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
   REAL(wp)              :: lp,absB,kappa,tau,sigma
 !===================================================================================================================================
-  !                       |q1  |   |0  0        0           |        |q1  |  
+  !                       |q1  |   |0  0        0           |        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |0  0      l'*tau        | (dbeta |q2  | )
-  !                       |q3  |   |0  l'*tau  dG33/dq1     |        |q3  |  
+  !                       |q3  |   |0  l'*tau  dG33/dq1     |        |q3  |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
@@ -627,8 +627,8 @@ END FUNCTION hmap_frenet_eval_gij_dq1
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and 
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and 
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
@@ -643,11 +643,11 @@ FUNCTION hmap_frenet_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
   REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
   REAL(wp)              :: lp,absB,tau
 !===================================================================================================================================
-  !                            |q1  |   |0       0  -l'*tau  |        |q1   |  
+  !                            |q1  |   |0       0  -l'*tau  |        |q1   |
   !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0       0        0  | (dbeta |q1   | ) =0
-  !                            |q3  |   |-l'*tau 0   dG33/dq2|        |q3   |  
+  !                            |q3  |   |-l'*tau 0   dG33/dq2|        |q3   |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp) 
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
   B=CROSS(X0p,X0pp)
   absB=SQRT(SUM(B*B))
@@ -660,7 +660,7 @@ END FUNCTION hmap_frenet_eval_gij_dq2
 
 
 !===================================================================================================================================
-!> evaluate curve X0(zeta), position and first three derivatives, from given R0,Z0 Fourier 
+!> evaluate curve X0(zeta), position and first three derivatives, from given R0,Z0 Fourier
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_frenet_eval_X0_fromRZ( sf,zeta,X0,X0p,X0pp,X0ppp)
@@ -692,21 +692,21 @@ IMPLICIT NONE
     !! angle zeta=geometric toroidal angle phi=atan(y/x)
     x=R0*coszeta
     y=R0*sinzeta
-    
+
     xp = R0p*coszeta  - R0*sinzeta
     yp = R0p*sinzeta  + R0*coszeta
     !xp  = R0p*coszeta  -y
     !yp  = R0p*sinzeta  +x
-    
-    xpp = R0pp*coszeta - 2*R0p*sinzeta - R0*coszeta 
+
+    xpp = R0pp*coszeta - 2*R0p*sinzeta - R0*coszeta
     ypp = R0pp*sinzeta + 2*R0p*coszeta - R0*sinzeta
     !xpp  = R0pp*coszeta -2.0_wp*yp + x
     !ypp  = R0pp*sinzeta +2.0_wp*xp + y
-    
+
     xppp = R0ppp*coszeta - 3*R0pp*sinzeta - 3*R0p*coszeta + R0*sinzeta
     yppp = R0ppp*sinzeta + 3*R0pp*coszeta - 3*R0p*sinzeta - R0*coszeta
     !xppp  = R0ppp*coszeta +3.0_wp*(xp-ypp) + y
-    !yppp  = R0ppp*sinzeta +3.0_wp*(yp+xpp) + x 
+    !yppp  = R0ppp*sinzeta +3.0_wp*(yp+xpp) + x
 
   END ASSOCIATE !x,y,xp,yp,...
 
@@ -725,13 +725,13 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER  , INTENT(IN ) :: n_max        !! number of modes is n_max+1  (0...n_max)
-  INTEGER  , INTENT(IN ) :: xn(0:n_max)  !! array of mode numbers  
+  INTEGER  , INTENT(IN ) :: xn(0:n_max)  !! array of mode numbers
   REAL(wp) , INTENT(IN ) :: xc(0:n_max)  !! cosine coefficients
   REAL(wp) , INTENT(IN ) :: xs(0:n_max)  !!   sine coefficients
-  REAL(wp) , INTENT(IN ) :: zeta         !! angular position [0,2pi] 
+  REAL(wp) , INTENT(IN ) :: zeta         !! angular position [0,2pi]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp) , INTENT(OUT) :: x      !! value at zeta 
+  REAL(wp) , INTENT(OUT) :: x      !! value at zeta
   REAL(wp) , INTENT(OUT) :: xp     !! 1st derivative in zeta
   REAL(wp) , INTENT(OUT) :: xpp    !! 2nd derivative in zeta
   REAL(wp) , INTENT(OUT) :: xppp   !! 3rd derivative in zeta
@@ -811,7 +811,7 @@ IMPLICIT NONE
       dxdq = sf%eval_dxdq(q_in,q_test(qdir,:))
       checkreal=SQRT(SUM((dxdq - (x_eps-x)/epsFD)**2)/SUM(x*x))
       refreal = 0.0_wp
-      
+
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
               '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
@@ -823,7 +823,7 @@ IMPLICIT NONE
     !! TEST G_ij
     DO idir=1,3; DO jdir=idir,3
       iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal= SUM(sf%eval_dxdq(q_in,q_test(idir,:))*sf%eval_dxdq(q_in,q_test(jdir,:))) 
+      checkreal= SUM(sf%eval_dxdq(q_in,q_test(idir,:))*sf%eval_dxdq(q_in,q_test(jdir,:)))
       refreal  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -832,7 +832,7 @@ IMPLICIT NONE
        '\n =>  should be ', refreal,' : sum|Gij-eval_gij|= ', checkreal,', i=',idir,', j=',jdir
       END IF !TEST
     END DO; END DO
-    !! TEST dG_ij_dq1 with FD 
+    !! TEST dG_ij_dq1 with FD
     DO qdir=1,2
     DO idir=1,3; DO jdir=idir,3
       iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
@@ -851,15 +851,14 @@ IMPLICIT NONE
     END DO; END DO
     END DO
 
-    
-      
-    
+
+
+
  END IF !testlevel >=1
- 
+
  test_called=.FALSE. ! to prevent infinite loop in this routine
- 
+
 
 END SUBROUTINE hmap_frenet_test
 
 END MODULE MODgvec_hmap_frenet
-

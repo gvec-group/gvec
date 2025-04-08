@@ -12,10 +12,10 @@ We will compute Xhat,Yhat at interpolation points theta_j,zeta_k. We have to fin
 
    (rtilde(theta_j,phi) - r0(zeta_k)) . T(zeta_k) =0     => root finding for phi_jk(theta_j,zeta_k)
 
-to finally compute 
-   
-   Xhat(theta_j,zeta_k) = (r(theta_j,phi_jk)-r0(zeta_k)) . N(zeta_k) 
-   Yhat(theta_j,zeta_k) = (r(theta_j,phi_jk)-r0(zeta_k)) . B(zeta_k) 
+to finally compute
+
+   Xhat(theta_j,zeta_k) = (r(theta_j,phi_jk)-r0(zeta_k)) . N(zeta_k)
+   Yhat(theta_j,zeta_k) = (r(theta_j,phi_jk)-r0(zeta_k)) . B(zeta_k)
 
 """
 
@@ -24,13 +24,13 @@ from scipy.optimize import root_scalar
 
 def Frenet_to_Frenet_NB_residual_func(phi0, phi_target, qsc):
     """
-    This function takes a point defined by r(phi0) and computes the distance to the N-B-plane given by phi_target 
-    (r(phi0) - r0(phi_target)). T(phi_target) 
+    This function takes a point defined by r(phi0) and computes the distance to the N-B-plane given by phi_target
+    (r(phi0) - r0(phi_target)). T(phi_target)
 
     since the T is the normal vector of the N-B-plane
     Args:
         phi0 (float): position along r0 defining r(phi0)
-        phi_target (float) :  target position along r0 
+        phi_target (float) :  target position along r0
     """
     total_x,total_y,total_z = Frenet_to_xyz_1_point(phi0, qsc)
 
@@ -47,22 +47,22 @@ def Frenet_to_Frenet_NB_residual_func(phi0, phi_target, qsc):
     tangent_y = tangent_R * sinphi + tangent_phi * cosphi
 
 
-    distance_to_NB =( (total_x - R0*cosphi)*tangent_x  
-                     +(total_y - R0*sinphi)*tangent_y  
+    distance_to_NB =( (total_x - R0*cosphi)*tangent_x
+                     +(total_y - R0*sinphi)*tangent_y
                      +(total_z - Z0       )*tangent_z  )
 
-    return distance_to_NB 
+    return distance_to_NB
 
 def get_XYhat(phi0, phi_target, qsc):
     """
     This function takes a point defined by r(phi0) that lies already in the N-B plane (distance residual =0),
-    and computes the new variables Xhat,Yhat in the N-B-plane given by phi_target 
-    Xhat=(r(phi0) - r0(phi_target)). N(phi_target) 
-    Yhat=(r(phi0) - r0(phi_target)). B(phi_target) 
+    and computes the new variables Xhat,Yhat in the N-B-plane given by phi_target
+    Xhat=(r(phi0) - r0(phi_target)). N(phi_target)
+    Yhat=(r(phi0) - r0(phi_target)). B(phi_target)
 
     Args:
         phi0 (float): position along r0 defining r(phi0)
-        phi_target (float) :  target position along r0 
+        phi_target (float) :  target position along r0
     """
 
     total_x,total_y,total_z = Frenet_to_xyz_1_point(phi0, qsc)
@@ -80,8 +80,8 @@ def get_XYhat(phi0, phi_target, qsc):
     normal_y = normal_R * sinphi + normal_phi * cosphi
 
 
-    Xhat  =(  (total_x - R0*cosphi)*normal_x  
-             +(total_y - R0*sinphi)*normal_y  
+    Xhat  =(  (total_x - R0*cosphi)*normal_x
+             +(total_y - R0*sinphi)*normal_y
              +(total_z - Z0       )*normal_z  )
 
     binormal_R   = qsc.binormal_R_spline(phi_target)
@@ -91,8 +91,8 @@ def get_XYhat(phi0, phi_target, qsc):
     binormal_x = binormal_R * cosphi - binormal_phi * sinphi
     binormal_y = binormal_R * sinphi + binormal_phi * cosphi
 
-    Yhat  =(  (total_x - R0*cosphi)*binormal_x  
-             +(total_y - R0*sinphi)*binormal_y  
+    Yhat  =(  (total_x - R0*cosphi)*binormal_x
+             +(total_y - R0*sinphi)*binormal_y
              +(total_z - Z0       )*binormal_z  )
 
     return Xhat,Yhat
@@ -100,15 +100,15 @@ def get_XYhat(phi0, phi_target, qsc):
 def Frenet_to_xyz_1_point(phi0,qsc):
     """
     This function takes a point on the magnetic axis with a given
-    toroidal angle phi0 and computes the cartesian x,y,z coordinates of a point on the surface, 
+    toroidal angle phi0 and computes the cartesian x,y,z coordinates of a point on the surface,
     using previously defined functions qsc.X_spline(phi0),qsc.Y_spline(phi0),qsc.Z_spline(phi0)
 
-    rtilde(phi) = r0(phi) + X(phi)*N(phi) +Y(phi)*B(phi) + Z(phi)*T(phi)  
+    rtilde(phi) = r0(phi) + X(phi)*N(phi) +Y(phi)*B(phi) + Z(phi)*T(phi)
 
     Args:
         phi0: toroidal angle on the axis
     """
-    X_at_phi0    = qsc.X_spline(phi0)  
+    X_at_phi0    = qsc.X_spline(phi0)
     Y_at_phi0    = qsc.Y_spline(phi0)
 
     sinphi0 = np.sin(phi0)
@@ -160,7 +160,7 @@ def Frenet_to_Frenet_NB(self, r, ntheta=None, theta_in = np.linspace(0,2*np.pi,2
     the magnetic axis while holding the Boozer poloidal and toroidal
     angles fixed; the standard toroidal angle at that resulting point
     on the axis is ``phi0``.
-    
+
     Args:
         r: near-axis radius r of the desired boundary surface
         ntheta: resolution in the poloidal angle theta
@@ -171,7 +171,7 @@ def Frenet_to_Frenet_NB(self, r, ntheta=None, theta_in = np.linspace(0,2*np.pi,2
     nphi_conversion = self.nphi
     if(ntheta):
         theta = np.linspace(0,2*np.pi,ntheta,endpoint=False)
-    else:  
+    else:
         ntheta = theta_in.size
         theta  = theta_in
     phi_conversion = np.linspace(0,2*np.pi/self.nfp,nphi_conversion,endpoint=False)
@@ -208,7 +208,7 @@ def Frenet_to_Frenet_NB(self, r, ntheta=None, theta_in = np.linspace(0,2*np.pi,2
         self.Y_spline = self.convert_to_spline(Y_at_this_theta)
         self.Z_spline = self.convert_to_spline(Z_at_this_theta)
         for j_phi in range(nphi_conversion):
-            # Solve for the phi0 
+            # Solve for the phi0
             phi_target = phi_conversion[j_phi]
             phi0_rootSolve_min = phi_target - 1.0 / self.nfp
             phi0_rootSolve_max = phi_target + 1.0 / self.nfp
@@ -217,7 +217,7 @@ def Frenet_to_Frenet_NB(self, r, ntheta=None, theta_in = np.linspace(0,2*np.pi,2
             phi0_solution = res.root
             Xhat_2D[j_theta,j_phi] , Yhat_2D[j_theta,j_phi] = get_XYhat(phi0_solution,phi_target,self)
             phi0_2D[j_theta,j_phi] = phi0_solution
-            
+
     return Xhat_2D, Yhat_2D, phi0_2D
 
 def to_xyz(self,points):
@@ -225,7 +225,7 @@ def to_xyz(self,points):
     Function to convert a set of points in (r,theta,phi0) coordinates
     where r=sqrt(2*psi/B0) is the near-axis radius, theta is the
     Boozer poloidal angle and phi0 is the cylindrical angle phi
-    on the axis to cartesian x,y,z coordinates 
+    on the axis to cartesian x,y,z coordinates
 
     Args:
         points: an array of floats with dimension Nx3 with N the

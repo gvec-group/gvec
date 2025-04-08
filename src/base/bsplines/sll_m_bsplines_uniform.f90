@@ -205,7 +205,7 @@ contains
     real(wp) :: temp
     real(wp) :: saved
 
-    real(wp) :: bj, bjm1 
+    real(wp) :: bj, bjm1
 
     ! Check on inputs
     SLL_ASSERT( size(derivs) == 1+self%degree )

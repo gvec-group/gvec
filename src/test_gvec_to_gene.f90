@@ -6,10 +6,10 @@
 
 
 !===================================================================================================================================
-!> 
-!!# **TEST GVEC TO GENE** Driver program 
+!>
+!!# **TEST GVEC TO GENE** Driver program
 !!
-!! to test, just execute in ini/toksy 
+!! to test, just execute in ini/toksy
 !! ../../build/bin/test_gvec_to_gene TOKSY_State_0000_00000000.dat
 !! or ini/w7x
 !! ../../build/bin/test_gvec_to_gene W7X_State_0000_00000000.dat
@@ -21,7 +21,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
 INTEGER                 :: nArgs
-CHARACTER(LEN=255)      :: filename 
+CHARACTER(LEN=255)      :: filename
 REAL(wp)                :: StartTime,EndTime
 REAL(wp)                :: Fa,minor_r,spos,q,q_prime,p,p_prime,phiPrime_edge,q_edge
 INTEGER                 :: n0_global,is,i,j
@@ -29,7 +29,7 @@ INTEGER,PARAMETER       :: nthet=11
 INTEGER,PARAMETER       :: nzeta=22
 INTEGER                 :: SFLcoord_test
 REAL(wp),DIMENSION(nthet,nzeta)   :: theta_star,theta,zeta
-REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB 
+REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zeta,Bfield,grad_absB
 !===================================================================================================================================
   CALL CPU_TIME(StartTime)
   nArgs=COMMAND_ARGUMENT_COUNT()
@@ -38,8 +38,8 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
   ELSE
     STOP 'GVEC_TO_GENE: gvec filename not given, usage: "./executable gvec_file.dat"'
   END IF
-    
-  
+
+
   !header
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(Unit_stdOut,'(5(("*",A128,2X,"*",:,"\n")))')&
@@ -49,13 +49,13 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
 ,' - - - - - - - - -  GVEC ==> GENE - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '&
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '
   WRITE(Unit_stdOut,'(132("="))')
-  
+
   DO SFLcoord_test=0,2
   WRITE(Unit_stdOut,'(A,I4)')'TESTING SFLCOORD= ',SFLcoord_test
   WRITE(Unit_stdOut,'(132("="))')
   !initialization phase
   CALL Init_gvec_to_gene(filename,SFLcoord_in=SFLcoord_test,factorSFL_in=2)  !factorSFL=2 for testing purposes only, safe is 4
- 
+
   CALL gvec_to_gene_scalars(Fa,minor_r,phiPrime_edge,q_edge,n0_global)
   WRITE(UNIT_stdOut,'(A,g21.13)')'Fa',Fa
   WRITE(UNIT_stdOut,'(A,g21.13)')'minor_r',minor_r
@@ -71,7 +71,7 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
               ,', q(s)= ', q &
               ,', q_prime(s)= ',q_prime &
               ,', p(s)= ',p &
-              ,', p_prime(s)= ',p_prime 
+              ,', p_prime(s)= ',p_prime
     DO i=1,nthet; DO j=1,nzeta
       zeta(i,j)=-PI + REAL(j-1)/REAL(nthet)*2.*Pi
       theta_star(i,j)=REAL(i-1)/REAL(nthet)*2.*Pi - 1.5*zeta(i,j)
@@ -124,7 +124,7 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
     WRITE(UNIT_stdOut,'(80("-"))')
   END DO !spos
 
-  
+
 
   CALL Finalize_gvec_to_gene()
 
@@ -135,5 +135,3 @@ REAL(wp),DIMENSION(3,nthet,nzeta) :: cart_coords,grad_s,grad_theta_star,grad_zet
   END DO !SFLcoord_test
 
 END PROGRAM TEST_GVEC_TO_GENE
-
-

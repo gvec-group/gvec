@@ -55,10 +55,10 @@ PUBLIC::WriteDataToVTK
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE init_gvec_to_gene(fileName,SFLcoord_in,factorSFL_in) 
+SUBROUTINE init_gvec_to_gene(fileName,SFLcoord_in,factorSFL_in)
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_ReadState,ONLY: ReadState,eval_phiPrime_r,eval_iota_r
@@ -70,7 +70,7 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 CHARACTER(LEN=*), INTENT(IN) :: fileName !< name of GVEC file
 INTEGER,INTENT(IN),OPTIONAL :: SFLcoord_in !< type of straight field line coordinate (0: 'old way' PEST, 1: PEST, 2: BOOZER)
-INTEGER,INTENT(IN),OPTIONAL :: factorSFL_in !< factor on fourier modes for SFL>0 
+INTEGER,INTENT(IN),OPTIONAL :: factorSFL_in !< factor on fourier modes for SFL>0
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ INTEGER :: mn_max(2)
     IF(PRESENT(factorSFL_in))THEN
       factorSFL=factorSFL_in
     ELSE
-      factorSFL = 4  !!DEFAULT, added as optional input argument!  
+      factorSFL = 4  !!DEFAULT, added as optional input argument!
     END IF
 
     mn_max(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
@@ -109,7 +109,7 @@ INTEGER :: mn_max(2)
                            X1_base_r%s%degGP,X1_base_r%s%grid ,hmap_r,X1_base_r,X2_base_r,LA_base_r,eval_phiPrime_r,eval_iota_r)
     CALL trafoSFL%buildTransform(X1_base_r,X2_base_r,LA_base_r,X1_r,X2_r,LA_r)
   END IF
-  
+
 
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -149,7 +149,7 @@ END SUBROUTINE gvec_to_gene_scalars
 
 
 !===================================================================================================================================
-!> Evaluate only s dependend variables 
+!> Evaluate only s dependend variables
 !!
 !===================================================================================================================================
 SUBROUTINE gvec_to_gene_profile(spos,q,q_prime,p,p_prime)
@@ -164,7 +164,7 @@ REAL(wp),INTENT(IN) :: spos            !! radial position (sqrt(phi_norm)), phi_
 REAL(wp),OPTIONAL,INTENT(OUT) :: q                !! q=1/iota profile
 REAL(wp),OPTIONAL,INTENT(OUT) :: q_prime          !! dq/ds=-(d/ds iota)/iota^2=-(d/ds iota)*q^2
 REAL(wp),OPTIONAL,INTENT(OUT) :: p                !! p, pressure profile
-REAL(wp),OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressure profile 
+REAL(wp),OPTIONAL,INTENT(OUT) :: p_prime          !! dp/ds, derivative of pressure profile
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -249,7 +249,7 @@ LA_s(:)      =LA_base_r%s%evalDOF2D_s(spos, LA_base_r%f%modes,     0,LA_r(:,:)) 
 DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
   zeta       = zeta_in(      ithet,izeta)
-  !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta) 
+  !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta)
   ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
   !                      tolerance , lower bound , upper bound , maxstep, start value , F0
   theta_out(ithet,izeta)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
@@ -265,14 +265,14 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 END DO; END DO !ithet,izeta
 
 !for iteration on theta^*
-CONTAINS 
+CONTAINS
 
   FUNCTION FRdFR(theta_iter)
     !uses current zeta where newton is called, and LA_s from subroutine above
     IMPLICIT NONE
     REAL(wp) :: theta_iter
     REAL(wp) :: FRdFR(2) !output
-    !--------------------------------------------------- 
+    !---------------------------------------------------
     FRdFR(1)=theta_iter+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),0,LA_s)  !theta_iter+lambda
     FRdFR(2)=1.0_wp+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_s) !1+dlambda/dtheta
   END FUNCTION FRdFR
@@ -405,7 +405,7 @@ REAL(wp) :: sqrtG,spos
 REAL(wp) :: absB,absB_ds,absB_dthet,absB_dzeta
 
 !! INTERMEDIATE FLAG FOR TESTING THE NEW implementation of the Finite Difference...
-!!! #define PP_test_new_delta  
+!!! #define PP_test_new_delta
 
 #ifdef PP_test_new_delta
 INTEGER  :: iElem
@@ -415,15 +415,15 @@ REAL(wp),PARAMETER :: eps_zeta = 1.0e-8 !theta,zeta
 #else
 REAL(wp) :: eps=1.0e-08
 #endif
-REAL(wp) :: delta_s,delta_thet,delta_zeta 
-REAL(wp) :: g_tt,g_tz,g_zz,g_tt_FD,g_tz_FD,g_zz_FD,Bt,Bz,Bt_FD,Bz_FD,q_thet(3),q_zeta(3) 
+REAL(wp) :: delta_s,delta_thet,delta_zeta
+REAL(wp) :: g_tt,g_tz,g_zz,g_tt_FD,g_tz_FD,g_zz_FD,Bt,Bz,Bt_FD,Bz_FD,q_thet(3),q_zeta(3)
 !===================================================================================================================================
 spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 !interpolate first in s direction
 
 #ifdef PP_test_new_delta
 iElem=sgrid_r%find_elem(spos)
-delta_s = MERGE(-1,1,(iElem.EQ.sgrid_r%nElems))* eps_s*sgrid_r%ds(iElem) 
+delta_s = MERGE(-1,1,(iElem.EQ.sgrid_r%nElems))* eps_s*sgrid_r%ds(iElem)
 #else
 delta_s=eps
 #endif
@@ -451,7 +451,7 @@ PhiPrime_int_eps = sbase_prof%evalDOF_s(spos+delta_s, DERIV_S ,profiles_1d(:,1))
 DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
   zeta = zeta_in(ithet,izeta)
-  !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta) 
+  !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta)
   ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
   !                      tolerance , lower bound , upper bound , maxstep, start value , F0
   theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
@@ -473,11 +473,11 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   dLAdzeta =LA_base_r%f%evalDOF_x(xp, DERIV_ZETA, LA_s)
 
   qvec=(/X1_int,X2_int,zeta/)
-  
+
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,0.0_wp/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
   grad_s(:,ithet,izeta)   = CROSS(e_thet,e_zeta)/sqrtG
   grad_thet(:)            = CROSS(e_zeta,e_s   )/sqrtG
@@ -486,7 +486,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
                                   +grad_thet(:)            *(1.+dLAdthet) &
                                   +grad_zeta(:,ithet,izeta)*dLAdzeta
 
-  Bfield(:,ithet,izeta)= (  e_thet(:)*(iota_int-dLAdzeta )  & 
+  Bfield(:,ithet,izeta)= (  e_thet(:)*(iota_int-dLAdzeta )  &
                           + e_zeta(:)*(1.0_wp+dLAdthet   ) )*(PhiPrime_int/sqrtG)
 
   !absB=SQRT(SUM((Bfield(:,ithet,izeta))**2))
@@ -504,7 +504,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   !-----------TO COMPUTE grad|B|, we do a finite difference in s,theta,zeta ----------
 
-  !variation of |B| in s coordinate (using _eps variables evaluated at spos+eps, above) 
+  !variation of |B| in s coordinate (using _eps variables evaluated at spos+eps, above)
   xp=(/theta,zeta/)
 
   X1_int  =X1_base_r%f%evalDOF_x(xp,          0, X1_s_eps  )
@@ -523,9 +523,9 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   qvec   = (/X1_int,X2_int,zeta/)
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
-  !absB_ds =(SQRT(SUM(((  e_thet(:)*(iota_int_eps-dLAdzeta )  & 
+  !absB_ds =(SQRT(SUM(((  e_thet(:)*(iota_int_eps-dLAdzeta )  &
   !                     + e_zeta(:)*(1.0_wp      +dLAdthet )  )*(PhiPrime_int_eps/sqrtG))**2)) &
   !          -absB)
 
@@ -540,9 +540,9 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   Bz_FD    = ( (1.0_wp      +dLAdthet )*(PhiPrime_int_eps/sqrtG) - Bz)/delta_s
 
   absB_ds = (2.0_wp*((Bt*g_tt+ Bz*g_tz)*Bt_FD +(Bt*g_tz + Bz*g_zz)*Bz_FD +Bt*Bz*g_tz_FD) +Bt*Bt*g_tt_FD + Bz*Bz*g_zz_FD)! / (2.0_wp*absB)
-  
 
-  !variation of |B| in theta 
+
+  !variation of |B| in theta
 
 #ifdef PP_test_new_delta
   delta_thet = eps_thet*SQRT(SUM(grad_thet*grad_thet))
@@ -567,9 +567,9 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   qvec   = (/X1_int,X2_int,zeta/)
   !e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
   !e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
-  !absB_dthet =(SQRT(SUM(((   e_thet(:)*(iota_int-dLAdzeta )  & 
+  !absB_dthet =(SQRT(SUM(((   e_thet(:)*(iota_int-dLAdzeta )  &
   !                         + e_zeta(:)*(1.0_wp  +dLAdthet ) )*(PhiPrime_int/sqrtG))**2)) &
   !             -absB)
   q_thet(1:3) = (/dX1dthet,dX2dthet,0.0_wp/)
@@ -584,7 +584,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   absB_dthet = (2.0_wp*((Bt*g_tt+ Bz*g_tz)*Bt_FD +(Bt*g_tz + Bz*g_zz)*Bz_FD +Bt*Bz*g_tz_FD) +Bt*Bt*g_tt_FD + Bz*Bz*g_zz_FD)! / (2.0_wp*absB)
 
-  !variation of |B| in zeta 
+  !variation of |B| in zeta
 
 #ifdef PP_test_new_delta
   delta_zeta = eps_zeta*SQRT(SUM(grad_zeta*grad_zeta))
@@ -609,9 +609,9 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   qvec=(/X1_int,X2_int,xp(2)/) ! USE THE CORRECT PERTURBED ZETA POSITION!  xp(2)=zeta+delta_zeta !!
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,0.0_wp/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
-  !absB_dzeta =(SQRT(SUM(((  e_thet(:)*(iota_int-dLAdzeta )  & 
+  !absB_dzeta =(SQRT(SUM(((  e_thet(:)*(iota_int-dLAdzeta )  &
   !                        + e_zeta(:)*(1.0_wp  +dLAdthet ) )*(PhiPrime_int/sqrtG))**2)) &
   !             -absB)
   !
@@ -639,14 +639,14 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 END DO; END DO !ithet,izeta
 
 !for iteration on theta^*
-CONTAINS 
+CONTAINS
 
   FUNCTION FRdFR(theta_iter)
     !uses current zeta where newton is called, and LA_s from subroutine above
     IMPLICIT NONE
     REAL(wp) :: theta_iter
     REAL(wp) :: FRdFR(2) !output
-    !--------------------------------------------------- 
+    !---------------------------------------------------
     FRdFR(1)=theta_iter+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),0,LA_s)  !theta_iter+lambda
     FRdFR(2)=1.0_wp+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_s) !1+dlambda/dtheta
   END FUNCTION FRdFR
@@ -703,8 +703,8 @@ REAL(wp) :: absB,absB_ds,absB_dthet,absB_dzeta
 #else
 REAL(wp) :: eps=1.0e-08
 #endif
-REAL(wp) :: delta_s,delta_thet,delta_zeta 
-REAL(wp) :: g_tt,g_tz,g_zz,g_tt_FD,g_tz_FD,g_zz_FD,Bt,Bz,Bt_FD,Bz_FD,q_thet(3),q_zeta(3) 
+REAL(wp) :: delta_s,delta_thet,delta_zeta
+REAL(wp) :: g_tt,g_tz,g_zz,g_tt_FD,g_tz_FD,g_zz_FD,Bt,Bz,Bt_FD,Bz_FD,q_thet(3),q_zeta(3)
 !===================================================================================================================================
 
 spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
@@ -712,7 +712,7 @@ spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the a
 !!!! new delta in s-direction, scaled with the size of the element, change direction of FD in the last element!
 #ifdef PP_test_new_delta
 iElem=sgrid_sfl%find_elem(spos)
-delta_s = MERGE(-1,1,(iElem.EQ.sgrid_sfl%nElems))* eps_s*sgrid_sfl%ds(iElem) 
+delta_s = MERGE(-1,1,(iElem.EQ.sgrid_sfl%nElems))* eps_s*sgrid_sfl%ds(iElem)
 #else
 delta_s=eps
 #endif
@@ -782,7 +782,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
   grad_s(:,ithet,izeta)   = CROSS(e_thet,e_zeta)/sqrtG
   grad_thet(:)            = CROSS(e_zeta,e_s   )/sqrtG
@@ -808,7 +808,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   !-----------TO COMPUTE grad|B|, we do a finite difference in s,theta,zeta ----------
 
-  !variation of |B| in s coordinate (using _eps variables evaluated at spos+eps, above) 
+  !variation of |B| in s coordinate (using _eps variables evaluated at spos+eps, above)
   xp=(/theta,zeta/)
 
   X1_int  =X1sfl_base%f%evalDOF_x(xp,          0, X1_s_eps  )
@@ -832,7 +832,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
   !absB_ds =(SQRT(SUM(((e_thet(:)*iota_int_eps + e_zeta(:))*(PhiPrime_int_eps/sqrtG))**2)) &
   !          -absB)
@@ -849,7 +849,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   absB_ds = (2.0_wp*((Bt*g_tt+ Bz*g_tz)*Bt_FD +(Bt*g_tz + Bz*g_zz)*Bz_FD +Bt*Bz*g_tz_FD) +Bt*Bt*g_tt_FD + Bz*Bz*g_zz_FD)! / (2.0_wp*absB)
 
-  !variation of |B| in theta 
+  !variation of |B| in theta
 
 #ifdef PP_test_new_delta
   delta_thet = eps_thet*SQRT(SUM(grad_thet*grad_thet))
@@ -879,7 +879,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
   !absB_dthet =(SQRT(SUM(((e_thet(:)*iota_int + e_zeta(:))*(PhiPrime_int/sqrtG))**2)) &
   !             -absB)
@@ -896,7 +896,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
 
   absB_dthet = (2.0_wp*((Bt*g_tt+ Bz*g_tz)*Bt_FD +(Bt*g_tz + Bz*g_zz)*Bz_FD +Bt*Bz*g_tz_FD) +Bt*Bt*g_tt_FD + Bz*Bz*g_zz_FD)! / (2.0_wp*absB)
 
-  !variation of |B| in zeta 
+  !variation of |B| in zeta
 
 #ifdef PP_test_new_delta
   delta_zeta = eps_zeta*SQRT(SUM(grad_zeta*grad_zeta))
@@ -926,7 +926,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet) 
+  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
 
   !absB_dzeta =(SQRT(SUM(((e_thet(:)*iota_int + e_zeta(:))*(PhiPrime_int/sqrtG))**2)) &
   !             -absB)
@@ -956,7 +956,7 @@ END DO; END DO !ithet,izeta
 IF(SFLcoord.EQ.2)THEN !BOOZER
   DEALLOCATE(GZ_s,dGZds_s,GZ_s_eps,dGZds_s_eps)
 END IF
-END ASSOCIATE !X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl 
+END ASSOCIATE !X1sfl_base,X1sfl,X2sfl_base,X2sfl,GZsfl_base,GZsfl
 
 END SUBROUTINE gvec_to_gene_metrics_sfl
 
@@ -964,7 +964,7 @@ END SUBROUTINE gvec_to_gene_metrics_sfl
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE finalize_gvec_to_gene 
+SUBROUTINE finalize_gvec_to_gene
 ! MODULES
 USE MODgvec_readState, ONLY: finalize_readState
 USE MODgvec_gvec_to_gene_vars, ONLY: SFLcoord,trafoSFL

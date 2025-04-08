@@ -24,7 +24,7 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*),INTENT(IN) :: parameterfile
   CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: restartfile_in
-  INTEGER,INTENT(IN),OPTIONAL :: comm_in 
+  INTEGER,INTENT(IN),OPTIONAL :: comm_in
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: comm
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
@@ -36,7 +36,7 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
 
   IF(PRESENT(restartfile_in))THEN
     CALL rungvec(parameterfile,restartfile_in=restartfile_in)
-  ELSE                                        
+  ELSE
     CALL rungvec(parameterfile)
   END IF
 

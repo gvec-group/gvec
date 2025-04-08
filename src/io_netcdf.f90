@@ -10,9 +10,9 @@
 !!# Module **IO_NETCDF: SIMPLE NETCDF INTERFACE**
 !!
 !! Provides simplified read routines for netcdf files, via a class "t_ncfile"
-!! start with defining a variable as 
+!! start with defining a variable as
 !!  CLASS(t_ncfile),ALLOCATABLE  :: nc
-!! and to allocate and initialize  
+!! and to allocate and initialize
 !!   CALL ncfile_init(nc,Filename,rwo_mode)
 !!
 !!
@@ -24,14 +24,14 @@ USE netcdf
 #endif /*NETCDF*/
 IMPLICIT NONE
 
-PUBLIC 
+PUBLIC
 
 TYPE :: t_ncfile
   INTEGER  :: nc_id
   INTEGER  :: ioError
   LOGICAL  :: isopen
   CHARACTER(LEN=1)  :: rwo_mode
-  CHARACTER(LEN=255) :: Filename 
+  CHARACTER(LEN=255) :: Filename
   CONTAINS
   PROCEDURE :: openfile       => ncfile_openfile
   PROCEDURE :: closefile      => ncfile_closefile
@@ -61,7 +61,7 @@ CONTAINS
 #if MPI
     IF(.NOT. MPIroot) &
        CALL abort(__STAMP__,&
-                  "netcdf routines are supposed to be called by MPIroot only") 
+                  "netcdf routines are supposed to be called by MPIroot only")
 #endif /*MPI*/
   END SUBROUTINE mpi_check_single_access
 
@@ -69,7 +69,7 @@ CONTAINS
   !> allocate and initialize class and open/close the netcdf file and define  read ("r") or write ("w" includes read) mode
   !!
   !=================================================================================================================================
-  SUBROUTINE ncfile_init(sf,FileName,rwo_mode) 
+  SUBROUTINE ncfile_init(sf,FileName,rwo_mode)
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -82,18 +82,18 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     ALLOCATE(t_ncfile :: sf)
     sf%isopen=.FALSE.
     sf%nc_id=0
     sf%filename=TRIM(FileName)
     sf%rwo_mode=rwo_mode
-    CALL sf%openfile() 
+    CALL sf%openfile()
 
   END SUBROUTINE ncfile_init
 
   !=================================================================================================================================
-  !> open netcdf file 
+  !> open netcdf file
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_openfile( sf)
@@ -107,7 +107,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     IF(sf%isopen) RETURN
 #if NETCDF
     SELECT CASE(sf%rwo_mode)
@@ -129,7 +129,7 @@ CONTAINS
   END SUBROUTINE ncfile_openfile
 
   !=================================================================================================================================
-  !> close netcdf file 
+  !> close netcdf file
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_closefile( sf)
@@ -143,7 +143,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     IF(.NOT.sf%isopen) RETURN
 #if NETCDF
     sf%ioError = nf90_CLOSE(sf%nc_id)
@@ -155,11 +155,11 @@ CONTAINS
 
   !=================================================================================================================================
   !> if variable name contains "/", these are interpreted as groups/subgroups.
-  !> split the varname at first occurence of "/" to get the first group name on the file level. Then get the group id. 
+  !> split the varname at first occurence of "/" to get the first group name on the file level. Then get the group id.
   !>   repeat until no "/" is found anymore.
   !>   output the final groupid and the variable name without the group names.
   !=================================================================================================================================
-  SUBROUTINE ncfile_enter_groups(sf,varname_in,grpid,varname,exists) 
+  SUBROUTINE ncfile_enter_groups(sf,varname_in,grpid,varname,exists)
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -170,15 +170,15 @@ CONTAINS
     CLASS(t_ncfile),INTENT(INOUT)  :: sf !! self
     CHARACTER(LEN=255),INTENT(OUT) :: varname  !! name of the variable without groups
     INTEGER,INTENT(OUT)            :: grpid    !! id of the last group found
-    LOGICAL,INTENT(OUT)            :: exists 
+    LOGICAL,INTENT(OUT)            :: exists
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: grpname
     INTEGER          :: grpid_old,id
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     IF(.NOT.sf%isopen) CALL sf%openfile()
-    grpid=sf%nc_id 
+    grpid=sf%nc_id
     varname=varname_in
 #if NETCDF
     id=INDEX(varname,"/")
@@ -186,7 +186,7 @@ CONTAINS
       grpname=varname(1:id-1)
       varname=varname(id+1:)
       grpid_old=grpid
-      sf%ioError = nf90_INQ_NCID(grpid_old, TRIM(grpname), grpid) 
+      sf%ioError = nf90_INQ_NCID(grpid_old, TRIM(grpname), grpid)
       exists=(sf%ioError .EQ. nf90_NOERR)
       IF(.NOT.exists) RETURN
       id=INDEX(varname,"/")
@@ -207,18 +207,18 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
-    LOGICAL                              :: exists  
+    LOGICAL                              :: exists
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     CHARACTER(LEN=255) :: varname
     INTEGER :: grpid,varid
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(exists)THEN
-      sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
-    END IF 
+      sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid)
+    END IF
     exists=(sf%ioError.EQ.nf90_NOERR)
 #endif /*NETCDF*/
   END FUNCTION ncfile_var_exists
@@ -243,13 +243,13 @@ CONTAINS
     INTEGER :: grpid,varid
     LOGICAL :: exists
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
+    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid)
     CALL sf%handle_error("finding of variable '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_out) 
+    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_out)
     CALL sf%handle_error("finding ndims of variable '"//TRIM(varname_in)//"'")
 #endif /*NETCDF*/
   END FUNCTION ncfile_get_var_ndims
@@ -277,22 +277,22 @@ CONTAINS
     INTEGER :: grpid,varid,ndims_var,dim_ids(1:ndims_in),i
     LOGICAL :: exists,transpose
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     IF(PRESENT(transpose_in))THEN
       transpose=transpose_in
     ELSE
       transpose=.TRUE.
-    END IF 
+    END IF
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
+    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid)
     CALL sf%handle_error("finding of variable '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_var) 
+    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_var)
     CALL sf%handle_error("finding ndims & dimids of variable '"//TRIM(varname_in)//"'")
-    IF(ndims_var.NE.ndims_in) & 
+    IF(ndims_var.NE.ndims_in) &
       CALL sf%handle_error("ndims_in not correct for variable '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_inquire_variable(grpid,  varid, dimids=dim_ids) 
+    sf%ioError = nf90_inquire_variable(grpid,  varid, dimids=dim_ids)
     DO i=1,ndims_var
       sf%ioError = nf90_inquire_dimension(grpid, dim_ids(i),name=dimname, len=dims_out(i))
       CALL sf%handle_error("finding size of dimension  '"//TRIM(dimname)//"'")
@@ -307,7 +307,7 @@ CONTAINS
   !! abort if variable does not exist. USE var_exists for checking
   !!
   !=================================================================================================================================
-  SUBROUTINE ncfile_get_scalar( sf,varname_in,intout,realout) 
+  SUBROUTINE ncfile_get_scalar( sf,varname_in,intout,realout)
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -324,11 +324,11 @@ CONTAINS
     INTEGER :: grpid,varid
     LOGICAL :: exists
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
+    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid)
     CALL sf%handle_error("finding scalar variable '"//TRIM(varname_in)//"'")
     IF(PRESENT(intout))THEN
       sf%ioError = nf90_GET_VAR(grpid, varid, intout)
@@ -352,7 +352,7 @@ CONTAINS
                                              intout_1d,realout_1d, &
                                              intout_2d,realout_2d, &
                                              intout_3d,realout_3d, &
-                                             intout_4d,realout_4d) 
+                                             intout_4d,realout_4d)
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -365,7 +365,7 @@ CONTAINS
     INTEGER ,INTENT(OUT),OPTIONAL        :: intout_1d(:)         !! choose for integer out 1d array
     REAL(wp),INTENT(OUT),OPTIONAL        :: realout_1d(:)        !! choose for real(wp) out (double)  1d array
     INTEGER ,INTENT(OUT),OPTIONAL        :: intout_2d(:,:)       !! choose for integer out 2d array
-    REAL(wp),INTENT(OUT),OPTIONAL        :: realout_2d(:,:)      !! choose for real(wp) out (double) 2d array 
+    REAL(wp),INTENT(OUT),OPTIONAL        :: realout_2d(:,:)      !! choose for real(wp) out (double) 2d array
     INTEGER ,INTENT(OUT),OPTIONAL        :: intout_3d(:,:,:)     !! choose for integer out 3d array
     REAL(wp),INTENT(OUT),OPTIONAL        :: realout_3d(:,:,:)    !! choose for real(wp) out (double)  3d array
     INTEGER ,INTENT(OUT),OPTIONAL        :: intout_4d(:,:,:,:)   !! choose for integer out 4d array
@@ -379,20 +379,20 @@ CONTAINS
     REAL(wp),ALLOCATABLE :: tmpreal2d(:,:),tmpreal3d(:,:,:),tmpreal4d(:,:,:,:)
     LOGICAL :: exists,transpose
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     IF(PRESENT(transpose_in))THEN
       transpose=transpose_in
     ELSE
       transpose=.TRUE.
-    END IF 
+    END IF
     CALL sf%enter_groups(varname_in,grpid,varname,exists)
 #if NETCDF
     IF(.NOT.exists) CALL sf%handle_error("finding group in '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid) 
+    sf%ioError = nf90_INQ_VARID(grpid, TRIM(varname), varid)
     CALL sf%handle_error("finding array '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_var) 
+    sf%ioError = nf90_inquire_variable(grpid,  varid, ndims=ndims_var)
     CALL sf%handle_error("finding ndims & dimids of variable '"//TRIM(varname_in)//"'")
-    sf%ioError = nf90_inquire_variable(grpid,  varid, dimids=dim_ids(1:ndims_var)) 
+    sf%ioError = nf90_inquire_variable(grpid,  varid, dimids=dim_ids(1:ndims_var))
     DO i=1,ndims_var
       sf%ioError = nf90_inquire_dimension(grpid, dim_ids(i),name=dimname, len=dims(i))
       CALL sf%handle_error("finding size of dimension  '"//TRIM(dimname)//"'")
@@ -463,9 +463,9 @@ CONTAINS
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_get_array
 
-  
+
   !=================================================================================================================================
-  !> define a dimension to the netCDF file 
+  !> define a dimension to the netCDF file
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_def_dim(sf,dimname_in,dimlen,dimid)
@@ -473,23 +473,23 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
-    CHARACTER(LEN=*),INTENT(IN) :: dimname_in  !! name of the dimension 
-    INTEGER,INTENT(IN)          :: dimlen      !! length of the dimension 
+    CHARACTER(LEN=*),INTENT(IN) :: dimname_in  !! name of the dimension
+    INTEGER,INTENT(IN)          :: dimlen      !! length of the dimension
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
     INTEGER,INTENT(OUT)          :: dimid !! id of the dimension
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
 #if NETCDF
     sf%ioError = nf90_def_dim(sf%nc_id, dimname_in, dimlen, dimid)
     CALL sf%handle_error("define dimension '"//TRIM(dimname_in)//"'")
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_def_dim
 
-  
+
   !=================================================================================================================================
-  !> after creating a new file and making all definitions, one has to call end_def_mode 
+  !> after creating a new file and making all definitions, one has to call end_def_mode
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_end_def_mode(sf)
@@ -501,15 +501,15 @@ CONTAINS
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT):: sf    !! self
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
 #if NETCDF
     sf%ioError = nf90_enddef(sf%nc_id)
     CALL sf%handle_error("finalize definition mode")
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_end_def_mode
- 
+
   !=================================================================================================================================
-  !> define and put a scalar value to the netCDF file 
+  !> define and put a scalar value to the netCDF file
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_put_scalar(sf,varname_in,def_put_mode,int_in,real_in)
@@ -517,7 +517,7 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
-    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable 
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable
     INTEGER,INTENT(IN) :: def_put_mode  !! 1:"def" or 2:"put" mode
     INTEGER,INTENT(IN),OPTIONAL :: int_in      !! scalar integer input
     REAL(wp),INTENT(IN),OPTIONAL :: real_in      !! scalar double input
@@ -527,7 +527,7 @@ CONTAINS
     ! LOCAL VARIABLES
     INTEGER    :: varid
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
 #if NETCDF
     IF(PRESENT(int_in))THEN
       SELECT CASE(def_put_mode)
@@ -535,7 +535,7 @@ CONTAINS
         sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_INT,varid)
         CALL sf%handle_error("define scalar integer '"//TRIM(varname_in)//"'")
       CASE(2) !put
-        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid)
         CALL sf%handle_error("find varid of real array'"//TRIM(varname_in)//"'")
         sf%ioError = nf90_put_var(sf%nc_id, varid,int_in)
         CALL sf%handle_error("write scalar integer '"//TRIM(varname_in)//"'")
@@ -547,7 +547,7 @@ CONTAINS
         sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_DOUBLE,varid)
         CALL sf%handle_error("define scalar real '"//TRIM(varname_in)//"'")
       CASE(2) !put
-        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid)
         CALL sf%handle_error("find varid of real array'"//TRIM(varname_in)//"'")
         sf%ioError = nf90_put_var(sf%nc_id, varid,real_in)
         CALL sf%handle_error("write scalar real '"//TRIM(varname_in)//"'")
@@ -578,7 +578,7 @@ CONTAINS
     CALL mpi_check_single_access()
 #if NETCDF
     DO i=1,n_attr
-      sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+      sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid)
       CALL sf%handle_error("find varid during attribute write for '"//TRIM(varname_in)//"'")
       sf%ioError = nf90_put_att(sf%nc_id, varid, TRIM(attrs_names(i)), TRIM(attr_values(i)))
       CALL sf%handle_error("Putting attribute '"//TRIM(attrs_names(i))//"'")
@@ -616,7 +616,7 @@ CONTAINS
       sf%ioError = nf90_def_var(sf%nc_id, varname_in,NF90_CHAR,dimid,varid)
       CALL sf%handle_error("define String'"//TRIM(varname_in)//"'")
     CASE(2) !put
-      sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+      sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid)
       CALL sf%handle_error("find varid of string'"//TRIM(varname_in)//"'")
       sf%ioError = nf90_put_var(sf%nc_id, varid,char_in)
       CALL sf%handle_error("write string '"//TRIM(varname_in)//"'")
@@ -627,7 +627,7 @@ CONTAINS
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_put_char
   !=================================================================================================================================
-  !> define and put an array value to the netCDF file 
+  !> define and put an array value to the netCDF file
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_put_array(sf,varname_in,ndims_var,dims,dimids,def_put_mode,transpose_in, int_in,real_in)
@@ -635,9 +635,9 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
-    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable 
-    INTEGER,INTENT(IN)          :: ndims_var       !! number of dimensions 
-    INTEGER,INTENT(IN)          :: dims(1:ndims_var)   !! number of dimensions 
+    CHARACTER(LEN=*),INTENT(IN) :: varname_in  !! name of the variable
+    INTEGER,INTENT(IN)          :: ndims_var       !! number of dimensions
+    INTEGER,INTENT(IN)          :: dims(1:ndims_var)   !! number of dimensions
     INTEGER,INTENT(IN)          :: dimids(1:ndims_var) !! ids of dimensions, must be created before by put_dim
     INTEGER,INTENT(IN) :: def_put_mode  !! 1:"def" or 2:"put" mode
     LOGICAL,INTENT(IN),OPTIONAL :: transpose_in !! transpose the data array, default is true, because of fortran ordering
@@ -650,13 +650,13 @@ CONTAINS
     INTEGER    :: varid
     LOGICAL ::transpose
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
 #if NETCDF
     IF(PRESENT(transpose_in))THEN
       transpose=transpose_in
     ELSE
       transpose=.TRUE.
-    END IF 
+    END IF
     IF(.NOT.sf%isopen) CALL sf%openfile()
     IF(PRESENT(int_in))THEN
       SELECT CASE(def_put_mode)
@@ -706,7 +706,7 @@ CONTAINS
         END IF
         CALL sf%handle_error("define real array'"//TRIM(varname_in)//"'")
       CASE(2) !put
-        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid) 
+        sf%ioError = nf90_INQ_VARID(sf%nc_id, TRIM(varname_in), varid)
         CALL sf%handle_error("find varid of real array'"//TRIM(varname_in)//"'")
         SELECT CASE(ndims_var)
         CASE(1)
@@ -756,7 +756,7 @@ CONTAINS
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
 #if NETCDF
     IF (sf%ioError .NE. nf90_NOERR) THEN
        WRITE(UNIT_stdOut,'(6X,A)')"A netCDF error has occurred:  "//TRIM(errmsg)
@@ -767,7 +767,7 @@ CONTAINS
   END SUBROUTINE ncfile_handle_error
 
   !=================================================================================================================================
-  !> closes file and frees variable 
+  !> closes file and frees variable
   !!
   !=================================================================================================================================
   SUBROUTINE ncfile_free(sf)
@@ -781,7 +781,7 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     ! LOCAL VARIABLES
     !===============================================================================================================================
-    CALL mpi_check_single_access() 
+    CALL mpi_check_single_access()
     IF(sf%isopen) CALL sf%closefile()
     sf%nc_id=0
     sf%filename=""

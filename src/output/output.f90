@@ -36,10 +36,10 @@ PUBLIC::FinalizeOutput
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitOutput 
+SUBROUTINE InitOutput
 ! MODULES
 USE MODgvec_Globals, ONLY:wp,UNIT_stdOut,fmt_sep,MPIroot
 USE MODgvec_Output_Vars
@@ -55,7 +55,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 SWRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
-ProjectName = GETSTR('ProjectName','GVEC')   
+ProjectName = GETSTR('ProjectName','GVEC')
 
 OutputLevel=0
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -77,13 +77,13 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-END SUBROUTINE Output 
+END SUBROUTINE Output
 
 !===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeOutput 
+SUBROUTINE FinalizeOutput
 ! MODULES
 USE MODgvec_Output_Vars
 IMPLICIT NONE

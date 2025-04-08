@@ -48,7 +48,7 @@ contains
   !> @param[in]  periodic  .true. if domain is periodic, .false. otherwise
   !> @param[in]  breaks    array of breakpoints (including xmin and xmax)
   !-----------------------------------------------------------------------------
-  subroutine s_bsplines_non_uniform__init( self, degree, periodic, breaks ) 
+  subroutine s_bsplines_non_uniform__init( self, degree, periodic, breaks )
     class(sll_t_bsplines_non_uniform), intent(  out) :: self
     integer                          , intent(in   ) :: degree
     logical                          , intent(in   ) :: periodic
@@ -69,8 +69,8 @@ contains
 
     ! Create the knots array from the grid points. Here take the grid points
     ! as knots and simply add to the left and the right the
-    ! amount of knots that depends on the degree of the requested 
-    ! spline. We aim at setting up the indexing in such a way that the 
+    ! amount of knots that depends on the degree of the requested
+    ! spline. We aim at setting up the indexing in such a way that the
     ! original indexing of 'grid' is preserved, i.e.: grid(i) = knot(i), at
     ! least whenever the scope of the indices defined here is active.
     associate( npoints => self%ncells+1 )
@@ -81,7 +81,7 @@ contains
         self%knots(i) = breaks(i)
       end do
 
-      ! Fill out the extra nodes 
+      ! Fill out the extra nodes
       if ( periodic ) then
         period = breaks(npoints) - breaks(1)
         do i = 1, degree
@@ -185,7 +185,7 @@ contains
     SLL_ASSERT( icell >= 1               )
     SLL_ASSERT( icell <= self%ncells     )
     SLL_ASSERT( self%knots(icell) <= x   )
-    SLL_ASSERT( x <= self%knots(icell+1) ) 
+    SLL_ASSERT( x <= self%knots(icell+1) )
 
     ! 2. Compute index range of B-splines with support over cell 'icell'
     jmin = icell - self%offset
@@ -252,7 +252,7 @@ contains
 
       ! Compute nonzero basis functions and knot differences
       ! for splines up to degree deg-1 which are needed to compute derivative
-      ! First part of Algorithm  A3.2 of NURBS book 
+      ! First part of Algorithm  A3.2 of NURBS book
       derivs(0) = 1.0_wp
       do j = 1, degree-1
          left (j) = x - self%knots(icell+1-j)
@@ -268,14 +268,14 @@ contains
       end do
 
       ! Compute derivatives at x using values stored in bsdx and formula
-      ! formula for spline derivative based on difference of splines of 
+      ! formula for spline derivative based on difference of splines of
       ! degree deg-1
       ! -------
       ! j = 0
       saved = degree_real * derivs(0) / (self%knots(icell+1)-self%knots(icell+1-degree))
       derivs(0) = -saved
       do j = 1, degree-1
-         temp      = saved 
+         temp      = saved
          saved     = degree_real * derivs(j) / (self%knots(icell+j+1)-self%knots(icell+j+1-degree))
          derivs(j) = temp - saved
       end do
@@ -339,14 +339,14 @@ contains
 
     ! 3. Compute nonzero basis functions and knot differences for splines
     !    up to degree (degree-1) which are needed to compute derivative
-    !    Algorithm  A2.3 of NURBS book 
+    !    Algorithm  A2.3 of NURBS book
     !
     !    21.08.2017: save inverse of knot differences to avoid unnecessary divisions
     !                [Yaman Güçlü, Edoardo Zoni]
     associate( degree => self%degree )
 
       ndu(0,0) = 1.0_wp
-      do j = 1, degree 
+      do j = 1, degree
          left(j)  = x - self%knots(icell+1-j)
          right(j) = self%knots(icell+j) - x
          saved    = 0.0_wp

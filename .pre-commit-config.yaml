@@ -1,28 +1,32 @@
-exclude: ^src/
 repos:
-# whitespace checking
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+  # general hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
-    -   id: end-of-file-fixer
-    -   id: trailing-whitespace
+      - id: end-of-file-fixer # ensure files end with a newline
+      - id: trailing-whitespace # remove trailing whitespace
+      - id: check-case-conflict # check for filenames that only differ by case
+      - id: check-merge-conflict # check for merge conflict strings
+      - id: check-added-large-files # prevent large files from being added
+        args: ['--maxkb=4048', '--enforce-all']
+        exclude: 'wout_d23p4_tm.nc'
 
-# automatic (python) code formatting
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.6.4
-  hooks:
-    # Run the linter.
-    - id: ruff
-      args: [ --fix ]
-    # Run the formatter.
-    - id: ruff-format
-
-# cleaning jupyter notebooks
--   repo: https://github.com/srstevenson/nb-clean
-    rev: 3.3.0
+  # automatic (python) code formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.11.3
     hooks:
-    -   id: nb-clean
+      - id: ruff  # litner
+        args: [--fix]
+        exclude: 'tools|gvec_to_gene'
+      - id: ruff-format  # formatter (like black, but faster)
+        exclude: 'tools|gvec_to_gene'
+
+  # cleaning jupyter notebooks (metadata & outputs)
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: 4.0.1
+    hooks:
+      - id: nb-clean
         args:
-        - --remove-empty-cells
-        - --remove-all-notebook-metadata
+          - --remove-empty-cells
+          - --remove-all-notebook-metadata

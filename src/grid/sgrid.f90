@@ -19,7 +19,7 @@ IMPLICIT NONE
 PRIVATE
 PUBLIC c_sgrid,t_sgrid
 !-----------------------------------------------------------------------------------------------------------------------------------
-! TYPES 
+! TYPES
 TYPE, ABSTRACT :: c_sgrid
   CONTAINS
     PROCEDURE(i_sub_sgrid_init     ),DEFERRED :: init
@@ -33,31 +33,31 @@ END TYPE c_sgrid
 ABSTRACT INTERFACE
   SUBROUTINE i_sub_sgrid_init( sf , nElems_in, grid_type_in,sp_in)
     IMPORT wp,c_sgrid
-    INTEGER       , INTENT(IN   ) :: nElems_in 
-    INTEGER       , INTENT(IN   ) :: grid_type_in 
+    INTEGER       , INTENT(IN   ) :: nElems_in
+    INTEGER       , INTENT(IN   ) :: grid_type_in
     REAL(wp),INTENT(IN),OPTIONAL  :: sp_in(0:nElems_in)
     CLASS(c_sgrid), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sgrid_init
 
-  SUBROUTINE i_sub_sgrid_free( sf ) 
+  SUBROUTINE i_sub_sgrid_free( sf )
     IMPORT c_sgrid
     CLASS(c_sgrid), INTENT(INOUT) :: sf
   END SUBROUTINE i_sub_sgrid_free
 
-  SUBROUTINE i_sub_sgrid_copy( sf, tocopy ) 
+  SUBROUTINE i_sub_sgrid_copy( sf, tocopy )
     IMPORT c_sgrid
     CLASS(c_sgrid), INTENT(INOUT) :: sf
     CLASS(c_sgrid), INTENT(IN   ) :: tocopy
   END SUBROUTINE i_sub_sgrid_copy
 
-  SUBROUTINE i_sub_sgrid_compare( sf, tocompare, is_same ) 
+  SUBROUTINE i_sub_sgrid_compare( sf, tocompare, is_same )
     IMPORT c_sgrid
     CLASS(c_sgrid), INTENT(IN   ) :: sf
     CLASS(c_sgrid), INTENT(IN   ) :: tocompare
     LOGICAL       , INTENT(  OUT) :: is_same
   END SUBROUTINE i_sub_sgrid_compare
 
-  FUNCTION i_fun_sgrid_find_elem( sf ,x) RESULT(iElem) 
+  FUNCTION i_fun_sgrid_find_elem( sf ,x) RESULT(iElem)
     IMPORT wp,c_sgrid
     CLASS(c_sgrid), INTENT(IN   ) :: sf
     REAL(wp)      , INTENT(IN   ) :: x
@@ -65,7 +65,7 @@ ABSTRACT INTERFACE
   END FUNCTION i_fun_sgrid_find_elem
 
 END INTERFACE
- 
+
 
 TYPE,EXTENDS(c_sgrid) :: t_sGrid
   LOGICAL :: initialized=.FALSE.
@@ -75,7 +75,7 @@ TYPE,EXTENDS(c_sgrid) :: t_sGrid
   INTEGER              :: nElems_str, nElems_end   !! local number of radial elements per MPI subdomain  !<<<<
   INTEGER,ALLOCATABLE  :: offset_elem(:)           !! allocated  (0:nRanks), gives range on each rank:
                                                    !!   nElems_str:nElems_end=offset_elem(rank)+1:offset_elem(myRank+1)
-  INTEGER              :: grid_type                !! type of grid (stretching functions...) 
+  INTEGER              :: grid_type                !! type of grid (stretching functions...)
   !---------------------------------------------------------------------------------------------------------------------------------
   REAL(wp),ALLOCATABLE :: sp(:)                    !! element point positions in [0,1], size(0:nElems)
   REAL(wp),ALLOCATABLE :: ds(:)                    !! ds(i)=sp(i)-sp(i-1), size(1:nElems)
@@ -122,17 +122,17 @@ IMPLICIT NONE
 
   IF(sf%initialized) THEN
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid type!'
-    CALL sf%free() 
+    CALL sf%free()
   END IF
 
   sf%nElems     = nElems_in
   ! MPI PSEUDO-DOMAIN DECOMPOSITION (full domain is allocated, but only part of it is actually used on the MPI task)
   ALLOCATE(sf%offset_elem(0:nRanks))
-  sf%offset_elem(0)=0 
+  sf%offset_elem(0)=0
   DO iRank=0,nRanks-1
     sf%offset_elem(iRank+1)=(nElems_in*(iRank+1))/nRanks
   END DO
-  sf%nElems_str = sf%offset_elem(myRank  ) +1    
+  sf%nElems_str = sf%offset_elem(myRank  ) +1
   sf%nElems_end = sf%offset_elem(myRank+1)
   IF (sf%nElems_end-sf%nElems_str+1 .EQ. 0) THEN
     CALL abort(__STAMP__, &
@@ -148,7 +148,7 @@ IMPLICIT NONE
 
   IF(PRESENT(sp_in))THEN
     sf%sp=sp_in
-  ELSE   
+  ELSE
     !uniform [0,1]
     DO iElem=0,nElems
       sf%sp(iElem)=REAL(iElem,wp)/REAL(nElems,wp)
@@ -166,17 +166,17 @@ IMPLICIT NONE
       sf%sp(:)=(sf%sp(:)-0.75_wp*((sf%sp(:)-0.4_wp)**3 + 0.4_wp**3))/(1.0_wp-0.75_wp*((1.0_wp-0.4_wp)**3+0.4**3))
     CASE DEFAULT
       CALL abort(__STAMP__, &
-          'given grid type does not exist') 
+          'given grid type does not exist')
     END SELECT
   END IF!PRESENT(sp_in)
-  
+
   !compute delta s
   DO iElem=1,nElems
     sf%ds(iElem)=sf%sp(iElem)-sf%sp(iElem-1)
   END DO
-  
+
   END ASSOCIATE !sf
-  
+
   sf%initialized=.TRUE.
 
   IF(.NOT.test_called)THEN
@@ -206,11 +206,11 @@ IMPLICIT NONE
 
   sf%nElems   = -1
   sf%grid_Type= -1
-  
+
   SDEALLOCATE(sf%offset_elem)
   SDEALLOCATE(sf%sp)
   SDEALLOCATE(sf%ds)
-  
+
   sf%initialized=.FALSE.
 
 END SUBROUTINE sGrid_free
@@ -240,7 +240,7 @@ IMPLICIT NONE
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid copy!'
     CALL sf%free()
   END IF
-  CALL sf%init(tocopy%nElems,tocopy%grid_type) 
+  CALL sf%init(tocopy%nElems,tocopy%grid_type)
 
   END SELECT !TYPE
 END SUBROUTINE sGrid_copy
@@ -308,7 +308,7 @@ IMPLICIT NONE
     iElem=sf%nElems
     RETURN
   END IF
-  
+
   SELECT CASE(sf%grid_type)
   CASE(GRID_TYPE_UNIFORM)
     iElem=CEILING(xloc*sf%nElems)
@@ -320,7 +320,7 @@ IMPLICIT NONE
     iElem=CEILING((xloc**2)*sf%nElems)
     RETURN
   END SELECT
-  
+
   !not efficient, bisection of sp  array is better!!
   !DO jElem=2,sf%nElems
   !  IF((xloc.GE.sf%sp(iElem-1)).AND.(xloc.LT.sf%sp(jElem)))THEN
@@ -366,7 +366,7 @@ IMPLICIT NONE
   REAL(wp)           :: x
   CHARACTER(LEN=10)  :: fail
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
-  TYPE(t_sgrid)      :: testgrid 
+  TYPE(t_sgrid)      :: testgrid
   LOGICAL            :: check
 !===================================================================================================================================
   test_called=.TRUE.
@@ -515,4 +515,3 @@ END SUBROUTINE sGrid_test
 
 
 END MODULE MODgvec_sGrid
-

@@ -560,7 +560,7 @@ IMPLICIT NONE
 ! INPUT/OUTPUT VARIABLES
 INTEGER,INTENT(IN)     :: N_in              !! polynomial degree
 REAL(wp),INTENT(IN)    :: xGP(0:N_in)       !! Gauss point positions for the reference interval [-1,1]
-INTEGER,INTENT(IN)     :: deriv             !! derivative (starting at 1) 
+INTEGER,INTENT(IN)     :: deriv             !! derivative (starting at 1)
 REAL(wp),INTENT(OUT)   :: D(0:N_in,0:N_in)  !! differentiation Matrix
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -617,14 +617,14 @@ END FUNCTION ALMOSTEQUAL
 !> Determines if two REAL(wp) numbers are equal up to a given tolerance.
 !> Routine requires: x,y > tolerance
 !==================================================================================================================================
-FUNCTION EQUALTOTOLERANCE(x,y,tolerance) 
+FUNCTION EQUALTOTOLERANCE(x,y,tolerance)
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 REAL(wp),INTENT(IN) :: x                !! (IN)  first scalar to be compared
 REAL(wp),INTENT(IN) :: y                !! (IN)  second scalar to be compared
 REAL(wp),INTENT(IN) :: tolerance        !! (IN)  Tolerance to be checked against
-LOGICAL         :: EqualToTolerance !! (OUT) TRUE if x and y are closer than tolerance 
+LOGICAL         :: EqualToTolerance !! (OUT) TRUE if x and y are closer than tolerance
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL(wp)            :: diff,maxInput

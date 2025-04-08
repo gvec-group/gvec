@@ -43,7 +43,7 @@ CONTAINS
 !> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitMHD3D(sf) 
+SUBROUTINE InitMHD3D(sf)
   ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_Globals        , ONLY: TWOPI
@@ -89,12 +89,12 @@ SUBROUTINE InitMHD3D(sf)
 
   which_init = GETINT("whichInitEquilibrium")
   IF(which_init.EQ.1) CALL InitVMEC()
-  
+
   !-----------MINIMIZER
   MinimizerType= GETINT("MinimizerType",Proposal=0)
   PrecondType  = GETINT("PrecondType",Proposal=1)
 
-  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10_wp) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10 
+  dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10_wp) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10
   maxIter   = GETINT("maxIter",Proposal=5000)
   outputIter= GETINT("outputIter",Proposal=maxIter)
   logIter   = GETINT("logIter",Proposal=maxIter)
@@ -106,7 +106,7 @@ SUBROUTINE InitMHD3D(sf)
   !-----------
 
   fac_nyq = GETINT( "fac_nyq",Proposal=4)
-  
+
   !constants
   mu_0    = 2.0e-07_wp*TWOPI
   gamm    = 0.0_wp  !fixed!
@@ -128,27 +128,27 @@ SUBROUTINE InitMHD3D(sf)
       CALL InitProfile(sf,"iota",iota_profile)
       CALL InitProfile(sf,"pres",pres_profile)
     END IF
-    
+
   CASE(1) !VMEC init
     init_fromBConly= GETLOGICAL("init_fromBConly",Proposal=.FALSE.)
     IF(init_fromBConly)THEN
       !=-1, keep vmec axis and boundary, =0: keep vmec boundary, overwrite axis, =1: keep vmec axis, overwrite boundary, =2: overwrite axis and boundary
-      init_BC= GETINT("reinit_BC",Proposal=-1) 
+      init_BC= GETINT("reinit_BC",Proposal=-1)
     ELSE
       init_BC=-1
     END IF
 
-    IF(MPIroot)THEN   
-      init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)   
+    IF(MPIroot)THEN
+      init_with_profile_iota     = GETLOGICAL("init_with_profile_iota", Proposal=.FALSE.)
       IF(init_with_profile_iota)THEN
         CALL InitProfile(sf,"iota",iota_profile)
-      ELSE 
+      ELSE
         iota_profile=vmec_iota_profile
       END IF ! iota from parameterfile
       init_with_profile_pressure = GETLOGICAL("init_with_profile_pressure", Proposal=.FALSE.)
       IF(init_with_profile_pressure)THEN
         CALL InitProfile(sf,"pres",pres_profile)
-      ELSE 
+      ELSE
         pres_profile=vmec_pres_profile
       END IF ! pressure from parameterfile
 
@@ -166,10 +166,10 @@ SUBROUTINE InitMHD3D(sf)
   END SELECT !which_init
 
   IF(MPIroot)THEN
-    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s 
+    Phi_profile=t_rProfile_poly((/0.0_wp,Phi_edge/)) !! choice phi=Phi_edge * s
     !iota= (dChi/ds) / (dPhi/ds) = dchi_ds / Phi_edge  => chi = Phi_edge * int(iota ds)
     chi_profile=iota_profile%antiderivative()
-    chi_profile%coefs=chi_profile%coefs*Phi_edge 
+    chi_profile%coefs=chi_profile%coefs*Phi_edge
   END IF !MPIroot
 
   getBoundaryFromFile=GETINT("getBoundaryFromFile",Proposal=-1)  ! =-1: OFF, get X1b and X2b from parameterfile. 1: get boundary from specific netcdf file
@@ -197,25 +197,25 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
 
- 
+
   CALL hmap_new(hmap,which_hmap)
   IF((hmap%nfp.NE.-1).AND.(hmap%nfp.NE.nfp_loc)) CALL abort(__STAMP__,&
                         "nfp from GVEC parameterfile does not match to nfp used in hmap.")
-  
-  
+
+
   X1X2_deg     = GETINT(     "X1X2_deg")
   X1X2_cont    = GETINT(     "X1X2_continuity",Proposal=(X1X2_deg-1) )
   X1_mn_max    = GETINTARRAY("X1_mn_max"   ,2 ,Proposal=proposal_mn_max)
   X2_mn_max    = GETINTARRAY("X2_mn_max"   ,2 ,Proposal=proposal_mn_max)
   X1_sin_cos   = GETSTR(     "X1_sin_cos"     ,Proposal=proposal_X1_sin_cos)  !_sin_,_cos_,_sin_cos_
   X2_sin_cos   = GETSTR(     "X2_sin_cos"     ,Proposal=proposal_X2_sin_cos)
-  
-  
+
+
   LA_deg     = GETINT(     "LA_deg")
   LA_cont    = GETINT(     "LA_continuity",Proposal=(LA_deg-1))
   LA_mn_max  = GETINTARRAY("LA_mn_max", 2 ,Proposal=proposal_mn_max)
   LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal=proposal_LA_sin_cos)
-  
+
   IF(fac_nyq.EQ.-1)THEN
     fac_nyq=4
     mn_nyq_min(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
@@ -225,7 +225,7 @@ SUBROUTINE InitMHD3D(sf)
        CALL abort(__STAMP__,&
                   'mn_nyq(1) too small, should be >= ',intInfo=mn_nyq_min(1))
     END IF
-    IF(mn_nyq(2).LT.mn_nyq_min(2))THEN 
+    IF(mn_nyq(2).LT.mn_nyq_min(2))THEN
        CALL abort(__STAMP__,&
                   'mn_nyq(2) too small, should be >= ',intInfo=mn_nyq_min(2))
     END IF
@@ -233,7 +233,7 @@ SUBROUTINE InitMHD3D(sf)
     mn_nyq(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
     mn_nyq(2)=1+fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))
   END IF
-  
+
   SWRITE(UNIT_stdOut,*)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
@@ -242,7 +242,7 @@ SUBROUTINE InitMHD3D(sf)
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
   degGP    = GETINT("degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
-  !INITIALIZE GRID  
+  !INITIALIZE GRID
   CALL sgrid%init(nElems,grid_type)
 
   !INITIALIZE BASE        !sbase parameter                 !fbase parameter               ...exclude_mn_zero
@@ -294,7 +294,7 @@ SUBROUTINE InitMHD3D(sf)
     LA_b=0.0_wp
     X1_a=0.0_wp
     X2_a=0.0_wp
- 
+
     IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
       WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
       ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
@@ -342,15 +342,15 @@ SUBROUTINE InitMHD3D(sf)
     END IF
   END IF !MPIroot
 
-  
 
-  !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent  
-  !X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent  
-  !X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent 
+
+  !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
   X1X2_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
-                                    
+
   !boundary conditions (used in force, in init slightly changed)
   ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
   ALLOCATE(X1_BC_type(1:2,modes))
@@ -453,7 +453,7 @@ SUBROUTINE InitMHD3D(sf)
 
   CALL par_barrier(afterScreenOut='...DONE')
   SWRITE(UNIT_stdOut,fmt_sep)
-  
+
 END SUBROUTINE InitMHD3D
 
 SUBROUTINE InitProfile(sf, var,var_profile)
@@ -491,7 +491,7 @@ SUBROUTINE InitProfile(sf, var,var_profile)
   possible_BCs(0)="not_a_knot"
   possible_BCs(1)="1st_deriv"
   possible_BCs(2)="2nd_deriv"
-  
+
   profile_scale=GETREAL(var//"_scale",Proposal=1.0_wp)
   profile_type  = GETSTR(var//"_type") !make it mandatory
   IF (profile_type.EQ."polynomial") THEN
@@ -499,7 +499,7 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     profile_coefs=profile_coefs*profile_scale
     var_profile = t_rProfile_poly(profile_coefs)
   ELSE IF (profile_type.EQ."bspline") THEN
-    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs) 
+    CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs)
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
     var_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
@@ -517,8 +517,8 @@ SUBROUTINE InitProfile(sf, var,var_profile)
       DO jBC=0,2
         IF (INDEX(TRIM(profile_BC_type(iBC)),TRIM(possible_BCs(jBC)))>0) THEN
           BC(iBC)=jBC
-          EXIT 
-        END IF 
+          EXIT
+        END IF
       END DO !jBC
     END DO !iBC
     IF(ANY(BC<0)) THEN
@@ -547,10 +547,10 @@ SUBROUTINE InitProfile(sf, var,var_profile)
 END SUBROUTINE InitProfile
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitSolutionMHD3D(sf) 
+SUBROUTINE InitSolutionMHD3D(sf)
 ! MODULES
   USE MODgvec_MHD3D_Vars     , ONLY: which_init,U,F,init_LA,boundary_perturb
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
@@ -576,7 +576,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
       WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
       CALL RestartFromState(RestartFile,U(0))
       CALL InitSolution(U(0),-1) ! (re-)apply BC and init LA (if init_LA is true)
-    ELSE 
+    ELSE
       CALL InitSolution(U(0),which_init)
     END IF
     IF(boundary_perturb)THEN
@@ -609,7 +609,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
 
   CALL par_barrier(afterScreenOut="    ...DONE")
   SWRITE(UNIT_stdOut,fmt_sep)
-  
+
 END SUBROUTINE InitSolutionMHD3D
 
 
@@ -657,7 +657,7 @@ SUBROUTINE InitAverageAxis()
   REAL(wp) :: X2_b_IP(X2_base%f%mn_nyq(1),X2_base%f%mn_nyq(2))
 
   INTEGER  :: i_m,i_n
-  REAL(wp) :: dl,lint,x1int,x2int 
+  REAL(wp) :: dl,lint,x1int,x2int
 !-----------------------------------------------------------------------------------------------------------------------------------
   ASSOCIATE(m_nyq=>X1_base%f%mn_nyq(1),n_nyq=>X1_base%f%mn_nyq(2))
     X1_b_IP(:,:) = RESHAPE(X1_base%f%evalDOF_IP(0,X1_b),(/m_nyq,n_nyq/))
@@ -684,7 +684,7 @@ SUBROUTINE InitAverageAxis()
 END SUBROUTINE InitAverageAxis
 
 !===================================================================================================================================
-!> Initialize the solution with the given boundary condition 
+!> Initialize the solution with the given boundary condition
 !!
 !===================================================================================================================================
 SUBROUTINE InitSolution(U_init,which_init_in)
@@ -741,21 +741,21 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       ASSOCIATE(sin_range    => X1_base%f%sin_range, cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
         X1_a(iMode:iMode)= VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmnc_Spl)
-      END DO 
+      END DO
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
           X1_a(iMode:iMode)=X1_a(iMode:imode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmns_Spl)
-        END DO 
+        END DO
       END IF !lasym
       END ASSOCIATE !X1
       ASSOCIATE(sin_range    => X2_base%f%sin_range, cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
         X2_a(iMode:iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmns_Spl)
-      END DO 
+      END DO
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
           X2_a(iMode:iMode)=X2_a(iMode:iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmnc_Spl)
-        END DO 
+        END DO
       END IF !lasym
       END ASSOCIATE !X2
     END IF
@@ -764,21 +764,21 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       ASSOCIATE(sin_range    => X1_base%f%sin_range, cos_range    => X1_base%f%cos_range )
       DO imode=cos_range(1)+1,cos_range(2)
         X1_b(iMode:iMode)=VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmnc_Spl)
-      END DO 
+      END DO
       IF(lasym)THEN
         DO imode=sin_range(1)+1,sin_range(2)
           X1_b(iMode:iMode)=X1_b(iMode:iMode)  +VMEC_EvalSplMode(X1_base%f%Xmn(:,iMode),0,(/rhopos/),Rmns_Spl)
-        END DO 
+        END DO
       END IF !lasym
       END ASSOCIATE !X1
       ASSOCIATE(sin_range    => X2_base%f%sin_range, cos_range    => X2_base%f%cos_range )
       DO imode=sin_range(1)+1,sin_range(2)
         X2_b(iMode:iMode)=VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmns_Spl)
-      END DO 
+      END DO
       IF(lasym)THEN
         DO imode=cos_range(1)+1,cos_range(2)
           X2_b(iMode:iMode)=X2_b(iMode:iMode)  +VMEC_EvalSplMode(X2_base%f%Xmn(:,iMode),0,(/rhopos/),Zmnc_Spl)
-        END DO 
+        END DO
       END IF !lasym
       END ASSOCIATE !X2
     END IF
@@ -827,10 +827,10 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       END ASSOCIATE !LA
      END IF !fullIntVmec
   END SELECT !which_init
-  
- 
-  IF((which_init_in.NE.-1).AND.(init_fromBConly))THEN 
-    !no restart(=-1) and initialization only 
+
+
+  IF((which_init_in.NE.-1).AND.(init_fromBConly))THEN
+    !no restart(=-1) and initialization only
     !smoothly interpolate between  edge and axis data
     ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
               modes        =>X1_base%f%modes, &
@@ -842,14 +842,14 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       CASE(M_ODD_FIRST)
         X1_gIP(:,iMode)=s_IP(:)*X1_b(iMode)      ! first odd mode ~s
       CASE DEFAULT ! ~s^m
-        X1_gIP(:,iMode)=s_IP(:)*X1_b(iMode)      
+        X1_gIP(:,iMode)=s_IP(:)*X1_b(iMode)
         DO i_m=2,X1_base%f%Xmn(1,iMode)
           X1_gIP(:,iMode)=X1_gIP(:,iMode)*s_IP(:)
         END DO
       END SELECT !X1(:,iMode) zero odd even
     END DO !iMode
     END ASSOCIATE
-    
+
     ASSOCIATE(s_IP         =>X2_base%s%s_IP, &
               modes        =>X2_base%f%modes, &
               zero_odd_even=>X2_base%f%zero_odd_even)
@@ -860,12 +860,12 @@ SUBROUTINE InitSolution(U_init,which_init_in)
       CASE(M_ODD_FIRST)
         X2_gIP(:,iMode)=s_IP(:)*X2_b(iMode)      ! first odd mode ~s
       CASE DEFAULT ! ~s^m
-        X2_gIP(:,iMode)=s_IP(:)*X2_b(iMode)      
+        X2_gIP(:,iMode)=s_IP(:)*X2_b(iMode)
         DO i_m=2,X2_base%f%Xmn(1,iMode)
           X2_gIP(:,iMode)=X2_gIP(:,iMode)*s_IP(:)
         END DO
       END SELECT !X2(:,iMode) zero odd even
-    END DO 
+    END DO
     END ASSOCIATE
   END IF !init_fromBConly
 
@@ -882,9 +882,9 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END SELECT !X1(:,iMode) zero odd even
     IF(which_init_in.NE.-1) U_init%X1(:,iMode)=X1_base%s%initDOF( X1_gIP(:,iMode) )
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
-  END DO 
+  END DO
   END ASSOCIATE !X1
-  
+
   ASSOCIATE(modes        =>X2_base%f%modes, &
             zero_odd_even=>X2_base%f%zero_odd_even)
   DO imode=1,modes
@@ -897,7 +897,7 @@ SUBROUTINE InitSolution(U_init,which_init_in)
     END SELECT !X1(:,iMode) zero odd even
     IF(which_init_in.NE.-1) U_init%X2(:,iMode)=X2_base%s%initDOF( X2_gIP(:,iMode) )
     CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
-  END DO 
+  END DO
   END ASSOCIATE !X2
 
   ASSOCIATE(modes        =>LA_base%f%modes, &
@@ -993,11 +993,11 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !!!      CALL LA_base%s%applyBCtoDOF(U_init%LA(:,iMode),LA_BC_type(:,iMode),BC_val)
 !!!    END DO !iMode=1,modes
 !!!  END IF
-!!!  CALL par_BCast(U_init%LA,0) 
+!!!  CALL par_BCast(U_init%LA,0)
   !reduce radially, different mode sets to different MPIranks (should be a gatherv)
   DO iRank=0,nRanks-1
     IF(offset_modes(iRank+1)-offset_modes(iRank).GT.0) &
-      CALL par_Reduce(LA_gIP(1:nbase,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank) 
+      CALL par_Reduce(LA_gIP(1:nbase,offset_modes(iRank)+1:offset_modes(iRank+1)),'SUM',iRank)
   END DO
   DO iMode=modes_str,modes_end
     IF(zero_odd_even(iMode).EQ.MN_ZERO)THEN
@@ -1044,24 +1044,24 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                        "AddBoundaryPerturbation should only be called by MPIroot!")
   WRITE(UNIT_stdOut,'(4X,A)') "ADD BOUNDARY PERTURBATION..."
-  
- 
+
+
   ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
             modes        =>X1_base%f%modes )
   DO imode=1,modes
     X1_b(iMode)=X1_b(iMode)+X1pert_b(iMode)
     X1pert_gIP(:)=blend(s_IP)*X1pert_b(iMode)
     U_init%X1(:,iMode)=U_init%X1(:,iMode) + X1_base%s%initDOF( X1pert_gIP(:) )
-  END DO 
+  END DO
   END ASSOCIATE
-  
+
   ASSOCIATE(s_IP         =>X2_base%s%s_IP, &
             modes        =>X2_base%f%modes )
   DO imode=1,modes
     X2_b(iMode)=X2_b(iMode)+X2pert_b(iMode)
-    X2pert_gIP(:)=blend(s_IP)*X2pert_b(iMode) 
+    X2pert_gIP(:)=blend(s_IP)*X2pert_b(iMode)
     U_init%X2(:,iMode)=U_init%X2(:,iMode) + X2_base%s%initDOF( X2pert_gIP(:))
-  END DO 
+  END DO
   END ASSOCIATE
 
   !apply strong boundary conditions
@@ -1076,9 +1076,9 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
       BC_val =(/          0.0_wp,      X1_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X1_base%s%applyBCtoDOF(U_init%X1(:,iMode),X1_BC_type(:,iMode),BC_val)
-  END DO 
+  END DO
   END ASSOCIATE !X1
-  
+
   ASSOCIATE(modes        =>X2_base%f%modes, &
             zero_odd_even=>X2_base%f%zero_odd_even)
   DO imode=1,modes
@@ -1090,7 +1090,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
       BC_val =(/          0.0_wp,      X2_b(iMode)/)
     END SELECT !X1(:,iMode) zero odd even
     CALL X2_base%s%applyBCtoDOF(U_init%X2(:,iMode),X2_BC_type(:,iMode),BC_val)
-  END DO 
+  END DO
   END ASSOCIATE !X2
 
   WRITE(UNIT_stdOut,'(4X,A)') "... DONE."
@@ -1105,7 +1105,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
     !blend= ( MIN(0., (s_in-(1.-h)) ) / h) **4
     !blend= 2. -2./(EXP(8.*(s_in-1.)/h) +1)
     !blend= EXP(-4.*((s_in-1.)/h)**2)
-    !blend= s_in 
+    !blend= s_in
     blend= EXP(-4.0_wp*((s_in-1.0_wp)/0.6_wp)**2)
   END FUNCTION blend
 
@@ -1115,7 +1115,7 @@ END SUBROUTINE AddBoundaryPerturbation
 !> Compute Equilibrium, iteratively
 !!
 !===================================================================================================================================
-SUBROUTINE MinimizeMHD3D(sf) 
+SUBROUTINE MinimizeMHD3D(sf)
 ! MODULES
   USE MODgvec_MHD3D_vars, ONLY: MinimizerType
   IMPLICIT NONE
@@ -1140,7 +1140,7 @@ END SUBROUTINE MinimizeMHD3D
 !> Compute Equilibrium, iteratively
 !!
 !===================================================================================================================================
-SUBROUTINE MinimizeMHD3D_descent(sf) 
+SUBROUTINE MinimizeMHD3D_descent(sf)
 ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_MHD3D_EvalFunc
@@ -1162,7 +1162,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   INTEGER   :: logUnit !globally needed for logging
   INTEGER   :: logiter_ramp,logscreen
   LOGICAL   :: restart_iter
-  LOGICAL   :: first_iter 
+  LOGICAL   :: first_iter
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)') "MINIMIZE MHD3D FUNCTIONAL..."
 
@@ -1202,7 +1202,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         CALL V(-1)%set_to(0.0_wp)
         CALL V( 0)%set_to(0.0_wp)
         tau(1:ndamp)=0.15_wp/dt
-        tau_bar = 0.075_wp 
+        tau_bar = 0.075_wp
       END IF
       min_dt_out=1.0e+30_wp
       max_dt_out=0.0_wp
@@ -1222,7 +1222,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
     SELECT CASE(MinimizerType)
     CASE(0) !gradient descent, previously used for minimizerType=0
       CALL P(1)%AXBY(1.0_wp,U(0),dt,F(0)) !overwrites P(1), predicts solution U(1)
-    CASE(10) !hirshman method 
+    CASE(10) !hirshman method
       !tau is damping parameter
       tau(1:ndamp-1) = tau(2:ndamp) !save old
       tau(ndamp)  = MIN(0.15_wp,ABS(LOG(SUM(Fnorm**2)/SUM(Fnorm_old**2))))/dt  !ln(|F_n|^2/|F_{n-1}|^2), Fnorm=|F_X1|,|F_X2|,|F_LA|
@@ -1234,17 +1234,17 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
 
 
     JacCheck=2 !no abort,if detJ<0, JacCheck=-1
-    P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck) 
+    P(1)%W_MHD3D=EvalEnergy(P(1),.TRUE.,JacCheck)
     IF(JacCheck.EQ.-1)THEN
       dt=0.9_wp*dt
       nstepDecreased=nStepDecreased+1
       nSkip_Jac=nSkip_Jac+1
       restart_iter=.TRUE.
-      CALL U(0)%set_to(U(-3)) !reset to initial state 
+      CALL U(0)%set_to(U(-3)) !reset to initial state
       SWRITE(UNIT_stdOut,'(8X,I8,A,E11.4,A)')iter,'...detJac<0, decrease stepsize to dt=',dt,  ' and RESTART simulation!!!!!!!'
-    ELSE 
+    ELSE
       !detJ>0
-      deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0, 
+      deltaW=P(1)%W_MHD3D-U(0)%W_MHD3D!should be <=0,
       IF(deltaW.LE.dW_allowed*W_MHD3D_0)THEN !valid step /hirshman method accept W increase!
 
         IF(ALL(Fnorm.LE.abstol))THEN
@@ -1273,7 +1273,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         min_dW_out=MIN(min_dW_out,deltaW)
         max_dW_out=MAX(max_dW_out,deltaW)
         sum_dW_out=sum_dW_out+deltaW
-        IF(MOD(iter,logIter_ramp).EQ.0)THEN 
+        IF(MOD(iter,logIter_ramp).EQ.0)THEN
 
           CALL Logging(.NOT.((logIter_ramp.GE.logIter).AND.(MOD(logscreen,nLogScreen).EQ.0)))
           IF(.NOT.(logIter_ramp.LT.logIter))THEN !only reset for logIter
@@ -1292,14 +1292,14 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
         dt=0.9_wp*dt
         nstepDecreased=nStepDecreased+1
         nSkip_dW=nSkip_dW+1
-        !CALL U(0)%set_to(U(-2)) 
+        !CALL U(0)%set_to(U(-2))
         restart_iter=.TRUE.
         SWRITE(UNIT_stdOut,'(8X,I8,A,E8.1,A,E11.4)')iter,'...deltaW>',dW_allowed,'*W_MHD3D_0, skip step and decrease stepsize to dt=',dt
       END IF
     END IF !JacCheck
-   
+
     IF(nStepDecreased.GT.130) THEN ! 0.9^130 ~10^-6
-      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 0.9^130: ', dt 
+      SWRITE(UNIT_stdOut,'(A,E21.11)')'Iteration stopped since timestep has been decreased by 0.9^130: ', dt
       SWRITE(UNIT_stdOut,fmt_sep)
       RETURN
     END IF
@@ -1314,7 +1314,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
     END IF
   END DO !iter
   IF(iter.GE.MaxIter)THEN
-    SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded" 
+    SWRITE(UNIT_stdOut,'(A,E21.11)')"maximum iteration count exceeded"
   END IF
   SWRITE(UNIT_stdOut,'(A)') "... DONE."
   SWRITE(UNIT_stdOut,fmt_sep)
@@ -1324,7 +1324,7 @@ SUBROUTINE MinimizeMHD3D_descent(sf)
   END IF
   CALL FinishLogging()
   CALL writeSFLoutfile(U(0),MIN(iter,MaxIter))
-  
+
 
 CONTAINS
 
@@ -1357,7 +1357,7 @@ CONTAINS
     WRITE(UNIT_stdOut,'(A,E11.4,A,3E11.4)') &
           '%%% accel.GD: tau= ',tau_bar,' |vel|= ',Vnorm(1:3)
   END IF
-  
+
   WRITE(UNIT_stdOut,'(40(" -"))')
   !------------------------------------
   StartTimeArray=TimeArray !save first time stamp
@@ -1367,14 +1367,14 @@ CONTAINS
   OPEN(UNIT     = logUnit       ,&
      FILE     = TRIM(FileString) ,&
      STATUS   = 'REPLACE'   ,&
-     ACCESS   = 'SEQUENTIAL' ) 
+     ACCESS   = 'SEQUENTIAL' )
   !header
   iLogDat=0
   WRITE(logUnit,'(A)',ADVANCE="NO")'"#iterations","runtime(s)","min_dt","max_dt"'
   WRITE(logUnit,'(A)',ADVANCE="NO")',"W_MHD3D","min_dW","max_dW","sum_dW"'
   WRITE(logUnit,'(A)',ADVANCE="NO")',"normF_X1","normF_X2","normF_LA"'
   LogDat(ilogDat+1:iLogDat+11)=(/0.0_wp,0.0_wp,dt,dt,W_MHD3D,0.0_wp,0.0_wp,0.0_wp,Fnorm(1:3)/)
-  iLogDat=11 
+  iLogDat=11
   IF(MinimizerType.EQ.10) THEN
     WRITE(logUnit,'(A)',ADVANCE="NO")',"tau","normV_X1","normV_X2","normV_LA"'
     LogDat(ilogDat+1:iLogDat+4)=(/tau_bar,Vnorm(1:3)/)
@@ -1423,7 +1423,7 @@ CONTAINS
     WRITE(UNIT_stdOut,'(A,I8,A,2I8,A,E11.4,A,2E11.4,A,E21.14,A,3E12.4)') &
                       '%%% #ITERATIONS= ',iter,', #skippedIter (Jac/dW)= ',nSkip_Jac,nSkip_dW, &
               '\n%%% t_pseudo= ',t_pseudo,', min/max dt= ',min_dt_out,max_dt_out, &
-              '\n%%% W_MHD3D= ',W_MHD3D,', min/max/sum deltaW= ' , min_dW_out,max_dW_out,sum_dW_out 
+              '\n%%% W_MHD3D= ',W_MHD3D,', min/max/sum deltaW= ' , min_dW_out,max_dW_out,sum_dW_out
     WRITE(UNIT_stdOut,'(A,3E21.14)') &
                 '%%% dU = |Force|= ',Fnorm(1:3)
     !------------------------------------
@@ -1433,7 +1433,7 @@ CONTAINS
   LogDat(ilogDat+1:iLogDat+11)=(/REAL(iter,wp),REAL(runtime_ms,wp)/100.0_wp, &
                                 min_dt_out,max_dt_out,W_MHD3D,min_dW_out,max_dW_out,sum_dW_out, &
                                 Fnorm(1:3)/)
-  iLogDat=11 
+  iLogDat=11
   IF(MinimizerType.EQ.10) THEN
     IF(.NOT.quiet)THEN
       WRITE(UNIT_stdOut,'(A,E11.4,A,3E11.4)') &
@@ -1470,7 +1470,7 @@ CONTAINS
   END SUBROUTINE Logging
 
   !=================================================================================================================================
-  !> 
+  !>
   !!
   !=================================================================================================================================
   SUBROUTINE FinishLogging()
@@ -1486,7 +1486,7 @@ END SUBROUTINE MinimizeMHD3D_descent
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeMHD3D(sf) 
+SUBROUTINE FinalizeMHD3D(sf)
 ! MODULES
   USE MODgvec_MHD3D_Vars
   USE MODgvec_MHD3D_EvalFunc,ONLY:FinalizeMHD3D_EvalFunc
@@ -1502,7 +1502,7 @@ SUBROUTINE FinalizeMHD3D(sf)
   CALL X1_base%free()
   CALL X2_base%free()
   CALL LA_base%free()
-  
+
   DO i=-1,1
     CALL U(i)%free()
     CALL P(i)%free()
@@ -1527,12 +1527,12 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(LA_b)
   SDEALLOCATE(X1_a)
   SDEALLOCATE(X2_a)
-  
+
   SDEALLOCATE(iota_profile)
   SDEALLOCATE(pres_profile)
   SDEALLOCATE(Phi_profile)
   SDEALLOCATE(chi_profile)
-  
+
   CALL FinalizeMHD3D_EvalFunc()
   IF(which_init.EQ.1) CALL FinalizeVMEC()
 

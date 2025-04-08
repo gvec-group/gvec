@@ -39,13 +39,13 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER,INTENT(IN)            :: dim1                    !! dimension of the data (either 1D,2D or 3D)
-INTEGER,INTENT(IN)            :: vecdim                  !! dimension of coordinates 
+INTEGER,INTENT(IN)            :: vecdim                  !! dimension of coordinates
 INTEGER,INTENT(IN)            :: nVal                    !! Number of nodal output variables
 INTEGER,INTENT(IN)            :: ndims(1:dim1)           !! size of the data in each dimension
-CHARACTER(LEN=*),INTENT(IN)   :: DimNames(1:dim1)        !! Names of dimensions of multi-dimensional array 
+CHARACTER(LEN=*),INTENT(IN)   :: DimNames(1:dim1)        !! Names of dimensions of multi-dimensional array
 REAL(wp),INTENT(IN)           :: Coord(vecdim,1:PRODUCT(ndims))      ! CoordinatesVector
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          !! Names of all variables that will be written out
-REAL(wp),INTENT(IN)           :: Values(nVal,1:PRODUCT(ndims))   !! Statevector 
+REAL(wp),INTENT(IN)           :: Values(nVal,1:PRODUCT(ndims))   !! Statevector
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              !! Output file name (without .nc ending)
 REAL(wp),INTENT(IN),OPTIONAL  :: coord1(:),coord2(:),coord3(:) !! Netcdf coordinate values e.g. rho, theta and zeta
 CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: CoordNames(1:dim1) !! Names of the dimensions
@@ -67,10 +67,10 @@ WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')'   WRITE DATA TO NETCDF FILE "'//TRIM(File
 WRITE(UNIT_stdOut,'(A)')'   OMIT WRITING DATA TO NETCDF FILE "'//TRIM(FileString)//'.nc" (not compiled with netcdf)'
 RETURN
 #endif
-CALL ncfile_init(nc,TRIM(fileString)//".nc","o") 
-CALL nc%def_dim("xyz",vecdim,vecdimid) 
+CALL ncfile_init(nc,TRIM(fileString)//".nc","o")
+CALL nc%def_dim("xyz",vecdim,vecdimid)
 DO i=1,dim1
-  CALL nc%def_dim(TRIM(DimNames(i)),ndims(i),dimids(i)) 
+  CALL nc%def_dim(TRIM(DimNames(i)),ndims(i),dimids(i))
 END DO
 IF (PRESENT(CoordNames)) THEN
   tmpCoordNames = CoordNames
@@ -88,10 +88,10 @@ DO def_put_mode=1,2
     CALL nc%put_attr_char("pos",1,(/"coordinates"/),(/coord_attr/))
     CALL nc%put_attr_char("pos",2,(/"long_name","symbol   "/),(/"position vector", "\mathbf{x}     "/))
   END IF
-  !accout for vectors: 
-  ! if Variable Name ends with an X and the following have the same name with Y and Z 
-  ! then it forms a vector variable (X is omitted for the name) 
-  
+  !accout for vectors:
+  ! if Variable Name ends with an X and the following have the same name with Y and Z
+  ! then it forms a vector variable (X is omitted for the name)
+
   iVal=0 !scalars
   IF(def_put_mode.EQ.1) THEN
     coord_attr = ""
@@ -101,7 +101,7 @@ DO def_put_mode=1,2
   END IF
   DO WHILE(iVal.LT.nVal)
     iVal=iVal+1
-    tmpVarName=TRIM(VarNames(iVal)) 
+    tmpVarName=TRIM(VarNames(iVal))
     StrLen=LEN(TRIM(tmpVarName))
     maybeVector=(iVal+vecdim-1.LE.nVal)
     isVector=.FALSE.
@@ -113,14 +113,14 @@ DO def_put_mode=1,2
                                   .AND.(INDEX(tmpVarNameY(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Y").NE.0))
       CASE(3)
         tmpVarNameY=TRIM(VarNames(iVal+1))
-        tmpVarNameZ=TRIM(VarNames(iVal+2)) 
+        tmpVarNameZ=TRIM(VarNames(iVal+2))
         isVector=((iVal+2.LE.nVal).AND.(INDEX(tmpVarName( StrLen:StrLen),"X").NE.0) &
                                   .AND.(INDEX(tmpVarNameY(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Y").NE.0) &
                                   .AND.(INDEX(tmpVarNameZ(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Z").NE.0))
-  
+
       END SELECT
     END IF !maybevector
-  
+
     IF(isvector)THEN !variable is a vector!
       tmpVarName=tmpVarName(:StrLen-1)
       CALL nc%put_array(TRIM(tmpVarName),1+dim1,(/vecdim,ndims/),(/vecdimid,dimids/),def_put_mode, &
@@ -155,10 +155,10 @@ DO def_put_mode=1,2
   CALL nc%put_char("xyz",vecdimid,def_put_mode,char_in="xyz")
   IF (def_put_mode.EQ.1) THEN
     CALL nc%put_attr_char("xyz",2,(/"long_name","symbol   "/),(/"cartesian vector components","\mathbf{x}                 "/))
-  END IF 
+  END IF
 END DO !mode
 CALL nc%free()
 WRITE(UNIT_stdOut,'(A)',ADVANCE='YES')"   DONE"
-END SUBROUTINE WriteDataToNETCDF 
+END SUBROUTINE WriteDataToNETCDF
 
 END MODULE MODgvec_Output_netcdf
