@@ -69,7 +69,7 @@ contains
       call matrix % init( n )
 
     type is ( sll_t_spline_matrix_banded )
-      call matrix % init( n, kl, ku )      
+      call matrix % init( n, kl, ku )
 
 !    type is ( sll_t_spline_matrix_periodic_banded )
 !      if (kl /= ku) then

@@ -5,7 +5,7 @@
 !> @brief Describe different boundary conditions
 !> @details
 !> The intent of this module is to provide a single, library-wide definition
-!> of the names used to describe different boundary conditions. One should 
+!> of the names used to describe different boundary conditions. One should
 !> ALWAYS refer to specific boundary conditions by their
 !> names and not through their integer representation, which could be changed.
 !>
@@ -47,12 +47,12 @@ module sll_m_boundary_condition_descriptors
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   !> User defined boundary condition
-  sll_int32, parameter :: sll_p_user_defined   = -1 
+  sll_int32, parameter :: sll_p_user_defined   = -1
   !> Periodic boundary condition u(1)=u(n)
-  sll_int32, parameter :: sll_p_periodic       = 0 
-  !> Dirichlet boundary condition 
-  sll_int32, parameter :: sll_p_dirichlet      = 1 
-  !> Neumann boundary condition 
+  sll_int32, parameter :: sll_p_periodic       = 0
+  !> Dirichlet boundary condition
+  sll_int32, parameter :: sll_p_dirichlet      = 1
+  !> Neumann boundary condition
   sll_int32, parameter :: sll_p_neumann        = 2
   !> Hermite boundary condition
   sll_int32, parameter :: sll_p_hermite        = 3

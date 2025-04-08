@@ -76,7 +76,7 @@ def check_diff_files(
                 ]
             ):
                 warnings += 1
-                logger.warning(f"Extra lineA #{lidxA+1} (suppressed)")
+                logger.warning(f"Extra lineA #{lidxA + 1} (suppressed)")
                 logger.debug(f"=> Line A: {lineA!r}")
                 warningsA.append(lidxA)
                 try:
@@ -90,7 +90,7 @@ def check_diff_files(
                 ]
             ):
                 warnings += 1
-                logger.warning(f"Extra lineB #{lidxB+1} (suppressed)")
+                logger.warning(f"Extra lineB #{lidxB + 1} (suppressed)")
                 logger.debug(f"=> Line B: {lineB!r}")
                 warningsB.append(lidxB)
                 try:
@@ -147,11 +147,13 @@ def check_diff_files(
                     logger.info(f"--- Comparing {Path(pathA).name} ---")
             if not any([re.search(regex, lineA) for regex in warn_regexs]):
                 txt_differences += 1
-                logger.error(f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually")
+                logger.error(
+                    f"LineA #{lidxA + 1} and LineB #{lidxB + 1} differ textually"
+                )
             else:
                 warnings += 1
                 logger.warning(
-                    f"LineA #{lidxA+1} and LineB #{lidxB+1} differ textually (suppressed)"
+                    f"LineA #{lidxA + 1} and LineB #{lidxB + 1} differ textually (suppressed)"
                 )
             logger.debug(f"=> Line A: {lineA!r}")
             logger.debug(f"=> Line B: {lineB!r}")
@@ -162,7 +164,7 @@ def check_diff_files(
         if not (len(floatsA) == len(floatsB)):
             num_differences += 1
             logger.error(
-                f"LineA #{lidxA+1} and LineB #{lidxB+1} do not have the same number of floats"
+                f"LineA #{lidxA + 1} and LineB #{lidxB + 1} do not have the same number of floats"
             )
         else:
             select = np.ones(floatsA.shape, dtype=bool)
@@ -183,15 +185,15 @@ def check_diff_files(
                 if not (any([re.search(regex, lineA) for regex in warn_regexs])):
                     num_differences += 1
                     logger.error(
-                        f"LineA #{lidxA+1} and LineB #{lidxB+1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})"
+                        f"LineA #{lidxA + 1} and LineB #{lidxB + 1} differ  numerically (rtol={rtol}, atol={atol}, {pattern})"
                     )
                 else:
                     logger.warning(
-                        f"LineA #{lidxA+1} and LineB #{lidxB+1} differ numerically (rtol={rtol}, atol={atol}, {pattern}) (suppressed)"
+                        f"LineA #{lidxA + 1} and LineB #{lidxB + 1} differ numerically (rtol={rtol}, atol={atol}, {pattern}) (suppressed)"
                     )
                 logger.debug(f"=> Line A: {lineA!r}")
                 logger.debug(f"=> Line B: {lineB!r}")
-                with np.printoptions(formatter={'float': '{:.2E}'.format}):
+                with np.printoptions(formatter={"float": "{:.2E}".format}):
                     logger.debug(f"=> |A-B|: {abs(floatsA - floatsB)}")
     return txt_differences, num_differences, warnings
 
@@ -209,7 +211,9 @@ def assert_empty_stderr(path: str | Path = "stderr.txt", slurm: bool = False):
     if slurm is True:
         # check for SLURM stderr in stderr.txt
         assert len(lines) == 2, "Errors found in stderr.txt"
-        assert ("srun:" in line for line in lines), "SLURM stderr not found in stderr.txt"
+        assert ("srun:" in line for line in lines), (
+            "SLURM stderr not found in stderr.txt"
+        )
     else:
         # check for an empty stderr.txt file
         assert len(lines) == 0
@@ -226,9 +230,9 @@ def assert_stdout_finished(
     """
     with open(path) as file:
         lines = file.readlines()
-        assert (
-            message.strip() in lines[-2]
-        ), f"final message '{message.strip()}' not found in stdout.txt"
+        assert message.strip() in lines[-2], (
+            f"final message '{message.strip()}' not found in stdout.txt"
+        )
 
 
 def assert_stdout_OpenMP_MPI(path: str | Path = "stdout.txt"):
@@ -236,30 +240,29 @@ def assert_stdout_OpenMP_MPI(path: str | Path = "stdout.txt"):
         lines = file.readlines()
     # check OpenMP
     if os.environ.get("OMP_MODE") == "ompON":
-        assert any(
-            re.search(r"OpenMP threads", line) for line in lines
-        ), "no OpenMP support despite ompON"
+        assert any(re.search(r"OpenMP threads", line) for line in lines), (
+            "no OpenMP support despite ompON"
+        )
     elif os.environ.get("OMP_MODE") == "ompOFF":
-        assert not any(
-            re.search(r"OpenMP threads", line) for line in lines
-        ), "OpenMP support despite ompOFF"
+        assert not any(re.search(r"OpenMP threads", line) for line in lines), (
+            "OpenMP support despite ompOFF"
+        )
     # check MPI
     if os.environ.get("MPI_MODE") == "mpiON":
-        assert any(
-            re.search(r"MPI tasks", line) for line in lines
-        ), "no MPI support despite mpiON"
+        assert any(re.search(r"MPI tasks", line) for line in lines), (
+            "no MPI support despite mpiON"
+        )
     elif os.environ.get("MPI_MODE") == "mpiOFF":
-        assert not any(
-            re.search(r"MPI tasks", line) for line in lines
-        ), "MPI support despite mpiOFF"
+        assert not any(re.search(r"MPI tasks", line) for line in lines), (
+            "MPI support despite mpiOFF"
+        )
 
 
 def assert_stdout_no_NaN(path: str | Path = "stdout.txt"):
     with open(path) as file:
         lines = file.readlines()
-        assert not any(
-            re.search(r"NaN", line) for line in lines
-        ), "found NaN in stdout"
+        assert not any(re.search(r"NaN", line) for line in lines), "found NaN in stdout"
+
 
 # === HELPER FUNCTIONS === #
 
@@ -283,4 +286,3 @@ def chdir(target: str | Path):
         yield
     finally:
         os.chdir(source)
-

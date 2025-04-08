@@ -100,9 +100,9 @@ def test_run(
             ]
         if not dryrun:
             assert base_directory.exists(), "no base directory found for restart"
-            assert (
-                len(states) > 0
-            ), f"no statefile for restart found in base directory ../{base_name}"
+            assert len(states) > 0, (
+                f"no statefile for restart found in base directory ../{base_name}"
+            )
             laststatefile = sorted(states)[-1]
             (testcaserundir / laststatefile).symlink_to(
                 os.path.relpath(base_directory / laststatefile, testcaserundir)

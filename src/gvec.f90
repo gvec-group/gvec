@@ -6,8 +6,8 @@
 
 
 !===================================================================================================================================
-!> 
-!!# **GVEC** Driver program 
+!>
+!!# **GVEC** Driver program
 !!
 !===================================================================================================================================
 PROGRAM GVEC
@@ -31,11 +31,11 @@ PROGRAM GVEC
   IF(MPIroot)THEN
     !USING CLAF90 module to get command line arguments!
     CALL cla_init()
-    
+
     CALL cla_posarg_register('parameterfile', &
-         ' path/filename of GVEC input parameter file [MANDATORY]',  cla_char,'') !    
+         ' path/filename of GVEC input parameter file [MANDATORY]',  cla_char,'') !
     CALL cla_posarg_register('statefile', &
-         'path/filename of a GVEC State. if provided, a restart from this State is done  [OPTIONAL, DEFAULT: None provided]',  cla_char,'') 
+         'path/filename of a GVEC State. if provided, a restart from this State is done  [OPTIONAL, DEFAULT: None provided]',  cla_char,'')
     CALL cla_validate('gvec')
     CALL cla_get('parameterfile',f_str)
     parameterfile=TRIM(f_str)
@@ -49,15 +49,13 @@ PROGRAM GVEC
     END IF
     dorestart=(LEN(TRIM(restartFile)).GT.0)
 
-    IF(commandFailed) STOP " ...check your command line arguments!" 
+    IF(commandFailed) STOP " ...check your command line arguments!"
   END IF !MPIroot
   IF(dorestart)THEN
     CALL rungvec(parameterfile,restartfile_in=restartfile)
-  ELSE                                        
+  ELSE
     CALL rungvec(parameterfile)
   END IF
 
   CALL par_finalize()
 END PROGRAM GVEC
-
-

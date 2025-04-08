@@ -8,7 +8,7 @@
 !>
 !!# Module **Analyze**
 !!
-!! Analyze and output equilibrium data 
+!! Analyze and output equilibrium data
 !!
 !===================================================================================================================================
 MODULE MODgvec_Analyze
@@ -37,10 +37,10 @@ PUBLIC::FinalizeAnalyze
 CONTAINS
 
 !===================================================================================================================================
-!> Initialize Module 
+!> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitAnalyze 
+SUBROUTINE InitAnalyze
 ! MODULES
 USE MODgvec_Globals,ONLY:UNIT_stdOut,fmt_sep
 USE MODgvec_MPI,ONLY:par_Barrier
@@ -58,17 +58,17 @@ IMPLICIT NONE
 REAL(wp):: visu_minmax(3,0:1)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT ANALYZE ...')
-  visu1D    = GETINT('visu1D',Proposal=-1)   
-  visu2D    = GETINT('visu2D',Proposal=-1)   
-  visu3D    = GETINT('visu3D',Proposal=-1)   
-  
-  outFileType  = GETINT('outfileType',Proposal=1)   
-  
+  visu1D    = GETINT('visu1D',Proposal=-1)
+  visu2D    = GETINT('visu2D',Proposal=-1)
+  visu3D    = GETINT('visu3D',Proposal=-1)
+
+  outFileType  = GETINT('outfileType',Proposal=1)
+
   visu_minmax(1:3,0)=GETREALARRAY("visu_min",3,Proposal=(/0.0_wp,0.0_wp,0.0_wp/))
   visu_minmax(1:3,1)=GETREALARRAY("visu_max",3,Proposal=(/1.0_wp,1.0_wp,1.0_wp/))
-  
+
   iAnalyze=-1
-  
+
   IF(visu1D.GT.0)THEN
     np_1d          = GETINT(     "np_1d",Proposal=5)
     IF(np_1d.LE.1) CALL abort(__STAMP__,&
@@ -107,7 +107,7 @@ END SUBROUTINE InitAnalyze
 
 
 !===================================================================================================================================
-!> 
+!>
 !!
 !===================================================================================================================================
 SUBROUTINE Analyze(fileID_in)
@@ -136,13 +136,13 @@ INTEGER            :: FileID
   END IF
   IF(iAnalyze.EQ.0) THEN
     IF(which_init.EQ.1) THEN
-      IF(visu1D.GT.0) CALL VMEC1D_visu() 
-      IF(visu2D.GT.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. ) 
-      IF(visu3D.GT.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.) 
+      IF(visu1D.GT.0) CALL VMEC1D_visu()
+      IF(visu2D.GT.0) CALL VMEC3D_visu(np_visu_planes,visu_planes_minmax,.TRUE. )
+      IF(visu3D.GT.0) CALL VMEC3D_visu(np_visu_3D    ,visu_3D_minmax    ,.FALSE.)
     END IF
   END IF !iAnalyze==0
   IF(visu1D.GT.0)THEN
-    CALL visu_1d_modes(np_1d,FileID) 
+    CALL visu_1d_modes(np_1d,FileID)
     !
   END IF !visu1D
   IF(visu2D.GT.0)THEN
@@ -157,7 +157,7 @@ INTEGER            :: FileID
     END IF
     IF(vcase(2))THEN
       CALL visu_3D(np_visu_planes,visu_planes_minmax,.TRUE.,FileID) !only planes
-    END IF 
+    END IF
   END IF !visu2d
   IF(visu3D.GT.0)THEN
     vcase=.FALSE.
@@ -168,14 +168,14 @@ INTEGER            :: FileID
     IF(INDEX(vstr,'4').NE.0) vcase(4)=.TRUE.
     IF(vcase(1))THEN
       CALL visu_3D(np_visu_3D,visu_3D_minmax,.FALSE.,FileID) !full 3D
-    END IF 
+    END IF
   END IF !visu2d
 
-END SUBROUTINE Analyze 
+END SUBROUTINE Analyze
 
 
 !===================================================================================================================================
-!> Visualize VMEC flux surface data for each mode, for Rmnc 
+!> Visualize VMEC flux surface data for each mode, for Rmnc
 !!
 !===================================================================================================================================
 SUBROUTINE VMEC1D_visu()
@@ -197,9 +197,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER            :: i,nVal,nValRewind,iMode
 INTEGER,PARAMETER  :: n_Int=200
-CHARACTER(LEN=120) :: varnames(  8+2*mn_mode) 
-REAL(wp)           :: values(    8+2*mn_mode,nFluxVMEC) 
-REAL(wp)           :: values_int(8+2*mn_mode,n_int) 
+CHARACTER(LEN=120) :: varnames(  8+2*mn_mode)
+REAL(wp)           :: values(    8+2*mn_mode,nFluxVMEC)
+REAL(wp)           :: values_int(8+2*mn_mode,n_int)
 REAL(wp)           :: rho_int(n_int),rho_half(nFluxVMEC)
 LOGICAL            :: vcase(4)
 CHARACTER(LEN=4)   :: vstr
@@ -216,14 +216,14 @@ CHARACTER(LEN=4)   :: vstr
     WRITE(*,*)'visu1D case not found:',visu1D,' nothing visualized...'
     RETURN
   END IF
-  
+
   !interpolation points
   DO i=0,n_int-1
     rho_int(1+i)=REAL(i,wp)/REAL(n_int-1,wp)
   END DO
   !strech towards axis and edge
   rho_int=rho_int+0.05_wp*SIN(Pi*(2.0_wp*rho_int-1.0_wp))
-  
+
   rho_int(1)=1.0e-12
   rho_int(n_int)=1.0-1e-12
   nVal=1
@@ -232,19 +232,19 @@ CHARACTER(LEN=4)   :: vstr
   DO i=1,n_int
     values_int(nVal,i)=vmec_phi_profile%eval_at_rho(rho_int(i))
   END DO !i
-  
+
   nVal=nVal+1
   Varnames(nVal)='chi'
   values(  nVal,:)=Chi_prof(:)
   DO i=1,n_int
     values_int(nVal,i)=vmec_chi_profile%eval_at_rho(rho_int(i))
   END DO !i
-  
+
   nVal=nVal+1
   Varnames(nVal)='rho'
   values(  nVal,:)=rho(:)
   values_int(nVal,:)=rho_int(:)
-  
+
   rho_half(1)=1.0e-12
   DO i=1,nFluxVMEC-1
     rho_half(i+1)=SQRT(0.5_wp*(NormFlux_prof(i+1)+NormFlux_prof(i))) !0.5*(rho(iFlux)+rho(iFlux+1))
@@ -253,24 +253,24 @@ CHARACTER(LEN=4)   :: vstr
   Varnames(nVal)='rho_half'
   values(  nVal,:)= rho_half(:)
   values_int(nVal,:)=0.
-  
+
   nVal=nVal+1
   Varnames(nVal)='iota(Phi_norm)'
   values(  nVal,:)=iotaf(:)
   DO i=1,n_int
     values_int(nVal,i)=vmec_iota_profile%eval_at_rho(rho_int(i))
   END DO !i
-  
+
   nVal=nVal+1
   Varnames(nVal)='pres(Phi_norm)'
   values(  nVal,:)=presf(:)
   DO i=1,n_int
     values_int(nVal,i)=vmec_pres_profile%eval_at_rho(rho_int(i))
   END DO !i
-  
+
   nValRewind=nVal
-  
-  
+
+
   IF(vcase(1))THEN
     WRITE(*,*)'1) Visualize VMEC modes R,Z,lambda interpolated...'
     nval=nValRewind
@@ -348,10 +348,10 @@ CHARACTER(LEN=4)   :: vstr
       CALL writeDataMN(TRIM(ProjectName)//"_VMEC_dZmnc","dZmnc",1,rho,Zmnc)
     END IF!lasym
   END IF !vcase(4)
-  
+
   CONTAINS
   SUBROUTINE writeDataMN(fname,vname,rderiv,coord,xx)
-    INTEGER,INTENT(IN)         :: rderiv !0: point values, 1: 1/2 ( (R(i+1)-R(i))/rho(i+1)-rho(i) (R(i)-R(i-1))/rho(i)-rho(i-1)) 
+    INTEGER,INTENT(IN)         :: rderiv !0: point values, 1: 1/2 ( (R(i+1)-R(i))/rho(i+1)-rho(i) (R(i)-R(i-1))/rho(i)-rho(i-1))
     CHARACTER(LEN=*),INTENT(IN):: fname
     CHARACTER(LEN=*),INTENT(IN):: vname
     REAL(wp),INTENT(IN)        :: xx(:,:)
@@ -373,7 +373,7 @@ CHARACTER(LEN=4)   :: vstr
       WRITE(VarNames(nVal),'(A,", m=",I4.3,", n=",I4.3)')TRIM(vname),NINT(xm(iMode)),NINT(xn(iMode))/nfp
       values(nVal,:)=dxx(iMode,:)
     END DO
-    CALL write_modes(TRIM(fname)//'.csv',vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values,VarNames) 
+    CALL write_modes(TRIM(fname)//'.csv',vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values,VarNames)
 
   END SUBROUTINE writeDataMN
 
@@ -390,12 +390,12 @@ CHARACTER(LEN=4)   :: vstr
       values_int(nVal,:)= VMEC_EvalSplMode((/iMode/),rderiv,coord,xx_Spl)
     END DO
 
-    CALL write_modes(TRIM(fname)//'.csv',vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values_int,VarNames) 
+    CALL write_modes(TRIM(fname)//'.csv',vname,nVal,mn_mode,INT(xm),INT(xn),coord,rho(2),values_int,VarNames)
 
   END SUBROUTINE writeDataMN_int
 
 
-END SUBROUTINE VMEC1D_visu 
+END SUBROUTINE VMEC1D_visu
 
 !===================================================================================================================================
 !> Visualize VMEC flux surface data  in planes or 3D, number of radial posisiotns fixed to nFluxVMEC+1, only R,Z,Lambda
@@ -415,7 +415,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: np_in(3)     !! (1) #points in s & theta per element,(2:3) #elements in  theta,zeta
-  REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1] 
+  REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1]
   LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -471,7 +471,7 @@ IMPLICIT NONE
   DO i_n=1,mn_IP(2)
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
-  
+
   DO i_s=1,n_s
     var_visu(1,i_s,:,:,:)=Phi_Prof(i_s)
     var_visu(2,i_s,:,:,:)=iotaf(i_s)
@@ -489,7 +489,7 @@ IMPLICIT NONE
     xIP(2)=zeta(i_n)
     DO i_m=1,mn_IP(1)
       DO j_s=1,np_in(1)
-        !xIP(1)=thet(j_s,i_m) 
+        !xIP(1)=thet(j_s,i_m)
         DO i_s=1,n_s
           !SFL
           IF(SFL_theta)THEN
@@ -500,7 +500,7 @@ IMPLICIT NONE
           END IF
           var_visu(  8,i_s,j_s,i_n,i_m) = xIP(1)
           var_visu(  9,i_s,j_s,i_n,i_m) = xIP(2)
-          
+
           DO iMode=1,mn_mode
             sinmn(iMode)=SIN(xm(iMode)*xIP(1)-xn(iMode)*xIP(2))
             cosmn(iMode)=COS(xm(iMode)*xIP(1)-xn(iMode)*xIP(2))
@@ -587,14 +587,14 @@ IMPLICIT NONE
   WRITE(UNIT_stdOut,'(A)') '... DONE.'
 
 !for iteration on theta^*
-CONTAINS 
+CONTAINS
 
   FUNCTION FRdFR(theta_iter)
     !uses current zeta=XIP(2),i_s where newton is called
     IMPLICIT NONE
     REAL(wp) :: theta_iter
     REAL(wp) :: FRdFR(2) !output
-    !--------------------------------------------------- 
+    !---------------------------------------------------
     DO iMode=1,mn_mode
       sinmn(iMode)=SIN(xm(iMode)*theta_iter-xn(iMode)*xIP(2))
       cosmn(iMode)=COS(xm(iMode)*theta_iter-xn(iMode)*xIP(2))
@@ -615,13 +615,13 @@ CONTAINS
     FRdFR(2)=FRdFR(2)+1.0_wp
   END FUNCTION FRdFR
 
-END SUBROUTINE VMEC3D_visu 
+END SUBROUTINE VMEC3D_visu
 
 !===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeAnalyze 
+SUBROUTINE FinalizeAnalyze
 ! MODULES
 USE MODgvec_Analyze_Vars
 IMPLICIT NONE

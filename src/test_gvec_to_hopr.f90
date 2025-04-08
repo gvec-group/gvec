@@ -6,8 +6,8 @@
 
 
 !===================================================================================================================================
-!> 
-!!# **GVEC** Driver program 
+!>
+!!# **GVEC** Driver program
 !!
 !===================================================================================================================================
 PROGRAM TEST_GVEC_TO_HOPR
@@ -17,11 +17,11 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 !local variables
 INTEGER                 :: i,nArgs,SFL
-CHARACTER(LEN=255)      :: filename 
+CHARACTER(LEN=255)      :: filename
 REAL(wp)                :: StartTime,EndTime
 REAL(wp)                :: xin(3,4),xout(3,4),data_out(9,4)
-REAL(wp)                :: phi_edge_axis(2) 
-REAL(wp)                :: chi_edge_axis(2) 
+REAL(wp)                :: phi_edge_axis(2)
+REAL(wp)                :: chi_edge_axis(2)
 !===================================================================================================================================
   CALL CPU_TIME(StartTime)
   nArgs=COMMAND_ARGUMENT_COUNT()
@@ -30,8 +30,8 @@ REAL(wp)                :: chi_edge_axis(2)
   ELSE
     STOP ' TEST GVEC TO HOPR: gvec filename not given, usage: "./executable gvec_file.dat"'
   END IF
-    
-  
+
+
   !header
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(Unit_stdOut,'(5(("*",A128,2X,"*",:,"\n")))')&
@@ -41,11 +41,11 @@ REAL(wp)                :: chi_edge_axis(2)
 ,' - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  '&
 ,'  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - '
   WRITE(Unit_stdOut,'(132("="))')
-  
+
   DO SFL=0,2
     !initialization phase
     CALL Init_gvec_to_hopr(filename,SFLcoord_in=SFL,factorSFL_in=2)
-   
+
     WRITE(UNIT_stdOut,'(A,I4)')'===> SFLcoord: ',SFL
     xin(:,1)=(/0.0,0.5,0.3/)
     xin(:,2)=(/0.3,0.13,0.65/)
@@ -64,7 +64,7 @@ REAL(wp)                :: chi_edge_axis(2)
       WRITE(UNIT_stdOut,'(A,3E21.13)')'Acart      : ',data_out(7:9,i)
       WRITE(UNIT_stdOut,*)'-----------------------'
     END DO
-    
+
     CALL Finalize_gvec_to_hopr()
 
   END DO
@@ -74,5 +74,3 @@ REAL(wp)                :: chi_edge_axis(2)
   WRITE(Unit_stdOut,fmt_sep)
 
 END PROGRAM TEST_GVEC_TO_HOPR
-
-

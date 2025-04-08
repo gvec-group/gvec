@@ -6,8 +6,8 @@
 
 
 !===================================================================================================================================
-!> 
-!!# **GVEC** Driver program 
+!>
+!!# **GVEC** Driver program
 !!
 !===================================================================================================================================
 PROGRAM GVEC_POST
@@ -23,7 +23,7 @@ PROGRAM GVEC_POST
   USE MODgvec_MHD3D_Vars   ,ONLY: U,F
   USE MODgvec_MHD3D_visu   ,ONLY:WriteSFLoutfile
   USE MODgvec_MHD3D_EvalFunc , ONLY: InitProfilesGP,EvalEnergy,EvalForce
-  USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings 
+  USE MODgvec_ReadInTools  ,ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
   USE MODgvec_Functional
 !$ USE omp_lib
   IMPLICIT NONE
@@ -33,7 +33,7 @@ PROGRAM GVEC_POST
   CHARACTER(LEN=255)      :: Parameterfile
   CHARACTER(LEN=255)      :: Statefile
   INTEGER                 :: which_functional
-  INTEGER                 :: JacCheck 
+  INTEGER                 :: JacCheck
   CLASS(t_functional),ALLOCATABLE   :: functional
   REAL(wp)                :: StartTime,EndTime
 !===================================================================================================================================
@@ -46,10 +46,10 @@ PROGRAM GVEC_POST
     STOP 'ERROR - Invalid syntax. Please use: gvec_post parameter.ini [Statefiles*] '
   END IF
   CALL GET_COMMAND_ARGUMENT(1,Parameterfile)
-    
+
   CALL CPU_TIME(StartTime)
 !$ StartTime=OMP_GET_WTIME()
-  
+
   !header
   SWRITE(Unit_stdOut,'(132("="))')
   SWRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
@@ -75,10 +75,10 @@ PROGRAM GVEC_POST
   CALL InitRestart()
   CALL InitOutput()
   CALL InitAnalyze()
-  
+
   which_functional=GETINT('which_functional', Proposal=1 )
   CALL InitFunctional(functional,which_functional)
-  
+
   CALL IgnoredStrings()
   DO iArg=2,nArgs
     CALL GET_COMMAND_ARGUMENT(iArg,StateFile)
@@ -96,13 +96,13 @@ PROGRAM GVEC_POST
     CALL Analyze(FileID_r)
     CALL writeSFLoutfile(U(0),FileID_r)
   END DO !iArg
-  
+
   CALL FinalizeFunctional(functional)
- 
+
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
-  
+
   CALL CPU_TIME(EndTime)
 !$ EndTime=OMP_GET_WTIME()
   WRITE(Unit_stdOut,'(132("="))')

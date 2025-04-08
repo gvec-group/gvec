@@ -223,9 +223,9 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                         # add parameter at the end if key is not found
                         target_file.write(f"\n{key} = {kwargs[key]}")
                     occurrences[key] += 1
-    assert all(
-        [o == 1 for o in occurrences.values()]
-    ), f"bad number of occurrences in adapt_parameter_file: {occurrences}"
+    assert all([o == 1 for o in occurrences.values()]), (
+        f"bad number of occurrences in adapt_parameter_file: {occurrences}"
+    )
 
 
 def write_parameter_file(

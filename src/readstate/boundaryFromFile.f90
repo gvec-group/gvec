@@ -21,15 +21,15 @@ TYPE                 :: t_boundaryFromFile
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL              :: initialized=.FALSE.      !! set to true in init, set to false in free
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER              :: nfp           !! number of field periods 
+  INTEGER              :: nfp           !! number of field periods
   INTEGER              :: m_max         !! maximum number of fourier modes of the boundary in theta direction
   INTEGER              :: n_max         !! maximum number of fourier modes of the boundary in zeta direction (one field period only!)
   INTEGER              :: ntheta,nzeta  !! number of interpolation points in theta and zeta (one field period, half grid!!)
   INTEGER              :: lasym         !! =0: symmetric, =1: asymmetric fourier series
   REAL(wp),ALLOCATABLE :: theta(:)      !! theta positions [0,2pi), should be half grid!
   REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions [0,2pi/nfp) should be on half grid!
-  REAL(wp),ALLOCATABLE :: X(:,:) ,Y(:,:)!! boundary data X/Y positions X[i, j]=X(theta[i],zeta[j]),  
-                                        !!    Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1 
+  REAL(wp),ALLOCATABLE :: X(:,:) ,Y(:,:)!! boundary data X/Y positions X[i, j]=X(theta[i],zeta[j]),
+                                        !!    Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
   CHARACTER(LEN=255)   :: ncfile=" " !! name of netcdf file with axis information
   CONTAINS
@@ -88,7 +88,7 @@ SUBROUTINE bff_init(sf,fileString)
   !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'   READ BOUNDARY FROM NETCDF FILE "'//TRIM(FileString)//'" ...'
   sf%ncfile=TRIM(FileString)
-  CALL ncfile_init(sf%nc,sf%ncfile,"r") 
+  CALL ncfile_init(sf%nc,sf%ncfile,"r")
   CALL READNETCDF(sf)
   sf%initialized=.TRUE.
 END SUBROUTINE bff_init
@@ -105,7 +105,7 @@ END SUBROUTINE bff_init
 !!     Thus the number of points along the axis for a full turn is NFP*nzeta
 !!   * definition of the axis-following frame in cartesian coordinates ( boundary surface at rho=1):
 !!
-!!      {x,y,z}(rho,theta,zeta)={x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)  
+!!      {x,y,z}(rho,theta,zeta)={x,y,z}(zeta) + X(rho,theta,zeta)*N_{x,y,z}(zeta)+Y(rho,theta,zeta)*B_{x,y,z}(zeta)
 !!
 !! === DATA DESCRIPTION
 !! - general data
@@ -120,9 +120,9 @@ END SUBROUTINE bff_init
 !!   * 'axis/Nxyz(::)': cartesian components of the normal vector of the axis frame, 2D array of size (3, NFP* nzeta), evaluated analogously to the axis
 !!   * 'axis/Bxyz(::)': cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis
 !! - boundary data group:
-!!   * 'boundary/m_max'    : maximum mode number in theta 
+!!   * 'boundary/m_max'    : maximum mode number in theta
 !!   * 'boundary/n_max'    : maximum mode number in zeta (in one field period)
-!!   * 'boundary/lasym'    : asymmetry, logical. 
+!!   * 'boundary/lasym'    : asymmetry, logical.
 !!                            if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with
 !!                              X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}
 !!                              Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}
@@ -134,7 +134,7 @@ END SUBROUTINE bff_init
 !!   * 'boundary/X(::)',
 !!     'boundary/Y(::)'     : boundary position X,Y in the N-B plane of the axis frame, in one field period, 2D array of size(ntheta, nzeta),  with
 !!                               X[i, j]=X(theta[i],zeta[j])
-!!                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1         
+!!                               Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
 !===================================================================================================================================
   SUBROUTINE ReadNETCDF(sf)
     USE MODgvec_io_netcdf
@@ -147,7 +147,7 @@ END SUBROUTINE bff_init
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
   !===================================================================================================================================
-  
+
   CALL sf%nc%get_scalar("NFP",intout=sf%nfp)
   CALL sf%nc%get_scalar("boundary/lasym",intout=sf%lasym)
   CALL sf%nc%get_scalar("boundary/ntheta",intout=sf%ntheta)
@@ -159,7 +159,7 @@ END SUBROUTINE bff_init
     sf%m_max=(sf%ntheta-1)/2  !maximum mode number based on number of interpolation points ntheta>=2*m_max+1
     WRITE(UNIT_stdOut,'(6X,A,I8)')'"boundary/m_max" not found, set to: ',sf%m_max
   END IF
-  IF(sf%nc%var_exists("boundary/n_max"))THEN 
+  IF(sf%nc%var_exists("boundary/n_max"))THEN
     CALL sf%nc%get_scalar("boundary/n_max",intout=sf%n_max)
     sf%n_max = MIN(sf%n_max,(sf%nzeta-1)/2)  !maximum mode number based on number of interpolation points nzeta>=2*n_max+1
   ELSE
@@ -179,8 +179,8 @@ END SUBROUTINE READNETCDF
 
 
 !===================================================================================================================================
-!> convert from interpolation points X=> X1_b, Y=> X2_b to fourier modes, given from the input fbase 
-!! convert to maximum allowable number of modes (ntheta>=2*m_max+1, nzeta>=2*n_max+1) 
+!> convert from interpolation points X=> X1_b, Y=> X2_b to fourier modes, given from the input fbase
+!! convert to maximum allowable number of modes (ntheta>=2*m_max+1, nzeta>=2*n_max+1)
 !! the final m_max/n_max can be smaller or larger. If larger, a change of base is necessary
 !!
 !===================================================================================================================================
@@ -192,7 +192,7 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
   TYPE(t_fbase), INTENT(IN):: x1_fbase_in,x2_fbase_in
-  REAL(wp), INTENT(IN)  :: scale_minor_radius 
+  REAL(wp), INTENT(IN)  :: scale_minor_radius
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
   REAL(wp), INTENT(INOUT)  :: X1_b(x1_fbase_in%modes),X2_b(x2_fbase_in%modes)
@@ -219,7 +219,7 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor
     CALL fbase_new( X_fbase, x1_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), x1_fbase_in%exclude_mn_zero)
     X1_b = X_fbase%initDOF(RESHAPE(sf%X*scale_minor_radius,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
-  ELSE 
+  ELSE
     CALL fbase_new( X_fbase, mn_max_pts,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp, sin_cos_map(x1_fbase_in%sin_cos), x1_fbase_in%exclude_mn_zero)
     ALLOCATE(xydofs(1,1:X_fbase%modes),X12dofs(1,1:x1_fbase_in%modes))
@@ -232,7 +232,7 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor
     CALL fbase_new( Y_fbase, x2_fbase_in%mn_max,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  x2_fbase_in%exclude_mn_zero)
     X2_b = Y_fbase%initDOF(RESHAPE(sf%Y*scale_minor_radius,(/sf%ntheta*sf%nzeta/)) ,thet_zeta_start=(/sf%theta(1),sf%zeta(1)/))
-  ELSE 
+  ELSE
     CALL fbase_new( Y_fbase, mn_max_pts,  (/sf%ntheta,sf%nzeta/), &
                     sf%nfp,  sin_cos_map(x2_fbase_in%sin_cos),  x2_fbase_in%exclude_mn_zero)
     ALLOCATE(xydofs(1,1:Y_fbase%modes),X12dofs(1,1:x2_fbase_in%modes))
@@ -258,7 +258,7 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor
                       MAXVAL(ABS(x2_fbase_in%evalDOF_xn(sf%ntheta*sf%nzeta,xn,0,X2_b)/scale_minor_radius &
                              -RESHAPE(sf%Y,(/sf%ntheta*sf%nzeta/))))
 
-  
+
   CALL X_fbase%free()
   CALL Y_fbase%free()
   DEALLOCATE(X_fbase,Y_fbase)

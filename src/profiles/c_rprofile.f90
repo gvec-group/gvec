@@ -14,37 +14,37 @@ MODULE MODgvec_rProfile_base
   ! MODULES
   USE MODgvec_Globals ,ONLY: wp, abort
   IMPLICIT NONE
-  
+
   PUBLIC
-  
+
   TYPE, ABSTRACT :: c_rProfile
       INTEGER               :: n_coefs
-      REAL(wp), ALLOCATABLE :: coefs(:)  
+      REAL(wp), ALLOCATABLE :: coefs(:)
 
       contains
-  
+
       PROCEDURE(i_fun_eval_at_rho2), DEFERRED :: eval_at_rho2
       PROCEDURE(i_fun_antiderivative), DEFERRED :: antiderivative
-  
+
       PROCEDURE :: eval_at_rho => rProfile_eval_at_rho
       ! hard coded derivatives with respect to rho=sqrt(phi/phi_edge)
       PROCEDURE, PRIVATE :: rProfile_drho2
       PROCEDURE, PRIVATE :: rProfile_drho3
       PROCEDURE, PRIVATE :: rProfile_drho4
-  
+
   end type c_rProfile
-  
+
   ABSTRACT INTERFACE
-  
+
       FUNCTION i_fun_eval_at_rho2( sf, rho2, deriv ) RESULT(profile_value)
           IMPORT c_rProfile
           IMPORT wp
           CLASS(c_rProfile), INTENT(IN)  :: sf
-          REAL(wp)         , INTENT(IN)  :: rho2 
+          REAL(wp)         , INTENT(IN)  :: rho2
           INTEGER, OPTIONAL, INTENT(IN)  :: deriv
           REAL(wp)                       :: profile_value
       END FUNCTION i_fun_eval_at_rho2
-  
+
       FUNCTION i_fun_antiderivative(sf) RESULT(antideriv)
           IMPORT c_rProfile
           IMPORT wp
@@ -52,7 +52,7 @@ MODULE MODgvec_rProfile_base
           CLASS(c_rProfile), ALLOCATABLE  :: antideriv
       END FUNCTION i_fun_antiderivative
   END INTERFACE
-  
+
   CONTAINS
   !===================================================================================================================================
   !> calculate the prefactor for the d-th coefficient of the n-th derivative of a polynomial
@@ -68,7 +68,7 @@ MODULE MODgvec_rProfile_base
         prefactor = prefactor*i
     END DO
   END FUNCTION poly_derivative_prefactor
-  
+
   !===================================================================================================================================
   !> evaluate the n-th derivative of (rho^2) with respect to rho ~sqrt(magnetic flux).
   !!
@@ -92,7 +92,7 @@ MODULE MODgvec_rProfile_base
 
   !===================================================================================================================================
   !> evaluate the 2nd derivative of a radial profile with respect to rho ~sqrt(magnetic flux).
-  !! 
+  !!
   !===================================================================================================================================
   FUNCTION rProfile_drho2(sf, rho) RESULT(derivative)
   ! MODULES
@@ -115,7 +115,7 @@ MODULE MODgvec_rProfile_base
 
   !===================================================================================================================================
   !> evaluate the 3rd derivative of a radial profile with respect to rho ~sqrt(magnetic flux).
-  !! 
+  !!
   !===================================================================================================================================
   FUNCTION rProfile_drho3(sf, rho) RESULT(derivative)
   ! MODULES
@@ -139,7 +139,7 @@ MODULE MODgvec_rProfile_base
 
   !===================================================================================================================================
   !> evaluate the 4th derivative of a radial profile with respect to rho ~sqrt(magnetic flux)
-  !! 
+  !!
   !===================================================================================================================================
   FUNCTION rProfile_drho4(sf, rho) RESULT(derivative)
   ! MODULES
@@ -155,9 +155,9 @@ MODULE MODgvec_rProfile_base
     REAL(wp) :: rho2
   !===================================================================================================================================
     rho2 = rho2_derivative(rho,deriv=0)
-    ! d^4/dx^4 f(g(x)) = f''''(g(x))g'(x)**4 
+    ! d^4/dx^4 f(g(x)) = f''''(g(x))g'(x)**4
     !                   + 6f'''(g(x))g''(x)g'(x)^2
-    !                   + 3f''(g(x))g''(x)^2 
+    !                   + 3f''(g(x))g''(x)^2
     !                   + 4f''(g(x))g'''(x)g'(x)
     !                   + f'(g(x))g''''(x)
     derivative =    sf%eval_at_rho2(rho2, deriv=4)*rho2_derivative(rho,deriv=1)**4 &
@@ -166,7 +166,7 @@ MODULE MODgvec_rProfile_base
                 + 4*sf%eval_at_rho2(rho2, deriv=2)*rho2_derivative(rho,deriv=3)*rho2_derivative(rho,deriv=1) &
                 +   sf%eval_at_rho2(rho2, deriv=1)*rho2_derivative(rho,deriv=4)
   END FUNCTION rProfile_drho4
-  
+
   !===================================================================================================================================
   !> evaluate the n-th derivative of a radial profile with respect to rho ~sqrt(magnetic flux).
   !! NOTE: n has to be in [0,4] due to an explicit implementation of the product rule.
@@ -190,7 +190,7 @@ MODULE MODgvec_rProfile_base
         deriv_case = deriv
     ELSE
         deriv_case = 0
-    END IF 
+    END IF
 
     rho2 = rho2_derivative(rho,deriv=0)
     SELECT CASE(deriv_case)

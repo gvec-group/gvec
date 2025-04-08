@@ -22,7 +22,6 @@ pages:
     # (venv needs to be outside the docs folder, otherwise autodoc will be confused)
     # try using the venv from the build-pip otherwise create a new one
     - echo ${BUILDNAME}
-    - ls venv_*
     - |
       if [ -d "venv_${BUILDNAME}" ]; then
       source "venv_${BUILDNAME}/bin/activate"

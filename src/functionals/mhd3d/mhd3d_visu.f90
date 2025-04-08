@@ -24,7 +24,7 @@ PUBLIC
 CONTAINS
 
 !===================================================================================================================================
-!> 
+!>
 !!
 !===================================================================================================================================
 SUBROUTINE visu_BC_face(mn_IP ,minmax,fileID)
@@ -39,7 +39,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: mn_IP(2) !! muber of points in theta,zeta direction
-  REAL(wp)      , INTENT(IN   ) :: minmax(2:3,0:1) !! min/max of theta,zeta [0,1] 
+  REAL(wp)      , INTENT(IN   ) :: minmax(2:3,0:1) !! min/max of theta,zeta [0,1]
   INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
   !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -141,7 +141,7 @@ END SUBROUTINE visu_BC_face
 
 
 !===================================================================================================================================
-!> visualize the mapping and additional variables in 3D, either on zeta=const planes or fully 3D 
+!> visualize the mapping and additional variables in 3D, either on zeta=const planes or fully 3D
 !!
 !===================================================================================================================================
 SUBROUTINE visu_3D(np_in,minmax,only_planes,fileID )
@@ -158,7 +158,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: np_in(3)     !! (1) #points in s & theta per element,(2:3) #elements in  theta,zeta
-  REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1] 
+  REAL(wp)      , INTENT(IN   ) :: minmax(3,0:1)  !! minimum /maximum range in s,theta,zeta [0,1]
   LOGICAL       , INTENT(IN   ) :: only_planes  !! true: visualize only planes, false:  full 3D
   INTEGER       , INTENT(IN   ) :: fileID          !! added to file name before the ending
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -211,8 +211,8 @@ IMPLICIT NONE
   REAL(wp) :: dX1ds_dr(X1_base%f%modes),dX2ds_dr(X2_base%f%modes),dLAds(LA_base%f%modes)
   REAL(wp) :: phiPrime_dr,iota_dr
   REAL(wp) :: dX1_dr_dr,dX1_dr_dthet,dX1_dr_dzeta,dX1_dthet_dthet,dX1_dthet_dzeta,dX1_dzeta_dzeta
-  REAL(wp) :: dX2_dr_dr,dX2_dr_dthet,dX2_dr_dzeta,dX2_dthet_dthet,dX2_dthet_dzeta,dX2_dzeta_dzeta 
-  REAL(wp) ::           dLA_dr_dthet,dLA_dr_dzeta,dLA_dthet_dthet,dLA_dthet_dzeta,dLA_dzeta_dzeta 
+  REAL(wp) :: dX2_dr_dr,dX2_dr_dthet,dX2_dr_dzeta,dX2_dthet_dthet,dX2_dthet_dzeta,dX2_dzeta_dzeta
+  REAL(wp) ::           dLA_dr_dthet,dLA_dr_dzeta,dLA_dthet_dthet,dLA_dthet_dzeta,dLA_dzeta_dzeta
   REAL(wp) :: dBthet_dr,dBthet_dthet,dBthet_dzeta,dBzeta_dr,dBzeta_dthet,dBzeta_dzeta
   REAL(wp),DIMENSION(3)::q_s,q_s_s,q_s_thet,q_s_zeta,q_thet_thet,q_thet_zeta,q_zeta_zeta
   REAL(wp) :: Jh,Jh_dq1,Jh_dq2,dJh_dr,dJh_dthet,dJh_dzeta
@@ -354,7 +354,7 @@ IMPLICIT NONE
 !      rhopos=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
 !      rhopos=MAX(1.0e-04,sgrid%sp(iElem-1)+1e-08+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*(sgrid%ds(iElem)-2*1e-8)) !for discont. data
       rhopos=MAX(1.0e-04,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s-1,wp))*(sgrid%ds(iElem)))
- 
+
       X1_s(:)   = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,      0,U(0)%X1(:,:))
       dX1ds(:)  = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,DERIV_S,U(0)%X1(:,:))
       F_X1_s(:) = X1_base%s%evalDOF2D_s(rhopos,X1_base%f%modes,      0,F(0)%X1(:,:))
@@ -402,7 +402,7 @@ IMPLICIT NONE
       Itor_int = 0.
       Ipol_int = 0.
 
-!$OMP PARALLEL DO COLLAPSE(3)     &  
+!$OMP PARALLEL DO COLLAPSE(3)     &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)    &
 !$OMP   PRIVATE(i_m,i_n,j_s,xIP,q,q_thet,q_zeta,sqrtG,e_s,e_thet,e_zeta,theta_star, &
 !$OMP           X1_visu,dX1_dr,dX1_dthet,dX1_dzeta,    &
@@ -456,18 +456,18 @@ IMPLICIT NONE
 
             X1_visu         =X1_base%f%evalDOF_x(xIP,         0,X1_s )
             X2_visu         =X2_base%f%evalDOF_x(xIP,         0,X2_s )
-            
+
             dX1_dr     =X1_base%f%evalDOF_x(xIP,         0,dX1ds)
             dX2_dr     =X2_base%f%evalDOF_x(xIP,         0,dX2ds)
-            
+
             dX1_dthet  =X1_base%f%evalDOF_x(xIP,DERIV_THET,X1_s )
             dX2_dthet  =X2_base%f%evalDOF_x(xIP,DERIV_THET,X2_s )
             dLA_dthet  =LA_base%f%evalDOF_x(xIP,DERIV_THET,LA_s )
-            
+
             dX1_dzeta  =X1_base%f%evalDOF_x(xIP,DERIV_ZETA,X1_s )
             dX2_dzeta  =X2_base%f%evalDOF_x(xIP,DERIV_ZETA,X2_s )
             dLA_dzeta  =LA_base%f%evalDOF_x(xIP,DERIV_ZETA,LA_s )
-            
+
             q=(/X1_visu,X2_visu,xIP(2)/)
             q_thet=(/dX1_dthet,dX2_dthet,0.0_wp/)
             q_zeta=(/dX1_dzeta,dX2_dzeta,1.0_wp/)
@@ -477,10 +477,10 @@ IMPLICIT NONE
             e_thet=hmap%eval_dxdq(q,q_thet)
             e_zeta=hmap%eval_dxdq(q,q_zeta)
 
-           !sqrtG = hmap%eval_Jh(q)*(dX1_dr*dX2_dthet -dX2_dr*dX1_dthet) 
+           !sqrtG = hmap%eval_Jh(q)*(dX1_dr*dX2_dthet -dX2_dr*dX1_dthet)
             sqrtG    = SUM(e_s * (CROSS(e_thet,e_zeta)))
             !IF(ABS(sqtG- SUM(e_s*(CROSS(e_thet,e_zeta)))).GT.1.0e-04) STOP 'test sqrtg failed'
-            
+
             ! Get contra-variant basis vectors
             grad_rho  = CROSS(e_thet,e_zeta) /sqrtG
             grad_thet = CROSS(e_zeta,e_s   ) /sqrtG
@@ -492,14 +492,14 @@ IMPLICIT NONE
             var_visu(VP_g_tt ,i_s,j_s,i_n,i_m,iElem) = hmap%eval_gij(q_thet,q,q_thet)   !g_theta,theta
             var_visu(VP_g_tz ,i_s,j_s,i_n,i_m,iElem) = hmap%eval_gij(q_thet,q,q_zeta)   !g_theta,zeta =g_zeta,theta
             var_visu(VP_g_zz ,i_s,j_s,i_n,i_m,iElem) = hmap%eval_gij(q_zeta,q,q_zeta)   !g_zeta,zeta
-      
+
             !lambda
             var_visu(VP_LAMBDA,i_s,j_s,i_n,i_m,iElem) = LA_base%f%evalDOF_x(xIP,0,LA_s)
             !sqrtG
             var_visu(VP_SQRTG,i_s,j_s,i_n,i_m,iElem) = sqrtG
             var_visu(VP_X1   ,i_s,j_s,i_n,i_m,iElem) = X1_visu
             var_visu(VP_X2   ,i_s,j_s,i_n,i_m,iElem) = X2_visu
-            !F_X1,F_X2,F_LA  
+            !F_X1,F_X2,F_LA
             var_visu(VP_F_X1,i_s,j_s,i_n,i_m,iElem) = X1_base%f%evalDOF_x(xIP,         0,F_X1_s )
             var_visu(VP_F_X2,i_s,j_s,i_n,i_m,iElem) = X2_base%f%evalDOF_x(xIP,         0,F_X2_s )
             var_visu(VP_F_LA,i_s,j_s,i_n,i_m,iElem) = LA_base%f%evalDOF_x(xIP,         0,F_LA_s )
@@ -512,11 +512,11 @@ IMPLICIT NONE
             !poloidal and toroidal current profiles, line integral: integration over one angle /average over other...
             !Itor= int_0^2pi B_theta dtheta = (nfp/2pi) int_0^2pi int_0^(2pi/nfp) B_theta dtheta dzeta
             !Ipol= int_0^2pi B_zeta  dzeta  = nfp* int_0^(2pi/nfp) B_zeta dzeta = (nfp/2pi) int_0^2pi int_0^(2pi/nfp) B_zeta  dtheta dzeta
-            Itor_int = Itor_int+ SUM(Bcart(:)*e_thet(:))   !B_theta=B.e_thet 
+            Itor_int = Itor_int+ SUM(Bcart(:)*e_thet(:))   !B_theta=B.e_thet
             Ipol_int = Ipol_int+ SUM(Bcart(:)*e_zeta(:))   !B_zeta =B.e_zeta
 
            ! Get J components:
-            
+
 #ifdef VISU_J_EXACT
             dX1_dr_dr       = X1_base%f%evalDOF_x(xIP,         0,dX1ds_dr)
             dX2_dr_dr       = X2_base%f%evalDOF_x(xIP,         0,dX2ds_dr)
@@ -542,15 +542,15 @@ IMPLICIT NONE
             dLA_dzeta_dzeta = LA_base%f%evalDOF_x(xIP,DERIV_ZETA_ZETA,LA_s )
 
 
-            dBthet_dr    =  (iota_s - dLA_dzeta ) * phiPrime_dr + (iota_dr - dLA_dr_dzeta ) * phiPrime_s 
-            dBthet_dthet =                                         (      - dLA_dthet_dzeta ) * phiPrime_s 
-            dBthet_dzeta =                                         (      - dLA_dzeta_dzeta ) * phiPrime_s 
-            dBzeta_dr    =  (1.0_wp + dLA_dthet ) * phiPrime_dr +             dLA_dr_dthet   * phiPrime_s 
-            dBzeta_dthet =                                                  dLA_dthet_dthet   * phiPrime_s 
-            dBzeta_dzeta =                                                  dLA_dthet_dzeta   * phiPrime_s 
+            dBthet_dr    =  (iota_s - dLA_dzeta ) * phiPrime_dr + (iota_dr - dLA_dr_dzeta ) * phiPrime_s
+            dBthet_dthet =                                         (      - dLA_dthet_dzeta ) * phiPrime_s
+            dBthet_dzeta =                                         (      - dLA_dzeta_dzeta ) * phiPrime_s
+            dBzeta_dr    =  (1.0_wp + dLA_dthet ) * phiPrime_dr +             dLA_dr_dthet   * phiPrime_s
+            dBzeta_dthet =                                                  dLA_dthet_dthet   * phiPrime_s
+            dBzeta_dzeta =                                                  dLA_dthet_dzeta   * phiPrime_s
 
 
-            
+
             q_s          = (/dX1_dr         ,dX2_dr         ,0.0_wp/)
             q_s_s        = (/dX1_dr_dr      ,dX2_dr_dr      ,0.0_wp/)
             q_s_thet     = (/dX1_dr_dthet   ,dX2_dr_dthet   ,0.0_wp/)
@@ -572,10 +572,10 @@ IMPLICIT NONE
             dJp_dthet    = q_s_thet(1)*q_thet(     2)-q_s_thet(2)*q_thet(     1) &
                           +q_s(     1)*q_thet_thet(2)-q_s(     2)*q_thet_thet(1)
             dJp_dzeta    = q_s_zeta(1)*q_thet(     2)-q_s_zeta(2)*q_thet(     1) &
-                          +q_s(     1)*q_thet_zeta(2)-q_s(     2)*q_thet_zeta(1) 
-             
+                          +q_s(     1)*q_thet_zeta(2)-q_s(     2)*q_thet_zeta(1)
+
             sqrtg        = Jh*Jp
-            dsqrtg_dr    = Jh*dJp_dr    + dJh_dr   *Jp 
+            dsqrtg_dr    = Jh*dJp_dr    + dJh_dr   *Jp
             dsqrtg_dthet = Jh*dJp_dthet + dJh_dthet*Jp
             dsqrtg_dzeta = Jh*dJp_dzeta + dJh_dzeta*Jp
 
@@ -583,17 +583,17 @@ IMPLICIT NONE
             g_st_dq1     = hmap%eval_gij_dq1( q_s,q,q_thet)
             g_st_dq2     = hmap%eval_gij_dq2( q_s,q,q_thet)
             dg_st_dthet  = hmap%eval_gij(q_s_thet,q,q_thet)     &
-                          +hmap%eval_gij(     q_s,q,q_thet_thet) + q_thet(1)*g_st_dq1 + q_thet(2)*g_st_dq2 
+                          +hmap%eval_gij(     q_s,q,q_thet_thet) + q_thet(1)*g_st_dq1 + q_thet(2)*g_st_dq2
             dg_st_dzeta  = hmap%eval_gij(q_s_zeta,q,q_thet)     &
-                          +hmap%eval_gij(     q_s,q,q_thet_zeta) + q_zeta(1)*g_st_dq1 + q_zeta(2)*g_st_dq2 
+                          +hmap%eval_gij(     q_s,q,q_thet_zeta) + q_zeta(1)*g_st_dq1 + q_zeta(2)*g_st_dq2
 
             g_sz         = hmap%eval_gij(     q_s,q,q_zeta)
             g_sz_dq1     = hmap%eval_gij_dq1( q_s,q,q_zeta)
             g_sz_dq2     = hmap%eval_gij_dq2( q_s,q,q_zeta)
             dg_sz_dthet  = hmap%eval_gij(q_s_thet,q,q_zeta)     &
-                          +hmap%eval_gij(     q_s,q,q_thet_zeta) + q_thet(1)*g_sz_dq1 + q_thet(2)*g_sz_dq2 
-            dg_sz_dzeta  = hmap%eval_gij(q_s_zeta,q,q_zeta)     & 
-                          +hmap%eval_gij(     q_s,q,q_zeta_zeta) + q_zeta(1)*g_sz_dq1 + q_zeta(2)*g_sz_dq2 
+                          +hmap%eval_gij(     q_s,q,q_thet_zeta) + q_thet(1)*g_sz_dq1 + q_thet(2)*g_sz_dq2
+            dg_sz_dzeta  = hmap%eval_gij(q_s_zeta,q,q_zeta)     &
+                          +hmap%eval_gij(     q_s,q,q_zeta_zeta) + q_zeta(1)*g_sz_dq1 + q_zeta(2)*g_sz_dq2
 
             g_tt         = hmap%eval_gij(            q_thet,q,q_thet)
             g_tt_dq1     = hmap%eval_gij_dq1(        q_thet,q,q_thet)
@@ -604,9 +604,9 @@ IMPLICIT NONE
             g_tz         = hmap%eval_gij(     q_thet,q,q_zeta)
             g_tz_dq1     = hmap%eval_gij_dq1( q_thet,q,q_zeta)
             g_tz_dq2     = hmap%eval_gij_dq2( q_thet,q,q_zeta)
-            dg_tz_dr     = hmap%eval_gij(q_s_thet   ,q,q_zeta) + hmap%eval_gij(q_thet,q,q_s_zeta   ) + q_s(   1) * g_tz_dq1 + q_s(   2) * g_tz_dq2 
-            dg_tz_dthet  = hmap%eval_gij(q_thet_thet,q,q_zeta) + hmap%eval_gij(q_thet,q,q_thet_zeta) + q_thet(1) * g_tz_dq1 + q_thet(2) * g_tz_dq2 
-            dg_tz_dzeta  = hmap%eval_gij(q_thet_zeta,q,q_zeta) + hmap%eval_gij(q_thet,q,q_zeta_zeta) + q_zeta(1) * g_tz_dq1 + q_zeta(2) * g_tz_dq2 
+            dg_tz_dr     = hmap%eval_gij(q_s_thet   ,q,q_zeta) + hmap%eval_gij(q_thet,q,q_s_zeta   ) + q_s(   1) * g_tz_dq1 + q_s(   2) * g_tz_dq2
+            dg_tz_dthet  = hmap%eval_gij(q_thet_thet,q,q_zeta) + hmap%eval_gij(q_thet,q,q_thet_zeta) + q_thet(1) * g_tz_dq1 + q_thet(2) * g_tz_dq2
+            dg_tz_dzeta  = hmap%eval_gij(q_thet_zeta,q,q_zeta) + hmap%eval_gij(q_thet,q,q_zeta_zeta) + q_zeta(1) * g_tz_dq1 + q_zeta(2) * g_tz_dq2
 
             g_zz         = hmap%eval_gij(            q_zeta,q,q_zeta)
             g_zz_dq1     = hmap%eval_gij_dq1(        q_zeta,q,q_zeta)
@@ -621,9 +621,9 @@ IMPLICIT NONE
             dBsubthet_dzeta  = (-(Bthet*g_tt+Bzeta*g_tz)/sqrtg*dsqrtg_dzeta +Bthet*dg_tt_dzeta + dBthet_dzeta*g_tt + Bzeta*dg_tz_dzeta + dBzeta_dzeta*g_tz)/sqrtg
 
             dBsubzeta_dr     = (-(Bthet*g_tz+Bzeta*g_zz)/sqrtg*dsqrtg_dr    +Bthet*dg_tz_dr    + dBthet_dr   *g_tz + Bzeta*dg_zz_dr    + dBzeta_dr   *g_zz)/sqrtg
-            dBsubzeta_dthet  = (-(Bthet*g_tz+Bzeta*g_zz)/sqrtg*dsqrtg_dthet +Bthet*dg_tz_dthet + dBthet_dthet*g_tz + Bzeta*dg_zz_dthet + dBzeta_dthet*g_zz)/sqrtg 
-           
-            
+            dBsubzeta_dthet  = (-(Bthet*g_tz+Bzeta*g_zz)/sqrtg*dsqrtg_dthet +Bthet*dg_tz_dthet + dBthet_dthet*g_tz + Bzeta*dg_zz_dthet + dBzeta_dthet*g_zz)/sqrtg
+
+
             Js     = (dBsubzeta_dthet - dBsubthet_dzeta)
             Jthet  = (dBsubs_dzeta    - dBsubzeta_dr   )
             Jzeta  = (dBsubthet_dr    - dBsubs_dthet   )
@@ -635,18 +635,18 @@ IMPLICIT NONE
 
 #ifdef VISU_J_FD
             ! Get J components - finite difference bases
-  
-            
+
+
             ! Calculate ds derivative of B
             X1_eps         = X1_base%f%evalDOF_x(xIP, 0, X1_s_eps )
             X2_eps         = X2_base%f%evalDOF_x(xIP, 0, X2_s_eps )
             dX1_dr_eps     = X1_base%f%evalDOF_x(xIP, 0, dX1ds_eps)
             dX2_dr_eps     = X2_base%f%evalDOF_x(xIP, 0, dX2ds_eps)
-            
+
             dX1_dthet_eps  = X1_base%f%evalDOF_x(xIP, DERIV_THET,X1_s_eps )
             dX2_dthet_eps  = X2_base%f%evalDOF_x(xIP, DERIV_THET,X2_s_eps )
             dLA_dthet_eps  = LA_base%f%evalDOF_x(xIP, DERIV_THET,LA_s_eps )
-            
+
             dX1_dzeta_eps  = X1_base%f%evalDOF_x(xIP,DERIV_ZETA,X1_s_eps )
             dX2_dzeta_eps  = X2_base%f%evalDOF_x(xIP,DERIV_ZETA,X2_s_eps )
             dLA_dzeta_eps  = LA_base%f%evalDOF_x(xIP,DERIV_ZETA,LA_s_eps )
@@ -660,7 +660,7 @@ IMPLICIT NONE
             Bthet   = (iota_s_eps - dLA_dzeta_eps ) * phiPrime_s_eps   !/sqrtG
             Bzeta   = (1.0_wp  + dLA_dthet_eps ) * phiPrime_s_eps       !/sqrtG
             B_dr(:) =  (( e_thet(:) * Bthet + e_zeta(:) * Bzeta) /sqrtG - Bcart(:)) / (delta_s)      ! calculating dBx_dr, dBy_dr, dBz_dr
-            
+
             ! Calculate dtheta derivative of B
             delta_thet = eps*SQRT(SUM(grad_thet*grad_thet))
             xIP_eps        = (/xIP(1)+delta_thet, xIP(2)/)
@@ -668,11 +668,11 @@ IMPLICIT NONE
             X2_eps         = X2_base%f%evalDOF_x(xIP_eps, 0, X2_s )
             dX1_dr_eps     = X1_base%f%evalDOF_x(xIP_eps, 0, dX1ds)
             dX2_dr_eps     = X2_base%f%evalDOF_x(xIP_eps, 0, dX2ds)
-            
+
             dX1_dthet_eps  = X1_base%f%evalDOF_x(xIP_eps, DERIV_THET, X1_s )
             dX2_dthet_eps  = X2_base%f%evalDOF_x(xIP_eps, DERIV_THET, X2_s )
             dLA_dthet_eps  = LA_base%f%evalDOF_x(xIP_eps, DERIV_THET, LA_s )
-            
+
             dX1_dzeta_eps  = X1_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, X1_s )
             dX2_dzeta_eps  = X2_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, X2_s )
             dLA_dzeta_eps  = LA_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, LA_s )
@@ -694,11 +694,11 @@ IMPLICIT NONE
             X2_eps         = X2_base%f%evalDOF_x(xIP_eps, 0, X2_s )
             dX1_dr_eps     = X1_base%f%evalDOF_x(xIP_eps, 0, dX1ds)
             dX2_dr_eps     = X2_base%f%evalDOF_x(xIP_eps, 0, dX2ds)
-            
+
             dX1_dthet_eps  = X1_base%f%evalDOF_x(xIP_eps, DERIV_THET, X1_s )
             dX2_dthet_eps  = X2_base%f%evalDOF_x(xIP_eps, DERIV_THET, X2_s )
             dLA_dthet_eps  = LA_base%f%evalDOF_x(xIP_eps, DERIV_THET, LA_s )
-            
+
             dX1_dzeta_eps  = X1_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, X1_s )
             dX2_dzeta_eps  = X2_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, X2_s )
             dLA_dzeta_eps  = LA_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, LA_s )
@@ -716,7 +716,7 @@ IMPLICIT NONE
             ! Calculate B derivatives by finite difference
             grad_Bcart(1, :) = B_dr(1) * grad_rho(:) + B_dthet(1) * grad_thet(:) + B_dzeta(1) * grad_zeta(:)   ! grad_BX
             grad_Bcart(2, :) = B_dr(2) * grad_rho(:) + B_dthet(2) * grad_thet(:) + B_dzeta(2) * grad_zeta(:)   ! grad_BY
-            grad_Bcart(3, :) = B_dr(3) * grad_rho(:) + B_dthet(3) * grad_thet(:) + B_dzeta(3) * grad_zeta(:)   ! grad_BZ 
+            grad_Bcart(3, :) = B_dr(3) * grad_rho(:) + B_dthet(3) * grad_thet(:) + B_dzeta(3) * grad_zeta(:)   ! grad_BZ
 
             ! Calculate current cartesian components
             Jcart(1) = grad_Bcart(3, 2) - grad_Bcart(2, 3)   ! dBZ_dY - dBY_dZ
@@ -747,7 +747,7 @@ IMPLICIT NONE
   !make grid exactly periodic
     !make theta direction exactly periodic
     IF(ABS((minMax(2,1)-minmax(2,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-!$OMP PARALLEL DO  COLLAPSE(3)     &  
+!$OMP PARALLEL DO  COLLAPSE(3)     &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s)
       DO iElem=1,nElems; DO i_n=1,mn_IP(2); DO i_s=1,n_s
         coord_visu( :,i_s,n_s,i_n,mn_IP(1),iElem)=coord_visu( :,i_s,1,i_n,1,iElem)
@@ -758,7 +758,7 @@ IMPLICIT NONE
     !make zeta direction exactly periodic, only for 3Dvisu
     IF(.NOT.only_planes)THEN
       IF(ABS((minMax(3,1)-minmax(3,0))-1.0_wp).LT.1.0e-04)THEN !fully periodic
-!$OMP PARALLEL DO  COLLAPSE(4)     &  
+!$OMP PARALLEL DO  COLLAPSE(4)     &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(iElem,i_n,i_s,j_s)
       DO iElem=1,nElems; DO i_m=1,mn_IP(1); DO j_s=1,n_s; DO i_s=1,n_s
         coord_visu( :,i_s,j_s,mn_IP(2),i_m,iElem)=coord_visu( :,i_s,j_s,1,i_m,iElem)
@@ -825,7 +825,7 @@ IMPLICIT NONE
       END DO
 
       coord3 = var_visu(VP_zeta,1,1,:,1,1)
-      
+
       ! do not write rho, theta, zeta => nVal-3, VarNames(4:) etc.
       CALL WriteDataToNETCDF(3,3,nVal-3,(/tmp_nrho,tmp_ntheta,mn_IP(2)/),&
                           (/"rad","pol","tor"/),VarNames(4:), &
@@ -852,7 +852,7 @@ IMPLICIT NONE
   ! initialization, all values should be overwritten
   var_visu_1d = -42.0_wp
   DO i=1,nVal
-    ! first n_s values 
+    ! first n_s values
     var_visu_1d(3+i,1:n_s)=var_visu(i,:,1,1,1,1)
     ! last (n_-1) values
     var_visu_1d(3+i,tmp_nrho-n_s+2:tmp_nrho) = var_visu(i,2:,1,1,1,nElems)
@@ -887,7 +887,7 @@ IMPLICIT NONE
   CALL WriteDataToCSV((/CoordNames,VarNames(:)/) ,var_visu_1d,TRIM(filename)//".csv"  &
                                   ,append_in=.FALSE.,vfmt_in='E15.5')
 #endif
-  
+
   WRITE(UNIT_stdOut,'(A)') '... DONE.'
   __PERFOFF("output_visu")
 END SUBROUTINE visu_3D
@@ -898,7 +898,7 @@ END SUBROUTINE visu_3D
 !> theta_star=theta_out + lambda(theta_out,zeta)
 !!
 !===================================================================================================================================
-SUBROUTINE Get_SFL_theta(theta_star,zeta,LA_base_in,LA,theta_out) 
+SUBROUTINE Get_SFL_theta(theta_star,zeta,LA_base_in,LA,theta_out)
 ! MODULES
 USE MODgvec_Globals,ONLY: PI
 USE MODgvec_base   ,ONLY: t_base
@@ -912,7 +912,7 @@ USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF
   REAL(wp)     ,INTENT(IN ) :: LA(1:LA_base_in%f%modes)   !< modes of Lambda (for a fixed rhopos)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)     ,INTENT(OUT) :: theta_out                  !< theta_out => 
+  REAL(wp)     ,INTENT(OUT) :: theta_out                  !< theta_out =>
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
@@ -920,14 +920,14 @@ USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF
  theta_out=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR)
 
 !for iteration on theta^*
-CONTAINS 
+CONTAINS
 
   FUNCTION FRdFR(theta_iter)
     !uses current zeta where newton is called, and LA_s from subroutine above
     IMPLICIT NONE
     REAL(wp) :: theta_iter
     REAL(wp) :: FRdFR(2) !output
-    !--------------------------------------------------- 
+    !---------------------------------------------------
     FRdFR(1)=theta_iter+LA_base_in%f%evalDOF_x((/theta_iter,zeta/),         0,LA(:))  !theta_iter+lambda
     FRdFR(2)=1.0_wp    +LA_base_in%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA(:)) !1+dlambda/dtheta
   END FUNCTION FRdFR
@@ -956,10 +956,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
                                     SFLout_radialpos,SFLout_endpoint,SFLout_relambda
   USE MODgvec_sol_var_MHD3D,  ONLY: t_sol_var_mhd3d
   USE MODgvec_Globals,        ONLY: TWOPI,CROSS
-  IMPLICIT NONE 
+  IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution 
+  CLASS(t_sol_var_MHD3D), INTENT(IN   ) :: Uin      !! input solution
   INTEGER , INTENT(IN   ) :: fileID          !! added to file name before the ending
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
@@ -1003,7 +1003,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   DO k=1,2
     whichSFLout=sflouts(k)
     IF(whichSFLout.EQ.-1) CYCLE
-  
+
     SELECT CASE(whichSFLout)
     CASE(0) !GVEC angles(not a SFL coordinate)
       sfltype="_noSFL"
@@ -1015,7 +1015,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
       sfltype="_boozer"
       angle_suffix="_B"
     END SELECT
-    WRITE(filename,'(A,"_",I4.4,"_",I8.8,"")') & 
+    WRITE(filename,'(A,"_",I4.4,"_",I8.8,"")') &
     TRIM(Projectname)//TRIM(sfltype),outputLevel,fileID
     WRITE(UNIT_stdOut,'(A,A,A)') 'WRITING SFL output: ',TRIM(filename),' ...'
     __PERFON("output_sfl")
@@ -1039,33 +1039,33 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     VP_ezstar     =iVal;iVal=iVal+3; VarNames(VP_ezstar:VP_ezstar+2)=(/"e_zeta"//angle_suffix//"X","e_zeta"//angle_suffix//"Y","e_zeta"//angle_suffix//"Z"/)
     VP_X1         =iVal;iVal=iVal+1; VarNames(VP_X1       )="X1"
     VP_X2         =iVal;iVal=iVal+1; VarNames(VP_X2       )="X2"
-  
+
     IF(iVal.NE.Nval+1) CALL abort(__STAMP__,"nVal parameter not correctly set")
-  
+
   ! Set NETCDF attributes
 
     var_visu_attr = ""
     sfl_char = "Straight field line ("//TRIM(sfltype(2:))//")"
     var_visu_attr(VP_Itor,1)   = "toroidal current";                                  var_visu_attr(VP_Itor,2)   = "I_{tor}"
     var_visu_attr(VP_Ipol,1)   = "poloidal current";                                  var_visu_attr(VP_Ipol,2)   = "I_{pol}"
-  
+
     var_visu_attr(VP_B+2,1)       = "magnetic field";                                  var_visu_attr(VP_B+2,2)       = "\mathbf{B}"
     var_visu_attr(VP_gradrho+2,1) = "radial reciprocal basis vector";                  var_visu_attr(VP_gradrho+2,2) = "\\nabla \\rho"
     var_visu_attr(VP_ezstar+2,1)  = TRIM(sfl_char)//" toroidal tangent basis vector";  var_visu_attr(VP_ezstar+2,2)  = "e_{zeta*}"
     var_visu_attr(VP_etstar+2,1)  = TRIM(sfl_char)//" poloidal tangent basis vector";  var_visu_attr(VP_etstar+2,2)  =  "e_{theta*}"
-  
+
     var_visu_attr(VP_iota,1)   = "rotational transform";                              var_visu_attr(VP_IOTA,2)   = "\iota"
-  
+
     var_visu_attr(VP_SQRTG,1)  = "Jacobian determinant";                              var_visu_attr(VP_SQRTG,2)  = "\\mathcal{J}"
-  
-    
+
+
     var_visu_attr(VP_X1,1)     = "first reference coordinate";                        var_visu_attr(VP_X1,2)     = "X^1"
     var_visu_attr(VP_X2,1)     = "second reference coordinate";                       var_visu_attr(VP_X2,2)     = "X^2"
-  
+
     var_visu_attr(VP_rho,1)    = "Logical radial coordinate on the rad-pol-tor grid"; var_visu_attr(VP_rho,2)    = "\\rho"
     var_visu_attr(VP_theta,1)  = "Logical poloidal angle on the rad-pol-tor grid";    var_visu_attr(VP_theta,2)  = "\\theta"
     var_visu_attr(VP_zeta,1)   = "Logical toroidal angle on the rad-pol-tor grid";    var_visu_attr(VP_zeta,2)   = "\zeta"
-    
+
     var_visu_attr(VP_nu,1)     = TRIM(sfl_char)//" stream function";                  var_visu_attr(VP_nu,2)        = "\\nu"
     var_visu_attr(VP_modB,1) = "modulus of the magnetic field";                       var_visu_attr(VP_modB,2)      = "|\mathbf{B}|"
     var_visu_attr(VP_lambda,1) = TRIM(sfl_char)//" potential";                        var_visu_attr(VP_lambda,2)    = "\lambda"
@@ -1085,14 +1085,14 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     DO i=1,2
       IF(SFLout_mn_max(i).EQ.-1)THEN !input =-1, automatic
         mn_max(i) = factorSFL*MAXVAL((/X1_base%f%mn_max(i),X2_base%f%mn_max(i),LA_base%f%mn_max(i)/))
-      ELSE 
+      ELSE
         mn_max(i) = SFLout_mn_max(i) !user defined
       END IF
     END DO
     nfp=X1_base%f%nfp
     Nthet_out=MERGE(2*mn_max(1)+1,SFLout_mn_pts(1),SFLout_mn_pts(1).EQ.-1) !if input =-1, automatically 2*m_max+1, else user defined
     Nzeta_out=MERGE(2*mn_max(2)+1,SFLout_mn_pts(2),SFLout_mn_pts(2).EQ.-1) !if input =-1, automatically 2*n_max+1
-    
+
     DO i_rp=1,SFLout_nrp
       !respect bounds
       rho_pos(i_rp)=MIN(MAX(1.0e-4_wp,SFLout_radialpos(i_rp)),1.0_wp)
@@ -1101,12 +1101,12 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END DO
     ALLOCATE(tz_star_pos(2,nthet_out,nzeta_out))
     DO ithet=1,Nthet_out
-      tz_star_pos(1,ithet,:)=(TWOPI*(REAL(ithet,wp)-0.5_wp))/REAL(Nthet_out-MERGE(1,0,SFLout_endpoint),wp) 
+      tz_star_pos(1,ithet,:)=(TWOPI*(REAL(ithet,wp)-0.5_wp))/REAL(Nthet_out-MERGE(1,0,SFLout_endpoint),wp)
     END DO
     DO izeta=1,Nzeta_out
       tz_star_pos(2,:,izeta)=(TWOPI*(REAL(izeta,wp)-0.5_wp))/REAL(((Nzeta_out-MERGE(1,0,SFLout_endpoint))*nfp),wp)
     END DO
-    
+
     IF(SFLout_relambda .OR. (whichSFLout.EQ.2))THEN
       !for relambda=True, make use of the boozer transform computation
       SWRITE(UNIT_stdOut,'(A)')'recomputing lambda using boozer transform...'
@@ -1115,7 +1115,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
                           SFLout_nrp,rho_pos,iota_prof,phiPrime_prof,&
                           relambda_in=SFLout_relambda)
       CALL sfl_booz%get_boozer(X1_base,X2_base,LA_base,Uin%X1,Uin%X2,Uin%LA)
-    ELSE 
+    ELSE
       ALLOCATE(LA_s(LA_base%f%modes,SFLout_nrp))
       DO i_rp=1,SFLout_nrp
         LA_s(:,i_rp)=LA_base%s%evalDOF2D_s(rho_pos(i_rp),LA_base%f%modes,0,Uin%LA)
@@ -1125,10 +1125,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     SELECT CASE(whichSFLout) !chooses which angles to use
     CASE(2) !Boozer
       CALL sfl_booz%find_angles(nthet_out*nzeta_out,tz_star_pos,tz_pos)
-    CASE(1) !PEST  
+    CASE(1) !PEST
       IF(SFLout_relambda)THEN
         CALL find_pest_angles(SFLout_nrp,sfl_booz%nu_fbase,sfl_booz%lambda,nthet_out*nzeta_out,tz_star_pos,tz_pos)
-      ELSE 
+      ELSE
         CALL find_pest_angles(SFLout_nrp,LA_base%f,LA_s,nthet_out*nzeta_out,tz_star_pos,tz_pos)
       END IF
     CASE(0) !no transform
@@ -1136,10 +1136,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         tz_pos(:,:,:,i_rp)=tz_star_pos(:,:,:)
       END DO
     END SELECT
-  
+
     ALLOCATE(coord_out(3,Nthet_out,Nzeta_out,SFLout_nrp),var_out(nVal,Nthet_out,Nzeta_out,SFLout_nrp))
     var_out=0.
-  
+
     !use quantities given in GVEC theta and zeta:
       ALLOCATE(X1_s(X1_base%f%modes),dX1ds_s(X1_base%f%modes))
       ALLOCATE(X2_s(X2_base%f%modes),dX2ds_s(X2_base%f%modes))
@@ -1150,15 +1150,15 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         phiPrime_int=PhiPrime_prof(i_rp)
         var_out(VP_rho ,:,:,i_rp)=rho_pos(i_rp)
         var_out(VP_iota,:,:,i_rp)=iota_int
-        
+
         !interpolate radially
         X1_s(   :) = X1_base%s%evalDOF2D_s(rho_pos(i_rp),X1_base%f%modes,       0,Uin%X1(:,:))
         dX1ds_s(:) = X1_base%s%evalDOF2D_s(rho_pos(i_rp),X1_base%f%modes, DERIV_S,Uin%X1(:,:))
-      
+
         X2_s(   :) = X2_base%s%evalDOF2D_s(rho_pos(i_rp),X2_base%f%modes,       0,Uin%X2(:,:))
         dX2ds_s(:) = X2_base%s%evalDOF2D_s(rho_pos(i_rp),X2_base%f%modes, DERIV_S,Uin%X2(:,:))
         var_out(VP_thetastar,:,:,i_rp)=tz_star_pos(1,:,:)
-        var_out(VP_zetastar ,:,:,i_rp)=tz_star_pos(2,:,:)  
+        var_out(VP_zetastar ,:,:,i_rp)=tz_star_pos(2,:,:)
         !HACK!
         tz_pos(:,:,:,i_rp)=tz_star_pos(:,:,:)
 !$OMP PARALLEL DO COLLAPSE(2) &
@@ -1176,29 +1176,29 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
           xp=tz_pos(:,ithet,izeta,i_rp) !=theta,zeta GVEC !!!
           IF(SFLout_relambda)THEN
             LA_int     = sfl_booz%nu_fbase%evalDOF_x(xp,         0, sfl_booz%lambda(:,i_rp))
-            dLA_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%lambda(:,i_rp))  
+            dLA_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%lambda(:,i_rp))
             dLA_dzeta  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_ZETA, sfl_booz%lambda(:,i_rp))
             nu_int     = sfl_booz%nu_fbase%evalDOF_x(xp,         0, sfl_booz%nu(:,i_rp))
           ELSE
             LA_int    = LA_base%f%evalDOF_x(xp,          0, LA_s(:,i_rp) )
             dLA_dthet = LA_base%f%evalDOF_x(xp, DERIV_THET, LA_s(:,i_rp) )
-            dLA_dzeta = LA_base%f%evalDOF_x(xp, DERIV_ZETA, LA_s(:,i_rp) )   
+            dLA_dzeta = LA_base%f%evalDOF_x(xp, DERIV_ZETA, LA_s(:,i_rp) )
             nu_int    = 0.0_wp
           END IF
           SELECT CASE(whichSFLout)
           CASE(2)
-            dnu_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%nu(:,i_rp))  
+            dnu_dthet  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_THET, sfl_booz%nu(:,i_rp))
             dnu_dzeta  = sfl_booz%nu_fbase%evalDOF_x(xp,DERIV_ZETA, sfl_booz%nu(:,i_rp))
             dthetstar_dthet=1.+dLA_dthet + iota_int*dnu_dthet
             dthetstar_dzeta=   dLA_dzeta + iota_int*dnu_dzeta
             dzetastar_dthet=   dnu_dthet
             dzetastar_dzeta=1.+dnu_dzeta
-          CASE(1)  
+          CASE(1)
             dthetstar_dthet=1.+dLA_dthet
             dthetstar_dzeta=   dLA_dzeta
             dzetastar_dthet=0.
             dzetastar_dzeta=1.
-          CASE(0)!no Transform  
+          CASE(0)!no Transform
             dthetstar_dthet=1.
             dthetstar_dzeta=0.
             dzetastar_dthet=0.
@@ -1210,28 +1210,28 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
           dzeta_dzetastarJ= dthetstar_dthet !/Jstar*Jstar
           dthet_dzetastarJ=-dthetstar_dzeta !/Jstar*Jstar
           dzeta_dthetstarJ=-dzetastar_dthet !/Jstar*Jstar
-  
+
           X1_int   = X1_base%f%evalDOF_x(xp,          0, X1_s  )
           dX1ds    = X1_base%f%evalDOF_x(xp,          0,dX1ds_s)
-          dX1dthet = X1_base%f%evalDOF_x(xp, DERIV_THET, X1_s  ) 
-          dX1dzeta = X1_base%f%evalDOF_x(xp, DERIV_ZETA, X1_s  ) 
-          
+          dX1dthet = X1_base%f%evalDOF_x(xp, DERIV_THET, X1_s  )
+          dX1dzeta = X1_base%f%evalDOF_x(xp, DERIV_ZETA, X1_s  )
+
           X2_int   = X2_base%f%evalDOF_x(xp,          0, X2_s  )
           dX2ds    = X2_base%f%evalDOF_x(xp,          0,dX2ds_s)
           dX2dthet = X2_base%f%evalDOF_x(xp, DERIV_THET, X2_s  )
           dX2dzeta = X2_base%f%evalDOF_x(xp, DERIV_ZETA, X2_s  )
-           
+
           ! !transform derivative from dthet,dzeta=>dthet*,dzeta*
           ! dX1dthetstar = (dX1dthet*dthet_dthetstarJ+dX1dzeta*dzeta_dthetstarJ)/Jstar
           ! dX2dthetstar = (dX2dthet*dthet_dthetstarJ+dX2dzeta*dzeta_dthetstarJ)/Jstar
-  
+
           ! dX1dzetastar = (dX1dthet*dthet_dzetastarJ+dX1dzeta*dzeta_dzetastarJ)/Jstar
           ! dX2dzetastar = (dX2dthet*dthet_dzetastarJ+dX2dzeta*dzeta_dzetastarJ)/Jstar
           ! IF(whichSFLout.EQ.2)THEN
           !   dnu_dthetstar=(dnu_dthet*dthet_dthetstarJ+dnu_dzeta*dzeta_dthetstarJ)/Jstar
           !   dnu_dzetastar=(dnu_dthet*dthet_dzetastarJ+dnu_dzeta*dzeta_dzetastarJ)/Jstar
           ! END IF
-  
+
           qvec=(/X1_int,X2_int,xp(2)/)
           coord_out(:,ithet,izeta,i_rp)=hmap%eval(qvec)
           e_s   =hmap%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,0.0_wp/))
@@ -1240,12 +1240,12 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
           sqrtG    = SUM(e_s * (CROSS(e_thet,e_zeta)))
           e_thetstar=(e_thet*dthet_dthetstarJ+e_zeta*dzeta_dthetstarJ)/Jstar
           e_zetastar=(e_thet*dthet_dzetastarJ+e_zeta*dzeta_dzetastarJ)/Jstar
-  
+
           Bthet   = (iota_int - dLA_dzeta ) * phiPrime_int   !/sqrtG
           Bzeta   = (1.0_wp + dLA_dthet ) * phiPrime_int       !/sqrtG
           Bfield(:) =  ( e_thet(:) * Bthet + e_zeta(:) * Bzeta) /sqrtG
-  
-          Itor_int = Itor_int+ SUM(Bfield(:)*e_thet(:))   !B_theta=B.e_thet 
+
+          Itor_int = Itor_int+ SUM(Bfield(:)*e_thet(:))   !B_theta=B.e_thet
           Ipol_int = Ipol_int+ SUM(Bfield(:)*e_zeta(:))   !B_zeta =B.e_zeta
           ! !e_s          = hmap%eval_dxdq(qvec,(/dX1ds       ,dX2ds       ,       -dnuds       /)) !dxvec/ds
           ! e_thetstar   = hmap%eval_dxdq(qvec,(/dX1dthetstar,dX2dthetstar,       -dnu_dthetstar/)) !dxvec/dthetstar
@@ -1255,7 +1255,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
           ! Bthetstar    = iota_int*PhiPrime_int   !/sqrtG
           ! Bzetastar    =          PhiPrime_int   !/sqrtG
           ! Bfield(:)    =  ( e_thetstar(:)*Bthetstar+e_zetastar(:)*Bzetastar) /sqrtG
-          
+
           var_out(VP_theta    ,ithet,izeta,i_rp)=xp(1)
           var_out(VP_zeta     ,ithet,izeta,i_rp)=xp(2)
           var_out(VP_lambda   ,ithet,izeta,i_rp)=LA_int
@@ -1274,15 +1274,15 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
         var_out(VP_Itor ,:,:,i_rp)= Itor_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)*(2.0e-7_wp*TWOPI)) !(2pi)^2/nfp /(Nt*Nz) * nfp/(2pi)
         var_out(VP_Ipol ,:,:,i_rp)= Ipol_int*TWOPI/(REAL((nthet_out*nzeta_out),wp)*(2.0e-7_wp*TWOPI))
       END DO !i_rp=1,n_rp
-  
+
     DEALLOCATE(X1_s,dX1ds_s,X2_s,dX2ds_s,tz_pos)
-    
+
     IF(SFLout_relambda .OR.(whichSFLout.EQ.2))THEN
       CALL sfl_booz%free(); DEALLOCATE(sfl_booz)
-    ELSE 
+    ELSE
       DEALLOCATE(LA_s)
     END IF
-  
+
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
      CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,SFLout_nrp-1/),1,VarNames, &
                         coord_out(1:3 ,1:Nthet_out,1:Nzeta_out,1:SFLout_nrp), &
@@ -1335,11 +1335,11 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
 
 
 !===================================================================================================================================
-!> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of 
-!> the sampled x,y,z coordinates 
+!> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of
+!> the sampled x,y,z coordinates
 !!
 !===================================================================================================================================
-SUBROUTINE CheckDistance(U,V,maxDist,avgDist) 
+SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
 ! MODULES
   USE MODgvec_Globals,        ONLY: TWOPI
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,hmap,sgrid
@@ -1372,13 +1372,13 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
   mn_IP(1)   = MAX(1,X1_base%f%mn_nyq(1)/2)
   mn_IP(2)   = MAX(1,X1_base%f%mn_nyq(2)/2)
   nElems=sgrid%nElems
-  
-  maxDist=0.  
+
+  maxDist=0.
   avgDist=0.
 
   ALLOCATE(theta1D(1:mn_IP(1)),zeta1D(1:mn_IP(2)))
   DO i_n=1,mn_IP(2)
-    zeta1D(i_n)  = TWOPI*REAL(i_n-1,wp)/REAL(mn_IP(2)*X1_base%f%nfp,wp) !do not include periodic point 
+    zeta1D(i_n)  = TWOPI*REAL(i_n-1,wp)/REAL(mn_IP(2)*X1_base%f%nfp,wp) !do not include periodic point
   END DO
   DO i_m=1,mn_IP(1)
     theta1D(i_m)= TWOPI*REAL(i_m-1,wp)/REAL(mn_IP(1),wp)  !do not include periodic point
@@ -1413,16 +1413,16 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
               LA_visu = LA_base%f%evalDOF_x((/theta0,zeta/),0,ULA_s(:) )
               theta = theta0 + LA_visu
             END IF
-          
+
             xIP=(/theta,zeta/)
-          
+
             X1_visu    = X1_base%f%evalDOF_x(xIP,0,UX1_s(:) )
             X2_visu    = X2_base%f%evalDOF_x(xIP,0,UX2_s(:) )
-            
+
             q=(/X1_visu,X2_visu,zeta/)
             !x,y,z
             xU(:)=hmap%eval(q)
-            
+
             !for xV
             IF(SFL_theta)THEN
               CALL Get_SFL_theta(theta0,zeta,LA_base,VLA_s, theta)
@@ -1430,16 +1430,16 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
               LA_visu = LA_base%f%evalDOF_x((/theta0,zeta/),0,VLA_s(:) )
               theta = theta0 + LA_visu
             END IF
-          
+
             xIP=(/theta,zeta/)
-          
+
             X1_visu    = X1_base%f%evalDOF_x(xIP,0,VX1_s(:) )
             X2_visu    = X2_base%f%evalDOF_x(xIP,0,VX2_s(:) )
-            
+
             q=(/X1_visu,X2_visu,zeta/)
             !x,y,z
             xV(:)=hmap%eval(q)
-            
+
             dist=SQRT(SUM((xU(:)-xV(:))**2))
             maxDist = MAX(maxDist,dist)
             avgDist = avgDist+dist
@@ -1457,11 +1457,11 @@ END SUBROUTINE CheckDistance
 
 
 !===================================================================================================================================
-!> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of 
-!> the sampled x,y,z coordinates 
+!> check distance between two solutions, via sampling X1,X2 at theta*=theta+lambda, and comparing the distance of
+!> the sampled x,y,z coordinates
 !!
 !===================================================================================================================================
-SUBROUTINE CheckAxis(U,n_zeta,Axirhopos) 
+SUBROUTINE CheckAxis(U,n_zeta,Axirhopos)
 ! MODULES
   USE MODgvec_Globals,        ONLY: TWOPI
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base
@@ -1469,7 +1469,7 @@ SUBROUTINE CheckAxis(U,n_zeta,Axirhopos)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_sol_var_MHD3D), INTENT(IN) :: U !U 
+  CLASS(t_sol_var_MHD3D), INTENT(IN) :: U !U
   INTEGER               , INTENT(IN) :: n_zeta  !! number of points checked along axis
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1485,14 +1485,14 @@ SUBROUTINE CheckAxis(U,n_zeta,Axirhopos)
   UX2_s(:) = X2_base%s%evalDOF2D_s(0.0_wp,X2_base%f%modes,0,U%X2(:,:))
 
   DO i_n=1,n_zeta
-    zeta = TWOPI*REAL(i_n-1,wp)/REAL(n_zeta*X1_base%f%nfp,wp) !do not include periodic point 
+    zeta = TWOPI*REAL(i_n-1,wp)/REAL(n_zeta*X1_base%f%nfp,wp) !do not include periodic point
     Axirhopos(1,i_n) = X1_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX1_s(:) )
     Axirhopos(2,i_n) = X2_base%f%evalDOF_x((/0.0_wp,zeta/),0,UX2_s(:) )
   END DO !i_n
 END SUBROUTINE CheckAxis
 
 !===================================================================================================================================
-!> Visualize 
+!> Visualize
 !!
 !===================================================================================================================================
 SUBROUTINE visu_1d_modes(n_s,fileID)
@@ -1527,12 +1527,12 @@ IMPLICIT NONE
     WRITE(*,*)'visu1D case not found:',visu1D,' nothing visualized...'
     RETURN
   END IF
-  
+
   IF(vcase(1))THEN
     WRITE(*,*)'1.1) Visualize 1d profiles of derived quantities...'
     WRITE(fname,'(A,I4.4,"_",I8.8,A4)')'1Dprofiles_',outputLevel,FileID,'.csv'
-    CALL eval_1d_profiles(n_s,fname) 
- 
+    CALL eval_1d_profiles(n_s,fname)
+
     WRITE(*,*)'1.2) Visualize gvec modes in 1D: R,Z,lambda interpolated...'
     vname="X1"
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
@@ -1592,13 +1592,13 @@ IMPLICIT NONE
     WRITE(fname,'(A,I4.4,"_",I8.8)')'U0_'//TRIM(vname)//'_',outputLevel,FileID
     CALL writeDataMN_visu(n_s,fname,vname,-5,LA_base,U(0)%LA)
   END IF
-  
+
   !
-  
+
 END SUBROUTINE visu_1d_modes
 
 !===================================================================================================================================
-!> 
+!>
 !!
 !===================================================================================================================================
 SUBROUTINE eval_1d_profiles(n_s,fname_in)
@@ -1615,7 +1615,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER                        :: i,i_s,iElem,iVar,nVars,nvisu
-  CHARACTER(LEN=120),ALLOCATABLE :: VarNames(:) 
+  CHARACTER(LEN=120),ALLOCATABLE :: VarNames(:)
   REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
 !===================================================================================================================================
   nVars = 4
@@ -1644,11 +1644,11 @@ IMPLICIT NONE
 
   iVar=iVar+1
   Varnames(iVar)='iota(Phi_norm)'
-  
+
   DO i=1,nvisu
     values_visu(  iVar,i)=iota_profile%eval_at_rho(s_visu(i))
   END DO !i
-  
+
   iVar=iVar+1
   Varnames(iVar)='pres(Phi_norm)'
   DO i=1,nvisu
@@ -1688,7 +1688,7 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   INTEGER                        :: nVal,addval
   INTEGER                        :: iMode,j,m
   CHARACTER(LEN=255)             :: fname
-  CHARACTER(LEN=120),ALLOCATABLE :: varnames(:) 
+  CHARACTER(LEN=120),ALLOCATABLE :: varnames(:)
   REAL(wp)          ,ALLOCATABLE :: values_visu(:,:)
   REAL(wp)          ,ALLOCATABLE :: s_visu(:)
   REAL(wp)                       :: rhom,val
@@ -1697,12 +1697,12 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
                         "writeData_MN_visu should only be called by MPIroot")
   WRITE(fname,'(A,A,".csv")')TRIM(ProjectName)//'_modes_',TRIM(fname_in)
   nvisu   =sgrid%nElems*n_s
-  
+
   addval = 5
   ALLOCATE(varnames(   addval+2*base_in%f%modes+2))
   ALLOCATE(values_visu(addval+2*base_in%f%modes+2,nvisu))
   ALLOCATE(s_visu(nvisu))
-  
+
   DO iElem=1,sgrid%nElems
     DO i_s=1,n_s
       s_visu(i_s+(iElem-1)*n_s)=sgrid%sp(iElem-1)+(1.0e-06_wp+REAL(i_s-1,wp))/(2.0e-06_wp+REAL(n_s-1,wp))*sgrid%ds(iElem)
@@ -1714,28 +1714,28 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
                         (sgrid%sp(0)+ (10**(10.0_wp*(-1.0_wp+REAL(i_s-1,wp)/REAL(n_s-1,wp)))) &
                                                    *(1.0e-06_wp+REAL(n_s+1,wp))/(2.0e-06_wp+REAL(n_s+1,wp))*sgrid%ds(1))
   END DO
-  
+
   nVal=1
   Varnames(   nVal)='rho'
   values_visu(nVal,:)=s_visu(:)
-  
+
   nVal=nVal+1
   Varnames(   nVal)='Phi'
   DO i=1,nvisu
     values_visu(  nVal,i)=Phi_profile%eval_at_rho(s_visu(i))
   END DO !i
-  
+
   !nVal=nVal+1
   !Varnames(   nVal)='chi'
   !values_visu(nVal,:)=0.0_wp !TODO
-  
+
   nVal=nVal+1
   Varnames(nVal)='iota(Phi_norm)'
-  
+
   DO i=1,nvisu
     values_visu(  nVal,i)=iota_profile%eval_at_rho(s_visu(i))
   END DO !i
-  
+
   nVal=nVal+1
   Varnames(nVal)='pres(Phi_norm)'
   DO i=1,nvisu
@@ -1780,7 +1780,7 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
   END DO
 
   CALL write_modes(fname,vname,nVal,base_in%f%modes,base_in%f%Xmn(1,:), &
-                   base_in%f%Xmn(2,:),s_visu,sgrid%sp(1),values_visu(:,:),VarNames) 
+                   base_in%f%Xmn(2,:),s_visu,sgrid%sp(1),values_visu(:,:),VarNames)
 
   DEALLOCATE(varnames)
   DEALLOCATE(values_visu)
@@ -1788,4 +1788,3 @@ SUBROUTINE writeDataMN_visu(n_s,fname_in,vname,rderiv,base_in,xx_in)
 END SUBROUTINE writeDataMN_visu
 
 END MODULE MODgvec_MHD3D_visu
-

@@ -116,7 +116,7 @@ The next section of the CI script has a template for the `env` stage. It provide
 
 ```yaml
 # ========================================================================
-# TEMPLATES FOR STAGE "env" 
+# TEMPLATES FOR STAGE "env"
 # ========================================================================
 
 # env related shell commands to stdout
@@ -157,7 +157,7 @@ Now we jump back to the template section of the CI script to describe the templa
 
 ```yaml
 # ========================================================================
-# TEMPLATES FOR STAGE "build" 
+# TEMPLATES FOR STAGE "build"
 # ========================================================================
 
 # GVEC CMake variables

@@ -23,21 +23,21 @@ MODULE MODgvec_cubic_spline
   ! MODULES
   USE MODgvec_globals, ONLY: wp,abort
   use sll_m_bsplines, only: sll_c_bsplines
-  IMPLICIT NONE 
+  IMPLICIT NONE
 
-  PUBLIC 
-  
+  PUBLIC
+
   TYPE :: t_cubspl
     !--------------------------------------------------------------------------------------------------------------------------------
     REAL(wp),ALLOCATABLE  :: coefs(:)   !! B-Spline coefficients
     REAL(wp),ALLOCATABLE  :: knots(:)   !! knots (=break points with repeated knots at the end)
     CLASS(sll_c_bsplines),ALLOCATABLE :: bspl !! b-spline class
     CONTAINS
-  
+
     PROCEDURE :: eval  => cubspl_eval
     PROCEDURE :: eval_at_rho  => cubspl_eval  !! for testing
     FINAL :: cubspl_free
-  
+
   END TYPE t_cubspl
 
   INTERFACE t_cubspl
@@ -67,7 +67,7 @@ MODULE MODgvec_cubic_spline
     REAL(wp) , INTENT(IN) :: x(:) !! x positions
     REAL(wp) , INTENT(IN) :: f(:) !! function values at x positions
     INTEGER  , INTENT(IN) :: BC(1:2) !! Boundary condition at x(1)/x(n): =0: not-a-knot, =1: first der. =BC_val(1)/BC_val(2), =2: second der. =BC_val(1)/BC_val(2)
-    REAL(wp) , INTENT(IN),OPTIONAL :: BC_val(1:2) !! Boundary value for BC(1:2) >0, 
+    REAL(wp) , INTENT(IN),OPTIONAL :: BC_val(1:2) !! Boundary value for BC(1:2) >0,
     !-----------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     TYPE(t_cubspl) :: sf !! self
@@ -76,14 +76,14 @@ MODULE MODgvec_cubic_spline
     INTEGER, PARAMETER:: deg=3 !! degree of the spline
     INTEGER :: nbreaks
     !===================================================================================================================================
-    
-    CALL interpolate_cubic_spline(x,f,sf%coefs,sf%knots,BC,BC_val) 
+
+    CALL interpolate_cubic_spline(x,f,sf%coefs,sf%knots,BC,BC_val)
     nbreaks=SIZE(sf%knots)-2*deg
     CALL sll_s_bsplines_new(sf%bspl, deg, .FALSE., sf%knots(1+deg),sf%knots(nbreaks+deg),nbreaks-1,sf%knots(1+deg:nbreaks+deg))
   END FUNCTION cubspl_new
 
 
-  SUBROUTINE interpolate_cubic_spline(x,f,coefs,knots,BC,BC_val) 
+  SUBROUTINE interpolate_cubic_spline(x,f,coefs,knots,BC,BC_val)
     ! MODULES
     USE sll_m_bsplines, ONLY: sll_s_bsplines_new
     USE sll_m_spline_matrix,ONLY: sll_c_spline_matrix,sll_s_spline_matrix_new
@@ -94,7 +94,7 @@ MODULE MODgvec_cubic_spline
     REAL(wp) , INTENT(IN) :: x(:) !! x positions
     REAL(wp) , INTENT(IN) :: f(:) !! function values at x positions
     INTEGER  , INTENT(IN) :: BC(1:2) !! Boundary condition at x(1)/x(n): =0: not-a-knot, =1: first der. =BC_val(1)/BC_val(2), =2: second der. =BC_val(1)/BC_val(2)
-    REAL(wp) , INTENT(IN),OPTIONAL :: BC_val(1:2) !! Boundary value for BC(1:2) >0, 
+    REAL(wp) , INTENT(IN),OPTIONAL :: BC_val(1:2) !! Boundary value for BC(1:2) >0,
     !-----------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     REAL(wp),ALLOCATABLE,INTENT(INOUT) :: coefs(:)  !! B-Spline coefficients of interpolated cubic spline
@@ -203,7 +203,7 @@ MODULE MODgvec_cubic_spline
       CLASS(t_cubspl), INTENT(IN)  :: sf !! self
       REAL(wp)       , INTENT(IN)  :: xpos(:) !! position
       INTEGER        , INTENT(IN)  :: deriv !! derivative (=0: no derivative)
-      
+
     !-----------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
       REAL(wp)                     :: y(size(xpos))
@@ -222,11 +222,11 @@ MODULE MODgvec_cubic_spline
           CALL sf%bspl%eval_basis_and_n_derivs(xpos(i),deriv,deriv_values,first_non_zero_bspl)
           y(i) =  SUM(sf%coefs(first_non_zero_bspl:first_non_zero_bspl+sf%bspl%degree)*deriv_values(deriv,0:sf%bspl%degree))
         END DO
-      ELSE 
+      ELSE
         y = 0.0_wp
       END IF
     END FUNCTION cubspl_eval
-    
+
     !===================================================================================================================================
     !> finalize the type rProfile
     !!
@@ -239,9 +239,9 @@ MODULE MODgvec_cubic_spline
     ! OUTPUT VARIABLES
       TYPE(t_cubspl), INTENT(INOUT) :: sf !! self
     !-----------------------------------------------------------------------------------------------------------------------------------
-    !=================================================================================================================================== 
+    !===================================================================================================================================
       IF (ALLOCATED(sf%bspl)) CALL sf%bspl%free()
     END SUBROUTINE cubspl_free
-    
-  
+
+
 END MODULE MODgvec_cubic_spline
