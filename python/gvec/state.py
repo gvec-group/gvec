@@ -2,12 +2,8 @@
 # License: MIT
 """pygvec postprocessing"""
 
-from . import lib
-from .lib import modgvec_py_post as _post
-from .lib import modgvec_py_binding as _binding
-
 from pathlib import Path
-from typing import Mapping, Callable, Iterable, Literal
+from typing import Iterable, Literal
 import re
 import inspect
 import functools
@@ -17,6 +13,15 @@ import os
 
 import numpy as np
 import xarray as xr
+
+try:
+    from . import lib
+    from .lib import modgvec_py_post as _post
+    from .lib import modgvec_py_binding as _binding
+except ImportError:
+    logging.warning(
+        "Compiled bindings to GVEC not found. Calling GVEC for postprocessing will not work."
+    )
 
 
 def _assert_init(func):

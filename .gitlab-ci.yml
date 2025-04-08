@@ -30,7 +30,7 @@ workflow:
 # =================================================================================================================================
 
 variables:
-  GIT_STRATEGY: fetch
+  GIT_STRATEGY: clone
   HASH_TAG: $CI_COMMIT_REF_NAME
   HASH_TAG_REFERENCE:
     value: develop
@@ -871,8 +871,6 @@ include:
   # ============================
   # stage publish jobs
   # ============================
-  - local: CI_templates/pages.yml
-
   - local: CI_templates/pre-commit.yml
 
   - local: CI_templates/pypi.yml
@@ -975,14 +973,6 @@ include:
     - if: $NIGHTLY_PIPELINE == "true"
       when: on_success
     - when: never
-
-.rules_pages:
-  rules:
-    - if: $CI_COMMIT_REF_NAME == "develop"
-      when: always  # also runs if earlier jobs fail
-    # allow manual triggering for pipelines where pages didn't run
-    - when: manual
-      allow_failure: true  # prevent pipeline from being "Blocked" if it isn't run
 
 .rules_never:
   rules:
