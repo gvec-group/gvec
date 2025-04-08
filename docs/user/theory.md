@@ -693,6 +693,7 @@ with $R_0,Z_0$ represented as a real 1D Fourier series
 \end{equation}
 
 
+(g-frame)=
 ###  G-Frame: A generalized curve-following frame
 
 
