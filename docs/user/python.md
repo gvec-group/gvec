@@ -32,12 +32,24 @@ A `xarray.Dataset` closely mirrors the structure of netCDF, grouping several var
 The `state.compute` method can be used to compute various quantities that are then added to the `Dataset`.
 Here *pyGVEC* takes care of computing all the required intermediate quantities, which are also added to the `Dataset`.
 
+### Boozer transform
+
+To evaluate the equilibrium in Boozer angles, you can use `BoozerEvaluations`, which performs a Boozer transform to obtain a set of $\vartheta,\zeta$ points which correspond to your desired grid in $\vartheta_B,\zeta_B$.
+The evaluations with this new dataset works the same as above, not however that the suffixes `t` and `z` still refer to components/derivatives with respect to $\vartheta,\zeta$.
+```python
+from gvec import State, Evaluations
+
+with State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
+    ev = gvec.EvaluationsBoozer(rho=[0.1, 0.5, 0.9], n_theta=51, n_zeta=51, state=state)
+    state.compute(ev, "B")
+```
+
 ## Available Quantities for Evaluation
 The following table contains the quantities that can be evaluated with the python bindings.
 
 :::{note}
 This table is not automatically generated (yet) and might be out of date.
-It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
+It was last generated for `v1.0.2` on 2025-04-08.
 :::
 
 |      label       |                                    long name                                    |                           symbol                           |
@@ -65,7 +77,7 @@ It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
 |       `LA`       |                          straight field line potential                          |                         $\lambda$                          |
 |      `N_FP`      |                             number of field periods                             |                          $N_{FP}$                          |
 |      `Phi`       |                             toroidal magnetic flux                              |                           $\Phi$                           |
-|     `Phi_n`      |                        normalized toroidal magnetic flux                        |                          $\Phi_n$                          |
+|    `Phi_edge`    |                       toroidal magnetic flux at the edge                        |                          $\Phi_0$                          |
 |       `V`        |                                  plasma volume                                  |                            $V$                             |
 |     `W_MHD`      |                                total MHD energy                                 |                         $W_{MHD}$                          |
 |       `X1`       |                           first reference coordinate                            |                           $X^1$                            |
@@ -97,7 +109,6 @@ It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
 |    `dLA_dzz`     |         second toroidal derivative of the straight field line potential         |       $\frac{\partial^2 \lambda}{\partial \zeta^2}$        |
 |    `dPhi_dr`     |                         toroidal magnetic flux gradient                         |                   $\frac{d\Phi}{d\rho}$                    |
 |    `dPhi_drr`    |                        toroidal magnetic flux curvature                         |                 $\frac{d^2\Phi}{d\rho^2}$                  |
-|   `dPhi_n_dr`    |                   normalized toroidal magnetic flux gradient                    |                  $\frac{d\Phi_n}{d\rho}$                   |
 |   `dV_dPhi_n`    |    derivative of the plasma volume w.r.t. normalized toroidal magnetic flux     |                    $\frac{dV}{d\Phi_n}$                    |
 |   `dV_dPhi_n2`   | second derivative of the plasma volume w.r.t. normalized toroidal magnetic flux |                  $\frac{d^2V}{d\Phi_n^2}$                  |
 |     `dX1_dr`     |               radial derivative of the first reference coordinate               |            $\frac{\partial X^1}{\partial \rho}$            |
@@ -119,6 +130,7 @@ It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
 |     `dX2_dz`     |             toroidal derivative of the second reference coordinate              |           $\frac{\partial X^2}{\partial \zeta}$            |
 |    `dX2_dzz`     |          second toroidal derivative of the second reference coordinate          |         $\frac{\partial^2 X^2}{\partial \zeta^2}$          |
 |    `dchi_dr`     |                         poloidal magnetic flux gradient                         |                   $\frac{d\chi}{d\rho}$                    |
+|    `dchi_drr`    |                        poloidal magnetic flux curvature                         |                 $\frac{d^2\chi}{d\rho^2}$                  |
 |    `dg_rr_dr`    |           radial derivative of the rr component of the metric tensor            |       $\frac{\partial g_{\rho\rho}}{\partial \rho}$        |
 |    `dg_rr_dt`    |          poloidal derivative of the rr component of the metric tensor           |      $\frac{\partial g_{\rho\rho}}{\partial \theta}$       |
 |    `dg_rr_dz`    |          toroidal derivative of the rr component of the metric tensor           |       $\frac{\partial g_{\rho\rho}}{\partial \zeta}$       |
@@ -138,9 +150,11 @@ It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
 |    `dg_zz_dt`    |          poloidal derivative of the zz component of the metric tensor           |     $\frac{\partial g_{\zeta\zeta}}{\partial \theta}$      |
 |    `dg_zz_dz`    |          toroidal derivative of the zz component of the metric tensor           |      $\frac{\partial g_{\zeta\zeta}}{\partial \zeta}$      |
 |    `diota_dr`    |                          rotational transform gradient                          |                   $\frac{d\iota}{d\rho}$                   |
+|   `diota_drr`    |                         rotational transform curvature                          |                 $\frac{d^2\iota}{d\rho^2}$                 |
 |    `dnu_B_dt`    |  poloidal derivative of the Boozer potential computed from the magnetic field   |   $\left.\frac{\partial \nu_B}{\partial \theta}\right\|$   |
 |    `dnu_B_dz`    |  toroidal derivative of the Boozer potential computed from the magnetic field   |   $\left.\frac{\partial \nu_B}{\partial \zeta}\right\|$    |
 |     `dp_dr`      |                                pressure gradient                                |                     $\frac{dp}{d\rho}$                     |
+|     `dp_drr`     |                               pressure curvature                                |                   $\frac{d^2p}{d\rho^2}$                   |
 |      `e_X1`      |                      first reference tangent basis vector                       |                     $\mathbf{e}_{X^1}$                     |
 |      `e_X2`      |                      second reference tangent basis vector                      |                     $\mathbf{e}_{X^2}$                     |
 |     `e_rho`      |                           radial tangent basis vector                           |                     $\mathbf{e}_\rho$                      |
@@ -163,7 +177,8 @@ It was last generated for `0.5.1.dev109+gbbfb3a57` on 2024-12-16.
 |      `iota`      |                              rotational transform                               |                          $\iota$                           |
 |     `iota_0`     |               geometric contribution to the rotational transform                |                         $\iota_0$                          |
 |    `iota_avg`    |                          average rotational transform                           |                       $\bar{\iota}$                        |
-|   `iota_curr`    |            toroidal current contribution to the rotational transform            |                       $\iota_{tor}$                        |
+|   `iota_curr`    |            toroidal current contribution to the rotational transform            |                       $\iota_{curr}$                       |
+|  `iota_curr_0`   |     factor to the toroidal current contribution to the rotational transform     |                      $\iota_{curr,0}$                      |
 |  `major_radius`  |                                  major radius                                   |                         $r_{maj}$                          |
 |  `minor_radius`  |                                  minor radius                                   |                         $r_{min}$                          |
 |     `mod_B`      |                          modulus of the magnetic field                          |                $\left\|\mathbf{B}\right\|$                 |
