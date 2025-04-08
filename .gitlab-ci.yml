@@ -1161,8 +1161,7 @@ include:
   hooks:
     pre_get_sources_script:
       - module purge
-      - module load git git-lfs
-      - git lfs install
+      - module load git
 
 # ____________________________
 # MPCDF GVEC private runner templates

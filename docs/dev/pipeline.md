@@ -101,7 +101,7 @@ The second template (`.tmpl_before_script_modules`) contains a  [`before_script:
 #!/bin/bash
 
 module purge
-module load git git-lfs cmake
+module load git cmake
 module load intel mkl anaconda
 module load hdf5-serial netcdf-serial
 module list
@@ -413,7 +413,7 @@ The second set of `regression` jobs shown (`mpcdfci_intel-vs-tag_reg`) is very s
 .tmpl_before_script_build:
   before_script:
 #   (...)
-    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git lfs fetch; git checkout ${HASH_TAG}; fi
+    - if [ ${HASH_TAG} != ${CI_COMMIT_REF_NAME} ]; then git fetch --tags; git checkout ${HASH_TAG}; fi
 #   (...)
 ```
 

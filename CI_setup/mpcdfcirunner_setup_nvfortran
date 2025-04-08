@@ -1,6 +1,5 @@
 module purge
 module load git
-module load git-lfs
 module load cmake
 module load nvhpcsdk
 module load mkl

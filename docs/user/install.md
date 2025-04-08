@@ -121,7 +121,10 @@ The latest release of GVEC is available on [PyPI](https://pypi.org/project/gvec/
 pip install gvec
 ```
 
-Currently GVEC is only available as an `sdist` (source-distribution) and not as a `wheel` (pre-compiled). This means `pip` will download GVEC and compile it with CMake.
+Currently GVEC is only available as an `sdist` (source-distribution) and not as a `wheel` (pre-compiled).
+This means `pip` will download GVEC and compile it with CMake.
+To see more details of the compilation process you can specify the `--verbose` flag.
+For the compilation to work properly you need to have the prerequisite system packages installed/loaded.
 
 Installing GVEC with `pip` will also install the python bindings and a number of scripts, see:
 ```bash
@@ -130,33 +133,30 @@ pygvec --help
 
 ### Installing pre-releases
 
-The latest version of the `develop` branch of GVEC is available in the GitLab package registry and can be installed with:
-```bash
-pip install gvec --index-url https://gitlab.mpcdf.mpg.de/api/v4/projects/1395/packages/pypi/simple
-```
-
 You can also tell `pip` to install directly from the repository:
 ```bash
-pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git
+pip install git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git
 ```
 
 And even specify a different branch, using `@branch_name`, e.g.:
 ```bash
-pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
+pip install git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
 ```
 
 #### Troubleshooting
 
+* `no such option --config-settings` during installation
+  * upgrade pip with `pip install pip --upgrade`
 * `Cannot open include file 'netcdf.inc'` during installation
   * `gvec/src/vmec/vmec_readin.f90(494): error #5102: Cannot open include file 'netcdf.inc'`
-  * gvec likely did not recognize your hostname and cannot find netCDF. Possible fixes:
-    * explicitly tell gvec which preset to use, e.g. `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.CMAKE_HOSTNAME=tokp`
-    * disable netCDF: `pip install git+ssh://git@gitlab.mpcdf.mpg.de/gvec-group/gvec.git --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
+  * gvec cannot find netCDF. Possible fixes:
+    * explicitly tell gvec which preset to use, e.g. `pip install gvec --config-settings=cmake.define.CMAKE_HOSTNAME=mac_brew`
+    * disable netCDF: `pip install gvec --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
 * `INTEL_MKL_ERROR` when trying to use pyGVEC
   * `INTEL MKL ERROR: /usr/lib/x86_64-linux-gnu/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.`
   * `Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.`
   * you can try `export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libmkl_def.so:/usr/lib/x86_64-linux-gnu/libmkl_avx2.so:/usr/lib/x86_64-linux-gnu/libmkl_core.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_lp64.so:/usr/lib/x86_64-linux-gnu/libmkl_intel_thread.so:/usr/lib/x86_64-linux-gnu/libiomp5.so`
-* `undefined reference to EVP_KDF_CTX` when trying to import pyGVEC and using `conda`
+* `undefined reference to EVP_KDF_CTX` when trying to `import gvec` and using `conda`
   * `/lib64/libk5crypto.so.3: undefined reference to EVP_KDF_CTX_new_id@OPENSSL_1_1_1b`
   * this can be caused by the `conda` environment conflicting with system libraries. You can try: `export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"`
 * on Fedora linux, it seems that the gfortran compiler needs an additional flag, in `CMakeList.txt`:

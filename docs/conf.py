@@ -65,6 +65,15 @@ for category, expr in [
     )
     print(f"generated parameters-{category}.md")
 
+# generate quantities for pyGVEC evaluations
+try:
+    import gvec
+except ImportError:
+    pass
+else:
+    with open(genpath / "quantities.md", "w") as f:
+        f.write(gvec.comp.table_of_quantities(markdown=False))
+    print("generated quantities.md")
 
 # -- General configuration ---------------------------------------------------
 
