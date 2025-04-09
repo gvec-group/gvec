@@ -856,7 +856,7 @@ init_with_profile_pres:
     - default, the pressure profile is interpolated from the VMEC data
 MinimizerType:
   category:
-  - minimization
+  - minimizer
   description:
   - Switch for minimization method.
   type: integer
@@ -868,7 +868,7 @@ MinimizerType:
     - accelerated gradient descent
 PrecondType:
   category:
-  - minimization
+  - minimizer
   description:
   - Switch for radial preconditioner onto the gradient of the energy functional.
   - Build and invert approximate Hessian for each mode.
