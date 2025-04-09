@@ -119,7 +119,18 @@ sgrid_grid_type:
     - finer towards axis and edge
   - - '`4`'
     - uniform in the axis region and finer towards edge
+  - - '`-1`'
+    - custom grid, **needs** lnk_to_param(sgrid_rho)
   default: '`0`'
+sgrid_rho:
+  category:
+  - Discretization
+  description:
+  - Positions of the B-Spline elements in the radial direction $\rho$.
+  - The values must be monotonically increasing and include the two endpoints $\rho=0$
+    and $\rho=1$.
+  required_if: lnk_to_param(`sgrid_grid_type=-1`|sgrid_grid_type)
+  type: array of `real` of size `sgrid_nElems + 1`
 fac_nyq:
   category:
   - Discretization

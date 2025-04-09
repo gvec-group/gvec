@@ -66,8 +66,9 @@ SUBROUTINE InitMHD3D(sf)
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER          :: i,iMode,nElems
+  INTEGER          :: i,iMode,nElems,n_sgrid_rho
   INTEGER          :: grid_type
+  REAL(wp),ALLOCATABLE :: sgrid_rho(:)
   INTEGER          :: X1X2_deg,X1X2_cont
   INTEGER          :: X1_mn_max(2),X2_mn_max(2)
   INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
@@ -243,7 +244,17 @@ SUBROUTINE InitMHD3D(sf)
   degGP    = GETINT("degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
   !INITIALIZE GRID
-  CALL sgrid%init(nElems,grid_type)
+  IF (grid_type.NE.GRID_TYPE_CUSTOM) THEN
+    CALL sgrid%init(nElems,grid_type)
+  ELSE
+    CALL GETREALALLOCARRAY("sgrid_rho", sgrid_rho, n_sgrid_rho)
+    IF (n_sgrid_rho.NE.nElems+1) THEN
+      CALL abort(__STAMP__,&
+                 'sgrid_rho must have nElems+1 elements!')
+    END IF
+    CALL sgrid%init(nElems,grid_type,sgrid_rho)
+    SDEALLOCATE(sgrid_rho)
+  END IF
 
   !INITIALIZE BASE        !sbase parameter                 !fbase parameter               ...exclude_mn_zero
   CALL base_new(X1_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1_mn_max,mn_nyq,nfp_loc,X1_sin_cos,.FALSE.)
