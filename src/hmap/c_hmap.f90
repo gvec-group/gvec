@@ -52,7 +52,7 @@ ABSTRACT INTERFACE
                                  Jh,    g_tt,    g_tz,    g_zz,&
                                  Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                  Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
-                                 g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  ) 
+                                 g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
     IMPORT c_hmap,wp
     CLASS(c_hmap), INTENT(INOUT) :: sf
     INTEGER ,INTENT(IN)   :: ndims(3)

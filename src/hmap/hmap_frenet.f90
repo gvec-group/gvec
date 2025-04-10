@@ -38,9 +38,9 @@ IMPLICIT NONE
 
 PUBLIC
 
-!> Store data that can be precomputed on a set ot zeta points 
+!> Store data that can be precomputed on a set ot zeta points
 !> depends on hmap_frenet, but could be used for different point sets in zeta
-! 
+!
 TYPE t_aux_var
   REAL(wp)  :: lp,kappa,tau,sigma
 END TYPE t_aux_var
@@ -74,7 +74,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   PROCEDURE :: init          => hmap_frenet_init
   PROCEDURE :: free          => hmap_frenet_free
   PROCEDURE :: eval_all      => hmap_frenet_eval_all
-  PROCEDURE :: eval          => hmap_frenet_eval          
+  PROCEDURE :: eval          => hmap_frenet_eval
   PROCEDURE :: eval_dxdq     => hmap_frenet_eval_dxdq
   PROCEDURE :: eval_Jh       => hmap_frenet_eval_Jh
   PROCEDURE :: eval_Jh_dq1   => hmap_frenet_eval_Jh_dq1
@@ -349,12 +349,12 @@ SUBROUTINE hmap_frenet_init_aux( sf ,zeta_aux)
     ELSE
       IF(MAXVAL(ABS(sf%aux%zeta-zeta_aux)).GT.1.0e-12)THEN
         CALL hmap_frenet_free_aux(sf)
-      ELSE 
+      ELSE
         RETURN !already initialized with same zeta!
       END IF
     END IF
   END IF
-  sf%aux%nzeta=SIZE(zeta_aux)  
+  sf%aux%nzeta=SIZE(zeta_aux)
   ALLOCATE(sf%aux%zeta(sf%aux%nzeta))
   sf%aux%zeta=zeta_aux
   ALLOCATE(sf%aux%var(sf%aux%nzeta))
@@ -374,7 +374,7 @@ SUBROUTINE hmap_frenet_free_aux( sf)
     CLASS(t_hmap_frenet), INTENT(INOUT) :: sf !! self
   !===================================================================================================================================
     IF(sf%aux_initialized)THEN !ALLOCATED
-      sf%aux%nzeta=0 
+      sf%aux%nzeta=0
       DEALLOCATE(sf%aux%var)
       DEALLOCATE(sf%aux%zeta)
       sf%aux_initialized=.FALSE.
@@ -399,11 +399,11 @@ SUBROUTINE hmap_frenet_eval_aux(sf)
     REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
     REAL(wp)  :: absB
   !===================================================================================================================================
-!$OMP PARALLEL DO &  
+!$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta,X0,X0p,X0pp,X0ppp,B,absB)
   DO izeta=1,sf%aux%nzeta
     ASSOCIATE(var=>sf%aux%var(izeta))
-    CALL sf%eval_X0(sf%aux%zeta(izeta),X0,X0p,X0pp,X0ppp) 
+    CALL sf%eval_X0(sf%aux%zeta(izeta),X0,X0p,X0pp,X0ppp)
     var%lp=SQRT(SUM(X0p*X0p))
     B=CROSS(X0p,X0pp)
     absB=SQRT(SUM(B*B))
@@ -424,7 +424,7 @@ SUBROUTINE hmap_frenet_eval_all(sf,ndims,dim_zeta,zeta,&
                                 Jh,    g_tt,    g_tz,    g_zz,&
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
-                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  ) 
+                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -442,43 +442,43 @@ IMPLICIT NONE
                                                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,j,k                                                                
+  INTEGER :: i,j,k
   !===================================================================================================================================
-  !allocate aux and fills aux%var(:) with data 
-  IF(.NOT.sf%aux_initialized) CALL hmap_frenet_init_aux(sf,zeta) 
+  !allocate aux and fills aux%var(:) with data
+  IF(.NOT.sf%aux_initialized) CALL hmap_frenet_init_aux(sf,zeta)
   SELECT CASE(dim_zeta)
   CASE(1)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
-    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
       CALL hmap_frenet_eval_all_e(sf%aux%var(i), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
                Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
-               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
-    END DO; END DO; END DO 
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+    END DO; END DO; END DO
     !$OMP END PARALLEL DO
   CASE(2)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
-    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
       CALL hmap_frenet_eval_all_e(sf%aux%var(j), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
                Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
-               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
-    END DO; END DO; END DO 
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+    END DO; END DO; END DO
     !$OMP END PARALLEL DO
   CASE(3)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
-    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1) 
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
       CALL hmap_frenet_eval_all_e(sf%aux%var(k), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
                Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
-               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) ) 
-    END DO; END DO; END DO 
+               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+    END DO; END DO; END DO
     !$OMP END PARALLEL DO
   END SELECT
 
@@ -498,9 +498,9 @@ PURE SUBROUTINE hmap_frenet_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   TYPE(t_aux_var),INTENT(IN) :: xv    !! precomputed auxiliary variables
-  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2 
-  REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2 
-  REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2 
+  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
+  REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2
+  REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
@@ -515,25 +515,25 @@ PURE SUBROUTINE hmap_frenet_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
   Gh11=1.0_wp
   !Gh21=0.0_wp
   Gh22=1.0_wp
-  Gh31 =-lp*tau*q2 
+  Gh31 =-lp*tau*q2
   Gh32 = lp*tau*q1
 
   !Jh=lp*(1.0_wp-sigma*kappa*q1)
   Jh_dq1=-lp*sigma*kappa
   Jh_dq2=0.0_wp
-  
+
   Jh=lp+Jh_dq1*q1
   ! Gh33 = (lp**2)*((1.0_wp-sigma*kappa*q1)**2+tau**2*(q1**2+q2**2))
   Gh33 = Jh*Jh + Gh31*Gh31 + Gh32*Gh32
 
-  g_t1 = dX1_dt 
+  g_t1 = dX1_dt
   g_t2 = dX2_dt
   g_z1 = dX1_dz + Gh31
   g_z2 = dX2_dz + Gh32
-  
+
   g_tt =   dX1_dt *  g_t1         +  dX2_dt *  g_t2
   g_tz =   dX1_dt *  g_z1         +  dX2_dt *  g_z2
-  g_zz =   dX1_dz * (g_z1 + Gh31) +  dX2_dz * (g_z2 + Gh32)  + Gh33  
+  g_zz =   dX1_dz * (g_z1 + Gh31) +  dX2_dz * (g_z2 + Gh32)  + Gh33
 
   !Gh11/dq1 =0 Gh12/dq1 =0 Gh13/dq1 = 0
   !            Gh22/dq1 =0 Gh23/dq1 = lp*tau
@@ -545,7 +545,7 @@ PURE SUBROUTINE hmap_frenet_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
   ! => g_z1 /dq1 = Gh31/dq1, g_z1/dq2 =Gh31/dq2, g_z2/dq1 =Gh32/dq1, g_z2/dq2 =Gh32/dq2
   g_tt_dq1 = 0.0_wp
   g_tt_dq2 = 0.0_wp
-  
+
   g_tz_dq1 =  lp*tau*dX2_dt
   g_tz_dq2 = -lp*tau*dX1_dt
 
@@ -1112,14 +1112,14 @@ IMPLICIT NONE
     ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
              mold=q1)
     !assign somewhat randomly
-    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)  
+    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
       q1(i,j,k) = 0.11_wp -0.22_wp *REAL((i+j)*k,wp)/REAL((ndims(idir)+ndims(jdir))*ndims(kdir),wp)
       q2(i,j,k) = 0.15_wp -0.231_wp*REAL((i+k)*j,wp)/REAL((ndims(idir)+ndims(kdir))*ndims(jdir),wp)
       dX1_dt(i,j,k)=-0.1_wp  +0.211_wp*REAL((i+2*j)*k,wp)/REAL((ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
       dX2_dt(i,j,k)= 0.231_wp-0.116_wp*REAL((2*i+k)*j,wp)/REAL((2*ndims(idir)+ndims(kdir))*ndims(jdir),wp)
       dX1_dz(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
       dX2_dz(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
-    END DO; END DO; END DO 
+    END DO; END DO; END DO
     CALL sf%eval_all(ndims,idir,zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
          Jh,g_tt,g_tz,g_zz,&
          Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
@@ -1149,7 +1149,7 @@ IMPLICIT NONE
       g_z2(i,j,k)     =g_z2(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
       Gh11(i,j,k)     =Gh11(i,j,k)     - sf%eval_gij((/1.0_wp,0.0_wp,0.0_wp/),qloc,(/1.0_wp,0.0_wp,0.0_wp/))
       Gh22(i,j,k)     =Gh22(i,j,k)     - sf%eval_gij((/0.0_wp,1.0_wp,0.0_wp/),qloc,(/0.0_wp,1.0_wp,0.0_wp/))
-    END DO; END DO; END DO 
+    END DO; END DO; END DO
 
     iTest=201+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
     checkreal=SUM(ABS(Jh))/REAL(ns*nthet*nzeta,wp)
@@ -1175,7 +1175,7 @@ IMPLICIT NONE
     checkreal=SUM(ABS(g_tz))/REAL(ns*nthet*nzeta,wp)
     refreal=0.0_wp
     IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
-      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') & 
+      nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
            '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
       nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),A,I4)') &
     '\n =>  should be ', refreal,' : |sum(|g_tz_all-eval_g_tz(xall)|)|= ', checkreal, " ,idir=",idir
@@ -1334,7 +1334,7 @@ IMPLICIT NONE
     DEALLOCATE(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
   END DO !idir
 END IF
- 
+
  test_called=.FALSE. ! to prevent infinite loop in this routine
 
 

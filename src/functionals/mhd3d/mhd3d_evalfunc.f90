@@ -54,9 +54,9 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: g_tz(:,:)     !! metric tensor g_(theta,zeta )=g_(zeta,theta)
   REAL(wp),ALLOCATABLE :: g_zz(:,:)     !! metric tensor g_(zeta ,zeta )
   REAL(wp),ALLOCATABLE :: g_t1(:,:)     !! metric tensor dq^i_dthet G^i1   (sum over i=1,2,3)
-  REAL(wp),ALLOCATABLE :: g_t2(:,:)     !! metric tensor dq^i_dthet G^i2 
-  REAL(wp),ALLOCATABLE :: g_z1(:,:)     !! metric tensor dq^i_dzeta G^i1 
-  REAL(wp),ALLOCATABLE :: g_z2(:,:)     !! metric tensor dq^i_dzeta G^i2 
+  REAL(wp),ALLOCATABLE :: g_t2(:,:)     !! metric tensor dq^i_dthet G^i2
+  REAL(wp),ALLOCATABLE :: g_z1(:,:)     !! metric tensor dq^i_dzeta G^i1
+  REAL(wp),ALLOCATABLE :: g_z2(:,:)     !! metric tensor dq^i_dzeta G^i2
   REAL(wp),ALLOCATABLE :: Jh_dq1(:,:)   !! hmap  dJh/dq1
   REAL(wp),ALLOCATABLE :: Jh_dq2(:,:)   !! hmap  dJh/dq2
   REAL(wp),ALLOCATABLE :: gtt_dq1(:,:)  !! hmap  dg_{thet,theta}/dq1
@@ -67,7 +67,7 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),ALLOCATABLE :: gzz_dq2(:,:)  !! hmap  dg_{zeta,zeta}/dq2
   REAL(wp),ALLOCATABLE :: Gh11(:,:)     !! hmap  G_{11}
   REAL(wp),ALLOCATABLE :: Gh22(:,:)     !! hmap  G_{22}
-  
+
   INTEGER                         :: nGP
   INTEGER                         :: nGP_str, nGP_end !< for MPI
   INTEGER                         :: mn_IP
@@ -137,7 +137,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
            g_tt,g_tz,g_zz,g_t1,g_t2,g_z1,g_z2, &
            Jh_dq1,Jh_dq2,gtt_dq1,gtt_dq2,gtz_dq1,gtz_dq2,gzz_dq1,gzz_dq2, &
            Gh11,Gh22, mold=J_h)
- 
+
   IF(PrecondType.GT.0)THEN
     !WHEN CHANGED TO ALLGATHERV COMM IN BUILDPRECOND, THIS ALLOCATE WILL BE THE SAME.
     ! POINTERS HELP TO GATHER ALL DATA IN ONE ARRAY (buf)
@@ -270,7 +270,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
                                   dy_dthet_IP_GP=dX2_dthet, &
                                    dy_dzeta_IP_GP=dX2_dzeta )
   CALL X2_base%evalDOF((/DERIV_S,0/)   , Uin%X2, dX2_ds    )
-  
+
   __PERFOFF('EvalDOF_1')
 
   __PERFON('eval_hmap')
@@ -385,9 +385,9 @@ SUBROUTINE eval_hmap(X1,X2,dX1_dt,dX2_dt,dX1_dz,dX2_dz)
   REAL(wp)  :: qloc(3),q_thet(3),q_zeta(3),Gh21,Gh31,Gh32,Gh33
 !===================================================================================================================================
   __PERFON('loop_hmap')
-!$OMP PARALLEL DO        &  
+!$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED)    &
-!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,Gh21,Gh31,Gh32,Gh33)  
+!$OMP   PRIVATE(iGP,i_mn,qloc,q_thet,q_zeta,Gh21,Gh31,Gh32,Gh33)
   DO iGP=nGP_str,nGP_end
     DO i_mn=1,mn_IP
       qloc(  1:3) = (/ X1(i_mn,iGP), X2(i_mn,iGP),zeta_IP(i_mn)/)
@@ -433,11 +433,11 @@ END SUBROUTINE eval_hmap
 
 !===================================================================================================================================
 !> compute g_ab from (dq^i_da * G_ij dq^j_db)
-!! g_ab =  G_11 *  dq1_da * dq1_db 
-!!       + G_12 * (dq1_da * dq2_db + dq2_da * dq1_db) 
-!!       + G_13 * (dq1_da * dq3_db + dq3_da * dq1_db) 
+!! g_ab =  G_11 *  dq1_da * dq1_db
+!!       + G_12 * (dq1_da * dq2_db + dq2_da * dq1_db)
+!!       + G_13 * (dq1_da * dq3_db + dq3_da * dq1_db)
 !!       + G_22 *  dq2_da * dq2_db
-!!       + G_23 * (dq2_da * dq3_db + dq3_da * dq2_db) 
+!!       + G_23 * (dq2_da * dq3_db + dq3_da * dq2_db)
 !!       + G_33 *  dq3_da * dq3_db#
 !! a,b can be t or z, and dq3_dt = 0, dq3_dz = 1
 !!
@@ -461,7 +461,7 @@ PURE ELEMENTAL SUBROUTINE hmap_fromGijs(dX1_dthet_e,dX2_dthet_e,dX1_dzeta_e,dX2_
   !g_tz_e =   dX1_dthet_e * (Gh11_e*dX1_dzeta_e + Gh21_e*dX2_dzeta_e + Gh31_e) &
   !        +  dX2_dthet_e * (Gh22_e*dX2_dzeta_e + Gh21_e*dX1_dzeta_e + Gh32_e)
   !g_zz_e =   dX1_dzeta_e * (Gh11_e*dX1_dzeta_e + Gh21_e*dX2_dzeta_e + 2*Gh31_e)  &
-  !        +  dX2_dzeta_e * (Gh22_e*dX2_dzeta_e + Gh21_e*dX1_dzeta_e + 2*Gh32_e)  + Gh33_e  
+  !        +  dX2_dzeta_e * (Gh22_e*dX2_dzeta_e + Gh21_e*dX1_dzeta_e + 2*Gh32_e)  + Gh33_e
 
   g_t1_e = Gh11_e * dX1_dthet_e + Gh21_e * dX2_dthet_e
   g_t2_e = Gh21_e * dX1_dthet_e + Gh22_e * dX2_dthet_e
@@ -470,9 +470,9 @@ PURE ELEMENTAL SUBROUTINE hmap_fromGijs(dX1_dthet_e,dX2_dthet_e,dX1_dzeta_e,dX2_
 
   g_tt_e =   dX1_dthet_e *  g_t1_e           +  dX2_dthet_e *  g_t2_e
   g_tz_e =   dX1_dthet_e *  g_z1_e           +  dX2_dthet_e *  g_z2_e
-  g_zz_e =   dX1_dzeta_e * (g_z1_e + Gh31_e) +  dX2_dzeta_e * (g_z2_e + Gh32_e)  + Gh33_e  
-          
-END SUBROUTINE hmap_fromGijs                                  
+  g_zz_e =   dX1_dzeta_e * (g_z1_e + Gh31_e) +  dX2_dzeta_e * (g_z2_e + Gh32_e)  + Gh33_e
+
+END SUBROUTINE hmap_fromGijs
 
 
 !===================================================================================================================================
@@ -1213,7 +1213,7 @@ SUBROUTINE BuildPrecond()
                                                                ) &
                                                               +b_thet(:,iGP)*Gh11(:,iGP) &
                                                              ) &
-                                ) 
+                                )
     DX1_tz(iGP) =smn_IP_w_GP*SUM(b_zeta(:,iGP)*sdetJ(:,iGP)*( (2.0_wp*(sJ_p(:,iGP)*dX2_ds(   :,iGP))  &
                                                                *( b_thet(:,iGP)*g_t1(:,iGP) &
                                                                  +b_zeta(:,iGP)*g_z1(:,iGP) &
@@ -1627,7 +1627,7 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
   SDEALLOCATE(Gh11)
   SDEALLOCATE(Gh22)
 
-  
+
 
   IF(PrecondType.GT.0)THEN
     NULLIFY(DX1_tt); NULLIFY(DX1_tz); NULLIFY(DX1_zz); NULLIFY(DX1); NULLIFY(DX1_ss)

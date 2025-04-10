@@ -34,7 +34,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   PROCEDURE :: init          => hmap_knot_init
   PROCEDURE :: free          => hmap_knot_free
   PROCEDURE :: eval_all      => hmap_knot_eval_all
-  PROCEDURE :: eval          => hmap_knot_eval          
+  PROCEDURE :: eval          => hmap_knot_eval
   PROCEDURE :: eval_dxdq     => hmap_knot_eval_dxdq
   PROCEDURE :: eval_Jh       => hmap_knot_eval_Jh
   PROCEDURE :: eval_Jh_dq1   => hmap_knot_eval_Jh_dq1
@@ -133,7 +133,7 @@ SUBROUTINE hmap_knot_eval_all(sf,ndims,dim_zeta,zeta,&
                                 Jh,    g_tt,    g_tz,    g_zz,&
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
-                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  ) 
+                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -151,7 +151,7 @@ IMPLICIT NONE
                                                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,j,k                                                                
+  INTEGER :: i,j,k
   !===================================================================================================================================
   CALL abort(__STAMP__,&
            "hmap_knot_eval_all: not yet implemented")
@@ -159,7 +159,7 @@ IMPLICIT NONE
 END SUBROUTINE hmap_knot_eval_all
 
 !===================================================================================================================================
-!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z) 
+!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
 !!
 !===================================================================================================================================
 FUNCTION hmap_knot_eval( sf ,q_in) RESULT(x_out)
