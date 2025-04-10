@@ -239,19 +239,16 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
 
-  nElems   = GETINT("sgrid_nElems")
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
   degGP    = GETINT("degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
   !INITIALIZE GRID
   IF (grid_type.NE.GRID_TYPE_CUSTOM) THEN
+    nElems   = GETINT("sgrid_nElems")
     CALL sgrid%init(nElems,grid_type)
   ELSE
     CALL GETREALALLOCARRAY("sgrid_rho", sgrid_rho, n_sgrid_rho)
-    IF (n_sgrid_rho.NE.nElems+1) THEN
-      CALL abort(__STAMP__,&
-                 'sgrid_rho must have nElems+1 elements!')
-    END IF
+    nElems = n_sgrid_rho - 1
     CALL sgrid%init(nElems,grid_type,sgrid_rho)
     SDEALLOCATE(sgrid_rho)
   END IF

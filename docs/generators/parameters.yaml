@@ -95,11 +95,11 @@ sgrid_nElems:
   category:
   - Discretization
   subtitle: mandatory parameter
-  required: true
+  required_if: lnk_to_param(`sgrid_grid_type!=-1`|sgrid_grid_type)
   description:
   - Number of elements in the radial grid, used for B-Spline in all variables $X^1,X^2,\lambda$
   - Can be chosen independently of the B-Spline polynomial degree.
-  - "The case of 1 element is equivalent using a polynomial in $\\rho\\in[0,1]$."
+  - "The case of 1 element is equivalent using a polynomial in $\rho\\in[0,1]$."
   type: '`integer`'
   allowed: $> 0$
 sgrid_grid_type:
@@ -126,11 +126,12 @@ sgrid_rho:
   category:
   - Discretization
   description:
-  - Positions of the B-Spline elements in the radial direction $\rho$.
-  - The values must be monotonically increasing and include the two endpoints $\rho=0$
-    and $\rho=1$.
+  - "Positions of the B-Spline elements in the radial direction $\rho$."
+  - "The values must be monotonically increasing and include the two endpoints $\r\
+    ho=0$ and $\rho=1$."
+  - '`sgrid_nElems` is set automatically from the size of the array.'
+  type: array of `real`
   required_if: lnk_to_param(`sgrid_grid_type=-1`|sgrid_grid_type)
-  type: array of `real` of size `sgrid_nElems + 1`
 fac_nyq:
   category:
   - Discretization
@@ -414,7 +415,7 @@ average_axis_move_X1:
   category:
   - boundary
   description:
-  - Offset the axis in $X^1$ direction, from the position found by the average
+  - Offset the axis in $X^{xd}$ direction, from the position found by the average
     lnk_to_param(`init_average_axis=True`|init_average_axis)
   type: '`real`'
   default: '`0.0`'
@@ -422,7 +423,7 @@ average_axis_move_X2:
   category:
   - boundary
   description:
-  - Offset the axis in $X^2$ direction, from the position found by the average
+  - Offset the axis in $X^{xd}$ direction, from the position found by the average
     lnk_to_param(`init_average_axis=True`|init_average_axis)
   type: '`real`'
   default: '`0.0`'
@@ -572,7 +573,7 @@ GetBoundaryFromFile:
   description:
   - "Instead of providing fourier modes for the boundary $X^1,X^2$, use a dataset\
     \ stored in a netcdf file that contains the $X^1,X^2$ positions on a regular grid\
-    \ in $\\vartheta,\\zeta$."
+    \ in $\vartheta,\\zeta$."
   type: '`integer`'
   allowed_table:
   - - '`-1`'
@@ -970,7 +971,7 @@ which_hmap:
   - hmap
   description:
   - Select which hmap between $X^1,X^2,\zeta$ coordinates and cartesian coordinates,
-    $(x,y,z)$.
+    $(x,y,z).
   default: '`1`'
   type: '`integer`'
   allowed: ''
@@ -1174,7 +1175,7 @@ SFLout_radialPos:
   - visualization
   subtitle: only if `SFLout>-1`
   description:
-  - Which flux surface positions (in $\\rho~\\sqrt{}$(magn.flux) are used for the SFL
+  - Which flux surface positions (in $\rho~\sqrt$(magn.flux) are used for the SFL
     visualization.
   type: array of `real` of any size
   default: '`(/1.0/)`'
@@ -1336,7 +1337,7 @@ visu_3D_max:
   category:
   - visualization
   description:
-  - "For lnk_to_param(visu3D): Upper bound in $\\rho,\\vartheta,\\zeta$ directions for\
+  - "For lnk_to_param(visu3D): Upper bound in $\rho,\vartheta,\\zeta$ directions for\
     \ 3D volume visualization. "
   type: array of `real` of size 3
   default: '`=visu_max(1:3)`'
