@@ -402,15 +402,13 @@ SUBROUTINE hmap_frenet_eval_aux(sf)
 !$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta,X0,X0p,X0pp,X0ppp,B,absB)
   DO izeta=1,sf%aux%nzeta
-    ASSOCIATE(var=>sf%aux%var(izeta))
     CALL sf%eval_X0(sf%aux%zeta(izeta),X0,X0p,X0pp,X0ppp)
-    var%lp=SQRT(SUM(X0p*X0p))
+    sf%aux%var(izeta)%lp=SQRT(SUM(X0p*X0p))
     B=CROSS(X0p,X0pp)
     absB=SQRT(SUM(B*B))
-    var%kappa=absB/(var%lp**3)
-    var%sigma=sf%sigma(sf%aux%zeta(izeta))
-    var%tau=SUM(X0ppp*B)/(absB**2)
-    END ASSOCIATE !var
+    sf%aux%var(izeta)%kappa=absB/(sf%aux%var(izeta)%lp**3)
+    sf%aux%var(izeta)%sigma=sf%sigma(sf%aux%zeta(izeta))
+    sf%aux%var(izeta)%tau=SUM(X0ppp*B)/(absB**2)
   END DO !izeta
 !$OMP END PARALLEL DO
 END SUBROUTINE hmap_frenet_eval_aux

@@ -360,17 +360,21 @@ SUBROUTINE hmap_axisNB_eval_aux(sf)
 !$OMP PARALLEL DO &
 !$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta)
   DO izeta=1,sf%aux%nzeta
-    ASSOCIATE(var=>sf%aux%var(izeta))
-    CALL sf%eval_TNB(sf%aux%zeta(izeta),var%X0(:),var%T(:),var%N(:),var%B(:),var%Np(:),var%Bp(:))
-    var%NxB =CROSS(var%N(:),var%B(:))
-    var%NN  =SUM( var%N(:)* var%N(:))
-    var%BB  =SUM( var%B(:)* var%B(:))
-    var%NB  =SUM( var%N(:)* var%B(:))
-    var%NpN =SUM(var%Np(:)* var%N(:))
-    var%NpB =SUM(var%Np(:)* var%B(:))
-    var%BpN =SUM(var%Bp(:)* var%N(:))
-    var%BpB =SUM(var%Bp(:)* var%B(:))
-    END ASSOCIATE !var
+    CALL sf%eval_TNB(sf%aux%zeta(izeta),&
+                     sf%aux%var( izeta)%X0(:),&
+                     sf%aux%var( izeta)%T( :),&
+                     sf%aux%var( izeta)%N( :),&
+                     sf%aux%var( izeta)%B( :),&
+                     sf%aux%var( izeta)%Np(:),&
+                     sf%aux%var( izeta)%Bp(:))
+    sf%aux%var(izeta)%NxB =CROSS(sf%aux%var(izeta)%N( :) ,sf%aux%var(izeta)%B(:))
+    sf%aux%var(izeta)%NN  =SUM(  sf%aux%var(izeta)%N( :)* sf%aux%var(izeta)%N(:))
+    sf%aux%var(izeta)%BB  =SUM(  sf%aux%var(izeta)%B( :)* sf%aux%var(izeta)%B(:))
+    sf%aux%var(izeta)%NB  =SUM(  sf%aux%var(izeta)%N( :)* sf%aux%var(izeta)%B(:))
+    sf%aux%var(izeta)%NpN =SUM(  sf%aux%var(izeta)%Np(:)* sf%aux%var(izeta)%N(:))
+    sf%aux%var(izeta)%NpB =SUM(  sf%aux%var(izeta)%Np(:)* sf%aux%var(izeta)%B(:))
+    sf%aux%var(izeta)%BpN =SUM(  sf%aux%var(izeta)%Bp(:)* sf%aux%var(izeta)%N(:))
+    sf%aux%var(izeta)%BpB =SUM(  sf%aux%var(izeta)%Bp(:)* sf%aux%var(izeta)%B(:))
   END DO !izeta
 !$OMP END PARALLEL DO
 END SUBROUTINE hmap_axisNB_eval_aux
