@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent / "generators"))  # docs/generators
-from generate_parameter_list import format_parameter_list, get_categories
+from generate_parameter_list import format_parameter_list
 
 
 # -- Project information -----------------------------------------------------
@@ -47,7 +47,6 @@ else:
 
 # generate parameter lists, generators/parameters-*md
 genpath = Path(__file__).parent / "generators"
-print(f"parameter categories: {get_categories(genpath / 'parameters.yaml')}")
 for category, expr in [
     ("minimizer", "'minimizer' in 'category'"),
     ("initialization", "'initialization' in 'category'"),

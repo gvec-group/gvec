@@ -279,15 +279,3 @@ def format_parameter_list(
     else:
         for line in out:
             print(line)
-
-
-def get_categories(yamlfile):
-    """
-    get the categories of the parameters in the yaml file
-    """
-    with open(yamlfile, "r") as f:
-        dict = yaml.safe_load(f)
-    categories = set()
-    for param, vals in dict.items():
-        categories.update(vals["category"])
-    return categories
