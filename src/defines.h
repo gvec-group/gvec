@@ -70,6 +70,7 @@
 #define BC_EDGE 2
 
 !grid types
+#define GRID_TYPE_CUSTOM -1
 #define GRID_TYPE_UNIFORM 0
 #define GRID_TYPE_SQRT_S  1
 #define GRID_TYPE_S2      2
