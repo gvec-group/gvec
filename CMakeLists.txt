@@ -14,12 +14,9 @@ INCLUDE(CMakeDependentOption)
 # =========================================================================
 SITE_NAME(CMAKE_HOSTNAME)
 STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
-STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_TESTIMONY)       # unused
-STRING(FIND "${CMAKE_HOSTNAME}" "sharedrunner" ON_SHAREDRUNNER) # unused
 STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
 STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
 STRING(FIND "${CMAKE_HOSTNAME}" "viper"     ON_VIPER)
-STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
 STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
 STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
@@ -27,12 +24,6 @@ STRING(FIND "${CMAKE_HOSTNAME}" "toki"      ON_TOKI)
 
 IF (ON_MPCDFCIRUNNER GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
-ELSEIF (ON_SHAREDRUNNER GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF shared runner")
-ELSEIF (ON_TESTIMONY GREATER -1)
-  MESSAGE(STATUS "Compiling on testimony")
-ELSEIF (ON_DRACO GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF draco")
 ELSEIF (ON_RAVEN GREATER -1)
   MESSAGE(STATUS "Compiling on MPCDF raven")
   ELSEIF (ON_VIPER GREATER -1)
@@ -187,17 +178,9 @@ ENDIF()
 # append relative filename-macro for __FILENAME__ in Stamp of abort function (see defines.h)
 SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
 
-
-# add basedir for location of corresponding userblock-file
-#ADD_DEFINITIONS("-DBASEDIR='\"${CMAKE_CURRENT_BINARY_DIR}/\"'")
-
 # =========================================================================
 # COMPILER FLAGS
 # =========================================================================
-
-# FFLAGS depend on the compiler
-GET_FILENAME_COMPONENT (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
-
 
 IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   #environment specific variables
@@ -207,11 +190,6 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     SET(MAIN_INSTRUCTION "-march=native")
   ENDIF()
   # set Flags
-
-  #OpenMP
-  IF(USE_OPENMP)
-   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fopenmp")
-  ENDIF()
 
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
@@ -237,10 +215,6 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
      SET(MAIN_INSTRUCTION "-xHost")
   ENDIF()
   # set Flags
-  #OpenMP
-  IF(USE_OPENMP)
-    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
-  ENDIF()
 
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${MAIN_INSTRUCTION} -qopt-report=5 -diag-disable=10397 -no-prec-div")
@@ -291,110 +265,73 @@ ELSE()
 ENDIF()
 
 # =========================================================================
-# LAPACK/MKL library
+# OpenMP
 # =========================================================================
-# use Lapack/Blas for GNU
 
 IF(USE_OPENMP)
-  SET (MKLLIB "parallel")
-  SET (MKLLIBGNU "mkl_gnu_thread")
-ELSE()
-  SET (MKLLIB "sequential")
-  SET (MKLLIBGNU "mkl_sequential")
+  FIND_PACKAGE(OpenMP REQUIRED)
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
 ENDIF()
 
+# =========================================================================
+# BLAS / MKL / LAPACK
+# -------------------------------------------------------------------------
+# prefer MKL if available through CMake
+# rely on CMake packages for MKL/LAPACK, not BLAS with VENDOR
+# =========================================================================
 
-IF(ON_TESTIMONY GREATER -1)
-  IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
-    SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
-    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
-  ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-    FIND_PACKAGE(LAPACK QUIET)
-    IF (LAPACK_FOUND)
-      LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
-      MESSAGE(STATUS "Using BLAS/Lapack library")
-    ELSE()
-      MESSAGE(WARNING " Lapack not found for GNU compiler!")
-    ENDIF()
-  ELSE()
-     MESSAGE(SEND_ERROR " Unknown compiler ${CMAKE_Fortran_COMPILER_ID} ...")
-  ENDIF()
-ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_TOKI GREATER -1))
-  IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
-    SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
-    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with INTEL")
-  ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
-    SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
-		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
-		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
-    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with GNU")
-  ELSE()
-    FIND_PACKAGE(LAPACK QUIET)
-    IF (LAPACK_FOUND)
-      LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
-      MESSAGE(STATUS "Using BLAS/Lapack library")
-    ELSE()
-      MESSAGE(WARNING " Lapack not found for GNU compiler!")
-    ENDIF()
-  ENDIF()
-  MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
-#ELSEIF(ON_MAC_PORTS GREATER -1)
-#  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-#    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
-#    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
-#    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L/opt/local/lib -lopenblas")
-#    MESSAGE(STATUS "Using GNU BLAS/Lapack library")
-#  ENDIF()
+SET(MKL_ARCH intel64 CACHE)
+SET(MKL_LINK dynamic CACHE)
+SET(MKL_INTERFACE ilp64 CACHE)
+# SET(MKL_MPI intelmpi CACHE)
+IF(USE_OPENMP)
+  SET(MKL_THREADING parallel)
+ELSE()
+  SET(MKL_THREADING sequential)
+ENDIF()
+MARK_AS_ADVANCED(MKL_ARCH MKL_LINK MKL_INTERFACE)
+
+FIND_PACKAGE(MKL)
+
+IF(MKL_FOUND)
+  MESSAGE(STATUS "Using INTEL MKL ${MKL_VERSION}")
+  LIST(APPEND linkedlibs ${MKL_LIBRARIES})
 ELSE()
   FIND_PACKAGE(LAPACK QUIET)
-  IF (LAPACK_FOUND)
-    LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
-    MESSAGE(STATUS "Using BLAS/Lapack library")
-  ELSE()
-    MESSAGE(WARNING " Lapack not found for GNU compiler!")
-  ENDIF()
+  MESSAGE(STATUS "Using LAPACK ${LAPACK_VERSION}")
+  LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
 ENDIF()
 
 # =========================================================================
-# NETCDF (locally installed only!)
+# netCDF
+# -------------------------------------------------------------------------
+# netCDF-fortran is not commonly available as a CMake target
+# but a pkg-config is usually (ubuntu, MPCDF) available
 # =========================================================================
+
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_TOKI GREATER -1))
-    SET(NETCDF_DIR  $ENV{NETCDF_HOME})
-  ELSEIF(ON_MAC_BREW GREATER -1)
-    SET(NETCDF_DIR $ENV{HOMEBREW_PREFIX})
-  ELSEIF(ON_MAC_PORTS GREATER -1)
-    SET(NETCDF_DIR  /opt/local)
-  ELSE()
-    SET(NETCDF_DIR  /usr)
-  ENDIF()
-  INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
-  LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib )
-  MESSAGE(STATUS "Build with NetCDF")
+  FIND_PACKAGE(PkgConfig REQUIRED)
+  PKG_CHECK_MODULES(NETCDF REQUIRED IMPORTED_TARGET netcdf-fortran)
+  INCLUDE_DIRECTORIES(${NETCDF_INCLUDEDIR})
+  LIST(APPEND linkedlibs PkgConfig::NETCDF)
   ADD_DEFINITIONS(-DNETCDF=1)
-ELSE()
-  ADD_DEFINITIONS(-DNETCDF=0)
 ENDIF()
 
 # =========================================================================
-# Ftimings
+# ftimings
+# -------------------------------------------------------------------------
+# Homepage/Repo: https://gitlab.mpcdf.mpg.de/loh/ftimings
 # =========================================================================
+
 IF(USE_FTIMINGS)
+  FIND_PACKAGE(PkgConfig REQUIRED)
+  PKG_CHECK_MODULES(FTIMINGS REQUIRED IMPORTED_TARGET ftimings)
+  INCLUDE_DIRECTORIES(${FTIMINGS_INCLUDEDIR})
+  LIST(APPEND linkedlibs PkgConfig::FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_DRACO GREATER -1))
-    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib )
-    INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
-  ENDIF()
-    #TTR: don't know why above list append fails for MacOS... needs line below to work
-  IF((ON_MAC_BREW GREATER -1) OR(ON_MAC_PORTS GREATER -1))
-    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib")
-  ENDIF()
+  # IF((ON_MAC_BREW GREATER -1) OR(ON_MAC_PORTS GREATER -1))
+  #   SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib")
+  # ENDIF()
 ENDIF()
 
 # =========================================================================
