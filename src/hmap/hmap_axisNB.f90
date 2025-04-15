@@ -1104,7 +1104,7 @@ IMPLICIT NONE
   INTEGER,PARAMETER  :: ns=2
   INTEGER,PARAMETER  :: nthet=3
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps
-  REAL(wp)           :: zeta(nzeta)
+  REAL(wp),ALLOCATABLE :: zeta(:)
   REAL(wp)           :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                      Jh,g_tt,    g_tz,    g_zz,     &
@@ -1244,9 +1244,6 @@ IMPLICIT NONE
 
  END IF !testlevel >=1
  IF (testlevel .GE. 2) THEN
-    DO izeta=1,nzeta
-      zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(nzeta-1,wp)*0.221_wp
-    END DO
     DO idir=1,3
       SELECT CASE(idir)
       CASE(1)
@@ -1256,9 +1253,13 @@ IMPLICIT NONE
       CASE(3)
         jdir=1; kdir=2
       END SELECT
-      ndims(idir)=nzeta
+      ndims(idir)=nzeta+idir
       ndims(jdir)=ns
       ndims(kdir)=nthet
+      ALLOCATE(zeta(ndims(idir)))
+      DO izeta=1,ndims(idir)
+        zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
+      END DO
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)
@@ -1276,6 +1277,7 @@ IMPLICIT NONE
            Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
            Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,&
            g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+      CALL hmap_axisNB_free_aux(sf) !force reinitialization
       DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
         ijk=(/i,j,k/)
         izeta=ijk(idir)
@@ -1303,7 +1305,7 @@ IMPLICIT NONE
       END DO; END DO; END DO
 
       iTest=201+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(Jh))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(Jh))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1313,7 +1315,7 @@ IMPLICIT NONE
       END IF
 
       iTest=202+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_tt))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_tt))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1323,7 +1325,7 @@ IMPLICIT NONE
       END IF
 
       iTest=203+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_tz))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_tz))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1333,7 +1335,7 @@ IMPLICIT NONE
       END IF
 
       iTest=203+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_zz))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_zz))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1343,7 +1345,7 @@ IMPLICIT NONE
       END IF
 
       iTest=204+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(Jh_dq1))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(Jh_dq1))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1353,7 +1355,7 @@ IMPLICIT NONE
       END IF
 
       iTest=205+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(Jh_dq2))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(Jh_dq2))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1363,7 +1365,7 @@ IMPLICIT NONE
       END IF
 
       iTest=206+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_tt_dq1))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_tt_dq1))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1373,7 +1375,7 @@ IMPLICIT NONE
       END IF
 
       iTest=207+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_tz_dq1))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_tz_dq1))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1383,7 +1385,7 @@ IMPLICIT NONE
       END IF
 
       iTest=208+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_zz_dq1))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_zz_dq1))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1393,7 +1395,7 @@ IMPLICIT NONE
       END IF
 
       iTest=209+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_tt_dq2))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_tt_dq2))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1403,7 +1405,7 @@ IMPLICIT NONE
       END IF
 
       iTest=210+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_tz_dq2))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_tz_dq2))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1413,7 +1415,7 @@ IMPLICIT NONE
       END IF
 
       iTest=211+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_zz_dq2))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_zz_dq2))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1423,7 +1425,7 @@ IMPLICIT NONE
       END IF
 
       iTest=212+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_t1))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_t1))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1433,7 +1435,7 @@ IMPLICIT NONE
       END IF
 
       iTest=213+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_t2))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_t2))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1443,7 +1445,7 @@ IMPLICIT NONE
       END IF
 
       iTest=214+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_z1))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_z1))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1453,7 +1455,7 @@ IMPLICIT NONE
       END IF
 
       iTest=215+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(g_z2))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(g_z2))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1463,7 +1465,7 @@ IMPLICIT NONE
       END IF
 
       iTest=216+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(Gh11))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(Gh11))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1473,7 +1475,7 @@ IMPLICIT NONE
       END IF
 
       iTest=217+20*idir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      checkreal=SUM(ABS(Gh22))/REAL(ns*nthet*nzeta,wp)
+      checkreal=SUM(ABS(Gh22))/REAL(PRODUCT(ndims),wp)
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
@@ -1482,7 +1484,9 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : |sum(|Gh22_all-eval_Gh22(xall)|)|= ', checkreal, " ,idir=",idir
       END IF
 
-      DEALLOCATE(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+      DEALLOCATE(zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                 Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
+                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
     END DO !idir
  END IF
 
