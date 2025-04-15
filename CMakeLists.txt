@@ -200,7 +200,7 @@ ENDIF()
 # =========================================================================
 
 IF(USE_OPENMP)
-  FIND_PACKAGE(OpenMP REQUIRED)
+  FIND_PACKAGE(OpenMP REQUIRED COMPONENTS Fortran)
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
 ENDIF()
 
