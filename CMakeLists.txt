@@ -376,7 +376,7 @@ IF(COMPILE_PYGVEC)
     src/pygvec/run.f90
   )
   ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
-  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
 
   # --- wrap gvec using f90wrap & f2py --- #
   # specify files to be wrapped with f90wrap
