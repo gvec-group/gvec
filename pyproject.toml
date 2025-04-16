@@ -71,14 +71,15 @@ sdist.include = [
     "python/gvec/_version.py",
 ]
 sdist.exclude = [
-    # exclude large files
-    "ini",
-    "test-CI/data",
-    # exclude unnecessary files
+    "CI_setup",
     "CI_templates",
+    "docs",
     "template",
     "test-CI",
     "tools",
+    ".gitlab-ci.yml",
+    ".mailmap",
+    ".pre-commit-config.yaml",
 ]
 build-dir = "pybuild"
 editable.rebuild = false
