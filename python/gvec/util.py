@@ -478,10 +478,12 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Serialize parameters into a string"""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
-        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+        if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
             output[key] = {}
             for (m, n), val in value.items():
                 output[key][f"({m}, {n:2d})"] = val
+        elif key.lower() == "stages":
+            output[key] = [stringify_mn_parameters(stage) for stage in value]
         else:
             output[key] = value
     return output
@@ -491,11 +493,13 @@ def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Deserialize parameters from a string"""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
-        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+        if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
             output[key] = {}
             for mn, val in value.items():
                 m, n = map(int, mn.strip("()").split(","))
                 output[key][(m, n)] = val
+        elif key.lower() == "stages":
+            output[key] = [unstringify_mn_parameters(stage) for stage in value]
         else:
             output[key] = value
     return output
