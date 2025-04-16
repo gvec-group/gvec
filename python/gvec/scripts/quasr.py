@@ -92,7 +92,7 @@ def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
 
     # inverse mass matrix applied (for real and imag)
     Fmat_mod = np.diag(1 / diag_re) @ Fmat.real + np.diag(1j / diag_im) @ Fmat.imag
-    Bmat = get_B({"nfp": nfp, "modes": modes, "deriv": deriv}, x_out)
+    Bmat = get_B(x_out=x_out, nfp=nfp, modes=modes, deriv=deriv)
     Mat = (Bmat @ Fmat_mod).real
     return {
         "F": Fmat_mod,
@@ -106,17 +106,10 @@ def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
     }
 
 
-def get_B(dft_dict, x_out):
-    if dft_dict["deriv"] == 0:
-        modes_back = np.exp(
-            -1j * dft_dict["nfp"] * (dft_dict["modes"][None, :] * x_out[:, None])
-        )
-    else:
-        modes_back = (-1j * dft_dict["nfp"] * dft_dict["modes"][None, :]) ** dft_dict[
-            "deriv"
-        ] * np.exp(
-            -1j * dft_dict["nfp"] * (dft_dict["modes"][None, :] * x_out[:, None])
-        )
+def get_B(x_out, deriv, nfp, modes):
+    modes_back = np.exp(-1j * nfp * (modes[None, :] * x_out[:, None]))
+    if deriv > 0:
+        modes_back *= (-1j * nfp * modes[None, :]) ** deriv
     return modes_back
 
 
@@ -196,7 +189,7 @@ def eval_curve(zeta_in, xyz, dft_dict):
     """evaluates the curve at a single point zeta_in
     given by cartesian positions of a periodic curve xyz[0:len(zeta1d)+1,0:2], evaluated zeta1d[0:2pi[,
     """
-    B = get_B(dft_dict, np.asarray([zeta_in]).flatten())
+    B = get_B(np.asarray([zeta_in]).flatten(), **dft_dict)
     return (B @ dft_dict["F"]).real @ xyz
 
 
@@ -245,9 +238,10 @@ def cut_surf(xyz, nfp, xyz0, N, B):
     given xyz(zeta,theta) on the full torus, find intersection point of lines of theta=const with all N-B planes with origin xyz0. then project these points to find x1,x2 coordinates in each N-B cross-section
     """
     nz = xyz.shape[0]
-    assert nz == xyz0.shape[0]
-    assert nz == N.shape[0]
-    assert nz == B.shape[0]
+    if not nz == xyz0.shape[0] == N.shape[0] == B.shape[0]:
+        raise ValueError(
+            "xyz0,N,B must have the same number of points, but they have different lengths!"
+        )
     # cut geometry with new frame (xyz0,N,B)
     zeta1d = np.linspace(0.0, 2 * np.pi, nz, endpoint=False)
     zdft = real_dft_mat(zeta1d, zeta1d, nfp=1)  # must be on the full torus
@@ -274,10 +268,8 @@ def write_Gframe_ncfile(ncout_file, dict_in):
     write the data from dictionary to netcdf
     """
     import netCDF4 as nc
-    import os
 
-    os.system("rm -f " + ncout_file + ".nc")
-    ncfile = nc.Dataset(ncout_file + ".nc", "w")
+    ncfile = nc.Dataset(f"{ncout_file}.nc", "w")
     ncvars = {}
     ncfile.createDimension("vec", 3)
     ncfile.createDimension("nzeta_axis", dict_in["axis"]["nzeta"])
@@ -426,7 +418,7 @@ def main():
     quasr_json = "serial2457904"
 
     surf = get_xyz_from_quasr(nt_in, nz_in, quasr_json)
-    nz = surf["nz"]
+    # nz = surf["nz"]
     nfp = surf["nfp"]
     xyz = surf["xyz"]
     print("get frame")

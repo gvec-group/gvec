@@ -56,7 +56,7 @@ Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
-examples = ["matplotlib", "jupyter", "scipy", "ipywidgets", "ipympl"]
+examples = ["matplotlib", "jupyter", "scipy", "ipywidgets", "ipympl", "simsopt"]
 
 [project.scripts]
 pygvec = "gvec.scripts.main:main"
