@@ -480,7 +480,11 @@ IMPLICIT NONE
 
     !get new grid and check compare
     iTest=121 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testgrid%init(sf%nElems+1,sf%grid_type)
+    IF(sf%grid_type.NE.-1) THEN
+      CALL testgrid%init(sf%nElems+1,sf%grid_type)
+    ELSE
+      CALL testgrid%init(sf%nElems+1,MERGE(1,0,(sf%grid_type.EQ.0)))
+    END IF
     CALL testgrid%compare(sf,check)
     CALL testgrid%free()
     IF(check)THEN
@@ -506,7 +510,11 @@ IMPLICIT NONE
 
     !get new grid and check compare
     iTest=123 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testgrid%init(sf%nElems,sf%grid_type)
+    IF(sf%grid_type.NE.-1) THEN
+      CALL testgrid%init(sf%nElems,sf%grid_type)
+    ELSE
+      CALL testgrid%init(sf%nElems,sf%grid_type,sf%sp)
+    END IF
     CALL testgrid%compare(sf,check)
     CALL testgrid%free()
     IF(.NOT.check)THEN
