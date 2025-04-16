@@ -162,7 +162,7 @@ IMPLICIT NONE
                         "nfp from restart file does not match to nfp used in hmap.")
   ! check if input has changed:
 
-  CALL sgrid_r%init(nElems_r,grid_type_r)
+  CALL sgrid_r%init(nElems_r,grid_type_r,sp_r)
 
   !needed to build base of restart file
   X1_mn_max_r = (/MAXVAL(X1_mn_r(1,:)),MAXVAL(X1_mn_r(2,:))/nfp_r/)

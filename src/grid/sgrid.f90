@@ -147,6 +147,15 @@ IMPLICIT NONE
             , grid_Type => sf%grid_Type )
 
   IF(PRESENT(sp_in))THEN
+    IF(SIZE(sp_in) .NE. nElems+1) THEN
+      CALL abort(__STAMP__, &
+          'sGrid_init: size of sp_in does not match nElems + 1!')
+    END IF
+    IF(ABS(sp_in(0)).GT.EPSILON(1.0_wp) .OR. &
+       ABS(sp_in(nElems)-1.0_wp).GT.EPSILON(1.0_wp)) THEN
+      CALL abort(__STAMP__, &
+          'sGrid_init: sp_in(0) and sp_in(nElems) should be 0 and 1!')
+    END IF
     sf%sp=sp_in
   ELSE
     !uniform [0,1]
@@ -240,7 +249,7 @@ IMPLICIT NONE
     SWRITE(UNIT_stdOut,'(A)')'WARNING!! reinit of sGrid copy!'
     CALL sf%free()
   END IF
-  CALL sf%init(tocopy%nElems,tocopy%grid_type)
+  CALL sf%init(tocopy%nElems,tocopy%grid_type,tocopy%sp)
 
   END SELECT !TYPE
 END SUBROUTINE sGrid_copy
@@ -471,7 +480,11 @@ IMPLICIT NONE
 
     !get new grid and check compare
     iTest=121 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testgrid%init(sf%nElems+1,sf%grid_type)
+    IF(sf%grid_type.NE.-1) THEN
+      CALL testgrid%init(sf%nElems+1,sf%grid_type)
+    ELSE
+      CALL testgrid%init(sf%nElems+1,MERGE(1,0,(sf%grid_type.EQ.0)))
+    END IF
     CALL testgrid%compare(sf,check)
     CALL testgrid%free()
     IF(check)THEN
@@ -497,7 +510,11 @@ IMPLICIT NONE
 
     !get new grid and check compare
     iTest=123 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-    CALL testgrid%init(sf%nElems,sf%grid_type)
+    IF(sf%grid_type.NE.-1) THEN
+      CALL testgrid%init(sf%nElems,sf%grid_type)
+    ELSE
+      CALL testgrid%init(sf%nElems,sf%grid_type,sf%sp)
+    END IF
     CALL testgrid%compare(sf,check)
     CALL testgrid%free()
     IF(.NOT.check)THEN
