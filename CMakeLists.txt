@@ -260,8 +260,9 @@ find_package(Python COMPONENTS Interpreter REQUIRED)
 function(add_exec target)
   ADD_EXECUTABLE(${target} ${ARGN})
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
-  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
-  SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
+  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS}
+                                             LINKER_LANGUAGE Fortran
+                                             INSTALL_RPATH_USE_LINK_PATH TRUE) # don't strip RUNPATH during install
   IF(COMPILE_PYGVEC) # scikit-build-core = python/pip installation - install to venv/bin
     INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION ${SKBUILD_SCRIPTS_DIR})
   ELSE()
@@ -439,6 +440,7 @@ IF(COMPILE_PYGVEC)
   TARGET_INCLUDE_DIRECTORIES(_libpygvec PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" ${F2PY_INCLUDE_DIR} ${Python_NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
   ADD_DEPENDENCIES(_libpygvec pygvec_wrap_files)
   TARGET_LINK_LIBRARIES(_libpygvec PRIVATE pygveclib gveclib ${linkedlibs})
+  SET_TARGET_PROPERTIES(_libpygvec PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE) # don't strip RUNPATH during install
 
   INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
   INSTALL(TARGETS _libpygvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")
