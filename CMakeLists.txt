@@ -147,18 +147,18 @@ IF(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # machine specific flags
   IF(${CMAKE_HOSTNAME} MATCHES "mpcdfcirunner")
-    SET(GVEC_MACHINE_FLAGS "-xCORE-AVX-I ")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX-I" CACHE STRING "additional machine dependent compile flags (for Intel)")
   ELSEIF(${CMAKE_HOSTNAME} MATCHES "raven")
-    SET(GVEC_MACHINE_FLAGS "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte" CACHE STRING "additional machine dependent compile flags (for Intel)")
   ELSEIF(${CMAKE_HOSTNAME} MATCHES "marconi")
-    SET(GVEC_MACHINE_FLAGS "-axMIC-AVX512 ") # for BW and KNL
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-axMIC-AVX512" CACHE STRING "additional machine dependent compile flags (for Intel)") # for BW and KNL
   ELSE()
-    SET(GVEC_MACHINE_FLAGS "-xHost")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xHost" CACHE STRING "additional machine dependent compile flags (for Intel)")
   ENDIF()
 
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${GVEC_MACHINE_FLAGS} -qopt-report=5 -diag-disable=10397 -no-prec-div")
-  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${GVEC_MACHINE_FLAGS} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${GVEC_ADD_COMPILE_FLAGS_MACHINE} -qopt-report=5 -diag-disable=10397 -no-prec-div")
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${GVEC_ADD_COMPILE_FLAGS_MACHINE} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
   IF(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
     SET(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -check all,uninit") # crash with ifx; possibly related to netCDF
