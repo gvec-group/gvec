@@ -26,6 +26,11 @@ IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 ENDIF()
 MARK_AS_ADVANCED(CMAKE_INSTALL_PREFIX)
 
+IF(DEFINED ENV{CONDA_PREFIX})
+  MESSAGE(STATUS "Detected conda environment: $ENV{CONDA_PREFIX}")
+  SET(CMAKE_PREFIX_PATH $ENV{CONDA_PREFIX} CACHE PATH "Installation prefixes to be searched for dependencies")
+ENDIF()
+
 # =========================================================================
 # Options
 # =========================================================================
