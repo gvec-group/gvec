@@ -44,6 +44,10 @@ Thus, in the final frame, the rotating ellipse is represented by a single poloid
 For each discrete $N,B$ plane, we compute the intersection of the all curves $\bm x(\vartheta_i,\zeta)$ and compute its position $X^1,X^2$ in the $N,B$ plane. This gives the final surface.
 """
 
+from pathlib import Path
+import requests
+import shutil
+
 import numpy as np
 from sympy import Q
 from scipy.optimize import root_scalar
@@ -113,28 +117,45 @@ def get_B(x_out, deriv, nfp, modes):
     return modes_back
 
 
-def get_xyz_from_quasr(nt_in, nz_in, quasr_json):
-    """
-    load surface object using simsopt, sample surface at nt_in,nz_in*nfp point positions on the full torus.
-    gives cartesian positions xyz[0:nz_in*nfp,0:nt_in,0:2]
-    """
+def get_json_from_quasr(configuration: int, filename: str | Path = None):
+    """Retrieve a simsopt-compatible JSON for a given QUASR configuration."""
+
+    if filename is None:
+        filename = f"quasr-{configuration:07d}.json"
+
+    url = f"https://quasr.flatironinstitute.org/simsopt_serials/{configuration // 10**3:04d}/serial{configuration:07d}.json"
+    with requests.get(url, stream=True) as response, open(filename, "wb") as file:
+        shutil.copyfileobj(response.raw, file)
+
+    return filename
+
+
+def get_surface_from_json_file(filename):
+    """Get the boundary surface as a SIMSOPT Surface object from a QUASR JSON file."""
     from simsopt._core import load
 
-    [surfaces, coils] = load(quasr_json + ".json")
-    surf = surfaces[-1]
-    nfp = surf.nfp
-    nt = nt_in
-    nz = nz_in * nfp
+    [surfaces, coils] = load(filename)
+    return surfaces[-1]
+
+
+def get_xyz_from_surface(nt: int, nz: int, surface):
+    """Sample a SIMSOPT Surface object in cartesian coordinates.
+
+    Sample surface at nt,nz*nfp point positions on the full torus.
+    Gives cartesian positions xyz[0:nz*nfp,0:nt,0:2].
+    """
+    nfp = surface.nfp
     t1d = np.linspace(0, 1, nt, endpoint=False)
-    z1d = np.linspace(0, 1.0, nz, endpoint=False)
+    z1d = np.linspace(0, 1, nz * nfp, endpoint=False)
     t, z = np.meshgrid(t1d, z1d)
 
-    xyz = np.zeros((nz, nt, 3))
-    surf.gamma_lin(xyz, z.flatten(), t.flatten())
+    xyz = np.zeros((nz * nfp, nt, 3))
+    surface.gamma_lin(xyz, z.flatten(), t.flatten())
     return {"t1d": t1d, "z1d": z1d, "nfp": nfp, "nt": nt, "nz": nz, "xyz": xyz}
 
 
 def get_X0_N_B(xyz):
+    """Get guiding curve and two guiding vectors from the cartesian coordinates of a surface."""
     nt = xyz.shape[1]
     t1d = np.linspace(0, 1, nt, endpoint=False)
     ## STEP 2: Project to surface with elliptical cross-sections
@@ -263,13 +284,11 @@ def cut_surf(xyz, nfp, xyz0, N, B):
     return x1_cut, x2_cut
 
 
-def write_Gframe_ncfile(ncout_file, dict_in):
-    """
-    write the data from dictionary to netcdf
-    """
+def write_Gframe_ncfile(filename: str, dict_in):
+    """Write the G-Frame & boundary to a GVEC-compatible netCDF file."""
     import netCDF4 as nc
 
-    ncfile = nc.Dataset(f"{ncout_file}.nc", "w")
+    ncfile = nc.Dataset(filename, "w")
     ncvars = {}
     ncfile.createDimension("vec", 3)
     ncfile.createDimension("nzeta_axis", dict_in["axis"]["nzeta"])
@@ -405,20 +424,14 @@ def write_Gframe_ncfile(ncout_file, dict_in):
     ncfile.header = hdr
     ncfile.close()
 
-    print(('NETCDF FILE "%s" WRITTEN! ' % (ncout_file + ".nc")))
+    print(f"NETCDF FILE {filename} WRITTEN!")
 
 
-def main():
-    nt_in = 81
-    nz_in = 81
-    # quasr_json="quasr-QH-N3-serial1942772"
-    # quasr_json="serial1601280"
-    # quasr_json="serial1601292"
-    # quasr_json="serial1603880"
-    quasr_json = "serial2457904"
+def convert_quasr(filename: str | Path, nt: int = 81, nz: int = 81):
+    filename = Path(filename)
 
-    surf = get_xyz_from_quasr(nt_in, nz_in, quasr_json)
-    # nz = surf["nz"]
+    surface = get_surface_from_json_file(filename)
+    surf = get_xyz_from_surface(nt, nz, surface)
     nfp = surf["nfp"]
     xyz = surf["xyz"]
     print("get frame")
@@ -426,25 +439,25 @@ def main():
     print("cut surface")
     x1_cut, x2_cut = cut_surf(xyz, nfp, xyz0, N, B)
 
-    zetafull = np.linspace(0, 2 * np.pi, nz_in * nfp, endpoint=False)
-    zeta = np.linspace(0, 2 * np.pi / nfp, nz_in, endpoint=False)
-    theta = np.linspace(0, 2 * np.pi, nt_in, endpoint=False)
+    zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi / nfp, nz, endpoint=False)
+    theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
     dict_out = {"nfp": nfp, "axis": {}, "boundary": {}}
     dict_out["axis"] = {
-        "nzeta": nz_in,
-        "nzetaFull": nz_in * nfp,
+        "nzeta": nz,
+        "nzetaFull": nz * nfp,
         "zetafull": zetafull,
         "xyz": xyz0.T,
         "Nxyz": N.T,
         "Bxyz": B.T,
     }
     dict_out["boundary"] = {
-        "ntheta": nt_in,
-        "nzeta": nz_in,
+        "ntheta": nt,
+        "nzeta": nz,
         "theta": theta,
         "zeta": zeta,
         "lasym": False,
         "X1": x1_cut.T,
         "X2": x2_cut.T,
     }
-    write_Gframe_ncfile(quasr_json + "_gvec", dict_out)
+    write_Gframe_ncfile(f"{filename.stem}-gvec.nc", dict_out)
