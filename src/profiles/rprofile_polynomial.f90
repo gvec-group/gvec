@@ -89,9 +89,9 @@ MODULE MODgvec_rProfile_poly
         profile_prime_value = EVAL1DPOLY_deriv(sf%n_coefs, sf%coefs, rho2)
     ELSE
         profile_prime_value = 0.0_wp
-        DO d=deriv_case,sf%deg
-            prefactor=poly_derivative_prefactor(d,deriv_case)
-            profile_prime_value = profile_prime_value +prefactor*sf%coefs(d+1)*(rho2**(d-deriv_case))
+        DO d=sf%deg+1, deriv_case+1,-1
+            prefactor=poly_derivative_prefactor(d-1,deriv_case)
+            profile_prime_value = profile_prime_value*rho2+prefactor*sf%coefs(d)
         END DO
     END IF
   END FUNCTION polyProfile_eval_at_rho2
