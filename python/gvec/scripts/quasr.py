@@ -44,13 +44,56 @@ Thus, in the final frame, the rotating ellipse is represented by a single poloid
 For each discrete $N,B$ plane, we compute the intersection of the all curves $\bm x(\vartheta_i,\zeta)$ and compute its position $X^1,X^2$ in the $N,B$ plane. This gives the final surface.
 """
 
+import argparse
 from pathlib import Path
 import requests
 import shutil
+from typing import Sequence
+import logging
 
 import numpy as np
 from sympy import Q
 from scipy.optimize import root_scalar
+
+# === Argument Parser === #
+
+parser = argparse.ArgumentParser(
+    prog="pygvec-load-quasr",
+    description="Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.",
+    usage="%(prog)s [-h] (ID | -f FILE) [--nt NT] [--nz NZ] [-v | -q]",
+)
+parser.add_argument("ID", type=int, nargs="?", help="ID of the QUASR configuration")
+parser.add_argument(
+    "-f", "--file", type=Path, help="SIMSOPT JSON file of the QUASR configuration"
+)
+verbosity = parser.add_mutually_exclusive_group()
+verbosity.add_argument(
+    "-v",
+    "--verbose",
+    action="count",
+    default=0,
+    help="verbosity level: -v for info, -vv for debug, -vvv for GVEC output",
+)
+verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
+parser.add_argument("--nt", type=int, default=81, help="number of theta points")
+parser.add_argument("--nz", type=int, default=81, help="number of zeta points")
+
+
+def check_args(args):
+    if args.ID is None and args.file is None:
+        parser.print_help()
+        raise ValueError("Either ID or file must be provided.")
+    if args.ID is not None and args.file is not None:
+        raise ValueError("Only one of ID or file can be provided.")
+    if args.ID is not None and (args.ID < 0 or args.ID > 9999999):
+        raise ValueError("ID must be between 0 and 9999999.")
+    if args.file is not None and not args.file.exists():
+        raise FileNotFoundError(f"File {args.file} does not exist.")
+    if args.nt < 1:
+        raise ValueError("Number of theta points must be greater than 0.")
+    if args.nz < 1:
+        raise ValueError("Number of zeta points must be greater than 0.")
+
 
 # === Functions === #
 
@@ -125,6 +168,10 @@ def get_json_from_quasr(configuration: int, filename: str | Path = None):
 
     url = f"https://quasr.flatironinstitute.org/simsopt_serials/{configuration // 10**3:04d}/serial{configuration:07d}.json"
     with requests.get(url, stream=True) as response, open(filename, "wb") as file:
+        if not response.ok:
+            raise RuntimeError(
+                f"Failed to download QUASR configuration {configuration}: {response.status_code} {response.reason}"
+            )
         shutil.copyfileobj(response.raw, file)
 
     return filename
@@ -210,7 +257,12 @@ def eval_curve(zeta_in, xyz, dft_dict):
     """evaluates the curve at a single point zeta_in
     given by cartesian positions of a periodic curve xyz[0:len(zeta1d)+1,0:2], evaluated zeta1d[0:2pi[,
     """
-    B = get_B(np.asarray([zeta_in]).flatten(), **dft_dict)
+    B = get_B(
+        np.asarray([zeta_in]).flatten(),
+        deriv=dft_dict["deriv"],
+        nfp=dft_dict["nfp"],
+        modes=dft_dict["modes"],
+    )
     return (B @ dft_dict["F"]).real @ xyz
 
 
@@ -424,20 +476,22 @@ def write_Gframe_ncfile(filename: str, dict_in):
     ncfile.header = hdr
     ncfile.close()
 
-    print(f"NETCDF FILE {filename} WRITTEN!")
-
 
 def convert_quasr(filename: str | Path, nt: int = 81, nz: int = 81):
+    logger = logging.getLogger("pyGVEC.script")
     filename = Path(filename)
 
     surface = get_surface_from_json_file(filename)
     surf = get_xyz_from_surface(nt, nz, surface)
     nfp = surf["nfp"]
     xyz = surf["xyz"]
-    print("get frame")
+    logger.info("Constructing the G-Frame")
     xyz0, N, B = get_X0_N_B(xyz)
-    print("cut surface")
+
+    logger.info("Cutting the surface")
     x1_cut, x2_cut = cut_surf(xyz, nfp, xyz0, N, B)
+
+    logger.info("Exporting")
 
     zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi / nfp, nz, endpoint=False)
@@ -461,3 +515,47 @@ def convert_quasr(filename: str | Path, nt: int = 81, nz: int = 81):
         "X2": x2_cut.T,
     }
     write_Gframe_ncfile(f"{filename.stem}-gvec.nc", dict_out)
+    logger.info("Done")
+
+
+# === Script === #
+
+
+def main(args: Sequence[str] | argparse.Namespace | None = None):
+    if isinstance(args, argparse.Namespace):
+        pass
+    else:
+        args = parser.parse_args(args)
+    check_args(args)
+
+    logging.basicConfig(
+        level=logging.WARNING,
+    )  # show warnings and above as normal
+    logger = logging.getLogger(
+        "pyGVEC.script"
+    )  # show info/debug messages for this script
+    logger.propagate = False
+    loghandler = logging.StreamHandler()
+    logformatter = logging.Formatter("{levelname} {message}", style="{")
+    loghandler.setFormatter(logformatter)
+    logger.addHandler(loghandler)
+    if args.verbose >= 1:
+        logger.setLevel(logging.INFO)
+    if args.quiet:
+        logging.disable(logging.CRITICAL)
+
+    if args.ID is not None:
+        logger.info("Downloading QUASR configuration")
+        try:
+            filename = get_json_from_quasr(args.ID)
+        except RuntimeError as e:
+            logger.error(e)
+            return 1
+    else:
+        filename = args.file
+
+    convert_quasr(filename, args.nt, args.nz)
+
+
+if __name__ == "__main__":
+    exit(main())

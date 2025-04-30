@@ -112,3 +112,23 @@ def test_quasr_real_dft():
     assert np.allclose(f3, exfunc(zeta_up))
     assert np.allclose(df3, exfuncd(zeta_up))
     assert np.allclose(ddf3, exfuncdd(zeta_up))
+
+
+def test_quasr(tmp_path):
+    """
+    Test the load-quasr script
+    """
+    with gvec.util.chdir(tmp_path):
+        ID = 112714
+        json = Path(f"quasr-{ID:07d}.json")
+        hmap = Path(f"quasr-{ID:07d}-gvec.nc")
+
+        args = [f"{ID}"]
+        gvec.scripts.quasr.main(args)
+        assert json.exists()
+        assert hmap.exists()
+
+        hmap.unlink()
+        args = ["-f", json.as_posix()]
+        gvec.scripts.quasr.main(args)
+        assert hmap.exists()
