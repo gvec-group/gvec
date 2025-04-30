@@ -141,11 +141,11 @@ mn_nyq:
 nfp:
   category:
   - Discretization
-  subtitle: mandatory parameter
-  required: true
+  subtitle: mandatory if not part of hmap
   description:
   - This parameter sets the number of field periods $N_{FP}$
   type: '`integer`'
+  required_if: lnk_to_param(`which_hmap=20` or `which_hmap=21`|which_hmap)
   allowed: $> 0$
 X1_mn_max:
   category:
