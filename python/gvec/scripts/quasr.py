@@ -48,13 +48,14 @@ import argparse
 from pathlib import Path
 import requests
 import shutil
-from typing import Sequence
+from typing import Sequence, Literal
 import logging
 
 import numpy as np
 from sympy import Q
 from scipy.optimize import root_scalar
 
+from gvec.util import write_parameters
 from gvec import fourier
 
 # === Argument Parser === #
@@ -62,7 +63,7 @@ from gvec import fourier
 parser = argparse.ArgumentParser(
     prog="pygvec-load-quasr",
     description="Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.",
-    usage="%(prog)s [-h] (ID | -f FILE) [--nt NT] [--nz NZ] [-v | -q]",
+    usage="%(prog)s [-h] (ID | -f FILE) [-v | -q] [--nt NT] [--nz NZ] [--tol TOL] [--yaml | --toml]",
 )
 parser.add_argument("ID", type=int, nargs="?", help="ID of the QUASR configuration")
 parser.add_argument(
@@ -82,8 +83,23 @@ parser.add_argument("--nz", type=int, default=81, help="number of zeta points")
 parser.add_argument(
     "--tol",
     type=float,
-    default=None,
+    default=1e-8,
     help="tolerance for determining minimal necessary (M, N)",
+)
+param_type = parser.add_mutually_exclusive_group()
+param_type.add_argument(
+    "--yaml",
+    action="store_const",
+    const="yaml",
+    dest="param_type",
+    help="write GVEC parameterfile as YAML",
+)
+param_type.add_argument(
+    "--toml",
+    action="store_const",
+    const="toml",
+    dest="param_type",
+    help="write GVEC parameterfile as TOML",
 )
 
 
@@ -103,6 +119,8 @@ def check_args(args):
         raise ValueError("Number of zeta points must be greater than 0.")
     if args.tol is not None and args.tol <= 0:
         raise ValueError("Tolerance must be greater than 0.")
+    if args.param_type is None:
+        args.param_type = "yaml"
 
 
 # === Functions === #
@@ -491,7 +509,11 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
 
 
 def convert_quasr(
-    filename: str | Path, nt: int = 81, nz: int = 81, tolerance: float | None = None
+    filename: str | Path,
+    nt: int = 81,
+    nz: int = 81,
+    tolerance: float = 1e-8,
+    format: Literal["yaml", "toml"] = "yaml",
 ):
     logger = logging.getLogger("pyGVEC.script")
     filename = Path(filename)
@@ -506,12 +528,11 @@ def convert_quasr(
     logger.info("Cutting the surface")
     x1_cut, x2_cut = cut_surf(xyz, nfp, xyz0, N, B)
 
-    if tolerance is not None:
-        logger.info(f"Finding minimal (M, N) with tolerance {tolerance:.1e}")
-        m, n = minimal_modes(x1_cut, x2_cut, tolerance)
-        print(f"Minimal (M, N) found: {m}, {n}")
+    logger.info(f"Finding minimal (M, N) with tolerance {tolerance:.1e}")
+    Mmax, Nmax = minimal_modes(x1_cut, x2_cut, tolerance)
+    logger.info(f"Minimal (M, N) found: {Mmax}, {Nmax}")
 
-    logger.info("Exporting")
+    logger.info("Exporting h-map & boundary")
     zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi / nfp, nz, endpoint=False)
     theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
@@ -533,7 +554,45 @@ def convert_quasr(
         "X1": x1_cut.T,
         "X2": x2_cut.T,
     }
-    write_Gframe_ncfile(f"{filename.stem}-gvec.nc", dict_out)
+    write_Gframe_ncfile(f"{filename.stem}-Gframe.nc", dict_out)
+
+    logger.info("Write parameterfile")
+    parameters = dict(
+        ProjectName=f"{filename.stem}",
+        whichInitEquilibrium=0,
+        which_hmap=21,
+        hmap_ncfile=f"{filename.stem}-Gframe.nc",
+        getBoundaryFromFile=1,
+        boundary_filename=f"{filename.stem}-Gframe.nc",
+        X1X2_deg=5,
+        LA_deg=5,
+        sgrid=dict(
+            grid_type=0,
+            nElems=5,
+        ),
+        X1_mn_max=(Mmax, Nmax),
+        X2_mn_max=(Mmax, Nmax),
+        LA_mn_max=(Mmax, Nmax),
+        MinimizerType=10,
+        PrecondType=1,
+        minimize_tol=1e-7,
+        MaxIter=10000,
+        logIter=100,
+        pres=dict(
+            type="polynomial",
+            coefs=[0.0],
+        ),
+        Itor=dict(
+            type="polynomial",
+            coefs=[0.0],
+        ),
+        stages=[
+            dict(
+                runs=10,
+            )
+        ],
+    )
+    write_parameters(parameters, f"{filename.stem}-parameters.{format}")
     logger.info("Done")
 
 
@@ -601,7 +660,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     else:
         filename = args.file
 
-    convert_quasr(filename, args.nt, args.nz, args.tol)
+    convert_quasr(filename, args.nt, args.nz, args.tol, args.param_type)
 
 
 if __name__ == "__main__":
