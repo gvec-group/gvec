@@ -55,6 +55,8 @@ import numpy as np
 from sympy import Q
 from scipy.optimize import root_scalar
 
+from gvec import fourier
+
 # === Argument Parser === #
 
 parser = argparse.ArgumentParser(
@@ -77,6 +79,12 @@ verbosity.add_argument(
 verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
 parser.add_argument("--nt", type=int, default=81, help="number of theta points")
 parser.add_argument("--nz", type=int, default=81, help="number of zeta points")
+parser.add_argument(
+    "--tol",
+    type=float,
+    default=None,
+    help="tolerance for determining minimal necessary (M, N)",
+)
 
 
 def check_args(args):
@@ -93,6 +101,8 @@ def check_args(args):
         raise ValueError("Number of theta points must be greater than 0.")
     if args.nz < 1:
         raise ValueError("Number of zeta points must be greater than 0.")
+    if args.tol is not None and args.tol <= 0:
+        raise ValueError("Tolerance must be greater than 0.")
 
 
 # === Functions === #
@@ -477,7 +487,9 @@ def write_Gframe_ncfile(filename: str, dict_in):
     ncfile.close()
 
 
-def convert_quasr(filename: str | Path, nt: int = 81, nz: int = 81):
+def convert_quasr(
+    filename: str | Path, nt: int = 81, nz: int = 81, tolerance: float | None = None
+):
     logger = logging.getLogger("pyGVEC.script")
     filename = Path(filename)
 
@@ -491,8 +503,12 @@ def convert_quasr(filename: str | Path, nt: int = 81, nz: int = 81):
     logger.info("Cutting the surface")
     x1_cut, x2_cut = cut_surf(xyz, nfp, xyz0, N, B)
 
-    logger.info("Exporting")
+    if tolerance is not None:
+        logger.info(f"Finding minimal (M, N) with tolerance {tolerance:.1e}")
+        m, n = minimal_modes(x1_cut, x2_cut, tolerance)
+        print(f"Minimal (M, N) found: {m}, {n}")
 
+    logger.info("Exporting")
     zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi / nfp, nz, endpoint=False)
     theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
@@ -516,6 +532,34 @@ def convert_quasr(filename: str | Path, nt: int = 81, nz: int = 81):
     }
     write_Gframe_ncfile(f"{filename.stem}-gvec.nc", dict_out)
     logger.info("Done")
+
+
+def minimal_modes(X, Y, tolerance):
+    """Find the minimal maximum mode numbers (M, N) such that the error is below the tolerance."""
+    Xcos, Xsin = fourier.fft2d(X)
+    Ycos, Ysin = fourier.fft2d(Y)
+    M, N = Xcos.shape[0] - 1, Xcos.shape[1] // 2
+
+    m, n = fourier.fft2d_modes(M, N, grid=True)
+    Mrange, Nrange = np.arange(1, M + 1), np.arange(1, N + 1)
+    error = np.full((M, N), np.nan)
+    norm = np.sqrt(np.sum(Xcos**2 + Xsin**2 + Ycos**2 + Ysin**2))
+    for Mnew in Mrange:
+        for Nnew in Nrange:
+            # sum magnitudes of all modes above the cutoff
+            mask = (m > Mnew) | (n > Nnew) | (n < -Nnew)
+            err = Xcos[mask] ** 2 + Xsin[mask] ** 2 + Ycos[mask] ** 2 + Ysin[mask] ** 2
+            error[Mnew - 1, Nnew - 1] = np.sqrt(np.sum(err)) / norm
+
+    # select candidates with error below the tolerance
+    mcan, ncan = np.meshgrid(Mrange, Nrange, indexing="ij")
+    mask = error < tolerance
+    # restrict candidates to those with minimum DoFs
+    dofs = ncan + 1 + mcan * (2 * ncan + 1)
+    mask &= dofs == dofs[mask].min()
+    # select candidate with minimum error
+    mask &= error == error[mask].min()
+    return mcan[mask].item(), ncan[mask].item()
 
 
 # === Script === #
@@ -554,7 +598,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     else:
         filename = args.file
 
-    convert_quasr(filename, args.nt, args.nz)
+    convert_quasr(filename, args.nt, args.nz, args.tol)
 
 
 if __name__ == "__main__":
