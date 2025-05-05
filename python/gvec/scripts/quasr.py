@@ -346,11 +346,14 @@ def cut_surf(xyz, nfp, xyz0, N, B):
     return x1_cut, x2_cut
 
 
-def write_Gframe_ncfile(filename: str, dict_in):
+def write_Gframe_ncfile(filename: str | Path, dict_in):
     """Write the G-Frame & boundary to a GVEC-compatible netCDF file."""
     import netCDF4 as nc
 
-    ncfile = nc.Dataset(filename, "w")
+    if Path(filename).exists():
+        Path(filename).unlink()
+
+    ncfile = nc.Dataset(str(filename), "w")
     ncvars = {}
     ncfile.createDimension("vec", 3)
     ncfile.createDimension("nzeta_axis", dict_in["axis"]["nzeta"])
