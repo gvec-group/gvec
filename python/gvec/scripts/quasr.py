@@ -582,6 +582,10 @@ def convert_quasr(
             type="polynomial",
             coefs=[0.0],
         ),
+        iota=dict(
+            type="polynomial",
+            coefs=[0.0],
+        ),
         Itor=dict(
             type="polynomial",
             coefs=[0.0],
