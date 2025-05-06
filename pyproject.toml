@@ -13,14 +13,15 @@ build-backend = "scikit_build_core.build"
 name = "gvec"
 description = "Galerkin Variational Equilibrium Code"
 dependencies = [
-    "f90wrap",
-    "numpy>=2",
-    "xarray",
-    "netcdf4",
-    "tqdm",
-    "pyevtk",
     "PyYAML",
+    "f90wrap",
+    "netcdf4",
+    "numpy>=2",
+    "pyevtk",
+    "requests",
     "tomlkit",
+    "tqdm",
+    "xarray",
 ]
 authors = [
     {name = "Florian Hindenlang"},
