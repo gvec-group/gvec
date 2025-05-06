@@ -11,7 +11,7 @@ import argparse
 from typing import Sequence
 
 import gvec
-from gvec.scripts import to_cas3d, run
+from gvec.scripts import to_cas3d, run, quasr
 
 # === Arguments === #
 
@@ -70,6 +70,15 @@ cas3d_parser = subparsers.add_parser(
     add_help=False,
 )
 
+quasr_parser = subparsers.add_parser(
+    "load-quasr",
+    help=quasr.parser.description,
+    description=quasr.parser.description,
+    parents=[quasr.parser],
+    add_help=False,
+    usage=quasr.parser.usage,
+)
+
 # === Script === #
 
 
@@ -82,7 +91,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     # --- run GVEC --- #
     if args.mode == "run":
-        run.main(args)
+        return run.main(args)
 
     # --- convert parameterfile --- #
     elif args.mode == "convert-params":
@@ -91,8 +100,11 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     # --- other scripts --- #
     elif args.mode == "to-cas3d":
-        to_cas3d.main(args)
+        return to_cas3d.main(args)
+
+    elif args.mode == "load-quasr":
+        return quasr.main(args)
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())
