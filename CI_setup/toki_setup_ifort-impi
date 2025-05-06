@@ -3,7 +3,6 @@
 
 module purge
 module load git/2.43
-module load git-lfs/3.3
 module load cmake/3.30
 module load intel/2023.1.0.x
 module load impi/2021.9

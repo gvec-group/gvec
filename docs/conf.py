@@ -34,7 +34,16 @@ try:
 except Exception as e:
     logging.error(f"Could not get git version: {e}")
     version = "unknown"
-release = version
+try:
+    p = subprocess.run(["git", "branch", "--show-current"], capture_output=True)
+    branch = p.stdout.decode().strip()
+except Exception:
+    branch = ""
+
+if branch:
+    release = f"{version} ({branch})"
+else:
+    release = version
 
 # generate parameter lists, generators/parameters-*md
 genpath = Path(__file__).parent / "generators"
@@ -56,6 +65,15 @@ for category, expr in [
     )
     print(f"generated parameters-{category}.md")
 
+# generate quantities for pyGVEC evaluations
+try:
+    import gvec
+except ImportError:
+    pass
+else:
+    with open(genpath / "quantities.md", "w") as f:
+        f.write(gvec.comp.table_of_quantities(markdown=False))
+    print("generated quantities.md")
 
 # -- General configuration ---------------------------------------------------
 
@@ -124,44 +142,66 @@ exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators"]
 # a list of builtin themes.
 #
 html_theme = "pydata_sphinx_theme"
-
 html_theme_options = {
     # "sidebarwidth": 270,
     "show_toc_level": 2,  # number of levels always visible in the (right) toc
     # "show_nav_level": ?,
     # "navigation_depth": ?,
     "back_to_top_button": True,
+    "primary_sidebar_end": ["sidebar-ethical-ads"],
     # --- footer --- #
     "footer_start": ["version", "last-updated"],
     "footer_center": ["copyright"],
     "footer_end": ["sphinx-version", "theme-version"],
     # --- header --- #
+    "navbar_start": ["navbar-logo"],
+    # "navbar_center": ["navbar-nav"],
+    # "navbar_persistent": ["search-button"],
+    # "navbar_end": ["theme-switcher", "navbar-icon-links"],
     # "header_links_before_dropdown": ?,
     "external_links": [
         {
             # external section of the documentation, built with FORD
             "name": "Fortran Code Documentation",
-            # important to use an absolute path, denoted with a starting "/"
-            # prefix with the FORD_PREFIX environment variable (e.g. set to "/gvec" on GitLab Pages)
-            "url": f"{os.environ.get('FORD_PREFIX', ' ')}/ford/index.html",
+            "url": f"{os.environ.get('READTHEDOCS_CANONICAL_URL', '/')}ford/index.html",
         },
     ],
-    "gitlab_url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
     "icon_links": [
         {
+            "name": "GitLab",
+            "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec",
+            "icon": "fa-brands fa-gitlab",
+        },
+        {
+            "name": "GitHub (mirror)",
+            "url": "https://github.com/gvec-group/gvec",
+            "icon": "fa-brands fa-github",
+        },
+        {
             "name": "Issues",
-            "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/issues",
+            "url": "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues",
             "icon": "fa-solid fa-bug",
         },
-        # {
-        #     "name": "PyPI",
-        #     "url": "https://pypi.org/project/gvec",
-        #     "icon": "fa-custom fa-pypi",
-        # },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/gvec",
+            "icon": "fa-brands fa-python",
+        },
     ],
 }
 
-html_title = "GVEC Documentation"
+# add version switcher (only on readthedocs)
+if os.environ.get("READTHEDOCS_VERSION"):
+    html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL")
+    html_theme_options |= {
+        "navbar_start": ["navbar-logo", "version-switcher"],
+        "switcher": {
+            "json_url": "https://gvec.readthedocs.io/latest/_static/version-switcher.json",
+            "version_match": os.environ.get("READTHEDOCS_VERSION"),
+        },
+    }
+
+html_title = "GVEC"
 html_last_updated_fmt = "%Y-%m-%d"
 
 # Add any paths that contain custom static files (such as style sheets) here,

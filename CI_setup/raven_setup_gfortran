@@ -6,7 +6,6 @@
 
 module purge
 module load git
-module load git-lfs
 module load cmake/3.26
 module load gcc
 module load mkl/2023.1

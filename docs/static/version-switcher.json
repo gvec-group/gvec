@@ -1,0 +1,12 @@
+[
+  {
+    "name": "dev",
+    "version": "develop",
+    "url": "https://gvec.readthedocs.io/develop/"
+  },
+  {
+    "name": "v1.0 (main)",
+    "version": "main",
+    "url": "https://gvec.readthedocs.io/main/"
+  }
+]

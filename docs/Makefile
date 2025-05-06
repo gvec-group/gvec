@@ -23,4 +23,4 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 cleanall: clean
-	rm -f generators/parameters-*.md
+	rm -f generators/parameters-*.md generators/quantities.md

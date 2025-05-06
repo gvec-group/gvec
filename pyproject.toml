@@ -49,8 +49,8 @@ license.file = "LICENSE.txt"
 dynamic = ["version"]
 
 [project.urls]
-#Homepage
-Documentation = "https://gvec-group.pages.mpcdf.de/gvec"
+Homepage = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec"
+Documentation = "https://gvec.readthedocs.io/latest"
 Repository = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec"
 Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
