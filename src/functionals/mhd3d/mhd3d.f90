@@ -66,8 +66,9 @@ SUBROUTINE InitMHD3D(sf)
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER          :: i,iMode,nElems
+  INTEGER          :: i,iMode,nElems,n_sgrid_rho
   INTEGER          :: grid_type
+  REAL(wp),ALLOCATABLE :: sgrid_rho(:)
   INTEGER          :: X1X2_deg,X1X2_cont
   INTEGER          :: X1_mn_max(2),X2_mn_max(2)
   INTEGER          :: LA_deg,LA_cont,LA_mn_max(2)
@@ -238,12 +239,19 @@ SUBROUTINE InitMHD3D(sf)
   SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
 
-  nElems   = GETINT("sgrid_nElems")
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
   degGP    = GETINT("degGP",Proposal=MAX(X1X2_deg,LA_deg)+2)
 
   !INITIALIZE GRID
-  CALL sgrid%init(nElems,grid_type)
+  IF (grid_type.NE.GRID_TYPE_CUSTOM) THEN
+    nElems   = GETINT("sgrid_nElems")
+    CALL sgrid%init(nElems,grid_type)
+  ELSE
+    CALL GETREALALLOCARRAY("sgrid_rho", sgrid_rho, n_sgrid_rho)
+    nElems = n_sgrid_rho - 1
+    CALL sgrid%init(nElems,grid_type,sgrid_rho)
+    SDEALLOCATE(sgrid_rho)
+  END IF
 
   !INITIALIZE BASE        !sbase parameter                 !fbase parameter               ...exclude_mn_zero
   CALL base_new(X1_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1_mn_max,mn_nyq,nfp_loc,X1_sin_cos,.FALSE.)
