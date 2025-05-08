@@ -332,7 +332,6 @@ IMPLICIT NONE
   DEALLOCATE(LA_r)
   DEALLOCATE(profiles_1d)
   CALL sgrid_r%free()
-  CALL hmap_r%free()
   CALL sbase_prof%free()
   CALL X1_base_r%free()
   CALL X2_base_r%free()

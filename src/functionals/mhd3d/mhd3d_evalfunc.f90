@@ -231,7 +231,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
 ! MODULES
   USE MODgvec_MPI             , ONLY: par_AllReduce
   USE MODgvec_Globals         , ONLY: n_warnings_occured,myRank
-  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap
+  USE MODgvec_MHD3D_vars      , ONLY: X1_base,X2_base,LA_base,hmap,hmap_auxvar
   USE MODgvec_sol_var_MHD3D   , ONLY: t_sol_var_MHD3D
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -274,8 +274,7 @@ SUBROUTINE EvalAux(Uin,JacCheck)
   __PERFOFF('EvalDOF_1')
 
   __PERFON('eval_hmap')
-  !CALL eval_hmap(X1_IP_GP,X2_IP_GP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta)
-  CALL hmap%eval_all((/X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2),nGP_end-nGP_str+1/),2,X1_base%f%zeta_IP, &
+  CALL hmap%eval_all((/X1_base%f%mn_nyq(1),X1_base%f%mn_nyq(2),nGP_end-nGP_str+1/),2,hmap_auxvar, &
                      X1_IP_GP,X2_IP_GP,dX1_dthet,dX2_dthet,dX1_dzeta,dX2_dzeta, &
                      J_h,   g_tt, g_tz,g_zz, &
                      Jh_dq1,gtt_dq1,gtz_dq1,gzz_dq1, &

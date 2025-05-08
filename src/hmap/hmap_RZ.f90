@@ -14,11 +14,14 @@
 MODULE MODgvec_hmap_RZ
 ! MODULES
 USE MODgvec_Globals, ONLY:PI,wp,Unit_stdOut,abort,MPIRoot
-USE MODgvec_c_hmap,    ONLY:c_hmap
+USE MODgvec_c_hmap,    ONLY:c_hmap, c_hmap_auxvar
 IMPLICIT NONE
 
 PUBLIC
 
+TYPE,EXTENDS(c_hmap_auxvar) :: t_hmap_RZ_auxvar
+  !nothing more to add for RZ hmap
+END TYPE t_hmap_RZ_auxvar
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_RZ
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -29,41 +32,71 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_RZ
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
 
-  PROCEDURE :: init          => hmap_RZ_init
-  PROCEDURE :: free          => hmap_RZ_free
-  PROCEDURE :: eval_all      => hmap_RZ_eval_all
-  PROCEDURE :: eval          => hmap_RZ_eval
-  PROCEDURE :: eval_dxdq     => hmap_RZ_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_RZ_eval_Jh
-  PROCEDURE :: eval_Jh_dq1   => hmap_RZ_eval_Jh_dq1
-  PROCEDURE :: eval_Jh_dq2   => hmap_RZ_eval_Jh_dq2
-  PROCEDURE :: eval_gij      => hmap_RZ_eval_gij
-  PROCEDURE :: eval_gij_dq1  => hmap_RZ_eval_gij_dq1
-  PROCEDURE :: eval_gij_dq2  => hmap_RZ_eval_gij_dq2
+  FINAL     :: hmap_RZ_free
+  PROCEDURE :: init_aux         => hmap_RZ_init_aux
+  PROCEDURE :: eval_all         => hmap_RZ_eval_all
+  PROCEDURE :: eval_pw          => hmap_RZ_eval
+  PROCEDURE :: eval_dxdq_pw     => hmap_RZ_eval_dxdq
+  PROCEDURE :: eval_Jh_pw       => hmap_RZ_eval_Jh
+  PROCEDURE :: eval_Jh_dq1_pw   => hmap_RZ_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2_pw   => hmap_RZ_eval_Jh_dq2
+  PROCEDURE :: eval_gij_pw      => hmap_RZ_eval_gij
+  PROCEDURE :: eval_gij_dq1_pw  => hmap_RZ_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq2_pw  => hmap_RZ_eval_gij_dq2
+
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_RZ
+
+!INITIALIZATION FUNCTION:
+INTERFACE t_hmap_RZ
+  MODULE PROCEDURE hmap_RZ_init
+END INTERFACE t_hmap_RZ
 
 LOGICAL :: test_called=.FALSE.
 
 !===================================================================================================================================
 
+
+
 CONTAINS
+
+!===================================================================================================================================
+!> Allocate and initialize auxiliary variable array, of the same size as the set of zeta points given.
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_RZ_init_aux( sf,zeta,auxvar)
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp),INTENT(IN) :: zeta(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::auxvar(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: i,nzeta
+!===================================================================================================================================
+  nzeta=SIZE(zeta)
+  ALLOCATE(t_hmap_RZ_auxvar::auxvar(nzeta))
+  SELECT TYPE(auxvar)
+  TYPE IS(t_hmap_RZ_auxvar)
+  DO i=1,nzeta
+    auxvar(i)%zeta=zeta(i)
+  END DO
+  END SELECT
+END SUBROUTINE hmap_RZ_init_aux
 
 
 !===================================================================================================================================
 !> initialize the type hmap_RZ with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_RZ_init( sf)
-! MODULES
+FUNCTION hmap_RZ_init() RESULT(sf)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  TYPE(t_hmap_RZ)  :: sf !! self
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: TORUS WITH X1:=R, X2:=Z, zeta := toroidal angle  ...'
 
@@ -71,7 +104,7 @@ IMPLICIT NONE
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
   IF(.NOT.test_called) CALL hmap_RZ_test(sf)
 
-END SUBROUTINE hmap_RZ_init
+END FUNCTION hmap_RZ_init
 
 
 !===================================================================================================================================
@@ -79,15 +112,10 @@ END SUBROUTINE hmap_RZ_init
 !!
 !===================================================================================================================================
 SUBROUTINE hmap_RZ_free( sf )
-! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  TYPE(t_hmap_RZ), INTENT(INOUT) :: sf !! self
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
 
@@ -101,20 +129,19 @@ END SUBROUTINE hmap_RZ_free
 !> evaluate all metrics necesseray for optimizer
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_RZ_eval_all(sf,ndims,dim_zeta,zeta,&
+SUBROUTINE hmap_RZ_eval_all(sf,ndims,dim_zeta,auxvar,&
                             q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                             Jh,    g_tt,    g_tz,    g_zz,&
                             Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                             Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                             g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
-! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_RZ)    , INTENT(INOUT):: sf
   INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
-  REAL(wp)            , INTENT(IN)   :: zeta(ndims(dim_zeta))  !! zeta point positions
+  CLASS(c_hmap_auxvar), INTENT(IN)   :: auxvar(ndims(dim_zeta))  !! zeta point positions
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -148,22 +175,18 @@ PURE SUBROUTINE hmap_RZ_eval_all_e(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                    Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                    Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                    g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
-! MODULES
   IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
   REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
   REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2
   REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
   REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
   REAL(wp),INTENT(OUT) :: Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1  !! and their variation vs q1
   REAL(wp),INTENT(OUT) :: Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  !! and their variation vs q2
   REAL(wp),INTENT(OUT) :: g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  !! dq^{i}/dtheta*G^{i1}, dq^{i}/dtheta*G^{i2}, and dq^{i}/dzeta*G^{i1}, dq^{i}/dzeta*G^{i2} and G^{11},G^{22}
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  !REAL(wp) :: Gh21,Gh31,Gh32,Gh33
 !===================================================================================================================================
 
   Gh11=1.0_wp
@@ -200,18 +223,15 @@ END SUBROUTINE hmap_RZ_eval_all_e
 !> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) cartesian
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval( sf ,q_in) RESULT(x_out)
-! MODULES
+PURE FUNCTION hmap_RZ_eval( sf ,q_in) RESULT(x_out)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
+  REAL(wp)        , INTENT(IN) :: q_in(3)
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: x_out(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  REAL(wp)                     :: x_out(3)
 !===================================================================================================================================
   !  q= (R,Z,zeta)
   ! |x |  | R*cos(zeta) |
@@ -225,26 +245,56 @@ IMPLICIT NONE
   END ASSOCIATE
 END FUNCTION hmap_RZ_eval
 
+
+!===================================================================================================================================
+!> evaluate the mapping h (X^1,X^2,zeta) -> (x,y,z) cartesian
+!! INFO: overwrites default routine hmap_eval_aux from c_hmap.f90
+!!
+!===================================================================================================================================
+PURE FUNCTION hmap_RZ_eval_aux( sf ,q1,q2,auxvar) RESULT(x_out)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+    CLASS(t_hmap_RZ)    ,INTENT(IN) :: sf
+    REAL(wp)            ,INTENT(IN) :: q1,q2
+    CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar !only used for zeta
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    REAL(wp)                        :: x_out(3)
+  !===================================================================================================================================
+    !  q= (R,Z,zeta)
+    ! |x |  | R*cos(zeta) |
+    ! |y |= |-R*sin(zeta) |
+    ! |z |  | Z           |
+
+    SELECT TYPE(auxvar)
+    TYPE IS(t_hmap_RZ_auxvar)
+    x_out(1:3)=(/ q1*COS(auxvar%zeta), &
+                 -q1*SIN(auxvar%zeta), &
+                  q2           /)
+    END SELECT
+  END FUNCTION hmap_RZ_eval_aux
+
 !===================================================================================================================================
 !> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
 !! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
-  REAL(wp)        , INTENT(IN   ) :: q_vec(3)
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: dxdq_qvec(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+PURE FUNCTION hmap_RZ_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: q_in(3)
+  REAL(wp)        , INTENT(IN) :: q_vec(3)
+
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)                     :: dxdq_qvec(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
   REAL(wp) :: coszeta,sinzeta
-!===================================================================================================================================
+  !===================================================================================================================================
   !  dxdq_qvec=
   ! |  cos(zeta)  0  -q^1 sin(zeta) | |q_vec(1) |
   ! | -sin(zeta)  0  -q^1 cos(zeta) | |q_vec(2) |
@@ -263,17 +313,16 @@ END FUNCTION hmap_RZ_eval_dxdq
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval_Jh( sf ,q_in) RESULT(Jh)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh
-!===================================================================================================================================
+PURE FUNCTION hmap_RZ_eval_Jh( sf ,q_in) RESULT(Jh)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)                     :: Jh
+  !===================================================================================================================================
   !  q= (R,Z,zeta)
   Jh=q_in(1)
 END FUNCTION hmap_RZ_eval_Jh
@@ -283,17 +332,16 @@ END FUNCTION hmap_RZ_eval_Jh
 !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq1
-!===================================================================================================================================
+PURE FUNCTION hmap_RZ_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)                     :: Jh_dq1
+  !===================================================================================================================================
   !  q= (R,Z,zeta)
   Jh_dq1 = 1.0_wp !dJ_h / dR
 END FUNCTION hmap_RZ_eval_Jh_dq1
@@ -302,17 +350,16 @@ END FUNCTION hmap_RZ_eval_Jh_dq1
 !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: q_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq2
-!===================================================================================================================================
+PURE FUNCTION hmap_RZ_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)                     :: Jh_dq2
+  !===================================================================================================================================
   !  q= (R,Z,zeta)
   Jh_dq2 = 0.0_wp !dJ_h / dZ
 END FUNCTION hmap_RZ_eval_Jh_dq2
@@ -321,20 +368,21 @@ END FUNCTION hmap_RZ_eval_Jh_dq2
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)        , INTENT(IN   ) :: q_G(3)
-  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: g_ab
-!===================================================================================================================================
+PURE FUNCTION hmap_RZ_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: qL_in(3)
+  REAL(wp)        , INTENT(IN) :: q_G(3)
+  REAL(wp)        , INTENT(IN) :: qR_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)                     :: g_ab
+  !===================================================================================================================================
   !                       |R   |   |1  0  0   |        |R   |
   !q_i G_ij q_j = (dalpha |Z   | ) |0  1  0   | (dbeta |Z   | )
   !                       |zeta|   |0  0  R^2 |        |zeta|
@@ -346,18 +394,18 @@ END FUNCTION hmap_RZ_eval_gij
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)        , INTENT(IN   ) :: q_G(3)
-  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: g_ab_dq1
-!===================================================================================================================================
+PURE FUNCTION hmap_RZ_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: qL_in(3)
+  REAL(wp)        , INTENT(IN) :: q_G(3)
+  REAL(wp)        , INTENT(IN) :: qR_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)                     :: g_ab_dq1
+  !===================================================================================================================================
   !                            |R   |   |0  0  0   |        |R   |
   !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0   | (dbeta |Z   | )
   !                            |zeta|   |0  0  2*R |        |zeta|
@@ -369,17 +417,17 @@ END FUNCTION hmap_RZ_eval_gij_dq1
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_RZ_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
-  CLASS(t_hmap_RZ), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)        , INTENT(IN   ) :: q_G(3)
-  REAL(wp)        , INTENT(IN   ) :: qR_in(3)
+PURE FUNCTION hmap_RZ_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: qL_in(3)
+  REAL(wp)        , INTENT(IN) :: q_G(3)
+  REAL(wp)        , INTENT(IN) :: qR_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: g_ab_dq2
+  REAL(wp)                     :: g_ab_dq2
 !===================================================================================================================================
   !                            |R   |   |0  0  0  |        |R   |
   !q_i dG_ij/dq1 q_j = (dalpha |Z   | ) |0  0  0  | (dbeta |Z   | ) =0
@@ -416,7 +464,8 @@ IMPLICIT NONE
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
-!===================================================================================================================================
+  CLASS(c_hmap_auxvar),ALLOCATABLE :: auxvar(:)
+  !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
   IF(testdbg) THEN
@@ -471,6 +520,7 @@ IMPLICIT NONE
       ndims(idir)=nzeta
       ndims(jdir)=ns
       ndims(kdir)=nthet
+      CALL sf%init_aux(zeta,auxvar)
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)
@@ -483,7 +533,7 @@ IMPLICIT NONE
         dX1_dz(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
         dX2_dz(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
       END DO; END DO; END DO
-      CALL sf%eval_all(ndims,idir,zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+      CALL sf%eval_all(ndims,idir,auxvar,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
            Jh,g_tt,g_tz,g_zz,&
            Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
            Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,&
@@ -695,6 +745,7 @@ IMPLICIT NONE
       END IF
 
       DEALLOCATE(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+      DEALLOCATE(auxvar)
     END DO !idir
  END IF
 

@@ -13,7 +13,7 @@
 !===================================================================================================================================
 MODULE MODgvec_hmap
 ! MODULES
-USE MODgvec_c_hmap    , ONLY: c_hmap
+USE MODgvec_c_hmap    , ONLY: c_hmap,c_hmap_auxvar
 IMPLICIT NONE
 PUBLIC
 
@@ -28,8 +28,8 @@ SUBROUTINE hmap_new( sf, which_hmap,hmap_in)
 ! MODULES
 USE MODgvec_Globals   , ONLY: abort
 USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ
-USE MODgvec_hmap_knot , ONLY: t_hmap_knot
 USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl
+USE MODgvec_hmap_knot , ONLY: t_hmap_knot
 USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet
 USE MODgvec_hmap_axisNB,ONLY: t_hmap_axisNB
 IMPLICIT NONE
@@ -40,29 +40,26 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_hmap),ALLOCATABLE,INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT. PRESENT(hmap_in))THEN
     SELECT CASE(which_hmap)
     CASE(1)
-      ALLOCATE(t_hmap_RZ :: sf)
+      sf=t_hmap_RZ()
     !CASE(2)
     !  ALLOCATE(t_hmap_RphiZ :: sf)
     CASE(3)
-      ALLOCATE(t_hmap_cyl :: sf)
+      sf=t_hmap_cyl()
     CASE(10)
-      ALLOCATE(t_hmap_knot :: sf)
+      sf=t_hmap_knot()
     CASE(20)
-      ALLOCATE(t_hmap_frenet :: sf)
+      sf=t_hmap_frenet()
     CASE(21)
-      ALLOCATE(t_hmap_axisNB :: sf)
+      sf=t_hmap_axisNB()
     CASE DEFAULT
       CALL abort(__STAMP__, &
            "this hmap choice does not exist  !")
     END SELECT
     sf%which_hmap=which_hmap
-    CALL sf%init()
   ELSE
     IF(which_hmap.NE.hmap_in%which_hmap) CALL abort(__STAMP__, &
        "hmap_in does not coincide with requested hmap in hmap_new")

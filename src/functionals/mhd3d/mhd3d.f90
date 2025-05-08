@@ -258,6 +258,8 @@ SUBROUTINE InitMHD3D(sf)
   CALL base_new(X2_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X2_mn_max,mn_nyq,nfp_loc,X2_sin_cos,.FALSE.)
   CALL base_new(LA_base  ,   LA_deg,  LA_cont,sgrid,degGP , LA_mn_max,mn_nyq,nfp_loc,LA_sin_cos,.TRUE. )
 
+  CALL hmap%init_aux(X1_base%f%zeta_IP,hmap_auxvar)
+
   IF((which_init.EQ.1).AND.MPIroot) THEN !VMEC
     IF(lasym)THEN
       IF((X1_base%f%sin_cos.NE._SINCOS_).OR. &
@@ -1544,8 +1546,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   CALL FinalizeMHD3D_EvalFunc()
   IF(which_init.EQ.1) CALL FinalizeVMEC()
 
-  CALL hmap%free()
   SDEALLOCATE(hmap)
+  SDEALLOCATE(hmap_auxvar)
 
   SDEALLOCATE(X1_base)
   SDEALLOCATE(X2_base)

@@ -23,7 +23,7 @@
 MODULE MODgvec_hmap_axisNB
 ! MODULES
 USE MODgvec_Globals, ONLY:PI,TWOPI,CROSS,wp,Unit_stdOut,abort,MPIroot
-USE MODgvec_c_hmap,    ONLY:c_hmap
+USE MODgvec_c_hmap,    ONLY:c_hmap, c_hmap_auxvar
 USE MODgvec_fBase   ,ONLY: t_fbase
 USE MODgvec_io_netcdf   ,ONLY: t_ncfile
 IMPLICIT NONE
@@ -34,22 +34,14 @@ PUBLIC
 !---------------------------------------------------------------------------------------------------------------------------------
 !> Store data that can be precomputed on a set ot zeta points
 !> depends on hmap_axisNB, but could be used for different point sets in zeta
-!
-TYPE t_aux_var
+TYPE,EXTENDS(c_hmap_auxvar) :: t_hmap_axisNB_auxvar
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,NxB    !! Position,Tangent,Normal,Bi-Normal and N',B'
   REAL(wp)              :: BB,NN,NB,BpN,BpB,NpN,NpB !!dot-products of above vectors, size(nzeta_eval)
-END TYPE t_aux_var
-
-TYPE :: t_hmap_axisNB_aux
-  INTEGER :: nzeta    !! size of zeta point positions
-  REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions, size(1:nzeta_eval)
-  TYPE(t_aux_var),ALLOCATABLE :: var(:)
-END TYPE t_hmap_axisNB_aux
+END TYPE t_hmap_axisNB_auxvar
 
 TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   !---------------------------------------------------------------------------------------------------------------------------------
   LOGICAL  :: initialized=.FALSE.
-  LOGICAL  :: aux_initialized=.FALSE.
   !---------------------------------------------------------------------------------------------------------------------------------
   ! parameters for hmap_axisNB:
   !INTEGER              :: nfp   !! already part of c_hmap. Is overwritten in init!
@@ -71,28 +63,32 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
 
   CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
-  TYPE(t_hmap_axisNB_aux)      :: aux !! container for preevaluations
   TYPE(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
 
 
   CONTAINS
 
-  PROCEDURE :: init          => hmap_axisNB_init
-  PROCEDURE :: free          => hmap_axisNB_free
-  PROCEDURE :: eval_all      => hmap_axisNB_eval_all
-  PROCEDURE :: eval          => hmap_axisNB_eval
-  PROCEDURE :: eval_dxdq     => hmap_axisNB_eval_dxdq
-  PROCEDURE :: eval_Jh       => hmap_axisNB_eval_Jh
-  PROCEDURE :: eval_Jh_dq1   => hmap_axisNB_eval_Jh_dq1
-  PROCEDURE :: eval_Jh_dq2   => hmap_axisNB_eval_Jh_dq2
-  PROCEDURE :: eval_gij      => hmap_axisNB_eval_gij
-  PROCEDURE :: eval_gij_dq1  => hmap_axisNB_eval_gij_dq1
-  PROCEDURE :: eval_gij_dq2  => hmap_axisNB_eval_gij_dq2
+  FINAL     :: hmap_axisNB_free
+  PROCEDURE :: init_aux         => hmap_axisNB_init_aux
+  PROCEDURE :: eval_all         => hmap_axisNB_eval_all
+  PROCEDURE :: eval_pw          => hmap_axisNB_eval
+  PROCEDURE :: eval_dxdq_pw     => hmap_axisNB_eval_dxdq
+  PROCEDURE :: eval_Jh_pw       => hmap_axisNB_eval_Jh
+  PROCEDURE :: eval_Jh_dq1_pw   => hmap_axisNB_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2_pw   => hmap_axisNB_eval_Jh_dq2
+  PROCEDURE :: eval_gij_pw      => hmap_axisNB_eval_gij
+  PROCEDURE :: eval_gij_dq1_pw  => hmap_axisNB_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq2_pw  => hmap_axisNB_eval_gij_dq2
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_axisNB:
-  PROCEDURE :: eval_TNB     => hmap_axisNB_eval_TNB_hat
+  PROCEDURE :: eval_TNB         => hmap_axisNB_eval_TNB_hat
 END TYPE t_hmap_axisNB
+
+!INITIALIZATION FUNCTION:
+INTERFACE t_hmap_axisNB
+  MODULE PROCEDURE hmap_axisNB_init
+END INTERFACE t_hmap_axisNB
 
 LOGICAL :: test_called=.FALSE.
 
@@ -100,29 +96,20 @@ LOGICAL :: test_called=.FALSE.
 
 CONTAINS
 
-! SUBROUTINE init_dummy( sf )
-! IMPLICIT NONE
-!   CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
-!   CALL abort(__STAMP__, &
-!              "dummy init in hmap_axisNB should not be used")
-! END SUBROUTINE init_dummy
-
 !===================================================================================================================================
-!> initialize the type hmap_axisNB with number of elements
+!> initialize the type hmap_axisNB and read "G-frame" from netcdf
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_init( sf )
+FUNCTION hmap_axisNB_init() RESULT(sf)
 ! MODULES
-USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
-USE MODgvec_fbase      ,ONLY: fbase_new
-USE MODgvec_io_netcdf  ,ONLY: ncfile_init
-USE MODgvec_MPI        ,ONLY: par_BCast,par_barrier
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
+  USE MODgvec_fbase      ,ONLY: fbase_new
+  USE MODgvec_io_netcdf  ,ONLY: ncfile_init
+  USE MODgvec_MPI        ,ONLY: par_BCast,par_barrier
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
+  TYPE(t_hmap_axisNB)  :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i
@@ -195,7 +182,6 @@ IMPLICIT NONE
   CALL par_BCast(sf%Nxyz_hat_modes,0)
   CALL par_BCast(sf%Bxyz_hat_modes,0)
 
-  sf%aux%nzeta=0
   sf%initialized=.TRUE.
   CALL par_barrier(afterScreenOut='...DONE')
 
@@ -244,7 +230,7 @@ IMPLICIT NONE
     END DO
   END FUNCTION transform_to_hat
 
-END SUBROUTINE hmap_axisNB_init
+END FUNCTION hmap_axisNB_init
 
 
 
@@ -254,17 +240,12 @@ END SUBROUTINE hmap_axisNB_init
 !===================================================================================================================================
 SUBROUTINE hmap_axisNB_free( sf )
 ! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  TYPE(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
-  CALL hmap_axisNB_free_aux(sf)
 
   SDEALLOCATE(sf%zeta)
   SDEALLOCATE(sf%xyz)
@@ -290,94 +271,47 @@ END SUBROUTINE hmap_axisNB_free
 !> initialize the aux variable
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_init_aux( sf ,zeta_aux)
-  ! MODULES
-    IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
-
-    REAL(wp),INTENT(IN)  :: zeta_aux(:)
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
-    CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
-  !===================================================================================================================================
-  !check if aux is already initialized and if yes,  free aux if zeta differs
-  IF(sf%aux_initialized) THEN
-    IF(sf%aux%nzeta.NE.SIZE(zeta_aux))THEN
-      CALL hmap_axisNB_free_aux(sf)
-    ELSE
-      IF(MAXVAL(ABS(sf%aux%zeta-zeta_aux)).GT.1.0e-12)THEN
-        CALL hmap_axisNB_free_aux(sf)
-      ELSE
-        RETURN !already initialized with same zeta!
-      END IF
-    END IF
-  END IF
-  sf%aux%nzeta=SIZE(zeta_aux)
-  ALLOCATE(sf%aux%zeta(sf%aux%nzeta))
-  sf%aux%zeta=zeta_aux
-  ALLOCATE(sf%aux%var(sf%aux%nzeta))
-  CALL hmap_axisNB_eval_aux(sf)
-  sf%aux_initialized=.TRUE.
-END SUBROUTINE hmap_axisNB_init_aux
-
-!===================================================================================================================================
-!> free the aux variable
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_axisNB_free_aux( sf)
-  ! MODULES
-    IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
-    CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! self
-  !===================================================================================================================================
-    IF(sf%aux_initialized)THEN !ALLOCATED
-      sf%aux%nzeta=0
-      DEALLOCATE(sf%aux%var)
-      DEALLOCATE(sf%aux%zeta)
-      sf%aux_initialized=.FALSE.
-    END IF
-  END SUBROUTINE hmap_axisNB_free_aux
-
-
-!===================================================================================================================================
-!> evaluate the auxiliar variables on the given zeta points
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_aux(sf)
-  ! MODULES
+SUBROUTINE hmap_axisNB_init_aux( sf ,zeta, auxvar)
+! MODULES
   IMPLICIT NONE
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
-    CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf !! sf%aux variables
-  !-----------------------------------------------------------------------------------------------------------------------------------
-  ! LOCAL VARIABLES
-    INTEGER :: izeta
-  !===================================================================================================================================
-!$OMP PARALLEL DO &
-!$OMP   SCHEDULE(STATIC) DEFAULT(NONE) SHARED(sf) PRIVATE(izeta)
-  DO izeta=1,sf%aux%nzeta
-    CALL sf%eval_TNB(sf%aux%zeta(izeta),&
-                     sf%aux%var( izeta)%X0(:),&
-                     sf%aux%var( izeta)%T( :),&
-                     sf%aux%var( izeta)%N( :),&
-                     sf%aux%var( izeta)%B( :),&
-                     sf%aux%var( izeta)%Np(:),&
-                     sf%aux%var( izeta)%Bp(:))
-    sf%aux%var(izeta)%NxB =CROSS(sf%aux%var(izeta)%N( :) ,sf%aux%var(izeta)%B(:))
-    sf%aux%var(izeta)%NN  =SUM(  sf%aux%var(izeta)%N( :)* sf%aux%var(izeta)%N(:))
-    sf%aux%var(izeta)%BB  =SUM(  sf%aux%var(izeta)%B( :)* sf%aux%var(izeta)%B(:))
-    sf%aux%var(izeta)%NB  =SUM(  sf%aux%var(izeta)%N( :)* sf%aux%var(izeta)%B(:))
-    sf%aux%var(izeta)%NpN =SUM(  sf%aux%var(izeta)%Np(:)* sf%aux%var(izeta)%N(:))
-    sf%aux%var(izeta)%NpB =SUM(  sf%aux%var(izeta)%Np(:)* sf%aux%var(izeta)%B(:))
-    sf%aux%var(izeta)%BpN =SUM(  sf%aux%var(izeta)%Bp(:)* sf%aux%var(izeta)%N(:))
-    sf%aux%var(izeta)%BpB =SUM(  sf%aux%var(izeta)%Bp(:)* sf%aux%var(izeta)%B(:))
-  END DO !izeta
-!$OMP END PARALLEL DO
-END SUBROUTINE hmap_axisNB_eval_aux
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf !! self (hmap)
+  REAL(wp)            , INTENT(IN) :: zeta(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(c_hmap_auxvar),ALLOCATABLE, INTENT(INOUT) :: auxvar(:) !! auxvar
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: i,nzeta
+!===================================================================================================================================
+  nzeta=SIZE(zeta)
+  ALLOCATE(t_hmap_axisNB_auxvar:: auxvar(nzeta))
+  SELECT TYPE(auxvar)
+  TYPE IS(t_hmap_axisNB_auxvar)
+    !$OMP PARALLEL DO &
+    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
+    DO i=1,nzeta
+      auxvar(i)%zeta=zeta(i)
+      CALL sf%eval_TNB(auxvar(i)%zeta,&
+                       auxvar(i)%X0(:),&
+                       auxvar(i)%T( :),&
+                       auxvar(i)%N( :),&
+                       auxvar(i)%B( :),&
+                       auxvar(i)%Np(:),&
+                       auxvar(i)%Bp(:))
+      auxvar(i)%NxB =CROSS(auxvar(i)%N( :) ,auxvar(i)%B(:))
+      auxvar(i)%NN  =SUM(  auxvar(i)%N( :)* auxvar(i)%N(:))
+      auxvar(i)%BB  =SUM(  auxvar(i)%B( :)* auxvar(i)%B(:))
+      auxvar(i)%NB  =SUM(  auxvar(i)%N( :)* auxvar(i)%B(:))
+      auxvar(i)%NpN =SUM(  auxvar(i)%Np(:)* auxvar(i)%N(:))
+      auxvar(i)%NpB =SUM(  auxvar(i)%Np(:)* auxvar(i)%B(:))
+      auxvar(i)%BpN =SUM(  auxvar(i)%Bp(:)* auxvar(i)%N(:))
+      auxvar(i)%BpB =SUM(  auxvar(i)%Bp(:)* auxvar(i)%B(:))
+    END DO !i
+    !$OMP END PARALLEL DO
+  END SELECT
+END SUBROUTINE hmap_axisNB_init_aux
 
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
@@ -637,11 +571,11 @@ FUNCTION hmap_axisNB_eval( sf ,q_in) RESULT(x_out)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp)        , INTENT(IN   )   :: q_in(3)
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
+  REAL(wp)            , INTENT(IN) :: q_in(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                          :: x_out(3)
+  REAL(wp)                         :: x_out(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
@@ -670,12 +604,12 @@ FUNCTION hmap_axisNB_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp)          , INTENT(IN   ) :: q_in(3)
-  REAL(wp)          , INTENT(IN   ) :: q_vec(3)
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
+  REAL(wp)            , INTENT(IN) :: q_in(3)
+  REAL(wp)            , INTENT(IN) :: q_vec(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: dxdq_qvec(3)
+  REAL(wp)                         :: dxdq_qvec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
@@ -694,41 +628,41 @@ END FUNCTION hmap_axisNB_eval_dxdq
 
 
 !===================================================================================================================================
-!> evaluate all metrics necesseray for optimizer
+!> evaluate all metrics necessary for optimizer
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,zeta,&
+SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,auxvar,&
                                 q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                 Jh,    g_tt,    g_tz,    g_zz,&
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                 g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+  ! MODULES
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(INOUT):: sf
   INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
-  REAL(wp)            , INTENT(IN)   :: zeta(ndims(dim_zeta))  !! zeta point positions
+  CLASS(c_hmap_auxvar), INTENT(IN)   :: auxvar(ndims(dim_zeta))  !! zeta point positions
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT):: Jh,g_tt    ,g_tz    ,g_zz    , &
                                                                Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
   INTEGER :: i,j,k
   !===================================================================================================================================
-  !allocate aux and fills aux%var(:) with data
-  IF(.NOT.sf%aux_initialized) CALL hmap_axisNB_init_aux(sf,zeta)
+  SELECT TYPE(auxvar)
+  TYPE IS(t_hmap_axisNB_auxvar)
   SELECT CASE(dim_zeta)
   CASE(1)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
     DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_axisNB_eval_all_e(sf%aux%var(i), &
+      CALL hmap_axisNB_eval_all_e(auxvar(i), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
@@ -739,7 +673,7 @@ IMPLICIT NONE
   CASE(2)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
     DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_axisNB_eval_all_e(sf%aux%var(j), &
+      CALL hmap_axisNB_eval_all_e(auxvar(j), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
@@ -750,7 +684,7 @@ IMPLICIT NONE
   CASE(3)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
     DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_axisNB_eval_all_e(sf%aux%var(k), &
+      CALL hmap_axisNB_eval_all_e(auxvar(k), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
@@ -758,8 +692,8 @@ IMPLICIT NONE
                g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
     END DO; END DO; END DO
     !$OMP END PARALLEL DO
-  END SELECT
-
+  END SELECT !dim_zeta
+  END SELECT !TYPE(auxvar)
 END SUBROUTINE hmap_axisNB_eval_all
 
 !===================================================================================================================================
@@ -771,25 +705,27 @@ PURE SUBROUTINE hmap_axisNB_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                        Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                        Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                        g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
-! MODULES
+  ! MODULES
   IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  TYPE(t_aux_var),INTENT(IN) :: xv    !! precomputed auxiliary variables
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv    !! precomputed auxiliary variables
   REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
   REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2
   REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
   REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
   REAL(wp),INTENT(OUT) :: Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1  !! and their variation vs q1
   REAL(wp),INTENT(OUT) :: Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  !! and their variation vs q2
   REAL(wp),INTENT(OUT) :: g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  !! dq^{i}/dtheta*G^{i1}, dq^{i}/dtheta*G^{i2}, and dq^{i}/dzeta*G^{i1}, dq^{i}/dzeta*G^{i2} and G^{11},G^{22}
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
   REAL(wp) :: Gh21,Gh31,Gh32,Gh33
   REAL(wp) :: Tq(3)
-!===================================================================================================================================
+  !===================================================================================================================================
+  SELECT TYPE(xv)
+  TYPE IS(t_hmap_axisNB_auxvar)
   ASSOCIATE(  T=>xv%T(:),  N=>xv%N(:),  B=>xv%B(:), Np=>xv%Np(:), Bp=>xv%Bp(:), NxB=>xv%NxB(:),&
              NN=>xv%NN  , BB=>xv%BB  , NB=>xv%NB  ,NpN=>xv%NpN  , &
             NpB=>xv%NpB, BpN=>xv%BpN ,BpB=>xv%BpB   )
@@ -831,6 +767,7 @@ PURE SUBROUTINE hmap_axisNB_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
   g_zz_dq1 = 2.0_wp*(SUM(Np(:)*Tq(:)) + NpN* dX1_dz + NpB* dX2_dz )
   g_zz_dq2 = 2.0_wp*(SUM(Bp(:)*Tq(:)) + BpN* dX1_dz + BpB* dX2_dz )
   END ASSOCIATE
+  END SELECT !Type(xv)
 END SUBROUTINE hmap_axisNB_eval_all_e
 
 
@@ -844,11 +781,11 @@ FUNCTION hmap_axisNB_eval_Jh( sf ,q_in) RESULT(Jh)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
-  REAL(wp)        , INTENT(IN   )   :: q_in(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                          :: Jh
+  REAL(wp)                         :: Jh
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
@@ -872,11 +809,11 @@ FUNCTION hmap_axisNB_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
-  REAL(wp)          , INTENT(IN   ) :: q_in(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                          :: Jh_dq1
+  REAL(wp)                         :: Jh_dq1
 !-----------------------------------------------------------------------------------------------------------------------------------
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
@@ -896,11 +833,11 @@ FUNCTION hmap_axisNB_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
-  REAL(wp)          , INTENT(IN   ) :: q_in(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                          :: Jh_dq2
+  REAL(wp)                         :: Jh_dq2
 !-----------------------------------------------------------------------------------------------------------------------------------
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
 !===================================================================================================================================
@@ -914,19 +851,19 @@ END FUNCTION hmap_axisNB_eval_Jh_dq2
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
-  REAL(wp)          , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)          , INTENT(IN   ) :: q_G(3)
-  REAL(wp)          , INTENT(IN   ) :: qR_in(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: qL_in(3)
+  REAL(wp)            , INTENT(IN) :: q_G(3)
+  REAL(wp)            , INTENT(IN) :: qR_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                          :: g_ab
+  REAL(wp)                         :: g_ab
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
@@ -952,17 +889,17 @@ END FUNCTION hmap_axisNB_eval_gij
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
-  REAL(wp)           , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)           , INTENT(IN   ) :: q_G(3)
-  REAL(wp)           , INTENT(IN   ) :: qR_in(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: qL_in(3)
+  REAL(wp)            , INTENT(IN) :: q_G(3)
+  REAL(wp)            , INTENT(IN) :: qR_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                           :: g_ab_dq1
+  REAL(wp)                         :: g_ab_dq1
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
@@ -986,14 +923,14 @@ END FUNCTION hmap_axisNB_eval_gij_dq1
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
-  CLASS(t_hmap_axisNB), INTENT(INOUT) :: sf
-  REAL(wp)          , INTENT(IN   ) :: qL_in(3)
-  REAL(wp)          , INTENT(IN   ) :: q_G(3)
-  REAL(wp)          , INTENT(IN   ) :: qR_in(3)
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: qL_in(3)
+  REAL(wp)            , INTENT(IN) :: q_G(3)
+  REAL(wp)            , INTENT(IN) :: qR_in(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                          :: g_ab_dq2
@@ -1114,6 +1051,7 @@ IMPLICIT NONE
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
+  CLASS(c_hmap_auxvar),ALLOCATABLE :: auxvar(:)
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -1260,6 +1198,7 @@ IMPLICIT NONE
       DO izeta=1,ndims(idir)
         zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
       END DO
+      CALL sf%init_aux(zeta,auxvar)
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)
@@ -1272,12 +1211,11 @@ IMPLICIT NONE
         dX1_dz(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
         dX2_dz(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
       END DO; END DO; END DO
-      CALL sf%eval_all(ndims,idir,zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+      CALL sf%eval_all(ndims,idir,auxvar,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
            Jh,g_tt,g_tz,g_zz,&
            Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
            Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,&
            g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
-      CALL hmap_axisNB_free_aux(sf) !force reinitialization
       DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
         ijk=(/i,j,k/)
         izeta=ijk(idir)
@@ -1487,6 +1425,7 @@ IMPLICIT NONE
       DEALLOCATE(zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                  Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
                  Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+      DEALLOCATE(auxvar)
     END DO !idir
  END IF
 
