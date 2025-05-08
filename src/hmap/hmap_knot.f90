@@ -54,7 +54,7 @@ END TYPE t_hmap_knot
 
 !INITIALIZATION FUNCTION:
 INTERFACE t_hmap_knot
-  MODULE PROCEDURE hmap_knot_init
+  MODULE PROCEDURE hmap_knot_init,hmap_knot_init_params
 END INTERFACE t_hmap_knot
 
 LOGICAL :: test_called=.FALSE.
@@ -65,59 +65,54 @@ CONTAINS
 
 
 !===================================================================================================================================
-!> Allocate and initialize auxiliary variable array, of the same size as the set of zeta points given.
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_knot_init_aux( sf,zeta,auxvar)
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_knot), INTENT(IN) :: sf
-  REAL(wp),INTENT(IN) :: zeta(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::auxvar(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER :: i,nzeta
-!===================================================================================================================================
-  nzeta=SIZE(zeta)
-  ALLOCATE(t_hmap_knot_auxvar::auxvar(nzeta))
-  SELECT TYPE(auxvar)
-  TYPE IS(t_hmap_knot_auxvar)
-  DO i=1,nzeta
-    auxvar(i)%zeta=zeta(i)
-  END DO
-  END SELECT
-END SUBROUTINE hmap_knot_init_aux
-
-
-!===================================================================================================================================
-!> initialize the type hmap_knot with number of elements
+!> initialize the type hmap_knot, reading from parameter file and then call init_params
 !!
 !===================================================================================================================================
 FUNCTION hmap_knot_init() RESULT(sf)
+  ! MODULES
+    USE MODgvec_ReadInTools, ONLY: GETINTARRAY, GETREAL
+    IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    TYPE(t_hmap_knot) :: sf !! self
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    INTEGER                           :: knot_kl(1:2)         !parameters of the (k,l)-torus
+    REAL(wp)                          :: knot_R0, knot_delta    !major radius and shift
+  !===================================================================================================================================
+    SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ON A (k,l)-TORUS, GET PARAMETERS:'
+
+    knot_kl=GETINTARRAY("hmap_knot_kl",2,proposal=(/2,3/))
+
+    knot_R0=GETREAL("hmap_knot_major_radius",1.0_wp)
+
+
+    knot_delta=GETREAL("hmap_knot_delta_shift",0.4_wp)
+
+    sf=hmap_knot_init_params(knot_kl,knot_R0,knot_delta)
+  END FUNCTION hmap_knot_init
+
+
+!===================================================================================================================================
+!> initialize the type hmap_knot, from given parameters as arguments
+!!
+!===================================================================================================================================
+FUNCTION hmap_knot_init_params(knot_kl,knot_R0,knot_delta) RESULT(sf)
 ! MODULES
-  USE MODgvec_ReadInTools, ONLY: GETINTARRAY, GETREAL
   IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  INTEGER,INTENT(IN)  :: knot_kl(1:2)         !parameters of the (k,l)-torus
+  REAL(wp),INTENT(IN) :: knot_R0, knot_delta    !major radius and shift
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   TYPE(t_hmap_knot) :: sf !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER                           :: knot_kl(1:2)         !parameters of the (k,l)-torus
-  REAL(wp)                          :: knot_R0, knot_delta    !major radius and shift
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: KNOT ON A (k,l)-TORUS ...'
 
-  knot_kl=GETINTARRAY("hmap_knot_kl",2,proposal=(/2,3/))
   sf%k=REAL(knot_kl(1), wp)
   sf%l=REAL(knot_kl(2), wp)
-
-  knot_R0=GETREAL("hmap_knot_major_radius",1.0_wp)
   sf%R0=knot_R0
-
-  knot_delta=GETREAL("hmap_knot_delta_shift",0.4_wp)
   sf%delta=knot_delta
 
   IF (.NOT.((sf%R0 - ABS(sf%delta)) > 0.0_wp)) THEN
@@ -129,7 +124,7 @@ FUNCTION hmap_knot_init() RESULT(sf)
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
   IF(.NOT.test_called) CALL hmap_knot_test(sf)
 
-END FUNCTION hmap_knot_init
+END FUNCTION hmap_knot_init_params
 
 
 !===================================================================================================================================
@@ -155,10 +150,37 @@ END SUBROUTINE hmap_knot_free
 
 
 !===================================================================================================================================
+!> Allocate and initialize auxiliary variable array, of the same size as the set of zeta points given.
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_knot_init_aux( sf,zeta,xv)
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(IN) :: sf
+  REAL(wp),INTENT(IN) :: zeta(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::xv(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: i,nzeta
+!===================================================================================================================================
+  nzeta=SIZE(zeta)
+  ALLOCATE(t_hmap_knot_auxvar::xv(nzeta))
+  SELECT TYPE(xv)
+  TYPE IS(t_hmap_knot_auxvar)
+  DO i=1,nzeta
+    xv(i)%zeta=zeta(i)
+  END DO
+  END SELECT
+END SUBROUTINE hmap_knot_init_aux
+
+!===================================================================================================================================
 !> evaluate all metrics necesseray for optimizer
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_knot_eval_all(sf,ndims,dim_zeta,auxvar,&
+SUBROUTINE hmap_knot_eval_all(sf,ndims,dim_zeta,xv,&
                                 q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                 Jh,    g_tt,    g_tz,    g_zz,&
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
@@ -171,7 +193,7 @@ IMPLICIT NONE
   CLASS(t_hmap_knot)  , INTENT(INOUT):: sf
   INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
-  CLASS(c_hmap_auxvar), INTENT(IN)   :: auxvar(ndims(dim_zeta))  !! zeta point positions
+  CLASS(c_hmap_auxvar), INTENT(IN)   :: xv(ndims(dim_zeta))  !! zeta point positions
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -407,7 +429,7 @@ END FUNCTION hmap_knot_eval_gij_dq2
 !> evaluate the effective major radius coordinate Rl(q)
 !!
 !===================================================================================================================================
-FUNCTION hmap_knot_eval_Rl( sf ,q_in) RESULT(Rl_out)
+PURE FUNCTION hmap_knot_eval_Rl( sf ,q_in) RESULT(Rl_out)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -432,7 +454,7 @@ END FUNCTION hmap_knot_eval_Rl
 !> evaluate the effective vertical coordinate Zl(q)
 !!
 !===================================================================================================================================
-FUNCTION hmap_knot_eval_Zl( sf ,q_in) RESULT(Zl_out)
+PURE FUNCTION hmap_knot_eval_Zl( sf ,q_in) RESULT(Zl_out)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------

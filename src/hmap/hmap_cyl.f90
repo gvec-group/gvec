@@ -49,7 +49,7 @@ END TYPE t_hmap_cyl
 
 !INITIALIZATION FUNCTION:
 INTERFACE t_hmap_cyl
-  MODULE PROCEDURE hmap_cyl_init
+  MODULE PROCEDURE hmap_cyl_init,hmap_cyl_init_params
 END INTERFACE t_hmap_cyl
 
 LOGICAL :: test_called=.FALSE.
@@ -58,36 +58,8 @@ LOGICAL :: test_called=.FALSE.
 
 CONTAINS
 
-
 !===================================================================================================================================
-!> Allocate and initialize auxiliary variable array, of the same size as the set of zeta points given.
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_cyl_init_aux( sf,zeta,auxvar)
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_cyl), INTENT(IN) :: sf
-  REAL(wp),INTENT(IN) :: zeta(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::auxvar(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER :: i,nzeta
-!===================================================================================================================================
-  nzeta=SIZE(zeta)
-  ALLOCATE(t_hmap_cyl_auxvar::auxvar(nzeta))
-  SELECT TYPE(auxvar)
-  TYPE IS(t_hmap_cyl_auxvar)
-  DO i=1,nzeta
-    auxvar(i)%zeta=zeta(i)
-  END DO
-  END SELECT
-END SUBROUTINE hmap_cyl_init_aux
-
-!===================================================================================================================================
-!> initialize the type hmap_cyl with number of elements
+!> initialize the type hmap_cyl, reading from parameterfile and then call init_params
 !!
 !===================================================================================================================================
 FUNCTION hmap_cyl_init() RESULT(sf)
@@ -98,16 +70,41 @@ FUNCTION hmap_cyl_init() RESULT(sf)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   TYPE(t_hmap_cyl) :: sf !! self
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: cyl_len
+!===================================================================================================================================
+  SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: CYLINDER WITH X1:=x, X2:=z, zeta := -2*pi*(y/cyl_len) , GET PARAMETERS:'
+
+  cyl_len=GETREAL("hmap_cyl_len",TWOPI)
+  sf= hmap_cyl_init_params(cyl_len)
+
+END FUNCTION hmap_cyl_init
+
+!===================================================================================================================================
+!> initialize the type hmap_cyl, given the parameters as arguments
+!!
+!===================================================================================================================================
+FUNCTION hmap_cyl_init_params(cyl_len) RESULT(sf)
+  ! MODULES
+  USE MODgvec_Globals, ONLY:TWOPI
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  REAL(wp), INTENT(IN) :: cyl_len !! total length of cylinder
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  TYPE(t_hmap_cyl) :: sf !! self
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: CYLINDER WITH X1:=x, X2:=z, zeta := -2*pi*(y/cyl_len)  ...'
 
-  sf%cyl_len=GETREAL("hmap_cyl_len",TWOPI)/TWOPI
+  sf%cyl_len=cyl_len/TWOPI
 
   sf%initialized=.TRUE.
   SWRITE(UNIT_stdOut,'(4X,A)')'...DONE.'
   IF(.NOT.test_called) CALL hmap_cyl_test(sf)
 
-END FUNCTION hmap_cyl_init
+END FUNCTION hmap_cyl_init_params
 
 
 !===================================================================================================================================
@@ -126,12 +123,38 @@ SUBROUTINE hmap_cyl_free( sf )
 
 END SUBROUTINE hmap_cyl_free
 
+!===================================================================================================================================
+!> Allocate and initialize auxiliary variable array, of the same size as the set of zeta points given.
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_cyl_init_aux( sf,zeta,xv)
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_cyl), INTENT(IN) :: sf
+  REAL(wp),INTENT(IN) :: zeta(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::xv(:)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  INTEGER :: i,nzeta
+!===================================================================================================================================
+  nzeta=SIZE(zeta)
+  ALLOCATE(t_hmap_cyl_auxvar::xv(nzeta))
+  SELECT TYPE(xv)
+  TYPE IS(t_hmap_cyl_auxvar)
+  DO i=1,nzeta
+    xv(i)%zeta=zeta(i)
+  END DO
+  END SELECT
+END SUBROUTINE hmap_cyl_init_aux
 
 !===================================================================================================================================
 !> evaluate all metrics necesseray for optimizer
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_cyl_eval_all(sf,ndims,dim_zeta,auxvar,&
+SUBROUTINE hmap_cyl_eval_all(sf,ndims,dim_zeta,xv,&
                              q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                              Jh,    g_tt,    g_tz,    g_zz,&
                              Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
@@ -144,7 +167,7 @@ SUBROUTINE hmap_cyl_eval_all(sf,ndims,dim_zeta,auxvar,&
   CLASS(t_hmap_cyl)   , INTENT(INOUT) :: sf
   INTEGER             , INTENT(IN   ) :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN   ) :: dim_zeta    !! which dimension is zeta dependent
-  CLASS(c_hmap_auxvar), INTENT(IN   ) :: auxvar(ndims(dim_zeta))  !! zeta point positions
+  CLASS(c_hmap_auxvar), INTENT(IN   ) :: xv(ndims(dim_zeta))  !! zeta point positions
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -425,7 +448,7 @@ IMPLICIT NONE
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
-  CLASS(c_hmap_auxvar),ALLOCATABLE :: auxvar(:)
+  CLASS(c_hmap_auxvar),ALLOCATABLE :: xv(:)
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -480,7 +503,7 @@ IMPLICIT NONE
       ndims(idir)=nzeta
       ndims(jdir)=ns
       ndims(kdir)=nthet
-      CALL sf%init_aux(zeta,auxvar)
+      CALL sf%init_aux(zeta,xv)
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)
@@ -493,7 +516,7 @@ IMPLICIT NONE
         dX1_dz(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
         dX2_dz(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
       END DO; END DO; END DO
-      CALL sf%eval_all(ndims,idir,auxvar,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+      CALL sf%eval_all(ndims,idir,xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
            Jh,g_tt,g_tz,g_zz,&
            Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
            Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,&
@@ -705,7 +728,7 @@ IMPLICIT NONE
       END IF
 
       DEALLOCATE(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
-      DEALLOCATE(auxvar)
+      DEALLOCATE(xv)
     END DO !idir
  END IF
 

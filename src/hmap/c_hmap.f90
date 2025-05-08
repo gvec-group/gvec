@@ -34,45 +34,45 @@ TYPE, ABSTRACT :: c_hmap
     ! eval??_aux: pointwise evaluation, with precomputed auxiliary variables (fast)
     ! eval??_aux_all: evaluation on 1d array of points, with array of precomputed auxiliary variables (fast, with omp parallel loop)
     !%eval
-    PROCEDURE(i_fun_hmap_eval       ),DEFERRED,PRIVATE :: eval_pw
-    PROCEDURE                                 ,PRIVATE :: eval_aux     => hmap_eval_aux
-    PROCEDURE                                 ,PRIVATE :: eval_aux_all => hmap_eval_aux_all
-    GENERIC :: eval => eval_pw,eval_aux,eval_aux_all
+    PROCEDURE(i_fun_hmap_eval       ),DEFERRED :: eval_pw
+    PROCEDURE                                  :: eval_aux     => hmap_eval_aux
+    PROCEDURE                                  :: eval_aux_all => hmap_eval_aux_all
+    GENERIC                                    :: eval => eval_pw,eval_aux,eval_aux_all
     !%eval_dxdq
-    PROCEDURE(i_fun_hmap_eval_dxdq  ),DEFERRED,PRIVATE :: eval_dxdq_pw
-    PROCEDURE                                 ,PRIVATE :: eval_dxdq_aux     => hmap_eval_dxdq_aux
-    PROCEDURE                                 ,PRIVATE :: eval_dxdq_aux_all => hmap_eval_dxdq_aux_all
-    GENERIC                                            :: eval_dxdq => eval_dxdq_pw,eval_dxdq_aux,eval_dxdq_aux_all
+    PROCEDURE(i_fun_hmap_eval_dxdq  ),DEFERRED :: eval_dxdq_pw
+    PROCEDURE                                  :: eval_dxdq_aux     => hmap_eval_dxdq_aux
+    PROCEDURE                                  :: eval_dxdq_aux_all => hmap_eval_dxdq_aux_all
+    GENERIC                                    :: eval_dxdq => eval_dxdq_pw,eval_dxdq_aux,eval_dxdq_aux_all
     !%eval_Jh
-    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED,PRIVATE :: eval_Jh_pw
-    PROCEDURE                                 ,PRIVATE :: eval_Jh_aux     => hmap_eval_Jh_aux
-    PROCEDURE                                 ,PRIVATE :: eval_Jh_aux_all => hmap_eval_Jh_aux_all
-    GENERIC                                            :: eval_Jh => eval_Jh_pw,eval_Jh_aux,eval_Jh_aux_all
+    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh_pw
+    PROCEDURE                                  :: eval_Jh_aux     => hmap_eval_Jh_aux
+    PROCEDURE                                  :: eval_Jh_aux_all => hmap_eval_Jh_aux_all
+    GENERIC                                    :: eval_Jh => eval_Jh_pw,eval_Jh_aux,eval_Jh_aux_all
     !eval_Jh_dq1
-    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED,PRIVATE :: eval_Jh_dq1_pw
-    PROCEDURE                                 ,PRIVATE :: eval_Jh_dq1_aux     => hmap_eval_Jh_dq1_aux
-    PROCEDURE                                 ,PRIVATE :: eval_Jh_dq1_aux_all => hmap_eval_Jh_dq1_aux_all
-    GENERIC                                            :: eval_Jh_dq1 => eval_Jh_dq1_pw,eval_Jh_dq1_aux,eval_Jh_dq1_aux_all
+    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh_dq1_pw
+    PROCEDURE                                  :: eval_Jh_dq1_aux     => hmap_eval_Jh_dq1_aux
+    PROCEDURE                                  :: eval_Jh_dq1_aux_all => hmap_eval_Jh_dq1_aux_all
+    GENERIC                                    :: eval_Jh_dq1 => eval_Jh_dq1_pw,eval_Jh_dq1_aux,eval_Jh_dq1_aux_all
     !eval_Jh_dq2
-    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED,PRIVATE :: eval_Jh_dq2_pw
-    PROCEDURE                                 ,PRIVATE :: eval_Jh_dq2_aux     => hmap_eval_Jh_dq2_aux
-    PROCEDURE                                 ,PRIVATE :: eval_Jh_dq2_aux_all => hmap_eval_Jh_dq2_aux_all
-    GENERIC                                            :: eval_Jh_dq2 => eval_Jh_dq2_pw,eval_Jh_dq2_aux,eval_Jh_dq2_aux_all
+    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh_dq2_pw
+    PROCEDURE                                  :: eval_Jh_dq2_aux     => hmap_eval_Jh_dq2_aux
+    PROCEDURE                                  :: eval_Jh_dq2_aux_all => hmap_eval_Jh_dq2_aux_all
+    GENERIC                                    :: eval_Jh_dq2 => eval_Jh_dq2_pw,eval_Jh_dq2_aux,eval_Jh_dq2_aux_all
     !eval_gij
-    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED,PRIVATE :: eval_gij_pw
-    PROCEDURE                                 ,PRIVATE :: eval_gij_aux     => hmap_eval_gij_aux
-    PROCEDURE                                 ,PRIVATE :: eval_gij_aux_all => hmap_eval_gij_aux_all
-    GENERIC                                            :: eval_gij => eval_gij_pw,eval_gij_aux,eval_gij_aux_all
+    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij_pw
+    PROCEDURE                                  :: eval_gij_aux     => hmap_eval_gij_aux
+    PROCEDURE                                  :: eval_gij_aux_all => hmap_eval_gij_aux_all
+    GENERIC                                    :: eval_gij => eval_gij_pw,eval_gij_aux,eval_gij_aux_all
     !eval_gij_dq1
-    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED,PRIVATE :: eval_gij_dq1_pw
-    PROCEDURE                                 ,PRIVATE :: eval_gij_dq1_aux     => hmap_eval_gij_dq1_aux
-    PROCEDURE                                 ,PRIVATE :: eval_gij_dq1_aux_all => hmap_eval_gij_dq1_aux_all
-    GENERIC                                            :: eval_gij_dq1 => eval_gij_dq1_pw,eval_gij_dq1_aux,eval_gij_dq1_aux_all
+    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij_dq1_pw
+    PROCEDURE                                  :: eval_gij_dq1_aux     => hmap_eval_gij_dq1_aux
+    PROCEDURE                                  :: eval_gij_dq1_aux_all => hmap_eval_gij_dq1_aux_all
+    GENERIC                                    :: eval_gij_dq1 => eval_gij_dq1_pw,eval_gij_dq1_aux,eval_gij_dq1_aux_all
     !eval_gij_dq2
-    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED,PRIVATE :: eval_gij_dq2_pw
-    PROCEDURE                                 ,PRIVATE :: eval_gij_dq2_aux     => hmap_eval_gij_dq2_aux
-    PROCEDURE                                 ,PRIVATE :: eval_gij_dq2_aux_all => hmap_eval_gij_dq2_aux_all
-    GENERIC                                            :: eval_gij_dq2 => eval_gij_dq2_pw,eval_gij_dq2_aux,eval_gij_dq2_aux_all
+    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij_dq2_pw
+    PROCEDURE                                  :: eval_gij_dq2_aux     => hmap_eval_gij_dq2_aux
+    PROCEDURE                                  :: eval_gij_dq2_aux_all => hmap_eval_gij_dq2_aux_all
+    GENERIC                                    :: eval_gij_dq2 => eval_gij_dq2_pw,eval_gij_dq2_aux,eval_gij_dq2_aux_all
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE c_hmap
 
@@ -83,14 +83,14 @@ END TYPE c_hmap_auxvar
 
 ABSTRACT INTERFACE
 
-  SUBROUTINE i_sub_hmap_init_aux( sf ,zeta,auxvar)
+  SUBROUTINE i_sub_hmap_init_aux( sf ,zeta,xv)
     IMPORT wp,c_hmap,c_hmap_auxvar
     CLASS(c_hmap), INTENT(IN) :: sf
     REAL(wp),INTENT(IN)       :: zeta(:)
-    CLASS(c_hmap_auxvar),ALLOCATABLE, INTENT(INOUT) :: auxvar(:)
+    CLASS(c_hmap_auxvar),ALLOCATABLE, INTENT(INOUT) :: xv(:)
   END SUBROUTINE i_sub_hmap_init_aux
 
-  SUBROUTINE i_sub_hmap_eval_all(sf,ndims,dim_zeta,auxvar,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+  SUBROUTINE i_sub_hmap_eval_all(sf,ndims,dim_zeta,xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                  Jh,    g_tt,    g_tz,    g_zz,&
                                  Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                  Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
@@ -99,7 +99,7 @@ ABSTRACT INTERFACE
     CLASS(c_hmap), INTENT(INOUT) :: sf
     INTEGER ,INTENT(IN)   :: ndims(3)
     INTEGER ,INTENT(IN)   :: dim_zeta
-    CLASS(c_hmap_auxvar),INTENT(IN)   :: auxvar(ndims(dim_zeta))
+    CLASS(c_hmap_auxvar),INTENT(IN)   :: xv(ndims(dim_zeta))
     REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
     REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT):: Jh,g_tt    ,g_tz    ,g_zz    , &
                                                                  Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
@@ -169,32 +169,32 @@ CONTAINS
 !!       but calling the generic routine eval_pw
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_aux( sf ,q1,q2,auxvar) RESULT(x_out)
+FUNCTION hmap_eval_aux( sf ,q1,q2,xv) RESULT(x_out)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   REAL(wp)            ,INTENT(IN) :: q1,q2
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: x_out(3)
 !===================================================================================================================================
-  x_out=sf%eval((/q1,q2,auxvar%zeta/)) !calls eval_pw
+  x_out=sf%eval_pw((/q1,q2,xv%zeta/))
 END FUNCTION hmap_eval_aux
 
 !===================================================================================================================================
 !> call %eval_aux on 1d array of points of size np, using auxiliary variable array of same size
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(xyz)
+FUNCTION hmap_eval_aux_all( sf ,np,q1_in,q2_in,xv) RESULT(xyz)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: np
   REAL(wp)            ,INTENT(IN) :: q1_in(1:np),q2_in(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: xyz(1:3,1:np)
@@ -204,7 +204,7 @@ FUNCTION hmap_eval_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(xyz)
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    xyz(:,i)=sf%eval(q1_in(i),q2_in(i),auxvar(i)) !calls eval_aux
+    xyz(:,i)=sf%eval_aux(q1_in(i),q2_in(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_aux_all
@@ -218,27 +218,27 @@ END FUNCTION hmap_eval_aux_all
 !!       but calling the generic routine eval_dxdq_pw
 !!
 !===============================================================================================================================
-FUNCTION hmap_eval_dxdq_aux(sf,q1,q2,q1_vec,q2_vec,q3_vec,auxvar) RESULT(dxdq_qvec)
+FUNCTION hmap_eval_dxdq_aux(sf,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(dxdq_qvec)
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   REAL(wp)            ,INTENT(IN) :: q1,q2
   REAL(wp)     , INTENT(IN)       :: q1_vec,q2_vec,q3_vec
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
 
   REAL(wp)                  :: dxdq_qvec(3)
   !===================================================================================================================================
-  dxdq_qvec=sf%eval_dxdq((/q1,q2,auxvar%zeta/),(/q1_vec,q2_vec,q3_vec/)) !calls eval_dxdq_vec) !calls eval_dxdq_pw
+  dxdq_qvec=sf%eval_dxdq_pw((/q1,q2,xv%zeta/),(/q1_vec,q2_vec,q3_vec/))
 END FUNCTION hmap_eval_dxdq_aux
 
 !===================================================================================================================================
 !> call %eval_dxdq_aux on 1d array of points of size np, using auxiliary variable array of same size
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_dxdq_aux_all( sf ,np,q1,q2,q1_vec,q2_vec,q3_vec,auxvar) RESULT(dxdq_qvec)
+FUNCTION hmap_eval_dxdq_aux_all( sf ,np,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(dxdq_qvec)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -246,7 +246,7 @@ FUNCTION hmap_eval_dxdq_aux_all( sf ,np,q1,q2,q1_vec,q2_vec,q3_vec,auxvar) RESUL
   INTEGER             ,INTENT(IN) :: np
   REAL(wp)            ,INTENT(IN) :: q1(1:np),q2(1:np)
   REAL(wp)     , INTENT(IN)       :: q1_vec(1:np),q2_vec(1:np),q3_vec(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: dxdq_qvec(1:3,1:np)
@@ -256,7 +256,7 @@ FUNCTION hmap_eval_dxdq_aux_all( sf ,np,q1,q2,q1_vec,q2_vec,q3_vec,auxvar) RESUL
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    dxdq_qvec(:,i)=sf%eval_dxdq(q1(i),q2(i),q1_vec(i),q2_vec(i),q3_vec(i),auxvar(i)) !calls eval_aux
+    dxdq_qvec(:,i)=sf%eval_dxdq_aux(q1(i),q2(i),q1_vec(i),q2_vec(i),q3_vec(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_dxdq_aux_all
@@ -268,32 +268,32 @@ END FUNCTION hmap_eval_dxdq_aux_all
 !!       but calling the generic routine eval_Jh_pw
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_aux( sf ,q1,q2,auxvar) RESULT(Jh)
+FUNCTION hmap_eval_Jh_aux( sf ,q1,q2,xv) RESULT(Jh)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   REAL(wp)            ,INTENT(IN) :: q1,q2
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh
 !===================================================================================================================================
-  Jh=sf%eval_Jh((/q1,q2,auxvar%zeta/)) !calls eval_Jh_pw
+  Jh=sf%eval_Jh_pw((/q1,q2,xv%zeta/))
 END FUNCTION hmap_eval_Jh_aux
 
 !===================================================================================================================================
 !> call %eval_Jh_aux on 1d array of points of size np, using auxiliary variable array of same size
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(Jh)
+FUNCTION hmap_eval_Jh_aux_all( sf ,np,q1,q2,xv) RESULT(Jh)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: np
-  REAL(wp)            ,INTENT(IN) :: q1_in(1:np),q2_in(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  REAL(wp)            ,INTENT(IN) :: q1(1:np),q2(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh(1:np)
@@ -303,7 +303,7 @@ FUNCTION hmap_eval_Jh_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(Jh)
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    Jh(i)=sf%eval_Jh(q1_in(i),q2_in(i),auxvar(i)) !calls eval_Jh_aux
+    Jh(i)=sf%eval_Jh_aux(q1(i),q2(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_Jh_aux_all
@@ -315,32 +315,32 @@ END FUNCTION hmap_eval_Jh_aux_all
 !!       but calling the generic routine eval_Jh_dq1_pw
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq1_aux( sf ,q1,q2,auxvar) RESULT(Jh_dq1)
+FUNCTION hmap_eval_Jh_dq1_aux( sf ,q1,q2,xv) RESULT(Jh_dq1)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   REAL(wp)            ,INTENT(IN) :: q1,q2
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh_dq1
 !===================================================================================================================================
-  Jh_dq1=sf%eval_Jh_dq1((/q1,q2,auxvar%zeta/)) !calls eval_Jh_dq1_pw
+  Jh_dq1=sf%eval_Jh_dq1_pw((/q1,q2,xv%zeta/))
 END FUNCTION hmap_eval_Jh_dq1_aux
 
 !===================================================================================================================================
 !> call %eval_Jh_dq1_aux on 1d array of points of size np, using auxiliary variable array of same size
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq1_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(Jh_dq1)
+FUNCTION hmap_eval_Jh_dq1_aux_all( sf ,np,q1,q2,xv) RESULT(Jh_dq1)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: np
-  REAL(wp)            ,INTENT(IN) :: q1_in(1:np),q2_in(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  REAL(wp)            ,INTENT(IN) :: q1(1:np),q2(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh_dq1(1:np)
@@ -350,7 +350,7 @@ FUNCTION hmap_eval_Jh_dq1_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(Jh_dq1)
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    Jh_dq1(i)=sf%eval_Jh_dq1(q1_in(i),q2_in(i),auxvar(i)) !calls eval_Jh_dq1_aux
+    Jh_dq1(i)=sf%eval_Jh_dq1_aux(q1(i),q2(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_Jh_dq1_aux_all
@@ -362,32 +362,32 @@ END FUNCTION hmap_eval_Jh_dq1_aux_all
 !!       but calling the generic routine eval_Jh_dq2_pw
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq2_aux( sf ,q1,q2,auxvar) RESULT(Jh_dq2)
+FUNCTION hmap_eval_Jh_dq2_aux( sf ,q1,q2,xv) RESULT(Jh_dq2)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   REAL(wp)            ,INTENT(IN) :: q1,q2
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh_dq2
 !===================================================================================================================================
-  Jh_dq2=sf%eval_Jh_dq2((/q1,q2,auxvar%zeta/)) !calls eval_Jh_dq2_pw
+  Jh_dq2=sf%eval_Jh_dq2_pw((/q1,q2,xv%zeta/))
 END FUNCTION hmap_eval_Jh_dq2_aux
 
 !===================================================================================================================================
 !> call %eval_Jh_dq2_aux on 1d array of points of size np, using auxiliary variable array of same size
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq2_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(Jh_dq2)
+FUNCTION hmap_eval_Jh_dq2_aux_all( sf ,np,q1,q2,xv) RESULT(Jh_dq2)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: np
-  REAL(wp)            ,INTENT(IN) :: q1_in(1:np),q2_in(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  REAL(wp)            ,INTENT(IN) :: q1(1:np),q2(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                        :: Jh_dq2(1:np)
@@ -397,7 +397,7 @@ FUNCTION hmap_eval_Jh_dq2_aux_all( sf ,np,q1_in,q2_in,auxvar) RESULT(Jh_dq2)
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    Jh_dq2(i)=sf%eval_Jh_dq2(q1_in(i),q2_in(i),auxvar(i)) !calls eval_Jh_dq2_aux
+    Jh_dq2(i)=sf%eval_Jh_dq2_aux(q1(i),q2(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_Jh_dq2_aux_all
@@ -411,7 +411,7 @@ END FUNCTION hmap_eval_Jh_dq2_aux_all
 !!       but calling the generic routine eval_gij_pw
 !!
 !===============================================================================================================================
-FUNCTION hmap_eval_gij_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT(g_ab)
+FUNCTION hmap_eval_gij_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -419,15 +419,15 @@ FUNCTION hmap_eval_gij_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT(g_a
   REAL(wp)     , INTENT(IN) :: qL1,qL2,qL3
   REAL(wp)     , INTENT(IN) :: q1,q2
   REAL(wp)     , INTENT(IN) :: qR1,qR2,qR3
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                  :: g_ab
 !===================================================================================================================================
-  g_ab=sf%eval_gij((/qL1,qL2,qL3/),(/q1,q2,auxvar%zeta/),(/qR1,qR2,qR3/)) !calls eval_gij_pw
+  g_ab=sf%eval_gij_pw((/qL1,qL2,qL3/),(/q1,q2,xv%zeta/),(/qR1,qR2,qR3/))
 END FUNCTION hmap_eval_gij_aux
 
-FUNCTION hmap_eval_gij_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT(g_ab)
+FUNCTION hmap_eval_gij_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -436,7 +436,7 @@ FUNCTION hmap_eval_gij_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RES
   REAL(wp)     , INTENT(IN) :: qL1(1:np),qL2(1:np),qL3(1:np)
   REAL(wp)     , INTENT(IN) :: q1(1:np),q2(1:np)
   REAL(wp)     , INTENT(IN) :: qR1(1:np),qR2(1:np),qR3(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                  :: g_ab(1:np)
@@ -446,7 +446,7 @@ FUNCTION hmap_eval_gij_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RES
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    g_ab(i)=sf%eval_gij(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),auxvar(i)) !calls eval_gij_aux
+    g_ab(i)=sf%eval_gij_aux(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_gij_aux_all
@@ -461,7 +461,7 @@ END FUNCTION hmap_eval_gij_aux_all
 !!       but calling the generic routine eval_gij_dq1_pw
 !!
 !===============================================================================================================================
-FUNCTION hmap_eval_gij_dq1_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT(g_ab_dq1)
+FUNCTION hmap_eval_gij_dq1_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq1)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -469,15 +469,15 @@ FUNCTION hmap_eval_gij_dq1_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT
   REAL(wp)     , INTENT(IN) :: qL1,qL2,qL3
   REAL(wp)     , INTENT(IN) :: q1,q2
   REAL(wp)     , INTENT(IN) :: qR1,qR2,qR3
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                  :: g_ab_dq1
 !===================================================================================================================================
-  g_ab_dq1=sf%eval_gij_dq1((/qL1,qL2,qL3/),(/q1,q2,auxvar%zeta/),(/qR1,qR2,qR3/)) !calls eval_gij_dq1_pw
+  g_ab_dq1=sf%eval_gij_dq1_pw((/qL1,qL2,qL3/),(/q1,q2,xv%zeta/),(/qR1,qR2,qR3/))
 END FUNCTION hmap_eval_gij_dq1_aux
 
-FUNCTION hmap_eval_gij_dq1_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT(g_ab_dq1)
+FUNCTION hmap_eval_gij_dq1_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq1)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -486,7 +486,7 @@ FUNCTION hmap_eval_gij_dq1_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar)
   REAL(wp)     , INTENT(IN) :: qL1(1:np),qL2(1:np),qL3(1:np)
   REAL(wp)     , INTENT(IN) :: q1(1:np),q2(1:np)
   REAL(wp)     , INTENT(IN) :: qR1(1:np),qR2(1:np),qR3(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                  :: g_ab_dq1(1:np)
@@ -496,7 +496,7 @@ FUNCTION hmap_eval_gij_dq1_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar)
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    g_ab_dq1(i)=sf%eval_gij_dq1(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),auxvar(i)) !calls eval_gij_dq1_aux
+    g_ab_dq1(i)=sf%eval_gij_dq1_aux(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_gij_dq1_aux_all
@@ -512,7 +512,7 @@ END FUNCTION hmap_eval_gij_dq1_aux_all
 !!       but calling the generic routine eval_gij_dq2_pw
 !!
 !===============================================================================================================================
-FUNCTION hmap_eval_gij_dq2_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT(g_ab_dq2)
+FUNCTION hmap_eval_gij_dq2_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq2)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -520,15 +520,15 @@ FUNCTION hmap_eval_gij_dq2_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT
   REAL(wp)     , INTENT(IN) :: qL1,qL2,qL3
   REAL(wp)     , INTENT(IN) :: q1,q2
   REAL(wp)     , INTENT(IN) :: qR1,qR2,qR3
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                  :: g_ab_dq2
 !===================================================================================================================================
-  g_ab_dq2=sf%eval_gij_dq2((/qL1,qL2,qL3/),(/q1,q2,auxvar%zeta/),(/qR1,qR2,qR3/)) !calls eval_gij_dq2_pw
+  g_ab_dq2=sf%eval_gij_dq2_pw((/qL1,qL2,qL3/),(/q1,q2,xv%zeta/),(/qR1,qR2,qR3/))
 END FUNCTION hmap_eval_gij_dq2_aux
 
-FUNCTION hmap_eval_gij_dq2_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar) RESULT(g_ab_dq2)
+FUNCTION hmap_eval_gij_dq2_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq2)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -537,7 +537,7 @@ FUNCTION hmap_eval_gij_dq2_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar)
   REAL(wp)     , INTENT(IN) :: qL1(1:np),qL2(1:np),qL3(1:np)
   REAL(wp)     , INTENT(IN) :: q1(1:np),q2(1:np)
   REAL(wp)     , INTENT(IN) :: qR1(1:np),qR2(1:np),qR3(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: auxvar(1:np)
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                  :: g_ab_dq2(1:np)
@@ -547,7 +547,7 @@ FUNCTION hmap_eval_gij_dq2_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,auxvar)
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    g_ab_dq2(i)=sf%eval_gij_dq2(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),auxvar(i)) !calls eval_gij_dq2_aux
+    g_ab_dq2(i)=sf%eval_gij_dq2_aux(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
 END FUNCTION hmap_eval_gij_dq2_aux_all

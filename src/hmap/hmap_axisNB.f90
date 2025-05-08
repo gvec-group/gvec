@@ -73,21 +73,30 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   PROCEDURE :: init_aux         => hmap_axisNB_init_aux
   PROCEDURE :: eval_all         => hmap_axisNB_eval_all
   PROCEDURE :: eval_pw          => hmap_axisNB_eval
+  PROCEDURE :: eval_aux         => hmap_axisNB_eval_aux
   PROCEDURE :: eval_dxdq_pw     => hmap_axisNB_eval_dxdq
+  PROCEDURE :: eval_dxdq_aux    => hmap_axisNB_eval_dxdq_aux
   PROCEDURE :: eval_Jh_pw       => hmap_axisNB_eval_Jh
+  PROCEDURE :: eval_Jh_pw_aux   => hmap_axisNB_eval_Jh_aux
   PROCEDURE :: eval_Jh_dq1_pw   => hmap_axisNB_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq1_aux  => hmap_axisNB_eval_Jh_dq1_aux
   PROCEDURE :: eval_Jh_dq2_pw   => hmap_axisNB_eval_Jh_dq2
+  PROCEDURE :: eval_Jh_dq2_aux  => hmap_axisNB_eval_Jh_dq2_aux
   PROCEDURE :: eval_gij_pw      => hmap_axisNB_eval_gij
+  PROCEDURE :: eval_gij_aux     => hmap_axisNB_eval_gij_aux
   PROCEDURE :: eval_gij_dq1_pw  => hmap_axisNB_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq1_aux => hmap_axisNB_eval_gij_dq1_aux
   PROCEDURE :: eval_gij_dq2_pw  => hmap_axisNB_eval_gij_dq2
+  PROCEDURE :: eval_gij_dq2_aux => hmap_axisNB_eval_gij_dq2_aux
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_axisNB:
   PROCEDURE :: eval_TNB         => hmap_axisNB_eval_TNB_hat
+
 END TYPE t_hmap_axisNB
 
 !INITIALIZATION FUNCTION:
 INTERFACE t_hmap_axisNB
-  MODULE PROCEDURE hmap_axisNB_init
+  MODULE PROCEDURE hmap_axisNB_init,hmap_axisNB_init_params
 END INTERFACE t_hmap_axisNB
 
 LOGICAL :: test_called=.FALSE.
@@ -97,28 +106,53 @@ LOGICAL :: test_called=.FALSE.
 CONTAINS
 
 !===================================================================================================================================
-!> initialize the type hmap_axisNB and read "G-frame" from netcdf
+!> initialize the type hmap_axisNB, reading from parameterfile and call init_params
 !!
 !===================================================================================================================================
 FUNCTION hmap_axisNB_init() RESULT(sf)
+  ! MODULES
+    USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT,GETSTR
+    IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+    TYPE(t_hmap_axisNB)  :: sf !! self
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+    CHARACTER(LEN=512)   :: ncfile
+    INTEGER              :: nvisu
+  !===================================================================================================================================
+    SWRITE(UNIT_stdOut,'(4X,A)')'INIT HMAP :: axisNB FRAME OF A CLOSED CURVE. GET PARAMETERS:'
+    ncfile=GETSTR("hmap_ncfile")
+    nvisu=GETINT("hmap_nvisu",-1)
+    sf = hmap_axisNB_init_params(ncfile,nvisu)
+END FUNCTION hmap_axisNB_init
+
+!===================================================================================================================================
+!> initialize the type hmap_axisNB and read "G-frame" from netcdf
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
 ! MODULES
-  USE MODgvec_ReadInTools,ONLY: GETLOGICAL,GETINT, GETREALARRAY,GETSTR
   USE MODgvec_fbase      ,ONLY: fbase_new
   USE MODgvec_io_netcdf  ,ONLY: ncfile_init
   USE MODgvec_MPI        ,ONLY: par_BCast,par_barrier
   IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CHARACTER(LEN=*),INTENT(IN) :: ncfile  !! netcdf file containing the group "axis" from which to read the G-frame
+  INTEGER         ,INTENT(IN) :: nvisu   !! number of visualization points for G-Frame per field period, -1: no visualization
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   TYPE(t_hmap_axisNB)  :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i
-  INTEGER :: nvisu,error_nfp
+  INTEGER :: error_nfp
   REAL(wp),ALLOCATABLE :: cosz(:),sinz(:)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...')
 
-  sf%ncfile=GETSTR("hmap_ncfile")
+  sf%ncfile=ncfile
   IF(MPIroot)THEN
     ! read axis from netcdf
     CALL ncfile_init(sf%nc,sf%ncfile,"r")
@@ -168,9 +202,7 @@ FUNCTION hmap_axisNB_init() RESULT(sf)
     sf%Bxyz_hat_modes=transform_to_hat(sf%Bxyz,"Bxyz to Bxyzhat")
     DEALLOCATE(cosz,sinz)
 
-    nvisu=GETINT("hmap_nvisu",2*(sf%n_max*sf%nfp+1))
-
-    IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
+    IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu*sf%nfp)
 
     CALL CheckFieldPeriodicity(sf,sf%sgn_rot,error_nfp)
     IF(error_nfp.LT.0) &
@@ -230,7 +262,7 @@ FUNCTION hmap_axisNB_init() RESULT(sf)
     END DO
   END FUNCTION transform_to_hat
 
-END FUNCTION hmap_axisNB_init
+END FUNCTION hmap_axisNB_init_params
 
 
 
@@ -271,7 +303,7 @@ END SUBROUTINE hmap_axisNB_free
 !> initialize the aux variable
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_init_aux( sf ,zeta, auxvar)
+SUBROUTINE hmap_axisNB_init_aux( sf ,zeta, xv)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -280,34 +312,34 @@ SUBROUTINE hmap_axisNB_init_aux( sf ,zeta, auxvar)
   REAL(wp)            , INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE, INTENT(INOUT) :: auxvar(:) !! auxvar
+  CLASS(c_hmap_auxvar),ALLOCATABLE, INTENT(INOUT) :: xv(:) !! xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i,nzeta
 !===================================================================================================================================
   nzeta=SIZE(zeta)
-  ALLOCATE(t_hmap_axisNB_auxvar:: auxvar(nzeta))
-  SELECT TYPE(auxvar)
+  ALLOCATE(t_hmap_axisNB_auxvar:: xv(nzeta))
+  SELECT TYPE(xv)
   TYPE IS(t_hmap_axisNB_auxvar)
     !$OMP PARALLEL DO &
     !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
     DO i=1,nzeta
-      auxvar(i)%zeta=zeta(i)
-      CALL sf%eval_TNB(auxvar(i)%zeta,&
-                       auxvar(i)%X0(:),&
-                       auxvar(i)%T( :),&
-                       auxvar(i)%N( :),&
-                       auxvar(i)%B( :),&
-                       auxvar(i)%Np(:),&
-                       auxvar(i)%Bp(:))
-      auxvar(i)%NxB =CROSS(auxvar(i)%N( :) ,auxvar(i)%B(:))
-      auxvar(i)%NN  =SUM(  auxvar(i)%N( :)* auxvar(i)%N(:))
-      auxvar(i)%BB  =SUM(  auxvar(i)%B( :)* auxvar(i)%B(:))
-      auxvar(i)%NB  =SUM(  auxvar(i)%N( :)* auxvar(i)%B(:))
-      auxvar(i)%NpN =SUM(  auxvar(i)%Np(:)* auxvar(i)%N(:))
-      auxvar(i)%NpB =SUM(  auxvar(i)%Np(:)* auxvar(i)%B(:))
-      auxvar(i)%BpN =SUM(  auxvar(i)%Bp(:)* auxvar(i)%N(:))
-      auxvar(i)%BpB =SUM(  auxvar(i)%Bp(:)* auxvar(i)%B(:))
+      xv(i)%zeta=zeta(i)
+      CALL sf%eval_TNB(xv(i)%zeta,&
+                       xv(i)%X0(:),&
+                       xv(i)%T( :),&
+                       xv(i)%N( :),&
+                       xv(i)%B( :),&
+                       xv(i)%Np(:),&
+                       xv(i)%Bp(:))
+      xv(i)%NxB =CROSS(xv(i)%N( :) ,xv(i)%B(:))
+      xv(i)%NN  =SUM(  xv(i)%N( :)* xv(i)%N(:))
+      xv(i)%BB  =SUM(  xv(i)%B( :)* xv(i)%B(:))
+      xv(i)%NB  =SUM(  xv(i)%N( :)* xv(i)%B(:))
+      xv(i)%NpN =SUM(  xv(i)%Np(:)* xv(i)%N(:))
+      xv(i)%NpB =SUM(  xv(i)%Np(:)* xv(i)%B(:))
+      xv(i)%BpN =SUM(  xv(i)%Bp(:)* xv(i)%N(:))
+      xv(i)%BpB =SUM(  xv(i)%Bp(:)* xv(i)%B(:))
     END DO !i
     !$OMP END PARALLEL DO
   END SELECT
@@ -562,76 +594,13 @@ IMPLICIT NONE
   END IF
 END SUBROUTINE Visu_axisNB
 
-!===================================================================================================================================
-!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
-!!
-!===================================================================================================================================
-FUNCTION hmap_axisNB_eval( sf ,q_in) RESULT(x_out)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp)            , INTENT(IN) :: q_in(3)
-  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                         :: x_out(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
-!===================================================================================================================================
-  ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
-  ! X(:) = (x,y,z) are the variables in the range of the map
-  !
-  !  |x |
-  !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
-  !  |z |
-
-  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
-  x_out=X0 +(q1*N + q2*B)
-  END ASSOCIATE
-END FUNCTION hmap_axisNB_eval
-
-
-!===================================================================================================================================
-!> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
-!! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
-!!
-!===================================================================================================================================
-FUNCTION hmap_axisNB_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp)            , INTENT(IN) :: q_in(3)
-  REAL(wp)            , INTENT(IN) :: q_vec(3)
-  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                         :: dxdq_qvec(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
-!===================================================================================================================================
-  !  |x |
-  !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
-  !  |z |
-  !  dh/dq1 =N , dh/dq2=B
-  !  dh/dq3 = t + q1 N' + q2 * B'
-  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
-  dxdq_qvec(1:3)= N(:)*q_vec(1)+B(:)*q_vec(2)+(T(:)+q1*Np(:)+q2*Bp(:))*q_vec(3)
-
-  END ASSOCIATE !zeta
-END FUNCTION hmap_axisNB_eval_dxdq
 
 
 !===================================================================================================================================
 !> evaluate all metrics necessary for optimizer
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,auxvar,&
+SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,xv,&
                                 q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                 Jh,    g_tt,    g_tz,    g_zz,&
                                 Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
@@ -644,7 +613,7 @@ SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,auxvar,&
   CLASS(t_hmap_axisNB), INTENT(INOUT):: sf
   INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
-  CLASS(c_hmap_auxvar), INTENT(IN)   :: auxvar(ndims(dim_zeta))  !! zeta point positions
+  CLASS(c_hmap_auxvar), INTENT(IN)   :: xv(ndims(dim_zeta))  !! zeta point positions
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
@@ -656,13 +625,13 @@ SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,auxvar,&
   ! LOCAL VARIABLES
   INTEGER :: i,j,k
   !===================================================================================================================================
-  SELECT TYPE(auxvar)
+  SELECT TYPE(xv)
   TYPE IS(t_hmap_axisNB_auxvar)
   SELECT CASE(dim_zeta)
   CASE(1)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
     DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_axisNB_eval_all_e(auxvar(i), &
+      CALL hmap_axisNB_eval_all_e(xv(i), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
@@ -673,7 +642,7 @@ SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,auxvar,&
   CASE(2)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
     DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_axisNB_eval_all_e(auxvar(j), &
+      CALL hmap_axisNB_eval_all_e(xv(j), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
@@ -684,7 +653,7 @@ SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,auxvar,&
   CASE(3)
     !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
     DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_axisNB_eval_all_e(auxvar(k), &
+      CALL hmap_axisNB_eval_all_e(xv(k), &
                q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
                Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
                Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
@@ -693,7 +662,7 @@ SUBROUTINE hmap_axisNB_eval_all(sf,ndims,dim_zeta,auxvar,&
     END DO; END DO; END DO
     !$OMP END PARALLEL DO
   END SELECT !dim_zeta
-  END SELECT !TYPE(auxvar)
+  END SELECT !TYPE(xv)
 END SUBROUTINE hmap_axisNB_eval_all
 
 !===================================================================================================================================
@@ -770,7 +739,113 @@ PURE SUBROUTINE hmap_axisNB_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
   END SELECT !Type(xv)
 END SUBROUTINE hmap_axisNB_eval_all_e
 
+!===================================================================================================================================
+!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval( sf ,q_in) RESULT(x_out)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q_in(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: x_out(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
+!===================================================================================================================================
+  ! q(:) = (q1,q2,zeta) are the variables in the domain of the map
+  ! X(:) = (x,y,z) are the variables in the range of the map
+  !
+  !  |x |
+  !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
+  !  |z |
 
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
+  x_out=X0 +(q1*N + q2*B)
+  END ASSOCIATE
+END FUNCTION hmap_axisNB_eval
+
+!===================================================================================================================================
+!> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_aux( sf ,q1,q2, xv) RESULT(x_out)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
+
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: x_out(3)
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  x_out=xv%X0 +(q1*xv%N + q2*xv%B)
+  END SELECT !type(xv)
+END FUNCTION hmap_axisNB_eval_aux
+
+!===================================================================================================================================
+!> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
+!! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q_in(3)
+  REAL(wp)            , INTENT(IN) :: q_vec(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: dxdq_qvec(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
+!===================================================================================================================================
+  !  |x |
+  !  |y |=  X0(zeta) + (N(zeta)*q1 + B(zeta)*q2)
+  !  |z |
+  !  dh/dq1 =N , dh/dq2=B
+  !  dh/dq3 = t + q1 N' + q2 * B'
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
+  dxdq_qvec(1:3)= N(:)*q_vec(1)+B(:)*q_vec(2)+(T(:)+q1*Np(:)+q2*Bp(:))*q_vec(3)
+
+  END ASSOCIATE !zeta
+END FUNCTION hmap_axisNB_eval_dxdq
+
+!===================================================================================================================================
+!> evaluate total derivative of the mapping  sum k=1,3 (dx(1:3)/dq^k) q_vec^k,
+!! where dx(1:3)/dq^k, k=1,2,3 is evaluated at q_in=(X^1,X^2,zeta) ,
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_dxdq_aux( sf ,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(dxdq_qvec)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  REAL(wp)            , INTENT(IN) :: q1_vec,q2_vec,q3_vec
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: dxdq_qvec(3)
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  dxdq_qvec(1:3)= xv%N(:)*q1_vec+xv%B(:)*q2_vec+(xv%T(:)+q1*xv%Np(:)+q2*xv%Bp(:))*q3_vec
+  END SELECT
+END FUNCTION hmap_axisNB_eval_dxdq_aux
 
 !===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta)
@@ -801,6 +876,27 @@ END FUNCTION hmap_axisNB_eval_Jh
 
 
 !===================================================================================================================================
+!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta)
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_Jh_aux( sf ,q1,q2,xv) RESULT(Jh)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: Jh
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  Jh=SUM((xv%T+q1*xv%Np+q2*xv%Bp)*xv%NxB)  ! Tq. (N x B)
+  END SELECT
+END FUNCTION hmap_axisNB_eval_Jh_aux
+
+!===================================================================================================================================
 !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
@@ -823,6 +919,26 @@ IMPLICIT NONE
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh_dq1
 
+!===================================================================================================================================
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_Jh_dq1_aux( sf ,q1,q2,xv) RESULT(Jh_dq1)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: Jh_dq1
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  Jh_dq1=SUM(xv%Np*xv%NxB)  ! Tq. (N x B)
+  END SELECT
+END FUNCTION hmap_axisNB_eval_Jh_dq1_aux
 
 !===================================================================================================================================
 !> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
@@ -847,6 +963,26 @@ IMPLICIT NONE
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh_dq2
 
+!===================================================================================================================================
+!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_Jh_dq2_aux( sf ,q1,q2,xv) RESULT(Jh_dq2)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: Jh_dq2
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  Jh_dq2=SUM(xv%Bp*xv%NxB)
+  END SELECT
+END FUNCTION hmap_axisNB_eval_Jh_dq2_aux
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
@@ -884,6 +1020,39 @@ FUNCTION hmap_axisNB_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
   END ASSOCIATE
 END FUNCTION hmap_axisNB_eval_gij
 
+!===================================================================================================================================
+!>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_gij_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab)
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: qL1,qL2,qL3
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  REAL(wp)            , INTENT(IN) :: qR1,qR2,qR3
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: g_ab
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: Tq
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  Tq=(xv%T+q1*xv%Np+q2*xv%Bp)
+  g_ab=    xv%NN *qL1*qR1 &
+         + xv%BB *qL2*qR2 &
+         + SUM(Tq*Tq)*qL3*qR3 &
+         + xv%NB       *(qL1*qR2+qL2*qR1) &
+         + SUM(xv%N*Tq)*(qL1*qR3+qL3*qR1) &
+         + SUM(xv%B*Tq)*(qL2*qR3+qL3*qR2)
+  END SELECT !type(xv)
+END FUNCTION hmap_axisNB_eval_gij_aux
+
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
@@ -918,6 +1087,37 @@ FUNCTION hmap_axisNB_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
   END ASSOCIATE
 END FUNCTION hmap_axisNB_eval_gij_dq1
 
+!===================================================================================================================================
+!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_gij_dq1_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq1)
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: qL1,qL2,qL3
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  REAL(wp)            , INTENT(IN) :: qR1,qR2,qR3
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                         :: g_ab_dq1
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: Tq
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  Tq=(xv%T+q1*xv%Np+q2*xv%Bp)
+
+  g_ab_dq1 =                xv%NpN*(qL1*qR3+ qL3*qR1) &
+             +              xv%NpB*(qL2*qR3+ qL3*qR2) &
+             +2.0_wp*SUM(Tq*xv%Np)*(qL3*qR3)
+  END SELECT !type(xv)
+END FUNCTION hmap_axisNB_eval_gij_dq1_aux
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
@@ -952,6 +1152,39 @@ FUNCTION hmap_axisNB_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
   END ASSOCIATE
 END FUNCTION hmap_axisNB_eval_gij_dq2
 
+
+
+!===================================================================================================================================
+!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
+!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
+!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
+!!
+!===================================================================================================================================
+FUNCTION hmap_axisNB_eval_gij_dq2_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq2)
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
+  REAL(wp)            , INTENT(IN) :: qL1,qL2,qL3
+  REAL(wp)            , INTENT(IN) :: q1,q2
+  REAL(wp)            , INTENT(IN) :: qR1,qR2,qR3
+  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)                          :: g_ab_dq2
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp),DIMENSION(3) :: Tq
+!===================================================================================================================================
+  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
+  Tq=(xv%T+q1*xv%Np+q2*xv%Bp)
+
+  g_ab_dq2 =                xv%BpN*(qL1*qR3+ qL3*qR1) &
+             +              xv%BpB*(qL2*qR3+ qL3*qR2) &
+             +2.0_wp*SUM(Tq*xv%Bp)*(qL3*qR3)
+  END SELECT !type(xv)
+END FUNCTION hmap_axisNB_eval_gij_dq2_aux
 
 !===================================================================================================================================
 !> evaluate curve X0(zeta), and T=X0',N,B,N',B', using the fourier series of X0_hat,N_hat and B_hat and transform from "hat"
@@ -1051,7 +1284,7 @@ IMPLICIT NONE
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
-  CLASS(c_hmap_auxvar),ALLOCATABLE :: auxvar(:)
+  CLASS(c_hmap_auxvar),ALLOCATABLE :: xv(:)
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -1198,7 +1431,7 @@ IMPLICIT NONE
       DO izeta=1,ndims(idir)
         zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
       END DO
-      CALL sf%init_aux(zeta,auxvar)
+      CALL sf%init_aux(zeta,xv)
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)
@@ -1211,7 +1444,7 @@ IMPLICIT NONE
         dX1_dz(i,j,k)=-0.024_wp+0.013_wp*REAL((3*i+2*j)*k,wp)/REAL((3*ndims(idir)+2*ndims(jdir))*ndims(kdir),wp)
         dX2_dz(i,j,k)=-0.06_wp +0.031_wp*REAL((2*k+3*k)*i,wp)/REAL((2*ndims(kdir)+3*ndims(kdir))*ndims(idir),wp)
       END DO; END DO; END DO
-      CALL sf%eval_all(ndims,idir,auxvar,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+      CALL sf%eval_all(ndims,idir,xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
            Jh,g_tt,g_tz,g_zz,&
            Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
            Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,&
@@ -1425,7 +1658,7 @@ IMPLICIT NONE
       DEALLOCATE(zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                  Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,&
                  Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
-      DEALLOCATE(auxvar)
+      DEALLOCATE(xv)
     END DO !idir
  END IF
 
