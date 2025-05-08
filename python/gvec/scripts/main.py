@@ -11,7 +11,7 @@ import argparse
 from typing import Sequence
 
 import gvec
-from gvec.scripts import to_cas3d, run, quasr
+from gvec.scripts import cas3d, run, quasr
 
 # === Arguments === #
 
@@ -65,8 +65,8 @@ run_parser = subparsers.add_parser(
 cas3d_parser = subparsers.add_parser(
     "to-cas3d",
     help="convert a GVEC state to a CAS3D compatible input file",
-    description=to_cas3d.parser.description,
-    parents=[to_cas3d.parser],
+    description=cas3d.parser.description,
+    parents=[cas3d.parser],
     add_help=False,
 )
 
@@ -100,7 +100,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     # --- other scripts --- #
     elif args.mode == "to-cas3d":
-        return to_cas3d.main(args)
+        return cas3d.main(args)
 
     elif args.mode == "load-quasr":
         return quasr.main(args)

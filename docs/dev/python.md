@@ -20,7 +20,7 @@ The schematic overview of the different layers that make up pyGVEC.
   * A low level interface that encapsulates the automatically generated wrappers and extends them with type conversions and better error handling: `state.py`, `run.py`
   * A higher level interface that provides a convenient way to interact with GVEC using coordinate aware data structures and automatic computation of dependent quantities: `comp.py`, `quantities.py`
   * Utility modules: `fourier.py`, `surface.py`, `util.py`
-  * Run/Converter scripts: `gvec_to_cas3d.py`
+  * Run/Converter scripts: `scripts/*` made available as the `pygvec` executable
 
 ## Development Installations
 

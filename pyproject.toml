@@ -61,7 +61,6 @@ examples = ["matplotlib", "jupyter", "scipy", "ipywidgets", "ipympl", "simsopt"]
 
 [project.scripts]
 pygvec = "gvec.scripts.main:main"
-gvec_to_cas3d = "gvec.scripts.to_cas3d:main"
 
 # ============================================================================ #
 [tool.scikit-build]

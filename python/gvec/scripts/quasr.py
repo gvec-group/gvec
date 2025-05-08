@@ -4,6 +4,7 @@
 
 QUASR is the A QUAsi-symmetric Stellarator Repository: https://quasr.flatironinstitute.org/
 
+The algorithm is described in the paper Hindenlang et al. DOI: 10.1088/1361-6587/adba11 and is as follows:
 
 ### STEP 1: Evaluate surface in cartesian space:
 
@@ -52,7 +53,6 @@ from typing import Sequence, Literal
 import logging
 
 import numpy as np
-from sympy import Q
 from scipy.optimize import root_scalar
 
 from gvec.util import write_parameters

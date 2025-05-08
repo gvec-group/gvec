@@ -157,7 +157,7 @@ nfp:
   description:
   - This parameter sets the number of field periods $N_{FP}$
   type: '`integer`'
-  required_if: lnk_to_param(`which_hmap=20` or `which_hmap=21`|which_hmap)
+  required_if: lnk_to_param(not `which_hmap=20` or `which_hmap=21`|which_hmap)
   allowed: $> 0$
 X1_mn_max:
   category:

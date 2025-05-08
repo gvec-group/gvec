@@ -3,12 +3,12 @@
 This is the interface to the MHD stability code *CAS3D* [^CAS3D].
 It can be used to convert a GVEC equilibrium (parameterfile & statefile) into specialized netCDF file that can be read by CAS3D.
 
-The interface is installed automatically with pyGVEC and available with `pygvec to-cas3d` or the `gvec_to_cas3d`.
+The interface is installed automatically with pyGVEC and available with `pygvec to-cas3d`.
 
 ## Usage
 
 [Install](install.md) GVEC with python bindings as normal.
-The `pygvec` and `gvec_to_cas3d` executables will be added to the binary folder (e.g. `venv/bin/`, which is also added to `$PATH`).
+The `pygvec` executable with the `pygvec to-cas3d` subcommand will be added to the binary folder (e.g. `venv/bin/`, which is also added to `$PATH`).
 Then you should simply be able to execute:
 ```bash
 pygvec to-cas3d parameter.ini GVEC_State_0000_00000100.dat GVEC_BoozFT-CAS3D.nc --ns 3 --MN_out 10 10 --stellsym
