@@ -96,7 +96,7 @@ ABSTRACT INTERFACE
                                  Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                  g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
     IMPORT c_hmap,c_hmap_auxvar,wp
-    CLASS(c_hmap), INTENT(INOUT) :: sf
+    CLASS(c_hmap), INTENT(IN) :: sf
     INTEGER ,INTENT(IN)   :: ndims(3)
     INTEGER ,INTENT(IN)   :: dim_zeta
     CLASS(c_hmap_auxvar),INTENT(IN)   :: xv(ndims(dim_zeta))

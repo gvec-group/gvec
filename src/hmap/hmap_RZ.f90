@@ -105,8 +105,8 @@ SUBROUTINE hmap_RZ_init_aux( sf,zeta,xv)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_RZ), INTENT(IN) :: sf
-  REAL(wp),INTENT(IN) :: zeta(:)
+  CLASS(t_hmap_RZ),INTENT(IN) :: sf
+  REAL(wp)        ,INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::xv(:)
@@ -138,7 +138,7 @@ SUBROUTINE hmap_RZ_eval_all(sf,ndims,dim_zeta,xv,&
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_RZ)    , INTENT(INOUT):: sf
+  CLASS(t_hmap_RZ)    , INTENT(IN)   :: sf
   INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
   CLASS(c_hmap_auxvar), INTENT(IN)   :: xv(ndims(dim_zeta))  !! zeta point positions
@@ -153,6 +153,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: i,j,k
   !===================================================================================================================================
+  !xv not used here
   !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
   DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
     CALL hmap_RZ_eval_all_e(&

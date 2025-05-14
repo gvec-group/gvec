@@ -232,7 +232,7 @@ SUBROUTINE checkZeroCurvature( sf)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
+  CLASS(t_hmap_frenet), INTENT(IN) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -286,8 +286,8 @@ USE MODgvec_Analyze_vars,     ONLY: outfileType
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT) :: sf
-  INTEGER             , INTENT(IN   ) :: nvisu     !!
+  CLASS(t_hmap_frenet), INTENT(IN) :: sf
+  INTEGER             , INTENT(IN) :: nvisu     !!
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -376,8 +376,8 @@ SUBROUTINE hmap_frenet_init_aux( sf ,zeta,xv)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(IN) :: sf !! self
-  REAL(wp),INTENT(IN)  :: zeta(:)
+  CLASS(t_hmap_frenet),INTENT(IN) :: sf !! self
+  REAL(wp)            ,INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT):: xv(:)
@@ -429,7 +429,7 @@ SUBROUTINE hmap_frenet_eval_all(sf,ndims,dim_zeta,xv,&
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(INOUT):: sf
+  CLASS(t_hmap_frenet), INTENT(IN)   :: sf
   INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
   CLASS(c_hmap_auxvar), INTENT(IN)   :: xv(ndims(dim_zeta))  !! zeta point positions
@@ -444,42 +444,44 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: i,j,k
   !===================================================================================================================================
-  !allocate aux and fills aux%var(:) with data
-  SELECT CASE(dim_zeta)
-  CASE(1)
-    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
-    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_frenet_eval_all_e(xv(i), &
-               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
-               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
-               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
-               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
-               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
-    END DO; END DO; END DO
-    !$OMP END PARALLEL DO
-  CASE(2)
-    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
-    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_frenet_eval_all_e(xv(j), &
-               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
-               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
-               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
-               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
-               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
-    END DO; END DO; END DO
-    !$OMP END PARALLEL DO
-  CASE(3)
-    !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
-    DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
-      CALL hmap_frenet_eval_all_e(xv(k), &
-               q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
-               Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
-               Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
-               Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
-               g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
-    END DO; END DO; END DO
-    !$OMP END PARALLEL DO
-  END SELECT
+  SELECT TYPE(xv)
+  TYPE IS(t_hmap_frenet_auxvar)
+    SELECT CASE(dim_zeta)
+    CASE(1)
+      !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
+        CALL hmap_frenet_eval_all_e(xv(i), &
+                 q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+                 Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+                 Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+                 Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+                 g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+      END DO; END DO; END DO
+      !$OMP END PARALLEL DO
+    CASE(2)
+       !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
+        CALL hmap_frenet_eval_all_e(xv(j), &
+                 q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+                 Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+                 Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+                 Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+                 g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+      END DO; END DO; END DO
+       !$OMP END PARALLEL DO
+    CASE(3)
+       !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
+        CALL hmap_frenet_eval_all_e(xv(k), &
+                 q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+                 Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+                 Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+                 Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+                 g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+      END DO; END DO; END DO
+       !$OMP END PARALLEL DO
+    END SELECT
+  END SELECT !type(xv)
 
 END SUBROUTINE hmap_frenet_eval_all
 
@@ -496,7 +498,7 @@ PURE SUBROUTINE hmap_frenet_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(c_hmap_auxvar),INTENT(IN) :: xv    !! precomputed auxiliary variables
+  TYPE(t_hmap_frenet_auxvar),INTENT(IN) :: xv    !! precomputed auxiliary variables
   REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
   REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2
   REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2
@@ -510,8 +512,6 @@ PURE SUBROUTINE hmap_frenet_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
 ! LOCAL VARIABLES
   REAL(wp) :: Gh31,Gh32,Gh33
 !===================================================================================================================================
-  SELECT TYPE(xv)
-  TYPE IS(t_hmap_frenet_auxvar)
   ASSOCIATE(  lp=>xv%lp, tau=>xv%tau, sigma=>xv%sigma, kappa=>xv%kappa)
   Gh11=1.0_wp
   !Gh21=0.0_wp
@@ -553,7 +553,6 @@ PURE SUBROUTINE hmap_frenet_eval_all_e(xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
   g_zz_dq1 =  2.0_wp*(lp*tau*(dX2_dz + Gh32)+Jh*Jh_dq1)
   g_zz_dq2 = -2.0_wp*lp*tau*(dX1_dz + Gh31)
   END ASSOCIATE
-  END SELECT !Type(xv)
 END SUBROUTINE hmap_frenet_eval_all_e
 
 

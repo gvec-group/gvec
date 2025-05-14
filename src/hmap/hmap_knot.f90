@@ -157,8 +157,8 @@ SUBROUTINE hmap_knot_init_aux( sf,zeta,xv)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_knot), INTENT(IN) :: sf
-  REAL(wp),INTENT(IN) :: zeta(:)
+  CLASS(t_hmap_knot),INTENT(IN) :: sf
+  REAL(wp)          ,INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::xv(:)
@@ -187,17 +187,17 @@ SUBROUTINE hmap_knot_eval_all(sf,ndims,dim_zeta,xv,&
                                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                 g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
 ! MODULES
-IMPLICIT NONE
+  IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(t_hmap_knot)  , INTENT(INOUT):: sf
+  CLASS(t_hmap_knot)  , INTENT(IN)   :: sf
   INTEGER             , INTENT(IN)   :: ndims(3)    !! 3D dimensions of input arrays
   INTEGER             , INTENT(IN)   :: dim_zeta    !! which dimension is zeta dependent
   CLASS(c_hmap_auxvar), INTENT(IN)   :: xv(ndims(dim_zeta))  !! zeta point positions
   REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(IN) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT):: Jh,g_tt    ,g_tz    ,g_zz    , &
+  REAL(wp),DIMENSION(ndims(1),ndims(2),ndims(3)),INTENT(OUT):: Jh    ,g_tt    ,g_tz    ,g_zz    , &
                                                                Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                                                Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                                                g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
@@ -205,10 +205,105 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
   INTEGER :: i,j,k
   !===================================================================================================================================
-  CALL abort(__STAMP__,&
-           "hmap_knot_eval_all: not yet implemented")
+  SELECT TYPE(xv)
+  TYPE IS(t_hmap_knot_auxvar)
+    SELECT CASE(dim_zeta)
+    CASE(1)
+      !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
+        CALL hmap_knot_eval_all_e(sf,xv(i)%zeta, &
+                 q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+                 Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+                 Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+                 Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+                 g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+      END DO; END DO; END DO
+      !$OMP END PARALLEL DO
+    CASE(2)
+      !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
+        CALL hmap_knot_eval_all_e(sf,xv(j)%zeta, &
+                 q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+                 Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+                 Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+                 Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+                 g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+      END DO; END DO; END DO
+      !$OMP END PARALLEL DO
+    CASE(3)
+      !$OMP PARALLEL DO COLLAPSE(3) SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,j,k)
+      DO k=1,ndims(3); DO j=1,ndims(2); DO i=1,ndims(1)
+        CALL hmap_knot_eval_all_e(sf,xv(k)%zeta, &
+                 q1(i,j,k),q2(i,j,k),dX1_dt(i,j,k),dX2_dt(i,j,k),dX1_dz(i,j,k),dX2_dz(i,j,k), &
+                 Jh(i,j,k)    ,g_tt(i,j,k)    ,g_tz(i,j,k)    ,g_zz(i,j,k), &
+                 Jh_dq1(i,j,k),g_tt_dq1(i,j,k),g_tz_dq1(i,j,k),g_zz_dq1(i,j,k), &
+                 Jh_dq2(i,j,k),g_tt_dq2(i,j,k),g_tz_dq2(i,j,k),g_zz_dq2(i,j,k), &
+                 g_t1(i,j,k),g_t2(i,j,k),g_z1(i,j,k),g_z2(i,j,k),Gh11(i,j,k),Gh22(i,j,k) )
+      END DO; END DO; END DO
+      !$OMP END PARALLEL DO
+    END SELECT !dim_zeta
+  END SELECT !TYPE(xv)
 
 END SUBROUTINE hmap_knot_eval_all
+
+!===================================================================================================================================
+!> evaluate all quantities at one given point (elemental)
+!! NOTE: using calls to sf, not implemented/optimized for performance yet!
+!!
+!===================================================================================================================================
+SUBROUTINE hmap_knot_eval_all_e(sf, zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
+                                       Jh,    g_tt,    g_tz,    g_zz,     &
+                                       Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                                       Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
+                                       g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  )
+! MODULES
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_hmap_knot)  , INTENT(IN)   :: sf
+  REAL(wp),INTENT(IN)  :: zeta
+  REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
+  REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2
+  REAL(wp),INTENT(IN)  :: dX1_dz,dX2_dz  !!  zeta derivative of solution variables q1,q2
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp),INTENT(OUT) :: Jh,g_tt,g_tz,g_zz              !! Jac,1/Jac,g_{ab} with a=theta/zeta b=theta/zeta
+  REAL(wp),INTENT(OUT) :: Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1  !! and their variation vs q1
+  REAL(wp),INTENT(OUT) :: Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2  !! and their variation vs q2
+  REAL(wp),INTENT(OUT) :: g_t1,g_t2,g_z1,g_z2,Gh11,Gh22  !! dq^{i}/dtheta*G^{i1}, dq^{i}/dtheta*G^{i2}, and dq^{i}/dzeta*G^{i1}, dq^{i}/dzeta*G^{i2} and G^{11},G^{22}
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+  REAL(wp) :: q(3),dqdt(3),dqdz(3)
+!===================================================================================================================================
+  q   =(/    q1,    q2,  zeta/)
+  dqdt=(/dX1_dt,dX2_dt,0.0_wp/)
+  dqdz=(/dX1_dz,dX2_dz,1.0_wp/)
+
+  Jh     = sf%eval_Jh_pw(    q)
+  Jh_dq1 = sf%eval_Jh_dq1_pw(q)
+  Jh_dq2 = sf%eval_Jh_dq2_pw(q)
+  g_tt     = sf%eval_gij_pw(    dqdt,q,dqdt)
+  g_tt_dq1 = sf%eval_gij_dq1_pw(dqdt,q,dqdt)
+  g_tt_dq2 = sf%eval_gij_dq2_pw(dqdt,q,dqdt)
+
+  g_tz     = sf%eval_gij_pw(    dqdt,q,dqdz)
+  g_tz_dq1 = sf%eval_gij_dq1_pw(dqdt,q,dqdz)
+  g_tz_dq2 = sf%eval_gij_dq2_pw(dqdt,q,dqdz)
+
+  g_zz     = sf%eval_gij_pw(    dqdz,q,dqdz)
+  g_zz_dq1 = sf%eval_gij_dq1_pw(dqdz,q,dqdz)
+  g_zz_dq2 = sf%eval_gij_dq2_pw(dqdz,q,dqdz)
+
+  g_t1     = sf%eval_gij_pw(dqdt,q,(/1.0_wp,0.0_wp,0.0_wp/))
+  g_t2     = sf%eval_gij_pw(dqdt,q,(/0.0_wp,1.0_wp,0.0_wp/))
+
+  g_z1     = sf%eval_gij_pw(dqdz,q,(/1.0_wp,0.0_wp,0.0_wp/))
+  g_z2     = sf%eval_gij_pw(dqdz,q,(/0.0_wp,1.0_wp,0.0_wp/))
+
+  Gh11    =sf%eval_gij_pw((/1.0_wp,0.0_wp,0.0_wp/),q,(/1.0_wp,0.0_wp,0.0_wp/))
+  Gh22    =sf%eval_gij_pw((/0.0_wp,1.0_wp,0.0_wp/),q,(/0.0_wp,1.0_wp,0.0_wp/))
+
+END SUBROUTINE hmap_knot_eval_all_e
 
 !===================================================================================================================================
 !> evaluate the mapping h (q1,q2,zeta) -> (x,y,z)
