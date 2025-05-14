@@ -1,5 +1,9 @@
 # QUASR
 
+:::{note}
+The QUASR interface requires [`simsopt`](https://github.com/hiddenSymmetries/simsopt) to be installed.
+:::
+
 The *QUAsi-symmetric Stellarator Repository* [QUASR](https://quasr.flatironinstitute.org/) [^QUASR1] [^QUASR2] [^QUASR3] is a database of curl-free stellarators optimized for volume quasi-symmetry.
 
 A QUASR configuration can be loaded with
@@ -8,14 +12,20 @@ pygvec load-quasr ID
 ```
 where `ID` is replaced with the desired configuration. Alternatively
 ```{code} bash
+pygvec load-quasr -s FILE
+```
+can be used instead, to load a boundary from a simsopt compatible JSON file (e.g. manually downloaded from QUASR).
+With
+```{code} bash
 pygvec load-quasr -f FILE
 ```
-can be used to instead load the configuration from a simsopt compatible JSON file manually downloaded from QUASR.
+the cartesian boundary data is read directly from the supplied netCDF file (in this case `simsopt` is also not required).
 
 This script will download the requested QUASR configuration, generate a *G-Frame* [^GFrame] to be used as $h$-map and the boundary representation in that *G-Frame*, as well as a [GVEC parameter file](./gvec-parameter-list.md).
 
 The `--tol` parameter sets the desired tolerance of the boundary representation which directly impacts the necessary degrees of freedom and therefore computational speed.
 The `--nt` and `--nz` parameters set the number of points in $\vartheta$ and $\zeta$ respectively for one field period, from which a *G-Frame* as well as the boundary cross-sections are computed. The points exclude the periodic point and should be chosen to be odd.
+With `--save-xyz` the cartesian boundary data can be saved as a netCDF file.
 Other parameters can be seen with `pygvec load-quasr --help`.
 
 <!--- References -->

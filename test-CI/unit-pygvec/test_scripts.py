@@ -10,13 +10,18 @@ import subprocess
 import re
 
 import pytest
-import numpy as np
 
 try:
+    import numpy as np
+    import xarray as xr
+
     import gvec
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
 
+
+DATA = Path(__file__).parent / "../data"
+QUASR_ID = 112714
 
 # === FIXTURES === #
 
@@ -114,21 +119,24 @@ def test_quasr_real_dft():
     assert np.allclose(ddf3, exfuncdd(zeta_up))
 
 
-def test_quasr(tmp_path):
+def test_quasr_download(tmp_path):
+    json = gvec.scripts.quasr.get_json_from_quasr(
+        QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+    )
+    json_ref = DATA / f"quasr-{QUASR_ID:07d}.json"
+    with (
+        open(json, "r") as file,
+        open(json_ref, "r") as reference,
+    ):
+        assert file.read().strip() == reference.read().strip()
+
+
+def test_quasr_noerror(tmp_path):
     """
     Test the load-quasr script
     """
+    hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
     with gvec.util.chdir(tmp_path):
-        ID = 112714
-        json = Path(f"quasr-{ID:07d}.json")
-        hmap = Path(f"quasr-{ID:07d}-gvec.nc")
-
-        args = [f"{ID}"]
-        gvec.scripts.quasr.main(args)
-        assert json.exists()
-        assert hmap.exists()
-
-        hmap.unlink()
-        args = ["-f", json.as_posix()]
+        args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc")]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()

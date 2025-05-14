@@ -19,6 +19,7 @@ dependencies = [
     "numpy>=2",
     "pyevtk",
     "requests",
+    "scipy",
     "tomlkit",
     "tqdm",
     "xarray",
@@ -57,7 +58,7 @@ Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
-examples = ["matplotlib", "jupyter", "scipy", "ipywidgets", "ipympl", "simsopt"]
+examples = ["matplotlib", "jupyter", "ipywidgets", "ipympl", "simsopt"]
 
 [project.scripts]
 pygvec = "gvec.scripts.main:main"

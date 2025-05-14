@@ -63,11 +63,18 @@ from gvec import fourier
 parser = argparse.ArgumentParser(
     prog="pygvec-load-quasr",
     description="Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.",
-    usage="%(prog)s [-h] (ID | -f FILE) [-v | -q] [--nt NT] [--nz NZ] [--tol TOL] [--yaml | --toml]",
+    usage="%(prog)s [-h] (ID | -s FILE | -f FILE) [-v | -q] [--nt NT] [--nz NZ] [--tol TOL] [--yaml | --toml] [--save-xyz]",
 )
 parser.add_argument("ID", type=int, nargs="?", help="ID of the QUASR configuration")
 parser.add_argument(
-    "-f", "--file", type=Path, help="SIMSOPT JSON file of the QUASR configuration"
+    "-s",
+    "--simsopt",
+    type=Path,
+    metavar="FILE",
+    help="SIMSOPT JSON file of the boundary (e.g. QUASR configuration)",
+)
+parser.add_argument(
+    "-f", "--file", type=Path, help="netCDF file containing boundary data"
 )
 verbosity = parser.add_mutually_exclusive_group()
 verbosity.add_argument(
@@ -75,11 +82,11 @@ verbosity.add_argument(
     "--verbose",
     action="count",
     default=0,
-    help="verbosity level: -v for info, -vv for debug, -vvv for GVEC output",
+    help="verbosity level: -v for info, -vv for debug",
 )
 verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
-parser.add_argument("--nt", type=int, default=81, help="number of theta points")
-parser.add_argument("--nz", type=int, default=81, help="number of zeta points")
+parser.add_argument("--nt", type=int, help="number of theta points (only for ID or -s)")
+parser.add_argument("--nz", type=int, help="number of zeta points (only for ID or -s)")
 parser.add_argument(
     "--tol",
     type=float,
@@ -92,33 +99,51 @@ param_type.add_argument(
     action="store_const",
     const="yaml",
     dest="param_type",
-    help="write GVEC parameterfile as YAML",
+    help="write GVEC parameterfile in YAML format",
 )
 param_type.add_argument(
     "--toml",
     action="store_const",
     const="toml",
     dest="param_type",
-    help="write GVEC parameterfile as TOML",
+    help="write GVEC parameterfile in TOML format",
+)
+parser.add_argument(
+    "--save-xyz",
+    action="store_true",
+    help="save the boundary points to a netCDF file",
 )
 
 
-def check_args(args):
-    if args.ID is None and args.file is None:
-        parser.print_help()
-        raise ValueError("Either ID or file must be provided.")
-    if args.ID is not None and args.file is not None:
-        raise ValueError("Only one of ID or file can be provided.")
+def check_args(parser, args):
+    if sum([args.ID is None, args.simsopt is None, args.file is None]) != 2:
+        raise parser.error("exactly one of ID, -s or -f must be provided.")
     if args.ID is not None and (args.ID < 0 or args.ID > 9999999):
-        raise ValueError("ID must be between 0 and 9999999.")
-    if args.file is not None and not args.file.exists():
-        raise FileNotFoundError(f"File {args.file} does not exist.")
-    if args.nt < 1:
-        raise ValueError("Number of theta points must be greater than 0.")
-    if args.nz < 1:
-        raise ValueError("Number of zeta points must be greater than 0.")
+        raise parser.error("ID must be between 0 and 9999999.")
+    if args.simsopt is not None and not args.simsopt.exists():
+        raise parser.error(f"File {args.simsopt} does not exist.")
+    if args.file is None:
+        if args.nt is None:
+            args.nt = 81
+        elif args.nt < 1:
+            raise parser.error("Number of theta points must be greater than 0.")
+        if args.nz is None:
+            args.nz = 81
+        elif args.nz < 1:
+            raise parser.error("Number of zeta points must be greater than 0.")
+    else:
+        if not args.file.exists():
+            raise parser.error(f"File {args.file} does not exist.")
+        if args.nt is not None:
+            raise parser.error(
+                "Number of theta points cannot manually be set with a boundary file."
+            )
+        if args.nz is not None:
+            raise parser.error(
+                "Number of zeta points cannot manually be set with a boundary file."
+            )
     if args.tol is not None and args.tol <= 0:
-        raise ValueError("Tolerance must be greater than 0.")
+        raise parser.error("Tolerance must be greater than 0.")
     if args.param_type is None:
         args.param_type = "yaml"
 
@@ -192,7 +217,7 @@ def get_json_from_quasr(configuration: int, filename: str | Path = None):
     """Retrieve a simsopt-compatible JSON for a given QUASR configuration."""
 
     if filename is None:
-        filename = f"quasr-{configuration:07d}.json"
+        filename = Path(f"quasr-{configuration:07d}.json")
 
     url = f"https://quasr.flatironinstitute.org/simsopt_serials/{configuration // 10**3:04d}/serial{configuration:07d}.json"
     with requests.get(url, stream=True) as response, open(filename, "wb") as file:
@@ -205,11 +230,11 @@ def get_json_from_quasr(configuration: int, filename: str | Path = None):
     return filename
 
 
-def get_surface_from_json_file(filename):
+def get_surface_from_json_file(filename: Path | str):
     """Get the boundary surface as a SIMSOPT Surface object from a QUASR JSON file."""
     from simsopt._core import load
 
-    [surfaces, coils] = load(filename)
+    surfaces, coils = load(filename)
     return surfaces[-1]
 
 
@@ -220,23 +245,71 @@ def get_xyz_from_surface(nt: int, nz: int, surface):
     Gives cartesian positions xyz[0:nz*nfp,0:nt,0:2].
     """
     nfp = surface.nfp
+    # simsopt.Surface objects use [0,1] for theta & zeta
     t1d = np.linspace(0, 1, nt, endpoint=False)
     z1d = np.linspace(0, 1, nz * nfp, endpoint=False)
     t, z = np.meshgrid(t1d, z1d)
 
     xyz = np.zeros((nz * nfp, nt, 3))
     surface.gamma_lin(xyz, z.flatten(), t.flatten())
-    return {"t1d": t1d, "z1d": z1d, "nfp": nfp, "nt": nt, "nz": nz, "xyz": xyz}
+    return xyz
+
+
+def save_xyz(xyz: np.ndarray, nfp: int, filename: Path | str, attrs: dict = {}):
+    import datetime
+    from gvec import __version__
+    import xarray as xr
+
+    ds = xr.Dataset(
+        data_vars=dict(
+            pos=(("zeta", "theta", "xyz"), xyz),
+            nfp=((), nfp),
+        ),
+        coords=dict(
+            xyz=("xyz", ["x", "y", "z"]),
+            theta=("theta", np.linspace(0, 2 * np.pi, xyz.shape[1], endpoint=False)),
+            zeta=("zeta", np.linspace(0, 2 * np.pi, xyz.shape[0], endpoint=False)),
+        ),
+        attrs=dict(
+            creator="pygvec load-quasr",
+            gvec_version=__version__,
+            date=str(datetime.datetime.now().date()),
+        )
+        | attrs,
+    )
+    ds.to_netcdf(filename, mode="w")
+
+
+def load_xyz(filename: Path | str):
+    import xarray as xr
+
+    ds = xr.open_dataset(filename)
+    if "pos" not in ds or "nfp" not in ds:
+        raise ValueError(
+            f"File {filename} does not contain the required 'pos' and 'nfp' variables."
+        )
+    if set(ds.pos.dims) != {"zeta", "theta", "xyz"}:
+        raise ValueError(
+            f"File {filename} does not contain the required dimensions 'zeta', 'theta', and 'xyz'."
+        )
+    if ds.zeta.size % ds.nfp.item() != 0:
+        raise ValueError(
+            f"length of zeta ({ds.zeta.size}) is not compatible with nfp {ds.nfp.item()}. "
+            "It must be a multiple of nfp."
+        )
+    xyz = ds.pos.transpose("zeta", "theta", "xyz").values
+    nfp = ds.nfp.item()
+    return xyz, nfp
 
 
 def get_X0_N_B(xyz):
     """Get guiding curve and two guiding vectors from the cartesian coordinates of a surface."""
     nt = xyz.shape[1]
-    t1d = np.linspace(0, 1, nt, endpoint=False)
+    t1d = np.linspace(0, 2 * np.pi, nt, endpoint=False)
     ## STEP 2: Project to surface with elliptical cross-sections
     m0 = t1d * 0 + 1
-    m1c = np.cos(2 * np.pi * t1d)
-    m1s = np.sin(2 * np.pi * t1d)
+    m1c = np.cos(t1d)
+    m1s = np.sin(t1d)
 
     # m=0 and m=1 fourier modes. give an ellipse. theta is not necessarily the geometric angle!
     xyz0 = np.sum(xyz * m0[None, :, None], axis=1) / nt
@@ -509,19 +582,13 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
 
 
 def convert_quasr(
-    filename: str | Path,
-    nt: int = 81,
-    nz: int = 81,
+    xyz: np.ndarray,
+    nfp: int,
+    name: str,
     tolerance: float = 1e-8,
     format: Literal["yaml", "toml"] = "yaml",
 ):
     logger = logging.getLogger("pyGVEC.script")
-    filename = Path(filename)
-
-    surface = get_surface_from_json_file(filename)
-    surf = get_xyz_from_surface(nt, nz, surface)
-    nfp = surf["nfp"]
-    xyz = surf["xyz"]
     logger.info("Constructing the G-Frame")
     xyz0, N, B = get_X0_N_B(xyz)
 
@@ -533,6 +600,8 @@ def convert_quasr(
     logger.info(f"Minimal (M, N) found: {Mmax}, {Nmax}")
 
     logger.info("Exporting h-map & boundary")
+    nz = xyz.shape[0] // nfp
+    nt = xyz.shape[1]
     zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi / nfp, nz, endpoint=False)
     theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
@@ -554,16 +623,16 @@ def convert_quasr(
         "X1": x1_cut.T,
         "X2": x2_cut.T,
     }
-    write_Gframe_ncfile(f"{filename.stem}-Gframe.nc", dict_out)
+    write_Gframe_ncfile(f"{name}-Gframe.nc", dict_out)
 
-    logger.info("Write parameterfile")
+    logger.info("Writing parameterfile")
     parameters = dict(
-        ProjectName=f"{filename.stem}",
+        ProjectName=name,
         whichInitEquilibrium=0,
         which_hmap=21,
-        hmap_ncfile=f"{filename.stem}-Gframe.nc",
+        hmap_ncfile=f"{name}-Gframe.nc",
         getBoundaryFromFile=1,
-        boundary_filename=f"{filename.stem}-Gframe.nc",
+        boundary_filename=f"{name}-Gframe.nc",
         X1X2_deg=5,
         LA_deg=5,
         sgrid=dict(
@@ -596,7 +665,7 @@ def convert_quasr(
             )
         ],
     )
-    write_parameters(parameters, f"{filename.stem}-parameters.{format}")
+    write_parameters(parameters, f"{name}-parameters.{format}")
     logger.info("Done")
 
 
@@ -636,7 +705,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         pass
     else:
         args = parser.parse_args(args)
-    check_args(args)
+    check_args(parser, args)
 
     logging.basicConfig(
         level=logging.WARNING,
@@ -649,10 +718,13 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     logformatter = logging.Formatter("{levelname} {message}", style="{")
     loghandler.setFormatter(logformatter)
     logger.addHandler(loghandler)
-    if args.verbose >= 1:
-        logger.setLevel(logging.INFO)
     if args.quiet:
-        logging.disable(logging.CRITICAL)
+        logging.disable()
+    elif args.verbose >= 2:
+        logger.setLevel(logging.DEBUG)
+    elif args.verbose == 1:
+        logger.setLevel(logging.INFO)
+    logger.debug(f"parsed args: {args}")
 
     if args.ID is not None:
         logger.info("Downloading QUASR configuration")
@@ -661,10 +733,29 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         except RuntimeError as e:
             logger.error(e)
             return 1
-    else:
-        filename = args.file
+    elif args.simsopt is not None:
+        filename = args.simsopt
 
-    convert_quasr(filename, args.nt, args.nz, args.tol, args.param_type)
+    if args.ID is not None or args.simsopt is not None:
+        logger.info("Loading SIMSOPT surface")
+        surface = get_surface_from_json_file(filename)
+        nfp = surface.nfp
+        xyz = get_xyz_from_surface(args.nt, args.nz, surface)
+        name = str(filename.stem)
+    else:
+        logger.info("Reading boundary file")
+        filename = args.file
+        xyz, nfp = load_xyz(args.file)
+        if str(filename.stem).endswith("-boundary"):
+            name = str(filename.stem)[:-9]
+        else:
+            name = str(filename.stem)
+
+    if args.save_xyz:
+        logger.info("Saving boundary points to netCDF file")
+        save_xyz(xyz, nfp, f"{name}-boundary.nc", attrs={"source": str(filename)})
+
+    convert_quasr(xyz, nfp, name, args.tol, args.param_type)
 
 
 if __name__ == "__main__":
