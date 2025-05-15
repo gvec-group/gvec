@@ -27,7 +27,6 @@ TYPE, ABSTRACT :: c_hmap
   INTEGER              :: nfp=-1             !! number of field periods used in hmap. If =-1, its not used
   !---------------------------------------------------------------------------------------------------------------------------------
   CONTAINS
-    PROCEDURE(i_sub_hmap_init_aux   ),DEFERRED         :: init_aux
     PROCEDURE(i_sub_hmap_eval_all   ),DEFERRED         :: eval_all
     ! eval?? is a generic name and can be called in three different ways, depending on the arguments :
     ! eval??_pw: pointwise evaluation, without precomputed auxiliary variables (slow)
@@ -82,13 +81,6 @@ END TYPE c_hmap_auxvar
 
 
 ABSTRACT INTERFACE
-
-  SUBROUTINE i_sub_hmap_init_aux( sf ,zeta,xv)
-    IMPORT wp,c_hmap,c_hmap_auxvar
-    CLASS(c_hmap), INTENT(IN) :: sf
-    REAL(wp),INTENT(IN)       :: zeta(:)
-    CLASS(c_hmap_auxvar),ALLOCATABLE, INTENT(INOUT) :: xv(:)
-  END SUBROUTINE i_sub_hmap_init_aux
 
   SUBROUTINE i_sub_hmap_eval_all(sf,ndims,dim_zeta,xv,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                  Jh,    g_tt,    g_tz,    g_zz,&

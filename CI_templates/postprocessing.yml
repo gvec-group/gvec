@@ -42,5 +42,5 @@ post$[[ inputs.env ]]$[[ inputs.post-postfix ]]:
   needs:
     - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
-    - job: run$[[ inputs.env ]]
+    - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]
       artifacts: true

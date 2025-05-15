@@ -35,7 +35,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   CONTAINS
 
   FINAL     :: hmap_knot_free
-  PROCEDURE :: init_aux         => hmap_knot_init_aux
   PROCEDURE :: eval_all         => hmap_knot_eval_all
   PROCEDURE :: eval_pw          => hmap_knot_eval
   PROCEDURE :: eval_dxdq_pw     => hmap_knot_eval_dxdq
@@ -56,6 +55,10 @@ END TYPE t_hmap_knot
 INTERFACE t_hmap_knot
   MODULE PROCEDURE hmap_knot_init,hmap_knot_init_params
 END INTERFACE t_hmap_knot
+
+INTERFACE t_hmap_knot_auxvar
+  MODULE PROCEDURE hmap_knot_init_aux
+END INTERFACE t_hmap_knot_auxvar
 
 LOGICAL :: test_called=.FALSE.
 
@@ -150,31 +153,24 @@ END SUBROUTINE hmap_knot_free
 
 
 !===================================================================================================================================
-!> Allocate and initialize auxiliary variable array, of the same size as the set of zeta points given.
+!> Allocate and initialize auxiliary variable at zeta position.
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_knot_init_aux( sf,zeta,xv)
+FUNCTION hmap_knot_init_aux( sf,zeta) RESULT(xv)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_knot),INTENT(IN) :: sf
-  REAL(wp)          ,INTENT(IN) :: zeta(:)
+  REAL(wp)        ,INTENT(IN) :: zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::xv(:)
+  TYPE(t_hmap_knot_auxvar)::xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,nzeta
+  INTEGER :: i
 !===================================================================================================================================
-  nzeta=SIZE(zeta)
-  ALLOCATE(t_hmap_knot_auxvar::xv(nzeta))
-  SELECT TYPE(xv)
-  TYPE IS(t_hmap_knot_auxvar)
-  DO i=1,nzeta
-    xv(i)%zeta=zeta(i)
-  END DO
-  END SELECT
-END SUBROUTINE hmap_knot_init_aux
+  xv%zeta=zeta
+END FUNCTION hmap_knot_init_aux
 
 !===================================================================================================================================
 !> evaluate all metrics necesseray for optimizer
@@ -609,7 +605,7 @@ USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,
                                      Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
                                      Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2, &
                                      g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
-  CLASS(c_hmap_auxvar),ALLOCATABLE :: xv(:)
+  TYPE(t_hmap_knot_auxvar),ALLOCATABLE :: xv(:)
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -670,11 +666,11 @@ USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,
       ndims(idir)=nzeta+idir
       ndims(jdir)=ns
       ndims(kdir)=nthet
-      ALLOCATE(zeta(ndims(idir)))
+      ALLOCATE(zeta(ndims(idir)),xv(ndims(idir)))
       DO izeta=1,ndims(idir)
         zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
+        xv(izeta)=hmap_knot_init_aux(sf,zeta(izeta))
       END DO
-      CALL sf%init_aux(zeta,xv)
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)

@@ -70,7 +70,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   CONTAINS
 
   FINAL     :: hmap_axisNB_free
-  PROCEDURE :: init_aux         => hmap_axisNB_init_aux
   PROCEDURE :: eval_all         => hmap_axisNB_eval_all
   PROCEDURE :: eval_pw          => hmap_axisNB_eval
   PROCEDURE :: eval_aux         => hmap_axisNB_eval_aux
@@ -98,6 +97,11 @@ END TYPE t_hmap_axisNB
 INTERFACE t_hmap_axisNB
   MODULE PROCEDURE hmap_axisNB_init,hmap_axisNB_init_params
 END INTERFACE t_hmap_axisNB
+
+
+INTERFACE t_hmap_axisNB_auxvar
+  MODULE PROCEDURE hmap_axisNB_init_aux
+END INTERFACE t_hmap_axisNB_auxvar
 
 LOGICAL :: test_called=.FALSE.
 
@@ -303,47 +307,34 @@ END SUBROUTINE hmap_axisNB_free
 !> initialize the aux variable
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_init_aux( sf ,zeta, xv)
+FUNCTIOn hmap_axisNB_init_aux( sf ,zeta) RESULT(xv)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(IN) :: sf !! self (hmap)
-  REAL(wp)            , INTENT(IN) :: zeta(:)
+  REAL(wp)            , INTENT(IN) :: zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE, INTENT(INOUT) :: xv(:) !! xv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER :: i,nzeta
+  TYPE(t_hmap_axisNB_auxvar)       :: xv  !! auxiliary variable
 !===================================================================================================================================
-  nzeta=SIZE(zeta)
-  ALLOCATE(t_hmap_axisNB_auxvar:: xv(nzeta))
-  SELECT TYPE(xv)
-  TYPE IS(t_hmap_axisNB_auxvar)
-    !$OMP PARALLEL DO &
-    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
-    DO i=1,nzeta
-      xv(i)%zeta=zeta(i)
-      CALL sf%eval_TNB(xv(i)%zeta,&
-                       xv(i)%X0(:),&
-                       xv(i)%T( :),&
-                       xv(i)%N( :),&
-                       xv(i)%B( :),&
-                       xv(i)%Np(:),&
-                       xv(i)%Bp(:))
-      xv(i)%NxB =CROSS(xv(i)%N( :) ,xv(i)%B(:))
-      xv(i)%NN  =SUM(  xv(i)%N( :)* xv(i)%N(:))
-      xv(i)%BB  =SUM(  xv(i)%B( :)* xv(i)%B(:))
-      xv(i)%NB  =SUM(  xv(i)%N( :)* xv(i)%B(:))
-      xv(i)%NpN =SUM(  xv(i)%Np(:)* xv(i)%N(:))
-      xv(i)%NpB =SUM(  xv(i)%Np(:)* xv(i)%B(:))
-      xv(i)%BpN =SUM(  xv(i)%Bp(:)* xv(i)%N(:))
-      xv(i)%BpB =SUM(  xv(i)%Bp(:)* xv(i)%B(:))
-    END DO !i
-    !$OMP END PARALLEL DO
-  END SELECT
-END SUBROUTINE hmap_axisNB_init_aux
+  xv%zeta=zeta
+  CALL sf%eval_TNB(xv%zeta,&
+                    xv%X0(:),&
+                    xv%T( :),&
+                    xv%N( :),&
+                    xv%B( :),&
+                    xv%Np(:),&
+                    xv%Bp(:))
+  xv%NxB =CROSS(xv%N( :) ,xv%B(:))
+  xv%NN  =SUM(  xv%N( :)* xv%N(:))
+  xv%BB  =SUM(  xv%B( :)* xv%B(:))
+  xv%NB  =SUM(  xv%N( :)* xv%B(:))
+  xv%NpN =SUM(  xv%Np(:)* xv%N(:))
+  xv%NpB =SUM(  xv%Np(:)* xv%B(:))
+  xv%BpN =SUM(  xv%Bp(:)* xv%N(:))
+  xv%BpB =SUM(  xv%Bp(:)* xv%B(:))
+END FUNCTION hmap_axisNB_init_aux
 
 !===================================================================================================================================
 !> READ axis from netcdf file, needs netcdf library!
@@ -1281,7 +1272,7 @@ IMPLICIT NONE
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
-  CLASS(c_hmap_auxvar),ALLOCATABLE :: xv(:)
+  TYPE(t_hmap_axisNB_auxvar),ALLOCATABLE :: xv(:)
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -1424,11 +1415,11 @@ IMPLICIT NONE
       ndims(idir)=nzeta+idir
       ndims(jdir)=ns
       ndims(kdir)=nthet
-      ALLOCATE(zeta(ndims(idir)))
+      ALLOCATE(zeta(ndims(idir)),xv(ndims(idir)))
       DO izeta=1,ndims(idir)
         zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
+        xv(izeta)= t_hmap_axisNB_auxvar(sf, zeta(izeta))
       END DO
-      CALL sf%init_aux(zeta,xv)
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)

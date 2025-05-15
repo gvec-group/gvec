@@ -65,7 +65,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   CONTAINS
 
   FINAL :: hmap_frenet_free
-  PROCEDURE :: init_aux         => hmap_frenet_init_aux
   PROCEDURE :: eval_all         => hmap_frenet_eval_all
   PROCEDURE :: eval_pw          => hmap_frenet_eval
   PROCEDURE :: eval_aux         => hmap_frenet_eval_aux
@@ -93,6 +92,10 @@ END TYPE t_hmap_frenet
 INTERFACE t_hmap_frenet
   MODULE PROCEDURE hmap_frenet_init,hmap_frenet_init_params
 END INTERFACE t_hmap_frenet
+
+INTERFACE t_hmap_frenet_auxvar
+  MODULE PROCEDURE hmap_frenet_init_aux
+END INTERFACE t_hmap_frenet_auxvar
 
 LOGICAL :: test_called=.FALSE.
 
@@ -371,48 +374,38 @@ END SUBROUTINE VisuFrenet
 !> initialize the aux variable
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_frenet_init_aux( sf ,zeta,xv)
+FUNCTION hmap_frenet_init_aux( sf ,zeta) RESULT(xv)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_frenet),INTENT(IN) :: sf !! self
-  REAL(wp)            ,INTENT(IN) :: zeta(:)
+  REAL(wp)            ,INTENT(IN) :: zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT):: xv(:)
+  TYPE(t_hmap_frenet_auxvar)      :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,nzeta
-  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp,B
+  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp,Bloc
   REAL(wp)  :: absB
 !===================================================================================================================================
-  nzeta=SIZE(zeta)
-  ALLOCATE(t_hmap_frenet_auxvar :: xv(nzeta))
-  SELECT TYPE(xv)
-  TYPE IS(t_hmap_frenet_auxvar)
-    !$OMP PARALLEL DO &
-    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,X0p,X0pp,X0ppp,B,absB)
-    DO i=1,nzeta
-      xv(i)%zeta=zeta(i)
-      CALL sf%eval_X0(zeta(i),xv(i)%X0,X0p,X0pp,X0ppp)
+  xv%zeta = zeta
+  CALL sf%eval_X0(zeta, xv%X0, X0p, X0pp, X0ppp)
 
-      xv(i)%lp=SQRT(SUM(X0p*X0p))
-      xv(i)%T=X0p/xv(i)%lp
-      B=CROSS(X0p,X0pp)
-      absB=SQRT(SUM(B*B))
-      xv(i)%kappa=absB/(xv(i)%lp**3)
-      IF(xv(i)%kappa.LT.1.0e-8) &
-         CALL abort(__STAMP__, &
-             "hmap_frenet cannot evaluate frame at curvature < 1e-8 !",RealInfo=zeta(i))
-      xv(i)%sigma=sf%sigma(zeta(i))
-      xv(i)%tau=SUM(X0ppp*B)/(absB**2)
-      xv(i)%B=B/absB
-      xv(i)%N=CROSS(xv(i)%B,xv(i)%T)
-    END DO !i
-    !$OMP END PARALLEL DO
-  END SELECT
-END SUBROUTINE hmap_frenet_init_aux
+  xv%lp = SQRT(SUM(X0p*X0p))
+  xv%T = X0p / xv%lp
+  Bloc = CROSS(X0p, X0pp)
+  absB = SQRT(SUM(Bloc*Bloc))
+  xv%kappa = absB / (xv%lp**3)
+  IF(xv%kappa.LT.1.0e-8) &
+      CALL abort(__STAMP__, &
+          "hmap_frenet cannot evaluate frame at curvature < 1e-8 !", RealInfo=zeta)
+  xv%sigma = sf%sigma(zeta)
+  xv%tau = SUM(X0ppp*Bloc) / (absB**2)
+  xv%B = Bloc / absB
+  xv%N = CROSS(xv%B, xv%T)
+
+  END FUNCTION hmap_frenet_init_aux
 
 
 !===================================================================================================================================
@@ -1201,7 +1194,7 @@ IMPLICIT NONE
   REAL(wp),PARAMETER :: epsFD=1.0e-8
   CHARACTER(LEN=10)  :: fail
   REAL(wp)           :: R0, Z0
-  CLASS(c_hmap_auxvar),ALLOCATABLE :: xv(:)
+  TYPE(t_hmap_frenet_auxvar),ALLOCATABLE :: xv(:)
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -1299,11 +1292,11 @@ IMPLICIT NONE
     ndims(idir)=nzeta+idir
     ndims(jdir)=ns
     ndims(kdir)=nthet
-    ALLOCATE(zeta(ndims(idir)))
+    ALLOCATE(zeta(ndims(idir)),xv(ndims(idir)))
     DO izeta=1,ndims(idir)
       zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
+      xv(izeta)=hmap_frenet_init_aux(sf,zeta(izeta))
     END DO
-    CALL sf%init_aux(zeta,xv)
     ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
     ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
              mold=q1)

@@ -13,6 +13,9 @@ spec:
     build-postfix:
       description: Job name postfix, e.g. `_only_converter`
       default: ""
+    run-postfix:
+      description: Job name postfix, e.g. `_debugrun` or `_tag_slurm`
+      default: ""
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
@@ -33,5 +36,5 @@ conv$[[ inputs.env ]]$[[ inputs.conv-postfix ]]:
   needs:
     - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
-    - job: run$[[ inputs.env ]]
+    - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]
       artifacts: true

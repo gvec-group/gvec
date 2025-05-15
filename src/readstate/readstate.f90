@@ -68,12 +68,12 @@ USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base, base_new
 USE MODgvec_sbase,  ONLY: sbase_new
 USE MODgvec_fbase,  ONLY: sin_cos_map
-USE MODgvec_hmap,  ONLY: hmap_new
+USE MODgvec_hmap
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CHARACTER(LEN=*)    , INTENT(IN   ) :: fileString
-  CLASS(c_hmap), INTENT(IN),OPTIONAL :: hmap_in !use this hmap instead of hmap_r (avoiding problems in restart)
+  CLASS(PP_T_HMAP), INTENT(IN),OPTIONAL :: hmap_in !use this hmap instead of hmap_r (avoiding problems in restart)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------

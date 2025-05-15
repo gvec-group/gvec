@@ -33,7 +33,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_cyl
   CONTAINS
 
   FINAL     :: hmap_cyl_free
-  PROCEDURE :: init_aux         => hmap_cyl_init_aux
   PROCEDURE :: eval_all         => hmap_cyl_eval_all
   PROCEDURE :: eval_pw          => hmap_cyl_eval
   PROCEDURE :: eval_dxdq_pw     => hmap_cyl_eval_dxdq
@@ -51,6 +50,10 @@ END TYPE t_hmap_cyl
 INTERFACE t_hmap_cyl
   MODULE PROCEDURE hmap_cyl_init,hmap_cyl_init_params
 END INTERFACE t_hmap_cyl
+
+INTERFACE t_hmap_cyl_auxvar
+  MODULE PROCEDURE hmap_cyl_init_aux
+END INTERFACE t_hmap_cyl_auxvar
 
 LOGICAL :: test_called=.FALSE.
 
@@ -124,31 +127,24 @@ SUBROUTINE hmap_cyl_free( sf )
 END SUBROUTINE hmap_cyl_free
 
 !===================================================================================================================================
-!> Allocate and initialize auxiliary variable array, of the same size as the set of zeta points given.
+!> Allocate and initialize auxiliary variable at zeta position.
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_cyl_init_aux( sf,zeta,xv)
+FUNCTION hmap_cyl_init_aux( sf,zeta) RESULT(xv)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_cyl),INTENT(IN) :: sf
-  REAL(wp)         ,INTENT(IN) :: zeta(:)
+  REAL(wp)        ,INTENT(IN) :: zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT)::xv(:)
+  TYPE(t_hmap_cyl_auxvar)::xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i,nzeta
+  INTEGER :: i
 !===================================================================================================================================
-  nzeta=SIZE(zeta)
-  ALLOCATE(t_hmap_cyl_auxvar::xv(nzeta))
-  SELECT TYPE(xv)
-  TYPE IS(t_hmap_cyl_auxvar)
-  DO i=1,nzeta
-    xv(i)%zeta=zeta(i)
-  END DO
-  END SELECT
-END SUBROUTINE hmap_cyl_init_aux
+  xv%zeta=zeta
+END FUNCTION hmap_cyl_init_aux
 
 !===================================================================================================================================
 !> evaluate all metrics necesseray for optimizer
@@ -439,7 +435,7 @@ IMPLICIT NONE
   INTEGER,PARAMETER  :: nzeta=5
   INTEGER,PARAMETER  :: ns=2
   INTEGER,PARAMETER  :: nthet=3
-  REAL(wp)           :: zeta(nzeta)
+  REAL(wp),ALLOCATABLE  :: zeta(:)
   REAL(wp)           :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                      Jh,g_tt,    g_tz,    g_zz,     &
@@ -449,7 +445,7 @@ IMPLICIT NONE
   REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   CHARACTER(LEN=10)  :: fail
-  CLASS(c_hmap_auxvar),ALLOCATABLE :: xv(:)
+  TYPE(t_hmap_cyl_auxvar),ALLOCATABLE :: xv(:)
 !===================================================================================================================================
   test_called=.TRUE. ! to prevent infinite loop in this routine
   IF(testlevel.LE.0) RETURN
@@ -489,9 +485,6 @@ IMPLICIT NONE
     END IF !TEST
   END IF !testlevel>=1
   IF (testlevel .GE. 2) THEN
-    DO izeta=1,nzeta
-      zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(nzeta-1,wp)*0.221_wp
-    END DO
     DO idir=1,3
       SELECT CASE(idir)
       CASE(1)
@@ -504,7 +497,11 @@ IMPLICIT NONE
       ndims(idir)=nzeta
       ndims(jdir)=ns
       ndims(kdir)=nthet
-      CALL sf%init_aux(zeta,xv)
+      ALLOCATE(zeta(ndims(idir)),xv(ndims(idir)))
+      DO izeta=1,ndims(idir)
+        zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
+        xv(izeta)=hmap_cyl_init_aux(sf,zeta(izeta))
+      END DO
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &
                mold=q1)
@@ -728,7 +725,8 @@ IMPLICIT NONE
       '\n =>  should be ', refreal,' : |sum(|Gh22_all-eval_Gh22(xall)|)|= ', checkreal, " ,idir=",idir
       END IF
 
-      DEALLOCATE(q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
+      DEALLOCATE(zeta,q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
+                 Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22)
       DEALLOCATE(xv)
     END DO !idir
  END IF

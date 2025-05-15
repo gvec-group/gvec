@@ -52,6 +52,40 @@
 #  define __PERFOUT(a)
 #endif
 
+! if cmake option GVEC_FIX_HMAP is not off, sets PP_WHICH_HMAP 
+#if defined(PP_WHICH_HMAP)
+#  if PP_WHICH_HMAP == 1
+#    define  PP_MOD_HMAP MODgvec_hmap_RZ
+#    define  PP_T_HMAP t_hmap_RZ
+#    define  PP_T_HMAP_AUXVAR t_hmap_RZ_auxvar
+#  elif PP_WHICH_HMAP == 3
+#    define  PP_MOD_HMAP MODgvec_hmap_cyl
+#    define  PP_T_HMAP t_hmap_cyl
+#    define  PP_T_HMAP_AUXVAR t_hmap_cyl_auxvar
+#  elif PP_WHICH_HMAP == 10
+#    define  PP_MOD_HMAP MODgvec_hmap_knot
+#    define  PP_T_HMAP t_hmap_knot
+#    define  PP_T_HMAP_AUXVAR t_hmap_knot_auxvar
+#  elif PP_WHICH_HMAP == 20
+#    define  PP_MOD_HMAP MODgvec_hmap_frenet
+#    define  PP_T_HMAP t_hmap_frenet
+#    define  PP_T_HMAP_AUXVAR t_hmap_frenet_auxvar
+#    define  PP_WHICH_HMAP 20
+#  elif PP_WHICH_HMAP == 21
+#    define  PP_MOD_HMAP MODgvec_hmap_axisNB
+#    define  PP_T_HMAP t_hmap_axisNB
+#    define  PP_T_HMAP_AUXVAR t_hmap_axisNB_auxvar
+#  else
+#    define  PP_MOD_HMAP MODgvec_hmap_?
+#    define  PP_T_HMAP t_hmap_?
+#    define  PP_T_HMAP_AUXVAR t_hmap_?_auxvar
+#    define  PP_WHICH_HMAP ?
+#  endif
+#else
+#    define  PP_T_HMAP c_hmap
+#    define  PP_T_HMAP_AUXVAR c_hmap_auxvar
+#endif /*PP_WHICH_HMAP defined*/
+
 
 !boundary condition for zero,odd and even m modes
 

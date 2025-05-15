@@ -135,6 +135,21 @@ IF(USE_VISU_J STREQUAL "FD")
 ELSEIF(USE_VISU_J STREQUAL "ANA")
   ADD_DEFINITIONS("-DVISU_J_EXACT")
 ENDIF()
+
+
+SET (GVEC_FIX_HMAP "off" CACHE STRING "fix hmap at compile time, default is off")
+SET_PROPERTY(CACHE GVEC_FIX_HMAP PROPERTY STRINGS off RZ axisNB frenet cyl knot )
+IF(GVEC_FIX_HMAP STREQUAL "RZ") 
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=1)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "cyl") 
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=3)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "knot") 
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=10)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "frenet") 
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=20)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "axisNB") 
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=21)
+ENDIF()
 # =========================================================================
 # Build type
 # =========================================================================
@@ -425,9 +440,8 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
-                          ./src/hmap/*.f90
                           ./src/profiles/*.f90
-                          ./src/functionals/mhd3d/*hmap*.f90
+                          ./src/hmap/*.f90
                           ./src/functionals/mhd3d/lambda_solve.f90
                           ./src/readstate/*.f90
                           ./src/analyze/analyze_vars.f90
