@@ -128,7 +128,7 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_nightly
+      rules: .rules_minimal
 
   # GNU
   - local: CI_templates/env.yml
@@ -142,8 +142,6 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gfortran-latest
-      rules: .rules_nightly
-
 
   # Nvidia
   - local: CI_templates/env.yml
@@ -163,11 +161,11 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_ifx-impi-latest
+      rules: .rules_minimal
 
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gfortran-openmpi-latest
-      rules: .rules_nightly
 
   # Raven private runner
   # ---------------
@@ -258,20 +256,22 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_ifx-2024
-      vars: .cmake_hmap_RZ
-      build-postfix: _hmap_RZ
-
-  - local: CI_templates/build.yml
-    inputs:
-      env: .mpcdfci_ifx-2024
-      vars: .cmake_hmap_axisNB
-      build-postfix: _hmap_axisNB
+      env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_nightly
+      cmake-opts: .cmake_hmap_RZ
+      build-postfix: _hmap_RZ
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      cmake-opts: .cmake_hmap_axisNB
+      build-postfix: _hmap_axisNB
+
+
 
   # GNU
 
@@ -286,21 +286,20 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_gfortran-13
-      vars: .cmake_hmap_RZ
+      env: .mpcdfci_gfortran-latest
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      cmake-opts: .cmake_hmap_RZ
       build-postfix: _hmap_RZ
 
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_gfortran-13
-      vars: .cmake_hmap_axisNB
-      build-postfix: _hmap_axisNB
-
-  - local: CI_templates/build.yml
-    inputs:
       env: .mpcdfci_gfortran-latest
-      rules: .rules_nightly
+      cmake-opts: .cmake_hmap_axisNB
+      build-postfix: _hmap_axisNB
 
   # Nvidia
 
@@ -328,26 +327,26 @@ include:
     inputs:
       env: .mpcdfci_ifx-impi-latest
       cmake-opts: .cmake_no_converter
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-openmpi-latest
       cmake-opts: .cmake_no_converter
-      rules: .rules_nightly
 
   # python / pip
 
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
 
-
   - local: CI_templates/build.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
@@ -359,7 +358,7 @@ include:
       env: .mpcdfci_ifx-latest
       build-postfix: _only_converter
       cmake-opts: .cmake_only_converter
-      rules: .rules_nightly
+      rules: .rules_minimal
 
   # reference tag
 
@@ -380,14 +379,14 @@ include:
       env: .mpcdfci_ifx-latest
       build-postfix: _tag
       vars: .vars_matrix_build_tag
-      rules: .rules_nightly
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-latest
       build-postfix: _tag
       vars: .vars_matrix_build_tag
-      rules: .rules_nightly
+      rules: .rules_minimal
 
   - local: CI_templates/build.yml
     inputs:
@@ -395,6 +394,7 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_build_tag
       cmake-opts: .cmake_no_converter
+      rules: .rules_minimal
 
   # Raven private runner
   # --------------------
@@ -540,22 +540,22 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
       vars: .vars_matrix_run_hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
-
-  - local: CI_templates/run.yml
-    inputs:
-      env: .mpcdfci_ifx-latest
-      rules: .rules_nightly
 
   # GNU
 
@@ -570,7 +570,11 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
       vars: .vars_matrix_run_hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
@@ -578,15 +582,10 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
-
-  - local: CI_templates/run.yml
-    inputs:
-      env: .mpcdfci_gfortran-latest
-      rules: .rules_nightly
 
   # Nvidia
 
@@ -615,31 +614,31 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
+      rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
       run-postfix: _debugrun_hmap_RZ
       vars: .vars_matrix_run_debugrun_hmap_RZ
       build-postfix: _hmap_RZ
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
-
+      rules: .rules_nightly
 
   - local: CI_templates/run.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
       run-postfix: _debugrun_hmap_RZ
       vars: .vars_matrix_run_debugrun_hmap_RZ
       build-postfix: _hmap_RZ
-
 
   - local: CI_templates/run.yml
     inputs:
@@ -666,12 +665,12 @@ include:
     inputs:
       env: .mpcdfci_ifx-impi-latest
       vars: .vars_matrix_run_mpi
+      rules: .rules_minimal
 
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_gfortran-openmpi-latest
       vars: .vars_matrix_run_mpi
-      rules: .rules_nightly
 
   # reference tag
 
@@ -694,10 +693,10 @@ include:
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      rules: .rules_nightly
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_tag
+      rules: .rules_minimal
       allow_failure: true
 
   # reference tag + MPI
@@ -709,7 +708,7 @@ include:
       build-postfix: _tag
       vars: .vars_matrix_run_mpi_tag
       allow_failure: true
-  
+
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_gfortran-latest
@@ -839,25 +838,26 @@ include:
   # ============================
   - local: CI_templates/unit.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
 
   - local: CI_templates/unit.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
 
   # ============================
   # stage regression jobs
   # ============================
   - local: CI_templates/regression-cmp.yml
     inputs:
-      CURR_CMP_1: ifx-2024
-      CURR_CMP_2: gfortran-13
+      CURR_CMP_1: ifx-latest
+      CURR_CMP_2: gfortran-latest
 
   - local: CI_templates/regression-cmp.yml
     inputs:
       CURR_CMP_1: ifort-2023
       CURR_CMP_2: ifx-latest
-      rules: .rules_nightly
+      rules: .rules_minimal
 
   - local: CI_templates/regression-cmp.yml
     inputs:
@@ -866,11 +866,12 @@ include:
 
   - local: CI_templates/regression-omp.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
 
   - local: CI_templates/regression-omp.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
 
   - local: CI_templates/regression-tag.yml
     inputs:
@@ -880,10 +881,15 @@ include:
     inputs:
       env: .mpcdfci_ifx-2024
 
+  - local: CI_templates/regression-tag.yml
+    inputs:
+      rules: .rules_minimal
+
   - local: CI_templates/regression-mpi.yml
     inputs:
-      CURR_CMP: ifx-2024
+      CURR_CMP: ifx-latest
       CURR_CMP_MPI: ifx-impi-latest
+      rules: .rules_minimal
 
   # Viper private runner
   # --------------------
@@ -931,7 +937,11 @@ include:
 
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
       vars: .vars_matrix_run_hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
@@ -939,25 +949,27 @@ include:
 
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
       post-postfix: _hmap_axisNB
-      
 
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
       vars: .vars_matrix_run_hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
       post-postfix: _hmap_RZ
 
-
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
@@ -983,7 +995,7 @@ include:
 
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
       vars: .vars_matrix_py
       build-postfix: _py
       # run-postfix: ""
@@ -993,7 +1005,7 @@ include:
 
   - local: CI_templates/postprocessing.yml
     inputs:
-      env: .mpcdfci_gfortran-13
+      env: .mpcdfci_gfortran-latest
       vars: .vars_matrix_py
       build-postfix: _py
       # run-postfix: ""
@@ -1013,19 +1025,16 @@ include:
 
   - local: CI_templates/converters.yml
     inputs:
-      env: .mpcdfci_ifx-2024
-      conv-postfix: _hmap_RZ
-      build-postfix: _hmap_RZ
-      run-postfix: _hmap_RZ
-
-
+      env: .mpcdfci_ifx-latest
+      conv-postfix: _only_converter
+      build-postfix: _only_converter
 
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      conv-postfix: _only_converter
-      build-postfix: _only_converter
-      rules: .rules_nightly
+      conv-postfix: _hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
 
   - local: CI_templates/converters.yml
     inputs:
@@ -1041,7 +1050,7 @@ include:
 
   - local: CI_templates/pypi.yml
     inputs:
-      env: .mpcdfci_ifx-2024
+      env: .mpcdfci_ifx-latest
       rules: .rules_pypi
 
 # =================================================================================================================================
@@ -1516,6 +1525,7 @@ include:
     CMP_MODE: "Release"
     OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
+
 
 # ____________________________
 # set HASH_TAG for reference builds
