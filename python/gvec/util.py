@@ -311,56 +311,45 @@ def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
 def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
     import copy
 
-    parameters2 = copy.deepcopy(parameters)
-    if "X1_b_cos" in parameters:
-        for (m, n), value in parameters["X1_b_cos"].items():
-            if m == 0:
-                continue
-            parameters2["X1_b_cos"][m, -n] = value
-    if "X1_b_sin" in parameters:
-        for (m, n), value in parameters["X1_b_sin"].items():
-            if m == 0:
-                continue
-            parameters2["X1_b_sin"][m, -n] = -value
-    if "X2_b_cos" in parameters:
-        for (m, n), value in parameters["X2_b_cos"].items():
-            if m == 0:
-                continue
-            parameters2["X2_b_cos"][m, -n] = value
-    if "X2_b_sin" in parameters:
-        for (m, n), value in parameters["X2_b_sin"].items():
-            if m == 0:
-                continue
-            parameters2["X2_b_sin"][m, -n] = -value
-    return parameters2
+    output_params = copy.deepcopy(parameters)
+    for var in ["X1_b", "X2_b"]:
+        if f"{var}_cos" in parameters:
+            output_params[f"{var}_cos"] = {}
+            for (m, n), value in parameters[f"{var}_cos"].items():
+                if m == 0:
+                    output_params[f"{var}_cos"][m, n] = value
+                else:
+                    output_params[f"{var}_cos"][m, -n] = value
+        if f"{var}_sin" in parameters:
+            output_params[f"{var}_sin"] = {}
+            for (m, n), value in parameters[f"{var}_sin"].items():
+                if m == 0:
+                    output_params[f"{var}_sin"][m, n] = value
+                else:
+                    output_params[f"{var}_sin"][m, -n] = -value
+    return output_params
 
 
 def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
     import copy
 
-    parameters2 = copy.deepcopy(parameters)
-    for var in ["X1_b", "X2_b"]:
+    output_params = copy.deepcopy(parameters)
+    for var in ["X1_b", "X2_b", "X1_a", "X2_a"]:
         if f"{var}_cos" in parameters:
+            output_params[f"{var}_cos"] = {}
             for (m, n), value in parameters[f"{var}_cos"].items():
                 if m == 0:
-                    continue
-                parameters2[f"{var}_cos"][m, -n] = value
-        if f"{var}_sin" in parameters:
-            for (m, n), value in parameters[f"{var}_sin"].items():
-                if m == 0:
-                    parameters2[f"{var}_sin"][m, n] = -value
+                    output_params[f"{var}_cos"][m, n] = value
                 else:
-                    parameters2[f"{var}_sin"][m, -n] = value
-    for var in ["X1_a", "X2_a"]:
+                    output_params[f"{var}_cos"][m, -n] = value
         if f"{var}_sin" in parameters:
+            output_params[f"{var}_sin"] = {}
             for (m, n), value in parameters[f"{var}_sin"].items():
-                assert m == 0
-                parameters2[f"{var}_sin"][m, n] = -value
-        if f"{var}_cos" in parameters:
-            for (m, n), value in parameters[f"{var}_cos"].items():
-                assert m == 0
-                # parameters2[f"{var}_cos"][m, n] = value
-    return parameters2
+                if m == 0:
+                    output_params[f"{var}_sin"][m, n] = -value
+                else:
+                    output_params[f"{var}_sin"][m, -n] = value
+    return output_params
 
 
 def parameters_from_vmec(nml: Mapping) -> CaseInsensitiveDict:
