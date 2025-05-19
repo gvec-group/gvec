@@ -167,6 +167,12 @@ include:
     inputs:
       env: .mpcdfci_gfortran-openmpi-latest
 
+  # Standard Linux
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .ubuntu-22
+
   # Raven private runner
   # ---------------
 
@@ -353,6 +359,19 @@ include:
       vars: .vars_matrix_build_tag
       cmake-opts: .cmake_no_converter
       rules: .rules_minimal
+
+  # Standard Linux
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .ubuntu-22
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .ubuntu-22
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
 
   # Raven private runner
   # --------------------
@@ -723,6 +742,12 @@ include:
   - local: CI_templates/unit.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+
+  # Standard Linux
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .ubuntu-22
 
   # ============================
   # stage regression jobs
@@ -1284,6 +1309,21 @@ include:
     SETUP_SCRIPT: ${CURR_CMP}
     MPI_MODE: "mpiON"
     MPI_RNKS_MODE: "_nranks${MPI_RNKS}"
+
+# ____________________________
+# Other images
+
+.ubuntu-22:
+  tags:
+    - shared
+  image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-22:latest
+  extends:
+    - .vars_mpiOFF
+  variables:
+    CMAKE_HOSTNAME: "none"
+    CI_HOSTNAME: "ubuntu-22"
+    CURR_CMP: "gfortran-11"
+    SETUP_SCRIPT: "none"
 
 
 # =================================================================================================================================
