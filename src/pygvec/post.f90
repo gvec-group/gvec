@@ -530,9 +530,9 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
     g_ss(i) = hmap%eval_gij(q_s, q, q_s)
     g_ss_dq1 = hmap%eval_gij_dq1(q_s, q, q_s)
     g_ss_dq2 = hmap%eval_gij_dq2(q_s, q, q_s)
-    dg_ss_ds(i) = 2 * hmap%eval_gij(q_ss, q, q_s) + q_s(1) * g_st_dq1 + q_s(2) * g_st_dq2
-    dg_ss_dt(i) = 2 * hmap%eval_gij(q_st, q, q_s) + q_t(1) * g_st_dq1 + q_t(2) * g_st_dq2
-    dg_ss_dz(i) = 2 * hmap%eval_gij(q_sz, q, q_s) + q_z(1) * g_st_dq1 + q_z(2) * g_st_dq2
+    dg_ss_ds(i) = 2 * hmap%eval_gij(q_ss, q, q_s) + q_s(1) * g_ss_dq1 + q_s(2) * g_ss_dq2
+    dg_ss_dt(i) = 2 * hmap%eval_gij(q_st, q, q_s) + q_t(1) * g_ss_dq1 + q_t(2) * g_ss_dq2
+    dg_ss_dz(i) = 2 * hmap%eval_gij(q_sz, q, q_s) + q_z(1) * g_ss_dq1 + q_z(2) * g_ss_dq2
     g_st(i) = hmap%eval_gij(q_s, q, q_t)
     g_st_dq1 = hmap%eval_gij_dq1(q_s, q, q_t)
     g_st_dq2 = hmap%eval_gij_dq2(q_s, q, q_t)
