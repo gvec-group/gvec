@@ -145,7 +145,7 @@ IMPLICIT NONE
           "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!")
   END IF
 
-  nvisu=GETINT("hmap_nvisu",0)
+  nvisu=GETINT("hmap_nvisu", -1)
 
   IF(MPIroot)THEN
     IF(nvisu.GT.0) CALL VisuFrenet(sf,nvisu)

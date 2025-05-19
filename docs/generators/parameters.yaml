@@ -1092,7 +1092,7 @@ hmap_nvisu:
   description:
   - Number of points along the axis (full turn) for visualization of the T,N,B frame
   - active for lnk_to_param(`which_hmap=20/21`|which_hmap)
-  default: '`0`'
+  default: '`-1`'
   type: '`integer`'
 hmap_ncfile:
   category:

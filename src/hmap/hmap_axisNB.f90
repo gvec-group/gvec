@@ -178,7 +178,7 @@ IMPLICIT NONE
     sf%Bxyz_hat_modes=transform_to_hat(sf%Bxyz,"Bxyz to Bxyzhat")
     DEALLOCATE(cosz,sinz)
 
-    nvisu=GETINT("hmap_nvisu", 0)
+    nvisu=GETINT("hmap_nvisu", -1)
 
     IF(nvisu.GT.0) CALL Visu_axisNB(sf,nvisu)
 
