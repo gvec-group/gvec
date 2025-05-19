@@ -22,6 +22,12 @@ workflow:
       when: always
       variables:
         HASH_TAG_REFERENCE: main
+    # ignore pushes to the main branch (main always points to a tag)
+    - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_REF_NAME == "main"
+      when: never
+    # ignore the docs branch
+    - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_REF_NAME == "docs"
+      when: never
     # otherwise always run the pipeline (e.g. on every push)
     - when: always
 
