@@ -39,7 +39,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: which_hmap         !! input number of field periods
-  TYPE(PP_T_HMAP), INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
+  CLASS(c_hmap) , INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   TYPE(PP_T_HMAP),ALLOCATABLE,INTENT(INOUT) :: sf !! self
@@ -55,7 +55,13 @@ IMPLICIT NONE
     END SELECT
     sf%which_hmap=which_hmap
   ELSE
-    ALLOCATE(sf,source=hmap_in)
+    SELECT TYPE(hmap_in)
+    CLASS IS(PP_T_HMAP)
+      ALLOCATE(sf,source=hmap_in)
+    CLASS DEFAULT
+      CALL abort(__STAMP__, &
+           "FIXED HMAP TO PP_WHICH_HMAP AT COMPILE TIME,  hmap_in choice is therefore not compatible  !")
+    END SELECT
   END IF
 
 END SUBROUTINE hmap_new
@@ -70,7 +76,7 @@ USE MODgvec_Globals   , ONLY: abort,wp
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  TYPE(PP_T_HMAP), INTENT(IN) :: hmap
+  CLASS(c_hmap), INTENT(IN) :: hmap
   REAL(wp)     , INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -80,8 +86,8 @@ IMPLICIT NONE
   INTEGER :: i,nzeta
 !===================================================================================================================================
   nzeta=SIZE(zeta)
-  SELECT CASE(hmap%which_hmap)
-  CASE(PP_WHICH_HMAP)
+  SELECT TYPE(hmap)
+  CLASS IS(PP_T_HMAP)
     ALLOCATE(PP_T_HMAP_AUXVAR :: xv(nzeta))
     !$OMP PARALLEL DO &
     !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
@@ -89,11 +95,10 @@ IMPLICIT NONE
       xv(i)= PP_T_HMAP_AUXVAR(hmap,zeta(i))
     END DO !i
     !$OMP END PARALLEL DO
-  CASE DEFAULT
+  CLASS DEFAULT
     CALL abort(__STAMP__, &
            "FIXED HMAP TO PP_WHICH_HMAP AT COMPILE TIME,  which_hmap choice is therefore not compatible  !")
   END SELECT
-
 
 END SUBROUTINE hmap_new_auxvar
 

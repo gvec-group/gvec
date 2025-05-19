@@ -947,6 +947,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
   USE MODgvec_MPI           ,ONLY:par_reduce,par_BCast
+  USE MODgvec_hmap          ,ONLY:hmap_new_auxvar,PP_T_HMAP_AUXVAR
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -961,6 +962,11 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   REAL(wp) :: StartTime,EndTime
   REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE  :: hmap_xv(:) !! auxiliary variables for hmap
+#else
+  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:) !! auxiliary variables for hmap  
+#endif
 !===================================================================================================================================
   StartTime=GetTime()
   SWRITE(UNIT_stdOut,'(4X,A)') "... Initialize lambda from mapping ..."
@@ -986,11 +992,14 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   ns_end = (nBase*(myRank+1))/nRanks
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
+
+  CALL hmap_new_auxvar(hmap,X1_base%f%x_IP(2,:),hmap_xv)
   DO is=ns_str,ns_end
     rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4_wp,s_IP(is))) !exclude axis
-    CALL lambda_Solve(rhopos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
+    CALL lambda_Solve(rhopos,hmap,hmap_xv,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
     CALL ProgressBar(is,ns_end)
   END DO !is
+  DEALLOCATE(hmap_xv)
 !!!  CALL par_reduce(LA_gIP,'SUM',0)
 !!!  IF(MPIroot)THEN
 !!!    DO iMode=1,modes
