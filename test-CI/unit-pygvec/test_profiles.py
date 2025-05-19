@@ -26,7 +26,7 @@ def binc(n, k):
     Returns:
         float: binomial coefficient (n k)
     """
-    if k > k:
+    if k > n:
         AssertionError("error in binomial coefficient (n k) calculation: k>n")
     if abs(k) <= tol:
         coef = 1.0

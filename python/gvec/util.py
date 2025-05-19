@@ -112,6 +112,19 @@ class CaseInsensitiveDict(MutableMapping):
     def copy(self):
         return self.__class__(self._data.values())
 
+    def serialize(self):
+        """Recursively serialize this object, converting Mappings to dicts and Iterables to lists."""
+
+        def _serialize(value):
+            if isinstance(value, Mapping):
+                return {k: _serialize(v) for k, v in value.items()}
+            elif isinstance(value, Iterable) and not isinstance(value, str):
+                return [_serialize(v) for v in value]
+            else:
+                return value
+
+        return _serialize(self)
+
     def __repr__(self):
         return f"{self.__class__.__name__}{dict(self.items())}"
 
@@ -462,11 +475,11 @@ def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Flatten parameters from a hierarchical dictionary"""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
-        if isinstance(value, dict) and not re.match(
-            r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key
+        if key.lower() in ["stages", "itor"]:
+            continue  # not supported by fortran-GVEC
+        elif isinstance(value, dict) and not re.match(
+            r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()
         ):
-            if key in ["stages", "Itor"]:  # not supported by fortran-GVEC
-                continue
             for subkey, subvalue in value.items():
                 output[f"{key}_{subkey}"] = subvalue
         else:
@@ -478,10 +491,12 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Serialize parameters into a string"""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
-        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+        if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
             output[key] = {}
             for (m, n), val in value.items():
                 output[key][f"({m}, {n:2d})"] = val
+        elif key.lower() == "stages":
+            output[key] = [stringify_mn_parameters(stage) for stage in value]
         else:
             output[key] = value
     return output
@@ -491,11 +506,13 @@ def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Deserialize parameters from a string"""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
-        if re.match(r"(X1|X2|LA)(pert:?)?_[a|b]_(sin|cos)", key):
+        if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
             output[key] = {}
             for mn, val in value.items():
                 m, n = map(int, mn.strip("()").split(","))
                 output[key][(m, n)] = val
+        elif key.lower() == "stages":
+            output[key] = [unstringify_mn_parameters(stage) for stage in value]
         else:
             output[key] = value
     return output
@@ -547,11 +564,15 @@ def write_parameters(
     elif format == "yaml":
         outputs = stringify_mn_parameters(parameters)
         with open(path, "w") as file:
-            yaml.safe_dump(outputs, file)
+            yaml.safe_dump(
+                outputs.serialize(), file, sort_keys=False
+            )  # ToDo: specify style/flow?
     elif format == "toml":
         outputs = stringify_mn_parameters(parameters)
         with open(path, "w") as file:
-            file.write(tomlkit.dumps(outputs))  # ToDo: nicer output using document API
+            file.write(
+                tomlkit.dumps(outputs.serialize())
+            )  # ToDo: nicer output using document API
     else:
         raise ValueError(f"Unknown parameter file format {format}")
 

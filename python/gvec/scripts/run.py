@@ -83,6 +83,7 @@ def run_stages(
     redirect_gvec_stdout: bool = True,
     diagnosticfile: Path | None = None,
     plots: bool = False,
+    init_LA: bool = False,
 ) -> tuple[Path, Path, xr.Dataset]:
     """Run GVEC with several stages (assuming hierarchical parameters)"""
     logger = logging.getLogger("pyGVEC.script")
@@ -110,9 +111,17 @@ def run_stages(
                 raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
 
     stages = parameters.get("stages", [{}])
+
+    # prepare the run directory
+    project_dir = Path(f"{parameters['ProjectName']}_gvec_stages")
+    if project_dir.exists():
+        logger.debug(f"Removing existing run directory {project_dir}")
+        shutil.rmtree(project_dir)
+    project_dir.mkdir()
+
+    run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
     for s, stage in enumerate(stages):
         # adapt parameters for this stage
-        run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
         for key in ["stages", "Itor"]:
             if key in run_params:
                 del run_params[key]
@@ -129,6 +138,15 @@ def run_stages(
                     run_params[key][subkey] = subvalue
             else:
                 run_params[key] = value
+
+        # add additional directory for path parameters
+        for key, value in run_params.items():
+            if key.lower() in [
+                "vmecwoutfile",
+                "boundary_filename",
+                "hmap_ncfile",
+            ] and not value.startswith("/"):
+                run_params[key] = f"../{value}"
 
         # run the stage
         runs = range(stage.get("runs", 1))
@@ -149,10 +167,10 @@ def run_stages(
             # find previous state
             if statefile:
                 logger.debug(f"Restart from statefile {statefile}")
-                run_params["init_LA"] = False
+                run_params["init_LA"] = init_LA
 
             # prepare the run directory
-            rundir = Path(f"{s:1d}-{r:02d}")
+            rundir = project_dir / Path(f"{s:1d}-{r:02d}")
             if rundir.exists():
                 logger.debug(f"Removing existing run directory {rundir}")
                 shutil.rmtree(rundir)
@@ -170,7 +188,7 @@ def run_stages(
             with gvec.util.chdir(rundir):
                 gvec.run(
                     "parameter.ini",
-                    ".." / statefile if statefile else None,
+                    "../../" / statefile if statefile else None,
                     stdout_path="stdout.txt" if redirect_gvec_stdout else None,
                 )
 
@@ -202,16 +220,16 @@ def run_stages(
             # diagnostics
             # ToDo: possible early stop condition
 
-            logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
             if "Itor" in parameters:
                 iota_delta = ev.iota - iota_values
+                rms_iota = np.sqrt((iota_delta**2).mean("rad"))
                 logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
-                logger.info(
-                    f"rms Δiota: {np.sqrt((iota_delta**2).mean('rad')).item():.2e}"
-                )
+                logger.info(f"rms Δiota: {rms_iota.item():.2e}")
                 logger.info(
                     f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.2e}"
                 )
+
+            logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
 
             d = xr.Dataset(
                 dict(
@@ -241,6 +259,9 @@ def run_stages(
                 f"GVEC run took {end_time - start_time:5.1f} seconds for {iterations} iterations. (max {max_iterations}, tol {tolerance:.1e})"
             )
             logger.info("-" * 40)
+
+            if "boundary_perturb" in run_params:
+                run_params["boundary_perturb"] = False
 
     if plots:
         import matplotlib.pyplot as plt
@@ -300,7 +321,12 @@ def run_stages(
             fig.savefig("profiles.png")
 
     logger.info("Done.")
-    return rundir, statefile, diagnostics
+    final_state = Path(parameters["ProjectName"] + "_State_final.dat")
+    parameter_final = Path("parameter_" + parameters["ProjectName"] + "_final.ini")
+
+    shutil.copy(statefile, final_state)
+    shutil.copy(statefile.parents[0] / "parameter.ini", parameter_final)
+    return rundir, final_state, diagnostics
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
