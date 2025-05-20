@@ -14,11 +14,25 @@
 MODULE MODgvec_hmap
 ! MODULES
 USE MODgvec_c_hmap,     ONLY: c_hmap       ,c_hmap_auxvar
+#ifdef PP_WHICH_HMAP
+#  if PP_WHICH_HMAP == 1
+USE MODgvec_hmap_RZ,    ONLY: t_hmap_RZ    ,t_hmap_RZ_auxvar
+#  elif PP_WHICH_HMAP == 3
+USE MODgvec_hmap_cyl,   ONLY: t_hmap_cyl   ,t_hmap_cyl_auxvar
+#  elif PP_WHICH_HMAP == 10
+USE MODgvec_hmap_knot,  ONLY: t_hmap_knot  ,t_hmap_knot_auxvar
+#  elif PP_WHICH_HMAP == 20
+USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet,t_hmap_frenet_auxvar
+#  elif PP_WHICH_HMAP == 21
+USE MODgvec_hmap_axisNB,ONLY: t_hmap_axisNB,t_hmap_axisNB_auxvar
+#  endif
+#else
 USE MODgvec_hmap_RZ,    ONLY: t_hmap_RZ    ,t_hmap_RZ_auxvar
 USE MODgvec_hmap_cyl,   ONLY: t_hmap_cyl   ,t_hmap_cyl_auxvar
 USE MODgvec_hmap_knot,  ONLY: t_hmap_knot  ,t_hmap_knot_auxvar
 USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet,t_hmap_frenet_auxvar
 USE MODgvec_hmap_axisNB,ONLY: t_hmap_axisNB,t_hmap_axisNB_auxvar
+#endif /*defined(PP_WHICH_HMAP)*/
 
 IMPLICIT NONE
 PUBLIC
@@ -38,10 +52,17 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: which_hmap         !! input number of field periods
-  PP_HMAP_TYPE(PP_T_HMAP), INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP), INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  PP_HMAP_TYPE(PP_T_HMAP),ALLOCATABLE,INTENT(INOUT) :: sf !! self
+  TYPE(PP_T_HMAP),ALLOCATABLE,INTENT(INOUT) :: sf !! self
+#else
+  CLASS(c_hmap), INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  CLASS(c_hmap),ALLOCATABLE,INTENT(INOUT) :: sf !! self 
+#endif /*defined(PP_WHICH_HMAP)*/
 !===================================================================================================================================
   IF(.NOT. PRESENT(hmap_in))THEN
     SELECT CASE(which_hmap)
@@ -92,7 +113,11 @@ IMPLICIT NONE
   REAL(wp)     , INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE,INTENT(INOUT) :: xv(:) !! self
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE,INTENT(INOUT) :: xv(:) !! self
+#else
+  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT) :: xv(:) !! self
+#endif
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i,nzeta

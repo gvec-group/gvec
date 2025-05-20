@@ -447,7 +447,8 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
                           ./src/profiles/*.f90
-                          ./src/hmap/*.f90
+                          ./src/hmap/c_hmap.f90
+                          ./src/hmap/hmap.f90
                           ./src/functionals/mhd3d/lambda_solve.f90
                           ./src/readstate/*.f90
                           ./src/analyze/analyze_vars.f90
@@ -468,6 +469,12 @@ IF(COMPILE_GVEC)
   IF(USE_FTIMINGS)
     LIST(APPEND mainF90 ./src/mod_timings.f90 ./src/perf2ftimings.f90)
   ENDIF()
+  IF(GVEC_FIX_HMAP STREQUAL "off")
+    FILE(GLOB hmapsF90 ./src/hmap/hmap_*.f90 )
+  ELSE()
+    FILE(GLOB hmapsF90 ./src/hmap/hmap_${GVEC_FIX_HMAP}.f90)
+  ENDIF()
+  LIST(APPEND mainF90 ${hmapsF90})
   LIST(APPEND mainF90 ${gvecF90})
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)

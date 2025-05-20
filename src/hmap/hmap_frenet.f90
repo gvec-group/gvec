@@ -42,7 +42,7 @@ PUBLIC
 !> depends on hmap_frenet, but could be used for different point sets in zeta
 !
 TYPE,EXTENDS(c_hmap_auxvar) :: t_hmap_frenet_auxvar
-  REAL(wp)  :: lp,kappa,tau,sigma
+  REAL(wp)  :: lp,kappa,tau,sigma,lp_p,kappa_p,tau_p
   REAL(wp),DIMENSION(3)::X0,T,N,B
 END TYPE t_hmap_frenet_auxvar
 
@@ -65,23 +65,20 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   CONTAINS
 
   FINAL :: hmap_frenet_free
-  PROCEDURE :: eval_all         => hmap_frenet_eval_all
-  PROCEDURE :: eval             => hmap_frenet_eval
-  PROCEDURE :: eval_aux         => hmap_frenet_eval_aux
-  PROCEDURE :: eval_dxdq        => hmap_frenet_eval_dxdq
-  PROCEDURE :: eval_dxdq_aux    => hmap_frenet_eval_dxdq_aux
-  PROCEDURE :: eval_Jh          => hmap_frenet_eval_Jh
-  PROCEDURE :: eval_Jh_aux      => hmap_frenet_eval_Jh_aux
-  PROCEDURE :: eval_Jh_dq1      => hmap_frenet_eval_Jh_dq1
-  PROCEDURE :: eval_Jh_dq1_aux  => hmap_frenet_eval_Jh_dq1_aux
-  PROCEDURE :: eval_Jh_dq2      => hmap_frenet_eval_Jh_dq2
-  PROCEDURE :: eval_Jh_dq2_aux  => hmap_frenet_eval_Jh_dq2_aux
-  PROCEDURE :: eval_gij         => hmap_frenet_eval_gij
-  PROCEDURE :: eval_gij_aux     => hmap_frenet_eval_gij_aux
-  PROCEDURE :: eval_gij_dq1     => hmap_frenet_eval_gij_dq1
-  PROCEDURE :: eval_gij_dq1_aux => hmap_frenet_eval_gij_dq1_aux
-  PROCEDURE :: eval_gij_dq2     => hmap_frenet_eval_gij_dq2
-  PROCEDURE :: eval_gij_dq2_aux => hmap_frenet_eval_gij_dq2_aux
+  PROCEDURE :: eval_all        => hmap_frenet_eval_all
+  PROCEDURE :: eval            => hmap_frenet_eval
+  PROCEDURE :: eval_aux        => hmap_frenet_eval_aux
+  PROCEDURE :: eval_dxdq       => hmap_frenet_eval_dxdq
+  PROCEDURE :: eval_dxdq_aux   => hmap_frenet_eval_dxdq_aux
+  PROCEDURE :: eval_Jh         => hmap_frenet_eval_Jh
+  PROCEDURE :: eval_Jh_aux     => hmap_frenet_eval_Jh_aux
+  PROCEDURE :: eval_Jh_dq      => hmap_frenet_eval_Jh_dq
+  PROCEDURE :: eval_Jh_dq_aux  => hmap_frenet_eval_Jh_dq_aux
+  PROCEDURE :: eval_gij        => hmap_frenet_eval_gij
+  PROCEDURE :: eval_gij_aux    => hmap_frenet_eval_gij_aux
+  PROCEDURE :: eval_gij_dq     => hmap_frenet_eval_gij_dq
+  PROCEDURE :: eval_gij_dq_aux => hmap_frenet_eval_gij_dq_aux
+
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_frenet:
   PROCEDURE :: eval_X0       => hmap_frenet_eval_X0_fromRZ
@@ -386,11 +383,11 @@ FUNCTION hmap_frenet_init_aux( sf ,zeta) RESULT(xv)
   TYPE(t_hmap_frenet_auxvar)      :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp,Bloc
-  REAL(wp)  :: absB
+  REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp,X0p4,Bloc
+  REAL(wp)  :: absB,absB_p
 !===================================================================================================================================
   xv%zeta = zeta
-  CALL sf%eval_X0(zeta, xv%X0, X0p, X0pp, X0ppp)
+  CALL sf%eval_X0(zeta, xv%X0, X0p, X0pp, X0ppp,X0p4=X0p4)
 
   xv%lp = SQRT(SUM(X0p*X0p))
   xv%T = X0p / xv%lp
@@ -404,6 +401,11 @@ FUNCTION hmap_frenet_init_aux( sf ,zeta) RESULT(xv)
   xv%tau = SUM(X0ppp*Bloc) / (absB**2)
   xv%B = Bloc / absB
   xv%N = CROSS(xv%B, xv%T)
+
+  xv%lp_p = SUM(X0pp*X0p) / xv%lp
+  absB_p = SUM(Bloc*CROSS(X0p, X0ppp)) / absB
+  xv%kappa_p = (absB_p*xv%lp -3*absB * xv%lp_p) / (xv%lp**4)
+  xv%tau_p   = (SUM(X0p4*Bloc)*absB -2*SUM(X0ppp*Bloc)*absB_p) / (absB**3)
 
   END FUNCTION hmap_frenet_init_aux
 
@@ -778,96 +780,66 @@ IMPLICIT NONE
 END FUNCTION hmap_frenet_eval_Jh_aux
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
+!> evaluate derivative of Jacobian of mapping h: sum_k q_vec^k * dJ_h/dq^k, k=1,2,3 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
+FUNCTION hmap_frenet_eval_Jh_dq( sf ,q_in,q_vec) RESULT(Jh_dq)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_frenet), INTENT(IN) :: sf
   REAL(wp)            , INTENT(IN) :: q_in(3)
+  REAL(wp)            , INTENT(IN) :: q_vec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq1
+  REAL(wp)                         :: Jh_dq
 !-----------------------------------------------------------------------------------------------------------------------------------
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,Bloc
   REAL(wp)          :: lp,absB,kappa,sigma
+  REAL(wp)          :: lp_p,absB_p,kappa_p
 !===================================================================================================================================
   !  |x |
   !  |y |=  X0(zeta) + sigma*(N(zeta)*q1 + B(zeta)*q2)
   !  |z |
-  ASSOCIATE(zeta=>q_in(3))
+  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
   CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
+  Bloc=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(Bloc*Bloc))
   kappa=absB/(lp**3)
   sigma=sf%sigma(zeta)
+  lp_p = SUM(X0pp*X0p) / lp
+  absB_p = SUM(Bloc*CROSS(X0p, X0ppp)) / absB
+  kappa_p = (absB_p*lp -3*absB * lp_p) / (lp**4)
+  !tau_p   = (SUM(X0p4*Bloc)*absB -2*SUM(X0ppp*Bloc)*absB_p) / (absB**3)
 
-  Jh_dq1=-lp*sigma*kappa
-
+  Jh_dq=-lp*sigma*kappa*q_vec(1) + (lp_p-sigma*q1*(lp_p*kappa+lp*kappa_p))*q_vec(3) !dsigma/dzeta is a dirac at kappa=0, so it is not evaluated
   END ASSOCIATE !zeta
-END FUNCTION hmap_frenet_eval_Jh_dq1
+END FUNCTION hmap_frenet_eval_Jh_dq
 
 !===================================================================================================================================
-!> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta)
+!> evaluate derivative of Jacobian of mapping h: sum_k q_vec^k * dJ_h/dq^k, k=1,2,3 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_Jh_dq1_aux( sf ,q1,q2,xv) RESULT(Jh_dq1)
+FUNCTION hmap_frenet_eval_Jh_dq_aux( sf ,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(Jh_dq)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_frenet), INTENT(IN) :: sf
   REAL(wp)            , INTENT(IN) :: q1,q2
+  REAL(wp)            , INTENT(IN) :: q1_vec,q2_vec,q3_vec
   CLASS(c_hmap_auxvar), INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq1
+  REAL(wp)                         :: Jh_dq
 !===================================================================================================================================
   SELECT TYPE(xv); TYPE IS(t_hmap_frenet_auxvar)
-  Jh_dq1=-xv%lp*xv%sigma*xv%kappa
+  Jh_dq=-xv%lp*xv%sigma*xv%kappa*q1_vec + (xv%lp_p-xv%sigma*q1*(xv%lp_p*xv%kappa+xv%lp*xv%kappa_p))*q3_vec
   END SELECT !type(xv)
-END FUNCTION hmap_frenet_eval_Jh_dq1_aux
+END FUNCTION hmap_frenet_eval_Jh_dq_aux
 
-!===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
-!!
-!===================================================================================================================================
-FUNCTION hmap_frenet_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: q_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq2
-!===================================================================================================================================
-  Jh_dq2 = 0.0_wp
-END FUNCTION hmap_frenet_eval_Jh_dq2
-
-!===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
-!!
-!===================================================================================================================================
-FUNCTION hmap_frenet_eval_Jh_dq2_aux( sf ,q1,q2,xv) RESULT(Jh_dq2)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: q1,q2
-  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq2
-!===================================================================================================================================
-  Jh_dq2 = 0.0_wp
-END FUNCTION hmap_frenet_eval_Jh_dq2_aux
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
@@ -887,7 +859,7 @@ FUNCTION hmap_frenet_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
   REAL(wp)                        :: g_ab
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,Bloc
   REAL(wp)              :: lp,absB,kappa,tau,sigma
   REAL(wp)              :: Ga, Gb, Gc
 !===================================================================================================================================
@@ -900,11 +872,11 @@ FUNCTION hmap_frenet_eval_gij( sf ,qL_in,q_G,qR_in) RESULT(g_ab)
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
   CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
   lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
+  Bloc=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(Bloc*Bloc))
   kappa=absB/(lp**3)
   sigma=sf%sigma(zeta)
-  tau=SUM(X0ppp*B)/(absB**2)
+  tau=SUM(X0ppp*Bloc)/(absB**2)
 
   Ga = -lp*tau*q2
   Gb =  lp*tau*q1
@@ -952,42 +924,56 @@ FUNCTION hmap_frenet_eval_gij_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(
 END FUNCTION hmap_frenet_eval_gij_aux
 
 !===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!>  evaluate sum_k=1,3 q_vec^k * sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
+FUNCTION hmap_frenet_eval_gij_dq( sf ,qL_in,q_G,qR_in,q_vec) RESULT(g_ab_dq)
   CLASS(t_hmap_frenet), INTENT(IN) :: sf
   REAL(wp)            , INTENT(IN) :: qL_in(3)
   REAL(wp)            , INTENT(IN) :: q_G(3)
   REAL(wp)            , INTENT(IN) :: qR_in(3)
+  REAL(wp)            , INTENT(IN) :: q_vec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                         :: g_ab_dq1
+  REAL(wp)                         :: g_ab_dq
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
+  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,X0p4,Bloc
   REAL(wp)              :: lp,absB,kappa,tau,sigma
+  REAL(wp)              :: lp_p,absB_p,kappa_p,tau_p
 !===================================================================================================================================
   !                       |q1  |   |0  0        0           |        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |0  0      l'*tau        | (dbeta |q2  | )
   !                       |q3  |   |0  l'*tau  dG33/dq1     |        |q3  |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
+  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp,X0p4=X0p4)
   lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
+  Bloc=CROSS(X0p,X0pp)
+  absB=SQRT(SUM(Bloc*Bloc))
   kappa=absB/(lp**3)
   sigma=sf%sigma(zeta)
-  tau=SUM(X0ppp*B)/(absB**2)
+  tau=SUM(X0ppp*Bloc)/(absB**2)
+  lp_p = SUM(X0pp*X0p) / lp
+  absB_p = SUM(Bloc*CROSS(X0p, X0ppp)) / absB
+  kappa_p = (absB_p*lp -3*absB * lp_p) / (lp**4)
+  tau_p   = (SUM(X0p4*Bloc)*absB -2*SUM(X0ppp*Bloc)*absB_p) / (absB**3)
 
-  g_ab_dq1 = lp*tau*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
-            +2.0_wp*(lp**2)*((tau**2+kappa**2)*q1-sigma*kappa)*(qL_in(3)*qR_in(3))
+  !G13 = -lp*tau*q2
+  !G23 =  lp*tau*q1
+  !G33 = (lp**2)*((1.0_wp-sigma*kappa*q1)**2+tau**2*(q1**2+q2**2))
 
+  g_ab_dq =-(lp*tau*q_vec(2)+(lp_p*tau+lp*tau_p)*q2*q_vec(3))*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
+           +(lp*tau*q_vec(1)+(lp_p*tau+lp*tau_p)*q1*q_vec(3))*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
+           +2.0_wp*(qL_in(3)*qR_in(3))*( (lp**2)*( q_vec(1)*((tau**2+kappa**2)*q1-sigma*kappa)       &
+                                                  +q_vec(2)*  tau**2*q2                        )     &
+                                        +q_vec(3)*( lp_p*lp* ( (1.0_wp-sigma*kappa*q1)**2+tau**2*(q1**2+q2**2)) &
+                                                   +(lp**2)* ( (1.0_wp-sigma*kappa*q1)*(-sigma*kappa_p*q1)      &
+                                                              +tau*tau_p*(q1**2+q2**2) ) ) )
   END ASSOCIATE
-END FUNCTION hmap_frenet_eval_gij_dq1
+END FUNCTION hmap_frenet_eval_gij_dq
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
@@ -996,87 +982,37 @@ END FUNCTION hmap_frenet_eval_gij_dq1
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_eval_gij_dq1_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq1)
+FUNCTION hmap_frenet_eval_gij_dq_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,q1_vec,q2_vec,q3_vec,xv) RESULT(g_ab_dq)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_frenet), INTENT(IN) :: sf
   REAL(wp)            , INTENT(IN) :: qL1,qL2,qL3
   REAL(wp)            , INTENT(IN) :: q1,q2
   REAL(wp)            , INTENT(IN) :: qR1,qR2,qR3
+  REAL(wp)            , INTENT(IN) :: q1_vec,q2_vec,q3_vec
   CLASS(c_hmap_auxvar), INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                         :: g_ab_dq1
+  REAL(wp)                         :: g_ab_dq
 
 !===================================================================================================================================
   SELECT TYPE(xv); TYPE IS(t_hmap_frenet_auxvar)
-  g_ab_dq1 = xv%lp*( xv%tau*(qL2*qR3+ qL3*qR2) &
-                        +2.0_wp*xv%lp*((xv%tau**2+xv%kappa**2)*q1-xv%sigma*xv%kappa)*(qL3*qR3))
+  g_ab_dq =-(xv%lp*xv%tau*q2_vec+(xv%lp_p*xv%tau+xv%lp*xv%tau_p)*q2*q3_vec)*(qL1*qR3+ qL3*qR1) &
+           +(xv%lp*xv%tau*q1_vec+(xv%lp_p*xv%tau+xv%lp*xv%tau_p)*q1*q3_vec)*(qL2*qR3+ qL3*qR2) &
+          +2.0_wp*(qL3*qR3)*( (xv%lp**2)*( q1_vec*((xv%tau**2+xv%kappa**2)*q1-xv%sigma*xv%kappa)           &
+                                          +q2_vec*  xv%tau**2*q2                        )                  &
+                             +q3_vec*( xv%lp_p*xv%lp* ( (1.0_wp-xv%sigma*xv%kappa*q1)**2+xv%tau**2*(q1**2+q2**2))   &
+                                      +(xv%lp**2)*    ( (1.0_wp-xv%sigma*xv%kappa*q1)*(-xv%sigma*xv%kappa_p*q1)  &
+                                                       +xv%tau*xv%tau_p*(q1**2+q2**2) ) ) )
   END SELECT ! TYPE(xv)
-END FUNCTION hmap_frenet_eval_gij_dq1_aux
+END FUNCTION hmap_frenet_eval_gij_dq_aux
 
-!===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
-!!
-!===================================================================================================================================
-FUNCTION hmap_frenet_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
-  CLASS(t_hmap_frenet), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: qL_in(3)
-  REAL(wp)            , INTENT(IN) :: q_G(3)
-  REAL(wp)            , INTENT(IN) :: qR_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                          :: g_ab_dq2
-  REAL(wp),DIMENSION(3) :: X0,X0p,X0pp,X0ppp,B
-  REAL(wp)              :: lp,absB,tau
-!===================================================================================================================================
-  !                            |q1  |   |0       0  -l'*tau  |        |q1   |
-  !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0       0        0  | (dbeta |q1   | ) =0
-  !                            |q3  |   |-l'*tau 0   dG33/dq2|        |q3   |
-  ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_X0(zeta,X0,X0p,X0pp,X0ppp)
-  lp=SQRT(SUM(X0p*X0p))
-  B=CROSS(X0p,X0pp)
-  absB=SQRT(SUM(B*B))
-  tau=SUM(X0ppp*B)/(absB**2)
-
-  g_ab_dq2=-lp*tau*(qL_in(1)*qR_in(3)+qL_in(3)*qR_in(1)) + 2.0_wp*(lp*tau)**2*q2*(qL_in(3)*qR_in(3))
-
-  END ASSOCIATE
-END FUNCTION hmap_frenet_eval_gij_dq2
-
-!===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
-!!
-!===================================================================================================================================
-FUNCTION hmap_frenet_eval_gij_dq2_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq2)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_frenet), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: qL1,qL2,qL3
-  REAL(wp)            , INTENT(IN) :: q1,q2
-  REAL(wp)            , INTENT(IN) :: qR1,qR2,qR3
-  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                          :: g_ab_dq2
-!===================================================================================================================================
-  SELECT TYPE(xv); TYPE IS(t_hmap_frenet_auxvar)
-  g_ab_dq2=-xv%lp*xv%tau*((qL1*qR3+qL3*qR1) + 2.0_wp*(xv%lp*xv%tau)*q2*(qL3*qR3))
-  END SELECT !type(xv)
-END FUNCTION hmap_frenet_eval_gij_dq2_aux
 
 !===================================================================================================================================
 !> evaluate curve X0(zeta), position and first three derivatives, from given R0,Z0 Fourier
 !!
 !===================================================================================================================================
-PURE SUBROUTINE hmap_frenet_eval_X0_fromRZ( sf,zeta,X0,X0p,X0pp,X0ppp)
+PURE SUBROUTINE hmap_frenet_eval_X0_fromRZ( sf,zeta,X0,X0p,X0pp,X0ppp,X0p4)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1089,13 +1025,14 @@ IMPLICIT NONE
   REAL(wp)            , INTENT(OUT) :: X0p(1:3)     !! 1st derivative in zeta
   REAL(wp)            , INTENT(OUT) :: X0pp(1:3)    !! 2nd derivative in zeta
   REAL(wp)            , INTENT(OUT) :: X0ppp(1:3)   !! 3rd derivative in zeta
+  REAL(wp)            , INTENT(OUT),OPTIONAL :: X0p4(1:3)  !! 4th derivative in zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp) :: R0,R0p,R0pp,R0ppp
+  REAL(wp) :: R0,R0p,R0pp,R0ppp,R0p4,Z0p4
   REAL(wp) :: coszeta,sinzeta
 !===================================================================================================================================
-  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%rc,sf%rs,zeta,R0,R0p,R0pp,R0ppp)
-  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%zc,sf%zs,zeta,X0(3),X0p(3),X0pp(3),X0ppp(3)) !=Z0,Z0p,Z0pp,Z0ppp
+  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%rc,sf%rs,zeta,R0,R0p,R0pp,R0ppp,R0p4)
+  CALL eval_fourier1d(sf%n_max,sf%Xn,sf%zc,sf%zs,zeta,X0(3),X0p(3),X0pp(3),X0ppp(3),Z0p4) !=Z0,Z0p,Z0pp,Z0ppp
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
   ASSOCIATE(x   =>X0(1)   ,y   =>X0(2)   , &
@@ -1120,7 +1057,11 @@ IMPLICIT NONE
     yppp = R0ppp*sinzeta + 3*R0pp*coszeta - 3*R0p*sinzeta - R0*coszeta
     !xppp  = R0ppp*coszeta +3.0_wp*(xp-ypp) + y
     !yppp  = R0ppp*sinzeta +3.0_wp*(yp+xpp) + x
-
+  IF(PRESENT(X0p4))THEN
+    X0p4(1)  = R0p4*coszeta - 4*R0ppp*sinzeta - 6*R0pp*coszeta  + 4*R0p*sinzeta + R0*coszeta
+    X0p4(2)  = R0p4*sinzeta + 4*R0ppp*coszeta - 6*R0pp*sinzeta  - 4*R0p*coszeta + R0*sinzeta
+    X0p4(3)  = Z0p4
+  END IF
   END ASSOCIATE !x,y,xp,yp,...
 
 END SUBROUTINE hmap_frenet_eval_X0_fromRZ
@@ -1132,7 +1073,7 @@ END SUBROUTINE hmap_frenet_eval_X0_fromRZ
 !! evaluate all derivatives 1,2,3 alongside
 !!
 !===================================================================================================================================
-PURE SUBROUTINE eval_fourier1d(n_max,xn,xc,xs,zeta,x,xp,xpp,xppp)
+PURE SUBROUTINE eval_fourier1d(n_max,xn,xc,xs,zeta,x,xp,xpp,xppp,xp4)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1148,6 +1089,7 @@ IMPLICIT NONE
   REAL(wp) , INTENT(OUT) :: xp     !! 1st derivative in zeta
   REAL(wp) , INTENT(OUT) :: xpp    !! 2nd derivative in zeta
   REAL(wp) , INTENT(OUT) :: xppp   !! 3rd derivative in zeta
+  REAL(wp) , INTENT(OUT) :: xp4    !! 4th derivative in zeta
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp),DIMENSION(0:n_max) :: cos_nzeta,sin_nzeta,xtmp,xptmp
@@ -1160,6 +1102,7 @@ IMPLICIT NONE
   xp   = SUM(xptmp)
   xpp  = SUM(REAL(-xn*xn,wp)*xtmp)
   xppp = SUM(REAL(-xn*xn,wp)*xptmp)
+  xp4  = SUM(REAL(xn**4,wp)*xtmp)
 
 END SUBROUTINE eval_fourier1d
 
@@ -1182,7 +1125,7 @@ IMPLICIT NONE
   INTEGER,PARAMETER  :: nzeta=5
   INTEGER,PARAMETER  :: ns=2
   INTEGER,PARAMETER  :: nthet=3
-  REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps
+  REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps,Jh_0,Jh_eps
   REAL(wp),ALLOCATABLE :: zeta(:)
   REAL(wp)           :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
@@ -1256,24 +1199,38 @@ IMPLICIT NONE
        '\n =>  should be ', refreal,' : sum|Gij-eval_gij|= ', checkreal,', i=',idir,', j=',jdir
       END IF !TEST
     END DO; END DO
-    !! TEST dG_ij_dq1 with FD
-    DO qdir=1,2
-    DO idir=1,3; DO jdir=idir,3
-      iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
-      gij  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
-      gij_eps = sf%eval_gij(q_test(idir,:),q_in+epsFD*q_test(qdir,:),q_test(jdir,:))
-      IF(qdir.EQ.1) refreal = sf%eval_gij_dq1(q_test(idir,:),q_in,q_test(jdir,:))
-      IF(qdir.EQ.2) refreal = sf%eval_gij_dq2(q_test(idir,:),q_in,q_test(jdir,:))
+    !! TEST dJh_dqk with FD
+    DO qdir=1,3
+      iTest=iTest+1; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      Jh_0    = sf%eval_Jh(   q_in                     )
+      Jh_eps  = sf%eval_Jh(   q_in+epsFD*q_test(qdir,:))
+      refreal = sf%eval_Jh_dq(q_in                     ,q_test(qdir,:))
+      checkreal=(Jh_eps-Jh_0)/epsFD-refreal
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
+       '\n =>  should be <', 100*epsFD,' : |dJh_dqFD-eval_Jh_dq|= ', checkreal,', dq=',qdir
+      END IF !TEST
+    END DO !qdir
+    !! TEST dG_ij_dqk with FD
+    DO qdir=1,3
+    DO idir=1,3; DO jdir=1,3
+      iTest=iTest+1; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      gij     = sf%eval_gij(   q_test(idir,:),q_in                     ,q_test(jdir,:))
+      gij_eps = sf%eval_gij(   q_test(idir,:),q_in+epsFD*q_test(qdir,:),q_test(jdir,:))
+      refreal = sf%eval_gij_dq(q_test(idir,:),q_in                     ,q_test(jdir,:),q_test(qdir,:))
       checkreal=(gij_eps-gij)/epsFD-refreal
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
               '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),3(A,I3))') &
-       '\n =>  should be < ', 100*epsFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
+       '\n =>  should be <', 100*epsFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
       END IF !TEST
     END DO; END DO
-    END DO
+    END DO !qdir
 
 
 
@@ -1324,14 +1281,14 @@ IMPLICIT NONE
       g_tt(i,j,k)     =g_tt(i,j,k)     - sf%eval_gij(q_thet,qloc,q_thet)
       g_tz(i,j,k)     =g_tz(i,j,k)     - sf%eval_gij(q_thet,qloc,q_zeta)
       g_zz(i,j,k)     =g_zz(i,j,k)     - sf%eval_gij(q_zeta,qloc,q_zeta)
-      Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq1(qloc)
-      Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq2(qloc)
-      g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_thet)
-      g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_thet)
-      g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_zeta)
-      g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_zeta)
-      g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq1(q_zeta,qloc,q_zeta)
-      g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq2(q_zeta,qloc,q_zeta)
+      Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq(qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+      Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq(qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+      g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_thet,(/1.0_wp,0.0_wp,0.0_wp/))
+      g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_thet,(/0.0_wp,1.0_wp,0.0_wp/))
+      g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_zeta,(/1.0_wp,0.0_wp,0.0_wp/))
+      g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_zeta,(/0.0_wp,1.0_wp,0.0_wp/))
+      g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq(q_zeta,qloc,q_zeta,(/1.0_wp,0.0_wp,0.0_wp/))
+      g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq(q_zeta,qloc,q_zeta,(/0.0_wp,1.0_wp,0.0_wp/))
       g_t1(i,j,k)     =g_t1(i,j,k)     - sf%eval_gij(q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/))
       g_t2(i,j,k)     =g_t2(i,j,k)     - sf%eval_gij(q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
       g_z1(i,j,k)     =g_z1(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/))

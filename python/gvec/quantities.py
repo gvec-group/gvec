@@ -170,25 +170,26 @@ def N_FP(ds: xr.Dataset, state: State):
 
 
 @register(
-    quantities=("pos", "e_X1", "e_X2", "e_zeta3"),
-    requirements=("xyz", "X1", "X2", "zeta"),
+    quantities=("pos", "e_rho", "e_theta", "e_zeta"),
+    requirements=["xyz","X1", "X2", "zeta"]
+    + [f"d{Q}_d{i}" for i in "rtz" for Q in ["X1", "X2"] 
+    ],
     attrs=dict(
-        pos=dict(long_name="position vector", symbol=r"\mathbf{x}"),
-        e_X1=dict(
-            long_name="first reference tangent basis vector", symbol=r"\mathbf{e}_{X^1}"
+        pos=dict(
+            long_name="position vector", symbol=r"\mathbf{x}"),
+        e_rho=dict(
+            long_name="radial tangent basis vector",  symbol=r"\mathbf{e}_{\rho}"
         ),
-        e_X2=dict(
-            long_name="second reference tangent basis vector",
-            symbol=r"\mathbf{e}_{X^2}",
+        e_theta=dict(
+            long_name="poloidal tangent basis vector",symbol=r"\mathbf{e}_{\theta}",
         ),
-        e_zeta3=dict(
-            long_name="toroidal reference tangent basis vector",
-            symbol=r"\mathbf{e}_{\zeta^3}",
+        e_zeta=dict(
+            long_name="toroidal tangent basis vector",symbol=r"\mathbf{e}_{\zeta}",
         ),
     ),
 )
 def hmap(ds: xr.Dataset, state: State):
-    outputs = state.evaluate_hmap_only(
+    outputs = state.evaluate_hmap(
         **{
             var: ds[var].broadcast_like(ds.X1).values.flatten()
             for var in hmap.requirements
@@ -200,6 +201,7 @@ def hmap(ds: xr.Dataset, state: State):
             ("xyz", "rad", "pol", "tor"),
             value.reshape(3, ds.rad.size, ds.pol.size, ds.tor.size),
         )
+
 
 
 # === metric =========================================================================== #
@@ -288,10 +290,34 @@ def Jac_h(ds: xr.Dataset, state: State):
     quantities=(
         "Jac",
         "Jac_l",
+    ),
+    requirements=(
+        "Jac_h",
+        *(
+            f"d{Q}_d{i}"
+            for Q in "X1 X2".split()
+            for i in "r t".split()
+        ),
+    ),
+    attrs={
+        "Jac": dict(long_name="Jacobian determinant", symbol=r"\mathcal{J}"),
+        "Jac_l": dict(
+            long_name="logical Jacobian determinant", symbol=r"\mathcal{J}_l"
+        ),
+    },
+)
+def Jac(ds: xr.Dataset):
+    ds["Jac_l"] = ds.dX1_dr * ds.dX2_dt - ds.dX1_dt * ds.dX2_dr
+    ds["Jac"] = ds.Jac_h * ds.Jac_l
+
+
+@register(
+    quantities=(
         *(f"dJac{suf}_d{i}" for suf in ["", "_l"] for i in "rtz"),
     ),
     requirements=(
         "Jac_h",
+        "Jac_l",
         *(f"dJac_h_d{i}" for i in "rtz"),
         *(
             f"d{Q}_d{i}"
@@ -300,12 +326,6 @@ def Jac_h(ds: xr.Dataset, state: State):
         ),
     ),
     attrs={
-        "Jac": dict(long_name="Jacobian determinant", symbol=r"\mathcal{J}"),
-        "Jac_l": dict(
-            long_name="logical Jacobian determinant", symbol=r"\mathcal{J}_l"
-        ),
-    }
-    | {
         f"dJac_d{i}": dict(
             long_name=derivative_name_smart("Jacobian determinant", i),
             symbol=latex_partial_smart(r"\mathcal{J}", i),
@@ -320,8 +340,7 @@ def Jac_h(ds: xr.Dataset, state: State):
         for i in "rtz"
     },
 )
-def Jac(ds: xr.Dataset):
-    ds["Jac_l"] = ds.dX1_dr * ds.dX2_dt - ds.dX1_dt * ds.dX2_dr
+def Jac_derivs(ds: xr.Dataset):
     ds["dJac_l_dr"] = (
         ds.dX1_drr * ds.dX2_dt
         + ds.dX1_dr * ds.dX2_drt
@@ -340,11 +359,9 @@ def Jac(ds: xr.Dataset):
         - ds.dX1_dtz * ds.dX2_dr
         - ds.dX1_dt * ds.dX2_drz
     )
-    ds["Jac"] = ds.Jac_h * ds.Jac_l
     ds["dJac_dr"] = ds.dJac_h_dr * ds.Jac_l + ds.Jac_h * ds.dJac_l_dr
     ds["dJac_dt"] = ds.dJac_h_dt * ds.Jac_l + ds.Jac_h * ds.dJac_l_dt
     ds["dJac_dz"] = ds.dJac_h_dz * ds.Jac_l + ds.Jac_h * ds.dJac_l_dz
-
 
 # === straight field line coordinates - PEST =========================================== #
 
@@ -384,29 +401,6 @@ def Jac_P(ds: xr.Dataset):
 
 # === derived ========================================================================== #
 
-
-@register(
-    requirements=("xyz", "e_X1", "e_X2", "dX1_dr", "dX2_dr"),
-    attrs=dict(long_name="radial tangent basis vector", symbol=r"\mathbf{e}_\rho"),
-)
-def e_rho(ds: xr.Dataset):
-    ds["e_rho"] = ds.e_X1 * ds.dX1_dr + ds.e_X2 * ds.dX2_dr
-
-
-@register(
-    requirements=("xyz", "e_X1", "e_X2", "dX1_dt", "dX2_dt"),
-    attrs=dict(long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_\theta"),
-)
-def e_theta(ds: xr.Dataset):
-    ds["e_theta"] = ds.e_X1 * ds.dX1_dt + ds.e_X2 * ds.dX2_dt
-
-
-@register(
-    requirements=("xyz", "e_X1", "e_X2", "e_zeta3", "dX1_dz", "dX2_dz"),
-    attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_\zeta"),
-)
-def e_zeta(ds: xr.Dataset):
-    ds["e_zeta"] = ds.e_X1 * ds.dX1_dz + ds.e_X2 * ds.dX2_dz + ds.e_zeta3
 
 
 @register(

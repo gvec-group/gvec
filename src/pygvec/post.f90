@@ -521,116 +521,107 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt   !! derivatives of the m. coef.
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz   !! derivatives of the m. coef.
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  REAL :: g_ij_dq1, g_ij_dq2 !,g_ij_dq3
   INTEGER :: i              ! loop variable
   PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
     !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
   DO i=1,n
-    g_ss( i) =  hmap%eval_gij_aux(    dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
-    g_st( i) =  hmap%eval_gij_aux(    dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-    g_tt( i) =  hmap%eval_gij_aux(    dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-    g_sz( i) =  hmap%eval_gij_aux(    dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    g_tz( i) = hmap%eval_gij_aux(     dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    g_zz( i) = hmap%eval_gij_aux(     dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) 
-  END DO
-  !$OMP END PARALLEL DO
-  !derivatives of g_ij
-  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,g_ij_dq1,g_ij_dq2)
-  DO i=1,n
-    ! g_ij = g_ss here
-    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
-    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
-    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
+#define Q1Q2     X1(i),X2(i)
+#define dQ_ds    dX1_ds(i),dX2_ds(i),0.0_wp
+#define dQ_dt    dX1_dt(i),dX2_dt(i),0.0_wp
+#define dQ_dz    dX1_dz(i),dX2_dz(i),1.0_wp
+#define ddQ_dss  dX1_dss(i),dX2_dss(i),0.0_wp
+#define ddQ_dst  dX1_dst(i),dX2_dst(i),0.0_wp
+#define ddQ_dsz  dX1_dsz(i),dX2_dsz(i),0.0_wp
+#define ddQ_dtt  dX1_dtt(i),dX2_dtt(i),0.0_wp
+#define ddQ_dtz  dX1_dtz(i),dX2_dtz(i),0.0_wp
+#define ddQ_dzz  dX1_dzz(i),dX2_dzz(i),0.0_wp
+
+    g_ss(i) =  hmap%eval_gij_aux( dQ_ds,  Q1Q2,  dQ_ds,  hmap_xv(i))
+    g_st(i) =  hmap%eval_gij_aux( dQ_ds,  Q1Q2,  dQ_dt,  hmap_xv(i))
+    g_sz(i) =  hmap%eval_gij_aux( dQ_ds,  Q1Q2,  dQ_dz,  hmap_xv(i))
+    g_tt(i) =  hmap%eval_gij_aux( dQ_dt,  Q1Q2,  dQ_dt,  hmap_xv(i))
+    g_tz(i) =  hmap%eval_gij_aux( dQ_dt,  Q1Q2,  dQ_dz,  hmap_xv(i))
+    g_zz(i) =  hmap%eval_gij_aux( dQ_dz,  Q1Q2,  dQ_dz,  hmap_xv(i))
+
+
+    !g_ss
+    dg_ss_ds(i) = 2*hmap%eval_gij_aux(   ddQ_dss,  Q1Q2,  dQ_ds         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_ds ,  dQ_ds,  hmap_xv(i))
     
-    dg_ss_ds(i) = 2*hmap%eval_gij_aux(dX1_dss(i),dX2_dss(i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i)) &
-                  + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
-
-    dg_ss_dt(i) = 2*hmap%eval_gij_aux(dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i)) &
-                  + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
-
-    dg_ss_dz(i) = 2*hmap%eval_gij_aux(dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i)) &
-                  + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
-    ! g_ij = g_st here
-    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-
-    dg_st_ds(i) = hmap%eval_gij_aux(  dX1_dss(i),dX2_dss(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dst(i),dX2_dst(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
-
-    dg_st_dt(i) = hmap%eval_gij_aux(  dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i) ,0.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dtt(i),dX2_dtt(i) ,0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
-
-    dg_st_dz(i) = hmap%eval_gij_aux(  dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dtz(i),dX2_dtz(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
-
-    ! g_ij = g_sz here
-    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-
-    dg_sz_ds(i) = hmap%eval_gij_aux(  dX1_dss(i),dX2_dss(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dsz(i),dX2_dsz(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
-
-    dg_sz_dt(i) = hmap%eval_gij_aux(  dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dtz(i),dX2_dtz(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
-
-    dg_sz_dz(i) = hmap%eval_gij_aux(  dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dzz(i),dX2_dzz(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
-   
-    ! g_ij = g_tt here
-    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
-
-    dg_tt_ds(i) = 2*hmap%eval_gij_aux(dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
-
-    dg_tt_dt(i) = 2*hmap%eval_gij_aux(dX1_dtt(i),dX2_dtt(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
+    dg_ss_dt(i) = 2*hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_ds         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_ds ,  dQ_dt,  hmap_xv(i))
     
-    dg_tt_dz(i) = 2*hmap%eval_gij_aux(dX1_dtz(i),dX2_dtz(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
+    dg_ss_dz(i) = 2*hmap%eval_gij_aux(   ddQ_dsz,  Q1Q2,  dQ_ds         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_ds ,  dQ_dz,  hmap_xv(i))
 
-    !g_ij = g_tz here
-    g_ij_dq1 = hmap%eval_gij_dq1_aux( dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    g_ij_dq2 = hmap%eval_gij_dq2_aux( dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    !g_ij_dq3 =hmap%eval_gij_dq3_aux( dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    !g_st
+    dg_st_ds(i) =   hmap%eval_gij_aux(   ddQ_dss,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dst        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dt ,  dQ_ds,  hmap_xv(i))
 
-    dg_tz_ds(i) = hmap%eval_gij_aux(  dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dsz(i),dX2_dsz(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
+    dg_st_dt(i) =   hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dtt        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dt ,  dQ_dt,  hmap_xv(i))
 
-    dg_tz_dt(i) = hmap%eval_gij_aux(  dX1_dtt(i),dX2_dtt(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dtz(i),dX2_dtz(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
+    dg_st_dz(i) =   hmap%eval_gij_aux(   ddQ_dsz,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dtz        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dt ,  dQ_dz,  hmap_xv(i))
 
-    dg_tz_dz(i) = hmap%eval_gij_aux(  dX1_dtz(i),dX2_dtz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 +hmap%eval_gij_aux(  dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dzz(i),dX2_dzz(i),0.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
+    !g_sz
+    dg_sz_ds(i) =   hmap%eval_gij_aux(   ddQ_dss,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dsz        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_ds,  hmap_xv(i))   
+
+    dg_sz_dt(i) =   hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dtz        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_dt,  hmap_xv(i))       
+                   
+    dg_sz_dz(i) =   hmap%eval_gij_aux(   ddQ_dsz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dzz        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_dz,  hmap_xv(i))
+    !g_tt
+    dg_tt_ds(i) = 2*hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dt ,  dQ_ds,  hmap_xv(i))
     
-    !g_ij = g_zz here
-    g_zz( i) = hmap%eval_gij_aux(     dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) 
-    g_ij_dq1 = hmap%eval_gij_dq1_aux( dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    g_ij_dq2 = hmap%eval_gij_dq2_aux( dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
-    !g_ij_dq3 =hmap%eval_gij_dq3_aux( dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    dg_tt_dt(i) = 2*hmap%eval_gij_aux(   ddQ_dtt,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dt ,  dQ_dt,  hmap_xv(i))
 
-    dg_zz_ds(i) = 2*hmap%eval_gij_aux(dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
+    dg_tt_dz(i) = 2*hmap%eval_gij_aux(   ddQ_dtz,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dt ,  dQ_dz,  hmap_xv(i))
+
+    ! g_tz 
+    dg_tz_ds(i) =   hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_dt ,  Q1Q2, ddQ_dsz        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dz ,  dQ_ds,  hmap_xv(i))
+
+    dg_tz_dt(i) =   hmap%eval_gij_aux(   ddQ_dtt,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_dt ,  Q1Q2, ddQ_dtz        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dz ,  dQ_dt,  hmap_xv(i))
+
+    dg_tz_dz(i) =   hmap%eval_gij_aux(   ddQ_dtz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                   +hmap%eval_gij_aux(    dQ_dt ,  Q1Q2, ddQ_dzz        ,  hmap_xv(i)) &
+                   +hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dz ,  dQ_dz,  hmap_xv(i))
+    !g_zz 
+    dg_zz_ds(i) = 2*hmap%eval_gij_aux(   ddQ_dsz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_dz ,  Q1Q2,  dQ_dz ,  dQ_ds,  hmap_xv(i))
     
-    dg_zz_dt(i) = 2*hmap%eval_gij_aux(dX1_dtz(i),dX2_dtz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
+    dg_zz_dt(i) = 2*hmap%eval_gij_aux(   ddQ_dtz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_dz ,  Q1Q2,  dQ_dz ,  dQ_dt,  hmap_xv(i))
 
-    dg_zz_dz(i) = 2*hmap%eval_gij_aux(dX1_dzz(i),dX2_dzz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
-                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
+    dg_zz_dz(i) = 2*hmap%eval_gij_aux(   ddQ_dzz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
+                  + hmap%eval_gij_dq_aux( dQ_dz ,  Q1Q2,  dQ_dz ,  dQ_dz,  hmap_xv(i))
+#undef Q1Q2
+#undef dQ_ds
+#undef dQ_dt
+#undef dQ_dz
+#undef ddQ_dss
+#undef ddQ_dst
+#undef ddQ_dsz
+#undef ddQ_dtt
+#undef ddQ_dtz
+#undef ddQ_dzz
   END DO
   !$OMP END PARALLEL DO
 
@@ -642,6 +633,7 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, Jh, dJh_ds, dJh_dt, dJh_dz)
   ! MODULES
+  USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
   USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -650,20 +642,15 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
   REAL, INTENT(OUT), DIMENSION(n) :: Jh, dJh_ds, dJh_dt, dJh_dz                                   !! jacobian det. and derivatives
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
-  REAL :: Jh_dq1, Jh_dq2 !, Jh_dq3
   PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,Jh_dq1,Jh_dq2) 
+    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
   DO i=1,n
-    Jh(i) = hmap%eval_Jh_aux(X1(i),X2(i),hmap_xv(i))
-    Jh_dq1 = hmap%eval_Jh_dq1_aux(X1(i),X2(i),hmap_xv(i))
-    Jh_dq2 = hmap%eval_Jh_dq2_aux(X1(i),X2(i),hmap_xv(i))
-    !Jh_dq3 =hmap%eval_Jh_dq3_aux(X1(i),X2(i),hmap_xv(i))
-
-    dJh_ds(i) = dX1_ds(i) * Jh_dq1 + dX2_ds(i) * Jh_dq2
-    dJh_dt(i) = dX1_dt(i) * Jh_dq1 + dX2_dt(i) * Jh_dq2
-    dJh_dz(i) = dX1_dz(i) * Jh_dq1 + dX2_dz(i) * Jh_dq2 !+ Jh_dq3 (* dzeta/dz=1) !MISSING
+    Jh(i) = hmap%eval_Jh_aux(     X1(i),X2(i),                             hmap_xv(i))
+    dJh_ds  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_ds(i),dX2_ds(i),0.0_wp, hmap_xv(i))
+    dJh_dt  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_dt(i),dX2_dt(i),0.0_wp, hmap_xv(i))
+    dJh_dz  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_dz(i),dX2_dz(i),1.0_wp, hmap_xv(i))
   END DO
   !$OMP END PARALLEL DO
 

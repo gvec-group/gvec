@@ -35,7 +35,7 @@ PUBLIC
 !> Store data that can be precomputed on a set ot zeta points
 !> depends on hmap_axisNB, but could be used for different point sets in zeta
 TYPE,EXTENDS(c_hmap_auxvar) :: t_hmap_axisNB_auxvar
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,NxB    !! Position,Tangent,Normal,Bi-Normal and N',B'
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,NxB,Tp,Npp,Bpp    !! Position,Tangent,Normal,Bi-Normal and N',B' and T',B'',N''
   REAL(wp)              :: BB,NN,NB,BpN,BpB,NpN,NpB !!dot-products of above vectors, size(nzeta_eval)
 END TYPE t_hmap_axisNB_auxvar
 
@@ -70,23 +70,20 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   CONTAINS
 
   FINAL     :: hmap_axisNB_free
-  PROCEDURE :: eval_all         => hmap_axisNB_eval_all
-  PROCEDURE :: eval             => hmap_axisNB_eval
-  PROCEDURE :: eval_aux         => hmap_axisNB_eval_aux
-  PROCEDURE :: eval_dxdq        => hmap_axisNB_eval_dxdq
-  PROCEDURE :: eval_dxdq_aux    => hmap_axisNB_eval_dxdq_aux
-  PROCEDURE :: eval_Jh          => hmap_axisNB_eval_Jh
-  PROCEDURE :: eval_Jh_aux      => hmap_axisNB_eval_Jh_aux
-  PROCEDURE :: eval_Jh_dq1      => hmap_axisNB_eval_Jh_dq1
-  PROCEDURE :: eval_Jh_dq1_aux  => hmap_axisNB_eval_Jh_dq1_aux
-  PROCEDURE :: eval_Jh_dq2      => hmap_axisNB_eval_Jh_dq2
-  PROCEDURE :: eval_Jh_dq2_aux  => hmap_axisNB_eval_Jh_dq2_aux
-  PROCEDURE :: eval_gij         => hmap_axisNB_eval_gij
-  PROCEDURE :: eval_gij_aux     => hmap_axisNB_eval_gij_aux
-  PROCEDURE :: eval_gij_dq1     => hmap_axisNB_eval_gij_dq1
-  PROCEDURE :: eval_gij_dq1_aux => hmap_axisNB_eval_gij_dq1_aux
-  PROCEDURE :: eval_gij_dq2     => hmap_axisNB_eval_gij_dq2
-  PROCEDURE :: eval_gij_dq2_aux => hmap_axisNB_eval_gij_dq2_aux
+  PROCEDURE :: eval_all        => hmap_axisNB_eval_all
+  PROCEDURE :: eval            => hmap_axisNB_eval
+  PROCEDURE :: eval_aux        => hmap_axisNB_eval_aux
+  PROCEDURE :: eval_dxdq       => hmap_axisNB_eval_dxdq
+  PROCEDURE :: eval_dxdq_aux   => hmap_axisNB_eval_dxdq_aux
+  PROCEDURE :: eval_Jh         => hmap_axisNB_eval_Jh
+  PROCEDURE :: eval_Jh_aux     => hmap_axisNB_eval_Jh_aux
+  PROCEDURE :: eval_Jh_dq      => hmap_axisNB_eval_Jh_dq
+  PROCEDURE :: eval_Jh_dq_aux  => hmap_axisNB_eval_Jh_dq_aux
+  PROCEDURE :: eval_gij        => hmap_axisNB_eval_gij
+  PROCEDURE :: eval_gij_aux    => hmap_axisNB_eval_gij_aux
+  PROCEDURE :: eval_gij_dq     => hmap_axisNB_eval_gij_dq
+  PROCEDURE :: eval_gij_dq_aux => hmap_axisNB_eval_gij_dq_aux
+
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_axisNB:
   PROCEDURE :: eval_TNB         => hmap_axisNB_eval_TNB_hat
@@ -320,12 +317,9 @@ FUNCTIOn hmap_axisNB_init_aux( sf ,zeta) RESULT(xv)
 !===================================================================================================================================
   xv%zeta=zeta
   CALL sf%eval_TNB(xv%zeta,&
-                    xv%X0(:),&
-                    xv%T( :),&
-                    xv%N( :),&
-                    xv%B( :),&
-                    xv%Np(:),&
-                    xv%Bp(:))
+                    xv%X0(:),xv%T( :),xv%N(  :),xv%B(  :),&
+                                      xv%Np( :),xv%Bp( :),&
+                             Tp=xv%Tp(:),Npp=xv%Npp(:),Bpp=xv%Bpp(:))
   xv%NxB =CROSS(xv%N( :) ,xv%B(:))
   xv%NN  =SUM(  xv%N( :)* xv%N(:))
   xv%BB  =SUM(  xv%B( :)* xv%B(:))
@@ -885,92 +879,50 @@ IMPLICIT NONE
 END FUNCTION hmap_axisNB_eval_Jh_aux
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
+!> evaluate derivative of Jacobian of mapping h: sum_k q_vec^k dJ_h/dq^k, k=1,2,3 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_axisNB_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
+FUNCTION hmap_axisNB_eval_Jh_dq( sf ,q_in,q_vec) RESULT(Jh_dq)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(IN) :: sf
   REAL(wp)            , INTENT(IN) :: q_in(3)
+  REAL(wp)            , INTENT(IN) :: q_vec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq1
+  REAL(wp)                         :: Jh_dq
 !-----------------------------------------------------------------------------------------------------------------------------------
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tp,Npp,Bpp
 !===================================================================================================================================
   ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
-  Jh_dq1=SUM(Np*CROSS(N,B))  ! Tq. (N x B)
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp,Tp=Tp,Npp=Npp,Bpp=Bpp)
+  Jh_dq=SUM((Np*q_vec(1)+Bp*q_vec(2)+(Tp+Npp*q1+Bpp*q2)*q_vec(3))*CROSS(N,B))  ! Tq. (N x B)
   END ASSOCIATE !zeta
-END FUNCTION hmap_axisNB_eval_Jh_dq1
+END FUNCTION hmap_axisNB_eval_Jh_dq
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
+!> evaluate derivative of Jacobian of mapping h: sum_k q_vec^k dJ_h/dq^k, k=1,2,3 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_axisNB_eval_Jh_dq1_aux( sf ,q1,q2,xv) RESULT(Jh_dq1)
+FUNCTION hmap_axisNB_eval_Jh_dq_aux( sf ,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(Jh_dq)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_axisNB), INTENT(IN) :: sf
   REAL(wp)            , INTENT(IN) :: q1,q2
+  REAL(wp)            , INTENT(IN) :: q1_vec,q2_vec,q3_vec
   CLASS(c_hmap_auxvar), INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq1
+  REAL(wp)                         :: Jh_dq
 !===================================================================================================================================
   SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
-  Jh_dq1=SUM(xv%Np*xv%NxB)  ! Tq. (N x B)
+  Jh_dq=SUM((xv%Np*q1_vec + xv%Bp*q2_vec + (xv%Tp+xv%Npp*q1+xv%Bpp*q2)*q3_vec)*xv%NxB)  
   END SELECT
-END FUNCTION hmap_axisNB_eval_Jh_dq1_aux
-
-!===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
-!!
-!===================================================================================================================================
-FUNCTION hmap_axisNB_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: q_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq2
-!-----------------------------------------------------------------------------------------------------------------------------------
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp
-!===================================================================================================================================
-  ASSOCIATE(q1=>q_in(1),q2=>q_in(2),zeta=>q_in(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
-  Jh_dq2=SUM(Bp*CROSS(N,B))
-  END ASSOCIATE !zeta
-END FUNCTION hmap_axisNB_eval_Jh_dq2
-
-!===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
-!!
-!===================================================================================================================================
-FUNCTION hmap_axisNB_eval_Jh_dq2_aux( sf ,q1,q2,xv) RESULT(Jh_dq2)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: q1,q2
-  CLASS(c_hmap_auxvar), INTENT(IN) :: xv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                         :: Jh_dq2
-!===================================================================================================================================
-  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
-  Jh_dq2=SUM(xv%Bp*xv%NxB)
-  END SELECT
-END FUNCTION hmap_axisNB_eval_Jh_dq2_aux
+END FUNCTION hmap_axisNB_eval_Jh_dq_aux
 
 !===================================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
@@ -1043,46 +995,48 @@ END FUNCTION hmap_axisNB_eval_gij_aux
 
 
 !===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!>  evaluate sum_k q_vec^k * sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2,3
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_axisNB_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
+FUNCTION hmap_axisNB_eval_gij_dq( sf ,qL_in,q_G,qR_in,q_vec) RESULT(g_ab_dq)
   CLASS(t_hmap_axisNB), INTENT(IN) :: sf
   REAL(wp)            , INTENT(IN) :: qL_in(3)
   REAL(wp)            , INTENT(IN) :: q_G(3)
   REAL(wp)            , INTENT(IN) :: qR_in(3)
+  REAL(wp)            , INTENT(IN) :: q_vec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                         :: g_ab_dq1
+  REAL(wp)                         :: g_ab_dq
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
+  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq,Tpq_dq,Tp,Npp,Bpp
 !===================================================================================================================================
   !                            |q1  |   |0     0      N'.N  |        |q1  |
   !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0     0      N'.B  | (dbeta |q2  | )
   !                            |q3  |   |N.N'  B.N'  2N'.Tq |        |q3  |
   ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
+  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp,Tp=Tp,Npp=Npp,Bpp=Bpp)
   Tq=(T+q1*Np+q2*Bp)
+  Tpq_dq=Np*q_vec(1)+Bp*q_vec(2)+(Tp+q1*Npp+q2*Bpp)*q_vec(3)
 
-  g_ab_dq1 =         SUM(N *Np)*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
-             +       SUM(B *Np)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
-             +2.0_wp*SUM(Tq*Np)*(qL_in(3)*qR_in(3))
+  g_ab_dq =         SUM(N *Tpq_dq)*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
+            +       SUM(B *Tpq_dq)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
+            +2.0_wp*SUM(Tq*Tpq_dq)*(qL_in(3)*qR_in(3))
 
   END ASSOCIATE
-END FUNCTION hmap_axisNB_eval_gij_dq1
+END FUNCTION hmap_axisNB_eval_gij_dq
 
 !===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!>  evaluate  sum_k q_vec^k * sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2,3
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_axisNB_eval_gij_dq1_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq1)
+FUNCTION hmap_axisNB_eval_gij_dq_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,q1_vec,q2_vec,q3_vec,xv) RESULT(g_ab_dq)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -1090,89 +1044,25 @@ FUNCTION hmap_axisNB_eval_gij_dq1_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESU
   REAL(wp)            , INTENT(IN) :: qL1,qL2,qL3
   REAL(wp)            , INTENT(IN) :: q1,q2
   REAL(wp)            , INTENT(IN) :: qR1,qR2,qR3
-  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                         :: g_ab_dq1
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: Tq
-!===================================================================================================================================
-  SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
-  Tq=(xv%T+q1*xv%Np+q2*xv%Bp)
-
-  g_ab_dq1 =                xv%NpN*(qL1*qR3+ qL3*qR1) &
-             +              xv%NpB*(qL2*qR3+ qL3*qR2) &
-             +2.0_wp*SUM(Tq*xv%Np)*(qL3*qR3)
-  END SELECT !type(xv)
-END FUNCTION hmap_axisNB_eval_gij_dq1_aux
-
-!===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
-!!
-!===================================================================================================================================
-FUNCTION hmap_axisNB_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
-  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: qL_in(3)
-  REAL(wp)            , INTENT(IN) :: q_G(3)
-  REAL(wp)            , INTENT(IN) :: qR_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                          :: g_ab_dq2
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: X0,T,N,B,Np,Bp,Tq
-!===================================================================================================================================
-  !                            |q1  |   |0     0      B'.N  |        |q1  |
-  !q_i dG_ij/dq2 q_j = (dalpha |q2  | ) |0     0      B'.B  | (dbeta |q2  | )
-  !                            |q3  |   |N.B'  B.B'  2B'.Tq |        |q3  |
-  ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
-  CALL sf%eval_TNB(zeta,X0,T,N,B,Np,Bp)
-  Tq=(T+q1*Np+q2*Bp)
-
-  g_ab_dq2 =         SUM(N *Bp)*(qL_in(1)*qR_in(3)+ qL_in(3)*qR_in(1)) &
-             +       SUM(B *Bp)*(qL_in(2)*qR_in(3)+ qL_in(3)*qR_in(2)) &
-             +2.0_wp*SUM(Tq*Bp)*(qL_in(3)*qR_in(3))
-
-  END ASSOCIATE
-END FUNCTION hmap_axisNB_eval_gij_dq2
-
-
-
-!===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
-!!
-!===================================================================================================================================
-FUNCTION hmap_axisNB_eval_gij_dq2_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq2)
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_axisNB), INTENT(IN) :: sf
-  REAL(wp)            , INTENT(IN) :: qL1,qL2,qL3
-  REAL(wp)            , INTENT(IN) :: q1,q2
-  REAL(wp)            , INTENT(IN) :: qR1,qR2,qR3
+  REAL(wp)            , INTENT(IN) :: q1_vec,q2_vec,q3_vec
   CLASS(c_hmap_auxvar), INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                          :: g_ab_dq2
+  REAL(wp)                         :: g_ab_dq
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp),DIMENSION(3) :: Tq
+  REAL(wp),DIMENSION(3) :: Tq,Tpq_dq
 !===================================================================================================================================
   SELECT TYPE(xv); TYPE IS(t_hmap_axisNB_auxvar)
   Tq=(xv%T+q1*xv%Np+q2*xv%Bp)
+  Tpq_dq=xv%Np*q1_vec+xv%Bp*q2_vec+(xv%Tp+q1*xv%Npp+q2*xv%Bpp)*q3_vec
 
-  g_ab_dq2 =                xv%BpN*(qL1*qR3+ qL3*qR1) &
-             +              xv%BpB*(qL2*qR3+ qL3*qR2) &
-             +2.0_wp*SUM(Tq*xv%Bp)*(qL3*qR3)
+  g_ab_dq =          SUM(xv%N*Tpq_dq)*(qL1*qR3+ qL3*qR1) &
+             +       SUM(xv%B*Tpq_dq)*(qL2*qR3+ qL3*qR2) &
+             +2.0_wp*SUM(  Tq*Tpq_dq)*(qL3*qR3)
   END SELECT !type(xv)
-END FUNCTION hmap_axisNB_eval_gij_dq2_aux
+END FUNCTION hmap_axisNB_eval_gij_dq_aux
+
 
 !===================================================================================================================================
 !> evaluate curve X0(zeta), and T=X0',N,B,N',B', using the fourier series of X0_hat,N_hat and B_hat and transform from "hat"
@@ -1180,7 +1070,7 @@ END FUNCTION hmap_axisNB_eval_gij_dq2_aux
 !! x=xhat*cos(zeta)-sgn_rot*yhat*sin(zeta), y=yhat*cos(zeta)+sgn_rot*sin(zeta)*xhat, z=zhat
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_axisNB_eval_TNB_hat( sf,zeta,X0,T,N,B,Np,Bp)
+SUBROUTINE hmap_axisNB_eval_TNB_hat( sf,zeta,X0,T,N,B,Np,Bp,Tp,Npp,Bpp)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1195,23 +1085,34 @@ IMPLICIT NONE
   REAL(wp)            , INTENT(OUT) :: B(1:3)       !! bi-Normal
   REAL(wp)            , INTENT(OUT) :: Np(1:3)      !! derivative of Normal in zeta (N')
   REAL(wp)            , INTENT(OUT) :: Bp(1:3)      !! derivative of bi-Normal in zeta  (B')
+  REAL(wp)            , INTENT(OUT),OPTIONAL :: Tp(1:3)      !! derivative of tangent in zeta (X0'')
+  REAL(wp)            , INTENT(OUT),OPTIONAL :: Npp(1:3)     !! 2nd derivative of Normal in zeta (N'')
+  REAL(wp)            , INTENT(OUT),OPTIONAL :: Bpp(1:3)     !! 2nd derivative of bi-Normal in zeta  (B'')
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   REAL(wp)                      :: base_x(sf%fb_hat%modes)
   REAL(wp)                      :: base_dxdz(sf%fb_hat%modes)
+  REAL(wp)                      :: base_ddxdzz(sf%fb_hat%modes)
   REAL(wp)                      :: cosz,sinz
-  REAL(wp),DIMENSION(3)         :: X0_hat,T_hat,N_hat,B_hat,Np_hat,Bp_hat
+  REAL(wp),DIMENSION(3)         :: X0_hat,T_hat,N_hat,B_hat,Np_hat,Bp_hat,Tp_hat,Npp_hat,Bpp_hat
 !===================================================================================================================================
-  base_x =sf%fb_hat%eval(           0,(/0.,zeta/))
-  base_dxdz=sf%fb_hat%eval(DERIV_ZETA,(/0.,zeta/))
+  base_x     =sf%fb_hat%eval(           0   ,(/0.,zeta/))
+  base_dxdz  =sf%fb_hat%eval(DERIV_ZETA     ,(/0.,zeta/))
+
 
   !hat coordinates (in one field period)
-  __MATVEC_N(X0_hat,sf%xyz_hat_modes( :,:),base_x)
-  __MATVEC_N(N_hat ,sf%Nxyz_hat_modes(:,:),base_x)
-  __MATVEC_N(B_hat ,sf%Bxyz_hat_modes(:,:),base_x)
-  __MATVEC_N(T_hat ,sf%xyz_hat_modes( :,:),base_dxdz)
-  __MATVEC_N(Np_hat,sf%Nxyz_hat_modes(:,:),base_dxdz)
-  __MATVEC_N(Bp_hat,sf%Bxyz_hat_modes(:,:),base_dxdz)
+  __MATVEC_N(X0_hat ,sf%xyz_hat_modes( :,:),base_x)
+  __MATVEC_N(N_hat  ,sf%Nxyz_hat_modes(:,:),base_x)
+  __MATVEC_N(B_hat  ,sf%Bxyz_hat_modes(:,:),base_x)
+  __MATVEC_N(T_hat  ,sf%xyz_hat_modes( :,:),base_dxdz)
+  __MATVEC_N(Np_hat ,sf%Nxyz_hat_modes(:,:),base_dxdz)
+  __MATVEC_N(Bp_hat ,sf%Bxyz_hat_modes(:,:),base_dxdz)
+  IF(PRESENT(Tp).OR.PRESENT(Npp).OR.PRESENT(Bpp))THEN !second derivatives
+    base_ddxdzz=sf%fb_hat%eval(DERIV_ZETA_ZETA,(/0.,zeta/))
+    __MATVEC_N(Tp_hat ,sf%xyz_hat_modes( :,:),base_ddxdzz)
+    __MATVEC_N(Npp_hat,sf%Nxyz_hat_modes(:,:),base_ddxdzz)
+    __MATVEC_N(Bpp_hat,sf%Bxyz_hat_modes(:,:),base_ddxdzz)
+  END IF
 
   ! apply transform to x,y,z: x=xhat*cos(zeta)-sgn*yhat*sin(zeta), y=yhat*cos(zeta)+xhat*sgn*sin(zeta), z=zhat
   ! sgn_rot was used in the transform from x to xhat, so it has to be used here as well!!
@@ -1221,15 +1122,15 @@ IMPLICIT NONE
        X0_hat(3)/)
   !dX0/dzeta:
   T= (/(T_hat(1)-sf%sgn_rot*X0_hat(2))*cosz - (sf%sgn_rot*T_hat(2)+X0_hat(1))*sinz, &
-       (sf%sgn_rot*T_hat(1)-X0_hat(2))*sinz + (T_hat(2)+sf%sgn_rot*X0_hat(1))*cosz, &
-       T_hat(3)/)
+       (T_hat(2)+sf%sgn_rot*X0_hat(1))*cosz + (sf%sgn_rot*T_hat(1)-X0_hat(2))*sinz, &
+        T_hat(3)/)
   !transform N to x,y,z
   N=(/N_hat(1)*cosz - sf%sgn_rot*N_hat(2)*sinz, &
       N_hat(2)*cosz + sf%sgn_rot*N_hat(1)*sinz, &
       N_hat(3)/)
   !dN/dzeta:
   Np= (/(Np_hat(1)-sf%sgn_rot*N_hat(2))*cosz - (sf%sgn_rot*Np_hat(2)+N_hat(1))*sinz, &
-        (sf%sgn_rot*Np_hat(1)-N_hat(2))*sinz + (Np_hat(2)+sf%sgn_rot*N_hat(1))*cosz, &
+        (Np_hat(2)+sf%sgn_rot*N_hat(1))*cosz + (sf%sgn_rot*Np_hat(1)-N_hat(2))*sinz  , &
          Np_hat(3)/)
   !transform B to x,y,z
   B=(/B_hat(1)*cosz - sf%sgn_rot*B_hat(2)*sinz, &
@@ -1237,8 +1138,26 @@ IMPLICIT NONE
       B_hat(3)/)
   !dB/dzeta:
   Bp= (/(Bp_hat(1)-sf%sgn_rot*B_hat(2))*cosz - (sf%sgn_rot*Bp_hat(2)+B_hat(1))*sinz, &
-        (sf%sgn_rot*Bp_hat(1)-B_hat(2))*sinz + (Bp_hat(2)+sf%sgn_rot*B_hat(1))*cosz, &
+        (Bp_hat(2)+sf%sgn_rot*B_hat(1))*cosz + (sf%sgn_rot*Bp_hat(1)-B_hat(2))*sinz, &
          Bp_hat(3)/)
+  IF(PRESENT(Tp))THEN
+  !transform Tp to x,y,z
+    Tp = (/(Tp_hat(1)-2*sf%sgn_rot*T_hat(2)-X0_hat(1))*cosz - (sf%sgn_rot*(Tp_hat(2)-X0_hat(2))+2*T_hat(1))*sinz, &
+           (Tp_hat(2)+2*sf%sgn_rot*T_hat(1)-X0_hat(2))*cosz + (sf%sgn_rot*(Tp_hat(1)-X0_hat(1))-2*T_hat(2))*sinz , &
+            Tp_hat(3)/) 
+  END IF
+  IF(PRESENT(Npp))THEN
+    !transform Npp to x,y,z
+    Npp = (/(Npp_hat(1)-2*sf%sgn_rot*Np_hat(2)-N_hat(1))*cosz - (sf%sgn_rot*(Npp_hat(2)-N_hat(2))+2*Np_hat(1))*sinz, &
+            (Npp_hat(2)+2*sf%sgn_rot*Np_hat(1)-N_hat(2))*cosz + (sf%sgn_rot*(Npp_hat(1)-N_hat(1))-2*Np_hat(2))*sinz , &
+             Npp_hat(3)/)
+  END IF
+  IF(PRESENT(Bpp))THEN
+    !transform Bpp to x,y,z
+    Bpp = (/(Bpp_hat(1)-2*sf%sgn_rot*Bp_hat(2)-B_hat(1))*cosz - (sf%sgn_rot*(Bpp_hat(2)-B_hat(2))+2*Bp_hat(1))*sinz, &
+            (Bpp_hat(2)+2*sf%sgn_rot*Bp_hat(1)-B_hat(2))*cosz + (sf%sgn_rot*(Bpp_hat(1)-B_hat(1))-2*Bp_hat(2))*sinz , &
+             Bpp_hat(3)/)
+  END IF
 
 END SUBROUTINE hmap_axisNB_eval_TNB_hat
 
@@ -1261,7 +1180,7 @@ IMPLICIT NONE
   INTEGER,PARAMETER  :: nzeta=5
   INTEGER,PARAMETER  :: ns=2
   INTEGER,PARAMETER  :: nthet=3
-  REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps
+  REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps,Jh_0,Jh_eps
   REAL(wp),ALLOCATABLE :: zeta(:)
   REAL(wp)           :: qloc(3),q_thet(3),q_zeta(3)
   REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
@@ -1379,14 +1298,28 @@ IMPLICIT NONE
        '\n =>  should be ', refreal,' : sum|Gij-eval_gij|= ', checkreal,', i=',idir,', j=',jdir
       END IF !TEST
     END DO; END DO
-    !! TEST dG_ij_dq1 with FD
-    DO qdir=1,2
+    !! TEST dJh_dqk with FD
+    DO qdir=1,3
+      iTest=160+qdir; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      Jh_0    = sf%eval_Jh(   q_in                     )
+      Jh_eps  = sf%eval_Jh(   q_in+epsFD*q_test(qdir,:))
+      refreal = sf%eval_Jh_dq(q_in                     ,q_test(qdir,:))
+      checkreal=(Jh_eps-Jh_0)/epsFD-refreal
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_axisNB TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
+       '\n =>  should be <', 100*epsFD,' : |dJh_dqFD-eval_Jh_dq|= ', checkreal,', dq=',qdir
+      END IF !TEST
+    END DO !qdir
+    !! TEST dG_ij_dqk with FD
+    DO qdir=1,3
     DO idir=1,3; DO jdir=1,3
-      iTest=160+idir+3*(jdir-1); IF(testdbg)WRITE(*,*)'iTest=',iTest
-      gij  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
-      gij_eps = sf%eval_gij(q_test(idir,:),q_in+epsFD*q_test(qdir,:),q_test(jdir,:))
-      IF(qdir.EQ.1) refreal = sf%eval_gij_dq1(q_test(idir,:),q_in,q_test(jdir,:))
-      IF(qdir.EQ.2) refreal = sf%eval_gij_dq2(q_test(idir,:),q_in,q_test(jdir,:))
+      iTest=170+idir+3*(jdir-1)+3*3*(qdir-1); IF(testdbg)WRITE(*,*)'iTest=',iTest
+      gij     = sf%eval_gij(   q_test(idir,:),q_in                     ,q_test(jdir,:))
+      gij_eps = sf%eval_gij(   q_test(idir,:),q_in+epsFD*q_test(qdir,:),q_test(jdir,:))
+      refreal = sf%eval_gij_dq(q_test(idir,:),q_in                     ,q_test(jdir,:),q_test(qdir,:))
       checkreal=(gij_eps-gij)/epsFD-refreal
       refreal=0.0_wp
       IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
@@ -1396,12 +1329,9 @@ IMPLICIT NONE
        '\n =>  should be <', 100*epsFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
       END IF !TEST
     END DO; END DO
-    END DO
-
-
-
-
+    END DO !qdir
  END IF !testlevel >=1
+ 
  IF (testlevel .GE. 2) THEN
     DO idir=1,3
       SELECT CASE(idir)
@@ -1447,14 +1377,14 @@ IMPLICIT NONE
         g_tt(i,j,k)     =g_tt(i,j,k)     - sf%eval_gij(q_thet,qloc,q_thet)
         g_tz(i,j,k)     =g_tz(i,j,k)     - sf%eval_gij(q_thet,qloc,q_zeta)
         g_zz(i,j,k)     =g_zz(i,j,k)     - sf%eval_gij(q_zeta,qloc,q_zeta)
-        Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq1(qloc)
-        Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq2(qloc)
-        g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_thet)
-        g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_thet)
-        g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_zeta)
-        g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_zeta)
-        g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq1(q_zeta,qloc,q_zeta)
-        g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq2(q_zeta,qloc,q_zeta)
+        Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq(qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+        Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq(qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+        g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_thet,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_thet,(/0.0_wp,1.0_wp,0.0_wp/))
+        g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_zeta,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_zeta,(/0.0_wp,1.0_wp,0.0_wp/))
+        g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq(q_zeta,qloc,q_zeta,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq(q_zeta,qloc,q_zeta,(/0.0_wp,1.0_wp,0.0_wp/))
         g_t1(i,j,k)     =g_t1(i,j,k)     - sf%eval_gij(q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/))
         g_t2(i,j,k)     =g_t2(i,j,k)     - sf%eval_gij(q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
         g_z1(i,j,k)     =g_z1(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/))

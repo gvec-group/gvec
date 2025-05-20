@@ -39,11 +39,9 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   PROCEDURE :: eval             => hmap_knot_eval
   PROCEDURE :: eval_dxdq        => hmap_knot_eval_dxdq
   PROCEDURE :: eval_Jh          => hmap_knot_eval_Jh
-  PROCEDURE :: eval_Jh_dq1      => hmap_knot_eval_Jh_dq1
-  PROCEDURE :: eval_Jh_dq2      => hmap_knot_eval_Jh_dq2
+  PROCEDURE :: eval_Jh_dq       => hmap_knot_eval_Jh_dq
   PROCEDURE :: eval_gij         => hmap_knot_eval_gij
-  PROCEDURE :: eval_gij_dq1     => hmap_knot_eval_gij_dq1
-  PROCEDURE :: eval_gij_dq2     => hmap_knot_eval_gij_dq2
+  PROCEDURE :: eval_gij_dq      => hmap_knot_eval_gij_dq
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_knot:
   PROCEDURE :: Rl            => hmap_knot_eval_Rl
@@ -399,41 +397,23 @@ END FUNCTION hmap_knot_eval_Jh
 
 
 !===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
+!> evaluate derivative of Jacobian of mapping h: sum_k q_vec^k * dJ_h/dq^k, k=1,2,3 at q=(q^1,q^2,zeta)
 !!
 !===================================================================================================================================
-FUNCTION hmap_knot_eval_Jh_dq1( sf ,q_in) RESULT(Jh_dq1)
+FUNCTION hmap_knot_eval_Jh_dq( sf ,q_in,q_vec) RESULT(Jh_dq)
 ! MODULES
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_knot), INTENT(IN) :: sf
   REAL(wp)          , INTENT(IN) :: q_in(3)
+  REAL(wp)          , INTENT(IN) :: q_vec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                       :: Jh_dq1
+  REAL(wp)                       :: Jh_dq
 !===================================================================================================================================
-  Jh_dq1 = sf%k ! dJh/dq^1 = d(kRl)/dq^1 = p, since dRl/dq^1 = 1.
-END FUNCTION hmap_knot_eval_Jh_dq1
-
-
-!===================================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(q^1,q^2,zeta)
-!!
-!===================================================================================================================================
-FUNCTION hmap_knot_eval_Jh_dq2( sf ,q_in) RESULT(Jh_dq2)
-! MODULES
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_knot), INTENT(IN) :: sf
-  REAL(wp)          , INTENT(IN) :: q_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                       :: Jh_dq2
-!===================================================================================================================================
-  Jh_dq2 = 0.0_wp ! dJh/dq^2 = d(kRl)/dq^2 = 0, Rl is independent of q^2
-END FUNCTION hmap_knot_eval_Jh_dq2
+  Jh_dq = sf%k*(q_vec(1) -sf%delta*sf%l*SIN(sf%l*q_in(3))*q_vec(3)) ! dJh/dq^1 = d(kRl)/dq^1  dJh/dq^3 = dkRl/dzeta
+END FUNCTION hmap_knot_eval_Jh_dq
 
 
 !===================================================================================================================================
@@ -473,13 +453,13 @@ END FUNCTION hmap_knot_eval_gij
 
 
 !===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!>  evaluate sum_k sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) *q_vec^k, k=1,2,3
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !!
 !===================================================================================================================================
-FUNCTION hmap_knot_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
+FUNCTION hmap_knot_eval_gij_dq( sf ,qL_in,q_G,qR_in,q_vec) RESULT(g_ab_dq)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -488,43 +468,16 @@ FUNCTION hmap_knot_eval_gij_dq1( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq1)
   REAL(wp)          , INTENT(IN) :: qL_in(3)
   REAL(wp)          , INTENT(IN) :: q_G(3)
   REAL(wp)          , INTENT(IN) :: qR_in(3)
+  REAL(wp)          , INTENT(IN) :: q_vec(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                       :: g_ab_dq1
+  REAL(wp)                       :: g_ab_dq
 !===================================================================================================================================
   !                       |q1  |   |0  0  0        |        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |0  0  0        | (dbeta |q2  | )
   !                       |q3  |   |0  0  2k**2 *Rl|        |q3  |
-  g_ab_dq1 = qL_in(3) * 2.0_wp * sf%k**2 * sf%Rl(q_G) * qR_in(3)
-END FUNCTION hmap_knot_eval_gij_dq1
-
-
-!===================================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
-!!
-!===================================================================================================================================
-FUNCTION hmap_knot_eval_gij_dq2( sf ,qL_in,q_G,qR_in) RESULT(g_ab_dq2)
-! MODULES
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(t_hmap_knot), INTENT(IN) :: sf
-  REAL(wp)          , INTENT(IN) :: qL_in(3)
-  REAL(wp)          , INTENT(IN) :: q_G(3)
-  REAL(wp)          , INTENT(IN) :: qR_in(3)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                       :: g_ab_dq2
-!===================================================================================================================================
-  !                            |q1  |   |0  0  0  |        |q1   |
-  !q_i dG_ij/dq1 q_j = (dalpha |q2  | ) |0  0  0  | (dbeta |q1   | ) =0
-  !                            |q3  |   |0  0  0  |        |q3   |
-  g_ab_dq2=0.0_wp
-END FUNCTION hmap_knot_eval_gij_dq2
-
+  g_ab_dq = (qL_in(3) * 2.0_wp * sf%k**2 * sf%Rl(q_G) * qR_in(3))*(q_vec(1) -sf%delta*sf%l*SIN(sf%l*q_G(3))*q_vec(3)) 
+END FUNCTION hmap_knot_eval_gij_dq
 
 !===================================================================================================================================
 !> evaluate the effective major radius coordinate Rl(q)
@@ -698,14 +651,14 @@ USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,
         g_tt(i,j,k)     =g_tt(i,j,k)     - sf%eval_gij(q_thet,qloc,q_thet)
         g_tz(i,j,k)     =g_tz(i,j,k)     - sf%eval_gij(q_thet,qloc,q_zeta)
         g_zz(i,j,k)     =g_zz(i,j,k)     - sf%eval_gij(q_zeta,qloc,q_zeta)
-        Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq1(qloc)
-        Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq2(qloc)
-        g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_thet)
-        g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_thet)
-        g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq1(q_thet,qloc,q_zeta)
-        g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq2(q_thet,qloc,q_zeta)
-        g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq1(q_zeta,qloc,q_zeta)
-        g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq2(q_zeta,qloc,q_zeta)
+        Jh_dq1(i,j,k)   =Jh_dq1(i,j,k)   - sf%eval_Jh_dq(qloc,(/1.0_wp,0.0_wp,0.0_wp/))
+        Jh_dq2(i,j,k)   =Jh_dq2(i,j,k)   - sf%eval_Jh_dq(qloc,(/0.0_wp,1.0_wp,0.0_wp/))
+        g_tt_dq1(i,j,k) =g_tt_dq1(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_thet,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_tt_dq2(i,j,k) =g_tt_dq2(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_thet,(/0.0_wp,1.0_wp,0.0_wp/))
+        g_tz_dq1(i,j,k) =g_tz_dq1(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_zeta,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_tz_dq2(i,j,k) =g_tz_dq2(i,j,k) - sf%eval_gij_dq(q_thet,qloc,q_zeta,(/0.0_wp,1.0_wp,0.0_wp/))
+        g_zz_dq1(i,j,k) =g_zz_dq1(i,j,k) - sf%eval_gij_dq(q_zeta,qloc,q_zeta,(/1.0_wp,0.0_wp,0.0_wp/))
+        g_zz_dq2(i,j,k) =g_zz_dq2(i,j,k) - sf%eval_gij_dq(q_zeta,qloc,q_zeta,(/0.0_wp,1.0_wp,0.0_wp/))
         g_t1(i,j,k)     =g_t1(i,j,k)     - sf%eval_gij(q_thet,qloc,(/1.0_wp,0.0_wp,0.0_wp/))
         g_t2(i,j,k)     =g_t2(i,j,k)     - sf%eval_gij(q_thet,qloc,(/0.0_wp,1.0_wp,0.0_wp/))
         g_z1(i,j,k)     =g_z1(i,j,k)     - sf%eval_gij(q_zeta,qloc,(/1.0_wp,0.0_wp,0.0_wp/))

@@ -1044,6 +1044,7 @@ END SUBROUTINE ApplyBC_Fstrong
 !!                   + sbase_i(s) (<S>(s) + |Phi'(s)|^2 (-m^2 <D_tt>(s) - n^2 <D_zz>(s) ) ) sbase_j(s)
 !! where < > denote an average over the angular coordinates
 !!
+!! NOTE: Jac_dq3, gij_dq3 are not yet used, but are non-zero for a general hmap!
 !===================================================================================================================================
 SUBROUTINE BuildPrecond()
 ! MODULES
@@ -1066,7 +1067,6 @@ SUBROUTINE BuildPrecond()
 
   REAL(wp),ALLOCATABLE        :: D_mn(:),P_BCaxis(:,:), P_BCedge(:,:) !only needed on MPIroot
 !===================================================================================================================================
-
 
 
 !  WRITE(*,*)'BUILD PRECONDITIONER MATRICES'

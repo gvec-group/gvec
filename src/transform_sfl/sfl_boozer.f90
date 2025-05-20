@@ -32,11 +32,17 @@ TYPE :: t_sfl_boozer
   INTEGER  :: nrho       !! number of rho positions
   LOGICAL  :: relambda   !! if =True, J^s=0 will be recomputed, for exact integrability condition of boozer transform  (but slower!)
   TYPE(t_fbase), ALLOCATABLE :: nu_fbase
-  PP_HMAP_TYPE(PP_T_HMAP),  POINTER     :: hmap          !! pointer to hmap class
+
   REAL(wp),ALLOCATABLE::rho_pos(:),iota(:),phiPrime(:) !! rho positions, iota and phiPrime at these rho positions
   ! computed in the boozer transform
   REAL(wp),ALLOCATABLE::lambda(:,:),nu(:,:)   !! Fourier modes for all rho positions of lambda (recomputed on the fourier space of nu) and nu for boozer transform , (iMode,irho)
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE   :: hmap_xv(:) !! auxiliary variables for hmap
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP),  POINTER     :: hmap          !! pointer to hmap class
+  TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE   :: hmap_xv(:) !! auxiliary variables for hmap
+#else
+  CLASS(c_hmap),  POINTER     :: hmap          !! pointer to hmap class
+  CLASS(c_hmap_auxvar),ALLOCATABLE   :: hmap_xv(:) !! auxiliary variables for hmap
+#endif
   CONTAINS
   PROCEDURE :: get_boozer  => get_boozer_sinterp
   PROCEDURE :: free        => sfl_boozer_free
@@ -69,7 +75,11 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
   INTEGER,INTENT(IN) :: mn_nyq(2)  !! number of equidistant integration points (trapezoidal rule) in m and n
   INTEGER,INTENT(IN) :: nfp        !! number of field periods
   CHARACTER(LEN=8)   :: sin_cos      !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
-  PP_HMAP_TYPE(PP_T_HMAP),INTENT(IN),TARGET :: hmap_in
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP),INTENT(IN),TARGET :: hmap_in
+#else
+  CLASS(c_hmap)  ,INTENT(IN),TARGET :: hmap_in
+#endif
   INTEGER,INTENT(IN) :: nrho       !! number of rho positions
   REAL(wp),INTENT(IN) :: rho_pos(nrho),iota(nrho),phiPrime(nrho)  !! rho positions, iota and phiPrime at these rho positions
   LOGICAL, INTENT(IN),OPTIONAL :: relambda_in  !! DEFAULT=TRUE: lambda is recomputed on the given fourier resolution, RECOMMENDED

@@ -44,25 +44,17 @@ TYPE, ABSTRACT :: c_hmap
     PROCEDURE                                  :: eval_Jh_aux     => hmap_eval_Jh_aux
     PROCEDURE                                  :: eval_Jh_aux_all => hmap_eval_Jh_aux_all
     !eval_Jh_dq1
-    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh_dq1
-    PROCEDURE                                  :: eval_Jh_dq1_aux     => hmap_eval_Jh_dq1_aux
-    PROCEDURE                                  :: eval_Jh_dq1_aux_all => hmap_eval_Jh_dq1_aux_all
-    !eval_Jh_dq2
-    PROCEDURE(i_fun_hmap_eval_Jh    ),DEFERRED :: eval_Jh_dq2
-    PROCEDURE                                  :: eval_Jh_dq2_aux     => hmap_eval_Jh_dq2_aux
-    PROCEDURE                                  :: eval_Jh_dq2_aux_all => hmap_eval_Jh_dq2_aux_all
+    PROCEDURE(i_fun_hmap_eval_Jh_dq ),DEFERRED :: eval_Jh_dq
+    PROCEDURE                                  :: eval_Jh_dq_aux     => hmap_eval_Jh_dq_aux
+    PROCEDURE                                  :: eval_Jh_dq_aux_all => hmap_eval_Jh_dq_aux_all
     !eval_gij
     PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij
     PROCEDURE                                  :: eval_gij_aux     => hmap_eval_gij_aux
     PROCEDURE                                  :: eval_gij_aux_all => hmap_eval_gij_aux_all
     !eval_gij_dq1
-    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij_dq1
-    PROCEDURE                                  :: eval_gij_dq1_aux     => hmap_eval_gij_dq1_aux
-    PROCEDURE                                  :: eval_gij_dq1_aux_all => hmap_eval_gij_dq1_aux_all
-    !eval_gij_dq2
-    PROCEDURE(i_fun_hmap_eval_gij   ),DEFERRED :: eval_gij_dq2
-    PROCEDURE                                  :: eval_gij_dq2_aux     => hmap_eval_gij_dq2_aux
-    PROCEDURE                                  :: eval_gij_dq2_aux_all => hmap_eval_gij_dq2_aux_all
+    PROCEDURE(i_fun_hmap_eval_gij_dq),DEFERRED :: eval_gij_dq
+    PROCEDURE                                  :: eval_gij_dq_aux     => hmap_eval_gij_dq_aux
+    PROCEDURE                                  :: eval_gij_dq_aux_all => hmap_eval_gij_dq_aux_all
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE c_hmap
 
@@ -126,6 +118,18 @@ ABSTRACT INTERFACE
   END FUNCTION i_fun_hmap_eval_Jh
 
   !===============================================================================================================================
+  !> evaluate derivative of Jacobian of mapping h: sum_k dJ_h(q)/dq^k q_vec^k, k=1,2 at q=(X^1,X^2,zeta)
+  !!
+  !===============================================================================================================================
+  FUNCTION i_fun_hmap_eval_Jh_dq( sf ,q_in,q_vec) RESULT(Jh_dq)
+    IMPORT wp,c_hmap
+    CLASS(c_hmap), INTENT(IN) :: sf
+    REAL(wp)     , INTENT(IN) :: q_in(3)
+    REAL(wp)     , INTENT(IN) :: q_vec(3)
+    REAL(wp)                  :: Jh_dq
+  END FUNCTION i_fun_hmap_eval_Jh_dq
+
+  !===============================================================================================================================
   !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,
   !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
   !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
@@ -139,6 +143,23 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN) :: qR_in(3)
     REAL(wp)                  :: g_ab
   END FUNCTION i_fun_hmap_eval_gij
+
+
+  !===============================================================================================================================
+  !>  evaluate sum_k sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) q_vec^k, k=1,2,3
+  !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
+  !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+  !!
+  !===============================================================================================================================
+  FUNCTION i_fun_hmap_eval_gij_dq( sf ,qL_in,q_G,qR_in,q_vec) RESULT(g_ab_dq)
+    IMPORT wp,c_hmap
+    CLASS(c_hmap), INTENT(IN) :: sf
+    REAL(wp)     , INTENT(IN) :: qL_in(3)
+    REAL(wp)     , INTENT(IN) :: q_G(3)
+    REAL(wp)     , INTENT(IN) :: qR_in(3)
+    REAL(wp)     , INTENT(IN) :: q_vec(3)
+    REAL(wp)                  :: g_ab_dq
+  END FUNCTION i_fun_hmap_eval_gij_dq
 
 END INTERFACE
 
@@ -292,98 +313,54 @@ FUNCTION hmap_eval_Jh_aux_all( sf ,np,q1,q2,xv) RESULT(Jh)
 END FUNCTION hmap_eval_Jh_aux_all
 
 !===============================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
+!> evaluate derivative of Jacobian of mapping h: sum_k dJ_h(q)/dq^k q_vec^k, k=1,2 at q=(X^1,X^2,zeta)
 !! INFO: default routine that can be overwritten by specific hmap class,
 !!       not using  additional hmap-dependent auxiliary variables,
-!!       but calling the pointwise routine eval_Jh_dq1
+!!       but calling the pointwise routine eval_Jh_dq
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq1_aux( sf ,q1,q2,xv) RESULT(Jh_dq1)
+FUNCTION hmap_eval_Jh_dq_aux( sf ,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(Jh_dq)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   REAL(wp)            ,INTENT(IN) :: q1,q2
+  REAL(wp)           , INTENT(IN) :: q1_vec,q2_vec,q3_vec
   CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq1
+  REAL(wp)                        :: Jh_dq
 !===================================================================================================================================
-  Jh_dq1=sf%eval_Jh_dq1((/q1,q2,xv%zeta/))
-END FUNCTION hmap_eval_Jh_dq1_aux
+  Jh_dq=sf%eval_Jh_dq((/q1,q2,xv%zeta/),(/q1_vec,q2_vec,q3_vec/))
+END FUNCTION hmap_eval_Jh_dq_aux
 
 !===================================================================================================================================
 !> call %eval_Jh_dq1_aux on 1d array of points of size np, using auxiliary variable array of same size
 !!
 !===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq1_aux_all( sf ,np,q1,q2,xv) RESULT(Jh_dq1)
+FUNCTION hmap_eval_Jh_dq_aux_all( sf ,np,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(Jh_dq)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(c_hmap)       ,INTENT(IN) :: sf
   INTEGER             ,INTENT(IN) :: np
   REAL(wp)            ,INTENT(IN) :: q1(1:np),q2(1:np)
+  REAL(wp)     , INTENT(IN)       :: q1_vec(1:np),q2_vec(1:np),q3_vec(1:np)
   CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq1(1:np)
+  REAL(wp)                        :: Jh_dq(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    Jh_dq1(i)=sf%eval_Jh_dq1_aux(q1(i),q2(i),xv(i))
+    Jh_dq(i)=sf%eval_Jh_dq_aux(q1(i),q2(i),q1_vec(i),q2_vec(i),q3_vec(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
-END FUNCTION hmap_eval_Jh_dq1_aux_all
+END FUNCTION hmap_eval_Jh_dq_aux_all
 
-!===============================================================================================================================
-!> evaluate derivative of Jacobian of mapping h: dJ_h/dq^k, k=1,2 at q=(X^1,X^2,zeta)
-!! INFO: default routine that can be overwritten by specific hmap class,
-!!       not using  additional hmap-dependent auxiliary variables,
-!!       but calling the pointwise routine eval_Jh_dq2
-!!
-!===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq2_aux( sf ,q1,q2,xv) RESULT(Jh_dq2)
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(c_hmap)       ,INTENT(IN) :: sf
-  REAL(wp)            ,INTENT(IN) :: q1,q2
-  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq2
-!===================================================================================================================================
-  Jh_dq2=sf%eval_Jh_dq2((/q1,q2,xv%zeta/))
-END FUNCTION hmap_eval_Jh_dq2_aux
-
-!===================================================================================================================================
-!> call %eval_Jh_dq2_aux on 1d array of points of size np, using auxiliary variable array of same size
-!!
-!===================================================================================================================================
-FUNCTION hmap_eval_Jh_dq2_aux_all( sf ,np,q1,q2,xv) RESULT(Jh_dq2)
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(c_hmap)       ,INTENT(IN) :: sf
-  INTEGER             ,INTENT(IN) :: np
-  REAL(wp)            ,INTENT(IN) :: q1(1:np),q2(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                        :: Jh_dq2(1:np)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER :: i
-!===================================================================================================================================
-  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
-  DO i=1,np
-    Jh_dq2(i)=sf%eval_Jh_dq2_aux(q1(i),q2(i),xv(i))
-  END DO
-  !$OMP END PARALLEL DO
-END FUNCTION hmap_eval_Jh_dq2_aux_all
 
 !===============================================================================================================================
 !>  evaluate sum_ij (qL_i (G_ij(q_G)) qR_j) ,,
@@ -435,16 +412,16 @@ FUNCTION hmap_eval_gij_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(
 END FUNCTION hmap_eval_gij_aux_all
 
 !===============================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
+!>  evaluate sum_k sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) q_vec^k, k=1,2,3
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
 !! INFO: default routine that can be overwritten by specific hmap class,
 !!       not using  additional hmap-dependent auxiliary variables,
-!!       but calling the pointwise routine eval_gij_dq1
+!!       but calling the pointwise routine eval_gij_dq
 !!
 !===============================================================================================================================
-FUNCTION hmap_eval_gij_dq1_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq1)
+FUNCTION hmap_eval_gij_dq_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,q1_vec,q2_vec,q3_vec,xv) RESULT(g_ab_dq)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -452,15 +429,16 @@ FUNCTION hmap_eval_gij_dq1_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_a
   REAL(wp)     , INTENT(IN) :: qL1,qL2,qL3
   REAL(wp)     , INTENT(IN) :: q1,q2
   REAL(wp)     , INTENT(IN) :: qR1,qR2,qR3
+  REAL(wp)     , INTENT(IN) :: q1_vec,q2_vec,q3_vec
   CLASS(c_hmap_auxvar),INTENT(IN) :: xv
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                  :: g_ab_dq1
+  REAL(wp)                  :: g_ab_dq
 !===================================================================================================================================
-  g_ab_dq1=sf%eval_gij_dq1((/qL1,qL2,qL3/),(/q1,q2,xv%zeta/),(/qR1,qR2,qR3/))
-END FUNCTION hmap_eval_gij_dq1_aux
+  g_ab_dq=sf%eval_gij_dq((/qL1,qL2,qL3/),(/q1,q2,xv%zeta/),(/qR1,qR2,qR3/),(/q1_vec,q2_vec,q3_vec/))
+END FUNCTION hmap_eval_gij_dq_aux
 
-FUNCTION hmap_eval_gij_dq1_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq1)
+FUNCTION hmap_eval_gij_dq_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,q1_vec,q2_vec,q3_vec,xv) RESULT(g_ab_dq)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -469,71 +447,20 @@ FUNCTION hmap_eval_gij_dq1_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RES
   REAL(wp)     , INTENT(IN) :: qL1(1:np),qL2(1:np),qL3(1:np)
   REAL(wp)     , INTENT(IN) :: q1(1:np),q2(1:np)
   REAL(wp)     , INTENT(IN) :: qR1(1:np),qR2(1:np),qR3(1:np)
+  REAL(wp)     , INTENT(IN) :: q1_vec(1:np),q2_vec(1:np),q3_vec(1:np)
   CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  REAL(wp)                  :: g_ab_dq1(1:np)
+  REAL(wp)                  :: g_ab_dq(1:np)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,np
-    g_ab_dq1(i)=sf%eval_gij_dq1_aux(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),xv(i))
+    g_ab_dq(i)=sf%eval_gij_dq_aux(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),q1_vec(i),q2_vec(i),q3_vec(i),xv(i))
   END DO
   !$OMP END PARALLEL DO
-END FUNCTION hmap_eval_gij_dq1_aux_all
-
-
-!===============================================================================================================================
-!>  evaluate sum_ij (qL_i d/dq^k(G_ij(q_G)) qR_j) , k=1,2
-!! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
-!! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
-!! dzeta_dalpha then known to be either 0.0 for ds and dtheta and 1.0 for dzeta
-!! INFO: default routine that can be overwritten by specific hmap class,
-!!       not using  additional hmap-dependent auxiliary variables,
-!!       but calling the pointwise routine eval_gij_dq2
-!!
-!===============================================================================================================================
-FUNCTION hmap_eval_gij_dq2_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq2)
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(c_hmap), INTENT(IN) :: sf
-  REAL(wp)     , INTENT(IN) :: qL1,qL2,qL3
-  REAL(wp)     , INTENT(IN) :: q1,q2
-  REAL(wp)     , INTENT(IN) :: qR1,qR2,qR3
-  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                  :: g_ab_dq2
-!===================================================================================================================================
-  g_ab_dq2=sf%eval_gij_dq2((/qL1,qL2,qL3/),(/q1,q2,xv%zeta/),(/qR1,qR2,qR3/))
-END FUNCTION hmap_eval_gij_dq2_aux
-
-FUNCTION hmap_eval_gij_dq2_aux_all( sf ,np,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv) RESULT(g_ab_dq2)
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(c_hmap), INTENT(IN) :: sf
-  INTEGER     , INTENT(IN) :: np
-  REAL(wp)     , INTENT(IN) :: qL1(1:np),qL2(1:np),qL3(1:np)
-  REAL(wp)     , INTENT(IN) :: q1(1:np),q2(1:np)
-  REAL(wp)     , INTENT(IN) :: qR1(1:np),qR2(1:np),qR3(1:np)
-  CLASS(c_hmap_auxvar),INTENT(IN) :: xv(1:np)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)                  :: g_ab_dq2(1:np)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER :: i
-!===================================================================================================================================
-  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
-  DO i=1,np
-    g_ab_dq2(i)=sf%eval_gij_dq2_aux(qL1(i),qL2(i),qL3(i),q1(i),q2(i),qR1(i),qR2(i),qR3(i),xv(i))
-  END DO
-  !$OMP END PARALLEL DO
-END FUNCTION hmap_eval_gij_dq2_aux_all
-
+END FUNCTION hmap_eval_gij_dq_aux_all
 
 END MODULE MODgvec_c_hmap
