@@ -99,7 +99,7 @@ sgrid_nElems:
   description:
   - Number of elements in the radial grid, used for B-Spline in all variables $X^1,X^2,\lambda$
   - Can be chosen independently of the B-Spline polynomial degree.
-  - "The case of 1 element is equivalent using a polynomial in $\rho\\in[0,1]$."
+  - The case of 1 element is equivalent using a polynomial in $\rho\in[0,1]$.
   type: '`integer`'
   allowed: $> 0$
 sgrid_grid_type:
@@ -153,11 +153,11 @@ mn_nyq:
 nfp:
   category:
   - Discretization
-  subtitle: mandatory parameter
-  required: true
+  subtitle: mandatory if not part of hmap
   description:
   - This parameter sets the number of field periods $N_{FP}$
   type: '`integer`'
+  required_if: lnk_to_param(not `which_hmap=20` or `which_hmap=21`|which_hmap)
   allowed: $> 0$
 X1_mn_max:
   category:
@@ -415,16 +415,14 @@ average_axis_move_X1:
   category:
   - boundary
   description:
-  - Offset the axis in $X^{xd}$ direction, from the position found by the average
-    lnk_to_param(`init_average_axis=True`|init_average_axis)
+  - Offset the axis in $X^1$ direction, from the position found by the average lnk_to_param(`init_average_axis=True`|init_average_axis)
   type: '`real`'
   default: '`0.0`'
 average_axis_move_X2:
   category:
   - boundary
   description:
-  - Offset the axis in $X^{xd}$ direction, from the position found by the average
-    lnk_to_param(`init_average_axis=True`|init_average_axis)
+  - Offset the axis in $X^2$ direction, from the position found by the average lnk_to_param(`init_average_axis=True`|init_average_axis)
   type: '`real`'
   default: '`0.0`'
 X1_a_cos(0;n):
@@ -571,9 +569,8 @@ GetBoundaryFromFile:
   category:
   - boundary
   description:
-  - "Instead of providing fourier modes for the boundary $X^1,X^2$, use a dataset\
-    \ stored in a netcdf file that contains the $X^1,X^2$ positions on a regular grid\
-    \ in $\vartheta,\\zeta$."
+  - Instead of providing fourier modes for the boundary $X^1,X^2$, use a dataset stored
+    in a netcdf file that contains the $X^1,X^2$ positions on a regular grid in $\vartheta,\zeta$.
   type: '`integer`'
   allowed_table:
   - - '`-1`'
@@ -868,7 +865,7 @@ init_with_profile_pres:
     - default, the pressure profile is interpolated from the VMEC data
 MinimizerType:
   category:
-  - minimization
+  - minimizer
   description:
   - Switch for minimization method.
   type: integer
@@ -880,7 +877,7 @@ MinimizerType:
     - accelerated gradient descent
 PrecondType:
   category:
-  - minimization
+  - minimizer
   description:
   - Switch for radial preconditioner onto the gradient of the energy functional.
   - Build and invert approximate Hessian for each mode.
@@ -971,7 +968,7 @@ which_hmap:
   - hmap
   description:
   - Select which hmap between $X^1,X^2,\zeta$ coordinates and cartesian coordinates,
-    $(x,y,z).
+    $(x,y,z)$.
   default: '`1`'
   type: '`integer`'
   allowed: ''
@@ -1092,7 +1089,7 @@ hmap_nvisu:
   description:
   - Number of points along the axis (full turn) for visualization of the T,N,B frame
   - active for lnk_to_param(`which_hmap=20/21`|which_hmap)
-  default: '`2*n_max*hmap_nfp+1`'
+  default: '`-1`'
   type: '`integer`'
 hmap_ncfile:
   category:
@@ -1175,8 +1172,8 @@ SFLout_radialPos:
   - visualization
   subtitle: only if `SFLout>-1`
   description:
-  - Which flux surface positions (in $\rho~\sqrt$(magn.flux) are used for the SFL
-    visualization.
+  - Which flux surface positions (in $\\rho~\\sqrt{}$(magn.flux) are used for the
+    SFL visualization.
   type: array of `real` of any size
   default: '`(/1.0/)`'
   allowed: " $0\\leq \rho_i\\leq 1$ "
@@ -1337,8 +1334,8 @@ visu_3D_max:
   category:
   - visualization
   description:
-  - "For lnk_to_param(visu3D): Upper bound in $\rho,\vartheta,\\zeta$ directions for\
-    \ 3D volume visualization. "
+  - 'For lnk_to_param(visu3D): Upper bound in $\rho,\vartheta,\zeta$ directions for
+    3D volume visualization. '
   type: array of `real` of size 3
   default: '`=visu_max(1:3)`'
   allowed: '$0 \leq \rho\leq 1,-1 \leq \vartheta/(2\pi)\leq 1,,-1 \leq \zeta/(2\pi)\leq
