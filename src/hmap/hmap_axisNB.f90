@@ -71,21 +71,21 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
 
   FINAL     :: hmap_axisNB_free
   PROCEDURE :: eval_all         => hmap_axisNB_eval_all
-  PROCEDURE :: eval_pw          => hmap_axisNB_eval
+  PROCEDURE :: eval             => hmap_axisNB_eval
   PROCEDURE :: eval_aux         => hmap_axisNB_eval_aux
-  PROCEDURE :: eval_dxdq_pw     => hmap_axisNB_eval_dxdq
+  PROCEDURE :: eval_dxdq        => hmap_axisNB_eval_dxdq
   PROCEDURE :: eval_dxdq_aux    => hmap_axisNB_eval_dxdq_aux
-  PROCEDURE :: eval_Jh_pw       => hmap_axisNB_eval_Jh
-  PROCEDURE :: eval_Jh_pw_aux   => hmap_axisNB_eval_Jh_aux
-  PROCEDURE :: eval_Jh_dq1_pw   => hmap_axisNB_eval_Jh_dq1
+  PROCEDURE :: eval_Jh          => hmap_axisNB_eval_Jh
+  PROCEDURE :: eval_Jh_aux      => hmap_axisNB_eval_Jh_aux
+  PROCEDURE :: eval_Jh_dq1      => hmap_axisNB_eval_Jh_dq1
   PROCEDURE :: eval_Jh_dq1_aux  => hmap_axisNB_eval_Jh_dq1_aux
-  PROCEDURE :: eval_Jh_dq2_pw   => hmap_axisNB_eval_Jh_dq2
+  PROCEDURE :: eval_Jh_dq2      => hmap_axisNB_eval_Jh_dq2
   PROCEDURE :: eval_Jh_dq2_aux  => hmap_axisNB_eval_Jh_dq2_aux
-  PROCEDURE :: eval_gij_pw      => hmap_axisNB_eval_gij
+  PROCEDURE :: eval_gij         => hmap_axisNB_eval_gij
   PROCEDURE :: eval_gij_aux     => hmap_axisNB_eval_gij_aux
-  PROCEDURE :: eval_gij_dq1_pw  => hmap_axisNB_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq1     => hmap_axisNB_eval_gij_dq1
   PROCEDURE :: eval_gij_dq1_aux => hmap_axisNB_eval_gij_dq1_aux
-  PROCEDURE :: eval_gij_dq2_pw  => hmap_axisNB_eval_gij_dq2
+  PROCEDURE :: eval_gij_dq2     => hmap_axisNB_eval_gij_dq2
   PROCEDURE :: eval_gij_dq2_aux => hmap_axisNB_eval_gij_dq2_aux
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_axisNB:

@@ -13,10 +13,10 @@
 !===================================================================================================================================
 MODULE MODgvec_hmap
 ! MODULES
-USE MODgvec_c_hmap   , ONLY: c_hmap,c_hmap_auxvar
-USE MODgvec_hmap_RZ   , ONLY: t_hmap_RZ    ,t_hmap_RZ_auxvar
-USE MODgvec_hmap_cyl  , ONLY: t_hmap_cyl   ,t_hmap_cyl_auxvar
-USE MODgvec_hmap_knot , ONLY: t_hmap_knot  ,t_hmap_knot_auxvar
+USE MODgvec_c_hmap,     ONLY: c_hmap       ,c_hmap_auxvar
+USE MODgvec_hmap_RZ,    ONLY: t_hmap_RZ    ,t_hmap_RZ_auxvar
+USE MODgvec_hmap_cyl,   ONLY: t_hmap_cyl   ,t_hmap_cyl_auxvar
+USE MODgvec_hmap_knot,  ONLY: t_hmap_knot  ,t_hmap_knot_auxvar
 USE MODgvec_hmap_frenet,ONLY: t_hmap_frenet,t_hmap_frenet_auxvar
 USE MODgvec_hmap_axisNB,ONLY: t_hmap_axisNB,t_hmap_axisNB_auxvar
 
@@ -26,84 +26,7 @@ PUBLIC
 
 CONTAINS
 
-#ifdef PP_WHICH_HMAP
-!===================================================================================================================================
-!> initialize the type hmap, also readin parameters here if necessary
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_new( sf, which_hmap,hmap_in)
-! MODULES
-USE MODgvec_Globals   , ONLY: abort,Unit_stdOut
-USE PP_MOD_HMAP   , ONLY: PP_T_HMAP,PP_T_HMAP_AUXVAR
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  INTEGER       , INTENT(IN   ) :: which_hmap         !! input number of field periods
-  CLASS(c_hmap) , INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  TYPE(PP_T_HMAP),ALLOCATABLE,INTENT(INOUT) :: sf !! self
-!===================================================================================================================================
-  SWRITE(UNIT_stdOut,'(4X,A,I4,A,I4)')'INIT PRECOMPILED HMAP, with PP_WHICH_HMAP = ',PP_WHICH_HMAP,' ! input which_hmap=',which_hmap
-  IF(.NOT. PRESENT(hmap_in))THEN
-    SELECT CASE(which_hmap)
-    CASE(PP_WHICH_HMAP)
-      sf=PP_T_HMAP()
-    CASE DEFAULT
-      CALL abort(__STAMP__, &
-           "FIXED HMAP TO PP_WHICH_HMAP AT COMPILE TIME,  hmap choice is therefore not compatible  !")
-    END SELECT
-    sf%which_hmap=which_hmap
-  ELSE
-    SELECT TYPE(hmap_in)
-    CLASS IS(PP_T_HMAP)
-      ALLOCATE(sf,source=hmap_in)
-    CLASS DEFAULT
-      CALL abort(__STAMP__, &
-           "FIXED HMAP TO PP_WHICH_HMAP AT COMPILE TIME,  hmap_in choice is therefore not compatible  !")
-    END SELECT
-  END IF
 
-END SUBROUTINE hmap_new
-
-!===================================================================================================================================
-!> initialize the  hmap auxiliary variables, depends on hmap type
-!!
-!===================================================================================================================================
-SUBROUTINE hmap_new_auxvar(hmap,zeta,xv)
-! MODULES
-USE MODgvec_Globals   , ONLY: abort,wp
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  CLASS(c_hmap), INTENT(IN) :: hmap
-  REAL(wp)     , INTENT(IN) :: zeta(:)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE,INTENT(INOUT) :: xv(:) !! self
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-  INTEGER :: i,nzeta
-!===================================================================================================================================
-  nzeta=SIZE(zeta)
-  SELECT TYPE(hmap)
-  CLASS IS(PP_T_HMAP)
-    ALLOCATE(PP_T_HMAP_AUXVAR :: xv(nzeta))
-    !$OMP PARALLEL DO &
-    !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
-    DO i=1,nzeta
-      xv(i)= PP_T_HMAP_AUXVAR(hmap,zeta(i))
-    END DO !i
-    !$OMP END PARALLEL DO
-  CLASS DEFAULT
-    CALL abort(__STAMP__, &
-           "FIXED HMAP TO PP_WHICH_HMAP AT COMPILE TIME,  which_hmap choice is therefore not compatible  !")
-  END SELECT
-
-END SUBROUTINE hmap_new_auxvar
-
-
-#else /*PP_WHICH_HMAP not defined*/
 !===================================================================================================================================
 !> initialize the type hmap, also readin parameters here if necessary
 !!
@@ -115,13 +38,20 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   INTEGER       , INTENT(IN   ) :: which_hmap         !! input number of field periods
-  CLASS(c_hmap), INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
+  PP_HMAP_TYPE(PP_T_HMAP), INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap),ALLOCATABLE,INTENT(INOUT) :: sf !! self
+  PP_HMAP_TYPE(PP_T_HMAP),ALLOCATABLE,INTENT(INOUT) :: sf !! self
 !===================================================================================================================================
   IF(.NOT. PRESENT(hmap_in))THEN
     SELECT CASE(which_hmap)
+#ifdef PP_WHICH_HMAP
+    CASE(PP_WHICH_HMAP)
+      sf=PP_T_HMAP()
+    CASE DEFAULT
+      CALL abort(__STAMP__, &
+           "FIXED HMAP TO PP_WHICH_HMAP AT COMPILE TIME,  hmap choice is therefore not compatible  !")
+#else
     CASE(1)
       sf=t_hmap_RZ()
     !CASE(2)
@@ -137,6 +67,7 @@ IMPLICIT NONE
     CASE DEFAULT
       CALL abort(__STAMP__, &
            "this hmap choice does not exist  !")
+#endif /*defined(PP_WHICH_HAP)*/
     END SELECT
     sf%which_hmap=which_hmap
   ELSE
@@ -157,16 +88,29 @@ USE MODgvec_Globals   , ONLY: abort,wp
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  CLASS(c_hmap), INTENT(IN) :: hmap
+  PP_HMAP_TYPE(PP_T_HMAP), INTENT(IN) :: hmap
   REAL(wp)     , INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap_auxvar),ALLOCATABLE,INTENT(INOUT) :: xv(:) !! self
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE,INTENT(INOUT) :: xv(:) !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER :: i,nzeta
 !===================================================================================================================================
   nzeta=SIZE(zeta)
+#ifdef PP_WHICH_HMAP
+  IF(hmap%which_hmap .NE. PP_WHICH_HMAP) CALL abort(__STAMP__, &
+           "FIXED HMAP TO PP_WHICH_HMAP AT COMPILE TIME,  which_hmap choice is therefore not compatible  !")
+  ALLOCATE(PP_T_HMAP_AUXVAR :: xv(nzeta))
+  !$OMP PARALLEL DO &
+  !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
+  DO i=1,nzeta
+    xv(i)= PP_T_HMAP_AUXVAR(hmap,zeta(i))
+  END DO !i
+  !$OMP END PARALLEL DO
+
+#else
+
   SELECT TYPE(hmap)
   CLASS IS(t_hmap_RZ)
     ALLOCATE(t_hmap_RZ_auxvar :: xv(nzeta))
@@ -227,8 +171,8 @@ IMPLICIT NONE
     CALL abort(__STAMP__, &
           "hmap_new_auxvar: this hmap class is not implemented  !")
   END SELECT
+#endif /*defined(PP_WHICH_HAP)*/
 
 END SUBROUTINE hmap_new_auxvar
-#endif /*PP_WHICH_HMAP defined*/
 
 END MODULE MODgvec_hmap

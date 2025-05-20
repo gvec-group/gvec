@@ -14,7 +14,7 @@ MODULE MODgvec_SFL_Boozer
 ! MODULES
 USE MODgvec_Globals, ONLY:wp,abort,MPIroot
 USE MODgvec_fbase   ,ONLY: t_fbase
-USE MODgvec_hmap,  ONLY: c_hmap,PP_T_HMAP_AUXVAR
+USE MODgvec_hmap,  ONLY: PP_T_HMAP,PP_T_HMAP_AUXVAR
 IMPLICIT NONE
 PRIVATE
 
@@ -32,15 +32,11 @@ TYPE :: t_sfl_boozer
   INTEGER  :: nrho       !! number of rho positions
   LOGICAL  :: relambda   !! if =True, J^s=0 will be recomputed, for exact integrability condition of boozer transform  (but slower!)
   TYPE(t_fbase), ALLOCATABLE :: nu_fbase
-  CLASS(c_hmap),  POINTER     :: hmap          !! pointer to hmap class
+  PP_HMAP_TYPE(PP_T_HMAP),  POINTER     :: hmap          !! pointer to hmap class
   REAL(wp),ALLOCATABLE::rho_pos(:),iota(:),phiPrime(:) !! rho positions, iota and phiPrime at these rho positions
   ! computed in the boozer transform
   REAL(wp),ALLOCATABLE::lambda(:,:),nu(:,:)   !! Fourier modes for all rho positions of lambda (recomputed on the fourier space of nu) and nu for boozer transform , (iMode,irho)
-#ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE   :: hmap_xv(:) !! auxiliary variables for hmap
-#else
-  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE  :: hmap_xv(:) !! auxiliary variables for hmap
-#endif
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE   :: hmap_xv(:) !! auxiliary variables for hmap
   CONTAINS
   PROCEDURE :: get_boozer  => get_boozer_sinterp
   PROCEDURE :: free        => sfl_boozer_free
@@ -73,7 +69,7 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
   INTEGER,INTENT(IN) :: mn_nyq(2)  !! number of equidistant integration points (trapezoidal rule) in m and n
   INTEGER,INTENT(IN) :: nfp        !! number of field periods
   CHARACTER(LEN=8)   :: sin_cos      !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
-  CLASS(c_hmap),INTENT(IN),TARGET :: hmap_in
+  PP_HMAP_TYPE(PP_T_HMAP),INTENT(IN),TARGET :: hmap_in
   INTEGER,INTENT(IN) :: nrho       !! number of rho positions
   REAL(wp),INTENT(IN) :: rho_pos(nrho),iota(nrho),phiPrime(nrho)  !! rho positions, iota and phiPrime at these rho positions
   LOGICAL, INTENT(IN),OPTIONAL :: relambda_in  !! DEFAULT=TRUE: lambda is recomputed on the given fourier resolution, RECOMMENDED
@@ -170,7 +166,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     REAL(wp),DIMENSION(sf%nu_fbase%modes) :: nu_m,nu_n
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: Bcov_thet_IP,Bcov_zeta_IP
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: dLAdthet_IP,dLAdzeta_IP
-    REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: LA_IP,fm_IP,fn_IP,gam_tt,gam_tz,gam_zz,Jh,ones,zeros
+    REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: LA_IP,fm_IP,fn_IP,gam_tt,gam_tz,gam_zz
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: X1_IP,dX1ds_IP,dX1dthet,dX1dzeta
     REAL(wp),DIMENSION(sf%nu_fbase%mn_IP) :: X2_IP,dX2ds_IP,dX2dthet,dX2dzeta
     TYPE(t_fbase),ALLOCATABLE             :: X1_fbase_nyq
@@ -191,8 +187,6 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     mn_IP        = sf%nu_fbase%mn_IP  !total number of integration points
     modes        = sf%nu_fbase%modes  !number of modes in output
     dthet_dzeta  = sf%nu_fbase%d_thet*sf%nu_fbase%d_zeta !integration weights
-    ones=1.0_wp
-    zeros=0.0_wp
 
     !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
     CALL fbase_new( X1_fbase_nyq, X1_base_in%f%mn_max,  mn_nyq, &
@@ -258,37 +252,30 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
       __PERFON('eval_bsub')
       __PERFON('eval_metrics')
 
-        Jh(1:mn_IP)     = sf%hmap%eval_Jh_aux_all(mn_IP,X1_IP(1:mn_IP),X2_IP(1:mn_IP),sf%hmap_xv(1:mn_IP))
-
- 
-        ! first compute gtt,gtz and gzz and save in gamij, then 1/jac 
-        gam_tt(1:mn_IP) = sf%hmap%eval_gij_aux_all(mn_IP,dX1dthet(1:mn_IP),dX2dthet(1:mn_IP),zeros(1:mn_IP), &
-                                                          X1_IP(  1:mn_IP), X2_IP(  1:mn_IP),                &
-                                                         dX1dthet(1:mn_IP),dX2dthet(1:mn_IP),zeros(1:mn_IP), &
-                                                       sf%hmap_xv(1:mn_IP))
-        gam_tz(1:mn_IP) = sf%hmap%eval_gij_aux_all(mn_IP,dX1dthet(1:mn_IP),dX2dthet(1:mn_IP),zeros(1:mn_IP), &
-                                                          X1_IP(  1:mn_IP), X2_IP(  1:mn_IP),                &
-                                                         dX1dzeta(1:mn_IP),dX2dzeta(1:mn_IP), ones(1:mn_IP), &
-                                                       sf%hmap_xv(1:mn_IP))
-        gam_zz(1:mn_IP) = sf%hmap%eval_gij_aux_all(mn_IP,dX1dzeta(1:mn_IP),dX2dzeta(1:mn_IP), ones(1:mn_IP), &
-                                                          X1_IP(  1:mn_IP), X2_IP(  1:mn_IP),                &
-                                                         dX1dzeta(1:mn_IP),dX2dzeta(1:mn_IP), ones(1:mn_IP), &
-                                                       sf%hmap_xv(1:mn_IP))
-
   !$OMP PARALLEL DO &
   !$OMP   SCHEDULE(STATIC) DEFAULT(NONE)  &
   !$OMP   PRIVATE(i_mn,detJ)  &
-  !$OMP   SHARED(mn_IP,dX1ds_IP,dX2ds_IP,dX1dthet,dX2dthet,gam_tt,gam_tz,gam_zz,Jh)
+  !$OMP   SHARED(sf,mn_IP,dX1ds_IP,dX2ds_IP,dX1dthet,dX2dthet,dX1dzeta,dX2dzeta,X1_IP,X2_IP,gam_tt,gam_tz,gam_zz)
       !evaluate metrics on (theta,zeta)
       DO i_mn=1,mn_IP
         
-        detJ        =  Jh(i_mn)*( dX1ds_IP(i_mn)*dX2dthet(i_mn) &
-                                 -dX2ds_IP(i_mn)*dX1dthet(i_mn) )
-        gam_tt(i_mn)  = gam_tt(i_mn)/detJ   !g_theta,theta
-        gam_tz(i_mn)  = gam_tz(i_mn)/detJ   !g_theta,zeta =g_zeta,theta
-        gam_zz(i_mn)  = gam_zz(i_mn)/detJ   !g_zeta,zeta
+        detJ        =  ( dX1ds_IP(i_mn)*dX2dthet(i_mn) -dX2ds_IP(i_mn)*dX1dthet(i_mn) ) &
+                     * sf%hmap%eval_Jh_aux(X1_IP(i_mn),X2_IP(i_mn),sf%hmap_xv(i_mn)) !Jp*Jh
+        gam_tt(i_mn)  = sf%hmap%eval_gij_aux(dX1dthet(i_mn),dX2dthet(i_mn),0.0_wp, &
+                                              X1_IP  (i_mn), X2_IP(  i_mn),        &
+                                             dX1dthet(i_mn),dX2dthet(i_mn),0.0_wp, &
+                                             sf%hmap_xv(i_mn) )/detJ   !g_theta,theta
+        gam_tz(i_mn)  = sf%hmap%eval_gij_aux(dX1dthet(i_mn),dX2dthet(i_mn),0.0_wp, &
+                                              X1_IP  (i_mn), X2_IP(  i_mn),        &
+                                             dX1dzeta(i_mn),dX2dzeta(i_mn),1.0_wp, &
+                                             sf%hmap_xv(i_mn) )/detJ   !g_zeta,theta
+        gam_zz(i_mn)  = sf%hmap%eval_gij_aux(dX1dzeta(i_mn),dX2dzeta(i_mn),1.0_wp, &
+                                              X1_IP  (i_mn), X2_IP(  i_mn),        &
+                                             dX1dzeta(i_mn),dX2dzeta(i_mn),1.0_wp, &
+                                             sf%hmap_xv(i_mn) )/detJ   !g_zeta,zeta
       END DO !i_mn
   !$OMP END PARALLEL DO
+
       __PERFOFF('eval_metrics')
 
       IF(sf%relambda)THEN

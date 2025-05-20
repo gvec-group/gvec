@@ -962,11 +962,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   REAL(wp) :: StartTime,EndTime
   REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
-#ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE  :: hmap_xv(:) !! auxiliary variables for hmap
-#else
-  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:) !! auxiliary variables for hmap  
-#endif
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE  :: hmap_xv(:) !! auxiliary variables for hmap
 !===================================================================================================================================
   StartTime=GetTime()
   SWRITE(UNIT_stdOut,'(4X,A)') "... Initialize lambda from mapping ..."

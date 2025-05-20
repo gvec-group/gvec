@@ -65,9 +65,8 @@ END SUBROUTINE InitSolution
 !================================================================================================================================!
 SUBROUTINE ReadState(statefile)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut
   USE MODgvec_Output_Vars,    ONLY: outputLevel,ProjectName
-  USE MODgvec_ReadState_Vars, ONLY: fileID_r,outputLevel_r
+  USE MODgvec_ReadState_Vars, ONLY: outputLevel_r
   USE MODgvec_Restart,        ONLY: RestartFromState
   USE MODgvec_MHD3D_Vars,     ONLY: U
   USE MODgvec_MHD3D_visu,     ONLY: Get_SFL_theta
@@ -84,7 +83,7 @@ END SUBROUTINE ReadState
 !================================================================================================================================!
 SUBROUTINE select_base_dofs(var, base, dofs)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -113,7 +112,7 @@ END SUBROUTINE select_base_dofs
 !================================================================================================================================!
 SUBROUTINE select_base(var, base)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -175,7 +174,7 @@ END SUBROUTINE evaluate_base_select
 !================================================================================================================================!
 SUBROUTINE get_integration_points_num(var, n_s, n_t, n_z)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=2), INTENT(IN) :: var           !! selection string: which variable to evaluate
@@ -199,7 +198,7 @@ END SUBROUTINE get_integration_points_num
 SUBROUTINE get_integration_points(var, s_GP, s_w, t_w, z_w)
   ! MODULES
   USE MODgvec_base,           ONLY: t_base
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
+  !USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=2), INTENT(IN) :: var           !! selection string: which variable to evaluate
   REAL, DIMENSION(:), INTENT(OUT) :: s_GP, s_w  !! output arrays for the gauss points and weights
@@ -320,11 +319,9 @@ SUBROUTINE evaluate_base_list_tz_all(n_s, n_tz, s, thetazeta, Qsel, Q, dQ_ds, dQ
     dQ_ds, dQ_dthet, dQ_dzeta, dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i                                                        ! loop variables
-  INTEGER :: seli_deriv_s, seli_deriv_f                               ! integer values for the derivative selection
   CLASS(t_base), POINTER :: base                                      ! pointer to the base object (X1, X2, LA)
   REAL, POINTER :: solution_dofs(:,:)                                 ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
   REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs, dQ_dss_dofs  ! DOFs for the fourier series
-  REAL, ALLOCATABLE :: intermediate(:)                                ! intermediate result array before reshaping
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base_dofs(Qsel, base, solution_dofs)
   DO i=1,n_s
@@ -446,30 +443,27 @@ END SUBROUTINE evaluate_base_tens_all
 !================================================================================================================================!
 SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta, coord, e_s, e_thet, e_zeta)
   ! MODULES
-  USE MODgvec_MHD3D_vars,     ONLY: hmap
-  USE MODgvec_hmap
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                                      !! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds                !! reference space position & derivatives
   REAL, INTENT(IN), DIMENSION(n) :: dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta  !! reference space derivatives
   REAL, INTENT(OUT), DIMENSION(3,n) :: coord, e_s, e_thet, e_zeta               !! real space position and basis vectors
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  REAL :: ones(n)
-  REAL :: zeros(n)
-#ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
-#else
-  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:)
-#endif
+  INTEGER :: i              ! loop variable
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-  ones  = 1.0
-  zeros = 0.0
-
-  coord = hmap%eval_aux_all(     n, X1,X2, hmap_xv)
-  e_s   = hmap%eval_dxdq_aux_all(n, X1,X2, dX1_ds   ,dX2_ds   ,zeros, hmap_xv)
-  e_thet= hmap%eval_dxdq_aux_all(n, X1,X2, dX1_dthet,dX2_dthet,zeros, hmap_xv)
-  e_zeta= hmap%eval_dxdq_aux_all(n, X1,X2, dX1_dzeta,dX2_dzeta, ones, hmap_xv)
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
+  DO i=1,n
+    coord( :,i) = hmap%eval_aux(     X1(i),X2(i), hmap_xv(i))
+    e_s(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), dX1_ds(   i),dX2_ds(   i),0.0_wp, hmap_xv(i))
+    e_thet(:,i) = hmap%eval_dxdq_aux(X1(i),X2(i), dX1_dthet(i),dX2_dthet(i),0.0_wp, hmap_xv(i))
+    e_zeta(:,i) = hmap%eval_dxdq_aux(X1(i),X2(i), dX1_dzeta(i),dX2_dzeta(i),1.0_wp, hmap_xv(i))
+  END DO
+  !$OMP END PARALLEL DO
 
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
@@ -479,28 +473,27 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
   ! MODULES
-  USE MODgvec_MHD3D_vars,     ONLY: hmap
-  USE MODgvec_hmap
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                      !! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta                !! reference space position
   REAL, INTENT(OUT), DIMENSION(3,n) :: pos, e_X1, e_X2, e_zeta3 !! real space position and reference tangent basis vectors
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  REAL :: ones(n)
-  REAL :: zeros(n)
-#ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
-#else
-  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:)
-#endif
+  INTEGER :: i              ! loop variable
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-  ones  = 1.0
-  zeros = 0.0
-  pos     = hmap%eval_aux_all(     n,X1,X2,                  hmap_xv)
-  e_X1    = hmap%eval_dxdq_aux_all(n,X1,X2, ones,zeros,zeros,hmap_xv)
-  e_X2    = hmap%eval_dxdq_aux_all(n,X1,X2,zeros, ones,zeros,hmap_xv)
-  e_zeta3 = hmap%eval_dxdq_aux_all(n,X1,X2,zeros,zeros, ones,hmap_xv)
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
+  DO i=1,n
+    pos(    :,i) = hmap%eval_aux(     X1(i),X2(i),                         hmap_xv(i))
+    e_X1(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), 1.0_wp, 0.0_wp, 0.0_wp, hmap_xv(i))
+    e_X2(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), 0.0_wp, 1.0_wp, 0.0_wp, hmap_xv(i))
+    e_zeta3(:,i) = hmap%eval_dxdq_aux(X1(i),X2(i), 0.0_wp, 0.0_wp, 1.0_wp, hmap_xv(i))
+  END DO
+  !$OMP END PARALLEL DO
+
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
 
@@ -515,8 +508,9 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
                            dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt, &
                            dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz)
   ! MODULES
-  USE MODgvec_MHD3D_vars,     ONLY: hmap
-  USE MODgvec_hmap
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                                                        !! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  !! reference coordinates
@@ -527,109 +521,118 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt   !! derivatives of the m. coef.
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz   !! derivatives of the m. coef.
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  REAL,DIMENSION(n) :: g_ij_dq1, g_ij_dq2
-  REAL :: ones(n)
-  REAL :: zeros(n)
-#ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
-#else
-  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:)
-#endif
+  REAL :: g_ij_dq1, g_ij_dq2 !,g_ij_dq3
+  INTEGER :: i              ! loop variable
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-  ones  = 1.0
-  zeros = 0.0
-  !eval_gij_aux_all(sf,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,xv)
-  ! g_ij = g_ss here
-  g_ss     =  hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_ds ,dX2_ds ,zeros,  hmap_xv)
-  g_ij_dq1 =  hmap%eval_gij_dq1_aux_all(n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_ds ,dX2_ds ,zeros,  hmap_xv)
-  g_ij_dq2 =  hmap%eval_gij_dq2_aux_all(n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_ds ,dX2_ds ,zeros,  hmap_xv)
-                                       
-  dg_ss_ds= 2*hmap%eval_gij_aux_all(    n,dX1_dss,dX2_dss,zeros,  X1,X2,  dX1_ds ,dX2_ds ,zeros,  hmap_xv) &
-            + dX1_ds * g_ij_dq1 + dX2_ds * g_ij_dq2
-  
-  dg_ss_dt= 2*hmap%eval_gij_aux_all(    n,dX1_dst,dX2_dst,zeros,  X1,X2,  dX1_ds ,dX2_ds ,zeros,  hmap_xv) &
-            + dX1_dt * g_ij_dq1 + dX2_dt * g_ij_dq2
+    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
+  DO i=1,n
+    g_ss( i) =  hmap%eval_gij_aux(    dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
+    g_st( i) =  hmap%eval_gij_aux(    dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
+    g_tt( i) =  hmap%eval_gij_aux(    dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
+    g_sz( i) =  hmap%eval_gij_aux(    dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    g_tz( i) = hmap%eval_gij_aux(     dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    g_zz( i) = hmap%eval_gij_aux(     dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) 
+  END DO
+  !$OMP END PARALLEL DO
+  !derivatives of g_ij
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,g_ij_dq1,g_ij_dq2)
+  DO i=1,n
+    ! g_ij = g_ss here
+    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
+    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
+    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i))
+    
+    dg_ss_ds(i) = 2*hmap%eval_gij_aux(dX1_dss(i),dX2_dss(i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i)) &
+                  + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
 
-  dg_ss_dz= 2*hmap%eval_gij_aux_all(    n,dX1_dsz,dX2_dsz,zeros,  X1,X2,  dX1_ds ,dX2_ds ,zeros,  hmap_xv) &
-            + dX1_dz * g_ij_dq1 + dX2_dz * g_ij_dq2
+    dg_ss_dt(i) = 2*hmap%eval_gij_aux(dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i)) &
+                  + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
 
-  !g_ij = g_st here
-  g_st     =  hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv)
-  g_ij_dq1 =  hmap%eval_gij_dq1_aux_all(n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv)
-  g_ij_dq2 =  hmap%eval_gij_dq2_aux_all(n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv)
+    dg_ss_dz(i) = 2*hmap%eval_gij_aux(dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_ds( i),dX2_ds( i),0.0_wp,  hmap_xv(i)) &
+                  + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
+    ! g_ij = g_st here
+    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
+    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
+    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
 
-  dg_st_ds=   hmap%eval_gij_aux_all(    n,dX1_dss,dX2_dss,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv) &
-            + hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dst,dX2_dst,zeros,  hmap_xv) &
-            + dX1_ds * g_ij_dq1 + dX2_ds * g_ij_dq2
-  
-  dg_st_dt=   hmap%eval_gij_aux_all(    n,dX1_dst,dX2_dst,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv) &
-            + hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dtt,dX2_dtt,zeros,  hmap_xv) &
-            + dX1_dt * g_ij_dq1 + dX2_dt * g_ij_dq2
+    dg_st_ds(i) = hmap%eval_gij_aux(  dX1_dss(i),dX2_dss(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dst(i),dX2_dst(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
 
-  dg_st_dz=   hmap%eval_gij_aux_all(    n,dX1_dsz,dX2_dsz,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv) &
-            + hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dtz,dX2_dtz,zeros,  hmap_xv) &
-            + dX1_dz * g_ij_dq1 + dX2_dz * g_ij_dq2
-  
-  !g_ij = g_sz here
-  g_sz    =   hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
-  g_ij_dq1 =  hmap%eval_gij_dq1_aux_all(n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
-  g_ij_dq2 =  hmap%eval_gij_dq2_aux_all(n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
+    dg_st_dt(i) = hmap%eval_gij_aux(  dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i) ,0.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dtt(i),dX2_dtt(i) ,0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
 
-  dg_sz_ds=   hmap%eval_gij_aux_all(    n,dX1_dss,dX2_dss,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            + hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dsz,dX2_dsz,zeros,  hmap_xv) &
-            + dX1_ds * g_ij_dq1 + dX2_ds * g_ij_dq2
-  
-  dg_sz_dt=   hmap%eval_gij_aux_all(    n,dX1_dst,dX2_dst,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            + hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dtz,dX2_dtz,zeros,  hmap_xv) &
-            + dX1_dt * g_ij_dq1 + dX2_dt * g_ij_dq2
-  
-  dg_sz_dz=   hmap%eval_gij_aux_all(    n,dX1_dsz,dX2_dsz,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            + hmap%eval_gij_aux_all(    n,dX1_ds ,dX2_ds ,zeros,  X1,X2,  dX1_dzz,dX2_dzz,zeros,  hmap_xv) &
-            + dX1_dz * g_ij_dq1 + dX2_dz * g_ij_dq2
-  
-  !g_ij = g_tt here
-  g_tt     =  hmap%eval_gij_aux_all(    n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv)
-  g_ij_dq1 =  hmap%eval_gij_dq1_aux_all(n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv)
-  g_ij_dq2 =  hmap%eval_gij_dq2_aux_all(n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv)
+    dg_st_dz(i) = hmap%eval_gij_aux(  dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dtz(i),dX2_dtz(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
 
-  dg_tt_ds= 2*hmap%eval_gij_aux_all(    n,dX1_dst,dX2_dst,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv) &  
-            + dX1_ds * g_ij_dq1 + dX2_ds * g_ij_dq2
+    ! g_ij = g_sz here
+    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
 
-  dg_tt_dt= 2*hmap%eval_gij_aux_all(    n,dX1_dtt,dX2_dtt,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv) &
-            + dX1_dt * g_ij_dq1 + dX2_dt * g_ij_dq2
+    dg_sz_ds(i) = hmap%eval_gij_aux(  dX1_dss(i),dX2_dss(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dsz(i),dX2_dsz(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
 
-  dg_tt_dz= 2*hmap%eval_gij_aux_all(    n,dX1_dtz,dX2_dtz,zeros,  X1,X2,  dX1_dt ,dX2_dt ,zeros,  hmap_xv) &
-            + dX1_dz * g_ij_dq1 + dX2_dz * g_ij_dq2
-  
-  !g_ij = g_tz here
-  g_tz     =  hmap%eval_gij_aux_all(    n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
-  g_ij_dq1 =  hmap%eval_gij_dq1_aux_all(n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
-  g_ij_dq2 =  hmap%eval_gij_dq2_aux_all(n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
+    dg_sz_dt(i) = hmap%eval_gij_aux(  dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dtz(i),dX2_dtz(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
 
-  dg_tz_ds=  hmap%eval_gij_aux_all(     n,dX1_dst,dX2_dst,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            +hmap%eval_gij_aux_all(     n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dsz,dX2_dsz,zeros,  hmap_xv) &
-            + dX1_ds * g_ij_dq1 + dX2_ds * g_ij_dq2
-  dg_tz_dt=  hmap%eval_gij_aux_all(     n,dX1_dtt,dX2_dtt,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            +hmap%eval_gij_aux_all(     n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dtz,dX2_dtz,zeros,  hmap_xv) &
-            + dX1_dt * g_ij_dq1 + dX2_dt * g_ij_dq2
-  dg_tz_dz=  hmap%eval_gij_aux_all(     n,dX1_dtz,dX2_dtz,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            +hmap%eval_gij_aux_all(     n,dX1_dt ,dX2_dt ,zeros,  X1,X2,  dX1_dzz,dX2_dzz,zeros,  hmap_xv) &
-            + dX1_dz * g_ij_dq1 + dX2_dz * g_ij_dq2
-  !g_ij = g_zz here
-  g_zz     =  hmap%eval_gij_aux_all(    n,dX1_dz ,dX2_dz , ones,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
-  g_ij_dq1 =  hmap%eval_gij_dq1_aux_all(n,dX1_dz ,dX2_dz , ones,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
-  g_ij_dq2 =  hmap%eval_gij_dq2_aux_all(n,dX1_dz ,dX2_dz , ones,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv)
+    dg_sz_dz(i) = hmap%eval_gij_aux(  dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_ds( i),dX2_ds( i),0.0_wp,  X1(i),X2(i),  dX1_dzz(i),dX2_dzz(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
+   
+    ! g_ij = g_tt here
+    g_ij_dq1 =  hmap%eval_gij_dq1_aux(dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
+    g_ij_dq2 =  hmap%eval_gij_dq2_aux(dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
+    !g_ij_dq3 = hmap%eval_gij_dq3_aux(dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i))
 
-  dg_zz_ds= 2*hmap%eval_gij_aux_all(    n,dX1_dsz,dX2_dsz,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            + dX1_ds * g_ij_dq1 + dX2_ds * g_ij_dq2
+    dg_tt_ds(i) = 2*hmap%eval_gij_aux(dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
 
-  dg_zz_dt= 2*hmap%eval_gij_aux_all(    n,dX1_dtz,dX2_dtz,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            + dX1_dt * g_ij_dq1 + dX2_dt * g_ij_dq2
+    dg_tt_dt(i) = 2*hmap%eval_gij_aux(dX1_dtt(i),dX2_dtt(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
+    
+    dg_tt_dz(i) = 2*hmap%eval_gij_aux(dX1_dtz(i),dX2_dtz(i),0.0_wp,  X1(i),X2(i),  dX1_dt( i),dX2_dt( i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
 
-  dg_zz_dz= 2*hmap%eval_gij_aux_all(    n,dX1_dzz,dX2_dzz,zeros,  X1,X2,  dX1_dz ,dX2_dz , ones,  hmap_xv) &
-            + dX1_dz * g_ij_dq1 + dX2_dz * g_ij_dq2
+    !g_ij = g_tz here
+    g_ij_dq1 = hmap%eval_gij_dq1_aux( dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    g_ij_dq2 = hmap%eval_gij_dq2_aux( dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    !g_ij_dq3 =hmap%eval_gij_dq3_aux( dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
 
+    dg_tz_ds(i) = hmap%eval_gij_aux(  dX1_dst(i),dX2_dst(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dsz(i),dX2_dsz(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
+
+    dg_tz_dt(i) = hmap%eval_gij_aux(  dX1_dtt(i),dX2_dtt(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dtz(i),dX2_dtz(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
+
+    dg_tz_dz(i) = hmap%eval_gij_aux(  dX1_dtz(i),dX2_dtz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 +hmap%eval_gij_aux(  dX1_dt( i),dX2_dt( i),0.0_wp,  X1(i),X2(i),  dX1_dzz(i),dX2_dzz(i),0.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
+    
+    !g_ij = g_zz here
+    g_zz( i) = hmap%eval_gij_aux(     dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) 
+    g_ij_dq1 = hmap%eval_gij_dq1_aux( dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    g_ij_dq2 = hmap%eval_gij_dq2_aux( dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+    !g_ij_dq3 =hmap%eval_gij_dq3_aux( dX1_dz( i),dX2_dz( i),1.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i))
+
+    dg_zz_ds(i) = 2*hmap%eval_gij_aux(dX1_dsz(i),dX2_dsz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_ds(i) + g_ij_dq2*dX2_ds(i) !+ g_ij_dq3 * dzeta/ds=0
+    
+    dg_zz_dt(i) = 2*hmap%eval_gij_aux(dX1_dtz(i),dX2_dtz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dt(i) + g_ij_dq2*dX2_dt(i) !+ g_ij_dq3 * dzeta/dt=0
+
+    dg_zz_dz(i) = 2*hmap%eval_gij_aux(dX1_dzz(i),dX2_dzz(i),0.0_wp,  X1(i),X2(i),  dX1_dz( i),dX2_dz( i),1.0_wp,  hmap_xv(i)) &
+                 + g_ij_dq1*dX1_dz(i) + g_ij_dq2*dX2_dz(i) !+ g_ij_dq3 (* dzeta/dz=1) !MISSSING
+  END DO
+  !$OMP END PARALLEL DO
 
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
@@ -639,41 +642,33 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, Jh, dJh_ds, dJh_dt, dJh_dz)
   ! MODULES
-  USE MODgvec_MHD3D_vars,     ONLY: hmap
-  USE MODgvec_hmap
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                                                        !! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  !! reference coordinates
   REAL, INTENT(OUT), DIMENSION(n) :: Jh, dJh_ds, dJh_dt, dJh_dz                                   !! jacobian det. and derivatives
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  REAL,DIMENSION(n) :: Jh_dq1, Jh_dq2
-#ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
-#else
-  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:)
-#endif
+  INTEGER :: i              ! loop variable
+  REAL :: Jh_dq1, Jh_dq2 !, Jh_dq3
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
+    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i,Jh_dq1,Jh_dq2) 
+  DO i=1,n
+    Jh(i) = hmap%eval_Jh_aux(X1(i),X2(i),hmap_xv(i))
+    Jh_dq1 = hmap%eval_Jh_dq1_aux(X1(i),X2(i),hmap_xv(i))
+    Jh_dq2 = hmap%eval_Jh_dq2_aux(X1(i),X2(i),hmap_xv(i))
+    !Jh_dq3 =hmap%eval_Jh_dq3_aux(X1(i),X2(i),hmap_xv(i))
 
-  Jh = hmap%eval_Jh_aux_all(n,X1,X2,hmap_xv)
-
-  Jh_dq1 = hmap%eval_Jh_dq1_aux_all(n,X1,X2,hmap_xv)
-  Jh_dq2 = hmap%eval_Jh_dq2_aux_all(n,X1,X2,hmap_xv)
-
-  dJh_ds = dX1_ds * Jh_dq1 + dX2_ds * Jh_dq2
-  dJh_dt = dX1_dt * Jh_dq1 + dX2_dt * Jh_dq2
-  dJh_dz = dX1_dz * Jh_dq1 + dX2_dz * Jh_dq2
+    dJh_ds(i) = dX1_ds(i) * Jh_dq1 + dX2_ds(i) * Jh_dq2
+    dJh_dt(i) = dX1_dt(i) * Jh_dq1 + dX2_dt(i) * Jh_dq2
+    dJh_dz(i) = dX1_dz(i) * Jh_dq1 + dX2_dz(i) * Jh_dq2 !+ Jh_dq3 (* dzeta/dz=1) !MISSING
+  END DO
+  !$OMP END PARALLEL DO
 
   DEALLOCATE(hmap_xv)
-  ! DO i=1,n
-  !   q   = (/X1(i), X2(i), zeta(i)/)
-  !   Jh(i)  = hmap%eval_Jh(q)
-  !   Jh_dq1 = hmap%eval_Jh_dq1(q)
-  !   Jh_dq2 = hmap%eval_Jh_dq2(q)
-  !   dJh_ds(i) = dX1_ds(i) * Jh_dq1 + dX2_ds(i) * Jh_dq2
-  !   dJh_dt(i) = dX1_dt(i) * Jh_dq1 + dX2_dt(i) * Jh_dq2
-  !   dJh_dz(i) = dX1_dz(i) * Jh_dq1 + dX2_dz(i) * Jh_dq2
-  ! END DO
+
 END SUBROUTINE
 
 !================================================================================================================================!
@@ -681,7 +676,7 @@ END SUBROUTINE
 !================================================================================================================================!
 SUBROUTINE evaluate_rho2_profile(n_s, rho2, deriv, var, result)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_rProfile_base,  ONLY: c_rProfile
   USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile, chi_profile, Phi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -718,10 +713,9 @@ END SUBROUTINE evaluate_rho2_profile
 !================================================================================================================================!
 SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,abort
+  USE MODgvec_Globals,        ONLY: abort
   USE MODgvec_rProfile_base,  ONLY: c_rProfile
-  USE MODgvec_MHD3D_Vars,     ONLY: which_init, init_with_profile_iota, init_with_profile_pressure, iota_profile, pres_profile, &
-                                    Phi_profile, chi_profile
+  USE MODgvec_MHD3D_Vars,     ONLY: iota_profile, pres_profile, Phi_profile, chi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s                  !! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n_s) :: s       !! radial evaluation points
@@ -808,11 +802,9 @@ SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Q
     dQ_dthet, dQ_dzeta, dQ_dtt, dQ_dtz, dQ_dzz
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i                                                        ! loop variables
-  INTEGER :: seli_deriv_s, seli_deriv_f                               ! integer values for the derivative selection
   CLASS(t_fbase), POINTER :: base                                     ! pointer to the base object (LA, NU)
   REAL, POINTER :: dofs(:,:)                                          ! pointer to the solution dofs
   REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs                           ! DOFs for the fourier series
-  REAL, ALLOCATABLE :: intermediate(:)                                ! intermediate result array before reshaping
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   SELECT CASE(Qsel)
     CASE('LA')

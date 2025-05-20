@@ -32,14 +32,14 @@ SUBROUTINE Lambda_solve(spos_in,hmap_in,hmap_xv,X1_base_in,X2_base_in,LA_fbase_i
   USE MODgvec_Globals,       ONLY:n_warnings_occured
   USE MODgvec_base          ,ONLY: t_base
   USE MODgvec_fbase         ,ONLY: t_fbase
-  USE MODgvec_hmap          ,ONLY: c_hmap,c_hmap_auxvar
+  USE MODgvec_hmap          ,ONLY: PP_T_HMAP,PP_T_HMAP_AUXVAR
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_base),INTENT(IN)  :: X1_base_in,X2_base_in           !< base classes belong to solution X1_in,X2_in
   TYPE(t_fbase),INTENT(IN) :: LA_fbase_in                     !< base class belong to solution LA_s
-  CLASS(c_hmap), INTENT(IN) :: hmap_in            
-  CLASS(c_hmap_auxvar), INTENT(IN) :: hmap_xv(X1_base_in%f%mn_IP)  !< auxiliary variables for hmap, must be pre-computed
+  PP_HMAP_TYPE(PP_T_HMAP), INTENT(IN) :: hmap_in            
+  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), INTENT(IN) :: hmap_xv(X1_base_in%f%mn_IP)  !< auxiliary variables for hmap, must be pre-computed
   REAL(wp)     , INTENT(IN) :: spos_in                  !! s position to evaluate lambda
   REAL(wp)     , INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes) !! U%X1 variable, is reshaped to 2D at input
   REAL(wp)     , INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes) !! U%X2 variable, is reshaped to 2D at input
@@ -56,11 +56,10 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
   REAL(wp),DIMENSION(1:X2_base_in%f%modes) :: X2_s,X2_ds !! X1 solution at spos
   REAL(wp),DIMENSION(1:X1_base_in%f%mn_IP) :: X1_s_IP,dX1ds,dX1dthet,dX1dzeta, & !mn_IP should be same for all!
                                               X2_s_IP,dX2ds,dX2dthet,dX2dzeta, &
-                                              detJ,gam_tt,gam_tz,gam_zz,zeros,ones
+                                              detJ,gam_tt,gam_tz,gam_zz
   
 !===================================================================================================================================
   __PERFON('lambda_solve')
-  zeros=0.0_wp; ones=1.0_wp
 
   spos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-04_wp,spos_in))
   mn_IP = X1_base_in%f%mn_IP
@@ -102,16 +101,16 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
   dX2dthet = X2_base_in%f%evalDOF_IP(DERIV_THET,X2_s )
   dX2dzeta = X2_base_in%f%evalDOF_IP(DERIV_ZETA,X2_s )
  
-  !detJ <-- Jh
-  detJ(1:mn_IP) = hmap_in%eval_Jh_aux_all(mn_IP,X1_s_IP(1:mn_IP),X2_s_IP(1:mn_IP),hmap_xv(1:mn_IP))
+
 
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) &
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(i_mn)  &
-!$OMP   SHARED(mn_IP,dX1ds,dX2ds,dX1dthet,dX2dthet,detJ)
+!$OMP   SHARED(mn_IP,X1_s_IP,X2_s_IP,dX1ds,dX2ds,dX1dthet,dX2dthet,detJ,hmap_in,hmap_xv)
   DO i_mn=1,mn_IP
-    detJ(i_mn)=(dX1ds(i_mn)*dX2dthet(i_mn)-dX1dthet(i_mn)*dX2ds(i_mn))*detJ(i_mn) !J_p*J_h
+    detJ(i_mn)= (dX1ds(i_mn)*dX2dthet(i_mn)-dX1dthet(i_mn)*dX2ds(i_mn)) &
+               *hmap_in%eval_Jh_aux(X1_s_IP(i_mn),X2_s_IP(i_mn),hmap_xv(i_mn)) !J_p*J_h
   END DO !i_mn
 !$OMP END PARALLEL DO
 
@@ -130,29 +129,25 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
 !    CALL abort(__STAMP__, &
 !        'Lambda_solve: Jacobian smaller that  1.0e-12!!!' )
   END IF
-  ! first compute gtt,gtz and gzz and save in gamij, then 1/jac 
-  gam_tt(1:mn_IP) = hmap_in%eval_gij_aux_all(mn_IP,dX1dthet(1:mn_IP),dX2dthet(1:mn_IP),zeros(1:mn_IP), &
-                                                    X1_s_IP(1:mn_IP), X2_s_IP(1:mn_IP),                &
-                                                   dX1dthet(1:mn_IP),dX2dthet(1:mn_IP),zeros(1:mn_IP), &
-                                                hmap_xv(1:mn_IP))
-  gam_tz(1:mn_IP) = hmap_in%eval_gij_aux_all(mn_IP,dX1dthet(1:mn_IP),dX2dthet(1:mn_IP),zeros(1:mn_IP), &
-                                                    X1_s_IP(1:mn_IP), X2_s_IP(1:mn_IP),                &
-                                                   dX1dzeta(1:mn_IP),dX2dzeta(1:mn_IP), ones(1:mn_IP), &
-                                                hmap_xv(1:mn_IP))
-  gam_zz(1:mn_IP) = hmap_in%eval_gij_aux_all(mn_IP,dX1dzeta(1:mn_IP),dX2dzeta(1:mn_IP), ones(1:mn_IP), &
-                                                    X1_s_IP(1:mn_IP), X2_s_IP(1:mn_IP),                &
-                                                   dX1dzeta(1:mn_IP),dX2dzeta(1:mn_IP), ones(1:mn_IP), &
-                                                hmap_xv(1:mn_IP))
+
 !$OMP PARALLEL DO        &
 !$OMP   SCHEDULE(STATIC) &
 !$OMP   DEFAULT(NONE)    &
 !$OMP   PRIVATE(i_mn)  &
-!$OMP   SHARED(mn_IP,gam_tt,gam_tz,gam_zz,detJ)
-  !account for 1/J here
+!$OMP   SHARED(mn_IP,gam_tt,gam_tz,gam_zz,detJ,hmap_in,hmap_xv,X1_s_IP,X2_s_IP,dX1dthet,dX2dthet,dX1dzeta,dX2dzeta)
   DO i_mn=1,mn_IP
-    gam_tt(i_mn) = gam_tt(i_mn)/detJ(i_mn)
-    gam_tz(i_mn) = gam_tz(i_mn)/detJ(i_mn)
-    gam_zz(i_mn) = gam_zz(i_mn)/detJ(i_mn)
+    gam_tt(i_mn) = hmap_in%eval_gij_aux(dX1dthet(i_mn),dX2dthet(i_mn),0.0_wp, &
+                                         X1_s_IP(i_mn), X2_s_IP(i_mn),        &
+                                        dX1dthet(i_mn),dX2dthet(i_mn),0.0_wp, &
+                                        hmap_xv(i_mn)) / detJ(i_mn)
+    gam_tz(i_mn) = hmap_in%eval_gij_aux(dX1dthet(i_mn),dX2dthet(i_mn),0.0_wp, &
+                                         X1_s_IP(i_mn), X2_s_IP(i_mn),        &
+                                        dX1dzeta(i_mn),dX2dzeta(i_mn),1.0_wp, &
+                                        hmap_xv(i_mn)) / detJ(i_mn)
+    gam_zz(i_mn) = hmap_in%eval_gij_aux(dX1dzeta(i_mn),dX2dzeta(i_mn),1.0_wp, &
+                                         X1_s_IP(i_mn), X2_s_IP(i_mn),        &
+                                        dX1dzeta(i_mn),dX2dzeta(i_mn),1.0_wp, &
+                                        hmap_xv(i_mn)) / detJ(i_mn)
   END DO !i_mn
 !$OMP END PARALLEL DO
 

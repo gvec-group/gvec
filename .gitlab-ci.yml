@@ -1032,6 +1032,7 @@ include:
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_run_hmap_RZ
       conv-postfix: _hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ
@@ -1039,6 +1040,7 @@ include:
   - local: CI_templates/converters.yml
     inputs:
       env: .mpcdfci_nvfortran-23
+      vars: .vars_matrix_run_hmap_RZ
       conv-postfix: _hmap_RZ
       build-postfix: _hmap_RZ
       run-postfix: _hmap_RZ

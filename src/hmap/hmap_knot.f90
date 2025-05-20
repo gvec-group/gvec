@@ -36,14 +36,14 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
 
   FINAL     :: hmap_knot_free
   PROCEDURE :: eval_all         => hmap_knot_eval_all
-  PROCEDURE :: eval_pw          => hmap_knot_eval
-  PROCEDURE :: eval_dxdq_pw     => hmap_knot_eval_dxdq
-  PROCEDURE :: eval_Jh_pw       => hmap_knot_eval_Jh
-  PROCEDURE :: eval_Jh_dq1_pw   => hmap_knot_eval_Jh_dq1
-  PROCEDURE :: eval_Jh_dq2_pw   => hmap_knot_eval_Jh_dq2
-  PROCEDURE :: eval_gij_pw      => hmap_knot_eval_gij
-  PROCEDURE :: eval_gij_dq1_pw  => hmap_knot_eval_gij_dq1
-  PROCEDURE :: eval_gij_dq2_pw  => hmap_knot_eval_gij_dq2
+  PROCEDURE :: eval             => hmap_knot_eval
+  PROCEDURE :: eval_dxdq        => hmap_knot_eval_dxdq
+  PROCEDURE :: eval_Jh          => hmap_knot_eval_Jh
+  PROCEDURE :: eval_Jh_dq1      => hmap_knot_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2      => hmap_knot_eval_Jh_dq2
+  PROCEDURE :: eval_gij         => hmap_knot_eval_gij
+  PROCEDURE :: eval_gij_dq1     => hmap_knot_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq2     => hmap_knot_eval_gij_dq2
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_knot:
   PROCEDURE :: Rl            => hmap_knot_eval_Rl

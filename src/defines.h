@@ -54,6 +54,7 @@
 
 ! if cmake option GVEC_FIX_HMAP is not off, sets PP_WHICH_HMAP 
 #if defined(PP_WHICH_HMAP)
+#  define PP_HMAP_TYPE TYPE
 #  if PP_WHICH_HMAP == 1
 #    define  PP_MOD_HMAP MODgvec_hmap_RZ
 #    define  PP_T_HMAP t_hmap_RZ
@@ -82,8 +83,9 @@
 #    define  PP_WHICH_HMAP ?
 #  endif
 #else
-#    define  PP_T_HMAP c_hmap
-#    define  PP_T_HMAP_AUXVAR c_hmap_auxvar
+#  define PP_HMAP_TYPE CLASS
+#  define  PP_T_HMAP c_hmap
+#  define  PP_T_HMAP_AUXVAR c_hmap_auxvar
 #endif /*PP_WHICH_HMAP defined*/
 
 

@@ -17,8 +17,8 @@ USE MODgvec_Globals, ONLY:wp,abort,MPIroot
 USE MODgvec_base   ,ONLY: t_base
 USE MODgvec_fbase   ,ONLY: t_fbase
 USE MODgvec_sGrid   ,ONLY: t_sgrid
-USE MODgvec_hmap,  ONLY: c_hmap
 USE MODgvec_SFL_boozer, ONLY: t_sfl_boozer
+USE MODgvec_hmap,  ONLY: PP_T_HMAP
 IMPLICIT NONE
 PRIVATE
 
@@ -35,7 +35,7 @@ TYPE :: t_transform_sfl
   INTEGER                     :: to_angle_method !! =1: "interpolate": root search of interpolation points (mn_nyq=2*(m_max,n_max)+1) in sfl angles,
                                                  !! =2: "integrate": project to sfl angles with trapezoidal rule (integral with transform, mn_nyq=4*(m_max,n_max)+1)
   TYPE(t_sgrid)               :: sgrid_sfl     !! grid for SFL coordinates
-  CLASS(c_hmap),  POINTER     :: hmap          !! pointer to hmap class
+  PP_HMAP_TYPE(PP_T_HMAP),  POINTER     :: hmap          !! pointer to hmap class
 
   CLASS(t_base),  ALLOCATABLE :: X1sfl_base    !! container for base of variable X1 in SFL coordinates
   CLASS(t_base),  ALLOCATABLE :: X2sfl_base    !! container for base of variable X2 in SFL coordinates
@@ -98,7 +98,7 @@ SUBROUTINE transform_sfl_new(sf,mn_max_in, whichSFL,deg_in,continuity_in,degGP_i
   INTEGER     ,INTENT(IN) :: deg_in,continuity_in,degGP_in                    !< for output base (X1,X2,G)
   CLASS(t_sgrid),INTENT(IN),TARGET :: grid_in                            !! grid information
   CLASS(t_base),INTENT(IN),TARGET :: X1_base_in,X2_base_in,LA_base_in           !< base classes belong to solution U_in
-  CLASS(c_hmap),INTENT(IN),TARGET :: hmap_in
+  PP_HMAP_TYPE(PP_T_HMAP),INTENT(IN),TARGET :: hmap_in
   PROCEDURE(i_func_evalprof)     :: eval_phiPrime_in,eval_iota_in  !!procedure pointers to profile evaluation functions.
   LOGICAL,INTENT(IN),OPTIONAL :: booz_relambda !! for boozer transform, recompute lambda (recommended)
   !-----------------------------------------------------------------------------------------------------------------------------------

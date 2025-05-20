@@ -34,14 +34,14 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_RZ
 
   FINAL     :: hmap_RZ_free
   PROCEDURE :: eval_all         => hmap_RZ_eval_all
-  PROCEDURE :: eval_pw          => hmap_RZ_eval
-  PROCEDURE :: eval_dxdq_pw     => hmap_RZ_eval_dxdq
-  PROCEDURE :: eval_Jh_pw       => hmap_RZ_eval_Jh
-  PROCEDURE :: eval_Jh_dq1_pw   => hmap_RZ_eval_Jh_dq1
-  PROCEDURE :: eval_Jh_dq2_pw   => hmap_RZ_eval_Jh_dq2
-  PROCEDURE :: eval_gij_pw      => hmap_RZ_eval_gij
-  PROCEDURE :: eval_gij_dq1_pw  => hmap_RZ_eval_gij_dq1
-  PROCEDURE :: eval_gij_dq2_pw  => hmap_RZ_eval_gij_dq2
+  PROCEDURE :: eval             => hmap_RZ_eval
+  PROCEDURE :: eval_dxdq        => hmap_RZ_eval_dxdq
+  PROCEDURE :: eval_Jh          => hmap_RZ_eval_Jh
+  PROCEDURE :: eval_Jh_dq1      => hmap_RZ_eval_Jh_dq1
+  PROCEDURE :: eval_Jh_dq2      => hmap_RZ_eval_Jh_dq2
+  PROCEDURE :: eval_gij         => hmap_RZ_eval_gij
+  PROCEDURE :: eval_gij_dq1     => hmap_RZ_eval_gij_dq1
+  PROCEDURE :: eval_gij_dq2     => hmap_RZ_eval_gij_dq2
 
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_RZ
