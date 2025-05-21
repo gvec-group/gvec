@@ -12,10 +12,16 @@ import re
 import pytest
 
 try:
+    import numpy as np
+    import xarray as xr
+
     import gvec
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
 
+
+DATA = Path(__file__).parent / "../data"
+QUASR_ID = 112714
 
 # === FIXTURES === #
 
@@ -75,3 +81,62 @@ def test_run_stages(suffix):
         assert Path("0-00/W7X_State_0000_00000010.dat").exists()
         assert Path("0-01/W7X_State_0001_00000010.dat").exists()
         assert Path("1-00/W7X_State_0002_00000005.dat").exists()
+
+
+def test_quasr_real_dft():
+    def exfunc(x):
+        return x * 0 + 3 + 1.4 * np.sin(2 * x + 0.4) + 0.3 * np.cos(4 * x - 0.3)
+
+    def exfuncd(x):
+        return x * 0 + 2 * 1.4 * np.cos(2 * x + 0.4) - 4 * 0.3 * np.sin(4 * x - 0.3)
+
+    def exfuncdd(x):
+        return x * 0 - 4 * 1.4 * np.sin(2 * x + 0.4) - 16 * 0.3 * np.cos(4 * x - 0.3)
+
+    nzeta_test = 9
+    nzeta_up = 14
+
+    zeta_test = np.linspace(
+        0, np.pi, nzeta_test, endpoint=False
+    )  # data on one field period nfp=2 -> modes must be multiples of 2...
+    zeta_up = np.linspace(0, 2 * np.pi, nzeta_up, endpoint=False)
+
+    f1 = exfunc(zeta_test)
+
+    rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, nfp=2)
+    f3 = rdft["BF"] @ f1
+
+    d_rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, deriv=1, nfp=2)
+
+    df3 = (d_rdft["B"] @ (d_rdft["F"] @ f1)).real
+
+    dd_rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, deriv=2, nfp=2)
+
+    ddf3 = dd_rdft["BF"] @ f1
+
+    assert np.allclose(f3, exfunc(zeta_up))
+    assert np.allclose(df3, exfuncd(zeta_up))
+    assert np.allclose(ddf3, exfuncdd(zeta_up))
+
+
+def test_quasr_download(tmp_path):
+    json = gvec.scripts.quasr.get_json_from_quasr(
+        QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+    )
+    json_ref = DATA / f"quasr-{QUASR_ID:07d}.json"
+    with (
+        open(json, "r") as file,
+        open(json_ref, "r") as reference,
+    ):
+        assert file.read().strip() == reference.read().strip()
+
+
+def test_quasr_noerror(tmp_path):
+    """
+    Test the load-quasr script
+    """
+    hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
+    with gvec.util.chdir(tmp_path):
+        args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc")]
+        gvec.scripts.quasr.main(args)
+        assert hmap.exists()

@@ -119,9 +119,15 @@ SUBROUTINE InitMHD3D(sf)
   CASE(0)
     init_fromBConly= .TRUE.
     init_BC        = 2
-    nfp_loc  = GETINT( "nfp")
+
     !hmap
     which_hmap=GETINT("which_hmap",Proposal=1)
+    CALL hmap_new(hmap,which_hmap)
+    IF(hmap%nfp.NE.-1)THEN
+      nfp_loc = hmap%nfp
+    ELSE
+      nfp_loc = GETINT("nfp")
+    END IF
 
     Phi_edge   = GETREAL("PHIEDGE",Proposal=1.0_wp)
     Phi_edge   = Phi_edge/TWOPI !normalization like in VMEC!!!
@@ -160,10 +166,11 @@ SUBROUTINE InitMHD3D(sf)
         proposal_LA_sin_cos="_sincos_"
       END IF
       nfp_loc = nfp
-      which_hmap=1 !hmap_RZ
       Phi_edge = Phi(nFluxVMEC)
     END IF !MPIroot
-    CALL par_BCast(which_hmap,0)
+
+    which_hmap=1 !hmap_RZ
+    CALL hmap_new(hmap,which_hmap)
   END SELECT !which_init
 
   IF(MPIroot)THEN
@@ -197,11 +204,6 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_X2_sin_cos,0)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
-
-
-  CALL hmap_new(hmap,which_hmap)
-  IF((hmap%nfp.NE.-1).AND.(hmap%nfp.NE.nfp_loc)) CALL abort(__STAMP__,&
-                        "nfp from GVEC parameterfile does not match to nfp used in hmap.")
 
 
   X1X2_deg     = GETINT(     "X1X2_deg")

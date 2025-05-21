@@ -156,7 +156,7 @@ class BaseTestPost:
     - args: list of arguments to pass to the executable
     """
 
-    exec: str  # name of the executable
+    exec: str | list[str]  # name of the executable
 
     @pytest.fixture(autouse=True)
     def testcasedir(
@@ -203,7 +203,10 @@ class BaseTestPost:
         annotations,
         artifact_pages_path,
     ):
-        args = runargs_prefix + [binpath / self.exec] + args
+        if isinstance(self.exec, str):
+            args = runargs_prefix + [binpath / self.exec] + args
+        else:
+            args = runargs_prefix + [binpath / self.exec[0]] + self.exec[1:] + args
         states = sorted(Path(".").glob("*State*.dat"))
         # dryrun
         if dryrun:
@@ -419,7 +422,7 @@ class TestConverters(BaseTestPost):
 @pytest.mark.pygvec
 @pytest.mark.converter_stage
 class TestToCAS3D(BaseTestPost):
-    exec = "gvec_to_cas3d"
+    exec = ["pygvec", "to-cas3d"]
 
     @pytest.fixture
     def name(self):

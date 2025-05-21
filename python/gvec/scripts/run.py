@@ -130,6 +130,15 @@ def run_stages(
             else:
                 run_params[key] = value
 
+        # add additional directory for path parameters
+        for key, value in run_params.items():
+            if key.lower() in [
+                "vmecwoutfile",
+                "boundary_filename",
+                "hmap_ncfile",
+            ] and not value.startswith("/"):
+                run_params[key] = f"../{value}"
+
         # run the stage
         runs = range(stage.get("runs", 1))
         for r in runs:
