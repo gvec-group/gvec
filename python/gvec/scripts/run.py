@@ -345,10 +345,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             logging.basicConfig(
                 level=logging.WARNING
             )  # show warnings and above as normal
-            logger = logging.getLogger(
-                "pyGVEC.script"
-            )  # show info/debug messages for this script
-            logger.propagate = False
+            logger = logging.getLogger("gvec")
             loghandler = logging.StreamHandler()
             logformatter = logging.Formatter("{message}", style="{")
             loghandler.setFormatter(logformatter)

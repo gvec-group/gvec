@@ -43,13 +43,36 @@ convert_parser = subparsers.add_parser(
 convert_parser.add_argument(
     "input",
     type=Path,
-    help="input GVEC parameterfile",
+    help="input GVEC or VMEC parameterfile",
 )
 convert_parser.add_argument(
     "output",
     type=Path,
+    nargs="?",
     help="output GVEC parameterfile",
+    default="parameter.yaml",
 )
+convert_parser.add_argument(
+    "--vmec",
+    action="store_true",
+    help="input parameterfile is a VMEC namelist",
+)
+convert_parser.add_argument(
+    "-x",
+    "--flip",
+    choices=["t", "theta", "z", "zeta", "b", "both"],
+    help="flip the coordinates in the specified direction(s), possible values are: t/theta, z/zeta, b/both",
+    metavar="FLIP",
+)
+verbosity = convert_parser.add_mutually_exclusive_group()
+verbosity.add_argument(
+    "-v",
+    "--verbose",
+    action="count",
+    default=0,
+    help="verbosity level: -v for info, -vv for debug",
+)
+verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
 
 # --- scripts --- #
 
@@ -83,7 +106,12 @@ quasr_parser = subparsers.add_parser(
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
-    logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
+    logger = logging.getLogger("gvec")
+    loghandler = logging.StreamHandler()
+    logformatter = logging.Formatter("{levelname} {message}", style="{")
+    loghandler.setFormatter(logformatter)
+    logger.addHandler(loghandler)
+
     if isinstance(args, argparse.Namespace):
         pass
     else:
@@ -95,7 +123,35 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     # --- convert parameterfile --- #
     elif args.mode == "convert-params":
-        parameters = gvec.util.read_parameters(args.input)
+        if args.quiet:
+            logging.disable()
+        elif args.verbose >= 2:
+            logger.setLevel(logging.DEBUG)
+        elif args.verbose == 1:
+            logger.setLevel(logging.INFO)
+        logger.debug(f"parsed args: {args}")
+
+        if args.vmec:
+            try:
+                import f90nml
+            except ImportError as e:
+                logger.debug(f"Caught exception: {e}")
+                logger.error(
+                    "reading VMEC namelists requires 'f90nml' to be installed."
+                )
+            with open(args.input, "r") as file:
+                content = file.read()
+            content = content.strip()
+            if content.endswith("&END"):
+                content = content[:-4]
+            nml = f90nml.reads(content)["indata"]
+            parameters = gvec.util.parameters_from_vmec(nml, str(args.input))
+        else:
+            parameters = gvec.util.read_parameters(args.input)
+        if args.flip[0] in "tb":
+            parameters = gvec.util.flip_parameters_theta(parameters)
+        if args.flip[0] in "zb":
+            parameters = gvec.util.flip_parameters_zeta(parameters)
         gvec.util.write_parameters(parameters, args.output)
 
     # --- other scripts --- #

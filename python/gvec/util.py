@@ -6,19 +6,24 @@ This module is part of the gvec python package, but also used directly in the te
 """
 
 import contextlib
+import copy
 import os
 import re
 import shutil
 from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Iterable, Literal
+import logging
 
+import numpy as np
 from numpy.typing import ArrayLike
 
 try:
     from scipy.interpolate import BSpline
 except ImportError:
     BSpline = None
+
+logger = logging.getLogger(__name__)
 
 
 @contextlib.contextmanager
@@ -321,9 +326,8 @@ def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
     return parameters
 
 
-def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
-    import copy
-
+def flip_boundary_theta(parameters: MutableMapping) -> MutableMapping:
+    """Flip the boundary parameters in the poloidal direction. θ → -θ."""
     output_params = copy.deepcopy(parameters)
     for var in ["X1_b", "X2_b"]:
         if f"{var}_cos" in parameters:
@@ -343,9 +347,7 @@ def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
     return output_params
 
 
-def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
-    import copy
-
+def flip_boundary_zeta(parameters: MutableMapping) -> MutableMapping:
     output_params = copy.deepcopy(parameters)
     for var in ["X1_b", "X2_b", "X1_a", "X2_a"]:
         if f"{var}_cos" in parameters:
@@ -365,19 +367,51 @@ def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
     return output_params
 
 
-def parameters_from_vmec(nml: Mapping) -> CaseInsensitiveDict:
-    import numpy as np
+def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
+    parameters = flip_boundary_theta(parameters)
 
+    for profile in ["iota"]:
+        if profile in parameters:
+            parameters[profile]["scale"] = -parameters[profile].get("scale", 1.0)
+
+    return parameters
+
+
+def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
+    parameters = flip_boundary_zeta(parameters)
+
+    if "phiedge" in parameters:
+        parameters["phiedge"] = -parameters["phiedge"]
+    for profile in ["iota", "Itor"]:
+        if profile in parameters:
+            parameters[profile]["scale"] = -parameters[profile].get("scale", 1.0)
+
+    return parameters
+
+
+def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     M, N = nml["mpol"] - 1, nml["ntor"]
-    stellsym = nml["lasym"]  # stellarator symmetry
+    stellsym = not nml["lasym"]  # stellarator symmetry
     params = CaseInsensitiveDict(
-        {
-            "nfp": nml["nfp"],
-            "X1_mn_max": f"(/{M}, {N}/)",
-            "X2_mn_max": f"(/{M}, {N}/)",
-            "LA_mn_max": f"(/{M}, {N}/)",
-            "PHIEDGE": nml["phiedge"],
-        }
+        ProjectName=name,
+        whichInitEquilibrium=0,
+        which_hmap=1,
+        MinimizerType=10,
+        PrecondType=1,
+        minimize_tol=1e-7,
+        MaxIter=10000,
+        logIter=100,
+        nfp=nml["nfp"],
+        X1_mn_max=(M, N),
+        X2_mn_max=(M, N),
+        LA_mn_max=(M, N),
+        PhiEdge=nml["phiedge"],
+        X1X2_deg=5,
+        LA_deg=5,
+        sgrid=dict(
+            grid_type=0,
+            nElems=5,
+        ),
     )
     if stellsym:
         params["X1_sin_cos"] = "_cos_"
@@ -388,50 +422,93 @@ def parameters_from_vmec(nml: Mapping) -> CaseInsensitiveDict:
         params["X2_sin_cos"] = "_sincos_"
         params["LA_sin_cos"] = "_sincos_"
 
-    # --- boundary --- #
-    rbc = np.array(nml["rbc"], dtype=float)
-    zbs = np.array(nml["zbs"], dtype=float)
-    if not rbc.shape == zbs.shape == (M + 1, 2 * N + 1):
+    # --- profiles --- #
+    if nml["pmass_type"] != "power_series":
         raise ValueError(
-            f"VMEC namelist arrays 'rbc' and 'zbs' have shape {rbc.shape} and {zbs.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+            f"VMEC pressure profile of type {nml['pmass_type']} is not supported for conversion"
         )
-    if not stellsym:
-        rbs = np.array(nml["rbs"], dtype=float)
-        zbc = np.array(nml["zbc"], dtype=float)
-        if not rbs.shape == zbc.shape == (M + 1, 2 * N + 1):
+    params["pres"] = {
+        "type": "polynomial",
+        "coefs": nml["am"],
+        "scale": nml["pres_scale"],
+    }
+    if nml["piota_type"] != "power_series":
+        raise ValueError(
+            f"VMEC iota profile of type {nml['piota_type']} is not supported for conversion"
+        )
+    params["iota"] = {
+        "type": "polynomial",
+        "coefs": nml["ai"],
+    }
+    if (
+        nml["ncurr"] == 1
+    ):  # ncurr = 0: flux conservation | ncurr = 1: current constraint
+        if nml["pcurr_type"] != "power_series":
             raise ValueError(
-                f"VMEC namelist arrays 'rbs' and 'zbc' have shape {rbs.shape} and {zbc.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+                f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
             )
+        params["Itor"] = {
+            "type": "polynomial",
+            "coefs": nml["ac"],
+            "scale": nml["curtor"],
+        }
 
-    params["X1_b_cos"] = {}
-    params["X2_b_sin"] = {}
-    if not stellsym:
-        params["X1_b_sin"] = {}
-        params["X2_b_cos"] = {}
-    for m in range(M + 1):
-        for n in range(-N, N + 1):
-            if m == 0 and n < 0:
-                continue
-            params["X1_b_cos"][m, n] = rbc[m, n + N]
-            if not stellsym:
-                params["X1_b_sin"][m, n] = rbs[m, n + N]
-                params["X2_b_cos"][m, n] = zbc[m, n + N]
-            params["X2_b_sin"][m, n] = zbs[m, n + N]
+    # --- boundary --- #
+    for vmec_key, gvec_key in [
+        ("rbc", "X1_b_cos"),
+        ("rbs", "X1_b_sin"),
+        ("zbc", "X2_b_cos"),
+        ("zbs", "X2_b_sin"),
+    ]:
+        if vmec_key not in nml:
+            continue
+        values = np.array(nml[vmec_key], dtype=float)
+        if values.shape != (M + 1, 2 * N + 1):
+            raise ValueError(
+                f"VMEC namelist array '{vmec_key}' has shape {values.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+            )
+        params[gvec_key] = {}
+        for m in range(M + 1):
+            for n in range(-N, N + 1):
+                if m == 0 and n < 0:
+                    continue
+                params[gvec_key][m, n] = values[m, n + N]
+
+    if "rbs" in nml or "zbc" in nml:
+        if stellsym:
+            logger.warning(
+                "VMEC namelist contains 'RBS' or 'ZBC' but is supposed to be stellarator symmetric. Assuming asymmetry."
+            )
+        params["X1_sin_cos"] = "_sincos_"
+        params["X2_sin_cos"] = "_sincos_"
+        params["LA_sin_cos"] = "_sincos_"
+    else:
+        if not stellsym:
+            logger.warning(
+                "VMEC namelist does not contain 'RBS' or 'ZBC' but is supposed to be non-stellarator symmetric. Assuming symmetry."
+            )
+        params["X1_sin_cos"] = "_cos_"
+        params["X2_sin_cos"] = "_sin_"
+        params["LA_sin_cos"] = "_sin_"
 
     # --- axis --- #
-    params["X1_a_cos"] = {(0, n): v for n, v in enumerate(nml["raxis_cc"])}
-    params["X2_a_sin"] = {(0, n): v for n, v in enumerate(nml["zaxis_cs"])}
-    if not stellsym and nml["raxis_cs"] is not None:
-        params["X1_a_sin"] = {(0, n): v for n, v in enumerate(nml["raxis_cs"])}
-    if not stellsym and nml["zaxis_cc"] is not None:
-        params["X2_a_cos"] = {(0, n): v for n, v in enumerate(nml["zaxis_cc"])}
+    for vmec_key, gvec_key in [
+        ("raxis_cc", "X1_a_cos"),
+        ("raxis_cs", "X1_a_sin"),
+        ("zaxis_cc", "X2_a_cos"),
+        ("zaxis_cs", "X2_a_sin"),
+    ]:
+        if vmec_key not in nml:
+            continue
+        values = np.array(nml[vmec_key], dtype=float)
+        if values.ndim == 0:
+            continue
+        params[gvec_key] = {(0, n): v for n, v in enumerate(values)}
 
     return params
 
 
 def axis_from_boundary(parameters: MutableMapping) -> MutableMapping:
-    import copy
-
     parameters2 = copy.deepcopy(parameters)
     N = parameters["X1_mn_max"][1]
     parameters2["X1_a_cos"] = {parameters["X1_b_cos"][0, n] for n in range(N + 1)}
@@ -483,9 +560,17 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
         if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
             output[key] = {}
             for (m, n), val in value.items():
+                if isinstance(val, np.number):
+                    val = val.item()
                 output[key][f"({m}, {n:2d})"] = val
         elif key.lower() == "stages":
             output[key] = [stringify_mn_parameters(stage) for stage in value]
+        elif isinstance(value, np.number) or (
+            isinstance(value, np.ndarray) and value.size == 1
+        ):
+            output[key] = value.item()
+        elif isinstance(value, np.ndarray):
+            output[key] = value.tolist()
         else:
             output[key] = value
     return output
