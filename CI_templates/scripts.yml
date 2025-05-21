@@ -13,7 +13,7 @@
     - source CI_templates/helpers.bash
     - start_details setup-env "Setup Environment"
     - echo ${CMAKE_HOSTNAME} ${SETUP_SCRIPT} ${CURR_CMP}
-    - . ./CI_setup/${CMAKE_HOSTNAME}_setup_${SETUP_SCRIPT}
+    - if [ ${SETUP_SCRIPT} != "none" ]; then source ./CI_setup/${CMAKE_HOSTNAME}_setup_${SETUP_SCRIPT}; fi
     - echo "Fortran compiler is ${FC}"
     - git status
     - end_details setup-env
@@ -221,7 +221,7 @@
     - start_details pre "Activate Environment"
     - echo "Buildname:" ${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
-    - module list
+    - module list || echo "No modules available"
     - pip list
     - end_details pre
     # dry-run
@@ -278,7 +278,7 @@
     - start_details pre "Preparation"
     - echo "Buildname:" ${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
-    - module list
+    - module list || echo "No modules available"
     - pip list
     - end_details pre
     # RUN

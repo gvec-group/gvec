@@ -1,23 +1,24 @@
-# GVEC-to-CAS3D
+# CAS3D
 
-This is the interface to the MHD stability code *CAS3D* [^CAS3D]. It can be used to convert a GVEC equilibrium (parameterfile & statefile) into specialized netCDF file that can be read by CAS3D.
+This is the interface to the MHD stability code *CAS3D* [^CAS3D].
+It can be used to convert a GVEC equilibrium (parameterfile & statefile) into specialized netCDF file that can be read by CAS3D.
 
-The executable `gvec_to_cas3d` is installed automatically alongside pyGVEC.
+The interface is installed automatically with pyGVEC and available with `pygvec to-cas3d`.
 
 ## Usage
 
 [Install](install.md) GVEC with python bindings as normal.
-The `gvec_to_cas3d` executable will be added to the binary folder (e.g. `venv/bin/`, which is also added to `$PATH`).
+The `pygvec` executable with the `pygvec to-cas3d` subcommand will be added to the binary folder (e.g. `venv/bin/`, which is also added to `$PATH`).
 Then you should simply be able to execute:
 ```bash
-gvec_to_cas3d parameter.ini GVEC_State_0000_00000100.dat GVEC_BoozFT-CAS3D.nc --ns 3 --MN_out 10 10 --stellsym
+pygvec to-cas3d parameter.ini GVEC_State_0000_00000100.dat GVEC_BoozFT-CAS3D.nc --ns 3 --MN_out 10 10 --stellsym
 ```
 which will produce the `GVEC_BoozFT-CAS3D.nc` netCDF file to be used with CAS3D.
 
-The other options for `gvec_to_cas3d` are:
+The other options for `pygvec to-cas3d` are:
 ```bash
-$ gvec_to_cas3d --help
-usage: gvec_to_cas3d [-h] --ns NS --MN_out MN_OUT MN_OUT [--MN_booz MN_BOOZ MN_BOOZ] [--sampling SAMPLING] [--stellsym] [--pointwise POINTWISE] parameterfile statefile outputfile
+$ pygvec to-cas3d --help
+usage: pygvec to-cas3d [-h] --ns NS --MN_out MN_OUT MN_OUT [--MN_booz MN_BOOZ MN_BOOZ] [--sampling SAMPLING] [--stellsym] [--pointwise POINTWISE] parameterfile statefile outputfile
 
 Convert a GVEC equilibrium to be used in CAS3D
 
@@ -39,7 +40,7 @@ options:
                         output pointwise data to a separate file
 ```
 
-Note that per default `gvec_to_cas3d` will be parallelized with OpenMP and you can set the number of threads (for example 20) before running the converter as an environment variable, with
+Note that per default `pygvec to-cas3d` will be parallelized with OpenMP and you can set the number of threads (for example 20) before running the converter as an environment variable, with
 ```bash
 export OMP_NUM_THREADS=20
 ```

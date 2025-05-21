@@ -14,14 +14,9 @@ import os
 import numpy as np
 import xarray as xr
 
-try:
-    from . import lib
-    from .lib import modgvec_py_post as _post
-    from .lib import modgvec_py_binding as _binding
-except ImportError:
-    logging.warning(
-        "Compiled bindings to GVEC not found. Calling GVEC for postprocessing will not work."
-    )
+from . import lib
+from .lib import modgvec_py_post as _post
+from .lib import modgvec_py_binding as _binding
 
 
 def _assert_init(func):

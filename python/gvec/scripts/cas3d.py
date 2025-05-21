@@ -1,6 +1,6 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
-"""gvec_to_cas3d.py - convert a GVEC equilibrium to be used in CAS3D"""
+"""cas3d.py - convert a GVEC equilibrium to be used in CAS3D"""
 
 # === Imports === #
 
@@ -18,7 +18,7 @@ from gvec import State, EvaluationsBoozer, util, surface, comp, __version__
 # === Argument parser === #
 
 parser = argparse.ArgumentParser(
-    prog="gvec_to_cas3d",
+    prog="pygvec-to-cas3d",
     description="Convert a GVEC statefile to a CAS3D compatible input file.",
 )
 parser.add_argument("parameterfile", type=Path, help="input GVEC parameter-file")
@@ -269,7 +269,7 @@ def gvec_to_cas3d(
 
         # Set metadata
         ft.attrs["gvec_version"] = __version__
-        ft.attrs["creator"] = "gvec_to_cas3d"
+        ft.attrs["creator"] = "pygvec-to-cas3d"
         ft.attrs["arguments"] = repr(
             dict(ns=ns, MN_out=MN_out, MN_booz=MN_booz, sampling=sampling)
         )

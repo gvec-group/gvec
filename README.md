@@ -35,11 +35,11 @@ Outside contributions are always welcome!
 
 ## Documentation
 
- * [user and developer documentation](https://gvec.readthedocs.io/stable) built with *sphinx* and hosted on *readthedocs*.
-   * [Installation](https://gvec.readthedocs.io/stable/user/install.html)
-   * [Getting Started](https://gvec.readthedocs.io/stable/user/getting-started.html)
-   * [Theoretical considerations](https://gvec.readthedocs.io/stable/user/theory.html)
- * auto-generated [fortran code documentation](https://gvec.readthedocs.io/stable/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
+ * [user and developer documentation](https://gvec.readthedocs.io/latest) built with *sphinx* and hosted on *readthedocs*.
+   * [Installation](https://gvec.readthedocs.io/latest/user/install.html)
+   * [Getting Started](https://gvec.readthedocs.io/latest/user/getting-started.html)
+   * [Theoretical considerations](https://gvec.readthedocs.io/latest/user/theory.html)
+ * auto-generated [fortran code documentation](https://gvec.readthedocs.io/latest/ford/index.html) built with [FORD](https://forddocs.readthedocs.io/en/latest/)
 
 ## Installation & Getting started
 
@@ -60,7 +60,7 @@ A public mirror of GVEC is hosted on [GitHub](https://github.com/gvec-group/gvec
 There you can also open [issues](https://github.com/gvec-group/gvec/issues) and pull requests.
 
 Contributions are always welcome, best get into contact directly with the maintainers.
-Also see the relevant [documentation](https://gvec.readthedocs.io/stable/dev/index.html).
+Also see the relevant [documentation](https://gvec.readthedocs.io/latest/dev/index.html).
 
 ## License
 
