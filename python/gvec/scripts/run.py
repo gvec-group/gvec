@@ -120,6 +120,14 @@ def run_stages(
     project_dir.mkdir()
 
     run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
+    # add additional directory for path parameters
+    for key, value in run_params.items():
+        if key.lower() in [
+            "vmecwoutfile",
+            "boundary_filename",
+            "hmap_ncfile",
+        ] and not value.startswith("/"):
+            run_params[key] = f"../{value}"
     for s, stage in enumerate(stages):
         # adapt parameters for this stage
         for key in ["stages", "Itor"]:
@@ -138,15 +146,6 @@ def run_stages(
                     run_params[key][subkey] = subvalue
             else:
                 run_params[key] = value
-
-        # add additional directory for path parameters
-        for key, value in run_params.items():
-            if key.lower() in [
-                "vmecwoutfile",
-                "boundary_filename",
-                "hmap_ncfile",
-            ] and not value.startswith("/"):
-                run_params[key] = f"../{value}"
 
         # run the stage
         runs = range(stage.get("runs", 1))
@@ -326,6 +325,254 @@ def run_stages(
 
     shutil.copy(statefile, final_state)
     shutil.copy(statefile.parents[0] / "parameter.ini", parameter_final)
+    return rundir, final_state, diagnostics
+
+
+def single_run_current_constraint(
+    run_params: Mapping,
+    logger,
+    s: int,
+    r: int,
+    I_tor_target: np.ndarray,
+    rho: np.ndarray,
+    diagnostics: xr.Dataset | None,
+    project_dir: Path,
+    Iter_used: int,
+    statefile: Path | None = None,
+    redirect_gvec_stdout: bool = True,
+    init_LA: bool = False,
+):
+    start_time = time.time()
+    # find previous state
+    if statefile:
+        logger.debug(f"Restart from statefile {statefile}")
+        run_params["init_LA"] = init_LA
+
+    # prepare the run directory
+    rundir = project_dir / Path(f"{s:1d}-{r:02d}")
+    if rundir.exists():
+        logger.debug(f"Removing existing run directory {rundir}")
+        shutil.rmtree(rundir)
+    rundir.mkdir()
+    logger.debug(f"Created run directory {rundir}")
+
+    # write parameterfile & run GVEC
+    gvec.util.write_parameter_file(
+        gvec.util.flatten_parameters(run_params),
+        rundir / "parameter.ini",
+        header=f"!Auto-generated with `pygvec run` (stage {s} run {r})\n"
+        f"!Created at {datetime.now().isoformat()}\n"
+        f"!pyGVEC v{gvec.__version__}\n",
+    )
+    with gvec.util.chdir(rundir):
+        gvec.run(
+            "parameter.ini",
+            "../../" / statefile if statefile else None,
+            stdout_path="stdout.txt" if redirect_gvec_stdout else None,
+        )
+
+    # postprocessing
+    statefile = sorted(rundir.glob("*State*.dat"))[-1]
+    iterations = int(re.match(r".*State.*_(\d+)\.dat", statefile.name).group(1))
+    Iter_used += iterations
+    max_iterations = run_params.get("maxiter")
+    tolerance = run_params.get("minimize_tol")
+    logger.debug(f"Postprocessing statefile {statefile}")
+
+    with gvec.State(
+        rundir / "parameter.ini",
+        statefile,
+        redirect_stdout=redirect_gvec_stdout,
+    ) as state:
+        ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
+        state.compute(ev, "W_MHD", "N_FP")
+        state.compute(ev, "iota", "iota_curr_0", "iota_0", "I_tor")
+
+    iota_values = ev.iota_0 + I_tor_target * ev.iota_curr_0
+    run_params["iota"] = {
+        "type": "interpolation",
+        "vals": iota_values.data,
+        "rho2": (ev.rho**2).data,
+    }
+
+    iota_delta = ev.iota - iota_values
+    rms_iota = np.sqrt((iota_delta**2).mean("rad"))
+    logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
+    logger.info(f"rms Δiota: {rms_iota.item():.2e}")
+    logger.info(f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.2e}")
+
+    logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
+
+    d = xr.Dataset(
+        dict(
+            W_MHD=ev.W_MHD,
+            gvec_iterations=iterations,
+            gvec_max_iterations=max_iterations,
+            gvec_tolerance=tolerance,
+        )
+    )
+
+    d["iota"] = ev.iota
+    d["I_tor"] = ev.I_tor
+    d["iota_delta"] = iota_delta
+    d["I_tor_delta"] = ev.I_tor - I_tor_target
+    d = d.drop_vars(["pol_weight", "tor_weight"])
+    if diagnostics is None:
+        d = d.expand_dims(dict(run=[r]))
+        diagnostics = d
+    else:
+        d = d.expand_dims(dict(run=[diagnostics.run.size]))
+        diagnostics = xr.concat([diagnostics, d], dim="run")
+
+    end_time = time.time()
+    logger.info(
+        f"GVEC run took {end_time - start_time:5.1f} seconds for {iterations} iterations. (max {max_iterations}, tol {tolerance:.1e})"
+    )
+    logger.info("-" * 40)
+
+    if "boundary_perturb" in run_params:
+        run_params["boundary_perturb"] = False
+
+    return run_params, logger, diagnostics, Iter_used, statefile, rms_iota, rundir
+
+
+def run_current_constraint(
+    parameters: Mapping,
+    statefile: Path | None = None,
+    redirect_gvec_stdout: bool = True,
+    diagnosticfile: Path | None = None,
+    init_LA: bool = False,
+) -> tuple[Path, Path, xr.Dataset]:
+    logger = logging.getLogger("pyGVEC.script")
+    diagnostics: xr.Dataset | None = None
+    rho = np.sqrt(np.linspace(0, 1, 101))
+    rho[0] = 1e-4
+
+    match parameters["Itor"].get("type", "polynomial"):
+        case "polynomial":
+            coefs = np.array(parameters["Itor"]["coefs"][::-1])
+            coefs *= parameters["Itor"].get("scale", 1.0)
+            I_tor_target = np.poly1d(coefs)(rho**2)
+        case "bspline":
+            from scipy.interpolate import BSpline
+
+            coefs = np.array(parameters["Itor"]["coefs"], dtype=float)
+            coefs *= parameters["Itor"].get("scale", 1.0)
+            knots = np.array(parameters["Itor"]["knots"], dtype=float)
+            I_tor_target = BSpline(knots, coefs)(rho**2)
+        case "interpolation":
+            I_tor_target = np.array(parameters["Itor"]["vals"], dtype=float)
+            rho = np.sqrt(np.array(parameters["Itor"]["rho2"], dtype=float))
+        case _:
+            raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
+
+    stages = parameters.get("stages", [{}])
+
+    # prepare the run directory
+    project_dir = Path(f"{parameters['ProjectName']}_gvec_stages")
+    if project_dir.exists():
+        logger.debug(f"Removing existing run directory {project_dir}")
+        shutil.rmtree(project_dir)
+    project_dir.mkdir()
+    maxIter_total = parameters.get("maxIter", 5000)
+    run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
+    for s, stage in enumerate(stages):
+        Iter_used = 0
+        # adapt parameters for this stage
+        for key in ["stages", "Itor"]:
+            if key in run_params:
+                del run_params[key]
+        for key, value in stage.items():
+            if key in ["runs"]:
+                continue
+            if key in ["iota", "pres", "sgrid"]:
+                if key not in run_params:
+                    run_params[key] = {}
+                for subkey, subvalue in value.items():
+                    run_params[key][subkey] = subvalue
+            if key in run_params and isinstance(value, Mapping):
+                for subkey, subvalue in value.items():
+                    run_params[key][subkey] = subvalue
+            else:
+                run_params[key] = value
+
+        # add additional directory for path parameters
+        if s == 0:
+            for key, value in run_params.items():
+                if key.lower() in [
+                    "vmecwoutfile",
+                    "boundary_filename",
+                    "hmap_ncfile",
+                ] and not value.startswith("/"):
+                    run_params[key] = f"../{value}"
+
+        # run the stage
+        r = 0
+        iota_tol = stage.get("iota_tol", 1e-3)
+        if "minimize_tol" in run_params:
+            minimize_tol = run_params["minimize_tol"]
+        else:
+            minimize_tol = 1e-7
+
+        runs = stage.get("runs", 1000)
+        maxIter = stage.get("maxIter", 10)
+        run_params["maxIter"] = maxIter
+        rms_iota = 1e6
+        r = -1
+        while (r < runs) and (rms_iota > iota_tol) and (Iter_used < maxIter_total):
+            r += 1
+            run_params, logger, diagnostics, Iter_used, statefile, rms_iota, rundir = (
+                single_run_current_constraint(
+                    r=r,
+                    s=s,
+                    run_params=run_params,
+                    logger=logger,
+                    I_tor_target=I_tor_target,
+                    rho=rho,
+                    diagnostics=diagnostics,
+                    project_dir=project_dir,
+                    Iter_used=Iter_used,
+                    statefile=statefile,
+                    redirect_gvec_stdout=redirect_gvec_stdout,
+                    init_LA=init_LA,
+                )
+            )
+        rms_iota_second_stage = 1e6
+        while (Iter_used < maxIter_total) and (rms_iota_second_stage > iota_tol):
+            run_params["maxIter"] = maxIter_total - Iter_used
+            run_params["minimize_tol"] = minimize_tol
+            r += 1
+            (
+                run_params,
+                logger,
+                diagnostics,
+                Iter_used,
+                statefile,
+                rms_iota_second_stage,
+                rundir,
+            ) = single_run_current_constraint(
+                r=r,
+                s=s,
+                run_params=run_params,
+                logger=logger,
+                I_tor_target=I_tor_target,
+                rho=rho,
+                diagnostics=diagnostics,
+                project_dir=project_dir,
+                Iter_used=Iter_used,
+                statefile=statefile,
+                redirect_gvec_stdout=redirect_gvec_stdout,
+                init_LA=init_LA,
+            )
+
+    logger.info("Done.")
+    final_state = Path(parameters["ProjectName"] + "_State_final.dat")
+    parameter_final = Path("parameter_" + parameters["ProjectName"] + "_final.ini")
+
+    shutil.copy(statefile, final_state)
+    shutil.copy(statefile.parents[0] / "parameter.ini", parameter_final)
+    if diagnosticfile:
+        diagnostics.to_netcdf(diagnosticfile)
     return rundir, final_state, diagnostics
 
 
