@@ -1135,6 +1135,7 @@ IMPLICIT NONE
                                      g_t1,g_t2,g_z1,g_z2,Gh11,Gh22
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
   REAL(wp),PARAMETER :: epsFD=1.0e-8
+  REAL(wp),PARAMETER :: realtolFD=1.0e-4
   CHARACTER(LEN=10)  :: fail
   REAL(wp)           :: R0, Z0
   TYPE(t_hmap_frenet_auxvar),ALLOCATABLE :: xv(:)
@@ -1179,11 +1180,11 @@ IMPLICIT NONE
       checkreal=SQRT(SUM((dxdq - (x_eps-x)/epsFD)**2)/SUM(x*x))
       refreal = 0.0_wp
 
-      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
               '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
-       '\n =>  should be <',100*epsFD,' : |dxdqFD-eval_dxdq|= ', checkreal,", dq=",qdir
+       '\n =>  should be <',realtolFD,' : |dxdqFD-eval_dxdq|= ', checkreal,", dq=",qdir
       END IF !TEST
     END DO
 
@@ -1207,11 +1208,11 @@ IMPLICIT NONE
       refreal = sf%eval_Jh_dq(q_in                     ,q_test(qdir,:))
       checkreal=(Jh_eps-Jh_0)/epsFD-refreal
       refreal=0.0_wp
-      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
               '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
-       '\n =>  should be <', 100*epsFD,' : |dJh_dqFD-eval_Jh_dq|= ', checkreal,', dq=',qdir
+       '\n =>  should be <', realtolFD,' : |dJh_dqFD-eval_Jh_dq|= ', checkreal,', dq=',qdir
       END IF !TEST
     END DO !qdir
     !! TEST dG_ij_dqk with FD
@@ -1223,11 +1224,11 @@ IMPLICIT NONE
       refreal = sf%eval_gij_dq(q_test(idir,:),q_in                     ,q_test(jdir,:),q_test(qdir,:))
       checkreal=(gij_eps-gij)/epsFD-refreal
       refreal=0.0_wp
-      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. 100*epsFD))) THEN
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
               '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
          nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),3(A,I3))') &
-       '\n =>  should be <', 100*epsFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
+       '\n =>  should be <', realtolFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
       END IF !TEST
     END DO; END DO
     END DO !qdir

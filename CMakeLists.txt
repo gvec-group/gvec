@@ -1,60 +1,17 @@
 # =========================================================================
 # GVEC CMake configuration
 # =========================================================================
+
 CMAKE_MINIMUM_REQUIRED(VERSION 3.22)
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 INCLUDE(ExternalProject)
 INCLUDE(CMakeDependentOption)
 
-
-
-# =========================================================================
-# Detect machine environments
-# =========================================================================
-SITE_NAME(CMAKE_HOSTNAME)
-STRING(FIND "${CMAKE_HOSTNAME}" "marconi" ON_MARCONI)
-STRING(FIND "${CMAKE_HOSTNAME}" "testimony" ON_TESTIMONY)       # unused
-STRING(FIND "${CMAKE_HOSTNAME}" "sharedrunner" ON_SHAREDRUNNER) # unused
-STRING(FIND "${CMAKE_HOSTNAME}" "mpcdfcirunner" ON_MPCDFCIRUNNER)
-STRING(FIND "${CMAKE_HOSTNAME}" "raven"     ON_RAVEN)
-STRING(FIND "${CMAKE_HOSTNAME}" "viper"     ON_VIPER)
-STRING(FIND "${CMAKE_HOSTNAME}" "draco"     ON_DRACO)
-STRING(FIND "${CMAKE_HOSTNAME}" "mac_brew"  ON_MAC_BREW)
-STRING(FIND "${CMAKE_HOSTNAME}" "mac_ports" ON_MAC_PORTS)
-STRING(FIND "${CMAKE_HOSTNAME}" "tokp"      ON_TOKP)
-STRING(FIND "${CMAKE_HOSTNAME}" "toki"      ON_TOKI)
-
-IF (ON_MPCDFCIRUNNER GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF CI image shared runner")
-ELSEIF (ON_SHAREDRUNNER GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF shared runner")
-ELSEIF (ON_TESTIMONY GREATER -1)
-  MESSAGE(STATUS "Compiling on testimony")
-ELSEIF (ON_DRACO GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF draco")
-ELSEIF (ON_RAVEN GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF raven")
-  ELSEIF (ON_VIPER GREATER -1)
-  MESSAGE(STATUS "Compiling on MPCDF viper")
-ELSEIF (ON_MAC_BREW GREATER -1)
-  MESSAGE(STATUS "Compiling on MacOS with homebrew!")
-ELSEIF (ON_MAC_BREW_PORTS GREATER -1)
-  MESSAGE(STATUS "Compiling on MacOS with macports!")
-ELSEIF (ON_TOKP GREATER -1)
-  MESSAGE(STATUS "Compiling on tokp")
-ELSEIF (ON_TOKI GREATER -1)
-  MESSAGE(STATUS "Compiling on toki")
-ELSEIF (ON_MARCONI GREATER -1)
-  MESSAGE(STATUS "Compiling on Marconi")
-ELSE()
-  MESSAGE(STATUS "Compiling on unknown hostname ${CMAKE_HOSTNAME}")
-ENDIF()
-
-
 # =========================================================================
 # Project definitions and output paths
 # =========================================================================
+
 PROJECT(GVEC)
 ENABLE_LANGUAGE(Fortran)
 
@@ -68,6 +25,11 @@ IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Prefix prepended to install directories" FORCE)
 ENDIF()
 MARK_AS_ADVANCED(CMAKE_INSTALL_PREFIX)
+
+IF(DEFINED ENV{CONDA_PREFIX})
+  MESSAGE(STATUS "Detected conda environment: $ENV{CONDA_PREFIX}")
+  SET(CMAKE_PREFIX_PATH $ENV{CONDA_PREFIX} CACHE PATH "Installation prefixes to be searched for dependencies")
+ENDIF()
 
 # =========================================================================
 # Options
@@ -84,17 +46,8 @@ MACRO(SUBDIRLIST result curdir)
   SET(${result} ${dirlist})
 ENDMACRO()
 
-#generate lists of subfolders to be used as choices for the variables of the configuration
-
-#SUBDIRLIST(FUNCTIONALS  ${CMAKE_CURRENT_SOURCE_DIR}/src/functionals/)
-#
-#SET(   FUNCTIONAL   "mhd3d"      CACHE STRING
-#                        "Name of functional to be used, must be identical to subdirectory name in src/functionals folder.")
-#SET_PROPERTY(CACHE FUNCTIONAL PROPERTY STRINGS ${FUNCTIONALS})
-
-
 # =========================================================================
-# PREPROCESSOR FLAGS
+# CMAKE OPTIONS
 # =========================================================================
 
 OPTION(COMPILE_GVEC "compile gvec programme for equilibrium computations (libgvec and gvec executable)" ON)
@@ -143,7 +96,6 @@ ELSEIF(USE_VISU_J STREQUAL "ANA")
   ADD_DEFINITIONS("-DVISU_J_EXACT")
 ENDIF()
 
-
 SET (GVEC_FIX_HMAP "off" CACHE STRING "fix hmap at compile time, default is off")
 SET_PROPERTY(CACHE GVEC_FIX_HMAP PROPERTY STRINGS off RZ axisNB frenet cyl knot )
 IF(GVEC_FIX_HMAP STREQUAL "RZ") 
@@ -157,10 +109,13 @@ ELSEIF(GVEC_FIX_HMAP STREQUAL "frenet")
 ELSEIF(GVEC_FIX_HMAP STREQUAL "axisNB") 
   ADD_DEFINITIONS(-DPP_WHICH_HMAP=21)
 ENDIF()
+
 # =========================================================================
 # Build type
+# -------------------------------------------------------------------------
+# make sure that the default is RELEASE
 # =========================================================================
-# make sure that the default is a RELEASE
+
 IF (NOT CMAKE_BUILD_TYPE)
   SET (CMAKE_BUILD_TYPE "Release" CACHE STRING
       "Choose the type of build, options are: Debug / Release / Profile."
@@ -172,10 +127,10 @@ IF (CMAKE_BUILD_TYPE MATCHES "Debug")
   ADD_DEFINITIONS("-DDEBUG")
 ENDIF()
 
-
 # =========================================================================
 # MPI
 # =========================================================================
+
 IF(USE_MPI)
   FIND_PACKAGE(MPI REQUIRED)
   IF (NOT MPI_Fortran_NO_INTERROGATE)
@@ -187,7 +142,7 @@ IF(USE_MPI)
     ENDFOREACH()
     LIST(APPEND linkedlibs ${MPI_Fortran_LIBRARIES})
   ENDIF()
-  MARK_AS_ADVANCED(MPI_LIBRARY MPI_EXTRA_LIBRARY) # don't show these ones
+  MARK_AS_ADVANCED(MPI_LIBRARY MPI_EXTRA_LIBRARY)
   MESSAGE(STATUS "Building GVEC with MPI")
   MESSAGE(STATUS "MPI Compiler: " ${MPI_Fortran_COMPILER})
   ADD_DEFINITIONS(-DMPI=1)
@@ -196,232 +151,132 @@ IF(USE_MPI)
   IF(NO_MPI_F08)
     ADD_DEFINITIONS(-DNO_MPI_F08)
   ENDIF()
-ELSE()
+ELSE() # if not MPI
   ADD_DEFINITIONS(-DMPI=0)
-  UNSET(NO_MPI_F08 CACHE ) # if not MPI
+  UNSET(NO_MPI_F08 CACHE )
 ENDIF()
 
-
 # =========================================================================
-# Location of binary and filenames
+# COMPILER FLAGS (compiler & machine specific)
 # =========================================================================
 
 # append relative filename-macro for __FILENAME__ in Stamp of abort function (see defines.h)
-SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
+SET(CMAKE_Fortran_FLAGS "-D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
 
-
-# add basedir for location of corresponding userblock-file
-#ADD_DEFINITIONS("-DBASEDIR='\"${CMAKE_CURRENT_BINARY_DIR}/\"'")
-
-# =========================================================================
-# COMPILER FLAGS
-# =========================================================================
-
-# FFLAGS depend on the compiler
-GET_FILENAME_COMPONENT (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
-
-
-IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-  #environment specific variables
-  IF(ONHORNET GREATER -1)
-    SET(MAIN_INSTRUCTION "-march=core-avx2")
-  ELSE()
-    SET(MAIN_INSTRUCTION "-march=native")
-  ENDIF()
-  # set Flags
-
-  #OpenMP
-  IF(USE_OPENMP)
-   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fopenmp")
-  ENDIF()
-
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
-  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -finline-functions ") #gives segfault: -fstack-arrays
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
-  # add flags only for compiling not linking!
-  SET (MAIN_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
+IF(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 -march=native -finline-functions") #gives segfault: -fstack-arrays
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 -march=native -finline-functions") #gives segfault: -fstack-arrays
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
+  SET(GVEC_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-  #environment specific variables
-  IF((ON_TESTIMONY GREATER -1) OR (ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1 ))
-     SET(MAIN_INSTRUCTION "-xCORE-AVX-I ") #for testimony
-  ELSEIF ((ON_TOKP GREATER -1 ) OR (ON_TOKI GREATER -1))
-     SET(MAIN_INSTRUCTION "") #no additional options with newest intel compiler on tokp
-  ELSEIF ((ON_RAVEN GREATER -1))
-     SET(MAIN_INSTRUCTION "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte") #for SKL
-     # add -parallel for automatic parallelization (choose OMP_NUM_THREADS=16)
-  ELSEIF (ON_DRACO GREATER -1 )
-     SET(MAIN_INSTRUCTION "-xCORE-AVX2 -align array64byte") #for SKL
-  ELSEIF(ON_MARCONI GREATER -1)
-    SET(MAIN_INSTRUCTION "-axMIC-AVX512 ") #for BW and KNL
+  # machine specific flags
+  IF(${CMAKE_HOSTNAME} MATCHES "mpcdfcirunner")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX-I" CACHE STRING "additional machine dependent compile flags (for Intel)")
+  ELSEIF(${CMAKE_HOSTNAME} MATCHES "raven")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xCORE-AVX512 -qopt-zmm-usage=high -align array64byte" CACHE STRING "additional machine dependent compile flags (for Intel)")
+  ELSEIF(${CMAKE_HOSTNAME} MATCHES "marconi")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-axMIC-AVX512" CACHE STRING "additional machine dependent compile flags (for Intel)") # for BW and KNL
   ELSE()
-     SET(MAIN_INSTRUCTION "-xHost")
+    SET(GVEC_ADD_COMPILE_FLAGS_MACHINE "-xHost" CACHE STRING "additional machine dependent compile flags (for Intel)")
   ENDIF()
-  # set Flags
-  #OpenMP
+
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${GVEC_ADD_COMPILE_FLAGS_MACHINE} -qopt-report=5 -diag-disable=10397 -no-prec-div")
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${GVEC_ADD_COMPILE_FLAGS_MACHINE} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
+  IF(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
+    SET(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -check all,uninit") # crash with ifx; possibly related to netCDF
+  ENDIF()
+  SET(GVEC_COMPILE_FLAGS "-fpp -assume bscc -fPIC")
+
+ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
+  SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -f free -s real64 -em -DCRAY")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -p . -rm")
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -h profile_generate -p . -rm")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -eD -rm")
+  SET(GVEC_COMPILE_FLAGS "-F")
+
+ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
+  SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O3")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
+  SET(GVEC_COMPILE_FLAGS "-Mpreprocess")
+
+ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
+  SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
+  SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0  -g ") # -C option fails for LEN(*) STRINGS
+  SET(GVEC_COMPILE_FLAGS "-Mpreprocess")
   IF(USE_OPENMP)
-    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -qopenmp")
-  ENDIF()
-
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -shared-intel -DINTEL")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 ${MAIN_INSTRUCTION} -qopt-report=5 -diag-disable=10397 -no-prec-div")
-  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 ${MAIN_INSTRUCTION} -qopt-report0 -qopt-report-phase=vec -no-prec-div")
-  IF (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
-    SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit -init=snan -init=arrays")
+    SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
   ELSE()
-    # Temp FIX: the line below replaces the one above by removing the flags that are causing the code to crash when built with ifx; seems to be an issue related to NETCDF
-    SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check noarg_temp_created,noformat,nooutput_conversion,pointer -init=snan -init=arrays")
+    SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -nomp")
   ENDIF()
-   # add flags only for compiling not linking!
-   SET (MAIN_COMPILE_FLAGS "-fpp -assume bscc -fPIC")
-
-ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
-  # set Flags
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -f free -s real64 -em -DCRAY")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -p . -rm")
-  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -h profile_generate -p . -rm")
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -eD -rm")
-  # add flags only for compiling not linking!
-  SET (MAIN_COMPILE_FLAGS "-F")
-
-ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
-  # set Flags
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
-  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O3")
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
-  # add flags only for compiling not linking!
-  SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
-ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
-  # set Flags
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
-  SET (CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3")
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0  -g ") #-C option fails for LEN(*) STRINGS
-  # add flags only for compiling not linking!
-  SET (MAIN_COMPILE_FLAGS "-Mpreprocess")
-  IF(USE_OPENMP)
-    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
-  ELSE()
-    SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -nomp")
-  ENDIF()
-
 
 ELSE()
-   MESSAGE(SEND_ERROR " Unknown compiler")
+  MESSAGE(SEND_ERROR "Unknown compiler: ${CMAKE_Fortran_COMPILER_ID}")
 ENDIF()
 
 # =========================================================================
-# LAPACK/MKL library
+# OpenMP
 # =========================================================================
-# use Lapack/Blas for GNU
 
 IF(USE_OPENMP)
-  SET (MKLLIB "parallel")
-  SET (MKLLIBGNU "mkl_gnu_thread")
-ELSE()
-  SET (MKLLIB "sequential")
-  SET (MKLLIBGNU "mkl_sequential")
-ENDIF()
-
-
-IF(ON_TESTIMONY GREATER -1)
-  IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
-    SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
-    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
-  ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-    FIND_PACKAGE(LAPACK QUIET)
-    IF (LAPACK_FOUND)
-      LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
-      MESSAGE(STATUS "Using BLAS/Lapack library")
-    ELSE()
-      MESSAGE(WARNING " Lapack not found for GNU compiler!")
-    ENDIF()
-  ELSE()
-     MESSAGE(SEND_ERROR " Unknown compiler ${CMAKE_Fortran_COMPILER_ID} ...")
-  ENDIF()
-ELSEIF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_TOKI GREATER -1))
-  IF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
-    SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -qmkl=${MKLLIB} -Wl,-rpath=${MKL_DIR}/lib/intel64 )
-    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with INTEL")
-  ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-    SET(BLA_VENDOR "Intel") #search only for Intel BLAS (=MKL)
-    SET(MKL_DIR $ENV{MKL_HOME})
-    LIST(APPEND linkedlibs -L${MKL_DIR}/lib/intel64 -lmkl_gf_lp64
-		-l${MKLLIBGNU} -lmkl_core -lpthread -lm -ldl
-		-Wl,-rpath=${MKL_DIR}/lib/intel64 )
-    MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library with GNU")
-  ELSE()
-    FIND_PACKAGE(LAPACK QUIET)
-    IF (LAPACK_FOUND)
-      LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
-      MESSAGE(STATUS "Using BLAS/Lapack library")
-    ELSE()
-      MESSAGE(WARNING " Lapack not found for GNU compiler!")
-    ENDIF()
-  ENDIF()
-  MESSAGE(STATUS "Using INTEL MKL BLAS/Lapack library")
-#ELSEIF(ON_MAC_PORTS GREATER -1)
-#  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-#    SET(CMAKE_BUILD_RPATH "/opt/local/lib/libgcc")
-#    LIST(APPEND linkedlibs -L/opt/local/lib -lopenblas)  #TTR: don't know why fails... needs line below to work
-#    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L/opt/local/lib -lopenblas")
-#    MESSAGE(STATUS "Using GNU BLAS/Lapack library")
-#  ENDIF()
-ELSE()
-  FIND_PACKAGE(LAPACK QUIET)
-  IF (LAPACK_FOUND)
-    LIST(APPEND linkedlibs ${LAPACK_LIBRARIES})
-    MESSAGE(STATUS "Using BLAS/Lapack library")
-  ELSE()
-    MESSAGE(WARNING " Lapack not found for GNU compiler!")
-  ENDIF()
+  FIND_PACKAGE(OpenMP REQUIRED COMPONENTS Fortran)
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
 ENDIF()
 
 # =========================================================================
-# NETCDF (locally installed only!)
+# BLAS / LAPACK - MKL
+# -------------------------------------------------------------------------
+# rely on CMake to find BLAS / LAPACK
+# on MPCDF clusters loading the module selects the correct vendor
+# you can manually set BLA_VENDOR
 # =========================================================================
+
+FIND_PACKAGE(LAPACK REQUIRED)
+LIST(APPEND linkedlibs LAPACK::LAPACK)
+
+# =========================================================================
+# netCDF
+# -------------------------------------------------------------------------
+# netCDF-fortran is not commonly available as a CMake target
+# but a pkg-config is usually (ubuntu, MPCDF) available
+# =========================================================================
+
 IF(LINK_GVEC_TO_NETCDF)
-  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_MPCDFCIRUNNER GREATER -1) OR (ON_TESTIMONY GREATER -1) OR (ON_DRACO GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_TOKP GREATER -1) OR (ON_TOKI GREATER -1))
-    SET(NETCDF_DIR  $ENV{NETCDF_HOME})
-  ELSEIF(ON_MAC_BREW GREATER -1)
-    SET(NETCDF_DIR $ENV{HOMEBREW_PREFIX})
-  ELSEIF(ON_MAC_PORTS GREATER -1)
-    SET(NETCDF_DIR  /opt/local)
-  ELSE()
-    SET(NETCDF_DIR  /usr)
-  ENDIF()
-  INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
-  LIST(APPEND linkedlibs -L${NETCDF_DIR}/lib -lnetcdf -lnetcdff -Wl,-rpath,${NETCDF_DIR}/lib )
-  MESSAGE(STATUS "Build with NetCDF")
+  FIND_PACKAGE(PkgConfig REQUIRED)
+  PKG_CHECK_MODULES(NETCDF REQUIRED IMPORTED_TARGET netcdf-fortran)
+  INCLUDE_DIRECTORIES(${NETCDF_INCLUDEDIR})
+  LIST(APPEND linkedlibs PkgConfig::NETCDF)
   ADD_DEFINITIONS(-DNETCDF=1)
-ELSE()
-  ADD_DEFINITIONS(-DNETCDF=0)
 ENDIF()
 
 # =========================================================================
-# Ftimings
+# ftimings
+# -------------------------------------------------------------------------
+# Homepage/Repo: https://gitlab.mpcdf.mpg.de/loh/ftimings
 # =========================================================================
+
 IF(USE_FTIMINGS)
+  FIND_PACKAGE(PkgConfig REQUIRED)
+  IF(NOT DEFINED ENV{FTIMINGS_PKG})
+    MESSAGE(SEND_ERROR "FTIMINGS_PKG is not set.")
+  ENDIF()
+  PKG_CHECK_MODULES(FTIMINGS REQUIRED IMPORTED_TARGET $ENV{FTIMINGS_PKG})
+  INCLUDE_DIRECTORIES("${FTIMINGS_INCLUDEDIR}/$ENV{FTIMINGS_PKG}")
+  LIST(APPEND linkedlibs PkgConfig::FTIMINGS)
   ADD_DEFINITIONS(-DPP_FTIMINGS)
-  IF((ON_SHAREDRUNNER GREATER -1) OR (ON_RAVEN GREATER -1) OR (ON_VIPER GREATER -1) OR (ON_DRACO GREATER -1))
-    LIST(APPEND linkedlibs -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib )
-    INCLUDE_DIRECTORIES($ENV{FTIMINGS_HOME}/include/$ENV{FTIMINGS_PKG})
-  ENDIF()
-    #TTR: don't know why above list append fails for MacOS... needs line below to work
-  IF((ON_MAC_BREW GREATER -1) OR(ON_MAC_PORTS GREATER -1))
-    SET (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -L$ENV{FTIMINGS_HOME}/lib -l$ENV{FTIMINGS_PKG}  -Wl,-rpath,$ENV{FTIMINGS_HOME}/lib")
-  ENDIF()
 ENDIF()
 
 # =========================================================================
 # python
 # =========================================================================
+
 find_package(Python COMPONENTS Interpreter REQUIRED)
 
 # =========================================================================
@@ -431,8 +286,9 @@ find_package(Python COMPONENTS Interpreter REQUIRED)
 function(add_exec target)
   ADD_EXECUTABLE(${target} ${ARGN})
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
-  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
-  SET_TARGET_PROPERTIES(${target} PROPERTIES LINKER_LANGUAGE Fortran)
+  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS}
+                                             LINKER_LANGUAGE Fortran
+                                             INSTALL_RPATH_USE_LINK_PATH TRUE) # don't strip RUNPATH during install
   IF(COMPILE_PYGVEC) # scikit-build-core = python/pip installation - install to venv/bin
     INSTALL(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target} DESTINATION ${SKBUILD_SCRIPTS_DIR})
   ELSE()
@@ -502,7 +358,7 @@ ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
 OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC library as static (OFF: compiled as shared)" ON)
 MARK_AS_ADVANCED(COMPILE_GVEC_AS_STATIC_LIB)
-SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
 IF(COMPILE_GVEC_AS_STATIC_LIB)
   # generates static lib libgveclib.a
   ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
@@ -559,7 +415,7 @@ IF(COMPILE_PYGVEC)
     src/pygvec/run.f90
   )
   ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
-  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${MAIN_COMPILE_FLAGS})
+  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
 
   # --- wrap gvec using f90wrap & f2py --- #
   # specify files to be wrapped with f90wrap
@@ -619,6 +475,7 @@ IF(COMPILE_PYGVEC)
   TARGET_INCLUDE_DIRECTORIES(_libpygvec PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" ${F2PY_INCLUDE_DIR} ${Python_NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
   ADD_DEPENDENCIES(_libpygvec pygvec_wrap_files)
   TARGET_LINK_LIBRARIES(_libpygvec PRIVATE pygveclib gveclib ${linkedlibs})
+  SET_TARGET_PROPERTIES(_libpygvec PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE) # don't strip RUNPATH during install
 
   INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
   INSTALL(TARGETS _libpygvec LIBRARY DESTINATION "${SKBUILD_PROJECT_NAME}")

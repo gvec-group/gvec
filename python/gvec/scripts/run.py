@@ -110,9 +110,18 @@ def run_stages(
                 raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
 
     stages = parameters.get("stages", [{}])
+    run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
+    # add additional directory for path parameters
+    for key, value in run_params.items():
+        if key.lower() in [
+            "vmecwoutfile",
+            "boundary_filename",
+            "hmap_ncfile",
+        ] and not value.startswith("/"):
+            run_params[key] = f"../{value}"
+
     for s, stage in enumerate(stages):
         # adapt parameters for this stage
-        run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
         for key in ["stages", "Itor"]:
             if key in run_params:
                 del run_params[key]

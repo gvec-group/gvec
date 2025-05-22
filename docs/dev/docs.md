@@ -44,6 +44,10 @@ Which version are built is configured in the [Read the Docs Settings](https://ap
 Supported versions users can switch between are configured in `docs/static/version-switcher.json`.
 *Read the Docs* also provides a small menu in the lower right corner that can be used to switch versions, e.g. to test a branch with a new version.
 
+The current strategy is to provide the documentation for the latest release (the `main` branch) under [https://gvec.readthedocs.io/main](https://gvec.readthedocs.io/main)
+and the contents of the `docs` branch under the default [https://gvec.readthedocs.io/latest](https://gvec.readthedocs.io/latest).
+The `docs` branch should be kept up to date with `develop` and merged frequently, but allows us to commit directly to it, updating the documentation with minimal overhead.
+
 [FORD](https://forddocs.readthedocs.io/en/latest/) is configured in the `docs/ford/ford.md` file and can manually be triggered with:
 ```bash
 ford docs/ford/ford.md
