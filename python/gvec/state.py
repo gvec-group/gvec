@@ -501,9 +501,9 @@ class State:
         _, M_nyq_LA, N_nyq_LA = _post.get_integration_points_num("LA")
 
         if M is None:
-            M = M_LA
+            M = 2 * M_LA
         if N is None:
-            N = N_LA
+            N = 2 * N_LA
         if M_nyq is None:
             M_nyq = max(4 * M + 1, M_nyq_LA)
         if N_nyq is None:
