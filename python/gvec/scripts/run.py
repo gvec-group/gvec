@@ -85,7 +85,7 @@ def run_stages(
     plots: bool = False,
 ) -> tuple[Path, Path, xr.Dataset]:
     """Run GVEC with several stages (assuming hierarchical parameters)"""
-    logger = logging.getLogger("pyGVEC.script")
+    logger = logging.getLogger("gvec")
     diagnostics: xr.Dataset | None = None
     rho = np.sqrt(np.linspace(0, 1, 101))
     rho[0] = 1e-4

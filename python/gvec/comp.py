@@ -29,6 +29,7 @@ __all__ = [
     "ft_autoremove",
 ]
 QUANTITIES = {}  # dictionary to store the registered quantities (compute functions)
+logger = logging.getLogger(__name__)
 
 
 # === helpers ========================================================================== #
@@ -107,7 +108,7 @@ def register(
 
         for q in quantities:
             if q in registry:
-                logging.warning(f"A quantity `{q}` is already registered.")
+                logger.warning(f"A quantity `{q}` is already registered.")
             registry[q] = func
         return func
 
@@ -185,7 +186,7 @@ def compute(
         }
         if auxcoords:
             # --- auxiliary dataset for integration --- #
-            logging.info(
+            logger.info(
                 f"Using auxiliary dataset with integration points in {auxcoords} to compute {quantity}."
             )
             if auxcoords > {"rho", "theta", "zeta"}:
@@ -246,7 +247,7 @@ def Evaluations(
     if state is not None:
         intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
         if nfp is not None:
-            logging.warning("Both `state` and `nfp` are provided. Disregarding `nfp`.")
+            logger.warning("Both `state` and `nfp` are provided. Disregarding `nfp`.")
         nfp = state.nfp
     # --- parse coordinates --- #
     match rho:
@@ -647,7 +648,7 @@ def ev2ft(ev, quiet=False):
     data = {}
 
     if "N_FP" not in ev.data_vars and not quiet:
-        logging.warning("recommended quantity 'N_FP' not found in the provided dataset")
+        logger.warning("recommended quantity 'N_FP' not found in the provided dataset")
 
     for var in ev.data_vars:
         if ev[var].dims == ():  # scalar
@@ -699,10 +700,10 @@ def ev2ft(ev, quiet=False):
             )
 
         elif "xyz" in ev[var].dims and not quiet:
-            logging.info(f"skipping quantity '{var}' with cartesian components")
+            logger.info(f"skipping quantity '{var}' with cartesian components")
 
         elif not quiet:
-            logging.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
+            logger.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
 
     if "rad" in ev.dims:
         coords = dict(rho=("rad", ev.rho.data, ev.rho.attrs))
