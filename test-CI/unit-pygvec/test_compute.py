@@ -193,9 +193,9 @@ def test_compute_hmap(teststate, evals_rtz):
     assert ds.pos.shape == (3, 6, 32, 10)
     assert "xyz" in ds.dims
     assert "xyz" in ds.coords
-    assert "e_X1" in ds
-    assert "e_X2" in ds
-    assert "e_zeta3" in ds
+    assert "e_rho" in ds
+    assert "e_theta" in ds
+    assert "e_zeta" in ds
     assert not np.any(np.isnan(ds.pos))
 
     compute(ds, "e_rho", state=teststate)

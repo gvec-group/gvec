@@ -109,8 +109,12 @@ USE MODgvec_Globals   , ONLY: abort,wp
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  PP_HMAP_TYPE(PP_T_HMAP), INTENT(IN) :: hmap
-  REAL(wp)     , INTENT(IN) :: zeta(:)
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP),INTENT(IN) :: hmap
+#else
+  CLASS(c_hmap),  INTENT(IN) :: hmap 
+#endif
+  REAL(wp)     ,  INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 #ifdef PP_WHICH_HMAP

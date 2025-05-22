@@ -38,8 +38,13 @@ SUBROUTINE Lambda_solve(spos_in,hmap_in,hmap_xv,X1_base_in,X2_base_in,LA_fbase_i
 ! INPUT VARIABLES
   CLASS(t_base),INTENT(IN)  :: X1_base_in,X2_base_in           !< base classes belong to solution X1_in,X2_in
   TYPE(t_fbase),INTENT(IN) :: LA_fbase_in                     !< base class belong to solution LA_s
-  PP_HMAP_TYPE(PP_T_HMAP), INTENT(IN) :: hmap_in            
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), INTENT(IN) :: hmap_xv(X1_base_in%f%mn_IP)  !< auxiliary variables for hmap, must be pre-computed
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP), INTENT(IN) :: hmap_in            
+  TYPE(PP_T_HMAP_AUXVAR), INTENT(IN) :: hmap_xv(X1_base_in%f%mn_IP)  !< auxiliary variables for hmap, must be pre-computed
+#else
+  CLASS(PP_T_HMAP), INTENT(IN) :: hmap_in            
+  CLASS(PP_T_HMAP_AUXVAR), INTENT(IN) :: hmap_xv(X1_base_in%f%mn_IP)  !< auxiliary variables for hmap, must be pre-computed
+#endif
   REAL(wp)     , INTENT(IN) :: spos_in                  !! s position to evaluate lambda
   REAL(wp)     , INTENT(IN) :: X1_in(1:X1_base_in%s%nBase,1:X1_base_in%f%modes) !! U%X1 variable, is reshaped to 2D at input
   REAL(wp)     , INTENT(IN) :: X2_in(1:X2_base_in%s%nBase,1:X2_base_in%f%modes) !! U%X2 variable, is reshaped to 2D at input

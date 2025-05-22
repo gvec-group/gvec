@@ -23,7 +23,11 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES
   INTEGER                   :: fileID_r,OutputLevel_r
-  PP_HMAP_TYPE(PP_T_HMAP),  ALLOCATABLE :: hmap_r     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP),ALLOCATABLE  :: hmap_r            
+#else
+  CLASS(PP_T_HMAP),ALLOCATABLE :: hmap_r            
+#endif
   TYPE(t_sgrid)             :: sgrid_r                !! container for the grid of X1,X2,LA
   CLASS(t_sbase),ALLOCATABLE:: sbase_prof             !! container for base for profiles
   CLASS(t_base),ALLOCATABLE :: X1_base_r              !! container for base of X1

@@ -73,7 +73,11 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CHARACTER(LEN=*)    , INTENT(IN   ) :: fileString
-  PP_HMAP_TYPE(PP_T_HMAP), OPTIONAL, ALLOCATABLE :: hmap_in     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP), OPTIONAL, ALLOCATABLE :: hmap_in     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+#else
+  CLASS(PP_T_HMAP), OPTIONAL, ALLOCATABLE :: hmap_in     !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+#endif
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES

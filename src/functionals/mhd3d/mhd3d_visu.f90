@@ -229,7 +229,11 @@ IMPLICIT NONE
 #endif
   REAL(wp),ALLOCATABLE :: tmpcoord(:,:,:,:),tmpvar(:,:,:,:), coord1(:), coord2(:), coord3(:)
   INTEGER :: tmp_nrho, tmp_ntheta
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:) !! auxiliary variables for hmap
+#ifdef PP_WHICH_HMAP
+  TYPE( PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:) !! auxiliary variables for hmap
+#else
+  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_xv(:) !! auxiliary variables for hmap
+#endif
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                         "visu_3D should only be called by MPIroot")
@@ -1030,8 +1034,13 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   INTEGER, ALLOCATABLE       :: netcdf_var_out_idx(:)
   INTEGER                    :: nVal_out
   REAL(wp),ALLOCATABLE       :: LA_s(:,:)
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:)
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR),CONTIGUOUS,POINTER :: hmap_xv(:,:,:)
+#ifdef PP_WHICH_HMAP
+  TYPE( PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:) !! auxiliary variables for hmap
+  TYPE( PP_T_HMAP_AUXVAR),CONTIGUOUS,POINTER :: hmap_xv(:,:,:)
+#else
+  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:) !! auxiliary variables for hmap
+  CLASS(PP_T_HMAP_AUXVAR),CONTIGUOUS,POINTER :: hmap_xv(:,:,:)
+#endif
   !=================================================================================================================================
   IF(.NOT. MPIroot) RETURN
   IF(SFLout.EQ.12) THEN
@@ -1327,6 +1336,9 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     ELSE
       DEALLOCATE(LA_s)
     END IF
+
+    DEALLOCATE(hmap_xv1d)
+    NULLIFY(hmap_xv)
 
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
      CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,SFLout_nrp-1/),1,VarNames, &

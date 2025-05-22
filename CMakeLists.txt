@@ -98,23 +98,24 @@ ENDMACRO()
 # =========================================================================
 
 OPTION(COMPILE_GVEC "compile gvec programme for equilibrium computations (libgvec and gvec executable)" ON)
-IF(COMPILE_GVEC)
-  OPTION(LINK_GVEC_TO_NETCDF "Link to local serial NetCDF library, needed for VMEC input/output" ON)
-ELSE()
-  UNSET(LINK_GVEC_TO_NETCDF CACHE ) # if not mhd
-ENDIF()
+OPTION(LINK_GVEC_TO_NETCDF "Link to local serial NetCDF library, needed for VMEC input/output" ON)
 OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" OFF)
 OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
 OPTION(COMPILE_PYGVEC "compile python interface to gvec" OFF)
 MARK_AS_ADVANCED(COMPILE_PYGVEC)
+
 IF(COMPILE_PYGVEC)
   UNSET(COMPILE_SRC_PYGVEC CACHE )
 ELSE()
   OPTION(COMPILE_SRC_PYGVEC " compile pygvec fortran sources" ON)
   MARK_AS_ADVANCED(COMPILE_SRC_PYGVEC)
 ENDIF()
+IF(NOT COMPILE_GVEC)
+  UNSET(COMPILE_SRC_PYGVEC CACHE )
+ENDIF()
+
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
 OPTION(USE_MPI "enable MPI" OFF)
@@ -456,7 +457,12 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/output/*.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
-
+IF(GVEC_FIX_HMAP STREQUAL "off")
+  FILE(GLOB hmapsF90 ./src/hmap/hmap_*.f90 )
+ELSE()
+  FILE(GLOB hmapsF90 ./src/hmap/hmap_${GVEC_FIX_HMAP}.f90)
+ENDIF()
+LIST(APPEND mainF90 ${hmapsF90})
 # define libs
 IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
@@ -469,12 +475,6 @@ IF(COMPILE_GVEC)
   IF(USE_FTIMINGS)
     LIST(APPEND mainF90 ./src/mod_timings.f90 ./src/perf2ftimings.f90)
   ENDIF()
-  IF(GVEC_FIX_HMAP STREQUAL "off")
-    FILE(GLOB hmapsF90 ./src/hmap/hmap_*.f90 )
-  ELSE()
-    FILE(GLOB hmapsF90 ./src/hmap/hmap_${GVEC_FIX_HMAP}.f90)
-  ENDIF()
-  LIST(APPEND mainF90 ${hmapsF90})
   LIST(APPEND mainF90 ${gvecF90})
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)

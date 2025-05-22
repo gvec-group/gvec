@@ -453,7 +453,11 @@ SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, 
   REAL, INTENT(OUT), DIMENSION(3,n) :: coord, e_s, e_thet, e_zeta               !! real space position and basis vectors
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#ifdef PP_WHICH_HMAP
+  TYPE( PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#else
+  CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
@@ -482,7 +486,11 @@ SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
   REAL, INTENT(OUT), DIMENSION(3,n) :: pos, e_X1, e_X2, e_zeta3 !! real space position and reference tangent basis vectors
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#ifdef PP_WHICH_HMAP
+  TYPE( PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#else
+  CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
@@ -522,7 +530,11 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz   !! derivatives of the m. coef.
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#ifdef PP_WHICH_HMAP
+  TYPE( PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#else
+  CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
     !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
@@ -642,7 +654,11 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
   REAL, INTENT(OUT), DIMENSION(n) :: Jh, dJh_ds, dJh_dt, dJh_dz                                   !! jacobian det. and derivatives
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
-  PP_HMAP_TYPE(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#ifdef PP_WHICH_HMAP
+  TYPE( PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#else
+  CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
     !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
