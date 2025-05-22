@@ -337,7 +337,6 @@
     reports:
       junit: pytest.xml
       annotations: annotations.json
-
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "postprocessing" + "converter"
 # =================================================================================================================================
@@ -385,7 +384,7 @@
     - ${PYTEST_EXEC_CMD}
       --log-file=log_pytest_conv.txt
       -m "${PYTEST_MARKER_OPTS} and converter_stage and not restart and not pygvec"
-      -k "not highres and not frenet"
+      -k "${PYTEST_KEY_OPTS}"
       $PYTEST_DIR_OPTS
       --junitxml=pytest.xml
       --annotations=annotations.json
@@ -427,6 +426,37 @@
       junit: pytest.xml
       annotations: annotations.json
 
+
+.script_post_ncdiff:
+  script:
+    - start_details pre-ncdiff "Prepare python recursive ncdiff"
+    - python --version
+    - python -m pytest --version
+    - echo $SHELL
+    - export NCDIFF_TOL="--rtol 1e-6  --atol 1e-8"
+    - set +e #continue script after command fails, gitlab otherwise only returns 0 or 1
+    - echo CIpost_${CASENAME_1}
+    - echo CIpost_${CASENAME_2}
+    - python -m venv .venv_post
+    - source .venv_post/bin/activate
+    - pip install recursive_diff netcdf4 dask 
+    - end_details pre-ncdiff
+    - start_details ncdiff "ncdiff"
+    - ncdiff -r -b -m **/POST_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post 
+      || RET=$?
+    - ncdiff -r -q -m **/POST_*_visu_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_visu_.txt
+    - ncdiff -r -q -m **/POST_*_pest_*.nc -$NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_pest_.txt
+    - ncdiff -r -q -m **/POST_*_boozer_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_boozer_.txt
+    - end_details ncdiff
+    - exit $RET
+    - deactivate
+    - rm -rf .venv_post
+  artifacts:
+    name: "ncdiff_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME_1}_vs_${CASENAME_2}"
+    paths:
+      - log_post_ncdiff_*.txt
+    expire_in: 3 days
+    when: always
 # =================================================================================================================================
 # TEMPLATES FOR STAGE "publish"
 # =================================================================================================================================
