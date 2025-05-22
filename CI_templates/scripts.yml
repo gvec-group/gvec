@@ -363,7 +363,10 @@
     name: "post_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
       - log_pytest_post.txt
-      # - CIpost_${CASENAME}  # disable for now, unused, ~460MB per job!
+      # - CIpost_${CASENAME} # disable for now, unused, ~460MB per job!
+      - CIpost_${CASENAME}/post/post/*/*/parameter.ini  # save parameterfiles.
+      - CIpost_${CASENAME}/post/post/*/*/std*.txt  # save stdout.txt and stderr.txt
+      - CIpost_${CASENAME}/post/post/*/*/POST_*.nc  # save POST_*.nc files.
     expire_in: 3 days
     when: always
     reports:

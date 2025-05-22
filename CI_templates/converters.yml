@@ -22,6 +22,10 @@ spec:
     conv-postfix:
       description: Postfix for the converter job, e.g. `_only_converter`
       default: ""
+    allow_failure:
+      description: Allow the job to fail
+      default: false
+      type: boolean
 
 
 ---
@@ -42,3 +46,4 @@ conv$[[ inputs.env ]]$[[ inputs.conv-postfix ]]:
       artifacts: true
     - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]
       artifacts: true
+  allow_failure: $[[ inputs.allow_failure ]]
