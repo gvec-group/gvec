@@ -68,6 +68,7 @@ Additionally GVEC requires:
 
 - git
 - cmake
+- pkg-config
 - libc6
 - zlib
 - BLAS/LAPACK (or compatible, e.g. ATLAS, MKL)
@@ -108,6 +109,7 @@ Install the following packages using homebrew (`brew install`)
 
 - `cmake`
 - `netcdf-fortran`
+- `pkgconf`
 - `gcc` (possibly no need to install explicitly)
 - `lapack` (possibly no need to install explicitly)
 
@@ -149,9 +151,7 @@ pip install git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
   * upgrade pip with `pip install pip --upgrade`
 * `Cannot open include file 'netcdf.inc'` during installation
   * `gvec/src/vmec/vmec_readin.f90(494): error #5102: Cannot open include file 'netcdf.inc'`
-  * gvec cannot find netCDF. Possible fixes:
-    * explicitly tell gvec which preset to use, e.g. `pip install gvec --config-settings=cmake.define.CMAKE_HOSTNAME=mac_brew`
-    * disable netCDF: `pip install gvec --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
+  * gvec cannot find netCDF
 * `INTEL_MKL_ERROR` when trying to use pyGVEC
   * `INTEL MKL ERROR: /usr/lib/x86_64-linux-gnu/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.`
   * `Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.`
