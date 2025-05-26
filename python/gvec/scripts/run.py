@@ -314,7 +314,7 @@ def run_stages(
                 axs[1, i].set(
                     title=f"Difference to target {diagnostics[var].attrs['long_name']}",
                     xlabel=r"$\rho^2$",
-                    ylabel=f"$|\Delta {diagnostics[var].attrs['symbol']}|$",
+                    ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
                     yscale="log",
                 )
             fig.savefig("profiles.png")
@@ -428,7 +428,9 @@ class StagesState:
             iota_delta = ev.iota - iota_values
             self.rms_iota = np.sqrt((iota_delta**2).mean("rad"))
             self.logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
-            self.logger.info(f"rms Δiota: {self.rms_iota.item():.2e}")
+            self.logger.info(
+                f"rms Δiota: {self.rms_iota.item():.2e}, iota_tol: {self.params['iota_tol']:.2e}"
+            )
             self.logger.info(
                 f"max ΔItor: {np.abs(ev.I_tor - self.I_tor_target).max().item():.2e}"
             )
@@ -515,13 +517,71 @@ class StagesState:
         print(f"GVEC stage {self.stage} run {self.nth_run}: {progressstr}", end="\r")
         self.logger.info(f"GVEC stage {self.stage} run {self.nth_run}: {progressstr}")
 
+    def plot_diagnostics(self):
+        import matplotlib.pyplot as plt
+
+        self.logger.debug("Plotting diagnostics...")
+        diagnostics = self.diagnostics
+        if self.curr_constraint:
+            fig, axs = plt.subplots(1, 2, figsize=(10, 3), tight_layout=True)
+        else:
+            fig, ax = plt.subplots(1, 1, figsize=(5, 3), tight_layout=True)
+            axs = [ax]
+        axs[0].plot(diagnostics.run, diagnostics.W_MHD, ".-")
+        axs[0].set(
+            xlabel="run number",
+            ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
+            title=diagnostics.W_MHD.attrs["long_name"],
+        )
+        if self.curr_constraint:
+            axs[1].plot(
+                diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-"
+            )
+            axs[1].set(
+                xlabel="run number",
+                ylabel=r"$\sqrt{\sum \left(\Delta\iota\right)^2}$",
+                title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
+                yscale="log",
+            )
+        fig.savefig("iterations.png")
+
+        if self.curr_constraint:
+            fig, axs = plt.subplots(
+                2, 2, figsize=(15, 5), tight_layout=True, sharex=True
+            )
+            for r in diagnostics.run.data:
+                if r == diagnostics.run.data[-1]:
+                    kwargs = dict(marker=".", color="C0", alpha=1.0)
+                else:
+                    kwargs = dict(
+                        color="black", alpha=0.2 + 0.3 * (r / diagnostics.run.data[-1])
+                    )
+                d = diagnostics.sel(run=r)
+                axs[0, 0].plot(d.rho**2, d.iota, **kwargs)
+                axs[1, 0].plot(d.rho**2, np.abs(d.iota_delta), **kwargs)
+                axs[0, 1].plot(d.rho**2, d.I_tor, **kwargs)
+                axs[1, 1].plot(d.rho**2, np.abs(d.I_tor_delta), **kwargs)
+            for i, var in enumerate(["iota", "I_tor"]):
+                axs[0, i].set(
+                    title=diagnostics[var].attrs["long_name"],
+                    ylabel=f"${diagnostics[var].attrs['symbol']}$",
+                )
+                axs[1, i].set(
+                    title=f"Difference to target {diagnostics[var].attrs['long_name']}",
+                    xlabel=r"$\rho^2$",
+                    ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
+                    yscale="log",
+                )
+            fig.savefig("profiles.png")
+
 
 def run_with_class(
     parameters: Mapping,
     statefile: Path | None = None,
     redirect_gvec_stdout: bool = True,
     diagnosticfile: Path | None = None,
-    progressbar=True,
+    progressbar: bool = True,
+    plots: bool = False,
 ) -> tuple[Path, Path, xr.Dataset]:
     logger = logging.getLogger("pyGVEC.script")
     rho = np.sqrt(np.linspace(0, 1, 101))
@@ -593,7 +653,7 @@ def run_with_class(
                     state_of_stage.params[key][subkey] = subvalue
             else:
                 state_of_stage.params[key] = value
-
+        maxIter_total = stage.get("maxIter", maxIter_total)
         state_of_stage.stage = s
         # run the stage
         state_of_stage.nth_run = 0
@@ -602,7 +662,11 @@ def run_with_class(
             state_of_stage.params["minimize_tol"] = 1e-7
 
         if state_of_stage.curr_constraint:
-            iota_tol = stage.get("iota_tol", 1e-3)
+            iota_tol = stage.get("iota_tol")
+            if iota_tol is None:
+                raise ValueError(
+                    "iota_tol must be set in stage for toroidal current constraint!"
+                )
             init_iota = stage.get("init_iota", False)
             runs = stage.get("runs", 100)
             if init_iota:
@@ -647,255 +711,9 @@ def run_with_class(
     shutil.copy(state_of_stage.statefile.parents[0] / "parameter.ini", parameter_final)
     if diagnosticfile:
         state_of_stage.diagnostics.to_netcdf(diagnosticfile)
+    if plots:
+        state_of_stage.plot_diagnostics()
     return state_of_stage.rundir, final_state, state_of_stage.diagnostics
-
-
-def single_run_current_constraint(
-    run_params: Mapping,
-    logger,
-    s: int,
-    r: int,
-    I_tor_target: np.ndarray,
-    rho: np.ndarray,
-    diagnostics: xr.Dataset | None,
-    project_dir: Path,
-    Iter_used: int,
-    statefile: Path | None = None,
-    redirect_gvec_stdout: bool = True,
-    init_LA: bool = False,
-):
-    start_time = time.time()
-    # find previous state
-    if statefile:
-        logger.debug(f"Restart from statefile {statefile}")
-        run_params["init_LA"] = init_LA
-
-    # prepare the run directory
-    rundir = project_dir / Path(f"{s:1d}-{r:02d}")
-    if rundir.exists():
-        logger.debug(f"Removing existing run directory {rundir}")
-        shutil.rmtree(rundir)
-    rundir.mkdir()
-    logger.debug(f"Created run directory {rundir}")
-
-    # write parameterfile & run GVEC
-    gvec.util.write_parameter_file(
-        gvec.util.flatten_parameters(run_params),
-        rundir / "parameter.ini",
-        header=f"!Auto-generated with `pygvec run` (stage {s} run {r})\n"
-        f"!Created at {datetime.now().isoformat()}\n"
-        f"!pyGVEC v{gvec.__version__}\n",
-    )
-    with gvec.util.chdir(rundir):
-        gvec.run(
-            "parameter.ini",
-            "../../" / statefile if statefile else None,
-            stdout_path="stdout.txt" if redirect_gvec_stdout else None,
-        )
-
-    # postprocessing
-    statefile = sorted(rundir.glob("*State*.dat"))[-1]
-    iterations = int(re.match(r".*State.*_(\d+)\.dat", statefile.name).group(1))
-    Iter_used += iterations
-    max_iterations = run_params.get("maxiter")
-    tolerance = run_params.get("minimize_tol")
-    logger.debug(f"Postprocessing statefile {statefile}")
-
-    with gvec.State(
-        rundir / "parameter.ini",
-        statefile,
-        redirect_stdout=redirect_gvec_stdout,
-    ) as state:
-        ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
-        state.compute(ev, "W_MHD", "N_FP")
-        state.compute(ev, "iota", "iota_curr_0", "iota_0", "I_tor")
-
-    iota_values = ev.iota_0 + I_tor_target * ev.iota_curr_0
-    run_params["iota"] = {
-        "type": "interpolation",
-        "vals": iota_values.data,
-        "rho2": (ev.rho**2).data,
-    }
-
-    iota_delta = ev.iota - iota_values
-    rms_iota = np.sqrt((iota_delta**2).mean("rad"))
-    logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
-    logger.info(f"rms Δiota: {rms_iota.item():.2e}")
-    logger.info(f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.2e}")
-
-    logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
-
-    d = xr.Dataset(
-        dict(
-            W_MHD=ev.W_MHD,
-            gvec_iterations=iterations,
-            gvec_max_iterations=max_iterations,
-            gvec_tolerance=tolerance,
-        )
-    )
-
-    d["iota"] = ev.iota
-    d["I_tor"] = ev.I_tor
-    d["iota_delta"] = iota_delta
-    d["I_tor_delta"] = ev.I_tor - I_tor_target
-    d = d.drop_vars(["pol_weight", "tor_weight"])
-    if diagnostics is None:
-        d = d.expand_dims(dict(run=[r]))
-        diagnostics = d
-    else:
-        d = d.expand_dims(dict(run=[diagnostics.run.size]))
-        diagnostics = xr.concat([diagnostics, d], dim="run")
-
-    end_time = time.time()
-    logger.info(
-        f"GVEC run took {end_time - start_time:5.1f} seconds for {iterations} iterations. (max {max_iterations}, tol {tolerance:.1e})"
-    )
-    logger.info("-" * 40)
-
-    if "boundary_perturb" in run_params:
-        run_params["boundary_perturb"] = False
-
-    return run_params, logger, diagnostics, Iter_used, statefile, rms_iota, rundir
-
-
-def run_current_constraint(
-    parameters: Mapping,
-    statefile: Path | None = None,
-    redirect_gvec_stdout: bool = True,
-    diagnosticfile: Path | None = None,
-    init_LA: bool = False,
-) -> tuple[Path, Path, xr.Dataset]:
-    logger = logging.getLogger("pyGVEC.script")
-    diagnostics: xr.Dataset | None = None
-    rho = np.sqrt(np.linspace(0, 1, 101))
-    rho[0] = 1e-4
-
-    match parameters["Itor"].get("type", "polynomial"):
-        case "polynomial":
-            coefs = np.array(parameters["Itor"]["coefs"][::-1])
-            coefs *= parameters["Itor"].get("scale", 1.0)
-            I_tor_target = np.poly1d(coefs)(rho**2)
-        case "bspline":
-            from scipy.interpolate import BSpline
-
-            coefs = np.array(parameters["Itor"]["coefs"], dtype=float)
-            coefs *= parameters["Itor"].get("scale", 1.0)
-            knots = np.array(parameters["Itor"]["knots"], dtype=float)
-            I_tor_target = BSpline(knots, coefs)(rho**2)
-        case "interpolation":
-            I_tor_target = np.array(parameters["Itor"]["vals"], dtype=float)
-            rho = np.sqrt(np.array(parameters["Itor"]["rho2"], dtype=float))
-        case _:
-            raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
-
-    stages = parameters.get("stages", [{}])
-
-    # prepare the run directory
-    project_dir = Path(f"{parameters['ProjectName']}_gvec_stages")
-    if project_dir.exists():
-        logger.debug(f"Removing existing run directory {project_dir}")
-        shutil.rmtree(project_dir)
-    project_dir.mkdir()
-    maxIter_total = parameters.get("maxIter", 5000)
-    run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
-    for s, stage in enumerate(stages):
-        Iter_used = 0
-        # adapt parameters for this stage
-        for key in ["stages", "Itor"]:
-            if key in run_params:
-                del run_params[key]
-        for key, value in stage.items():
-            if key in ["runs"]:
-                continue
-            if key in ["iota", "pres", "sgrid"]:
-                if key not in run_params:
-                    run_params[key] = {}
-                for subkey, subvalue in value.items():
-                    run_params[key][subkey] = subvalue
-            if key in run_params and isinstance(value, Mapping):
-                for subkey, subvalue in value.items():
-                    run_params[key][subkey] = subvalue
-            else:
-                run_params[key] = value
-
-        # add additional directory for path parameters
-        if s == 0:
-            for key, value in run_params.items():
-                if key.lower() in [
-                    "vmecwoutfile",
-                    "boundary_filename",
-                    "hmap_ncfile",
-                ] and not value.startswith("/"):
-                    run_params[key] = f"../{value}"
-
-        # run the stage
-        r = 0
-        iota_tol = stage.get("iota_tol", 1e-3)
-        if "minimize_tol" in run_params:
-            minimize_tol = run_params["minimize_tol"]
-        else:
-            minimize_tol = 1e-7
-
-        runs = stage.get("runs", 1000)
-        maxIter = stage.get("maxIter", 10)
-        run_params["maxIter"] = maxIter
-        rms_iota = 1e6
-        r = -1
-        while (r < runs) and (rms_iota > iota_tol) and (Iter_used < maxIter_total):
-            r += 1
-            run_params, logger, diagnostics, Iter_used, statefile, rms_iota, rundir = (
-                single_run_current_constraint(
-                    r=r,
-                    s=s,
-                    run_params=run_params,
-                    logger=logger,
-                    I_tor_target=I_tor_target,
-                    rho=rho,
-                    diagnostics=diagnostics,
-                    project_dir=project_dir,
-                    Iter_used=Iter_used,
-                    statefile=statefile,
-                    redirect_gvec_stdout=redirect_gvec_stdout,
-                    init_LA=init_LA,
-                )
-            )
-        rms_iota_second_stage = 1e6
-        while (Iter_used < maxIter_total) and (rms_iota_second_stage > iota_tol):
-            run_params["maxIter"] = maxIter_total - Iter_used
-            run_params["minimize_tol"] = minimize_tol
-            r += 1
-            (
-                run_params,
-                logger,
-                diagnostics,
-                Iter_used,
-                statefile,
-                rms_iota_second_stage,
-                rundir,
-            ) = single_run_current_constraint(
-                r=r,
-                s=s,
-                run_params=run_params,
-                logger=logger,
-                I_tor_target=I_tor_target,
-                rho=rho,
-                diagnostics=diagnostics,
-                project_dir=project_dir,
-                Iter_used=Iter_used,
-                statefile=statefile,
-                redirect_gvec_stdout=redirect_gvec_stdout,
-                init_LA=init_LA,
-            )
-
-    logger.info("Done.")
-    final_state = Path(parameters["ProjectName"] + "_State_final.dat")
-    parameter_final = Path("parameter_" + parameters["ProjectName"] + "_final.ini")
-
-    shutil.copy(statefile, final_state)
-    shutil.copy(statefile.parents[0] / "parameter.ini", parameter_final)
-    if diagnosticfile:
-        diagnostics.to_netcdf(diagnosticfile)
-    return rundir, final_state, diagnostics
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
@@ -957,6 +775,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 progressbar=not args.quiet and not args.verbose,
                 redirect_gvec_stdout=args.verbose < 3,
                 diagnosticfile=args.diagnostics,
+                plots=args.plots,
             )
     else:
         raise ValueError("Cannot determine parameterfile type")
