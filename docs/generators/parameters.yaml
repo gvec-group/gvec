@@ -719,7 +719,7 @@ iota_scale:
   category:
   - profiles
   description:
-  - Scales the {proflong} `{prof}(s)` by a constant.
+  - Scales the rotational transform `iota(s)` by a constant.
   - See profile definition lnk_to_param(iota_type)
   type: '`real`'
   default: '`1.0`'
@@ -833,7 +833,7 @@ pres_scale:
   category:
   - profiles
   description:
-  - Scales the {proflong} `{prof}(s)` by a constant.
+  - Scales the pressure `pres(s)` by a constant.
   - See profile definition lnk_to_param(pres_type)
   type: '`real`'
   default: '`1.0`'
