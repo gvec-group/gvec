@@ -282,14 +282,14 @@ IMPLICIT NONE
   VP_gr_s   =iVal;iVal=iVal+3; VarNames(VP_gr_s  )="grad_rhoX"
                                VarNames(VP_gr_s+1)="grad_rhoY"
                                VarNames(VP_gr_s+2)="grad_rhoZ"
-  VP_gr_t   =iVal;iVal=iVal+3; VarNames(VP_gr_t  )="grad_tX"
-                               VarNames(VP_gr_t+1)="grad_tY"
-                               VarNames(VP_gr_t+2)="grad_tZ"
-  VP_gr_z   =iVal;iVal=iVal+3; VarNames(VP_gr_z  )="grad_zX"
-                               VarNames(VP_gr_z+1)="grad_zY"
-                               VarNames(VP_gr_z+2)="grad_zZ"
-  VP_Ipol   =iVal;iVal=iVal+1; VarNames(VP_Ipol  )="Ipol"
-  VP_Itor   =iVal;iVal=iVal+1; VarNames(VP_Itor  )="Itor"
+  VP_gr_t   =iVal;iVal=iVal+3; VarNames(VP_gr_t  )="grad_thetaX"
+                               VarNames(VP_gr_t+1)="grad_thetaY"
+                               VarNames(VP_gr_t+2)="grad_thetaZ"
+  VP_gr_z   =iVal;iVal=iVal+3; VarNames(VP_gr_z  )="grad_zetaX"
+                               VarNames(VP_gr_z+1)="grad_zetaY"
+                               VarNames(VP_gr_z+2)="grad_zetaZ"
+  VP_Ipol   =iVal;iVal=iVal+1; VarNames(VP_Ipol  )="I_pol"
+  VP_Itor   =iVal;iVal=iVal+1; VarNames(VP_Itor  )="I_tor"
 #if (defined(VISU_J_FD) || defined(VISU_J_EXACT))
   VP_J      =iVal;iVal=iVal+3; VarNames(VP_J   )="JX"
                                VarNames(VP_J+1 )="JY"
@@ -1072,17 +1072,17 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     iVal=1
     VP_rho        =iVal;iVal=iVal+1; VarNames(VP_rho      )="rho"
     VP_iota       =iVal;iVal=iVal+1; VarNames(VP_iota     )="iota"
-    VP_Itor       =iVal;iVal=iVal+1; VarNames(VP_Itor     )="Itor"
-    VP_Ipol       =iVal;iVal=iVal+1; VarNames(VP_Ipol     )="Ipol"
+    VP_Itor       =iVal;iVal=iVal+1; VarNames(VP_Itor     )="I_tor"
+    VP_Ipol       =iVal;iVal=iVal+1; VarNames(VP_Ipol     )="I_pol"
     VP_thetastar  =iVal;iVal=iVal+1; VarNames(VP_thetastar)="theta"//angle_suffix
     VP_zetastar   =iVal;iVal=iVal+1; VarNames(VP_zetastar )="zeta"//angle_suffix
     VP_theta      =iVal;iVal=iVal+1; VarNames(VP_theta    )="theta"
     VP_zeta       =iVal;iVal=iVal+1; VarNames(VP_zeta     )="zeta"
-    VP_nu         =iVal;iVal=iVal+1; VarNames(VP_nu       )="nu"
-    VP_lambda     =iVal;iVal=iVal+1; VarNames(VP_lambda   )="lambda"
+    VP_nu         =iVal;iVal=iVal+1; VarNames(VP_nu       )="NU_B"
+    VP_lambda     =iVal;iVal=iVal+1; VarNames(VP_lambda   )="LA"
     VP_SQRTG      =iVal;iVal=iVal+1; VarNames(VP_SQRTG    )="Jac"
     VP_SQRTGstar  =iVal;iVal=iVal+1; VarNames(VP_SQRTGstar)="Jac"//angle_suffix
-    VP_modB       =iVal;iVal=iVal+1; VarNames(VP_modB     )="modB"
+    VP_modB       =iVal;iVal=iVal+1; VarNames(VP_modB     )="mod_B"
     VP_B          =iVal;iVal=iVal+3; VarNames(VP_B:VP_B+2 )=(/"BX","BY","BZ"/)
     VP_gradrho    =iVal;iVal=iVal+3; VarNames(VP_gradrho:VP_gradrho+2)=(/"grad_rhoX","grad_rhoY","grad_rhoZ"/)
     VP_etstar     =iVal;iVal=iVal+3; VarNames(VP_etstar:VP_etstar+2)=(/"e_theta"//angle_suffix//"X","e_theta"//angle_suffix//"Y","e_theta"//angle_suffix//"Z"/)
@@ -1151,10 +1151,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END DO
     ALLOCATE(tz_star_pos(2,nthet_out,nzeta_out))
     DO ithet=1,Nthet_out
-      tz_star_pos(1,ithet,:)=(TWOPI*(REAL(ithet,wp)-0.5_wp))/REAL(Nthet_out-MERGE(1,0,SFLout_endpoint),wp)
+      tz_star_pos(1,ithet,:)=(TWOPI*REAL(ithet-1,wp))/REAL(Nthet_out-MERGE(1,0,SFLout_endpoint),wp)
     END DO
     DO izeta=1,Nzeta_out
-      tz_star_pos(2,:,izeta)=(TWOPI*(REAL(izeta,wp)-0.5_wp))/REAL(((Nzeta_out-MERGE(1,0,SFLout_endpoint))*nfp),wp)
+      tz_star_pos(2,:,izeta)=(TWOPI*REAL(izeta-1,wp))/REAL(((Nzeta_out-MERGE(1,0,SFLout_endpoint))*nfp),wp)
     END DO
 
     IF(SFLout_relambda .OR. (whichSFLout.EQ.2))THEN
@@ -1345,8 +1345,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END IF
     IF((outfileType.EQ.2).OR.(outfileType.EQ.12))THEN
 
-      VarNames(VP_zeta)  = "zeta_grid"
-      VarNames(VP_theta) = "theta_grid"
+      VarNames(VP_zeta)  = "zeta"
+      VarNames(VP_theta) = "theta"
       IF (whichSFLout.EQ.2) THEN ! write nu
         ALLOCATE(netcdf_var_out_idx(nVal-3)) ! remove rho, theta*, zeta* grid but not nu
         j = 1

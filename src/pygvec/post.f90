@@ -27,6 +27,7 @@ SUBROUTINE Init(parameterfile)
   USE MODgvec_Output,         ONLY: InitOutput
   USE MODgvec_Restart,        ONLY: InitRestart
   USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
+!$ USE omp_lib
   USE MODgvec_Functional,     ONLY: InitFunctional
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
@@ -36,6 +37,10 @@ SUBROUTINE Init(parameterfile)
   WRITE(Unit_stdOut,'(132("="))')
   WRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
   WRITE(Unit_stdOut,'(132("="))')
+  !.only executes if compiled with OpenMP
+!$ SWRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
+!$ SWRITE(Unit_stdOut,'(132("="))')
+  !.only executes if compiled with MPI
 
   ! read parameter file
   CALL FillStrings(parameterfile)

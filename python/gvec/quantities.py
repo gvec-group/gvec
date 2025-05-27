@@ -598,6 +598,7 @@ for v in [
 
 
 # === Straight Field Line Coordinates - Boozer ========================================= #
+# dNU_B_dt and dNU_B_dz are overwritten when a boozer transform is performed!
 
 
 @register(
@@ -607,9 +608,9 @@ for v in [
         symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|",
     ),
 )
-def dnu_B_dt(ds: xr.Dataset):
+def dNU_B_dt(ds: xr.Dataset):
     Bt = xr.dot(ds.B, ds.e_theta, dim="xyz")
-    ds["dnu_B_dt"] = (Bt - ds.B_theta_avg * (1 + ds.dLA_dt)) / (
+    ds["dNU_B_dt"] = (Bt - ds.B_theta_avg * (1 + ds.dLA_dt)) / (
         ds.iota * ds.B_theta_avg + ds.B_zeta_avg
     )
 
@@ -621,22 +622,26 @@ def dnu_B_dt(ds: xr.Dataset):
         symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|",
     ),
 )
-def dnu_B_dz(ds: xr.Dataset):
+def dNU_B_dz(ds: xr.Dataset):
     Bz = xr.dot(ds.B, ds.e_zeta, dim="xyz")
-    ds["dnu_B_dz"] = (Bz - ds.B_theta_avg * ds.dLA_dz - ds.B_zeta_avg) / (
+    ds["dNU_B_dz"] = (Bz - ds.B_theta_avg * ds.dLA_dz - ds.B_zeta_avg) / (
         ds.iota * ds.B_theta_avg + ds.B_zeta_avg
     )
 
 
 @register(
-    requirements=("dPhi_dr", "iota", "B_theta_avg", "B_zeta_avg", "mod_B"),
+    requirements=("Jac", "dLA_dt", "dLA_dz", "dNU_B_dt", "dNU_B_dz", "iota"),
     attrs=dict(
         long_name="Jacobian determinant in Boozer coordinates",
         symbol=r"\mathcal{J}_B",
     ),
 )
 def Jac_B(ds: xr.Dataset):
-    ds["Jac_B"] = ds.dPhi_dr * (ds.iota * ds.B_theta_avg + ds.B_zeta_avg) * ds.mod_B**2
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    ds["Jac_B"] = ds.Jac / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)
 
 
 @register(
@@ -662,7 +667,7 @@ def B_contra_z_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=("Jac_B", "Jac", "dnu_B_dz", "dnu_B_dt", "e_theta", "e_zeta"),
+    requirements=("Jac_B", "Jac", "dNU_B_dz", "dNU_B_dt", "e_theta", "e_zeta"),
     attrs=dict(
         long_name="poloidal tangent basis vector in Boozer coordinates",
         symbol=r"\mathbf{e}_{\theta_B}",
@@ -670,7 +675,7 @@ def B_contra_z_B(ds: xr.Dataset):
 )
 def e_theta_B(ds: xr.Dataset):
     ds["e_theta_B"] = (
-        ds.Jac_B / ds.Jac * ((1 + ds.dnu_B_dz) * ds.e_theta - ds.dnu_B_dt * ds.e_zeta)
+        ds.Jac_B / ds.Jac * ((1 + ds.dNU_B_dz) * ds.e_theta - ds.dNU_B_dt * ds.e_zeta)
     )
 
 
@@ -681,8 +686,8 @@ def e_theta_B(ds: xr.Dataset):
         "dLA_dt",
         "dLA_dz",
         "iota",
-        "dnu_B_dz",
-        "dnu_B_dt",
+        "dNU_B_dz",
+        "dNU_B_dt",
         "e_theta",
         "e_zeta",
     ),
@@ -696,8 +701,8 @@ def e_zeta_B(ds: xr.Dataset):
         ds.Jac_B
         / ds.Jac
         * (
-            (1 + ds.dLA_dt + ds.iota * ds.dnu_B_dt) * ds.e_zeta
-            + (ds.dLA_dz + ds.iota * ds.dnu_B_dz) * ds.e_zeta
+            (1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt) * ds.e_zeta
+            + (ds.dLA_dz + ds.iota * ds.dNU_B_dz) * ds.e_zeta
         )
     )
 
