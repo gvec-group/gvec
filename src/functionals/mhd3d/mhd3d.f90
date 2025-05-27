@@ -166,11 +166,11 @@ SUBROUTINE InitMHD3D(sf)
         proposal_LA_sin_cos="_sincos_"
       END IF
       nfp_loc = nfp
-      which_hmap=1 !hmap_RZ
-      CALL hmap_new(hmap,which_hmap)
       Phi_edge = Phi(nFluxVMEC)
     END IF !MPIroot
-    CALL par_BCast(which_hmap,0)
+
+    which_hmap=1 !hmap_RZ
+    CALL hmap_new(hmap,which_hmap)
   END SELECT !which_init
 
   IF(MPIroot)THEN

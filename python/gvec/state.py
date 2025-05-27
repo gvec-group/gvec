@@ -14,14 +14,9 @@ import os
 import numpy as np
 import xarray as xr
 
-try:
-    from . import lib
-    from .lib import modgvec_py_post as _post
-    from .lib import modgvec_py_binding as _binding
-except ImportError:
-    logging.warning(
-        "Compiled bindings to GVEC not found. Calling GVEC for postprocessing will not work."
-    )
+from . import lib
+from .lib import modgvec_py_post as _post
+from .lib import modgvec_py_binding as _binding
 
 
 def _assert_init(func):
@@ -506,9 +501,9 @@ class State:
         _, M_nyq_LA, N_nyq_LA = _post.get_integration_points_num("LA")
 
         if M is None:
-            M = M_LA
+            M = 2 * M_LA
         if N is None:
-            N = N_LA
+            N = 2 * N_LA
         if M_nyq is None:
             M_nyq = max(4 * M + 1, M_nyq_LA)
         if N_nyq is None:

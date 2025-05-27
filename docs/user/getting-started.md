@@ -129,6 +129,7 @@ The two important parameters that need to be set in the stages for the current c
 # GVEC parameter file for W7X
 ProjectName = "W7X"
 whichInitEquilibrium = 0
+minimize_tol = 1.0e-07
 
 ...
 
@@ -166,6 +167,7 @@ Full example: [`parameter.toml`](<path:../../python/examples/current_constraint/
 # GVEC parameter file for W7X
 ProjectName: W7X
 whichInitEquilibrium: 0
+minimize_tol: 1.0e-07
 
 ...
 
