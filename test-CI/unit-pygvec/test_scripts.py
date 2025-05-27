@@ -73,9 +73,15 @@ def test_run_stages(suffix):
     if suffix == "ini":
         assert Path("W7X_State_0000_00000100.dat").exists()
     else:
-        assert Path("0-00/W7X_State_0000_00000010.dat").exists()
-        assert Path("0-01/W7X_State_0001_00000010.dat").exists()
-        assert Path("1-00/W7X_State_0002_00000005.dat").exists()
+        assert Path("W7X_State_final.dat").exists()
+        assert Path("parameter_W7X_final.ini").exists()
+        rho = np.sqrt(np.linspace(0, 1, 101))
+        rho[0] = 1e-4
+        with gvec.State("parameter_W7X_final.ini", "W7X_State_final.dat") as state:
+            ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
+            state.compute(ev, "I_tor")
+        I_tor_max = ev.I_tor.max()
+        assert I_tor_max < 1e-6
 
 
 def test_quasr_real_dft():

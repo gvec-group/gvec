@@ -22,14 +22,14 @@ X2_sin_cos = "_sin_"
 MinimizerType = 10
 PrecondType = 1
 start_dt = 0.5
-# maxIter
-minimize_tol = 1e-08
+maxIter = 10000
 
-# Run GVEC in several stages, with `runs` runs per stage (picard iterations)
+
+# Run GVEC in several stages, decreasing targeted tolerances.
 # each stage overrides specified parameters
 stages = [
-    {runs = 2, maxIter = 10, sgrid.nElems = 3},
-    {runs = 1, maxIter = 5, sgrid.nElems = 10},
+    {iota_tol = 1e-2, minimize_tol = 1e-3, sgrid.nElems = 3, init_iota = true},
+    {iota_tol = 1e-10, minimize_tol = 1e-4, sgrid.nElems = 3},
 ]
 
 # optimize for zero-current with picard iterations

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 import numpy as np
+from numpy.typing import ArrayLike
 import xarray as xr
 
 import gvec
@@ -76,258 +77,6 @@ parser.add_argument("-p", "--plots", action="store_true", help="plot diagnostics
 # === Script === #
 
 
-def run_stages(
-    parameters: Mapping,
-    statefile: Path | None = None,
-    progressbar: bool = False,
-    redirect_gvec_stdout: bool = True,
-    diagnosticfile: Path | None = None,
-    plots: bool = False,
-    init_LA: bool = False,
-) -> tuple[Path, Path, xr.Dataset]:
-    """Run GVEC with several stages (assuming hierarchical parameters)"""
-    logger = logging.getLogger("pyGVEC.script")
-    diagnostics: xr.Dataset | None = None
-    rho = np.sqrt(np.linspace(0, 1, 101))
-    rho[0] = 1e-4
-
-    if "Itor" in parameters:
-        match parameters["Itor"].get("type", "polynomial"):
-            case "polynomial":
-                coefs = np.array(parameters["Itor"]["coefs"][::-1])
-                coefs *= parameters["Itor"].get("scale", 1.0)
-                I_tor_target = np.poly1d(coefs)(rho**2)
-            case "bspline":
-                from scipy.interpolate import BSpline
-
-                coefs = np.array(parameters["Itor"]["coefs"], dtype=float)
-                coefs *= parameters["Itor"].get("scale", 1.0)
-                knots = np.array(parameters["Itor"]["knots"], dtype=float)
-                I_tor_target = BSpline(knots, coefs)(rho**2)
-            case "interpolation":
-                I_tor_target = np.array(parameters["Itor"]["vals"], dtype=float)
-                rho = np.sqrt(np.array(parameters["Itor"]["rho2"], dtype=float))
-            case _:
-                raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
-
-    stages = parameters.get("stages", [{}])
-
-    # prepare the run directory
-    project_dir = Path(f"{parameters['ProjectName']}_gvec_stages")
-    if project_dir.exists():
-        logger.debug(f"Removing existing run directory {project_dir}")
-        shutil.rmtree(project_dir)
-    project_dir.mkdir()
-
-    run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
-    # add additional directory for path parameters
-    for key, value in run_params.items():
-        if key.lower() in [
-            "vmecwoutfile",
-            "boundary_filename",
-            "hmap_ncfile",
-        ] and not value.startswith("/"):
-            run_params[key] = f"../{value}"
-    for s, stage in enumerate(stages):
-        # adapt parameters for this stage
-        for key in ["stages", "Itor"]:
-            if key in run_params:
-                del run_params[key]
-        for key, value in stage.items():
-            if key in ["runs"]:
-                continue
-            if key in ["iota", "pres", "sgrid"]:
-                if key not in run_params:
-                    run_params[key] = {}
-                for subkey, subvalue in value.items():
-                    run_params[key][subkey] = subvalue
-            if key in run_params and isinstance(value, Mapping):
-                for subkey, subvalue in value.items():
-                    run_params[key][subkey] = subvalue
-            else:
-                run_params[key] = value
-
-        # run the stage
-        runs = range(stage.get("runs", 1))
-        for r in runs:
-            progressstr = (
-                "".join("|" + "=" * st.get("runs", 1) for st in stages[:s])
-                + "|"
-                + "=" * r
-                + ">"
-                + "." * (stage.get("runs", 1) - r - 1)
-                + "|"
-                + "".join("." * st.get("runs", 1) + "|" for st in stages[s + 1 :])
-            )
-            if progressbar:
-                print(f"GVEC stage {s} run {r}: {progressstr}", end="\r")
-            logger.info(f"GVEC stage {s} run {r}: {progressstr}")
-            start_time = time.time()
-            # find previous state
-            if statefile:
-                logger.debug(f"Restart from statefile {statefile}")
-                run_params["init_LA"] = init_LA
-
-            # prepare the run directory
-            rundir = project_dir / Path(f"{s:1d}-{r:02d}")
-            if rundir.exists():
-                logger.debug(f"Removing existing run directory {rundir}")
-                shutil.rmtree(rundir)
-            rundir.mkdir()
-            logger.debug(f"Created run directory {rundir}")
-
-            # write parameterfile & run GVEC
-            gvec.util.write_parameter_file(
-                gvec.util.flatten_parameters(run_params),
-                rundir / "parameter.ini",
-                header=f"!Auto-generated with `pygvec run` (stage {s} run {r})\n"
-                f"!Created at {datetime.now().isoformat()}\n"
-                f"!pyGVEC v{gvec.__version__}\n",
-            )
-            with gvec.util.chdir(rundir):
-                gvec.run(
-                    "parameter.ini",
-                    "../../" / statefile if statefile else None,
-                    stdout_path="stdout.txt" if redirect_gvec_stdout else None,
-                )
-
-            # postprocessing
-            statefile = sorted(rundir.glob("*State*.dat"))[-1]
-            iterations = int(re.match(r".*State.*_(\d+)\.dat", statefile.name).group(1))
-            max_iterations = run_params.get("maxiter")
-            tolerance = run_params.get("minimize_tol")
-            logger.debug(f"Postprocessing statefile {statefile}")
-
-            with gvec.State(
-                rundir / "parameter.ini",
-                statefile,
-                redirect_stdout=redirect_gvec_stdout,
-            ) as state:
-                ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
-                state.compute(ev, "W_MHD", "N_FP")
-                if "Itor" in parameters:
-                    state.compute(ev, "iota", "iota_curr_0", "iota_0", "I_tor")
-
-            if "Itor" in parameters:
-                iota_values = ev.iota_0 + I_tor_target * ev.iota_curr_0
-                run_params["iota"] = {
-                    "type": "interpolation",
-                    "vals": iota_values.data,
-                    "rho2": (ev.rho**2).data,
-                }
-
-            # diagnostics
-            # ToDo: possible early stop condition
-
-            if "Itor" in parameters:
-                iota_delta = ev.iota - iota_values
-                rms_iota = np.sqrt((iota_delta**2).mean("rad"))
-                logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
-                logger.info(f"rms Δiota: {rms_iota.item():.2e}")
-                logger.info(
-                    f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.2e}"
-                )
-
-            logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
-
-            d = xr.Dataset(
-                dict(
-                    W_MHD=ev.W_MHD,
-                    gvec_iterations=iterations,
-                    gvec_max_iterations=max_iterations,
-                    gvec_tolerance=tolerance,
-                )
-            )
-            if "Itor" in parameters:
-                d["iota"] = ev.iota
-                d["I_tor"] = ev.I_tor
-                d["iota_delta"] = iota_delta
-                d["I_tor_delta"] = ev.I_tor - I_tor_target
-            d = d.drop_vars(["pol_weight", "tor_weight"])
-            if diagnostics is None:
-                d = d.expand_dims(dict(run=[r]))
-                diagnostics = d
-            else:
-                d = d.expand_dims(dict(run=[diagnostics.run.size]))
-                diagnostics = xr.concat([diagnostics, d], dim="run")
-            if diagnosticfile:
-                diagnostics.to_netcdf(diagnosticfile)
-
-            end_time = time.time()
-            logger.info(
-                f"GVEC run took {end_time - start_time:5.1f} seconds for {iterations} iterations. (max {max_iterations}, tol {tolerance:.1e})"
-            )
-            logger.info("-" * 40)
-
-            if "boundary_perturb" in run_params:
-                run_params["boundary_perturb"] = False
-
-    if plots:
-        import matplotlib.pyplot as plt
-
-        logger.debug("Plotting diagnostics...")
-
-        if "Itor" in parameters:
-            fig, axs = plt.subplots(1, 2, figsize=(10, 3), tight_layout=True)
-        else:
-            fig, ax = plt.subplots(1, 1, figsize=(5, 3), tight_layout=True)
-            axs = [ax]
-        axs[0].plot(diagnostics.run, diagnostics.W_MHD, ".-")
-        axs[0].set(
-            xlabel="run number",
-            ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
-            title=diagnostics.W_MHD.attrs["long_name"],
-        )
-        if "Itor" in parameters:
-            axs[1].plot(
-                diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-"
-            )
-            axs[1].set(
-                xlabel="run number",
-                ylabel=r"$\sqrt{\sum \left(\Delta\iota\right)^2}$",
-                title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
-                yscale="log",
-            )
-        fig.savefig("iterations.png")
-
-        if "Itor" in parameters:
-            fig, axs = plt.subplots(
-                2, 2, figsize=(15, 5), tight_layout=True, sharex=True
-            )
-            for r in diagnostics.run.data:
-                if r == diagnostics.run.data[-1]:
-                    kwargs = dict(marker=".", color="C0", alpha=1.0)
-                else:
-                    kwargs = dict(
-                        color="black", alpha=0.2 + 0.3 * (r / diagnostics.run.data[-1])
-                    )
-                d = diagnostics.sel(run=r)
-                axs[0, 0].plot(d.rho**2, d.iota, **kwargs)
-                axs[1, 0].plot(d.rho**2, np.abs(d.iota_delta), **kwargs)
-                axs[0, 1].plot(d.rho**2, d.I_tor, **kwargs)
-                axs[1, 1].plot(d.rho**2, np.abs(d.I_tor_delta), **kwargs)
-            for i, var in enumerate(["iota", "I_tor"]):
-                axs[0, i].set(
-                    title=diagnostics[var].attrs["long_name"],
-                    ylabel=f"${diagnostics[var].attrs['symbol']}$",
-                )
-                axs[1, i].set(
-                    title=f"Difference to target {diagnostics[var].attrs['long_name']}",
-                    xlabel=r"$\rho^2$",
-                    ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
-                    yscale="log",
-                )
-            fig.savefig("profiles.png")
-
-    logger.info("Done.")
-    final_state = Path(parameters["ProjectName"] + "_State_final.dat")
-    parameter_final = Path("parameter_" + parameters["ProjectName"] + "_final.ini")
-
-    shutil.copy(statefile, final_state)
-    shutil.copy(statefile.parents[0] / "parameter.ini", parameter_final)
-    return rundir, final_state, diagnostics
-
-
 class StagesState:
     def __init__(
         self,
@@ -345,6 +94,38 @@ class StagesState:
         diagnosticfile: Path | None = None,
         progressbar=True,
     ):
+        """
+        State of a GVEC run during a stage, e.g. a picard iteration during a current constraint run.
+
+        Parameters
+        ----------
+        params : Mapping
+            GVEC parameter dictionary.
+        project_dir : Path
+            Directory where the GVEC runs are performed.
+        statefile : Path | None, optional
+            Statefile to restart from. The default is None.
+        logger : logging.Logger | None, optional
+            Logger to write to. The default is None.
+        stage : int, optional
+            Number of the stage used for naming the run directories. The default is 0.
+        nth_run : int, optional
+            Number of runs performed in the current stage. Used for naming the run directories. The default is 0.
+        I_tor_target : np.ndarray | None, optional
+            Target current profile when running GVEC with current constraint. The default is None.
+        rho : np.ndarray | None, optional
+            Radial positions used for evaluating profiles. The default is None.
+        diagnostics : xr.Dataset | None, optional
+            NetCDF file for logging diagnostic quantities during the stages and runs. The default is None.
+        GVEC_iter_used : int, optional
+            Number of GVEC iterations used so far. The default is 0.
+        redirect_gvec_stdout : bool, optional
+            Whether to redirect GVEC's stdout. The default is True.
+        diagnosticfile : Path | None, optional
+            File to write diagnostic output to. The default is default None.
+        progressbar : bool, optional
+            Whether to show a progress bar. The default is True.
+        """
         self.statefile = statefile
         self.params = params
         self.project_dir = project_dir
@@ -366,6 +147,7 @@ class StagesState:
         self.redirect_gvec_stdout = redirect_gvec_stdout
 
     def run(self):
+        """Run GVEC using the parameters of the current state. The state is updated after the run."""
         start_time = time.time()
         # find previous state
         if self.statefile:
@@ -470,8 +252,37 @@ class StagesState:
             self.params["boundary_perturb"] = False
 
     def _initialize_current_constraint(
-        self, stage, maxIter_total, iota_tol, runs, n_runs_in_stage
+        self,
+        stage: int,
+        maxIter_total: int,
+        iota_tol: float,
+        runs: int,
+        n_runs_in_stage: ArrayLike,
     ):
+        """
+        Initialize the current constraint for a GVEC run.
+
+        This method performs many picard iterations with typically few GVEC iterations to find a suitable iota profile for the current constraint.
+
+        Parameters
+        ----------
+        stage : int
+            Number of the stage used for labelling the runs.
+        maxIter_total : int
+            The maximum total number of GVEC iterations allowed.
+        iota_tol : float
+            The tolerance for the iota convergence: abort criterion for the picard iterations.
+        runs : int
+            The maximum number of allowed picard iterations.
+        n_runs_in_stage : ArrayLike
+            An ArrayLike object tracking the number of runs completed in each stage. Used for progressbar.
+
+        Returns
+        -------
+        n_runs_in_stage: ArrayLike
+            Updated number of runs completed in the current stage.
+        """
+
         self.rms_iota = 1e6
         self.nth_run = -1
         while (
@@ -487,8 +298,38 @@ class StagesState:
             return n_runs_in_stage
 
     def _run_current_constraint(
-        self, stage, maxIter_total, iota_tol, maxiter_per_run, runs, n_runs_in_stage
+        self,
+        stage: int,
+        maxIter_total: int,
+        iota_tol: int,
+        maxiter_per_run: int,
+        runs: int,
+        n_runs_in_stage: ArrayLike,
     ):
+        """
+        Run GVEC until the force tolerance is reached and perform picrad iterations until the iota tolerance is reached.
+        The maximum number of total GVEC iterations and the maximum number of picard iterations are limited by maxIter_total and maxiter_per_run.
+
+        Parameters
+        ----------
+        stage : int
+            Number of the stage used for labelling the runs.
+        maxIter_total : int
+            The maximum total number of GVEC iterations allowed.
+        iota_tol : int
+            The tolerance for the iota convergence: abort criterion for the picard iterations.
+        maxiter_per_run : int
+            The maximum number of GVEC iterations in each run.
+        runs : int
+            The maximum number of allowed picard iterations.
+        n_runs_in_stage : ArrayLike
+            An ArrayLike object tracking the number of runs completed in each stage. Used for progressbar.
+
+        Returns
+        -------
+        n_runs_in_stage: ArrayLike
+            Updated number of runs completed in the current stage.
+        """
         self.rms_iota = 1e6
         while (
             (self.GVEC_iter_used < maxIter_total)
@@ -506,6 +347,18 @@ class StagesState:
         return n_runs_in_stage
 
     def _eval_progressstr(self, n_runs_in_stage):
+        """
+        Evaluate and print a progress string for the current stage and run.
+
+        Parameters
+        ----------
+        n_runs_in_stage : ArrayLike
+            An ArrayLike object tracking the number of runs completed in each stage.
+
+        Returns
+        -------
+        None
+        """
         progressstr = "|"
         for i, ir in enumerate(n_runs_in_stage):
             if i < self.stage:
@@ -518,6 +371,23 @@ class StagesState:
         self.logger.info(f"GVEC stage {self.stage} run {self.nth_run}: {progressstr}")
 
     def plot_diagnostics(self):
+        """
+        Plot diagnostic quantities from the GVEC runs.
+
+        This method creates two figures: 'iterations.png' and 'profiles.png'.
+        The first figure shows the evolution of the MHD energy and the root mean square difference
+        to the target iota profile as a function of the run number.
+        The second figure shows the profiles of the iota and I_tor values till the last run
+        and the difference to the target profiles.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         import matplotlib.pyplot as plt
 
         self.logger.debug("Plotting diagnostics...")
@@ -575,7 +445,7 @@ class StagesState:
             fig.savefig("profiles.png")
 
 
-def run_with_class(
+def run_stages(
     parameters: Mapping,
     statefile: Path | None = None,
     redirect_gvec_stdout: bool = True,
@@ -583,6 +453,29 @@ def run_with_class(
     progressbar: bool = True,
     plots: bool = False,
 ) -> tuple[Path, Path, xr.Dataset]:
+    """
+    Run GVEC in stages.
+
+    Parameters
+    ----------
+    parameters : Mapping
+        GVEC parameters.
+    statefile : Path | None, optional
+        Statefile to restart from. The default is None.
+    redirect_gvec_stdout : bool, optional
+        Whether to redirect GVEC's stdout. The default is True.
+    diagnosticfile : Path | None, optional
+        File to write an xarray Dataset (netcdf) with diagnostic quantities to. The default is None.
+    progressbar : bool, optional
+        Whether to show a progress bar. The default is True.
+    plots : bool, optional
+        Whether to generate plots after the run. The default is False.
+
+    Returns
+    -------
+    tuple[Path, Path, xr.Dataset]
+        A tuple of the run directory, the final state file, and an xarray Dataset with diagnostic quantities.
+    """
     logger = logging.getLogger("pyGVEC.script")
     rho = np.sqrt(np.linspace(0, 1, 101))
     rho[0] = 1e-4
@@ -761,15 +654,8 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 logger.setLevel(logging.INFO)
             elif args.verbose >= 2:
                 logger.setLevel(logging.DEBUG)
-            # run_stages(
-            #     parameters,
-            #     args.restartfile,
-            #     progressbar=not args.quiet and not args.verbose,
-            #     redirect_gvec_stdout=args.verbose < 3,
-            #     diagnosticfile=args.diagnostics,
-            #     plots=args.plots,
-            # )
-            run_with_class(
+
+            run_stages(
                 parameters,
                 args.restartfile,
                 progressbar=not args.quiet and not args.verbose,

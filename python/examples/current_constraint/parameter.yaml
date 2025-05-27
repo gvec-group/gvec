@@ -8,14 +8,21 @@ whichInitEquilibrium: 0
 which_hmap: 1
 
 stages:
-- runs: 3
-  maxIter: 100
+- iota_tol: 0.01
+  minimize_tol: 0.001
   sgrid:
     nElems: 3
-- runs: 5
-  maxIter: 20
+  init_iota: true
+- iota_tol: 0.0001
+  minimize_tol: 1.0e-05
   sgrid:
     nElems: 10
+- iota_tol: 1.0e-05
+  minimize_tol: 1.0e-06
+  sgrid:
+    nElems: 20
+- iota_tol: 1.0e-10
+  minimize_tol: 1.0e-06
 
 sgrid:
   grid_type: 4
@@ -35,8 +42,7 @@ LA_sin_cos: _sin_
 MinimizerType: 10
 PrecondType: 1
 start_dt: 0.5
-maxIter: 100
-minimize_tol: 1.0e-08
+maxIter: 10000
 
 # profiles
 Itor: # optimize for zero-current with picard iterations
