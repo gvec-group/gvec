@@ -1038,9 +1038,11 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   INTEGER                    :: nVal_out
   REAL(wp),ALLOCATABLE       :: LA_s(:,:)
 #ifdef PP_WHICH_HMAP
-  TYPE( PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv(:) !! auxiliary variables for hmap
+  TYPE( PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:) !! auxiliary variables for hmap
+  TYPE( PP_T_HMAP_AUXVAR),POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap
 #else
-  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv(:) !! auxiliary variables for hmap
+  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:) !! auxiliary variables for hmap
+  CLASS(PP_T_HMAP_AUXVAR),POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap
 #endif
   !=================================================================================================================================
   IF(.NOT. MPIroot) RETURN
@@ -1172,24 +1174,25 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
       END DO
     END IF
     ALLOCATE(tz_pos(2,nthet_out,nzeta_out,SFLout_nrp))
-    !HACK: NOT USING REGULAR GRID IN SFL ANGLES FOR NOW
-    !SELECT CASE(whichSFLout) !chooses which angles to use
-    !CASE(2) !Boozer
-    !  CALL sfl_booz%find_angles(nthet_out*nzeta_out,tz_star_pos,tz_pos)
-    !CASE(1) !PEST
-    !  IF(SFLout_relambda)THEN
-    !    CALL find_pest_angles(SFLout_nrp,sfl_booz%nu_fbase,sfl_booz%lambda,nthet_out*nzeta_out,tz_star_pos,tz_pos)
-    !  ELSE
-    !    CALL find_pest_angles(SFLout_nrp,LA_base%f,LA_s,nthet_out*nzeta_out,tz_star_pos,tz_pos)
-    !  END IF
-    !CASE(0) !no transform
+    SELECT CASE(whichSFLout) !chooses which angles to use
+    CASE(2) !Boozer
+      CALL sfl_booz%find_angles(nthet_out*nzeta_out,tz_star_pos,tz_pos)
+    CASE(1) !PEST
+      IF(SFLout_relambda)THEN
+        CALL find_pest_angles(SFLout_nrp,sfl_booz%nu_fbase,sfl_booz%lambda,nthet_out*nzeta_out,tz_star_pos,tz_pos)
+      ELSE
+        CALL find_pest_angles(SFLout_nrp,LA_base%f,LA_s,nthet_out*nzeta_out,tz_star_pos,tz_pos)
+      END IF
+    CASE(0) !no transform
       DO i_rp=1,SFLout_nrp
         tz_pos(:,:,:,i_rp)=tz_star_pos(:,:,:)
       END DO
-    !END SELECT
+    END SELECT
 
     !auxvariables for hmap
-    CALL hmap_new_auxvar(hmap,tz_star_pos(2,1,:),hmap_xv)
+    CALL hmap_new_auxvar(hmap,RESHAPE(tz_pos(2,:,:,:),(/Nthet_out*Nzeta_out*SFLout_nrp/)),hmap_xv1d)
+    ALLOCATE(hmap_xv(Nthet_out,Nzeta_out,SFLout_nrp))
+    hmap_xv(1:Nthet_out,1:Nzeta_out,1:SFLout_nrp)=>hmap_xv1d(1:Nthet_out*Nzeta_out*SFLout_nrp)
     
     ALLOCATE(coord_out(3,Nthet_out,Nzeta_out,SFLout_nrp),var_out(nVal,Nthet_out,Nzeta_out,SFLout_nrp))
     var_out=0.
@@ -1285,10 +1288,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
           ! END IF
 
           
-          coord_out(:,ithet,izeta,i_rp)=hmap%eval_aux(X1_int,X2_int       ,hmap_xv(izeta))
-          e_s   =hmap%eval_dxdq_aux(X1_int,X2_int,dX1ds   ,dX2ds   ,0.0_wp,hmap_xv(izeta))
-          e_thet=hmap%eval_dxdq_aux(X1_int,X2_int,dX1dthet,dX2dthet,0.0_wp,hmap_xv(izeta))
-          e_zeta=hmap%eval_dxdq_aux(X1_int,X2_int,dX1dzeta,dX2dzeta,1.0_wp,hmap_xv(izeta))
+          coord_out(:,ithet,izeta,i_rp)=hmap%eval_aux(X1_int,X2_int       ,hmap_xv(ithet,izeta,i_rp))
+          e_s   =hmap%eval_dxdq_aux(X1_int,X2_int,dX1ds   ,dX2ds   ,0.0_wp,hmap_xv(ithet,izeta,i_rp))
+          e_thet=hmap%eval_dxdq_aux(X1_int,X2_int,dX1dthet,dX2dthet,0.0_wp,hmap_xv(ithet,izeta,i_rp))
+          e_zeta=hmap%eval_dxdq_aux(X1_int,X2_int,dX1dzeta,dX2dzeta,1.0_wp,hmap_xv(ithet,izeta,i_rp))
 
           sqrtG    = SUM(e_s * (CROSS(e_thet,e_zeta)))
           e_thetstar=(e_thet*dthet_dtstarJ+e_zeta*dzeta_dtstarJ)/Jstar
@@ -1336,7 +1339,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
       DEALLOCATE(LA_s)
     END IF
 
-    DEALLOCATE(hmap_xv)
+    DEALLOCATE(hmap_xv1d,hmap_xv)
 
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
      CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,SFLout_nrp-1/),1,VarNames, &
