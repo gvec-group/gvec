@@ -41,9 +41,9 @@ E.g. to compute the volume average plasma beta, one could use:
 ```python
 with gvec.State(parameterfile, statefile) as state:
     ev = gvec.Evaluations(rho="int", theta="int", zeta="int", state=state)
-    state.compute(ev, "mod_B", "mu0", "p", "Jac")
+    state.compute(ev, "mod_B", "mu0", "p", "Jac", "V")
 beta = ev.p / (ev.mod_B**2 / (2 * ev.mu0))
-beta_avg = gvec.comp.volume_integral(beta * ev.Jac).item()
+beta_avg = gvec.comp.volume_integral(beta * ev.Jac).item() / ev.V.item()
 ```
 
 ### Boozer transform
