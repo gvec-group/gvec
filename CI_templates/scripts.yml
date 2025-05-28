@@ -434,20 +434,20 @@
     - set +e #continue script after command fails, gitlab otherwise only returns 0 or 1
     - echo CIpost_${CASENAME_1}
     - echo CIpost_${CASENAME_2}
-    - python -m venv .venv_post
-    - source .venv_post/bin/activate
+    - python -m venv .venv_post_ncdiff
+    - source .venv_post_ncdiff/bin/activate
     - pip install recursive_diff netcdf4 dask
     - end_details pre-ncdiff
     - start_details ncdiff "ncdiff"
-    - ncdiff -r -b -m **/POST_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post
+    - ncdiff -r -b -m **/POST_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post CIpost_${CASENAME_2}/post
       || RET=$?
-    - ncdiff -r -q -m **/POST_*_visu_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_visu_.txt
-    - ncdiff -r -q -m **/POST_*_pest_*.nc -$NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_pest_.txt
-    - ncdiff -r -q -m **/POST_*_boozer_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_boozer_.txt
+    - ncdiff -r -q -m **/POST_*_visu_*.nc   $NCDIFF_TOL CIpost_${CASENAME}/post CIpost_${CASENAME_2}/post > log_post_ncdiff_visu_.txt
+    - ncdiff -r -q -m **/POST_*_pest_*.nc   $NCDIFF_TOL CIpost_${CASENAME}/post CIpost_${CASENAME_2}/post > log_post_ncdiff_pest_.txt
+    - ncdiff -r -q -m **/POST_*_boozer_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post CIpost_${CASENAME_2}/post > log_post_ncdiff_boozer_.txt
     - end_details ncdiff
     - exit $RET
     - deactivate
-    - rm -rf .venv_post
+    - rm -rf .venv_post_ncdiff
   artifacts:
     name: "ncdiff_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME_1}_vs_${CASENAME_2}"
     paths:

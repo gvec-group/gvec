@@ -977,7 +977,7 @@ include:
       build-postfix: _tag
       run-postfix: _tag
       post-postfix: _tag
-      vars: .vars_matrix_run_tag
+      vars: .vars_matrix_post
       rules: .rules_minimal
       allow_failure: true
 
@@ -996,7 +996,6 @@ include:
       env: .mpcdfci_ifx-latest
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
-      run-postfix: _hmap_axisNB
       post-postfix: _hmap_axisNB
 
   - local: CI_templates/postprocessing.yml
@@ -1039,7 +1038,7 @@ include:
   - local: CI_templates/regression-tag-post-diff.yml
     inputs:
       env: .mpcdfci_ifx-latest
-      vars: .vars_matrix_run_tag
+      vars: .vars_matrix_post
       rules: .rules_minimal
 
   # python
