@@ -32,6 +32,20 @@ A `xarray.Dataset` closely mirrors the structure of netCDF, grouping several var
 The `state.compute` method can be used to compute various quantities that are then added to the `Dataset`.
 Here *pyGVEC* takes care of computing all the required intermediate quantities, which are also added to the `Dataset`.
 
+### Computing integrals
+
+Specifying `"int"` for `rho`, `theta` and `zeta` in the `Evaluations` function, chooses the grid to be the integration points used by GVEC internally.
+The `gvec.comp` module provides the functions `radial_integral`, `fluxsurface_integral` and `volume_integral`, which can then be used to perform integration with the apropriate weights.
+E.g. to compute the volume average plasma beta, one could use:
+
+```python
+with gvec.State(parameterfile, statefile) as state:
+    ev = gvec.Evaluations(rho="int", theta="int", zeta="int", state=state)
+    state.compute(ev, "mod_B", "mu0", "p", "Jac")
+beta = ev.p / (ev.mod_B**2 / (2 * ev.mu0))
+beta_avg = gvec.comp.volume_integral(beta * ev.Jac).item()
+```
+
 ### Boozer transform
 
 To evaluate the equilibrium in Boozer angles, you can use `BoozerEvaluations`, which performs a Boozer transform to obtain a set of $\vartheta,\zeta$ points which correspond to your desired grid in $\vartheta_B,\zeta_B$.
