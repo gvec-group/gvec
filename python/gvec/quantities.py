@@ -171,20 +171,20 @@ def N_FP(ds: xr.Dataset, state: State):
 
 @register(
     quantities=("pos", "e_rho", "e_theta", "e_zeta"),
-    requirements=["xyz","X1", "X2", "zeta"]
-    + [f"d{Q}_d{i}" for i in "rtz" for Q in ["X1", "X2"] 
-    ],
+    requirements=["xyz", "X1", "X2", "zeta"]
+    + [f"d{Q}_d{i}" for i in "rtz" for Q in ["X1", "X2"]],
     attrs=dict(
-        pos=dict(
-            long_name="position vector", symbol=r"\mathbf{x}"),
+        pos=dict(long_name="position vector", symbol=r"\mathbf{x}"),
         e_rho=dict(
-            long_name="radial tangent basis vector",  symbol=r"\mathbf{e}_{\rho}"
+            long_name="radial tangent basis vector", symbol=r"\mathbf{e}_{\rho}"
         ),
         e_theta=dict(
-            long_name="poloidal tangent basis vector",symbol=r"\mathbf{e}_{\theta}",
+            long_name="poloidal tangent basis vector",
+            symbol=r"\mathbf{e}_{\theta}",
         ),
         e_zeta=dict(
-            long_name="toroidal tangent basis vector",symbol=r"\mathbf{e}_{\zeta}",
+            long_name="toroidal tangent basis vector",
+            symbol=r"\mathbf{e}_{\zeta}",
         ),
     ),
 )
@@ -201,7 +201,6 @@ def hmap(ds: xr.Dataset, state: State):
             ("xyz", "rad", "pol", "tor"),
             value.reshape(3, ds.rad.size, ds.pol.size, ds.tor.size),
         )
-
 
 
 # === metric =========================================================================== #
@@ -293,11 +292,7 @@ def Jac_h(ds: xr.Dataset, state: State):
     ),
     requirements=(
         "Jac_h",
-        *(
-            f"d{Q}_d{i}"
-            for Q in "X1 X2".split()
-            for i in "r t".split()
-        ),
+        *(f"d{Q}_d{i}" for Q in "X1 X2".split() for i in "r t".split()),
     ),
     attrs={
         "Jac": dict(long_name="Jacobian determinant", symbol=r"\mathcal{J}"),
@@ -312,9 +307,7 @@ def Jac(ds: xr.Dataset):
 
 
 @register(
-    quantities=(
-        *(f"dJac{suf}_d{i}" for suf in ["", "_l"] for i in "rtz"),
-    ),
+    quantities=(*(f"dJac{suf}_d{i}" for suf in ["", "_l"] for i in "rtz"),),
     requirements=(
         "Jac_h",
         "Jac_l",
@@ -363,6 +356,7 @@ def Jac_derivs(ds: xr.Dataset):
     ds["dJac_dt"] = ds.dJac_h_dt * ds.Jac_l + ds.Jac_h * ds.dJac_l_dt
     ds["dJac_dz"] = ds.dJac_h_dz * ds.Jac_l + ds.Jac_h * ds.dJac_l_dz
 
+
 # === straight field line coordinates - PEST =========================================== #
 
 
@@ -400,7 +394,6 @@ def Jac_P(ds: xr.Dataset):
 
 
 # === derived ========================================================================== #
-
 
 
 @register(

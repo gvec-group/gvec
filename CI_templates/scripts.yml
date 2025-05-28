@@ -362,10 +362,7 @@
     name: "post_${CI_PIPELINE_ID}_${CI_JOB_ID}_${CASENAME}"
     paths:
       - log_pytest_post.txt
-      # - CIpost_${CASENAME} # disable for now, unused, ~460MB per job!
-      - CIpost_${CASENAME}/post/post/*/*/parameter.ini  # save parameterfiles.
-      - CIpost_${CASENAME}/post/post/*/*/std*.txt  # save stdout.txt and stderr.txt
-      - CIpost_${CASENAME}/post/post/*/*/POST_*.nc  # save POST_*.nc files.
+      - CIpost_${CASENAME}
     expire_in: 3 days
     when: always
     reports:
@@ -439,10 +436,10 @@
     - echo CIpost_${CASENAME_2}
     - python -m venv .venv_post
     - source .venv_post/bin/activate
-    - pip install recursive_diff netcdf4 dask 
+    - pip install recursive_diff netcdf4 dask
     - end_details pre-ncdiff
     - start_details ncdiff "ncdiff"
-    - ncdiff -r -b -m **/POST_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post 
+    - ncdiff -r -b -m **/POST_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post
       || RET=$?
     - ncdiff -r -q -m **/POST_*_visu_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_visu_.txt
     - ncdiff -r -q -m **/POST_*_pest_*.nc -$NCDIFF_TOL CIpost_${CASENAME}/post/post CIpost_${CASENAME_2}/post/post > log_post_ncdiff_pest_.txt

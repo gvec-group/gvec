@@ -255,7 +255,7 @@ PURE SUBROUTINE hmap_knot_eval_all_e(k,l,delta,R0,zeta,q1,q2,dX1_dt,dX2_dt,dX1_d
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp),INTENT(IN)  :: k,l,delta,R0 !! hmap parameters 
+  REAL(wp),INTENT(IN)  :: k,l,delta,R0 !! hmap parameters
   REAL(wp),INTENT(IN)  :: zeta        !! zeta position
   REAL(wp),INTENT(IN)  :: q1,q2       !! solution variables q1,q2
   REAL(wp),INTENT(IN)  :: dX1_dt,dX2_dt  !! theta derivative of solution variables q1,q2
@@ -271,17 +271,17 @@ PURE SUBROUTINE hmap_knot_eval_all_e(k,l,delta,R0,zeta,q1,q2,dX1_dt,dX2_dt,dX1_d
   REAL(wp) :: Rl,Gh31,Gh32,Gh33
 !===================================================================================================================================
   Rl = R0 + delta*COS(l*zeta) + q1
-  Jh = k*Rl 
+  Jh = k*Rl
   Jh_dq1 = k
   Jh_dq2 = 0.0_wp
-  Gh11 = 1.0_wp 
-  
-  Gh22 = 1.0_wp 
+  Gh11 = 1.0_wp
+
+  Gh22 = 1.0_wp
   Gh31 =-l*delta*SIN(l*zeta)
   Gh32 = l*delta*COS(l*zeta)
   Gh33 = (k * Rl)**2 + (l* delta)**2
 
-  g_t1 = dX1_dt 
+  g_t1 = dX1_dt
   g_t2 = dX2_dt
   g_z1 = dX1_dz + Gh31
   g_z2 = dX2_dz + Gh32
@@ -476,7 +476,7 @@ FUNCTION hmap_knot_eval_gij_dq( sf ,qL_in,q_G,qR_in,q_vec) RESULT(g_ab_dq)
   !                       |q1  |   |0  0  0        |        |q1  |
   !q_i G_ij q_j = (dalpha |q2  | ) |0  0  0        | (dbeta |q2  | )
   !                       |q3  |   |0  0  2k**2 *Rl|        |q3  |
-  g_ab_dq = (qL_in(3) * 2.0_wp * sf%k**2 * sf%Rl(q_G) * qR_in(3))*(q_vec(1) -sf%delta*sf%l*SIN(sf%l*q_G(3))*q_vec(3)) 
+  g_ab_dq = (qL_in(3) * 2.0_wp * sf%k**2 * sf%Rl(q_G) * qR_in(3))*(q_vec(1) -sf%delta*sf%l*SIN(sf%l*q_G(3))*q_vec(3))
 END FUNCTION hmap_knot_eval_gij_dq
 
 !===================================================================================================================================

@@ -339,7 +339,7 @@ FUNCTION hmap_RZ_eval_Jh_dq( sf ,q_in,q_vec) RESULT(Jh_dq)
   REAL(wp)                     :: Jh_dq
   !===================================================================================================================================
   !  q= (R,Z,zeta)
-  Jh_dq = q_vec(1) 
+  Jh_dq = q_vec(1)
 END FUNCTION hmap_RZ_eval_Jh_dq
 
 

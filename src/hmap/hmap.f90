@@ -61,7 +61,7 @@ IMPLICIT NONE
   CLASS(c_hmap), INTENT(IN),OPTIONAL :: hmap_in       !! if present, copy this hmap
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-  CLASS(c_hmap),ALLOCATABLE,INTENT(INOUT) :: sf !! self 
+  CLASS(c_hmap),ALLOCATABLE,INTENT(INOUT) :: sf !! self
 #endif /*defined(PP_WHICH_HMAP)*/
 !===================================================================================================================================
   IF(.NOT. PRESENT(hmap_in))THEN
@@ -112,7 +112,7 @@ IMPLICIT NONE
 #ifdef PP_WHICH_HMAP
   TYPE(PP_T_HMAP),INTENT(IN) :: hmap
 #else
-  CLASS(c_hmap),  INTENT(IN) :: hmap 
+  CLASS(c_hmap),  INTENT(IN) :: hmap
 #endif
   REAL(wp)     ,  INTENT(IN) :: zeta(:)
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -151,7 +151,7 @@ IMPLICIT NONE
         xv(i)= t_hmap_RZ_auxvar(hmap,zeta(i))
       END DO !i
       !$OMP END PARALLEL DO
-    END SELECT !TYPE(xv) 
+    END SELECT !TYPE(xv)
   CLASS IS(t_hmap_cyl)
     ALLOCATE(t_hmap_cyl_auxvar :: xv(nzeta))
     SELECT TYPE(xv)
@@ -162,7 +162,7 @@ IMPLICIT NONE
         xv(i)= t_hmap_cyl_auxvar(hmap,zeta(i))
       END DO !i
       !$OMP END PARALLEL DO
-    END SELECT !TYPE(xv) 
+    END SELECT !TYPE(xv)
   CLASS IS(t_hmap_knot)
     ALLOCATE(t_hmap_knot_auxvar :: xv(nzeta))
     SELECT TYPE(xv)
@@ -173,7 +173,7 @@ IMPLICIT NONE
         xv(i)= t_hmap_knot_auxvar(hmap,zeta(i))
       END DO !i
       !$OMP END PARALLEL DO
-    END SELECT !TYPE(xv) 
+    END SELECT !TYPE(xv)
   CLASS IS(t_hmap_frenet)
     ALLOCATE(t_hmap_frenet_auxvar :: xv(nzeta))
     SELECT TYPE(xv)
@@ -184,7 +184,7 @@ IMPLICIT NONE
         xv(i)= t_hmap_frenet_auxvar(hmap,zeta(i))
       END DO !i
       !$OMP END PARALLEL DO
-    END SELECT !TYPE(xv) 
+    END SELECT !TYPE(xv)
   CLASS IS(t_hmap_axisNB)
     ALLOCATE(t_hmap_axisNB_auxvar :: xv(nzeta))
     SELECT TYPE(xv)
@@ -195,7 +195,7 @@ IMPLICIT NONE
         xv(i)= t_hmap_axisNB_auxvar(hmap,zeta(i))
       END DO !i
       !$OMP END PARALLEL DO
-    END SELECT !TYPE(xv) 
+    END SELECT !TYPE(xv)
   CLASS DEFAULT
     CALL abort(__STAMP__, &
           "hmap_new_auxvar: this hmap class is not implemented  !")

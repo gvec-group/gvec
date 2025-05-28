@@ -583,20 +583,20 @@ IMPLICIT NONE
             dsqrtg_dt = Jh*dJp_dt + dJh_dt*Jp
             dsqrtg_dz = Jh*dJp_dz + dJh_dz*Jp
 
-            g_st      = hmap%eval_gij_aux(dQ_dr,Q1Q2,dQ_dt,hmap_xv(i_n)) 
+            g_st      = hmap%eval_gij_aux(dQ_dr,Q1Q2,dQ_dt,hmap_xv(i_n))
 
 
             dg_st_dt  = hmap%eval_gij_aux(  ddQ_dr_dt,Q1Q2, dQ_dt   ,hmap_xv(i_n))    &
                        +hmap%eval_gij_aux(   dQ_dr   ,Q1Q2,ddQ_dt_dt,hmap_xv(i_n))    &
                        +hmap%eval_gij_dq_aux(dQ_dr   ,Q1Q2, dQ_dt   ,&
-                                                            dQ_dt   ,hmap_xv(i_n)) 
+                                                            dQ_dt   ,hmap_xv(i_n))
 
             dg_st_dz  = hmap%eval_gij_aux(   ddQ_dr_dz,Q1Q2, dQ_dt   ,hmap_xv(i_n))    &
                        +hmap%eval_gij_aux(    dQ_dr   ,Q1Q2,ddQ_dt_dz,hmap_xv(i_n))    &
                        +hmap%eval_gij_dq_aux( dQ_dr   ,Q1Q2, dQ_dt   ,&
                                                              dQ_dz   ,hmap_xv(i_n))
 
-            g_sz      = hmap%eval_gij_aux( dQ_dr,Q1Q2,dQ_dz,hmap_xv(i_n)) 
+            g_sz      = hmap%eval_gij_aux( dQ_dr,Q1Q2,dQ_dz,hmap_xv(i_n))
 
 
             dg_sz_dt  = hmap%eval_gij_aux(  ddQ_dr_dt,Q1Q2, dQ_dz   ,hmap_xv(i_n))    &
@@ -609,20 +609,20 @@ IMPLICIT NONE
                        +hmap%eval_gij_dq_aux(dQ_dr   ,Q1Q2, dQ_dz   ,&
                                                             dQ_dz   ,hmap_xv(i_n))
 
-            g_tt      = hmap%eval_gij_aux(    dQ_dt,Q1Q2,dQ_dt,hmap_xv(i_n)) 
+            g_tt      = hmap%eval_gij_aux(    dQ_dt,Q1Q2,dQ_dt,hmap_xv(i_n))
 
             dg_tt_dr  = 2.0_wp*hmap%eval_gij_aux(  ddQ_dr_dt,Q1Q2,dQ_dt,hmap_xv(i_n))    &
                               +hmap%eval_gij_dq_aux(dQ_dt   ,Q1Q2,dQ_dt,&
                                                                   dQ_dr,hmap_xv(i_n))
-                         
+
             dg_tt_dz  = 2.0_wp*hmap%eval_gij_aux(  ddQ_dt_dz,Q1Q2,dQ_dt,hmap_xv(i_n))    &
                               +hmap%eval_gij_dq_aux(dQ_dt   ,Q1Q2,dQ_dt,&
                                                                   dQ_dz,hmap_xv(i_n))
-            
-            g_tz      = hmap%eval_gij_aux(    dQ_dt,Q1Q2,dQ_dz,hmap_xv(i_n)) 
+
+            g_tz      = hmap%eval_gij_aux(    dQ_dt,Q1Q2,dQ_dz,hmap_xv(i_n))
 
             dg_tz_dr  = hmap%eval_gij_aux(  ddQ_dr_dt,Q1Q2, dQ_dz   ,hmap_xv(i_n))    &
-                       +hmap%eval_gij_aux(   dQ_dt   ,Q1Q2,ddQ_dr_dz,hmap_xv(i_n))    &            
+                       +hmap%eval_gij_aux(   dQ_dt   ,Q1Q2,ddQ_dr_dz,hmap_xv(i_n))    &
                        +hmap%eval_gij_dq_aux(dQ_dt   ,Q1Q2, dQ_dz   ,&
                                                             dQ_dr   ,hmap_xv(i_n))
 
@@ -630,17 +630,17 @@ IMPLICIT NONE
                        +hmap%eval_gij_aux(   dQ_dt   ,Q1Q2,ddQ_dt_dz,hmap_xv(i_n))    &
                        +hmap%eval_gij_dq_aux(dQ_dt   ,Q1Q2, dQ_dz   ,&
                                                             dQ_dt   ,hmap_xv(i_n))
-            
+
             dg_tz_dz  = hmap%eval_gij_aux(  ddQ_dt_dz,Q1Q2, dQ_dz   ,hmap_xv(i_n))    &
                        +hmap%eval_gij_aux(   dQ_dt   ,Q1Q2,ddQ_dz_dz,hmap_xv(i_n))    &
                        +hmap%eval_gij_dq_aux(dQ_dt   ,Q1Q2, dQ_dz   ,&
                                                             dQ_dz   ,hmap_xv(i_n))
 
-            g_zz      = hmap%eval_gij_aux(    dQ_dz,Q1Q2,dQ_dz,hmap_xv(i_n)) 
+            g_zz      = hmap%eval_gij_aux(    dQ_dz,Q1Q2,dQ_dz,hmap_xv(i_n))
 
             dg_zz_dr  = 2.0_wp*hmap%eval_gij_aux(  ddQ_dr_dz,Q1Q2,dQ_dz   ,hmap_xv(i_n))    &
                             +  hmap%eval_gij_dq_aux(dQ_dz   ,Q1Q2,dQ_dz   ,&
-                                                                  dQ_dr   ,hmap_xv(i_n)) 
+                                                                  dQ_dr   ,hmap_xv(i_n))
 
             dg_zz_dt  = 2.0_wp*hmap%eval_gij_aux(  ddQ_dt_dz,Q1Q2,dQ_dz   ,hmap_xv(i_n))    &
                             +  hmap%eval_gij_dq_aux(dQ_dz   ,Q1Q2,dQ_dz   ,&
@@ -718,7 +718,7 @@ IMPLICIT NONE
             dX1_dz_eps  = X1_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, X1_s )
             dX2_dz_eps  = X2_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, X2_s )
             dLA_dz_eps  = LA_base%f%evalDOF_x(xIP_eps, DERIV_ZETA, LA_s )
-                       
+
             q        = (/ X1_eps, X2_eps, xIP_eps(2) /) !(X1,X2,zeta)
             e_s      = hmap%eval_dxdq(q,(/dX1_dr_eps,dX2_dr_eps, 0.0_wp /)) !dxvec/ds
             e_thet   = hmap%eval_dxdq(q,(/dX1_dt_eps,dX2_dt_eps, 0.0_wp /)) !dxvec/dthet
@@ -1042,7 +1042,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   TYPE( PP_T_HMAP_AUXVAR),POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap
 #else
   CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:) !! auxiliary variables for hmap
-  CLASS(PP_T_HMAP_AUXVAR),POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap
+  CLASS(PP_T_HMAP_AUXVAR),CONTIGUOUS,POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap
 #endif
   !=================================================================================================================================
   IF(.NOT. MPIroot) RETURN
@@ -1191,9 +1191,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
 
     !auxvariables for hmap
     CALL hmap_new_auxvar(hmap,RESHAPE(tz_pos(2,:,:,:),(/Nthet_out*Nzeta_out*SFLout_nrp/)),hmap_xv1d)
-    ALLOCATE(hmap_xv(Nthet_out,Nzeta_out,SFLout_nrp))
+
+WRITE(*,*)'DEBUG NVHPC 1'
     hmap_xv(1:Nthet_out,1:Nzeta_out,1:SFLout_nrp)=>hmap_xv1d(1:Nthet_out*Nzeta_out*SFLout_nrp)
-    
+
     ALLOCATE(coord_out(3,Nthet_out,Nzeta_out,SFLout_nrp),var_out(nVal,Nthet_out,Nzeta_out,SFLout_nrp))
     var_out=0.
 
@@ -1287,7 +1288,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
           !   dnu_dzstar=(dnu_dt*dthet_dzstarJ+dnu_dz*dzeta_dzstarJ)/Jstar
           ! END IF
 
-          
+
           coord_out(:,ithet,izeta,i_rp)=hmap%eval_aux(X1_int,X2_int       ,hmap_xv(ithet,izeta,i_rp))
           e_s   =hmap%eval_dxdq_aux(X1_int,X2_int,dX1ds   ,dX2ds   ,0.0_wp,hmap_xv(ithet,izeta,i_rp))
           e_thet=hmap%eval_dxdq_aux(X1_int,X2_int,dX1dthet,dX2dthet,0.0_wp,hmap_xv(ithet,izeta,i_rp))
@@ -1339,7 +1340,10 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
       DEALLOCATE(LA_s)
     END IF
 
-    DEALLOCATE(hmap_xv1d,hmap_xv)
+WRITE(*,*)'DEBUG NVHPC 2'
+    NULLIFY(hmap_xv)
+    DEALLOCATE(hmap_xv1d)
+WRITE(*,*)'DEBUG NVHPC 3'
 
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
      CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,SFLout_nrp-1/),1,VarNames, &

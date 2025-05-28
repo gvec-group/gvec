@@ -905,7 +905,7 @@ IMPLICIT NONE
              +q_vec(2)* Bp                 &
              +q_vec(3)*  (Tp + Npp*q1 + Bpp*q2) )*CROSS(N ,B )     &
              +q_vec(3)*( (T  + Np *q1         )*  CROSS(N ,Bp)  &
-                        +(T           + Bp* q2)*  CROSS(Np,B )  )  ) 
+                        +(T           + Bp* q2)*  CROSS(Np,B )  )  )
   END ASSOCIATE !zeta
 END FUNCTION hmap_axisNB_eval_Jh_dq
 
@@ -931,7 +931,7 @@ IMPLICIT NONE
              +q2_vec* xv%Bp                 &
              +q3_vec*  (xv%Tp + xv%Npp*q1 + xv%Bpp*q2) )*xv%NxB     &
              +q3_vec*( (xv%T  + xv%Np *q1            )* xv%NxBp  &
-                      +(xv%T              + xv%Bp *q2)* xv%NpxB  )  ) 
+                      +(xv%T              + xv%Bp *q2)* xv%NpxB  )  )
   END SELECT
 END FUNCTION hmap_axisNB_eval_Jh_dq_aux
 
@@ -1043,7 +1043,7 @@ FUNCTION hmap_axisNB_eval_gij_dq( sf ,qL_in,q_G,qR_in,q_vec) RESULT(g_ab_dq)
                                  +      BpB       *  (qL_in(2)*qR_in(2)) )                &
                     +( q_vec(1)*        TqNp       &
                       +q_vec(2)*        TqBp       &
-                      +q_vec(3)*    SUM(Tq*Tq_p)   )*(qL_in(3)*qR_in(3))                  ) &  
+                      +q_vec(3)*    SUM(Tq*Tq_p)   )*(qL_in(3)*qR_in(3))                  ) &
                    +   q_vec(3)*  (     BpN      &
                                    +    NpB      )*  (qL_in(1)*qR_in(2)+qL_in(2)*qR_in(1))  &
                    + ( q_vec(1)*        NpN        &
@@ -1091,18 +1091,18 @@ FUNCTION hmap_axisNB_eval_gij_dq_aux(sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,q1_vec,q2
 
   g_ab_dq = 2.0_wp*(   q3_vec*(       xv%NpN       *  (qL1*qR1) &
                                +      xv%BpB       *  (qL2*qR2) )         &
-                    +( q1_vec*        TqNp          &                        
-                      +q2_vec*        TqBp          &                        
+                    +( q1_vec*        TqNp          &
+                      +q2_vec*        TqBp          &
                       +q3_vec*    SUM(Tq*Tq_p)      )*(qL3*qR3)         ) &
                    +   q3_vec*  (     xv%BpN      &
-                                 +    xv%NpB      )*  (qL1*qR2+qL2*qR1)   &  
-                   + ( q1_vec*        xv%NpN        &                        
-                      +q2_vec*        xv%BpN        &                        
-                      +q3_vec*  (     TqNp        &                        
+                                 +    xv%NpB      )*  (qL1*qR2+qL2*qR1)   &
+                   + ( q1_vec*        xv%NpN        &
+                      +q2_vec*        xv%BpN        &
+                      +q3_vec*  (     TqNp        &
                                  +SUM(xv%N *Tq_p) ) )*(qL1*qR3+qL3*qR1)   &
-                   + ( q1_vec*        xv%NpB        &                        
-                      +q2_vec*        xv%BpB        &                        
-                      +q3_vec*  (     TqBp        &                        
+                   + ( q1_vec*        xv%NpB        &
+                      +q2_vec*        xv%BpB        &
+                      +q3_vec*  (     TqBp        &
                                  +SUM(xv%B *Tq_p) ) )*(qL2*qR3+qL3*qR2)
   END SELECT !type(xv)
 END FUNCTION hmap_axisNB_eval_gij_dq_aux
@@ -1188,7 +1188,7 @@ IMPLICIT NONE
   !transform Tp to x,y,z
     Tp = (/(Tp_hat(1)-2*sf%sgn_rot*T_hat(2)-X0_hat(1))*cosz - (sf%sgn_rot*(Tp_hat(2)-X0_hat(2))+2*T_hat(1))*sinz, &
            (Tp_hat(2)+2*sf%sgn_rot*T_hat(1)-X0_hat(2))*cosz + (sf%sgn_rot*(Tp_hat(1)-X0_hat(1))-2*T_hat(2))*sinz , &
-            Tp_hat(3)/) 
+            Tp_hat(3)/)
   END IF
   IF(PRESENT(Npp))THEN
     !transform Npp to x,y,z
@@ -1376,7 +1376,7 @@ IMPLICIT NONE
     END DO; END DO
     END DO !qdir
  END IF !testlevel >=1
- 
+
  IF (testlevel .GE. 2) THEN
     DO idir=1,3
       SELECT CASE(idir)

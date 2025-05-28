@@ -24,9 +24,9 @@ PUBLIC
 ! GLOBAL VARIABLES
   INTEGER                   :: fileID_r,OutputLevel_r
 #ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP),ALLOCATABLE  :: hmap_r            
+  TYPE(PP_T_HMAP),ALLOCATABLE  :: hmap_r
 #else
-  CLASS(PP_T_HMAP),ALLOCATABLE :: hmap_r            
+  CLASS(PP_T_HMAP),ALLOCATABLE :: hmap_r
 #endif
   TYPE(t_sgrid)             :: sgrid_r                !! container for the grid of X1,X2,LA
   CLASS(t_sbase),ALLOCATABLE:: sbase_prof             !! container for base for profiles

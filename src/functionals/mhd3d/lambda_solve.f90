@@ -39,10 +39,10 @@ SUBROUTINE Lambda_solve(spos_in,hmap_in,hmap_xv,X1_base_in,X2_base_in,LA_fbase_i
   CLASS(t_base),INTENT(IN)  :: X1_base_in,X2_base_in           !< base classes belong to solution X1_in,X2_in
   TYPE(t_fbase),INTENT(IN) :: LA_fbase_in                     !< base class belong to solution LA_s
 #ifdef PP_WHICH_HMAP
-  TYPE(PP_T_HMAP), INTENT(IN) :: hmap_in            
+  TYPE(PP_T_HMAP), INTENT(IN) :: hmap_in
   TYPE(PP_T_HMAP_AUXVAR), INTENT(IN) :: hmap_xv(X1_base_in%f%mn_IP)  !< auxiliary variables for hmap, must be pre-computed
 #else
-  CLASS(PP_T_HMAP), INTENT(IN) :: hmap_in            
+  CLASS(PP_T_HMAP), INTENT(IN) :: hmap_in
   CLASS(PP_T_HMAP_AUXVAR), INTENT(IN) :: hmap_xv(X1_base_in%f%mn_IP)  !< auxiliary variables for hmap, must be pre-computed
 #endif
   REAL(wp)     , INTENT(IN) :: spos_in                  !! s position to evaluate lambda
@@ -62,7 +62,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
   REAL(wp),DIMENSION(1:X1_base_in%f%mn_IP) :: X1_s_IP,dX1ds,dX1dthet,dX1dzeta, & !mn_IP should be same for all!
                                               X2_s_IP,dX2ds,dX2dthet,dX2dzeta, &
                                               detJ,gam_tt,gam_tz,gam_zz
-  
+
 !===================================================================================================================================
   __PERFON('lambda_solve')
 
@@ -105,7 +105,7 @@ REAL(wp)     , INTENT(  OUT) :: LA_s(1:LA_fbase_in%modes) !! lambda at spos
   dX2ds    = X2_base_in%f%evalDOF_IP(         0,X2_ds)
   dX2dthet = X2_base_in%f%evalDOF_IP(DERIV_THET,X2_s )
   dX2dzeta = X2_base_in%f%evalDOF_IP(DERIV_ZETA,X2_s )
- 
+
 
 
 !$OMP PARALLEL DO        &

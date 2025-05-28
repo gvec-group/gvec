@@ -268,7 +268,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
   !$OMP   SHARED(sf,mn_IP,dX1ds_IP,dX2ds_IP,dX1dthet,dX2dthet,dX1dzeta,dX2dzeta,X1_IP,X2_IP,gam_tt,gam_tz,gam_zz)
       !evaluate metrics on (theta,zeta)
       DO i_mn=1,mn_IP
-        
+
         detJ        =  ( dX1ds_IP(i_mn)*dX2dthet(i_mn) -dX2ds_IP(i_mn)*dX1dthet(i_mn) ) &
                      * sf%hmap%eval_Jh_aux(X1_IP(i_mn),X2_IP(i_mn),sf%hmap_xv(i_mn)) !Jp*Jh
         gam_tt(i_mn)  = sf%hmap%eval_gij_aux(dX1dthet(i_mn),dX2dthet(i_mn),0.0_wp, &

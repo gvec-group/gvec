@@ -52,7 +52,7 @@
 #  define __PERFOUT(a)
 #endif
 
-! if cmake option GVEC_FIX_HMAP is not off, sets PP_WHICH_HMAP 
+! if cmake option GVEC_FIX_HMAP is not off, sets PP_WHICH_HMAP
 #if defined(PP_WHICH_HMAP)
 #  if PP_WHICH_HMAP == 1
 #    define  PP_MOD_HMAP MODgvec_hmap_RZ

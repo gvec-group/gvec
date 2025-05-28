@@ -21,7 +21,7 @@ CONTAINS
 !================================================================================================================================!
 SUBROUTINE Init(parameterfile)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
   USE MODgvec_MHD3D_vars,     ONLY: X1_base
   USE MODgvec_Analyze,        ONLY: InitAnalyze
   USE MODgvec_Output,         ONLY: InitOutput
@@ -34,9 +34,9 @@ SUBROUTINE Init(parameterfile)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: which_functional
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  WRITE(Unit_stdOut,'(132("="))')
-  WRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
-  WRITE(Unit_stdOut,'(132("="))')
+  SWRITE(Unit_stdOut,'(132("="))')
+  SWRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
+  SWRITE(Unit_stdOut,'(132("="))')
   !.only executes if compiled with OpenMP
 !$ SWRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
 !$ SWRITE(Unit_stdOut,'(132("="))')
@@ -465,7 +465,7 @@ SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, 
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
     coord( :,i) = hmap%eval_aux(     X1(i),X2(i), hmap_xv(i))
     e_s(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), dX1_ds(   i),dX2_ds(   i),0.0_wp, hmap_xv(i))
@@ -498,7 +498,7 @@ SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
     pos(    :,i) = hmap%eval_aux(     X1(i),X2(i),                         hmap_xv(i))
     e_X1(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), 1.0_wp, 0.0_wp, 0.0_wp, hmap_xv(i))
@@ -542,7 +542,7 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
+    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
 #define Q1Q2     X1(i),X2(i)
 #define dQ_ds    dX1_ds(i),dX2_ds(i),0.0_wp
@@ -566,10 +566,10 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
     !g_ss
     dg_ss_ds(i) = 2*hmap%eval_gij_aux(   ddQ_dss,  Q1Q2,  dQ_ds         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_ds ,  dQ_ds,  hmap_xv(i))
-    
+
     dg_ss_dt(i) = 2*hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_ds         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_ds ,  dQ_dt,  hmap_xv(i))
-    
+
     dg_ss_dz(i) = 2*hmap%eval_gij_aux(   ddQ_dsz,  Q1Q2,  dQ_ds         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_ds ,  dQ_dz,  hmap_xv(i))
 
@@ -589,26 +589,26 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
     !g_sz
     dg_sz_ds(i) =   hmap%eval_gij_aux(   ddQ_dss,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
                    +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dsz        ,  hmap_xv(i)) &
-                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_ds,  hmap_xv(i))   
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_ds,  hmap_xv(i))
 
     dg_sz_dt(i) =   hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
                    +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dtz        ,  hmap_xv(i)) &
-                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_dt,  hmap_xv(i))       
-                   
+                   +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_dt,  hmap_xv(i))
+
     dg_sz_dz(i) =   hmap%eval_gij_aux(   ddQ_dsz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
                    +hmap%eval_gij_aux(    dQ_ds ,  Q1Q2, ddQ_dzz        ,  hmap_xv(i)) &
                    +hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_dz ,  dQ_dz,  hmap_xv(i))
     !g_tt
     dg_tt_ds(i) = 2*hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dt ,  dQ_ds,  hmap_xv(i))
-    
+
     dg_tt_dt(i) = 2*hmap%eval_gij_aux(   ddQ_dtt,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dt ,  dQ_dt,  hmap_xv(i))
 
     dg_tt_dz(i) = 2*hmap%eval_gij_aux(   ddQ_dtz,  Q1Q2,  dQ_dt         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dt ,  dQ_dz,  hmap_xv(i))
 
-    ! g_tz 
+    ! g_tz
     dg_tz_ds(i) =   hmap%eval_gij_aux(   ddQ_dst,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
                    +hmap%eval_gij_aux(    dQ_dt ,  Q1Q2, ddQ_dsz        ,  hmap_xv(i)) &
                    +hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dz ,  dQ_ds,  hmap_xv(i))
@@ -620,10 +620,10 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
     dg_tz_dz(i) =   hmap%eval_gij_aux(   ddQ_dtz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
                    +hmap%eval_gij_aux(    dQ_dt ,  Q1Q2, ddQ_dzz        ,  hmap_xv(i)) &
                    +hmap%eval_gij_dq_aux( dQ_dt ,  Q1Q2,  dQ_dz ,  dQ_dz,  hmap_xv(i))
-    !g_zz 
+    !g_zz
     dg_zz_ds(i) = 2*hmap%eval_gij_aux(   ddQ_dsz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_dz ,  Q1Q2,  dQ_dz ,  dQ_ds,  hmap_xv(i))
-    
+
     dg_zz_dt(i) = 2*hmap%eval_gij_aux(   ddQ_dtz,  Q1Q2,  dQ_dz         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_dz ,  Q1Q2,  dQ_dz ,  dQ_dt,  hmap_xv(i))
 
@@ -666,7 +666,7 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
-    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i) 
+    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
     Jh(i) = hmap%eval_Jh_aux(     X1(i),X2(i),                             hmap_xv(i))
     dJh_ds  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_ds(i),dX2_ds(i),0.0_wp, hmap_xv(i))
@@ -797,7 +797,7 @@ END SUBROUTINE get_boozer
 SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Qsel, Q, dQ_dthet, dQ_dzeta, &
                                        dQ_dtt, dQ_dtz, dQ_dzz)
   ! MODULES
-  USE MODgvec_Globals,      ONLY: Unit_stdOut,abort
+  USE MODgvec_Globals,      ONLY: abort
   USE MODgvec_fbase,        ONLY: t_fbase
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
@@ -822,8 +822,7 @@ SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Q
       base => sfl_boozer%nu_fbase
       dofs => sfl_boozer%nu
     CASE DEFAULT
-      WRITE(UNIT_stdout,*) 'ERROR: variable', Qsel, 'not recognized'
-      CALL abort(__STAMP__,"")
+      CALL abort(__STAMP__,'ERROR: variable '//TRIM(Qsel)//' not recognized')
   END SELECT
   DO i=1,n_s
     ! there is no radial basis in the Boozer object, so we only select the correct radial position
@@ -842,7 +841,7 @@ END SUBROUTINE evaluate_boozer_list_tz_all
 !================================================================================================================================!
 SUBROUTINE Finalize()
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
   USE MODgvec_Analyze,        ONLY: FinalizeAnalyze
   USE MODgvec_Output,         ONLY: FinalizeOutput
   USE MODgvec_Restart,        ONLY: FinalizeRestart
@@ -858,9 +857,9 @@ SUBROUTINE Finalize()
   CALL FinalizeReadIn()
   initialized = .FALSE.
 
-  WRITE(Unit_stdOut,'(132("="))')
-  WRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
-  WRITE(Unit_stdOut,'(132("="))')
+  SWRITE(Unit_stdOut,'(132("="))')
+  SWRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
+  SWRITE(Unit_stdOut,'(132("="))')
   FLUSH(Unit_stdOut)
 END SUBROUTINE Finalize
 
