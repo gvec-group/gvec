@@ -464,7 +464,7 @@ SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, 
   CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
+  CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.FALSE.) !no second derivative needed
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
     coord( :,i) = hmap%eval_aux(     X1(i),X2(i), hmap_xv(i))
@@ -497,7 +497,7 @@ SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
   CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
+  CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.FALSE.) !no second derivative needed
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
     pos(    :,i) = hmap%eval_aux(     X1(i),X2(i),                         hmap_xv(i))
@@ -541,7 +541,7 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
   CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
+  CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.TRUE.) ! second derivative needed
     !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
 #define Q1Q2     X1(i),X2(i)
@@ -665,7 +665,7 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
   CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
 #endif
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  CALL hmap_new_auxvar(hmap, zeta, hmap_xv)
+  CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.TRUE.) !2nd derivative needed
     !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
     Jh(i) = hmap%eval_Jh_aux(     X1(i),X2(i),                             hmap_xv(i))

@@ -154,12 +154,13 @@ END SUBROUTINE hmap_knot_free
 !> Allocate and initialize auxiliary variable at zeta position.
 !!
 !===================================================================================================================================
-FUNCTION hmap_knot_init_aux( sf,zeta) RESULT(xv)
+FUNCTION hmap_knot_init_aux( sf,zeta,do_2nd_der) RESULT(xv)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_knot),INTENT(IN) :: sf
-  REAL(wp)        ,INTENT(IN) :: zeta
+  REAL(wp)          ,INTENT(IN) :: zeta
+  LOGICAL           ,INTENT(IN) :: do_2nd_der !! compute second derivative and store second derivative terms
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   TYPE(t_hmap_knot_auxvar)::xv
@@ -167,6 +168,7 @@ FUNCTION hmap_knot_init_aux( sf,zeta) RESULT(xv)
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
+  xv%do_2nd_der=do_2nd_der
   xv%zeta=zeta
 END FUNCTION hmap_knot_init_aux
 
@@ -622,7 +624,7 @@ USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,
       ALLOCATE(zeta(ndims(idir)),xv(ndims(idir)))
       DO izeta=1,ndims(idir)
         zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
-        xv(izeta)=hmap_knot_init_aux(sf,zeta(izeta))
+        xv(izeta)=hmap_knot_init_aux(sf,zeta(izeta),.TRUE.)
       END DO
       ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
       ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &

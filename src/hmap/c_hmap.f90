@@ -60,6 +60,7 @@ END TYPE c_hmap
 
 TYPE :: c_hmap_auxvar
   REAL(wp) :: zeta
+  LOGICAL  :: do_2nd_der
 END TYPE c_hmap_auxvar
 
 

@@ -371,13 +371,14 @@ END SUBROUTINE VisuFrenet
 !> initialize the aux variable
 !!
 !===================================================================================================================================
-FUNCTION hmap_frenet_init_aux( sf ,zeta) RESULT(xv)
+FUNCTION hmap_frenet_init_aux( sf ,zeta,do_2nd_der) RESULT(xv)
 ! MODULES
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
   CLASS(t_hmap_frenet),INTENT(IN) :: sf !! self
   REAL(wp)            ,INTENT(IN) :: zeta
+  LOGICAL             ,INTENT(IN) :: do_2nd_der !! compute second derivative and store second derivative terms
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   TYPE(t_hmap_frenet_auxvar)      :: xv
@@ -386,8 +387,13 @@ FUNCTION hmap_frenet_init_aux( sf ,zeta) RESULT(xv)
   REAL(wp),DIMENSION(3) :: X0p,X0pp,X0ppp,X0p4,Bloc
   REAL(wp)  :: absB,absB_p
 !===================================================================================================================================
+  xv%do_2nd_der=do_2nd_der
   xv%zeta = zeta
-  CALL sf%eval_X0(zeta, xv%X0, X0p, X0pp, X0ppp,X0p4=X0p4)
+  IF(xv%do_2nd_der)THEN
+    CALL sf%eval_X0(zeta, xv%X0, X0p, X0pp, X0ppp,X0p4=X0p4)
+  ELSE
+    CALL sf%eval_X0(zeta, xv%X0, X0p, X0pp, X0ppp)
+  END IF
 
   xv%lp = SQRT(SUM(X0p*X0p))
   xv%T = X0p / xv%lp
@@ -402,10 +408,12 @@ FUNCTION hmap_frenet_init_aux( sf ,zeta) RESULT(xv)
   xv%B = Bloc / absB
   xv%N = CROSS(xv%B, xv%T)
 
-  xv%lp_p = SUM(X0pp*X0p) / xv%lp
-  absB_p = SUM(Bloc*CROSS(X0p, X0ppp)) / absB
-  xv%kappa_p = (absB_p*xv%lp -3*absB * xv%lp_p) / (xv%lp**4)
-  xv%tau_p   = (SUM(X0p4*Bloc)*absB -2*SUM(X0ppp*Bloc)*absB_p) / (absB**3)
+  IF(xv%do_2nd_der)THEN
+    xv%lp_p = SUM(X0pp*X0p) / xv%lp
+    absB_p = SUM(Bloc*CROSS(X0p, X0ppp)) / absB
+    xv%kappa_p = (absB_p*xv%lp -3*absB * xv%lp_p) / (xv%lp**4)
+    xv%tau_p   = (SUM(X0p4*Bloc)*absB -2*SUM(X0ppp*Bloc)*absB_p) / (absB**3)
+  END IF
 
   END FUNCTION hmap_frenet_init_aux
 
@@ -821,6 +829,8 @@ END FUNCTION hmap_frenet_eval_Jh_dq
 !===================================================================================================================================
 !> evaluate derivative of Jacobian of mapping h: sum_k q_vec^k * dJ_h/dq^k, k=1,2,3 at q=(q^1,q^2,zeta)
 !!
+!! NOTE: needs auxvar with do_2nd_der=.TRUE.!! not checked for performance reasons.
+!!
 !===================================================================================================================================
 FUNCTION hmap_frenet_eval_Jh_dq_aux( sf ,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(Jh_dq)
 ! MODULES
@@ -836,6 +846,7 @@ IMPLICIT NONE
   REAL(wp)                         :: Jh_dq
 !===================================================================================================================================
   SELECT TYPE(xv); TYPE IS(t_hmap_frenet_auxvar)
+
   Jh_dq=-xv%lp*xv%sigma*xv%kappa*q1_vec + (xv%lp_p-xv%sigma*q1*(xv%lp_p*xv%kappa+xv%lp*xv%kappa_p))*q3_vec
   END SELECT !type(xv)
 END FUNCTION hmap_frenet_eval_Jh_dq_aux
@@ -980,6 +991,8 @@ END FUNCTION hmap_frenet_eval_gij_dq
 !! where qL=(dX^1/dalpha,dX^2/dalpha [,dzeta/dalpha]) and qR=(dX^1/dbeta,dX^2/dbeta [,dzeta/dbeta]) and
 !! where qL=(dX^1/dalpha,dX^2/dalpha ,dzeta/dalpha) and qR=(dX^1/dbeta,dX^2/dbeta ,dzeta/dbeta) and
 !! dzeta_dalpha then known to be either 0 of ds and dtheta and 1 for dzeta
+!!
+!! NOTE: needs auxvar with do_2nd_der=.TRUE.!! not checked for performance reasons.
 !!
 !===================================================================================================================================
 FUNCTION hmap_frenet_eval_gij_dq_aux( sf ,qL1,qL2,qL3,q1,q2,qR1,qR2,qR3,q1_vec,q2_vec,q3_vec,xv) RESULT(g_ab_dq)
@@ -1253,7 +1266,7 @@ IMPLICIT NONE
     ALLOCATE(zeta(ndims(idir)),xv(ndims(idir)))
     DO izeta=1,ndims(idir)
       zeta(izeta)=0.333_wp+REAL(izeta-1,wp)/REAL(ndims(idir)-1,wp)*0.221_wp
-      xv(izeta)=hmap_frenet_init_aux(sf,zeta(izeta))
+      xv(izeta)=hmap_frenet_init_aux(sf,zeta(izeta),.TRUE.)
     END DO
     ALLOCATE(q1(ndims(1),ndims(2),ndims(3)))
     ALLOCATE(q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz,Jh,g_tt,g_tz,g_zz,Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1,Jh_dq2,g_tt_dq2,g_tz_dq2,g_zz_dq2,g_t1,g_t2,g_z1,g_z2,Gh11,Gh22, &

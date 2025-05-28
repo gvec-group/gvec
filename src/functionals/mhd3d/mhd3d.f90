@@ -260,7 +260,7 @@ SUBROUTINE InitMHD3D(sf)
   CALL base_new(X2_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X2_mn_max,mn_nyq,nfp_loc,X2_sin_cos,.FALSE.)
   CALL base_new(LA_base  ,   LA_deg,  LA_cont,sgrid,degGP , LA_mn_max,mn_nyq,nfp_loc,LA_sin_cos,.TRUE. )
 
-  CALL hmap_new_auxvar(hmap,X1_base%f%zeta_IP,hmap_auxvar)
+  CALL hmap_new_auxvar(hmap,X1_base%f%zeta_IP,hmap_auxvar,.FALSE.) !no second derivative needed!
 
   IF((which_init.EQ.1).AND.MPIroot) THEN !VMEC
     IF(lasym)THEN
@@ -995,7 +995,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
 
-  CALL hmap_new_auxvar(hmap,X1_base%f%x_IP(2,:),hmap_xv)
+  CALL hmap_new_auxvar(hmap,X1_base%f%x_IP(2,:),hmap_xv,.FALSE.) !no 2nd derivative needed
   DO is=ns_str,ns_end
     rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4_wp,s_IP(is))) !exclude axis
     CALL lambda_Solve(rhopos,hmap,hmap_xv,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))

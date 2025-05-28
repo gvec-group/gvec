@@ -355,7 +355,11 @@ IMPLICIT NONE
     zeta(i_n)=TWOPI*(minmax(3,0)+(minmax(3,1)-minmax(3,0))*REAL(i_n-1,wp)/REAL(mn_IP(2)-1,wp))
   END DO
 
-  CALL hmap_new_auxvar(hmap,zeta,hmap_xv)
+#ifdef VISU_J_EXACT
+  CALL hmap_new_auxvar(hmap,zeta,hmap_xv,.TRUE.)
+#else
+  CALL hmap_new_auxvar(hmap,zeta,hmap_xv,.FALSE.) ! no 2nd derivatives needed
+#endif
 
   nElems=sgrid%nElems
   DO iElem=1,nElems
@@ -1190,9 +1194,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     END SELECT
 
     !auxvariables for hmap
-    CALL hmap_new_auxvar(hmap,RESHAPE(tz_pos(2,:,:,:),(/Nthet_out*Nzeta_out*SFLout_nrp/)),hmap_xv1d)
+    CALL hmap_new_auxvar(hmap,RESHAPE(tz_pos(2,:,:,:),(/Nthet_out*Nzeta_out*SFLout_nrp/)),hmap_xv1d,.FALSE.) !no 2nd derivative needed!
 
-WRITE(*,*)'DEBUG NVHPC 1'
     hmap_xv(1:Nthet_out,1:Nzeta_out,1:SFLout_nrp)=>hmap_xv1d(1:Nthet_out*Nzeta_out*SFLout_nrp)
 
     ALLOCATE(coord_out(3,Nthet_out,Nzeta_out,SFLout_nrp),var_out(nVal,Nthet_out,Nzeta_out,SFLout_nrp))
@@ -1340,10 +1343,8 @@ WRITE(*,*)'DEBUG NVHPC 1'
       DEALLOCATE(LA_s)
     END IF
 
-WRITE(*,*)'DEBUG NVHPC 2'
     NULLIFY(hmap_xv)
     DEALLOCATE(hmap_xv1d)
-WRITE(*,*)'DEBUG NVHPC 3'
 
     IF((outfileType.EQ.1).OR.(outfileType.EQ.12))THEN
      CALL WriteDataToVTK(3,3,nVal,(/Nthet_out-1,Nzeta_out-1,SFLout_nrp-1/),1,VarNames, &

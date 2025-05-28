@@ -103,7 +103,7 @@ END SUBROUTINE hmap_new
 !> initialize the  hmap auxiliary variables, depends on hmap type
 !!
 !===================================================================================================================================
-SUBROUTINE hmap_new_auxvar(hmap,zeta,xv)
+SUBROUTINE hmap_new_auxvar(hmap,zeta,xv,do_2nd_der)
 ! MODULES
 USE MODgvec_Globals   , ONLY: abort,wp
 IMPLICIT NONE
@@ -115,6 +115,7 @@ IMPLICIT NONE
   CLASS(c_hmap),  INTENT(IN) :: hmap
 #endif
   REAL(wp)     ,  INTENT(IN) :: zeta(:)
+  LOGICAL      ,  INTENT(IN) :: do_2nd_der
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 #ifdef PP_WHICH_HMAP
@@ -134,7 +135,7 @@ IMPLICIT NONE
   !$OMP PARALLEL DO &
   !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,nzeta
-    xv(i)= PP_T_HMAP_AUXVAR(hmap,zeta(i))
+    xv(i)= PP_T_HMAP_AUXVAR(hmap,zeta(i),do_2nd_der)
   END DO !i
   !$OMP END PARALLEL DO
 
@@ -148,7 +149,7 @@ IMPLICIT NONE
       !$OMP PARALLEL DO &
       !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
       DO i=1,nzeta
-        xv(i)= t_hmap_RZ_auxvar(hmap,zeta(i))
+        xv(i)= t_hmap_RZ_auxvar(hmap,zeta(i),do_2nd_der)
       END DO !i
       !$OMP END PARALLEL DO
     END SELECT !TYPE(xv)
@@ -159,7 +160,7 @@ IMPLICIT NONE
       !$OMP PARALLEL DO &
       !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
       DO i=1,nzeta
-        xv(i)= t_hmap_cyl_auxvar(hmap,zeta(i))
+        xv(i)= t_hmap_cyl_auxvar(hmap,zeta(i),do_2nd_der)
       END DO !i
       !$OMP END PARALLEL DO
     END SELECT !TYPE(xv)
@@ -170,7 +171,7 @@ IMPLICIT NONE
       !$OMP PARALLEL DO &
       !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
       DO i=1,nzeta
-        xv(i)= t_hmap_knot_auxvar(hmap,zeta(i))
+        xv(i)= t_hmap_knot_auxvar(hmap,zeta(i),do_2nd_der)
       END DO !i
       !$OMP END PARALLEL DO
     END SELECT !TYPE(xv)
@@ -181,7 +182,7 @@ IMPLICIT NONE
       !$OMP PARALLEL DO &
       !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
       DO i=1,nzeta
-        xv(i)= t_hmap_frenet_auxvar(hmap,zeta(i))
+        xv(i)= t_hmap_frenet_auxvar(hmap,zeta(i),do_2nd_der)
       END DO !i
       !$OMP END PARALLEL DO
     END SELECT !TYPE(xv)
@@ -192,7 +193,7 @@ IMPLICIT NONE
       !$OMP PARALLEL DO &
       !$OMP   SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
       DO i=1,nzeta
-        xv(i)= t_hmap_axisNB_auxvar(hmap,zeta(i))
+        xv(i)= t_hmap_axisNB_auxvar(hmap,zeta(i),do_2nd_der)
       END DO !i
       !$OMP END PARALLEL DO
     END SELECT !TYPE(xv)
