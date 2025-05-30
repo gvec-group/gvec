@@ -977,7 +977,7 @@ include:
       build-postfix: _tag
       run-postfix: _tag
       post-postfix: _tag
-      vars: .vars_matrix_post
+      vars: .vars_matrix_post_tag
       rules: .rules_minimal
       allow_failure: true
 
@@ -1625,12 +1625,12 @@ include:
 .vars_matrix_run_hmap_RZ:
   extends: .vars_matrix_run
   variables:
-        PYTEST_KEY_OPTS: "(not frenet) and (not hmap_knot) and (not hmap_cyl)"
+        PYTEST_KEY_OPTS: "(not frenet) and (not axisNB) and (not hmap_knot) and (not hmap_cyl)"
 
 .vars_matrix_run_hmap_axisNB:
   extends: .vars_matrix_run
   variables:
-        PYTEST_KEY_OPTS: "frenet_axisNB"
+        PYTEST_KEY_OPTS: "axisNB"
 
 # debug-runs: via pytest
 .vars_matrix_run_debugrun:
@@ -1644,14 +1644,14 @@ include:
   extends: .vars_matrix_run
   variables:
     PYTEST_MARKER_OPTS: "debugrun"
-    PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec) and (not frenet) and (not hmap_knot) and (not hmap_cyl)"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec) and (not frenet) and (not axisNB) and (not hmap_knot) and (not hmap_cyl)"
 
 # debug-runs: via pytest
 .vars_matrix_run_debugrun_hmap_axisNB:
   extends: .vars_matrix_run
   variables:
     PYTEST_MARKER_OPTS: "debugrun"
-    PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec) and (frenet_axisNB)"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec) and (axisNB)"
 
 
 # there are different issues with MPI_RNKS>4 in both runners
@@ -1780,6 +1780,11 @@ include:
     matrix:
       - CMP_MODE: ["Debug","Release"]
         OMP_MODE: ["ompON"]
+
+.vars_matrix_post_tag:
+  extends: .vars_matrix_post
+  variables:
+    HASH_TAG: ${HASH_TAG_REFERENCE}
 
 .vars_matrix_conv:
   variables:
