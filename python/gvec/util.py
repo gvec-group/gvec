@@ -475,7 +475,7 @@ def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Flatten parameters from a hierarchical dictionary"""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
-        if key.lower() in ["stages", "itor"]:
+        if key.lower() in ["stages", "i_tor", "picard_current", "totaliter"]:
             continue  # not supported by fortran-GVEC
         elif isinstance(value, dict) and not re.match(
             r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()
