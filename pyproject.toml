@@ -127,6 +127,9 @@ markers = [
     "pygvec: mark test that are related to the python bindings",
 ]
 
+[tool.ruff]
+line-length = 96
+
 [tool.ruff.lint.per-file-ignores]
 "test_*.py" = ["F841"]
 "*.py" = ["F401"]
