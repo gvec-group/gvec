@@ -1022,8 +1022,8 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
     iVal=1
     VP_rho        =iVal;iVal=iVal+1; VarNames(VP_rho      )="rho"
     VP_iota       =iVal;iVal=iVal+1; VarNames(VP_iota     )="iota"
-    VP_Itor       =iVal;iVal=iVal+1; VarNames(VP_Itor     )="Itor"
-    VP_Ipol       =iVal;iVal=iVal+1; VarNames(VP_Ipol     )="Ipol"
+    VP_Itor       =iVal;iVal=iVal+1; VarNames(VP_Itor     )="I_tor"
+    VP_Ipol       =iVal;iVal=iVal+1; VarNames(VP_Ipol     )="I_pol"
     VP_thetastar  =iVal;iVal=iVal+1; VarNames(VP_thetastar)="theta"//angle_suffix
     VP_zetastar   =iVal;iVal=iVal+1; VarNames(VP_zetastar )="zeta"//angle_suffix
     VP_theta      =iVal;iVal=iVal+1; VarNames(VP_theta    )="theta"

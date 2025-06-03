@@ -471,9 +471,10 @@ class State:
     def get_boozer(
         self,
         rho: np.ndarray,
+        MNfactor: int = 5,
+        *,
         M: int | None = None,
         N: int | None = None,
-        *,
         M_nyq: int | None = None,
         N_nyq: int | None = None,
         sincos: Literal["sin", "cos", "sincos"] = "sin",
@@ -484,12 +485,15 @@ class State:
 
         Parameters
         ----------
+        rho
+            Array of (radius-like) flux surface labels.
+        MNfactor
+            Multiplication factor between the maximum M, N of the equilbrium and the maximum M, N of the Boozer potential.
+            Only used if M, N are not explicitly given.
         M
             Number of poloidal nodes of the Boozer potential :math:`\nu_B`. Defaults to the maximum number of nodes of the basis.
         N
             Number of toroidal nodes of the Boozer potential :math:`\nu_B`. Defaults to the maximum number of nodes of the basis.
-        rho
-            Array of (radius-like) flux surface labels.
 
         Returns
         -------
@@ -497,13 +501,13 @@ class State:
             Straight-fieldline Boozer object (wrapped Fortran object).
         """
         # --- Defaults --- #
-        M_LA, N_LA = self.get_mn_max("LA")
+        M_max, N_max = self.get_mn_max()
         _, M_nyq_LA, N_nyq_LA = _post.get_integration_points_num("LA")
 
         if M is None:
-            M = 2 * M_LA
+            M = MNfactor * M_max
         if N is None:
-            N = 2 * N_LA
+            N = MNfactor * N_max
         if M_nyq is None:
             M_nyq = max(4 * M + 1, M_nyq_LA)
         if N_nyq is None:
@@ -512,9 +516,9 @@ class State:
         # --- Argument Handling --- #
         if not isinstance(M, int) or not isinstance(N, int) or M < 0 or N < 0:
             raise ValueError("M and N must be non-negative integers (or None).")
-        if M < M_LA or N < N_LA:
+        if M < M_max or N < N_max:
             raise ValueError(
-                f"The number of poloidal and toroidal nodes for the Boozer potential must be equal or larger to those of the original lambda: ({M}, {N}) < ({M_LA}, {N_LA})"
+                f"The number of poloidal and toroidal nodes for the Boozer potential must be equal or larger to those of the original lambda: ({M}, {N}) < ({M_max}, {N_max})"
             )
         if (
             not isinstance(M_nyq, int)
