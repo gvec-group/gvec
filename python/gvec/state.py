@@ -35,9 +35,7 @@ def _evaluate_1D_factory(
     func: callable, argnames: Iterable[str], n_out: int, vector_out: bool = False
 ):
     params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)] + [
-        inspect.Parameter(
-            name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=np.ndarray
-        )
+        inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=np.ndarray)
         for name in argnames
     ]
     returns = tuple[tuple(np.ndarray for _ in range(n_out))]
@@ -57,9 +55,7 @@ def _evaluate_1D_factory(
                 raise ValueError("All arguments must be 1D arrays of the same size.")
 
         if vector_out:
-            outputs = [
-                np.zeros((3, n), dtype=np.float64, order="F") for _ in range(n_out)
-            ]
+            outputs = [np.zeros((3, n), dtype=np.float64, order="F") for _ in range(n_out)]
         else:
             outputs = [np.zeros(n, dtype=np.float64) for _ in range(n_out)]
         func(n, *inputs, *outputs)
@@ -161,9 +157,7 @@ class State:
             + ",".join(
                 [
                     "initialized" if self.initialized else "finalized",
-                    self.parameterfile.name
-                    if self.parameterfile is not None
-                    else "None",
+                    self.parameterfile.name if self.parameterfile is not None else "None",
                     self.statefile.name if self.statefile is not None else "None",
                 ]
             )
@@ -189,9 +183,7 @@ class State:
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
-            raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
-            )
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'.")
 
         r_n, t_n, z_n = _post.get_integration_points_num(quantity)
         r_GP, r_w = (np.zeros(r_n, dtype=np.float64) for _ in range(2))
@@ -203,9 +195,7 @@ class State:
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA", "all"]:
-            raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
-            )
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'.")
 
         if quantity == "all":
             m, n = zip(*[self.get_mn_max(q) for q in ["X1", "X2", "LA"]])
@@ -225,9 +215,7 @@ class State:
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
-            raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
-            )
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'.")
         if derivs is not None:
             if not isinstance(derivs, str):
                 raise ValueError("Derivatives must be a string.")
@@ -246,9 +234,7 @@ class State:
         if rho.max() > 1.0 or rho.min() < 0.0:
             raise ValueError("rho must be in the range [0, 1].")
 
-        result = np.zeros(
-            (rho.size, theta.size, zeta.size), dtype=np.float64, order="F"
-        )
+        result = np.zeros((rho.size, theta.size, zeta.size), dtype=np.float64, order="F")
         _post.evaluate_base_tens(rho, theta, zeta, quantity, *sel_derivs, result)
         return result
 
@@ -259,9 +245,7 @@ class State:
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
-            raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
-            )
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'.")
         if derivs is not None:
             if not isinstance(derivs, str):
                 raise ValueError("Derivatives must be a string.")
@@ -288,15 +272,11 @@ class State:
         return result
 
     @_assert_init
-    def evaluate_base_list_tz_all(
-        self, quantity: str, rho: np.ndarray, thetazeta: np.ndarray
-    ):
+    def evaluate_base_list_tz_all(self, quantity: str, rho: np.ndarray, thetazeta: np.ndarray):
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
-            raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
-            )
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'.")
 
         rho = np.asfortranarray(rho, dtype=np.float64)
         thetazeta = np.asfortranarray(thetazeta, dtype=np.float64)
@@ -325,9 +305,7 @@ class State:
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["X1", "X2", "LA"]:
-            raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'."
-            )
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'.")
 
         rho = np.asfortranarray(rho, dtype=np.float64)
         theta = np.asfortranarray(theta, dtype=np.float64)
@@ -371,11 +349,7 @@ class State:
             "X2",
             "zeta",
         ]
-        + [
-            f"d{Q}_d{i}"
-            for i in "r t z rr rt rz tt tz zz".split()
-            for Q in ["X1", "X2"]
-        ],
+        + [f"d{Q}_d{i}" for i in "r t z rr rt rz tt tz zz".split() for Q in ["X1", "X2"]],
         24,
     )  # -> g_rr, g_rt ... g_zz, dg_rr_dr, dg_rt_dr ... dg_zz_dz
 
@@ -554,12 +528,13 @@ class State:
 
     @_assert_init
     def get_boozer_angles(
-        self, sfl_boozer: lib.Modgvec_Sfl_Boozer.t_sfl_boozer, tz_list: np.ndarray
+        self,
+        sfl_boozer: lib.Modgvec_Sfl_Boozer.t_sfl_boozer,
+        tz_list: np.ndarray,
+        rad: int | None = None,
     ):
         if not isinstance(sfl_boozer, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
-            raise ValueError(
-                f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
-            )
+            raise ValueError(f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`.")
         if sfl_boozer not in self._children:
             raise ValueError(
                 f"Boozer object {sfl_boozer!r} is not known to the state {self!r}."
@@ -571,10 +546,19 @@ class State:
         if tz_list.ndim != 2 or tz_list.shape[0] != 2:
             raise ValueError("thetazeta must be a 2D array with shape (2, n).")
 
-        tz_out = np.ndarray(
-            (2, tz_list.shape[1], sfl_boozer.nrho), dtype=np.float64, order="F"
-        )
-        sfl_boozer.find_angles(tz_list.shape[1], tz_list, tz_out)
+        if rad is None:  # find angles on all surfaces
+            tz_out = np.ndarray(
+                (2, tz_list.shape[1], sfl_boozer.nrho), dtype=np.float64, order="F"
+            )
+            sfl_boozer.find_angles(tz_list.shape[1], tz_list, tz_out)
+        else:  # find angles on a specific surface
+            if rad not in range(sfl_boozer.nrho):
+                raise ValueError(
+                    f"rad must be in the range [0, {sfl_boozer.nrho - 1}], got {rad}."
+                )
+            irho = rad + 1  # 1-indexed
+            tz_out = np.ndarray((2, tz_list.shape[1]), dtype=np.float64, order="F")
+            sfl_boozer.find_angles_irho(irho, tz_list.shape[1], tz_list, tz_out)
         return tz_out
 
     @_assert_init
@@ -588,13 +572,9 @@ class State:
         if not isinstance(quantity, str):
             raise ValueError("Quantity must be a string.")
         elif quantity not in ["LA", "NU"]:
-            raise ValueError(
-                f"Unknown quantity: {quantity}, expected one of 'LA', 'NU'."
-            )
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'LA', 'NU'.")
         if not isinstance(sfl_boozer, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
-            raise ValueError(
-                f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`."
-            )
+            raise ValueError(f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`.")
         if sfl_boozer not in self._children:
             raise ValueError(
                 f"Boozer object {sfl_boozer!r} is not known to the state {self!r}."

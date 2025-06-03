@@ -40,6 +40,7 @@ TYPE :: t_sfl_boozer
   PROCEDURE :: get_boozer  => get_boozer_sinterp
   PROCEDURE :: free        => sfl_boozer_free
   PROCEDURE :: find_angles => self_find_boozer_angles
+  PROCEDURE :: find_angles_irho => self_find_boozer_angles_irho
 END TYPE t_sfl_boozer
 
 
@@ -388,6 +389,28 @@ SUBROUTINE self_find_boozer_angles(sf,tz_dim,tz_boozer,thetzeta_out)
 !===================================================================================================================================
   CALL find_boozer_angles(sf%nrho,sf%iota,sf%nu_fbase,sf%lambda,sf%nu,tz_dim,tz_boozer,thetzeta_out)
 END SUBROUTINE self_find_boozer_angles
+
+
+!===================================================================================================================================
+!> interface to find_boozer_angles from the class t_sfl_boozer
+!!
+!===================================================================================================================================
+SUBROUTINE self_find_boozer_angles_irho(sf,irho,tz_dim,tz_boozer,thetzeta_out)
+  ! MODULES
+  IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+  CLASS(t_sfl_boozer), INTENT(IN) :: sf
+  INTEGER             ,INTENT(IN) :: irho                !< index of the flux surface to find boozer angles on, within 1:nrho
+  INTEGER             ,INTENT(IN) :: tz_dim              !< size of the list of in thetstar,zetastar
+  REAL(wp)            ,INTENT(IN) :: tz_boozer(2,tz_dim) !< theta,zeta positions in boozer angle (same for all rho)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+  REAL(wp)  ,INTENT(OUT)   :: thetzeta_out(2,tz_dim)     !< theta,zeta position in original angles, for given boozer angles
+!===================================================================================================================================
+  CALL find_boozer_angles(1,sf%iota(irho:irho),sf%nu_fbase,sf%lambda(:,irho:irho),sf%nu(:,irho:irho),tz_dim,tz_boozer,thetzeta_out)
+END SUBROUTINE self_find_boozer_angles_irho
+
 
 !===================================================================================================================================
 !> on one flux surface, find for an given list of  (thet*_j,zeta*_j), the corresponding (thet_j,zeta_j) positions, given

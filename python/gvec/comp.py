@@ -90,10 +90,7 @@ def register(
     """
 
     def _register(
-        func: (
-            Callable[[xr.Dataset], xr.Dataset]
-            | Callable[[xr.Dataset, State], xr.Dataset]
-        ),
+        func: (Callable[[xr.Dataset], xr.Dataset] | Callable[[xr.Dataset, State], xr.Dataset]),
     ):
         nonlocal quantities, requirements, integration, attrs
         if quantities is None:
@@ -204,9 +201,7 @@ def compute(
                     f"Unsupported integration coordinates for auxiliary dataset: {auxcoords}"
                 )
             rho = "int" if "rho" in auxcoords else ev.rho if "rho" in ev else None
-            theta = (
-                "int" if "theta" in auxcoords else ev.theta if "theta" in ev else None
-            )
+            theta = "int" if "theta" in auxcoords else ev.theta if "theta" in ev else None
             zeta = "int" if "zeta" in auxcoords else ev.zeta if "zeta" in ev else None
             obj = Evaluations(rho=rho, theta=theta, zeta=zeta, state=state)
         else:
@@ -266,16 +261,8 @@ def Evaluations(
         case str() if rho == "int":
             if state is None:
                 raise ValueError("Integration points require a state object.")
-            if any(
-                [
-                    not np.allclose(intp[0][j], intp[i][j])
-                    for i in (1, 2)
-                    for j in (0, 1)
-                ]
-            ):
-                raise ValueError(
-                    "Integration points for rho do not align for X1, X2 and LA."
-                )
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (0, 1)]):
+                raise ValueError("Integration points for rho do not align for X1, X2 and LA.")
             coords["rho"] = ("rad", intp[0][0])
             coords["rad_weight"] = ("rad", intp[0][1])
         case np.ndarray() | Sequence():
@@ -295,16 +282,8 @@ def Evaluations(
         case str() if theta == "int":
             if state is None:
                 raise ValueError("Integration points require a state object.")
-            if any(
-                [
-                    not np.allclose(intp[0][j], intp[i][j])
-                    for i in (1, 2)
-                    for j in (2, 3)
-                ]
-            ):
-                raise ValueError(
-                    "Integration points for theta do not align for X1, X2 and LA."
-                )
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (2, 3)]):
+                raise ValueError("Integration points for theta do not align for X1, X2 and LA.")
             coords["theta"] = (
                 "pol",
                 np.linspace(0, 2 * np.pi, intp[0][2], endpoint=False),
@@ -324,16 +303,8 @@ def Evaluations(
         case str() if zeta == "int":
             if state is None:
                 raise ValueError("Integration points require a state object.")
-            if any(
-                [
-                    not np.allclose(intp[0][j], intp[i][j])
-                    for i in (1, 2)
-                    for j in (4, 5)
-                ]
-            ):
-                raise ValueError(
-                    "Integration points for zeta do not align for X1, X2 and LA."
-                )
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (4, 5)]):
+                raise ValueError("Integration points for zeta do not align for X1, X2 and LA.")
             coords["zeta"] = (
                 "tor",
                 np.linspace(0, 2 * np.pi / nfp, intp[0][4], endpoint=False),
@@ -366,17 +337,13 @@ def Evaluations(
     if "theta" in ds:
         ds.theta.attrs["long_name"] = "Logical poloidal angle"
         ds.theta.attrs["symbol"] = r"\theta"
-        ds.theta.attrs["integration_points"] = str(
-            isinstance(theta, str) and theta == "int"
-        )
+        ds.theta.attrs["integration_points"] = str(isinstance(theta, str) and theta == "int")
         if ds.theta.dims == ("pol",):
             ds = ds.set_xindex("theta")
     if "zeta" in ds:
         ds.zeta.attrs["long_name"] = "Logical toroidal angle"
         ds.zeta.attrs["symbol"] = r"\zeta"
-        ds.zeta.attrs["integration_points"] = str(
-            isinstance(zeta, str) and zeta == "int"
-        )
+        ds.zeta.attrs["integration_points"] = str(isinstance(zeta, str) and zeta == "int")
         if ds.zeta.dims == ("tor",):
             ds = ds.set_xindex("zeta")
 
@@ -424,9 +391,9 @@ def volume_integral(
             "Volume integral requires integration weights for rho, theta and zeta."
         )
     # --- integrate --- #
-    return (
-        quantity * quantity.rad_weight * quantity.pol_weight * quantity.tor_weight
-    ).sum(("rad", "pol", "tor"))
+    return (quantity * quantity.rad_weight * quantity.pol_weight * quantity.tor_weight).sum(
+        ("rad", "pol", "tor")
+    )
 
 
 def EvaluationsBoozer(
@@ -693,6 +660,7 @@ def EvaluationsBoozerCustom(
     )
 
     # === Find the logical coordinates of the Boozer grid === #
+    sfl_boozer = state.get_boozer(ds.rho, **boozer_kwargs)
     if "rad" in ds.theta_B.dims or "rad" in ds.zeta_B.dims:  # 3D
         theta = []
         zeta = []
@@ -702,11 +670,10 @@ def EvaluationsBoozerCustom(
             stacked = dsr[["theta_B", "zeta_B"]]
             stacked = stacked.broadcast_like(stacked).stack(tz=("pol", "tor"))
             tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
-            sfl_boozer = state.get_boozer([rho], **boozer_kwargs)
-            tz = state.get_boozer_angles(sfl_boozer, tz_B)
+            tz = state.get_boozer_angles(sfl_boozer, tz_B, rad)
             sfls.append(sfl_boozer)
-            stacked["theta"] = (("tz", "rad"), tz[0, :, :])
-            stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
+            stacked["theta"] = ("tz", tz[0, :])
+            stacked["zeta"] = ("tz", tz[1, :])
             theta.append(stacked["theta"].unstack("tz"))
             zeta.append(stacked["zeta"].unstack("tz"))
         ds["theta"] = xr.concat(theta, dim="rad")
@@ -715,7 +682,6 @@ def EvaluationsBoozerCustom(
     else:  # 2D
         stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
         tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
-        sfl_boozer = state.get_boozer(ds.rho, **boozer_kwargs)
         tz = state.get_boozer_angles(sfl_boozer, tz_B)
         stacked["theta"] = (("tz", "rad"), tz[0, :, :])
         stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
@@ -770,9 +736,7 @@ def ev2ft(ev, quiet=False):
             if "rad" in ev[var].dims:
                 vft = []
                 for r in ev.rad:
-                    vft.append(
-                        fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data)
-                    )
+                    vft.append(fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data))
                 vcos, vsin = map(np.array, zip(*vft))
                 dims = ("rad", "m", "n")
             else:
@@ -780,15 +744,9 @@ def ev2ft(ev, quiet=False):
                 dims = ("m", "n")
 
             if m is None:
-                m, n = fourier.fft2d_modes(
-                    vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False
-                )
+                m, n = fourier.fft2d_modes(vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False)
 
-            attrs = {
-                k: v
-                for k, v in ev[var].attrs.items()
-                if k not in {"long_name", "symbol"}
-            }
+            attrs = {k: v for k, v in ev[var].attrs.items() if k not in {"long_name", "symbol"}}
             data[f"{var}_mnc"] = (
                 dims,
                 vcos,
@@ -845,9 +803,7 @@ def ft_autoremove(ft: xr.Dataset, drop=False, **tol_kwargs):
     """autoremove variables which are always close to zero (e.g. due to stellarator symmetry)"""
     selected = []
     for var in ft.data_vars:
-        if set(ft[var].dims) >= {"m", "n"} and np.allclose(
-            ft[var].data, 0, **tol_kwargs
-        ):
+        if set(ft[var].dims) >= {"m", "n"} and np.allclose(ft[var].data, 0, **tol_kwargs):
             if not drop:
                 ft[var] = ((), 0, ft[var].attrs)
             continue
