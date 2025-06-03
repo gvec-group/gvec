@@ -673,25 +673,35 @@ def B_contra_z_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=("Jac_B", "Jac", "dNU_B_dz", "dNU_B_dt", "e_theta", "e_zeta"),
+    requirements=(
+        "iota",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dz",
+        "dNU_B_dt",
+        "e_theta",
+        "e_zeta",
+    ),
     attrs=dict(
         long_name="poloidal tangent basis vector in Boozer coordinates",
         symbol=r"\mathbf{e}_{\theta_B}",
     ),
 )
 def e_theta_B(ds: xr.Dataset):
-    ds["e_theta_B"] = (
-        ds.Jac_B / ds.Jac * ((1 + ds.dNU_B_dz) * ds.e_theta - ds.dNU_B_dt * ds.e_zeta)
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    ds["e_theta_B"] = (dzB_dz * ds.e_theta - dzB_dt * ds.e_zeta) / (
+        dtB_dt * dzB_dz - dtB_dz * dzB_dt
     )
 
 
 @register(
     requirements=(
-        "Jac_B",
-        "Jac",
+        "iota",
         "dLA_dt",
         "dLA_dz",
-        "iota",
         "dNU_B_dz",
         "dNU_B_dt",
         "e_theta",
@@ -703,13 +713,12 @@ def e_theta_B(ds: xr.Dataset):
     ),
 )
 def e_zeta_B(ds: xr.Dataset):
-    ds["e_zeta_B"] = (
-        ds.Jac_B
-        / ds.Jac
-        * (
-            (1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt) * ds.e_zeta
-            + (ds.dLA_dz + ds.iota * ds.dNU_B_dz) * ds.e_zeta
-        )
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) / (
+        dtB_dt * dzB_dz - dtB_dz * dzB_dt
     )
 
 
