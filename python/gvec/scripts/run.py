@@ -15,7 +15,7 @@ from typing import Mapping, Sequence
 import numpy as np
 from numpy.typing import ArrayLike
 import xarray as xr
-
+from pandas import read_csv
 import gvec
 
 # === Argument Parser === #
@@ -147,6 +147,7 @@ class StagesState:
         self.GVEC_iter_used = GVEC_iter_used
         self.redirect_gvec_stdout = redirect_gvec_stdout
         self.totaliter = totaliter
+        self.log_dia = None
 
     def run(self):
         """Run GVEC using the parameters of the current state. The state is updated after the run."""
@@ -184,6 +185,7 @@ class StagesState:
         iterations = int(
             re.match(r".*State.*_(\d+)\.dat", self.statefile.name).group(1)
         )
+        iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
         max_iterations = self.params.get("MaxIter")
         tolerance = self.params.get("minimize_tol")
@@ -219,6 +221,8 @@ class StagesState:
             self.logger.info(
                 f"max ΔItor: {np.abs(ev.I_tor - self.I_tor_target).max().item():.2e}"
             )
+        logfile = sorted(self.rundir.glob("logMinimizer_*"))[-1]
+        log_df = read_csv(logfile, sep=",", header=0)
 
         self.logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
 
@@ -228,6 +232,15 @@ class StagesState:
                 gvec_iterations=iterations,
                 gvec_max_iterations=max_iterations,
                 gvec_tolerance=tolerance,
+            )
+        )
+        d2 = xr.Dataset(
+            dict(
+                total_iteration=iteration_offset
+                + np.array(log_df["#iterations"], dtype=int),
+                force_X1=(["total_iteration"], np.array(log_df["normF_X1"])),
+                force_X2=(["total_iteration"], np.array(log_df["normF_X2"])),
+                force_LA=(["total_iteration"], np.array(log_df["normF_LA"])),
             )
         )
         if self.curr_constraint:
@@ -242,8 +255,12 @@ class StagesState:
         else:
             d = d.expand_dims(dict(run=[self.diagnostics.run.size]))
             self.diagnostics = xr.concat([self.diagnostics, d], dim="run")
+        if self.log_dia is None:
+            self.log_dia = d2
+        else:
+            self.log_dia = xr.concat([self.log_dia, d2], dim="total_iteration")
         if self.diagnosticfile:
-            self.diagnostics.to_netcdf(self.diagnosticfile)
+            xr.merge([self.diagnostics, self.log_dia]).to_netcdf(self.diagnosticfile)
 
         end_time = time.time()
         self.logger.info(
@@ -410,7 +427,7 @@ class StagesState:
                 title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
                 yscale="log",
             )
-        fig.savefig(f"{self.params['projectName']}_iterations.png")
+        fig.savefig(f"{self.params['projectName']}_runs.png")
 
         if self.curr_constraint:
             fig, axs = plt.subplots(
@@ -439,7 +456,41 @@ class StagesState:
                     ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
                     yscale="log",
                 )
-            fig.savefig(f"{self.params['projectName']}profiles.png")
+            fig.savefig(f"{self.params['projectName']}_profiles.png")
+
+        if self.curr_constraint:
+            fig_f, axs = plt.subplots(
+                3, 1, figsize=(10, 5), tight_layout=True, sharex=True
+            )
+            axs[2].plot(
+                np.cumsum(diagnostics.gvec_iterations),
+                np.sqrt((diagnostics.iota_delta**2).mean("rad")),
+                ".-",
+            )
+            axs[2].set(ylabel=r"$\Delta\iota_{rms}$", yscale="log")
+        else:
+            fig_f, axs = plt.subplots(
+                2, 1, figsize=(10, 5), tight_layout=True, sharex=True
+            )
+        axs[0].plot(np.cumsum(diagnostics.gvec_iterations), diagnostics.W_MHD, ".-")
+        axs[0].set(
+            ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
+        )
+        axf = axs[1]
+        axf.vlines(
+            np.cumsum(diagnostics.gvec_iterations),
+            *axf.get_ylim(),
+            colors="grey",
+            linestyle="dashed",
+            alpha=0.6,
+        )
+        self.log_dia.force_X1.plot(color="C0", ax=axf)
+        self.log_dia.force_X2.plot(color="C1", ax=axf)
+        self.log_dia.force_LA.plot(color="C2", ax=axf)
+
+        axf.set(ylabel="|Force|", xlabel="GVEC iteration", yscale="log")
+        axf.legend(["runs", r"$X_1$", r"$X_2$", r"$\lambda$"], bbox_to_anchor=(1.05, 1))
+        fig_f.savefig(f"{self.params['projectName']}_iterations.png")
 
 
 def _auto_generate_stages(minimize_target, iota_target):
@@ -529,6 +580,7 @@ def run_stages(
             + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
         )
 
+    # Automatically generate the stages for the current constraint
     if picard_current == "auto":
         logger.info("Using `picard_current` automatic mode. Generating stages ...")
         if stages != [{}]:
@@ -570,6 +622,8 @@ def run_stages(
 
         if not has_iota:
             parameters["iota"] = {"type": "polynomial", "coefs": [0.0]}
+    else:
+        I_tor_target = None
 
     #  initialize the object that holds the current state of the stage
     run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
@@ -629,8 +683,14 @@ def run_stages(
                 state_of_stage.params[key] = min(
                     totaliter - state_of_stage.GVEC_iter_used, value
                 )
+
             if key in ["picard_current"] and (value == "off"):
                 state_of_stage.curr_constraint = False
+            elif key in ["picard_current"] and (value != "off") and not has_Itor:
+                raise KeyError(
+                    "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
+                    + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
+                )
             if key in ["iota", "pres", "sgrid"]:
                 if key not in state_of_stage.params:
                     state_of_stage.params[key] = {}
@@ -662,17 +722,20 @@ def run_stages(
             target = state_of_stage.params["picard_current"].get(
                 "target", "iota_and_force"
             )
-            if target == "iota":
-                n_runs_in_stage = state_of_stage._current_constraint_target_iota(
-                    totaliter, iota_tol, n_runs_in_stage
-                )
-            else:
-                state_of_stage.nth_run = -1
-                n_runs_in_stage = (
-                    state_of_stage._current_constraint_target_iota_and_force(
+            match target:
+                case "iota":
+                    n_runs_in_stage = state_of_stage._current_constraint_target_iota(
                         totaliter, iota_tol, n_runs_in_stage
                     )
-                )
+                case "iota_and_force":
+                    state_of_stage.nth_run = -1
+                    n_runs_in_stage = (
+                        state_of_stage._current_constraint_target_iota_and_force(
+                            totaliter, iota_tol, n_runs_in_stage
+                        )
+                    )
+                case _:
+                    raise ValueError(f"Unknown picard_current target:{target}")
         else:
             state_of_stage.params["MaxIter"] = min(
                 totaliter - state_of_stage.GVEC_iter_used,
@@ -680,6 +743,7 @@ def run_stages(
             )
             state_of_stage._eval_progressstr(n_runs_in_stage)
             state_of_stage.run()
+            n_runs_in_stage[state_of_stage.stage] += 1
 
     state_of_stage.logger.info("Done.")
     final_state = Path(parameters["ProjectName"] + "_State_final.dat")
@@ -687,11 +751,12 @@ def run_stages(
 
     shutil.copy(state_of_stage.statefile, final_state)
     shutil.copy(state_of_stage.statefile.parents[0] / "parameter.ini", parameter_final)
+    diagnostics = xr.merge([state_of_stage.diagnostics, state_of_stage.log_dia])
     if diagnosticfile:
-        state_of_stage.diagnostics.to_netcdf(diagnosticfile)
+        diagnostics.to_netcdf(diagnosticfile)
     if plots:
         state_of_stage.plot_diagnostics()
-    return state_of_stage.rundir, final_state, state_of_stage.diagnostics
+    return state_of_stage.rundir, final_state, diagnostics
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):

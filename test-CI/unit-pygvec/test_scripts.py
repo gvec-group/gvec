@@ -80,13 +80,27 @@ def test_run_stages(suffix):
     else:
         assert Path("W7X_State_final.dat").exists()
         assert Path("parameter_W7X_final.ini").exists()
-        rho = np.sqrt(np.linspace(0, 1, 101))
-        rho[0] = 1e-4
-        with gvec.State("parameter_W7X_final.ini", "W7X_State_final.dat") as state:
-            ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
-            state.compute(ev, "I_tor")
-        I_tor_max = ev.I_tor.max()
-        assert I_tor_max < 1e-6
+
+
+def test_picard_auto():
+    """
+    Test the if the picard_current auto mode achieves "zero" current
+    """
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = "auto"
+    rundir, final_state, diagnostics = gvec.scripts.run.run_stages(parameters)
+    assert diagnostics.force_X1[-1].data <= 1e-4
+    assert diagnostics.force_X2[-1].data <= 1e-4
+    assert diagnostics.force_LA[-1].data <= 1e-4
+
+    assert Path("W7X_State_final.dat").exists()
+    assert Path("parameter_W7X_final.ini").exists()
+    rho = np.sqrt(np.linspace(0, 1, 101))
+    rho[0] = 1e-4
+    with gvec.State("parameter_W7X_final.ini", final_state) as state:
+        ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
+        state.compute(ev, "I_tor")
+    assert ev.I_tor.max().data < 1e-6
 
 
 def test_quasr_real_dft():
