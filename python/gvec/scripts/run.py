@@ -670,9 +670,6 @@ def run_stages(
                 )
             else:
                 state_of_stage.params[key] = copy.deepcopy(value)
-                if key in ["picard_current"]:
-                    print("state_of_stage:", state_of_stage.params[key])
-                    print("parameters:", parameters[key])
 
         # adapt parameters for this stage
         for key, value in stage.items():
@@ -688,7 +685,13 @@ def run_stages(
                     "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
                     + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
                 )
-            if key in ["iota", "pres", "sgrid", "picard_current"]:
+            elif key == "picard_current" and not isinstance(value, str):
+                if key not in state_of_stage.params:
+                    state_of_stage.params[key] = {}
+                for subkey, subvalue in value.items():
+                    state_of_stage.params[key][subkey] = subvalue
+
+            if key in ["iota", "pres", "sgrid"]:
                 if key not in state_of_stage.params:
                     state_of_stage.params[key] = {}
                 for subkey, subvalue in value.items():

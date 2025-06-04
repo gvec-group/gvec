@@ -110,13 +110,6 @@ class CaseInsensitiveDict(MutableMapping):
         # Compare insensitively
         return dict(self.lower_items()) == dict(other.lower_items())
 
-    # def copy(self):
-    #    return deepcopy(self)
-
-    # def __deepcopy__(self, memo):
-    #    """magic method for deep (recursive) copy - see the 'copy' module"""
-    #    return self.__class__({deepcopy(value, memo) for value in self._data.values()})
-
     def serialize(self):
         """Recursively serialize this object, converting Mappings to dicts and Iterables to lists."""
 

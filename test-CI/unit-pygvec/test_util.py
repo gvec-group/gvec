@@ -20,7 +20,6 @@ def test_CaseInsensitiveDict():
     assert list(cid.lower_keys()) == ["a", "b", 3]
     assert list(cid.items()) == [("a", 1), ("B", 2), (3, "C")]
     assert list(cid.lower_items()) == [("a", 1), ("b", 2), (3, "C")]
-    assert cid == cid.copy()
     assert cid == util.CaseInsensitiveDict(cid.lower_items())
     with pytest.raises(KeyError):
         cid["3"]
