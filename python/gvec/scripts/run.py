@@ -626,9 +626,8 @@ def run_stages(
         I_tor_target = None
 
     #  initialize the object that holds the current state of the stage
-    run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
     state_of_stage = StagesState(
-        params=run_params,
+        params=gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters)),
         project_dir=project_dir,
         statefile=statefile,
         I_tor_target=I_tor_target,
@@ -659,7 +658,7 @@ def run_stages(
             )
             break
         # reset to default/initial run_params to make the stages independet, except for 'iota' and the budget
-        for key, value in state_of_stage.params.items():
+        for key, value in parameters.items():
             if key in ["iota"]:
                 continue
             elif key in ["MaxIter"]:
@@ -670,28 +669,26 @@ def run_stages(
                     totaliter - state_of_stage.GVEC_iter_used, parameters["MaxIter"]
                 )
             else:
-                state_of_stage.params[key] = value
+                state_of_stage.params[key] = copy.deepcopy(value)
+                if key in ["picard_current"]:
+                    print("state_of_stage:", state_of_stage.params[key])
+                    print("parameters:", parameters[key])
 
         # adapt parameters for this stage
-        for key in ["stages", "I_tor"]:
-            if key in state_of_stage.params:
-                del state_of_stage.params[key]
         for key, value in stage.items():
-            if key in ["runs"]:
-                continue
-            if key in ["MaxIter"]:
+            if key == "MaxIter":
                 state_of_stage.params[key] = min(
                     totaliter - state_of_stage.GVEC_iter_used, value
                 )
 
-            if key in ["picard_current"] and (value == "off"):
+            if key == "picard_current" and value == "off":
                 state_of_stage.curr_constraint = False
-            elif key in ["picard_current"] and (value != "off") and not has_Itor:
+            elif key == "picard_current" and value != "off" and not has_Itor:
                 raise KeyError(
                     "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
                     + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
                 )
-            if key in ["iota", "pres", "sgrid"]:
+            if key in ["iota", "pres", "sgrid", "picard_current"]:
                 if key not in state_of_stage.params:
                     state_of_stage.params[key] = {}
                 for subkey, subvalue in value.items():

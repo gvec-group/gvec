@@ -12,6 +12,7 @@ import shutil
 from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Iterable, Literal
+from copy import deepcopy
 
 from numpy.typing import ArrayLike
 
@@ -109,8 +110,12 @@ class CaseInsensitiveDict(MutableMapping):
         # Compare insensitively
         return dict(self.lower_items()) == dict(other.lower_items())
 
-    def copy(self):
-        return self.__class__(self._data.values())
+    # def copy(self):
+    #    return deepcopy(self)
+
+    # def __deepcopy__(self, memo):
+    #    """magic method for deep (recursive) copy - see the 'copy' module"""
+    #    return self.__class__({deepcopy(value, memo) for value in self._data.values()})
 
     def serialize(self):
         """Recursively serialize this object, converting Mappings to dicts and Iterables to lists."""
@@ -464,7 +469,7 @@ def stack_parameters(parameters: Mapping) -> CaseInsensitiveDict:
         group, name = key.split("_", 1)
         if group in ["iota", "pres", "sgrid"]:
             if group not in output:
-                output[group] = {}
+                output[group] = CaseInsensitiveDict()
             output[group][name] = value
         else:
             output[key] = value
@@ -507,7 +512,7 @@ def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
-            output[key] = {}
+            output[key] = CaseInsensitiveDict()
             for mn, val in value.items():
                 m, n = map(int, mn.strip("()").split(","))
                 output[key][(m, n)] = val

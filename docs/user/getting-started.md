@@ -95,31 +95,17 @@ For line plots, csv datafiles are generated.
 
 For 3D visualization data, we write `*visu*.vtu` files, that can be visualized in [paraview](https://www.paraview.org). There is an option to write visualization data in netcdf, `*visu*.nc`, which can be read for example in python.
 
-### Current constraint & increasing resolution
+### Run GVEC with prescribed toroidal current
 
 :::{warning}
 This feature is experimental!
 :::
 
-The python bindings for GVEC provide a simple wrapper to run GVEC:
+To run GVEC with a prescribed toroidal current profile one has to utilize the python-bindings and switch to the more flexible TOML or YAML style parameter files. The additional parameters that need to be set are `I_tor` and `picard_current`. To run GVEC with such a TOML/YAML input file, one can just calls from the command line:
 ```bash
-pygvec run parameter.ini
+pygvec run parameter.toml
 ```
-
-They also allow running GVEC with a *current constraint* (strictly speaking a current-optimization using picard iterations) and refinement.
-
-For this the parameters need to be specified in YAML or TOML files, which are more flexible than the classic GVEC-INI files.
-The parameters use the same keys, with a different syntax for specifying the boundary and axis coefficients.
-In addition the parameters for `iota`, `pres` and `sgrid` are grouped together
-and two new groups of parameters, `Itor` and `stages` are available.
-If `Itor` and `stages` are not present in the parameterfile, a TOML or YAML parameterfile is equivalent to a `.ini` file.
-
-The `stages` parameter is a list of stages, which are executed in order, for which each parameters can be selected that replace the default values.
-The `Itor` parameter defines the target toroidal current profile (with the same syntax as the other profiles, but currently only with `type: polynomial`).
-GVEC will now use picard iterations to optimize the input `iota` profile, such that the resulting current converges towards the target profile.
-The `iota` parameter is now only used for the initial profile in the first run of the first stage.
-
-The two important parameters that need to be set in the stages for the current constraint, i.e. when `Itor` is prescribed, are `iota_tol` and `minimize_tol`. `iota_tol` determines how accurately the targeted `Itor` is achieved and is used as an abort criterion for the picard iterations. `minimize_tol` on the other hand acts as an abort criterion for the equilibrium optimization. It is recommended to ramp up both values during stages as shown in the example below. Note that also `init_iota` can be set to true in the stages. This option is intended to be used in an initial stage to find a reasonable approximation of the rotational transform profile, e.g. when your initial guess for `iota` is poor. It is recommended to use this option only with high `iota_tol`, e.g. `iota_tol=1e-2`.
+Example parameter files are given below. For more information on the current constraint and also the possibility to do resolution refinement see the [stages](stages.md) section.
 
 ::::{tab-set}
 :::{tab-item} TOML
@@ -129,29 +115,19 @@ The two important parameters that need to be set in the stages for the current c
 # GVEC parameter file for W7X
 ProjectName = "W7X"
 whichInitEquilibrium = 0
-minimize_tol = 1.0e-07
+minimize_tol = 1.0e-06
 
 ...
 
-stages = [
-    {iota_tol = 1e-2, minimize_tol = 1e-3, sgrid.nElems = 3, init_iota = true},
-    {iota_tol = 1e-4, minimize_tol = 1e-5, sgrid.nElems = 10},
-    {iota_tol = 1e-5, minimize_tol = 1e-6, sgrid.nElems = 20},
-    {iota_tol = 1e-10, minimize_tol = 1e-6}
-]
+picard_current = "auto"
 
-[Itor]
+[I_tor]
 type = "polynomial"
-scale = 1000
 coefs = [0.0]
 
-[iota]
-type = "polynomial"
-coefs = [0.9]
-
 [X1_b_cos]
-"(0, 0)" = 1.0
-"(0, 1)" = 0.1
+"(0, 0)" = 5.5
+"(0, 1)" = 0.2354
 
 ...
 ```
@@ -167,38 +143,18 @@ Full example: [`parameter.toml`](<path:../../python/examples/current_constraint/
 # GVEC parameter file for W7X
 ProjectName: W7X
 whichInitEquilibrium: 0
-minimize_tol: 1.0e-07
+minimize_tol: 1.0e-06
 
 ...
+picard_current: auto
 
-stages:
-- iota_tol: 0.01
-  minimize_tol: 0.001
-  sgrid:
-    nElems: 3
-  init_iota: true
-- iota_tol: 0.0001
-  minimize_tol: 1.0e-05
-  sgrid:
-    nElems: 10
-- iota_tol: 1.0e-05
-  minimize_tol: 1.0e-06
-  sgrid:
-    nElems: 20
-- iota_tol: 1.0e-10
-  minimize_tol: 1.0e-06
-
-Itor:
+I_tor:
   type: polynomial
-  scale: 1000
   coefs: [0.0]
-iota:
-  type: polynomial
-  coefs: [0.9]
 
 X1_b_cos:
-  (0, 0): 1.0
-  (0, 1): 0.1
+  (0, 0): 5.5
+  (0, 1): 0.2354
 
 ...
 ```
@@ -208,6 +164,3 @@ Full example: [`parameter.yaml`](<path:../../python/examples/current_constraint/
 
 :::
 ::::
-
-#### Advanced control options for the current constraint
-If `Itor` and `stages` are present in the parameter file, the parameter `maxIter` limits the total number of GVEC iterations over **all** stages, hence, limiting the computational budget. However, we can also limit the number of picard iterations in each stage by setting the `runs` parameter in a stage. Additionally, the maximum number of GVEC iterations per picard iteration during a stage can be limited by setting `maxiter_per_run` in that stage. The latter parameter is especially important when `init_iota` is set to `true`: In this case the abort criterion set via `minimize_tol` becomes secondary and many picard iterations are performed in quick succession to find a suitable `iota`. Here, `maxiter_per_run` is set to 10 per default. By increasing `maxiter_per_run` during the `init_iota` stage, more work is put into finding a suitable equilibrium configuration (however with a possible false/poor `iota`). Note that setting `maxiter_per_run` to a large value during an `init_iota` is basically the same as setting `init_iota` to `false`.

@@ -6,6 +6,10 @@ init_LA: True
 PHIEDGE: 2.15
 whichInitEquilibrium: 0
 minimize_tol: 1.0e-06
+
+maxIter: 1000
+totaliter: 5000
+
 which_hmap: 1
 
 sgrid:
@@ -26,8 +30,27 @@ LA_sin_cos: _sin_
 MinimizerType: 10
 PrecondType: 1
 start_dt: 0.5
-maxIter: 10000
-picard_current: auto
+
+stages:
+- minimize_tol: 0.001
+  sgrid:
+    nElems: 3
+  picard_current:
+    target: iota
+    iota_tol: 0.001
+  maxIter: 10
+- minimize_tol: 1.0e-05
+  sgrid:
+    nElems: 10
+  picard_current:
+    iota_tol: 1.0e-06
+- minimize_tol: 1.0e-06
+  sgrid:
+    nElems: 20
+
+picard_current:
+  target: iota_and_force
+  iota_tol: 1.0e-10
 
 # profiles
 I_tor: # optimize for zero-current with picard iterations
