@@ -165,9 +165,9 @@ def test_compute_hmap(teststate, evals_rtz):
     assert ds.pos.shape == (3, 6, 32, 10)
     assert "xyz" in ds.dims
     assert "xyz" in ds.coords
-    assert "e_rho" in ds
-    assert "e_theta" in ds
-    assert "e_zeta" in ds
+    assert "e_q1" in ds
+    assert "e_q2" in ds
+    assert "e_q3" in ds
     assert not np.any(np.isnan(ds.pos))
 
     compute(ds, "e_rho", state=teststate)
@@ -177,16 +177,16 @@ def test_compute_hmap(teststate, evals_rtz):
 def test_compute_metric(teststate, evals_rtz):
     ds = evals_rtz
 
-    compute(ds, "g_tt", state=teststate)
+    compute(ds, "dg_tt_dr", state=teststate)
     for ij in ("rr", "rt", "rz", "tt", "tz", "zz"):
-        key = f"g_{ij}"
-        assert key in ds
-        assert set(ds[key].coords) == {"rho", "theta", "zeta"}
         for k in "rtz":
             assert f"dg_{ij}_d{k}" in ds
 
-    compute(ds, "e_rho", "e_theta", "e_zeta", state=teststate)
+    compute(ds, "g_rr", "g_rt", "g_rz", "g_tt", "g_tz", "g_zz", state=teststate)
     idxs = {"r": "rho", "t": "theta", "z": "zeta"}
+    assert "e_rho" in ds
+    assert "e_theta" in ds
+    assert "e_zeta" in ds
     for ij in "rr rt rz tt tz zz".split():
         key = f"g_{ij}"
         assert np.allclose(

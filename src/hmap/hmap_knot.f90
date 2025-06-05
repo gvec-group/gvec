@@ -42,6 +42,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_knot
   PROCEDURE :: eval_Jh_dq       => hmap_knot_eval_Jh_dq
   PROCEDURE :: eval_gij         => hmap_knot_eval_gij
   PROCEDURE :: eval_gij_dq      => hmap_knot_eval_gij_dq
+  PROCEDURE :: get_dx_dqi       => hmap_knot_get_dx_dqi
+  PROCEDURE :: get_ddx_dqij     => hmap_knot_get_ddx_dqij
   !---------------------------------------------------------------------------------------------------------------------------------
   ! procedures for hmap_knot:
   PROCEDURE :: Rl            => hmap_knot_eval_Rl
@@ -355,9 +357,9 @@ FUNCTION hmap_knot_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(IN) :: sf
   REAL(wp)          , INTENT(IN) :: q_in(3)
   REAL(wp)          , INTENT(IN) :: q_vec(3)
-  CLASS(t_hmap_knot), INTENT(IN) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                       :: dxdq_qvec(3)
@@ -376,6 +378,71 @@ IMPLICIT NONE
 
 
 END FUNCTION hmap_knot_eval_dxdq
+
+!===============================================================================================================================
+!> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_knot_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3) 
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(IN) :: sf
+  REAL(wp)          , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp),DIMENSION(3),INTENT(OUT):: dx_dq1,dx_dq2,dx_dq3
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  REAL(wp) :: coskzeta,sinkzeta
+  !===================================================================================================================================
+  ASSOCIATE(zeta=>q_in(3))
+  coskzeta=COS(sf%k*zeta)
+  sinkzeta=SIN(sf%k*zeta)
+  dx_dq1(1:3)=   (/ coskzeta, -sinkzeta, 0.0_wp /)
+  dx_dq2(1:3)=   (/ 0.0_wp,0.0_wp,1.0_wp /)
+  dx_dq3(1:3)=   (/ -sf%k*sf%Rl(q_in)*sinkzeta-sf%l*sf%delta*SIN(sf%l*zeta)*coskzeta, &
+                    -sf%k*sf%Rl(q_in)*coskzeta+sf%l*sf%delta*SIN(sf%l*zeta)*sinkzeta, &
+                                               sf%l*sf%delta*COS(sf%l*zeta)      /)
+ END ASSOCIATE
+END SUBROUTINE hmap_knot_get_dx_dqi
+
+!=================================================================================================================================
+!> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 is evaluated at q_in=(X^1,X^2,zeta),
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_knot_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33) 
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_knot), INTENT(IN) :: sf
+  REAL(wp)          , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp),DIMENSION(3),INTENT(OUT):: ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  REAL(wp) :: coskzeta,sinkzeta,dsinlzeta,dcoslzeta
+  !===================================================================================================================================
+  ASSOCIATE(zeta=>q_in(3))
+  coskzeta=COS(sf%k*zeta)
+  sinkzeta=SIN(sf%k*zeta)
+  dsinlzeta=sf%delta*SIN(sf%l*zeta)
+  dcoslzeta=sf%delta*COS(sf%l*zeta)
+  !   Rl = R0 + delta * cos(l*zeta) + q1
+  !   Zl = delta * sin(l*zeta) + q2
+  ddx_dq11=0.0_wp
+  ddx_dq12=0.0_wp
+  ddx_dq13=(/ -sf%k*sinkzeta,-sf%k*coskzeta, 0.0_wp /)
+  ddx_dq22=0.0_wp
+  ddx_dq23=0.0_wp 
+  ddx_dq33(1)= -sf%k*sf%k*sf%Rl(q_in)*coskzeta+sf%l*sf%k*dsinlzeta*sinkzeta &
+               +sf%k*sf%l*dsinlzeta  *sinkzeta-sf%l*sf%l*dcoslzeta*coskzeta 
+  ddx_dq33(2)=  sf%k*sf%k*sf%Rl(q_in)*sinkzeta+sf%l*sf%k*dsinlzeta*coskzeta  &
+               +sf%k*sf%l*dsinlzeta  *coskzeta+sf%l*sf%l*dcoslzeta*sinkzeta                                
+  ddx_dq33(3)= -sf%l*sf%l*dsinlzeta                                    
+  END ASSOCIATE
+  END SUBROUTINE hmap_knot_get_ddx_dqij
 
 !===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(q^1,q^2,zeta)
@@ -475,10 +542,21 @@ FUNCTION hmap_knot_eval_gij_dq( sf ,qL_in,q_G,qR_in,q_vec) RESULT(g_ab_dq)
 ! OUTPUT VARIABLES
   REAL(wp)                       :: g_ab_dq
 !===================================================================================================================================
-  !                       |q1  |   |0  0  0        |        |q1  |
-  !q_i G_ij q_j = (dalpha |q2  | ) |0  0  0        | (dbeta |q2  | )
-  !                       |q3  |   |0  0  2k**2 *Rl|        |q3  |
-  g_ab_dq = (qL_in(3) * 2.0_wp * sf%k**2 * sf%Rl(q_G) * qR_in(3))*(q_vec(1) -sf%delta*sf%l*SIN(sf%l*q_G(3))*q_vec(3))
+  ! Rl = R0 + delta * cos(l*zeta) + q1
+  ! A = - l * delta * sin(l*zeta),
+  ! B = l * delta * cos(l*zeta)
+  ! C = k**2 * Rl**2 + l**2 * delta**2
+  !                       |q1  |   |1  0  A|        |q1  |
+  !q_i G_ij q_j = (dalpha |q2  | ) |0  1  B| (dbeta |q2  | )
+  !                       |q3  |   |A  B  C|        |q3  |
+  ! dA_dq1 = 0 , dA_dq2 = 0 , dA_dq3 = - l*l * delta * cos(l*zeta)
+  ! dB_dq1 = 0 , dB_dq2 = 0 , dB_dq3 = - l*l * delta * sin(l*zeta)
+  ! dC_dq1 = 2*k**2 *Rl , dC_dq2 = 0 , dC_dq3 = -2*k**2 *Rl *l *delta * sin(l*zeta)
+  ASSOCIATE(q1=>q_G(1),q2=>q_G(2),zeta=>q_G(3))
+  g_ab_dq =-sf%l*sf%l*sf%delta*( COS(sf%l*zeta)*(qL_in(1)*qR_in(3) + qL_in(3)*qR_in(1)) &
+                                +SIN(sf%l*zeta)*(qL_in(2)*qR_in(3) + qL_in(3)*qR_in(2)) ) *q_vec(3) &
+                  +2*sf%k**2 * sf%Rl(q_G) *qL_in(3)*qR_in(3)*(q_vec(1) - sf%l*sf%delta*SIN(sf%l*zeta)*q_vec(3))
+  END ASSOCIATE
 END FUNCTION hmap_knot_eval_gij_dq
 
 !===================================================================================================================================
@@ -546,8 +624,10 @@ USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
   INTEGER            :: iTest,idir,jdir,kdir,qdir,izeta,i,j,k,ndims(1:3),ijk(3)
-  REAL(wp)           :: refreal,checkreal,x(3),q_in(3)
+  REAL(wp)           :: refreal,checkreal,x(3),q_in(3),q_test(3,3),x_eps(3),dxdq(3),gij,gij_eps,Jh_0,Jh_eps
   REAL(wp),PARAMETER :: realtol=1.0E-11_wp
+  REAL(wp),PARAMETER :: epsFD=1.0e-8
+  REAL(wp),PARAMETER :: realtolFD=1.0e-4
   CHARACTER(LEN=10)  :: fail
   REAL(wp)           :: a, Rl, Zl
   INTEGER,PARAMETER  :: nzeta=5
@@ -555,6 +635,7 @@ USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,
   INTEGER,PARAMETER  :: nthet=3
   REAL(wp),ALLOCATABLE :: zeta(:)
   REAL(wp)           :: qloc(3),q_thet(3),q_zeta(3)
+  REAL(wp)           :: dxdq_eps(3),dx_dqi(3,3),ddx_dqij(3,3,3)
   REAL(wp),ALLOCATABLE,DIMENSION(:,:,:) :: q1,q2,dX1_dt,dX2_dt,dX1_dz,dX2_dz, &
                                      Jh,g_tt,    g_tz,    g_zz,     &
                                      Jh_dq1,g_tt_dq1,g_tz_dq1,g_zz_dq1, &
@@ -607,6 +688,108 @@ USE MODgvec_GLobals, ONLY: UNIT_stdOut,testdbg,testlevel,nfailedMsg,nTestCalled,
      '\n =>  should be ', refreal,' : |y-eval_map(x)|^2= ', checkreal
     END IF !TEST
 
+    q_test(1,:)=(/1.0_wp, 0.0_wp, 0.0_wp/)
+    q_test(2,:)=(/0.0_wp, 1.0_wp, 0.0_wp/)
+    q_test(3,:)=(/0.0_wp, 0.0_wp, 1.0_wp/)
+    DO qdir=1,3
+      !check dx/dq^i with FD
+      iTest=102+qdir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      q_in=(/0.0_wp, 0.0_wp, 0.335_wp*PI/)
+      x = sf%eval(q_in )
+      x_eps = sf%eval(q_in+epsFD*q_test(qdir,:))
+      dxdq = sf%eval_dxdq(q_in,q_test(qdir,:))
+      checkreal=SQRT(SUM((dxdq - (x_eps-x)/epsFD)**2)/SUM(x*x))
+      refreal = 0.0_wp
+
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
+       '\n =>  should be <',realtolFD,' : |dxdqFD-eval_dxdq|= ', checkreal,", dq=",qdir
+      END IF !TEST
+    END DO
+
+    !! TEST G_ij
+    DO idir=1,3; DO jdir=idir,3
+      iTest=iTest+1 ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      checkreal= SUM(sf%eval_dxdq(q_in,q_test(idir,:))*sf%eval_dxdq(q_in,q_test(jdir,:)))
+      refreal  =sf%eval_gij(q_test(idir,:),q_in,q_test(jdir,:))
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),2(A,I3))') &
+       '\n =>  should be ', refreal,' : sum|Gij-eval_gij|= ', checkreal,', i=',idir,', j=',jdir
+      END IF !TEST
+    END DO; END DO
+    !! TEST dJh_dqk with FD
+    DO qdir=1,3
+      iTest=iTest+1; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      Jh_0    = sf%eval_Jh(   q_in                     )
+      Jh_eps  = sf%eval_Jh(   q_in+epsFD*q_test(qdir,:))
+      refreal = sf%eval_Jh_dq(q_in                     ,q_test(qdir,:))
+      checkreal=(Jh_eps-Jh_0)/epsFD-refreal
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
+       '\n =>  should be <', realtolFD,' : |dJh_dqFD-eval_Jh_dq|= ', checkreal,', dq=',qdir
+      END IF !TEST
+    END DO !qdir
+    !! TEST dG_ij_dqk with FD
+    DO qdir=1,3
+    DO idir=1,3; DO jdir=1,3
+      iTest=iTest+1; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      gij     = sf%eval_gij(   q_test(idir,:),q_in                     ,q_test(jdir,:))
+      gij_eps = sf%eval_gij(   q_test(idir,:),q_in+epsFD*q_test(qdir,:),q_test(jdir,:))
+      refreal = sf%eval_gij_dq(q_test(idir,:),q_in                     ,q_test(jdir,:),q_test(qdir,:))
+      checkreal=(gij_eps-gij)/epsFD-refreal
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),3(A,I3))') &
+       '\n =>  should be <', realtolFD,' : |dGij_dqFD-eval_gij_dq|= ', checkreal,', i=',idir,', j=',jdir,', dq=',qdir
+      END IF !TEST
+    END DO; END DO
+    END DO !qdir
+
+
+    CALL sf%get_dx_dqi(q_in,dx_dqi(1,:),dx_dqi(2,:),dx_dqi(3,:))
+    DO qdir=1,3
+      !check dx/dq^i with FD
+      iTest=10+qdir ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+      dxdq = sf%eval_dxdq(q_in,q_test(qdir,:))
+      checkreal=SUM(ABS(dxdq-dx_dqi(qdir,:)))
+      refreal=0.0_wp
+      IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtol))) THEN
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+              '\n!! hmap_knot TEST ID',nTestCalled ,': TEST ',iTest,Fail
+         nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),(A,I3))') &
+       '\n =>  should be ', refreal,' : |dxdq-eval_dxdq|= ', checkreal,", dq=",qdir
+      END IF !TEST
+    END DO !qdir
+
+    CALL sf%get_ddx_dqij(q_in,ddx_dqij(1,1,:),ddx_dqij(1,2,:),ddx_dqij(1,3,:), &
+                              ddx_dqij(2,2,:),ddx_dqij(2,3,:),ddx_dqij(3,3,:))
+    ddx_dqij(2,1,:)=ddx_dqij(1,2,:)
+    ddx_dqij(3,1,:)=ddx_dqij(1,3,:)
+    ddx_dqij(3,2,:)=ddx_dqij(2,3,:)
+    DO qdir=1,3
+      dxdq = sf%eval_dxdq(q_in,q_test(qdir,:))
+      DO idir=1,3
+        iTest=20+idir+3*(qdir-1) ; IF(testdbg)WRITE(*,*)'iTest=',iTest
+        dxdq_eps = sf%eval_dxdq(q_in+epsFD*q_test(idir,:),q_test(qdir,:))
+        checkreal=SUM(ABS( (dxdq_eps-dxdq)/epsFD-ddx_dqij(qdir,idir,:)))
+        refreal=0.0_wp
+        IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
+           nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
+                '\n!! hmap_knot TEST ID',nTestCalled ,': TEST ',iTest,Fail
+           nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),2(A,I3))') & 
+         '\n =>  should be <', realtolFD,' : |ddx_dqijFD-eval_ddx_dqij|= ', checkreal,", dqi=",qdir,", dqj=",idir
+        END IF !TEST
+      END DO !idir
+    END DO !qdir
  END IF !testlevel >=1
  IF (testlevel .GE. 2) THEN
     DO idir=1,3

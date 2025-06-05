@@ -55,6 +55,10 @@ TYPE, ABSTRACT :: c_hmap
     PROCEDURE(i_fun_hmap_eval_gij_dq),DEFERRED :: eval_gij_dq
     PROCEDURE                                  :: eval_gij_dq_aux     => hmap_eval_gij_dq_aux
     PROCEDURE                                  :: eval_gij_dq_aux_all => hmap_eval_gij_dq_aux_all
+    PROCEDURE(i_sub_hmap_get_dx_dqi) ,DEFERRED :: get_dx_dqi 
+    PROCEDURE                                  :: get_dx_dqi_aux => hmap_get_dx_dqi_aux
+    PROCEDURE(i_sub_hmap_get_ddx_dqij),DEFERRED:: get_ddx_dqij
+    PROCEDURE                                  :: get_ddx_dqij_aux => hmap_get_ddx_dqij_aux
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE c_hmap
 
@@ -106,6 +110,35 @@ ABSTRACT INTERFACE
     REAL(wp)     , INTENT(IN) :: q_vec(3)
     REAL(wp)                  :: dxdq_qvec(3)
   END FUNCTION i_fun_hmap_eval_dxdq
+
+  !===============================================================================================================================
+  !> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
+  !!
+  !===============================================================================================================================
+  SUBROUTINE i_sub_hmap_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3) 
+    IMPORT wp,c_hmap
+    CLASS(c_hmap), INTENT(IN)  :: sf
+    REAL(wp)     , INTENT(IN)  :: q_in(3)
+    REAL(wp)     , INTENT(OUT) :: dx_dq1(3)
+    REAL(wp)     , INTENT(OUT) :: dx_dq2(3)
+    REAL(wp)     , INTENT(OUT) :: dx_dq3(3)
+  END SUBROUTINE i_sub_hmap_get_dx_dqi
+
+  !===============================================================================================================================
+  !> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 is evaluated at q_in=(X^1,X^2,zeta),
+  !!
+  !===============================================================================================================================
+  SUBROUTINE i_sub_hmap_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33) 
+    IMPORT wp,c_hmap
+    CLASS(c_hmap), INTENT(IN)  :: sf
+    REAL(wp)     , INTENT(IN)  :: q_in(3)
+    REAL(wp)     , INTENT(OUT) :: ddx_dq11(3)
+    REAL(wp)     , INTENT(OUT) :: ddx_dq12(3)
+    REAL(wp)     , INTENT(OUT) :: ddx_dq13(3)
+    REAL(wp)     , INTENT(OUT) :: ddx_dq22(3)
+    REAL(wp)     , INTENT(OUT) :: ddx_dq23(3)
+    REAL(wp)     , INTENT(OUT) :: ddx_dq33(3)
+  END SUBROUTINE i_sub_hmap_get_ddx_dqij
 
   !===============================================================================================================================
   !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)
@@ -238,6 +271,49 @@ FUNCTION hmap_eval_dxdq_aux(sf,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(dxdq_qvec)
   !===================================================================================================================================
   dxdq_qvec=sf%eval_dxdq((/q1,q2,xv%zeta/),(/q1_vec,q2_vec,q3_vec/))
 END FUNCTION hmap_eval_dxdq_aux
+
+!===============================================================================================================================
+!> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta), 
+!! INFO: default routine that can be overwritten by specific hmap class,
+!!       not using  additional hmap-dependent auxiliary variables,
+!!       but calling the generic routine get_dx_dqi
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_get_dx_dqi_aux(sf,q1,q2,xv,dx_dq1,dx_dq2,dx_dq3)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(c_hmap)       ,INTENT(IN) :: sf
+  REAL(wp)            ,INTENT(IN) :: q1,q2
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp),DIMENSION(3),INTENT(OUT) :: dx_dq1,dx_dq2,dx_dq3
+  !===================================================================================================================================
+  CALL sf%get_dx_dqi((/q1,q2,xv%zeta/),dx_dq1,dx_dq2,dx_dq3)
+END SUBROUTINE hmap_get_dx_dqi_aux
+
+!===============================================================================================================================
+!> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 , at q_in=(X^1,X^2,zeta), 
+!! INFO: default routine that can be overwritten by specific hmap class,
+!!       not using  additional hmap-dependent auxiliary variables,
+!!       but calling the generic routine get_ddx_dqij
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_get_ddx_dqij_aux(sf,q1,q2,xv,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33)
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(c_hmap)       ,INTENT(IN) :: sf
+  REAL(wp)            ,INTENT(IN) :: q1,q2
+  CLASS(c_hmap_auxvar),INTENT(IN) :: xv
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp),DIMENSION(3),INTENT(OUT) :: ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33
+  !===================================================================================================================================
+  CALL sf%get_ddx_dqij((/q1,q2,xv%zeta/),ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33)
+END SUBROUTINE hmap_get_ddx_dqij_aux
+
 
 !===================================================================================================================================
 !> call %eval_dxdq_aux on 1d array of points of size np, using auxiliary variable array of same size

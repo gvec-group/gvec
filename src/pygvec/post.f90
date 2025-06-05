@@ -446,6 +446,33 @@ END SUBROUTINE evaluate_base_tens_all
 !================================================================================================================================!
 !> Evaluate the mapping from reference to physical space (hmap)
 !================================================================================================================================!
+SUBROUTINE evaluate_hmap_pw(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta, coord, e_s, e_thet, e_zeta)
+  ! MODULES
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n                                                      !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds                !! reference space position & derivatives
+  REAL, INTENT(IN), DIMENSION(n) :: dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta  !! reference space derivatives
+  REAL, INTENT(OUT), DIMENSION(3,n) :: coord, e_s, e_thet, e_zeta               !! real space position and basis vectors
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i              ! loop variable
+  REAL, DIMENSION(3) :: dx_dq1, dx_dq2, dx_dq3
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
+  DO i=1,n
+    coord( :,i) = hmap%eval((/X1(i),X2(i),zeta(i)/))
+    CALL hmap%get_dx_dqi(   (/X1(i),X2(i),zeta(i)/), dx_dq1, dx_dq2, dx_dq3)
+    e_s(   :,i) = dX1_ds(   i)*dx_dq1 + dX2_ds(   i)*dx_dq2
+    e_thet(:,i) = dX1_dthet(i)*dx_dq1 + dX2_dthet(i)*dx_dq2
+    e_zeta(:,i) = dX1_dzeta(i)*dx_dq1 + dX2_dzeta(i)*dx_dq2 + dx_dq3
+  END DO
+  !$OMP END PARALLEL DO
+END SUBROUTINE
+
+!================================================================================================================================!
+!> Evaluate the mapping from reference to physical space (hmap)
+!================================================================================================================================!
 SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, dX1_dzeta, dX2_dzeta, coord, e_s, e_thet, e_zeta)
   ! MODULES
   USE MODgvec_Globals,    ONLY: wp
@@ -463,14 +490,16 @@ SUBROUTINE evaluate_hmap(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dthet, dX2_dthet, 
 #else
   CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
 #endif
+  REAL(wp),DIMENSION(3):: dx_dq1, dx_dq2, dx_dq3
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.FALSE.) !no second derivative needed
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
-    coord( :,i) = hmap%eval_aux(     X1(i),X2(i), hmap_xv(i))
-    e_s(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), dX1_ds(   i),dX2_ds(   i),0.0_wp, hmap_xv(i))
-    e_thet(:,i) = hmap%eval_dxdq_aux(X1(i),X2(i), dX1_dthet(i),dX2_dthet(i),0.0_wp, hmap_xv(i))
-    e_zeta(:,i) = hmap%eval_dxdq_aux(X1(i),X2(i), dX1_dzeta(i),dX2_dzeta(i),1.0_wp, hmap_xv(i))
+    coord( :,i) = hmap%eval_aux(X1(i),X2(i),hmap_xv(i))
+    CALL hmap%get_dx_dqi_aux(   X1(i),X2(i),hmap_xv(i), dx_dq1, dx_dq2, dx_dq3)
+    e_s(   :,i) = dX1_ds(   i)*dx_dq1 + dX2_ds(   i)*dx_dq2
+    e_thet(:,i) = dX1_dthet(i)*dx_dq1 + dX2_dthet(i)*dx_dq2
+    e_zeta(:,i) = dX1_dzeta(i)*dx_dq1 + dX2_dzeta(i)*dx_dq2 + dx_dq3
   END DO
   !$OMP END PARALLEL DO
 
@@ -480,7 +509,29 @@ END SUBROUTINE
 !================================================================================================================================!
 !> Evaluate the mapping from reference to physical space (hmap) without logical coordinates
 !================================================================================================================================!
-SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
+SUBROUTINE evaluate_hmap_only_pw(n, X1, X2, zeta, pos, dx_dq1, dx_dq2, dx_dq3)
+  ! MODULES
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n                                      !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta                !! reference space position
+  REAL, INTENT(OUT), DIMENSION(3,n) :: pos, dx_dq1, dx_dq2, dx_dq3 !! real space position and reference tangent basis vectors
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i              ! loop variable
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
+  DO i=1,n
+    pos(   :,i) = hmap%eval((/X1(i),X2(i),zeta(i)/) )
+    CALL hmap%get_dx_dqi(   (/X1(i),X2(i),zeta(i)/), dx_dq1(:,i), dx_dq2(:,i), dx_dq3(:,i))
+  END DO
+  !$OMP END PARALLEL DO
+END SUBROUTINE
+
+!================================================================================================================================!
+!> Evaluate the mapping from reference to physical space (hmap) without logical coordinates
+!================================================================================================================================!
+SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, dx_dq1, dx_dq2, dx_dq3)
   ! MODULES
   USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
@@ -488,7 +539,7 @@ SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                      !! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta                !! reference space position
-  REAL, INTENT(OUT), DIMENSION(3,n) :: pos, e_X1, e_X2, e_zeta3 !! real space position and reference tangent basis vectors
+  REAL, INTENT(OUT), DIMENSION(3,n) :: pos, dx_dq1, dx_dq2, dx_dq3 !! real space position and reference tangent basis vectors
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
 #ifdef PP_WHICH_HMAP
@@ -500,10 +551,8 @@ SUBROUTINE evaluate_hmap_only(n, X1, X2, zeta, pos, e_X1, e_X2, e_zeta3)
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.FALSE.) !no second derivative needed
   !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
-    pos(    :,i) = hmap%eval_aux(     X1(i),X2(i),                         hmap_xv(i))
-    e_X1(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), 1.0_wp, 0.0_wp, 0.0_wp, hmap_xv(i))
-    e_X2(   :,i) = hmap%eval_dxdq_aux(X1(i),X2(i), 0.0_wp, 1.0_wp, 0.0_wp, hmap_xv(i))
-    e_zeta3(:,i) = hmap%eval_dxdq_aux(X1(i),X2(i), 0.0_wp, 0.0_wp, 1.0_wp, hmap_xv(i))
+    pos(    :,i) = hmap%eval_aux(X1(i),X2(i),hmap_xv(i))
+    CALL hmap%get_dx_dqi_aux(    X1(i),X2(i),hmap_xv(i), dx_dq1(:,i), dx_dq2(:,i), dx_dq3(:,i))
   END DO
   !$OMP END PARALLEL DO
 
@@ -513,10 +562,9 @@ END SUBROUTINE
 !================================================================================================================================!
 !> evaluate components of the metric tensor and their derivatives
 !================================================================================================================================!
-SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, &
+SUBROUTINE evaluate_metric_derivs(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, &
                            dX1_dss, dX2_dss, dX1_dst, dX2_dst, dX1_dsz, dX2_dsz, &
                            dX1_dtt, dX2_dtt, dX1_dtz, dX2_dtz, dX1_dzz, dX2_dzz, &
-                           g_ss, g_st, g_sz, g_tt, g_tz, g_zz, &
                            dg_ss_ds, dg_st_ds, dg_sz_ds, dg_tt_ds, dg_tz_ds, dg_zz_ds, &
                            dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt, &
                            dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz)
@@ -529,7 +577,6 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
   REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  !! reference coordinates
   REAL, INTENT(IN), DIMENSION(n) :: dX1_dss, dX2_dss, dX1_dst, dX2_dst, dX1_dsz, dX2_dsz          !! and their derivatives
   REAL, INTENT(IN), DIMENSION(n) :: dX1_dtt, dX2_dtt, dX1_dtz, dX2_dtz, dX1_dzz, dX2_dzz
-  REAL, INTENT(OUT), DIMENSION(n) :: g_ss, g_st, g_sz, g_tt, g_tz, g_zz                           !! metric coefficients
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_ds, dg_st_ds, dg_sz_ds, dg_tt_ds, dg_tz_ds, dg_zz_ds   !! derivatives of the m. coef.
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dt, dg_st_dt, dg_sz_dt, dg_tt_dt, dg_tz_dt, dg_zz_dt   !! derivatives of the m. coef.
   REAL, INTENT(OUT), DIMENSION(n) :: dg_ss_dz, dg_st_dz, dg_sz_dz, dg_tt_dz, dg_tz_dz, dg_zz_dz   !! derivatives of the m. coef.
@@ -554,15 +601,6 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
 #define ddQ_dtt  dX1_dtt(i),dX2_dtt(i),0.0_wp
 #define ddQ_dtz  dX1_dtz(i),dX2_dtz(i),0.0_wp
 #define ddQ_dzz  dX1_dzz(i),dX2_dzz(i),0.0_wp
-
-    g_ss(i) =  hmap%eval_gij_aux( dQ_ds,  Q1Q2,  dQ_ds,  hmap_xv(i))
-    g_st(i) =  hmap%eval_gij_aux( dQ_ds,  Q1Q2,  dQ_dt,  hmap_xv(i))
-    g_sz(i) =  hmap%eval_gij_aux( dQ_ds,  Q1Q2,  dQ_dz,  hmap_xv(i))
-    g_tt(i) =  hmap%eval_gij_aux( dQ_dt,  Q1Q2,  dQ_dt,  hmap_xv(i))
-    g_tz(i) =  hmap%eval_gij_aux( dQ_dt,  Q1Q2,  dQ_dz,  hmap_xv(i))
-    g_zz(i) =  hmap%eval_gij_aux( dQ_dz,  Q1Q2,  dQ_dz,  hmap_xv(i))
-
-
     !g_ss
     dg_ss_ds(i) = 2*hmap%eval_gij_aux(   ddQ_dss,  Q1Q2,  dQ_ds         ,  hmap_xv(i)) &
                   + hmap%eval_gij_dq_aux( dQ_ds ,  Q1Q2,  dQ_ds ,  dQ_ds,  hmap_xv(i))
@@ -645,10 +683,35 @@ SUBROUTINE evaluate_metric(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_
   DEALLOCATE(hmap_xv)
 END SUBROUTINE
 
+
 !================================================================================================================================!
 !> evaluate the jacobian determinant and its derivatives
 !================================================================================================================================!
-SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, Jh, dJh_ds, dJh_dt, dJh_dz)
+SUBROUTINE evaluate_jac_h_derivs_pw(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz,  dJh_ds, dJh_dt, dJh_dz)
+  ! MODULES
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n                                                                        !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  !! reference coordinates
+  REAL, INTENT(OUT), DIMENSION(n) :: dJh_ds, dJh_dt, dJh_dz                                   !! jacobian det. and derivatives
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i              ! loop variable
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+    !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
+  DO i=1,n
+    dJh_ds(i)  = hmap%eval_Jh_dq((/X1(i),X2(i),zeta(i)/) ,(/dX1_ds(i),dX2_ds(i),0.0_wp/))
+    dJh_dt(i)  = hmap%eval_Jh_dq((/X1(i),X2(i),zeta(i)/) ,(/dX1_dt(i),dX2_dt(i),0.0_wp/))
+    dJh_dz(i)  = hmap%eval_Jh_dq((/X1(i),X2(i),zeta(i)/) ,(/dX1_dz(i),dX2_dz(i),1.0_wp/))
+  END DO
+  !$OMP END PARALLEL DO
+
+END SUBROUTINE
+
+!================================================================================================================================!
+!> evaluate the jacobian determinant and its derivatives
+!================================================================================================================================!
+SUBROUTINE evaluate_jac_h_derivs(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz, dJh_ds, dJh_dt, dJh_dz)
   ! MODULES
   USE MODgvec_Globals,    ONLY: wp
   USE MODgvec_MHD3D_vars, ONLY: hmap
@@ -656,7 +719,7 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n                                                                        !! number of evaluation points
   REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz  !! reference coordinates
-  REAL, INTENT(OUT), DIMENSION(n) :: Jh, dJh_ds, dJh_dt, dJh_dz                                   !! jacobian det. and derivatives
+  REAL, INTENT(OUT), DIMENSION(n) :: dJh_ds, dJh_dt, dJh_dz                                   !! jacobian det. and derivatives
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i              ! loop variable
 #ifdef PP_WHICH_HMAP
@@ -668,10 +731,9 @@ SUBROUTINE evaluate_jacobian(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX
   CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.TRUE.) !2nd derivative needed
     !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
   DO i=1,n
-    Jh(i) = hmap%eval_Jh_aux(     X1(i),X2(i),                             hmap_xv(i))
-    dJh_ds  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_ds(i),dX2_ds(i),0.0_wp, hmap_xv(i))
-    dJh_dt  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_dt(i),dX2_dt(i),0.0_wp, hmap_xv(i))
-    dJh_dz  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_dz(i),dX2_dz(i),1.0_wp, hmap_xv(i))
+    dJh_ds(i)  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_ds(i),dX2_ds(i),0.0_wp, hmap_xv(i))
+    dJh_dt(i)  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_dt(i),dX2_dt(i),0.0_wp, hmap_xv(i))
+    dJh_dz(i)  = hmap%eval_Jh_dq_aux(X1(i),X2(i), dX1_dz(i),dX2_dz(i),1.0_wp, hmap_xv(i))
   END DO
   !$OMP END PARALLEL DO
 

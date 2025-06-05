@@ -40,6 +40,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_RZ
   PROCEDURE :: eval_Jh_dq      => hmap_RZ_eval_Jh_dq
   PROCEDURE :: eval_gij         => hmap_RZ_eval_gij
   PROCEDURE :: eval_gij_dq     => hmap_RZ_eval_gij_dq
+  PROCEDURE :: get_dx_dqi       => hmap_RZ_get_dx_dqi
+  PROCEDURE :: get_ddx_dqij     => hmap_RZ_get_ddx_dqij
 
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_RZ
@@ -305,6 +307,69 @@ dxdq_qvec(1:3) = (/ q_vec(1)*coszeta-q_vec(3)*q_in(1)*sinzeta, &
 
 
 END FUNCTION hmap_RZ_eval_dxdq
+
+!===============================================================================================================================
+!> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_RZ_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3) 
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_RZ), INTENT(IN) :: sf
+  REAL(wp)        , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)     , INTENT(OUT) :: dx_dq1(3)
+  REAL(wp)     , INTENT(OUT) :: dx_dq2(3)
+  REAL(wp)     , INTENT(OUT) :: dx_dq3(3)
+  ! LOCAL VARIABLES
+  REAL(wp) :: coszeta,sinzeta
+  !===================================================================================================================================
+  !  dxdq_qvec=
+  ! |  cos(zeta)  0  -q^1 sin(zeta) | |q_vec(1) |
+  ! | -sin(zeta)  0  -q^1 cos(zeta) | |q_vec(2) |
+  ! |     0       1        0        | |q_vec(3) |
+
+  sinzeta=SIN(q_in(3))
+  coszeta=COS(q_in(3))
+  dx_dq1(1:3) = (/  coszeta,-sinzeta, 0.0_wp /)
+  dx_dq2(1:3) = (/  0.0_wp ,  0.0_wp, 1.0_wp /)
+  dx_dq3(1:3) = (/ -q_in(1)*sinzeta, -q_in(1)*coszeta, 0.0_wp /)
+
+END SUBROUTINE hmap_RZ_get_dx_dqi
+
+!===============================================================================================================================
+!> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 is evaluated at q_in=(X^1,X^2,zeta),
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_RZ_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33) 
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_RZ),INTENT(IN)  :: sf
+  REAL(wp)       , INTENT(IN)  :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)       , INTENT(OUT) :: ddx_dq11(3)
+  REAL(wp)       , INTENT(OUT) :: ddx_dq12(3)
+  REAL(wp)       , INTENT(OUT) :: ddx_dq13(3)
+  REAL(wp)       , INTENT(OUT) :: ddx_dq22(3)
+  REAL(wp)       , INTENT(OUT) :: ddx_dq23(3)
+  REAL(wp)       , INTENT(OUT) :: ddx_dq33(3)
+    ! LOCAL VARIABLES
+  REAL(wp) :: coszeta,sinzeta
+  !===================================================================================================================================
+  sinzeta=SIN(q_in(3))
+  coszeta=COS(q_in(3))
+  ddx_dq11(1:3) = 0.0_wp
+  ddx_dq12(1:3) = 0.0_wp
+  ddx_dq13(1:3) = (/-sinzeta,-coszeta, 0.0_wp /)
+  ddx_dq22(1:3) = 0.0_wp
+  ddx_dq23(1:3) = 0.0_wp
+  ddx_dq33(1:3) = (/ -q_in(1)*coszeta, q_in(1)*sinzeta, 0.0_wp /)
+END SUBROUTINE hmap_RZ_get_ddx_dqij
+
 
 !===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)

@@ -40,6 +40,8 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_cyl
   PROCEDURE :: eval_Jh_dq       => hmap_cyl_eval_Jh_dq
   PROCEDURE :: eval_gij         => hmap_cyl_eval_gij
   PROCEDURE :: eval_gij_dq      => hmap_cyl_eval_gij_dq
+  PROCEDURE :: get_dx_dqi       => hmap_cyl_get_dx_dqi
+  PROCEDURE :: get_ddx_dqij     => hmap_cyl_get_ddx_dqij
 
   !---------------------------------------------------------------------------------------------------------------------------------
 END TYPE t_hmap_cyl
@@ -284,9 +286,9 @@ FUNCTION hmap_cyl_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+  CLASS(t_hmap_cyl), INTENT(IN) :: sf
   REAL(wp)         , INTENT(IN) :: q_in(3)
   REAL(wp)         , INTENT(IN) :: q_vec(3)
-  CLASS(t_hmap_cyl), INTENT(IN) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   REAL(wp)                      :: dxdq_qvec(3)
@@ -299,6 +301,55 @@ FUNCTION hmap_cyl_eval_dxdq( sf ,q_in,q_vec) RESULT(dxdq_qvec)
 dxdq_qvec = (/q_vec(1),-sf%cyl_len*q_vec(3),q_vec(2)/)
 
 END FUNCTION hmap_cyl_eval_dxdq
+
+
+!===============================================================================================================================
+!> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_cyl_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3) 
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_cyl), INTENT(IN) :: sf
+  REAL(wp)         , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)     , INTENT(OUT) :: dx_dq1(3)
+  REAL(wp)     , INTENT(OUT) :: dx_dq2(3)
+  REAL(wp)     , INTENT(OUT) :: dx_dq3(3)
+  !===================================================================================================================================
+  dx_dq1(1:3) = (/ 1.0_wp,      0.0_wp, 0.0_wp /)
+  dx_dq2(1:3) = (/ 0.0_wp,      0.0_wp, 1.0_wp /)
+  dx_dq3(1:3) = (/ 0.0_wp, -sf%cyl_len, 0.0_wp /)
+END SUBROUTINE hmap_cyl_get_dx_dqi
+
+!=================================================================================================================================
+!> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 is evaluated at q_in=(X^1,X^2,zeta),
+!!
+!===============================================================================================================================
+SUBROUTINE hmap_cyl_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33) 
+  IMPLICIT NONE
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT VARIABLES
+  CLASS(t_hmap_cyl), INTENT(IN) :: sf
+  REAL(wp)         , INTENT(IN) :: q_in(3)
+  !-----------------------------------------------------------------------------------------------------------------------------------
+  ! OUTPUT VARIABLES
+  REAL(wp)     , INTENT(OUT) :: ddx_dq11(3)
+  REAL(wp)     , INTENT(OUT) :: ddx_dq12(3)
+  REAL(wp)     , INTENT(OUT) :: ddx_dq13(3)
+  REAL(wp)     , INTENT(OUT) :: ddx_dq22(3)
+  REAL(wp)     , INTENT(OUT) :: ddx_dq23(3)
+  REAL(wp)     , INTENT(OUT) :: ddx_dq33(3)
+  !===================================================================================================================================
+  ddx_dq11(1:3) = 0.0_wp
+  ddx_dq12(1:3) = 0.0_wp
+  ddx_dq13(1:3) = 0.0_wp
+  ddx_dq22(1:3) = 0.0_wp
+  ddx_dq23(1:3) = 0.0_wp
+  ddx_dq33(1:3) = 0.0_wp
+END SUBROUTINE hmap_cyl_get_ddx_dqij
 
 !===================================================================================================================================
 !> evaluate Jacobian of mapping h: J_h=sqrt(det(G)) at q=(X^1,X^2,zeta)

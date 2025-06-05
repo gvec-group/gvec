@@ -1043,7 +1043,7 @@ SUBROUTINE WriteSFLoutfile(Uin,fileID)
   REAL(wp),ALLOCATABLE       :: LA_s(:,:)
 #ifdef PP_WHICH_HMAP
   TYPE( PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:) !! auxiliary variables for hmap
-  TYPE( PP_T_HMAP_AUXVAR),POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap
+  TYPE( PP_T_HMAP_AUXVAR),CONTIGUOUS,POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap
 #else
   CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE,TARGET :: hmap_xv1d(:) !! auxiliary variables for hmap
   CLASS(PP_T_HMAP_AUXVAR),CONTIGUOUS,POINTER :: hmap_xv(:,:,:) !! auxiliary variables for hmap

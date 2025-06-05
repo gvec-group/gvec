@@ -364,8 +364,8 @@ class State:
         _post.evaluate_hmap_only, ["X1", "X2", "zeta"], 4, True
     )  # -> pos, e_X1, e_X2, e_zeta3
 
-    evaluate_metric = _evaluate_1D_factory(
-        _post.evaluate_metric,
+    evaluate_metric_derivs = _evaluate_1D_factory(
+        _post.evaluate_metric_derivs,
         [
             "X1",
             "X2",
@@ -376,11 +376,11 @@ class State:
             for i in "r t z rr rt rz tt tz zz".split()
             for Q in ["X1", "X2"]
         ],
-        24,
-    )  # -> g_rr, g_rt ... g_zz, dg_rr_dr, dg_rt_dr ... dg_zz_dz
+        18,
+    )  # -> dg_rr_dr, dg_rt_dr ... dg_zz_dz
 
-    evaluate_jacobian = _evaluate_1D_factory(
-        _post.evaluate_jacobian,
+    evaluate_jac_h_derivs = _evaluate_1D_factory(
+        _post.evaluate_jac_h_derivs,
         [
             "X1",
             "X2",
@@ -392,8 +392,8 @@ class State:
             "dX1_dz",
             "dX2_dz",
         ],
-        4,
-    )  # -> Jac_h, dJac_h_dr, dJac_h_dt, dJac_h_dz
+        3,
+    )  # ->  dJac_h_dr, dJac_h_dt, dJac_h_dz
 
     @_assert_init
     def evaluate_profile(self, quantity: str, rho: np.ndarray, deriv: int = 0):

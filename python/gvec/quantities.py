@@ -170,26 +170,25 @@ def N_FP(ds: xr.Dataset, state: State):
 
 
 @register(
-    quantities=("pos", "e_rho", "e_theta", "e_zeta"),
-    requirements=["xyz", "X1", "X2", "zeta"]
-    + [f"d{Q}_d{i}" for i in "rtz" for Q in ["X1", "X2"]],
+    quantities=("pos", "e_q1", "e_q2", "e_q3"),
+    requirements=("xyz", "X1", "X2", "zeta"),
     attrs=dict(
         pos=dict(long_name="position vector", symbol=r"\mathbf{x}"),
-        e_rho=dict(
-            long_name="radial tangent basis vector", symbol=r"\mathbf{e}_{\rho}"
+        e_q1=dict(
+            long_name="first reference tangent basis vector", symbol=r"\mathbf{e}_{q^1}"
         ),
-        e_theta=dict(
-            long_name="poloidal tangent basis vector",
-            symbol=r"\mathbf{e}_{\theta}",
+        e_q2=dict(
+            long_name="second reference tangent basis vector",
+            symbol=r"\mathbf{e}_{q^2}",
         ),
-        e_zeta=dict(
-            long_name="toroidal tangent basis vector",
-            symbol=r"\mathbf{e}_{\zeta}",
+        e_q3=dict(
+            long_name="toroidal reference tangent basis vector",
+            symbol=r"\mathbf{e}_{q^3}",
         ),
     ),
 )
 def hmap(ds: xr.Dataset, state: State):
-    outputs = state.evaluate_hmap(
+    outputs = state.evaluate_hmap_only(
         **{
             var: ds[var].broadcast_like(ds.X1).values.flatten()
             for var in hmap.requirements
@@ -204,12 +203,94 @@ def hmap(ds: xr.Dataset, state: State):
 
 
 # === metric =========================================================================== #
+@register(
+    quantities=["g_rr"],
+    requirements=["e_rho"],
+    attrs={
+        "g_rr": dict(
+            long_name="rr component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols['r'] + rtz_symbols['r']}}}",
+        ),
+    },
+)
+def g_rr(ds: xr.Dataset):
+    ds["g_rr"] = xr.dot(ds.e_rho, ds.e_rho, dim="xyz")
+
+
+@register(
+    quantities=["g_rt"],
+    requirements=["e_rho", "e_theta"],
+    attrs={
+        "g_rt": dict(
+            long_name="rt component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols['r'] + rtz_symbols['t']}}}",
+        ),
+    },
+)
+def g_rt(ds: xr.Dataset):
+    ds["g_rt"] = xr.dot(ds.e_rho, ds.e_theta, dim="xyz")
+
+
+@register(
+    quantities=["g_rz"],
+    requirements=["e_rho", "e_zeta"],
+    attrs={
+        "g_rz": dict(
+            long_name="rz component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols['r'] + rtz_symbols['z']}}}",
+        ),
+    },
+)
+def g_rz(ds: xr.Dataset):
+    ds["g_rz"] = xr.dot(ds.e_rho, ds.e_zeta, dim="xyz")
+
+
+@register(
+    quantities=["g_tt"],
+    requirements=["e_theta"],
+    attrs={
+        "g_tt": dict(
+            long_name="tt component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols['t'] + rtz_symbols['t']}}}",
+        ),
+    },
+)
+def g_tt(ds: xr.Dataset):
+    ds["g_tt"] = xr.dot(ds.e_theta, ds.e_theta, dim="xyz")
+
+
+@register(
+    quantities=["g_tz"],
+    requirements=["e_theta", "e_zeta"],
+    attrs={
+        "g_tz": dict(
+            long_name="tz component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols['t'] + rtz_symbols['z']}}}",
+        ),
+    },
+)
+def g_tz(ds: xr.Dataset):
+    ds["g_tz"] = xr.dot(ds.e_theta, ds.e_zeta, dim="xyz")
+
+
+@register(
+    quantities=["g_zz"],
+    requirements=["e_zeta"],
+    attrs={
+        "g_zz": dict(
+            long_name="zz component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols['z'] + rtz_symbols['z']}}}",
+        ),
+    },
+)
+def g_zz(ds: xr.Dataset):
+    ds["g_zz"] = xr.dot(ds.e_zeta, ds.e_zeta, dim="xyz")
 
 
 @register(
     quantities=[
         pattern.format(ij=ij)
-        for pattern in ("g_{ij}", "dg_{ij}_dr", "dg_{ij}_dt", "dg_{ij}_dz")
+        for pattern in ("dg_{ij}_dr", "dg_{ij}_dt", "dg_{ij}_dz")
         for ij in ("rr", "rt", "rz", "tt", "tz", "zz")
     ],
     requirements=["X1", "X2", "zeta"]
@@ -219,13 +300,6 @@ def hmap(ds: xr.Dataset, state: State):
         for Xi in ("X1", "X2")
     ],
     attrs={
-        f"g_{ij}": dict(
-            long_name=f"{ij} component of the metric tensor",
-            symbol=rf"g_{{{rtz_symbols[ij[0]] + rtz_symbols[ij[1]]}}}",
-        )
-        for ij in ("rr", "rt", "rz", "tt", "tz", "zz")
-    }
-    | {
         f"dg_{ij}_d{k}": dict(
             long_name=derivative_name_smart(f"{ij} component of the metric tensor", k),
             symbol=latex_partial(f"g_{{{rtz_symbols[ij[0]] + rtz_symbols[ij[1]]}}}", k),
@@ -235,7 +309,7 @@ def hmap(ds: xr.Dataset, state: State):
     },
 )
 def metric(ds: xr.Dataset, state: State):
-    outputs = state.evaluate_metric(
+    outputs = state.evaluate_metric_derivs(
         *[ds[var].broadcast_like(ds.X1).values.flatten() for var in metric.requirements]
     )
     for key, value in zip(metric.quantities, outputs):
@@ -249,7 +323,24 @@ def metric(ds: xr.Dataset, state: State):
 
 
 @register(
-    quantities=("Jac_h", *(f"dJac_h_d{i}" for i in "rtz")),
+    quantities=("Jac_h"),
+    requirements=[
+        "e_q1",
+        "e_q2",
+        "e_q3",
+    ],
+    attrs={
+        "Jac_h": dict(
+            long_name="reference Jacobian determinant", symbol=r"\mathcal{J}_h"
+        ),
+    },
+)
+def Jac_h(ds: xr.Dataset):
+    ds["Jac_h"] = xr.dot(ds.e_q1, xr.cross(ds.e_q2, ds.e_q3, dim="xyz"), dim="xyz")
+
+
+@register(
+    quantities=(*(f"dJac_h_d{i}" for i in "rtz"),),
     requirements=[
         "X1",
         "X2",
@@ -262,11 +353,6 @@ def metric(ds: xr.Dataset, state: State):
         "dX2_dz",
     ],
     attrs={
-        "Jac_h": dict(
-            long_name="reference Jacobian determinant", symbol=r"\mathcal{J}_h"
-        ),
-    }
-    | {
         f"dJac_h_d{i}": dict(
             long_name=derivative_name_smart("reference Jacobian determinant", i),
             symbol=latex_partial_smart(r"\mathcal{J}_h", i),
@@ -274,11 +360,14 @@ def metric(ds: xr.Dataset, state: State):
         for i in "rtz"
     },
 )
-def Jac_h(ds: xr.Dataset, state: State):
-    outputs = state.evaluate_jacobian(
-        *[ds[var].broadcast_like(ds.X1).values.flatten() for var in Jac_h.requirements]
+def Jac_h_derivs(ds: xr.Dataset, state: State):
+    outputs = state.evaluate_jac_h_derivs(
+        *[
+            ds[var].broadcast_like(ds.X1).values.flatten()
+            for var in Jac_h_derivs.requirements
+        ]
     )
-    for key, value in zip(Jac_h.quantities, outputs):
+    for key, value in zip(Jac_h_derivs.quantities, outputs):
         ds[key] = (
             ds.X1.dims,
             value.reshape(ds.X1.shape),
@@ -394,6 +483,30 @@ def Jac_P(ds: xr.Dataset):
 
 
 # === derived ========================================================================== #
+
+
+@register(
+    requirements=("xyz", "e_q1", "e_q2", "dX1_dr", "dX2_dr"),
+    attrs=dict(long_name="radial tangent basis vector", symbol=r"\mathbf{e}_\rho"),
+)
+def e_rho(ds: xr.Dataset):
+    ds["e_rho"] = ds.e_q1 * ds.dX1_dr + ds.e_q2 * ds.dX2_dr
+
+
+@register(
+    requirements=("xyz", "e_q1", "e_q2", "dX1_dt", "dX2_dt"),
+    attrs=dict(long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_\theta"),
+)
+def e_theta(ds: xr.Dataset):
+    ds["e_theta"] = ds.e_q1 * ds.dX1_dt + ds.e_q2 * ds.dX2_dt
+
+
+@register(
+    requirements=("xyz", "e_q1", "e_q2", "e_q3", "dX1_dz", "dX2_dz"),
+    attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_\zeta"),
+)
+def e_zeta(ds: xr.Dataset):
+    ds["e_zeta"] = ds.e_q1 * ds.dX1_dz + ds.e_q2 * ds.dX2_dz + ds.e_q3
 
 
 @register(
