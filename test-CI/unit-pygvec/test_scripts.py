@@ -88,7 +88,8 @@ def test_picard_auto():
     """
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = "auto"
-    rundir, final_state, diagnostics = gvec.scripts.run.run_stages(parameters)
+    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
+    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4

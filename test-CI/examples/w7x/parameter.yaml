@@ -38,7 +38,7 @@ MinimizerType: 10
 PrecondType: 1
 start_dt: 0.5
 maxIter: 1000
-minimize_tol: 1.0e-06
+minimize_tol: 1.0e-04
 
 # current constraint picard iteration parameters
 picard_current:

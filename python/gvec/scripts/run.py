@@ -77,23 +77,17 @@ parser.add_argument("-p", "--plots", action="store_true", help="plot diagnostics
 # === Script === #
 
 
-class StagesState:
+class RunWithStages:
     def __init__(
         self,
         params: Mapping,
-        project_dir: Path,
         statefile: Path | None = None,
         logger: logging.Logger | None = None,
-        stage: int = 0,
-        nth_run: int = 0,
-        I_tor_target: np.ndarray | None = None,
-        rho: np.ndarray | None = None,
         diagnostics: xr.Dataset | None = None,
-        GVEC_iter_used: int = 0,
         redirect_gvec_stdout: bool = True,
         diagnosticfile: Path | None = None,
-        progressbar=True,
-        totaliter=None,
+        progressbar: bool = True,
+        plots: bool = False,
     ):
         """
         State of a GVEC run during a stage, e.g. a picard iteration during a current constraint run.
@@ -102,54 +96,139 @@ class StagesState:
         ----------
         params : Mapping
             GVEC parameter dictionary.
-        project_dir : Path
-            Directory where the GVEC runs are performed.
         statefile : Path | None, optional
             Statefile to restart from. The default is None.
-        logger : logging.Logger | None, optional
+        logger : logging.Logger | None:
             Logger to write to. The default is None.
-        stage : int, optional
-            Number of the stage used for naming the run directories. The default is 0.
-        nth_run : int, optional
-            Number of runs performed in the current stage. Used for naming the run directories. The default is 0.
-        I_tor_target : np.ndarray | None, optional
-            Target current profile when running GVEC with current constraint. The default is None.
-        rho : np.ndarray | None, optional
-            Radial positions used for evaluating profiles. The default is None.
         diagnostics : xr.Dataset | None, optional
             NetCDF file for logging diagnostic quantities during the stages and runs. The default is None.
-        GVEC_iter_used : int, optional
-            Number of GVEC iterations used so far. The default is 0.
         redirect_gvec_stdout : bool, optional
             Whether to redirect GVEC's stdout. The default is True.
         diagnosticfile : Path | None, optional
             File to write diagnostic output to. The default is default None.
         progressbar : bool, optional
             Whether to show a progress bar. The default is True.
+        plots : bool, optional
+            Whether to plot diagnostics. The default is False.
         """
         self.statefile = statefile
-        self.params = params
+        self.original_params = copy.deepcopy(params)
+        self.params = copy.deepcopy(params)
+        if "ProjectName" not in self.params:
+            self.params["ProjectName"] = "GVEC"
+
+        self.logger = logging.getLogger("pyGVEC.script")
+
+        project_dir = Path(f"{self.params['ProjectName']}_gvec_stages")
+        if project_dir.exists():
+            self.logger.debug(f"Removing existing run directory {project_dir}")
+            shutil.rmtree(project_dir)
+        project_dir.mkdir()
         self.project_dir = project_dir
-        self.logger = logger
-        self.stage = stage
-        self.nth_run = nth_run
+
+        self.nth_stage = 0
+        self.nth_run = 0
         self.rundir = None
         self.progressbar = progressbar
+        self.diagnostics = diagnostics
+        self.diagnosticfile = diagnosticfile
+        self.GVEC_iter_used = 0
+        self.redirect_gvec_stdout = redirect_gvec_stdout
+
+        self.log_dia = None
+        self.plots = plots
+
+        self.stages = params.get("stages", [{}])
+
+        self.totaliter = params.get("totaliter", int(1e5))
+        if "MaxIter" not in params:
+            self.params["MaxIter"] = self.totaliter
+
+        self.has_Itor = "I_tor" in params
+        self.has_iota = "iota" in params
+
+        rho = np.sqrt(np.linspace(0, 1, 101))
+        rho[0] = 1e-4
+        self.rho = rho
+
+        picard_current = params.get("picard_current", "off")
+        if self.has_Itor and (picard_current == "off"):
+            raise KeyError(
+                "'I_tor' is provided but 'picard_current' is set to 'off' or not provided. Please provide a valid 'picard_current', e.g. 'auto'."
+            )
+        if not self.has_Itor and (picard_current != "off"):
+            raise KeyError(
+                "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
+                + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
+            )
+
+        # Automatically generate the stages for the current constraint
+        if picard_current == "auto":
+            self.logger.info(
+                "Using `picard_current` automatic mode. Generating stages ..."
+            )
+            if self.stages != [{}]:
+                self.logger.warning(
+                    "WARNING: pre-set stages are ignored since picard_current is set to 'auto'!"
+                )
+            minimize_tol = params.get("minimize_tol", 1e-6)
+            self.stages = _auto_generate_stages(minimize_tol, 1e-10)
+            paramters_stages_toml = copy.deepcopy(params)
+            paramters_stages_toml["stages"] = self.stages
+            self.logger.info(f"... generated {len(self.stages)} stages.")
+            self.logger.info(
+                f"... writing new parameters to 'parameter_{self.params['ProjectName']}.stages.toml'"
+            )
+            gvec.util.write_parameters(
+                paramters_stages_toml,
+                project_dir / f"parameter_{self.params['ProjectName']}.stages.toml",
+            )
+            self.params["picard_current"] = {}
+
+        if self.has_Itor:
+            match params["I_tor"].get("type", "polynomial"):
+                case "polynomial":
+                    coefs = np.array(params["I_tor"]["coefs"][::-1])
+                    coefs *= params["I_tor"].get("scale", 1.0)
+                    I_tor_target = np.poly1d(coefs)(rho**2)
+                case "bspline":
+                    from scipy.interpolate import BSpline
+
+                    coefs = np.array(params["I_tor"]["coefs"], dtype=float)
+                    coefs *= params["I_tor"].get("scale", 1.0)
+                    knots = np.array(params["I_tor"]["knots"], dtype=float)
+                    I_tor_target = BSpline(knots, coefs)(rho**2)
+                case "interpolation":
+                    I_tor_target = np.array(params["I_tor"]["vals"], dtype=float)
+                    rho = np.sqrt(np.array(params["I_tor"]["rho2"], dtype=float))
+                case _:
+                    raise ValueError(f"Unknown Itor type: {params['Itor']['type']}")
+
+            if not self.has_iota:
+                self.params["iota"] = {"type": "polynomial", "coefs": [0.0]}
+        else:
+            self.I_tor_target = None
+
         if "I_tor" in params:
             self.I_tor_target = I_tor_target
             self.iota_rms = None
             self.curr_constraint = True
         else:
             self.curr_constraint = False
-        self.rho = rho
-        self.diagnostics = diagnostics
-        self.diagnosticfile = diagnosticfile
-        self.GVEC_iter_used = GVEC_iter_used
-        self.redirect_gvec_stdout = redirect_gvec_stdout
-        self.totaliter = totaliter
-        self.log_dia = None
 
-    def run(self):
+        # account for the change in relative path of restart, hmap, etc. files
+        for key, value in self.params.items():
+            if key.lower() in [
+                "vmecwoutfile",
+                "boundary_filename",
+                "hmap_ncfile",
+            ] and not value.startswith("/"):
+                self.params[key] = f"../../{value}"
+
+        # count the number of runs in each stage, for dynamic progressbar during current constraint
+        self.n_runs_in_stage = [0 for _ in self.stages]
+
+    def run_single(self):
         """Run GVEC using the parameters of the current state. The state is updated after the run."""
         start_time = time.time()
         # find previous state
@@ -158,7 +237,7 @@ class StagesState:
             self.params["init_LA"] = False
 
         # prepare the run directory
-        self.rundir = self.project_dir / Path(f"{self.stage:1d}-{self.nth_run:02d}")
+        self.rundir = self.project_dir / Path(f"{self.nth_stage:1d}-{self.nth_run:02d}")
         if self.rundir.exists():
             self.logger.debug(f"Removing existing run directory {self.rundir}")
             shutil.rmtree(self.rundir)
@@ -169,7 +248,7 @@ class StagesState:
         gvec.util.write_parameter_file(
             gvec.util.flatten_parameters(self.params),
             self.rundir / "parameter.ini",
-            header=f"!Auto-generated with `pygvec run` (stage {self.stage} run {self.nth_run})\n"
+            header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage} run {self.nth_run})\n"
             f"!Created at {datetime.now().isoformat()}\n"
             f"!pyGVEC v{gvec.__version__}\n",
         )
@@ -271,6 +350,125 @@ class StagesState:
         )
         self.logger.info("-" * 40)
 
+    def _reset_params_to_original(self):
+        """
+        Reset the parameters to the original values.
+        Note that newly added keys, which are not present in the original parameters will be kept!
+        """
+        for key, value in self.original_params.items():
+            if key == "iota":
+                continue
+            elif key == "MaxIter":
+                self.logger.debug(
+                    f"Setting maxIter to:{min(self.totaliter - self.GVEC_iter_used, value)}"
+                )
+                self.params[key] = min(self.totaliter - self.GVEC_iter_used, value)
+            elif key == "picard_current" and value == "auto":
+                self.params[key] = {}
+            else:
+                self.params[key] = copy.deepcopy(value)
+
+    def _set_params_for_stage(self, stage: Mapping):
+        """
+        Set the run parameters to the values specified in the stage.
+
+        Parameters
+        ----------
+        stage : Mapping
+            Dictionary specifying which parameters are to be changed from the original parameter set.
+        """
+        for key, value in stage.items():
+            if key == "MaxIter":
+                self.params[key] = min(self.totaliter - self.GVEC_iter_used, value)
+
+            if key == "picard_current" and value == "off":
+                self.curr_constraint = False
+            elif key == "picard_current" and value != "off" and not self.has_Itor:
+                raise KeyError(
+                    "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
+                    + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
+                )
+            elif key == "picard_current" and not isinstance(value, str):
+                if key not in self.params:
+                    self.params[key] = {}
+                for subkey, subvalue in value.items():
+                    self.params[key][subkey] = subvalue
+
+            if key in ["iota", "pres", "sgrid"]:
+                if key not in self.params:
+                    self.params[key] = {}
+                for subkey, subvalue in value.items():
+                    self.params[key][subkey] = subvalue
+            if key in self.params and isinstance(value, Mapping):
+                for subkey, subvalue in value.items():
+                    self.params[key][subkey] = subvalue
+            else:
+                self.params[key] = value
+
+    def run_stages(self, return_output: bool = False):
+        for s, stage in enumerate(self.stages):
+            if self.GVEC_iter_used >= self.totaliter:
+                self.logger.warning(
+                    "WARNING: Maximum number of GVEC iterations reached. Aborting stages!"
+                )
+                break
+
+            self._reset_params_to_original()
+            self._set_params_for_stage(stage)
+
+            self.nth_stage = s
+            self.nth_run = 0
+
+            # run the stage
+            if self.curr_constraint:
+                if self.params["picard_current"] == "auto":
+                    raise ValueError(
+                        'Detected `picard_current="auto"` during stage evaluation. Auto mode has to be set outside of the stages.'
+                    )
+                if "iota_tol" not in self.params["picard_current"]:
+                    raise KeyError(f"During stage {s} 'iota_tol' is not specified.")
+
+                iota_tol = self.params["picard_current"].get("iota_tol")
+                target = self.params["picard_current"].get("target", "iota_and_force")
+                match target:
+                    case "iota":
+                        n_runs_in_stage = self._current_constraint_target_iota(
+                            self.totaliter, iota_tol, self.n_runs_in_stage
+                        )
+                    case "iota_and_force":
+                        self.nth_run = -1
+                        n_runs_in_stage = (
+                            self._current_constraint_target_iota_and_force(
+                                self.totaliter, iota_tol, n_runs_in_stage
+                            )
+                        )
+                    case _:
+                        raise ValueError(f"Unknown picard_current target:{target}")
+            else:
+                self.params["MaxIter"] = min(
+                    self.totaliter - self.GVEC_iter_used,
+                    self.params["MaxIter"],
+                )
+                self._eval_progressstr(n_runs_in_stage)
+                self.run_single()
+                n_runs_in_stage[self.nth_stage] += 1
+
+        self.logger.info("Done.")
+        final_state = Path(self.params["ProjectName"] + "_State_final.dat")
+        parameter_final = Path("parameter_" + self.params["ProjectName"] + "_final.ini")
+
+        shutil.copy(self.statefile, final_state)
+        shutil.copy(self.statefile.parents[0] / "parameter.ini", parameter_final)
+        diagnostics = xr.merge([self.diagnostics, self.log_dia])
+
+        if self.diagnosticfile:
+            diagnostics.to_netcdf(self.diagnosticfile)
+        if self.plots:
+            self.plot_diagnostics()
+
+        if return_output:
+            return self.rundir, final_state, diagnostics
+
     def _current_constraint_target_iota(
         self,
         totaliter: int,
@@ -304,13 +502,13 @@ class StagesState:
                 totaliter - self.GVEC_iter_used, self.params["MaxIter"]
             )
             self.nth_run += 1
-            n_runs_in_stage[self.stage] += 1
+            n_runs_in_stage[self.nth_stage] += 1
             self._eval_progressstr(n_runs_in_stage)
-            self.run()
+            self.run_single()
 
         if self.rms_iota > iota_tol:
             self.logger.warning(
-                f"WARNING: targeted iota has not been reached during stage {self.stage}!\n"
+                f"WARNING: targeted iota has not been reached during stage {self.nth_stage}!\n"
                 + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.data:.2e}\n"
                 + f"GVEC iterations used: {self.GVEC_iter_used}"
             )
@@ -346,12 +544,12 @@ class StagesState:
                 totaliter - self.GVEC_iter_used, self.params["MaxIter"]
             )
             self.nth_run += 1
-            n_runs_in_stage[self.stage] += 1
+            n_runs_in_stage[self.nth_stage] += 1
             self._eval_progressstr(n_runs_in_stage)
-            self.run()
+            self.run_single()
         if self.rms_iota > iota_tol:
             self.logger.warning(
-                f"WARNING: targeted iota has not been reached during stage {self.stage}!\n"
+                f"WARNING: targeted iota has not been reached during stage {self.nth_stage}!\n"
                 + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.data:.2e}\n"
                 + f"GVEC iterations used: {self.GVEC_iter_used}"
             )
@@ -372,17 +570,20 @@ class StagesState:
         """
         progressstr = "|"
         for i, ir in enumerate(n_runs_in_stage):
-            if i < self.stage:
+            if i < self.nth_stage:
                 progressstr += "=" * ir + "|"
-            elif i == self.stage:
+            elif i == self.nth_stage:
                 progressstr += "=" * (ir - 1) + ">" + "|"
             else:
                 progressstr += ".|"
         if self.progressbar:
             print(
-                f"GVEC stage {self.stage} run {self.nth_run}: {progressstr}", end="\r"
+                f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}",
+                end="\r",
             )
-        self.logger.info(f"GVEC stage {self.stage} run {self.nth_run}: {progressstr}")
+        self.logger.info(
+            f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}"
+        )
 
     def plot_diagnostics(self):
         """
@@ -518,247 +719,6 @@ def _auto_generate_stages(minimize_target, iota_target):
     return stages
 
 
-def run_stages(
-    parameters: Mapping,
-    statefile: Path | None = None,
-    redirect_gvec_stdout: bool = True,
-    diagnosticfile: Path | None = None,
-    progressbar: bool = True,
-    plots: bool = False,
-) -> tuple[Path, Path, xr.Dataset]:
-    """
-    Run GVEC in stages.
-
-    Parameters
-    ----------
-    parameters : Mapping
-        GVEC parameters.
-    statefile : Path | None, optional
-        Statefile to restart from. The default is None.
-    redirect_gvec_stdout : bool, optional
-        Whether to redirect GVEC's stdout. The default is True.
-    diagnosticfile : Path | None, optional
-        File to write an xarray Dataset (netcdf) with diagnostic quantities to. The default is None.
-    progressbar : bool, optional
-        Whether to show a progress bar. The default is True.
-    plots : bool, optional
-        Whether to generate plots after the run. The default is False.
-
-    Returns
-    -------
-    tuple[Path, Path, xr.Dataset]
-        A tuple of the run directory, the final state file, and an xarray Dataset with diagnostic quantities.
-    """
-    logger = logging.getLogger("pyGVEC.script")
-    rho = np.sqrt(np.linspace(0, 1, 101))
-    rho[0] = 1e-4
-
-    picard_current = parameters.get("picard_current", "off")
-    stages = parameters.get("stages", [{}])
-
-    totaliter = parameters.get("totaliter", int(1e5))
-    if "MaxIter" not in parameters:
-        parameters["MaxIter"] = totaliter
-
-    # prepare the run directory
-    project_dir = Path(f"{parameters['ProjectName']}_gvec_stages")
-    if project_dir.exists():
-        logger.debug(f"Removing existing run directory {project_dir}")
-        shutil.rmtree(project_dir)
-    project_dir.mkdir()
-
-    has_Itor = "I_tor" in parameters
-    has_iota = "iota" in parameters
-
-    if has_Itor and (picard_current == "off"):
-        raise KeyError(
-            "'I_tor' is provided but 'picard_current' is set to 'off' or not provided. Please provide a valid 'picard_current', e.g. 'auto'."
-        )
-    if not has_Itor and (picard_current != "off"):
-        raise KeyError(
-            "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
-            + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
-        )
-
-    # Automatically generate the stages for the current constraint
-    if picard_current == "auto":
-        logger.info("Using `picard_current` automatic mode. Generating stages ...")
-        if stages != [{}]:
-            logger.warning(
-                "WARNING: pre-set stages are ignored since picard_current is set to 'auto'!"
-            )
-        minimize_tol = parameters.get("minimize_tol", 1e-6)
-        stages = _auto_generate_stages(minimize_tol, 1e-10)
-        paramters_stages_toml = copy.deepcopy(parameters)
-        paramters_stages_toml["stages"] = stages
-        logger.info(f"... generated {len(stages)} stages.")
-        logger.info(
-            f"... writing new parameters to '{f'parameter_{parameters["ProjectName"]}.stages.toml'}'"
-        )
-        gvec.util.write_parameters(
-            paramters_stages_toml,
-            project_dir / f"parameter_{parameters['ProjectName']}.stages.toml",
-        )
-        parameters["picard_current"] = {}
-
-    if has_Itor:
-        match parameters["I_tor"].get("type", "polynomial"):
-            case "polynomial":
-                coefs = np.array(parameters["I_tor"]["coefs"][::-1])
-                coefs *= parameters["I_tor"].get("scale", 1.0)
-                I_tor_target = np.poly1d(coefs)(rho**2)
-            case "bspline":
-                from scipy.interpolate import BSpline
-
-                coefs = np.array(parameters["I_tor"]["coefs"], dtype=float)
-                coefs *= parameters["I_tor"].get("scale", 1.0)
-                knots = np.array(parameters["I_tor"]["knots"], dtype=float)
-                I_tor_target = BSpline(knots, coefs)(rho**2)
-            case "interpolation":
-                I_tor_target = np.array(parameters["I_tor"]["vals"], dtype=float)
-                rho = np.sqrt(np.array(parameters["I_tor"]["rho2"], dtype=float))
-            case _:
-                raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
-
-        if not has_iota:
-            parameters["iota"] = {"type": "polynomial", "coefs": [0.0]}
-    else:
-        I_tor_target = None
-
-    #  initialize the object that holds the current state of the stage
-    state_of_stage = StagesState(
-        params=gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters)),
-        project_dir=project_dir,
-        statefile=statefile,
-        I_tor_target=I_tor_target,
-        rho=rho,
-        logger=logger,
-        diagnosticfile=diagnosticfile,
-        redirect_gvec_stdout=redirect_gvec_stdout,
-        progressbar=progressbar,
-        totaliter=totaliter,
-    )
-
-    # account for the change in relative path of restart, hmap, etc. files
-    for key, value in state_of_stage.params.items():
-        if key.lower() in [
-            "vmecwoutfile",
-            "boundary_filename",
-            "hmap_ncfile",
-        ] and not value.startswith("/"):
-            state_of_stage.params[key] = f"../../{value}"
-
-    # count the number of runs in each stage, for dynamic progressbar during current constraint
-    n_runs_in_stage = [0 for _ in stages]
-
-    for s, stage in enumerate(stages):
-        if state_of_stage.GVEC_iter_used >= totaliter:
-            state_of_stage.logger.warning(
-                "WARNING: Maximum number of GVEC iterations reached. Aborting stages!"
-            )
-            break
-        # reset to default/initial run_params to make the stages independet, except for 'iota' and the budget
-        for key, value in parameters.items():
-            if key in ["iota"]:
-                continue
-            elif key in ["MaxIter"]:
-                state_of_stage.logger.debug(
-                    f"Setting maxIter to:{min(totaliter - state_of_stage.GVEC_iter_used, parameters['MaxIter'])}"
-                )
-                state_of_stage.params[key] = min(
-                    totaliter - state_of_stage.GVEC_iter_used, parameters["MaxIter"]
-                )
-            else:
-                state_of_stage.params[key] = copy.deepcopy(value)
-
-        # adapt parameters for this stage
-        for key, value in stage.items():
-            if key == "MaxIter":
-                state_of_stage.params[key] = min(
-                    totaliter - state_of_stage.GVEC_iter_used, value
-                )
-
-            if key == "picard_current" and value == "off":
-                state_of_stage.curr_constraint = False
-            elif key == "picard_current" and value != "off" and not has_Itor:
-                raise KeyError(
-                    "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
-                    + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
-                )
-            elif key == "picard_current" and not isinstance(value, str):
-                if key not in state_of_stage.params:
-                    state_of_stage.params[key] = {}
-                for subkey, subvalue in value.items():
-                    state_of_stage.params[key][subkey] = subvalue
-
-            if key in ["iota", "pres", "sgrid"]:
-                if key not in state_of_stage.params:
-                    state_of_stage.params[key] = {}
-                for subkey, subvalue in value.items():
-                    state_of_stage.params[key][subkey] = subvalue
-            if key in state_of_stage.params and isinstance(value, Mapping):
-                for subkey, subvalue in value.items():
-                    state_of_stage.params[key][subkey] = subvalue
-            else:
-                state_of_stage.params[key] = value
-
-        state_of_stage.stage = s
-        state_of_stage.nth_run = 0
-
-        # run the stage
-        if state_of_stage.curr_constraint:
-            if state_of_stage.params["picard_current"] == "auto":
-                raise ValueError(
-                    'Detected `picard_current="auto"` during stage evaluation. Auto mode has to be set outside of the stages.'
-                )
-            if "iota_tol" not in state_of_stage.params["picard_current"]:
-                raise KeyError(f"During stage {s} 'iota_tol' is not specified.")
-            if "runs" in stage:
-                state_of_stage.logger.warning(
-                    f"The 'runs' parameter in stage {s} is ignored when prescribing 'Itor'."
-                )
-
-            iota_tol = state_of_stage.params["picard_current"].get("iota_tol")
-            target = state_of_stage.params["picard_current"].get(
-                "target", "iota_and_force"
-            )
-            match target:
-                case "iota":
-                    n_runs_in_stage = state_of_stage._current_constraint_target_iota(
-                        totaliter, iota_tol, n_runs_in_stage
-                    )
-                case "iota_and_force":
-                    state_of_stage.nth_run = -1
-                    n_runs_in_stage = (
-                        state_of_stage._current_constraint_target_iota_and_force(
-                            totaliter, iota_tol, n_runs_in_stage
-                        )
-                    )
-                case _:
-                    raise ValueError(f"Unknown picard_current target:{target}")
-        else:
-            state_of_stage.params["MaxIter"] = min(
-                totaliter - state_of_stage.GVEC_iter_used,
-                state_of_stage.params["MaxIter"],
-            )
-            state_of_stage._eval_progressstr(n_runs_in_stage)
-            state_of_stage.run()
-            n_runs_in_stage[state_of_stage.stage] += 1
-
-    state_of_stage.logger.info("Done.")
-    final_state = Path(parameters["ProjectName"] + "_State_final.dat")
-    parameter_final = Path("parameter_" + parameters["ProjectName"] + "_final.ini")
-
-    shutil.copy(state_of_stage.statefile, final_state)
-    shutil.copy(state_of_stage.statefile.parents[0] / "parameter.ini", parameter_final)
-    diagnostics = xr.merge([state_of_stage.diagnostics, state_of_stage.log_dia])
-    if diagnosticfile:
-        diagnostics.to_netcdf(diagnosticfile)
-    if plots:
-        state_of_stage.plot_diagnostics()
-    return state_of_stage.rundir, final_state, diagnostics
-
-
 def main(args: Sequence[str] | argparse.Namespace | None = None):
     if isinstance(args, argparse.Namespace):
         pass
@@ -805,15 +765,16 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 logger.setLevel(logging.INFO)
             elif args.verbose >= 2:
                 logger.setLevel(logging.DEBUG)
-
-            run_stages(
+            run_with_stages = RunWithStages(
                 parameters,
                 args.restartfile,
+                logger=logger,
                 progressbar=not args.quiet and not args.verbose,
                 redirect_gvec_stdout=args.verbose < 3,
                 diagnosticfile=args.diagnostics,
                 plots=args.plots,
             )
+            run_with_stages.run_stages()
     else:
         raise ValueError("Cannot determine parameterfile type")
 

@@ -9,9 +9,9 @@ import contextlib
 import os
 import re
 import shutil
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping, Iterable
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 from copy import deepcopy
 
 from numpy.typing import ArrayLike

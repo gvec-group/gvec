@@ -5,6 +5,7 @@ try:
     from gvec.vtk import ev2vtk
     import gvec
     import numpy as np
+    from copy import deepcopy
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
 
@@ -29,6 +30,35 @@ def test_CaseInsensitiveDict():
         _ = util.CaseInsensitiveDict({"a": 1, "A": 2})
     with pytest.raises(ValueError):
         cid == {"a": 1, "A": 2}
+
+
+def test_copy_test_CaseInsensitiveDict():
+    from collections.abc import MutableSequence, MutableMapping
+
+    def recursive_is_not(data_left, data_right):
+        if not isinstance(data_left, int) and not isinstance(data_left, str):
+            assert data_left is not data_right
+        assert data_left == data_right
+        match data_left:
+            case MutableSequence():
+                for values in zip(data_left, data_right):
+                    recursive_is_not(*values)
+            case MutableMapping():
+                for key in data_left:
+                    recursive_is_not(data_left[key], data_right[key])
+            case _:
+                pass
+
+    cid = util.CaseInsensitiveDict(
+        cid_in=util.CaseInsensitiveDict({"a": 1, "B": 2}),
+        list_cid_in=[
+            util.CaseInsensitiveDict({"a": 1, "B": 2}),
+            util.CaseInsensitiveDict({"c": 3, "D": 4}),
+        ],
+        NAME="test",
+    )
+    cid_copy = deepcopy(cid)
+    recursive_is_not(cid_copy, cid)
 
 
 def test_ev2vtk(testcaserundir, testfiles):
