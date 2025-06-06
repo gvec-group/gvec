@@ -58,16 +58,13 @@ OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executab
 OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
 OPTION(COMPILE_PYGVEC "compile python interface to gvec" OFF)
 MARK_AS_ADVANCED(COMPILE_PYGVEC)
-
-IF(COMPILE_PYGVEC)
-  UNSET(COMPILE_SRC_PYGVEC CACHE )
-ELSE()
-  OPTION(COMPILE_SRC_PYGVEC " compile pygvec fortran sources" ON)
-  MARK_AS_ADVANCED(COMPILE_SRC_PYGVEC)
-ENDIF()
+OPTION(COMPILE_SRC_PYGVEC " compile pygvec fortran sources" ON)
+MARK_AS_ADVANCED(COMPILE_SRC_PYGVEC)
 IF(NOT COMPILE_GVEC)
+  UNSET(COMPILE_PYGVEC CACHE )
   UNSET(COMPILE_SRC_PYGVEC CACHE )
 ENDIF()
+
 
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
@@ -407,15 +404,15 @@ IF(COMPILE_PYGVEC)
   MESSAGE(STATUS "F2PY include dir: ${F2PY_INCLUDE_DIR}")
 
   # --- pygvec modules --- #
-  # modules that are not part of gveclib
-  # compiled seperately from the bindings to allow specifying individual compile flags
-  SET(pygveclib_files
-    src/pygvec/binding.f90
-    src/pygvec/post.f90
-    src/pygvec/run.f90
-  )
-  ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
-  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
+  # pygvec fortran modules are now part of gveclib
+  # so not compiled seperately from the bindings (would allow specifying individual compile flags)
+  #SET(pygveclib_files
+  #  src/pygvec/binding.f90
+  #  src/pygvec/post.f90
+  #  src/pygvec/run.f90
+  #)
+  #ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
+  #SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
 
   # --- wrap gvec using f90wrap & f2py --- #
   # specify files to be wrapped with f90wrap
@@ -474,7 +471,7 @@ IF(COMPILE_PYGVEC)
   )
   TARGET_INCLUDE_DIRECTORIES(_libpygvec PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" ${F2PY_INCLUDE_DIR} ${Python_NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
   ADD_DEPENDENCIES(_libpygvec pygvec_wrap_files)
-  TARGET_LINK_LIBRARIES(_libpygvec PRIVATE pygveclib gveclib ${linkedlibs})
+  TARGET_LINK_LIBRARIES(_libpygvec PRIVATE gveclib ${linkedlibs})
   SET_TARGET_PROPERTIES(_libpygvec PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE) # don't strip RUNPATH during install
 
   INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib.py" DESTINATION "${SKBUILD_PROJECT_NAME}")
