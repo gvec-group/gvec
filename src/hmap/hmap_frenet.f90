@@ -736,7 +736,7 @@ END FUNCTION hmap_frenet_eval_dxdq_aux
 !> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
 !!
 !===============================================================================================================================
-SUBROUTINE hmap_frenet_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3) 
+SUBROUTINE hmap_frenet_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3)
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -789,7 +789,7 @@ SUBROUTINE hmap_frenet_get_dx_dqi_aux( sf ,q1,q2,xv,dx_dq1,dx_dq2,dx_dq3)
   !=================================================================================================================================
   SELECT TYPE(xv); TYPE IS(t_hmap_frenet_auxvar)
   dx_dq1(1:3)= xv%sigma*xv%N
-  dx_dq2(1:3)= xv%sigma*xv%B 
+  dx_dq2(1:3)= xv%sigma*xv%B
   dx_dq3(1:3)=xv%lp*((1.0_wp-xv%sigma*xv%kappa*q1)*xv%T +xv%sigma*xv%tau*(xv%B*q1-xv%N*q2))
   END SELECT !type(xv)
 END SUBROUTINE hmap_frenet_get_dx_dqi_aux
@@ -798,7 +798,7 @@ END SUBROUTINE hmap_frenet_get_dx_dqi_aux
 !> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 is evaluated at q_in=(X^1,X^2,zeta),
 !!
 !===============================================================================================================================
-SUBROUTINE hmap_frenet_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33) 
+SUBROUTINE hmap_frenet_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33)
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -1419,7 +1419,7 @@ IMPLICIT NONE
         IF(testdbg.OR.(.NOT.( ABS(checkreal-refreal).LT. realtolFD))) THEN
            nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(A,2(I4,A))') &
                 '\n!! hmap_frenet TEST ID',nTestCalled ,': TEST ',iTest,Fail
-           nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),2(A,I3))') & 
+           nfailedMsg=nfailedMsg+1 ; WRITE(testUnit,'(2(A,E11.3),2(A,I3))') &
          '\n =>  should be <', realtolFD,' : |ddx_dqijFD-eval_ddx_dqij|= ', checkreal,", dqi=",qdir,", dqj=",idir
         END IF !TEST
       END DO !idir

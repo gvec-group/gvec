@@ -55,7 +55,7 @@ TYPE, ABSTRACT :: c_hmap
     PROCEDURE(i_fun_hmap_eval_gij_dq),DEFERRED :: eval_gij_dq
     PROCEDURE                                  :: eval_gij_dq_aux     => hmap_eval_gij_dq_aux
     PROCEDURE                                  :: eval_gij_dq_aux_all => hmap_eval_gij_dq_aux_all
-    PROCEDURE(i_sub_hmap_get_dx_dqi) ,DEFERRED :: get_dx_dqi 
+    PROCEDURE(i_sub_hmap_get_dx_dqi) ,DEFERRED :: get_dx_dqi
     PROCEDURE                                  :: get_dx_dqi_aux => hmap_get_dx_dqi_aux
     PROCEDURE(i_sub_hmap_get_ddx_dqij),DEFERRED:: get_ddx_dqij
     PROCEDURE                                  :: get_ddx_dqij_aux => hmap_get_ddx_dqij_aux
@@ -115,7 +115,7 @@ ABSTRACT INTERFACE
   !> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
   !!
   !===============================================================================================================================
-  SUBROUTINE i_sub_hmap_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3) 
+  SUBROUTINE i_sub_hmap_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3)
     IMPORT wp,c_hmap
     CLASS(c_hmap), INTENT(IN)  :: sf
     REAL(wp)     , INTENT(IN)  :: q_in(3)
@@ -128,7 +128,7 @@ ABSTRACT INTERFACE
   !> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 is evaluated at q_in=(X^1,X^2,zeta),
   !!
   !===============================================================================================================================
-  SUBROUTINE i_sub_hmap_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33) 
+  SUBROUTINE i_sub_hmap_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33)
     IMPORT wp,c_hmap
     CLASS(c_hmap), INTENT(IN)  :: sf
     REAL(wp)     , INTENT(IN)  :: q_in(3)
@@ -273,7 +273,7 @@ FUNCTION hmap_eval_dxdq_aux(sf,q1,q2,q1_vec,q2_vec,q3_vec,xv) RESULT(dxdq_qvec)
 END FUNCTION hmap_eval_dxdq_aux
 
 !===============================================================================================================================
-!> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta), 
+!> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
 !! INFO: default routine that can be overwritten by specific hmap class,
 !!       not using  additional hmap-dependent auxiliary variables,
 !!       but calling the generic routine get_dx_dqi
@@ -294,7 +294,7 @@ SUBROUTINE hmap_get_dx_dqi_aux(sf,q1,q2,xv,dx_dq1,dx_dq2,dx_dq3)
 END SUBROUTINE hmap_get_dx_dqi_aux
 
 !===============================================================================================================================
-!> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 , at q_in=(X^1,X^2,zeta), 
+!> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 , at q_in=(X^1,X^2,zeta),
 !! INFO: default routine that can be overwritten by specific hmap class,
 !!       not using  additional hmap-dependent auxiliary variables,
 !!       but calling the generic routine get_ddx_dqij

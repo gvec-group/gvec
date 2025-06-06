@@ -307,7 +307,7 @@ END FUNCTION hmap_cyl_eval_dxdq
 !> evaluate all first derivatives dx(1:3)/dq^i, i=1,2,3 , at q_in=(X^1,X^2,zeta),
 !!
 !===============================================================================================================================
-SUBROUTINE hmap_cyl_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3) 
+SUBROUTINE hmap_cyl_get_dx_dqi( sf ,q_in,dx_dq1,dx_dq2,dx_dq3)
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -328,7 +328,7 @@ END SUBROUTINE hmap_cyl_get_dx_dqi
 !> evaluate all second derivatives d^2x(1:3)/(dq^i dq^j), i,j=1,2,3 is evaluated at q_in=(X^1,X^2,zeta),
 !!
 !===============================================================================================================================
-SUBROUTINE hmap_cyl_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33) 
+SUBROUTINE hmap_cyl_get_ddx_dqij( sf ,q_in,ddx_dq11,ddx_dq12,ddx_dq13,ddx_dq22,ddx_dq23,ddx_dq33)
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
