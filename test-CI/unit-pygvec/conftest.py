@@ -46,7 +46,7 @@ def testgroup():
 
 @pytest.fixture(scope="session")
 def testcase():
-    return "frenet_axisNB_N2-12"
+    return "axisNB_N2-12"
 
 
 @pytest.fixture(scope="session")
