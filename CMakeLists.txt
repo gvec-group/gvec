@@ -51,17 +51,21 @@ ENDMACRO()
 # =========================================================================
 
 OPTION(COMPILE_GVEC "compile gvec programme for equilibrium computations (libgvec and gvec executable)" ON)
-IF(COMPILE_GVEC)
-  OPTION(LINK_GVEC_TO_NETCDF "Link to local serial NetCDF library, needed for VMEC input/output" ON)
-ELSE()
-  UNSET(LINK_GVEC_TO_NETCDF CACHE ) # if not mhd
-ENDIF()
+OPTION(LINK_GVEC_TO_NETCDF "Link to local serial NetCDF library, needed for VMEC input/output" ON)
 OPTION(COMPILE_GVEC_TO_GENE "compile interface gvec_to_gene library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_HOPR "compile interface gvec_to_hopr library (added to libgvec)" OFF)
 OPTION(COMPILE_GVEC_TO_CASTOR3D "compile converter gvec_to_castor (only executable)" OFF)
 OPTION(COMPILE_GVEC_TO_JOREK "compile converter gvec_to_jorek (only executable)" OFF)
 OPTION(COMPILE_PYGVEC "compile python interface to gvec" OFF)
 MARK_AS_ADVANCED(COMPILE_PYGVEC)
+OPTION(COMPILE_SRC_PYGVEC " compile pygvec fortran sources" ON)
+MARK_AS_ADVANCED(COMPILE_SRC_PYGVEC)
+IF(NOT COMPILE_GVEC)
+  UNSET(COMPILE_PYGVEC CACHE )
+  UNSET(COMPILE_SRC_PYGVEC CACHE )
+ENDIF()
+
+
 
 OPTION(USE_OPENMP "enable OpenMP" ON)
 OPTION(USE_MPI "enable MPI" OFF)
@@ -87,6 +91,20 @@ IF(USE_VISU_J STREQUAL "FD")
   ADD_DEFINITIONS("-DVISU_J_FD")
 ELSEIF(USE_VISU_J STREQUAL "ANA")
   ADD_DEFINITIONS("-DVISU_J_EXACT")
+ENDIF()
+
+SET (GVEC_FIX_HMAP "off" CACHE STRING "fix hmap at compile time, default is off")
+SET_PROPERTY(CACHE GVEC_FIX_HMAP PROPERTY STRINGS off RZ axisNB frenet cyl knot )
+IF(GVEC_FIX_HMAP STREQUAL "RZ")
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=1)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "cyl")
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=3)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "knot")
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=10)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "frenet")
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=20)
+ELSEIF(GVEC_FIX_HMAP STREQUAL "axisNB")
+  ADD_DEFINITIONS(-DPP_WHICH_HMAP=21)
 ENDIF()
 
 # =========================================================================
@@ -282,9 +300,9 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/
 
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/base/*.f90
-                          ./src/hmap/*.f90
                           ./src/profiles/*.f90
-                          ./src/functionals/mhd3d/*hmap*.f90
+                          ./src/hmap/c_hmap.f90
+                          ./src/hmap/hmap.f90
                           ./src/functionals/mhd3d/lambda_solve.f90
                           ./src/readstate/*.f90
                           ./src/analyze/analyze_vars.f90
@@ -292,7 +310,12 @@ FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
                           ./src/output/*.f90
                           ./src/transform_sfl/*.f90
                           ./src/grid/*.f90 )
-
+IF(GVEC_FIX_HMAP STREQUAL "off")
+  FILE(GLOB hmapsF90 ./src/hmap/hmap_*.f90 )
+ELSE()
+  FILE(GLOB hmapsF90 ./src/hmap/hmap_${GVEC_FIX_HMAP}.f90)
+ENDIF()
+LIST(APPEND mainF90 ${hmapsF90})
 # define libs
 IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
@@ -322,6 +345,10 @@ ENDIF()
 IF(COMPILE_GVEC_TO_JOREK)
   FILE(GLOB tojorekF90 ./src/gvec_to_jorek/*.f90 )
   LIST(APPEND mainF90 ${tojorekF90})
+ENDIF()
+IF(COMPILE_SRC_PYGVEC)
+  FILE(GLOB pygvecF90 ./src/pygvec/*.f90 )
+  LIST(APPEND mainF90 ${pygvecF90})
 ENDIF()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
@@ -377,15 +404,15 @@ IF(COMPILE_PYGVEC)
   MESSAGE(STATUS "F2PY include dir: ${F2PY_INCLUDE_DIR}")
 
   # --- pygvec modules --- #
-  # modules that are not part of gveclib
-  # compiled seperately from the bindings to allow specifying individual compile flags
-  SET(pygveclib_files
-    src/pygvec/binding.f90
-    src/pygvec/post.f90
-    src/pygvec/run.f90
-  )
-  ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
-  SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
+  # pygvec fortran modules are now part of gveclib
+  # so not compiled seperately from the bindings (would allow specifying individual compile flags)
+  #SET(pygveclib_files
+  #  src/pygvec/binding.f90
+  #  src/pygvec/post.f90
+  #  src/pygvec/run.f90
+  #)
+  #ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
+  #SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
 
   # --- wrap gvec using f90wrap & f2py --- #
   # specify files to be wrapped with f90wrap
@@ -444,7 +471,7 @@ IF(COMPILE_PYGVEC)
   )
   TARGET_INCLUDE_DIRECTORIES(_libpygvec PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" ${F2PY_INCLUDE_DIR} ${Python_NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
   ADD_DEPENDENCIES(_libpygvec pygvec_wrap_files)
-  TARGET_LINK_LIBRARIES(_libpygvec PRIVATE pygveclib gveclib ${linkedlibs})
+  TARGET_LINK_LIBRARIES(_libpygvec PRIVATE gveclib ${linkedlibs})
   SET_TARGET_PROPERTIES(_libpygvec PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE) # don't strip RUNPATH during install
 
   INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib.py" DESTINATION "${SKBUILD_PROJECT_NAME}")

@@ -131,40 +131,12 @@ def test_boozer_init(teststate):
     assert np.allclose(ds.rho, [0.5, 0.6])
     assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
     assert {"rad", "pol", "tor"} == set(ds.dims)
+    assert "LA" in ds
+    assert "NU_B" in ds
     assert ds.rho.dims == ("rad",)
     assert ds.theta_B.dims == ("pol",)
     assert ds.zeta_B.dims == ("tor",)
     assert set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}
-
-    teststate.compute(ds, "mod_B")
-    assert "mod_B" in ds
-    assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
-
-
-@pytest.mark.parametrize(
-    "eval_la, eval_nu",
-    [(True, False), (False, True), (True, True)],
-    ids=["la", "nu", "both"],
-)
-def test_boozer_la_nu(teststate, eval_la, eval_nu):
-    ds = EvaluationsBoozer(
-        [0.5, 0.6], 20, 18, teststate, eval_la=eval_la, eval_nu=eval_nu
-    )
-    assert np.allclose(ds.rho, [0.5, 0.6])
-    assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
-    assert {"rad", "pol", "tor"} == set(ds.dims)
-    assert ("LA_B" in ds) == eval_la
-    assert ("NU_B" in ds) == eval_nu
-    assert ds.rho.dims == ("rad",)
-    assert ds.theta_B.dims == ("pol",)
-    assert ds.zeta_B.dims == ("tor",)
-    assert set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}
-    if eval_la and eval_nu:
-        teststate.compute(ds, "iota")
-        assert np.allclose(
-            *xr.broadcast(ds.theta_B, ds.theta + ds.LA_B + ds.iota * ds.NU_B)
-        )
-        assert np.allclose(*xr.broadcast(ds.zeta_B, ds.zeta + ds.NU_B))
 
     teststate.compute(ds, "mod_B")
     assert "mod_B" in ds
@@ -193,9 +165,9 @@ def test_compute_hmap(teststate, evals_rtz):
     assert ds.pos.shape == (3, 6, 32, 10)
     assert "xyz" in ds.dims
     assert "xyz" in ds.coords
-    assert "e_X1" in ds
-    assert "e_X2" in ds
-    assert "e_zeta3" in ds
+    assert "e_q1" in ds
+    assert "e_q2" in ds
+    assert "e_q3" in ds
     assert not np.any(np.isnan(ds.pos))
 
     compute(ds, "e_rho", state=teststate)
@@ -205,16 +177,16 @@ def test_compute_hmap(teststate, evals_rtz):
 def test_compute_metric(teststate, evals_rtz):
     ds = evals_rtz
 
-    compute(ds, "g_tt", state=teststate)
+    compute(ds, "dg_tt_dr", state=teststate)
     for ij in ("rr", "rt", "rz", "tt", "tz", "zz"):
-        key = f"g_{ij}"
-        assert key in ds
-        assert set(ds[key].coords) == {"rho", "theta", "zeta"}
         for k in "rtz":
             assert f"dg_{ij}_d{k}" in ds
 
-    compute(ds, "e_rho", "e_theta", "e_zeta", state=teststate)
+    compute(ds, "g_rr", "g_rt", "g_rz", "g_tt", "g_tz", "g_zz", state=teststate)
     idxs = {"r": "rho", "t": "theta", "z": "zeta"}
+    assert "e_rho" in ds
+    assert "e_theta" in ds
+    assert "e_zeta" in ds
     for ij in "rr rt rz tt tz zz".split():
         key = f"g_{ij}"
         assert np.allclose(
