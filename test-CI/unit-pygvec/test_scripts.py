@@ -94,6 +94,7 @@ def test_picard_auto():
     """
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = "auto"
+    ProjectName = parameters["ProjectName"]
     if "stages" in parameters:
         with pytest.raises(ValueError):
             run_with_stages = gvec.scripts.run.RunWithStages(parameters)
@@ -104,11 +105,11 @@ def test_picard_auto():
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
 
-    assert Path("W7X_State_final.dat").exists()
-    assert Path("parameter_W7X_final.ini").exists()
+    assert Path(f"{ProjectName}_State_final.dat").exists()
+    assert Path(f"parameter_{ProjectName}_final.ini").exists()
     rho = np.sqrt(np.linspace(0, 1, 101))
     rho[0] = 1e-4
-    with gvec.State("parameter_W7X_final.ini", final_state) as state:
+    with gvec.State(f"parameter_{ProjectName}_final.ini", final_state) as state:
         ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
         state.compute(ev, "I_tor")
     assert ev.I_tor.max().data < 1e-6
@@ -118,6 +119,7 @@ def test_stages_without_current():
     """Test if stages run without current constraint"""
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = "off"
+    ProjectName = parameters["ProjectName"]
     del parameters["I_tor"]
     parameters["stages"] = [
         {"minimize_tol": 1e-2, "sgrid": {"nelems": 2}},
@@ -125,8 +127,8 @@ def test_stages_without_current():
     ]
     run_with_stages = gvec.scripts.run.RunWithStages(parameters)
     rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
-    assert Path("W7X_State_final.dat").exists()
-    assert Path("parameter_W7X_final.ini").exists()
+    assert Path(f"{ProjectName}_State_final.dat").exists()
+    assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
 
 def test_quasr_real_dft():
