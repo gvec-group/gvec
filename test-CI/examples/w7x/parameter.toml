@@ -1,6 +1,6 @@
 # GVEC parameter file for W7x
 # with current constraint & refinement
-ProjectName = "W7X"
+ProjectName = "W7X_toml"
 init_LA = true
 PHIEDGE = 2.15
 whichInitEquilibrium = 0

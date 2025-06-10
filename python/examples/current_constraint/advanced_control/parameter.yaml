@@ -8,7 +8,7 @@ whichInitEquilibrium: 0
 minimize_tol: 1.0e-06
 
 maxIter: 1000
-totaliter: 5000
+totalIter: 5000
 
 which_hmap: 1
 

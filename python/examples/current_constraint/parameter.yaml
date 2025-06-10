@@ -27,6 +27,7 @@ MinimizerType: 10
 PrecondType: 1
 start_dt: 0.5
 maxIter: 10000
+totalIter: 5000
 picard_current: auto
 
 # profiles

@@ -1,6 +1,6 @@
 # GVEC parameter file for W7x
 # with current constraint & refinement
-ProjectName: W7X
+ProjectName: W7X_yaml
 
 init_LA: True
 PHIEDGE: 2.15

@@ -75,11 +75,17 @@ def test_run_stages(suffix):
     args = [f"parameter.{suffix}"]
     gvec.scripts.run.main(args)
 
-    if suffix == "ini":
-        assert Path("W7X_State_0000_00000100.dat").exists()
-    else:
-        assert Path("W7X_State_final.dat").exists()
-        assert Path("parameter_W7X_final.ini").exists()
+    match suffix:
+        case "ini":
+            assert Path("W7X_State_0000_00000100.dat").exists()
+        case "yaml":
+            assert Path("W7X_yaml_gvec_stages").exists()
+            assert Path("W7X_yaml_State_final.dat").exists()
+            assert Path("parameter_W7X_yaml_final.ini").exists()
+        case "toml":
+            assert Path("W7X_toml_gvec_stages").exists()
+            assert Path("W7X_toml_State_final.dat").exists()
+            assert Path("parameter_W7X_toml_final.ini").exists()
 
 
 def test_picard_auto():
@@ -88,6 +94,10 @@ def test_picard_auto():
     """
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = "auto"
+    if "stages" in parameters:
+        with pytest.raises(ValueError):
+            run_with_stages = gvec.scripts.run.RunWithStages(parameters)
+        del parameters["stages"]
     run_with_stages = gvec.scripts.run.RunWithStages(parameters)
     rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
     assert diagnostics.force_X1[-1].data <= 1e-4
@@ -102,6 +112,21 @@ def test_picard_auto():
         ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
         state.compute(ev, "I_tor")
     assert ev.I_tor.max().data < 1e-6
+
+
+def test_stages_without_current():
+    """Test if stages run without current constraint"""
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = "off"
+    del parameters["I_tor"]
+    parameters["stages"] = [
+        {"minimize_tol": 1e-2, "sgrid": {"nelems": 2}},
+        {"minimize_tol": 1e-3, "sgrid": {"nelems": 3}},
+    ]
+    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
+    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
+    assert Path("W7X_State_final.dat").exists()
+    assert Path("parameter_W7X_final.ini").exists()
 
 
 def test_quasr_real_dft():

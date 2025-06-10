@@ -24,7 +24,7 @@ MinimizerType = 10
 PrecondType = 1
 start_dt = 0.5
 maxIter = 1000
-totaliter = 5000
+totalIter = 5000
 
 # Three stages with radial refinement and current constraint
 stages = [

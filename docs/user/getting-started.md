@@ -105,7 +105,9 @@ To run GVEC with a prescribed toroidal current profile one has to utilize the py
 ```bash
 pygvec run parameter.toml
 ```
-Example parameter files are given below. For more information on the current constraint and also the possibility to do resolution refinement see the [stages](stages.md) section.
+Example parameter files are given below.
+Using `picard_current = "auto"` selects the default algorithm for the current optimization with the specified `totalIter` and `minimize_tol`.
+For more information and more detailed control over the current optimization (including the possibility to do resolution refinement) see the [stages](stages.md) section.
 
 ::::{tab-set}
 :::{tab-item} TOML

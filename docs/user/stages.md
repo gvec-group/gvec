@@ -15,13 +15,16 @@ For this, the parameters need to be specified in YAML or TOML files, which are m
 The parameters use the same keys, with a different syntax for specifying the boundary and axis coefficients.
 In addition the parameters for `iota`, `pres` and `sgrid` are grouped together
 and three new groups of parameters, `I_tor`, `picard_current` and `stages` are available.
-If `I_tor`, `picard_current` and `stages` are not present in the parameterfile, a TOML or YAML parameterfile is equivalent to a `.ini` file.
+If `I_tor`, `picard_current` and `stages` are not present in the parameterfile, a TOML or YAML parameterfile is equivalent to an `.ini` file.
 
-The `stages` parameter is a list of stages, which are executed in order, for which each parameter can be selected to replace the default values.
-The `I_tor` parameter defines the target toroidal current profile. Furthermore, `picard_current` defines the parameters for the algorithm when running GVEC with a fixed toroidal current profile. Both, `picard_current` and `I_tor` are required to run GVEC with fixed toroidal current.
+The `stages` parameter is a list of stages, which are executed in order, for which each parameter can be selected to replace the globally defined or default values.
+Note that each stage inherits the base parameters, but does not take into account any previous stages (that is, after the stage the parameters will revert back to the global/default parameters).
+The exception to this is `totalIter` (as described below), `iota` and `init_LA` (which is always `False` when restarting).
 
-A `pygvec` run with stages will produce as an output a directory `$ProjectName$_gvec_stages` with subdirectories containing the numbered individual GVEC runs of each stage, as well as the `parameter_$ProjectName$_final.ini` and `$ProjectName$_State_final.dat` files, which are the ini and last state file of the last restart in the last stage. These latter files can then be used for further analysis or restarts.
-Note that `$ProjectName$` is the project name set in the parameter file.
+ Furthermore, `picard_current` defines the parameters for the algorithm when running GVEC with a fixed toroidal current profile. Both, `picard_current` and `I_tor` are required to run GVEC with fixed toroidal current.
+
+A `pygvec` run with stages will produce as an output a directory `{ProjectName}_gvec_stages` with subdirectories containing the numbered individual GVEC runs of each stage, as well as the `parameter_{ProjectName}_final.ini` and `{ProjectName}_State_final.dat` files, which are the ini and last state file of the last restart in the last stage. These latter files can then be used for further analysis or restarts.
+Note that `{ProjectName}` is the project name set in the parameter file.
 
 When running GVEC with stages one abort criterion is again the number of iterations. The limit on the total iterations over all stages and restarts is set trough the parameter `totaliter`. Note that `totaliter` is different from the usual `maxIter`. When using `stages`, `maxIter` limits the maximum number of iterations per restart. Therefore, `maxIter` can be changed during each stage, however, `totaliter` will be kept fixed to its initial value.
 
@@ -117,7 +120,7 @@ TL;DR:
   - Set `I_tor` with the same syntax as `pres` or `iota`
   - Set `picard_current="auto"`
 
-Given `I_tor` and `picard_current`, GVEC will use picard iterations to optimize the `iota` profile, such that the resulting toroidal current converges towards the prescribed `I_tor` profile. A `iota` profile is not required but can still be provided. In this case the `iota` parameters will act as an initial guess. As mentioned above, `I_tor` has the same parameters as the other two profiles, `iota` and `pres`. Via `picard_current` we can control the behavior of the picard iterations. Per default `picard_current` is set to `off`, which corresponds to a fixed `iota` run. For a fixed current profile run, we can set `picard_current="auto"`. Via this mode, a set of stages will be automatically generated to converge both `I_tor` as well as the force tolerance specified by `minimize_tol`. Note, however, that with this `"auto"` mode any stages in the parameter file will be overwritten. The generated stages can be found in the `$ProjectName$_gvec_stages/parameter_$ProjectName$.stages.toml` file.
+Given `I_tor` and `picard_current`, GVEC will use picard iterations to optimize the `iota` profile, such that the resulting toroidal current converges towards the prescribed `I_tor` profile. A `iota` profile is not required but can still be provided. In this case the `iota` parameters will act as an initial guess. As mentioned above, `I_tor` has the same parameters as the other two profiles, `iota` and `pres`. Via `picard_current` we can control the behavior of the picard iterations. Per default `picard_current` is set to `off`, which corresponds to a fixed `iota` run. For a fixed current profile run, we can set `picard_current="auto"`. Via this mode, a set of stages will be automatically generated to converge both `I_tor` as well as the force tolerance specified by `minimize_tol`. Note, however, that with this `"auto"` mode the `stages` parameter must not be set in the parameter file. The generated stages can be found in the `{ProjectName}_gvec_stages/parameter_{ProjectName}.stages.toml` file.
 
 ::::{tab-set}
 :::{tab-item} TOML
@@ -213,7 +216,7 @@ coefs = [0.0]
 
 [picard_current]
 target = "iota_and_force"
-iota_tol = 1e-8
+iota_tol = 1e-10
 
 
 [X1_b_cos]

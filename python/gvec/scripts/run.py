@@ -116,6 +116,9 @@ class RunWithStages:
         self.params = copy.deepcopy(params)
         if "ProjectName" not in self.params:
             self.params["ProjectName"] = "GVEC"
+            self.original_params["ProjectName"] = "GVEC"
+        if "picard_current" not in self.original_params:
+            self.original_params["picard_current"] = "off"
 
         self.logger = logging.getLogger("pyGVEC.script")
 
@@ -168,9 +171,11 @@ class RunWithStages:
                 "Using `picard_current` automatic mode. Generating stages ..."
             )
             if self.stages != [{}]:
-                self.logger.warning(
-                    "WARNING: pre-set stages are ignored since picard_current is set to 'auto'!"
+                raise ValueError(
+                    "Picard current is set to 'auto' but 'stages' is specified!"
+                    + " Please remove `stages` from the parameter file to use `picard_current` in automatic mode."
                 )
+
             minimize_tol = params.get("minimize_tol", 1e-6)
             self.stages = _auto_generate_stages(minimize_tol, 1e-10)
             paramters_stages_toml = copy.deepcopy(params)
@@ -228,8 +233,8 @@ class RunWithStages:
         # count the number of runs in each stage, for dynamic progressbar during current constraint
         self.n_runs_in_stage = [0 for _ in self.stages]
 
-    def run_single(self):
-        """Run GVEC using the parameters of the current state. The state is updated after the run."""
+    def single_energy_minimization(self):
+        """Run a single GVEC energy minimization using the current parameters. The run-state is updated after the run."""
         start_time = time.time()
         # find previous state
         if self.statefile:
@@ -352,21 +357,29 @@ class RunWithStages:
 
     def _reset_params_to_original(self):
         """
-        Reset the parameters to the original values.
-        Note that newly added keys, which are not present in the original parameters will be kept!
+        Reset the parameters to the original values. Except for `iota` and `MaxIter`, which is limited by `totaliter`.
         """
-        for key, value in self.original_params.items():
-            if key == "iota":
-                continue
-            elif key == "MaxIter":
-                self.logger.debug(
-                    f"Setting maxIter to:{min(self.totaliter - self.GVEC_iter_used, value)}"
-                )
-                self.params[key] = min(self.totaliter - self.GVEC_iter_used, value)
-            elif key == "picard_current" and value == "auto":
-                self.params[key] = {}
-            else:
-                self.params[key] = copy.deepcopy(value)
+        params = copy.deepcopy(self.original_params)
+        params["iota"] = self.params["iota"]
+        params["MaxIter"] = min(
+            self.totaliter - self.GVEC_iter_used, self.original_params["MaxIter"]
+        )
+        if params["picard_current"] == "auto":
+            params["picard_current"] = {}
+
+        # account for the change in relative path of restart, hmap, etc. files
+        for key, value in params.items():
+            if key.lower() in [
+                "vmecwoutfile",
+                "boundary_filename",
+                "hmap_ncfile",
+            ] and not value.startswith("/"):
+                params[key] = f"../../{value}"
+
+        if self.has_Itor and (self.nth_run > 0 or self.nth_stage > 0):
+            params["init_with_profile_iota"] = True
+
+        self.params = params
 
     def _set_params_for_stage(self, stage: Mapping):
         """
@@ -413,11 +426,11 @@ class RunWithStages:
                 )
                 break
 
-            self._reset_params_to_original()
-            self._set_params_for_stage(stage)
-
             self.nth_stage = s
             self.nth_run = 0
+
+            self._reset_params_to_original()
+            self._set_params_for_stage(stage)
 
             # run the stage
             if self.curr_constraint:
@@ -432,14 +445,14 @@ class RunWithStages:
                 target = self.params["picard_current"].get("target", "iota_and_force")
                 match target:
                     case "iota":
-                        n_runs_in_stage = self._current_constraint_target_iota(
+                        self.n_runs_in_stage = self._current_constraint_target_iota(
                             self.totaliter, iota_tol, self.n_runs_in_stage
                         )
                     case "iota_and_force":
                         self.nth_run = -1
-                        n_runs_in_stage = (
+                        self.n_runs_in_stage = (
                             self._current_constraint_target_iota_and_force(
-                                self.totaliter, iota_tol, n_runs_in_stage
+                                self.totaliter, iota_tol, self.n_runs_in_stage
                             )
                         )
                     case _:
@@ -449,22 +462,33 @@ class RunWithStages:
                     self.totaliter - self.GVEC_iter_used,
                     self.params["MaxIter"],
                 )
-                self._eval_progressstr(n_runs_in_stage)
-                self.run_single()
-                n_runs_in_stage[self.nth_stage] += 1
+                self._eval_progressstr(self.n_runs_in_stage)
+                self.single_energy_minimization()
+                self.n_runs_in_stage[self.nth_stage] += 1
 
         self.logger.info("Done.")
         final_state = Path(self.params["ProjectName"] + "_State_final.dat")
         parameter_final = Path("parameter_" + self.params["ProjectName"] + "_final.ini")
 
         shutil.copy(self.statefile, final_state)
-        shutil.copy(self.statefile.parents[0] / "parameter.ini", parameter_final)
+        parameters_final = gvec.util.read_parameter_file(
+            self.statefile.parents[0] / "parameter.ini"
+        )
+        parameters_final["MaxIter"] = -1
+        gvec.util.write_parameter_file(
+            parameters=parameters_final,
+            path=parameter_final,
+            header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage} run {self.nth_run})\n"
+            f"!Created at {datetime.now().isoformat()}\n"
+            f"!pyGVEC v{gvec.__version__}\n",
+        )
+
         diagnostics = xr.merge([self.diagnostics, self.log_dia])
 
         if self.diagnosticfile:
             diagnostics.to_netcdf(self.diagnosticfile)
         if self.plots:
-            self.plot_diagnostics()
+            self.plot_diagnostics(save_figs=True)
 
         if return_output:
             return self.rundir, final_state, diagnostics
@@ -504,7 +528,7 @@ class RunWithStages:
             self.nth_run += 1
             n_runs_in_stage[self.nth_stage] += 1
             self._eval_progressstr(n_runs_in_stage)
-            self.run_single()
+            self.single_energy_minimization()
 
         if self.rms_iota > iota_tol:
             self.logger.warning(
@@ -546,7 +570,7 @@ class RunWithStages:
             self.nth_run += 1
             n_runs_in_stage[self.nth_stage] += 1
             self._eval_progressstr(n_runs_in_stage)
-            self.run_single()
+            self.single_energy_minimization()
         if self.rms_iota > iota_tol:
             self.logger.warning(
                 f"WARNING: targeted iota has not been reached during stage {self.nth_stage}!\n"
@@ -585,7 +609,7 @@ class RunWithStages:
             f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}"
         )
 
-    def plot_diagnostics(self):
+    def plot_diagnostics(self, save_figs: bool = False):
         """
         Plot diagnostic quantities from the GVEC runs.
 
@@ -597,7 +621,8 @@ class RunWithStages:
 
         Parameters
         ----------
-        None
+        save_figs: bool
+            Flag to save the figures
 
         Returns
         -------
@@ -628,7 +653,10 @@ class RunWithStages:
                 title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
                 yscale="log",
             )
-        fig.savefig(f"{self.params['projectName']}_runs.png")
+        if save_figs:
+            fig.savefig(f"{self.params['projectName']}_runs.png")
+        else:
+            fig.show()
 
         if self.curr_constraint:
             fig, axs = plt.subplots(
@@ -657,7 +685,10 @@ class RunWithStages:
                     ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
                     yscale="log",
                 )
-            fig.savefig(f"{self.params['projectName']}_profiles.png")
+            if save_figs:
+                fig.savefig(f"{self.params['projectName']}_profiles.png")
+            else:
+                fig.show()
 
         if self.curr_constraint:
             fig_f, axs = plt.subplots(
@@ -678,20 +709,58 @@ class RunWithStages:
             ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
         )
         axf = axs[1]
+
+        axf.plot(
+            self.log_dia.total_iteration,
+            self.log_dia.force_X1,
+            color="C0",
+            label=r"$X_1$",
+        )
+        axf.plot(
+            self.log_dia.total_iteration,
+            self.log_dia.force_X2,
+            color="C1",
+            label=r"$X_2$",
+        )
+        axf.plot(
+            self.log_dia.total_iteration,
+            self.log_dia.force_LA,
+            color="C2",
+            label=r"$\lambda$",
+        )
+
+        # stages vlines
+        for ax in axs:
+            n_runs_till_stage = np.cumsum(self.n_runs_in_stage)
+            ax.vlines(
+                [np.sum(diagnostics.gvec_iterations[:i]) for i in n_runs_till_stage],
+                *ax.get_ylim(),
+                colors="grey",
+                linestyle="solid",
+                alpha=0.6,
+                zorder=-1000,
+                label="stages",
+            )
+
+        # runs vlines
         axf.vlines(
             np.cumsum(diagnostics.gvec_iterations),
             *axf.get_ylim(),
-            colors="grey",
+            colors="k",
             linestyle="dashed",
             alpha=0.6,
+            zorder=-900,
+            label="runs",
         )
-        self.log_dia.force_X1.plot(color="C0", ax=axf)
-        self.log_dia.force_X2.plot(color="C1", ax=axf)
-        self.log_dia.force_LA.plot(color="C2", ax=axf)
 
-        axf.set(ylabel="|Force|", xlabel="GVEC iteration", yscale="log")
-        axf.legend(["runs", r"$X_1$", r"$X_2$", r"$\lambda$"], bbox_to_anchor=(1.05, 1))
-        fig_f.savefig(f"{self.params['projectName']}_iterations.png")
+        axf.set(ylabel="|Force|", yscale="log")
+        axf.legend(bbox_to_anchor=(1.15, 1))
+        # axf.legend(["stages","runs", r"$X_1$", r"$X_2$", r"$\lambda$"], bbox_to_anchor=(1.15, 1))
+        axs[-1].set(xlabel="GVEC iteration")
+        if save_figs:
+            fig_f.savefig(f"{self.params['projectName']}_iterations.png")
+        else:
+            fig_f.show()
 
 
 def _auto_generate_stages(minimize_target, iota_target):
