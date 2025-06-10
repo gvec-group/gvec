@@ -1241,7 +1241,7 @@ include:
   variables:
     CMP_MODE: "Release"
     OMP_MODE: "ompON"
-    PYTEST_KEY_OPTS: "frenet_axisNB_QH_nfp7"
+    PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
 
 # reference tag
 .vars_hpc_tag:
