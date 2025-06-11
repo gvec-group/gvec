@@ -421,7 +421,7 @@ def EvaluationsBoozer(
     match rho:
         case xr.DataArray():
             rho = rho
-        case np.ndarray | Sequence():
+        case np.ndarray() | Sequence():
             rho = ("rad", np.asarray(rho))
         case int():
             rho = ("rad", np.linspace(0, 1, rho + 1)[1:])
@@ -432,7 +432,7 @@ def EvaluationsBoozer(
     match theta_B:
         case xr.DataArray():
             theta_B = theta_B
-        case np.ndarray | Sequence():
+        case np.ndarray() | Sequence():
             theta_B = ("pol", np.asarray(theta_B))
         case int():
             theta_B = ("pol", np.linspace(0, 2 * np.pi, theta_B, endpoint=False))
@@ -443,7 +443,7 @@ def EvaluationsBoozer(
     match zeta_B:
         case xr.DataArray():
             zeta_B = zeta_B
-        case np.ndarray | Sequence():
+        case np.ndarray() | Sequence():
             zeta_B = ("tor", np.asarray(zeta_B))
         case int():
             zeta_B = (

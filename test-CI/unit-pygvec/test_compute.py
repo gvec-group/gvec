@@ -127,6 +127,26 @@ def test_evaluations_init(teststate):
         assert ds[c].attrs["integration_points"] == "True"
 
 
+@pytest.mark.parametrize(
+    "rho",
+    [2, 1.0, xr.DataArray([0.5, 0.6], dims="rad"), np.array([0.5, 0.6]), [0.5, 0.6]],
+    ids=["int", "float", "xr", "np", "list"],
+)
+@pytest.mark.parametrize(
+    "theta_B",
+    [2, 1.0, xr.DataArray([0.5, 0.6], dims="pol"), np.array([0.5, 0.6]), [0.5, 0.6]],
+    ids=["int", "float", "xr", "np", "list"],
+)
+@pytest.mark.parametrize(
+    "zeta_B",
+    [2, 1.0, xr.DataArray([0.5, 0.6], dims="tor"), np.array([0.5, 0.6]), [0.5, 0.6]],
+    ids=["int", "float", "xr", "np", "list"],
+)
+def test_boozer_init(teststate, rho, theta_B, zeta_B):
+    ds = EvaluationsBoozer(rho, theta_B, zeta_B, teststate, MNfactor=1)
+    teststate.compute(ds, "X1")
+
+
 def test_boozer(teststate):
     ds = EvaluationsBoozer([0.5, 1.0], 20, 18, teststate, MNfactor=5)
     assert np.allclose(ds.rho, [0.5, 1.0])
