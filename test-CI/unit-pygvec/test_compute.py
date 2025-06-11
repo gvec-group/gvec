@@ -20,6 +20,8 @@ try:
         volume_integral,
     )
 except ImportError:
+    xr = type(pytest)("xarray")
+    xr.DataArray = lambda *args, **kwargs: NotImplemented
     pass  # tests will be skipped via the `check_import` fixture
 
 # === FIXTURES === #
