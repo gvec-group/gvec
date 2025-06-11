@@ -5,6 +5,7 @@
 from typing import Literal, Iterable, Mapping, MutableMapping, Callable
 import logging
 import inspect
+import re
 
 import numpy as np
 import xarray as xr
@@ -170,6 +171,15 @@ def compute(
         if quantity not in registry:
             raise KeyError(f"The quantity `{quantity}` is not registered.")
         func = registry[quantity]
+        # --- handle special cases --- #
+        # if dLA_dr is requested (and not already present), but LA is already present - this is currently only possible with the boozer transform
+        # ToDo: cleanup
+        if m := re.match(quantity, r"dLA_d([rtz]{1,2})"):
+            if "r" in m.group(1) and "LA" in ev:
+                raise ValueError(
+                    f"Cannot compute `{quantity}` as it is a radial derivative of lambda, as lambda was recomputed on a surface with a boozer transform."
+                )
+
         # --- handle integration --- #
         # we assume the dimensions are {rad, pol, tor} or {pol, tor}
         # we don't assume which coordinates are associated with which dimensions
@@ -438,8 +448,6 @@ def EvaluationsBoozer(
     M: int | None = None,
     N: int | None = None,
     sincos: Literal["sin", "cos", "sincos"] = "sin",
-    eval_la: bool = False,
-    eval_nu: bool = False,
 ):
     rho = np.asarray(rho)
     theta_B = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
@@ -491,60 +499,53 @@ def EvaluationsBoozer(
     ds = ds.drop_vars("tor")
 
     # === Evaluate LA & NU === #
-    if eval_la or eval_nu:
-        # Flatten theta, zeta
-        theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
-        zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+    # Flatten theta, zeta
+    theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+    zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
 
-        # Compute base on each radial position
-        outputs_la = []
-        outputs_nu = []
-        for r, rho in enumerate(ds.rho.data):
-            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-            if eval_la:
-                outputs_la.append(
-                    state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
-                )
-            if eval_nu:
-                outputs_nu.append(
-                    state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
-                )
+    # Compute base on each radial position
+    outputs_la = []
+    outputs_nu = []
+    for r, rho in enumerate(ds.rho.data):
+        thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+        outputs_la.append(
+            state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
+        )
+        outputs_nu.append(
+            state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
+        )
 
-        # Write to dataset
-        if eval_la:
-            for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):
-                if deriv == "":
-                    var = "LA_B"
-                    long_name = "Boozer straight field line potential"
-                    symbol = r"\lambda_B"
-                else:
-                    var = f"dLA_B_d{deriv}"
-                    long_name = derivative_name_smart(
-                        "Boozer straight field line potential", deriv
-                    )
-                    symbol = latex_partial_smart(r"\lambda_B", deriv)
-                value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
-                ds[var] = (
-                    ("rad", "pol", "tor"),
-                    value,
-                    dict(long_name=long_name, symbol=symbol),
-                )
-        if eval_nu:
-            for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_nu)):
-                if deriv == "":
-                    var = "NU_B"
-                    long_name = "Boozer angular potential"
-                    symbol = r"\nu_B"
-                else:
-                    var = f"dNU_B_d{deriv}"
-                    long_name = derivative_name_smart("Boozer angular potential", deriv)
-                    symbol = latex_partial_smart(r"\nu_B", deriv)
-                value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
-                ds[var] = (
-                    ("rad", "pol", "tor"),
-                    value,
-                    dict(long_name=long_name, symbol=symbol),
-                )
+    # Write LA/NU to dataset
+    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):
+        if deriv == "":
+            var = "LA"
+            long_name = "Straight field line potential"
+            symbol = r"\lambda"
+        else:
+            var = f"dLA_d{deriv}"
+            long_name = derivative_name_smart("Straight field line potential", deriv)
+            symbol = latex_partial_smart(r"\lambda", deriv)
+        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+        ds[var] = (
+            ("rad", "pol", "tor"),
+            value,
+            dict(long_name=long_name, symbol=symbol),
+        )
+    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_nu)):
+        if deriv == "":
+            var = "NU_B"
+            long_name = "Boozer angular potential"
+            symbol = r"\nu_B"
+        else:
+            var = f"dNU_B_d{deriv}"
+            long_name = derivative_name_smart("Boozer angular potential", deriv)
+            symbol = latex_partial_smart(r"\nu_B", deriv)
+        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+        ds[var] = (
+            ("rad", "pol", "tor"),
+            value,
+            dict(long_name=long_name, symbol=symbol),
+        )
 
     if squeeze:
         ds = ds.squeeze("rad")

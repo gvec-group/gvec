@@ -50,7 +50,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_sgrid          , ONLY: t_sgrid
   USE MODgvec_base           , ONLY: base_new
   USE MODgvec_boundaryFromFile, ONLY: t_boundaryFromFile,boundaryFromFile_new
-  USE MODgvec_hmap           , ONLY: hmap_new
+  USE MODgvec_hmap           , ONLY: hmap_new,hmap_new_auxvar
   USE MODgvec_VMEC           , ONLY: InitVMEC
   USE MODgvec_VMEC_vars      , ONLY: vmec_iota_profile,vmec_pres_profile
   USE MODgvec_VMEC_Readin    , ONLY: nfp,nFluxVMEC,Phi,xm,xn,lasym,mpol,ntor !<<< only exists on MPIroot!
@@ -259,6 +259,8 @@ SUBROUTINE InitMHD3D(sf)
   CALL base_new(X1_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X1_mn_max,mn_nyq,nfp_loc,X1_sin_cos,.FALSE.)
   CALL base_new(X2_base  , X1X2_deg,X1X2_cont,sgrid,degGP , X2_mn_max,mn_nyq,nfp_loc,X2_sin_cos,.FALSE.)
   CALL base_new(LA_base  ,   LA_deg,  LA_cont,sgrid,degGP , LA_mn_max,mn_nyq,nfp_loc,LA_sin_cos,.TRUE. )
+
+  CALL hmap_new_auxvar(hmap,X1_base%f%zeta_IP,hmap_auxvar,.FALSE.) !no second derivative needed!
 
   IF((which_init.EQ.1).AND.MPIroot) THEN !VMEC
     IF(lasym)THEN
@@ -947,6 +949,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   USE MODgvec_sol_var_MHD3D, ONLY:t_sol_var_mhd3d
   USE MODgvec_lambda_solve,  ONLY:lambda_solve
   USE MODgvec_MPI           ,ONLY:par_reduce,par_BCast
+  USE MODgvec_hmap          ,ONLY:hmap_new_auxvar,PP_T_HMAP_AUXVAR
 !$ USE omp_lib
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -961,6 +964,11 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   REAL(wp) :: StartTime,EndTime
   REAL(wp),DIMENSION(1:LA_base%s%nBase):: PhiPrime,chiPrime
   REAL(wp) :: LA_gIP(1:LA_base%s%nBase,1:LA_base%f%modes)
+#ifdef PP_WHICH_HMAP
+  TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE  :: hmap_xv(:) !! auxiliary variables for hmap
+#else
+  CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE  :: hmap_xv(:) !! auxiliary variables for hmap
+#endif
 !===================================================================================================================================
   StartTime=GetTime()
   SWRITE(UNIT_stdOut,'(4X,A)') "... Initialize lambda from mapping ..."
@@ -986,11 +994,14 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   ns_end = (nBase*(myRank+1))/nRanks
   LA_gIP=0.0_wp
   CALL ProgressBar(0,ns_end) !init
+
+  CALL hmap_new_auxvar(hmap,X1_base%f%x_IP(2,:),hmap_xv,.FALSE.) !no 2nd derivative needed
   DO is=ns_str,ns_end
     rhopos=MIN(1.0_wp-1.0e-12_wp,MAX(1.0e-4_wp,s_IP(is))) !exclude axis
-    CALL lambda_Solve(rhopos,hmap,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
+    CALL lambda_Solve(rhopos,hmap,hmap_xv,X1_base,X2_base,LA_base%f,U_init%X1,U_init%X2,LA_gIP(is,:),phiPrime(is),chiPrime(is))
     CALL ProgressBar(is,ns_end)
   END DO !is
+  DEALLOCATE(hmap_xv)
 !!!  CALL par_reduce(LA_gIP,'SUM',0)
 !!!  IF(MPIroot)THEN
 !!!    DO iMode=1,modes
@@ -1546,8 +1557,8 @@ SUBROUTINE FinalizeMHD3D(sf)
   CALL FinalizeMHD3D_EvalFunc()
   IF(which_init.EQ.1) CALL FinalizeVMEC()
 
-  CALL hmap%free()
   SDEALLOCATE(hmap)
+  SDEALLOCATE(hmap_auxvar)
 
   SDEALLOCATE(X1_base)
   SDEALLOCATE(X2_base)

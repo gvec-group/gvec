@@ -180,6 +180,7 @@ CONTAINS
     IF(.NOT.sf%isopen) CALL sf%openfile()
     grpid=sf%nc_id
     varname=varname_in
+    exists=.TRUE.
 #if NETCDF
     id=INDEX(varname,"/")
     DO WHILE (id.NE.0)

@@ -1087,8 +1087,10 @@ hmap_nvisu:
   category:
   - hmap
   description:
-  - Number of points along the axis (full turn) for visualization of the T,N,B frame
-  - active for lnk_to_param(`which_hmap=20/21`|which_hmap)
+  - Number of points along the axis per field period, for visualization of the T,N,B
+    frame on a full turn
+  - active for Frenet and G-Frame, lnk_to_param(`which_hmap=20/21`|which_hmap)
+  - default `-1` is no visualization
   default: '`-1`'
   type: '`integer`'
 hmap_ncfile:
