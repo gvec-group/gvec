@@ -196,16 +196,39 @@ class RunWithStages:
                     coefs = np.array(params["I_tor"]["coefs"][::-1])
                     coefs *= params["I_tor"].get("scale", 1.0)
                     I_tor_target = np.poly1d(coefs)(rho**2)
+                    try:
+                        assert abs(np.poly1d(coefs)(0.0)) < 1e-9
+                    except AssertionError:
+                        self.logger.warning(
+                            f"WARNING: Toroidal current profile not zero at magnetic axis!  I_tor(rho=0):{np.poly1d(coefs)(0.0)}"
+                        )
                 case "bspline":
                     from scipy.interpolate import BSpline
 
                     coefs = np.array(params["I_tor"]["coefs"], dtype=float)
                     coefs *= params["I_tor"].get("scale", 1.0)
                     knots = np.array(params["I_tor"]["knots"], dtype=float)
-                    I_tor_target = BSpline(knots, coefs)(rho**2)
+                    deg = np.sum(knots == knots[0]) - 1
+                    I_tor_bspl = BSpline(knots, coefs, deg)
+                    I_tor_target = I_tor_bspl(rho**2)
+                    try:
+                        assert abs(I_tor_bspl(0.0)) < 1e-9
+                    except AssertionError:
+                        self.logger.warning(
+                            f"WARNING: Toroidal current profile not zero at magnetic axis! I_tor(rho=0):{I_tor_bspl(0.0)}"
+                        )
                 case "interpolation":
                     I_tor_target = np.array(params["I_tor"]["vals"], dtype=float)
                     rho = np.sqrt(np.array(params["I_tor"]["rho2"], dtype=float))
+                    self.rho = rho
+                    if min(rho) < 1e-6:
+                        try:
+                            assert min(abs(I_tor_target)) < 1e-9
+                        except AssertionError:
+                            self.logger.warning(
+                                "WARNING: Toroidal current profile not zero at magnetic axis!"
+                            )
+
                 case _:
                     raise ValueError(f"Unknown Itor type: {params['Itor']['type']}")
 

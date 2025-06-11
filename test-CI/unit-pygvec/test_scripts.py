@@ -94,7 +94,8 @@ def test_picard_auto():
     """
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = "auto"
-    ProjectName = parameters["ProjectName"]
+    ProjectName = "Test_auto"
+    parameters["projectname"] = ProjectName
     if "stages" in parameters:
         with pytest.raises(ValueError):
             run_with_stages = gvec.scripts.run.RunWithStages(parameters)
@@ -113,6 +114,50 @@ def test_picard_auto():
         ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
         state.compute(ev, "I_tor")
     assert ev.I_tor.max().data < 1e-6
+
+
+@pytest.mark.parametrize("ptype", ["interpolation", "polynomial", "bspline"])
+def test_I_tor_types(ptype):
+    """Test if all types of I_tor profiles result in valid current constraints."""
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = "auto"
+    ProjectName = f"Test_Itor_type_{ptype}"
+    parameters["projectname"] = ProjectName
+
+    # integrated two power profile (1-x²)
+    coefs = 6000 * np.array([0, 1, 0, 1 / 3])
+
+    if "stages" in parameters:
+        del parameters["stages"]
+
+    match ptype:
+        case "interpolation":
+            rho2 = np.linspace(1e-4, 1, 50)
+            # integrated two power profile (1-x²)
+            I_tor = 6000 * (rho2 - rho2**3 / 3)
+            parameters["I_tor"] = dict(type=ptype, rho2=rho2, vals=I_tor)
+        case "polynomial":
+            parameters["I_tor"] = dict(type=ptype, coefs=coefs)
+        case "bspline":
+            from .test_profiles import poly2bspl_coeff
+
+            c_bspl = np.zeros(len(coefs))
+            knots = np.concatenate([np.zeros(len(coefs)), np.ones(len(coefs))])
+            for j in range(len(coefs)):
+                c_bspl[j] = poly2bspl_coeff(coefs, j, knots)
+            parameters["I_tor"] = dict(type=ptype, coefs=c_bspl, knots=knots)
+
+    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
+    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
+    assert diagnostics.force_X1[-1].data <= 1e-4
+    assert diagnostics.force_X2[-1].data <= 1e-4
+    assert diagnostics.force_LA[-1].data <= 1e-4
+
+    assert Path(f"{ProjectName}_State_final.dat").exists()
+    assert Path(f"parameter_{ProjectName}_final.ini").exists()
+
+    I_tor_rms = np.sqrt((diagnostics.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad"))
+    assert I_tor_rms.data < 1e-6, f"Expected ΔI_tor < 1e-6, got ΔI_tor:{I_tor_rms.data}"
 
 
 def test_stages_without_current():
