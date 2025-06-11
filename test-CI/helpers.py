@@ -101,19 +101,11 @@ def check_diff_files(
                 break
     if len(warningsA) > 0:
         lidxsA, linesA = zip(
-            *[
-                (lidx, line)
-                for lidx, line in zip(lidxsA, linesA)
-                if lidx not in warningsA
-            ]
+            *[(lidx, line) for lidx, line in zip(lidxsA, linesA) if lidx not in warningsA]
         )
     if len(warningsB) > 0:
         lidxsB, linesB = zip(
-            *[
-                (lidx, line)
-                for lidx, line in zip(lidxsB, linesB)
-                if lidx not in warningsB
-            ]
+            *[(lidx, line) for lidx, line in zip(lidxsB, linesB) if lidx not in warningsB]
         )
     # compare number of lines
     txt_differences += abs(len(linesA) - len(linesB))
@@ -130,26 +122,18 @@ def check_diff_files(
     for lidxA, lidxB, lineA, lineB in zip(lidxsA, lidxsB, linesA, linesB, strict=True):
         # compare with regex
         # split line into text and float parts (where floats have the format 1.234E+45 or -1.234E-45)
-        splitA, splitB = (
-            re.split(r"(-?\d\.\d+E[+-]\d+)", line) for line in (lineA, lineB)
-        )
+        splitA, splitB = (re.split(r"(-?\d\.\d+E[+-]\d+)", line) for line in (lineA, lineB))
         # extract the text fragments
-        textsA, textsB = (
-            [text.strip() for text in split[::2]] for split in (splitA, splitB)
-        )
+        textsA, textsB = ([text.strip() for text in split[::2]] for split in (splitA, splitB))
         if textsA != textsB:
             if num_differences == 0:
                 if Path(pathA).name != Path(pathB).name:
-                    logger.info(
-                        f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---"
-                    )
+                    logger.info(f"--- Comparing {Path(pathA).name} and {Path(pathB).name} ---")
                 else:
                     logger.info(f"--- Comparing {Path(pathA).name} ---")
             if not any([re.search(regex, lineA) for regex in warn_regexs]):
                 txt_differences += 1
-                logger.error(
-                    f"LineA #{lidxA + 1} and LineB #{lidxB + 1} differ textually"
-                )
+                logger.error(f"LineA #{lidxA + 1} and LineB #{lidxB + 1} differ textually")
             else:
                 warnings += 1
                 logger.warning(
@@ -158,9 +142,7 @@ def check_diff_files(
             logger.debug(f"=> Line A: {lineA!r}")
             logger.debug(f"=> Line B: {lineB!r}")
         # extract the float fragments
-        floatsA, floatsB = (
-            np.array(split[1::2], dtype=float) for split in (splitA, splitB)
-        )
+        floatsA, floatsB = (np.array(split[1::2], dtype=float) for split in (splitA, splitB))
         if not (len(floatsA) == len(floatsB)):
             num_differences += 1
             logger.error(
@@ -211,17 +193,13 @@ def assert_empty_stderr(path: str | Path = "stderr.txt", slurm: bool = False):
     if slurm is True:
         # check for SLURM stderr in stderr.txt
         assert len(lines) == 2, "Errors found in stderr.txt"
-        assert ("srun:" in line for line in lines), (
-            "SLURM stderr not found in stderr.txt"
-        )
+        assert ("srun:" in line for line in lines), "SLURM stderr not found in stderr.txt"
     else:
         # check for an empty stderr.txt file
         assert len(lines) == 0
 
 
-def assert_stdout_finished(
-    path: str | Path = "stdout.txt", message="SUCCESSFULLY FINISHED"
-):
+def assert_stdout_finished(path: str | Path = "stdout.txt", message="SUCCESSFULLY FINISHED"):
     """
     Asserts that the specified file (default `stdout.txt`) ends with a message in the second to last line.
 

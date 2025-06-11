@@ -73,9 +73,7 @@ parser.add_argument(
     metavar="FILE",
     help="SIMSOPT JSON file of the boundary (e.g. QUASR configuration)",
 )
-parser.add_argument(
-    "-f", "--file", type=Path, help="netCDF file containing boundary data"
-)
+parser.add_argument("-f", "--file", type=Path, help="netCDF file containing boundary data")
 verbosity = parser.add_mutually_exclusive_group()
 verbosity.add_argument(
     "-v",
@@ -180,12 +178,8 @@ def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
     diag_re = np.copy(np.diag(mass_re))
     diag_im = np.copy(np.diag(mass_im))
 
-    assert np.all(np.abs(mass_re - np.diag(diag_re)) < 1.0e-8), (
-        "massre must be diagonal"
-    )
-    assert np.all(np.abs(mass_im - np.diag(diag_im)) < 1.0e-8), (
-        "massim must be diagonal"
-    )
+    assert np.all(np.abs(mass_re - np.diag(diag_re)) < 1.0e-8), "massre must be diagonal"
+    assert np.all(np.abs(mass_im - np.diag(diag_im)) < 1.0e-8), "massim must be diagonal"
     diag_im[zeromode] = 1  # imag (=sin) is zero at zero mode
     assert np.all(diag_re > 0.0)
     assert np.all(diag_im > 0.0)
@@ -401,9 +395,7 @@ def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict):
 
         xyz_cut[:, it, :] = eval_curve(zeta_out, xyz_in[:, it, :], dft_dict)
         # check result
-        assert np.allclose(
-            eval_distance_to_plane(xyz_cut[:, it, :], origins, normals), 0
-        )
+        assert np.allclose(eval_distance_to_plane(xyz_cut[:, it, :], origins, normals), 0)
     return xyz_cut
 
 
@@ -448,14 +440,12 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     ncvars = {}
     ncfile.createDimension("vec", 3)
     ncfile.createDimension("nzeta_axis", dict_in["axis"]["nzeta"])
-    assert (
-        len(dict_in["axis"]["zetafull"]) == dict_in["axis"]["nzeta"] * dict_in["nfp"]
-    ), "zeta of axis must be of length nfp*nzeta!"
+    assert len(dict_in["axis"]["zetafull"]) == dict_in["axis"]["nzeta"] * dict_in["nfp"], (
+        "zeta of axis must be of length nfp*nzeta!"
+    )
     ncfile.createDimension("nzetaFull_axis", dict_in["axis"]["nzeta"] * dict_in["nfp"])
     version = 300
-    axis_n_max = (
-        dict_in["axis"]["nzeta"] * dict_in["axis"]["nzeta"] * dict_in["nfp"] - 1
-    ) // 2
+    axis_n_max = (dict_in["axis"]["nzeta"] * dict_in["axis"]["nzeta"] * dict_in["nfp"] - 1) // 2
     for ivar, ival in zip(
         ["VERSION", "NFP", "axis/n_max", "axis/nzeta"],
         [version, dict_in["nfp"], axis_n_max, dict_in["axis"]["nzeta"]],
@@ -466,12 +456,8 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     ncvars["zeta_var"] = ncfile.createVariable("axis/zeta(:)", "double", ("nzeta_axis"))
     ncvars["zeta_var"][:] = dict_in["axis"]["zetafull"][0 : dict_in["axis"]["nzeta"]]
 
-    for vecvar, vecval in zip(
-        ["axis/xyz", "axis/Nxyz", "axis/Bxyz"], ["xyz", "Nxyz", "Bxyz"]
-    ):
-        assert np.all(
-            dict_in["axis"][vecval].shape == (3, dict_in["axis"]["nzetaFull"])
-        ), (
+    for vecvar, vecval in zip(["axis/xyz", "axis/Nxyz", "axis/Bxyz"], ["xyz", "Nxyz", "Bxyz"]):
+        assert np.all(dict_in["axis"][vecval].shape == (3, dict_in["axis"]["nzetaFull"])), (
             f"shape of axis/{vecval} must be (3,nzetaFull_axis), but it is {dict_in['axis'][vecval].shape}"
         )
         ncvars[vecvar + "_var"] = ncfile.createVariable(
@@ -515,16 +501,14 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
 
     ncfile.createDimension("nzeta_boundary", dict_in["boundary"]["nzeta"])
 
-    ncvars["zeta_var"] = ncfile.createVariable(
-        "boundary/zeta(:)", "double", ("nzeta_boundary")
-    )
+    ncvars["zeta_var"] = ncfile.createVariable("boundary/zeta(:)", "double", ("nzeta_boundary"))
     assert len(dict_in["boundary"]["zeta"]) == dict_in["boundary"]["nzeta"]
     ncvars["zeta_var"][:] = dict_in["boundary"]["zeta"]
 
     for vecvar, vecval in zip(["boundary/X", "boundary/Y"], ["X1", "X2"]):
-        assert np.all(
-            dict_in["boundary"][vecval].shape == (boundary_ntheta, boundary_nzeta)
-        ), f"shape of boundary/{vecval} must be (ntheta_boundary,nzeta_boundary)"
+        assert np.all(dict_in["boundary"][vecval].shape == (boundary_ntheta, boundary_nzeta)), (
+            f"shape of boundary/{vecval} must be (ntheta_boundary,nzeta_boundary)"
+        )
         ncvars[vecvar + "_var"] = ncfile.createVariable(
             vecvar + "(::)", "f8", ("ntheta_boundary", "nzeta_boundary")
         )
@@ -536,7 +520,9 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     hdr += "\n=== FILE DESCRIPTION:"
     hdr += "\n  * axis, normal and binormal of the frame are given in cartesian coordinates along the curve parameter zeta [0,2pi]."
     hdr += "\n  * The curve is allowed to have a field periodicity NFP, but the curve must be provided on a full turn."
-    hdr += "\n  * The data is given in real space, sampled along equidistant zeta point positions:"
+    hdr += (
+        "\n  * The data is given in real space, sampled along equidistant zeta point positions:"
+    )
     hdr += "\n      zeta(i)=(i+0.5)/nzeta * (2pi/NFP), i=0,...,nzeta-1"
     hdr += "\n    always shifted by (2pi/NFP) for the next field period."
     hdr += "\n    Thus the number of points along the axis for a full turn is NFP*nzeta"
@@ -558,16 +544,12 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     hdr += "\n  * 'axis/Bxyz(::)': cartesian components of the bi-normal vector of the axis frame, 2D array of size (3, NFP*nzeta), evaluated analogously to the axis"
     hdr += "\n- 'boundary' data group:"
     hdr += "\n  * 'boundary/m_max'    : maximum mode number in theta "
-    hdr += (
-        "\n  * 'boundary/n_max'    : maximum mode number in zeta (in one field period)"
-    )
+    hdr += "\n  * 'boundary/n_max'    : maximum mode number in zeta (in one field period)"
     hdr += "\n  * 'boundary/lasym'    : asymmetry, logical. "
     hdr += "\n                           if lasym=0, boundary surface position X,Y in the N-B plane of the axis frame can be represented only with"
     hdr += "\n                             X(theta,zeta)=sum X_mn*cos(m*theta-n*NFP*zeta), with {m=0,n=0...n_max},{m=1...m_max,n=-n_max...n_max}"
     hdr += "\n                             Y(theta,zeta)=sum Y_mn*sin(m*theta-n*NFP*zeta), with {m=0,n=1...n_max},{m=1...m_max,n=-n_max...n_max}"
-    hdr += (
-        "\n                           if lasym=1, full fourier series is taken for X,Y"
-    )
+    hdr += "\n                           if lasym=1, full fourier series is taken for X,Y"
     hdr += "\n  * 'boundary/ntheta'    : number of points in theta (>=2*m_max+1)"
     hdr += "\n  * 'boundary/nzeta'     : number of points in zeta  (>=2*n_max+1), can be different to 'axis/nzeta' !"
     hdr += "\n  * 'boundary/theta(:)'  : theta positions, 1D array of size 'boundary/ntheta',  theta[i]=theta[1] + (i-1)/ntheta*(2pi), starting value arbitrary"
@@ -710,9 +692,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     logging.basicConfig(
         level=logging.WARNING,
     )  # show warnings and above as normal
-    logger = logging.getLogger(
-        "pyGVEC.script"
-    )  # show info/debug messages for this script
+    logger = logging.getLogger("pyGVEC.script")  # show info/debug messages for this script
     logger.propagate = False
     loghandler = logging.StreamHandler()
     logformatter = logging.Formatter("{levelname} {message}", style="{")

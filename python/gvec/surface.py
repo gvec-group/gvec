@@ -58,9 +58,7 @@ def init_surface(
             if np.allclose(theta1d, pos.theta_B) and np.allclose(zeta1d, pos.zeta_B):
                 use_fft = True
         if not use_fft:
-            logging.warning(
-                "Unaligned boozer angles: use explicit evaluation method (slower)"
-            )
+            logging.warning("Unaligned boozer angles: use explicit evaluation method (slower)")
             ift = "eval"
     if ift == "eval":
         theta1d = pos.theta_B
@@ -98,9 +96,7 @@ def init_surface(
             if ift == "fft":
                 surf[var][r, :, :] = fourier.ifft2d(c, s)
             else:
-                surf[var][r, :, :] = fourier.eval2d(
-                    c, s, theta2d.data, zeta2d.data, nfp=nfp
-                )
+                surf[var][r, :, :] = fourier.eval2d(c, s, theta2d.data, zeta2d.data, nfp=nfp)
             surf[var].attrs["long_name"] = f"{name}-coordinate"
             surf[var].attrs["symbol"] = symbol
             for deriv in ["t", "z", "tt", "tz", "zz"]:
@@ -153,9 +149,7 @@ def pos(ds: xr.Dataset):
 
 @register(
     requirements=["dxhat_dt", "dyhat_dt", "dzhat_dt", "zeta_B", "xyz"],
-    attrs=dict(
-        long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_{\theta_B}"
-    ),
+    attrs=dict(long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_{\theta_B}"),
 )
 def e_theta_B(ds: xr.Dataset):
     ds["e_theta_B"] = xr.concat(
@@ -170,9 +164,7 @@ def e_theta_B(ds: xr.Dataset):
 
 @register(
     requirements=["dxhat_dz", "dyhat_dz", "dzhat_dz", "xhat", "yhat", "zeta_B", "xyz"],
-    attrs=dict(
-        long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_{\zeta_B}"
-    ),
+    attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_{\zeta_B}"),
 )
 def e_zeta_B(ds: xr.Dataset):
     ds["e_zeta_B"] = xr.concat(
@@ -231,9 +223,7 @@ def g_zz_B(ds: xr.Dataset):
 
 @register(
     requirements=["dxhat_dtt", "dyhat_dtt", "zeta_B", "xyz"],
-    attrs=dict(
-        long_name="poloidal curvature vector", symbol=r"\mathbf{k}_{\theta_B\theta_B}"
-    ),
+    attrs=dict(long_name="poloidal curvature vector", symbol=r"\mathbf{k}_{\theta_B\theta_B}"),
 )
 def k_tt_B(ds: xr.Dataset):
     ds["k_tt_B"] = xr.concat(
@@ -286,9 +276,7 @@ def k_tz_B(ds: xr.Dataset):
         "zeta_B",
         "xyz",
     ],
-    attrs=dict(
-        long_name="toroidal curvature vector", symbol=r"\mathbf{k}_{\zeta_B\zeta_B}"
-    ),
+    attrs=dict(long_name="toroidal curvature vector", symbol=r"\mathbf{k}_{\zeta_B\zeta_B}"),
 )
 def k_zz_B(ds: xr.Dataset):
     ds["k_zz_B"] = xr.concat(
