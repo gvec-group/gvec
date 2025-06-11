@@ -72,6 +72,8 @@ def generate_formatted_param(
         if open_all:
             outstr.append(":open:")
         outstr.append("")
+        outstr.append(f"`{param}`")
+        outstr.append("")
         for x in vals["description"]:
             outstr.append(replace_lnk_to_param(x))
             outstr.append("")

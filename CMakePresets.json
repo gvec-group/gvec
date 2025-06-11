@@ -148,6 +148,50 @@
             ]
         },
         {
+            "name": "gvec_config_release_fix_hmap_RZ",
+            "displayName": "GVEC configure: default release build with fixed hmap to hmap_RZ",
+            "hidden": false,
+            "cacheVariables": {
+                "GVEC_FIX_HMAP": "RZ"
+            },
+            "inherits": [
+                        "gvec_config_release"
+            ]
+        },
+        {
+            "name": "gvec_config_debug_fix_hmap_RZ",
+            "displayName": "GVEC configure: default debug build with fixed hmap to hmap_RZ",
+            "hidden": false,
+            "cacheVariables": {
+                "GVEC_FIX_HMAP": "RZ"
+            },
+            "inherits": [
+                        "gvec_config_debug"
+            ]
+        },
+        {
+            "name": "gvec_config_release_fix_hmap_axisNB",
+            "displayName": "GVEC configure: default release build with fixed hmap to hmap_axisNB",
+            "hidden": false,
+            "cacheVariables": {
+                "GVEC_FIX_HMAP": "axisNB"
+            },
+            "inherits": [
+                        "gvec_config_release"
+            ]
+        },
+        {
+            "name": "gvec_config_debug_fix_hmap_axisNB",
+            "displayName": "GVEC configure: default debug build with fixed hmap to hmap_axisNB",
+            "hidden": false,
+            "cacheVariables": {
+                "GVEC_FIX_HMAP": "axisNB"
+            },
+            "inherits": [
+                        "gvec_config_debug"
+            ]
+        },
+        {
             "name": ".gnu-compiler",
             "displayName": "GNU CPU Compiler",
             "hidden": true,

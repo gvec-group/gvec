@@ -1,0 +1,42 @@
+# =================================================================================================================================
+# Stage "post_diff"
+# =================================================================================================================================
+# compare results with the reference (tag/branch) for one run job
+
+spec:
+  inputs:
+    env:
+      description: Name of the environment, e.g. `mpcdfci_ifx-latest`
+      default: .mpcdfci_ifx-latest
+    vars:
+      description: Template with variables or parallel:matrix (do not use a `_tag` variant here)
+      default: .vars_matrix_run
+    post-postfix:
+      description: Job name postfix, e.g. `_debugrun` or `_tag_slurm`
+      default: ""
+    rules:
+      description: Rules for the job, e.g. `.rules_default`
+      default: .rules_default
+
+---
+
+post_diff$[[ inputs.env ]]$[[ inputs.post-postfix ]]_vs_tag:
+  stage: post_diff
+  extends:
+    - $[[ inputs.env ]]
+    - .before_script_modules
+    - .vars_dirs_artifacts
+    - .script_post_ncdiff
+    - $[[ inputs.vars ]]
+    - $[[ inputs.rules ]]
+  variables:
+    HASH_TAG_1: ${HASH_TAG}
+    HASH_TAG_2: ${HASH_TAG_REFERENCE}
+    CASENAME_1: ${HASH_TAG_1}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+    CASENAME_2: ${HASH_TAG_2}_${CI_HOSTNAME}_${CURR_CMP}_${CMP_MODE}_${OMP_MODE}_${MPI_MODE}${MPI_RNKS_MODE}
+  allow_failure: true  # a regression with the reference (tag) should only be informative / a warning
+  needs:
+    - job: post$[[ inputs.env ]]$[[ inputs.post-postfix ]]
+      artifacts: true
+    - job: post$[[ inputs.env ]]_tag$[[ inputs.post-postfix ]]
+      artifacts: true

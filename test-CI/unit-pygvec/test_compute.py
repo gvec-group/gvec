@@ -132,6 +132,8 @@ def test_boozer(teststate):
     assert np.allclose(ds.rho, [0.5, 1.0])
     assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
     assert {"rad", "pol", "tor"} == set(ds.dims)
+    assert "LA" in ds
+    assert "NU_B" in ds
     assert ds.rho.dims == ("rad",)
     assert ds.theta_B.dims == ("pol",)
     assert ds.zeta_B.dims == ("tor",)
@@ -244,9 +246,9 @@ def test_compute_hmap(teststate, evals_rtz):
     assert ds.pos.shape == (3, 6, 32, 10)
     assert "xyz" in ds.dims
     assert "xyz" in ds.coords
-    assert "e_X1" in ds
-    assert "e_X2" in ds
-    assert "e_zeta3" in ds
+    assert "e_q1" in ds
+    assert "e_q2" in ds
+    assert "e_q3" in ds
     assert not np.any(np.isnan(ds.pos))
 
     compute(ds, "e_rho", state=teststate)
@@ -256,16 +258,16 @@ def test_compute_hmap(teststate, evals_rtz):
 def test_compute_metric(teststate, evals_rtz):
     ds = evals_rtz
 
-    compute(ds, "g_tt", state=teststate)
+    compute(ds, "dg_tt_dr", state=teststate)
     for ij in ("rr", "rt", "rz", "tt", "tz", "zz"):
-        key = f"g_{ij}"
-        assert key in ds
-        assert set(ds[key].coords) == {"rho", "theta", "zeta"}
         for k in "rtz":
             assert f"dg_{ij}_d{k}" in ds
 
-    compute(ds, "e_rho", "e_theta", "e_zeta", state=teststate)
+    compute(ds, "g_rr", "g_rt", "g_rz", "g_tt", "g_tz", "g_zz", state=teststate)
     idxs = {"r": "rho", "t": "theta", "z": "zeta"}
+    assert "e_rho" in ds
+    assert "e_theta" in ds
+    assert "e_zeta" in ds
     for ij in "rr rt rz tt tz zz".split():
         key = f"g_{ij}"
         assert np.allclose(
@@ -323,19 +325,13 @@ def test_compute_basis(teststate, evals_rtz):
         compute(ds, f"e_{coord}", f"grad_{coord}", state=teststate)
     ds = ds.isel(rad=slice(1, None))
     for coord in ["rho", "theta", "zeta"]:
-        assert np.allclose(
-            xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="xyz"), 1.0
-        )
+        assert np.allclose(xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="xyz"), 1.0)
         for coord2 in ["rho", "theta", "zeta"]:
             if coord2 == coord:
                 continue
             compute(ds, f"e_{coord2}", f"grad_{coord2}", state=teststate)
-            assert np.allclose(
-                xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"), 0.0
-            )
-            assert np.allclose(
-                xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0
-            )
+            assert np.allclose(xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"), 0.0)
+            assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
 
 
 def test_volume_integral(teststate, evals_rtz_int, evals_rtz):
@@ -461,6 +457,4 @@ def test_ev2ft_3d(teststate, evals_rtz):
 
 def test_table_of_quantities():
     s = gvec.comp.table_of_quantities()
-    assert len(s.split("\n")) == 3 + len(
-        gvec.comp.QUANTITIES
-    )  # 2 lines header, 1 trailing \n
+    assert len(s.split("\n")) == 3 + len(gvec.comp.QUANTITIES)  # 2 lines header, 1 trailing \n

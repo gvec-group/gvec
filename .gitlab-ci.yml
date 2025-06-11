@@ -9,6 +9,7 @@ stages:
   - unit
   - regression
   - postprocessing
+  - post_diff
   - publish
 
 workflow:
@@ -271,6 +272,20 @@ include:
       env: .mpcdfci_ifx-latest
       rules: .rules_minimal
 
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      cmake-opts: .cmake_hmap_RZ
+      build-postfix: _hmap_RZ
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      cmake-opts: .cmake_hmap_axisNB
+      build-postfix: _hmap_axisNB
+
+
+
   # GNU
 
   - local: CI_templates/build.yml
@@ -286,11 +301,32 @@ include:
     inputs:
       env: .mpcdfci_gfortran-latest
 
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      cmake-opts: .cmake_hmap_RZ
+      build-postfix: _hmap_RZ
+
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      cmake-opts: .cmake_hmap_axisNB
+      build-postfix: _hmap_axisNB
+
   # Nvidia
 
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_nvfortran-23
+      cmake-opts: .cmake_hmap_RZ
+      build-postfix: _hmap_RZ
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .mpcdfci_nvfortran-23
+      cmake-opts: .cmake_hmap_axisNB
+      build-postfix: _hmap_axisNB
 
   # MPI
   # Intel
@@ -360,6 +396,13 @@ include:
 
   - local: CI_templates/build.yml
     inputs:
+      env: .mpcdfci_gfortran-latest
+      build-postfix: _tag
+      vars: .vars_matrix_build_tag
+      rules: .rules_minimal
+
+  - local: CI_templates/build.yml
+    inputs:
       env: .mpcdfci_ifx-impi-latest
       build-postfix: _tag
       vars: .vars_matrix_build_tag
@@ -403,6 +446,16 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .raven_nvfortran-23
+      cmake-opts: .cmake_hmap_RZ
+      build-postfix: _hmap_RZ
+      vars: .vars_hpc
+      rules: .rules_private_runner
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .raven_nvfortran-23
+      cmake-opts: .cmake_hmap_axisNB
+      build-postfix: _hmap_axisNB
       vars: .vars_hpc
       rules: .rules_private_runner
 
@@ -516,6 +569,20 @@ include:
       env: .mpcdfci_ifx-latest
       rules: .rules_minimal
 
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_run_hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      run-postfix: _hmap_axisNB
+
   # GNU
 
   - local: CI_templates/run.yml
@@ -531,11 +598,36 @@ include:
     inputs:
       env: .mpcdfci_gfortran-latest
 
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_run_hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
+
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      run-postfix: _hmap_axisNB
+
   # Nvidia
 
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_nvfortran-23
+      vars: .vars_matrix_run_hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_nvfortran-23
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      run-postfix: _hmap_axisNB
 
   # debugrun
 
@@ -555,6 +647,13 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
+      env: .mpcdfci_ifx-latest
+      run-postfix: _debugrun_hmap_RZ
+      vars: .vars_matrix_run_debugrun_hmap_RZ
+      build-postfix: _hmap_RZ
+
+  - local: CI_templates/run.yml
+    inputs:
       env: .mpcdfci_gfortran-latest
       run-postfix: _debugrun
       vars: .vars_matrix_run_debugrun
@@ -562,10 +661,24 @@ include:
 
   - local: CI_templates/run.yml
     inputs:
+      env: .mpcdfci_gfortran-latest
+      run-postfix: _debugrun_hmap_RZ
+      vars: .vars_matrix_run_debugrun_hmap_RZ
+      build-postfix: _hmap_RZ
+
+  - local: CI_templates/run.yml
+    inputs:
       env: .mpcdfci_nvfortran-23
-      run-postfix: _debugrun
-      vars: .vars_matrix_run_debugrun
-      rules: .rules_nightly
+      run-postfix: _debugrun_hmap_RZ
+      vars: .vars_matrix_run_debugrun_hmap_RZ
+      build-postfix: _hmap_RZ
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_nvfortran-23
+      run-postfix: _debugrun_hmap_axisNB
+      vars: .vars_matrix_run_debugrun_hmap_axisNB
+      build-postfix: _hmap_axisNB
 
   # MPI
 
@@ -617,6 +730,15 @@ include:
   - local: CI_templates/run.yml
     inputs:
       env: .mpcdfci_ifx-impi-latest
+      run-postfix: _tag
+      build-postfix: _tag
+      vars: .vars_matrix_run_mpi_tag
+      allow_failure: true
+
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      rules: .rules_nightly
       run-postfix: _tag
       build-postfix: _tag
       vars: .vars_matrix_run_mpi_tag
@@ -851,11 +973,73 @@ include:
 
   - local: CI_templates/postprocessing.yml
     inputs:
+      env: .mpcdfci_ifx-latest
+      build-postfix: _tag
+      run-postfix: _tag
+      post-postfix: _tag
+      vars: .vars_matrix_post_tag
+      rules: .rules_minimal
+      allow_failure: true
+
+
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_run_hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
+      post-postfix: _hmap_RZ
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      post-postfix: _hmap_axisNB
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
       env: .mpcdfci_gfortran-latest
 
   - local: CI_templates/postprocessing.yml
     inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_run_hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
+      post-postfix: _hmap_RZ
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      run-postfix: _hmap_axisNB
+      post-postfix: _hmap_axisNB
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
       env: .mpcdfci_nvfortran-23
+      vars: .vars_matrix_run_hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
+      post-postfix: _hmap_RZ
+
+  - local: CI_templates/postprocessing.yml
+    inputs:
+      env: .mpcdfci_nvfortran-23
+      vars: .vars_matrix_run_hmap_axisNB
+      build-postfix: _hmap_axisNB
+      run-postfix: _hmap_axisNB
+      post-postfix: _hmap_axisNB
+
+  # regression of post with ncdiff
+  - local: CI_templates/regression-tag-post-diff.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_post
+      rules: .rules_minimal
 
   # python
 
@@ -897,7 +1081,19 @@ include:
 
   - local: CI_templates/converters.yml
     inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_run_hmap_RZ
+      conv-postfix: _hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
+
+  - local: CI_templates/converters.yml
+    inputs:
       env: .mpcdfci_nvfortran-23
+      vars: .vars_matrix_run_hmap_RZ
+      conv-postfix: _hmap_RZ
+      build-postfix: _hmap_RZ
+      run-postfix: _hmap_RZ
 
   # ============================
   # stage publish jobs
@@ -1045,7 +1241,7 @@ include:
   variables:
     CMP_MODE: "Release"
     OMP_MODE: "ompON"
-    PYTEST_KEY_OPTS: "frenet_axisNB_QH_nfp7"
+    PYTEST_KEY_OPTS: "axisNB_QH_nfp7"
 
 # reference tag
 .vars_hpc_tag:
@@ -1356,10 +1552,24 @@ include:
 .cmake_only_converter:
   variables:
     COMPILE_GVEC: "OFF"
-    LINK_TO_NETCDF: "OFF"
+    LINK_TO_NETCDF: "ON"
     COMPILE_CONVERTERS: "ON"
     CMAKE_DEF_OPTS: "-DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
 
+
+.cmake_hmap_RZ:
+  variables:
+    COMPILE_GVEC: "ON"
+    LINK_TO_NETCDF: "ON"
+    COMPILE_CONVERTERS: "ON"
+    CMAKE_DEF_OPTS: "-DGVEC_FIX_HMAP=RZ -DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
+
+.cmake_hmap_axisNB:
+  variables:
+    COMPILE_GVEC: "ON"
+    LINK_TO_NETCDF: "ON"
+    COMPILE_CONVERTERS: "ON"
+    CMAKE_DEF_OPTS: "-DGVEC_FIX_HMAP=axisNB -DCOMPILE_GVEC=${COMPILE_GVEC} -DCOMPILE_GVEC_TO_CASTOR3D=${COMPILE_CONVERTERS} -DCOMPILE_GVEC_TO_GENE=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_JOREK=${COMPILE_CONVERTERS}  -DCOMPILE_GVEC_TO_HOPR=${COMPILE_CONVERTERS}  -DLINK_GVEC_TO_NETCDF=${LINK_TO_NETCDF} -DCOMPILE_GVEC_AS_STATIC_LIB=ON"
 # ____________________________
 # Debug/Release & OpenMP options
 
@@ -1382,6 +1592,7 @@ include:
     CMP_MODE: "Release"
     OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
+
 
 # ____________________________
 # set HASH_TAG for reference builds
@@ -1411,12 +1622,37 @@ include:
     CMP_MODE: Release
     OMP_MODE: ompON
 
+.vars_matrix_run_hmap_RZ:
+  extends: .vars_matrix_run
+  variables:
+        PYTEST_KEY_OPTS: "(not frenet) and (not axisNB) and (not hmap_knot) and (not hmap_cyl)"
+
+.vars_matrix_run_hmap_axisNB:
+  extends: .vars_matrix_run
+  variables:
+        PYTEST_KEY_OPTS: "axisNB"
+
 # debug-runs: via pytest
 .vars_matrix_run_debugrun:
   extends: .vars_matrix_run
   variables:
     PYTEST_MARKER_OPTS: "debugrun"
     PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec)"
+
+# debug-runs: via pytest
+.vars_matrix_run_debugrun_hmap_RZ:
+  extends: .vars_matrix_run
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec) and (not frenet) and (not axisNB) and (not hmap_knot) and (not hmap_cyl)"
+
+# debug-runs: via pytest
+.vars_matrix_run_debugrun_hmap_axisNB:
+  extends: .vars_matrix_run
+  variables:
+    PYTEST_MARKER_OPTS: "debugrun"
+    PYTEST_KEY_OPTS: "(not highres) and (not _restart) and (not w7x_from_vmec) and (axisNB)"
+
 
 # there are different issues with MPI_RNKS>4 in both runners
 .vars_matrix_run_mpi:
@@ -1544,6 +1780,11 @@ include:
     matrix:
       - CMP_MODE: ["Debug","Release"]
         OMP_MODE: ["ompON"]
+
+.vars_matrix_post_tag:
+  extends: .vars_matrix_post
+  variables:
+    HASH_TAG: ${HASH_TAG_REFERENCE}
 
 .vars_matrix_conv:
   variables:

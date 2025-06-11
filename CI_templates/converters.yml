@@ -7,15 +7,26 @@ spec:
     env:
       description: Name of the environment, e.g. `mpcdfci_ifx-latest`
       default: .mpcdfci_ifx-latest
-    conv-postfix:
-      description: Postfix for the converter job, e.g. `_only_converter`
-      default: ""
-    build-postfix:
-      description: Job name postfix, e.g. `_only_converter`
-      default: ""
+    vars:
+      description: Template with variables or parallel:matrix
+      default: .vars_matrix_conv
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
+    build-postfix:
+      description: Job name postfix, e.g. `_only_converter`
+      default: ""
+    run-postfix:
+      description: Job name postfix, e.g. `_debugrun` or `_tag_slurm`
+      default: ""
+    conv-postfix:
+      description: Postfix for the converter job, e.g. `_only_converter`
+      default: ""
+    allow_failure:
+      description: Allow the job to fail
+      default: false
+      type: boolean
+
 
 ---
 
@@ -28,10 +39,11 @@ conv$[[ inputs.env ]]$[[ inputs.conv-postfix ]]:
     - $[[ inputs.env ]]
     - .vars_dirs_artifacts
     - .script_conv
-    - .vars_matrix_conv  # matrix of variables
+    - $[[ inputs.vars ]]  # matrix of variables
     - $[[ inputs.rules ]]
   needs:
     - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
-    - job: run$[[ inputs.env ]]
+    - job: run$[[ inputs.env ]]$[[ inputs.run-postfix ]]
       artifacts: true
+  allow_failure: $[[ inputs.allow_failure ]]

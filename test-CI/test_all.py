@@ -429,7 +429,17 @@ class TestConverters(BaseTestPost):
     @pytest.fixture(autouse=True)
     def mark_xfail(self, request):
         if "frenet" in request.node.name:
-            request.node.add_marker(pytest.mark.xfail(reason="not implemented yet"))
+            request.node.add_marker(
+                pytest.mark.xfail(reason="hmap_frenet not implemented yet in converters")
+            )
+        if "axisNB" in request.node.name:
+            request.node.add_marker(
+                pytest.mark.xfail(reason="hmap_axisNB not implemented yet in converters")
+            )
+        if "knot" in request.node.name:
+            request.node.add_marker(
+                pytest.mark.xfail(reason="hmap_knot not implemented yet in converters")
+            )
 
     @pytest.fixture(autouse=True)
     def set_exec(self, exec):

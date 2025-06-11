@@ -17,7 +17,7 @@ USE MODgvec_Globals,ONLY: PI,wp,Unit_stdOut,abort
 USE MODgvec_sgrid,  ONLY: t_sgrid
 USE MODgvec_base,   ONLY: t_base
 USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
-USE MODgvec_c_hmap, ONLY: c_hmap
+USE MODgvec_hmap
 USE MODgvec_rProfile_base, ONLY: c_rProfile
 
 IMPLICIT NONE
@@ -43,10 +43,13 @@ INTEGER                     :: nDOF_LA   !! total number of degrees of freedom, 
 INTEGER,ALLOCATABLE         :: X1_BC_type(:,:) !! X1 var: BC type for axis and edge for each mode (1:2,1:modes) (1=axis,2=edge)
 INTEGER,ALLOCATABLE         :: X2_BC_type(:,:) !! X2 var: BC type for axis and edge for each mode (1:2,1:modes) (1=axis,2=edge)
 INTEGER,ALLOCATABLE         :: LA_BC_type(:,:) !! LA var: BC type for axis and edge for each mode (1:2,1:modes) (1=axis,2=edge)
-
-
-CLASS(c_hmap),  ALLOCATABLE :: hmap      !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
-
+#ifdef PP_WHICH_HMAP
+TYPE(PP_T_HMAP),  ALLOCATABLE :: hmap      !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+TYPE(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_auxvar(:) !! auxiliary variables for hmap
+#else
+CLASS(PP_T_HMAP),  ALLOCATABLE :: hmap      !! type containing subroutines for evaluating the map h (Omega_p x S^1) --> Omega
+CLASS(PP_T_HMAP_AUXVAR),ALLOCATABLE :: hmap_auxvar(:) !! auxiliary variables for hmap
+#endif
 !===================================================================================================================================
 INTEGER              :: which_init      !! select initialization. 0: only using input parameter, 1: using a VMEC equilibrium
 INTEGER              :: which_hmap
