@@ -588,8 +588,10 @@ def EvaluationsBoozerCustom(
         The specification of the radial, radius-like coordinate.
     theta_B : int | float | 1D, 2D or 3D array (DataArray, ndarray, list)
         The specification of the poloidal, angle-like Boozer coordinate.
+        1D assumes dimension "pol", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
     zeta_B : int | float | 1D, 2D or 3D array (DataArray, ndarray, list)
-        The specification of the poloidal, angle-like Boozer coordinate.
+        The specification of the toroidal, angle-like Boozer coordinate.
+        1D assumes dimension "tor", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
     state : State
         The gvec.State object to create the grid for. Used to perform the Boozer transform.
     """
