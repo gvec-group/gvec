@@ -23,7 +23,8 @@ def state(testfiles):
 @pytest.fixture()
 def ev(state):
     rho = [0.1, 0.5, 0.9]
-    ds = EvaluationsBoozer(rho=rho, n_theta=20, n_zeta=50, state=state)
+    ds = EvaluationsBoozer(rho=rho, theta_B=20, zeta_B=50, state=state, MNfactor=1)
+    # only for testing! MNfactor should be ~4 or above for most applications
     compute(ds, "pos", "N_FP", state=state)
     return ds
 
