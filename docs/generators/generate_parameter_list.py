@@ -191,13 +191,9 @@ def generate_formatted_param(
                 wcol2 = wrap_swid("", replace_lnk_to_param(row[1]), maxcol2_swid)
                 for jrow, wc in enumerate(wcol2):
                     if jrow == 0:
-                        outstr.append(
-                            "|    " + f"| {col1:{maxcol1}} | {wc:{maxcol2_swid}} | |"
-                        )
+                        outstr.append("|    " + f"| {col1:{maxcol1}} | {wc:{maxcol2_swid}} | |")
                     else:
-                        outstr.append(
-                            "|    | " + " " * maxcol1 + f" | {wc:{maxcol2_swid}} | |"
-                        )
+                        outstr.append("|    | " + " " * maxcol1 + f" | {wc:{maxcol2_swid}} | |")
                 if irow < nrows - 1:
                     outstr.append(
                         "|    "
@@ -249,9 +245,7 @@ def format_parameter_list(
 
     def evaluate_expression(expr: str, name: str, category: str, verbose=False):
         eval_expr = (
-            expr.lower()
-            .replace("name", name.lower())
-            .replace("category", category.lower())
+            expr.lower().replace("name", name.lower()).replace("category", category.lower())
         )
         if verbose:
             print(f"{eval(eval_expr)}={eval_expr}")
@@ -260,10 +254,7 @@ def format_parameter_list(
     for param, vals in dict.items():
         if filter_expr:
             if not any(
-                [
-                    evaluate_expression(filter_expr, param, cat)
-                    for cat in vals["category"]
-                ]
+                [evaluate_expression(filter_expr, param, cat) for cat in vals["category"]]
             ):
                 continue
         out += generate_formatted_param(

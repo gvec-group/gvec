@@ -403,17 +403,6 @@ IF(COMPILE_PYGVEC)
   SET(F2PY_INCLUDE_DIR "${Python_NumPy_INCLUDE_DIRS}/../../f2py/src")
   MESSAGE(STATUS "F2PY include dir: ${F2PY_INCLUDE_DIR}")
 
-  # --- pygvec modules --- #
-  # pygvec fortran modules are now part of gveclib
-  # so not compiled seperately from the bindings (would allow specifying individual compile flags)
-  #SET(pygveclib_files
-  #  src/pygvec/binding.f90
-  #  src/pygvec/post.f90
-  #  src/pygvec/run.f90
-  #)
-  #ADD_LIBRARY(pygveclib OBJECT ${pygveclib_files})
-  #SET_TARGET_PROPERTIES(pygveclib PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
-
   # --- wrap gvec using f90wrap & f2py --- #
   # specify files to be wrapped with f90wrap
   SET(pygvec_src_files

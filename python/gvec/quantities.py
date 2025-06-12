@@ -113,9 +113,7 @@ def _base(var, long_name, symbol):
     )
     def base(ds: xr.Dataset, state: State):
         if set(ds.rho.dims) != {"rad"}:
-            raise ValueError(
-                f"Expected 'rho' to be of dimension '(rad,)', got {ds.rho.dims}"
-            )
+            raise ValueError(f"Expected 'rho' to be of dimension '(rad,)', got {ds.rho.dims}")
 
         # Default case: mesh in logical (rho, theta, zeta)
         if set(ds.theta.dims) == {"pol"} and set(ds.zeta.dims) == {"tor"}:
@@ -126,12 +124,8 @@ def _base(var, long_name, symbol):
         # E.g. mesh in Boozer coordinates (rho, theta_B, zeta_B) -> theta, zeta are 3D fields
         elif set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}:
             # Flatten theta, zeta
-            theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(
-                ds.rad.size, -1
-            )
-            zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(
-                ds.rad.size, -1
-            )
+            theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+            zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
 
             # Compute base on each radial position
             outputs = []
@@ -174,9 +168,7 @@ def N_FP(ds: xr.Dataset, state: State):
     requirements=("xyz", "X1", "X2", "zeta"),
     attrs=dict(
         pos=dict(long_name="position vector", symbol=r"\mathbf{x}"),
-        e_q1=dict(
-            long_name="first reference tangent basis vector", symbol=r"\mathbf{e}_{q^1}"
-        ),
+        e_q1=dict(long_name="first reference tangent basis vector", symbol=r"\mathbf{e}_{q^1}"),
         e_q2=dict(
             long_name="second reference tangent basis vector",
             symbol=r"\mathbf{e}_{q^2}",
@@ -330,9 +322,7 @@ def metric(ds: xr.Dataset, state: State):
         "e_q3",
     ],
     attrs={
-        "Jac_h": dict(
-            long_name="reference Jacobian determinant", symbol=r"\mathcal{J}_h"
-        ),
+        "Jac_h": dict(long_name="reference Jacobian determinant", symbol=r"\mathcal{J}_h"),
     },
 )
 def Jac_h(ds: xr.Dataset):
@@ -362,10 +352,7 @@ def Jac_h(ds: xr.Dataset):
 )
 def Jac_h_derivs(ds: xr.Dataset, state: State):
     outputs = state.evaluate_jac_h_derivs(
-        *[
-            ds[var].broadcast_like(ds.X1).values.flatten()
-            for var in Jac_h_derivs.requirements
-        ]
+        *[ds[var].broadcast_like(ds.X1).values.flatten() for var in Jac_h_derivs.requirements]
     )
     for key, value in zip(Jac_h_derivs.quantities, outputs):
         ds[key] = (
@@ -385,9 +372,7 @@ def Jac_h_derivs(ds: xr.Dataset, state: State):
     ),
     attrs={
         "Jac": dict(long_name="Jacobian determinant", symbol=r"\mathcal{J}"),
-        "Jac_l": dict(
-            long_name="logical Jacobian determinant", symbol=r"\mathcal{J}_l"
-        ),
+        "Jac_l": dict(long_name="logical Jacobian determinant", symbol=r"\mathcal{J}_l"),
     },
 )
 def Jac(ds: xr.Dataset):
@@ -401,11 +386,7 @@ def Jac(ds: xr.Dataset):
         "Jac_h",
         "Jac_l",
         *(f"dJac_h_d{i}" for i in "rtz"),
-        *(
-            f"d{Q}_d{i}"
-            for Q in "X1 X2".split()
-            for i in "r t z rr rt rz tt tz zz".split()
-        ),
+        *(f"d{Q}_d{i}" for Q in "X1 X2".split() for i in "r t z rr rt rz tt tz zz".split()),
     ),
     attrs={
         f"dJac_d{i}": dict(
@@ -466,17 +447,13 @@ def theta_P(ds: xr.Dataset):
 )
 def grad_theta_P(ds: xr.Dataset):
     ds["grad_theta_P"] = (
-        ds.grad_theta * (1 + ds.dLA_dt)
-        + ds.grad_rho * ds.dLA_dr
-        + ds.grad_zeta * ds.dLA_dz
+        ds.grad_theta * (1 + ds.dLA_dt) + ds.grad_rho * ds.dLA_dr + ds.grad_zeta * ds.dLA_dz
     )
 
 
 @register(
     requirements=("Jac", "dLA_dt"),
-    attrs=dict(
-        long_name="Jacobian determinant in PEST coordinates", symbol=r"\mathcal{J}_P"
-    ),
+    attrs=dict(long_name="Jacobian determinant in PEST coordinates", symbol=r"\mathcal{J}_P"),
 )
 def Jac_P(ds: xr.Dataset):
     ds["Jac_P"] = ds.Jac / (1 + ds.dLA_dt)
@@ -640,11 +617,7 @@ def J(ds: xr.Dataset):
     ds["J_contra_r"] = (dB_co["z", "t"] - dB_co["t", "z"]) / (ds.mu0 * ds.Jac)
     ds["J_contra_t"] = (dB_co["r", "z"] - dB_co["z", "r"]) / (ds.mu0 * ds.Jac)
     ds["J_contra_z"] = (dB_co["t", "r"] - dB_co["r", "t"]) / (ds.mu0 * ds.Jac)
-    ds["J"] = (
-        ds.J_contra_r * ds.e_rho
-        + ds.J_contra_t * ds.e_theta
-        + ds.J_contra_z * ds.e_zeta
-    )
+    ds["J"] = ds.J_contra_r * ds.e_rho + ds.J_contra_t * ds.e_theta + ds.J_contra_z * ds.e_zeta
 
 
 @register(
@@ -773,25 +746,35 @@ def B_contra_z_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=("Jac_B", "Jac", "dNU_B_dz", "dNU_B_dt", "e_theta", "e_zeta"),
+    requirements=(
+        "iota",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dz",
+        "dNU_B_dt",
+        "e_theta",
+        "e_zeta",
+    ),
     attrs=dict(
         long_name="poloidal tangent basis vector in Boozer coordinates",
         symbol=r"\mathbf{e}_{\theta_B}",
     ),
 )
 def e_theta_B(ds: xr.Dataset):
-    ds["e_theta_B"] = (
-        ds.Jac_B / ds.Jac * ((1 + ds.dNU_B_dz) * ds.e_theta - ds.dNU_B_dt * ds.e_zeta)
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    ds["e_theta_B"] = (dzB_dz * ds.e_theta - dzB_dt * ds.e_zeta) / (
+        dtB_dt * dzB_dz - dtB_dz * dzB_dt
     )
 
 
 @register(
     requirements=(
-        "Jac_B",
-        "Jac",
+        "iota",
         "dLA_dt",
         "dLA_dz",
-        "iota",
         "dNU_B_dz",
         "dNU_B_dt",
         "e_theta",
@@ -803,13 +786,12 @@ def e_theta_B(ds: xr.Dataset):
     ),
 )
 def e_zeta_B(ds: xr.Dataset):
-    ds["e_zeta_B"] = (
-        ds.Jac_B
-        / ds.Jac
-        * (
-            (1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt) * ds.e_zeta
-            + (ds.dLA_dz + ds.iota * ds.dNU_B_dz) * ds.e_zeta
-        )
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) / (
+        dtB_dt * dzB_dz - dtB_dz * dzB_dt
     )
 
 
@@ -939,9 +921,7 @@ def shear(ds: xr.Dataset):
 @register(
     requirements=("B", "e_theta"),
     integration=("theta", "zeta"),
-    attrs=dict(
-        long_name="average poloidal magnetic field", symbol=r"\overline{B_\theta}"
-    ),
+    attrs=dict(long_name="average poloidal magnetic field", symbol=r"\overline{B_\theta}"),
 )
 def B_theta_avg(ds: xr.Dataset):
     ds["B_theta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="xyz")) / (
@@ -960,14 +940,10 @@ def I_tor(ds: xr.Dataset):
 @register(
     requirements=("B", "e_zeta"),
     integration=("theta", "zeta"),
-    attrs=dict(
-        long_name="average toroidal magnetic field", symbol=r"\overline{B_\zeta}"
-    ),
+    attrs=dict(long_name="average toroidal magnetic field", symbol=r"\overline{B_\zeta}"),
 )
 def B_zeta_avg(ds: xr.Dataset):
-    ds["B_zeta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="xyz")) / (
-        4 * np.pi**2
-    )
+    ds["B_zeta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="xyz")) / (4 * np.pi**2)
 
 
 @register(
@@ -993,6 +969,4 @@ def I_pol(ds: xr.Dataset):
     ),
 )
 def W_MHD(ds: xr.Dataset):
-    ds["W_MHD"] = volume_integral(
-        (0.5 * ds.mod_B**2 + (ds.gamma - 1) * ds.mu0 * ds.p) * ds.Jac
-    )
+    ds["W_MHD"] = volume_integral((0.5 * ds.mod_B**2 + (ds.gamma - 1) * ds.mu0 * ds.p) * ds.Jac)
