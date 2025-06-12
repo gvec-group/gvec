@@ -533,6 +533,26 @@ class State:
         tz_list: np.ndarray,
         rad: int | None = None,
     ):
+        """
+        Find the logical angles (theta, zeta) for the corresponding (theta_B, zeta_B) coordinates on the Boozer surface.
+
+        Parameters
+        ----------
+        sfl_boozer : lib.Modgvec_Sfl_Boozer.t_sfl_boozer
+            The Boozer potential object to use.
+        tz_list : 2D array or Sequence of shape (2, n)
+            The list of (theta_B, zeta_B) coordinates for which to find the logical angles.
+            The first row contains theta_B and the second row contains zeta_B.
+        rad : int, optional
+            The (optional) radial index of the surface (with respect to the sfl_boozer object) on which to find the angles.
+
+        Returns
+        -------
+        2D or 3D np.ndarray
+            The logical angles (theta, zeta) corresponding to the input (theta_B, zeta_B) coordinates.
+            If rad is None, returns a 3D array of shape (2, n, nrho), where nrho is the number of radial surfaces in sfl_boozer.
+            If rad is specified, returns a 2D array of shape (2, n).
+        """
         if not isinstance(sfl_boozer, lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
             raise ValueError(f"Boozer object {sfl_boozer!r} must be of type `t_sfl_boozer`.")
         if sfl_boozer not in self._children:

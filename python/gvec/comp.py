@@ -662,6 +662,11 @@ def EvaluationsBoozerCustom(
     )
 
     # === Find the logical coordinates of the Boozer grid === #
+    # first perform the boozer transform on the target surfaces
+    # get_boozer_angles expects a list of (theta_B, zeta_B) coordinates
+    # - broadcast such that theta_B, zeta_B are both (pol, tor) and stack
+    # - unstack the result again
+    # if theta_B or zeta_B are 3D, we need to do this on each surface individually and stich it together
     sfl_boozer = state.get_boozer(ds.rho, **boozer_kwargs)
     if "rad" in ds.theta_B.dims or "rad" in ds.zeta_B.dims:  # 3D
         theta = []
