@@ -1,15 +1,11 @@
 # Stages
 
-:::{warning}
-This feature is experimental!
-:::
-
 The python bindings for GVEC provide a simple wrapper to run GVEC:
 ```bash
 pygvec run parameter.ini
 ```
 
-They also allow running GVEC with a *current constraint* (strictly speaking a current-optimization using picard iterations) and refinement.
+They also allow running GVEC with a prescribed current profile and refinement.
 
 For this, the parameters need to be specified in YAML or TOML files, which are more flexible than the classic GVEC-INI files.
 The parameters use the same keys, with a different syntax for specifying the boundary and axis coefficients.
@@ -114,13 +110,74 @@ Full example: [`parameter.yaml`](<path:../../python/examples/stages/parameter.ya
 
 :::
 ::::
-### Current constraint basics
+
+## Prescribing a toroidal current profile
+### Theory
+
+Instead of fixing the $\iota$ profile, leading to a fixed poloidal flux $\chi'(\rho) =  \iota(\rho)\Phi'$, we could also fix the toroidal current profile $I_{\text{tor}}(\rho)$. The toroidal current profile is defined as
+
+$$
+  I_{\text{tor}} := \int_0^{\tilde{\rho}}d\rho\int_0^{2\pi}d\theta \mathcal{J} J^{\zeta},
+$$
+
+with $J^\zeta$ denoting the contravariant toroidal current density and $\mathcal{J}$ the usual Jacobian determinant. Expressing $J^\zeta$ in terms of the covariant magnetic field components yields
+
+$$
+I_{\text{tor}} = \frac{1}{\mu_0} \int_0^{\tilde{\rho}} d\rho\int_0^{2\pi}d\theta \mathcal{J}\frac{1}{\mathcal{J}}\left(\frac{\partial B_\theta}{\partial\rho}-\frac{\partial B_\rho}{\partial\theta}\right).
+$$
+
+ Due to the integration with respect to $\theta$ and periodicity the term with $\frac{\partial B_\rho}{\partial\theta}$ vanishes. Hence, we can express the toroidal current profile as
+
+$$
+  I_{\text{tor}} = \frac{1}{\mu_0} \int_0^{2\pi}d\theta B_\theta = \frac{1}{2\pi\mu_0} \int_0^{2\pi} d\theta\int_0^{2\pi}d\zeta B_\theta = \frac{1}{2\pi\mu_0} \left\langle B_\theta\right\rangle.
+$$
+
+$B_\theta$ can be obtained via (see also magnetic field in  [theory](theory.md)):
+
+$$
+\begin{align*}
+B_\theta &= g_{\theta\theta}B^\theta + g_{\theta\zeta}B^\zeta\\
+& = \frac{g_{\theta\theta}}{\mathcal{J}}\left(\chi'-\Phi'\frac{\partial\lambda}{\partial\zeta}\right)+\frac{g_{\theta\zeta}}{\mathcal{J}}\Phi'\left(1+\frac{\partial\lambda}{\partial\theta}\right).
+\end{align*}
+$$
+
+Inserting this into the equation for $I_{\text{tor}}$ lets us solve for $\chi'$. As $\Phi'$ is known, we can also solve for $\iota = \frac{\chi'}{\Phi'}$. By introducing the quantities $\Gamma_\theta=\frac{g_{\theta\theta}}{\mathcal{J}}$ and $\Gamma_\zeta=\frac{g_{\theta\zeta}}{\mathcal{J}}$ the final expression for $\iota$ reads:
+
+$$
+  \iota = \frac{2\pi\mu_0}{\Phi'\left\langle\Gamma_\theta\right\rangle}I_{\text{tor}}+\frac{\Phi'}{\left\langle\Gamma_\theta\right\rangle}\left\langle\Gamma_\theta\frac{\partial\lambda}{\partial\zeta}-\Gamma_\zeta\left(1+\frac{\partial\lambda}{\partial\theta}\right)\right\rangle
+$$
+
+Here, we can identify two contributions to the rotational transform; one independent of $I_{\text{tor}}$ which we refer to as $\iota_0$ and one depending on $I_{\text{tor}}$ referred to here as $\iota_{\text{curr}}$:
+
+$$
+\begin{align*}
+  \iota_{\text{curr}} &:= \frac{2\pi\mu_0}{\Phi'\left\langle\Gamma_\theta\right\rangle}I_{\text{tor}},\\
+  \iota_{0}&:= \frac{\Phi'}{\left\langle\Gamma_\theta\right\rangle}\left\langle\Gamma_\theta\frac{\partial\lambda}{\partial\zeta}-\Gamma_\zeta\left(1+\frac{\partial\lambda}{\partial\theta}\right)\right\rangle.
+\end{align*}
+$$
+
+When prescribing a toroidal current profile in GVEC, the code will start with an initial guess for the $\iota$ profile and update this initial guess by calculating $\iota$ from $\iota_{\text{curr}}$ and $\iota_{0}$ after some iterations. In this sense, GVEC optimizes for the current profile using Picard iterations as each update corresponds to a restart of the energy minimization with an updated $\iota$. Hence, each single energy minimization is run with a fixed $\iota$. After some steps in the energy minimization this might lead to a discrepancy between the $\iota$ prescribed for this minimization and the targeted $\iota_T=\iota_0+\iota_{\text{curr}}$ as the geometry changes. Therefore, one has to check for the discrepancy $\Delta\iota$ so that both $\Delta\iota$ and the equilibrium forces are below the desired tolerance. $\Delta\iota$ is calculated from a set of $N$ evaluations at different radial positions $\rho_i \in [0,1]$:
+
+$$
+\Delta\iota := \sqrt{\frac{1}{N}\sum_i^N\left(\iota_T\left(\rho_i\right)-\iota\left(\rho_i\right)\right)²}.
+$$
+
+The general approach is then:
+1. prescribe $I_{\text{tor}}$ and an initial guess for $\iota$ (the default initial guess is $\iota(\rho)=0$)
+2. Minimize energy with fixed $\iota$ till force tolerance is reached or the maximum number of iterations for this minimization is used up.
+3. calculate $\Delta\iota$
+4. if $\Delta\iota$ is below the tolerance for $\iota$, finish; else, update $\iota = \iota_0+\iota_{\text{curr}}$ using $I_{\text{tor}}$ and continue.
+5. Repeat from 2.
+
+#### The default approach
+In general $\iota$ could be updated during each step of the energy minimization. However, we found that with the given implementation it is typically better for convergence to delay this update until the DOF have been sufficiently modified by the energy minimization, if the current guess for $\iota$ is reasonable. Thus, the default algorithm for GVEC with prescribed current profile will automatically generate stages that can be separated into two phases. In the initial phase the energy minimization with fixed $\iota$ is run for only a maximum of $10$ iterations (`maxIter=10`) until $\iota$ is updated. This ensures that $\iota$ is quickly adapted if the initial guess for $\iota$ is poor. That is, during this phase $\iota_T$ is the prime target for the optimization. If $\Delta\iota$ falls below a tolerance of $10^{-3}$ the second phase is started. In this phase we aggressively target the prescribed force tolerance (`minimize_tol`) while keeping $\iota$ fixed. Only when the force tolerance is reached, $\iota$ is updated. With the updated $\iota$, energy minimization with fixed $\iota$ is performed until the force tolerance is reached again. This process is repeated until both $\Delta\iota$ and the forces are below the prescribed tolerance or the computational budget is exhausted. This procedure could be achieved simply within two separate stages. However, numerical experiments have shown that ramping up the tolerances for $\Delta\iota$ and the forces is advantageous. Therefore, the second phase is automatically split into several stages where the force and $\Delta\iota$ tolerance is increased until the prescribed tolerances are reached.
+### Basic control
 TL;DR:
   - Set final `minimize_tol`, e.g. $10^{-5}$
   - Set `I_tor` with the same syntax as `pres` or `iota`
   - Set `picard_current="auto"`
 
-Given `I_tor` and `picard_current`, GVEC will use picard iterations to optimize the `iota` profile, such that the resulting toroidal current converges towards the prescribed `I_tor` profile. A `iota` profile is not required but can still be provided. In this case the `iota` parameters will act as an initial guess. As mentioned above, `I_tor` has the same parameters as the other two profiles, `iota` and `pres`. Via `picard_current` we can control the behavior of the picard iterations. Per default `picard_current` is set to `off`, which corresponds to a fixed `iota` run. For a fixed current profile run, we can set `picard_current="auto"`. Via this mode, a set of stages will be automatically generated to converge both `I_tor` as well as the force tolerance specified by `minimize_tol`. Note, however, that with this `"auto"` mode the `stages` parameter must not be set in the parameter file. The generated stages can be found in the `{ProjectName}_gvec_stages/parameter_{ProjectName}.stages.toml` file.
+Given `I_tor` and `picard_current`, GVEC will use Picard iterations as described above to optimize the `iota` profile, such that the resulting toroidal current converges towards the prescribed `I_tor` profile. A `iota` profile is not required but can still be provided. In this case the `iota` parameters will act as an initial guess. As mentioned above, `I_tor` has the same parameters as the other two profiles, `iota` and `pres`. Via `picard_current` we can control the behavior of the Picard iterations. Per default `picard_current` is set to `off`, which corresponds to a fixed `iota` run. For a fixed current profile run, we can set `picard_current="auto"`. Via this mode, a set of stages will be automatically generated to converge both `I_tor` as well as the force tolerance specified by `minimize_tol`. Note, however, that with this `"auto"` mode the `stages` parameter must not be set in the parameter file. The generated stages can be found in the `{ProjectName}_gvec_stages/parameter_{ProjectName}.stages.toml` file.
 
 ::::{tab-set}
 :::{tab-item} TOML
@@ -134,6 +191,7 @@ minimize_tol = 1.0e-06
 
 ...
 
+totalIter = 5000
 picard_current = "auto"
 
 [I_tor]
@@ -147,8 +205,8 @@ coefs = [0.0]
 ...
 ```
 
-Full example: [`parameter.toml`](<path:../../python/examples/current_constraint/parameter.toml>)
-(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/parameter.toml))
+Full example: [`parameter.toml`](<path:../../python/examples/current_profile/parameter.toml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_profile/parameter.toml))
 
 :::
 
@@ -161,6 +219,8 @@ whichInitEquilibrium: 0
 minimize_tol: 1.0e-06
 
 ...
+
+totalIter: 5000
 picard_current: auto
 
 I_tor:
@@ -174,17 +234,17 @@ X1_b_cos:
 ...
 ```
 
-Full example: [`parameter.yaml`](<path:../../python/examples/current_constraint/parameter.yaml>)
-(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/parameter.yaml))
+Full example: [`parameter.yaml`](<path:../../python/examples/current_profile/parameter.yaml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_profile/parameter.yaml))
 
 :::
 ::::
 
-### Current constraint advanced control
+### Advanced control
 
-Instead of `picard_current="auto"`, we can also set the two parameters that influence the picard iterations manually. The two options are `target` an `iota_tol`. The former specifies which optimization targets are considered during a picard iteration. The latter specifies how well we want the current-constraint to be fulfilled.
+Instead of `picard_current="auto"`, we can also set the two parameters that influence the Picard iterations manually. The two options are `target` an `iota_tol`. The former specifies which optimization targets are considered during a Picard iteration. The latter specifies how well we want the current-constraint to be fulfilled.
 
-Since we are technically optimizing for the prescribed `I_tor`, it can be useful to allow small deviations from `I_tor`, similarly to allowing deviations from the force balance via `minimize_tol`. As the underlying algorithm utilizes the current contribution to the rotational transform profile $\iota$, and $\iota$ is without units, we specify this deviation in terms of a tolerance on the (targeted) $\iota$: `iota_tol`. The `picard_current="auto"` mode will always try to get this tolerance below $10^{-10}$.
+Since we are technically optimizing for the prescribed `I_tor`, it can be useful to allow small deviations from `I_tor`, similarly to allowing deviations from the force balance via `minimize_tol`. As the underlying algorithm utilizes $\iota_{\text{curr}}$, and $\iota$ is without units, we specify this deviation in terms of a tolerance on the (targeted) rotational transform $\iota_T$: `iota_tol`. The `picard_current="auto"` mode will always try to get this tolerance below $10^{-10}$.
 
 Given `iota_tol`, we can now choose to either aggressively optimize for `iota_tol` or choose to optimize for `minimize_tol` first and then try to also fulfill `iota_tol`. The former would require one to set `target="iota"` whereas the latter corresponds to `target="iota_and_force"`. Generally, the `target="iota"` option is intended to be used with low `maxIter` and low `iota_tol` in an initial stage, if no prior knowledge on $\iota$ is present. If the initial guess for $\iota$ is reasonable, using `target="iota_and_force"` with a low value for `iota_tol` is recommended. Such a stage is typically a follow up to a `target="iota"` stage.
 
@@ -226,8 +286,8 @@ iota_tol = 1e-10
 ...
 ```
 
-Full example: [`parameter.toml`](<path:../../python/examples/current_constraint/advanced_control/parameter.toml>)
-(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/advanced_control/parameter.toml))
+Full example: [`parameter.toml`](<path:../../python/examples/current_profile/advanced_control/parameter.toml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_profile/advanced_control/parameter.toml))
 
 :::
 
@@ -276,8 +336,8 @@ X1_b_cos:
 ...
 ```
 
-Full example: [`parameter.yaml`](<path:../../python/examples/current_constraint/advanced_control/parameter.yaml>)
-(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/advanced_control/parameter.yaml))
+Full example: [`parameter.yaml`](<path:../../python/examples/current_profile/advanced_control/parameter.yaml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_profile/advanced_control/parameter.yaml))
 
 :::
 ::::

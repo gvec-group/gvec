@@ -97,10 +97,6 @@ For 3D visualization data, we write `*visu*.vtu` files, that can be visualized i
 
 ### Run GVEC with prescribed toroidal current
 
-:::{warning}
-This feature is experimental!
-:::
-
 To run GVEC with a prescribed toroidal current profile one has to utilize the python-bindings and switch to the more flexible TOML or YAML style parameter files. The additional parameters that need to be set are `I_tor` and `picard_current`. To run GVEC with such a TOML/YAML input file, one can just calls from the command line:
 ```bash
 pygvec run parameter.toml
@@ -121,6 +117,7 @@ minimize_tol = 1.0e-06
 
 ...
 
+totalIter = 5000
 picard_current = "auto"
 
 [I_tor]
@@ -134,8 +131,8 @@ coefs = [0.0]
 ...
 ```
 
-Full example: [`parameter.toml`](<path:../../python/examples/current_constraint/parameter.toml>)
-(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/parameter.toml))
+Full example: [`parameter.toml`](<path:../../python/examples/current_profile/parameter.toml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_profile/parameter.toml))
 
 :::
 
@@ -148,6 +145,8 @@ whichInitEquilibrium: 0
 minimize_tol: 1.0e-06
 
 ...
+
+totalIter: 5000
 picard_current: auto
 
 I_tor:
@@ -161,8 +160,8 @@ X1_b_cos:
 ...
 ```
 
-Full example: [`parameter.yaml`](<path:../../python/examples/current_constraint/parameter.yaml>)
-(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_constraint/parameter.yaml))
+Full example: [`parameter.yaml`](<path:../../python/examples/current_profile/parameter.yaml>)
+(view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/current_profile/parameter.yaml))
 
 :::
 ::::
