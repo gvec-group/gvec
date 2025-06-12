@@ -220,7 +220,9 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                         line = f"{prefix}{key}{sep}{kwargs[key.lower()]}{suffix}\n"
                         occurrences[key.lower()] += 1
                     else:  # use the existing keyword,value pair with a comment
-                        line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
+                        line = (
+                            f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
+                        )
                         occurrences[key.lower()] += 1
             target_file.write(line)
         # add key,value pair if not existing in parameterfile.
@@ -440,9 +442,7 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         "type": "polynomial",
         "coefs": nml["ai"],
     }
-    if (
-        nml["ncurr"] == 1
-    ):  # ncurr = 0: flux conservation | ncurr = 1: current constraint
+    if nml["ncurr"] == 1:  # ncurr = 0: flux conservation | ncurr = 1: current constraint
         if nml["pcurr_type"] != "power_series":
             raise ValueError(
                 f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"

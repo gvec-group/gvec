@@ -110,9 +110,18 @@ def run_stages(
                 raise ValueError(f"Unknown Itor type: {parameters['Itor']['type']}")
 
     stages = parameters.get("stages", [{}])
+    run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
+    # add additional directory for path parameters
+    for key, value in run_params.items():
+        if key.lower() in [
+            "vmecwoutfile",
+            "boundary_filename",
+            "hmap_ncfile",
+        ] and not value.startswith("/"):
+            run_params[key] = f"../{value}"
+
     for s, stage in enumerate(stages):
         # adapt parameters for this stage
-        run_params = gvec.util.CaseInsensitiveDict(copy.deepcopy(parameters))
         for key in ["stages", "Itor"]:
             if key in run_params:
                 del run_params[key]
@@ -129,15 +138,6 @@ def run_stages(
                     run_params[key][subkey] = subvalue
             else:
                 run_params[key] = value
-
-        # add additional directory for path parameters
-        for key, value in run_params.items():
-            if key.lower() in [
-                "vmecwoutfile",
-                "boundary_filename",
-                "hmap_ncfile",
-            ] and not value.startswith("/"):
-                run_params[key] = f"../{value}"
 
         # run the stage
         runs = range(stage.get("runs", 1))
@@ -215,12 +215,8 @@ def run_stages(
             if "Itor" in parameters:
                 iota_delta = ev.iota - iota_values
                 logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
-                logger.info(
-                    f"rms Δiota: {np.sqrt((iota_delta**2).mean('rad')).item():.2e}"
-                )
-                logger.info(
-                    f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.2e}"
-                )
+                logger.info(f"rms Δiota: {np.sqrt((iota_delta**2).mean('rad')).item():.2e}")
+                logger.info(f"max ΔItor: {np.abs(ev.I_tor - I_tor_target).max().item():.2e}")
 
             d = xr.Dataset(
                 dict(
@@ -268,9 +264,7 @@ def run_stages(
             title=diagnostics.W_MHD.attrs["long_name"],
         )
         if "Itor" in parameters:
-            axs[1].plot(
-                diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-"
-            )
+            axs[1].plot(diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-")
             axs[1].set(
                 xlabel="run number",
                 ylabel=r"$\sqrt{\sum \left(\Delta\iota\right)^2}$",
@@ -280,9 +274,7 @@ def run_stages(
         fig.savefig("iterations.png")
 
         if "Itor" in parameters:
-            fig, axs = plt.subplots(
-                2, 2, figsize=(15, 5), tight_layout=True, sharex=True
-            )
+            fig, axs = plt.subplots(2, 2, figsize=(15, 5), tight_layout=True, sharex=True)
             for r in diagnostics.run.data:
                 if r == diagnostics.run.data[-1]:
                     kwargs = dict(marker=".", color="C0", alpha=1.0)
@@ -342,9 +334,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 stdout_path="stdout.txt" if args.quiet else None,
             )
         else:
-            logging.basicConfig(
-                level=logging.WARNING
-            )  # show warnings and above as normal
+            logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
             logger = logging.getLogger("gvec")
             loghandler = logging.StreamHandler()
             logformatter = logging.Formatter("{message}", style="{")

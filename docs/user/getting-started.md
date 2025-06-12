@@ -128,12 +128,13 @@ The `runs` parameter within `stages` sets the number of picard iterations (GVEC 
 # GVEC parameter file for W7X
 ProjectName = "W7X"
 whichInitEquilibrium = 0
+minimize_tol = 1.0e-07
 
 ...
 
 stages = [
-    {runs = 3, maxIter = 100, sgrid.nElems = 3},
-    {runs = 5, maxIter = 20, sgrid.nElems = 10},
+    {runs = 10, maxIter = 10},
+    {runs = 10, maxIter = 1000},
 ]
 
 [Itor]
@@ -163,18 +164,15 @@ Full example: [`parameter.toml`](<path:../../python/examples/current_constraint/
 # GVEC parameter file for W7X
 ProjectName: W7X
 whichInitEquilibrium: 0
+minimize_tol: 1.0e-07
 
 ...
 
 stages:
--   runs: 3
-    maxIter: 100
-    sgrid:
-        nElems:
--   runs: 5
-    maxIter: 20
-    sgrid:
-        nElems: 10
+-   runs: 20
+    maxIter: 10
+-   runs: 10
+    maxIter: 1000
 
 Itor:
   type: polynomial
