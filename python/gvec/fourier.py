@@ -86,9 +86,7 @@ def fft2d(x: np.ndarray):
     return c, s
 
 
-def ifft2d(
-    c: np.ndarray, s: np.ndarray, deriv: str | None = None, nfp: int = 1
-) -> np.ndarray:
+def ifft2d(c: np.ndarray, s: np.ndarray, deriv: str | None = None, nfp: int = 1) -> np.ndarray:
     """
     Inverse Fast-Fourier-Transform of a 2D Fourier series.
 
@@ -191,9 +189,7 @@ def scale_modes2d(c, M, N):
         The coefficients of the scaled Fourier series.
     """
     if c.shape[1] % 2 != 1:
-        raise ValueError(
-            "Expects an odd number of toroidal harmonics: [0 ... N, -N ... -1]"
-        )
+        raise ValueError("Expects an odd number of toroidal harmonics: [0 ... N, -N ... -1]")
     M1, N1 = c.shape[0] - 1, c.shape[1] // 2
     m1, n1 = fft2d_modes(M1, N1, grid=True)
     m2, n2 = fft2d_modes(M, N, grid=True)

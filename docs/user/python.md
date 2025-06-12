@@ -34,13 +34,55 @@ Here *pyGVEC* takes care of computing all the required intermediate quantities, 
 
 ### Boozer transform
 
-To evaluate the equilibrium in Boozer angles, you can use `BoozerEvaluations`, which performs a Boozer transform to obtain a set of $\vartheta,\zeta$ points which correspond to your desired grid in $\vartheta_B,\zeta_B$.
-The evaluations with this new dataset works the same as above, not however that the suffixes `t` and `z` still refer to components/derivatives with respect to $\vartheta,\zeta$.
+To evaluate the equilibrium in Boozer angles, you can use `EvaluationsBoozer`, which performs a Boozer transform to obtain a set of $\vartheta,\zeta$ points which correspond to your desired grid in $\vartheta_B,\zeta_B$.
+The evaluations with this new dataset work the same as above, note however that the suffixes `t` and `z` still refer to components/derivatives with respect to $\vartheta,\zeta$.
+Some additional quantities, like `B_contra_t_B` or `e_zeta_B` are now also available.
 ```python
 from gvec import State, Evaluations
 
 with State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
-    ev = gvec.EvaluationsBoozer(rho=[0.1, 0.5, 0.9], n_theta=51, n_zeta=51, state=state)
+    ev = gvec.EvaluationsBoozer(rho=[0.1, 0.5, 0.9], theta_B=20, zeta_B=40, state=state, MNfactor=5)
+    state.compute(ev, "B")
+```
+
+Similar to `Evaluations`, the grid of coordinates can be specified with an integer for equidistant spacing or explicitly with a list, array or DataArray.
+The optional `MNfactor` sets the maximum fourier modes for the boozer transform `M`, `N` to the specified multiple of the highest modenumber of $X^1,X^2,\lambda$.
+`M`, `N` can also be specified directly.
+
+```{note}
+The Boozer transform recomputes $\lambda$ with a higher resolution (to satisfy the integrability condition for $\nu_B$)!
+Therefore some quantities will differ between the equilibrium evaluation and Boozer evaluation.
+
+In particular $\langle B_\theta \rangle, \langle B_\zeta \rangle$ will differ from $B_{\theta_B},B_{\zeta_B}$ by an offset.
+```
+
+### Fieldline aligned grid
+
+Some applications require a fieldline-aligned grid, which can be generated using `EvaluationsBoozerCustom`:
+```python
+import numpy as np
+import gvec
+
+with gvec.State("parameter.ini", "EXAMPLE_State_0001_00001000.dat") as state:
+    rho = [0.5, 1.0]  # radial positions
+    alpha = np.linspace(0, 2 * np.pi, 20, endpoint=False)  # fieldline label
+    phi = np.linspace(0, 2 * np.pi / state.nfp, 101)  # angle along the fieldline
+
+    # evaluate the rotational transform (fieldline angle) on the desired surfaces
+    ev = gvec.Evaluations(rho=rho, theta=None, zeta=None, state=state)
+    state.compute(ev, "iota")
+
+    # 3D toroidal and poloidal arrays that correspond to fieldline coordinates for each surface
+    theta_B = alpha[None, :, None] + ev.iota.data[:, None, None] * phi[None, None, :]
+
+    # create the grid
+    ev = gvec.EvaluationsBoozerCustom(rho=rho, theta_B=theta_B, zeta_B=phi, state=state, MNfactor=5)
+
+    # set the fiedline label as coordinate & index
+    ev["alpha"] = ("pol", alpha)
+    ev["alpha"].attrs = dict(symbol=r"\alpha", long_name="fieldline label")
+    ev = ev.set_coords("alpha").set_xindex("alpha")
+
     state.compute(ev, "B")
 ```
 

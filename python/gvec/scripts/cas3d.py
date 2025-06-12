@@ -247,9 +247,7 @@ def gvec_to_cas3d(
         if stellsym:
             radial = [var for var in ft.data_vars if "m" not in ft[var].dims]
             odd = ["yhat", "zhat"]
-            even = [
-                var for var in out.data_vars if var not in odd and var not in radial
-            ]
+            even = [var for var in out.data_vars if var not in odd and var not in radial]
             odd = [f"{var}_mns" for var in odd]
             even = [f"{var}_mnc" for var in even]
             ft = ft[radial + even + odd]
@@ -262,9 +260,7 @@ def gvec_to_cas3d(
             #   * they both need to be > 0 everywhere though!
 
         out["s"] = out.rho**2
-        out.s.attrs = dict(
-            long_name="radial coordinate, normalized toroidal flux", symbol="s"
-        )
+        out.s.attrs = dict(long_name="radial coordinate, normalized toroidal flux", symbol="s")
         ft = ft.swap_dims({"rad": "s"}).reset_coords("rho")
 
         # Set metadata

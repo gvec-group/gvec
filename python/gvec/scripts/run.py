@@ -167,9 +167,7 @@ class RunWithStages:
 
         # Automatically generate the stages for the current constraint
         if picard_current == "auto":
-            self.logger.info(
-                "Using `picard_current` automatic mode. Generating stages ..."
-            )
+            self.logger.info("Using `picard_current` automatic mode. Generating stages ...")
             if self.stages != [{}]:
                 raise ValueError(
                     "Picard current is set to 'auto' but 'stages' is specified!"
@@ -289,9 +287,7 @@ class RunWithStages:
 
         # postprocessing
         self.statefile = sorted(self.rundir.glob("*State*.dat"))[-1]
-        iterations = int(
-            re.match(r".*State.*_(\d+)\.dat", self.statefile.name).group(1)
-        )
+        iterations = int(re.match(r".*State.*_(\d+)\.dat", self.statefile.name).group(1))
         iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
         max_iterations = self.params.get("MaxIter")
@@ -343,8 +339,7 @@ class RunWithStages:
         )
         d2 = xr.Dataset(
             dict(
-                total_iteration=iteration_offset
-                + np.array(log_df["#iterations"], dtype=int),
+                total_iteration=iteration_offset + np.array(log_df["#iterations"], dtype=int),
                 force_X1=(["total_iteration"], np.array(log_df["normF_X1"])),
                 force_X2=(["total_iteration"], np.array(log_df["normF_X2"])),
                 force_LA=(["total_iteration"], np.array(log_df["normF_LA"])),
@@ -473,10 +468,8 @@ class RunWithStages:
                         )
                     case "iota_and_force":
                         self.nth_run = -1
-                        self.n_runs_in_stage = (
-                            self._current_constraint_target_iota_and_force(
-                                self.totaliter, iota_tol, self.n_runs_in_stage
-                            )
+                        self.n_runs_in_stage = self._current_constraint_target_iota_and_force(
+                            self.totaliter, iota_tol, self.n_runs_in_stage
                         )
                     case _:
                         raise ValueError(f"Unknown picard_current target:{target}")
@@ -628,9 +621,7 @@ class RunWithStages:
                 f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}",
                 end="\r",
             )
-        self.logger.info(
-            f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}"
-        )
+        self.logger.info(f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}")
 
     def plot_diagnostics(self, save_figs: bool = False):
         """
@@ -667,9 +658,7 @@ class RunWithStages:
             title=diagnostics.W_MHD.attrs["long_name"],
         )
         if self.curr_constraint:
-            axs[1].plot(
-                diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-"
-            )
+            axs[1].plot(diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-")
             axs[1].set(
                 xlabel="run number",
                 ylabel=r"$\sqrt{\sum \left(\Delta\iota\right)^2}$",
@@ -682,9 +671,7 @@ class RunWithStages:
             fig.show()
 
         if self.curr_constraint:
-            fig, axs = plt.subplots(
-                2, 2, figsize=(15, 5), tight_layout=True, sharex=True
-            )
+            fig, axs = plt.subplots(2, 2, figsize=(15, 5), tight_layout=True, sharex=True)
             for r in diagnostics.run.data:
                 if r == diagnostics.run.data[-1]:
                     kwargs = dict(marker=".", color="C0", alpha=1.0)
@@ -714,9 +701,7 @@ class RunWithStages:
                 fig.show()
 
         if self.curr_constraint:
-            fig_f, axs = plt.subplots(
-                3, 1, figsize=(10, 5), tight_layout=True, sharex=True
-            )
+            fig_f, axs = plt.subplots(3, 1, figsize=(10, 5), tight_layout=True, sharex=True)
             axs[2].plot(
                 np.cumsum(diagnostics.gvec_iterations),
                 np.sqrt((diagnostics.iota_delta**2).mean("rad")),
@@ -724,9 +709,7 @@ class RunWithStages:
             )
             axs[2].set(ylabel=r"$\Delta\iota_{rms}$", yscale="log")
         else:
-            fig_f, axs = plt.subplots(
-                2, 1, figsize=(10, 5), tight_layout=True, sharex=True
-            )
+            fig_f, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True, sharex=True)
         axs[0].plot(np.cumsum(diagnostics.gvec_iterations), diagnostics.W_MHD, ".-")
         axs[0].set(
             ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
@@ -790,9 +773,7 @@ def _auto_generate_stages(minimize_target, iota_target):
     log_minimize_target = np.log10(minimize_target)
     log_iota_target = np.log10(iota_target)
     n_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)
-    minimize_tols = np.logspace(
-        max(-3, log_minimize_target), log_minimize_target, n_stages
-    )
+    minimize_tols = np.logspace(max(-3, log_minimize_target), log_minimize_target, n_stages)
     iota_tols = np.logspace(max(-3, log_iota_target), log_iota_target, n_stages)
     stages = [
         {
@@ -842,9 +823,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 stdout_path="stdout.txt" if args.quiet else None,
             )
         else:
-            logging.basicConfig(
-                level=logging.WARNING
-            )  # show warnings and above as normal
+            logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
             logger = logging.getLogger(
                 "pyGVEC.script"
             )  # show info/debug messages for this script

@@ -14,11 +14,14 @@ try:
     from gvec.state import State
     from gvec.comp import (
         Evaluations,
+        EvaluationsBoozer,
+        EvaluationsBoozerCustom,
         compute,
         volume_integral,
-        EvaluationsBoozer,
     )
 except ImportError:
+    xr = type(pytest)("xarray")
+    xr.DataArray = lambda *args, **kwargs: NotImplemented
     pass  # tests will be skipped via the `check_import` fixture
 
 # === FIXTURES === #
@@ -126,9 +129,29 @@ def test_evaluations_init(teststate):
         assert ds[c].attrs["integration_points"] == "True"
 
 
-def test_boozer_init(teststate):
-    ds = EvaluationsBoozer([0.5, 0.6], 20, 18, teststate)
-    assert np.allclose(ds.rho, [0.5, 0.6])
+@pytest.mark.parametrize(
+    "rho",
+    [2, 1.0, xr.DataArray([0.5, 0.6], dims="rad"), np.array([0.5, 0.6]), [0.5, 0.6]],
+    ids=["int", "float", "xr", "np", "list"],
+)
+@pytest.mark.parametrize(
+    "theta_B",
+    [2, 1.0, xr.DataArray([0.5, 0.6], dims="pol"), np.array([0.5, 0.6]), [0.5, 0.6]],
+    ids=["int", "float", "xr", "np", "list"],
+)
+@pytest.mark.parametrize(
+    "zeta_B",
+    [2, 1.0, xr.DataArray([0.5, 0.6], dims="tor"), np.array([0.5, 0.6]), [0.5, 0.6]],
+    ids=["int", "float", "xr", "np", "list"],
+)
+def test_boozer_init(teststate, rho, theta_B, zeta_B):
+    ds = EvaluationsBoozer(rho, theta_B, zeta_B, teststate, MNfactor=1)
+    teststate.compute(ds, "X1")
+
+
+def test_boozer(teststate):
+    ds = EvaluationsBoozer([0.5, 1.0], 20, 18, teststate, MNfactor=5)
+    assert np.allclose(ds.rho, [0.5, 1.0])
     assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
     assert {"rad", "pol", "tor"} == set(ds.dims)
     assert "LA" in ds
@@ -141,6 +164,86 @@ def test_boozer_init(teststate):
     teststate.compute(ds, "mod_B")
     assert "mod_B" in ds
     assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
+
+    assert {"LA", "dLA_dt", "dLA_dz", "dLA_dtz"} < set(ds.data_vars)
+    assert len({"dLA_dr", "dLA_drt", "dLA_drz"} & set(ds.data_vars)) == 0
+    assert {"NU_B", "dNU_B_dt", "dNU_B_dz", "dNU_B_dtz"} < set(ds.data_vars)
+    assert len({"dNU_B_dr", "dNU_B_drt", "dNU_B_drz"} & set(ds.data_vars)) == 0
+
+    # currents / averages of B are independent of coordinate system
+    # and B_theta_B, B_zeta_B are constant
+    teststate.compute(ds, "B_theta_avg", "B_zeta_avg", "B", "e_theta_B", "e_zeta_B")
+    B_theta_B = xr.dot(ds.B, ds.e_theta_B, dim="xyz")
+    B_theta_B_avg = B_theta_B.mean(("pol", "tor"))
+    B_zeta_B = xr.dot(ds.B, ds.e_zeta_B, dim="xyz")
+    B_zeta_B_avg = B_zeta_B.mean(("pol", "tor"))
+    np.testing.assert_allclose(B_theta_B_avg, ds.B_theta_avg, rtol=1e-2, atol=1e-5)
+    np.testing.assert_allclose(B_zeta_B_avg, ds.B_zeta_avg, rtol=1e-2)
+    np.testing.assert_allclose(
+        B_theta_B, B_theta_B_avg.broadcast_like(B_theta_B), rtol=1e-8, atol=1e-5
+    )
+    np.testing.assert_allclose(
+        B_zeta_B, B_zeta_B_avg.broadcast_like(B_zeta_B), rtol=1e-8, atol=1e-5
+    )
+
+
+def test_EvaluationsBoozerCustom_2D(teststate):
+    """Test EvaluationsBoozerCustom with 2D arrays for theta_B, zeta_B."""
+    rho = [0.5, 1.0]  # radial positions
+    theta_H = np.linspace(0, 2 * np.pi, 2, endpoint=False)
+    zeta_H = np.linspace(0, 2 * np.pi / teststate.nfp, 3)
+
+    theta_B = theta_H[:, None] + zeta_H[None, :]
+    zeta_B = zeta_H[None, :] - theta_H[:, None]
+
+    ds = EvaluationsBoozerCustom(rho, theta_B, zeta_B, teststate, MNfactor=1)
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_B.dims == ("pol", "tor")
+    assert ds.zeta_B.dims == ("pol", "tor")
+    assert ds.theta.dims == ("rad", "pol", "tor")
+    assert ds.zeta.dims == ("rad", "pol", "tor")
+    assert "NU_B" in ds
+
+    teststate.compute(ds, "B", "e_theta_B")
+    for var in ds.coords:
+        assert "symbol" in ds[var].attrs, f"no symbol defined in {var} attributes"
+        assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
+    for var in ds.data_vars:
+        assert "symbol" in ds[var].attrs, f"no symbol defined in {var} attributes"
+        assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
+
+
+def test_EvaluationsBoozerCustom_fieldlines(teststate):
+    """Test EvaluationsBoozerCustom with a 3D array for theta_B, as required for fieldline coordinates."""
+    rho = [0.5, 1.0]  # radial positions
+    alpha = np.linspace(0, 2 * np.pi, 2, endpoint=False)  # fieldline label
+    phi = np.linspace(0, 2 * np.pi / teststate.nfp, 3)  # angle along the fieldline
+
+    ev = Evaluations(rho=rho, theta=None, zeta=None, state=teststate)
+    teststate.compute(ev, "iota")
+
+    # 3D toroidal and poloidal arrays that correspond to fieldline coordinates for each surface
+    theta_B = alpha[None, :, None] + ev.iota.data[:, None, None] * phi[None, None, :]
+
+    ds = EvaluationsBoozerCustom(
+        rho=rho, theta_B=theta_B, zeta_B=phi, state=teststate, MNfactor=1
+    )
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_B.dims == ("rad", "pol", "tor")
+    assert ds.zeta_B.dims == ("tor",)
+    assert ds.theta.dims == ("rad", "pol", "tor")
+    assert ds.zeta.dims == ("rad", "pol", "tor")
+    assert "NU_B" in ds
+    assert "theta_B" not in ds.coords
+    assert "zeta_B" in ds.coords
+
+    teststate.compute(ds, "B", "e_theta_B")
+    for var in ds.coords:
+        assert "symbol" in ds[var].attrs, f"no symbol defined in {var} attributes"
+        assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
+    for var in ds.data_vars:
+        assert "symbol" in ds[var].attrs, f"no symbol defined in {var} attributes"
+        assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
 
 
 def test_compute_base(teststate, evals_rtz_and_list):
@@ -244,19 +347,13 @@ def test_compute_basis(teststate, evals_rtz):
         compute(ds, f"e_{coord}", f"grad_{coord}", state=teststate)
     ds = ds.isel(rad=slice(1, None))
     for coord in ["rho", "theta", "zeta"]:
-        assert np.allclose(
-            xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="xyz"), 1.0
-        )
+        assert np.allclose(xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord}"], dim="xyz"), 1.0)
         for coord2 in ["rho", "theta", "zeta"]:
             if coord2 == coord:
                 continue
             compute(ds, f"e_{coord2}", f"grad_{coord2}", state=teststate)
-            assert np.allclose(
-                xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"), 0.0
-            )
-            assert np.allclose(
-                xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0
-            )
+            assert np.allclose(xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"), 0.0)
+            assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
 
 
 def test_volume_integral(teststate, evals_rtz_int, evals_rtz):
@@ -382,6 +479,4 @@ def test_ev2ft_3d(teststate, evals_rtz):
 
 def test_table_of_quantities():
     s = gvec.comp.table_of_quantities()
-    assert len(s.split("\n")) == 3 + len(
-        gvec.comp.QUANTITIES
-    )  # 2 lines header, 1 trailing \n
+    assert len(s.split("\n")) == 3 + len(gvec.comp.QUANTITIES)  # 2 lines header, 1 trailing \n

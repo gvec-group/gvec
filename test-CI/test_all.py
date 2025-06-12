@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 import shutil
 
+import numpy as np
+
 import helpers
 
 try:
@@ -41,9 +43,7 @@ def discover_subdirs(path: Path | str = ".") -> list[str]:
         [
             sd
             for sd in os.listdir(path)
-            if (path / sd).is_dir()
-            and not sd.startswith("_")
-            and not sd.startswith(".")
+            if (path / sd).is_dir() and not sd.startswith("_") and not sd.startswith(".")
         ]
     )
 
@@ -88,15 +88,11 @@ def test_run(
     args = runargs_prefix + [binpath / "gvec", "parameter.ini"]
     # find restart statefile
     if "_restart" in testcase:
-        base_name, suffix = re.match(
-            r"(.*)(_restart.*)", testcase
-        ).groups()  # remove sufix
+        base_name, suffix = re.match(r"(.*)(_restart.*)", testcase).groups()  # remove sufix
         base_directory = testcaserundir / ".." / base_name
         if base_directory.exists():
             states = [
-                sd
-                for sd in os.listdir(base_directory)
-                if "State" in sd and sd.endswith(".dat")
+                sd for sd in os.listdir(base_directory) if "State" in sd and sd.endswith(".dat")
             ]
         if not dryrun:
             assert base_directory.exists(), "no base directory found for restart"
@@ -185,9 +181,7 @@ class BaseTestPost:
         # link to statefiles from run_stage
         states = sorted(sourcerundir.glob("*State*.dat"))
         for statefile in states:
-            (targetdir / statefile.name).symlink_to(
-                os.path.relpath(statefile, targetdir)
-            )
+            (targetdir / statefile.name).symlink_to(os.path.relpath(statefile, targetdir))
         with helpers.chdir(targetdir):
             yield
 
@@ -276,6 +270,7 @@ class TestPost(BaseTestPost):
         dryrun,
         annotations,
         artifact_pages_path,
+        logger,
     ):
         super().test_post(
             testgroup,
@@ -295,6 +290,58 @@ class TestPost(BaseTestPost):
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
         helpers.assert_stdout_no_NaN()
         helpers.assert_stdout_OpenMP_MPI()
+        self.assert_boozer_consistency(logger)
+
+    def assert_boozer_consistency(self, logger):
+        """Check that the boozer-netCDF file (SFLout=2 in gvec_post) is consistent with the pygvec.EvaluationsBoozer."""
+        try:
+            import gvec
+        except ImportError:
+            return
+        boozerfiles = sorted(Path(".").glob("POST*boozer*.nc"))
+        logger.info(f"Found {len(boozerfiles)} boozer-netCDF files")
+        if len(boozerfiles) == 0:
+            return
+
+        boozer_post = xr.open_dataset(boozerfiles[-1])
+        boozer_post["xyz"] = ("xyz", ["x", "y", "z"])  # reset xyz to utf-8
+
+        parameterfile = Path("parameter.ini")
+        statefile = sorted(Path(".").glob("*State*.dat"))[-1]
+        parameters = gvec.util.read_parameters(parameterfile)
+        Ms, Ns = list(
+            zip(*[parameters.get(f"{var}_mn_max", (0, 0)) for var in ["X1", "X2", "LA"]])
+        )
+        if "SFLout_mn_max" in parameters:
+            M, N = parameters["SFLout_mn_max"]
+        else:
+            M, N = 4 * max(Ms), 4 * max(Ns)
+
+        assert set(boozer_post.data_vars) <= set(gvec.comp.QUANTITIES.keys()) | {
+            "theta",
+            "zeta",
+            "NU_B",
+        }
+        with gvec.State(parameterfile, statefile) as state:
+            boozer_py = gvec.EvaluationsBoozer(
+                rho=boozer_post.rho,
+                theta_B=boozer_post.theta_B,
+                zeta_B=boozer_post.zeta_B,
+                state=state,
+                M=M,
+                N=N,
+            )
+            state.compute(boozer_py, *boozer_post.data_vars)
+
+        errs = []
+        vars = list(boozer_post.data_vars)
+        for var in vars:
+            diff = np.max(np.abs(boozer_post[var] - boozer_py[var]))
+            norm = np.sqrt(np.max(boozer_post[var] ** 2 + boozer_py[var] ** 2) / 2)
+            err = np.max(diff / norm).item()
+            errs.append(err)
+        errors = ", ".join(f"{var}: {err:.2e}" for var, err in zip(vars, errs) if err > 1e-12)
+        assert np.max(errs) <= 1e-12, f"pointwise difference between post & pygvec: {errors}"
 
 
 @pytest.mark.converter_stage
@@ -383,15 +430,11 @@ class TestConverters(BaseTestPost):
     def mark_xfail(self, request):
         if "frenet" in request.node.name:
             request.node.add_marker(
-                pytest.mark.xfail(
-                    reason="hmap_frenet not implemented yet in converters"
-                )
+                pytest.mark.xfail(reason="hmap_frenet not implemented yet in converters")
             )
         if "axisNB" in request.node.name:
             request.node.add_marker(
-                pytest.mark.xfail(
-                    reason="hmap_axisNB not implemented yet in converters"
-                )
+                pytest.mark.xfail(reason="hmap_axisNB not implemented yet in converters")
             )
         if "knot" in request.node.name:
             request.node.add_marker(
@@ -564,8 +607,7 @@ def test_regression(
             num = helpers.check_diff_files(
                 testcaserundir / filename,
                 testcaserefdir / filename,
-                ignore_regexs=[r".*/.*"]
-                + extra_ignore_patterns,  # ignore lines with a path
+                ignore_regexs=[r".*/.*"] + extra_ignore_patterns,  # ignore lines with a path
                 atol=reg_atol,
                 rtol=reg_rtol,
             )

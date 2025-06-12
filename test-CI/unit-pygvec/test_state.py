@@ -210,7 +210,7 @@ def test_evaluate_profile(teststate):
 
 @pytest.mark.parametrize("reLA", [True, False], ids=["reLA", "not reLA"])
 def test_get_boozer(teststate, reLA):
-    booz = teststate.get_boozer([0.1, 0.5, 0.9], 12, 12, recompute_lambda=reLA)
+    booz = teststate.get_boozer([0.1, 0.5, 0.9], 1, recompute_lambda=reLA)
     assert isinstance(booz, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer)
     assert booz.initialized
     # assert booz.relambda == reLA
@@ -218,6 +218,6 @@ def test_get_boozer(teststate, reLA):
 
 
 def test_get_boozer_angles(teststate):
-    booz = teststate.get_boozer([0.1, 0.4, 0.6, 0.9], 12, 12)
+    booz = teststate.get_boozer([0.1, 0.4, 0.6, 0.9], 1)
     tz = teststate.get_boozer_angles(booz, [[0.1, 0.5, 0.9], [0.1, 0.5, 0.9]])
     assert tz.shape == (2, 3, 4)
