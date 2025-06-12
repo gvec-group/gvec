@@ -215,7 +215,9 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                         line = f"{prefix}{key}{sep}{kwargs[key.lower()]}{suffix}\n"
                         occurrences[key.lower()] += 1
                     else:  # use the existing keyword,value pair with a comment
-                        line = f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
+                        line = (
+                            f"{prefix}{key}{sep}{value} !!WAS ALREADY UNCOMMENTED!! {suffix}\n"
+                        )
                         occurrences[key.lower()] += 1
             target_file.write(line)
         # add key,value pair if not existing in parameterfile.

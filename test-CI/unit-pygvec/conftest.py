@@ -92,5 +92,5 @@ def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_page
 def testfiles(tmpdir, testcaserundir, testcase_run):
     """prepare the testcase parameters"""
     paramfile = "parameter.ini"
-    statefile = "GVEC_axisNB_N2-12-hi_iota07_State_0000_00000001.dat"
+    statefile = sorted(testcaserundir.glob("*State*"))[-1]
     yield (testcaserundir / paramfile, testcaserundir / statefile)

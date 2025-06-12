@@ -106,12 +106,8 @@ def testfile_aux(request, testcaserundir, c_poly):
         knots = np.concatenate([np.zeros(deg + 1), np.ones(deg + 1)])
         for j in range(deg + 1):
             c_bspl[j] = poly2bspl_coeff(c_poly, j, knots)
-        params_gvec = gvec.util.bspl2gvec(
-            "pres", knots=knots, coefs=c_bspl, params=params_gvec
-        )
-        params_gvec = gvec.util.bspl2gvec(
-            "iota", knots=knots, coefs=c_bspl, params=params_gvec
-        )
+        params_gvec = gvec.util.bspl2gvec("pres", knots=knots, coefs=c_bspl, params=params_gvec)
+        params_gvec = gvec.util.bspl2gvec("iota", knots=knots, coefs=c_bspl, params=params_gvec)
     gvec.util.adapt_parameter_file(
         testcaserundir / "parameter.ini", testcaserundir / paramfile, **params_gvec
     )

@@ -110,8 +110,7 @@ def test_scale_modes2d(MN, dM2: int, dN2: int):
     c2 = fourier.scale_modes2d(c1, M2, N2)
     assert c2.shape == (M2 + 1, 2 * N2 + 1)
     assert np.all(
-        c1[(m1 <= Mmin) & (np.abs(n1) <= Nmin)]
-        == c2[(m2 <= Mmin) & (np.abs(n2) <= Nmin)]
+        c1[(m1 <= Mmin) & (np.abs(n1) <= Nmin)] == c2[(m2 <= Mmin) & (np.abs(n2) <= Nmin)]
     )
     assert np.all(c2[(m2 > M1) & (np.abs(n2) > N1)] == 0)
 
@@ -128,12 +127,7 @@ def test_fft2d(MN, points2d):
     s[0, ns <= 0] = 0
     x = sum(
         [
-            sum(
-                [
-                    c[m, n] * np.cos(m * T - n * Z) + s[m, n] * np.sin(m * T - n * Z)
-                    for m in ms
-                ]
-            )
+            sum([c[m, n] * np.cos(m * T - n * Z) + s[m, n] * np.sin(m * T - n * Z) for m in ms])
             for n in ns
         ]
     )
@@ -164,12 +158,7 @@ def test_ifft2d(MN):
     T, Z = np.meshgrid(t, z, indexing="ij")
     ref = sum(
         [
-            sum(
-                [
-                    c[m, n] * np.cos(m * T - n * Z) + s[m, n] * np.sin(m * T - n * Z)
-                    for m in ms
-                ]
-            )
+            sum([c[m, n] * np.cos(m * T - n * Z) + s[m, n] * np.sin(m * T - n * Z) for m in ms])
             for n in ns
         ]
     )
@@ -203,12 +192,7 @@ def test_eval2d(MN, points2d):
 
     x = sum(
         [
-            sum(
-                [
-                    c[m, n] * np.cos(m * T - n * Z) + s[m, n] * np.sin(m * T - n * Z)
-                    for m in ms
-                ]
-            )
+            sum([c[m, n] * np.cos(m * T - n * Z) + s[m, n] * np.sin(m * T - n * Z) for m in ms])
             for n in ns
         ]
     )

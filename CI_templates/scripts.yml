@@ -436,7 +436,7 @@
     - echo CIpost_${CASENAME_2}
     - python -m venv .venv_post_ncdiff
     - source .venv_post_ncdiff/bin/activate
-    - pip install recursive_diff netcdf4 dask
+    - pip install recursive_diff netcdf4 dask typing_extensions
     - end_details pre-ncdiff
     - start_details ncdiff "ncdiff"
     - ncdiff -r -b -m **/POST_*.nc $NCDIFF_TOL CIpost_${CASENAME}/post CIpost_${CASENAME_2}/post

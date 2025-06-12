@@ -131,9 +131,7 @@ def pytest_collection_modifyitems(items):
     for item in items:
         try:
             if "testgroup" in getattr(item, "fixturenames", ()):
-                item.add_marker(
-                    getattr(pytest.mark, item.callspec.getparam("testgroup"))
-                )
+                item.add_marker(getattr(pytest.mark, item.callspec.getparam("testgroup")))
             if ("testcase" in getattr(item, "fixturenames", ())) and (
                 "_restart" in item.callspec.getparam("testcase")
             ):
@@ -356,9 +354,7 @@ def testcaserundir(util, rundir: Path, testgroup: str, testcase: str):
     if not rundir.exists():
         rundir.mkdir()
     if not (rundir / "data").exists():
-        (rundir / "data").symlink_to(
-            os.path.relpath(Path(__file__).parent / "data", rundir)
-        )
+        (rundir / "data").symlink_to(os.path.relpath(Path(__file__).parent / "data", rundir))
     if not (rundir / testgroup).exists():
         (rundir / testgroup).mkdir()
     # create the testcase directory
