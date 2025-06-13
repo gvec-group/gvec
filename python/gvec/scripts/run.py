@@ -146,11 +146,11 @@ class RunWithStages:
         self.totaliter = params.get("totaliter", int(1e5))
         if "MaxIter" not in params:
             self.params["MaxIter"] = self.totaliter
-
+        sgrid = gvec.util.CaseInsensitiveDict(self.params["sgrid"])
         self.has_Itor = "I_tor" in params
         self.has_iota = "iota" in params
 
-        rho = np.sqrt(np.linspace(0, 1, 101))
+        rho = np.sqrt(np.linspace(0, 1, max(101, 2 * sgrid["nElems"])))
         rho[0] = 1e-4
         self.rho = rho
 
@@ -186,7 +186,7 @@ class RunWithStages:
                 paramters_stages_toml,
                 project_dir / f"parameter_{self.params['ProjectName']}.stages.toml",
             )
-            self.params["picard_current"] = {}
+            self.params["picard_current"] = gvec.util.CaseInsensitiveDict()
 
         if self.has_Itor:
             match params["I_tor"].get("type", "polynomial"):
@@ -383,7 +383,7 @@ class RunWithStages:
             self.totaliter - self.GVEC_iter_used, self.original_params["MaxIter"]
         )
         if params["picard_current"] == "auto":
-            params["picard_current"] = {}
+            params["picard_current"] = gvec.util.CaseInsensitiveDict()
 
         # account for the change in relative path of restart, hmap, etc. files
         for key, value in params.items():
@@ -421,13 +421,13 @@ class RunWithStages:
                 )
             elif key == "picard_current" and not isinstance(value, str):
                 if key not in self.params:
-                    self.params[key] = {}
+                    self.params[key] = gvec.util.CaseInsensitiveDict()
                 for subkey, subvalue in value.items():
                     self.params[key][subkey] = subvalue
 
             if key in ["iota", "pres", "sgrid"]:
                 if key not in self.params:
-                    self.params[key] = {}
+                    self.params[key] = gvec.util.CaseInsensitiveDict()
                 for subkey, subvalue in value.items():
                     self.params[key][subkey] = subvalue
             if key in self.params and isinstance(value, Mapping):
@@ -491,6 +491,13 @@ class RunWithStages:
             self.statefile.parents[0] / "parameter.ini"
         )
         parameters_final["MaxIter"] = -1
+        for key in parameters_final:
+            if key.lower() in [
+                "vmecwoutfile",
+                "boundary_filename",
+                "hmap_ncfile",
+            ]:
+                parameters_final[key] = self.original_params[key]
         gvec.util.write_parameter_file(
             parameters=parameters_final,
             path=parameter_final,
@@ -537,7 +544,16 @@ class RunWithStages:
 
         self.rms_iota = 1e6
         self.nth_run = -1
+        if "maxRestarts" in self.params["picard_current"]:
+            max_restarts = self.params["picard_current"]["maxRestarts"]
+        else:
+            max_restarts = 30
         while (self.rms_iota > iota_tol) and (self.GVEC_iter_used < totaliter):
+            if self.nth_run > max_restarts:
+                self.logger.warning(
+                    "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
+                )
+                break
             self.params["MaxIter"] = min(
                 totaliter - self.GVEC_iter_used, self.params["MaxIter"]
             )
@@ -579,7 +595,16 @@ class RunWithStages:
             Updated number of runs completed in the current stage.
         """
         self.rms_iota = 1e6
+        if "maxRestarts" in self.params["picard_current"]:
+            max_restarts = self.params["picard_current"]["maxRestarts"]
+        else:
+            max_restarts = 30
         while (self.GVEC_iter_used < totaliter) and (self.rms_iota > iota_tol):
+            if self.nth_run > max_restarts:
+                self.logger.warning(
+                    "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
+                )
+                break
             self.params["MaxIter"] = min(
                 totaliter - self.GVEC_iter_used, self.params["MaxIter"]
             )
@@ -642,7 +667,13 @@ class RunWithStages:
         -------
         None
         """
-        import matplotlib.pyplot as plt
+        try:
+            import matplotlib.pyplot as plt
+        except ModuleNotFoundError:
+            self.logger.warning(
+                "WARNING: matplotlib not found! Diagnostic plots can not be generated."
+            )
+            return
 
         self.logger.debug("Plotting diagnostics...")
         diagnostics = self.diagnostics
