@@ -160,6 +160,32 @@ def test_I_tor_types(ptype):
     assert I_tor_rms.data < 1e-6, f"Expected ΔI_tor < 1e-6, got ΔI_tor:{I_tor_rms.data}"
 
 
+def test_maxRestarts():
+    """Test if all types of I_tor profiles result in valid current constraints."""
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = gvec.util.CaseInsensitiveDict(
+        dict(maxRestarts=10, iota_tol=1e-6, target="iota")
+    )
+    ProjectName = "Test_maxRestarts"
+    parameters["projectname"] = ProjectName
+
+    parameters["stages"] = [
+        {"picard_current": {"maxRestarts": 0}},
+        {
+            "picard_current": {"maxRestarts": 1, "target": "iota_and_force"},
+            "minimize_tol": 1e-4,
+        },
+        {"picard_current": {"maxRestarts": 2}},
+    ]
+    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
+    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
+
+    for n, runs in enumerate(run_with_stages.n_runs_in_stage):
+        assert n >= runs - 1, (
+            f"In stage {n} maxRestarts was violated! allowed restarts: {n + 1}, performed restarts: {runs}"
+        )
+
+
 def test_stages_without_current():
     """Test if stages run without current constraint"""
     parameters = gvec.util.read_parameters("parameter.toml")

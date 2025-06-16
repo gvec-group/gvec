@@ -548,8 +548,10 @@ class RunWithStages:
             max_restarts = self.params["picard_current"]["maxRestarts"]
         else:
             max_restarts = 30
+        self.logger.debug(f"maxRestarts:{max_restarts}")
         while (self.rms_iota > iota_tol) and (self.GVEC_iter_used < totaliter):
-            if self.nth_run > max_restarts:
+            self.logger.debug(f"nth run:{self.nth_run}")
+            if self.nth_run + 1 > max_restarts:
                 self.logger.warning(
                     "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
@@ -599,8 +601,10 @@ class RunWithStages:
             max_restarts = self.params["picard_current"]["maxRestarts"]
         else:
             max_restarts = 30
+        self.logger.debug(f"maxRestarts:{max_restarts}")
         while (self.GVEC_iter_used < totaliter) and (self.rms_iota > iota_tol):
-            if self.nth_run > max_restarts:
+            self.logger.debug(f"nth run:{self.nth_run}")
+            if self.nth_run + 1 > max_restarts:
                 self.logger.warning(
                     "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
