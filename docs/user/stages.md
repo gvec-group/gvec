@@ -22,7 +22,7 @@ The exception to this is `totalIter` (as described below), `iota` and `init_LA` 
 A `pygvec` run with stages will produce as an output a directory `{ProjectName}_gvec_stages` with subdirectories containing the numbered individual GVEC runs of each stage, as well as the `parameter_{ProjectName}_final.ini` and `{ProjectName}_State_final.dat` files, which are the ini and last state file of the last restart in the last stage. These latter files can then be used for further analysis or restarts.
 Note that `{ProjectName}` is the project name set in the parameter file.
 
-When running GVEC with stages one abort criterion is again the number of iterations. The limit on the total iterations over all stages and restarts is set trough the parameter `totaliter`. Note that `totaliter` is different from the usual `maxIter`. When using `stages`, `maxIter` limits the maximum number of iterations per restart. Therefore, `maxIter` can be changed during each stage, however, `totaliter` will be kept fixed to its initial value.
+When running GVEC with stages one abort criterion is again the number of iterations. The limit on the total iterations over all stages and restarts is set trough the parameter `totalIter`. Note that `totalIter` is different from the usual `maxIter`. When using `stages`, `maxIter` limits the maximum number of iterations per restart. Therefore, `maxIter` can be changed during each stage, however, `totalIter` will be kept fixed to its initial value.
 
 ### Increasing resolution
 
@@ -242,11 +242,13 @@ Full example: [`parameter.yaml`](<path:../../python/examples/current_profile/par
 
 ### Advanced control
 
-Instead of `picard_current="auto"`, we can also set the two parameters that influence the Picard iterations manually. The two options are `target` an `iota_tol`. The former specifies which optimization targets are considered during a Picard iteration. The latter specifies how well we want the current-constraint to be fulfilled.
+Instead of `picard_current="auto"`, we can also set the two parameters that influence the Picard iterations manually. The two key options are `target` an `iota_tol`. The former specifies which optimization targets are considered during a Picard iteration. The latter specifies how well we want the current-constraint to be fulfilled.
 
 Since we are technically optimizing for the prescribed `I_tor`, it can be useful to allow small deviations from `I_tor`, similarly to allowing deviations from the force balance via `minimize_tol`. As the underlying algorithm utilizes $\iota_{\text{curr}}$, and $\iota$ is without units, we specify this deviation in terms of a tolerance on the (targeted) rotational transform $\iota_T$: `iota_tol`. The `picard_current="auto"` mode will always try to get this tolerance below $10^{-10}$.
 
 Given `iota_tol`, we can now choose to either aggressively optimize for `iota_tol` or choose to optimize for `minimize_tol` first and then try to also fulfill `iota_tol`. The former would require one to set `target="iota"` whereas the latter corresponds to `target="iota_and_force"`. Generally, the `target="iota"` option is intended to be used with low `maxIter` and low `iota_tol` in an initial stage, if no prior knowledge on $\iota$ is present. If the initial guess for $\iota$ is reasonable, using `target="iota_and_force"` with a low value for `iota_tol` is recommended. Such a stage is typically a follow up to a `target="iota"` stage.
+
+The final parameter that might be set for `picard_current` is `maxRestarts`. This parameter limits the maximum number of restarts that can be performed during a stage. Per default `maxRestarts=30`. Its intended use is to have an abort criterion if the targeted `iota_tol` can not be reached during a stage, similar to `maxIter` and `totalIter`.
 
 The example below demonstrates the use of `picard_current` with stages. It mimics the behavior of `picard_current="auto"` but also performs refinement during the stages:
 
@@ -261,7 +263,7 @@ whichInitEquilibrium = 0
 minimize_tol = 1.0e-06
 
 maxIter = 1000
-totaliter = 5000
+totalIter = 5000
 ...
 
 stages = [
@@ -277,7 +279,7 @@ coefs = [0.0]
 [picard_current]
 target = "iota_and_force"
 iota_tol = 1e-10
-
+maxRestarts = 30
 
 [X1_b_cos]
 "(0, 0)" = 5.5
@@ -300,7 +302,7 @@ whichInitEquilibrium: 0
 minimize_tol: 1.0e-06
 
 maxIter: 1000
-totaliter: 5000
+totalIter: 5000
 
 ...
 
@@ -324,6 +326,7 @@ stages:
 picard_current:
   target: iota_and_force
   iota_tol: 1.0e-10
+  maxRestarts: 30
 
 I_tor:
   type: polynomial

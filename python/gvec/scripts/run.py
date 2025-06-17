@@ -437,6 +437,27 @@ class RunWithStages:
                 self.params[key] = value
 
     def run_stages(self, return_output: bool = False):
+        """Sequentially run the stages of the RunWithStages object.
+
+        Parameters
+        ----------
+        return_output : bool, optional
+            Flag to return the rundirectory, the final statefile and the diagnostics dataset, by default False.
+
+        Returns
+        -------
+        tuple:
+            Rundirectory (Path), the final statefile (Path) and the diagnostics dataset (xr.DataSet)
+
+        Raises
+        ------
+        ValueError
+            If stages are set when 'picard_current="auto"'
+        KeyError
+            If 'iota_tol' is not specified when 'I_tor' is provided.
+        ValueError
+            If 'picard_current.target' is not properly specified.
+        """
         for s, stage in enumerate(self.stages):
             if self.GVEC_iter_used >= self.totaliter:
                 self.logger.warning(
@@ -514,7 +535,7 @@ class RunWithStages:
             self.plot_diagnostics(save_figs=True)
 
         if return_output:
-            return self.rundir, final_state, diagnostics
+            return (self.rundir, final_state, diagnostics)
 
     def _current_constraint_target_iota(
         self,
@@ -804,7 +825,22 @@ class RunWithStages:
             fig_f.show()
 
 
-def _auto_generate_stages(minimize_target, iota_target):
+def _auto_generate_stages(minimize_target: float, iota_target: float):
+    """Generate stages for 'picard_current' by ramping 'minimize_tol' and 'iota_target'.
+    The first stage always targets 'iota', the other stages target 'iota_and_force'
+
+    Parameters
+    ----------
+    minimize_target : float
+        Final 'minimize_tol', i.e. the MHD force tolerance.
+    iota_target : float
+        Final 'iota_tol', i.e. the rms. tolerance on the targeted 'I_tor' profile.
+
+    Returns
+    -------
+    stages: list
+        List of dicts containing the changed parameters for each stage.
+    """
     log_minimize_target = np.log10(minimize_target)
     log_iota_target = np.log10(iota_target)
     n_stages = max(int(max(-2 - log_minimize_target, log_minimize_target)), 1)

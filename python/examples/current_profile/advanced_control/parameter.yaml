@@ -51,6 +51,7 @@ stages:
 picard_current:
   target: iota_and_force
   iota_tol: 1.0e-10
+  maxRestarts: 30
 
 # profiles
 I_tor: # optimize for zero-current with picard iterations

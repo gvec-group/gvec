@@ -42,6 +42,7 @@ coefs = [0.0]
 [picard_current]
 target = "iota_and_force"
 iota_tol = 1e-10
+maxRestarts = 30
 
 [sgrid]
 grid_type = 4
