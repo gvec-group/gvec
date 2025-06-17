@@ -143,15 +143,11 @@ class RunWithStages:
         self.stages = params.get("stages", [{}])
 
         self.totaliter = params.get("totaliter", int(1e5))
-        if "MaxIter" not in params:
-            self.params["MaxIter"] = self.totaliter
-        sgrid = gvec.util.CaseInsensitiveDict(self.params["sgrid"])
+        if "maxIter" not in params:
+            self.params["maxIter"] = self.totaliter
+
         self.has_Itor = "I_tor" in params
         self.has_iota = "iota" in params
-
-        rho = np.sqrt(np.linspace(0, 1, max(101, 2 * sgrid["nElems"])))
-        rho[0] = 1e-4
-        self.rho = rho
 
         picard_current = params.get("picard_current", "off")
         if self.has_Itor and (picard_current == "off"):
@@ -188,57 +184,11 @@ class RunWithStages:
             self.params["picard_current"] = gvec.util.CaseInsensitiveDict()
 
         if self.has_Itor:
-            match params["I_tor"].get("type", "polynomial"):
-                case "polynomial":
-                    coefs = np.array(params["I_tor"]["coefs"][::-1])
-                    coefs *= params["I_tor"].get("scale", 1.0)
-                    I_tor_target = np.poly1d(coefs)(rho**2)
-                    try:
-                        assert abs(np.poly1d(coefs)(0.0)) < 1e-9
-                    except AssertionError:
-                        self.logger.warning(
-                            f"WARNING: Toroidal current profile not zero at magnetic axis!  I_tor(rho=0):{np.poly1d(coefs)(0.0)}"
-                        )
-                case "bspline":
-                    from scipy.interpolate import BSpline
-
-                    coefs = np.array(params["I_tor"]["coefs"], dtype=float)
-                    coefs *= params["I_tor"].get("scale", 1.0)
-                    knots = np.array(params["I_tor"]["knots"], dtype=float)
-                    deg = np.sum(knots == knots[0]) - 1
-                    I_tor_bspl = BSpline(knots, coefs, deg)
-                    I_tor_target = I_tor_bspl(rho**2)
-                    try:
-                        assert abs(I_tor_bspl(0.0)) < 1e-9
-                    except AssertionError:
-                        self.logger.warning(
-                            f"WARNING: Toroidal current profile not zero at magnetic axis! I_tor(rho=0):{I_tor_bspl(0.0)}"
-                        )
-                case "interpolation":
-                    I_tor_target = np.array(params["I_tor"]["vals"], dtype=float)
-                    rho = np.sqrt(np.array(params["I_tor"]["rho2"], dtype=float))
-                    self.rho = rho
-                    if min(rho) < 1e-6:
-                        try:
-                            assert min(abs(I_tor_target)) < 1e-9
-                        except AssertionError:
-                            self.logger.warning(
-                                "WARNING: Toroidal current profile not zero at magnetic axis!"
-                            )
-
-                case _:
-                    raise ValueError(f"Unknown Itor type: {params['Itor']['type']}")
-
-            if not self.has_iota:
-                self.params["iota"] = {"type": "polynomial", "coefs": [0.0]}
-        else:
-            self.I_tor_target = None
-
-        if "I_tor" in params:
-            self.I_tor_target = I_tor_target
+            self._set_I_tor_target(params)
             self.iota_rms = None
             self.curr_constraint = True
         else:
+            self.I_tor_target = None
             self.curr_constraint = False
 
         # account for the change in relative path of restart, hmap, etc. files
@@ -252,6 +202,71 @@ class RunWithStages:
 
         # count the number of runs in each stage, for dynamic progressbar during current constraint
         self.n_runs_in_stage = [0 for _ in self.stages]
+
+    def _set_I_tor_target(self, params):
+        """Evaluate and set the target toroidal current profile at linearily spaced position sin rho.
+
+        Parameters
+        ----------
+        params : Mapping
+            Parameters for the stage.
+
+        Raises
+        ------
+        ValueError
+            If an unknown profile type is provided.
+        """
+        if (
+            not isinstance(params["picard_current"], str)
+            and "nPoints" in params["picard_current"]
+        ):
+            nPoints = params["picard_current"]["nPoints"]
+        else:
+            nPoints = 101
+        rho = np.linspace(0, 1, nPoints)
+        rho[0] = 1e-4
+        self.rho = rho
+
+        match params["I_tor"].get("type", "polynomial"):
+            case "polynomial":
+                coefs = np.array(params["I_tor"]["coefs"][::-1])
+                coefs *= params["I_tor"].get("scale", 1.0)
+                I_tor_target = np.poly1d(coefs)(rho**2)
+                assert abs(np.poly1d(coefs)(0.0)) < 1e-9, (
+                    f"Toroidal current profile not zero at magnetic axis!  I_tor(rho=0):{np.poly1d(coefs)(0.0)}"
+                )
+
+            case "bspline":
+                from scipy.interpolate import BSpline
+
+                coefs = np.array(params["I_tor"]["coefs"], dtype=float)
+                coefs *= params["I_tor"].get("scale", 1.0)
+                knots = np.array(params["I_tor"]["knots"], dtype=float)
+                deg = np.sum(knots == knots[0]) - 1
+                I_tor_bspl = BSpline(knots, coefs, deg)
+                I_tor_target = I_tor_bspl(rho**2)
+                assert abs(I_tor_bspl(0.0)) < 1e-9, (
+                    f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0):{I_tor_bspl(0.0)}"
+                )
+
+            case "interpolation":
+                from scipy.interpolate import make_splrep
+
+                y_vals = np.array(params["I_tor"]["vals"], dtype=float)
+                rho2_vals = np.sqrt(np.array(params["I_tor"]["rho2"], dtype=float))
+                if min(np.sqrt(rho2_vals)) > 1e-4:
+                    rho2_vals = np.append([0], rho2_vals)
+                    y_vals = np.append([0], y_vals)
+                I_tor_bspl = make_splrep(rho2_vals, y_vals)
+                I_tor_target = I_tor_bspl(rho**2)
+                assert min(abs(I_tor_target)) < 1e-9, (
+                    f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0):{I_tor_bspl(0.0)}"
+                )
+
+            case _:
+                raise ValueError(f"Unknown Itor type: {params['Itor']['type']}")
+
+        self.I_tor_target = I_tor_target
 
     def single_energy_minimization(self):
         """Run a single GVEC energy minimization using the current parameters. The run-state is updated after the run."""
@@ -289,7 +304,7 @@ class RunWithStages:
         iterations = int(re.match(r".*State.*_(\d+)\.dat", self.statefile.name).group(1))
         iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
-        max_iterations = self.params.get("MaxIter")
+        max_iterations = self.params.get("maxIter")
         tolerance = self.params.get("minimize_tol")
         self.logger.debug(f"Postprocessing statefile {self.statefile}")
 
@@ -298,7 +313,11 @@ class RunWithStages:
             self.statefile,
             redirect_stdout=self.redirect_gvec_stdout,
         ) as state:
-            ev = gvec.Evaluations(rho=self.rho, theta="int", zeta="int", state=state)
+            if hasattr(self, "rho"):
+                rho_eval = self.rho
+            else:
+                rho_eval = "int"
+            ev = gvec.Evaluations(rho=rho_eval, theta="int", zeta="int", state=state)
             state.compute(ev, "W_MHD", "N_FP")
             if self.curr_constraint:
                 state.compute(ev, "iota", "iota_curr_0", "iota_0", "I_tor")
@@ -374,12 +393,13 @@ class RunWithStages:
 
     def _reset_params_to_original(self):
         """
-        Reset the parameters to the original values. Except for `iota` and `MaxIter`, which is limited by `totaliter`.
+        Reset the parameters to the original values. Except for `iota` and `maxIter`, which is limited by `totaliter`.
         """
         params = self.original_params.copy()
         params["iota"] = self.params["iota"]
-        params["MaxIter"] = min(
-            self.totaliter - self.GVEC_iter_used, self.original_params["MaxIter"]
+        params["maxIter"] = min(
+            self.totaliter - self.GVEC_iter_used,
+            self.original_params.get("maxIter", self.totaliter),
         )
         if params["picard_current"] == "auto":
             params["picard_current"] = gvec.util.CaseInsensitiveDict()
@@ -407,8 +427,11 @@ class RunWithStages:
         stage : Mapping
             Dictionary specifying which parameters are to be changed from the original parameter set.
         """
+
+        set_I_tor = False
+
         for key, value in stage.items():
-            if key == "MaxIter":
+            if key == "maxIter":
                 self.params[key] = min(self.totaliter - self.GVEC_iter_used, value)
 
             if key == "picard_current" and value == "off":
@@ -423,10 +446,14 @@ class RunWithStages:
                     self.params[key] = gvec.util.CaseInsensitiveDict()
                 for subkey, subvalue in value.items():
                     self.params[key][subkey] = subvalue
+                    if subkey == "nPoints" and subvalue != len(self.rho):
+                        set_I_tor = True
 
-            if key in ["iota", "pres", "sgrid"]:
+            if key in ["iota", "pres", "sgrid", "i_tor"]:
                 if key not in self.params:
                     self.params[key] = gvec.util.CaseInsensitiveDict()
+                if key == "i_tor":
+                    set_I_tor = True
                 for subkey, subvalue in value.items():
                     self.params[key][subkey] = subvalue
             if key in self.params and isinstance(value, Mapping):
@@ -434,6 +461,9 @@ class RunWithStages:
                     self.params[key][subkey] = subvalue
             else:
                 self.params[key] = value
+
+        if set_I_tor:
+            self._set_I_tor_target(self.params)
 
     def run_stages(self, return_output: bool = False):
         """Sequentially run the stages of the RunWithStages object.
@@ -494,9 +524,9 @@ class RunWithStages:
                     case _:
                         raise ValueError(f"Unknown picard_current target:{target}")
             else:
-                self.params["MaxIter"] = min(
+                self.params["maxIter"] = min(
                     self.totaliter - self.GVEC_iter_used,
-                    self.params["MaxIter"],
+                    self.params["maxIter"],
                 )
                 self._eval_progressstr(self.n_runs_in_stage)
                 self.single_energy_minimization()
@@ -510,7 +540,7 @@ class RunWithStages:
         parameters_final = gvec.util.read_parameter_file_ini(
             self.statefile.parents[0] / "parameter.ini"
         )
-        parameters_final["MaxIter"] = -1
+        parameters_final["maxIter"] = -1
         for key in parameters_final:
             if key.lower() in [
                 "vmecwoutfile",
@@ -576,8 +606,8 @@ class RunWithStages:
                     "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
                 break
-            self.params["MaxIter"] = min(
-                totaliter - self.GVEC_iter_used, self.params["MaxIter"]
+            self.params["maxIter"] = min(
+                totaliter - self.GVEC_iter_used, self.params["maxIter"]
             )
             self.nth_run += 1
             n_runs_in_stage[self.nth_stage] += 1
@@ -629,8 +659,8 @@ class RunWithStages:
                     "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
                 break
-            self.params["MaxIter"] = min(
-                totaliter - self.GVEC_iter_used, self.params["MaxIter"]
+            self.params["maxIter"] = min(
+                totaliter - self.GVEC_iter_used, self.params["maxIter"]
             )
             self.nth_run += 1
             n_runs_in_stage[self.nth_stage] += 1
@@ -848,7 +878,7 @@ def _auto_generate_stages(minimize_target: float, iota_target: float):
     stages = [
         {
             "minimize_tol": minimize_tols[0],
-            "MaxIter": 10,
+            "maxIter": 10,
             "picard_current": {"iota_tol": iota_tols[0], "target": "iota"},
         }
     ]

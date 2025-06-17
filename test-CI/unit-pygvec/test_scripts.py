@@ -112,8 +112,8 @@ def test_picard_auto():
     rho[0] = 1e-4
     with gvec.State(f"parameter_{ProjectName}_final.ini", final_state) as state:
         ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
-        state.compute(ev, "I_tor")
-    assert ev.I_tor.max().data < 1e-6
+        state.compute(ev, "I_tor", "iota_curr")
+    assert ev.iota_curr.max().data < 1e-6
 
 
 @pytest.mark.parametrize("ptype", ["interpolation", "polynomial", "bspline"])

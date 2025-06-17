@@ -31,7 +31,7 @@ totaliter = 1000
 # targeted tolerances. Each stage overrides specified parameters.
 stages = [
     {maxIter=10, picard_current.iota_tol=1e-3},
-    {sgrid.nelems = 3, picard_current.target="iota_and_force"},
+    {sgrid.nelems = 3, picard_current={target="iota_and_force", nPoints=20}},
     {sgrid.nelems = 4, picard_current="off"}
 ]
 
