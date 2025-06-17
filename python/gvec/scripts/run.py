@@ -3,7 +3,6 @@
 """The pyGVEC run script for running GVEC using stages and current constraints."""
 
 import argparse
-import copy
 from datetime import datetime
 import logging
 import re
@@ -112,8 +111,8 @@ class RunWithStages:
             Whether to plot diagnostics. The default is False.
         """
         self.statefile = statefile
-        self.original_params = copy.deepcopy(params)
-        self.params = copy.deepcopy(params)
+        self.original_params = params.copy()
+        self.params = params.copy()
         if "ProjectName" not in self.params:
             self.params["ProjectName"] = "GVEC"
             self.original_params["ProjectName"] = "GVEC"
@@ -176,7 +175,7 @@ class RunWithStages:
 
             minimize_tol = params.get("minimize_tol", 1e-6)
             self.stages = _auto_generate_stages(minimize_tol, 1e-10)
-            paramters_stages_toml = copy.deepcopy(params)
+            paramters_stages_toml = params.copy()
             paramters_stages_toml["stages"] = self.stages
             self.logger.info(f"... generated {len(self.stages)} stages.")
             self.logger.info(
@@ -271,7 +270,7 @@ class RunWithStages:
         self.logger.debug(f"Created run directory {self.rundir}")
 
         # write parameterfile & run GVEC
-        gvec.util.write_parameter_file(
+        gvec.util.write_parameter_file_ini(
             gvec.util.flatten_parameters(self.params),
             self.rundir / "parameter.ini",
             header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage} run {self.nth_run})\n"
@@ -377,7 +376,7 @@ class RunWithStages:
         """
         Reset the parameters to the original values. Except for `iota` and `MaxIter`, which is limited by `totaliter`.
         """
-        params = copy.deepcopy(self.original_params)
+        params = self.original_params.copy()
         params["iota"] = self.params["iota"]
         params["MaxIter"] = min(
             self.totaliter - self.GVEC_iter_used, self.original_params["MaxIter"]
@@ -508,7 +507,7 @@ class RunWithStages:
         parameter_final = Path("parameter_" + self.params["ProjectName"] + "_final.ini")
 
         shutil.copy(self.statefile, final_state)
-        parameters_final = gvec.util.read_parameter_file(
+        parameters_final = gvec.util.read_parameter_file_ini(
             self.statefile.parents[0] / "parameter.ini"
         )
         parameters_final["MaxIter"] = -1
@@ -519,7 +518,7 @@ class RunWithStages:
                 "hmap_ncfile",
             ]:
                 parameters_final[key] = self.original_params[key]
-        gvec.util.write_parameter_file(
+        gvec.util.write_parameter_file_ini(
             parameters=parameters_final,
             path=parameter_final,
             header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage} run {self.nth_run})\n"
@@ -883,7 +882,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         if "stages" not in parameters and picard_mode == "off":
             parameters = gvec.util.flatten_parameters(parameters)
             parameterfile = f"{args.parameterfile.name}.ini"
-            gvec.util.write_parameter_file(
+            gvec.util.write_parameter_file_ini(
                 parameters,
                 parameterfile,
                 header=f"!Auto-generated from {args.parameterfile.name} with `pygvec run`\n!Created at {datetime.now().isoformat()}\n!pyGVEC v{gvec.__version__}\n",

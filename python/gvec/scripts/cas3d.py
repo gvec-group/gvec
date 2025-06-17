@@ -83,7 +83,7 @@ def gvec_to_cas3d(
         desc="performing boozer transform...",
         ascii=True,
     ) as progress:
-        params = util.read_parameter_file(parameterfile)
+        params = util.read_parameter_file_ini(parameterfile)
         name = params["ProjectName"]
 
         with State(parameterfile, statefile) as state:

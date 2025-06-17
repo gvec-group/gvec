@@ -74,3 +74,22 @@ def test_ev2vtk(testcaserundir, testfiles):
 
     ev = ev[vars_out]
     ev2vtk(testcaserundir / "test_ev2.vtk", ev)
+
+
+def test_read_write_parameters_ini(testcaserundir, testfiles, tmp_path):
+    """
+    Test reading and writing parameters with an INI file
+    """
+    # Read parameters from a file (ini)
+    params = util.read_parameter_file_ini(testfiles[0])
+    assert isinstance(params, util.CaseInsensitiveDict)
+    assert "projectname" in params
+
+    # Write parameters to a new file (ini)
+    new_params_file = tmp_path / "parameters-copy.ini"
+    util.write_parameter_file_ini(params, new_params_file)
+    assert new_params_file.exists()
+
+    # Read the new parameters file
+    new_params = util.read_parameter_file_ini(new_params_file)
+    assert new_params == params
