@@ -335,7 +335,9 @@ class RunWithStages:
         logfile = sorted(self.rundir.glob("logMinimizer_*"))[-1]
         log_df = read_csv(logfile, sep=",", header=0)
 
-        self.logger.info(f"max. average radial force: {max(abs(ev.F_r_avg)).item():.2e}")
+        self.logger.info(
+            f"rms. average radial force: {np.sqrt((ev.F_r_avg**2).mean(dim='rad')).item():.2e}"
+        )
 
         diag_run = xr.Dataset(
             dict(
@@ -675,12 +677,15 @@ class RunWithStages:
             axs = [ax]
         axs[0].plot(
             diagnostics.run,
-            [max(abs(diagnostics.sel(run=run).F_r_avg)) for run in diagnostics.run],
+            [
+                np.sqrt((diagnostics.sel(run=run).F_r_avg ** 2).mean(dim="rad"))
+                for run in diagnostics.run
+            ],
             ".-",
         )
         axs[0].set(
             xlabel="run number",
-            ylabel=f"max$(|{diagnostics.F_r_avg.attrs['symbol']}|)$",
+            ylabel=f"rms. ${diagnostics.F_r_avg.attrs['symbol']}$",
             title=diagnostics.F_r_avg.attrs["long_name"],
             yscale="log",
         )
@@ -772,29 +777,31 @@ class RunWithStages:
             label=r"$\lambda$",
         )
 
-        # stages vlines
-        for ax in axs:
-            n_runs_till_stage = np.cumsum(self.n_runs_in_stage)
-            ax.vlines(
-                [np.sum(diagnostics.gvec_iterations[:i]) for i in n_runs_till_stage],
-                *ax.get_ylim(),
-                colors="grey",
-                linestyle="solid",
-                alpha=0.6,
-                zorder=-1000,
-                label="stages",
-            )
+        if len(self.stages) > 1:
+            # stages vlines
+            for ax in axs:
+                n_runs_till_stage = np.cumsum(self.n_runs_in_stage)
+                ax.vlines(
+                    [np.sum(diagnostics.gvec_iterations[:i]) for i in n_runs_till_stage],
+                    *ax.get_ylim(),
+                    colors="grey",
+                    linestyle="solid",
+                    alpha=0.6,
+                    zorder=-1000,
+                    label="stages",
+                )
 
         # runs vlines
-        axf.vlines(
-            np.cumsum(diagnostics.gvec_iterations),
-            *axf.get_ylim(),
-            colors="k",
-            linestyle="dashed",
-            alpha=0.6,
-            zorder=-900,
-            label="runs",
-        )
+        if np.sum(np.array(self.n_runs_in_stage) > 0) >= 2:
+            axf.vlines(
+                np.cumsum(diagnostics.gvec_iterations),
+                *axf.get_ylim(),
+                colors="k",
+                linestyle="dashed",
+                alpha=0.6,
+                zorder=-900,
+                label="runs",
+            )
 
         axf.set(ylabel="|Force|", yscale="log")
         axf.legend(bbox_to_anchor=(1.15, 1))
@@ -852,70 +859,43 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     if args.param_type is None:
         args.param_type = args.parameterfile.suffix[1:]
 
-    if args.param_type == "ini":
-        gvec.run(
-            args.parameterfile,
-            args.restartfile,
-            stdout_path="stdout.txt" if args.quiet else None,
-        )
-    elif args.param_type in ["yaml", "toml"]:
+    if args.param_type in ["ini", "yaml", "toml"]:
         parameters = gvec.util.read_parameters(args.parameterfile)
-        picard_mode = parameters.get("picard_current", "off")
-        if "stages" not in parameters and picard_mode == "off":
-            # TODO remove
-            parameters = gvec.util.flatten_parameters(parameters)
-            parameterfile = f"{args.parameterfile.name}.ini"
-            gvec.util.write_parameter_file_ini(
-                parameters,
-                parameterfile,
-                header=f"!Auto-generated from {args.parameterfile.name} with `pygvec run`\n!Created at {datetime.now().isoformat()}\n!pyGVEC v{gvec.__version__}\n",
-            )
-            gvec.run(
-                parameterfile,
-                args.restartfile,
-                stdout_path="stdout.txt" if args.quiet else None,
-            )
-        else:
-            logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
-            logger = logging.getLogger(
-                "pyGVEC.script"
-            )  # show info/debug messages for this script
-            logger.propagate = False
-            loghandler = logging.StreamHandler()
-            logformatter = logging.Formatter("{levelname} {message}", style="{")
-            loghandler.setFormatter(logformatter)
-            logger.addHandler(loghandler)
-            if args.verbose == 1:
-                logger.setLevel(logging.INFO)
-            elif args.verbose >= 2:
-                logger.setLevel(logging.DEBUG)
-            run_with_stages = RunWithStages(
-                parameters,
-                args.restartfile,
-                progressbar=not args.quiet and not args.verbose,
-                redirect_gvec_stdout=args.verbose < 3,
-            )
-            run_with_stages.run_stages()
 
-            if args.diagnostics:
-                diagnostics = xr.merge(
-                    [run_with_stages.diagnostics_run, run_with_stages.diagnostics_minimizer]
-                )
-                diagnostics.to_netcdf(args.diagnostics)
-            if args.plots:
-                if max(run_with_stages.n_runs_in_stage) > 0:
-                    fig_runs = run_with_stages.plot_diagnostics_run()
-                    fig_runs.savefig(f"{run_with_stages.params['projectName']}_runs.png")
+        logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
+        logger = logging.getLogger("pyGVEC.script")  # show info/debug messages for this script
+        logger.propagate = False
+        loghandler = logging.StreamHandler()
+        logformatter = logging.Formatter("{levelname} {message}", style="{")
+        loghandler.setFormatter(logformatter)
+        logger.addHandler(loghandler)
+        if args.verbose == 1:
+            logger.setLevel(logging.INFO)
+        elif args.verbose >= 2:
+            logger.setLevel(logging.DEBUG)
+        run_with_stages = RunWithStages(
+            parameters,
+            args.restartfile,
+            progressbar=not args.quiet and not args.verbose,
+            redirect_gvec_stdout=args.verbose < 3,
+        )
+        run_with_stages.run_stages()
 
-                if run_with_stages.curr_constraint:
-                    fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
-                    fig_profiles.savefig(
-                        f"{run_with_stages.params['projectName']}_profiles.png"
-                    )
-                fig_minimization = run_with_stages.plot_diagnostics_minimization()
-                fig_minimization.savefig(
-                    f"{run_with_stages.params['projectName']}_iterations.png"
-                )
+        if args.diagnostics:
+            diagnostics = xr.merge(
+                [run_with_stages.diagnostics_run, run_with_stages.diagnostics_minimizer]
+            )
+            diagnostics.to_netcdf(args.diagnostics)
+        if args.plots:
+            if np.sum(np.array(run_with_stages.n_runs_in_stage) > 0) >= 2:
+                fig_runs = run_with_stages.plot_diagnostics_run()
+                fig_runs.savefig(f"{run_with_stages.params['projectName']}_runs.png")
+
+            if run_with_stages.curr_constraint:
+                fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
+                fig_profiles.savefig(f"{run_with_stages.params['projectName']}_profiles.png")
+            fig_minimization = run_with_stages.plot_diagnostics_minimization()
+            fig_minimization.savefig(f"{run_with_stages.params['projectName']}_iterations.png")
     else:
         raise ValueError("Cannot determine parameterfile type")
 

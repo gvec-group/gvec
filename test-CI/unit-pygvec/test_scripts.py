@@ -75,17 +75,9 @@ def test_run_stages(suffix):
     args = [f"parameter.{suffix}"]
     gvec.scripts.run.main(args)
 
-    match suffix:
-        case "ini":
-            assert Path("W7X_State_0000_00000100.dat").exists()
-        case "yaml":
-            assert Path("W7X_yaml_gvec_stages").exists()
-            assert Path("W7X_yaml_State_final.dat").exists()
-            assert Path("parameter_W7X_yaml_final.ini").exists()
-        case "toml":
-            assert Path("W7X_toml_gvec_stages").exists()
-            assert Path("W7X_toml_State_final.dat").exists()
-            assert Path("parameter_W7X_toml_final.ini").exists()
+    assert Path(f"W7X_{suffix}_gvec_stages").exists()
+    assert Path(f"W7X_{suffix}_State_final.dat").exists()
+    assert Path(f"parameter_W7X_{suffix}_final.ini").exists()
 
 
 def test_picard_auto():
