@@ -96,18 +96,10 @@ class RunWithStages:
             GVEC parameter dictionary.
         statefile : Path | None, optional
             Statefile to restart from. The default is None.
-        logger : logging.Logger | None:
-            Logger to write to. The default is None.
-        diagnostics : xr.Dataset | None, optional
-            NetCDF file for logging diagnostic quantities during the stages and runs. The default is None.
         redirect_gvec_stdout : bool, optional
             Whether to redirect GVEC's stdout. The default is True.
-        diagnosticfile : Path | None, optional
-            File to write diagnostic output to. The default is default None.
         progressbar : bool, optional
             Whether to show a progress bar. The default is True.
-        plots : bool, optional
-            Whether to plot diagnostics. The default is False.
         """
         self.statefile = statefile
         self.original_params = params.copy()
@@ -194,8 +186,8 @@ class RunWithStages:
                 "vmecwoutfile",
                 "boundary_filename",
                 "hmap_ncfile",
-            ] and not value.startswith("/"):
-                self.params[key] = f"../../{value}"
+            ]:
+                params[key] = Path(value).absolute()
 
         # count the number of runs in each stage, for dynamic progressbar during current constraint
         self.n_runs_in_stage = [0 for _ in self.stages]
@@ -316,7 +308,7 @@ class RunWithStages:
             else:
                 rho_eval = "int"
             ev = gvec.Evaluations(rho=rho_eval, theta="int", zeta="int", state=state)
-            state.compute(ev, "W_MHD", "N_FP")
+            state.compute(ev, "F_r_avg", "N_FP")
             if self.curr_constraint:
                 state.compute(ev, "iota", "iota_curr_0", "iota_0", "I_tor")
 
@@ -343,11 +335,11 @@ class RunWithStages:
         logfile = sorted(self.rundir.glob("logMinimizer_*"))[-1]
         log_df = read_csv(logfile, sep=",", header=0)
 
-        self.logger.info(f"W_MHD: {ev.W_MHD.item():.2e}")
+        self.logger.info(f"max. average radial force: {max(abs(ev.F_r_avg)).item():.2e}")
 
         diag_run = xr.Dataset(
             dict(
-                W_MHD=ev.W_MHD,
+                F_r_avg=ev.F_r_avg,
                 gvec_iterations=iterations,
                 gvec_max_iterations=max_iterations,
                 gvec_tolerance=tolerance,
@@ -359,6 +351,7 @@ class RunWithStages:
                 force_X1=("total_iteration", np.array(log_df["normF_X1"])),
                 force_X2=("total_iteration", np.array(log_df["normF_X2"])),
                 force_LA=("total_iteration", np.array(log_df["normF_LA"])),
+                W_MHD=("total_iteration", np.array(log_df["W_MHD3D"])),
             )
         )
         if self.curr_constraint:
@@ -374,6 +367,16 @@ class RunWithStages:
             diag_run = diag_run.expand_dims(dict(run=[self.diagnostics_run.run.size]))
             self.diagnostics_run = xr.concat([self.diagnostics_run, diag_run], dim="run")
         if self.diagnostics_minimizer is None:
+            diag_minimizer.force_X1.attrs = dict(
+                long_name="absolute MHD force on X1", symbol=r"|F_{X^1}|"
+            )
+            diag_minimizer.force_X2.attrs = dict(
+                long_name="absolute MHD force on X2", symbol=r"|F_{X^2}|"
+            )
+            diag_minimizer.force_LA.attrs = dict(
+                long_name="absolute MHD force on lambda", symbol=r"|F_{\lambda}|"
+            )
+            diag_minimizer.W_MHD.attrs = dict(long_name="total MHD energy", symbol=r"W_{MHD}")
             self.diagnostics_minimizer = diag_minimizer
         else:
             self.diagnostics_minimizer = xr.concat(
@@ -548,9 +551,8 @@ class RunWithStages:
             f"!pyGVEC v{gvec.__version__}\n",
         )
 
-        diagnostics = xr.merge([self.diagnostics_run, self.diagnostics_minimizer])
-
         if return_output:
+            diagnostics = xr.merge([self.diagnostics_run, self.diagnostics_minimizer])
             return (parameter_final, final_state, diagnostics)
 
     def _run_stage_target_iota(
@@ -658,43 +660,29 @@ class RunWithStages:
             )
         self.logger.info(f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}")
 
-    def plot_diagnostics(self, save_figs: bool = False):
-        """
-        Plot diagnostic quantities from the GVEC runs.
-
-        This method creates two figures: 'iterations.png' and 'profiles.png'.
-        The first figure shows the evolution of the MHD energy and the root mean square difference
-        to the target iota profile as a function of the run number.
-        The second figure shows the profiles of the iota and I_tor values till the last run
-        and the difference to the target profiles.
-
-        Parameters
-        ----------
-        save_figs: bool
-            Flag to save the figures
-
-        Returns
-        -------
-        None
-        """
+    def plot_diagnostics_run(self):
         try:
             import matplotlib.pyplot as plt
         except ModuleNotFoundError:
             self.logger.warning("matplotlib not found! Diagnostic plots can not be generated.")
             return
 
-        self.logger.debug("Plotting diagnostics...")
         diagnostics = self.diagnostics_run
         if self.curr_constraint:
             fig, axs = plt.subplots(1, 2, figsize=(10, 3), tight_layout=True)
         else:
             fig, ax = plt.subplots(1, 1, figsize=(5, 3), tight_layout=True)
             axs = [ax]
-        axs[0].plot(diagnostics.run, diagnostics.W_MHD, ".-")
+        axs[0].plot(
+            diagnostics.run,
+            [max(abs(diagnostics.sel(run=run).F_r_avg)) for run in diagnostics.run],
+            ".-",
+        )
         axs[0].set(
             xlabel="run number",
-            ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
-            title=diagnostics.W_MHD.attrs["long_name"],
+            ylabel=f"max$(|{diagnostics.F_r_avg.attrs['symbol']}|)$",
+            title=diagnostics.F_r_avg.attrs["long_name"],
+            yscale="log",
         )
         if self.curr_constraint:
             axs[1].plot(diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-")
@@ -704,43 +692,51 @@ class RunWithStages:
                 title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
                 yscale="log",
             )
-        if save_figs:
-            fig.savefig(f"{self.params['projectName']}_runs.png")
-        else:
-            fig.show()
+        return fig
 
-        if self.curr_constraint:
-            fig, axs = plt.subplots(2, 2, figsize=(15, 5), tight_layout=True, sharex=True)
-            for r in diagnostics.run.data:
-                if r == diagnostics.run.data[-1]:
-                    kwargs = dict(marker=".", color="C0", alpha=1.0)
-                else:
-                    kwargs = dict(
-                        color="black", alpha=0.2 + 0.3 * (r / diagnostics.run.data[-1])
-                    )
-                d = diagnostics.sel(run=r)
-                axs[0, 0].plot(d.rho**2, d.iota, **kwargs)
-                axs[1, 0].plot(d.rho**2, np.abs(d.iota_delta), **kwargs)
-                axs[0, 1].plot(d.rho**2, d.I_tor, **kwargs)
-                axs[1, 1].plot(d.rho**2, np.abs(d.I_tor_delta), **kwargs)
-            for i, var in enumerate(["iota", "I_tor"]):
-                axs[0, i].set(
-                    title=diagnostics[var].attrs["long_name"],
-                    ylabel=f"${diagnostics[var].attrs['symbol']}$",
-                )
-                axs[1, i].set(
-                    title=f"Difference to target {diagnostics[var].attrs['long_name']}",
-                    xlabel=r"$\rho^2$",
-                    ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
-                    yscale="log",
-                )
-            if save_figs:
-                fig.savefig(f"{self.params['projectName']}_profiles.png")
+    def plot_diagnostics_current_profiles(self):
+        try:
+            import matplotlib.pyplot as plt
+        except ModuleNotFoundError:
+            self.logger.warning("matplotlib not found! Diagnostic plots can not be generated.")
+            return
+
+        diagnostics = self.diagnostics_run
+
+        fig, axs = plt.subplots(2, 2, figsize=(15, 5), tight_layout=True, sharex=True)
+        for r in diagnostics.run.data:
+            if r == diagnostics.run.data[-1]:
+                kwargs = dict(marker=".", color="C0", alpha=1.0)
             else:
-                fig.show()
+                kwargs = dict(color="black", alpha=0.2 + 0.3 * (r / diagnostics.run.data[-1]))
+            d = diagnostics.sel(run=r)
+            axs[0, 0].plot(d.rho**2, d.iota, **kwargs)
+            axs[1, 0].plot(d.rho**2, np.abs(d.iota_delta), **kwargs)
+            axs[0, 1].plot(d.rho**2, d.I_tor, **kwargs)
+            axs[1, 1].plot(d.rho**2, np.abs(d.I_tor_delta), **kwargs)
+        for i, var in enumerate(["iota", "I_tor"]):
+            axs[0, i].set(
+                title=diagnostics[var].attrs["long_name"],
+                ylabel=f"${diagnostics[var].attrs['symbol']}$",
+            )
+            axs[1, i].set(
+                title=f"Difference to target {diagnostics[var].attrs['long_name']}",
+                xlabel=r"$\rho^2$",
+                ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
+                yscale="log",
+            )
+        return fig
 
+    def plot_diagnostics_minimization(self):
+        try:
+            import matplotlib.pyplot as plt
+        except ModuleNotFoundError:
+            self.logger.warning("matplotlib not found! Diagnostic plots can not be generated.")
+            return
+
+        diagnostics = self.diagnostics_run
         if self.curr_constraint:
-            fig_f, axs = plt.subplots(3, 1, figsize=(10, 5), tight_layout=True, sharex=True)
+            fig, axs = plt.subplots(3, 1, figsize=(10, 5), tight_layout=True, sharex=True)
             axs[2].plot(
                 np.cumsum(diagnostics.gvec_iterations),
                 np.sqrt((diagnostics.iota_delta**2).mean("rad")),
@@ -748,10 +744,12 @@ class RunWithStages:
             )
             axs[2].set(ylabel=r"$\Delta\iota_{rms}$", yscale="log")
         else:
-            fig_f, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True, sharex=True)
-        axs[0].plot(np.cumsum(diagnostics.gvec_iterations), diagnostics.W_MHD, ".-")
+            fig, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True, sharex=True)
+        axs[0].plot(
+            self.diagnostics_minimizer.total_iteration, self.diagnostics_minimizer.W_MHD, "-"
+        )
         axs[0].set(
-            ylabel=f"${diagnostics.W_MHD.attrs['symbol']}$",
+            ylabel=f"${self.diagnostics_minimizer.W_MHD.attrs['symbol']}$",
         )
         axf = axs[1]
 
@@ -802,10 +800,8 @@ class RunWithStages:
         axf.legend(bbox_to_anchor=(1.15, 1))
         # axf.legend(["stages","runs", r"$X_1$", r"$X_2$", r"$\lambda$"], bbox_to_anchor=(1.15, 1))
         axs[-1].set(xlabel="GVEC iteration")
-        if save_figs:
-            fig_f.savefig(f"{self.params['projectName']}_iterations.png")
-        else:
-            fig_f.show()
+
+        return fig
 
 
 def _auto_generate_stages(minimize_target: float, iota_target: float):
@@ -907,8 +903,19 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 )
                 diagnostics.to_netcdf(args.diagnostics)
             if args.plots:
-                run_with_stages.plot_diagnostics(True)
+                if max(run_with_stages.n_runs_in_stage) > 0:
+                    fig_runs = run_with_stages.plot_diagnostics_run()
+                    fig_runs.savefig(f"{run_with_stages.params['projectName']}_runs.png")
 
+                if run_with_stages.curr_constraint:
+                    fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
+                    fig_profiles.savefig(
+                        f"{run_with_stages.params['projectName']}_profiles.png"
+                    )
+                fig_minimization = run_with_stages.plot_diagnostics_minimization()
+                fig_minimization.savefig(
+                    f"{run_with_stages.params['projectName']}_iterations.png"
+                )
     else:
         raise ValueError("Cannot determine parameterfile type")
 
