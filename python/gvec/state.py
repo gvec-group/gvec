@@ -36,7 +36,7 @@ import xarray as xr
 
 import gvec.lib
 import gvec.util
-from gvec.lib import modgvec_py_post as _state
+from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
 
 # === Globals === #
