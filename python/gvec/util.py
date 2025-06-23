@@ -30,7 +30,7 @@ def chdir(target: Path | str):
     Using a context has the benefit of automatically changing back to the original directory when the context is exited, even if an exception is raised.
     """
     target = Path(target)
-    source = Path(os.getcwd())
+    source = Path.cwd()
 
     try:
         os.chdir(target)

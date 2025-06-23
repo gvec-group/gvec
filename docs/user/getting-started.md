@@ -27,7 +27,7 @@ Here, we mention the main steps from the notebook to run gvec and post-process t
     ```
 1.  To run the simulation, one changes to the run directory and executes `gvec.run`
     ```python
-    with chdir(runpath):
+    with gvec.util.chdir(runpath):
         gvec.run("parameter.ini", stdout_path="stdout.txt")
     ```
 1.  The final equilibrium solution is written to a state file, which can be loaded and evaluated using `gvec.State`

@@ -10,9 +10,16 @@ except ImportError:
 
 # primary classes and functions
 
-from .state import State
-from .comp import compute, Evaluations, EvaluationsBoozer, EvaluationsBoozerCustom
-from .run import run
+from .state import State, load_state, find_state, find_states
+from .comp import (
+    compute,
+    evaluate,
+    evaluate_sfl,
+    Evaluations,
+    EvaluationsBoozer,
+    EvaluationsBoozerCustom,
+)
+from .run import run  # ToDo: shadows submodule
 
 # submodules
 

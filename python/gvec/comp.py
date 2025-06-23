@@ -11,8 +11,8 @@ import re
 import numpy as np
 import xarray as xr
 
-from .state import State
-from . import fourier
+from gvec.state import State
+import gvec.fourier
 
 # === Globals === #
 
@@ -154,7 +154,7 @@ def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
 
 def compute(
     ev: xr.Dataset,
-    *quantities: Collection[str],
+    *quantities: str,
     state: State = None,
     registry: Mapping = QUANTITIES,
 ) -> xr.Dataset | xr.DataArray:
@@ -722,6 +722,40 @@ def EvaluationsBoozerCustom(
     return ds
 
 
+# === evaluate functions === #
+
+
+def evaluate(
+    state: State,
+    *quantities: str,
+    rho: Literal["int"] | CoordinateSpec | None = "int",
+    theta: Literal["int"] | CoordinateSpec | None = "int",
+    zeta: Literal["int"] | CoordinateSpec | None = "int",
+):
+    ev = Evaluations(rho, theta, zeta, state)
+    compute(ev, *quantities, state=state)
+    return ev
+
+
+def evaluate_sfl(
+    state: State,
+    *quantities: str,
+    rho: Literal["int"] | CoordinateSpec | None = "int",
+    theta: Literal["int"] | CoordinateSpec | None = "int",
+    zeta: Literal["int"] | CoordinateSpec | None = "int",
+    sfl: Literal["boozer"] = "boozer",
+    **boozer_kwargs,
+):
+    if sfl == "boozer":
+        ev = EvaluationsBoozer(rho, theta, zeta, state, **boozer_kwargs)
+    elif sfl == "pest":
+        raise NotImplementedError("PEST SFL coordinates are not implemented yet.")
+    else:
+        raise ValueError(f"Unsupported SFL type {sfl}. Expected 'boozer' or 'pest'.")
+    compute(ev, *quantities, state=state)
+    return ev
+
+
 # === Fourier Transform === #
 
 
@@ -743,15 +777,19 @@ def ev2ft(ev, quiet=False):
             if "rad" in ev[var].dims:
                 vft = []
                 for r in ev.rad:
-                    vft.append(fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data))
+                    vft.append(
+                        gvec.fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data)
+                    )
                 vcos, vsin = map(np.array, zip(*vft))
                 dims = ("rad", "m", "n")
             else:
-                vcos, vsin = fourier.fft2d(ev[var].transpose("pol", "tor").data)
+                vcos, vsin = gvec.fourier.fft2d(ev[var].transpose("pol", "tor").data)
                 dims = ("m", "n")
 
             if m is None:
-                m, n = fourier.fft2d_modes(vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False)
+                m, n = gvec.fourier.fft2d_modes(
+                    vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False
+                )
 
             attrs = {k: v for k, v in ev[var].attrs.items() if k not in {"long_name", "symbol"}}
             data[f"{var}_mnc"] = (

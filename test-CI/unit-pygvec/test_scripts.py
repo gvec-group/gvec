@@ -27,16 +27,15 @@ QUASR_ID = 112714
 
 
 @pytest.fixture(autouse=True)
-def prepare_testcaserundir(tmp_path):
+def prepare_testcaserundir(tmp_path, util):
     """Prepare the test case run directory"""
     testcase = "w7x"
     shutil.copytree(
         Path(__file__).parent / "../examples/" / testcase, tmp_path, dirs_exist_ok=True
     )
-    source = os.getcwd()
-    os.chdir(tmp_path)
-    yield
-    os.chdir(source)
+    source = Path.cwd()
+    with util.chdir(tmp_path):
+        yield
 
 
 # === TESTS === #
@@ -250,12 +249,12 @@ def test_quasr_download(tmp_path):
         assert file.read().strip() == reference.read().strip()
 
 
-def test_quasr_noerror(tmp_path):
+def test_quasr_noerror(tmp_path, util):
     """
     Test the load-quasr script
     """
     hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
-    with gvec.util.chdir(tmp_path):
+    with util.chdir(tmp_path):
         args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc")]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
