@@ -16,8 +16,8 @@ import logging
 import xarray as xr
 import numpy as np
 
-from .state import State
-from .comp import (
+from gvec.state import State
+from gvec.comp import (
     QUANTITIES,
     register,
     radial_integral,

@@ -8,7 +8,7 @@ import platform
 from pathlib import Path
 import logging
 import argparse
-from typing import Sequence
+from collections.abc import Sequence
 
 import gvec
 from gvec.scripts import cas3d, run, quasr

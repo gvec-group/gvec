@@ -8,7 +8,7 @@ In this context, the Fourier series is of the form :math:`x(\theta, \zeta) = \su
 
 # === Imports === #
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import numpy as np
 

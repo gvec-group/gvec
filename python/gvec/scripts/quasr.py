@@ -49,7 +49,8 @@ import argparse
 from pathlib import Path
 import requests
 import shutil
-from typing import Sequence, Literal
+from typing import Literal
+from collections.abc import Sequence
 import logging
 
 import numpy as np
@@ -570,7 +571,7 @@ def convert_quasr(
     tolerance: float = 1e-8,
     format: Literal["yaml", "toml"] = "yaml",
 ):
-    logger = logging.getLogger("pyGVEC.script")
+    logger = logging.getLogger(__name__)
     logger.info("Constructing the G-Frame")
     xyz0, N, B = get_X0_N_B(xyz)
 

@@ -7,7 +7,7 @@
 from pathlib import Path
 import datetime
 import argparse
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import xarray as xr

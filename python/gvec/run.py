@@ -6,8 +6,8 @@ import logging
 from pathlib import Path
 
 try:
-    from .lib import modgvec_py_run as _run
-    from .lib import modgvec_py_binding as _binding
+    from gvec.lib import modgvec_py_run as _run
+    from gvec.lib import modgvec_py_binding as _binding
 except ImportError:
     logging.warning(
         "Compiled bindings to GVEC not found. Running GVEC from python will not work."

@@ -9,7 +9,7 @@ import re
 import shutil
 import time
 from pathlib import Path
-from typing import Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -119,7 +119,7 @@ class RunWithStages:
         if "picard_current" not in self.original_params:
             self.original_params["picard_current"] = "off"
 
-        self.logger = logging.getLogger("pyGVEC.script")
+        self.logger = logging.getLogger("gvec.run")
 
         project_dir = Path(f"{self.params['ProjectName']}_gvec_stages")
         if project_dir.exists():
@@ -894,9 +894,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             )
         else:
             logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
-            logger = logging.getLogger(
-                "pyGVEC.script"
-            )  # show info/debug messages for this script
+            logger = logging.getLogger("gvec.run")  # show info/debug messages for this script
             logger.propagate = False
             loghandler = logging.StreamHandler()
             logformatter = logging.Formatter("{message}", style="{")
