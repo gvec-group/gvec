@@ -90,10 +90,10 @@ def test_picard_auto():
     parameters["projectname"] = ProjectName
     if "stages" in parameters:
         with pytest.raises(ValueError):
-            run_with_stages = gvec.scripts.run.RunWithStages(parameters)
+            run_with_stages = gvec.run(parameters)
         del parameters["stages"]
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
+    run_with_stages = gvec.run(parameters)
+    final_params_file, final_state, diagnostics = run_with_stages.run(parameters)
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -139,8 +139,8 @@ def test_I_tor_types(ptype):
                 c_bspl[j] = poly2bspl_coeff(coefs, j, knots)
             parameters["I_tor"] = dict(type=ptype, coefs=c_bspl, knots=knots)
 
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run_stages(return_output=True)
+    run_with_stages = gvec.run(parameters)
+    rundir, final_state, diagnostics = run_with_stages.run(return_output=True)
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -169,8 +169,8 @@ def test_maxRestarts():
         },
         {"picard_current": {"maxRestarts": 2}},
     ]
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    run_with_stages.run_stages()
+    run_with_stages = gvec.run(parameters)
+    run_with_stages.run()
 
     for n, runs in enumerate(run_with_stages.n_runs_in_stage):
         assert n >= runs - 1, (
@@ -188,8 +188,8 @@ def test_stages_without_current():
         {"minimize_tol": 1e-2, "sgrid": {"nelems": 2}},
         {"minimize_tol": 1e-3, "sgrid": {"nelems": 3}},
     ]
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
+    run_with_stages = gvec.run(parameters)
+    rundir, final_state, diagnostics = run_with_stages.run(parameters)
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
