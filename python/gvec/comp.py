@@ -17,16 +17,16 @@ import gvec.fourier
 # === Globals === #
 
 __all__ = [
-    "QUANTITIES",
-    "register",
-    "compute",
     "table_of_quantities",
-    "Evaluations",
-    "EvaluationsBoozer",
-    "EvaluationsBoozerCustom",
+    "compute",
     "radial_integral",
     "fluxsurface_integral",
     "volume_integral",
+    "Evaluations",
+    "EvaluationsBoozer",
+    "EvaluationsBoozerCustom",
+    "evaluate",
+    "evaluate_sfl",
     "ev2ft",
     "ft_autoremove",
 ]
@@ -235,7 +235,49 @@ def compute(
     return ev
 
 
-# === Create Evaluations Dataset === #
+# === Integrals === #
+
+
+def radial_integral(quantity: xr.DataArray):
+    """Compute the radial integral/average of the given quantity."""
+    # --- check for integration points --- #
+    if "rad_weight" not in quantity.coords:
+        raise ValueError("Radial integral requires integration weights for `rad`.")
+    # --- integrate --- #
+    return (quantity * quantity.rad_weight).sum("rad")
+
+
+def fluxsurface_integral(quantity: xr.DataArray):
+    """Compute the flux surface integral of the given quantity."""
+    # --- check for integration points --- #
+    if "pol_weight" not in quantity.coords or "tor_weight" not in quantity.coords:
+        raise ValueError(
+            "Flux surface average requires integration weights for theta and zeta."
+        )
+    # --- integrate --- #
+    return (quantity * quantity.pol_weight * quantity.tor_weight).sum(("pol", "tor"))
+
+
+def volume_integral(
+    quantity: xr.DataArray,
+):
+    """Compute the volume integral of the given quantity."""
+    # --- check for integration points --- #
+    if (
+        "rad_weight" not in quantity.coords
+        or "pol_weight" not in quantity.coords
+        or "tor_weight" not in quantity.coords
+    ):
+        raise ValueError(
+            "Volume integral requires integration weights for rho, theta and zeta."
+        )
+    # --- integrate --- #
+    return (quantity * quantity.rad_weight * quantity.pol_weight * quantity.tor_weight).sum(
+        ("rad", "pol", "tor")
+    )
+
+
+# === Factories for evaluation Datasets & Boozer transform === #
 
 CoordinateSpec: TypeAlias = int | float | xr.DataArray | np.ndarray | Sequence
 
@@ -357,45 +399,6 @@ def Evaluations(
     return ds
 
 
-def radial_integral(quantity: xr.DataArray):
-    """Compute the radial integral/average of the given quantity."""
-    # --- check for integration points --- #
-    if "rad_weight" not in quantity.coords:
-        raise ValueError("Radial integral requires integration weights for `rad`.")
-    # --- integrate --- #
-    return (quantity * quantity.rad_weight).sum("rad")
-
-
-def fluxsurface_integral(quantity: xr.DataArray):
-    """Compute the flux surface integral of the given quantity."""
-    # --- check for integration points --- #
-    if "pol_weight" not in quantity.coords or "tor_weight" not in quantity.coords:
-        raise ValueError(
-            "Flux surface average requires integration weights for theta and zeta."
-        )
-    # --- integrate --- #
-    return (quantity * quantity.pol_weight * quantity.tor_weight).sum(("pol", "tor"))
-
-
-def volume_integral(
-    quantity: xr.DataArray,
-):
-    """Compute the volume integral of the given quantity."""
-    # --- check for integration points --- #
-    if (
-        "rad_weight" not in quantity.coords
-        or "pol_weight" not in quantity.coords
-        or "tor_weight" not in quantity.coords
-    ):
-        raise ValueError(
-            "Volume integral requires integration weights for rho, theta and zeta."
-        )
-    # --- integrate --- #
-    return (quantity * quantity.rad_weight * quantity.pol_weight * quantity.tor_weight).sum(
-        ("rad", "pol", "tor")
-    )
-
-
 def EvaluationsBoozer(
     rho: CoordinateSpec,
     theta_B: CoordinateSpec,
@@ -496,72 +499,6 @@ def EvaluationsBoozer(
     # === Evaluate LA & NU === #
     ds = add_Boozer_LA_NU(ds, state, sfl_boozer)
 
-    return ds
-
-
-def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
-    """Add the LA and NU_B variables as computed by the boozer transform to the dataset.
-
-    Helper function for EvaluationsBoozer and related methods.
-    """
-    # Flatten theta, zeta
-    theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
-    zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
-
-    outputs_la = []
-    outputs_nu = []
-    # Sequence (list) of sfl_boozer (for each surface)
-    if isinstance(sfl_boozer, Sequence):
-        for r, rho in enumerate(ds.rho.data):
-            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-            outputs_la.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "LA", [0], thetazeta)
-            )
-            outputs_nu.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "NU", [0], thetazeta)
-            )
-    # Single sfl_boozer - compute base on each radial position
-    else:
-        for r, rho in enumerate(ds.rho.data):
-            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-            outputs_la.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
-            )
-            outputs_nu.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
-            )
-
-    # Write LA/NU to dataset
-    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):
-        if deriv == "":
-            var = "LA"
-            long_name = "Straight field line potential"
-            symbol = r"\lambda"
-        else:
-            var = f"dLA_d{deriv}"
-            long_name = derivative_name_smart("Straight field line potential", deriv)
-            symbol = latex_partial_smart(r"\lambda", deriv)
-        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
-        ds[var] = (
-            ("rad", "pol", "tor"),
-            value,
-            dict(long_name=long_name, symbol=symbol),
-        )
-    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_nu)):
-        if deriv == "":
-            var = "NU_B"
-            long_name = "Boozer angular potential"
-            symbol = r"\nu_B"
-        else:
-            var = f"dNU_B_d{deriv}"
-            long_name = derivative_name_smart("Boozer angular potential", deriv)
-            symbol = latex_partial_smart(r"\nu_B", deriv)
-        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
-        ds[var] = (
-            ("rad", "pol", "tor"),
-            value,
-            dict(long_name=long_name, symbol=symbol),
-        )
     return ds
 
 
@@ -719,6 +656,72 @@ def EvaluationsBoozerCustom(
     if ds.zeta_B.dims == ("tor",):
         ds = ds.set_coords("zeta_B").set_xindex("zeta_B")
 
+    return ds
+
+
+def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
+    """Add the LA and NU_B variables as computed by the boozer transform to the dataset.
+
+    Helper function for EvaluationsBoozer and related methods.
+    """
+    # Flatten theta, zeta
+    theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+    zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+
+    outputs_la = []
+    outputs_nu = []
+    # Sequence (list) of sfl_boozer (for each surface)
+    if isinstance(sfl_boozer, Sequence):
+        for r, rho in enumerate(ds.rho.data):
+            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+            outputs_la.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "LA", [0], thetazeta)
+            )
+            outputs_nu.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "NU", [0], thetazeta)
+            )
+    # Single sfl_boozer - compute base on each radial position
+    else:
+        for r, rho in enumerate(ds.rho.data):
+            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+            outputs_la.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
+            )
+            outputs_nu.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
+            )
+
+    # Write LA/NU to dataset
+    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):
+        if deriv == "":
+            var = "LA"
+            long_name = "Straight field line potential"
+            symbol = r"\lambda"
+        else:
+            var = f"dLA_d{deriv}"
+            long_name = derivative_name_smart("Straight field line potential", deriv)
+            symbol = latex_partial_smart(r"\lambda", deriv)
+        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+        ds[var] = (
+            ("rad", "pol", "tor"),
+            value,
+            dict(long_name=long_name, symbol=symbol),
+        )
+    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_nu)):
+        if deriv == "":
+            var = "NU_B"
+            long_name = "Boozer angular potential"
+            symbol = r"\nu_B"
+        else:
+            var = f"dNU_B_d{deriv}"
+            long_name = derivative_name_smart("Boozer angular potential", deriv)
+            symbol = latex_partial_smart(r"\nu_B", deriv)
+        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+        ds[var] = (
+            ("rad", "pol", "tor"),
+            value,
+            dict(long_name=long_name, symbol=symbol),
+        )
     return ds
 
 
