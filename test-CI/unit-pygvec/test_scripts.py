@@ -75,7 +75,6 @@ def test_run_stages(suffix):
     args = [f"parameter.{suffix}"]
     gvec.scripts.run.main(args)
 
-    assert Path(f"W7X_{suffix}_gvec_stages").exists()
     assert Path(f"W7X_{suffix}_State_final.dat").exists()
     assert Path(f"parameter_W7X_{suffix}_final.ini").exists()
 
@@ -93,7 +92,8 @@ def test_picard_auto():
             run_with_stages = gvec.run(parameters)
         del parameters["stages"]
     run_with_stages = gvec.run(parameters)
-    final_params_file, final_state, diagnostics = run_with_stages.run(parameters)
+    diagnostics = run_with_stages.diagnostics_minimizer
+    final_state = run_with_stages.final_state
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -140,7 +140,7 @@ def test_I_tor_types(ptype):
             parameters["I_tor"] = dict(type=ptype, coefs=c_bspl, knots=knots)
 
     run_with_stages = gvec.run(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run(return_output=True)
+    diagnostics = run_with_stages.diagnostics_minimizer
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -148,12 +148,14 @@ def test_I_tor_types(ptype):
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
-    I_tor_rms = np.sqrt((diagnostics.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad"))
+    I_tor_rms = np.sqrt(
+        (run_with_stages.diagnostics_run.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad")
+    )
     assert I_tor_rms.data < 1e-6, f"Expected ΔI_tor < 1e-6, got ΔI_tor:{I_tor_rms.data}"
 
 
 def test_maxRestarts():
-    """Test if all types of I_tor profiles result in valid current constraints."""
+    """Test if maxRestarts aborts correctly"""
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = gvec.util.CaseInsensitiveDict(
         dict(maxRestarts=10, iota_tol=1e-6, target="iota")
@@ -170,7 +172,6 @@ def test_maxRestarts():
         {"picard_current": {"maxRestarts": 2}},
     ]
     run_with_stages = gvec.run(parameters)
-    run_with_stages.run()
 
     for n, runs in enumerate(run_with_stages.n_runs_in_stage):
         assert n >= runs - 1, (
@@ -189,7 +190,6 @@ def test_stages_without_current():
         {"minimize_tol": 1e-3, "sgrid": {"nelems": 3}},
     ]
     run_with_stages = gvec.run(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run(parameters)
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 

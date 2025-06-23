@@ -5,6 +5,7 @@
 import logging
 from pathlib import Path
 
+import os
 import re
 import shutil
 import time
@@ -25,27 +26,109 @@ except ImportError:
     logging.warning(
         "Compiled bindings to GVEC not found. Running GVEC from python will not work."
     )
+import contextlib
+
+
+@contextlib.contextmanager
+def chdir(path: Path | str | None):
+    """
+    Contextmanager to change the current working directory.
+
+    Using a context has the benefit of automatically changing back to the original directory when the context is exited,
+    even if an exception is raised.
+    """
+    if path is not None:
+        path = Path(path)
+        old_dir = Path(os.getcwd())
+
+        os.chdir(path)
+        yield
+        os.chdir(old_dir)
+    else:
+        yield
 
 
 def run(
     parameters: Mapping | Path,
     restartstate: Path | None = None,
+    runpath: Path | str | None = None,
     redirect_gvec_stdout: bool = True,
     progressbar: bool = True,
     parameter_format: Literal["toml", "yaml"] = "toml",
+    delete_intermediates: Literal["all", "restarts"] | None = "all",
+    verbosity: Literal["quiet", "info", "debug"] = "quiet",
 ):
+    """Run GVEC with the provided parameters.
+
+    Parameters
+    ----------
+    parameters : Mapping | Path
+        GVEC parameter dictionary.
+    restartstate : Path | None, optional
+        Path to restart file or restart State object, by default None
+    runpath : Path | str | None, optional
+        Path to the directory where GVEC is executed. Overwrites existing directories or cerates a new directory if it does not exist.
+        The default is None.
+    redirect_gvec_stdout : bool, optional
+        Whether to redirect GVEC's stdout. The default is True.
+    progressbar : bool, optional
+        Whether to show a progress bar. The default is True.
+    parameter_format : Literal[&quot;toml&quot;, &quot;yaml&quot;], optional
+        Format of the parameter file automatically generated if `picard_current="auto"`, by default "toml"
+    delete_intermediates : Literal[&quot;all&quot;, &quot;restarts&quot;] | None, optional
+        Whether to keep intermediate results of GVEC. With `"all"`, no intermediate results are kept. With `"restarts"`,
+        only the final restarts from each stage are kept. With `None`, all intermediate results are saved. The default is "all".
+    verbosity : Literal[&quot;quiet&quot;, &quot;info&quot;, &quot;debug&quot;], optional
+        Verbosity level of the screen output. The default is "quiet".
+
+    Returns
+    -------
+    gvec.Run
+        Run-object containing history and current state of the GVEC run.
+    """
+
+    # logger setup
+    logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
+    logger = logging.getLogger("pyGVEC.script")  # show info/debug messages for this script
+    logger.propagate = False
+    loghandler = logging.StreamHandler()
+    logformatter = logging.Formatter("{levelname} {message}", style="{")
+    loghandler.setFormatter(logformatter)
+    logger.addHandler(loghandler)
+
+    if verbosity == "info":
+        logger.setLevel(logging.INFO)
+    elif verbosity == "debug":
+        logger.setLevel(logging.DEBUG)
+
+    # rundirectory setup
+    if runpath is not None:
+        runpath = Path(runpath)
+
+        if not runpath.exists():
+            runpath.mkdir()
+            logger.info(f"created run directory {runpath}")
+        else:
+            logger.info(f"run directory {runpath} is overwritten")
+
+    # transform parameters into hierarchical cidict.
     if isinstance(parameters, Path):
         params = gvec.util.read_parameters(parameters)
     else:
-        params = parameters
+        params = gvec.util.stack_parameters(parameters)
 
-    run_instance = Run(
-        params=params,
-        statefile=restartstate,
-        redirect_gvec_stdout=redirect_gvec_stdout,
-        progressbar=progressbar,
-        parameter_format=parameter_format,
-    )
+    # Run the case
+    with chdir(runpath):
+        run_instance = Run(
+            params=params,
+            statefile=restartstate,
+            redirect_gvec_stdout=redirect_gvec_stdout,
+            progressbar=progressbar,
+            parameter_format=parameter_format,
+        )
+
+        run_instance.run(delete_intermediates=delete_intermediates)
+
     return run_instance
 
 
@@ -74,6 +157,8 @@ class Run:
         """
         self.statefile = statefile
         self.parameters = params.copy()
+
+        # TODO: Replace state_parameters with gvec.State
         self.state_parameters = params.copy()
         if "ProjectName" not in self.state_parameters:
             self.state_parameters["ProjectName"] = "GVEC"
@@ -441,7 +526,11 @@ class Run:
         if set_I_tor:
             self._set_I_tor_target()
 
-    def run(self, return_output: bool = False):
+    def run(
+        self,
+        return_output: bool = False,
+        delete_intermediates: Literal["all", "restarts"] | None = "all",
+    ):
         """Sequentially run the stages of the Run object.
 
         Parameters
@@ -488,9 +577,11 @@ class Run:
                 target = self.state_parameters["picard_current"].get("target", "iota_and_force")
                 match target:
                     case "iota":
-                        self._run_stage_target_iota()
+                        self._run_stage_target_iota(delete_intermediates=delete_intermediates)
                     case "iota_and_force":
-                        self._run_stage_target_iota_and_force()
+                        self._run_stage_target_iota_and_force(
+                            delete_intermediates=delete_intermediates
+                        )
                     case _:
                         raise ValueError(f"Unknown picard_current target:{target}")
             else:
@@ -501,14 +592,19 @@ class Run:
                 self._print_progress()
                 self.run_single_minimization()
                 self.n_runs_in_stage[self.nth_stage] += 1
+                rm_dir = self.project_dir / Path(
+                    f"{self.nth_stage:1d}-{(self.nth_run - 1):02d}"
+                )
+                if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
+                    shutil.rmtree(rm_dir)
 
         self.logger.info("Done.")
-        final_state = Path(self.state_parameters["ProjectName"] + "_State_final.dat")
-        parameter_final = Path(
+        self.final_state = Path(self.state_parameters["ProjectName"] + "_State_final.dat")
+        self.final_parameters = Path(
             "parameter_" + self.state_parameters["ProjectName"] + "_final.ini"
         )
 
-        shutil.copy(self.statefile, final_state)
+        shutil.copy(self.statefile, self.final_state)
         parameters_final = gvec.util.read_parameter_file_ini(
             self.statefile.parents[0] / "parameter.ini"
         )
@@ -522,18 +618,22 @@ class Run:
                 parameters_final[key] = self.parameters[key]
         gvec.util.write_parameter_file_ini(
             parameters=parameters_final,
-            path=parameter_final,
+            path=self.final_parameters,
             header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage} run {self.nth_run})\n"
             f"!Created at {datetime.now().isoformat()}\n"
             f"!pyGVEC v{gvec.__version__}\n",
         )
 
+        if delete_intermediates == "all":
+            shutil.rmtree(self.project_dir)
+            self.project_dir = None
+
         if return_output:
             diagnostics = xr.merge([self.diagnostics_run, self.diagnostics_minimizer])
-            return (parameter_final, final_state, diagnostics)
+            return (self.final_parameters, self.final_state, diagnostics)
 
     def _run_stage_target_iota(
-        self,
+        self, delete_intermediates: Literal["all", "restarts"] | None = "all"
     ):
         """
         Target only iota in the current constraint, ignoring the forces.
@@ -571,6 +671,9 @@ class Run:
             self.n_runs_in_stage[self.nth_stage] += 1
             self._print_progress()
             self.run_single_minimization()
+            rm_dir = self.project_dir / Path(f"{self.nth_stage:1d}-{(self.nth_run - 1):02d}")
+            if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
+                shutil.rmtree(rm_dir)
 
         if self.rms_iota > iota_tol:
             self.logger.warning(
@@ -579,7 +682,9 @@ class Run:
                 + f"GVEC iterations used: {self.GVEC_iter_used}"
             )
 
-    def _run_stage_target_iota_and_force(self):
+    def _run_stage_target_iota_and_force(
+        self, delete_intermediates: Literal["all", "restarts"] | None = "all"
+    ):
         """
         Run GVEC until the force tolerance is reached and perform picrad iterations until the iota tolerance is reached.
         The maximum number of total GVEC iterations and the maximum number of picard iterations are limited by totaliter.
@@ -611,6 +716,9 @@ class Run:
             self.n_runs_in_stage[self.nth_stage] += 1
             self._print_progress()
             self.run_single_minimization()
+            rm_dir = self.project_dir / Path(f"{self.nth_stage:1d}-{(self.nth_run - 1):02d}")
+            if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
+                shutil.rmtree(rm_dir)
         if self.rms_iota > iota_tol:
             self.logger.warning(
                 f"WARNING: targeted iota has not been reached during stage {self.nth_stage}!\n"

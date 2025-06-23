@@ -68,6 +68,14 @@ parser.add_argument(
 )
 parser.add_argument("-p", "--plots", action="store_true", help="plot diagnostics")
 
+parser.add_argument(
+    "-k",
+    "--keep",
+    action="count",
+    default=0,
+    help="keep intermediate results: -k for the last restarts of each stage , -kk for all intermediate results",
+)
+
 # === Script === #
 
 
@@ -93,13 +101,21 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             logger.setLevel(logging.INFO)
         elif args.verbose >= 2:
             logger.setLevel(logging.DEBUG)
+
+        if args.keep == 0:
+            delete_intermediates = "all"
+        elif args.keep == 1:
+            delete_intermediates = "restarts"
+        elif args.keep >= 2:
+            delete_intermediates = None
+
         run_with_stages = gvec.run(
             parameters,
             args.restartfile,
             progressbar=not args.quiet and not args.verbose,
             redirect_gvec_stdout=args.verbose < 3,
+            delete_intermediates=delete_intermediates,
         )
-        run_with_stages.run()
 
         if args.diagnostics:
             diagnostics = xr.merge(
@@ -109,13 +125,17 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         if args.plots:
             if np.sum(np.array(run_with_stages.n_runs_in_stage) > 0) >= 2:
                 fig_runs = run_with_stages.plot_diagnostics_run()
-                fig_runs.savefig(f"{run_with_stages.params['projectName']}_runs.png")
+                fig_runs.savefig(f"{run_with_stages.state_parameters['projectName']}_runs.png")
 
             if run_with_stages.curr_constraint:
                 fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
-                fig_profiles.savefig(f"{run_with_stages.params['projectName']}_profiles.png")
+                fig_profiles.savefig(
+                    f"{run_with_stages.state_parameters['projectName']}_profiles.png"
+                )
             fig_minimization = run_with_stages.plot_diagnostics_minimization()
-            fig_minimization.savefig(f"{run_with_stages.params['projectName']}_iterations.png")
+            fig_minimization.savefig(
+                f"{run_with_stages.state_parameters['projectName']}_iterations.png"
+            )
     else:
         raise ValueError("Cannot determine parameterfile type")
 
