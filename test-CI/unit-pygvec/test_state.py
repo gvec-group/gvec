@@ -78,7 +78,6 @@ def test_state_with_warning(testfiles):
     with pytest.warns(DeprecationWarning):
         with State(parameterfile, statefile) as state:
             assert isinstance(state, State)
-            assert gvec.state.bound_state is state
 
 
 def test_state_FileNotFoundError(testfiles):

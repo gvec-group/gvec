@@ -29,8 +29,7 @@ except ImportError:
 
 @pytest.fixture()
 def teststate(testfiles):
-    with State(*testfiles) as state:
-        yield state
+    return State(*testfiles)
 
 
 @pytest.fixture()

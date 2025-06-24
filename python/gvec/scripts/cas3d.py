@@ -86,58 +86,58 @@ def gvec_to_cas3d(
         params = util.read_parameter_file_ini(parameterfile)
         name = params["ProjectName"]
 
-        with State(parameterfile, statefile) as state:
-            # Boozer transform
-            rho = np.sqrt(np.linspace(0, 1.0, ns))
-            rho[0] = 1e-4
-            ev = EvaluationsBoozer(
-                rho,
-                sampling * MN_out[0] + 1,
-                sampling * MN_out[1] + 1,
-                M=MN_booz[0],
-                N=MN_booz[1],
-                state=state,
-            )
+        state = State(parameterfile, statefile)
+        # Boozer transform
+        rho = np.sqrt(np.linspace(0, 1.0, ns))
+        rho[0] = 1e-4
+        ev = EvaluationsBoozer(
+            rho,
+            sampling * MN_out[0] + 1,
+            sampling * MN_out[1] + 1,
+            M=MN_booz[0],
+            N=MN_booz[1],
+            state=state,
+        )
 
-            # Surface reparametrization
-            progress.update(1)
-            progress.set_description("reparametrizing surfaces...")
-            state.compute(ev, "N_FP", "pos")
-            surf = surface.init_surface(ev.pos, ev.N_FP, ift="fft")
-            q_surf = [
-                "xhat",
-                "yhat",
-                "zhat",
-                "g_tt_B",
-                "g_tz_B",
-                "g_zz_B",
-                "II_tt_B",
-                "II_tz_B",
-                "II_zz_B",
-            ]
-            surface.compute(surf, *q_surf)
-            surf = surf[q_surf]
+        # Surface reparametrization
+        progress.update(1)
+        progress.set_description("reparametrizing surfaces...")
+        state.compute(ev, "N_FP", "pos")
+        surf = surface.init_surface(ev.pos, ev.N_FP, ift="fft")
+        q_surf = [
+            "xhat",
+            "yhat",
+            "zhat",
+            "g_tt_B",
+            "g_tz_B",
+            "g_zz_B",
+            "II_tt_B",
+            "II_tz_B",
+            "II_zz_B",
+        ]
+        surface.compute(surf, *q_surf)
+        surf = surf[q_surf]
 
-            # Quantities of interest (computed from equilibrium)
-            progress.update(1)
-            progress.set_description("computing equilibrium quantities...")
-            q_vol = [
-                "N_FP",
-                "mod_B",
-                "B_contra_t_B",
-                "B_contra_z_B",
-                "B_theta_avg",
-                "B_zeta_avg",
-                "iota",
-                "p",
-                "Phi",
-                "chi",
-                "Jac_B",
-            ]
-            state.compute(ev, *q_vol)
-            ev = ev[q_vol]
+        # Quantities of interest (computed from equilibrium)
+        progress.update(1)
+        progress.set_description("computing equilibrium quantities...")
+        q_vol = [
+            "N_FP",
+            "mod_B",
+            "B_contra_t_B",
+            "B_contra_z_B",
+            "B_theta_avg",
+            "B_zeta_avg",
+            "iota",
+            "p",
+            "Phi",
+            "chi",
+            "Jac_B",
+        ]
+        state.compute(ev, *q_vol)
+        ev = ev[q_vol]
 
-            ds = xr.merge([ev, surf])
+        ds = xr.merge([ev, surf])
 
         # manual conversion
         drho = 2 * ds.rho

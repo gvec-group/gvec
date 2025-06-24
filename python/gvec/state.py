@@ -169,7 +169,7 @@ class State:
         gvec.util.write_parameters(parameters, parameterfile)
         return cls(parameterfile)
 
-    # === Binding to the Fortran === #
+    # === Binding to the Fortran library === #
 
     def bind(self):
         """Bind this State object to the Fortran library. Allocate & initialize everything."""
@@ -254,8 +254,8 @@ class State:
 
     @property
     def stdout(self) -> str:
-        if not hasattr(self, "_stdout"):
-            return None
+        if self._stdout is None:
+            return ""
         self._stdout.seek(0)
         return self._stdout.read()
 
@@ -760,9 +760,12 @@ def load_state(parameterfile: Path | str, statefile: Path | str):
     return State(parameterfile, statefile)
 
 
-def find_state(rundir: Path | str):
+def find_state(rundir: Path | str | None = None):
     """Load a State object from a given run-directory. Use the latest statefile which is found."""
-    rundir = Path(rundir)
+    if rundir is None:
+        rundir = Path.cwd()
+    else:
+        rundir = Path(rundir)
     parameterfiles = list(rundir.glob("parameter*.ini"))
     if len(parameterfiles) > 1:
         raise ValueError(
@@ -776,9 +779,12 @@ def find_state(rundir: Path | str):
     return State(parameterfiles[0], statefiles[-1])
 
 
-def find_states(rundir: Path | str):
+def find_states(rundir: Path | str | None = None):
     """Load a Sequence of State objects from a given run-directory."""
-    rundir = Path(rundir)
+    if rundir is None:
+        rundir = Path.cwd()
+    else:
+        rundir = Path(rundir)
     parameterfiles = list(rundir.glob("parameter*.ini"))
     if len(parameterfiles) > 1:
         raise ValueError(

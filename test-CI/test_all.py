@@ -323,16 +323,16 @@ class TestPost(BaseTestPost):
             "zeta",
             "NU_B",
         }
-        with gvec.State(parameterfile, statefile) as state:
-            boozer_py = gvec.EvaluationsBoozer(
-                rho=boozer_post.rho,
-                theta_B=boozer_post.theta_B,
-                zeta_B=boozer_post.zeta_B,
-                state=state,
-                M=M,
-                N=N,
-            )
-            state.compute(boozer_py, *boozer_post.data_vars)
+        state = gvec.State(parameterfile, statefile)
+        boozer_py = state.evaluate_sfl(
+            *boozer_post.data_vars,
+            sfl="boozer",
+            rho=boozer_post.rho,
+            theta=boozer_post.theta_B,
+            zeta=boozer_post.zeta_B,
+            M=M,
+            N=N,
+        )
 
         errs = []
         vars = list(boozer_post.data_vars)

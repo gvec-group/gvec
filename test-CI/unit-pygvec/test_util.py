@@ -68,9 +68,9 @@ def test_ev2vtk(testcaserundir, testfiles):
     zeta = np.linspace(0, 2 * np.pi, 5)  # full torus, including endpoints
     vars_out = ["X1", "X2", "LA", "iota", "p", "pos", "grad_zeta", "e_rho", "B"]
 
-    with gvec.State(*testfiles) as state:
-        ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=state)
-        state.compute(ev, *vars_out)
+    state = gvec.State(*testfiles)
+    ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=state)
+    state.compute(ev, *vars_out)
 
     ev = ev[vars_out]
     ev2vtk(testcaserundir / "test_ev2.vtk", ev)
