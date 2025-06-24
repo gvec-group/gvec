@@ -152,7 +152,13 @@ class Run:
             )
 
         # TODO: Replace state_parameters with gvec.State
-        self._state_parameters = self.parameters.copy()
+
+        # _state_parameters reflect the state of the Run, that is they change during each stage and/or restart
+        # after a stage they are reset to parameters.They are NOT state.parameters, as those reflect the state of a
+        # finished restart.
+        self._state_parameters = (
+            self.parameters.copy()
+        )  # parameters that will be changed during each restart
         if "ProjectName" not in self._state_parameters:
             self._state_parameters["ProjectName"] = "GVEC"
             self.parameters["ProjectName"] = "GVEC"
@@ -345,11 +351,7 @@ class Run:
             )
 
         # postprocessing
-        self.state.statefile = sorted(self.rundir.glob("*State*.dat"))[-1]
-        self.state = gvec.State(
-            parameterfile=self.rundir.absolute() / "parameter.ini",
-            statefile=self.state.statefile.absolute(),
-        )
+        self.state = gvec.state.find_state(self.rundir)
         iterations = int(re.match(r".*State.*_(\d+)\.dat", self.state.statefile.name).group(1))
         iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
@@ -524,15 +526,12 @@ class Run:
 
     def run(
         self,
-        return_output: bool = False,
         delete_intermediates: Literal["all", "restarts"] | None = "all",
     ):
         """Sequentially run the stages of the Run object.
 
         Parameters
         ----------
-        return_output : bool, optional
-            Flag to return the rundirectory, the final statefile and the diagnostics dataset, by default False.
 
         Returns
         -------
@@ -626,9 +625,8 @@ class Run:
             shutil.rmtree(self.project_dir)
             self.project_dir = None
 
-        if return_output:
-            diagnostics = xr.merge([self.diagnostics_run, self.diagnostics_minimizer])
-            return (self.state, diagnostics)
+        diagnostics = xr.merge([self.diagnostics_run, self.diagnostics_minimizer])
+        return (self.state, diagnostics)
 
     def _run_stage_target_iota(
         self, delete_intermediates: Literal["all", "restarts"] | None = "all"

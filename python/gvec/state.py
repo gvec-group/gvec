@@ -137,8 +137,8 @@ class State:
         parameterfile: str | Path,
         statefile: str | Path | None = None,
     ):
-        self.parameterfile: Path = Path(parameterfile)
-        self.statefile: Path | None = Path(statefile) if statefile else None
+        self.parameterfile: Path = Path(parameterfile).absolute()
+        self.statefile: Path | None = Path(statefile).absolute() if statefile else None
 
         self._stdout: tempfile.NamedTemporaryFile | None = None
         self._children: list[gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer] = []
@@ -233,11 +233,10 @@ class State:
         warnings.warn(
             "Using State as a context manager is no longer necessary.", DeprecationWarning
         )
-        self.bind()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.unbind()
+        pass
 
     # === Debug Information === #
 
