@@ -92,7 +92,6 @@ def test_picard_auto():
         del parameters["stages"]
     run_with_stages = gvec.run(parameters)
     diagnostics = run_with_stages.diagnostics_minimizer
-    final_state = run_with_stages.final_state
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -101,9 +100,7 @@ def test_picard_auto():
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
     rho = np.sqrt(np.linspace(0, 1, 101))
     rho[0] = 1e-4
-    with gvec.State(f"parameter_{ProjectName}_final.ini", final_state) as state:
-        ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
-        state.compute(ev, "I_tor", "iota_curr")
+    ev = run_with_stages.state.evaluate("I_tor", "iota_curr", rho=rho, theta="int", zeta="int")
     assert ev.iota_curr.max().data < 1e-6
 
 

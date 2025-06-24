@@ -340,14 +340,15 @@ class Run:
         with gvec.util.chdir(self.rundir):
             fortran_run(
                 "parameter.ini",
-                "../../" / self.state.statefile if self.state.statefile else None,
+                self.state.statefile if self.state.statefile else None,
                 stdout_path="stdout.txt" if self.redirect_gvec_stdout else None,
             )
 
         # postprocessing
         self.state.statefile = sorted(self.rundir.glob("*State*.dat"))[-1]
         self.state = gvec.State(
-            parameterfile=self.rundir / "parameter.ini", statefile=self.state.statefile
+            parameterfile=self.rundir.absolute() / "parameter.ini",
+            statefile=self.state.statefile.absolute(),
         )
         iterations = int(re.match(r".*State.*_(\d+)\.dat", self.state.statefile.name).group(1))
         iteration_offset = self.GVEC_iter_used
@@ -536,7 +537,7 @@ class Run:
         Returns
         -------
         tuple:
-            The final parameter file (Path), the final statefile (Path) and the diagnostics dataset (xr.DataSet)
+            The final state (gvec.State) and the diagnostics dataset (xr.DataSet)
 
         Raises
         ------
@@ -596,12 +597,12 @@ class Run:
                     shutil.rmtree(rm_dir)
 
         self.logger.info("Done.")
-        self.final_state = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
-        self.final_parameters = Path(
+        final_statefile = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
+        final_parameter_file = Path(
             "parameter_" + self._state_parameters["ProjectName"] + "_final.ini"
         )
 
-        shutil.copy(self.state.statefile, self.final_state)
+        shutil.copy(self.state.statefile, final_statefile)
         parameters_final = gvec.util.read_parameter_file_ini(
             self.state.statefile.parents[0] / "parameter.ini"
         )
@@ -615,19 +616,19 @@ class Run:
                 parameters_final[key] = self.parameters[key]
         gvec.util.write_parameter_file_ini(
             parameters=parameters_final,
-            path=self.final_parameters,
+            path=final_parameter_file,
             header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage} run {self.nth_run})\n"
             f"!Created at {datetime.now().isoformat()}\n"
             f"!pyGVEC v{gvec.__version__}\n",
         )
-
+        self.state = gvec.State(final_parameter_file.absolute(), final_statefile.absolute())
         if delete_intermediates == "all":
             shutil.rmtree(self.project_dir)
             self.project_dir = None
 
         if return_output:
             diagnostics = xr.merge([self.diagnostics_run, self.diagnostics_minimizer])
-            return (self.final_parameters, self.final_state, diagnostics)
+            return (self.state, diagnostics)
 
     def _run_stage_target_iota(
         self, delete_intermediates: Literal["all", "restarts"] | None = "all"
