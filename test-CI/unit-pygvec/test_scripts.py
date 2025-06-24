@@ -74,17 +74,8 @@ def test_run_stages(suffix):
     args = [f"parameter.{suffix}"]
     gvec.scripts.run.main(args)
 
-    match suffix:
-        case "ini":
-            assert Path("W7X_State_0000_00000100.dat").exists()
-        case "yaml":
-            assert Path("W7X_yaml_gvec_stages").exists()
-            assert Path("W7X_yaml_State_final.dat").exists()
-            assert Path("parameter_W7X_yaml_final.ini").exists()
-        case "toml":
-            assert Path("W7X_toml_gvec_stages").exists()
-            assert Path("W7X_toml_State_final.dat").exists()
-            assert Path("parameter_W7X_toml_final.ini").exists()
+    assert Path(f"W7X_{suffix}_State_final.dat").exists()
+    assert Path(f"parameter_W7X_{suffix}_final.ini").exists()
 
 
 def test_picard_auto():
@@ -97,10 +88,11 @@ def test_picard_auto():
     parameters["projectname"] = ProjectName
     if "stages" in parameters:
         with pytest.raises(ValueError):
-            run_with_stages = gvec.scripts.run.RunWithStages(parameters)
+            run_with_stages = gvec.run(parameters)
         del parameters["stages"]
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
+    run_with_stages = gvec.run(parameters)
+    diagnostics = run_with_stages.diagnostics_minimizer
+    final_state = run_with_stages.final_state
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -111,8 +103,8 @@ def test_picard_auto():
     rho[0] = 1e-4
     with gvec.State(f"parameter_{ProjectName}_final.ini", final_state) as state:
         ev = gvec.Evaluations(rho=rho, theta="int", zeta="int", state=state)
-        state.compute(ev, "I_tor")
-    assert ev.I_tor.max().data < 1e-6
+        state.compute(ev, "I_tor", "iota_curr")
+    assert ev.iota_curr.max().data < 1e-6
 
 
 @pytest.mark.parametrize("ptype", ["interpolation", "polynomial", "bspline"])
@@ -146,8 +138,8 @@ def test_I_tor_types(ptype):
                 c_bspl[j] = poly2bspl_coeff(coefs, j, knots)
             parameters["I_tor"] = dict(type=ptype, coefs=c_bspl, knots=knots)
 
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run_stages(return_output=True)
+    run_with_stages = gvec.run(parameters)
+    diagnostics = run_with_stages.diagnostics_minimizer
     assert diagnostics.force_X1[-1].data <= 1e-4
     assert diagnostics.force_X2[-1].data <= 1e-4
     assert diagnostics.force_LA[-1].data <= 1e-4
@@ -155,12 +147,14 @@ def test_I_tor_types(ptype):
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
-    I_tor_rms = np.sqrt((diagnostics.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad"))
+    I_tor_rms = np.sqrt(
+        (run_with_stages.diagnostics_run.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad")
+    )
     assert I_tor_rms.data < 1e-6, f"Expected ΔI_tor < 1e-6, got ΔI_tor:{I_tor_rms.data}"
 
 
 def test_maxRestarts():
-    """Test if all types of I_tor profiles result in valid current constraints."""
+    """Test if maxRestarts aborts correctly"""
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = gvec.util.CaseInsensitiveDict(
         dict(maxRestarts=10, iota_tol=1e-6, target="iota")
@@ -176,8 +170,7 @@ def test_maxRestarts():
         },
         {"picard_current": {"maxRestarts": 2}},
     ]
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    run_with_stages.run_stages()
+    run_with_stages = gvec.run(parameters)
 
     for n, runs in enumerate(run_with_stages.n_runs_in_stage):
         assert n >= runs - 1, (
@@ -195,8 +188,7 @@ def test_stages_without_current():
         {"minimize_tol": 1e-2, "sgrid": {"nelems": 2}},
         {"minimize_tol": 1e-3, "sgrid": {"nelems": 3}},
     ]
-    run_with_stages = gvec.scripts.run.RunWithStages(parameters)
-    rundir, final_state, diagnostics = run_with_stages.run_stages(parameters)
+    run_with_stages = gvec.run(parameters)
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
 
