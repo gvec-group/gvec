@@ -88,11 +88,11 @@ SUBROUTINE InitMHD3D(sf)
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
-  which_init = GETINT("whichInitEquilibrium")
+  which_init = GETINT("whichInitEquilibrium",0)
   IF(which_init.EQ.1) CALL InitVMEC()
 
   !-----------MINIMIZER
-  MinimizerType= GETINT("MinimizerType",Proposal=0)
+  MinimizerType= GETINT("MinimizerType",Proposal=10)
   PrecondType  = GETINT("PrecondType",Proposal=1)
 
   dW_allowed=GETREAL("dW_allowed",Proposal=1.0e-10_wp) !! for minimizer, accept step if dW<dW_allowed*W_MHD(iter=0) default +10e-10
