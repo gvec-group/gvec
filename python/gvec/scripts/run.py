@@ -125,16 +125,16 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         if args.plots:
             if np.sum(np.array(run_with_stages.n_runs_in_stage) > 0) >= 2:
                 fig_runs = run_with_stages.plot_diagnostics_run()
-                fig_runs.savefig(f"{run_with_stages.state_parameters['projectName']}_runs.png")
+                fig_runs.savefig(f"{run_with_stages._state_parameters['projectName']}_runs.png")
 
             if run_with_stages.curr_constraint:
                 fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
                 fig_profiles.savefig(
-                    f"{run_with_stages.state_parameters['projectName']}_profiles.png"
+                    f"{run_with_stages._state_parameters['projectName']}_profiles.png"
                 )
             fig_minimization = run_with_stages.plot_diagnostics_minimization()
             fig_minimization.savefig(
-                f"{run_with_stages.state_parameters['projectName']}_iterations.png"
+                f"{run_with_stages._state_parameters['projectName']}_iterations.png"
             )
     else:
         raise ValueError("Cannot determine parameterfile type")

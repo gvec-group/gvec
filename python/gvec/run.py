@@ -102,7 +102,7 @@ def run(
     with gvec.util.chdir(runpath):
         run_instance = Run(
             params=params,
-            statefile=restartstate,
+            state=restartstate,
             redirect_gvec_stdout=redirect_gvec_stdout,
             progressbar=progressbar,
             parameter_format=parameter_format,
@@ -117,7 +117,7 @@ class Run:
     def __init__(
         self,
         params: Mapping,
-        statefile: Path | None = None,
+        state: Path | gvec.State | None = None,
         redirect_gvec_stdout: bool = True,
         progressbar: bool = True,
         parameter_format: Literal["toml", "yaml"] = "toml",
@@ -129,20 +129,32 @@ class Run:
         ----------
         params : Mapping
             GVEC parameter dictionary.
-        statefile : Path | None, optional
-            Statefile to restart from. The default is None.
+        state : Path | gvec.State | None, optional
+            Statefile or State to restart from. The default is None.
         redirect_gvec_stdout : bool, optional
             Whether to redirect GVEC's stdout. The default is True.
         progressbar : bool, optional
             Whether to show a progress bar. The default is True.
+
+        Raises
+        ------
+        ValueError
+            If neither params nor a state is provided.
         """
-        self.statefile = statefile
-        self.parameters = params.copy()
+
+        if params:
+            self.parameters = params.copy()
+        elif isinstance(state, gvec.State):
+            self.parameters = state.parameters.copy()
+        else:
+            raise ValueError(
+                f"Neither valid 'params' nor a valid 'state' are provided! params: {params}, state: {state}"
+            )
 
         # TODO: Replace state_parameters with gvec.State
-        self.state_parameters = params.copy()
-        if "ProjectName" not in self.state_parameters:
-            self.state_parameters["ProjectName"] = "GVEC"
+        self._state_parameters = self.parameters.copy()
+        if "ProjectName" not in self._state_parameters:
+            self._state_parameters["ProjectName"] = "GVEC"
             self.parameters["ProjectName"] = "GVEC"
         if "picard_current" not in self.parameters:
             self.parameters["picard_current"] = "off"
@@ -150,7 +162,7 @@ class Run:
         self.logger = logging.getLogger("pyGVEC.script")
         self.filetype = parameter_format
 
-        project_dir = Path(f"{self.state_parameters['ProjectName']}_gvec_stages")
+        project_dir = Path(f"{self._state_parameters['ProjectName']}_gvec_stages")
         if project_dir.exists():
             self.logger.debug(f"Removing existing run directory {project_dir}")
             shutil.rmtree(project_dir)
@@ -168,7 +180,7 @@ class Run:
 
         self.totaliter = params.get("totaliter", int(1e5))
         if "maxIter" not in params:
-            self.state_parameters["maxIter"] = self.totaliter
+            self._state_parameters["maxIter"] = self.totaliter
 
         self.has_Itor = "I_tor" in params
 
@@ -197,7 +209,7 @@ class Run:
             parameters_stages = params.copy()
             parameters_stages["stages"] = self.stages
             parameters_stages_name = (
-                f"parameter_{self.state_parameters['ProjectName']}.stages.{self.filetype}"
+                f"parameter_{self._state_parameters['ProjectName']}.stages.{self.filetype}"
             )
             self.logger.info(f"... generated {len(self.stages)} stages.")
             self.logger.info(f"... writing new parameters to '{parameters_stages_name}'")
@@ -205,7 +217,7 @@ class Run:
                 parameters_stages,
                 project_dir / parameters_stages_name,
             )
-            self.state_parameters["picard_current"] = cidict()
+            self._state_parameters["picard_current"] = cidict()
         else:
             self.stages = params.get("stages", [cidict()])
 
@@ -218,7 +230,7 @@ class Run:
             self.curr_constraint = False
 
         # account for the change in relative path of restart, hmap, etc. files
-        for key, value in self.state_parameters.items():
+        for key, value in self._state_parameters.items():
             if key.lower() in [
                 "vmecwoutfile",
                 "boundary_filename",
@@ -229,11 +241,15 @@ class Run:
         # count the number of runs in each stage, for dynamic progressbar during current constraint
         self.n_runs_in_stage = [0 for _ in self.stages]
 
+        initial_param_file = self.project_dir / "parameters_initial.ini"
+        gvec.util.write_parameters(self._state_parameters, initial_param_file)
+        if isinstance(state, (str, Path)) or state is None:
+            self.state = gvec.State(initial_param_file, state)
+        else:
+            self.state = gvec.State(initial_param_file, state.statefile)
+
     def _set_I_tor_target(self):
         """Evaluate and set the target toroidal current profile at linearily spaced positions in rho.
-
-        Parameters
-        ----------
 
         Raises
         ------
@@ -241,20 +257,20 @@ class Run:
             If an unknown profile type is provided.
         """
         if (
-            not isinstance(self.state_parameters["picard_current"], str)
-            and "nPoints" in self.state_parameters["picard_current"]
+            not isinstance(self._state_parameters["picard_current"], str)
+            and "nPoints" in self._state_parameters["picard_current"]
         ):
-            nPoints = self.state_parameters["picard_current"]["nPoints"]
+            nPoints = self._state_parameters["picard_current"]["nPoints"]
         else:
             nPoints = 101
         self.rho = np.linspace(0, 1, nPoints)
         self.rho[0] = 1e-4
 
-        match self.state_parameters["I_tor"].get("type", "polynomial"):
+        match self._state_parameters["I_tor"].get("type", "polynomial"):
             case "polynomial":
-                coefs = np.array(self.state_parameters["I_tor"]["coefs"][::-1])
+                coefs = np.array(self._state_parameters["I_tor"]["coefs"][::-1])
                 self.logger.debug(f"polynomial coefs: {coefs}")
-                coefs *= self.state_parameters["I_tor"].get("scale", 1.0)
+                coefs *= self._state_parameters["I_tor"].get("scale", 1.0)
                 self.I_tor_target = np.poly1d(coefs)(self.rho**2)
                 if (
                     abs(coefs[-1]) > 1e-8
@@ -266,9 +282,9 @@ class Run:
             case "bspline":
                 from scipy.interpolate import BSpline
 
-                coefs = np.array(self.state_parameters["I_tor"]["coefs"], dtype=float)
-                coefs *= self.state_parameters["I_tor"].get("scale", 1.0)
-                knots = np.array(self.state_parameters["I_tor"]["knots"], dtype=float)
+                coefs = np.array(self._state_parameters["I_tor"]["coefs"], dtype=float)
+                coefs *= self._state_parameters["I_tor"].get("scale", 1.0)
+                knots = np.array(self._state_parameters["I_tor"]["knots"], dtype=float)
                 deg = np.sum(knots == knots[0]) - 1
                 I_tor_bspl = BSpline(knots, coefs, deg)
                 self.I_tor_target = I_tor_bspl(self.rho**2)
@@ -280,9 +296,9 @@ class Run:
             case "interpolation":
                 from scipy.interpolate import make_splrep
 
-                y_vals = np.array(self.state_parameters["I_tor"]["vals"], dtype=float)
+                y_vals = np.array(self._state_parameters["I_tor"]["vals"], dtype=float)
                 rho2_vals = np.sqrt(
-                    np.array(self.state_parameters["I_tor"]["rho2"], dtype=float)
+                    np.array(self._state_parameters["I_tor"]["rho2"], dtype=float)
                 )
                 if min(np.sqrt(rho2_vals)) > 1e-4:
                     rho2_vals = np.append([0], rho2_vals)
@@ -295,15 +311,15 @@ class Run:
                     )
 
             case _:
-                raise ValueError(f"Unknown Itor type: {self.state_parameters['Itor']['type']}")
+                raise ValueError(f"Unknown Itor type: {self._state_parameters['Itor']['type']}")
 
     def run_single_minimization(self):
         """Run a single GVEC energy minimization using the current parameters. The run-state is updated after the run."""
         start_time = time.time()
         # find previous state
-        if self.statefile:
-            self.logger.debug(f"Restart from statefile {self.statefile}")
-            self.state_parameters["init_LA"] = False
+        if self.state.statefile:
+            self.logger.debug(f"Restart from statefile {self.state.statefile}")
+            self._state_parameters["init_LA"] = False
 
         # prepare the run directory
         self.rundir = self.project_dir / Path(f"{self.nth_stage:1d}-{self.nth_run:02d}")
@@ -315,7 +331,7 @@ class Run:
 
         # write parameterfile & run GVEC
         gvec.util.write_parameter_file_ini(
-            gvec.util.flatten_parameters(self.state_parameters),
+            gvec.util.flatten_parameters(self._state_parameters),
             self.rundir / "parameter.ini",
             header=f"!Auto-generated with `pygvec run` (stage {self.nth_stage} run {self.nth_run})\n"
             f"!Created at {datetime.now().isoformat()}\n"
@@ -324,36 +340,35 @@ class Run:
         with gvec.util.chdir(self.rundir):
             fortran_run(
                 "parameter.ini",
-                "../../" / self.statefile if self.statefile else None,
+                "../../" / self.state.statefile if self.state.statefile else None,
                 stdout_path="stdout.txt" if self.redirect_gvec_stdout else None,
             )
 
         # postprocessing
-        self.statefile = sorted(self.rundir.glob("*State*.dat"))[-1]
-        iterations = int(re.match(r".*State.*_(\d+)\.dat", self.statefile.name).group(1))
+        self.state.statefile = sorted(self.rundir.glob("*State*.dat"))[-1]
+        self.state = gvec.State(
+            parameterfile=self.rundir / "parameter.ini", statefile=self.state.statefile
+        )
+        iterations = int(re.match(r".*State.*_(\d+)\.dat", self.state.statefile.name).group(1))
         iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
-        max_iterations = self.state_parameters.get("maxIter")
-        tolerance = self.state_parameters.get("minimize_tol")
-        self.logger.debug(f"Postprocessing statefile {self.statefile}")
+        max_iterations = self._state_parameters.get("maxIter")
+        tolerance = self._state_parameters.get("minimize_tol")
+        self.logger.debug(f"Postprocessing statefile {self.state.statefile}")
 
-        with gvec.State(
-            self.rundir / "parameter.ini",
-            self.statefile,
-        ) as state:
-            if hasattr(self, "rho"):  # e.g. when running in iota_constraint
-                rho_eval = self.rho
-            else:
-                rho_eval = "int"
-            ev = gvec.Evaluations(rho=rho_eval, theta="int", zeta="int", state=state)
-            state.compute(ev, "F_r_avg", "N_FP")
-            if self.curr_constraint:
-                state.compute(ev, "iota", "iota_curr_0", "iota_0", "I_tor")
-
+        quantities = ["F_r_avg", "N_FP"]
+        if self.curr_constraint:
+            quantities += ["iota", "iota_curr_0", "iota_0", "I_tor"]
+        if hasattr(self, "rho"):  # e.g. when running in iota_constraint
+            rho_eval = self.rho
+        else:
+            rho_eval = "int"
+        ev = self.state.evaluate(*quantities, rho=rho_eval, theta="int", zeta="int")
+        self.state.unbind()
         # update iota
         if self.curr_constraint:
             iota_values = ev.iota_0 + self.I_tor_target * ev.iota_curr_0
-            self.state_parameters["iota"] = {
+            self._state_parameters["iota"] = {
                 "type": "interpolation",
                 "vals": iota_values.data,
                 "rho2": (ev.rho**2).data,
@@ -365,7 +380,7 @@ class Run:
             self.rms_iota = np.sqrt((iota_delta**2).mean("rad"))
             self.logger.info(f"max Δiota: {np.abs(iota_delta).max().item():.2e}")
             self.logger.info(
-                f"rms Δiota: {self.rms_iota.item():.2e}, iota_tol: {self.state_parameters['picard_current']['iota_tol']:.2e}"
+                f"rms Δiota: {self.rms_iota.item():.2e}, iota_tol: {self._state_parameters['picard_current']['iota_tol']:.2e}"
             )
             self.logger.info(
                 f"max ΔItor: {np.abs(ev.I_tor - self.I_tor_target).max().item():.2e}"
@@ -437,7 +452,7 @@ class Run:
         Reset the parameters to the original values. Except for `iota` and `maxIter`, which is limited by `totaliter`.
         """
         params = self.parameters.copy()
-        params["iota"] = self.state_parameters["iota"]
+        params["iota"] = self._state_parameters["iota"]
         params["maxIter"] = min(
             self.totaliter - self.GVEC_iter_used,
             self.parameters.get("maxIter", self.totaliter),
@@ -457,7 +472,7 @@ class Run:
         if self.has_Itor and (self.nth_run > 0 or self.nth_stage > 0):
             params["init_with_profile_iota"] = True
 
-        self.state_parameters = params
+        self._state_parameters = params
 
     def _set_params_for_stage(self, stage: Mapping):
         """
@@ -473,7 +488,7 @@ class Run:
 
         for key, value in stage.items():
             if key == "maxIter":
-                self.state_parameters[key] = min(self.totaliter - self.GVEC_iter_used, value)
+                self._state_parameters[key] = min(self.totaliter - self.GVEC_iter_used, value)
 
             if key == "picard_current" and value == "off":
                 self.curr_constraint = False
@@ -483,25 +498,25 @@ class Run:
                     + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
                 )
             elif key == "picard_current" and not isinstance(value, str):
-                if key not in self.state_parameters:
-                    self.state_parameters[key] = cidict()
+                if key not in self._state_parameters:
+                    self._state_parameters[key] = cidict()
                 for subkey, subvalue in value.items():
-                    self.state_parameters[key][subkey] = subvalue
+                    self._state_parameters[key][subkey] = subvalue
                     if subkey == "nPoints" and subvalue != len(self.rho):
                         set_I_tor = True
 
             if key in ["iota", "pres", "sgrid", "i_tor"]:
-                if key not in self.state_parameters:
-                    self.state_parameters[key] = cidict()
+                if key not in self._state_parameters:
+                    self._state_parameters[key] = cidict()
                 if key == "i_tor":
                     set_I_tor = True
                 for subkey, subvalue in value.items():
-                    self.state_parameters[key][subkey] = subvalue
-            if key in self.state_parameters and isinstance(value, Mapping):
+                    self._state_parameters[key][subkey] = subvalue
+            if key in self._state_parameters and isinstance(value, Mapping):
                 for subkey, subvalue in value.items():
-                    self.state_parameters[key][subkey] = subvalue
+                    self._state_parameters[key][subkey] = subvalue
             else:
-                self.state_parameters[key] = value
+                self._state_parameters[key] = value
 
         if set_I_tor:
             self._set_I_tor_target()
@@ -547,14 +562,16 @@ class Run:
 
             # run the stage
             if self.curr_constraint:
-                if self.state_parameters["picard_current"] == "auto":
+                if self._state_parameters["picard_current"] == "auto":
                     raise ValueError(
                         'Detected `picard_current="auto"` during stage evaluation. Auto mode has to be set outside of the stages.'
                     )
-                if "iota_tol" not in self.state_parameters["picard_current"]:
+                if "iota_tol" not in self._state_parameters["picard_current"]:
                     raise KeyError(f"During stage {s} 'iota_tol' is not specified.")
 
-                target = self.state_parameters["picard_current"].get("target", "iota_and_force")
+                target = self._state_parameters["picard_current"].get(
+                    "target", "iota_and_force"
+                )
                 match target:
                     case "iota":
                         self._run_stage_target_iota(delete_intermediates=delete_intermediates)
@@ -565,9 +582,9 @@ class Run:
                     case _:
                         raise ValueError(f"Unknown picard_current target:{target}")
             else:
-                self.state_parameters["maxIter"] = min(
+                self._state_parameters["maxIter"] = min(
                     self.totaliter - self.GVEC_iter_used,
-                    self.state_parameters["maxIter"],
+                    self._state_parameters["maxIter"],
                 )
                 self._print_progress()
                 self.run_single_minimization()
@@ -579,14 +596,14 @@ class Run:
                     shutil.rmtree(rm_dir)
 
         self.logger.info("Done.")
-        self.final_state = Path(self.state_parameters["ProjectName"] + "_State_final.dat")
+        self.final_state = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
         self.final_parameters = Path(
-            "parameter_" + self.state_parameters["ProjectName"] + "_final.ini"
+            "parameter_" + self._state_parameters["ProjectName"] + "_final.ini"
         )
 
-        shutil.copy(self.statefile, self.final_state)
+        shutil.copy(self.state.statefile, self.final_state)
         parameters_final = gvec.util.read_parameter_file_ini(
-            self.statefile.parents[0] / "parameter.ini"
+            self.state.statefile.parents[0] / "parameter.ini"
         )
         parameters_final["maxIter"] = -1
         for key in parameters_final:
@@ -631,12 +648,12 @@ class Run:
 
         self.rms_iota = 1e6
         self.nth_run = -1
-        if "maxRestarts" in self.state_parameters["picard_current"]:
-            max_restarts = self.state_parameters["picard_current"]["maxRestarts"]
+        if "maxRestarts" in self._state_parameters["picard_current"]:
+            max_restarts = self._state_parameters["picard_current"]["maxRestarts"]
         else:
             max_restarts = 30
         self.logger.debug(f"maxRestarts: {max_restarts}")
-        iota_tol = self.state_parameters["picard_current"]["iota_tol"]
+        iota_tol = self._state_parameters["picard_current"]["iota_tol"]
         while (self.rms_iota > iota_tol) and (self.GVEC_iter_used < self.totaliter):
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
@@ -644,8 +661,8 @@ class Run:
                     "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
                 break
-            self.state_parameters["maxIter"] = min(
-                self.totaliter - self.GVEC_iter_used, self.state_parameters["maxIter"]
+            self._state_parameters["maxIter"] = min(
+                self.totaliter - self.GVEC_iter_used, self._state_parameters["maxIter"]
             )
             self.nth_run += 1
             self.n_runs_in_stage[self.nth_stage] += 1
@@ -676,12 +693,12 @@ class Run:
         """
         self.rms_iota = 1e6
         self.nth_run = -1
-        if "maxRestarts" in self.state_parameters["picard_current"]:
-            max_restarts = self.state_parameters["picard_current"]["maxRestarts"]
+        if "maxRestarts" in self._state_parameters["picard_current"]:
+            max_restarts = self._state_parameters["picard_current"]["maxRestarts"]
         else:
             max_restarts = 30
         self.logger.debug(f"maxRestarts: {max_restarts}")
-        iota_tol = self.state_parameters["picard_current"]["iota_tol"]
+        iota_tol = self._state_parameters["picard_current"]["iota_tol"]
         while (self.GVEC_iter_used < self.totaliter) and (self.rms_iota > iota_tol):
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
@@ -689,8 +706,8 @@ class Run:
                     "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
                 break
-            self.state_parameters["maxIter"] = min(
-                self.totaliter - self.GVEC_iter_used, self.state_parameters["maxIter"]
+            self._state_parameters["maxIter"] = min(
+                self.totaliter - self.GVEC_iter_used, self._state_parameters["maxIter"]
             )
             self.nth_run += 1
             self.n_runs_in_stage[self.nth_stage] += 1
