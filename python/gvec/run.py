@@ -5,7 +5,6 @@
 import logging
 from pathlib import Path
 
-import os
 import re
 import shutil
 import time
@@ -26,26 +25,6 @@ except ImportError:
     logging.warning(
         "Compiled bindings to GVEC not found. Running GVEC from python will not work."
     )
-import contextlib
-
-
-@contextlib.contextmanager
-def chdir(path: Path | str | None):
-    """
-    Contextmanager to change the current working directory.
-
-    Using a context has the benefit of automatically changing back to the original directory when the context is exited,
-    even if an exception is raised.
-    """
-    if path is not None:
-        path = Path(path)
-        old_dir = Path(os.getcwd())
-
-        os.chdir(path)
-        yield
-        os.chdir(old_dir)
-    else:
-        yield
 
 
 def run(
@@ -102,7 +81,9 @@ def run(
         logger.setLevel(logging.DEBUG)
 
     # rundirectory setup
-    if runpath is not None:
+    if runpath is None:
+        runpath = Path.cwd()
+    else:
         runpath = Path(runpath)
 
         if not runpath.exists():
@@ -118,7 +99,7 @@ def run(
         params = gvec.util.stack_parameters(parameters)
 
     # Run the case
-    with chdir(runpath):
+    with gvec.util.chdir(runpath):
         run_instance = Run(
             params=params,
             statefile=restartstate,
@@ -359,7 +340,6 @@ class Run:
         with gvec.State(
             self.rundir / "parameter.ini",
             self.statefile,
-            redirect_stdout=self.redirect_gvec_stdout,
         ) as state:
             if hasattr(self, "rho"):  # e.g. when running in iota_constraint
                 rho_eval = self.rho

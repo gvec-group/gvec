@@ -19,7 +19,7 @@ from gvec.comp import (
     EvaluationsBoozer,
     EvaluationsBoozerCustom,
 )
-from gvec.run import run  # ToDo: shadows submodule
+from gvec.run import run, Run  # ToDo: shadows submodule
 
 # submodules
 

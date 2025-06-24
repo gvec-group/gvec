@@ -27,8 +27,8 @@ SUBROUTINE redirect_stdout(filename)
   INTEGER :: ios
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CLOSE(Unit_stdOut)
-
-  OPEN(Unit_stdOut, FILE=filename, STATUS='OLD', ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', POSITION='APPEND', IOSTAT=ios)
+  OPEN(Unit_stdOut, FILE=filename, STATUS='REPLACE', ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', IOSTAT=ios)
+  !OPEN(Unit_stdOut, FILE=filename, STATUS='OLD', ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', POSITION='APPEND', IOSTAT=ios)
   IF (ios /= 0) THEN
     WRITE(Unit_errOut, '(A)') 'ERROR: could not open file', filename, 'for writing'
     CALL abort(__STAMP__,"")
