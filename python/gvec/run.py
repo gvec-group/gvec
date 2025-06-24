@@ -346,7 +346,7 @@ class Run:
         with gvec.util.chdir(self.rundir):
             fortran_run(
                 "parameter.ini",
-                self.state.statefile if self.state.statefile else None,
+                self.state.statefile,
                 stdout_path="stdout.txt" if self.redirect_gvec_stdout else None,
             )
 
@@ -367,7 +367,6 @@ class Run:
         else:
             rho_eval = "int"
         ev = self.state.evaluate(*quantities, rho=rho_eval, theta="int", zeta="int")
-        self.state.unbind()
         # update iota
         if self.curr_constraint:
             iota_values = ev.iota_0 + self.I_tor_target * ev.iota_curr_0
@@ -951,6 +950,8 @@ def fortran_run(
         Path to / name of file to redirect the standard output of GVEC. Optional, default is "stdout.txt".
         If set to None, stdout is not redirected
     """
+    if gvec.state.bound_state is not None:
+        gvec.state.bound_state.unbind()
 
     _binding.redirect_abort()
     if stdout_path is not None:
