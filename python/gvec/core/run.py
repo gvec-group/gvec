@@ -925,6 +925,7 @@ class Run:
 
         axf.set(ylabel="|Force|", yscale="log")
         axf.legend(bbox_to_anchor=(1.15, 1))
+        axf.yaxis.grid(True, linestyle="--", alpha=0.5)
         # axf.legend(["stages","runs", r"$X_1$", r"$X_2$", r"$\lambda$"], bbox_to_anchor=(1.15, 1))
         axs[-1].set(xlabel="GVEC iteration")
 

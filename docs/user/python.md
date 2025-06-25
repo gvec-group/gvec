@@ -112,7 +112,7 @@ The optional `MNfactor` (default `5`) sets the maximum fourier modes for the boo
 The Boozer transform recomputes $\lambda$ with a higher resolution (to satisfy the integrability condition for $\nu_B$)!
 Therefore some quantities will differ between the equilibrium evaluation and Boozer evaluation.
 
-In particular $\langle B_\theta \rangle, \langle B_\zeta \rangle$ will differ from $B_{\theta_B},B_{\zeta_B}$ by an offset.
+In particular $\langle B_\vartheta \rangle, \langle B_\zeta \rangle$ will differ from $B_{\vartheta_B},B_{\zeta_B}$ by an offset.
 
 Currently the Boozer transform is performed for each surface individually and radial derivatives are therfore not available.
 This means that that $\frac{\partial \mathbf{B}}{\partial \rho}$ and $\mathbf{J}$ are not available!
