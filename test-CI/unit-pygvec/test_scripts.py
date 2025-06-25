@@ -233,9 +233,12 @@ def test_quasr_real_dft():
 
 
 def test_quasr_download(tmp_path):
-    json = gvec.scripts.quasr.get_json_from_quasr(
-        QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
-    )
+    try:
+        json = gvec.scripts.quasr.get_json_from_quasr(
+            QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+        )
+    except RuntimeError as e:
+        pytest.skip(f"Skipping test_quasr_download: {e}")
     json_ref = DATA / f"quasr-{QUASR_ID:07d}.json"
     with (
         open(json, "r") as file,
