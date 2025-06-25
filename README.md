@@ -4,11 +4,12 @@
 [![gitlab](https://img.shields.io/badge/GitLab-FC6D26?logo=gitlab&labelColor=gray)](https://gitlab.mpcdf.mpg.de/gvec-group/gvec)
 [![github-mirror](https://img.shields.io/badge/GitHub%20mirror-gray?logo=github&labelColor=gray)](https://github.com/gvec-group/gvec)
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
 [![License](https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative)](./LICENSE.txt)
-[![PyPI](https://img.shields.io/pypi/v/gvec)](https://pypi.org/project/gvec/)
-[![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
+[![GitLab Release](https://img.shields.io/gitlab/v/release/gvec-group%2Fgvec?gitlab_url=https%3A%2F%2Fgitlab.mpcdf.mpg.de&logo=gitlab)](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/releases)
+[![PyPI](https://img.shields.io/pypi/v/gvec?logo=PyPI&label=PyPI)](https://pypi.org/project/gvec/)
 
+[![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
 [![pre-commit](https://img.shields.io/badge/pre--commit-gray?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
