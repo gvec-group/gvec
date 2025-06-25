@@ -66,7 +66,12 @@ parser.add_argument(
     default=None,
     help="output netCDF file for diagnostics",
 )
-parser.add_argument("-p", "--plots", action="store_true", help="plot diagnostics")
+parser.add_argument(
+    "-p",
+    "--plots",
+    action="count",
+    help="plot diagnostics (-pp for additional plots)",
+)
 
 parser.add_argument(
     "-k",
@@ -109,7 +114,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     run_with_stages = gvec.run(
         parameters,
         args.restartfile,
-        progressbar=not args.quiet and not args.verbose,
+        quiet=args.quiet,
         redirect_gvec_stdout=args.verbose < 3,
         keep_intermediates=keep_intermediates,
         loglevel=loglevel,
@@ -121,19 +126,23 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         )
         diagnostics.to_netcdf(args.diagnostics)
     if args.plots:
-        if np.sum(np.array(run_with_stages.n_runs_in_stage) > 0) >= 2:
-            fig_runs = run_with_stages.plot_diagnostics_run()
-            fig_runs.savefig(f"{run_with_stages._state_parameters['projectName']}_runs.png")
+        try:
+            if np.sum(np.array(run_with_stages.n_runs_in_stage) > 0) >= 2 and args.plots >= 2:
+                fig_runs = run_with_stages.plot_diagnostics_run()
+                fig_runs.savefig(f"{run_with_stages._state_parameters['projectName']}_runs.png")
 
-        if run_with_stages.curr_constraint:
-            fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
-            fig_profiles.savefig(
-                f"{run_with_stages._state_parameters['projectName']}_profiles.png"
+            if run_with_stages.curr_constraint and args.plots >= 2:
+                fig_profiles = run_with_stages.plot_diagnostics_current_profiles()
+                fig_profiles.savefig(
+                    f"{run_with_stages._state_parameters['projectName']}_profiles.png"
+                )
+            fig_minimization = run_with_stages.plot_diagnostics_minimization()
+            fig_minimization.savefig(
+                f"{run_with_stages._state_parameters['projectName']}_iterations.png"
             )
-        fig_minimization = run_with_stages.plot_diagnostics_minimization()
-        fig_minimization.savefig(
-            f"{run_with_stages._state_parameters['projectName']}_iterations.png"
-        )
+        except ImportError as e:
+            logging.debug(f"Plotting failed: {e}")
+            logging.error("Plotting requires matplotlib, which is not installed.")
 
 
 if __name__ == "__main__":

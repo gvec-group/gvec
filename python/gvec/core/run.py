@@ -27,7 +27,7 @@ def run(
     restartstate: Path | None = None,
     runpath: Path | str | None = None,
     redirect_gvec_stdout: bool = True,
-    progressbar: bool = True,
+    quiet: bool = False,
     parameter_format: Literal["toml", "yaml"] = "toml",
     keep_intermediates: Literal["all", "stages"] | None = None,
     loglevel: Literal["WARNING", "INFO", "DEBUG"] = "WARNING",
@@ -45,8 +45,8 @@ def run(
         The default is None.
     redirect_gvec_stdout : bool, optional
         Whether to redirect GVEC's stdout. The default is True.
-    progressbar : bool, optional
-        Whether to show a progress bar. The default is True.
+    quiet : bool, optional
+        Whether to suppress all output. The default is False.
     parameter_format : Literal["toml", "yaml"], optional
         Format of the parameter file automatically generated if `picard_current="auto"`, by default "toml"
     keep_intermediates : Literal["all", "stages"] | None, optional
@@ -91,7 +91,7 @@ def run(
             params=params,
             state=restartstate,
             redirect_gvec_stdout=redirect_gvec_stdout,
-            progressbar=progressbar,
+            quiet=quiet,
             parameter_format=parameter_format,
         )
 
@@ -106,7 +106,7 @@ class Run:
         params: Mapping,
         state: Path | State | None = None,
         redirect_gvec_stdout: bool = True,
-        progressbar: bool = True,
+        quiet: bool = True,
         parameter_format: Literal["toml", "yaml"] = "toml",
     ):
         """
@@ -120,8 +120,8 @@ class Run:
             Statefile or State to restart from. The default is None.
         redirect_gvec_stdout : bool, optional
             Whether to redirect GVEC's stdout. The default is True.
-        progressbar : bool, optional
-            Whether to show a progress bar. The default is True.
+        quiet : bool, optional
+            Whether to suppress all output. The default is False.
 
         Raises
         ------
@@ -163,7 +163,7 @@ class Run:
         self.nth_stage = 0
         self.nth_run = 0  # nth run in stage
         self.rundir: Path = None
-        self.progressbar = progressbar
+        self.quiet = quiet
         self.diagnostics_run: xr.Dataset = None
         self.diagnostics_minimizer = None
         self.GVEC_iter_used = 0
@@ -607,12 +607,16 @@ class Run:
         final_iota_str = ""
         if self.curr_constraint:
             final_iota_str += f"\n and rms Δiota = {self.rms_iota.item():.2e} (iota_tol={self._state_parameters['picard_current']['iota_tol']:.2e})"
-        print(
+        final_message = (
             f"GVEC finished after {end_time - start_time:5.1f} seconds",
             f" using {self.GVEC_iter_used} iterations (totalIter = {self.totaliter})",
-            f"with |force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})",
+            f" with |force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})",
             final_iota_str,
         )
+        if self.quiet:
+            self.logger.info(*final_message)
+        else:
+            print(*final_message)
         final_statefile = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
         final_parameter_file = Path(
             "parameter_" + self._state_parameters["ProjectName"] + "_final.ini"
@@ -678,7 +682,7 @@ class Run:
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
                 self.logger.warning(
-                    "Maximum number of restarts reached for this stage! Moving on to next stage."
+                    f"Maximum number of restarts reached for stage {self.nth_stage}! Moving on to next stage."
                 )
                 break
             self._state_parameters["maxIter"] = min(
@@ -730,7 +734,7 @@ class Run:
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
                 self.logger.warning(
-                    "Maximum number of restarts reached for this stage! Moving on to next stage."
+                    f"Maximum number of restarts reached for stage {self.nth_stage}! Moving on to next stage."
                 )
                 break
             self._state_parameters["maxIter"] = min(
@@ -753,7 +757,7 @@ class Run:
             )
         if self.max_force > self._state_parameters["minimize_tol"]:
             self.logger.warning(
-                f"Force tolerance was not reached! \n max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
+                f"Force tolerance was not reached in stage {self.nth_stage}! \n max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
             )
 
     def _print_progress(self):
@@ -768,26 +772,21 @@ class Run:
                 progressstr += "=" * (ir - 1) + ">" + "|"
             else:
                 progressstr += ".|"
-        if self.progressbar:
-            start_str = "GVEC"
-            state_str = ""
-            if len(self.stages) > 1:
-                state_str += f" - completed {self.nth_stage}/{len(self.stages)} stages"
-            restart_str = ": "
-            if self.curr_constraint:
-                restart_str = f", restarts in current stage - {self.nth_run}" + restart_str
-            progressstr = start_str + state_str + restart_str + progressstr
-            if self.logger.isEnabledFor(logging.INFO):
-                self.logger.info(progressstr)
-            else:
-                print(progressstr, end="\r")
+        start_str = "GVEC"
+        state_str = ""
+        if len(self.stages) > 1:
+            state_str += f" - completed {self.nth_stage}/{len(self.stages)} stages"
+        restart_str = ": "
+        if self.curr_constraint:
+            restart_str = f", restarts in current stage - {self.nth_run}" + restart_str
+        progressstr = start_str + state_str + restart_str + progressstr
+        if self.logger.isEnabledFor(logging.INFO):
+            self.logger.info(progressstr)
+        elif not self.quiet:
+            print(progressstr, end="\r")
 
     def plot_diagnostics_run(self):
-        try:
-            import matplotlib.pyplot as plt
-        except ModuleNotFoundError:
-            self.logger.warning("matplotlib not found! Diagnostic plots can not be generated.")
-            return
+        import matplotlib.pyplot as plt
 
         diagnostics = self.diagnostics_run
         if self.curr_constraint:
@@ -804,15 +803,15 @@ class Run:
             ".-",
         )
         axs[0].set(
-            xlabel="run number",
-            ylabel=f"rms. ${diagnostics.F_r_avg.attrs['symbol']}$",
+            xlabel="restart number",
+            ylabel=f"rms ${diagnostics.F_r_avg.attrs['symbol']}$",
             title=diagnostics.F_r_avg.attrs["long_name"],
             yscale="log",
         )
         if self.curr_constraint:
             axs[1].plot(diagnostics.run, np.sqrt((diagnostics.iota_delta**2).mean("rad")), ".-")
             axs[1].set(
-                xlabel="run number",
+                xlabel="restart number",
                 ylabel=r"$\sqrt{\sum \left(\Delta\iota\right)^2}$",
                 title=f"Difference to target {diagnostics.iota.attrs['long_name']}\nroot mean square",
                 yscale="log",
@@ -820,11 +819,7 @@ class Run:
         return fig
 
     def plot_diagnostics_current_profiles(self):
-        try:
-            import matplotlib.pyplot as plt
-        except ModuleNotFoundError:
-            self.logger.warning("matplotlib not found! Diagnostic plots can not be generated.")
-            return
+        import matplotlib.pyplot as plt
 
         diagnostics = self.diagnostics_run
 
@@ -853,15 +848,11 @@ class Run:
         return fig
 
     def plot_diagnostics_minimization(self):
-        try:
-            import matplotlib.pyplot as plt
-        except ModuleNotFoundError:
-            self.logger.warning("matplotlib not found! Diagnostic plots can not be generated.")
-            return
+        import matplotlib.pyplot as plt
 
         diagnostics = self.diagnostics_run
         if self.curr_constraint:
-            fig, axs = plt.subplots(3, 1, figsize=(10, 5), tight_layout=True, sharex=True)
+            fig, axs = plt.subplots(3, 1, figsize=(10, 5), layout="constrained", sharex=True)
             axs[2].plot(
                 np.cumsum(diagnostics.gvec_iterations),
                 np.sqrt((diagnostics.iota_delta**2).mean("rad")),
@@ -920,13 +911,12 @@ class Run:
                 linestyle="dashed",
                 alpha=0.6,
                 zorder=-900,
-                label="runs",
+                label="restarts",
             )
 
         axf.set(ylabel="|Force|", yscale="log")
-        axf.legend(bbox_to_anchor=(1.15, 1))
         axf.yaxis.grid(True, linestyle="--", alpha=0.5)
-        # axf.legend(["stages","runs", r"$X_1$", r"$X_2$", r"$\lambda$"], bbox_to_anchor=(1.15, 1))
+        axf.legend(bbox_to_anchor=(1.0, 0.5), loc="center left")
         axs[-1].set(xlabel="GVEC iteration")
 
         return fig
