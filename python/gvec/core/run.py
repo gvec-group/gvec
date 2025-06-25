@@ -985,6 +985,10 @@ def fortran_run(
     """
     if gvec.core.state.bound_state is not None:
         gvec.core.state.bound_state.unbind()
+    if gvec.lib.modgvec_py_state.initialized or gvec.lib.modgvec_py_run.initialized:
+        raise RuntimeError(
+            "GVEC is still initialized and cannot recover. Please restart the interpreter."
+        )
 
     _binding.redirect_abort()
     if stdout_path is not None:

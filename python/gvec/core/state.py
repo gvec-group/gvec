@@ -38,6 +38,7 @@ import gvec.lib
 import gvec.util
 from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
+from gvec.lib import modgvec_py_run as _run
 
 # === Globals === #
 
@@ -72,6 +73,11 @@ def with_binding(method):
     @functools.wraps(method)
     def wrapped(self, *args, **kwargs):
         global bound_state
+
+        if _run.initialized:
+            raise RuntimeError(
+                "The fortran library was left in a corrupted state by a run. Please restart the python interpreter."
+            )
 
         if bound_state is self:
             if not _state.initialized:

@@ -911,8 +911,10 @@ SUBROUTINE Finalize()
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
 
-  CALL FinalizeFunctional(functional)
-  DEALLOCATE(functional)
+  IF(ALLOCATED(functional)) THEN
+    CALL FinalizeFunctional(functional)
+    DEALLOCATE(functional)
+  END IF
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
