@@ -22,7 +22,7 @@ from gvec.lib import modgvec_py_binding as _binding
 
 
 def run(
-    parameters: Mapping | Path,
+    parameters: Mapping | Path | str,
     restartstate: Path | None = None,
     runpath: Path | str | None = None,
     redirect_gvec_stdout: bool = True,
@@ -35,8 +35,8 @@ def run(
 
     Parameters
     ----------
-    parameters : Mapping | Path
-        GVEC parameter dictionary.
+    parameters : Mapping | Path | str
+        GVEC parameter dictionary or parameter file.
     restartstate : Path | None, optional
         Path to restart file or restart State object, by default None
     runpath : Path | str | None, optional
@@ -78,7 +78,8 @@ def run(
             logger.info(f"run directory {runpath} is overwritten")
 
     # transform parameters into hierarchical cidict.
-    if isinstance(parameters, Path):
+    if isinstance(parameters, (Path, str)):
+        parameters = Path(parameters)
         params = gvec.util.read_parameters(parameters)
     else:
         params = gvec.util.stack_parameters(parameters)
@@ -135,8 +136,6 @@ class Run:
             raise ValueError(
                 f"Neither valid 'params' nor a valid 'state' are provided! params: {params}, state: {state}"
             )
-
-        # TODO: Replace state_parameters with gvec.State
 
         # _state_parameters reflect the state of the Run, that is they change during each stage and/or restart
         # after a stage they are reset to parameters.They are NOT state.parameters, as those reflect the state of a
@@ -375,10 +374,6 @@ class Run:
         logfile = sorted(self.rundir.glob("logMinimizer_*"))[-1]
         log_df = read_csv(logfile, sep=",", header=0)
 
-        self.logger.info(
-            f"rms. average radial force: {np.sqrt((ev.F_r_avg**2).mean(dim='rad')).item():.2e}"
-        )
-
         diag_run = xr.Dataset(
             dict(
                 F_r_avg=ev.F_r_avg,
@@ -425,7 +420,16 @@ class Run:
                 [self.diagnostics_minimizer, diag_minimizer], dim="total_iteration"
             )
 
+        forces = self.diagnostics_minimizer.isel(total_iteration=-1)[
+            ["force_X1", "force_X2", "force_LA"]
+        ]
+        self.max_force = max([forces[force].item() for force in forces])
+
         end_time = time.time()
+
+        self.logger.info(
+            f"max|force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})"
+        )
         self.logger.info(
             f"GVEC run took {end_time - start_time:5.1f} seconds for {iterations} iterations. (max {max_iterations}, tol {tolerance:.1e})"
         )
@@ -531,11 +535,10 @@ class Run:
         ValueError
             If 'picard_current.target' is not properly specified.
         """
+        start_time = time.time()
         for s, stage in enumerate(self.stages):
             if self.GVEC_iter_used >= self.totaliter:
-                self.logger.warning(
-                    "Maximum number of GVEC iterations reached. Aborting stages!"
-                )
+                self.logger.warning("Maximum number of GVEC iterations reached!")
                 break
 
             self.nth_stage = s
@@ -576,10 +579,25 @@ class Run:
                 rm_dir = self.project_dir / Path(
                     f"{self.nth_stage:1d}-{(self.nth_run - 1):02d}"
                 )
+                if self.max_force > self._state_parameters["minimize_tol"]:
+                    self.logger.warning(
+                        f"Force tolerance was not reached! max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
+                    )
                 if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
                     shutil.rmtree(rm_dir)
 
         self.logger.info("Done.")
+        end_time = time.time()
+
+        final_iota_str = ""
+        if self.curr_constraint:
+            final_iota_str += f"\n and rms Δiota = {self.rms_iota.item():.2e} (iota_tol={self._state_parameters['picard_current']['iota_tol']:.2e})"
+        print(
+            f"GVEC finished after {end_time - start_time:5.1f} seconds",
+            f" using {self.GVEC_iter_used} iterations (totalIter = {self.totaliter})",
+            f"with max|force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})",
+            final_iota_str,
+        )
         final_statefile = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
         final_parameter_file = Path(
             "parameter_" + self._state_parameters["ProjectName"] + "_final.ini"
@@ -641,7 +659,7 @@ class Run:
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
                 self.logger.warning(
-                    "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
+                    "Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
                 break
             self._state_parameters["maxIter"] = min(
@@ -657,9 +675,12 @@ class Run:
 
         if self.rms_iota > iota_tol:
             self.logger.warning(
-                f"WARNING: targeted iota has not been reached during stage {self.nth_stage}!\n"
-                + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.data:.2e}\n"
-                + f"GVEC iterations used: {self.GVEC_iter_used}"
+                f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
+                + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {self.rms_iota.data:.2e}"
+            )
+        if self.max_force > self._state_parameters["minimize_tol"]:
+            self.logger.warning(
+                f"Force tolerance was not reached! \n max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
             )
 
     def _run_stage_target_iota_and_force(
@@ -686,7 +707,7 @@ class Run:
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
                 self.logger.warning(
-                    "WARNING: Maximum number of restarts reached for this stage! Moving on to next stage."
+                    "Maximum number of restarts reached for this stage! Moving on to next stage."
                 )
                 break
             self._state_parameters["maxIter"] = min(
@@ -701,7 +722,7 @@ class Run:
                 shutil.rmtree(rm_dir)
         if self.rms_iota > iota_tol:
             self.logger.warning(
-                f"WARNING: targeted iota has not been reached during stage {self.nth_stage}!\n"
+                f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
                 + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.data:.2e}\n"
                 + f"GVEC iterations used: {self.GVEC_iter_used}"
             )
@@ -719,15 +740,18 @@ class Run:
             else:
                 progressstr += ".|"
         if self.progressbar:
+            start_str = "GVEC"
+            state_str = ""
+            if len(self.stages) > 1:
+                state_str += f" - completed {self.nth_stage}/{len(self.stages)} stages"
+            restart_str = ": "
+            if self.curr_constraint:
+                restart_str = f", restarts in current stage - {self.nth_run}" + restart_str
+            progressstr = start_str + state_str + restart_str + progressstr
             if self.logger.isEnabledFor(logging.INFO):
-                self.logger.info(
-                    f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}"
-                )
+                self.logger.info(progressstr)
             else:
-                print(
-                    f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}",
-                    end="\r",
-                )
+                print(progressstr, end="\r")
 
     def plot_diagnostics_run(self):
         try:
