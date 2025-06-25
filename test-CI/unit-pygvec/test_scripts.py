@@ -185,7 +185,7 @@ def test_stages_without_current():
         {"minimize_tol": 1e-2, "sgrid": {"nelems": 2}},
         {"minimize_tol": 1e-3, "sgrid": {"nelems": 3}},
     ]
-    run_with_stages = gvec.run(parameters, delete_intermediates=None)
+    run_with_stages = gvec.run(parameters, keep_intermediates="all")
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
     assert Path(f"{ProjectName}_gvec_stages").is_dir()

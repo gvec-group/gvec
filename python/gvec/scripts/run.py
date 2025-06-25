@@ -100,18 +100,18 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         loglevel = logging.DEBUG
 
     if args.keep == 0:
-        delete_intermediates = "all"
+        keep_intermediates = None
     elif args.keep == 1:
-        delete_intermediates = "restarts"
+        keep_intermediates = "stages"
     elif args.keep >= 2:
-        delete_intermediates = None
+        keep_intermediates = "all"
 
     run_with_stages = gvec.run(
         parameters,
         args.restartfile,
         progressbar=not args.quiet and not args.verbose,
         redirect_gvec_stdout=args.verbose < 3,
-        delete_intermediates=delete_intermediates,
+        keep_intermediates=keep_intermediates,
         loglevel=loglevel,
     )
 

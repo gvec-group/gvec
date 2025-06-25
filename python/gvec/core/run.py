@@ -29,7 +29,7 @@ def run(
     redirect_gvec_stdout: bool = True,
     progressbar: bool = True,
     parameter_format: Literal["toml", "yaml"] = "toml",
-    delete_intermediates: Literal["all", "restarts"] | None = "all",
+    keep_intermediates: Literal["all", "stages"] | None = None,
     loglevel: Literal["WARNING", "INFO", "DEBUG"] = "WARNING",
 ):
     """Run GVEC with the provided parameters.
@@ -49,9 +49,9 @@ def run(
         Whether to show a progress bar. The default is True.
     parameter_format : Literal["toml", "yaml"], optional
         Format of the parameter file automatically generated if `picard_current="auto"`, by default "toml"
-    delete_intermediates : Literal["all", "restarts"] | None, optional
-        Whether to keep intermediate results of GVEC. With `"all"`, no intermediate results are kept. With `"restarts"`,
-        only the final restarts from each stage are kept. With `None`, all intermediate results are saved. The default is "all".
+    keep_intermediates : Literal["all", "stages"] | None, optional
+        Whether to keep intermediate results of GVEC. With `"all"`, all intermediate results are kept. With `"stages"`,
+        only the final restarts from each stage are kept. With `None`, all intermediate results are deleted. The default is None.
     verbosity : Literal["WARNING", "INFO", "DEBUG"], optional
         Verbosity level of the screen output. The default is "quiet".
 
@@ -95,7 +95,7 @@ def run(
             parameter_format=parameter_format,
         )
 
-        run_instance.run(delete_intermediates=delete_intermediates)
+        run_instance.run(keep_intermediates=keep_intermediates)
 
     return run_instance
 
@@ -517,12 +517,15 @@ class Run:
 
     def run(
         self,
-        delete_intermediates: Literal["all", "restarts"] | None = "all",
+        keep_intermediates: Literal["all", "stages"] | None = None,
     ):
         """Sequentially run the stages of the Run object.
 
         Parameters
         ----------
+        keep_intermediates : Literal["all", "stages"] | None, optional
+            Whether to keep intermediate results of GVEC. With `"all"`, all intermediate results are kept. With `"stages"`,
+            only the final restarts from each stage are kept. With `None`, all intermediate results are deleted. The default is None.
 
         Returns
         -------
@@ -532,12 +535,19 @@ class Run:
         Raises
         ------
         ValueError
+            If keep_intermediates is not None, "stages" or "all"
+        ValueError
             If stages are set when 'picard_current="auto"'
         KeyError
             If 'iota_tol' is not specified when 'I_tor' is provided.
         ValueError
             If 'picard_current.target' is not properly specified.
         """
+        if keep_intermediates and keep_intermediates not in ["all", "stages"]:
+            raise ValueError(
+                f"""'keep_intermediates' has to be either None, "stages" or "all" but is {keep_intermediates}"""
+            )
+
         start_time = time.time()
         for s, stage in enumerate(self.stages):
             if self.GVEC_iter_used >= self.totaliter:
@@ -564,10 +574,10 @@ class Run:
                 )
                 match target:
                     case "iota":
-                        self._run_stage_target_iota(delete_intermediates=delete_intermediates)
+                        self._run_stage_target_iota(keep_intermediates=keep_intermediates)
                     case "iota_and_force":
                         self._run_stage_target_iota_and_force(
-                            delete_intermediates=delete_intermediates
+                            keep_intermediates=keep_intermediates
                         )
                     case _:
                         raise ValueError(f"Unknown picard_current target:{target}")
@@ -586,7 +596,9 @@ class Run:
                     self.logger.warning(
                         f"Force tolerance was not reached! |force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
                     )
-                if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
+                if rm_dir.exists() and (
+                    keep_intermediates == "stages" or keep_intermediates is None
+                ):
                     shutil.rmtree(rm_dir)
 
         self.logger.info("Done.")
@@ -626,7 +638,7 @@ class Run:
             f"!pyGVEC v{gvec.__version__}\n",
         )
         self.state = gvec.State(final_parameter_file.absolute(), final_statefile.absolute())
-        if delete_intermediates == "all":
+        if keep_intermediates is None:
             shutil.rmtree(self.project_dir)
             self.project_dir = None
 
@@ -634,7 +646,8 @@ class Run:
         return (self.state, diagnostics)
 
     def _run_stage_target_iota(
-        self, delete_intermediates: Literal["all", "restarts"] | None = "all"
+        self,
+        keep_intermediates: Literal["all", "stages"] | None = None,
     ):
         """
         Target only iota in the current constraint, ignoring the forces.
@@ -643,6 +656,9 @@ class Run:
 
         Parameters
         ----------
+        keep_intermediates : Literal["all", "stages"] | None, optional
+            Whether to keep intermediate results of GVEC. With `"all"`, all intermediate results are kept. With `"stages"`,
+            only the final restarts from each stage are kept. With `None`, all intermediate results are deleted. The default is None.
 
         Returns
         -------
@@ -673,7 +689,9 @@ class Run:
             self._print_progress()
             self.run_single_minimization()
             rm_dir = self.project_dir / Path(f"{self.nth_stage:1d}-{(self.nth_run - 1):02d}")
-            if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
+            if rm_dir.exists() and (
+                keep_intermediates == "stages" or keep_intermediates is None
+            ):
                 shutil.rmtree(rm_dir)
 
         if self.rms_iota > iota_tol:
@@ -683,11 +701,17 @@ class Run:
             )
 
     def _run_stage_target_iota_and_force(
-        self, delete_intermediates: Literal["all", "restarts"] | None = "all"
+        self, keep_intermediates: Literal["all", "stages"] | None = None
     ):
         """
         Run GVEC until the force tolerance is reached and perform picrad iterations until the iota tolerance is reached.
         The maximum number of total GVEC iterations and the maximum number of picard iterations are limited by totaliter.
+
+        Parameters
+        ----------
+        keep_intermediates : Literal["all", "stages"] | None, optional
+            Whether to keep intermediate results of GVEC. With `"all"`, all intermediate results are kept. With `"stages"`,
+            only the final restarts from each stage are kept. With `None`, all intermediate results are deleted. The default is None.
 
         Returns
         -------
@@ -717,7 +741,9 @@ class Run:
             self._print_progress()
             self.run_single_minimization()
             rm_dir = self.project_dir / Path(f"{self.nth_stage:1d}-{(self.nth_run - 1):02d}")
-            if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
+            if rm_dir.exists() and (
+                keep_intermediates == "stages" or keep_intermediates is None
+            ):
                 shutil.rmtree(rm_dir)
         if self.rms_iota > iota_tol:
             self.logger.warning(
