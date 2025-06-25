@@ -1,5 +1,9 @@
 # CAS3D
 
+:::{warning}
+This feature is experimental and likely does not yet produce the expected results.
+:::
+
 This is the interface to the MHD stability code *CAS3D* [^CAS3D].
 It can be used to convert a GVEC equilibrium (parameterfile & statefile) into specialized netCDF file that can be read by CAS3D.
 

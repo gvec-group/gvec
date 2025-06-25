@@ -38,7 +38,7 @@ Here, we mention the main steps from the notebook to run gvec and post-process t
     ```
     Here, the visualization grid in the logical coordinates `rho,theta,zeta` has to be provided. The `ev` contains all computed variables as an `xarray` dataset, which are then plotted. A list of the available output variables is printed with
     ```python
-    gvec.comp.table_of_quantities(markdown=True)
+    gvec.table_of_quantities(markdown=True)
     ```
 
 Instead of running GVEC within the notebook, one can also export the parameter dictionary to a TOML parameterfile

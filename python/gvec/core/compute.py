@@ -749,6 +749,8 @@ def evaluate(
     theta: Literal["int"] | CoordinateSpec | None = "int",
     zeta: Literal["int"] | CoordinateSpec | None = "int",
 ):
+    if not isinstance(state, State):
+        raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     ev = Evaluations(rho, theta, zeta, state)
     compute(ev, *quantities, state=state)
     return ev
