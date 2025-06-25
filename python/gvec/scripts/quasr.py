@@ -56,7 +56,7 @@ import logging
 import numpy as np
 from scipy.optimize import root_scalar
 
-from gvec.util import write_parameters
+from gvec.util import write_parameters, logging_setup
 from gvec import fourier
 
 # === Argument Parser === #
@@ -690,15 +690,8 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         args = parser.parse_args(args)
     check_args(parser, args)
 
-    logging.basicConfig(
-        level=logging.WARNING,
-    )  # show warnings and above as normal
-    logger = logging.getLogger("pyGVEC.script")  # show info/debug messages for this script
-    logger.propagate = False
-    loghandler = logging.StreamHandler()
-    logformatter = logging.Formatter("{levelname} {message}", style="{")
-    loghandler.setFormatter(logformatter)
-    logger.addHandler(loghandler)
+    logging_setup()
+    logger = logging.getLogger(__name__)
     if args.quiet:
         logging.disable()
     elif args.verbose >= 2:

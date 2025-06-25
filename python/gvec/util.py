@@ -661,3 +661,15 @@ def bspl2gvec(
     params[f"{name}_type"] = "bspline"
 
     return params
+
+
+def logging_setup():
+    """Setup default logging configuration for GVEC."""
+    import logging
+
+    logging.basicConfig(
+        format="{levelname:7s} {message}",
+        style="{",
+        level=logging.WARNING,
+    )
+    logging.captureWarnings(True)

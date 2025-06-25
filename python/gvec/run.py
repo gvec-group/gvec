@@ -4,7 +4,6 @@
 
 import logging
 from pathlib import Path
-
 import re
 import shutil
 import time
@@ -15,16 +14,11 @@ from datetime import datetime
 import numpy as np
 import xarray as xr
 from pandas import read_csv
+
 import gvec
 from gvec.util import CaseInsensitiveDict as cidict
-
-try:
-    from gvec.lib import modgvec_py_run as _run
-    from gvec.lib import modgvec_py_binding as _binding
-except ImportError:
-    logging.warning(
-        "Compiled bindings to GVEC not found. Running GVEC from python will not work."
-    )
+from gvec.lib import modgvec_py_run as _run
+from gvec.lib import modgvec_py_binding as _binding
 
 
 def run(
@@ -35,7 +29,7 @@ def run(
     progressbar: bool = True,
     parameter_format: Literal["toml", "yaml"] = "toml",
     delete_intermediates: Literal["all", "restarts"] | None = "all",
-    verbosity: Literal["quiet", "info", "debug"] = "quiet",
+    loglevel: Literal["WARNING", "INFO", "DEBUG"] = "WARNING",
 ):
     """Run GVEC with the provided parameters.
 
@@ -52,12 +46,12 @@ def run(
         Whether to redirect GVEC's stdout. The default is True.
     progressbar : bool, optional
         Whether to show a progress bar. The default is True.
-    parameter_format : Literal[&quot;toml&quot;, &quot;yaml&quot;], optional
+    parameter_format : Literal["toml", "yaml"], optional
         Format of the parameter file automatically generated if `picard_current="auto"`, by default "toml"
-    delete_intermediates : Literal[&quot;all&quot;, &quot;restarts&quot;] | None, optional
+    delete_intermediates : Literal["all", "restarts"] | None, optional
         Whether to keep intermediate results of GVEC. With `"all"`, no intermediate results are kept. With `"restarts"`,
         only the final restarts from each stage are kept. With `None`, all intermediate results are saved. The default is "all".
-    verbosity : Literal[&quot;quiet&quot;, &quot;info&quot;, &quot;debug&quot;], optional
+    verbosity : Literal["WARNING", "INFO", "DEBUG"], optional
         Verbosity level of the screen output. The default is "quiet".
 
     Returns
@@ -67,18 +61,9 @@ def run(
     """
 
     # logger setup
-    logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
-    logger = logging.getLogger("gvec.run")  # show info/debug messages for this script
-    logger.propagate = False
-    loghandler = logging.StreamHandler()
-    logformatter = logging.Formatter("{levelname} {message}", style="{")
-    loghandler.setFormatter(logformatter)
-    logger.addHandler(loghandler)
-
-    if verbosity == "info":
-        logger.setLevel(logging.INFO)
-    elif verbosity == "debug":
-        logger.setLevel(logging.DEBUG)
+    gvec.util.logging_setup()
+    logger = logging.getLogger("gvec.run")
+    logger.setLevel(loglevel)
 
     # rundirectory setup
     if runpath is None:
@@ -165,7 +150,7 @@ class Run:
         if "picard_current" not in self.parameters:
             self.parameters["picard_current"] = "off"
 
-        self.logger = logging.getLogger("pyGVEC.script")
+        self.logger = logging.getLogger("gvec.run")
         self.filetype = parameter_format
 
         project_dir = Path(f"{self._state_parameters['ProjectName']}_gvec_stages")
@@ -211,7 +196,7 @@ class Run:
                 )
 
             minimize_tol = params.get("minimize_tol", 1e-6)
-            self.stages = _auto_generate_stages(minimize_tol, 1e-10)
+            self.stages = auto_generate_stages(minimize_tol, 1e-10)
             parameters_stages = params.copy()
             parameters_stages["stages"] = self.stages
             parameters_stages_name = (
@@ -734,11 +719,15 @@ class Run:
             else:
                 progressstr += ".|"
         if self.progressbar:
-            print(
-                f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}",
-                end="\r",
-            )
-        self.logger.info(f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}")
+            if self.logger.isEnabledFor(logging.INFO):
+                self.logger.info(
+                    f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}"
+                )
+            else:
+                print(
+                    f"GVEC stage {self.nth_stage} run {self.nth_run}: {progressstr}",
+                    end="\r",
+                )
 
     def plot_diagnostics_run(self):
         try:
@@ -889,7 +878,7 @@ class Run:
         return fig
 
 
-def _auto_generate_stages(minimize_target: float, iota_target: float):
+def auto_generate_stages(minimize_target: float, iota_target: float):
     """Generate stages for 'picard_current' by ramping 'minimize_tol' and 'iota_target'.
     The first stage always targets 'iota', the other stages target 'iota_and_force'
 

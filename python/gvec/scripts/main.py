@@ -83,7 +83,8 @@ quasr_parser = subparsers.add_parser(
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
-    logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
+    gvec.util.logging_setup()
+
     if isinstance(args, argparse.Namespace):
         pass
     else:
