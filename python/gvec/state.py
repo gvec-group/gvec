@@ -256,6 +256,8 @@ class State:
     def stdout(self) -> str:
         if self._stdout is None:
             return ""
+        if bound_state is self:
+            _binding.flush_stdout()
         self._stdout.seek(0)
         return self._stdout.read()
 

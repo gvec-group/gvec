@@ -107,6 +107,21 @@ def test_state_bind_twice(testfiles):
     assert gvec.state.bound_state is state2
 
 
+def test_state_stdout(testfiles):
+    parameterfile, statefile = testfiles
+    state = State(parameterfile, statefile)
+    assert isinstance(state.stdout, str)
+    assert len(state.stdout) == 0
+    nfp = state.nfp  # bind & generate stdout
+    assert isinstance(state.stdout, str)
+    assert len(state.stdout) > 0
+    assert "READ STATEFILE" in state.stdout
+    state.unbind()
+    assert "GVEC POST FINISHED" in state.stdout
+    nfp = state.nfp  # rebind
+    assert state.stdout.count("READ STATEFILE") == 2
+
+
 def test_state_attributes(teststate):
     assert isinstance(teststate, State)
     assert isinstance(teststate.parameters, gvec.util.CaseInsensitiveDict)
