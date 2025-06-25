@@ -16,6 +16,7 @@ import xarray as xr
 from pandas import read_csv
 
 import gvec
+from gvec.core.state import State
 from gvec.util import CaseInsensitiveDict as cidict
 from gvec.lib import modgvec_py_run as _run
 from gvec.lib import modgvec_py_binding as _binding
@@ -102,7 +103,7 @@ class Run:
     def __init__(
         self,
         params: Mapping,
-        state: Path | gvec.State | None = None,
+        state: Path | State | None = None,
         redirect_gvec_stdout: bool = True,
         progressbar: bool = True,
         parameter_format: Literal["toml", "yaml"] = "toml",
@@ -336,7 +337,7 @@ class Run:
             )
 
         # postprocessing
-        self.state = gvec.state.find_state(self.rundir)
+        self.state = gvec.core.state.find_state(self.rundir)
         iterations = int(re.match(r".*State.*_(\d+)\.dat", self.state.statefile.name).group(1))
         iteration_offset = self.GVEC_iter_used
         self.GVEC_iter_used += iterations
@@ -939,8 +940,8 @@ def fortran_run(
         Path to / name of file to redirect the standard output of GVEC. Optional, default is "stdout.txt".
         If set to None, stdout is not redirected
     """
-    if gvec.state.bound_state is not None:
-        gvec.state.bound_state.unbind()
+    if gvec.core.state.bound_state is not None:
+        gvec.core.state.bound_state.unbind()
 
     _binding.redirect_abort()
     if stdout_path is not None:

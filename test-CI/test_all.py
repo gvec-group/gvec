@@ -318,7 +318,7 @@ class TestPost(BaseTestPost):
         else:
             M, N = 4 * max(Ms), 4 * max(Ns)
 
-        assert set(boozer_post.data_vars) <= set(gvec.comp.QUANTITIES.keys()) | {
+        assert set(boozer_post.data_vars) <= set(gvec.core.compute.QUANTITIES.keys()) | {
             "theta",
             "zeta",
             "NU_B",

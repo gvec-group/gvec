@@ -6,7 +6,7 @@ try:
 
     import xarray as xr
     import gvec
-    from gvec.state import State
+    from gvec.core.state import State
 except ImportError:
     pytest.skip("Import Error", allow_module_level=True)
 

@@ -11,7 +11,7 @@ import re
 import numpy as np
 import xarray as xr
 
-from gvec.state import State
+from gvec.core.state import State
 import gvec.fourier
 
 # === Globals === #

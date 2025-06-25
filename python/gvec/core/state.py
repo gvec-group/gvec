@@ -723,7 +723,7 @@ class State:
         ev: xr.Dataset,
         *quantities: str,
     ):
-        from gvec.comp import compute
+        from gvec.core.compute import compute
 
         return compute(ev, *quantities, state=self)
 
@@ -734,7 +734,7 @@ class State:
         theta: Literal["int"] | CoordinateSpec | None = "int",
         zeta: Literal["int"] | CoordinateSpec | None = "int",
     ):
-        from gvec.comp import evaluate
+        from gvec.core.compute import evaluate
 
         return evaluate(self, *quantities, rho=rho, theta=theta, zeta=zeta)
 
@@ -747,7 +747,7 @@ class State:
         sfl: Literal["boozer", "pest"] = "boozer",
         **boozer_kwargs,
     ):
-        from gvec.comp import evaluate_sfl
+        from gvec.core.compute import evaluate_sfl
 
         return evaluate_sfl(
             self, *quantities, rho=rho, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs

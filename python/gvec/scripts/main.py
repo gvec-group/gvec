@@ -6,7 +6,6 @@
 
 import platform
 from pathlib import Path
-import logging
 import argparse
 from collections.abc import Sequence
 

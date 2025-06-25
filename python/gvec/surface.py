@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 
 from gvec import fourier
-from gvec.comp import register, compute, latex_partial_smart, derivative_name_smart
+from gvec.core.compute import register, compute, latex_partial_smart, derivative_name_smart
 
 # === Globals === #
 

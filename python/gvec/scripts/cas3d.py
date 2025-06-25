@@ -9,11 +9,12 @@ import datetime
 import argparse
 from collections.abc import Sequence
 
+from gvec.core import compute
 import numpy as np
 import xarray as xr
 import tqdm
 
-from gvec import State, EvaluationsBoozer, util, surface, comp, __version__
+from gvec import State, EvaluationsBoozer, util, surface, __version__
 
 # === Argument parser === #
 
@@ -234,7 +235,7 @@ def gvec_to_cas3d(
         # Fourier transform
         progress.update(1)
         progress.set_description("transforming to Fourier...")
-        ft = comp.ev2ft(out)
+        ft = compute.ev2ft(out)
         # Fourier truncation (remove extra modes from 'sampling' > 2)
         # Note: assumes that m=[0 ... M] and n=[0 ... N, -N ... -1]
         if sampling > 2:

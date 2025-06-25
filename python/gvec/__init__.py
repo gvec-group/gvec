@@ -8,19 +8,22 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-# primary classes and functions
+# toplevel API
 
-from gvec.state import State, load_state, find_state, find_states
-from gvec.comp import (
+from gvec.core.state import State, load_state, find_state, find_states
+from gvec.core.compute import (
     compute,
     evaluate,
     evaluate_sfl,
     Evaluations,
     EvaluationsBoozer,
     EvaluationsBoozerCustom,
+    table_of_quantities,
 )
-from gvec.run import run, Run  # ToDo: shadows submodule
+from gvec.core.run import run, Run
 
 # submodules
 
-from gvec import comp, fourier, quantities, scripts, state, surface, util
+from gvec import core, scripts
+from gvec import fourier, quantities, surface, util, vtk
+# lib and _libpygvec are automatically generated, but stay hidden

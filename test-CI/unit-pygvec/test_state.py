@@ -7,7 +7,7 @@ try:
     import numpy as np
 
     import gvec
-    from gvec.state import State, load_state, find_state, find_states
+    from gvec.core.state import State, load_state, find_state, find_states
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
 
@@ -92,9 +92,9 @@ def test_state_FileNotFoundError(testfiles):
 
 def test_state_bind_implicit(testfiles):
     state = State(*testfiles)
-    assert gvec.state.bound_state is not state
+    assert gvec.core.state.bound_state is not state
     nfp = state.nfp
-    assert gvec.state.bound_state is state
+    assert gvec.core.state.bound_state is state
     assert len(state.stdout)
 
 
@@ -102,9 +102,9 @@ def test_state_bind_twice(testfiles):
     state1 = State(*testfiles)
     state2 = State(*testfiles)
     nfp1 = state1.nfp
-    assert gvec.state.bound_state is state1
+    assert gvec.core.state.bound_state is state1
     nfp2 = state2.nfp
-    assert gvec.state.bound_state is state2
+    assert gvec.core.state.bound_state is state2
 
 
 def test_state_stdout(testfiles):
