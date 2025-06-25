@@ -157,10 +157,21 @@ def compute(
     *quantities: str,
     state: State = None,
     registry: Mapping = QUANTITIES,
-) -> xr.Dataset | xr.DataArray:
-    """Compute the target equilibrium quantity.
+) -> xr.Dataset:
+    """Compute the target equilibrium quantity and add it to the given evaluation dataset.
 
-    This method will compute required parameters recursively.
+    This method will compute required parameters recursively and add them to the dataset.
+
+    Parameters
+    ----------
+    ev : xr.Dataset
+        The evaluation dataset with the target coordinates (rho, theta, zeta) and possibly some precomputed quantities.
+    quantities : str
+        One or more names of the quantities to compute. See `table_of_quantities` for a list of available quantities.
+    state : State, optional
+        A gvec.State object that is used to compute the quantities. Not necessary if the desired quantities only depend on already computed quantities.
+    registry : Mapping, optional
+        The registry of computable quantites to use.
     """
     for quantity in quantities:
         # --- get the compute function --- #
@@ -230,9 +241,6 @@ def compute(
                 if any([c in auxcoords for c in obj[q].coords]):
                     continue
                 ev[q] = (obj[q].dims, obj[q].data, obj[q].attrs)
-    if len(quantities) == 1:
-        return ev[quantities[0]]
-    return ev
 
 
 # === Integrals === #
@@ -314,6 +322,8 @@ def Evaluations(
             coords["rho"][1][0] = (
                 0.1 * coords["rho"][1][1]
             )  # avoid numerical issues at the magnetic axis
+        case float():
+            coords["rho"] = ("rad", np.array([rho]))
         case None:
             pass
         case _:
@@ -335,6 +345,8 @@ def Evaluations(
             coords["theta"] = ("pol", theta)
         case int() as num:
             coords["theta"] = ("pol", np.linspace(0, 2 * np.pi, num, endpoint=False))
+        case float():
+            coords["theta"] = ("pol", np.array([theta]))
         case None:
             pass
         case _:
@@ -361,6 +373,8 @@ def Evaluations(
                 "tor",
                 np.linspace(0, 2 * np.pi / nfp, num, endpoint=False),
             )
+        case float():
+            coords["zeta"] = ("tor", np.array([zeta]))
         case None:
             pass
         case _:
