@@ -211,7 +211,11 @@ Then you can install the gvec python package manually with
 pip install .[dev,examples] -v
 ```
 
-## Install GVEC with `cmake`
+## Install Fortran executable of GVEC with `cmake`
+
+```{warning}
+This will only install the Fortran executables of GVEC, which are mostly used for testing. The python bindings are not installed with this option.
+```
 
 The standard way of compiling GVEC is using cmake presets, but there is also an interactive way with ccmake.
 

@@ -147,15 +147,15 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     Notes:
         - If no parameters are provided in `kwargs`, the function simply copies the `source` file to the `target` file.
         - The function replaces the parameters in the format `key = value`, where value is either a sequence of characters containing
-        no whitespace or a single pair of parentheses with any content. The value from `kwargs` is inserted using the standard python
-        string conversion. There may be a comment, starting with `!`, after the value.
+          no whitespace or a single pair of parentheses with any content. The value from `kwargs` is inserted using the standard python
+          string conversion. There may be a comment, starting with `!`, after the value.
         - If a parameter already exists in the `source` file, its value is replaced with the corresponding value from `kwargs`.
         - If a parameter does not exist in the `source` file, it is added to the `target` file.
         - If the value of the key starts with "!", the line with the keyword is just uncommented.  (i.e. "!key=2.5" -> "key=2.5")
           If no line with the keyword is found, the key is added with the value, excluding the leading "!"  (i.e. value is "!0.5" -> "key=0.5" is added)
 
     Example:
-    >>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")
+        `>>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")`
     """
     if not len(kwargs.keys()):
         shutil.copy2(source, target)
