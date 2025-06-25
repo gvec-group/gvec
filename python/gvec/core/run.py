@@ -216,6 +216,8 @@ class Run:
             self._set_I_tor_target()
             self.iota_rms = None
             self.curr_constraint = True
+            if "iota" not in self._state_parameters:
+                self._state_parameters["iota"] = cidict({"type": "polynomial", "coefs": [0.0]})
         else:
             self.I_tor_target = None
             self.curr_constraint = False
@@ -429,7 +431,7 @@ class Run:
         end_time = time.time()
 
         self.logger.info(
-            f"max|force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})"
+            f"|force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})"
         )
         self.logger.info(
             f"GVEC run took {end_time - start_time:5.1f} seconds for {iterations} iterations. (max {max_iterations}, tol {tolerance:.1e})"
@@ -582,7 +584,7 @@ class Run:
                 )
                 if self.max_force > self._state_parameters["minimize_tol"]:
                     self.logger.warning(
-                        f"Force tolerance was not reached! max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
+                        f"Force tolerance was not reached! |force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
                     )
                 if rm_dir.exists() and delete_intermediates in ["all", "restarts"]:
                     shutil.rmtree(rm_dir)
@@ -596,7 +598,7 @@ class Run:
         print(
             f"GVEC finished after {end_time - start_time:5.1f} seconds",
             f" using {self.GVEC_iter_used} iterations (totalIter = {self.totaliter})",
-            f"with max|force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})",
+            f"with |force| = {self.max_force:.2e} (minimize_tol = {self._state_parameters['minimize_tol']:.2e})",
             final_iota_str,
         )
         final_statefile = Path(self._state_parameters["ProjectName"] + "_State_final.dat")
@@ -679,10 +681,6 @@ class Run:
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
                 + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {self.rms_iota.data:.2e}"
             )
-        if self.max_force > self._state_parameters["minimize_tol"]:
-            self.logger.warning(
-                f"Force tolerance was not reached! \n max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
-            )
 
     def _run_stage_target_iota_and_force(
         self, delete_intermediates: Literal["all", "restarts"] | None = "all"
@@ -726,6 +724,10 @@ class Run:
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
                 + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.data:.2e}\n"
                 + f"GVEC iterations used: {self.GVEC_iter_used}"
+            )
+        if self.max_force > self._state_parameters["minimize_tol"]:
+            self.logger.warning(
+                f"Force tolerance was not reached! \n max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
             )
 
     def _print_progress(self):
