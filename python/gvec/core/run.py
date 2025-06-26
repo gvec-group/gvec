@@ -826,9 +826,13 @@ class Run:
         fig, axs = plt.subplots(2, 2, figsize=(15, 5), tight_layout=True, sharex=True)
         for r in diagnostics.run.data:
             if r == diagnostics.run.data[-1]:
-                kwargs = dict(marker=".", color="C0", alpha=1.0)
+                kwargs = dict(marker=".", color="C0", alpha=1.0, label="final profile")
+            elif r == diagnostics.run.data[0]:
+                kwargs = dict(color="black", linestyle="--", alpha=0.5, label="initial profile")
             else:
                 kwargs = dict(color="black", alpha=0.2 + 0.3 * (r / diagnostics.run.data[-1]))
+                if r == diagnostics.run.data[1]:
+                    kwargs["label"] = "intermediate profiles"
             d = diagnostics.sel(run=r)
             axs[0, 0].plot(d.rho**2, d.iota, **kwargs)
             axs[1, 0].plot(d.rho**2, np.abs(d.iota_delta), **kwargs)
@@ -845,6 +849,7 @@ class Run:
                 ylabel=rf"$|\Delta {diagnostics[var].attrs['symbol']}|$",
                 yscale="log",
             )
+        axs[0, 0].legend()
         return fig
 
     def plot_diagnostics_minimization(self):
@@ -891,7 +896,7 @@ class Run:
         if len(self.stages) > 1:
             # stages vlines
             for ax in axs:
-                n_runs_till_stage = np.cumsum(self.n_runs_in_stage)
+                n_runs_till_stage = np.cumsum(self.n_runs_in_stage[:-1])
                 ax.vlines(
                     [np.sum(diagnostics.gvec_iterations[:i]) for i in n_runs_till_stage],
                     *ax.get_ylim(),
@@ -905,7 +910,7 @@ class Run:
         # runs vlines
         if np.sum(np.array(self.n_runs_in_stage) > 0) >= 2:
             axf.vlines(
-                np.cumsum(diagnostics.gvec_iterations),
+                np.cumsum(diagnostics.gvec_iterations[:-1]),
                 *axf.get_ylim(),
                 colors="k",
                 linestyle="dashed",
