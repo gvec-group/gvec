@@ -1,39 +1,19 @@
-# GVEC parameter file for W7x
-# with current optimization & refinement
-ProjectName = "W7X_toml"
-init_LA = true
-PHIEDGE = 2.15
-whichInitEquilibrium = 0
-which_hmap = 1
+# GVEC parameter file for W7X
+ProjectName = "W7X"
+PHIEDGE = 2.14
 
 X1X2_deg = 5
 LA_deg = 5
-degGP = 8
 
 nfp = 5
 LA_mn_max = [9, 10]
-LA_sin_cos = "_sin_"
 X1_mn_max = [9, 10]
-X1_sin_cos = "_cos_"
 X2_mn_max = [9, 10]
-X2_sin_cos = "_sin_"
 
-MinimizerType = 10
-PrecondType = 1
-start_dt = 0.5
-maxIter = 10000
-minimize_tol = 1e-4
+minimize_tol = 1e-5
+totalIter = 20000
 
-# limits the total number of gvec iterations used over all stages
-totaliter = 1000
-
-# Run GVEC in several stages, changing targets and decreasing
-# targeted tolerances. Each stage overrides specified parameters.
-stages = [
-    {maxIter=10, picard_current.iota_tol=1e-3},
-    {sgrid.nelems = 3, picard_current={target="iota_and_force", nPoints=20}},
-    {sgrid.nelems = 4, picard_current="off"}
-]
+picard_current = "auto"
 
 # optimize for zero-current with picard iterations
 [I_tor]
@@ -41,20 +21,9 @@ type = "polynomial"
 scale = 1000
 coefs = [0.0]
 
-# current optimization picard iteration parameters
-[picard_current]
-target = "iota"
-iota_tol = 1e-10
-
 [sgrid]
 grid_type = 4
 nElems = 2
-
-# initial iota profile (set from Itor in each picard iteration/run)
-[iota]
-type = "polynomial"
-coefs = [0.9]
-# final coefs = [-0.8625290502868942, 0.08116648327976568, -0.3057372847655277, 0.4672872124759052, -0.23677929291598848, -3.126329344369636, 10.14720008596784, -14.253993484428593, 9.742801872387513, -2.657588003523321]
 
 [pres]
 type = "polynomial"

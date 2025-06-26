@@ -110,7 +110,7 @@ class Run:
         parameter_format: Literal["toml", "yaml"] = "toml",
     ):
         """
-        State of a GVEC run during a stage, e.g. a picard iteration during a current constraint run.
+        State of a GVEC run during a stage, e.g. a picard iteration during a current optimization run.
 
         Parameters
         ----------
@@ -186,7 +186,7 @@ class Run:
                 + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
             )
 
-        # Automatically generate the stages for the current constraint
+        # Automatically generate the stages for the current optimization
         if picard_current == "auto":
             self.logger.info("Using `picard_current` automatic mode. Generating stages ...")
             if "stages" in params:
@@ -231,7 +231,7 @@ class Run:
             ]:
                 params[key] = Path(value).absolute()
 
-        # count the number of runs in each stage, for dynamic progressbar during current constraint
+        # count the number of runs in each stage, for dynamic progressbar during current optimization
         self.n_runs_in_stage = [0 for _ in self.stages]
 
         initial_param_file = self.project_dir / "parameters_initial.ini"
@@ -654,9 +654,9 @@ class Run:
         keep_intermediates: Literal["all", "stages"] | None = None,
     ):
         """
-        Target only iota in the current constraint, ignoring the forces.
+        Target only iota in the current optimization, ignoring the forces.
 
-        This method typically performs many picard iterations with few GVEC iterations to find a suitable iota profile for the current constraint.
+        This method typically performs many picard iterations with few GVEC iterations to find a suitable iota profile for the current optimization.
 
         Parameters
         ----------

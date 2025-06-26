@@ -87,7 +87,7 @@ beta = ev.p / (ev.mod_B**2 / (2 * ev.mu0))
 beta_avg = gvec.volume_integral(beta * ev.Jac) / ev.V
 ```
 
-## low-level access
+## Low-level access
 
 The `gvec.State` class is automatically *bound* to the fortran library when needed and allows evaluating a variety of quantities.
 E.g. the number of field periods can be accessed with `state.nfp` and the maximum fourier modes with `state.get_mn_max()`.
@@ -118,7 +118,7 @@ Currently the Boozer transform is performed for each surface individually and ra
 This means that that $\frac{\partial \mathbf{B}}{\partial \rho}$ and $\mathbf{J}$ are not available!
 ```
 
-### Fieldline aligned grid
+### Field-aligned grid
 
 Some applications require a fieldline-aligned grid, which can be generated using `EvaluationsBoozerCustom`:
 ```python

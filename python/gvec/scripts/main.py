@@ -37,7 +37,7 @@ convert_parser = subparsers.add_parser(
     help="convert the GVEC parameterfile between different formats",
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description="Convert GVEC parameterfiles between different formats.\n"
-    "The INI (classical) parameter files do not support stages or the current constraint!\nAlso the formatting is lost upon conversion.",
+    "The INI (classical) parameter files do not support stages or the current optimization!\nAlso the formatting is lost upon conversion.",
 )
 convert_parser.add_argument(
     "input",

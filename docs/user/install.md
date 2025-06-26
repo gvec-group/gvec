@@ -58,6 +58,8 @@ Compilers tested with GVEC include:
 - Intel C/Fortran Compiler 17 or newer (recommended)
 - CMake 3.5+ as a build system
 
+The python bindings require Python 3.10 or newer.
+
 ::::::{tab-set}
 :sync-group: host
 
@@ -100,6 +102,7 @@ Install the following packages using `apt`:
 - `liblapack3` and `liblapack-dev`
 - `zlib1g-dev`
 - `libnetcdf-dev` and `libnetcdff-dev`
+- `python3.10` (or newer)
 
 :::::
 :::::{tab-item} MacOS
@@ -112,6 +115,7 @@ Install the following packages using homebrew (`brew install`)
 - `pkgconf`
 - `gcc` (possibly no need to install explicitly)
 - `lapack` (possibly no need to install explicitly)
+- `python@3.10` (or newer)
 
 :::::
 ::::::
@@ -202,7 +206,7 @@ You can install the gvec python package **manually**, from a cloned repository.
 We strongly recommend to **always** use a clean virtual environment for the installation, e.g.
 ```bash
 cd gvec
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 ```
 

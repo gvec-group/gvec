@@ -1,5 +1,5 @@
 # GVEC parameter file for W7x
-# with current constraint & refinement
+# with current optimization & refinement
 ProjectName: W7X_yaml
 
 init_LA: True
@@ -40,7 +40,7 @@ start_dt: 0.5
 maxIter: 1000
 minimize_tol: 1.0e-04
 
-# current constraint picard iteration parameters
+# current optimization picard iteration parameters
 picard_current:
   target: "iota"
   iota_tol: 1.0e-10

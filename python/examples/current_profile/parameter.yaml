@@ -1,5 +1,5 @@
 # GVEC parameter file for W7x
-# with current constraint
+# with current optimization
 
 ProjectName: W7X
 init_LA: True

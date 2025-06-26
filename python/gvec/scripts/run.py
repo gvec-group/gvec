@@ -1,6 +1,6 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
-"""The pyGVEC run script for running GVEC using stages and current constraints."""
+"""The pyGVEC run script for running GVEC using stages and current optimization."""
 
 import argparse
 import logging
@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description="Run GVEC with a given parameterfile, optionally restarting from an existing statefile.\n\n"
     "When given an INI parameterfile, GVEC is called directly.\n"
-    "With YAML and TOML parameterfiles, GVEC can be run in several stages and a current constraint with picard iterations can be performed.",
+    "With YAML and TOML parameterfiles, GVEC can be run in several stages and a current optimization with picard iterations can be performed.",
 )
 parser.add_argument("parameterfile", type=Path, help="input GVEC parameterfile")
 parser.add_argument(

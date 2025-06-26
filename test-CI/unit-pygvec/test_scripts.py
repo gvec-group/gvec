@@ -106,7 +106,7 @@ def test_picard_auto():
 
 @pytest.mark.parametrize("ptype", ["interpolation", "polynomial", "bspline"])
 def test_I_tor_types(ptype):
-    """Test if all types of I_tor profiles result in valid current constraints."""
+    """Test if all types of I_tor profiles result in valid current optimization."""
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = "auto"
     ProjectName = f"Test_Itor_type_{ptype}"
@@ -176,7 +176,7 @@ def test_maxRestarts():
 
 
 def test_stages_without_current():
-    """Test if stages run without current constraint"""
+    """Test if stages run without current optimization"""
     parameters = gvec.util.read_parameters("parameter.toml")
     parameters["picard_current"] = "off"
     ProjectName = parameters["ProjectName"]
