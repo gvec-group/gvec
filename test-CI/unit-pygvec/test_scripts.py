@@ -27,16 +27,15 @@ QUASR_ID = 112714
 
 
 @pytest.fixture(autouse=True)
-def prepare_testcaserundir(tmp_path):
+def prepare_testcaserundir(tmp_path, util):
     """Prepare the test case run directory"""
     testcase = "w7x"
     shutil.copytree(
         Path(__file__).parent / "../examples/" / testcase, tmp_path, dirs_exist_ok=True
     )
-    source = os.getcwd()
-    os.chdir(tmp_path)
-    yield
-    os.chdir(source)
+    source = Path.cwd()
+    with util.chdir(tmp_path):
+        yield
 
 
 # === TESTS === #
@@ -75,12 +74,126 @@ def test_run_stages(suffix):
     args = [f"parameter.{suffix}"]
     gvec.scripts.run.main(args)
 
-    if suffix == "ini":
-        assert Path("W7X_State_0000_00000100.dat").exists()
-    else:
-        assert Path("0-00/W7X_State_0000_00000010.dat").exists()
-        assert Path("0-01/W7X_State_0001_00000010.dat").exists()
-        assert Path("1-00/W7X_State_0002_00000005.dat").exists()
+    assert Path(f"W7X_{suffix}_State_final.dat").exists()
+    assert Path(f"parameter_W7X_{suffix}_final.ini").exists()
+
+
+def test_picard_auto():
+    """
+    Test the if the picard_current auto mode achieves "zero" current
+    """
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = "auto"
+    ProjectName = "Test_auto"
+    parameters["projectname"] = ProjectName
+    if "stages" in parameters:
+        with pytest.raises(ValueError):
+            run_with_stages = gvec.run(parameters)
+        del parameters["stages"]
+    run_with_stages = gvec.run(parameters)
+    diagnostics = run_with_stages.diagnostics_minimizer
+    assert diagnostics.force_X1[-1].data <= 1e-4
+    assert diagnostics.force_X2[-1].data <= 1e-4
+    assert diagnostics.force_LA[-1].data <= 1e-4
+
+    assert Path(f"{ProjectName}_State_final.dat").exists()
+    assert Path(f"parameter_{ProjectName}_final.ini").exists()
+    rho = np.sqrt(np.linspace(0, 1, 101))
+    rho[0] = 1e-4
+    ev = run_with_stages.state.evaluate("I_tor", "iota_curr", rho=rho, theta="int", zeta="int")
+    assert ev.iota_curr.max().data < 1e-6
+
+
+@pytest.mark.parametrize("ptype", ["interpolation", "polynomial", "bspline"])
+def test_I_tor_types(ptype):
+    """Test if all types of I_tor profiles result in valid current optimization."""
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = "auto"
+    ProjectName = f"Test_Itor_type_{ptype}"
+    parameters["projectname"] = ProjectName
+
+    # integrated two power profile (1-x²)
+    coefs = 6000 * np.array([0, 1, 0, 1 / 3])
+
+    if "stages" in parameters:
+        del parameters["stages"]
+
+    match ptype:
+        case "interpolation":
+            rho2 = np.linspace(1e-4, 1, 50)
+            # integrated two power profile (1-x²)
+            I_tor = 6000 * (rho2 - rho2**3 / 3)
+            parameters["I_tor"] = dict(type=ptype, rho2=rho2, vals=I_tor)
+        case "polynomial":
+            parameters["I_tor"] = dict(type=ptype, coefs=coefs)
+        case "bspline":
+            from .test_profiles import poly2bspl_coeff
+
+            c_bspl = np.zeros(len(coefs))
+            knots = np.concatenate([np.zeros(len(coefs)), np.ones(len(coefs))])
+            for j in range(len(coefs)):
+                c_bspl[j] = poly2bspl_coeff(coefs, j, knots)
+            parameters["I_tor"] = dict(type=ptype, coefs=c_bspl, knots=knots)
+
+    run_with_stages = gvec.run(parameters)
+    diagnostics = run_with_stages.diagnostics_minimizer
+    assert diagnostics.force_X1[-1].data <= 1e-4
+    assert diagnostics.force_X2[-1].data <= 1e-4
+    assert diagnostics.force_LA[-1].data <= 1e-4
+
+    assert Path(f"{ProjectName}_State_final.dat").exists()
+    assert Path(f"parameter_{ProjectName}_final.ini").exists()
+
+    I_tor_rms = np.sqrt(
+        (run_with_stages.diagnostics_run.I_tor_delta.isel(run=-1) ** 2).mean(dim="rad")
+    )
+    assert I_tor_rms.data < 1e-6, f"Expected ΔI_tor < 1e-6, got ΔI_tor:{I_tor_rms.data}"
+
+
+def test_maxRestarts():
+    """Test if maxRestarts aborts correctly"""
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = gvec.util.CaseInsensitiveDict(
+        dict(maxRestarts=10, iota_tol=1e-6, target="iota")
+    )
+    ProjectName = "Test_maxRestarts"
+    parameters["projectname"] = ProjectName
+
+    parameters["stages"] = [
+        {"picard_current": {"maxRestarts": 0}},
+        {
+            "picard_current": {"maxRestarts": 1, "target": "iota_and_force"},
+            "minimize_tol": 1e-4,
+        },
+        {"picard_current": {"maxRestarts": 2}},
+    ]
+    run_with_stages = gvec.run(parameters)
+
+    for n, runs in enumerate(run_with_stages.n_runs_in_stage):
+        assert n >= runs - 1, (
+            f"In stage {n} maxRestarts was violated! allowed restarts: {n + 1}, performed restarts: {runs}"
+        )
+
+
+def test_stages_without_current():
+    """Test if stages run without current optimization"""
+    parameters = gvec.util.read_parameters("parameter.toml")
+    parameters["picard_current"] = "off"
+    ProjectName = parameters["ProjectName"]
+    del parameters["I_tor"]
+    parameters["stages"] = [
+        {"minimize_tol": 1e-2, "sgrid": {"nelems": 2}},
+        {"minimize_tol": 1e-3, "sgrid": {"nelems": 3}},
+    ]
+    run_with_stages = gvec.run(parameters, keep_intermediates="all")
+    assert Path(f"{ProjectName}_State_final.dat").exists()
+    assert Path(f"parameter_{ProjectName}_final.ini").exists()
+    assert Path(f"{ProjectName}_gvec_stages").is_dir()
+    assert Path(f"{ProjectName}_gvec_stages/0-00").is_dir()
+    assert Path(f"{ProjectName}_gvec_stages/0-00/stdout.txt").exists()
+    with open(f"{ProjectName}_gvec_stages/0-00/stdout.txt", "r") as file:
+        stdout = file.read()
+    assert "GVEC SUCESSFULLY FINISHED" in stdout
 
 
 def test_quasr_real_dft():
@@ -120,9 +233,12 @@ def test_quasr_real_dft():
 
 
 def test_quasr_download(tmp_path):
-    json = gvec.scripts.quasr.get_json_from_quasr(
-        QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
-    )
+    try:
+        json = gvec.scripts.quasr.get_json_from_quasr(
+            QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+        )
+    except RuntimeError as e:
+        pytest.skip(f"Skipping test_quasr_download: {e}")
     json_ref = DATA / f"quasr-{QUASR_ID:07d}.json"
     with (
         open(json, "r") as file,
@@ -131,12 +247,12 @@ def test_quasr_download(tmp_path):
         assert file.read().strip() == reference.read().strip()
 
 
-def test_quasr_noerror(tmp_path):
+def test_quasr_noerror(tmp_path, util):
     """
     Test the load-quasr script
     """
     hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
-    with gvec.util.chdir(tmp_path):
+    with util.chdir(tmp_path):
         args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc")]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()

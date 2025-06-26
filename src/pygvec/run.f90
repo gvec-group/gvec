@@ -13,6 +13,8 @@ USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
 IMPLICIT NONE
 PUBLIC
 
+LOGICAL :: initialized = .FALSE.
+
 CONTAINS
 
 !================================================================================================================================!
@@ -28,6 +30,7 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: comm
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  initialized = .TRUE.
   IF(PRESENT(comm_in)) THEN
     CALL par_init(comm_in)
   ELSE
@@ -41,5 +44,6 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
   END IF
 
   CALL par_finalize()
+  initialized = .FALSE.
 END SUBROUTINE start_rungvec
 END MODULE MODgvec_py_run

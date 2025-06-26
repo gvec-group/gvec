@@ -4,7 +4,7 @@
 !===================================================================================================================================
 #include "defines.h"
 
-MODULE MODgvec_py_post
+MODULE MODgvec_py_state
 
 USE MODgvec_c_functional, ONLY: t_functional
 USE MODgvec_base,         ONLY: t_base
@@ -911,8 +911,10 @@ SUBROUTINE Finalize()
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
 
-  CALL FinalizeFunctional(functional)
-  DEALLOCATE(functional)
+  IF(ALLOCATED(functional)) THEN
+    CALL FinalizeFunctional(functional)
+    DEALLOCATE(functional)
+  END IF
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
@@ -925,4 +927,4 @@ SUBROUTINE Finalize()
   FLUSH(Unit_stdOut)
 END SUBROUTINE Finalize
 
-END MODULE MODgvec_py_post
+END MODULE MODgvec_py_state

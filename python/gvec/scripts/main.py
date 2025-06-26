@@ -6,9 +6,8 @@
 
 import platform
 from pathlib import Path
-import logging
 import argparse
-from typing import Sequence
+from collections.abc import Sequence
 
 import gvec
 from gvec.scripts import cas3d, run, quasr
@@ -38,7 +37,7 @@ convert_parser = subparsers.add_parser(
     help="convert the GVEC parameterfile between different formats",
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description="Convert GVEC parameterfiles between different formats.\n"
-    "The INI (classical) parameter files do not support stages or the current constraint!\nAlso the formatting is lost upon conversion.",
+    "The INI (classical) parameter files do not support stages or the current optimization!\nAlso the formatting is lost upon conversion.",
 )
 convert_parser.add_argument(
     "input",
@@ -83,7 +82,8 @@ quasr_parser = subparsers.add_parser(
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
-    logging.basicConfig(level=logging.WARNING)  # show warnings and above as normal
+    gvec.util.logging_setup()
+
     if isinstance(args, argparse.Namespace):
         pass
     else:

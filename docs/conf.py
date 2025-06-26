@@ -72,7 +72,7 @@ except ImportError:
     pass
 else:
     with open(genpath / "quantities.md", "w") as f:
-        f.write(gvec.comp.table_of_quantities(markdown=False))
+        f.write(gvec.table_of_quantities(markdown=False))
     print("generated quantities.md")
 
 # -- General configuration ---------------------------------------------------

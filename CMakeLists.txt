@@ -407,7 +407,7 @@ IF(COMPILE_PYGVEC)
   # specify files to be wrapped with f90wrap
   SET(pygvec_src_files
     src/pygvec/binding.f90
-    src/pygvec/post.f90
+    src/pygvec/state.f90
     src/pygvec/run.f90
     src/transform_sfl/sfl_boozer.f90
   )

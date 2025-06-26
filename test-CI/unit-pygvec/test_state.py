@@ -1,10 +1,13 @@
+from pathlib import Path
+import shutil
+
 import pytest
 
 try:
     import numpy as np
 
     import gvec
-    from gvec.state import State
+    from gvec.core.state import State, load_state, find_state, find_states
 except ImportError:
     pass  # tests will be skipped via the `check_import` fixture
 
@@ -14,36 +17,70 @@ except ImportError:
 
 @pytest.fixture(params=["post", "init"])
 def teststate(request, testfiles):
+    parameterfile, statefile = testfiles
     if request.param == "post":
-        with State(*testfiles) as state:
-            yield state
+        yield State(parameterfile, statefile)
     elif request.param == "init":
-        with State(testfiles[0]) as state:
-            yield state
+        yield State(parameterfile)
 
 
 # === Tests === #
 
 
-def test_version():
-    import pkg_resources
-
-    assert isinstance(gvec.__version__, str)
-    assert gvec.__version_tuple__ >= (0, 2, 1)
-    assert pkg_resources.get_distribution("gvec").version == gvec.__version__
-
-
-def test_state(testfiles):
-    with State(*testfiles) as state:
-        assert isinstance(state, State)
+def test_state_load(testfiles):
+    parameterfile, statefile = testfiles
+    state = State(parameterfile, statefile)
+    assert isinstance(state, State)
 
 
 def test_state_init(testfiles):
-    with State(testfiles[0], None) as state:
+    parameterfile, statefile = testfiles
+    state = State(parameterfile, None)
+    assert isinstance(state, State)
+
+
+def test_new(testfiles, tmp_path, util):
+    parameterfile, statefile = testfiles
+    parameters = gvec.util.read_parameters(parameterfile)
+    with util.chdir(tmp_path):
+        state = State.new(parameters)
+        assert (tmp_path / "parameter.ini").exists()
+
+
+def test_load_state(testfiles):
+    state = load_state(*testfiles)
+    assert isinstance(state, State)
+
+
+def test_find_state(testfiles, tmp_path):
+    shutil.copy(testfiles[0], tmp_path / "parameter.ini")
+    shutil.copy(testfiles[1], tmp_path / "State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "State-1.dat")
+    state = find_state(tmp_path)
+    assert isinstance(state, State)
+    assert state.statefile == tmp_path / "State-1.dat"
+
+
+def test_find_states(testfiles, tmp_path):
+    shutil.copy(testfiles[0], tmp_path / "parameter.ini")
+    shutil.copy(testfiles[1], tmp_path / "State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "State-1.dat")
+    states = find_states(tmp_path)
+    assert len(states) == 2
+    for s, state in enumerate(states):
         assert isinstance(state, State)
+        assert state.statefile == tmp_path / f"State-{s}.dat"
 
 
-def test_state_args(testfiles):
+def test_state_with_warning(testfiles):
+    parameterfile, statefile = testfiles
+
+    with pytest.warns(DeprecationWarning):
+        with State(parameterfile, statefile) as state:
+            assert isinstance(state, State)
+
+
+def test_state_FileNotFoundError(testfiles):
     paramfile, statefile = testfiles
 
     with pytest.raises(FileNotFoundError):
@@ -53,35 +90,52 @@ def test_state_args(testfiles):
         state = State("nonexistent.ini", statefile)
 
 
-def test_state_explicit(testfiles):
+def test_state_bind_implicit(testfiles):
     state = State(*testfiles)
-    assert isinstance(state, State)
-    assert state.initialized
-    state.finalize()
-    assert not state.initialized
-
-    with pytest.raises(RuntimeError):
-        state.evaluate_base_tens("X1", None, [0.5], [0.5], [0.5])
+    assert gvec.core.state.bound_state is not state
+    nfp = state.nfp
+    assert gvec.core.state.bound_state is state
+    assert len(state.stdout)
 
 
-def test_state_twice(testfiles):
-    # double context
-    with State(*testfiles) as state:
-        pass
-    with State(*testfiles) as state:
-        pass
+def test_state_bind_twice(testfiles):
+    state1 = State(*testfiles)
+    state2 = State(*testfiles)
+    nfp1 = state1.nfp
+    assert gvec.core.state.bound_state is state1
+    nfp2 = state2.nfp
+    assert gvec.core.state.bound_state is state2
 
-    # double explicit
-    state = State(*testfiles)
-    state.finalize()
-    state = State(*testfiles)
-    state.finalize()
 
-    # simultaneous context (not implemented yet)
-    with pytest.raises(NotImplementedError):
-        with State(*testfiles) as state1:
-            with State(*testfiles) as state2:
-                pass
+def test_state_stdout(testfiles):
+    parameterfile, statefile = testfiles
+    state = State(parameterfile, statefile)
+    assert isinstance(state.stdout, str)
+    assert len(state.stdout) == 0
+    nfp = state.nfp  # bind & generate stdout
+    assert isinstance(state.stdout, str)
+    assert len(state.stdout) > 0
+    assert "READ STATEFILE" in state.stdout
+    state.unbind()
+    assert "GVEC POST FINISHED" in state.stdout
+    nfp = state.nfp  # rebind
+    assert state.stdout.count("READ STATEFILE") == 2
+
+
+def test_state_attributes(teststate):
+    assert isinstance(teststate, State)
+    assert isinstance(teststate.parameters, gvec.util.CaseInsensitiveDict)
+    assert "stages" not in teststate.parameters
+    assert "I_tor" not in teststate.parameters
+    assert isinstance(teststate.nfp, int)
+    assert isinstance(teststate.parameterfile, Path)
+    assert teststate.parameterfile.exists()
+    if teststate.statefile is not None:
+        assert isinstance(teststate.statefile, Path)
+        assert teststate.statefile.exists()
+    assert isinstance(teststate.stdout, str)
+    assert len(teststate.stdout) > 0
+    assert "GVEC POST" in teststate.stdout
 
 
 @pytest.mark.parametrize("quantity", ["X1", "X2", "LA"])

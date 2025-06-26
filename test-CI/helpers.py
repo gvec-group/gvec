@@ -240,27 +240,3 @@ def assert_stdout_no_NaN(path: str | Path = "stdout.txt"):
     with open(path) as file:
         lines = file.readlines()
         assert not any(re.search(r"NaN", line) for line in lines), "found NaN in stdout"
-
-
-# === HELPER FUNCTIONS === #
-
-
-@contextmanager
-def chdir(target: str | Path):
-    """
-    Contextmanager to change working directory, returns to the original directory when exiting.
-
-    Args:
-        target (str | Path): The target directory to change to.
-
-    Example:
-    >>> with chdir('/path/to/directory'):
-    ...     # Code executed within the new directory
-    ... # Code executed in the original directory
-    """
-    source = os.getcwd()
-    try:
-        os.chdir(target)
-        yield
-    finally:
-        os.chdir(source)

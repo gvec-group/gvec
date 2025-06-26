@@ -1,9 +1,9 @@
-.. _api-run:
+.. _api-vtk:
 
-gvec.run
+gvec.vtk
 ========
 
-.. automodule:: gvec.run
+.. automodule:: gvec.vtk
   :members:
   :undoc-members:
   :show-inheritance:

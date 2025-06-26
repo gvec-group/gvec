@@ -6,6 +6,7 @@
 install
 getting-started
 python
+stages
 gvec-parameter-list
 theory
 coordinate-conventions

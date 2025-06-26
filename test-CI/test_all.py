@@ -78,6 +78,7 @@ def test_run(
     dryrun,
     annotations,
     artifact_pages_path,
+    util,
 ):
     """
     Test end2end GVEC runs with `{testgroup}/{testcase}/parameter.ini`
@@ -114,7 +115,7 @@ def test_run(
             else:
                 args.append(base_directory / "???")
     # run gvec
-    with helpers.chdir(testcaserundir):
+    with util.chdir(testcaserundir):
         if dryrun:
             with open("dryrun-run.txt", "w") as file:
                 file.write(f"DRYRUN: execute:\n {args} \n")
@@ -156,7 +157,7 @@ class BaseTestPost:
 
     @pytest.fixture(autouse=True)
     def testcasedir(
-        self, postdir: Path, rundir: Path, testgroup: str, testcase: str, name: str
+        self, postdir: Path, rundir: Path, testgroup: str, testcase: str, name: str, util
     ):
         """
         Generate the post directory at `{convdir}/{name}/{testgroup}/{testcase}` based on `{rundir}/{testgroup}/{testcase}`
@@ -182,7 +183,7 @@ class BaseTestPost:
         states = sorted(sourcerundir.glob("*State*.dat"))
         for statefile in states:
             (targetdir / statefile.name).symlink_to(os.path.relpath(statefile, targetdir))
-        with helpers.chdir(targetdir):
+        with util.chdir(targetdir):
             yield
 
     def test_post(
@@ -317,21 +318,21 @@ class TestPost(BaseTestPost):
         else:
             M, N = 4 * max(Ms), 4 * max(Ns)
 
-        assert set(boozer_post.data_vars) <= set(gvec.comp.QUANTITIES.keys()) | {
+        assert set(boozer_post.data_vars) <= set(gvec.core.compute.QUANTITIES.keys()) | {
             "theta",
             "zeta",
             "NU_B",
         }
-        with gvec.State(parameterfile, statefile) as state:
-            boozer_py = gvec.EvaluationsBoozer(
-                rho=boozer_post.rho,
-                theta_B=boozer_post.theta_B,
-                zeta_B=boozer_post.zeta_B,
-                state=state,
-                M=M,
-                N=N,
-            )
-            state.compute(boozer_py, *boozer_post.data_vars)
+        state = gvec.State(parameterfile, statefile)
+        boozer_py = state.evaluate_sfl(
+            *boozer_post.data_vars,
+            sfl="boozer",
+            rho=boozer_post.rho,
+            theta=boozer_post.theta_B,
+            zeta=boozer_post.zeta_B,
+            M=M,
+            N=N,
+        )
 
         errs = []
         vars = list(boozer_post.data_vars)
