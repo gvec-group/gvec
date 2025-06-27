@@ -91,7 +91,7 @@ beta_avg = gvec.volume_integral(beta * ev.Jac) / ev.V
 
 The `gvec.State` class is automatically *bound* to the fortran library when needed and allows evaluating a variety of quantities.
 E.g. the number of field periods can be accessed with `state.nfp` and the maximum fourier modes with `state.get_mn_max()`.
-For a full list of availble methods see the [API](<dev/api/core-state>).
+For a full list of availble methods see the [API](</dev/api/core-state>).
 
 The debugging output for the postprocessing can be accessed with `state.stdout`.
 
