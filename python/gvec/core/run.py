@@ -298,7 +298,7 @@ class Run:
                     y_vals = np.append([0], y_vals)
                 I_tor_bspl = make_splrep(rho2_vals, y_vals)
                 self.I_tor_target = I_tor_bspl(self.rho**2)
-                if min(abs(self.I_tor_target)) > 1e-8:
+                if abs(I_tor_bspl(0.0)) > 1e-8:
                     raise ValueError(
                         f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {I_tor_bspl(0.0)}"
                     )
