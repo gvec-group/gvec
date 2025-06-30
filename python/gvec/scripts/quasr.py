@@ -144,7 +144,7 @@ def check_args(parser, args):
     if args.tol is not None and args.tol <= 0:
         raise parser.error("Tolerance must be greater than 0.")
     if args.param_type is None:
-        args.param_type = "yaml"
+        args.param_type = "toml"
 
 
 # === Functions === #
@@ -611,7 +611,6 @@ def convert_quasr(
     logger.info("Writing parameterfile")
     parameters = dict(
         ProjectName=name,
-        whichInitEquilibrium=0,
         which_hmap=21,
         hmap_ncfile=f"{name}-Gframe.nc",
         getBoundaryFromFile=1,
@@ -625,28 +624,18 @@ def convert_quasr(
         X1_mn_max=(Mmax, Nmax),
         X2_mn_max=(Mmax, Nmax),
         LA_mn_max=(Mmax, Nmax),
-        MinimizerType=10,
-        PrecondType=1,
         minimize_tol=1e-7,
-        MaxIter=10000,
+        totalIter=10000,
         logIter=100,
         pres=dict(
             type="polynomial",
             coefs=[0.0],
         ),
-        iota=dict(
+        I_tor=dict(
             type="polynomial",
             coefs=[0.0],
         ),
-        Itor=dict(
-            type="polynomial",
-            coefs=[0.0],
-        ),
-        stages=[
-            dict(
-                runs=10,
-            )
-        ],
+        picard_current="auto",
     )
     write_parameters(parameters, f"{name}-parameters.{format}")
     logger.info("Done")
