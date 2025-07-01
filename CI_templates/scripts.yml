@@ -460,13 +460,22 @@
 
 .script_publish_pypi:
   variables:
-    BUILDNAME: ${HASH_TAG}_pip
     TWINE_USERNAME: ${PYPI_USERNAME}
     TWINE_PASSWORD: ${PYPI_PASSWORD}
   script:
-    - source venv_${BUILDNAME}/bin/activate
+    # create virtual environment
+    - python --version
+    - rm -rf venv
+    - python -m venv venv
+    - source venv/bin/activate
+    # prepare & build
     - pip install twine build
     - python -m build --sdist
+    - ls dist/
+    # check if gvec installs successfully
+    - pip install dist/*.tar.gz
+    - pygvec --version
+    # upload to PyPI
     - python -m twine upload dist/*
   artifacts:
     expire_in: 3 days
