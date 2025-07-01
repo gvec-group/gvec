@@ -21,7 +21,6 @@ except ImportError:
 
 
 DATA = Path(__file__).parent / "../data"
-QUASR_ID = 112714
 
 # === FIXTURES === #
 
@@ -232,7 +231,8 @@ def test_quasr_real_dft():
     assert np.allclose(ddf3, exfuncdd(zeta_up))
 
 
-def test_quasr_download(tmp_path):
+@pytest.mark.parametrize("QUASR_ID", [112714])
+def test_quasr_download(QUASR_ID, tmp_path):
     try:
         json = gvec.scripts.quasr.get_json_from_quasr(
             QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
@@ -247,12 +247,28 @@ def test_quasr_download(tmp_path):
         assert file.read().strip() == reference.read().strip()
 
 
-def test_quasr_noerror(tmp_path, util):
+@pytest.mark.parametrize("QUASR_ID", [112714])
+def test_quasr_file(QUASR_ID, tmp_path, util):
     """
     Test the load-quasr script
     """
     hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
     with util.chdir(tmp_path):
         args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc")]
+        gvec.scripts.quasr.main(args)
+        assert hmap.exists()
+
+
+@pytest.mark.parametrize("QUASR_ID", [112714, 2021217, 122335, 10534, 49962])
+def test_quasr_full(QUASR_ID, tmp_path, util):
+    try:
+        json = gvec.scripts.quasr.get_json_from_quasr(
+            QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+        )
+    except RuntimeError as e:
+        pytest.skip(f"Skipping test_quasr_download: {e}")
+    hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
+    with util.chdir(tmp_path):
+        args = [f"{QUASR_ID:07d}"]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()

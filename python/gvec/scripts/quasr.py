@@ -370,16 +370,23 @@ def eval_distance_to_plane(xyz_in, origin, normal):
     return np.sum((xyz_in - origin) * normal, axis=-1)
 
 
-def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict):
+def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict, zeta_bracket: float):
     def eval_dist(zeta_in):
         return eval_distance_to_curve(zeta_in, origin, normal, xyz, dft_dict)
 
-    return root_scalar(
-        eval_dist, bracket=[zeta_in - 0.2 * np.pi, zeta_in + 0.2 * np.pi], xtol=1e-10
-    ).root
+    for factor in [0.01, 0.1, 1]:
+        try:
+            return root_scalar(
+                eval_dist,
+                bracket=[zeta_in - zeta_bracket * factor, zeta_in + zeta_bracket * factor],
+                xtol=1e-10,
+            ).root
+        except ValueError:
+            pass
+    raise RuntimeError("Could not find zeta cuts with the given bracket (or 1/10, 1/100)")
 
 
-def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict):
+def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict, nfp):
     nz_out = origins.shape[0]
     nt = xyz_in.shape[1]
     zeta_out = np.zeros(nz_out)
@@ -392,6 +399,7 @@ def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict):
                 normals[iz, :],
                 xyz_in[:, it, :],
                 dft_dict,
+                zeta_bracket=np.pi / nfp,
             )
 
         xyz_cut[:, it, :] = eval_curve(zeta_out, xyz_in[:, it, :], dft_dict)
@@ -420,6 +428,7 @@ def cut_surf(xyz, nfp, xyz0, N, B):
         np.cross(N[0 : nz // nfp, :], B[0 : nz // nfp, :], axis=-1),
         xyz,
         zdft,
+        nfp,
     )
     x1_cut = np.sum(
         (xyz_cut - xyz0[0 : nz // nfp, None, :]) * N[0 : nz // nfp, None, :], axis=-1
