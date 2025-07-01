@@ -26,7 +26,6 @@ dependencies = [
 ]
 authors = [
     {name = "Florian Hindenlang"},
-    {name = "Tiago Tamissa Ribeiro"},
     {name = "Robert Babin"},
     # with additional contributions from a number of people. Thank you!
 ]
@@ -54,6 +53,7 @@ dynamic = ["version"]
 Homepage = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec"
 Documentation = "https://gvec.readthedocs.io/latest"
 Repository = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec"
+Mirror = "https://github.com/gvec-group/gvec"
 Issues = "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/issues"
 
 [project.optional-dependencies]
@@ -72,11 +72,9 @@ sdist.include = [
     "python/gvec/_version.py",
 ]
 sdist.exclude = [
-    # exclude large files
-    "ini",
-    "test-CI/data",
-    # exclude unnecessary files
     "CI_templates",
+    "CI_images",
+    "docs",
     "template",
     "test-CI",
     "tools",
