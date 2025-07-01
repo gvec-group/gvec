@@ -261,6 +261,7 @@ def test_quasr_file(QUASR_ID, tmp_path, util):
 
 @pytest.mark.parametrize("QUASR_ID", [112714, 2021217, 122335, 10534, 49962])
 def test_quasr_full(QUASR_ID, tmp_path, util):
+    pytest.importorskip("simsopt")
     try:
         json = gvec.scripts.quasr.get_json_from_quasr(
             QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
