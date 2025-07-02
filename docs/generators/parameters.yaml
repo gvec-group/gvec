@@ -125,9 +125,9 @@ sgrid_rho:
   category:
   - Discretization
   description:
-  - "Positions of the B-Spline elements in the radial direction $\rho$."
-  - "The values must be monotonically increasing and include the two endpoints $\r\
-    ho=0$ and $\rho=1$."
+  - Positions of the B-Spline elements in the radial direction $\rho$.
+  - The values must be monotonically increasing and include the two endpoints $\rho=0$
+    and $\rho=1$.
   - '`sgrid_nElems` is set automatically from the size of the array.'
   type: array of `real`
   required_if: lnk_to_param(`sgrid_grid_type=-1`|sgrid_grid_type)
