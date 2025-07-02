@@ -106,7 +106,10 @@ Install the following packages using `apt`:
 - `libnetcdf-dev` and `libnetcdff-dev`
 - `python3`, `python3-pip`, `python3-dev` and `python3-venv` (3.10 or newer)
 
-Full command: `apt-get install git make cmake g++ gfortran pkg-config liblapack3 liblapack-dev zlib1g-dev libnetcdf-dev libnetcdff-dev python3 python3-pip python3-dev python3-venv`
+Full command:
+```bash
+apt-get install git make cmake g++ gfortran pkg-config liblapack3 liblapack-dev zlib1g-dev libnetcdf-dev libnetcdff-dev python3 python3-pip python3-dev python3-venv
+```
 
 Tested on Ubuntu 22.04.
 
