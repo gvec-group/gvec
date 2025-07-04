@@ -414,7 +414,7 @@ def Evaluations(
 
 
 def EvaluationsBoozer(
-    rho: CoordinateSpec,
+    rho: Literal["int"] | CoordinateSpec,
     theta_B: CoordinateSpec,
     zeta_B: CoordinateSpec,
     state: State,
@@ -426,7 +426,7 @@ def EvaluationsBoozer(
 
     Parameters
     ----------
-    rho : int | float | 1D array (DataArray, ndarray, list)
+    rho : "int" | int | float | 1D array (DataArray, ndarray, list)
         The specification of the radial, radius-like coordinate.
     theta_B : int | float | 1D array (DataArray, ndarray, list)
         The specification of the poloidal, angle-like Boozer coordinate.
@@ -436,6 +436,13 @@ def EvaluationsBoozer(
         The gvec.State object to create the grid for. Used to perform the Boozer transform.
     """
     match rho:
+        case str() if rho == "int":
+            if state is None:
+                raise ValueError("Integration points require a state object.")
+            intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (0, 1)]):
+                raise ValueError("Integration points for rho do not align for X1, X2 and LA.")
+            rho = ("rad", intp[0][0])
         case xr.DataArray():
             rho = rho
         case np.ndarray() | Sequence():
@@ -759,12 +766,14 @@ def evaluate(
 def evaluate_sfl(
     state: State,
     *quantities: str,
-    rho: Literal["int"] | CoordinateSpec | None = "int",
-    theta: Literal["int"] | CoordinateSpec | None = "int",
-    zeta: Literal["int"] | CoordinateSpec | None = "int",
-    sfl: Literal["boozer"] = "boozer",
+    rho: CoordinateSpec | Literal["int"],
+    theta: CoordinateSpec,
+    zeta: CoordinateSpec,
+    sfl: Literal["boozer"],
     **boozer_kwargs,
 ):
+    if not isinstance(state, State):
+        raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     if sfl == "boozer":
         ev = EvaluationsBoozer(rho, theta, zeta, state, **boozer_kwargs)
     elif sfl == "pest":
