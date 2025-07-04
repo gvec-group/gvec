@@ -350,6 +350,46 @@ SUBROUTINE evaluate_base_list_tz_all(n_s, n_tz, s, thetazeta, Qsel, Q, dQ_ds, dQ
 END SUBROUTINE evaluate_base_list_tz_all
 
 !================================================================================================================================!
+!> Evaluate the basis and all derivatives for a list of (rho/s, theta, zeta) positions
+!================================================================================================================================!
+SUBROUTINE evaluate_base_list_stz_all(n_stz, s, thetazeta, Qsel, Q, dQ_ds, dQ_dthet, dQ_dzeta, &
+                                     dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz)
+  ! MODULES
+  USE MODgvec_base,           ONLY: t_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_stz                    !! number of evaluation points
+  REAL, INTENT(IN) :: s(n_stz), thetazeta(2,n_stz)!! evaluation points
+  CHARACTER(LEN=2), INTENT(IN) :: Qsel            !! selection string: which variable to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_stz) :: Q, &     !! reference space position and derivatives
+    dQ_ds, dQ_dthet, dQ_dzeta, dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i                                                        ! loop variables
+  CLASS(t_base), POINTER :: base                                      ! pointer to the base object (X1, X2, LA)
+  REAL, POINTER :: solution_dofs(:,:)                                 ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs, dQ_dss_dofs  ! DOFs for the fourier series
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL select_base_dofs(Qsel, base, solution_dofs)
+  DO i=1,n_stz
+    ! evaluate spline to get the fourier dofs
+    Q_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, 0, solution_dofs)
+    dQ_ds_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S, solution_dofs)
+    dQ_dss_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S_S, solution_dofs)
+    ! evaluate the fourier series
+    Q(i) = base%f%evalDOF_x(thetazeta(:, i), 0, Q_dofs)
+    dQ_ds(i) = base%f%evalDOF_x(thetazeta(:, i), 0, dQ_ds_dofs)
+    dQ_dthet(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET, Q_dofs)
+    dQ_dzeta(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_ZETA, Q_dofs)
+    dQ_dss(i) = base%f%evalDOF_x(thetazeta(:, i), 0, dQ_dss_dofs)
+    dQ_dst(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET, dQ_ds_dofs)
+    dQ_dsz(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_ZETA, dQ_ds_dofs)
+    dQ_dtt(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET_THET, Q_dofs)
+    dQ_dtz(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET_ZETA, Q_dofs)
+    dQ_dzz(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_ZETA_ZETA, Q_dofs)
+  END DO
+  DEALLOCATE(Q_dofs, dQ_ds_dofs, dQ_dss_dofs)
+END SUBROUTINE evaluate_base_list_stz_all
+
+!================================================================================================================================!
 !> Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
 !================================================================================================================================!
 SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, result)

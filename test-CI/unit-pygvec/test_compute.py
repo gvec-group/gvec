@@ -33,14 +33,14 @@ def teststate(testfiles):
 
 
 @pytest.fixture()
-def evals_r():
+def ev_r_only():
     rho = np.linspace(0, 1, 6)
     ds = Evaluations(rho=rho, theta=None, zeta=None)
     return ds
 
 
 @pytest.fixture()
-def evals_rtz():
+def ev_rtz():
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
@@ -49,7 +49,7 @@ def evals_rtz():
 
 
 @pytest.fixture()
-def evals_rtz_int(teststate):
+def ev_rtz_int(teststate):
     ds = Evaluations(
         state=teststate,
         rho="int",
@@ -60,7 +60,7 @@ def evals_rtz_int(teststate):
 
 
 @pytest.fixture()
-def evals_r_int_tz(teststate):
+def ev_r_int_tz(teststate):
     ds = Evaluations(
         state=teststate,
         rho="int",
@@ -71,7 +71,35 @@ def evals_r_int_tz(teststate):
 
 
 @pytest.fixture()
-def evals_r_tz_list(teststate):
+def ev_r_tz_mixed():
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    T, Z = np.meshgrid(theta, zeta, indexing="ij")
+    dims = ("pol", "tor")
+    ds = xr.Dataset(
+        coords=dict(rho=("rad", rho), theta=(dims, T), zeta=(dims, Z)),
+    )
+    return ds
+
+
+@pytest.fixture()
+def ev_r_tz_3d():
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    T, Z = np.meshgrid(theta, zeta, indexing="ij")
+    T = T.reshape(2, 16, 10)
+    Z = Z.reshape(2, 16, 10)
+    dims = ("dim1", "dim2", "dim3")
+    ds = xr.Dataset(
+        coords=dict(rho=("rad", rho), theta=(dims, T), zeta=(dims, Z)),
+    )
+    return ds
+
+
+@pytest.fixture()
+def ev_rtz_mixed():
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
@@ -83,14 +111,68 @@ def evals_r_tz_list(teststate):
     return ds
 
 
+@pytest.fixture()
+def ev_rtz_1d():
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    R, T, Z = np.meshgrid(rho, theta, zeta, indexing="ij")
+    R = R.flatten()
+    T = T.flatten()
+    Z = Z.flatten()
+    ds = xr.Dataset(
+        coords=dict(rho=("n", R), theta=("n", T), zeta=("n", Z)),
+    )
+    return ds
+
+
+@pytest.fixture()
+def ev_rtz_4d():
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    R, T, Z = np.meshgrid(rho, theta, zeta, indexing="ij")
+    R = R.reshape(6, 16, 2, 10)
+    T = T.reshape(6, 16, 2, 10)
+    Z = Z.reshape(6, 16, 2, 10)
+    dims = ("dim1", "dim2", "dim3", "dim4")
+    ds = xr.Dataset(
+        coords=dict(rho=(dims, R), theta=(dims, T), zeta=(dims, Z)),
+    )
+    return ds
+
+
 @pytest.fixture(
-    params=["rtz", "r-tz-list"],
+    params=["rtz", "r_tz_mixed", "r_tz_3d", "rtz_mixed", "rtz_1d", "rtz_4d"],
 )
-def evals_rtz_and_list(request, evals_rtz, evals_r_tz_list):
-    if request.param == "rtz":
-        return evals_rtz
-    elif request.param == "r-tz-list":
-        return evals_r_tz_list
+def ev_base(request, ev_rtz, ev_r_tz_mixed, ev_r_tz_3d, ev_rtz_mixed, ev_rtz_1d, ev_rtz_4d):
+    return locals()[f"ev_{request.param}"]
+
+
+@pytest.fixture(
+    params=["logical", "sfl", "1d"],
+)
+def ev(request, ev_rtz, ev_rtz_mixed, ev_rtz_1d):
+    if request.param == "logical":
+        return ev_rtz
+    elif request.param == "sfl":
+        return ev_rtz_mixed
+    elif request.param == "1d":
+        return ev_rtz_1d
+
+
+@pytest.fixture(
+    params=["profile", "logical", "sfl", "1d"],
+)
+def ev_profile(request, ev_r_only, ev_rtz, ev_rtz_mixed, ev_rtz_1d):
+    if request.param == "profile":
+        return ev_r_only
+    elif request.param == "logical":
+        return ev_rtz
+    elif request.param == "sfl":
+        return ev_rtz_mixed
+    elif request.param == "1d":
+        return ev_rtz_1d
 
 
 # === TESTS === #
@@ -245,12 +327,12 @@ def test_EvaluationsBoozerCustom_fieldlines(teststate):
         assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
 
 
-def test_compute_base(teststate, evals_rtz_and_list):
-    ds = evals_rtz_and_list
+def test_compute_base(teststate, ev_base):
+    ds = ev
 
     compute(ds, "X1", state=teststate)
     assert "X1" in ds
-    assert ds.X1.shape == (6, 32, 10)
+    assert set(ds.X1.dims) == set(ds.rho.dims) | set(ds.theta.dims) | set(ds.zeta.dims)
     assert "dX1_dr" in ds
     assert not np.any(np.isnan(ds.X1))
 
@@ -260,8 +342,8 @@ def test_compute_base(teststate, evals_rtz_and_list):
     assert "dLA_dz" in ds
 
 
-def test_compute_hmap(teststate, evals_rtz):
-    ds = evals_rtz
+def test_compute_hmap(teststate, ev_rtz):
+    ds = ev_rtz
     compute(ds, "pos", state=teststate)
 
     assert ds.pos.shape == (3, 6, 32, 10)
@@ -276,8 +358,8 @@ def test_compute_hmap(teststate, evals_rtz):
     assert ds.e_rho.shape == (3, 6, 32, 10)
 
 
-def test_compute_metric(teststate, evals_rtz):
-    ds = evals_rtz
+def test_compute_metric(teststate, ev_rtz):
+    ds = ev_rtz
 
     compute(ds, "dg_tt_dr", state=teststate)
     for ij in ("rr", "rt", "rz", "tt", "tz", "zz"):
@@ -314,11 +396,11 @@ def test_compute_metric(teststate, evals_rtz):
         "dchi_drr",
     ],
 )
-def test_compute_profile(teststate, evals_r, quantity):
-    ds = evals_r
+def test_compute_profile(teststate, ev_profile, quantity):
+    ds = ev_profile
     compute(ds, quantity, state=teststate)
     assert quantity in ds
-    assert set(ds[quantity].coords) == {"rho"}
+    assert set(ds[quantity].dims) == set(ds.rho.dims)
     assert ds[quantity].data.size == ds.rho.size
     assert not np.any(np.isnan(ds[quantity]))
 
@@ -333,15 +415,15 @@ def test_compute_profile(teststate, evals_r, quantity):
         "mod_J",
     ],
 )
-def test_compute_derived(teststate, evals_rtz, quantity):
-    ds = evals_rtz
+def test_compute_derived(teststate, ev, quantity):
+    ds = ev
     compute(ds, quantity, state=teststate)
     assert quantity in ds
-    assert np.sum(np.isnan(ds[quantity].isel(rad=slice(1, None)))) == 0
+    assert np.sum(np.isnan(ds[quantity]) & (ds.rho > 0.0)) == 0
 
 
-def test_compute_basis(teststate, evals_rtz):
-    ds = evals_rtz
+def test_compute_basis(teststate, ev_rtz):
+    ds = ev_rtz
     for coord in ["rho", "theta", "zeta"]:
         compute(ds, f"e_{coord}", f"grad_{coord}", state=teststate)
     ds = ds.isel(rad=slice(1, None))
@@ -355,14 +437,14 @@ def test_compute_basis(teststate, evals_rtz):
             assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
 
 
-def test_volume_integral(teststate, evals_rtz_int, evals_rtz):
-    ds = evals_rtz_int
+def test_volume_integral(teststate, ev_rtz_int, ev_rtz):
+    ds = ev_rtz_int
     compute(ds, "Jac", state=teststate)
     volume_integral(ds.Jac)
 
     with pytest.raises(ValueError):
-        compute(evals_rtz, "Jac", state=teststate)
-        volume_integral(evals_rtz.Jac)
+        compute(ev_rtz, "Jac", state=teststate)
+        volume_integral(ev_rtz.Jac)
 
 
 @pytest.mark.parametrize(
@@ -383,15 +465,15 @@ def test_volume_integral(teststate, evals_rtz_int, evals_rtz):
         "F_r_avg",
     ],
 )
-def test_integral_quantities(teststate, evals_rtz_int, quantity):
-    ds = evals_rtz_int
+def test_integral_quantities(teststate, ev_rtz_int, quantity):
+    ds = ev_rtz_int
     compute(ds, quantity, state=teststate)
     # --- check that metadata is preserved --- #
     assert ds.rho.attrs["integration_points"] == "True"
 
 
-def test_iota_curr(teststate, evals_rtz_int):
-    ds = evals_rtz_int
+def test_iota_curr(teststate, ev_rtz_int):
+    ds = ev_rtz_int
     compute(ds, "iota", "iota_curr", "iota_0", state=teststate)
     np.testing.assert_allclose(ds.iota_curr + ds.iota_0, ds.iota)
 
@@ -412,9 +494,9 @@ def test_iota_curr(teststate, evals_rtz_int):
         "B_theta_avg",
     ],
 )
-def test_integral_quantities_aux_r_only(teststate, evals_r, quantity):
+def test_integral_quantities_aux_r_only(teststate, ev_r_only, quantity):
     # automatic change to integration points if necessary
-    ds = evals_r
+    ds = ev_r_only
     compute(ds, quantity, state=teststate)
     assert ds.rho.attrs["integration_points"] == "False"
     assert "theta" not in ds
@@ -431,8 +513,8 @@ def test_integral_quantities_aux_r_only(teststate, evals_r, quantity):
         "B_theta_avg",  # fluxsurface integral
     ],
 )
-def test_integral_quantities_aux_rtz(teststate, evals_rtz, quantity):
-    ds = evals_rtz
+def test_integral_quantities_aux_rtz(teststate, ev_rtz, quantity):
+    ds = ev_rtz
     compute(ds, quantity, state=teststate)
     assert ds.rho.attrs["integration_points"] == "False"
     assert ds.theta.attrs["integration_points"] == "False"
@@ -450,8 +532,8 @@ def test_integral_quantities_aux_rtz(teststate, evals_rtz, quantity):
         "B_theta_avg",  # fluxsurface integral
     ],
 )
-def test_integral_quantities_aux_r_int_tz(teststate, evals_r_int_tz, quantity):
-    ds = evals_r_int_tz
+def test_integral_quantities_aux_r_int_tz(teststate, ev_r_int_tz, quantity):
+    ds = ev_r_int_tz
     compute(ds, quantity, state=teststate)
     assert quantity in ds
     assert ds.rho.attrs["integration_points"] == "True"
@@ -462,16 +544,16 @@ def test_integral_quantities_aux_r_int_tz(teststate, evals_r_int_tz, quantity):
     assert "tor_weight" not in ds
 
 
-def test_ev2ft_2d(teststate, evals_rtz):
-    teststate.compute(evals_rtz, "mod_B")
-    ft = gvec.core.compute.ev2ft(evals_rtz[["mod_B"]].isel(rad=0))
+def test_ev2ft_2d(teststate, ev_rtz):
+    teststate.compute(ev_rtz, "mod_B")
+    ft = gvec.core.compute.ev2ft(ev_rtz[["mod_B"]].isel(rad=0))
     assert set(ft.dims) == {"m", "n"}
     assert set(ft.data_vars) == {"rho", "mod_B_mnc", "mod_B_mns"}
 
 
-def test_ev2ft_3d(teststate, evals_rtz):
-    teststate.compute(evals_rtz, "mod_B")
-    ft = gvec.core.compute.ev2ft(evals_rtz[["mod_B"]])
+def test_ev2ft_3d(teststate, ev_rtz):
+    teststate.compute(ev_rtz, "mod_B")
+    ft = gvec.core.compute.ev2ft(ev_rtz[["mod_B"]])
     assert set(ft.dims) == {"rad", "m", "n"}
     assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
 
