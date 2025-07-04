@@ -1,5 +1,9 @@
 # CAS3D
 
+:::{warning}
+This feature is experimental and likely does not yet produce the expected results.
+:::
+
 This is the interface to the MHD stability code *CAS3D* [^CAS3D].
 It can be used to convert a GVEC equilibrium (parameterfile & statefile) into specialized netCDF file that can be read by CAS3D.
 
@@ -55,14 +59,14 @@ The netCDF export for CAS3D contains a number of flux surfaces, equidistantly sp
 
 ### Coordinates
 
-CAS3D uses a flux aligned coordinate system with a radial coordinate $s\in[0,1]$, proportional to the normalized toroidal flux, and two angular coordinates $\theta,\zeta\in[0,1]$.
+CAS3D uses a flux aligned coordinate system with a radial coordinate $s\in[0,1]$, proportional to the normalized toroidal flux, and two angular coordinates $\vartheta,\zeta\in[0,1]$.
 Note that the first radial position in the output is not the $s=0$ surface, but $s=10^{-8}$ to avoid the singularity at the axis.
-The two angles are *Boozer-straight-fieldline-angles*, that is the components of the magnetic field $B_\theta(s),B_\zeta(s),\mathcal{J}B^\theta(s),\mathcal{J}B^\zeta(s)$ are constant on each fluxsurface.
-The $\theta=0$ surface is on the outward side of the device and $\theta,\zeta$ both increase in the counter-clockwise direction when viewed from the front or above respectively.
-This makes the $(s,\theta,\zeta)$ coordinate system left-handed ($\mathcal{J} < 0$) (and is similar to a COCOS[^COCOS] number of 3/5/13/15).
+The two angles are *Boozer-straight-fieldline-angles*, that is the components of the magnetic field $B_\vartheta(s),B_\zeta(s),\mathcal{J}B^\vartheta(s),\mathcal{J}B^\zeta(s)$ are constant on each fluxsurface.
+The $\vartheta=0$ surface is on the outward side of the device and $\vartheta,\zeta$ both increase in the counter-clockwise direction when viewed from the front or above respectively.
+This makes the $(s,\vartheta,\zeta)$ coordinate system left-handed ($\mathcal{J} < 0$) (and is similar to a COCOS[^COCOS] number of 3/5/13/15).
 
 :::{warning}
-The placement of the $\theta=0$ contour is not guaranteed by the converter right now. The expected position of that contour for a generalized axis-following frame is however not clearly defined.
+The placement of the $\vartheta=0$ contour is not guaranteed by the converter right now. The expected position of that contour for a generalized axis-following frame is however not clearly defined.
 :::
 
 :::{warning}
@@ -71,24 +75,24 @@ ToDo: this derivation assumes that $\zeta=[0,1]$ on the whole device for CAS3D, 
 
 In terms of the GVEC *Boozer-coordinates* $(\rho,\vartheta_B,\zeta_B)$, the CAS3D flux coordinates are:
 
-$$ s = \rho^2, \qquad \theta = -\sigma\frac{1}{2\pi} \vartheta_B, \qquad \zeta = \sigma\frac{1}{2\pi} \zeta_B, $$
+$$ s = \rho^2, \qquad \vartheta = -\sigma\frac{1}{2\pi} \vartheta_B, \qquad \zeta = \sigma\frac{1}{2\pi} \zeta_B, $$
 
 where $\sigma=1$ if the GVEC reference frame ($h$-map) is defined with counter-clockwise $\zeta$ direction and $\sigma=-1$ otherwise.
 The derivatives are then:
 
-$$ \frac{ds}{d\rho} = 2\rho, \qquad \frac{d\theta}{d\theta_B} = -\sigma\frac{1}{2\pi}, \qquad \frac{d\zeta}{d\zeta_B} = \sigma\frac{1}{2\pi}.$$
+$$ \frac{ds}{d\rho} = 2\rho, \qquad \frac{d\vartheta}{d\vartheta_B} = -\sigma\frac{1}{2\pi}, \qquad \frac{d\zeta}{d\zeta_B} = \sigma\frac{1}{2\pi}.$$
 
 The derived quantities are then transformed as shown [here](./coordinate-conventions.md#different-conventions)
 
 ### field-periodic representation
 
-If the number of field periods is >1, the flux surface positions $x,y,z$ in cartesian coordinates are not periodic on one field-period. A transformation to field-periodic variables $\hat{x},\hat{y},\hat{z}$ is possible, using the toroidal parameterization $\zeta\in[0,2\pi]$, see Guiliani et. al. [^xhat]. The transform forflux surface with $\theta$ poloidal  and $\zeta$ toroidal parameterization is then defined as:
+If the number of field periods is >1, the flux surface positions $x,y,z$ in cartesian coordinates are not periodic on one field-period. A transformation to field-periodic variables $\hat{x},\hat{y},\hat{z}$ is possible, using the toroidal parameterization $\zeta\in[0,2\pi]$, see Guiliani et. al. [^xhat]. The transform forflux surface with $\vartheta$ poloidal  and $\zeta$ toroidal parameterization is then defined as:
 
 $$
 \begin{align}
-\hat{x}(\theta,\zeta) &:=\quad x(\theta,\zeta)\cos(2\pi\zeta)+y(\theta,\zeta)\sin(2\pi\zeta), \\
-\hat{y}(\theta,\zeta) &:=-x(\theta,\zeta)\cos(2\pi\zeta)+y(\theta,\zeta)\cos(2\pi\zeta), \\
-\hat{z}(\theta,\zeta) &:=\quad z(\theta,\zeta)
+\hat{x}(\vartheta,\zeta) &:=\quad x(\vartheta,\zeta)\cos(2\pi\zeta)+y(\vartheta,\zeta)\sin(2\pi\zeta), \\
+\hat{y}(\vartheta,\zeta) &:=-x(\vartheta,\zeta)\cos(2\pi\zeta)+y(\vartheta,\zeta)\cos(2\pi\zeta), \\
+\hat{z}(\vartheta,\zeta) &:=\quad z(\vartheta,\zeta)
 \end{align}
 $$
 
@@ -96,9 +100,9 @@ and its inverse
 
 $$
 \begin{align}
-x(\theta,\zeta) &:= \hat{x}(\theta,\zeta)\cos(2\pi\zeta) - \hat{y}(\theta,\zeta)\sin(2\pi\zeta), \\
-y(\theta,\zeta) &:= \hat{x}(\theta,\zeta)\cos(2\pi\zeta) + \hat{y}(\theta,\zeta)\cos(2\pi\zeta), \\
-z(\theta,\zeta) &:= \hat{z}(\theta,\zeta),
+x(\vartheta,\zeta) &:= \hat{x}(\vartheta,\zeta)\cos(2\pi\zeta) - \hat{y}(\vartheta,\zeta)\sin(2\pi\zeta), \\
+y(\vartheta,\zeta) &:= \hat{x}(\vartheta,\zeta)\cos(2\pi\zeta) + \hat{y}(\vartheta,\zeta)\cos(2\pi\zeta), \\
+z(\vartheta,\zeta) &:= \hat{z}(\vartheta,\zeta),
 \end{align}
 $$
 

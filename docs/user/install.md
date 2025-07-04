@@ -58,6 +58,8 @@ Compilers tested with GVEC include:
 - Intel C/Fortran Compiler 17 or newer (recommended)
 - CMake 3.5+ as a build system
 
+The python bindings require Python 3.10 or newer.
+
 ::::::{tab-set}
 :sync-group: host
 
@@ -68,6 +70,7 @@ Additionally GVEC requires:
 
 - git
 - cmake
+- pkg-config
 - libc6
 - zlib
 - BLAS/LAPACK (or compatible, e.g. ATLAS, MKL)
@@ -99,6 +102,7 @@ Install the following packages using `apt`:
 - `liblapack3` and `liblapack-dev`
 - `zlib1g-dev`
 - `libnetcdf-dev` and `libnetcdff-dev`
+- `python3.10` (or newer)
 
 :::::
 :::::{tab-item} MacOS
@@ -108,8 +112,10 @@ Install the following packages using homebrew (`brew install`)
 
 - `cmake`
 - `netcdf-fortran`
+- `pkgconf`
 - `gcc` (possibly no need to install explicitly)
 - `lapack` (possibly no need to install explicitly)
+- `python@3.10` (or newer)
 
 :::::
 ::::::
@@ -149,9 +155,7 @@ pip install git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
   * upgrade pip with `pip install pip --upgrade`
 * `Cannot open include file 'netcdf.inc'` during installation
   * `gvec/src/vmec/vmec_readin.f90(494): error #5102: Cannot open include file 'netcdf.inc'`
-  * gvec cannot find netCDF. Possible fixes:
-    * explicitly tell gvec which preset to use, e.g. `pip install gvec --config-settings=cmake.define.CMAKE_HOSTNAME=mac_brew`
-    * disable netCDF: `pip install gvec --config-settings=cmake.define.LINK_GVEC_TO_NETCDF=Off`
+  * gvec cannot find netCDF
 * `INTEL_MKL_ERROR` when trying to use pyGVEC
   * `INTEL MKL ERROR: /usr/lib/x86_64-linux-gnu/libmkl_avx2.so: undefined symbol: mkl_sparse_optimize_bsr_trsm_i8.`
   * `Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so or libmkl_def.so.`
@@ -202,7 +206,7 @@ You can install the gvec python package **manually**, from a cloned repository.
 We strongly recommend to **always** use a clean virtual environment for the installation, e.g.
 ```bash
 cd gvec
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 ```
 
@@ -211,7 +215,11 @@ Then you can install the gvec python package manually with
 pip install .[dev,examples] -v
 ```
 
-## Install GVEC with `cmake`
+## Install Fortran executable of GVEC with `cmake`
+
+```{warning}
+This will only install the Fortran executables of GVEC, which are mostly used for testing. The python bindings are not installed with this option.
+```
 
 The standard way of compiling GVEC is using cmake presets, but there is also an interactive way with ccmake.
 

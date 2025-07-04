@@ -49,13 +49,14 @@ import argparse
 from pathlib import Path
 import requests
 import shutil
-from typing import Sequence, Literal
+from typing import Literal
+from collections.abc import Sequence
 import logging
 
 import numpy as np
 from scipy.optimize import root_scalar
 
-from gvec.util import write_parameters
+from gvec.util import write_parameters, logging_setup
 from gvec import fourier
 
 # === Argument Parser === #
@@ -143,7 +144,7 @@ def check_args(parser, args):
     if args.tol is not None and args.tol <= 0:
         raise parser.error("Tolerance must be greater than 0.")
     if args.param_type is None:
-        args.param_type = "yaml"
+        args.param_type = "toml"
 
 
 # === Functions === #
@@ -369,16 +370,23 @@ def eval_distance_to_plane(xyz_in, origin, normal):
     return np.sum((xyz_in - origin) * normal, axis=-1)
 
 
-def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict):
+def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict, zeta_bracket: float):
     def eval_dist(zeta_in):
         return eval_distance_to_curve(zeta_in, origin, normal, xyz, dft_dict)
 
-    return root_scalar(
-        eval_dist, bracket=[zeta_in - 0.2 * np.pi, zeta_in + 0.2 * np.pi], xtol=1e-10
-    ).root
+    for factor in [0.01, 0.1, 1]:
+        try:
+            return root_scalar(
+                eval_dist,
+                bracket=[zeta_in - zeta_bracket * factor, zeta_in + zeta_bracket * factor],
+                xtol=1e-10,
+            ).root
+        except ValueError:
+            pass
+    raise RuntimeError("Could not find zeta cuts with the given bracket (or 1/10, 1/100)")
 
 
-def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict):
+def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict, nfp):
     nz_out = origins.shape[0]
     nt = xyz_in.shape[1]
     zeta_out = np.zeros(nz_out)
@@ -391,6 +399,7 @@ def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict):
                 normals[iz, :],
                 xyz_in[:, it, :],
                 dft_dict,
+                zeta_bracket=np.pi / nfp,
             )
 
         xyz_cut[:, it, :] = eval_curve(zeta_out, xyz_in[:, it, :], dft_dict)
@@ -419,6 +428,7 @@ def cut_surf(xyz, nfp, xyz0, N, B):
         np.cross(N[0 : nz // nfp, :], B[0 : nz // nfp, :], axis=-1),
         xyz,
         zdft,
+        nfp,
     )
     x1_cut = np.sum(
         (xyz_cut - xyz0[0 : nz // nfp, None, :]) * N[0 : nz // nfp, None, :], axis=-1
@@ -570,7 +580,7 @@ def convert_quasr(
     tolerance: float = 1e-8,
     format: Literal["yaml", "toml"] = "yaml",
 ):
-    logger = logging.getLogger("pyGVEC.script")
+    logger = logging.getLogger(__name__)
     logger.info("Constructing the G-Frame")
     xyz0, N, B = get_X0_N_B(xyz)
 
@@ -610,7 +620,6 @@ def convert_quasr(
     logger.info("Writing parameterfile")
     parameters = dict(
         ProjectName=name,
-        whichInitEquilibrium=0,
         which_hmap=21,
         hmap_ncfile=f"{name}-Gframe.nc",
         getBoundaryFromFile=1,
@@ -624,28 +633,18 @@ def convert_quasr(
         X1_mn_max=(Mmax, Nmax),
         X2_mn_max=(Mmax, Nmax),
         LA_mn_max=(Mmax, Nmax),
-        MinimizerType=10,
-        PrecondType=1,
         minimize_tol=1e-7,
-        MaxIter=10000,
+        totalIter=10000,
         logIter=100,
         pres=dict(
             type="polynomial",
             coefs=[0.0],
         ),
-        iota=dict(
+        I_tor=dict(
             type="polynomial",
             coefs=[0.0],
         ),
-        Itor=dict(
-            type="polynomial",
-            coefs=[0.0],
-        ),
-        stages=[
-            dict(
-                runs=10,
-            )
-        ],
+        picard_current="auto",
     )
     write_parameters(parameters, f"{name}-parameters.{format}")
     logger.info("Done")
@@ -689,14 +688,8 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         args = parser.parse_args(args)
     check_args(parser, args)
 
-    logging.basicConfig(
-        level=logging.WARNING,
-    )  # show warnings and above as normal
-    logger = logging.getLogger("gvec")
-    loghandler = logging.StreamHandler()
-    logformatter = logging.Formatter("{levelname} {message}", style="{")
-    loghandler.setFormatter(logformatter)
-    logger.addHandler(loghandler)
+    logging_setup()
+    logger = logging.getLogger(__name__)
     if args.quiet:
         logging.disable()
     elif args.verbose >= 2:

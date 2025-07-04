@@ -50,12 +50,12 @@ def testcase():
 
 
 @pytest.fixture(scope="session")
-def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_pages_path):
+def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_pages_path, util):
     """run the default testcase and store the output"""
     # assume pip-build: the gvec executable is in the PATH
     args = ["gvec", "parameter.ini"]
     # run gvec - adapted from test_all.test_run
-    with helpers.chdir(testcaserundir):
+    with util.chdir(testcaserundir):
         # skip if stdout & stderr are present and ok
         try:
             helpers.assert_empty_stderr()

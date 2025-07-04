@@ -6,7 +6,7 @@ try:
 
     import xarray as xr
     import gvec
-    from gvec.state import State
+    from gvec.core.state import State
 except ImportError:
     pytest.skip("Import Error", allow_module_level=True)
 
@@ -26,7 +26,7 @@ def binc(n, k):
     Returns:
         float: binomial coefficient (n k)
     """
-    if k > k:
+    if k > n:
         AssertionError("error in binomial coefficient (n k) calculation: k>n")
     if abs(k) <= tol:
         coef = 1.0
@@ -116,8 +116,7 @@ def testfile_aux(request, testcaserundir, c_poly):
 
 @pytest.fixture()
 def teststate(testfile_aux):
-    with State(testfile_aux) as state:
-        yield state
+    return State(testfile_aux)
 
 
 @pytest.fixture(scope="module")
@@ -235,18 +234,18 @@ def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge, n_poi
     gvec.util.adapt_parameter_file(
         testcaserundir / "parameter.ini", testcaserundir / paramfile, **params_gvec
     )
-    with State(testcaserundir / paramfile) as state:
-        P_p_interpol = state.evaluate_rho2_profile("p", rho2_vals, deriv=0)
-        iota_p_interpol = state.evaluate_rho2_profile("iota", rho2_vals, deriv=0)
+    state = State(testcaserundir / paramfile)
+    P_p_interpol = state.evaluate_rho2_profile("p", rho2_vals, deriv=0)
+    iota_p_interpol = state.evaluate_rho2_profile("iota", rho2_vals, deriv=0)
 
-        P_interpol = state.evaluate_rho2_profile("p", rho2, deriv=0)
-        iota_interpol = state.evaluate_rho2_profile("iota", rho2, deriv=0)
+    P_interpol = state.evaluate_rho2_profile("p", rho2, deriv=0)
+    iota_interpol = state.evaluate_rho2_profile("iota", rho2, deriv=0)
 
-        dP_interpol_ds = state.evaluate_rho2_profile("p", rho2, deriv=1)
-        diota_interpol_ds = state.evaluate_rho2_profile("iota", rho2, deriv=1)
+    dP_interpol_ds = state.evaluate_rho2_profile("p", rho2, deriv=1)
+    diota_interpol_ds = state.evaluate_rho2_profile("iota", rho2, deriv=1)
 
-        dP_interpol_dss = state.evaluate_rho2_profile("p", rho2, deriv=2)
-        diota_interpol_dss = state.evaluate_rho2_profile("iota", rho2, deriv=2)
+    dP_interpol_dss = state.evaluate_rho2_profile("p", rho2, deriv=2)
+    diota_interpol_dss = state.evaluate_rho2_profile("iota", rho2, deriv=2)
 
     # check that the profiles are the same at all provided interpolation points
     np.testing.assert_allclose(P_p_interpol / pres_scale, P_vals)
@@ -282,11 +281,11 @@ def test_vmec_profile_init(vmecfiles):
     iota_vmec = -1 * wout.iotaf
     rho_wout = np.sqrt((phi - phi[0]) / (phi[-1] - phi[0]))  # Normalized toroidal flux
 
-    with State(vmecfiles[0]) as state:
-        P_gvec = state.evaluate_profile("p", rho_wout, deriv=0)
-        dP_dr_gvec = state.evaluate_profile("p", 0, deriv=1)
-        iota_gvec = state.evaluate_profile("iota", rho_wout, deriv=0)
-        diota_dr_gvec = state.evaluate_profile("iota", 0, deriv=1)
+    state = State(vmecfiles[0])
+    P_gvec = state.evaluate_profile("p", rho_wout, deriv=0)
+    dP_dr_gvec = state.evaluate_profile("p", 0, deriv=1)
+    iota_gvec = state.evaluate_profile("iota", rho_wout, deriv=0)
+    diota_dr_gvec = state.evaluate_profile("iota", 0, deriv=1)
 
     np.testing.assert_allclose(P_gvec, P_vmec)
     np.testing.assert_allclose(iota_gvec, iota_vmec)
@@ -319,9 +318,9 @@ def test_vmec_with_custom_profile(testcaserundir, vmecfiles, c_poly, profile_typ
     rho = np.linspace(0, 1, 100)
     ref_poly = np.polynomial.Polynomial(c_poly)
     profile_true = scale * ref_poly(rho**2)
-    with State(param_file) as state:
-        profile_gvec = state.evaluate_profile(var, rho, deriv=0)
-        profile_gvec_at_vmec = state.evaluate_profile(var, rho_wout, deriv=0)
+    state = State(param_file)
+    profile_gvec = state.evaluate_profile(var, rho, deriv=0)
+    profile_gvec_at_vmec = state.evaluate_profile(var, rho_wout, deriv=0)
 
     with np.testing.assert_raises(AssertionError):
         np.testing.assert_allclose(profile_gvec_at_vmec, wout[f"{profile_type}f"])

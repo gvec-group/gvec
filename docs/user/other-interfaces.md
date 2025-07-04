@@ -10,6 +10,6 @@ These interfaces only support the $RZ\phi$ $h$-map!
 * the geometric plasma simulation package [Struphy](https://struphy.pages.mpcdf.de/struphy) via [gvec_to_python](https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python)
 
 ## VMEC
-GVEC is also compatible with the MHD equilibrium code VMEC to a certain extend.
+GVEC is also compatible with the MHD equilibrium code VMEC to a certain extent.
 In particular a VMEC equilibrium can be used as the initial state for a GVEC computation.
 See [initialization parameters](./gvec-parameter-list.md#initialization-parameters) for details.

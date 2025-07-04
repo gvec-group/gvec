@@ -3,12 +3,14 @@
 [![readthedocs](https://img.shields.io/badge/Read%20the%20Docs-8CA1AF?logo=readthedocs&labelColor=gray)](https://gvec.readthedocs.io)
 [![gitlab](https://img.shields.io/badge/GitLab-FC6D26?logo=gitlab&labelColor=gray)](https://gitlab.mpcdf.mpg.de/gvec-group/gvec)
 [![github-mirror](https://img.shields.io/badge/GitHub%20mirror-gray?logo=github&labelColor=gray)](https://github.com/gvec-group/gvec)
+[![matrix-chat](https://img.shields.io/badge/chat-gvec%3Ampg.de-0DBD8B?logo=matrix)](https://matrix.to/#/#gvec:mpg.de)
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
 [![License](https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative)](./LICENSE.txt)
-[![PyPI](https://img.shields.io/pypi/v/gvec)](https://pypi.org/project/gvec/)
-[![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15026780.svg)](https://doi.org/10.5281/zenodo.15026780)
+[![GitLab Release](https://img.shields.io/gitlab/v/release/gvec-group%2Fgvec?gitlab_url=https%3A%2F%2Fgitlab.mpcdf.mpg.de&logo=gitlab)](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/releases)
+[![PyPI](https://img.shields.io/pypi/v/gvec?logo=PyPI&label=PyPI)](https://pypi.org/project/gvec/)
 
+[![python-version](https://img.shields.io/pypi/pyversions/gvec?logo=python)](https://pypi.org/project/gvec)
 [![pre-commit](https://img.shields.io/badge/pre--commit-gray?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -58,6 +60,8 @@ Contact the maintainers for a guest account if you want to contribute to GVEC.
 
 A public mirror of GVEC is hosted on [GitHub](https://github.com/gvec-group/gvec).
 There you can also open [issues](https://github.com/gvec-group/gvec/issues) and pull requests.
+
+For questions, discussions and announcements you can also join the [matrix-chat channel](https://matrix.to/#/#gvec:mpg.de).
 
 Contributions are always welcome, best get into contact directly with the maintainers.
 Also see the relevant [documentation](https://gvec.readthedocs.io/latest/dev/index.html).

@@ -8,7 +8,7 @@ import platform
 from pathlib import Path
 import logging
 import argparse
-from typing import Sequence
+from collections.abc import Sequence
 
 import gvec
 from gvec.scripts import cas3d, run, quasr
@@ -38,7 +38,7 @@ convert_parser = subparsers.add_parser(
     help="convert the GVEC parameterfile between different formats",
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description="Convert GVEC parameterfiles between different formats.\n"
-    "The INI (classical) parameter files do not support stages or the current constraint!\nAlso the formatting is lost upon conversion.",
+    "The INI (classical) parameter files do not support stages or the current optimization!\nAlso the formatting is lost upon conversion.",
 )
 convert_parser.add_argument(
     "input",
@@ -106,11 +106,8 @@ quasr_parser = subparsers.add_parser(
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
+    gvec.util.logging_setup()
     logger = logging.getLogger("gvec")
-    loghandler = logging.StreamHandler()
-    logformatter = logging.Formatter("{levelname} {message}", style="{")
-    loghandler.setFormatter(logformatter)
-    logger.addHandler(loghandler)
 
     if isinstance(args, argparse.Namespace):
         pass
@@ -136,9 +133,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 import f90nml
             except ImportError as e:
                 logger.debug(f"Caught exception: {e}")
-                logger.error(
-                    "reading VMEC namelists requires 'f90nml' to be installed."
-                )
+                logger.error("reading VMEC namelists requires 'f90nml' to be installed.")
             with open(args.input, "r") as file:
                 content = file.read()
             content = content.strip()

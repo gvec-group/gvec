@@ -9,7 +9,7 @@ spec:
       default: .mpcdfci_ifx-latest
     rules:
       description: Rules for the job, e.g. `.rules_default`
-      default: .rules_develop_only
+      default: .rules_pypi
 
 ---
 
@@ -17,9 +17,6 @@ publish.pypi:
   stage: publish
   extends:
     - $[[ inputs.env ]]
+    - .before_script_modules
     - .script_publish_pypi
     - $[[ inputs.rules ]]
-  needs:
-    - job: build$[[ inputs.env ]]_py
-      artifacts: true # for venv
-    - job: unit$[[ inputs.env ]]

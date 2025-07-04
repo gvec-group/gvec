@@ -10,9 +10,10 @@ import copy
 import os
 import re
 import shutil
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping, Iterable
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
+from copy import deepcopy
 import logging
 
 import numpy as np
@@ -34,7 +35,7 @@ def chdir(target: Path | str):
     Using a context has the benefit of automatically changing back to the original directory when the context is exited, even if an exception is raised.
     """
     target = Path(target)
-    source = Path(os.getcwd())
+    source = Path.cwd()
 
     try:
         os.chdir(target)
@@ -114,9 +115,6 @@ class CaseInsensitiveDict(MutableMapping):
         # Compare insensitively
         return dict(self.lower_items()) == dict(other.lower_items())
 
-    def copy(self):
-        return self.__class__(self._data.values())
-
     def serialize(self):
         """Recursively serialize this object, converting Mappings to dicts and Iterables to lists."""
 
@@ -132,6 +130,10 @@ class CaseInsensitiveDict(MutableMapping):
 
     def __repr__(self):
         return f"{self.__class__.__name__}{dict(self.items())}"
+
+    def copy(self):
+        """Return a deep copy."""
+        return deepcopy(self)
 
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
@@ -150,15 +152,15 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     Notes:
         - If no parameters are provided in `kwargs`, the function simply copies the `source` file to the `target` file.
         - The function replaces the parameters in the format `key = value`, where value is either a sequence of characters containing
-        no whitespace or a single pair of parentheses with any content. The value from `kwargs` is inserted using the standard python
-        string conversion. There may be a comment, starting with `!`, after the value.
+          no whitespace or a single pair of parentheses with any content. The value from `kwargs` is inserted using the standard python
+          string conversion. There may be a comment, starting with `!`, after the value.
         - If a parameter already exists in the `source` file, its value is replaced with the corresponding value from `kwargs`.
         - If a parameter does not exist in the `source` file, it is added to the `target` file.
         - If the value of the key starts with "!", the line with the keyword is just uncommented.  (i.e. "!key=2.5" -> "key=2.5")
           If no line with the keyword is found, the key is added with the value, excluding the leading "!"  (i.e. value is "!0.5" -> "key=0.5" is added)
 
     Example:
-    >>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")
+        `>>> adapt_parameter_file('/path/to/source.ini', '/path/to/target.ini', param1=1.2, param2="(1, 2, 3)")`
     """
     if not len(kwargs.keys()):
         shutil.copy2(source, target)
@@ -203,7 +205,7 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
                     [
                         key.lower()
                         for key, value in kwargs.items()
-                        if not isinstance(value, dict)
+                        if not isinstance(value, Mapping)
                     ]
                 )
                 + r")(\s*=\s*)(\([^\)]*\)|[^!\s]*)(.*)",
@@ -248,16 +250,17 @@ def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     )
 
 
-def write_parameter_file(
+def write_parameter_file_ini(
     parameters: Mapping, path: str | Path = "parameter.ini", header: str = ""
 ):
     """
-    Write the parameters to the specified parameter file.
+    Write the parameters to the specified parameter file in GVEC-ini format.
 
     Args:
-        parameters: A dictionary containing the parameters to be written to the parameter file.
+        parameters: A mapping containing the parameters to be written to the parameter file.
         path: The path to the parameter file.
     """
+    parameters = parameters.copy()
     for key, value in parameters.items():
         if isinstance(value, Mapping) or isinstance(value, str):
             pass
@@ -278,53 +281,88 @@ def write_parameter_file(
                 file.write(f"{key} = {value}\n")
 
 
-def read_parameter_file(path: str | Path) -> CaseInsensitiveDict:
+def read_parameter_file_ini(path: str | Path) -> CaseInsensitiveDict:
     """
-    Read the parameters from the specified parameter file.
+    Read the parameters from the specified parameter file in GVEC-ini format.
 
     Args:
         path (str | Path): The path to the parameter file.
 
     Returns:
-        CaseInsensitiveDict: A dictionary (with case insensitive keys) containing the parameters from the parameter file.
+        CaseInsensitiveDict: A mapping (with case insensitive keys) containing the parameters from the parameter file.
 
     Example:
-    >>> read_parameter_file('/path/to/parameter.ini')
+    >>> read_parameter_file_ini('/path/to/parameter.ini')
     {'param1': 1.2, 'param2': (1, 2, 3), 'param3': {(-1, 0): 0.5, (0, 0): 1.0}}
     """
+    INT = r"[-+]?\d+"
+    FLOAT = r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?"
+    STR = r"\S+"
+    KEY = r"\w+"
+
+    def convert(value: str):
+        if "," in value:
+            return tuple(convert(v) for v in value.split(","))
+        if re.fullmatch(INT, value):
+            return int(value)
+        if re.fullmatch(FLOAT, value):
+            return float(value)
+        if value.upper() == "T":
+            return True
+        if value.upper() == "F":
+            return False
+        if re.fullmatch(STR, value):
+            return value
+        raise ValueError(f"Cannot parse value '{value}' in parameter file {path}")
+
+    # follow the implementation in src/globals/readintools.f90:FillStrings
     parameters = CaseInsensitiveDict()
     with open(path, "r") as file:
+        # read lines and preprocess them
+        lines = []
         for line in file:
-            # match parameter in the form `key(m,n) = value` with m,n integers and value a float
-            if ln := re.match(
-                r"\s*([^!=\s\(]+)\s*\(\s*([-\d]+);\s*([-\d]+)\)\s*=\s*([-+\d\.Ee]+)",
-                line,
-            ):
+            # remove comments `!` and `#`
+            line = re.split(r"[!#]", line)[0]
+            # remove array brackets `(/` and `/)`
+            line = re.sub(r"\(\/", "", line)
+            line = re.sub(r"\/\)", "", line)
+            # remove whitespace
+            line = re.sub(r"\s+", "", line).strip()
+            # skip empty lines
+            if len(line) == 0:
+                continue
+            # combine lines that end with a `&`
+            if lines and lines[-1].endswith("&"):
+                lines[-1] = lines[-1][:-1] + line
+            else:
+                lines.append(line)
+
+        # parse the lines
+        for line in lines:
+            # match parameter in the form `key(m;n) = value` with m,n integers
+            if ln := re.fullmatch(rf"({KEY})\(({INT});({INT})\)=(.+)", line):
                 key, m, n, value = ln.groups()
+                m, n = int(m), int(n)
+
+                if key in parameters and not isinstance(parameters[key], MutableMapping):
+                    raise TypeError(
+                        f"Trying to set indices for parameter '{key}' in {path}, but it is already set to a non-mapping value: {parameters[key]}"
+                    )
                 if key not in parameters:
-                    parameters[key] = {(int(m), int(n)): float(value)}
-                else:
-                    assert (int(m), int(n)) not in parameters[key]
-                    parameters[key][int(m), int(n)] = float(value)
-            # match parameter in the form `key = (/value/)` with value an array of ints or floats, separated by commas
-            elif ln := re.match(r"\s*([^!=\s]+)\s*=\s*\(/(.*?)/\)", line):
-                key, value = ln.groups()
-                assert key not in parameters
-                try:
-                    parameters[key] = tuple(map(int, value.split(",")))
-                except ValueError:
-                    parameters[key] = tuple(map(float, value.split(",")))
+                    parameters[key] = {}
+                if (m, n) in parameters[key]:
+                    raise IndexError(
+                        f"Duplicate indices ({m}, {n}) for parameter '{key}' in {path}"
+                    )
+                parameters[key][m, n] = convert(value)
             # match parameter in the form `key = value`
-            elif ln := re.match(r"\s*([^!=\s]+)\s*=\s*([^!\s]*)", line):
-                key, value = ln.groups()
-                assert key not in parameters
-                try:
-                    parameters[key] = int(value)
-                except ValueError:
-                    try:
-                        parameters[key] = float(value)
-                    except ValueError:
-                        parameters[key] = value
+            elif "=" in line:
+                key, value = line.split("=", 1)
+                if key in parameters:
+                    raise IndexError(f"Duplicate parameter '{key}' in {path}")
+                if not re.fullmatch(KEY, key):
+                    raise ValueError(f"Invalid key '{key}' in parameter file {path}")
+                parameters[key] = convert(value)
     return parameters
 
 
@@ -530,7 +568,7 @@ def stack_parameters(parameters: Mapping) -> CaseInsensitiveDict:
         group, name = key.split("_", 1)
         if group in ["iota", "pres", "sgrid"]:
             if group not in output:
-                output[group] = {}
+                output[group] = CaseInsensitiveDict()
             output[group][name] = value
         else:
             output[key] = value
@@ -541,9 +579,9 @@ def flatten_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     """Flatten parameters from a hierarchical dictionary"""
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
-        if key.lower() in ["stages", "itor"]:
+        if key.lower() in ["stages", "i_tor", "picard_current", "totaliter"]:
             continue  # not supported by fortran-GVEC
-        elif isinstance(value, dict) and not re.match(
+        elif isinstance(value, Mapping) and not re.match(
             r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()
         ):
             for subkey, subvalue in value.items():
@@ -581,7 +619,7 @@ def unstringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
     output = CaseInsensitiveDict()
     for key, value in parameters.items():
         if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
-            output[key] = {}
+            output[key] = CaseInsensitiveDict()
             for mn, val in value.items():
                 m, n = map(int, mn.strip("()").split(","))
                 output[key][(m, n)] = val
@@ -604,7 +642,7 @@ def read_parameters(
         format = path.suffix[1:]
 
     if format == "ini":
-        inputs = read_parameter_file(path)
+        inputs = read_parameter_file_ini(path)
         inputs = stack_parameters(inputs)
     elif format == "yaml":
         with open(path, "r") as file:
@@ -634,7 +672,7 @@ def write_parameters(
 
     if format == "ini":
         outputs = flatten_parameters(parameters)
-        write_parameter_file(outputs, path)
+        write_parameter_file_ini(outputs, path)
     elif format == "yaml":
         outputs = stringify_mn_parameters(parameters)
         with open(path, "w") as file:
@@ -695,3 +733,15 @@ def bspl2gvec(
     params[f"{name}_type"] = "bspline"
 
     return params
+
+
+def logging_setup():
+    """Setup default logging configuration for GVEC."""
+    import logging
+
+    logging.basicConfig(
+        format="{levelname:7s} {message}",
+        style="{",
+        level=logging.WARNING,
+    )
+    logging.captureWarnings(True)

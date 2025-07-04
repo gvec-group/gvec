@@ -11,22 +11,22 @@ import re
 import numpy as np
 import xarray as xr
 
-from .state import State
-from . import fourier
+from gvec.core.state import State
+import gvec.fourier
 
 # === Globals === #
 
 __all__ = [
-    "QUANTITIES",
-    "register",
-    "compute",
     "table_of_quantities",
-    "Evaluations",
-    "EvaluationsBoozer",
-    "EvaluationsBoozerCustom",
+    "compute",
     "radial_integral",
     "fluxsurface_integral",
     "volume_integral",
+    "Evaluations",
+    "EvaluationsBoozer",
+    "EvaluationsBoozerCustom",
+    "evaluate",
+    "evaluate_sfl",
     "ev2ft",
     "ft_autoremove",
 ]
@@ -155,13 +155,24 @@ def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
 
 def compute(
     ev: xr.Dataset,
-    *quantities: Collection[str],
+    *quantities: str,
     state: State = None,
     registry: Mapping = QUANTITIES,
-) -> xr.Dataset | xr.DataArray:
-    """Compute the target equilibrium quantity.
+) -> xr.Dataset:
+    """Compute the target equilibrium quantity and add it to the given evaluation dataset.
 
-    This method will compute required parameters recursively.
+    This method will compute required parameters recursively and add them to the dataset.
+
+    Parameters
+    ----------
+    ev : xr.Dataset
+        The evaluation dataset with the target coordinates (rho, theta, zeta) and possibly some precomputed quantities.
+    quantities : str
+        One or more names of the quantities to compute. See `table_of_quantities` for a list of available quantities.
+    state : State, optional
+        A gvec.State object that is used to compute the quantities. Not necessary if the desired quantities only depend on already computed quantities.
+    registry : Mapping, optional
+        The registry of computable quantites to use.
     """
     for quantity in quantities:
         # --- get the compute function --- #
@@ -231,131 +242,9 @@ def compute(
                 if any([c in auxcoords for c in obj[q].coords]):
                     continue
                 ev[q] = (obj[q].dims, obj[q].data, obj[q].attrs)
-    if len(quantities) == 1:
-        return ev[quantities[0]]
-    return ev
 
 
-# === Create Evaluations Dataset === #
-
-CoordinateSpec: TypeAlias = int | float | xr.DataArray | np.ndarray | Sequence
-
-
-def Evaluations(
-    rho: Literal["int"] | CoordinateSpec | None = "int",
-    theta: Literal["int"] | CoordinateSpec | None = "int",
-    zeta: Literal["int"] | CoordinateSpec | None = "int",
-    state: State | None = None,
-    nfp: int | None = None,
-):
-    coords = {}
-    # --- get integration points --- #
-    if state is not None:
-        intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
-        if nfp is not None:
-            logger.warning("Both `state` and `nfp` are provided. Disregarding `nfp`.")
-        nfp = state.nfp
-    # --- parse coordinates --- #
-    match rho:
-        case xr.DataArray():
-            coords["rho"] = rho
-        case str() if rho == "int":
-            if state is None:
-                raise ValueError("Integration points require a state object.")
-            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (0, 1)]):
-                raise ValueError("Integration points for rho do not align for X1, X2 and LA.")
-            coords["rho"] = ("rad", intp[0][0])
-            coords["rad_weight"] = ("rad", intp[0][1])
-        case np.ndarray() | Sequence():
-            coords["rho"] = ("rad", rho)
-        case int() as num:
-            coords["rho"] = ("rad", np.linspace(0, 1, num))
-            coords["rho"][1][0] = (
-                0.1 * coords["rho"][1][1]
-            )  # avoid numerical issues at the magnetic axis
-        case None:
-            pass
-        case _:
-            raise ValueError(f"Could not parse rho, got {rho}.")
-    match theta:
-        case xr.DataArray():
-            coords["theta"] = theta
-        case str() if theta == "int":
-            if state is None:
-                raise ValueError("Integration points require a state object.")
-            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (2, 3)]):
-                raise ValueError("Integration points for theta do not align for X1, X2 and LA.")
-            coords["theta"] = (
-                "pol",
-                np.linspace(0, 2 * np.pi, intp[0][2], endpoint=False),
-            )
-            coords["pol_weight"] = intp[0][3]
-        case np.ndarray() | Sequence():
-            coords["theta"] = ("pol", theta)
-        case int() as num:
-            coords["theta"] = ("pol", np.linspace(0, 2 * np.pi, num, endpoint=False))
-        case None:
-            pass
-        case _:
-            raise ValueError(f"Could not parse theta, got {theta}.")
-    match zeta:
-        case xr.DataArray():
-            coords["zeta"] = zeta
-        case str() if zeta == "int":
-            if state is None:
-                raise ValueError("Integration points require a state object.")
-            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (4, 5)]):
-                raise ValueError("Integration points for zeta do not align for X1, X2 and LA.")
-            coords["zeta"] = (
-                "tor",
-                np.linspace(0, 2 * np.pi / nfp, intp[0][4], endpoint=False),
-            )
-            coords["tor_weight"] = intp[0][5]
-        case np.ndarray() | Sequence():
-            coords["zeta"] = ("tor", zeta)
-        case int() as num:
-            if nfp is None:
-                raise ValueError("Automatic bounds for zeta require `nfp`.")
-            coords["zeta"] = (
-                "tor",
-                np.linspace(0, 2 * np.pi / nfp, num, endpoint=False),
-            )
-        case None:
-            pass
-        case _:
-            raise ValueError(f"Could not parse zeta, got {zeta}.")
-
-    # --- init Dataset --- #
-    ds = xr.Dataset(coords=coords)
-
-    # --- set attributes & indices --- #
-    if "rho" in ds:
-        ds.rho.attrs["long_name"] = "Logical radial coordinate"
-        ds.rho.attrs["symbol"] = r"\rho"
-        ds.rho.attrs["integration_points"] = str(isinstance(rho, str) and rho == "int")
-        if ds.rho.dims == ("rad",):
-            ds = ds.set_xindex("rho")
-    if "theta" in ds:
-        ds.theta.attrs["long_name"] = "Logical poloidal angle"
-        ds.theta.attrs["symbol"] = r"\theta"
-        ds.theta.attrs["integration_points"] = str(isinstance(theta, str) and theta == "int")
-        if ds.theta.dims == ("pol",):
-            ds = ds.set_xindex("theta")
-    if "zeta" in ds:
-        ds.zeta.attrs["long_name"] = "Logical toroidal angle"
-        ds.zeta.attrs["symbol"] = r"\zeta"
-        ds.zeta.attrs["integration_points"] = str(isinstance(zeta, str) and zeta == "int")
-        if ds.zeta.dims == ("tor",):
-            ds = ds.set_xindex("zeta")
-
-    if (
-        "theta" in ds
-        and "zeta" in ds
-        and set(ds.theta.dims) >= {"pol", "tor"}
-        and set(ds.zeta.dims) >= {"pol", "tor"}
-    ):
-        ds = ds.set_xindex("theta", "zeta")
-    return ds
+# === Integrals === #
 
 
 def radial_integral(quantity: xr.DataArray):
@@ -395,6 +284,134 @@ def volume_integral(
     return (quantity * quantity.rad_weight * quantity.pol_weight * quantity.tor_weight).sum(
         ("rad", "pol", "tor")
     )
+
+
+# === Factories for evaluation Datasets & Boozer transform === #
+
+CoordinateSpec: TypeAlias = int | float | xr.DataArray | np.ndarray | Sequence
+
+
+def Evaluations(
+    rho: Literal["int"] | CoordinateSpec | None = "int",
+    theta: Literal["int"] | CoordinateSpec | None = "int",
+    zeta: Literal["int"] | CoordinateSpec | None = "int",
+    state: State | None = None,
+    nfp: int | None = None,
+):
+    coords = {}
+    # --- get integration points --- #
+    if state is not None:
+        intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
+        if nfp is not None:
+            logging.warning("Both `state` and `nfp` are provided. Disregarding `nfp`.")
+        nfp = state.nfp
+    # --- parse coordinates --- #
+    match rho:
+        case xr.DataArray():
+            coords["rho"] = rho
+        case str() if rho == "int":
+            if state is None:
+                raise ValueError("Integration points require a state object.")
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (0, 1)]):
+                raise ValueError("Integration points for rho do not align for X1, X2 and LA.")
+            coords["rho"] = ("rad", intp[0][0])
+            coords["rad_weight"] = ("rad", intp[0][1])
+        case np.ndarray() | Sequence():
+            coords["rho"] = ("rad", rho)
+        case int() as num:
+            coords["rho"] = ("rad", np.linspace(0, 1, num))
+            coords["rho"][1][0] = (
+                0.1 * coords["rho"][1][1]
+            )  # avoid numerical issues at the magnetic axis
+        case float():
+            coords["rho"] = ("rad", np.array([rho]))
+        case None:
+            pass
+        case _:
+            raise ValueError(f"Could not parse rho, got {rho}.")
+    match theta:
+        case xr.DataArray():
+            coords["theta"] = theta
+        case str() if theta == "int":
+            if state is None:
+                raise ValueError("Integration points require a state object.")
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (2, 3)]):
+                raise ValueError("Integration points for theta do not align for X1, X2 and LA.")
+            coords["theta"] = (
+                "pol",
+                np.linspace(0, 2 * np.pi, intp[0][2], endpoint=False),
+            )
+            coords["pol_weight"] = intp[0][3]
+        case np.ndarray() | Sequence():
+            coords["theta"] = ("pol", theta)
+        case int() as num:
+            coords["theta"] = ("pol", np.linspace(0, 2 * np.pi, num, endpoint=False))
+        case float():
+            coords["theta"] = ("pol", np.array([theta]))
+        case None:
+            pass
+        case _:
+            raise ValueError(f"Could not parse theta, got {theta}.")
+    match zeta:
+        case xr.DataArray():
+            coords["zeta"] = zeta
+        case str() if zeta == "int":
+            if state is None:
+                raise ValueError("Integration points require a state object.")
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (4, 5)]):
+                raise ValueError("Integration points for zeta do not align for X1, X2 and LA.")
+            coords["zeta"] = (
+                "tor",
+                np.linspace(0, 2 * np.pi / nfp, intp[0][4], endpoint=False),
+            )
+            coords["tor_weight"] = intp[0][5]
+        case np.ndarray() | Sequence():
+            coords["zeta"] = ("tor", zeta)
+        case int() as num:
+            if nfp is None:
+                raise ValueError("Automatic bounds for zeta require `nfp`.")
+            coords["zeta"] = (
+                "tor",
+                np.linspace(0, 2 * np.pi / nfp, num, endpoint=False),
+            )
+        case float():
+            coords["zeta"] = ("tor", np.array([zeta]))
+        case None:
+            pass
+        case _:
+            raise ValueError(f"Could not parse zeta, got {zeta}.")
+
+    # --- init Dataset --- #
+    ds = xr.Dataset(coords=coords)
+
+    # --- set attributes & indices --- #
+    if "rho" in ds:
+        ds.rho.attrs["long_name"] = "Logical radial coordinate"
+        ds.rho.attrs["symbol"] = r"\rho"
+        ds.rho.attrs["integration_points"] = str(isinstance(rho, str) and rho == "int")
+        if ds.rho.dims == ("rad",):
+            ds = ds.set_xindex("rho")
+    if "theta" in ds:
+        ds.theta.attrs["long_name"] = "Logical poloidal angle"
+        ds.theta.attrs["symbol"] = r"\theta"
+        ds.theta.attrs["integration_points"] = str(isinstance(theta, str) and theta == "int")
+        if ds.theta.dims == ("pol",):
+            ds = ds.set_xindex("theta")
+    if "zeta" in ds:
+        ds.zeta.attrs["long_name"] = "Logical toroidal angle"
+        ds.zeta.attrs["symbol"] = r"\zeta"
+        ds.zeta.attrs["integration_points"] = str(isinstance(zeta, str) and zeta == "int")
+        if ds.zeta.dims == ("tor",):
+            ds = ds.set_xindex("zeta")
+
+    if (
+        "theta" in ds
+        and "zeta" in ds
+        and set(ds.theta.dims) >= {"pol", "tor"}
+        and set(ds.zeta.dims) >= {"pol", "tor"}
+    ):
+        ds = ds.set_xindex("theta", "zeta")
+    return ds
 
 
 def EvaluationsBoozer(
@@ -497,72 +514,6 @@ def EvaluationsBoozer(
     # === Evaluate LA & NU === #
     ds = add_Boozer_LA_NU(ds, state, sfl_boozer)
 
-    return ds
-
-
-def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
-    """Add the LA and NU_B variables as computed by the boozer transform to the dataset.
-
-    Helper function for EvaluationsBoozer and related methods.
-    """
-    # Flatten theta, zeta
-    theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
-    zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
-
-    outputs_la = []
-    outputs_nu = []
-    # Sequence (list) of sfl_boozer (for each surface)
-    if isinstance(sfl_boozer, Sequence):
-        for r, rho in enumerate(ds.rho.data):
-            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-            outputs_la.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "LA", [0], thetazeta)
-            )
-            outputs_nu.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "NU", [0], thetazeta)
-            )
-    # Single sfl_boozer - compute base on each radial position
-    else:
-        for r, rho in enumerate(ds.rho.data):
-            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-            outputs_la.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
-            )
-            outputs_nu.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
-            )
-
-    # Write LA/NU to dataset
-    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):
-        if deriv == "":
-            var = "LA"
-            long_name = "Straight field line potential"
-            symbol = r"\lambda"
-        else:
-            var = f"dLA_d{deriv}"
-            long_name = derivative_name_smart("Straight field line potential", deriv)
-            symbol = latex_partial_smart(r"\lambda", deriv)
-        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
-        ds[var] = (
-            ("rad", "pol", "tor"),
-            value,
-            dict(long_name=long_name, symbol=symbol),
-        )
-    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_nu)):
-        if deriv == "":
-            var = "NU_B"
-            long_name = "Boozer angular potential"
-            symbol = r"\nu_B"
-        else:
-            var = f"dNU_B_d{deriv}"
-            long_name = derivative_name_smart("Boozer angular potential", deriv)
-            symbol = latex_partial_smart(r"\nu_B", deriv)
-        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
-        ds[var] = (
-            ("rad", "pol", "tor"),
-            value,
-            dict(long_name=long_name, symbol=symbol),
-        )
     return ds
 
 
@@ -723,6 +674,108 @@ def EvaluationsBoozerCustom(
     return ds
 
 
+def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
+    """Add the LA and NU_B variables as computed by the boozer transform to the dataset.
+
+    Helper function for EvaluationsBoozer and related methods.
+    """
+    # Flatten theta, zeta
+    theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+    zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+
+    outputs_la = []
+    outputs_nu = []
+    # Sequence (list) of sfl_boozer (for each surface)
+    if isinstance(sfl_boozer, Sequence):
+        for r, rho in enumerate(ds.rho.data):
+            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+            outputs_la.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "LA", [0], thetazeta)
+            )
+            outputs_nu.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "NU", [0], thetazeta)
+            )
+    # Single sfl_boozer - compute base on each radial position
+    else:
+        for r, rho in enumerate(ds.rho.data):
+            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+            outputs_la.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
+            )
+            outputs_nu.append(
+                state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
+            )
+
+    # Write LA/NU to dataset
+    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):
+        if deriv == "":
+            var = "LA"
+            long_name = "Straight field line potential"
+            symbol = r"\lambda"
+        else:
+            var = f"dLA_d{deriv}"
+            long_name = derivative_name_smart("Straight field line potential", deriv)
+            symbol = latex_partial_smart(r"\lambda", deriv)
+        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+        ds[var] = (
+            ("rad", "pol", "tor"),
+            value,
+            dict(long_name=long_name, symbol=symbol),
+        )
+    for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_nu)):
+        if deriv == "":
+            var = "NU_B"
+            long_name = "Boozer angular potential"
+            symbol = r"\nu_B"
+        else:
+            var = f"dNU_B_d{deriv}"
+            long_name = derivative_name_smart("Boozer angular potential", deriv)
+            symbol = latex_partial_smart(r"\nu_B", deriv)
+        value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
+        ds[var] = (
+            ("rad", "pol", "tor"),
+            value,
+            dict(long_name=long_name, symbol=symbol),
+        )
+    return ds
+
+
+# === evaluate functions === #
+
+
+def evaluate(
+    state: State,
+    *quantities: str,
+    rho: Literal["int"] | CoordinateSpec | None = "int",
+    theta: Literal["int"] | CoordinateSpec | None = "int",
+    zeta: Literal["int"] | CoordinateSpec | None = "int",
+):
+    if not isinstance(state, State):
+        raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
+    ev = Evaluations(rho, theta, zeta, state)
+    compute(ev, *quantities, state=state)
+    return ev
+
+
+def evaluate_sfl(
+    state: State,
+    *quantities: str,
+    rho: Literal["int"] | CoordinateSpec | None = "int",
+    theta: Literal["int"] | CoordinateSpec | None = "int",
+    zeta: Literal["int"] | CoordinateSpec | None = "int",
+    sfl: Literal["boozer"] = "boozer",
+    **boozer_kwargs,
+):
+    if sfl == "boozer":
+        ev = EvaluationsBoozer(rho, theta, zeta, state, **boozer_kwargs)
+    elif sfl == "pest":
+        raise NotImplementedError("PEST SFL coordinates are not implemented yet.")
+    else:
+        raise ValueError(f"Unsupported SFL type {sfl}. Expected 'boozer' or 'pest'.")
+    compute(ev, *quantities, state=state)
+    return ev
+
+
 # === Fourier Transform === #
 
 
@@ -744,15 +797,19 @@ def ev2ft(ev, quiet=False):
             if "rad" in ev[var].dims:
                 vft = []
                 for r in ev.rad:
-                    vft.append(fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data))
+                    vft.append(
+                        gvec.fourier.fft2d(ev[var].sel(rad=r).transpose("pol", "tor").data)
+                    )
                 vcos, vsin = map(np.array, zip(*vft))
                 dims = ("rad", "m", "n")
             else:
-                vcos, vsin = fourier.fft2d(ev[var].transpose("pol", "tor").data)
+                vcos, vsin = gvec.fourier.fft2d(ev[var].transpose("pol", "tor").data)
                 dims = ("m", "n")
 
             if m is None:
-                m, n = fourier.fft2d_modes(vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False)
+                m, n = gvec.fourier.fft2d_modes(
+                    vcos.shape[-2] - 1, vcos.shape[-1] // 2, grid=False
+                )
 
             attrs = {k: v for k, v in ev[var].attrs.items() if k not in {"long_name", "symbol"}}
             data[f"{var}_mnc"] = (

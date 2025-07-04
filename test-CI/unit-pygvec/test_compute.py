@@ -11,8 +11,8 @@ try:
     import xarray as xr
 
     import gvec
-    from gvec.state import State
-    from gvec.comp import (
+    from gvec.core.state import State
+    from gvec.core.compute import (
         Evaluations,
         EvaluationsBoozer,
         EvaluationsBoozerCustom,
@@ -29,8 +29,7 @@ except ImportError:
 
 @pytest.fixture()
 def teststate(testfiles):
-    with State(*testfiles) as state:
-        yield state
+    return State(*testfiles)
 
 
 @pytest.fixture()
@@ -465,18 +464,20 @@ def test_integral_quantities_aux_r_int_tz(teststate, evals_r_int_tz, quantity):
 
 def test_ev2ft_2d(teststate, evals_rtz):
     teststate.compute(evals_rtz, "mod_B")
-    ft = gvec.comp.ev2ft(evals_rtz[["mod_B"]].isel(rad=0))
+    ft = gvec.core.compute.ev2ft(evals_rtz[["mod_B"]].isel(rad=0))
     assert set(ft.dims) == {"m", "n"}
     assert set(ft.data_vars) == {"rho", "mod_B_mnc", "mod_B_mns"}
 
 
 def test_ev2ft_3d(teststate, evals_rtz):
     teststate.compute(evals_rtz, "mod_B")
-    ft = gvec.comp.ev2ft(evals_rtz[["mod_B"]])
+    ft = gvec.core.compute.ev2ft(evals_rtz[["mod_B"]])
     assert set(ft.dims) == {"rad", "m", "n"}
     assert set(ft.data_vars) == {"mod_B_mnc", "mod_B_mns"}
 
 
 def test_table_of_quantities():
-    s = gvec.comp.table_of_quantities()
-    assert len(s.split("\n")) == 3 + len(gvec.comp.QUANTITIES)  # 2 lines header, 1 trailing \n
+    s = gvec.table_of_quantities()
+    assert len(s.split("\n")) == 3 + len(
+        gvec.core.compute.QUANTITIES
+    )  # 2 lines header, 1 trailing \n

@@ -27,13 +27,26 @@ SUBROUTINE redirect_stdout(filename)
   INTEGER :: ios
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CLOSE(Unit_stdOut)
-
-  OPEN(Unit_stdOut, FILE=filename, STATUS='REPLACE', ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', IOSTAT=ios)
+  OPEN(Unit_stdOut, FILE=filename, ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', POSITION='APPEND', IOSTAT=ios)
   IF (ios /= 0) THEN
     WRITE(Unit_errOut, '(A)') 'ERROR: could not open file', filename, 'for writing'
     CALL abort(__STAMP__,"")
   END IF
 END SUBROUTINE redirect_stdout
+
+!================================================================================================================================!
+SUBROUTINE flush_stdout()
+  ! MODULES
+  USE MODgvec_Globals, ONLY: Unit_stdOut, UNIT_errOut,abort
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: ios
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  FLUSH(Unit_stdOut, IOSTAT=ios)
+  IF (ios /= 0) THEN
+    WRITE(Unit_errOut, '(A)') 'ERROR: could not flush standard output'
+    CALL abort(__STAMP__,"")
+  END IF
+END SUBROUTINE flush_stdout
 
 !================================================================================================================================!
 SUBROUTINE redirect_abort()
