@@ -15,7 +15,6 @@ try:
     from gvec.core.compute import (
         Evaluations,
         EvaluationsBoozer,
-        EvaluationsBoozerCustom,
         compute,
         volume_integral,
     )
@@ -268,8 +267,8 @@ def test_boozer(teststate):
     )
 
 
-def test_EvaluationsBoozerCustom_2D(teststate):
-    """Test EvaluationsBoozerCustom with 2D arrays for theta_B, zeta_B."""
+def test_EvaluationsBoozer_2D(teststate):
+    """Test EvaluationsBoozer with 2D arrays for theta_B, zeta_B."""
     rho = [0.5, 1.0]  # radial positions
     theta_H = np.linspace(0, 2 * np.pi, 2, endpoint=False)
     zeta_H = np.linspace(0, 2 * np.pi / teststate.nfp, 3)
@@ -277,7 +276,7 @@ def test_EvaluationsBoozerCustom_2D(teststate):
     theta_B = theta_H[:, None] + zeta_H[None, :]
     zeta_B = zeta_H[None, :] - theta_H[:, None]
 
-    ds = EvaluationsBoozerCustom(rho, theta_B, zeta_B, teststate, MNfactor=1)
+    ds = EvaluationsBoozer(rho, theta_B, zeta_B, teststate, MNfactor=1)
     assert ds.rho.dims == ("rad",)
     assert ds.theta_B.dims == ("pol", "tor")
     assert ds.zeta_B.dims == ("pol", "tor")
@@ -294,8 +293,8 @@ def test_EvaluationsBoozerCustom_2D(teststate):
         assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
 
 
-def test_EvaluationsBoozerCustom_fieldlines(teststate):
-    """Test EvaluationsBoozerCustom with a 3D array for theta_B, as required for fieldline coordinates."""
+def test_EvaluationsBoozer_fieldlines(teststate):
+    """Test EvaluationsBoozer with a 3D array for theta_B, as required for fieldline coordinates."""
     rho = [0.5, 1.0]  # radial positions
     alpha = np.linspace(0, 2 * np.pi, 2, endpoint=False)  # fieldline label
     phi = np.linspace(0, 2 * np.pi / teststate.nfp, 3)  # angle along the fieldline
@@ -306,9 +305,7 @@ def test_EvaluationsBoozerCustom_fieldlines(teststate):
     # 3D toroidal and poloidal arrays that correspond to fieldline coordinates for each surface
     theta_B = alpha[None, :, None] + ev.iota.data[:, None, None] * phi[None, None, :]
 
-    ds = EvaluationsBoozerCustom(
-        rho=rho, theta_B=theta_B, zeta_B=phi, state=teststate, MNfactor=1
-    )
+    ds = EvaluationsBoozer(rho=rho, theta_B=theta_B, zeta_B=phi, state=teststate, MNfactor=1)
     assert ds.rho.dims == ("rad",)
     assert ds.theta_B.dims == ("rad", "pol", "tor")
     assert ds.zeta_B.dims == ("tor",)
