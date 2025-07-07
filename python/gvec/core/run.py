@@ -304,7 +304,9 @@ class Run:
                     )
 
             case _:
-                raise ValueError(f"Unknown Itor type: {self._state_parameters['Itor']['type']}")
+                raise ValueError(
+                    f"Unknown Itor type: {self._state_parameters['I_tor']['type']}"
+                )
 
     def run_single_minimization(self):
         """Run a single GVEC energy minimization using the current parameters. The run-state is updated after the run."""

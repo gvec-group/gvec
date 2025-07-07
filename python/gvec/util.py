@@ -422,7 +422,7 @@ def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
 
     if "phiedge" in parameters:
         parameters["phiedge"] = -parameters["phiedge"]
-    for profile in ["iota", "Itor"]:
+    for profile in ["iota", "I_tor"]:
         if profile in parameters:
             parameters[profile]["scale"] = -parameters[profile].get("scale", 1.0)
 
@@ -434,12 +434,9 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     stellsym = not nml["lasym"]  # stellarator symmetry
     params = CaseInsensitiveDict(
         ProjectName=name,
-        whichInitEquilibrium=0,
         which_hmap=1,
-        MinimizerType=10,
-        PrecondType=1,
         minimize_tol=1e-7,
-        MaxIter=10000,
+        totalIter=10000,
         logIter=100,
         nfp=nml["nfp"],
         X1_mn_max=(M, N),
@@ -453,15 +450,6 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
             nElems=5,
         ),
     )
-    if stellsym:
-        params["X1_sin_cos"] = "_cos_"
-        params["X2_sin_cos"] = "_sin_"
-        params["LA_sin_cos"] = "_sin_"
-    else:
-        params["X1_sin_cos"] = "_sincos_"
-        params["X2_sin_cos"] = "_sincos_"
-        params["LA_sin_cos"] = "_sincos_"
-
     # --- profiles --- #
     if nml["pmass_type"] != "power_series":
         raise ValueError(
@@ -485,7 +473,7 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
             raise ValueError(
                 f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
             )
-        params["Itor"] = {
+        params["I_tor"] = {
             "type": "polynomial",
             "coefs": nml["ac"],
             "scale": nml["curtor"],
