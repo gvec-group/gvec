@@ -328,7 +328,7 @@ def test_EvaluationsBoozerCustom_fieldlines(teststate):
 
 
 def test_compute_base(teststate, ev_base):
-    ds = ev
+    ds = ev_base
 
     compute(ds, "X1", state=teststate)
     assert "X1" in ds
@@ -342,11 +342,13 @@ def test_compute_base(teststate, ev_base):
     assert "dLA_dz" in ds
 
 
-def test_compute_hmap(teststate, ev_rtz):
-    ds = ev_rtz
+def test_compute_hmap(teststate, ev_base):
+    ds = ev_base
     compute(ds, "pos", state=teststate)
 
-    assert ds.pos.shape == (3, 6, 32, 10)
+    assert set(ds.pos.dims) == {"xyz"} | set(ds.rho.dims) | set(ds.theta.dims) | set(
+        ds.zeta.dims
+    )
     assert "xyz" in ds.dims
     assert "xyz" in ds.coords
     assert "e_q1" in ds
@@ -355,7 +357,9 @@ def test_compute_hmap(teststate, ev_rtz):
     assert not np.any(np.isnan(ds.pos))
 
     compute(ds, "e_rho", state=teststate)
-    assert ds.e_rho.shape == (3, 6, 32, 10)
+    assert set(ds.e_rho.dims) == {"xyz"} | set(ds.rho.dims) | set(ds.theta.dims) | set(
+        ds.zeta.dims
+    )
 
 
 def test_compute_metric(teststate, ev_rtz):
