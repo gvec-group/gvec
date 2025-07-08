@@ -366,6 +366,46 @@ def read_parameter_file_ini(path: str | Path) -> CaseInsensitiveDict:
     return parameters
 
 
+def check_boundary_direction(parameters: Mapping) -> bool:
+    """Determine whether the boundary is described by right-handed logical coordinates (θ,ζ).
+
+    GVEC requires a right-handed logical coordinate system (ρ,θ,ζ).
+    The logical coordinate system of the poloidal plane, (ρ,θ) is also required to be right-handed,
+    which requires the poloidal angle to increase in the counter-clockwise direction.
+    As a consequence the toroidal angle has to increase in the clockwise direction when viewed from above.
+    This is ensured in the definition of the h-maps.
+
+    Returns:
+        bool: True if (ρ,θ) is right-handed / θ increases counter-clockwise, False otherwise.
+    """
+    return signed_cross_sectional_area(parameters, 0.0) > 0
+
+
+def signed_cross_sectional_area(
+    parameters: Mapping, zeta: float, resolution: int = 1000
+) -> float:
+    t = np.linspace(0, 2 * np.pi, resolution, endpoint=False)
+    x1 = np.zeros_like(t)
+    dx1dt = np.zeros_like(t)
+    x2 = np.zeros_like(t)
+    dx2dt = np.zeros_like(t)
+    nfp = parameters.get("nfp", 1)
+    for (m, n), value in parameters.get("X1_b_cos", {}).items():
+        x1 += value * np.cos(m * t - n * nfp * zeta)
+        dx1dt -= value * m * np.sin(m * t - n * nfp * zeta)
+    for (m, n), value in parameters.get("X1_b_sin", {}).items():
+        x1 += value * np.sin(m * t - n * nfp * zeta)
+        dx1dt += value * m * np.cos(m * t - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_cos", {}).items():
+        x2 += value * np.cos(m * t - n * nfp * zeta)
+        dx2dt -= value * m * np.sin(m * t - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_sin", {}).items():
+        x2 += value * np.sin(m * t - n * nfp * zeta)
+        dx2dt += value * m * np.cos(m * t - n * nfp * zeta)
+    dA = x1 * dx2dt - x2 * dx1dt
+    return np.sum(dA)
+
+
 def flip_boundary_theta(parameters: MutableMapping) -> MutableMapping:
     """Flip the boundary parameters in the poloidal direction. θ → -θ."""
     output_params = copy.deepcopy(parameters)

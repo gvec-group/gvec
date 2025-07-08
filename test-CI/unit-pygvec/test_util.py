@@ -133,7 +133,6 @@ def test_flip_parameters(func, transform):
         },
     }
     flipped_parameters = func(parameters)
-    print(flipped_parameters)
     theta = np.linspace(0, 2 * np.pi, 4, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 3, endpoint=False)
     t, z = np.meshgrid(theta, zeta, indexing="ij")
@@ -146,3 +145,37 @@ def test_flip_parameters(func, transform):
             for m, n in parameters[key]:
                 reference += parameters[key][m, n] * func(m * tref - n * zref)
         np.testing.assert_allclose(result, reference, err_msg=f"with variable X{i}")
+
+
+def test_boundary_direction():
+    parameters = {
+        "X1_b_cos": {
+            (0, 0): 1.0,
+            (0, 1): 1.1,
+            (1, 0): 1.2,
+            (1, 1): 1.3,
+        },
+        "X2_b_cos": {
+            (0, 0): 2.0,
+            (0, 1): 2.1,
+            (1, 0): 2.2,
+            (1, 1): 2.3,
+        },
+        "X1_b_sin": {
+            (0, 1): 3.0,
+            (1, 0): 3.1,
+            (1, 1): 3.2,
+        },
+        "X2_b_sin": {
+            (0, 1): 4.0,
+            (1, 0): 4.1,
+            (1, 1): 4.2,
+        },
+    }
+    flipped_parameters = util.flip_boundary_theta(parameters)
+    A1 = util.signed_cross_sectional_area(parameters, 0.0)
+    s1 = util.check_boundary_direction(parameters)
+    A2 = util.signed_cross_sectional_area(flipped_parameters, 0.0)
+    s2 = util.check_boundary_direction(flipped_parameters)
+    assert s2 and not s1
+    assert A1 < 0 and A2 > 0
