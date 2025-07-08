@@ -30,7 +30,7 @@ def run(
     quiet: bool = False,
     parameter_format: Literal["toml", "yaml"] = "toml",
     keep_intermediates: Literal["all", "stages"] | None = None,
-    loglevel: Literal["WARNING", "INFO", "DEBUG"] = "WARNING",
+    loglevel: Literal["WARNING", "INFO", "DEBUG"] | None = None,
 ):
     """Run GVEC with the provided parameters.
 
@@ -52,8 +52,8 @@ def run(
     keep_intermediates : Literal["all", "stages"] | None, optional
         Whether to keep intermediate results of GVEC. With `"all"`, all intermediate results are kept. With `"stages"`,
         only the final restarts from each stage are kept. With `None`, all intermediate results are deleted. The default is None.
-    verbosity : Literal["WARNING", "INFO", "DEBUG"], optional
-        Verbosity level of the screen output. The default is "quiet".
+    loglevel : Literal["WARNING", "INFO", "DEBUG"] | None, optional
+        Set the loglevel for the gvec logger.
 
     Returns
     -------
@@ -64,7 +64,8 @@ def run(
     # logger setup
     gvec.util.logging_setup()
     logger = logging.getLogger("gvec.run")
-    logger.setLevel(loglevel)
+    if loglevel is not None:
+        logger.setLevel(loglevel)
 
     # rundirectory setup
     if runpath is None:
