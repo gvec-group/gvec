@@ -39,16 +39,16 @@ parser.add_argument(
     required=True,
 )
 parser.add_argument(
-    "--MN_booz",
+    "--MNfactor",
     type=int,
-    nargs=2,
-    help="maximum fourier modes for the boozer transform (M, N)",
+    default=5,
+    help="multiplication factor for the maximum fourier modes for the boozer transform (default 5)",
 )
 parser.add_argument(
     "--sampling",
     type=int,
     default=4,
-    help="sampling factor for the fourier transform and surface reparametrization -> (S*M+1, S*N+1) points.",
+    help="sampling factor for the fourier transform and surface reparametrization -> (S*M+1, S*N+1) points. (default 4)",
 )
 parser.add_argument(
     "--stellsym", action="store_true", help="filter the output for stellarator symmetry"
@@ -68,16 +68,11 @@ def gvec_to_cas3d(
     outputfile: Path,
     ns: int,
     MN_out: tuple[int, int],
-    MN_booz: tuple[int, int] | None = None,
-    sampling: int = 4,
+    MNfactor: int = 5,
+    sampling: int = 2,
     stellsym: bool = False,
     pointwise: Path | None = None,
 ):
-    if MN_booz is None:
-        MN_booz = (sampling * MN_out[0], sampling * MN_out[1])
-    if sampling < 2:
-        raise ValueError("sampling factor must be at least 2")
-
     with tqdm.tqdm(
         total=5,
         bar_format="{n_fmt}/{total_fmt} |{bar:25}| {desc}",
@@ -95,9 +90,8 @@ def gvec_to_cas3d(
             rho,
             sampling * MN_out[0] + 1,
             sampling * MN_out[1] + 1,
-            M=MN_booz[0],
-            N=MN_booz[1],
             state=state,
+            MNfactor=MNfactor,
         )
 
         # Surface reparametrization
@@ -143,7 +137,7 @@ def gvec_to_cas3d(
         # manual conversion
         drho = 2 * ds.rho
         dtheta = -1 / (2 * np.pi)
-        dzeta = 1 / (2 * np.pi)
+        dzeta = 1 / (2 * np.pi) * ev.N_FP.item()
 
         out = xr.Dataset()
         out.attrs = ds.attrs
@@ -268,7 +262,7 @@ def gvec_to_cas3d(
         ft.attrs["gvec_version"] = __version__
         ft.attrs["creator"] = "pygvec-to-cas3d"
         ft.attrs["arguments"] = repr(
-            dict(ns=ns, MN_out=MN_out, MN_booz=MN_booz, sampling=sampling)
+            dict(ns=ns, MN_out=MN_out, MNfactor=MNfactor, sampling=sampling)
         )
         ft.attrs["statefile"] = statefile.name
         ft.attrs["state_name"] = name
@@ -276,13 +270,18 @@ def gvec_to_cas3d(
             datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         )
         ft.attrs["fourier series"] = (
-            "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v_mnc(r) cos(2π m θ - 2π n N_FP ζ) + v_mns(r) sin(2π m θ - 2π n N_FP ζ)'"
+            "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v_mnc(r) cos(2π m θ - 2π n ζ) + v_mns(r) sin(2π m θ - 2π n ζ)'"
+        )
+        ft.attrs["coordinates"] = (
+            "Left-handed Boozer straight fieldline coordinates (s, θ, ζ), with s,θ,ζ ∈ [0,1]. s is the radial coordinates, proportional to the toroidal flux. θ is the counter-clockwise poloidal angle and ζ is the toroidal angle, normalized to one field period."
         )
         ft.attrs["stellarator_symmetry"] = str(stellsym)
 
         # Save to netCDF
         progress.update(1)
         progress.set_description("Saving to netCDF...")
+        if outputfile.exists():
+            outputfile.unlink()
         ft.to_netcdf(outputfile)
 
         if pointwise is not None:
@@ -294,9 +293,9 @@ def gvec_to_cas3d(
             out.theta.attrs = dict(
                 long_name="poloidal coordinate, normalized to [0,1]", symbol=r"\theta"
             )
-            out["zeta"] = out.zeta_B / (2 * np.pi)
+            out["zeta"] = out.zeta_B / (2 * np.pi) * ev.N_FP.item()
             out.zeta.attrs = dict(
-                long_name="toroidal coordinate, normalized to [0,1/N_FP] for one field period",
+                long_name="toroidal coordinate, normalized to [0,1] for one field period",
                 symbol=r"\zeta",
             )
             out = (
@@ -316,6 +315,8 @@ def gvec_to_cas3d(
             ]:
                 out.attrs[key] = ft.attrs[key]
 
+            if pointwise.exists():
+                pointwise.unlink()
             out.to_netcdf(pointwise)
 
         progress.update(1)
@@ -334,7 +335,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         args.outputfile,
         args.ns,
         args.MN_out,
-        args.MN_booz,
+        args.MNfactor,
         args.sampling,
         args.stellsym,
         args.pointwise,
