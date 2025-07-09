@@ -1,13 +1,12 @@
 # Other Interfaces
-```{warning}
-These interfaces only support the $RZ\phi$ $h$-map!
-```
 
-* the MHD stability code *CASTOR3D*
-* the non-linear MHD code [JOREK](https://www.jorek.eu/)
-* the turbulence code [GENE](https://genecode.org/)
-* [HOPR](https://hopr.readthedocs.io)
-* the geometric plasma simulation package [Struphy](https://struphy.pages.mpcdf.de/struphy) via [gvec_to_python](https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python)
+GVEC also has interfaces to:
+* the MHD stability code *CASTOR3D* *(only $RZ\phi$ $h$-map)*
+* the non-linear MHD code [JOREK](https://www.jorek.eu/) *(only $RZ\phi$ $h$-map)*
+* the turbulence code [GENE](https://genecode.org/) *(only $RZ\phi$ $h$-map)*
+* [HOPR](https://hopr.readthedocs.io) *(only $RZ\phi$ $h$-map)*
+* the geometric plasma simulation package [Struphy](https://struphy.pages.mpcdf.de/struphy)
+* the orbit-tracer [SIMPLE](https://github.com/itpplasma/SIMPLE)
 
 ## VMEC
 GVEC is also compatible with the MHD equilibrium code VMEC to a certain extent.
