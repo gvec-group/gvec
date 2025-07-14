@@ -152,7 +152,7 @@ def gvec_to_cas3d(
         out["Jac"].attrs = dict(
             long_name="Jacobian determinant",
             symbol=r"\mathcal{J}",
-            description=r"Jacobian determinant of the Boozer straight fieldline coordinates $s,\theta,\zeta$ with $s\propto\Phi$ and $,\theta,\zeta \in [0,1)$",
+            description=r"Jacobian determinant of the Boozer straight fieldline coordinates $s,\theta,\zeta$ with $s\propto\Phi$ and $s,\theta,\zeta \in [0,1)$",
         )
         out["g_tt"] = dtheta ** (-2) * ds.g_tt_B
         out["g_tt"].attrs = dict(
@@ -260,20 +260,20 @@ def gvec_to_cas3d(
 
         # Set metadata
         ft.attrs["gvec_version"] = __version__
-        ft.attrs["creator"] = "pygvec-to-cas3d"
+        ft.attrs["creator"] = "pygvec to-cas3d"
         ft.attrs["arguments"] = repr(
             dict(ns=ns, MN_out=MN_out, MNfactor=MNfactor, sampling=sampling)
         )
         ft.attrs["statefile"] = statefile.name
-        ft.attrs["state_name"] = name
+        ft.attrs["projectname"] = name
         ft.attrs["conversion_time"] = (
             datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         )
         ft.attrs["fourier series"] = (
-            "Assumes a fourier series of the form 'v(r, θ, ζ) = Σ v_mnc(r) cos(2π m θ - 2π n ζ) + v_mns(r) sin(2π m θ - 2π n ζ)'"
+            "Assumes a fourier series of the form 'v(s, θ, ζ) = Σ v_mnc(s) cos(2π m θ - 2π n N_FP ζ) + v_mns(s) sin(2π m θ - 2π n N_FP ζ)'"
         )
-        ft.attrs["coordinates"] = (
-            "Left-handed Boozer straight fieldline coordinates (s, θ, ζ), with s,θ,ζ ∈ [0,1]. s is the radial coordinates, proportional to the toroidal flux. θ is the counter-clockwise poloidal angle and ζ is the toroidal angle, normalized to one field period."
+        ft.attrs["coordinate_convention"] = (
+            "Left-handed Boozer straight fieldline coordinates (s, θ, ζ), with s,θ,ζ ∈ [0,1]. s is the radial coordinate, proportional to the toroidal flux. θ is the counter-clockwise poloidal angle and ζ is the toroidal angle, normalized to one field period."
         )
         ft.attrs["stellarator_symmetry"] = str(stellsym)
 
@@ -310,8 +310,9 @@ def gvec_to_cas3d(
                 "creator",
                 "arguments",
                 "statefile",
-                "state_name",
+                "projectname",
                 "conversion_time",
+                "coordinate_convention",
             ]:
                 out.attrs[key] = ft.attrs[key]
 
