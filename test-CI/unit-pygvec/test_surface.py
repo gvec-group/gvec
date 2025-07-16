@@ -19,33 +19,41 @@ def state(testfiles):
     return State(*testfiles)
 
 
+@pytest.fixture(params=["eval", "fft"])
+def ift(request):
+    return request.param
+
+
 @pytest.fixture()
-def ev(state):
+def ev(state, ift):
     rho = [0.1, 0.5, 0.9]
-    ds = EvaluationsBoozer(rho=rho, theta_B=20, zeta_B=50, state=state, MNfactor=1)
+    if ift == "fft":
+        ds = EvaluationsBoozer(rho=rho, theta_B=21, zeta_B=51, state=state, MNfactor=1)
+    else:
+        ds = EvaluationsBoozer(rho=rho, theta_B=20, zeta_B=50, state=state, MNfactor=1)
     # only for testing! MNfactor should be ~4 or above for most applications
     compute(ds, "pos", "N_FP", state=state)
     return ds
 
 
 @pytest.fixture()
-def surfs(ev):
-    return surface.init_surface(ev.pos, ev.N_FP)
+def surfs(ev, ift):
+    return surface.init_surface(ev.pos, ev.N_FP, ift=ift)
 
 
 # === TESTS === #
 
 
-def test_init_surface_single(ev):
+def test_init_surface_single(ev, ift):
     evs = ev.isel(rad=0)
-    surf = surface.init_surface(evs.pos, evs.N_FP)
+    surf = surface.init_surface(evs.pos, evs.N_FP, ift=ift)
     assert isinstance(surf, xr.Dataset)
     assert {"pol", "tor"} <= set(surf.dims)
     assert {"xhat", "yhat", "zhat", "dxhat_dt", "dzhat_dtz"} < set(surf.data_vars)
 
 
-def test_init_surface_multiple(ev):
-    surf = surface.init_surface(ev.pos, ev.N_FP)
+def test_init_surface_multiple(ev, ift):
+    surf = surface.init_surface(ev.pos, ev.N_FP, ift=ift)
     assert {"rad", "pol", "tor"} <= set(surf.dims)
     assert {"xhat", "yhat", "zhat", "dxhat_dt", "dzhat_dtz"} < set(surf.data_vars)
 
@@ -72,3 +80,17 @@ def test_compute(surfs, Q):
     surface.compute(surfs, Q)
     assert Q in surfs.data_vars
     assert np.isnan(surfs[Q].data).sum() == 0
+
+
+@pytest.mark.parametrize(
+    "Q",
+    [
+        "pos",
+    ],
+)
+def test_compare(state, ev, surfs, Q):
+    """Test that the computed surface quantities match the expected values."""
+    surface.compute(surfs, Q)
+    compute(ev, Q, state=state)
+
+    assert np.allclose(surfs[Q].data, ev[Q].data)

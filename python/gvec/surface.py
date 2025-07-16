@@ -9,8 +9,8 @@ Currently this surface is always defined in terms of the Boozer angles (theta_B,
 # === Imports === #
 
 from typing import Literal
-import logging
 import functools
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -28,7 +28,10 @@ register = functools.partial(register, registry=QUANTITIES_SURFACE)
 
 
 def init_surface(
-    pos: xr.DataArray, nfp: int | xr.DataArray = 1, ift: Literal["fft", "eval"] = "fft"
+    pos: xr.DataArray,
+    nfp: int | xr.DataArray = 1,
+    ift: Literal["fft", "eval"] | None = None,
+    winding: int = 1,
 ) -> xr.Dataset:
     if set(pos.dims) > {"xyz", "rad", "pol", "tor"} or set(pos.dims) < {
         "xyz",
@@ -45,7 +48,7 @@ def init_surface(
     if isinstance(nfp, xr.DataArray):
         nfp = nfp.item()
 
-    if ift == "fft":
+    if ift == "fft" or ift is None:
         use_fft = False
         if (
             pos.theta_B.ndim == 1
@@ -58,24 +61,32 @@ def init_surface(
             if np.allclose(theta1d, pos.theta_B) and np.allclose(zeta1d, pos.zeta_B):
                 use_fft = True
         if not use_fft:
-            logging.warning("Unaligned boozer angles: use explicit evaluation method (slower)")
+            if ift == "fft":
+                raise ValueError(
+                    "Unaligned boozer angles: cannot use `ift=fft`; use `ift=eval` instead"
+                )
             ift = "eval"
     if ift == "eval":
         theta1d = pos.theta_B
         zeta1d = pos.zeta_B
         theta2d, zeta2d = xr.broadcast(theta1d, zeta1d)
     if ift not in ["fft", "eval"]:
-        raise ValueError("expected ift to be 'fft' or 'eval'")
+        raise ValueError("expected ift to be 'fft', 'eval' or None")
 
     surf = xr.Dataset(coords=pos.coords)
+    surf["winding"] = ((), winding)
+    surf["winding"].attrs = dict(
+        long_name="winding number",
+        symbol=r"\mathrm{winding}",
+    )
 
     for r in pos.rad:
-        xhat = np.cos(zeta1d) * pos.sel(xyz="x", rad=r) + np.sin(zeta1d) * pos.sel(
-            xyz="y", rad=r
-        )
-        yhat = -np.sin(zeta1d) * pos.sel(xyz="x", rad=r) + np.cos(zeta1d) * pos.sel(
-            xyz="y", rad=r
-        )
+        xhat = np.cos(winding * zeta1d) * pos.sel(xyz="x", rad=r) + np.sin(
+            winding * zeta1d
+        ) * pos.sel(xyz="y", rad=r)
+        yhat = -np.sin(winding * zeta1d) * pos.sel(xyz="x", rad=r) + np.cos(
+            winding * zeta1d
+        ) * pos.sel(xyz="y", rad=r)
         zhat = pos.sel(xyz="z", rad=r)
 
         # Ignore stellarator symmetry: will not store fourier coefficients - performance impact is negligible
@@ -130,7 +141,7 @@ def xyz(ds: xr.Dataset):
 
 
 @register(
-    requirements=["xhat", "yhat", "zhat", "zeta_B", "xyz"],
+    requirements=["xhat", "yhat", "zhat", "zeta_B", "xyz", "winding"],
     attrs=dict(
         long_name="cartesian coordinates",
         symbol=r"\mathbf{x}",
@@ -139,8 +150,8 @@ def xyz(ds: xr.Dataset):
 def pos(ds: xr.Dataset):
     ds["pos"] = xr.concat(
         [
-            ds.xhat * np.cos(ds.zeta_B) - ds.yhat * np.sin(ds.zeta_B),
-            ds.xhat * np.sin(ds.zeta_B) + ds.yhat * np.cos(ds.zeta_B),
+            ds.xhat * np.cos(ds.winding * ds.zeta_B) - ds.yhat * np.sin(ds.winding * ds.zeta_B),
+            ds.xhat * np.sin(ds.winding * ds.zeta_B) + ds.yhat * np.cos(ds.winding * ds.zeta_B),
             ds.zhat,
         ],
         dim="xyz",
@@ -148,14 +159,22 @@ def pos(ds: xr.Dataset):
 
 
 @register(
-    requirements=["dxhat_dt", "dyhat_dt", "dzhat_dt", "zeta_B", "xyz"],
+    requirements=["dxhat_dt", "dyhat_dt", "dzhat_dt", "zeta_B", "xyz", "winding"],
     attrs=dict(long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_{\theta_B}"),
 )
 def e_theta_B(ds: xr.Dataset):
     ds["e_theta_B"] = xr.concat(
         [
-            ds.dxhat_dt * np.cos(ds.zeta_B) - ds.dyhat_dt * np.sin(ds.zeta_B),
-            ds.dxhat_dt * np.sin(ds.zeta_B) + ds.dyhat_dt * np.cos(ds.zeta_B),
+            (
+                ds.dxhat_dt * np.cos(ds.winding * ds.zeta_B)
+                - ds.dyhat_dt * np.sin(ds.winding * ds.zeta_B)
+            )
+            * ds.winding,
+            (
+                ds.dxhat_dt * np.sin(ds.winding * ds.zeta_B)
+                + ds.dyhat_dt * np.cos(ds.winding * ds.zeta_B)
+            )
+            * ds.winding,
             ds.dzhat_dt,
         ],
         dim="xyz",
@@ -163,16 +182,25 @@ def e_theta_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=["dxhat_dz", "dyhat_dz", "dzhat_dz", "xhat", "yhat", "zeta_B", "xyz"],
+    requirements=[
+        "dxhat_dz",
+        "dyhat_dz",
+        "dzhat_dz",
+        "xhat",
+        "yhat",
+        "zeta_B",
+        "xyz",
+        "winding",
+    ],
     attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_{\zeta_B}"),
 )
 def e_zeta_B(ds: xr.Dataset):
     ds["e_zeta_B"] = xr.concat(
         [
-            (ds.dxhat_dz - ds.yhat) * np.cos(ds.zeta_B)
-            - (ds.dyhat_dz + ds.xhat) * np.sin(ds.zeta_B),
-            (ds.dxhat_dz - ds.yhat) * np.sin(ds.zeta_B)
-            + (ds.dyhat_dz + ds.xhat) * np.cos(ds.zeta_B),
+            (ds.dxhat_dz * ds.winding - ds.yhat) * np.cos(ds.winding * ds.zeta_B)
+            - (ds.dyhat_dz * ds.winding + ds.xhat) * np.sin(ds.winding * ds.zeta_B),
+            (ds.dxhat_dz * ds.winding - ds.yhat) * np.sin(ds.winding * ds.zeta_B)
+            + (ds.dyhat_dz * ds.winding + ds.xhat) * np.cos(ds.winding * ds.zeta_B),
             ds.dzhat_dz,
         ],
         dim="xyz",
@@ -222,14 +250,22 @@ def g_zz_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=["dxhat_dtt", "dyhat_dtt", "zeta_B", "xyz"],
+    requirements=["dxhat_dtt", "dyhat_dtt", "zeta_B", "xyz", "winding"],
     attrs=dict(long_name="poloidal curvature vector", symbol=r"\mathbf{k}_{\theta_B\theta_B}"),
 )
 def k_tt_B(ds: xr.Dataset):
     ds["k_tt_B"] = xr.concat(
         [
-            ds.dxhat_dtt * np.cos(ds.zeta_B) - ds.dyhat_dtt * np.sin(ds.zeta_B),
-            ds.dxhat_dtt * np.sin(ds.zeta_B) + ds.dyhat_dtt * np.cos(ds.zeta_B),
+            (
+                ds.dxhat_dtt * np.cos(ds.winding * ds.zeta_B)
+                - ds.dyhat_dtt * np.sin(ds.winding * ds.zeta_B)
+            )
+            * ds.winding,
+            (
+                ds.dxhat_dtt * np.sin(ds.winding * ds.zeta_B)
+                + ds.dyhat_dtt * np.cos(ds.winding * ds.zeta_B)
+            )
+            * ds.winding,
             ds.dzhat_dtt,
         ],
         dim="xyz",
@@ -245,6 +281,7 @@ def k_tt_B(ds: xr.Dataset):
         "dxhat_dt",
         "zeta_B",
         "xyz",
+        "winding",
     ],
     attrs=dict(
         long_name="poloidal-toroidal curvature vector",
@@ -254,10 +291,10 @@ def k_tt_B(ds: xr.Dataset):
 def k_tz_B(ds: xr.Dataset):
     ds["k_tz_B"] = xr.concat(
         [
-            (ds.dxhat_dtz - ds.dyhat_dt) * np.cos(ds.zeta_B)
-            - (ds.dyhat_dtz + ds.dxhat_dt) * np.sin(ds.zeta_B),
-            (ds.dxhat_dtz - ds.dyhat_dt) * np.sin(ds.zeta_B)
-            + (ds.dyhat_dtz + ds.dxhat_dt) * np.cos(ds.zeta_B),
+            (ds.dxhat_dtz - ds.dyhat_dt * ds.winding) * np.cos(ds.winding * ds.zeta_B)
+            - (ds.dyhat_dtz + ds.dxhat_dt * ds.winding) * np.sin(ds.winding * ds.zeta_B),
+            (ds.dxhat_dtz - ds.dyhat_dt * ds.winding) * np.sin(ds.winding * ds.zeta_B)
+            + (ds.dyhat_dtz + ds.dxhat_dt * ds.winding) * np.cos(ds.winding * ds.zeta_B),
             ds.dzhat_dtz,
         ],
         dim="xyz",
@@ -275,16 +312,21 @@ def k_tz_B(ds: xr.Dataset):
         "yhat",
         "zeta_B",
         "xyz",
+        "winding",
     ],
     attrs=dict(long_name="toroidal curvature vector", symbol=r"\mathbf{k}_{\zeta_B\zeta_B}"),
 )
 def k_zz_B(ds: xr.Dataset):
     ds["k_zz_B"] = xr.concat(
         [
-            (ds.dxhat_dzz - 2 * ds.dyhat_dz - ds.xhat) * np.cos(ds.zeta_B)
-            - (ds.dyhat_dzz + 2 * ds.dxhat_dz - ds.yhat) * np.sin(ds.zeta_B),
-            (ds.dxhat_dzz - 2 * ds.dyhat_dz - ds.xhat) * np.sin(ds.zeta_B)
-            + (ds.dyhat_dzz + 2 * ds.dxhat_dz - ds.yhat) * np.cos(ds.zeta_B),
+            (ds.dxhat_dzz - 2 * ds.dyhat_dz * ds.winding - ds.xhat * ds.winding**2)
+            * np.cos(ds.winding * ds.zeta_B)
+            - (ds.dyhat_dzz + 2 * ds.dxhat_dz * ds.winding - ds.yhat * ds.winding**2)
+            * np.sin(ds.winding * ds.zeta_B),
+            (ds.dxhat_dzz - 2 * ds.dyhat_dz * ds.winding - ds.xhat * ds.winding**2)
+            * np.sin(ds.winding * ds.zeta_B)
+            + (ds.dyhat_dzz + 2 * ds.dxhat_dz * ds.winding - ds.yhat * ds.winding**2)
+            * np.cos(ds.winding * ds.zeta_B),
             ds.dzhat_dzz,
         ],
         dim="xyz",

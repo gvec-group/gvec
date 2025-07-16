@@ -8,23 +8,27 @@ from pathlib import Path
 import datetime
 import argparse
 from collections.abc import Sequence
+from typing import Literal
 
-from gvec.core import compute
 import numpy as np
 import xarray as xr
 import tqdm
 
-from gvec import State, EvaluationsBoozer, util, surface, __version__
+from gvec.core import compute
+from gvec import State, EvaluationsBoozer, find_state, surface, __version__
 
 # === Argument parser === #
 
 parser = argparse.ArgumentParser(
     prog="pygvec-to-cas3d",
-    description="Convert a GVEC statefile to a CAS3D compatible input file.",
+    description="Produce a CAS3D compatible input file from a GVEC state.",
 )
-parser.add_argument("parameterfile", type=Path, help="input GVEC parameter-file")
-parser.add_argument("statefile", type=Path, help="input GVEC state-file")
-parser.add_argument("outputfile", type=Path, help="output netCDF file")
+parser.add_argument(
+    "--rundir",
+    type=Path,
+    help="GVEC run directory",
+    default=Path("."),
+)
 parser.add_argument(
     "--ns",
     type=int,
@@ -55,16 +59,35 @@ parser.add_argument(
 )
 parser.add_argument(
     "--pointwise",
+    action="store_true",
+    help="output pointwise data to an additional file",
+)
+parser.add_argument(
+    "-x",
+    "--flip",
+    choices=["pol", "tor"],
+    default="pol",
+    help="flip the poloidal or toroidal direction to match the CAS3D convention (left-handed Boozer coordinates).",
+)
+parser.add_argument(
+    "-o",
+    "--outputfile",
     type=Path,
-    help="output pointwise data to a separate file",
+    help="output file name (default: '{projectname}_GVEC2CAS3D')",
+    default=None,
+)
+parser.add_argument(
+    "--winding",
+    type=int,
+    default=1,
+    help="winding number for the surface transform to (hat-coordinates) (default 1)",
 )
 
 # === Main function === #
 
 
 def gvec_to_cas3d(
-    parameterfile: Path,
-    statefile: Path,
+    state: State,
     outputfile: Path,
     ns: int,
     MN_out: tuple[int, int],
@@ -72,17 +95,17 @@ def gvec_to_cas3d(
     sampling: int = 2,
     stellsym: bool = False,
     pointwise: Path | None = None,
+    flip: Literal["pol", "tor"] = "tor",
+    winding: int = 1,
 ):
+    if flip not in ["pol", "tor"]:
+        raise ValueError(f"Invalid flip option: {flip}. Expected one of 'pol', 'tor'.")
     with tqdm.tqdm(
         total=5,
         bar_format="{n_fmt}/{total_fmt} |{bar:25}| {desc}",
         desc="performing boozer transform...",
         ascii=True,
     ) as progress:
-        params = util.read_parameter_file_ini(parameterfile)
-        name = params["ProjectName"]
-
-        state = State(parameterfile, statefile)
         # Boozer transform
         rho = np.sqrt(np.linspace(0, 1.0, ns))
         rho[0] = 1e-4
@@ -98,7 +121,7 @@ def gvec_to_cas3d(
         progress.update(1)
         progress.set_description("reparametrizing surfaces...")
         state.compute(ev, "N_FP", "pos")
-        surf = surface.init_surface(ev.pos, ev.N_FP, ift="fft")
+        surf = surface.init_surface(ev.pos, ev.N_FP, ift="fft", winding=winding)
         q_surf = [
             "xhat",
             "yhat",
@@ -109,6 +132,7 @@ def gvec_to_cas3d(
             "II_tt_B",
             "II_tz_B",
             "II_zz_B",
+            "winding",
         ]
         surface.compute(surf, *q_surf)
         surf = surf[q_surf]
@@ -134,10 +158,14 @@ def gvec_to_cas3d(
 
         ds = xr.merge([ev, surf])
 
-        # manual conversion
+        # change coordinate convention: (s,θ,ζ), left-handed, with s,θ,ζ ∈ [0,1) and ζ normalized to one field period
         drho = 2 * ds.rho
-        dtheta = -1 / (2 * np.pi)
+        dtheta = 1 / (2 * np.pi)
         dzeta = 1 / (2 * np.pi) * ev.N_FP.item()
+        if flip == "pol":
+            dtheta *= -1
+        elif flip == "tor":
+            dzeta *= -1
 
         out = xr.Dataset()
         out.attrs = ds.attrs
@@ -207,11 +235,15 @@ def gvec_to_cas3d(
         )
         # fluxes
         out["Phi"] = 2 * np.pi * ds.Phi
+        if flip == "tor":
+            out["Phi"] *= -1
         out["Phi"].attrs = dict(
             long_name="toroidal magnetic flux",
             symbol=r"\Phi",
         )
-        out["chi"] = -2 * np.pi * ds.chi
+        out["chi"] = 2 * np.pi * ds.chi
+        if flip == "pol":
+            out["chi"] *= -1
         out["chi"].attrs = dict(
             long_name="poloidal magnetic flux",
             symbol=r"\chi",
@@ -223,8 +255,12 @@ def gvec_to_cas3d(
         )
 
         # flip theta
-        out = out.assign_coords(theta_B=(2 * np.pi - out.theta_B) % (2 * np.pi))
-        out = out.sortby("theta_B")
+        if flip == "pol":
+            out = out.assign_coords(theta_B=(-out.theta_B) % (2 * np.pi))
+            out = out.sortby("theta_B")
+        elif flip == "tor":
+            out = out.assign_coords(zeta_B=(-out.zeta_B) % (2 * np.pi / state.nfp))
+            out = out.sortby("zeta_B")
 
         # Fourier transform
         progress.update(1)
@@ -262,10 +298,10 @@ def gvec_to_cas3d(
         ft.attrs["gvec_version"] = __version__
         ft.attrs["creator"] = "pygvec to-cas3d"
         ft.attrs["arguments"] = repr(
-            dict(ns=ns, MN_out=MN_out, MNfactor=MNfactor, sampling=sampling)
+            dict(ns=ns, MN_out=MN_out, MNfactor=MNfactor, sampling=sampling, flip=flip)
         )
-        ft.attrs["statefile"] = statefile.name
-        ft.attrs["projectname"] = name
+        ft.attrs["statefile"] = state.statefile.name
+        ft.attrs["projectname"] = state.name
         ft.attrs["conversion_time"] = (
             datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         )
@@ -273,7 +309,7 @@ def gvec_to_cas3d(
             "Assumes a fourier series of the form 'v(s, θ, ζ) = Σ v_mnc(s) cos(2π m θ - 2π n N_FP ζ) + v_mns(s) sin(2π m θ - 2π n N_FP ζ)'"
         )
         ft.attrs["coordinate_convention"] = (
-            "Left-handed Boozer straight fieldline coordinates (s, θ, ζ), with s,θ,ζ ∈ [0,1]. s is the radial coordinate, proportional to the toroidal flux. θ is the counter-clockwise poloidal angle and ζ is the toroidal angle, normalized to one field period."
+            "Left-handed Boozer straight fieldline coordinates (s, θ, ζ), with s,θ,ζ ∈ [0,1]. s is the radial coordinate, proportional to the toroidal flux. θ is the poloidal angle and ζ is the toroidal angle, normalized to one field period."
         )
         ft.attrs["stellarator_symmetry"] = str(stellsym)
 
@@ -289,11 +325,11 @@ def gvec_to_cas3d(
             out.s.attrs = dict(
                 long_name="radial coordinate, normalized toroidal flux", symbol="s"
             )
-            out["theta"] = out.theta_B / (2 * np.pi)  # sign flip already done above
+            out["theta"] = out.theta_B * abs(dtheta)  # sign flip already done above
             out.theta.attrs = dict(
                 long_name="poloidal coordinate, normalized to [0,1]", symbol=r"\theta"
             )
-            out["zeta"] = out.zeta_B / (2 * np.pi) * ev.N_FP.item()
+            out["zeta"] = out.zeta_B * abs(dzeta)
             out.zeta.attrs = dict(
                 long_name="toroidal coordinate, normalized to [0,1] for one field period",
                 symbol=r"\zeta",
@@ -330,16 +366,22 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     else:
         args = parser.parse_args(args)
 
+    state = find_state(args.rundir)
+
+    if args.outputfile is None:
+        args.outputfile = args.rundir / f"{state.name}_GVEC2CAS3D"
+
     gvec_to_cas3d(
-        args.parameterfile,
-        args.statefile,
-        args.outputfile,
+        state,
+        args.outputfile.with_suffix(".nc"),
         args.ns,
         args.MN_out,
         args.MNfactor,
         args.sampling,
         args.stellsym,
-        args.pointwise,
+        args.outputfile.parent / f"{args.outputfile.stem}_pw.nc" if args.pointwise else None,
+        args.flip,
+        args.winding,
     )
 
 

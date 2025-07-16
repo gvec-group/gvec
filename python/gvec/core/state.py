@@ -271,6 +271,11 @@ class State:
     def rundir(self):
         return self.parameterfile.parent
 
+    @property
+    def name(self):
+        """The name of the configuration / `ProjectName` in the parameter file."""
+        return self.parameters.get("ProjectName", "GVEC")
+
     # === Evaluation Methods === #
 
     @property
