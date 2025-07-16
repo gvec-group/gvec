@@ -171,7 +171,7 @@ def test_boozer(teststate):
 
     # currents / averages of B are independent of coordinate system
     # and B_theta_B, B_zeta_B are constant
-    teststate.compute(ds, "B_theta_avg", "B_zeta_avg", "B", "e_theta_B", "e_zeta_B")
+    teststate.compute(ds, "B_theta_avg", "B_zeta_avg", "B", "e_theta_B", "e_zeta_B", "g_tt_B")
     B_theta_B = xr.dot(ds.B, ds.e_theta_B, dim="xyz")
     B_theta_B_avg = B_theta_B.mean(("pol", "tor"))
     B_zeta_B = xr.dot(ds.B, ds.e_zeta_B, dim="xyz")
@@ -290,7 +290,6 @@ def test_compute_metric(teststate, evals_rtz):
     assert "e_theta" in ds
     assert "e_zeta" in ds
     for ij in "rr rt rz tt tz zz".split():
-        key = f"g_{ij}"
         assert np.allclose(
             ds[f"g_{ij}"],
             xr.dot(ds[f"e_{idxs[ij[0]]}"], ds[f"e_{idxs[ij[1]]}"], dim="xyz"),

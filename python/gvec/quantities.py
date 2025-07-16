@@ -25,6 +25,7 @@ from gvec.core.compute import (
     volume_integral,
     rtz_directions,
     rtz_symbols,
+    rtz_variables,
     derivative_name_smart,
     latex_partial,
     latex_partial_smart,
@@ -195,88 +196,30 @@ def hmap(ds: xr.Dataset, state: State):
 
 
 # === metric =========================================================================== #
-@register(
-    quantities=["g_rr"],
-    requirements=["e_rho"],
-    attrs={
-        "g_rr": dict(
-            long_name="rr component of the metric tensor",
-            symbol=rf"g_{{{rtz_symbols['r'] + rtz_symbols['r']}}}",
+
+
+def _g_ij(i, j):
+    """Factory function for metric tensor components."""
+
+    e_i = f"e_{rtz_variables[i]}"
+    e_j = f"e_{rtz_variables[j]}"
+
+    @register(
+        quantities=f"g_{i}{j}",
+        requirements={e_i, e_j},
+        attrs=dict(
+            long_name=f"{i}{j} component of the metric tensor",
+            symbol=rf"g_{{{rtz_symbols[i] + rtz_symbols[j]}}}",
         ),
-    },
-)
-def g_rr(ds: xr.Dataset):
-    ds["g_rr"] = xr.dot(ds.e_rho, ds.e_rho, dim="xyz")
+    )
+    def g_ij(ds: xr.Dataset):
+        ds[f"g_{i}{j}"] = xr.dot(ds[e_i], ds[e_j], dim="xyz")
+
+    return g_ij
 
 
-@register(
-    quantities=["g_rt"],
-    requirements=["e_rho", "e_theta"],
-    attrs={
-        "g_rt": dict(
-            long_name="rt component of the metric tensor",
-            symbol=rf"g_{{{rtz_symbols['r'] + rtz_symbols['t']}}}",
-        ),
-    },
-)
-def g_rt(ds: xr.Dataset):
-    ds["g_rt"] = xr.dot(ds.e_rho, ds.e_theta, dim="xyz")
-
-
-@register(
-    quantities=["g_rz"],
-    requirements=["e_rho", "e_zeta"],
-    attrs={
-        "g_rz": dict(
-            long_name="rz component of the metric tensor",
-            symbol=rf"g_{{{rtz_symbols['r'] + rtz_symbols['z']}}}",
-        ),
-    },
-)
-def g_rz(ds: xr.Dataset):
-    ds["g_rz"] = xr.dot(ds.e_rho, ds.e_zeta, dim="xyz")
-
-
-@register(
-    quantities=["g_tt"],
-    requirements=["e_theta"],
-    attrs={
-        "g_tt": dict(
-            long_name="tt component of the metric tensor",
-            symbol=rf"g_{{{rtz_symbols['t'] + rtz_symbols['t']}}}",
-        ),
-    },
-)
-def g_tt(ds: xr.Dataset):
-    ds["g_tt"] = xr.dot(ds.e_theta, ds.e_theta, dim="xyz")
-
-
-@register(
-    quantities=["g_tz"],
-    requirements=["e_theta", "e_zeta"],
-    attrs={
-        "g_tz": dict(
-            long_name="tz component of the metric tensor",
-            symbol=rf"g_{{{rtz_symbols['t'] + rtz_symbols['z']}}}",
-        ),
-    },
-)
-def g_tz(ds: xr.Dataset):
-    ds["g_tz"] = xr.dot(ds.e_theta, ds.e_zeta, dim="xyz")
-
-
-@register(
-    quantities=["g_zz"],
-    requirements=["e_zeta"],
-    attrs={
-        "g_zz": dict(
-            long_name="zz component of the metric tensor",
-            symbol=rf"g_{{{rtz_symbols['z'] + rtz_symbols['z']}}}",
-        ),
-    },
-)
-def g_zz(ds: xr.Dataset):
-    ds["g_zz"] = xr.dot(ds.e_zeta, ds.e_zeta, dim="xyz")
+for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
+    globals()[f"g_{i}{j}"] = _g_ij(i, j)
 
 
 @register(
@@ -793,6 +736,29 @@ def e_zeta_B(ds: xr.Dataset):
     ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) / (
         dtB_dt * dzB_dz - dtB_dz * dzB_dt
     )
+
+
+def _g_ij_B(i, j):
+    """Factory function for metric tensor components in Boozer coordinates."""
+    e_i = f"e_{rtz_variables[i]}_B"
+    e_j = f"e_{rtz_variables[j]}_B"
+
+    @register(
+        quantities=f"g_{i}{j}_B",
+        requirements={e_i, e_j},
+        attrs=dict(
+            long_name=f"{i}{j} component of the metric tensor in Boozer coordinates",
+            symbol=rf"g_{{{rtz_symbols[i]}_B {rtz_symbols[j]}_B}}",
+        ),
+    )
+    def g_ij_B(ds: xr.Dataset):
+        ds[f"g_{i}{j}_B"] = xr.dot(ds[e_i], ds[e_j], dim="xyz")
+
+    return g_ij_B
+
+
+for i, j in ["tt", "tz", "zz"]:
+    globals()[f"g_{i}{j}_B"] = _g_ij_B(i, j)
 
 
 # === integrals ======================================================================== #
