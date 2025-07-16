@@ -19,6 +19,7 @@ USE MODgvec_fbase   ,ONLY: t_fbase
 USE MODgvec_sGrid   ,ONLY: t_sgrid
 USE MODgvec_SFL_boozer, ONLY: t_sfl_boozer
 USE MODgvec_hmap,  ONLY: PP_T_HMAP
+USE MODgvec_newton,  ONLY: c_newton_Root1D_FdF
 IMPLICIT NONE
 PRIVATE
 
@@ -61,6 +62,14 @@ TYPE :: t_transform_sfl
   PROCEDURE :: free        => transform_sfl_free
 END TYPE t_transform_sfl
 
+TYPE, EXTENDS(c_newton_Root1D_FdF) :: t_newton_Root1D_FdF_pest
+  TYPE(t_fbase) :: LA_fbase_in
+  REAL(wp) :: zeta
+  REAL(wp), ALLOCATABLE :: LA_in(:)
+  CONTAINS
+  PROCEDURE :: FRdFR => pest_newton_FRdFR
+END TYPE t_newton_Root1D_FdF_pest
+
 ABSTRACT INTERFACE
   FUNCTION i_func_evalprof(spos)
     IMPORT wp
@@ -72,8 +81,6 @@ END INTERFACE
 INTERFACE transform_sfl_new
   MODULE PROCEDURE transform_sfl_new
 END INTERFACE
-
-
 
 
 !INTERFACE sfl_boozer_new
@@ -666,13 +673,14 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
 
 END SUBROUTINE find_pest_angles
 
+
 !===================================================================================================================================
 !> This function returns the result of the 1D newton root search for the pest theta angle
 !!
 !===================================================================================================================================
 FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
   USE MODgvec_fbase  ,ONLY: t_fbase
-  USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF
+  USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF_obj
   USE MODgvec_Globals,ONLY: PI
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
@@ -686,24 +694,30 @@ FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
     REAL(wp)              :: thet_out !< theta position in original coordinates
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! LOCAL VARIABLES
+    TYPE(t_newton_Root1D_FdF_pest) :: fobj
   !===================================================================================================================================
-    thet_out=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI, &
-                                         theta_star, theta_star,A_FRdFR) !start, rhs,func
-  CONTAINS
-!for newton root search
-  FUNCTION A_FRdFR(theta_iter)
-    !uses current zeta where newton is called, and A from subroutine above
-    REAL(wp) :: theta_iter
-    REAL(wp) :: A_FRdFR(2) !output function and derivative
-    !---------------------------------------------------
-    A_FRdFR(1)=theta_iter+LA_fbase_in%evalDOF_x((/theta_iter,zeta/),         0,LA_in)  !theta_iter+lambda = thet* (rhs)
-    A_FRdFR(2)=1.0_wp    +LA_fbase_in%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_in) !1+dlambda/dtheta
-  END FUNCTION A_FRdFR
+    fobj%zeta = zeta
+    fobj%LA_fbase_in = LA_fbase_in
+    fobj%LA_in = LA_in
 
+    thet_out = NewtonRoot1D_FdF_obj(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI, &
+                                    theta_star, theta_star,fobj) !start, rhs,func
 END FUNCTION get_pest_newton
 
 
-
+!===================================================================================================================================
+!> Function for 1D newton root search for PEST
+!!
+!===================================================================================================================================
+FUNCTION pest_newton_FRdFR(sf, x) RESULT(A_FRdFR)
+  !uses current zeta where newton is called, and A from subroutine above
+  CLASS(t_newton_Root1D_FdF_pest) :: sf
+  REAL(wp) :: x ! theta_iter
+  REAL(wp) :: A_FRdFR(2) !output function and derivative
+  !---------------------------------------------------
+  A_FRdFR(1)=x      + sf%LA_fbase_in%evalDOF_x((/x,sf%zeta/),         0,sf%LA_in) !theta_iter+lambda = thet* (rhs)
+  A_FRdFR(2)=1.0_wp + sf%LA_fbase_in%evalDOF_x((/x,sf%zeta/),DERIV_THET,sf%LA_in) !1+dlambda/dtheta
+END FUNCTION pest_newton_FRdFR
 
 
 !===================================================================================================================================

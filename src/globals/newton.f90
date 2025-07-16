@@ -37,6 +37,24 @@ INTERFACE NewtonRoot2D
   MODULE PROCEDURE NewtonRoot2D
 END INTERFACE
 
+TYPE, ABSTRACT :: c_newton_Min1D
+  CONTAINS
+  PROCEDURE(i_newton_Min1D), DEFERRED :: FR
+  PROCEDURE(i_newton_Min1D), DEFERRED :: dFR
+  PROCEDURE(i_newton_Min1D), DEFERRED :: ddFR
+END TYPE c_newton_Min1D
+
+TYPE, ABSTRACT :: c_newton_Root1D
+  CONTAINS
+  PROCEDURE(i_newton_Root1D), DEFERRED :: FR
+  PROCEDURE(i_newton_Root1D), DEFERRED :: dFR
+END TYPE c_newton_Root1D
+
+TYPE, ABSTRACT :: c_newton_Root1D_FdF
+  CONTAINS
+  PROCEDURE(i_newton_Root1D_FdF), DEFERRED :: FRdFR
+END TYPE c_newton_Root1D_FdF
+
 ABSTRACT INTERFACE
   FUNCTION i_f1x1(x) RESULT (y1x1)
     IMPORT wp
@@ -45,12 +63,36 @@ ABSTRACT INTERFACE
     REAL(wp) :: y1x1
   END FUNCTION i_f1x1
 
+  FUNCTION i_newton_Min1D(sf, x) RESULT (y1x1)
+    IMPORT wp, c_newton_Min1D
+    IMPLICIT NONE
+    CLASS(c_newton_Min1D) :: sf
+    REAL(wp) :: x
+    REAL(wp) :: y1x1
+  END FUNCTION i_newton_Min1D
+  
+  FUNCTION i_newton_Root1D(sf, x) RESULT (y1x1)
+    IMPORT wp, c_newton_Root1D
+    IMPLICIT NONE
+    CLASS(c_newton_Root1D) :: sf
+    REAL(wp) :: x
+    REAL(wp) :: y1x1
+  END FUNCTION i_newton_Root1D
+
   FUNCTION i_f2x1(x) RESULT (y2x1)
     IMPORT wp
     IMPLICIT NONE
     REAL(wp) :: x
     REAL(wp) :: y2x1(2)
   END FUNCTION i_f2x1
+
+  FUNCTION i_newton_Root1D_FdF(sf, x) RESULT (y2x1)
+    IMPORT wp, c_newton_Root1D_FdF
+    IMPLICIT NONE
+    CLASS(c_newton_Root1D_FdF) :: sf
+    REAL(wp) :: x
+    REAL(wp) :: y2x1(2)
+  END FUNCTION i_newton_Root1D_FdF
 
   FUNCTION i_f1x2(x) RESULT (y1x2)
     IMPORT wp
@@ -107,7 +149,6 @@ x=NewtonRoot1D(tol,a,b,maxstep,x0,0.0_wp,dFF,ddFF)
 fmin=FF(x)
 
 END FUNCTION NewtonMin1D
-
 
 !===================================================================================================================================
 !> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative
@@ -179,6 +220,71 @@ END FUNCTION NewtonRoot1D
 !> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative
 !!
 !===================================================================================================================================
+FUNCTION NewtonRoot1D_obj(tol,a,b,maxstep,xin,F0,fobj) RESULT (xout)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL(wp),INTENT(IN) :: tol    !! abort tolerance
+REAL(wp),INTENT(IN) :: a,b    !! search interval
+REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
+REAL(wp),INTENT(IN) :: xin    !! initial guess
+REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+CLASS(c_newton_Root1D) :: fobj
+REAL(wp)            :: xout    !! on output =f(x)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER             :: iter,maxiter
+REAL(wp)            :: x,dx
+LOGICAL             :: converged
+LOGICAL             :: converged2
+!===================================================================================================================================
+
+converged=.FALSE.
+x=xin
+maxiter=20
+DO iter=1,maxiter
+  dx=-(fobj%FR(x)-F0)/fobj%dFR(x)
+  dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+  x = x+dx
+  IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
+  converged=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
+  IF(converged) EXIT
+END DO !iter
+IF(.NOT.converged) THEN
+  !repeat with maxstep /10 and a little change in the initial condition
+  x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
+  maxiter=200
+  DO iter=1,maxiter
+    dx=-(fobj%FR(x)-F0)/fobj%dFR(x)
+    dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
+    x = x+dx
+    converged2=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
+    IF(converged2) EXIT
+  END DO !iter
+  IF(converged2) THEN
+    xout=x
+    RETURN
+  END IF
+  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+  WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
+  WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
+  WRITE(UNIT_stdout,*)'after iter',iter-1
+  CALL abort(__STAMP__, &
+             'NewtonRoot1D not converged')
+END IF
+xout=x
+
+END FUNCTION NewtonRoot1D_obj
+
+
+!===================================================================================================================================
+!> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative
+!!
+!===================================================================================================================================
 FUNCTION NewtonRoot1D_FdF(tol,a,b,maxstep,xin,F0,FRdFR) RESULT (xout)
 ! MODULES
 IMPLICIT NONE
@@ -241,6 +347,74 @@ END IF
 xout=x
 
 END FUNCTION NewtonRoot1D_FdF
+
+
+!===================================================================================================================================
+!> Newton's iterative algorithm to find the root of function FR(x(:)) in the interval [a(:),b(:)], using d/dx(:)F(x)=0 and the derivative
+!!
+!===================================================================================================================================
+FUNCTION NewtonRoot1D_FdF_obj(tol,a,b,maxstep,xin,F0,fobj) RESULT (xout)
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL(wp),INTENT(IN) :: tol     !! abort tolerance
+REAL(wp),INTENT(IN) :: a,b     !! search interval
+REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
+REAL(wp),INTENT(IN) :: xin     !! initial guess on input
+REAL(wp),INTENT(IN) :: F0      !! function to find root is FR(x)-F0
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+CLASS(c_newton_Root1D_FdF) :: fobj !! function to find root f(x) & derivative d/dx f(x) as FRdFR method
+REAL(wp)            :: xout    !! output x for f(x)=0
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER             :: iter,maxiter
+REAL(wp)            :: x,dx
+REAL(wp)            :: FRdFRx(2) !1: FR(x), 2: dFR(x)
+LOGICAL             :: converged
+LOGICAL             :: converged2
+!===================================================================================================================================
+converged=.FALSE.
+x=xin
+maxiter=20
+DO iter=1,maxiter
+  FRdFRx=fobj%FRdFR(x)
+  dx=-(FRdFRx(1)-F0)/FRdFRx(2)
+  dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+  IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
+  x = x+dx
+  converged=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
+  IF(converged) EXIT
+END DO !iter
+IF(.NOT.converged) THEN
+  !repeat with maxstep /10 and a little change in the initial condition
+  converged2=.FALSE.
+  x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
+  maxiter=200
+  DO iter=1,maxiter
+    FRdFRx=fobj%FRdFR(x)
+    dx=-(FRdFRx(1)-F0)/FRdFRx(2)
+    dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
+    x = x+dx
+    converged2=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
+    IF(converged2) EXIT
+  END DO !iter
+  IF(converged2) THEN
+    xout=x
+    RETURN
+  END IF
+  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+  WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
+  WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
+  WRITE(UNIT_stdout,*)'after iter',iter-1
+  CALL abort(__STAMP__,&
+             'NewtonRoot1D_FdF not converged')
+END IF
+xout=x
+
+END FUNCTION NewtonRoot1D_FdF_obj
 
 
 !===================================================================================================================================
