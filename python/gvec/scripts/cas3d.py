@@ -97,9 +97,10 @@ def gvec_to_cas3d(
     pointwise: Path | None = None,
     flip: Literal["pol", "tor"] = "tor",
     winding: int = 1,
+    grid: Literal["full", "half"] = "half",
 ):
     if flip not in ["pol", "tor"]:
-        raise ValueError(f"Invalid flip option: {flip}. Expected one of 'pol', 'tor'.")
+        raise ValueError(f"Invalid flip option: {flip}. Expected 'pol' or 'tor'.")
     with tqdm.tqdm(
         total=5,
         bar_format="{n_fmt}/{total_fmt} |{bar:25}| {desc}",
@@ -107,8 +108,13 @@ def gvec_to_cas3d(
         ascii=True,
     ) as progress:
         # Boozer transform
-        rho = np.sqrt(np.linspace(0, 1.0, ns))
-        rho[0] = 1e-4
+        if grid == "full":
+            rho = np.sqrt(np.linspace(0, 1.0, ns))
+            rho[0] = 1e-4
+        elif grid == "half":
+            rho = np.sqrt(np.linspace(0, 1.0, 2 * ns + 1)[1::2])
+        else:
+            raise ValueError(f"Invalid grid option: {grid}. Expected 'full' or 'half'.")
         ev = EvaluationsBoozer(
             rho,
             sampling * MN_out[0] + 1,
