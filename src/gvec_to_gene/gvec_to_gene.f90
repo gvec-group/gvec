@@ -305,22 +305,26 @@ REAL(wp)    :: zeta
 REAL(wp)    :: xp(2),qvec(3)
 REAL(wp)    :: X1sfl_s(   1:trafoSFL%X1sfl_base%f%modes)
 REAL(wp)    :: X2sfl_s(   1:trafoSFL%X2sfl_base%f%modes)
-REAL(wp)    :: X1_int,X2_int,spos
+REAL(wp)    :: GZsfl_s(   1:trafoSFL%GZsfl_base%f%modes)
+REAL(wp)    :: X1_int,X2_int,GZ_int,spos
 !===================================================================================================================================
 ASSOCIATE(X1sfl_base=>trafoSFL%X1sfl_base,X1sfl=>trafoSFL%X1sfl,&
-          X2sfl_base=>trafoSFL%X2sfl_base,X2sfl=>trafoSFL%X2sfl)
+          X2sfl_base=>trafoSFL%X2sfl_base,X2sfl=>trafoSFL%X2sfl,&
+          GZsfl_base=>trafoSFL%GZsfl_base,GZsfl=>trafoSFL%GZsfl )
 spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 X1sfl_s(:)      =X1sfl_base%s%evalDOF2D_s(spos,X1sfl_base%f%modes,      0,X1sfl(:,:)) !R
 X2sfl_s(:)      =X2sfl_base%s%evalDOF2D_s(spos,X2sfl_base%f%modes,      0,X2sfl(:,:)) !Z
+GZsfl_s(:)      =GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,      0,GZsfl(:,:))
 
 DO izeta=1,nzeta; DO ithet=1,nthet
-  zeta=zeta_in( ithet,izeta)
+  zeta=zeta_in( ithet,izeta) !=zetastar = zeta-G(thetastar,zetastar)
   xp=(/theta_star_in(ithet,izeta),zeta/)
 
   X1_int      = X1sfl_base%f%evalDOF_x(xp,0,X1sfl_s)
   X2_int      = X2sfl_base%f%evalDOF_x(xp,0,X2sfl_s)
+  GZ_int      = GZsfl_base%f%evalDOF_x(xp,0,GZsfl_s)
 
-  qvec = (/X1_int,X2_int,zeta/)
+  qvec = (/X1_int,X2_int,zeta-GZ_int/)
   cart_coords(:,ithet,izeta)=hmap_r%eval(qvec)
 
 END DO; END DO !ithet,izeta
@@ -782,7 +786,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
+  sqrtG  = SUM(e_s*CROSS(e_thet,e_zeta))
 
   grad_s(:,ithet,izeta)   = CROSS(e_thet,e_zeta)/sqrtG
   grad_thet(:)            = CROSS(e_zeta,e_s   )/sqrtG
@@ -832,7 +836,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
+  sqrtG = SUM(e_s*CROSS(e_thet,e_zeta))
 
   !absB_ds =(SQRT(SUM(((e_thet(:)*iota_int_eps + e_zeta(:))*(PhiPrime_int_eps/sqrtG))**2)) &
   !          -absB)
@@ -879,7 +883,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
+  sqrtG  = SUM(e_s*CROSS(e_thet,e_zeta))
 
   !absB_dthet =(SQRT(SUM(((e_thet(:)*iota_int + e_zeta(:))*(PhiPrime_int/sqrtG))**2)) &
   !             -absB)
@@ -926,7 +930,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   e_s    = hmap_r%eval_dxdq(qvec,(/dX1ds   ,dX2ds   ,      -dGZds/))
   e_thet = hmap_r%eval_dxdq(qvec,(/dX1dthet,dX2dthet,      -dGZdthet/))
   e_zeta = hmap_r%eval_dxdq(qvec,(/dX1dzeta,dX2dzeta,1.0_wp-dGZdzeta/))
-  sqrtG  = hmap_r%eval_Jh(qvec)*(dX1ds*dX2dthet -dX2ds*dX1dthet)
+  sqrtG  = SUM(e_s*CROSS(e_thet,e_zeta))
 
   !absB_dzeta =(SQRT(SUM(((e_thet(:)*iota_int + e_zeta(:))*(PhiPrime_int/sqrtG))**2)) &
   !             -absB)
