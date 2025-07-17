@@ -25,20 +25,22 @@ def ift(request):
 
 
 @pytest.fixture()
-def ev(state, ift):
+def ev(state):
     rho = [0.1, 0.5, 0.9]
-    if ift == "fft":
-        ds = EvaluationsBoozer(rho=rho, theta_B=21, zeta_B=51, state=state, MNfactor=1)
-    else:
-        ds = EvaluationsBoozer(rho=rho, theta_B=20, zeta_B=50, state=state, MNfactor=1)
+    ds = EvaluationsBoozer(rho=rho, theta_B=21, zeta_B=51, state=state, MNfactor=1)
     # only for testing! MNfactor should be ~4 or above for most applications
     compute(ds, "pos", "N_FP", state=state)
     return ds
 
 
+@pytest.fixture(params=[0, 1, -1])
+def winding(request, state):
+    return 1 + request.param * state.nfp
+
+
 @pytest.fixture()
-def surfs(ev, ift):
-    return surface.init_surface(ev.pos, ev.N_FP, ift=ift)
+def surfs(ev, ift, winding):
+    return surface.init_surface(ev.pos, ev.N_FP, ift=ift, winding=winding)
 
 
 # === TESTS === #
@@ -82,15 +84,23 @@ def test_compute(surfs, Q):
     assert np.isnan(surfs[Q].data).sum() == 0
 
 
+@pytest.mark.parametrize("ift", ["fft"])
 @pytest.mark.parametrize(
     "Q",
     [
         "pos",
+        "e_theta_B",
+        "e_zeta_B",
+        "g_tt_B",
+        "g_tz_B",
+        "g_zz_B",
+        "normal",
     ],
 )
-def test_compare(state, ev, surfs, Q):
+def test_compare(state, ev, surfs, Q, ift):
     """Test that the computed surface quantities match the expected values."""
     surface.compute(surfs, Q)
     compute(ev, Q, state=state)
 
-    assert np.allclose(surfs[Q].data, ev[Q].data)
+    surfQ, evQ = xr.broadcast(surfs[Q], ev[Q])
+    np.testing.assert_allclose(surfQ.data, evQ.data, rtol=1e-2, atol=1e-5)

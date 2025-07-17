@@ -438,6 +438,14 @@ def grad_rho(ds: xr.Dataset):
 
 
 @register(
+    requirements=("grad_rho",),
+    attrs=dict(long_name="surface normal", symbol=r"\mathbf{n}"),
+)
+def normal(ds: xr.Dataset):
+    ds["normal"] = ds.grad_rho / np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz"))
+
+
+@register(
     requirements=("xyz", "Jac", "e_rho", "e_zeta"),
     attrs=dict(long_name="poloidal reciprocal basis vector", symbol=r"\nabla\theta"),
 )

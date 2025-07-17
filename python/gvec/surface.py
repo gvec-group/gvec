@@ -39,7 +39,7 @@ def init_surface(
         "tor",
     }:
         raise ValueError(
-            "expected pos to be a DataArray with dimensions ('xyz', 'rad', 'pol', 'tor') or ('xyz', 'pol', 'tor')"
+            f"expected pos to be a DataArray with dimensions ('xyz', 'rad', 'pol', 'tor') or ('xyz', 'pol', 'tor'), not {pos.dims}"
         )
 
     if "rad" not in pos.dims:
@@ -71,7 +71,7 @@ def init_surface(
         zeta1d = pos.zeta_B
         theta2d, zeta2d = xr.broadcast(theta1d, zeta1d)
     if ift not in ["fft", "eval"]:
-        raise ValueError("expected ift to be 'fft', 'eval' or None")
+        raise ValueError(f"expected ift to be 'fft', 'eval' or None, not {ift}")
 
     surf = xr.Dataset(coords=pos.coords)
     surf["winding"] = ((), winding)
@@ -81,12 +81,10 @@ def init_surface(
     )
 
     for r in pos.rad:
-        xhat = np.cos(winding * zeta1d) * pos.sel(xyz="x", rad=r) + np.sin(
-            winding * zeta1d
-        ) * pos.sel(xyz="y", rad=r)
-        yhat = -np.sin(winding * zeta1d) * pos.sel(xyz="x", rad=r) + np.cos(
-            winding * zeta1d
-        ) * pos.sel(xyz="y", rad=r)
+        x = pos.sel(xyz="x", rad=r)
+        y = pos.sel(xyz="y", rad=r)
+        xhat = np.cos(winding * zeta1d) * x + np.sin(winding * zeta1d) * y
+        yhat = -np.sin(winding * zeta1d) * x + np.cos(winding * zeta1d) * y
         zhat = pos.sel(xyz="z", rad=r)
 
         # Ignore stellarator symmetry: will not store fourier coefficients - performance impact is negligible
@@ -168,13 +166,11 @@ def e_theta_B(ds: xr.Dataset):
             (
                 ds.dxhat_dt * np.cos(ds.winding * ds.zeta_B)
                 - ds.dyhat_dt * np.sin(ds.winding * ds.zeta_B)
-            )
-            * ds.winding,
+            ),
             (
                 ds.dxhat_dt * np.sin(ds.winding * ds.zeta_B)
                 + ds.dyhat_dt * np.cos(ds.winding * ds.zeta_B)
-            )
-            * ds.winding,
+            ),
             ds.dzhat_dt,
         ],
         dim="xyz",
@@ -197,10 +193,10 @@ def e_theta_B(ds: xr.Dataset):
 def e_zeta_B(ds: xr.Dataset):
     ds["e_zeta_B"] = xr.concat(
         [
-            (ds.dxhat_dz * ds.winding - ds.yhat) * np.cos(ds.winding * ds.zeta_B)
-            - (ds.dyhat_dz * ds.winding + ds.xhat) * np.sin(ds.winding * ds.zeta_B),
-            (ds.dxhat_dz * ds.winding - ds.yhat) * np.sin(ds.winding * ds.zeta_B)
-            + (ds.dyhat_dz * ds.winding + ds.xhat) * np.cos(ds.winding * ds.zeta_B),
+            (ds.dxhat_dz - ds.yhat * ds.winding) * np.cos(ds.winding * ds.zeta_B)
+            - (ds.dyhat_dz + ds.xhat * ds.winding) * np.sin(ds.winding * ds.zeta_B),
+            (ds.dxhat_dz - ds.yhat * ds.winding) * np.sin(ds.winding * ds.zeta_B)
+            + (ds.dyhat_dz + ds.xhat * ds.winding) * np.cos(ds.winding * ds.zeta_B),
             ds.dzhat_dz,
         ],
         dim="xyz",
@@ -259,13 +255,11 @@ def k_tt_B(ds: xr.Dataset):
             (
                 ds.dxhat_dtt * np.cos(ds.winding * ds.zeta_B)
                 - ds.dyhat_dtt * np.sin(ds.winding * ds.zeta_B)
-            )
-            * ds.winding,
+            ),
             (
                 ds.dxhat_dtt * np.sin(ds.winding * ds.zeta_B)
                 + ds.dyhat_dtt * np.cos(ds.winding * ds.zeta_B)
-            )
-            * ds.winding,
+            ),
             ds.dzhat_dtt,
         ],
         dim="xyz",
