@@ -180,6 +180,10 @@ include:
     inputs:
       env: .ubuntu-22
 
+  - local: CI_templates/env.yml
+    inputs:
+      env: .ubuntu-24
+
   # Raven private runner
   # ---------------
 
@@ -418,6 +422,13 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .ubuntu-22
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .ubuntu-24
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
@@ -876,6 +887,10 @@ include:
   - local: CI_templates/unit.yml
     inputs:
       env: .ubuntu-22
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .ubuntu-24
 
   # ============================
   # stage regression jobs
@@ -1543,6 +1558,20 @@ include:
     CMAKE_HOSTNAME: "none"
     CI_HOSTNAME: "ubuntu-22"
     CURR_CMP: "gfortran-11"
+    #PYTHON_VERSION: "3.10"
+    SETUP_SCRIPT: "none"
+
+.ubuntu-24:
+  tags:
+    - shared
+  image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-24:latest
+  extends:
+    - .vars_mpiOFF
+  variables:
+    CMAKE_HOSTNAME: "none"
+    CI_HOSTNAME: "ubuntu-24"
+    CURR_CMP: "gfortran-13"
+    #PYTHON_VERSION: "3.12"
     SETUP_SCRIPT: "none"
 
 
