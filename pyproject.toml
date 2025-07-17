@@ -85,9 +85,6 @@ editable.rebuild = false
 [tool.scikit-build.cmake]
 verbose = true
 version = ">=3.22"
-args = [
-    "-GUnix Makefiles", # Ninja doesn't work with the macro for CMAKE_Fortran_FLAGS
-]
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE = "Release"
