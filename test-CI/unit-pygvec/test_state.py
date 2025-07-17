@@ -214,14 +214,38 @@ def test_evaluate_base_list_tz_all(teststate):
     rho = np.linspace(0, 1, 6)
     theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
-    T, Z = np.meshgrid(theta, zeta)
+    T, Z = np.meshgrid(theta, zeta, indexing="ij")
     thetazeta = np.stack([T.flatten(), Z.flatten()])
 
     results = teststate.evaluate_base_list_tz_all("X1", rho, thetazeta)
     assert len(results) == 10
     assert all(result.shape == (6, 32 * 10) for result in results)
+
+    reference = teststate.evaluate_base_tens_all("X1", rho, theta, zeta)
+    for res, ref in zip(results, reference):
+        np.testing.assert_allclose(res.reshape(6, 32, 10), ref, atol=2e-16)
+
     with pytest.raises(ValueError):
         results = teststate.evaluate_base_list_tz_all("X1", rho, thetazeta.T)
+
+
+def test_evaluate_base_list_rtz_all(teststate):
+    rho = np.linspace(0, 1, 6)
+    theta = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+    zeta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+    R, T, Z = np.meshgrid(rho, theta, zeta, indexing="ij")
+    rhothetazeta = np.stack([R.flatten(), T.flatten(), Z.flatten()])
+
+    results = teststate.evaluate_base_list_rtz_all("X1", rhothetazeta)
+    assert len(results) == 10
+    assert all(result.shape == (6 * 32 * 10,) for result in results)
+
+    reference = teststate.evaluate_base_tens_all("X1", rho, theta, zeta)
+    for res, ref in zip(results, reference):
+        np.testing.assert_allclose(res.reshape(6, 32, 10), ref, atol=2e-16)
+
+    with pytest.raises(ValueError):
+        results = teststate.evaluate_base_list_rtz_all("X1", rhothetazeta.T)
 
 
 def test_evaluate_base_all_compare(teststate):

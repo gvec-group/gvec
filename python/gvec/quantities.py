@@ -38,7 +38,9 @@ from gvec.core.compute import (
     attrs=dict(long_name="magnetic constant", symbol=r"\mu_0"),
 )
 def mu0(ds: xr.Dataset):
-    ds["mu0"] = 4 * np.pi * 1e-7
+    from scipy.constants import mu_0
+
+    ds["mu0"] = mu_0
 
 
 @register(
@@ -50,7 +52,7 @@ def gamma(ds: xr.Dataset):
 
 
 @register(
-    attrs=dict(long_name="cartesian vector components", symbol=r"\mathbf{x}"),
+    attrs=dict(long_name="cartesian vector components", symbol=r"(x,y,z)"),
 )
 def xyz(ds: xr.Dataset):
     ds.coords["xyz"] = ("xyz", ["x", "y", "z"])
@@ -67,7 +69,14 @@ def _profile(var, evalvar, deriv, long_name, symbol):
         attrs=dict(long_name=long_name, symbol=symbol),
     )
     def profile(ds: xr.Dataset, state: State):
-        ds[var] = ("rad", state.evaluate_profile(evalvar, ds.rho, deriv=deriv))
+        if "rho" not in ds:
+            raise KeyError("Evaluation of profiles requires the radial coordinate 'rho'.")
+        if ds.rho.dims == ("rad",):
+            ds[var] = ("rad", state.evaluate_profile(evalvar, ds.rho, deriv=deriv))
+        else:
+            rho = ds.rho.data.flatten()
+            output = state.evaluate_profile(evalvar, rho, deriv=deriv)
+            ds[var] = (ds.rho.dims, output.reshape(ds.rho.shape))
 
     return profile
 
@@ -112,35 +121,70 @@ def _base(var, long_name, symbol):
         },
     )
     def base(ds: xr.Dataset, state: State):
-        if set(ds.rho.dims) != {"rad"}:
-            raise ValueError(f"Expected 'rho' to be of dimension '(rad,)', got {ds.rho.dims}")
+        if "rho" not in ds or "theta" not in ds or "zeta" not in ds:
+            raise KeyError(
+                "Evaluation of base variables requires 'rho', 'theta', 'zeta' to be defined."
+            )
 
-        # Default case: mesh in logical (rho, theta, zeta)
-        if set(ds.theta.dims) == {"pol"} and set(ds.zeta.dims) == {"tor"}:
+        # mesh in logical coordinates (rho, theta, zeta) -> rho(rad), theta(pol), zeta(tor)
+        if ds.rho.dims == ("rad",) and ds.theta.dims == ("pol",) and ds.zeta.dims == ("tor",):
             outputs = state.evaluate_base_tens_all(var, ds.rho, ds.theta, ds.zeta)
             for key, value in zip(base.quantities, outputs):
                 ds[key] = (("rad", "pol", "tor"), value)
 
-        # E.g. mesh in Boozer coordinates (rho, theta_B, zeta_B) -> theta, zeta are 3D fields
-        elif set(ds.theta.dims) == set(ds.zeta.dims) == {"rad", "pol", "tor"}:
-            # Flatten theta, zeta
-            theta = ds.theta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
-            zeta = ds.zeta.transpose("rad", "pol", "tor").values.reshape(ds.rad.size, -1)
+        # mesh in other flux aligned coordinates e.g. (rho, theta_B, zeta_B) -> rho(rad), theta(rad, ...), zeta(rad, ...)
+        elif ds.rho.dims == ("rad",):
+            if "rad" in ds.theta.dims or "rad" in ds.zeta.dims:
+                theta, zeta = xr.broadcast(ds.theta, ds.zeta)
+                theta = theta.transpose("rad", ...)
+                zeta = zeta.transpose("rad", ...)
+                assert theta.dims == zeta.dims
+                output_dims = theta.dims[1:]
+                theta = theta.values.reshape(ds.rad.size, -1)
+                zeta = zeta.values.reshape(ds.rad.size, -1)
 
-            # Compute base on each radial position
-            outputs = []
-            for r, rho in enumerate(ds.rho.data):
-                thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-                outputs.append(state.evaluate_base_list_tz_all(var, [rho], thetazeta))
+                # Compute base on each radial position
+                outputs = []
+                for r, rho in enumerate(ds.rho.data):
+                    thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+                    outputs.append(state.evaluate_base_list_tz_all(var, [rho], thetazeta))
+                outputs = [np.stack(value) for value in zip(*outputs)]
+
+            else:
+                theta, zeta = xr.broadcast(ds.theta, ds.zeta)
+                assert theta.dims == zeta.dims
+                output_dims = theta.dims
+                theta = theta.values.flatten()
+                zeta = zeta.values.flatten()
+
+                # Compute base on each radial position
+                thetazeta = np.stack([theta, zeta], axis=0)
+                outputs = state.evaluate_base_list_tz_all(var, ds.rho, thetazeta)
 
             # Write to dataset
-            for key, value in zip(base.quantities, zip(*outputs)):
-                value = np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size)
-                ds[key] = (("rad", "pol", "tor"), value)
+            output_shape = [ds[dim].size for dim in output_dims]
+            for key, value in zip(base.quantities, outputs):
+                value = value.reshape(ds.rad.size, *output_shape)
+                ds[key] = (("rad", *output_dims), value)
+
+        # mesh in other coordinates
         else:
-            raise ValueError(
-                f"Expected 'theta', 'zeta' to be of dimensions subset of '(rad, pol, tor)', got {ds.theta.dims}, {ds.zeta.dims}"
-            )
+            rho, theta, zeta = xr.broadcast(ds.rho, ds.theta, ds.zeta)
+            output_dims = rho.dims
+            assert theta.dims == zeta.dims == output_dims
+            rho = rho.values.flatten()
+            theta = theta.values.flatten()
+            zeta = zeta.values.flatten()
+            rhothetazeta = np.stack([rho, theta, zeta], axis=0)
+
+            # Compute base on each point individually
+            outputs = state.evaluate_base_list_rtz_all(var, rhothetazeta)
+
+            # Write to dataset
+            output_shape = [ds[dim].size for dim in output_dims]
+            for key, value in zip(base.quantities, outputs):
+                value = value.reshape(output_shape)
+                ds[key] = (output_dims, value)
 
     return base
 
@@ -180,17 +224,12 @@ def N_FP(ds: xr.Dataset, state: State):
     ),
 )
 def hmap(ds: xr.Dataset, state: State):
-    outputs = state.evaluate_hmap_only(
-        **{
-            var: ds[var].broadcast_like(ds.X1).values.flatten()
-            for var in hmap.requirements
-            if var != "xyz"
-        }
-    )
+    X1, X2, zeta = xr.broadcast(ds.X1, ds.X2, ds.zeta)
+    outputs = state.evaluate_hmap_only(*[v.values.flatten() for v in (X1, X2, zeta)])
     for key, value in zip(hmap.quantities, outputs):
         ds[key] = (
-            ("xyz", "rad", "pol", "tor"),
-            value.reshape(3, ds.rad.size, ds.pol.size, ds.tor.size),
+            ("xyz", *X1.dims),
+            value.reshape(3, *X1.shape),
         )
 
 
