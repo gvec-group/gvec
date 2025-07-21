@@ -76,7 +76,7 @@ def init_surface(
     surf = xr.Dataset(coords=pos.coords)
     surf["winding"] = ((), winding)
     surf["winding"].attrs = dict(
-        long_name="winding number",
+        long_name="signed winding number",
         symbol=r"\mathrm{winding}",
     )
 
@@ -93,9 +93,9 @@ def init_surface(
         zhatc, zhats = fourier.fft2d(zhat.transpose("pol", "tor").data)
 
         for var, c, s, symbol, name in [
-            ("xhat", xhatc, xhats, r"\hat{x}", "modified x"),
-            ("yhat", yhatc, yhats, r"\hat{y}", "modified y"),
-            ("zhat", zhatc, zhats, r"\hat{z}", "modified z"),
+            ("xhat", xhatc, xhats, r"\hat{x}", "field periodic x"),
+            ("yhat", yhatc, yhats, r"\hat{y}", "field periodic y"),
+            ("zhat", zhatc, zhats, r"\hat{z}", "field periodic z"),
         ]:
             if var not in surf:
                 surf[var] = (
@@ -126,6 +126,38 @@ def init_surface(
                 )
                 surf[dvar].attrs["symbol"] = latex_partial_smart(symbol, deriv)
     return surf
+
+
+def get_xyz_hat(ds: xr.Dataset, winding: int | None = None):
+    """Compute the xhat, yhat, zhat coordiantes for a dataset with pointwise x, y, z, zeta coordinates."""
+    if winding is None:
+        if "winding" in ds:
+            winding = ds.winding.item()
+        else:
+            raise ValueError("winding must be specified or present in the dataset!")
+    else:
+        if "winding" in ds and winding != ds.winding.item():
+            raise ValueError(
+                "winding is specified but also present in the dataset with a different value!"
+            )
+        elif "winding" not in ds:
+            ds["winding"] = xr.DataArray(
+                winding,
+                dims=(),
+                attrs=dict(long_name="signed winding number", symbol=r"\mathrm{winding}"),
+            )
+
+    x = ds.pos.sel(xyz="x")
+    y = ds.pos.sel(xyz="y")
+    ds["xhat"] = np.cos(winding * ds.zeta) * x + np.sin(winding * ds.zeta) * y
+    ds["yhat"] = -np.sin(winding * ds.zeta) * x + np.cos(winding * ds.zeta) * y
+    ds["zhat"] = ds.pos.sel(xyz="z")
+
+    for i in "xyz":
+        ds[f"{i}hat"].attrs = dict(
+            long_name=f"field periodic {i}-coordinate",
+            symbol=rf"\hat{{{i}}}",
+        )
 
 
 # === Computable Quantities === #

@@ -82,6 +82,11 @@ parser.add_argument(
     default=1,
     help="winding number for the surface transform to (hat-coordinates) (default 1)",
 )
+parser.add_argument(
+    "--reparam",
+    action="store_true",
+    help="reparametrize the surfaces in boozer angles to compute the geometric quantities",
+)
 
 # === Main function === #
 
@@ -98,6 +103,7 @@ def gvec_to_cas3d(
     flip: Literal["pol", "tor"] = "tor",
     winding: int = 1,
     grid: Literal["full", "half"] = "half",
+    reparam: bool = False,
 ):
     if flip not in ["pol", "tor"]:
         raise ValueError(f"Invalid flip option: {flip}. Expected 'pol' or 'tor'.")
@@ -123,25 +129,33 @@ def gvec_to_cas3d(
             MNfactor=MNfactor,
         )
 
-        # Surface reparametrization
-        progress.update(1)
-        progress.set_description("reparametrizing surfaces...")
-        state.compute(ev, "N_FP", "pos")
-        surf = surface.init_surface(ev.pos, ev.N_FP, ift="fft", winding=winding)
-        q_surf = [
-            "xhat",
-            "yhat",
-            "zhat",
+        q_geo = [
             "g_tt_B",
             "g_tz_B",
             "g_zz_B",
             "II_tt_B",
             "II_tz_B",
             "II_zz_B",
+        ]
+        q_surf = [
+            "xhat",
+            "yhat",
+            "zhat",
             "winding",
         ]
-        surface.compute(surf, *q_surf)
-        surf = surf[q_surf]
+        # Surface reparametrization
+        if reparam:
+            progress.update(1)
+            progress.set_description("reparametrizing surfaces...")
+            state.compute(ev, "N_FP", "pos")
+            surf = surface.init_surface(ev.pos, ev.N_FP, ift="fft", winding=winding)
+            surface.compute(surf, *q_surf, *q_geo)
+            surf = surf[q_surf + q_geo]
+        else:
+            progress.update(1)
+            progress.set_description("computing geometric quantities...")
+            state.compute(ev, "N_FP", "pos", *q_geo)
+            surface.get_xyz_hat(ev, winding)
 
         # Quantities of interest (computed from equilibrium)
         progress.update(1)
@@ -158,11 +172,16 @@ def gvec_to_cas3d(
             "Phi",
             "chi",
             "Jac_B",
+            "beta_avg",
         ]
         state.compute(ev, *q_vol)
-        ev = ev[q_vol]
 
-        ds = xr.merge([ev, surf])
+        if reparam:
+            ev = ev[q_vol]
+            ds = xr.merge([ev, surf])
+        else:
+            ev = ev[q_vol + q_geo + q_surf]
+            ds = ev
 
         # change coordinate convention: (s,θ,ζ), left-handed, with s,θ,ζ ∈ [0,1) and ζ normalized to one field period
         drho = 2 * ds.rho
@@ -172,16 +191,14 @@ def gvec_to_cas3d(
             dtheta *= -1
         elif flip == "tor":
             dzeta *= -1
+            winding *= -1
 
         out = xr.Dataset()
         out.attrs = ds.attrs
-        for var in ["N_FP", "mod_B", "p"]:
+        for var in ["N_FP", "mod_B", "p", "beta_avg", "winding", "xhat", "yhat", "zhat"]:
             out[var] = ds[var]
 
         # geometry
-        out["xhat"] = ds.xhat
-        out["yhat"] = ds.yhat
-        out["zhat"] = ds.zhat
         out["Jac"] = ds.Jac_B * (drho * dtheta * dzeta) ** (-1)
         out["Jac"].attrs = dict(
             long_name="Jacobian determinant",
@@ -315,7 +332,10 @@ def gvec_to_cas3d(
             "Assumes a fourier series of the form 'v(s, θ, ζ) = Σ v_mnc(s) cos(2π m θ - 2π n N_FP ζ) + v_mns(s) sin(2π m θ - 2π n N_FP ζ)'"
         )
         ft.attrs["coordinate_convention"] = (
-            "Left-handed Boozer straight fieldline coordinates (s, θ, ζ), with s,θ,ζ ∈ [0,1]. s is the radial coordinate, proportional to the toroidal flux. θ is the poloidal angle and ζ is the toroidal angle, normalized to one field period."
+            "Left-handed Boozer straight fieldline coordinates (s, θ, ζ), with s,θ,ζ ∈ [0,1]. "
+            "s is the radial coordinate, proportional to the toroidal flux. "
+            "s is spaced equidistantly on a half-mesh between 0 and 1. "
+            "θ is the poloidal angle and ζ is the toroidal angle, normalized to one field period. "
         )
         ft.attrs["stellarator_symmetry"] = str(stellsym)
 
@@ -388,6 +408,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         args.outputfile.parent / f"{args.outputfile.stem}_pw.nc" if args.pointwise else None,
         args.flip,
         args.winding,
+        reparam=args.reparam,
     )
 
 
