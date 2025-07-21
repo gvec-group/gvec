@@ -15,6 +15,7 @@ MODULE MODgvec_gvec_to_gene
 ! MODULES
 USE MODgvec_Globals, ONLY:wp
 USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
+USE MODgvec_base, ONLY: t_base
 IMPLICIT NONE
 PRIVATE
 
@@ -217,7 +218,7 @@ SUBROUTINE gvec_to_gene_coords_old(nthet,nzeta,spos_in,theta_star_in,zeta_in,the
 ! MODULES
 USE MODgvec_ReadState_Vars
 USE MODgvec_globals, ONLY: PI
-USE MODgvec_Newton,  ONLY: NewtonRoot1D_FdF
+USE MODgvec_Transform_SFL, ONLY: get_pest_newton
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -250,9 +251,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
   zeta       = zeta_in(      ithet,izeta)
   !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta)
-  ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
-  !                      tolerance , lower bound , upper bound , maxstep, start value , F0
-  theta_out(ithet,izeta)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
+  theta_out(ithet,izeta)=get_pest_newton(theta_star, zeta, LA_base_r%f, LA_s)
 
   xp=(/theta_out(ithet,izeta),zeta/)
 
@@ -263,20 +262,6 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   cart_coords(:,ithet,izeta)=hmap_r%eval(qvec)
 
 END DO; END DO !ithet,izeta
-
-!for iteration on theta^*
-CONTAINS
-
-  FUNCTION FRdFR(theta_iter)
-    !uses current zeta where newton is called, and LA_s from subroutine above
-    IMPLICIT NONE
-    REAL(wp) :: theta_iter
-    REAL(wp) :: FRdFR(2) !output
-    !---------------------------------------------------
-    FRdFR(1)=theta_iter+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),0,LA_s)  !theta_iter+lambda
-    FRdFR(2)=1.0_wp+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_s) !1+dlambda/dtheta
-  END FUNCTION FRdFR
-
 END SUBROUTINE gvec_to_gene_coords_old
 
 !===================================================================================================================================
@@ -372,7 +357,7 @@ SUBROUTINE gvec_to_gene_metrics_old(nthet,nzeta,spos_in,theta_star_in,zeta_in,gr
 ! MODULES
 USE MODgvec_ReadState_Vars
 USE MODgvec_globals, ONLY: PI,CROSS
-USE MODgvec_Newton,  ONLY: NewtonRoot1D_FdF
+USE MODgvec_Transform_SFL, ONLY: get_pest_newton
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -452,9 +437,7 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   theta_star = theta_star_in(ithet,izeta) !theta_star depends on zeta!!
   zeta = zeta_in(ithet,izeta)
   !find angle theta from straight field line angle (PEST) theta_star=theta+lambda(s,theta,zeta)
-  ! 1D Newton uses derivative function FRdFR defined below... solves FR(1)-F0=0, FR(2)=dFR(1)/dtheta
-  !                      tolerance , lower bound , upper bound , maxstep, start value , F0
-  theta=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1*PI  ,theta_star   , theta_star,FRdFR)
+  theta = get_pest_newton(theta_star, zeta, LA_base_r%f, LA_s)
 
   xp=(/theta,zeta/)
 
@@ -634,24 +617,9 @@ DO izeta=1,nzeta; DO ithet=1,nthet
   grad_absB(:,ithet,izeta)=( absB_ds   *grad_s(:,ithet,izeta)   &
                             +absB_dthet*grad_thet(:)            &
                             +absB_dzeta*grad_zeta(:,ithet,izeta))/(2.0_wp*absB)
-
-
 END DO; END DO !ithet,izeta
-
-!for iteration on theta^*
-CONTAINS
-
-  FUNCTION FRdFR(theta_iter)
-    !uses current zeta where newton is called, and LA_s from subroutine above
-    IMPLICIT NONE
-    REAL(wp) :: theta_iter
-    REAL(wp) :: FRdFR(2) !output
-    !---------------------------------------------------
-    FRdFR(1)=theta_iter+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),0,LA_s)  !theta_iter+lambda
-    FRdFR(2)=1.0_wp+LA_base_r%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA_s) !1+dlambda/dtheta
-  END FUNCTION FRdFR
-
 END SUBROUTINE gvec_to_gene_metrics_old
+
 
 !===================================================================================================================================
 !> Evaluate gvec state at a list of theta,zeta positions and a fixed s position
