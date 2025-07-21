@@ -830,6 +830,86 @@ for i, j in ["tt", "tz", "zz"]:
     globals()[f"g_{i}{j}_B"] = _g_ij_B(i, j)
 
 
+@register(
+    quantities=("k_tt_B", "k_tz_B", "k_zz_B"),
+    requirements=["iota", "e_theta", "e_zeta", "k_tt", "k_tz", "k_zz"]
+    + sum([[f"dLA_d{ij}", f"dNU_B_d{ij}"] for ij in ("t", "z", "tt", "tz", "zz")], start=[]),
+)
+def k_ij_B(ds: xr.Dataset):
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+
+    dtB_dtt = ds.dLA_dtt + ds.iota * ds.dNU_B_dtt
+    dtB_dtz = ds.dLA_dtz + ds.iota * ds.dNU_B_dtz
+    dtB_dzz = ds.dLA_dzz + ds.iota * ds.dNU_B_dzz
+    dzB_dtt = ds.dNU_B_dtt
+    dzB_dtz = ds.dNU_B_dtz
+    dzB_dzz = ds.dNU_B_dzz
+
+    JacB_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)
+    dJac_JacB_dt = dtB_dtt * dzB_dz + dtB_dt * dzB_dtz - dtB_dtz * dzB_dt - dtB_dz * dzB_dtt
+    dJac_JacB_dz = dtB_dtz * dzB_dz + dtB_dt * dzB_dzz - dtB_dzz * dzB_dt - dtB_dz * dzB_dtz
+    dJacB_Jac_dtB = JacB_Jac**3 * (dzB_dt * dJac_JacB_dz - dzB_dz * dJac_JacB_dt)
+    dJacB_Jac_dzB = JacB_Jac**3 * (dtB_dz * dJac_JacB_dt - dtB_dt * dJac_JacB_dz)
+
+    dt_dtB = JacB_Jac * dzB_dz
+    dz_dtB = -JacB_Jac * dzB_dt
+    dt_dzB = -JacB_Jac * dtB_dz
+    dz_dzB = JacB_Jac * dtB_dt
+
+    dt_dttB = dzB_dz * dJacB_Jac_dtB + JacB_Jac * (dt_dtB * dzB_dtz + dz_dtB * dzB_dzz)
+    dt_dtzB = dzB_dz * dJacB_Jac_dzB + JacB_Jac * (dt_dzB * dzB_dtz + dz_dzB * dzB_dzz)
+    dt_dzzB = -dtB_dz * dJacB_Jac_dzB - JacB_Jac * (dt_dzB * dtB_dtz + dz_dzB * dtB_dzz)
+    dz_dttB = -dzB_dt * dJacB_Jac_dtB - JacB_Jac * (dt_dtB * dzB_dtt + dz_dtB * dzB_dtz)
+    dz_dtzB = dtB_dt * dJacB_Jac_dtB + JacB_Jac * (dt_dtB * dtB_dtt + dz_dtB * dtB_dtz)
+    dz_dzzB = dtB_dt * dJacB_Jac_dzB + JacB_Jac * (dt_dzB * dtB_dtt + dz_dzB * dtB_dtz)
+
+    ds["k_tt_B"] = dt_dttB * ds.e_theta + dz_dttB * ds.e_zeta
+    ds["k_tt_B"] += dt_dtB**2 * ds.k_tt + 2 * dt_dtB * dz_dtB * ds.k_tz + dz_dtB**2 * ds.k_zz
+
+    ds["k_tz_B"] = dt_dtzB * ds.e_theta + dz_dtzB * ds.e_zeta
+    ds["k_tz_B"] += dt_dtB * dt_dzB * ds.k_tt + dz_dtB * dz_dzB * ds.k_zz
+    ds["k_tz_B"] += (dt_dtB * dz_dzB + dt_dzB * dz_dtB) * ds.k_tz
+
+    ds["k_zz_B"] = dt_dzzB * ds.e_theta + dz_dzzB * ds.e_zeta
+    ds["k_zz_B"] += dt_dzB**2 * ds.k_tt + 2 * dt_dzB * dz_dzB * ds.k_tz + dz_dzB**2 * ds.k_zz
+
+
+@register(
+    requirements=["normal", "k_tt_B"],
+    attrs=dict(
+        long_name="poloidal Boozer component of the second fundamental form",
+        symbol=r"\mathrm{II}_{\theta_B\theta_B}",
+    ),
+)
+def II_tt_B(ds: xr.Dataset):
+    ds["II_tt_B"] = xr.dot(ds.normal, ds.k_tt_B, dim="xyz")
+
+
+@register(
+    requirements=["normal", "k_tz_B"],
+    attrs=dict(
+        long_name="poloidal-toroidal Boozer component of the second fundamental form",
+        symbol=r"\mathrm{II}_{\theta_B\zeta_B}",
+    ),
+)
+def II_tz_B(ds: xr.Dataset):
+    ds["II_tz_B"] = xr.dot(ds.normal, ds.k_tz_B, dim="xyz")
+
+
+@register(
+    requirements=["normal", "k_zz_B"],
+    attrs=dict(
+        long_name="toroidal Boozer component of the second fundamental form",
+        symbol=r"\mathrm{II}_{\zeta_B\zeta_B}",
+    ),
+)
+def II_zz_B(ds: xr.Dataset):
+    ds["II_zz_B"] = xr.dot(ds.normal, ds.k_zz_B, dim="xyz")
+
+
 # === integrals ======================================================================== #
 
 
@@ -1005,3 +1085,17 @@ def I_pol(ds: xr.Dataset):
 )
 def W_MHD(ds: xr.Dataset):
     ds["W_MHD"] = volume_integral((0.5 * ds.mod_B**2 + (ds.gamma - 1) * ds.mu0 * ds.p) * ds.Jac)
+
+
+@register(
+    requirements=("p", "mod_B", "mu0", "Jac", "V"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        long_name="volume averaged plasma beta",
+        symbol=r"\overline{\beta}",
+    ),
+)
+def beta_avg(ds: xr.Dataset):
+    """The volume averaged plasma beta."""
+    beta = ds.p / (ds.mod_B**2 / (2 * ds.mu0))
+    ds["beta_avg"] = volume_integral(beta * ds.Jac) / ds.V

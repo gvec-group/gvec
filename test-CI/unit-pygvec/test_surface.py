@@ -95,6 +95,12 @@ def test_compute(surfs, Q):
         "g_tz_B",
         "g_zz_B",
         "normal",
+        "k_tt_B",
+        "k_tz_B",
+        "k_zz_B",
+        "II_tt_B",
+        "II_tz_B",
+        "II_zz_B",
     ],
 )
 def test_compare(state, ev, surfs, Q, ift):
