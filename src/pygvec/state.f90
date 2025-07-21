@@ -300,12 +300,15 @@ SUBROUTINE evaluate_base_list_tz(n_s, n_tz, s, thetazeta, var, sel_deriv_s, sel_
   REAL, ALLOCATABLE :: fourier_dofs(:)    ! DOFs for the fourier series, calculated from the spline
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_dofs, seli_deriv_s, seli_deriv_f)
-
+  ALLOCATE(fourier_dofs(base%f%modes))
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) &
+  !$OMP PRIVATE(i_s,fourier_dofs)
   DO i_s=1,n_s
     ! evaluate spline to get the fourier dofs
     fourier_dofs = base%s%evalDOF2D_s(s(i_s),base%f%modes,seli_deriv_s,solution_dofs)
     result(i_s,:) = base%f%evalDOF_xn(n_tz, thetazeta, seli_deriv_f, fourier_dofs)
   END DO
+  !$OMP END PARALLEL DO
   DEALLOCATE(fourier_dofs)
 END SUBROUTINE evaluate_base_list_tz
 
@@ -329,25 +332,77 @@ SUBROUTINE evaluate_base_list_tz_all(n_s, n_tz, s, thetazeta, Qsel, Q, dQ_ds, dQ
   REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs, dQ_dss_dofs  ! DOFs for the fourier series
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base_dofs(Qsel, base, solution_dofs)
+  ALLOCATE(Q_dofs(     base%f%modes), &
+           dQ_ds_dofs( base%f%modes), &
+           dQ_dss_dofs(base%f%modes))
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) &
+  !$OMP PRIVATE(i,Q_dofs,dQ_ds_dofs,dQ_dss_dofs)
   DO i=1,n_s
     ! evaluate spline to get the fourier dofs
-    Q_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, 0, solution_dofs(:,:))
-    dQ_ds_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S, solution_dofs(:,:))
+    Q_dofs      = base%s%evalDOF2D_s(s(i), base%f%modes,         0, solution_dofs(:,:))
+    dQ_ds_dofs  = base%s%evalDOF2D_s(s(i), base%f%modes,   DERIV_S, solution_dofs(:,:))
     dQ_dss_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S_S, solution_dofs(:,:))
     ! use the tensorproduct for theta and zeta
-    Q(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, 0, Q_dofs)
-    dQ_ds(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, 0, dQ_ds_dofs)
+    Q(       i,:) = base%f%evalDOF_xn(n_tz, thetazeta,          0, Q_dofs)
+    dQ_ds(   i,:) = base%f%evalDOF_xn(n_tz, thetazeta,          0, dQ_ds_dofs)
     dQ_dthet(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_THET, Q_dofs)
     dQ_dzeta(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA, Q_dofs)
-    dQ_dss(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, 0, dQ_dss_dofs)
-    dQ_dst(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_THET, dQ_ds_dofs)
-    dQ_dsz(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA, dQ_ds_dofs)
-    dQ_dtt(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_THET_THET, Q_dofs)
-    dQ_dtz(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_THET_ZETA, Q_dofs)
-    dQ_dzz(i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA_ZETA, Q_dofs)
+    dQ_dss(  i,:) = base%f%evalDOF_xn(n_tz, thetazeta,          0, dQ_dss_dofs)
+    dQ_dst(  i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_THET, dQ_ds_dofs)
+    dQ_dsz(  i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA, dQ_ds_dofs)
+    dQ_dtt(  i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_THET_THET, Q_dofs)
+    dQ_dtz(  i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_THET_ZETA, Q_dofs)
+    dQ_dzz(  i,:) = base%f%evalDOF_xn(n_tz, thetazeta, DERIV_ZETA_ZETA, Q_dofs)
   END DO
+  !$OMP END PARALLEL DO
   DEALLOCATE(Q_dofs, dQ_ds_dofs, dQ_dss_dofs)
 END SUBROUTINE evaluate_base_list_tz_all
+
+!================================================================================================================================!
+!> Evaluate the basis and all derivatives for a list of (rho/s, theta, zeta) positions
+!================================================================================================================================!
+SUBROUTINE evaluate_base_list_stz_all(n_stz, s, thetazeta, Qsel, Q, dQ_ds, dQ_dthet, dQ_dzeta, &
+                                     dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz)
+  ! MODULES
+  USE MODgvec_base,           ONLY: t_base
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_stz                    !! number of evaluation points
+  REAL, INTENT(IN) :: s(n_stz), thetazeta(2,n_stz)!! evaluation points
+  CHARACTER(LEN=2), INTENT(IN) :: Qsel            !! selection string: which variable to evaluate
+  REAL, INTENT(OUT), DIMENSION(n_stz) :: Q, &     !! reference space position and derivatives
+    dQ_ds, dQ_dthet, dQ_dzeta, dQ_dss, dQ_dst, dQ_dsz, dQ_dtt, dQ_dtz, dQ_dzz
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i                                                        ! loop variables
+  CLASS(t_base), POINTER :: base                                      ! pointer to the base object (X1, X2, LA)
+  REAL, POINTER :: solution_dofs(:,:)                                 ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
+  REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs, dQ_dss_dofs  ! DOFs for the fourier series
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL select_base_dofs(Qsel, base, solution_dofs)
+  ALLOCATE(Q_dofs(     base%f%modes), &
+           dQ_ds_dofs( base%f%modes), &
+           dQ_dss_dofs(base%f%modes))
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) &
+  !$OMP PRIVATE(i,Q_dofs,dQ_ds_dofs,dQ_dss_dofs)
+  DO i=1,n_stz
+    ! evaluate spline to get the fourier dofs
+    Q_dofs      = base%s%evalDOF2D_s(s(i), base%f%modes,         0, solution_dofs)
+    dQ_ds_dofs  = base%s%evalDOF2D_s(s(i), base%f%modes,   DERIV_S, solution_dofs)
+    dQ_dss_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S_S, solution_dofs)
+    ! evaluate the fourier series
+    Q(       i) = base%f%evalDOF_x(thetazeta(:, i),          0, Q_dofs)
+    dQ_ds(   i) = base%f%evalDOF_x(thetazeta(:, i),          0, dQ_ds_dofs)
+    dQ_dss(  i) = base%f%evalDOF_x(thetazeta(:, i),          0, dQ_dss_dofs)
+    dQ_dthet(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET, Q_dofs)
+    dQ_dzeta(i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_ZETA, Q_dofs)
+    dQ_dst(  i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET, dQ_ds_dofs)
+    dQ_dsz(  i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_ZETA, dQ_ds_dofs)
+    dQ_dtt(  i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET_THET, Q_dofs)
+    dQ_dtz(  i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_THET_ZETA, Q_dofs)
+    dQ_dzz(  i) = base%f%evalDOF_x(thetazeta(:, i), DERIV_ZETA_ZETA, Q_dofs)
+  END DO
+  !$OMP END PARALLEL DO
+  DEALLOCATE(Q_dofs, dQ_ds_dofs, dQ_dss_dofs)
+END SUBROUTINE evaluate_base_list_stz_all
 
 !================================================================================================================================!
 !> Evaluate the basis with a tensorproduct for the given 1D (s, theta, zeta) values
@@ -362,23 +417,26 @@ SUBROUTINE evaluate_base_tens(s, theta, zeta, var, sel_deriv_s, sel_deriv_f, res
   CHARACTER(LEN=2) :: sel_deriv_f               !! selection string: which derivative to evaluate for the fourier series
   REAL, INTENT(OUT) :: result(:,:,:)            !! output array
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: i_s                          ! loop variables
+  INTEGER :: i_s,n_s,n_t,n_z              ! loop variables
   INTEGER :: seli_deriv_s, seli_deriv_f   ! integer values for the derivative selection
   CLASS(t_base), POINTER :: base          ! pointer to the base object (X1, X2, LA)
   REAL, POINTER :: solution_dofs(:,:)     ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
   REAL, ALLOCATABLE :: fourier_dofs(:)    ! DOFs for the fourier series, calculated from the spline
-  REAL, ALLOCATABLE :: intermediate(:)    ! intermediate result array before reshaping
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL evaluate_base_select(var, sel_deriv_s, sel_deriv_f, base, solution_dofs, seli_deriv_s, seli_deriv_f)
-
-  DO i_s=1,SIZE(s)
+  n_s=SIZE(s)
+  n_t=SIZE(theta)
+  n_z=SIZE(zeta)
+  ALLOCATE(fourier_dofs(base%f%modes))
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) &
+  !$OMP PRIVATE(i_s,fourier_dofs)
+  DO i_s=1,n_s
     ! evaluate spline to get the fourier dofs
     fourier_dofs = base%s%evalDOF2D_s(s(i_s), base%f%modes, seli_deriv_s, solution_dofs(:,:))
     ! use the tensorproduct for theta and zeta
-    intermediate = base%f%evalDOF_xn_tens(SIZE(theta), SIZE(zeta), theta, zeta, seli_deriv_f, fourier_dofs)
-    result(i_s,:,:) = RESHAPE(intermediate, (/SIZE(theta), SIZE(zeta)/))
+    result(i_s,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, seli_deriv_f, fourier_dofs), (/n_t, n_z/))
   END DO
-  DEALLOCATE(intermediate)
+  !$OMP END PARALLEL DO
   DEALLOCATE(fourier_dofs)
 END SUBROUTINE evaluate_base_tens
 
@@ -400,46 +458,31 @@ SUBROUTINE evaluate_base_tens_all(n_s, n_t, n_z, s, theta, zeta, Qsel, Q, dQ_ds,
   CLASS(t_base), POINTER :: base                                       ! pointer to the base object (X1, X2, LA)
   REAL, POINTER :: solution_dofs(:,:)                                  ! pointer to the solution dofs (U(0)%X1, U(0)%X2, U(0)%LA)
   REAL, ALLOCATABLE, DIMENSION(:) :: Q_dofs, dQ_ds_dofs, dQ_dss_dofs   ! DOFs for the fourier series
-  REAL, ALLOCATABLE :: intermediate(:)                                 ! intermediate result array before reshaping
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL select_base_dofs(Qsel, base, solution_dofs)
+  ALLOCATE(Q_dofs(     base%f%modes), &
+           dQ_ds_dofs( base%f%modes), &
+           dQ_dss_dofs(base%f%modes))
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) &
+  !$OMP PRIVATE(i,Q_dofs,dQ_ds_dofs,dQ_dss_dofs)
   DO i=1,n_s
     ! evaluate spline to get the fourier dofs
     Q_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, 0, solution_dofs(:,:))
     dQ_ds_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S, solution_dofs(:,:))
     dQ_dss_dofs = base%s%evalDOF2D_s(s(i), base%f%modes, DERIV_S_S, solution_dofs(:,:))
     ! use the tensorproduct for theta and zeta
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, Q_dofs)
-    Q(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dQ_ds_dofs)
-    dQ_ds(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, Q_dofs)
-    dQ_dthet(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, Q_dofs)
-    dQ_dzeta(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dQ_dss_dofs)
-    dQ_dss(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, dQ_ds_dofs)
-    dQ_dst(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, dQ_ds_dofs)
-    dQ_dsz(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET_THET, Q_dofs)
-    dQ_dtt(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET_ZETA, Q_dofs)
-    dQ_dtz(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
-
-    intermediate = base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA_ZETA, Q_dofs)
-    dQ_dzz(i,:,:) = RESHAPE(intermediate, (/n_t, n_z/))
+    Q(       i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, Q_dofs), (/n_t, n_z/))
+    dQ_ds(   i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dQ_ds_dofs), (/n_t, n_z/))
+    dQ_dthet(i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, Q_dofs), (/n_t, n_z/))
+    dQ_dzeta(i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, Q_dofs), (/n_t, n_z/))
+    dQ_dss(  i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, 0, dQ_dss_dofs), (/n_t, n_z/))
+    dQ_dst(  i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET, dQ_ds_dofs), (/n_t, n_z/))
+    dQ_dsz(  i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA, dQ_ds_dofs), (/n_t, n_z/))
+    dQ_dtt(  i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET_THET, Q_dofs), (/n_t, n_z/))
+    dQ_dtz(  i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_THET_ZETA, Q_dofs), (/n_t, n_z/))
+    dQ_dzz(  i,:,:) = RESHAPE(base%f%evalDOF_xn_tens(n_t, n_z, theta, zeta, DERIV_ZETA_ZETA, Q_dofs), (/n_t, n_z/))
   END DO
-  DEALLOCATE(intermediate)
+  !$OMP END PARALLEL DO
   DEALLOCATE(Q_dofs, dQ_ds_dofs, dQ_dss_dofs)
 END SUBROUTINE evaluate_base_tens_all
 

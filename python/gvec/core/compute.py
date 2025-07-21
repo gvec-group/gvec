@@ -7,6 +7,7 @@ from collections.abc import Sequence, Collection, Mapping, MutableMapping, Calla
 import logging
 import inspect
 import re
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -24,7 +25,6 @@ __all__ = [
     "volume_integral",
     "Evaluations",
     "EvaluationsBoozer",
-    "EvaluationsBoozerCustom",
     "evaluate",
     "evaluate_sfl",
     "ev2ft",
@@ -415,129 +415,24 @@ def Evaluations(
 
 
 def EvaluationsBoozer(
-    rho: CoordinateSpec,
+    rho: Literal["int"] | CoordinateSpec,
     theta_B: CoordinateSpec,
     zeta_B: CoordinateSpec,
     state: State,
     **boozer_kwargs,
 ):
-    """Create a xarray.Dataset for evaluating GVEC with a grid in Boozer Coordinates.
+    """Create an Evaluations dataset with a grid in Boozer coordinates.
 
-    Adds LA, NU_B and their angular derivatives to the dataset, as recomputed for the Boozer transform.
+    This factory function generates a mesh in logical coordinates (rho, theta, zeta) based on a grid in Boozer coordinates.
+    The grid has dimensions ("rad", "pol", "tor"), corresponding to the radial, poloidal, and toroidal directions.
 
-    Parameters
-    ----------
-    rho : int | float | 1D array (DataArray, ndarray, list)
-        The specification of the radial, radius-like coordinate.
-    theta_B : int | float | 1D array (DataArray, ndarray, list)
-        The specification of the poloidal, angle-like Boozer coordinate.
-    zeta_B : int | float | 1D array (DataArray, ndarray, list)
-        The specification of the poloidal, angle-like Boozer coordinate.
-    state : State
-        The gvec.State object to create the grid for. Used to perform the Boozer transform.
-    """
-    match rho:
-        case xr.DataArray():
-            rho = rho
-        case np.ndarray() | Sequence():
-            rho = ("rad", np.asarray(rho))
-        case int():
-            rho = ("rad", np.linspace(0, 1, rho + 1)[1:])
-        case float():
-            rho = ("rad", np.array([rho]))
-        case _:
-            raise ValueError(f"Could not parse rho, got {rho}.")
-    match theta_B:
-        case xr.DataArray():
-            theta_B = theta_B
-        case np.ndarray() | Sequence():
-            theta_B = ("pol", np.asarray(theta_B))
-        case int():
-            theta_B = ("pol", np.linspace(0, 2 * np.pi, theta_B, endpoint=False))
-        case float():
-            theta_B = ("pol", np.array([theta_B]))
-        case _:
-            raise ValueError(f"Could not parse theta_B, got {theta_B}.")
-    match zeta_B:
-        case xr.DataArray():
-            zeta_B = zeta_B
-        case np.ndarray() | Sequence():
-            zeta_B = ("tor", np.asarray(zeta_B))
-        case int():
-            zeta_B = (
-                "tor",
-                np.linspace(0, 2 * np.pi / state.nfp, zeta_B, endpoint=False),
-            )
-        case float():
-            zeta_B = ("tor", np.array([zeta_B]))
-        case _:
-            raise ValueError(f"Could not parse zeta_B, got {zeta_B}.")
-
-    ds = xr.Dataset(
-        coords=dict(
-            rho=rho,
-            theta_B=theta_B,
-            zeta_B=zeta_B,
-        )
-    )
-
-    # === Find the logical coordinates of the Boozer grid === #
-    stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
-    tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
-    sfl_boozer = state.get_boozer(ds.rho, **boozer_kwargs)
-    tz = state.get_boozer_angles(sfl_boozer, tz_B)
-    stacked["theta"] = (("tz", "rad"), tz[0, :, :])
-    stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
-    ds["theta"] = stacked["theta"].unstack("tz")
-    ds["zeta"] = stacked["zeta"].unstack("tz")
-
-    # === Metadata === #
-    ds.rho.attrs["long_name"] = "Logical radial coordinate"
-    ds.rho.attrs["symbol"] = r"\rho"
-    ds.theta_B.attrs["long_name"] = "Boozer straight-fieldline poloidal angle"
-    ds.theta_B.attrs["symbol"] = r"\theta_B"
-    ds.zeta_B.attrs["long_name"] = "Boozer toroidal angle"
-    ds.zeta_B.attrs["symbol"] = r"\zeta_B"
-    ds.theta.attrs["long_name"] = "Logical poloidal angle"
-    ds.theta.attrs["symbol"] = r"\theta"
-    ds.zeta.attrs["long_name"] = "Logical toroidal angle"
-    ds.zeta.attrs["symbol"] = r"\zeta"
-
-    # === Indices === #
-    # setting them earlier causes issues with the stacking / unstacking
-    ds = ds.set_xindex("rho")
-    ds = ds.set_xindex("theta_B")
-    ds = ds.set_xindex("zeta_B")
-    ds = ds.drop_vars("pol")
-    ds = ds.drop_vars("tor")
-
-    # === Evaluate LA & NU === #
-    ds = add_Boozer_LA_NU(ds, state, sfl_boozer)
-
-    return ds
-
-
-def EvaluationsBoozerCustom(
-    rho: CoordinateSpec,
-    theta_B: CoordinateSpec,
-    zeta_B: CoordinateSpec,
-    state: State,
-    **boozer_kwargs,
-):
-    """Create an Evaluations dataset with a custom Boozer grid (e.g. fieldline aligned).
-
-    This factory function assumes that the target grid still has a poloidal-like and toroidal-like direction
-    and that the Boozer coordinates of each grid point are known. They do not have to lie within a single field
-    period, nor do they have to be periodic. The Boozer coordinates are used to find the logical coordinates via
-    Newton's method.
-
-    If a 2D or 3D array for theta_B or zeta_B is passed, the corresponding coordinate for the pol/tor dimension
+    If a 2D or 3D array for theta_B or zeta_B is passed, the corresponding coordinate for the poloidal/toroidal dimension
     needs to be set manually afterwards (e.g. `ev["alpha"] = ("pol", values)` and `ev = ev.set_coords("alpha").set_xindex("alpha")`).
 
     Parameters
     ----------
-    rho : int | float | 1D array (DataArray, ndarray, list)
-        The specification of the radial, radius-like coordinate.
+    rho : "int" | int | float | 1D array (DataArray, ndarray, list)
+        The specification of the radial, radius-like coordinate. "int" will use the integration points from the state object.
     theta_B : int | float | 1D, 2D or 3D array (DataArray, ndarray, list)
         The specification of the poloidal, angle-like Boozer coordinate.
         1D assumes dimension "pol", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
@@ -546,8 +441,16 @@ def EvaluationsBoozerCustom(
         1D assumes dimension "tor", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
     state : State
         The gvec.State object to create the grid for. Used to perform the Boozer transform.
+    boozer_kwargs : dict
+        Additional keyword arguments to pass to the `get_boozer` method of the state object.
+        These can be used to specify the Boozer transform parameters, such as the maximum mode numbers via 'MNfactor'.
     """
     match rho:
+        case str() if rho == "int":
+            intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (0, 1)]):
+                raise ValueError("Integration points for rho do not align for X1, X2 and LA.")
+            rho = ("rad", intp[0][0])
         case xr.DataArray():
             rho = rho
         case np.ndarray() | Sequence():
@@ -674,6 +577,18 @@ def EvaluationsBoozerCustom(
     return ds
 
 
+def EvaluationsBoozerCustom(rho, theta_B, zeta_B, state, **boozer_kwargs):
+    """Create a custom EvaluationsBoozer dataset with Boozer coordinates.
+
+    DEPRECATED: use `EvaluationsBoozer` instead.
+    """
+    warnings.warn(
+        "`EvaluationsBoozerCustom` is deprecated, use `EvaluationsBoozer` instead.",
+        DeprecationWarning,
+    )
+    return EvaluationsBoozer(rho, theta_B, zeta_B, state, **boozer_kwargs)
+
+
 def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
     """Add the LA and NU_B variables as computed by the boozer transform to the dataset.
 
@@ -760,12 +675,14 @@ def evaluate(
 def evaluate_sfl(
     state: State,
     *quantities: str,
-    rho: Literal["int"] | CoordinateSpec | None = "int",
-    theta: Literal["int"] | CoordinateSpec | None = "int",
-    zeta: Literal["int"] | CoordinateSpec | None = "int",
-    sfl: Literal["boozer"] = "boozer",
+    rho: CoordinateSpec | Literal["int"],
+    theta: CoordinateSpec,
+    zeta: CoordinateSpec,
+    sfl: Literal["boozer"],
     **boozer_kwargs,
 ):
+    if not isinstance(state, State):
+        raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
     if sfl == "boozer":
         ev = EvaluationsBoozer(rho, theta, zeta, state, **boozer_kwargs)
     elif sfl == "pest":

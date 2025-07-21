@@ -120,7 +120,7 @@ This means that that $\frac{\partial \mathbf{B}}{\partial \rho}$ and $\mathbf{J}
 
 ### Field-aligned grid
 
-Some applications require a fieldline-aligned grid, which can be generated using `EvaluationsBoozerCustom`:
+Some applications require a fieldline-aligned grid, which can also be generated using `EvaluationsBoozer`:
 ```python
 import numpy as np
 import gvec
@@ -137,7 +137,7 @@ iota = state.evaluate("iota", rho=rho, theta=None, zeta=None).iota
 theta_B = alpha[None, :, None] + iota.data[:, None, None] * phi[None, None, :]
 
 # create the grid
-ev = gvec.EvaluationsBoozerCustom(rho=rho, theta_B=theta_B, zeta_B=phi, state=state, MNfactor=5)
+ev = gvec.EvaluationsBoozer(rho=rho, theta_B=theta_B, zeta_B=phi, state=state, MNfactor=5)
 
 # set the fiedline label as poloidal coordinate & index
 ev["alpha"] = ("pol", alpha)

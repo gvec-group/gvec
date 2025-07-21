@@ -1,0 +1,27 @@
+# container definition (OCI Containerfile/Dockerfile) for testing GVEC
+# Ubuntu 24.04 (Noble)
+# - python 3.12
+# - gcc/gfortran 13.2
+
+FROM ubuntu:24.04
+
+# install linux packages
+RUN apt-get update -y && \
+    apt-get install -y \
+    git \
+    make \
+    cmake \
+    g++ \
+    gfortran \
+    liblapack3 \
+    liblapack-dev \
+    zlib1g-dev \
+    libnetcdf-dev \
+    libnetcdff-dev \
+    python3 \
+    python3-pip \
+    python3-dev \
+    python3-venv \
+    python3-pytest \
+    python3-numpy \
+    python-is-python3
