@@ -298,6 +298,39 @@ for a, b in ["rr", "rt", "rz", "tt", "tz", "zz"]:
     globals()[f"k_{a}{b}"] = _k_ab(a, b)
 
 
+@register(
+    requirements=["normal", "k_tt"],
+    attrs=dict(
+        long_name="poloidal component of the second fundamental form",
+        symbol=r"\mathrm{II}_{\theta\theta}",
+    ),
+)
+def II_tt(ds: xr.Dataset):
+    ds["II_tt"] = xr.dot(ds.normal, ds.k_tt, dim="xyz")
+
+
+@register(
+    requirements=["normal", "k_tz"],
+    attrs=dict(
+        long_name="poloidal-toroidal component of the second fundamental form",
+        symbol=r"\mathrm{II}_{\theta\zeta}",
+    ),
+)
+def II_tz(ds: xr.Dataset):
+    ds["II_tz"] = xr.dot(ds.normal, ds.k_tz, dim="xyz")
+
+
+@register(
+    requirements=["normal", "k_zz"],
+    attrs=dict(
+        long_name="toroidal component of the second fundamental form",
+        symbol=r"\mathrm{II}_{\zeta\zeta}",
+    ),
+)
+def II_zz(ds: xr.Dataset):
+    ds["II_zz"] = xr.dot(ds.normal, ds.k_zz, dim="xyz")
+
+
 # === metric =========================================================================== #
 
 
