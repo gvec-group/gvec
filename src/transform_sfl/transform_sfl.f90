@@ -88,7 +88,7 @@ END INTERFACE
 !END INTERFACE
 
 
-PUBLIC :: t_transform_sfl,transform_sfl_new, find_pest_angles
+PUBLIC :: t_transform_sfl,transform_sfl_new, find_pest_angles, get_pest_newton
 !===================================================================================================================================
 
 CONTAINS
@@ -617,7 +617,6 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
   ! MODULES
   USE MODgvec_Globals,ONLY: UNIT_stdOut,ProgressBar,testlevel
   USE MODgvec_fbase  ,ONLY: t_fbase
-  USE MODgvec_Newton ,ONLY: NewtonRoot2D
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -680,7 +679,7 @@ END SUBROUTINE find_pest_angles
 !===================================================================================================================================
 FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
   USE MODgvec_fbase  ,ONLY: t_fbase
-  USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF_obj
+  USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF
   USE MODgvec_Globals,ONLY: PI
   IMPLICIT NONE
   !-----------------------------------------------------------------------------------------------------------------------------------
@@ -700,8 +699,8 @@ FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
     fobj%LA_fbase_in = LA_fbase_in
     fobj%LA_in = LA_in
 
-    thet_out = NewtonRoot1D_FdF_obj(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI, &
-                                    theta_star, theta_star,fobj) !start, rhs,func
+    thet_out = NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI, &
+                                theta_star, theta_star,fobj) !start, rhs,func
 END FUNCTION get_pest_newton
 
 

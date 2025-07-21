@@ -15,6 +15,7 @@ MODULE MODgvec_SFL_Boozer
 USE MODgvec_Globals, ONLY:wp,abort,MPIroot
 USE MODgvec_fbase   ,ONLY: t_fbase
 USE MODgvec_hmap,  ONLY: PP_T_HMAP,PP_T_HMAP_AUXVAR
+USE MODgvec_Newton, ONLY: c_newton_Root2D
 IMPLICIT NONE
 PRIVATE
 
@@ -50,6 +51,14 @@ TYPE :: t_sfl_boozer
   PROCEDURE :: find_angles_irho => self_find_boozer_angles_irho
 END TYPE t_sfl_boozer
 
+TYPE, EXTENDS(c_newton_Root2D) :: t_newton_Root2D_boozer
+  TYPE(t_fbase) :: AB_fbase_in
+  REAL(wp) :: x0(2)
+  REAL(wp), ALLOCATABLE :: A_in(:), B_in(:)  ! len: modes
+  CONTAINS
+  PROCEDURE :: FR  => get_booz_newton_FR
+  PROCEDURE :: dFR => get_booz_newton_dFR
+END TYPE t_newton_Root2D_boozer
 
 INTERFACE sfl_boozer_new
   MODULE PROCEDURE sfl_boozer_new
@@ -526,39 +535,50 @@ FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
   REAL(wp) :: x_out(2)
 !-----------------------------------------------------------------------------------------------------------------------------------
 !LOCAL VARIABLES
-  REAL(wp),DIMENSION(AB_fbase_in%modes)::base_x,base_dthet,base_dzeta  !used inside sub-functions
+  TYPE(t_newton_Root2D_boozer) :: fobj
 !===================================================================================================================================
 
   !                                     a     b       maxstep  , xinit    ,funcs, funcs_jac
-  x_out = NewtonRoot2D(1.0e-12_wp,x0-bounds,x0+bounds,0.1_wp*bounds,x0,ABtrafo,ABtrafo_jac)
-
-  CONTAINS
-  !for newton root search
-  FUNCTION ABtrafo(xiter) RESULT(FF)
-    !uses current x0=(zetastar,thetastar) , and A,B and derivatives from subroutine above
-    IMPLICIT NONE
-    REAL(wp) :: xiter(2)
-    REAL(wp) :: FF(2) !two functions of x1,x2 to find root of
-
-    base_x =AB_fbase_in%eval(0,xiter) !base evaluation
-
-    FF(1)=xiter(1)-x0(1)+ DOT_PRODUCT(base_x,A_in)
-    FF(2)=xiter(2)-x0(2)+ DOT_PRODUCT(base_x,B_in)
-  END FUNCTION ABtrafo
-
-  FUNCTION ABtrafo_jac(xiter) RESULT(dFF)
-    !uses current x0=(zetastar,thetastar) , and A,B and derivatives from subroutine above
-    IMPLICIT NONE
-    REAL(wp) :: xiter(2)
-    REAL(wp) :: dFF(2,2) !jacobian
-    base_dthet =AB_fbase_in%eval(DERIV_THET,xiter) !dbase/dtheta
-    base_dzeta =AB_fbase_in%eval(DERIV_ZETA,xiter) !dbase/dtheta
-
-    dFF(1,:)=(/1.0_wp+ DOT_PRODUCT(base_dthet,A_in),        DOT_PRODUCT(base_dzeta,A_in)/)
-    dFF(2,:)=(/        DOT_PRODUCT(base_dthet,B_in),1.0_wp+ DOT_PRODUCT(base_dzeta,B_in)/)
-  END FUNCTION ABtrafo_jac
-
+  fobj%AB_fbase_in = AB_fbase_in
+  fobj%A_in = A_in
+  fobj%B_in = B_in
+  fobj%x0 = x0
+  x_out = NewtonRoot2D(1.0e-12_wp,x0-bounds,x0+bounds,0.1_wp*bounds,x0,fobj)
 END FUNCTION get_booz_newton
 
+!===================================================================================================================================
+!> Target function for finding the logical angle for given boozer angles
+!!
+!===================================================================================================================================
+FUNCTION get_booz_newton_FR(sf, x) RESULT(FF)
+  IMPLICIT NONE
+  CLASS(t_newton_Root2D_boozer) :: sf
+  REAL(wp) :: x(2) ! xiter
+  REAL(wp) :: FF(2) !two functions of x1,x2 to find root of
+  REAL(wp),DIMENSION(sf%AB_fbase_in%modes) :: base_x
+
+  base_x = sf%AB_fbase_in%eval(0, x) !base evaluation
+
+  FF(1) = x(1) - sf%x0(1) + DOT_PRODUCT(base_x, sf%A_in)
+  FF(2) = x(2) - sf%x0(2) + DOT_PRODUCT(base_x, sf%B_in)
+END FUNCTION get_booz_newton_FR
+
+!===================================================================================================================================
+!> Derivative of the target function for finding the logical angle for given boozer angles
+!!
+!===================================================================================================================================
+FUNCTION get_booz_newton_dFR(sf, x) RESULT(dFF)
+  IMPLICIT NONE
+  CLASS(t_newton_Root2D_boozer) :: sf
+  REAL(wp) :: x(2)
+  REAL(wp) :: dFF(2,2) !jacobian
+  REAL(wp),DIMENSION(sf%AB_fbase_in%modes) :: base_dthet, base_dzeta
+
+  base_dthet = sf%AB_fbase_in%eval(DERIV_THET, x) !dbase/dtheta
+  base_dzeta = sf%AB_fbase_in%eval(DERIV_ZETA, x) !dbase/dtheta
+
+  dFF(1,:) = (/1.0_wp + DOT_PRODUCT(base_dthet, sf%A_in),          DOT_PRODUCT(base_dzeta, sf%A_in)/)
+  dFF(2,:) = (/         DOT_PRODUCT(base_dthet, sf%B_in), 1.0_wp + DOT_PRODUCT(base_dzeta, sf%B_in)/)
+END FUNCTION get_booz_newton_dFR
 
 END MODULE MODgvec_SFL_Boozer
