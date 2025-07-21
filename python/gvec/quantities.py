@@ -181,18 +181,79 @@ def N_FP(ds: xr.Dataset, state: State):
     ),
 )
 def hmap(ds: xr.Dataset, state: State):
+    X1, X2, zeta = xr.broadcast(ds.X1, ds.X2, ds.zeta)
     outputs = state.evaluate_hmap_only(
-        **{
-            var: ds[var].broadcast_like(ds.X1).values.flatten()
-            for var in hmap.requirements
-            if var != "xyz"
-        }
+        X1=X1.values.flatten(), X2=X2.values.flatten(), zeta=zeta.values.flatten()
     )
     for key, value in zip(hmap.quantities, outputs):
         ds[key] = (
-            ("xyz", "rad", "pol", "tor"),
-            value.reshape(3, ds.rad.size, ds.pol.size, ds.tor.size),
+            ("xyz", *X1.dims),
+            value.reshape(3, *X1.shape),
         )
+
+
+@register(
+    quantities=("k_q1q1", "k_q1q2", "k_q1q3", "k_q2q2", "k_q2q3", "k_q3q3"),
+    requirements=("xyz", "X1", "X2", "zeta"),
+    attrs={
+        f"k_q{i}q{j}": dict(
+            long_name=f"q{i}-q{j} reference curvature vector", symbol=f"k_{{q^{i}q^{j}}}"
+        )
+        for i, j in ("11", "12", "13", "22", "23", "33")
+    },
+)
+def hmap_derivs(ds: xr.Dataset, state: State):
+    X1, X2, zeta = xr.broadcast(ds.X1, ds.X2, ds.zeta)
+    outputs = state.evaluate_hmap_derivs(
+        X1=X1.values.flatten(), X2=X2.values.flatten(), zeta=zeta.values.flatten()
+    )
+    for key, value in zip(hmap_derivs.quantities, outputs):
+        ds[key] = (
+            ("xyz", *X1.dims),
+            value.reshape(3, *X1.shape),
+        )
+
+
+def _k_ab(a, b):
+    r"""Factory function for logical curvature vectors.
+
+    k_{\alpha\beta} = \sum_i \frac{\partial^2 q^i}{\partial \alpha \partial \beta} \mathbf{e}_q^i
+                    + \sum_{ij} \frac{\partial q^i}{\partial \alpha} \frac{\partial q^j}{\partial \beta} \mathbf{k}_{q^iq^j}
+    """
+
+    @register(
+        quantities=f"k_{a}{b}",
+        requirements=sum(
+            ([f"dX{i}_d{a}{b}", f"dX{i}_d{a}", f"dX{i}_d{b}"] for i in "12"), start=[]
+        )
+        + ["e_q1", "e_q2", "k_q1q1", "k_q1q2", "k_q2q2"]
+        + (["k_q1q3", "k_q2q3"] if a == "z" or b == "z" else [])
+        + (["k_q3q3"] if a == "z" and b == "z" else []),
+        attrs=dict(
+            long_name=f"{a}{b} logical curvature vector",
+            symbol=rf"\mathbf{{k}}_{{{rtz_symbols[a] + rtz_symbols[b]}}}",
+        ),
+    )
+    def k_ab(ds: xr.Dataset):
+        da = ds[f"dX1_d{a}{b}"] * ds.e_q1 + ds[f"dX2_d{a}{b}"] * ds.e_q2
+        da += ds[f"dX1_d{a}"] * ds[f"dX1_d{b}"] * ds.k_q1q1
+        da += (
+            ds[f"dX1_d{a}"] * ds[f"dX2_d{b}"] + ds[f"dX2_d{a}"] * ds[f"dX1_d{b}"]
+        ) * ds.k_q1q2
+        da += ds[f"dX2_d{a}"] * ds[f"dX2_d{b}"] * ds.k_q2q2
+        if b == "z":
+            da += ds[f"dX1_d{a}"] * ds.k_q1q3 + ds[f"dX2_d{a}"] * ds.k_q2q3
+        if a == "z":
+            da += ds[f"dX1_d{b}"] * ds.k_q1q3 + ds[f"dX2_d{b}"] * ds.k_q2q3
+        if a == "z" and b == "z":
+            da += ds.k_q3q3
+        ds[f"k_{a}{b}"] = da
+
+    return k_ab
+
+
+for a, b in ["rr", "rt", "rz", "tt", "tz", "zz"]:
+    globals()[f"k_{a}{b}"] = _k_ab(a, b)
 
 
 # === metric =========================================================================== #
