@@ -14,7 +14,6 @@
 MODULE MODgvec_Analyze
 ! MODULES
 USE MODgvec_Globals, ONLY:wp,abort,MPIroot
-USE MODgvec_Newton, ONLY:c_newton_Root1D_FdF
 IMPLICIT NONE
 PRIVATE
 
@@ -33,14 +32,6 @@ END INTERFACE
 PUBLIC::InitAnalyze
 PUBLIC::Analyze
 PUBLIC::FinalizeAnalyze
-
-TYPE, EXTENDS(c_newton_Root1D_FdF) :: t_newton_Root1D_FdF_VMEC3D_visu
-  REAL(wp), ALLOCATABLE :: sinmn(:), cosmn(:) !len: mn_mode
-  REAL(wp) :: xIP(2)
-  INTEGER :: i_s
-  CONTAINS
-  PROCEDURE :: FRdFR => VMEC3D_visu_FRdFR
-END TYPE t_newton_Root1D_FdF_VMEC3D_visu
 
 !===================================================================================================================================
 
@@ -413,14 +404,12 @@ END SUBROUTINE VMEC1D_visu
 !===================================================================================================================================
 SUBROUTINE VMEC3D_visu(np_in,minmax,only_planes)
 ! MODULES
-USE MODgvec_Analyze_Vars,ONLY:SFL_theta
 USE MODgvec_Globals,ONLY:TWOPI,PI,UNIT_stdOut
 USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
 USE MODgvec_Output_Vars,ONLY:Projectname
 USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
-USE MODgvec_Newton,     ONLY: NewtonRoot1D_FdF_obj
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -440,7 +429,6 @@ IMPLICIT NONE
   REAL(wp)           :: cosmn_nyq,sinmn_nyq,sqrtg,absB
   CHARACTER(LEN=40)  :: VarNames(nVal)          !! Names of all variables that will be written out
   CHARACTER(LEN=255) :: filename
-  TYPE(t_newton_Root1D_FdF_VMEC3D_visu) :: newton_fobj
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   IF(only_planes)THEN
@@ -503,16 +491,7 @@ IMPLICIT NONE
         !xIP(1)=thet(j_s,i_m)
         DO i_s=1,n_s
           !SFL
-          IF(SFL_theta)THEN
-            theta_star=thet(j_s,i_m)
-            newton_fobj%xIP = xIP
-            newton_fobj%i_s = i_s
-            newton_fobj%sinmn = sinmn
-            newton_fobj%cosmn = cosmn
-            XIP(1)=NewtonRoot1D_FdF_obj(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,newton_fobj)
-          ELSE
-            XIP(1)=thet(j_s,i_m)
-          END IF
+          XIP(1)=thet(j_s,i_m)
           var_visu(  8,i_s,j_s,i_n,i_m) = xIP(1)
           var_visu(  9,i_s,j_s,i_n,i_m) = xIP(2)
 
@@ -602,39 +581,6 @@ IMPLICIT NONE
   WRITE(UNIT_stdOut,'(A)') '... DONE.'
 
 END SUBROUTINE VMEC3D_visu
-
-!===================================================================================================================================
-!> Function for 1D Newton search for iterations on theta* within VMEC3D_visu
-!!
-!===================================================================================================================================
-FUNCTION VMEC3D_visu_FRdFR(sf, x) RESULT(FRdFR)
-  !uses current zeta=XIP(2),i_s where newton is called
-  USE MODgvec_VMEC_Readin, ONLY: lasym, xm, xn, mn_mode, Lmns, Lmnc
-  IMPLICIT NONE
-  CLASS(t_newton_Root1D_FdF_VMEC3D_visu) :: sf
-  REAL(wp) :: x ! theta_iter
-  REAL(wp) :: FRdFR(2) !output
-  INTEGER :: iMode
-  !---------------------------------------------------
-  DO iMode=1,mn_mode
-    sf%sinmn(iMode)=SIN(xm(iMode)*x-xn(iMode)*sf%xIP(2))
-    sf%cosmn(iMode)=COS(xm(iMode)*x-xn(iMode)*sf%xIP(2))
-  END DO !iMode
-  FRdFR(1)=0. !LA
-  FRdFR(2)=0. !dLA/dtheta
-  DO iMode=1,mn_mode
-    FRdFR(1)=FRdFR(1)          +Lmns(iMode,sf%i_s)*sf%sinmn(iMode)
-    FRdFR(2)=FRdFR(2)+xm(iMode)*Lmns(iMode,sf%i_s)*sf%cosmn(iMode)
-  END DO !iMode
-  IF(lasym)THEN
-    DO iMode=1,mn_mode
-      FRdFR(1)=FRdFR(1)          +Lmnc(iMode,sf%i_s)*sf%cosmn(iMode)
-      FRdFR(2)=FRdFR(2)-xm(iMode)*Lmnc(iMode,sf%i_s)*sf%sinmn(iMode)
-    END DO !iMode
-  END IF !lasym
-  FRdFR(1)=FRdFR(1)+x
-  FRdFR(2)=FRdFR(2)+1.0_wp
-END FUNCTION VMEC3D_visu_FRdFR
 
 !===================================================================================================================================
 !> Finalize Module
