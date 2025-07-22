@@ -1,0 +1,23 @@
+# container definition (OCI Containerfile/Dockerfile) for testing GVEC
+# Fedora latest
+# - python 3.13+
+# - gcc/gfortran 15.1+
+
+FROM fedora:latest
+
+# install linux packages
+RUN dnf install -y \
+    cmake \
+    pkgconf \
+    gcc \
+    gfortran \
+    g++ \
+    netcdf \
+    netcdf-devel \
+    netcdf-fortran \
+    netcdf-fortran-devel \
+    lapack-devel \
+    python3-devel \
+    python3-pip \
+    python3-pytest \
+    python3-numpy
