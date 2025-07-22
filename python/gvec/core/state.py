@@ -28,14 +28,13 @@ import inspect
 import functools
 import tempfile
 import logging
-import os
 import warnings
 
 import numpy as np
 import xarray as xr
 
-import gvec.lib
 import gvec.util
+import gvec.lib
 from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
 from gvec.lib import modgvec_py_run as _run
@@ -395,6 +394,33 @@ class State:
 
         _state.evaluate_base_list_tz_all(
             rho.size, thetazeta.shape[1], rho, thetazeta, quantity, *outputs
+        )
+        return outputs
+
+    @with_binding
+    def evaluate_base_list_rtz_all(self, quantity: str, rhothetazeta: np.ndarray):
+        if not isinstance(quantity, str):
+            raise ValueError("Quantity must be a string.")
+        elif quantity not in ["X1", "X2", "LA"]:
+            raise ValueError(f"Unknown quantity: {quantity}, expected one of 'X1', 'X2', 'LA'.")
+
+        rhothetazeta = np.asarray(rhothetazeta)
+        if rhothetazeta.ndim != 2 or rhothetazeta.shape[0] != 3:
+            raise ValueError(
+                f"rhothetazeta must be a 2D array with shape (3, n), but has shape {rhothetazeta.shape}"
+            )
+        rho = np.asfortranarray(rhothetazeta[0, :], dtype=np.float64)
+        thetazeta = np.asfortranarray(rhothetazeta[1:, :], dtype=np.float64)
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+
+        # Q, dQ_drho, dQ_dtheta, dQ_dzeta, dQ_drr, dQ_drt, dQ_drz, dQ_dtt, dQ_dtz, dQ_dzz
+        outputs = [
+            np.zeros((rhothetazeta.shape[1]), dtype=np.float64, order="F") for _ in range(10)
+        ]
+
+        _state.evaluate_base_list_stz_all(
+            rhothetazeta.shape[1], rho, thetazeta, quantity, *outputs
         )
         return outputs
 

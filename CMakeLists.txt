@@ -157,9 +157,6 @@ ENDIF()
 # COMPILER FLAGS (compiler & machine specific)
 # =========================================================================
 
-# append relative filename-macro for __FILENAME__ in Stamp of abort function (see defines.h)
-SET(CMAKE_Fortran_FLAGS "-D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
-
 IF(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 -march=native -finline-functions") #gives segfault: -fstack-arrays
@@ -350,6 +347,16 @@ IF(COMPILE_SRC_PYGVEC)
   FILE(GLOB pygvecF90 ./src/pygvec/*.f90 )
   LIST(APPEND mainF90 ${pygvecF90})
 ENDIF()
+
+# append relative filename-macro for __FILENAME__ in stamp of abort function (see defines.h)
+FOREACH(sourcefile ${mainF90})
+    # inspired by https://stackoverflow.com/a/27990434
+    CMAKE_PATH(NORMAL_PATH sourcefile OUTPUT_VARIABLE filename)
+    CMAKE_PATH(RELATIVE_PATH filename)
+    SET_PROPERTY(
+        SOURCE "${sourcefile}" APPEND
+        PROPERTY COMPILE_DEFINITIONS "__FILENAME__=\"${filename}\"")
+ENDFOREACH()
 
 ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
