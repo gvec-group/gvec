@@ -88,8 +88,8 @@ def testcase_run(testgroup, testcaserundir, testcase, annotations, artifact_page
     return
 
 
-@pytest.fixture()
-def testfiles(tmpdir, testcaserundir, testcase_run):
+@pytest.fixture(scope="session")
+def testfiles(testcaserundir, testcase_run):
     """prepare the testcase parameters"""
     paramfile = "parameter.ini"
     statefile = sorted(testcaserundir.glob("*State*"))[-1]

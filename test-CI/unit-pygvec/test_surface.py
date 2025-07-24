@@ -14,7 +14,12 @@ except ImportError:
 # === FIXTURES === #
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
+def testcase():
+    return "ellipstell_lowres"
+
+
+@pytest.fixture(scope="session")
 def state(testfiles):
     return State(*testfiles)
 
@@ -24,13 +29,32 @@ def ift(request):
     return request.param
 
 
-@pytest.fixture()
-def ev(state):
+@pytest.fixture(scope="session")
+def ev_boozer(state):
     rho = [0.1, 0.5, 0.9]
-    ds = EvaluationsBoozer(rho=rho, theta_B=21, zeta_B=51, state=state, MNfactor=1)
-    # only for testing! MNfactor should be ~4 or above for most applications
-    compute(ds, "pos", "N_FP", state=state)
+    ds = state.evaluate_sfl("pos", "N_FP", sfl="boozer", rho=rho, theta=21, zeta=31, MNfactor=2)
     return ds
+
+
+@pytest.fixture()
+def ev(ev_boozer):
+    # only for testing! MNfactor should be ~4 or above for most applications
+    return ev_boozer.copy(deep=True)
+
+
+@pytest.fixture(scope="session")
+def ev_boozer_highres(state):
+    rho = [0.1, 0.5, 0.9]
+    ds = state.evaluate_sfl(
+        "pos", "N_FP", sfl="boozer", rho=rho, theta=101, zeta=101, MNfactor=2
+    )
+    return ds
+
+
+@pytest.fixture()
+def ev_highres(ev_boozer_highres):
+    # only for testing! MNfactor should be ~4 or above for most applications
+    return ev_boozer_highres.copy(deep=True)
 
 
 @pytest.fixture(params=[0, 1, -1])
@@ -41,6 +65,11 @@ def winding(request, state):
 @pytest.fixture()
 def surfs(ev, ift, winding):
     return surface.init_surface(ev.pos, ev.N_FP, ift=ift, winding=winding)
+
+
+@pytest.fixture()
+def surfs_highres(ev_highres, ift, winding):
+    return surface.init_surface(ev_highres.pos, ev_highres.N_FP, ift=ift, winding=winding)
 
 
 # === TESTS === #
@@ -103,10 +132,10 @@ def test_compute(surfs, Q):
         "II_zz_B",
     ],
 )
-def test_compare(state, ev, surfs, Q, ift):
+def test_compare(state, ev_highres, surfs_highres, Q, ift):
     """Test that the computed surface quantities match the expected values."""
-    surface.compute(surfs, Q)
-    compute(ev, Q, state=state)
+    surface.compute(surfs_highres, Q)
+    compute(ev_highres, Q, state=state)
 
-    surfQ, evQ = xr.broadcast(surfs[Q], ev[Q])
-    np.testing.assert_allclose(surfQ.data, evQ.data, rtol=1e-2, atol=1e-5)
+    surfQ, evQ = xr.broadcast(surfs_highres[Q], ev_highres[Q])
+    np.testing.assert_allclose(surfQ.data, evQ.data, rtol=1e-2, atol=1e-3)

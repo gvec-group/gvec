@@ -909,6 +909,13 @@ for i, j in ["tt", "tz", "zz"]:
     quantities=("k_tt_B", "k_tz_B", "k_zz_B"),
     requirements=["iota", "e_theta", "e_zeta", "k_tt", "k_tz", "k_zz"]
     + sum([[f"dLA_d{ij}", f"dNU_B_d{ij}"] for ij in ("t", "z", "tt", "tz", "zz")], start=[]),
+    attrs={
+        f"k_{a}{b}_B": dict(
+            long_name=f"{a}{b} boozer curvature vector",
+            symbol=rf"\mathbf{{k}}_{{{rtz_symbols[a]}_B {rtz_symbols[b]}_B}}",
+        )
+        for a, b in ["tt", "tz", "zz"]
+    },
 )
 def k_ij_B(ds: xr.Dataset):
     dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
