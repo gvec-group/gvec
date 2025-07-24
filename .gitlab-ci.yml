@@ -1305,6 +1305,8 @@ include:
 # template for all mpcdfci jobs
 .mpcdfci:
   tags:
+    - cloud
+    - docker
     - shared
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
@@ -1333,8 +1335,6 @@ include:
   extends:
     - .mpcdfci
     - .vars_mpiOFF
-  tags:
-    - shared
   variables:
     CURR_CMP: "ifx-2025"
     SETUP_SCRIPT: "ifx"
@@ -1353,8 +1353,6 @@ include:
   extends:
     - .mpcdfci
     - .vars_mpiON
-  tags:
-    - shared
   variables:
     CURR_CMP: "ifort-impi-2023"
     SETUP_SCRIPT: "ifort-impi"
@@ -1565,6 +1563,8 @@ include:
 
 .ubuntu-22:
   tags:
+    - cloud
+    - docker
     - shared
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-22:latest
   extends:
@@ -1578,6 +1578,8 @@ include:
 
 .ubuntu-24:
   tags:
+    - cloud
+    - docker
     - shared
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-24:latest
   extends:
@@ -1591,6 +1593,8 @@ include:
 
 .fedora:
   tags:
+    - cloud
+    - docker
     - shared
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/fedora:latest
   extends:
