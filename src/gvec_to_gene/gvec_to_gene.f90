@@ -286,6 +286,7 @@ END SUBROUTINE gvec_to_gene_coords_old
 SUBROUTINE gvec_to_gene_coords_sfl(nthet,nzeta,spos_in,theta_star_in,zeta_in,cart_coords)
 ! MODULES
 USE MODgvec_ReadState_Vars,ONLY: hmap_r
+USE MODgvec_gvec_to_gene_vars,ONLY:SFLcoord
 USE MODgvec_gvec_to_gene_vars,ONLY:trafoSFL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -301,12 +302,12 @@ REAL(wp),INTENT(OUT) :: cart_coords(3,nthet,nzeta)  !! x,y,z cartesian coordinat
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER     :: ithet,izeta
-REAL(wp)    :: zeta
+REAL(wp)    :: zeta,zetastar
 REAL(wp)    :: xp(2),qvec(3)
 REAL(wp)    :: X1sfl_s(   1:trafoSFL%X1sfl_base%f%modes)
 REAL(wp)    :: X2sfl_s(   1:trafoSFL%X2sfl_base%f%modes)
-REAL(wp)    :: GZsfl_s(   1:trafoSFL%GZsfl_base%f%modes)
-REAL(wp)    :: X1_int,X2_int,GZ_int,spos
+REAL(wp),ALLOCATABLE :: GZsfl_s(:)
+REAL(wp)    :: X1_int,X2_int,spos
 !===================================================================================================================================
 ASSOCIATE(X1sfl_base=>trafoSFL%X1sfl_base,X1sfl=>trafoSFL%X1sfl,&
           X2sfl_base=>trafoSFL%X2sfl_base,X2sfl=>trafoSFL%X2sfl,&
@@ -314,17 +315,24 @@ ASSOCIATE(X1sfl_base=>trafoSFL%X1sfl_base,X1sfl=>trafoSFL%X1sfl,&
 spos=MAX(1.0e-08_wp,MIN(1.0_wp-1.0e-12_wp,spos_in)) !for satefy reasons at the axis and edge
 X1sfl_s(:)      =X1sfl_base%s%evalDOF2D_s(spos,X1sfl_base%f%modes,      0,X1sfl(:,:)) !R
 X2sfl_s(:)      =X2sfl_base%s%evalDOF2D_s(spos,X2sfl_base%f%modes,      0,X2sfl(:,:)) !Z
-GZsfl_s(:)      =GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,      0,GZsfl(:,:))
+IF(SFLcoord.EQ.2)THEN !BOOZER
+  ALLOCATE(GZsfl_s(1:trafoSFL%GZsfl_base%f%modes))
+  GZsfl_s(:)      =GZsfl_base%s%evalDOF2D_s(spos,GZsfl_base%f%modes,      0,GZsfl(:,:))
+END IF
 
 DO izeta=1,nzeta; DO ithet=1,nthet
-  zeta=zeta_in( ithet,izeta) !=zetastar = zeta-G(thetastar,zetastar)
-  xp=(/theta_star_in(ithet,izeta),zeta/)
+  zetastar=zeta_in( ithet,izeta) !=zetastar = zeta+Gsfl(thetastar,zetastar)
+  xp=(/theta_star_in(ithet,izeta),zetastar/)
 
   X1_int      = X1sfl_base%f%evalDOF_x(xp,0,X1sfl_s)
   X2_int      = X2sfl_base%f%evalDOF_x(xp,0,X2sfl_s)
-  GZ_int      = GZsfl_base%f%evalDOF_x(xp,0,GZsfl_s)
+  IF(SFLcoord.EQ.2)THEN !BOOZER
+    zeta = zetastar- GZsfl_base%f%evalDOF_x(xp,0,GZsfl_s)
+  ELSE  !PEST / GVEC
+    zeta = zetastar
+  END IF
 
-  qvec = (/X1_int,X2_int,zeta-GZ_int/)
+  qvec = (/X1_int,X2_int,zeta/)
   cart_coords(:,ithet,izeta)=hmap_r%eval(qvec)
 
 END DO; END DO !ithet,izeta
