@@ -671,6 +671,32 @@ def _dB(ds: xr.Dataset):
     )
 
 
+def _dmod_B(a):
+    @register(
+        quantities=[f"dmod_B_d{a}"],
+        requirements=[f"dB_contra_t_d{a}", f"dB_contra_z_d{a}"]
+        + [f"dg_{ij}_d{a}" for ij in ["tt", "tz", "zz"]],
+        attrs=dict(
+            long_name=derivative_name_smart("modulus of the magnetic field", a),
+            symbol=latex_partial(r"\left|\mathbf{B}\right|", a),
+        ),
+    )
+    def dmod_B(ds: xr.Dataset):
+        ds[f"dmod_B_d{a}"] = (
+            2 * ds[f"dB_contra_t_d{a}"] * ds.B_contra_t * ds.g_tt
+            + ds.B_contra_t**2 * ds[f"dg_tt_d{a}"]
+            + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_t * ds.g_tz
+            + 2 * ds[f"dB_contra_t_d{a}"] * ds.B_contra_z * ds.g_tz
+            + 2 * ds.B_contra_t * ds.B_contra_z * ds[f"dg_tz_d{a}"]
+            + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_z * ds.g_zz
+            + ds.B_contra_z**2 * ds[f"dg_zz_d{a}"]
+        )
+
+
+for a in "rtz":
+    globals()[f"dmod_B_d{a}"] = _dmod_B(a)
+
+
 @register(
     quantities=("J", "J_contra_r", "J_contra_t", "J_contra_z"),
     requirements=[
@@ -781,7 +807,7 @@ for v in [
     requirements=("B", "e_theta", "dLA_dt", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="poloidal derivative of the Boozer potential computed from the magnetic field",
-        symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|",
+        symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|_{def.}",
     ),
 )
 def dNU_B_dt(ds: xr.Dataset):
@@ -795,7 +821,7 @@ def dNU_B_dt(ds: xr.Dataset):
     requirements=("B", "e_zeta", "dLA_dz", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="toroidal derivative of the Boozer potential computed from the magnetic field",
-        symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|",
+        symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|_{def.}",
     ),
 )
 def dNU_B_dz(ds: xr.Dataset):
