@@ -52,9 +52,9 @@ TYPE :: t_sfl_boozer
 END TYPE t_sfl_boozer
 
 TYPE, EXTENDS(c_newton_Root2D) :: t_newton_Root2D_boozer
-  TYPE(t_fbase) :: AB_fbase_in
+  TYPE(t_fbase), POINTER :: AB_fbase_in
+  REAL(wp), POINTER :: A_in(:), B_in(:)  ! len: modes
   REAL(wp) :: x0(2)
-  REAL(wp), ALLOCATABLE :: A_in(:), B_in(:)  ! len: modes
   CONTAINS
   PROCEDURE :: FR  => get_booz_newton_FR
   PROCEDURE :: dFR => get_booz_newton_dFR
@@ -491,7 +491,7 @@ IMPLICIT NONE
 !$OMP   SHARED(tz_dim,tz_boozer,thetzeta_out,fbase_in,Gt,nu_in)
     DO j=1,tz_dim
         x0=tz_boozer(:,j)
-        thetzeta_out(:,j,irho)=get_booz_newton(x0,bounds,fbase_in,Gt(:),nu_in(:,irho))
+        thetzeta_out(:,j,irho)=get_booz_newton(x0,bounds,fbase_in,Gt,nu_in(:,irho))
     END DO !j
 !$OMP END PARALLEL DO
     CALL ProgressBar(irho,nrho)
@@ -528,8 +528,8 @@ FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
 !-----------------------------------------------------------------------------------------------------------------------------------
 !INPUT VARIABLES
   REAL(wp),INTENT(IN) :: x0(2),bounds(2)
-  TYPE(t_fbase),INTENT(IN) :: AB_fbase_in
-  REAL(wp),INTENT(IN) :: A_in(1:AB_fbase_in%modes),B_in(1:AB_fbase_in%modes)
+  TYPE(t_fbase),INTENT(IN), TARGET :: AB_fbase_in
+  REAL(wp),INTENT(IN), TARGET :: A_in(1:AB_fbase_in%modes),B_in(1:AB_fbase_in%modes)
 !-----------------------------------------------------------------------------------------------------------------------------------
 !OUTPUT VARIABLES
   REAL(wp) :: x_out(2)
@@ -539,9 +539,9 @@ FUNCTION get_booz_newton(x0,bounds,AB_fbase_in,A_in,B_in) RESULT(x_out)
 !===================================================================================================================================
 
   !                                     a     b       maxstep  , xinit    ,funcs, funcs_jac
-  fobj%AB_fbase_in = AB_fbase_in
-  fobj%A_in = A_in
-  fobj%B_in = B_in
+  fobj%AB_fbase_in => AB_fbase_in
+  fobj%A_in => A_in
+  fobj%B_in => B_in
   fobj%x0 = x0
   x_out = NewtonRoot2D(1.0e-12_wp,x0-bounds,x0+bounds,0.1_wp*bounds,x0,fobj)
 END FUNCTION get_booz_newton
@@ -552,8 +552,8 @@ END FUNCTION get_booz_newton
 !===================================================================================================================================
 FUNCTION get_booz_newton_FR(sf, x) RESULT(FF)
   IMPLICIT NONE
-  CLASS(t_newton_Root2D_boozer) :: sf
-  REAL(wp) :: x(2) ! xiter
+  CLASS(t_newton_Root2D_boozer), INTENT(IN) :: sf
+  REAL(wp), INTENT(IN) :: x(2) ! xiter
   REAL(wp) :: FF(2) !two functions of x1,x2 to find root of
   REAL(wp),DIMENSION(sf%AB_fbase_in%modes) :: base_x
 
@@ -569,8 +569,8 @@ END FUNCTION get_booz_newton_FR
 !===================================================================================================================================
 FUNCTION get_booz_newton_dFR(sf, x) RESULT(dFF)
   IMPLICIT NONE
-  CLASS(t_newton_Root2D_boozer) :: sf
-  REAL(wp) :: x(2)
+  CLASS(t_newton_Root2D_boozer), INTENT(IN) :: sf
+  REAL(wp), INTENT(IN) :: x(2)
   REAL(wp) :: dFF(2,2) !jacobian
   REAL(wp),DIMENSION(sf%AB_fbase_in%modes) :: base_dthet, base_dzeta
 

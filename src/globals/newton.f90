@@ -87,64 +87,64 @@ ABSTRACT INTERFACE
   FUNCTION i_newton_Min1D(sf, x) RESULT (y1x1)
     IMPORT wp, c_newton_Min1D
     IMPLICIT NONE
-    CLASS(c_newton_Min1D) :: sf
-    REAL(wp) :: x
+    CLASS(c_newton_Min1D), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x
     REAL(wp) :: y1x1
   END FUNCTION i_newton_Min1D
 
   FUNCTION i_newton_Root1D(sf, x) RESULT (y1x1)
     IMPORT wp, c_newton_Root1D
     IMPLICIT NONE
-    CLASS(c_newton_Root1D) :: sf
-    REAL(wp) :: x
+    CLASS(c_newton_Root1D), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x
     REAL(wp) :: y1x1
   END FUNCTION i_newton_Root1D
 
   FUNCTION i_newton_Root1D_FdF(sf, x) RESULT (y2x1)
     IMPORT wp, c_newton_Root1D_FdF
     IMPLICIT NONE
-    CLASS(c_newton_Root1D_FdF) :: sf
-    REAL(wp) :: x
+    CLASS(c_newton_Root1D_FdF), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x
     REAL(wp) :: y2x1(2)
   END FUNCTION i_newton_Root1D_FdF
 
   FUNCTION i_newton_Min2D_FR(sf, x) RESULT (y1x2)
     IMPORT wp, c_newton_Min2D
     IMPLICIT NONE
-    CLASS(c_newton_Min2D) :: sf
-    REAL(wp) :: x(2)
+    CLASS(c_newton_Min2D), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x(2)
     REAL(wp) :: y1x2
   END FUNCTION i_newton_Min2D_FR
 
   FUNCTION i_newton_Min2D_dFR(sf, x) RESULT (y2x2)
     IMPORT wp, c_newton_Min2D
     IMPLICIT NONE
-    CLASS(c_newton_Min2D) :: sf
-    REAL(wp) :: x(2)
+    CLASS(c_newton_Min2D), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x(2)
     REAL(wp) :: y2x2(2)
   END FUNCTION i_newton_Min2D_dFR
 
   FUNCTION i_newton_Min2D_ddFR(sf, x) RESULT (y22x2)
     IMPORT wp, c_newton_Min2D
     IMPLICIT NONE
-    CLASS(c_newton_Min2D) :: sf
-    REAL(wp) :: x(2)
+    CLASS(c_newton_Min2D), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x(2)
     REAL(wp) :: y22x2(2,2)
   END FUNCTION i_newton_Min2D_ddFR
 
   FUNCTION i_newton_Root2D_FR(sf, x) RESULT (y2x2)
     IMPORT wp, c_newton_Root2D
     IMPLICIT NONE
-    CLASS(c_newton_Root2D) :: sf
-    REAL(wp) :: x(2)
+    CLASS(c_newton_Root2D), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x(2)
     REAL(wp) :: y2x2(2)
   END FUNCTION i_newton_Root2D_FR
 
   FUNCTION i_newton_Root2D_dFR(sf, x) RESULT (y22x2)
     IMPORT wp, c_newton_Root2D
     IMPLICIT NONE
-    CLASS(c_newton_Root2D) :: sf
-    REAL(wp) :: x(2)
+    CLASS(c_newton_Root2D), INTENT(IN) :: sf
+    REAL(wp), INTENT(IN) :: x(2)
     REAL(wp) :: y22x2(2, 2)
   END FUNCTION i_newton_Root2D_dFR
 END INTERFACE
@@ -209,8 +209,8 @@ FUNCTION newton_Root1D_wrap_Min1D_FR(sf, x) RESULT(y1x1)
   IMPLICIT NONE
   !---------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-  CLASS(t_newton_Root1D_wrap_Min1D) :: sf
-  REAL(wp) :: x
+  CLASS(t_newton_Root1D_wrap_Min1D), INTENT(IN) :: sf
+  REAL(wp), INTENT(IN) :: x
   ! OUTPUT VARIABLES
   REAL(wp) :: y1x1
   !=================================================================================================================================
@@ -227,8 +227,8 @@ FUNCTION newton_Root1D_wrap_Min1D_dFR(sf, x) RESULT(y1x1)
   IMPLICIT NONE
   !---------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
-  CLASS(t_newton_Root1D_wrap_Min1D) :: sf
-  REAL(wp) :: x
+  CLASS(t_newton_Root1D_wrap_Min1D), INTENT(IN) :: sf
+  REAL(wp), INTENT(IN) :: x
   ! OUTPUT VARIABLES
   REAL(wp) :: y1x1
   !=================================================================================================================================

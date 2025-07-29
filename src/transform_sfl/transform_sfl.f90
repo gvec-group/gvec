@@ -63,9 +63,9 @@ TYPE :: t_transform_sfl
 END TYPE t_transform_sfl
 
 TYPE, EXTENDS(c_newton_Root1D_FdF) :: t_newton_Root1D_FdF_pest
-  TYPE(t_fbase) :: LA_fbase_in
+  TYPE(t_fbase), POINTER :: LA_fbase_in
+  REAL(wp), POINTER :: LA_in(:)
   REAL(wp) :: zeta
-  REAL(wp), ALLOCATABLE :: LA_in(:)
   CONTAINS
   PROCEDURE :: FRdFR => pest_newton_FRdFR
 END TYPE t_newton_Root1D_FdF_pest
@@ -81,7 +81,6 @@ END INTERFACE
 INTERFACE transform_sfl_new
   MODULE PROCEDURE transform_sfl_new
 END INTERFACE
-
 
 !INTERFACE sfl_boozer_new
 !  MODULE PROCEDURE sfl_boozer_new
@@ -621,7 +620,7 @@ SUBROUTINE find_pest_angles(nrho,fbase_in,LA_in,tz_dim,tz_pest,thetzeta_out)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
     INTEGER      ,INTENT(IN) :: nrho   !! number of surfaces, (second dimension  of LA_in and nu_in modes)
-    TYPE(t_fbase),INTENT(IN) ::fbase_in     !< same basis of lambda and nu
+    TYPE(t_fbase),INTENT(IN) :: fbase_in     !< same basis of lambda and nu
     REAL(wp)     ,INTENT(IN) :: LA_in(1:fbase_in%modes,nrho) !< fourier coefficients of thet*=thet+LA(theta,zeta)+iota*nu(theta,zeta)
     INTEGER      ,INTENT(IN) :: tz_dim                 !< size of the list in thetstar,zetastar
     REAL(wp)     ,INTENT(IN) :: tz_pest(2,tz_dim) !< theta,zeta positions in pest angle (same for all rho)
@@ -686,8 +685,8 @@ FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
   ! INPUT VARIABLES
     REAL(wp)     ,INTENT(IN) :: theta_star !< initial guess = thet*
     REAL(wp)     ,INTENT(IN) :: zeta
-    TYPE(t_fbase),INTENT(IN) ::LA_fbase_in     !<  basis of lambda
-    REAL(wp)     ,INTENT(IN) :: LA_in(1:LA_fbase_in%modes) !< fourier coefficients of thet*=thet+LA(theta,zeta)
+    TYPE(t_fbase),INTENT(IN), TARGET ::LA_fbase_in     !<  basis of lambda
+    REAL(wp)     ,INTENT(IN), TARGET :: LA_in(1:LA_fbase_in%modes) !< fourier coefficients of thet*=thet+LA(theta,zeta)
   !-----------------------------------------------------------------------------------------------------------------------------------
   ! OUTPUT VARIABLES
     REAL(wp)              :: thet_out !< theta position in original coordinates
@@ -696,8 +695,8 @@ FUNCTION get_pest_newton(theta_star,zeta,LA_fbase_in,LA_in) RESULT(thet_out)
     TYPE(t_newton_Root1D_FdF_pest) :: fobj
   !===================================================================================================================================
     fobj%zeta = zeta
-    fobj%LA_fbase_in = LA_fbase_in
-    fobj%LA_in = LA_in
+    fobj%LA_fbase_in => LA_fbase_in
+    fobj%LA_in => LA_in
 
     thet_out = NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI, &
                                 theta_star, theta_star,fobj) !start, rhs,func
@@ -710,8 +709,8 @@ END FUNCTION get_pest_newton
 !===================================================================================================================================
 FUNCTION pest_newton_FRdFR(sf, x) RESULT(A_FRdFR)
   !uses current zeta where newton is called, and A from subroutine above
-  CLASS(t_newton_Root1D_FdF_pest) :: sf
-  REAL(wp) :: x ! theta_iter
+  CLASS(t_newton_Root1D_FdF_pest), INTENT(IN) :: sf
+  REAL(wp), INTENT(IN) :: x ! theta_iter
   REAL(wp) :: A_FRdFR(2) !output function and derivative
   !---------------------------------------------------
   A_FRdFR(1)=x      + sf%LA_fbase_in%evalDOF_x((/x,sf%zeta/),         0,sf%LA_in) !theta_iter+lambda = thet* (rhs)
