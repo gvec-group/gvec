@@ -8,6 +8,7 @@ FROM fedora:latest
 # install linux packages
 RUN dnf install -y \
     git \
+    which \
     cmake \
     pkgconf \
     gcc \
