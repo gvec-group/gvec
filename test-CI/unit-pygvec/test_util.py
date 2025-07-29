@@ -62,18 +62,20 @@ def test_copy_test_CaseInsensitiveDict():
 
 
 def test_ev2vtk(testcaserundir, testfiles):
-    rho = np.linspace(0, 1, 5)
+    rho = np.linspace(0, 1, 4)
     rho[0] = 1e-4  # avoid evaluation at rho=0
     theta = np.linspace(0, 2 * np.pi, 5)  # including endpoints
-    zeta = np.linspace(0, 2 * np.pi, 5)  # full torus, including endpoints
-    vars_out = ["X1", "X2", "LA", "iota", "p", "pos", "grad_zeta", "e_rho", "B"]
+    zeta = np.linspace(0, 2 * np.pi, 6)  # full torus, including endpoints
 
+    vars_out = ["X1", "X2", "LA", "iota", "p", "pos", "grad_zeta", "e_rho", "B"]
     state = gvec.State(*testfiles)
     ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=state)
     state.compute(ev, *vars_out)
 
-    ev = ev[vars_out]
-    ev2vtk(testcaserundir / "test_ev2.vtk", ev)
+    ev2vtk(testcaserundir / "test_ev2.vtk", ev[vars_out])
+    ev2vtk(testcaserundir / "test_ev2_only_profile.vtk", ev[["pos", "iota"]])
+    ev2vtk(testcaserundir / "test_ev2_only_scalar.vtk", ev[["pos", "X1"]])
+    ev2vtk(testcaserundir / "test_ev2_only_vector.vtk", ev[["pos", "B"]])
 
 
 def test_read_write_parameters_ini(testcaserundir, testfiles, tmp_path):
