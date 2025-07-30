@@ -1,0 +1,8 @@
+{# Displays a download button for the current source. #}
+{% if show_source and has_source and sourcename %}
+  <div class="tocsection sourcelink">
+    <a download="" href="{{ pathto('_sources/' + sourcename, true)|e }}">
+      <i class="fa-solid fa-download"></i> {{ _("Download Notebook") }}
+    </a>
+  </div>
+{% endif %}

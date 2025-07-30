@@ -81,13 +81,15 @@ else:
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "myst_parser",  # "a rich and extensible flavour of Markdown for authoring technical and scientific documentation."
+    # "myst_parser",  # "a rich and extensible flavour of Markdown for authoring technical and scientific documentation.", activated by myst_nb
+    "myst_nb",  # Jupyter Notebooks as Sphinx documents
     "sphinx_design",  # proveides Grids, Cards, Dropdowns & more
     "sphinx.ext.napoleon",  # preprocessor for NumPy and Google style docstrings
     "sphinx.ext.autodoc",  # automatically generated API documentation from docstrings
     "sphinxcontrib.bibtex",  # bibtex citation with :cite:`refname`
     "sphinx_math_dollar",
     "sphinx.ext.mathjax",  # mathjax
+    "sphinx.ext.intersphinx",  # link to other sphinx documentation
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -134,7 +136,11 @@ mathjax3_config = {
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators"]
+exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators", "_downloads", "build"]
+
+intersphinx_mapping = {
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
+}
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -159,6 +165,10 @@ html_theme_options = {
     # "navbar_persistent": ["search-button"],
     # "navbar_end": ["theme-switcher", "navbar-icon-links"],
     # "header_links_before_dropdown": ?,
+    "secondary_sidebar_items": {
+        "**/*": ["page-toc", "sourcelink"],
+        "tutorials/*": ["page-toc", "sourcelink", "download-notebook"],
+    },
     "external_links": [
         {
             # external section of the documentation, built with FORD
@@ -202,7 +212,9 @@ if os.environ.get("READTHEDOCS_VERSION"):
     }
 
 html_title = "GVEC"
+html_logo = "static/brezellator3D_shiny_logo_bw.png"
 html_last_updated_fmt = "%Y-%m-%d"
+html_sourcelink_suffix = ""
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

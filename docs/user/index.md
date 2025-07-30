@@ -13,6 +13,12 @@ coordinate-conventions
 ```
 
 ```{toctree}
+:caption: Tutorials
+
+/tutorials/tokamak
+```
+
+```{toctree}
 :caption: Interfaces
 
 cas3d

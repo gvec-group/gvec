@@ -14,7 +14,7 @@ import gvec
 
 ## The `gvec.State` class
 
-The central object for evaluating a GVEC equilibrium is the `gvec.State` class.
+The central object for evaluating a GVEC equilibrium is the [`gvec.State`](/api/core-state) class.
 
 A state can be loaded from a given *parameter-* and *statefile* with
 ```python
@@ -89,9 +89,9 @@ beta_avg = gvec.volume_integral(beta * ev.Jac) / ev.V
 
 ## Low-level access
 
-The `gvec.State` class is automatically *bound* to the fortran library when needed and allows evaluating a variety of quantities.
+The [`gvec.State`](/api/core-state) class is automatically *bound* to the fortran library when needed and allows evaluating a variety of quantities.
 E.g. the number of field periods can be accessed with `state.nfp` and the maximum fourier modes with `state.get_mn_max()`.
-For a full list of availble methods see the [API](</dev/api/core-state>).
+For a full list of availble methods see the [API](</api/core-state>).
 
 The debugging output for the postprocessing can be accessed with `state.stdout`.
 
