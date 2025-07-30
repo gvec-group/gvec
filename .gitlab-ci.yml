@@ -184,6 +184,10 @@ include:
     inputs:
       env: .ubuntu-24
 
+  - local: CI_templates/env.yml
+    inputs:
+      env: .fedora
+
   # Raven private runner
   # ---------------
 
@@ -429,6 +433,13 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .ubuntu-24
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .fedora
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
@@ -891,6 +902,10 @@ include:
   - local: CI_templates/unit.yml
     inputs:
       env: .ubuntu-24
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .fedora
 
   # ============================
   # stage regression jobs
@@ -1574,6 +1589,21 @@ include:
     CI_HOSTNAME: "ubuntu-24"
     CURR_CMP: "gfortran-13"
     #PYTHON_VERSION: "3.12"
+    SETUP_SCRIPT: "none"
+
+.fedora:
+  tags:
+    - cloud
+    - docker
+    - shared
+  image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/fedora:latest
+  extends:
+    - .vars_mpiOFF
+  variables:
+    CMAKE_HOSTNAME: "none"
+    CI_HOSTNAME: "fedora"
+    CURR_CMP: "gfortran-15"
+    #PYTHON_VERSION: "3.13"
     SETUP_SCRIPT: "none"
 
 

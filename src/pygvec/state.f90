@@ -74,7 +74,6 @@ SUBROUTINE ReadState(statefile)
   USE MODgvec_ReadState_Vars, ONLY: outputLevel_r
   USE MODgvec_Restart,        ONLY: RestartFromState
   USE MODgvec_MHD3D_Vars,     ONLY: U
-  USE MODgvec_MHD3D_visu,     ONLY: Get_SFL_theta
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=255) :: statefile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!

@@ -32,6 +32,7 @@ END INTERFACE
 PUBLIC::InitAnalyze
 PUBLIC::Analyze
 PUBLIC::FinalizeAnalyze
+
 !===================================================================================================================================
 
 CONTAINS
@@ -403,14 +404,12 @@ END SUBROUTINE VMEC1D_visu
 !===================================================================================================================================
 SUBROUTINE VMEC3D_visu(np_in,minmax,only_planes)
 ! MODULES
-USE MODgvec_Analyze_Vars,ONLY:SFL_theta
 USE MODgvec_Globals,ONLY:TWOPI,PI,UNIT_stdOut
 USE MODgvec_VMEC_Readin
 USE MODgvec_VMEC_Vars
 USE MODgvec_Output_Vars,ONLY:Projectname
 USE MODgvec_Output_vtk,     ONLY: WriteDataToVTK
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
-USE MODgvec_Newton,     ONLY: NewtonRoot1D_FdF
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -492,12 +491,7 @@ IMPLICIT NONE
         !xIP(1)=thet(j_s,i_m)
         DO i_s=1,n_s
           !SFL
-          IF(SFL_theta)THEN
-            theta_star=thet(j_s,i_m)
-            XIP(1)=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR)
-          ELSE
-            XIP(1)=thet(j_s,i_m)
-          END IF
+          XIP(1)=thet(j_s,i_m)
           var_visu(  8,i_s,j_s,i_n,i_m) = xIP(1)
           var_visu(  9,i_s,j_s,i_n,i_m) = xIP(2)
 
@@ -585,35 +579,6 @@ IMPLICIT NONE
   END ASSOCIATE
 
   WRITE(UNIT_stdOut,'(A)') '... DONE.'
-
-!for iteration on theta^*
-CONTAINS
-
-  FUNCTION FRdFR(theta_iter)
-    !uses current zeta=XIP(2),i_s where newton is called
-    IMPLICIT NONE
-    REAL(wp) :: theta_iter
-    REAL(wp) :: FRdFR(2) !output
-    !---------------------------------------------------
-    DO iMode=1,mn_mode
-      sinmn(iMode)=SIN(xm(iMode)*theta_iter-xn(iMode)*xIP(2))
-      cosmn(iMode)=COS(xm(iMode)*theta_iter-xn(iMode)*xIP(2))
-    END DO !iMode
-    FRdFR(1)=0. !LA
-    FRdFR(2)=0. !dLA/dtheta
-    DO iMode=1,mn_mode
-      FRdFR(1)=FRdFR(1)          +Lmns(iMode,i_s)*sinmn(iMode)
-      FRdFR(2)=FRdFR(2)+xm(iMode)*Lmns(iMode,i_s)*cosmn(iMode)
-    END DO !iMode
-    IF(lasym)THEN
-      DO iMode=1,mn_mode
-        FRdFR(1)=FRdFR(1)          +Lmnc(iMode,i_s)*cosmn(iMode)
-        FRdFR(2)=FRdFR(2)-xm(iMode)*Lmnc(iMode,i_s)*sinmn(iMode)
-      END DO !iMode
-    END IF !lasym
-    FRdFR(1)=FRdFR(1)+theta_iter
-    FRdFR(2)=FRdFR(2)+1.0_wp
-  END FUNCTION FRdFR
 
 END SUBROUTINE VMEC3D_visu
 
