@@ -15,7 +15,8 @@ coordinate-conventions
 ```{toctree}
 :caption: Tutorials
 
-/tutorials/tokamak
+/tutorials/introduction
+/tutorials/gvec_tutorial_tokamak
 ```
 
 ```{toctree}

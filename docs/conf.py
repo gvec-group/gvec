@@ -167,7 +167,7 @@ html_theme_options = {
     # "header_links_before_dropdown": ?,
     "secondary_sidebar_items": {
         "**/*": ["page-toc", "sourcelink"],
-        "tutorials/*": ["page-toc", "sourcelink", "download-notebook"],
+        "tutorials/gvec_tutorial_*": ["page-toc", "sourcelink", "download-notebook"],
     },
     "external_links": [
         {
