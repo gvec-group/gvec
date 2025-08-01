@@ -149,6 +149,7 @@ intersphinx_mapping = {
 #
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {
+    "logo": {"text": "GVEC"},  # image defined as 'html_logo'
     # "sidebarwidth": 270,
     "show_toc_level": 2,  # number of levels always visible in the (right) toc
     # "show_nav_level": ?,
@@ -172,7 +173,7 @@ html_theme_options = {
     "external_links": [
         {
             # external section of the documentation, built with FORD
-            "name": "Fortran Code Documentation",
+            "name": "Fortran API",
             "url": f"{os.environ.get('READTHEDOCS_CANONICAL_URL', '/')}ford/index.html",
         },
     ],
@@ -213,6 +214,7 @@ if os.environ.get("READTHEDOCS_VERSION"):
 
 html_title = "GVEC"
 html_logo = "static/brezellator3D_shiny_logo_bw.png"
+html_favicon = "static/brezellator3D_shiny_logo_bw.png"
 html_last_updated_fmt = "%Y-%m-%d"
 html_sourcelink_suffix = ""
 

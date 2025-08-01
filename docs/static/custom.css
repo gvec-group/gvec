@@ -5,3 +5,37 @@ html[data-theme="dark"] img {
 html[data-theme="dark"] .bd-content img:not(.only-dark):not(.dark-light) {
     background: unset;
 }
+
+/* Adjust index page overview cards, borrowed & adjusted from Xarray, Pandas & Numpy */
+/* Override SVG icon color */
+html[data-theme="dark"] .sd-card img[src*=".svg"] {
+  filter: invert(1.0) brightness(0.65);
+}
+html[data-theme="light"] .sd-card img[src*=".svg"] {
+  filter: invert(1.0) brightness(0.35);
+}
+/* https://github.com/executablebooks/sphinx-design/blob/main/style/_cards.scss */
+/* More space around image */
+.intro-card {
+  padding: 30px 1px 1px 1px;
+}
+/* More prominent card borders */
+.intro-card .sd-card {
+  border: 2px solid var(--pst-color-border);
+  overflow: hidden;
+}
+/* Shrink SVG icons */
+.intro-card .sd-card-img-top {
+  margin: 1px;
+  height: 100px;
+  background-color: transparent !important;
+}
+/* Color titles like links */
+.intro-card .sd-card-title {
+  color: var(--pst-color-primary);
+  font-size: var(--pst-font-size-h5);
+}
+/* Don't have 'raised' color background for card interiors in dark mode */
+.bd-content .sd-card .sd-card-body {
+  background-color: unset !important;
+}
