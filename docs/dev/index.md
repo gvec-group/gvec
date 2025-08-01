@@ -78,6 +78,7 @@ testing
 pipeline
 docs
 python
+fortran
 Contributors <CONTRIBUTORS>
 ```
 

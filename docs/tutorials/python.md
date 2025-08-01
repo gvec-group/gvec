@@ -5,7 +5,7 @@ This ensures post-processing is consistent with computing the equilibrium and al
 
 ## Installation
 
-Please follow the instructions for installing [**gvec and its python bindings**](install.md)
+Please follow the instructions for installing [**gvec and its python bindings**](/user/install)
 
 and confirm successful installation with
 ```python

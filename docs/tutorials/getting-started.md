@@ -2,7 +2,7 @@
 
 ## Run GVEC via its python bindings
 
-First, please follow the installation instructions for installing [gvec with python bindings](install.md). Details on the python bindings are given [here](python.md).
+First, please follow the installation instructions for installing [gvec with python bindings](/user/install). Details on the python bindings are given [here](python.md).
 
 We have prepared a simple elliptic tokamak example as a `ipython` notebook: [`tokamak_gvecrun_and_visualize.ipynb`](<path:../../python/examples/tokamak_gvecrun/tokamak_gvecrun_and_visualize.ipynb>).
 All files for this example are also part of the repository at `python/examples/tokamak_gvecrun/` (view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/tokamak_gvecrun)).
@@ -62,7 +62,7 @@ pygvec run parameter.toml
 ```
 Example parameter files are given below.
 Using `picard_current = "auto"` selects the default algorithm for the current optimization with the specified `totalIter` and `minimize_tol`.
-For more information and more detailed control over the current optimization (including the possibility to do resolution refinement) see the [stages](stages.md) section.
+For more information and more detailed control over the current optimization (including the possibility to do resolution refinement) see the [stages](/user/stages) section.
 
 ::::{tab-set}
 :::{tab-item} TOML
@@ -122,59 +122,3 @@ Full example: [`parameter.yaml`](<path:../../python/examples/current_profile/par
 
 :::
 ::::
-
-
-
-## Run the GVEC Fortran executable
-```{warning}
-For users, we suggest using pygvec instead of the GVEC Fortran executable!
-It has  has a simpler parameterfile (ending with `.ini`) and thus less features than using `pygvec` with TOML/YAML parameterfiles.
-It is mainly used for testing purposes.
-```
-
-1) To install the Fortran executable of GVEC, follow the [installation instructions](install).
-2) The binary executables `gvec` and `gvec_post` should now be found in `build/bin/`.
-3) GVEC is configured with a custom parameter file, typically called `parameter.ini`.
-Example parameter files are found in `ini/` or `test-CI/examples/`
-
-### Running GVEC
-
-There are several test example input files named `parameter.ini`, which are found in a subfolder of [`test-CI/examples` {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/test-CI/examples/).
-
-*   For execution, go into one of these folders and execute for example the following commands
-    ```bash
-    cd test-CI/examples/ellipstell_lowres
-    ../../../build/bin/gvec parameter.ini |tee log
-    # (|tee pipes the screen output also into the file `log`)
-    ```
-*   You can also restart a simulation by using one of the restart files (`*_State_*.dat`).
-    Before the restart, resolution parameters in the `.ini` file can be changed, so that the new iterations will be on a finer grid, for example, or with more modes. The restart is triggered by simply adding the restart filename as an argument to the execution command, for example:
-    ```bash
-    ../../build/bin/gvec parameter.ini ELLIPSTELL_State_0000_00000200.dat |tee log
-    ```
-    Then the first integer (`_0000_`) will be incremented for the newly written restart files.
-
-#### Run GVEC with OpenMP
-
-If you run gvec with the OpenMP parallelization, be sure to set the desired number of threads as an environment variable:
-   ```bash
-   #replace ??? by the number of threads you want to use
-   export OMP_NUM_THREADS=???
-   ```
-
-### Running tests
-
-After compilation, you can quickly run some tests via `ctest`, that then calls the `pytest` environment of GVEC (requires `python >3.10` to be installed!).
-
-Change to the build directory, and execute:
-```bash
-ctest -T test --output-on-failure -R
-```
-
-### Visualization
-
-Using the python interface, any statefile can be loaded and visualized using the `ipython` notebook [`visu.ipynb`](<path:../../python/examples/visu.ipynb>) (view [online {fab}`square-gitlab`](https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/blob/develop/python/examples/visu.ipynb)).
-
-For line plots, csv datafiles are generated.
-
-For 3D visualization data, it is possible to write `*visu*.vtu` files, that can be visualized in [paraview](https://www.paraview.org). There is an option to write visualization data in netcdf, `*visu*.nc`, which can be read for example in python.

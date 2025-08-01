@@ -47,6 +47,28 @@ Use of modern object-oriented Fortran
 The magnetic field of a two-fieldperiod QI-stellarator configuration (configuration taken from [[HPM25]](https://doi.org/10.1088/1361-6587/adba11)).
 ```
 
+
+```{grid} 2
+:gutter: 2
+:class-container: gallery-directive
+
+:::{grid-item-card} User guide
+    :link: user/index
+    :link-type: doc
+:::
+:::{grid-item-card} Installation
+    :link: user/install
+    :link-type: doc
+:::
+
+:::{grid-item-card} Developer guide
+    :link: dev/index
+    :link-type: doc
+:::
+
+```
+
+
 ## User Guide
 
 ```{toctree}
