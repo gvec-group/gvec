@@ -143,6 +143,9 @@ mathjax3_config = {
     },
 }
 
+# options for myst_nb notebook parser
+nb_merge_streams = True
+
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
