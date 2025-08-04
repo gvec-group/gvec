@@ -11,6 +11,7 @@
 # add these directories to sys.path here.
 
 import sys
+import zipfile
 import subprocess
 import logging
 import os
@@ -74,6 +75,16 @@ else:
     with open(genpath / "quantities.md", "w") as f:
         f.write(gvec.table_of_quantities(markdown=False))
     print("generated quantities.md")
+
+# generate a zip of the notebooks, and save it in static
+files = [f for f in os.listdir("tutorials/notebooks") if f.endswith(".ipynb")]
+# add ellipstell folder manually
+[files.append(f"ellipstell/{file}") for file in os.listdir("tutorials/notebooks/ellipstell")]
+
+with zipfile.ZipFile("static/gvec_tutorials.zip", "w") as zip_file:
+    for filename in files:
+        zip_file.write(f"tutorials/notebooks/{filename}", f"gvec_tutorials/{filename}")
+
 
 # -- General configuration ---------------------------------------------------
 
@@ -168,7 +179,11 @@ html_theme_options = {
     # "header_links_before_dropdown": ?,
     "secondary_sidebar_items": {
         "**/*": ["page-toc", "sourcelink"],
-        "tutorials/gvec_tutorial_*": ["page-toc", "sourcelink", "download-notebook"],
+        "tutorials/notebooks/[0-9][0-9][0-9]_*": [
+            "page-toc",
+            "sourcelink",
+            "download-notebook",
+        ],
     },
     "external_links": [
         {

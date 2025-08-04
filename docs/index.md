@@ -58,7 +58,7 @@ The magnetic field of a two-fieldperiod QI-stellarator configuration (configurat
 :img-top: static/fa-wrench-solid-full.svg
 :::
 :::{grid-item-card} Getting Started
-:link: user/getting-started
+:link: tutorials/getting-started
 :link-type: doc
 :class-card: intro-card
 :img-top: static/fa-person-running-solid-full.svg

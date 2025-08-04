@@ -1,15 +1,5 @@
 # Getting Started
 
-## Installation
-
-In the best case, GVEC can be installed with its python bindings using:
-```bash
-pip install gvec
-```
-For system requirements and more information see the [installation](/user/install) page.
-
-To confirm GVEC is installed and working, call `pygvec --version` in the terminal, or `import gvec` in a python session.
-
 ### Virtual Environments
 
 We strongly recommend you to use python's virtual environments to manage your python packages.
@@ -28,6 +18,17 @@ One way of creating and virtual environments using `venv` is given below:
    ```
    This will now cause `python` and `pip` to use this environment, as well as make any executables in that environment available in your `PATH`.
 
+## Installation
+
+In the best case, GVEC can be installed with its python bindings using:
+```bash
+pip install gvec
+```
+For system requirements and more information see the [installation](/user/install) page.
+
+To confirm GVEC is installed and working, call `pygvec --version` in the terminal, or `import gvec` in a python session.
+
+
 ### Jupyter notebooks
 
 The GVEC tutorials are mostly organized in *Jupyter notebooks* (also called *ipython notebooks*).
@@ -35,7 +36,7 @@ You can however also follow along with a normal python script.
 
 To use the notebooks you need to have the following packages installed:
 ```bash
-pip install jupyter ipykernel ipympl ipywidgets
+pip install jupyter ipykernel ipympl ipywidgets matplotlib
 ```
 
 We recommend two options for running Jupyter notebooks:
@@ -50,5 +51,14 @@ We recommend two options for running Jupyter notebooks:
    jupyter notebook &
    ```
 
-When you open a notebook, you should be prompted which kernel to use.
+When you **open a notebook**, you should be prompted which kernel to use.
 Select the environment where you installed `gvec`, e.g. `.venv`.
+
+## On the tutorials
+
+Each subsection is a Jupyter notebook, displayed after its execution.
+You can follow the link in the right sidebar to download or browse the source code.
+
+We recommend going through the notebooks in the order of this section.
+
+You can also simply [download all notebooks](</static/gvec_tutorials.zip>) as a zip file.
