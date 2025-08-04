@@ -97,12 +97,21 @@ or on viper with the latest gfortran compiler, use
 
 Install the following packages using `apt`:
 
-- `cmake` and `cmake-curses-gui`
-- `gcc`,`g++` and `gfortran`
+- `git`
+- `make` and`cmake` (optionally `cmake-curses-gui`)
+- `g++` and `gfortran`
+- `pkg-config`
 - `liblapack3` and `liblapack-dev`
 - `zlib1g-dev`
 - `libnetcdf-dev` and `libnetcdff-dev`
-- `python3.10` (or newer)
+- `python3`, `python3-pip`, `python3-dev` and `python3-venv` (3.10 or newer)
+
+Full command:
+```bash
+apt-get install git make cmake g++ gfortran pkg-config liblapack3 liblapack-dev zlib1g-dev libnetcdf-dev libnetcdff-dev python3 python3-pip python3-dev python3-venv
+```
+
+Tested on Ubuntu 22.04.
 
 :::::
 :::::{tab-item} MacOS
