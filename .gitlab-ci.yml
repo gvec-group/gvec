@@ -605,6 +605,7 @@ include:
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
 
+
   # GNU
 
   - local: CI_templates/run.yml
@@ -634,6 +635,17 @@ include:
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
+
+  # run notebooks from documentation
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_py
+      rules: .rules_minimal
+      build-postfix: _py
+      run-postfix: _notebooks
+      script-postfix: _notebooks
+      allow_failure: true
 
   # Nvidia
 
