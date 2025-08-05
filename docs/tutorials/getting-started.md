@@ -56,8 +56,9 @@ pip install jupyter ipykernel ipympl ipywidgets matplotlib
 ```
 
 We recommend two options for running Jupyter notebooks:
-1. Visual Studio Code with the `jupyter` extension installed
-2. the *jupyter notebook* browser interface
+1. Visual Studio Code with the `jupyter` extension
+2. The jupyter notebook browser interface
+
    Here need to make the virtual environment visible (`.venv` must the activated!) with
    ```
    python3 -m ipykernel install --user --name .venv
