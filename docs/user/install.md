@@ -97,12 +97,21 @@ or on viper with the latest gfortran compiler, use
 
 Install the following packages using `apt`:
 
-- `cmake` and `cmake-curses-gui`
-- `gcc`,`g++` and `gfortran`
+- `git`
+- `make` and`cmake` (optionally `cmake-curses-gui`)
+- `g++` and `gfortran`
+- `pkg-config`
 - `liblapack3` and `liblapack-dev`
 - `zlib1g-dev`
 - `libnetcdf-dev` and `libnetcdff-dev`
-- `python3.10` (or newer)
+- `python3`, `python3-pip`, `python3-dev` and `python3-venv` (3.10 or newer)
+
+Full command:
+```bash
+apt-get install git make cmake g++ gfortran pkg-config liblapack3 liblapack-dev zlib1g-dev libnetcdf-dev libnetcdff-dev python3 python3-pip python3-dev python3-venv
+```
+
+Tested on Ubuntu 22.04.
 
 :::::
 :::::{tab-item} MacOS
@@ -168,7 +177,7 @@ pip install git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -I/usr/lib64/gfortran/modules")
   ```
 
-## Getting GVEC with `git` & `CMake`
+## Getting GVEC with `git`
 
 1.  Clone the repository to a local directory:
     ::::{tab-set}
@@ -214,148 +223,3 @@ Then you can install the gvec python package manually with
 ```bash
 pip install .[dev,examples] -v
 ```
-
-## Install Fortran executable of GVEC with `cmake`
-
-```{warning}
-This will only install the Fortran executables of GVEC, which are mostly used for testing. The python bindings are not installed with this option.
-```
-
-The standard way of compiling GVEC is using cmake presets, but there is also an interactive way with ccmake.
-
-:::::{note}
-Before executing cmake, be sure that you have all libraries (netcdf must be compiled in serial). It might also be necessary to export an environment variable `FC` to point to the compiler.
-
-::::{tab-set}
-:sync-group: compiler
-
-
-:::{tab-item} GNU
-:sync: gnu
-
-```bash
-export FC=`which gfortran`
-```
-:::
-
-:::{tab-item} Intel ifx
-:sync: intel
-
-```bash
-export FC=`which ifx`
-```
-
-:::
-:::{tab-item} Intel ifort
-:sync: intel
-
-```bash
-export FC=`which ifort`
-```
-
-:::
-::::
-:::::
-
-::::::{tab-set}
-:::::{tab-item} CMake Presets
-<!-- ### Configure and build with cmake presets -->
-
-With Cmake version > 3.22, the CMakePresets feature can be used to configure and then build the code.
-
-1.  Start from the GVEC directory with
-    ```bash
-    cmake --list-presets
-    ```
-    to show a list of presets (defined `CMakePresets.json` and `CMakeUserPresets.json`).
-1.  Select a preset and specify the `build` directory (the build directory can have any name).
-
-    ::::{tab-set}
-    :sync-group: os
-
-    :::{tab-item} Linux
-    :sync: linux
-
-    ```bash
-    cmake --preset gvec_config_release -B build
-    ```
-
-    :::
-    :::{tab-item} MacOS
-    :sync: mac
-
-    ```bash
-    cmake --preset gvec_config_release_mac_brew -B build
-    ```
-
-    :::
-    ::::
-
-1.  Then compile with  (`-j` compiles in parallel)
-    ```bash
-    cmake --build build -j
-    ```
-
-Further, the user can also create own presets by creating his own preset file `CMakeUserPresets.json` in the GVEC directory. Be careful to only add new entries with new names, as they must be different from those in `CMakePresets.json`. For example compiling on a mac in debug mode:
-```json
-{
-  "version": 3,
-  "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 22,
-    "patch": 0
-    },
-  "configurePresets": [
-      {
-          "name": "gvec_config_debug_mac",
-          "displayName": "GVEC configure: default debug build on a MAC",
-          "hidden": false,
-          "cacheVariables": {
-              "CMAKE_BUILD_TYPE": "Debug",
-              "COMPILE_GVEC": "On",
-              "CMAKE_HOSTNAME": "mac_brew",
-              "LINK_GVEC_TO_NETCDF": "On",
-              "USE_OPENMP": "On",
-              "COMPILE_GVEC_AS_STATIC_LIB": "On"
-          }
-      }
-  ]
-}
-```
-The user presets then appear also on the list of presets.
-
-:::{note}
-The preset files allow building the code in **VScode** with "CMake" and "CMake Tools" extensions.
-:::
-
-:::::
-:::::{tab-item} CCMake Interactive
-<!-- ### Configure and build interactively -->
-
-To compile GVEC interactively (needs `ccmake` command):
-
-1.  create a new subdirectory that can have any name, e.g. `build`
-    ```bash
-    mkdir build ; cd build
-    ```
-1.  Inside that directory execute
-    ```bash
-    ccmake ../
-    ```
-    `ccmake` gives you a visual setup on the terminal.
-    *  Press "enter" to change options, and press "enter" again to fix the change
-    *  Press "c" to configure and "g" to create the Makefiles.
-    *  If `BUILD_NETCDF=ON` and no preinstalled libraries for netcdf are found, an error occurs...
-    * On a Mac, be sure to activate `COMPILE_GVEC_AS_STATIC_LIB=ON` (in ccmake, toggle to view all variables by typing `t`)
-    *  In the main `CMakeList.txt` file, some pre-defined setups (library paths) for different architectures are controlled
-       by setting the  `CMAKE_HOSTNAME` to `cobra`/`raven`/`mac_brew`/`mac_ports`/`tokp`/.. .
-1.  Finally, compile GVEC in the build directory by typing (`-j` compiles in parallel)
-    ```bash
-    make -j
-    ```
-
-:::::
-::::::
-
-Now GVEC should be installed!
-You should find the `gvec` and `gvec_post` binaries in `build/bin/` and can continue with [](getting-started).

@@ -149,6 +149,7 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      rules: .rules_minimal
 
   # Nvidia
   - local: CI_templates/env.yml
@@ -368,6 +369,7 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      rules: .rules_minimal
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
@@ -605,6 +607,17 @@ include:
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
 
+  # run notebooks from documentation
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_py
+      rules: .rules_minimal
+      build-postfix: _py
+      run-postfix: _notebooks
+      script-postfix: _notebooks
+      allow_failure: true
+
   # GNU
 
   - local: CI_templates/run.yml
@@ -634,6 +647,17 @@ include:
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
+
+  # run notebooks from documentation
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_py
+      rules: .rules_minimal
+      build-postfix: _py
+      run-postfix: _notebooks
+      script-postfix: _notebooks
+      allow_failure: true
 
   # Nvidia
 
@@ -1000,6 +1024,7 @@ include:
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
 
   - local: CI_templates/postprocessing.yml
     inputs:

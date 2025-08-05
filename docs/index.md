@@ -47,29 +47,35 @@ Use of modern object-oriented Fortran
 The magnetic field of a two-fieldperiod QI-stellarator configuration (configuration taken from [[HPM25]](https://doi.org/10.1088/1361-6587/adba11)).
 ```
 
-## User Guide
+```{grid} 2 2 2 4
+:gutter: 2
+:class-container: gallery-directive
 
-```{toctree}
-:maxdepth: 2
-:titlesonly:
-
-user/index
+:::{grid-item-card} Installation
+:link: user/install
+:link-type: doc
+:class-card: intro-card
+:img-top: static/fa-wrench-solid-full.svg
+:::
+:::{grid-item-card} Getting Started
+:link: tutorials/getting-started
+:link-type: doc
+:class-card: intro-card
+:img-top: static/fa-person-running-solid-full.svg
+:::
+:::{grid-item-card} User Guide
+:link: user/index
+:link-type: doc
+:class-card: intro-card
+:img-top: static/fa-book-open-solid-full.svg
+:::
+:::{grid-item-card} Developer Guide
+:link: dev/index
+:link-type: doc
+:class-card: intro-card
+:img-top: static/fa-terminal-solid-full.svg
+:::
 ```
-
-## Developer Guide
-
-```{toctree}
-:maxdepth: 2
-:titlesonly:
-
-dev/index
-```
-
-## Fortran API
-
-Automatic Fortran code documentation generated with [ford](https://forddocs.readthedocs.io).
-
-[Fortran Code Documentation](ford/index.html){.external}
 
 ## Contact
 
@@ -78,3 +84,12 @@ led by Prof. Eric Sonnendruecker at the Max Planck Institute for Plasma Physics
 in Garching, Germany.
 
 The list of contributors is found in <project:dev/CONTRIBUTORS.md>.
+
+
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+User Guide <user/index>
+Developer Guide <dev/index>
+```

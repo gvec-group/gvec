@@ -15,10 +15,6 @@ CMakeCache.txt
 CMakeUserPresets.json
 .DS_Store
 
-# sphinx / ford docs
-docs/build
-docs/extra/ford
-
 # exclude all pytest run/conv files
 test-CI/run*
 test-CI/CIrun*

@@ -1,5 +1,9 @@
 # Stages
 
+```{seealso}
+The tutorial notebooks on [](/tutorials/notebooks/030_stages) and [](/tutorials/notebooks/040_current).
+```
+
 The python bindings for GVEC provide a simple wrapper to run GVEC:
 ```bash
 pygvec run parameter.ini
@@ -24,7 +28,7 @@ Note that `{ProjectName}` is the project name set in the parameter file.
 
 When running GVEC with stages, one abort criterion is again the number of iterations. The limit on the total iterations over all stages and restarts is set through the parameter `totalIter`. Note that `totalIter` is different from the usual `maxIter`. When using `stages`, `maxIter` limits the maximum number of iterations per restart. Therefore, `maxIter` can be changed during each stage, however, `totalIter` will be kept fixed to its initial value.
 
-### Increasing resolution
+## Increasing resolution
 
 To demonstrate one intended use of `stages`, we will increase the radial resolution while simultaneously decreasing `minimize_tol` (i.e. improving the equilibrium solution) with a fixed `iota` profile. Note that the stages are independent of one another, except for `iota`. That is, if a parameter is not set within a stage, that parameter will fall back to its value specified outside. For example, in the parameter files below the global value for `minimize_tol` is $10^{-7}$, but we specify it during each stage, thus it is replaced during each stage.
 The example below showcases how the corresponding input files would look like when using `.toml` or `.yaml`:
