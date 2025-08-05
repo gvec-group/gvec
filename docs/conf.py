@@ -77,9 +77,7 @@ else:
     print("generated quantities.md")
 
 # generate a zip of the notebooks, and save it in static
-files = [f for f in os.listdir("tutorials/notebooks") if f.endswith(".ipynb")]
-# add ellipstell folder manually
-[files.append(f"ellipstell/{file}") for file in os.listdir("tutorials/notebooks/ellipstell")]
+files = [f.name for f in Path("tutorials/notebooks").iterdir() if f.suffix == ".ipynb"]
 
 with zipfile.ZipFile("static/gvec_tutorials.zip", "w") as zip_file:
     for filename in files:
@@ -181,7 +179,7 @@ html_theme_options = {
     # "navbar_end": ["theme-switcher", "navbar-icon-links"],
     # "header_links_before_dropdown": ?,
     "secondary_sidebar_items": {
-        "**/*": ["page-toc", "sourcelink"],
+        "**": ["page-toc", "sourcelink"],
         "tutorials/notebooks/[0-9][0-9][0-9]_*": [
             "page-toc",
             "sourcelink",
