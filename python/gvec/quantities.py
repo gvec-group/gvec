@@ -1136,6 +1136,86 @@ def II_zz_B(ds: xr.Dataset):
     ds["II_zz_B"] = xr.dot(ds.normal, ds.k_zz_B, dim="xyz")
 
 
+@register(
+    requirements=(
+        "iota",
+        "diota_dr",
+        "dLA_dr",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dr",
+        "dNU_B_dz",
+        "dNU_B_dt",
+        "e_rho",
+        "e_theta",
+        "e_zeta",
+    ),
+    attrs=dict(
+        long_name="radial tangent basis vector in Boozer coordinates",
+        symbol=r"\mathbf{e}_{\rho_B}",
+    ),
+)
+def e_rho_B(ds: xr.Dataset):
+    dtB_dr = ds.dLA_dr + ds.diota_dr * ds.NU_B + ds.iota * ds.dNU_B_dr
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dr = ds.dNU_B_dr
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    ds["e_rho_B"] = ds.e_rho + Jac_B_Jac * (
+        (dtB_dz * dzB_dr - dtB_dr * dzB_dz) * ds.e_theta
+        + (dtB_dr * dzB_dt - dtB_dt * dzB_dr) * ds.e_zeta
+    )
+
+
+@register(
+    requirements=(
+        "iota",
+        "diota_dr",
+        "dLA_dr",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dr",
+        "dNU_B_dz",
+        "dNU_B_dt",
+        "grad_rho",
+        "grad_theta",
+        "grad_zeta",
+    ),
+    attrs=dict(
+        long_name="poloidal reciprocal basis vector in Boozer coordinates",
+        symbol=r"\nabla\theta_B",
+    ),
+)
+def grad_theta_B(ds: xr.Dataset):
+    dtB_dr = ds.dLA_dr + ds.diota_dr * ds.NU_B + ds.iota * ds.dNU_B_dr
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    ds["grad_theta_B"] = dtB_dr * ds.grad_rho + dtB_dt * ds.grad_theta + dtB_dz * ds.grad_zeta
+
+
+@register(
+    requirements=(
+        "dNU_B_dr",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "grad_rho",
+        "grad_theta",
+        "grad_zeta",
+    ),
+    attrs=dict(
+        long_name="toroidal reciprocal basis vector in Boozer coordinates",
+        symbol=r"\nabla\zeta_B",
+    ),
+)
+def grad_zeta_B(ds: xr.Dataset):
+    dzB_dr = ds.dNU_B_dr
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    ds["grad_zeta_B"] = dzB_dr * ds.grad_rho + dzB_dt * ds.grad_theta + dzB_dz * ds.grad_zeta
+
+
 # === integrals ======================================================================== #
 
 
