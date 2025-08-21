@@ -296,6 +296,31 @@
         - pytest.xml
 
 # =================================================================================================================================
+# TEMPLATES FOR running notebooks in docs/tutorials/notebooks
+# =================================================================================================================================
+.script_run_notebooks:
+  script:
+    - start_details pre "Preparation"
+    - echo "Buildname:" ${BUILDNAME}
+    - source venv_${BUILDNAME}/bin/activate
+    - module list || echo "No modules available"
+    - pip install jupyter ipykernel ipympl ipywidgets matplotlib nbconvert
+    - pip list
+    - end_details pre
+    - start_details run "nbconvert"
+    - cp -r docs/tutorials/notebooks  ${CI_PIPELINE_ID}_${BUILDNAME}_notebooks
+    - cd ${CI_PIPELINE_ID}_${BUILDNAME}_notebooks
+    - jupyter nbconvert --execute --to html --no-input *.ipynb
+    - end_details run
+  artifacts:
+    name: "${CI_PIPELINE_ID}_${BUILDNAME}_notebooks"
+    paths:
+      - ${CI_PIPELINE_ID}_${BUILDNAME}_notebooks
+    expire_in: 3 days
+    when: always
+
+
+# =================================================================================================================================
 # TEMPLATES FOR STAGE "regression"
 # =================================================================================================================================
 

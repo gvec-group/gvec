@@ -11,6 +11,7 @@
 # add these directories to sys.path here.
 
 import sys
+import zipfile
 import subprocess
 import logging
 import os
@@ -75,19 +76,29 @@ else:
         f.write(gvec.table_of_quantities(markdown=False))
     print("generated quantities.md")
 
+# generate a zip of the notebooks, and save it in static
+files = [f.name for f in Path("tutorials/notebooks").iterdir() if f.suffix == ".ipynb"]
+
+with zipfile.ZipFile("static/gvec_tutorials.zip", "w") as zip_file:
+    for filename in files:
+        zip_file.write(f"tutorials/notebooks/{filename}", f"gvec_tutorials/{filename}")
+
+
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "myst_parser",  # "a rich and extensible flavour of Markdown for authoring technical and scientific documentation."
+    # "myst_parser",  # "a rich and extensible flavour of Markdown for authoring technical and scientific documentation.", activated by myst_nb
+    "myst_nb",  # Jupyter Notebooks as Sphinx documents
     "sphinx_design",  # proveides Grids, Cards, Dropdowns & more
     "sphinx.ext.napoleon",  # preprocessor for NumPy and Google style docstrings
     "sphinx.ext.autodoc",  # automatically generated API documentation from docstrings
     "sphinxcontrib.bibtex",  # bibtex citation with :cite:`refname`
     "sphinx_math_dollar",
     "sphinx.ext.mathjax",  # mathjax
+    "sphinx.ext.intersphinx",  # link to other sphinx documentation
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -130,11 +141,18 @@ mathjax3_config = {
     },
 }
 
+# options for myst_nb notebook parser
+nb_merge_streams = True
+
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators"]
+exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators", "_downloads", "build"]
+
+intersphinx_mapping = {
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
+}
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -143,6 +161,7 @@ exclude_patterns = ["ford/ford.md", "ford/static/index.md", "generators"]
 #
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {
+    "logo": {"text": "GVEC"},  # image defined as 'html_logo'
     # "sidebarwidth": 270,
     "show_toc_level": 2,  # number of levels always visible in the (right) toc
     # "show_nav_level": ?,
@@ -159,10 +178,18 @@ html_theme_options = {
     # "navbar_persistent": ["search-button"],
     # "navbar_end": ["theme-switcher", "navbar-icon-links"],
     # "header_links_before_dropdown": ?,
+    "secondary_sidebar_items": {
+        "**": ["page-toc", "sourcelink"],
+        "tutorials/notebooks/[0-9][0-9][0-9]_*": [
+            "page-toc",
+            "sourcelink",
+            "download-notebook",
+        ],
+    },
     "external_links": [
         {
             # external section of the documentation, built with FORD
-            "name": "Fortran Code Documentation",
+            "name": "Fortran API",
             "url": f"{os.environ.get('READTHEDOCS_CANONICAL_URL', '/')}ford/index.html",
         },
     ],
@@ -202,7 +229,10 @@ if os.environ.get("READTHEDOCS_VERSION"):
     }
 
 html_title = "GVEC"
+html_logo = "static/brezellator3D_shiny_logo_bw.png"
+html_favicon = "static/brezellator3D_shiny_logo_bw.png"
 html_last_updated_fmt = "%Y-%m-%d"
+html_sourcelink_suffix = ""
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
