@@ -406,6 +406,17 @@ def signed_cross_sectional_area(
     return np.sum(dA)
 
 
+def effective_minor_radius(
+    parameters: Mapping,
+    resolution: tuple[int, int] = (1000, 100),
+):
+    nfp = parameters.get("nfp", 1)
+    areas = np.zeros(resolution[1])
+    for z, zeta in enumerate(np.linspace(0, 2 * np.pi / nfp, resolution[1], endpoint=False)):
+        areas[z] = abs(signed_cross_sectional_area(parameters, zeta, resolution=resolution[0]))
+    return np.sqrt(np.mean(areas) / np.pi)
+
+
 def flip_boundary_theta(parameters: MutableMapping) -> MutableMapping:
     """Flip the boundary parameters in the poloidal direction. θ → -θ."""
     output_params = copy.deepcopy(parameters)
