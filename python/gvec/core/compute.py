@@ -180,7 +180,14 @@ def compute(
         if quantity in ev:
             continue  # already computed
         if quantity not in registry:
-            raise KeyError(f"The quantity `{quantity}` is not registered.")
+            from difflib import SequenceMatcher
+
+            candidate = max(
+                registry.keys(), key=lambda q: SequenceMatcher(None, q, quantity).ratio()
+            )
+            raise KeyError(
+                f"The quantity `{quantity}` is not registered. Maybe you meant `{candidate}`?"
+            )
         func = registry[quantity]
         # --- handle special cases --- #
         # if dLA_dr is requested (and not already present), but LA is already present - this is currently only possible with the boozer transform
