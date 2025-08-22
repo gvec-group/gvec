@@ -1163,10 +1163,10 @@ def e_rho_B(ds: xr.Dataset):
     dzB_dt = ds.dNU_B_dt
     dzB_dz = 1 + ds.dNU_B_dz
     Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
-    ds["e_rho_B"] = ds.e_rho + Jac_B_Jac * (
-        (dtB_dz * dzB_dr - dtB_dr * dzB_dz) * ds.e_theta
-        + (dtB_dr * dzB_dt - dtB_dt * dzB_dr) * ds.e_zeta
-    )
+    # dr_drB = 1
+    dt_drB = Jac_B_Jac * (dtB_dz * dzB_dr - dzB_dz * dtB_dr)
+    dz_drB = Jac_B_Jac * (dzB_dt * dtB_dr - dtB_dt * dzB_dr)
+    ds["e_rho_B"] = ds.e_rho + dt_drB * ds.e_theta + dz_drB * ds.e_zeta
 
 
 @register(
@@ -1214,6 +1214,90 @@ def grad_zeta_B(ds: xr.Dataset):
     dzB_dt = ds.dNU_B_dt
     dzB_dz = 1 + ds.dNU_B_dz
     ds["grad_zeta_B"] = dzB_dr * ds.grad_rho + dzB_dt * ds.grad_theta + dzB_dz * ds.grad_zeta
+
+
+@register(
+    requirements=(
+        "iota",
+        "diota_dr",
+        "dLA_dr",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dr",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "dmod_B_dr",
+        "dmod_B_dt",
+        "dmod_B_dz",
+    ),
+    attrs=dict(
+        long_name="radial Boozer derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \rho_B}",
+    ),
+)
+def dmod_B_dr_B(ds: xr.Dataset):
+    dtB_dr = ds.dLA_dr + ds.diota_dr * ds.NU_B + ds.iota * ds.dNU_B_dr
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dr = ds.dNU_B_dr
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    dt_drB = Jac_B_Jac * (dtB_dz * dzB_dr - dzB_dz * dtB_dr)
+    dz_drB = Jac_B_Jac * (dzB_dt * dtB_dr - dtB_dt * dzB_dr)
+    ds["dmod_B_dr_B"] = ds.dmod_B_dr + dt_drB * ds.dmod_B_dt + dz_drB * ds.dmod_B_dz
+
+
+@register(
+    requirements=(
+        "iota",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "dmod_B_dt",
+        "dmod_B_dz",
+    ),
+    attrs=dict(
+        long_name="poloidal Boozer derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \theta_B}",
+    ),
+)
+def dmod_B_dt_B(ds: xr.Dataset):
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    dt_dtB = Jac_B_Jac * dzB_dz
+    dz_dtB = -Jac_B_Jac * dzB_dt
+    ds["dmod_B_dt_B"] = dt_dtB * ds.dmod_B_dt + dz_dtB * ds.dmod_B_dz
+
+
+@register(
+    requirements=(
+        "iota",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "dmod_B_dt",
+        "dmod_B_dz",
+    ),
+    attrs=dict(
+        long_name="toroidal Boozer derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \zeta_B}",
+    ),
+)
+def dmod_B_dz_B(ds: xr.Dataset):
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    dt_dzB = -Jac_B_Jac * dtB_dz
+    dz_dzB = Jac_B_Jac * dtB_dt
+    ds["dmod_B_dz_B"] = dt_dzB * ds.dmod_B_dt + dz_dzB * ds.dmod_B_dz
 
 
 # === integrals ======================================================================== #
