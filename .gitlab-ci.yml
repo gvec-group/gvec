@@ -149,6 +149,7 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      rules: .rules_minimal
 
   # Nvidia
   - local: CI_templates/env.yml
@@ -179,6 +180,14 @@ include:
   - local: CI_templates/env.yml
     inputs:
       env: .ubuntu-22
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .ubuntu-24
+
+  - local: CI_templates/env.yml
+    inputs:
+      env: .fedora
 
   # Raven private runner
   # ---------------
@@ -360,6 +369,7 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .mpcdfci_gfortran-latest
+      rules: .rules_minimal
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
@@ -418,6 +428,20 @@ include:
   - local: CI_templates/build.yml
     inputs:
       env: .ubuntu-22
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .ubuntu-24
+      vars: .vars_matrix_py
+      script-postfix: _py
+      build-postfix: _py
+
+  - local: CI_templates/build.yml
+    inputs:
+      env: .fedora
       vars: .vars_matrix_py
       script-postfix: _py
       build-postfix: _py
@@ -583,6 +607,17 @@ include:
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
 
+  # run notebooks from documentation
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_ifx-latest
+      vars: .vars_matrix_py
+      rules: .rules_minimal
+      build-postfix: _py
+      run-postfix: _notebooks
+      script-postfix: _notebooks
+      allow_failure: true
+
   # GNU
 
   - local: CI_templates/run.yml
@@ -612,6 +647,17 @@ include:
       vars: .vars_matrix_run_hmap_axisNB
       build-postfix: _hmap_axisNB
       run-postfix: _hmap_axisNB
+
+  # run notebooks from documentation
+  - local: CI_templates/run.yml
+    inputs:
+      env: .mpcdfci_gfortran-latest
+      vars: .vars_matrix_py
+      rules: .rules_minimal
+      build-postfix: _py
+      run-postfix: _notebooks
+      script-postfix: _notebooks
+      allow_failure: true
 
   # Nvidia
 
@@ -877,6 +923,14 @@ include:
     inputs:
       env: .ubuntu-22
 
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .ubuntu-24
+
+  - local: CI_templates/unit.yml
+    inputs:
+      env: .fedora
+
   # ============================
   # stage regression jobs
   # ============================
@@ -970,6 +1024,7 @@ include:
   - local: CI_templates/postprocessing.yml
     inputs:
       env: .mpcdfci_ifx-latest
+      rules: .rules_minimal
 
   - local: CI_templates/postprocessing.yml
     inputs:
@@ -1275,6 +1330,8 @@ include:
 # template for all mpcdfci jobs
 .mpcdfci:
   tags:
+    - cloud
+    - docker
     - shared
   variables:
     CMAKE_HOSTNAME: "mpcdfcirunner"
@@ -1303,8 +1360,6 @@ include:
   extends:
     - .mpcdfci
     - .vars_mpiOFF
-  tags:
-    - shared
   variables:
     CURR_CMP: "ifx-2025"
     SETUP_SCRIPT: "ifx"
@@ -1323,8 +1378,6 @@ include:
   extends:
     - .mpcdfci
     - .vars_mpiON
-  tags:
-    - shared
   variables:
     CURR_CMP: "ifort-impi-2023"
     SETUP_SCRIPT: "ifort-impi"
@@ -1535,6 +1588,8 @@ include:
 
 .ubuntu-22:
   tags:
+    - cloud
+    - docker
     - shared
   image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-22:latest
   extends:
@@ -1543,6 +1598,37 @@ include:
     CMAKE_HOSTNAME: "none"
     CI_HOSTNAME: "ubuntu-22"
     CURR_CMP: "gfortran-11"
+    #PYTHON_VERSION: "3.10"
+    SETUP_SCRIPT: "none"
+
+.ubuntu-24:
+  tags:
+    - cloud
+    - docker
+    - shared
+  image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/ubuntu-24:latest
+  extends:
+    - .vars_mpiOFF
+  variables:
+    CMAKE_HOSTNAME: "none"
+    CI_HOSTNAME: "ubuntu-24"
+    CURR_CMP: "gfortran-13"
+    #PYTHON_VERSION: "3.12"
+    SETUP_SCRIPT: "none"
+
+.fedora:
+  tags:
+    - cloud
+    - docker
+    - shared
+  image: gitlab-registry.mpcdf.mpg.de/gvec-group/gvec/fedora:latest
+  extends:
+    - .vars_mpiOFF
+  variables:
+    CMAKE_HOSTNAME: "none"
+    CI_HOSTNAME: "fedora"
+    CURR_CMP: "gfortran-15"
+    #PYTHON_VERSION: "3.13"
     SETUP_SCRIPT: "none"
 
 

@@ -153,7 +153,7 @@ USE MODgvec_output_vtk,     ONLY: WriteDataToVTK
 USE MODgvec_output_netcdf,  ONLY: WriteDataToNETCDF
 USE MODgvec_Output_CSV,     ONLY: WriteDataToCSV
 USE MODgvec_Output_vars,    ONLY: Projectname,OutputLevel
-USE MODgvec_Analyze_Vars,   ONLY: SFL_theta,outfileType
+USE MODgvec_Analyze_Vars,   ONLY: outfileType
 USE MODgvec_hmap,           ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -443,7 +443,7 @@ IMPLICIT NONE
 #endif
 !$OMP           Bcart, Bthet, Bzeta, grad_rho, grad_thet, grad_zeta) &
 !$OMP   REDUCTION(+:Itor_int,Ipol_int) &
-!$OMP   SHARED(np_in,i_s,iElem,thet,zeta,SFL_theta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
+!$OMP   SHARED(np_in,i_s,iElem,thet,zeta,X1_base,X2_base,LA_base,X1_s,X2_s,LA_s,dX1ds,dX2ds,&
 !$OMP          VP_LAMBDA,VP_SQRTG,VP_B,VP_F_X1,VP_F_X2,VP_F_LA, VP_Ipol,VP_Itor,VP_X1,VP_X2,&
 !$OMP          VP_theta,VP_zeta,VP_g_tt,VP_g_tz,VP_g_zz,VP_gr_s,VP_gr_t,VP_gr_z,iota_s, &
 #ifdef VISU_J_FD
@@ -457,12 +457,7 @@ IMPLICIT NONE
         DO i_n=1,mn_IP(2)
           DO j_s=1,n_s
             xIP(2)  = zeta(i_n)
-            IF(SFL_theta)THEN
-              theta_star=thet(j_s,i_m)
-              CALL Get_SFL_theta(theta_star,xIP(2),LA_base,LA_s,xIP(1))
-            ELSE
-              xIP(1)= thet(j_s,i_m)
-            END IF
+            xIP(1)= thet(j_s,i_m)
             var_visu(VP_theta,i_s,j_s,i_n,i_m,iElem)=xIP(1) !theta for evaluation of X1,X2,LA
             var_visu(VP_zeta ,i_s,j_s,i_n,i_m,iElem)=xIP(2) !zeta  for evaluation of X1,X2,LA
 
@@ -942,50 +937,6 @@ END SUBROUTINE visu_3D
 
 
 !===================================================================================================================================
-!> Finds theta_out that satisfies nonlinear equation:
-!> theta_star=theta_out + lambda(theta_out,zeta)
-!!
-!===================================================================================================================================
-SUBROUTINE Get_SFL_theta(theta_star,zeta,LA_base_in,LA,theta_out)
-! MODULES
-USE MODgvec_Globals,ONLY: PI
-USE MODgvec_base   ,ONLY: t_base
-USE MODgvec_Newton ,ONLY: NewtonRoot1D_FdF
-  IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-  REAL(wp)     ,INTENT(IN ) :: theta_star                 !< theta* (=start value for Newton)
-  REAL(wp)     ,INTENT(IN ) :: zeta                       !< fixed zeta position
-  CLASS(t_Base),INTENT(IN ) :: LA_base_in                 !< basis for lambda
-  REAL(wp)     ,INTENT(IN ) :: LA(1:LA_base_in%f%modes)   !< modes of Lambda (for a fixed rhopos)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-  REAL(wp)     ,INTENT(OUT) :: theta_out                  !< theta_out =>
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
- !                                     a             b             maxstep  , xinit       , F0         ,func
- theta_out=NewtonRoot1D_FdF(1.0e-12_wp,theta_star-PI,theta_star+PI,0.1_wp*PI,theta_star   , theta_star,FRdFR)
-
-!for iteration on theta^*
-CONTAINS
-
-  FUNCTION FRdFR(theta_iter)
-    !uses current zeta where newton is called, and LA_s from subroutine above
-    IMPLICIT NONE
-    REAL(wp) :: theta_iter
-    REAL(wp) :: FRdFR(2) !output
-    !---------------------------------------------------
-    FRdFR(1)=theta_iter+LA_base_in%f%evalDOF_x((/theta_iter,zeta/),         0,LA(:))  !theta_iter+lambda
-    FRdFR(2)=1.0_wp    +LA_base_in%f%evalDOF_x((/theta_iter,zeta/),DERIV_THET,LA(:)) !1+dlambda/dtheta
-  END FUNCTION FRdFR
-
-END SUBROUTINE Get_SFL_theta
-
-
-
-
-!===================================================================================================================================
 !> convert solution Uin to straight-field line coordinates, and then write to visualization/netcdf file.
 !! evaluation at given SFLout_radialpos. Passed to a grid, then a deg=1 spline is used, which is interpolatory at the grid points.
 !!
@@ -1426,7 +1377,6 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
   REAL(wp) :: X1_v,X2_v,LA_visu
   REAL(wp) :: q(3),xU(3),xV(3),dist,xIP(2)
   REAL(wp),ALLOCATABLE :: theta1D(:),zeta1D(:)
-  LOGICAL  :: SFL_theta=.TRUE.
 !===================================================================================================================================
   IF(.NOT.MPIroot) CALL abort(__STAMP__, &
                         "checkDistance should only be called by MPIroot")
@@ -1453,7 +1403,7 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
 !$OMP   REDUCTION(+:avgDist) REDUCTION(max:maxDist) &
 !$OMP   PRIVATE(i_m,i_n,xIP,q,theta,zeta,theta0,X1_v,X2_v,LA_visu,xU,xV,dist, &
 !$OMP           UX1_s,UX2_s,ULA_s,VX1_s,VX2_s,VLA_s,rhopos,iElem,i_s) &
-!$OMP   SHARED(nElems,n_s,mn_IP,theta1D,zeta1D,SFL_theta,X1_base,X2_base,LA_base,hmap,U,V,sgrid)
+!$OMP   SHARED(nElems,n_s,mn_IP,theta1D,zeta1D,X1_base,X2_base,LA_base,hmap,U,V,sgrid)
   DO iElem=1,nElems
     DO i_s=1,n_s
       rhopos=MAX(1.0e-06,sgrid%sp(iElem-1)+(REAL(i_s-1,wp))/(REAL(n_s,wp))*sgrid%ds(iElem)) !includes axis but not edge
@@ -1470,12 +1420,8 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
             zeta  = zeta1D(i_n)
             theta0= theta1D(i_m)
             !for xU
-            IF(SFL_theta)THEN
-              CALL Get_SFL_theta(theta0,zeta,LA_base,ULA_s, theta)
-            ELSE
-              LA_visu = LA_base%f%evalDOF_x((/theta0,zeta/),0,ULA_s(:) )
-              theta = theta0 + LA_visu
-            END IF
+            LA_visu = LA_base%f%evalDOF_x((/theta0,zeta/),0,ULA_s(:) )
+            theta = theta0 + LA_visu
 
             xIP=(/theta,zeta/)
 
@@ -1487,12 +1433,8 @@ SUBROUTINE CheckDistance(U,V,maxDist,avgDist)
             xU(:)=hmap%eval(q)
 
             !for xV
-            IF(SFL_theta)THEN
-              CALL Get_SFL_theta(theta0,zeta,LA_base,VLA_s, theta)
-            ELSE
-              LA_visu = LA_base%f%evalDOF_x((/theta0,zeta/),0,VLA_s(:) )
-              theta = theta0 + LA_visu
-            END IF
+            LA_visu = LA_base%f%evalDOF_x((/theta0,zeta/),0,VLA_s(:) )
+            theta = theta0 + LA_visu
 
             xIP=(/theta,zeta/)
 

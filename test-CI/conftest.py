@@ -295,10 +295,9 @@ def artifact_pages_path(rundir) -> str:
     """path to the CI artifact pages"""
     env = os.environ
     try:
-        project_path = "/".join(
-            env["CI_PROJECT_PATH"].split("/")[1:]
-        )  # remove the root namespace of the project path
-        return f"{env['CI_SERVER_PROTOCOL']}://{env['CI_PROJECT_ROOT_NAMESPACE']}.{env['CI_PAGES_DOMAIN']}/-/{project_path}/-/jobs/{env['CI_JOB_ID']}/artifacts"
+        project_path = "/".join(env["CI_PROJECT_PATH"].split("/")[1:])
+        pages_path = "/".join(env["CI_PAGES_URL"].split("/")[:-1])
+        return f"{pages_path}/-/{project_path}/-/jobs/{env['CI_JOB_ID']}/artifacts"
     except KeyError:
         return rundir
 

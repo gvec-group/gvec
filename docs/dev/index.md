@@ -78,22 +78,23 @@ testing
 pipeline
 docs
 python
+fortran
 Contributors <CONTRIBUTORS>
 ```
 
 ```{toctree}
 :caption: API
-gvec.core.state <api/core-state>
-gvec.core.run <api/core-run>
-gvec.core.compute <api/core-compute>
-gvec.quantities <api/quantities>
-gvec.fourier <api/fourier>
-gvec.surface <api/surface>
-gvec.util <api/util>
-gvec.vtk <api/vtk>
-gvec.scripts.main <api/scripts-main>
-gvec.scripts.run <api/scripts-run>
-gvec.scripts.cas3d <api/scripts-cas3d>
-gvec.scripts.quasr <api/scripts-quasr>
-gvec.lib <api/lib>
+gvec.core.state </api/core-state>
+gvec.core.run </api/core-run>
+gvec.core.compute </api/core-compute>
+gvec.quantities </api/quantities>
+gvec.fourier </api/fourier>
+gvec.surface </api/surface>
+gvec.util </api/util>
+gvec.vtk </api/vtk>
+gvec.scripts.main </api/scripts-main>
+gvec.scripts.run </api/scripts-run>
+gvec.scripts.cas3d </api/scripts-cas3d>
+gvec.scripts.quasr </api/scripts-quasr>
+gvec.lib </api/lib>
 ```

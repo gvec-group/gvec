@@ -15,10 +15,6 @@ CMakeCache.txt
 CMakeUserPresets.json
 .DS_Store
 
-# sphinx / ford docs
-docs/build
-docs/extra/ford
-
 # exclude all pytest run/conv files
 test-CI/run*
 test-CI/CIrun*
@@ -35,9 +31,9 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+build
 post/
-pybuild/
+pybuild
 develop-eggs/
 dist/
 downloads/
@@ -55,6 +51,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 python/gvec/_version.py
+python/gvec/lib.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

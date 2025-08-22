@@ -85,10 +85,11 @@ def ev2vtk(
     # variables without the "xyz" dimension
     scalar_vars = [var for var in outvars if (position_vector not in xrds[var].dims)]
 
-    for var in scalar_vars:
-        if len(xrds[var].dims) == 3:
-            broadcast_like_var = var
-            break
+    broadcast_like_scalar_var = xr.DataArray(
+        np.zeros((xrds.sizes["rad"], xrds.sizes["pol"], xrds.sizes["tor"])),
+        dims=("rad", "pol", "tor"),
+    )
+
     # variables with the "xyz" dimension
     vector_vars = [var for var in outvars if (position_vector in xrds[var].dims)]
 
@@ -103,7 +104,7 @@ def ev2vtk(
         if position_vector == coord:
             continue
 
-        coord_reshaped = xrds[coord].broadcast_like(xrds[broadcast_like_var])
+        coord_reshaped = xrds[coord].broadcast_like(broadcast_like_scalar_var)
         coord_reshaped = coord_reshaped.transpose(*dimension_order[1:])
         ptdata[coord] = np.ascontiguousarray(coord_reshaped.values)
 
@@ -113,7 +114,7 @@ def ev2vtk(
             continue
         if len(xrds[var].dims) < 3:
             var_values = xrds[var]
-            var_values = var_values.broadcast_like(xrds[broadcast_like_var])
+            var_values = var_values.broadcast_like(broadcast_like_scalar_var)
         else:
             var_values = xrds[var]
         var_values = var_values.transpose(*dimension_order[1:]).values

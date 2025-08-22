@@ -1,9 +1,12 @@
 sphinx
-pydata-sphinx-theme
+pydata-sphinx-theme <= 0.16.0  # broken showsource in 0.16.1
 myst-parser
 sphinx_design
 sphinxcontrib-bibtex
 sphinx-math-dollar
+myst-nb
 
 ford
 graphviz
+
+matplotlib
