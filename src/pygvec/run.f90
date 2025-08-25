@@ -46,4 +46,29 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
   CALL par_finalize()
   initialized = .FALSE.
 END SUBROUTINE start_rungvec
+
+!================================================================================================================================!
+SUBROUTINE cleanup()
+  ! MODULES
+  USE MODgvec_MPI        , ONLY: par_finalize
+  USE MODgvec_ReadInTools, ONLY: FinalizeReadIn
+  USE MODgvec_Analyze    , ONLY: FinalizeAnalyze
+  USE MODgvec_Output     , ONLY: FinalizeOutput
+  USE MODgvec_Restart    , ONLY: FinalizeRestart
+  USE MODgvec_ReadInTools, ONLY: FinalizeReadIn
+  USE MODgvec_Functional , ONLY: t_functional, InitFunctional,FinalizeFunctional
+  USE MODgvec_rungvec,     ONLY: functional, dorestart
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  IF (ALLOCATED(functional)) THEN
+    CALL FinalizeFunctional(functional)
+    DEALLOCATE(functional)
+  END IF
+  CALL FinalizeAnalyze()
+  CALL FinalizeOutput()
+  IF(dorestart) CALL FinalizeRestart()
+  CALL FinalizeReadIn()
+
+  CALL par_finalize()
+  initialized = .FALSE.
+END SUBROUTINE cleanup
 END MODULE MODgvec_py_run

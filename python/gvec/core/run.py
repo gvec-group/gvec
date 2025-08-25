@@ -993,10 +993,6 @@ def fortran_run(
     """
     if gvec.core.state.bound_state is not None:
         gvec.core.state.bound_state.unbind()
-    if gvec.lib.modgvec_py_state.initialized or gvec.lib.modgvec_py_run.initialized:
-        raise RuntimeError(
-            "GVEC is still initialized and cannot recover. Please restart the interpreter."
-        )
 
     _binding.redirect_abort()
     if stdout_path is not None:
@@ -1008,4 +1004,10 @@ def fortran_run(
         if not Path(restartfile).exists():
             raise FileNotFoundError(f"Restart file {restartfile} does not exist.")
 
-    _run.start_rungvec(str(parameterfile), restartfile_in=restartfile, comm_in=MPIcomm)
+    try:
+        _run.start_rungvec(str(parameterfile), restartfile_in=restartfile, comm_in=MPIcomm)
+    except Exception as e:
+        logging.getLogger("gvec.run").error(f"GVEC run error: {e}")
+        logging.getLogger("gvec.run").info("attempting cleanup")
+        _run.cleanup()
+        raise
