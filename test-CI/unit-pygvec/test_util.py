@@ -103,12 +103,13 @@ def test_read_write_parameters_ini(testcaserundir, testfiles, tmp_path):
 @pytest.mark.parametrize(
     "func, transform",
     [
-        (util.flip_parameters_theta, lambda t, z: (-t, z)),
-        (util.flip_parameters_zeta, lambda t, z: (t, -z)),
+        ("theta", lambda t, z: (-t, z)),
+        ("zeta", lambda t, z: (t, -z)),
     ],
     ids=["theta", "zeta"],
 )
 def test_flip_parameters(func, transform):
+    func = getattr(util, f"flip_boundary_{func}")
     # Test flipping parameters in theta direction
     parameters = {
         "X1_b_cos": {

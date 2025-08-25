@@ -65,6 +65,22 @@ def test_help(mode):
     assert proc.returncode == 0
 
 
+def test_run():
+    parameters = gvec.util.read_parameters("parameter.ini")
+    run = gvec.run(parameters)
+    assert isinstance(run, gvec.Run)
+
+
+def test_run_recover_from_error():
+    parameters = gvec.util.read_parameters("parameter.ini")
+    parameters["X1_b_cos"][1, 0] = -1.0
+    with pytest.raises(RuntimeError):
+        gvec.run(parameters)
+
+    parameters = gvec.util.read_parameters("parameter.ini")
+    run = gvec.run(parameters)
+
+
 @pytest.mark.parametrize("suffix", ["ini", "yaml", "toml"])
 def test_run_stages(suffix):
     """
