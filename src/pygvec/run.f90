@@ -50,6 +50,7 @@ END SUBROUTINE start_rungvec
 !================================================================================================================================!
 SUBROUTINE cleanup()
   ! MODULES
+  USE MODgvec_Globals    , ONLY: n_warnings_occured
   USE MODgvec_MPI        , ONLY: par_finalize
   USE MODgvec_ReadInTools, ONLY: FinalizeReadIn
   USE MODgvec_Analyze    , ONLY: FinalizeAnalyze
@@ -70,5 +71,6 @@ SUBROUTINE cleanup()
 
   CALL par_finalize()
   initialized = .FALSE.
+  n_warnings_occured = 0
 END SUBROUTINE cleanup
 END MODULE MODgvec_py_run
