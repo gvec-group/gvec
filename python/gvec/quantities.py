@@ -877,24 +877,29 @@ def dV_dPhi_n2(ds: xr.Dataset):
 
 
 @register(
-    quantities=("minor_radius", "major_radius"),
-    requirements=("V", "Jac_l"),
+    requirements=("Jac_l"),
     integration=("rho", "theta", "zeta"),
-    attrs=dict(
-        minor_radius=dict(long_name="minor radius", symbol=r"r_{min}"),
-        major_radius=dict(long_name="major radius", symbol=r"r_{maj}"),
-    ),
+    attrs=dict(long_name="minor radius", symbol=r"r_{min}"),
 )
-def minor_major_radius(ds: xr.Dataset):
+def minor_radius(ds: xr.Dataset):
     surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
     ds["minor_radius"] = np.sqrt(surface_average / np.pi)
+
+
+@register(
+    requirements=("V", "Jac_l"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(long_name="major radius", symbol=r"r_{maj}"),
+)
+def major_radius(ds: xr.Dataset):
+    surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
     ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
 
 
 @register(
     requirements=("iota",),
     integration=("rho",),
-    attrs=dict(long_name="average rotational transform", symbol=r"\bar{\iota}"),
+    attrs=dict(long_name="average rotational transform", symbol=r"\overline{\iota}"),
 )
 def iota_avg(ds: xr.Dataset):
     ds["iota_avg"] = radial_integral(ds.iota)
@@ -1009,3 +1014,16 @@ def I_pol(ds: xr.Dataset):
 )
 def W_MHD(ds: xr.Dataset):
     ds["W_MHD"] = volume_integral((0.5 * ds.mod_B**2 + (ds.gamma - 1) * ds.mu0 * ds.p) * ds.Jac)
+
+
+@register(
+    requirements=("p", "mod_B", "Jac", "V", "mu0"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(
+        long_name="volume-averaged plasma beta",
+        symbol=r"\overline{\beta}",
+    ),
+)
+def beta_avg(ds: xr.Dataset):
+    beta = 2 * ds.mu0 * ds.p / ds.mod_B**2
+    ds["beta_avg"] = volume_integral(beta * ds.Jac) / ds.V
