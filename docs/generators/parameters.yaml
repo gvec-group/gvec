@@ -492,10 +492,27 @@ boundary_perturb:
   category:
   - boundary
   description:
-  - 'Add boundary perturbations to intial state, also after a restart. '
+  - Add boundary perturbations to intial state, also after a restart.
   type: '`logical`'
   allowed: '`True` or `False`'
   default: '`False`'
+boundary_perturb_type:
+  category:
+  - boundary
+  description:
+  - The type of blending of the boundary perturbation towards the core. `legacy` (default)
+    selects a fixed gaussian blending. `cosm` selects a blending using a cosine function
+    to the power of `m`.
+  type: '`string`'
+  allowed: '`legacy` or `cosm`'
+  default: '`legacy`'
+boundary_perturb_depth:
+  category:
+  - boundary
+  description:
+  - Depth of the boundary perturbation in the radial coordinate. Only affects `boundary_perturb_type=cosm`.
+  type: '`real`'
+  default: '`0.6`'
 X1pert_b_cos(m,n):
   category:
   - boundary
