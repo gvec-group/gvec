@@ -67,11 +67,11 @@ A distinct feature of GVEC is a flexible coordinate frame, which can represent c
 # Statement of need
 
 MHD equilibrium solutions are the basis for a number of high fidelity plasma physics models and associated codes.
-For example, they provide the initial conditions for linear and nonlinear MHD solvers (e.g. CASTOR3D  [@puchmayr2023helical], CAS3D [@nuehrenberg1991], Jorek3D [@nikulsin2022jorek3d], Struphy [@holderied_possanner_wang_2021], M3D-C1 [@jardinTriangularFiniteElement2004]),  or the magnetic field for particle orbit tracing (SIMPLE [@albert_kasilov_kernbichler_2020]) and turbulence simulations (e.g.  BOUT++ [@Shanahan_Bold_Dudson_2024], GENE [@maurer2020gene; @navarro2020global]).
+For example, they provide the initial conditions for linear and nonlinear MHD solvers (e.g. CASTOR3D [@puchmayr2023helical], CAS3D [@nuehrenberg1991], Jorek3D [@nikulsin2022jorek3d], Struphy [@holderied_possanner_wang_2021], M3D-C1 [@jardinTriangularFiniteElement2004]), or the magnetic field for particle orbit tracing (e.g. SIMPLE [@albert_kasilov_kernbichler_2020]) and turbulence simulations (e.g. BOUT++ [@Shanahan_Bold_Dudson_2024], GENE [@navarro2020global]).
 
 3D MHD equilibria are directly used to analyse potential stellarator configurations in optimisation frameworks, such as SIMSOPT [@Landreman2021] or STELLOPT [@doecode_12551].
 
-GVEC has a flexible coordinate frame, allowing it to represent boundary shapes beyond those possible with the standard cylindrical coordinates used by many equilibrium codes. This has been recently used to optimise the boundary shape of the figure-8 stellarator in [@Plunk_figure_8], shown in \autoref{fig:figure_8_with_coils}.
+GVEC has a flexible coordinate frame, allowing it to represent boundary shapes beyond those possible with the standard cylindrical coordinates used by many equilibrium codes. This has been recently used to optimise the boundary shape of the figure-8 stellarator in @Plunk_figure_8, shown in \autoref{fig:figure_8_with_coils}.
 
 ![Preliminary design of a Figure-8 shaped stellarator, showing the plasma boundary shape and a set of planar coils to contain the plasma. Figure taken from @Plunk_figure_8 \label{fig:figure_8_with_coils}](images/figure-8.png){ width=50% }
 
