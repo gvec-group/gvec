@@ -71,7 +71,7 @@ For example, they provide the initial conditions for linear and nonlinear MHD so
 
 3D MHD equilibria are directly used to analyse potential stellarator configurations in optimisation frameworks, such as SIMSOPT [@Landreman2021] or STELLOPT [@doecode_12551].
 
-GVEC has a flexible coordinate frame, allowing it to represent boundary shapes beyond those possible with the standard cylindrical coordinates used by many equilibrium codes. This has been recently used to optimise the boundary shape of the figure-8 stellarator in @Plunk_figure_8 shown in \autoref{fig:figure_8_with_coils}.
+GVEC has a flexible coordinate frame, allowing it to represent boundary shapes beyond those possible with the standard cylindrical coordinates used by many equilibrium codes. This has been recently used to optimise the boundary shape of the figure-8 stellarator in [@Plunk_figure_8], shown in \autoref{fig:figure_8_with_coils}.
 
 ![Preliminary design of a Figure-8 shaped stellarator, showing the plasma boundary shape and a set of planar coils to contain the plasma. Figure taken from @Plunk_figure_8 \label{fig:figure_8_with_coils}](images/figure-8.png){ width=50% }
 
@@ -108,7 +108,7 @@ Additional features are:
 Various other ideal MHD equilibrium solvers for 3D geometries exist. In the past, VMEC [@vmec_83] has been most commonly used. It uses finite differences radially and Fourier series for the flux surfaces. VMEC has recently been re-implemented in a more modern framework as VMEC++ [@Schilling_2025].
 The stellarator optimisation framework DESC [@DESC_2020] is also capable of finding ideal MHD equilibria under the assumption of nested closed flux surfaces, using smooth Zernike-Fourier basis functions for the unknowns.
 
-Other MHD equilibrium solvers exist that do not rely on flux-aligned coordinates, and therefore allow the computation of 3D MHD equilibria with magnetic islands and chaotic regions. SPEC [@hudsonComputationMultiregionRelaxed2012] uses the multi-region relaxed MHD model [@holeSteppedPressureProfile2006] and HINT2 [@suzukiDevelopmentApplicationHINT22006] uses a relaxation method. Similarly, the codes SIESTA [@siesta_2011] and PIES [@pies_1986] use iterative techniques to find such 3D MHD equilibria, starting from a VMEC equilibrium solution.
+Other MHD equilibrium solvers exist that do not rely on flux-aligned coordinates, and therefore allow the computation of 3D MHD equilibria with magnetic islands and chaotic regions. SPEC [@hudson_2020] uses the multi-region relaxed MHD model [@holeSteppedPressureProfile2006] and HINT2 [@suzukiDevelopmentApplicationHINT22006] uses a relaxation method. Similarly, the codes SIESTA [@siesta_2011] and PIES [@pies_1986] use iterative techniques to find such 3D MHD equilibria, starting from a VMEC equilibrium solution.
 
 # Acknowledgements
 
