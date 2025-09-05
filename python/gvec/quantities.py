@@ -877,7 +877,7 @@ def dV_dPhi_n2(ds: xr.Dataset):
 
 
 @register(
-    requirements=("Jac_l"),
+    requirements=("Jac_l",),
     integration=("rho", "theta", "zeta"),
     attrs=dict(long_name="minor radius", symbol=r"r_{min}"),
 )
