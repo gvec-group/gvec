@@ -62,14 +62,14 @@ def xyz(ds: xr.Dataset):
 # === profiles ========================================================================= #
 
 
-def _profile(var, evalvar, deriv, long_name, symbol):
+def _profile_factory(var, evalvar, deriv, long_name, symbol):
     """Factory function for profile quantities."""
 
     @register(
         quantities=var,
         attrs=dict(long_name=long_name, symbol=symbol),
     )
-    def profile(ds: xr.Dataset, state: State):
+    def _profile(ds: xr.Dataset, state: State):
         if "rho" not in ds:
             raise KeyError("Evaluation of profiles requires the radial coordinate 'rho'.")
         if ds.rho.dims == ("rad",):
@@ -79,7 +79,7 @@ def _profile(var, evalvar, deriv, long_name, symbol):
             output = state.evaluate_profile(evalvar, rho, deriv=deriv)
             ds[var] = (ds.rho.dims, output.reshape(ds.rho.shape))
 
-    return profile
+    return _profile
 
 
 for var, name, symbol in [
@@ -88,11 +88,11 @@ for var, name, symbol in [
     ("chi", "poloidal magnetic flux", r"\chi"),
     ("Phi", "toroidal magnetic flux", r"\Phi"),
 ]:
-    globals()[var] = _profile(var, var, 0, name, symbol)
-    globals()[f"d{var}_dr"] = _profile(
+    globals()[var] = _profile_factory(var, var, 0, name, symbol)
+    globals()[f"d{var}_dr"] = _profile_factory(
         f"d{var}_dr", var, 1, f"{name} gradient", f"\\frac{{d{symbol}}}{{d\\rho}}"
     )
-    globals()[f"d{var}_drr"] = _profile(
+    globals()[f"d{var}_drr"] = _profile_factory(
         f"d{var}_drr", var, 2, f"{name} curvature", f"\\frac{{d^2{symbol}}}{{d\\rho^2}}"
     )
 
@@ -107,7 +107,7 @@ def Phi_edge(ds: xr.Dataset, state: State):
 # === base ============================================================================= #
 
 
-def _base(var, long_name, symbol):
+def _base_factory(var, long_name, symbol):
     """Factory function for base quantities."""
 
     @register(
@@ -121,7 +121,7 @@ def _base(var, long_name, symbol):
             for i in ("r", "t", "z", "rr", "rt", "rz", "tt", "tz", "zz")
         },
     )
-    def base(ds: xr.Dataset, state: State):
+    def _base(ds: xr.Dataset, state: State):
         if "rho" not in ds or "theta" not in ds or "zeta" not in ds:
             raise KeyError(
                 "Evaluation of base variables requires 'rho', 'theta', 'zeta' to be defined."
@@ -130,7 +130,7 @@ def _base(var, long_name, symbol):
         # mesh in logical coordinates (rho, theta, zeta) -> rho(rad), theta(pol), zeta(tor)
         if ds.rho.dims == ("rad",) and ds.theta.dims == ("pol",) and ds.zeta.dims == ("tor",):
             outputs = state.evaluate_base_tens_all(var, ds.rho, ds.theta, ds.zeta)
-            for key, value in zip(base.quantities, outputs):
+            for key, value in zip(_base.quantities, outputs):
                 ds[key] = (("rad", "pol", "tor"), value)
 
         # mesh in other flux aligned coordinates e.g. (rho, theta_B, zeta_B) -> rho(rad), theta(rad, ...), zeta(rad, ...)
@@ -164,7 +164,7 @@ def _base(var, long_name, symbol):
 
             # Write to dataset
             output_shape = [ds[dim].size for dim in output_dims]
-            for key, value in zip(base.quantities, outputs):
+            for key, value in zip(_base.quantities, outputs):
                 value = value.reshape(ds.rad.size, *output_shape)
                 ds[key] = (("rad", *output_dims), value)
 
@@ -183,11 +183,11 @@ def _base(var, long_name, symbol):
 
             # Write to dataset
             output_shape = [ds[dim].size for dim in output_dims]
-            for key, value in zip(base.quantities, outputs):
+            for key, value in zip(_base.quantities, outputs):
                 value = value.reshape(output_shape)
                 ds[key] = (output_dims, value)
 
-    return base
+    return _base
 
 
 for var, long_name, symbol in [
@@ -195,7 +195,7 @@ for var, long_name, symbol in [
     ("X2", "second reference coordinate", r"X^2"),
     ("LA", "straight field line potential", r"\lambda"),
 ]:
-    globals()[var] = _base(var, long_name, symbol)
+    globals()[var] = _base_factory(var, long_name, symbol)
 
 
 @register(
@@ -224,10 +224,10 @@ def N_FP(ds: xr.Dataset, state: State):
         ),
     ),
 )
-def hmap(ds: xr.Dataset, state: State):
+def _hmap(ds: xr.Dataset, state: State):
     X1, X2, zeta = xr.broadcast(ds.X1, ds.X2, ds.zeta)
     outputs = state.evaluate_hmap_only(*[v.values.flatten() for v in (X1, X2, zeta)])
-    for key, value in zip(hmap.quantities, outputs):
+    for key, value in zip(_hmap.quantities, outputs):
         ds[key] = (
             ("xyz", *X1.dims),
             value.reshape(3, *X1.shape),
@@ -244,19 +244,19 @@ def hmap(ds: xr.Dataset, state: State):
         for i, j in ("11", "12", "13", "22", "23", "33")
     },
 )
-def hmap_derivs(ds: xr.Dataset, state: State):
+def _hmap_derivs(ds: xr.Dataset, state: State):
     X1, X2, zeta = xr.broadcast(ds.X1, ds.X2, ds.zeta)
     outputs = state.evaluate_hmap_derivs(
         X1=X1.values.flatten(), X2=X2.values.flatten(), zeta=zeta.values.flatten()
     )
-    for key, value in zip(hmap_derivs.quantities, outputs):
+    for key, value in zip(_hmap_derivs.quantities, outputs):
         ds[key] = (
             ("xyz", *X1.dims),
             value.reshape(3, *X1.shape),
         )
 
 
-def _k_ab(a, b):
+def _k_ab_factory(a, b):
     r"""Factory function for logical curvature vectors.
 
     k_{\alpha\beta} = \sum_i \frac{\partial^2 q^i}{\partial \alpha \partial \beta} \mathbf{e}_q^i
@@ -276,7 +276,7 @@ def _k_ab(a, b):
             symbol=rf"\mathbf{{k}}_{{{rtz_symbols[a] + rtz_symbols[b]}}}",
         ),
     )
-    def k_ab(ds: xr.Dataset):
+    def _k_ab(ds: xr.Dataset):
         da = ds[f"dX1_d{a}{b}"] * ds.e_q1 + ds[f"dX2_d{a}{b}"] * ds.e_q2
         da += ds[f"dX1_d{a}"] * ds[f"dX1_d{b}"] * ds.k_q1q1
         da += (
@@ -291,15 +291,15 @@ def _k_ab(a, b):
             da += ds.k_q3q3
         ds[f"k_{a}{b}"] = da
 
-    return k_ab
+    return _k_ab
 
 
 for a, b in ["rr", "rt", "rz", "tt", "tz", "zz"]:
-    globals()[f"k_{a}{b}"] = _k_ab(a, b)
+    globals()[f"k_{a}{b}"] = _k_ab_factory(a, b)
 
 
 @register(
-    requirements=["normal", "k_tt"],
+    requirements=("normal", "k_tt"),
     attrs=dict(
         long_name="poloidal component of the second fundamental form",
         symbol=r"\mathrm{II}_{\theta\theta}",
@@ -310,7 +310,7 @@ def II_tt(ds: xr.Dataset):
 
 
 @register(
-    requirements=["normal", "k_tz"],
+    requirements=("normal", "k_tz"),
     attrs=dict(
         long_name="poloidal-toroidal component of the second fundamental form",
         symbol=r"\mathrm{II}_{\theta\zeta}",
@@ -321,7 +321,7 @@ def II_tz(ds: xr.Dataset):
 
 
 @register(
-    requirements=["normal", "k_zz"],
+    requirements=("normal", "k_zz"),
     attrs=dict(
         long_name="toroidal component of the second fundamental form",
         symbol=r"\mathrm{II}_{\zeta\zeta}",
@@ -334,7 +334,7 @@ def II_zz(ds: xr.Dataset):
 # === metric =========================================================================== #
 
 
-def _g_ij(i, j):
+def _g_ij_factory(i, j):
     """Factory function for metric tensor components."""
 
     e_i = f"e_{rtz_variables[i]}"
@@ -348,14 +348,14 @@ def _g_ij(i, j):
             symbol=rf"g_{{{rtz_symbols[i] + rtz_symbols[j]}}}",
         ),
     )
-    def g_ij(ds: xr.Dataset):
+    def _g_ij(ds: xr.Dataset):
         ds[f"g_{i}{j}"] = xr.dot(ds[e_i], ds[e_j], dim="xyz")
 
-    return g_ij
+    return _g_ij
 
 
 for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
-    globals()[f"g_{i}{j}"] = _g_ij(i, j)
+    globals()[f"g_{i}{j}"] = _g_ij_factory(i, j)
 
 
 @register(
@@ -379,11 +379,11 @@ for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
         for k in "rtz"
     },
 )
-def metric(ds: xr.Dataset, state: State):
+def _metric(ds: xr.Dataset, state: State):
     outputs = state.evaluate_metric_derivs(
-        *[ds[var].broadcast_like(ds.X1).values.flatten() for var in metric.requirements]
+        *[ds[var].broadcast_like(ds.X1).values.flatten() for var in _metric.requirements]
     )
-    for key, value in zip(metric.quantities, outputs):
+    for key, value in zip(_metric.quantities, outputs):
         ds[key] = (
             ds.X1.dims,
             value.reshape(ds.X1.shape),
@@ -394,12 +394,11 @@ def metric(ds: xr.Dataset, state: State):
 
 
 @register(
-    quantities=("Jac_h"),
-    requirements=[
+    requirements=(
         "e_q1",
         "e_q2",
         "e_q3",
-    ],
+    ),
     attrs={
         "Jac_h": dict(long_name="reference Jacobian determinant", symbol=r"\mathcal{J}_h"),
     },
@@ -409,7 +408,7 @@ def Jac_h(ds: xr.Dataset):
 
 
 @register(
-    quantities=(*(f"dJac_h_d{i}" for i in "rtz"),),
+    quantities=[f"dJac_h_d{i}" for i in "rtz"],
     requirements=[
         "X1",
         "X2",
@@ -429,11 +428,11 @@ def Jac_h(ds: xr.Dataset):
         for i in "rtz"
     },
 )
-def Jac_h_derivs(ds: xr.Dataset, state: State):
+def _Jac_h_derivs(ds: xr.Dataset, state: State):
     outputs = state.evaluate_jac_h_derivs(
-        *[ds[var].broadcast_like(ds.X1).values.flatten() for var in Jac_h_derivs.requirements]
+        *[ds[var].broadcast_like(ds.X1).values.flatten() for var in _Jac_h_derivs.requirements]
     )
-    for key, value in zip(Jac_h_derivs.quantities, outputs):
+    for key, value in zip(_Jac_h_derivs.quantities, outputs):
         ds[key] = (
             ds.X1.dims,
             value.reshape(ds.X1.shape),
@@ -460,7 +459,7 @@ def Jac(ds: xr.Dataset):
 
 
 @register(
-    quantities=(*(f"dJac{suf}_d{i}" for suf in ["", "_l"] for i in "rtz"),),
+    quantities=[f"dJac{suf}_d{i}" for suf in ["", "_l"] for i in "rtz"],
     requirements=(
         "Jac_h",
         "Jac_l",
@@ -482,7 +481,7 @@ def Jac(ds: xr.Dataset):
         for i in "rtz"
     },
 )
-def Jac_derivs(ds: xr.Dataset):
+def _Jac_derivs(ds: xr.Dataset):
     ds["dJac_l_dr"] = (
         ds.dX1_drr * ds.dX2_dt
         + ds.dX1_dr * ds.dX2_drt
@@ -641,7 +640,7 @@ def B(ds: xr.Dataset):
         for j in "rtz"
     },
 )
-def dB(ds: xr.Dataset):
+def _dB(ds: xr.Dataset):
     ds["dB_contra_t_dr"] = -ds.dPhi_dr / ds.Jac * (
         ds.dJac_dr / ds.Jac * (ds.iota - ds.dLA_dz) + ds.dLA_drz - ds.diota_dr
     ) + ds.dPhi_drr / ds.Jac * (ds.iota - ds.dLA_dz)
@@ -663,7 +662,7 @@ def dB(ds: xr.Dataset):
 
 
 @register(
-    quantities=["J", "J_contra_r", "J_contra_t", "J_contra_z"],
+    quantities=("J", "J_contra_r", "J_contra_t", "J_contra_z"),
     requirements=[
         "B_contra_t",
         "B_contra_z",
@@ -743,10 +742,10 @@ def _modulus(v):
             symbol=rf"\left|{QUANTITIES[v].attrs[v]['symbol']}\right|",
         ),
     )
-    def mod_v(ds: xr.Dataset):
+    def _mod_v(ds: xr.Dataset):
         ds[f"mod_{v}"] = np.sqrt(xr.dot(ds[v], ds[v], dim="xyz"))
 
-    return mod_v
+    return _mod_v
 
 
 for v in [
@@ -882,7 +881,7 @@ def e_zeta_B(ds: xr.Dataset):
     )
 
 
-def _g_ij_B(i, j):
+def _g_ij_B_factory(i, j):
     """Factory function for metric tensor components in Boozer coordinates."""
     e_i = f"e_{rtz_variables[i]}_B"
     e_j = f"e_{rtz_variables[j]}_B"
@@ -895,14 +894,14 @@ def _g_ij_B(i, j):
             symbol=rf"g_{{{rtz_symbols[i]}_B {rtz_symbols[j]}_B}}",
         ),
     )
-    def g_ij_B(ds: xr.Dataset):
+    def _g_ij_B(ds: xr.Dataset):
         ds[f"g_{i}{j}_B"] = xr.dot(ds[e_i], ds[e_j], dim="xyz")
 
-    return g_ij_B
+    return _g_ij_B
 
 
 for i, j in ["tt", "tz", "zz"]:
-    globals()[f"g_{i}{j}_B"] = _g_ij_B(i, j)
+    globals()[f"g_{i}{j}_B"] = _g_ij_B_factory(i, j)
 
 
 @register(
@@ -917,7 +916,7 @@ for i, j in ["tt", "tz", "zz"]:
         for a, b in ["tt", "tz", "zz"]
     },
 )
-def k_ij_B(ds: xr.Dataset):
+def _k_ij_B(ds: xr.Dataset):
     dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
     dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
     dzB_dt = ds.dNU_B_dt
@@ -960,7 +959,7 @@ def k_ij_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=["normal", "k_tt_B"],
+    requirements=("normal", "k_tt_B"),
     attrs=dict(
         long_name="poloidal Boozer component of the second fundamental form",
         symbol=r"\mathrm{II}_{\theta_B\theta_B}",
@@ -1013,7 +1012,9 @@ def V(ds: xr.Dataset):
     ),
 )
 def dV_dPhi_n(ds: xr.Dataset):
-    # d/dPhi_n = dr/dPhi_n * d/dr = Phi_0 / dPhi_dr * d/dr
+    """
+    d/dPhi_n = dr/dPhi_n * d/dr = Phi_0 / dPhi_dr * d/dr
+    """
     ds["dV_dPhi_n"] = fluxsurface_integral(ds.Jac) * ds.Phi_edge / ds.dPhi_dr
 
 
@@ -1026,8 +1027,10 @@ def dV_dPhi_n(ds: xr.Dataset):
     ),
 )
 def dV_dPhi_n2(ds: xr.Dataset):
-    # d/dPhi_n = dr/dPhi_n * d/dr = Phi_0 / dPhi_dr * d/dr
-    # d/dr 1/dPhi_dr = -1/dPhi_dr**2 * dPhi_drr
+    """
+    d/dPhi_n = dr/dPhi_n * d/dr = Phi_0 / dPhi_dr * d/dr
+    d/dr 1/dPhi_dr = -1/dPhi_dr**2 * dPhi_drr
+    """
     ds["dV_dPhi_n2"] = (
         fluxsurface_integral(ds.dJac_dr) * (ds.Phi_edge / ds.dPhi_dr) ** 2
         - fluxsurface_integral(ds.Jac) * ds.Phi_edge**2 / ds.dPhi_dr**3 * ds.dPhi_drr
@@ -1043,7 +1046,7 @@ def dV_dPhi_n2(ds: xr.Dataset):
         major_radius=dict(long_name="major radius", symbol=r"r_{maj}"),
     ),
 )
-def minor_major_radius(ds: xr.Dataset):
+def _minor_major_radius(ds: xr.Dataset):
     surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
     ds["minor_radius"] = np.sqrt(surface_average / np.pi)
     ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
