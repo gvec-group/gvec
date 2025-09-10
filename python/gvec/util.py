@@ -417,6 +417,27 @@ def effective_minor_radius(
     return np.sqrt(np.mean(areas) / np.pi)
 
 
+def compute_boundary_perturbation(base_parameters: Mapping, perturbed_parameters: Mapping):
+    """Computes the difference between the perturbed and base boundary parameters as a perturbation."""
+    perturbation = CaseInsensitiveDict()
+    for i in [1, 2]:
+        for sincos in ["sin", "cos"]:
+            perturbed = {}
+            base = {}
+            # set boundary modes to values from restart
+            for (m, n), v in base_parameters.get(f"{i}_b_{sincos}", {}).items():
+                base[m, n] = v
+            # set boundary perturbation to difference between current and restart
+            for (m, n), v in perturbed_parameters.get(f"X{i}_b_{sincos}", {}).items():
+                v = v - base_parameters.get(f"X{i}_b_{sincos}", {}).get((m, n), 0)
+                if v != 0.0:
+                    perturbed[m, n] = v
+            if base or perturbed:
+                perturbation[f"X{i}_b_{sincos}"] = base
+                perturbation[f"X{i}pert_b_{sincos}"] = perturbed
+    return perturbation
+
+
 def flip_boundary_theta(parameters: MutableMapping) -> MutableMapping:
     """Flip the boundary parameters in the poloidal direction. θ → -θ."""
     output_params = copy.deepcopy(parameters)
