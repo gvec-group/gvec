@@ -82,6 +82,7 @@ def _profile_factory(var, evalvar, deriv, long_name, symbol):
     return _profile
 
 
+# generate functions from factory function
 for var, name, symbol in [
     ("iota", "rotational transform", r"\iota"),
     ("p", "pressure", r"p"),
@@ -190,6 +191,7 @@ def _base_factory(var, long_name, symbol):
     return _base
 
 
+# generate functions from factory function
 for var, long_name, symbol in [
     ("X1", "first reference coordinate", r"X^1"),
     ("X2", "second reference coordinate", r"X^2"),
@@ -259,8 +261,14 @@ def _hmap_derivs(ds: xr.Dataset, state: State):
 def _k_ab_factory(a, b):
     r"""Factory function for logical curvature vectors.
 
-    k_{\alpha\beta} = \sum_i \frac{\partial^2 q^i}{\partial \alpha \partial \beta} \mathbf{e}_q^i
+    The curvature vector is computed in cartesian space, with
+
+    k_{\alpha\beta} = \frac{\partial}{\partial \alpha} \left(\frac{\partial x}{\partial \beta}\right)
+                    = \sum_i \frac{\partial^2 q^i}{\partial \alpha \partial \beta} \mathbf{e}_q^i
                     + \sum_{ij} \frac{\partial q^i}{\partial \alpha} \frac{\partial q^j}{\partial \beta} \mathbf{k}_{q^iq^j}
+
+    Sums in $i,j$ are in $1,2,3$,  and $\alpha$ and $\beta$ can be chosen as $\rho$, $\vartheta$ or $\zeta$.
+    Note that since $q^3=\zeta$, some terms become active only if $\alpha$ and/or $\beta$ are equal $\zeta$.
     """
 
     @register(
@@ -294,6 +302,7 @@ def _k_ab_factory(a, b):
     return _k_ab
 
 
+# generate functions from factory function
 for a, b in ["rr", "rt", "rz", "tt", "tz", "zz"]:
     globals()[f"k_{a}{b}"] = _k_ab_factory(a, b)
 
@@ -354,6 +363,7 @@ def _g_ij_factory(i, j):
     return _g_ij
 
 
+# generate functions from factory function
 for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
     globals()[f"g_{i}{j}"] = _g_ij_factory(i, j)
 
@@ -731,7 +741,7 @@ def F_r_avg(ds: xr.Dataset):
     ) / fluxsurface_integral(ds.Jac)
 
 
-def _modulus(v):
+def _mod_factory(v):
     """Factory function for modulus (absolute value) quantities."""
 
     @register(
@@ -748,6 +758,7 @@ def _modulus(v):
     return _mod_v
 
 
+# generate functions from factory function
 for v in [
     "e_rho",
     "e_theta",
@@ -759,7 +770,7 @@ for v in [
     "J",
     "F",
 ]:
-    globals()[v] = _modulus(v)
+    globals()[v] = _mod_factory(v)
 
 
 # === Straight Field Line Coordinates - Boozer ========================================= #
@@ -900,6 +911,7 @@ def _g_ij_B_factory(i, j):
     return _g_ij_B
 
 
+# generate functions from factory function
 for i, j in ["tt", "tz", "zz"]:
     globals()[f"g_{i}{j}_B"] = _g_ij_B_factory(i, j)
 
@@ -917,6 +929,16 @@ for i, j in ["tt", "tz", "zz"]:
     },
 )
 def _k_ij_B(ds: xr.Dataset):
+    r"""Factory function for curvature vectors in Boozer coordinates.
+
+    The curvature vector is computed in cartesian space, with
+
+    k_{\alpha\beta} = \frac{\partial}{\partial \alpha} \left(\frac{\partial x}{\partial \beta}\right)
+
+    for the choices of $\alpha,\beta$  being $\vartheta_B,\vartheta_B$, $\vartheta_B,\zeta_B$ and $\zeta_B,\zeta_B$.
+    The chain rule is applied to express the quantities in terms of the logical coordinate derivatives,
+    together with the derivatives of the Boozer transform.
+    """
     dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
     dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
     dzB_dt = ds.dNU_B_dt
