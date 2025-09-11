@@ -727,6 +727,36 @@ END SUBROUTINE
 
 
 !================================================================================================================================!
+!> evaluate second derivatives of the hmap
+!================================================================================================================================!
+SUBROUTINE evaluate_hmap_derivs(n, X1, X2, zeta, k_11, k_12, k_13, k_22, k_23, k_33)
+  ! MODULES
+  USE MODgvec_Globals,    ONLY: wp
+  USE MODgvec_MHD3D_vars, ONLY: hmap
+  USE MODgvec_hmap,       ONLY: hmap_new_auxvar,PP_T_HMAP_AUXVAR
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n                                                  !! number of evaluation points
+  REAL, INTENT(IN), DIMENSION(n) :: X1, X2, zeta                            !! reference coordinates
+  REAL, INTENT(OUT), DIMENSION(3,n) :: k_11, k_12, k_13, k_22, k_23, k_33  !! derivatives of the m. coef.
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i              ! loop variable
+#ifdef PP_WHICH_HMAP
+  TYPE( PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#else
+  CLASS(PP_T_HMAP_AUXVAR), ALLOCATABLE :: hmap_xv(:)
+#endif
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL hmap_new_auxvar(hmap, zeta, hmap_xv,.TRUE.) ! second derivative needed
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) PRIVATE(i)
+  DO i=1,n
+    CALL hmap%get_ddx_dqij_aux(X1(i), X2(i), hmap_xv(i), k_11(:,i), k_12(:,i), k_13(:,i), k_22(:,i), k_23(:,i), k_33(:,i))
+  END DO
+  !$OMP END PARALLEL DO
+  DEALLOCATE(hmap_xv)
+END SUBROUTINE
+
+
+!================================================================================================================================!
 !> evaluate the jacobian determinant and its derivatives
 !================================================================================================================================!
 SUBROUTINE evaluate_jac_h_derivs_pw(n, X1, X2, zeta, dX1_ds, dX2_ds, dX1_dt, dX2_dt, dX1_dz, dX2_dz,  dJh_ds, dJh_dt, dJh_dz)

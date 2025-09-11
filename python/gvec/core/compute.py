@@ -38,6 +38,7 @@ QUANTITIES = {}  # dictionary to store the registered quantities (compute functi
 
 rtz_symbols = {"r": r"\rho", "t": r"\theta", "z": r"\zeta"}
 rtz_directions = {"r": "radial", "t": "poloidal", "z": "toroidal"}
+rtz_variables = {"r": "rho", "t": "theta", "z": "zeta"}
 
 
 def latex_partial(var, deriv):

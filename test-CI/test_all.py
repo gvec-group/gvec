@@ -211,7 +211,8 @@ class BaseTestPost:
             return
         # insert the last statefile
         assert len(states) > 0, "no statefile for post/converter found"
-        args[args.index("STATEFILE")] = states[-1]
+        if "STATEFILE" in args:
+            args[args.index("STATEFILE")] = states[-1]
         # run
         with open("stdout.txt", "w") as stdout:
             stdout.write(f"RUNNING: \n {args} \n")
@@ -298,6 +299,7 @@ class TestPost(BaseTestPost):
         try:
             import gvec
         except ImportError:
+            pytest.skip("pygvec not installed")
             return
         boozerfiles = sorted(Path(".").glob("POST*boozer*.nc"))
         logger.info(f"Found {len(boozerfiles)} boozer-netCDF files")
@@ -479,6 +481,7 @@ class TestConverters(BaseTestPost):
 
 @pytest.mark.pygvec
 @pytest.mark.converter_stage
+@pytest.mark.parametrize("reparam", [False, True], ids=["default", "reparam"])
 class TestToCAS3D(BaseTestPost):
     exec = ["pygvec", "to-cas3d"]
 
@@ -487,20 +490,17 @@ class TestToCAS3D(BaseTestPost):
         return "to_cas3d"
 
     @pytest.fixture
-    def args(self):
+    def args(self, reparam):
         return [
-            "--ns",
-            "3",
-            "--MN_out",
-            "4",
-            "4",
+            "--ns", "3",
+            "--MN_out", "4", "4",
+            "--MNfactor", "2",
             "--stellsym",
             "--pointwise",
-            "Booz-CAS3D.nc",
-            "parameter.ini",
-            "STATEFILE",
-            "BoozFT-CAS3D.nc",
-        ]
+            ] + (["--reparam"] if reparam else []) + [
+            "--outputfile",
+            "TestCAS3D",
+        ]  # fmt: skip
 
     def test_post(
         self,
@@ -532,14 +532,14 @@ class TestToCAS3D(BaseTestPost):
             lines = file.readlines()
             assert "done" in lines[-2]
 
-        assert Path("BoozFT-CAS3D.nc").exists()
-        boozft = xr.open_dataset("BoozFT-CAS3D.nc")
+        assert Path("TestCAS3D.nc").exists()
+        boozft = xr.open_dataset("TestCAS3D.nc")
         for var in boozft.variables:
             assert "long_name" in boozft[var].attrs
             assert "symbol" in boozft[var].attrs
 
-        assert Path("Booz-CAS3D.nc").exists()
-        booz = xr.open_dataset("Booz-CAS3D.nc")
+        assert Path("TestCAS3D_pw.nc").exists()
+        booz = xr.open_dataset("TestCAS3D_pw.nc")
         for var in booz.variables:
             assert "long_name" in booz[var].attrs
             assert "symbol" in booz[var].attrs
