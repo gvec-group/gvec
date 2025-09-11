@@ -299,6 +299,7 @@ class TestPost(BaseTestPost):
         try:
             import gvec
         except ImportError:
+            pytest.skip("pygvec not installed")
             return
         boozerfiles = sorted(Path(".").glob("POST*boozer*.nc"))
         logger.info(f"Found {len(boozerfiles)} boozer-netCDF files")
@@ -480,6 +481,7 @@ class TestConverters(BaseTestPost):
 
 @pytest.mark.pygvec
 @pytest.mark.converter_stage
+@pytest.mark.parametrize("reparam", [False, True], ids=["default", "reparam"])
 class TestToCAS3D(BaseTestPost):
     exec = ["pygvec", "to-cas3d"]
 
@@ -488,13 +490,14 @@ class TestToCAS3D(BaseTestPost):
         return "to_cas3d"
 
     @pytest.fixture
-    def args(self):
+    def args(self, reparam):
         return [
             "--ns", "3",
             "--MN_out", "4", "4",
             "--MNfactor", "2",
             "--stellsym",
             "--pointwise",
+            ] + (["--reparam"] if reparam else []) + [
             "--outputfile",
             "TestCAS3D",
         ]  # fmt: skip
