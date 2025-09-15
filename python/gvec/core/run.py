@@ -10,6 +10,7 @@ import time
 from collections.abc import Mapping
 from typing import Literal
 from datetime import datetime
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -576,7 +577,7 @@ class Run:
         start_time = time.time()
         for s, stage in enumerate(self.stages):
             if self.GVEC_iter_used >= self.totaliter:
-                self.logger.warning("Maximum number of GVEC iterations reached!")
+                warnings.warn("Maximum number of GVEC iterations reached!")
                 break
 
             self.nth_stage = s
@@ -695,7 +696,7 @@ class Run:
         iota_tol = self._state_parameters["picard_current"]["iota_tol"]
         while (self.rms_iota > iota_tol) and (self.GVEC_iter_used < self.totaliter):
             if self.nth_run + 1 > max_restarts:
-                self.logger.warning(
+                warnings.warn(
                     f"Maximum number of restarts reached for stage {self.nth_stage}! Moving on to next stage."
                 )
                 break
@@ -713,7 +714,7 @@ class Run:
                 shutil.rmtree(rm_dir)
 
         if self.rms_iota > iota_tol:
-            self.logger.warning(
+            warnings.warn(
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
                 + f"iota_tol.: {iota_tol:.2e}, achieved rms Δiota.: {self.rms_iota.data:.2e}"
             )
@@ -747,7 +748,7 @@ class Run:
         while (self.GVEC_iter_used < self.totaliter) and (self.rms_iota > iota_tol):
             self.logger.debug(f"nth run: {self.nth_run}")
             if self.nth_run + 1 > max_restarts:
-                self.logger.warning(
+                warnings.warn(
                     f"Maximum number of restarts reached for stage {self.nth_stage}! Moving on to next stage."
                 )
                 break
@@ -764,13 +765,13 @@ class Run:
             ):
                 shutil.rmtree(rm_dir)
         if self.rms_iota > iota_tol:
-            self.logger.warning(
+            warnings.warn(
                 f"Targeted iota has not been reached during stage {self.nth_stage}!\n"
                 + f"target tol.: {iota_tol:.2e}, achieved tol.: {self.rms_iota.data:.2e}\n"
                 + f"GVEC iterations used: {self.GVEC_iter_used}"
             )
         if self.max_force > self._state_parameters["minimize_tol"]:
-            self.logger.warning(
+            warnings.warn(
                 f"Force tolerance was not reached in stage {self.nth_stage}! \n max|force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
             )
 
@@ -789,7 +790,7 @@ class Run:
             self.max_force > self._state_parameters["minimize_tol"]
             and self._state_parameters["maxIter"] > 0
         ):
-            self.logger.warning(
+            warnings.warn(
                 f"Force tolerance was not reached! |force|: {self.max_force:.2e}, minimize_tol: {self._state_parameters['minimize_tol']:.2e}"
             )
         if rm_dir.exists() and (keep_intermediates == "stages" or keep_intermediates is None):
