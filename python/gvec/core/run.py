@@ -233,9 +233,11 @@ class Run:
             self.logger.info(f"reading restart state from {state.statefile}")
             self.state = state
 
-            if self.parameters["which_hmap"] != self.state.parameters["which_hmap"]:
+            if self.parameters.get("which_hmap", 1) != self.state.parameters.get(
+                "which_hmap", 1
+            ):
                 warnings.warn(
-                    f"restarting with hmap={self.parameters['which_hmap']} from hmap={self.state.parameters['which_hmap']}."
+                    f"restarting with hmap={self.parameters.get('which_hmap', 1)} from hmap={self.state.parameters.get('which_hmap', 1)}."
                 )
 
             # set initial iota profile
@@ -254,9 +256,10 @@ class Run:
             base, perturbation = gvec.util.compute_boundary_perturbation(
                 self.state.parameters, self.parameters
             )
-            self.logger.warning(f"{base}, {perturbation}")
             if perturbation:
                 self.parameters |= base
+                if "boundary_perturb_type" not in self.parameters:
+                    self.parameters["boundary_perturb_type"] = "cosm"
                 self.stages[0] |= perturbation
                 self.stages[0]["boundary_perturb"] = True
 
