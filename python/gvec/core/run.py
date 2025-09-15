@@ -227,11 +227,38 @@ class Run:
                 f"parameter_{self.parameters['ProjectName']}.stages.{self.filetype}"
             )
             self.logger.info(f"... generated {len(self.stages)} stages.")
-            self.logger.info(f"... writing new parameters to '{parameters_stages_name}'")
-            gvec.util.write_parameters(
-                parameters_stages,
-                project_dir / parameters_stages_name,
+
+        # load restart state
+        if isinstance(state, gvec.State):
+            self.logger.info(f"reading restart state from {state.statefile}")
+            self.state = state
+
+            if self.parameters["which_hmap"] != self.state.parameters["which_hmap"]:
+                warnings.warn(
+                    f"restarting with hmap={self.parameters['which_hmap']} from hmap={self.state.parameters['which_hmap']}."
+                )
+
+            # set initial iota profile
+            if "iota" not in self.parameters:
+                if "I_tor" in self.state.parameters:
+                    ev = self.state.evaluate("iota", rho=np.linspace(0, 1, 51))
+                    self.parameters["iota"] = {
+                        "type": "interpolation",
+                        "vals": ev.iota.data,
+                        "rho2": (ev.rho**2).data,
+                    }
+                else:
+                    self.parameters["iota"] = self.state.parameters["iota"]
+
+            # compute boundary perturbation relative to restart state
+            base, perturbation = gvec.util.compute_boundary_perturbation(
+                self.state.parameters, self.parameters
             )
+            self.logger.warning(f"{base}, {perturbation}")
+            if perturbation:
+                self.parameters |= base
+                self.stages[0] |= perturbation
+                self.stages[0]["boundary_perturb"] = True
 
         # load I_tor profile (and set initial iota if not provided)
         if self.curr_constraint:
@@ -256,12 +283,19 @@ class Run:
 
         self._state_parameters = self.parameters.copy()
 
-        if isinstance(state, gvec.State):
-            self.state = state
-        else:  # Path, str or None
+        # load restart state (2nd part)
+        if not isinstance(state, gvec.State):  # Path, str or None
+            if state is not None:
+                warnings.warn("restarting from statefile without associated parameterfile")
             initial_param_file = self.project_dir / "parameters_initial.ini"
             gvec.util.write_parameters(self._state_parameters, initial_param_file)
             self.state = gvec.State(initial_param_file, state)
+
+        self.logger.info(f"... writing new parameters to '{parameters_stages_name}'")
+        gvec.util.write_parameters(
+            parameters_stages,
+            project_dir / parameters_stages_name,
+        )
 
     def _set_I_tor_target(self, params: Mapping):
         """Evaluate and set the target toroidal current profile at linearily spaced positions in rho.

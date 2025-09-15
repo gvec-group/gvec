@@ -432,9 +432,12 @@ def effective_minor_radius(
     return np.sqrt(np.mean(areas) / np.pi)
 
 
-def compute_boundary_perturbation(base_parameters: Mapping, perturbed_parameters: Mapping):
+def compute_boundary_perturbation(
+    base_parameters: Mapping, perturbed_parameters: Mapping
+) -> tuple[CaseInsensitiveDict, CaseInsensitiveDict]:
     """Computes the difference between the perturbed and base boundary parameters as a perturbation."""
-    perturbation = CaseInsensitiveDict()
+    new_base = CaseInsensitiveDict()
+    new_perturbed = CaseInsensitiveDict()
     for i in [1, 2]:
         for sincos in ["sin", "cos"]:
             perturbed = {}
@@ -448,9 +451,9 @@ def compute_boundary_perturbation(base_parameters: Mapping, perturbed_parameters
                 if v != 0.0:
                     perturbed[m, n] = v
             if base or perturbed:
-                perturbation[f"X{i}_b_{sincos}"] = base
-                perturbation[f"X{i}pert_b_{sincos}"] = perturbed
-    return perturbation
+                new_base[f"X{i}_b_{sincos}"] = base
+                new_perturbed[f"X{i}pert_b_{sincos}"] = perturbed
+    return new_base, new_perturbed
 
 
 def flip_boundary_theta(parameters: MutableMapping) -> MutableMapping:

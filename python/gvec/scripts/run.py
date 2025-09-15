@@ -23,9 +23,15 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("parameterfile", type=Path, help="input GVEC parameterfile")
 parser.add_argument(
-    "restartfile",
+    "restart_statefile",
     type=Path,
     help="GVEC statefile to restart from (optional)",
+    nargs="?",
+)
+parser.add_argument(
+    "restart_parameterfile",
+    type=Path,
+    help="GVEC parameterfile to restart from (optional)",
     nargs="?",
 )
 param_type = parser.add_mutually_exclusive_group()
@@ -111,9 +117,16 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     elif args.keep >= 2:
         keep_intermediates = "all"
 
+    if args.restart_parameterfile:
+        restart = gvec.load_state(args.restart_parameterfile, args.restart_statefile)
+    elif args.restart_statefile:
+        restart = args.restart_statefile
+    else:
+        restart = None
+
     run_with_stages = gvec.run(
         parameters,
-        args.restartfile,
+        restart,
         quiet=args.quiet,
         redirect_gvec_stdout=args.verbose < 3,
         keep_intermediates=keep_intermediates,
