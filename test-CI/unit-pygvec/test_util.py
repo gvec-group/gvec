@@ -30,9 +30,15 @@ def test_CaseInsensitiveDict():
         _ = util.CaseInsensitiveDict({"a": 1, "A": 2})
     with pytest.raises(ValueError):
         cid == {"a": 1, "A": 2}
+    cid.update(e=5)
+    assert "f" in cid | {"f": 6}
+    cid |= {"g": 7}
     assert "a" in cid
     assert "A" in cid
     assert "b" in cid
+    assert "e" in cid
+    assert "f" not in cid
+    assert "g" in cid
 
 
 def test_copy_test_CaseInsensitiveDict():

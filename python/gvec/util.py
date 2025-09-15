@@ -135,6 +135,21 @@ class CaseInsensitiveDict(MutableMapping):
         """Return a deep copy."""
         return deepcopy(self)
 
+    def __or__(self, other):
+        """Union/Merge operator 'a | b' (without modifying self)."""
+        if not isinstance(other, Mapping):
+            return NotImplemented
+        result = CaseInsensitiveDict(self)
+        result.update(other)
+        return result
+
+    def __ior__(self, other):
+        """In-place union/merge operator 'a |= b' (modifies self)."""
+        if not isinstance(other, Mapping):
+            return NotImplemented
+        self.update(other)
+        return self
+
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
     """
