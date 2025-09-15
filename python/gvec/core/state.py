@@ -270,6 +270,11 @@ class State:
     def rundir(self):
         return self.parameterfile.parent
 
+    @property
+    def name(self):
+        """The name of the configuration / `ProjectName` in the parameter file."""
+        return self.parameters.get("ProjectName", "GVEC")
+
     # === Evaluation Methods === #
 
     @property
@@ -466,7 +471,11 @@ class State:
 
     evaluate_hmap_only = _evaluate_1D_factory(
         _state.evaluate_hmap_only, ["X1", "X2", "zeta"], 4, True
-    )  # -> pos, e_X1, e_X2, e_zeta3
+    )  # -> pos, e_q1, e_q2, e_q3
+
+    evaluate_hmap_derivs = _evaluate_1D_factory(
+        _state.evaluate_hmap_derivs, ["X1", "X2", "zeta"], 6, True
+    )  # -> k_q1q1, k_q1q2, k_q1q3, k_q2q2, k_q2q3, k_q3q3
 
     evaluate_metric_derivs = _evaluate_1D_factory(
         _state.evaluate_metric_derivs,
