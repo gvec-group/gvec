@@ -311,7 +311,7 @@ def read_parameter_file_ini(path: str | Path) -> CaseInsensitiveDict:
     {'param1': 1.2, 'param2': (1, 2, 3), 'param3': {(-1, 0): 0.5, (0, 0): 1.0}}
     """
     INT = r"[-+]?\d+"
-    FLOAT = r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?"
+    FLOAT = r"[-+]?\d*\.?\d*(?:[eE][-+]?\d+)?"
     STR = r"\S+"
     KEY = r"\w+"
 
