@@ -437,6 +437,76 @@ def test_compute_basis(teststate, ev_rtz):
             assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
 
 
+def test_compute_g_ij_B(teststate_boozer, ev_rtz):
+    ds = ev_rtz.isel(rad=slice(1, None))
+    Qs = (
+        [f"e_{i}_B" for i in ("rho", "theta", "zeta")]
+        + [f"g_{ij}_B" for ij in ("rr", "rt", "rz", "tt", "tz", "zz")]
+        + ["Jac_B"]
+    )
+    compute(ds, *Qs, state=teststate_boozer)
+
+    for q in Qs:
+        assert np.isnan(ds[q].data).sum() == 0
+
+    np.testing.assert_allclose(
+        ds.Jac_B, xr.dot(ds.e_rho_B, xr.cross(ds.e_theta_B, ds.e_zeta_B, dim="xyz"), dim="xyz")
+    )
+    sqrt_g = np.sqrt(
+        ds.g_rr_B * ds.g_tt_B * ds.g_zz_B
+        + 2 * ds.g_rt_B * ds.g_rz_B * ds.g_tz_B
+        - ds.g_rt_B**2 * ds.g_zz_B
+        - ds.g_rz_B**2 * ds.g_tt_B
+        - ds.g_tz_B**2 * ds.g_rr_B
+    )
+    np.testing.assert_allclose(ds.Jac_B, sqrt_g)
+
+
+def test_compute_Jac_B_consistency(teststate_boozer, ev_rtz):
+    ds = ev_rtz.isel(rad=slice(1, None))
+    compute(
+        ds,
+        "iota",
+        "Jac_B",
+        "B_theta_avg",
+        "B_zeta_avg",
+        "mod_B",
+        "dPhi_dr",
+        state=teststate_boozer,
+    )
+
+    Jac_B_B2 = ds.Jac_B * ds.mod_B**2
+    Jac_B_B2avg = Jac_B_B2.mean(("pol", "tor"))
+    np.testing.assert_allclose(
+        Jac_B_B2, Jac_B_B2avg.broadcast_like(Jac_B_B2), rtol=1e-2
+    )  # low resolution
+    np.testing.assert_allclose(
+        Jac_B_B2avg, ds.dPhi_dr * (ds.iota * ds.B_theta_avg + ds.B_zeta_avg), rtol=2e-4
+    )
+
+
+@pytest.mark.parametrize(
+    "q", ["B_contra_t", "B_contra_z", "g_rr", "g_rt", "g_rz", "g_tt", "g_tz", "g_zz", "mod_B"]
+)
+def test_derivatives(teststate, q):
+    ds = gvec.Evaluations(
+        rho=np.linspace(0.95, 1, 51),
+        theta=np.linspace(0.0, np.pi / 10, 51),
+        zeta=np.linspace(0.0, np.pi / 10 / teststate.nfp, 51),
+    )
+    compute(ds, q, f"d{q}_dr", f"d{q}_dt", f"d{q}_dz", state=teststate)
+
+    assert ds[q].dims == ("rad", "pol", "tor")
+    dQdr = np.gradient(ds[q], ds.rho, axis=0)[1:-1, 1:-1, 1:-1]
+    dQdt = np.gradient(ds[q], ds.theta, axis=1)[1:-1, 1:-1, 1:-1]
+    dQdz = np.gradient(ds[q], ds.zeta, axis=2)[1:-1, 1:-1, 1:-1]
+    ds = ds.isel(rad=slice(1, -1), pol=slice(1, -1), tor=slice(1, -1))
+
+    np.testing.assert_allclose(ds[f"d{q}_dr"], dQdr, atol=1e-3)
+    np.testing.assert_allclose(ds[f"d{q}_dt"], dQdt, atol=1e-3)
+    np.testing.assert_allclose(ds[f"d{q}_dz"], dQdz, atol=1e-3)
+
+
 def test_volume_integral(teststate, ev_rtz_int, ev_rtz):
     ds = ev_rtz_int
     compute(ds, "Jac", state=teststate)

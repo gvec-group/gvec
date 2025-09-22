@@ -671,10 +671,11 @@ def _dB(ds: xr.Dataset):
     )
 
 
-def _dmod_B(a):
+def _dmod_B_factory(a):
     @register(
         quantities=[f"dmod_B_d{a}"],
         requirements=[
+            "mod_B",
             "B_contra_t",
             "B_contra_z",
             f"dB_contra_t_d{a}",
@@ -689,8 +690,8 @@ def _dmod_B(a):
             symbol=latex_partial(r"\left|\mathbf{B}\right|", a),
         ),
     )
-    def dmod_B(ds: xr.Dataset):
-        ds[f"dmod_B_d{a}"] = (
+    def _dmod_B(ds: xr.Dataset):
+        dmod_B2_da = (
             2 * ds[f"dB_contra_t_d{a}"] * ds.B_contra_t * ds.g_tt
             + ds.B_contra_t**2 * ds[f"dg_tt_d{a}"]
             + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_t * ds.g_tz
@@ -699,10 +700,25 @@ def _dmod_B(a):
             + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_z * ds.g_zz
             + ds.B_contra_z**2 * ds[f"dg_zz_d{a}"]
         )
+        ds[f"dmod_B_d{a}"] = dmod_B2_da / (2 * ds.mod_B)
 
 
+# generate functions from factory function
 for a in "rtz":
-    globals()[f"dmod_B_d{a}"] = _dmod_B(a)
+    globals()[f"dmod_B_d{a}"] = _dmod_B_factory(a)
+
+
+@register(
+    requirements=["dmod_B_dr", "dmod_B_dt", "dmod_B_dz", "grad_rho", "grad_theta", "grad_zeta"],
+    attrs=dict(
+        long_name="gradient of the modulus of the magnetic field",
+        symbol=r"\nabla\left|\mathbf{B}\right|",
+    ),
+)
+def grad_mod_B(ds: xr.Dataset):
+    ds["grad_mod_B"] = (
+        ds.dmod_B_dr * ds.grad_rho + ds.dmod_B_dt * ds.grad_theta + ds.dmod_B_dz * ds.grad_zeta
+    )
 
 
 @register(
