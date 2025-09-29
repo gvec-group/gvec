@@ -308,14 +308,14 @@ In an ideal MHD equilibria we have the relations,
 	\mu_0 \vec{J} \cdot \nabla p = 0 &\iff \nabla \rho \cdot (\nabla\times\vec{B}) = 0.
 \end{align}
 
-The equation states that $\vec{B}$ is constant along a given flux surface labelled by $\rho$, combining with the result from earlier gives $J^\rho=0$, or
+The equation states that $\vec{B}$ and $\vec{J}$ are tangent along a given flux surface labelled by $\rho$, combining with the result from earlier gives $J^\rho=0$, or
 \begin{align}
 	\pdv{B_\zeta}{\thet} - \pdv{B_\thet}{\zeta} &= 0, \\
 	\pdv{\thet}\left( g_{\zeta\thet}  B^\thet + g_{\zeta\zeta} B^\zeta \right) - \pdv{\zeta} \left( g_{\thet\thet} B^\thet + g_{\thet\zeta} B^\zeta \right) &= 0, \\
-        \pdv{\thet} \left( \frac{g_{\zeta\thet}}{g} \, \left( \chi^\prime - \Phi^\prime \pdv{\lambda}{\zeta} \right)
-        + \frac{g_{\zeta\zeta}}{g} \, \Phi^\prime \left(1 + \pdv{\lambda}{\thet} \right) \right) - & \\ \qquad\qquad
-		\pdv{\zeta} \left( \frac{g_{\thet\thet}}{g} \, \left( \chi^\prime - \Phi^\prime \pdv{\lambda}{\zeta} \right)
-        + \frac{g_{\thet\zeta}}{g} \, \Phi^\prime \left(1 + \pdv{\lambda}{\thet} \right) \right)  &= 0.
+        \pdv{\thet} \left( \frac{g_{\zeta\thet}}{\Jac} \, \left( \chi^\prime - \Phi^\prime \pdv{\lambda}{\zeta} \right)
+        + \frac{g_{\zeta\zeta}}{\Jac} \, \Phi^\prime \left(1 + \pdv{\lambda}{\thet} \right) \right)  & \\ \qquad\quad
+	-	\pdv{\zeta} \left( \frac{g_{\thet\thet}}{\Jac} \, \left( \chi^\prime - \Phi^\prime \pdv{\lambda}{\zeta} \right)
+        + \frac{g_{\thet\zeta}}{\Jac} \, \Phi^\prime \left(1 + \pdv{\lambda}{\thet} \right) \right)  &= 0.
 \end{align}
 Rearranging slightly to isolate $\lambda$ terms we arrive at,
 \begin{equation*}\label{eq:lambda elliptic equation}
@@ -351,14 +351,14 @@ where we have applied integration by parts to both sides. Finally, to facilitate
 
 ###  Solving the discrete equation
 
-By taking the eqak form of lambda and choosing the test function space as the same as our solution space we have,
+By taking the test function space the same as our solution space for lambda, we have,
 \begin{equation}\label{eq:discretised weak equation for lambda}
 \begin{aligned}
-	&\sum_j \Lambda^j \dblint \frac{\Phi^\prime}{\Jac} \left(
+	\sum_j \Lambda^j &\dblint \frac{\Phi^\prime}{\Jac} \left(
 		\left( g_{\zeta\zeta} \pdv{\fbasis^i}{\thet} - g_{\thet\zeta} \pdv{\fbasis^i}{\zeta} \right) \pdv{\fbasis^j}{\thet}
 		+ \left( - g_{\thet\zeta} \pdv{\fbasis^i}{\thet} + g_{\thet\thet} \pdv{\fbasis^i}{\zeta} \right) \pdv{\fbasis^j}{\zeta}
 		\right) \dd\thet\,\dd\zeta
-		\\&\qquad\qquad=
+		\\=&
 	 \dblint \left(
 		\frac{\chi^\prime}{\Jac} \left( g_{\thet\thet} \pdv{\fbasis^i}{\zeta} - g_{\zeta\thet} \pdv{\fbasis^i}{\thet} \right) +
 		\frac{\Phi^\prime}{\Jac} \left( g_{\thet\zeta} \pdv{\fbasis^i}{\zeta} - g_{\zeta\zeta} \pdv{\fbasis^i}{\thet} \right)
@@ -372,8 +372,8 @@ Letting
 \end{align}
 and finally write the discrete equation system as,
 \begin{align}\label{eq:lambda discrete elliptic equation compact}
-    -\Phi^\prime \sum_j \Lambda^j A^{ij} &= \chi^\prime Q_\thet^i + \Phi^\prime Q_\zeta^i, \\
-    A^{ij} &= \left( Q_\thet^i \pdv{\fbasis^j}{\thet} + Q_\zeta^i \pdv{\fbasis^j}{\zeta} \right).
+    - \sum_j A^{ij}\Lambda^j  &= \chi^\prime Q_\thet^i + \Phi^\prime Q_\zeta^i, \\
+    A^{ij} &= \Phi^\prime\left( Q_\thet^i \pdv{\fbasis^j}{\thet} + Q_\zeta^i \pdv{\fbasis^j}{\zeta} \right).
 \end{align}
 Since $A^{ij}$ arises from the elliptic equation, it follows that $A^{ij}$ is a dense symmetric positive definite matrix.
 
