@@ -144,8 +144,8 @@ where the prime indicates the derivative with respect to $\rho$.
 Finally, we express the magnetic field into the two contravariant components and the tangent basis vectors in tangential direction of the flux surface,
 \begin{equation}\label{eq:magnetic field}
     \vec{B} = \frac{1}{\Jac}\left(b^\thet \ethet + b^\zeta \ezeta\right)\,,\quad
-     b^\thet = \Phi^\prime(1+\partial_\thet\lambda)\quad
-     b^\zeta = \chi^\prime -\Phi^\prime\partial_\zeta\lambda\,,
+     b^\thet = \chi^\prime -\Phi^\prime\partial_\zeta\lambda\quad
+     b^\zeta = \Phi^\prime(1+\partial_\thet\lambda)\,,
 \end{equation}
 
 
