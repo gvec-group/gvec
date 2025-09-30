@@ -143,10 +143,20 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             parameters = gvec.util.parameters_from_vmec(nml, str(args.input))
         else:
             parameters = gvec.util.read_parameters(args.input)
-        if args.flip is not None and args.flip[0] in "tb":
-            parameters = gvec.util.flip_parameters_theta(parameters)
-        if args.flip is not None and args.flip[0] in "zb":
-            parameters = gvec.util.flip_parameters_zeta(parameters)
+
+        if args.flip is None:
+            if not gvec.util.check_boundary_direction(parameters):
+                logger.info("Input boundary is left-handed, flipping theta.")
+                parameters = gvec.util.flip_parameters_theta(parameters)
+        else:
+            if args.flip[0] in "tb":
+                parameters = gvec.util.flip_parameters_theta(parameters)
+            if args.flip[0] in "zb":
+                parameters = gvec.util.flip_parameters_zeta(parameters)
+
+        if not gvec.util.check_boundary_direction(parameters):
+            logger.warning("Output boundary is left-handed!")
+
         gvec.util.write_parameters(parameters, args.output)
 
     # --- other scripts --- #

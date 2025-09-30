@@ -432,6 +432,73 @@ def effective_minor_radius(
     return np.sqrt(np.mean(areas) / np.pi)
 
 
+def evaluate_boundary(
+    theta: np.ndarray, zeta: np.ndarray, parameters: Mapping
+) -> tuple[np.ndarray, np.ndarray]:
+    """Evaluate the boundary at the given (theta, zeta) points.
+
+    Args:
+        theta (1D np.ndarray): The poloidal angles at which to evaluate the boundary.
+        zeta (1D np.ndarray): The toroidal angles at which to evaluate the boundary.
+        parameters (Mapping): The parameters defining the boundary.
+
+    Returns:
+        tuple[2D np.ndarray, 2D np.ndarray]: The (X^1, X^2) coordinates of the boundary at the given (theta, zeta) points.
+    """
+    theta = np.asarray(theta)
+    zeta = np.asarray(zeta)
+    if theta.ndim != 1 or zeta.ndim != 1:
+        raise ValueError("theta and zeta must be 1D arrays")
+    nfp = parameters.get("nfp", 1)
+    theta, zeta = np.meshgrid(theta, zeta, indexing="ij")
+    x1 = np.zeros_like(theta)
+    x2 = np.zeros_like(theta)
+    for (m, n), value in parameters.get("X1_b_cos", {}).items():
+        x1 += value * np.cos(m * theta - n * nfp * zeta)
+    for (m, n), value in parameters.get("X1_b_sin", {}).items():
+        x1 += value * np.sin(m * theta - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_cos", {}).items():
+        x2 += value * np.cos(m * theta - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_sin", {}).items():
+        x2 += value * np.sin(m * theta - n * nfp * zeta)
+    return x1, x2
+
+
+def evaluate_axis(zeta: np.ndarray, parameters: Mapping) -> tuple[np.ndarray, np.ndarray]:
+    """Evaluate the magnetic axis at the given zeta points.
+
+    Args:
+        zeta (1D np.ndarray): The toroidal angles at which to evaluate the axis.
+        parameters (Mapping): The parameters defining the axis.
+
+    Returns:
+        tuple[1D np.ndarray, 1D np.ndarray]: The (X^1, X^2) coordinates of the axis at the given zeta points.
+    """
+    zeta = np.asarray(zeta)
+    if zeta.ndim != 1:
+        raise ValueError("zeta must be a 1D array")
+    nfp = parameters.get("nfp", 1)
+    x1 = np.zeros_like(zeta)
+    x2 = np.zeros_like(zeta)
+    for (m, n), value in parameters.get("X1_a_cos", {}).items():
+        if m != 0:
+            raise ValueError("Axis X1_a_cos should only have m=0 modes")
+        x1 += value * np.cos(-n * nfp * zeta)
+    for (m, n), value in parameters.get("X1_a_sin", {}).items():
+        if m != 0:
+            raise ValueError("Axis X1_a_sin should only have m=0 modes")
+        x1 += value * np.sin(-n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_a_cos", {}).items():
+        if m != 0:
+            raise ValueError("Axis X2_a_cos should only have m=0 modes")
+        x2 += value * np.cos(-n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_a_sin", {}).items():
+        if m != 0:
+            raise ValueError("Axis X2_a_sin should only have m=0 modes")
+        x2 += value * np.sin(-n * nfp * zeta)
+    return x1, x2
+
+
 def compute_boundary_perturbation(
     base_parameters: Mapping, perturbed_parameters: Mapping
 ) -> tuple[CaseInsensitiveDict, CaseInsensitiveDict]:
@@ -521,18 +588,18 @@ def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
 
 def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     M, N = nml["mpol"] - 1, nml["ntor"]
-    stellsym = not nml["lasym"]  # stellarator symmetry
+    stellsym = not nml.get("lasym", False)  # stellarator symmetry
     params = CaseInsensitiveDict(
         ProjectName=name,
         which_hmap=1,
         minimize_tol=1e-7,
         totalIter=10000,
         logIter=100,
-        nfp=nml["nfp"],
+        nfp=nml.get("nfp", 1),
         X1_mn_max=(M, N),
         X2_mn_max=(M, N),
         LA_mn_max=(M, N),
-        PhiEdge=nml["phiedge"],
+        PhiEdge=nml.get("phiedge", 1.0),
         X1X2_deg=5,
         LA_deg=5,
         sgrid=dict(
@@ -541,16 +608,16 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         ),
     )
     # --- profiles --- #
-    if nml["pmass_type"] != "power_series":
+    if nml.get("pmass_type", "power_series") != "power_series":
         raise ValueError(
             f"VMEC pressure profile of type {nml['pmass_type']} is not supported for conversion"
         )
     params["pres"] = {
         "type": "polynomial",
         "coefs": nml["am"],
-        "scale": nml["pres_scale"],
+        "scale": nml.get("pres_scale", 1.0),
     }
-    if nml["piota_type"] != "power_series":
+    if nml.get("piota_type", "power_series") != "power_series":
         raise ValueError(
             f"VMEC iota profile of type {nml['piota_type']} is not supported for conversion"
         )
@@ -559,15 +626,17 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         "coefs": nml["ai"],
     }
     if nml["ncurr"] == 1:  # ncurr = 0: flux conservation | ncurr = 1: current constraint
-        if nml["pcurr_type"] != "power_series":
+        if nml.get("pcurr_type", "power_series") != "power_series":
             raise ValueError(
                 f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
             )
+        coefs = ([0] + [p / (i + 1) for i, p in enumerate(nml["ac"])],)  # I'(s) -> I(s)
         params["I_tor"] = {
             "type": "polynomial",
-            "coefs": nml["ac"],
-            "scale": nml["curtor"],
+            "coefs": coefs,
+            "scale": nml["curtor"] / sum(coefs),
         }
+        params["picard_current"] = "auto"
 
     # --- boundary --- #
     for vmec_key, gvec_key in [
@@ -620,6 +689,8 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         if values.ndim == 0:
             continue
         params[gvec_key] = {(0, n): v for n, v in enumerate(values)}
+    if not any(k in params for k in ["X1_a_cos", "X1_a_sin", "X2_a_cos", "X2_a_sin"]):
+        params["init_average_axis"] = True
 
     return params
 
@@ -627,12 +698,12 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
 def axis_from_boundary(parameters: MutableMapping) -> MutableMapping:
     parameters2 = copy.deepcopy(parameters)
     N = parameters["X1_mn_max"][1]
-    parameters2["X1_a_cos"] = {parameters["X1_b_cos"][0, n] for n in range(N + 1)}
-    parameters2["X2_a_sin"] = {parameters["X2_b_sin"][0, n] for n in range(N + 1)}
+    parameters2["X1_a_cos"] = {(0, n): parameters["X1_b_cos"][0, n] for n in range(N + 1)}
+    parameters2["X2_a_sin"] = {(0, n): parameters["X2_b_sin"][0, n] for n in range(N + 1)}
     if "X1_b_sin" in parameters:
-        parameters2["X1_a_sin"] = {parameters["X1_b_sin"][0, n] for n in range(N + 1)}
+        parameters2["X1_a_sin"] = {(0, n): parameters["X1_b_sin"][0, n] for n in range(N + 1)}
     if "X2_b_cos" in parameters:
-        parameters2["X2_a_cos"] = {parameters["X2_b_cos"][0, n] for n in range(N + 1)}
+        parameters2["X2_a_cos"] = {(0, n): parameters["X2_b_cos"][0, n] for n in range(N + 1)}
     return parameters2
 
 
