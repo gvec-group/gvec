@@ -674,7 +674,15 @@ def _dB(ds: xr.Dataset):
 def _dmod_B(a):
     @register(
         quantities=[f"dmod_B_d{a}"],
-        requirements=[f"dB_contra_t_d{a}", f"dB_contra_z_d{a}"]
+        requirements=[
+            "B_contra_t",
+            "B_contra_z",
+            f"dB_contra_t_d{a}",
+            f"dB_contra_z_d{a}",
+            "g_tt",
+            "g_tz",
+            "g_zz",
+        ]
         + [f"dg_{ij}_d{a}" for ij in ["tt", "tz", "zz"]],
         attrs=dict(
             long_name=derivative_name_smart("modulus of the magnetic field", a),
@@ -888,9 +896,8 @@ def e_theta_B(ds: xr.Dataset):
     dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
     dzB_dt = ds.dNU_B_dt
     dzB_dz = 1 + ds.dNU_B_dz
-    ds["e_theta_B"] = (dzB_dz * ds.e_theta - dzB_dt * ds.e_zeta) / (
-        dtB_dt * dzB_dz - dtB_dz * dzB_dt
-    )
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    ds["e_theta_B"] = (dzB_dz * ds.e_theta - dzB_dt * ds.e_zeta) * Jac_B_Jac
 
 
 @register(
@@ -913,9 +920,8 @@ def e_zeta_B(ds: xr.Dataset):
     dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
     dzB_dt = ds.dNU_B_dt
     dzB_dz = 1 + ds.dNU_B_dz
-    ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) / (
-        dtB_dt * dzB_dz - dtB_dz * dzB_dt
-    )
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) * Jac_B_Jac
 
 
 def _g_ij_B_factory(i, j):
