@@ -671,6 +671,81 @@ def _dB(ds: xr.Dataset):
     )
 
 
+@register(
+    requirements=(
+        "B_contra_t",
+        "B_contra_z",
+        "dB_contra_t_dr",
+        "dB_contra_z_dr",
+        "e_theta",
+        "e_zeta",
+        "k_rt",
+        "k_rz",
+    ),
+    attrs=dict(
+        long_name="radial derivative of the magnetic field",
+        symbol=r"\frac{\partial \mathbf{B}}{\partial \rho}",
+    ),
+)
+def dB_dr(ds: xr.Dataset):
+    ds["dB_dr"] = (
+        ds.dB_contra_t_dr * ds.e_theta
+        + ds.B_contra_t * ds.k_rt
+        + ds.dB_contra_z_dr * ds.e_zeta
+        + ds.B_contra_z * ds.k_rz
+    )
+
+
+@register(
+    requirements=(
+        "B_contra_t",
+        "B_contra_z",
+        "dB_contra_t_dt",
+        "dB_contra_z_dt",
+        "e_theta",
+        "e_zeta",
+        "k_tt",
+        "k_tz",
+    ),
+    attrs=dict(
+        long_name="poloidal derivative of the magnetic field",
+        symbol=r"\frac{\partial \mathbf{B}}{\partial \theta}",
+    ),
+)
+def dB_dt(ds: xr.Dataset):
+    ds["dB_dt"] = (
+        ds.dB_contra_t_dt * ds.e_theta
+        + ds.B_contra_t * ds.k_tt
+        + ds.dB_contra_z_dt * ds.e_zeta
+        + ds.B_contra_z * ds.k_tz
+    )
+
+
+@register(
+    requirements=(
+        "B_contra_t",
+        "B_contra_z",
+        "dB_contra_t_dz",
+        "dB_contra_z_dz",
+        "e_theta",
+        "e_zeta",
+        "k_tz",
+        "k_zz",
+    ),
+    attrs=dict(
+        long_name="toroidal derivative of the magnetic field",
+        symbol=r"\frac{\partial \mathbf{B}}{\partial \zeta}",
+    ),
+)
+def dB_dz(ds: xr.Dataset):
+    ds["dB_dz"] = (
+        ds.dB_contra_t_dz * ds.e_theta
+        + ds.B_contra_t * ds.k_tz
+        + ds.dB_contra_z_dz * ds.e_zeta
+        + ds.B_contra_z * ds.k_zz
+    )
+
+
 def _dmod_B_factory(a):
     @register(
         quantities=[f"dmod_B_d{a}"],
@@ -960,7 +1035,7 @@ def _g_ij_B_factory(i, j):
 
 
 # generate functions from factory function
-for i, j in ["tt", "tz", "zz"]:
+for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
     globals()[f"g_{i}{j}_B"] = _g_ij_B_factory(i, j)
 
 
