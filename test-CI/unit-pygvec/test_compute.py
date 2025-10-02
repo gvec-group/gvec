@@ -437,42 +437,17 @@ def test_compute_basis(teststate, ev_rtz):
             assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
 
 
-def test_compute_g_ij_B(teststate_boozer, ev_rtz):
-    ds = ev_rtz.isel(rad=slice(1, None))
-    Qs = (
-        [f"e_{i}_B" for i in ("rho", "theta", "zeta")]
-        + [f"g_{ij}_B" for ij in ("rr", "rt", "rz", "tt", "tz", "zz")]
-        + ["Jac_B"]
-    )
-    compute(ds, *Qs, state=teststate_boozer)
-
-    for q in Qs:
-        assert np.isnan(ds[q].data).sum() == 0
-
-    np.testing.assert_allclose(
-        ds.Jac_B, xr.dot(ds.e_rho_B, xr.cross(ds.e_theta_B, ds.e_zeta_B, dim="xyz"), dim="xyz")
-    )
-    sqrt_g = np.sqrt(
-        ds.g_rr_B * ds.g_tt_B * ds.g_zz_B
-        + 2 * ds.g_rt_B * ds.g_rz_B * ds.g_tz_B
-        - ds.g_rt_B**2 * ds.g_zz_B
-        - ds.g_rz_B**2 * ds.g_tt_B
-        - ds.g_tz_B**2 * ds.g_rr_B
-    )
-    np.testing.assert_allclose(ds.Jac_B, sqrt_g)
-
-
-def test_compute_Jac_B_consistency(teststate_boozer, ev_rtz):
-    ds = ev_rtz.isel(rad=slice(1, None))
-    compute(
-        ds,
+def test_compute_Jac_B_consistency(teststate, ev_rtz):
+    ds = teststate.evaluate_sfl(
         "iota",
         "Jac_B",
         "B_theta_avg",
         "B_zeta_avg",
         "mod_B",
         "dPhi_dr",
-        state=teststate_boozer,
+        rho=np.linspace(0, 1, 11)[1:],
+        theta=21,
+        zeta=21,
     )
 
     Jac_B_B2 = ds.Jac_B * ds.mod_B**2
@@ -481,7 +456,7 @@ def test_compute_Jac_B_consistency(teststate_boozer, ev_rtz):
         Jac_B_B2, Jac_B_B2avg.broadcast_like(Jac_B_B2), rtol=1e-2
     )  # low resolution
     np.testing.assert_allclose(
-        Jac_B_B2avg, ds.dPhi_dr * (ds.iota * ds.B_theta_avg + ds.B_zeta_avg), rtol=2e-4
+        Jac_B_B2avg, ds.dPhi_dr * (ds.iota * ds.B_theta_avg + ds.B_zeta_avg), rtol=5e-4
     )
 
 

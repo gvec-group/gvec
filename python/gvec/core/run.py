@@ -221,12 +221,12 @@ class Run:
             else:  # ensure at least one stage beyond initial stage
                 self.stages += [cidict()]
 
-            parameters_stages = self.parameters.copy()
-            parameters_stages["stages"] = self.stages
-            parameters_stages_name = (
-                f"parameter_{self.parameters['ProjectName']}.stages.{self.filetype}"
-            )
-            self.logger.info(f"... generated {len(self.stages)} stages.")
+        parameters_stages = self.parameters.copy()
+        parameters_stages["stages"] = self.stages
+        parameters_stages_name = (
+            f"parameter_{self.parameters['ProjectName']}.stages.{self.filetype}"
+        )
+        self.logger.info(f"... generated {len(self.stages)} stages.")
 
         # load restart state
         if isinstance(state, gvec.State):
