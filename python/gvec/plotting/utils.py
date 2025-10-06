@@ -1,0 +1,61 @@
+from numpy import linspace, pi, array, ndarray
+
+
+def _get_coord_range(coordinate, nfp, points):
+    """
+    Boiler plate code for building the arrays required for plotting
+
+    Return is always of type `numpy.ndarray`.
+    """
+
+    # Limits chosen based on the coordinate
+    if coordinate == "rho":
+        auto_limit = [0, 1]
+    elif coordinate == "theta":
+        auto_limit = [0, 2 * pi]
+    elif coordinate == "zeta":
+        auto_limit = [0, 2 * pi / nfp]
+
+    # The output will be adjusted depending on the input type
+    if isinstance(points, int):
+        nodes = linspace(*auto_limit, points)
+    elif isinstance(points, ndarray):
+        nodes = points
+    elif isinstance(points, float):
+        nodes = array([points])
+
+    return nodes
+
+
+def _get_scalars_for_plotting(
+    evaluations, equilibrium_quantities, post_process, direction
+):
+    """
+    Move all eval quantities into a dict for plotting. Post process the quantities if required.
+
+    Return is a `dict{"quantity": array([values])}
+
+    TODO: Allow post processing even if the quantity is a scalar.
+    """
+
+    plotting_quantities = {}
+    for quantity in equilibrium_quantities:
+        # Loop over the quantities and store what we're plotting in the dict
+        if evaluations[quantity][direction][0].size != 1:
+            # If this quantity is not a scalar (if size != 1)
+            #   we check to see if it is going to be remapped, or we error out
+            if post_process is None:
+                raise TypeError("The plotted quantities must be scalars.")
+            else:
+                # Post process the quantity and give the new quantity the given name in plotting
+                tmp = post_process[quantity][0](evaluations[quantity])
+                if len(tmp.shape) == 1:
+                    plotting_quantities[post_process[quantity][1]] = tmp
+                else:
+                    raise ValueError(
+                        "Post-processing function does not return a 1D array."
+                    )
+        else:
+            plotting_quantities[quantity] = evaluations[quantity].data.flatten()
+
+    return plotting_quantities
