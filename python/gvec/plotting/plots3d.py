@@ -3,16 +3,16 @@ import plotly.offline as plotly_offline
 
 from gvec.core.state import State
 
-from gvec_plotting.utils import _get_coord_range
+from .utils import _get_coord_range
 
 
 def plot_3d_surface(
     state: State,
     nzeta: int,
     ntheta: int,
+    rho: float,
     equilibrium_quantity: str = "mod_B",
-    rho: float = 1.0,
-    offline: bool = True,
+    offline: bool = False,
 ):
     """
     Generate a 3D surface plot with the quantity provided by `equilibrium_quantity` on it at a given `rho` position.
@@ -24,13 +24,13 @@ def plot_3d_surface(
         Toroidal resolution
     ntheta: int
         Poloidal resolution
+    rho: float
+        Radial position of the surface
     equilibrium_quantity: String, optional
         default is "mod_B"
-    rho: float
-        default is 1.0
     offline: bool
         If true, will automatically save the plot to a file in the current working directory.
-        default is True
+        default is False
 
     Returns
     -------
@@ -43,9 +43,7 @@ def plot_3d_surface(
     theta = _get_coord_range("theta", state.nfp, ntheta)
     zeta = _get_coord_range("zeta", state.nfp, nzeta)
 
-    ev = state.evaluate(equilibrium_quantity, rho=[rho], theta=theta, zeta=zeta).sel(
-        rho=rho
-    )
+    ev = state.evaluate(equilibrium_quantity, rho=[rho], theta=theta, zeta=zeta).sel(rho=rho)
 
     # if existing_plot is None:
     plt = graph_objects.Figure()
@@ -82,4 +80,4 @@ def plot_boundary(state, nzeta, ntheta, equilibrium_quantity="mod_B"):
 
     Wrapper around `plot_3d_surface` with `rho=1.0`. See `help(plot_3d_surface)` for information on inputs.
     """
-    return plot_3d_surface(state, nzeta, ntheta, equilibrium_quantity)
+    return plot_3d_surface(state, nzeta, ntheta, 1.0, equilibrium_quantity)

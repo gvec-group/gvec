@@ -4,7 +4,7 @@ import matplotlib.pyplot as pyplot
 
 from gvec.core.state import State
 
-from gvec_plotting.utils import _get_coord_range, _get_scalars_for_plotting
+from .utils import _get_coord_range, _get_scalars_for_plotting
 
 
 pyplot.rcParams.update({"text.usetex": True})
