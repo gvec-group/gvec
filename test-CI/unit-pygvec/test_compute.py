@@ -225,13 +225,19 @@ def test_evaluations_init(teststate):
     [2, 1.0, xr.DataArray([0.5, 0.6], dims="tor"), np.array([0.5, 0.6]), [0.5, 0.6]],
     ids=["int", "float", "xr", "np", "list"],
 )
-def test_boozer_init(teststate, rho, theta_B, zeta_B):
-    ds = EvaluationsBoozer(rho, theta_B, zeta_B, teststate, MNfactor=1)
+@pytest.mark.parametrize("radial_derivative", [True, False])
+def test_boozer_init(teststate, rho, theta_B, zeta_B, radial_derivative):
+    ds = EvaluationsBoozer(
+        rho, theta_B, zeta_B, teststate, radial_derivative=radial_derivative, MNfactor=1
+    )
     teststate.compute(ds, "X1")
 
 
-def test_boozer(teststate):
-    ds = EvaluationsBoozer([0.5, 1.0], 20, 18, teststate, MNfactor=5)
+@pytest.mark.parametrize("radial_derivative", [True, False])
+def test_boozer(teststate, radial_derivative):
+    ds = EvaluationsBoozer(
+        [0.5, 1.0], 20, 18, teststate, radial_derivative=radial_derivative, MNfactor=5
+    )
     assert np.allclose(ds.rho, [0.5, 1.0])
     assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
     assert {"rad", "pol", "tor"} == set(ds.dims)
@@ -247,9 +253,13 @@ def test_boozer(teststate):
     assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
 
     assert {"LA", "dLA_dt", "dLA_dz", "dLA_dtz"} < set(ds.data_vars)
-    assert len({"dLA_dr", "dLA_drt", "dLA_drz"} & set(ds.data_vars)) == 0
     assert {"NU_B", "dNU_B_dt", "dNU_B_dz", "dNU_B_dtz"} < set(ds.data_vars)
-    assert len({"dNU_B_dr", "dNU_B_drt", "dNU_B_drz"} & set(ds.data_vars)) == 0
+    if radial_derivative:
+        assert {"dLA_dr", "dLA_drt", "dLA_drz"} < set(ds.data_vars)
+        assert {"dNU_B_dr", "dNU_B_drt", "dNU_B_drz"} < set(ds.data_vars)
+    else:
+        assert len({"dLA_dr", "dLA_drt", "dLA_drz"} & set(ds.data_vars)) == 0
+        assert len({"dNU_B_dr", "dNU_B_drt", "dNU_B_drz"} & set(ds.data_vars)) == 0
 
     # currents / averages of B are independent of coordinate system
     # and B_theta_B, B_zeta_B are constant
@@ -294,7 +304,8 @@ def test_EvaluationsBoozer_2D(teststate):
         assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
 
 
-def test_EvaluationsBoozer_fieldlines(teststate):
+@pytest.mark.parametrize("radial_derivative", [True, False])
+def test_EvaluationsBoozer_fieldlines(teststate, radial_derivative):
     """Test EvaluationsBoozer with a 3D array for theta_B, as required for fieldline coordinates."""
     rho = [0.5, 1.0]  # radial positions
     alpha = np.linspace(0, 2 * np.pi, 2, endpoint=False)  # fieldline label
@@ -306,7 +317,14 @@ def test_EvaluationsBoozer_fieldlines(teststate):
     # 3D toroidal and poloidal arrays that correspond to fieldline coordinates for each surface
     theta_B = alpha[None, :, None] + ev.iota.data[:, None, None] * phi[None, None, :]
 
-    ds = EvaluationsBoozer(rho=rho, theta_B=theta_B, zeta_B=phi, state=teststate, MNfactor=1)
+    ds = EvaluationsBoozer(
+        rho=rho,
+        theta_B=theta_B,
+        zeta_B=phi,
+        state=teststate,
+        radial_derivative=radial_derivative,
+        MNfactor=1,
+    )
     assert ds.rho.dims == ("rad",)
     assert ds.theta_B.dims == ("rad", "pol", "tor")
     assert ds.zeta_B.dims == ("tor",)
