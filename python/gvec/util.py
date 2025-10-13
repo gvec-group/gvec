@@ -6,6 +6,7 @@ This module is part of the gvec python package, but also used directly in the te
 """
 
 import contextlib
+import copy
 import os
 import re
 import shutil
@@ -13,13 +14,17 @@ from collections.abc import Mapping, MutableMapping, Iterable
 from pathlib import Path
 from typing import Literal
 from copy import deepcopy
+import logging
 
+import numpy as np
 from numpy.typing import ArrayLike
 
 try:
     from scipy.interpolate import BSpline
 except ImportError:
     BSpline = None
+
+logger = logging.getLogger(__name__)
 
 
 @contextlib.contextmanager
@@ -129,6 +134,21 @@ class CaseInsensitiveDict(MutableMapping):
     def copy(self):
         """Return a deep copy."""
         return deepcopy(self)
+
+    def __or__(self, other):
+        """Union/Merge operator 'a | b' (without modifying self)."""
+        if not isinstance(other, Mapping):
+            return NotImplemented
+        result = CaseInsensitiveDict(self)
+        result.update(other)
+        return result
+
+    def __ior__(self, other):
+        """In-place union/merge operator 'a |= b' (modifies self)."""
+        if not isinstance(other, Mapping):
+            return NotImplemented
+        self.update(other)
+        return self
 
 
 def adapt_parameter_file(source: str | Path, target: str | Path, **kwargs):
@@ -291,7 +311,7 @@ def read_parameter_file_ini(path: str | Path) -> CaseInsensitiveDict:
     {'param1': 1.2, 'param2': (1, 2, 3), 'param3': {(-1, 0): 0.5, (0, 0): 1.0}}
     """
     INT = r"[-+]?\d+"
-    FLOAT = r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?"
+    FLOAT = r"[-+]?\d*\.?\d*(?:[eE][-+]?\d+)?"
     STR = r"\S+"
     KEY = r"\w+"
 
@@ -361,136 +381,329 @@ def read_parameter_file_ini(path: str | Path) -> CaseInsensitiveDict:
     return parameters
 
 
-def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
-    import copy
+def check_boundary_direction(parameters: Mapping) -> bool:
+    """Determine whether the boundary is described by right-handed logical coordinates (θ,ζ).
 
-    parameters2 = copy.deepcopy(parameters)
-    if "X1_b_cos" in parameters:
-        for (m, n), value in parameters["X1_b_cos"].items():
-            if m == 0:
-                continue
-            parameters2["X1_b_cos"][m, -n] = value
-    if "X1_b_sin" in parameters:
-        for (m, n), value in parameters["X1_b_sin"].items():
-            if m == 0:
-                continue
-            parameters2["X1_b_sin"][m, -n] = -value
-    if "X2_b_cos" in parameters:
-        for (m, n), value in parameters["X2_b_cos"].items():
-            if m == 0:
-                continue
-            parameters2["X2_b_cos"][m, -n] = value
-    if "X2_b_sin" in parameters:
-        for (m, n), value in parameters["X2_b_sin"].items():
-            if m == 0:
-                continue
-            parameters2["X2_b_sin"][m, -n] = -value
-    return parameters2
+    GVEC requires a right-handed logical coordinate system (ρ,θ,ζ).
+    The logical coordinate system of the poloidal plane, (ρ,θ) is also required to be right-handed,
+    which requires the poloidal angle to increase in the counter-clockwise direction.
+    As a consequence the toroidal angle has to increase in the clockwise direction when viewed from above.
+    This is ensured in the definition of the h-maps.
+
+    Returns:
+        bool: True if (ρ,θ) is right-handed / θ increases counter-clockwise, False otherwise.
+    """
+    return signed_cross_sectional_area(parameters, 0.0) > 0
+
+
+def signed_cross_sectional_area(
+    parameters: Mapping, zeta: float, resolution: int = 1000
+) -> float:
+    t = np.linspace(0, 2 * np.pi, resolution, endpoint=False)
+    x1 = np.zeros_like(t)
+    dx1dt = np.zeros_like(t)
+    x2 = np.zeros_like(t)
+    dx2dt = np.zeros_like(t)
+    nfp = parameters.get("nfp", 1)
+    for (m, n), value in parameters.get("X1_b_cos", {}).items():
+        x1 += value * np.cos(m * t - n * nfp * zeta)
+        dx1dt -= value * m * np.sin(m * t - n * nfp * zeta)
+    for (m, n), value in parameters.get("X1_b_sin", {}).items():
+        x1 += value * np.sin(m * t - n * nfp * zeta)
+        dx1dt += value * m * np.cos(m * t - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_cos", {}).items():
+        x2 += value * np.cos(m * t - n * nfp * zeta)
+        dx2dt -= value * m * np.sin(m * t - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_sin", {}).items():
+        x2 += value * np.sin(m * t - n * nfp * zeta)
+        dx2dt += value * m * np.cos(m * t - n * nfp * zeta)
+    dA = x1 * dx2dt - x2 * dx1dt
+    return np.sum(dA)
+
+
+def effective_minor_radius(
+    parameters: Mapping,
+    resolution: tuple[int, int] = (1000, 100),
+):
+    nfp = parameters.get("nfp", 1)
+    areas = np.zeros(resolution[1])
+    for z, zeta in enumerate(np.linspace(0, 2 * np.pi / nfp, resolution[1], endpoint=False)):
+        areas[z] = abs(signed_cross_sectional_area(parameters, zeta, resolution=resolution[0]))
+    return np.sqrt(np.mean(areas) / np.pi)
+
+
+def evaluate_boundary(
+    theta: np.ndarray, zeta: np.ndarray, parameters: Mapping
+) -> tuple[np.ndarray, np.ndarray]:
+    """Evaluate the boundary at the given (theta, zeta) points.
+
+    Args:
+        theta (1D np.ndarray): The poloidal angles at which to evaluate the boundary.
+        zeta (1D np.ndarray): The toroidal angles at which to evaluate the boundary.
+        parameters (Mapping): The parameters defining the boundary.
+
+    Returns:
+        tuple[2D np.ndarray, 2D np.ndarray]: The (X^1, X^2) coordinates of the boundary at the given (theta, zeta) points.
+    """
+    theta = np.asarray(theta)
+    zeta = np.asarray(zeta)
+    if theta.ndim != 1 or zeta.ndim != 1:
+        raise ValueError("theta and zeta must be 1D arrays")
+    nfp = parameters.get("nfp", 1)
+    theta, zeta = np.meshgrid(theta, zeta, indexing="ij")
+    x1 = np.zeros_like(theta)
+    x2 = np.zeros_like(theta)
+    for (m, n), value in parameters.get("X1_b_cos", {}).items():
+        x1 += value * np.cos(m * theta - n * nfp * zeta)
+    for (m, n), value in parameters.get("X1_b_sin", {}).items():
+        x1 += value * np.sin(m * theta - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_cos", {}).items():
+        x2 += value * np.cos(m * theta - n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_b_sin", {}).items():
+        x2 += value * np.sin(m * theta - n * nfp * zeta)
+    return x1, x2
+
+
+def evaluate_axis(zeta: np.ndarray, parameters: Mapping) -> tuple[np.ndarray, np.ndarray]:
+    """Evaluate the magnetic axis at the given zeta points.
+
+    Args:
+        zeta (1D np.ndarray): The toroidal angles at which to evaluate the axis.
+        parameters (Mapping): The parameters defining the axis.
+
+    Returns:
+        tuple[1D np.ndarray, 1D np.ndarray]: The (X^1, X^2) coordinates of the axis at the given zeta points.
+    """
+    zeta = np.asarray(zeta)
+    if zeta.ndim != 1:
+        raise ValueError("zeta must be a 1D array")
+    nfp = parameters.get("nfp", 1)
+    x1 = np.zeros_like(zeta)
+    x2 = np.zeros_like(zeta)
+    for (m, n), value in parameters.get("X1_a_cos", {}).items():
+        if m != 0:
+            raise ValueError("Axis X1_a_cos should only have m=0 modes")
+        x1 += value * np.cos(-n * nfp * zeta)
+    for (m, n), value in parameters.get("X1_a_sin", {}).items():
+        if m != 0:
+            raise ValueError("Axis X1_a_sin should only have m=0 modes")
+        x1 += value * np.sin(-n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_a_cos", {}).items():
+        if m != 0:
+            raise ValueError("Axis X2_a_cos should only have m=0 modes")
+        x2 += value * np.cos(-n * nfp * zeta)
+    for (m, n), value in parameters.get("X2_a_sin", {}).items():
+        if m != 0:
+            raise ValueError("Axis X2_a_sin should only have m=0 modes")
+        x2 += value * np.sin(-n * nfp * zeta)
+    return x1, x2
+
+
+def compute_boundary_perturbation(
+    base_parameters: Mapping, perturbed_parameters: Mapping
+) -> tuple[CaseInsensitiveDict, CaseInsensitiveDict]:
+    """Computes the difference between the perturbed and base boundary parameters as a perturbation."""
+    new_base = CaseInsensitiveDict()
+    new_perturbed = CaseInsensitiveDict()
+    for i in [1, 2]:
+        for sincos in ["sin", "cos"]:
+            perturbed = {}
+            base = {}
+            # set boundary modes to values from restart
+            for (m, n), v in base_parameters.get(f"{i}_b_{sincos}", {}).items():
+                base[m, n] = v
+            # set boundary perturbation to difference between current and restart
+            for (m, n), v in perturbed_parameters.get(f"X{i}_b_{sincos}", {}).items():
+                v = v - base_parameters.get(f"X{i}_b_{sincos}", {}).get((m, n), 0)
+                if v != 0.0:
+                    perturbed[m, n] = v
+            if base or perturbed:
+                new_base[f"X{i}_b_{sincos}"] = base
+                new_perturbed[f"X{i}pert_b_{sincos}"] = perturbed
+    return new_base, new_perturbed
+
+
+def flip_boundary_theta(parameters: MutableMapping) -> MutableMapping:
+    """Flip the boundary parameters in the poloidal direction. θ → -θ."""
+    output_params = copy.deepcopy(parameters)
+    for var in ["X1_b", "X2_b"]:
+        if f"{var}_cos" in parameters:
+            output_params[f"{var}_cos"] = {}
+            for (m, n), value in parameters[f"{var}_cos"].items():
+                if m == 0:
+                    output_params[f"{var}_cos"][m, n] = value
+                else:
+                    output_params[f"{var}_cos"][m, -n] = value
+        if f"{var}_sin" in parameters:
+            output_params[f"{var}_sin"] = {}
+            for (m, n), value in parameters[f"{var}_sin"].items():
+                if m == 0:
+                    output_params[f"{var}_sin"][m, n] = value
+                else:
+                    output_params[f"{var}_sin"][m, -n] = -value
+    return output_params
+
+
+def flip_boundary_zeta(parameters: MutableMapping) -> MutableMapping:
+    output_params = copy.deepcopy(parameters)
+    for var in ["X1_b", "X2_b", "X1_a", "X2_a"]:
+        if f"{var}_cos" in parameters:
+            output_params[f"{var}_cos"] = {}
+            for (m, n), value in parameters[f"{var}_cos"].items():
+                if m == 0:
+                    output_params[f"{var}_cos"][m, n] = value
+                else:
+                    output_params[f"{var}_cos"][m, -n] = value
+        if f"{var}_sin" in parameters:
+            output_params[f"{var}_sin"] = {}
+            for (m, n), value in parameters[f"{var}_sin"].items():
+                if m == 0:
+                    output_params[f"{var}_sin"][m, n] = -value
+                else:
+                    output_params[f"{var}_sin"][m, -n] = value
+    return output_params
+
+
+def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
+    parameters = flip_boundary_theta(parameters)
+
+    for profile in ["iota"]:
+        if profile in parameters:
+            parameters[profile]["scale"] = -parameters[profile].get("scale", 1.0)
+
+    return parameters
 
 
 def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
-    import copy
+    parameters = flip_boundary_zeta(parameters)
 
-    parameters2 = copy.deepcopy(parameters)
-    for var in ["X1_b", "X2_b"]:
-        if f"{var}_cos" in parameters:
-            for (m, n), value in parameters[f"{var}_cos"].items():
-                if m == 0:
-                    continue
-                parameters2[f"{var}_cos"][m, -n] = value
-        if f"{var}_sin" in parameters:
-            for (m, n), value in parameters[f"{var}_sin"].items():
-                if m == 0:
-                    parameters2[f"{var}_sin"][m, n] = -value
-                else:
-                    parameters2[f"{var}_sin"][m, -n] = value
-    for var in ["X1_a", "X2_a"]:
-        if f"{var}_sin" in parameters:
-            for (m, n), value in parameters[f"{var}_sin"].items():
-                assert m == 0
-                parameters2[f"{var}_sin"][m, n] = -value
-        if f"{var}_cos" in parameters:
-            for (m, n), value in parameters[f"{var}_cos"].items():
-                assert m == 0
-                # parameters2[f"{var}_cos"][m, n] = value
-    return parameters2
+    if "phiedge" in parameters:
+        parameters["phiedge"] = -parameters["phiedge"]
+    for profile in ["iota", "I_tor"]:
+        if profile in parameters:
+            parameters[profile]["scale"] = -parameters[profile].get("scale", 1.0)
+
+    return parameters
 
 
-def parameters_from_vmec(nml: Mapping) -> CaseInsensitiveDict:
-    import numpy as np
-
+def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     M, N = nml["mpol"] - 1, nml["ntor"]
-    stellsym = nml["lasym"]  # stellarator symmetry
+    stellsym = not nml.get("lasym", False)  # stellarator symmetry
     params = CaseInsensitiveDict(
-        {
-            "nfp": nml["nfp"],
-            "X1_mn_max": f"(/{M}, {N}/)",
-            "X2_mn_max": f"(/{M}, {N}/)",
-            "LA_mn_max": f"(/{M}, {N}/)",
-            "PHIEDGE": nml["phiedge"],
-        }
+        ProjectName=name,
+        which_hmap=1,
+        minimize_tol=1e-7,
+        totalIter=10000,
+        logIter=100,
+        nfp=nml.get("nfp", 1),
+        X1_mn_max=(M, N),
+        X2_mn_max=(M, N),
+        LA_mn_max=(M, N),
+        PhiEdge=nml.get("phiedge", 1.0),
+        X1X2_deg=5,
+        LA_deg=5,
+        sgrid=dict(
+            grid_type=0,
+            nElems=5,
+        ),
     )
-    if stellsym:
-        params["X1_sin_cos"] = "_cos_"
-        params["X2_sin_cos"] = "_sin_"
-        params["LA_sin_cos"] = "_sin_"
-    else:
+    # --- profiles --- #
+    if nml.get("pmass_type", "power_series") != "power_series":
+        raise ValueError(
+            f"VMEC pressure profile of type {nml['pmass_type']} is not supported for conversion"
+        )
+    params["pres"] = {
+        "type": "polynomial",
+        "coefs": nml["am"],
+        "scale": nml.get("pres_scale", 1.0),
+    }
+    if nml.get("piota_type", "power_series") != "power_series":
+        raise ValueError(
+            f"VMEC iota profile of type {nml['piota_type']} is not supported for conversion"
+        )
+    params["iota"] = {
+        "type": "polynomial",
+        "coefs": nml["ai"],
+    }
+    if nml["ncurr"] == 1:  # ncurr = 0: flux conservation | ncurr = 1: current constraint
+        if nml.get("pcurr_type", "power_series") != "power_series":
+            raise ValueError(
+                f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
+            )
+        coefs = ([0] + [p / (i + 1) for i, p in enumerate(nml["ac"])],)  # I'(s) -> I(s)
+        params["I_tor"] = {
+            "type": "polynomial",
+            "coefs": coefs,
+            "scale": nml["curtor"] / sum(coefs),
+        }
+        params["picard_current"] = "auto"
+
+    # --- boundary --- #
+    for vmec_key, gvec_key in [
+        ("rbc", "X1_b_cos"),
+        ("rbs", "X1_b_sin"),
+        ("zbc", "X2_b_cos"),
+        ("zbs", "X2_b_sin"),
+    ]:
+        if vmec_key not in nml:
+            continue
+        values = np.array(nml[vmec_key], dtype=float)
+        if values.shape != (M + 1, 2 * N + 1):
+            raise ValueError(
+                f"VMEC namelist array '{vmec_key}' has shape {values.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+            )
+        params[gvec_key] = {}
+        for m in range(M + 1):
+            for n in range(-N, N + 1):
+                if m == 0 and n < 0:
+                    continue
+                params[gvec_key][m, n] = values[m, n + N]
+
+    if "rbs" in nml or "zbc" in nml:
+        if stellsym:
+            logger.warning(
+                "VMEC namelist contains 'RBS' or 'ZBC' but is supposed to be stellarator symmetric. Assuming asymmetry."
+            )
         params["X1_sin_cos"] = "_sincos_"
         params["X2_sin_cos"] = "_sincos_"
         params["LA_sin_cos"] = "_sincos_"
-
-    # --- boundary --- #
-    rbc = np.array(nml["rbc"], dtype=float)
-    zbs = np.array(nml["zbs"], dtype=float)
-    if not rbc.shape == zbs.shape == (M + 1, 2 * N + 1):
-        raise ValueError(
-            f"VMEC namelist arrays 'rbc' and 'zbs' have shape {rbc.shape} and {zbs.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
-        )
-    if not stellsym:
-        rbs = np.array(nml["rbs"], dtype=float)
-        zbc = np.array(nml["zbc"], dtype=float)
-        if not rbs.shape == zbc.shape == (M + 1, 2 * N + 1):
-            raise ValueError(
-                f"VMEC namelist arrays 'rbs' and 'zbc' have shape {rbs.shape} and {zbc.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+    else:
+        if not stellsym:
+            logger.warning(
+                "VMEC namelist does not contain 'RBS' or 'ZBC' but is supposed to be non-stellarator symmetric. Assuming symmetry."
             )
-
-    params["X1_b_cos"] = {}
-    params["X2_b_sin"] = {}
-    if not stellsym:
-        params["X1_b_sin"] = {}
-        params["X2_b_cos"] = {}
-    for m in range(M + 1):
-        for n in range(-N, N + 1):
-            if m == 0 and n < 0:
-                continue
-            params["X1_b_cos"][m, n] = rbc[m, n + N]
-            if not stellsym:
-                params["X1_b_sin"][m, n] = rbs[m, n + N]
-                params["X2_b_cos"][m, n] = zbc[m, n + N]
-            params["X2_b_sin"][m, n] = zbs[m, n + N]
+        params["X1_sin_cos"] = "_cos_"
+        params["X2_sin_cos"] = "_sin_"
+        params["LA_sin_cos"] = "_sin_"
 
     # --- axis --- #
-    params["X1_a_cos"] = {(0, n): v for n, v in enumerate(nml["raxis_cc"])}
-    params["X2_a_sin"] = {(0, n): v for n, v in enumerate(nml["zaxis_cs"])}
-    if not stellsym and nml["raxis_cs"] is not None:
-        params["X1_a_sin"] = {(0, n): v for n, v in enumerate(nml["raxis_cs"])}
-    if not stellsym and nml["zaxis_cc"] is not None:
-        params["X2_a_cos"] = {(0, n): v for n, v in enumerate(nml["zaxis_cc"])}
+    for vmec_key, gvec_key in [
+        ("raxis_cc", "X1_a_cos"),
+        ("raxis_cs", "X1_a_sin"),
+        ("zaxis_cc", "X2_a_cos"),
+        ("zaxis_cs", "X2_a_sin"),
+    ]:
+        if vmec_key not in nml:
+            continue
+        values = np.array(nml[vmec_key], dtype=float)
+        if values.ndim == 0:
+            continue
+        params[gvec_key] = {(0, n): v for n, v in enumerate(values)}
+    if not any(k in params for k in ["X1_a_cos", "X1_a_sin", "X2_a_cos", "X2_a_sin"]):
+        params["init_average_axis"] = True
 
     return params
 
 
 def axis_from_boundary(parameters: MutableMapping) -> MutableMapping:
-    import copy
-
     parameters2 = copy.deepcopy(parameters)
     N = parameters["X1_mn_max"][1]
-    parameters2["X1_a_cos"] = {parameters["X1_b_cos"][0, n] for n in range(N + 1)}
-    parameters2["X2_a_sin"] = {parameters["X2_b_sin"][0, n] for n in range(N + 1)}
+    parameters2["X1_a_cos"] = {(0, n): parameters["X1_b_cos"][0, n] for n in range(N + 1)}
+    parameters2["X2_a_sin"] = {(0, n): parameters["X2_b_sin"][0, n] for n in range(N + 1)}
     if "X1_b_sin" in parameters:
-        parameters2["X1_a_sin"] = {parameters["X1_b_sin"][0, n] for n in range(N + 1)}
+        parameters2["X1_a_sin"] = {(0, n): parameters["X1_b_sin"][0, n] for n in range(N + 1)}
     if "X2_b_cos" in parameters:
-        parameters2["X2_a_cos"] = {parameters["X2_b_cos"][0, n] for n in range(N + 1)}
+        parameters2["X2_a_cos"] = {(0, n): parameters["X2_b_cos"][0, n] for n in range(N + 1)}
     return parameters2
 
 
@@ -534,9 +747,17 @@ def stringify_mn_parameters(parameters: Mapping) -> CaseInsensitiveDict:
         if re.match(r"(x1|x2|la)(pert:?)?_[a|b]_(sin|cos)", key.lower()):
             output[key] = {}
             for (m, n), val in value.items():
+                if isinstance(val, np.number):
+                    val = val.item()
                 output[key][f"({m}, {n:2d})"] = val
         elif key.lower() == "stages":
             output[key] = [stringify_mn_parameters(stage) for stage in value]
+        elif isinstance(value, np.number) or (
+            isinstance(value, np.ndarray) and value.size == 1
+        ):
+            output[key] = value.item()
+        elif isinstance(value, np.ndarray):
+            output[key] = value.tolist()
         else:
             output[key] = value
     return output
@@ -673,3 +894,41 @@ def logging_setup():
         level=logging.WARNING,
     )
     logging.captureWarnings(True)
+
+
+def compute_FD(f: np.ndarray, pos, coefs, axis=0):
+    """
+    1D Finite difference of a function f on equispaced n-dimnesional grid, using FD coefficients coefficients `coefs` and relative integer positions to the central evaluation point `pos`, along one given axis.
+
+    WARNING:
+        - if data is periodic, meaning that endpoints of periodic interval are excluded, result can be on all points.
+        - If data is not periodic, the result at the **boundaries is WRONG**, for the points |min(pos)| on the left and max(pos) on the right along the given axis.
+    Inputs:
+        f     : function values on equispaced n-dimnesional grid
+        pos   : relative integer positions to the central evaluation point,, as 1d list or 1d array
+        coefs : FD coefficients for each position, as 1d list or 1d array, same size as pos!
+        axis  : axis along which the FD is computed, default is 0
+    Returns:
+        df    : Finite-Difference result, same shape as f (see warning above!)
+    Examples:
+    - examples for first derivative of f:
+        - 1st order forward FD: `pos=[1,0]; coefs=[-1,1]/(dx)`
+        - 2nd order central FD: `pos=[-1,1]; coefs=[-1,1]/(2*dx)`
+        - 4th order central FD: `pos=[-2,-1,1,2]; coefs=[1/12,-2/3,2/3,-1/12]/(dx)`
+        - 6th order central FD: `pos=[-3,-2,-1,1,2,3]; coefs=[-1/60,3/20,-3/4,3/4,-3/20,1/60]/(dx)`
+        - 8th order central FD: `pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[1/280,-4/105,1/5,-4/5,4/5,-1/5,4/105,-1/280]/(dx)`
+    - examples for second derivatives of f:
+        - 2nd order central FD: `pos=[-1,0,1]; coefs=[1,-2,1]/(dx**2)`
+        - 4th order central FD: `pos=[-2,-1,1,2]; coefs=[-1/12, 4/3,-5/2, 4/3,-1/12]/(dx**2)`
+        - 6th order central FD: `pos=[-3,-2,-1,1,2,3]; coefs=[1/90,-3/20,3/2,-49/18,3/2,-3/20,1/90]/(dx**2)`
+        - 8th order central FD: `pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[-1/560,8/315,-1/5,8/5,-205/72,8/5,-1/5,8/315,-1/560]/(dx**2)`
+
+    """
+    assert axis < f.ndim, f"array does not have the requested dimension {axis}"
+    assert len(pos) == len(coefs), (
+        f"pos and coefs must have the same length, got {pos} and {coefs}"
+    )
+    df = np.roll(f, -pos[0], axis=axis) * coefs[0]
+    for roll, c in zip(pos[1:], coefs[1:]):
+        df += np.roll(f, -roll, axis=axis) * c
+    return df

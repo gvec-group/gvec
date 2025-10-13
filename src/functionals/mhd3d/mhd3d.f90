@@ -35,6 +35,8 @@ MODULE MODgvec_MHD3D
       PROCEDURE :: free         => FinalizeMHD3D
   END TYPE t_functional_mhd3d
 
+
+
 !===================================================================================================================================
 
 CONTAINS
@@ -85,6 +87,7 @@ SUBROUTINE InitMHD3D(sf)
   REAL(wp)         :: scale_minor_radius
   CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
+  CHARACTER(LEN=8) :: boundary_perturb_type_str !! readin variable for boundary_perturb_type: legacy, cosm
 !===================================================================================================================================
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
@@ -414,7 +417,17 @@ SUBROUTINE InitMHD3D(sf)
   END DO
   END ASSOCIATE !LA
 
-  boundary_perturb=GETLOGICAL('boundary_perturb',Proposal=.FALSE.)
+  boundary_perturb = GETLOGICAL('boundary_perturb', Proposal=.FALSE.)
+  boundary_perturb_type_str  = GETSTR("boundary_perturb_type", proposal="legacy")
+  IF (boundary_perturb_type_str .EQ. "legacy") THEN
+    boundary_perturb_type = BLEND_LEGACY
+  ELSE IF (boundary_perturb_type_str .EQ. "cosm") THEN
+    boundary_perturb_type = BLEND_COSM
+  ELSE
+    CALL abort(__STAMP__,&
+    'boundary_perturb_type must be "legacy" or "cosm", found ',intInfo=boundary_perturb_type)
+  END IF
+  boundary_perturb_depth = GETREAL('boundary_perturb_depth', proposal=0.6_wp)
   IF(boundary_perturb)THEN
     ALLOCATE(X1pert_b(1:X1_base%f%modes) )
     ALLOCATE(X2pert_b(1:X2_base%f%modes) )
@@ -564,7 +577,7 @@ END SUBROUTINE InitProfile
 !===================================================================================================================================
 SUBROUTINE InitSolutionMHD3D(sf)
 ! MODULES
-  USE MODgvec_MHD3D_Vars     , ONLY: which_init,U,F,init_LA,boundary_perturb
+  USE MODgvec_MHD3D_Vars     , ONLY: which_init,U,F,init_LA,boundary_perturb,boundary_perturb_depth,boundary_perturb_type
   USE MODgvec_Restart_vars   , ONLY: doRestart,RestartFile
   USE MODgvec_Restart        , ONLY: RestartFromState
   USE MODgvec_Restart        , ONLY: WriteState
@@ -592,7 +605,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
       CALL InitSolution(U(0),which_init)
     END IF
     IF(boundary_perturb)THEN
-      CALL AddBoundaryPerturbation(U(0),0.3_wp)
+      CALL AddBoundaryPerturbation(U(0),boundary_perturb_depth,boundary_perturb_type)
     END IF !boundary_perturb
   END IF !MPIroot
   CALL par_Bcast(U(0)%X1,0)
@@ -1043,7 +1056,7 @@ END SUBROUTINE Init_LA_from_solution
 !> Add boundary perturbation
 !!
 !===================================================================================================================================
-SUBROUTINE AddBoundaryPerturbation(U_init,h)
+SUBROUTINE AddBoundaryPerturbation(U_init, depth, blend_type)
 ! MODULES
   USE MODgvec_MHD3D_Vars   , ONLY:X1_base,X1_BC_Type,X1_a,X1_b,X1pert_b
   USE MODgvec_MHD3D_Vars   , ONLY:X2_base,X2_BC_Type,X2_a,X2_b,X2pert_b
@@ -1051,7 +1064,8 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
   IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-  REAL(wp),INTENT(IN) :: h ! depth of perturbation from boundary (0.1..0.3)
+  REAL(wp),INTENT(IN) :: depth ! depth of perturbation from boundary (0.1..0.3)
+  INTEGER, INTENT(IN) :: blend_type ! 0/BLEND_LEGACY: legacy Gaussian, 1/BLEND_COSM: new cosine
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
   CLASS(t_sol_var_MHD3D), INTENT(INOUT) :: U_init
@@ -1066,12 +1080,11 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
                        "AddBoundaryPerturbation should only be called by MPIroot!")
   WRITE(UNIT_stdOut,'(4X,A)') "ADD BOUNDARY PERTURBATION..."
 
-
   ASSOCIATE(s_IP         =>X1_base%s%s_IP, &
             modes        =>X1_base%f%modes )
   DO imode=1,modes
     X1_b(iMode)=X1_b(iMode)+X1pert_b(iMode)
-    X1pert_gIP(:)=blend(s_IP)*X1pert_b(iMode)
+    X1pert_gIP(:)=blend(s_IP, depth, X1_base%f%Xmn(1, iMode))*X1pert_b(iMode)
     U_init%X1(:,iMode)=U_init%X1(:,iMode) + X1_base%s%initDOF( X1pert_gIP(:) )
   END DO
   END ASSOCIATE
@@ -1080,7 +1093,7 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
             modes        =>X2_base%f%modes )
   DO imode=1,modes
     X2_b(iMode)=X2_b(iMode)+X2pert_b(iMode)
-    X2pert_gIP(:)=blend(s_IP)*X2pert_b(iMode)
+    X2pert_gIP(:)=blend(s_IP, depth, X2_base%f%Xmn(1, iMode))*X2pert_b(iMode)
     U_init%X2(:,iMode)=U_init%X2(:,iMode) + X2_base%s%initDOF( X2pert_gIP(:))
   END DO
   END ASSOCIATE
@@ -1117,17 +1130,26 @@ SUBROUTINE AddBoundaryPerturbation(U_init,h)
   WRITE(UNIT_stdOut,'(4X,A)') "... DONE."
   WRITE(UNIT_stdOut,fmt_sep)
 
-
   CONTAINS
 
-  ELEMENTAL FUNCTION blend(s_in)
+  ELEMENTAL FUNCTION blend(s_in, depth, m)
+    USE MODgvec_Globals, ONLY: wp, PI
+    USE MODgvec_MHD3D_Vars, ONLY: BLEND_LEGACY
     REAL(wp),INTENT(IN) :: s_in !input coordinate [0,1]
     REAL(wp)            :: blend
-    !blend= ( MIN(0., (s_in-(1.-h)) ) / h) **4
-    !blend= 2. -2./(EXP(8.*(s_in-1.)/h) +1)
-    !blend= EXP(-4.*((s_in-1.)/h)**2)
-    !blend= s_in
-    blend= EXP(-4.0_wp*((s_in-1.0_wp)/0.6_wp)**2)
+    REAL(wp),INTENT(IN) :: depth
+    INTEGER,INTENT(IN)  :: m     ! exponent for cosine blending (poloidal mode number)
+    ASSOCIATE(shift => 1.0_wp - depth)
+      IF (blend_type == BLEND_LEGACY) THEN
+        blend = EXP(-4.0_wp * ((s_in - 1.0_wp) / depth)**2)
+      ELSE IF (s_in .GE. shift) THEN
+        blend = (COS(((s_in - shift) / (1.0_wp - shift) - 1.0_wp) * PI) / 2.0_wp + 0.5_wp)**m
+      ELSE IF (m .EQ. 0) THEN
+        blend = 1.0_wp
+      ELSE
+        blend = 0.0_wp
+      END IF
+    END ASSOCIATE
   END FUNCTION blend
 
 END SUBROUTINE AddBoundaryPerturbation

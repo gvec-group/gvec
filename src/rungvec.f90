@@ -11,8 +11,14 @@
 !!
 !===================================================================================================================================
 MODULE MODgvec_rungvec
+
+USE MODgvec_Functional, ONLY: t_functional
+
 IMPLICIT NONE
 PUBLIC
+
+CLASS(t_functional), ALLOCATABLE :: functional
+LOGICAL :: dorestart
 
 !INTERFACE rungvec
 !  MODULE PROCEDURE rungvec
@@ -42,8 +48,6 @@ INTEGER                 :: which_functional
 INTEGER                 :: TimeArray(8)
 CHARACTER(LEN=255)      :: testfile
 REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
-CLASS(t_functional),ALLOCATABLE   :: functional
-LOGICAL                 :: dorestart
 !===================================================================================================================================
   __PERFINIT
   __PERFON('main')
@@ -128,6 +132,7 @@ LOGICAL                 :: dorestart
        (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
 
   CALL FinalizeFunctional(functional)
+  DEALLOCATE(functional)
 
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()

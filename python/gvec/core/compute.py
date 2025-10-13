@@ -31,6 +31,7 @@ __all__ = [
     "ft_autoremove",
 ]
 QUANTITIES = {}  # dictionary to store the registered quantities (compute functions)
+logger = logging.getLogger(__name__)
 
 
 # === helpers ========================================================================== #
@@ -107,7 +108,7 @@ def register(
 
         for q in quantities:
             if q in registry:
-                logging.warning(f"A quantity `{q}` is already registered.")
+                logger.warning(f"A quantity `{q}` is already registered.")
             registry[q] = func
         return func
 
@@ -179,7 +180,14 @@ def compute(
         if quantity in ev:
             continue  # already computed
         if quantity not in registry:
-            raise KeyError(f"The quantity `{quantity}` is not registered.")
+            from difflib import SequenceMatcher
+
+            candidate = max(
+                registry.keys(), key=lambda q: SequenceMatcher(None, q, quantity).ratio()
+            )
+            raise KeyError(
+                f"The quantity `{quantity}` is not registered. Maybe you meant `{candidate}`?"
+            )
         func = registry[quantity]
         # --- handle special cases --- #
         # if dLA_dr is requested (and not already present), but LA is already present - this is currently only possible with the boozer transform
@@ -205,7 +213,7 @@ def compute(
         }
         if auxcoords:
             # --- auxiliary dataset for integration --- #
-            logging.info(
+            logger.info(
                 f"Using auxiliary dataset with integration points in {auxcoords} to compute {quantity}."
             )
             if auxcoords > {"rho", "theta", "zeta"}:
@@ -701,7 +709,7 @@ def ev2ft(ev, quiet=False):
     data = {}
 
     if "N_FP" not in ev.data_vars and not quiet:
-        logging.warning("recommended quantity 'N_FP' not found in the provided dataset")
+        logger.warning("recommended quantity 'N_FP' not found in the provided dataset")
 
     for var in ev.data_vars:
         if ev[var].dims == ():  # scalar
@@ -749,10 +757,10 @@ def ev2ft(ev, quiet=False):
             )
 
         elif "xyz" in ev[var].dims and not quiet:
-            logging.info(f"skipping quantity '{var}' with cartesian components")
+            logger.info(f"skipping quantity '{var}' with cartesian components")
 
         elif not quiet:
-            logging.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
+            logger.info(f"skipping quantity '{var}' with dims {ev[var].dims}")
 
     if "rad" in ev.dims:
         coords = dict(rho=("rad", ev.rho.data, ev.rho.attrs))
