@@ -65,6 +65,22 @@ def test_help(mode):
     assert proc.returncode == 0
 
 
+def test_run():
+    parameters = gvec.util.read_parameters("parameter.ini")
+    run = gvec.run(parameters)
+    assert isinstance(run, gvec.Run)
+
+
+def test_run_recover_from_error():
+    parameters = gvec.util.read_parameters("parameter.ini")
+    parameters["X1_b_cos"][1, 0] = -1.0
+    with pytest.raises(RuntimeError):
+        gvec.run(parameters)
+
+    parameters = gvec.util.read_parameters("parameter.ini")
+    run = gvec.run(parameters)
+
+
 @pytest.mark.parametrize("suffix", ["ini", "yaml", "toml"])
 def test_run_stages(suffix):
     """
@@ -185,12 +201,13 @@ def test_stages_without_current():
         {"minimize_tol": 1e-3, "sgrid": {"nelems": 3}},
     ]
     run_with_stages = gvec.run(parameters, keep_intermediates="all")
+    final_rundir = run_with_stages.rundir
     assert Path(f"{ProjectName}_State_final.dat").exists()
     assert Path(f"parameter_{ProjectName}_final.ini").exists()
     assert Path(f"{ProjectName}_gvec_stages").is_dir()
-    assert Path(f"{ProjectName}_gvec_stages/0-00").is_dir()
-    assert Path(f"{ProjectName}_gvec_stages/0-00/stdout.txt").exists()
-    with open(f"{ProjectName}_gvec_stages/0-00/stdout.txt", "r") as file:
+    assert final_rundir.is_dir()
+    assert (final_rundir / "stdout.txt").exists()
+    with open(final_rundir / "stdout.txt", "r") as file:
         stdout = file.read()
     assert "GVEC SUCESSFULLY FINISHED" in stdout
 

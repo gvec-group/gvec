@@ -108,10 +108,10 @@ CONTAINS
     INTEGER :: ierr
   !================================================================================================================================
   ! BODY
-    DEALLOCATE(req )
-    DEALLOCATE(req1)
-    DEALLOCATE(req2)
-    DEALLOCATE(req3)
+    SDEALLOCATE(req )
+    SDEALLOCATE(req1)
+    SDEALLOCATE(req2)
+    SDEALLOCATE(req3)
 #   if MPI
     CALL MPI_FINALIZE(ierr)
 #   endif
