@@ -119,7 +119,7 @@ mathjax3_config = {
             "dblint": r"\int\limits_0^{2\pi}\!\int\limits_0^{2\pi}",
             "thet": r"\vartheta",
             "erho": r"\vec{e}_{\rho}",
-            "ethet": r"\vec{e}_{\rho}",
+            "ethet": r"\vec{e}_{\thet}",
             "ezeta": r"\vec{e}_{\zeta}",
             "submin": r"_\mathrm{min}",
             "submax": r"_\mathrm{max}",
