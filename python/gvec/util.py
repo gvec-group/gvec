@@ -587,6 +587,17 @@ def flip_parameters_zeta(parameters: MutableMapping) -> MutableMapping:
 
 
 def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
+    def as_list(value) -> list:
+        if isinstance(value, list):
+            return value
+        else:
+            return [value]
+
+    try:
+        nml = nml.todict()  # f90nml.Namelist -> dict | fills '_start_index' attribute
+    except AttributeError:
+        pass
+
     M, N = nml["mpol"] - 1, nml["ntor"]
     stellsym = not nml.get("lasym", False)  # stellarator symmetry
     params = CaseInsensitiveDict(
@@ -614,23 +625,24 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         )
     params["pres"] = {
         "type": "polynomial",
-        "coefs": nml["am"],
+        "coefs": as_list(nml["am"]),
         "scale": nml.get("pres_scale", 1.0),
     }
     if nml.get("piota_type", "power_series") != "power_series":
         raise ValueError(
             f"VMEC iota profile of type {nml['piota_type']} is not supported for conversion"
         )
-    params["iota"] = {
-        "type": "polynomial",
-        "coefs": nml["ai"],
-    }
+    if "ai" in nml:
+        params["iota"] = {
+            "type": "polynomial",
+            "coefs": as_list(nml["ai"]),
+        }
     if nml["ncurr"] == 1:  # ncurr = 0: flux conservation | ncurr = 1: current constraint
         if nml.get("pcurr_type", "power_series") != "power_series":
             raise ValueError(
                 f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
             )
-        coefs = ([0] + [p / (i + 1) for i, p in enumerate(nml["ac"])],)  # I'(s) -> I(s)
+        coefs = [0] + [p / (i + 1) for i, p in enumerate(as_list(nml["ac"]))]  # I'(s) -> I(s)
         params["I_tor"] = {
             "type": "polynomial",
             "coefs": coefs,
@@ -648,16 +660,22 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         if vmec_key not in nml:
             continue
         values = np.array(nml[vmec_key], dtype=float)
-        if values.shape != (M + 1, 2 * N + 1):
+        if "_start_index" in nml and vmec_key in nml["_start_index"]:
+            n0, m0 = nml["_start_index"][vmec_key]
+        elif values.shape != (M + 1, 2 * N + 1):
+            m0, n0 = (0, -N)
+        else:
             raise ValueError(
-                f"VMEC namelist array '{vmec_key}' has shape {values.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=}"
+                f"VMEC namelist array '{vmec_key}' has shape {values.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=} and no '_start_index' is given in the namelist."
             )
         params[gvec_key] = {}
-        for m in range(M + 1):
-            for n in range(-N, N + 1):
+        for m in range(m0, m0 + values.shape[0]):
+            for n in range(n0, n0 + values.shape[1]):
                 if m == 0 and n < 0:
                     continue
-                params[gvec_key][m, n] = values[m, n + N]
+                v = values[m - m0, n - n0]
+                if not np.isnan(v) and v != 0.0:
+                    params[gvec_key][m, n] = values[m - m0, n - n0]
 
     if "rbs" in nml or "zbc" in nml:
         if stellsym:

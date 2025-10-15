@@ -134,6 +134,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             except ImportError as e:
                 logger.debug(f"Caught exception: {e}")
                 logger.error("reading VMEC namelists requires 'f90nml' to be installed.")
+                return
             with open(args.input, "r") as file:
                 content = file.read()
             content = content.strip()
