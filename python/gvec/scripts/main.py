@@ -138,10 +138,10 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             with open(args.input, "r") as file:
                 content = file.read()
             content = content.strip()
-            if content.endswith("&END"):
+            if content[-4:].lower() == "&end":
                 content = content[:-4]
             nml = f90nml.reads(content)["indata"]
-            parameters = gvec.util.parameters_from_vmec(nml, str(args.input))
+            parameters = gvec.util.parameters_from_vmec(nml, args.input.name)
         else:
             parameters = gvec.util.read_parameters(args.input)
 

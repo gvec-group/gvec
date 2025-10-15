@@ -598,7 +598,7 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     except AttributeError:
         pass
 
-    M, N = nml["mpol"] - 1, nml["ntor"]
+    M, N = nml.get("mpol", 2) - 1, nml.get("ntor", 0)
     stellsym = not nml.get("lasym", False)  # stellarator symmetry
     params = CaseInsensitiveDict(
         ProjectName=name,
@@ -607,9 +607,6 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         totalIter=10000,
         logIter=100,
         nfp=nml.get("nfp", 1),
-        X1_mn_max=(M, N),
-        X2_mn_max=(M, N),
-        LA_mn_max=(M, N),
         PhiEdge=nml.get("phiedge", 1.0),
         X1X2_deg=5,
         LA_deg=5,
@@ -623,11 +620,14 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         raise ValueError(
             f"VMEC pressure profile of type {nml['pmass_type']} is not supported for conversion"
         )
-    params["pres"] = {
-        "type": "polynomial",
-        "coefs": as_list(nml["am"]),
-        "scale": nml.get("pres_scale", 1.0),
-    }
+    if "am" in nml:
+        params["pres"] = {
+            "type": "polynomial",
+            "coefs": as_list(nml["am"]),
+            "scale": nml.get("pres_scale", 1.0),
+        }
+    else:
+        logger.warning("No pressure profile defined.")
     if nml.get("piota_type", "power_series") != "power_series":
         raise ValueError(
             f"VMEC iota profile of type {nml['piota_type']} is not supported for conversion"
@@ -637,7 +637,7 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
             "type": "polynomial",
             "coefs": as_list(nml["ai"]),
         }
-    if nml["ncurr"] == 1:  # ncurr = 0: flux conservation | ncurr = 1: current constraint
+    if nml.get("ncurr", 0) == 1:  # ncurr = 0: flux conservation | ncurr = 1: current constraint
         if nml.get("pcurr_type", "power_series") != "power_series":
             raise ValueError(
                 f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
@@ -649,6 +649,8 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
             "scale": nml["curtor"] / sum(coefs),
         }
         params["picard_current"] = "auto"
+    if "ai" not in nml and nml.get("ncurr", 0) == 0:
+        logger.warning("No iota or current profile defined.")
 
     # --- boundary --- #
     for vmec_key, gvec_key in [
@@ -662,8 +664,8 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
         values = np.array(nml[vmec_key], dtype=float)
         if "_start_index" in nml and vmec_key in nml["_start_index"]:
             n0, m0 = nml["_start_index"][vmec_key]
-        elif values.shape != (M + 1, 2 * N + 1):
-            m0, n0 = (0, -N)
+            M = max(M, values.shape[0] - 1 + m0)
+            N = max(N, abs(n0), values.shape[1] - 1 + max(0, n0))
         else:
             raise ValueError(
                 f"VMEC namelist array '{vmec_key}' has shape {values.shape} that does not match the expected shape {(M + 1, 2 * N + 1)=} and no '_start_index' is given in the namelist."
@@ -710,6 +712,12 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
     if not any(k in params for k in ["X1_a_cos", "X1_a_sin", "X2_a_cos", "X2_a_sin"]):
         params["init_average_axis"] = True
 
+    # --- other --- #
+    params.update(
+        X1_mn_max=(M, N),
+        X2_mn_max=(M, N),
+        LA_mn_max=(M, N),
+    )
     return params
 
 
