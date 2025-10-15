@@ -642,12 +642,16 @@ def parameters_from_vmec(nml: Mapping, name: str) -> CaseInsensitiveDict:
             raise ValueError(
                 f"VMEC current profile of type {nml['pcurr_type']} is not supported for conversion"
             )
-        coefs = [0] + [p / (i + 1) for i, p in enumerate(as_list(nml["ac"]))]  # I'(s) -> I(s)
-        params["I_tor"] = {
-            "type": "polynomial",
-            "coefs": coefs,
-            "scale": nml["curtor"] / sum(coefs),
-        }
+        params["I_tor"] = {"type": "polynomial"}
+        if nml["curtor"] == 0.0:
+            params["I_tor"]["coefs"] = [0.0]
+            params["I_tor"]["scale"] = 1.0
+        else:
+            coefs = [0] + [
+                p / (i + 1) for i, p in enumerate(as_list(nml["ac"]))
+            ]  # I'(s) -> I(s)
+            params["I_tor"]["coefs"] = coefs
+            params["I_tor"]["scale"] = nml["curtor"] / sum(coefs)
         params["picard_current"] = "auto"
     if "ai" not in nml and nml.get("ncurr", 0) == 0:
         logger.warning("No iota or current profile defined.")
