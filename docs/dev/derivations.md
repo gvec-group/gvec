@@ -116,6 +116,7 @@ $\Rightarrow$ `dB_contra_t_dr`, `dB_contra_t_dt`, `dB_contra_t_dz`, `dB_contra_z
 Left-handed coordinate systems $\left(s,\alpha,\theta\right)$ and $\left(x^1, x^2, x^3\right) = \left(\sqrt{s}, \frac{\sqrt{s_0}}{a}\alpha,\theta\right)$.
 
 With respect to a left-handed $\left(\rho, \vartheta, \zeta\right)$, the fieldline coordinates are defined as
+
 $$
 \begin{align}
 s &= \rho^2 &
@@ -126,6 +127,7 @@ s &= \rho^2 &
 \vartheta &= \theta \\
 \end{align}
 $$
+
 which can be obtained from the right-handed GVEC angles by flipping the toroidal or poloidal direction.
 
 $$
@@ -153,8 +155,8 @@ $$
 
 $$
 \begin{align}
-\frac{\partial B}{\partial s} &= \frac{1}{2\sqrt{s}} \frac{\partial B}{\partial \rho} - \frac{d\iota}{ds}\frac{\theta}{\iota^2} \frac{\partial B}{\partial \zeta} \\
-\frac{\partial B}{\partial \alpha} &= \frac{1}{\iota} \frac{\partial B}{\partial \zeta} \\
-\frac{\partial B}{\partial \theta} &= \frac{\partial B}{\partial \vartheta} + \frac{1}{\iota} \frac{\partial B}{\partial \zeta}\\
+\frac{\partial\modB}{\partial s} &= \frac{1}{2\sqrt{s}} \frac{\partial\modB}{\partial \rho} - \frac{d\iota}{ds}\frac{\theta}{\iota^2} \frac{\partial\modB}{\partial \zeta} \\
+\frac{\partial\modB}{\partial \alpha} &= \frac{1}{\iota} \frac{\partial\modB}{\partial \zeta} \\
+\frac{\partial\modB}{\partial \theta} &= \frac{\partial\modB}{\partial \vartheta} + \frac{1}{\iota} \frac{\partial\modB}{\partial \zeta}\\
 \end{align}
 $$
