@@ -176,6 +176,7 @@ pip install git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
   ```
    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -I/usr/lib64/gfortran/modules")
   ```
+* clearing the *pip cache* can help: `pip cache purge`
 
 ## Getting GVEC with `git`
 

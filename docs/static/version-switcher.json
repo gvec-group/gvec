@@ -5,9 +5,14 @@
     "url": "https://gvec.readthedocs.io/latest/"
   },
   {
-    "name": "v1.1 (main)",
+    "name": "v1.2 (main)",
     "version": "main",
     "url": "https://gvec.readthedocs.io/main/"
+  },
+  {
+    "name": "v1.1",
+    "version": "v1.1",
+    "url": "https://gvec.readthedocs.io/v1.1/"
   },
   {
     "name": "v1.0",
