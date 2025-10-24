@@ -1061,6 +1061,8 @@ def fortran_run(
         Path to / name of file to redirect the standard output of GVEC. Optional, default is "stdout.txt".
         If set to None, stdout is not redirected
     """
+    logger = logging.getLogger("gvec.run")
+    logger.debug(f"Running GVEC with parameter file: {parameterfile}")
     if gvec.core.state.bound_state is not None:
         gvec.core.state.bound_state.unbind()
 
@@ -1077,7 +1079,8 @@ def fortran_run(
     try:
         _run.start_rungvec(str(parameterfile), restartfile_in=restartfile, comm_in=MPIcomm)
     except Exception as e:
-        logging.getLogger("gvec.run").error(f"GVEC run error: {e}")
-        logging.getLogger("gvec.run").info("attempting cleanup")
+        logger.error(f"GVEC run error: {e}")
+        logger.info("attempting cleanup")
         _run.cleanup()
+        logger.debug("cleanup done")
         raise

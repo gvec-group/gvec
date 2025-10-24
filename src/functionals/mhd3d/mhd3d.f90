@@ -1542,17 +1542,17 @@ SUBROUTINE FinalizeMHD3D(sf)
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
-  CALL X1_base%free()
-  CALL X2_base%free()
-  CALL LA_base%free()
+  IF(ALLOCATED(X1_base)) CALL X1_base%free()
+  IF(ALLOCATED(X2_base)) CALL X2_base%free()
+  IF(ALLOCATED(LA_base)) CALL LA_base%free()
 
   DO i=-1,1
-    CALL U(i)%free()
-    CALL P(i)%free()
-    CALL V(i)%free()
+    IF(ALLOCATED(U)) CALL U(i)%free()
+    IF(ALLOCATED(P)) CALL P(i)%free()
+    IF(ALLOCATED(V)) CALL V(i)%free()
   END DO
   DO i=-1,0
-    CALL F(i)%free()
+    IF(ALLOCATED(F)) CALL F(i)%free()
   END DO
   CALL sgrid%free()
 

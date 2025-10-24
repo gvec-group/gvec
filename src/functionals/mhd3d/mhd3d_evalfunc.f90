@@ -83,7 +83,7 @@ MODULE MODgvec_MHD3D_evalFunc
   REAL(wp),CONTIGUOUS,POINTER :: DX1_tt(:), DX1_tz(:), DX1_zz(:), DX1(:), DX1_ss(:)
   REAL(wp),CONTIGUOUS,POINTER :: DX2_tt(:), DX2_tz(:), DX2_zz(:), DX2(:), DX2_ss(:)
   REAL(wp),CONTIGUOUS,POINTER :: DLA_tt(:), DLA_tz(:), DLA_zz(:)
-  REAL(wp),CONTIGUOUS,POINTER :: D_buf(:,:)    !! 2d array container for all 1d array abpove (is the one allocated)
+  REAL(wp),ALLOCATABLE,TARGET :: D_buf(:,:)    !! 2d array container for all 1d array abpove (is the one allocated)
 
   CLASS(sll_c_spline_matrix),PRIVATE,ALLOCATABLE :: precond_X1(:)  !! container for preconditioner matrices
   CLASS(sll_c_spline_matrix),PRIVATE,ALLOCATABLE :: precond_X2(:)  !! container for preconditioner matrices
@@ -1523,28 +1523,28 @@ SUBROUTINE FinalizeMHD3D_EvalFunc()
     NULLIFY(DX1_tt); NULLIFY(DX1_tz); NULLIFY(DX1_zz); NULLIFY(DX1); NULLIFY(DX1_ss)
     NULLIFY(DX2_tt); NULLIFY(DX2_tz); NULLIFY(DX2_zz); NULLIFY(DX2); NULLIFY(DX2_ss)
     NULLIFY(DLA_tt); NULLIFY(DLA_tz); NULLIFY(DLA_zz)
-    DEALLOCATE(D_buf)
+    SDEALLOCATE(D_buf)
     IF(MPIroot)THEN
       SELECT TYPE(precond_X1); TYPE IS(sll_t_spline_matrix_banded)
         DO iMode=1,X1_Base%f%modes
           CALL precond_X1(iMode)%free()
         END DO !iMode
       END SELECT !TYPE
-      DEALLOCATE(precond_X1)
+      SDEALLOCATE(precond_X1)
 
       SELECT TYPE(precond_X2); TYPE IS(sll_t_spline_matrix_banded)
         DO iMode=1,X2_base%f%modes
           CALL precond_X2(iMode)%free()
         END DO !iMode
       END SELECT !TYPE
-      DEALLOCATE(precond_X2)
+      SDEALLOCATE(precond_X2)
 
       SELECT TYPE(precond_LA); TYPE IS(sll_t_spline_matrix_banded)
         DO iMode=1,LA_base%f%modes
           CALL precond_LA(iMode)%free()
         END DO !iMode
       END SELECT !TYPE
-      DEALLOCATE(precond_LA)
+      SDEALLOCATE(precond_LA)
     END IF !MPIroot
   END IF !PrecondType>0
 
