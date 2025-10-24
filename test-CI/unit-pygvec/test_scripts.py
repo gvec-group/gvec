@@ -78,6 +78,19 @@ def test_run_recover_from_error():
         gvec.run(parameters)
 
     parameters = gvec.util.read_parameters("parameter.ini")
+    parameters["maxIter"] = 1
+    run = gvec.run(parameters)
+
+
+def test_run_netcdf_error():
+    parameters = gvec.util.read_parameters("parameter.ini")
+    parameters["which_hmap"] = 21
+    parameters["hmap_ncfile"] = "non_existing_file.nc"
+    with pytest.raises((RuntimeError, UnicodeDecodeError)):
+        gvec.run(parameters)
+
+    parameters = gvec.util.read_parameters("parameter.ini")
+    parameters["maxIter"] = 1
     run = gvec.run(parameters)
 
 
