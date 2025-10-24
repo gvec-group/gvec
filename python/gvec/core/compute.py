@@ -427,6 +427,8 @@ def EvaluationsBoozer(
     theta_B: CoordinateSpec,
     zeta_B: CoordinateSpec,
     state: State,
+    radial_derivative: bool = True,
+    epsilon_FD: float = 1e-8,
     **boozer_kwargs,
 ):
     """Create an Evaluations dataset with a grid in Boozer coordinates.
@@ -449,6 +451,10 @@ def EvaluationsBoozer(
         1D assumes dimension "tor", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
     state : State
         The gvec.State object to create the grid for. Used to perform the Boozer transform.
+    radial_derivative : bool
+        Whether to compute the radial derivatives of the `LA` and `NU_B` variables, at fixed GVEC angles
+        $(\\vartheta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}),\\zeta(\\rho_i,\\vartheta_{B,j},\\zeta_{B,k}))$.
+        Computes boozer transform  at additional radial points `rho- epsilon`, and uses a first order Finite Difference in epsilon (`=1e-8`) for the derivatives.
     boozer_kwargs : dict
         Additional keyword arguments to pass to the `get_boozer` method of the state object.
         These can be used to specify the Boozer transform parameters, such as the maximum mode numbers via 'MNfactor'.
@@ -534,21 +540,19 @@ def EvaluationsBoozer(
     if "rad" in ds.theta_B.dims or "rad" in ds.zeta_B.dims:  # 3D
         theta = []
         zeta = []
-        sfls = []
         for rad, rho in enumerate(ds.rho):
             dsr = ds.isel(rad=rad)
             stacked = dsr[["theta_B", "zeta_B"]]
             stacked = stacked.broadcast_like(stacked).stack(tz=("pol", "tor"))
             tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
             tz = state.get_boozer_angles(sfl_boozer, tz_B, rad)
-            sfls.append(sfl_boozer)
             stacked["theta"] = ("tz", tz[0, :])
             stacked["zeta"] = ("tz", tz[1, :])
             theta.append(stacked["theta"].unstack("tz"))
             zeta.append(stacked["zeta"].unstack("tz"))
         ds["theta"] = xr.concat(theta, dim="rad")
         ds["zeta"] = xr.concat(zeta, dim="rad")
-        ds = add_Boozer_LA_NU(ds, state, sfls)
+
     else:  # 2D
         stacked = ds[["theta_B", "zeta_B"]].stack(tz=("pol", "tor"))
         tz_B = np.stack([stacked.theta_B, stacked.zeta_B], axis=0)
@@ -557,7 +561,33 @@ def EvaluationsBoozer(
         stacked["zeta"] = (("tz", "rad"), tz[1, :, :])
         ds["theta"] = stacked["theta"].unstack("tz")
         ds["zeta"] = stacked["zeta"].unstack("tz")
-        ds = add_Boozer_LA_NU(ds, state, sfl_boozer)
+
+    if radial_derivative:
+        # as the radial derivatives must be at a fixed (theta,zeta) position for each flux surface,
+        # we have to evaluate LA and NU_B at these same positions, in order compute the derivative with FD
+        ds_eps = ds.copy()
+        sfl_boozer_eps = state.get_boozer(ds.rho - epsilon_FD, **boozer_kwargs)
+        ds_eps = add_Boozer_LA_NU(ds_eps, state, sfl_boozer_eps)
+
+    ds = add_Boozer_LA_NU(ds, state, sfl_boozer)
+
+    # === Add radial derivative, computed with FD: === #
+    if radial_derivative:
+        for var in ["LA", "NU_B"]:
+            name = ds[var].attrs["long_name"]
+            symbol = ds[var].attrs["symbol"]
+            for deriv, source in zip(["r", "rt", "rz"], [var, f"d{var}_dt", f"d{var}_dz"]):
+                # Compute the derivative
+                value = (ds[source].values - ds_eps[source].values) / epsilon_FD
+                # Write to dataset
+                ds[f"d{var}_d{deriv}"] = (
+                    ("rad", "pol", "tor"),
+                    np.stack(value).reshape(ds.rad.size, ds.pol.size, ds.tor.size),
+                    {
+                        "long_name": derivative_name_smart(name, deriv),
+                        "symbol": latex_partial_smart(symbol, deriv),
+                    },
+                )
 
     # === Metadata === #
     ds.rho.attrs["long_name"] = "Logical radial coordinate"
@@ -608,26 +638,10 @@ def add_Boozer_LA_NU(ds: xr.Dataset, state: State, sfl_boozer):
 
     outputs_la = []
     outputs_nu = []
-    # Sequence (list) of sfl_boozer (for each surface)
-    if isinstance(sfl_boozer, Sequence):
-        for r, rho in enumerate(ds.rho.data):
-            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-            outputs_la.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "LA", [0], thetazeta)
-            )
-            outputs_nu.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer[r], "NU", [0], thetazeta)
-            )
-    # Single sfl_boozer - compute base on each radial position
-    else:
-        for r, rho in enumerate(ds.rho.data):
-            thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
-            outputs_la.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta)
-            )
-            outputs_nu.append(
-                state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta)
-            )
+    for r, rho in enumerate(ds.rho.data):
+        thetazeta = np.stack([theta[r, :], zeta[r, :]], axis=0)
+        outputs_la.append(state.evaluate_boozer_list_tz_all(sfl_boozer, "LA", [r], thetazeta))
+        outputs_nu.append(state.evaluate_boozer_list_tz_all(sfl_boozer, "NU", [r], thetazeta))
 
     # Write LA/NU to dataset
     for deriv, value in zip(["", "t", "z", "tt", "tz", "zz"], zip(*outputs_la)):

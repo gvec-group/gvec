@@ -620,8 +620,12 @@ def grad_zeta(ds: xr.Dataset):
     ),
     attrs=dict(
         B=dict(long_name="magnetic field", symbol=r"\mathbf{B}"),
-        B_contra_t=dict(long_name="poloidal magnetic field", symbol=r"B^\theta"),
-        B_contra_z=dict(long_name="toroidal magnetic field", symbol=r"B^\zeta"),
+        B_contra_t=dict(
+            long_name="poloidal component of the magnetic field", symbol=r"B^\theta"
+        ),
+        B_contra_z=dict(
+            long_name="toroidal component of the magnetic field", symbol=r"B^\zeta"
+        ),
     ),
 )
 def B(ds: xr.Dataset):
@@ -946,28 +950,6 @@ def Jac_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=("dPhi_dr", "iota", "Jac_B"),
-    attrs=dict(
-        long_name="contravariant poloidal magnetic field in Boozer coordinates",
-        symbol=r"B^{\theta_B}",
-    ),
-)
-def B_contra_t_B(ds: xr.Dataset):
-    ds["B_contra_t_B"] = ds.dPhi_dr * ds.iota / ds.Jac_B
-
-
-@register(
-    requirements=("dPhi_dr", "Jac_B"),
-    attrs=dict(
-        long_name="contravariant toroidal magnetic field in Boozer coordinates",
-        symbol=r"B^{\zeta_B}",
-    ),
-)
-def B_contra_z_B(ds: xr.Dataset):
-    ds["B_contra_z_B"] = ds.dPhi_dr / ds.Jac_B
-
-
-@register(
     requirements=(
         "iota",
         "dLA_dt",
@@ -1013,6 +995,72 @@ def e_zeta_B(ds: xr.Dataset):
     dzB_dz = 1 + ds.dNU_B_dz
     Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
     ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) * Jac_B_Jac
+
+
+def _BJ_boozer_factory(i, BJ):
+    """
+    Factory function for magnetic field components (if `BJ`="B")
+    or current density components (if `BJ`="J") in Boozer coordinates,
+    using dot product of cartesian vector of B / J, with tangent basis vector of Boozer coordinates.
+    """
+    e_i = f"e_{rtz_variables[i]}_B"
+
+    if BJ == "B":
+        name = "magnetic field"
+    elif BJ == "J":
+        name = "current density"
+
+    @register(
+        quantities=f"{BJ}_{rtz_variables[i]}_B",
+        requirements={e_i, BJ},
+        attrs=dict(
+            long_name=rf"${rtz_symbols[i]}$ component of the {name} in Boozer coordinates",
+            symbol=rf"{BJ}_{{{rtz_symbols[i]}_B}}",
+        ),
+    )
+    def _BJ_boozer(ds: xr.Dataset):
+        ds[f"{BJ}_{rtz_variables[i]}_B"] = xr.dot(ds[BJ], ds[e_i], dim="xyz")
+
+    return _BJ_boozer
+
+
+# generate functions from factory function
+for BJ in ["B", "J"]:
+    for i in ["r", "t", "z"]:
+        globals()[f"{BJ}_{rtz_variables[i]}_B"] = _BJ_boozer_factory(i, BJ)
+
+
+def _BJ_contra_Boozer_factory(i, BJ):
+    """
+    Factory function for contravariant components of magnetic field (if `BJ`="B")
+    or current density (if `BJ`="J"),in Boozer coordinates.
+    Using dot product of cartesian vector of B / J, with gradient of Boozer coordinates.
+    """
+    grad_i = f"grad_{rtz_variables[i]}_B"
+    if BJ == "B":
+        name = "magnetic field"
+    elif BJ == "J":
+        name = "current density"
+
+    @register(
+        quantities=f"{BJ}_contra_{i}_B",
+        requirements={grad_i, BJ},
+        attrs=dict(
+            long_name=rf" contravariant ${rtz_symbols[i]}$ component of the {name} in Boozer coordinates",
+            symbol=rf"{BJ}^{{{rtz_symbols[i]}_B}}",
+        ),
+    )
+    def _BJ_contra_Boozer(ds: xr.Dataset):
+        ds[f"{BJ}_contra_{i}_B"] = xr.dot(ds[BJ], ds[grad_i], dim="xyz")
+
+    return _BJ_contra_Boozer
+
+
+# generate functions from factory function,
+# note that grad_rho = grad_rho_B, so we do not need the rho components
+for BJ in ["B", "J"]:
+    for i in ["t", "z"]:
+        globals()[f"{BJ}_contra_{i}_B"] = _BJ_contra_Boozer_factory(i, BJ)
 
 
 def _g_ij_B_factory(i, j):
@@ -1134,6 +1182,170 @@ def II_tz_B(ds: xr.Dataset):
 )
 def II_zz_B(ds: xr.Dataset):
     ds["II_zz_B"] = xr.dot(ds.normal, ds.k_zz_B, dim="xyz")
+
+
+@register(
+    requirements=(
+        "iota",
+        "diota_dr",
+        "dLA_dr",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dr",
+        "dNU_B_dz",
+        "dNU_B_dt",
+        "e_rho",
+        "e_theta",
+        "e_zeta",
+    ),
+    attrs=dict(
+        long_name="radial tangent basis vector in Boozer coordinates",
+        symbol=r"\mathbf{e}_{\rho_B}",
+    ),
+)
+def e_rho_B(ds: xr.Dataset):
+    dtB_dr = ds.dLA_dr + ds.diota_dr * ds.NU_B + ds.iota * ds.dNU_B_dr
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dr = ds.dNU_B_dr
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    # dr_drB = 1
+    dt_drB = Jac_B_Jac * (dtB_dz * dzB_dr - dzB_dz * dtB_dr)
+    dz_drB = Jac_B_Jac * (dzB_dt * dtB_dr - dtB_dt * dzB_dr)
+    ds["e_rho_B"] = ds.e_rho + dt_drB * ds.e_theta + dz_drB * ds.e_zeta
+
+
+@register(
+    requirements=(
+        "iota",
+        "diota_dr",
+        "dLA_dr",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dr",
+        "dNU_B_dz",
+        "dNU_B_dt",
+        "grad_rho",
+        "grad_theta",
+        "grad_zeta",
+    ),
+    attrs=dict(
+        long_name="poloidal reciprocal basis vector in Boozer coordinates",
+        symbol=r"\nabla\theta_B",
+    ),
+)
+def grad_theta_B(ds: xr.Dataset):
+    dtB_dr = ds.dLA_dr + ds.diota_dr * ds.NU_B + ds.iota * ds.dNU_B_dr
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    ds["grad_theta_B"] = dtB_dr * ds.grad_rho + dtB_dt * ds.grad_theta + dtB_dz * ds.grad_zeta
+
+
+@register(
+    requirements=(
+        "dNU_B_dr",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "grad_rho",
+        "grad_theta",
+        "grad_zeta",
+    ),
+    attrs=dict(
+        long_name="toroidal reciprocal basis vector in Boozer coordinates",
+        symbol=r"\nabla\zeta_B",
+    ),
+)
+def grad_zeta_B(ds: xr.Dataset):
+    dzB_dr = ds.dNU_B_dr
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    ds["grad_zeta_B"] = dzB_dr * ds.grad_rho + dzB_dt * ds.grad_theta + dzB_dz * ds.grad_zeta
+
+
+@register(
+    requirements=(
+        "iota",
+        "diota_dr",
+        "dLA_dr",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dr",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "dmod_B_dr",
+        "dmod_B_dt",
+        "dmod_B_dz",
+    ),
+    attrs=dict(
+        long_name="radial Boozer derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \rho_B}",
+    ),
+)
+def dmod_B_dr_B(ds: xr.Dataset):
+    dtB_dr = ds.dLA_dr + ds.diota_dr * ds.NU_B + ds.iota * ds.dNU_B_dr
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dr = ds.dNU_B_dr
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    dt_drB = Jac_B_Jac * (dtB_dz * dzB_dr - dzB_dz * dtB_dr)
+    dz_drB = Jac_B_Jac * (dzB_dt * dtB_dr - dtB_dt * dzB_dr)
+    ds["dmod_B_dr_B"] = ds.dmod_B_dr + dt_drB * ds.dmod_B_dt + dz_drB * ds.dmod_B_dz
+
+
+@register(
+    requirements=(
+        "iota",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "dmod_B_dt",
+        "dmod_B_dz",
+    ),
+    attrs=dict(
+        long_name="poloidal Boozer derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \theta_B}",
+    ),
+)
+def dmod_B_dt_B(ds: xr.Dataset):
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    dt_dtB = Jac_B_Jac * dzB_dz
+    dz_dtB = -Jac_B_Jac * dzB_dt
+    ds["dmod_B_dt_B"] = dt_dtB * ds.dmod_B_dt + dz_dtB * ds.dmod_B_dz
+
+
+@register(
+    requirements=(
+        "iota",
+        "dLA_dt",
+        "dLA_dz",
+        "dNU_B_dt",
+        "dNU_B_dz",
+        "dmod_B_dt",
+        "dmod_B_dz",
+    ),
+    attrs=dict(
+        long_name="toroidal Boozer derivative of the modulus of the magnetic field",
+        symbol=r"\frac{\partial\left|\mathbf{B}\right|}{\partial \zeta_B}",
+    ),
+)
+def dmod_B_dz_B(ds: xr.Dataset):
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    dt_dzB = -Jac_B_Jac * dtB_dz
+    dz_dzB = Jac_B_Jac * dtB_dt
+    ds["dmod_B_dz_B"] = dt_dzB * ds.dmod_B_dt + dz_dzB * ds.dmod_B_dz
 
 
 # === integrals ======================================================================== #
@@ -1271,7 +1483,9 @@ def shear(ds: xr.Dataset):
 @register(
     requirements=("B", "e_theta"),
     integration=("theta", "zeta"),
-    attrs=dict(long_name="average poloidal magnetic field", symbol=r"\overline{B_\theta}"),
+    attrs=dict(
+        long_name="flux-surface averaged poloidal magnetic field", symbol=r"\overline{B_\theta}"
+    ),
 )
 def B_theta_avg(ds: xr.Dataset):
     ds["B_theta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_theta, dim="xyz")) / (
@@ -1281,7 +1495,7 @@ def B_theta_avg(ds: xr.Dataset):
 
 @register(
     requirements=("B_theta_avg", "mu0"),
-    attrs=dict(long_name="toroidal current", symbol=r"I_{tor}"),
+    attrs=dict(long_name="toroidal current enclosed by flux surface", symbol=r"I_{tor}"),
 )
 def I_tor(ds: xr.Dataset):
     ds["I_tor"] = ds.B_theta_avg * 2 * np.pi / ds.mu0
@@ -1290,7 +1504,9 @@ def I_tor(ds: xr.Dataset):
 @register(
     requirements=("B", "e_zeta"),
     integration=("theta", "zeta"),
-    attrs=dict(long_name="average toroidal magnetic field", symbol=r"\overline{B_\zeta}"),
+    attrs=dict(
+        long_name="flux-surface averaged toroidal magnetic field", symbol=r"\overline{B_\zeta}"
+    ),
 )
 def B_zeta_avg(ds: xr.Dataset):
     ds["B_zeta_avg"] = fluxsurface_integral(xr.dot(ds.B, ds.e_zeta, dim="xyz")) / (4 * np.pi**2)
@@ -1299,7 +1515,7 @@ def B_zeta_avg(ds: xr.Dataset):
 @register(
     requirements=("B_zeta_avg", "mu0"),
     integration=("theta", "zeta"),
-    attrs=dict(long_name="poloidal current", symbol=r"I_{pol}"),
+    attrs=dict(long_name="poloidal current, relative to the magnetic axis", symbol=r"I_{pol}"),
 )
 def I_pol(ds: xr.Dataset):
     ds["I_pol"] = ds.B_zeta_avg * 2 * np.pi / ds.mu0

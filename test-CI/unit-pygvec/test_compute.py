@@ -27,9 +27,18 @@ except ImportError:
 # === FIXTURES === #
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def teststate(testfiles):
     return State(*testfiles)
+
+
+@pytest.fixture(
+    params=[False, True],
+    ids=["surf", "drho"],
+    scope="session",
+)
+def radial_derivative(request):
+    return request.param
 
 
 @pytest.fixture()
@@ -175,6 +184,32 @@ def ev_profile(request, ev_r_only, ev_rtz, ev_rtz_mixed, ev_rtz_1d):
         return ev_rtz_1d
 
 
+@pytest.fixture(scope="session")
+def ev_boozer(teststate, radial_derivative):
+    ds = EvaluationsBoozer(
+        rho=[0.5, 1.0],
+        theta_B=20,
+        zeta_B=18,
+        state=teststate,
+        radial_derivative=radial_derivative,
+        MNfactor=5,
+    )
+    return ds
+
+
+@pytest.fixture(scope="session")
+def ev_boozer_drho(teststate):
+    ds = EvaluationsBoozer(
+        rho=[0.5, 1.0],
+        theta_B=20,
+        zeta_B=18,
+        state=teststate,
+        radial_derivative=True,
+        MNfactor=5,
+    )
+    return ds
+
+
 # === TESTS === #
 
 
@@ -225,13 +260,15 @@ def test_evaluations_init(teststate):
     [2, 1.0, xr.DataArray([0.5, 0.6], dims="tor"), np.array([0.5, 0.6]), [0.5, 0.6]],
     ids=["int", "float", "xr", "np", "list"],
 )
-def test_boozer_init(teststate, rho, theta_B, zeta_B):
-    ds = EvaluationsBoozer(rho, theta_B, zeta_B, teststate, MNfactor=1)
+def test_boozer_init(teststate, rho, theta_B, zeta_B, radial_derivative):
+    ds = EvaluationsBoozer(
+        rho, theta_B, zeta_B, teststate, radial_derivative=radial_derivative, MNfactor=1
+    )
     teststate.compute(ds, "X1")
 
 
-def test_boozer(teststate):
-    ds = EvaluationsBoozer([0.5, 1.0], 20, 18, teststate, MNfactor=5)
+def test_boozer(teststate, ev_boozer, radial_derivative):
+    ds = ev_boozer.copy()
     assert np.allclose(ds.rho, [0.5, 1.0])
     assert {"rho", "theta_B", "zeta_B"} == set(ds.coords)
     assert {"rad", "pol", "tor"} == set(ds.dims)
@@ -247,25 +284,43 @@ def test_boozer(teststate):
     assert set(ds.mod_B.dims) == {"rad", "pol", "tor"}
 
     assert {"LA", "dLA_dt", "dLA_dz", "dLA_dtz"} < set(ds.data_vars)
-    assert len({"dLA_dr", "dLA_drt", "dLA_drz"} & set(ds.data_vars)) == 0
     assert {"NU_B", "dNU_B_dt", "dNU_B_dz", "dNU_B_dtz"} < set(ds.data_vars)
-    assert len({"dNU_B_dr", "dNU_B_drt", "dNU_B_drz"} & set(ds.data_vars)) == 0
+    if radial_derivative:
+        assert {"dLA_dr", "dLA_drt", "dLA_drz"} < set(ds.data_vars)
+        assert {"dNU_B_dr", "dNU_B_drt", "dNU_B_drz"} < set(ds.data_vars)
+    else:
+        assert len({"dLA_dr", "dLA_drt", "dLA_drz"} & set(ds.data_vars)) == 0
+        assert len({"dNU_B_dr", "dNU_B_drt", "dNU_B_drz"} & set(ds.data_vars)) == 0
 
     # currents / averages of B are independent of coordinate system
     # and B_theta_B, B_zeta_B are constant
-    teststate.compute(ds, "B_theta_avg", "B_zeta_avg", "B", "e_theta_B", "e_zeta_B", "g_tt_B")
-    B_theta_B = xr.dot(ds.B, ds.e_theta_B, dim="xyz")
-    B_theta_B_avg = B_theta_B.mean(("pol", "tor"))
-    B_zeta_B = xr.dot(ds.B, ds.e_zeta_B, dim="xyz")
-    B_zeta_B_avg = B_zeta_B.mean(("pol", "tor"))
-    np.testing.assert_allclose(B_theta_B_avg, ds.B_theta_avg, rtol=1e-2, atol=1e-5)
-    np.testing.assert_allclose(B_zeta_B_avg, ds.B_zeta_avg, rtol=1e-2)
+    teststate.compute(
+        ds, "B_theta_avg", "B_zeta_avg", "B_theta_B", "B_zeta_B", "g_tt_B", "Jac_B"
+    )
+    B_theta_B_avg = ds.B_theta_B.mean(("pol", "tor"))
+    B_zeta_B_avg = ds.B_zeta_B.mean(("pol", "tor"))
+    np.testing.assert_allclose(B_theta_B_avg, ds.B_theta_avg, rtol=1e-3, atol=1e-5)
+    np.testing.assert_allclose(B_zeta_B_avg, ds.B_zeta_avg, rtol=1e-3, atol=1e-5)
     np.testing.assert_allclose(
-        B_theta_B, B_theta_B_avg.broadcast_like(B_theta_B), rtol=1e-8, atol=1e-5
+        ds.B_theta_B, B_theta_B_avg.broadcast_like(ds.B_theta_B), rtol=1e-8, atol=1e-5
     )
     np.testing.assert_allclose(
-        B_zeta_B, B_zeta_B_avg.broadcast_like(B_zeta_B), rtol=1e-8, atol=1e-5
+        ds.B_zeta_B, B_zeta_B_avg.broadcast_like(ds.B_zeta_B), rtol=1e-8, atol=1e-5
     )
+    if radial_derivative:
+        # contravariant components, need radial derivative (B_contra_i = B . grad_i)
+        teststate.compute(ds, "B_contra_t_B", "B_contra_z_B", "dPhi_dr", "iota")
+        np.testing.assert_allclose(
+            ds["B_contra_t_B"], ds.dPhi_dr * ds.iota / ds.Jac_B, rtol=1e-8, atol=1e-8
+        )
+        np.testing.assert_allclose(
+            ds["B_contra_z_B"], ds.dPhi_dr / ds.Jac_B, rtol=1e-8, atol=1e-8
+        )
+
+        # compute all remaining boozer quantities that need radial derivatives, not sure what can be checked with them...
+        teststate.compute(
+            ds, "B_rho_B", "J_rho_B", "J_theta_B", "J_zeta_B", "J_contra_t_B", "J_contra_z_B"
+        )
 
 
 def test_EvaluationsBoozer_2D(teststate):
@@ -294,7 +349,7 @@ def test_EvaluationsBoozer_2D(teststate):
         assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
 
 
-def test_EvaluationsBoozer_fieldlines(teststate):
+def test_EvaluationsBoozer_fieldlines(teststate, radial_derivative):
     """Test EvaluationsBoozer with a 3D array for theta_B, as required for fieldline coordinates."""
     rho = [0.5, 1.0]  # radial positions
     alpha = np.linspace(0, 2 * np.pi, 2, endpoint=False)  # fieldline label
@@ -306,7 +361,14 @@ def test_EvaluationsBoozer_fieldlines(teststate):
     # 3D toroidal and poloidal arrays that correspond to fieldline coordinates for each surface
     theta_B = alpha[None, :, None] + ev.iota.data[:, None, None] * phi[None, None, :]
 
-    ds = EvaluationsBoozer(rho=rho, theta_B=theta_B, zeta_B=phi, state=teststate, MNfactor=1)
+    ds = EvaluationsBoozer(
+        rho=rho,
+        theta_B=theta_B,
+        zeta_B=phi,
+        state=teststate,
+        radial_derivative=radial_derivative,
+        MNfactor=1,
+    )
     assert ds.rho.dims == ("rad",)
     assert ds.theta_B.dims == ("rad", "pol", "tor")
     assert ds.zeta_B.dims == ("tor",)
@@ -438,17 +500,41 @@ def test_compute_basis(teststate, ev_rtz):
             assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
 
 
-def test_compute_Jac_B_consistency(teststate, ev_rtz):
-    ds = teststate.evaluate_sfl(
+def test_compute_g_ij_B(teststate, ev_boozer_drho):
+    ds = ev_boozer_drho.copy().isel(rad=slice(1, None))
+    Qs = (
+        [f"e_{i}_B" for i in ("rho", "theta", "zeta")]
+        + [f"g_{ij}_B" for ij in ("rr", "rt", "rz", "tt", "tz", "zz")]
+        + ["Jac_B"]
+    )
+    compute(ds, *Qs, state=teststate)
+
+    for q in Qs:
+        assert np.isnan(ds[q].data).sum() == 0
+
+    np.testing.assert_allclose(
+        ds.Jac_B, xr.dot(ds.e_rho_B, xr.cross(ds.e_theta_B, ds.e_zeta_B, dim="xyz"), dim="xyz")
+    )
+    sqrt_g = np.sqrt(
+        ds.g_rr_B * ds.g_tt_B * ds.g_zz_B
+        + 2 * ds.g_rt_B * ds.g_rz_B * ds.g_tz_B
+        - ds.g_rt_B**2 * ds.g_zz_B
+        - ds.g_rz_B**2 * ds.g_tt_B
+        - ds.g_tz_B**2 * ds.g_rr_B
+    )
+    np.testing.assert_allclose(ds.Jac_B, sqrt_g)
+
+
+def test_compute_Jac_B_consistency(teststate, ev_boozer):
+    ds = ev_boozer.copy()
+    teststate.compute(
+        ds,
         "iota",
         "Jac_B",
         "B_theta_avg",
         "B_zeta_avg",
         "mod_B",
         "dPhi_dr",
-        rho=np.linspace(0, 1, 11)[1:],
-        theta=21,
-        zeta=21,
     )
 
     Jac_B_B2 = ds.Jac_B * ds.mod_B**2
@@ -459,6 +545,45 @@ def test_compute_Jac_B_consistency(teststate, ev_rtz):
     np.testing.assert_allclose(
         Jac_B_B2avg, ds.dPhi_dr * (ds.iota * ds.B_theta_avg + ds.B_zeta_avg), rtol=5e-4
     )
+
+
+def test_compute_grad_mod_B(teststate, ev_boozer_drho):
+    ds = ev_boozer_drho.copy().isel(rad=slice(1, None))
+    Qs = (
+        ["grad_mod_B"]
+        + [f"dmod_B_d{i}" for i in "rtz"]
+        + [f"dmod_B_d{i}_B" for i in "rtz"]
+        + ["grad_rho", "grad_theta_B", "grad_zeta_B", "e_rho_B", "e_theta_B", "e_zeta_B"]
+    )
+    compute(ds, *Qs, state=teststate)
+
+    for q in Qs:
+        assert np.isnan(ds[q].data).sum() == 0
+
+    # reverse chain rule dmod_B_da_B -> dmod_B_da
+    dtB_dr = ds.dLA_dr + ds.diota_dr * ds.NU_B + ds.iota * ds.dNU_B_dr
+    dtB_dt = 1 + ds.dLA_dt + ds.iota * ds.dNU_B_dt
+    dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
+    dzB_dr = ds.dNU_B_dr
+    dzB_dt = ds.dNU_B_dt
+    dzB_dz = 1 + ds.dNU_B_dz
+
+    dmod_B_dr = ds.dmod_B_dr_B + dtB_dr * ds.dmod_B_dt_B + dzB_dr * ds.dmod_B_dz_B
+    np.testing.assert_allclose(ds.dmod_B_dr, dmod_B_dr)
+    dmod_B_dt = dtB_dt * ds.dmod_B_dt_B + dzB_dt * ds.dmod_B_dz_B
+    np.testing.assert_allclose(ds.dmod_B_dt, dmod_B_dt)
+    dmod_B_dz = dtB_dz * ds.dmod_B_dt_B + dzB_dz * ds.dmod_B_dz_B
+    np.testing.assert_allclose(ds.dmod_B_dz, dmod_B_dz)
+
+    grad_mod_B_B = (
+        ds.dmod_B_dr_B * ds.grad_rho
+        + ds.dmod_B_dt_B * ds.grad_theta_B
+        + ds.dmod_B_dz_B * ds.grad_zeta_B
+    )
+    np.testing.assert_allclose(ds.grad_mod_B, grad_mod_B_B)
+    np.testing.assert_allclose(ds.dmod_B_dr_B, xr.dot(ds.grad_mod_B, ds.e_rho_B, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dt_B, xr.dot(ds.grad_mod_B, ds.e_theta_B, dim="xyz"))
+    np.testing.assert_allclose(ds.dmod_B_dz_B, xr.dot(ds.grad_mod_B, ds.e_zeta_B, dim="xyz"))
 
 
 @pytest.mark.parametrize(
