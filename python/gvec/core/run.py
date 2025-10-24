@@ -1079,7 +1079,7 @@ def fortran_run(
     try:
         _run.start_rungvec(str(parameterfile), restartfile_in=restartfile, comm_in=MPIcomm)
     except Exception as e:
-        logger.error(f"GVEC run error: {e}")
+        logger.error("\n" + "!" * 70 + f"\n GVEC RUN ERROR: {e} \n" + "!" * 70)
         logger.info("attempting cleanup")
         _run.cleanup()
         logger.debug("cleanup done")

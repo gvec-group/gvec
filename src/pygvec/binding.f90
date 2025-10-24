@@ -29,8 +29,8 @@ SUBROUTINE redirect_stdout(filename)
   CLOSE(Unit_stdOut)
   OPEN(Unit_stdOut, FILE=filename, ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', POSITION='APPEND', IOSTAT=ios)
   IF (ios /= 0) THEN
-    WRITE(Unit_errOut, '(A)') 'ERROR: could not open file', filename, 'for writing'
-    CALL abort(__STAMP__,"")
+    CALL abort(__STAMP__,&
+        "could not open file '"//TRIM(filename)//"' for stdout redirect.")
   END IF
 END SUBROUTINE redirect_stdout
 
@@ -43,8 +43,8 @@ SUBROUTINE flush_stdout()
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   FLUSH(Unit_stdOut, IOSTAT=ios)
   IF (ios /= 0) THEN
-    WRITE(Unit_errOut, '(A)') 'ERROR: could not flush standard output'
-    CALL abort(__STAMP__,"")
+    CALL abort(__STAMP__,&
+        "could not flush standard output")
   END IF
 END SUBROUTINE flush_stdout
 

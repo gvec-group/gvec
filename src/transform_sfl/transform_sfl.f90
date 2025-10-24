@@ -212,9 +212,8 @@ CASE(2) !BOOZER
   ALLOCATE(sf%GZsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%GZsfl=0.0_wp
 
 CASE DEFAULT
-SWRITE(UNIT_stdOut,*)'This input for SFL coordinate transform is not valid: whichSFL=',sf%whichSFLcoord
-CALL abort(__STAMP__, &
-           "wrong input for SFL coordinate transform")
+  CALL abort(__STAMP__, &
+           "whichSFLcoord for coordinate transform not found, expecting 1(PEST) or 2(Boozer)")
 END SELECT
 sf%initialized=.TRUE.
 __PERFOFF('transform_SFL_init')

@@ -760,9 +760,8 @@ CONTAINS
     CALL mpi_check_single_access()
 #if NETCDF
     IF (sf%ioError .NE. nf90_NOERR) THEN
-       WRITE(UNIT_stdOut,'(6X,A)')"A netCDF error has occurred:  "//TRIM(errmsg)
        CALL abort(__STAMP__,&
-                 nf90_STRERROR(sf%ioError))
+                 "netCDF error: '"//TRIM(nf90_STRERROR(sf%ioError))//"'\n ... when "//TRIM(errmsg)//"\n")
     END IF
 #endif
   END SUBROUTINE ncfile_handle_error

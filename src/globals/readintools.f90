@@ -169,9 +169,8 @@ IF (CntStr.EQ.0) THEN
   IF (PRESENT(Proposal)) THEN
     CntStr=Proposal
   ELSE
-    SWRITE(UNIT_StdOut,*) 'Inifile missing necessary keyword item : ',TRIM(TmpKey)
     CALL abort(__STAMP__, &
-         'Code stopped during inifile parsing!')
+         "missing necessary parameter '"//TRIM(TmpKey)//"'")
   END IF
 END IF
 END FUNCTION CNTSTR
@@ -209,9 +208,8 @@ ELSE
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetInt
 IF(ioerr.NE.0)THEN
-  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer):'
-  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
-  CALL abort(__STAMP__,"")
+  CALL abort(__STAMP__, &
+       "Problem reading parameter '"//TRIM(key)//"', expected integer, got '= "//TRIM(helpStr)//"'")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -259,9 +257,8 @@ END IF
 ! Find values of pi in the string
 READ(HelpStr,*,IOSTAT=ioerr)GetReal
 IF(ioerr.NE.0)THEN
-  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (real):'
-  WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
-  CALL abort(__STAMP__,"")
+  CALL abort(__STAMP__,&
+       "Problem reading parameter '"//TRIM(key)//"', expected real, got '= "//TRIM(helpStr)//"'")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -310,7 +307,8 @@ READ(HelpStr,*,IOSTAT=ioerr)GetLogical
 IF(ioerr.NE.0)THEN
   WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (logical):'
   WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
-  CALL abort(__STAMP__,"")
+  CALL abort(__STAMP__, &
+       "Problem reading parameter '"//TRIM(key)//"', expected logical, got '= "//TRIM(helpStr)//"'")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -345,7 +343,7 @@ INTEGER                   :: GetIntArray(nIntegers)      !! Integer array read f
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=MAXLEN)           :: HelpStr,ProposalStr
-CHARACTER(LEN=8)                :: DefMsg
+CHARACTER(LEN=8)                :: DefMsg,tmpstr
 INTEGER                         :: iInteger
 INTEGER                         :: ioerr
 LOGICAL                         :: quiet_def
@@ -358,18 +356,17 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-iInteger=1+count_sep(helpstr,",")
+iInteger=1+count_sep(Key,helpstr,",")
 
 IF(iInteger.NE.nIntegers)THEN
-  WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (integer Array), number of elements : ', iInteger, ' .NE. ',nIntegers
-  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  CALL abort(__STAMP__,"")
+  WRITE(tmpstr,'(I8)')nIntegers
+  CALL abort(__STAMP__,&
+       "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
-  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer array):'
-  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  CALL abort(__STAMP__,"")
+  CALL abort(__STAMP__,&
+       "Problem reading parameter '"//TRIM(key)//"', expected integer array, got '= "//TRIM(helpStr)//"'")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -415,7 +412,7 @@ INTEGER,ALLOCATABLE       :: GetIntArray(:)   !! Integer array read from setup f
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr
-CHARACTER(LEN=8)          :: DefMsg
+CHARACTER(LEN=8)          :: DefMsg,tmpstr
 INTEGER                   :: iInteger
 INTEGER                   :: ioerr
 LOGICAL                   :: quiet_def
@@ -428,15 +425,15 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-nIntegers=1+count_sep(helpstr,",")
+nIntegers=1+count_sep(Key,helpstr,",")
 
 IF(ALLOCATED(GetIntArray)) DEALLOCATE(GetIntArray)
 ALLOCATE(GetIntArray(nIntegers))
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
-  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (integer array):'
-  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  CALL abort(__STAMP__,"")
+  WRITE(tmpstr,'(I8)')nIntegers
+  CALL abort(__STAMP__,&
+       "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -480,7 +477,7 @@ REAL(wp)                  :: GetRealArray(nReals)        !! Real array read from
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=MAXLEN)        :: HelpStr,ProposalStr
-CHARACTER(LEN=8)             :: DefMsg
+CHARACTER(LEN=8)             :: DefMsg,tmpstr
 INTEGER                      :: iReal
 INTEGER                      :: ioerr
 LOGICAL                      :: quiet_def
@@ -494,18 +491,17 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-iReal=1+count_sep(helpstr,",")
+iReal=1+count_sep(Key,helpstr,",")
 IF(iReal.NE.nReals)THEN
-  WRITE(UNIT_stdout,'(A,I4,A,I4)')'PROBLEM IN READIN OF LINE (RealArray), number of elements : ', iReal, ' .NE. ',nReals
-  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  CALL abort(__STAMP__,"")
+  WRITE(tmpstr,'(I8)')nReals
+  CALL abort(__STAMP__,&
+       "Problem reading parameter '"//TRIM(key)//"', expected real array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
 END IF
 
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
-  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (RealArray):'
-  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  CALL abort(__STAMP__,"")
+  CALL abort(__STAMP__, &
+       "Problem reading parameter '"//TRIM(key)//"', expected real array, got '= "//TRIM(helpStr)//"'")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -550,7 +546,7 @@ REAL(wp),ALLOCATABLE      :: GetRealArray(:)  !! Real array read from setup file
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=MAXLEN)     :: HelpStr,ProposalStr
-CHARACTER(LEN=8)          :: DefMsg
+CHARACTER(LEN=8)          :: DefMsg,tmpstr
 INTEGER                   :: iReal
 INTEGER                   :: ioerr
 LOGICAL                   :: quiet_def
@@ -562,16 +558,16 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 !count number of components
-nReals=1+count_sep(helpstr,",")
+nReals=1+count_sep(Key,helpstr,",")
 
 IF(ALLOCATED(GetRealarray)) DEALLOCATE(GetRealArray)
 ALLOCATE(GetRealArray(nReals))
 
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
-  WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (RealArray):'
-  WRITE(UNIT_stdout,*) '"',TRIM(key),' = ',TRIM(helpStr),'"'
-  CALL abort(__STAMP__,"")
+  WRITE(tmpstr,'(I8)')nReals
+  CALL abort(__STAMP__,&
+       "Problem reading parameter '"//TRIM(key)//"', expected real array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -681,7 +677,7 @@ IF(MPIroot)THEN !<<<<
   INQUIRE(FILE=TRIM(filename), EXIST=file_exists)
   IF (.NOT.file_exists) THEN
     CALL Abort(__STAMP__,&
-        "Ini file does not exist.")
+        "parameter file '"//TRIM(filename)//"' file does not exist.")
   END IF
 
   OPEN(NEWUNIT= iniUnit,        &
@@ -692,7 +688,7 @@ IF(MPIroot)THEN !<<<<
        IOSTAT = stat)
   IF(stat.NE.0)THEN
     CALL abort(__STAMP__,&
-      "Could not open ini file.")
+      "Could not open parameter file '"//TRIM(filename)//"'.")
   END IF
 
   ! parallel IO: ROOT reads file and sends it to all other procs
@@ -774,7 +770,7 @@ Str1=>FirstString
 DO WHILE (ASSOCIATED(Str1))
   IF(LEN_TRIM(Str1%Str).EQ.MAXLEN)THEN
     CALL abort(__STAMP__,&
-      "parameter readin: Line of input file might be longer than MAXLEN.",Intinfo=MAXLEN)
+      "parameter file readin: Line of input file might be longer than MAXLEN.",Intinfo=MAXLEN)
   END IF
   Str1=>Str1%NextStr !nothing to be done
 END DO
@@ -865,9 +861,8 @@ Str1=>FirstString
 DO WHILE(.NOT.Found)
   IF (.NOT.ASSOCIATED(Str1)) THEN
     IF (.NOT.PRESENT(Proposal)) THEN
-      SWRITE(UNIT_StdOut,*) 'Inifile missing necessary keyword item : ',TRIM(TmpKey)
       CALL abort(__STAMP__, &
-           'Code stopped during inifile parsing!')
+           "missing necessary parameter '"//TRIM(TmpKey)//"'")
     ELSE ! Return default value
 !      CALL LowCase(TRIM(Proposal),Str)
       IF(LEN_TRIM(Proposal).LE.LEN(Str))THEN
@@ -1043,10 +1038,11 @@ SUBROUTINE split(str_in,bStr,separator)
   END IF
 END SUBROUTINE split
 
-FUNCTION count_sep(str_in,separator) RESULT(n_sep)
+FUNCTION count_sep(Key,str_in,separator) RESULT(n_sep)
   IMPLICIT NONE
   !-------------------------------------------
   ! input
+  CHARACTER(LEN=*),INTENT(IN) :: Key
   CHARACTER(LEN=*),INTENT(IN) :: str_in
   CHARACTER(LEN=1),INTENT(IN) :: separator
   ! output
@@ -1061,7 +1057,7 @@ FUNCTION count_sep(str_in,separator) RESULT(n_sep)
   str_tmp=TRIM(str_in)
   IF(str_tmp(1:1).EQ.separator) THEN
     CALL abort(__STAMP__,&
-         "parameter readin, count separator:  first character should not be a separator!")
+         "parameter '"//TRIM(Key)//"', problem with count separator:  first character should not be a separator!")
   END IF
   DO i=2,len_in-1
     IF (str_tmp(i:i).EQ.separator) THEN
@@ -1070,7 +1066,7 @@ FUNCTION count_sep(str_in,separator) RESULT(n_sep)
   END DO
   IF(str_tmp(len_in:len_in).EQ.separator) THEN
     CALL abort(__STAMP__,&
-         "parameter readin, count separator: last character should not be a separator!")
+         "parameter '"//TRIM(Key)//"', problem with count separator: last character should not be a separator!")
   END IF
 END FUNCTION count_sep
 

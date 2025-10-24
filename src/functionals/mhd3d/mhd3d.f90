@@ -425,7 +425,7 @@ SUBROUTINE InitMHD3D(sf)
     boundary_perturb_type = BLEND_COSM
   ELSE
     CALL abort(__STAMP__,&
-    'boundary_perturb_type must be "legacy" or "cosm", found ',intInfo=boundary_perturb_type)
+    'boundary_perturb_type must be "legacy" or "cosm", found '//TRIM(boundary_perturb_type_str),intInfo=boundary_perturb_type)
   END IF
   boundary_perturb_depth = GETREAL('boundary_perturb_depth', proposal=0.6_wp)
   IF(boundary_perturb)THEN
@@ -548,7 +548,7 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     END DO !iBC
     IF(ANY(BC<0)) THEN
       CALL abort(__STAMP__,&
-                 "BC_type can only be 'not_a_knot', '1st_deriv' or '2nd_deriv'!")
+          "BC_type of profile must be 'not_a_knot', '1st_deriv' or '2nd_deriv' ... got '"//TRIM(profile_BC_type(1))//"' on axis and '"//TRIM(profile_BC_type(2))//"' on edge")
     END IF
 
     IF(ANY(BC>0)) THEN
@@ -564,7 +564,7 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     SDEALLOCATE(profile_rho2)
   ELSE
     CALL abort(__STAMP__,&
-    'Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation".')
+         "Specified "//var//"_type unknown. Expecting 'polynomial', 'bspline' or 'interpolation' ... got '"//TRIM(profile_type)//"'")
   END IF ! profile type
 
   SDEALLOCATE(profile_knots)
@@ -1174,7 +1174,7 @@ SUBROUTINE MinimizeMHD3D(sf)
     CALL MinimizeMHD3D_descent(sf)
   CASE DEFAULT
     CALL abort(__STAMP__,&
-        "Minimizertype does not exist",MinimizerType,-1.0_wp)
+        "requested MinimizeType does not exist, expecting 0 or 10",MinimizerType,-1.0_wp)
   END SELECT
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D

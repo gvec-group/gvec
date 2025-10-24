@@ -156,7 +156,7 @@ CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 CALL BACKTRACE
 #endif
 IF (ASSOCIATED(RaiseExceptionPtr)) THEN
-  CALL RaiseExceptionPtr(ErrorMessage)
+  CALL RaiseExceptionPtr(TRIM(ErrorMessage))
 END IF
 ERROR STOP 2
 END SUBROUTINE Abort
