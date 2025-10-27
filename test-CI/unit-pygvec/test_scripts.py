@@ -51,6 +51,28 @@ def test_version():
     assert proc.returncode == 0
 
 
+def test_build_type():
+    """
+    Test if the build type is correct
+    """
+    import gvec._compile_options as opts
+
+    envvars = {
+        key: os.environ.get(key, None)
+        for key in ["SKBUILD_CMAKE_BUILD_TYPE", "CMAKE_BUILD_TYPE", "CMP_MODE"]
+    }
+    values = set(envvars.values()) - {None}
+
+    if len(values) > 1:
+        pytest.skip(f"Inconsistent build type environment variables: {envvars}")
+    elif len(values) == 0:
+        build_type = "Release"
+    else:
+        build_type = values.pop()
+
+    assert build_type == opts.CMAKE_BUILD_TYPE
+
+
 @pytest.mark.parametrize("mode", ["", "run", "to-cas3d", "convert-params"])
 def test_help(mode):
     """
