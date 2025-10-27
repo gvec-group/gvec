@@ -284,7 +284,10 @@ SDEALLOCATE(sf%theta)
 SDEALLOCATE(sf%zeta)
 SDEALLOCATE(sf%X)
 SDEALLOCATE(sf%Y)
-CALL sf%nc%free()
+IF(ALLOCATED(sf%nc))THEN
+  CALL sf%nc%free()
+  DEALLOCATE(sf%nc)
+END IF
 sf%initialized=.FALSE.
 END SUBROUTINE bff_free
 

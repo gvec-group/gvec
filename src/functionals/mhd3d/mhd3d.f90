@@ -51,7 +51,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_Globals        , ONLY: TWOPI
   USE MODgvec_sgrid          , ONLY: t_sgrid
   USE MODgvec_base           , ONLY: base_new
-  USE MODgvec_boundaryFromFile, ONLY: t_boundaryFromFile,boundaryFromFile_new
+  USE MODgvec_boundaryFromFile, ONLY: boundaryFromFile_new
   USE MODgvec_hmap           , ONLY: hmap_new,hmap_new_auxvar
   USE MODgvec_VMEC           , ONLY: InitVMEC
   USE MODgvec_VMEC_vars      , ONLY: vmec_iota_profile,vmec_pres_profile
@@ -85,7 +85,6 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   REAL(wp)         :: scale_minor_radius
-  CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
   CHARACTER(LEN=8) :: boundary_perturb_type_str !! readin variable for boundary_perturb_type: legacy, cosm
 !===================================================================================================================================
@@ -353,7 +352,6 @@ SUBROUTINE InitMHD3D(sf)
       END IF !init_BC
     ELSE !getBoundaryFromFile
       CALL BFF%convert_to_modes(X1_base%f,X2_base%f,X1_b,X2_b,scale_minor_radius)
-      CALL BFF%free()
     END IF
   END IF !MPIroot
 
@@ -1555,6 +1553,10 @@ SUBROUTINE FinalizeMHD3D(sf)
     IF(ALLOCATED(F)) CALL F(i)%free()
   END DO
   CALL sgrid%free()
+  IF(ALLOCATED(BFF)) THEN
+    CALL BFF%free()
+    DEALLOCATE(BFF)
+  END IF
 
   SDEALLOCATE(U)
   SDEALLOCATE(P)
