@@ -89,9 +89,9 @@ editable.rebuild = false
 [tool.scikit-build.cmake]
 verbose = true
 version = ">=3.22"
+build-type = "Release"
 
 [tool.scikit-build.cmake.define]
-CMAKE_BUILD_TYPE = "Release"
 CMAKE_HOSTNAME = {env="CMAKE_HOSTNAME"}
 COMPILE_PYGVEC = "On"
 COMPILE_GVEC = "On"

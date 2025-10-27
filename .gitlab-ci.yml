@@ -1693,9 +1693,11 @@ include:
 
 .vars_matrix_py:
   variables:
-    CMP_MODE: "Release"
     OMP_MODE: "ompON"
     MPI_MODE: "mpiOFF"
+  parallel:
+    matrix:
+      - CMP_MODE: ["Debug", "Release"]
 
 
 # ____________________________
