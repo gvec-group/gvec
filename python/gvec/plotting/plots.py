@@ -214,7 +214,7 @@ def plot_flux_surface(
 def plot_radial_profile(
     state: State,
     nrho: int | ndarray,
-    equilibrium_quantities: str | list = "mod_B",
+    quantities: str | list = "mod_B",
     subplot_grid: list = [1, 1],
     share_axis: bool = True,
     post_process: dict | dict = None,
@@ -227,7 +227,7 @@ def plot_radial_profile(
     state: GVEC state file
     nrho: int, numpy.ndarray
         The number of or specific list of radial points to plot at.
-    equilibrium_quantities: str, list, optional
+    quantities: str, list, optional
         Default is "mod_B".
     subplot_grid: list, conditionally optional
         The grid shape for the subplots. Default is `[1,1]`. Required if `len(rho)>1`.
@@ -245,19 +245,17 @@ def plot_radial_profile(
     `matplotlib.pyplot.figure` object
     """
 
-    if isinstance(equilibrium_quantities, str):
+    if isinstance(quantities, str):
         # If plotting a single quantity convert it to a list
-        equilibrium_quantities = [equilibrium_quantities]
+        quantities = [quantities]
 
     rho = _get_coord_range("rho", state.nfp, nrho)
     theta = _get_coord_range("theta", state.nfp, 1)
     zeta = _get_coord_range("zeta", state.nfp, 1)
 
-    ev = state.evaluate(*equilibrium_quantities, rho=rho, theta=theta, zeta=zeta)
+    ev = state.evaluate(*quantities, rho=rho, theta=theta, zeta=zeta)
 
-    plotting_quantities = _get_scalars_for_plotting(
-        ev, equilibrium_quantities, post_process, "rho"
-    )
+    plotting_quantities = _get_scalars_for_plotting(ev, quantities, post_process, "rho")
 
     f, axs = _plot_line_quantities_from_dict(
         plotting_quantities, rho, subplot_grid, share_axis, "$\\rho$"
@@ -269,7 +267,7 @@ def plot_radial_profile(
 def plot_on_axis(
     state,
     nzeta: int | ndarray = 51,
-    equilibrium_quantities: str | list = "mod_B",
+    quantities: str | list = "mod_B",
     subplot_grid: list = [1, 1],
     share_axis: bool = True,
     post_process: dict = None,
@@ -282,7 +280,7 @@ def plot_on_axis(
     state: GVEC State file
     nzeta: int, ndarray, optional
         $\zeta$ resolution or array of points to plot at. Default 51.
-    equilibrium_quantities: str, list, optional
+    quantities: str, list, optional
         Default is "mod_B".
     subplot_grid: list, conditionally optional
         The grid shape for the subplots. Default is `[1,1]`. Required if `len(rho)>1`.
@@ -299,20 +297,18 @@ def plot_on_axis(
     -------
     `matplotlib.pyplot.figure` object
     """
-    if isinstance(equilibrium_quantities, str):
+    if isinstance(quantities, str):
         # If plotting a single quantity convert it to a list
-        equilibrium_quantities = [equilibrium_quantities]
+        quantities = [quantities]
 
     rho = 0.0
     theta = 0.0
     # theta = _get_coord_range("theta", state.nfp, 0.0)
     zeta = _get_coord_range("zeta", state.nfp, nzeta)
 
-    ev = state.evaluate(*equilibrium_quantities, rho=rho, theta=theta, zeta=zeta)
+    ev = state.evaluate(*quantities, rho=rho, theta=theta, zeta=zeta)
 
-    plotting_quantities = _get_scalars_for_plotting(
-        ev, equilibrium_quantities, post_process, "zeta"
-    )
+    plotting_quantities = _get_scalars_for_plotting(ev, quantities, post_process, "zeta")
 
     f, axs = _plot_line_quantities_from_dict(
         plotting_quantities, zeta, subplot_grid, share_axis, "$\\zeta$"

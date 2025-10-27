@@ -1,4 +1,4 @@
-from numpy import linspace, pi, array, ndarray
+from numpy import linspace, pi, array, ndarray, prod, max
 
 
 def _get_coord_range(coordinate, nfp, points):
@@ -27,9 +27,7 @@ def _get_coord_range(coordinate, nfp, points):
     return nodes
 
 
-def _get_scalars_for_plotting(
-    evaluations, equilibrium_quantities, post_process, direction
-):
+def _get_scalars_for_plotting(evaluations, equilibrium_quantities, post_process, direction):
     """
     Move all eval quantities into a dict for plotting. Post process the quantities if required.
 
@@ -41,8 +39,8 @@ def _get_scalars_for_plotting(
     plotting_quantities = {}
     for quantity in equilibrium_quantities:
         # Loop over the quantities and store what we're plotting in the dict
-        if evaluations[quantity][direction][0].size != 1:
-            # If this quantity is not a scalar (if size != 1)
+        if max(evaluations[quantity].shape) != prod(evaluations[quantity].shape):
+            # If this quantity is not a scalar
             #   we check to see if it is going to be remapped, or we error out
             if post_process is None:
                 raise TypeError("The plotted quantities must be scalars.")
@@ -52,9 +50,7 @@ def _get_scalars_for_plotting(
                 if len(tmp.shape) == 1:
                     plotting_quantities[post_process[quantity][1]] = tmp
                 else:
-                    raise ValueError(
-                        "Post-processing function does not return a 1D array."
-                    )
+                    raise ValueError("Post-processing function does not return a 1D array.")
         else:
             plotting_quantities[quantity] = evaluations[quantity].data.flatten()
 
