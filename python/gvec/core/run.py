@@ -316,7 +316,6 @@ class Run:
         else:
             nPoints = 101
         self.rho = np.linspace(0, 1, nPoints)
-        self.rho[0] = 1e-4
 
         match params["I_tor"].get("type", "polynomial"):
             case "polynomial":
@@ -402,16 +401,28 @@ class Run:
         tolerance = self._state_parameters.get("minimize_tol")
         self.logger.debug(f"Postprocessing statefile {self.state.statefile}")
 
-        quantities = ["F_r_avg", "N_FP"]
+        quantities = ["F_r_avg"]
         if self.curr_constraint:
             quantities += ["iota", "iota_curr_0", "iota_0", "I_tor"]
         if hasattr(self, "rho"):  # e.g. when running in iota_constraint
-            rho_eval = self.rho
+            rho_eval = np.concatenate(
+                [[np.sqrt(1e-8), np.sqrt(2e-8), np.sqrt(3e-8)], self.rho[1:]]
+            )
         else:
             rho_eval = "int"
         ev = self.state.evaluate(*quantities, rho=rho_eval, theta="int", zeta="int")
+        ev = ev[quantities]
         # update iota
         if self.curr_constraint:
+            # extrapolate ev dataset, from evaluations at s=1e-8,2e-8,3e-8 to s=0, quadratically. Only keep s=0 in dataset.
+            r1 = ev.isel(rad=0)
+            r2 = ev.isel(rad=1)
+            r3 = ev.isel(rad=2)
+            ev = ev.isel(rad=slice(2, None))
+            ev.rho.data[0] = 0.0  # = self.rho[0]
+            for var in ev.data_vars:
+                ev[var].data[0] = 3 * (r1[var].data - r2[var].data) + r3[var].data
+
             iota_values = ev.iota_0 + self.I_tor_target * ev.iota_curr_0
             self._state_parameters["iota"] = {
                 "type": "interpolation",

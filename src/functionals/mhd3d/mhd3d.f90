@@ -525,10 +525,18 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs)
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
+    IF(ABS(profile_knots(1)).GT.1.0d-12) CALL abort(__STAMP__,&
+        "First knot position must be =0 for bspline of "//TRIM(var)//" profile!")
+    IF(ABS(profile_knots(n_profile_knots)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
+        "Last knot position must be =1 for bspline of "//TRIM(var)//" profile!")
     var_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
+    IF(ABS(profile_rho2(1)).GT.1.0d-12) CALL abort(__STAMP__,&
+      "First rho2 position must be =0 for interpolation of "//TRIM(var)//" profile!")
+    IF(ABS(profile_rho2(n_profile_rho2)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
+      "Last rho2 position must be =1 for interpolation of "//TRIM(var)//" profile!")
     IF (n_profile_vals .NE. n_profile_rho2) THEN
       CALL abort(__STAMP__,&
       'Size of '//var//'_rho2 and '//var//'_vals must be equal!')
