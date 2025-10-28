@@ -43,7 +43,7 @@ contains
   ! This function is only meant to be used by the assert macro. No Doxygen
   ! documentation needed.
   subroutine sll_s_assertion( msg, file, line )
-    use MODgvec_globals, only: abort  
+    use MODgvec_globals, only: abort
     character(len=*), intent(in) :: msg
     character(len=*), intent(in) :: file
     integer         , intent(in) :: line

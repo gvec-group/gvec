@@ -108,13 +108,13 @@ def test_run_recover_from_error():
 def test_run_netcdf_error(which_read):
     parameters = gvec.util.read_parameters("parameter.ini")
     run = gvec.run(parameters)
-    if which_read=="hmap":
+    if which_read == "hmap":
         parameters["which_hmap"] = 21
         parameters["hmap_ncfile"] = "non_existing_file.nc"
-    if which_read=="boundaryFromFile":
+    if which_read == "boundaryFromFile":
         parameters["getBoundaryFromFile"] = 1
         parameters["boundaryFromFile"] = "non_existing_file.nc"
-        
+
     with pytest.raises((RuntimeError, UnicodeDecodeError)):
         gvec.run(parameters)
 

@@ -21,7 +21,7 @@ CONTAINS
 !================================================================================================================================!
 SUBROUTINE Init(parameterfile)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot,nRanks,abort,fmt_sep
   USE MODgvec_MHD3D_vars,     ONLY: X1_base
   USE MODgvec_Analyze,        ONLY: InitAnalyze
   USE MODgvec_Output,         ONLY: InitOutput
@@ -29,11 +29,13 @@ SUBROUTINE Init(parameterfile)
   USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
 !$ USE omp_lib
   USE MODgvec_Functional,     ONLY: InitFunctional
+  USE MODgvec_MPI    ,ONLY  : par_Init
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: which_functional
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  !================================================================================================================================!
+  CALL par_Init() !USE MPI_COMM_WORLD
   SWRITE(Unit_stdOut,'(132("="))')
   SWRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
   SWRITE(Unit_stdOut,'(132("="))')
@@ -41,7 +43,12 @@ SUBROUTINE Init(parameterfile)
 !$ SWRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
 !$ SWRITE(Unit_stdOut,'(132("="))')
   !.only executes if compiled with MPI
-
+# if MPI
+  SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
+  SWRITE(Unit_stdOut,fmt_sep)
+  IF(nRanks.GT.1) CALL abort(__STAMP__,&
+                   "GVEC post is compiled with MPI, but can only be called with 1 MPI rank." )
+# endif
   ! read parameter file
   CALL FillStrings(parameterfile)
 
@@ -989,7 +996,8 @@ SUBROUTINE Finalize()
   USE MODgvec_Restart,        ONLY: FinalizeRestart
   USE MODgvec_Functional,     ONLY: FinalizeFunctional
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  USE MODgvec_MPI,            ONLY: par_Finalize
+  !================================================================================================================================!
 
   IF(ALLOCATED(functional)) THEN
     CALL FinalizeFunctional(functional)
@@ -999,6 +1007,7 @@ SUBROUTINE Finalize()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
   CALL FinalizeReadIn()
+  CALL par_Finalize()
   initialized = .FALSE.
 
   SWRITE(Unit_stdOut,'(132("="))')

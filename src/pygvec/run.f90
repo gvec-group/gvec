@@ -58,7 +58,7 @@ SUBROUTINE cleanup()
   USE MODgvec_Restart    , ONLY: FinalizeRestart
   USE MODgvec_ReadInTools, ONLY: FinalizeReadIn
   USE MODgvec_Functional , ONLY: t_functional, InitFunctional,FinalizeFunctional
-  USE MODgvec_rungvec,     ONLY: functional, dorestart
+  USE MODgvec_rungvec,     ONLY: functional
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   IF (ALLOCATED(functional)) THEN
     CALL FinalizeFunctional(functional)
@@ -66,7 +66,7 @@ SUBROUTINE cleanup()
   END IF
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
-  IF(dorestart) CALL FinalizeRestart()
+  CALL FinalizeRestart()
   CALL FinalizeReadIn()
 
   CALL par_finalize()
