@@ -1,7 +1,7 @@
 # bash source script
 # usage: source CI_setup/raven_setup_ifx-2025
 #
-# LAST MODIFIED: 2025-01-31
+# LAST MODIFIED: 2025-10-28
 # ===========================================
 
 module purge
@@ -12,7 +12,7 @@ module load mkl/2025.0
 module load hdf5-serial/1.14.1
 module load netcdf-serial/4.9.2
 module load ftimings
-module load anaconda/3/2023.03 #for pytest
+module load python-waterboa/2025.06  #for pytest
 
 module list
 export FC=`which ifx`
