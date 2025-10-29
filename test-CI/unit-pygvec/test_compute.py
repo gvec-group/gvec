@@ -294,19 +294,33 @@ def test_boozer(teststate, ev_boozer, radial_derivative):
 
     # currents / averages of B are independent of coordinate system
     # and B_theta_B, B_zeta_B are constant
-    teststate.compute(ds, "B_theta_avg", "B_zeta_avg", "B", "e_theta_B", "e_zeta_B", "g_tt_B")
-    B_theta_B = xr.dot(ds.B, ds.e_theta_B, dim="xyz")
-    B_theta_B_avg = B_theta_B.mean(("pol", "tor"))
-    B_zeta_B = xr.dot(ds.B, ds.e_zeta_B, dim="xyz")
-    B_zeta_B_avg = B_zeta_B.mean(("pol", "tor"))
-    np.testing.assert_allclose(B_theta_B_avg, ds.B_theta_avg, rtol=1e-2, atol=1e-5)
-    np.testing.assert_allclose(B_zeta_B_avg, ds.B_zeta_avg, rtol=1e-2)
+    teststate.compute(
+        ds, "B_theta_avg", "B_zeta_avg", "B_theta_B", "B_zeta_B", "g_tt_B", "Jac_B"
+    )
+    B_theta_B_avg = ds.B_theta_B.mean(("pol", "tor"))
+    B_zeta_B_avg = ds.B_zeta_B.mean(("pol", "tor"))
+    np.testing.assert_allclose(B_theta_B_avg, ds.B_theta_avg, rtol=1e-3, atol=1e-5)
+    np.testing.assert_allclose(B_zeta_B_avg, ds.B_zeta_avg, rtol=1e-3, atol=1e-5)
     np.testing.assert_allclose(
-        B_theta_B, B_theta_B_avg.broadcast_like(B_theta_B), rtol=1e-8, atol=1e-5
+        ds.B_theta_B, B_theta_B_avg.broadcast_like(ds.B_theta_B), rtol=1e-8, atol=1e-5
     )
     np.testing.assert_allclose(
-        B_zeta_B, B_zeta_B_avg.broadcast_like(B_zeta_B), rtol=1e-8, atol=1e-5
+        ds.B_zeta_B, B_zeta_B_avg.broadcast_like(ds.B_zeta_B), rtol=1e-8, atol=1e-5
     )
+    if radial_derivative:
+        # contravariant components, need radial derivative (B_contra_i = B . grad_i)
+        teststate.compute(ds, "B_contra_t_B", "B_contra_z_B", "dPhi_dr", "iota")
+        np.testing.assert_allclose(
+            ds["B_contra_t_B"], ds.dPhi_dr * ds.iota / ds.Jac_B, rtol=1e-8, atol=1e-8
+        )
+        np.testing.assert_allclose(
+            ds["B_contra_z_B"], ds.dPhi_dr / ds.Jac_B, rtol=1e-8, atol=1e-8
+        )
+
+        # compute all remaining boozer quantities that need radial derivatives, not sure what can be checked with them...
+        teststate.compute(
+            ds, "B_rho_B", "J_rho_B", "J_theta_B", "J_zeta_B", "J_contra_t_B", "J_contra_z_B"
+        )
 
 
 def test_EvaluationsBoozer_2D(teststate):
