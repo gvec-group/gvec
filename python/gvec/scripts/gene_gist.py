@@ -24,13 +24,6 @@ parser.add_argument(
     help="GVEC run directory",
     default=Path("."),
 )
-parser.add_argument(
-    "-o",
-    "--outputfile",
-    type=Path,
-    help="output file name (default: '{projectname}_s{s}.gist.txt')",
-    default=None,
-)
 srho = parser.add_mutually_exclusive_group(required=True)
 srho.add_argument(
     "-s",
@@ -69,10 +62,23 @@ parser.add_argument(
     help="flip the poloidal or toroidal direction with respect (left-handed Boozer coordinates).",
 )
 parser.add_argument(
+    "-o",
+    "--outputfile",
+    type=Path,
+    help="output file name (default: '{projectname}_s{s}.gist.txt')",
+    default=None,
+)
+parser.add_argument(
     "-p",
     "--plot",
     action="store_true",
     help="plot the output quantities ('{projectname}_s{s}.gist.png')",
+)
+parser.add_argument(
+    "--projectname",
+    type=str,
+    help="override the project name for the output files (default: use GVEC state name)",
+    default=None,
 )
 verbosity = parser.add_mutually_exclusive_group()
 verbosity.add_argument(
@@ -141,121 +147,109 @@ def compute_gist_quantities(ev, state, flip):
         "iota",
         "diota_dr",
         "p",
+        "dp_dr",
         "minor_radius",
         "Jac_B",
         "mod_B",
         "dmod_B_dr_B",
         "dmod_B_dt_B",
         "dmod_B_dz_B",
-        "dp_dr",
         "mu0",
     )
 
     ev = ev.squeeze()
 
-    rho = ev.rho
+    # === GVEC coordinates === #
+
+    rho = ev.rho.item()
     theta = ev.theta_B
     a = ev.minor_radius.item()
-    s0 = ev.rho**2
-    sqrt_s0 = ev.rho
-    iota = ev.iota
-    diota_dr = ev.diota_dr
-    diota_ds = diota_dr / (2 * ev.rho)
-    p0 = ev.p.item()
+    iota = ev.iota.item()
+    diota_dr = ev.diota_dr.item()
+    p = ev.p.item()
+    dp_dr = ev.dp_dr.item()
     grad_rho = ev.grad_rho
-    grad_vartheta = ev.grad_theta_B
+    grad_theta = ev.grad_theta_B
     grad_zeta = ev.grad_zeta_B
-    dB_drho = ev.dmod_B_dr_B
-    dB_dvartheta = ev.dmod_B_dt_B
-    dB_dzeta = ev.dmod_B_dz_B
-    Phi_lcfs = state.evaluate("Phi", rho=1.0, theta=None, zeta=None).Phi.item()
+    dmodB_drho = ev.dmod_B_dr_B
+    dmodB_dtheta = ev.dmod_B_dt_B
+    dmodB_dzeta = ev.dmod_B_dz_B
+    Phi_edge = state.evaluate("Phi", rho=1.0, theta=None, zeta=None).Phi.item()
     mu0 = ev.mu0.item()
-    B = ev.mod_B
+    modB = ev.mod_B
     Jac_B = ev.Jac_B  # only used for assertion
+
+    # === flipping coordinates === #
 
     if flip in ("tor", "both"):
         iota = -iota
         diota_dr = -diota_dr
-        diota_ds = -diota_ds
         grad_zeta = -grad_zeta
-        dB_dzeta = -dB_dzeta
-        Phi_lcfs = -Phi_lcfs
+        dmodB_dzeta = -dmodB_dzeta
+        Phi_edge = -Phi_edge
         Jac_B = -Jac_B
     if flip in ("pol", "both"):
         theta = -theta
         iota = -iota
         diota_dr = -diota_dr
-        diota_ds = -diota_ds
-        grad_vartheta = -grad_vartheta
-        dB_dvartheta = -dB_dvartheta
+        grad_theta = -grad_theta
+        dmodB_dtheta = -dmodB_dtheta
         Jac_B = -Jac_B
 
-    # === compute GIST quantities === #
+    # === fieldline coordinates === #
 
-    grad_s = 2 * rho * grad_rho
-    grad_alpha = -diota_dr * theta / iota**2 * grad_rho + 1 / iota * grad_vartheta - grad_zeta
-    grad_theta = grad_vartheta
+    grad_alpha = -theta / iota**2 * diota_dr * grad_rho + 1 / iota * grad_theta - grad_zeta
+    grad_phi = grad_theta
 
-    q0 = 1 / iota
-    dq0_ds = -diota_dr / iota**2 / (2 * rho)
-    Bref = 2 * np.abs(Phi_lcfs) / a**2
-    beta = p0 * mu0 / Bref**2
-    sqrt_g = 1 / xr.dot(grad_s, xr.cross(grad_theta, grad_zeta, dim="xyz"), dim="xyz")
-    warning_assert_allclose(logger, "sqrt_g", sqrt_g, Jac_B / (2 * ev.rho))
+    dmodB_drhoa = dmodB_drho - theta / iota**2 * diota_dr * dmodB_dzeta
+    dmodB_dalpha = -dmodB_dzeta
+    dmodB_dphi = dmodB_dtheta + 1 / iota * dmodB_dzeta
 
-    dB_ds = 1 / (2 * sqrt_s0) * dB_drho - diota_ds * theta / iota**2 * dB_dzeta
-    dB_dalpha = -dB_dzeta
-    dB_dtheta = dB_dvartheta + 1 / iota * dB_dzeta
-    dp_ds = 1 / (2 * sqrt_s0) * ev.dp_dr
+    grr = xr.dot(grad_rho, grad_rho, dims="xyz")  # g^{\rho\rho}
+    gra = xr.dot(grad_rho, grad_alpha, dims="xyz")  # g^{\rho\alpha}
+    grp = xr.dot(grad_rho, grad_phi, dims="xyz")  # g^{\rho\phi_\alpha}
+    gap = xr.dot(grad_alpha, grad_phi, dims="xyz")  # g^{\alpha\phi_\alpha}
+    gaa = xr.dot(grad_alpha, grad_alpha, dims="xyz")  # g^{\alpha\alpha}
 
-    ngrad_x1 = a / (2 * sqrt_s0) * grad_s
-    ngrad_x2 = a * sqrt_s0 / q0 * grad_alpha
-    ngrad_x3 = a * grad_theta
+    # === GIST quantities === #
 
-    gss = xr.dot(grad_s, grad_s, dims="xyz")
-    gsa = xr.dot(grad_s, grad_alpha, dims="xyz")
-    gst = xr.dot(grad_s, grad_theta, dims="xyz")
-    gat = xr.dot(grad_alpha, grad_theta, dims="xyz")
-    gaa = xr.dot(grad_alpha, grad_alpha, dims="xyz")
+    ngrad_x1 = a * grad_rho
+    ngrad_x2 = a * rho * iota * grad_alpha
+    ngrad_x3 = a * grad_phi
 
     g11 = xr.dot(ngrad_x1, ngrad_x1, dims="xyz")
-    warning_assert_allclose(logger, "g11", g11, a**2 / (4 * s0) * gss)
+    warning_assert_allclose(logger, "g11", g11, a**2 * grr)
     g12 = xr.dot(ngrad_x1, ngrad_x2, dims="xyz")
-    warning_assert_allclose(logger, "g12", g12, a**2 / (2 * q0) * gsa)
+    warning_assert_allclose(logger, "g12", g12, a**2 * rho * iota * gra)
     g22 = xr.dot(ngrad_x2, ngrad_x2, dims="xyz")
-    warning_assert_allclose(logger, "g22", g22, a**2 * s0 / q0**2 * gaa)
+    warning_assert_allclose(logger, "g22", g22, a**2 * rho**2 * iota**2 * gaa)
     Jac = 1 / xr.dot(ngrad_x1, xr.cross(ngrad_x2, ngrad_x3, dim="xyz"), dim="xyz")
-    warning_assert_allclose(logger, "Jac", Jac, 2 * q0 / a**3 * sqrt_g)
+    warning_assert_allclose(logger, "Jac", Jac, Jac_B / (rho * iota * a**3))
 
-    L1 = -(
-        q0
-        / (Bref * sqrt_s0)
-        * (dB_dalpha + dB_dtheta * ((gss * gat - gsa * gst) / (gss * gaa - gsa * gsa)))
-    )
-    L2 = (
-        2
-        * sqrt_s0
-        / Bref
-        * (dB_ds + dB_dtheta * ((gaa * gst - gsa * gat) / (gss * gaa - gsa * gsa)))
-    )
-    my_dpdx = -(a**4) * rho * mu0 * dp_ds / (Phi_lcfs * np.abs(Phi_lcfs))
-    dBdt = dB_dtheta / Bref
-    shat = 2 * s0 / q0 * dq0_ds
-    B_Bref = B / Bref
+    Bref = 2 * Phi_edge / a**2
+    L1 = -1 / (Bref * rho * iota)
+    L1 *= dmodB_dalpha + dmodB_dphi * ((grr * gap - gra * grp) / (grr * gaa - gra * gra))
+    L2 = 1 / Bref
+    L2 *= dmodB_drhoa + dmodB_dphi * ((gaa * grp - gra * gap) / (grr * gaa - gra * gra))
+    bhat = modB / Bref
+    bhat_phi = dmodB_dphi / Bref
+    q0 = 1 / iota
+    shat = -rho / iota * diota_dr
+    betahat = p * mu0 / Bref**2
+    phat = -(a**4) * rho * mu0 / (2 * Phi_edge * np.abs(Phi_edge)) * dp_dr
 
     params = dict(
+        s0=rho**2,  # radial position in normalized toroidal flux
+        my_dpdx=phat,
+        q0=q0,  # safety factor
+        shat=shat,
         Lref=a,  # minor radius
         Bref=Bref,  # reference magnetic field
-        s0=s0.item(),  # radial position in normalized toroidal flux
-        q0=q0.item(),  # safety factor
-        shat=shat.item(),
-        my_dpdx=my_dpdx.item(),
-        beta=beta,  # plasma beta / normalized pressure
-        n_pol=state.nfp,  # number of field periods
-        # sign_Ip_CW=sgn,  # sign of the poloidal current / poloidal magnetic field, in clockwise direction when viewed from the front
-        # sign_Bt_CW=np.sign(q0.item()) * sgn,  # sign of the toroidal magnetic field, in clockwise direction when viewed from above
+        n0_global=state.nfp,  # number of field periods
+        beta=betahat,  # plasma beta / normalized pressure
+        # gridpoints, n_pol - added later
     )
-    data = np.array([g11, g12, g22, B_Bref, Jac, L2, -L1, dBdt])
+    data = np.array([g11, g12, g22, bhat, Jac, L2, -L1, bhat_phi])
     return params, data
 
 
@@ -357,10 +351,12 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     else:
         s = args.rho**2
 
+    if args.projectname is None:
+        args.projectname = state.name
     if args.outputfile is None:
-        args.outputfile = args.rundir / f"{state.name}_s{int(s * 100):03d}.gist.txt"
+        args.outputfile = f"{args.projectname}_s{int(s * 100):03d}.gist.txt"
 
-    plotfile = f"{state.name}_s{int(s * 100):03d}.gist.png" if args.plot else None
+    plotfile = f"{args.projectname}_s{int(s * 100):03d}.gist.png" if args.plot else None
 
     gvec_to_gist(
         state,
