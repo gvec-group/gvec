@@ -1,7 +1,7 @@
 from numpy import linspace, pi, array, ndarray, prod, max
 
 
-def _get_coord_range(coordinate, nfp, points):
+def _get_coord_range(coordinate, nfp, points, min_val=0.0):
     """
     Boiler plate code for building the arrays required for plotting
 
@@ -10,11 +10,11 @@ def _get_coord_range(coordinate, nfp, points):
 
     # Limits chosen based on the coordinate
     if coordinate == "rho":
-        auto_limit = [0, 1]
+        auto_limit = [min_val, 1]
     elif coordinate == "theta":
-        auto_limit = [0, 2 * pi]
+        auto_limit = [min_val, 2 * pi]
     elif coordinate == "zeta":
-        auto_limit = [0, 2 * pi / nfp]
+        auto_limit = [min_val, 2 * pi / nfp]
 
     # The output will be adjusted depending on the input type
     if isinstance(points, int):

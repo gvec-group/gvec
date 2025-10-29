@@ -12,6 +12,7 @@ def plot_3d_surface(
     ntheta: int,
     rho: float,
     equilibrium_quantity: str = "mod_B",
+    full_surface=False,
     offline: bool = False,
 ):
     """
@@ -40,8 +41,12 @@ def plot_3d_surface(
     plot a 3D surface at a given rho. By default plots the exterior boundary
     """
 
-    theta = _get_coord_range("theta", state.nfp, ntheta)
-    zeta = _get_coord_range("zeta", state.nfp, nzeta)
+    nfp = state.nfp
+    if full_surface:
+        nfp = 1.0
+
+    theta = _get_coord_range("theta", nfp, ntheta)
+    zeta = _get_coord_range("zeta", nfp, nzeta)
 
     ev = state.evaluate(equilibrium_quantity, rho=[rho], theta=theta, zeta=zeta).sel(rho=rho)
 
@@ -55,6 +60,7 @@ def plot_3d_surface(
             y=ev.pos.sel(xyz="y"),
             z=ev.pos.sel(xyz="z"),
             surfacecolor=ev[equilibrium_quantity],
+            colorbar_title_text=equilibrium_quantity,
         )
     )
 
@@ -67,7 +73,7 @@ def plot_3d_surface(
     return plt
 
 
-def plot_boundary(state, nzeta, ntheta, equilibrium_quantity="mod_B"):
+def plot_boundary(state, nzeta, ntheta, equilibrium_quantity="mod_B", full_surface=False):
     """
     Plot the boundary of a GVEC solve.
 
@@ -80,4 +86,6 @@ def plot_boundary(state, nzeta, ntheta, equilibrium_quantity="mod_B"):
 
     Wrapper around `plot_3d_surface` with `rho=1.0`. See `help(plot_3d_surface)` for information on inputs.
     """
-    return plot_3d_surface(state, nzeta, ntheta, 1.0, equilibrium_quantity)
+    return plot_3d_surface(
+        state, nzeta, ntheta, 1.0, equilibrium_quantity, full_surface=full_surface
+    )
