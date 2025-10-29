@@ -213,7 +213,8 @@ CASE(2) !BOOZER
 
 CASE DEFAULT
   CALL abort(__STAMP__, &
-           "whichSFLcoord for coordinate transform not found, expecting 1(PEST) or 2(Boozer)")
+           "whichSFLcoord for coordinate transform not found, expecting 1(PEST) or 2(Boozer)", &
+           TypeInfo="InvalidParameterError")
 END SELECT
 sf%initialized=.TRUE.
 __PERFOFF('transform_SFL_init')

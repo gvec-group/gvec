@@ -170,7 +170,8 @@ IF (CntStr.EQ.0) THEN
     CntStr=Proposal
   ELSE
     CALL abort(__STAMP__, &
-         "missing necessary parameter '"//TRIM(TmpKey)//"'")
+         "missing necessary parameter '"//TRIM(TmpKey)//"'", &
+         TypeInfo="MissingParameterError")
   END IF
 END IF
 END FUNCTION CNTSTR
@@ -209,7 +210,8 @@ END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetInt
 IF(ioerr.NE.0)THEN
   CALL abort(__STAMP__, &
-       "Problem reading parameter '"//TRIM(key)//"', expected integer, got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected integer, got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -258,7 +260,8 @@ END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetReal
 IF(ioerr.NE.0)THEN
   CALL abort(__STAMP__,&
-       "Problem reading parameter '"//TRIM(key)//"', expected real, got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected real, got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -308,7 +311,8 @@ IF(ioerr.NE.0)THEN
   WRITE(UNIT_stdout,*)'PROBLEM IN READIN OF LINE (logical):'
   WRITE(UNIT_stdout,*) TRIM(key),' = ',TRIM(helpStr)
   CALL abort(__STAMP__, &
-       "Problem reading parameter '"//TRIM(key)//"', expected logical, got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected logical, got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -361,12 +365,14 @@ iInteger=1+count_sep(Key,helpstr,",")
 IF(iInteger.NE.nIntegers)THEN
   WRITE(tmpstr,'(I8)')nIntegers
   CALL abort(__STAMP__,&
-       "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
   CALL abort(__STAMP__,&
-       "Problem reading parameter '"//TRIM(key)//"', expected integer array, got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected integer array, got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -433,7 +439,8 @@ READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
 IF(ioerr.NE.0)THEN
   WRITE(tmpstr,'(I8)')nIntegers
   CALL abort(__STAMP__,&
-       "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -495,13 +502,15 @@ iReal=1+count_sep(Key,helpstr,",")
 IF(iReal.NE.nReals)THEN
   WRITE(tmpstr,'(I8)')nReals
   CALL abort(__STAMP__,&
-       "Problem reading parameter '"//TRIM(key)//"', expected real array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected real array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 
 READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
   CALL abort(__STAMP__, &
-       "Problem reading parameter '"//TRIM(key)//"', expected real array, got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected real array, got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -567,7 +576,8 @@ READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
 IF(ioerr.NE.0)THEN
   WRITE(tmpstr,'(I8)')nReals
   CALL abort(__STAMP__,&
-       "Problem reading parameter '"//TRIM(key)//"', expected real array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'")
+       "Problem reading parameter '"//TRIM(key)//"', expected real array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'", &
+       TypeInfo="InvalidParameterError")
 END IF
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
@@ -678,7 +688,7 @@ IF(MPIroot)THEN !<<<<
   INQUIRE(FILE=TRIM(filename), EXIST=file_exists)
   IF (.NOT.file_exists) THEN
     CALL Abort(__STAMP__,&
-        "parameter file '"//TRIM(filename)//"' file does not exist.")
+        "parameter file '"//TRIM(filename)//"' file does not exist.",TypeInfo="FileNotFoundError")
   END IF
 
   OPEN(NEWUNIT= iniUnit,        &
@@ -863,7 +873,8 @@ DO WHILE(.NOT.Found)
   IF (.NOT.ASSOCIATED(Str1)) THEN
     IF (.NOT.PRESENT(Proposal)) THEN
       CALL abort(__STAMP__, &
-           "missing necessary parameter '"//TRIM(TmpKey)//"'")
+           "missing necessary parameter '"//TRIM(TmpKey)//"'", &
+           TypeInfo="MissingParameterError")
     ELSE ! Return default value
 !      CALL LowCase(TRIM(Proposal),Str)
       IF(LEN_TRIM(Proposal).LE.LEN(Str))THEN
@@ -1058,7 +1069,8 @@ FUNCTION count_sep(Key,str_in,separator) RESULT(n_sep)
   str_tmp=TRIM(str_in)
   IF(str_tmp(1:1).EQ.separator) THEN
     CALL abort(__STAMP__,&
-         "parameter '"//TRIM(Key)//"', problem with count separator:  first character should not be a separator!")
+         "parameter '"//TRIM(Key)//"', problem with count separator:  first character should not be a separator!", &
+         TypeInfo="InvalidParameterError")
   END IF
   DO i=2,len_in-1
     IF (str_tmp(i:i).EQ.separator) THEN
@@ -1067,7 +1079,8 @@ FUNCTION count_sep(Key,str_in,separator) RESULT(n_sep)
   END DO
   IF(str_tmp(len_in:len_in).EQ.separator) THEN
     CALL abort(__STAMP__,&
-         "parameter '"//TRIM(Key)//"', problem with count separator: last character should not be a separator!")
+         "parameter '"//TRIM(Key)//"', problem with count separator: last character should not be a separator!", &
+         TypeInfo="InvalidParameterError")
   END IF
 END FUNCTION count_sep
 

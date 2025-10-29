@@ -218,16 +218,14 @@ INTEGER                           :: SourceLine      !! Line in source file
 CHARACTER(LEN=*)                  :: CompDate        !! Compilation date
 CHARACTER(LEN=*)                  :: CompTime        !! Compilation time
 CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
-INTEGER,OPTIONAL                  :: IntInfo         !! Error info (integer)
-REAL(wp),OPTIONAL                 :: RealInfo        !! Error info (real)
-INTEGER,OPTIONAL                  :: ErrorCode       !! Error info (integer)
+INTEGER,OPTIONAL                  :: IntInfo         !! additional integer value for error message
+REAL(wp),OPTIONAL                 :: RealInfo        !! additional real value for error message
+INTEGER,OPTIONAL                  :: ErrorCode       !! used for MPI
 CHARACTER(LEN=*),OPTIONAL         :: TypeInfo        !! Error type, default is "RuntimeError". Or e.g.
-                                                     !! "MissingParameterError","InvalidParameterError","FileNotFoundError","InitialisationError"
+                                                     !! "MissingParameterError","InvalidParameterError","FileNotFoundError","InitializationError"
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-CHARACTER(LEN=50)                 :: IntString=""
-CHARACTER(LEN=50)                 :: RealString=""
-CHARACTER(LEN=50)                 :: errtype="RuntimeError"
+CHARACTER(LEN=50)                 :: IntString,RealString,errtype
 #if MPI
 INTEGER                           :: errOut          ! Output of MPI_ABORT
 INTEGER                           :: signalout       ! Output errorcode
@@ -237,6 +235,7 @@ INTEGER                           :: i
 !==================================================================================================================================
 IntString = ""
 RealString = ""
+errtype="RuntimeError"
 errmsg=""
 IF(MPIroot)THEN
   errmsg=TRIM(active_region(1))
@@ -248,8 +247,14 @@ END IF
 IF(PRESENT(TypeInfo)) errtype = TRIM(TypeInfo)
 errmsg=TRIM(errmsg) // " | "//TRIM(errtype)
 
-IF (PRESENT(IntInfo))  WRITE(IntString,"(A,I0)")  "\nIntInfo:  ", IntInfo
-IF (PRESENT(RealInfo)) WRITE(RealString,"(A,F24.19)") "\nRealInfo: ", RealInfo
+IF (PRESENT(IntInfo))  THEN
+  WRITE(IntString,"(I8)")  IntInfo
+  IntString=",IntInfo="//TRIM(IntString)
+END IF
+IF (PRESENT(RealInfo)) THEN
+   WRITE(RealString,"(F24.19)") RealInfo
+   RealString=",RealInfo="//TRIM(RealString)
+END IF
 errmsg=TRIM(errmsg)//" | "//TRIM(ErrorMessage)//TRIM(IntString)//TRIM(RealString)
 
 WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &

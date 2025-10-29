@@ -50,7 +50,7 @@ SUBROUTINE Init(parameterfile)
   SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
   SWRITE(Unit_stdOut,fmt_sep)
   IF(nRanks.GT.1) CALL abort(__STAMP__,&
-                   "GVEC post is compiled with MPI, but can only be called with 1 MPI rank." )
+                   "GVEC is compiled with MPI, but can only be called with 1 MPI rank." )
 # endif
   CALL exit_subregion("startup")
   ! read parameter file
@@ -884,19 +884,23 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   SELECT CASE(TRIM(var))
     CASE("iota")
       IF(.NOT.ALLOCATED(iota_profile)) CALL abort(__STAMP__, &
-          'ERROR in profile evaluation: iota profile not initialized')
+          'ERROR in profile evaluation: iota profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = iota_profile
     CASE("p")
       IF(.NOT.ALLOCATED(pres_profile)) CALL abort(__STAMP__, &
-          'ERROR in profile evaluation: pressure profile not initialized')
+          'ERROR in profile evaluation: pressure profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = pres_profile
     CASE("chi")
       IF(.NOT.ALLOCATED(chi_profile)) CALL abort(__STAMP__, &
-          'ERROR in profile evaluation: chi profile not initialized')
+          'ERROR in profile evaluation: chi profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = chi_profile
     CASE("Phi")
       IF(.NOT.ALLOCATED(Phi_profile)) CALL abort(__STAMP__, &
-          'ERROR in profile evaluation: Phi profile not initialized')
+          'ERROR in profile evaluation: Phi profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = Phi_profile
     CASE DEFAULT
       CALL abort(__STAMP__, &

@@ -73,24 +73,24 @@ REAL(wp):: visu_minmax(3,0:1)
   IF(visu1D.GT.0)THEN
     np_1d          = GETINT(     "np_1d",Proposal=5)
     IF(np_1d.LE.1) CALL abort(__STAMP__,&
-       "np_1d must be >1")
+       "np_1d must be >1",TypeInfo="InvalidParameterError")
   END IF
   IF(visu2D.GT.0)THEN
     np_visu_BC     = GETINTARRAY("np_visu_BC",2,Proposal=(/20,30/))
     IF(any(np_visu_BC.LE.1)) CALL abort(__STAMP__,&
-       "all point numbers in np_visu_BC must be >1")
+       "all point numbers in np_visu_BC must be >1",TypeInfo="InvalidParameterError")
     visu_BC_minmax(2:3,0)=GETREALARRAY("visu_BC_min",2,Proposal=visu_minmax(2:3,0),quiet_def_in=.TRUE.)
     visu_BC_minmax(2:3,1)=GETREALARRAY("visu_BC_max",2,Proposal=visu_minmax(2:3,1),quiet_def_in=.TRUE.)
     np_visu_planes = GETINTARRAY("np_visu_planes",3, (/5,12,10/))
     IF(any(np_visu_planes.LE.1)) CALL abort(__STAMP__,&
-       "all point numbers in np_visu_planes must be >1")
+       "all point numbers in np_visu_planes must be >1",TypeInfo="InvalidParameterError")
     visu_planes_minmax(1:3,0)=GETREALARRAY("visu_planes_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
     visu_planes_minmax(1:3,1)=GETREALARRAY("visu_planes_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
   END IF
   IF(visu3D.GT.0)THEN
     np_visu_3D     = GETINTARRAY("np_visu_3D",3,Proposal=(/5,12,10/))
     IF(any(np_visu_3D.LE.1)) CALL abort(__STAMP__,&
-       "all point numbers in np_visu_3D must be >1")
+       "all point numbers in np_visu_3D must be >1",TypeInfo="InvalidParameterError")
     visu_3D_minmax(1:3,0)=GETREALARRAY("visu_3D_min",3,Proposal=visu_minmax(1:3,0),quiet_def_in=.TRUE.)
     visu_3D_minmax(1:3,1)=GETREALARRAY("visu_3D_max",3,Proposal=visu_minmax(1:3,1),quiet_def_in=.TRUE.)
   END IF

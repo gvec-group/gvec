@@ -110,6 +110,8 @@ SUBROUTINE InitMHD3D(sf)
   !-----------
 
   fac_nyq = GETINT( "fac_nyq",Proposal=4)
+  IF(fac_nyq.LT.2) CALL abort(__STAMP__,&
+     "parameter fac_nyq must be >=2",TypeInfo="InvalidParameterError")
 
   !constants
   mu_0    = 2.0e-07_wp*TWOPI
@@ -229,11 +231,13 @@ SUBROUTINE InitMHD3D(sf)
     mn_nyq  = GETINTARRAY("mn_nyq",2)
     IF(mn_nyq(1).LT.mn_nyq_min(1))THEN
        CALL abort(__STAMP__,&
-                  'mn_nyq(1) too small, should be >= ',intInfo=mn_nyq_min(1))
+                  'mn_nyq(1) too small, should be >= ',intInfo=mn_nyq_min(1),&
+                  TypeInfo="InvalidParameterError")
     END IF
     IF(mn_nyq(2).LT.mn_nyq_min(2))THEN
        CALL abort(__STAMP__,&
-                  'mn_nyq(2) too small, should be >= ',intInfo=mn_nyq_min(2))
+                  'mn_nyq(2) too small, should be >= ',intInfo=mn_nyq_min(2),&
+                  TypeInfo="InvalidParameterError")
     END IF
   ELSE
     mn_nyq(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
@@ -426,7 +430,9 @@ SUBROUTINE InitMHD3D(sf)
     boundary_perturb_type = BLEND_COSM
   ELSE
     CALL abort(__STAMP__,&
-    'boundary_perturb_type must be "legacy" or "cosm", found '//TRIM(boundary_perturb_type_str),intInfo=boundary_perturb_type)
+    'boundary_perturb_type must be "legacy" or "cosm", found '//TRIM(boundary_perturb_type_str),&
+    intInfo=boundary_perturb_type,&
+    TypeInfo="InvalidParameterError")
   END IF
   boundary_perturb_depth = GETREAL('boundary_perturb_depth', proposal=0.6_wp)
   IF(boundary_perturb)THEN
@@ -530,20 +536,25 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
     IF(ABS(profile_knots(1)).GT.1.0d-12) CALL abort(__STAMP__,&
-        "First knot position must be =0 for bspline of "//TRIM(var)//" profile!")
+        "First knot position must be =0 for bspline of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
     IF(ABS(profile_knots(n_profile_knots)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
-        "Last knot position must be =1 for bspline of "//TRIM(var)//" profile!")
+        "Last knot position must be =1 for bspline of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
     var_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
     IF(ABS(profile_rho2(1)).GT.1.0d-12) CALL abort(__STAMP__,&
-      "First rho2 position must be =0 for interpolation of "//TRIM(var)//" profile!")
+      "First rho2 position must be =0 for interpolation of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
     IF(ABS(profile_rho2(n_profile_rho2)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
-      "Last rho2 position must be =1 for interpolation of "//TRIM(var)//" profile!")
+      "Last rho2 position must be =1 for interpolation of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
     IF (n_profile_vals .NE. n_profile_rho2) THEN
       CALL abort(__STAMP__,&
-      'Size of '//var//'_rho2 and '//var//'_vals must be equal!')
+      'Size of '//var//'_rho2 and '//var//'_vals must be equal!',&
+        TypeInfo="InvalidParameterError")
     END IF
     profile_BC_type(1) = GETSTR(var//"_BC_type_axis",Proposal="not_a_knot")
     profile_BC_type(2) = GETSTR(var//"_BC_type_edge",Proposal="not_a_knot")
@@ -558,7 +569,8 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     END DO !iBC
     IF(ANY(BC<0)) THEN
       CALL abort(__STAMP__,&
-          "BC_type of profile must be 'not_a_knot', '1st_deriv' or '2nd_deriv' ... got '"//TRIM(profile_BC_type(1))//"' on axis and '"//TRIM(profile_BC_type(2))//"' on edge")
+          "BC_type of profile must be 'not_a_knot', '1st_deriv' or '2nd_deriv' ... got '"//TRIM(profile_BC_type(1))//"' on axis and '"//TRIM(profile_BC_type(2))//"' on edge",&
+        TypeInfo="InvalidParameterError")
     END IF
 
     IF(ANY(BC>0)) THEN
@@ -574,7 +586,8 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     SDEALLOCATE(profile_rho2)
   ELSE
     CALL abort(__STAMP__,&
-         "Specified "//var//"_type unknown. Expecting 'polynomial', 'bspline' or 'interpolation' ... got '"//TRIM(profile_type)//"'")
+         "Specified "//var//"_type unknown. Expecting 'polynomial', 'bspline' or 'interpolation' ... got '"//TRIM(profile_type)//"'",&
+        TypeInfo="InvalidParameterError")
   END IF ! profile type
 
   SDEALLOCATE(profile_knots)
@@ -640,7 +653,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   IF(JacCheck.EQ.-1)THEN
     CALL Analyze(0)
     CALL abort(__STAMP__,&
-        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!")
+        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitialisationError")
   END IF
   CALL WriteState(U(0),0)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
@@ -1192,7 +1205,8 @@ SUBROUTINE MinimizeMHD3D(sf)
     CALL MinimizeMHD3D_descent(sf)
   CASE DEFAULT
     CALL abort(__STAMP__,&
-        "requested MinimizeType does not exist, expecting 0 or 10",MinimizerType,-1.0_wp)
+        "requested MinimizeType does not exist, expecting 0 or 10",intinfo=MinimizerType,&
+        TypeInfo="InvalidParameterError")
   END SELECT
   CALL exit_subregion("minimize")
   __PERFOFF('minimizer')

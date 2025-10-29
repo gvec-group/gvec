@@ -104,7 +104,7 @@ IMPLICIT NONE
   INQUIRE(FILE=TRIM(FileString), EXIST=file_exists)
 
   IF(.NOT.file_exists) CALL abort(__STAMP__, &
-        TRIM("STATEFILE: "//TRIM(FileString)//" DOES NOT EXIST!!"))
+        TRIM("STATEFILE: "//TRIM(FileString)//" DOES NOT EXIST!!"),TypeInfo="FileNotFoundError")
   ioUnit=GETFREEUNIT()
   OPEN(UNIT     = ioUnit         ,&
      FILE     = TRIM(FileString) ,&
