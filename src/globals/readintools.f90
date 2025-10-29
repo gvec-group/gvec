@@ -13,7 +13,7 @@
 !===================================================================================================================================
 MODULE MODgvec_ReadInTools
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,UNIT_stdout,MPIroot,abort,MAXLEN
+USE MODgvec_Globals, ONLY:wp,UNIT_stdout,MPIroot,abort,MAXLEN,enter_subregion,exit_subregion
 !USE ISO_VARYING_STRING
 IMPLICIT NONE
 PRIVATE
@@ -669,6 +669,7 @@ CHARACTER(LEN=1)               :: tmpChar='' !<<<<
 !===================================================================================================================================
 ! do nothing if FillStrings was already called
 IF (ReadInDone) RETURN
+CALL enter_subregion("read-parameterfile")
 !READ FROM FILE ONLY ON MPIroot
 IF(MPIroot)THEN !<<<<
   FileName = TRIM(IniFile)
@@ -776,7 +777,7 @@ DO WHILE (ASSOCIATED(Str1))
 END DO
 
 ReadInDone = .TRUE.
-
+CALL exit_subregion("read-parameterfile")
 END SUBROUTINE FillStrings
 
 !===================================================================================================================================

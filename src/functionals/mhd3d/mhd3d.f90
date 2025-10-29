@@ -13,7 +13,7 @@
 !===================================================================================================================================
 MODULE MODgvec_MHD3D
 ! MODULES
-  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep,MPIRoot
+  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep,MPIRoot,enter_subregion,exit_subregion
   USE MODgvec_c_functional,   ONLY: t_functional
   IMPLICIT NONE
 
@@ -88,6 +88,7 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=255) ::boundary_filename
   CHARACTER(LEN=8) :: boundary_perturb_type_str !! readin variable for boundary_perturb_type: legacy, cosm
 !===================================================================================================================================
+  CALL enter_subregion("init-MHD3D")
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
   which_init = GETINT("whichInitEquilibrium",0)
@@ -207,7 +208,7 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
 
-
+  CALL enter_subregion("discretization")
   X1X2_deg     = GETINT(     "X1X2_deg")
   X1X2_cont    = GETINT(     "X1X2_continuity",Proposal=(X1X2_deg-1) )
   X1_mn_max    = GETINTARRAY("X1_mn_max"   ,2 ,Proposal=proposal_mn_max)
@@ -291,6 +292,68 @@ SUBROUTINE InitMHD3D(sf)
   nDOF_X2 = X2_base%s%nBase* X2_base%f%modes
   nDOF_LA = LA_base%s%nBase* LA_base%f%modes
 
+
+
+  !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  X1X2_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
+
+  !boundary conditions (used in force, in init slightly changed)
+  ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
+  ALLOCATE(X1_BC_type(1:2,modes))
+  X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  DO imode=1,modes
+    X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
+    IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+      X1_BC_type(BC_AXIS,iMode)=-1*MIN(X1_base%s%deg+1,X1_base%f%Xmn(1,iMode))
+      IF(MPIroot.AND.(nElems.EQ.1).AND.(X1_base%f%Xmn(1,iMode).GT.X1_base%s%deg)) THEN
+        IF(X1_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
+           WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X1_b(m=',&
+                                          X1_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
+      END IF
+    END IF
+  END DO
+  END ASSOCIATE !X1
+
+  ASSOCIATE(modes        =>X2_base%f%modes, zero_odd_even=>X2_base%f%zero_odd_even)
+  ALLOCATE(X2_BC_type(1:2,modes))
+  X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
+  DO imode=1,modes
+    X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
+    IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+      X2_BC_type(BC_AXIS,iMode)=-1*MIN(X2_base%s%deg+1,X2_base%f%Xmn(1,iMode))
+      IF(MPIroot.AND.(nElems.EQ.1).AND.(X2_base%f%Xmn(1,iMode).GT.X2_base%s%deg)) THEN
+        IF(X2_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
+          WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X2_b(m=',&
+                                          X2_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
+      END IF
+    END IF
+  END DO
+  END ASSOCIATE !X2
+
+  !LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
+  !LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
+  !LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
+  !LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
+  LA_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
+
+  ASSOCIATE(modes        =>LA_base%f%modes, zero_odd_even=>LA_base%f%zero_odd_even)
+  ALLOCATE(LA_BC_type(1:2,modes))
+  LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
+  DO imode=1,modes
+    LA_BC_type(BC_AXIS,iMode)=LA_BCtype_axis(zero_odd_even(iMode))
+    IF(LA_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
+      LA_BC_type(BC_AXIS,iMode)=-1*MIN(LA_base%s%deg+1,LA_base%f%Xmn(1,iMode))
+    END IF
+  END DO
+  END ASSOCIATE !LA
+
+  CALL exit_subregion("discretization")
+  CALL enter_subregion("boundary")
   !INITIALIZATION PARAMETERS (ONLY NECESSARY ON MPIroot)
   IF(MPIroot)THEN
     init_average_axis= GETLOGICAL("init_average_axis",Proposal=.FALSE.)
@@ -355,66 +418,6 @@ SUBROUTINE InitMHD3D(sf)
     END IF
   END IF !MPIroot
 
-
-
-  !X1X2_BCtype_axis(MN_ZERO    )= GETINT("X1X2_BCtype_axis_mn_zero"    ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_ZERO     )= GETINT("X1X2_BCtype_axis_m_zero"     ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_ODD_FIRST)= GETINT("X1X2_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_ODD      )= GETINT("X1X2_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !X1X2_BCtype_axis(M_EVEN     )= GETINT("X1X2_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
-  X1X2_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
-
-  !boundary conditions (used in force, in init slightly changed)
-  ASSOCIATE(modes        =>X1_base%f%modes, zero_odd_even=>X1_base%f%zero_odd_even)
-  ALLOCATE(X1_BC_type(1:2,modes))
-  X1_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
-  DO imode=1,modes
-    X1_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
-    IF(X1_BC_type(BC_AXIS,iMode).EQ.0)THEN !AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
-      X1_BC_type(BC_AXIS,iMode)=-1*MIN(X1_base%s%deg+1,X1_base%f%Xmn(1,iMode))
-      IF(MPIroot.AND.(nElems.EQ.1).AND.(X1_base%f%Xmn(1,iMode).GT.X1_base%s%deg)) THEN
-        IF(X1_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
-           WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X1_b(m=',&
-                                          X1_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
-      END IF
-    END IF
-  END DO
-  END ASSOCIATE !X1
-
-  ASSOCIATE(modes        =>X2_base%f%modes, zero_odd_even=>X2_base%f%zero_odd_even)
-  ALLOCATE(X2_BC_type(1:2,modes))
-  X2_BC_type(BC_EDGE,:)=BC_TYPE_DIRICHLET
-  DO imode=1,modes
-    X2_BC_type(BC_AXIS,iMode)=X1X2_BCtype_axis(zero_odd_even(iMode))
-    IF(X2_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
-      X2_BC_type(BC_AXIS,iMode)=-1*MIN(X2_base%s%deg+1,X2_base%f%Xmn(1,iMode))
-      IF(MPIroot.AND.(nElems.EQ.1).AND.(X2_base%f%Xmn(1,iMode).GT.X2_base%s%deg)) THEN
-        IF(X2_base%f%Xmn(2,iMode).EQ.0) & !warning for all n-modes written once!
-          WRITE(UNIT_stdOut,'(4X,A,I4,A)')'WARNING, 1-element spline with BC for m>deg, will ZERO edge coeff. X2_b(m=',&
-                                          X2_base%f%Xmn(1,iMode),',n=-n_max,n_max)! (use 2elems instead)'
-      END IF
-    END IF
-  END DO
-  END ASSOCIATE !X2
-
-  !LA_BCtype_axis(MN_ZERO    )= GETINT("LA_BCtype_axis_mn_zero"    ,Proposal=BC_TYPE_SYMMZERO )
-  !LA_BCtype_axis(M_ZERO     )= GETINT("LA_BCtype_axis_m_zero"     ,Proposal=BC_TYPE_SYMM     )
-  !LA_BCtype_axis(M_ODD_FIRST)= GETINT("LA_BCtype_axis_m_odd_first",Proposal=0 ) !AUTOMATIC,m-dependent
-  !LA_BCtype_axis(M_ODD      )= GETINT("LA_BCtype_axis_m_odd"      ,Proposal=0 ) !AUTOMATIC,m-dependent
-  !LA_BCtype_axis(M_EVEN     )= GETINT("LA_BCtype_axis_m_even"     ,Proposal=0 ) !AUTOMATIC,m-dependent
-  LA_BCtype_axis= 0 !fix to AUTOMATIC, m-dependent
-
-  ASSOCIATE(modes        =>LA_base%f%modes, zero_odd_even=>LA_base%f%zero_odd_even)
-  ALLOCATE(LA_BC_type(1:2,modes))
-  LA_BC_type(BC_EDGE,:)=BC_TYPE_OPEN
-  DO imode=1,modes
-    LA_BC_type(BC_AXIS,iMode)=LA_BCtype_axis(zero_odd_even(iMode))
-    IF(LA_BC_type(BC_AXIS,iMode).EQ.0)THEN ! AUTOMATIC, m-dependent BC, for m>deg, switch off all DOF up to deg+1
-      LA_BC_type(BC_AXIS,iMode)=-1*MIN(LA_base%s%deg+1,LA_base%f%Xmn(1,iMode))
-    END IF
-  END DO
-  END ASSOCIATE !LA
-
   boundary_perturb = GETLOGICAL('boundary_perturb', Proposal=.FALSE.)
   boundary_perturb_type_str  = GETSTR("boundary_perturb_type", proposal="legacy")
   IF (boundary_perturb_type_str .EQ. "legacy") THEN
@@ -451,7 +454,7 @@ SUBROUTINE InitMHD3D(sf)
     END DO !iMode
     END ASSOCIATE
   END IF
-
+  CALL exit_subregion("boundary")
   ! ALLOCATE DATA
   ALLOCATE(U(-3:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
@@ -473,7 +476,7 @@ SUBROUTINE InitMHD3D(sf)
   END DO
 
   CALL InitializeMHD3D_EvalFunc()
-
+  CALL exit_subregion("init-MHD3D")
   CALL par_barrier(afterScreenOut='...DONE')
   SWRITE(UNIT_stdOut,fmt_sep)
 
@@ -511,6 +514,7 @@ SUBROUTINE InitProfile(sf, var,var_profile)
   CHARACTER(LEN=10)    :: possible_BCs(0:2)
   INTEGER              :: BC(1:2),iBC,jBC
   !===================================================================================================================================
+  CALL enter_subregion("get-profile-"//TRIM(var))
   possible_BCs(0)="not_a_knot"
   possible_BCs(1)="1st_deriv"
   possible_BCs(2)="2nd_deriv"
@@ -575,6 +579,7 @@ SUBROUTINE InitProfile(sf, var,var_profile)
 
   SDEALLOCATE(profile_knots)
   SDEALLOCATE(profile_coefs)
+  CALL exit_subregion("get-profile-"//TRIM(var))
 END SUBROUTINE InitProfile
 
 !===================================================================================================================================
@@ -602,6 +607,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   INTEGER              :: JacCheck
 !===================================================================================================================================
   CALL par_barrier(beforeScreenOut="    INITIALIZE SOLUTION...",afterScreenOut="                           ...")
+  CALL enter_subregion("init-solution")
   IF(MPIroot) THEN
     IF(doRestart)THEN
       WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
@@ -616,6 +622,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   END IF !MPIroot
   CALL par_Bcast(U(0)%X1,0)
   CALL par_Bcast(U(0)%X2,0)
+  CALL exit_subregion("init-solution")
 
   IF(init_LA) THEN
     CALL Init_LA_From_Solution(U(0))  !BCast inside
@@ -627,6 +634,8 @@ SUBROUTINE InitSolutionMHD3D(sf)
 
   JacCheck=2
   CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
+
+  CALL enter_subregion("check-solution")
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
   IF(JacCheck.EQ.-1)THEN
     CALL Analyze(0)
@@ -637,7 +646,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
   SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
   CALL Analyze(0)
-
+  CALL exit_subregion("check-solution")
   CALL par_barrier(afterScreenOut="    ...DONE")
   SWRITE(UNIT_stdOut,fmt_sep)
 
@@ -991,6 +1000,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !===================================================================================================================================
   StartTime=GetTime()
   SWRITE(UNIT_stdOut,'(4X,A)') "... Initialize lambda from mapping ..."
+  CALL enter_subregion("reinit-lambda")
   nBase        = LA_base%s%nBase
   ASSOCIATE(modes        => LA_base%f%modes, &
             s_IP         => LA_base%s%s_IP, &
@@ -1055,6 +1065,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   END DO
   END ASSOCIATE !LA
   EndTime=GetTime()
+  CALL exit_subregion("reinit-lambda")
   SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
 END SUBROUTINE Init_LA_from_solution
 
@@ -1175,6 +1186,7 @@ SUBROUTINE MinimizeMHD3D(sf)
 ! LOCAL VARIABLES
 !===================================================================================================================================
   __PERFON('minimizer')
+  CALL enter_subregion("minimize")
   SELECT CASE(MinimizerType)
   CASE(0,10)
     CALL MinimizeMHD3D_descent(sf)
@@ -1182,6 +1194,7 @@ SUBROUTINE MinimizeMHD3D(sf)
     CALL abort(__STAMP__,&
         "requested MinimizeType does not exist, expecting 0 or 10",MinimizerType,-1.0_wp)
   END SELECT
+  CALL exit_subregion("minimize")
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D
 
@@ -1548,6 +1561,7 @@ SUBROUTINE FinalizeMHD3D(sf)
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
+  CALL enter_subregion("finalize-MHD3D")
   IF(ALLOCATED(X1_base)) CALL X1_base%free()
   IF(ALLOCATED(X2_base)) CALL X2_base%free()
   IF(ALLOCATED(LA_base)) CALL LA_base%free()
@@ -1595,6 +1609,7 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_base)
   SDEALLOCATE(X2_base)
   SDEALLOCATE(LA_base)
+  CALL exit_subregion("finalize-MHD3D")
 END SUBROUTINE FinalizeMHD3D
 
 END MODULE MODgvec_MHD3D

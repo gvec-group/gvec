@@ -13,7 +13,7 @@
 !===================================================================================================================================
 MODULE MODgvec_MHD3D_evalFunc
   ! MODULES
-  USE MODgvec_Globals,            ONLY : wp,abort,UNIT_stdOut,fmt_sep,MPIRoot
+  USE MODgvec_Globals,            ONLY : wp,abort,UNIT_stdOut,fmt_sep,MPIRoot,enter_subregion,exit_subregion
   USE sll_m_spline_matrix,        ONLY : sll_c_spline_matrix !for precond
   USE sll_m_spline_matrix_banded, ONLY : sll_t_spline_matrix_banded
   IMPLICIT NONE
@@ -109,6 +109,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
   INTEGER :: iMode
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT MHD3D_EVALFUNC...'
+  CALL enter_subregion("init-MHD3D-evalfunc")
   !same for all basis
   nElems  = X1_base%s%grid%nElems
   nElems_str = X1_base%s%grid%nElems_str
@@ -179,7 +180,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
       END DO !iMode
     END SELECT !TYPE
   END IF !PrecondType>0
-
+  CALL exit_subregion("init-MHD3D-evalfunc")
   SWRITE(UNIT_stdOut,'(A)')'... DONE'
   SWRITE(UNIT_stdOut,fmt_sep)
 

@@ -8,6 +8,7 @@ MODULE MODgvec_py_state
 
 USE MODgvec_c_functional, ONLY: t_functional
 USE MODgvec_base,         ONLY: t_base
+USE MODgvec_Globals,      ONLY: enter_subregion,exit_subregion,reset_subregion
 
 IMPLICIT NONE
 PUBLIC
@@ -35,6 +36,8 @@ SUBROUTINE Init(parameterfile)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: which_functional
   !================================================================================================================================!
+  CALL reset_subregion()
+  CALL enter_subregion("startup")
   CALL par_Init() !USE MPI_COMM_WORLD
   SWRITE(Unit_stdOut,'(132("="))')
   SWRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
@@ -49,10 +52,12 @@ SUBROUTINE Init(parameterfile)
   IF(nRanks.GT.1) CALL abort(__STAMP__,&
                    "GVEC post is compiled with MPI, but can only be called with 1 MPI rank." )
 # endif
+  CALL exit_subregion("startup")
   ! read parameter file
   CALL FillStrings(parameterfile)
 
   ! initialization phase
+  CALL enter_subregion("initialize")
   CALL InitOutput()
   CALL InitAnalyze()
 
@@ -66,6 +71,7 @@ SUBROUTINE Init(parameterfile)
   ! additional global variables
   nfp = X1_base%f%nfp
   initialized = .TRUE.
+  CALL exit_subregion("initialize")
 END SUBROUTINE Init
 
 !================================================================================================================================!
