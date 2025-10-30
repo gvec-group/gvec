@@ -60,7 +60,7 @@ parser.add_argument(
     "--flip",
     choices=["auto", "none", "pol", "tor", "both"],
     default="auto",
-    help="flip the poloidal or toroidal direction with respect (left-handed Boozer coordinates).",
+    help="flip the poloidal or toroidal direction with respect to GVEC's Boozer coordinates; 'auto' determines the necessary flips to get positive toroidal and poloidal flux (default: 'auto')",
 )
 parser.add_argument(
     "-o",
