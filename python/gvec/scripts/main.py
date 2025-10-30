@@ -11,7 +11,7 @@ import argparse
 from collections.abc import Sequence
 
 import gvec
-from gvec.scripts import cas3d, run, quasr
+from gvec.scripts import cas3d, gist as gist, run, quasr
 
 # === Arguments === #
 
@@ -60,9 +60,23 @@ convert_parser.add_argument(
 convert_parser.add_argument(
     "-x",
     "--flip",
-    choices=["t", "theta", "z", "zeta", "b", "both"],
-    help="flip the coordinates in the specified direction(s), possible values are: t/theta, z/zeta, b/both",
+    choices=["auto", "none", "tor", "pol", "both"],
+    default="auto",
+    help="flip the coordinates in the specified direction(s), possible values are: 'auto' (default), 'none', 'tor', 'pol', 'both'.",
     metavar="FLIP",
+)
+convert_parser.add_argument(
+    "-t",
+    "--shift-theta",
+    choices=["auto", "pi", "0"],
+    default="auto",
+    help="shift the theta coordinate origin, possible values are 'auto' (default), 'pi' or '0'.",
+    metavar="SHIFT",
+)
+convert_parser.add_argument(
+    "--stellsym",
+    action="store_true",
+    help="enforce stellarator symmetry in the output parameterfile",
 )
 verbosity = convert_parser.add_mutually_exclusive_group()
 verbosity.add_argument(
@@ -90,6 +104,14 @@ cas3d_parser = subparsers.add_parser(
     help="convert a GVEC state to a CAS3D compatible input file",
     description=cas3d.parser.description,
     parents=[cas3d.parser],
+    add_help=False,
+)
+
+gist_parser = subparsers.add_parser(
+    "to-gist",
+    help="convert a GVEC state to a GENE-GIST compatible input file",
+    description=gist.parser.description,
+    parents=[gist.parser],
     add_help=False,
 )
 
@@ -132,7 +154,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
             try:
                 import f90nml
             except ImportError as e:
-                logger.debug(f"Caught exception: {e}")
+                logger.debug(f"caught exception: {e}")
                 logger.error("reading VMEC namelists requires 'f90nml' to be installed.")
                 return
             with open(args.input, "r") as file:
@@ -142,27 +164,67 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
                 content = content[:-4]
             nml = f90nml.reads(content)["indata"]
             parameters = gvec.util.parameters_from_vmec(nml, args.input.name)
+            if args.flip == "auto":
+                parameters = gvec.util.flip_parameters_zeta(parameters)
         else:
             parameters = gvec.util.read_parameters(args.input)
 
-        if args.flip is None:
+        if args.stellsym:
+            parameters["X1_sin_cos"] = "_cos_"
+            parameters["X2_sin_cos"] = "_sin_"
+            parameters["LA_sin_cos"] = "_sin_"
+            if "X1_b_sin" in parameters:
+                del parameters["X1_b_sin"]
+            if "X2_b_cos" in parameters:
+                del parameters["X2_b_cos"]
+            if "LA_b_cos" in parameters:
+                del parameters["LA_b_cos"]
+            if "X1_a_sin" in parameters:
+                del parameters["X1_a_sin"]
+            if "X2_a_cos" in parameters:
+                del parameters["X2_a_cos"]
+
+        if args.flip == "auto":
             if not gvec.util.check_boundary_direction(parameters):
-                logger.info("Input boundary is left-handed, flipping theta.")
+                logger.info("input boundary is left-handed, flipping theta")
                 parameters = gvec.util.flip_parameters_theta(parameters)
-        else:
-            if args.flip[0] in "tb":
-                parameters = gvec.util.flip_parameters_theta(parameters)
-            if args.flip[0] in "zb":
-                parameters = gvec.util.flip_parameters_zeta(parameters)
+        elif args.flip in ["pol", "both"]:
+            parameters = gvec.util.flip_parameters_theta(parameters)
+        elif args.flip in ["tor", "both"]:
+            parameters = gvec.util.flip_parameters_zeta(parameters)
 
         if not gvec.util.check_boundary_direction(parameters):
-            logger.warning("Output boundary is left-handed!")
+            logger.warning("output boundary is left-handed (increases clockwise)")
+
+        if args.shift_theta == "auto":
+            if "X1_sin_cos" not in parameters:
+                logger.debug(
+                    "cannot automatically shift theta origin: 'X1_sin_cos' not in parameters"
+                )
+            elif parameters["X1_sin_cos"] != "_cos_":
+                logger.debug(
+                    "cannot automatically shift theta origin: X1 is not stellarator symmetric"
+                )
+            elif "X1_b_cos" not in parameters:
+                logger.debug(
+                    "cannot automatically shift theta origin: 'X1_b_cos' not in parameters"
+                )
+            elif parameters["X1_b_cos"].get((1, 0)) < 0:
+                logger.info(
+                    "input boundary has theta origin at the 'inboard' side, shifting theta by pi"
+                )
+                parameters = gvec.util.shift_boundary_theta_pi(parameters)
+        elif args.shift_theta == "pi":
+            parameters = gvec.util.shift_boundary_theta_pi(parameters)
 
         gvec.util.write_parameters(parameters, args.output)
 
     # --- other scripts --- #
     elif args.mode == "to-cas3d":
         return cas3d.main(args)
+
+    elif args.mode == "to-gist":
+        return gist.main(args)
 
     elif args.mode == "load-quasr":
         return quasr.main(args)
