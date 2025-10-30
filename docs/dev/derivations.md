@@ -189,150 +189,6 @@ $$
 
 ## export GIST files for GENE
 
-?-handed coordinate systems $\left(s,\alpha,\theta\right)$ and $\left(x^1, x^2, x^3\right) = \left(a \sqrt{s}, a\frac{\sqrt{s_0}}{q_0}\alpha, a\theta\right)$.
-
-With respect to a ?-handed $\left(\rho, \vartheta, \zeta\right)$, the fieldline coordinates are defined as
-
-$$
-\begin{align}
-s &= \rho^2 &
-\rho &= \sqrt{s} \\
-\alpha &= \sigma\vartheta/\iota - \sigma\zeta &
-\zeta &= \theta/\iota - \sigma\alpha \\
-\theta &= \sigma\vartheta &
-\vartheta &= \sigma\theta \\
-\end{align}
-$$
-
-<!-- which can be obtained from the right-handed GVEC angles by flipping the toroidal or poloidal direction. -->
-
-$$
-\begin{align}
-\frac{\partial s}{\partial \rho} &= 2\rho &
-\frac{\partial \rho}{\partial s} &= \frac{1}{2\sqrt{s}} \\
-\frac{\partial \alpha}{\partial \rho} &= -\sigma \frac{d\iota}{d\rho} \frac{\vartheta}{\iota^2} &
-\frac{\partial \zeta}{\partial s} &= -\frac{d\iota}{ds} \frac{\theta}{\iota^2} \\
-\frac{\partial \alpha}{\partial \vartheta} &= \sigma\frac{1}{\iota} &
-\frac{\partial \zeta}{\partial \theta} &= \frac{1}{\iota} \\
-\frac{\partial \alpha}{\partial \zeta} &= -\sigma &
-\frac{\partial \zeta}{\partial \alpha} &= -\sigma \\
-\frac{\partial \theta}{\partial \vartheta} &= \sigma &
-\frac{\partial \vartheta}{\partial \theta} &= \sigma \\
-\end{align}
-$$
-
-$$
-\begin{align}
-\nabla s &= 2\rho \nabla\rho \\
-\nabla\alpha &= \sigma\left( -\frac{d\iota}{d\rho} \frac{\vartheta}{\iota^2} \nabla\rho + \frac{1}{\iota} \nabla\vartheta - \nabla\zeta \right)\\
-\nabla\theta &= \sigma\nabla\vartheta \\
-
-\nabla x^1 &= \frac{a}{2\sqrt{s}} \nabla s \\
-\nabla x^2 &= \frac{a\sqrt{s_0}}{q_0} \nabla\alpha \\
-\nabla x^3 &= a\nabla\theta \\
-\end{align}
-$$
-
-$$
-\begin{align}
-\Jac^{-1}_{s\alpha\theta} &:= \nabla s \cdot \nabla\alpha \times \nabla\theta \\
-&= 2\rho \nabla\rho \cdot \sigma \left(-\frac{d\iota}{d\rho} \frac{\vartheta}{\iota^2} \nabla\rho + \frac{1}{\iota} \nabla\vartheta - \nabla\zeta\right) \times \sigma \nabla\vartheta \\
-&= -2\rho \nabla\rho \cdot \nabla\zeta \times \nabla\vartheta \\
-&= 2\rho \Jac^{-1}_{\rho\vartheta\zeta} \\
-
-\Jac^{-1}_{123} &:= \nabla x^1 \cdot \nabla x^2 \times \nabla x^3 \\
-&= \frac{a^3 \sqrt{s_0}}{2\sqrt{s}q_0} \Jac^{-1}_{s\alpha\theta} \\
-&= \frac{a^3}{2q_0} \Jac^{-1}_{s\alpha\theta} \\
-\end{align}
-$$
-
-$$
-\begin{align}
-\frac{\partial Q}{\partial s} &= \frac{1}{2\sqrt{s}} \frac{\partial Q}{\partial \rho} - \frac{d\iota}{ds}\frac{\theta}{\iota^2} \frac{\partial Q}{\partial \zeta} \\
-\frac{\partial Q}{\partial \alpha} &= -\sigma \frac{\partial Q}{\partial \zeta} \\
-\frac{\partial Q}{\partial \theta} &= \sigma \frac{\partial Q}{\partial \vartheta} + \frac{1}{\iota} \frac{\partial Q}{\partial \zeta}\\
-\end{align}
-$$
-
----
-
-GVEC Boozer coordinates $\left(\rho,\theta_B,\zeta_B\right)$ are right-handed, straight-fieldline coordinates.
-To transform into fieldline coordinates $\left(\rho_\alpha,\alpha,\phi_\alpha\right)$:
-
-$$
-\begin{align}
-\rho_\alpha &= \rho_B \\
-\alpha &= \theta_B - \iota \zeta_B \\
-\phi_\alpha &= \theta_B
-\end{align}
-$$
-
-$$
-\begin{align}
-\rho_B &= \rho_\alpha \\
-\theta_B &= \phi_\alpha \\
-\zeta_B &= \left(\phi_\alpha - \alpha\right) / \iota
-\end{align}
-$$
-
-$$
-\begin{align}
-\pdv{\rho_\alpha}{\rho_B} &= 1 \\
-\pdv{\alpha}{\rho_B} &= - \frac{d\iota}{d\rho}\zeta \\
-\pdv{\alpha}{\theta_B} &= 1 \\
-\pdv{\alpha}{\zeta_B} &= \iota \\
-\pdv{\phi_\alpha}{\theta_B} &= 1
-\end{align}
-$$
-
-$$
-\begin{align}
-\pdv{\rho_B}{\rho_\alpha} &= 1 \\
-\pdv{\theta_B}{\phi_\alpha} &= 1 \\
-\pdv{\zeta_B}{\rho_\alpha} &= \left(\alpha - \phi_\alpha\right) \frac{d\iota}{d\rho} / \iota^2
-\pdv{\zeta_B}{\alpha} &= -1 / \iota \\
-\pdv{\zeta_B}{\phi_\alpha} &= 1 / \iota
-\end{align}
-$$
-
-$$
-\begin{align}
-\nabla\rho_\alpha &= \nabla\rho_B \\
-\nabla\alpha &= - \frac{d\iota}{d\rho}\zeta \nabla\rho_B + \nabla\theta_B + \iota \nabla\zeta_B \\
-\nabla\phi_\alpha &= \nabla\theta_B
-\end{align}
-$$
-
-$$
-\begin{align}
-\vec{e}_{\rho_\alpha} &= \vec{e}_{\rho_B} + \left(\alpha - \phi_\alpha\right) \frac{d\iota}{d\rho} / \iota^2 \vec{e}_{\zeta_B} \\
-\vec{e}_{\alpha} &= - 1 / \iota \vec{e}_{\zeta_B} \\
-\vec{e}_{\phi_\alpha} &= \vec{e}_{\theta_B} + 1 / \iota \vec{e}_{\zeta_B}
-\end{align}
-$$
-
-$$
-\begin{align}
-B^{\rho_B} &= 0 \\
-B^{\theta_B} &= \frac{1}{\Jac_{B}}\frac{d\Phi}{d\rho}\iota \\
-B^{\zeta_B} &= \frac{1}{\Jac_{B}}\frac{d\Phi}{d\rho}
-\end{align}
-$$
-
-$$
-\begin{align}
-\vec{B} &= B^{\theta_B} \vec{e}_{\theta_B} + B^{\zeta_B} \vec{e}_{\zeta_B}
-&= \frac{1}{\Jac_{B}} \frac{d\Phi}{d\rho} \left( \iota\vec{e}_{\theta_B} + \vec{e}_{\zeta_B} \right)
-B^{\rho_\alpha} &= 0 \\
-B^{\alpha} &= \\
-B^{\phi_\alpha} &=
-\end{align}
-$$
-
----
-
-## 2nd try
-
 ### Boozer coordinates
 
 Boozer coordinates $\left(\rho,\theta_B,\zeta_B\right)$ are a particular kind of straight-fieldline coordinates, where the following relations hold for the magnetic field $\vec{B}$:
@@ -576,3 +432,25 @@ and the columns:
 8) $\hat{b}_\phi$
 
 which are evaluated at `gridpoints` equidistantly spaced points in $\phi_\alpha\in\left[-n_{pol}\pi,n_{pol}\pi\right)$ for a fixed $\rho=\rho_0$ and $\alpha$.
+
+### coordinate directions
+
+In principle the directions of $\theta_B,\zeta_B$ are arbitrary.
+It can however make sense to fix their directions such that certain quantities become positive.
+
+Let us note:
+
+$$
+\begin{align}
+B_{ref} &= \frac{d\Phi}{d\rho} \frac{1}{a^2\rho_0} \\
+\hat\Jac &= \frac{\Jac_B}{\rho_0\iota_0 a^3} \\
+\iota &= \frac{d\chi}{d\Phi} \\
+\end{align}
+$$
+
+In order for $B_{ref}$ to be positive, we need to choose the direction of $\zeta_B$, such that the toroidal magnetic flux $\Phi$ is positive.
+
+Any change in direction also changes the sign of $\iota$ and $\Jac_B$.
+$\hat\Jac$ however maintains the sign.
+
+We can therefore change the direction of $\theta_B$, such that the poloidal magnetic flux $\chi$ is also positive.

@@ -1,12 +1,13 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
-"""gene_gist.py - generate GIST files to be used with GENE."""
+"""gist.py - generate GIST files to be used with GENE."""
 
 from typing import Literal
 from collections.abc import Sequence, Mapping
 from pathlib import Path
 import logging
 import argparse
+import datetime
 
 import numpy as np
 import xarray as xr
@@ -57,8 +58,8 @@ parser.add_argument(
 parser.add_argument(
     "-x",
     "--flip",
-    choices=[None, "pol", "tor", "both"],
-    default=None,
+    choices=["auto", "none", "pol", "tor", "both"],
+    default="auto",
     help="flip the poloidal or toroidal direction with respect (left-handed Boozer coordinates).",
 )
 parser.add_argument(
@@ -100,9 +101,24 @@ def warning_assert_allclose(logger, name, a, b):
         logger.warning(f"Assertion for {name} failed{e}")
 
 
-def generate_fieldline_coordinates(state, s0, gridpoints, n_pol, flip, boozer_kwargs={}):
+def determine_flip(state):
+    """Determine the necessary flips to get coordiantes with positive toroidal and poloidal flux."""
+    ev = state.evaluate("Phi", "chi", rho=1.0).squeeze()
+    if ev.Phi.item() < 0 and ev.chi.item() < 0:
+        return "both"
+    elif ev.Phi.item() < 0:
+        return "tor"
+    elif ev.chi.item() < 0:
+        return "pol"
+    else:
+        return "none"
+
+
+def generate_fieldline_coordinates(
+    state, s0, gridpoints, n_pol, flip, alpha=0.0, boozer_kwargs={}
+):
     rho = np.array([np.sqrt(s0)])  # radial position
-    alpha = np.array([0.0])  # fieldline label
+    alpha = np.array([alpha])  # fieldline label
     # (poloidal) angle along the fieldline
     theta_B = np.linspace(-np.pi * n_pol, np.pi * n_pol, gridpoints, endpoint=False)
 
@@ -290,26 +306,35 @@ def gvec_to_gist(
     s0: float,
     gridpoints: int = 128,
     n_pol: int = 1,
-    flip: Literal[None, "pol", "tor", "both"] = "tor",
+    flip: Literal["auto", "none", "pol", "tor", "both"] = "auto",
     plotfile: str | Path | None = None,
     boozer_kwargs={},
 ):
     logger = logging.getLogger(__name__)
 
     # === parse arguments === #
-    if flip not in ("pol", "tor", "both", None):
-        raise ValueError("flip must be 'pol', 'tor', 'both' or None")
+    if flip not in ("auto", "none", "pol", "tor", "both"):
+        raise ValueError("flip must be 'auto', 'none', 'pol', 'tor' or 'both'")
     if not (0 < s0 <= 1):
         raise ValueError("s0 must be in (0, 1]")
     if not (isinstance(filename, str) or isinstance(filename, Path)):
         raise ValueError("name must be a string or Path")
 
-    ev = generate_fieldline_coordinates(state, s0, gridpoints, n_pol, flip, boozer_kwargs)
+    if flip == "auto":
+        flip = determine_flip(state)
+        logger.info(f"determined flip='{flip}' for positive fluxes")
+    ev = generate_fieldline_coordinates(
+        state, s0, gridpoints, n_pol, flip, boozer_kwargs=boozer_kwargs
+    )
     logger.info("generated fieldline coordinates")
 
     params, data = compute_gist_quantities(ev, state, flip)
     params["gridpoints"] = gridpoints  # number of points along fieldline / parallel resolution
     params["n_pol"] = n_pol  # number of poloidal turns
+    params["gvec_version"] = gvec.__version__
+    params["gvec_projectname"] = state.name  # project name of the input GVEC state
+    params["gvec_datetime"] = datetime.datetime.now().isoformat(sep=" ", timespec="seconds")
+    params["gvec_flip"] = flip
     logger.info("computed GIST quantities")
 
     if plotfile is not None:
@@ -335,7 +360,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         args = parser.parse_args(args)
 
     gvec.util.logging_setup()
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("gvec")
     if args.quiet:
         logging.disable()
     elif args.verbose >= 2:

@@ -812,13 +812,22 @@ def find_state(rundir: Path | str | None = None):
     parameterfiles = list(rundir.glob("parameter*.ini"))
     if len(parameterfiles) > 1:
         raise ValueError(
-            f"Found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
+            f"found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
         )
     elif len(parameterfiles) == 0:
-        raise ValueError("No parameterfile found.")
+        raise ValueError("no parameterfile found")
+    logger.info(f"found parameterfile '{parameterfiles[0].name}'")
+
     statefiles = sorted(rundir.glob("*State*.dat"))
+    projectnames = set([f.name.split("_State")[0] for f in statefiles])
     if len(statefiles) == 0:
-        raise ValueError("No statefile found.")
+        raise ValueError("no statefile found")
+    if len(projectnames) > 1:
+        raise ValueError(
+            f"found statefiles for different projects: {projectnames}; cannot determine which one to load"
+        )
+    logger.info(f"found statefile '{statefiles[-1].name}'")
+
     return State(parameterfiles[0], statefiles[-1])
 
 
