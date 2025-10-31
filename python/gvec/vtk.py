@@ -168,11 +168,12 @@ def gframe_to_vtk(
         * prefix : prefix of the output files. Default is `visu_`.
         * zeta_visu : 1d zeta positions of the axis and boundary surface output. If not specified, the ones from the file are used.
         * theta_visu : 1d theta positions of the boundary surface output. If not specified, the ones from the file are used.
-        * box_axis=[a,b] : visualize G-Frame with a box of with distances +a -a in N direction and +b -b in B direction. If None, axis curve is visualized as a line.
+        * box_axis : if =[a,b], visualize G-Frame additionally as a box of with distances +a -a in N direction and +b -b in B direction.
         * filetype : can be "vts"  (VTK) or "nc" (netcdf)
     Output:
         * writes `prefix_axis.filetype` : if 'axis' group exists in `file`, provides the origin curve position in 3D and N,B vectors on that curve. On full torus or on given `zeta_visu` positions
         * writes `prefix_boundary.filetype` : if 'boundary' group exists `file`, provides the boundary surface position in 3D. On one field period, or on given `zeta_visu` positions
+        * writes `prefix_axis_box.filetype` : if box_axis=[a,b], G-Frame is visualized as a box aroud the axis.
     """
 
     ds_main = xr.open_dataset(file, engine="netcdf4")
@@ -229,6 +230,7 @@ def gframe_to_vtk(
     else:
         raise ValueError(f"unknown filetype {filetype}, only 'vts' and 'nc' supported.")
 
+    # optional box visualization
     if box_axis is not None:
         assert len(box_axis) == 2, "box_axis input must be a list of two values"
         X = np.array([-1, 1]) * box_axis[0]
@@ -260,7 +262,7 @@ def gframe_to_vtk(
         ds_boundary = xr.open_dataset(file, engine="netcdf4", group="boundary")
     except Exception as e:
         print(
-            f"Warning: boundary group not found in {file}. boundary file will not be written. {e}."
+            f" {e}\n Warning: boundary group not found in {file}. boundary visualization skipped."
         )
         return
 

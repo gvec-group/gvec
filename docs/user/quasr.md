@@ -1,5 +1,6 @@
-# QUASR
+# QUASR and G-Frame
 
+## GVEC-QUASR interface
 :::{note}
 The QUASR interface requires [`simsopt`](https://github.com/hiddenSymmetries/simsopt) to be installed.
 :::
@@ -21,12 +22,55 @@ pygvec load-quasr -f FILE
 ```
 the cartesian boundary data is read directly from the supplied netCDF file (in this case `simsopt` is also not required).
 
-This script will download the requested QUASR configuration, generate a *G-Frame* [^GFrame] to be used as $h$-map and the boundary representation in that *G-Frame*, as well as a [GVEC parameter file](./gvec-parameter-list.md).
+In the script, depending on the type of input, the boundary surface data is used to construct a *G-Frame*, which is described in [^GFrame]. The script writes a netCDF file containing the *G-Frame* and the boundary cross-sections, and along with it a first [GVEC parameter file](./gvec-parameter-list.md).
 
-The `--tol` parameter sets the desired tolerance of the boundary representation which directly impacts the necessary degrees of freedom and therefore computational speed.
-The `--nt` and `--nz` parameters set the number of points in $\vartheta$ and $\zeta$ respectively for one field period, from which a *G-Frame* as well as the boundary cross-sections are computed. The points exclude the periodic point and should be chosen to be odd.
-With `--save-xyz` the cartesian boundary data can be saved as a netCDF file.
-Other parameters can be seen with `pygvec load-quasr --help`.
+* The `--tol` parameter sets the desired tolerance of the boundary representation which directly impacts the necessary degrees of freedom and therefore computational speed.
+* The `--nt` and `--nz` parameters set the number of points in $\vartheta$ and $\zeta$ respectively for one field period, from which a *G-Frame* as well as the boundary cross-sections are computed. The points exclude the periodic point and should be chosen to be odd.
+* With `--save-xyz` the cartesian boundary data can be saved as a netCDF file.
+* Other parameters can be seen with `pygvec load-quasr --help`.
+
+## Construction from other surface data
+
+One can also use other surfaces from which to construct a *G-Frame* and its corresponding cross-sections, providing the surface data only.
+
+The surface cartesian position $(x,y,z)(\vartheta_i,\zeta_j)$ must be evaluated
+at a meshgrid on the full torus, excluding the periodic endpoint:
+
+$\vartheta_i=2\pi \frac{i}{n_\vartheta},i=0\dots,n_\vartheta-1,\quad \zeta_j=2\pi\frac{j}{n_\zeta},j=0,\dots,n_\varzeta-1$
+
+Below an example, with an `eval_surface` function that evaluates the surface in cartesian coordinates,
+provided the number of points `ntheta` and `nzeta` over one field period and the number of field periods `nfp`.
+
+```python
+import gvec
+import numpy as np
+theta=np.linspace(0,2*np.pi,ntheta,endpoint=False)
+zeta=np.linspace(0,2*np.pi,nzeta*nfp,endpoint=False)
+xyz=np.zeros((nzeta,ntheta,3))
+for j in range(nzeta):
+        for i in range(ntheta):
+            xyz[j,i,:] = eval_surface(theta[i],zeta[j])
+gvec.scipts.quasr.save_xyz(xyz,nfp,'surface.nc')
+```
+Once the surface is written to file, the above script can be used:
+```bash
+pygvec load-quasr -f surface.nc
+```
+The construction of the G-Frame uses the toroidal angle $\zeta$ from the data, a recommended choice is to use the Boozer angle for $\zeta$.
+:::{note}
+If the surface data is computed from cylinder coordinates, the construction will not change this, and the resulting cross-sections will not change shape!
+:::
+
+## Visualization of the G-Frame file
+
+The script above produces a netCDF file containing the *G-Frame* and the corresponding boundary. One can visualize both  via VTK.
+
+```python
+import gvec
+gvec.vtk.gframe_to_vtk("netcdf-file-gframe.nc")
+```
+This produces a `.vts` file for the axis of the G-Frame and of the boundary surface, which can be viewed e.g. in Paraview.
+
 
 <!--- References -->
 

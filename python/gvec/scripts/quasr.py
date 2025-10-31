@@ -263,6 +263,26 @@ def get_xyz_from_surface(nt: int, nz: int, surface):
 
 
 def save_xyz(xyz: np.ndarray, nfp: int, filename: Path | str, attrs: dict = {}):
+    """
+    Save cartesian surface points xyz[0:nz*nfp,0:nt,0:2] to a netcdf file.
+    The surface cartesian position $(x,y,z)(\vartheta_i,\zeta_j)$ must be evaluated
+    at a meshgrid  on the full torus, excluding the periodic endpoint:
+    $\vartheta_i=2\pi \frac{i}{n_t},i=0\dots,n_t-1,\quad \zeta_j=2\pi\frac{j}{n_z},j=0,\dots,n_z-1$
+
+    Example usage, with a function that evaluates the surface cartesian position $\vec{x}(\vartheta,\zeta)$,
+    provided the number of points `ntheta` and `nzeta` and the number of field periods `nfp`:
+
+    ```python
+    theta=np.linspace(0,2*np.pi,ntheta,endpoint=False)
+    zeta=np.linspace(0,2*np.pi,nzeta*nfp,endpoint=False)
+    xyz=np.zeros((nzeta,ntheta,3))
+    for j in range(nzeta):
+         for i in range(ntheta):
+             xyz[j,i,:] = eval_surface(theta[i],zeta[j])
+    save_xyz(xyz,nfp,'surface.nc')
+    ```
+
+    """
     import datetime
     from gvec import __version__
     import xarray as xr
