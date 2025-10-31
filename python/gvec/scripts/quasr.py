@@ -150,62 +150,74 @@ def check_args(parser, args):
 # === Functions === #
 
 
-def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
-    """
-    Flexible Direct Fourier Transform for real data
-    takes an input array of equidistant points in [0,2pi/nfp[ (exclude endpoint!),
-    evaluate the discrete fourier transform with the given 1d mode vector (all >=0) using the input points x_in, then evaluate the inverse transform (or its derivative deriv>0) on the output points x_out anywhere...
-    len(x_in) must be > 2*max(modes)
-    output is the matrix that transforms real function to real function [derivative]:
-     f^deriv(x_out) = Mat f(x_in) (can then be used to do 2d transforms with matmul!)
-
-    nfp is the number of field periods, default 1 (int), all modes are multiples of nfp
-
-    """
-    if modes is None:
-        modes = np.arange((len(x_in) - 1) // 2 + 1)  # all modes up to Nyquist
-    assert np.allclose(x_in[-1] + (x_in[1] - x_in[0]) - x_in[0], 2 * np.pi / nfp)
-    assert np.all(modes >= 0), "modes must be positive"
-    zeromode = np.where(modes == 0)
-    assert len(zeromode) <= 1, "only one zero mode allowed"
-    maxmode = np.amax(modes)
-    assert len(x_in) > 2 * maxmode, (
-        f"number of sampling points ({len(x_in)}) > 2*maxmodenumber ({maxmode})"
+def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
+    assert xyz.shape[-1] == 3, (
+        "last dimension must be the cartesian components surface positions!"
     )
-    # matrix for forward transform
-    Fmat = np.exp(1j * nfp * (modes[:, None] * x_in[None, :]))
-    mass_re = Fmat.real @ Fmat.real.T
-    mass_im = Fmat.imag @ Fmat.imag.T
-    diag_re = np.copy(np.diag(mass_re))
-    diag_im = np.copy(np.diag(mass_im))
+    if nfp == 1:
+        return  # nothing to check
+    assert np.mod(xyz.shape[0], nfp) == 0, (
+        "number of points in zeta direction  must be divisible by nfp!"
+    )
+    nzeta_fp = xyz.shape[0] // nfp
 
-    assert np.all(np.abs(mass_re - np.diag(diag_re)) < 1.0e-8), "massre must be diagonal"
-    assert np.all(np.abs(mass_im - np.diag(diag_im)) < 1.0e-8), "massim must be diagonal"
-    diag_im[zeromode] = 1  # imag (=sin) is zero at zero mode
-    assert np.all(diag_re > 0.0)
-    assert np.all(diag_im > 0.0)
+    # find rotation direction:
+    xyz_rot_pos = rodrigues(xyz[0, 0, :], 2 * np.pi / nfp)
+    dist_pos = np.sqrt(np.sum((xyz_rot_pos - xyz[nzeta_fp, 0, :]) ** 2))
+    xyz_rot_neg = rodrigues(xyz[0, 0, :], -2 * np.pi / nfp)
+    dist_neg = np.sqrt(np.sum((xyz_rot_neg - xyz[nzeta_fp, 0, :]) ** 2))
+    if dist_pos < atol:
+        angle_sign = 1
+    elif dist_neg < atol:
+        angle_sign = -1
+    else:
+        raise ValueError(
+            f"the first point of the surface [0,0] is not rotationally symmetric with the next field period. nfp={nfp}, absolute distance={np.amax([dist_pos, dist_neg])} not within tolerance {atol}!"
+        )
 
-    # inverse mass matrix applied (for real and imag)
-    Fmat_mod = np.diag(1 / diag_re) @ Fmat.real + np.diag(1j / diag_im) @ Fmat.imag
-    Bmat = get_B(x_out=x_out, nfp=nfp, modes=modes, deriv=deriv)
-    Mat = (Bmat @ Fmat_mod).real
-    return {
-        "F": Fmat_mod,
-        "B": Bmat,
-        "BF": Mat,
-        "modes": modes,
-        "x_in": x_in,
-        "x_out": x_out,
-        "deriv": deriv,
-        "nfp": nfp,
-    }
+    # rotate first fp and compare with next
+    for ifp in range(1, nfp):
+        xyz_rot = rodrigues(xyz[0:nzeta_fp, :, :], ifp * angle_sign * 2 * np.pi / nfp)
+        maxdist = np.amax(
+            np.sqrt(
+                np.sum(
+                    (xyz_rot - xyz[ifp * nzeta_fp : (ifp + 1) * nzeta_fp, :, :]) ** 2, axis=-1
+                )
+            )
+        )
+        if maxdist > atol:
+            raise ValueError(
+                f"the surface points of the first field period are not rotationally symmetric with the points in the other field periods. nfp={nfp}, maxdist={maxdist} not within tolerance {atol}!"
+            )
 
 
-def get_B(x_out, deriv, nfp, modes):
-    modes_back = np.exp(-1j * nfp * (modes[None, :] * x_out[:, None]))
-    if deriv > 0:
-        modes_back *= (-1j * nfp * modes[None, :]) ** deriv
-    return modes_back
+def rodrigues(
+    xyz: np.ndarray, angle, origin=np.array([0.0, 0.0, 0.0]), rot_axis=np.array([0.0, 0.0, 1.0])
+):
+    """
+    Rodrigues rotation function.
+
+    Parameters:
+    - xyz: cartesian point positions. if multidimensional, the LAST dimension must contain the cartesian components.
+    - angle: The rotation angle.
+
+    Returns:
+    - pos_rot: The rotated position vector (cartesian components).
+    """
+    assert np.array(xyz.shape[-1]) == 3, (
+        "last dimension must be the cartesian components surface positions!"
+    )
+    vec = xyz - origin  # origin of rotation
+
+    cos_angle = np.cos(angle)
+    sin_angle = np.sin(angle)
+    cross_product = np.cross(rot_axis, vec, axis=-1)
+    dot_product = np.expand_dims(np.sum(rot_axis * vec, axis=-1), axis=-1)
+    vec_rot = (
+        cos_angle * vec + cross_product * sin_angle + dot_product * rot_axis * (1.0 - cos_angle)
+    )
+    pos_rot = vec_rot + origin  # origin of rotation
+    return pos_rot
 
 
 def get_json_from_quasr(configuration: int, filename: str | Path = None):
@@ -353,7 +365,7 @@ def eval_curve(zeta_in, xyz, dft_dict):
     """evaluates the curve at a single point zeta_in
     given by cartesian positions of a periodic curve xyz[0:len(zeta1d)+1,0:2], evaluated zeta1d[0:2pi[,
     """
-    B = get_B(
+    B = fourier.get_B_dft(
         np.asarray([zeta_in]).flatten(),
         deriv=dft_dict["deriv"],
         nfp=dft_dict["nfp"],
@@ -419,7 +431,7 @@ def cut_surf(xyz, nfp, xyz0, N, B):
         )
     # cut geometry with new frame (xyz0,N,B)
     zeta1d = np.linspace(0.0, 2 * np.pi, nz, endpoint=False)
-    zdft = real_dft_mat(zeta1d, zeta1d, nfp=1)  # must be on the full torus
+    zdft = fourier.real_dft_mat(zeta1d, zeta1d, nfp=1)  # must be on the full torus
 
     # only over one field period:
     xyz_cut = get_xyz_cut(
@@ -580,7 +592,12 @@ def convert_quasr(
     tolerance: float = 1e-8,
     format: Literal["yaml", "toml"] = "yaml",
 ):
+    """
+    Convert a surface given by its cartesian points xyz[0:nz*nfp,0:nt,0:2] to a G-Frame.
+    """
     logger = logging.getLogger(__name__)
+    logger.info("check field periodicity")
+    check_field_periodicity(xyz, nfp)
     logger.info("Constructing the G-Frame")
     xyz0, N, B = get_X0_N_B(xyz)
 

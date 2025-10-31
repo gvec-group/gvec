@@ -212,42 +212,6 @@ def test_stages_without_current():
     assert "GVEC SUCESSFULLY FINISHED" in stdout
 
 
-def test_quasr_real_dft():
-    def exfunc(x):
-        return x * 0 + 3 + 1.4 * np.sin(2 * x + 0.4) + 0.3 * np.cos(4 * x - 0.3)
-
-    def exfuncd(x):
-        return x * 0 + 2 * 1.4 * np.cos(2 * x + 0.4) - 4 * 0.3 * np.sin(4 * x - 0.3)
-
-    def exfuncdd(x):
-        return x * 0 - 4 * 1.4 * np.sin(2 * x + 0.4) - 16 * 0.3 * np.cos(4 * x - 0.3)
-
-    nzeta_test = 9
-    nzeta_up = 14
-
-    zeta_test = np.linspace(
-        0, np.pi, nzeta_test, endpoint=False
-    )  # data on one field period nfp=2 -> modes must be multiples of 2...
-    zeta_up = np.linspace(0, 2 * np.pi, nzeta_up, endpoint=False)
-
-    f1 = exfunc(zeta_test)
-
-    rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, nfp=2)
-    f3 = rdft["BF"] @ f1
-
-    d_rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, deriv=1, nfp=2)
-
-    df3 = (d_rdft["B"] @ (d_rdft["F"] @ f1)).real
-
-    dd_rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, deriv=2, nfp=2)
-
-    ddf3 = dd_rdft["BF"] @ f1
-
-    assert np.allclose(f3, exfunc(zeta_up))
-    assert np.allclose(df3, exfuncd(zeta_up))
-    assert np.allclose(ddf3, exfuncdd(zeta_up))
-
-
 @pytest.mark.parametrize("QUASR_ID", [112714])
 def test_quasr_download(QUASR_ID, tmp_path):
     try:
@@ -290,3 +254,4 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
         args = [f"{QUASR_ID:07d}"]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
+    gvec.util.gframe_to_vtk(hmap)

@@ -263,3 +263,64 @@ def eval2d(
             x += c[m, n] * np.cos(m * theta - n * nfp * zeta)
             x += s[m, n] * np.sin(m * theta - n * nfp * zeta)
     return x.reshape(shape)
+
+
+def real_dft_mat(x_in, x_out, nfp=1, modes=None, deriv=0):
+    """
+    Flexible Direct Fourier Transform for real data
+    takes an input array of equidistant points in [0,2pi/nfp[ (exclude endpoint!),
+    evaluate the discrete fourier transform with the given 1d mode vector (all >=0) using the input points x_in, then evaluate the inverse transform (or its derivative deriv>0) on the output points x_out anywhere...
+    len(x_in) must be > 2*max(modes)
+    output is the matrix that transforms real function to real function [derivative]:
+     f^deriv(x_out) = Mat f(x_in) (can then be used to do 2d transforms with matmul!)
+
+    nfp is the number of field periods, default 1 (int), all modes are multiples of nfp
+
+    """
+    if modes is None:
+        modes = np.arange((len(x_in) - 1) // 2 + 1)  # all modes up to Nyquist
+    assert np.allclose(x_in[-1] + (x_in[1] - x_in[0]) - x_in[0], 2 * np.pi / nfp)
+    assert np.all(modes >= 0), "modes must be positive"
+    zeromode = np.where(modes == 0)
+    assert len(zeromode) <= 1, "only one zero mode allowed"
+    maxmode = np.amax(modes)
+    assert len(x_in) > 2 * maxmode, (
+        f"number of sampling points ({len(x_in)}) > 2*maxmodenumber ({maxmode})"
+    )
+    # matrix for forward transform
+    Fmat = np.exp(1j * nfp * (modes[:, None] * x_in[None, :]))
+    mass_re = Fmat.real @ Fmat.real.T
+    mass_im = Fmat.imag @ Fmat.imag.T
+    diag_re = np.copy(np.diag(mass_re))
+    diag_im = np.copy(np.diag(mass_im))
+
+    assert np.all(np.abs(mass_re - np.diag(diag_re)) < 1.0e-8), "massre must be diagonal"
+    assert np.all(np.abs(mass_im - np.diag(diag_im)) < 1.0e-8), "massim must be diagonal"
+    diag_im[zeromode] = 1  # imag (=sin) is zero at zero mode
+    assert np.all(diag_re > 0.0)
+    assert np.all(diag_im > 0.0)
+
+    # inverse mass matrix applied (for real and imag)
+    Fmat_mod = np.diag(1 / diag_re) @ Fmat.real + np.diag(1j / diag_im) @ Fmat.imag
+    Bmat = get_B_dft(x_out=x_out, nfp=nfp, modes=modes, deriv=deriv)
+    Mat = (Bmat @ Fmat_mod).real
+    return {
+        "F": Fmat_mod,
+        "B": Bmat,
+        "BF": Mat,
+        "modes": modes,
+        "x_in": x_in,
+        "x_out": x_out,
+        "deriv": deriv,
+        "nfp": nfp,
+    }
+
+
+def get_B_dft(x_out, deriv, nfp, modes):
+    """
+    get the matrix B for Fourier transform from modes -> points, with derivative
+    """
+    modes_back = np.exp(-1j * nfp * (modes[None, :] * x_out[:, None]))
+    if deriv > 0:
+        modes_back *= (-1j * nfp * modes[None, :]) ** deriv
+    return modes_back
