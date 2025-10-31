@@ -254,4 +254,4 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
         args = [f"{QUASR_ID:07d}"]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
-    gvec.util.gframe_to_vtk(hmap)
+        gvec.vtk.gframe_to_vtk(hmap)
