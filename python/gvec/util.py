@@ -17,7 +17,6 @@ from copy import deepcopy
 import logging
 
 import numpy as np
-import xarray as xr
 from numpy.typing import ArrayLike
 
 try:
