@@ -404,7 +404,7 @@ def eval_distance_to_plane(xyz_in, origin, normal):
 
 def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict, zeta_bracket: float):
     def eval_dist(zeta_in):
-        return eval_distance_to_curve(zeta_in, origin, normal, xyz, dft_dict)
+        return eval_distance_to_curve(zeta_in, origin, normal, xyz, dft_dict).item()
 
     for factor in [0.01, 0.1, 1]:
         try:
