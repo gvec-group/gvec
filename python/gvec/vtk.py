@@ -33,16 +33,17 @@ def ev2vtk(
 
     Notes
     -----
-    The following dimension are expected to be in the dataset:
-    - 'pos' : the cartesian components of grid points
+    The following data / dimensions are expected to be in the dataset:
     - 'xyz' : the dimension name for the cartesian components of grid points
-    - 'rad' : the radial dimension name
-    - 'pol' : the poloidal dimension name
-    - 'tor' : the toroidal dimension name
+    - 'rad' /'rho'   : the radial dimension name. If not present in xrds, it is added as {"rad":[0]}
+    - 'pol' /'theta' : the poloidal dimension name. If not present in xrds, it is added as {"pol":[0]}
+    - 'tor' /'zeta'  : the toroidal dimension name. If not present in xrds, it is added as {"tor":[0]}
+    - 'pos' : datarray with the cartesian components of grid points, with dimension 'xyz' and at least one of ['rad', 'pol', 'tor']
 
-    Scalar variables without the 'xyz' dimension are broadcasted to the 'rad', 'pol', 'tor' dimensions.
+    Scalar variables are dataarrays without the 'xyz' dimension, and  are broadcasted to the 'rad', 'pol', 'tor' dimensions.
+    Vector variables are dataarrays with the 'xyz' dimension, and are broadcasted to the 'xyz', 'rad', 'pol', 'tor' dimensions.
 
-    If a variable does not have the expected dimensions, it is ignored.
+    If a dataarray (except 'pos') does not have the expected dimensions, it is ignored.
 
     Examples
     --------
@@ -62,50 +63,71 @@ def ev2vtk(
 
     # make sure dimensions are in the expected order
     dimension_order = ["xyz", "rad", "pol", "tor"]
-
+    ds_out = xrds.copy()
     assert (
-        "pos" in xrds
+        "pos" in ds_out
     ), """Expected 'pos' in 'xrds', please make sure you are working with a pygvec evaluation dataset
     or rename your variable for the  cartesian components of grid points to 'pos'."""
 
+    # rename dimensions
+    for dim, dimnew in (("rho", "rad"), ("theta", "pol"), ("zeta", "tor")):
+        if dim in ds_out.pos.dims:
+            ds_out = ds_out.rename_dims({dim: dimnew})
+
+    assert np.any([dim in ds_out.pos.dims for dim in ("rad", "pol", "tor")]), (
+        'pos data array must contain at least one of "rad", "pol", "tor" dimensions.'
+    )
+    # add missing dimensions to pos
+    expanded_dim = []
+    for dim in ("rad", "pol", "tor"):
+        if dim not in ds_out.pos.dims:
+            expanded_dim.append(dim)
+            ds_out["pos"] = ds_out.pos.expand_dims({dim: [0.0]})
+
     expected_dimension = {"rad": "radial", "pol": "poloidal", "tor": "toroidal"}
+
     for dim in expected_dimension:
         assert (
-            dim in xrds.dims
+            dim in ds_out.dims
         ), f"""Expected '{dim}' in 'xrds' dimensions, please make sure you are working with a pygvec evaluation dataset
         or rename your {expected_dimension[dim]} dimension to '{dim}'."""
 
     outvars = []
     ignored_variables = []
-    for var in xrds.data_vars:
-        if set(xrds[var].dims).issubset(dimension_order) and len(xrds[var].dims) >= 1:
+    for var in ds_out.data_vars:
+        if set(ds_out[var].dims).issubset(dimension_order) and len(ds_out[var].dims) >= 1:
             outvars.append(var)
         else:
             ignored_variables.append(var)
 
     # variables without the "xyz" dimension
-    scalar_vars = [var for var in outvars if (position_vector not in xrds[var].dims)]
+    scalar_vars = [var for var in outvars if (position_vector not in ds_out[var].dims)]
 
     broadcast_like_scalar_var = xr.DataArray(
-        np.zeros((xrds.sizes["rad"], xrds.sizes["pol"], xrds.sizes["tor"])),
+        np.zeros((ds_out.sizes["rad"], ds_out.sizes["pol"], ds_out.sizes["tor"])),
         dims=("rad", "pol", "tor"),
+    )
+    broadcast_like_vector_var = xr.DataArray(
+        np.zeros((ds_out.sizes["rad"], ds_out.sizes["pol"], ds_out.sizes["tor"], 3)),
+        dims=("rad", "pol", "tor", "xyz"),
     )
 
     # variables with the "xyz" dimension
-    vector_vars = [var for var in outvars if (position_vector in xrds[var].dims)]
+    vector_vars = [var for var in outvars if (position_vector in ds_out[var].dims)]
 
     # vector of the cartesian components of grid points
-    xcoord, ycoord, zcoord = xrds[cart_pos_vector].transpose(*dimension_order).values
+    xcoord, ycoord, zcoord = ds_out[cart_pos_vector].transpose(*dimension_order).values
 
     # point data handed to gridToVTK
     ptdata = {}
 
     # broadcasting of the coordinates to rad, pol, tor
-    for coord in xrds.coords:
+    for coord in ds_out.coords:
         if position_vector == coord:
             continue
-
-        coord_reshaped = xrds[coord].broadcast_like(broadcast_like_scalar_var)
+        if coord in expanded_dim:
+            continue
+        coord_reshaped = ds_out[coord].broadcast_like(broadcast_like_scalar_var)
         coord_reshaped = coord_reshaped.transpose(*dimension_order[1:])
         ptdata[coord] = np.ascontiguousarray(coord_reshaped.values)
 
@@ -113,11 +135,9 @@ def ev2vtk(
     for var in scalar_vars:
         if var == cart_pos_vector:
             continue
-        if len(xrds[var].dims) < 3:
-            var_values = xrds[var]
+        var_values = ds_out[var]
+        if len(ds_out[var].dims) < 3:
             var_values = var_values.broadcast_like(broadcast_like_scalar_var)
-        else:
-            var_values = xrds[var]
         var_values = var_values.transpose(*dimension_order[1:]).values
         ptdata[var] = np.ascontiguousarray(var_values)
 
@@ -125,7 +145,10 @@ def ev2vtk(
     for var in vector_vars:
         if var == cart_pos_vector:
             continue
-        vx, vy, vz = xrds[var].transpose(*dimension_order).values
+        var_values = ds_out[var]
+        if len(var_values.dims) < 4:
+            var_values = var_values.broadcast_like(broadcast_like_vector_var)
+        vx, vy, vz = var_values.transpose(*dimension_order).values
         ptdata[var] = (
             np.ascontiguousarray(vx),
             np.ascontiguousarray(vy),
@@ -208,19 +231,16 @@ def gframe_to_vtk(
         pos = pos_axis
         N = N_axis
         B = B_axis
-
     # convert to xarray
     xr_axis = xr.Dataset(
         coords=dict(
-            rho=("rad", [0.0]),
-            theta=("pol", [0]),
             zeta=("tor", zeta_out),
             xyz=("xyz", [0, 1, 2]),
         ),
         data_vars=dict(
-            pos=(["xyz", "rad", "pol", "tor"], pos.reshape((3, 1, 1, len(zeta_out)))),
-            N=(["xyz", "rad", "pol", "tor"], N.reshape((3, 1, 1, len(zeta_out)))),
-            B=(["xyz", "rad", "pol", "tor"], B.reshape((3, 1, 1, len(zeta_out)))),
+            pos=(["xyz", "tor"], pos),
+            N=(["xyz", "tor"], N),
+            B=(["xyz", "tor"], B),
         ),
     )
     if filetype == "vts":
@@ -236,7 +256,7 @@ def gframe_to_vtk(
         X = np.array([-1, 1]) * box_axis[0]
         Y = np.array([-1, 1]) * box_axis[1]
 
-        pos_box = (
+        pos_out = (
             pos[:, None, None, :]
             + N[:, None, None, :] * X[None, :, None, None]
             + B[:, None, None, :] * Y[None, None, :, None]
@@ -249,7 +269,7 @@ def gframe_to_vtk(
                 xyz=("xyz", [0, 1, 2]),
             ),
             data_vars=dict(
-                pos=(["xyz", "rad", "pol", "tor"], pos_box),
+                pos=(["xyz", "rad", "pol", "tor"], pos_out),
             ),
         )
         if filetype == "vts":
@@ -260,10 +280,8 @@ def gframe_to_vtk(
     # read boundary group
     try:
         ds_boundary = xr.open_dataset(file, engine="netcdf4", group="boundary")
-    except Exception as e:
-        print(
-            f" {e}\n Warning: boundary group not found in {file}. boundary visualization skipped."
-        )
+    except Exception:
+        logging.warning(f"boundary group not found in {file}. boundary visualization skipped.")
         return
 
     theta_bnd = ds_boundary["theta(:)"].data
@@ -277,9 +295,9 @@ def gframe_to_vtk(
         zeta_out = zeta_bnd
         if len(zeta_bnd) == nzeta_fp_axis:
             # same zeta points in axis and boundary:
-            pos = pos_axis[:, None, 0:nzeta_fp_axis]
-            N = N_axis[:, None, 0:nzeta_fp_axis]
-            B = B_axis[:, None, 0:nzeta_fp_axis]
+            pos = pos_axis[:, 0:nzeta_fp_axis]
+            N = N_axis[:, 0:nzeta_fp_axis]
+            B = B_axis[:, 0:nzeta_fp_axis]
             XX = X
             YY = Y
         else:
@@ -309,21 +327,19 @@ def gframe_to_vtk(
         tdft = fourier.real_dft_mat(theta_bnd, theta_visu)
         XX = tdft["BF"] @ XX
         YY = tdft["BF"] @ YY
-    pos_bnd = pos[:, None, :] + XX[None, :, :] * N[:, None, :] + YY[None, :, :] * B[:, None, :]
-
+    pos_out = pos[:, None, :] + XX[None, :, :] * N[:, None, :] + YY[None, :, :] * B[:, None, :]
+    assert pos_out.ndim == 3, (
+        f"problem with dimensions, pos.shape={pos.shape}, XX.shape={XX.shape}, YY.shape={YY.shape}, N.shape={N.shape}, B.shape={B.shape}"
+    )
     # convert to xarray
     xr_bnd = xr.Dataset(
         coords=dict(
-            rho=("rad", [1.0]),
             theta=("pol", theta_out),
             zeta=("tor", zeta_out),
             xyz=("xyz", [0, 1, 2]),
         ),
         data_vars=dict(
-            pos=(
-                ["xyz", "rad", "pol", "tor"],
-                pos_bnd.reshape((3, 1, len(theta_out), len(zeta_out))),
-            ),
+            pos=(["xyz", "pol", "tor"], pos_out),
             X1=(["pol", "tor"], XX),
             X2=(["pol", "tor"], YY),
         ),

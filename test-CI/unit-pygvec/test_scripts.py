@@ -255,3 +255,10 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
         gvec.vtk.gframe_to_vtk(hmap)
+        gvec.vtk.gframe_to_vtk(
+            hmap,
+            "test_visu",
+            zeta_visu=np.linspace(0, 0.1, 10),
+            theta_visu=np.linspace(0, 0.1, 10),
+            box_axis=[0.1, 0.1],
+        )
