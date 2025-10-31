@@ -60,6 +60,7 @@ INTEGER, PARAMETER          :: UNIT_stdIn  = 5           !! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = 6           !! Terminal output
 INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 #endif
+LOGICAL                     :: print_backtrace=.TRUE.  !! print backtrace on abort if compiled with GNU compiler
 INTEGER, PARAMETER          :: MAXLEN  = 4096       !! max length of strings, needed for string handling when compiled with NVHPC
 
 INTERFACE reset_subregion
@@ -264,14 +265,17 @@ WRITE(UNIT_stdOut,*) '__________________________________________________________
                      'Message: ',TRIM(errmsg)
 
 CALL FLUSH(UNIT_stdOut)
+
 #if MPI
 signalout=2 ! MPI_ABORT requires an output error-code /=0
 IF(PRESENT(ErrorCode)) signalout=ErrorCode
 CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 #endif
+
 #if GNU
-CALL BACKTRACE
+IF(print_backtrace) CALL BACKTRACE
 #endif
+
 IF (ASSOCIATED(RaiseExceptionPtr)) THEN
   CALL RaiseExceptionPtr(errmsg)
 END IF

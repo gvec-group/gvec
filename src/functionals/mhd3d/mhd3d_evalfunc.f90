@@ -188,7 +188,7 @@ SUBROUTINE InitializeMHD3D_evalFunc()
 END SUBROUTINE InitializeMHD3D_evalFunc
 
 !===================================================================================================================================
-!> Initialise Profiles at GP!!!
+!> Initialize Profiles at GP!!!
 !!
 !===================================================================================================================================
 SUBROUTINE InitProfilesGP()

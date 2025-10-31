@@ -96,12 +96,34 @@ def test_run():
 def test_run_recover_from_error():
     parameters = gvec.util.read_parameters("parameter.ini")
     parameters["X1_b_cos"][1, 0] = -1.0
-    with pytest.raises(RuntimeError):
+    with pytest.raises(gvec.errors.InitializationError):
         gvec.run(parameters)
 
     parameters = gvec.util.read_parameters("parameter.ini")
     parameters["maxIter"] = 1
     run = gvec.run(parameters)
+
+
+@pytest.mark.parametrize("param", [("sgrid", "nElems"), "X1X2_deg", "LA_deg"])
+def test_run_missing_parameter(param):
+    parameters = gvec.util.read_parameters("parameter.ini")
+    if isinstance(param, tuple):
+        del parameters[param[0]][param[1]]
+    else:
+        del parameters[param]
+    with pytest.raises(gvec.errors.MissingParameterError):
+        gvec.run(parameters)
+
+
+@pytest.mark.parametrize("param,value", [("X1X2_deg", 1.5), (("pres", "type"), "invalid")])
+def test_run_invalid_parameter(param, value):
+    parameters = gvec.util.read_parameters("parameter.ini")
+    if isinstance(param, tuple):
+        parameters[param[0]][param[1]] = value
+    else:
+        parameters[param] = value
+    with pytest.raises(gvec.errors.InvalidParameterError):
+        gvec.run(parameters)
 
 
 @pytest.mark.parametrize("which_read", ["hmap", "boundaryFromFile"])
@@ -113,9 +135,9 @@ def test_run_netcdf_error(which_read):
         parameters["hmap_ncfile"] = "non_existing_file.nc"
     if which_read == "boundaryFromFile":
         parameters["getBoundaryFromFile"] = 1
-        parameters["boundaryFromFile"] = "non_existing_file.nc"
+        parameters["boundary_filename"] = "non_existing_file.nc"
 
-    with pytest.raises((RuntimeError, UnicodeDecodeError)):
+    with pytest.raises(FileNotFoundError):
         gvec.run(parameters)
 
     parameters = gvec.util.read_parameters("parameter.ini")

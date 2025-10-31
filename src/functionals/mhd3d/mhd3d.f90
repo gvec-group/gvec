@@ -653,7 +653,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   IF(JacCheck.EQ.-1)THEN
     CALL Analyze(0)
     CALL abort(__STAMP__,&
-        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitialisationError")
+        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
   END IF
   CALL WriteState(U(0),0)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))

@@ -191,7 +191,7 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
 !===================================================================================================================================
   SWRITE(UNIT_stdOut,'(A)')'INIT GVEC-TO-CASTOR3D ...'
 
-  ! Initialise grid variables from GVEC restart file
+  ! Initialize grid variables from GVEC restart file
   CALL ReadState(TRIM(gvecfileName))
 
   mn_max_out(1)    = MAXVAL((/X1_base_r%f%mn_max(1),X2_base_r%f%mn_max(1),LA_base_r%f%mn_max(1)/))
@@ -208,7 +208,7 @@ REAL(wp) :: phi_direction=1     ! direction of phi in JOREK and GVEC is clockwis
     asym_out = 1 !full fourier
   END IF
 
-  ! Initialise sample points in s, theta, zeta. s and theta can be randomly sampled for testing purposes.
+  ! Initialize sample points in s, theta, zeta. s and theta can be randomly sampled for testing purposes.
   ALLOCATE(s_pos(Ns_out))
   !ALLOCATE(data_1D(nVar1D,Ns_out))
   IF (generate_test_data) THEN
@@ -297,7 +297,7 @@ IMPLICIT NONE
   mn_nyq(1:2)=fac_nyq*MAXVAL(mn_max)
   SWRITE(UNIT_StdOut,'(2(A,2I6))')'INITIALIZE OUTPUT BASE, mn_max_out=',mn_max,', mn_int=',mn_nyq
 
-  ! Initialise basis for field_representation based on existing grid representation
+  ! Initialize basis for field_representation based on existing grid representation
   CALL base_new(out_base,  X1_base_r%s%deg,        &
                            X1_base_r%s%continuity, &
                            X1_base_r%s%grid,       &
@@ -308,7 +308,7 @@ IMPLICIT NONE
                            .False.) !do not exclude m=n=0
 
   CALL fbase_new(fbase_zeta, (/0, mn_max(2)/), (/1, Nzeta_out/), X1_base_r%f%nfp, "_sincos_", .false.)
-  ! Initialise bases for existing grid at higher number of integration points, based on nyquist condition
+  ! Initialize bases for existing grid at higher number of integration points, based on nyquist condition
   CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
                                 X1_base_r%f%nfp, &
                     sin_cos_map(X1_base_r%f%sin_cos), &

@@ -18,6 +18,7 @@ from pandas import read_csv
 
 import gvec
 from gvec.core.state import State
+from gvec.errors import catch_gvec_errors
 from gvec.util import CaseInsensitiveDict as cidict
 from gvec.lib import modgvec_py_run as _run
 from gvec.lib import modgvec_py_binding as _binding
@@ -178,11 +179,11 @@ class Run:
         if "I_tor" in self.parameters and picard_current != "off":
             self.curr_constraint = True
         elif "I_tor" in self.parameters and picard_current == "off":
-            raise KeyError(
+            raise gvec.errors.MissingParameterError(
                 "'I_tor' is provided but 'picard_current' is set to 'off' or not provided. Please provide a valid 'picard_current', e.g. 'auto'."
             )
         elif "I_tor" not in self.parameters and picard_current != "off":
-            raise KeyError(
+            raise gvec.errors.MissingParameterError(
                 "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
                 + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
             )
@@ -191,7 +192,9 @@ class Run:
 
         # Automatically generate the stages for the current optimization
         if "stages" in self.parameters and picard_current == "auto":
-            raise ValueError("Picard current is set to 'auto' but 'stages' is specified!")
+            raise gvec.errors.InvalidParameterError(
+                "Picard current is set to 'auto' but 'stages' is specified!"
+            )
         if "stages" in self.parameters:
             self.stages = self.parameters["stages"]
             del self.parameters["stages"]
@@ -305,7 +308,7 @@ class Run:
 
         Raises
         ------
-        ValueError
+        gvec.errors.InvalidParameterError
             If an unknown profile type is provided.
         """
         if (
@@ -326,7 +329,7 @@ class Run:
                 if (
                     abs(coefs[-1]) > 1e-8
                 ):  # poly1d is reverse to GVEC, e.g. coefs is ordered x²+x+1
-                    raise ValueError(
+                    raise gvec.errors.InvalidParameterError(
                         f"Toroidal current profile not zero at magnetic axis!  I_tor(rho=0): {coefs[-1]}"
                     )
 
@@ -340,7 +343,7 @@ class Run:
                 I_tor_bspl = BSpline(knots, coefs, deg)
                 self.I_tor_target = I_tor_bspl(self.rho**2)
                 if abs(I_tor_bspl(0.0)) > 1e-8:
-                    raise ValueError(
+                    raise gvec.errors.InvalidParameterError(
                         f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {I_tor_bspl(0.0)}"
                     )
 
@@ -355,12 +358,14 @@ class Run:
                 I_tor_bspl = make_splrep(rho2_vals, y_vals)
                 self.I_tor_target = I_tor_bspl(self.rho**2)
                 if abs(I_tor_bspl(0.0)) > 1e-8:
-                    raise ValueError(
+                    raise gvec.errors.InvalidParameterError(
                         f"Toroidal current profile not zero at magnetic axis! I_tor(rho=0): {I_tor_bspl(0.0)}"
                     )
 
             case _:
-                raise ValueError(f"Unknown Itor type: {params['I_tor']['type']}")
+                raise gvec.errors.InvalidParameterError(
+                    f"Unknown Itor type: {params['I_tor']['type']}"
+                )
 
     def run_single_minimization(self):
         """Run a single GVEC energy minimization using the current parameters. The run-state is updated after the run."""
@@ -559,7 +564,7 @@ class Run:
                     and "I_tor" not in self._state_parameters
                     and "I_tor" not in stage
                 ):
-                    raise KeyError(
+                    raise gvec.errors.MissingParameterError(
                         "Expected 'I_tor' in the parameters since 'picard_current' is not 'off'."
                         + " Please set 'picard_current' to 'off' if you want to use a fixed 'iota' profile or provide 'I_tor'."
                     )
@@ -571,7 +576,9 @@ class Run:
                         if subkey == "nPoints" and subvalue != len(self.rho):
                             set_I_tor = True
                 else:
-                    raise TypeError(f"unknown picard_current value! {value}")
+                    raise gvec.errors.InvalidParameterError(
+                        f"unknown picard_current value! {value}"
+                    )
 
             if key in ["iota", "pres", "sgrid", "i_tor"]:
                 if key not in self._state_parameters:
@@ -608,17 +615,17 @@ class Run:
 
         Raises
         ------
-        ValueError
+        gvec.errors.InvalidParameterError
             If keep_intermediates is not None, "stages" or "all"
-        ValueError
+        gvec.errors.InvalidParameterError
             If stages are set when 'picard_current="auto"'
-        KeyError
+        gvec.errors.MissingParameterError
             If 'iota_tol' is not specified when 'I_tor' is provided.
-        ValueError
+        gvec.errors.InvalidParameterError
             If 'picard_current.target' is not properly specified.
         """
         if keep_intermediates and keep_intermediates not in ["all", "stages"]:
-            raise ValueError(
+            raise gvec.errors.InvalidParameterError(
                 f"""'keep_intermediates' has to be either None, "stages" or "all" but is {keep_intermediates}"""
             )
 
@@ -637,14 +644,16 @@ class Run:
             # run the stage
             if self.curr_constraint:
                 if self._state_parameters["picard_current"] == "auto":
-                    raise ValueError(
+                    raise gvec.errors.InvalidParameterError(
                         'Detected `picard_current="auto"` during stage evaluation. Auto mode has to be set outside of the stages.'
                     )
                 if self._state_parameters["picard_current"] == "off":
                     self._run_stage_target_force(keep_intermediates=keep_intermediates)
                 else:
                     if "iota_tol" not in self._state_parameters["picard_current"]:
-                        raise KeyError(f"During stage {s} 'iota_tol' is not specified.")
+                        raise gvec.errors.MissingParameterError(
+                            f"During stage {s} 'iota_tol' is not specified."
+                        )
                     target = self._state_parameters["picard_current"].get(
                         "target", "iota_and_force"
                     )
@@ -656,7 +665,9 @@ class Run:
                                 keep_intermediates=keep_intermediates
                             )
                         case _:
-                            raise ValueError(f"Unknown picard_current target:{target}")
+                            raise gvec.errors.InvalidParameterError(
+                                f"Unknown picard_current target:{target}"
+                            )
             else:
                 self._run_stage_target_force(keep_intermediates=keep_intermediates)
 
@@ -1080,6 +1091,7 @@ def fortran_run(
     _binding.redirect_abort()
     if stdout_path is not None:
         _binding.redirect_stdout(str(stdout_path))
+        logger.debug(f"Redirecting GVEC stdout to {stdout_path}")
 
     if not Path(parameterfile).exists():
         raise FileNotFoundError(f"Parameter file {parameterfile} does not exist.")
@@ -1088,9 +1100,9 @@ def fortran_run(
             raise FileNotFoundError(f"Restart file {restartfile} does not exist.")
 
     try:
-        _run.start_rungvec(str(parameterfile), restartfile_in=restartfile, comm_in=MPIcomm)
-    except Exception as e:
-        logger.error("\n" + "!" * 70 + f"\n GVEC RUN ERROR: {e} \n" + "!" * 70)
+        with catch_gvec_errors():
+            _run.start_rungvec(str(parameterfile), restartfile_in=restartfile, comm_in=MPIcomm)
+    except:
         logger.info("attempting cleanup")
         _run.cleanup()
         logger.debug("cleanup done")
