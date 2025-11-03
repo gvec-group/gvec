@@ -103,7 +103,7 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
   ALLOCATE(sf%rho_pos(nrho),sf%iota(nrho),sf%phiPrime(nrho))
   sf%rho_pos = rho_pos
   IF(ANY((sf%rho_pos.LT.1e-4_wp).OR.(sf%rho_pos.GT. 1.0_wp))) CALL abort(__STAMP__, &
-         "sfl_boozer_new: rho_pos must be >1e-4 and <=1.0", &
+         "sfl_boozer_new: rho_pos must be >=1e-4 and <=1.0", &
          TypeInfo="InvalidParameterError")
   sf%iota = iota
   sf%phiPrime = phiPrime

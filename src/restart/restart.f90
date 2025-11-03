@@ -62,7 +62,6 @@ CHARACTER(LEN=*),INTENT(IN),OPTIONAL    :: Restartfile_in
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   WRITE(UNIT_stdOut,'(A)')'INIT RESTART ...'
-  CALL enter_subregion("init-restart")
   doRestart=.TRUE.
   IF(PRESENT(restartFile_in))THEN
     restartfile=restartfile_in
@@ -71,7 +70,6 @@ CHARACTER(LEN=*),INTENT(IN),OPTIONAL    :: Restartfile_in
   END IF
   WRITE(UNIT_stdOut,'(A)')'... DONE'
   WRITE(UNIT_stdOut,fmt_sep)
-  CALL exit_subregion("init-restart")
 END SUBROUTINE InitRestart
 
 
