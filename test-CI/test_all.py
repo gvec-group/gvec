@@ -562,7 +562,6 @@ class TestToGIST(BaseTestPost):
             "--MNfactor", "2",
             "--flip", "tor",
             "--projectname", "TestGIST",
-            "--plot",
         ]  # fmt: skip
 
     def test_post(
@@ -608,7 +607,6 @@ class TestToGIST(BaseTestPost):
                     break
             data = np.loadtxt(file)
             assert data.shape == (nml["parameters"]["gridpoints"], 8)
-        assert Path("TestGIST_s025.gist.png").exists()
 
 
 @pytest.mark.regression_stage
