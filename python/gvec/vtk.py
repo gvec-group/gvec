@@ -198,19 +198,18 @@ def gframe_to_vtk(
         * writes `prefix_boundary.filetype` : if 'boundary' group exists `file`, provides the boundary surface position in 3D. On one field period, or on given `zeta_visu` positions
         * writes `prefix_axis_box.filetype` : if box_axis=[a,b], G-Frame is visualized as a box aroud the axis.
     """
-
-    ds_main = xr.open_dataset(file, engine="netcdf4")
+    # TODO: use read_Gframe_ncfile here !!!
+    ds_main = xr.open_datatree(file, engine="netcdf4")
     nfp = ds_main.NFP.data
-    try:
-        ds_axis = xr.open_dataset(file, engine="netcdf4", group="axis")
-    except Exception as e:
-        raise RuntimeError(f"Could not open axis group in {file}") from e
+    if "axis" in ds_main:
+        ds_axis = ds_main["axis"]
+    else:
+        raise RuntimeError(f"Could not open axis group in {file}")
 
     zeta_fp = ds_axis["zeta(:)"].data
     pos_axis = ds_axis["xyz(::)"].data
     N_axis = ds_axis["Nxyz(::)"].data
     B_axis = ds_axis["Bxyz(::)"].data
-    ds_axis.close()
 
     nzeta_fp_axis = len(zeta_fp)
     nzeta_full = N_axis.shape[1]
@@ -278,17 +277,16 @@ def gframe_to_vtk(
             xr_box.to_netcdf(f"{prefix}_box_axis.nc", mode="w")
 
     # read boundary group
-    try:
-        ds_boundary = xr.open_dataset(file, engine="netcdf4", group="boundary")
-    except Exception:
-        logging.warning(f"boundary group not found in {file}. boundary visualization skipped.")
-        return
+    if "boundary" in ds_main:
+        ds_boundary = ds_main["boundary"]
+    else:
+        raise RuntimeError(f"Could not open boundary group in {file}")
 
     theta_bnd = ds_boundary["theta(:)"].data
     zeta_bnd = ds_boundary["zeta(:)"].data
     X = ds_boundary["X(::)"].data
     Y = ds_boundary["Y(::)"].data
-    ds_boundary.close()
+    ds_main.close()
 
     # if necessary, apply fourier.real_dft_mat to get axis and boundary positions
     if zeta_visu is None:

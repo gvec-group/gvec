@@ -254,6 +254,23 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
         args = [f"{QUASR_ID:07d}"]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
+
+
+@pytest.mark.parametrize("QUASR_ID", [10534])
+def test_quasr_post(QUASR_ID, tmp_path, util):
+    pytest.importorskip("simsopt")
+    try:
+        json = gvec.scripts.quasr.get_json_from_quasr(
+            QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+        )
+    except RuntimeError as e:
+        pytest.skip(f"Skipping test_quasr_download: {e}")
+    hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
+    with util.chdir(tmp_path):
+        args = [f"{QUASR_ID:07d}"]
+        gvec.scripts.quasr.main(args)
+        assert hmap.exists()
+
         gvec.vtk.gframe_to_vtk(hmap)
         gvec.vtk.gframe_to_vtk(
             hmap,
@@ -262,3 +279,16 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
             theta_visu=np.linspace(0, 0.1, 10),
             box_axis=[0.1, 0.1],
         )
+
+        dict_out = gvec.scripts.quasr.read_Gframe_ncfile(hmap)
+        file2 = Path("test-Gframe.nc")
+        gvec.scripts.quasr.write_Gframe_ncfile(file2, dict_out)
+        dict_out2 = gvec.scripts.quasr.read_Gframe_ncfile(file2)
+        for key, val in dict_out["axis"].items():
+            assert np.allclose(val, dict_out2["axis"][key]), (
+                f"variable axis/{key} does not match"
+            )
+        for key, val in dict_out["boundary"].items():
+            assert np.allclose(val, dict_out2["boundary"][key]), (
+                f"variable boundary/{key} does not match"
+            )

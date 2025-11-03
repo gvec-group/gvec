@@ -54,6 +54,7 @@ from collections.abc import Sequence
 import logging
 
 import numpy as np
+import xarray as xr
 from scipy.optimize import root_scalar
 
 from gvec.util import write_parameters, logging_setup
@@ -500,38 +501,16 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
 
     for vecvar, vecval in zip(["axis/xyz", "axis/Nxyz", "axis/Bxyz"], ["xyz", "Nxyz", "Bxyz"]):
         assert np.all(dict_in["axis"][vecval].shape == (3, dict_in["axis"]["nzetaFull"])), (
-            f"shape of axis/{vecval} must be (3,nzetaFull_axis), but it is {dict_in['axis'][vecval].shape}"
+            f"shape of axis/{vecval} must be (3,{dict_in['axis']['nzetaFull']}), but it is {dict_in['axis'][vecval].shape}"
         )
         ncvars[vecvar + "_var"] = ncfile.createVariable(
             vecvar + "(::)", "f8", ("vec", "nzetaFull_axis")
         )
         ncvars[vecvar + "_var"][:, :] = dict_in["axis"][vecval]
 
-    boundary_ntheta = dict_in["boundary"]["ntheta"]
-    boundary_m_max = (boundary_ntheta - 1) // 2
-    boundary_nzeta = dict_in["boundary"]["nzeta"]  # same for now
-    boundary_n_max = (boundary_nzeta - 1) // 2
-
-    boundary_lasym = 1 * dict_in["boundary"]["lasym"]
-
-    for ivar, ival in zip(
-        [
-            "boundary/ntheta",
-            "boundary/nzeta",
-            "boundary/m_max",
-            "boundary/n_max",
-            "boundary/lasym",
-        ],
-        [
-            boundary_ntheta,
-            boundary_nzeta,
-            boundary_m_max,
-            boundary_n_max,
-            boundary_lasym,
-        ],
-    ):
-        ncvars[ivar + "_var"] = ncfile.createVariable(ivar, "i8")
-        ncvars[ivar + "_var"].assignValue(ival)
+    for ivar in ["ntheta", "nzeta", "m_max", "n_max", "lasym"]:
+        ncvars["boundary/" + ivar + "_var"] = ncfile.createVariable("boundary/" + ivar, "i8")
+        ncvars["boundary/" + ivar + "_var"].assignValue(1 * dict_in["boundary"][ivar])
 
     ncfile.createDimension("ntheta_boundary", dict_in["boundary"]["ntheta"])
 
@@ -548,9 +527,10 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     ncvars["zeta_var"][:] = dict_in["boundary"]["zeta"]
 
     for vecvar, vecval in zip(["boundary/X", "boundary/Y"], ["X1", "X2"]):
-        assert np.all(dict_in["boundary"][vecval].shape == (boundary_ntheta, boundary_nzeta)), (
-            f"shape of boundary/{vecval} must be (ntheta_boundary,nzeta_boundary)"
-        )
+        assert np.all(
+            dict_in["boundary"][vecval].shape
+            == (dict_in["boundary"]["ntheta"], dict_in["boundary"]["nzeta"])
+        ), f"shape of boundary/{vecval} must be (ntheta_boundary,nzeta_boundary)"
         ncvars[vecvar + "_var"] = ncfile.createVariable(
             vecvar + "(::)", "f8", ("ntheta_boundary", "nzeta_boundary")
         )
@@ -605,6 +585,55 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     ncfile.close()
 
 
+def read_Gframe_ncfile(ncfile: str | Path):
+    """
+    read G-frame netcdf file and store data in a dictionary
+    Inputs:
+        ncfile: name/path to netcdf file
+    Outputs:
+        dict_out: dictionary with the data (with 'axis' and 'boundary' groups, if they exist in the netcdf file)
+    """
+    ds = xr.open_datatree(ncfile, engine="netcdf4")
+    nfp = ds.NFP.data
+    dict_out = {"nfp": nfp}
+
+    if "axis" in ds:
+        dict_out["axis"] = {}
+        for dvar, ncvar in [("xyz", "xyz(::)"), ("Nxyz", "Nxyz(::)"), ("Bxyz", "Bxyz(::)")]:
+            dict_out["axis"][dvar] = ds["axis"][ncvar].data
+        for dvar, ncvar in [("zeta", "zeta(:)"), ("n_max", "n_max"), ("nzeta", "nzeta")]:
+            dict_out["axis"][dvar] = ds["axis"][ncvar].data
+
+        # sizecheck
+        zeta_fp = dict_out["axis"]["zeta"]
+        nzeta_fp = zeta_fp.shape[0]
+        nzetaFull = dict_out["axis"]["xyz"].shape[1]
+        assert nzetaFull == nfp * nzeta_fp, (
+            f"axis data must be given on a full turn, with nfp being a factor in the number of points! nfp={nfp}, nzetaFull={nzetaFull}, nzeta of one fp={nzeta_fp}"
+        )
+        dict_out["axis"]["nzetaFull"] = nzetaFull
+        zetafull = zeta_fp[0] + np.linspace(0, 2 * np.pi, nzetaFull, endpoint=False)
+        assert np.allclose(zeta_fp, zetafull[0:nzeta_fp]), "zeta on axis must be equidistant"
+        dict_out["axis"]["zetafull"] = zetafull
+
+    if "boundary" in ds:
+        dict_out["boundary"] = {}
+        for dvar, ncvar in [("X1", "X(::)"), ("X2", "Y(::)")]:
+            dict_out["boundary"][dvar] = ds["boundary"][ncvar].data
+        for dvar, ncvar in [
+            ("theta", "theta(:)"),
+            ("zeta", "zeta(:)"),
+            ("nzeta", "nzeta"),
+            ("ntheta", "ntheta"),
+            ("lasym", "lasym"),
+            ("m_max", "m_max"),
+            ("n_max", "n_max"),
+        ]:
+            dict_out["boundary"][dvar] = ds["boundary"][ncvar].data
+
+    return dict_out
+
+
 def convert_quasr(
     xyz: np.ndarray,
     nfp: int,
@@ -649,6 +678,8 @@ def convert_quasr(
         "theta": theta,
         "zeta": zeta,
         "lasym": False,
+        "m_max": Mmax,
+        "n_max": Nmax,
         "X1": x1_cut.T,
         "X2": x2_cut.T,
     }
@@ -685,6 +716,8 @@ def convert_quasr(
     )
     write_parameters(parameters, f"{name}-parameters.{format}")
     logger.info("Done")
+
+    return parameters, dict_out
 
 
 def minimal_modes(X, Y, tolerance):
