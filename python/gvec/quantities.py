@@ -1400,6 +1400,7 @@ def dV_dPhi_n2(ds: xr.Dataset):
     attrs=dict(long_name="minor radius", symbol=r"r_{min}"),
 )
 def minor_radius(ds: xr.Dataset):
+    # ToDo: not independent of coordinate frame / hmap!
     surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
     ds["minor_radius"] = np.sqrt(surface_average / np.pi)
 
@@ -1410,6 +1411,7 @@ def minor_radius(ds: xr.Dataset):
     attrs=dict(long_name="major radius", symbol=r"r_{maj}"),
 )
 def major_radius(ds: xr.Dataset):
+    # ToDo: not independent of coordinate frame / hmap!
     surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
     ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
 
@@ -1549,3 +1551,68 @@ def W_MHD(ds: xr.Dataset):
 def beta_avg(ds: xr.Dataset):
     beta = 2 * ds.mu0 * ds.p / ds.mod_B**2
     ds["beta_avg"] = volume_integral(beta * ds.Jac) / ds.V
+
+
+@register(
+    requirements=("dV_dPhi_n",),
+    integration=("rho",),
+    attrs=dict(
+        long_name="vacuum magnetic well depth",
+        symbol=r"d_{well}",
+    ),
+)
+def vacuum_magnetic_well_depth(ds: xr.Dataset):
+    Vp_edge = ds.dV_dPhi_n.sel(rho=ds.rho.max())
+    Vp_axis = ds.dV_dPhi_n.sel(rho=ds.rho.min())
+    ds["vacuum_magnetic_well_depth"] = (Vp_axis - Vp_edge) / Vp_axis
+
+
+@register(
+    requirements=("mod_B",),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="mirror ratio",
+        symbol=r"\Delta_{mirror}",
+    ),
+)
+def mirror_ratio(ds: xr.Dataset):
+    r"""Compute the mirror ratio of the magnetic field strength on a flux surface.
+
+    The mirror ratio is defined as
+
+    R_mirror = (B_max - B_min) / (B_max + B_min)
+
+    where B_max and B_min are the maximum and minimum values of the magnetic field strength
+    on a given flux surface.
+    """
+    B_max = ds.mod_B.max(dim=("pol", "tor"))
+    B_min = ds.mod_B.min(dim=("pol", "tor"))
+    ds["mirror_ratio"] = (B_max - B_min) / (B_max + B_min)
+
+
+@register(
+    requirements=("mod_B", "dB_dr", "dB_dt", "dB_dz", "grad_rho", "grad_theta", "grad_zeta"),
+    attrs=dict(
+        long_name="magnetic gradient scale length",
+        symbol=r"L_{\nabla\mathbf{B}}",
+    ),
+)
+def L_gradB(ds: xr.Dataset):
+    r"""Compute the magnetic gradient scale length.
+
+    The magnetic gradient scale length is defined as
+
+    L_gradB = sqrt(2) |B| / ||grad B||
+
+    where ||grad B|| is the frobenius norm of the gradient of the magnetic field.
+    Details can be found in Kappel et al. PPCF 66 (2024) 025018 DOI:10.1088/1361-6587/ad1a3e.
+    """
+    gradB = {}  # 3x3 tensor
+    for i in "xyz":
+        for j in "xyz":
+            gradB[i, j] = xr.zeros_like(ds.mod_B)
+            for k in ("rho", "theta", "zeta"):
+                gradB[i, j] += ds[f"dB_d{k[0]}"].sel(xyz=i) * ds[f"grad_{k}"].sel(xyz=j)
+    # frobenius norm
+    gradB_normF = np.sqrt(sum(gradB[i, j] ** 2 for i in "xyz" for j in "xyz"))
+    ds["L_gradB"] = np.sqrt(2) * ds.mod_B / gradB_normF
