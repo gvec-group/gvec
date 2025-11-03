@@ -207,7 +207,7 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-READ(HelpStr,*,IOSTAT=ioerr)GetInt
+READ(HelpStr,'(I8)',IOSTAT=ioerr)GetInt
 IF(ioerr.NE.0)THEN
   CALL abort(__STAMP__, &
        "Problem reading parameter '"//TRIM(key)//"', expected integer, got '= "//TRIM(helpStr)//"'", &
@@ -226,8 +226,8 @@ END FUNCTION GETINT
 
 
 !===================================================================================================================================
-!> Read real named "key" from setup file and store in "GETINT". If keyword "Key" is not found in ini file,
-!! the default value "Proposal" is used for "GETINT" (error if "Proposal" not given).
+!> Read real named "key" from setup file and store in "GETREAL". If keyword "Key" is not found in ini file,
+!! the default value "Proposal" is used for "GETREAL" (error if "Proposal" not given).
 !! Ini file was read in before and is stored as list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
@@ -276,8 +276,8 @@ END FUNCTION GETREAL
 
 
 !===================================================================================================================================
-!> Read logical named "key" from setup file and store in "GETINT". If keyword "Key" is not found in ini file,
-!! the default value "Proposal" is used for "GETINT" (error if "Proposal" not given).
+!> Read logical named "key" from setup file and store in "GETLOGICAL". If keyword "Key" is not found in ini file,
+!! the default value "Proposal" is used for "GETLOGICAL" (error if "Proposal" not given).
 !! Ini file was read in before and is stored as list of character strings starting with "FirstString".
 !!
 !===================================================================================================================================
@@ -347,6 +347,7 @@ INTEGER                   :: GetIntArray(nIntegers)      !! Integer array read f
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 CHARACTER(LEN=MAXLEN)           :: HelpStr,ProposalStr
+CHARACTER(LEN=8)                :: tmpstrarray(nIntegers)
 CHARACTER(LEN=8)                :: DefMsg,tmpstr
 INTEGER                         :: iInteger
 INTEGER                         :: ioerr
@@ -368,12 +369,21 @@ IF(iInteger.NE.nIntegers)THEN
        "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'", &
        TypeInfo="InvalidParameterError")
 END IF
-READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
+
+READ(HelpStr,*,IOSTAT=ioerr)tmpstrarray
 IF(ioerr.NE.0)THEN
   CALL abort(__STAMP__,&
        "Problem reading parameter '"//TRIM(key)//"', expected integer array, got '= "//TRIM(helpStr)//"'", &
        TypeInfo="InvalidParameterError")
 END IF
+DO iInteger=1,nIntegers
+   READ(tmpstrarray(iInteger),"(I8)",IOSTAT=ioerr) getIntArray(iInteger)
+   IF(ioerr.NE.0)THEN
+     CALL abort(__STAMP__,&
+          "Problem reading parameter '"//TRIM(key)//"', expected integer array, got '= "//TRIM(helpStr)//"'", &
+          TypeInfo="InvalidParameterError")
+   END IF
+END DO
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
   IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN
@@ -422,6 +432,7 @@ CHARACTER(LEN=8)          :: DefMsg,tmpstr
 INTEGER                   :: iInteger
 INTEGER                   :: ioerr
 LOGICAL                   :: quiet_def
+CHARACTER(LEN=8),ALLOCATABLE :: tmpstrarray(:)
 !===================================================================================================================================
 
 IF (PRESENT(Proposal)) THEN
@@ -434,14 +445,24 @@ END IF
 nIntegers=1+count_sep(Key,helpstr,",")
 
 IF(ALLOCATED(GetIntArray)) DEALLOCATE(GetIntArray)
-ALLOCATE(GetIntArray(nIntegers))
-READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
+ALLOCATE(GetIntArray(nIntegers),tmpstrarray(nIntegers))
+READ(HelpStr,*,IOSTAT=ioerr)tmpstrarray
 IF(ioerr.NE.0)THEN
   WRITE(tmpstr,'(I8)')nIntegers
   CALL abort(__STAMP__,&
        "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'", &
        TypeInfo="InvalidParameterError")
 END IF
+DO iInteger=1,nIntegers
+  READ(tmpstrarray(iInteger),"(I8)",IOSTAT=ioerr) GetIntArray(iInteger)
+  IF(ioerr.NE.0)THEN
+    WRITE(tmpstr,'(I8)')nIntegers
+    CALL abort(__STAMP__,&
+         "Problem reading parameter '"//TRIM(key)//"', expected integer array of size "//TRIM(tmpstr)//", got '= "//TRIM(helpStr)//"'", &
+         TypeInfo="InvalidParameterError")
+  END IF
+END DO
+DEALLOCATE(tmpstrarray)
 quiet_def=.FALSE.
 IF(PRESENT(quiet_def_in))THEN
   IF(INDEX(TRIM(DefMsg),"DEFAULT").NE.0)THEN

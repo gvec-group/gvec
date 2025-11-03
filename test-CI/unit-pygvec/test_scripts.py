@@ -115,7 +115,16 @@ def test_run_missing_parameter(param):
         gvec.run(parameters)
 
 
-@pytest.mark.parametrize("param,value", [("X1X2_deg", 1.5), (("pres", "type"), "invalid")])
+@pytest.mark.parametrize(
+    "param,value",
+    [
+        ("X1X2_deg", 1.5),
+        ("X1_mn_max", [3]),
+        ("X1_mn_max", [3, 2, 1]),
+        ("X2_mn_max", [1.5, 2]),
+        (("pres", "type"), "invalid"),
+    ],
+)
 def test_run_invalid_parameter(param, value):
     parameters = gvec.util.read_parameters("parameter.ini")
     if isinstance(param, tuple):
