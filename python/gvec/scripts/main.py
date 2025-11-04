@@ -24,11 +24,30 @@ subparsers = parser.add_subparsers(
     description="which mode/subcommand to run",
     dest="mode",
 )
+
+
+def get_compile_options() -> str:
+    try:
+        from gvec import _compile_options as opts
+    except ImportError:
+        return "UNKNOWN BUILD"
+    config = opts.CMAKE_BUILD_TYPE
+    if opts.USE_OPENMP:
+        config += ", OpenMP"
+    if opts.USE_MPI:
+        config += ", MPI"
+    if opts.GVEC_FIX_HMAP:
+        config += f", {opts.GVEC_FIX_HMAP}"
+    if len(opts.CMAKE_HOSTNAME) > 0:
+        config += f" on {opts.CMAKE_HOSTNAME}"
+    return config
+
+
 parser.add_argument(
     "-V",
     "--version",
     action="version",
-    version=f"pyGVEC v{gvec.__version__} from {Path(gvec.__file__).parent} (python {platform.python_version()})",
+    version=f"pyGVEC v{gvec.__version__} ({get_compile_options()}, python {platform.python_version()}) from {Path(gvec.__file__).parent}",
 )
 
 # --- convert parameterfile --- #

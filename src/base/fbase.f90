@@ -162,10 +162,12 @@ IMPLICIT NONE
   END IF
   IF(mn_nyq_in(1).LT.(2*mn_max_in(1)+1)) &
     CALL abort(__STAMP__, &
-        "error in fBase: mn_nyq in theta should be >= 2*mn_max(1)+1!",mn_nyq_in(1),REAL(mn_max_in(1)))
+        "error in fBase: mn_nyq in theta should be >= 2*mn_max(1)+1!",mn_nyq_in(1),REAL(mn_max_in(1)),&
+        TypeInfo="InvalidParameterError")
   IF(mn_nyq_in(2).LT.(2*mn_max_in(2)+1)) &
     CALL abort(__STAMP__, &
-         "error in fBase: mn_nyq in zeta should be >= 2*mn_max(2)+1!",mn_nyq_in(2),REAL(mn_max_in(2)))
+         "error in fBase: mn_nyq in zeta should be >= 2*mn_max(2)+1!",mn_nyq_in(2),REAL(mn_max_in(2)),&
+        TypeInfo="InvalidParameterError")
 
   sf%mn_max(1:2)  = mn_max_in(1:2)
   sf%mn_nyq(1:2)  = mn_nyq_in(1:2)
@@ -180,7 +182,8 @@ IMPLICIT NONE
     sf%sin_cos  = _SINCOS_
   ELSE
     CALL abort(__STAMP__, &
-         "error in fBase: sin/cos not correctly specified, should be either _SIN_, _COS_ or _SINCOS_")
+         "error in fBase: sin/cos not correctly specified, should be either _SIN_, _COS_ or _SINCOS_",&
+        TypeInfo="InvalidParameterError")
   END IF
   ASSOCIATE(&
               m_max      => sf%mn_max(1)   &

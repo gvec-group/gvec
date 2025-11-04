@@ -90,6 +90,7 @@ parser.add_argument(
 # === Script === #
 
 
+@gvec.errors.without_traceback
 def main(args: Sequence[str] | argparse.Namespace | None = None):
     if not isinstance(args, argparse.Namespace):
         args = parser.parse_args(args)

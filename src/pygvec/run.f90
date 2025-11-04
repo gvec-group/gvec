@@ -9,6 +9,7 @@ MODULE MODgvec_py_run
 #ifndef NOISOENV
 USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
 #endif
+USE MODgvec_Globals, ONLY: enter_subregion,exit_subregion,reset_subregion
 
 IMPLICIT NONE
 PUBLIC
@@ -30,13 +31,15 @@ SUBROUTINE start_rungvec(parameterfile,restartfile_in,comm_in)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: comm
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL reset_subregion()
+  CALL enter_subregion("startup")
   initialized = .TRUE.
   IF(PRESENT(comm_in)) THEN
     CALL par_init(comm_in)
   ELSE
     CALL par_init() !USE MPI_COMM_WORLD
   END IF
-
+  CALL exit_subregion("startup")
   IF(PRESENT(restartfile_in))THEN
     CALL rungvec(parameterfile,restartfile_in=restartfile_in)
   ELSE
@@ -58,7 +61,7 @@ SUBROUTINE cleanup()
   USE MODgvec_Restart    , ONLY: FinalizeRestart
   USE MODgvec_ReadInTools, ONLY: FinalizeReadIn
   USE MODgvec_Functional , ONLY: t_functional, InitFunctional,FinalizeFunctional
-  USE MODgvec_rungvec,     ONLY: functional, dorestart
+  USE MODgvec_rungvec,     ONLY: functional
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   IF (ALLOCATED(functional)) THEN
     CALL FinalizeFunctional(functional)
@@ -66,7 +69,7 @@ SUBROUTINE cleanup()
   END IF
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
-  IF(dorestart) CALL FinalizeRestart()
+  CALL FinalizeRestart()
   CALL FinalizeReadIn()
 
   CALL par_finalize()

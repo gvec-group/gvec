@@ -635,6 +635,8 @@ def test_regression(
                     r".*PosixPath.*",
                     r"^[\s=]*$",
                     r"100%\| \.\.\. of",
+                    r".*==> entering.*",
+                    r".*<==  exiting.*",
                 ]
                 + extra_ignore_patterns,
                 warn_regexs=[
