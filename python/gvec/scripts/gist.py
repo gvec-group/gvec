@@ -94,9 +94,9 @@ verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress outp
 # === Main function === #
 
 
-def warning_assert_allclose(logger, name, a, b):
+def warning_assert_allclose(logger, name, a, b, atol=1e-16):
     try:
-        np.testing.assert_allclose(a, b)
+        np.testing.assert_allclose(a, b, atol=atol)
     except AssertionError as e:
         logger.warning(f"Assertion for {name} failed{e}")
 

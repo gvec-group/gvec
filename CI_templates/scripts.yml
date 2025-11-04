@@ -425,7 +425,13 @@
 
 .script_post_py:
   script:
+    - start_details pre "Preparation"
+    - echo "Buildname:" ${BUILDNAME}
+    - source venv_${BUILDNAME}/bin/activate
+    - module list || echo "No modules available"
+    - pip list
     - export PYTEST_DIR_OPTS="--builddir=venv_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
+    - end_details pre
     # POST & CONVERTER TESTS
     - start_details post "Test Converters"
     - rm -rf CIpost_${CASENAME}
