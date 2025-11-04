@@ -119,7 +119,7 @@
     - which pytest
     - pytest
       -m "unit"
-      -k "version"
+      -k "version or build_type"
       -v -rA
       --junitxml=pytest.xml
     - end_details run

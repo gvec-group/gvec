@@ -193,17 +193,22 @@ class State:
         if self._stdout is None:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
         _binding.redirect_stdout(self._stdout.name)
+        logger.debug(f"Redirected stdout to {self._stdout.name}")
 
         with gvec.util.chdir(self.rundir):
+            logger.debug("Initialize from parameterfile")
             _state.init(self.parameterfile.name)
             if self.statefile is not None:
+                logger.debug("Read state from statefile")
                 _state.readstate(self.statefile.relative_to(self.rundir))
             else:
+                logger.debug("Initialize solution without statefile")
                 _state.initsolution()
         self._children = []
 
         if not _state.initialized:
             raise RuntimeError("Failed to initialize fortran library.")
+        logger.debug(f"Binding state {self!r} to the fortran library finished!")
 
     def unbind(self):
         """Unbind this State object from the Fortran library. Finalize & deallocate everything."""
@@ -231,6 +236,7 @@ class State:
         _state.finalize()
         if _state.initialized:
             raise RuntimeError("Failed to finalize fortran library.")
+        logger.debug(f"Unbinding state {self!r} from the fortran library finished!")
 
     # === Context Manager === #
 

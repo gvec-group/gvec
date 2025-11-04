@@ -158,7 +158,15 @@ And even specify a different branch, using `@branch_name`, e.g.:
 pip install git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git@main
 ```
 
-#### Troubleshooting
+### Configuring compilation options
+
+GVEC is distributed in source form and compiled locally.
+This allows you to change compilation options using [`scikit-build-core`](https://scikit-build-core.readthedocs.io/en/latest/configuration/index.html#configuring-cmake-arguments-and-defines). The most important options (for debugging purposes) are:
+
+* `pip install gvec --config-settings=cmake.build-type="Debug"` where the available options are `Release` (default), `Debug` and `Profile`
+* `pip install gvec --config-settings=cmake.define.USE_OPENMP="Off"` where the available options are `On` (default) and `Off`
+
+### Troubleshooting
 
 * `no such option --config-settings` during installation
   * upgrade pip with `pip install pip --upgrade`
@@ -224,3 +232,14 @@ Then you can install the gvec python package manually with
 ```bash
 pip install .[dev,examples] -v
 ```
+
+To speed up repeated compilations you can disable *build-isolation*.
+First install all build requirements into the local environment:
+```bash
+pip install -r requirements.txt
+```
+Now every compilation can be triggered by
+```bash
+pip install --no-build-isolation -ve .
+```
+and will reuse the same build directory `pybuild`.

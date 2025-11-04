@@ -1,7 +1,7 @@
 # bash source script
 # usage: source CI_setup/mpcdf_setup_gfortran-openmpi-13
 #
-# LAST MODIFIED: 2025-02-03
+# LAST MODIFIED: 2025-10-28
 # ===========================================
 
 module purge
@@ -13,7 +13,7 @@ module load openmpi/4.1
 module load mkl/2023.1
 module load hdf5-serial/1.14.1
 module load netcdf-serial/4.9.2
-module load anaconda/3/2023.03 #for pytest
+module load python-waterboa/2025.06  #for pytest
 #module load ftimings
 #module load numdiff
 

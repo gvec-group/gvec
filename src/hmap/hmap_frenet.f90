@@ -171,7 +171,7 @@ IMPLICIT NONE
   sf%nfp=nfp
   IF(sf%nfp.LE.0) &
      CALL abort(__STAMP__, &
-          "hmap_frenet init: nfp > 0 not fulfilled!")
+          "hmap_frenet init: nfp > 0 not fulfilled!",TypeInfo="MissingParameterError")
 
   sf%n_max=n_max
   ALLOCATE(sf%Xn(0:sf%n_max))
@@ -186,7 +186,7 @@ IMPLICIT NONE
 
   IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
      CALL abort(__STAMP__, &
-          "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!")
+          "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!",TypeInfo="InitializationError")
   END IF
 
   IF(MPIroot)THEN
@@ -265,14 +265,16 @@ IMPLICIT NONE
           IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
         END DO
         CALL abort(__STAMP__, &
-             "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature")
+             "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature",&
+             TypeInfo="InitializationError")
       END IF
     ELSE
       DO iz=1,nz
         IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
       END DO
       CALL abort(__STAMP__, &
-           "hmap_frenet checkZeroCurvature with omnig=False: found points with zero curvature")
+           "hmap_frenet checkZeroCurvature with omnig=False: found points with zero curvature",&
+           TypeInfo="InitializationError")
     END IF
   END IF
 END SUBROUTINE CheckZeroCurvature

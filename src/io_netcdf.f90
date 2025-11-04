@@ -113,13 +113,15 @@ CONTAINS
     SELECT CASE(sf%rwo_mode)
     CASE("r")
       sf%ioError = nf90_OPEN(TRIM(sf%fileName), nf90_NOWRITE, sf%nc_id)
-      CALL sf%handle_error("opening existing file '"//TRIM(sf%filename)//"' in read  mode")
+      CALL sf%handle_error("opening file '"//TRIM(sf%filename)//"' in read  mode",&
+                           TypeInfo="FileNotFoundError")
     CASE("w")
       sf%ioError = nf90_OPEN(TRIM(sf%fileName), nf90_WRITE, sf%nc_id)
-      CALL sf%handle_error("opening existing file '"//TRIM(sf%filename)//"' in write mode")
+      CALL sf%handle_error("opening file '"//TRIM(sf%filename)//"' in write mode",&
+                           TypeInfo="FileNotFoundError")
     CASE("o")
       sf%ioError = nf90_CREATE(TRIM(sf%fileName), NF90_64BIT_OFFSET, sf%nc_id)
-      CALL sf%handle_error("creating or overwriting existing file '"//TRIM(sf%filename))
+      CALL sf%handle_error("creating or overwriting file '"//TRIM(sf%filename))
     END SELECT
     sf%isopen=.TRUE.
 #else
@@ -147,7 +149,7 @@ CONTAINS
     IF(.NOT.sf%isopen) RETURN
 #if NETCDF
     sf%ioError = nf90_CLOSE(sf%nc_id)
-    CALL sf%handle_error("closing file ")
+    CALL sf%handle_error("closing file")
     sf%isopen=.FALSE.
 #endif /*NETCDF*/
   END SUBROUTINE ncfile_closefile
@@ -747,22 +749,30 @@ CONTAINS
   !> netcdf error handling via sf%ioError variable
   !!
   !=================================================================================================================================
-  SUBROUTINE ncfile_handle_error(sf,errmsg)
+  SUBROUTINE ncfile_handle_error(sf,errmsg,TypeInfo)
     ! MODULES
     IMPLICIT NONE
     !-------------------------------------------------------------------------------------------------------------------------------
     ! INPUT VARIABLES
     CHARACTER(LEN=*),INTENT(IN) :: errmsg
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: TypeInfo
     !-------------------------------------------------------------------------------------------------------------------------------
     ! OUTPUT VARIABLES
     CLASS(t_ncfile),INTENT(INOUT)        :: sf !! self
+    CHARACTER(LEN=50)                    :: errtype
     !===============================================================================================================================
     CALL mpi_check_single_access()
 #if NETCDF
     IF (sf%ioError .NE. nf90_NOERR) THEN
-       WRITE(UNIT_stdOut,'(6X,A)')"A netCDF error has occurred:  "//TRIM(errmsg)
+      IF(PRESENT(TypeInfo))THEN
+        errtype=TRIM(TypeInfo)
+      ELSE
+        errtype="netCDF_error"
+      END IF
        CALL abort(__STAMP__,&
-                 nf90_STRERROR(sf%ioError))
+                 "netCDF error: '"//TRIM(nf90_STRERROR(sf%ioError))//"' when "//TRIM(errmsg),&
+                 IntInfo=sf%ioError,&
+                 TypeInfo=errtype)
     END IF
 #endif
   END SUBROUTINE ncfile_handle_error
