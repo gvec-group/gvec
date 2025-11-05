@@ -21,6 +21,8 @@ from gvec.core.compute import (
     QUANTITIES,
     register,
     radial_integral,
+    poloidal_integral,
+    toroidal_integral,
     fluxsurface_integral,
     volume_integral,
     rtz_directions,
@@ -1392,6 +1394,27 @@ def dV_dPhi_n2(ds: xr.Dataset):
         fluxsurface_integral(ds.dJac_dr) * (ds.Phi_edge / ds.dPhi_dr) ** 2
         - fluxsurface_integral(ds.Jac) * ds.Phi_edge**2 / ds.dPhi_dr**3 * ds.dPhi_drr
     )
+
+
+@register(
+    requirements=("e_theta", "e_zeta"),
+    integration=("theta", "zeta"),
+    attrs=dict(long_name="flux surface area", symbol=r"A_{surface}"),
+)
+def A_surface(ds: xr.Dataset):
+    dA = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz")
+    dA = np.sqrt(xr.dot(dA, dA, dim="xyz"))
+    ds["A_surface"] = fluxsurface_integral(dA)
+
+
+@register(
+    requirements=("e_zeta",),
+    integration=("zeta",),
+    attrs=dict(long_name="circumference along the toroidal angle", symbol=r"L_{\zeta}"),
+)
+def L_zeta(ds: xr.Dataset):
+    dL_zeta = np.sqrt(xr.dot(ds.e_zeta, ds.e_zeta, dim="xyz"))
+    ds["L_zeta"] = toroidal_integral(dL_zeta)
 
 
 @register(
