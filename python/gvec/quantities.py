@@ -1472,6 +1472,17 @@ def iota_avg(ds: xr.Dataset):
 
 
 @register(
+    requirements=("iota",),
+    integration=("rho",),
+    attrs=dict(
+        long_name="rotational transform averaged over rho^2", symbol=r"\overline{\iota}_2"
+    ),
+)
+def iota_avg2(ds: xr.Dataset):
+    ds["iota_avg2"] = radial_integral(2 * ds.rho * ds.iota)
+
+
+@register(
     requirements=("mu0", "dPhi_dr", "Jac", "g_tt"),
     integration=("theta", "zeta"),
     attrs=dict(
@@ -1526,6 +1537,24 @@ def iota_0(ds: xr.Dataset):
 )
 def shear(ds: xr.Dataset):
     ds["shear"] = -ds.rho / ds.iota * ds.diota_dr
+
+
+@register(
+    requirements=("shear",),
+    attrs=dict(long_name="average global magnetic shear", symbol=r"\overline{s_g}"),
+)
+def shear_avg(ds: xr.Dataset):
+    ds["shear_avg"] = radial_integral(ds.shear)
+
+
+@register(
+    requirements=("shear",),
+    attrs=dict(
+        long_name="global magnetic shear averaged over rho^2", symbol=r"\overline{s_g}_2"
+    ),
+)
+def shear_avg2(ds: xr.Dataset):
+    ds["shear_avg2"] = radial_integral(2 * ds.rho * ds.shear)
 
 
 @register(
