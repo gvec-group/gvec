@@ -25,7 +25,8 @@ coordinate-conventions
 ```{toctree}
 :caption: Interfaces
 
-cas3d
 quasr
+cas3d
+gist
 other-interfaces
 ```

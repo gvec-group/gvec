@@ -1,11 +1,12 @@
 # CAS3D
 
-:::{warning}
-This feature is experimental and likely does not yet produce the expected results.
+:::{admonition} Experimental Feature
+:class: caution
+This feature is experimental and still being testing.
 :::
 
 This is the interface to the MHD stability code *CAS3D* [^CAS3D].
-It can be used to convert a GVEC equilibrium (parameterfile & statefile) into specialized netCDF file that can be read by CAS3D.
+It can be used to convert a GVEC equilibrium (parameterfile & statefile) into a specialized netCDF file that can be read by CAS3D.
 
 The interface is installed automatically with pyGVEC and available with `pygvec to-cas3d`.
 
@@ -20,7 +21,7 @@ pygvec to-cas3d parameter.ini GVEC_State_0000_00000100.dat GVEC_BoozFT-CAS3D.nc 
 which will produce the `GVEC_BoozFT-CAS3D.nc` netCDF file to be used with CAS3D.
 
 The other options for `pygvec to-cas3d` are:
-```bash
+```
 $ pygvec to-cas3d --help
 usage: pygvec to-cas3d [-h] --ns NS --MN_out MN_OUT MN_OUT [--MN_booz MN_BOOZ MN_BOOZ] [--sampling SAMPLING] [--stellsym] [--pointwise POINTWISE] parameterfile statefile outputfile
 

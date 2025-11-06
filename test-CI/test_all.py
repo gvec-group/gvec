@@ -11,6 +11,7 @@ import helpers
 
 try:
     import xarray as xr
+    import f90nml
     import gvec
 except ImportError:
     pass
@@ -543,6 +544,69 @@ class TestToCAS3D(BaseTestPost):
         for var in booz.variables:
             assert "long_name" in booz[var].attrs
             assert "symbol" in booz[var].attrs
+
+
+@pytest.mark.pygvec
+@pytest.mark.converter_stage
+class TestToGIST(BaseTestPost):
+    exec = ["pygvec", "to-gist"]
+
+    @pytest.fixture
+    def name(self):
+        return "to_gist"
+
+    @pytest.fixture
+    def args(self):
+        return [
+            "--rho", "0.5",
+            "--MNfactor", "2",
+            "--flip", "tor",
+            "--projectname", "TestGIST",
+        ]  # fmt: skip
+
+    def test_post(
+        self,
+        testgroup,
+        testcase,
+        binpath,
+        runargs_prefix,
+        name,
+        args,
+        dryrun,
+        annotations,
+        artifact_pages_path,
+    ):
+        super().test_post(
+            testgroup,
+            testcase,
+            binpath,
+            runargs_prefix,
+            name,
+            args,
+            dryrun,
+            annotations,
+            artifact_pages_path,
+        )
+        if dryrun:
+            return
+
+        with open("stderr.txt") as file:
+            lines = file.readlines()
+            assert len(lines) == 0, f"non-empty stderr:\n{''.join(lines)}"
+
+        assert Path("TestGIST_s025.gist.txt").exists()
+        with open("TestGIST_s025.gist.txt") as file:
+            nml = f90nml.read(file)
+            assert {"parameters"} == set(nml.keys())
+            assert {"s0", "my_dpdx", "q0", "shat", "gridpoints", "n_pol"} <= set(
+                nml["parameters"].keys()
+            )
+        with open("TestGIST_s025.gist.txt") as file:
+            for line in file:
+                if line.strip() == "/":
+                    break
+            data = np.loadtxt(file)
+            assert data.shape == (nml["parameters"]["gridpoints"], 8)
 
 
 @pytest.mark.regression_stage
