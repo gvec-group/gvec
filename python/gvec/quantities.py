@@ -1351,12 +1351,13 @@ def dmod_B_dz_B(ds: xr.Dataset):
 
 
 # === integrals ======================================================================== #
+# --- geometry --- #
 
 
 @register(
     requirements=("Jac",),
     integration=("rho", "theta", "zeta"),
-    attrs=dict(long_name="plasma volume", symbol=r"V"),
+    attrs=dict(long_name="volume", symbol=r"V"),
 )
 def V(ds: xr.Dataset):
     ds["V"] = volume_integral(ds.Jac)
@@ -1398,45 +1399,67 @@ def dV_dPhi_n2(ds: xr.Dataset):
 
 @register(
     requirements=("e_theta", "e_zeta"),
-    integration=("theta", "zeta"),
-    attrs=dict(long_name="flux surface area", symbol=r"A_{surface}"),
+    attrs=dict(long_name="differential area element", symbol=r"dA"),
 )
-def A_surface(ds: xr.Dataset):
+def dA(ds: xr.Dataset):
     dA = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz")
-    dA = np.sqrt(xr.dot(dA, dA, dim="xyz"))
-    ds["A_surface"] = fluxsurface_integral(dA)
+    ds["dA"] = np.sqrt(xr.dot(dA, dA, dim="xyz"))
 
 
 @register(
-    requirements=("e_zeta",),
-    integration=("zeta",),
-    attrs=dict(long_name="circumference along the toroidal angle", symbol=r"L_{\zeta}"),
+    attrs=dict(long_name="surface area", symbol=r"A_{surface}"),
 )
-def L_zeta(ds: xr.Dataset):
-    dL_zeta = np.sqrt(xr.dot(ds.e_zeta, ds.e_zeta, dim="xyz"))
-    ds["L_zeta"] = toroidal_integral(dL_zeta)
+def A_surface(ds: xr.Dataset, state: State):
+    aux = state.evaluate("dA", rho=1.0, theta="int", zeta="int")
+    ds["A_surface"] = fluxsurface_integral(aux.dA).item()
 
 
 @register(
-    requirements=("Jac_l",),
-    integration=("rho", "theta", "zeta"),
-    attrs=dict(long_name="minor radius", symbol=r"r_{min}"),
+    attrs=dict(long_name="length of the magnetic axis", symbol=r"L_{axis}"),
 )
-def minor_radius(ds: xr.Dataset):
-    # ToDo: not independent of coordinate frame / hmap!
-    surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
-    ds["minor_radius"] = np.sqrt(surface_average / np.pi)
+def L_axis(ds: xr.Dataset, state: State):
+    aux = state.evaluate("e_zeta", rho=0.0, theta=0.0, zeta="int")
+    dL = np.sqrt(xr.dot(aux.e_zeta, aux.e_zeta, dim="xyz"))
+    ds["L_axis"] = toroidal_integral(dL).item()
 
 
 @register(
-    requirements=("V", "Jac_l"),
-    integration=("rho", "theta", "zeta"),
-    attrs=dict(long_name="major radius", symbol=r"r_{maj}"),
+    requirements=("L_axis",),
+    attrs=dict(long_name="effective major radius", symbol=r"r_{maj,eff}"),
 )
-def major_radius(ds: xr.Dataset):
-    # ToDo: not independent of coordinate frame / hmap!
-    surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
-    ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
+def r_maj(ds: xr.Dataset):
+    ds["r_maj"] = ds.L_axis / (2 * np.pi)
+
+
+@register(
+    requirements=("V", "L_axis"),
+    attrs=dict(long_name="effective minor radius", symbol=r"r_{min,eff}"),
+)
+def r_min(ds: xr.Dataset):
+    ds["r_min"] = np.sqrt(ds.V / (np.pi * ds.L_axis))
+
+
+@register(
+    requirements=("r_maj", "r_min"),
+    attrs=dict(long_name="effective aspect ratio", symbol=r"a_{eff}"),
+)
+def aspect_ratio(ds: xr.Dataset):
+    ds["aspect_ratio"] = ds.r_maj / ds.r_min
+
+
+@register(
+    requirements=("A_surface", "V", "L_axis"),
+    attrs=dict(long_name="effective elongation", symbol=r"E_{eff}"),
+)
+def elongation(ds: xr.Dataset):
+    from scipy.optimize import newton
+    from gvec.util import ellipse_circumference_factor as ecf
+
+    C = (ds.A_surface / 2 / np.sqrt(np.pi * ds.V * ds.L_axis)).item()
+    ds["elongation"] = newton(lambda e: ecf(e) - C, 2)
+
+
+# --- profiles --- #
 
 
 @register(
@@ -1549,6 +1572,9 @@ def I_pol(ds: xr.Dataset):
         logging.warning(
             f"Computation of `I_pol` uses `rho={ds.rho[0].item():e}` instead of the magnetic axis."
         )
+
+
+# --- other --- #
 
 
 @register(

@@ -962,3 +962,19 @@ def compute_FD(f: np.ndarray, pos, coefs, axis=0):
     for roll, c in zip(pos[1:], coefs[1:]):
         df += np.roll(f, -roll, axis=axis) * c
     return df
+
+
+def ellipse_circumference_factor(epsilon: float) -> float:
+    """
+    Compute the circumference factor of an ellipse with elongation epsilon.
+    This uses the approximation by Ramanujan, accurate up to h^5 (6.5% error at ε=10).
+
+    A = a b π = aeff^2 π
+    ε = a / b >= 1
+    C = 2 π aeff Cf(ε)
+    Cf ~ (1 + ε) / (2 √ε) [1 + 3 h / (10 + √(4 - 3 h))]
+    h = (ε - 1)^2 / (ε + 1)^2
+    """
+    h = (epsilon - 1) ** 2 / (epsilon + 1) ** 2
+    Cf = (1 + epsilon) / (2 * np.sqrt(epsilon)) * (1 + 3 * h / (10 + np.sqrt(4 - 3 * h)))
+    return Cf
