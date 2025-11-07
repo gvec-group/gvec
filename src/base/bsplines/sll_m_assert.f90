@@ -15,6 +15,7 @@
 !  "http://www.cecill.info".
 !**************************************************************
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
+#include "defines.h"
 
 module sll_m_assert
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -42,15 +43,19 @@ contains
   ! This function is only meant to be used by the assert macro. No Doxygen
   ! documentation needed.
   subroutine sll_s_assertion( msg, file, line )
+    use MODgvec_globals, only: abort
     character(len=*), intent(in) :: msg
     character(len=*), intent(in) :: file
     integer         , intent(in) :: line
 
-    write(*,*)
-    write(*,'(a)'   ) "ASSERTION FAILURE: condition ( " // trim(msg) // " ) is not satisfied."
-    write(*,'(a,i0)') 'Triggered at '// file //':', line
-
-    call c_abort()
+    !write(*,*)
+    !write(*,'(a)'   ) "ASSERTION FAILURE: condition ( " // trim(msg) // " ) is not satisfied."
+    !write(*,'(a,i0)') 'Triggered at '// file //':', line
+    !
+    !call c_abort()
+    !!! => CALL GVEC abort instead
+    CALL abort(__STAMP__,&
+        "SLL ASSERTION FAILURE: condition ( " // trim(msg) // " ) is not satisfied.")
 
   end subroutine sll_s_assertion
 

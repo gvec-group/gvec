@@ -193,17 +193,22 @@ class State:
         if self._stdout is None:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
         _binding.redirect_stdout(self._stdout.name)
+        logger.debug(f"Redirected stdout to {self._stdout.name}")
 
         with gvec.util.chdir(self.rundir):
+            logger.debug("Initialize from parameterfile")
             _state.init(self.parameterfile.name)
             if self.statefile is not None:
+                logger.debug("Read state from statefile")
                 _state.readstate(self.statefile.relative_to(self.rundir))
             else:
+                logger.debug("Initialize solution without statefile")
                 _state.initsolution()
         self._children = []
 
         if not _state.initialized:
             raise RuntimeError("Failed to initialize fortran library.")
+        logger.debug(f"Binding state {self!r} to the fortran library finished!")
 
     def unbind(self):
         """Unbind this State object from the Fortran library. Finalize & deallocate everything."""
@@ -231,6 +236,7 @@ class State:
         _state.finalize()
         if _state.initialized:
             raise RuntimeError("Failed to finalize fortran library.")
+        logger.debug(f"Unbinding state {self!r} from the fortran library finished!")
 
     # === Context Manager === #
 
@@ -812,13 +818,22 @@ def find_state(rundir: Path | str | None = None):
     parameterfiles = list(rundir.glob("parameter*.ini"))
     if len(parameterfiles) > 1:
         raise ValueError(
-            f"Found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
+            f"found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
         )
     elif len(parameterfiles) == 0:
-        raise ValueError("No parameterfile found.")
+        raise ValueError("no parameterfile found")
+    logger.info(f"found parameterfile '{parameterfiles[0].name}'")
+
     statefiles = sorted(rundir.glob("*State*.dat"))
+    projectnames = set([f.name.split("_State")[0] for f in statefiles])
     if len(statefiles) == 0:
-        raise ValueError("No statefile found.")
+        raise ValueError("no statefile found")
+    if len(projectnames) > 1:
+        raise ValueError(
+            f"found statefiles for different projects: {projectnames}; cannot determine which one to load"
+        )
+    logger.info(f"found statefile '{statefiles[-1].name}'")
+
     return State(parameterfiles[0], statefiles[-1])
 
 

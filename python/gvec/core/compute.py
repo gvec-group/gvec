@@ -213,7 +213,7 @@ def compute(
         }
         if auxcoords:
             # --- auxiliary dataset for integration --- #
-            logger.info(
+            logger.debug(
                 f"Using auxiliary dataset with integration points in {auxcoords} to compute {quantity}."
             )
             if auxcoords > {"rho", "theta", "zeta"}:

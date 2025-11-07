@@ -12,7 +12,7 @@
 !===================================================================================================================================
 PROGRAM GVEC
   USE_MPI
-  USE MODgvec_Globals, ONLY : UNIT_stdOut,abort,MPIroot
+  USE MODgvec_Globals
   USE MODgvec_MPI    ,ONLY  : par_Init,par_finalize
   USE MODgvec_rungvec, ONLY : rungvec
   USE MODgvec_cla
@@ -26,6 +26,7 @@ PROGRAM GVEC
   LOGICAL                 :: commandFailed
   LOGICAL                 :: doRestart
   !===================================================================================================================================
+  CALL enter_subregion("startup")
   CALL par_Init() !USE MPI_COMM_WORLD
 
   IF(MPIroot)THEN
@@ -51,6 +52,7 @@ PROGRAM GVEC
 
     IF(commandFailed) STOP " ...check your command line arguments!"
   END IF !MPIroot
+  CALL exit_subregion("startup")
   IF(dorestart)THEN
     CALL rungvec(parameterfile,restartfile_in=restartfile)
   ELSE
