@@ -7,6 +7,7 @@ from pyevtk.hl import gridToVTK
 import xarray as xr
 import numpy as np
 from gvec import fourier
+from gvec.scripts import quasr
 
 
 def ev2vtk(
@@ -180,6 +181,7 @@ def gframe_to_vtk(
     theta_visu: np.ndarray = None,
     phi_visu: np.ndarray = None,
     box_axis=None,
+    visu_boundary=True,
     filetype="vts",
 ):
     """
@@ -191,34 +193,29 @@ def gframe_to_vtk(
         * prefix : prefix of the output files. Default is `visu_`.
         * zeta_visu : 1d zeta positions of the axis and boundary surface output. If not specified, the ones from the file are used.
         * theta_visu : 1d theta positions of the boundary surface output. If not specified, the ones from the file are used.
-        * box_axis : if =[a,b], visualize G-Frame additionally as a box of with distances +a -a in N direction and +b -b in B direction.
+        * box_axis : if =[a>0,b>0], visualize G-Frame additionally as a box of with distances +a -a in N direction and +b -b in B direction.
+        * visu_boundary : if True, visualize the boundary surface
         * filetype : can be "vts"  (VTK) or "nc" (netcdf)
     Output:
         * writes `prefix_axis.filetype` : if 'axis' group exists in `file`, provides the origin curve position in 3D and N,B vectors on that curve. On full torus or on given `zeta_visu` positions
         * writes `prefix_boundary.filetype` : if 'boundary' group exists `file`, provides the boundary surface position in 3D. On one field period, or on given `zeta_visu` positions
         * writes `prefix_axis_box.filetype` : if box_axis=[a,b], G-Frame is visualized as a box aroud the axis.
     """
-    # TODO: use read_Gframe_ncfile here !!!
-    ds_main = xr.open_datatree(file, engine="netcdf4")
-    nfp = ds_main.NFP.data
-    if "axis" in ds_main:
-        ds_axis = ds_main["axis"]
+    dnc = quasr.read_Gframe_ncfile(file)
+    nfp = dnc["nfp"]
+    if "axis" in dnc:
+        d_axis = dnc["axis"]
     else:
         raise RuntimeError(f"Could not open axis group in {file}")
 
-    zeta_fp = ds_axis["zeta(:)"].data
-    pos_axis = ds_axis["xyz(::)"].data
-    N_axis = ds_axis["Nxyz(::)"].data
-    B_axis = ds_axis["Bxyz(::)"].data
+    zeta_fp = d_axis["zeta"]
+    zeta_axis = d_axis["zetafull"]
+    pos_axis = d_axis["xyz"]
+    N_axis = d_axis["Nxyz"]
+    B_axis = d_axis["Bxyz"]
 
     nzeta_fp_axis = len(zeta_fp)
-    nzeta_full = N_axis.shape[1]
-    assert nzeta_full == nzeta_fp_axis * nfp, (
-        f"axis data must be given on a full turn, with nfp being a factor in the number of points! nfp={nfp}, nzeta_full={nzeta_full}, nzeta of one fp={nzeta_fp_axis}"
-    )
-    zeta_axis = zeta_fp[0] + np.linspace(0, 2 * np.pi, nzeta_full, endpoint=False)
 
-    assert np.allclose(zeta_fp, zeta_axis[0:nzeta_fp_axis]), "zeta on axis must be equidistant"
     if zeta_visu is not None:
         zdft = fourier.real_dft_mat(zeta_axis, zeta_visu, nfp=1)
         zeta_out = zeta_visu
@@ -245,7 +242,7 @@ def gframe_to_vtk(
     if filetype == "vts":
         ev2vtk(f"{prefix}_axis", xr_axis)
     elif filetype == "nc":
-        xr_axis.to_netcdf(f"{prefix}_axis.nc", mode="w")
+        xr_axis.to_netcdf(f"{prefix}_axis.nc", mode="w", engine="netcdf4")
     else:
         raise ValueError(f"unknown filetype {filetype}, only 'vts' and 'nc' supported.")
 
@@ -274,24 +271,25 @@ def gframe_to_vtk(
         if filetype == "vts":
             ev2vtk(f"{prefix}_box_axis", xr_box)
         elif filetype == "nc":
-            xr_box.to_netcdf(f"{prefix}_box_axis.nc", mode="w")
+            xr_box.to_netcdf(f"{prefix}_box_axis.nc", mode="w", engine="netcdf4")
 
     # read boundary group
-    if "boundary" in ds_main:
-        ds_boundary = ds_main["boundary"]
+    if not visu_boundary:
+        return
+    if "boundary" in dnc:
+        d_bnd = dnc["boundary"]
     else:
         raise RuntimeError(f"Could not open boundary group in {file}")
 
-    theta_bnd = ds_boundary["theta(:)"].data
-    zeta_bnd = ds_boundary["zeta(:)"].data
-    X = ds_boundary["X(::)"].data
-    Y = ds_boundary["Y(::)"].data
-    ds_main.close()
+    theta_bnd = d_bnd["theta"]
+    zeta_bnd = d_bnd["zeta"]
+    X = d_bnd["X1"]
+    Y = d_bnd["X2"]
 
     # if necessary, apply fourier.real_dft_mat to get axis and boundary positions
     if zeta_visu is None:
         zeta_out = zeta_bnd
-        if len(zeta_bnd) == nzeta_fp_axis:
+        if np.allclose(zeta_axis[0:nzeta_fp_axis], zeta_bnd):
             # same zeta points in axis and boundary:
             pos = pos_axis[:, 0:nzeta_fp_axis]
             N = N_axis[:, 0:nzeta_fp_axis]
@@ -346,4 +344,4 @@ def gframe_to_vtk(
     if filetype == "vts":
         ev2vtk(f"{prefix}_boundary", xr_bnd)
     elif filetype == "nc":
-        xr_bnd.to_netcdf(f"{prefix}_boundary.nc", mode="w")
+        xr_bnd.to_netcdf(f"{prefix}_boundary.nc", mode="w", engine="netcdf4")

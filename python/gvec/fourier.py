@@ -59,6 +59,7 @@ def shift_1d(y: np.ndarray, x0, axis, newshape=None):
     $y(x_j)$ with $x_j=0+2\pi j/M$, $j=0,..M-1$
 
     with `M>=N`.
+    can be used to upsample, by setting `x0=0`.
     Inputs:
         y: periodic data
         x0: origin position where y[0] was evaluated

@@ -85,13 +85,34 @@ verbosity.add_argument(
     help="verbosity level: -v for info, -vv for debug",
 )
 verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
-parser.add_argument("--nt", type=int, help="number of theta points (only for ID or -s)")
-parser.add_argument("--nz", type=int, help="number of zeta points (only for ID or -s)")
+parser.add_argument(
+    "--nt", type=int, help="number of theta points, must be odd (only for ID or -s)"
+)
+parser.add_argument(
+    "--nz", type=int, help="number of zeta points, must be odd (only for ID or -s)"
+)
 parser.add_argument(
     "--tol",
     type=float,
     default=1e-8,
-    help="tolerance for determining minimal necessary (M, N)",
+    help="tolerance for determining minimal necessary (M, N) for the output Fourier modes of X1,X2. default is 1e-8",
+)
+parser.add_argument(
+    "--clean",
+    type=float,
+    default=0.0,
+    help="tolerance for determining minimal necessary (M, N) for the input surface. Default is 0., which means no cleaning.",
+)
+parser.add_argument(
+    "--symm",
+    action="store_true",
+    help="if set, imposes stellarator symmetry for the input surface. Use this with great care!",
+)
+parser.add_argument(
+    "--cutoff",
+    type=int,
+    default=-1,
+    help="cutoff toroidal mode number only for G-Frame construction, reduces the number of Fourier modes in the G-Frame. Default is -1, which means no cutoff.",
 )
 param_type = parser.add_mutually_exclusive_group()
 param_type.add_argument(
@@ -127,10 +148,14 @@ def check_args(parser, args):
             args.nt = 81
         elif args.nt < 1:
             raise parser.error("Number of theta points must be greater than 0.")
+        elif args.nt % 2 == 0:
+            raise parser.error("Number of theta points (nt) must be odd.")
         if args.nz is None:
             args.nz = 81
         elif args.nz < 1:
             raise parser.error("Number of zeta points must be greater than 0.")
+        elif args.nz % 2 == 0:
+            raise parser.error("Number of zeta points (nz) must be odd.")
     else:
         if not args.file.exists():
             raise parser.error(f"File {args.file} does not exist.")
@@ -142,8 +167,10 @@ def check_args(parser, args):
             raise parser.error(
                 "Number of zeta points cannot manually be set with a boundary file."
             )
-    if args.tol is not None and args.tol <= 0:
+    if args.tol is not None and args.tol <= 0.0:
         raise parser.error("Tolerance must be greater than 0.")
+    if args.clean is not None and args.clean < 0.0:
+        raise parser.error("Cleaning tolerance must be greater than 0.")
     if args.param_type is None:
         args.param_type = "toml"
 
@@ -152,11 +179,16 @@ def check_args(parser, args):
 
 
 def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
+    """
+    checks if all  xyz positions of the surface on a full turn, xyz[0:nz*nfp,0:nt,0:2], have the field periodicity with nfp.
+    returns the sign of the rotation +2pi/nfp or -2pi/nfp
+    """
     assert xyz.shape[-1] == 3, (
         "last dimension must be the cartesian components surface positions!"
     )
+    sign_rot = 1
     if nfp == 1:
-        return  # nothing to check
+        return sign_rot  # nothing to check
     assert np.mod(xyz.shape[0], nfp) == 0, (
         "number of points in zeta direction  must be divisible by nfp!"
     )
@@ -168,9 +200,9 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
     xyz_rot_neg = rodrigues(xyz[0, 0, :], -2 * np.pi / nfp)
     dist_neg = np.sqrt(np.sum((xyz_rot_neg - xyz[nzeta_fp, 0, :]) ** 2))
     if dist_pos < atol:
-        angle_sign = 1
+        sign_rot = 1
     elif dist_neg < atol:
-        angle_sign = -1
+        sign_rot = -1
     else:
         raise ValueError(
             f"the first point of the surface [0,0] is not rotationally symmetric with the next field period. nfp={nfp}, absolute distance={np.amax([dist_pos, dist_neg])} not within tolerance {atol}!"
@@ -178,7 +210,7 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
 
     # rotate first fp and compare with next
     for ifp in range(1, nfp):
-        xyz_rot = rodrigues(xyz[0:nzeta_fp, :, :], ifp * angle_sign * 2 * np.pi / nfp)
+        xyz_rot = rodrigues(xyz[0:nzeta_fp, :, :], ifp * sign_rot * 2 * np.pi / nfp)
         maxdist = np.amax(
             np.sqrt(
                 np.sum(
@@ -190,6 +222,7 @@ def check_field_periodicity(xyz: np.ndarray, nfp: int, atol=1e-12):
             raise ValueError(
                 f"the surface points of the first field period are not rotationally symmetric with the points in the other field periods. nfp={nfp}, maxdist={maxdist} not within tolerance {atol}!"
             )
+    return sign_rot
 
 
 def rodrigues(
@@ -219,6 +252,69 @@ def rodrigues(
     )
     pos_rot = vec_rot + origin  # origin of rotation
     return pos_rot
+
+
+def xyz_to_xyz_hat(xyz_in: np.ndarray, zeta: np.ndarray, sign_rot: float):
+    """
+    change from cartesian xyz positions of the surface (can be a full torus or a single field period) on to 'hat' coordinates, which are periodic on field period.
+    One needs the corresponding 1d zeta positions, and sign of the angle, to compute the transform:
+    ```
+    xhat = x*cos(zeta)+y*sign*sin(zeta)
+    yhat = y*cos(zeta)-x*sign*sin(zeta)
+    zhat = z
+    ```
+    Input:
+    xyz_in: xyz positions of the surface, xyz[0:nz,0:nt,0:2], sampled at zeta positions, must exclude the endpoint
+    zeta: 1d array of zeta positions belonging to the surface (without endpoint), size [0:nz]
+    sign_rot: direction of zeta for the rotation into hat coordinates, +1 or -1
+    Returns:
+    xhat,yhat,zhat : hat coordinates, periodic on one field period, size [0:nz,0:nt,0:2].
+    """
+    assert sign_rot == -1 or sign_rot == 1, f"sign_rot must be -1 or 1, but is {sign_rot}"
+    assert xyz_in.shape[0] == zeta.shape[0], (
+        f"xyz and zeta must have the same length, but are {xyz_in.shape[0]} and {zeta.shape[0]} respectively"
+    )
+    sinzeta = sign_rot * np.sin(zeta)
+    coszeta = np.cos(zeta)
+    xhat = xyz_in[:, :, 0] * coszeta[:, None] + xyz_in[:, :, 1] * sinzeta[:, None]
+    yhat = xyz_in[:, :, 1] * coszeta[:, None] - xyz_in[:, :, 0] * sinzeta[:, None]
+    zhat = xyz_in[:, :, 2]
+    return xhat, yhat, zhat
+
+
+def xyz_hat_to_xyz(
+    xhat: np.ndarray, yhat: np.ndarray, zhat: np.ndarray, zeta: np.ndarray, sign_rot: float
+):
+    """
+    change from xyz 'hat' coordinates  cartesian xyz positions, with their associated zeta positions.
+    Inverse function of xyz_to_xyz_hat
+        ```
+    x = xhat*cos(zeta)-yhat*sign*sin(zeta)
+    y = yhat*cos(zeta)+xhat*sign*sin(zeta)
+    z = zhat
+    ```
+
+    Inputs:
+    xhat,yhat,zhat : hat coordinates , size [0:nz,0:nt,0:2].
+    zeta: 1d array of zeta positions corresponding to xyz positions (without endpoint), size [0:nz]
+    sign_rot: direction of zeta for the rotation into hat coordinates, +1 or -1
+    Returns:
+    xyz: xyz positions of the surface, xyz[0:nz,0:nt,0:2]
+    """
+    assert sign_rot == -1 or sign_rot == 1, f"sign_rot must be -1 or 1, but is {sign_rot}"
+    assert xhat.shape[0] == zeta.shape[0], (
+        f"xyz and zeta must have the same length, but are {xhat.shape[0]} and {zeta.shape[0]} respectively"
+    )
+    assert xhat.shape == yhat.shape == zhat.shape, (
+        f"xhat, yhat and zhat must have the same shape, but are {xhat.shape}, {yhat.shape} and {zhat.shape} respectively"
+    )
+    sinzeta = sign_rot * np.sin(zeta)
+    coszeta = np.cos(zeta)
+    xyz = np.zeros((xhat.shape[0], xhat.shape[1], 3))
+    xyz[:, :, 0] = xhat * coszeta[:, None] - yhat * sinzeta[:, None]
+    xyz[:, :, 1] = yhat * coszeta[:, None] + xhat * sinzeta[:, None]
+    xyz[:, :, 2] = zhat
+    return xyz
 
 
 def get_json_from_quasr(configuration: int, filename: str | Path = None):
@@ -311,7 +407,7 @@ def save_xyz(xyz: np.ndarray, nfp: int, filename: Path | str, attrs: dict = {}):
 def load_xyz(filename: Path | str):
     import xarray as xr
 
-    ds = xr.open_dataset(filename)
+    ds = xr.load_dataset(filename)
     if "pos" not in ds or "nfp" not in ds:
         raise ValueError(
             f"File {filename} does not contain the required 'pos' and 'nfp' variables."
@@ -441,17 +537,29 @@ def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict, nfp):
     return xyz_cut
 
 
-def cut_surf(xyz, nfp, xyz0, N, B):
+def cut_surf(xyz, nfp, xyz0_in, N_in, B_in):
     """
     given xyz(zeta,theta) on the full torus, find intersection point of lines of theta=const with all N-B planes with origin xyz0. then project these points to find x1,x2 coordinates in each N-B cross-section
     """
     nz = xyz.shape[0]
-    if not nz == xyz0.shape[0] == N.shape[0] == B.shape[0]:
+    nz_gframe = xyz0_in.shape[0]
+    if not xyz0_in.shape[0] == N_in.shape[0] == B_in.shape[0]:
         raise ValueError(
             "xyz0,N,B must have the same number of points, but they have different lengths!"
         )
     # cut geometry with new frame (xyz0,N,B)
     zeta1d = np.linspace(0.0, 2 * np.pi, nz, endpoint=False)
+    if nz != nz_gframe:
+        zeta_gframe = np.linspace(0.0, 2 * np.pi, nz_gframe, endpoint=False)
+        zdft_gframe = fourier.real_dft_mat(zeta_gframe, zeta1d, nfp=1)
+        xyz0 = zdft_gframe["BF"] @ xyz0_in
+        N = zdft_gframe["BF"] @ N_in
+        B = zdft_gframe["BF"] @ B_in
+    else:
+        xyz0 = xyz0_in
+        N = N_in
+        B = B_in
+
     zdft = fourier.real_dft_mat(zeta1d, zeta1d, nfp=1)  # must be on the full torus
 
     # only over one field period:
@@ -587,30 +695,49 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
 
 def read_Gframe_ncfile(ncfile: str | Path):
     """
-    read G-frame netcdf file and store data in a dictionary
+    read G-frame netcdf file and store data in a dictionary. Checks that dimensions in the file are correct.
     Inputs:
         ncfile: name/path to netcdf file
     Outputs:
         dict_out: dictionary with the data (with 'axis' and 'boundary' groups, if they exist in the netcdf file)
     """
-    ds = xr.open_datatree(ncfile, engine="netcdf4")
+    with xr.open_datatree(ncfile, engine="netcdf4") as ds:
+        ds.load()
     nfp = ds.NFP.data
     dict_out = {"nfp": nfp}
 
     if "axis" in ds:
         dict_out["axis"] = {}
-        for dvar, ncvar in [("xyz", "xyz(::)"), ("Nxyz", "Nxyz(::)"), ("Bxyz", "Bxyz(::)")]:
+        for dvar, ncvar in [
+            ("zeta", "zeta(:)"),
+            ("n_max", "n_max"),
+            ("nzeta", "nzeta"),
+            ("xyz", "xyz(::)"),
+            ("Nxyz", "Nxyz(::)"),
+            ("Bxyz", "Bxyz(::)"),
+        ]:
             dict_out["axis"][dvar] = ds["axis"][ncvar].data
-        for dvar, ncvar in [("zeta", "zeta(:)"), ("n_max", "n_max"), ("nzeta", "nzeta")]:
-            dict_out["axis"][dvar] = ds["axis"][ncvar].data
-
         # sizecheck
+        assert dict_out["axis"]["zeta"].shape[0] == dict_out["axis"]["nzeta"], (
+            "nzeta and len(zeta) must be equal!"
+        )
+
         zeta_fp = dict_out["axis"]["zeta"]
         nzeta_fp = zeta_fp.shape[0]
         nzetaFull = dict_out["axis"]["xyz"].shape[1]
         assert nzetaFull == nfp * nzeta_fp, (
             f"axis data must be given on a full turn, with nfp being a factor in the number of points! nfp={nfp}, nzetaFull={nzetaFull}, nzeta of one fp={nzeta_fp}"
         )
+        assert dict_out["axis"]["xyz"].shape == (3, nzetaFull), (
+            f"shape of xyz must be (3, nzeta*nfp), but is {dict_out['axis']['xyz'].shape}"
+        )
+        assert dict_out["axis"]["xyz"].shape == dict_out["axis"]["Nxyz"].shape, (
+            "xyz and Nxyz must have same shape"
+        )
+        assert dict_out["axis"]["xyz"].shape == dict_out["axis"]["Bxyz"].shape, (
+            "xyz and Bxyz must have same shape"
+        )
+
         dict_out["axis"]["nzetaFull"] = nzetaFull
         zetafull = zeta_fp[0] + np.linspace(0, 2 * np.pi, nzetaFull, endpoint=False)
         assert np.allclose(zeta_fp, zetafull[0:nzeta_fp]), "zeta on axis must be equidistant"
@@ -618,8 +745,6 @@ def read_Gframe_ncfile(ncfile: str | Path):
 
     if "boundary" in ds:
         dict_out["boundary"] = {}
-        for dvar, ncvar in [("X1", "X(::)"), ("X2", "Y(::)")]:
-            dict_out["boundary"][dvar] = ds["boundary"][ncvar].data
         for dvar, ncvar in [
             ("theta", "theta(:)"),
             ("zeta", "zeta(:)"),
@@ -628,46 +753,212 @@ def read_Gframe_ncfile(ncfile: str | Path):
             ("lasym", "lasym"),
             ("m_max", "m_max"),
             ("n_max", "n_max"),
+            ("X1", "X(::)"),
+            ("X2", "Y(::)"),
         ]:
             dict_out["boundary"][dvar] = ds["boundary"][ncvar].data
+
+        assert dict_out["boundary"]["nzeta"] == dict_out["boundary"]["zeta"].shape[0], (
+            "nzeta and len(zeta) must be equal!"
+        )
+        assert dict_out["boundary"]["ntheta"] == dict_out["boundary"]["theta"].shape[0], (
+            "ntheta and len(theta) must be equal!"
+        )
+        assert dict_out["boundary"]["X1"].shape == (
+            dict_out["boundary"]["ntheta"],
+            dict_out["boundary"]["nzeta"],
+        ), "shape of X and Y must be (ntheta, nzeta)"
+        assert dict_out["boundary"]["X1"].shape == dict_out["boundary"]["X2"].shape, (
+            "X and Y must have same shape"
+        )
 
     return dict_out
 
 
 def convert_quasr(
-    xyz: np.ndarray,
+    xyz_in: np.ndarray,
     nfp: int,
     name: str,
-    tolerance: float = 1e-8,
+    tolerance_output: float = 1e-8,
     format: Literal["yaml", "toml"] = "yaml",
+    tolerance_clean_surface: float = 0.0,
+    impose_stell_symmetry: bool = False,
+    theta0: float = 0.0,
+    zeta0: float = 0.0,
+    cutoff_gframe: int = -1,
 ):
     """
     Convert a surface given by its cartesian points xyz[0:nz*nfp,0:nt,0:2] to a G-Frame.
+    Assumes that the surface points were sampled ON THE FULL TORUS,
+    at `theta=theta0+np.linspace(0,2*np.pi,nt,endpoint=False)`
+    and `zeta=zeta0+np.linspace(0,2*np.pi,nz*nfp,endpoint=False)`,
+    and the field periodicity is a rotation around the z-axis.
+    Inputs:
+        xyz_in: cartesian points xyz[0:nz*nfp,0:nt,0:2]
+        nfp: number of field periods
+        name: name of the output file
+        tolerance_output: tolerance for the output surface, computes the necessary modes in X1,X2 without changing the output data
+        format: output parameter file format
+        tolerance_clean_surface: tolerance to reduce input surface resolution, computes the necessary modes for one field period, and recomputes the input surface with these modes
+        impose_stell_symmetry: if set, imposes stellarator symmetry for the input surface. Use this with great care!
+        theta0: first point in logical theta direction where xyz was sampled. Defaults to 0.
+        zeta0:  first point in logical zeta direction where xyz was sampled. Defaults to 0.
+        cutoff_gframe: maximum mode number (`>=0`) to be used along the toroidal direction to construct the G-frame. Default `-1` means no cutoff
     """
     logger = logging.getLogger(__name__)
     logger.info("check field periodicity")
-    check_field_periodicity(xyz, nfp)
-    logger.info("Constructing the G-Frame")
-    xyz0, N, B = get_X0_N_B(xyz)
+    assert (xyz_in.shape[0] // nfp) * nfp == xyz_in.shape[0], (
+        "xyz_in must be sampled on the full torus and nfp must be a factor in the number of points!"
+    )
+    nz_in = xyz_in.shape[0] // nfp
+    nt_in = xyz_in.shape[1]
+    # make the number of points odd
+    nt = (nt_in // 2) * 2 + 1
+    nz = (nz_in // 2) * 2 + 1
+    # correct for odd numbers of points and the shift in theta
+    xyz_surf = xyz_in.copy()
+    if nt_in % 2 == 0 or theta0 != 0.0:
+        xyz_surf = fourier.shift_1d(xyz_surf, theta0, nt, axis=1)
+    if nz_in % 2 == 0 or zeta0 != 0.0:
+        xyz_surf = fourier.shift_1d(xyz_surf, zeta0, nz, axis=0)
 
-    logger.info("Cutting the surface")
-    x1_cut, x2_cut = cut_surf(xyz, nfp, xyz0, N, B)
-
-    logger.info(f"Finding minimal (M, N) with tolerance {tolerance:.1e}")
-    Mmax, Nmax = minimal_modes(x1_cut, x2_cut, tolerance)
-    logger.info(f"Minimal (M, N) found: {Mmax}, {Nmax}")
-
-    logger.info("Exporting h-map & boundary")
-    nz = xyz.shape[0] // nfp
-    nt = xyz.shape[1]
     zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
     zeta = np.linspace(0, 2 * np.pi / nfp, nz, endpoint=False)
     theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
+    # check field periodicity
+    logger.info("check field periodicity")
+    sign_rot = check_field_periodicity(xyz_surf, nfp)
+
+    # analyze input surface
+    logger.info("analyze input surface")
+    xhat, yhat, zhat = xyz_to_xyz_hat(xyz_surf[0:nz, :, :], zeta, sign_rot)
+    xhat_c, xhat_s = fourier.fft2d(xhat.T)
+    yhat_c, yhat_s = fourier.fft2d(yhat.T)
+    zhat_c, zhat_s = fourier.fft2d(zhat.T)
+    Min, Nin = xhat_c.shape[0] - 1, xhat_c.shape[1] // 2
+    Mmax, Nmax = Min, Nin
+    recompute_xyz = False
+    if tolerance_clean_surface > 0.0:
+        logger.info(
+            f"Finding minimal mode numbers for input surface with (M={Min}, N={Nin}), with tolerance {tolerance_clean_surface:.1e}"
+        )
+        Mmax, Nmax = minimal_modes(xhat.T, yhat.T, Z=zhat.T, tolerance=tolerance_clean_surface)
+        logger.info(f"Found minimal (M={Mmax}, N={Nmax}) for one field period.")
+
+        xhat_c = fourier.scale_modes2d(xhat_c, Mmax, Nmax)
+        xhat_s = fourier.scale_modes2d(xhat_s, Mmax, Nmax)
+        yhat_c = fourier.scale_modes2d(yhat_c, Mmax, Nmax)
+        yhat_s = fourier.scale_modes2d(yhat_s, Mmax, Nmax)
+        zhat_c = fourier.scale_modes2d(zhat_c, Mmax, Nmax)
+        zhat_s = fourier.scale_modes2d(zhat_s, Mmax, Nmax)
+        recompute_xyz = True
+
+    max_xhat_c = np.amax(np.abs(xhat_c))
+    max_xhat_s = np.amax(np.abs(xhat_s))
+    max_yhat_c = np.amax(np.abs(yhat_c))
+    max_yhat_s = np.amax(np.abs(yhat_s))
+    max_zhat_c = np.amax(np.abs(zhat_c))
+    max_zhat_s = np.amax(np.abs(zhat_s))
+    # check stellarator-symmetry of the surface:
+    # is symmetric if xhat even (only cosine), yhat and zhat  odd (only sine) -> lasym =False
+    lasym = not (
+        np.amax(np.abs(xhat_s)) < 1e-12 * np.amax(np.abs(xhat_c))
+        and np.amax(np.abs(yhat_c)) < 1e-12 * np.amax(np.abs(yhat_s))
+        and np.amax(np.abs(zhat_c)) < 1e-12 * np.amax(np.abs(zhat_s))
+    )
+    if not lasym:
+        logger.info("  input surface is stellarator-symmetric")
+    else:
+        logger.info(
+            f"  input surface is not stellarator-symmetric, \n max|xhat_c|={max_xhat_c}, max|xhat_s|={max_xhat_s}, \n max|yhat_c|={max_yhat_c}, max|yhat_s|={max_yhat_s}, \n max|zhat_c|={max_zhat_c}, max|zhat_s|={max_zhat_s}"
+        )
+    if impose_stell_symmetry:
+        logger.info("  => impose stellarator-symmetry to the input surface")
+        xhat_s *= 0
+        yhat_c *= 0
+        zhat_c *= 0
+        recompute_xyz = True
+
+    if recompute_xyz:
+        t_in = np.linspace(0, 2 * np.pi, nt_in, endpoint=False)
+        z_in = np.linspace(0, 2 * np.pi, nz_in * nfp, endpoint=False)
+        t, z = np.meshgrid(t_in, z_in, indexing="ij")
+        xhatfull = fourier.eval2d(xhat_c, xhat_s, t, z, nfp=nfp).T
+        yhatfull = fourier.eval2d(yhat_c, yhat_s, t, z, nfp=nfp).T
+        zhatfull = fourier.eval2d(zhat_c, zhat_s, t, z, nfp=nfp).T
+        xyz_tmp = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, zetafull, sign_rot)
+        logger.info(
+            f"  maximum distance of cleaned and input surface: max(sqrt(|xyz_old-xyz|^2))={np.amax(np.sum((xyz_in - xyz_tmp) ** 2, axis=-1) ** 0.5)}"
+        )
+
+        # overwrite nt,nz,theta,zetafull and xyz_surf to reduced resolution
+        nt = 2 * Mmax + 1
+        nz = 2 * Nmax + 1
+        theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
+        zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
+        t, z = np.meshgrid(theta, zetafull, indexing="ij")
+        xhatfull = fourier.eval2d(xhat_c, xhat_s, t, z, nfp=nfp).T
+        assert np.allclose(xhatfull[0:nz, :], fourier.ifft2d(xhat_c, xhat_s, nfp=nfp).T), (
+            "ifft2d cannot be used!"
+        )
+        yhatfull = fourier.eval2d(yhat_c, yhat_s, t, z, nfp=nfp).T
+        zhatfull = fourier.eval2d(zhat_c, zhat_s, t, z, nfp=nfp).T
+        xyz_surf = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, zetafull, sign_rot)
+
+    logger.info("Constructing the G-Frame")
+
+    if cutoff_gframe < 0:
+        nz_gframe = nz
+        zetafull_gframe = np.linspace(0, 2 * np.pi, nz_gframe * nfp, endpoint=False)
+        xyz_gframe = xyz_surf
+    else:
+        logger.info(f" filter surface for G-frame construction with cutoff {cutoff_gframe}")
+        xhat, yhat, zhat = xyz_to_xyz_hat(xyz_surf[0:nz, :, :], zeta, sign_rot)
+        xhat_c, xhat_s = fourier.fft2d(xhat.T)
+        yhat_c, yhat_s = fourier.fft2d(yhat.T)
+        zhat_c, zhat_s = fourier.fft2d(zhat.T)
+        nz_gframe = 2 * cutoff_gframe + 1
+        zetafull_gframe = np.linspace(0, 2 * np.pi, nz_gframe * nfp, endpoint=False)
+        xhat_c = fourier.scale_modes2d(xhat_c, Min, cutoff_gframe)
+        xhat_s = fourier.scale_modes2d(xhat_s, Min, cutoff_gframe)
+        yhat_c = fourier.scale_modes2d(yhat_c, Min, cutoff_gframe)
+        yhat_s = fourier.scale_modes2d(yhat_s, Min, cutoff_gframe)
+        zhat_c = fourier.scale_modes2d(zhat_c, Min, cutoff_gframe)
+        zhat_s = fourier.scale_modes2d(zhat_s, Min, cutoff_gframe)
+        t, z = np.meshgrid(theta, zetafull_gframe, indexing="ij")
+        xhatfull = fourier.eval2d(xhat_c, xhat_s, t, z, nfp=nfp).T
+        yhatfull = fourier.eval2d(yhat_c, yhat_s, t, z, nfp=nfp).T
+        zhatfull = fourier.eval2d(zhat_c, zhat_s, t, z, nfp=nfp).T
+        xyz_gframe = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, zetafull_gframe, sign_rot)
+
+    xyz0, N, B = get_X0_N_B(xyz_gframe)
+
+    logger.info("Cutting the surface")
+    x1_cut, x2_cut = cut_surf(xyz_surf, nfp, xyz0, N, B)
+
+    logger.info(f"Finding minimal (M, N) for X^1,X^2 with tolerance {tolerance_output:.1e}")
+    Mmax, Nmax = minimal_modes(x1_cut.T, x2_cut.T, tolerance=tolerance_output)
+    logger.info(f"Found minimal (M={Mmax}, N={Nmax})")
+
+    X1c, X1s = fourier.fft2d(x1_cut.T)
+    X2c, X2s = fourier.fft2d(x2_cut.T)
+    lasym = not (
+        np.amax(np.abs(X1s)) < 1e-12 * np.amax(np.abs(X1c))
+        and np.amax(np.abs(X2c)) < 1e-12 * np.amax(np.abs(X2s))
+    )
+    if not lasym:
+        logger.info("output X^1,X^2 coordinates are stellarator-symmetric")
+    else:
+        logger.info(
+            f"output X^1,X^2 coordinates are not stellarator-symmetric, \n max|X1_c|={np.amax(np.abs(X1c))}, max|X1_s|={np.amax(np.abs(X1s))}, \n max|X2_c|={np.amax(np.abs(X2c))}, max|X2_s|={np.amax(np.abs(X2s))}"
+        )
+    logger.info("Exporting h-map & boundary")
+
     dict_out = {"nfp": nfp, "axis": {}, "boundary": {}}
     dict_out["axis"] = {
-        "nzeta": nz,
-        "nzetaFull": nz * nfp,
-        "zetafull": zetafull,
+        "nzeta": nz_gframe,
+        "nzetaFull": nz_gframe * nfp,
+        "zetafull": zetafull_gframe,
         "xyz": xyz0.T,
         "Nxyz": N.T,
         "Bxyz": B.T,
@@ -676,8 +967,8 @@ def convert_quasr(
         "ntheta": nt,
         "nzeta": nz,
         "theta": theta,
-        "zeta": zeta,
-        "lasym": False,
+        "zeta": np.linspace(0, 2 * np.pi, nz, endpoint=False),
+        "lasym": lasym,
         "m_max": Mmax,
         "n_max": Nmax,
         "X1": x1_cut.T,
@@ -720,21 +1011,36 @@ def convert_quasr(
     return parameters, dict_out
 
 
-def minimal_modes(X, Y, tolerance):
-    """Find the minimal maximum mode numbers (M, N) such that the error is below the tolerance."""
+def minimal_modes(X, Y, Z=None, tolerance=1e-8):
+    """
+    Find the minimal maximum mode numbers (M, N) such that the error is below the tolerance.
+    First dimension of X and Y is assumed to be theta (starting at 0., without endpoint),
+    second dimension is assumed to be zeta (starting at 0., without endpoint).
+    """
     Xcos, Xsin = fourier.fft2d(X)
     Ycos, Ysin = fourier.fft2d(Y)
+    if Z is None:
+        Zcos, Zsin = np.zeros_like(Xcos), np.zeros_like(Xsin)
+    else:
+        Zcos, Zsin = fourier.fft2d(Z)
     M, N = Xcos.shape[0] - 1, Xcos.shape[1] // 2
 
     m, n = fourier.fft2d_modes(M, N, grid=True)
     Mrange, Nrange = np.arange(1, M + 1), np.arange(1, N + 1)
     error = np.full((M, N), np.nan)
-    norm = np.sqrt(np.sum(Xcos**2 + Xsin**2 + Ycos**2 + Ysin**2))
+    norm = np.sqrt(np.sum(Xcos**2 + Xsin**2 + Ycos**2 + Ysin**2 + Zcos**2 + Zsin**2))
     for Mnew in Mrange:
         for Nnew in Nrange:
             # sum magnitudes of all modes above the cutoff
             mask = (m > Mnew) | (n > Nnew) | (n < -Nnew)
-            err = Xcos[mask] ** 2 + Xsin[mask] ** 2 + Ycos[mask] ** 2 + Ysin[mask] ** 2
+            err = (
+                Xcos[mask] ** 2
+                + Xsin[mask] ** 2
+                + Ycos[mask] ** 2
+                + Ysin[mask] ** 2
+                + Zcos[mask] ** 2
+                + Zsin[mask] ** 2
+            )
             error[Mnew - 1, Nnew - 1] = np.sqrt(np.sum(err)) / norm
 
     # select candidates with error below the tolerance
@@ -797,7 +1103,16 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         logger.info("Saving boundary points to netCDF file")
         save_xyz(xyz, nfp, f"{name}-boundary.nc", attrs={"source": str(filename)})
 
-    convert_quasr(xyz, nfp, name, args.tol, args.param_type)
+    convert_quasr(
+        xyz,
+        nfp,
+        name,
+        tolerance_output=args.tol,
+        format=args.param_type,
+        tolerance_clean_surface=args.clean,
+        impose_stell_symmetry=args.symm,
+        cutoff_gframe=args.cutoff,
+    )
 
 
 if __name__ == "__main__":

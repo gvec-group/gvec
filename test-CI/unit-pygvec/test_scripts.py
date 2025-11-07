@@ -229,13 +229,24 @@ def test_quasr_download(QUASR_ID, tmp_path):
 
 
 @pytest.mark.parametrize("QUASR_ID", [112714])
-def test_quasr_file(QUASR_ID, tmp_path, util):
+@pytest.mark.parametrize(
+    "opts",
+    [
+        ["-v"],
+        ["--clean=1e-8"],
+        ["--symm"],
+        ["--clean=1e-6", "--symm"],
+        ["--symm", "--cutoff=5"],
+    ],
+    ids=["none", "clean", "symm", "clean+symm", "symm+cutoff"],
+)
+def test_quasr_file(QUASR_ID, opts, tmp_path, util):
     """
     Test the load-quasr script
     """
     hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
     with util.chdir(tmp_path):
-        args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc")]
+        args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc"), *opts]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
 
