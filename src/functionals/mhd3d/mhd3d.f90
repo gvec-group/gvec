@@ -110,8 +110,6 @@ SUBROUTINE InitMHD3D(sf)
   !-----------
 
   fac_nyq = GETINT( "fac_nyq",Proposal=4)
-  IF(fac_nyq.LT.2) CALL abort(__STAMP__,&
-     "parameter fac_nyq must be >=2",TypeInfo="InvalidParameterError")
 
   !constants
   mu_0    = 2.0e-07_wp*TWOPI
