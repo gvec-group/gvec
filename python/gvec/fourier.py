@@ -16,14 +16,15 @@ import numpy as np
 # === Transform functions === #
 
 
-def fft1d(x: Iterable):
+def fft1d(x: Iterable, angle0=0.0):
     """
     Compute the Fourier transform of a 1D array.
 
     Parameters
     ----------
     x
-        Input array to transform.
+        Input array to transform, assumed to be sampled on `angle=angle0+np.linspace(0,2*np.pi,len(x),endpoint=False)`.
+    angle0: starting value of angle, where x was sampled, in [0,2pi] , defaults to 0.
 
     Returns
     -------
@@ -38,6 +39,10 @@ def fft1d(x: Iterable):
     """
     x = np.asarray(x)
     xf = np.fft.rfft(x, norm="forward")
+    if angle0 != 0.0:
+        ks = np.arange(xf.shape[0])
+        xf *= np.exp(-1j * angle0 * ks)
+
     c = xf.real
     c[1:] *= 2
     s = -2 * xf.imag
@@ -45,7 +50,35 @@ def fft1d(x: Iterable):
     return c, s
 
 
-def fft2d(x: np.ndarray):
+def shift_1d(y: np.ndarray, x0, axis, newshape=None):
+    """
+    shift periodic data along one given axis (and upsample):
+    from
+    $y(x_i)$ with $x_i=x_0+2\pi i/N$, $i=0,..N-1,$ `N=len(y)`
+    to
+    $y(x_j)$ with $x_j=0+2\pi j/M$, $j=0,..M-1$
+
+    with `M>=N`.
+    Inputs:
+        y: periodic data
+        x0: origin position where y[0] was evaluated
+        axis: axis along which to shift
+        newshape: output shape along the shifted axis >= input shape. Defaults to input shape
+    """
+    c = np.fft.rfft(y, norm="forward", axis=axis)
+    ks = np.expand_dims(
+        np.arange(c.shape[axis]), axis=tuple(i for i in np.arange(y.ndim) if i != axis)
+    )
+    if newshape is None:
+        newshape = y.shape[axis]
+    else:
+        assert newshape >= y.shape[axis], f"new shape must be >= y.shape[axis]={y.shape[axis]}"
+    cshft = c * np.exp(-1j * ks * x0)
+    yshft = np.fft.irfft(cshft, newshape, norm="forward", axis=axis)
+    return yshft
+
+
+def fft2d(x: np.ndarray, theta0=0.0, zeta0=0.0):
     r"""
     Compute the Fourier transform of a 2D array.
 
@@ -56,8 +89,11 @@ def fft2d(x: np.ndarray):
     Parameters
     ----------
     x
-        Input array of shape (m, n) to transform.
-
+        Input array of shape (ntheta, nzeta) to transform,
+        assumed to be sampled on `theta=theta0+np.linspace(0,2*np.pi,ntheta,endpoint=False)`
+        and `zeta=zeta0+np.linspace(0,2*np.pi,nzeta*nfp,endpoint=False)`
+    theta0 : starting value of theta, where x was sampled , defaults to 0.
+    zeta0 : starting value of zeta, where x was sampled, defaults to 0.
     Returns
     -------
     c : ndarray
@@ -67,6 +103,19 @@ def fft2d(x: np.ndarray):
     """
     x = np.asarray(x)
     xf = np.fft.rfft2(x.T, norm="forward").T
+    if theta0 != 0.0:
+        kt = np.arange(
+            xf.shape[0]
+        )  # theta is second dimension in rfft2, has only positive modes!
+        # shift frequencies to get the same modes as if sampled with theta0=0
+        xf *= np.exp(-1j * theta0 * kt[:, None])
+    if zeta0 != 0.0:
+        nzeta = x.shape[1]
+        kz = nzeta * np.fft.fftfreq(
+            nzeta
+        )  # zeta is first dimension in rfft2, has positive and negative modes
+        # shift frequencies to get the same modes as if sampled with zeta0=0
+        xf *= np.exp(-1j * zeta0 * kz[None, :])
 
     N = (x.shape[1] - 1) // 2
     c = 2 * xf.real
@@ -101,10 +150,12 @@ def ifft2d(c: np.ndarray, s: np.ndarray, deriv: str | None = None, nfp: int = 1)
     nfp : int, optional
         Number of field periods, by default 1. Only used for derivatives, the data itself is always assumed to be in a single field period.
 
+
     Returns
     -------
     x : numpy.ndarray
-        The values of the series at the given angles.
+        The values of the series evaluated at `theta=np.linspace(0,2*np.pi,2*M+1,endpoint=False)` and `zeta=np.linspace(0,2*np.pi,N*nfp+1,endpoint=False)`.
+
     """
     if c.shape != s.shape:
         raise ValueError("c and s must have the same shape")
@@ -172,12 +223,12 @@ def fft2d_modes(M: int, N: int, grid: bool = False):
 
 def scale_modes2d(c, M, N):
     """
-    Scale the coefficients of a 2D Fourier series to a new maximum poloidal and toroidal harmonics.
+    Scale/Cutoff the coefficients of a 2D Fourier series to a new maximum poloidal and toroidal harmonics.
 
     Parameters
     ----------
     c : numpy.ndarray
-        The coefficients of the original Fourier series.
+        The coefficients of the original Fourier series, with poloidal mode numbers in the first dimension and toroidal mode numbers in the second. second dimension must be odd.
     M : int
         The new maximum poloidal harmonic.
     N : int

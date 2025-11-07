@@ -306,7 +306,7 @@ class TestPost(BaseTestPost):
         if len(boozerfiles) == 0:
             return
 
-        boozer_post = xr.open_dataset(boozerfiles[-1])
+        boozer_post = xr.load_dataset(boozerfiles[-1])
         boozer_post["xyz"] = ("xyz", ["x", "y", "z"])  # reset xyz to utf-8
 
         parameterfile = Path("parameter.ini")
@@ -533,13 +533,13 @@ class TestToCAS3D(BaseTestPost):
             assert "done" in lines[-2]
 
         assert Path("TestCAS3D.nc").exists()
-        boozft = xr.open_dataset("TestCAS3D.nc")
+        boozft = xr.load_dataset("TestCAS3D.nc")
         for var in boozft.variables:
             assert "long_name" in boozft[var].attrs
             assert "symbol" in boozft[var].attrs
 
         assert Path("TestCAS3D_pw.nc").exists()
-        booz = xr.open_dataset("TestCAS3D_pw.nc")
+        booz = xr.load_dataset("TestCAS3D_pw.nc")
         for var in booz.variables:
             assert "long_name" in booz[var].attrs
             assert "symbol" in booz[var].attrs
