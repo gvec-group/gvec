@@ -7,7 +7,7 @@ from pyevtk.hl import gridToVTK
 import xarray as xr
 import numpy as np
 from gvec import fourier
-from gvec.scripts import quasr
+from gvec import gframe
 
 
 def ev2vtk(
@@ -201,7 +201,7 @@ def gframe_to_vtk(
         * writes `prefix_boundary.filetype` : if 'boundary' group exists `file`, provides the boundary surface position in 3D. On one field period, or on given `zeta_visu` positions
         * writes `prefix_axis_box.filetype` : if box_axis=[a,b], G-Frame is visualized as a box aroud the axis.
     """
-    dnc = quasr.read_Gframe_ncfile(file)
+    dnc = gframe.read_Gframe_ncfile(file)
     nfp = dnc["nfp"]
     if "axis" in dnc:
         d_axis = dnc["axis"]
@@ -287,32 +287,31 @@ def gframe_to_vtk(
     Y = d_bnd["X2"]
 
     # if necessary, apply fourier.real_dft_mat to get axis and boundary positions
+    same_zeta = False
     if zeta_visu is None:
         zeta_out = zeta_bnd
-        if np.allclose(zeta_axis[0:nzeta_fp_axis], zeta_bnd):
-            # same zeta points in axis and boundary:
-            pos = pos_axis[:, 0:nzeta_fp_axis]
-            N = N_axis[:, 0:nzeta_fp_axis]
-            B = B_axis[:, 0:nzeta_fp_axis]
-            XX = X
-            YY = Y
-        else:
-            # sample axis on zeta_bnd points:
-            zdft = fourier.real_dft_mat(zeta_axis, zeta_bnd)
-            pos = pos_axis @ zdft["BF"].T
-            N = N_axis @ zdft["BF"].T
-            B = N_axis @ zdft["BF"].T
-            XX = X
-            YY = Y
+        if zeta_bnd.shape[0] == nzeta_fp_axis:
+            same_zeta = np.allclose(zeta_axis[0:nzeta_fp_axis], zeta_bnd)
     else:
         zeta_out = zeta_visu
-        # sample axis
-        zdft = fourier.real_dft_mat(zeta_axis, zeta_visu, nfp=1)
+    if same_zeta:
+        # same zeta points in axis and boundary:
+        pos = pos_axis[:, 0:nzeta_fp_axis]
+        N = N_axis[:, 0:nzeta_fp_axis]
+        B = B_axis[:, 0:nzeta_fp_axis]
+    else:
+        # sample axis on zeta_bnd points:
+        zdft = fourier.real_dft_mat(zeta_axis, zeta_out, nfp=1)
         pos = pos_axis @ zdft["BF"].T
         N = N_axis @ zdft["BF"].T
-        B = B_axis @ zdft["BF"].T
+        B = N_axis @ zdft["BF"].T
+
+    if zeta_visu is None:
+        XX = X
+        YY = Y
+    else:
         # sample boundary
-        zdft = fourier.real_dft_mat(zeta_bnd, zeta_visu, nfp=nfp)
+        zdft = fourier.real_dft_mat(zeta_bnd, zeta_out, nfp=nfp)
         XX = X @ zdft["BF"].T
         YY = Y @ zdft["BF"].T
 
@@ -320,9 +319,10 @@ def gframe_to_vtk(
         theta_out = theta_bnd
     else:
         theta_out = theta_visu
-        tdft = fourier.real_dft_mat(theta_bnd, theta_visu)
+        tdft = fourier.real_dft_mat(theta_bnd, theta_out)
         XX = tdft["BF"] @ XX
         YY = tdft["BF"] @ YY
+
     pos_out = pos[:, None, :] + XX[None, :, :] * N[:, None, :] + YY[None, :, :] * B[:, None, :]
     assert pos_out.ndim == 3, (
         f"problem with dimensions, pos.shape={pos.shape}, XX.shape={XX.shape}, YY.shape={YY.shape}, N.shape={N.shape}, B.shape={B.shape}"

@@ -282,19 +282,24 @@ def test_quasr_post(QUASR_ID, tmp_path, util):
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
 
-        gvec.vtk.gframe_to_vtk(hmap)
+        gvec.vtk.gframe_to_vtk(hmap, "test0_visu")
         gvec.vtk.gframe_to_vtk(
             hmap,
-            "test_visu",
-            zeta_visu=np.linspace(0, 0.1, 10),
-            theta_visu=np.linspace(0, 0.1, 10),
+            "test1_visu",
+            zeta_visu=np.linspace(0, 0.1, 6),
+            theta_visu=np.linspace(0, 0.1, 6),
             box_axis=[0.1, 0.1],
         )
+        gvec.vtk.gframe_to_vtk(
+            hmap,
+            "test2_visu",
+            theta_visu=np.linspace(0, 2 * np.pi, 7),
+        )
 
-        dict_out = gvec.scripts.quasr.read_Gframe_ncfile(hmap)
+        dict_out = gvec.gframe.read_Gframe_ncfile(hmap)
         file2 = Path("test-Gframe.nc")
-        gvec.scripts.quasr.write_Gframe_ncfile(file2, dict_out)
-        dict_out2 = gvec.scripts.quasr.read_Gframe_ncfile(file2)
+        gvec.gframe.write_Gframe_ncfile(file2, dict_out)
+        dict_out2 = gvec.gframe.read_Gframe_ncfile(file2)
         for key, val in dict_out["axis"].items():
             assert np.allclose(val, dict_out2["axis"][key]), (
                 f"variable axis/{key} does not match"
