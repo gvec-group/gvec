@@ -229,6 +229,10 @@ def save_xyz(xyz: np.ndarray, nfp: int, filename: Path | str, attrs: dict = {}):
     The surface cartesian position $(x,y,z)(\vartheta_i,\zeta_j)$ must be evaluated
     at a meshgrid  on the full torus, excluding the periodic endpoint:
     $\vartheta_i=2\pi \frac{i}{n_t},i=0\dots,n_t-1,\quad \zeta_j=2\pi\frac{j}{n_z},j=0,\dots,n_z-1$
+    Inputs:
+    xyz: cartesian surface points xyz[0:nz*nfp,0:nt,0:2]
+    nfp: number of field periods
+    filename: path to netcdf file (with .nc extension)
 
     Example usage, with a function that evaluates the surface cartesian position $\vec{x}(\vartheta,\zeta)$,
     provided the number of points `ntheta` and `nzeta` and the number of field periods `nfp`:
@@ -240,7 +244,7 @@ def save_xyz(xyz: np.ndarray, nfp: int, filename: Path | str, attrs: dict = {}):
     for j in range(nzeta):
          for i in range(ntheta):
              xyz[j,i,:] = eval_surface(theta[i],zeta[j])
-    save_xyz(xyz,nfp,'surface.nc')
+    save_xyz(xyz,nfp,'mycase-boundary.nc')
     ```
 
     """
@@ -324,9 +328,9 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         xyz = get_xyz_from_surface(args.nt, args.nz, surface)
         name = str(filename.stem)
     else:
-        logger.info("Reading boundary file")
         filename = args.file
-        xyz, nfp = load_xyz(args.file)
+        logger.info(f"Reading boundary file {filename}")
+        xyz, nfp = load_xyz(filename)
         if str(filename.stem).endswith("-boundary"):
             name = str(filename.stem)[:-9]
         else:

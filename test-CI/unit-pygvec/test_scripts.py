@@ -238,7 +238,7 @@ def test_quasr_download(QUASR_ID, tmp_path):
         ["--clean=1e-6", "--symm"],
         ["--symm", "--cutoff=5"],
     ],
-    ids=["none", "clean", "symm", "clean+symm", "symm+cutoff"],
+    ids=["verbose", "clean", "symm", "clean+symm", "symm+cutoff"],
 )
 def test_quasr_file(QUASR_ID, opts, tmp_path, util):
     """
@@ -246,9 +246,27 @@ def test_quasr_file(QUASR_ID, opts, tmp_path, util):
     """
     hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
     with util.chdir(tmp_path):
+        # run from quasr boundary file
         args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc"), *opts]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
+        # generate boundary file from previous run
+        dict_out = gvec.gframe.read_Gframe_ncfile(hmap)
+        xyz = gvec.gframe.to_surface(dict_out)
+        gvec.scripts.quasr.save_xyz(
+            xyz, dict_out["nfp"], "TEST2-boundary.nc", attrs={"creator": "test_script"}
+        )
+        # run from boundary file
+        args = ["-f", "TEST2-boundary.nc", *opts]
+        hmap2 = Path("TEST2-Gframe.nc")
+        gvec.scripts.quasr.main(args)
+        assert hmap2.exists()
+        # now compare the boundary computed from the Gframe file that was started with the TEST2-boundary.nc
+        dict_out2 = gvec.gframe.read_Gframe_ncfile(hmap2)
+        xyz2 = gvec.gframe.to_surface(dict_out)
+        assert np.allclose(xyz, xyz2), (
+            f"xyz boundary after rerun does not match. max|diff|={np.max(np.abs(xyz - xyz2))}"
+        )
 
 
 @pytest.mark.parametrize("QUASR_ID", [112714, 2021217, 122335, 10534, 49962])

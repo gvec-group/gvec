@@ -239,6 +239,7 @@ def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict, zeta_bracket: float):
                 eval_dist,
                 bracket=[zeta_in - zeta_bracket * factor, zeta_in + zeta_bracket * factor],
                 xtol=1e-10,
+                rtol=1e-14,
             ).root
         except ValueError:
             pass
@@ -803,3 +804,30 @@ def minimal_modes(X, Y, Z=None, tolerance=1e-8):
     # select candidate with minimum error
     mask &= error == error[mask].min()
     return mcan[mask].item(), ncan[mask].item()
+
+
+def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81):
+    """
+    Convert a gframe file with axis+boundary to boundary surface in cartesian coordinates.
+    Input:
+        dict_in: dictionary of the Gframe netcdf file, from `gvec.gframe.read_Gframe_ncfile(filename)`
+        ntheta: number of theta points
+        nzeta: number of zeta points in one field period
+    Output:
+        xyz: boundary surface in cartesian coordinates, with shape [0:nzeta*nfp,0:ntheta,0:2]
+    """
+    nfp = dict_in["nfp"]
+    theta_out = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
+    zetafull_out = np.linspace(0, 2 * np.pi, nzeta * nfp, endpoint=False)
+
+    zdft = fourier.real_dft_mat(dict_in["axis"]["zetafull"], zetafull_out, nfp=1)
+    xyz0 = zdft["BF"] @ dict_in["axis"]["xyz"].T  # [0:nz*nfp,0:2]
+    N = zdft["BF"] @ dict_in["axis"]["Nxyz"].T
+    B = zdft["BF"] @ dict_in["axis"]["Bxyz"].T
+
+    zdft = fourier.real_dft_mat(dict_in["boundary"]["zeta"], zetafull_out, nfp=nfp)
+    tdft = fourier.real_dft_mat(dict_in["boundary"]["theta"], theta_out)
+    X1 = zdft["BF"] @ dict_in["boundary"]["X1"].T @ tdft["BF"].T  # [0:nz*nfp,0:ntheta]
+    X2 = zdft["BF"] @ dict_in["boundary"]["X2"].T @ tdft["BF"].T
+    xyz = xyz0[:, None, :] + X1[:, :, None] * N[:, None, :] + X2[:, :, None] * B[:, None, :]
+    return xyz
