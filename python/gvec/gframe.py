@@ -233,7 +233,7 @@ def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict, zeta_bracket: float):
     def eval_dist(zeta_in):
         return eval_distance_to_curve(zeta_in, origin, normal, xyz, dft_dict).item()
 
-    for factor in [0.01, 0.1, 1]:
+    for factor in [0.1, 0.5, 0.99]:
         try:
             return root_scalar(
                 eval_dist,
@@ -243,10 +243,20 @@ def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict, zeta_bracket: float):
             ).root
         except ValueError:
             pass
-    raise RuntimeError("Could not find zeta cuts with the given bracket (or 1/10, 1/100)")
+    raise RuntimeError(
+        f"Could not find zeta cuts with the given bracket (or 1/2,1/10), for initial guess zeta_in={zeta_in}"
+    )
 
 
 def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict, nfp):
+    """
+
+    Inputs:
+        zeta_start: initial guess for zeta position for each cut shape [nz_out]
+        origins: origin of the cutting plane, shape [nz_out, 3]
+        normals: normal of the cutting plane  [nz_out,3]
+        dft_dict: dictionary containing the dft from the zeta points of xyz_in, to be used for evaluation of theta=const curves at arbitrary zeta.
+    """
     nz_out = origins.shape[0]
     nt = xyz_in.shape[1]
     zeta_out = np.zeros(nz_out)
@@ -806,15 +816,23 @@ def minimal_modes(X, Y, Z=None, tolerance=1e-8):
     return mcan[mask].item(), ncan[mask].item()
 
 
-def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81):
+def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: float = 1e-8):
     """
     Convert a gframe file with axis+boundary to boundary surface in cartesian coordinates.
     Input:
         dict_in: dictionary of the Gframe netcdf file, from `gvec.gframe.read_Gframe_ncfile(filename)`
-        ntheta: number of theta points
-        nzeta: number of zeta points in one field period
+        nzeta: number of zeta positions for the output, to sample on one field period
+        ntheta: number of theta positions for the output
     Output:
+    dictionary with:
         xyz: boundary surface in cartesian coordinates, with shape [0:nzeta*nfp,0:ntheta,0:2]
+        X1, X2: boundary in G-Frame, shape [0:ntheta,0:nzeta]
+        zetafull: zeta values of the boundary surface
+        theta: theta values of the boundary surface
+        lasym : logical for asymmetry, =false if stellarator symmetry is found
+        nfp : number of field periods
+        Mmax, Nmax: maximum mode numbers needed for the given tolerance
+        X1c, X1s, X2c, X2s: boundary  modes in G-Frame, up to Mmax, Nmax
     """
     nfp = dict_in["nfp"]
     theta_out = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
@@ -827,7 +845,178 @@ def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81):
 
     zdft = fourier.real_dft_mat(dict_in["boundary"]["zeta"], zetafull_out, nfp=nfp)
     tdft = fourier.real_dft_mat(dict_in["boundary"]["theta"], theta_out)
-    X1 = zdft["BF"] @ dict_in["boundary"]["X1"].T @ tdft["BF"].T  # [0:nz*nfp,0:ntheta]
+    X1 = zdft["BF"] @ dict_in["boundary"]["X1"].T @ tdft["BF"].T  # [0:nzeta*nfp,0:ntheta]
     X2 = zdft["BF"] @ dict_in["boundary"]["X2"].T @ tdft["BF"].T
     xyz = xyz0[:, None, :] + X1[:, :, None] * N[:, None, :] + X2[:, :, None] * B[:, None, :]
-    return xyz
+    # transpose for output, and restrict to one field period
+    X1 = X1[0:nzeta, :].T
+    X2 = X2[0:nzeta, :].T
+    Mmax, Nmax = minimal_modes(X1, X2, tolerance=tolerance)
+    X1c, X1s = fourier.fft2d(X1)
+    X2c, X2s = fourier.fft2d(X2)
+    X1c = fourier.scale_modes2d(X1c, Mmax, Nmax)
+    X1s = fourier.scale_modes2d(X1s, Mmax, Nmax)
+    X2c = fourier.scale_modes2d(X2c, Mmax, Nmax)
+    X2s = fourier.scale_modes2d(X2s, Mmax, Nmax)
+    lasym = not (
+        np.amax(np.abs(X1s)) < 1e-12 * np.amax(np.abs(X1c))
+        and np.amax(np.abs(X2c)) < 1e-12 * np.amax(np.abs(X2s))
+    )
+    return {
+        "xyz": xyz,
+        "X1": X1,
+        "X2": X2,
+        "zetafull": zetafull_out,
+        "theta": theta_out,
+        "nfp": nfp,
+        "lasym": lasym,
+        "Mmax": Mmax,
+        "Nmax": Nmax,
+        "X1c": X1c,
+        "X1s": X1s,
+        "X2c": X2c,
+        "X2s": X2s,
+        "tolerance": tolerance,
+    }
+
+
+def to_RZ(
+    xyz: np.ndarray,
+    nfp: int,
+    nzeta=81,
+    ntheta=81,
+    zeta0: float = 0.0,
+    theta0: float = 0.0,
+    tolerance: float = 1e-8,
+):
+    """
+    cut a xyz surface to yield a R,Z positions on one field period.
+    Input:
+        xyz: boundary surface in cartesian coordinates, with shape [0:nzeta*nfp,0:ntheta,0:2]
+        nfp: number of field periods
+        zeta0: first point in logical zeta direction where xyz was sampled. Defaults to 0.
+        theta0: first point in logical theta direction where xyz was sampled. Defaults to 0.
+        nzeta: number of zeta positions (=geometric angle -phi) for the output, to sample on one field period
+        ntheta: number of theta positions for the output
+        tolerance: tolerance for finding minimal mode numbers
+    Output:
+    dictionary with:
+        zeta : zeta positions on one field period
+        theta : theta positions
+        R: R positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
+        Z: Z positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
+        nfp : number of field periods
+        lasym : logical for asymmetry, =false if stellarator symmetry is found
+        Mmax,Nmax : maximum mode numbers needed for the given tolerance
+        Rc,Rs,Zc,Zs : R and Z cosine and sine Fourier mode coefficients, respecting Mmax,Nmax
+    """
+    assert xyz.shape[2] == 3, "xyz must have shape [nzeta*nfp, ntheta, 3]"
+    nzetafull_in, ntheta_in = xyz.shape[0], xyz.shape[1]
+    nzeta_in = nzetafull_in // nfp
+    assert nzeta_in * nfp == nzetafull_in, "nfp must be a factor in the number of zeta points"
+    zetafull = zeta0 + np.linspace(0, 2 * np.pi, nzetafull_in, endpoint=False)
+    zeta_out = zeta0 + np.linspace(0, 2 * np.pi / nfp, nzeta, endpoint=False)
+    theta = theta0 + np.linspace(0, 2 * np.pi, ntheta_in, endpoint=False)
+    theta_out = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
+    tdft = fourier.real_dft_mat(theta, theta_out)
+    zdft = fourier.real_dft_mat(zetafull, zeta_out, nfp=1)
+
+    if theta_out.shape == theta.shape:
+        xyz_t = xyz
+    else:
+        xyz_t = tdft["BF"][np.newaxis, :, :] @ xyz
+
+    origins = np.zeros((nzeta, 3))
+    Ncirc = np.zeros((nzeta, 3))
+    Bcirc = np.zeros((nzeta, 3))
+    Ncirc[:, 0] = np.cos(zeta_out)
+    Ncirc[:, 1] = np.sin(zeta_out)
+    Bcirc[:, 2] = 1.0
+
+    xyz_RZcut = get_xyz_cut(
+        zeta_out, origins, np.cross(Ncirc, Bcirc, axis=-1), xyz_t, zdft, nfp
+    )
+    R = np.sum((xyz_RZcut - origins[:, None, :]) * Ncirc[:, None, :], axis=-1).T
+    Z = np.sum((xyz_RZcut - origins[:, None, :]) * Bcirc[:, None, :], axis=-1).T
+    Mmax, Nmax = minimal_modes(R, Z, tolerance=tolerance)
+    Rc, Rs = fourier.fft2d(R)
+    Zc, Zs = fourier.fft2d(Z)
+    Rc = fourier.scale_modes2d(Rc, Mmax, Nmax)
+    Rs = fourier.scale_modes2d(Rs, Mmax, Nmax)
+    Zc = fourier.scale_modes2d(Zc, Mmax, Nmax)
+    Zs = fourier.scale_modes2d(Zs, Mmax, Nmax)
+    lasym = not (
+        np.amax(np.abs(Rs)) < 1e-12 * np.amax(np.abs(Rc))
+        and np.amax(np.abs(Zc)) < 1e-12 * np.amax(np.abs(Zs))
+    )
+    return {
+        "R": R,
+        "Z": Z,
+        "zeta": zeta_out,
+        "theta": theta_out,
+        "Mmax": Mmax,
+        "Nmax": Nmax,
+        "lasym": lasym,
+        "nfp": nfp,
+        "Rc": Rc,
+        "Rs": Rs,
+        "Zc": Zc,
+        "Zs": Zs,
+        "tolerance": tolerance,
+    }
+
+
+def plot_cross_section_comparison(dict_surf, dict_RZ, step=1, halfperiod=True):
+    """
+    Needs matplotlib to be installed!
+    Inputs:
+        dict_surf: dictionary from `to_surface` function
+        dict_RZ: dictionary from `to_RZ` function
+        step: step in zeta array
+        halfperiod: if True, only half of the zeta array is plotted
+    Output:
+        fig: figure object
+    """
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
+    cmap = mpl.colormaps["viridis"]
+    fig, axs = plt.subplots(1, 2, figsize=(14, 6))
+    ax = axs[1]
+
+    hp = 2 if halfperiod else 1
+    p1 = 1 if halfperiod else 0
+    nz_in = dict_surf["X1"].shape[1]
+    nz = nz_in // hp + p1
+    print("nz", nz)
+    iz_s = np.arange(0, nz, step)
+    c_s = hp * np.arange(nz_in) / nz_in
+    for iz in iz_s:
+        ax.plot(-dict_surf["X1"][:, iz], dict_surf["X2"][:, iz], color=cmap(c_s[iz]))
+    ax.set_xlabel(r"$-X^1$")
+    ax.set_ylabel(r"$X^2$")
+    ax.set(
+        title=f"N-B cross-sections, (M={dict_surf['Mmax']},N={dict_surf['Nmax']}, for tol={dict_surf['tolerance']:.0e}) "
+    )
+    # ax.set_aspect('equal', adjustable='box')
+    ax.axis("equal")
+
+    ax = axs[0]
+    nz_in = dict_RZ["R"].shape[1]
+    nz = nz_in // hp + p1
+    iz_s = np.arange(0, nz, step)
+    c_s = hp * np.arange(nz_in) / nz_in
+    for iz in iz_s:
+        ax.plot(dict_RZ["R"][:, iz], dict_RZ["Z"][:, iz], color=cmap(c_s[iz]))
+    ax.set_xlabel(r"$R$")
+    ax.set_ylabel(r"$Z$")
+    ax.axis("equal")
+    ax.set(
+        title=f"R-Z cross-sections, (M={dict_RZ['Mmax']},N={dict_RZ['Nmax']}, for tol={dict_RZ['tolerance']:.0e}) "
+    )
+    axs[1].figure.colorbar(
+        plt.cm.ScalarMappable(norm=plt.Normalize(vmin=0, vmax=1 / hp), cmap=cmap),
+        ax=axs[1],
+        label=r"$\zeta/(2\pi/N_{FP})$",
+    )
+    return fig

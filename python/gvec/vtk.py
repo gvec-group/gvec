@@ -213,7 +213,6 @@ def gframe_to_vtk(
     pos_axis = d_axis["xyz"]
     N_axis = d_axis["Nxyz"]
     B_axis = d_axis["Bxyz"]
-
     nzeta_fp_axis = len(zeta_fp)
 
     if zeta_visu is not None:
@@ -294,6 +293,7 @@ def gframe_to_vtk(
             same_zeta = np.allclose(zeta_axis[0:nzeta_fp_axis], zeta_bnd)
     else:
         zeta_out = zeta_visu
+
     if same_zeta:
         # same zeta points in axis and boundary:
         pos = pos_axis[:, 0:nzeta_fp_axis]
@@ -304,9 +304,9 @@ def gframe_to_vtk(
         zdft = fourier.real_dft_mat(zeta_axis, zeta_out, nfp=1)
         pos = pos_axis @ zdft["BF"].T
         N = N_axis @ zdft["BF"].T
-        B = N_axis @ zdft["BF"].T
+        B = B_axis @ zdft["BF"].T
 
-    if zeta_visu is None:
+    if same_zeta:
         XX = X
         YY = Y
     else:

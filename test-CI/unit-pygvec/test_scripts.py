@@ -252,9 +252,12 @@ def test_quasr_file(QUASR_ID, opts, tmp_path, util):
         assert hmap.exists()
         # generate boundary file from previous run
         dict_out = gvec.gframe.read_Gframe_ncfile(hmap)
-        xyz = gvec.gframe.to_surface(dict_out)
+        dict_surf = gvec.gframe.to_surface(dict_out)
         gvec.scripts.quasr.save_xyz(
-            xyz, dict_out["nfp"], "TEST2-boundary.nc", attrs={"creator": "test_script"}
+            dict_surf["xyz"],
+            dict_surf["nfp"],
+            "TEST2-boundary.nc",
+            attrs={"creator": "test_script"},
         )
         # run from boundary file
         args = ["-f", "TEST2-boundary.nc", *opts]
@@ -263,9 +266,31 @@ def test_quasr_file(QUASR_ID, opts, tmp_path, util):
         assert hmap2.exists()
         # now compare the boundary computed from the Gframe file that was started with the TEST2-boundary.nc
         dict_out2 = gvec.gframe.read_Gframe_ncfile(hmap2)
-        xyz2 = gvec.gframe.to_surface(dict_out)
-        assert np.allclose(xyz, xyz2), (
-            f"xyz boundary after rerun does not match. max|diff|={np.max(np.abs(xyz - xyz2))}"
+        dict_surf2 = gvec.gframe.to_surface(dict_out)
+        assert np.allclose(dict_surf["xyz"], dict_surf2["xyz"]), (
+            f"xyz boundary after rerun does not match. max|diff|={np.max(np.abs(dict_surf['xyz'] - dict_surf2['xyz']))}"
+        )
+        # run conversion to RZ
+        dict_RZ = gvec.gframe.to_RZ(
+            dict_surf["xyz"], dict_surf["nfp"], nzeta=4, ntheta=10, tolerance=1e-4
+        )
+        assert np.all(
+            [
+                var in dict_RZ
+                for var in [
+                    "R",
+                    "Z",
+                    "zeta",
+                    "theta",
+                    "lasym",
+                    "Mmax",
+                    "Nmax",
+                    "Rc",
+                    "Rs",
+                    "Zc",
+                    "Zs",
+                ]
+            ]
         )
 
 
@@ -299,7 +324,7 @@ def test_quasr_post(QUASR_ID, tmp_path, util):
         args = [f"{QUASR_ID:07d}"]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
-
+        # test visualization
         gvec.vtk.gframe_to_vtk(hmap, "test0_visu")
         gvec.vtk.gframe_to_vtk(
             hmap,
@@ -313,16 +338,21 @@ def test_quasr_post(QUASR_ID, tmp_path, util):
             "test2_visu",
             theta_visu=np.linspace(0, 2 * np.pi, 7),
         )
-
+        # test reading and writing of Gframe file:
         dict_out = gvec.gframe.read_Gframe_ncfile(hmap)
         file2 = Path("test-Gframe.nc")
         gvec.gframe.write_Gframe_ncfile(file2, dict_out)
         dict_out2 = gvec.gframe.read_Gframe_ncfile(file2)
+        # compare the dictionaries
         for key, val in dict_out["axis"].items():
-            assert np.allclose(val, dict_out2["axis"][key]), (
-                f"variable axis/{key} does not match"
+            assert key in dict_out2["axis"], f"variable 'axis/{key}' not found"
+            val2 = dict_out2["axis"][key]
+            assert np.allclose(val, val2), (
+                f"variable 'axis/{key}' does not match. max|diff|={np.max(np.abs(val - val2))}"
             )
         for key, val in dict_out["boundary"].items():
-            assert np.allclose(val, dict_out2["boundary"][key]), (
-                f"variable boundary/{key} does not match"
+            assert key in dict_out2["boundary"], f"variable 'boundary/{key}' not found"
+            val2 = dict_out2["boundary"][key]
+            assert np.allclose(val, val2), (
+                f"variable 'boundary/{key}' does not match. max|diff|={np.max(np.abs(val - val2))}"
             )
