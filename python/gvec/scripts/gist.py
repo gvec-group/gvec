@@ -164,7 +164,7 @@ def compute_gist_quantities(ev, state, flip):
         "diota_dr",
         "p",
         "dp_dr",
-        "minor_radius",
+        "r_min",
         "Jac_B",
         "mod_B",
         "dmod_B_dr_B",
@@ -179,7 +179,7 @@ def compute_gist_quantities(ev, state, flip):
 
     rho = ev.rho.item()
     theta = ev.theta_B
-    a = ev.minor_radius.item()
+    a = ev.r_min.item()
     iota = ev.iota.item()
     diota_dr = ev.diota_dr.item()
     p = ev.p.item()
@@ -259,7 +259,7 @@ def compute_gist_quantities(ev, state, flip):
         my_dpdx=phat,
         q0=q0,  # safety factor
         shat=shat,
-        Lref=a,  # minor radius
+        Lref=a,  # effective minor radius
         Bref=Bref,  # reference magnetic field
         n0_global=state.nfp,  # number of field periods
         beta=betahat,  # plasma beta / normalized pressure

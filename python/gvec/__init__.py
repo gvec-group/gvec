@@ -17,6 +17,8 @@ from gvec.core.compute import (
     evaluate_sfl,
     volume_integral,
     radial_integral,
+    poloidal_integral,
+    toroidal_integral,
     fluxsurface_integral,
     Evaluations,
     EvaluationsBoozer,

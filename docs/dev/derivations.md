@@ -62,21 +62,6 @@ $\Rightarrow$ `dB_dr`, `dB_dt`, `dB_dz`
 
 ---
 
-$$
-\begin{align}
-\lVert\nabla\vec{B}\rVert^2 &:= \nabla\vec{B} : \nabla\vec{B} \\
-&= \sum_{ij} \sum_{\alpha\beta} \left(\pdv{\vec{B}}{\alpha}\right)_i \left(\nabla\alpha\right)_j \left(\pdv{\vec{B}}{\beta}\right)_i \left(\nabla\beta\right)_j
-\end{align}
-$$
-
-???
-
-for $\alpha,\beta\in\left\{\rho,\thet,\zeta\right\}$.
-
-$\Rightarrow$ `grad_B_norm2`
-
----
-
 From
 
 $$
@@ -114,6 +99,10 @@ $$
 $$
 
 $\Rightarrow$ `dB_contra_t_dr`, `dB_contra_t_dt`, `dB_contra_t_dz`, `dB_contra_z_dr`, `dB_contra_z_dt`, `dB_contra_z_dz`
+
+---
+
+The gradient $\nabla\vec{B}$ can be used to compute the *magnetic gradient length scale* $L_{\nabla\vec{B}}$ (`L_gradB`). Details are found in *John Kappel et al 2024 PPCF 66 025018* [DOI:10.1088/1361-6587/ad1a3e](https://www.doi.org/10.1088/1361-6587/ad1a3e).
 
 ## Transformation to Boozer coordinates
 
