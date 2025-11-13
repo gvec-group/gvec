@@ -4,6 +4,7 @@ myst-parser
 sphinx_design
 sphinxcontrib-bibtex
 sphinx-math-dollar
+sphinx-copybutton
 myst-nb
 
 ford

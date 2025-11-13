@@ -19,6 +19,7 @@ USE MODgvec_base,   ONLY: t_base
 USE MODgvec_Sol_Var_MHD3D,ONLY: t_sol_var_MHD3D
 USE MODgvec_hmap
 USE MODgvec_rProfile_base, ONLY: c_rProfile
+USE MODgvec_boundaryFromFile , ONLY: t_boundaryFromFile
 
 IMPLICIT NONE
 PUBLIC
@@ -93,6 +94,7 @@ REAL(wp),ALLOCATABLE :: X1_a(:)         !! fourier modes of the axis boundary fo
 REAL(wp),ALLOCATABLE :: X2_a(:)         !! fourier modes of the axis boundary for X2
 REAL(wp),ALLOCATABLE :: X1pert_b(:)     !! fourier modes of the boundary perturbation for X1 (if boundary_perturb=T)
 REAL(wp),ALLOCATABLE :: X2pert_b(:)     !! fourier modes of the boundary perturbation for X2 (if boundary_perturb=T)
+CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF  !! class for reading a boundary from file
 
 CLASS(c_rProfile), ALLOCATABLE   :: iota_profile
 CLASS(c_rProfile), ALLOCATABLE   :: pres_profile

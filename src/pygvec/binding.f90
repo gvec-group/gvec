@@ -20,7 +20,7 @@ CONTAINS
 !================================================================================================================================!
 SUBROUTINE redirect_stdout(filename)
   ! MODULES
-  USE MODgvec_Globals, ONLY: Unit_stdOut, UNIT_errOut,abort
+  USE MODgvec_Globals, ONLY: Unit_stdOut, abort
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*), INTENT(IN) :: filename
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
@@ -29,31 +29,32 @@ SUBROUTINE redirect_stdout(filename)
   CLOSE(Unit_stdOut)
   OPEN(Unit_stdOut, FILE=filename, ACTION='WRITE', FORM='FORMATTED', ACCESS='SEQUENTIAL', POSITION='APPEND', IOSTAT=ios)
   IF (ios /= 0) THEN
-    WRITE(Unit_errOut, '(A)') 'ERROR: could not open file', filename, 'for writing'
-    CALL abort(__STAMP__,"")
+    CALL abort(__STAMP__,&
+        "could not open file '"//TRIM(filename)//"' for stdout redirect.")
   END IF
 END SUBROUTINE redirect_stdout
 
 !================================================================================================================================!
 SUBROUTINE flush_stdout()
   ! MODULES
-  USE MODgvec_Globals, ONLY: Unit_stdOut, UNIT_errOut,abort
+  USE MODgvec_Globals, ONLY: Unit_stdOut, abort
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: ios
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   FLUSH(Unit_stdOut, IOSTAT=ios)
   IF (ios /= 0) THEN
-    WRITE(Unit_errOut, '(A)') 'ERROR: could not flush standard output'
-    CALL abort(__STAMP__,"")
+    CALL abort(__STAMP__,&
+        "could not flush standard output")
   END IF
 END SUBROUTINE flush_stdout
 
 !================================================================================================================================!
 SUBROUTINE redirect_abort()
   ! MODULES
-  USE MODgvec_Globals, ONLY: RaiseExceptionPtr
+  USE MODgvec_Globals, ONLY: RaiseExceptionPtr, print_backtrace
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   RaiseExceptionPtr => F90WRAP_ABORT
+  print_backtrace = .FALSE.
 END SUBROUTINE redirect_abort
 
 END MODULE MODgvec_py_binding

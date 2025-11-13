@@ -99,12 +99,16 @@ extensions = [
     "sphinx_math_dollar",
     "sphinx.ext.mathjax",  # mathjax
     "sphinx.ext.intersphinx",  # link to other sphinx documentation
+    "sphinx_copybutton",  # add copy buttons to code blocks
 ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["templates"]
 
 bibtex_bibfiles = ["generators/references.bib"]
+
+# prevent copybutton from appearing on top of notebook cell numbers:
+copybutton_selector = ":not(.prompt) > div.highlight pre"
 
 # -- Options for LaTeX output --------------------------------------------
 mathjax3_config = {

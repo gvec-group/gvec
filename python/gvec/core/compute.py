@@ -213,7 +213,7 @@ def compute(
         }
         if auxcoords:
             # --- auxiliary dataset for integration --- #
-            logger.info(
+            logger.debug(
                 f"Using auxiliary dataset with integration points in {auxcoords} to compute {quantity}."
             )
             if auxcoords > {"rho", "theta", "zeta"}:
@@ -262,6 +262,24 @@ def radial_integral(quantity: xr.DataArray):
         raise ValueError("Radial integral requires integration weights for `rad`.")
     # --- integrate --- #
     return (quantity * quantity.rad_weight).sum("rad")
+
+
+def poloidal_integral(quantity: xr.DataArray):
+    """Compute the poloidal (along theta) integral/average of the given quantity."""
+    # --- check for integration points --- #
+    if "pol_weight" not in quantity.coords:
+        raise ValueError("Poloidal integral requires integration weights for `pol`.")
+    # --- integrate --- #
+    return (quantity * quantity.pol_weight).sum("pol")
+
+
+def toroidal_integral(quantity: xr.DataArray):
+    """Compute the toroidal (along zeta) integral/average of the given quantity."""
+    # --- check for integration points --- #
+    if "tor_weight" not in quantity.coords:
+        raise ValueError("Toroidal integral requires integration weights for `tor`.")
+    # --- integrate --- #
+    return (quantity * quantity.tor_weight).sum("tor")
 
 
 def fluxsurface_integral(quantity: xr.DataArray):

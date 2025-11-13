@@ -54,22 +54,30 @@ def test_load_state(testfiles):
 
 def test_find_state(testfiles, tmp_path):
     shutil.copy(testfiles[0], tmp_path / "parameter.ini")
-    shutil.copy(testfiles[1], tmp_path / "State-0.dat")
-    shutil.copy(testfiles[1], tmp_path / "State-1.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-1.dat")
     state = find_state(tmp_path)
     assert isinstance(state, State)
-    assert state.statefile == tmp_path / "State-1.dat"
+    assert state.statefile == tmp_path / "Test_State-1.dat"
+
+
+def test_find_state_two_candidates(testfiles, tmp_path):
+    shutil.copy(testfiles[0], tmp_path / "parameter.ini")
+    shutil.copy(testfiles[1], tmp_path / "TestA_State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "TestB_State-1.dat")
+    with pytest.raises(ValueError, match="found statefiles for different projects"):
+        state = find_state(tmp_path)
 
 
 def test_find_states(testfiles, tmp_path):
     shutil.copy(testfiles[0], tmp_path / "parameter.ini")
-    shutil.copy(testfiles[1], tmp_path / "State-0.dat")
-    shutil.copy(testfiles[1], tmp_path / "State-1.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-1.dat")
     states = find_states(tmp_path)
     assert len(states) == 2
     for s, state in enumerate(states):
         assert isinstance(state, State)
-        assert state.statefile == tmp_path / f"State-{s}.dat"
+        assert state.statefile == tmp_path / f"Test_State-{s}.dat"
 
 
 def test_state_with_warning(testfiles):

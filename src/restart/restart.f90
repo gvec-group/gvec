@@ -13,7 +13,7 @@
 !===================================================================================================================================
 MODULE MODgvec_Restart
 ! MODULES
-USE MODgvec_Globals, ONLY:wp,MPIroot
+USE MODgvec_Globals, ONLY:wp,MPIroot,enter_subregion,exit_subregion
 IMPLICIT NONE
 PRIVATE
 
@@ -197,7 +197,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   IF(.NOT.MPIroot) RETURN
   WRITE(UNIT_stdOut,'(A)')'RESTARTING FROM FILE ...'
-
+  CALL enter_subregion("restart-from-state")
   CALL ReadState(FileString,hmap_in=hmap)
 
   !update outputlevel
@@ -220,7 +220,7 @@ IMPLICIT NONE
   CALL LA_base%change_base(LA_base_r,LA_r,U_r%LA)
 
   CALL Finalize_ReadState()
-
+  CALL exit_subregion("restart-from-state")
   WRITE(UNIT_stdOut,'(A)')'...DONE.'
 END SUBROUTINE RestartFromState
 

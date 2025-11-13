@@ -13,7 +13,7 @@
 !===================================================================================================================================
 MODULE MODgvec_MHD3D
 ! MODULES
-  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep,MPIRoot
+  USE MODgvec_Globals, ONLY:wp,abort,UNIT_stdOut,fmt_sep,MPIRoot,enter_subregion,exit_subregion
   USE MODgvec_c_functional,   ONLY: t_functional
   IMPLICIT NONE
 
@@ -51,7 +51,7 @@ SUBROUTINE InitMHD3D(sf)
   USE MODgvec_Globals        , ONLY: TWOPI
   USE MODgvec_sgrid          , ONLY: t_sgrid
   USE MODgvec_base           , ONLY: base_new
-  USE MODgvec_boundaryFromFile, ONLY: t_boundaryFromFile,boundaryFromFile_new
+  USE MODgvec_boundaryFromFile, ONLY: boundaryFromFile_new
   USE MODgvec_hmap           , ONLY: hmap_new,hmap_new_auxvar
   USE MODgvec_VMEC           , ONLY: InitVMEC
   USE MODgvec_VMEC_vars      , ONLY: vmec_iota_profile,vmec_pres_profile
@@ -85,10 +85,10 @@ SUBROUTINE InitMHD3D(sf)
   CHARACTER(LEN=8) :: proposal_X2_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   CHARACTER(LEN=8) :: proposal_LA_sin_cos="_sin_"  !!default proposals, changed for VMEC input to automatically match input!
   REAL(wp)         :: scale_minor_radius
-  CLASS(t_boundaryFromFile),ALLOCATABLE:: BFF
   CHARACTER(LEN=255) ::boundary_filename
   CHARACTER(LEN=8) :: boundary_perturb_type_str !! readin variable for boundary_perturb_type: legacy, cosm
 !===================================================================================================================================
+  CALL enter_subregion("init-MHD3D")
   CALL par_Barrier(beforeScreenOut='INIT MHD3D ...')
 
   which_init = GETINT("whichInitEquilibrium",0)
@@ -208,7 +208,7 @@ SUBROUTINE InitMHD3D(sf)
   CALL par_BCast(proposal_LA_sin_cos,0)
   CALL par_BCast(nfp_loc,0)
 
-
+  CALL enter_subregion("discretization")
   X1X2_deg     = GETINT(     "X1X2_deg")
   X1X2_cont    = GETINT(     "X1X2_continuity",Proposal=(X1X2_deg-1) )
   X1_mn_max    = GETINTARRAY("X1_mn_max"   ,2 ,Proposal=proposal_mn_max)
@@ -229,11 +229,13 @@ SUBROUTINE InitMHD3D(sf)
     mn_nyq  = GETINTARRAY("mn_nyq",2)
     IF(mn_nyq(1).LT.mn_nyq_min(1))THEN
        CALL abort(__STAMP__,&
-                  'mn_nyq(1) too small, should be >= ',intInfo=mn_nyq_min(1))
+                  'mn_nyq(1) too small, should be >= ',intInfo=mn_nyq_min(1),&
+                  TypeInfo="InvalidParameterError")
     END IF
     IF(mn_nyq(2).LT.mn_nyq_min(2))THEN
        CALL abort(__STAMP__,&
-                  'mn_nyq(2) too small, should be >= ',intInfo=mn_nyq_min(2))
+                  'mn_nyq(2) too small, should be >= ',intInfo=mn_nyq_min(2),&
+                  TypeInfo="InvalidParameterError")
     END IF
   ELSE
     mn_nyq(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
@@ -291,71 +293,6 @@ SUBROUTINE InitMHD3D(sf)
   nDOF_X1 = X1_base%s%nBase* X1_base%f%modes
   nDOF_X2 = X2_base%s%nBase* X2_base%f%modes
   nDOF_LA = LA_base%s%nBase* LA_base%f%modes
-
-  !INITIALIZATION PARAMETERS (ONLY NECESSARY ON MPIroot)
-  IF(MPIroot)THEN
-    init_average_axis= GETLOGICAL("init_average_axis",Proposal=.FALSE.)
-    IF(init_average_axis)THEN
-      average_axis_move(1) = GETREAL("average_axis_move_X1",Proposal=0.0_wp)
-      average_axis_move(2) = GETREAL("average_axis_move_X2",Proposal=0.0_wp)
-    END IF
-    ALLOCATE(X1_b(1:X1_base%f%modes) )
-    ALLOCATE(X2_b(1:X2_base%f%modes) )
-    ALLOCATE(LA_b(1:LA_base%f%modes) )
-    ALLOCATE(X1_a(1:X1_base%f%modes) )
-    ALLOCATE(X2_a(1:X2_base%f%modes) )
-    X1_b=0.0_wp
-    X2_b=0.0_wp
-    LA_b=0.0_wp
-    X1_a=0.0_wp
-    X2_a=0.0_wp
-
-    IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
-      WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
-      ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
-      DO iMode=sin_range(1)+1,sin_range(2)
-        X1_a(iMode)=get_iMode('X1_a_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-      END DO !iMode
-      DO iMode=cos_range(1)+1,cos_range(2)
-        X1_a(iMode)=get_iMode('X1_a_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-      END DO !iMode
-      END ASSOCIATE
-      WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X2:'
-      ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
-      DO iMode=sin_range(1)+1,sin_range(2)
-        X2_a(iMode)=get_iMode('X2_a_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-      END DO !iMode
-      DO iMode=cos_range(1)+1,cos_range(2)
-        X2_a(iMode)=get_iMode('X2_a_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-      END DO !iMode
-      END ASSOCIATE
-    END IF
-    IF(getBoundaryFromFile.EQ.-1)THEN
-      IF(((init_BC.EQ.1).OR.(init_BC.EQ.2)))THEN !READ edge values from input file
-        WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
-        ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
-        DO iMode=sin_range(1)+1,sin_range(2)
-          X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-        END DO !iMode
-        DO iMode=cos_range(1)+1,cos_range(2)
-          X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
-        END DO !iMode
-        END ASSOCIATE
-        WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
-        ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
-        DO iMode=sin_range(1)+1,sin_range(2)
-          X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-        END DO !iMode
-        DO iMode=cos_range(1)+1,cos_range(2)
-          X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
-        END DO !iMode
-        END ASSOCIATE
-      END IF !init_BC
-    ELSE !getBoundaryFromFile
-      CALL BFF%convert_to_modes(X1_base%f,X2_base%f,X1_b,X2_b,scale_minor_radius)
-      CALL BFF%free()
-    END IF
-  END IF !MPIroot
 
 
 
@@ -417,6 +354,72 @@ SUBROUTINE InitMHD3D(sf)
   END DO
   END ASSOCIATE !LA
 
+  CALL exit_subregion("discretization")
+  CALL enter_subregion("boundary")
+  !INITIALIZATION PARAMETERS (ONLY NECESSARY ON MPIroot)
+  IF(MPIroot)THEN
+    init_average_axis= GETLOGICAL("init_average_axis",Proposal=.FALSE.)
+    IF(init_average_axis)THEN
+      average_axis_move(1) = GETREAL("average_axis_move_X1",Proposal=0.0_wp)
+      average_axis_move(2) = GETREAL("average_axis_move_X2",Proposal=0.0_wp)
+    END IF
+    ALLOCATE(X1_b(1:X1_base%f%modes) )
+    ALLOCATE(X2_b(1:X2_base%f%modes) )
+    ALLOCATE(LA_b(1:LA_base%f%modes) )
+    ALLOCATE(X1_a(1:X1_base%f%modes) )
+    ALLOCATE(X2_a(1:X2_base%f%modes) )
+    X1_b=0.0_wp
+    X2_b=0.0_wp
+    LA_b=0.0_wp
+    X1_a=0.0_wp
+    X2_a=0.0_wp
+
+    IF((init_BC.EQ.0).OR.(init_BC.EQ.2))THEN !READ axis values from input file
+      WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X1:'
+      ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X1_a(iMode)=get_iMode('X1_a_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X1_a(iMode)=get_iMode('X1_a_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+      WRITE(UNIT_stdOut,'(4X,A)')'... read axis data for X2:'
+      ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
+      DO iMode=sin_range(1)+1,sin_range(2)
+        X2_a(iMode)=get_iMode('X2_a_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      DO iMode=cos_range(1)+1,cos_range(2)
+        X2_a(iMode)=get_iMode('X2_a_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+      END DO !iMode
+      END ASSOCIATE
+    END IF
+    IF(getBoundaryFromFile.EQ.-1)THEN
+      IF(((init_BC.EQ.1).OR.(init_BC.EQ.2)))THEN !READ edge values from input file
+        WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X1:'
+        ASSOCIATE(modes=>X1_base%f%modes,sin_range=>X1_base%f%sin_range,cos_range=>X1_base%f%cos_range)
+        DO iMode=sin_range(1)+1,sin_range(2)
+          X1_b(iMode)=get_iMode('X1_b_sin',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+        END DO !iMode
+        DO iMode=cos_range(1)+1,cos_range(2)
+          X1_b(iMode)=get_iMode('X1_b_cos',X1_base%f%Xmn(:,iMode),X1_base%f%nfp)
+        END DO !iMode
+        END ASSOCIATE
+        WRITE(UNIT_stdOut,'(4X,A)')'... read edge boundary data for X2:'
+        ASSOCIATE(modes=>X2_base%f%modes,sin_range=>X2_base%f%sin_range,cos_range=>X2_base%f%cos_range)
+        DO iMode=sin_range(1)+1,sin_range(2)
+          X2_b(iMode)=get_iMode('X2_b_sin',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+        END DO !iMode
+        DO iMode=cos_range(1)+1,cos_range(2)
+          X2_b(iMode)=get_iMode('X2_b_cos',X2_base%f%Xmn(:,iMode),X2_base%f%nfp)
+        END DO !iMode
+        END ASSOCIATE
+      END IF !init_BC
+    ELSE !getBoundaryFromFile
+      CALL BFF%convert_to_modes(X1_base%f,X2_base%f,X1_b,X2_b,scale_minor_radius)
+    END IF
+  END IF !MPIroot
+
   boundary_perturb = GETLOGICAL('boundary_perturb', Proposal=.FALSE.)
   boundary_perturb_type_str  = GETSTR("boundary_perturb_type", proposal="legacy")
   IF (boundary_perturb_type_str .EQ. "legacy") THEN
@@ -425,7 +428,9 @@ SUBROUTINE InitMHD3D(sf)
     boundary_perturb_type = BLEND_COSM
   ELSE
     CALL abort(__STAMP__,&
-    'boundary_perturb_type must be "legacy" or "cosm", found ',intInfo=boundary_perturb_type)
+    'boundary_perturb_type must be "legacy" or "cosm", found '//TRIM(boundary_perturb_type_str),&
+    intInfo=boundary_perturb_type,&
+    TypeInfo="InvalidParameterError")
   END IF
   boundary_perturb_depth = GETREAL('boundary_perturb_depth', proposal=0.6_wp)
   IF(boundary_perturb)THEN
@@ -453,7 +458,7 @@ SUBROUTINE InitMHD3D(sf)
     END DO !iMode
     END ASSOCIATE
   END IF
-
+  CALL exit_subregion("boundary")
   ! ALLOCATE DATA
   ALLOCATE(U(-3:1))
   CALL U(1)%init((/X1_base%s%nbase,X2_base%s%nbase,LA_base%s%nBase,  &
@@ -475,7 +480,7 @@ SUBROUTINE InitMHD3D(sf)
   END DO
 
   CALL InitializeMHD3D_EvalFunc()
-
+  CALL exit_subregion("init-MHD3D")
   CALL par_barrier(afterScreenOut='...DONE')
   SWRITE(UNIT_stdOut,fmt_sep)
 
@@ -513,6 +518,7 @@ SUBROUTINE InitProfile(sf, var,var_profile)
   CHARACTER(LEN=10)    :: possible_BCs(0:2)
   INTEGER              :: BC(1:2),iBC,jBC
   !===================================================================================================================================
+  CALL enter_subregion("get-profile-"//TRIM(var))
   possible_BCs(0)="not_a_knot"
   possible_BCs(1)="1st_deriv"
   possible_BCs(2)="2nd_deriv"
@@ -527,13 +533,26 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     CALL GETREALALLOCARRAY(var//"_coefs",profile_coefs,n_profile_coefs)
     profile_coefs=profile_coefs*profile_scale
     CALL GETREALALLOCARRAY(var//"_knots",profile_knots,n_profile_knots)
+    IF(ABS(profile_knots(1)).GT.1.0d-12) CALL abort(__STAMP__,&
+        "First knot position must be =0 for bspline of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
+    IF(ABS(profile_knots(n_profile_knots)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
+        "Last knot position must be =1 for bspline of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
     var_profile = t_rProfile_bspl(coefs=profile_coefs,knots=profile_knots)
   ELSE IF (profile_type.EQ."interpolation") THEN
     CALL GETREALALLOCARRAY(var//"_vals",profile_vals, n_profile_vals)
     CALL GETREALALLOCARRAY(var//"_rho2",profile_rho2, n_profile_rho2)
+    IF(ABS(profile_rho2(1)).GT.1.0d-12) CALL abort(__STAMP__,&
+      "First rho2 position must be =0 for interpolation of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
+    IF(ABS(profile_rho2(n_profile_rho2)-1.0_wp).GT.1.0d-12) CALL abort(__STAMP__,&
+      "Last rho2 position must be =1 for interpolation of "//TRIM(var)//" profile!",&
+        TypeInfo="InvalidParameterError")
     IF (n_profile_vals .NE. n_profile_rho2) THEN
       CALL abort(__STAMP__,&
-      'Size of '//var//'_rho2 and '//var//'_vals must be equal!')
+      'Size of '//var//'_rho2 and '//var//'_vals must be equal!',&
+        TypeInfo="InvalidParameterError")
     END IF
     profile_BC_type(1) = GETSTR(var//"_BC_type_axis",Proposal="not_a_knot")
     profile_BC_type(2) = GETSTR(var//"_BC_type_edge",Proposal="not_a_knot")
@@ -548,7 +567,8 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     END DO !iBC
     IF(ANY(BC<0)) THEN
       CALL abort(__STAMP__,&
-                 "BC_type can only be 'not_a_knot', '1st_deriv' or '2nd_deriv'!")
+          "BC_type of profile must be 'not_a_knot', '1st_deriv' or '2nd_deriv' ... got '"//TRIM(profile_BC_type(1))//"' on axis and '"//TRIM(profile_BC_type(2))//"' on edge",&
+        TypeInfo="InvalidParameterError")
     END IF
 
     IF(ANY(BC>0)) THEN
@@ -564,11 +584,13 @@ SUBROUTINE InitProfile(sf, var,var_profile)
     SDEALLOCATE(profile_rho2)
   ELSE
     CALL abort(__STAMP__,&
-    'Specified '//var//'_type unknown. It must be either "polynomial", "bspline" or "interpolation".')
+         "Specified "//var//"_type unknown. Expecting 'polynomial', 'bspline' or 'interpolation' ... got '"//TRIM(profile_type)//"'",&
+        TypeInfo="InvalidParameterError")
   END IF ! profile type
 
   SDEALLOCATE(profile_knots)
   SDEALLOCATE(profile_coefs)
+  CALL exit_subregion("get-profile-"//TRIM(var))
 END SUBROUTINE InitProfile
 
 !===================================================================================================================================
@@ -596,6 +618,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   INTEGER              :: JacCheck
 !===================================================================================================================================
   CALL par_barrier(beforeScreenOut="    INITIALIZE SOLUTION...",afterScreenOut="                           ...")
+  CALL enter_subregion("init-solution")
   IF(MPIroot) THEN
     IF(doRestart)THEN
       WRITE(UNIT_stdOut,'(4X,A)')'... restarting from file ... '
@@ -610,6 +633,7 @@ SUBROUTINE InitSolutionMHD3D(sf)
   END IF !MPIroot
   CALL par_Bcast(U(0)%X1,0)
   CALL par_Bcast(U(0)%X2,0)
+  CALL exit_subregion("init-solution")
 
   IF(init_LA) THEN
     CALL Init_LA_From_Solution(U(0))  !BCast inside
@@ -621,17 +645,19 @@ SUBROUTINE InitSolutionMHD3D(sf)
 
   JacCheck=2
   CALL InitProfilesGP() !evaluate profiles once at Gauss Points (on MPIroot + BCast)
+
+  CALL enter_subregion("check-solution")
   U(0)%W_MHD3D=EvalEnergy(U(0),.TRUE.,JacCheck)
   IF(JacCheck.EQ.-1)THEN
     CALL Analyze(0)
     CALL abort(__STAMP__,&
-        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!")
+        "NEGATIVE JACOBIAN FOUND AFTER INITIALIZATION!",TypeInfo="InitializationError")
   END IF
   CALL WriteState(U(0),0)
   CALL EvalForce(U(0),.FALSE.,JacCheck, F(0))
   SWRITE(UNIT_stdOut,'(8x,A,3E11.4)')'|Force|= ',SQRT(F(0)%norm_2())
   CALL Analyze(0)
-
+  CALL exit_subregion("check-solution")
   CALL par_barrier(afterScreenOut="    ...DONE")
   SWRITE(UNIT_stdOut,fmt_sep)
 
@@ -985,6 +1011,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
 !===================================================================================================================================
   StartTime=GetTime()
   SWRITE(UNIT_stdOut,'(4X,A)') "... Initialize lambda from mapping ..."
+  CALL enter_subregion("reinit-lambda")
   nBase        = LA_base%s%nBase
   ASSOCIATE(modes        => LA_base%f%modes, &
             s_IP         => LA_base%s%s_IP, &
@@ -1049,6 +1076,7 @@ SUBROUTINE Init_LA_from_Solution(U_init)
   END DO
   END ASSOCIATE !LA
   EndTime=GetTime()
+  CALL exit_subregion("reinit-lambda")
   SWRITE(UNIT_stdOut,'(4X,A,F9.2,A)') " init lambda took [ ",EndTime-StartTime," sec]"
 END SUBROUTINE Init_LA_from_solution
 
@@ -1169,13 +1197,16 @@ SUBROUTINE MinimizeMHD3D(sf)
 ! LOCAL VARIABLES
 !===================================================================================================================================
   __PERFON('minimizer')
+  CALL enter_subregion("minimize")
   SELECT CASE(MinimizerType)
   CASE(0,10)
     CALL MinimizeMHD3D_descent(sf)
   CASE DEFAULT
     CALL abort(__STAMP__,&
-        "Minimizertype does not exist",MinimizerType,-1.0_wp)
+        "requested MinimizeType does not exist, expecting 0 or 10",intinfo=MinimizerType,&
+        TypeInfo="InvalidParameterError")
   END SELECT
+  CALL exit_subregion("minimize")
   __PERFOFF('minimizer')
 END SUBROUTINE MinimizeMHD3D
 
@@ -1542,19 +1573,24 @@ SUBROUTINE FinalizeMHD3D(sf)
 ! LOCAL VARIABLES
   INTEGER :: i
 !===================================================================================================================================
-  CALL X1_base%free()
-  CALL X2_base%free()
-  CALL LA_base%free()
+  CALL enter_subregion("finalize-MHD3D")
+  IF(ALLOCATED(X1_base)) CALL X1_base%free()
+  IF(ALLOCATED(X2_base)) CALL X2_base%free()
+  IF(ALLOCATED(LA_base)) CALL LA_base%free()
 
   DO i=-1,1
-    CALL U(i)%free()
-    CALL P(i)%free()
-    CALL V(i)%free()
+    IF(ALLOCATED(U)) CALL U(i)%free()
+    IF(ALLOCATED(P)) CALL P(i)%free()
+    IF(ALLOCATED(V)) CALL V(i)%free()
   END DO
   DO i=-1,0
-    CALL F(i)%free()
+    IF(ALLOCATED(F)) CALL F(i)%free()
   END DO
   CALL sgrid%free()
+  IF(ALLOCATED(BFF)) THEN
+    CALL BFF%free()
+    DEALLOCATE(BFF)
+  END IF
 
   SDEALLOCATE(U)
   SDEALLOCATE(P)
@@ -1585,6 +1621,7 @@ SUBROUTINE FinalizeMHD3D(sf)
   SDEALLOCATE(X1_base)
   SDEALLOCATE(X2_base)
   SDEALLOCATE(LA_base)
+  CALL exit_subregion("finalize-MHD3D")
 END SUBROUTINE FinalizeMHD3D
 
 END MODULE MODgvec_MHD3D

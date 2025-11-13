@@ -41,11 +41,15 @@ INTEGER                     :: testlevel =-1             !! flag for testing rou
 INTEGER                     :: ntestCalled=0             !! counter for called tests
 INTEGER                     :: nfailedMsg=0              !! counter for messages on failed tests
 INTEGER                     :: testUnit                  !! unit for out.test file
-INTEGER                     :: ProgressBar_oldpercent    !! for progressBar
-REAL(wp)                    :: ProgressBar_starttime     !! for progressBar
+!MPI--------------------------------------------------------------------------------------------------------------------------------
 LOGICAL                     :: MPIRoot=.TRUE.            !! flag whether process is MPI root process
 INTEGER                     :: myRank=0                  !! rank of the MPI task
 INTEGER                     :: nRanks=1                  !! total number of MPI tasks
+!-----------------------------------------------------------------------------------------------------------------------------------
+CHARACTER(LEN=20)           :: active_region(5)=(/"", "", "", "", ""/) !! for abort messages, to identify which (sub-)region was currently
+INTEGER                     :: iregion=0                 !! which active_region to fill
+INTEGER                     :: ProgressBar_oldpercent    !! for progressBar
+REAL(wp)                    :: ProgressBar_starttime     !! for progressBar
 !-----------------------------------------------------------------------------------------------------------------------------------
 #ifndef NOISOENV
 INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit  !! Terminal input
@@ -56,7 +60,21 @@ INTEGER, PARAMETER          :: UNIT_stdIn  = 5           !! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = 6           !! Terminal output
 INTEGER, PARAMETER          :: UNIT_errOut = 0           !! For error output
 #endif
+LOGICAL                     :: print_backtrace=.TRUE.  !! print backtrace on abort if compiled with GNU compiler
 INTEGER, PARAMETER          :: MAXLEN  = 4096       !! max length of strings, needed for string handling when compiled with NVHPC
+
+INTERFACE reset_subregion
+  MODULE PROCEDURE reset_subregion
+END INTERFACE
+
+INTERFACE enter_subregion
+  MODULE PROCEDURE enter_subregion
+END INTERFACE
+
+INTERFACE exit_subregion
+  MODULE PROCEDURE exit_subregion
+END INTERFACE
+
 INTERFACE Abort
    MODULE PROCEDURE Abort
 END INTERFACE
@@ -107,12 +125,91 @@ END INTERFACE
 
 CONTAINS
 
+
+!==================================================================================================================================
+!> reset global variables for the subregion output to default
+!==================================================================================================================================
+SUBROUTINE reset_subregion
+! MODULES
+  IMPLICIT NONE
+!==================================================================================================================================
+  iregion=0
+  active_region=""
+END SUBROUTINE reset_subregion
+
+!==================================================================================================================================
+!> add the current subregion to the active_regions (maximum depth is 5)
+!! This information is collected uniquely for the abort error message
+!!
+!==================================================================================================================================
+SUBROUTINE enter_subregion(subregion_name)
+! MODULES
+  IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  CHARACTER(LEN=*), INTENT(IN) :: subregion_name
+!----------------------------------------------------------------------------------------------------------------------------------
+#if DEBUG
+  CHARACTER(LEN=MAXLEN) :: regions
+  INTEGER :: i
+#endif
+!==================================================================================================================================
+  IF(MPIroot)THEN
+    IF(iregion>4) CALL Abort(__STAMP__,&
+                         "active subregion reached maximum depth of 5")
+    iregion=iregion+1
+    active_region(iregion)=subregion_name
+#if DEBUG
+    regions=active_region(1)
+    DO i=2,iregion
+      regions=TRIM(regions)//"."//TRIM(active_region(i))
+    END DO
+    SWRITE(Unit_stdOut,'(A)') '==> entering '//TRIM(regions)
+#endif
+  END IF
+END SUBROUTINE enter_subregion
+
+!==================================================================================================================================
+!> remove the current subregion from the active subregions
+!!
+!==================================================================================================================================
+SUBROUTINE exit_subregion(subregion_name)
+! MODULES
+  IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+  CHARACTER(LEN=*), INTENT(IN) :: subregion_name
+!----------------------------------------------------------------------------------------------------------------------------------
+#if DEBUG
+  CHARACTER(LEN=MAXLEN) :: regions
+  INTEGER :: i
+#endif
+!==================================================================================================================================
+  IF(MPIroot)THEN
+#if DEBUG
+    regions=active_region(1)
+    DO i=2,iregion
+      regions=TRIM(regions)//"."//TRIM(active_region(i))
+    END DO
+    SWRITE(Unit_stdOut,'(A)') '<==  exiting '//TRIM(regions)
+#endif
+    IF(TRIM(subregion_name).NE.TRIM(active_region(iregion))) &
+      CALL Abort(__STAMP__,&
+                "trying to exit subregion '"//TRIM(subregion_name)// &
+                "', but currently active subregion is '"//TRIM(active_region(iregion))//"'")
+    active_region(iregion)=""
+    iregion=iregion-1
+  END IF
+END SUBROUTINE exit_subregion
+
+
+
 !==================================================================================================================================
 !> Terminate program correctly if an error has occurred (important in MPI mode!).
 !! Uses a MPI_ABORT which terminates FLUXO if a single proc calls this routine.
 !!
 !==================================================================================================================================
-SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode)
+SUBROUTINE Abort(SourceFile,SourceLine,CompDate,CompTime,ErrorMessage,IntInfo,RealInfo,ErrorCode,TypeInfo)
 ! MODULES
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -122,41 +219,65 @@ INTEGER                           :: SourceLine      !! Line in source file
 CHARACTER(LEN=*)                  :: CompDate        !! Compilation date
 CHARACTER(LEN=*)                  :: CompTime        !! Compilation time
 CHARACTER(LEN=*)                  :: ErrorMessage    !! Error message
-INTEGER,OPTIONAL                  :: IntInfo         !! Error info (integer)
-REAL(wp),OPTIONAL                 :: RealInfo        !! Error info (real)
-INTEGER,OPTIONAL                  :: ErrorCode       !! Error info (integer)
+INTEGER,OPTIONAL                  :: IntInfo         !! additional integer value for error message
+REAL(wp),OPTIONAL                 :: RealInfo        !! additional real value for error message
+INTEGER,OPTIONAL                  :: ErrorCode       !! used for MPI
+CHARACTER(LEN=*),OPTIONAL         :: TypeInfo        !! Error type, default is "RuntimeError". Or e.g.
+                                                     !! "MissingParameterError","InvalidParameterError","FileNotFoundError","InitializationError"
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-CHARACTER(LEN=50)                 :: IntString,RealString
+CHARACTER(LEN=50)                 :: IntString,RealString,errtype
 #if MPI
 INTEGER                           :: errOut          ! Output of MPI_ABORT
 INTEGER                           :: signalout       ! Output errorcode
 #endif
+CHARACTER(LEN=MAXLEN)             :: errmsg
+INTEGER                           :: i
 !==================================================================================================================================
 IntString = ""
 RealString = ""
+errtype="RuntimeError"
+errmsg=""
+IF(MPIroot)THEN
+  errmsg=TRIM(active_region(1))
+  DO i=2,iregion
+    errmsg=TRIM(errmsg)//"."//TRIM(active_region(i))
+  END DO
+  CALL reset_subregion()
+END IF
+IF(PRESENT(TypeInfo)) errtype = TRIM(TypeInfo)
+errmsg=TRIM(errmsg) // " | "//TRIM(errtype)
 
-IF (PRESENT(IntInfo))  WRITE(IntString,"(A,I0)")  "\nIntInfo:  ", IntInfo
-IF (PRESENT(RealInfo)) WRITE(RealString,"(A,F24.19)") "\nRealInfo: ", RealInfo
+IF (PRESENT(IntInfo))  THEN
+  WRITE(IntString,"(I8)")  IntInfo
+  IntString=",IntInfo="//TRIM(IntString)
+END IF
+IF (PRESENT(RealInfo)) THEN
+   WRITE(RealString,"(F24.19)") RealInfo
+   RealString=",RealInfo="//TRIM(RealString)
+END IF
+errmsg=TRIM(errmsg)//" | "//TRIM(ErrorMessage)//TRIM(IntString)//TRIM(RealString)
 
 WRITE(UNIT_stdOut,*) '_____________________________________________________________________________\n', &
                      'Program abort caused on Proc ',myRank, '\n', &
                      '  in File : ',TRIM(SourceFile),' Line ',SourceLine, '\n', &
                      '  This file was compiled at ',TRIM(CompDate),'  ',TRIM(CompTime), '\n', &
-                     'Message: ',TRIM(ErrorMessage), &
-                     TRIM(IntString), TRIM(RealString)
+                     'Message: ',TRIM(errmsg)
 
 CALL FLUSH(UNIT_stdOut)
+
 #if MPI
 signalout=2 ! MPI_ABORT requires an output error-code /=0
 IF(PRESENT(ErrorCode)) signalout=ErrorCode
 CALL MPI_ABORT(MPI_COMM_WORLD,signalout,errOut)
 #endif
+
 #if GNU
-CALL BACKTRACE
+IF(print_backtrace) CALL BACKTRACE
 #endif
+
 IF (ASSOCIATED(RaiseExceptionPtr)) THEN
-  CALL RaiseExceptionPtr(ErrorMessage)
+  CALL RaiseExceptionPtr(errmsg)
 END IF
 ERROR STOP 2
 END SUBROUTINE Abort

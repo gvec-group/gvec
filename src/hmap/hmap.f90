@@ -47,7 +47,7 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE hmap_new( sf, which_hmap,hmap_in)
 ! MODULES
-USE MODgvec_Globals   , ONLY: abort
+USE MODgvec_Globals   , ONLY: abort,enter_subregion,exit_subregion
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -64,6 +64,7 @@ IMPLICIT NONE
   CLASS(c_hmap),ALLOCATABLE,INTENT(INOUT) :: sf !! self
 #endif /*defined(PP_WHICH_HMAP)*/
 !===================================================================================================================================
+  CALL enter_subregion("hmap")
   IF(.NOT. PRESENT(hmap_in))THEN
     SELECT CASE(which_hmap)
 #ifdef PP_WHICH_HMAP
@@ -96,7 +97,7 @@ IMPLICIT NONE
        "hmap_in does not coincide with requested hmap in hmap_new")
     ALLOCATE(sf,source=hmap_in)
   END IF
-
+  CALL exit_subregion("hmap")
 END SUBROUTINE hmap_new
 
 !===================================================================================================================================

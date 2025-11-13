@@ -11,7 +11,7 @@ import argparse
 from collections.abc import Sequence
 
 import gvec
-from gvec.scripts import cas3d, run, quasr
+from gvec.scripts import cas3d, convert, gist, quasr, run
 
 # === Arguments === #
 
@@ -23,56 +23,33 @@ subparsers = parser.add_subparsers(
     title="mode",
     description="which mode/subcommand to run",
     dest="mode",
+    metavar="MODE",
 )
+
+
+def get_compile_options() -> str:
+    try:
+        from gvec import _compile_options as opts
+    except ImportError:
+        return "UNKNOWN BUILD"
+    config = opts.CMAKE_BUILD_TYPE
+    if opts.USE_OPENMP:
+        config += ", OpenMP"
+    if opts.USE_MPI:
+        config += ", MPI"
+    if opts.GVEC_FIX_HMAP:
+        config += f", {opts.GVEC_FIX_HMAP}"
+    if len(opts.CMAKE_HOSTNAME) > 0:
+        config += f" on {opts.CMAKE_HOSTNAME}"
+    return config
+
+
 parser.add_argument(
     "-V",
     "--version",
     action="version",
-    version=f"pyGVEC v{gvec.__version__} from {Path(gvec.__file__).parent} (python {platform.python_version()})",
+    version=f"pyGVEC v{gvec.__version__} ({get_compile_options()}, python {platform.python_version()}) from {Path(gvec.__file__).parent}",
 )
-
-# --- convert parameterfile --- #
-
-convert_parser = subparsers.add_parser(
-    "convert-params",
-    help="convert the GVEC parameterfile between different formats",
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    description="Convert GVEC parameterfiles between different formats.\n"
-    "The INI (classical) parameter files do not support stages or the current optimization!\nAlso the formatting is lost upon conversion.",
-)
-convert_parser.add_argument(
-    "input",
-    type=Path,
-    help="input GVEC or VMEC parameterfile",
-)
-convert_parser.add_argument(
-    "output",
-    type=Path,
-    nargs="?",
-    help="output GVEC parameterfile",
-    default="parameter.yaml",
-)
-convert_parser.add_argument(
-    "--vmec",
-    action="store_true",
-    help="input parameterfile is a VMEC namelist",
-)
-convert_parser.add_argument(
-    "-x",
-    "--flip",
-    choices=["t", "theta", "z", "zeta", "b", "both"],
-    help="flip the coordinates in the specified direction(s), possible values are: t/theta, z/zeta, b/both",
-    metavar="FLIP",
-)
-verbosity = convert_parser.add_mutually_exclusive_group()
-verbosity.add_argument(
-    "-v",
-    "--verbose",
-    action="count",
-    default=0,
-    help="verbosity level: -v for info, -vv for debug",
-)
-verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
 
 # --- scripts --- #
 
@@ -85,11 +62,12 @@ run_parser = subparsers.add_parser(
     add_help=False,
 )
 
-cas3d_parser = subparsers.add_parser(
-    "to-cas3d",
-    help="convert a GVEC state to a CAS3D compatible input file",
-    description=cas3d.parser.description,
-    parents=[cas3d.parser],
+convert_parser = subparsers.add_parser(
+    "convert-params",
+    help="convert the GVEC parameterfile between different formats",
+    formatter_class=convert.parser.formatter_class,
+    description=convert.parser.description,
+    parents=[convert.parser],
     add_help=False,
 )
 
@@ -102,67 +80,46 @@ quasr_parser = subparsers.add_parser(
     usage=quasr.parser.usage,
 )
 
+cas3d_parser = subparsers.add_parser(
+    "to-cas3d",
+    help="convert a GVEC state to a CAS3D compatible input file",
+    description=cas3d.parser.description,
+    parents=[cas3d.parser],
+    add_help=False,
+)
+
+gist_parser = subparsers.add_parser(
+    "to-gist",
+    help="convert a GVEC state to a GENE-GIST compatible input file",
+    description=gist.parser.description,
+    parents=[gist.parser],
+    add_help=False,
+)
+
+
 # === Script === #
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
     gvec.util.logging_setup()
-    logger = logging.getLogger("gvec")
 
     if isinstance(args, argparse.Namespace):
         pass
     else:
         args = parser.parse_args(args)
 
-    # --- run GVEC --- #
+    # --- run GVEC scripts --- #
     if args.mode == "run":
         return run.main(args)
 
-    # --- convert parameterfile --- #
     elif args.mode == "convert-params":
-        if args.quiet:
-            logging.disable()
-        elif args.verbose >= 2:
-            logger.setLevel(logging.DEBUG)
-        elif args.verbose == 1:
-            logger.setLevel(logging.INFO)
-        logger.debug(f"parsed args: {args}")
+        return convert.main(args)
 
-        if args.vmec:
-            try:
-                import f90nml
-            except ImportError as e:
-                logger.debug(f"Caught exception: {e}")
-                logger.error("reading VMEC namelists requires 'f90nml' to be installed.")
-                return
-            with open(args.input, "r") as file:
-                content = file.read()
-            content = content.strip()
-            if content[-4:].lower() == "&end":
-                content = content[:-4]
-            nml = f90nml.reads(content)["indata"]
-            parameters = gvec.util.parameters_from_vmec(nml, args.input.name)
-        else:
-            parameters = gvec.util.read_parameters(args.input)
-
-        if args.flip is None:
-            if not gvec.util.check_boundary_direction(parameters):
-                logger.info("Input boundary is left-handed, flipping theta.")
-                parameters = gvec.util.flip_parameters_theta(parameters)
-        else:
-            if args.flip[0] in "tb":
-                parameters = gvec.util.flip_parameters_theta(parameters)
-            if args.flip[0] in "zb":
-                parameters = gvec.util.flip_parameters_zeta(parameters)
-
-        if not gvec.util.check_boundary_direction(parameters):
-            logger.warning("Output boundary is left-handed!")
-
-        gvec.util.write_parameters(parameters, args.output)
-
-    # --- other scripts --- #
     elif args.mode == "to-cas3d":
         return cas3d.main(args)
+
+    elif args.mode == "to-gist":
+        return gist.main(args)
 
     elif args.mode == "load-quasr":
         return quasr.main(args)

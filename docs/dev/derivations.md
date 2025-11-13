@@ -35,7 +35,7 @@ $$
 
 for $\alpha\in\left\{\rho,\thet,\zeta\right\}$.
 
-$\Rightarrow$ `dmod_B_dr`, `dmod_B_dt`, `dmod_B_dz`, `grad_mod_B`
+$\Rightarrow$ `dmodB_dr`, `dmodB_dt`, `dmodB_dz`, `grad_modB`
 
 ## Derivatives of $\vec{B}$
 
@@ -59,21 +59,6 @@ Note that $\vec{e}_\beta \nabla\alpha$ and $\vec{k}_{\beta\alpha} \nabla\alpha$ 
 Due to `xarray`'s limitations with multiple dimensions of the same name, $\nabla\vec{B}$ is not directly available as a computable quantitiy, and its components should be used instead.
 
 $\Rightarrow$ `dB_dr`, `dB_dt`, `dB_dz`
-
----
-
-$$
-\begin{align}
-\lVert\nabla\vec{B}\rVert^2 &:= \nabla\vec{B} : \nabla\vec{B} \\
-&= \sum_{ij} \sum_{\alpha\beta} \left(\pdv{\vec{B}}{\alpha}\right)_i \left(\nabla\alpha\right)_j \left(\pdv{\vec{B}}{\beta}\right)_i \left(\nabla\beta\right)_j
-\end{align}
-$$
-
-???
-
-for $\alpha,\beta\in\left\{\rho,\thet,\zeta\right\}$.
-
-$\Rightarrow$ `grad_B_norm2`
 
 ---
 
@@ -114,6 +99,10 @@ $$
 $$
 
 $\Rightarrow$ `dB_contra_t_dr`, `dB_contra_t_dt`, `dB_contra_t_dz`, `dB_contra_z_dr`, `dB_contra_z_dt`, `dB_contra_z_dz`
+
+---
+
+The gradient $\nabla\vec{B}$ can be used to compute the *magnetic gradient length scale* $L_{\nabla\vec{B}}$ (`L_gradB`). Details are found in *John Kappel et al 2024 PPCF 66 025018* [DOI:10.1088/1361-6587/ad1a3e](https://www.doi.org/10.1088/1361-6587/ad1a3e).
 
 ## Transformation to Boozer coordinates
 
@@ -184,55 +173,5 @@ $$
 \nabla \rho_B &= \nabla \rho \\
 \nabla \thet_B &= \pdv{\thet_B}{\rho}\nabla \rho + \pdv{\thet_B}{\thet}\nabla \thet + \pdv{\thet_B}{\zeta}\nabla \zeta \\
 \nabla \zeta_B &= \pdv{\zeta_B}{\rho}\nabla \rho + \pdv{\zeta_B}{\thet}\nabla \thet + \pdv{\zeta_B}{\zeta}\nabla \zeta \\
-\end{align}
-$$
-
-## export GIST files for GENE
-
-Left-handed coordinate systems $\left(s,\alpha,\theta\right)$ and $\left(x^1, x^2, x^3\right) = \left(\sqrt{s}, \frac{\sqrt{s_0}}{a}\alpha,\theta\right)$.
-
-With respect to a left-handed $\left(\rho, \thet, \zeta\right)$, the fieldline coordinates are defined as
-
-$$
-\begin{align}
-s &= \rho^2 &
-\rho &= \sqrt{s} \\
-\alpha &= \thet/\iota - \zeta &
-\zeta &= \theta/\iota - \alpha \\
-\theta &= \thet &
-\thet &= \theta \\
-\end{align}
-$$
-
-which can be obtained from the right-handed GVEC angles by flipping the toroidal or poloidal direction.
-
-$$
-\begin{align}
-\pdv{s}{\rho} &= 2\rho &
-\pdv{\rho}{s} &= \frac{1}{2\sqrt{s}} \\
-\pdv{\alpha}{\rho} &= -\frac{d\iota}{d\rho} \frac{\thet}{\iota^2} &
-\pdv{\zeta}{s} &= -\frac{d\iota}{ds} \frac{\theta}{\iota^2} \\
-\pdv{\alpha}{\thet} &= \frac{1}{\iota} &
-\pdv{\zeta}{\theta} &= \frac{1}{\iota} \\
-\pdv{\alpha}{\zeta} &= -1 &
-\pdv{\zeta}{\alpha} &= -1 \\
-\pdv{\theta}{\thet} &= 1 &
-\pdv{\thet}{\theta} &= 1 \\
-\end{align}
-$$
-
-$$
-\begin{align}
-\nabla s &= 2\rho \nabla\rho \\
-\nabla\alpha &= -\frac{d\iota}{d\rho} \frac{\thet}{\iota^2} \nabla\rho + \frac{1}{\iota} \nabla\thet - \nabla\zeta \\
-\nabla\theta &= \nabla\thet
-\end{align}
-$$
-
-$$
-\begin{align}
-\pdv{B}{s} &= \frac{1}{2\sqrt{s}} \pdv{B}{\rho} - \frac{d\iota}{ds}\frac{\theta}{\iota^2} \pdv{B}{\zeta} \\
-\pdv{B}{\alpha} &= \frac{1}{\iota} \pdv{B}{\zeta} \\
-\pdv{B}{\theta} &= \pdv{B}{\thet} + \frac{1}{\iota} \pdv{B}{\zeta}\\
 \end{align}
 $$

@@ -564,6 +564,24 @@ def flip_boundary_zeta(parameters: MutableMapping) -> MutableMapping:
     return output_params
 
 
+def shift_boundary_theta_pi(parameters: MutableMapping) -> MutableMapping:
+    """
+    Shift the theta origin of the boundary by pi.
+
+    cos(m(θ+π)-nζ) = (-1)^m cos(mθ-nζ)
+    sin(m(θ+π)-nζ) = (-1)^m sin(mθ-nζ)
+    """
+    parameters = copy.deepcopy(parameters)
+    for var in ["X1", "X2"]:
+        for sc in ["cos", "sin"]:
+            key = f"{var}_b_{sc}"
+            if key in parameters:
+                for (m, n), value in list(parameters[key].items()):
+                    if m % 2 == 1:
+                        parameters[key][m, n] = -value
+    return parameters
+
+
 def flip_parameters_theta(parameters: MutableMapping) -> MutableMapping:
     parameters = flip_boundary_theta(parameters)
 
@@ -962,6 +980,22 @@ def compute_FD(f: np.ndarray, pos, coefs, axis=0):
     for roll, c in zip(pos[1:], coefs[1:]):
         df += np.roll(f, -roll, axis=axis) * c
     return df
+
+
+def ellipse_circumference_factor(epsilon: float) -> float:
+    """
+    Compute the circumference factor of an ellipse with elongation epsilon.
+    This uses the approximation by Ramanujan, accurate up to h^5 (6.5% error at ε=10).
+
+    A = a b π = aeff^2 π
+    ε = a / b >= 1
+    C = 2 π aeff Cf(ε)
+    Cf ~ (1 + ε) / (2 √ε) [1 + 3 h / (10 + √(4 - 3 h))]
+    h = (ε - 1)^2 / (ε + 1)^2
+    """
+    h = (epsilon - 1) ** 2 / (epsilon + 1) ** 2
+    Cf = (1 + epsilon) / (2 * np.sqrt(epsilon)) * (1 + 3 * h / (10 + np.sqrt(4 - 3 * h)))
+    return Cf
 
 
 def boundary_generator(case: str, nfp, X1_00=1.0, a0=0.5, ellipticity=0.4, helix_r=0.5):

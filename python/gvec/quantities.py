@@ -21,6 +21,8 @@ from gvec.core.compute import (
     QUANTITIES,
     register,
     radial_integral,
+    poloidal_integral,
+    toroidal_integral,
     fluxsurface_integral,
     volume_integral,
     rtz_directions,
@@ -1349,12 +1351,13 @@ def dmod_B_dz_B(ds: xr.Dataset):
 
 
 # === integrals ======================================================================== #
+# --- geometry --- #
 
 
 @register(
     requirements=("Jac",),
     integration=("rho", "theta", "zeta"),
-    attrs=dict(long_name="plasma volume", symbol=r"V"),
+    attrs=dict(long_name="volume", symbol=r"V"),
 )
 def V(ds: xr.Dataset):
     ds["V"] = volume_integral(ds.Jac)
@@ -1395,23 +1398,68 @@ def dV_dPhi_n2(ds: xr.Dataset):
 
 
 @register(
-    requirements=("Jac_l",),
-    integration=("rho", "theta", "zeta"),
-    attrs=dict(long_name="minor radius", symbol=r"r_{min}"),
+    requirements=("e_theta", "e_zeta"),
+    attrs=dict(long_name="differential area element", symbol=r"dA"),
 )
-def minor_radius(ds: xr.Dataset):
-    surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
-    ds["minor_radius"] = np.sqrt(surface_average / np.pi)
+def dA(ds: xr.Dataset):
+    dA = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz")
+    ds["dA"] = np.sqrt(xr.dot(dA, dA, dim="xyz"))
 
 
 @register(
-    requirements=("V", "Jac_l"),
-    integration=("rho", "theta", "zeta"),
-    attrs=dict(long_name="major radius", symbol=r"r_{maj}"),
+    attrs=dict(long_name="surface area", symbol=r"A_{surface}"),
 )
-def major_radius(ds: xr.Dataset):
-    surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
-    ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
+def A_surface(ds: xr.Dataset, state: State):
+    aux = state.evaluate("dA", rho=1.0, theta="int", zeta="int")
+    ds["A_surface"] = fluxsurface_integral(aux.dA).item()
+
+
+@register(
+    attrs=dict(long_name="length of the magnetic axis", symbol=r"L_{axis}"),
+)
+def L_axis(ds: xr.Dataset, state: State):
+    aux = state.evaluate("e_zeta", rho=0.0, theta=0.0, zeta="int")
+    dL = np.sqrt(xr.dot(aux.e_zeta, aux.e_zeta, dim="xyz"))
+    ds["L_axis"] = toroidal_integral(dL).item()
+
+
+@register(
+    requirements=("L_axis",),
+    attrs=dict(long_name="effective major radius", symbol=r"r_{maj,eff}"),
+)
+def r_maj(ds: xr.Dataset):
+    ds["r_maj"] = ds.L_axis / (2 * np.pi)
+
+
+@register(
+    requirements=("V", "L_axis"),
+    attrs=dict(long_name="effective minor radius", symbol=r"r_{min,eff}"),
+)
+def r_min(ds: xr.Dataset):
+    ds["r_min"] = np.sqrt(ds.V / (np.pi * ds.L_axis))
+
+
+@register(
+    requirements=("r_maj", "r_min"),
+    attrs=dict(long_name="effective aspect ratio", symbol=r"a_{eff}"),
+)
+def aspect_ratio(ds: xr.Dataset):
+    ds["aspect_ratio"] = ds.r_maj / ds.r_min
+
+
+@register(
+    requirements=("A_surface", "V", "L_axis"),
+    attrs=dict(long_name="effective elongation", symbol=r"E_{eff}"),
+)
+def elongation(ds: xr.Dataset):
+    from scipy.optimize import newton
+    from gvec.util import ellipse_circumference_factor as ecf
+
+    C = (ds.A_surface / 2 / np.sqrt(np.pi * ds.V * ds.L_axis)).item()
+    ds["elongation"] = newton(lambda e: ecf(e) - C, 2)
+
+
+# --- profiles --- #
 
 
 @register(
@@ -1421,6 +1469,17 @@ def major_radius(ds: xr.Dataset):
 )
 def iota_avg(ds: xr.Dataset):
     ds["iota_avg"] = radial_integral(ds.iota)
+
+
+@register(
+    requirements=("iota",),
+    integration=("rho",),
+    attrs=dict(
+        long_name="rotational transform averaged over rho^2", symbol=r"\overline{\iota}_2"
+    ),
+)
+def iota_avg2(ds: xr.Dataset):
+    ds["iota_avg2"] = radial_integral(2 * ds.rho * ds.iota)
 
 
 @register(
@@ -1481,6 +1540,24 @@ def shear(ds: xr.Dataset):
 
 
 @register(
+    requirements=("shear",),
+    attrs=dict(long_name="average global magnetic shear", symbol=r"\overline{s_g}"),
+)
+def shear_avg(ds: xr.Dataset):
+    ds["shear_avg"] = radial_integral(ds.shear)
+
+
+@register(
+    requirements=("shear",),
+    attrs=dict(
+        long_name="global magnetic shear averaged over rho^2", symbol=r"\overline{s_g}_2"
+    ),
+)
+def shear_avg2(ds: xr.Dataset):
+    ds["shear_avg2"] = radial_integral(2 * ds.rho * ds.shear)
+
+
+@register(
     requirements=("B", "e_theta"),
     integration=("theta", "zeta"),
     attrs=dict(
@@ -1526,6 +1603,9 @@ def I_pol(ds: xr.Dataset):
         )
 
 
+# --- other --- #
+
+
 @register(
     requirements=("mu0", "gamma", "mod_B", "p", "Jac"),
     integration=("rho", "theta", "zeta"),
@@ -1549,3 +1629,67 @@ def W_MHD(ds: xr.Dataset):
 def beta_avg(ds: xr.Dataset):
     beta = 2 * ds.mu0 * ds.p / ds.mod_B**2
     ds["beta_avg"] = volume_integral(beta * ds.Jac) / ds.V
+
+
+@register(
+    attrs=dict(
+        long_name="vacuum magnetic well depth",
+        symbol=r"d_{well}",
+    ),
+)
+def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
+    aux = state.evaluate("dV_dPhi_n", rho=[1e-4, 1.0], theta="int", zeta="int")
+    Vp_edge = aux.dV_dPhi_n.isel(rad=1)
+    Vp_axis = aux.dV_dPhi_n.isel(rad=0)
+    ds["vacuum_magnetic_well_depth"] = (Vp_axis - Vp_edge) / Vp_axis
+
+
+@register(
+    requirements=("mod_B",),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="mirror ratio",
+        symbol=r"\Delta_{mirror}",
+    ),
+)
+def mirror_ratio(ds: xr.Dataset):
+    r"""Compute the mirror ratio of the magnetic field strength on a flux surface.
+
+    The mirror ratio is defined as
+
+    R_mirror = (B_max - B_min) / (B_max + B_min)
+
+    where B_max and B_min are the maximum and minimum values of the magnetic field strength
+    on a given flux surface.
+    """
+    B_max = ds.mod_B.max(dim=("pol", "tor"))
+    B_min = ds.mod_B.min(dim=("pol", "tor"))
+    ds["mirror_ratio"] = (B_max - B_min) / (B_max + B_min)
+
+
+@register(
+    requirements=("mod_B", "dB_dr", "dB_dt", "dB_dz", "grad_rho", "grad_theta", "grad_zeta"),
+    attrs=dict(
+        long_name="magnetic gradient scale length",
+        symbol=r"L_{\nabla\mathbf{B}}",
+    ),
+)
+def L_gradB(ds: xr.Dataset):
+    r"""Compute the magnetic gradient scale length.
+
+    The magnetic gradient scale length is defined as
+
+    L_gradB = sqrt(2) |B| / ||grad B||
+
+    where ||grad B|| is the frobenius norm of the gradient of the magnetic field.
+    Details can be found in Kappel et al. PPCF 66 (2024) 025018 DOI:10.1088/1361-6587/ad1a3e.
+    """
+    gradB = {}  # 3x3 tensor
+    for i in "xyz":
+        for j in "xyz":
+            gradB[i, j] = xr.zeros_like(ds.mod_B)
+            for k in ("rho", "theta", "zeta"):
+                gradB[i, j] += ds[f"dB_d{k[0]}"].sel(xyz=i) * ds[f"grad_{k}"].sel(xyz=j)
+    # frobenius norm
+    gradB_normF = np.sqrt(sum(gradB[i, j] ** 2 for i in "xyz" for j in "xyz"))
+    ds["L_gradB"] = np.sqrt(2) * ds.mod_B / gradB_normF
