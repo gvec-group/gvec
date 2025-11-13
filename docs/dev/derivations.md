@@ -104,6 +104,72 @@ $\Rightarrow$ `dB_contra_t_dr`, `dB_contra_t_dt`, `dB_contra_t_dz`, `dB_contra_z
 
 The gradient $\nabla\vec{B}$ can be used to compute the *magnetic gradient length scale* $L_{\nabla\vec{B}}$ (`L_gradB`). Details are found in *John Kappel et al 2024 PPCF 66 025018* [DOI:10.1088/1361-6587/ad1a3e](https://www.doi.org/10.1088/1361-6587/ad1a3e).
 
+## effective geometric quantities
+
+The plasma volume $V$, surface are $A_{surface}$ and length of the magnetic axis $L_{axis}$ are defined as
+
+$$
+\begin{align}
+V &= \int_0^1 d\rho \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \Jac \\
+A_{surface} &= \left. \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \left|\vec{e}_\theta \times \vec{e}_\zeta\right| \right|_{\rho=1}\\
+L_{axis} &= \left. \int_0^{2\pi} d\zeta \left|\vec{e}_\zeta\right| \right|_{\rho=0,\theta=0}\\
+\end{align}
+$$
+
+All three are independent of the coordinate frame and parametrization, and $V,A_{surface}$ only depend on the boundary shape and not the full equilibrium.
+
+From these we can compute the *effective minor radius*, *effective major radius*, *effective aspect ratio* and *effective elongation*, by relating them to an equivalent torus with elliptical cross section.
+In particular we define the equivalent torus as a torus with circular axis and constant elliptical cross-section, which has the same volume, surface area and axis length as the configuration of interest.
+
+$$
+\begin{align}
+V &= 2\pi^2 r_{min}^2 r_{maj} \\
+A_{surface} &= 4\pi^2 r_{min} r_{maj} \tilde{C}(E_{eff}) \\
+L_{axis} &= 2\pi r_{maj}
+\end{align}
+$$
+
+with the effective elongation $E_{eff} := \frac{a}{b}$ defined as the ratio of the cross-sections semi-major axis and semi-minor axis ($a \geq b$).
+The circumference of the ellipse does not have a closed form.
+We use Ramanujan's approximation
+
+$$
+\begin{align}
+C &= 2\pi r_{min} \tilde{C} \\
+\tilde{C} &= \frac{E_{eff} + 1}{2\sqrt{E_{eff}}} \left[ 1 + 3 \frac{h}{10 + \sqrt{4 - 3h}} \right] \\
+h &:= \frac{(E_{eff} - 1)^2}{(E_{eff} + 1)^2}.
+\end{align}
+$$
+
+We invert these formulas to obtain
+
+$$
+\begin{align}
+r_{maj} &= \frac{L_{axis}}{2\pi} \\
+r_{min} &= \sqrt{\frac{V}{\pi L_{axis}}} \\
+a_{eff} &= \frac{r_{maj}}{r_{min}} \\
+\tilde{C}(E_{eff}) &= \frac{A_{surface}}{2\sqrt{\pi V L_{axis}}},
+\end{align}
+$$
+
+where we find $E_{eff}$ from the value of $\tilde{C}$ using the Newton-Raphson method.
+
+$\Rightarrow$ `V`, `A_surface`, `L_axis`, `r_min`, `r_maj`, `aspect_ratio`, `elongation`
+
+## Vacuum magnetic well depth
+
+We define the *vacuum magnetic well depth* as
+
+$$
+\begin{align}
+d_{well} &= \frac{\frac{dV}{d\Phi_n}(\rho=0) - \frac{dV}{d\Phi_n}(\rho=1)}{\frac{dV}{d\Phi_n}(\rho=0)}
+\end{align}
+$$
+
+positive values of $d_{well}$ indicate $\frac{d^2V}{d\Phi_n^2} < 0$ which is favorable for stability.
+
+$\Rightarrow$ `vacuum_magnetic_well_depth`
+
 ## Transformation to Boozer coordinates
 
 In terms of the GVEC coordinates $(\rho,\thet,\zeta)$ the Boozer transform is given as
