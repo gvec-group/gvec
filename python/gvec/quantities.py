@@ -203,7 +203,7 @@ for var, long_name, symbol in [
 
 
 @register(
-    attrs=dict(long_name="number of field periods", symbol=r"N_{FP}"),
+    attrs=dict(long_name="number of field periods", symbol=r"N_\text{FP}"),
 )
 def N_FP(ds: xr.Dataset, state: State):
     ds["N_FP"] = state.nfp
@@ -912,7 +912,7 @@ for v in [
     requirements=("B", "e_theta", "dLA_dt", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="poloidal derivative of the Boozer potential computed from the magnetic field",
-        symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|_{def.}",
+        symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|_\text{def.}",
     ),
 )
 def dNU_B_dt(ds: xr.Dataset):
@@ -926,7 +926,7 @@ def dNU_B_dt(ds: xr.Dataset):
     requirements=("B", "e_zeta", "dLA_dz", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="toroidal derivative of the Boozer potential computed from the magnetic field",
-        symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|_{def.}",
+        symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|_\text{def.}",
     ),
 )
 def dNU_B_dz(ds: xr.Dataset):
@@ -1407,7 +1407,7 @@ def dA(ds: xr.Dataset):
 
 
 @register(
-    attrs=dict(long_name="surface area", symbol=r"A_{surface}"),
+    attrs=dict(long_name="surface area", symbol=r"A_\text{surface}"),
 )
 def A_surface(ds: xr.Dataset, state: State):
     aux = state.evaluate("dA", rho=1.0, theta="int", zeta="int")
@@ -1415,7 +1415,7 @@ def A_surface(ds: xr.Dataset, state: State):
 
 
 @register(
-    attrs=dict(long_name="length of the magnetic axis", symbol=r"L_{axis}"),
+    attrs=dict(long_name="length of the magnetic axis", symbol=r"L_\text{axis}"),
 )
 def L_axis(ds: xr.Dataset, state: State):
     aux = state.evaluate("e_zeta", rho=0.0, theta=0.0, zeta="int")
@@ -1425,7 +1425,7 @@ def L_axis(ds: xr.Dataset, state: State):
 
 @register(
     requirements=("L_axis",),
-    attrs=dict(long_name="effective major radius", symbol=r"r_{maj,eff}"),
+    attrs=dict(long_name="effective major radius", symbol=r"r_\text{maj,eff}"),
 )
 def r_maj(ds: xr.Dataset):
     ds["r_maj"] = ds.L_axis / (2 * np.pi)
@@ -1433,7 +1433,7 @@ def r_maj(ds: xr.Dataset):
 
 @register(
     requirements=("V", "L_axis"),
-    attrs=dict(long_name="effective minor radius", symbol=r"r_{min,eff}"),
+    attrs=dict(long_name="effective minor radius", symbol=r"r_\text{min,eff}"),
 )
 def r_min(ds: xr.Dataset):
     ds["r_min"] = np.sqrt(ds.V / (np.pi * ds.L_axis))
@@ -1441,7 +1441,7 @@ def r_min(ds: xr.Dataset):
 
 @register(
     requirements=("r_maj", "r_min"),
-    attrs=dict(long_name="effective aspect ratio", symbol=r"a_{eff}"),
+    attrs=dict(long_name="effective aspect ratio", symbol=r"a_\text{eff}"),
 )
 def aspect_ratio(ds: xr.Dataset):
     ds["aspect_ratio"] = ds.r_maj / ds.r_min
@@ -1449,7 +1449,7 @@ def aspect_ratio(ds: xr.Dataset):
 
 @register(
     requirements=("A_surface", "V", "L_axis"),
-    attrs=dict(long_name="effective elongation", symbol=r"E_{eff}"),
+    attrs=dict(long_name="effective elongation", symbol=r"E_\text{eff}"),
 )
 def elongation(ds: xr.Dataset):
     from scipy.optimize import newton
@@ -1488,7 +1488,7 @@ def iota_avg2(ds: xr.Dataset):
     attrs=dict(
         long_name="factor to the toroidal current contribution to the rotational transform",
         description="iota = iota_0 + iota_curr, iota_curr = I_tor * iota_curr_0",
-        symbol=r"\iota_{curr,0}",
+        symbol=r"\iota_{\text{curr},0}",
     ),
 )
 def iota_curr_0(ds: xr.Dataset):
@@ -1501,7 +1501,7 @@ def iota_curr_0(ds: xr.Dataset):
     attrs=dict(
         long_name="toroidal current contribution to the rotational transform",
         description="iota = iota_0 + iota_curr, iota_curr = I_tor * iota_curr_0",
-        symbol=r"\iota_{curr}",
+        symbol=r"\iota_\text{curr}",
     ),
 )
 def iota_curr(ds: xr.Dataset):
@@ -1585,7 +1585,7 @@ def dB_theta_avg_dr(ds: xr.Dataset):
 
 @register(
     requirements=("B_theta_avg", "mu0"),
-    attrs=dict(long_name="toroidal current enclosed by flux surface", symbol=r"I_{tor}"),
+    attrs=dict(long_name="toroidal current enclosed by flux surface", symbol=r"I_\text{tor}"),
 )
 def I_tor(ds: xr.Dataset):
     ds["I_tor"] = ds.B_theta_avg * 2 * np.pi / ds.mu0
@@ -1595,7 +1595,7 @@ def I_tor(ds: xr.Dataset):
     requirements=("dB_theta_avg_dr", "mu0"),
     attrs=dict(
         long_name="derivative of the toroidal current enclosed by the flux surface",
-        symbol=r"\frac{dI_{tor}}{d\rho}",
+        symbol=r"\frac{dI_\text{tor}}{d\rho}",
     ),
 )
 def dI_tor_dr(ds: xr.Dataset):
@@ -1616,7 +1616,9 @@ def B_zeta_avg(ds: xr.Dataset):
 @register(
     requirements=("B_zeta_avg", "mu0"),
     integration=("theta", "zeta"),
-    attrs=dict(long_name="poloidal current, relative to the magnetic axis", symbol=r"I_{pol}"),
+    attrs=dict(
+        long_name="poloidal current, relative to the magnetic axis", symbol=r"I_\text{pol}"
+    ),
 )
 def I_pol(ds: xr.Dataset):
     ds["I_pol"] = ds.B_zeta_avg * 2 * np.pi / ds.mu0
@@ -1635,7 +1637,7 @@ def I_pol(ds: xr.Dataset):
     integration=("rho", "theta", "zeta"),
     attrs=dict(
         long_name="total MHD energy",
-        symbol=r"W_{MHD}",
+        symbol=r"W_\text{MHD}",
     ),
 )
 def W_MHD(ds: xr.Dataset):
@@ -1658,7 +1660,7 @@ def beta_avg(ds: xr.Dataset):
 @register(
     attrs=dict(
         long_name="vacuum magnetic well depth",
-        symbol=r"d_{well}",
+        symbol=r"d_\text{well}",
     ),
 )
 def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
@@ -1744,7 +1746,7 @@ def D_Merc(ds: xr.Dataset):
     integration=("theta", "zeta"),
     attrs=dict(
         long_name="mirror ratio",
-        symbol=r"\Delta_{mirror}",
+        symbol=r"\Delta_\text{mirror}",
     ),
 )
 def mirror_ratio(ds: xr.Dataset):
