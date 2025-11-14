@@ -5,7 +5,9 @@ try:
     import gvec
     from gvec import gframe
 except ImportError:
-    pass  # tests will be skipped via the `check_import` fixture
+    # in this case, we already need the gvec package during test collection
+    # therefore we skip the whole module
+    pytest.skip("Skipping test_gframe.py: gvec package not available", allow_module_level=True)
 
 
 # === Fixtures === #
