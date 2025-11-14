@@ -26,7 +26,7 @@ In the script, depending on the type of input, the boundary surface data is used
 
 * The `-v` is for verbose mode, which prints the steps executed by the script to screen.
 * The `--clean` parameter sets the desired tolerance to remove modes from the input surface (cleanup), and therefore changes the boundary surface!
-* The `--symm` flag imposes stellarator symmetry for the input surface. It is recommended to first check without this flag and see if necessary and applicable. Changes the boundary surface!
+* The `--stellsym` flag imposes stellarator symmetry for the input surface. It is recommended to first check without this flag and see if necessary and applicable. Changes the boundary surface!
 * The `--cutoff` parameter sets a desired cutoff toroidal mode number for the G-Frame construction (does not change the boundary surface).
 * The `--tol` parameter sets the desired tolerance for determining minimal necessary Fourier modes for the output boundary X1,X2.
 * The `--nt` and `--nz` parameters set the number of points in $\vartheta$ and $\zeta$ respectively for one field period, from which a *G-Frame* as well as the boundary cross-sections are computed. The points exclude the periodic endpoint and should be chosen to be odd.

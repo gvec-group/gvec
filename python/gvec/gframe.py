@@ -389,7 +389,7 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
         ncvars[vecvar + "_var"][:, :] = dict_in["boundary"][vecval]
 
     ncfile.title = "== File that containts axis and boundary information, used in GVEC with the hmap_axisNB module"
-    hdr = "======= HEADER OF THE NETCDF FILE VERSION 3.0 ==================================="
+    hdr = "======= HEADER OF THE NETCDF FILE VERSION 3.0.1 ==================================="
     hdr += "\n    Note: This file was generated from QUASR data using pyGVEC."
     hdr += "\n=== FILE DESCRIPTION:"
     hdr += "\n  * axis, normal and binormal of the frame are given in cartesian coordinates along the curve parameter zeta [0,2pi]."
@@ -407,7 +407,7 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     hdr += "\n=== DATA DESCRIPTION"
     hdr += "\n- general data"
     hdr += "\n  * NFP: number of field periods"
-    hdr += "\n  * VERSION: version number as integer: V3.0 => 300"
+    hdr += "\n  * VERSION: version number as integer: V3.0.1 => 301"
     hdr += "\n- 'axis' data group:"
     hdr += "\n  * 'axis/n_max'   : maximum mode number in zeta (in one field period)"
     hdr += "\n  * 'axis/nzeta'   : number of points along the axis, in one field period (>=2*n_max+1)"
@@ -533,6 +533,7 @@ def construct_gframe_from_surface(
     zeta0: float = 0.0,
     cutoff_gframe: int = -1,
     logger: logging.Logger | None = None,
+    writeFiles: bool = True,
 ):
     """
     Convert a surface given by its cartesian points xyz[0:nz*nfp,0:nt,0:2] to a G-Frame
@@ -552,6 +553,10 @@ def construct_gframe_from_surface(
         theta0: first point in logical theta direction where xyz was sampled. Defaults to 0.
         zeta0:  first point in logical zeta direction where xyz was sampled. Defaults to 0.
         cutoff_gframe: maximum mode number (`>=0`) to be used along the toroidal direction to construct the G-frame. Default `-1` means no cutoff
+        writeFiles: if True, write the GVEC parameters to file and the G-frame data to netcdf file
+    Returns:
+        parameters: dictionary containing the GVEC parameters
+        dict_out: dictionary containing the G-frame data
     """
     if logger is None:
         logging_setup()
@@ -636,24 +641,11 @@ def construct_gframe_from_surface(
         xhatfull = fourier.eval2d(xhat_c, xhat_s, t, z, nfp=nfp).T
         yhatfull = fourier.eval2d(yhat_c, yhat_s, t, z, nfp=nfp).T
         zhatfull = fourier.eval2d(zhat_c, zhat_s, t, z, nfp=nfp).T
-        xyz_tmp = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, z_in, sign_rot)
+        xyz_surf = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, z_in, sign_rot)
         logger.info("  - maximum distance of cleaned and input surface:")
         logger.info(
-            f"    max(sqrt(|xyz_old-xyz|^2))={np.amax(np.sum((xyz_in - xyz_tmp) ** 2, axis=-1) ** 0.5)}"
+            f"    max(sqrt(|xyz_old-xyz|^2))={np.amax(np.sum((xyz_in - xyz_surf) ** 2, axis=-1) ** 0.5)}"
         )
-        # overwrite nt,nz,theta,zetafull and xyz_surf to reduced resolution
-        nt = 2 * Mmax + 1
-        nz = 2 * Nmax + 1
-        theta = np.linspace(0, 2 * np.pi, nt, endpoint=False)
-        zetafull = np.linspace(0, 2 * np.pi, nz * nfp, endpoint=False)
-        t, z = np.meshgrid(theta, zetafull, indexing="ij")
-        xhatfull = fourier.eval2d(xhat_c, xhat_s, t, z, nfp=nfp).T
-        assert np.allclose(xhatfull[0:nz, :], fourier.ifft2d(xhat_c, xhat_s, nfp=nfp).T), (
-            "ifft2d cannot be used!"
-        )
-        yhatfull = fourier.eval2d(yhat_c, yhat_s, t, z, nfp=nfp).T
-        zhatfull = fourier.eval2d(zhat_c, zhat_s, t, z, nfp=nfp).T
-        xyz_surf = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, zetafull, sign_rot)
 
     logger.info(". Constructing the G-Frame")
 
@@ -667,7 +659,7 @@ def construct_gframe_from_surface(
         xhat_c, xhat_s = fourier.fft2d(xhat.T)
         yhat_c, yhat_s = fourier.fft2d(yhat.T)
         zhat_c, zhat_s = fourier.fft2d(zhat.T)
-        nz_gframe = 2 * cutoff_gframe + 1
+        nz_gframe = max(3, 2 * cutoff_gframe + 1)
         zetafull_gframe = np.linspace(0, 2 * np.pi, nz_gframe * nfp, endpoint=False)
         xhat_c = fourier.scale_modes2d(xhat_c, Min, cutoff_gframe)
         xhat_s = fourier.scale_modes2d(xhat_s, Min, cutoff_gframe)
@@ -734,9 +726,7 @@ def construct_gframe_from_surface(
         "X1": x1_cut.T,
         "X2": x2_cut.T,
     }
-    write_Gframe_ncfile(f"{name}-Gframe.nc", dict_out)
 
-    logger.info(". Writing parameterfile")
     parameters = dict(
         ProjectName=name,
         which_hmap=21,
@@ -767,8 +757,11 @@ def construct_gframe_from_surface(
         ),
         picard_current="auto",
     )
-    write_parameters(parameters, f"{name}-parameters.{format}")
-    logger.info("Done")
+    if writeFiles:
+        logger.info(f". Writing files: {name}-Gframe.nc , {name}-parameters.{format}")
+        write_Gframe_ncfile(f"{name}-Gframe.nc", dict_out)
+        write_parameters(parameters, f"{name}-parameters.{format}")
+        logger.info("Done")
 
     return parameters, dict_out
 
@@ -816,7 +809,7 @@ def minimal_modes(X, Y, Z=None, tolerance=1e-8):
     return mcan[mask].item(), ncan[mask].item()
 
 
-def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: float = 1e-8):
+def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: float = 1e-08):
     """
     Convert a gframe file with axis+boundary to boundary surface in cartesian coordinates.
     Input:

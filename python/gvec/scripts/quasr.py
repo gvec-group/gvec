@@ -64,7 +64,7 @@ from gvec import gframe
 parser = argparse.ArgumentParser(
     prog="pygvec-load-quasr",
     description="Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.",
-    usage="%(prog)s [-h] (ID | -s FILE | -f FILE) [-v | -q] [--nt NT] [--nz NZ] [--clean=CLEANTOL] [--symm] [--cutoff=CUTOFF] [--tol=TOL] [--yaml | --toml] [--save-xyz]",
+    usage="%(prog)s [-h] (ID | -s FILE | -f FILE) [-v | -q] [--nt NT] [--nz NZ] [--clean CLEANTOL] [--stellsym] [--cutoff=CUTOFF] [--tol=TOL] [--yaml | --toml] [--save-xyz]",
 )
 parser.add_argument("ID", type=int, nargs="?", help="ID of the QUASR configuration")
 parser.add_argument(
@@ -101,7 +101,7 @@ parser.add_argument(
     help="tolerance to reduce necessary Fourier modes (M, N) for the input surface. Default is 0., which means no cleaning.",
 )
 parser.add_argument(
-    "--symm",
+    "--stellsym",
     action="store_true",
     help="if set, imposes stellarator symmetry for the input surface. Use this with great care!",
 )
@@ -136,6 +136,12 @@ parser.add_argument(
     "--save-xyz",
     action="store_true",
     help="save the boundary points to a netCDF file",
+)
+parser.add_argument(
+    "--name",
+    type=str,
+    default="",
+    help="name for outputfiles. If not set, the name of the input boundary is used.",
 )
 
 
@@ -336,6 +342,9 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         else:
             name = str(filename.stem)
 
+    if args.name != "":
+        name = args.name
+
     if args.save_xyz:
         logger.info("Saving boundary points to netCDF file")
         save_xyz(xyz, nfp, f"{name}-boundary.nc", attrs={"source": str(filename)})
@@ -347,7 +356,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
         tolerance_output=args.tol,
         format=args.param_type,
         tolerance_clean_surface=args.clean,
-        impose_stell_symmetry=args.symm,
+        impose_stell_symmetry=args.stellsym,
         cutoff_gframe=args.cutoff,
         logger=logger,
     )

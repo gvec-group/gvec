@@ -307,11 +307,11 @@ def test_quasr_download(QUASR_ID, tmp_path):
     [
         ["-v"],
         ["--clean=1e-8"],
-        ["--symm"],
-        ["--clean=1e-6", "--symm"],
-        ["--symm", "--cutoff=5"],
+        ["--stellsym"],
+        ["--clean=1e-6", "--stellsym"],
+        ["--stellsym", "--cutoff=5"],
     ],
-    ids=["verbose", "clean", "symm", "clean+symm", "symm+cutoff"],
+    ids=["verbose", "clean", "stellsym", "clean+stellsym", "stellsym+cutoff"],
 )
 def test_quasr_file(QUASR_ID, opts, tmp_path, util):
     """
