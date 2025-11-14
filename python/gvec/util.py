@@ -998,7 +998,20 @@ def ellipse_circumference_factor(epsilon: float) -> float:
     return Cf
 
 
-def boundary_generator(case: str, nfp, X1_00=1.0, a0=0.5, ellipticity=0.4, helix_r=0.5):
+def boundary_generator_cases():
+    return {
+        "ellip_cyl": "elliptic cross-section with no change in zeta",
+        "ellip_cyl_breathe": "elliptic cross-section with cross-section area changing with zeta",
+        "ellip_cyl_rot": "elliptic cross section of constant ellipticity that only rotates with zeta",
+        "ellip_cyl_rot2": "cross section of constant ellipticity that only rotates with zeta, but theta=0 origin remains on positive X1 direction",
+        "ellip_cyl_stretch": "elliptic cross section of  changing ellipticity with zeta, not orientation of theta=0",
+        "ellip_cyl_helix": "cross section of constant ellipticity, where the axis/boundary moves like a helix over zeta",
+        "ellip_cyl_helix_rot": "cross section of constant ellipticity, where the axis/boundary moves like a helix, and rotates along it, over zeta",
+        "ellip_cyl_helix_rot2": "cross section of constant ellipticity, where the axis/boundary moves like a helix, and rotates along it, over zeta, but theta=0 origin remains on positive X1 direction",
+    }
+
+
+def boundary_generator(case: str, X1_00=1.0, a0=0.5, ellipticity=0.4, helix_r=0.5):
     """
     Define parameters for some simple boundaries for testing.
 
@@ -1006,14 +1019,7 @@ def boundary_generator(case: str, nfp, X1_00=1.0, a0=0.5, ellipticity=0.4, helix
     ----------
     case : str
         The name of the boundary:
-            - "ellip_cyl" : elliptic cross-section with no change in zeta
-            - "ellip_cyl_breathe" : elliptic cross-section with cross-section area changing with zeta
-            - "ellip_cyl_rot" : elliptic cross section of constant ellipticity that only rotates with zeta
-            - "ellip_cyl_rot2" : cross section of constant ellipticity that only rotates with zeta, but theta=0 origin remains on positive X1 direction
-            - "ellip_cyl_stretch" : elliptic cross section of  changing ellipticity with zeta, not orientation of theta=0
-            - "ellip_cyl_helix":  cross section of constant ellipticity, where the axis/boundary moves like a helix over zeta
-            - "ellip_cyl_helix_rot": cross section of constant ellipticity, where the axis/boundary moves like a helix, and rotates along it, over zeta
-            - "ellip_cyl_helix_rot2": cross section of constant ellipticity, where the axis/boundary moves like a helix, and rotates along it, over zeta, but theta=0 origin remains on positive X1 direction
+            see `boundary_generator_cases` dictionary
 
     X1_00 : float, optional
         =major radius if $X^1=R$
@@ -1026,7 +1032,7 @@ def boundary_generator(case: str, nfp, X1_00=1.0, a0=0.5, ellipticity=0.4, helix
     -------
     parameter dictionary describing $X^1$ and $X^2$
     """
-    params = {"nfp": nfp}
+    params = {}
     match case:
         case "ellip_cyl":
             params["X1_mn_max"] = [1, 0]

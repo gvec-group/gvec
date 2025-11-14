@@ -70,12 +70,17 @@ def rodrigues(
     """
     Rodrigues rotation function.
 
-    Parameters:
-    - xyz: cartesian point positions. if multidimensional, the LAST dimension must contain the cartesian components.
-    - angle: The rotation angle.
+    Parameters
+    ----------
+    xyz : ndarray
+        cartesian point positions. if multidimensional, the LAST dimension must contain the cartesian components.
+    angle : float
+        The rotation angle.
 
-    Returns:
-    - pos_rot: The rotated position vector (cartesian components).
+    Returns
+    -------
+    pos_rot : ndarray
+        The rotated position vector (cartesian components).
     """
     assert np.array(xyz.shape[-1]) == 3, (
         "last dimension must be the cartesian components surface positions!"
@@ -95,20 +100,24 @@ def rodrigues(
 
 def xyz_to_xyz_hat(xyz_in: np.ndarray, zeta: np.ndarray, sign_rot: float):
     """
-    change from cartesian xyz positions of the surface (can be a full torus or a single field period) on to 'hat' coordinates, which are periodic on field period.
-    One needs the corresponding 1d zeta positions, and sign of the angle, to compute the transform:
-    ```
-    xhat = x*cos(zeta)+y*sign*sin(zeta)
-    yhat = y*cos(zeta)-x*sign*sin(zeta)
-    zhat = z
-    ```
-    Input:
-    xyz_in: xyz positions of the surface, xyz[0:nz,0:nt,0:2], sampled at zeta positions, must exclude the endpoint
-    zeta: 1d array of zeta positions belonging to the surface (without endpoint), size [0:nz]
-    sign_rot: direction of zeta for the rotation into hat coordinates, +1 or -1
-    Returns:
-    xhat,yhat,zhat : hat coordinates, periodic on one field period, size [0:nz,0:nt,0:2].
+    Change from cartesian xyz positions of the surface (can be a full torus or a single field period) on to 'hat' coordinates,
+    which are periodic on field period.
+
+    Parameters
+    ----------
+    xyz_in : ndarray
+        xyz positions of the surface, xyz[0:nz,0:nt,0:2], sampled at zeta positions, must exclude the endpoint
+    zeta : ndarray
+        1d array of zeta positions belonging to the surface (without endpoint), size [0:nz]
+    sign_rot : float
+        direction of zeta for the rotation into hat coordinates, +1 or -1
+
+    Returns
+    -------
+    xhat, yhat, zhat : ndarray
+        hat coordinates, periodic on one field period, size [0:nz,0:nt,0:2]
     """
+
     assert sign_rot == -1 or sign_rot == 1, f"sign_rot must be -1 or 1, but is {sign_rot}"
     assert xyz_in.shape[0] == zeta.shape[0], (
         f"xyz and zeta must have the same length, but are {xyz_in.shape[0]} and {zeta.shape[0]} respectively"
@@ -125,20 +134,25 @@ def xyz_hat_to_xyz(
     xhat: np.ndarray, yhat: np.ndarray, zhat: np.ndarray, zeta: np.ndarray, sign_rot: float
 ):
     """
-    change from xyz 'hat' coordinates  cartesian xyz positions, with their associated zeta positions.
-    Inverse function of xyz_to_xyz_hat
-        ```
-    x = xhat*cos(zeta)-yhat*sign*sin(zeta)
-    y = yhat*cos(zeta)+xhat*sign*sin(zeta)
-    z = zhat
-    ```
+    Change from xyz 'hat' coordinates to cartesian xyz positions.
 
-    Inputs:
-    xhat,yhat,zhat : hat coordinates , size [0:nz,0:nt,0:2].
-    zeta: 1d array of zeta positions corresponding to xyz positions (without endpoint), size [0:nz]
-    sign_rot: direction of zeta for the rotation into hat coordinates, +1 or -1
-    Returns:
-    xyz: xyz positions of the surface, xyz[0:nz,0:nt,0:2]
+    Parameters
+    ----------
+    xhat : ndarray
+        Hat coordinates, size [0:nz,0:nt,0:2].
+    yhat : ndarray
+        Hat coordinates, size [0:nz,0:nt,0:2].
+    zhat : ndarray
+        Hat coordinates, size [0:nz,0:nt,0:2].
+    zeta : ndarray
+        1d array of zeta positions corresponding to xyz positions (without endpoint), size [0:nz].
+    sign_rot : float
+        Direction of zeta for the rotation into hat coordinates, +1 or -1.
+
+    Returns
+    -------
+    xyz : ndarray
+        Cartesian xyz positions of the surface, size [0:nz,0:nt,0:2].
     """
     assert sign_rot == -1 or sign_rot == 1, f"sign_rot must be -1 or 1, but is {sign_rot}"
     assert xhat.shape[0] == zeta.shape[0], (
@@ -250,12 +264,24 @@ def find_zeta_cuts(zeta_in, origin, normal, xyz, dft_dict, zeta_bracket: float):
 
 def get_xyz_cut(zeta_start, origins, normals, xyz_in, dft_dict, nfp):
     """
+    Find the xyz positions of the cut of a surface with a given number of planes.
 
-    Inputs:
-        zeta_start: initial guess for zeta position for each cut shape [nz_out]
-        origins: origin of the cutting plane, shape [nz_out, 3]
-        normals: normal of the cutting plane  [nz_out,3]
-        dft_dict: dictionary containing the dft from the zeta points of xyz_in, to be used for evaluation of theta=const curves at arbitrary zeta.
+    Parameters
+    ----------
+    zeta_start : float, shape (nz_out,)
+        Initial guess for zeta position for each cut.
+    origins : float, shape (nz_out, 3)
+        Origin of the cutting plane.
+    normals : float, shape (nz_out, 3)
+        Normal of the cutting plane.
+    dft_dict : dict
+        Dictionary containing the dft from the zeta points of xyz_in, to be used for
+        evaluation of theta=const curves at arbitrary zeta.
+
+    Returns
+    -------
+    xyz_cut : float, shape (nz_out, nt, 3)
+        XYZ positions from the cuts.
     """
     nz_out = origins.shape[0]
     nt = xyz_in.shape[1]
@@ -439,11 +465,17 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
 
 def read_Gframe_ncfile(ncfile: str | Path):
     """
-    read G-frame netcdf file and store data in a dictionary. Checks that dimensions in the file are correct.
-    Inputs:
-        ncfile: name/path to netcdf file
-    Outputs:
-        dict_out: dictionary with the data (with 'axis' and 'boundary' groups, if they exist in the netcdf file)
+    Read G-frame netcdf file and store data in a dictionary.
+
+    Parameters
+    ----------
+    ncfile : str or Path
+        Name/path to netcdf file
+
+    Returns
+    -------
+    dict_out : dict
+        Dictionary with the data (with 'axis' and 'boundary' groups, if they exist in the netcdf file)
     """
     with xr.open_datatree(ncfile, engine="netcdf4") as ds:
         ds.load()
@@ -536,27 +568,44 @@ def construct_gframe_from_surface(
     writeFiles: bool = True,
 ):
     """
-    Convert a surface given by its cartesian points xyz[0:nz*nfp,0:nt,0:2] to a G-Frame
-    and computes the boundary X^1,X^2 in the new frame by cutting the input surface.
-    Assumes that the surface points were sampled ON THE FULL TORUS,
-    at `theta=theta0+np.linspace(0,2*np.pi,nt,endpoint=False)`
-    and `zeta=zeta0+np.linspace(0,2*np.pi,nz*nfp,endpoint=False)`,
-    and the field periodicity is a rotation around the z-axis.
-    Inputs:
-        xyz_in: cartesian points xyz[0:nz*nfp,0:nt,0:2]
-        nfp: number of field periods
-        name: name of the output file
-        tolerance_output: tolerance for the output surface, computes the necessary modes in X1,X2 without changing the output data
-        format: output parameter file format
-        tolerance_clean_surface: tolerance to reduce input surface resolution, computes the necessary modes for one field period, and recomputes the input surface with these modes
-        impose_stell_symmetry: if set, imposes stellarator symmetry for the input surface. Use this with great care!
-        theta0: first point in logical theta direction where xyz was sampled. Defaults to 0.
-        zeta0:  first point in logical zeta direction where xyz was sampled. Defaults to 0.
-        cutoff_gframe: maximum mode number (`>=0`) to be used along the toroidal direction to construct the G-frame. Default `-1` means no cutoff
-        writeFiles: if True, write the GVEC parameters to file and the G-frame data to netcdf file
-    Returns:
-        parameters: dictionary containing the GVEC parameters
-        dict_out: dictionary containing the G-frame data
+    Construct a G-Frame from a surface given by its cartesian points.
+
+    Parameters
+    ----------
+    xyz_in : ndarray, shape (nz*nfp,nt,3)
+        Cartesian points xyz[0:nz*nfp,0:nt,0:2] of the surface.
+    nfp : int
+        Number of field periods.
+    name : str
+        Name of the output file.
+    tolerance_output : float, optional
+        Tolerance for the output surface, computes the necessary modes in X1,X2
+        without changing the output data. Defaults to 1e-8.
+    format : str, optional
+        Output parameter file format. Defaults to "yaml".
+    tolerance_clean_surface : float, optional
+        Tolerance to reduce input surface resolution, computes the necessary modes
+        for one field period, and recomputes the input surface with these modes.
+        Defaults to 0.0.
+    impose_stell_symmetry : bool, optional
+        If set, imposes stellarator symmetry for the input surface. Use this
+        with great care! Defaults to False.
+    theta0 : float, optional
+        First point in logical theta direction where xyz was sampled. Defaults to 0.
+    zeta0 : float, optional
+        First point in logical zeta direction where xyz was sampled. Defaults to 0.
+    cutoff_gframe : int, optional
+        Maximum mode number (`>=0`) to be used along the toroidal direction to
+        construct the G-frame. Default `-1` means no cutoff.
+    writeFiles : bool, optional
+        If True, write the GVEC parameters to file and the G-frame data to netcdf file.
+
+    Returns
+    -------
+    parameters : dict
+        Dictionary containing the GVEC parameters.
+    dict_out : dict
+        Dictionary containing the G-frame data.
     """
     if logger is None:
         logging_setup()
@@ -781,8 +830,8 @@ def minimal_modes(X, Y, Z=None, tolerance=1e-8):
     M, N = Xcos.shape[0] - 1, Xcos.shape[1] // 2
 
     m, n = fourier.fft2d_modes(M, N, grid=True)
-    Mrange, Nrange = np.arange(1, M + 1), np.arange(1, N + 1)
-    error = np.full((M, N), np.nan)
+    Mrange, Nrange = np.arange(M + 1), np.arange(0, N + 1)
+    error = np.full((M + 1, N + 1), np.inf)
     norm = np.sqrt(np.sum(Xcos**2 + Xsin**2 + Ycos**2 + Ysin**2 + Zcos**2 + Zsin**2))
     for Mnew in Mrange:
         for Nnew in Nrange:
@@ -796,7 +845,7 @@ def minimal_modes(X, Y, Z=None, tolerance=1e-8):
                 + Zcos[mask] ** 2
                 + Zsin[mask] ** 2
             )
-            error[Mnew - 1, Nnew - 1] = np.sqrt(np.sum(err)) / norm
+            error[Mnew, Nnew] = np.sqrt(np.sum(err)) / norm
 
     # select candidates with error below the tolerance
     mcan, ncan = np.meshgrid(Mrange, Nrange, indexing="ij")
@@ -806,26 +855,35 @@ def minimal_modes(X, Y, Z=None, tolerance=1e-8):
     mask &= dofs == dofs[mask].min()
     # select candidate with minimum error
     mask &= error == error[mask].min()
+
     return mcan[mask].item(), ncan[mask].item()
 
 
 def to_surface(dict_in: dict, nzeta: int = 81, ntheta: int = 81, tolerance: float = 1e-08):
     """
     Convert a gframe file with axis+boundary to boundary surface in cartesian coordinates.
-    Input:
-        dict_in: dictionary of the Gframe netcdf file, from `gvec.gframe.read_Gframe_ncfile(filename)`
-        nzeta: number of zeta positions for the output, to sample on one field period
-        ntheta: number of theta positions for the output
-    Output:
-    dictionary with:
-        xyz: boundary surface in cartesian coordinates, with shape [0:nzeta*nfp,0:ntheta,0:2]
-        X1, X2: boundary in G-Frame, shape [0:ntheta,0:nzeta]
-        zetafull: zeta values of the boundary surface
-        theta: theta values of the boundary surface
-        lasym : logical for asymmetry, =false if stellarator symmetry is found
-        nfp : number of field periods
-        Mmax, Nmax: maximum mode numbers needed for the given tolerance
-        X1c, X1s, X2c, X2s: boundary  modes in G-Frame, up to Mmax, Nmax
+
+    Parameters
+    ----------
+    dict_in : dict
+        dictionary of the Gframe netcdf file, from `gvec.gframe.read_Gframe_ncfile(filename)`
+    nzeta : int, optional
+        number of zeta positions for the output, to sample on one field period (default: 81)
+    ntheta : int, optional
+        number of theta positions for the output (default: 81)
+
+    Returns
+    -------
+    dict
+        dictionary with:
+            xyz : boundary surface in cartesian coordinates, with shape [0:nzeta*nfp,0:ntheta,0:2]
+            X1, X2 : boundary in G-Frame, shape [0:ntheta,0:nzeta]
+            zetafull : zeta values of the boundary surface
+            theta : theta values of the boundary surface
+            lasym : logical for asymmetry, =False if stellarator symmetry is found
+            nfp : number of field periods
+            Mmax, Nmax : maximum mode numbers needed for the given tolerance
+            X1c, X1s, X2c, X2s : boundary modes in G-Frame, up to Mmax, Nmax
     """
     nfp = dict_in["nfp"]
     theta_out = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
@@ -883,25 +941,37 @@ def to_RZ(
     tolerance: float = 1e-8,
 ):
     """
-    cut a xyz surface to yield a R,Z positions on one field period.
-    Input:
-        xyz: boundary surface in cartesian coordinates, with shape [0:nzeta*nfp,0:ntheta,0:2]
-        nfp: number of field periods
-        zeta0: first point in logical zeta direction where xyz was sampled. Defaults to 0.
-        theta0: first point in logical theta direction where xyz was sampled. Defaults to 0.
-        nzeta: number of zeta positions (=geometric angle -phi) for the output, to sample on one field period
-        ntheta: number of theta positions for the output
-        tolerance: tolerance for finding minimal mode numbers
-    Output:
-    dictionary with:
-        zeta : zeta positions on one field period
-        theta : theta positions
-        R: R positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
-        Z: Z positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
-        nfp : number of field periods
-        lasym : logical for asymmetry, =false if stellarator symmetry is found
-        Mmax,Nmax : maximum mode numbers needed for the given tolerance
-        Rc,Rs,Zc,Zs : R and Z cosine and sine Fourier mode coefficients, respecting Mmax,Nmax
+    Cut a xyz surface to yield a R,Z positions on one field period.
+
+    Parameters
+    ----------
+    xyz : ndarray
+        Boundary surface in cartesian coordinates, with shape [0:nzeta*nfp,0:ntheta,0:2]
+    nfp : int
+        Number of field periods
+    zeta0 : float, optional
+        First point in logical zeta direction where xyz was sampled. Defaults to 0.
+    theta0 : float, optional
+        First point in logical theta direction where xyz was sampled. Defaults to 0.
+    nzeta : int, optional
+        Number of zeta positions (=geometric angle -phi) for the output, to sample on one field period. Defaults to 81.
+    ntheta : int, optional
+        Number of theta positions for the output. Defaults to 81.
+    tolerance : float, optional
+        Tolerance for finding minimal mode numbers. Defaults to 1e-8.
+
+    Returns
+    -------
+    dict
+        Dictionary with:
+            zeta : zeta positions on one field period
+            theta : theta positions
+            R : R positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
+            Z : Z positions on one field period, with shape [0:ntheta_out,0:nzeta_out]
+            nfp : number of field periods
+            lasym : logical for asymmetry, =false if stellarator symmetry is found
+            Mmax,Nmax : maximum mode numbers needed for the given tolerance
+            Rc,Rs,Zc,Zs : R and Z cosine and sine Fourier mode coefficients, respecting Mmax,Nmax
     """
     assert xyz.shape[2] == 3, "xyz must have shape [nzeta*nfp, ntheta, 3]"
     nzetafull_in, ntheta_in = xyz.shape[0], xyz.shape[1]
@@ -961,14 +1031,23 @@ def to_RZ(
 
 def plot_cross_section_comparison(dict_surf, dict_RZ, step=1, halfperiod=True):
     """
-    Needs matplotlib to be installed!
-    Inputs:
-        dict_surf: dictionary from `to_surface` function
-        dict_RZ: dictionary from `to_RZ` function
-        step: step in zeta array
-        halfperiod: if True, only half of the zeta array is plotted
-    Output:
-        fig: figure object
+    Plot cross-sections from two dictionaries
+
+    Parameters
+    ----------
+    dict_surf : dict
+        Dictionary from `to_surface` function
+    dict_RZ : dict
+        Dictionary from `to_RZ` function
+    step : int, optional
+        Step in zeta array. Defaults to 1.
+    halfperiod : bool, optional
+        If True, only half of the zeta array is plotted. Defaults to True.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure object
     """
     import matplotlib as mpl
     import matplotlib.pyplot as plt
