@@ -664,10 +664,11 @@ def construct_gframe_from_surface(
     max_zhat_s = np.amax(np.abs(zhat_s))
     # check stellarator-symmetry of the surface:
     # is symmetric if xhat even (only cosine), yhat and zhat  odd (only sine) -> lasym =False
+    norm = np.amax([np.amax(np.abs(xhat_c)), np.amax(np.abs(yhat_s)), np.amax(np.abs(zhat_s))])
     lasym = not (
-        np.amax(np.abs(xhat_s)) < 1e-12 * np.amax(np.abs(xhat_c))
-        and np.amax(np.abs(yhat_c)) < 1e-12 * np.amax(np.abs(yhat_s))
-        and np.amax(np.abs(zhat_c)) < 1e-12 * np.amax(np.abs(zhat_s))
+        np.amax(np.abs(xhat_s)) < 1e-12 * norm
+        and np.amax(np.abs(yhat_c)) < 1e-12 * norm
+        and np.amax(np.abs(zhat_c)) < 1e-12 * norm
     )
     if not lasym:
         logger.info("  - input surface is stellarator-symmetric")
@@ -690,11 +691,16 @@ def construct_gframe_from_surface(
         xhatfull = fourier.eval2d(xhat_c, xhat_s, t, z, nfp=nfp).T
         yhatfull = fourier.eval2d(yhat_c, yhat_s, t, z, nfp=nfp).T
         zhatfull = fourier.eval2d(zhat_c, zhat_s, t, z, nfp=nfp).T
-        xyz_surf = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, z_in, sign_rot)
+        xyz_tmp = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, z_in, sign_rot)
         logger.info("  - maximum distance of cleaned and input surface:")
         logger.info(
-            f"    max(sqrt(|xyz_old-xyz|^2))={np.amax(np.sum((xyz_in - xyz_surf) ** 2, axis=-1) ** 0.5)}"
+            f"    max(sqrt(|xyz_old-xyz|^2))={np.amax(np.sum((xyz_in - xyz_tmp) ** 2, axis=-1) ** 0.5)}"
         )
+        t, z = np.meshgrid(theta, zetafull, indexing="ij")
+        xhatfull = fourier.eval2d(xhat_c, xhat_s, t, z, nfp=nfp).T
+        yhatfull = fourier.eval2d(yhat_c, yhat_s, t, z, nfp=nfp).T
+        zhatfull = fourier.eval2d(zhat_c, zhat_s, t, z, nfp=nfp).T
+        xyz_surf = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, zetafull, sign_rot)
 
     logger.info(". Constructing the G-Frame")
 

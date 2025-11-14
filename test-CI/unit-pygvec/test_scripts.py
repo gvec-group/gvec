@@ -311,7 +311,7 @@ def test_quasr_download(QUASR_ID, tmp_path):
         ["--clean=1e-6", "--stellsym"],
         ["--stellsym", "--cutoff=5"],
     ],
-    ids=["verbose", "clean", "stellsym", "clean+stellsym", "stellsym+cutoff"],
+    ids=["verbose", "clean", "stellsym+even_points", "clean+stellsym", "stellsym+cutoff"],
 )
 def test_quasr_file(QUASR_ID, opts, tmp_path, util):
     """
@@ -384,7 +384,9 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
 
 
 @pytest.mark.parametrize("QUASR_ID", [10534])
-def test_quasr_post(QUASR_ID, tmp_path, util):
+@pytest.mark.parametrize("nt", ["--nt=79", "--nt=80"], ids=["odd_t", "even_t"])
+@pytest.mark.parametrize("nz", ["--nz=77", "--nz=78"], ids=["odd_z", "even_z"])
+def test_quasr_post(QUASR_ID, nt, nz, tmp_path, util):
     pytest.importorskip("simsopt")
     try:
         json = gvec.scripts.quasr.get_json_from_quasr(
@@ -394,7 +396,7 @@ def test_quasr_post(QUASR_ID, tmp_path, util):
         pytest.skip(f"Skipping test_quasr_download: {e}")
     hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
     with util.chdir(tmp_path):
-        args = [f"{QUASR_ID:07d}"]
+        args = [f"{QUASR_ID:07d}", nt, nz]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
         # test visualization

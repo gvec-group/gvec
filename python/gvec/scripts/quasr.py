@@ -87,12 +87,12 @@ verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress outp
 parser.add_argument(
     "--nt",
     type=int,
-    help="number of theta points, must be odd (only for ID or -s). Default is 81.",
+    help="number of theta points (only for ID or -s). Default is 81.",
 )
 parser.add_argument(
     "--nz",
     type=int,
-    help="number of zeta points, must be odd (only for ID or -s). Default is 81.",
+    help="number of zeta points (only for ID or -s). Default is 81.",
 )
 parser.add_argument(
     "--clean",
@@ -157,14 +157,10 @@ def check_args(parser, args):
             args.nt = 81
         elif args.nt < 1:
             raise parser.error("Number of theta points must be greater than 0.")
-        elif args.nt % 2 == 0:
-            raise parser.error("Number of theta points (nt) must be odd.")
         if args.nz is None:
             args.nz = 81
         elif args.nz < 1:
             raise parser.error("Number of zeta points must be greater than 0.")
-        elif args.nz % 2 == 0:
-            raise parser.error("Number of zeta points (nz) must be odd.")
     else:
         if not args.file.exists():
             raise parser.error(f"File {args.file} does not exist.")
