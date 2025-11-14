@@ -1571,11 +1571,35 @@ def B_theta_avg(ds: xr.Dataset):
 
 
 @register(
+    requirements=("B", "dB_dr", "e_theta", "k_rt"),
+    integration=("theta", "zeta"),
+    attrs=dict(
+        long_name="derivative of the flux-surface averaged poloidal magnetic field",
+        symbol=r"\frac{d\overline{B_\theta}}{d\rho}",
+    ),
+)
+def dB_theta_avg_dr(ds: xr.Dataset):
+    dB_t_dr = xr.dot(ds.dB_dr, ds.e_theta, dim="xyz") + xr.dot(ds.B, ds.k_rt, dim="xyz")
+    ds["dB_theta_avg_dr"] = fluxsurface_integral(dB_t_dr) / (4 * np.pi**2)
+
+
+@register(
     requirements=("B_theta_avg", "mu0"),
     attrs=dict(long_name="toroidal current enclosed by flux surface", symbol=r"I_{tor}"),
 )
 def I_tor(ds: xr.Dataset):
     ds["I_tor"] = ds.B_theta_avg * 2 * np.pi / ds.mu0
+
+
+@register(
+    requirements=("dB_theta_avg_dr", "mu0"),
+    attrs=dict(
+        long_name="derivative of the toroidal current enclosed by the flux surface",
+        symbol=r"\frac{dI_{tor}}{d\rho}",
+    ),
+)
+def dI_tor_dr(ds: xr.Dataset):
+    ds["dI_tor_dr"] = ds.dB_theta_avg_dr * 2 * np.pi / ds.mu0
 
 
 @register(
@@ -1642,6 +1666,77 @@ def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
     Vp_edge = aux.dV_dPhi_n.isel(rad=1)
     Vp_axis = aux.dV_dPhi_n.isel(rad=0)
     ds["vacuum_magnetic_well_depth"] = (Vp_axis - Vp_edge) / Vp_axis
+
+
+@register(
+    quantities=("D_Merc", "D_Merc_Shear", "D_Merc_Curr", "D_Merc_Well", "D_Merc_Geod"),
+    requirements=(
+        "dPhi_dr",
+        "dPhi_drr",
+        "diota_dr",
+        "dp_dr",
+        "Phi",
+        "chi",
+        "Jac",
+        "dJac_dr",
+        "grad_rho",
+        "dB_theta_avg_dr",
+        "mu0",
+        "J",
+        "B",
+        "mod_B",
+    ),
+    attrs={
+        "D_Merc": dict(
+            long_name="Mercier criterion",
+            symbol=r"D_\text{Merc}",
+        ),
+        "D_Merc_Shear": dict(
+            long_name="Shear contribution to the Mercier criterion",
+            symbol=r"D_\text{M,Shear}",
+        ),
+        "D_Merc_Curr": dict(
+            long_name="Current contribution to the Mercier criterion",
+            symbol=r"D_\text{M,Curr}",
+        ),
+        "D_Merc_Well": dict(
+            long_name="Magnetic well contribution to the Mercier criterion",
+            symbol=r"D_\text{M,Well}",
+        ),
+        "D_Merc_Geod": dict(
+            long_name="Geodesic contribution to the Mercier criterion",
+            symbol=r"D_\text{M,Geod}",
+        ),
+    },
+)
+def D_Merc(ds: xr.Dataset):
+    twopi = 2 * np.pi
+    diota_dPhi = ds.diota_dr / ds.dPhi_dr
+    dp_dPhi = ds.dp_dr / ds.dPhi_dr
+    s_Phi = np.sign(ds.Phi)
+    s_chi = np.sign(ds.chi)
+    dV_dr = fluxsurface_integral(ds.Jac)
+    dV_drr = fluxsurface_integral(ds.dJac_dr)
+    d2V_dPhi2 = dV_drr / ds.dPhi_dr**2 - dV_dr * ds.dPhi_drr / ds.dPhi_dr**3
+    ngradPhi = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * ds.dPhi_dr
+    dB_theta_avg_dPhi = ds.dB_theta_avg_dr / ds.dPhi_dr
+    # dS = xr.cross(ds.e_theta, ds.e_zeta, dim="xyz")
+    dS = np.sqrt(xr.dot(ds.grad_rho, ds.grad_rho, dim="xyz")) * ds.Jac
+    JBint = fluxsurface_integral(dS * ds.mu0 * xr.dot(ds.J, ds.B, dim="xyz") / ngradPhi**3)
+    B2int = fluxsurface_integral(dS * ds.mod_B**2 / ngradPhi**3)
+    Bi2int = fluxsurface_integral(dS / ds.mod_B**2 / ngradPhi)
+    JB2int = fluxsurface_integral(
+        dS * (ds.mu0 * xr.dot(ds.J, ds.B, dim="xyz") / ds.mod_B) ** 2 / ngradPhi**3
+    )
+    ds["D_Merc_Shear"] = 1 / (16 * np.pi**2) * diota_dPhi**2
+    ds["D_Merc_Curr"] = -s_chi / twopi**4 * diota_dPhi * (JBint - dB_theta_avg_dPhi * B2int)
+    ds["D_Merc_Well"] = (
+        ds.mu0 / twopi**6 * dp_dPhi * (s_Phi * d2V_dPhi2 - ds.mu0 * dp_dPhi * Bi2int) * B2int
+    )
+    ds["D_Merc_Geod"] = 1 / twopi**6 * (JBint**2 - B2int * JB2int)
+    ds["D_Merc"] = (
+        ds["D_Merc_Shear"] + ds["D_Merc_Curr"] + ds["D_Merc_Well"] + ds["D_Merc_Geod"]
+    )
 
 
 @register(
