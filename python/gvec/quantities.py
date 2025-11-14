@@ -1715,7 +1715,6 @@ def D_Merc(ds: xr.Dataset):
     twopi = 2 * np.pi
     diota_dPhi = ds.diota_dr / ds.dPhi_dr
     dp_dPhi = ds.dp_dr / ds.dPhi_dr
-    s_Phi = np.sign(ds.Phi)
     s_chi = np.sign(ds.chi)
     dV_dr = fluxsurface_integral(ds.Jac)
     dV_drr = fluxsurface_integral(ds.dJac_dr)
@@ -1733,7 +1732,7 @@ def D_Merc(ds: xr.Dataset):
     ds["D_Merc_Shear"] = 1 / (16 * np.pi**2) * diota_dPhi**2
     ds["D_Merc_Curr"] = -s_chi / twopi**4 * diota_dPhi * (JBint - dB_theta_avg_dPhi * B2int)
     ds["D_Merc_Well"] = (
-        ds.mu0 / twopi**6 * dp_dPhi * (s_Phi * d2V_dPhi2 - ds.mu0 * dp_dPhi * Bi2int) * B2int
+        ds.mu0 / twopi**6 * dp_dPhi * (d2V_dPhi2 - ds.mu0 * dp_dPhi * Bi2int) * B2int
     )
     ds["D_Merc_Geod"] = 1 / twopi**6 * (JBint**2 - B2int * JB2int)
     ds["D_Merc"] = (

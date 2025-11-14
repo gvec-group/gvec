@@ -183,12 +183,8 @@ where a positive value of $D_\text{Merc}$ indicates stability and
 $$
 \begin{align}
 D_\text{M,Shear} &= \frac{1}{16\pi^2} \pqty{\dv{\iota}{\Phi}}^2 \\
-% D_\text{M,Shear} &= \frac{1}{16\pi^2} \left( \frac{d\iota}{d\rho} \right)^2 \left( \frac{d\Phi}{d\rho} \right)^{-2} \\
 D_\text{M,Curr} &= -\frac{s_\chi}{\pqty{2\pi}^4} \dv{\iota}{\Phi} \int\dd S \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} \\
-% D_\text{M,Curr} &= -\frac{s_\chi}{\left(2\pi\right)^4} \frac{d\iota}{d\rho} \left(\frac{d\Phi}{d\rho}\right)^{-1} \int dS \frac{\vec{\Xi} \cdot \vec{B}}{\left|\frac{d\Phi}{d\rho} \nabla\rho \right|^3} \\
-% D_\text{M,Curr} &= -\frac{s_\chi}{\left(2\pi\right)^4} \frac{d\iota}{d\rho} \left(\frac{d\Phi}{d\rho}\right)^{-1}\left|\frac{d\Phi}{d\rho}\right|^{-3} \int dS \frac{\vec{\Xi} \cdot \vec{B}}{\left|\nabla\rho\right|^3} \\
-% D_\text{M,Curr} &= -\frac{s_\chi s_\Phi}{\left(2\pi\right)^4} \frac{d\iota}{d\rho} \left(\frac{d\Phi}{d\rho}\right)^{-4} \int dS \frac{\vec{\Xi} \cdot \vec{B}}{\left|\nabla\rho\right|^3} \\
-D_\text{M,Well} &= \frac{\mu_0}{\pqty{2\pi}^6} \dv{p}{\Phi} \pqty{s_\Phi \dv[2]{V}{\Phi} - \mu_0 \dv{p}{\Phi} \int dS \frac{1}{\modB^2 \abs{\grad\Phi}}}\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3} \\
+D_\text{M,Well} &= \frac{\mu_0}{\pqty{2\pi}^6} \dv{p}{\Phi} \pqty{\dv[2]{V}{\Phi} - \mu_0 \dv{p}{\Phi} \int dS \frac{1}{\modB^2 \abs{\grad\Phi}}}\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3} \\
 D_\text{M,Geod} &= \frac{1}{\pqty{2\pi}^6} \bqty{
     \pqty{\int\dd S \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3}}^2
    -\pqty{\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3}}
@@ -202,21 +198,21 @@ with
 $$
 \begin{align}
 s_\chi &= \text{sgn}{\chi} \\
-s_\Phi &= \text{sgn}{\Phi} \\
+% s_\Phi &= \text{sgn}{\Phi} \\
 \dd S &= \abs{\grad\rho} \abs{\Jac} \dd\theta \dd\zeta = \abs{\e_thet\times\e_zeta} \dd\theta \dd\zeta\\
 \vec{\Xi} &= \mu_0 \vec{J} - \dv{\aqty{B_\theta}}{\Phi} \vec{B} \\
-% &= \mu_0 \vec{J} - \dv{\aqty{B_\theta}}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \vec{B} \\
 \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} &= \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3} - \dv{\aqty{B_\theta}}{\Phi} \frac{\modB^2}{\abs{\grad\Phi}^3} \\
 \grad\Phi &= \dv{\Phi}{\rho} \grad\rho \\
 \dv{\iota}{\Phi} &= \dv{\iota}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \\
 \dv{p}{\Phi} &= \dv{p}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \\
 \dv{\aqty{B_\theta}}{\Phi} &= \dv{\aqty{B_\theta}}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \\
-% \dv[2]{V}{\Phi} &= \bqty{\dv[2]{V}{\rho} - \dv[2]{\Phi}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \dv{V}{\rho}} \pqty{\dv{\Phi}{\rho}}^{-2} \\
 \dv[2]{V}{\Phi} &= \dv[2]{V}{\rho} \pqty{\dv{\Phi}{\rho}}^{-2} - \dv{V}{\rho} \dv[2]{\Phi}{\rho} \pqty{\dv{\Phi}{\rho}}^{-3} \\
 \end{align}
 $$
 
 Note that all four terms scale with $\pqty{\dv{\Phi}{\rho}}^{-2}$.
+
+Note also that we omit a factor of $s_\Phi$ in the formula for $D_\text{M,Well}$ compared with *Landreman & Jorge* (2020), to be invariant
 
 $\Rightarrow$ `D_Merc`, `D_Merc_Shear`, `D_Merc_Curr`, `D_Merc_Well`, `D_Merc_Geod`
 
