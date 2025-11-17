@@ -164,7 +164,7 @@ def compute_gist_quantities(ev, state, flip):
         "diota_dr",
         "p",
         "dp_dr",
-        "r_min",
+        "r_minor",
         "Jac_B",
         "mod_B",
         "dmod_B_dr_B",
@@ -179,7 +179,7 @@ def compute_gist_quantities(ev, state, flip):
 
     rho = ev.rho.item()
     theta = ev.theta_B
-    a = ev.r_min.item()
+    a = ev.r_minor.item()
     iota = ev.iota.item()
     diota_dr = ev.diota_dr.item()
     p = ev.p.item()

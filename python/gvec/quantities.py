@@ -1425,26 +1425,26 @@ def L_axis(ds: xr.Dataset, state: State):
 
 @register(
     requirements=("L_axis",),
-    attrs=dict(long_name="effective major radius", symbol=r"r_\text{maj,eff}"),
+    attrs=dict(long_name="effective major radius", symbol=r"r_\text{major,eff}"),
 )
-def r_maj(ds: xr.Dataset):
-    ds["r_maj"] = ds.L_axis / (2 * np.pi)
+def r_major(ds: xr.Dataset):
+    ds["r_major"] = ds.L_axis / (2 * np.pi)
 
 
 @register(
     requirements=("V", "L_axis"),
-    attrs=dict(long_name="effective minor radius", symbol=r"r_\text{min,eff}"),
+    attrs=dict(long_name="effective minor radius", symbol=r"r_\text{minor,eff}"),
 )
-def r_min(ds: xr.Dataset):
-    ds["r_min"] = np.sqrt(ds.V / (np.pi * ds.L_axis))
+def r_minor(ds: xr.Dataset):
+    ds["r_minor"] = np.sqrt(ds.V / (np.pi * ds.L_axis))
 
 
 @register(
-    requirements=("r_maj", "r_min"),
+    requirements=("r_major", "r_minor"),
     attrs=dict(long_name="effective aspect ratio", symbol=r"a_\text{eff}"),
 )
 def aspect_ratio(ds: xr.Dataset):
-    ds["aspect_ratio"] = ds.r_maj / ds.r_min
+    ds["aspect_ratio"] = ds.r_major / ds.r_minor
 
 
 @register(

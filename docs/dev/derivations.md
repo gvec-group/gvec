@@ -123,9 +123,9 @@ In particular we define the equivalent torus as a torus with circular axis and c
 
 $$
 \begin{align}
-V &= 2\pi^2 r_{min}^2 r_{maj} \\
-A_{surface} &= 4\pi^2 r_{min} r_{maj} \tilde{C}(E_{eff}) \\
-L_{axis} &= 2\pi r_{maj}
+V &= 2\pi^2 r_\text{minor}^2 r_\text{major} \\
+A_{surface} &= 4\pi^2 r_\text{minor} r_\text{major} \tilde{C}(E_{eff}) \\
+L_{axis} &= 2\pi r_\text{major}
 \end{align}
 $$
 
@@ -135,7 +135,7 @@ We use Ramanujan's approximation
 
 $$
 \begin{align}
-C &= 2\pi r_{min} \tilde{C} \\
+C &= 2\pi r_\text{minor} \tilde{C} \\
 \tilde{C} &= \frac{E_{eff} + 1}{2\sqrt{E_{eff}}} \left[ 1 + 3 \frac{h}{10 + \sqrt{4 - 3h}} \right] \\
 h &:= \frac{(E_{eff} - 1)^2}{(E_{eff} + 1)^2}.
 \end{align}
@@ -145,16 +145,16 @@ We invert these formulas to obtain
 
 $$
 \begin{align}
-r_{maj} &= \frac{L_{axis}}{2\pi} \\
-r_{min} &= \sqrt{\frac{V}{\pi L_{axis}}} \\
-a_{eff} &= \frac{r_{maj}}{r_{min}} \\
+r_\text{major} &= \frac{L_{axis}}{2\pi} \\
+r_{minor} &= \sqrt{\frac{V}{\pi L_{axis}}} \\
+a_{eff} &= \frac{r_\text{major}}{r_\text{minor}} \\
 \tilde{C}(E_{eff}) &= \frac{A_{surface}}{2\sqrt{\pi V L_{axis}}},
 \end{align}
 $$
 
 where we find $E_{eff}$ from the value of $\tilde{C}$ using the Newton-Raphson method.
 
-$\Rightarrow$ `V`, `A_surface`, `L_axis`, `r_min`, `r_maj`, `aspect_ratio`, `elongation`
+$\Rightarrow$ `V`, `A_surface`, `L_axis`, `r_minor`, `r_major`, `aspect_ratio`, `elongation`
 
 ## Vacuum magnetic well depth
 
