@@ -996,3 +996,187 @@ def ellipse_circumference_factor(epsilon: float) -> float:
     h = (epsilon - 1) ** 2 / (epsilon + 1) ** 2
     Cf = (1 + epsilon) / (2 * np.sqrt(epsilon)) * (1 + 3 * h / (10 + np.sqrt(4 - 3 * h)))
     return Cf
+
+
+def boundary_generator_cases():
+    return {
+        "ellip_cyl": "elliptic cross-section with no change in zeta",
+        "ellip_cyl_breathe": "elliptic cross-section with cross-section area changing with zeta",
+        "ellip_cyl_rot": "elliptic cross section of constant ellipticity that only rotates with zeta",
+        "ellip_cyl_rot2": "cross section of constant ellipticity that only rotates with zeta, but theta=0 origin remains on positive X1 direction",
+        "ellip_cyl_stretch": "elliptic cross section of  changing ellipticity with zeta, not orientation of theta=0",
+        "ellip_cyl_helix": "cross section of constant ellipticity, where the axis/boundary moves like a helix over zeta",
+        "ellip_cyl_helix_rot": "cross section of constant ellipticity, where the axis/boundary moves like a helix, and rotates along it, over zeta",
+        "ellip_cyl_helix_rot2": "cross section of constant ellipticity, where the axis/boundary moves like a helix, and rotates along it, over zeta, but theta=0 origin remains on positive X1 direction",
+    }
+
+
+def boundary_generator(case: str, X1_00=1.0, a0=0.5, ellipticity=0.4, helix_r=0.5):
+    """
+    Define parameters for some simple boundaries for testing.
+
+    Parameters
+    ----------
+    case : str
+        The name of the boundary:
+            see `boundary_generator_cases` dictionary
+
+    X1_00 : float, optional
+        =major radius if $X^1=R$
+    a0 : float, optional
+        =minor radius scale
+    ellipticity : float, optional
+        =ellipticity of the cross section
+
+    Returns
+    -------
+    parameter dictionary describing $X^1$ and $X^2$
+    """
+    params = {}
+    match case:
+        case "ellip_cyl":
+            params["X1_mn_max"] = [1, 0]
+            params["X2_mn_max"] = [1, 0]
+            params["X1_a_cos"] = {(0, 0): X1_00}
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (1, 0): a0 * (1.0 - ellipticity),
+            }
+            params["X2_b_sin"] = {
+                (1, 0): a0 * (1.0 + ellipticity),
+            }
+        case "ellip_cyl_breathe":
+            breathe = 0.1
+            params["X1_mn_max"] = [1, 1]
+            params["X2_mn_max"] = [1, 1]
+            params["X1_a_cos"] = {(0, 0): X1_00}
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (1, 0): a0 * (1.0 - ellipticity) * (1 + breathe),
+                (1, -1): -a0 * (1.0 - ellipticity) * 0.5 * breathe,
+                (1, 1): -a0 * (1.0 - ellipticity) * 0.5 * breathe,
+            }
+            params["X2_b_sin"] = {
+                (1, 0): a0 * (1.0 + ellipticity) * (1 + breathe),
+                (1, -1): -a0 * (1.0 + ellipticity) * 0.5 * breathe,
+                (1, 1): -a0 * (1.0 + ellipticity) * 0.5 * breathe,
+            }
+        case "ellip_cyl_rot":
+            params["X1_mn_max"] = [1, 1]
+            params["X2_mn_max"] = [1, 1]
+            params["X1_a_cos"] = {(0, 0): X1_00}
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (1, 1): a0,
+                (1, -1): -a0 * ellipticity,
+            }
+            params["X2_b_sin"] = {
+                (1, 1): a0,
+                (1, -1): a0 * ellipticity,
+            }
+        case "ellip_cyl_rot2":
+            params["X1_mn_max"] = [1, 2]
+            params["X2_mn_max"] = [1, 2]
+            params["X1_a_cos"] = {(0, 0): X1_00}
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (1, 0): a0,
+                (1, -2): -a0 * ellipticity,
+            }
+            params["X2_b_sin"] = {
+                (1, 0): a0,
+                (1, -2): a0 * ellipticity,
+            }
+        case "ellip_cyl_stretch":
+            params["X1_mn_max"] = [1, 1]
+            params["X2_mn_max"] = [1, 1]
+            params["X1_a_cos"] = {(0, 0): X1_00}
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (1, 0): a0,
+                (1, 1): -0.5 * a0 * ellipticity,
+                (1, -1): -0.5 * a0 * ellipticity,
+            }
+            params["X2_b_sin"] = {
+                (1, 0): a0,
+                (1, 1): 0.5 * a0 * ellipticity,
+                (1, -1): 0.5 * a0 * ellipticity,
+            }
+
+        case "ellip_cyl_helix":
+            params["X1_mn_max"] = [1, 1]
+            params["X2_mn_max"] = [1, 1]
+            params["X1_a_cos"] = {
+                (0, 0): X1_00,
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+            params["X2_a_sin"] = {
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+                (1, 0): a0 * (1.0 - ellipticity),
+            }
+            params["X2_b_sin"] = {
+                (1, 0): a0 * (1.0 + ellipticity),
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+        case "ellip_cyl_helix_rot":
+            params["X1_mn_max"] = [1, 1]
+            params["X2_mn_max"] = [1, 1]
+            params["X1_a_cos"] = {
+                (0, 0): X1_00,
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+            params["X2_a_sin"] = {
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+                (1, 1): a0,
+                (1, -1): -a0 * ellipticity,
+            }
+            params["X2_b_sin"] = {
+                (1, 1): a0,
+                (1, -1): a0 * ellipticity,
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+        case "ellip_cyl_helix_rot2":
+            params["X1_mn_max"] = [1, 2]
+            params["X2_mn_max"] = [1, 2]
+            params["X1_a_cos"] = {
+                (0, 0): X1_00,
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+            params["X2_a_sin"] = {
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+            }
+            params["X1_b_cos"] = {
+                (0, 0): X1_00,
+                (0, 1): helix_r,
+                (0, -1): helix_r,
+                (1, 0): a0,
+                (1, -2): -a0 * ellipticity,
+            }
+            params["X2_b_sin"] = {
+                (1, 1): a0,
+                (1, -1): a0 * ellipticity,
+                (0, 0): helix_r,
+                (0, -2): helix_r,
+            }
+        case _:
+            raise ValueError(f"request boundary '{case}', does not exist!")
+
+    return params
