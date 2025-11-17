@@ -106,38 +106,38 @@ The gradient $\nabla\vec{B}$ can be used to compute the *magnetic gradient lengt
 
 ## effective geometric quantities
 
-The plasma volume $V$, surface are $A_{surface}$ and length of the magnetic axis $L_{axis}$ are defined as
+The plasma volume $V$, surface are $A_\text{surface}$ and length of the magnetic axis $L_\text{axis}$ are defined as
 
 $$
 \begin{align}
 V &= \int_0^1 d\rho \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \Jac \\
-A_{surface} &= \left. \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \left|\vec{e}_\theta \times \vec{e}_\zeta\right| \right|_{\rho=1}\\
-L_{axis} &= \left. \int_0^{2\pi} d\zeta \left|\vec{e}_\zeta\right| \right|_{\rho=0,\theta=0}\\
+A_\text{surface} &= \left. \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \left|\vec{e}_\theta \times \vec{e}_\zeta\right| \right|_{\rho=1}\\
+L_\text{axis} &= \left. \int_0^{2\pi} d\zeta \left|\vec{e}_\zeta\right| \right|_{\rho=0,\theta=0}\\
 \end{align}
 $$
 
-All three are independent of the coordinate frame and parametrization, and $V,A_{surface}$ only depend on the boundary shape and not the full equilibrium.
+All three are independent of the coordinate frame and parametrization, and $V,A_\text{surface}$ only depend on the boundary shape and not the full equilibrium.
 
 From these we can compute the *effective minor radius*, *effective major radius*, *effective aspect ratio* and *effective elongation*, by relating them to an equivalent torus with elliptical cross section.
 In particular we define the equivalent torus as a torus with circular axis and constant elliptical cross-section, which has the same volume, surface area and axis length as the configuration of interest.
 
 $$
 \begin{align}
-V &= 2\pi^2 r_\text{minor}^2 r_\text{major} \\
-A_{surface} &= 4\pi^2 r_\text{minor} r_\text{major} \tilde{C}(E_{eff}) \\
-L_{axis} &= 2\pi r_\text{major}
+V &= 2\pi^2 r_\text{minor,eff}^2 r_\text{major,eff} \\
+A_\text{surface} &= 4\pi^2 r_\text{minor,eff} r_\text{major,eff} \tilde{C}(E_\text{eff}) \\
+L_\text{axis} &= 2\pi r_\text{major,eff}
 \end{align}
 $$
 
-with the effective elongation $E_{eff} := \frac{a}{b}$ defined as the ratio of the cross-sections semi-major axis and semi-minor axis ($a \geq b$).
+with the effective elongation $E_\text{eff} := \frac{a}{b}$ defined as the ratio of the cross-sections semi-major axis and semi-minor axis ($a \geq b$).
 The circumference of the ellipse does not have a closed form.
 We use Ramanujan's approximation
 
 $$
 \begin{align}
-C &= 2\pi r_\text{minor} \tilde{C} \\
-\tilde{C} &= \frac{E_{eff} + 1}{2\sqrt{E_{eff}}} \left[ 1 + 3 \frac{h}{10 + \sqrt{4 - 3h}} \right] \\
-h &:= \frac{(E_{eff} - 1)^2}{(E_{eff} + 1)^2}.
+C &= 2\pi r_\text{minor,eff} \tilde{C} \\
+\tilde{C} &= \frac{E_\text{eff} + 1}{2\sqrt{E_\text{eff}}} \left[ 1 + 3 \frac{h}{10 + \sqrt{4 - 3h}} \right] \\
+h &:= \frac{(E_\text{eff} - 1)^2}{(E_\text{eff} + 1)^2}.
 \end{align}
 $$
 
@@ -145,14 +145,14 @@ We invert these formulas to obtain
 
 $$
 \begin{align}
-r_\text{major} &= \frac{L_{axis}}{2\pi} \\
-r_{minor} &= \sqrt{\frac{V}{\pi L_{axis}}} \\
-a_{eff} &= \frac{r_\text{major}}{r_\text{minor}} \\
-\tilde{C}(E_{eff}) &= \frac{A_{surface}}{2\sqrt{\pi V L_{axis}}},
+r_\text{major,eff} &= \frac{L_\text{axis}}{2\pi} \\
+r_\text{minor,eff} &= \sqrt{\frac{V}{\pi L_\text{axis}}} \\
+a_{eff} &= \frac{r_\text{major,eff}}{r_\text{minor,eff}} \\
+\tilde{C}(E_\text{eff}) &= \frac{A_\text{surface}}{2\sqrt{\pi V L_\text{axis}}},
 \end{align}
 $$
 
-where we find $E_{eff}$ from the value of $\tilde{C}$ using the Newton-Raphson method.
+where we find $E_\text{eff}$ from the value of $\tilde{C}$ using the Newton-Raphson method.
 
 $\Rightarrow$ `V`, `A_surface`, `L_axis`, `r_minor`, `r_major`, `aspect_ratio`, `elongation`
 
@@ -199,7 +199,7 @@ $$
 \begin{align}
 s_\chi &= \text{sgn}{\chi} \\
 % s_\Phi &= \text{sgn}{\Phi} \\
-\dd S &= \abs{\grad\rho} \abs{\Jac} \dd\theta \dd\zeta = \abs{\e_thet\times\e_zeta} \dd\theta \dd\zeta\\
+\dd S &= \abs{\grad\rho} \abs{\Jac} \dd\theta \dd\zeta = \abs{\vec{e}_\theta \times \vec{e}_\zeta} \dd\theta \dd\zeta\\
 \vec{\Xi} &= \mu_0 \vec{J} - \dv{\aqty{B_\theta}}{\Phi} \vec{B} \\
 \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} &= \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3} - \dv{\aqty{B_\theta}}{\Phi} \frac{\modB^2}{\abs{\grad\Phi}^3} \\
 \grad\Phi &= \dv{\Phi}{\rho} \grad\rho \\
