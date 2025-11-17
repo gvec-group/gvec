@@ -363,7 +363,7 @@ def write_Gframe_ncfile(filename: str | Path, dict_in):
     )
     ncfile.createDimension("nzetaFull_axis", dict_in["axis"]["nzeta"] * dict_in["nfp"])
     version = 301
-    axis_n_max = (dict_in["axis"]["nzeta"] * dict_in["axis"]["nzeta"] * dict_in["nfp"] - 1) // 2
+    axis_n_max = (dict_in["axis"]["nzeta"] - 1) // 2
     for ivar, ival in zip(
         ["VERSION", "NFP", "axis/n_max", "axis/nzeta"],
         [version, dict_in["nfp"], axis_n_max, dict_in["axis"]["nzeta"]],
@@ -797,8 +797,9 @@ def construct_gframe_from_surface(
         X1_mn_max=(Mmax, Nmax),
         X2_mn_max=(Mmax, Nmax),
         LA_mn_max=(Mmax, Nmax),
-        fac_nyq=-1,
-        mn_nyq=[4 * Mmax + 1, 4 * (Nmax + (nz_gframe - 1) // 2) + 1],
+        X1_sin_cos="_cos_" if not lasym else "_sincos_",
+        X2_sin_cos="_sin_" if not lasym else "_sincos_",
+        LA_sin_cos="_sin_" if not lasym else "_sincos_",
         minimize_tol=1e-7,
         totalIter=100000,
         logIter=100,
@@ -812,6 +813,7 @@ def construct_gframe_from_surface(
         ),
         picard_current="auto",
     )
+
     if writeFiles:
         logger.info(f". Writing files: {name}-Gframe.nc , {name}-parameters.{format}")
         write_Gframe_ncfile(f"{name}-Gframe.nc", dict_out)
