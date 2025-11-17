@@ -147,7 +147,7 @@ $$
 \begin{align}
 r_\text{major,eff} &= \frac{L_\text{axis}}{2\pi} \\
 r_\text{minor,eff} &= \sqrt{\frac{V}{\pi L_\text{axis}}} \\
-a_{eff} &= \frac{r_\text{major,eff}}{r_\text{minor,eff}} \\
+a_\text{eff} &= \frac{r_\text{major,eff}}{r_\text{minor,eff}} \\
 \tilde{C}(E_\text{eff}) &= \frac{A_\text{surface}}{2\sqrt{\pi V L_\text{axis}}},
 \end{align}
 $$
@@ -162,11 +162,11 @@ We define the *vacuum magnetic well depth* as
 
 $$
 \begin{align}
-d_{well} &= \frac{\frac{dV}{d\Phi_n}(\rho=0) - \frac{dV}{d\Phi_n}(\rho=1)}{\frac{dV}{d\Phi_n}(\rho=0)}
+d_\text{well} &= \frac{\frac{dV}{d\Phi_n}(\rho=0) - \frac{dV}{d\Phi_n}(\rho=1)}{\frac{dV}{d\Phi_n}(\rho=0)}
 \end{align}
 $$
 
-positive values of $d_{well}$ indicate $\frac{d^2V}{d\Phi_n^2} < 0$ which is favorable for stability.
+positive values of $d_\text{well}$ indicate $\frac{d^2V}{d\Phi_n^2} < 0$ which is favorable for stability.
 
 $\Rightarrow$ `vacuum_magnetic_well_depth`
 
