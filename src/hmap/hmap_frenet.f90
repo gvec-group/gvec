@@ -53,7 +53,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   ! parameters for hmap_frenet:
   !curve description
   !INTEGER             :: nfp  !already part of c_hmap. Is overwritten in init
-  INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max,
   REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
   REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
   REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp

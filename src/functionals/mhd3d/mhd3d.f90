@@ -223,27 +223,23 @@ SUBROUTINE InitMHD3D(sf)
   LA_sin_cos = GETSTR(     "LA_sin_cos"   ,Proposal=proposal_LA_sin_cos)
 
   IF(fac_nyq.EQ.-1)THEN
-    fac_nyq=4
+    fac_nyq=2
     mn_nyq_min(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
-    mn_nyq_min(2)=1+fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))
+    mn_nyq_min(2)=1+fac_nyq*(MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))+hmap%n_max)
     mn_nyq  = GETINTARRAY("mn_nyq",2)
     IF(mn_nyq(1).LT.mn_nyq_min(1))THEN
-       CALL abort(__STAMP__,&
-                  'mn_nyq(1) too small, should be >= ',intInfo=mn_nyq_min(1),&
-                  TypeInfo="InvalidParameterError")
+       SWRITE(UNIT_stdOut,'(A,I6)')'WARNING: mn_nyq(1) too small, should be >= ',mn_nyq_min(1)
     END IF
     IF(mn_nyq(2).LT.mn_nyq_min(2))THEN
-       CALL abort(__STAMP__,&
-                  'mn_nyq(2) too small, should be >= ',intInfo=mn_nyq_min(2),&
-                  TypeInfo="InvalidParameterError")
+       SWRITE(UNIT_stdOut,'(A,I6)') 'WARNING: mn_nyq(2) too small, should be >= ',mn_nyq_min(2)
     END IF
   ELSE
     mn_nyq(1)=1+fac_nyq*MAXVAL((/X1_mn_max(1),X2_mn_max(1),LA_mn_max(1)/))
-    mn_nyq(2)=1+fac_nyq*MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))
+    mn_nyq(2)=1+fac_nyq*(MAXVAL((/X1_mn_max(2),X2_mn_max(2),LA_mn_max(2)/))+hmap%n_max)
   END IF
 
   SWRITE(UNIT_stdOut,*)
-  SWRITE(UNIT_stdOut,'(A,I4,A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
+  SWRITE(UNIT_stdOut,'(2(A,I4),A,I6," , ",I6,A)')'    fac_nyq = ', fac_nyq,' hmap%n_max = ',hmap%n_max,'  ==> interpolation points mn_nyq=( ',mn_nyq(:),' )'
   SWRITE(UNIT_stdOut,*)
 
   grid_type= GETINT("sgrid_grid_type",Proposal=0)
