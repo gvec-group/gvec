@@ -104,6 +104,116 @@ $\Rightarrow$ `dB_contra_t_dr`, `dB_contra_t_dt`, `dB_contra_t_dz`, `dB_contra_z
 
 The gradient $\nabla\vec{B}$ can be used to compute the *magnetic gradient length scale* $L_{\nabla\vec{B}}$ (`L_gradB`). Details are found in *John Kappel et al 2024 PPCF 66 025018* [DOI:10.1088/1361-6587/ad1a3e](https://www.doi.org/10.1088/1361-6587/ad1a3e).
 
+## effective geometric quantities
+
+The plasma volume $V$, surface are $A_\text{surface}$ and length of the magnetic axis $L_\text{axis}$ are defined as
+
+$$
+\begin{align}
+V &= \int_0^1 d\rho \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \Jac \\
+A_\text{surface} &= \left. \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \left|\vec{e}_\theta \times \vec{e}_\zeta\right| \right|_{\rho=1}\\
+L_\text{axis} &= \left. \int_0^{2\pi} d\zeta \left|\vec{e}_\zeta\right| \right|_{\rho=0,\theta=0}\\
+\end{align}
+$$
+
+All three are independent of the coordinate frame and parametrization, and $V,A_\text{surface}$ only depend on the boundary shape and not the full equilibrium.
+
+From these we can compute the *effective minor radius*, *effective major radius*, *effective aspect ratio* and *effective elongation*, by relating them to an equivalent torus with elliptical cross section.
+In particular we define the equivalent torus as a torus with circular axis and constant elliptical cross-section, which has the same volume, surface area and axis length as the configuration of interest.
+
+$$
+\begin{align}
+V &= 2\pi^2 r_\text{minor,eff}^2 r_\text{major,eff} \\
+A_\text{surface} &= 4\pi^2 r_\text{minor,eff} r_\text{major,eff} \tilde{C}(E_\text{eff}) \\
+L_\text{axis} &= 2\pi r_\text{major,eff}
+\end{align}
+$$
+
+with the effective elongation $E_\text{eff} := \frac{a}{b}$ defined as the ratio of the cross-sections semi-major axis and semi-minor axis ($a \geq b$).
+The circumference of the ellipse does not have a closed form.
+We use Ramanujan's approximation
+
+$$
+\begin{align}
+C &= 2\pi r_\text{minor,eff} \tilde{C} \\
+\tilde{C} &= \frac{E_\text{eff} + 1}{2\sqrt{E_\text{eff}}} \left[ 1 + 3 \frac{h}{10 + \sqrt{4 - 3h}} \right] \\
+h &:= \frac{(E_\text{eff} - 1)^2}{(E_\text{eff} + 1)^2}.
+\end{align}
+$$
+
+We invert these formulas to obtain
+
+$$
+\begin{align}
+r_\text{major,eff} &= \frac{L_\text{axis}}{2\pi} \\
+r_\text{minor,eff} &= \sqrt{\frac{V}{\pi L_\text{axis}}} \\
+a_\text{eff} &= \frac{r_\text{major,eff}}{r_\text{minor,eff}} \\
+\tilde{C}(E_\text{eff}) &= \frac{A_\text{surface}}{2\sqrt{\pi V L_\text{axis}}},
+\end{align}
+$$
+
+where we find $E_\text{eff}$ from the value of $\tilde{C}$ using the Newton-Raphson method.
+
+$\Rightarrow$ `V`, `A_surface`, `L_axis`, `r_minor`, `r_major`, `aspect_ratio`, `elongation`
+
+## Vacuum magnetic well depth
+
+We define the *vacuum magnetic well depth* as
+
+$$
+\begin{align}
+d_\text{well} &= \frac{\frac{dV}{d\Phi_n}(\rho=0) - \frac{dV}{d\Phi_n}(\rho=1)}{\frac{dV}{d\Phi_n}(\rho=0)}
+\end{align}
+$$
+
+positive values of $d_\text{well}$ indicate $\frac{d^2V}{d\Phi_n^2} < 0$ which is favorable for stability.
+
+$\Rightarrow$ `vacuum_magnetic_well_depth`
+
+## Mercier criterion
+
+We follow the formulas reported in *Landreman & Jorge* (2020), given in *Bauer et al.* (1984); *Ichiguchi et al.* (1993).
+
+$$
+D_\text{Merc} = D_\text{M,Shear} + D_\text{M,Curr} + D_\text{M,Well} + D_\text{M,Geod},
+$$
+
+where a positive value of $D_\text{Merc}$ indicates stability and
+
+$$
+\begin{align}
+D_\text{M,Shear} &= \frac{1}{16\pi^2} \pqty{\dv{\iota}{\Phi}}^2 \\
+D_\text{M,Curr} &= -\frac{s_\chi}{\pqty{2\pi}^4} \dv{\iota}{\Phi} \int\dd S \frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} \\
+D_\text{M,Well} &= \frac{\mu_0}{\pqty{2\pi}^6} \dv{p}{\Phi} \pqty{s_\Phi \dv[2]{V}{\Phi} - \mu_0 \dv{p}{\Phi} \int dS \frac{1}{\modB^2 \abs{\grad\Phi}}}\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3} \\
+D_\text{M,Geod} &= \frac{1}{\pqty{2\pi}^6} \bqty{
+    \pqty{\int\dd S \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3}}^2
+   -\pqty{\int\dd S \frac{\modB^2}{\abs{\grad\Phi}^3}}
+    \pqty{\int\dd S \frac{\pqty{\mu_0 \vec{J}\cdot\vec{B}}^2}{\modB^2 \abs{\grad\Phi}^3}}
+} \\
+\end{align}
+$$
+
+with
+
+$$
+\begin{align}
+s_\chi &= \text{sgn}{\chi} \\
+s_\Phi &= \text{sgn}{\Phi} \\
+\dd S &= \abs{\grad\rho} \abs{\Jac} \dd\theta \dd\zeta = \abs{\vec{e}_\theta \times \vec{e}_\zeta} \dd\theta \dd\zeta\\
+\vec{\Xi} &= \mu_0 \vec{J} - \dv{\aqty{B_\theta}}{\Phi} \vec{B} \\
+\frac{\vec{\Xi} \cdot \vec{B}}{\abs{\grad\Phi}^3} &= \frac{\mu_0 \vec{J}\cdot\vec{B}}{\abs{\grad\Phi}^3} - \dv{\aqty{B_\theta}}{\Phi} \frac{\modB^2}{\abs{\grad\Phi}^3} \\
+\grad\Phi &= \dv{\Phi}{\rho} \grad\rho \\
+\dv{\iota}{\Phi} &= \dv{\iota}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \\
+\dv{p}{\Phi} &= \dv{p}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \\
+\dv{\aqty{B_\theta}}{\Phi} &= \dv{\aqty{B_\theta}}{\rho} \pqty{\dv{\Phi}{\rho}}^{-1} \\
+\dv[2]{V}{\Phi} &= \dv[2]{V}{\rho} \pqty{\dv{\Phi}{\rho}}^{-2} - \dv{V}{\rho} \dv[2]{\Phi}{\rho} \pqty{\dv{\Phi}{\rho}}^{-3} \\
+\end{align}
+$$
+
+Note that all four terms scale with $\pqty{\dv{\Phi}{\rho}}^{-2}$.
+
+$\Rightarrow$ `D_Merc`, `D_Merc_Shear`, `D_Merc_Curr`, `D_Merc_Well`, `D_Merc_Geod`
+
 ## Transformation to Boozer coordinates
 
 In terms of the GVEC coordinates $(\rho,\thet,\zeta)$ the Boozer transform is given as

@@ -141,8 +141,9 @@ mathjax3_config = {
             "Xpp": r"\X^{\prime\prime}",
             "Xppp": r"\X^{\prime\prime\prime}",
             "ttilde": r"{\vec{\tilde{T}}_q}",
-            "modB": r"\left|\vec{B}\right|",
-            "dPhidr": r"\frac{d\Phi}{d\rho}",
+            "modB": r"\abs{\vec{B}}",
+            "dPhidr": r"\dv{\Phi}{\rho}",
+            "aqty": [r"\langle{#1}\rangle", 1],
         },
     },
 }
