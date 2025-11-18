@@ -27,6 +27,31 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def get_compile_options() -> str:
+    try:
+        from gvec import _compile_options as opts
+    except ImportError:
+        return "UNKNOWN BUILD"
+    config = opts.CMAKE_BUILD_TYPE
+    if opts.USE_OPENMP:
+        config += ", OpenMP"
+    if opts.USE_MPI:
+        config += ", MPI"
+    if opts.GVEC_FIX_HMAP:
+        config += f", {opts.GVEC_FIX_HMAP}"
+    config += f", {opts.CMAKE_Fortran_COMPILER.name}"
+    if len(opts.CMAKE_HOSTNAME) > 0:
+        config += f" on {opts.CMAKE_HOSTNAME}"
+    return config
+
+
+def version_info() -> str:
+    import platform
+    from gvec._version import __version__
+
+    return f"pyGVEC v{__version__} ({get_compile_options()}, python {platform.python_version()}) from {Path(__file__).parent}"
+
+
 @contextlib.contextmanager
 def chdir(target: Path | str):
     """
