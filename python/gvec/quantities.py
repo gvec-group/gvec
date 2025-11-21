@@ -672,6 +672,131 @@ def _dB(ds: xr.Dataset):
 
 
 @register(
+    requirements=(
+        "B_contra_t",
+        "B_contra_z",
+        "dB_contra_t_dr",
+        "dB_contra_z_dr",
+        "e_theta",
+        "e_zeta",
+        "k_rt",
+        "k_rz",
+    ),
+    attrs=dict(
+        long_name="radial derivative of the magnetic field",
+        symbol=r"\frac{\partial \mathbf{B}}{\partial \rho}",
+    ),
+)
+def dB_dr(ds: xr.Dataset):
+    ds["dB_dr"] = (
+        ds.dB_contra_t_dr * ds.e_theta
+        + ds.B_contra_t * ds.k_rt
+        + ds.dB_contra_z_dr * ds.e_zeta
+        + ds.B_contra_z * ds.k_rz
+    )
+
+
+@register(
+    requirements=(
+        "B_contra_t",
+        "B_contra_z",
+        "dB_contra_t_dt",
+        "dB_contra_z_dt",
+        "e_theta",
+        "e_zeta",
+        "k_tt",
+        "k_tz",
+    ),
+    attrs=dict(
+        long_name="poloidal derivative of the magnetic field",
+        symbol=r"\frac{\partial \mathbf{B}}{\partial \theta}",
+    ),
+)
+def dB_dt(ds: xr.Dataset):
+    ds["dB_dt"] = (
+        ds.dB_contra_t_dt * ds.e_theta
+        + ds.B_contra_t * ds.k_tt
+        + ds.dB_contra_z_dt * ds.e_zeta
+        + ds.B_contra_z * ds.k_tz
+    )
+
+
+@register(
+    requirements=(
+        "B_contra_t",
+        "B_contra_z",
+        "dB_contra_t_dz",
+        "dB_contra_z_dz",
+        "e_theta",
+        "e_zeta",
+        "k_tz",
+        "k_zz",
+    ),
+    attrs=dict(
+        long_name="toroidal derivative of the magnetic field",
+        symbol=r"\frac{\partial \mathbf{B}}{\partial \zeta}",
+    ),
+)
+def dB_dz(ds: xr.Dataset):
+    ds["dB_dz"] = (
+        ds.dB_contra_t_dz * ds.e_theta
+        + ds.B_contra_t * ds.k_tz
+        + ds.dB_contra_z_dz * ds.e_zeta
+        + ds.B_contra_z * ds.k_zz
+    )
+
+
+def _dmod_B_factory(a):
+    @register(
+        quantities=[f"dmod_B_d{a}"],
+        requirements=[
+            "mod_B",
+            "B_contra_t",
+            "B_contra_z",
+            f"dB_contra_t_d{a}",
+            f"dB_contra_z_d{a}",
+            "g_tt",
+            "g_tz",
+            "g_zz",
+        ]
+        + [f"dg_{ij}_d{a}" for ij in ["tt", "tz", "zz"]],
+        attrs=dict(
+            long_name=derivative_name_smart("modulus of the magnetic field", a),
+            symbol=latex_partial(r"\left|\mathbf{B}\right|", a),
+        ),
+    )
+    def _dmod_B(ds: xr.Dataset):
+        dmod_B2_da = (
+            2 * ds[f"dB_contra_t_d{a}"] * ds.B_contra_t * ds.g_tt
+            + ds.B_contra_t**2 * ds[f"dg_tt_d{a}"]
+            + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_t * ds.g_tz
+            + 2 * ds[f"dB_contra_t_d{a}"] * ds.B_contra_z * ds.g_tz
+            + 2 * ds.B_contra_t * ds.B_contra_z * ds[f"dg_tz_d{a}"]
+            + 2 * ds[f"dB_contra_z_d{a}"] * ds.B_contra_z * ds.g_zz
+            + ds.B_contra_z**2 * ds[f"dg_zz_d{a}"]
+        )
+        ds[f"dmod_B_d{a}"] = dmod_B2_da / (2 * ds.mod_B)
+
+
+# generate functions from factory function
+for a in "rtz":
+    globals()[f"dmod_B_d{a}"] = _dmod_B_factory(a)
+
+
+@register(
+    requirements=["dmod_B_dr", "dmod_B_dt", "dmod_B_dz", "grad_rho", "grad_theta", "grad_zeta"],
+    attrs=dict(
+        long_name="gradient of the modulus of the magnetic field",
+        symbol=r"\nabla\left|\mathbf{B}\right|",
+    ),
+)
+def grad_mod_B(ds: xr.Dataset):
+    ds["grad_mod_B"] = (
+        ds.dmod_B_dr * ds.grad_rho + ds.dmod_B_dt * ds.grad_theta + ds.dmod_B_dz * ds.grad_zeta
+    )
+
+
+@register(
     quantities=("J", "J_contra_r", "J_contra_t", "J_contra_z"),
     requirements=[
         "B_contra_t",
@@ -781,7 +906,7 @@ for v in [
     requirements=("B", "e_theta", "dLA_dt", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="poloidal derivative of the Boozer potential computed from the magnetic field",
-        symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|",
+        symbol=r"\left." + latex_partial(r"\nu_B", "t") + r"\right|_{def.}",
     ),
 )
 def dNU_B_dt(ds: xr.Dataset):
@@ -795,7 +920,7 @@ def dNU_B_dt(ds: xr.Dataset):
     requirements=("B", "e_zeta", "dLA_dz", "iota", "B_theta_avg", "B_zeta_avg"),
     attrs=dict(
         long_name="toroidal derivative of the Boozer potential computed from the magnetic field",
-        symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|",
+        symbol=r"\left." + latex_partial(r"\nu_B", "z") + r"\right|_{def.}",
     ),
 )
 def dNU_B_dz(ds: xr.Dataset):
@@ -862,9 +987,8 @@ def e_theta_B(ds: xr.Dataset):
     dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
     dzB_dt = ds.dNU_B_dt
     dzB_dz = 1 + ds.dNU_B_dz
-    ds["e_theta_B"] = (dzB_dz * ds.e_theta - dzB_dt * ds.e_zeta) / (
-        dtB_dt * dzB_dz - dtB_dz * dzB_dt
-    )
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    ds["e_theta_B"] = (dzB_dz * ds.e_theta - dzB_dt * ds.e_zeta) * Jac_B_Jac
 
 
 @register(
@@ -887,9 +1011,8 @@ def e_zeta_B(ds: xr.Dataset):
     dtB_dz = ds.dLA_dz + ds.iota * ds.dNU_B_dz
     dzB_dt = ds.dNU_B_dt
     dzB_dz = 1 + ds.dNU_B_dz
-    ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) / (
-        dtB_dt * dzB_dz - dtB_dz * dzB_dt
-    )
+    Jac_B_Jac = 1 / (dtB_dt * dzB_dz - dtB_dz * dzB_dt)  # Jac_B / Jac
+    ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) * Jac_B_Jac
 
 
 def _g_ij_B_factory(i, j):
@@ -912,7 +1035,7 @@ def _g_ij_B_factory(i, j):
 
 
 # generate functions from factory function
-for i, j in ["tt", "tz", "zz"]:
+for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
     globals()[f"g_{i}{j}_B"] = _g_ij_B_factory(i, j)
 
 
@@ -1060,24 +1183,29 @@ def dV_dPhi_n2(ds: xr.Dataset):
 
 
 @register(
-    quantities=("minor_radius", "major_radius"),
-    requirements=("V", "Jac_l"),
+    requirements=("Jac_l",),
     integration=("rho", "theta", "zeta"),
-    attrs=dict(
-        minor_radius=dict(long_name="minor radius", symbol=r"r_{min}"),
-        major_radius=dict(long_name="major radius", symbol=r"r_{maj}"),
-    ),
+    attrs=dict(long_name="minor radius", symbol=r"r_{min}"),
 )
-def _minor_major_radius(ds: xr.Dataset):
+def minor_radius(ds: xr.Dataset):
     surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
     ds["minor_radius"] = np.sqrt(surface_average / np.pi)
+
+
+@register(
+    requirements=("V", "Jac_l"),
+    integration=("rho", "theta", "zeta"),
+    attrs=dict(long_name="major radius", symbol=r"r_{maj}"),
+)
+def major_radius(ds: xr.Dataset):
+    surface_average = volume_integral(ds.Jac_l) / (2 * np.pi)
     ds["major_radius"] = np.sqrt(ds.V / (2 * np.pi * surface_average))
 
 
 @register(
     requirements=("iota",),
     integration=("rho",),
-    attrs=dict(long_name="average rotational transform", symbol=r"\bar{\iota}"),
+    attrs=dict(long_name="average rotational transform", symbol=r"\overline{\iota}"),
 )
 def iota_avg(ds: xr.Dataset):
     ds["iota_avg"] = radial_integral(ds.iota)
@@ -1195,14 +1323,13 @@ def W_MHD(ds: xr.Dataset):
 
 
 @register(
-    requirements=("p", "mod_B", "mu0", "Jac", "V"),
+    requirements=("p", "mod_B", "Jac", "V", "mu0"),
     integration=("rho", "theta", "zeta"),
     attrs=dict(
-        long_name="volume averaged plasma beta",
+        long_name="volume-averaged plasma beta",
         symbol=r"\overline{\beta}",
     ),
 )
 def beta_avg(ds: xr.Dataset):
-    """The volume averaged plasma beta."""
-    beta = ds.p / (ds.mod_B**2 / (2 * ds.mu0))
+    beta = 2 * ds.mu0 * ds.p / ds.mod_B**2
     ds["beta_avg"] = volume_integral(beta * ds.Jac) / ds.V

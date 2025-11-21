@@ -18,6 +18,7 @@ try:
         compute,
         volume_integral,
     )
+    from gvec.util import compute_FD
 except ImportError:
     xr = type(pytest)("xarray")
     xr.DataArray = lambda *args, **kwargs: NotImplemented
@@ -435,6 +436,58 @@ def test_compute_basis(teststate, ev_rtz):
             compute(ds, f"e_{coord2}", f"grad_{coord2}", state=teststate)
             assert np.allclose(xr.dot(ds[f"e_{coord}"], ds[f"grad_{coord2}"], dim="xyz"), 0.0)
             assert np.allclose(xr.dot(ds[f"grad_{coord}"], ds[f"e_{coord2}"], dim="xyz"), 0.0)
+
+
+def test_compute_Jac_B_consistency(teststate, ev_rtz):
+    ds = teststate.evaluate_sfl(
+        "iota",
+        "Jac_B",
+        "B_theta_avg",
+        "B_zeta_avg",
+        "mod_B",
+        "dPhi_dr",
+        rho=np.linspace(0, 1, 11)[1:],
+        theta=21,
+        zeta=21,
+    )
+
+    Jac_B_B2 = ds.Jac_B * ds.mod_B**2
+    Jac_B_B2avg = Jac_B_B2.mean(("pol", "tor"))
+    np.testing.assert_allclose(
+        Jac_B_B2, Jac_B_B2avg.broadcast_like(Jac_B_B2), rtol=1e-2
+    )  # low resolution
+    np.testing.assert_allclose(
+        Jac_B_B2avg, ds.dPhi_dr * (ds.iota * ds.B_theta_avg + ds.B_zeta_avg), rtol=5e-4
+    )
+
+
+@pytest.mark.parametrize(
+    "q", ["B_contra_t", "B_contra_z", "g_rr", "g_rt", "g_rz", "g_tt", "g_tz", "g_zz", "mod_B"]
+)
+def test_derivatives(teststate, q):
+    ds = gvec.Evaluations(
+        rho=np.linspace(0.95, 1, 51),
+        theta=np.linspace(np.pi / 10, np.pi / 5, 31),
+        zeta=np.linspace(0.0, np.pi / 10 / teststate.nfp, 41),
+    )
+    compute(ds, q, f"d{q}_dr", f"d{q}_dt", f"d{q}_dz", state=teststate)
+
+    assert ds[q].dims == ("rad", "pol", "tor")
+
+    # using 8th order central FD on the equispaced grid (careful: 4 boundary points cannot be correctly computed)
+    FDpos = [-4, -3, -2, -1, 1, 2, 3, 4]
+    FDcoefs = np.array([1 / 280, -4 / 105, 1 / 5, -4 / 5, 4 / 5, -1 / 5, 4 / 105, -1 / 280])
+    dr = ds.rho.values[1] - ds.rho.values[0]
+    dt = ds.theta.values[1] - ds.theta.values[0]
+    dz = ds.zeta.values[1] - ds.zeta.values[0]
+    dQdr = compute_FD(np.array(ds[q]), FDpos, FDcoefs / dr, axis=0)
+    dQdt = compute_FD(ds[q].values, FDpos, FDcoefs / dt, axis=1)
+    dQdz = compute_FD(ds[q].values, FDpos, FDcoefs / dz, axis=2)
+    ds = ds.isel(rad=slice(4, -4), pol=slice(4, -4), tor=slice(4, -4))
+    Q_scale = np.amax(np.abs(ds[q]))
+    np.testing.assert_allclose(ds[f"d{q}_dr"], dQdr[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
+    np.testing.assert_allclose(ds[f"d{q}_dt"], dQdt[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
+    np.testing.assert_allclose(ds[f"d{q}_dz"], dQdz[4:-4, 4:-4, 4:-4], atol=1e-8 * Q_scale)
 
 
 def test_volume_integral(teststate, ev_rtz_int, ev_rtz):

@@ -6,6 +6,7 @@
 
 import platform
 from pathlib import Path
+import logging
 import argparse
 from collections.abc import Sequence
 
@@ -42,13 +43,36 @@ convert_parser = subparsers.add_parser(
 convert_parser.add_argument(
     "input",
     type=Path,
-    help="input GVEC parameterfile",
+    help="input GVEC or VMEC parameterfile",
 )
 convert_parser.add_argument(
     "output",
     type=Path,
+    nargs="?",
     help="output GVEC parameterfile",
+    default="parameter.yaml",
 )
+convert_parser.add_argument(
+    "--vmec",
+    action="store_true",
+    help="input parameterfile is a VMEC namelist",
+)
+convert_parser.add_argument(
+    "-x",
+    "--flip",
+    choices=["t", "theta", "z", "zeta", "b", "both"],
+    help="flip the coordinates in the specified direction(s), possible values are: t/theta, z/zeta, b/both",
+    metavar="FLIP",
+)
+verbosity = convert_parser.add_mutually_exclusive_group()
+verbosity.add_argument(
+    "-v",
+    "--verbose",
+    action="count",
+    default=0,
+    help="verbosity level: -v for info, -vv for debug",
+)
+verbosity.add_argument("-q", "--quiet", action="store_true", help="suppress output")
 
 # --- scripts --- #
 
@@ -83,6 +107,7 @@ quasr_parser = subparsers.add_parser(
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):
     gvec.util.logging_setup()
+    logger = logging.getLogger("gvec")
 
     if isinstance(args, argparse.Namespace):
         pass
@@ -95,7 +120,44 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     # --- convert parameterfile --- #
     elif args.mode == "convert-params":
-        parameters = gvec.util.read_parameters(args.input)
+        if args.quiet:
+            logging.disable()
+        elif args.verbose >= 2:
+            logger.setLevel(logging.DEBUG)
+        elif args.verbose == 1:
+            logger.setLevel(logging.INFO)
+        logger.debug(f"parsed args: {args}")
+
+        if args.vmec:
+            try:
+                import f90nml
+            except ImportError as e:
+                logger.debug(f"Caught exception: {e}")
+                logger.error("reading VMEC namelists requires 'f90nml' to be installed.")
+                return
+            with open(args.input, "r") as file:
+                content = file.read()
+            content = content.strip()
+            if content[-4:].lower() == "&end":
+                content = content[:-4]
+            nml = f90nml.reads(content)["indata"]
+            parameters = gvec.util.parameters_from_vmec(nml, args.input.name)
+        else:
+            parameters = gvec.util.read_parameters(args.input)
+
+        if args.flip is None:
+            if not gvec.util.check_boundary_direction(parameters):
+                logger.info("Input boundary is left-handed, flipping theta.")
+                parameters = gvec.util.flip_parameters_theta(parameters)
+        else:
+            if args.flip[0] in "tb":
+                parameters = gvec.util.flip_parameters_theta(parameters)
+            if args.flip[0] in "zb":
+                parameters = gvec.util.flip_parameters_zeta(parameters)
+
+        if not gvec.util.check_boundary_direction(parameters):
+            logger.warning("Output boundary is left-handed!")
+
         gvec.util.write_parameters(parameters, args.output)
 
     # --- other scripts --- #
