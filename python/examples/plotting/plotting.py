@@ -2,6 +2,7 @@
 #
 # We present some examples for how to use the basic plotting functions in the python interface for GVEC. Note that
 # these are not intended for advanced plotting, but for quickly visualising some basic properties.
+# We will use the same elliptic tokamak GVEC case for the plotting examples.
 
 # %%
 
@@ -12,27 +13,23 @@ import numpy as np
 # %%
 
 
-major_radius = 5.0
-minor_radius = 0.5
-radius_scale = 1.0
-
 params = {
     "ProjectName": "test_plotting",
     "which_hmap": 1,
     "PhiEdge": 1.0,
     "iota": {"type": "polynomial", "coefs": [0.625, 0.35]},
-    "pres": {"type": "polynomial", "coefs": [0.0]},
+    "pres": {"type": "polynomial", "coefs": [1.0, -1.0], "scale": 1000.0},
     "which_hmap": 1,
-    "nfp": 1,
-    "X1_b_cos": {(0, 0): major_radius, (1, 0): minor_radius * radius_scale},
-    "X2_b_sin": {(1, 0): minor_radius * radius_scale},
-    "X1_a_cos": {(0, 0): major_radius},
+    "nfp": 3,
+    "X1_b_cos": {(0, 0): 3.0, (1, 0): 1.0, (1, 1): 0.4},
+    "X2_b_sin": {(1, 0): 1.0, (1, 1): -0.4, (0, 1): -0.25},
+    "init_average_axis": True,
     "sgrid_nElems": 2,
-    "X1_mn_max": [3, 1],
-    "X2_mn_max": [3, 1],
-    "LA_mn_max": [3, 1],
-    "X1X2_deg": 3,
-    "LA_deg": 2,
+    "X1_mn_max": [3, 3],
+    "X2_mn_max": [3, 3],
+    "LA_mn_max": [3, 3],
+    "X1X2_deg": 5,
+    "LA_deg": 5,
     "totalIter": 1000,
     "minimize_tol": 1.0e-6,
 }
@@ -55,29 +52,35 @@ except:
 
 # %%
 
-p_plot_radial_profile = gp.plot_radial_profile(state, 11)
+p_plot_radial_profile, ax_plot_radial_profile = gp.plot_radial_profile(state, 11)
 p_plot_radial_profile.show()
 
+gp.plot_radial_profile(state, 11, quantities="iota", axis=ax_plot_radial_profile)
+
 # %% [markdown]
-# Properties along the magnetic axis can be plotted with `plot_on_axis`.
-# Note that some derived quantities are not well resolved at $\rho=0$.
+# Properties along the magnetic axis can be plotted with `plot_on_axis`. Note that because we have requested multiple `quantities`,
+# we must specify `subplot_grid`
 
 # %%
 
-p_on_axis = gp.plot_on_axis(state, quantities=["mod_B"])
+p_on_axis, ax_on_axis = gp.plot_on_axis(state, quantities=["mod_B", "X1"], subplot_grid=[1, 2])
+p_on_axis.show()
+
+# %%[markdown]
+# Note that we see some warnings and that the $|B|$ plot is blank. This is because occasionally a derived quantity cannot be evaluated
+# on axis. Instead of just plotting anyway we print a warning to notify you. We can overwrite this by setting `near_axis=True`.
+# This will attempt to plot all quantities just off axis at $\rho=10^{-8}$, if this still fails it will move to $10^{-4}$ automatically.
+
+p_on_axis, ax_on_axis = gp.plot_on_axis(
+    state, quantities=["mod_B", "X1"], subplot_grid=[1, 2], near_axis=True
+)
 p_on_axis.show()
 
 
-# %% [markdown]
-# We can also set the layout of the subplots by providing the `subplot_grid` input. By default, these plots will not share their axes (so the scales on the
-#   y axis are the same), but we can force it with the `share_axis` argument.
-
-# %%
-
-p_on_axis_grid = gp.plot_on_axis(
-    state, quantities=["mod_B", "X1"], subplot_grid=[1, 2], share_axis=True
+gp.plot_on_axis(
+    state, quantities=["dV_dPhi_n2", "X2"], subplot_grid=[1, 2], near_axis=True, axis=ax_on_axis
 )
-p_on_axis_grid.show()
+p_on_axis.show()
 
 
 # %% [markdown]
@@ -93,7 +96,7 @@ p_on_axis_grid.show()
 
 # %%
 
-p_poloidal_slice_mod_B = gp.plot_poloidal_slice(
+p_poloidal_slice_mod_B = gp.plot_poloidal_plane(
     state, 11, 11, subplot_grid=[2, 2], share_axis=True, nzeta=4
 )
 p_poloidal_slice_mod_B.show()

@@ -1,4 +1,5 @@
-from numpy import linspace, pi, array, ndarray, prod, max
+import matplotlib.pyplot as plt
+from numpy import array, asarray, linspace, max, ndarray, pi, prod
 
 
 def _get_coord_range(coordinate, nfp, points, min_val=0.0):
@@ -55,3 +56,12 @@ def _get_scalars_for_plotting(evaluations, equilibrium_quantities, post_process,
             plotting_quantities[quantity] = evaluations[quantity].data.flatten()
 
     return plotting_quantities
+
+
+def _subplots(nrow, ncol, **kwargs):
+    """
+    we will ensure this is always returns a `numpy.ndarray` of axis objects
+    """
+    f, ax = plt.subplots(nrow, ncol, **kwargs)
+    ax = asarray(ax).flatten
+    return f, ax

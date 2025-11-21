@@ -3,6 +3,8 @@ import plotly.offline as plotly_offline
 
 from gvec.core.state import State
 
+from numpy import meshgrid
+
 from .utils import _get_coord_range
 
 
