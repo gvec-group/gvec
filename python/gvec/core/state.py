@@ -74,23 +74,15 @@ def with_binding(method):
     def wrapped(self, *args, **kwargs):
         global bound_state
 
-        if _run.initialized:
-            raise RuntimeError(
-                "The fortran library was left in a corrupted state by a run. Please restart the python interpreter."
-            )
+        if bound_state is not self:
+            self.bind(force=True)
 
-        if bound_state is self:
-            if not _state.initialized:
-                raise RuntimeError(
-                    f"Expected {bound_state!r} to be bound, but fortran library is not initialized!"
-                )
-            return method(self, *args, **kwargs)
-
-        if bound_state is not None:
-            bound_state.unbind()
-
-        self.bind()
-        return method(self, *args, **kwargs)
+        try:
+            with catch_gvec_errors():
+                return method(self, *args, **kwargs)
+        except:
+            self.unbind(cleanup=True)
+            raise
 
     return wrapped
 
@@ -177,13 +169,22 @@ class State:
 
     # === Binding to the Fortran library === #
 
-    def bind(self):
+    def bind(self, force: bool = False):
         """Bind this State object to the Fortran library. Allocate & initialize everything."""
         global bound_state
+        if bound_state is self:
+            return
         if bound_state is not None:
-            raise RuntimeError(
-                f"Another state {bound_state!r} is already bound to the fortran library. Unbind that first."
-            )
+            if not force:
+                raise RuntimeError(
+                    f"Another state {bound_state!r} is already bound to the fortran library. Unbind that first."
+                )
+            else:
+                bound_state.unbind()
+
+        if _run.initialized:
+            logger.debug("Fortran library still initialized by run, attempting cleanup.")
+            _run.cleanup()
         if _state.initialized:
             raise RuntimeError("Fortran library is initialized, but no state is bound!?")
 
