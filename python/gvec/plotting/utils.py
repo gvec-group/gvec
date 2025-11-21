@@ -63,5 +63,5 @@ def _subplots(nrow, ncol, **kwargs):
     we will ensure this is always returns a `numpy.ndarray` of axis objects
     """
     f, ax = plt.subplots(nrow, ncol, **kwargs)
-    ax = asarray(ax).flatten
+    ax = asarray(ax).flatten()
     return f, ax

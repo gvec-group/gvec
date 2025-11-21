@@ -1,13 +1,11 @@
-from numpy import array, max, min, ndarray, linspace, pi, any, isnan
-
 from warnings import warn
 
 import matplotlib.pyplot as pyplot
+from numpy import any, array, isnan, linspace, max, min, ndarray, pi
 
 from gvec.core.state import State
 
-from .utils import _get_coord_range
-
+from .utils import _get_coord_range, _subplots
 
 pyplot.rcParams.update({"text.usetex": True})
 
@@ -78,7 +76,7 @@ def plot_poloidal_plane(
                 "Since more than one plane is requested please specify the 'subplot_grid' parameter for the subplot grid sizing"
             )
 
-    f, axs = pyplot.subplots(*subplot_grid, sharex=share_axis, sharey=share_axis)
+    f, axs = _subplots(*subplot_grid, sharex=share_axis, sharey=share_axis)
 
     if not isinstance(axs, ndarray):
         axs = array(axs)  # Makes it easier/possible to loop over
@@ -210,7 +208,7 @@ def plot_flux_surface(
 
     ev = state.evaluate(quantities, rho=rho, theta=theta, zeta=zeta)
 
-    f, axs = pyplot.subplots(*subplot_grid, sharex=share_axis, sharey=share_axis)
+    f, axs = _subplots(*subplot_grid, sharex=share_axis, sharey=share_axis)
 
     if not isinstance(axs, ndarray):
         axs = array([axs])  # Makes it easier/possible to loop over
@@ -218,7 +216,7 @@ def plot_flux_surface(
     # Loop over and plot all axes
     for i, ax in enumerate(axs.reshape(-1)):
         ev_i = ev.isel(rad=i)
-        f_ax = ax.contour(
+        ax.contour(
             ev_i.theta.data,
             ev_i.zeta.data,
             ev_i[quantities].transpose("pol", "tor").data,

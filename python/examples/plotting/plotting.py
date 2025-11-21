@@ -19,7 +19,6 @@ params = {
     "PhiEdge": 1.0,
     "iota": {"type": "polynomial", "coefs": [0.625, 0.35]},
     "pres": {"type": "polynomial", "coefs": [1.0, -1.0], "scale": 1000.0},
-    "which_hmap": 1,
     "nfp": 3,
     "X1_b_cos": {(0, 0): 3.0, (1, 0): 1.0, (1, 1): 0.4},
     "X2_b_sin": {(1, 0): 1.0, (1, 1): -0.4, (0, 1): -0.25},
@@ -37,7 +36,7 @@ params = {
 
 try:
     state = gvec.find_state()
-except:
+except ValueError:
     run = gvec.run(params)
     state = run.state
 
@@ -55,8 +54,6 @@ except:
 p_plot_radial_profile, ax_plot_radial_profile = gp.plot_radial_profile(state, 11)
 p_plot_radial_profile.show()
 
-gp.plot_radial_profile(state, 11, quantities="iota", axis=ax_plot_radial_profile)
-
 # %% [markdown]
 # Properties along the magnetic axis can be plotted with `plot_on_axis`. Note that because we have requested multiple `quantities`,
 # we must specify `subplot_grid`
@@ -73,12 +70,6 @@ p_on_axis.show()
 
 p_on_axis, ax_on_axis = gp.plot_on_axis(
     state, quantities=["mod_B", "X1"], subplot_grid=[1, 2], near_axis=True
-)
-p_on_axis.show()
-
-
-gp.plot_on_axis(
-    state, quantities=["dV_dPhi_n2", "X2"], subplot_grid=[1, 2], near_axis=True, axis=ax_on_axis
 )
 p_on_axis.show()
 
@@ -173,14 +164,13 @@ p_3d_surface.show()
 # complicated plotting.
 
 # %%
-B_to_mod_B = lambda val: np.array([np.linalg.norm(x) for x in val.data])
-post_process = {"B": [B_to_mod_B, "|B|"]}
+post_process = {"B": [lambda val: np.array([np.linalg.norm(x) for x in val.data]), "|B|"]}
 
-p_line = gp.plot_radial_profile(
+p_line, ax_line = gp.plot_radial_profile(
     state,
     51,
     quantities=["mod_B", "B"],
     subplot_grid=[1, 2],
-    post_process={"B": [B_to_mod_B, "|B|"]},
+    post_process=post_process,
 )
 p_line.show()

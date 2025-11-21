@@ -10,9 +10,7 @@ from .utils import _get_coord_range, _get_scalars_for_plotting, _subplots
 pyplot.rcParams.update({"text.usetex": True})
 
 
-def _plot_line_quantities_from_dict(
-    plotting_quantities, x_axis_value, subplot_grid, xlabel, axis=None
-):
+def _plot_line_quantities_from_dict(plotting_quantities, x_axis_value, subplot_grid, xlabel):
     """
     Plot the quantities from `plotting_quantities`.
 
@@ -28,14 +26,14 @@ def _plot_line_quantities_from_dict(
         link_xaxis = True
         hide_inner_axis = True
 
-    if axis is None:
-        f, axs = _subplots(subplot_grid[0], subplot_grid[1], sharex=link_xaxis)
-    else:
-        axs = axis
+    # if axis is None:
+    f, axs = _subplots(subplot_grid[0], subplot_grid[1], sharex=link_xaxis)
+    # else:
+    #     axs = axis
 
     if axs.size == 1:
         # If there is only one axis we plot all quantities on the single axis
-        ax_lines = [
+        [
             axs[0].plot(x_axis_value, values, label=quantity)
             for (quantity, values) in plotting_quantities.items()
         ]
@@ -43,7 +41,7 @@ def _plot_line_quantities_from_dict(
     else:
         # Plot one value per axis
         for i, quantity in enumerate(plotting_quantities):
-            ax_lines = axs[i].plot(x_axis_value, plotting_quantities[quantity])
+            axs[i].plot(x_axis_value, plotting_quantities[quantity])
             # Top right of each subplot will have a text box with the quantity being plotted
             axs[i].annotate(
                 quantity,  # TODO: convert this to latex
@@ -63,10 +61,10 @@ def _plot_line_quantities_from_dict(
                 # If there are multiple plots we need to set the x-axis labels only on the bottom row
                 axs[i].set_xlabel(xlabel)
 
-    if axis is None:
-        return f, axs
-    else:
-        return axs
+    # if axis is None:
+    return f, axs
+    # else:
+    # return axs
 
 
 def plot_radial_profile(
@@ -76,7 +74,6 @@ def plot_radial_profile(
     subplot_grid: list = [1, 1],
     post_process: dict | dict = None,
     xaxis="rho",
-    axis=None,
 ):
     """
     Plot the radial profile of given equilibrium quantities.
@@ -98,8 +95,6 @@ def plot_radial_profile(
         such that `post_process["quantity to remap"][0]` is a callable <function> and `post_process["quantity to remap"][1]` is the heading for the subplot.
         The <function> _must_ return a 1D array.
         Default is None
-    axis
-        Existing axis object. Default is None.
 
     Returns
     -------
@@ -124,9 +119,7 @@ def plot_radial_profile(
     else:
         xlabel = "$\\rho$"
 
-    f_ax = _plot_line_quantities_from_dict(
-        plotting_quantities, rho, subplot_grid, xlabel, axis=axis
-    )
+    f_ax = _plot_line_quantities_from_dict(plotting_quantities, rho, subplot_grid, xlabel)
 
     return f_ax
 
@@ -138,7 +131,6 @@ def plot_on_axis(
     subplot_grid: list = [1, 1],
     post_process: dict = None,
     near_axis=False,
-    axis=None,
 ):
     """
     Plot a equilibrium quantity (or list of) along the magnetic axis.
@@ -160,8 +152,6 @@ def plot_on_axis(
         such that `post_process["quantity to remap"][0]` is a callable <function> and `post_process["quantity to remap"][1]` is the heading for the subplot.
         The <function> _must_ return a 1D array.
         Default is None
-    axis
-        Existing axis object. Default is None.
 
     Returns
     -------
@@ -198,8 +188,6 @@ def plot_on_axis(
 
     plotting_quantities = _get_scalars_for_plotting(ev, quantities, post_process, "zeta")
 
-    f_ax = _plot_line_quantities_from_dict(
-        plotting_quantities, zeta, subplot_grid, "$\\zeta$", axis=axis
-    )
+    f_ax = _plot_line_quantities_from_dict(plotting_quantities, zeta, subplot_grid, "$\\zeta$")
 
     return f_ax
