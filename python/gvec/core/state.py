@@ -34,6 +34,7 @@ import numpy as np
 import xarray as xr
 
 import gvec.util
+from gvec.errors import catch_gvec_errors
 import gvec.lib
 from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
@@ -196,21 +197,28 @@ class State:
         logger.debug(f"Redirected stdout to {self._stdout.name}")
 
         with gvec.util.chdir(self.rundir):
-            logger.debug("Initialize from parameterfile")
-            _state.init(self.parameterfile.name)
-            if self.statefile is not None:
-                logger.debug("Read state from statefile")
-                _state.readstate(self.statefile.relative_to(self.rundir))
-            else:
-                logger.debug("Initialize solution without statefile")
-                _state.initsolution()
+            try:
+                with catch_gvec_errors():
+                    logger.debug("Initialize from parameterfile")
+                    _state.init(self.parameterfile.name)
+                    if self.statefile is not None:
+                        logger.debug("Read state from statefile")
+                        _state.readstate(self.statefile.relative_to(self.rundir))
+                    else:
+                        logger.debug("Initialize solution without statefile")
+                        _state.initsolution()
+            except:
+                logger.debug("Error during binding, attempting cleanup.")
+                self.unbind(cleanup=True)
+                raise
+
         self._children = []
 
         if not _state.initialized:
             raise RuntimeError("Failed to initialize fortran library.")
-        logger.debug(f"Binding state {self!r} to the fortran library finished!")
+        logger.debug(f"Bound state {self!r} to the fortran library.")
 
-    def unbind(self):
+    def unbind(self, cleanup: bool = False):
         """Unbind this State object from the Fortran library. Finalize & deallocate everything."""
         global bound_state
 
@@ -218,25 +226,27 @@ class State:
             raise RuntimeError(
                 f"State {self!r} is not bound to the fortran library, but {bound_state!r} is."
             )
-        if not _state.initialized:
+        if not _state.initialized and not cleanup:
             raise RuntimeError("Fortran library is not initialized, but state is bound!?")
 
         bound_state = None
         logger.debug(f"Unbinding state {self!r} from the fortran library.")
 
-        for child in self._children:
-            if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
-                if child.initialized:
-                    logger.debug(f"Finalizing Boozer potential {child!r}")
-                    child.free()
-            else:
-                logger.error(f"Unknown child: {child!r}")
-        self._children = []
+        with catch_gvec_errors():
+            for child in self._children:
+                if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
+                    if child.initialized:
+                        logger.debug(f"Finalizing Boozer potential {child!r}")
+                        child.free()
+                else:
+                    logger.error(f"Unknown child: {child!r}")
+            self._children = []
 
-        _state.finalize()
+            _state.finalize()
+
         if _state.initialized:
             raise RuntimeError("Failed to finalize fortran library.")
-        logger.debug(f"Unbinding state {self!r} from the fortran library finished!")
+        logger.debug(f"Unbound state {self!r} from the fortran library.")
 
     # === Context Manager === #
 
