@@ -307,3 +307,12 @@ def test_get_boozer_angles(teststate):
     booz = teststate.get_boozer([0.1, 0.4, 0.6, 0.9], 1)
     tz = teststate.get_boozer_angles(booz, [[0.1, 0.5, 0.9], [0.1, 0.5, 0.9]])
     assert tz.shape == (2, 3, 4)
+
+
+def test_get_pest_angles(teststate):
+    rho = np.asarray([0.1, 0.4, 0.6, 1.0])
+    theta_P = np.asarray([0.1, 0.5, 0.9])
+    zeta = np.asarray([0.1, 0.5, 0.9])
+    tz = teststate.get_pest_angles(rho, np.stack([theta_P, zeta]))
+    assert tz.shape == (2, rho.size, theta_P.size)
+    np.testing.assert_allclose(tz[0, :, :], zeta)

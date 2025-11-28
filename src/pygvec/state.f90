@@ -950,6 +950,35 @@ SUBROUTINE get_boozer(sfl_boozer)
   CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base, U(0)%X1, U(0)%X2, U(0)%LA)
 END SUBROUTINE get_boozer
 
+
+!================================================================================================================================!
+!> Find the logical angles for given PEST angles on all specified surfaces.
+!================================================================================================================================!
+FUNCTION find_pest_angles_2D(n_s, s, n_tz, tz_pest) RESULT(tz_out)
+  ! MODULES
+  USE MODgvec_MHD3D_vars,     ONLY: LA_base, U
+  USE MODgvec_Transform_SFL,  ONLY: find_pest_angles
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_s, n_tz
+  REAL, INTENT(IN) :: s(n_s), tz_pest(2, n_tz)
+  REAL  :: tz_out(2, n_tz, n_s)
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i_s  ! index variable
+  REAL, ALLOCATABLE :: LA(:, :)  ! DoFs of Fourier series for each requested flux surface, shape (LA_base%f%modes, n_s)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  ALLOCATE(LA(LA_base%f%modes, n_s))
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) &
+  !$OMP PRIVATE(i_s)
+  DO i_s=1,n_s
+    ! evaluate spline to get the fourier dofs
+    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, U(0)%LA)
+  END DO
+  !$OMP END PARALLEL DO
+  CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)
+  DEALLOCATE(LA)
+END FUNCTION find_pest_angles_2D
+
+
 !================================================================================================================================!
 !> Evaluate LA or NU and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s
 !================================================================================================================================!

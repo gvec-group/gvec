@@ -763,6 +763,46 @@ class State:
         )
         return outputs
 
+    # === Straight-Fieldline PEST angles === #
+
+    @with_binding
+    def get_pest_angles(
+        self,
+        rho: np.ndarray,
+        tz_list: np.ndarray,
+    ):
+        """
+        Find the logical theta angle for the corresponding (theta_P, zeta) coordinates on the flux surface.
+
+        Parameters
+        ----------
+        rho: 1D array
+        tz_list : 2D array of shape (2, n) or 3D array of shape (2, n, rho.size)
+            The list of (theta_P, zeta) coordinates for which to find the logical angles.
+            The first row contains theta_P and the second row contains zeta.
+            If a 2D array is given, the same postions are searched for on each surface.
+
+        Returns
+        -------
+        2D np.ndarray of shape (n, rho.size)
+            The logical theta angle corresponding to the input (theta_P, zeta) coordinates.
+        """
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        if rho.ndim != 1:
+            raise ValueError(f"Expected a 1D array for rho, got shape {rho.shape}.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+        tz_list = np.asfortranarray(tz_list, dtype=np.float64)
+        if tz_list.ndim == 2 and tz_list.shape[0] == 2:
+            tz_out = _state.find_pest_angles_2d(rho.size, rho, tz_list.shape[-1], tz_list)
+            return tz_out[0, :, :]
+        elif tz_list.ndim == 3 and tz_list.shape[0] == 2 and tz_list.shape[2] == rho.size:
+            t_out = np.zeros((tz_list.shape[1], rho.size))
+            for i, r in enumerate(rho):
+                tz_out = _state.find_pest_angles_2d(1, [r], tz_list.shape[1], tz_list[:, i])
+                t_out[:, i] = tz_out[0, :, 0]
+            return t_out
+
     # === High Level Interface for Evaluations === #
 
     def compute(
