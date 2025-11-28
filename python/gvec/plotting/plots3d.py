@@ -75,7 +75,7 @@ def plot_3d_surface(
     return plt
 
 
-def plot_boundary(state, nzeta, ntheta, equilibrium_quantity="mod_B", full_surface=False):
+def plot_boundary(state, nzeta, ntheta, equilibrium_quantity="mod_B", full_surface=True):
     """
     Plot the boundary of a GVEC solve.
 
@@ -85,6 +85,8 @@ def plot_boundary(state, nzeta, ntheta, equilibrium_quantity="mod_B", full_surfa
     nzeta
     ntheta
     equilibrium_property
+
+    TODO: Docstring
 
     Wrapper around `plot_3d_surface` with `rho=1.0`. See `help(plot_3d_surface)` for information on inputs.
     """

@@ -1,11 +1,16 @@
 from warnings import warn
 
 import matplotlib.pyplot as pyplot
-from numpy import any, array, isnan, linspace, max, min, ndarray, pi
+from numpy import any, isnan, ndarray, prod
 
 from gvec.core.state import State
 
-from .utils import _get_coord_range, _get_scalars_for_plotting, _subplots
+from .utils import (
+    _design_subgrid,
+    _extrapolate_axis,
+    _get_coord_range,
+    _subplots,
+)
 
 pyplot.rcParams.update({"text.usetex": True})
 
@@ -67,13 +72,53 @@ def _plot_line_quantities_from_dict(plotting_quantities, x_axis_value, subplot_g
     # return axs
 
 
+def _plot_line_quantities_from_xarray(
+    evaluations, x_axis_values, quantities, subplot_grid, xlabel
+):
+    """
+    Plot the quantities from the evaluations object assuming everything is 1D
+
+    Return both the `matplotlib.pyplot.figure` and `Axis` object
+    """
+
+    link_xaxis = True
+    hide_inner_axis = True
+
+    f, axs = _subplots(subplot_grid[0], subplot_grid[1], sharex=link_xaxis)
+
+    for i, quantity in enumerate(quantities):
+        axs[i].plot(
+            x_axis_values,
+            evaluations[quantity],
+        )
+        # axs[i].annotate(
+        #     f"{evaluations[quantity].attrs['long_name']}",
+        #     xy=(1, 1),
+        #     xycoords="axes fraction",
+        #     xytext=(-0.6, -0.6),
+        #     textcoords="offset fontsize",
+        #     verticalalignment="top",
+        #     horizontalalignment="right",
+        #     bbox=dict(facecolor="white", edgecolor="black"),
+        # )
+        axs[i].set(
+            ylabel=f"${evaluations[quantity].attrs['symbol']}$",
+        )
+
+        # If there are multiple plots we need to set the x-axis labels only on the bottom row
+        if (hide_inner_axis) & (i - len(axs) + subplot_grid[1] >= 0):
+            axs[i].set_xlabel(xlabel)
+
+    return f, axs
+
+
 def plot_radial_profile(
     state: State,
-    nrho: int | ndarray,
-    quantities: str | list = "mod_B",
-    subplot_grid: list = [1, 1],
-    post_process: dict | dict = None,
+    nrho: int | ndarray = 100,
+    quantities: str | list = ["iota", "p", "I_tor", "I_pol"],
+    subplot_grid: list = [2, 2],
     xaxis="rho",
+    # post_process: dict | dict = None, # TODO
 ):
     """
     Plot the radial profile of given equilibrium quantities.
@@ -82,19 +127,20 @@ def plot_radial_profile(
     ----------
     state: GVEC state file
     nrho: int, numpy.ndarray
-        The number of or specific list of radial points to plot at.
+        The number of or specific 1D array of radial points to plot at. Default `100`
     quantities: str, list, optional
-        Default is "mod_B".
-    subplot_grid: list, conditionally optional
-        The grid shape for the subplots. Default is `[1,1]`. Required if `len(rho)>1`.
-    share_axis: bool
-        Default is True.
-    post_process: dict, optional
+        Default is `["iota","p","I_tor","I_pol"]`.
+    subplot_grid: list, optional
+        The grid shape for the subplots. If not provided, the subplot grid will be determined automatically.
+        Default is `[2,2]`.
+    xaxis: `"rho"` or `"rho_squared"`, optional
+        What quantity to plot on the x axis. Default is `"rho"`.
+    post_process: dict, optional, --DEPRECIATED--
         `post_process` must be a dict with
             `post_process["quantity to remap"] = [<function>, "quantity name"]`
         such that `post_process["quantity to remap"][0]` is a callable <function> and `post_process["quantity to remap"][1]` is the heading for the subplot.
         The <function> _must_ return a 1D array.
-        Default is None
+        Default is `None`.
 
     Returns
     -------
@@ -106,20 +152,27 @@ def plot_radial_profile(
         quantities = [quantities]
 
     rho = _get_coord_range("rho", state.nfp, nrho)
-    theta = _get_coord_range("theta", state.nfp, 1)
-    zeta = _get_coord_range("zeta", state.nfp, 1)
+    theta = _get_coord_range("theta", state.nfp, 0.0)
+    zeta = _get_coord_range("zeta", state.nfp, 0.0)
 
     ev = state.evaluate(*quantities, rho=rho, theta=theta, zeta=zeta)
 
-    plotting_quantities = _get_scalars_for_plotting(ev, quantities, post_process, "rho")
+    ev = ev.sel(theta=0.0).sel(zeta=0.0)
 
     if xaxis == "rho_squared":
         xlabel = "$\\rho^2$"
         rho = rho**2
-    else:
+    elif xaxis == "rho":
         xlabel = "$\\rho$"
+    else:
+        raise ValueError("xaxis must be 'rho' or 'rho_squared'.")
+    # TODO: Plot from xarray like in 020_stellarator.ipynb
 
-    f_ax = _plot_line_quantities_from_dict(plotting_quantities, rho, subplot_grid, xlabel)
+    if prod(subplot_grid) != len(quantities):
+        subplot_grid = _design_subgrid(len(quantities))
+        warn("subplot_grid cannot fit the number of quantities, updating grid to fit.")
+
+    f_ax = _plot_line_quantities_from_xarray(ev, rho, quantities, subplot_grid, xlabel)
 
     return f_ax
 
@@ -130,7 +183,6 @@ def plot_on_axis(
     quantities: str | list = "mod_B",
     subplot_grid: list = [1, 1],
     post_process: dict = None,
-    near_axis=False,
 ):
     """
     Plot a equilibrium quantity (or list of) along the magnetic axis.
@@ -144,8 +196,6 @@ def plot_on_axis(
         Default is "mod_B".
     subplot_grid: list, conditionally optional
         The grid shape for the subplots. Default is `[1,1]`. Required if `len(rho)>1`.
-    share_axis: bool
-        Default is True.
     post_process: dict, optional
         `post_process` must be a dict with
             `post_process["quantity to remap"] = [<function>, "quantity name"]`
@@ -161,33 +211,19 @@ def plot_on_axis(
         # If plotting a single quantity convert it to a list
         quantities = [quantities]
 
-    if near_axis:
-        rho = 1e-8
-    else:
-        rho = 0.0
-    theta = 0.0
-    # theta = _get_coord_range("theta", state.nfp, 0.0)
     zeta = _get_coord_range("zeta", state.nfp, nzeta)
 
-    ev = state.evaluate(*quantities, rho=rho, theta=theta, zeta=zeta)
-    reevaluate = False
+    # Use quadratic extrapolation to obtain values on axis.
+    evaluations = _extrapolate_axis(state, quantities, zeta)
 
+    # Since some derived quantities are not defined on axis we will
+    # check if there are any NaNs in the dataset
     for quantity in quantities:
-        if any(isnan(ev[quantity].data)):
-            if near_axis:
-                warn(
-                    f"{quantity} has NaNs despite running just off axis. Re-evaluating at rho=10^-4."
-                )
-                reevaluate = True
-            else:
-                warn(
-                    f"NaNs detected in {quantity}. This value is likely zero on axis. Calling with `near_axis=True` may fix this issue by evaluating the quantities at 10^-8."
-                )
-    if reevaluate:
-        ev = state.evaluate(*quantities, rho=1e-4, theta=theta, zeta=zeta)
+        if any(isnan(evaluations[quantity].data)):
+            warn(f"{quantity} has NaNs despite running just off axis.")
 
-    plotting_quantities = _get_scalars_for_plotting(ev, quantities, post_process, "zeta")
+    f, axs = _plot_line_quantities_from_xarray(
+        evaluations, zeta, quantities, subplot_grid, "$\zeta$"
+    )
 
-    f_ax = _plot_line_quantities_from_dict(plotting_quantities, zeta, subplot_grid, "$\\zeta$")
-
-    return f_ax
+    return f, axs

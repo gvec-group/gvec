@@ -55,40 +55,26 @@ p_plot_radial_profile, ax_plot_radial_profile = gp.plot_radial_profile(state, 11
 p_plot_radial_profile.show()
 
 # %% [markdown]
-# Properties along the magnetic axis can be plotted with `plot_on_axis`. Note that because we have requested multiple `quantities`,
-# we must specify `subplot_grid`
+# Properties along the magnetic axis can be plotted with `plot_on_axis`. Since some derived quantities cannot be evaluated on axis,
+# this will use quadratic extrapolation to generate the values for plotting. Also note that although we have specified the subplot grid here, this is not required unless
+# you want a specific shape.
 
-# %%
-
-p_on_axis, ax_on_axis = gp.plot_on_axis(state, quantities=["mod_B", "X1"], subplot_grid=[1, 2])
+p_on_axis, ax_on_axis = gp.plot_on_axis(state, quantities=["mod_B", "X1"], subplot_grid=[2, 1])
 p_on_axis.show()
-
-# %%[markdown]
-# Note that we see some warnings and that the $|B|$ plot is blank. This is because occasionally a derived quantity cannot be evaluated
-# on axis. Instead of just plotting anyway we print a warning to notify you. We can overwrite this by setting `near_axis=True`.
-# This will attempt to plot all quantities just off axis at $\rho=10^{-8}$, if this still fails it will move to $10^{-4}$ automatically.
-
-p_on_axis, ax_on_axis = gp.plot_on_axis(
-    state, quantities=["mod_B", "X1"], subplot_grid=[1, 2], near_axis=True
-)
-p_on_axis.show()
-
 
 # %% [markdown]
 # # 2D plotting
 #
 # ## Poloidal slice plots
 #
-# If mutiple slices are requested by the `nzeta` input, you _must_ also include the `subplot_grid` input.
-# This will tell the plotting routine how to structure the subfigures. The second and third inputs is the number of discrete
-#   $\theta$ and $\zeta$ points.
-#
+# The second and third inputs is the number of discrete $\theta$ and $\zeta$ points.
+# The ``$X^1$`` and ``$X^2$`` values on the x and y axes can be shared by specifying `share_axis=True`.
 # Note that the inputs for the 1D and 2D plots are very similar.
 
 # %%
 
-p_poloidal_slice_mod_B = gp.plot_poloidal_plane(
-    state, 11, 11, subplot_grid=[2, 2], share_axis=True, nzeta=4
+p_poloidal_slice_mod_B, ax_poloidal_slice_mod_B = gp.plot_poloidal_plane(
+    state, 11, 11, share_axis=True, zeta=4
 )
 p_poloidal_slice_mod_B.show()
 
@@ -101,7 +87,7 @@ p_poloidal_slice_mod_B.show()
 
 # %%
 
-p_plot_flux_surface = gp.plot_flux_surface(state, 11, 11)
+p_plot_flux_surface, ax_plot_flux_surface = gp.plot_on_flux_surface(state, 11, 11)
 p_plot_flux_surface.show()
 
 # %% [markdown]
@@ -110,16 +96,33 @@ p_plot_flux_surface.show()
 
 # %%
 
-p_plot_flux_surface_grid = gp.plot_flux_surface(
+p_plot_flux_surface_grid, ax_plot_flux_surface = gp.plot_on_flux_surface(
     state,
     11,
     11,
     np.array([0.3, 0.6]),
-    quantities="mod_B",
     subplot_grid=[2, 1],
 )
 p_plot_flux_surface_grid.show()
 
+# %%
+# By default, `plot_on_flux_surface` plots in Boozer coordinates. This can be switched to ``$\theta-\zeta$`` coordinates by setting `boozer=False`.
+# We can also switch to filled contours
+
+p_plot_flux_surface_grid, ax_plot_flux_surface = gp.plot_on_flux_surface(
+    state, 11, 11, boozer=False, filled_contours=True
+)
+p_plot_flux_surface_grid.show()
+
+# %%
+# Instead of plotting multiple slices we can instead plot various quantities on the same surface.
+
+# %%
+
+p_plot_flux_surface_grid, ax_plot_flux_surface = gp.plot_on_flux_surface(
+    state, 11, 11, quantities=["mod_B", "Jac"]
+)
+p_plot_flux_surface_grid.show()
 
 # %% [markdown]
 # # 3D plotting
