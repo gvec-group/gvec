@@ -954,14 +954,14 @@ END SUBROUTINE get_boozer
 !================================================================================================================================!
 !> Find the logical angles for given PEST angles on all specified surfaces.
 !================================================================================================================================!
-FUNCTION find_pest_angles_2D(n_s, s, n_tz, tz_pest) RESULT(tz_out)
+SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   ! MODULES
   USE MODgvec_MHD3D_vars,     ONLY: LA_base, U
   USE MODgvec_Transform_SFL,  ONLY: find_pest_angles
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s, n_tz
   REAL, INTENT(IN) :: s(n_s), tz_pest(2, n_tz)
-  REAL  :: tz_out(2, n_tz, n_s)
+  REAL, INTENT(OUT) :: tz_out(2, n_tz, n_s)
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: i_s  ! index variable
   REAL, ALLOCATABLE :: LA(:, :)  ! DoFs of Fourier series for each requested flux surface, shape (LA_base%f%modes, n_s)
@@ -976,7 +976,7 @@ FUNCTION find_pest_angles_2D(n_s, s, n_tz, tz_pest) RESULT(tz_out)
   !$OMP END PARALLEL DO
   CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)
   DEALLOCATE(LA)
-END FUNCTION find_pest_angles_2D
+END SUBROUTINE find_pest_angles_2D
 
 
 !================================================================================================================================!

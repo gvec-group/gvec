@@ -793,15 +793,22 @@ class State:
         if rho.max() > 1.0 or rho.min() < 0.0:
             raise ValueError("rho must be in the range [0, 1].")
         tz_list = np.asfortranarray(tz_list, dtype=np.float64)
-        if tz_list.ndim == 2 and tz_list.shape[0] == 2:
-            tz_out = _state.find_pest_angles_2d(rho.size, rho, tz_list.shape[-1], tz_list)
-            return tz_out[0, :, :]
-        elif tz_list.ndim == 3 and tz_list.shape[0] == 2 and tz_list.shape[2] == rho.size:
-            t_out = np.zeros((tz_list.shape[1], rho.size))
-            for i, r in enumerate(rho):
-                tz_out = _state.find_pest_angles_2d(1, [r], tz_list.shape[1], tz_list[:, i])
-                t_out[:, i] = tz_out[0, :, 0]
-            return t_out
+        match tz_list.shape:
+            case (2, n):
+                tz_out = np.zeros((2, n, rho.size), order="F")
+                _state.find_pest_angles_2d(rho.size, rho, n, tz_list, tz_out)
+                return tz_out[0, :, :]
+            case (2, n, k) if k == rho.size:
+                t_out = np.zeros((n, rho.size))
+                tz_out = np.zeros((2, n, 1), order="F")
+                for i, r in enumerate(rho):
+                    _state.find_pest_angles_2d(1, [r], n, tz_list[:, :, i], tz_out)
+                    t_out[:, i] = tz_out[0, :, 0]
+                return t_out
+            case _:
+                raise ValueError(
+                    f"Expected 'tz_list' of shape (2, n) or (2, n, rho.size), got {tz_list.shape}."
+                )
 
     # === High Level Interface for Evaluations === #
 

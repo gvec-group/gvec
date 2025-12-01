@@ -285,3 +285,52 @@ $$
 \nabla \zeta_B &= \pdv{\zeta_B}{\rho}\nabla \rho + \pdv{\zeta_B}{\thet}\nabla \thet + \pdv{\zeta_B}{\zeta}\nabla \zeta \\
 \end{align}
 $$
+
+## Transformation to PEST coordinates
+
+In terms of the GVEC coordinates $(\rho,\thet,\zeta)$ the PEST transform is given as
+
+$$
+\begin{align}
+\rho_P &= \rho \\
+\thet_B &= \thet + \lambda(\rho,\thet,\zeta) \\
+\zeta_P &= \zeta \\
+\end{align}
+$$
+
+The derivatives are
+
+$$
+\begin{align}
+\pdv{\rho_P}{\rho} &= 1, &
+\pdv{\thet_P}{\rho} &= \pdv{\lambda}{\rho},&
+\pdv{\zeta_P}{\rho} &= 0,\\
+\pdv{\rho_P}{\thet} &=  0,&
+\pdv{\thet_P}{\thet} &= 1 + \pdv{\lambda}{\thet},&
+\pdv{\zeta_P}{\thet} &= 0,\\
+\pdv{\rho_P}{\zeta} &= 0,&
+\pdv{\thet_P}{\zeta} &= \pdv{\lambda}{\zeta},&
+\pdv{\zeta_P}{\zeta} &= 1.\\
+\end{align}
+$$
+
+The reciprocal basis vectors are then
+
+$$
+\begin{align}
+\grad \rho_P &= \grad \rho \\
+\grad \thet_P &= \pdv{\thet_P}{\rho}\grad \rho + \pdv{\thet_P}{\thet}\grad \thet + \pdv{\thet_P}{\zeta}\grad \zeta \\
+\grad \zeta_P &= \grad \zeta \\
+\end{align}
+$$
+
+The Jacobian determinant is therefore
+
+$$
+\begin{align}
+\Jac_P &= \frac{1}{\grad\rho_P \cdot \grad\theta_P \times \grad\zeta_P} \\
+&= \frac{1}{\grad\rho \cdot \pdv{\thet_P}{\thet}\grad\thet \times \grad\zeta} \\
+&= \frac{\Jac}{\pdv{\thet_P}{\thet}} \\
+&= \frac{\Jac}{1 + \pdv{\lambda}{\thet}}. \\
+\end{align}
+$$
