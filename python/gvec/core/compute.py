@@ -633,6 +633,145 @@ def EvaluationsBoozer(
     return ds
 
 
+def EvaluationsPEST(
+    rho: Literal["int"] | CoordinateSpec,
+    theta_P: CoordinateSpec,
+    zeta: Literal["int"] | CoordinateSpec,
+    state: State,
+):
+    """Create an Evaluations dataset with a grid in PEST coordinates.
+
+    PEST coordinates are straight-fieldline coordinates with both the radial and toroidal coordinate being identical to their logical coordinates,
+    i.e. rho_P = rho and zeta_P = zeta. Note that for GVEC the toroidal coordinate is not necessarily the cylindrical angle.
+
+    This factory function generates a mesh in logical coordinates (rho, theta, zeta) based on a grid in PEST coordinates.
+    The grid has dimensions ("rad", "pol", "tor"), corresponding to the radial, poloidal, and toroidal directions.
+
+    If a 2D or 3D array for theta_P or zeta is passed, the corresponding coordinate for the poloidal/toroidal dimension
+    needs to be set manually afterwards (e.g. `ev["alpha"] = ("pol", values)` and `ev = ev.set_coords("alpha").set_xindex("alpha")`).
+
+    Parameters
+    ----------
+    rho : "int" | int | float | 1D array (DataArray, ndarray, list)
+        The specification of the radial, radius-like coordinate. "int" will use the integration points from the state object.
+    theta_P : int | float | 1D, 2D or 3D array (DataArray, ndarray, list)
+        The specification of the poloidal, angle-like PEST coordinate.
+        1D assumes dimension "pol", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
+    zeta : int | float | 1D, 2D or 3D array (DataArray, ndarray, list)
+        The specification of the toroidal, angle-like logical coordinate.
+        1D assumes dimension "tor", 2D assumes ("pol", "tor"), 3D assumes ("rad", "pol", "tor").
+    state : State
+        The gvec.State object to create the grid for. Used to perform the PEST transform.
+    """
+    match rho:
+        case str() if rho == "int":
+            intp = [state.get_integration_points(q) for q in ["X1", "X2", "LA"]]
+            if any([not np.allclose(intp[0][j], intp[i][j]) for i in (1, 2) for j in (0, 1)]):
+                raise ValueError("Integration points for rho do not align for X1, X2 and LA.")
+            rho = ("rad", intp[0][0])
+        case xr.DataArray():
+            rho = rho
+        case np.ndarray() | Sequence():
+            rho = np.asarray(rho)
+            if rho.ndim != 1:
+                raise ValueError(f"rho can only be 1D, but is {rho.ndim}D.")
+            rho = ("rad", rho)
+        case int():
+            rho = ("rad", np.linspace(0, 1, rho + 1)[1:])
+        case float():
+            rho = ("rad", np.array([rho]))
+        case _:
+            raise ValueError(f"Could not parse rho, got {rho}.")
+    match theta_P:
+        case xr.DataArray():
+            theta_P = theta_P
+        case np.ndarray() | Sequence():
+            theta_P = np.asarray(theta_P)
+            if theta_P.ndim == 1:
+                theta_P = ("pol", theta_P)
+            elif theta_P.ndim == 2:
+                theta_P = (("pol", "tor"), theta_P)
+            elif theta_P.ndim == 3:
+                theta_P = (("rad", "pol", "tor"), theta_P)
+            else:
+                raise ValueError(f"theta_P can only be 1D, 2D, 3D, not {theta_P.ndim}D")
+        case int():
+            theta_P = ("pol", np.linspace(0, 2 * np.pi, theta_P, endpoint=False))
+        case float():
+            theta_P = ("pol", np.array([theta_P]))
+        case _:
+            raise ValueError(f"Could not parse theta_P, got {theta_P}.")
+    match zeta:
+        case xr.DataArray():
+            pass
+        case np.ndarray() | Sequence():
+            zeta = np.asarray(zeta)
+            if zeta.ndim == 1:
+                zeta = ("tor", zeta)
+            elif zeta.ndim == 2:
+                zeta = (("pol", "tor"), zeta)
+            elif zeta.ndim == 3:
+                zeta = (("rad", "pol", "tor"), zeta)
+            else:
+                raise ValueError(f"zeta can only be 1D, 2D, 3D, not {zeta.ndim}D")
+        case float():
+            zeta = ("tor", np.array([zeta]))
+        case int():
+            zeta = (
+                "tor",
+                np.linspace(0, 2 * np.pi / state.nfp, zeta, endpoint=False),
+            )
+        case _:
+            raise ValueError(f"Could not parse zeta_B, got {zeta}.")
+
+    ds = xr.Dataset(
+        coords=dict(
+            rho=rho,
+        ),
+        data_vars=dict(
+            theta_P=theta_P,
+            zeta=zeta,
+        ),
+    )
+
+    # === Find the logical coordinates of the PEST grid === #
+    # get_pest_angles expects a list of (theta_P, zeta) coordinates
+    # - broadcast such that theta_P, zeta are both (pol, tor) and stack
+    # - unstack the result again
+    # get_pest_angles can also handle a radial dependence in theta_P or zeta
+    stacked = ds[["theta_P", "zeta"]]
+    stacked = stacked.broadcast_like(stacked).stack(tz=("pol", "tor"))
+    if "rad" in stacked.dims:
+        stacked = stacked.transpose("tz", "rad")
+    TZ = np.stack([stacked.theta_P, stacked.zeta], axis=0)  # shape (2, n) or (2, n, k)
+    theta = state.get_pest_angles(ds.rho, TZ)  # shape (n, k)
+    stacked["theta"] = (("tz", "rad"), theta)
+    ds["theta"] = stacked.theta.unstack("tz")
+
+    # === Metadata === #
+    ds.rho.attrs["long_name"] = "Logical radial coordinate"
+    ds.rho.attrs["symbol"] = r"\rho"
+    ds.theta_P.attrs["long_name"] = "PEST-like straight-fieldline poloidal angle"
+    ds.theta_P.attrs["symbol"] = r"\theta_P"
+    ds.theta.attrs["long_name"] = "Logical poloidal angle"
+    ds.theta.attrs["symbol"] = r"\theta"
+    ds.zeta.attrs["long_name"] = "Logical toroidal angle"
+    ds.zeta.attrs["symbol"] = r"\zeta"
+
+    # === Indices === #
+    # setting them earlier causes issues with the stacking / unstacking
+    ds = ds.set_xindex("rho")
+    ds = ds.drop_vars("pol")
+    ds = ds.drop_vars("tor")
+
+    if ds.theta_P.dims == ("pol",):
+        ds = ds.set_coords("theta_P").set_xindex("theta_P")
+    if ds.zeta.dims == ("tor",):
+        ds = ds.set_coords("zeta").set_xindex("zeta")
+
+    return ds
+
+
 def EvaluationsBoozerCustom(rho, theta_B, zeta_B, state, **boozer_kwargs):
     """Create a custom EvaluationsBoozer dataset with Boozer coordinates.
 

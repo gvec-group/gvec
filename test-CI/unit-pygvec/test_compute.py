@@ -15,6 +15,7 @@ try:
     from gvec.core.compute import (
         Evaluations,
         EvaluationsBoozer,
+        EvaluationsPEST,
         compute,
         volume_integral,
     )
@@ -193,6 +194,17 @@ def ev_boozer(teststate, radial_derivative):
         state=teststate,
         radial_derivative=radial_derivative,
         MNfactor=5,
+    )
+    return ds
+
+
+@pytest.fixture(scope="session")
+def ev_pest(teststate):
+    ds = EvaluationsPEST(
+        rho=[0.5, 1.0],
+        theta_P=21,
+        zeta=11,
+        state=teststate,
     )
     return ds
 
@@ -385,6 +397,12 @@ def test_EvaluationsBoozer_fieldlines(teststate, radial_derivative):
     for var in ds.data_vars:
         assert "symbol" in ds[var].attrs, f"no symbol defined in {var} attributes"
         assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
+
+
+def test_pest(teststate, ev_pest):
+    ds = ev_pest
+    teststate.compute(ds, "LA", "theta_P")
+    np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
 
 
 def test_compute_base(teststate, ev_base):
