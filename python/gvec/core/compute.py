@@ -636,7 +636,7 @@ def EvaluationsBoozer(
 def EvaluationsPEST(
     rho: Literal["int"] | CoordinateSpec,
     theta_P: CoordinateSpec,
-    zeta: Literal["int"] | CoordinateSpec,
+    zeta: CoordinateSpec,
     state: State,
 ):
     """Create an Evaluations dataset with a grid in PEST coordinates.
@@ -857,15 +857,15 @@ def evaluate_sfl(
     rho: CoordinateSpec | Literal["int"],
     theta: CoordinateSpec,
     zeta: CoordinateSpec,
-    sfl: Literal["boozer"],
+    sfl: Literal["boozer", "pest"],
     **boozer_kwargs,
 ):
     if not isinstance(state, State):
         raise TypeError(f"Expected a gvec.State object, got {type(state)}.")
-    if sfl == "boozer":
+    if sfl.lower() == "boozer":
         ev = EvaluationsBoozer(rho, theta, zeta, state, **boozer_kwargs)
-    elif sfl == "pest":
-        raise NotImplementedError("PEST SFL coordinates are not implemented yet.")
+    elif sfl.lower() == "pest":
+        ev = EvaluationsPEST(rho, theta, zeta, state)
     else:
         raise ValueError(f"Unsupported SFL type {sfl}. Expected 'boozer' or 'pest'.")
     compute(ev, *quantities, state=state)

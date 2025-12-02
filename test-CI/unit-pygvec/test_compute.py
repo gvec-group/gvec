@@ -401,7 +401,58 @@ def test_EvaluationsBoozer_fieldlines(teststate, radial_derivative):
 
 def test_pest(teststate, ev_pest):
     ds = ev_pest
-    teststate.compute(ds, "LA", "theta_P")
+    assert "LA" not in ds
+    teststate.compute(ds, "LA")
+    np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
+
+
+def test_EvaluationsPEST_2D(teststate):
+    """Test EvaluationsPEST with 2D arrays for theta_P, zeta."""
+    rho = [0.5, 1.0]  # radial positions
+    theta_H = np.linspace(0, 2 * np.pi, 2, endpoint=False)
+    zeta_H = np.linspace(0, 2 * np.pi / teststate.nfp, 3)
+
+    theta_P = theta_H[:, None] + zeta_H[None, :]
+    zeta = zeta_H[None, :] - theta_H[:, None]
+
+    ds = EvaluationsPEST(rho, theta_P, zeta, teststate)
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_P.dims == ("pol", "tor")
+    assert ds.zeta.dims == ("pol", "tor")
+    assert ds.theta.dims == ("rad", "pol", "tor")
+    assert set(ds.coords) == {"rho"}
+
+    assert "LA" not in ds
+    teststate.compute(ds, "LA")
+    np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
+
+
+def test_EvaluationsPEST_fieldlines(teststate):
+    """Test EvaluationsPEST with a 3D array for theta_P, as required for fieldline coordinates."""
+    rho = [0.5, 1.0]  # radial positions
+    alpha = np.linspace(0, 2 * np.pi, 2, endpoint=False)  # fieldline label
+    phi = np.linspace(0, 2 * np.pi / teststate.nfp, 3)  # angle along the fieldline
+
+    ev = Evaluations(rho=rho, theta=None, zeta=None, state=teststate)
+    teststate.compute(ev, "iota")
+
+    # 3D toroidal and poloidal arrays that correspond to fieldline coordinates for each surface
+    theta_P = alpha[None, :, None] + ev.iota.data[:, None, None] * phi[None, None, :]
+
+    ds = EvaluationsPEST(
+        rho=rho,
+        theta_P=theta_P,
+        zeta=phi,
+        state=teststate,
+    )
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_P.dims == ("rad", "pol", "tor")
+    assert ds.zeta.dims == ("tor",)
+    assert ds.theta.dims == ("rad", "pol", "tor")
+    assert set(ds.coords) == {"rho", "zeta"}
+
+    assert "LA" not in ds
+    teststate.compute(ds, "LA")
     np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
 
 
@@ -738,6 +789,29 @@ def test_integral_quantities_aux_r_int_tz(teststate, ev_r_int_tz, quantity):
     assert "rad_weight" in ds
     assert "pol_weight" not in ds
     assert "tor_weight" not in ds
+
+
+@pytest.mark.parametrize(
+    "sfl, kwargs",
+    [
+        ("boozer", dict(MNfactor=1)),
+        ("pest", dict()),
+    ],
+    ids=["boozer", "pest"],
+)
+def test_evaluate_sfl(teststate, sfl, kwargs):
+    ev = teststate.evaluate_sfl(
+        "B",
+        rho=[0.5, 0.75, 1.0],
+        theta=21,
+        zeta=31,
+        sfl=sfl,
+        **kwargs,
+    )
+    assert "B" in ev
+    assert set(ev.theta.dims) > {"pol"}
+    assert ev.pol.size == 21
+    assert ev.tor.size == 31
 
 
 def test_ev2ft_2d(teststate, ev_rtz):
