@@ -8,8 +8,8 @@ This page collects some derivations for computable quantities:
 $$
 \begin{align}
 B^\rho &= 0 \\
-B^\thet &= \frac{1}{\Jac} \dPhidr \left(\iota-\pdv{\lambda}{\zeta} \right) \\
-B^\zeta &= \frac{1}{\Jac} \dPhidr \left(1+\pdv{\lambda}{\thet} \right) \\
+B^\thet &= \frac{1}{\Jac} \dPhidr \pqty{\iota-\pdv{\lambda}{\zeta}} \\
+B^\zeta &= \frac{1}{\Jac} \dPhidr \pqty{1+\pdv{\lambda}{\thet}} \\
 \end{align}
 $$
 
@@ -24,7 +24,7 @@ $$
 \modB^2 &= B_\thet B^\thet + B_\zeta B^\zeta\\
 \modB^2 &= B^\thet B^\thet g_{\thet\thet} + 2 B^\thet B^\zeta g_{\thet\zeta} + B^\zeta B^\zeta g_{\zeta\zeta} \\
 \pdv{\modB^2}{\alpha} &= 2 B^\thet \pdv{B^\thet}{\alpha} g_{\thet\thet} + B^\thet B^\thet \pdv{g_{\thet\thet}}{\alpha} \\
-                                        &+ 2 \left(\pdv{B^\thet}{\alpha} B^\zeta + B^\thet \pdv{B^\zeta}{\alpha}\right) g_{\thet\zeta}
+                                        &+ 2 \pqty{\pdv{B^\thet}{\alpha} B^\zeta + B^\thet \pdv{B^\zeta}{\alpha}} g_{\thet\zeta}
                                         + B^\thet B^\zeta \pdv{g_{\thet\zeta}}{\alpha} \\
                                         &+ 2 B^\zeta \pdv{B^\zeta}{\alpha} g_{\zeta\zeta} + B^\zeta B^\zeta \pdv{g_{\zeta\zeta}}{\alpha} \\
 \pdv{\modB}{\alpha} &= \frac{1}{2\modB} \pdv{\modB^2}{\alpha} \\
@@ -48,7 +48,7 @@ $$
 &= \cancel{\pdv{B^\rho}{\alpha}} \erho + \cancel{B^\rho} \vec{k}_{\rho\alpha}
 + \pdv{B^\thet}{\alpha} \ethet + B^\thet \vec{k}_{\thet\alpha}
 + \pdv{B^\zeta}{\alpha} \ezeta + B^\zeta \vec{k}_{\zeta\alpha} \\
-\nabla \vec{B} &= \sum_{\alpha\beta} \left(\pdv{B^\beta}{\alpha} \vec{e}_\beta + B^\beta \vec{k}_{\beta\alpha} \right) \nabla\alpha
+\nabla \vec{B} &= \sum_{\alpha\beta} \pqty{\pdv{B^\beta}{\alpha} \vec{e}_\beta + B^\beta \vec{k}_{\beta\alpha} } \nabla\alpha
 \end{align}
 $$
 
@@ -66,8 +66,8 @@ From
 
 $$
 \begin{align}
-B^\thet &= \frac{1}{\Jac} \dPhidr \left(\iota-\pdv{\lambda}{\zeta} \right) \\
-B^\zeta &= \frac{1}{\Jac} \dPhidr \left(1+\pdv{\lambda}{\thet} \right) \\
+B^\thet &= \frac{1}{\Jac} \dPhidr \pqty{\iota-\pdv{\lambda}{\zeta}} \\
+B^\zeta &= \frac{1}{\Jac} \dPhidr \pqty{1+\pdv{\lambda}{\thet}} \\
 \end{align}
 $$
 
@@ -76,25 +76,25 @@ it follows
 $$
 \begin{align}
 \pdv{B^\thet}{\rho} &=
-    \frac{1}{\Jac} \frac{d^2\Phi}{d\rho^2} \left(\iota-\pdv{\lambda}{\zeta} \right)
-    + \frac{1}{\Jac} \dPhidr \left(\frac{d\iota}{d\rho}-\pdv{^2\lambda}{\rho\partial\zeta} \right)
-    - \pdv{\Jac}{\rho} \frac{1}{\Jac^2} \dPhidr \left(\iota-\pdv{\lambda}{\zeta} \right) \\
+    \frac{1}{\Jac} \frac{d^2\Phi}{d\rho^2} \pqty{\iota-\pdv{\lambda}{\zeta}}
+    + \frac{1}{\Jac} \dPhidr \pqty{\frac{d\iota}{d\rho}-\pdv{^2\lambda}{\rho\partial\zeta} }
+    - \pdv{\Jac}{\rho} \frac{1}{\Jac^2} \dPhidr \pqty{\iota-\pdv{\lambda}{\zeta}} \\
 \pdv{B^\thet}{\thet} &=
     - \frac{1}{\Jac} \dPhidr \pdv{^2\lambda}{\thet\partial\zeta}
-    - \pdv{\Jac}{\thet} \frac{1}{\Jac^2} \dPhidr \left(\iota-\pdv{\lambda}{\zeta} \right) \\
+    - \pdv{\Jac}{\thet} \frac{1}{\Jac^2} \dPhidr \pqty{\iota-\pdv{\lambda}{\zeta}} \\
 \pdv{B^\thet}{\zeta} &=
     - \frac{1}{\Jac} \dPhidr \pdv{^2\lambda}{\zeta^2}
-    - \pdv{\Jac}{\zeta} \frac{1}{\Jac^2} \dPhidr \left(\iota-\pdv{\lambda}{\zeta} \right) \\
+    - \pdv{\Jac}{\zeta} \frac{1}{\Jac^2} \dPhidr \pqty{\iota-\pdv{\lambda}{\zeta}} \\
 \pdv{B^\zeta}{\rho} &=
-    \frac{1}{\Jac} \frac{d^2\Phi}{d\rho^2} \left(1+\pdv{\lambda}{\thet} \right)
+    \frac{1}{\Jac} \frac{d^2\Phi}{d\rho^2} \pqty{1+\pdv{\lambda}{\thet}}
     + \frac{1}{\Jac} \dPhidr \pdv{^2\lambda}{\rho\partial\thet}
-    - \pdv{\Jac}{\rho} \frac{1}{\Jac^2} \dPhidr \left(1+\pdv{\lambda}{\thet} \right) \\
+    - \pdv{\Jac}{\rho} \frac{1}{\Jac^2} \dPhidr \pqty{1+\pdv{\lambda}{\thet}}\\
 \pdv{B^\zeta}{\thet} &=
     \frac{1}{\Jac} \dPhidr \pdv{^2\lambda}{^2\thet}
-    - \pdv{\Jac}{\thet} \frac{1}{\Jac^2} \dPhidr \left(1+\pdv{\lambda}{\thet} \right) \\
+    - \pdv{\Jac}{\thet} \frac{1}{\Jac^2} \dPhidr \pqty{1+\pdv{\lambda}{\thet}}\\
 \pdv{B^\zeta}{\zeta} &=
     \frac{1}{\Jac} \dPhidr \pdv{^2\lambda}{\thet\partial\zeta}
-    - \pdv{\Jac}{\zeta} \frac{1}{\Jac^2} \dPhidr \left(1+\pdv{\lambda}{\thet} \right) \\
+    - \pdv{\Jac}{\zeta} \frac{1}{\Jac^2} \dPhidr \pqty{1+\pdv{\lambda}{\thet}} \\
 \end{align}
 $$
 
@@ -111,8 +111,8 @@ The plasma volume $V$, surface are $A_\text{surface}$ and length of the magnetic
 $$
 \begin{align}
 V &= \int_0^1 d\rho \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \Jac \\
-A_\text{surface} &= \left. \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \left|\vec{e}_\theta \times \vec{e}_\zeta\right| \right|_{\rho=1}\\
-L_\text{axis} &= \left. \int_0^{2\pi} d\zeta \left|\vec{e}_\zeta\right| \right|_{\rho=0,\theta=0}\\
+A_\text{surface} &= \left. \int_0^{2\pi} d\theta \int_0^{2\pi} d\zeta \abs{\vec{e}_\theta \times \vec{e}_\zeta} \right|_{\rho=1}\\
+L_\text{axis} &= \left. \int_0^{2\pi} d\zeta \abs{\vec{e}_\zeta} \right|_{\rho=0,\theta=0}\\
 \end{align}
 $$
 
@@ -136,7 +136,7 @@ We use Ramanujan's approximation
 $$
 \begin{align}
 C &= 2\pi r_\text{minor,eff} \tilde{C} \\
-\tilde{C} &= \frac{E_\text{eff} + 1}{2\sqrt{E_\text{eff}}} \left[ 1 + 3 \frac{h}{10 + \sqrt{4 - 3h}} \right] \\
+\tilde{C} &= \frac{E_\text{eff} + 1}{2\sqrt{E_\text{eff}}} \bqty{ 1 + 3 \frac{h}{10 + \sqrt{4 - 3h}} } \\
 h &:= \frac{(E_\text{eff} - 1)^2}{(E_\text{eff} + 1)^2}.
 \end{align}
 $$
@@ -257,10 +257,10 @@ $$
 \pdv{\rho}{\rho_B} &= 1, &
 \pdv{\rho}{\thet_B} &= 0  ,&
 \pdv{\rho}{\zeta_B} &= 0 \\
- \pdv{\thet}{\rho_B} &= \frac{\Jac_B}{\Jac}\left(\pdv{\thet_B}{\zeta} \pdv{\zeta_B}{\rho} - \pdv{\zeta_B}{\zeta} \pdv{\thet_B}{\rho}\right ),&
+ \pdv{\thet}{\rho_B} &= \frac{\Jac_B}{\Jac}\pqty{\pdv{\thet_B}{\zeta} \pdv{\zeta_B}{\rho} - \pdv{\zeta_B}{\zeta} \pdv{\thet_B}{\rho}},&
 \pdv{\thet}{\thet_B} &= \frac{\Jac_B}{\Jac} \pdv{\zeta_B}{\zeta},&
 \pdv{\thet}{\zeta_B} &= -\frac{\Jac_B}{\Jac} \pdv{\thet_B}{\zeta} \\
-\pdv{\zeta}{\rho_B} &=  \frac{\Jac_B}{\Jac}\left(\pdv{\zeta_B}{\thet} \pdv{\thet_B}{\rho} - \pdv{\thet_B}{\thet} \pdv{\zeta_B}{\rho} \right ),&
+\pdv{\zeta}{\rho_B} &=  \frac{\Jac_B}{\Jac}\pqty{\pdv{\zeta_B}{\thet} \pdv{\thet_B}{\rho} - \pdv{\thet_B}{\thet} \pdv{\zeta_B}{\rho} },&
 \pdv{\zeta}{\thet_B} &=  -\frac{\Jac_B}{\Jac}\pdv{\zeta_B}{\thet},&
 \pdv{\zeta}{\zeta_B} &=  \frac{\Jac_B}{\Jac}  \pdv{\thet_B}{\thet}\\
 \end{align}
@@ -285,3 +285,99 @@ $$
 \nabla \zeta_B &= \pdv{\zeta_B}{\rho}\nabla \rho + \pdv{\zeta_B}{\thet}\nabla \thet + \pdv{\zeta_B}{\zeta}\nabla \zeta \\
 \end{align}
 $$
+
+
+## Writhe, Twist and Linking number
+
+The writhe $\Wr$  of a closed curve $C$ can be computed as a singular double integral
+
+$$
+\begin{align}
+  \Wr = \frac{1}{4\pi}\oint_{C} \oint_C \frac{ \rvec_2 - \rvec_1}{\abs{\rvec_2 - \rvec_1}^3} \cdot (\dd{\rvec_1} \times \dd{\rvec_2})
+\end{align}
+$$
+where $\rvec_1$ and $\rvec_2$ are two positions of the points on the curve $C$.
+
+If we define our curve $\X(\zeta), \; \zeta \in [0, 2\pi]$ as being one side of a ribbon, $\rvec(\X,\Uvec  ) = \X + \epsilon\Uvec $, with a non-vanishing unit-normal $ \Uvec \perp \pdv{\X}{\zeta} $.
+Then we can compute the writhe from the twist and the linking number of the ribbon:
+
+$$
+\begin{align}
+\Wr = \Lk(\X,\Uvec ) - \Tw(\X,\Uvec )
+\end{align}
+$$
+
+with the twist $\Tw$, being an integral of the torsion over arc-length $\ell$ of the ribbon:
+
+$$
+\begin{align}
+\Tw = \frac{1}{2\pi}\int_{C} \pqty{\Uvec \times \pdv{\Uvec}{\ell}} \cdot \pdv{\X}{\ell} \dd{\ell}
+\end{align}
+$$
+
+and the linking number $\Lk$,
+computed from a non-singular double integral between two curves (Gauss integral formula), with the first curve $C$ at position $\X$
+and a second curve $C^\prime$ at an offset position $\X+ \epsilon \Uvec$,
+
+$$
+\begin{align}
+\Lk &= \frac{1}{4\pi}\oint_{C} \oint_{C^\prime} \frac{ \rvec_2 - \rvec_1}{\abs{\rvec_2 - \rvec_1}^3} \cdot (\dd{\rvec_1} \times \dd{\rvec_2}) \\
+&= \frac{1}{4\pi}\int_0^{2\pi} \oint_0^{2\pi} \frac{ \rvec_2 - \rvec_1}{\abs{\rvec_2 - \rvec_1}^3} \cdot \pqty{\pdv{\rvec_1}{\zeta_1} \times \pdv{\rvec_2}{\zeta_2}} \dd{\zeta_1} \dd{\zeta_2}
+\end{align}
+$$
+
+### Computing twist in a general curve-following frame
+
+Assume the unit-normal $\Uvec(\zeta)$ is not known explicitly, but we know a vector $\Nvec(\zeta)$ that is linearly independent of the unit tangent of the curve $\Tvec = \Xp / \abs{\Xp}$, where prime denotes the derivative in $\zeta$.
+We define the unit-normal  as $\Uvec:=\Uvectilde/\abs{\Uvectilde}$, with
+
+$$
+\begin{align}
+\Uvectilde &= \Nvec - \pqty{\Nvec \cdot \Tvec} \Tvec \\
+\Uvectilde^\prime &= \Nvec^\prime - \pqty{\Nvec \cdot \Tvec} \Tvec^\prime - \pqty{\Nvec^\prime \cdot \Tvec + \Nvec \cdot \Tvec^\prime } \Tvec
+\end{align}
+$$
+
+The derivative of the normalized vector is
+
+$$
+\begin{align}
+{\Uvec}^\prime = \frac{\Uvectilde^\prime\abs{\Uvectilde}- \pqty{\Uvectilde \cdot \Uvectilde^\prime} \Uvectilde}{\abs{\Uvectilde}^2}
+\end{align}
+$$
+
+We reformulate the twist , using the derivative of the arc-length $\pdv{\ell}{\zeta}=\abs{\Xp}$
+
+$$
+\begin{align}
+\Tw &= \frac{1}{2\pi}\int_0^{2\pi} (\Uvec \times  \Uvec^\prime) \cdot \Xp \frac{1}{\abs{\Xp}^2}\dd{\zeta} \\
+& = \frac{1}{2\pi}\int_0^{2\pi} \frac{(\Uvectilde \times \Uvectilde^\prime)\cdot \Xp \dd{\zeta}}{\abs{\Uvectilde}^2\abs{\Xp}^2}  \\
+\end{align}
+$$
+
+We further simplify using $\Tvec\times\Xp=0$,
+
+$$
+\begin{align}
+ \pqty{\Uvectilde\times\Uvectilde^\prime}\cdot \Xp &= (\Xp \times \Uvectilde)\cdot \Uvectilde^\prime
+ \\
+ &= \pqty{\Xp \times \Nvec} \cdot \Uvectilde^\prime
+ = \pqty{\Uvectilde^\prime  \times \Xp} \cdot \Nvec \\
+ &= \pqty{\bqty{\Nvec^\prime - \pqty{\Nvec \cdot \Tvec} \Tvec^\prime} \times \Xp} \cdot \Nvec  \\
+ &= \frac{1}{\abs{\Xp}^2}\pqty{\bqty{\Nvec^\prime\abs{\Xp}^2 - \pqty{\Nvec \cdot \Xp} \Xpp} \times \Xp} \cdot \Nvec  \\
+\end{align}
+$$
+
+to finally arrive at
+
+$$
+\begin{align}
+ \Tw = \frac{1}{2\pi}\int_0^{2\pi} \frac{\pqty{\bqty{\Nvec^\prime\abs{\Xp}^2 - \pqty{\Nvec \cdot \Xp} \Xpp} \times \Xp} \cdot \Nvec}{\abs{\Nvec\abs{\Xp}^2-\pqty{\Nvec \cdot \Xp} \Xp}\;\abs{\Xp}^2} \dd{\zeta}
+\end{align}
+$$
+
+At the magnetic axis of an MHD equilibrium, we evaluate  $\X = \rvec(\rho=0,\vartheta=0,\zeta)$,  and choose $\Xp = \ezeta=\pdv{\rvec}{\zeta}$ and $\Nvec =\erho=\pdv{\rvec}{\rho}$, and their respective derivatives in $\zeta$.
+
+For the linking number, we simply choose the magnetic axis and a second curve $\rvec(\rho=\epsilon,\vartheta=0,\zeta)$ and integrate the double integral. $\epsilon$ has to be chosen smaller than the smallest distance of the curve to itself, so that no intersections occur.
+
+The same can be applied to the G-Frame, choosing the origin curve $\X$ and the vector $\Nvec$.
