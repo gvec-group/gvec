@@ -331,7 +331,16 @@ def test_boozer(teststate, ev_boozer, radial_derivative):
 
         # compute all remaining boozer quantities that need radial derivatives, not sure what can be checked with them...
         teststate.compute(
-            ds, "B_rho_B", "J_rho_B", "J_theta_B", "J_zeta_B", "J_contra_t_B", "J_contra_z_B"
+            ds,
+            "B_rho_B",
+            "J_rho_B",
+            "J_theta_B",
+            "J_zeta_B",
+            "J_contra_t_B",
+            "J_contra_z_B",
+            "k_tt_B",
+            "k_tz_B",
+            "k_zz_B",
         )
 
 
@@ -435,6 +444,9 @@ def test_pest(teststate, ev_pest):
         "J_theta_P",
         "J_zeta_P",
         "J_contra_t_P",
+        "k_tt_P",
+        "k_tz_P",
+        "k_zz_P",
     )
 
 

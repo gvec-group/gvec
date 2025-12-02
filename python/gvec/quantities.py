@@ -1219,36 +1219,97 @@ def _k_ij_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=("normal", "k_tt_B"),
-    attrs=dict(
-        long_name="poloidal Boozer component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\theta_B\theta_B}",
-    ),
+    quantities=("k_tt_P", "k_tz_P", "k_zz_P"),
+    requirements=["e_theta", "e_zeta", "k_tt", "k_tz", "k_zz"]
+    + sum([[f"dLA_d{ij}"] for ij in ("t", "z", "tt", "tz", "zz")], start=[]),
+    attrs={
+        f"k_{a}{b}_P": dict(
+            long_name=f"{a}{b} PEST curvature vector",
+            symbol=rf"\mathbf{{k}}_{{{rtz_symbols[a]}_P {rtz_symbols[b]}_P}}",
+        )
+        for a, b in ["tt", "tz", "zz"]
+    },
 )
-def II_tt_B(ds: xr.Dataset):
-    ds["II_tt_B"] = xr.dot(ds.normal, ds.k_tt_B, dim="xyz")
+def _k_ij_P(ds: xr.Dataset):
+    r"""Factory function for curvature vectors in PEST coordinates.
+
+    The curvature vector is computed in cartesian space, with
+
+    k_{\alpha\beta} = \frac{\partial}{\partial \alpha} \left(\frac{\partial x}{\partial \beta}\right)
+
+    for the choices of $\alpha,\beta$  being $\vartheta_P,\vartheta_P$, $\vartheta_P,\zeta_P$ and $\zeta_P,\zeta_P$.
+    The chain rule is applied to express the quantities in terms of the logical coordinate derivatives,
+    together with the derivatives of the PEST coordinate transform.
+    """
+    dtP_dt = 1 + ds.dLA_dt
+    dtP_dz = ds.dLA_dz
+    # dzP_dt = 0
+    # dzP_dz = 1
+
+    dtP_dtt = ds.dLA_dtt
+    dtP_dtz = ds.dLA_dtz
+    dtP_dzz = ds.dLA_dzz
+    # dzP_dtt = 0
+    # dzP_dtz = 0
+    # dzP_dzz = 0
+
+    JacP_Jac = 1 / (dtP_dt)
+    dJac_JacP_dt = dtP_dtt
+    dJac_JacP_dz = dtP_dtz
+    dJacP_Jac_dtP = JacP_Jac**3 * (-dJac_JacP_dt)
+    dJacP_Jac_dzP = JacP_Jac**3 * (dtP_dz * dJac_JacP_dt - dtP_dt * dJac_JacP_dz)
+
+    dt_dtP = JacP_Jac
+    # dz_dtP = 0
+    dt_dzP = -JacP_Jac * dtP_dz
+    dz_dzP = JacP_Jac * dtP_dt
+
+    dt_dttP = dJacP_Jac_dtP
+    dt_dtzP = dJacP_Jac_dzP
+    dt_dzzP = -dtP_dz * dJacP_Jac_dzP - JacP_Jac * (dt_dzP * dtP_dtz + dz_dzP * dtP_dzz)
+    # dz_dttP = 0
+    dz_dtzP = dtP_dt * dJacP_Jac_dtP + JacP_Jac * (dt_dtP * dtP_dtt)
+    dz_dzzP = dtP_dt * dJacP_Jac_dzP + JacP_Jac * (dt_dzP * dtP_dtt + dz_dzP * dtP_dtz)
+
+    ds["k_tt_P"] = dt_dttP * ds.e_theta
+    ds["k_tt_P"] += dt_dtP**2 * ds.k_tt
+
+    ds["k_tz_P"] = dt_dtzP * ds.e_theta + dz_dtzP * ds.e_zeta
+    ds["k_tz_P"] += dt_dtP * dt_dzP * ds.k_tt
+    ds["k_tz_P"] += (dt_dtP * dz_dzP) * ds.k_tz
+
+    ds["k_zz_P"] = dt_dzzP * ds.e_theta + dz_dzzP * ds.e_zeta
+    ds["k_zz_P"] += dt_dzP**2 * ds.k_tt + 2 * dt_dzP * dz_dzP * ds.k_tz + dz_dzP**2 * ds.k_zz
 
 
-@register(
-    requirements=["normal", "k_tz_B"],
-    attrs=dict(
-        long_name="poloidal-toroidal Boozer component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\theta_B\zeta_B}",
-    ),
-)
-def II_tz_B(ds: xr.Dataset):
-    ds["II_tz_B"] = xr.dot(ds.normal, ds.k_tz_B, dim="xyz")
+def _II_ij_sfl_factory(i, j, sfl):
+    """Factory function for second fundamental form components in Boozer(sfl="B") or PEST(sfl="P") coordinates:
+    II_{ij}_{sfl} = k_{ij}_{sfl} . normal
+    """
+    if sfl == "B":
+        sflcoord = "Boozer"
+    elif sfl == "P":
+        sflcoord = "PEST"
+    k_ij_sfl = f"k_{i}{j}_{sfl}"
+
+    @register(
+        quantities=f"II_{i}{j}_{sfl}",
+        requirements={k_ij_sfl, "normal"},
+        attrs=dict(
+            long_name=f"{i},{j} component of the second fundamental form in {sflcoord} coordinates",
+            symbol=rf"\mathrm{{II}}_{{{rtz_symbols[i]}_{sfl} {rtz_symbols[j]}_{sfl}}}",
+        ),
+    )
+    def _II_ij_sfl(ds: xr.Dataset):
+        ds[f"II_{i}{j}_{sfl}"] = xr.dot(ds[k_ij_sfl], ds.normal, dim="xyz")
+
+    return _II_ij_sfl
 
 
-@register(
-    requirements=["normal", "k_zz_B"],
-    attrs=dict(
-        long_name="toroidal Boozer component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\zeta_B\zeta_B}",
-    ),
-)
-def II_zz_B(ds: xr.Dataset):
-    ds["II_zz_B"] = xr.dot(ds.normal, ds.k_zz_B, dim="xyz")
+# generate functions from factory function for second fundamental form in Boozer and PEST coordinates
+for i, j in [["t", "t"], ["t", "z"], ["z", "z"]]:
+    for sfl in ["B", "P"]:
+        globals()[f"II_{i}{j}_{sfl}"] = _II_ij_sfl_factory(i, j, sfl)
 
 
 @register(
