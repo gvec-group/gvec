@@ -405,6 +405,38 @@ def test_pest(teststate, ev_pest):
     teststate.compute(ds, "LA")
     np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
 
+    teststate.compute(
+        ds,
+        "B_theta_avg",
+        "B_zeta_avg",
+        "B_theta_P",
+        "B_zeta_P",
+        "g_tt_P",
+        "g_tz_P",
+        "g_zz_P",
+        "Jac_P",
+    )
+    B_theta_P_avg = ds.B_theta_P.mean(("pol", "tor"))
+    B_zeta_P_avg = ds.B_zeta_P.mean(("pol", "tor"))
+    np.testing.assert_allclose(B_theta_P_avg, ds.B_theta_avg, rtol=1e-3, atol=1e-5)
+    np.testing.assert_allclose(B_zeta_P_avg, ds.B_zeta_avg, rtol=1e-3, atol=1e-5)
+
+    # contravariant components, need radial derivative (B_contra_i = B . grad_i)
+    teststate.compute(ds, "B_contra_t_P", "dPhi_dr", "iota")
+    np.testing.assert_allclose(
+        ds["B_contra_t_P"], ds.dPhi_dr * ds.iota / ds.Jac_P, rtol=1e-8, atol=1e-8
+    )
+
+    # compute all remaining PEST quantities that use radial derivatives, not sure what can be checked with them...
+    teststate.compute(
+        ds,
+        "B_rho_P",
+        "J_rho_P",
+        "J_theta_P",
+        "J_zeta_P",
+        "J_contra_t_P",
+    )
+
 
 def test_EvaluationsPEST_2D(teststate):
     """Test EvaluationsPEST with 2D arrays for theta_P, zeta."""

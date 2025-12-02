@@ -334,3 +334,29 @@ $$
 &= \frac{\Jac}{1 + \pdv{\lambda}{\thet}}. \\
 \end{align}
 $$
+
+with that we can express the inverse derivatives
+
+$$
+\begin{align}
+\pdv{\rho}{\rho_P} &= 1, &
+\pdv{\rho}{\thet_P} &= 0  ,&
+\pdv{\rho}{\zeta_P} &= 0 \\
+ \pdv{\thet}{\rho_P} &= -\pdv{\thet_P}{\rho}\left(\pdv{\thet_P}{\thet}\right)^{-1},&
+\pdv{\thet}{\thet_P} &= \left(\pdv{\thet_P}{\thet}\right)^{-1}, &
+\pdv{\thet}{\zeta_P} &= -\pdv{\thet_P}{\zeta}\left(\pdv{\thet_P}{\thet}\right)^{-1} \\
+\pdv{\zeta}{\rho_P} &=  0,&
+\pdv{\zeta}{\thet_P} &=  0,&
+\pdv{\zeta}{\zeta_P} &=  1\\
+\end{align}
+$$
+
+The basis vectors are then computed as:
+
+$$
+\begin{align}
+\vec{e}_{\rho_P} &=&  \erho + &\pdv{\thet}{\rho_P}\ethet  \\
+\vec{e}_{\thet_P} &=&  &\pdv{\thet}{\thet_P}\ethet  \\
+\vec{e}_{\zeta_P} &=&  &\pdv{\thet}{\zeta_P}\ethet + \ezeta \\
+\end{align}
+$$
