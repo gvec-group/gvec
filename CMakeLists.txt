@@ -418,6 +418,7 @@ IF(COMPILE_PYGVEC)
     src/pygvec/state.f90
     src/pygvec/run.f90
     src/transform_sfl/sfl_boozer.f90
+    src/pygvec/BiotSavart.f90
   )
 
   FOREACH(file ${pygvec_src_files})
