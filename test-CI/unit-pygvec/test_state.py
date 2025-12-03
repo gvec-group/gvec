@@ -99,6 +99,59 @@ def test_state_FileNotFoundError(testfiles):
         state = State("nonexistent.ini", statefile)
 
 
+@pytest.mark.parametrize(
+    "param,value",
+    [
+        ("X1X2_deg", 1.5),
+        ("X1_mn_max", [3]),
+        ("X1_mn_max", [3, 2, 1]),
+        ("X2_mn_max", [1.5, 2]),
+        (("pres", "type"), "invalid"),
+    ],
+)
+def test_state_invalid_parameter(testfiles, param, value):
+    paramfile, statefile = testfiles
+    paramfile2 = paramfile.with_suffix(".test.ini")
+    parameters0 = gvec.util.read_parameters(paramfile)
+    parameters = parameters0.copy()
+
+    if isinstance(param, tuple):
+        parameters[param[0]][param[1]] = value
+    else:
+        parameters[param] = value
+    gvec.util.write_parameters(parameters, paramfile2)
+    state = State(paramfile2, statefile)
+
+    with pytest.raises(gvec.errors.InvalidParameterError):
+        nfp = state.nfp  # trigger binding
+
+    state = State(paramfile, statefile)
+    nfp = state.nfp
+
+
+@pytest.mark.parametrize("which_read", ["hmap", "boundaryFromFile"])
+def test_state_netcdf_error(testfiles, which_read):
+    paramfile, statefile = testfiles
+    paramfile2 = paramfile.with_suffix(".test.ini")
+    parameters0 = gvec.util.read_parameters(paramfile)
+    parameters = parameters0.copy()
+
+    if which_read == "hmap":
+        parameters["which_hmap"] = 21
+        parameters["hmap_ncfile"] = "non_existing_file.nc"
+    if which_read == "boundaryFromFile":
+        parameters["getBoundaryFromFile"] = 1
+        parameters["boundary_filename"] = "non_existing_file.nc"
+    gvec.util.write_parameters(parameters, paramfile2)
+    state = State(paramfile2, statefile)
+
+    with pytest.raises(FileNotFoundError):
+        nfp = state.nfp  # trigger binding
+
+    state = State(paramfile, statefile)
+    nfp = state.nfp
+
+
 def test_state_bind_implicit(testfiles):
     state = State(*testfiles)
     assert gvec.core.state.bound_state is not state
