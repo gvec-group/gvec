@@ -680,7 +680,7 @@ FUNCTION get_iMode(varname_in,mn_in,nfp_in)
 ! LOCAL VARIABLES
     CHARACTER(LEN=100) :: varstr
 !===================================================================================================================================
-  SWRITE(varstr,'(A,"("I4,";",I4,")")')TRIM(varname_in),mn_in(1),mn_in(2)/nfp_in
+  SWRITE(varstr,'(A,"(",I4,";",I4,")")')TRIM(varname_in),mn_in(1),mn_in(2)/nfp_in
   varstr=remove_blanks(varstr)         !quiet on default=0.0
   get_iMode=GETREAL(TRIM(varstr),Proposal=0.0_wp,quiet_def_in=.TRUE.)
 END FUNCTION get_iMode

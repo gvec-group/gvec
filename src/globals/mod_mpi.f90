@@ -453,6 +453,8 @@ CONTAINS
     ELSE
       CALL MPI_IReduce(arr, arr, sz, dType, mpiOP, toRank, worldComm, req_out, ierr)
     END IF
+#   else
+    req_out = 0
 #   endif
   END SUBROUTINE par_IReduce_array1D
 
@@ -491,6 +493,8 @@ CONTAINS
     ELSE
       CALL MPI_IReduce(arr, arr, sz, dType, mpiOP, toRank, worldComm, req_out, ierr)
     END IF
+#   else
+    req_out = 0
 #   endif
   END SUBROUTINE par_IReduce_array2D
 
@@ -670,6 +674,8 @@ CONTAINS
   ! BODY
     sz=SIZE(arr)
     CALL MPI_IBcast(arr, sz, dType, fromRank, worldComm, req_out, ierr)
+#   else
+    req_out = 0
 #   endif
   END SUBROUTINE par_IBcast_array1D
 
@@ -694,6 +700,8 @@ CONTAINS
   ! BODY
     sz=SIZE(arr)
     CALL MPI_IBcast(arr, sz, dType, fromRank, worldComm, req_out, ierr)
+#   else
+    req_out = 0
 #   endif
   END SUBROUTINE par_IBcast_array2D
 
