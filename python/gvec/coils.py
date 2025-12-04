@@ -48,6 +48,11 @@ class Coil:
         self.L = self._mod_vector(self.e_vec)
         self.e_hat_vec = self.e_vec / self.L
         self.prefactor = self.coil_current * mu_0 / (4 * np.pi)
+        delta = abs(self.coil_points.isel(points=0) - self.coil_points.isel(points=-1))
+        if any(delta > 1e-12):
+            raise ValueError(
+                "First and last point of Coil is not the same! Please close the Coil."
+            )
 
     def __call__(self, pos: ArrayLike):
         return self.eval_B(pos)
@@ -537,19 +542,19 @@ def trace_fieldlines(
         B = B / np.sqrt(np.sum(B**2, axis=0))
         return B[:, 0]
 
-    if surf_normals is not None and "events" in kwargs:
-        raise ValueError("Cannot use both surf_normals and events.")
+    check_planes = []
 
-    if surf_normals is None:
-        check_planes = None
-    else:
-        check_planes = []
+    if surf_normals is not None:
         if surf_points is None:
             surf_points = [np.zeros(3) for _ in range(len(surf_normals))]
         for surf_normal, surf_point in zip(surf_normals, surf_points):
             check_planes.append(check_plane_factory(surf_normal, surf_point))
+
     if "events" not in kwargs:
         kwargs["events"] = check_planes
+    else:
+        kwargs["events"] = check_planes + kwargs["events"]
+
     solves = []
     logger.info("Tracing field lines using n_jobs=%d", n_jobs)
     if n_jobs > 1:  # embarassingly parallel over fieldlines
