@@ -34,6 +34,7 @@ import numpy as np
 import xarray as xr
 
 import gvec.util
+from gvec.errors import catch_gvec_errors
 import gvec.lib
 from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
@@ -73,23 +74,15 @@ def with_binding(method):
     def wrapped(self, *args, **kwargs):
         global bound_state
 
-        if _run.initialized:
-            raise RuntimeError(
-                "The fortran library was left in a corrupted state by a run. Please restart the python interpreter."
-            )
+        if bound_state is not self:
+            self.bind(force=True)
 
-        if bound_state is self:
-            if not _state.initialized:
-                raise RuntimeError(
-                    f"Expected {bound_state!r} to be bound, but fortran library is not initialized!"
-                )
-            return method(self, *args, **kwargs)
-
-        if bound_state is not None:
-            bound_state.unbind()
-
-        self.bind()
-        return method(self, *args, **kwargs)
+        try:
+            with catch_gvec_errors():
+                return method(self, *args, **kwargs)
+        except:
+            self.unbind(cleanup=True)
+            raise
 
     return wrapped
 
@@ -176,13 +169,22 @@ class State:
 
     # === Binding to the Fortran library === #
 
-    def bind(self):
+    def bind(self, force: bool = False):
         """Bind this State object to the Fortran library. Allocate & initialize everything."""
         global bound_state
+        if bound_state is self:
+            return
         if bound_state is not None:
-            raise RuntimeError(
-                f"Another state {bound_state!r} is already bound to the fortran library. Unbind that first."
-            )
+            if not force:
+                raise RuntimeError(
+                    f"Another state {bound_state!r} is already bound to the fortran library. Unbind that first."
+                )
+            else:
+                bound_state.unbind()
+
+        if _run.initialized:
+            logger.debug("Fortran library still initialized by run, attempting cleanup.")
+            _run.cleanup()
         if _state.initialized:
             raise RuntimeError("Fortran library is initialized, but no state is bound!?")
 
@@ -193,19 +195,31 @@ class State:
         if self._stdout is None:
             self._stdout = tempfile.NamedTemporaryFile(mode="r", prefix="gvec-stdout-")
         _binding.redirect_stdout(self._stdout.name)
+        logger.debug(f"Redirected stdout to {self._stdout.name}")
 
         with gvec.util.chdir(self.rundir):
-            _state.init(self.parameterfile.name)
-            if self.statefile is not None:
-                _state.readstate(self.statefile.relative_to(self.rundir))
-            else:
-                _state.initsolution()
+            try:
+                with catch_gvec_errors():
+                    logger.debug("Initialize from parameterfile")
+                    _state.init(self.parameterfile.name)
+                    if self.statefile is not None:
+                        logger.debug("Read state from statefile")
+                        _state.readstate(self.statefile.relative_to(self.rundir))
+                    else:
+                        logger.debug("Initialize solution without statefile")
+                        _state.initsolution()
+            except:
+                logger.debug("Error during binding, attempting cleanup.")
+                self.unbind(cleanup=True)
+                raise
+
         self._children = []
 
         if not _state.initialized:
             raise RuntimeError("Failed to initialize fortran library.")
+        logger.debug(f"Bound state {self!r} to the fortran library.")
 
-    def unbind(self):
+    def unbind(self, cleanup: bool = False):
         """Unbind this State object from the Fortran library. Finalize & deallocate everything."""
         global bound_state
 
@@ -213,24 +227,27 @@ class State:
             raise RuntimeError(
                 f"State {self!r} is not bound to the fortran library, but {bound_state!r} is."
             )
-        if not _state.initialized:
+        if not _state.initialized and not cleanup:
             raise RuntimeError("Fortran library is not initialized, but state is bound!?")
 
         bound_state = None
         logger.debug(f"Unbinding state {self!r} from the fortran library.")
 
-        for child in self._children:
-            if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
-                if child.initialized:
-                    logger.debug(f"Finalizing Boozer potential {child!r}")
-                    child.free()
-            else:
-                logger.error(f"Unknown child: {child!r}")
-        self._children = []
+        with catch_gvec_errors():
+            for child in self._children:
+                if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
+                    if child.initialized:
+                        logger.debug(f"Finalizing Boozer potential {child!r}")
+                        child.free()
+                else:
+                    logger.error(f"Unknown child: {child!r}")
+            self._children = []
 
-        _state.finalize()
+            _state.finalize()
+
         if _state.initialized:
             raise RuntimeError("Failed to finalize fortran library.")
+        logger.debug(f"Unbound state {self!r} from the fortran library.")
 
     # === Context Manager === #
 
@@ -757,6 +774,53 @@ class State:
         )
         return outputs
 
+    # === Straight-Fieldline PEST angles === #
+
+    @with_binding
+    def get_pest_angles(
+        self,
+        rho: np.ndarray,
+        tz_list: np.ndarray,
+    ):
+        """
+        Find the logical theta angle for the corresponding (theta_P, zeta) coordinates on the flux surface.
+
+        Parameters
+        ----------
+        rho: 1D array
+        tz_list : 2D array of shape (2, n) or 3D array of shape (2, n, rho.size)
+            The list of (theta_P, zeta) coordinates for which to find the logical angles.
+            The first row contains theta_P and the second row contains zeta.
+            If a 2D array is given, the same postions are searched for on each surface.
+
+        Returns
+        -------
+        2D np.ndarray of shape (n, rho.size)
+            The logical theta angle corresponding to the input (theta_P, zeta) coordinates.
+        """
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        if rho.ndim != 1:
+            raise ValueError(f"Expected a 1D array for rho, got shape {rho.shape}.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+        tz_list = np.asfortranarray(tz_list, dtype=np.float64)
+        match tz_list.shape:
+            case (2, n):
+                tz_out = np.zeros((2, n, rho.size), order="F")
+                _state.find_pest_angles_2d(rho.size, rho, n, tz_list, tz_out)
+                return tz_out[0, :, :]
+            case (2, n, k) if k == rho.size:
+                t_out = np.zeros((n, rho.size))
+                tz_out = np.zeros((2, n, 1), order="F")
+                for i, r in enumerate(rho):
+                    _state.find_pest_angles_2d(1, [r], n, tz_list[:, :, i], tz_out)
+                    t_out[:, i] = tz_out[0, :, 0]
+                return t_out
+            case _:
+                raise ValueError(
+                    f"Expected 'tz_list' of shape (2, n) or (2, n, rho.size), got {tz_list.shape}."
+                )
+
     # === High Level Interface for Evaluations === #
 
     def compute(
@@ -812,13 +876,22 @@ def find_state(rundir: Path | str | None = None):
     parameterfiles = list(rundir.glob("parameter*.ini"))
     if len(parameterfiles) > 1:
         raise ValueError(
-            f"Found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
+            f"found more than one candidate parameterfile: {[file.name for file in parameterfiles]}"
         )
     elif len(parameterfiles) == 0:
-        raise ValueError("No parameterfile found.")
+        raise ValueError("no parameterfile found")
+    logger.info(f"found parameterfile '{parameterfiles[0].name}'")
+
     statefiles = sorted(rundir.glob("*State*.dat"))
+    projectnames = set([f.name.split("_State")[0] for f in statefiles])
     if len(statefiles) == 0:
-        raise ValueError("No statefile found.")
+        raise ValueError("no statefile found")
+    if len(projectnames) > 1:
+        raise ValueError(
+            f"found statefiles for different projects: {projectnames}; cannot determine which one to load"
+        )
+    logger.info(f"found statefile '{statefiles[-1].name}'")
+
     return State(parameterfiles[0], statefiles[-1])
 
 

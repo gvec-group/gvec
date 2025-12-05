@@ -117,10 +117,12 @@ FUNCTION hmap_knot_init_params(knot_kl,knot_R0,knot_delta) RESULT(sf)
   sf%l=REAL(knot_kl(2), wp)
   sf%R0=knot_R0
   sf%delta=knot_delta
+  sf%n_max=MAX(sf%k,sf%l)
 
   IF (.NOT.((sf%R0 - ABS(sf%delta)) > 0.0_wp)) THEN
      CALL abort(__STAMP__, &
-          "hmap_knot init: condition R0 - |delta| > 0 not fulfilled!")
+          "hmap_knot init: condition R0 - |delta| > 0 not fulfilled!", &
+          TypeInfo="InvalidParameterError")
   END IF
 
   sf%initialized=.TRUE.

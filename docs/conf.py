@@ -99,12 +99,16 @@ extensions = [
     "sphinx_math_dollar",
     "sphinx.ext.mathjax",  # mathjax
     "sphinx.ext.intersphinx",  # link to other sphinx documentation
+    "sphinx_copybutton",  # add copy buttons to code blocks
 ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["templates"]
 
 bibtex_bibfiles = ["generators/references.bib"]
+
+# prevent copybutton from appearing on top of notebook cell numbers:
+copybutton_selector = ":not(.prompt) > div.highlight pre"
 
 # -- Options for LaTeX output --------------------------------------------
 mathjax3_config = {
@@ -119,7 +123,7 @@ mathjax3_config = {
             "dblint": r"\int\limits_0^{2\pi}\!\int\limits_0^{2\pi}",
             "thet": r"\vartheta",
             "erho": r"\vec{e}_{\rho}",
-            "ethet": r"\vec{e}_{\rho}",
+            "ethet": r"\vec{e}_{\thet}",
             "ezeta": r"\vec{e}_{\zeta}",
             "submin": r"_\mathrm{min}",
             "submax": r"_\mathrm{max}",
@@ -137,8 +141,9 @@ mathjax3_config = {
             "Xpp": r"\X^{\prime\prime}",
             "Xppp": r"\X^{\prime\prime\prime}",
             "ttilde": r"{\vec{\tilde{T}}_q}",
-            "modB": r"\left|\vec{B}\right|",
-            "dPhidr": r"\frac{d\Phi}{d\rho}",
+            "modB": r"\abs{\vec{B}}",
+            "dPhidr": r"\dv{\Phi}{\rho}",
+            "aqty": [r"\langle{#1}\rangle", 1],
         },
     },
 }

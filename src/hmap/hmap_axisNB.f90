@@ -51,7 +51,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
   INTEGER              :: sgn_rot       !! sign of rotation around Z axis,  either +1 or -1: positive means that from one field period to the next,
                                         !! xyz rotate counterclockwise around the Z-axis (right hand rule), negative then clockwise.
   REAL(wp),ALLOCATABLE :: zeta(:)       !! zeta positions in one field period (1:nzeta),  on 'half' grid: zeta(i)=(i-0.5)/nzeta*(2pi/nfp)
-  INTEGER              :: n_max=0       !! maximum number of fourier coefficients on a field period (<=2*nzeta-1)
   REAL(wp),ALLOCATABLE :: xyz(:,:)      !! cartesian coordinates of the axis for a full turn, (1:NFP*nzeta,1:3), zeta is on 'half' grid: zeta(i)=(i-0.5)/(NFP*nzeta)*(2pi)
   REAL(wp),ALLOCATABLE :: Nxyz(:,:)     !! "normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve
   REAL(wp),ALLOCATABLE :: Bxyz(:,:)      !! "Bi-normal" vector of axis frame in cartesian coordinates for a full turn (1:NFP*nzeta,1:3). NOT ASSUMED TO BE ORTHOGONAL to tangent of curve or Nxyz
@@ -173,7 +172,8 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
          sf%sgn_rot=-1
       ELSE
         CALL abort(__STAMP__, &
-           'problem with check of field period rotation: point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.')
+           'problem with check of field period rotation: point at zeta=0 does not rotate to point at zeta= +/-2pi/nfp.', &
+           TypeInfo="InitializationError")
       END IF
     END IF
     WRITE(UNIT_stdOut,'(4X,A,I2)')'INFO: sign of the rotation from zeta=0 to zeta=2pi/nfp is: ',sf%sgn_rot
@@ -213,7 +213,8 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
     CALL CheckFieldPeriodicity(sf,sf%sgn_rot,error_nfp)
     IF(error_nfp.LT.0) &
        CALL abort(__STAMP__, &
-          "hmap_axisNB check Field Periodicity failed!")
+          "hmap_axisNB check Field Periodicity failed!", &
+           TypeInfo="InitializationError")
   END IF !MPIroot
 
   CALL par_BCast(sf%xyz_hat_modes,0)
@@ -261,7 +262,8 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
         WRITE(UNIT_stdout,'(A,I4,A,3E9.2)')'fp=1 vs fp=',i,', check_xyz=',check_xhat(1:3,i)
       END DO
       CALL abort(__STAMP__,&
-            "transform from cartesian to hat coordinates"//TRIM(msg)//" yields non-field periodic data!")
+            "transform from cartesian to hat coordinates"//TRIM(msg)//" yields non-field periodic data!", &
+            TypeInfo="InitializationError")
     END IF
     DO i=1,3
       to_hat_modes(i,:)=sf%fb_hat%initDOF(to_hat(i,1:sf%nzeta),thet_zeta_start=(/0.,sf%zeta(1)/))

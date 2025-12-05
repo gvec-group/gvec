@@ -5,6 +5,7 @@ import pytest
 
 try:
     import numpy as np
+    import xarray as xr
 
     import gvec
     from gvec.core.state import State, load_state, find_state, find_states
@@ -54,22 +55,30 @@ def test_load_state(testfiles):
 
 def test_find_state(testfiles, tmp_path):
     shutil.copy(testfiles[0], tmp_path / "parameter.ini")
-    shutil.copy(testfiles[1], tmp_path / "State-0.dat")
-    shutil.copy(testfiles[1], tmp_path / "State-1.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-1.dat")
     state = find_state(tmp_path)
     assert isinstance(state, State)
-    assert state.statefile == tmp_path / "State-1.dat"
+    assert state.statefile == tmp_path / "Test_State-1.dat"
+
+
+def test_find_state_two_candidates(testfiles, tmp_path):
+    shutil.copy(testfiles[0], tmp_path / "parameter.ini")
+    shutil.copy(testfiles[1], tmp_path / "TestA_State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "TestB_State-1.dat")
+    with pytest.raises(ValueError, match="found statefiles for different projects"):
+        state = find_state(tmp_path)
 
 
 def test_find_states(testfiles, tmp_path):
     shutil.copy(testfiles[0], tmp_path / "parameter.ini")
-    shutil.copy(testfiles[1], tmp_path / "State-0.dat")
-    shutil.copy(testfiles[1], tmp_path / "State-1.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-0.dat")
+    shutil.copy(testfiles[1], tmp_path / "Test_State-1.dat")
     states = find_states(tmp_path)
     assert len(states) == 2
     for s, state in enumerate(states):
         assert isinstance(state, State)
-        assert state.statefile == tmp_path / f"State-{s}.dat"
+        assert state.statefile == tmp_path / f"Test_State-{s}.dat"
 
 
 def test_state_with_warning(testfiles):
@@ -88,6 +97,59 @@ def test_state_FileNotFoundError(testfiles):
 
     with pytest.raises(FileNotFoundError):
         state = State("nonexistent.ini", statefile)
+
+
+@pytest.mark.parametrize(
+    "param,value",
+    [
+        ("X1X2_deg", 1.5),
+        ("X1_mn_max", [3]),
+        ("X1_mn_max", [3, 2, 1]),
+        ("X2_mn_max", [1.5, 2]),
+        (("pres", "type"), "invalid"),
+    ],
+)
+def test_state_invalid_parameter(testfiles, param, value):
+    paramfile, statefile = testfiles
+    paramfile2 = paramfile.with_suffix(".test.ini")
+    parameters0 = gvec.util.read_parameters(paramfile)
+    parameters = parameters0.copy()
+
+    if isinstance(param, tuple):
+        parameters[param[0]][param[1]] = value
+    else:
+        parameters[param] = value
+    gvec.util.write_parameters(parameters, paramfile2)
+    state = State(paramfile2, statefile)
+
+    with pytest.raises(gvec.errors.InvalidParameterError):
+        nfp = state.nfp  # trigger binding
+
+    state = State(paramfile, statefile)
+    nfp = state.nfp
+
+
+@pytest.mark.parametrize("which_read", ["hmap", "boundaryFromFile"])
+def test_state_netcdf_error(testfiles, which_read):
+    paramfile, statefile = testfiles
+    paramfile2 = paramfile.with_suffix(".test.ini")
+    parameters0 = gvec.util.read_parameters(paramfile)
+    parameters = parameters0.copy()
+
+    if which_read == "hmap":
+        parameters["which_hmap"] = 21
+        parameters["hmap_ncfile"] = "non_existing_file.nc"
+    if which_read == "boundaryFromFile":
+        parameters["getBoundaryFromFile"] = 1
+        parameters["boundary_filename"] = "non_existing_file.nc"
+    gvec.util.write_parameters(parameters, paramfile2)
+    state = State(paramfile2, statefile)
+
+    with pytest.raises(FileNotFoundError):
+        nfp = state.nfp  # trigger binding
+
+    state = State(paramfile, statefile)
+    nfp = state.nfp
 
 
 def test_state_bind_implicit(testfiles):
@@ -299,3 +361,35 @@ def test_get_boozer_angles(teststate):
     booz = teststate.get_boozer([0.1, 0.4, 0.6, 0.9], 1)
     tz = teststate.get_boozer_angles(booz, [[0.1, 0.5, 0.9], [0.1, 0.5, 0.9]])
     assert tz.shape == (2, 3, 4)
+
+
+def test_get_pest_angles_1D(teststate):
+    rho = np.asarray([0.1, 0.4, 0.6, 1.0])
+    theta_P = np.asarray([0.1, 0.5, 0.9])
+    zeta = np.asarray([0.1, 0.5, 0.9])
+    theta = teststate.get_pest_angles(rho, np.stack([theta_P, zeta]))
+    assert theta.shape == (theta_P.size, rho.size)
+
+    Z, R = np.meshgrid(zeta, rho, indexing="ij")
+    rtz = np.stack([R.flatten(), theta.flatten(), Z.flatten()])
+    LA = teststate.evaluate_base_list_rtz_all("LA", rtz)[0].reshape(theta_P.size, rho.size)
+    np.testing.assert_allclose(
+        theta + LA, np.tile(theta_P.reshape(-1, 1), (1, rho.size)), atol=1e-12
+    )
+
+
+def test_get_pest_angles_2D_rt(teststate):
+    rho = np.asarray([0.1, 0.4, 0.6, 1.0])
+    theta_P = np.asarray([0.1, 0.5, 0.9])
+    T, R = np.meshgrid(theta_P, rho, indexing="ij")
+    zeta = np.asarray([0.1, 0.5, 0.9])
+    Z, _ = np.meshgrid(zeta, rho, indexing="ij")
+    tz = np.stack([T, Z])
+    theta = teststate.get_pest_angles(rho, tz)
+    assert theta.shape == (theta_P.shape[0], rho.size)
+
+    rtz = np.stack([R.flatten(), theta.flatten(), Z.flatten()])
+    LA = teststate.evaluate_base_list_rtz_all("LA", rtz)[0].reshape(theta_P.size, rho.size)
+    np.testing.assert_allclose(
+        theta + LA, np.tile(theta_P.reshape(-1, 1), (1, rho.size)), atol=1e-12
+    )

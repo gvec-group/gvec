@@ -275,7 +275,7 @@ def test_interpolation(testcaserundir, c_poly, BC_type_axis, BC_type_edge, n_poi
 
 
 def test_vmec_profile_init(vmecfiles):
-    wout = xr.open_dataset(vmecfiles[1])
+    wout = xr.load_dataset(vmecfiles[1])
     phi = wout.phi
     P_vmec = wout.presf
     iota_vmec = -1 * wout.iotaf
@@ -295,7 +295,7 @@ def test_vmec_profile_init(vmecfiles):
 
 @pytest.mark.parametrize("profile_type", ["pres", "iota"])
 def test_vmec_with_custom_profile(testcaserundir, vmecfiles, c_poly, profile_type):
-    wout = xr.open_dataset(vmecfiles[1])
+    wout = xr.load_dataset(vmecfiles[1])
     phi = wout.phi
     rho_wout = np.sqrt((phi - phi[0]) / (phi[-1] - phi[0]))  # Normalized toroidal flux
 

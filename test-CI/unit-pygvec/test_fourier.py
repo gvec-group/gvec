@@ -60,12 +60,19 @@ def ev(state):
     ids=["cos", "sincos", "offset", "random-1", "random-2"],
 )
 @pytest.mark.parametrize("points", [10, 11], ids=["even", "odd"])
-def test_fft1d(c, s, points: tuple[int, int]):
+@pytest.mark.parametrize("shift", [-0.2, 0, 0.5])
+def test_fft1d(c, s, points: tuple[int, int], shift):
     t = np.linspace(0, 2 * np.pi, points, endpoint=False)
+    if shift != 0.0:
+        t = t + shift * t[1]
     x = sum([ci * np.cos(i * t) for i, ci in enumerate(c)])
     x += sum([si * np.sin(i * t) for i, si in enumerate(s)])
 
-    xc, xs = fourier.fft1d(x)
+    xc, xs = fourier.fft1d(x, angle0=t[0])
+    if shift != 0.0:
+        x2 = fourier.shift_1d(x, t[0], 0)
+        xc2, xs2 = fourier.fft1d(x2)
+        assert np.allclose(xc, xc2) and np.allclose(xs, xs2)
     assert np.allclose(xc[: len(c)], c)
     assert np.allclose(xs[1 : len(s)], s[1:])
     assert xs[0] == 0
@@ -114,9 +121,15 @@ def test_scale_modes2d(MN, dM2: int, dN2: int):
     assert np.all(c2[(m2 > M1) & (np.abs(n2) > N1)] == 0)
 
 
-def test_fft2d(MN, points2d):
+@pytest.mark.parametrize("shift_theta", [-0.1, 0, 0.2, 0.5])
+@pytest.mark.parametrize("shift_zeta", [-0.2, 0, 0.1, 0.5])
+def test_fft2d_and_shift(MN, points2d, shift_theta, shift_zeta):
     t = np.linspace(0, 2 * np.pi, points2d[0], endpoint=False)
     z = np.linspace(0, 2 * np.pi, points2d[1], endpoint=False)
+    if shift_theta != 0.0:
+        t = t + shift_theta * t[1]
+    if shift_zeta != 0.0:
+        z = z + shift_zeta * z[1]
     T, Z = np.meshgrid(t, z, indexing="ij")
     M, N = MN
     ms, ns = fourier.fft2d_modes(M, N)
@@ -131,7 +144,16 @@ def test_fft2d(MN, points2d):
         ]
     )
 
-    xc, xs = fourier.fft2d(x)
+    xc, xs = fourier.fft2d(x, theta0=t[0], zeta0=z[0])
+    # test shift_1d too
+    if shift_theta != 0.0:
+        x = fourier.shift_1d(x, t[0], 0)
+    if shift_zeta != 0.0:
+        x = fourier.shift_1d(x, z[0], 1)
+
+    xc2, xs2 = fourier.fft2d(x)
+    assert np.allclose(xc, xc2) and np.allclose(xs, xs2)
+
     xM, xN = xc.shape[0] - 1, xc.shape[1] // 2
     assert xc.shape == xs.shape == (xM + 1, 2 * xN + 1)
 
@@ -197,3 +219,49 @@ def test_eval2d(MN, points2d):
     )
     xe = fourier.eval2d(c, s, T, Z)
     assert np.allclose(x, xe)
+
+
+def test_real_dft():
+    def exfunc(x):
+        return x * 0 + 3 + 1.4 * np.sin(2 * x + 0.4) + 0.3 * np.cos(4 * x - 0.3)
+
+    def exfuncd(x):
+        return x * 0 + 2 * 1.4 * np.cos(2 * x + 0.4) - 4 * 0.3 * np.sin(4 * x - 0.3)
+
+    def exfuncdd(x):
+        return x * 0 - 4 * 1.4 * np.sin(2 * x + 0.4) - 16 * 0.3 * np.cos(4 * x - 0.3)
+
+    nzeta_test = 9
+    nzeta_up = 14
+
+    zeta_test = np.linspace(
+        0, np.pi, nzeta_test, endpoint=False
+    )  # data on one field period nfp=2 -> modes must be multiples of 2...
+    zeta_up = np.linspace(0, 2 * np.pi, nzeta_up, endpoint=False)
+
+    f1 = exfunc(zeta_test)
+
+    rdft = fourier.real_dft_mat(zeta_test, zeta_up, nfp=2)
+    f3 = rdft["BF"] @ f1
+
+    d_rdft = fourier.real_dft_mat(zeta_test, zeta_up, deriv=1, nfp=2)
+
+    df3 = (d_rdft["B"] @ (d_rdft["F"] @ f1)).real
+
+    B1 = fourier.get_B_dft(zeta_up, d_rdft["deriv"], d_rdft["nfp"], d_rdft["modes"])
+
+    df3_1 = (B1 @ (d_rdft["F"] @ f1)).real
+
+    dd_rdft = fourier.real_dft_mat(zeta_test, zeta_up, deriv=2, nfp=2)
+
+    ddf3 = dd_rdft["BF"] @ f1
+
+    B2 = fourier.get_B_dft(zeta_up, dd_rdft["deriv"], dd_rdft["nfp"], dd_rdft["modes"])
+
+    ddf3_1 = (B2 @ (dd_rdft["F"] @ f1)).real
+
+    assert np.allclose(f3, exfunc(zeta_up))
+    assert np.allclose(df3, exfuncd(zeta_up))
+    assert np.allclose(df3_1, exfuncd(zeta_up))
+    assert np.allclose(ddf3, exfuncdd(zeta_up))
+    assert np.allclose(ddf3_1, exfuncdd(zeta_up))

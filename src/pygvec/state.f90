@@ -8,6 +8,7 @@ MODULE MODgvec_py_state
 
 USE MODgvec_c_functional, ONLY: t_functional
 USE MODgvec_base,         ONLY: t_base
+USE MODgvec_Globals,      ONLY: enter_subregion,exit_subregion,reset_subregion
 
 IMPLICIT NONE
 PUBLIC
@@ -21,7 +22,7 @@ CONTAINS
 !================================================================================================================================!
 SUBROUTINE Init(parameterfile)
   ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot,nRanks,abort,fmt_sep
   USE MODgvec_MHD3D_vars,     ONLY: X1_base
   USE MODgvec_Analyze,        ONLY: InitAnalyze
   USE MODgvec_Output,         ONLY: InitOutput
@@ -29,11 +30,15 @@ SUBROUTINE Init(parameterfile)
   USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
 !$ USE omp_lib
   USE MODgvec_Functional,     ONLY: InitFunctional
+  USE MODgvec_MPI    ,ONLY  : par_Init
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
   INTEGER :: which_functional
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  !================================================================================================================================!
+  CALL reset_subregion()
+  CALL enter_subregion("startup")
+  CALL par_Init() !USE MPI_COMM_WORLD
   SWRITE(Unit_stdOut,'(132("="))')
   SWRITE(UNIT_stdOut,'(A)') "GVEC POST ! GVEC POST ! GVEC POST ! GVEC POST"
   SWRITE(Unit_stdOut,'(132("="))')
@@ -41,11 +46,18 @@ SUBROUTINE Init(parameterfile)
 !$ SWRITE(UNIT_stdOut,'(A,I6)')'   Number of OpenMP threads : ',OMP_GET_MAX_THREADS()
 !$ SWRITE(Unit_stdOut,'(132("="))')
   !.only executes if compiled with MPI
-
+# if MPI
+  SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
+  SWRITE(Unit_stdOut,fmt_sep)
+  IF(nRanks.GT.1) CALL abort(__STAMP__,&
+                   "GVEC is compiled with MPI, but can only be called with 1 MPI rank." )
+# endif
+  CALL exit_subregion("startup")
   ! read parameter file
   CALL FillStrings(parameterfile)
 
   ! initialization phase
+  CALL enter_subregion("initialize")
   CALL InitOutput()
   CALL InitAnalyze()
 
@@ -59,6 +71,7 @@ SUBROUTINE Init(parameterfile)
   ! additional global variables
   nfp = X1_base%f%nfp
   initialized = .TRUE.
+  CALL exit_subregion("initialize")
 END SUBROUTINE Init
 
 !================================================================================================================================!
@@ -870,12 +883,24 @@ SUBROUTINE evaluate_profile(n_s, s, deriv, var, result)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   SELECT CASE(TRIM(var))
     CASE("iota")
+      IF(.NOT.ALLOCATED(iota_profile)) CALL abort(__STAMP__, &
+          'ERROR in profile evaluation: iota profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = iota_profile
     CASE("p")
+      IF(.NOT.ALLOCATED(pres_profile)) CALL abort(__STAMP__, &
+          'ERROR in profile evaluation: pressure profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = pres_profile
     CASE("chi")
+      IF(.NOT.ALLOCATED(chi_profile)) CALL abort(__STAMP__, &
+          'ERROR in profile evaluation: chi profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = chi_profile
     CASE("Phi")
+      IF(.NOT.ALLOCATED(Phi_profile)) CALL abort(__STAMP__, &
+          'ERROR in profile evaluation: Phi profile not initialized',&
+          TypeInfo="InitializationError")
       input_profile = Phi_profile
     CASE DEFAULT
       CALL abort(__STAMP__, &
@@ -924,6 +949,35 @@ SUBROUTINE get_boozer(sfl_boozer)
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base, U(0)%X1, U(0)%X2, U(0)%LA)
 END SUBROUTINE get_boozer
+
+
+!================================================================================================================================!
+!> Find the logical angles for given PEST angles on all specified surfaces.
+!================================================================================================================================!
+SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
+  ! MODULES
+  USE MODgvec_MHD3D_vars,     ONLY: LA_base, U
+  USE MODgvec_Transform_SFL,  ONLY: find_pest_angles
+  ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
+  INTEGER, INTENT(IN) :: n_s, n_tz
+  REAL, INTENT(IN) :: s(n_s), tz_pest(2, n_tz)
+  REAL, INTENT(OUT) :: tz_out(2, n_tz, n_s)
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  INTEGER :: i_s  ! index variable
+  REAL, ALLOCATABLE :: LA(:, :)  ! DoFs of Fourier series for each requested flux surface, shape (LA_base%f%modes, n_s)
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  ALLOCATE(LA(LA_base%f%modes, n_s))
+  !$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(SHARED) &
+  !$OMP PRIVATE(i_s)
+  DO i_s=1,n_s
+    ! evaluate spline to get the fourier dofs
+    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, U(0)%LA)
+  END DO
+  !$OMP END PARALLEL DO
+  CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)
+  DEALLOCATE(LA)
+END SUBROUTINE find_pest_angles_2D
+
 
 !================================================================================================================================!
 !> Evaluate LA or NU and all derivatives for a list of (theta, zeta) positions on all flux surfaces given by s
@@ -981,7 +1035,8 @@ SUBROUTINE Finalize()
   USE MODgvec_Restart,        ONLY: FinalizeRestart
   USE MODgvec_Functional,     ONLY: FinalizeFunctional
   USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
-  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  USE MODgvec_MPI,            ONLY: par_Finalize
+  !================================================================================================================================!
 
   IF(ALLOCATED(functional)) THEN
     CALL FinalizeFunctional(functional)
@@ -991,6 +1046,7 @@ SUBROUTINE Finalize()
   CALL FinalizeOutput()
   CALL FinalizeRestart()
   CALL FinalizeReadIn()
+  CALL par_Finalize()
   initialized = .FALSE.
 
   SWRITE(Unit_stdOut,'(132("="))')

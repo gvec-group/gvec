@@ -272,7 +272,8 @@ IMPLICIT NONE
     ALLOCATE(t_sbase_spl :: sbase_in)
   ELSE
     CALL abort(__STAMP__,&
-        " error in sbase new: continuity only full (deg-1) or discontinuous (-1) !")
+        " error in sbase new: continuity only full (deg-1) or discontinuous (-1) !",&
+        TypeInfo="InvalidParameterError")
   END IF
 
   CALL sbase_in%init(deg_in,continuity_in,grid_in,degGP_in)
@@ -325,12 +326,13 @@ IMPLICIT NONE
   END IF
   IF(degGP_in.LT.deg_in) &
     CALL abort(__STAMP__, &
-        "error in sbase: degGP must be > deg!")
+        "error in sbase: degGP must be > deg!",&
+        TypeInfo="InvalidParameterError")
   SELECT TYPE(sf)
   TYPE IS(t_sbase_disc)
     IF(continuity_in.NE.-1) &
       CALL abort(__STAMP__, &
-          "error in sbase init: type is disc but continuity is not -1, mabye sbase_new was not called before!")
+          "error in sbase init: type is disc but continuity is not -1, maybe sbase_new was not called before!")
   TYPE IS(t_sbase_spl)
     IF(continuity_in.NE.deg_in-1) &
       CALL abort(__STAMP__, &

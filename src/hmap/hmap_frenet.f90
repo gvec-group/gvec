@@ -53,7 +53,6 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_frenet
   ! parameters for hmap_frenet:
   !curve description
   !INTEGER             :: nfp  !already part of c_hmap. Is overwritten in init
-  INTEGER              :: n_max=0  !! input maximum mode number (without nfp), 0...n_max,
   REAL(wp),ALLOCATABLE :: rc(:)  !! input cosine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
   REAL(wp),ALLOCATABLE :: rs(:)  !! input   sine coefficients of R0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
   REAL(wp),ALLOCATABLE :: zc(:)  !! input cosine coefficients of Z0 as array (0:n_max) of modes (0,1,...,n_max)*nfp
@@ -171,7 +170,7 @@ IMPLICIT NONE
   sf%nfp=nfp
   IF(sf%nfp.LE.0) &
      CALL abort(__STAMP__, &
-          "hmap_frenet init: nfp > 0 not fulfilled!")
+          "hmap_frenet init: nfp > 0 not fulfilled!",TypeInfo="MissingParameterError")
 
   sf%n_max=n_max
   ALLOCATE(sf%Xn(0:sf%n_max))
@@ -186,7 +185,7 @@ IMPLICIT NONE
 
   IF (.NOT.(sf%rc(0) > 0.0_wp)) THEN
      CALL abort(__STAMP__, &
-          "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!")
+          "hmap_frenet init: condition rc(n=0) > 0 not fulfilled!",TypeInfo="InitializationError")
   END IF
 
   IF(MPIroot)THEN
@@ -265,14 +264,16 @@ IMPLICIT NONE
           IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
         END DO
         CALL abort(__STAMP__, &
-             "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature")
+             "hmap_frenet checkZeroCurvature with omnig=True: found additional points with zero curvature",&
+             TypeInfo="InitializationError")
       END IF
     ELSE
       DO iz=1,nz
         IF(checkzero(iz)) WRITE(UNIT_StdOut,'(A,E15.5)')'         ...curvature <1e-8 at zeta/(2pi/nfp)=',zeta(iz)*sf%nfp/TWOPI
       END DO
       CALL abort(__STAMP__, &
-           "hmap_frenet checkZeroCurvature with omnig=False: found points with zero curvature")
+           "hmap_frenet checkZeroCurvature with omnig=False: found points with zero curvature",&
+           TypeInfo="InitializationError")
     END IF
   END IF
 END SUBROUTINE CheckZeroCurvature

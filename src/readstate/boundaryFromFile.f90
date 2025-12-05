@@ -207,7 +207,8 @@ SUBROUTINE bff_convert_to_modes(sf,x1_fbase_in,x2_fbase_in,X1_b,X2_b,scale_minor
   WRITE(UNIT_stdOut,'(A)')'  CONVERT BOUNDARY FROM POINTS TO MODES:'
 
   IF(sf%nfp.NE.x1_fbase_in%nfp)CALL abort(__STAMP__,&
-                 " error in convert boundary to modes, nfp from GVEC parameterfile does not match to nfp of boundary file")
+                 " error in convert boundary to modes, nfp from GVEC parameterfile does not match to nfp of boundary file",&
+                 TypeInfo="InvalidParameterError")
   mn_max_pts(1:2)=(/(sf%ntheta-1)/2,(sf%nzeta-1)/2/)
   WRITE(UNIT_stdOut,'(6X,2(A,I4),2A)')' from X,Y(ntheta= ',sf%ntheta,', nzeta= ', &
                                                sf%nzeta, '), lasym=',MERGE("symmetric","asymetric",(sf%lasym.EQ.0))
@@ -284,7 +285,10 @@ SDEALLOCATE(sf%theta)
 SDEALLOCATE(sf%zeta)
 SDEALLOCATE(sf%X)
 SDEALLOCATE(sf%Y)
-CALL sf%nc%free()
+IF(ALLOCATED(sf%nc))THEN
+  CALL sf%nc%free()
+  DEALLOCATE(sf%nc)
+END IF
 sf%initialized=.FALSE.
 END SUBROUTINE bff_free
 

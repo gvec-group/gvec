@@ -51,6 +51,28 @@ def test_version():
     assert proc.returncode == 0
 
 
+def test_build_type():
+    """
+    Test if the build type is correct
+    """
+    import gvec._compile_options as opts
+
+    envvars = {
+        key: os.environ.get(key, None)
+        for key in ["SKBUILD_CMAKE_BUILD_TYPE", "CMAKE_BUILD_TYPE", "CMP_MODE"]
+    }
+    values = set(envvars.values()) - {None}
+
+    if len(values) > 1:
+        pytest.skip(f"Inconsistent build type environment variables: {envvars}")
+    elif len(values) == 0:
+        build_type = "Release"
+    else:
+        build_type = values.pop()
+
+    assert build_type == opts.CMAKE_BUILD_TYPE
+
+
 @pytest.mark.parametrize("mode", ["", "run", "to-cas3d", "convert-params"])
 def test_help(mode):
     """
@@ -74,10 +96,61 @@ def test_run():
 def test_run_recover_from_error():
     parameters = gvec.util.read_parameters("parameter.ini")
     parameters["X1_b_cos"][1, 0] = -1.0
-    with pytest.raises(RuntimeError):
+    with pytest.raises(gvec.errors.InitializationError):
         gvec.run(parameters)
 
     parameters = gvec.util.read_parameters("parameter.ini")
+    parameters["maxIter"] = 1
+    run = gvec.run(parameters)
+
+
+@pytest.mark.parametrize("param", [("sgrid", "nElems"), "X1X2_deg", "LA_deg"])
+def test_run_missing_parameter(param):
+    parameters = gvec.util.read_parameters("parameter.ini")
+    if isinstance(param, tuple):
+        del parameters[param[0]][param[1]]
+    else:
+        del parameters[param]
+    with pytest.raises(gvec.errors.MissingParameterError):
+        gvec.run(parameters)
+
+
+@pytest.mark.parametrize(
+    "param,value",
+    [
+        ("X1X2_deg", 1.5),
+        ("X1_mn_max", [3]),
+        ("X1_mn_max", [3, 2, 1]),
+        ("X2_mn_max", [1.5, 2]),
+        (("pres", "type"), "invalid"),
+    ],
+)
+def test_run_invalid_parameter(param, value):
+    parameters = gvec.util.read_parameters("parameter.ini")
+    if isinstance(param, tuple):
+        parameters[param[0]][param[1]] = value
+    else:
+        parameters[param] = value
+    with pytest.raises(gvec.errors.InvalidParameterError):
+        gvec.run(parameters)
+
+
+@pytest.mark.parametrize("which_read", ["hmap", "boundaryFromFile"])
+def test_run_netcdf_error(which_read):
+    parameters = gvec.util.read_parameters("parameter.ini")
+    run = gvec.run(parameters)
+    if which_read == "hmap":
+        parameters["which_hmap"] = 21
+        parameters["hmap_ncfile"] = "non_existing_file.nc"
+    if which_read == "boundaryFromFile":
+        parameters["getBoundaryFromFile"] = 1
+        parameters["boundary_filename"] = "non_existing_file.nc"
+
+    with pytest.raises(FileNotFoundError):
+        gvec.run(parameters)
+
+    parameters = gvec.util.read_parameters("parameter.ini")
+    parameters["maxIter"] = 1
     run = gvec.run(parameters)
 
 
@@ -212,42 +285,6 @@ def test_stages_without_current():
     assert "GVEC SUCESSFULLY FINISHED" in stdout
 
 
-def test_quasr_real_dft():
-    def exfunc(x):
-        return x * 0 + 3 + 1.4 * np.sin(2 * x + 0.4) + 0.3 * np.cos(4 * x - 0.3)
-
-    def exfuncd(x):
-        return x * 0 + 2 * 1.4 * np.cos(2 * x + 0.4) - 4 * 0.3 * np.sin(4 * x - 0.3)
-
-    def exfuncdd(x):
-        return x * 0 - 4 * 1.4 * np.sin(2 * x + 0.4) - 16 * 0.3 * np.cos(4 * x - 0.3)
-
-    nzeta_test = 9
-    nzeta_up = 14
-
-    zeta_test = np.linspace(
-        0, np.pi, nzeta_test, endpoint=False
-    )  # data on one field period nfp=2 -> modes must be multiples of 2...
-    zeta_up = np.linspace(0, 2 * np.pi, nzeta_up, endpoint=False)
-
-    f1 = exfunc(zeta_test)
-
-    rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, nfp=2)
-    f3 = rdft["BF"] @ f1
-
-    d_rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, deriv=1, nfp=2)
-
-    df3 = (d_rdft["B"] @ (d_rdft["F"] @ f1)).real
-
-    dd_rdft = gvec.scripts.quasr.real_dft_mat(zeta_test, zeta_up, deriv=2, nfp=2)
-
-    ddf3 = dd_rdft["BF"] @ f1
-
-    assert np.allclose(f3, exfunc(zeta_up))
-    assert np.allclose(df3, exfuncd(zeta_up))
-    assert np.allclose(ddf3, exfuncdd(zeta_up))
-
-
 @pytest.mark.parametrize("QUASR_ID", [112714])
 def test_quasr_download(QUASR_ID, tmp_path):
     try:
@@ -265,15 +302,69 @@ def test_quasr_download(QUASR_ID, tmp_path):
 
 
 @pytest.mark.parametrize("QUASR_ID", [112714])
-def test_quasr_file(QUASR_ID, tmp_path, util):
+@pytest.mark.parametrize(
+    "opts",
+    [
+        ["-v"],
+        ["--clean=1e-8"],
+        ["--stellsym"],
+        ["--clean=1e-6", "--stellsym"],
+        ["--stellsym", "--cutoff=5"],
+    ],
+    ids=["verbose", "clean", "stellsym+even_points", "clean+stellsym", "stellsym+cutoff"],
+)
+def test_quasr_file(QUASR_ID, opts, tmp_path, util):
     """
     Test the load-quasr script
     """
     hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
     with util.chdir(tmp_path):
-        args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc")]
+        # run from quasr boundary file
+        args = ["-f", str(DATA / f"quasr-{QUASR_ID:07d}-boundary.nc"), *opts]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
+        # generate boundary file from previous run
+        dict_out = gvec.gframe.read_Gframe_ncfile(hmap)
+        dict_surf = gvec.gframe.to_surface(dict_out)
+        gvec.scripts.quasr.save_xyz(
+            dict_surf["xyz"],
+            dict_surf["nfp"],
+            "TEST2-boundary.nc",
+            attrs={"creator": "test_script"},
+        )
+        # run from boundary file
+        args = ["-f", "TEST2-boundary.nc", *opts]
+        hmap2 = Path("TEST2-Gframe.nc")
+        gvec.scripts.quasr.main(args)
+        assert hmap2.exists()
+        # now compare the boundary computed from the Gframe file that was started with the TEST2-boundary.nc
+        dict_out2 = gvec.gframe.read_Gframe_ncfile(hmap2)
+        dict_surf2 = gvec.gframe.to_surface(dict_out)
+        assert np.allclose(dict_surf["xyz"], dict_surf2["xyz"]), (
+            f"xyz boundary after rerun does not match. max|diff|={np.max(np.abs(dict_surf['xyz'] - dict_surf2['xyz']))}"
+        )
+        # run conversion to RZ
+        dict_RZ = gvec.gframe.to_RZ(
+            dict_surf["xyz"], dict_surf["nfp"], nzeta=4, ntheta=10, tolerance=1e-4
+        )
+        assert np.all(
+            [
+                var in dict_RZ
+                for var in [
+                    "R",
+                    "Z",
+                    "zeta",
+                    "theta",
+                    "lasym",
+                    "Mmax",
+                    "Nmax",
+                    "Rc",
+                    "Rs",
+                    "Zc",
+                    "Zs",
+                ]
+            ]
+        )
 
 
 @pytest.mark.parametrize("QUASR_ID", [112714, 2021217, 122335, 10534, 49962])
@@ -290,3 +381,53 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
         args = [f"{QUASR_ID:07d}"]
         gvec.scripts.quasr.main(args)
         assert hmap.exists()
+
+
+@pytest.mark.parametrize("QUASR_ID", [10534])
+@pytest.mark.parametrize("nt", ["--nt=79", "--nt=80"], ids=["odd_t", "even_t"])
+@pytest.mark.parametrize("nz", ["--nz=77", "--nz=78"], ids=["odd_z", "even_z"])
+def test_quasr_post(QUASR_ID, nt, nz, tmp_path, util):
+    pytest.importorskip("simsopt")
+    try:
+        json = gvec.scripts.quasr.get_json_from_quasr(
+            QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+        )
+    except RuntimeError as e:
+        pytest.skip(f"Skipping test_quasr_download: {e}")
+    hmap = Path(f"quasr-{QUASR_ID:07d}-Gframe.nc")
+    with util.chdir(tmp_path):
+        args = [f"{QUASR_ID:07d}", nt, nz]
+        gvec.scripts.quasr.main(args)
+        assert hmap.exists()
+        # test visualization
+        gvec.vtk.gframe_to_vtk(hmap, "test0_visu")
+        gvec.vtk.gframe_to_vtk(
+            hmap,
+            "test1_visu",
+            zeta_visu=np.linspace(0, 0.1, 6),
+            theta_visu=np.linspace(0, 0.1, 6),
+            box_axis=[0.1, 0.1],
+        )
+        gvec.vtk.gframe_to_vtk(
+            hmap,
+            "test2_visu",
+            theta_visu=np.linspace(0, 2 * np.pi, 7),
+        )
+        # test reading and writing of Gframe file:
+        dict_out = gvec.gframe.read_Gframe_ncfile(hmap)
+        file2 = Path("test-Gframe.nc")
+        gvec.gframe.write_Gframe_ncfile(file2, dict_out)
+        dict_out2 = gvec.gframe.read_Gframe_ncfile(file2)
+        # compare the dictionaries
+        for key, val in dict_out["axis"].items():
+            assert key in dict_out2["axis"], f"variable 'axis/{key}' not found"
+            val2 = dict_out2["axis"][key]
+            assert np.allclose(val, val2), (
+                f"variable 'axis/{key}' does not match. max|diff|={np.max(np.abs(val - val2))}"
+            )
+        for key, val in dict_out["boundary"].items():
+            assert key in dict_out2["boundary"], f"variable 'boundary/{key}' not found"
+            val2 = dict_out2["boundary"][key]
+            assert np.allclose(val, val2), (
+                f"variable 'boundary/{key}' does not match. max|diff|={np.max(np.abs(val - val2))}"
+            )

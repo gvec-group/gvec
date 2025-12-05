@@ -28,8 +28,7 @@ CONTAINS
 
 SUBROUTINE rungvec(parameterFile,restartfile_in)
 USE_MPI
-USE MODgvec_Globals    ,ONLY : wp,fmt_sep,n_warnings_occured,testdbg,testlevel,testUnit,nfailedMsg,UNIT_stdOut,GETFREEUNIT
-USE MODgvec_Globals    ,ONLY : GetTime,MPIRoot,nRanks,myRank
+USE MODgvec_Globals
 USE MODgvec_Analyze    ,ONLY : InitAnalyze,FinalizeAnalyze
 USE MODgvec_Output     ,ONLY : InitOutput,FinalizeOutput
 USE MODgvec_Restart    ,ONLY : InitRestart,FinalizeRestart
@@ -51,7 +50,7 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
 !===================================================================================================================================
   __PERFINIT
   __PERFON('main')
-
+  CALL reset_subregion()
 
   StartTimeTotal=GetTime()
   SWRITE(Unit_stdOut,fmt_sep)
@@ -91,7 +90,6 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
 # endif
 #include  "configuration-cmake.f90"
   SWRITE(Unit_stdOut,fmt_sep)
-
   CALL FillStrings(ParameterFile) !< readin parameterfile, done on MPI root + Bcast
 
   testdbg =GETLOGICAL('testdbg',Proposal=.FALSE.)
@@ -105,19 +103,17 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
          ACCESS   = 'SEQUENTIAL' )
   END IF
 
+  CALL enter_subregion("initialize")
   !initialization phase
   dorestart=.FALSE.
   IF(PRESENT(RestartFile_in)) THEN
     dorestart=(LEN(TRIM(RestartFile_in)).GT.0)
   END IF
   IF(dorestart) CALL InitRestart(RestartFile_in)
-
   CALL InitOutput()
   CALL InitAnalyze()
-
   which_functional=GETINT('which_functional', Proposal=1 )
   CALL InitFunctional(functional,which_functional)
-
 
   CALL IgnoredStrings()
 
@@ -126,6 +122,8 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
   SWRITE(Unit_stdOut,'(A,F8.2,A)') ' INITIALIZATION FINISHED! [',StartTime-StartTimeTotal,' sec ]'
   SWRITE(Unit_stdOut,fmt_sep)
 
+  CALL exit_subregion("initialize")
+
   CALL functional%minimize()
   EndTime=GetTime()
   SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
@@ -133,13 +131,11 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
 
   CALL FinalizeFunctional(functional)
   DEALLOCATE(functional)
-
+  CALL enter_subregion("finalize")
   CALL FinalizeAnalyze()
   CALL FinalizeOutput()
   IF(dorestart) CALL FinalizeRestart()
   CALL FinalizeReadIn()
-
-
   ! do something
   IF(testlevel.GT.0)THEN
     SWRITE(UNIT_stdout,*)
@@ -156,6 +152,7 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
     SWRITE(UNIT_stdout,*)
     CLOSE(testUnit)
   END IF !testlevel
+  CALL exit_subregion("finalize")
   EndTimeTotal=GetTime()
   SWRITE(Unit_stdOut,fmt_sep)
   CALL DATE_AND_TIME(values=TimeArray) ! get System time
