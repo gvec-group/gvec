@@ -11,6 +11,32 @@ import os
 from gvec.util import logging_setup
 from gvec.core.state import State, CoordinateSpec
 from logging import getLogger
+from typing import Literal
+
+try:
+    from joblib import Parallel, delayed, parallel_config
+
+    has_joblib = True
+
+    # wrapper to enable progressbar for parallel fieldline tracing
+    class ProgressParallel(Parallel):
+        def __init__(self, use_tqdm=True, total=None, *args, **kwargs):
+            self._use_tqdm = use_tqdm
+            self._total = total
+            super().__init__(*args, **kwargs)
+
+        def __call__(self, *args, **kwargs):
+            with tqdm(disable=not self._use_tqdm, total=self._total) as self._pbar:
+                return Parallel.__call__(self, *args, **kwargs)
+
+        def print_progress(self):
+            if self._total is None:
+                self._pbar.total = self.n_dispatched_tasks
+            self._pbar.n = self.n_completed_tasks
+            self._pbar.refresh()
+
+except ImportError:
+    has_joblib = False
 
 mu_0 = 4 * np.pi * 0.99999999987 * 1e-7
 
@@ -501,6 +527,7 @@ def trace_fieldlines(
     surf_points: list[np.ndarray] = None,
     n_jobs: int = 1,
     return_solves: bool = False,
+    verbosity: Literal["WARNING", "INFO", "DEBUG"] = "INFO",
     **kwargs,
 ):
     """
@@ -524,18 +551,18 @@ def trace_fieldlines(
         Number of jobs for parallelization over fieldlines, by default 1.
     return_solves : bool, optional
         Whether to return a list of solve_ivp objects or an xarray datatree.
+    verbosity: str
+        Level of the logger.
 
     """
     logging_setup()
     logger = getLogger("gvec_fieldlines")
-    if n_jobs > 1:
-        try:
-            from joblib import Parallel, delayed, parallel_config
-        except ImportError:
-            logger.warning(
-                "n_jobs > 1 but joblib not installed, parallelization over fieldlines is not possible. Falling back to n_jobs=1."
-            )
-            n_jobs = 1
+    logger.setLevel(verbosity)
+    if n_jobs > 1 and not has_joblib:
+        logger.warning(
+            "n_jobs > 1 but joblib not installed, parallelization over fieldlines is not possible. Falling back to n_jobs=1."
+        )
+        n_jobs = 1
 
     def _push_cart(t, R):
         B = coils._eval_B_direct(R)
@@ -556,18 +583,18 @@ def trace_fieldlines(
         kwargs["events"] = check_planes + kwargs["events"]
 
     solves = []
-    logger.info("Tracing field lines using n_jobs=%d", n_jobs)
-    if n_jobs > 1:  # embarassingly parallel over fieldlines
+    logger.info("Tracing fieldlines using n_jobs=%d", n_jobs)
+    if n_jobs > 1:  # embarrassingly parallel over fieldlines
         os.environ["OMP_NUM_THREADS"] = "1"
         with parallel_config(n_jobs=n_jobs):
-            solves = Parallel()(
+            solves = ProgressParallel(total=starts.shape[1])(
                 delayed(solve_ivp)(
                     fun=_push_cart,
                     y0=starts[:, i],
                     t_span=[0, t],
                     **kwargs,
                 )
-                for i in tqdm(range(starts.shape[1]))
+                for i in range(starts.shape[1])
             )
     else:  # serial over fieldlines but still OMP parallelization for magnetic field evaluation
         for i in tqdm(range(starts.shape[1])):
@@ -618,6 +645,9 @@ def trace_fieldlines(
                             ds[f"event_{i}_X1"] = ((f"time_event_{i}"), X1)
                             ds[f"event_{i}_X2"] = ((f"time_event_{i}"), X2)
             except ValueError:
+                logger.debug(
+                    f"Error when extracting event-data for event {i} of fieldline {fieldline}. Maybe no intersection occurred."
+                )
                 pass
             dt[f"fieldline_{fieldline}"] = ds
         return dt
