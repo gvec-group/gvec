@@ -86,35 +86,36 @@ def _get_scalars_for_plotting(evaluations, equilibrium_quantities, post_process,
     return plotting_quantities
 
 
-def _add_postprocess_to_xarray(evaluations, equilibrium_quantities, post_process, direction):
+def _add_postprocess_to_xarray(evaluations, quantities, post_process: dict):
     """
-    Move all eval quantities into a dict for plotting. Post process the quantities if required.
-
-    Return is a `dict{"quantity": array([values])}
-
-    TODO: Allow post processing even if the quantity is a scalar.
-    TODO: Switch from using dicts to xarray object
+    Post process the quantities if required.
     """
+    for value, process in post_process.items():
+        process_check = all([val in process.keys() for val in ["name", "function"]])
+        if not process_check:
+            raise KeyError(
+                f"post_process entries must be a dict containing at least keys 'name' and 'function'. Check entries for {value}."
+            )
 
-    plotting_quantities = {}
-    for quantity in equilibrium_quantities:
-        # Loop over the quantities and store what we're plotting in the dict
-        if max(evaluations[quantity].shape) != prod(evaluations[quantity].shape):
-            # If this quantity is not a scalar
-            #   we check to see if it is going to be remapped, or we error out
-            if post_process is None:
-                raise TypeError("The plotted quantities must be scalars.")
-            else:
-                # Post process the quantity and give the new quantity the given name in plotting
-                tmp = post_process[quantity][0](evaluations[quantity])
-                if len(tmp.shape) == 1:
-                    plotting_quantities[post_process[quantity][1]] = tmp
-                else:
-                    raise ValueError("Post-processing function does not return a 1D array.")
+        # Add the new value to the evaluations object
+        evaluations[process["name"]] = process["function"](evaluations[value])
+
+        # If `symbol` is present in the dict we'll use this for replacing the symbol
+        # otherwise use the name
+        if "symbol" in process.keys():
+            evaluations[process["name"]].attrs["symbol"] = process["symbol"]
         else:
-            plotting_quantities[quantity] = evaluations[quantity].data.flatten()
+            evaluations[process["name"]].attrs["symbol"] = process["name"]
 
-    return plotting_quantities
+        if len(evaluations[process["name"]]) != prod(evaluations[process["name"]].size):
+            # Make sure that we are plotting a scalar
+            raise ValueError("Post-processing function does not return a 1D array.")
+        for i in range(len(quantities)):
+            # swap out the plotting values in the quantities list so that we plot the correct thing
+            if quantities[i] == value:
+                quantities[i] = process["name"]
+
+    return evaluations, quantities
 
 
 def _subplots(nrow, ncol, **kwargs):

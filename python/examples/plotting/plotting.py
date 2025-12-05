@@ -159,15 +159,16 @@ p_3d_surface.show()
 # the `post_process` option can be used to adapt them for plotting.
 #
 # In the example below we will write a `lambda` function which takes the `ev.B` value in a GVEC `state.evaluate` object
-# and spits out a vector of `|B|` (note that of course we could just specify "mod_B" as an input to `state.evaluate`).
-# The input to `post_process` should be a dictionary with the format,
-# `{"name of field to perform operation on": [function, "name of output for plot legend"]}`
-# and function should return a 1D numpy `ndarray`.
-# This is obviously quite limited, since it only takes a single value to do something to it, but it is not intended for
+# and spits out ``B_y``. The input to `post_process` should be a dictionary with the format,
+# `{"name of field to perform operation on": {"function": <function to process>, "name": "name of new value"]}`
+# the function should return a 1D numpy `ndarray`.
+# This is limited, since it only takes a single value to do something to it, but it is not intended for
 # complicated plotting.
+#
+# Note that we the "symbol" key is not required. The "name" will be used if "symbol" is not present.
 
 # %%
-post_process = {"B": [lambda val: np.array([np.linalg.norm(x) for x in val.data]), "|B|"]}
+post_process = {"B": {"function": lambda val: val.sel(xyz="y"), "name": "B_y", "symbol": "B_y"}}
 
 p_line, ax_line = gp.plot_radial_profile(
     state,

@@ -6,6 +6,7 @@ from numpy import any, isnan, ndarray, prod
 from gvec.core.state import State
 
 from .utils import (
+    _add_postprocess_to_xarray,
     _design_subgrid,
     _extrapolate_axis,
     _get_coord_range,
@@ -13,63 +14,6 @@ from .utils import (
 )
 
 pyplot.rcParams.update({"text.usetex": True})
-
-
-def _plot_line_quantities_from_dict(plotting_quantities, x_axis_value, subplot_grid, xlabel):
-    """
-    Plot the quantities from `plotting_quantities`.
-
-    Return both the `matplotlib.pyplot.figure`
-    """
-
-    link_xaxis = False
-    hide_inner_axis = False
-
-    if (subplot_grid[0] != 1) & (subplot_grid[1] == 1):
-        link_xaxis = True
-    elif (subplot_grid[0] != 1) & (subplot_grid[1] != 1):
-        link_xaxis = True
-        hide_inner_axis = True
-
-    # if axis is None:
-    f, axs = _subplots(subplot_grid[0], subplot_grid[1], sharex=link_xaxis)
-    # else:
-    #     axs = axis
-
-    if axs.size == 1:
-        # If there is only one axis we plot all quantities on the single axis
-        [
-            axs[0].plot(x_axis_value, values, label=quantity)
-            for (quantity, values) in plotting_quantities.items()
-        ]
-        axs[0].legend(plotting_quantities.keys())
-    else:
-        # Plot one value per axis
-        for i, quantity in enumerate(plotting_quantities):
-            axs[i].plot(x_axis_value, plotting_quantities[quantity])
-            # Top right of each subplot will have a text box with the quantity being plotted
-            axs[i].annotate(
-                quantity,  # TODO: convert this to latex
-                xy=(1, 1),
-                xycoords="axes fraction",
-                xytext=(-0.6, -0.6),
-                textcoords="offset fontsize",
-                verticalalignment="top",
-                horizontalalignment="right",
-                bbox=dict(facecolor="white", edgecolor="black"),
-            )
-
-            if (not link_xaxis) | (i == (len(axs) - 1)):
-                # If the axis are linked we only need the label on the last plot
-                axs[i].set_xlabel(xlabel)
-            if (hide_inner_axis) & (i - len(axs) + subplot_grid[1] >= 0):
-                # If there are multiple plots we need to set the x-axis labels only on the bottom row
-                axs[i].set_xlabel(xlabel)
-
-    # if axis is None:
-    return f, axs
-    # else:
-    # return axs
 
 
 def _plot_line_quantities_from_xarray(
@@ -91,16 +35,6 @@ def _plot_line_quantities_from_xarray(
             x_axis_values,
             evaluations[quantity],
         )
-        # axs[i].annotate(
-        #     f"{evaluations[quantity].attrs['long_name']}",
-        #     xy=(1, 1),
-        #     xycoords="axes fraction",
-        #     xytext=(-0.6, -0.6),
-        #     textcoords="offset fontsize",
-        #     verticalalignment="top",
-        #     horizontalalignment="right",
-        #     bbox=dict(facecolor="white", edgecolor="black"),
-        # )
         axs[i].set(
             ylabel=f"${evaluations[quantity].attrs['symbol']}$",
         )
@@ -118,7 +52,7 @@ def plot_radial_profile(
     quantities: str | list = ["iota", "p", "I_tor", "I_pol"],
     subplot_grid: list = [2, 2],
     xaxis="rho",
-    # post_process: dict | dict = None, # TODO
+    post_process: dict | dict = None,
 ):
     """
     Plot the radial profile of given equilibrium quantities.
@@ -135,10 +69,9 @@ def plot_radial_profile(
         Default is `[2,2]`.
     xaxis: `"rho"` or `"rho_squared"`, optional
         What quantity to plot on the x axis. Default is `"rho"`.
-    post_process: dict, optional, --DEPRECIATED--
+    post_process: dict, optional
         `post_process` must be a dict with
-            `post_process["quantity to remap"] = [<function>, "quantity name"]`
-        such that `post_process["quantity to remap"][0]` is a callable <function> and `post_process["quantity to remap"][1]` is the heading for the subplot.
+            `post_process["quantity to remap"] = {"function": <function>, "name": "new quantity name", "symbol": "new quantity symbol"}`
         The <function> _must_ return a 1D array.
         Default is `None`.
 
@@ -157,6 +90,9 @@ def plot_radial_profile(
 
     ev = state.evaluate(*quantities, rho=rho, theta=theta, zeta=zeta)
 
+    if isinstance(post_process, dict):
+        ev, quantities = _add_postprocess_to_xarray(ev, quantities, post_process)
+
     ev = ev.sel(theta=0.0).sel(zeta=0.0)
 
     if xaxis == "rho_squared":
@@ -166,7 +102,6 @@ def plot_radial_profile(
         xlabel = "$\\rho$"
     else:
         raise ValueError("xaxis must be 'rho' or 'rho_squared'.")
-    # TODO: Plot from xarray like in 020_stellarator.ipynb
 
     if prod(subplot_grid) != len(quantities):
         subplot_grid = _design_subgrid(len(quantities))
@@ -198,10 +133,9 @@ def plot_on_axis(
         The grid shape for the subplots. Default is `[1,1]`. Required if `len(rho)>1`.
     post_process: dict, optional
         `post_process` must be a dict with
-            `post_process["quantity to remap"] = [<function>, "quantity name"]`
-        such that `post_process["quantity to remap"][0]` is a callable <function> and `post_process["quantity to remap"][1]` is the heading for the subplot.
+            `post_process["quantity to remap"] = {"function": <function>, "name": "new quantity name", "symbol": "new quantity symbol"}`
         The <function> _must_ return a 1D array.
-        Default is None
+        Default is `None`.
 
     Returns
     -------
@@ -215,6 +149,11 @@ def plot_on_axis(
 
     # Use quadratic extrapolation to obtain values on axis.
     evaluations = _extrapolate_axis(state, quantities, zeta)
+
+    if isinstance(post_process, dict):
+        evaluations, quantities = _add_postprocess_to_xarray(
+            evaluations, quantities, post_process
+        )
 
     # Since some derived quantities are not defined on axis we will
     # check if there are any NaNs in the dataset
