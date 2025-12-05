@@ -381,3 +381,35 @@ At the magnetic axis of an MHD equilibrium, we evaluate  $\X = \rvec(\rho=0,\var
 For the linking number, we simply choose the magnetic axis and a second curve $\rvec(\rho=\epsilon,\vartheta=0,\zeta)$ and integrate the double integral. $\epsilon$ has to be chosen smaller than the smallest distance of the curve to itself, so that no intersections occur.
 
 The same can be applied to the G-Frame, choosing the origin curve $\X$ and the vector $\Nvec$.
+
+### Algorithm for computing the double integral
+
+In the paper by  [Klenin and Langowski](https://onlinelibrary.wiley.com/doi/10.1002/1097-0282(20001015)54:5%3C307::AID-BIP20%3E3.0.CO;2-Y), an algorithm is described to compute  writhe from a 3D polygon  representation of the curve. This algorithm can also be used to compute the linking number of two curves discretized as polygons. Its a pure geometric approach using two linear segments, and their contribution to the double integral can be computed exactly. The only approximation is the discretization of the curve into segments.
+
+Quote: "Method 1a. One possibility is to apply a pure geometrical approach. Let the points 1 and 2 be the beginning and the end of the first segment, $r_{12}$, and the points 3 and 4 be the beginning and the end of the second segment, $r_{34}$ .... In this case, the absolute value of the Gauss integral multiplied by $4\pi$ is the solid angle $\Omega^\star$ formed by all those view directions in which the vectors $r_{12}$ and $r_{34}$ apparently cross, with the vector $r_{12}$ being the nearest to the viewpoint. ..."
+
+The algorithm is as follows:
+
+Starting from the beginning and end points of the two segments, $r_1,r_2,r_3,r_4$, we define
+
+$$
+\begin{align}
+ r_{ij} &= r_j - r_i \\
+ v_{k} &= r_{c(k)} \times r_{c(k+1)} ,  \quad c=\{13,14,24,23,13\}, \quad k=1,\dots,4 \\
+\end{align}
+$$
+
+Note that, different as in the paper, we use non-normalized vectors, such that they can be zero. This case must be handled, if points coincide.
+
+The solid angle is then computed as $\Omega^\star=\alpha_{12}+\alpha_{23}+\alpha_{34}+\alpha_{41}$, and the angles are computed using the `atan2` function (that why we do not need normalized vectors!):
+
+$$ \alpha_{ij} = \textrm{atan2}(v_i\cdot v_j,v_i\times v_j)$$
+
+Final step is to consider the orientation of the two segments, such that the final solid angle is computed as
+
+$$\frac{\Omega}{4\pi} =  \frac{\Omega^\star}{4\pi} \textrm{sign}((r_{34}\times r_{12})\cdot r_{13})$$
+
+The double integral is then computed as the sum of solid angles of all segments of one curve againt all segments of the other curve.
+
+If both polygon curves coincide, the result is writhe, else it is the linking number.
+Arranging the segments of one curve as rows of a matrix, and the segments of the other curve as columns, then for writhe, the diagonal is zero, only half (the lower triangle) has to be computed, and then multiplied by 2. For the linking number, all elements must be computed.
