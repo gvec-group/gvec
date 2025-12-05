@@ -529,7 +529,14 @@ def theta_P(ds: xr.Dataset):
 
 
 @register(
-    requirements=("xyz", "theta_sfl", "dLA_dr", "dLA_dt", "dLA_dz"),
+    requirements=(
+        "dLA_dr",
+        "dLA_dt",
+        "dLA_dz",
+        "grad_theta",
+        "grad_rho",
+        "grad_zeta",
+    ),
     attrs=dict(
         long_name="poloidal reciprocal basis vector in PEST coordinates",
         symbol=r"\nabla \theta_P",
@@ -549,11 +556,57 @@ def Jac_P(ds: xr.Dataset):
     ds["Jac_P"] = ds.Jac / (1 + ds.dLA_dt)
 
 
+@register(
+    requirements=(
+        "dLA_dr",
+        "dLA_dt",
+        "e_rho",
+        "e_theta",
+    ),
+    attrs=dict(
+        long_name="poloidal tangent basis vector in PEST coordinates",
+        symbol=r"\mathbf{e}_{\theta_P}",
+    ),
+)
+def e_rho_P(ds: xr.Dataset):
+    ds["e_rho_P"] = ds.e_rho - ds.e_theta * (ds.dLA_dr / (1 + ds.dLA_dt))
+
+
+@register(
+    requirements=(
+        "dLA_dt",
+        "e_theta",
+    ),
+    attrs=dict(
+        long_name="poloidal tangent basis vector in PEST coordinates",
+        symbol=r"\mathbf{e}_{\theta_P}",
+    ),
+)
+def e_theta_P(ds: xr.Dataset):
+    ds["e_theta_P"] = ds.e_theta / (1 + ds.dLA_dt)
+
+
+@register(
+    requirements=(
+        "dLA_dt",
+        "dLA_dz",
+        "e_theta",
+        "e_zeta",
+    ),
+    attrs=dict(
+        long_name="toroidal tangent basis vector in PEST coordinates",
+        symbol=r"\mathbf{e}_{\zeta_P}",
+    ),
+)
+def e_zeta_P(ds: xr.Dataset):
+    ds["e_zeta_P"] = ds.e_zeta - ds.e_theta * (ds.dLA_dz / (1 + ds.dLA_dt))
+
+
 # === derived ========================================================================== #
 
 
 @register(
-    requirements=("xyz", "e_q1", "e_q2", "dX1_dr", "dX2_dr"),
+    requirements=("e_q1", "e_q2", "dX1_dr", "dX2_dr"),
     attrs=dict(long_name="radial tangent basis vector", symbol=r"\mathbf{e}_\rho"),
 )
 def e_rho(ds: xr.Dataset):
@@ -561,7 +614,7 @@ def e_rho(ds: xr.Dataset):
 
 
 @register(
-    requirements=("xyz", "e_q1", "e_q2", "dX1_dt", "dX2_dt"),
+    requirements=("e_q1", "e_q2", "dX1_dt", "dX2_dt"),
     attrs=dict(long_name="poloidal tangent basis vector", symbol=r"\mathbf{e}_\theta"),
 )
 def e_theta(ds: xr.Dataset):
@@ -569,7 +622,7 @@ def e_theta(ds: xr.Dataset):
 
 
 @register(
-    requirements=("xyz", "e_q1", "e_q2", "e_q3", "dX1_dz", "dX2_dz"),
+    requirements=("e_q1", "e_q2", "e_q3", "dX1_dz", "dX2_dz"),
     attrs=dict(long_name="toroidal tangent basis vector", symbol=r"\mathbf{e}_\zeta"),
 )
 def e_zeta(ds: xr.Dataset):
@@ -577,7 +630,7 @@ def e_zeta(ds: xr.Dataset):
 
 
 @register(
-    requirements=("xyz", "Jac", "e_theta", "e_zeta"),
+    requirements=("Jac", "e_theta", "e_zeta"),
     attrs=dict(long_name="radial reciprocal basis vector", symbol=r"\nabla\rho"),
 )
 def grad_rho(ds: xr.Dataset):
@@ -593,7 +646,7 @@ def normal(ds: xr.Dataset):
 
 
 @register(
-    requirements=("xyz", "Jac", "e_rho", "e_zeta"),
+    requirements=("Jac", "e_rho", "e_zeta"),
     attrs=dict(long_name="poloidal reciprocal basis vector", symbol=r"\nabla\theta"),
 )
 def grad_theta(ds: xr.Dataset):
@@ -601,7 +654,7 @@ def grad_theta(ds: xr.Dataset):
 
 
 @register(
-    requirements=("xyz", "Jac", "e_rho", "e_theta"),
+    requirements=("Jac", "e_rho", "e_theta"),
     attrs=dict(long_name="toroidal reciprocal basis vector", symbol=r"\nabla\zeta"),
 )
 def grad_zeta(ds: xr.Dataset):
@@ -611,7 +664,6 @@ def grad_zeta(ds: xr.Dataset):
 @register(
     quantities=("B", "B_contra_t", "B_contra_z"),
     requirements=(
-        "xyz",
         "iota",
         "dLA_dt",
         "dLA_dz",
@@ -999,94 +1051,107 @@ def e_zeta_B(ds: xr.Dataset):
     ds["e_zeta_B"] = (dtB_dt * ds.e_zeta - dtB_dz * ds.e_theta) * Jac_B_Jac
 
 
-def _BJ_boozer_factory(i, BJ):
+def _covariant_vec_sfl_factory(i, vec, sfl):
     """
-    Factory function for magnetic field components (if `BJ`="B")
-    or current density components (if `BJ`="J") in Boozer coordinates,
-    using dot product of cartesian vector of B / J, with tangent basis vector of Boozer coordinates.
+    Factory function for magnetic field components (if `vec`="B")
+    or current density components (if `vec`="J") in Boozer(sfl="B") or PEST(sfl="P") coordinates,
+    using dot product of cartesian vector of B / J, with tangent basis vector of Boozer/PEST coordinates... therefore the covariant components.
     """
-    e_i = f"e_{rtz_variables[i]}_B"
+    e_i = f"e_{rtz_variables[i]}_{sfl}"
+    name = QUANTITIES[vec].attrs[vec]["long_name"]
 
-    if BJ == "B":
-        name = "magnetic field"
-    elif BJ == "J":
-        name = "current density"
+    if sfl == "B":
+        sflcoord = "Boozer"
+    elif sfl == "P":
+        sflcoord = "PEST"
 
     @register(
-        quantities=f"{BJ}_{rtz_variables[i]}_B",
-        requirements={e_i, BJ},
+        quantities=f"{vec}_{rtz_variables[i]}_{sfl}",
+        requirements={e_i, vec},
         attrs=dict(
-            long_name=rf"${rtz_symbols[i]}$ component of the {name} in Boozer coordinates",
-            symbol=rf"{BJ}_{{{rtz_symbols[i]}_B}}",
+            long_name=rf"${rtz_symbols[i]}$ component of the {name} in {sflcoord} coordinates",
+            symbol=rf"{vec}_{{{rtz_symbols[i]}_{sfl}}}",
         ),
     )
-    def _BJ_boozer(ds: xr.Dataset):
-        ds[f"{BJ}_{rtz_variables[i]}_B"] = xr.dot(ds[BJ], ds[e_i], dim="xyz")
+    def _covariant_vec_sfl(ds: xr.Dataset):
+        ds[f"{vec}_{rtz_variables[i]}_{sfl}"] = xr.dot(ds[vec], ds[e_i], dim="xyz")
 
-    return _BJ_boozer
-
-
-# generate functions from factory function
-for BJ in ["B", "J"]:
-    for i in ["r", "t", "z"]:
-        globals()[f"{BJ}_{rtz_variables[i]}_B"] = _BJ_boozer_factory(i, BJ)
+    return _covariant_vec_sfl
 
 
-def _BJ_contra_Boozer_factory(i, BJ):
+# generate functions from factory function for magnetic field and current density covariant components
+for sfl in ["B", "P"]:
+    for vec in ["B", "J"]:
+        for i in ["r", "t", "z"]:
+            globals()[f"{vec}_{rtz_variables[i]}_{sfl}"] = _covariant_vec_sfl_factory(
+                i, vec, sfl
+            )
+
+
+def _contravariant_vec_sfl_factory(i, vec, sfl):
     """
-    Factory function for contravariant components of magnetic field (if `BJ`="B")
-    or current density (if `BJ`="J"),in Boozer coordinates.
-    Using dot product of cartesian vector of B / J, with gradient of Boozer coordinates.
+    Factory function for contravariant components of magnetic field (if `vec`="B")
+    or current density (if `vec`="J"),in Boozer(sfl="B") or PEST(sfl="P") coordinates.
+    Using dot product of cartesian vector of B / J, with gradient of Boozer/PEST  coordinates.
     """
-    grad_i = f"grad_{rtz_variables[i]}_B"
-    if BJ == "B":
-        name = "magnetic field"
-    elif BJ == "J":
-        name = "current density"
+    grad_i = f"grad_{rtz_variables[i]}_{sfl}"
+    name = QUANTITIES[vec].attrs[vec]["long_name"]
+
+    if sfl == "B":
+        sflcoord = "Boozer"
+    elif sfl == "P":
+        sflcoord = "PEST"
 
     @register(
-        quantities=f"{BJ}_contra_{i}_B",
-        requirements={grad_i, BJ},
+        quantities=f"{vec}_contra_{i}_{sfl}",
+        requirements={grad_i, vec},
         attrs=dict(
-            long_name=rf" contravariant ${rtz_symbols[i]}$ component of the {name} in Boozer coordinates",
-            symbol=rf"{BJ}^{{{rtz_symbols[i]}_B}}",
+            long_name=rf" contravariant ${rtz_symbols[i]}$ component of the {name} in {sflcoord} coordinates",
+            symbol=rf"{vec}^{{{rtz_symbols[i]}_{sfl}}}",
         ),
     )
-    def _BJ_contra_Boozer(ds: xr.Dataset):
-        ds[f"{BJ}_contra_{i}_B"] = xr.dot(ds[BJ], ds[grad_i], dim="xyz")
+    def _contravariant_vec_sfl(ds: xr.Dataset):
+        ds[f"{vec}_contra_{i}_{sfl}"] = xr.dot(ds[vec], ds[grad_i], dim="xyz")
 
-    return _BJ_contra_Boozer
+    return _contravariant_vec_sfl
 
 
 # generate functions from factory function,
-# note that grad_rho = grad_rho_B, so we do not need the rho components
-for BJ in ["B", "J"]:
+for vec in ["B", "J"]:
+    # BOOZER: note that grad_rho = grad_rho_B, so we do not need the rho components
     for i in ["t", "z"]:
-        globals()[f"{BJ}_contra_{i}_B"] = _BJ_contra_Boozer_factory(i, BJ)
+        globals()[f"{vec}_contra_{i}_B"] = _contravariant_vec_sfl_factory(i, vec, "B")
+    # PEST: note that grad_rho = grad_rho_P and grad_zeta = grad_zeta_P, so we do not need the rho components
+    globals()[f"{vec}_contra_t_P"] = _contravariant_vec_sfl_factory("t", vec, "P")
 
 
-def _g_ij_B_factory(i, j):
-    """Factory function for metric tensor components in Boozer coordinates."""
-    e_i = f"e_{rtz_variables[i]}_B"
-    e_j = f"e_{rtz_variables[j]}_B"
+def _g_ij_sfl_factory(i, j, sfl):
+    """Factory function for metric tensor components in Boozer(sfl="B") or PEST(sfl="P") coordinates."""
+    e_i = f"e_{rtz_variables[i]}_{sfl}"
+    e_j = f"e_{rtz_variables[j]}_{sfl}"
+    if sfl == "B":
+        sflcoord = "Boozer"
+    elif sfl == "P":
+        sflcoord = "PEST"
 
     @register(
-        quantities=f"g_{i}{j}_B",
+        quantities=f"g_{i}{j}_{sfl}",
         requirements={e_i, e_j},
         attrs=dict(
-            long_name=f"{i}{j} component of the metric tensor in Boozer coordinates",
-            symbol=rf"g_{{{rtz_symbols[i]}_B {rtz_symbols[j]}_B}}",
+            long_name=f"{i}{j} component of the metric tensor in {sflcoord} coordinates",
+            symbol=rf"g_{{{rtz_symbols[i]}_{sfl} {rtz_symbols[j]}_{sfl}}}",
         ),
     )
-    def _g_ij_B(ds: xr.Dataset):
-        ds[f"g_{i}{j}_B"] = xr.dot(ds[e_i], ds[e_j], dim="xyz")
+    def _g_ij_sfl(ds: xr.Dataset):
+        ds[f"g_{i}{j}_{sfl}"] = xr.dot(ds[e_i], ds[e_j], dim="xyz")
 
-    return _g_ij_B
+    return _g_ij_sfl
 
 
 # generate functions from factory function
-for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
-    globals()[f"g_{i}{j}_B"] = _g_ij_B_factory(i, j)
+for sfl in ["B", "P"]:
+    for i, j in ["rr", "rt", "rz", "tt", "tz", "zz"]:
+        globals()[f"g_{i}{j}_{sfl}"] = _g_ij_sfl_factory(i, j, sfl)
 
 
 @register(
@@ -1154,36 +1219,97 @@ def _k_ij_B(ds: xr.Dataset):
 
 
 @register(
-    requirements=("normal", "k_tt_B"),
-    attrs=dict(
-        long_name="poloidal Boozer component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\theta_B\theta_B}",
-    ),
+    quantities=("k_tt_P", "k_tz_P", "k_zz_P"),
+    requirements=["e_theta", "e_zeta", "k_tt", "k_tz", "k_zz"]
+    + sum([[f"dLA_d{ij}"] for ij in ("t", "z", "tt", "tz", "zz")], start=[]),
+    attrs={
+        f"k_{a}{b}_P": dict(
+            long_name=f"{a}{b} PEST curvature vector",
+            symbol=rf"\mathbf{{k}}_{{{rtz_symbols[a]}_P {rtz_symbols[b]}_P}}",
+        )
+        for a, b in ["tt", "tz", "zz"]
+    },
 )
-def II_tt_B(ds: xr.Dataset):
-    ds["II_tt_B"] = xr.dot(ds.normal, ds.k_tt_B, dim="xyz")
+def _k_ij_P(ds: xr.Dataset):
+    r"""Factory function for curvature vectors in PEST coordinates.
+
+    The curvature vector is computed in cartesian space, with
+
+    k_{\alpha\beta} = \frac{\partial}{\partial \alpha} \left(\frac{\partial x}{\partial \beta}\right)
+
+    for the choices of $\alpha,\beta$  being $\vartheta_P,\vartheta_P$, $\vartheta_P,\zeta_P$ and $\zeta_P,\zeta_P$.
+    The chain rule is applied to express the quantities in terms of the logical coordinate derivatives,
+    together with the derivatives of the PEST coordinate transform.
+    """
+    dtP_dt = 1 + ds.dLA_dt
+    dtP_dz = ds.dLA_dz
+    # dzP_dt = 0
+    # dzP_dz = 1
+
+    dtP_dtt = ds.dLA_dtt
+    dtP_dtz = ds.dLA_dtz
+    dtP_dzz = ds.dLA_dzz
+    # dzP_dtt = 0
+    # dzP_dtz = 0
+    # dzP_dzz = 0
+
+    JacP_Jac = 1 / (dtP_dt)
+    dJac_JacP_dt = dtP_dtt
+    dJac_JacP_dz = dtP_dtz
+    dJacP_Jac_dtP = JacP_Jac**3 * (-dJac_JacP_dt)
+    dJacP_Jac_dzP = JacP_Jac**3 * (dtP_dz * dJac_JacP_dt - dtP_dt * dJac_JacP_dz)
+
+    dt_dtP = JacP_Jac
+    # dz_dtP = 0
+    dt_dzP = -JacP_Jac * dtP_dz
+    dz_dzP = JacP_Jac * dtP_dt
+
+    dt_dttP = dJacP_Jac_dtP
+    dt_dtzP = dJacP_Jac_dzP
+    dt_dzzP = -dtP_dz * dJacP_Jac_dzP - JacP_Jac * (dt_dzP * dtP_dtz + dz_dzP * dtP_dzz)
+    # dz_dttP = 0
+    dz_dtzP = dtP_dt * dJacP_Jac_dtP + JacP_Jac * (dt_dtP * dtP_dtt)
+    dz_dzzP = dtP_dt * dJacP_Jac_dzP + JacP_Jac * (dt_dzP * dtP_dtt + dz_dzP * dtP_dtz)
+
+    ds["k_tt_P"] = dt_dttP * ds.e_theta
+    ds["k_tt_P"] += dt_dtP**2 * ds.k_tt
+
+    ds["k_tz_P"] = dt_dtzP * ds.e_theta + dz_dtzP * ds.e_zeta
+    ds["k_tz_P"] += dt_dtP * dt_dzP * ds.k_tt
+    ds["k_tz_P"] += (dt_dtP * dz_dzP) * ds.k_tz
+
+    ds["k_zz_P"] = dt_dzzP * ds.e_theta + dz_dzzP * ds.e_zeta
+    ds["k_zz_P"] += dt_dzP**2 * ds.k_tt + 2 * dt_dzP * dz_dzP * ds.k_tz + dz_dzP**2 * ds.k_zz
 
 
-@register(
-    requirements=["normal", "k_tz_B"],
-    attrs=dict(
-        long_name="poloidal-toroidal Boozer component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\theta_B\zeta_B}",
-    ),
-)
-def II_tz_B(ds: xr.Dataset):
-    ds["II_tz_B"] = xr.dot(ds.normal, ds.k_tz_B, dim="xyz")
+def _II_ij_sfl_factory(i, j, sfl):
+    """Factory function for second fundamental form components in Boozer(sfl="B") or PEST(sfl="P") coordinates:
+    II_{ij}_{sfl} = k_{ij}_{sfl} . normal
+    """
+    if sfl == "B":
+        sflcoord = "Boozer"
+    elif sfl == "P":
+        sflcoord = "PEST"
+    k_ij_sfl = f"k_{i}{j}_{sfl}"
+
+    @register(
+        quantities=f"II_{i}{j}_{sfl}",
+        requirements={k_ij_sfl, "normal"},
+        attrs=dict(
+            long_name=f"{i},{j} component of the second fundamental form in {sflcoord} coordinates",
+            symbol=rf"\mathrm{{II}}_{{{rtz_symbols[i]}_{sfl} {rtz_symbols[j]}_{sfl}}}",
+        ),
+    )
+    def _II_ij_sfl(ds: xr.Dataset):
+        ds[f"II_{i}{j}_{sfl}"] = xr.dot(ds[k_ij_sfl], ds.normal, dim="xyz")
+
+    return _II_ij_sfl
 
 
-@register(
-    requirements=["normal", "k_zz_B"],
-    attrs=dict(
-        long_name="toroidal Boozer component of the second fundamental form",
-        symbol=r"\mathrm{II}_{\zeta_B\zeta_B}",
-    ),
-)
-def II_zz_B(ds: xr.Dataset):
-    ds["II_zz_B"] = xr.dot(ds.normal, ds.k_zz_B, dim="xyz")
+# generate functions from factory function for second fundamental form in Boozer and PEST coordinates
+for i, j in [["t", "t"], ["t", "z"], ["z", "z"]]:
+    for sfl in ["B", "P"]:
+        globals()[f"II_{i}{j}_{sfl}"] = _II_ij_sfl_factory(i, j, sfl)
 
 
 @register(

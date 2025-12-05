@@ -5,6 +5,7 @@ import pytest
 
 try:
     import numpy as np
+    import xarray as xr
 
     import gvec
     from gvec.core.state import State, load_state, find_state, find_states
@@ -360,3 +361,35 @@ def test_get_boozer_angles(teststate):
     booz = teststate.get_boozer([0.1, 0.4, 0.6, 0.9], 1)
     tz = teststate.get_boozer_angles(booz, [[0.1, 0.5, 0.9], [0.1, 0.5, 0.9]])
     assert tz.shape == (2, 3, 4)
+
+
+def test_get_pest_angles_1D(teststate):
+    rho = np.asarray([0.1, 0.4, 0.6, 1.0])
+    theta_P = np.asarray([0.1, 0.5, 0.9])
+    zeta = np.asarray([0.1, 0.5, 0.9])
+    theta = teststate.get_pest_angles(rho, np.stack([theta_P, zeta]))
+    assert theta.shape == (theta_P.size, rho.size)
+
+    Z, R = np.meshgrid(zeta, rho, indexing="ij")
+    rtz = np.stack([R.flatten(), theta.flatten(), Z.flatten()])
+    LA = teststate.evaluate_base_list_rtz_all("LA", rtz)[0].reshape(theta_P.size, rho.size)
+    np.testing.assert_allclose(
+        theta + LA, np.tile(theta_P.reshape(-1, 1), (1, rho.size)), atol=1e-12
+    )
+
+
+def test_get_pest_angles_2D_rt(teststate):
+    rho = np.asarray([0.1, 0.4, 0.6, 1.0])
+    theta_P = np.asarray([0.1, 0.5, 0.9])
+    T, R = np.meshgrid(theta_P, rho, indexing="ij")
+    zeta = np.asarray([0.1, 0.5, 0.9])
+    Z, _ = np.meshgrid(zeta, rho, indexing="ij")
+    tz = np.stack([T, Z])
+    theta = teststate.get_pest_angles(rho, tz)
+    assert theta.shape == (theta_P.shape[0], rho.size)
+
+    rtz = np.stack([R.flatten(), theta.flatten(), Z.flatten()])
+    LA = teststate.evaluate_base_list_rtz_all("LA", rtz)[0].reshape(theta_P.size, rho.size)
+    np.testing.assert_allclose(
+        theta + LA, np.tile(theta_P.reshape(-1, 1), (1, rho.size)), atol=1e-12
+    )

@@ -15,6 +15,7 @@ try:
     from gvec.core.compute import (
         Evaluations,
         EvaluationsBoozer,
+        EvaluationsPEST,
         compute,
         volume_integral,
     )
@@ -198,6 +199,17 @@ def ev_boozer(teststate, radial_derivative):
 
 
 @pytest.fixture(scope="session")
+def ev_pest(teststate):
+    ds = EvaluationsPEST(
+        rho=[0.5, 1.0],
+        theta_P=21,
+        zeta=11,
+        state=teststate,
+    )
+    return ds
+
+
+@pytest.fixture(scope="session")
 def ev_boozer_drho(teststate):
     ds = EvaluationsBoozer(
         rho=[0.5, 1.0],
@@ -319,7 +331,16 @@ def test_boozer(teststate, ev_boozer, radial_derivative):
 
         # compute all remaining boozer quantities that need radial derivatives, not sure what can be checked with them...
         teststate.compute(
-            ds, "B_rho_B", "J_rho_B", "J_theta_B", "J_zeta_B", "J_contra_t_B", "J_contra_z_B"
+            ds,
+            "B_rho_B",
+            "J_rho_B",
+            "J_theta_B",
+            "J_zeta_B",
+            "J_contra_t_B",
+            "J_contra_z_B",
+            "k_tt_B",
+            "k_tz_B",
+            "k_zz_B",
         )
 
 
@@ -385,6 +406,98 @@ def test_EvaluationsBoozer_fieldlines(teststate, radial_derivative):
     for var in ds.data_vars:
         assert "symbol" in ds[var].attrs, f"no symbol defined in {var} attributes"
         assert "long_name" in ds[var].attrs, f"no long_name defined in {var} attributes"
+
+
+def test_pest(teststate, ev_pest):
+    ds = ev_pest
+    assert "LA" not in ds
+    teststate.compute(ds, "LA")
+    np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
+
+    teststate.compute(
+        ds,
+        "B_theta_avg",
+        "B_zeta_avg",
+        "B_theta_P",
+        "B_zeta_P",
+        "g_tt_P",
+        "g_tz_P",
+        "g_zz_P",
+        "Jac_P",
+    )
+    B_theta_P_avg = ds.B_theta_P.mean(("pol", "tor"))
+    B_zeta_P_avg = ds.B_zeta_P.mean(("pol", "tor"))
+    np.testing.assert_allclose(B_theta_P_avg, ds.B_theta_avg, rtol=1e-3, atol=1e-5)
+    np.testing.assert_allclose(B_zeta_P_avg, ds.B_zeta_avg, rtol=1e-3, atol=1e-5)
+
+    # contravariant components, need radial derivative (B_contra_i = B . grad_i)
+    teststate.compute(ds, "B_contra_t_P", "dPhi_dr", "iota")
+    np.testing.assert_allclose(
+        ds["B_contra_t_P"], ds.dPhi_dr * ds.iota / ds.Jac_P, rtol=1e-8, atol=1e-8
+    )
+
+    # compute all remaining PEST quantities that use radial derivatives, not sure what can be checked with them...
+    teststate.compute(
+        ds,
+        "B_rho_P",
+        "J_rho_P",
+        "J_theta_P",
+        "J_zeta_P",
+        "J_contra_t_P",
+        "k_tt_P",
+        "k_tz_P",
+        "k_zz_P",
+    )
+
+
+def test_EvaluationsPEST_2D(teststate):
+    """Test EvaluationsPEST with 2D arrays for theta_P, zeta."""
+    rho = [0.5, 1.0]  # radial positions
+    theta_H = np.linspace(0, 2 * np.pi, 2, endpoint=False)
+    zeta_H = np.linspace(0, 2 * np.pi / teststate.nfp, 3)
+
+    theta_P = theta_H[:, None] + zeta_H[None, :]
+    zeta = zeta_H[None, :] - theta_H[:, None]
+
+    ds = EvaluationsPEST(rho, theta_P, zeta, teststate)
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_P.dims == ("pol", "tor")
+    assert ds.zeta.dims == ("pol", "tor")
+    assert ds.theta.dims == ("rad", "pol", "tor")
+    assert set(ds.coords) == {"rho"}
+
+    assert "LA" not in ds
+    teststate.compute(ds, "LA")
+    np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
+
+
+def test_EvaluationsPEST_fieldlines(teststate):
+    """Test EvaluationsPEST with a 3D array for theta_P, as required for fieldline coordinates."""
+    rho = [0.5, 1.0]  # radial positions
+    alpha = np.linspace(0, 2 * np.pi, 2, endpoint=False)  # fieldline label
+    phi = np.linspace(0, 2 * np.pi / teststate.nfp, 3)  # angle along the fieldline
+
+    ev = Evaluations(rho=rho, theta=None, zeta=None, state=teststate)
+    teststate.compute(ev, "iota")
+
+    # 3D toroidal and poloidal arrays that correspond to fieldline coordinates for each surface
+    theta_P = alpha[None, :, None] + ev.iota.data[:, None, None] * phi[None, None, :]
+
+    ds = EvaluationsPEST(
+        rho=rho,
+        theta_P=theta_P,
+        zeta=phi,
+        state=teststate,
+    )
+    assert ds.rho.dims == ("rad",)
+    assert ds.theta_P.dims == ("rad", "pol", "tor")
+    assert ds.zeta.dims == ("tor",)
+    assert ds.theta.dims == ("rad", "pol", "tor")
+    assert set(ds.coords) == {"rho", "zeta"}
+
+    assert "LA" not in ds
+    teststate.compute(ds, "LA")
+    np.testing.assert_allclose(ds.theta + ds.LA, ds.theta_P.broadcast_like(ds.LA), atol=1e-15)
 
 
 def test_compute_base(teststate, ev_base):
@@ -720,6 +833,29 @@ def test_integral_quantities_aux_r_int_tz(teststate, ev_r_int_tz, quantity):
     assert "rad_weight" in ds
     assert "pol_weight" not in ds
     assert "tor_weight" not in ds
+
+
+@pytest.mark.parametrize(
+    "sfl, kwargs",
+    [
+        ("boozer", dict(MNfactor=1)),
+        ("pest", dict()),
+    ],
+    ids=["boozer", "pest"],
+)
+def test_evaluate_sfl(teststate, sfl, kwargs):
+    ev = teststate.evaluate_sfl(
+        "B",
+        rho=[0.5, 0.75, 1.0],
+        theta=21,
+        zeta=31,
+        sfl=sfl,
+        **kwargs,
+    )
+    assert "B" in ev
+    assert set(ev.theta.dims) > {"pol"}
+    assert ev.pol.size == 21
+    assert ev.tor.size == 31
 
 
 def test_ev2ft_2d(teststate, ev_rtz):
