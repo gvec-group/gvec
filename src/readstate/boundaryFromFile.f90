@@ -31,7 +31,7 @@ TYPE                 :: t_boundaryFromFile
   REAL(wp),ALLOCATABLE :: X(:,:) ,Y(:,:)!! boundary data X/Y positions X[i, j]=X(theta[i],zeta[j]),
                                         !!    Y[i, j]=Y(theta[i],zeta[j]), i=0...ntheta-1,j=0...nzeta-1
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
-  CHARACTER(LEN=255)   :: ncfile=" " !! name of netcdf file with axis information
+  CHARACTER(LEN=1024)   :: ncfile=" " !! name of netcdf file with axis information
   CONTAINS
 
   PROCEDURE :: init       => bff_init
