@@ -10,6 +10,7 @@ from tqdm import tqdm
 import os
 from gvec.util import logging_setup
 from gvec.core.state import State, CoordinateSpec
+from gvec.core.compute import volume_integral
 from logging import getLogger
 from typing import Literal
 
@@ -520,7 +521,7 @@ class IntersectionPlane:
 
 
 def trace_fieldlines(
-    starts: np.ndarray,
+    starts: np.ndarray | xr.Dataset,
     coils: CoilSet,
     t: float,
     surf_normals: list[np.ndarray] = None,
@@ -535,7 +536,7 @@ def trace_fieldlines(
 
     Parameters
     ----------
-    starts : np.ndarray
+    starts : np.ndarray | xr.Dataset
         Initial positions of the magnetic field lines in Carthesian coordinates. Expected shape (3,n_fieldlines).
     coils : CoilSet
         Coils set used for evaluating the magnetic field.
@@ -563,6 +564,10 @@ def trace_fieldlines(
             "n_jobs > 1 but joblib not installed, parallelization over fieldlines is not possible. Falling back to n_jobs=1."
         )
         n_jobs = 1
+
+    if isinstance(starts, xr.DataArray):
+        starts = _stack_for_BiotSavart(starts)
+        starts = starts.transpose("xyz", "points")
 
     def _push_cart(t, R):
         B = coils._eval_B_direct(R)
@@ -651,3 +656,27 @@ def trace_fieldlines(
                 pass
             dt[f"fieldline_{fieldline}"] = ds
         return dt
+
+
+def get_phi_edge_from_coils(state: State, coil_set: CoilSet | Coil):
+    """Calculate the total toroidal flux from the geometry of a state object and the magnetic field of a coil-set.
+
+    Parameters
+    ----------
+    state : State
+        State object used for evaluating the geometry.
+    coil_set : CoilSet | Coil
+        Coil-set used for evaluating the magnetic field.
+
+    Returns
+    -------
+    float
+        Averaged total toroidal flux.
+    """
+    ev = state.evaluate("pos", "B", "grad_zeta")
+    B_coils = coil_set.eval_mod_B(ev.pos)
+
+    Bn = xr.dot(B_coils.B, ev.grad_zeta, dim="xyz")
+    BnJac = Bn * ev.Jac
+    Psi_vol = volume_integral(BnJac) / (np.pi * 2)
+    return Psi_vol.item()

@@ -56,8 +56,10 @@ import logging
 import numpy as np
 import xarray as xr
 
-from gvec.util import logging_setup
-from gvec import gframe
+from gvec.util import logging_setup, chdir, read_parameters, write_parameters
+from gvec.plotting import plot_zeta_cuts
+from gvec import gframe, run
+from gvec.coils import Coil, CoilSet, trace_fieldlines, intersection_planes_from_state
 
 # === Argument Parser === #
 
@@ -291,6 +293,89 @@ def load_xyz(filename: Path | str):
     xyz = ds.pos.transpose("zeta", "theta", "xyz").values
     nfp = ds.nfp.item()
     return xyz, nfp
+
+
+def get_coils_from_json_file(fname):
+    from simsopt._core import load
+
+    coils_so = load(fname)[1]
+
+    gvec_coils = []
+    for coil in coils_so:
+        coil_points = coil.curve.gamma().T
+        coil_end = np.atleast_2d(coil_points[:, 0]).T
+        coil_points = np.concatenate([coil_points, coil_end], axis=-1)
+        gvec_coils.append(Coil(coil_points, coil.current.get_value()))
+
+    return CoilSet(gvec_coils)
+
+
+def quasr_fieldlines(
+    state, coil_set, n_fieldlines=20, n_jobs=1, max_step=0.1, t=1200, zetas=None, axs=None
+):
+    if zetas is None:
+        zetas = np.linspace(0, 2 * np.pi / state.nfp, 3, endpoint=False)
+    starts = state.evaluate(
+        "pos",
+        zeta=zetas,
+        theta=0.0,
+        rho=np.linspace(0, 0.99, n_fieldlines),
+    ).pos.isel(pol=0, tor=0)
+
+    planes = intersection_planes_from_state(state, zetas=zetas, min_box_size=1e-3)
+
+    dt = trace_fieldlines(
+        starts=starts,
+        coils=coil_set,
+        t=t,
+        n_jobs=n_jobs,
+        events=planes,
+        atol=1e-10,
+        rtol=1e-10,
+        max_step=max_step,
+    )
+
+    if axs is not None:
+        for fieldline in dt:
+            ds = dt[fieldline]
+            try:
+                for i, ax in enumerate(axs):
+                    ax.scatter(
+                        ds[f"event_{i}_X1"], ds[f"event_{i}_X2"], marker=".", s=0.5, zorder=-200
+                    )
+            except IndexError:
+                pass
+        return (dt, axs)
+    else:
+        return dt
+
+
+def generate_quasr_case(ID: int, save_path: str | Path, n_jobs=1, totalIter=100000, t=1200):
+    save_path = Path(save_path)
+    theta = np.linspace(0, 2 * np.pi, 128, endpoint=True)
+    id_path = save_path / f"quasr-{ID:07d}"
+    if not save_path.exists():
+        save_path.mkdir()
+    if not id_path.exists():
+        id_path.mkdir()
+
+    with chdir(id_path):
+        main([str(ID)])
+        coil_set = get_coils_from_json_file(f"quasr-{ID:07d}.json")
+        param_file_path = f"quasr-{ID:07d}-parameters.toml"
+        params = read_parameters(param_file_path)
+        params["totalIter"] = totalIter
+        write_parameters(params, param_file_path)
+        gvec_run = run(params)
+        state = gvec_run.state
+        zetas = np.linspace(0, -2 * np.pi / state.nfp, 3, endpoint=False)
+        fig, axs = plot_zeta_cuts(
+            state, zeta=zetas, theta=theta, figsize=(4, 8), color="k", linestyle="--"
+        )
+        dt, axs = quasr_fieldlines(state, coil_set, zetas=zetas, n_jobs=n_jobs, axs=axs, t=t)
+        fig.savefig(f"quasr-{ID:07d}-poincare.png")
+        dt.to_netcdf(f"quasr-{ID:07d}-fieldlines.nc")
+        coil_set.save(f"quasr-{ID:07d}-coils.nc")
 
 
 # === Script === #
