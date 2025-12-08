@@ -1,18 +1,21 @@
+import os
+from collections.abc import Iterable
+from logging import getLogger
+from pathlib import Path
+from typing import Literal
+from warnings import warn
+
 import numpy as np
 import xarray as xr
 from numpy.typing import ArrayLike
-from gvec.lib import modgvec_biotsavart as _BS
-from warnings import warn
-from collections.abc import Iterable
-from pathlib import Path
+from scipy.constants import mu_0
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
-import os
+
+from gvec.core.state import CoordinateSpec, State
+from gvec.lib import modgvec_biotsavart as _BS
 from gvec.util import logging_setup
-from gvec.core.state import State, CoordinateSpec
 from gvec.core.compute import volume_integral
-from logging import getLogger
-from typing import Literal
 
 try:
     from joblib import Parallel, delayed, parallel_config
@@ -38,8 +41,6 @@ try:
 
 except ImportError:
     has_joblib = False
-
-mu_0 = 4 * np.pi * 0.99999999987 * 1e-7
 
 
 def _stack_for_BiotSavart(ds: xr.Dataset | xr.DataArray):
@@ -135,6 +136,53 @@ class Coil:
         ds.B.attrs = dict(long_name="magnetic coil field", symbol=r"\mathbf{B}_C")
         return ds
 
+    def eval_A(self, pos: ArrayLike):
+        """Evaluate the vector potential due to currents flowing in the coil at given positions.
+
+        Parameters
+        ----------
+        pos : ArrayLike
+            Cartesian coordinates of the evaluation points with shape (3,n_positions).
+
+        Returns
+        -------
+        xr.Dataset
+            Dataset containing the vector potential at the evaluation positions.
+        """
+        if not isinstance(pos, xr.DataArray):
+            pos = np.asanyarray(pos)
+            if pos.ndim == 1:
+                pos = pos.reshape(-1, 1)
+            pos = xr.DataArray(
+                pos,
+                dims=("xyz", "points"),
+                coords={"xyz": ("xyz", ["x", "y", "z"])},
+                attrs=dict(long_name="position vector", symbol=r"\mathbf{x}"),
+            )
+        n_positions = pos.shape[1]
+
+        A = np.asfortranarray(np.zeros(pos.shape))
+
+        _BS.biotsavart_vectorpotential(
+            n_positions=n_positions,
+            xyz=pos,
+            n_points=self.n_points,
+            coil_points=self.coil_points,
+            ehat=self.e_hat_vec,
+            l=self.L,
+            prefactor=self.prefactor,
+            a=A,
+        )
+
+        ds = xr.Dataset(
+            data_vars=dict(A=(("xyz", "points"), A)),
+            coords={"xyz": ("xyz", ["x", "y", "z"])},
+        )
+        ds["pos"] = pos
+
+        ds.A.attrs = dict(long_name="magnetic coil vector potential", symbol=r"\mathbf{A}_C")
+        return ds
+
     def eval_mod_B(self, pos: ArrayLike):
         """Evaluate the modulus of the magnetic field due to currents flowing in the coil at given positions.
 
@@ -150,6 +198,23 @@ class Coil:
         """
         ds = self.eval_B(pos)
         ds["mod_B"] = self._mod_vector(ds.B)
+        return ds
+
+    def eval_mod_A(self, pos: ArrayLike):
+        """Evaluate the modulus of the vector potential due to currents flowing in the coil at given positions.
+
+        Parameters
+        ----------
+        pos : ArrayLike
+            Cartesian coordinates of the evaluation points with shape (3,n_positions).
+
+        Returns
+        -------
+        ds : xr.Dataset
+            Dataset containing the vector potential and its modulus at the evaluation positions.
+        """
+        ds = self.eval_A(pos)
+        ds["mod_A"] = self._mod_vector(ds.A)
         return ds
 
     def get_as_dataobject(self):
@@ -317,6 +382,53 @@ class CoilSet(Coil):
                 if dimname in ds.dims:
                     ds = ds.rename_dims({dimname: actual_dimname})
 
+        return ds
+
+    def eval_A(self, pos: ArrayLike):
+        """Evaluate the vector potential due to currents flowing in the coil at given positions.
+
+        Parameters
+        ----------
+        pos : ArrayLike
+            Evaluation positions in xyz with shape (3,n_positions).
+
+        Returns
+        -------
+        xr.Dataset
+            Vector potential at the evaluation positions.
+        """
+        if not isinstance(pos, xr.DataArray):
+            pos = np.asanyarray(pos)
+            if pos.ndim == 1:
+                pos = pos.reshape(-1, 1)
+            pos = xr.DataArray(
+                pos,
+                dims=("xyz", "points"),
+                coords={"xyz": ("xyz", ["x", "y", "z"])},
+                attrs=dict(long_name="position vector", symbol=r"\mathbf{x}"),
+            )
+        n_positions = pos.shape[1]
+        A_aux = np.asfortranarray(np.zeros(pos.shape))
+        ds = xr.Dataset(
+            data_vars=dict(A=(("xyz", "points"), np.zeros(pos.shape))),
+            coords={"xyz": ("xyz", ["x", "y", "z"])},
+        )
+        ds["pos"] = pos
+        for coil_name in self.coils:
+            coil = self.coils[coil_name]
+            _BS.biotsavart_vectorpotential(
+                n_positions=n_positions,
+                xyz=pos,
+                n_points=coil.n_points,
+                coil_points=coil.coil_points,
+                prefactor=coil.prefactor,
+                ehat=self.e_hat_vec,
+                l=self.L,
+                b=A_aux,
+            )
+            ds.A[:, :] += A_aux
+            A_aux *= 0.0
+        ds.A.attrs = dict(long_name="magnetic coil vector potential", symbol=r"\mathbf{A}_C")
         return ds
 
     def _eval_B_direct(self, pos: ArrayLike):
