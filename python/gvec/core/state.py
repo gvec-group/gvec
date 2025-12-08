@@ -774,6 +774,53 @@ class State:
         )
         return outputs
 
+    # === Straight-Fieldline PEST angles === #
+
+    @with_binding
+    def get_pest_angles(
+        self,
+        rho: np.ndarray,
+        tz_list: np.ndarray,
+    ):
+        """
+        Find the logical theta angle for the corresponding (theta_P, zeta) coordinates on the flux surface.
+
+        Parameters
+        ----------
+        rho: 1D array
+        tz_list : 2D array of shape (2, n) or 3D array of shape (2, n, rho.size)
+            The list of (theta_P, zeta) coordinates for which to find the logical angles.
+            The first row contains theta_P and the second row contains zeta.
+            If a 2D array is given, the same postions are searched for on each surface.
+
+        Returns
+        -------
+        2D np.ndarray of shape (n, rho.size)
+            The logical theta angle corresponding to the input (theta_P, zeta) coordinates.
+        """
+        rho = np.asfortranarray(rho, dtype=np.float64)
+        if rho.ndim != 1:
+            raise ValueError(f"Expected a 1D array for rho, got shape {rho.shape}.")
+        if rho.max() > 1.0 or rho.min() < 0.0:
+            raise ValueError("rho must be in the range [0, 1].")
+        tz_list = np.asfortranarray(tz_list, dtype=np.float64)
+        match tz_list.shape:
+            case (2, n):
+                tz_out = np.zeros((2, n, rho.size), order="F")
+                _state.find_pest_angles_2d(rho.size, rho, n, tz_list, tz_out)
+                return tz_out[0, :, :]
+            case (2, n, k) if k == rho.size:
+                t_out = np.zeros((n, rho.size))
+                tz_out = np.zeros((2, n, 1), order="F")
+                for i, r in enumerate(rho):
+                    _state.find_pest_angles_2d(1, [r], n, tz_list[:, :, i], tz_out)
+                    t_out[:, i] = tz_out[0, :, 0]
+                return t_out
+            case _:
+                raise ValueError(
+                    f"Expected 'tz_list' of shape (2, n) or (2, n, rho.size), got {tz_list.shape}."
+                )
+
     # === High Level Interface for Evaluations === #
 
     def compute(
