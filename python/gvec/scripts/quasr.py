@@ -54,11 +54,12 @@ from collections.abc import Sequence
 import logging
 
 import numpy as np
+from numpy.typing import ArrayLike
 import xarray as xr
 
 from gvec.util import logging_setup, chdir, read_parameters, write_parameters
 from gvec.plotting import plot_zeta_cuts
-from gvec import gframe, run
+from gvec import gframe, run, State
 from gvec.coils import Coil, CoilSet, trace_fieldlines, intersection_planes_from_state
 
 # === Argument Parser === #
@@ -295,10 +296,22 @@ def load_xyz(filename: Path | str):
     return xyz, nfp
 
 
-def get_coils_from_json_file(fname):
+def get_coils_from_json_file(filename: Path | str):
+    """Get coils from a quasr json file and translate them into a CoilSet
+
+    Parameters
+    ----------
+    filename :  Path | str
+        json filename/path
+
+    Returns
+    -------
+    CoilSet
+        Coils as GVEC CoilSet
+    """
     from simsopt._core import load
 
-    coils_so = load(fname)[1]
+    coils_so = load(filename)[1]
 
     gvec_coils = []
     for coil in coils_so:
@@ -311,8 +324,39 @@ def get_coils_from_json_file(fname):
 
 
 def quasr_fieldlines(
-    state, coil_set, n_fieldlines=20, n_jobs=1, max_step=0.1, t=1200, zetas=None, axs=None
+    state: State,
+    coil_set: CoilSet,
+    n_fieldlines: int = 20,
+    max_step: float = 0.1,
+    t: float = 1200.0,
+    zetas: ArrayLike | None = None,
+    axs=None,
+    **kwargs,
 ):
+    """Perform fieldline tracing with initial conditions on equilibrium flux surfaces
+
+    Parameters
+    ----------
+    state : State
+        GVEC state used for initialization
+    coil_set : CoilSet
+        Coils for evaluating the magnetic field
+    n_fieldlines : int, optional
+        Number of initial conditions, by default 20
+    max_step : float, optional
+        Maximum stepsize as used by `solve_ivp`, by default 0.1
+    t : int, optional
+        Time to trace fieldlines, by default 1200
+    zetas : ArrayLike | None | int, optional
+        Poloidal cut positions, by default None
+    axs : pyplot axes, optional
+        Axes to draw the flux-surface contours / Poincaré sections into, default None
+
+    Returns
+    -------
+    tuple(dt, axs) or dt
+        Returns either the fieldlines and newly generated pyplot axes or only the fieldlines.
+    """
     if zetas is None:
         zetas = np.linspace(0, 2 * np.pi / state.nfp, 3, endpoint=False)
     starts = state.evaluate(
@@ -328,11 +372,11 @@ def quasr_fieldlines(
         starts=starts,
         coils=coil_set,
         t=t,
-        n_jobs=n_jobs,
         events=planes,
         atol=1e-10,
         rtol=1e-10,
         max_step=max_step,
+        **kwargs,
     )
 
     if axs is not None:
@@ -350,9 +394,24 @@ def quasr_fieldlines(
         return dt
 
 
-def generate_quasr_case(ID: int, save_path: str | Path, n_jobs=1, totalIter=100000, t=1200):
+def generate_quasr_case(
+    ID: int, save_path: str | Path, totalIter: int = 100000, t: float = 1200.0, **kwargs
+):
+    """Generate a gvec quasr equilibrium and compare it to fieldline tracing.
+
+    Parameters
+    ----------
+    ID : int
+        Quasr ID
+    save_path : str | Path
+        Directory where the case is saved
+    totalIter : int, optional
+        GVEC totalIter, by default 100000
+    t : float, optional
+        Time to trace fieldlines, by default 1200.0
+    """
     save_path = Path(save_path)
-    theta = np.linspace(0, 2 * np.pi, 128, endpoint=True)
+    theta_plot = np.linspace(0, 2 * np.pi, 128, endpoint=True)
     id_path = save_path / f"quasr-{ID:07d}"
     if not save_path.exists():
         save_path.mkdir()
@@ -370,9 +429,9 @@ def generate_quasr_case(ID: int, save_path: str | Path, n_jobs=1, totalIter=1000
         state = gvec_run.state
         zetas = np.linspace(0, -2 * np.pi / state.nfp, 3, endpoint=False)
         fig, axs = plot_zeta_cuts(
-            state, zeta=zetas, theta=theta, figsize=(4, 8), color="k", linestyle="--"
+            state, zeta=zetas, theta=theta_plot, figsize=(4, 8), color="k", linestyle="--"
         )
-        dt, axs = quasr_fieldlines(state, coil_set, zetas=zetas, n_jobs=n_jobs, axs=axs, t=t)
+        dt, axs = quasr_fieldlines(state, coil_set, zetas=zetas, axs=axs, t=t, **kwargs)
         fig.savefig(f"quasr-{ID:07d}-poincare.png")
         dt.to_netcdf(f"quasr-{ID:07d}-fieldlines.nc")
         coil_set.save(f"quasr-{ID:07d}-coils.nc")

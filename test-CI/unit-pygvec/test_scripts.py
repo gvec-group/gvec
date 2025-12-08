@@ -383,6 +383,30 @@ def test_quasr_full(QUASR_ID, tmp_path, util):
         assert hmap.exists()
 
 
+@pytest.mark.parametrize("QUASR_ID", [112714, 2021217])
+def test_quasr_fieldlines_full(QUASR_ID, tmp_path, util):
+    pytest.importorskip("simsopt")
+    from gvec.scripts.quasr import generate_quasr_case
+
+    try:
+        json = gvec.scripts.quasr.get_json_from_quasr(
+            QUASR_ID, tmp_path / "quasr-{QUASR_ID:07d}.json"
+        )
+    except RuntimeError as e:
+        pytest.skip(f"Skipping test_quasr_download: {e}")
+    id_path = tmp_path / f"quasr-{QUASR_ID:07d}"
+    hmap = id_path / f"quasr-{QUASR_ID:07d}-Gframe.nc"
+    fieldlines = id_path / f"quasr-{QUASR_ID:07d}-fieldlines.nc"
+    poincare = id_path / f"quasr-{QUASR_ID:07d}-poincare.png"
+    coils = id_path / f"quasr-{QUASR_ID:07d}-coils.nc"
+    with util.chdir(tmp_path):
+        generate_quasr_case(QUASR_ID, save_path=tmp_path, t=100, totalIter=2, n_fieldlines=3)
+        assert hmap.exists()
+        assert fieldlines.exists()
+        assert poincare.exists()
+        assert coils.exists()
+
+
 @pytest.mark.parametrize("QUASR_ID", [10534])
 @pytest.mark.parametrize("nt", ["--nt=79", "--nt=80"], ids=["odd_t", "even_t"])
 @pytest.mark.parametrize("nz", ["--nz=77", "--nz=78"], ids=["odd_z", "even_z"])
