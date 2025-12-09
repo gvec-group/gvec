@@ -400,7 +400,17 @@ def test_quasr_fieldlines_full(QUASR_ID, tmp_path, util):
     poincare = id_path / f"quasr-{QUASR_ID:07d}-poincare.png"
     coils = id_path / f"quasr-{QUASR_ID:07d}-coils.nc"
     with util.chdir(tmp_path):
-        generate_quasr_case(QUASR_ID, save_path=tmp_path, t=100, totalIter=2, n_fieldlines=3)
+        generate_quasr_case(
+            QUASR_ID,
+            save_path=tmp_path,
+            t=100,
+            totalIter=2,
+            n_fieldlines=3,
+            tol=1e-4,
+            atol=1e-5,
+            rtol=1e-6,
+            max_step=np.inf,
+        )
         assert hmap.exists()
         assert fieldlines.exists()
         assert poincare.exists()

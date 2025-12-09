@@ -1,8 +1,14 @@
 from gvec.core.state import State
-import matplotlib.pyplot as plt
 import logging
 import numpy as np
 from numpy.typing import ArrayLike
+
+try:
+    import matplotlib.pyplot as plt
+
+    has_matplotlib = True
+except ImportError:
+    has_matplotlib = False
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +44,10 @@ def plot_zeta_cuts(
     tuple(fig,axs)
         Figure and axes of the plot, if axs was none, else just axs.
     """
+
+    if not has_matplotlib:
+        logger.warning("Failed to import matplotlib.pyplot! Is it installed?")
+        return
 
     if theta is None:
         theta = np.linspace(0, 2 * np.pi, 64, endpoint=True)
