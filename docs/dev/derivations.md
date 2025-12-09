@@ -307,11 +307,11 @@ $$
 \end{align}
 $$
 
-with the twist $\Tw$, being an integral of the torsion over arc-length $\ell$ of the ribbon:
+with the twist $\Tw$, being an integral of the torsion $\tau$ over arc-length $\ell$ of the ribbon:
 
 $$
 \begin{align}
-\Tw = \frac{1}{2\pi}\int_{C} \pqty{\Uvec \times \pdv{\Uvec}{\ell}} \cdot \pdv{\X}{\ell} \dd{\ell}
+\Tw = \frac{1}{2\pi}\int_{C}\tau\dd{\ell}=\frac{1}{2\pi}\int_{C} \pqty{\Uvec \times \pdv{\Uvec}{\ell}} \cdot \pdv{\X}{\ell} \dd{\ell}
 \end{align}
 $$
 
@@ -322,7 +322,7 @@ and a second curve $C^\prime$ at an offset position $\X+ \epsilon \Uvec$,
 $$
 \begin{align}
 \Lk &= \frac{1}{4\pi}\oint_{C} \oint_{C^\prime} \frac{ \rvec_2 - \rvec_1}{\abs{\rvec_2 - \rvec_1}^3} \cdot (\dd{\rvec_1} \times \dd{\rvec_2}) \\
-&= \frac{1}{4\pi}\int_0^{2\pi} \oint_0^{2\pi} \frac{ \rvec_2 - \rvec_1}{\abs{\rvec_2 - \rvec_1}^3} \cdot \pqty{\pdv{\rvec_1}{\zeta_1} \times \pdv{\rvec_2}{\zeta_2}} \dd{\zeta_1} \dd{\zeta_2}
+&= \frac{1}{4\pi}\int_0^{2\pi} \int_0^{2\pi} \frac{ \rvec_2 - \rvec_1}{\abs{\rvec_2 - \rvec_1}^3} \cdot \pqty{\pdv{\rvec_1}{\zeta_1} \times \pdv{\rvec_2}{\zeta_2}} \dd{\zeta_1} \dd{\zeta_2}
 \end{align}
 $$
 
@@ -399,17 +399,19 @@ $$
 \end{align}
 $$
 
-Note that, different as in the paper, we use non-normalized vectors, such that they can be zero. This case must be handled, if points coincide.
+Note that, different as in the paper, we use non-normalized vectors, and allow them to be zero length.
 
 The solid angle is then computed as $\Omega^\star=\alpha_{12}+\alpha_{23}+\alpha_{34}+\alpha_{41}$, and the angles are computed using the `atan2` function (that why we do not need normalized vectors!):
 
-$$ \alpha_{ij} = \textrm{atan2}(v_i\cdot v_j,v_i\times v_j)$$
+$$ \alpha_{ij} = \textrm{atan2}(v_i\cdot v_j,\abs{v_i\times v_j})$$
 
 Final step is to consider the orientation of the two segments, such that the final solid angle is computed as
 
 $$\frac{\Omega}{4\pi} =  \frac{\Omega^\star}{4\pi} \textrm{sign}((r_{34}\times r_{12})\cdot r_{13})$$
 
+with a tolerance in the sign function $\textrm{sign}(x)\{=+1\,\text{if}\,x>\epsilon\,;\,=-1\,\text{if}\,x<-\epsilon\,;\,=0\,\text{else}\}$ to avoid rounding errors.
 The double integral is then computed as the sum of solid angles of all segments of one curve againt all segments of the other curve.
 
-If both polygon curves coincide, the result is writhe, else it is the linking number.
-Arranging the segments of one curve as rows of a matrix, and the segments of the other curve as columns, then for writhe, the diagonal is zero, only half (the lower triangle) has to be computed, and then multiplied by 2. For the linking number, all elements must be computed.
+If both polygon curves coincide, the result is *writhe*. If the two curves do not intersect, the result is their *linking number*.
+Arranging the segments of one curve as rows ($i$) of a matrix, and the segments of the other curve as columns ($j$), then for the *linking number*, the solid angle between all segment pairs must be computed.
+For *writhe*, the solid angle of the segment pairs $j\!=\!i$ and $j\!=\!i+1$ are zero, and only half of the segment pairs (j>i+1) have to be computed, and the sum is then multiplied by $2$.

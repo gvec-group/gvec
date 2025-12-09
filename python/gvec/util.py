@@ -1205,3 +1205,113 @@ def boundary_generator(case: str, X1_00=1.0, a0=0.5, ellipticity=0.4, helix_r=0.
             raise ValueError(f"request boundary '{case}', does not exist!")
 
     return params
+
+
+def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15):
+    """
+    Compute the linking number of two non-intersecting curves $C_a(\zeta_a),C_b(\zeta_b)$, solving the (non-singular) double integral over two curves
+
+    $$\textrm{Lk} = \Lk = \frac{1}{4\pi}\int_0^{2\pi} \int_0^{2\pi} \frac{ r_b - r_a}{\abs{r_b - r_a}^3} \cdot \left(\frac{\partial r_a}{\zeta_a}  \times \frac{\partial r_b}{\zeta_b}} d{\zeta_a} d{\zeta_b}$$
+
+    Here, the double integral is approximated by representing the curves as polygons, and computing the linking number as the sum of solid angles between all linear segments of polygon curves. The solid angle of two linear segments can be computed exactly. See paper by  [Klenin and Langowski](https://onlinelibrary.wiley.com/doi/10.1002/1097-0282(20001015)54:5%3C307::AID-BIP20%3E3.0.CO;2-Y)
+    See GVEC documentation for more details.
+    Args:
+        curve_a (2D np.ndarray): the x,y,z point positions of the first curve. First and last point must coincide. shape must be [npoints_a,3]
+        curve_b (2D np.ndarray): the x,y,z point positions of the first curve. First and last point must coincide. shape must be [npoints_b,3]
+        tol (float): tolerance to consider points coincident (default: 1e-15)
+    Returns:
+        Lk (float): the linking number of the two curves
+    """
+    assert curve_a.ndim == 2, "curve_a must be a 2D array"
+    assert curve_b.ndim == 2, "curve_b must be a 2D array"
+    assert curve_a.shape[1] == 3, "second dimension of curve_a must be of size 3"
+    assert curve_b.shape[1] == 3, "second dimension of curve_b must be of size 3"
+    assert np.allclose(curve_a[0, :], curve_a[-1, :]), (
+        "first and last point of curve_a must coincide (closed curve)"
+    )
+    assert np.allclose(curve_b[0, :], curve_b[-1, :]), (
+        "first and last point of curve_b must coincide (closed curve)"
+    )
+    # nseg_a = curve_a.shape[0]-1
+    # nseg_b = curve_b.shape[0]-1
+    # Lk = 0.0
+    # for i in range(nseg_a):
+    #    for j in range(nseg_b):
+    #        r1 = curve_a[i,:]
+    #        r2 = curve_a[i+1,:]
+    #        r3 = curve_b[j,:]
+    #        r4 = curve_b[j+1,:]
+    #        Lk += solid_angle_between_segments(r1,r2,r3,r4)
+    # Lk /= (4.0*np.pi)
+    return np.sum(
+        solid_angle_between_segments(
+            curve_a[0:-1, None, :],
+            curve_a[1:, None, :],
+            curve_b[None, 0:-1, :],
+            curve_b[None, 1:, :],
+            tol=tol,
+        )
+    ) / (4 * np.pi)
+
+
+def writhe(curve: np.ndarray):
+    """
+    Compute the writhe of a curve $C(\zeta)$, solving the (singular!) double integral over the curve
+
+    $$\textrm{Wr} = \Wr = \frac{1}{4\pi}\int_0^{2\pi} \int_0^{2\pi} \frac{ r(\zeta') - r(\zeta)}{\abs{r(\zeta') - r(\zeta)}^3} \cdot \left(\frac{\partial r}{\zeta}  \times \frac{\partial r}{\zeta'}} d{\zeta} d{\zeta'}$$
+
+    Here, the double integral is approximated by representing the curve as a polygon, and computing the writhe as the sum of solid angles between all linear segments of polygon curve. The solid angle of two linear segments can be computed exactly. See paper by  [Klenin and Langowski](https://onlinelibrary.wiley.com/doi/10.1002/1097-0282(20001015)54:5%3C307::AID-BIP20%3E3.0.CO;2-Y)
+    See GVEC documentation for more details.
+    Args:
+        curve (2D np.ndarray): the x,y,z point positions of the curve. First and last point must coincide. shape must be [npoints,3]
+    Returns:
+        Wr (float): the approximate writhe of the curve
+    """
+    assert curve.ndim == 2, "curve must be a 2D array"
+    assert curve.shape[1] == 3, "second dimension of curve must be of size 3"
+    assert np.allclose(curve[0, :], curve[-1, :]), (
+        "first and last point of curve must coincide (closed curve)"
+    )
+    nseg = curve.shape[0] - 1
+    # mask to select only pairs of segments (i,j) with j>i+1 to avoid coincident or adjacent segments
+    mask = np.triu(np.ones((nseg, nseg), dtype=np.int8), k=2)
+    # apply mask to segment(i) x segment(j), with j>i+1 remaining
+    r1 = (curve[0:-1, None, :] * mask[:, :, None])[(mask == 1), :]
+    r2 = (curve[1:, None, :] * mask[:, :, None])[(mask == 1), :]
+    r3 = (curve[None, 0:-1, :] * mask[:, :, None])[(mask == 1), :]
+    r4 = (curve[None, 1:, :] * mask[:, :, None])[(mask == 1), :]
+
+    # factor 2 to account for symmetry of (i,j) and (j,i)
+    return np.sum(solid_angle_between_segments(r1, r2, r3, r4)) / (2 * np.pi)
+
+
+def solid_angle_between_segments(
+    r1: np.ndarray, r2: np.ndarray, r3: np.ndarray, r4: np.ndarray, tol=1e-15
+):
+    """
+    Compute the solid angle between two line segments r1->r2 and r3->r4.
+    See paper by  [Klenin and Langowski](https://onlinelibrary.wiley.com/doi/10.1002/1097-0282(20001015)54:5%3C307::AID-BIP20%3E3.0.CO;2-Y)
+    r1,r2,r3,r4 must have the same shape, with last dimension of size 3 (x,y,z)
+    Args:
+        r1 (np.ndarray): last dimension is x,y,z position of the first  point of the first segment
+        r2 (np.ndarray): last dimension is x,y,z position of the second point of the first segment
+        r3 (np.ndarray): last dimension is x,y,z position of the first  point of the second segment
+        r4 (np.ndarray): last dimension is x,y,z position of the second point of the second segment
+        tol (float): tolerance to consider points coincident (default: 1e-15)
+    Returns:
+        omega (float): solid angle between the two segments, without 1/(4pi) factor
+    """
+    N1 = np.cross(r3 - r1, r4 - r1)
+    N2 = np.cross(r4 - r1, r4 - r2)
+    N3 = np.cross(r4 - r2, r3 - r2)
+    N4 = np.cross(r3 - r2, r3 - r1)
+    omega = (
+        np.arctan2(np.vecdot(N1, N2), np.sqrt(np.sum(np.cross(N1, N2) ** 2, axis=-1)))
+        + np.arctan2(np.vecdot(N2, N3), np.sqrt(np.sum(np.cross(N2, N3) ** 2, axis=-1)))
+        + np.arctan2(np.vecdot(N3, N4), np.sqrt(np.sum(np.cross(N3, N4) ** 2, axis=-1)))
+        + np.arctan2(np.vecdot(N4, N1), np.sqrt(np.sum(np.cross(N4, N1) ** 2, axis=-1)))
+    )
+    sigma = np.vecdot(np.cross(r4 - r3, r2 - r1), (r3 - r1))
+    # set very small sigma to zero to avoid  sign(+0)->1 and sign(-0)->-1 issues
+    sigma[np.abs(sigma) < tol] = 0
+    return omega * np.sign(sigma)

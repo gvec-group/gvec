@@ -188,3 +188,33 @@ def test_boundary_direction():
     s2 = util.check_boundary_direction(flipped_parameters)
     assert s2 and not s1
     assert A1 < 0 and A2 > 0
+
+
+@pytest.mark.parametrize("npoints", [(21, 31), (31, 30), (201, 101)])
+def test_linking_number(npoints):
+    npoints_a = npoints[0]
+    curve_a = np.zeros((npoints_a, 3))
+    theta = np.linspace(0, 2 * np.pi, npoints_a)
+    curve_a[:, 0] = 1.01 * np.cos(theta)
+    curve_a[:, 1] = 0.99 * np.sin(theta)
+    curve_a[:, 2] = 0.01
+    npoints_b = npoints[1]
+    curve_b = np.zeros((npoints_b, 3))
+    theta = np.linspace(0, 2 * np.pi, npoints_b)
+    curve_b[:, 1] = -0.01
+    curve_b[:, 2] = 0.49 * np.sin(theta)
+
+    curve_b[:, 0] = 1.4 - 0.51 * np.cos(theta)
+    assert np.allclose(util.linking_number(curve_a, curve_b), 1.0), (
+        "linking number of two linked circles should be 1.0"
+    )
+
+    curve_b[:, 0] = 1.4 + 0.51 * np.cos(theta)
+    assert np.allclose(util.linking_number(curve_a, curve_b), -1.0), (
+        "linking number of two linked circles with opposite orientation should be -1.0"
+    )
+
+    curve_b[:, 0] = 1.6 - 0.51 * np.cos(theta)
+    assert np.allclose(util.linking_number(curve_a, curve_b), 0.0), (
+        "linking number of two unlinked circles should be 0.0"
+    )
