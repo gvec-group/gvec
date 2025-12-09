@@ -52,7 +52,7 @@ def plot_radial_profile(
     quantities: str | list = ["iota", "p", "I_tor", "I_pol"],
     subplot_grid: list = [2, 2],
     xaxis="rho",
-    post_process: dict | dict = None,
+    post_process: dict | None = None,
 ):
     """
     Plot the radial profile of given equilibrium quantities.
