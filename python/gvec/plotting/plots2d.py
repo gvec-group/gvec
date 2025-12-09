@@ -5,7 +5,7 @@ from numpy import amax, amin, any, isnan, linspace, max, min, ndarray, pi, prod
 
 from gvec.core.state import State
 
-from .utils import _design_subgrid, _get_coord_range, _subplots
+from gvec.plotting.utils import _design_subgrid, _get_coord_range, _subplots
 
 pyplot.rcParams.update({"text.usetex": True})
 
