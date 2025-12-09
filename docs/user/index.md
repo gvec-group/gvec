@@ -20,6 +20,8 @@ coordinate-conventions
 /tutorials/notebooks/030_stages
 /tutorials/notebooks/040_current
 /tutorials/notebooks/050_pygvec
+/tutorials/notebooks/060_coils
+/tutorials/notebooks/061_coils
 ```
 
 ```{toctree}
