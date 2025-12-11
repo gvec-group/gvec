@@ -20,25 +20,25 @@ This module checks the input arguments and handles the initialization and finali
 
 # === Imports === #
 
-from pathlib import Path
-from typing import Literal, Union, TypeAlias
-from collections.abc import Iterable, Sequence, Mapping
-import re
-import inspect
 import functools
-import tempfile
+import inspect
 import logging
+import re
+import tempfile
 import warnings
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import Literal, TypeAlias, Union
 
 import numpy as np
 import xarray as xr
 
+import gvec.lib
 import gvec.util
 from gvec.errors import catch_gvec_errors
-import gvec.lib
-from gvec.lib import modgvec_py_state as _state
 from gvec.lib import modgvec_py_binding as _binding
 from gvec.lib import modgvec_py_run as _run
+from gvec.lib import modgvec_py_state as _state
 
 # === Globals === #
 
@@ -857,6 +857,99 @@ class State:
         return evaluate_sfl(
             self, *quantities, rho=rho, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
         )
+
+    def plot_radial_profile(
+        self,
+        quantities: str | list = ["iota", "p", "I_tor", "I_pol"],
+        nrho: int | np.ndarray = 100,
+        subplot_grid: list | None = None,
+        xaxis="rho",
+        post_process: dict | None = None,
+    ):
+        from gvec.plotting.plots1d import plot_radial_profile
+
+        return plot_radial_profile(self, quantities, nrho, subplot_grid, xaxis, post_process)
+
+    def plot_on_axis(
+        self,
+        quantities: str | list = "mod_B",
+        nzeta: int | np.ndarray = 51,
+        subplot_grid: list | None = None,
+    ):
+        from gvec.plotting.plots1d import plot_on_axis
+
+        return plot_on_axis(self, quantities, nzeta, subplot_grid)
+
+    def plot_poloidal_plane(
+        self,
+        quantity: str = "mod_B",
+        /,
+        nrho: int = 21,
+        ntheta: int = 51,
+        zeta: int | float | np.ndarray = 9,
+        subplot_grid: list | None = None,
+        share_axis: bool = False,
+        st_contours: list = [0, 0],
+        theta_contour_style: str = "theta",
+    ):
+        from gvec.plotting.plots2d import plot_poloidal_plane
+
+        return plot_poloidal_plane(
+            self,
+            quantity,
+            nrho,
+            ntheta,
+            zeta,
+            subplot_grid,
+            share_axis,
+            st_contours,
+            theta_contour_style,
+        )
+
+    def plot_on_flux_surface(
+        self,
+        quantities: str | list[str] = "mod_B",
+        rho: float | np.ndarray | list = 1.0,
+        ntheta: int = 11,
+        nzeta: int = 11,
+        subplot_grid: list | None = None,
+        share_axis: bool = True,
+        levels: int | np.ndarray = 10,
+        sfl: Literal["pest", "boozer"] | None = "boozer",
+        filled_contours=False,
+    ):
+        from gvec.plotting.plots2d import plot_on_flux_surface
+
+        return plot_on_flux_surface(
+            self,
+            quantities,
+            rho,
+            ntheta,
+            nzeta,
+            subplot_grid,
+            share_axis,
+            levels,
+            sfl,
+            filled_contours,
+        )
+
+    def plot_3d_surface(
+        self,
+        rho: float,
+        ntheta: int,
+        nzeta: int,
+        quantity: str = "mod_B",
+        full_surface=False,
+        to_file: str | None = None,
+    ):
+        from gvec.plotting.plots3d import plot_3d_surface
+
+        return plot_3d_surface(self, rho, ntheta, nzeta, quantity, full_surface, to_file)
+
+    def plot_boundary(self, nzeta, ntheta, quantity="mod_B", full_surface=True, to_file=None):
+        from gvec.plotting.plots3d import plot_boundary
+
+        return plot_boundary(self, nzeta, ntheta, quantity, full_surface, to_file)
 
 
 # === Functions === #

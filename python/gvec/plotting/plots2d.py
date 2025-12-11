@@ -156,13 +156,8 @@ def plot_poloidal_plane(
         f.tight_layout()
 
     # Adding colourbar
-    colourbar_axis = f.add_axes([0.85, 0.15, 0.05, 0.7])
-    # Colourbar starts at 0.85
-    f.subplots_adjust(right=0.83)
-
     evaluations = _symbol_check(evaluations, [quantity])
-
-    f.colorbar(f_ax, cax=colourbar_axis, label=f"${evaluations[quantity].symbol}$")
+    f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
 
     return f, axs
 
@@ -310,10 +305,6 @@ def plot_on_flux_surface(
 
     if isinstance(quantities, str):
         # Adding colourbar if single quantity was requested
-        colourbar_axis = f.add_axes([0.85, 0.15, 0.05, 0.7])
-        # Colourbar starts at 0.85
-        f.subplots_adjust(right=0.83)
-
-        f.colorbar(f_ax, cax=colourbar_axis, label=f"${evaluations[quantity].symbol}$")
+        f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
 
     return f, axs

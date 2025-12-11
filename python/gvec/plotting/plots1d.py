@@ -105,7 +105,7 @@ def plot_radial_profile(
 
 
 def plot_on_axis(
-    state,
+    state: State,
     quantities: str | list = "mod_B",
     nzeta: int | ndarray = 51,
     subplot_grid: list | None = None,

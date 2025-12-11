@@ -76,6 +76,6 @@ def _subplots(subplot_grid, **kwargs):
     nrow = subplot_grid[0]
     ncol = subplot_grid[1]
 
-    f, ax = plt.subplots(nrow, ncol, **kwargs)
+    f, ax = plt.subplots(nrow, ncol, layout="constrained", **kwargs)
     ax = np.asarray(ax).flatten()
     return f, ax
