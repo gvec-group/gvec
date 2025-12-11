@@ -31,10 +31,18 @@ def _extrapolate_axis(state, quantities, zeta):
 
 def _symbol_check(evaluations, quantities):
     for quantity in quantities:
-        symbol = evaluations[quantity].symbol
+        # If symbol is not present use the quantity
+        if "symbol" in evaluations[quantity].attrs:
+            symbol = evaluations[quantity].symbol
+        else:
+            # Since it will be tex-ified make sure it will show as a string correctly
+            symbol = "\\mathrm{" + quantity + "}"
+
         if "\\text" in symbol:
+            # there may be issues with \\text if amsmath is not loaded
             symbol = symbol.replace("\\text", "\\mathrm")
         evaluations[quantity].attrs["symbol"] = symbol
+
     return evaluations
 
 
