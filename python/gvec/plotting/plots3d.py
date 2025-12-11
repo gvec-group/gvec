@@ -16,29 +16,28 @@ def plot_3d_surface(
     to_file: str | None = None,
 ):
     """
-    Generate a 3D surface plot with the quantity provided by `equilibrium_quantity` on it at a given `rho` position.
+    Generate a 3D surface plot with the quantity provided by `quantity` on it at a given `rho` position and
+    poloidal and toroidal resolution `ntheta` and `nzeta`.
 
     Parameters
     ----------
     state : GVEC state file
     rho : float
-        Radial position of the surface
+        Radial position of the surface.
     ntheta : int
-        Poloidal resolution
+        Poloidal resolution.
     nzeta : int
-        Toroidal resolution
-    equilibrium_quantity : String, optional
-        default is "mod_B"
+        Toroidal resolution.
+    quantity : str, optional
+        Equilibrium quantity to plot on the surface.
+        Default is "mod_B".
     to_file : str
         If a string, will automatically save the plot to a file with the given input in the current working directory. Recommended to use this if the plots don't display.
-        default is None
+        Default is `None`
 
     Returns
     -------
     `plotly.plot` object
-
-
-    plot a 3D surface at a given rho. By default plots the exterior boundary
     """
     import plotly.offline as plotly_offline
     from plotly import graph_objects

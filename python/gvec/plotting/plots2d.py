@@ -4,7 +4,6 @@ from typing import Literal
 from warnings import warn
 
 import numpy as np
-from numpy import ndarray  # type checking
 
 from gvec.core.state import State
 from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
@@ -16,11 +15,11 @@ def plot_poloidal_plane(
     /,
     nrho: int = 21,
     ntheta: int = 51,
-    zeta: int | float | ndarray = 9,
-    subplot_grid: list | None = None,
+    zeta: int | float | np.ndarray = 9,
+    subplot_grid: list[int] | None = None,
     share_axis: bool = False,
-    st_contours: list = [0, 0],
-    theta_contour_style: str = "theta",
+    st_contours: list[int] = [0, 0],
+    theta_contour_style: Literal["theta", "theta_star"] = "theta",
 ):
     """
     plot_poloidal_plane
@@ -33,22 +32,26 @@ def plot_poloidal_plane(
     quantity : str, optional
         The quantity to plot. Default is "mod_B"
     nrho : int, optional
-        The radial resolution of the slices. Default is 51
+        The radial resolution of the slices.
+        Default is `51`
     ntheta : int, optional
-        The poloidal resolution of the slices. Default is 51
+        The poloidal resolution of the slices.
+        Default is `51`
     zeta : int, float, ndarray, optional
-        Poloidal slices to plot. Default is 9.
-        - int: Number of equally spaced slices.
-        - float: The specific slice.
-        - ndarray: The specific slices.
-    subplot_grid : list, None, optional
-        The grid shape for the subplots. If `None`, grid will be automatically determined. Default is `None`.
+        The number of equally spaced slices (int), the specific `zeta` value (float) or values (np.ndarray).
+        Default is `9`.
+    subplot_grid : list[int], None, optional
+        The grid shape for the subplots. If `None`, grid will be automatically determined.
+        Default is `None`.
     share_axis : bool
-        If true, all subplots will share their `X1` and `X2` axis positions.
-    st_contours : list
+        If `True`, all subplots will share their `X1` and `X2` axis positions.
+        Default `False`
+    st_contours : list[int]
         Number of ``$\theta$`` and ``$\zeta$`` contours to plot.
+        Default `[0,0]`
     theta_contour_style : str
-        Either `"theta"` or `"theta_star"`.
+        Contours of `theta` should be either `"theta"` or `"theta_star"`.
+        Default `"theta"`.
 
     Returns
     -------
@@ -165,14 +168,14 @@ def plot_poloidal_plane(
 def plot_on_flux_surface(
     state: State,
     quantities: str | list[str] = "mod_B",
-    rho: float | ndarray | list = 1.0,
+    rho: float | np.ndarray | list = 1.0,
     ntheta: int = 11,
     nzeta: int = 11,
-    subplot_grid: list | None = None,
+    subplot_grid: list[int] | None = None,
     share_axis: bool = True,
-    levels: int | ndarray = 10,
+    levels: int | np.ndarray | list = 10,
     sfl: Literal["pest", "boozer"] | None = "boozer",
-    filled_contours=False,
+    filled_contours: bool = False,
 ):
     """
     Plot an equilibrium quantity over the two angles $(\\vartheta, \\zeta)$ of a flux surface at (a) given `rho` value(s). Alternatively, plot
@@ -184,32 +187,35 @@ def plot_on_flux_surface(
     quantities: str, list[str], optional
         Plot either a single quantitiy on a number of `rho` surfaces or a number of `quantities` on a single `rho` surface.
         Default `mod_B`
-    rho : float, numpy.ndarray, optional
-        The flux surface label(s) to plot. Default is 1.0.
+    rho : float, numpy.ndarray, list, optional
+        The flux surface label(s) to plot.
+        Default is `1.0`.
     ntheta : int
-        Default is 11
+        Resolution in `theta`.
+        Default is `11`
     nzeta : int
-        Default is 11
-    subplot_grid : list, optional
-        The grid shape for the subplots. If `None`, grid will be automatically determined. Default is `None`.
+        Resolution in `zeta`.
+        Default is `11`
+    subplot_grid : list[int], optional
+        The grid shape for the subplots. If `None`, grid will be automatically determined.
+        Default is `None`.
     share_axis : bool, optional
-        If true, all subplots will share their `x` and `y` axes.
+        If `True`, all subplots will share their `x` and `y` axes.
         Default `True`.
     levels : int, numpy.ndarray, optional
-        If `int` then chooses number of levels in the contour plot.
-        If an `numpy.ndarray` then plots contours at given values.
+        If `int` then chooses number of levels in the contour plot. If an `numpy.ndarray` or `list` then plots contours at given values.
         Default is `10`
     sfl : str
         Plot surfaces in `"boozer"`, `"pest"` or regular ``$\theta-\zeta$`` coordinates.
         Default is `"boozer"`
     filled_contours : bool
         Use `contour` (False) or `contourf` (True) in plotting.
-        Default is `False` (filled contour)
+        Default is `False` (filled contour).
 
 
     Returns
     -------
-    `matplotlib.pyplot.figure` object
+    `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
     """
 
     if isinstance(rho, int) or isinstance(rho, float):

@@ -1,10 +1,10 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
+from typing import Literal
 from warnings import warn
 
 # import matplotlib.pyplot as pyplot
 import numpy as np
-from numpy import ndarray  # type checking
 
 from gvec.core.state import State
 from gvec.plotting.utils import (
@@ -51,11 +51,10 @@ def _plot_line_quantities_from_xarray(
 
 def plot_radial_profile(
     state: State,
-    quantities: str | list = ["iota", "p", "I_tor", "I_pol"],
-    nrho: int | ndarray = 100,
-    subplot_grid: list | None = None,
-    xaxis="rho",
-    post_process: dict | None = None,
+    quantities: str | list[str] = ["iota", "p", "I_tor", "I_pol"],
+    nrho: int | np.ndarray = 100,
+    subplot_grid: list[int] | None = None,
+    xaxis: Literal["rho", "rho_squared"] = "rho",
 ):
     """
     Plot the radial profile of given equilibrium quantities.
@@ -63,16 +62,17 @@ def plot_radial_profile(
     Parameters
     ----------
     state : GVEC state file
-    quantities : str, list, optional
+    quantities : str, list[str], optional
         Default is `["iota","p","I_tor","I_pol"]`.
     nrho : int, numpy.ndarray
         The number of or specific 1D array of radial points to plot at.
         Default is `100`
-    subplot_grid : list, None, optional
+    subplot_grid : list[int], None, optional
         The grid shape for the subplots. If `None`, grid will be automatically determined.
         Default is `None`.
     xaxis : `"rho"` or `"rho_squared"`, optional
-        What quantity to plot on the x axis. Default is `"rho"`.
+        What quantity to plot on the x axis.
+        Default is `"rho"`.
 
     Returns
     -------
@@ -106,9 +106,9 @@ def plot_radial_profile(
 
 def plot_on_axis(
     state: State,
-    quantities: str | list = "mod_B",
-    nzeta: int | ndarray = 51,
-    subplot_grid: list | None = None,
+    quantities: str | list[str] = "mod_B",
+    nzeta: int | np.ndarray = 51,
+    subplot_grid: list[int] | None = None,
 ):
     """
     Plot a equilibrium quantity (or list of) along the magnetic axis.
@@ -116,13 +116,13 @@ def plot_on_axis(
     Parameters
     ----------
     state : GVEC State file
-    quantities : str, list, optional
+    quantities : str, list[str], optional
         Default is "mod_B".
-    nzeta : int, ndarray, optional
+    nzeta : int, numpy.ndarray, optional
         $\zeta$ resolution or array of points to plot at.
         Default is `51`.
-    subplot_grid : list, None, optional
-        The grid shape for the subplots. If `None`, grid will be automatically determined.
+    subplot_grid : list[int], None, optional
+        The grid shape of `[nrow,ncol]` for the subplots. If `None`, grid will be automatically determined.
         Default is `None`.
 
     Returns
