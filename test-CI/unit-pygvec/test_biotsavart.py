@@ -2,11 +2,13 @@ import pytest
 
 try:
     import numpy as np
-    import xarray as xr
+    from typing import Literal
     from gvec.coils import Coil, CoilSet
     import tempfile
     from scipy.constants import mu_0
     from scipy.special import ellipk, ellipe
+
+    rng = np.random.default_rng(0)
 except ImportError:
     pytest.skip("Import Error", allow_module_level=True)
 
@@ -31,6 +33,11 @@ def circular_coil_A(r, theta, phi, R, coil_current):
         Coil radius
     coil_current : float
         Coil current
+
+    Returns
+    -------
+    np.ndarray
+        A in Cartesian coordiantes.
     """
     k_2 = 4 * R * r * np.sin(theta) / (R**2 + r**2 + 2 * R * r * np.sin(theta))
 
@@ -48,6 +55,57 @@ def circular_coil_A(r, theta, phi, R, coil_current):
     return A
 
 
+def circular_coil_B(r, theta, phi, R, coil_current):
+    """Magnetic field of a circular coil in the xy plane
+
+    Parameters
+    ----------
+    r : ArrayLike
+        Spherical radius.
+    theta : ArrayLike
+        Polar angle
+    phi : ArrayLike
+        Azimuthal angle
+    R : float
+        Coil radius
+    coil_current : float
+        Coil current
+
+    Returns
+    -------
+    np.ndarray
+        B in Cartesian coordiantes.
+    """
+
+    prefactor = mu_0 * coil_current / np.pi
+    alpha_2 = R**2 + r**2 - 2 * R * r * np.sin(theta)
+    beta_2 = R**2 + r**2 + 2 * R * r * np.sin(theta)
+    beta = np.sqrt(beta_2)
+
+    k_2 = 1 - alpha_2 / beta_2
+
+    B_r = prefactor * R**2 * np.cos(theta) / (alpha_2 * beta) * ellipe(k_2)
+    B_theta = (
+        prefactor
+        / (2 * alpha_2 * beta * np.sin(theta))
+        * ((r**2 + R**2 * np.cos(2 * theta)) * ellipe(k_2) - alpha_2 * ellipk(k_2))
+    )
+
+    e_r = np.zeros([3, len(r)])
+    e_r[0, :] = np.sin(theta) * np.cos(phi)
+    e_r[1, :] = np.sin(theta) * np.sin(phi)
+    e_r[2, :] = np.cos(theta)
+
+    e_theta = np.zeros([3, len(r)])
+    e_theta[0, :] = np.cos(theta) * np.cos(phi)
+    e_theta[1, :] = np.cos(theta) * np.sin(phi)
+    e_theta[2, :] = -np.sin(theta)
+
+    B = B_r * e_r + B_theta * e_theta
+
+    return B
+
+
 def create_circular_coil(radius, current, n_coilpoints, shift=0):
     phi = np.linspace(0, 2 * np.pi, n_coilpoints, endpoint=True)
     coil_points = np.zeros((3, n_coilpoints))
@@ -58,7 +116,7 @@ def create_circular_coil(radius, current, n_coilpoints, shift=0):
     return circ_coil
 
 
-def test_BiotSavart_B_circular_coil():
+def test_BiotSavart_B_axis_circular_coil():
     n_coilpoints = 10000
     n_evals = 1000
     coil_radius = 1
@@ -76,7 +134,7 @@ def test_BiotSavart_B_circular_coil():
     np.testing.assert_allclose(ds.mod_B, mod_B_analytic)
 
 
-def test_BiotSavart_B_circular_coil_set():
+def test_BiotSavart_B_axis_circular_coil_set():
     n_coilpoints = 10000
     n_evals = 1000
     coil_radius = 1
@@ -108,8 +166,7 @@ def test_BiotSavart_A_circular_coil():
     coil_radius = 1
     coil_current = 1
     circ_coil = create_circular_coil(coil_radius, coil_current, n_coilpoints)
-    np.random.seed(0)
-    pos = np.random.uniform(-0.8, 0.8, [3, n_evals])
+    pos = rng.uniform(-0.8, 0.8, [3, n_evals])
 
     r = np.sqrt(np.sum(pos**2, axis=0))
     theta = np.arccos(pos[2, :] / r)
@@ -123,6 +180,25 @@ def test_BiotSavart_A_circular_coil():
     np.testing.assert_allclose(ds.mod_A, mod_A_analytic)
 
 
+def test_BiotSavart_B_circular_coil():
+    n_coilpoints = 50000
+    n_evals = 1000
+    coil_radius = 1
+    coil_current = 1
+    circ_coil = create_circular_coil(coil_radius, coil_current, n_coilpoints)
+    pos = rng.uniform(-0.8, 0.8, [3, n_evals])
+
+    r = np.sqrt(np.sum(pos**2, axis=0))
+    theta = np.arccos(pos[2, :] / r)
+    phi = np.sign(pos[1, :] * np.arccos(pos[0, :] / np.sqrt(pos[0, :] ** 2, pos[1, :] ** 2)))
+
+    B = circular_coil_B(r=r, theta=theta, phi=phi, R=coil_radius, coil_current=coil_current)
+    mod_B_analytic = np.sqrt(np.sum(B**2, axis=0))
+    ds = circ_coil.eval_mod_B(pos)
+
+    np.testing.assert_allclose(ds.mod_B, mod_B_analytic)
+
+
 def test_BiotSavart_A_circular_coil_set():
     n_coilpoints = 50000
     n_evals = 1000
@@ -132,7 +208,7 @@ def test_BiotSavart_A_circular_coil_set():
 
     circ_coils = []
     A_analytic = 0.0
-    pos = np.random.uniform(-0.8, 0.8, [3, n_evals])
+    pos = rng.uniform(-0.8, 0.8, [3, n_evals])
     pos_aux = pos.copy()
     for shift in range(n_coils):
         circ_coils.append(
@@ -157,6 +233,41 @@ def test_BiotSavart_A_circular_coil_set():
 
     assert np.all(abs(ds.A.sel(xyz=["z"])) <= 1e-12)
     np.testing.assert_allclose(ds.mod_A, mod_A_analytic)
+
+
+def test_BiotSavart_B_circular_coil_set():
+    n_coilpoints = 50000
+    n_evals = 1000
+    coil_radius = 1
+    coil_current = 1
+    n_coils = 10
+
+    circ_coils = []
+    B_analytic = 0.0
+    pos = rng.uniform(-0.8, 0.8, [3, n_evals])
+    pos_aux = pos.copy()
+    for shift in range(n_coils):
+        circ_coils.append(
+            create_circular_coil(coil_radius, coil_current, n_coilpoints, shift=shift)
+        )
+
+        pos_aux[2, :] = pos[2, :] - shift
+        r = np.sqrt(np.sum(pos_aux**2, axis=0))
+        theta = np.arccos(pos_aux[2, :] / r)
+        phi = np.sign(
+            pos_aux[1, :]
+            * np.arccos(pos_aux[0, :] / np.sqrt(pos_aux[0, :] ** 2, pos_aux[1, :] ** 2))
+        )
+        B_analytic += circular_coil_B(
+            r=r, theta=theta, phi=phi, R=coil_radius, coil_current=coil_current
+        )
+
+    circ_coil_set = CoilSet(circ_coils)
+
+    mod_B_analytic = np.sqrt(np.sum(B_analytic**2, axis=0))
+    ds = circ_coil_set.eval_mod_B(pos)
+
+    np.testing.assert_allclose(ds.mod_B, mod_B_analytic)
 
 
 def test_coil_save_and_load():
