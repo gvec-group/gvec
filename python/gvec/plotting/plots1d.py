@@ -1,19 +1,18 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 from warnings import warn
 
-import matplotlib.pyplot as pyplot
-from numpy import any, isnan, ndarray, prod
+# import matplotlib.pyplot as pyplot
+import numpy as np
+from numpy import ndarray  # type checking
 
 from gvec.core.state import State
-
-from .utils import (
-    _add_postprocess_to_xarray,
+from gvec.plotting.utils import (
     _design_subgrid,
     _extrapolate_axis,
-    _get_coord_range,
     _subplots,
+    _symbol_check,
 )
-
-pyplot.rcParams.update({"text.usetex": True})
 
 
 def _plot_line_quantities_from_xarray(
@@ -28,7 +27,11 @@ def _plot_line_quantities_from_xarray(
     link_xaxis = True
     hide_inner_axis = True
 
-    f, axs = _subplots(subplot_grid[0], subplot_grid[1], sharex=link_xaxis)
+    if subplot_grid is None:
+        # If subplot_grid not predetermined we will work it out
+        subplot_grid = _design_subgrid(len(quantities))
+
+    f, axs = _subplots(subplot_grid, sharex=link_xaxis)
 
     for i, quantity in enumerate(quantities):
         axs[i].plot(
@@ -41,16 +44,16 @@ def _plot_line_quantities_from_xarray(
 
         # If there are multiple plots we need to set the x-axis labels only on the bottom row
         if (hide_inner_axis) & (i - len(axs) + subplot_grid[1] >= 0):
-            axs[i].set_xlabel(xlabel)
+            axs[i].set_xlabel(f"${xlabel}$")
 
     return f, axs
 
 
 def plot_radial_profile(
     state: State,
-    nrho: int | ndarray = 100,
     quantities: str | list = ["iota", "p", "I_tor", "I_pol"],
-    subplot_grid: list = [2, 2],
+    nrho: int | ndarray = 100,
+    subplot_grid: list | None = None,
     xaxis="rho",
     post_process: dict | None = None,
 ):
@@ -59,21 +62,17 @@ def plot_radial_profile(
 
     Parameters
     ----------
-    state: GVEC state file
-    nrho: int, numpy.ndarray
-        The number of or specific 1D array of radial points to plot at. Default `100`
-    quantities: str, list, optional
+    state : GVEC state file
+    quantities : str, list, optional
         Default is `["iota","p","I_tor","I_pol"]`.
-    subplot_grid: list, optional
-        The grid shape for the subplots. If not provided, the subplot grid will be determined automatically.
-        Default is `[2,2]`.
-    xaxis: `"rho"` or `"rho_squared"`, optional
-        What quantity to plot on the x axis. Default is `"rho"`.
-    post_process: dict, optional
-        `post_process` must be a dict with
-            `post_process["quantity to remap"] = {"function": <function>, "name": "new quantity name", "symbol": "new quantity symbol"}`
-        The <function> _must_ return a 1D array.
+    nrho : int, numpy.ndarray
+        The number of or specific 1D array of radial points to plot at.
+        Default is `100`
+    subplot_grid : list, None, optional
+        The grid shape for the subplots. If `None`, grid will be automatically determined.
         Default is `None`.
+    xaxis : `"rho"` or `"rho_squared"`, optional
+        What quantity to plot on the x axis. Default is `"rho"`.
 
     Returns
     -------
@@ -84,16 +83,13 @@ def plot_radial_profile(
         # If plotting a single quantity convert it to a list
         quantities = [quantities]
 
-    rho = _get_coord_range("rho", state.nfp, nrho)
-    theta = _get_coord_range("theta", state.nfp, 0.0)
-    zeta = _get_coord_range("zeta", state.nfp, 0.0)
+    evaluations = state.evaluate(*quantities, rho=nrho, theta=0.0, zeta=0.0)
 
-    ev = state.evaluate(*quantities, rho=rho, theta=theta, zeta=zeta)
+    evaluations = evaluations.sel(theta=0.0).sel(zeta=0.0)
 
-    if isinstance(post_process, dict):
-        ev, quantities = _add_postprocess_to_xarray(ev, quantities, post_process)
+    evaluations = _symbol_check(evaluations, quantities)
 
-    ev = ev.sel(theta=0.0).sel(zeta=0.0)
+    rho = evaluations.rho.data
 
     if xaxis == "rho_squared":
         xlabel = "$\\rho^2$"
@@ -103,38 +99,30 @@ def plot_radial_profile(
     else:
         raise ValueError("xaxis must be 'rho' or 'rho_squared'.")
 
-    if prod(subplot_grid) != len(quantities):
-        subplot_grid = _design_subgrid(len(quantities))
-        warn("subplot_grid cannot fit the number of quantities, updating grid to fit.")
-
-    f_ax = _plot_line_quantities_from_xarray(ev, rho, quantities, subplot_grid, xlabel)
+    f_ax = _plot_line_quantities_from_xarray(evaluations, rho, quantities, subplot_grid, xlabel)
 
     return f_ax
 
 
 def plot_on_axis(
     state,
-    nzeta: int | ndarray = 51,
     quantities: str | list = "mod_B",
-    subplot_grid: list = [1, 1],
-    post_process: dict = None,
+    nzeta: int | ndarray = 51,
+    subplot_grid: list | None = None,
 ):
     """
     Plot a equilibrium quantity (or list of) along the magnetic axis.
 
     Parameters
     ----------
-    state: GVEC State file
-    nzeta: int, ndarray, optional
-        $\zeta$ resolution or array of points to plot at. Default 51.
-    quantities: str, list, optional
+    state : GVEC State file
+    quantities : str, list, optional
         Default is "mod_B".
-    subplot_grid: list, conditionally optional
-        The grid shape for the subplots. Default is `[1,1]`. Required if `len(rho)>1`.
-    post_process: dict, optional
-        `post_process` must be a dict with
-            `post_process["quantity to remap"] = {"function": <function>, "name": "new quantity name", "symbol": "new quantity symbol"}`
-        The <function> _must_ return a 1D array.
+    nzeta : int, ndarray, optional
+        $\zeta$ resolution or array of points to plot at.
+        Default is `51`.
+    subplot_grid : list, None, optional
+        The grid shape for the subplots. If `None`, grid will be automatically determined.
         Default is `None`.
 
     Returns
@@ -145,21 +133,18 @@ def plot_on_axis(
         # If plotting a single quantity convert it to a list
         quantities = [quantities]
 
-    zeta = _get_coord_range("zeta", state.nfp, nzeta)
-
     # Use quadratic extrapolation to obtain values on axis.
-    evaluations = _extrapolate_axis(state, quantities, zeta)
+    evaluations = _extrapolate_axis(state, quantities, nzeta)
 
-    if isinstance(post_process, dict):
-        evaluations, quantities = _add_postprocess_to_xarray(
-            evaluations, quantities, post_process
-        )
+    evaluations = _symbol_check(evaluations, quantities)
 
     # Since some derived quantities are not defined on axis we will
     # check if there are any NaNs in the dataset
     for quantity in quantities:
-        if any(isnan(evaluations[quantity].data)):
+        if np.any(np.isnan(evaluations[quantity].data)):
             warn(f"{quantity} has NaNs despite running just off axis.")
+
+    zeta = evaluations.zeta.data
 
     f, axs = _plot_line_quantities_from_xarray(
         evaluations, zeta, quantities, subplot_grid, "$\zeta$"
