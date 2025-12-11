@@ -49,18 +49,18 @@ def plot_3d_surface(
 
     zeta = np.linspace(0.0, 2 * np.pi / nfp, nzeta)
 
-    ev = state.evaluate(quantity, rho=[rho], theta=ntheta, zeta=zeta).sel(rho=rho)
+    evaluation = state.evaluate(quantity, rho=[rho], theta=ntheta, zeta=zeta).sel(rho=rho)
 
-    # if existing_plot is None:
     plt = graph_objects.Figure()
-    # else:
-    # plt = existing_plot
+
     plt.add_trace(
         graph_objects.Surface(
-            x=ev.pos.sel(xyz="x"),
-            y=ev.pos.sel(xyz="y"),
-            z=ev.pos.sel(xyz="z"),
-            surfacecolor=ev[quantity],
+            x=evaluation.pos.sel(xyz="x"),
+            y=evaluation.pos.sel(xyz="y"),
+            z=evaluation.pos.sel(xyz="z"),
+            surfacecolor=evaluation[quantity],
+            # colorbar_title_text=f"${evaluation[quantity].attrs['symbol']}$",
+            # colorbar_title_text=f"${evaluation[quantity].attrs.get('symbol', quantity)}$",
             colorbar_title_text=quantity,
         )
     )

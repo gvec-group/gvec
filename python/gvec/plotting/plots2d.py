@@ -230,6 +230,7 @@ def plot_on_flux_surface(
     if isinstance(quantities, str):
         quantities_eval = [quantities]
         nplots = rho_len
+        share_axis = False
     elif isinstance(quantities, list):
         quantities_eval = quantities
         nplots = len(quantities)
@@ -265,9 +266,19 @@ def plot_on_flux_surface(
         else:
             contour_method = ax.contour
 
+        if sfl == "boozer":
+            theta_vals = evaluations_i.theta_B
+            zeta_vals = evaluations_i.zeta_B
+        elif sfl == "pest":
+            theta_vals = evaluations_i.theta_P
+            zeta_vals = evaluations_i.zeta
+        else:
+            theta_vals = evaluations_i.theta
+            zeta_vals = evaluations_i.zeta
+
         f_ax = contour_method(
-            evaluations_i.theta.data,
-            evaluations_i.zeta.data,
+            theta_vals.data,
+            zeta_vals.data,
             evaluations_i[quantity].transpose("pol", "tor").data,
             levels=levels,
         )
@@ -290,6 +301,9 @@ def plot_on_flux_surface(
         if isinstance(quantities, list):
             f.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
 
+        ax.set(
+            xlabel=f"${theta_vals.attrs['symbol']}$", ylabel=f"${zeta_vals.attrs['symbol']}$"
+        )
         if share_axis:
             # Removes any axis labels on subplots on the interior of the grid
             ax.label_outer()
