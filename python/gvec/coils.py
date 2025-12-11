@@ -1,4 +1,3 @@
-import os
 from collections.abc import Iterable
 from logging import getLogger
 from pathlib import Path
@@ -167,6 +166,7 @@ class Coil:
             n_positions=n_positions,
             xyz=pos,
             n_points=self.n_points,
+            n_segments=self.n_points - 1,
             coil_points=self.coil_points,
             ehat=self.e_hat_vec,
             l=self.L,
@@ -420,11 +420,12 @@ class CoilSet(Coil):
                 n_positions=n_positions,
                 xyz=pos,
                 n_points=coil.n_points,
+                n_segments=coil.n_points - 1,
                 coil_points=coil.coil_points,
+                ehat=coil.e_hat_vec,
+                l=coil.L,
                 prefactor=coil.prefactor,
-                ehat=self.e_hat_vec,
-                l=self.L,
-                b=A_aux,
+                a=A_aux,
             )
             ds.A[:, :] += A_aux
             A_aux *= 0.0
@@ -702,7 +703,6 @@ def trace_fieldlines(
     solves = []
     logger.info("Tracing fieldlines using n_jobs=%d", n_jobs)
     if n_jobs > 1:  # embarrassingly parallel over fieldlines
-        os.environ["OMP_NUM_THREADS"] = "1"
         with parallel_config(n_jobs=n_jobs):
             solves = ProgressParallel(total=starts.shape[1])(
                 delayed(solve_ivp)(
