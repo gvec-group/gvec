@@ -272,17 +272,20 @@ def plot_on_flux_surface(
             levels=levels,
         )
         if isinstance(quantities, list):
+            plot_label = f"${evaluations_i[quantity].attrs['symbol']}$"
+        else:
+            plot_label = f"$\\rho={evaluations.rho.data[i]}$"
             # Specify the quantity type in the top right corner if multiple quantities were requested
-            ax.annotate(
-                f"${evaluations_i[quantity].attrs['symbol']}$",
-                xy=(1, 1),
-                xycoords="axes fraction",
-                xytext=(-0.6, -0.6),
-                textcoords="offset fontsize",
-                verticalalignment="top",
-                horizontalalignment="right",
-                bbox=dict(facecolor="white", edgecolor="black"),
-            )
+        ax.annotate(
+            plot_label,
+            xy=(1, 1),
+            xycoords="axes fraction",
+            xytext=(-0.6, -0.6),
+            textcoords="offset fontsize",
+            verticalalignment="top",
+            horizontalalignment="right",
+            bbox=dict(facecolor="white", edgecolor="black"),
+        )
 
         if isinstance(quantities, list):
             f.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
