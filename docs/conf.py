@@ -150,7 +150,9 @@ mathjax3_config = {
 
 # options for myst_nb notebook parser
 nb_merge_streams = True
-
+html_js_files = [
+    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
+]  # for interactive plotly
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
