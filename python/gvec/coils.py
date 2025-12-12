@@ -51,6 +51,61 @@ def _stack_for_BiotSavart(ds: xr.Dataset | xr.DataArray):
         return ds
 
 
+def _pos2dataarray(pos: ArrayLike):
+    """Check if pos has the proper size and stack it if it originates from an ev dataset.
+
+    Parameters
+    ----------
+    pos : ArrayLike
+        Position array in xyz.
+
+    Returns
+    -------
+    pos: xr.DataArray, stacked: bool
+        pos-array and flag to indicate that it has been stacked
+
+    Raises
+    ------
+    ValueError
+        If the shape of the array is not as expected.
+    """
+    stacked = False
+    if not isinstance(pos, xr.DataArray):
+        pos = _pos_atleast_2D(pos)
+        pos = xr.DataArray(
+            pos,
+            dims=("xyz", "points"),
+            coords={"xyz": ("xyz", ["x", "y", "z"])},
+            attrs=dict(long_name="position vector", symbol=r"\mathbf{x}"),
+        )
+    else:
+        pos = _stack_for_BiotSavart(pos)
+        stacked = True
+
+    if (pos.ndim > 2) or (pos.shape[0] != 3):
+        raise ValueError(
+            f"pos.ndim > 2! Expected array of shape (3,n_positions), but got shape {pos.shape}."
+        )
+
+    return pos, stacked
+
+
+def _unstack_BS_ds(ds):
+    ds = ds.unstack("points")
+    for dimname, actual_dimname in zip(["rho", "theta", "zeta"], ["rad", "pol", "tor"]):
+        if dimname in ds.dims:
+            ds = ds.rename_dims({dimname: actual_dimname})
+    return ds
+
+
+def _pos_atleast_2D(pos):
+    """Reshape position vector of shape (3,) to (3,1)"""
+    pos = np.asanyarray(pos)  # similar to np.atleast_2d, transform pos into a numpy array
+    if pos.ndim == 1:
+        pos = pos.reshape(-1, 1)
+    return pos
+
+
 class Coil:
     def __init__(self, coil_points: ArrayLike, coil_current: float):
         """Filament coil discretized via straight line segments.
@@ -63,12 +118,15 @@ class Coil:
             Current flowing in the coil in [A].
         """
         if not isinstance(coil_points, xr.DataArray):
-            coil_points = np.atleast_2d(coil_points)
-            self.coil_points = xr.DataArray(
+            coil_points = np.asanyarray(coil_points)
+            coil_points = xr.DataArray(
                 coil_points, dims=("xyz", "points"), coords={"xyz": ("xyz", ["x", "y", "z"])}
             )
-        else:
-            self.coil_points = coil_points
+        if (coil_points.ndim > 2) or (coil_points.shape[0] != 3):
+            raise ValueError(
+                f"Expected  coil_points of shape (3, n_points) but got {coil_points.shape}!"
+            )
+        self.coil_points = coil_points
         self.coil_current = coil_current
         self.n_points = self.coil_points.shape[1]
         self.e_vec = self.coil_points[:, 1:] - self.coil_points[:, :-1]
@@ -103,25 +161,17 @@ class Coil:
         xr.Dataset
             Dataset containing the magnetic field at the evaluation positions.
         """
-        if not isinstance(pos, xr.DataArray):
-            pos = np.asanyarray(pos)
-            if pos.ndim == 1:
-                pos = pos.reshape(-1, 1)
-            pos = xr.DataArray(
-                pos,
-                dims=("xyz", "points"),
-                coords={"xyz": ("xyz", ["x", "y", "z"])},
-                attrs=dict(long_name="position vector", symbol=r"\mathbf{x}"),
-            )
+        pos, stacked = _pos2dataarray(pos)
+
         n_positions = pos.shape[1]
 
         B = np.asfortranarray(np.zeros(pos.shape))
 
         _BS.biotsavart(
             n_positions=n_positions,
-            xyz=pos,
+            xyz=np.asfortranarray(pos),
             n_points=self.n_points,
-            coil_points=self.coil_points,
+            coil_points=np.asfortranarray(self.coil_points),
             prefactor=self.prefactor,
             b=B,
         )
@@ -133,6 +183,10 @@ class Coil:
         ds["pos"] = pos
 
         ds.B.attrs = dict(long_name="magnetic coil field", symbol=r"\mathbf{B}_C")
+
+        if stacked:
+            ds = _unstack_BS_ds(ds)
+
         return ds
 
     def eval_A(self, pos: ArrayLike):
@@ -148,28 +202,25 @@ class Coil:
         xr.Dataset
             Dataset containing the vector potential at the evaluation positions.
         """
-        if not isinstance(pos, xr.DataArray):
-            pos = np.asanyarray(pos)
-            if pos.ndim == 1:
-                pos = pos.reshape(-1, 1)
-            pos = xr.DataArray(
-                pos,
-                dims=("xyz", "points"),
-                coords={"xyz": ("xyz", ["x", "y", "z"])},
-                attrs=dict(long_name="position vector", symbol=r"\mathbf{x}"),
+        pos, stacked = _pos2dataarray(pos)
+
+        if (pos.ndim > 2) or (pos.shape[0] != 3):
+            raise ValueError(
+                f"pos.ndim > 2! Expected array of shape (3,n_positions), but got shape {pos.shape}."
             )
+
         n_positions = pos.shape[1]
 
         A = np.asfortranarray(np.zeros(pos.shape))
 
         _BS.biotsavart_vectorpotential(
             n_positions=n_positions,
-            xyz=pos,
+            xyz=np.asfortranarray(pos),
             n_points=self.n_points,
             n_segments=self.n_points - 1,
-            coil_points=self.coil_points,
-            ehat=self.e_hat_vec,
-            l=self.L,
+            coil_points=np.asfortranarray(self.coil_points),
+            ehat=np.asfortranarray(self.e_hat_vec),
+            l=np.asfortranarray(self.L),
             prefactor=self.prefactor,
             a=A,
         )
@@ -181,6 +232,10 @@ class Coil:
         ds["pos"] = pos
 
         ds.A.attrs = dict(long_name="magnetic coil vector potential", symbol=r"\mathbf{A}_C")
+
+        if stacked:
+            ds = _unstack_BS_ds(ds)
+
         return ds
 
     def eval_mod_B(self, pos: ArrayLike):
@@ -303,7 +358,14 @@ class CoilSet(Coil):
         """
         if coil_names is None:
             coil_names = [f"coil_{i}" for i in range(len(coils))]
-        self.coils = {coil_name: coil for coil_name, coil in zip(coil_names, coils)}
+        coils_dict = {}
+        counter = 0
+        for coil_name, coil in zip(coil_names, coils):
+            if not isinstance(coil, Coil):
+                raise TypeError(f"Entry {counter} in coils is not of type Coil!")
+            coils_dict[coil_name] = coil
+            counter += 1
+        self.coils = coils_dict
 
     def __repr__(self):
         return_str = ""
@@ -341,20 +403,14 @@ class CoilSet(Coil):
         xr.Dataset
             Magnetic field at the evaluation positions.
         """
-        stacked = False
-        if not isinstance(pos, xr.DataArray):
-            pos = np.asanyarray(pos)
-            if pos.ndim == 1:
-                pos = pos.reshape(-1, 1)
-            pos = xr.DataArray(
-                pos,
-                dims=("xyz", "points"),
-                coords={"xyz": ("xyz", ["x", "y", "z"])},
-                attrs=dict(long_name="position vector", symbol=r"\mathbf{x}"),
+
+        pos, stacked = _pos2dataarray(pos)
+
+        if (pos.ndim > 2) or (pos.shape[0] != 3):
+            raise ValueError(
+                f"pos.ndim > 2! Expected array of shape (3,n_positions), but got shape {pos.shape}."
             )
-        else:
-            pos = _stack_for_BiotSavart(pos)
-            stacked = True
+
         n_positions = pos.shape[1]
         B_aux = np.asfortranarray(np.zeros(pos.shape))
         ds = xr.Dataset(
@@ -367,20 +423,18 @@ class CoilSet(Coil):
             coil = self.coils[coil_name]
             _BS.biotsavart(
                 n_positions=n_positions,
-                xyz=pos,
+                xyz=np.asfortranarray(pos),
                 n_points=coil.n_points,
-                coil_points=coil.coil_points,
+                coil_points=np.asfortranarray(coil.coil_points),
                 prefactor=coil.prefactor,
                 b=B_aux,
             )
             ds.B[:, :] += B_aux
             B_aux *= 0.0
         ds.B.attrs = dict(long_name="magnetic coil field", symbol=r"\mathbf{B}_C")
+
         if stacked:
-            ds = ds.unstack("points")
-            for dimname, actual_dimname in zip(["rho", "theta", "zeta"], ["rad", "pol", "tor"]):
-                if dimname in ds.dims:
-                    ds = ds.rename_dims({dimname: actual_dimname})
+            ds = _unstack_BS_ds(ds)
 
         return ds
 
@@ -397,16 +451,14 @@ class CoilSet(Coil):
         xr.Dataset
             Vector potential at the evaluation positions.
         """
-        if not isinstance(pos, xr.DataArray):
-            pos = np.asanyarray(pos)
-            if pos.ndim == 1:
-                pos = pos.reshape(-1, 1)
-            pos = xr.DataArray(
-                pos,
-                dims=("xyz", "points"),
-                coords={"xyz": ("xyz", ["x", "y", "z"])},
-                attrs=dict(long_name="position vector", symbol=r"\mathbf{x}"),
+
+        pos, stacked = _pos2dataarray(pos)
+
+        if (pos.ndim > 2) or (pos.shape[0] != 3):
+            raise ValueError(
+                f"pos.ndim > 2! Expected array of shape (3,n_positions), but got shape {pos.shape}."
             )
+
         n_positions = pos.shape[1]
         A_aux = np.asfortranarray(np.zeros(pos.shape))
         ds = xr.Dataset(
@@ -418,18 +470,22 @@ class CoilSet(Coil):
             coil = self.coils[coil_name]
             _BS.biotsavart_vectorpotential(
                 n_positions=n_positions,
-                xyz=pos,
+                xyz=np.asfortranarray(pos),
                 n_points=coil.n_points,
                 n_segments=coil.n_points - 1,
-                coil_points=coil.coil_points,
-                ehat=coil.e_hat_vec,
-                l=coil.L,
+                coil_points=np.asfortranarray(coil.coil_points),
+                ehat=np.asfortranarray(coil.e_hat_vec),
+                l=np.asfortranarray(coil.L),
                 prefactor=coil.prefactor,
                 a=A_aux,
             )
             ds.A[:, :] += A_aux
             A_aux *= 0.0
         ds.A.attrs = dict(long_name="magnetic coil vector potential", symbol=r"\mathbf{A}_C")
+
+        if stacked:
+            ds = _unstack_BS_ds(ds)
+
         return ds
 
     def _eval_B_direct(self, pos: ArrayLike):
@@ -447,9 +503,13 @@ class CoilSet(Coil):
         np.ndarray
             Magnetic field at the evaluation positions in the shape (3,n_positions).
         """
-        pos = np.asanyarray(pos)
-        if pos.ndim == 1:
-            pos = pos.reshape(-1, 1)
+
+        pos = _pos_atleast_2D(pos)
+        if (pos.ndim > 2) or (pos.shape[0] != 3):
+            raise ValueError(
+                f"pos.ndim > 2! Expected array of shape (3,n_positions), but got shape {pos.shape}."
+            )
+
         n_positions = pos.shape[1]
         B = np.zeros(pos.shape)
         B_aux = np.asfortranarray(np.zeros(pos.shape))
@@ -457,9 +517,9 @@ class CoilSet(Coil):
             coil = self.coils[coil_name]
             _BS.biotsavart(
                 n_positions=n_positions,
-                xyz=pos,
+                xyz=np.asfortranarray(pos),
                 n_points=coil.n_points,
-                coil_points=coil.coil_points,
+                coil_points=np.asfortranarray(coil.coil_points),
                 prefactor=coil.prefactor,
                 b=B_aux,
             )
@@ -732,7 +792,7 @@ def trace_fieldlines(
                 "xyz": ["x", "y", "z"],
             }
             for i, t_event in enumerate(output.t_events):
-                coords[f"intersect_time_plane_{i}"] = t_event
+                coords[f"time_event_{i}"] = t_event
             ds = xr.Dataset(
                 {
                     "pos": (("xyz", "t"), output.y),

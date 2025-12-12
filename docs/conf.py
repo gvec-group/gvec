@@ -153,7 +153,6 @@ nb_merge_streams = True
 html_js_files = [
     "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
 ]  # for interactive plotly
-execution_timeout = 480  # long runtimes for fieldline tracing
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
