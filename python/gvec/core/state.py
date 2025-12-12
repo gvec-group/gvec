@@ -864,11 +864,10 @@ class State:
         nrho: int | np.ndarray = 100,
         subplot_grid: list | None = None,
         xaxis="rho",
-        post_process: dict | None = None,
     ):
         from gvec.plotting.plots1d import plot_radial_profile
 
-        return plot_radial_profile(self, quantities, nrho, subplot_grid, xaxis, post_process)
+        return plot_radial_profile(self, quantities, nrho, subplot_grid, xaxis)
 
     def plot_on_axis(
         self,
@@ -889,8 +888,9 @@ class State:
         zeta: int | float | np.ndarray = 9,
         subplot_grid: list | None = None,
         share_axis: bool = False,
-        st_contours: list = [0, 0],
-        theta_contour_style: str = "theta",
+        rho_contours: int = 4,
+        theta_contours: int = 8,
+        theta_contour_style: Literal["theta", "theta_star"] = "theta",
     ):
         from gvec.plotting.plots2d import plot_poloidal_plane
 
@@ -902,7 +902,8 @@ class State:
             zeta,
             subplot_grid,
             share_axis,
-            st_contours,
+            rho_contours,
+            theta_contours,
             theta_contour_style,
         )
 
@@ -910,13 +911,14 @@ class State:
         self,
         quantities: str | list[str] = "mod_B",
         rho: float | np.ndarray | list = 1.0,
-        ntheta: int = 11,
-        nzeta: int = 11,
+        ntheta: int = 51,
+        nzeta: int = 51,
         subplot_grid: list | None = None,
         share_axis: bool = True,
         levels: int | np.ndarray = 10,
         sfl: Literal["pest", "boozer"] | None = "boozer",
-        filled_contours=False,
+        style: Literal["contour", "filled-contour"] = "contour",
+        **boozer_kwargs,
     ):
         from gvec.plotting.plots2d import plot_on_flux_surface
 
@@ -930,26 +932,22 @@ class State:
             share_axis,
             levels,
             sfl,
-            filled_contours,
+            style,
+            **boozer_kwargs,
         )
 
     def plot_3d_surface(
         self,
-        rho: float,
-        ntheta: int,
-        nzeta: int,
         quantity: str = "mod_B",
-        full_surface=False,
+        rho: float = 1.0,
+        ntheta: int = 41,
+        nzeta: int = 51,
+        full_surface: bool = False,
         to_file: str | None = None,
     ):
         from gvec.plotting.plots3d import plot_3d_surface
 
-        return plot_3d_surface(self, rho, ntheta, nzeta, quantity, full_surface, to_file)
-
-    def plot_boundary(self, nzeta, ntheta, quantity="mod_B", full_surface=True, to_file=None):
-        from gvec.plotting.plots3d import plot_boundary
-
-        return plot_boundary(self, nzeta, ntheta, quantity, full_surface, to_file)
+        return plot_3d_surface(self, quantity, rho, ntheta, nzeta, full_surface, to_file)
 
 
 # === Functions === #

@@ -8,11 +8,11 @@ from gvec.core.state import State
 
 def plot_3d_surface(
     state: State,
-    rho: float,
-    ntheta: int,
-    nzeta: int,
     quantity: str = "mod_B",
-    full_surface=False,
+    rho: float = 1.0,
+    ntheta: int = 41,
+    nzeta: int = 51,
+    full_surface: bool = False,
     to_file: str | None = None,
 ):
     """
@@ -22,18 +22,21 @@ def plot_3d_surface(
     Parameters
     ----------
     state : GVEC state file
-    rho : float
-        Radial position of the surface.
-    ntheta : int
-        Poloidal resolution.
-    nzeta : int
-        Toroidal resolution.
     quantity : str, optional
         Equilibrium quantity to plot on the surface.
         Default is "mod_B".
+    rho : float, optional
+        Radial position of the surface.
+        Default `1.0`.
+    ntheta : int
+        Poloidal resolution.
+        Default `41`.
+    nzeta : int
+        Toroidal resolution.
+        Default `51`.
     to_file : str
         If a string, will automatically save the plot to a file with the given input in the current working directory. Recommended to use this if the plots don't display.
-        Default is `None`
+        Default is `None`.
 
     Returns
     -------
@@ -47,8 +50,9 @@ def plot_3d_surface(
         nfp = 1.0
 
     zeta = np.linspace(0.0, 2 * np.pi / nfp, nzeta)
+    theta = np.linspace(0.0, 2 * np.pi, ntheta)
 
-    evaluation = state.evaluate(quantity, rho=[rho], theta=ntheta, zeta=zeta).sel(rho=rho)
+    evaluation = state.evaluate(quantity, rho=[rho], theta=theta, zeta=zeta).sel(rho=rho)
 
     plt = graph_objects.Figure()
 
@@ -64,24 +68,7 @@ def plot_3d_surface(
         )
     )
 
-    if isinstance(to_file, str):  # TODO See why plotly is not showing
+    if isinstance(to_file, str):  # See why plotly is not showing
         plotly_offline.plot(plt, filename=to_file)
 
     return plt
-
-
-def plot_boundary(state, nzeta, ntheta, quantity="mod_B", full_surface=True, to_file=None):
-    """
-    Plot the boundary of a GVEC solve.
-
-    Wrapper around `plot_3d_surface` with `rho=1.0`. See `help(plot_3d_surface)` for information on inputs.
-    """
-    return plot_3d_surface(
-        state,
-        1.0,
-        ntheta,
-        nzeta,
-        quantity,
-        full_surface=full_surface,
-        to_file=to_file,
-    )

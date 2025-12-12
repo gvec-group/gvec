@@ -18,8 +18,9 @@ def plot_poloidal_plane(
     zeta: int | float | np.ndarray = 9,
     subplot_grid: list[int] | None = None,
     share_axis: bool = False,
-    st_contours: list[int] = [0, 0],
-    theta_contour_style: Literal["theta", "theta_star"] = "theta",
+    rho_contours: int = 4,
+    theta_contours: int = 8,
+    sfl: Literal["pest"] | None = "pest",
 ):
     """
     plot_poloidal_plane
@@ -46,22 +47,41 @@ def plot_poloidal_plane(
     share_axis : bool
         If `True`, all subplots will share their `X1` and `X2` axis positions.
         Default `False`
-    st_contours : list[int]
-        Number of ``$\theta$`` and ``$\zeta$`` contours to plot.
-        Default `[0,0]`
-    theta_contour_style : str
-        Contours of `theta` should be either `"theta"` or `"theta_star"`.
-        Default `"theta"`.
+    rho_contours : int, optional
+        The number of ``$\rho$`` contours to plot.
+        Default `4`
+    theta_contours : int, optional
+        The number of ``$\theta$`` contours to plot.
+        Default `8`
+    sfl : `"pest"` or `None`, optional
+        Plot the `theta` contours or `pest` contours (``$\theta^\star$``).
+        Default `"pest"`.
 
     Returns
     -------
     `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
     """
 
-    if theta_contour_style not in ["theta", "theta_star"]:
-        raise ValueError("theta_contour_type must be 'theta' or 'theta_star'")
-
     evaluations = state.evaluate(quantity, "X1", "X2", "LA", rho=nrho, theta=ntheta, zeta=zeta)
+
+    if rho_contours:
+        ev_rho_contours = state.evaluate(
+            "X1", "X2", rho=rho_contours, theta=np.linspace(0, 2 * np.pi, ntheta), zeta=zeta
+        )
+    if theta_contours:
+        if sfl == "pest":
+            ev_theta_contours = state.evaluate_sfl(
+                "X1",
+                "X2",
+                rho=np.linspace(0, 1, nrho),
+                theta=theta_contours,
+                zeta=zeta,
+                sfl="pest",
+            )
+        else:
+            ev_theta_contours = state.evaluate(
+                "X1", "X2", rho=np.linspace(0, 1, nrho), theta=theta_contours, zeta=zeta
+            )
 
     zeta_eval = evaluations.zeta.data
 
@@ -110,32 +130,16 @@ def plot_poloidal_plane(
         )
         if share_axis:
             ax.label_outer()  # Removes any axis labels on subplots on the interior of the grid
-        if st_contours[0] > 0:
+        if rho_contours:
             # We should plot the rho
-            rho_contour = evaluations.X1[:, :, i] * 0.0 + evaluations.rho  # TODO: expand dims?
-            rho_levels_vis = np.linspace(0, 1 - 1e-10, st_contours[0])
-            f_ax = ax.contour(
-                evaluations.X1.data[:, :, i],
-                evaluations.X2.data[:, :, i],
-                rho_contour,
-                rho_levels_vis,
-                colors="black",
+            ax.plot(
+                ev_rho_contours.X1[:, :, i].T, ev_rho_contours.X2[:, :, i].T, "w", linewidth=1.0
             )
 
-        if st_contours[1] > 0:
+        if theta_contours:
             # \theta or \theta^\star contours
-            if theta_contour_style == "theta":
-                prefactor = 0.0
-            else:
-                prefactor = 1.0
-            theta_contour = prefactor * evaluations.LA[:, :, i] + evaluations.theta
-            theta_levels_vis = np.linspace(0, 2 * np.pi, st_contours[1], endpoint=False)
-            ax.contour(
-                evaluations.X1.data[:, :, i],
-                evaluations.X2.data[:, :, i],
-                theta_contour,
-                theta_levels_vis,
-                colors="red",
+            ax.plot(
+                ev_theta_contours.X1[:, :, i], ev_theta_contours.X2[:, :, i], "w", linewidth=1.0
             )
 
         # The slice label will be added as an annotation to the top right of the subplot
@@ -155,9 +159,6 @@ def plot_poloidal_plane(
             ax.set(xlabel="X1", ylabel="X2")
             ax.label_outer()
 
-    if share_axis:
-        f.tight_layout()
-
     # Adding colourbar
     evaluations = _symbol_check(evaluations, [quantity])
     f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
@@ -169,13 +170,14 @@ def plot_on_flux_surface(
     state: State,
     quantities: str | list[str] = "mod_B",
     rho: float | np.ndarray | list = 1.0,
-    ntheta: int = 11,
-    nzeta: int = 11,
+    ntheta: int = 51,
+    nzeta: int = 51,
     subplot_grid: list[int] | None = None,
     share_axis: bool = True,
     levels: int | np.ndarray | list = 10,
     sfl: Literal["pest", "boozer"] | None = "boozer",
-    filled_contours: bool = False,
+    style: Literal["contour", "filled-contour"] = "contour",
+    **boozer_kwargs,
 ):
     """
     Plot an equilibrium quantity over the two angles $(\\vartheta, \\zeta)$ of a flux surface at (a) given `rho` value(s). Alternatively, plot
@@ -184,7 +186,7 @@ def plot_on_flux_surface(
     Parameters
     ----------
     state : GVEC state file
-    quantities: str, list[str], optional
+    quantities : str, list[str], optional
         Plot either a single quantitiy on a number of `rho` surfaces or a number of `quantities` on a single `rho` surface.
         Default `mod_B`
     rho : float, numpy.ndarray, list, optional
@@ -205,12 +207,14 @@ def plot_on_flux_surface(
     levels : int, numpy.ndarray, optional
         If `int` then chooses number of levels in the contour plot. If an `numpy.ndarray` or `list` then plots contours at given values.
         Default is `10`
-    sfl : str
+    sfl : str, optional
         Plot surfaces in `"boozer"`, `"pest"` or regular ``$\theta-\zeta$`` coordinates.
         Default is `"boozer"`
-    filled_contours : bool
-        Use `contour` (False) or `contourf` (True) in plotting.
-        Default is `False` (filled contour).
+    style : str, optional
+        Use `"contour"` (False) or `"filled-contour"` (True) in plotting.
+        Default is `"filled-contour"` (filled contour).
+    boozer_kwargs : optional
+        Keyword arguments for the case where `boozer` is used.
 
 
     Returns
@@ -242,7 +246,7 @@ def plot_on_flux_surface(
     # Plotting boozer needs different evaluate function
     if sfl:
         evaluations = state.evaluate_sfl(
-            *quantities_eval, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl
+            *quantities_eval, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl, **boozer_kwargs
         )
     else:
         evaluations = state.evaluate(*quantities_eval, rho=rho, theta=ntheta, zeta=nzeta)
@@ -262,10 +266,12 @@ def plot_on_flux_surface(
             quantity = quantities
 
         # Method switching
-        if filled_contours:
+        if style == "filled-contour":
             contour_method = ax.contourf
-        else:
+        elif style == "contour":
             contour_method = ax.contour
+        else:
+            raise ValueError("style must be 'filled-contour' or 'contour'.")
 
         if sfl == "boozer":
             theta_vals = evaluations_i.theta_B
@@ -278,8 +284,8 @@ def plot_on_flux_surface(
             zeta_vals = evaluations_i.zeta
 
         f_ax = contour_method(
-            theta_vals.data,
             zeta_vals.data,
+            theta_vals.data,
             evaluations_i[quantity].transpose("pol", "tor").data,
             levels=levels,
         )
@@ -303,7 +309,7 @@ def plot_on_flux_surface(
             f.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
 
         ax.set(
-            xlabel=f"${theta_vals.attrs['symbol']}$", ylabel=f"${zeta_vals.attrs['symbol']}$"
+            xlabel=f"${zeta_vals.attrs['symbol']}$", ylabel=f"${theta_vals.attrs['symbol']}$"
         )
         if share_axis:
             # Removes any axis labels on subplots on the interior of the grid

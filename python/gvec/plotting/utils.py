@@ -30,6 +30,9 @@ def _extrapolate_axis(state, quantities, zeta):
 
 
 def _symbol_check(evaluations, quantities):
+    """
+    Check the 'symbol' attribute in the evaluations.
+    """
     for quantity in quantities:
         # If symbol is not present use the quantity
         if "symbol" in evaluations[quantity].attrs:
