@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
 from collections.abc import Iterable
 from logging import getLogger
 from pathlib import Path
@@ -696,7 +698,7 @@ class IntersectionPlane:
 def trace_fieldlines(
     starts: np.ndarray | xr.Dataset,
     coils: CoilSet,
-    t: float,
+    time: float,
     surf_normals: list[np.ndarray] = None,
     surf_points: list[np.ndarray] = None,
     n_jobs: int = 1,
@@ -713,7 +715,7 @@ def trace_fieldlines(
         Initial positions of the magnetic field lines in Carthesian coordinates. Expected shape (3,n_fieldlines).
     coils : CoilSet
         Coils set used for evaluating the magnetic field.
-    t : float
+    time : float
         Time for which to trace the field lines so that t_span = [0,t].
     surf_normals : list[np.ndarray], optional
         List of normal vectors of the planes for which intersections of the field lines should be checked.
@@ -768,7 +770,7 @@ def trace_fieldlines(
                 delayed(solve_ivp)(
                     fun=_push_cart,
                     y0=starts[:, i],
-                    t_span=[0, t],
+                    t_span=[0, time],
                     **kwargs,
                 )
                 for i in range(starts.shape[1])
@@ -778,7 +780,7 @@ def trace_fieldlines(
             solve = solve_ivp(
                 fun=_push_cart,
                 y0=starts[:, i],
-                t_span=[0, t],
+                t_span=[0, time],
                 **kwargs,
             )
             solves.append(solve)

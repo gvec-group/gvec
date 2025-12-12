@@ -317,7 +317,7 @@ def test_fieldlines(circular_coil_set):
     dt = trace_fieldlines(
         coils=coil_set,
         starts=starts,
-        t=10,
+        time=10,
         surf_normals=surface_normals,
         surf_points=surface_points,
     )
