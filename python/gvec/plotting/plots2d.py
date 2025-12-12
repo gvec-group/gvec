@@ -311,9 +311,9 @@ def plot_on_flux_surface(
         ax.set(
             xlabel=f"${zeta_vals.attrs['symbol']}$", ylabel=f"${theta_vals.attrs['symbol']}$"
         )
-        if share_axis:
-            # Removes any axis labels on subplots on the interior of the grid
-            ax.label_outer()
+
+        # Removes any axis labels on subplots on the interior of the grid
+        ax.label_outer()
 
     if isinstance(quantities, str):
         # Adding colourbar if single quantity was requested
