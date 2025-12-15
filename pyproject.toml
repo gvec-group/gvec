@@ -112,6 +112,7 @@ version_file = "python/gvec/_version.py"
 # ============================================================================ #
 [tool.pytest.ini_options]
 testpaths = ["test-CI"]
+norecursedirs = "tools"
 addopts = [
     "--import-mode=importlib",
 ]

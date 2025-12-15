@@ -110,7 +110,16 @@
     - end_details pre-build
     # BUILD
     - start_details pip "Pip install"
-    - pip install .[dev] -v |& tee log_${BUILDNAME}.txt
+    - |
+      if [ ${F90WRAP_GITHUB} == "true" ]; then
+        echo "Installing f90wrap from GitHub repository";
+        pip install git+https://github.com/jameskermode/f90wrap.git
+        pip install -r requirements.txt
+        pip install .[dev] --no-build-isolation -v |& tee log_${BUILDNAME}.txt
+      else
+        echo "Installing f90wrap from PyPI";
+        pip install .[dev] -v |& tee log_${BUILDNAME}.txt
+      fi
     - pip list
     - end_details pip
     - echo "... BUILD PHASE FINISHED!"

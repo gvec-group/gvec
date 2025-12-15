@@ -60,6 +60,10 @@ variables:
    value: "true"
    options: ["true", "false"]
    description: "''true'' to include the SLURM jobs in the pipeline, ''false'' to exclude them from the pipeline"
+  F90WRAP_GITHUB:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to install f90wrap from GitHub, ''false'' to install f90wrap from PyPI"
 
 #  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
 
