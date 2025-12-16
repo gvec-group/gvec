@@ -13,7 +13,7 @@ import numpy as np
 import xarray as xr
 from scipy.optimize import root_scalar
 
-from gvec.util import logging_setup, write_parameters, linking_number
+from gvec.util import logging_setup, write_parameters, linking_number, compute_FD
 from gvec import fourier
 
 
@@ -736,6 +736,12 @@ def construct_gframe_from_surface(
 
     xyz0, N, B = get_X0_N_B(xyz_gframe)
 
+    Lk = linking_number(xyz0, xyz0 + 1e-3 * N)
+    Tw = twist_of_ribbon(xyz0, 1e-3 * N)
+    logger.info(
+        f"  - G-frame linking number = {Lk:.0f}, twist = {Tw:.3f}, writhe = (Lk-Tw)= {Lk - Tw:.3f}"
+    )
+
     logger.info(". Cutting the surface")
     x1_cut, x2_cut = cut_surf(xyz_surf, nfp, xyz0, N, B)
 
@@ -1143,26 +1149,28 @@ def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
     assert np.sqrt(np.sum((X0[0, :] - X0[-1, :]) ** 2)) > 1e-8, (
         "X0 must exclude endpoint, but first and last point coincide"
     )
-    zeta = np.linspace(0, 2 * np.pi, nzeta, endpoint=False)
-    nint_zeta = nint if nint is not None else nzeta
-    zeta_int = np.linspace(0, 2 * np.pi, nint_zeta, endpoint=False)
-    dft = fourier.real_dft_mat(zeta, zeta_int)
-    dft_BF_dz = (fourier.get_B_dft(dft["x_out"], 1, dft["nfp"], dft["modes"]) @ dft["F"]).real
-    dft_BF_dzdz = (fourier.get_B_dft(dft["x_out"], 2, dft["nfp"], dft["modes"]) @ dft["F"]).real
-    if nint is None:
+
+    nint_zeta = nzeta
+    if nint is not None and nint > nzeta:
+        nint_zeta = nint
+    X0_c, X0_s = fourier.fft1d(X0, axis=0)
+    N_c, N_s = fourier.fft1d(N, axis=0)
+
+    Xp = fourier.ifft1d(X0_c, X0_s, nint_zeta, deriv=1, axis=0)
+    Xpp = fourier.ifft1d(X0_c, X0_s, nint_zeta, deriv=2, axis=0)
+    Np = fourier.ifft1d(N_c, N_s, nint_zeta, deriv=1, axis=0)
+
+    if nint_zeta == nzeta:
         N_f = N
     else:
-        N_f = dft["BF"] @ N
-    Xp = dft_BF_dz @ X0
+        N_f = fourier.ifft1d(N_c, N_s, nint_zeta, axis=0)
+
     N_x_Xp = np.sqrt(np.sum((np.cross(N_f, Xp)) ** 2, axis=-1))
     N_dot_Xp = np.vecdot(N_f, Xp)
     N_Xp_angle = np.atan2(N_x_Xp, N_dot_Xp)
     assert np.all(N_Xp_angle > 1e-8), (
         f"N must be linearly independent of Xp, min angle={np.amin(N_Xp_angle)}"
     )
-
-    Xpp = dft_BF_dzdz @ X0
-    Np = dft_BF_dz @ N
 
     # cross and vecdot apply only on last axis!
     Xp_dot_Xp = np.vecdot(Xp, Xp)

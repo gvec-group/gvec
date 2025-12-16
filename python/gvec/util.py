@@ -994,9 +994,9 @@ def compute_FD(f: np.ndarray, pos, coefs, axis=0):
         - 8th order central FD: `pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[1/280,-4/105,1/5,-4/5,4/5,-1/5,4/105,-1/280]/(dx)`
     - examples for second derivatives of f:
         - 2nd order central FD: `pos=[-1,0,1]; coefs=[1,-2,1]/(dx**2)`
-        - 4th order central FD: `pos=[-2,-1,1,2]; coefs=[-1/12, 4/3,-5/2, 4/3,-1/12]/(dx**2)`
-        - 6th order central FD: `pos=[-3,-2,-1,1,2,3]; coefs=[1/90,-3/20,3/2,-49/18,3/2,-3/20,1/90]/(dx**2)`
-        - 8th order central FD: `pos=[-4,-3,-2,-1,1,2,3,4]; coefs=[-1/560,8/315,-1/5,8/5,-205/72,8/5,-1/5,8/315,-1/560]/(dx**2)`
+        - 4th order central FD: `pos=[-2,-1,0,1,2]; coefs=[-1/12, 4/3,-5/2, 4/3,-1/12]/(dx**2)`
+        - 6th order central FD: `pos=[-3,-2,-1,0,1,2,3]; coefs=[1/90,-3/20,3/2,-49/18,3/2,-3/20,1/90]/(dx**2)`
+        - 8th order central FD: `pos=[-4,-3,-2,-1,0,1,2,3,4]; coefs=[-1/560,8/315,-1/5,8/5,-205/72,8/5,-1/5,8/315,-1/560]/(dx**2)`
 
     """
     assert axis < f.ndim, f"array does not have the requested dimension {axis}"
@@ -1209,7 +1209,7 @@ def boundary_generator(case: str, X1_00=1.0, a0=0.5, ellipticity=0.4, helix_r=0.
     return params
 
 
-def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15, endpoint=True):
+def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15, endpoint=False):
     r"""
     Compute the linking number of two non-intersecting curves $C_a(\zeta_a),C_b(\zeta_b)$, solving the (non-singular) double integral over two curves
 
@@ -1223,13 +1223,13 @@ def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15, endpoint
     Parameters
     ----------
     curve_a : np.ndarray
-        the x,y,z point positions of the first curve. First and last point must coincide, if endpoint=True. shape must be [npoints_a,3]
+        the x,y,z point positions of the first curve. First and last point must coincide, if `endpoint=True`. shape must be [npoints_a,3]
     curve_b : np.ndarray
-        the x,y,z point positions of the first curve. First and last point must coincide, if endpoint=True. shape must be [npoints_b,3]
+        the x,y,z point positions of the first curve. First and last point must coincide, if `endpoint=True`. shape must be [npoints_b,3]
     tol : float
         tolerance to consider points coincident (default: 1e-15)
     endpoint : bool
-        `True`:  the first and last point of each curve coincide (default), else the last point is connected to the first point to close the curve.
+        `True`:  the first and last point of each curve coincide, else the last point is connected to the first point to close the curve. Default is `False`.
 
     Returns
     -------
@@ -1278,7 +1278,7 @@ def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15, endpoint
     ) / (4 * np.pi)
 
 
-def writhe(curve: np.ndarray, endpoint=True):
+def writhe(curve: np.ndarray, endpoint=False):
     r"""
     Compute the writhe of a closed curve $C(\zeta)$, solving the (singular!) double integral over the curve
 
@@ -1292,9 +1292,9 @@ def writhe(curve: np.ndarray, endpoint=True):
     Parameters
     ----------
     curve : np.ndarray
-        the x,y,z point positions of the curve. First and last point must coincide, if endpoint=True. shape must be [npoints,3]
+        the x,y,z point positions of the curve. First and last point must coincide, if `endpoint=True`. shape must be [npoints,3]
     endpoint : bool
-        `True`: the first and last point of the curve coincide (default), else the last point is connected to the first point to close the curve.
+        `True`: the first and last point of the curve coincide, else the last point is connected to the first point to close the curve. Default is `False`
 
     Returns
     -------

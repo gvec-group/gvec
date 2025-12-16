@@ -191,31 +191,32 @@ def test_boundary_direction():
 
 
 @pytest.mark.parametrize("npoints", [(21, 31), (31, 30), (201, 101)])
-def test_linking_number(npoints):
+@pytest.mark.parametrize("endpoint", [False, True])
+def test_linking_number(npoints, endpoint):
     npoints_a = npoints[0]
     curve_a = np.zeros((npoints_a, 3))
-    theta = np.linspace(0, 2 * np.pi, npoints_a)
+    theta = np.linspace(0, 2 * np.pi, npoints_a, endpoint=endpoint)
     curve_a[:, 0] = 1.01 * np.cos(theta)
     curve_a[:, 1] = 0.99 * np.sin(theta)
     curve_a[:, 2] = 0.01
     npoints_b = npoints[1]
     curve_b = np.zeros((npoints_b, 3))
-    theta = np.linspace(0, 2 * np.pi, npoints_b)
+    theta = np.linspace(0, 2 * np.pi, npoints_b, endpoint=endpoint)
     curve_b[:, 1] = -0.01
     curve_b[:, 2] = 0.49 * np.sin(theta)
 
     curve_b[:, 0] = 1.4 - 0.51 * np.cos(theta)
-    assert np.allclose(util.linking_number(curve_a, curve_b), 1.0), (
+    assert np.allclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 1.0), (
         "linking number of two linked circles should be 1.0"
     )
 
     curve_b[:, 0] = 1.4 + 0.51 * np.cos(theta)
-    assert np.allclose(util.linking_number(curve_a, curve_b), -1.0), (
+    assert np.allclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), -1.0), (
         "linking number of two linked circles with opposite orientation should be -1.0"
     )
 
     curve_b[:, 0] = 1.6 - 0.51 * np.cos(theta)
-    assert np.allclose(util.linking_number(curve_a, curve_b), 0.0), (
+    assert np.allclose(util.linking_number(curve_a, curve_b, endpoint=endpoint), 0.0), (
         "linking number of two unlinked circles should be 0.0"
     )
 
@@ -229,6 +230,7 @@ def test_linking_number(npoints):
     ],
     ids=["no_link", "link", "no_link2"],
 )
+@pytest.mark.parametrize("endpoint", [False, True])
 def test_linking_number_boundary(case, Lk_expected, endpoint):
     params = gvec.util.boundary_generator(case)
     nfp = 3

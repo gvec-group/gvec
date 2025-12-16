@@ -117,7 +117,6 @@ def test_writhe_boundary(case, nfp):
     C_b = xyz_surf[:, len(theta) // 2, :]
 
     Lk = gvec.util.linking_number(C_a, C_b, endpoint=False)
-    # Nvec = Nvec/np.sqrt(np.sum(Nvec**2,axis=-1))[:,None]
     # "exact" writhe from linking - twist
     Tw = gvec.gframe.twist_of_ribbon(C_a, C_b - C_a)
     # approximate writhe
