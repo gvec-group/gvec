@@ -90,12 +90,14 @@ gvec.core.run </api/core-run>
 gvec.core.compute </api/core-compute>
 gvec.quantities </api/quantities>
 gvec.fourier </api/fourier>
+gvec.gframe </api/gframe>
 gvec.surface </api/surface>
 gvec.util </api/util>
 gvec.vtk </api/vtk>
 gvec.scripts.main </api/scripts-main>
 gvec.scripts.run </api/scripts-run>
 gvec.scripts.cas3d </api/scripts-cas3d>
+gvec.scripts.gist </api/scripts-gist>
 gvec.scripts.quasr </api/scripts-quasr>
 gvec.lib </api/lib>
 ```

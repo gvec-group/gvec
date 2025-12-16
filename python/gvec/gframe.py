@@ -13,7 +13,7 @@ import numpy as np
 import xarray as xr
 from scipy.optimize import root_scalar
 
-from gvec.util import logging_setup, write_parameters
+from gvec.util import logging_setup, write_parameters, linking_number
 from gvec import fourier
 
 
@@ -703,6 +703,12 @@ def construct_gframe_from_surface(
         xyz_surf = xyz_hat_to_xyz(xhatfull, yhatfull, zhatfull, zetafull, sign_rot)
 
     logger.info(". Constructing the G-Frame")
+    # check linking number of the surface (curves at theta=0 and theta=pi):
+    Lk = linking_number(xyz_surf[:, 0, :], xyz_surf[:, nt // 2, :])
+    assert np.abs(Lk - np.rint(Lk)) < 1e-8, "Linking number of the surface is not integer!"
+    logger.info(
+        f"  - linking number of the surface = {Lk:.0f} (number of poloidal windings around its center)"
+    )
 
     if cutoff_gframe < 0:
         nz_gframe = nz
@@ -1100,3 +1106,68 @@ def plot_cross_section_comparison(dict_surf, dict_RZ, step=1, halfperiod=True):
         label=r"$\zeta/(2\pi/N_{FP})$",
     )
     return fig
+
+
+def twist_of_ribbon(X0: np.ndarray, N: np.ndarray, nint: int = None) -> float:
+    r"""
+    Compute the twist of a closed (!) ribbon defined by a centerline curve $X_0(\zeta)$ and non-vanishing "normal" vector $N(\zeta)$. The vector N only needs to be linearly independent of the tangent vector $|X_0'(\zeta) \times N| >0$
+
+    The twist is computed as
+
+    $$
+    \text{Tw} = \frac{1}{2\pi}\int_0^{2\pi}\frac{\left ({N\times \left [{N^\prime\left|{\Xp}\right|^2 - \left({N \cdot X_0^\prime}\right) X_0^{\prime\prime}}\right]}\right) \cdot X_0^\prime}{\left|{N\left|{X_0^\prime}\right|^2-\left({N \cdot X_0^\prime}\right) X_0^\prime}\right|^2}\left|{X_0^\prime}\right| d\zeta
+    $$
+
+    Derivatives of $X_0$ and $N$ are computed via fft, so the curve is assumed to be given on an equispaced grid in `zeta=np.linspace(0,2*np.pi,npoints,endpoint=False)`, excluding the endpoint.
+
+    Parameters
+    ----------
+    X0 : np.ndarray
+        curve positions, in cartesian coordinates, shape (npoints,3),  excluding periodic endpoint!
+    N  : np.ndarray
+        linearly independent, non-normalized "normal" vector at curve positions, in cartesian coordinates, same shape as X0
+    nint : int, optional
+        number of points for integration, None sets default =npoints
+
+    Returns
+    -------
+    Tw : float
+        twist of the ribbon defined by X0 and N
+    """
+    nzeta = X0.shape[0]
+    assert nzeta == N.shape[0], (
+        f"X0 and N must have the same length, but are {X0.shape[0]} and {N.shape[0]} respectively"
+    )
+    assert X0.shape[1] == 3, f"X0 must have shape (npoints,3), but has shape {X0.shape}"
+    assert N.shape[1] == 3, f"X0 must have shape (npoints,3), but has shape {N.shape}"
+    assert np.sqrt(np.sum((X0[0, :] - X0[-1, :]) ** 2)) > 1e-8, (
+        "X0 must exclude endpoint, but first and last point coincide"
+    )
+    zeta = np.linspace(0, 2 * np.pi, nzeta, endpoint=False)
+    nint_zeta = nint if nint is not None else nzeta
+    zeta_int = np.linspace(0, 2 * np.pi, nint_zeta, endpoint=False)
+    dft = fourier.real_dft_mat(zeta, zeta_int)
+    dft_BF_dz = (fourier.get_B_dft(dft["x_out"], 1, dft["nfp"], dft["modes"]) @ dft["F"]).real
+    dft_BF_dzdz = (fourier.get_B_dft(dft["x_out"], 2, dft["nfp"], dft["modes"]) @ dft["F"]).real
+    if nint is None:
+        N_f = N
+    else:
+        N_f = dft["BF"] @ N
+    Xp = dft_BF_dz @ X0
+    N_x_Xp = np.sqrt(np.sum((np.cross(N_f, Xp)) ** 2, axis=-1))
+    N_dot_Xp = np.vecdot(N_f, Xp)
+    N_Xp_angle = np.atan2(N_x_Xp, N_dot_Xp)
+    assert np.all(N_Xp_angle > 1e-8), (
+        f"N must be linearly independent of Xp, min angle={np.amin(N_Xp_angle)}"
+    )
+
+    Xpp = dft_BF_dzdz @ X0
+    Np = dft_BF_dz @ N
+
+    # cross and vecdot apply only on last axis!
+    Xp_dot_Xp = np.vecdot(Xp, Xp)
+
+    num = np.vecdot(np.cross(N_f, (Np * Xp_dot_Xp[:, None] - N_dot_Xp[:, None] * Xpp)), Xp)
+    denom = np.sum((N_f * Xp_dot_Xp[:, None] - N_dot_Xp[:, None] * Xp) ** 2, axis=-1)
+    # intergate over zeta and divide by 2pi, using trapezoidal rule
+    return np.average(num / denom * np.sqrt(Xp_dot_Xp))

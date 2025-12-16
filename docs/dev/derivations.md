@@ -333,8 +333,8 @@ We define the unit-normal  as $\Uvec:=\Uvectilde/\abs{\Uvectilde}$, with
 
 $$
 \begin{align}
-\Uvectilde &= \Nvec - \pqty{\Nvec \cdot \Tvec} \Tvec \\
-\Uvectilde^\prime &= \Nvec^\prime - \pqty{\Nvec \cdot \Tvec} \Tvec^\prime - \pqty{\Nvec^\prime \cdot \Tvec + \Nvec \cdot \Tvec^\prime } \Tvec
+\Uvectilde &= \pqty{\Nvec - \pqty{\Nvec \cdot \Tvec} \Tvec}\abs{\Xp}^2 = \Nvec\abs{\Xp}^2 - \pqty{\Nvec \cdot \Xp} \Xp  \\
+\Uvectilde^\prime &= \Nvec^\prime\abs{\Xp}^2 +2\Nvec\pqty{\Xp\cdot \Xpp}  - \pqty{\Nvec \cdot \Xp} \Xpp - \pqty{\Nvec^\prime \cdot \Xp + \Nvec \cdot \Xpp } \Xp
 \end{align}
 $$
 
@@ -342,29 +342,29 @@ The derivative of the normalized vector is
 
 $$
 \begin{align}
-{\Uvec}^\prime = \frac{\Uvectilde^\prime\abs{\Uvectilde}- \pqty{\Uvectilde \cdot \Uvectilde^\prime} \Uvectilde}{\abs{\Uvectilde}^2}
+{\Uvec}^\prime = \frac{\Uvectilde^\prime\abs{\Uvectilde}^2- \pqty{\Uvectilde \cdot \Uvectilde^\prime} \Uvectilde}{\abs{\Uvectilde}^3}
 \end{align}
 $$
 
-We reformulate the twist , using the derivative of the arc-length $\pdv{\ell}{\zeta}=\abs{\Xp}$
+We reformulate the twist of the ribbon, using the derivative of the arc-length $\pdv{\ell}{\zeta}=\abs{\Xp}$
 
 $$
 \begin{align}
-\Tw &= \frac{1}{2\pi}\int_0^{2\pi} (\Uvec \times  \Uvec^\prime) \cdot \Xp \frac{1}{\abs{\Xp}^2}\dd{\zeta} \\
-& = \frac{1}{2\pi}\int_0^{2\pi} \frac{(\Uvectilde \times \Uvectilde^\prime)\cdot \Xp \dd{\zeta}}{\abs{\Uvectilde}^2\abs{\Xp}^2}  \\
+\Tw &= \frac{1}{2\pi}\int_0^{2\pi} (\Uvec \times  \Uvec^\prime) \cdot \Xp \frac{1}{\abs{\Xp}^2}\abs{\Xp}\dd{\zeta} \\
+& = \frac{1}{2\pi}\int_0^{2\pi} \frac{(\Uvectilde \times \Uvectilde^\prime)\cdot \Xp }{\abs{\Uvectilde}^2\abs{\Xp}^2} \abs{\Xp}\dd{\zeta}  \\
 \end{align}
 $$
 
-We further simplify using $\Tvec\times\Xp=0$,
+We further simplify (using $\vec{a}\times \vec{a} = 0$),
 
 $$
 \begin{align}
  \pqty{\Uvectilde\times\Uvectilde^\prime}\cdot \Xp &= (\Xp \times \Uvectilde)\cdot \Uvectilde^\prime
  \\
- &= \pqty{\Xp \times \Nvec} \cdot \Uvectilde^\prime
- = \pqty{\Uvectilde^\prime  \times \Xp} \cdot \Nvec \\
- &= \pqty{\bqty{\Nvec^\prime - \pqty{\Nvec \cdot \Tvec} \Tvec^\prime} \times \Xp} \cdot \Nvec  \\
- &= \frac{1}{\abs{\Xp}^2}\pqty{\bqty{\Nvec^\prime\abs{\Xp}^2 - \pqty{\Nvec \cdot \Xp} \Xpp} \times \Xp} \cdot \Nvec  \\
+ &= \pqty{\Xp \times \Nvec\abs{\Xp}^2} \cdot \Uvectilde^\prime
+ = \pqty{\Uvectilde^\prime  \times \Xp} \cdot \Nvec \abs{\Xp}^2\\
+ &= \pqty{\bqty{\Nvec^\prime\abs{\Xp}^2 +2\Nvec \pqty{\Xp\cdot \Xpp} - \pqty{\Nvec \cdot \Xp} \Xpp} \times \Xp} \cdot \Nvec \abs{\Xp}^2  \\
+ &= \pqty{\Nvec\times \bqty{\Nvec^\prime\abs{\Xp}^2 - \pqty{\Nvec \cdot \Xp} \Xpp}} \cdot \Xp  \abs{\Xp}^2\\
 \end{align}
 $$
 
@@ -372,7 +372,7 @@ to finally arrive at
 
 $$
 \begin{align}
- \Tw = \frac{1}{2\pi}\int_0^{2\pi} \frac{\pqty{\bqty{\Nvec^\prime\abs{\Xp}^2 - \pqty{\Nvec \cdot \Xp} \Xpp} \times \Xp} \cdot \Nvec}{\abs{\Nvec\abs{\Xp}^2-\pqty{\Nvec \cdot \Xp} \Xp}\;\abs{\Xp}^2} \dd{\zeta}
+ \Tw = \frac{1}{2\pi}\int_0^{2\pi} \frac{\pqty{\Nvec\times\bqty{\Nvec^\prime\abs{\Xp}^2 - \pqty{\Nvec \cdot \Xp} \Xpp} } \cdot \Xp}{\abs{\Nvec\abs{\Xp}^2-\pqty{\Nvec \cdot \Xp} \Xp}^2} \abs{\Xp}\dd{\zeta}
 \end{align}
 $$
 

@@ -86,3 +86,42 @@ def test_gframe_boundary(case, nz_nt, shft, nfp):
     assert M <= M_in and N <= N_in, (
         f"gframe boundary surface '{case}' X1,X2 (M={M},N={N}) is larger than the input surface (M={M_in},N={N_in})"
     )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "ellip_cyl",
+        "ellip_cyl_rot",
+        "ellip_cyl_rot2",
+        "ellip_cyl_helix",
+        "ellip_cyl_helix_rot2",
+        "ellip_cyl_helix_rot",
+    ],
+)
+@pytest.mark.parametrize("nfp", [1, 2, 3])
+def test_writhe_boundary(case, nfp):
+    params = gvec.util.boundary_generator(case, X1_00=1.0 + 0.25 * nfp)
+    params["nfp"] = nfp
+    theta = np.linspace(0, 2 * np.pi, 10, endpoint=False)
+
+    zeta = np.linspace(0, 2 * np.pi, nfp * 200, endpoint=False)
+    X1, X2 = gvec.util.evaluate_boundary(theta, zeta, params)
+    xyz_surf = np.zeros((len(zeta), len(theta), 3))
+    xyz_surf[:, :, 0] = X1.T * np.cos(zeta[:, None])
+    xyz_surf[:, :, 1] = X1.T * np.sin(zeta[:, None])
+    xyz_surf[:, :, 2] = X2.T
+
+    # X0 = 0.5*(xyz_surf[:, len(theta) // 2, :]+ xyz_surf[:, 0, :]) # mid-curve
+    C_a = xyz_surf[:, 0, :]
+    C_b = xyz_surf[:, len(theta) // 2, :]
+
+    Lk = gvec.util.linking_number(C_a, C_b, endpoint=False)
+    # Nvec = Nvec/np.sqrt(np.sum(Nvec**2,axis=-1))[:,None]
+    # "exact" writhe from linking - twist
+    Tw = gvec.gframe.twist_of_ribbon(C_a, C_b - C_a)
+    # approximate writhe
+    Wr = gvec.util.writhe(C_a, endpoint=False)
+    assert np.abs(Wr - (Lk - Tw)) < 1e-3, (
+        f"Compare approx. writhe {Wr:5.2e} with (Lk - Tw). Lk = {Lk:.0f} Tw={Tw:5.2e} ... Difference: {Wr - (Lk - Tw):5.2e}"
+    )
