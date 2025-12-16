@@ -61,14 +61,66 @@ def ev(state):
 )
 @pytest.mark.parametrize("points", [10, 11], ids=["even", "odd"])
 @pytest.mark.parametrize("shift", [-0.2, 0, 0.5])
-def test_fft1d(c, s, points: tuple[int, int], shift):
+@pytest.mark.parametrize("axis", [None, 0, 1, 2], ids=["1d", "2dx", "2dy", "3dz"])
+def test_fft1d(c, s, points: tuple[int, int], shift, axis):
     t = np.linspace(0, 2 * np.pi, points, endpoint=False)
     if shift != 0.0:
         t = t + shift * t[1]
     x = sum([ci * np.cos(i * t) for i, ci in enumerate(c)])
     x += sum([si * np.sin(i * t) for i, si in enumerate(s)])
+    # test 1d array and 2d array in two directions
+    if axis is None:
+        xc, xs = fourier.fft1d(x, x0=t[0])
+    elif axis == 0:
+        x2d = np.vstack([x, x]).T
+        xc2d, xs2d = fourier.fft1d(x2d, x0=t[0], axis=0)
+        assert xc2d.ndim == x2d.ndim, (
+            "Problem with 1d fft of 2d array along axis 0, not same number of dimensions "
+        )
+        assert xc2d.shape == xs2d.shape, (
+            "Problem with 1d fft of 2d array along axis 0, not same shape "
+        )
+        assert np.allclose(xc2d[:, 0], xc2d[:, 1]), (
+            "Problem with 1d fft of 2d array along axis 0 "
+        )
+        assert np.allclose(xs2d[:, 0], xs2d[:, 1]), (
+            "Problem with 1d fft of 2d array along axis 0 "
+        )
+        xc, xs = xc2d[:, 0], xs2d[:, 0]
+    elif axis == 1:
+        x2d = np.vstack([x, x])
+        xc2d, xs2d = fourier.fft1d(x2d, x0=t[0], axis=1)
+        assert xc2d.ndim == x2d.ndim, (
+            "Problem with 1d fft of 2d array along axis 1, not same number of dimensions "
+        )
+        assert xc2d.shape == xs2d.shape, (
+            "Problem with 1d fft of 2d array along axis 1, not same shape "
+        )
+        assert np.allclose(xc2d[0, :], xc2d[1, :]), (
+            "Problem with 1d fft of 2d array along axis 1 "
+        )
+        assert np.allclose(xs2d[0, :], xs2d[1, :]), (
+            "Problem with 1d fft of 2d array along axis 1 "
+        )
+        xc, xs = xc2d[0, :], xs2d[0, :]
+    elif axis == 2:
+        x2d = np.vstack([x, x, x])
+        x3d = np.stack([x2d, x2d])
+        xc3d, xs3d = fourier.fft1d(x3d, x0=t[0], axis=2)
+        assert xc3d.ndim == x3d.ndim, (
+            "Problem with 1d fft of 3d array along axis 2, not same number of dimensions "
+        )
+        assert xc3d.shape == xs3d.shape, (
+            "Problem with 1d fft of 3d array along axis 2, not same shape "
+        )
+        assert np.allclose(xc3d[0, 0, :], np.average(xc3d, axis=(0, 1))), (
+            "Problem with 1d fft of 3d array along axis 2 "
+        )
+        assert np.allclose(xs3d[0, 0, :], np.average(xs3d, axis=(0, 1))), (
+            "Problem with 1d fft of 3d array along axis 2 "
+        )
+        xc, xs = xc3d[0, 0, :], xs3d[0, 0, :]
 
-    xc, xs = fourier.fft1d(x, angle0=t[0])
     if shift != 0.0:
         x2 = fourier.shift_1d(x, t[0], 0)
         xc2, xs2 = fourier.fft1d(x2)
@@ -80,6 +132,78 @@ def test_fft1d(c, s, points: tuple[int, int], shift):
     y = sum([ci * np.cos(i * t) for i, ci in enumerate(xc)])
     y += sum([si * np.sin(i * t) for i, si in enumerate(xs)])
     assert np.allclose(x, y)
+
+
+@pytest.mark.parametrize("npoints", [10, 11], ids=["even", "odd"])
+@pytest.mark.parametrize(
+    "deriv", [None, 0, 1, 2], ids=["no_deriv", "0_deriv", "1st_deriv", "2nd_deriv"]
+)
+@pytest.mark.parametrize("axis", [None, 0, 1, 2], ids=["1d", "2dx", "2dy", "3dz"])
+def test_ifft1d_fft1d(npoints, deriv, axis):
+    m_max = 5
+    c = random(m_max + 1)
+    s = random(m_max + 1)
+    if np.mod(npoints, 2) == 0:
+        c[-1] = 0
+        s[-1] = 0
+    s[0] = 0
+    if axis is None:
+        if npoints == 2 * m_max + 1:
+            y = fourier.ifft1d(c, s, deriv=deriv)
+        else:
+            y = fourier.ifft1d(c, s, deriv=deriv, npoints=npoints)
+        yc, ys = fourier.fft1d(y)
+    elif axis == 0:
+        c2d = np.vstack([c, c]).T
+        s2d = np.vstack([s, s]).T
+        y2d = fourier.ifft1d(c2d, s2d, deriv=deriv, axis=0, npoints=npoints)
+        yc2d, ys2d = fourier.fft1d(y2d, axis=0)
+        assert np.allclose(yc2d[:, 0], yc2d[:, 1]), (
+            "Problem with 1d ifft of 2d array along axis 0 "
+        )
+        assert np.allclose(ys2d[:, 0], ys2d[:, 1]), (
+            "Problem with 1d ifft of 2d array along axis 0 "
+        )
+        yc, ys = yc2d[:, 0], ys2d[:, 0]
+    elif axis == 1:
+        c2d = np.vstack([c, c])
+        s2d = np.vstack([s, s])
+        y2d = fourier.ifft1d(c2d, s2d, deriv=deriv, axis=1, npoints=npoints)
+        yc2d, ys2d = fourier.fft1d(y2d, axis=1)
+        assert np.allclose(yc2d[0, :], yc2d[1, :]), (
+            "Problem with 1d ifft of 2d array along axis 1 "
+        )
+        assert np.allclose(ys2d[0, :], ys2d[1, :]), (
+            "Problem with 1d ifft of 2d array along axis 1 "
+        )
+        yc, ys = yc2d[0, :], ys2d[0, :]
+    elif axis == 2:
+        c2d = np.vstack([c, c, c])
+        c3d = np.stack([c2d, c2d])
+        s2d = np.vstack([s, s, s])
+        s3d = np.stack([s2d, s2d])
+        y3d = fourier.ifft1d(c3d, s3d, deriv=deriv, axis=2, npoints=npoints)
+        yc3d, ys3d = fourier.fft1d(y3d, axis=2)
+        assert np.allclose(yc3d[0, 0, :], np.average(yc3d, axis=(0, 1))), (
+            "Problem with 1d ifft of 3d array along axis 2 "
+        )
+        assert np.allclose(ys3d[0, 0, :], np.average(ys3d, axis=(0, 1))), (
+            "Problem with 1d ifft of 3d array along axis 2 "
+        )
+        yc, ys = yc3d[0, 0, :], ys3d[0, 0, :]
+
+    if deriv is None or deriv == 0:
+        assert np.allclose(s, ys), "sin coef. do not match for 1d ifft"
+        assert np.allclose(c, yc), "cos coef. do not match for 1d ifft"
+    elif deriv == 1:
+        m = np.arange(m_max + 1)
+        assert np.allclose(s * m, yc), "cos coef. do not match for 1d ifft deriv=1"
+        assert np.allclose(-c * m, ys), "sin coef. do not match for 1d ifft deriv=1"
+
+    elif deriv == 2:
+        m = np.arange(m_max + 1)
+        assert np.allclose(-c * m * m, yc), "cos coef. do not match for 1d ifft deriv=2"
+        assert np.allclose(-s * m * m, ys), "sin coef. do not match for 1d ifft deriv=2"
 
 
 def test_fft2d_modes(MN):
