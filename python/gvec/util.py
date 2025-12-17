@@ -1267,15 +1267,19 @@ def linking_number(curve_a: np.ndarray, curve_b: np.ndarray, tol=1e-15, endpoint
     #        r4 = curve_b[j+1,:]
     #        Lk += solid_angle_between_segments(r1,r2,r3,r4)
     # Lk /= (4.0*np.pi)
-    return np.sum(
-        solid_angle_between_segments(
-            _curve_a[0:-1, None, :],
-            _curve_a[1:, None, :],
-            _curve_b[None, 0:-1, :],
-            _curve_b[None, 1:, :],
-            tol=tol,
+    return (
+        2
+        * np.sum(
+            solid_angle_between_segments(
+                _curve_a[0:-1, None, :],
+                _curve_a[1:, None, :],
+                _curve_b[None, 0:-1, :],
+                _curve_b[None, 1:, :],
+                tol=tol,
+            )
         )
-    ) / (4 * np.pi)
+        / (4 * np.pi)
+    )
 
 
 def writhe(curve: np.ndarray, endpoint=False):
@@ -1320,7 +1324,7 @@ def writhe(curve: np.ndarray, endpoint=False):
     r4 = (_curve[None, 1:, :] * mask[:, :, None])[(mask == 1), :]
 
     # factor 2 to account for symmetry of (i,j) and (j,i)
-    return np.sum(solid_angle_between_segments(r1, r2, r3, r4)) / (2 * np.pi)
+    return 2 * np.sum(solid_angle_between_segments(r1, r2, r3, r4)) / (2 * np.pi)
 
 
 def solid_angle_between_segments(
@@ -1328,7 +1332,7 @@ def solid_angle_between_segments(
 ):
     """
     Compute the solid angle between two line segments r1->r2 and r3->r4.
-    See paper by  [Klenin and Langowski](https://onlinelibrary.wiley.com/doi/10.1002/1097-0282(20001015)54:5%3C307::AID-BIP20%3E3.0.CO;2-Y)
+    See paper by  [Klenin and Langowski](https://onlinelibrary.wiley.com/doi/10.1002/1097-0282(20001015)54:5%3C307::AID-BIP20%3E3.0.CO;2-Y) and direct summation from https://doi.org/10.1145/3450626.3459778
     r1,r2,r3,r4 must have the same shape, with last dimension of size 3 (x,y,z)
     Args:
         r1 (np.ndarray): last dimension is x,y,z position of the first  point of the first segment
@@ -1339,17 +1343,40 @@ def solid_angle_between_segments(
     Returns:
         omega (float): solid angle between the two segments, without 1/(4pi) factor
     """
-    N1 = np.cross(r3 - r1, r4 - r1)
-    N2 = np.cross(r4 - r1, r4 - r2)
-    N3 = np.cross(r4 - r2, r3 - r2)
-    N4 = np.cross(r3 - r2, r3 - r1)
-    omega = (
-        np.arctan2(np.vecdot(N1, N2), np.sqrt(np.sum(np.cross(N1, N2) ** 2, axis=-1)))
-        + np.arctan2(np.vecdot(N2, N3), np.sqrt(np.sum(np.cross(N2, N3) ** 2, axis=-1)))
-        + np.arctan2(np.vecdot(N3, N4), np.sqrt(np.sum(np.cross(N3, N4) ** 2, axis=-1)))
-        + np.arctan2(np.vecdot(N4, N1), np.sqrt(np.sum(np.cross(N4, N1) ** 2, axis=-1)))
+    # # algorithm with 4 arctan
+    # N1 = np.cross(r3 - r1, r4 - r1)
+    # N2 = np.cross(r4 - r1, r4 - r2)
+    # N3 = np.cross(r4 - r2, r3 - r2)
+    # N4 = np.cross(r3 - r2, r3 - r1)
+    # omega = (
+    #     np.arctan2(np.vecdot(N1, N2), np.sqrt(np.sum(np.cross(N1, N2) ** 2, axis=-1)))
+    #     + np.arctan2(np.vecdot(N2, N3), np.sqrt(np.sum(np.cross(N2, N3) ** 2, axis=-1)))
+    #     + np.arctan2(np.vecdot(N3, N4), np.sqrt(np.sum(np.cross(N3, N4) ** 2, axis=-1)))
+    #     + np.arctan2(np.vecdot(N4, N1), np.sqrt(np.sum(np.cross(N4, N1) ** 2, axis=-1)))
+    # )
+    # sigma = np.vecdot(np.cross(r4 - r3, r2 - r1), (r3 - r1))
+    # #set very small sigma to zero to avoid  sign(+0)->1 and sign(-0)->-1 issues
+    # sigma[np.abs(sigma) < tol] = 0
+    # return omega * np.sign(sigma)
+
+    # faster algorithm for direct summation, with two atan, from https://doi.org/10.1145/3450626.3459778
+    # where they define a= (r3-r1) , b= (r3-r2) , c= (r4-r2), d= (r4-r1)
+    # omega = 2( atan(b.(c x a) / (|a||c||b| +c.a|b| + b.a|c| + b.c|a| ) )
+    #           -atan(d.(c x a) / (|a||c||d| +c.a|d| + d.a|c| + d.c|a| ) ) )
+
+    cxa = np.cross((r4 - r2), (r3 - r1))
+    abs_a = np.sqrt(np.vecdot((r3 - r1), (r3 - r1)))
+    abs_c = np.sqrt(np.vecdot((r4 - r2), (r4 - r2)))
+    ac2 = abs_a * abs_c + np.vecdot((r3 - r1), (r4 - r2))
+    ac2_vec = (r3 - r1) * np.expand_dims(abs_c, axis=-1) + (r4 - r2) * np.expand_dims(
+        abs_a, axis=-1
     )
-    sigma = np.vecdot(np.cross(r4 - r3, r2 - r1), (r3 - r1))
-    # set very small sigma to zero to avoid  sign(+0)->1 and sign(-0)->-1 issues
-    sigma[np.abs(sigma) < tol] = 0
-    return omega * np.sign(sigma)
+
+    omega_half = np.arctan2(
+        np.vecdot((r3 - r2), cxa),
+        ac2 * np.sqrt(np.vecdot((r3 - r2), (r3 - r2))) + np.vecdot((r3 - r2), ac2_vec),
+    ) - np.arctan2(
+        np.vecdot((r4 - r1), cxa),
+        ac2 * np.sqrt(np.vecdot((r4 - r1), (r4 - r1))) + np.vecdot((r4 - r1), ac2_vec),
+    )
+    return omega_half
