@@ -1344,7 +1344,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "ifort-2023"
-    SETUP_SCRIPT: "ifort"
+    SETUP_SCRIPT: "2024_ifort"
 
 .mpcdfci_ifx-2024:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2024_0:latest
@@ -1353,7 +1353,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "ifx-2024"
-    SETUP_SCRIPT: "ifx"
+    SETUP_SCRIPT: "2024_ifx"
 
 .mpcdfci_ifx-2025:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel_2025_0:latest
@@ -1380,7 +1380,7 @@ include:
     - .vars_mpiON
   variables:
     CURR_CMP: "ifort-impi-2023"
-    SETUP_SCRIPT: "ifort-impi"
+    SETUP_SCRIPT: "2024_ifort-impi"
 
 .mpcdfci_ifx-impi-latest:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/intel-impi:latest
@@ -1398,7 +1398,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "gfortran-12"
-    SETUP_SCRIPT: "gfortran"
+    SETUP_SCRIPT: "2024_gfortran"
 
 .mpcdfci_gfortran-13:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_13:latest
@@ -1443,7 +1443,7 @@ include:
     - .vars_mpiOFF
   variables:
     CURR_CMP: "nvfortran-23"
-    SETUP_SCRIPT: "nvfortran"
+    SETUP_SCRIPT: "2024_nvfortran"
 
 .mpcdfci_nvfortran-24:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_24:latest
