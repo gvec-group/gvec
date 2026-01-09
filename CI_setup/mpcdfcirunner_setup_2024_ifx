@@ -1,18 +1,17 @@
-#!/bin/bash
-# bash source script for loading modules on mpcdf shared runner
+# bash source script for loading modules on mpcdf shared runner (images from 2024)
 # LAST MODIFIED: 2026-01-10
 # ===========================================
 
 module purge
 module load git
 module load cmake
-module load nvhpcsdk
+module load intel
 module load mkl
 module load hdf5-serial
 module load netcdf-serial
-module load python-waterboa
+module load anaconda
 
 module list
-export CC=`which nvc`
-export FC=`which nvfortran`
-export CXX=`which nvc++`
+export FC=`which ifx`
+export CC=`which icx`
+export CXX=`which icx`
