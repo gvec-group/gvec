@@ -17,3 +17,6 @@ module list
 export FC=`which gfortran`
 export CC=`which gcc`
 export CXX=`which g++`
+
+#temporary fix to suppress warning message in latest openmpi image
+export PMIX_MCA_pcompress_base_silence_warning=1
