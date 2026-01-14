@@ -16,3 +16,6 @@ module list
 export FC=`which gfortran`
 export CC=`which gcc`
 export CXX=`which g++`
+
+#for anaconda to not have an error in `import gvec`
+export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"

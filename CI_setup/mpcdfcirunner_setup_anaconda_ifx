@@ -12,6 +12,8 @@ module load netcdf-serial
 module load anaconda
 
 module list
-export FC=`which ifort`
-export CC=`which icc`
-export CXX=`which icc`
+export FC=`which ifx`
+export CC=`which icx`
+export CXX=`which icx`
+#for anaconda to not have an error in `import gvec`
+export LD_PRELOAD="/usr/lib64/libcrypto.so /usr/lib64/libssl.so"
