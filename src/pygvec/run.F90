@@ -2,7 +2,7 @@
 ! Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 ! License: MIT
 !===================================================================================================================================
-#include "defines.h"
+#include "defines.FPP"
 
 MODULE MODgvec_py_run
 

@@ -292,7 +292,7 @@ function(add_exec target)
   ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: ${TARGETUP} BUILD COMPLETE!")
 endfunction()
 
-# include defines.h
+# include defines.FPP
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY})
 
 FILE(GLOB_RECURSE mainF90 ./src/globals/*.F90
@@ -348,7 +348,7 @@ IF(COMPILE_SRC_PYGVEC)
   LIST(APPEND mainF90 ${pygvecF90})
 ENDIF()
 
-# append relative filename-macro for __FILENAME__ in stamp of abort function (see defines.h)
+# append relative filename-macro for __FILENAME__ in stamp of abort function (see defines.FPP)
 FOREACH(sourcefile ${mainF90})
     # inspired by https://stackoverflow.com/a/27990434
     CMAKE_PATH(NORMAL_PATH sourcefile OUTPUT_VARIABLE filename)
