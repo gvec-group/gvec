@@ -76,8 +76,8 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiPrime,relambda_in)
   ! MODULES
-  USE MODgvec_fbase   ,ONLY: fbase_new
-  USE MODgvec_hmap,  ONLY: hmap_new_auxvar
+  USE MODgvec_fbase, ONLY: t_fBase
+  USE MODgvec_hmap, ONLY: hmap_new_auxvar
   IMPLICIT NONE
   !---------------------------------------------------------------------------------------------------------------------------------
   ! INPUT VARIABLES
@@ -112,7 +112,7 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
   ELSE
     sf%relambda = .TRUE. ! default
   END IF
-  CALL fbase_new(sf%nu_fbase,mn_max,mn_nyq,nfp,sin_cos,.TRUE.)
+  sf%nu_fbase = t_fBase(mn_max,mn_nyq,nfp,sin_cos,.TRUE.)
   sf%hmap => hmap_in
   CALL hmap_new_auxvar(sf%hmap,sf%nu_fbase%x_IP(2,:),sf%hmap_xv,.TRUE.)
   ALLOCATE(sf%lambda(sf%nu_fbase%modes,nrho),sf%nu(sf%nu_fbase%modes,nrho))
@@ -129,7 +129,6 @@ SUBROUTINE sfl_boozer_free(sf)
   CLASS(t_sfl_boozer), INTENT(INOUT) :: sf !! self
   !=================================================================================================================================
   DEALLOCATE(sf%rho_pos,sf%lambda,sf%nu,sf%iota,sf%phiPrime)
-  CALL sf%nu_fbase%free()
   DEALLOCATE(sf%nu_fbase)
   DEALLOCATE(sf%hmap_xv)
   NULLIFY(sf%hmap)
@@ -159,7 +158,7 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
   ! MODULES
   USE MODgvec_Globals,ONLY: UNIT_stdOut,ProgressBar
   USE MODgvec_base,ONLY: t_base
-  USE MODgvec_fbase,ONLY: t_fbase,fbase_new,sin_cos_map
+  USE MODgvec_fbase,ONLY: t_fbase, sin_cos_map
   USE MODgvec_LinAlg
   USE MODgvec_lambda_solve, ONLY:  Lambda_setup_and_solve
   IMPLICIT NONE
@@ -210,20 +209,20 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
     dthet_dzeta  = sf%nu_fbase%d_thet*sf%nu_fbase%d_zeta !integration weights
 
     !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
-    CALL fbase_new( X1_fbase_nyq, X1_base_in%f%mn_max,  mn_nyq, &
+    X1_fbase_nyq =  t_fBase(X1_base_in%f%mn_max,  mn_nyq, &
                                   X1_base_in%f%nfp, &
                       sin_cos_map(X1_base_in%f%sin_cos), &
                                   X1_base_in%f%exclude_mn_zero)
     SWRITE(UNIT_StdOut,*)'        ...Init X1_nyq Base Done'
 
-    CALL fbase_new( X2_fbase_nyq, X2_base_in%f%mn_max,  mn_nyq, &
+    X2_fbase_nyq =  t_fBase(X2_base_in%f%mn_max,  mn_nyq, &
                                   X2_base_in%f%nfp, &
                       sin_cos_map(X2_base_in%f%sin_cos), &
                                   X2_base_in%f%exclude_mn_zero)
     SWRITE(UNIT_StdOut,*)'        ...Init X2_nyq Base Done'
      IF(.NOT.sf%relambda)THEN
       !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
-      CALL fbase_new(LA_fbase_nyq,  LA_base_in%f%mn_max,  mn_nyq, &
+      LA_fbase_nyq =  t_fBase(LA_base_in%f%mn_max,  mn_nyq, &
                                   LA_base_in%f%nfp, &
                       sin_cos_map(LA_base_in%f%sin_cos), &
                                   LA_base_in%f%exclude_mn_zero)
@@ -388,11 +387,11 @@ SUBROUTINE Get_Boozer_sinterp(sf,X1_base_in,X2_base_in,LA_base_in,X1_in,X2_in,LA
       __PERFOFF('project')
       CALL ProgressBar(irho,sf%nrho)
     END DO !is
-    CALL X1_fbase_nyq%free() ; DEALLOCATE(X1_fbase_nyq)
-    CALL X2_fbase_nyq%free() ; DEALLOCATE(X2_fbase_nyq)
+    DEALLOCATE(X1_fbase_nyq)
+    DEALLOCATE(X2_fbase_nyq)
     IF(.NOT. sf%relambda) THEN
       CALL sf%nu_fbase%change_base(LA_fbase_nyq,2,LA_s,sf%lambda) !save lambda to sfl_boozer structure!
-      CALL LA_fbase_nyq%free() ; DEALLOCATE(LA_fbase_nyq) ; DEALLOCATE(LA_s)
+      DEALLOCATE(LA_fbase_nyq) ; DEALLOCATE(LA_s)
     END IF
     SWRITE(UNIT_StdOut,'(A)') '...DONE.'
     __PERFOFF('get_boozer')

@@ -282,7 +282,7 @@ SUBROUTINE Init_Base(mn_max,fac_nyq)
 ! MODULES
 USE MODgvec_Globals,ONLY: UNIT_stdOut
 USE MODgvec_base   ,ONLY: base_new
-USE MODgvec_fbase  ,ONLY: fbase_new,sin_cos_map
+USE MODgvec_fbase  ,ONLY: t_fBase, sin_cos_map
 USE MODgvec_ReadState_vars  ,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_gvec_to_jorek_vars, ONLY: X1_fbase_nyq,X2_fbase_nyq,LA_fbase_nyq,out_base,fbase_zeta,Nzeta_out
 IMPLICIT NONE
@@ -307,19 +307,19 @@ IMPLICIT NONE
                            '_sincos_   ', &  !full basis
                            .False.) !do not exclude m=n=0
 
-  CALL fbase_new(fbase_zeta, (/0, mn_max(2)/), (/1, Nzeta_out/), X1_base_r%f%nfp, "_sincos_", .false.)
+  fbase_zeta = t_fBase((/0, mn_max(2)/), (/1, Nzeta_out/), X1_base_r%f%nfp, "_sincos_", .false.)
   ! Initialize bases for existing grid at higher number of integration points, based on nyquist condition
-  CALL fbase_new( X1_fbase_nyq, X1_base_r%f%mn_max,  mn_nyq, &
+  X1_fbase_nyq =  t_fBase(X1_base_r%f%mn_max,  mn_nyq, &
                                 X1_base_r%f%nfp, &
                     sin_cos_map(X1_base_r%f%sin_cos), &
                                 X1_base_r%f%exclude_mn_zero)
 
-  CALL fbase_new( X2_fbase_nyq, X2_base_r%f%mn_max,  mn_nyq, &
+  X2_fbase_nyq =  t_fBase(X2_base_r%f%mn_max,  mn_nyq, &
                                 X2_base_r%f%nfp, &
                     sin_cos_map(X2_base_r%f%sin_cos), &
                                 X2_base_r%f%exclude_mn_zero)
 
-  CALL fbase_new(LA_fbase_nyq,  LA_base_r%f%mn_max,  mn_nyq, &
+  LA_fbase_nyq =  t_fBase(LA_base_r%f%mn_max,  mn_nyq, &
                                 LA_base_r%f%nfp, &
                     sin_cos_map(LA_base_r%f%sin_cos), &
                                 LA_base_r%f%exclude_mn_zero)
@@ -336,7 +336,7 @@ USE MODgvec_gvec_to_jorek_Vars
 USE MODgvec_Globals,        ONLY: CROSS,TWOPI,ProgressBar
 USE MODgvec_ReadState_Vars, ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
 USE MODgvec_Base,           ONLY: t_base
-USE MODgvec_fBase,          ONLY: t_fbase, fbase_new
+USE MODgvec_fBase,          ONLY: t_fbase
 
 
 IMPLICIT NONE
@@ -743,7 +743,6 @@ USE MODgvec_Globals,ONLY: UNIT_stdOut,CROSS,TWOPI,PI,ProgressBar
 !USE MODgvec_LinAlg
 !USE MODgvec_base   ,ONLY: t_base,base_new
 !USE MODgvec_sGrid  ,ONLY: t_sgrid
-!USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
 USE MODgvec_ReadState_vars  ,ONLY: X1_base_r,X2_base_r,LA_base_r
 USE MODgvec_ReadState_vars  ,ONLY: LA_r,X1_r,X2_r
 USE MODgvec_ReadState_Vars  ,ONLY: profiles_1d,hmap_r,sbase_prof !for profiles
@@ -1261,10 +1260,10 @@ IMPLICIT NONE
   CALL out_base%free()
   DEALLOCATE(out_base)
 
-  CALL X1_fbase_nyq%free()
-  CALL X2_fbase_nyq%free()
-  CALL LA_fbase_nyq%free()
-  CALL fbase_zeta%free()
+  DEALLOCATE(X1_fbase_nyq)
+  DEALLOCATE(X2_fbase_nyq)
+  DEALLOCATE(LA_fbase_nyq)
+  DEALLOCATE(fbase_zeta)
   DEALLOCATE(X1_fbase_nyq)
   DEALLOCATE(X2_fbase_nyq)
   DEALLOCATE(LA_fbase_nyq)

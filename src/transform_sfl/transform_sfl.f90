@@ -411,7 +411,7 @@ SUBROUTINE Transform_Angles_sinterp(AB_base_in,A_in,q_base_in,q_in,q_name,q_base
 USE MODgvec_Globals,ONLY: UNIT_stdOut,Progressbar,testlevel
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_sGrid  ,ONLY: t_sgrid
-USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
+USE MODgvec_fbase  ,ONLY: t_fbase, sin_cos_map
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -463,13 +463,13 @@ IMPLICIT NONE
 
 
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
-  CALL fbase_new( q_fbase_nyq,  q_base_in%f%mn_max,  mn_nyq, &
+  q_fbase_nyq =  t_fBase(q_base_in%f%mn_max,  mn_nyq, &
                                 q_base_in%f%nfp, &
                     sin_cos_map(q_base_in%f%sin_cos), &
                                 q_base_in%f%exclude_mn_zero)
   SWRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
-  CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
+  AB_fbase_nyq =  t_fBase(AB_base_in%f%mn_max,  mn_nyq, &
                                 AB_base_in%f%nfp, &
                     sin_cos_map(AB_base_in%f%sin_cos), &
                                 AB_base_in%f%exclude_mn_zero)
@@ -582,8 +582,6 @@ IMPLICIT NONE
   CALL to_spline_with_BC(q_base_out,q_m,q_out)
 
   !finalize
-  CALL q_fbase_nyq%free()
-  CALL AB_fbase_nyq%free()
   DEALLOCATE( q_fbase_nyq, AB_fbase_nyq, A_IP, dAdthet_IP)
   IF(Bpresent) DEALLOCATE(dAdzeta_IP, B_IP,dBdthet_IP, dBdzeta_IP )
 

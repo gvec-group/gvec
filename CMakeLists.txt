@@ -389,6 +389,7 @@ include(CTest)
 # =========================================================================
 
 IF(COMPILE_PYGVEC)
+  ADD_DEFINITIONS(-DPYGVEC=1)
   FIND_PACKAGE(Python COMPONENTS Interpreter Development NumPy REQUIRED)
 
   IF(PYTHON_FOUND)
@@ -422,6 +423,7 @@ IF(COMPILE_PYGVEC)
     src/profiles/c_rprofile.f90
     src/profiles/rprofile_bspline.f90
     src/profiles/rprofile_polynomial.f90
+    src/base/fbase.f90
   )
 
   FOREACH(file ${pygvec_src_files})
