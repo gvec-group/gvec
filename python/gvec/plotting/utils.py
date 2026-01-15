@@ -1,7 +1,7 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
+import matplotlib.pyplot as plt
 import numpy as np
-from numpy import ndarray  # type checking
 
 
 def _extrapolate_axis(state, quantities, zeta):
@@ -78,7 +78,7 @@ def _design_subgrid(nplots):
     return [int(divisor_a), int(divisor_b)]
 
 
-def _subplots(subplot_grid, **kwargs):
+def _subplots(subplot_grid, sharex, sharey, **kwargs):
     """
     we will ensure this is always returns a `numpy.ndarray` of axis objects
     """
@@ -87,18 +87,22 @@ def _subplots(subplot_grid, **kwargs):
     nrow = subplot_grid[0]
     ncol = subplot_grid[1]
 
-    f, ax = plt.subplots(nrow, ncol, layout="constrained", **kwargs)
-    ax = np.atleast_2d(ax)
+    f, ax = plt.subplots(
+        nrow, ncol, layout="compressed", sharex=sharex, sharey=sharey, **kwargs
+    )
     return f, ax
 
 
-def _axis_return(axs, subplot_grid):
+def _deco_usetex(func):
     """
-    Used to ensure that the plotting functions return a set of axis with the shape a user might expect
+    Switch usetex on during plotting then back to defaults
     """
-    if subplot_grid == [1, 1]:
-        return axs.flat[0]
-    if (subplot_grid[0] > 1) != (subplot_grid[1] > 1):
-        return axs[0]
-    else:
-        return axs
+
+    def wrap(*args, **kwargs):
+        usetex = plt.rcParams["text.usetex"]
+        plt.rcParams["text.usetex"] = True
+        f, axs = func(*args, **kwargs)
+        plt.rcParams["text.usetex"] = usetex
+        return f, axs
+
+    return wrap

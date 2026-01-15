@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from gvec.core.state import State
-from gvec.plotting.utils import _axis_return, _design_subgrid, _subplots, _symbol_check
+from gvec.plotting.utils import _deco_usetex, _design_subgrid, _subplots, _symbol_check
 
 
+@_deco_usetex
 def plot_poloidal_plane(
     state: State,
     quantity: str = "mod_B",
@@ -22,6 +23,7 @@ def plot_poloidal_plane(
     rho_contours: int = 4,
     theta_contours: int = 8,
     sfl: Literal["pest"] | None = "pest",
+    plot_kwargs: dict = dict(),
 ):
     """
     plot_poloidal_plane
@@ -97,7 +99,7 @@ def plot_poloidal_plane(
     if not subplot_grid:
         subplot_grid = _design_subgrid(len(zeta_eval))
 
-    f, axs = _subplots(subplot_grid, sharex=share_axis, sharey=share_axis)
+    f, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
     is_scalar = len(evaluations[quantity].shape) == 1
     # All plots will share the same colour scale
@@ -114,7 +116,7 @@ def plot_poloidal_plane(
         )
 
     # Loop and plot all axes
-    for i, ax in enumerate(axs.flat):
+    for i, ax in enumerate(np.asarray(axs).flat):
         # Check if the quantity is a scalar
         if not is_scalar:  # not a scalar
             plotting_quantity = evaluations[quantity].data[:, :, i].flatten()
@@ -160,15 +162,18 @@ def plot_poloidal_plane(
             ax.set(xlabel="X1", ylabel="X2")
             ax.label_outer()
 
+        ax.set_aspect("equal")
+
     # Adding colourbar
     evaluations = _symbol_check(evaluations, [quantity])
-    f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
-
-    axs = _axis_return(axs, subplot_grid)
+    f.colorbar(
+        f_ax, ax=np.asarray(axs).ravel().tolist(), label=f"${evaluations[quantity].symbol}$"
+    )
 
     return f, axs
 
 
+@_deco_usetex
 def plot_on_flux_surface(
     state: State,
     quantities: str | list[str] = "mod_B",
@@ -181,6 +186,7 @@ def plot_on_flux_surface(
     levels: int | np.ndarray | list = 10,
     sfl: Literal["pest", "boozer"] | None = "boozer",
     style: Literal["contour", "filled-contour"] = "contour",
+    plot_kwargs: dict = dict(),
     **boozer_kwargs,
 ):
     """
@@ -257,12 +263,12 @@ def plot_on_flux_surface(
     else:
         evaluations = state.evaluate(*quantities_eval, rho=rho, theta=ntheta, zeta=nzeta)
 
-    f, axs = _subplots(subplot_grid, sharex=share_axis, sharey=share_axis)
+    f, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
     evaluations = _symbol_check(evaluations, quantities_eval)
 
     # The actual plotting bit
-    for i, ax in enumerate(axs.flat):
+    for i, ax in enumerate(np.asarray(axs).flat):
         # We should not change the slice if we are plotting multiple quantities
         # and we should select the quantity to plot
         if isinstance(quantities, list):
@@ -327,7 +333,5 @@ def plot_on_flux_surface(
     if isinstance(quantities, str) and share_contours:
         # Adding colourbar if single quantity was requested
         f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
-
-    axs = _axis_return(axs, subplot_grid)
 
     return f, axs

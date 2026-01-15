@@ -8,7 +8,7 @@ import numpy as np
 
 from gvec.core.state import State
 from gvec.plotting.utils import (
-    _axis_return,
+    _deco_usetex,
     _design_subgrid,
     _extrapolate_axis,
     _subplots,
@@ -17,7 +17,7 @@ from gvec.plotting.utils import (
 
 
 def _plot_line_quantities_from_xarray(
-    evaluations, x_axis_values, quantities, subplot_grid, xlabel
+    evaluations, x_axis_values, quantities, subplot_grid, xlabel, plot_kwargs
 ):
     """
     Plot the quantities from the evaluations object assuming everything is 1D
@@ -32,10 +32,10 @@ def _plot_line_quantities_from_xarray(
         # If subplot_grid not predetermined we will work it out
         subplot_grid = _design_subgrid(len(quantities))
 
-    f, axs = _subplots(subplot_grid, sharex=link_xaxis)
+    f, axs = _subplots(subplot_grid, link_xaxis, False, **plot_kwargs)
 
     # for i, quantity in enumerate(quantities):
-    for i, ax in enumerate(axs.flat):
+    for i, ax in enumerate(np.asarray(axs).flat):
         ax.plot(
             x_axis_values,
             evaluations[quantities[i]],
@@ -50,17 +50,17 @@ def _plot_line_quantities_from_xarray(
 
         ax.gvec_quantity = quantities[i]
 
-    axs = _axis_return(axs, subplot_grid)
-
     return f, axs
 
 
+@_deco_usetex
 def plot_radial_profile(
     state: State,
     quantities: str | list[str] = ["iota", "p", "I_tor", "I_pol"],
     nrho: int | np.ndarray = 100,
     subplot_grid: list[int] | None = None,
     xaxis: Literal["rho", "rho_squared"] = "rho",
+    plot_kwargs: dict = dict(),
 ):
     """
     Plot the radial profile of given equilibrium quantities.
@@ -105,16 +105,20 @@ def plot_radial_profile(
     else:
         raise ValueError("xaxis must be 'rho' or 'rho_squared'.")
 
-    f_ax = _plot_line_quantities_from_xarray(evaluations, rho, quantities, subplot_grid, xlabel)
+    f, axs = _plot_line_quantities_from_xarray(
+        evaluations, rho, quantities, subplot_grid, xlabel, plot_kwargs
+    )
 
-    return f_ax
+    return f, axs
 
 
+@_deco_usetex
 def plot_on_axis(
     state: State,
     quantities: str | list[str] = "mod_B",
     nzeta: int | np.ndarray = 51,
     subplot_grid: list[int] | None = None,
+    plot_kwargs: dict = dict(),
 ):
     """
     Plot a equilibrium quantity (or list of) along the magnetic axis.
@@ -153,7 +157,7 @@ def plot_on_axis(
     zeta = evaluations.zeta.data
 
     f, axs = _plot_line_quantities_from_xarray(
-        evaluations, zeta, quantities, subplot_grid, "$\zeta$"
+        evaluations, zeta, quantities, subplot_grid, "$\zeta$", plot_kwargs
     )
 
     return f, axs
