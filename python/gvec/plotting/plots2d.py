@@ -99,7 +99,7 @@ def plot_poloidal_plane(
     if not subplot_grid:
         subplot_grid = _design_subgrid(len(zeta_eval))
 
-    f, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
+    fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
     is_scalar = len(evaluations[quantity].shape) == 1
     # All plots will share the same colour scale
@@ -146,8 +146,9 @@ def plot_poloidal_plane(
             )
 
         # The slice label will be added as an annotation to the top right of the subplot
+        zeta_angle = zeta_eval[i] / np.pi
         ax.annotate(
-            f"$\\zeta={zeta_eval[i]:.2f}$",
+            f"$\\zeta={zeta_angle:.2f} \\pi$",
             xy=(1, 1),
             xycoords="axes fraction",
             xytext=(-0.6, -0.6),
@@ -166,11 +167,11 @@ def plot_poloidal_plane(
 
     # Adding colourbar
     evaluations = _symbol_check(evaluations, [quantity])
-    f.colorbar(
+    fig.colorbar(
         f_ax, ax=np.asarray(axs).ravel().tolist(), label=f"${evaluations[quantity].symbol}$"
     )
 
-    return f, axs
+    return fig, axs
 
 
 @_deco_usetex
@@ -263,7 +264,7 @@ def plot_on_flux_surface(
     else:
         evaluations = state.evaluate(*quantities_eval, rho=rho, theta=ntheta, zeta=nzeta)
 
-    f, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
+    fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
     evaluations = _symbol_check(evaluations, quantities_eval)
 
@@ -306,11 +307,11 @@ def plot_on_flux_surface(
         if isinstance(quantities, list):
             # Specify the quantity type in the top right corner if multiple quantities were requested
             plot_label = f"${evaluations_i[quantity].attrs['symbol']}$"
-            f.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
+            fig.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
         else:
             plot_label = f"$\\rho={evaluations.rho.data[i]}$"
             if not share_contours:
-                f.colorbar(f_ax, ax=ax)
+                fig.colorbar(f_ax, ax=ax)
 
         ax.annotate(
             plot_label,
@@ -332,35 +333,70 @@ def plot_on_flux_surface(
 
     if isinstance(quantities, str) and share_contours:
         # Adding colourbar if single quantity was requested
-        f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
+        fig.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
 
-    return f, axs
+    return fig, axs
 
 
+@_deco_usetex
 def plot_fourier_on_surface(
     state: State,
     quantity: str = "mod_B",
     rho: float = 1.0,
+    ntheta: int = 101,
+    nzeta: int = 101,
     sfl: Literal["pest", "boozer"] | None = None,
-    n_theta: int = 101,
-    n_zeta: int = 101,
     limit: float | None = 1e-15,
 ):
+    """
+    Diagnostic plot for plotting the Fourier modes of a given quantitity on a flux surface.
+
+    Parameters
+    ----------
+    state : GVEC state object
+    quantities : str, optional
+        Quantitiy to plot.
+        Default `mod_B`
+    rho : float, optional
+        The flux surface label(s) to plot.
+        Default is `1.0`.
+    ntheta : int, optional
+        Resolution in `theta`.
+        Default is `101`
+    nzeta : int, optional
+        Resolution in `zeta`.
+        Default is `101`
+    sfl : str, optional
+        Plot surfaces in `"boozer"`, `"pest"` or regular ``$\theta-\zeta$`` (`None`) coordinates.
+        Default is `"boozer"`
+    limit: float, optional
+        Cut-off value for the Fourier amplitudes to plot.
+        Default is `1e-15`
+
+
+    Returns
+    -------
+    `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
+    """
     from gvec.core.compute import ev2ft
 
     quantities = [quantity, "N_FP"]
     if sfl is None:
-        ev = state.evaluate(*quantities, rho=rho, theta=n_theta, zeta=n_zeta)
+        evaluations = state.evaluate(*quantities, rho=rho, theta=ntheta, zeta=nzeta)
     else:
-        ev = state.evaluate_sfl(*quantities, rho=rho, theta=n_theta, zeta=n_zeta, sfl=sfl)
-    ev = ev[quantities]
+        evaluations = state.evaluate_sfl(
+            *quantities, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl
+        )
+    evaluations = evaluations[quantities]
 
-    evft = ev2ft(ev).squeeze().sortby("n")
+    evaluations = _symbol_check(evaluations, quantities)
+
+    evft = ev2ft(evaluations).squeeze().sortby("n")
 
     levels = np.linspace(-14, 0, 8)
-    symbol = ev[quantity].attrs.get("symbol", f"\\mathrm{{{quantity}}}")
+    symbol = evaluations[quantity].attrs.get("symbol", f"\\mathrm{{{quantity}}}")
 
-    fig, axs = _subplots([1, 2], sharex=True, sharey=True)
+    fig, axs = _subplots([1, 2], True, True)
     for ax, suffix in zip(axs, ["mnc", "mns"]):
         c = ax.contourf(
             evft.n,

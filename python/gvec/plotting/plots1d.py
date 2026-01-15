@@ -32,7 +32,7 @@ def _plot_line_quantities_from_xarray(
         # If subplot_grid not predetermined we will work it out
         subplot_grid = _design_subgrid(len(quantities))
 
-    f, axs = _subplots(subplot_grid, link_xaxis, False, **plot_kwargs)
+    fig, axs = _subplots(subplot_grid, link_xaxis, False, **plot_kwargs)
 
     # for i, quantity in enumerate(quantities):
     for i, ax in enumerate(np.asarray(axs).flat):
@@ -45,12 +45,12 @@ def _plot_line_quantities_from_xarray(
         )
 
         # If there are multiple plots we need to set the x-axis labels only on the bottom row
-        if (hide_inner_axis) & (i - len(axs) + subplot_grid[1] >= 0):
+        if (hide_inner_axis) & (i - np.asarray(axs).size + subplot_grid[1] >= 0):
             ax.set_xlabel(f"${xlabel}$")
 
         ax.gvec_quantity = quantities[i]
 
-    return f, axs
+    return fig, axs
 
 
 @_deco_usetex
@@ -105,11 +105,11 @@ def plot_radial_profile(
     else:
         raise ValueError("xaxis must be 'rho' or 'rho_squared'.")
 
-    f, axs = _plot_line_quantities_from_xarray(
+    fig, axs = _plot_line_quantities_from_xarray(
         evaluations, rho, quantities, subplot_grid, xlabel, plot_kwargs
     )
 
-    return f, axs
+    return fig, axs
 
 
 @_deco_usetex
@@ -156,11 +156,11 @@ def plot_on_axis(
 
     zeta = evaluations.zeta.data
 
-    f, axs = _plot_line_quantities_from_xarray(
+    fig, axs = _plot_line_quantities_from_xarray(
         evaluations, zeta, quantities, subplot_grid, "$\zeta$", plot_kwargs
     )
 
-    return f, axs
+    return fig, axs
 
 
 # === 1D utility functions ===#
