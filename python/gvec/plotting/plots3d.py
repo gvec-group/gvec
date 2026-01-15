@@ -21,7 +21,7 @@ def plot_3d_surface(
 
     Parameters
     ----------
-    state : GVEC state file
+    state : GVEC state object
     quantity : str, optional
         Equilibrium quantity to plot on the surface.
         Default is "mod_B".

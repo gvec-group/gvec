@@ -88,5 +88,17 @@ def _subplots(subplot_grid, **kwargs):
     ncol = subplot_grid[1]
 
     f, ax = plt.subplots(nrow, ncol, layout="constrained", **kwargs)
-    ax = np.asarray(ax).flatten()
+    ax = np.atleast_2d(ax)
     return f, ax
+
+
+def _axis_return(axs, subplot_grid):
+    """
+    Used to ensure that the plotting functions return a set of axis with the shape a user might expect
+    """
+    if subplot_grid == [1, 1]:
+        return axs.flat[0]
+    if (subplot_grid[0] > 1) != (subplot_grid[1] > 1):
+        return axs[0]
+    else:
+        return axs

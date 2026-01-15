@@ -3,11 +3,12 @@
 from typing import Literal
 from warnings import warn
 
-# import matplotlib.pyplot as pyplot
+import matplotlib.pyplot as plt
 import numpy as np
 
 from gvec.core.state import State
 from gvec.plotting.utils import (
+    _axis_return,
     _design_subgrid,
     _extrapolate_axis,
     _subplots,
@@ -33,18 +34,23 @@ def _plot_line_quantities_from_xarray(
 
     f, axs = _subplots(subplot_grid, sharex=link_xaxis)
 
-    for i, quantity in enumerate(quantities):
-        axs[i].plot(
+    # for i, quantity in enumerate(quantities):
+    for i, ax in enumerate(axs.flat):
+        ax.plot(
             x_axis_values,
-            evaluations[quantity],
+            evaluations[quantities[i]],
         )
-        axs[i].set(
-            ylabel=f"${evaluations[quantity].attrs['symbol']}$",
+        ax.set(
+            ylabel=f"${evaluations[quantities[i]].attrs['symbol']}$",
         )
 
         # If there are multiple plots we need to set the x-axis labels only on the bottom row
         if (hide_inner_axis) & (i - len(axs) + subplot_grid[1] >= 0):
-            axs[i].set_xlabel(f"${xlabel}$")
+            ax.set_xlabel(f"${xlabel}$")
+
+        ax.gvec_quantity = quantities[i]
+
+    axs = _axis_return(axs, subplot_grid)
 
     return f, axs
 
@@ -61,7 +67,7 @@ def plot_radial_profile(
 
     Parameters
     ----------
-    state : GVEC state file
+    state : GVEC state object
     quantities : str, list[str], optional
         Default is `["iota","p","I_tor","I_pol"]`.
     nrho : int, numpy.ndarray
@@ -115,7 +121,7 @@ def plot_on_axis(
 
     Parameters
     ----------
-    state : GVEC State file
+    state : GVEC state object
     quantities : str, list[str], optional
         Default is "mod_B".
     nzeta : int, numpy.ndarray, optional
@@ -151,3 +157,62 @@ def plot_on_axis(
     )
 
     return f, axs
+
+
+# === 1D utility functions ===#
+
+
+def _add_rationals_to_iota_plot(
+    state,
+    ax,
+    limits: tuple[float, float] | None = None,
+    n_rationals: int | None = 3,
+    n_max: int = 10,
+):
+    """
+    Add high-order rationals as a secondary y-axis to an iota profile plot.
+    """
+    from math import gcd
+
+    if limits is None:
+        limits = ax.get_ylim()
+
+    rationals = []
+    for n in range(1, n_max + 1):
+        for m in range(1, n * state.nfp + 1):
+            if gcd(m, n) != 1:
+                continue
+            if limits[0] <= m / (n * state.nfp) <= limits[1]:
+                rationals.append((m, n * state.nfp))
+        if len(rationals) >= n_rationals:
+            break
+    rationals = sorted(rationals, key=lambda x: x[0] / x[1])
+
+    secax = ax.secondary_yaxis("right")
+    secax.set(
+        yticks=[m / n for m, n in rationals],
+        yticklabels=[f"$\\frac{{{m}}}{{{n}}}$" for m, n in rationals],
+    )
+    for m, n in rationals:
+        ax.axhline(m / n, color="gray", linestyle="--", alpha=0.2)
+
+    return rationals, secax
+
+
+def add_iota_rationals(
+    state,
+    figaxs,
+    limits: tuple[float, float] | None = None,
+    n_rationals: int | None = 3,
+    n_max: int = 10,
+):
+    if isinstance(figaxs, np.ndarray):
+        for ax in figaxs.flat:
+            if ax.gvec_quantity == "iota":
+                _add_rationals_to_iota_plot(state, ax, limits, n_rationals, n_max)
+    elif isinstance(figaxs, plt.Axes):
+        _add_rationals_to_iota_plot(state, figaxs, limits, n_rationals, n_max)
+    elif isinstance(figaxs, tuple):
+        for fa in figaxs:
+            if isinstance(fa, plt.Axes | np.ndarray):
+                add_iota_rationals(state, fa, limits, n_rationals, n_max)

@@ -3,10 +3,11 @@
 from typing import Literal
 from warnings import warn
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from gvec.core.state import State
-from gvec.plotting.utils import _design_subgrid, _subplots, _symbol_check
+from gvec.plotting.utils import _axis_return, _design_subgrid, _subplots, _symbol_check
 
 
 def plot_poloidal_plane(
@@ -17,7 +18,7 @@ def plot_poloidal_plane(
     ntheta: int = 51,
     zeta: int | float | np.ndarray = 9,
     subplot_grid: list[int] | None = None,
-    share_axis: bool = False,
+    share_axis: bool = True,
     rho_contours: int = 4,
     theta_contours: int = 8,
     sfl: Literal["pest"] | None = "pest",
@@ -29,7 +30,7 @@ def plot_poloidal_plane(
 
     Parameters
     ----------
-    state : GVEC state file
+    state : GVEC state object
     quantity : str, optional
         The quantity to plot. Default is "mod_B"
     nrho : int, optional
@@ -113,7 +114,7 @@ def plot_poloidal_plane(
         )
 
     # Loop and plot all axes
-    for i, ax in enumerate(axs):
+    for i, ax in enumerate(axs.flat):
         # Check if the quantity is a scalar
         if not is_scalar:  # not a scalar
             plotting_quantity = evaluations[quantity].data[:, :, i].flatten()
@@ -163,6 +164,8 @@ def plot_poloidal_plane(
     evaluations = _symbol_check(evaluations, [quantity])
     f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
 
+    axs = _axis_return(axs, subplot_grid)
+
     return f, axs
 
 
@@ -174,6 +177,7 @@ def plot_on_flux_surface(
     nzeta: int = 51,
     subplot_grid: list[int] | None = None,
     share_axis: bool = True,
+    share_contours: bool = False,
     levels: int | np.ndarray | list = 10,
     sfl: Literal["pest", "boozer"] | None = "boozer",
     style: Literal["contour", "filled-contour"] = "contour",
@@ -185,7 +189,7 @@ def plot_on_flux_surface(
 
     Parameters
     ----------
-    state : GVEC state file
+    state : GVEC state object
     quantities : str, list[str], optional
         Plot either a single quantitiy on a number of `rho` surfaces or a number of `quantities` on a single `rho` surface.
         Default `mod_B`
@@ -222,8 +226,10 @@ def plot_on_flux_surface(
     `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
     """
 
-    if isinstance(rho, int) or isinstance(rho, float):
+    if isinstance(rho, int):
         rho_len = rho
+    elif isinstance(rho, float):
+        rho_len = 1
     else:
         rho_len = len(rho)
 
@@ -255,12 +261,13 @@ def plot_on_flux_surface(
 
     evaluations = _symbol_check(evaluations, quantities_eval)
 
-    for i, ax in enumerate(axs):
+    # The actual plotting bit
+    for i, ax in enumerate(axs.flat):
         # We should not change the slice if we are plotting multiple quantities
         # and we should select the quantity to plot
         if isinstance(quantities, list):
             evaluations_i = evaluations.isel(rad=0)
-            quantity = quantities[i]
+            quantity = quantities_eval[i]
         else:
             evaluations_i = evaluations.isel(rad=i)
             quantity = quantities
@@ -289,11 +296,16 @@ def plot_on_flux_surface(
             evaluations_i[quantity].transpose("pol", "tor").data,
             levels=levels,
         )
+
         if isinstance(quantities, list):
+            # Specify the quantity type in the top right corner if multiple quantities were requested
             plot_label = f"${evaluations_i[quantity].attrs['symbol']}$"
+            f.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
         else:
             plot_label = f"$\\rho={evaluations.rho.data[i]}$"
-            # Specify the quantity type in the top right corner if multiple quantities were requested
+            if not share_contours:
+                f.colorbar(f_ax, ax=ax)
+
         ax.annotate(
             plot_label,
             xy=(1, 1),
@@ -305,9 +317,6 @@ def plot_on_flux_surface(
             bbox=dict(facecolor="white", edgecolor="black"),
         )
 
-        if isinstance(quantities, list):
-            f.colorbar(f_ax, ax=ax)  # , label=f"${evaluations[quantity].symbol}$")
-
         ax.set(
             xlabel=f"${zeta_vals.attrs['symbol']}$", ylabel=f"${theta_vals.attrs['symbol']}$"
         )
@@ -315,8 +324,10 @@ def plot_on_flux_surface(
         # Removes any axis labels on subplots on the interior of the grid
         ax.label_outer()
 
-    if isinstance(quantities, str):
+    if isinstance(quantities, str) and share_contours:
         # Adding colourbar if single quantity was requested
         f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
+
+    axs = _axis_return(axs, subplot_grid)
 
     return f, axs
