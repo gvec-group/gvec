@@ -335,3 +335,74 @@ def plot_on_flux_surface(
         f.colorbar(f_ax, ax=axs.ravel().tolist(), label=f"${evaluations[quantity].symbol}$")
 
     return f, axs
+
+
+def plot_fourier_on_surface(
+    state: State,
+    quantity: str = "mod_B",
+    rho: float = 1.0,
+    sfl: Literal["pest", "boozer"] | None = None,
+    n_theta: int = 101,
+    n_zeta: int = 101,
+    limit: float | None = 1e-15,
+):
+    from gvec.core.compute import ev2ft
+
+    quantities = [quantity, "N_FP"]
+    if sfl is None:
+        ev = state.evaluate(*quantities, rho=rho, theta=n_theta, zeta=n_zeta)
+    else:
+        ev = state.evaluate_sfl(*quantities, rho=rho, theta=n_theta, zeta=n_zeta, sfl=sfl)
+    ev = ev[quantities]
+
+    evft = ev2ft(ev).squeeze().sortby("n")
+
+    levels = np.linspace(-14, 0, 8)
+    symbol = ev[quantity].attrs.get("symbol", f"\\mathrm{{{quantity}}}")
+
+    fig, axs = _subplots([1, 2], sharex=True, sharey=True)
+    for ax, suffix in zip(axs, ["mnc", "mns"]):
+        c = ax.contourf(
+            evft.n,
+            evft.m,
+            np.log10(np.maximum(np.abs(evft[f"{quantity}_{suffix}"]), 1e-16)),
+            levels=levels,
+            extend="both",
+        )
+    fig.colorbar(c, ax=axs, label=rf"$\log_{{10}}|{symbol}|$")
+    coords = {
+        None: "logical coordinates",
+        "pest": "PEST coordinates",
+        "boozer": "Boozer coordinates",
+    }
+    fig.suptitle(
+        f"Fourier spectrum of ${symbol}$ on flux surface $\\rho={rho}$ in {coords[sfl]}"
+    )
+    for ax in axs:
+        ax.set(xlabel="$n$")
+    axs[0].set(
+        ylabel="$m$",
+        title="cosine components",
+    )
+    axs[1].set(
+        title="sine components",
+    )
+
+    if limit is not None:
+        power = np.sqrt(evft[f"{quantity}_mnc"] ** 2 + evft[f"{quantity}_mns"] ** 2)
+        limit_m = power.m.where((power > limit).sum(dim="n") == 0).min().item()
+        limit_m = np.nanmax([limit_m, 5])
+        limit_n1 = (
+            power.n.where((power > limit).sum(dim="m") == 0).where(power.n > 0).min().item()
+        )
+        limit_n2 = (
+            power.n.where((power > limit).sum(dim="m") == 0).where(power.n < 0).max().item()
+        )
+        limit_n = np.nanmax([abs(limit_n1), abs(limit_n2), 5])
+        for ax in axs:
+            ax.set(
+                xlim=(-limit_n - 1, limit_n + 1),
+                ylim=(0, limit_m + 1),
+            )
+
+    return fig, axs
