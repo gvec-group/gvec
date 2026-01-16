@@ -1,3 +1,7 @@
+# Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
+# License: MIT
+"""visu.py - Save some default plots from a given GVEC output file."""
+
 import argparse
 import logging
 from collections.abc import Sequence
@@ -21,10 +25,6 @@ parser.add_argument(
     default=0,
     help="verbosity level: -v for info, -vv for debug",
 )
-
-
-def write_plots_to_directory(state: State, output_directory: Path, verbose: bool = False):
-    pass
 
 
 def main(args: Sequence[str] | argparse.Namespace | None = None):

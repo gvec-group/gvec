@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import gvec
-from gvec.scripts import cas3d, convert, gist, quasr, run, visu
+from gvec.scripts import cas3d, convert, gist, quasr, run, tovtk, visu
 
 # === Arguments === #
 
@@ -85,6 +85,14 @@ plot_parser = subparsers.add_parser(
     add_help=False,
 )
 
+vtk_parser = subparsers.add_parser(
+    "tovtk",
+    help="Generate vtk file for paraview",
+    description=tovtk.parser.description,
+    parents=[tovtk.parser],
+    add_help=False,
+)
+
 
 # === Script === #
 
@@ -115,6 +123,9 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
 
     elif args.mode == "visu":
         return visu.main(args)
+
+    elif args.mode == "tovtk":
+        return tovtk.main(args)
 
 
 if __name__ == "__main__":
