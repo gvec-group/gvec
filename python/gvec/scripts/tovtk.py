@@ -6,6 +6,7 @@ import argparse
 import logging
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -21,39 +22,75 @@ parser = argparse.ArgumentParser(
 parser.add_argument("--rundir", type=Path, help="GVEC run directory", default=Path("."))
 
 parser.add_argument(
-    "--outputfile", "-o", type=Path, help="VTK output filename", default=Path("./out.vtk")
+    "--outputfile", "-o", type=Path, help="VTK output filename", default=Path("./out")
 )
 
 parser.add_argument(
-    "-v",
     "--verbose",
+    "-v",
     action="count",
     default=0,
     help="verbosity level: -v for info, -vv for debug",
 )
 
 parser.add_argument(
-    "-ntheta",
+    "--ntheta",
     type=int,
     default=50,
     help="theta resolution",
 )
 
 parser.add_argument(
-    "-nzeta",
+    "--nzeta",
     type=int,
     default=33,
     help="zeta resolution",
 )
 
+parser.add_argument(
+    "--period",
+    choices=["full", "single", "half"],
+    default="full",
+    help="zeta resolution",
+)
+
 
 def gvec_to_vtk(
-    state: State, outputfile: Path, ntheta: int = 50, nzeta: int = 33, verbose: bool = False
+    state: State,
+    outputfile: Path,
+    ntheta: int = 50,
+    nzeta: int = 33,
+    period: Literal["full", "single", "half"] = "full",
+    verbose: bool = False,
 ):
-    theta = np.linspace(0, 2 * np.pi, ntheta)
-    zeta = np.linspace(0, 2 * np.pi / state.nfp, nzeta)
+    if period == "full":
+        zeta_adjust = 1.0
+    elif period == "single":
+        zeta_adjust = state.nfp
+    elif period == "half":
+        zeta_adjust = state.nfp / 2.0
 
-    evaluations = state.evaluate("X1", "X2", "LA", "pos", "B", rho=20, theta=theta, zeta=zeta)
+    theta = np.linspace(0, 2 * np.pi, ntheta)
+    zeta = np.linspace(0, 2 * np.pi / zeta_adjust, nzeta)
+
+    evaluations = state.evaluate(
+        "X1",
+        "X2",
+        "LA",
+        "pos",
+        "B",
+        "J",
+        "mod_B",
+        "p",
+        "iota",
+        "Phi",
+        "chi",
+        "I_tor",
+        "I_pol",
+        rho=20,
+        theta=theta,
+        zeta=zeta,
+    )
 
     ev2vtk(outputfile, evaluations, not verbose)
 
@@ -71,7 +108,7 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     else:
         verbose = False
 
-    gvec_to_vtk(state, args.outputfile, args.ntheta, args.nzeta, verbose)
+    gvec_to_vtk(state, args.outputfile, args.ntheta, args.nzeta, args.period, verbose)
 
 
 if __name__ == "__main":
