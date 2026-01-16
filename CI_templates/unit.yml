@@ -10,14 +10,27 @@ spec:
     vars:
       description: Template with variables or parallel:matrix
       default: .vars_matrix_py
+    build-postfix:
+      description: Build-Job name postfix
+      default: "_py"
+    unit-postfix:
+      description: Job name postfix, e.g. `_debugrun` or `_slurm`
+      default: ""
     rules:
       description: Rules for the job, e.g. `.rules_default`
       default: .rules_default
+    allow_failure:
+      description: Allow the job to fail
+      default: false
+      type: boolean
 
 ---
 
-unit$[[ inputs.env ]]:
+unit$[[ inputs.env ]]$[[ inputs.unit-postfix ]]:
   stage: unit
+  before_script:
+    - !reference [".before_script_modules", "before_script"]
+    - !reference [".before_script_exportvars", "before_script"]
   extends:
     - $[[ inputs.env ]]
     - .vars_dirs_artifacts
@@ -25,5 +38,6 @@ unit$[[ inputs.env ]]:
     - $[[ inputs.vars ]]
     - $[[ inputs.rules ]]
   needs:
-    - job: build$[[ inputs.env ]]_py
+    - job: build$[[ inputs.env ]]$[[ inputs.build-postfix ]]
       artifacts: true
+  allow_failure: $[[ inputs.allow_failure ]]
