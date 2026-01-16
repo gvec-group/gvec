@@ -919,7 +919,7 @@ END SUBROUTINE evaluate_profile
 !================================================================================================================================!
 FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sfl_boozer)
   ! MODULES
-  USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer, sfl_boozer_new
+  USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
   USE MODgvec_MHD3D_vars,     ONLY: hmap, iota_profile, Phi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer                 !! SFL-Boozer object
@@ -935,8 +935,7 @@ FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sf
     iota(i) = iota_profile%eval_at_rho(rho_pos(i))
     phiPrime(i) = Phi_profile%eval_at_rho(rho_pos(i),deriv=1)
   END DO
-  ! ALLOCATE is called within sfl_boozer_new
-  CALL sfl_boozer_new(sfl_boozer, mn_max, mn_nyq, nfp, sin_cos, hmap, nrho, rho_pos, iota, phiPrime, relambda)
+  sfl_boozer = t_sfl_boozer(mn_max, mn_nyq, nfp, sin_cos, hmap, nrho, rho_pos, iota, phiPrime, relambda)
 END FUNCTION init_boozer
 
 SUBROUTINE get_boozer(sfl_boozer)

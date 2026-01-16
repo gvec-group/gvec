@@ -46,7 +46,7 @@ TYPE :: t_sfl_boozer
 #endif
   CONTAINS
   PROCEDURE :: get_boozer  => get_boozer_sinterp
-  PROCEDURE :: free        => sfl_boozer_free
+  FINAL     ::                sfl_boozer_free
   PROCEDURE :: find_angles => self_find_boozer_angles
   PROCEDURE :: find_angles_irho => self_find_boozer_angles_irho
 END TYPE t_sfl_boozer
@@ -60,11 +60,12 @@ TYPE, EXTENDS(c_newton_Root2D) :: t_newton_Root2D_boozer
   PROCEDURE :: dFR => get_booz_newton_dFR
 END TYPE t_newton_Root2D_boozer
 
-INTERFACE sfl_boozer_new
+INTERFACE t_sfl_boozer
   MODULE PROCEDURE sfl_boozer_new
 END INTERFACE
 
-PUBLIC :: t_sfl_boozer,sfl_boozer_new,find_boozer_angles
+PUBLIC :: t_sfl_boozer, find_boozer_angles
+PUBLIC :: sfl_boozer_free  ! needed for f90wrap finalizer
 !===================================================================================================================================
 
 CONTAINS
@@ -74,7 +75,7 @@ CONTAINS
 !> initialize sfl boozer class
 !!
 !===================================================================================================================================
-SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiPrime,relambda_in)
+FUNCTION sfl_boozer_new(mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiPrime,relambda_in) RESULT(sf)
   ! MODULES
   USE MODgvec_fbase, ONLY: t_fBase
   USE MODgvec_hmap, ONLY: hmap_new_auxvar
@@ -96,9 +97,8 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
                                    !!   for exact integrability condition of boozer transform, but slower.
                                    !! FALSE: lambda from equilibrium solution is taken.
   ! OUTPUT VARIABLES
-  TYPE(t_sfl_boozer), ALLOCATABLE,INTENT(INOUT) :: sf !! self
+  TYPE(t_sfl_boozer) :: sf !! self
   !=================================================================================================================================
-  ALLOCATE(sf)
   sf%nrho = nrho
   ALLOCATE(sf%rho_pos(nrho),sf%iota(nrho),sf%phiPrime(nrho))
   sf%rho_pos = rho_pos
@@ -117,7 +117,7 @@ SUBROUTINE sfl_boozer_new(sf,mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota
   CALL hmap_new_auxvar(sf%hmap,sf%nu_fbase%x_IP(2,:),sf%hmap_xv,.TRUE.)
   ALLOCATE(sf%lambda(sf%nu_fbase%modes,nrho),sf%nu(sf%nu_fbase%modes,nrho))
   sf%initialized=.TRUE.
-END SUBROUTINE sfl_boozer_new
+END FUNCTION sfl_boozer_new
 
 !===================================================================================================================================
 !> finalize sfl boozer class
@@ -125,16 +125,22 @@ END SUBROUTINE sfl_boozer_new
 !===================================================================================================================================
 SUBROUTINE sfl_boozer_free(sf)
   ! MODULES
+  USE MODgvec_Globals, ONLY: UNIT_stdOut
   IMPLICIT NONE
-  CLASS(t_sfl_boozer), INTENT(INOUT) :: sf !! self
+  TYPE(t_sfl_boozer), INTENT(INOUT) :: sf !! self
   !=================================================================================================================================
-  DEALLOCATE(sf%rho_pos,sf%lambda,sf%nu,sf%iota,sf%phiPrime)
-  DEALLOCATE(sf%nu_fbase)
-  DEALLOCATE(sf%hmap_xv)
+  SWRITE(UNIT_StdOut,'(A)') 'FREE sfl_boozer'
+  SDEALLOCATE(sf%rho_pos)
+  SDEALLOCATE(sf%lambda)
+  SDEALLOCATE(sf%nu)
+  SDEALLOCATE(sf%iota)
+  SDEALLOCATE(sf%phiPrime)
+  SDEALLOCATE(sf%nu_fbase)
+  SDEALLOCATE(sf%hmap_xv)
   NULLIFY(sf%hmap)
   sf%initialized=.FALSE.
+  SWRITE(UNIT_StdOut,'(A)') '... DONE.'
 END SUBROUTINE sfl_boozer_free
-
 
 
 !===================================================================================================================================

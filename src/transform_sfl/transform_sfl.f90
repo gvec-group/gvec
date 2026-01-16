@@ -165,7 +165,7 @@ SUBROUTINE transform_SFL_init(sf)
 USE MODgvec_Globals,ONLY:UNIT_stdOut
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_fbase  ,ONLY: sin_cos_map
-USE MODgvec_SFL_Boozer,ONLY: sfl_boozer_new
+USE MODgvec_SFL_Boozer,ONLY: t_sfl_boozer
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -205,7 +205,7 @@ CASE(2) !BOOZER
     iota(irho)=sf%eval_iota(rho_pos(irho))
     phiPrime(irho)=sf%eval_phiPrime(rho_pos(irho))
   END DO
-  CALL sfl_boozer_new(sf%booz,sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),sf%hmap,sf%GZsfl_base%s%nBase, &
+  sf%booz = t_sfl_boozer(sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),sf%hmap,sf%GZsfl_base%s%nBase, &
                       rho_pos,iota,phiPrime,relambda_in=sf%booz_relambda)
   DEALLOCATE(rho_pos,iota,phiPrime)
   ALLOCATE(sf%Gtsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%Gtsfl=0.0_wp

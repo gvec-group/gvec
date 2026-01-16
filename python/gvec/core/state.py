@@ -236,9 +236,8 @@ class State:
         with catch_gvec_errors():
             for child in self._children:
                 if isinstance(child, gvec.lib.Modgvec_Sfl_Boozer.t_sfl_boozer):
-                    if child.initialized:
-                        logger.debug(f"Finalizing Boozer potential {child!r}")
-                        child.free()
+                    logger.debug(f"Unbinding child {child!r} from the fortran library.")
+                    del child
                 else:
                     logger.error(f"Unknown child: {child!r}")
             self._children = []
