@@ -922,7 +922,7 @@ FUNCTION init_boozer(mn_max, mn_nyq, sin_cos, nrho, rho_pos, relambda) RESULT(sf
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
   USE MODgvec_MHD3D_vars,     ONLY: hmap, iota_profile, Phi_profile
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
-  TYPE(t_sfl_boozer), ALLOCATABLE :: sfl_boozer                 !! SFL-Boozer object
+  TYPE(t_sfl_boozer) :: sfl_boozer                 !! SFL-Boozer object
   INTEGER, INTENT(IN) :: mn_max(2), mn_nyq(2), nrho             !! parameters for the Boozer object
   CHARACTER(LEN=8), INTENT(IN)   :: sin_cos      !! can be either only sine: " _sin_" only cosine: " _cos_" or full: "_sin_cos_"
   REAL, INTENT(IN), DIMENSION(nrho) :: rho_pos                  !! radial positions

@@ -1257,17 +1257,19 @@ IMPLICIT NONE
   SDEALLOCATE(data_scalar2D)
   !SDEALLOCATE(data_vector3D)
 
-  CALL out_base%free()
-  DEALLOCATE(out_base)
+  IF (ALLOCATED(out_base)) THEN
+    CALL out_base%free()
+    DEALLOCATE(out_base)
+  END IF
 
-  DEALLOCATE(X1_fbase_nyq)
-  DEALLOCATE(X2_fbase_nyq)
-  DEALLOCATE(LA_fbase_nyq)
-  DEALLOCATE(fbase_zeta)
-  DEALLOCATE(X1_fbase_nyq)
-  DEALLOCATE(X2_fbase_nyq)
-  DEALLOCATE(LA_fbase_nyq)
-  DEALLOCATE(fbase_zeta)
+  SDEALLOCATE(X1_fbase_nyq)
+  SDEALLOCATE(X2_fbase_nyq)
+  SDEALLOCATE(LA_fbase_nyq)
+  SDEALLOCATE(fbase_zeta)
+  SDEALLOCATE(X1_fbase_nyq)
+  SDEALLOCATE(X2_fbase_nyq)
+  SDEALLOCATE(LA_fbase_nyq)
+  SDEALLOCATE(fbase_zeta)
 
 
 END SUBROUTINE finalize_gvec_to_jorek

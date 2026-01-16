@@ -77,6 +77,7 @@ CONTAINS
 !===================================================================================================================================
 FUNCTION sfl_boozer_new(mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiPrime,relambda_in) RESULT(sf)
   ! MODULES
+  USE MODgvec_Globals, ONLY: UNIT_stdOut
   USE MODgvec_fbase, ONLY: t_fBase
   USE MODgvec_hmap, ONLY: hmap_new_auxvar
   IMPLICIT NONE
@@ -99,6 +100,7 @@ FUNCTION sfl_boozer_new(mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiP
   ! OUTPUT VARIABLES
   TYPE(t_sfl_boozer) :: sf !! self
   !=================================================================================================================================
+  SWRITE(UNIT_StdOut,'(A)') 'NEW sfl_boozer'
   sf%nrho = nrho
   ALLOCATE(sf%rho_pos(nrho),sf%iota(nrho),sf%phiPrime(nrho))
   sf%rho_pos = rho_pos
@@ -117,6 +119,7 @@ FUNCTION sfl_boozer_new(mn_max,mn_nyq,nfp,sin_cos,hmap_in,nrho,rho_pos,iota,phiP
   CALL hmap_new_auxvar(sf%hmap,sf%nu_fbase%x_IP(2,:),sf%hmap_xv,.TRUE.)
   ALLOCATE(sf%lambda(sf%nu_fbase%modes,nrho),sf%nu(sf%nu_fbase%modes,nrho))
   sf%initialized=.TRUE.
+  SWRITE(UNIT_StdOut,'(A)') '... DONE.'
 END FUNCTION sfl_boozer_new
 
 !===================================================================================================================================
