@@ -1411,7 +1411,7 @@ CONTAINS
   CHARACTER(LEN=255)  :: fileString
   INTEGER             :: TimeArray(8),iLogDat
   REAL(wp)            :: AxisPos(2,2),W_MHD3D
-  INTEGER,PARAMETER   :: nLogDat=20
+  INTEGER,PARAMETER   :: nLogDat=21
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   IF(.NOT.MPIroot) RETURN
@@ -1479,7 +1479,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER             :: TimeArray(8),runtime_ms,iLogDat
   REAL(wp)            :: AxisPos(2,2),maxDist,avgDist,W_MHD3D
-  INTEGER,PARAMETER   :: nLogDat=20
+  INTEGER,PARAMETER   :: nLogDat=21
   REAL(wp)            :: LogDat(1:nLogDat)
   !=================================================================================================================================
   IF(.NOT.MPIroot) RETURN
