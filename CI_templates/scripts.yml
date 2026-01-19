@@ -109,18 +109,25 @@
     - end_details printenv
     - end_details pre-build
     # BUILD
-    - start_details pip "Pip install"
+    - start_details build wheel
+    - pip install build
     - |
-      if [ ${F90WRAP_GITHUB} == "true" ]; then
+      if [ ${F90WRAP_GITHUB} != "true" ]; then
+        python -m build --wheel |& tee log_${BUILDNAME}.txt
+      else
         echo "Installing f90wrap from GitHub repository";
         pip install git+https://github.com/jameskermode/f90wrap.git
         pip install -r requirements.txt
-        pip install .[dev] --no-build-isolation -v |& tee log_${BUILDNAME}.txt
-      else
-        echo "Installing f90wrap from PyPI";
-        pip install .[dev] -v |& tee log_${BUILDNAME}.txt
+        python -m build --wheel --no-isolation |& tee log_${BUILDNAME}.txt
       fi
+    - ls dist/
+    - mv dist dist_${BUILDNAME}
+    - end_details build wheel
+    - start_details pip "Pip install from wheel"
+    - pip install `ls dist_${BUILDNAME}/*.whl` |& tee -a log_${BUILDNAME}.txt
+    - pip install pytest
     - pip list
+    - pygvec --version
     - end_details pip
     - echo "... BUILD PHASE FINISHED!"
     # Check for successful installation
@@ -130,13 +137,14 @@
       -m "unit"
       -k "version or build_type"
       -v -rA
+      --require-pygvec
       --junitxml=pytest.xml
     - end_details run
   artifacts:
     name: "${CI_PIPELINE_ID}_build_${BUILDNAME}"
     paths:
-      - venv_${BUILDNAME}
-      - log_${BUILDNAME}_*.txt
+      - dist_${BUILDNAME}
+      - log_${BUILDNAME}.txt
     expire_in: 3 days
     when: always
     reports:
@@ -227,11 +235,21 @@
 
 .script_run_py:
   script:
-    - start_details pre "Activate Environment"
-    - echo "Buildname:" ${BUILDNAME}
+    # Create Virtual Environment
+    - start_details pre "Fresh Environment"
+    - rm -rf venv_${BUILDNAME}
+    - python -m venv venv_${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
+    - which python
+    - which pip
+    - python --version
+    - echo "install from wheel with Buildname:" ${BUILDNAME}
+    - ls dist_${BUILDNAME}/*.whl
+    - pip install `ls dist_${BUILDNAME}/*.whl`
+    - pip install pytest
     - module list || echo "No modules available"
     - pip list
+    - pygvec --version
     - end_details pre
     # dry-run
     - start_details pre-run "Prepare Run"
@@ -284,11 +302,21 @@
 
 .script_unit:
   script:
-    - start_details pre "Preparation"
-    - echo "Buildname:" ${BUILDNAME}
+    # Create Virtual Environment
+    - start_details pre "Fresh Environment"
+    - rm -rf venv_${BUILDNAME}
+    - python -m venv venv_${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
+    - which python
+    - which pip
+    - python --version
+    - echo "install from wheel with Buildname:" ${BUILDNAME}
+    - ls dist_${BUILDNAME}/*.whl
+    - pip install `ls dist_${BUILDNAME}/*.whl`
+    - pip install pytest
     - module list || echo "No modules available"
     - pip list
+    - pygvec --version
     - end_details pre
     # RUN
     - start_details run "Unit"
@@ -309,12 +337,21 @@
 # =================================================================================================================================
 .script_run_notebooks:
   script:
-    - start_details pre "Preparation"
-    - echo "Buildname:" ${BUILDNAME}
+    # Create Virtual Environment
+    - start_details pre "Fresh Environment"
+    - rm -rf venv_${BUILDNAME}
+    - python -m venv venv_${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
+    - which python
+    - which pip
+    - python --version
+    - echo "install from wheel with Buildname:" ${BUILDNAME}
+    - ls dist_${BUILDNAME}/*.whl
+    - pip install `ls dist_${BUILDNAME}/*.whl`
     - module list || echo "No modules available"
     - pip install jupyter ipykernel ipympl ipywidgets matplotlib nbconvert
     - pip list
+    - pygvec --version
     - end_details pre
     - start_details run "nbconvert"
     - cp -r docs/tutorials/notebooks  ${CI_PIPELINE_ID}_${BUILDNAME}_notebooks
@@ -434,11 +471,21 @@
 
 .script_post_py:
   script:
-    - start_details pre "Preparation"
-    - echo "Buildname:" ${BUILDNAME}
+    # Create Virtual Environment
+    - start_details pre "Fresh Environment"
+    - rm -rf venv_${BUILDNAME}
+    - python -m venv venv_${BUILDNAME}
     - source venv_${BUILDNAME}/bin/activate
+    - which python
+    - which pip
+    - python --version
+    - echo "install from wheel with Buildname:" ${BUILDNAME}
+    - ls dist_${BUILDNAME}/*.whl
+    - pip install `ls dist_${BUILDNAME}/*.whl`
+    - pip install pytest
     - module list || echo "No modules available"
     - pip list
+    - pygvec --version
     - export PYTEST_DIR_OPTS="--builddir=venv_${BUILDNAME} --rundir=CIrun_${CASENAME} --postdir=CIpost_${CASENAME}"
     - end_details pre
     # POST & CONVERTER TESTS

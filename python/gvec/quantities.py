@@ -1667,6 +1667,7 @@ def shear(ds: xr.Dataset):
 
 @register(
     requirements=("shear",),
+    integration=("rho",),
     attrs=dict(long_name="average global magnetic shear", symbol=r"\overline{s_g}"),
 )
 def shear_avg(ds: xr.Dataset):
@@ -1675,6 +1676,7 @@ def shear_avg(ds: xr.Dataset):
 
 @register(
     requirements=("shear",),
+    integration=("rho",),
     attrs=dict(
         long_name="global magnetic shear averaged over rho^2", symbol=r"\overline{s_g}_2"
     ),
@@ -1814,6 +1816,7 @@ def vacuum_magnetic_well_depth(ds: xr.Dataset, state: State):
         "B",
         "mod_B",
     ),
+    integration=("theta", "zeta"),
     attrs={
         "D_Merc": dict(
             long_name="Mercier criterion",
