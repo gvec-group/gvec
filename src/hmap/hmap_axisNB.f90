@@ -63,7 +63,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
 
   CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
-  TYPE(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
+  TYPE(t_fbase)        :: fb_hat  !! container for 1d fourier base of xhat
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
 
 
@@ -294,9 +294,6 @@ SUBROUTINE hmap_axisNB_free( sf )
   SDEALLOCATE(sf%xyz_hat_modes)
   SDEALLOCATE(sf%Nxyz_hat_modes)
   SDEALLOCATE(sf%Bxyz_hat_modes)
-  IF(ALLOCATED(sf%fb_hat))THEN
-    DEALLOCATE(sf%fb_hat)
-  END IF
   IF(ALLOCATED(sf%nc))THEN
     CALL sf%nc%free()
     DEALLOCATE(sf%nc)

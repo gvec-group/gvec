@@ -35,7 +35,7 @@ TYPE                 :: t_base
   !---------------------------------------------------------------------------------------------------------------------------------
 
   CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
-  TYPE(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
+  TYPE(t_fbase)               :: f  !! container for angular basis
 
   CONTAINS
 
@@ -109,7 +109,6 @@ IMPLICIT NONE
 !===================================================================================================================================
 IF(.NOT.sf%initialized)RETURN
 CALL sf%s%free()
-DEALLOCATE(sf%f)
 
 sf%initialized=.FALSE.
 END SUBROUTINE base_free

@@ -32,7 +32,7 @@ TYPE :: t_sfl_boozer
   !input parameters
   INTEGER  :: nrho       !! number of rho positions
   LOGICAL  :: relambda   !! if =True, J^s=0 will be recomputed, for exact integrability condition of boozer transform  (but slower!)
-  TYPE(t_fbase), ALLOCATABLE :: nu_fbase
+  TYPE(t_fbase) :: nu_fbase
 
   REAL(wp),ALLOCATABLE::rho_pos(:),iota(:),phiPrime(:) !! rho positions, iota and phiPrime at these rho positions
   ! computed in the boozer transform
@@ -138,7 +138,6 @@ SUBROUTINE sfl_boozer_free(sf)
   SDEALLOCATE(sf%nu)
   SDEALLOCATE(sf%iota)
   SDEALLOCATE(sf%phiPrime)
-  SDEALLOCATE(sf%nu_fbase)
   SDEALLOCATE(sf%hmap_xv)
   NULLIFY(sf%hmap)
   sf%initialized=.FALSE.

@@ -438,8 +438,8 @@ IMPLICIT NONE
   REAL(wp), ALLOCATABLE :: q_IP(:),q_m(:,:)   ! q evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
   REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
-  TYPE(t_fBase),ALLOCATABLE        :: q_fbase_nyq
-  TYPE(t_fBase),ALLOCATABLE        :: AB_fbase_nyq
+  TYPE(t_fBase)                     :: q_fbase_nyq
+  TYPE(t_fBase)                     :: AB_fbase_nyq
   REAL(wp),DIMENSION(:),ALLOCATABLE :: A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
 !===================================================================================================================================
   docheck=(testlevel.GT.0)
@@ -582,7 +582,7 @@ IMPLICIT NONE
   CALL to_spline_with_BC(q_base_out,q_m,q_out)
 
   !finalize
-  DEALLOCATE( q_fbase_nyq, AB_fbase_nyq, A_IP, dAdthet_IP)
+  DEALLOCATE( A_IP, dAdthet_IP)
   IF(Bpresent) DEALLOCATE(dAdzeta_IP, B_IP,dBdthet_IP, dBdzeta_IP )
 
   DEALLOCATE(modes_IP,q_IP,f_IP,q_m)
