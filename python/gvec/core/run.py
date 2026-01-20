@@ -283,6 +283,15 @@ class Run:
                 "hmap_ncfile",
             ]:
                 self.parameters[key] = Path(value).resolve()
+                try:
+                    if self.parameters[key].exists():
+                        Path(self.parameters[key].name).symlink_to(self.parameters[key])
+                    else:
+                        raise FileNotFoundError(
+                            f"Could not find {key} at {self.parameters[key]}"
+                        )
+                except FileExistsError:
+                    continue
 
         # count the number of runs in each stage, for dynamic progressbar during current optimization
         self.n_runs_in_stage = [0 for _ in self.stages]
@@ -709,7 +718,7 @@ class Run:
                 "boundary_filename",
                 "hmap_ncfile",
             ]:
-                parameters_final[key] = self.parameters[key]
+                parameters_final[key] = Path(self.parameters[key]).name
         gvec.util.write_parameter_file_ini(
             parameters=parameters_final,
             path=final_parameter_file,
@@ -991,7 +1000,9 @@ class Run:
         if len(self.stages) > 1:
             # stages vlines
             for ax in axs:
-                n_runs_till_stage = np.cumsum(self.n_runs_in_stage[:-1])
+                # zeroth "initial" stage does not perform a run:
+                # -> offset in n_runs_in_stage but NOT in gvec_iterations
+                n_runs_till_stage = np.cumsum(self.n_runs_in_stage[1:-1])
                 ax.vlines(
                     [np.sum(diagnostics.gvec_iterations[:i]) for i in n_runs_till_stage],
                     *ax.get_ylim(),
