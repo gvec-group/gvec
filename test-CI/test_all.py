@@ -274,6 +274,7 @@ class TestPost(BaseTestPost):
         annotations,
         artifact_pages_path,
         logger,
+        require_pygvec,
     ):
         super().test_post(
             testgroup,
@@ -293,15 +294,19 @@ class TestPost(BaseTestPost):
         helpers.assert_stdout_finished(message="GVEC POST FINISHED !")
         helpers.assert_stdout_no_NaN()
         helpers.assert_stdout_OpenMP_MPI()
-        self.assert_boozer_consistency(logger)
+        if require_pygvec:
+            try:
+                import gvec
+            except ImportError:
+                pytest.fail("Import Error: gvec")
+            self.assert_boozer_consistency(logger)
+        else:
+            logger.info("pygvec not required, skipping boozer consistency check in test_post")
+            return
 
     def assert_boozer_consistency(self, logger):
         """Check that the boozer-netCDF file (SFLout=2 in gvec_post) is consistent with the pygvec.EvaluationsBoozer."""
-        try:
-            import gvec
-        except ImportError:
-            pytest.skip("pygvec not installed")
-            return
+
         boozerfiles = sorted(Path(".").glob("POST*boozer*.nc"))
         logger.info(f"Found {len(boozerfiles)} boozer-netCDF files")
         if len(boozerfiles) == 0:

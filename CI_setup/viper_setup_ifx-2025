@@ -1,0 +1,21 @@
+#!/bin/bash
+# bash source script for module setup on viper
+#
+# LAST MODIFIED: 2025-01-12
+# ===========================================
+
+module purge
+module load git
+module load cmake
+module load intel/2025.3
+module load mkl/2025.3
+module load hdf5-serial/1.14.1
+module load netcdf-serial/4.9.2
+module load ftimings
+module load python-waterboa/2025.06  #for pytest
+
+module list
+export FC=`which ifx`
+export CC=`which icx`
+export CXX=`which icx`
+export CMAKE_EXECUTABLE=`which cmake`
