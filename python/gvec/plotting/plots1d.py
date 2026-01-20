@@ -57,12 +57,12 @@ def _plot_line_quantities_from_xarray(
 def plot_radial_profile(
     state: State,
     quantities: str | list[str] = ["iota", "p", "I_tor", "I_pol"],
-    nrho: int | np.ndarray = 100,
+    nrho: int | np.ndarray = 101,
     subplot_grid: list[int] | None = None,
     xaxis: Literal["rho", "rho_squared"] = "rho",
     plot_kwargs: dict = dict(),
 ):
-    """
+    r"""
     Plot the radial profile of given equilibrium quantities.
 
     Parameters
@@ -72,13 +72,16 @@ def plot_radial_profile(
         Default is `["iota","p","I_tor","I_pol"]`.
     nrho : int, numpy.ndarray
         The number of or specific 1D array of radial points to plot at.
-        Default is `100`
+        Default is `101`
     subplot_grid : list[int], None, optional
         The grid shape for the subplots. If `None`, grid will be automatically determined.
         Default is `None`.
     xaxis : `"rho"` or `"rho_squared"`, optional
         What quantity to plot on the x axis.
         Default is `"rho"`.
+    plot_kwargs: dict, optional
+        Any `**kwargs` to send to the `plt.figure()` function.
+        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
 
     Returns
     -------
@@ -120,7 +123,7 @@ def plot_on_axis(
     subplot_grid: list[int] | None = None,
     plot_kwargs: dict = dict(),
 ):
-    """
+    r"""
     Plot a equilibrium quantity (or list of) along the magnetic axis.
 
     Parameters
@@ -134,6 +137,9 @@ def plot_on_axis(
     subplot_grid : list[int], None, optional
         The grid shape of `[nrow,ncol]` for the subplots. If `None`, grid will be automatically determined.
         Default is `None`.
+    plot_kwargs: dict, optional
+        Any `**kwargs` to send to the `plt.figure()` function.
+        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
 
     Returns
     -------

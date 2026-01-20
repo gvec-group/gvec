@@ -24,8 +24,9 @@ coordinate-conventions
 ```
 
 ```{toctree}
-:caption: Interfaces
+:caption: CLI and Interfaces
 
+pygvecCLI
 quasr
 cas3d
 gist

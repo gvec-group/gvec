@@ -17,7 +17,7 @@ def plot_poloidal_plane(
     /,
     nrho: int = 21,
     ntheta: int = 51,
-    zeta: int | float | np.ndarray = 9,
+    zeta: int | float | np.ndarray | list[float] = 9,
     subplot_grid: list[int] | None = None,
     share_axis: bool = True,
     rho_contours: int = 4,
@@ -25,7 +25,7 @@ def plot_poloidal_plane(
     sfl: Literal["pest"] | None = "pest",
     plot_kwargs: dict = dict(),
 ):
-    """
+    r"""
     plot_poloidal_plane
 
     Plot a poloidal plane with some equilibrium quantity on it. Defaults to plotting $\|\mathbf{B}\|$
@@ -59,6 +59,9 @@ def plot_poloidal_plane(
     sfl : `"pest"` or `None`, optional
         Plot the `theta` contours or `pest` contours (``$\theta^\star$``).
         Default `"pest"`.
+    plot_kwargs: dict, optional
+        Any `**kwargs` to send to the `plt.figure()` function.
+        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
 
     Returns
     -------
@@ -147,16 +150,17 @@ def plot_poloidal_plane(
 
         # The slice label will be added as an annotation to the top right of the subplot
         zeta_angle = zeta_eval[i] / np.pi
-        ax.annotate(
-            f"$\\zeta={zeta_angle:.2f} \\pi$",
-            xy=(1, 1),
-            xycoords="axes fraction",
-            xytext=(-0.6, -0.6),
-            textcoords="offset fontsize",
-            verticalalignment="top",
-            horizontalalignment="right",
-            bbox=dict(facecolor="white", edgecolor="black"),
-        )
+        # ax.annotate(
+        #     f"$\\zeta={zeta_angle:.2f} \\pi$",
+        #     xy=(1, 1),
+        #     xycoords="axes fraction",
+        #     xytext=(-0.6, -0.6),
+        #     textcoords="offset fontsize",
+        #     verticalalignment="top",
+        #     horizontalalignment="right",
+        #     bbox=dict(facecolor="white", edgecolor="black"),
+        # )
+        ax.set_title(f"$\\zeta={zeta_angle:.2f} \\pi$")
 
         # Remove interior axis labels and add axis labels to the boundary plots
         if share_axis:
@@ -190,7 +194,7 @@ def plot_on_flux_surface(
     plot_kwargs: dict = dict(),
     **boozer_kwargs,
 ):
-    """
+    r"""
     Plot an equilibrium quantity over the two angles $(\\vartheta, \\zeta)$ of a flux surface at (a) given `rho` value(s). Alternatively, plot
     multiple `quantities` on a single `rho` surface.
 
@@ -224,6 +228,9 @@ def plot_on_flux_surface(
     style : str, optional
         Use `"contour"` (False) or `"filled-contour"` (True) in plotting.
         Default is `"filled-contour"` (filled contour).
+    plot_kwargs: dict, optional
+        Any `**kwargs` to send to the `plt.figure()` function.
+        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
     boozer_kwargs : optional
         Keyword arguments for the case where `boozer` is used.
 
@@ -257,12 +264,14 @@ def plot_on_flux_surface(
         subplot_grid = _design_subgrid(nplots)
 
     # Plotting boozer needs different evaluate function
+    theta = np.linspace(0.0, 2 * np.pi, ntheta)
+    zeta = np.linspace(0.0, 2 * np.pi / state.nfp, nzeta)
     if sfl:
         evaluations = state.evaluate_sfl(
-            *quantities_eval, rho=rho, theta=ntheta, zeta=nzeta, sfl=sfl, **boozer_kwargs
+            *quantities_eval, rho=rho, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
         )
     else:
-        evaluations = state.evaluate(*quantities_eval, rho=rho, theta=ntheta, zeta=nzeta)
+        evaluations = state.evaluate(*quantities_eval, rho=rho, theta=theta, zeta=zeta)
 
     fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
@@ -298,8 +307,8 @@ def plot_on_flux_surface(
             zeta_vals = evaluations_i.zeta
 
         f_ax = contour_method(
-            zeta_vals.data,
-            theta_vals.data,
+            zeta_vals.data / (2 * np.pi),
+            theta_vals.data / (2 * np.pi),
             evaluations_i[quantity].transpose("pol", "tor").data,
             levels=levels,
         )
@@ -313,19 +322,23 @@ def plot_on_flux_surface(
             if not share_contours:
                 fig.colorbar(f_ax, ax=ax)
 
-        ax.annotate(
-            plot_label,
-            xy=(1, 1),
-            xycoords="axes fraction",
-            xytext=(-0.6, -0.6),
-            textcoords="offset fontsize",
-            verticalalignment="top",
-            horizontalalignment="right",
-            bbox=dict(facecolor="white", edgecolor="black"),
-        )
+        # ax.annotate(
+        #     plot_label,
+        #     xy=(1, 1),
+        #     xycoords="axes fraction",
+        #     xytext=(-0.6, -0.6),
+        #     textcoords="offset fontsize",
+        #     verticalalignment="top",
+        #     horizontalalignment="right",
+        #     bbox=dict(facecolor="white", edgecolor="black"),
+        # )
+        ax.set_title(plot_label)
+
+        # zeta_angle = zeta_eval[i] / np.pi
 
         ax.set(
-            xlabel=f"${zeta_vals.attrs['symbol']}$", ylabel=f"${theta_vals.attrs['symbol']}$"
+            xlabel=rf"${zeta_vals.attrs['symbol']} / (2\pi)$",
+            ylabel=rf"${theta_vals.attrs['symbol']} / (2\pi)$",
         )
 
         # Removes any axis labels on subplots on the interior of the grid

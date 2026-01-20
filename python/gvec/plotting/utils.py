@@ -1,5 +1,7 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
+import functools
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -98,6 +100,7 @@ def _deco_usetex(func):
     Switch usetex on during plotting then back to defaults
     """
 
+    @functools.wraps(func)
     def wrap(*args, **kwargs):
         usetex = plt.rcParams["text.usetex"]
         plt.rcParams["text.usetex"] = True
@@ -106,3 +109,8 @@ def _deco_usetex(func):
         return f, axs
 
     return wrap
+
+
+def _convience_axis_additions(state, ax, quantity):
+    ax.gvec_quantity = quantity
+    ax.nfp = state.nfp
