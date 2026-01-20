@@ -421,7 +421,7 @@ IF(COMPILE_PYGVEC)
 
   FOREACH(file ${pygvec_src_files})
     GET_FILENAME_COMPONENT(basename "${file}" NAME_WE)
-    LIST(APPEND pygvec_wrap_files "f90wrap_${basename}.F90")
+    LIST(APPEND pygvec_wrap_files "f90wrap_${basename}.f90")
   ENDFOREACH()
 
   LIST(TRANSFORM pygvec_src_files PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")

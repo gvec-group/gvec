@@ -64,7 +64,7 @@ PROGRAM GVEC_POST
   IF(nRanks.GT.1) CALL abort(__STAMP__,&
                    "GVEC post is compiled with MPI, but can only be called with 1 MPI rank." )
 # endif
-#include  "configuration-cmake.f90"
+#include  "configuration-cmake.F90"
   SWRITE(Unit_stdOut,fmt_sep)
 
   CALL FillStrings(ParameterFile) !< readin parameterfile, done on MPI root + Bcast

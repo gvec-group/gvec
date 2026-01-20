@@ -88,7 +88,7 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
   SWRITE(UNIT_stdOut,'(A,I6)')'   Number of MPI tasks : ',nRanks
   SWRITE(Unit_stdOut,fmt_sep)
 # endif
-#include  "configuration-cmake.f90"
+#include  "configuration-cmake.F90"
   SWRITE(Unit_stdOut,fmt_sep)
   CALL FillStrings(ParameterFile) !< readin parameterfile, done on MPI root + Bcast
 
