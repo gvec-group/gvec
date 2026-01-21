@@ -39,7 +39,7 @@ srho.add_argument(
 )
 parser.add_argument(
     "--npol",
-    type=float,
+    type=int,
     default=1,
     help="number of poloidal turns (default 1)",
 )
