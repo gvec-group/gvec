@@ -6,32 +6,31 @@
 
 !===================================================================================================================================
 !>
-!!# Module **TEMPLATE**
+!!# Module **Output**
 !!
 !!
 !!
 !===================================================================================================================================
-MODULE MOD_TEMPLATE
+MODULE MODgvec_Output
 ! MODULES
-USE MOD_Globals, ONLY:wp
 IMPLICIT NONE
 PRIVATE
 
-INTERFACE InitTEMPLATE
-  MODULE PROCEDURE InitTEMPLATE
+INTERFACE InitOutput
+  MODULE PROCEDURE InitOutput
 END INTERFACE
 
-INTERFACE TEMPLATE
-  MODULE PROCEDURE TEMPLATE
+INTERFACE Output
+  MODULE PROCEDURE Output
 END INTERFACE
 
-INTERFACE FinalizeTEMPLATE
-  MODULE PROCEDURE FinalizeTEMPLATE
+INTERFACE FinalizeOutput
+  MODULE PROCEDURE FinalizeOutput
 END INTERFACE
 
-PUBLIC::InitTEMPLATE
-PUBLIC::TEMPLATE
-PUBLIC::FinalizeTEMPLATE
+PUBLIC::InitOutput
+PUBLIC::Output
+PUBLIC::FinalizeOutput
 !===================================================================================================================================
 
 CONTAINS
@@ -40,11 +39,11 @@ CONTAINS
 !> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitTEMPLATE
+SUBROUTINE InitOutput
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_TEMPLATE_Vars
-USE MOD_ReadInTools,ONLY:GETLOGICAL
+USE MODgvec_Globals, ONLY:wp,UNIT_stdOut,fmt_sep,MPIroot
+USE MODgvec_Output_Vars
+USE MODgvec_ReadInTools,ONLY:GETSTR
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -55,22 +54,21 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SWRITE(UNIT_stdOut,'(A)')'INIT TEMPLATE ...'
-useThis    = GETLOGICAL('useThis','F')
+SWRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
+ProjectName = GETSTR('ProjectName','GVEC')
 
+OutputLevel=0
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
-END SUBROUTINE InitTEMPLATE
+END SUBROUTINE InitOutput
 
 
 !===================================================================================================================================
 !>
 !!
 !===================================================================================================================================
-SUBROUTINE TEMPLATE()
+SUBROUTINE Output()
 ! MODULES
-USE MOD_Globals, ONLY:wp
-USE MOD_TEMPLATE_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -79,15 +77,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-END SUBROUTINE TEMPLATE
+END SUBROUTINE Output
 
 !===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeTEMPLATE
+SUBROUTINE FinalizeOutput
 ! MODULES
-USE MOD_TEMPLATE_Vars
+USE MODgvec_Output_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -97,6 +95,6 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 
-END SUBROUTINE FinalizeTEMPLATE
+END SUBROUTINE FinalizeOutput
 
-END MODULE MOD_TEMPLATE
+END MODULE MODgvec_Output

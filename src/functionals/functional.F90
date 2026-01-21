@@ -6,97 +6,72 @@
 
 !===================================================================================================================================
 !>
-!!# Module **TEMPLATE**
+!!# Module ** functional **
 !!
-!!
+!! contains the routines to initialize and finalize the functional
 !!
 !===================================================================================================================================
-MODULE MOD_TEMPLATE
+MODULE MODgvec_functional
 ! MODULES
-USE MOD_Globals, ONLY:wp
+USE MODgvec_Globals    ,ONLY:wp,Unit_stdOut,abort
+USE MODgvec_c_functional, ONLY: t_functional
 IMPLICIT NONE
-PRIVATE
 
-INTERFACE InitTEMPLATE
-  MODULE PROCEDURE InitTEMPLATE
-END INTERFACE
+PUBLIC
 
-INTERFACE TEMPLATE
-  MODULE PROCEDURE TEMPLATE
-END INTERFACE
-
-INTERFACE FinalizeTEMPLATE
-  MODULE PROCEDURE FinalizeTEMPLATE
-END INTERFACE
-
-PUBLIC::InitTEMPLATE
-PUBLIC::TEMPLATE
-PUBLIC::FinalizeTEMPLATE
 !===================================================================================================================================
 
 CONTAINS
 
+
 !===================================================================================================================================
-!> Initialize Module
+!> initialize the type functional with number of elements
 !!
 !===================================================================================================================================
-SUBROUTINE InitTEMPLATE
+SUBROUTINE InitFunctional(sf, which_functional)
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_TEMPLATE_Vars
-USE MOD_ReadInTools,ONLY:GETLOGICAL
+USE MODgvec_MHD3D, ONLY :t_functional_mhd3d
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
+  INTEGER       , INTENT(IN   ) :: which_functional
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+  CLASS(t_functional), ALLOCATABLE,INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SWRITE(UNIT_stdOut,'(A)')'INIT TEMPLATE ...'
-useThis    = GETLOGICAL('useThis','F')
+  SELECT CASE(which_functional)
+  CASE(1)
+    ALLOCATE(t_functional_mhd3d :: sf)
+  CASE DEFAULT
+    CALL abort(__STAMP__, &
+         "this functional choice does not exist (MHD3D=1) !")
+  END SELECT
 
-SWRITE(UNIT_stdOut,'(A)')'... DONE'
-SWRITE(UNIT_stdOut,fmt_sep)
-END SUBROUTINE InitTEMPLATE
+  sf%which_functional=which_functional
+  CALL sf%init()
+
+END SUBROUTINE InitFunctional
 
 
 !===================================================================================================================================
-!>
+!> finalize the type functional
 !!
 !===================================================================================================================================
-SUBROUTINE TEMPLATE()
+SUBROUTINE FinalizeFunctional(sf)
 ! MODULES
-USE MOD_Globals, ONLY:wp
-USE MOD_TEMPLATE_Vars
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-END SUBROUTINE TEMPLATE
-
-!===================================================================================================================================
-!> Finalize Module
-!!
-!===================================================================================================================================
-SUBROUTINE FinalizeTEMPLATE
-! MODULES
-USE MOD_TEMPLATE_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+  CLASS(t_functional), ALLOCATABLE,INTENT(INOUT) :: sf !! self
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
+  CALL sf%free()
 
-END SUBROUTINE FinalizeTEMPLATE
+END SUBROUTINE FinalizeFunctional
 
-END MODULE MOD_TEMPLATE
+END MODULE MODgvec_functional
