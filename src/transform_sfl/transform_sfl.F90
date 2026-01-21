@@ -165,7 +165,7 @@ SUBROUTINE transform_SFL_init(sf)
 USE MODgvec_Globals,ONLY:UNIT_stdOut
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_fbase  ,ONLY: sin_cos_map
-USE MODgvec_SFL_Boozer,ONLY: sfl_boozer_new
+USE MODgvec_SFL_Boozer,ONLY: t_sfl_boozer
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -205,7 +205,7 @@ CASE(2) !BOOZER
     iota(irho)=sf%eval_iota(rho_pos(irho))
     phiPrime(irho)=sf%eval_phiPrime(rho_pos(irho))
   END DO
-  CALL sfl_boozer_new(sf%booz,sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),sf%hmap,sf%GZsfl_base%s%nBase, &
+  sf%booz = t_sfl_boozer(sf%mn_max,sf%mn_nyq_booz,sf%nfp,sin_cos_map(sf%GZ_sin_cos),sf%hmap,sf%GZsfl_base%s%nBase, &
                       rho_pos,iota,phiPrime,relambda_in=sf%booz_relambda)
   DEALLOCATE(rho_pos,iota,phiPrime)
   ALLOCATE(sf%Gtsfl(sf%GZsfl_base%s%nBase,sf%GZsfl_base%f%modes));sf%Gtsfl=0.0_wp
@@ -411,7 +411,7 @@ SUBROUTINE Transform_Angles_sinterp(AB_base_in,A_in,q_base_in,q_in,q_name,q_base
 USE MODgvec_Globals,ONLY: UNIT_stdOut,Progressbar,testlevel
 USE MODgvec_base   ,ONLY: t_base,base_new
 USE MODgvec_sGrid  ,ONLY: t_sgrid
-USE MODgvec_fbase  ,ONLY: t_fbase,fbase_new,sin_cos_map
+USE MODgvec_fbase  ,ONLY: t_fbase, sin_cos_map
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -438,8 +438,8 @@ IMPLICIT NONE
   REAL(wp), ALLOCATABLE :: q_IP(:),q_m(:,:)   ! q evaluated at spos and all integration points
   REAL(wp), ALLOCATABLE :: f_IP(:)       ! =q*(1+dlambda/dtheta) evaluated at integration points
   REAL(wp), ALLOCATABLE :: modes_IP(:,:) ! mn modes of q evaluated at theta*,zeta* for all integration points
-  TYPE(t_fBase),ALLOCATABLE        :: q_fbase_nyq
-  TYPE(t_fBase),ALLOCATABLE        :: AB_fbase_nyq
+  TYPE(t_fBase)                     :: q_fbase_nyq
+  TYPE(t_fBase)                     :: AB_fbase_nyq
   REAL(wp),DIMENSION(:),ALLOCATABLE :: A_IP,dAdthet_IP,B_IP,dBdthet_IP,dBdzeta_IP,dAdzeta_IP
 !===================================================================================================================================
   docheck=(testlevel.GT.0)
@@ -463,13 +463,13 @@ IMPLICIT NONE
 
 
   !same base for X1, but with new mn_nyq (for pre-evaluation of basis functions)
-  CALL fbase_new( q_fbase_nyq,  q_base_in%f%mn_max,  mn_nyq, &
+  q_fbase_nyq =  t_fBase(q_base_in%f%mn_max,  mn_nyq, &
                                 q_base_in%f%nfp, &
                     sin_cos_map(q_base_in%f%sin_cos), &
                                 q_base_in%f%exclude_mn_zero)
   SWRITE(UNIT_StdOut,*)'        ...Init q_nyq Base Done'
   !same base for lambda, but with new mn_nyq (for pre-evaluation of basis functions)
-  CALL fbase_new(AB_fbase_nyq,  AB_base_in%f%mn_max,  mn_nyq, &
+  AB_fbase_nyq =  t_fBase(AB_base_in%f%mn_max,  mn_nyq, &
                                 AB_base_in%f%nfp, &
                     sin_cos_map(AB_base_in%f%sin_cos), &
                                 AB_base_in%f%exclude_mn_zero)
@@ -582,9 +582,7 @@ IMPLICIT NONE
   CALL to_spline_with_BC(q_base_out,q_m,q_out)
 
   !finalize
-  CALL q_fbase_nyq%free()
-  CALL AB_fbase_nyq%free()
-  DEALLOCATE( q_fbase_nyq, AB_fbase_nyq, A_IP, dAdthet_IP)
+  DEALLOCATE( A_IP, dAdthet_IP)
   IF(Bpresent) DEALLOCATE(dAdzeta_IP, B_IP,dBdthet_IP, dBdzeta_IP )
 
   DEALLOCATE(modes_IP,q_IP,f_IP,q_m)

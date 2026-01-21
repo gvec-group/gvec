@@ -111,12 +111,20 @@
     # BUILD
     - start_details build wheel
     - pip install build
-    - python -m build --wheel |& tee log_${BUILDNAME}.txt
+    - |
+      if [ ${F90WRAP_GITHUB} != "true" ]; then
+        python -m build --wheel |& tee log_${BUILDNAME}.txt
+      else
+        echo "Installing f90wrap from GitHub repository";
+        pip install git+https://github.com/jameskermode/f90wrap.git
+        pip install -r requirements.txt
+        python -m build --wheel --no-isolation |& tee log_${BUILDNAME}.txt
+      fi
     - ls dist/
     - mv dist dist_${BUILDNAME}
     - end_details build wheel
     - start_details pip "Pip install from wheel"
-    - pip install `ls dist_${BUILDNAME}/*.whl` |& tee log_${BUILDNAME}.txt
+    - pip install `ls dist_${BUILDNAME}/*.whl` |& tee -a log_${BUILDNAME}.txt
     - pip install pytest
     - pip list
     - pygvec --version

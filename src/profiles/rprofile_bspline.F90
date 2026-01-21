@@ -167,7 +167,10 @@ MODULE MODgvec_rProfile_bspl
     TYPE(t_rProfile_bspl), INTENT(INOUT) :: sf !! self
   !-----------------------------------------------------------------------------------------------------------------------------------
   !===================================================================================================================================
-    IF (ALLOCATED(sf%bspl)) CALL sf%bspl%free()
+    IF (ALLOCATED(sf%bspl)) THEN
+      CALL sf%bspl%free()
+      DEALLOCATE(sf%bspl)
+    END IF
     SDEALLOCATE(sf%knots)
     SDEALLOCATE(sf%coefs)
   END SUBROUTINE bsplProfile_free

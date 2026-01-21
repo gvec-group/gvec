@@ -216,10 +216,10 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
   IF(.NOT.sf%initialized) RETURN
-  DEALLOCATE(sf%rc)
-  DEALLOCATE(sf%rs)
-  DEALLOCATE(sf%zc)
-  DEALLOCATE(sf%zs)
+  SDEALLOCATE(sf%rc)
+  SDEALLOCATE(sf%rs)
+  SDEALLOCATE(sf%zc)
+  SDEALLOCATE(sf%zs)
 
   sf%initialized=.FALSE.
 

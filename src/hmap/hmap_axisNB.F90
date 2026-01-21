@@ -63,7 +63,7 @@ TYPE,EXTENDS(c_hmap) :: t_hmap_axisNB
 
   CHARACTER(LEN=100)   :: ncfile=" " !! name of netcdf file with axis information
   !---------------------------------------------------------------------------------------------------------------------------------
-  TYPE(t_fbase),ALLOCATABLE   :: fb_hat  !! container for 1d fourier base of xhat
+  TYPE(t_fbase)        :: fb_hat  !! container for 1d fourier base of xhat
   CLASS(t_ncfile),ALLOCATABLE  :: nc  !! container for netcdf-file
 
 
@@ -138,7 +138,7 @@ END FUNCTION hmap_axisNB_init
 !===================================================================================================================================
 FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
 ! MODULES
-  USE MODgvec_fbase      ,ONLY: fbase_new
+  USE MODgvec_fbase      ,ONLY: t_fBase
   USE MODgvec_io_netcdf  ,ONLY: ncfile_init
   USE MODgvec_MPI        ,ONLY: par_BCast,par_barrier
   IMPLICIT NONE
@@ -192,7 +192,7 @@ FUNCTION hmap_axisNB_init_params(ncfile,nvisu) RESULT(sf)
   CALL par_Bcast(sf%Nxyz,0)
   CALL par_Bcast(sf%Bxyz,0)
   !Fourier 1D base on one field period for "hat" coordinates
-  CALL fbase_new(sf%fb_hat,(/0,sf%n_max/),(/1,sf%nzeta/),sf%nfp,"_sincos_",.FALSE.)
+  sf%fb_hat = t_fBase((/0,sf%n_max/),(/1,sf%nzeta/),sf%nfp,"_sincos_",.FALSE.)
   ALLOCATE(sf%xyz_hat_modes( 3,sf%fb_hat%modes),&
            sf%Nxyz_hat_modes(3,sf%fb_hat%modes),&
            sf%Bxyz_hat_modes(3,sf%fb_hat%modes))
@@ -294,10 +294,6 @@ SUBROUTINE hmap_axisNB_free( sf )
   SDEALLOCATE(sf%xyz_hat_modes)
   SDEALLOCATE(sf%Nxyz_hat_modes)
   SDEALLOCATE(sf%Bxyz_hat_modes)
-  IF(ALLOCATED(sf%fb_hat))THEN
-    CALL sf%fb_hat%free()
-    DEALLOCATE(sf%fb_hat)
-  END IF
   IF(ALLOCATED(sf%nc))THEN
     CALL sf%nc%free()
     DEALLOCATE(sf%nc)

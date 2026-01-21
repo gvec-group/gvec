@@ -18,7 +18,7 @@ MODULE MODgvec_base
 ! MODULES
 USE MODgvec_Globals ,ONLY: wp,Unit_stdOut,abort,MPIRoot
 USE MODgvec_sBase   ,ONLY: t_sbase,sbase_new
-USE MODgvec_fBase   ,ONLY: t_fbase,fbase_new
+USE MODgvec_fBase   ,ONLY: t_fbase
 USE MODgvec_sGrid   ,ONLY: t_sgrid
 IMPLICIT NONE
 
@@ -35,7 +35,7 @@ TYPE                 :: t_base
   !---------------------------------------------------------------------------------------------------------------------------------
 
   CLASS(t_sbase),ALLOCATABLE  :: s  !! container for radial basis
-  TYPE(t_fbase),ALLOCATABLE  :: f  !! container for angular basis
+  TYPE(t_fbase)               :: f  !! container for angular basis
 
   CONTAINS
 
@@ -84,7 +84,7 @@ IMPLICIT NONE
 !===================================================================================================================================
   ALLOCATE(t_base :: sf)
   CALL sbase_new(sf%s,deg_in,continuity_in,grid_in,degGP_in)
-  CALL fbase_new(sf%f,mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
+  sf%f = t_fBase(mn_max_in,mn_nyq_in,nfp_in,sin_cos_in,exclude_mn_zero_in)
   sf%initialized=.TRUE.
 
   IF(.NOT.test_called) CALL Base_test(sf)
@@ -109,7 +109,6 @@ IMPLICIT NONE
 !===================================================================================================================================
 IF(.NOT.sf%initialized)RETURN
 CALL sf%s%free()
-CALL sf%f%free()
 
 sf%initialized=.FALSE.
 END SUBROUTINE base_free

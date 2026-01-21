@@ -28,9 +28,9 @@ MODULE MODgvec_rProfile_base
 
       PROCEDURE :: eval_at_rho => rProfile_eval_at_rho
       ! hard coded derivatives with respect to rho=sqrt(phi/phi_edge)
-      PROCEDURE, PRIVATE :: rProfile_drho2
-      PROCEDURE, PRIVATE :: rProfile_drho3
-      PROCEDURE, PRIVATE :: rProfile_drho4
+      PROCEDURE :: rProfile_drho2
+      PROCEDURE :: rProfile_drho3
+      PROCEDURE :: rProfile_drho4
 
   end type c_rProfile
 
