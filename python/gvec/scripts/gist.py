@@ -331,10 +331,10 @@ def gvec_to_gist(
     params, data = compute_gist_quantities(ev, state, flip)
     params["gridpoints"] = gridpoints  # number of points along fieldline / parallel resolution
     params["n_pol"] = n_pol  # number of poloidal turns
-    params["gvec_version"] = gvec.__version__
-    params["gvec_projectname"] = state.name  # project name of the input GVEC state
-    params["gvec_datetime"] = datetime.datetime.now().isoformat(sep=" ", timespec="seconds")
-    params["gvec_flip"] = flip
+    params["!gvec_version"] = gvec.__version__
+    params["!gvec_projectname"] = state.name  # project name of the input GVEC state
+    params["!gvec_datetime"] = datetime.datetime.now().isoformat(sep=" ", timespec="seconds")
+    params["!gvec_flip"] = flip
     logger.info("computed GIST quantities")
 
     if plotfile is not None:
