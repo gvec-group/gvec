@@ -157,12 +157,14 @@ ENDIF()
 # COMPILER FLAGS (compiler & machine specific)
 # =========================================================================
 
+SET(GVEC_COMPILE_FLAGS "")
+
 IF(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -ffree-line-length-0 -DGNU")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS}     -O3 -march=native -finline-functions") #gives segfault: -fstack-arrays
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3 -march=native -finline-functions") #gives segfault: -fstack-arrays
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -ffpe-trap=invalid -fbounds-check -finit-real=snan -fbacktrace -Wall -Wextra")
-  SET(GVEC_COMPILE_FLAGS "-xf95-cpp-input -fPIC")
+  SET(GVEC_COMPILE_FLAGS "-fPIC")
 
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # machine specific flags
@@ -183,28 +185,25 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   IF(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2021.2")
     SET(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -check all,uninit") # crash with ifx; possibly related to netCDF
   ENDIF()
-  SET(GVEC_COMPILE_FLAGS "-fpp -assume bscc -fPIC")
+  SET(GVEC_COMPILE_FLAGS "-assume bscc -fPIC")
 
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -f free -s real64 -em -DCRAY")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -p . -rm")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O2 -hfp3 -h profile_generate -p . -rm")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -eD -rm")
-  SET(GVEC_COMPILE_FLAGS "-F")
 
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -fPIC")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -O3")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0 -g")
-  SET(GVEC_COMPILE_FLAGS "-Mpreprocess")
 
 ELSEIF(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
   SET(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -fPIC -traceback -Wall -DNVHPC")
   SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3")
   SET(CMAKE_Fortran_FLAGS_PROFILE "${CMAKE_Fortran_FLAGS} -pg -O3")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -O0  -g ") # -C option fails for LEN(*) STRINGS
-  SET(GVEC_COMPILE_FLAGS "-Mpreprocess")
   IF(USE_OPENMP)
     SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mp=multicore") # for now not using the gpu for OpenMP!
   ELSE()
@@ -281,7 +280,7 @@ find_package(Python COMPONENTS Interpreter REQUIRED)
 function(add_exec target)
   ADD_EXECUTABLE(${target} ${ARGN})
   TARGET_LINK_LIBRARIES(${target} gveclib ${linkedlibs})
-  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS}
+  SET_TARGET_PROPERTIES(${target} PROPERTIES COMPILE_FLAGS "${GVEC_COMPILE_FLAGS}"
                                              LINKER_LANGUAGE Fortran
                                              INSTALL_RPATH_USE_LINK_PATH TRUE) # don't strip RUNPATH during install
   IF(COMPILE_PYGVEC) # scikit-build-core = python/pip installation - install to venv/bin
@@ -293,63 +292,63 @@ function(add_exec target)
   ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: ${TARGETUP} BUILD COMPLETE!")
 endfunction()
 
-# include defines.h
+# include defines.FPP
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/base/bsplines ${CMAKE_Fortran_MODULE_DIRECTORY})
 
-FILE(GLOB_RECURSE mainF90 ./src/globals/*.f90
-                          ./src/base/*.f90
-                          ./src/profiles/*.f90
-                          ./src/hmap/c_hmap.f90
-                          ./src/hmap/hmap.f90
-                          ./src/functionals/mhd3d/lambda_solve.f90
-                          ./src/readstate/*.f90
-                          ./src/analyze/analyze_vars.f90
-                          ./src/io_netcdf.f90
-                          ./src/output/*.f90
-                          ./src/transform_sfl/*.f90
-                          ./src/grid/*.f90 )
+FILE(GLOB_RECURSE mainF90 ./src/globals/*.F90
+                          ./src/base/*.F90
+                          ./src/profiles/*.F90
+                          ./src/hmap/c_hmap.F90
+                          ./src/hmap/hmap.F90
+                          ./src/functionals/mhd3d/lambda_solve.F90
+                          ./src/readstate/*.F90
+                          ./src/analyze/analyze_vars.F90
+                          ./src/io_netcdf.F90
+                          ./src/output/*.F90
+                          ./src/transform_sfl/*.F90
+                          ./src/grid/*.F90 )
 IF(GVEC_FIX_HMAP STREQUAL "off")
-  FILE(GLOB hmapsF90 ./src/hmap/hmap_*.f90 )
+  FILE(GLOB hmapsF90 ./src/hmap/hmap_*.F90 )
 ELSE()
-  FILE(GLOB hmapsF90 ./src/hmap/hmap_${GVEC_FIX_HMAP}.f90)
+  FILE(GLOB hmapsF90 ./src/hmap/hmap_${GVEC_FIX_HMAP}.F90)
 ENDIF()
 LIST(APPEND mainF90 ${hmapsF90})
 # define libs
 IF(COMPILE_GVEC)
   FILE(GLOB_RECURSE gvecF90 ./src/*.f
-                            ./src/rungvec.f90
-                            ./src/functionals/*.f90
-                            ./src/analyze/*.f90
-                            ./src/vmec/*.f90
-                            ./src/restart/*.f90 )
+                            ./src/rungvec.F90
+                            ./src/functionals/*.F90
+                            ./src/analyze/*.F90
+                            ./src/vmec/*.F90
+                            ./src/restart/*.F90 )
 
   IF(USE_FTIMINGS)
-    LIST(APPEND mainF90 ./src/mod_timings.f90 ./src/perf2ftimings.f90)
+    LIST(APPEND mainF90 ./src/mod_timings.F90 ./src/perf2ftimings.F90)
   ENDIF()
   LIST(APPEND mainF90 ${gvecF90})
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
-  FILE(GLOB tohoprF90 ./src/gvec_to_hopr/*.f90 )
+  FILE(GLOB tohoprF90 ./src/gvec_to_hopr/*.F90 )
   LIST(APPEND mainF90 ${tohoprF90})
 ENDIF()
 IF(COMPILE_GVEC_TO_GENE)
-  FILE(GLOB togeneF90 ./src/gvec_to_gene/*.f90 )
+  FILE(GLOB togeneF90 ./src/gvec_to_gene/*.F90 )
   LIST(APPEND mainF90 ${togeneF90})
 ENDIF()
 IF(COMPILE_GVEC_TO_CASTOR3D)
-  FILE(GLOB tocastorF90 ./src/gvec_to_castor3d/*.f90 )
+  FILE(GLOB tocastorF90 ./src/gvec_to_castor3d/*.F90 )
   LIST(APPEND mainF90 ${tocastorF90})
 ENDIF()
 IF(COMPILE_GVEC_TO_JOREK)
-  FILE(GLOB tojorekF90 ./src/gvec_to_jorek/*.f90 )
+  FILE(GLOB tojorekF90 ./src/gvec_to_jorek/*.F90 )
   LIST(APPEND mainF90 ${tojorekF90})
 ENDIF()
 IF(COMPILE_SRC_PYGVEC)
-  FILE(GLOB pygvecF90 ./src/pygvec/*.f90 )
+  FILE(GLOB pygvecF90 ./src/pygvec/*.F90 )
   LIST(APPEND mainF90 ${pygvecF90})
 ENDIF()
 
-# append relative filename-macro for __FILENAME__ in stamp of abort function (see defines.h)
+# append relative filename-macro for __FILENAME__ in stamp of abort function (see defines.FPP)
 FOREACH(sourcefile ${mainF90})
     # inspired by https://stackoverflow.com/a/27990434
     CMAKE_PATH(NORMAL_PATH sourcefile OUTPUT_VARIABLE filename)
@@ -363,7 +362,7 @@ ADD_LIBRARY(gveclibF90 OBJECT ${mainF90} )
 
 OPTION(COMPILE_GVEC_AS_STATIC_LIB "compile GVEC library as static (OFF: compiled as shared)" ON)
 MARK_AS_ADVANCED(COMPILE_GVEC_AS_STATIC_LIB)
-SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS ${GVEC_COMPILE_FLAGS})
+SET_TARGET_PROPERTIES(gveclibF90 PROPERTIES COMPILE_FLAGS "${GVEC_COMPILE_FLAGS}")
 IF(COMPILE_GVEC_AS_STATIC_LIB)
   # generates static lib libgveclib.a
   ADD_LIBRARY(gveclib STATIC $<TARGET_OBJECTS:gveclibF90> )
@@ -415,15 +414,15 @@ IF(COMPILE_PYGVEC)
   # --- wrap gvec using f90wrap & f2py --- #
   # specify files to be wrapped with f90wrap
   SET(pygvec_src_files
-    src/pygvec/binding.f90
-    src/pygvec/state.f90
-    src/pygvec/run.f90
-    src/globals/newton.f90
-    src/transform_sfl/sfl_boozer.f90
-    src/profiles/c_rprofile.f90
-    src/profiles/rprofile_bspline.f90
-    src/profiles/rprofile_polynomial.f90
-    src/base/fbase.f90
+    src/pygvec/binding.F90
+    src/pygvec/state.F90
+    src/pygvec/run.F90
+    src/globals/newton.F90
+    src/transform_sfl/sfl_boozer.F90
+    src/profiles/c_rprofile.F90
+    src/profiles/rprofile_bspline.F90
+    src/profiles/rprofile_polynomial.F90
+    src/base/fbase.F90
   )
 
   FOREACH(file ${pygvec_src_files})
@@ -484,9 +483,9 @@ ENDIF()
 # Executable programs (simply use add_exec)
 # =========================================================================
 IF(COMPILE_GVEC)
-  add_exec(gvec ./src/gvec.f90)
+  add_exec(gvec ./src/gvec.F90)
   ADD_DEPENDENCIES(gvec gveclib )
-  add_exec(gvec_post ./src/gvec_post.f90)
+  add_exec(gvec_post ./src/gvec_post.F90)
   ADD_DEPENDENCIES(gvec_post gveclib )
   MESSAGE(STATUS "path to build directory: ${CMAKE_BINARY_DIR}")
   add_test(
@@ -526,7 +525,7 @@ IF(COMPILE_GVEC)
   )
 ENDIF()
 IF(COMPILE_GVEC_TO_HOPR)
-  add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.f90 )
+  add_exec(test_gvec_to_hopr ./src/test_gvec_to_hopr.F90 )
   ADD_DEPENDENCIES(test_gvec_to_hopr gveclib )
   IF(COMPILE_GVEC)
     add_test(
@@ -543,7 +542,7 @@ IF(COMPILE_GVEC_TO_HOPR)
   ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_GENE)
-  add_exec(test_gvec_to_gene ./src/test_gvec_to_gene.f90 )
+  add_exec(test_gvec_to_gene ./src/test_gvec_to_gene.F90 )
   ADD_DEPENDENCIES(test_gvec_to_gene gveclib )
   IF(COMPILE_GVEC)
     add_test(
@@ -560,7 +559,7 @@ IF(COMPILE_GVEC_TO_GENE)
   ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_CASTOR3D)
-  add_exec(convert_gvec_to_castor3d ./src/convert_gvec_to_castor3d.f90 )
+  add_exec(convert_gvec_to_castor3d ./src/convert_gvec_to_castor3d.F90 )
   ADD_DEPENDENCIES(convert_gvec_to_castor3d gveclib )
   IF(COMPILE_GVEC)
     add_test(
@@ -577,7 +576,7 @@ IF(COMPILE_GVEC_TO_CASTOR3D)
   ENDIF()
 ENDIF()
 IF(COMPILE_GVEC_TO_JOREK)
-  add_exec(convert_gvec_to_jorek ./src/convert_gvec_to_jorek.f90 )
+  add_exec(convert_gvec_to_jorek ./src/convert_gvec_to_jorek.F90 )
   ADD_DEPENDENCIES(convert_gvec_to_jorek gveclib )
   IF(COMPILE_GVEC)
     add_test(
@@ -600,7 +599,7 @@ ENDIF()
 
 IF((NOT COMPILE_GVEC_TO_GENE) AND (NOT COMPILE_PYGVEC))
   INSTALL(FILES
-    ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90
+    ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.F90
     DESTINATION include )
 ELSE()
   INCLUDE(cmake/install_gene.cmake)
@@ -640,8 +639,8 @@ endfunction()
      )
 
 # A function to get all user defined variables with a specified prefix
-SET(configuration ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.f90)
-FILE(WRITE ${configuration} "!This file is included during compilation in gvec.f90 to show the configuration on the screen output. \n")
+SET(configuration ${CMAKE_Fortran_MODULE_DIRECTORY}/configuration-cmake.F90)
+FILE(WRITE ${configuration} "!This file is included during compilation in gvec.F90 to show the configuration on the screen output. \n")
 FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A,3(1X,A))')  \"GIT_BRANCH:\",\"'${GIT_BRANCH}'\",\",GIT_HASH:\",\"'${GIT_HASH}'\"\n")
 FILE(APPEND ${configuration} "  SWRITE(UNIT_stdOut,'(A)') \" THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:\" \n")
 GETLISTOFVARSWITH("GVEC" gvecVars)
