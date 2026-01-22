@@ -125,6 +125,7 @@ def plot_on_axis(
 ):
     r"""
     Plot a equilibrium quantity (or list of) along the magnetic axis.
+    Note that the quantities are always evaluated off-axis (rho=[1.1e-4,2.2e-4,3.3e-4],theta=0) and extrapolated quadratically to rho=0.
 
     Parameters
     ----------
@@ -180,7 +181,17 @@ def _add_rationals_to_iota_plot(
     n_max: int = 10,
 ):
     """
-    Add high-order rationals as a secondary y-axis to an iota profile plot.
+    Add rationals as a secondary y-axis to an iota profile plot. Denominator is restricted to multiples of number of field periods.
+    Parameters
+    ----------
+    state : GVEC state object
+    ax : matplotlib axis object
+    limits : tuple[float, float], optional
+        The maximum values of the nominator and denominator.
+    n_rationals : int, optional
+        The maximum number of rationals to add to the plot.
+    n_max : int, optional
+        The maximum toroidal modenumber per field period to be checked. The denominators are $n n_{FP}, n=1,...,n_{max}$)
     """
     from math import gcd
 
