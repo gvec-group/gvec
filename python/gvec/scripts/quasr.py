@@ -328,7 +328,7 @@ def quasr_fieldlines(
     coil_set: CoilSet,
     n_fieldlines: int = 20,
     max_step: float = 0.1,
-    t: float = 1200.0,
+    time: float = 1200.0,
     zetas: ArrayLike | None = None,
     axs=None,
     **kwargs,
@@ -371,7 +371,7 @@ def quasr_fieldlines(
     dt = trace_fieldlines(
         starts=starts,
         coils=coil_set,
-        t=t,
+        time=time,
         events=planes,
         max_step=max_step,
         **kwargs,
@@ -441,7 +441,7 @@ def generate_quasr_case(
             )
         else:
             axs = None
-        dt = quasr_fieldlines(state, coil_set, zetas=zetas, axs=axs, t=t, **kwargs)
+        dt = quasr_fieldlines(state, coil_set, zetas=zetas, axs=axs, time=t, **kwargs)
         if has_matplotlib:
             dt, axs = dt
             fig.savefig(f"quasr-{ID:07d}-poincare.png")
