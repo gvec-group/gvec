@@ -110,6 +110,7 @@ REAL(wp)                :: StartTimeTotal,EndTimeTotal,StartTime,EndTime
   IF(dorestart) CALL InitRestart(RestartFile_in)
   CALL InitOutput()
   CALL InitAnalyze()
+  ALLOCATE(t_functional_mhd3d :: functional)
   CALL functional%init()
 
   CALL IgnoredStrings()
