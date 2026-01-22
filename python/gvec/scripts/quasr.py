@@ -1,6 +1,6 @@
 # Copyright (c) 2025 GVEC Contributors, Max Planck Institute for Plasma Physics
 # License: MIT
-"""The pyGVEC script for converting a QUASR configuration to a G-Frame for use with GVEC.
+r"""The pyGVEC script for converting a QUASR configuration to a G-Frame for use with GVEC.
 
 QUASR is the A QUAsi-symmetric Stellarator Repository: https://quasr.flatironinstitute.org/
 
