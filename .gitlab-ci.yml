@@ -1227,7 +1227,7 @@ include:
 
   - local: CI_templates/pypi.yml
     inputs:
-      env: .mpcdfci_ifx-latest
+      env: .ubuntu-22
       rules: .rules_pypi
 
 # =================================================================================================================================
