@@ -58,8 +58,8 @@ def plot_radial_profile(
     nrho: int | np.ndarray = 101,
     subplot_grid: list[int] | None = None,
     xaxis: Literal["rho", "rho_squared"] = "rho",
-    plot_kwargs: dict = dict(),
     n_rationals: int = 3,
+    plot_kwargs: dict = dict(),
 ):
     r"""
     Plot the radial profile of given equilibrium quantities.
@@ -78,6 +78,9 @@ def plot_radial_profile(
     xaxis : `"rho"` or `"rho_squared"`, optional
         What quantity to plot on the x axis.
         Default is `"rho"`.
+    n_rationals : int, optional
+        If non-zero, show the largest n rationals on any ``$\iota$`` plot.
+        Default `3`
     plot_kwargs: dict, optional
         Any `**kwargs` to send to the `plt.figure()` function.
         For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
@@ -202,24 +205,28 @@ def _add_rationals_to_iota_plot(
         limits = ax.get_ylim()
 
     rationals = []
-    n = 0
-    # for n in range(1, n_max + 1):
-    while len(rationals) < n_rationals:
-        n = n + 1
-        for m in range(1, n * state.nfp + 1):
-            if gcd(m, n) != 1:
+
+    p = 1
+    while len(rationals) < n_rationals and p < 1000:
+        for q in range(1, p + 1):
+            if gcd(q, p) != 1:
                 continue
-            if limits[0] <= m / (n * state.nfp) <= limits[1]:
-                rationals.append((m, n * state.nfp))
-        if len(rationals) >= n_rationals:
-            break
-    rationals = sorted(rationals, key=lambda x: x[1] / x[0])
+            if limits[0] <= q / p <= limits[1]:
+                rationals.append((q, p))
+            if limits[0] <= p / q <= limits[1]:
+                rationals.append((p, q))
+        p = p + 1
+
+    rationals = sorted(set(rationals), key=lambda x: x[0] / x[1])
+
+    rationals = rationals[:n_rationals]
 
     secax = ax.secondary_yaxis("right")
     secax.set(
         yticks=[n / m for n, m in rationals],
         yticklabels=[f"$\\frac{{{n}}}{{{m}}}$" for n, m in rationals],
     )
+    secax.tick_params(direction="in", pad=-10)
     for n, m in rationals:
         ax.axhline(n / m, color="gray", linestyle="--", alpha=0.2)
 

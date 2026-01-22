@@ -18,11 +18,11 @@ def plot_poloidal_plane(
     ntheta: int = 51,
     zeta: int | float | np.ndarray | list[float] = 9,
     subplot_grid: list[int] | None = None,
-    share_axis: bool = True,
+    share_axis: bool = False,
     rho_contours: int = 4,
-    rho_contours_color: str = "white",
+    rho_contours_color: str | None = None,
     theta_contours: int = 8,
-    theta_contours_color: str = "white",
+    theta_contours_color: str | None = None,
     sfl: Literal["pest"] | None = "pest",
     plot_kwargs: dict = dict(),
 ):
@@ -74,6 +74,12 @@ def plot_poloidal_plane(
     -------
     `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
     """
+
+    if rho_contours_color is None:
+        rho_contours_color = "black" if quantity is None else "white"
+    if theta_contours_color is None:
+        theta_contours_color = "black" if quantity is None else "white"
+
     quantities = ["X1", "X2", "LA"]
     if quantity is not None:
         quantities.append(quantity)
@@ -184,17 +190,22 @@ def plot_poloidal_plane(
         if share_axis:
             ax.set(xlabel="X1", ylabel="X2")
             ax.label_outer()
+            ax.set_aspect("equal")
         else:
-            # Bufer the axis limits
+            # Bufer the axis limits and make sure all things are square
             xlims = ax.get_xlim()
             ylims = ax.get_ylim()
-            if np.diff(ylims) < np.diff(xlims):
-                ax.set_xlim((np.sum(xlims) + (-1, 1) * np.diff(xlims) * 1.05) / 2)
-            else:
-                ax.set_ylim((np.sum(ylims) + (-1, 1) * np.diff(ylims) * 1.05) / 2)
-            ax.set_box_aspect(1)
 
-        ax.set_aspect("equal")
+            margin = 1.05
+
+            if np.diff(ylims) > np.diff(xlims):
+                ax.set_xlim((np.sum(xlims) + (-1, 1) * np.diff(ylims) * margin) / 2)
+                ax.set_ylim((np.sum(ylims) + (-1, 1) * np.diff(ylims) * margin) / 2)
+            else:
+                ax.set_xlim((np.sum(xlims) + (-1, 1) * np.diff(xlims) * margin) / 2)
+                ax.set_ylim((np.sum(ylims) + (-1, 1) * np.diff(xlims) * margin) / 2)
+
+            ax.set_box_aspect(1)
 
     if quantity is not None:
         # Adding colourbar
