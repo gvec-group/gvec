@@ -161,9 +161,6 @@ MODULE MODgvec_MHD3D_minimize
         !-------------------------------------------------------------------------------------------------------------------------------
         CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf
         !-------------------------------------------------------------------------------------------------------------------------------
-        IF(.NOT.sf%logger_is_initialized)THEN
-            CALL sf%StartLogging()
-        END IF
         sf%JacCheck=1 !abort if detJ<0
         CALL EvalAux(sf%dofs(0), sf%JacCheck)
         sf%dofs(0)%W_MHD3D= EvalEnergy(sf%dofs(0),.FALSE.,sf%JacCheck)
@@ -356,6 +353,9 @@ MODULE MODgvec_MHD3D_minimize
                 CALL sf%reset()
             END IF !before first iteration or after restart Jac<0
 
+            IF(.NOT.sf%logger_is_initialized)THEN
+                CALL sf%StartLogging()
+            END IF
             !COMPUTE NEW SOLUTION P(1) as a prediction
             SELECT CASE(sf%MinType)
                 CASE(0) !gradient descent, previously used for minimizerType=0
