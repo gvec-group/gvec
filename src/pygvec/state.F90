@@ -6,14 +6,14 @@
 
 MODULE MODgvec_py_state
 
-USE MODgvec_c_functional, ONLY: t_functional
+USE MODgvec_MHD3D,        ONLY: t_functional_mhd3d
 USE MODgvec_base,         ONLY: t_base
 USE MODgvec_Globals,      ONLY: enter_subregion,exit_subregion,reset_subregion
 
 IMPLICIT NONE
 PUBLIC
 
-CLASS(t_functional), ALLOCATABLE :: functional
+CLASS(t_functional_mhd3d), ALLOCATABLE :: functional
 LOGICAL :: initialized = .FALSE.
 INTEGER :: nfp = 0
 
@@ -29,13 +29,12 @@ SUBROUTINE Init(parameterfile)
   USE MODgvec_Restart,        ONLY: InitRestart
   USE MODgvec_ReadInTools,    ONLY: FillStrings,GETLOGICAL,GETINT,IgnoredStrings
 !$ USE omp_lib
-  USE MODgvec_Functional,     ONLY: InitFunctional
-  USE MODgvec_MPI    ,ONLY  : par_Init
+  USE MODgvec_MHD3D,  ONLY: InitMHD3D
+  USE MODgvec_MPI    ,ONLY: par_Init
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=*) :: parameterfile
   ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
-  INTEGER :: which_functional
-  !================================================================================================================================!
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
   CALL reset_subregion()
   CALL enter_subregion("startup")
   CALL par_Init() !USE MPI_COMM_WORLD
@@ -62,8 +61,8 @@ SUBROUTINE Init(parameterfile)
   CALL InitAnalyze()
 
   ! initialize the functional
-  which_functional = GETINT('which_functional',Proposal=1)
-  CALL InitFunctional(functional,which_functional)
+  ALLOCATE(t_functional_mhd3d :: functional)
+  CALL InitMHD3D(functional)
 
   ! print the ignored parameters
   CALL IgnoredStrings()
@@ -77,7 +76,9 @@ END SUBROUTINE Init
 !================================================================================================================================!
 SUBROUTINE InitSolution()
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL enter_subregion("initialize solution")
   CALL functional%InitSolution()
+  CALL exit_subregion("initialize solution")
 END SUBROUTINE InitSolution
 
 !================================================================================================================================!
@@ -86,14 +87,60 @@ SUBROUTINE ReadState(statefile)
   USE MODgvec_Output_Vars,    ONLY: outputLevel,ProjectName
   USE MODgvec_ReadState_Vars, ONLY: outputLevel_r
   USE MODgvec_Restart,        ONLY: RestartFromState
-  USE MODgvec_MHD3D_Vars,     ONLY: U
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=255) :: statefile
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  CALL enter_subregion("read statefile")
   ProjectName='POST_'//TRIM(StateFile(1:INDEX(StateFile,'_State_')-1))
-  CALL RestartFromState(StateFile,U(0))
+  CALL RestartFromState(StateFile,functional%minimizer%dofs(0))
   outputLevel=outputLevel_r
+  CALL exit_subregion("read statefile")
 END SUBROUTINE ReadState
+
+!================================================================================================================================!
+SUBROUTINE minimize(dt_in)
+  ! MODULES
+  USE MODgvec_Globals,    ONLY: wp, Unit_stdOut, GetTime
+  USE MODgvec_MHD3D_Vars, ONLY: maxIter
+  REAL(wp), OPTIONAL, INTENT(IN) :: dt_in
+  ! LOCAL VARIABLES -------------------------------------------------------------------------------------------------------------!
+  REAL(wp) :: StartTime, EndTime
+  ! CODE ------------------------------------------------------------------------------------------------------------------------!
+  StartTime=GetTime()
+  CALL functional%minimize(dt_in)
+  EndTime=GetTime()
+  SWRITE(Unit_stdOut,'(A,2(F8.2,A))') ' FUNCTIONAL MINIMISATION FINISHED! [',EndTime-StartTime,' sec ], corresponding to [', &
+        (EndTime-StartTime)/REAL(MaxIter,wp)*1.e3_wp,' msec/iteration ]'
+END SUBROUTINE minimize
+
+
+!================================================================================================================================!
+SUBROUTINE Finalize()
+  ! MODULES
+  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
+  USE MODgvec_Analyze,        ONLY: FinalizeAnalyze
+  USE MODgvec_Output,         ONLY: FinalizeOutput
+  USE MODgvec_Restart,        ONLY: FinalizeRestart
+  USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
+  USE MODgvec_MPI,            ONLY: par_Finalize
+  !================================================================================================================================!
+
+  IF(ALLOCATED(functional)) THEN
+    CALL functional%free()
+    DEALLOCATE(functional)
+  END IF
+  CALL FinalizeAnalyze()
+  CALL FinalizeOutput()
+  CALL FinalizeRestart()
+  CALL FinalizeReadIn()
+  CALL par_Finalize()
+  initialized = .FALSE.
+
+  SWRITE(Unit_stdOut,'(132("="))')
+  SWRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
+  SWRITE(Unit_stdOut,'(132("="))')
+  FLUSH(Unit_stdOut)
+END SUBROUTINE Finalize
 
 !================================================================================================================================!
 !> Handle the selection of the base, based on the selection string
@@ -101,7 +148,7 @@ END SUBROUTINE ReadState
 SUBROUTINE select_base_dofs(var, base, dofs)
   ! MODULES
   USE MODgvec_Globals,        ONLY: abort
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base,U
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base,X2_base,LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   CHARACTER(LEN=2), INTENT(IN) :: var          !! selection string: which variable to evaluate
@@ -111,13 +158,13 @@ SUBROUTINE select_base_dofs(var, base, dofs)
   SELECT CASE(var)
     CASE('X1')
       base => X1_base
-      dofs => U(0)%X1
+      dofs => functional%minimizer%dofs(0)%X1
     CASE('X2')
       base => X2_base
-      dofs => U(0)%X2
+      dofs => functional%minimizer%dofs(0)%X2
     CASE('LA')
       base => LA_base
-      dofs => U(0)%LA
+      dofs => functional%minimizer%dofs(0)%LA
     CASE DEFAULT
       CALL abort(__STAMP__, &
       'ERROR: variable "'//TRIM(var)//'" not recognized')
@@ -941,12 +988,13 @@ END FUNCTION init_boozer
 SUBROUTINE get_boozer(sfl_boozer)
   ! MODULES
   USE MODgvec_SFL_Boozer,   ONLY: t_sfl_boozer
-  USE MODgvec_MHD3D_vars,     ONLY: X1_base, X2_base, LA_base, U
+  USE MODgvec_MHD3D_vars,     ONLY: X1_base, X2_base, LA_base
   USE MODgvec_base,           ONLY: t_base
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   TYPE(t_sfl_boozer), INTENT(INOUT) :: sfl_boozer  ! SFL-Boozer object
   ! CODE ------------------------------------------------------------------------------------------------------------------------!
-  CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base, U(0)%X1, U(0)%X2, U(0)%LA)
+  CALL sfl_boozer%get_boozer(X1_base, X2_base, LA_base,&
+  functional%minimizer%dofs(0)%X1, functional%minimizer%dofs(0)%X2, functional%minimizer%dofs(0)%LA)
 END SUBROUTINE get_boozer
 
 
@@ -955,7 +1003,7 @@ END SUBROUTINE get_boozer
 !================================================================================================================================!
 SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   ! MODULES
-  USE MODgvec_MHD3D_vars,     ONLY: LA_base, U
+  USE MODgvec_MHD3D_vars,     ONLY: LA_base
   USE MODgvec_Transform_SFL,  ONLY: find_pest_angles
   ! INPUT/OUTPUT VARIABLES ------------------------------------------------------------------------------------------------------!
   INTEGER, INTENT(IN) :: n_s, n_tz
@@ -970,7 +1018,7 @@ SUBROUTINE find_pest_angles_2D(n_s, s, n_tz, tz_pest, tz_out)
   !$OMP PRIVATE(i_s)
   DO i_s=1,n_s
     ! evaluate spline to get the fourier dofs
-    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, U(0)%LA)
+    LA(:, i_s) = LA_base%s%evalDOF2D_s(s(i_s), LA_base%f%modes, 0, functional%minimizer%dofs(0)%LA)
   END DO
   !$OMP END PARALLEL DO
   CALL find_pest_angles(n_s, LA_base%f, LA, n_tz, tz_pest, tz_out)
@@ -1024,34 +1072,5 @@ SUBROUTINE evaluate_boozer_list_tz_all(sfl_boozer, n_s, n_tz, irho, thetazeta, Q
   END DO
   DEALLOCATE(Q_dofs)
 END SUBROUTINE evaluate_boozer_list_tz_all
-
-!================================================================================================================================!
-SUBROUTINE Finalize()
-  ! MODULES
-  USE MODgvec_Globals,        ONLY: Unit_stdOut,MPIroot
-  USE MODgvec_Analyze,        ONLY: FinalizeAnalyze
-  USE MODgvec_Output,         ONLY: FinalizeOutput
-  USE MODgvec_Restart,        ONLY: FinalizeRestart
-  USE MODgvec_Functional,     ONLY: FinalizeFunctional
-  USE MODgvec_ReadInTools,    ONLY: FinalizeReadIn
-  USE MODgvec_MPI,            ONLY: par_Finalize
-  !================================================================================================================================!
-
-  IF(ALLOCATED(functional)) THEN
-    CALL FinalizeFunctional(functional)
-    DEALLOCATE(functional)
-  END IF
-  CALL FinalizeAnalyze()
-  CALL FinalizeOutput()
-  CALL FinalizeRestart()
-  CALL FinalizeReadIn()
-  CALL par_Finalize()
-  initialized = .FALSE.
-
-  SWRITE(Unit_stdOut,'(132("="))')
-  SWRITE(UNIT_stdOut,'(A)') "GVEC POST FINISHED !"
-  SWRITE(Unit_stdOut,'(132("="))')
-  FLUSH(Unit_stdOut)
-END SUBROUTINE Finalize
 
 END MODULE MODgvec_py_state
