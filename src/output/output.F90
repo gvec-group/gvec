@@ -6,67 +6,44 @@
 
 !===================================================================================================================================
 !>
-!!# Module **TEMPLATE**
+!!# Module **Output**
 !!
-!! some description
+!!
+!!
 !===================================================================================================================================
-MODULE MODgvec_TEMPLATE
-
-USE MODgvec_Globals, ONLY: wp
-
+MODULE MODgvec_Output
+! MODULES
 IMPLICIT NONE
 PRIVATE
-PUBLIC :: t_templatetype, template_subroutine
 
+INTERFACE InitOutput
+  MODULE PROCEDURE InitOutput
+END INTERFACE
+
+INTERFACE Output
+  MODULE PROCEDURE Output
+END INTERFACE
+
+INTERFACE FinalizeOutput
+  MODULE PROCEDURE FinalizeOutput
+END INTERFACE
+
+PUBLIC::InitOutput
+PUBLIC::Output
+PUBLIC::FinalizeOutput
 !===================================================================================================================================
-
-! avoid global variables, unless they are parameters
-! prefer parameters over macros
-! don't be afraid to use strings
-INTEGER, PARAMETER :: PARAM_ONE = 1
-CHARACTER(LEN=3), PARAMETER :: PARAM_STR = "abc"
-
-!===================================================================================================================================
-!> template type
-!!
-!! some description
-!! for abstract types, see the profiles directory as a template
-!! avoid abstract types if they are not needed (e.g. if we only have a single implementation, even if we might want to extend it later)
-!===================================================================================================================================
-TYPE :: t_templatetype
-  INTEGER :: var1 = 0                   !! some description
-  REAL(wp) :: var2 = 0.0_wp             !! some description
-  CHARACTER(LEN=10) :: var3 = "default" !! some description
-  LOGICAL :: useThis = .FALSE.          !! some description
-
-  CONTAINS
-
-  FINAL :: template_free
-  PROCEDURE :: method => t_templatetype_method
-END TYPE t_templatetype
-
-INTERFACE t_templatetype
-  MODULE PROCEDURE t_templatetype_new
-END INTERFACE t_templatetype
 
 CONTAINS
-
-!===================================================================================================================================
-!> some function
-!!
-!! some description
-!! use functions when it is applicable (i.e. a single return value)
-FUNCTION
 
 !===================================================================================================================================
 !> Initialize Module
 !!
 !===================================================================================================================================
-SUBROUTINE InitTEMPLATE
+SUBROUTINE InitOutput
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,fmt_sep
-USE MOD_TEMPLATE_Vars
-USE MOD_ReadInTools,ONLY:GETLOGICAL
+USE MODgvec_Globals, ONLY:wp,UNIT_stdOut,fmt_sep,MPIroot
+USE MODgvec_Output_Vars
+USE MODgvec_ReadInTools,ONLY:GETSTR
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -77,22 +54,21 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-SWRITE(UNIT_stdOut,'(A)')'INIT TEMPLATE ...'
-useThis    = GETLOGICAL('useThis','F')
+SWRITE(UNIT_stdOut,'(A)')'INIT OUTPUT ...'
+ProjectName = GETSTR('ProjectName','GVEC')
 
+OutputLevel=0
 SWRITE(UNIT_stdOut,'(A)')'... DONE'
 SWRITE(UNIT_stdOut,fmt_sep)
-END SUBROUTINE InitTEMPLATE
+END SUBROUTINE InitOutput
 
 
 !===================================================================================================================================
 !>
 !!
 !===================================================================================================================================
-SUBROUTINE TEMPLATE()
+SUBROUTINE Output()
 ! MODULES
-USE MOD_Globals, ONLY:wp
-USE MOD_TEMPLATE_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -101,15 +77,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-END SUBROUTINE TEMPLATE
+END SUBROUTINE Output
 
 !===================================================================================================================================
 !> Finalize Module
 !!
 !===================================================================================================================================
-SUBROUTINE FinalizeTEMPLATE
+SUBROUTINE FinalizeOutput
 ! MODULES
-USE MOD_TEMPLATE_Vars
+USE MODgvec_Output_Vars
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -119,6 +95,6 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !===================================================================================================================================
 
-END SUBROUTINE FinalizeTEMPLATE
+END SUBROUTINE FinalizeOutput
 
-END MODULE MOD_TEMPLATE
+END MODULE MODgvec_Output
