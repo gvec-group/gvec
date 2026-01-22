@@ -53,7 +53,7 @@ You can however also follow along with a normal python script.
 
 To use the notebooks you need to have the following packages installed:
 ```bash
-pip install jupyter ipykernel ipympl ipywidgets matplotlib
+pip install jupyter ipykernel ipympl ipywidgets matplotlib "plotly<6.0"
 ```
 
 We recommend two options for running Jupyter notebooks:

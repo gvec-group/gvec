@@ -12,7 +12,7 @@ def _extrapolate_axis(state, quantities, zeta):
     """
     ev_axis = state.evaluate(
         *quantities,
-        rho=[1e-4, 1.1e-4, 2.2e-4, 3.3e-4, 4.4e-4],  # must be >=1e-4
+        rho=[1e-4, 1.1e-4, 2.2e-4, 3.3e-4],  # must be >=1e-4
         theta=[0.0],
         zeta=zeta,
     )

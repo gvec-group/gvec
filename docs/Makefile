@@ -24,5 +24,5 @@ help:
 
 cleanall: clean
 	rm -f generators/parameters-*.md generators/quantities.md
-	rm -f tutorials/notebooks/*.toml tutorials/notebooks/*.nc tutorials/notebooks/*.vts
+	rm -f tutorials/notebooks/*.html tutorials/notebooks/*.toml tutorials/notebooks/*.nc tutorials/notebooks/*.vts
 	rm -rf tutorials/notebooks/run_*

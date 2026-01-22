@@ -13,15 +13,16 @@ from gvec.plotting.utils import _deco_usetex, _design_subgrid, _subplots, _symbo
 @_deco_usetex
 def plot_poloidal_plane(
     state: State,
-    quantity: str = "mod_B",
-    /,
+    quantity: None | str = "mod_B",
     nrho: int = 21,
     ntheta: int = 51,
     zeta: int | float | np.ndarray | list[float] = 9,
     subplot_grid: list[int] | None = None,
     share_axis: bool = True,
     rho_contours: int = 4,
+    rho_contours_color: str = "white",
     theta_contours: int = 8,
+    theta_contours_color: str = "white",
     sfl: Literal["pest"] | None = "pest",
     plot_kwargs: dict = dict(),
 ):
@@ -34,7 +35,7 @@ def plot_poloidal_plane(
     ----------
     state : GVEC state object
     quantity : str, optional
-        The quantity to plot. Default is "mod_B"
+        The quantity to plot. Default is "mod_B". If `None`, no contours are plotted.
     nrho : int, optional
         The radial resolution of the slices.
         Default is `51`
@@ -51,11 +52,17 @@ def plot_poloidal_plane(
         If `True`, all subplots will share their `X1` and `X2` axis positions.
         Default `False`
     rho_contours : int, optional
-        The number of ``$\rho$`` contours to plot.
+        The number of ``$\rho$`` contours to plot. If `0`, no contours are plotted.
         Default `4`
+    rho_contours_color : str, optional
+        The color of the ``$\rho$`` contours.
+        Default `"white"`
     theta_contours : int, optional
-        The number of ``$\theta$`` contours to plot.
+        The number of ``$\theta$`` contours to plot. If `0`, no contours are plotted.
         Default `8`
+    theta_contours_color : str, optional
+        The color of the ``$\theta$`` contours.
+        Default `"white"`
     sfl : `"pest"` or `None`, optional
         Plot the `theta` contours or `pest` contours (``$\theta^\star$``).
         Default `"pest"`.
@@ -67,8 +74,11 @@ def plot_poloidal_plane(
     -------
     `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
     """
+    quantities = ["X1", "X2", "LA"]
+    if quantity is not None:
+        quantities.append(quantity)
 
-    evaluations = state.evaluate(quantity, "X1", "X2", "LA", rho=nrho, theta=ntheta, zeta=zeta)
+    evaluations = state.evaluate(*quantities, rho=nrho, theta=ntheta, zeta=zeta)
 
     if rho_contours:
         ev_rho_contours = state.evaluate(
@@ -90,62 +100,70 @@ def plot_poloidal_plane(
             )
 
     zeta_eval = evaluations.zeta.data
-
-    if np.any(np.isnan(evaluations[quantity])):
-        # Sometimes on-axis quantity cannot be computed properly, to avoid erroring out we will just set them to zero
-        #   and warn the user that they should adjust if their plots look weird
-        evaluations[quantity].data[np.isnan(evaluations[quantity].data)] = 0.0
-        warn(
-            "NaNs detected in evaluated dataset, these have been set to 0. It is possible that on-axis quantity cannot be evaluated, a minimum rho value can be set with the min_rho input."
-        )
+    if quantity is not None:
+        if np.any(np.isnan(evaluations[quantity])):
+            # Sometimes on-axis quantity cannot be computed properly, to avoid erroring out we will just set them to zero
+            #   and warn the user that they should adjust if their plots look weird
+            evaluations[quantity].data[np.isnan(evaluations[quantity].data)] = 0.0
+            warn(
+                "NaNs detected in evaluated dataset, these have been set to 0. It is possible that on-axis quantity cannot be evaluated, a minimum rho value can be set with the min_rho input."
+            )
 
     if not subplot_grid:
         subplot_grid = _design_subgrid(len(zeta_eval))
 
     fig, axs = _subplots(subplot_grid, share_axis, share_axis, **plot_kwargs)
 
-    is_scalar = len(evaluations[quantity].shape) == 1
-    # All plots will share the same colour scale
-    # Need to make sure we use the correct function for getting the min and max
-    if is_scalar:
-        colour_scale = (
-            np.min(evaluations[quantity]),
-            np.max(evaluations[quantity]),
-        )
-    else:
-        colour_scale = (
-            np.amin(evaluations[quantity].data),
-            np.amax(evaluations[quantity].data),
-        )
+    if quantity is not None:
+        is_scalar = len(evaluations[quantity].shape) == 1
+        # All plots will share the same colour scale
+        # Need to make sure we use the correct function for getting the min and max
+        if is_scalar:
+            colour_scale = (
+                np.min(evaluations[quantity]),
+                np.max(evaluations[quantity]),
+            )
+        else:
+            colour_scale = (
+                np.amin(evaluations[quantity].data),
+                np.amax(evaluations[quantity].data),
+            )
 
     # Loop and plot all axes
     for i, ax in enumerate(np.asarray(axs).flat):
-        # Check if the quantity is a scalar
-        if not is_scalar:  # not a scalar
-            plotting_quantity = evaluations[quantity].data[:, :, i].flatten()
-        else:
-            plotting_quantity = evaluations.X1[:, :, i] * 0.0 + evaluations[quantity]
-            plotting_quantity = plotting_quantity.data.flatten()
+        if quantity is not None:
+            # Check if the quantity is a scalar
+            if not is_scalar:  # not a scalar
+                plotting_quantity = evaluations[quantity].data[:, :, i].flatten()
+            else:
+                plotting_quantity = evaluations.X1[:, :, i] * 0.0 + evaluations[quantity]
+                plotting_quantity = plotting_quantity.data.flatten()
 
-        f_ax = ax.tricontourf(
-            evaluations.X1.data[:, :, i].flatten(),
-            evaluations.X2.data[:, :, i].flatten(),
-            plotting_quantity,
-            vmin=colour_scale[0],
-            vmax=colour_scale[1],
-        )
+            f_ax = ax.tricontourf(
+                evaluations.X1.data[:, :, i].flatten(),
+                evaluations.X2.data[:, :, i].flatten(),
+                plotting_quantity,
+                vmin=colour_scale[0],
+                vmax=colour_scale[1],
+            )
         if share_axis:
             ax.label_outer()  # Removes any axis labels on subplots on the interior of the grid
         if rho_contours:
             # We should plot the rho
             ax.plot(
-                ev_rho_contours.X1[:, :, i].T, ev_rho_contours.X2[:, :, i].T, "w", linewidth=1.0
+                ev_rho_contours.X1[:, :, i].T,
+                ev_rho_contours.X2[:, :, i].T,
+                color=rho_contours_color,
+                linewidth=1.0,
             )
 
         if theta_contours:
             # \theta or \theta^\star contours
             ax.plot(
-                ev_theta_contours.X1[:, :, i], ev_theta_contours.X2[:, :, i], "w", linewidth=1.0
+                ev_theta_contours.X1[:, :, i],
+                ev_theta_contours.X2[:, :, i],
+                color=theta_contours_color,
+                linewidth=1.0,
             )
 
         # The slice label will be added as an annotation to the top right of the subplot
@@ -178,11 +196,12 @@ def plot_poloidal_plane(
 
         ax.set_aspect("equal")
 
-    # Adding colourbar
-    evaluations = _symbol_check(evaluations, [quantity])
-    fig.colorbar(
-        f_ax, ax=np.asarray(axs).ravel().tolist(), label=f"${evaluations[quantity].symbol}$"
-    )
+    if quantity is not None:
+        # Adding colourbar
+        evaluations = _symbol_check(evaluations, [quantity])
+        fig.colorbar(
+            f_ax, ax=np.asarray(axs).ravel().tolist(), label=f"${evaluations[quantity].symbol}$"
+        )
 
     return fig, axs
 
