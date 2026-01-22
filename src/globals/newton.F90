@@ -160,21 +160,18 @@ CONTAINS
 FUNCTION NewtonMin1D(tol,a,b,maxstep,x,fobj) RESULT (fmin)
   ! MODULES
   IMPLICIT NONE
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   REAL(wp),INTENT(IN)               :: tol  !! abort tolerance
   REAL(wp),INTENT(IN)               :: a,b  !! search interval
   REAL(wp),INTENT(IN)               :: maxstep  !! max|dx| allowed
   CLASS(c_newton_Min1D),INTENT(IN)  :: fobj !! functional to minimize with f(x), d/dx f(x), d^2/dx^2 f(x)
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp),INTENT(INOUT) :: x    !! initial guess on input, result on output
   REAL(wp)               :: fmin !! on output =f(x)
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! LOCAL VARIABLES
+  ! LOCAL VARIABLES --------------------------!
   REAL(wp)                                      :: x0
   TYPE(t_newton_Root1D_wrap_Min1D), ALLOCATABLE :: fobj_wrap
-  !=================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   fobj_wrap = t_newton_Root1D_wrap_Min1D(fobj)
   x0=x
   x=NewtonRoot1D(tol,a,b,maxstep,x0,0.0_wp,fobj_wrap)
@@ -190,12 +187,11 @@ END FUNCTION NewtonMin1D
 FUNCTION newton_Root1D_wrap_Min1D_new(parent) RESULT(sf)
   ! MODULES
   IMPLICIT NONE
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   CLASS(c_newton_Min1D), INTENT(IN) :: parent
-  ! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES ------------------------!
   TYPE(t_newton_Root1D_wrap_Min1D) :: sf
-  !=================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   sf%parent = parent
 END FUNCTION
 
@@ -207,13 +203,12 @@ END FUNCTION
 FUNCTION newton_Root1D_wrap_Min1D_FR(sf, x) RESULT(y1x1)
   ! MODULES
   IMPLICIT NONE
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_newton_Root1D_wrap_Min1D), INTENT(IN) :: sf
   REAL(wp), INTENT(IN) :: x
-  ! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp) :: y1x1
-  !=================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   y1x1 = sf%parent%dFR(x)
 END FUNCTION
 
@@ -225,13 +220,12 @@ END FUNCTION
 FUNCTION newton_Root1D_wrap_Min1D_dFR(sf, x) RESULT(y1x1)
   ! MODULES
   IMPLICIT NONE
-  !---------------------------------------------------------------------------------------------------------------------------------
-  ! INPUT VARIABLES
+  ! INPUT VARIABLES -------------------------!
   CLASS(t_newton_Root1D_wrap_Min1D), INTENT(IN) :: sf
   REAL(wp), INTENT(IN) :: x
-  ! OUTPUT VARIABLES
+  ! OUTPUT VARIABLES -------------------------!
   REAL(wp) :: y1x1
-  !=================================================================================================================================
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
   y1x1 = sf%parent%ddFR(x)
 END FUNCTION
 
@@ -241,62 +235,59 @@ END FUNCTION
 !!
 !===================================================================================================================================
 FUNCTION NewtonRoot1D(tol,a,b,maxstep,xin,F0,fobj) RESULT (xout)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN) :: tol    !! abort tolerance
-REAL(wp),INTENT(IN) :: a,b    !! search interval
-REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
-REAL(wp),INTENT(IN) :: xin    !! initial guess
-REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-CLASS(c_newton_Root1D) :: fobj
-REAL(wp)            :: xout    !! on output =f(x)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-INTEGER             :: iter,maxiter
-REAL(wp)            :: x,dx
-LOGICAL             :: converged
-LOGICAL             :: converged2
-!===================================================================================================================================
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
+  REAL(wp),INTENT(IN) :: tol    !! abort tolerance
+  REAL(wp),INTENT(IN) :: a,b    !! search interval
+  REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
+  REAL(wp),INTENT(IN) :: xin    !! initial guess
+  REAL(wp),INTENT(IN) :: F0     !! function to find root is FR(x)-F0
+  ! OUTPUT VARIABLES -------------------------!
+  CLASS(c_newton_Root1D) :: fobj
+  REAL(wp)            :: xout    !! on output =f(x)
+  ! LOCAL VARIABLES --------------------------!
+  INTEGER             :: iter,maxiter
+  REAL(wp)            :: x,dx
+  LOGICAL             :: converged
+  LOGICAL             :: converged2
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
 
-converged=.FALSE.
-x=xin
-maxiter=20
-DO iter=1,maxiter
-  dx=-(fobj%FR(x)-F0)/fobj%dFR(x)
-  dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
-  x = x+dx
-  IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
-  converged=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
-  IF(converged) EXIT
-END DO !iter
-IF(.NOT.converged) THEN
-  !repeat with maxstep /10 and a little change in the initial condition
-  x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
-  maxiter=200
+  converged=.FALSE.
+  x=xin
+  maxiter=20
   DO iter=1,maxiter
     dx=-(fobj%FR(x)-F0)/fobj%dFR(x)
     dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
-    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
     x = x+dx
-    converged2=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
-    IF(converged2) EXIT
+    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
+    converged=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
+    IF(converged) EXIT
   END DO !iter
-  IF(converged2) THEN
-    xout=x
-    RETURN
+  IF(.NOT.converged) THEN
+    !repeat with maxstep /10 and a little change in the initial condition
+    x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
+    maxiter=200
+    DO iter=1,maxiter
+      dx=-(fobj%FR(x)-F0)/fobj%dFR(x)
+      dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+      IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
+      x = x+dx
+      converged2=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
+      IF(converged2) EXIT
+    END DO !iter
+    IF(converged2) THEN
+      xout=x
+      RETURN
+    END IF
+    WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+    WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
+    WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
+    WRITE(UNIT_stdout,*)'after iter',iter-1
+    CALL abort(__STAMP__, &
+              'NewtonRoot1D not converged')
   END IF
-  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
-  WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
-  WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
-  WRITE(UNIT_stdout,*)'after iter',iter-1
-  CALL abort(__STAMP__, &
-             'NewtonRoot1D not converged')
-END IF
-xout=x
+  xout=x
 
 END FUNCTION NewtonRoot1D
 
@@ -306,65 +297,62 @@ END FUNCTION NewtonRoot1D
 !!
 !===================================================================================================================================
 FUNCTION NewtonRoot1D_FdF(tol,a,b,maxstep,xin,F0,fobj) RESULT (xout)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN) :: tol     !! abort tolerance
-REAL(wp),INTENT(IN) :: a,b     !! search interval
-REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
-REAL(wp),INTENT(IN) :: xin     !! initial guess on input
-REAL(wp),INTENT(IN) :: F0      !! function to find root is FR(x)-F0
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-CLASS(c_newton_Root1D_FdF) :: fobj !! function to find root f(x) & derivative d/dx f(x) as FRdFR method
-REAL(wp)            :: xout    !! output x for f(x)=0
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-INTEGER             :: iter,maxiter
-REAL(wp)            :: x,dx
-REAL(wp)            :: FRdFRx(2) !1: FR(x), 2: dFR(x)
-LOGICAL             :: converged
-LOGICAL             :: converged2
-!===================================================================================================================================
-converged=.FALSE.
-x=xin
-maxiter=20
-DO iter=1,maxiter
-  FRdFRx=fobj%FRdFR(x)
-  dx=-(FRdFRx(1)-F0)/FRdFRx(2)
-  dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
-  IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
-  x = x+dx
-  converged=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
-  IF(converged) EXIT
-END DO !iter
-IF(.NOT.converged) THEN
-  !repeat with maxstep /10 and a little change in the initial condition
-  converged2=.FALSE.
-  x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
-  maxiter=200
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
+  REAL(wp),INTENT(IN) :: tol     !! abort tolerance
+  REAL(wp),INTENT(IN) :: a,b     !! search interval
+  REAL(wp),INTENT(IN) :: maxstep !! max|dx| allowed
+  REAL(wp),INTENT(IN) :: xin     !! initial guess on input
+  REAL(wp),INTENT(IN) :: F0      !! function to find root is FR(x)-F0
+  ! OUTPUT VARIABLES -------------------------!
+  CLASS(c_newton_Root1D_FdF) :: fobj !! function to find root f(x) & derivative d/dx f(x) as FRdFR method
+  REAL(wp)            :: xout    !! output x for f(x)=0
+  ! LOCAL VARIABLES --------------------------!
+  INTEGER             :: iter,maxiter
+  REAL(wp)            :: x,dx
+  REAL(wp)            :: FRdFRx(2) !1: FR(x), 2: dFR(x)
+  LOGICAL             :: converged
+  LOGICAL             :: converged2
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
+  converged=.FALSE.
+  x=xin
+  maxiter=20
   DO iter=1,maxiter
     FRdFRx=fobj%FRdFR(x)
     dx=-(FRdFRx(1)-F0)/FRdFRx(2)
     dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
-    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
+    IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*maxstep
     x = x+dx
-    converged2=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
-    IF(converged2) EXIT
+    converged=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
+    IF(converged) EXIT
   END DO !iter
-  IF(converged2) THEN
-    xout=x
-    RETURN
+  IF(.NOT.converged) THEN
+    !repeat with maxstep /10 and a little change in the initial condition
+    converged2=.FALSE.
+    x=MIN(b,MAX(a,xin+0.01_wp*(b-a)))
+    maxiter=200
+    DO iter=1,maxiter
+      FRdFRx=fobj%FRdFR(x)
+      dx=-(FRdFRx(1)-F0)/FRdFRx(2)
+      dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+      IF(ABS(dx).GT.maxstep) dx=dx/ABS(dx)*0.1_wp*maxstep
+      x = x+dx
+      converged2=(ABS(dx).LT.tol).AND.(x.GE.a).AND.(x.LE.b)
+      IF(converged2) EXIT
+    END DO !iter
+    IF(converged2) THEN
+      xout=x
+      RETURN
+    END IF
+    WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
+    WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
+    WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
+    WRITE(UNIT_stdout,*)'after iter',iter-1
+    CALL abort(__STAMP__,&
+              'NewtonRoot1D_FdF not converged')
   END IF
-  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,ABS(dx).LT.tol
-  WRITE(UNIT_stdout,*)'Newton x>a',x,a,(x.GT.a)
-  WRITE(UNIT_stdout,*)'Newton x<b',x,b,(x.LT.b)
-  WRITE(UNIT_stdout,*)'after iter',iter-1
-  CALL abort(__STAMP__,&
-             'NewtonRoot1D_FdF not converged')
-END IF
-xout=x
+  xout=x
 
 END FUNCTION NewtonRoot1D_FdF
 
@@ -375,47 +363,44 @@ END FUNCTION NewtonRoot1D_FdF
 !!
 !===================================================================================================================================
 FUNCTION NewtonMin2D(tol,a,b,x,fobj) RESULT (fmin)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN)    :: tol        !! abort tolerance
-REAL(wp),INTENT(IN)    :: a(2),b(2)  !! search interval (2D)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL(wp),INTENT(INOUT) :: x(2) !! initial guess on input, result on output
-CLASS(c_newton_Min2D)  :: fobj !! functional f(x,y) to minimize with f, f', f''
-REAL(wp)               :: fmin !! on output =f(x,y)
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-INTEGER             :: iter,maxiter
-REAL(wp)            :: dx(2)
-REAL(wp)            :: det_Hess
-REAL(wp)            :: gradF(2),Hess(2,2),HessInv(2,2)
-LOGICAL             :: converged
-!===================================================================================================================================
-converged=.FALSE.
-maxiter=50
-DO iter=1,maxiter
-  Hess=fobj%ddFR(x)
-  det_Hess = Hess(1,1)*Hess(2,2)-Hess(1,2)*Hess(2,1)
-  IF(det_Hess.LT.1.0E-12) CALL abort(__STAMP__,&
-                                     'det Hessian=0 in NewtonMin')
-  HessInv(1,1)= Hess(2,2)
-  HessInv(1,2)=-Hess(1,2)
-  HessInv(2,1)=-Hess(2,1)
-  HessInv(2,2)= Hess(1,1)
-  HessInv=HessInv/det_Hess
-  gradF=fobj%dFR(x)
-  dx=-MATMUL(HessInv,gradF)
-  dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
-  x = x+dx
-  converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
-  IF(converged) EXIT
-END DO !iter
-IF(.NOT.converged) CALL abort(__STAMP__,&
-                              'NewtonMin2D not converged')
-fmin=fobj%FR(x)
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
+  REAL(wp),INTENT(IN)    :: tol        !! abort tolerance
+  REAL(wp),INTENT(IN)    :: a(2),b(2)  !! search interval (2D)
+  ! OUTPUT VARIABLES -------------------------!
+  REAL(wp),INTENT(INOUT) :: x(2) !! initial guess on input, result on output
+  CLASS(c_newton_Min2D)  :: fobj !! functional f(x,y) to minimize with f, f', f''
+  REAL(wp)               :: fmin !! on output =f(x,y)
+  ! LOCAL VARIABLES --------------------------!
+  INTEGER             :: iter,maxiter
+  REAL(wp)            :: dx(2)
+  REAL(wp)            :: det_Hess
+  REAL(wp)            :: gradF(2),Hess(2,2),HessInv(2,2)
+  LOGICAL             :: converged
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
+  converged=.FALSE.
+  maxiter=50
+  DO iter=1,maxiter
+    Hess=fobj%ddFR(x)
+    det_Hess = Hess(1,1)*Hess(2,2)-Hess(1,2)*Hess(2,1)
+    IF(det_Hess.LT.1.0E-12) CALL abort(__STAMP__,&
+                                      'det Hessian=0 in NewtonMin')
+    HessInv(1,1)= Hess(2,2)
+    HessInv(1,2)=-Hess(1,2)
+    HessInv(2,1)=-Hess(2,1)
+    HessInv(2,2)= Hess(1,1)
+    HessInv=HessInv/det_Hess
+    gradF=fobj%dFR(x)
+    dx=-MATMUL(HessInv,gradF)
+    dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+    x = x+dx
+    converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
+    IF(converged) EXIT
+  END DO !iter
+  IF(.NOT.converged) CALL abort(__STAMP__,&
+                                'NewtonMin2D not converged')
+  fmin=fobj%FR(x)
 
 END FUNCTION NewtonMin2D
 
@@ -426,55 +411,52 @@ END FUNCTION NewtonMin2D
 !!
 !===================================================================================================================================
 FUNCTION NewtonRoot2D(tol,a,b,maxstep,xin,fobj) RESULT (xout)
-! MODULES
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL(wp),INTENT(IN)    :: tol        !! abort tolerance
-REAL(wp),INTENT(IN)    :: a(2),b(2)  !! search interval (2D)
-REAL(wp),INTENT(IN) :: maxstep(2) !! max|dx| allowed
-REAL(wp),INTENT(IN)    :: xin(2) !! initial guess
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-CLASS(c_newton_Root2D) :: fobj !! function to find root f1(x1,x2)=0,f2(x1,x2)=0 and derivatives d fi(x1,x2)/dxj
-REAL(wp)               :: xout(2) !! x1,x2 that have f1(x1,x2)=0 and f2(x1,x2)=0
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-INTEGER             :: iter,maxiter
-REAL(wp)            :: x(2),dx(2)
-REAL(wp)            :: det_Jac
-REAL(wp)            :: F(2),Jac(2,2),JacInv(2,2)
-LOGICAL             :: converged
-!===================================================================================================================================
-converged=.FALSE.
-x=xin
-maxiter=50
-DO iter=1,maxiter
-  Jac=fobj%dFR(x)
-  det_Jac = Jac(1,1)*Jac(2,2)-Jac(1,2)*Jac(2,1)
-  IF(det_Jac.LT.1.0E-12) CALL abort(__STAMP__,&
-                                    'det Jacobian<=0 in NewtonRoot2d')
-  JacInv(1,1)= Jac(2,2)
-  JacInv(1,2)=-Jac(1,2)
-  JacInv(2,1)=-Jac(2,1)
-  JacInv(2,2)= Jac(1,1)
-  JacInv=JacInv/det_Jac
-  F=fobj%FR(x)
-  dx=-MATMUL(JacInv,F)
-  dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
-  IF(ABS(dx(1)).GT.maxstep(1)) dx(1)=dx(1)/ABS(dx(1))*maxstep(1)
-  IF(ABS(dx(2)).GT.maxstep(2)) dx(2)=dx(2)/ABS(dx(2))*maxstep(2)
+  ! MODULES
+  IMPLICIT NONE
+  ! INPUT VARIABLES -------------------------!
+  REAL(wp),INTENT(IN)    :: tol        !! abort tolerance
+  REAL(wp),INTENT(IN)    :: a(2),b(2)  !! search interval (2D)
+  REAL(wp),INTENT(IN) :: maxstep(2) !! max|dx| allowed
+  REAL(wp),INTENT(IN)    :: xin(2) !! initial guess
+  ! OUTPUT VARIABLES -------------------------!
+  CLASS(c_newton_Root2D) :: fobj !! function to find root f1(x1,x2)=0,f2(x1,x2)=0 and derivatives d fi(x1,x2)/dxj
+  REAL(wp)               :: xout(2) !! x1,x2 that have f1(x1,x2)=0 and f2(x1,x2)=0
+  ! LOCAL VARIABLES --------------------------!
+  INTEGER             :: iter,maxiter
+  REAL(wp)            :: x(2),dx(2)
+  REAL(wp)            :: det_Jac
+  REAL(wp)            :: F(2),Jac(2,2),JacInv(2,2)
+  LOGICAL             :: converged
+  ! CODE --------------------------------------------------------------------------------------------------------------------------!
+  converged=.FALSE.
+  x=xin
+  maxiter=50
+  DO iter=1,maxiter
+    Jac=fobj%dFR(x)
+    det_Jac = Jac(1,1)*Jac(2,2)-Jac(1,2)*Jac(2,1)
+    IF(det_Jac.LT.1.0E-12) CALL abort(__STAMP__,&
+                                      'det Jacobian<=0 in NewtonRoot2d')
+    JacInv(1,1)= Jac(2,2)
+    JacInv(1,2)=-Jac(1,2)
+    JacInv(2,1)=-Jac(2,1)
+    JacInv(2,2)= Jac(1,1)
+    JacInv=JacInv/det_Jac
+    F=fobj%FR(x)
+    dx=-MATMUL(JacInv,F)
+    dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
+    IF(ABS(dx(1)).GT.maxstep(1)) dx(1)=dx(1)/ABS(dx(1))*maxstep(1)
+    IF(ABS(dx(2)).GT.maxstep(2)) dx(2)=dx(2)/ABS(dx(2))*maxstep(2)
 
-  x = x+dx
-  converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
-  IF(converged) EXIT
-END DO !iter
-xout=x
-IF(.NOT.converged) THEN
-  WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,'F(x)',fobj%FR(xout)
-  CALL abort(__STAMP__,&
-             'NewtonRoot2D not converged')
-END IF
+    x = x+dx
+    converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
+    IF(converged) EXIT
+  END DO !iter
+  xout=x
+  IF(.NOT.converged) THEN
+    WRITE(UNIT_stdout,*)'Newton abs(dx)<tol',ABS(dx),tol,'F(x)',fobj%FR(xout)
+    CALL abort(__STAMP__,&
+              'NewtonRoot2D not converged')
+  END IF
 
 END FUNCTION NewtonRoot2D
 
