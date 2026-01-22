@@ -48,8 +48,6 @@ def _plot_line_quantities_from_xarray(
         if (hide_inner_axis) & (i - np.asarray(axs).size + subplot_grid[1] >= 0):
             ax.set_xlabel(f"${xlabel}$")
 
-        ax.gvec_quantity = quantities[i]
-
     return fig, axs
 
 
@@ -61,6 +59,7 @@ def plot_radial_profile(
     subplot_grid: list[int] | None = None,
     xaxis: Literal["rho", "rho_squared"] = "rho",
     plot_kwargs: dict = dict(),
+    n_rationals: int = 3,
 ):
     r"""
     Plot the radial profile of given equilibrium quantities.
@@ -111,6 +110,11 @@ def plot_radial_profile(
     fig, axs = _plot_line_quantities_from_xarray(
         evaluations, rho, quantities, subplot_grid, xlabel, plot_kwargs
     )
+
+    if n_rationals:  # if n_rationals > 0 or not None
+        for ax, quantity in zip(np.asarray(axs).flat, quantities):
+            if quantity == "iota":
+                _add_rationals_to_iota_plot(state, ax, n_rationals=n_rationals)
 
     return fig, axs
 
@@ -177,7 +181,6 @@ def _add_rationals_to_iota_plot(
     ax,
     limits: tuple[float, float] | None = None,
     n_rationals: int | None = 3,
-    n_max: int = 10,
 ):
     """
     Add high-order rationals as a secondary y-axis to an iota profile plot.
@@ -188,7 +191,10 @@ def _add_rationals_to_iota_plot(
         limits = ax.get_ylim()
 
     rationals = []
-    for n in range(1, n_max + 1):
+    n = 0
+    # for n in range(1, n_max + 1):
+    while len(rationals) < n_rationals:
+        n = n + 1
         for m in range(1, n * state.nfp + 1):
             if gcd(m, n) != 1:
                 continue
@@ -196,33 +202,14 @@ def _add_rationals_to_iota_plot(
                 rationals.append((m, n * state.nfp))
         if len(rationals) >= n_rationals:
             break
-    rationals = sorted(rationals, key=lambda x: x[0] / x[1])
+    rationals = sorted(rationals, key=lambda x: x[1] / x[0])
 
     secax = ax.secondary_yaxis("right")
     secax.set(
-        yticks=[m / n for m, n in rationals],
-        yticklabels=[f"$\\frac{{{m}}}{{{n}}}$" for m, n in rationals],
+        yticks=[n / m for n, m in rationals],
+        yticklabels=[f"$\\frac{{{n}}}{{{m}}}$" for n, m in rationals],
     )
-    for m, n in rationals:
-        ax.axhline(m / n, color="gray", linestyle="--", alpha=0.2)
+    for n, m in rationals:
+        ax.axhline(n / m, color="gray", linestyle="--", alpha=0.2)
 
     return rationals, secax
-
-
-def add_iota_rationals(
-    state,
-    figaxs,
-    limits: tuple[float, float] | None = None,
-    n_rationals: int | None = 3,
-    n_max: int = 10,
-):
-    if isinstance(figaxs, np.ndarray):
-        for ax in figaxs.flat:
-            if ax.gvec_quantity == "iota":
-                _add_rationals_to_iota_plot(state, ax, limits, n_rationals, n_max)
-    elif isinstance(figaxs, plt.Axes):
-        _add_rationals_to_iota_plot(state, figaxs, limits, n_rationals, n_max)
-    elif isinstance(figaxs, tuple):
-        for fa in figaxs:
-            if isinstance(fa, plt.Axes | np.ndarray):
-                add_iota_rationals(state, fa, limits, n_rationals, n_max)

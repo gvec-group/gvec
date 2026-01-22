@@ -166,6 +166,15 @@ def plot_poloidal_plane(
         if share_axis:
             ax.set(xlabel="X1", ylabel="X2")
             ax.label_outer()
+        else:
+            # Bufer the axis limits
+            xlims = ax.get_xlim()
+            ylims = ax.get_ylim()
+            if np.diff(ylims) < np.diff(xlims):
+                ax.set_xlim((np.sum(xlims) + (-1, 1) * np.diff(xlims) * 1.05) / 2)
+            else:
+                ax.set_ylim((np.sum(ylims) + (-1, 1) * np.diff(ylims) * 1.05) / 2)
+            ax.set_box_aspect(1)
 
         ax.set_aspect("equal")
 

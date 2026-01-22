@@ -2,7 +2,7 @@
 # License: MIT
 
 from gvec.core.state import State
-from gvec.plotting.plots1d import add_iota_rationals, plot_on_axis, plot_radial_profile
+from gvec.plotting.plots1d import plot_on_axis, plot_radial_profile
 from gvec.plotting.plots2d import (
     plot_fourier_on_surface,
     plot_on_flux_surface,
