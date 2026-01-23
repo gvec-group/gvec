@@ -449,6 +449,129 @@ def generate_quasr_case(
         coil_set.save(f"quasr-{ID:07d}-coils.nc")
 
 
+def load_quasr(
+    configuration: int | str | Path,
+    filetype: Literal["netcdf", "json"] | None = None,
+    tol: float = 1e-8,
+    nt: int = 81,
+    nz: int = 81,
+    quiet: bool = True,
+    verbose: int = 0,
+    name: str = None,
+    save_boundary: bool = True,
+    cutoff: int = -1,
+    param_type: Literal["toml", "yaml"] = "toml",
+    clean: int = 0,
+    stellsym: bool = False,
+    logger: logging.Logger | None = None,
+):
+    """Load a QUASR configuration and convert it to a G-Frame and boundary for use with GVEC.
+
+    Parameters
+    ----------
+    configuration : int | str |Path
+        QUASR configuration ID or file.
+    filetype : Literal["netcd","json"] | None, optional
+        If configuration is a string or Path, specifies the boundary file format.
+        Either a netCDF file containing boundary data or a SIMSOPT JSON file of the boundary (e.g. QUASR configuration).
+    tol : float, optional
+        _description_, by default 1e-8
+    nt : int, optional
+        _description_, by default 81
+    nz : int, optional
+        _description_, by default 81
+    quiet : bool, optional
+        _description_, by default True
+    verbose : int, optional
+        verbosity level: 1 for info, 2 for debug, by default 0
+    name : str, optional
+        Name for outputfiles. If not set, the name of the input boundary is used. By default None
+    save_boundary : bool, optional
+        Save the boundary points to a netCDF file, by default True
+    cutoff : int, optional
+        Cutoff toroidal mode number only for G-Frame construction, reduces the number of Fourier modes in the G-Frame.
+        Default is -1, which means no cutoff.
+    param_type : Literal["toml";,"yaml"], optional
+        Parameterfile format, by default "toml"
+    clean : int, optional
+        Tolerance to reduce necessary Fourier modes (M, N) for the input surface.
+        Default is 0., which means no cleaning.
+    stellsym : bool, optional
+        If set, imposes stellarator symmetry for the input surface. Use this with great care! By default False
+    logger : Logger | None, optional
+        If None a new logger will be created.
+
+    Returns
+    -------
+    parameters : dict
+        Dictionary containing the GVEC parameters.
+    dict_out : dict
+        Dictionary containing the G-frame data.
+    """
+    if logger is None:
+        logging_setup()
+        logger = logging.getLogger(__name__)
+    if quiet:
+        logging.disable()
+    elif verbose >= 2:
+        logger.setLevel(logging.DEBUG)
+    elif verbose == 1:
+        logger.setLevel(logging.INFO)
+
+    if isinstance(configuration, int):
+        filetype = "json"
+        logger.info("Downloading QUASR configuration")
+        try:
+            filename = get_json_from_quasr(configuration)
+        except RuntimeError as e:
+            logger.error(e)
+            return 1
+    else:
+        if filetype is None:
+            raise ValueError("configuration is not an ID but no filetype is specified!")
+        filename = Path(configuration)
+
+    match filetype:
+        case "json":
+            logger.info("Loading SIMSOPT surface")
+            surface = get_surface_from_json_file(filename)
+            nfp = surface.nfp
+            xyz = get_xyz_from_surface(nt, nz, surface)
+            name_aux = str(filename.stem)
+        case "netcdf":
+            logger.info(f"Reading boundary file {filename}")
+            xyz, nfp = load_xyz(filename)
+            if str(filename.stem).endswith("-boundary"):
+                name_aux = str(filename.stem)[:-9]
+            else:
+                name_aux = str(filename.stem)
+        case _:
+            raise ValueError(
+                f"Unknown filetype {filetype}! Expected either 'json' or 'netcdf'."
+            )
+
+    if name is None:
+        name = name_aux
+
+    if save_boundary:
+        logger.info("Saving boundary points to netCDF file")
+        save_xyz(xyz, nfp, f"{name}-boundary.nc", attrs={"source": str(filename)})
+
+    parameters_out, gframe_out = gframe.construct_gframe_from_surface(
+        xyz,
+        nfp,
+        name,
+        tolerance_output=tol,
+        format=param_type,
+        tolerance_clean_surface=clean,
+        impose_stell_symmetry=stellsym,
+        cutoff_gframe=cutoff,
+        logger=logger,
+    )
+
+    return parameters_out, gframe_out
+
+
 # === Script === #
 
 
@@ -470,46 +593,34 @@ def main(args: Sequence[str] | argparse.Namespace | None = None):
     logger.debug(f"parsed args: {args}")
 
     if args.ID is not None:
-        logger.info("Downloading QUASR configuration")
-        try:
-            filename = get_json_from_quasr(args.ID)
-        except RuntimeError as e:
-            logger.error(e)
-            return 1
+        configuration = args.ID
+        filetype = None
     elif args.simsopt is not None:
-        filename = args.simsopt
+        configuration = args.simsopt
+        filetype = "json"
+    elif args.file is not None:
+        configuration = args.file
+        filetype = "netcdf"
 
-    if args.ID is not None or args.simsopt is not None:
-        logger.info("Loading SIMSOPT surface")
-        surface = get_surface_from_json_file(filename)
-        nfp = surface.nfp
-        xyz = get_xyz_from_surface(args.nt, args.nz, surface)
-        name = str(filename.stem)
+    if args.name == "":
+        name = None
     else:
-        filename = args.file
-        logger.info(f"Reading boundary file {filename}")
-        xyz, nfp = load_xyz(filename)
-        if str(filename.stem).endswith("-boundary"):
-            name = str(filename.stem)[:-9]
-        else:
-            name = str(filename.stem)
-
-    if args.name != "":
         name = args.name
 
-    if args.save_xyz:
-        logger.info("Saving boundary points to netCDF file")
-        save_xyz(xyz, nfp, f"{name}-boundary.nc", attrs={"source": str(filename)})
-
-    gframe.construct_gframe_from_surface(
-        xyz,
-        nfp,
-        name,
-        tolerance_output=args.tol,
-        format=args.param_type,
-        tolerance_clean_surface=args.clean,
-        impose_stell_symmetry=args.stellsym,
-        cutoff_gframe=args.cutoff,
+    load_quasr(
+        configuration=configuration,
+        filetype=filetype,
+        tol=args.tol,
+        nt=args.nt,
+        nz=args.nz,
+        quiet=args.quiet,
+        verbose=args.verbose,
+        name=name,
+        save_boundary=args.save_xyz,
+        cutoff=args.cutoff,
+        param_type=args.param_type,
+        clean=args.clean,
+        stellsym=args.stellsym,
         logger=logger,
     )
 
