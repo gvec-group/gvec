@@ -345,7 +345,7 @@ MODULE MODgvec_MHD3D_minimize
         CLASS(t_minimizer_mhd3d), INTENT(INOUT) :: sf
         !-----------------------------------------------------------------------------------------------------------------------------------
         ! LOCAL VARIABLES
-        INTEGER :: maxIter, i
+        INTEGER :: maxIter
         !=================================================================================================================================
         maxIter = sf%iter + maxIter_in
         DO WHILE(sf%iter.LT.maxIter)

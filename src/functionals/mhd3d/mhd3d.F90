@@ -70,7 +70,7 @@ SUBROUTINE InitMHD3D(sf)
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER          :: i,iMode,nElems,n_sgrid_rho
+  INTEGER          :: iMode,nElems,n_sgrid_rho
   INTEGER          :: grid_type
   REAL(wp),ALLOCATABLE :: sgrid_rho(:)
   INTEGER          :: X1X2_deg,X1X2_cont
@@ -1189,8 +1189,6 @@ SUBROUTINE MinimizeMHD3D(sf, dt_in)
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  REAL(wp) :: dt
-  INTEGER :: i
 !===================================================================================================================================
   __PERFON('minimizer')
   SELECT CASE(MinimizerType)
@@ -1227,7 +1225,6 @@ SUBROUTINE FinalizeMHD3D(sf)
   CLASS(t_functional_mhd3d), INTENT(INOUT) :: sf
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-  INTEGER :: i
 !===================================================================================================================================
   CALL enter_subregion("finalize-MHD3D")
   IF(ALLOCATED(X1_base)) CALL X1_base%free()
