@@ -26,53 +26,51 @@ def plot_poloidal_plane(
     sfl: Literal["pest"] | None = "pest",
     plot_kwargs: dict = dict(),
 ):
-    r"""
-    plot_poloidal_plane
-
-    Plot a poloidal plane with some equilibrium quantity on it. Defaults to plotting $\|\mathbf{B}\|$
+    """
+    Plot a poloidal plane with some equilibrium quantity on it. Defaults to plotting $|B|$
 
     Parameters
     ----------
     state : GVEC state object
     quantity : str, optional
-        The quantity to plot. Default is "mod_B". If `None`, no contours are plotted.
+        The quantity to plot. Default is ``"mod_B"``. If ``None``, no contours are plotted.
     nrho : int, optional
         The radial resolution of the slices.
-        Default is `51`
+        Default is ``51``
     ntheta : int, optional
         The poloidal resolution of the slices.
-        Default is `51`
+        Default is ``51``
     zeta : int, float, ndarray, optional
-        The number of equally spaced slices (int), the specific `zeta` value (float) or values (np.ndarray).
-        Default is `9`.
+        The number of equally spaced slices (``int``), the specific ``zeta`` value (``float``) or values (``np.ndarray``).
+        Default is ``9``.
     subplot_grid : list[int], None, optional
-        The grid shape for the subplots. If `None`, grid will be automatically determined.
-        Default is `None`.
+        The grid shape for the subplots. If ``None``, grid will be automatically determined.
+        Default is ``None``.
     share_axis : bool
-        If `True`, all subplots will share their `X1` and `X2` axis positions.
-        Default `False`
+        If ``True``, all subplots will share their ``X1`` and ``X2`` axis positions.
+        Default ``False``
     rho_contours : int, optional
-        The number of ``$\rho$`` contours to plot. If `0`, no contours are plotted.
-        Default `4`
+        The number of ``rho`` contours to plot. If ``0``, no contours are plotted.
+        Default ``4``
     rho_contours_color : str, optional
-        The color of the ``$\rho$`` contours.
-        Default `"white"`
+        The color of the ``rho`` contours.
+        Default ``"white"``
     theta_contours : int, optional
-        The number of ``$\theta$`` contours to plot. If `0`, no contours are plotted.
-        Default `8`
+        The number of ``theta`` contours to plot. If ``0``, no contours are plotted.
+        Default ``8``
     theta_contours_color : str, optional
-        The color of the ``$\theta$`` contours.
-        Default `"white"`
-    sfl : `"pest"` or `None`, optional
-        Plot the `theta` contours or `pest` contours (``$\theta^\star$``).
-        Default `"pest"`.
+        The color of the ``theta`` contours.
+        Default ``"white"``
+    sfl : ``"pest"`` or ``None``, optional
+        Plot the ``theta`` contours or ``pest`` contours ($\\theta^\\star$).
+        Default ``"pest"``.
     plot_kwargs: dict, optional
-        Any `**kwargs` to send to the `plt.figure()` function.
-        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
+        Any ``**kwargs`` to send to the ``plt.figure()`` function.
+        For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
 
     Returns
     -------
-    `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
+    ``matplotlib.pyplot.figure`` object and ``numpy.ndarray`` of ``matplotlib.axis._axis.Axes`` object(s).
     """
 
     if rho_contours_color is None:
@@ -233,50 +231,50 @@ def plot_on_flux_surface(
     plot_kwargs: dict = dict(),
     **boozer_kwargs,
 ):
-    r"""
-    Plot an equilibrium quantity over the two angles $(\\vartheta, \\zeta)$ of a flux surface at (a) given `rho` value(s). Alternatively, plot
-    multiple `quantities` on a single `rho` surface.
+    """
+    Plot an equilibrium quantity over the two angles $(\\vartheta, \\zeta)$ of a flux surface at (a) given ``rho`` value(s). Alternatively, plot
+    multiple ``quantities`` on a single ``rho`` surface.
 
     Parameters
     ----------
     state : GVEC state object
     quantities : str, list[str], optional
         Plot either a single quantitiy on a number of `rho` surfaces or a number of `quantities` on a single `rho` surface.
-        Default `mod_B`
+        Default ``mod_B``
     rho : float, numpy.ndarray, list, optional
         The flux surface label(s) to plot.
-        Default is `1.0`.
+        Default is ``1.0``.
     ntheta : int
-        Resolution in `theta`.
-        Default is `11`
+        Resolution in ``theta``.
+        Default is ``11``
     nzeta : int
-        Resolution in `zeta`.
+        Resolution in ``zeta``.
         Default is `11`
     subplot_grid : list[int], optional
-        The grid shape for the subplots. If `None`, grid will be automatically determined.
-        Default is `None`.
+        The grid shape for the subplots. If ``None``, grid will be automatically determined.
+        Default is ``None``.
     share_axis : bool, optional
-        If `True`, all subplots will share their `x` and `y` axes.
-        Default `True`.
+        If ``True``, all subplots will share their ``x`` and ``y`` axes.
+        Default ``True``.
     levels : int, numpy.ndarray, optional
-        If `int` then chooses number of levels in the contour plot. If an `numpy.ndarray` or `list` then plots contours at given values.
-        Default is `10`
+        If ``int`` then chooses number of levels in the contour plot. If an ``numpy.ndarray`` or ``list`` then plots contours at given values.
+        Default is ``10``
     sfl : str, optional
-        Plot surfaces in `"boozer"`, `"pest"` or regular ``$\theta-\zeta$`` coordinates.
-        Default is `"boozer"`
+        Plot surfaces in ``"boozer"``, ``"pest"`` or regular $(\\theta,\\zeta)$ (``"None"``) coordinates.
+        Default is ``"boozer"``
     style : str, optional
-        Use `"contour"` (False) or `"filled-contour"` (True) in plotting.
-        Default is `"filled-contour"` (filled contour).
+        Use ``"contour"`` (``False``) or ``"filled-contour"`` (``True``) in plotting.
+        Default is ``"filled-contour"`` (filled contour).
     plot_kwargs: dict, optional
-        Any `**kwargs` to send to the `plt.figure()` function.
-        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
+        Any ``**kwargs`` to send to the ``plt.figure()`` function.
+        For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
     boozer_kwargs : optional
-        Keyword arguments for the case where `boozer` is used.
+        Keyword arguments for the case where ``boozer`` is used.
 
 
     Returns
     -------
-    `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
+    ``matplotlib.pyplot.figure`` object and ``numpy.ndarray`` of ``matplotlib.axis._axis.Axes`` object(s).
     """
 
     if isinstance(rho, int):
@@ -408,27 +406,27 @@ def plot_fourier_on_surface(
     state : GVEC state object
     quantities : str, optional
         Quantitiy to plot.
-        Default `mod_B`
+        Default ``mod_B``
     rho : float, optional
         The flux surface label(s) to plot.
-        Default is `1.0`.
+        Default is ``1.0``.
     ntheta : int, optional
-        Resolution in `theta`.
-        Default is `101`
+        Resolution in ``theta``.
+        Default is ``101``
     nzeta : int, optional
-        Resolution in `zeta`.
-        Default is `101`
+        Resolution in ``zeta``.
+        Default is ``101``
     sfl : str, optional
-        Plot surfaces in `"boozer"`, `"pest"` or regular ``$\theta-\zeta$`` (`None`) coordinates.
-        Default is `"boozer"`
+        Plot surfaces in ``"boozer"``, ``"pest"`` or regular $\\theta-\\zeta$ (``None``) coordinates.
+        Default is ``"boozer"``
     limit: float, optional
         Cut-off value for the Fourier amplitudes to plot.
-        Default is `1e-15`
+        Default is ``1e-15``
 
 
     Returns
     -------
-    `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
+    ``matplotlib.pyplot.figure`` object and ``numpy.ndarray`` of ``matplotlib.axis._axis.Axes`` object(s).
     """
     from gvec.core.compute import ev2ft
 

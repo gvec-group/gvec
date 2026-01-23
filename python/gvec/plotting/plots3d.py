@@ -12,7 +12,7 @@ def plot_3d_surface(
     rho: float = 1.0,
     ntheta: int = 41,
     nzeta: int = 51,
-    full_surface: bool = False,
+    period: str = "single",
     to_file: str | None = None,
 ):
     """
@@ -34,12 +34,12 @@ def plot_3d_surface(
     nzeta : int
         Toroidal resolution, per field period
         Default ``51``.
-    full_surface : bool
-        Plot the full surface instead of a single field period.
-        Default ``False``
+    period : str
+        Plot the ``"full"`` surface, a ``"single"`` field period or ``"half"`` a field period.
+        Default ``"single"``
     to_file : str
         If a string, will automatically save the plot to a file with the given input in the current working directory. Recommended to use this if the plots don't display.
-        Default is ``None``.
+        Default is ``None``
 
     Returns
     -------
@@ -48,11 +48,18 @@ def plot_3d_surface(
     import plotly.offline as plotly_offline
     from plotly import graph_objects
 
-    if full_surface:
-        zeta = np.linspace(0.0, 2 * np.pi, nzeta * state.nfp)
+    if period == "full":
+        zeta_end = 2.0 * np.pi
+        nzeta = nzeta * state.nfp
+    elif period == "single":
+        zeta_end = 2.0 * np.pi / state.nfp
+    elif period == "half":
+        zeta_end = np.pi / state.nfp
+        nzeta = nzeta // 2
     else:
-        zeta = np.linspace(0.0, 2 * np.pi / state.nfp, nzeta)
+        raise ValueError("period must be 'full', 'single' or 'half'.")
 
+    zeta = np.linspace(0.0, zeta_end, nzeta)
     theta = np.linspace(0.0, 2 * np.pi, ntheta)
 
     evaluation = state.evaluate(quantity, rho=[rho], theta=theta, zeta=zeta).sel(rho=rho)
@@ -65,12 +72,13 @@ def plot_3d_surface(
             y=evaluation.pos.sel(xyz="y"),
             z=evaluation.pos.sel(xyz="z"),
             surfacecolor=evaluation[quantity],
-            # colorbar_title_text=f"${evaluation[quantity].attrs['symbol']}$",
-            # colorbar_title_text=f"${evaluation[quantity].attrs.get('symbol', quantity)}$",
             colorbar_title_text=quantity,
         )
     )
+
+    # Ensure the figure correctly scales the axis to the data
     fig["layout"]["scene"]["aspectmode"] = "data"
+
     if isinstance(to_file, str):  # See why plotly is not showing
         plotly_offline.plot(fig, filename=to_file)
 

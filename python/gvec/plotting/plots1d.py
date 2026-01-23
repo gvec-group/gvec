@@ -22,7 +22,7 @@ def _plot_line_quantities_from_xarray(
     """
     Plot the quantities from the evaluations object assuming everything is 1D
 
-    Return both the `matplotlib.pyplot.figure` and `Axis` object
+    Return both the ``matplotlib.pyplot.figure`` and ``Axis`` object
     """
 
     link_xaxis = True
@@ -75,15 +75,15 @@ def plot_radial_profile(
     subplot_grid : list[int], None, optional
         The grid shape for the subplots. If ``None``, grid will be automatically determined.
         Default is ``None``.
-    xaxis : ``"rho"`` or ```"rho_squared"``, optional
+    xaxis : ``"rho"`` or ``"rho_squared"``, optional
         What quantity to plot on the x axis.
-        Default is `"rho"`.
+        Default is ``"rho"``.
     n_rationals : int, optional
-        If non-zero, show the largest n rationals on any ``iota`` profile plot.
+        If non-zero, show the largest $n$ rationals on any ``iota`` profile plot.
         Default ``3``
     plot_kwargs: dict, optional
         Any ``**kwargs`` to send to the ``plt.figure()`` function.
-        For example ``plot_kwargs={'figsize': (8,8)}``. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
+        For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
 
     Returns
     -------
@@ -130,28 +130,28 @@ def plot_on_axis(
     subplot_grid: list[int] | None = None,
     plot_kwargs: dict = dict(),
 ):
-    r"""
+    """
     Plot a equilibrium quantity (or list of) along the magnetic axis.
-    Note that the quantities are always evaluated off-axis (rho=[1.1e-4,2.2e-4,3.3e-4],theta=0) and extrapolated quadratically to rho=0.
+    Note that the quantities are always evaluated off-axis (``rho=[1.1e-4,2.2e-4,3.3e-4]``, ``theta=0``) and extrapolated quadratically to ``rho=0``.
 
     Parameters
     ----------
     state : GVEC state object
     quantities : str, list[str], optional
-        Default is "mod_B".
+        Default is ``"mod_B"``.
     nzeta : int, numpy.ndarray, optional
-        $\zeta$ resolution or array of points to plot at.
-        Default is `51`.
+        ``zeta`` resolution or array of points to plot at.
+        Default is ``51``.
     subplot_grid : list[int], None, optional
-        The grid shape of `[nrow,ncol]` for the subplots. If `None`, grid will be automatically determined.
-        Default is `None`.
+        The grid shape of ``[nrow,ncol]`` for the subplots. If ``None``, grid will be automatically determined.
+        Default is ``None``.
     plot_kwargs: dict, optional
-        Any `**kwargs` to send to the `plt.figure()` function.
-        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
+        Any ``**kwargs`` to send to the ``plt.figure()`` function.
+        For example ``plot_kwargs={'figsize': (8,8)}``. See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html>`_ for a list of kwargs.
 
     Returns
     -------
-    `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
+    ``matplotlib.pyplot.figure`` object and ``numpy.ndarray`` of ``matplotlib.axis._axis.Axes`` object(s).
     """
     if isinstance(quantities, str):
         # If plotting a single quantity convert it to a list
@@ -191,13 +191,13 @@ def _add_rationals_to_iota_plot(
     Parameters
     ----------
     state : GVEC state object
-    ax : matplotlib axis object
+    ax : `matplotlib` axis object
     limits : tuple[float, float], optional
-        The maximum values of the nominator and denominator.
+        The maximum values of the nominator and denominator. If ``None`` then automatically get the y-limits from the axis.
+        Default ``None``
     n_rationals : int, optional
         The maximum number of rationals to add to the plot.
-    n_max : int, optional
-        The maximum toroidal modenumber per field period to be checked. The denominators are $n n_{FP}, n=1,...,n_{max}$)
+        Default ``3``
     """
     from math import gcd
 
