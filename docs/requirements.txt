@@ -11,3 +11,4 @@ ford
 graphviz
 
 matplotlib
+plotly<6.0
