@@ -16,47 +16,50 @@ def plot_3d_surface(
     to_file: str | None = None,
 ):
     """
-    Generate a 3D surface plot with the quantity provided by `quantity` on it at a given `rho` position and
-    poloidal and toroidal resolution `ntheta` and `nzeta`.
+    Generate a 3D surface plot with the quantity provided by ``quantity`` on it at a given ``rho`` position and
+    poloidal and toroidal resolution ``ntheta`` and ``nzeta`` per field period.
 
     Parameters
     ----------
     state : GVEC state object
     quantity : str, optional
         Equilibrium quantity to plot on the surface.
-        Default is "mod_B".
+        Default is ``"mod_B"``.
     rho : float, optional
         Radial position of the surface.
-        Default `1.0`.
+        Default ``1.0``.
     ntheta : int
         Poloidal resolution.
-        Default `41`.
+        Default ``41``.
     nzeta : int
-        Toroidal resolution.
-        Default `51`.
+        Toroidal resolution, per field period
+        Default ``51``.
+    full_surface : bool
+        Plot the full surface instead of a single field period.
+        Default ``False``
     to_file : str
         If a string, will automatically save the plot to a file with the given input in the current working directory. Recommended to use this if the plots don't display.
-        Default is `None`.
+        Default is ``None``.
 
     Returns
     -------
-    `plotly.plot` object
+    ``plotly.plot`` object
     """
     import plotly.offline as plotly_offline
     from plotly import graph_objects
 
-    nfp = state.nfp
     if full_surface:
-        nfp = 1.0
+        zeta = np.linspace(0.0, 2 * np.pi, nzeta * state.nfp)
+    else:
+        zeta = np.linspace(0.0, 2 * np.pi / state.nfp, nzeta)
 
-    zeta = np.linspace(0.0, 2 * np.pi / nfp, nzeta)
     theta = np.linspace(0.0, 2 * np.pi, ntheta)
 
     evaluation = state.evaluate(quantity, rho=[rho], theta=theta, zeta=zeta).sel(rho=rho)
 
-    plt = graph_objects.Figure()
+    fig = graph_objects.Figure()
 
-    plt.add_trace(
+    fig.add_trace(
         graph_objects.Surface(
             x=evaluation.pos.sel(xyz="x"),
             y=evaluation.pos.sel(xyz="y"),
@@ -67,8 +70,8 @@ def plot_3d_surface(
             colorbar_title_text=quantity,
         )
     )
-
+    fig["layout"]["scene"]["aspectmode"] = "data"
     if isinstance(to_file, str):  # See why plotly is not showing
-        plotly_offline.plot(plt, filename=to_file)
+        plotly_offline.plot(fig, filename=to_file)
 
-    return plt
+    return fig

@@ -61,33 +61,33 @@ def plot_radial_profile(
     n_rationals: int = 3,
     plot_kwargs: dict = dict(),
 ):
-    r"""
+    """
     Plot the radial profile of given equilibrium quantities.
 
     Parameters
     ----------
     state : GVEC state object
     quantities : str, list[str], optional
-        Default is `["iota","p","I_tor","I_pol"]`.
+        Default is ``["iota","p","I_tor","I_pol"]``.
     nrho : int, numpy.ndarray
         The number of or specific 1D array of radial points to plot at.
-        Default is `101`
+        Default is ``101``
     subplot_grid : list[int], None, optional
-        The grid shape for the subplots. If `None`, grid will be automatically determined.
-        Default is `None`.
-    xaxis : `"rho"` or `"rho_squared"`, optional
+        The grid shape for the subplots. If ``None``, grid will be automatically determined.
+        Default is ``None``.
+    xaxis : ``"rho"`` or ```"rho_squared"``, optional
         What quantity to plot on the x axis.
         Default is `"rho"`.
     n_rationals : int, optional
-        If non-zero, show the largest n rationals on any ``$\iota$`` plot.
-        Default `3`
+        If non-zero, show the largest n rationals on any ``iota`` profile plot.
+        Default ``3``
     plot_kwargs: dict, optional
-        Any `**kwargs` to send to the `plt.figure()` function.
-        For example `plot_kwargs={'figsize': (8,8)}`. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
+        Any ``**kwargs`` to send to the ``plt.figure()`` function.
+        For example ``plot_kwargs={'figsize': (8,8)}``. See the [matplotlib documentation](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html) for a list of kwargs.
 
     Returns
     -------
-    `matplotlib.pyplot.figure` object and `numpy.ndarray` of `matplotlib.axis._axis.Axes` object(s).
+    ``matplotlib.pyplot.figure`` object and ``numpy.ndarray`` of ``matplotlib.axis._axis.Axes`` object(s).
     """
 
     if isinstance(quantities, str):
