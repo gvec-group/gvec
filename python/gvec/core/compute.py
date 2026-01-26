@@ -78,7 +78,7 @@ def register(
     requirements: Collection[str] = (),
     integration: Collection[str] = (),
     attrs: Mapping = {},
-    registry: MutableMapping = QUANTITIES,
+    registry: MutableMapping | None = None,
 ):
     """Function decorator to register equilibrium quantities.
 
@@ -90,6 +90,8 @@ def register(
         * the names of the integration axes required for the computation
         * the attributes of the computed quantity (long_name, symbol, etc.)
     """
+    if registry is None:
+        registry = QUANTITIES
 
     def _register(
         func: (Callable[[xr.Dataset], xr.Dataset] | Callable[[xr.Dataset, State], xr.Dataset]),
@@ -115,14 +117,17 @@ def register(
     return _register
 
 
-def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
+def table_of_quantities(markdown: bool = False, registry: Mapping | None = None):
     """
     Generate a table of computable quantities.
 
     Parameters
     ----------
-    markdown : optional
+    markdown : bool, optional
         If True, return the table as a Ipython.Markdown object. Otherwise, return the table as a string.
+    registry : Mapping | None, optional
+        The registry of computable quantites to use.
+        Default: the ``gvec.core.compute.QUANTITIES`` registry used to evaluate a gvec.State object.
 
     Returns
     -------
@@ -135,6 +140,9 @@ def table_of_quantities(markdown: bool = False, registry: Mapping = QUANTITIES):
     This method generates a table of quantities based on the attributes of the registered quantities.
     The table includes the label, long name, and symbol of each quantity.
     """
+    if registry is None:
+        registry = QUANTITIES
+
     lines = []
     for key, func in sorted(list(registry.items())):
         long_name = func.attrs[key].get("long_name", "")
@@ -158,7 +166,7 @@ def compute(
     ev: xr.Dataset,
     *quantities: str,
     state: State | None = None,
-    registry: Mapping = QUANTITIES,
+    registry: Mapping | None = None,
 ) -> xr.Dataset:
     """
     Compute the target quantity and add it to the given evaluation dataset.
@@ -186,6 +194,9 @@ def compute(
     evaluate_sfl: create a new grid in straight-fieldline coordinates and compute target quantities.
     gvec.core.state.State.evaluate: this function as a method of gvec.State.
     """
+    if registry is None:
+        registry = QUANTITIES
+
     for quantity in quantities:
         # --- get the compute function --- #
         if quantity in ev:
