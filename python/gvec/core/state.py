@@ -849,31 +849,8 @@ class State:
 
         return compute(ev, *quantities, state=self)
 
-    def evaluate(
-        self,
-        *quantities: str,
-        rho: Literal["int"] | CoordinateSpec | None = "int",
-        theta: Literal["int"] | CoordinateSpec | None = "int",
-        zeta: Literal["int"] | CoordinateSpec | None = "int",
-    ):
-        from gvec.core.compute import evaluate
-
-        return evaluate(self, *quantities, rho=rho, theta=theta, zeta=zeta)
-
-    def evaluate_sfl(
-        self,
-        *quantities: str,
-        rho: Literal["int"] | CoordinateSpec | None = "int",
-        theta: Literal["int"] | CoordinateSpec | None = "int",
-        zeta: Literal["int"] | CoordinateSpec | None = "int",
-        sfl: Literal["boozer", "pest"] = "boozer",
-        **boozer_kwargs,
-    ):
-        from gvec.core.compute import evaluate_sfl
-
-        return evaluate_sfl(
-            self, *quantities, rho=rho, theta=theta, zeta=zeta, sfl=sfl, **boozer_kwargs
-        )
+    # def evaluate(...) -> injected in gvec.core.compute
+    # def evaluate_sfl(...) -> injected in gvec.core.compute
 
 
 # === Functions === #
