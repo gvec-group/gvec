@@ -827,6 +827,24 @@ class State:
         ev: xr.Dataset,
         *quantities: str,
     ):
+        """
+        Compute the target equilibrium quantity and add it to the given evaluation dataset.
+
+        This method will recursively determine prerequisites, compute them and add them to the dataset as needed.
+
+        Parameters
+        ----------
+        ev : xr.Dataset
+            The evaluation dataset with the target grid ``(rad, pol, tor)``, coordinates ``(rho, theta, zeta)`` and possibly some precomputed quantities.
+        *quantities : str
+            One or more names of the quantities to compute. See ``table_of_quantities`` or :ref:`tutorials/notebooks/050_pygvec.html#available-quantities-for-evaluation` for a list of available quantities.
+
+        See Also
+        --------
+        gvec.core.compute.compute: this function as a standalone function.
+        evaluate: create a new grid in logical coordinates and compute target quantities.
+        evaluate_sfl: create a new grid in straight-fieldline coordinates and compute target quantities.
+        """
         from gvec.core.compute import compute
 
         return compute(ev, *quantities, state=self)
