@@ -872,6 +872,10 @@ def evaluate_sfl(
     return ev
 
 
+State.evaluate = evaluate
+State.evaluate_sfl = evaluate_sfl
+
+
 # === Fourier Transform === #
 
 
